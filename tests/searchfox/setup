@@ -7,6 +7,8 @@ set -o pipefail # Check all commands in a pipeline
 # I think we used to try and delete the whole dir but we were messing it up.
 #rm -rf $INDEX_ROOT
 
+echo "Performing setup::ensure-no-diff step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
 pushd $GIT_ROOT
 if ! git diff --exit-code; then
     set +x
@@ -18,16 +20,22 @@ if ! git diff --exit-code; then
 fi
 popd
 
+echo "Performing setup::build-blame step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
 rm -rf $BLAME_ROOT
 mkdir -p $BLAME_ROOT
 git init $BLAME_ROOT
 build-blame $GIT_ROOT $BLAME_ROOT
+
+echo "Performing setup::codecov2git step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
 rm -rf "$COVERAGE_ROOT"
 mkdir -p "$COVERAGE_ROOT"
 HEAD_OID="$(git -C "$GIT_ROOT" rev-parse HEAD)"
 HEAD_DATE="$(git -C "$GIT_ROOT" show --no-patch --format=%cI HEAD)"
 codecov2git --report "$GIT_ROOT/tests/searchfox/metadata/code-coverage-report.json" --output-repo "$COVERAGE_ROOT" --commit "$HEAD_OID" --date "$HEAD_DATE"
+
+echo "Performing setup::build-syntax-token-tree step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
 # When actively developing it's nice to purge the existing contents, but the rest
 # of the time it's nice to not reprocess it all.
