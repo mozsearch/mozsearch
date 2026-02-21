@@ -21,10 +21,16 @@ export AWS_ROOT=$MOZSEARCH_PATH/infrastructure/aws
 
 for TREE_NAME in $(jq -r ".trees|keys_unsorted|.[]" ${CONFIG_FILE})
 do
+    echo "Performing indexer-upload section for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
+    echo "Performing load-vars step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
     . $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
 
     if [[ -f $CONFIG_REPO/$TREE_NAME/upload ]]
     then
+        echo "Performing upload step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
         $CONFIG_REPO/$TREE_NAME/upload || handle_tree_error "tree upload script"
     fi
+
+    echo "Performed upload section for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 done

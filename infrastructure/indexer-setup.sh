@@ -31,13 +31,20 @@ CONFIG_FILE=$WORKING/config.json
 
 for TREE_NAME in $(jq -r ".trees|keys_unsorted|.[]" ${CONFIG_FILE})
 do
+    echo "Performing indexer-setup section for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
+    echo "Performing load-vars step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
     . $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
+
     mkdir -p $INDEX_ROOT
 
     # If this fails, we let it propagate to abort the entire indexer. Setup
     # failure is generally pretty bad and can leave the git repo in a weird
     # state that doesn't lend itself to graceful fallback. See bug 1842632.
+    echo "Performing setup step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
     $CONFIG_REPO/$TREE_NAME/setup
+
+    echo "Performed indexer-setup section for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 done
 
 if [ -n "${CHECK_WARNINGS:-}" ]; then

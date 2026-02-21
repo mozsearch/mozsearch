@@ -23,7 +23,11 @@ CONFIG_FILE=$WORKING/config.json
 
 for TREE_NAME in $(jq -r ".trees|keys_unsorted|.[]" ${CONFIG_FILE})
 do
+    echo "Performing indexer-run section for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
+    echo "Performing load-vars step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
     . $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
+
     $MOZSEARCH_PATH/scripts/mkindex.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME || handle_tree_error "mkindex.sh"
     # If we were given a permanent path, move the index results there and
     # symlink from the old location to the new location.
@@ -32,6 +36,8 @@ do
       mv $INDEX_ROOT ${INDEX_ROOT/$WORKING/$PERMANENT}
       ln -s ${INDEX_ROOT/$WORKING/$PERMANENT} $INDEX_ROOT
     fi
+
+    echo "Performed indexer-run section for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 done
 
 # If we were given a permanent path, move any "*-shared" directories, specifically
