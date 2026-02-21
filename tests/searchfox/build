@@ -4,6 +4,8 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
+echo "Performing build::rust-analyzer step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
 # Build the scip index for our tools repo into the objdir.
 rust-analyzer scip tools
 mkdir -p $OBJDIR/tools
