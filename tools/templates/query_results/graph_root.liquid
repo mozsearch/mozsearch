@@ -1,3 +1,6 @@
+<script>var GRAPH_EXTRA = [];</script>
+<script>var GRAPH_OPTIONS = {{ results.GraphResultsBundle.options | json }};</script>
+<div id="diagram-panel" class="hidden"></div>
 {%- if results.GraphResultsBundle.overloads_hit != empty -%}
 <div class="diagram-limit-warning">
 <h3>Limits Hit:</h3>
@@ -33,9 +36,6 @@
 </ul>
 </div>
 {%- endif -%}
-<script>var GRAPH_EXTRA = [];</script>
-<script>var GRAPH_OPTIONS = {{ results.GraphResultsBundle.options | json }};</script>
-<div id="diagram-panel" class="hidden"></div>
 {% for graph in results.GraphResultsBundle.graphs %}
 {{ graph.graph }}
 <script>GRAPH_EXTRA.push({{ graph.extra | json }});</script>
