@@ -436,6 +436,23 @@ fn main() {
                     items: vcs_panel_items,
                     raw_items: vec![],
                 });
+            } else {
+                let mut gen_files_panel_items = vec![];
+                gen_files_panel_items.push(PanelItem {
+                    label: "Raw".to_owned(),
+                    tooltip: "Open a raw file of the current file".to_owned(),
+                    id: "panel-raw",
+                    link: format!("/{}/raw/{}", tree_name, path),
+                    update_link_lineno: "",
+                    accel_key: Some('R'),
+                    copyable: true,
+                });
+
+                panel.push(PanelSection {
+                    name: "Generated file".to_owned(),
+                    items: gen_files_panel_items,
+                    raw_items: vec![],
+                });
             }
         }
 

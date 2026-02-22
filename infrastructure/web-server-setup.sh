@@ -48,10 +48,14 @@ do
     mkdir -p $DOCROOT/file/$TREE_NAME
     mkdir -p $DOCROOT/dir/$TREE_NAME
     mkdir -p $DOCROOT/raw-analysis/$TREE_NAME
+    mkdir -p $DOCROOT/raw/$TREE_NAME
     mkdir -p $DOCROOT/file-lists/$TREE_NAME/file-lists
+
     ln -s $WORKING/$TREE_NAME/file $DOCROOT/file/$TREE_NAME/source
     ln -s $WORKING/$TREE_NAME/dir $DOCROOT/dir/$TREE_NAME/source
     ln -s $WORKING/$TREE_NAME/analysis $DOCROOT/raw-analysis/$TREE_NAME/raw-analysis
+    ln -s $WORKING/$TREE_NAME/raw $DOCROOT/raw/$TREE_NAME/raw
+
     for FILE_LIST in repo-files objdir-files; do
         ln -s $WORKING/$TREE_NAME/$FILE_LIST $DOCROOT/file-lists/$TREE_NAME/file-lists/$FILE_LIST
     done

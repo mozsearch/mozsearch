@@ -219,6 +219,10 @@ if should_perform "output"; then
     $MOZSEARCH_PATH/scripts/output.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME $URL_MAP_PATH $DOC_TREES_MAP || handle_tree_error "output.sh"
 fi
 
+if should_perform "raw-generated"; then
+    $MOZSEARCH_PATH/scripts/raw-generated.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "raw-generated.sh"
+fi
+
 if should_perform "build-codesearch"; then
     $MOZSEARCH_PATH/scripts/build-codesearch.py $CONFIG_FILE $TREE_NAME || handle_tree_error "build-codesearch.py"
 fi
