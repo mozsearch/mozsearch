@@ -343,6 +343,20 @@ for repo in config['trees']:
         'gunzip on;',
     ])
 
+    location(f'/{repo}/raw', [
+        f'root {doc_root};',
+        'try_files /raw/$uri =404;',
+        'types { }',
+        # We serve all raw files as text/plain because our goal is to provide
+        # a readable / downloadable version of any generated files, but we
+        # categorically are not "hosting" these files. In particular, if an
+        # HTML file showed up in there it must not be served as text/html.
+        'default_type text/plain;',
+        'add_header Cache-Control "must-revalidate";',
+        'gzip_static always;',
+        'gunzip on;',
+    ])
+
     location(f'/{repo}/file-lists', [
         f'root {doc_root};',
         'try_files /file-lists/$uri =404;',
