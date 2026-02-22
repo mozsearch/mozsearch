@@ -55,6 +55,7 @@ table {
 
   --context-menu-new-section: #ccc;
   --context-menu-same-section: #f8f8f8;
+  --context-menu-same-section-sep: #ddd;
 
   --line-highlight-background: rgb(255, 255, 204);
   --line-stuck-background: #ffe;
@@ -200,6 +201,7 @@ table {
 
     --context-menu-new-section: #444;
     --context-menu-same-section: #181818;
+    --context-menu-same-section-sep: #333;
 
     --line-highlight-background: #3c3111;
     --line-stuck-background: #221c09;
@@ -1060,6 +1062,10 @@ span[data-symbols].selected {
 
 .contextmenu-row ~ .contextmenu-row.contextmenu-same-section  {
   border-top: 1px solid var(--context-menu-same-section);
+}
+
+.contextmenu-row ~ .contextmenu-row.contextmenu-same-section-sep  {
+  border-top: 1px dashed var(--context-menu-same-section-sep);
 }
 
 .contextmenu-row ~ .contextmenu-row.contextmenu-new-section  {

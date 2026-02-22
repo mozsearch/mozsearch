@@ -48,8 +48,11 @@ class ContextMenuBase {
       if (lastSection === null) {
         lastSection = item.section;
       } else if (lastSection === item.section) {
-        // nothing to do for the same section
-        li.classList.add("contextmenu-same-section");
+        if (item.needsSep) {
+          li.classList.add("contextmenu-same-section-sep");
+        } else {
+          li.classList.add("contextmenu-same-section");
+        }
       } else {
         li.classList.add("contextmenu-new-section");
         lastSection = item.section;
@@ -438,6 +441,7 @@ class DiagramMenuSection extends MenuItem {
     super({
       icon: "brush",
       section: "callgraph",
+      needsSep: true,
       confidence: options.confidence,
     });
 
