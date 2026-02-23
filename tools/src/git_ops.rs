@@ -1,4 +1,5 @@
 use git2::{Commit, Object, Repository, TreeEntry};
+use itertools::Itertools;
 use serde::Serialize;
 use std::{path::Path, str::FromStr};
 
@@ -162,11 +163,12 @@ pub fn coverage_navigation(
                     .tree()
                     .ok()
                     .is_some_and(|tree| tree.get_path(path).is_ok())
-        });
+        })
+        .peekable();
     // We want the later_coverage and previous_coverage iterators below to advance the same underlying iterator.
     let revwalk = revwalk.by_ref();
 
-    let mut later_coverage = revwalk.take_while(|coverage_commit| {
+    let mut later_coverage = revwalk.peeking_take_while(|coverage_commit| {
         coverage_commit.committer().when() > main_commit.committer().when()
     });
     let latest_coverage = later_coverage.next();
@@ -186,4 +188,162 @@ pub fn coverage_navigation(
         next: main_repo_oid(next_coverage),
         latest: main_repo_oid(latest_coverage),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::utils::TempDir;
+
+    use super::*;
+    use git2::*;
+
+    #[test]
+    fn test_coverage_navigation() {
+        let tmpdir = TempDir::new("test_coverage_navigation");
+
+        const MAIN: &str = "refs/heads/main";
+        let main_repo = Repository::init_opts(
+            tmpdir.join("main_repo"),
+            RepositoryInitOptions::new().bare(true).initial_head(MAIN),
+        )
+        .unwrap();
+
+        let make_tree = |repo: &Repository| {
+            let blob = repo.blob(b"test\n").unwrap();
+            let mut tree_builder = repo.treebuilder(None).unwrap();
+            tree_builder
+                .insert("test", blob, FileMode::Blob.into())
+                .unwrap();
+            tree_builder.write().unwrap()
+        };
+
+        // Build an empty Tree with a dummy test Blob
+        let main_tree_oid = make_tree(&main_repo);
+
+        // commits need to have distinct timestamps
+        let mut timestamps = std::iter::successors(Some(0), |t| Some(t + 60));
+
+        let mut commit_on_main_repo = |message: String| {
+            let signature = Signature::new(
+                "searchfox",
+                "searchfox@localhost",
+                &Time::new(timestamps.next().unwrap(), 0),
+            )
+            .unwrap();
+
+            let tree = main_repo.find_tree(main_tree_oid).unwrap();
+
+            let parent = main_repo
+                .revparse_single(MAIN)
+                .ok()
+                .and_then(|oid| oid.peel_to_commit().ok());
+            let parents = if let Some(parent) = parent.as_ref() {
+                &[parent][..]
+            } else {
+                &[]
+            };
+
+            let oid = main_repo
+                .commit(Some(MAIN), &signature, &signature, &message, &tree, parents)
+                .unwrap();
+
+            oid
+        };
+
+        let main_commits: Vec<_> = (0..=10)
+            .map(|i| commit_on_main_repo(i.to_string()))
+            .collect();
+
+        const ALL_ALL: &str = "refs/heads/all/all";
+        let coverage_repo = Repository::init_opts(
+            tmpdir.join("coverage_repo"),
+            RepositoryInitOptions::new()
+                .bare(true)
+                .initial_head(ALL_ALL),
+        )
+        .unwrap();
+
+        // Build an empty Tree with a dummy test Blob
+        let coverage_tree_oid = make_tree(&coverage_repo);
+
+        let commit_on_coverage_repo = |for_main_commit_oid: Oid| {
+            let main_commit = main_repo.find_commit(for_main_commit_oid).unwrap();
+            let message = format!("{for_main_commit_oid}");
+            let signature = main_commit.committer();
+
+            let tree = coverage_repo.find_tree(coverage_tree_oid).unwrap();
+
+            let parent = coverage_repo
+                .revparse_single(ALL_ALL)
+                .ok()
+                .and_then(|oid| oid.peel_to_commit().ok());
+            let parents = if let Some(parent) = parent.as_ref() {
+                &[parent][..]
+            } else {
+                &[]
+            };
+
+            let oid = coverage_repo
+                .commit(
+                    Some(ALL_ALL),
+                    &signature,
+                    &signature,
+                    &message,
+                    &tree,
+                    parents,
+                )
+                .unwrap();
+
+            oid
+        };
+
+        commit_on_coverage_repo(main_commits[2]);
+        commit_on_coverage_repo(main_commits[5]);
+        commit_on_coverage_repo(main_commits[9]);
+
+        let git_data = GitData {
+            repo: main_repo,
+            coverage_repo: Some(coverage_repo),
+            blame_repo: None,
+            blame_map: Default::default(),
+            hg_map: Default::default(),
+            old_map: Default::default(),
+            mailmap: crate::file_format::config::Mailmap {
+                entries: Default::default(),
+            },
+            blame_ignore: Default::default(),
+        };
+
+        let check = |main_repo_commit,
+                     previous_commit_with_coverage: Option<usize>,
+                     next_commit_with_coverage: Option<usize>,
+                     latest_commit_with_coverage: Option<usize>| {
+            let navigation =
+                coverage_navigation(Some(&git_data), "", main_commits[main_repo_commit]).unwrap();
+            assert_eq!(
+                navigation.previous,
+                previous_commit_with_coverage.map(|index| main_commits[index].to_string())
+            );
+            assert_eq!(
+                navigation.next,
+                next_commit_with_coverage.map(|index| main_commits[index].to_string())
+            );
+            assert_eq!(
+                navigation.latest,
+                latest_commit_with_coverage.map(|index| main_commits[index].to_string())
+            );
+        };
+
+        check(0, None, Some(2), Some(9));
+        check(1, None, Some(2), Some(9));
+        check(2, None, Some(5), Some(9));
+        check(3, Some(2), Some(5), Some(9));
+        check(4, Some(2), Some(5), Some(9));
+        check(5, Some(2), None, Some(9));
+        check(6, Some(5), None, Some(9));
+        check(7, Some(5), None, Some(9));
+        check(8, Some(5), None, Some(9));
+        check(9, Some(5), None, None);
+        check(10, Some(9), None, None);
+    }
 }
