@@ -163,7 +163,7 @@ pub fn coverage_navigation(
                     .ok()
                     .is_some_and(|tree| tree.get_path(path).is_ok())
         });
-    // We want the later_revisions and earlier_revisions iterators below to advance the same underlying iterator.
+    // We want the later_coverage and previous_coverage iterators below to advance the same underlying iterator.
     let revwalk = revwalk.by_ref();
 
     let mut later_coverage = revwalk.take_while(|coverage_commit| {
