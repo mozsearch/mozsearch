@@ -328,6 +328,8 @@ for repo in config['trees']:
         'gzip_static always;',
         'gunzip on;',
     ])
+    
+    location('/%(repo)s', ['return 301 $scheme://$host$request_uri/source;'])
 
     location(f'/{repo}/raw-analysis', [
         f'root {doc_root};',
