@@ -1,4 +1,4 @@
-<div id="coverage-history">
+<div id="coverage-history" class="hidden">
   <ol class="coverage-history-list">
     {%- for coverage in coverage_history -%}
       {%- capture file_url -%}/{{ tree }}/rev/{{ coverage.rev }}/{{ path }}{%- endcapture -%}
@@ -11,4 +11,8 @@
       </li>
     {%- endfor %}
   </ol>
+</div>
+
+<div class="sparkline-wrapper">
+<span class="coverage-sparkline"></span>
 </div>

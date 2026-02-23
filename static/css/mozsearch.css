@@ -440,6 +440,7 @@ table.folder-content td.coverage {
   .cov-percentage-10   { color: #00c853; }
   .cov-percentage-none { color: #9e9e9e; }
 }
+
 td.code {
   padding: 0 0 0 0.5em;
 }
@@ -1951,3 +1952,8 @@ g.true-diag g.node polygon {
 .alt-for-icon {
   font-size: 0;
 }
+/* TODO : MOVE TI TO A MORE PRACTICAL FILE */
+.hidden{
+  display:none;
+}
+
