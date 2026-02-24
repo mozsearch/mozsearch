@@ -292,6 +292,8 @@ location('= /robots.txt', [
     'expires 1d;',
 ])
 
+print(' error_page 404 /static/html/404.html;')
+
 # TODO: it's possible some of the `try_files` machinations and symlinks
 # we're using could better cleaned up by use of "alias".  The exception is
 # "source" where the "try_files" is definitely absolutely necessary.
