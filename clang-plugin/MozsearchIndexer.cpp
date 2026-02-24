@@ -1875,9 +1875,11 @@ public:
     // Also visit the spelling site.
     SourceLocation SpellingLoc = SM.getSpellingLoc(Loc);
     if (SpellingLoc != Loc) {
+      // NOTE: PeekRange, NestingRange, and ArgRanges come from the
+      //       macro expansion, which shouldn't be associated with the
+      //       symbols inside the macro.
       visitIdentifier(Kind, SyntaxKind, QualName, SpellingLoc, Symbol,
-                      MaybeType, TokenContext, Flags, PeekRange, NestingRange,
-                      ArgRanges);
+                      MaybeType, TokenContext, Flags);
     }
 
     SourceLocation ExpansionLoc = SM.getExpansionLoc(Loc);
