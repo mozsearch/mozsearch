@@ -160,10 +160,26 @@ impl PipelineCommand for TraverseCommand {
         server: &(dyn AbstractServer + Send + Sync),
         input: PipelineValues,
     ) -> Result<PipelineValues> {
-        let max_depth = match (self.args.max_depth, self.args.paths_between) {
-            (0, false) => 8,
-            (0, true) => 8,
-            (x, _) => x,
+        const DEFAULT_MAX_DEPTH_FROM_TO: u32 = 8;
+        const DEFAULT_MAX_DEPTH_BETWEEN: u32 = 8;
+        const DEFAULT_SKIP_USES_AT_PATH_COUNT_FROM_TO: u32 = 16;
+        const DEFAULT_SKIP_USES_AT_PATH_COUNT_BETWEEN: u32 = 96;
+
+        let default_max_depth = if self.args.paths_between {
+            DEFAULT_MAX_DEPTH_BETWEEN
+        } else {
+            DEFAULT_MAX_DEPTH_FROM_TO
+        };
+
+        let default_skip_uses_at_path_count = if self.args.paths_between {
+            DEFAULT_SKIP_USES_AT_PATH_COUNT_BETWEEN
+        } else {
+            DEFAULT_SKIP_USES_AT_PATH_COUNT_FROM_TO
+        };
+
+        let max_depth = match self.args.max_depth {
+            0 => default_max_depth,
+            x => x,
         };
         let cil = match input {
             PipelineValues::SymbolCrossrefInfoList(cil) => cil,
@@ -227,12 +243,10 @@ impl PipelineCommand for TraverseCommand {
             self.args.node_limit
         };
 
-        let skip_uses_at_path_count =
-            match (self.args.skip_uses_at_path_count, self.args.paths_between) {
-                (0, false) => 16u32,
-                (0, true) => 96u32,
-                (x, _) => x,
-            };
+        let skip_uses_at_path_count = match self.args.skip_uses_at_path_count {
+            0 => default_skip_uses_at_path_count,
+            x => x,
+        };
 
         let stop_at_class_label = match self.args.edge.as_str() {
             "callees" => Some("calls-diagram:stop"),
@@ -1316,8 +1330,8 @@ impl PipelineCommand for TraverseCommand {
         traverse_options.push(json!({
             "name": "depth",
             "label": "Depth",
-            "value": self.args.max_depth,
-            "default": 0,
+            "value": max_depth,
+            "default": default_max_depth,
             "range": [0, 16],
         }));
         if self.args.paths_between {
@@ -1340,8 +1354,8 @@ impl PipelineCommand for TraverseCommand {
         traverse_options.push(json!({
             "name": "path-limit",
             "label": "Path limit",
-            "value": self.args.skip_uses_at_path_count,
-            "default": 0,
+            "value": skip_uses_at_path_count,
+            "default": default_skip_uses_at_path_count,
             "range": [0, 16384],
         }));
         if self.args.edge.as_str() == "class" {

@@ -36,7 +36,7 @@ add_task(async function test_DiagramControl_basic() {
   is(nodeLimit.value, "384", "The default node limit is shown");
 
   const pathLimit = panel.querySelector("#diagram-option-path-limit");
-  is(pathLimit.value, "0", "The default path limit is shown");
+  is(pathLimit.value, "16", "The default path limit is shown");
 
   const ignoreNodes = panel.querySelector("#diagram-option-ignore-nodes");
   is(ignoreNodes.value, "", "The default ignore nodes is shown");
