@@ -1707,13 +1707,13 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             }));
           }
 
-          if (Dxr.canIgnoreDiagramNode()) {
+          if (Diagram.canIgnoreNode()) {
             diagramMenuItems.push(new MenuItem({
               html: "Ignore this node in the diagram",
               icon: "brush",
               section: "diagrams-ignore",
               action: () => {
-                Dxr.ignoreDiagramNode(symInfo.pretty);
+                Diagram.ignoreNode(symInfo.pretty);
               },
             }));
           }

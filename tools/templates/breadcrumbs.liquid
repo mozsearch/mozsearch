@@ -7,7 +7,7 @@
   <a href="/{{tree}}/{% if rev %}rev/{{ rev }}{% else %}source{% endif %}/{{path_so_far}}">{{ segment }}</a>
 {%- endfor -%}
 {%- if is_graph %}
-  <button id="diagram-panel-toggle" onclick="Dxr.toggleDiagramPanel()">
+  <button id="diagram-panel-toggle" onclick="Diagram.togglePanel()">
     Diagram Controls <span class="icon-cog"></span>
   </button>
 {%- endif %}
