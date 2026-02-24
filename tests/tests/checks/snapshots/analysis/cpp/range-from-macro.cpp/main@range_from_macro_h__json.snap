@@ -1,0 +1,9 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/cpp/range-from-macro.cpp/range_from_macro_h__json
+---
+[
+  null,
+  "14:0-16:0"
+]
