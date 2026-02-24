@@ -1,0 +1,1 @@
+filter-analysis cpp/range-from-macro.h -r source -i range_from_macro::same_file::Function | jq '.nestingRange'
