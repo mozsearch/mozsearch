@@ -399,7 +399,17 @@ impl PipelineCommand for TraverseCommand {
                                 continue;
                             }
 
-                            if next_depth < max_depth && considered.insert(ptr_info.sym) {
+                            if next_depth >= max_depth && !considered.contains(&ptr_info.sym) {
+                                overloads_hit.push(OverloadInfo {
+                                    kind: OverloadKind::DepthLimitOnFieldPointer,
+                                    sym: Some(ptr_info.sym.to_string()),
+                                    pretty: Some(target_pretty.to_string()),
+                                    exist: next_depth,
+                                    included: depth + 1,
+                                    local_limit: 0,
+                                    global_limit: max_depth,
+                                });
+                            } else if next_depth < max_depth && considered.insert(ptr_info.sym) {
                                 trace!(sym = ptr_info.sym.as_str(), "scheduling pointee sym");
                                 to_traverse.push_back((
                                     ptr_info.sym,
@@ -465,7 +475,7 @@ impl PipelineCommand for TraverseCommand {
                 }
             }
 
-            if depth as i32 <= traverse_field_member_uses && next_depth < max_depth {
+            if depth as i32 <= traverse_field_member_uses {
                 let bad_data = || {
                     ServerError::StickyProblem(ErrorDetails {
                         layer: ErrorLayer::DataLayer,
@@ -498,6 +508,16 @@ impl PipelineCommand for TraverseCommand {
                         included: 0,
                         local_limit: self.args.skip_field_member_uses_at_count,
                         global_limit: 0,
+                    });
+                } else if next_depth >= max_depth {
+                    overloads_hit.push(OverloadInfo {
+                        kind: OverloadKind::DepthLimitOnFieldMemberUses,
+                        sym: Some(sym.to_string()),
+                        pretty: Some(pretty.to_string()),
+                        exist: next_depth,
+                        included: depth + 1,
+                        local_limit: 0,
+                        global_limit: max_depth,
                     });
                 } else {
                     for target in member_uses {
@@ -654,7 +674,18 @@ impl PipelineCommand for TraverseCommand {
                                     &mut graph,
                                 );
                             }
-                            if next_depth < max_depth && considered.insert(other_info.symbol) {
+                            if next_depth >= max_depth && !considered.contains(&other_info.symbol) {
+                                overloads_hit.push(OverloadInfo {
+                                    kind: OverloadKind::DepthLimitOnBindingSlot,
+                                    sym: Some(other_info.symbol.to_string()),
+                                    pretty: Some(other_pretty.to_string()),
+                                    exist: next_depth,
+                                    included: depth + 1,
+                                    local_limit: 0,
+                                    global_limit: max_depth,
+                                });
+                            } else if next_depth < max_depth && considered.insert(other_info.symbol)
+                            {
                                 trace!(
                                     sym = other_info.symbol.as_str(),
                                     "scheduling traversed binding slot sym"
@@ -686,7 +717,17 @@ impl PipelineCommand for TraverseCommand {
                                 &mut graph,
                             );
                         }
-                        if next_depth < max_depth && considered.insert(owner_info.symbol) {
+                        if next_depth >= max_depth && !considered.contains(&owner_info.symbol) {
+                            overloads_hit.push(OverloadInfo {
+                                kind: OverloadKind::DepthLimitOnBindingSlot,
+                                sym: Some(owner_info.symbol.to_string()),
+                                pretty: Some(owner_pretty.to_string()),
+                                exist: next_depth,
+                                included: depth + 1,
+                                local_limit: 0,
+                                global_limit: max_depth,
+                            });
+                        } else if next_depth < max_depth && considered.insert(owner_info.symbol) {
                             trace!(
                                 sym = owner_info.symbol.as_str(),
                                 "scheduling owner binding slot sym"
@@ -773,7 +814,17 @@ impl PipelineCommand for TraverseCommand {
                                 &mut graph,
                             );
                         }
-                        if next_depth < max_depth && considered.insert(slot.sym) {
+                        if next_depth >= max_depth && !considered.contains(&slot.sym) {
+                            overloads_hit.push(OverloadInfo {
+                                kind: OverloadKind::DepthLimitOnBindingSlot,
+                                sym: Some(slot.sym.to_string()),
+                                pretty: Some(rel_pretty.to_string()),
+                                exist: next_depth,
+                                included: depth + 1,
+                                local_limit: 0,
+                                global_limit: max_depth,
+                            });
+                        } else if next_depth < max_depth && considered.insert(slot.sym) {
                             trace!(sym = slot.sym.as_str(), "scheduling bind slot sym");
                             to_traverse.push_back((
                                 slot.sym,
@@ -835,7 +886,17 @@ impl PipelineCommand for TraverseCommand {
                                     &mut graph,
                                 );
                             }
-                            if next_depth < max_depth && considered.insert(rel_sym) {
+                            if next_depth >= max_depth && !considered.contains(&rel_sym) {
+                                overloads_hit.push(OverloadInfo {
+                                    kind: OverloadKind::DepthLimitOnOntologySlot,
+                                    sym: Some(rel_sym.to_string()),
+                                    pretty: Some(rel_pretty.to_string()),
+                                    exist: next_depth,
+                                    included: depth + 1,
+                                    local_limit: 0,
+                                    global_limit: max_depth,
+                                });
+                            } else if next_depth < max_depth && considered.insert(rel_sym) {
                                 trace!(sym = rel_sym.as_str(), "scheduling ontology sym");
                                 to_traverse.push_back((
                                     rel_sym,
@@ -898,7 +959,17 @@ impl PipelineCommand for TraverseCommand {
                         &mut graph,
                     );
 
-                    if next_depth < max_depth && considered.insert(target_info.symbol) {
+                    if next_depth >= max_depth && !considered.contains(&target_info.symbol) {
+                        overloads_hit.push(OverloadInfo {
+                            kind: OverloadKind::DepthLimitOnSubclass,
+                            sym: Some(target_info.symbol.to_string()),
+                            pretty: Some(target_pretty.to_string()),
+                            exist: next_depth,
+                            included: depth + 1,
+                            local_limit: 0,
+                            global_limit: max_depth,
+                        });
+                    } else if next_depth < max_depth && considered.insert(target_info.symbol) {
                         trace!(sym = target_sym_str, "scheduling subclass");
                         // If we're going in the subclass direction continue only going in the subclass
                         // direction; don't change direction and perform superclass traversals.
@@ -973,7 +1044,17 @@ impl PipelineCommand for TraverseCommand {
                         &mut graph,
                     );
 
-                    if next_depth < max_depth && considered.insert(target_info.symbol) {
+                    if next_depth >= max_depth && !considered.contains(&target_info.symbol) {
+                        overloads_hit.push(OverloadInfo {
+                            kind: OverloadKind::DepthLimitOnSuper,
+                            sym: Some(target_info.symbol.to_string()),
+                            pretty: Some(target_pretty.to_string()),
+                            exist: next_depth,
+                            included: depth + 1,
+                            local_limit: 0,
+                            global_limit: max_depth,
+                        });
+                    } else if next_depth < max_depth && considered.insert(target_info.symbol) {
                         trace!(sym = target_sym_str, "scheduling super");
                         // If we're going in the superclass direction, continue only going in the
                         // superclass direction; don't allow going back down subclasses!
@@ -1038,7 +1119,17 @@ impl PipelineCommand for TraverseCommand {
                             vec![],
                             &mut graph,
                         );
-                        if next_depth < max_depth {
+                        if next_depth >= max_depth {
+                            overloads_hit.push(OverloadInfo {
+                                kind: OverloadKind::DepthLimitOnOverrides,
+                                sym: Some(target_info.symbol.to_string()),
+                                pretty: Some(target_pretty.to_string()),
+                                exist: next_depth,
+                                included: depth + 1,
+                                local_limit: 0,
+                                global_limit: max_depth,
+                            });
+                        } else {
                             trace!(sym = target_sym_str, "scheduling overrides");
                             to_traverse.push_back((
                                 target_info.symbol,
@@ -1092,7 +1183,17 @@ impl PipelineCommand for TraverseCommand {
                             vec![],
                             &mut graph,
                         );
-                        if next_depth < max_depth {
+                        if next_depth >= max_depth {
+                            overloads_hit.push(OverloadInfo {
+                                kind: OverloadKind::DepthLimitOnOverriddenBy,
+                                sym: Some(target_info.symbol.to_string()),
+                                pretty: Some(target_pretty.to_string()),
+                                exist: next_depth,
+                                included: depth + 1,
+                                local_limit: 0,
+                                global_limit: max_depth,
+                            });
+                        } else {
                             trace!(sym = target_sym_str, "scheduling overridenBy");
                             to_traverse.push_back((
                                 target_info.symbol,
@@ -1164,7 +1265,17 @@ impl PipelineCommand for TraverseCommand {
                             edge_info,
                             &mut graph,
                         );
-                        if next_depth < max_depth && considered.insert(target_info.symbol) {
+                        if next_depth >= max_depth && !considered.contains(&target_info.symbol) {
+                            overloads_hit.push(OverloadInfo {
+                                kind: OverloadKind::DepthLimitOnCallees,
+                                sym: Some(target_info.symbol.to_string()),
+                                pretty: Some(target_pretty.to_string()),
+                                exist: next_depth,
+                                included: depth + 1,
+                                local_limit: 0,
+                                global_limit: max_depth,
+                            });
+                        } else if next_depth < max_depth && considered.insert(target_info.symbol) {
                             trace!(sym = target_sym_str, "scheduling callees");
                             to_traverse.push_back((
                                 target_info.symbol,
@@ -1305,7 +1416,20 @@ impl PipelineCommand for TraverseCommand {
                                 &mut graph,
                             );
                             // Only traverse the edge once.
-                            if use_considered.insert(source_info.symbol)
+                            if next_depth >= max_depth
+                                && !use_considered.contains(&source_info.symbol)
+                                && !considered.contains(&source_info.symbol)
+                            {
+                                overloads_hit.push(OverloadInfo {
+                                    kind: OverloadKind::DepthLimitOnUses,
+                                    sym: Some(source_info.symbol.to_string()),
+                                    pretty: Some(source_pretty.to_string()),
+                                    exist: next_depth,
+                                    included: depth + 1,
+                                    local_limit: 0,
+                                    global_limit: max_depth,
+                                });
+                            } else if use_considered.insert(source_info.symbol)
                                 && next_depth < max_depth
                                 && considered.insert(source_info.symbol)
                             {

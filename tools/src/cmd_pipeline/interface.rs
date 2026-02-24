@@ -439,6 +439,16 @@ pub enum OverloadKind {
     UsesLines,
     FieldMemberUses,
     NodeLimit,
+    DepthLimitOnFieldPointer,
+    DepthLimitOnBindingSlot,
+    DepthLimitOnOntologySlot,
+    DepthLimitOnSubclass,
+    DepthLimitOnSuper,
+    DepthLimitOnOverrides,
+    DepthLimitOnOverriddenBy,
+    DepthLimitOnCallees,
+    DepthLimitOnUses,
+    DepthLimitOnFieldMemberUses,
 }
 
 /// Information about overloads encountered when processing some aspect of a

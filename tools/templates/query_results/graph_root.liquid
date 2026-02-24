@@ -2,11 +2,26 @@
 <script>var GRAPH_OPTIONS = {{ results.GraphResultsBundle.options | json }};</script>
 <div id="diagram-panel" class="hidden"></div>
 {%- if results.GraphResultsBundle.overloads_hit != empty -%}
+
+{%- assign has_other_overloads = false -%}
+
+{%- for overload in results.GraphResultsBundle.overloads_hit -%}
+  {%- assign kind_prefix = overload.kind | truncate: 10, "" -%}
+  {%- if kind_prefix != "DepthLimit" -%}
+    {%- assign has_other_overloads = true -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{%- if has_other_overloads == true -%}
 <div class="diagram-limit-warning">
 <h3>Limits Hit:</h3>
 <p>The following items hit the limit, and the result is incomplete.</p>
 <ul>
   {%- for overload in results.GraphResultsBundle.overloads_hit -%}
+  {%- assign kind_prefix = overload.kind | truncate: 10, "" -%}
+  {%- if kind_prefix == "DepthLimit" -%}
+  {%- continue -%}
+  {%- endif -%}
   <li>
     <code>{{overload.pretty}}</code>
     {% if overload.local_limit > 0 %} hit the local limit{% endif -%}
@@ -35,6 +50,7 @@
   {%- endfor -%}
 </ul>
 </div>
+{%- endif -%}
 {%- endif -%}
 {% for graph in results.GraphResultsBundle.graphs %}
 {{ graph.graph }}
