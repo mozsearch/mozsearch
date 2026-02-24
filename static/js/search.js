@@ -1,92 +1,3 @@
-const DIAGRAM_LABELS = {
-  "Pointer strength": {
-    "\u{1f4aa}": {
-      // from kind = "strong"
-      desc: "Strong pointer",
-    },
-    "\u{2744}\u{fe0f}": {
-      // from kind = "unique"
-      desc: "Unique pointer",
-    },
-    "\u{1f4d3}\u{fe0f}": {
-      // from kind = "weak"
-      desc: "Weak pointer",
-    },
-    "\u{1f631}": {
-      // from kind = "raw"
-      desc: "Raw pointer",
-    },
-    "&": {
-      // from kind = "ref"
-      desc: "Reference",
-    },
-    "\u{1fada}": {
-      // from kind = "gcref"
-      desc: "GC reference",
-    },
-    "\u{1f4e6}": {
-      // from kind = "contains"
-      desc: "Contains",
-    },
-  },
-  "Classes and fields": {
-    "\u{269b}\u{fe0f}": {
-      // from label = "arc" or label = "atomic"
-      desc: "Atomic or Atomic reference counted class",
-    },
-    "\u{1f517}": {
-      // from label = "cc"
-      desc: "Cycle-collected class",
-    },
-    "\u{26d3}\u{fe0f}": {
-      // from label = "ccrc"
-      desc: "Cycle-collected reference counted class",
-    },
-    "\u{1f517}\u{270f}\u{fe0f}": {
-      // from label = "cc-trace"
-      desc: "Field referenced in ::cycleCollection::Trace",
-    },
-    "\u{1f517}\u{1f50d}": {
-      // from label = "cc-traverse"
-      desc: "Field referenced in ::cycleCollection::Traverse",
-    },
-    "\u{26d3}\u{fe0f}\u{200d}\u{1f4a5}": {
-      // from label = "cc-unlink"
-      desc: "Field referenced in ::cycleCollection::Unlink",
-    },
-    "\u{1f9ee}": {
-      // from label = "rc"
-      desc: "Reference counted class",
-    },
-  },
-  "Interfaces and super classes": {
-    "nsIIReq": {
-      // from elide-and-badge
-      desc: "nsIInterfaceRequestor",
-    },
-    "nsIObs": {
-      // from elide-and-badge
-      desc: "nsIObserver",
-    },
-    "nsIRun": {
-      // from elide-and-badge
-      desc: "nsIRunnable",
-    },
-    "nsI": {
-      // from elide-and-badge
-      desc: "nsISupports",
-    },
-    "nsSupWeak": {
-      // from elide-and-badge
-      desc: "nsSupportsWeakReference",
-    },
-    "WC": {
-      // from elide-and-badge
-      desc: "nsWrapperCache",
-    },
-  },
-};
-
 var Dxr = new (class Dxr {
   constructor() {
     let constants = document.getElementById("data");
@@ -193,9 +104,6 @@ var Dxr = new (class Dxr {
     // popstate event handler.
     // See the popstate event handler for more details.
     this.suppressNextPopState = 0;
-
-    this.addDiagramControl();
-    this.addDiagramBadgeTooltips();
   }
 
   cancel(cancelFetch = true) {
@@ -550,9 +458,107 @@ var Dxr = new (class Dxr {
     let url = this.constructURL();
     this.updateHistory(url);
   }
+})();
 
-  liftDiagramLimit(kind, exists) {
-    let query = this.fields.query.value;
+var Diagram = new (class Diagram {
+  LABELS = {
+    "Pointer strength": {
+      "\u{1f4aa}": {
+        // from kind = "strong"
+        desc: "Strong pointer",
+      },
+      "\u{2744}\u{fe0f}": {
+        // from kind = "unique"
+        desc: "Unique pointer",
+      },
+      "\u{1f4d3}\u{fe0f}": {
+        // from kind = "weak"
+        desc: "Weak pointer",
+      },
+      "\u{1f631}": {
+        // from kind = "raw"
+        desc: "Raw pointer",
+      },
+      "&": {
+        // from kind = "ref"
+        desc: "Reference",
+      },
+      "\u{1fada}": {
+        // from kind = "gcref"
+        desc: "GC reference",
+      },
+      "\u{1f4e6}": {
+        // from kind = "contains"
+        desc: "Contains",
+      },
+    },
+    "Classes and fields": {
+      "\u{269b}\u{fe0f}": {
+        // from label = "arc" or label = "atomic"
+        desc: "Atomic or Atomic reference counted class",
+      },
+      "\u{1f517}": {
+        // from label = "cc"
+        desc: "Cycle-collected class",
+      },
+      "\u{26d3}\u{fe0f}": {
+        // from label = "ccrc"
+        desc: "Cycle-collected reference counted class",
+      },
+      "\u{1f517}\u{270f}\u{fe0f}": {
+        // from label = "cc-trace"
+        desc: "Field referenced in ::cycleCollection::Trace",
+      },
+      "\u{1f517}\u{1f50d}": {
+        // from label = "cc-traverse"
+        desc: "Field referenced in ::cycleCollection::Traverse",
+      },
+      "\u{26d3}\u{fe0f}\u{200d}\u{1f4a5}": {
+        // from label = "cc-unlink"
+        desc: "Field referenced in ::cycleCollection::Unlink",
+      },
+      "\u{1f9ee}": {
+        // from label = "rc"
+        desc: "Reference counted class",
+      },
+    },
+    "Interfaces and super classes": {
+      "nsIIReq": {
+        // from elide-and-badge
+        desc: "nsIInterfaceRequestor",
+      },
+      "nsIObs": {
+        // from elide-and-badge
+        desc: "nsIObserver",
+      },
+      "nsIRun": {
+        // from elide-and-badge
+        desc: "nsIRunnable",
+      },
+      "nsI": {
+        // from elide-and-badge
+        desc: "nsISupports",
+      },
+      "nsSupWeak": {
+        // from elide-and-badge
+        desc: "nsSupportsWeakReference",
+      },
+      "WC": {
+        // from elide-and-badge
+        desc: "nsWrapperCache",
+      },
+    },
+  };
+
+  constructor() {
+    this.addControl();
+    this.addBadgeTooltips();
+
+    this.setScrollPosition();
+  }
+
+  liftLimit(kind, exists) {
+    let query = Dxr.fields.query.value;
 
     switch (kind) {
       case "UsesPaths":
@@ -582,20 +588,20 @@ var Dxr = new (class Dxr {
         break;
     }
 
-    this.fields.query.value = query;
-    let url = this.constructURL();
+    Dxr.fields.query.value = query;
+    let url = Dxr.constructURL();
     window.location = url;
   }
 
-  addDiagramControl() {
-    this.diagramPanel = null;
+  addControl() {
+    this.panel = null;
     this.ignoreNodesItem = null;
 
     if (typeof GRAPH_OPTIONS == "undefined") {
       return;
     }
 
-    this.diagramPanel = document.querySelector("#diagram-panel");
+    this.panel = document.querySelector("#diagram-panel");
 
     const optionsPane = document.createElement("div");
     optionsPane.id = "diagram-options-pane";
@@ -713,11 +719,11 @@ var Dxr = new (class Dxr {
     apply.append("Apply");
 
     apply.addEventListener("click", () => {
-      this.applyDiagramOptions();
+      this.applyOptions();
     });
 
     optionsPane.append(apply);
-    this.diagramPanel.append(optionsPane);
+    this.panel.append(optionsPane);
 
     const legendPane = document.createElement("div");
     legendPane.id = "diagram-legend-pane";
@@ -726,7 +732,7 @@ var Dxr = new (class Dxr {
     legendTitle.append("Legend");
     legendPane.append(legendTitle);
 
-    for (const [sectionLabel, section] of Object.entries(DIAGRAM_LABELS)) {
+    for (const [sectionLabel, section] of Object.entries(this.LABELS)) {
       const legendTitle = document.createElement("h4");
       legendTitle.append(sectionLabel);
       legendPane.append(legendTitle);
@@ -748,11 +754,11 @@ var Dxr = new (class Dxr {
       legendPane.append(legend);
     }
 
-    this.diagramPanel.append(legendPane);
+    this.panel.append(legendPane);
   }
 
-  applyDiagramOptions() {
-    let query = this.fields.query.value;
+  applyOptions() {
+    let query = Dxr.fields.query.value;
 
     for (const { section, items } of GRAPH_OPTIONS) {
       for (const item of items) {
@@ -764,22 +770,22 @@ var Dxr = new (class Dxr {
       }
     }
 
-    this.fields.query.value = query;
-    let url = this.constructURL();
+    Dxr.fields.query.value = query;
+    let url = Dxr.constructURL();
     document.location = url;
   }
 
-  toggleDiagramPanel() {
-    if (!this.diagramPanel) {
+  togglePanel() {
+    if (!this.panel) {
       return;
     }
-    this.diagramPanel.classList.toggle("hidden");
+    this.panel.classList.toggle("hidden");
   }
 
-  addDiagramBadgeTooltips() {
+  addBadgeTooltips() {
     for (const text of document.querySelectorAll(`svg text[text-decoration="underline"]`)) {
       const label = text.textContent;
-      for (const section of Object.values(DIAGRAM_LABELS)) {
+      for (const section of Object.values(this.LABELS)) {
         if (label in section) {
           const desc = section[label].desc;
 
@@ -826,17 +832,35 @@ var Dxr = new (class Dxr {
     }
   }
 
-  canIgnoreDiagramNode() {
-    return this.diagramPanel && this.ignoreNodesItem;
+  canIgnoreNode() {
+    return this.panel && this.ignoreNodesItem;
   }
 
-  ignoreDiagramNode(pretty) {
+  ignoreNode(pretty) {
     if (this.ignoreNodesItem.value != "") {
       this.ignoreNodesItem.value += "," + pretty;
     } else {
       this.ignoreNodesItem.value = pretty;
     }
-    this.applyDiagramOptions();
+    this.applyOptions();
+  }
+
+  setScrollPosition() {
+    // Scroll the first root node of the diagram so that it's centered.
+    // Through use of `?.` this won't freak out if there are no matches.
+    // According to performance.now(), this takes 3ms on the 20,765 line
+    // indexedDB/ActorsParent.cpp right now.
+    //
+    // This file is loaded at the bottom of the HTML file so the DOM is
+    // available, although I'm not entirely sure this is wise versus hooking
+    // the load event.
+    //
+    // TODO: Be more wise.
+    document.querySelector(".diagram-depth-0 polygon")?.scrollIntoView({
+      behavior: "instant",
+      block: "center",
+      inline: "center"
+    });
   }
 })();
 

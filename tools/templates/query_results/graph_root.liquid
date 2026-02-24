@@ -29,7 +29,7 @@
     {%- if overload.global_limit > 0 %} >= {{ overload.global_limit }}{% endif -%}
     </span>: only {{ overload.included }} included.
     {% if overload.kind == "UsesPaths" or overload.kind == "UsesLines" or overload.kind == "NodeLimit" -%}
-    <button onclick="Dxr.liftDiagramLimit('{{overload.kind}}', {{overload.exist}})">Lift the limit</button>
+    <button onclick="Diagram.liftLimit('{{overload.kind}}', {{overload.exist}})">Lift the limit</button>
     {%- endif -%}
   </li>
   {%- endfor -%}
