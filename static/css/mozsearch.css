@@ -1733,7 +1733,7 @@ g.true-diag g.node polygon {
 .diagram-limit-warning {
   border: 3px double var(--info-box-warning-background);
   padding: 0 1rem;
-  margin-bottom: 1rem;
+  margin: 0 1rem 1rem 1rem;
 }
 
 .diagram-limit-kind {
