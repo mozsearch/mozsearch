@@ -16,8 +16,8 @@
 {%- if has_other_overloads == true -%}
 <div class="diagram-limit-warning">
 <h3>Limits Hit:</h3>
-<p>The following items hit the limit, and the result is incomplete.</p>
-<ul>
+<p>Some items hit the limit, and the result is incomplete. <button id="diagram-limit-warning-overload-list-toggle" onclick="Diagram.toggleOverloadList()">Show details</button></p>
+<ul id="diagram-limit-warning-overload-list" class="hidden">
   {%- for overload in results.GraphResultsBundle.overloads_hit -%}
   {%- assign kind_prefix = overload.kind | truncate: 10, "" -%}
   {%- if kind_prefix == "DepthLimit" -%}

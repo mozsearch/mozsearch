@@ -1097,6 +1097,17 @@ var Diagram = new (class Diagram {
     return `${exist} >= ${limit}`;
   }
 
+  toggleOverloadList() {
+    const list = document.querySelector("#diagram-limit-warning-overload-list");
+    const toggle = document.querySelector("#diagram-limit-warning-overload-list-toggle");
+    list.classList.toggle("hidden");
+    if (list.classList.contains("hidden")) {
+      toggle.textContent = "Show details";
+    } else {
+      toggle.textContent = "Hide details";
+    }
+  }
+
   setScrollPosition() {
     // Scroll the first root node of the diagram so that it's centered.
     // Through use of `?.` this won't freak out if there are no matches.
