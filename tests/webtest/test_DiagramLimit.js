@@ -17,7 +17,7 @@ add_task(async function test_UsesLinesLocal() {
        "limit type is shown");
 
     const loadPromise = TestUtils.waitForLoad();
-    const lift = warningBox.querySelector("button");
+    const lift = warningBox.querySelector("li button");
     TestUtils.click(lift);
     await loadPromise;
   }
@@ -46,7 +46,7 @@ add_task(async function test_UsesLinesGlobal() {
        "limit type is shown");
 
     const loadPromise = TestUtils.waitForLoad();
-    const lift = warningBox.querySelector("button");
+    const lift = warningBox.querySelector("li button");
     TestUtils.click(lift);
     await loadPromise;
   }
@@ -75,7 +75,7 @@ add_task(async function test_UsesPaths() {
        "limit type is shown");
 
     const loadPromise = TestUtils.waitForLoad();
-    const lift = warningBox.querySelector("button");
+    const lift = warningBox.querySelector("li button");
     TestUtils.click(lift);
     await loadPromise;
   }
@@ -104,7 +104,7 @@ add_task(async function test_NodeLimit() {
        "limit type is shown");
 
     const loadPromise = TestUtils.waitForLoad();
-    const lift = warningBox.querySelector("button");
+    const lift = warningBox.querySelector("li button");
     TestUtils.click(lift);
     await loadPromise;
   }

@@ -1736,6 +1736,10 @@ g.true-diag g.node polygon {
   margin: 0 1rem 1rem 1rem;
 }
 
+#diagram-limit-warning-overload-list.hidden {
+  display: none;
+}
+
 .diagram-limit-kind {
   font-weight: bold;
 }
