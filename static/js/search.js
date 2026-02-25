@@ -557,42 +557,6 @@ var Diagram = new (class Diagram {
     this.setScrollPosition();
   }
 
-  liftLimit(kind, exists) {
-    let query = Dxr.fields.query.value;
-
-    switch (kind) {
-      case "UsesPaths":
-      case "UsesLines": {
-        const limit = Math.max(256, exists + 100);
-        query = query.replace(/ +path-limit:(\d+)/g, "");
-
-        query += " path-limit:" + limit;
-        break;
-      }
-      case "NodeLimit": {
-        if (query.includes("calls-between:")) {
-          const limit = 16384;
-          query = query.replace(/ +paths-between-node-limit:(\d+)/g, "");
-          query += " paths-between-node-limit:" + limit;
-        } else {
-          const limit = 1024;
-          query = query.replace(/ +node-limit:(\d+)/g, "");
-          query += " node-limit:" + limit;
-        }
-        break;
-      }
-      case "Overrides":
-      case "Subclasses":
-      case "FieldMemberUses":
-        // Unsupported.
-        break;
-    }
-
-    Dxr.fields.query.value = query;
-    let url = Dxr.constructURL();
-    window.location = url;
-  }
-
   addControl() {
     this.panel = null;
     this.ignoreNodesItem = null;
@@ -755,6 +719,54 @@ var Diagram = new (class Diagram {
     }
 
     this.panel.append(legendPane);
+  }
+
+  liftLimit(kind, exists) {
+    switch (kind) {
+      case "UsesPaths":
+      case "UsesLines": {
+        const item = this.getOption("path-limit");
+        if (item) {
+          this.setOption(item, exists + 100);
+        }
+        break;
+      }
+      case "NodeLimit": {
+        const item = this.getOption("node-limit") ||
+              this.getOption("paths-between-node-limit");
+        if (item) {
+          this.setOption(item, item.range[1]);
+        }
+        break;
+      }
+      case "Overrides":
+      case "Subclasses":
+      case "FieldMemberUses":
+        // Unsupported.
+        return;
+    }
+
+    this.applyOptions();
+  }
+
+  getOption(name) {
+    for (const { section, items } of GRAPH_OPTIONS) {
+      for (const item of items) {
+        if (item.name === name) {
+          return item;
+        }
+      }
+    }
+    return null;
+  }
+
+  setOption(item, value) {
+    item.value = value;
+    if ("range" in item) {
+      item.value = Math.max(item.value, item.range[0]);
+      item.value = Math.min(item.value, item.range[1]);
+    }
+    return true;
   }
 
   applyOptions() {
