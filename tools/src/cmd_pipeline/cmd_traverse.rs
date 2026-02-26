@@ -440,36 +440,38 @@ impl PipelineCommand for TraverseCommand {
                             ));
                         }
 
-                        if show_field {
-                            let (field_id, field_info) = sym_node_set
-                                .ensure_symbol(&field.sym, server, next_depth)
-                                .await?;
-                            field_info.effective_subsystem = effective_subsystem;
-                            for label in field.labels {
-                                // XXX like above, consider moving the emoji label mapping here to
-                                // the ontology file or elsewhere.
-                                if let Some((pri, shorter_label)) = label_to_badge_info(&label) {
-                                    field_info.badges.push(SymbolBadge {
-                                        pri,
-                                        label: ustr(shorter_label),
-                                        source_jump: None,
-                                    });
-                                }
-                            }
-                            for (tgt_id, pri, edge_kind, ptr_badge, edge_details) in targets {
-                                field_info.badges.push(SymbolBadge {
-                                    pri,
-                                    label: ustr(ptr_badge),
-                                    source_jump: None,
-                                });
-                                sym_edge_set.ensure_edge_in_graph(
-                                    field_id.clone(),
-                                    tgt_id,
-                                    edge_kind,
-                                    edge_details,
-                                    &mut graph,
-                                );
-                            }
+                        if !show_field {
+                            continue;
+                        }
+                        let (field_id, field_info) = sym_node_set
+                            .ensure_symbol(&field.sym, server, next_depth)
+                            .await?;
+                        field_info.effective_subsystem = effective_subsystem;
+                        for label in field.labels {
+                            // XXX like above, consider moving the emoji label mapping here to
+                            // the ontology file or elsewhere.
+                            let Some((pri, shorter_label)) = label_to_badge_info(&label) else {
+                                continue;
+                            };
+                            field_info.badges.push(SymbolBadge {
+                                pri,
+                                label: ustr(shorter_label),
+                                source_jump: None,
+                            });
+                        }
+                        for (tgt_id, pri, edge_kind, ptr_badge, edge_details) in targets {
+                            field_info.badges.push(SymbolBadge {
+                                pri,
+                                label: ustr(ptr_badge),
+                                source_jump: None,
+                            });
+                            sym_edge_set.ensure_edge_in_graph(
+                                field_id.clone(),
+                                tgt_id,
+                                edge_kind,
+                                edge_details,
+                                &mut graph,
+                            );
                         }
                     }
                 }
@@ -540,15 +542,16 @@ impl PipelineCommand for TraverseCommand {
                         }
 
                         // we already considered depth in the outer condition
-                        if considered.insert(target_info.symbol) {
-                            trace!(sym = target_sym_str, "scheduling field-member-use");
-                            to_traverse.push_back((
-                                target_info.symbol,
-                                target_pretty,
-                                next_depth,
-                                all_traversals_valid,
-                            ));
+                        if !considered.insert(target_info.symbol) {
+                            continue;
                         }
+                        trace!(sym = target_sym_str, "scheduling field-member-use");
+                        to_traverse.push_back((
+                            target_info.symbol,
+                            target_pretty,
+                            next_depth,
+                            all_traversals_valid,
+                        ));
                     }
                 }
             }
@@ -643,60 +646,59 @@ impl PipelineCommand for TraverseCommand {
 
                     // Handle the case where we need to traverse a slot
                     if let Some(other_slot) = traverse_slot {
-                        if let Some(other_sym) = owner_info.get_binding_slot_sym(other_slot) {
-                            let (other_id, other_info) = sym_node_set
-                                .ensure_symbol(&other_sym, server, next_depth)
-                                .await?;
+                        let Some(other_sym) = owner_info.get_binding_slot_sym(other_slot) else {
+                            continue;
+                        };
+                        let (other_id, other_info) = sym_node_set
+                            .ensure_symbol(&other_sym, server, next_depth)
+                            .await?;
 
-                            let other_pretty =
-                                match other_info.crossref_info.pointer("/meta/pretty") {
-                                    Some(Value::String(pretty)) => ustr(pretty),
-                                    _ => ustr(""),
-                                };
-                            if ignore_node_set.contains(&*other_pretty) {
-                                continue;
-                            }
+                        let other_pretty = match other_info.crossref_info.pointer("/meta/pretty") {
+                            Some(Value::String(pretty)) => ustr(pretty),
+                            _ => ustr(""),
+                        };
+                        if ignore_node_set.contains(&*other_pretty) {
+                            continue;
+                        }
 
-                            if outbound_edge {
-                                sym_edge_set.ensure_edge_in_graph(
-                                    sym_id.clone(),
-                                    other_id,
-                                    edge_kind,
-                                    vec![],
-                                    &mut graph,
-                                );
-                            } else {
-                                sym_edge_set.ensure_edge_in_graph(
-                                    other_id,
-                                    sym_id.clone(),
-                                    edge_kind,
-                                    vec![],
-                                    &mut graph,
-                                );
-                            }
-                            if next_depth >= max_depth && !considered.contains(&other_info.symbol) {
-                                overloads_hit.push(OverloadInfo {
-                                    kind: OverloadKind::DepthLimitOnBindingSlot,
-                                    sym: Some(other_info.symbol.to_string()),
-                                    pretty: Some(other_pretty.to_string()),
-                                    exist: next_depth,
-                                    included: depth + 1,
-                                    local_limit: 0,
-                                    global_limit: max_depth,
-                                });
-                            } else if next_depth < max_depth && considered.insert(other_info.symbol)
-                            {
-                                trace!(
-                                    sym = other_info.symbol.as_str(),
-                                    "scheduling traversed binding slot sym"
-                                );
-                                to_traverse.push_back((
-                                    other_info.symbol,
-                                    other_pretty,
-                                    next_depth,
-                                    all_traversals_valid,
-                                ));
-                            }
+                        if outbound_edge {
+                            sym_edge_set.ensure_edge_in_graph(
+                                sym_id.clone(),
+                                other_id,
+                                edge_kind,
+                                vec![],
+                                &mut graph,
+                            );
+                        } else {
+                            sym_edge_set.ensure_edge_in_graph(
+                                other_id,
+                                sym_id.clone(),
+                                edge_kind,
+                                vec![],
+                                &mut graph,
+                            );
+                        }
+                        if next_depth >= max_depth && !considered.contains(&other_info.symbol) {
+                            overloads_hit.push(OverloadInfo {
+                                kind: OverloadKind::DepthLimitOnBindingSlot,
+                                sym: Some(other_info.symbol.to_string()),
+                                pretty: Some(other_pretty.to_string()),
+                                exist: next_depth,
+                                included: depth + 1,
+                                local_limit: 0,
+                                global_limit: max_depth,
+                            });
+                        } else if next_depth < max_depth && considered.insert(other_info.symbol) {
+                            trace!(
+                                sym = other_info.symbol.as_str(),
+                                "scheduling traversed binding slot sym"
+                            );
+                            to_traverse.push_back((
+                                other_info.symbol,
+                                other_pretty,
+                                next_depth,
+                                all_traversals_valid,
+                            ));
                         }
                         continue;
                     } else if !ignore_node_set.contains(&*owner_pretty) {
@@ -780,59 +782,60 @@ impl PipelineCommand for TraverseCommand {
                                 EdgeKind::CrossLanguage,
                             ),
                         };
-                    if should_traverse {
-                        // Skipping is conditional on the decision to traverse.
-                        if skip_other_edges {
-                            skip_after_slots = true;
-                        }
-                        let (rel_id, rel_info) = sym_node_set
-                            .ensure_symbol(&slot.sym, server, next_depth)
-                            .await?;
+                    if !should_traverse {
+                        continue;
+                    }
+                    // Skipping is conditional on the decision to traverse.
+                    if skip_other_edges {
+                        skip_after_slots = true;
+                    }
+                    let (rel_id, rel_info) = sym_node_set
+                        .ensure_symbol(&slot.sym, server, next_depth)
+                        .await?;
 
-                        let rel_pretty = match rel_info.crossref_info.pointer("/meta/pretty") {
-                            Some(Value::String(pretty)) => ustr(pretty),
-                            _ => ustr(""),
-                        };
-                        if ignore_node_set.contains(&*rel_pretty) {
-                            continue;
-                        }
+                    let rel_pretty = match rel_info.crossref_info.pointer("/meta/pretty") {
+                        Some(Value::String(pretty)) => ustr(pretty),
+                        _ => ustr(""),
+                    };
+                    if ignore_node_set.contains(&*rel_pretty) {
+                        continue;
+                    }
 
-                        if outbound_edge {
-                            sym_edge_set.ensure_edge_in_graph(
-                                sym_id.clone(),
-                                rel_id,
-                                edge_kind,
-                                vec![],
-                                &mut graph,
-                            );
-                        } else {
-                            sym_edge_set.ensure_edge_in_graph(
-                                rel_id,
-                                sym_id.clone(),
-                                edge_kind,
-                                vec![],
-                                &mut graph,
-                            );
-                        }
-                        if next_depth >= max_depth && !considered.contains(&slot.sym) {
-                            overloads_hit.push(OverloadInfo {
-                                kind: OverloadKind::DepthLimitOnBindingSlot,
-                                sym: Some(slot.sym.to_string()),
-                                pretty: Some(rel_pretty.to_string()),
-                                exist: next_depth,
-                                included: depth + 1,
-                                local_limit: 0,
-                                global_limit: max_depth,
-                            });
-                        } else if next_depth < max_depth && considered.insert(slot.sym) {
-                            trace!(sym = slot.sym.as_str(), "scheduling bind slot sym");
-                            to_traverse.push_back((
-                                slot.sym,
-                                rel_pretty,
-                                next_depth,
-                                all_traversals_valid,
-                            ));
-                        }
+                    if outbound_edge {
+                        sym_edge_set.ensure_edge_in_graph(
+                            sym_id.clone(),
+                            rel_id,
+                            edge_kind,
+                            vec![],
+                            &mut graph,
+                        );
+                    } else {
+                        sym_edge_set.ensure_edge_in_graph(
+                            rel_id,
+                            sym_id.clone(),
+                            edge_kind,
+                            vec![],
+                            &mut graph,
+                        );
+                    }
+                    if next_depth >= max_depth && !considered.contains(&slot.sym) {
+                        overloads_hit.push(OverloadInfo {
+                            kind: OverloadKind::DepthLimitOnBindingSlot,
+                            sym: Some(slot.sym.to_string()),
+                            pretty: Some(rel_pretty.to_string()),
+                            exist: next_depth,
+                            included: depth + 1,
+                            local_limit: 0,
+                            global_limit: max_depth,
+                        });
+                    } else if next_depth < max_depth && considered.insert(slot.sym) {
+                        trace!(sym = slot.sym.as_str(), "scheduling bind slot sym");
+                        to_traverse.push_back((
+                            slot.sym,
+                            rel_pretty,
+                            next_depth,
+                            all_traversals_valid,
+                        ));
                     }
                 }
                 if skip_after_slots {
@@ -855,64 +858,65 @@ impl PipelineCommand for TraverseCommand {
                         OntologySlotKind::RunnableConstructor => (self.args.edge == "uses", true),
                         OntologySlotKind::RunnableMethod => (self.args.edge == "callees", false),
                     };
-                    if should_traverse {
-                        for rel_sym in slot.syms {
-                            let (rel_id, rel_info) = sym_node_set
-                                .ensure_symbol(&rel_sym, server, next_depth)
-                                .await?;
-
-                            let rel_pretty = match rel_info.crossref_info.pointer("/meta/pretty") {
-                                Some(Value::String(pretty)) => ustr(pretty),
-                                _ => ustr(""),
-                            };
-                            if ignore_node_set.contains(&*rel_pretty) {
-                                continue;
-                            }
-
-                            if upwards {
-                                sym_edge_set.ensure_edge_in_graph(
-                                    rel_id,
-                                    sym_id.clone(),
-                                    EdgeKind::Default,
-                                    vec![],
-                                    &mut graph,
-                                );
-                            } else {
-                                sym_edge_set.ensure_edge_in_graph(
-                                    sym_id.clone(),
-                                    rel_id,
-                                    EdgeKind::Default,
-                                    vec![],
-                                    &mut graph,
-                                );
-                            }
-                            if next_depth >= max_depth && !considered.contains(&rel_sym) {
-                                overloads_hit.push(OverloadInfo {
-                                    kind: OverloadKind::DepthLimitOnOntologySlot,
-                                    sym: Some(rel_sym.to_string()),
-                                    pretty: Some(rel_pretty.to_string()),
-                                    exist: next_depth,
-                                    included: depth + 1,
-                                    local_limit: 0,
-                                    global_limit: max_depth,
-                                });
-                            } else if next_depth < max_depth && considered.insert(rel_sym) {
-                                trace!(sym = rel_sym.as_str(), "scheduling ontology sym");
-                                to_traverse.push_back((
-                                    rel_sym,
-                                    rel_pretty,
-                                    next_depth,
-                                    all_traversals_valid,
-                                ));
-                            }
-                        }
-                        // For the case of runnables the override hierarchy is arguably a
-                        // distraction from the fundamental control flow going on.
-                        //
-                        // TODO: Evaluate whether avoiding walking up the override edges is helpful
-                        // as implemented here.
-                        keep_going = false;
+                    if !should_traverse {
+                        continue;
                     }
+                    for rel_sym in slot.syms {
+                        let (rel_id, rel_info) = sym_node_set
+                            .ensure_symbol(&rel_sym, server, next_depth)
+                            .await?;
+
+                        let rel_pretty = match rel_info.crossref_info.pointer("/meta/pretty") {
+                            Some(Value::String(pretty)) => ustr(pretty),
+                            _ => ustr(""),
+                        };
+                        if ignore_node_set.contains(&*rel_pretty) {
+                            continue;
+                        }
+
+                        if upwards {
+                            sym_edge_set.ensure_edge_in_graph(
+                                rel_id,
+                                sym_id.clone(),
+                                EdgeKind::Default,
+                                vec![],
+                                &mut graph,
+                            );
+                        } else {
+                            sym_edge_set.ensure_edge_in_graph(
+                                sym_id.clone(),
+                                rel_id,
+                                EdgeKind::Default,
+                                vec![],
+                                &mut graph,
+                            );
+                        }
+                        if next_depth >= max_depth && !considered.contains(&rel_sym) {
+                            overloads_hit.push(OverloadInfo {
+                                kind: OverloadKind::DepthLimitOnOntologySlot,
+                                sym: Some(rel_sym.to_string()),
+                                pretty: Some(rel_pretty.to_string()),
+                                exist: next_depth,
+                                included: depth + 1,
+                                local_limit: 0,
+                                global_limit: max_depth,
+                            });
+                        } else if next_depth < max_depth && considered.insert(rel_sym) {
+                            trace!(sym = rel_sym.as_str(), "scheduling ontology sym");
+                            to_traverse.push_back((
+                                rel_sym,
+                                rel_pretty,
+                                next_depth,
+                                all_traversals_valid,
+                            ));
+                        }
+                    }
+                    // For the case of runnables the override hierarchy is arguably a
+                    // distraction from the fundamental control flow going on.
+                    //
+                    // TODO: Evaluate whether avoiding walking up the override edges is helpful
+                    // as implemented here.
+                    keep_going = false;
                 }
                 if !keep_going {
                     continue;
@@ -1020,19 +1024,21 @@ impl PipelineCommand for TraverseCommand {
                         target_info.crossref_info.pointer("/meta/labels").cloned()
                     {
                         for label in labels_json {
-                            if let Value::String(label) = label {
-                                if let Some(badge_label) =
-                                    label.strip_prefix("class-diagram:elide-and-badge:")
-                                {
-                                    let sym_info = sym_node_set.get_mut(&sym_id);
-                                    sym_info.badges.push(SymbolBadge {
-                                        pri: 50,
-                                        label: ustr(badge_label),
-                                        source_jump: None,
-                                    });
-                                    continue 'target;
-                                }
-                            }
+                            let Value::String(label) = label else {
+                                continue;
+                            };
+                            let Some(badge_label) =
+                                label.strip_prefix("class-diagram:elide-and-badge:")
+                            else {
+                                continue;
+                            };
+                            let sym_info = sym_node_set.get_mut(&sym_id);
+                            sym_info.badges.push(SymbolBadge {
+                                pri: 50,
+                                label: ustr(badge_label),
+                                source_jump: None,
+                            });
+                            continue 'target;
                         }
                     }
 
@@ -1101,43 +1107,44 @@ impl PipelineCommand for TraverseCommand {
                         continue;
                     }
 
-                    if considered.insert(target_info.symbol) {
-                        // As a quasi-hack, only add this edge if we didn't
-                        // already queue the class for consideration to avoid
-                        // getting this edge twice thanks to the reciprocal
-                        // relationship we will see when considering it.
-                        //
-                        // This is only necessary because this is a case
-                        // where we are doing bi-directional traversal
-                        // because overrides are an equivalence class from
-                        // our perspective (right now, before actually
-                        // checking the definition of equivalence class. ;)
-                        sym_edge_set.ensure_edge_in_graph(
-                            target_id,
-                            sym_id.clone(),
-                            EdgeKind::Inheritance,
-                            vec![],
-                            &mut graph,
-                        );
-                        if next_depth >= max_depth {
-                            overloads_hit.push(OverloadInfo {
-                                kind: OverloadKind::DepthLimitOnOverrides,
-                                sym: Some(target_info.symbol.to_string()),
-                                pretty: Some(target_pretty.to_string()),
-                                exist: next_depth,
-                                included: depth + 1,
-                                local_limit: 0,
-                                global_limit: max_depth,
-                            });
-                        } else {
-                            trace!(sym = target_sym_str, "scheduling overrides");
-                            to_traverse.push_back((
-                                target_info.symbol,
-                                target_pretty,
-                                next_depth,
-                                all_traversals_valid,
-                            ));
-                        }
+                    if !considered.insert(target_info.symbol) {
+                        continue;
+                    }
+                    // As a quasi-hack, only add this edge if we didn't
+                    // already queue the class for consideration to avoid
+                    // getting this edge twice thanks to the reciprocal
+                    // relationship we will see when considering it.
+                    //
+                    // This is only necessary because this is a case
+                    // where we are doing bi-directional traversal
+                    // because overrides are an equivalence class from
+                    // our perspective (right now, before actually
+                    // checking the definition of equivalence class. ;)
+                    sym_edge_set.ensure_edge_in_graph(
+                        target_id,
+                        sym_id.clone(),
+                        EdgeKind::Inheritance,
+                        vec![],
+                        &mut graph,
+                    );
+                    if next_depth >= max_depth {
+                        overloads_hit.push(OverloadInfo {
+                            kind: OverloadKind::DepthLimitOnOverrides,
+                            sym: Some(target_info.symbol.to_string()),
+                            pretty: Some(target_pretty.to_string()),
+                            exist: next_depth,
+                            included: depth + 1,
+                            local_limit: 0,
+                            global_limit: max_depth,
+                        });
+                    } else {
+                        trace!(sym = target_sym_str, "scheduling overrides");
+                        to_traverse.push_back((
+                            target_info.symbol,
+                            target_pretty,
+                            next_depth,
+                            all_traversals_valid,
+                        ));
                     }
                 }
             }
@@ -1174,34 +1181,35 @@ impl PipelineCommand for TraverseCommand {
                         continue;
                     }
 
-                    if considered.insert(target_info.symbol) {
-                        // Same rationale on avoiding a duplicate edge.
-                        sym_edge_set.ensure_edge_in_graph(
-                            sym_id.clone(),
-                            target_id,
-                            EdgeKind::Inheritance,
-                            vec![],
-                            &mut graph,
-                        );
-                        if next_depth >= max_depth {
-                            overloads_hit.push(OverloadInfo {
-                                kind: OverloadKind::DepthLimitOnOverriddenBy,
-                                sym: Some(target_info.symbol.to_string()),
-                                pretty: Some(target_pretty.to_string()),
-                                exist: next_depth,
-                                included: depth + 1,
-                                local_limit: 0,
-                                global_limit: max_depth,
-                            });
-                        } else {
-                            trace!(sym = target_sym_str, "scheduling overridenBy");
-                            to_traverse.push_back((
-                                target_info.symbol,
-                                target_pretty,
-                                next_depth,
-                                all_traversals_valid,
-                            ));
-                        }
+                    if !considered.insert(target_info.symbol) {
+                        continue;
+                    }
+                    // Same rationale on avoiding a duplicate edge.
+                    sym_edge_set.ensure_edge_in_graph(
+                        sym_id.clone(),
+                        target_id,
+                        EdgeKind::Inheritance,
+                        vec![],
+                        &mut graph,
+                    );
+                    if next_depth >= max_depth {
+                        overloads_hit.push(OverloadInfo {
+                            kind: OverloadKind::DepthLimitOnOverriddenBy,
+                            sym: Some(target_info.symbol.to_string()),
+                            pretty: Some(target_pretty.to_string()),
+                            exist: next_depth,
+                            included: depth + 1,
+                            local_limit: 0,
+                            global_limit: max_depth,
+                        });
+                    } else {
+                        trace!(sym = target_sym_str, "scheduling overridenBy");
+                        to_traverse.push_back((
+                            target_info.symbol,
+                            target_pretty,
+                            next_depth,
+                            all_traversals_valid,
+                        ));
                     }
                 }
             }
@@ -1257,33 +1265,34 @@ impl PipelineCommand for TraverseCommand {
                         continue;
                     }
 
-                    if target_info.is_callable() {
-                        sym_edge_set.ensure_edge_in_graph(
-                            sym_id.clone(),
-                            target_id,
-                            EdgeKind::Default,
-                            edge_info,
-                            &mut graph,
-                        );
-                        if next_depth >= max_depth && !considered.contains(&target_info.symbol) {
-                            overloads_hit.push(OverloadInfo {
-                                kind: OverloadKind::DepthLimitOnCallees,
-                                sym: Some(target_info.symbol.to_string()),
-                                pretty: Some(target_pretty.to_string()),
-                                exist: next_depth,
-                                included: depth + 1,
-                                local_limit: 0,
-                                global_limit: max_depth,
-                            });
-                        } else if next_depth < max_depth && considered.insert(target_info.symbol) {
-                            trace!(sym = target_sym_str, "scheduling callees");
-                            to_traverse.push_back((
-                                target_info.symbol,
-                                target_pretty,
-                                next_depth,
-                                all_traversals_valid,
-                            ));
-                        }
+                    if !target_info.is_callable() {
+                        continue;
+                    }
+                    sym_edge_set.ensure_edge_in_graph(
+                        sym_id.clone(),
+                        target_id,
+                        EdgeKind::Default,
+                        edge_info,
+                        &mut graph,
+                    );
+                    if next_depth >= max_depth && !considered.contains(&target_info.symbol) {
+                        overloads_hit.push(OverloadInfo {
+                            kind: OverloadKind::DepthLimitOnCallees,
+                            sym: Some(target_info.symbol.to_string()),
+                            pretty: Some(target_pretty.to_string()),
+                            exist: next_depth,
+                            included: depth + 1,
+                            local_limit: 0,
+                            global_limit: max_depth,
+                        });
+                    } else if next_depth < max_depth && considered.insert(target_info.symbol) {
+                        trace!(sym = target_sym_str, "scheduling callees");
+                        to_traverse.push_back((
+                            target_info.symbol,
+                            target_pretty,
+                            next_depth,
+                            all_traversals_valid,
+                        ));
                     }
                 }
             }
@@ -1403,44 +1412,45 @@ impl PipelineCommand for TraverseCommand {
                             continue;
                         }
 
-                        if source_info.is_callable() {
-                            // We call this even if our check below determines we've already created
-                            // and traversed this edge because we want to merge in edge detail
-                            // information.
-                            let jump = format!("{}#{}", path, source["lno"].as_u64().unwrap_or(0));
-                            sym_edge_set.ensure_edge_in_graph(
-                                source_id,
-                                sym_id.clone(),
-                                EdgeKind::Default,
-                                vec![EdgeDetail::Jump(jump)],
-                                &mut graph,
-                            );
-                            // Only traverse the edge once.
-                            if next_depth >= max_depth
-                                && !use_considered.contains(&source_info.symbol)
-                                && !considered.contains(&source_info.symbol)
-                            {
-                                overloads_hit.push(OverloadInfo {
-                                    kind: OverloadKind::DepthLimitOnUses,
-                                    sym: Some(source_info.symbol.to_string()),
-                                    pretty: Some(source_pretty.to_string()),
-                                    exist: next_depth,
-                                    included: depth + 1,
-                                    local_limit: 0,
-                                    global_limit: max_depth,
-                                });
-                            } else if use_considered.insert(source_info.symbol)
-                                && next_depth < max_depth
-                                && considered.insert(source_info.symbol)
-                            {
-                                trace!(sym = source_sym_str, "scheduling uses");
-                                to_traverse.push_back((
-                                    source_info.symbol,
-                                    source_pretty,
-                                    next_depth,
-                                    all_traversals_valid,
-                                ));
-                            }
+                        if !source_info.is_callable() {
+                            continue;
+                        }
+                        // We call this even if our check below determines we've already created
+                        // and traversed this edge because we want to merge in edge detail
+                        // information.
+                        let jump = format!("{}#{}", path, source["lno"].as_u64().unwrap_or(0));
+                        sym_edge_set.ensure_edge_in_graph(
+                            source_id,
+                            sym_id.clone(),
+                            EdgeKind::Default,
+                            vec![EdgeDetail::Jump(jump)],
+                            &mut graph,
+                        );
+                        // Only traverse the edge once.
+                        if next_depth >= max_depth
+                            && !use_considered.contains(&source_info.symbol)
+                            && !considered.contains(&source_info.symbol)
+                        {
+                            overloads_hit.push(OverloadInfo {
+                                kind: OverloadKind::DepthLimitOnUses,
+                                sym: Some(source_info.symbol.to_string()),
+                                pretty: Some(source_pretty.to_string()),
+                                exist: next_depth,
+                                included: depth + 1,
+                                local_limit: 0,
+                                global_limit: max_depth,
+                            });
+                        } else if use_considered.insert(source_info.symbol)
+                            && next_depth < max_depth
+                            && considered.insert(source_info.symbol)
+                        {
+                            trace!(sym = source_sym_str, "scheduling uses");
+                            to_traverse.push_back((
+                                source_info.symbol,
+                                source_pretty,
+                                next_depth,
+                                all_traversals_valid,
+                            ));
                         }
                     }
                 }
