@@ -759,6 +759,169 @@ class DiagramMenuSection extends MenuItem {
   }
 }
 
+class DiagramOverloadMenuSection extends MenuItem {
+  constructor(options) {
+    super({
+      section: "diagram-overload",
+    });
+
+    this.sym = options.sym;
+
+    this.links = [];
+  }
+
+  isFocusable() {
+    return true;
+  }
+
+  getFocusableElement(side) {
+    if (side === "first") {
+      return this.links[0];
+    }
+    return this.links.at(-1);
+  }
+
+  populateListItem(li, menu, pos) {
+    const overloadInfo = Diagram.overloadInfoPerSym.get(this.sym);
+    for (const category of ["other", "depth"]) {
+      const list = overloadInfo[category];
+
+      if (list.length === 0) {
+        continue;
+      }
+
+      const withButtons = document.createElement("div");
+      withButtons.classList.add("contextmenu-with-buttons");
+      li.append(withButtons);
+
+      const title = document.createElement("div");
+      title.classList.add("contextmenu-section-title");
+      title.classList.add(`icon-brush`);
+      if (category === "other") {
+        title.append("This item hit the non-depth limit");
+      } else {
+        title.append("This item hit the depth limit");
+      }
+      withButtons.append(title);
+
+      const titleButtons = document.createElement("div");
+      title.classList.add("contextmenu-title-buttons");
+      withButtons.append(titleButtons);
+      {
+        const link = document.createElement("a");
+        link.classList.add("contextmenu-button");
+        link.setAttribute("role", "menuitem");
+        link.href = "#";
+        link.addEventListener("keydown", event => {
+          this.onKeyDown(event, menu, link, pos);
+        });
+        if (category === "other") {
+          if (overloadInfo.canLift) {
+            link.append("Lift the limit");
+          } else {
+            link.append("Cannot lift the limit");
+            link.classList.add("disabled");
+          }
+        } else {
+          if (Diagram.canIncreaseDepthLimit()) {
+            link.append("Increase the depth");
+          } else {
+            link.append("Cannot increase the depth");
+            link.classList.add("disabled");
+          }
+        }
+        link.addEventListener("click", event => {
+          event.preventDefault();
+
+          if (category === "other") {
+            if (overloadInfo.canLift) {
+              Diagram.liftLimitFor(this.sym);
+            }
+          } else {
+            if (Diagram.canIncreaseDepthLimit()) {
+              Diagram.increaseDepthLimit();
+            }
+          }
+          ContextMenu.hide();
+        });
+        titleButtons.append(link);
+
+        this.links.push(link);
+      }
+
+      const addedLabels = new Set();
+
+      const ul = document.createElement("ul");
+      ul.classList.add("diagram-overload-list");
+      li.append(ul);
+      for (const overload of list) {
+        const label = Diagram.getLabelForOverload(overload);
+        if (addedLabels.has(label)) {
+          continue;
+        }
+        addedLabels.add(label);
+
+        const item = document.createElement("li");
+        item.append(label);
+        ul.append(item);
+      }
+    }
+  }
+
+  onKeyDown(event, menu, link, pos) {
+    let index = this.links.indexOf(link);
+    if (index === -1) {
+      menu.onKeyDown(event, this, pos);
+      return;
+    }
+
+    switch (event.key) {
+      case "ArrowUp":
+      case "Up":
+      case "ArrowLeft":
+      case "Left":
+        index--;
+        break;
+
+      case "ArrowDown":
+      case "Down":
+      case "ArrowRight":
+      case "Right":
+        index++;
+        break;
+
+      case "Home":
+      case "PageUp":
+        index = 0;
+        break;
+
+      case "End":
+      case "PageDown":
+        index = this.links.length - 1;
+        break;
+
+      default:
+        menu.onKeyDown(event, this, pos);
+        return;
+    }
+
+    if (index < 0 || index > this.links.length - 1) {
+      menu.onKeyDown(event, this, pos);
+      return;
+    }
+
+    event.preventDefault();
+    menu.focusElement(this.links[index]);
+  }
+
+  toKey() {
+    return JSON.stringify({
+      type: "diagram-overload",
+      sym: this.sym,
+    });
+  }
+}
+
 class ContextMenuOrSubMenu extends ContextMenuBase {
   constructor() {
     super();
@@ -1825,15 +1988,27 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       }
     }
 
-    let word = getTargetWord();
-    if (word) {
-      // A word was clicked on.
-      textSearchMenuItems.push(new MenuItem({
-        html: this.fmt("Search for the substring <strong>_</strong>", word),
-        href: `/${tree}/search?q=${encodeURIComponent(word)}&redirect=false`,
-        icon: "font",
-        section: "text-searches",
+    let suppressSubstring = false;
+    const overloadMenuItems = [];
+    const overload = event.target.closest("[data-diagram-overload-symbol]");
+    if (overload) {
+      suppressSubstring = true;
+      overloadMenuItems.push(new DiagramOverloadMenuSection({
+        sym: overload.getAttribute("data-diagram-overload-symbol"),
       }));
+    }
+
+    if (!suppressSubstring) {
+      let word = getTargetWord();
+      if (word) {
+        // A word was clicked on.
+        textSearchMenuItems.push(new MenuItem({
+          html: this.fmt("Search for the substring <strong>_</strong>", word),
+          href: `/${tree}/search?q=${encodeURIComponent(word)}&redirect=false`,
+          icon: "font",
+          section: "text-searches",
+        }));
+      }
     }
 
     let menuItems = [
@@ -1847,6 +2022,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       ...stickyMenuItems,
       ...diagramMenuItems,
       ...gcMenuItems,
+      ...overloadMenuItems,
     ];
 
     if (!menuItems.length) {
