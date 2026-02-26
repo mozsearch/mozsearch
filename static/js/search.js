@@ -551,10 +551,96 @@ var Diagram = new (class Diagram {
   };
 
   constructor() {
+    this.calculateOverload();
+
     this.addControl();
     this.addBadgeTooltips();
+    this.addOverloadIcons();
 
     this.setScrollPosition();
+  }
+
+  toggleOverloadList() {
+    const list = document.querySelector("#diagram-limit-warning-overload-list");
+    const toggle = document.querySelector("#diagram-limit-warning-overload-list-toggle");
+    list.classList.toggle("hidden");
+    if (list.classList.contains("hidden")) {
+      toggle.textContent = "Show";
+    } else {
+      toggle.textContent = "Hide";
+    }
+  }
+
+  canIncreaseDepthLimit() {
+    const item = this.getOption("depth");
+    if (!item) {
+      return false;
+    }
+    return item.value < item.range[1];
+  }
+
+  increaseDepthLimit() {
+    const item = this.getOption("depth");
+    if (!item) {
+      return;
+    }
+    item.value++;
+    this.applyOptions();
+  }
+
+  calculateOverload() {
+    this.overloadInfoPerSym = null;
+
+    if (typeof GRAPH_OVERLOADS === "undefined") {
+      return;
+    }
+
+    if (GRAPH_OVERLOADS.length === 0) {
+      return;
+    }
+
+    this.overloadInfoPerSym = new Map();
+
+    for (const overload of GRAPH_OVERLOADS) {
+      if (!overload.sym) {
+        continue;
+      }
+      let overloadInfo;
+      if (this.overloadInfoPerSym.has(overload.sym)) {
+        overloadInfo = this.overloadInfoPerSym.get(overload.sym);
+      } else {
+        overloadInfo = {
+          depth: [],
+          other: [],
+          canLift: false,
+        };
+        this.overloadInfoPerSym.set(overload.sym, overloadInfo);
+      }
+
+      if (overload.kind.startsWith("DepthLimit")) {
+        overloadInfo.depth.push(overload);
+      } else {
+        overloadInfo.other.push(overload);
+        switch (overload.kind) {
+          case "UsesPaths":
+          case "UsesLines": {
+            const item = this.getOption("path-limit");
+            if (item && overload.exist < item.range[1]) {
+              overloadInfo.canLift = true;
+            }
+            break;
+          }
+          case "NodeLimit": {
+            const item = this.getOption("node-limit") ||
+                  this.getOption("paths-between-node-limit");
+            if (item && overload.exist < item.range[1]) {
+              overloadInfo.canLift = true;
+            }
+            break;
+          }
+        }
+      }
+    }
   }
 
   addControl() {
@@ -721,7 +807,18 @@ var Diagram = new (class Diagram {
     this.panel.append(legendPane);
   }
 
-  liftLimit(kind, exists) {
+  liftLimitFor(sym) {
+    if (!this.overloadInfoPerSym.has(sym)) {
+      return;
+    }
+    const overloadInfo = this.overloadInfoPerSym.get(sym);
+    for (const overload of overloadInfo.other) {
+      this.liftLimit(overload.kind, overload.exist, /* skipApply = */ true);
+    }
+    this.applyOptions();
+  }
+
+  liftLimit(kind, exists, skipApply=false) {
     switch (kind) {
       case "UsesPaths":
       case "UsesLines": {
@@ -746,7 +843,9 @@ var Diagram = new (class Diagram {
         return;
     }
 
-    this.applyOptions();
+    if (!skipApply) {
+      this.applyOptions();
+    }
   }
 
   getOption(name) {
@@ -855,6 +954,147 @@ var Diagram = new (class Diagram {
       this.ignoreNodesItem.value = pretty;
     }
     this.applyOptions();
+  }
+
+  addOverloadIcons() {
+    if (!this.overloadInfoPerSym) {
+      return;
+    }
+
+    for (const graph of document.querySelectorAll("g.graph")) {
+      for (const [sym, overloadInfo] of this.overloadInfoPerSym) {
+        let isDepthOnly = overloadInfo.other.length === 0;
+
+        const node = graph.querySelector(`[data-symbols*="${sym}"]`);
+        if (!node) {
+          continue;
+        }
+        const syms = node.getAttribute("data-symbols").split(",");
+        if (!syms.includes(sym)) {
+          continue;
+        }
+
+        const polygon = node.querySelector("polygon");
+        if (!polygon) {
+          continue;
+        }
+        const points = polygon.getAttribute("points");
+        if (!points) {
+          continue;
+        }
+        let w = 0, h = 0;
+        for (const p of points.split(" ")) {
+          const [x, y] = p.split(",").map(n => parseFloat(n));
+          w = Math.max(w, x);
+          h = Math.min(h, y);
+        }
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.classList.add("diagram-overload");
+        if (isDepthOnly) {
+          g.classList.add("diagram-overload-depth");
+        } else {
+          g.classList.add("diagram-overload-other");
+        }
+        g.setAttribute("data-diagram-overload-symbol", sym);
+        graph.append(g);
+        const cx = w - 3;
+        const cy = h + 3;
+        if (isDepthOnly) {
+          const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          circle.setAttribute("cx", cx);
+          circle.setAttribute("cy", cy);
+          circle.setAttribute("r", 6);
+          g.append(circle);
+        } else {
+          const triangle = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+          const points = [
+            [cx - 6, cy + 5],
+            [cx - 6.5, cy + 4],
+            [cx - 1, cy - 6],
+            [cx + 1, cy - 6],
+            [cx + 6.5, cy + 4],
+            [cx + 6, cy + 5],
+            [cx - 6, cy + 5],
+          ];
+          triangle.setAttribute("points", points.map(p => p.join(",")).join(" "));
+          g.append(triangle);
+        }
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", cx - 3);
+        text.setAttribute("y", cy + 3);
+        text.setAttribute("font-family", "Courier New");
+        text.setAttribute("font-size", "10.0");
+        text.setAttribute("font-weight", "bold");
+        text.append("!");
+        g.append(text);
+      }
+    }
+  }
+
+  getLabelForOverload(overload) {
+    if (overload.kind.startsWith("DepthLimit")) {
+      return this.overloadToDescription(overload);
+    }
+
+    const message = this.overloadToDescription(overload);
+    const eq = this.overloadToEq(overload);
+
+    return `${message}: ${eq}: only ${overload.included} included`;
+  }
+
+  overloadToDescription(overload) {
+    switch (overload.kind) {
+      case "Overrides":
+        return "Too many overrides";
+      case "Subclasses":
+        return "Too many subclasses";
+      case "UsesPaths":
+        return "Too many uses";
+      case "UsesLines":
+        return "Too many uses lines";
+      case "FieldMemberUses":
+        return "Too many field member uses";
+      case "NodeLimit":
+        return "Too many nodes";
+      case "DepthLimitOnFieldPointer":
+        return "Field pointers are not traversed";
+      case "DepthLimitOnBindingSlot":
+        return "Binding slots are not traversed";
+      case "DepthLimitOnOntologySlot":
+        return "Ontology slots are not traversed ";
+      case "DepthLimitOnSubclass":
+        return "Subclasses are not traversed";
+      case "DepthLimitOnSuper":
+        return "Super classes are not traversed";
+      case "DepthLimitOnOverrides":
+        return "Override-edges are not traversed";
+      case "DepthLimitOnOverridenBy":
+        return "OverriddenBy-edges are not traversed";
+      case "DepthLimitOnCallees":
+        return "Callees-edges are not traversed";
+      case "DepthLimitOnUses":
+        return "Uses-edges are not traversed";
+      case "DepthLimitOnFieldMemberUses":
+        return "Field member uses are not traversed";
+      default:
+        return `Unknown kind ${overload.kind}`;
+    }
+  }
+
+  overloadToEq(overload) {
+    let limit;
+    if (overload.local_limit) {
+      limit = overload.local_limit;
+    } else {
+      limit = overload.global_limit;
+    }
+    let exist;
+    if (overload.exist == 0) {
+      exist = "(unknown)";
+    } else {
+      exist = overload.exist;
+    }
+    return `${exist} >= ${limit}`;
   }
 
   setScrollPosition() {

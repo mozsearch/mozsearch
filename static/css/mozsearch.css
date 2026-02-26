@@ -140,6 +140,10 @@ table {
   --diagram-hovered-out-edge: blue;
   --diagram-hovered-in-edge: green;
   --diagram-true-diag: white;
+  --diagram-overload-depth: #d0d0d0;
+  --diagram-overload-depth-text: var(--page-foreground);
+  --diagram-overload-other: #ffdd40;
+  --diagram-overload-other-text: #202020;
 
   --tree-switcher-width: 24px;
   --tree-switcher-height: 24px;
@@ -246,6 +250,10 @@ table {
     --diagram-hovered-out-edge: #4c50fc;
     --diagram-hovered-in-edge: #53cb59;
     --diagram-true-diag: #646464;
+    --diagram-overload-depth: #a0a0a0;
+    --diagram-overload-depth-text: var(--page-foreground);
+    --diagram-overload-other: #d0d040;
+    --diagram-overload-other-text: #202020;
   }
 }
 }
@@ -496,7 +504,8 @@ td#line-numbers {
 }
 
 .source-line a,
-g[data-symbols] {
+g[data-symbols],
+g.overload {
   cursor: pointer;
 }
 .code code {
@@ -509,6 +518,47 @@ g[data-symbols] {
 mark {
   position: relative;
   padding: 0.5rem;
+}
+
+g.diagram-overload text {
+  pointer-events: none;
+}
+
+g.diagram-overload-depth circle {
+  stroke: var(--diagram-overload-depth);
+  fill: var(--page-background);
+  stroke-opacity: 0.8;
+  fill-opacity: 0.8;
+}
+g.diagram-overload-depth circle:hover {
+  fill: var(--diagram-overload-depth);
+  stroke-opacity: 1;
+  fill-opacity: 1;
+}
+g.diagram-overload-depth circle:hover + text {
+  fill: var(--diagram-overload-depth-text);
+  fill-opacity: 1;
+}
+
+g.diagram-overload-other polygon {
+  stroke: var(--diagram-overload-other);
+  fill: var(--page-background);
+  stroke-opacity: 1;
+  fill-opacity: 0.8;
+}
+g.diagram-overload-other polygon:hover {
+  fill: var(--diagram-overload-other);
+  stroke-opacity: 1;
+  fill-opacity: 1;
+}
+g.diagram-overload-other polygon:hover + text {
+  fill: var(--diagram-overload-other-text);
+  fill-opacity: 1;
+}
+
+.diagram-overload-list {
+  margin: 0.5rem;
+  padding-inline-start: 2.5rem;
 }
 
 /**
