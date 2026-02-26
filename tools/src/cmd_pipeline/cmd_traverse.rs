@@ -399,26 +399,6 @@ impl PipelineCommand for TraverseCommand {
                                 continue;
                             }
 
-                            if next_depth >= max_depth && !considered.contains(&ptr_info.sym) {
-                                overloads_hit.push(OverloadInfo {
-                                    kind: OverloadKind::DepthLimitOnFieldPointer,
-                                    sym: Some(ptr_info.sym.to_string()),
-                                    pretty: Some(target_pretty.to_string()),
-                                    exist: next_depth,
-                                    included: depth + 1,
-                                    local_limit: 0,
-                                    global_limit: max_depth,
-                                });
-                            } else if next_depth < max_depth && considered.insert(ptr_info.sym) {
-                                trace!(sym = ptr_info.sym.as_str(), "scheduling pointee sym");
-                                to_traverse.push_back((
-                                    ptr_info.sym,
-                                    target_pretty,
-                                    next_depth,
-                                    all_traversals_valid,
-                                ));
-                            }
-
                             // In cases where we have multiple pointer_infos for a field, we
                             // arbitrarily picking the first one for now.
                             // XXX For maps, we probably should be favoring the value over the key,
@@ -438,6 +418,26 @@ impl PipelineCommand for TraverseCommand {
                                 use_badge,
                                 vec![EdgeDetail::HoverClass(use_class.to_string())],
                             ));
+
+                            if next_depth >= max_depth && !considered.contains(&ptr_info.sym) {
+                                overloads_hit.push(OverloadInfo {
+                                    kind: OverloadKind::DepthLimitOnFieldPointer,
+                                    sym: Some(ptr_info.sym.to_string()),
+                                    pretty: Some(target_pretty.to_string()),
+                                    exist: next_depth,
+                                    included: depth + 1,
+                                    local_limit: 0,
+                                    global_limit: max_depth,
+                                });
+                            } else if next_depth < max_depth && considered.insert(ptr_info.sym) {
+                                trace!(sym = ptr_info.sym.as_str(), "scheduling pointee sym");
+                                to_traverse.push_back((
+                                    ptr_info.sym,
+                                    target_pretty,
+                                    next_depth,
+                                    all_traversals_valid,
+                                ));
+                            }
                         }
 
                         if !show_field {
