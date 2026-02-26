@@ -1476,6 +1476,10 @@ impl PipelineCommand for TraverseCommand {
             }));
         }
         traverse_options.push(json!({
+            // NOTE:
+            //   * The name is mapped by query_core.toml
+            //   * Range is not enforced on the server side.
+            //     The following range is only for the UI purpose
             "name": "path-limit",
             "label": "Path limit",
             "value": skip_uses_at_path_count,
