@@ -1,0 +1,49 @@
+From fd4cc0f23dc1f836a5bbbd08a9705493a1b68857 Mon Sep 17 00:00:00 2001
+From: Nicolas Guichard <nicolas.guichard@kdab.com>
+Date: Sun, 7 Jul 2024 19:46:00 +0200
+Subject: [PATCH] Use system JVM
+
+---
+ project/JavaToolchainPlugin.scala | 27 ++++++++++++---------------
+ 1 file changed, 12 insertions(+), 15 deletions(-)
+
+diff --git a/project/JavaToolchainPlugin.scala b/project/JavaToolchainPlugin.scala
+index d9db4fc..d79e87d 100644
+--- a/project/JavaToolchainPlugin.scala
++++ b/project/JavaToolchainPlugin.scala
+@@ -80,21 +80,18 @@ object JavaToolchainPlugin extends AutoPlugin {
+     javaHomeCache.computeIfAbsent(
+       version,
+       (v: String) => {
+-        val coursier = Paths.get("bin", "coursier")
+-        val index = jvmIndex
+-          .toList
+-          .flatMap(index => "--jvm-index" :: index :: Nil)
+-        val arguments =
+-          List(
+-            "java",
+-            "-jar",
+-            coursier.toString,
+-            "java-home",
+-            "--jvm",
+-            jvmName(v)
+-          ) ++ index
+-
+-        new File(Process(arguments).!!.trim)
++        new File(v match {
++          case "8" =>
++            sys.env.get("JAVA8").get
++          case "11" =>
++            sys.env.get("JAVA11").get
++          case "17" =>
++            sys.env.get("JAVA17").get
++          case "21" =>
++            sys.env.get("JAVA21").get
++          case other =>
++            other
++        })
+       }
+     )
+   }
+-- 
+2.45.1

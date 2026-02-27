@@ -56,7 +56,7 @@ rsync -av $XPIDL_SAVED_ANALYSIS_FILES/ $INDEX_ROOT/analysis/
 echo "Performing build::scip-java step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
 # Use Gradle from PATH if available
-if which gradle &> /dev/null; then
+if command -v gradle &> /dev/null; then
   GRADLE=gradle
 else
   GRADLE=./gradlew

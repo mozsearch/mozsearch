@@ -1,0 +1,23 @@
+name: Nix Flake Check
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  nix-flake-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+      - uses: DeterminateSystems/nix-installer-action@v19
+      - uses: nix-ocaml/nix-s3-action@fork
+        with:
+          endpoint: "s3://searchfox-binary-cache?region=us-west-2"
+          signingKey: "${{ secrets.NIX_BINARY_CACHE_SIGNING_KEY }}"
+          awsAccessKeyId: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+          awsSecretAccessKey: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          pushFilter: "(-source$|-webtest-index-unstable$|-searchfox-repo-unstable$|nixpkgs\\.tar\\.gz$)"
+      - run: nix flake check -L --accept-flake-config --override-input self-with-dotgit path:$(pwd)
