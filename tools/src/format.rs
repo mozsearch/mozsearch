@@ -762,21 +762,35 @@ pub fn format_file_data(
             //    than the source code.
             use InterpolatedCoverage::*;
             match coverage.get(i) {
-                None => r#" class="cov-strip cov-uncovered cov-unknown" role="button" aria-label="missing data""#.to_owned(),
-                Some(InterpolatedMiss) => r#" class="cov-strip cov-miss cov-interpolated" role="button" aria-label="uncovered""#.to_owned(),
-                Some(InterpolatedHit) => r#" class="cov-strip cov-hit cov-interpolated" role="button" aria-label="uncovered""#.to_owned(),
-                Some(Uncovered) => r#" class="cov-strip cov-uncovered cov-known" role="button" aria-label="uncovered""#.to_owned(),
-                Some(Covered(0)) => r#" class="cov-strip cov-miss cov-known" role="button" aria-label="miss" data-coverage="0""#.to_owned(),
+                None => r#" class="cov-strip cov-uncovered cov-unknown" aria-label="missing data""#
+                    .to_owned(),
+                Some(InterpolatedMiss) => {
+                    r#" class="cov-strip cov-miss cov-interpolated" aria-label="uncovered""#
+                        .to_owned()
+                }
+                Some(InterpolatedHit) => {
+                    r#" class="cov-strip cov-hit cov-interpolated" aria-label="uncovered""#
+                        .to_owned()
+                }
+                Some(Uncovered) => {
+                    r#" class="cov-strip cov-uncovered cov-known" aria-label="uncovered""#
+                        .to_owned()
+                }
+                Some(Covered(0)) => {
+                    r#" class="cov-strip cov-miss cov-known" aria-label="miss" data-coverage="0""#
+                        .to_owned()
+                }
                 // Should this directly be a CSS variable?
                 Some(Covered(x)) => format!(
-                    r#" class="cov-strip cov-hit cov-known cov-log10-{}" role="button" aria-label="hit {}{}" data-coverage="{}""#,
+                    r#" class="cov-strip cov-hit cov-known cov-log10-{}" aria-label="hit {}{}" data-coverage="{}""#,
                     (*x as f64).log10().floor() as u32,
                     if *x < 1000 { *x } else { *x / 1000 },
                     if *x < 1000 { "" } else { "k" },
-                    *x)
+                    *x
+                ),
             }
         } else {
-            " class=\"cov-strip cov-no-data\"".to_owned()
+            r#" class="cov-strip cov-no-data" aria-label="uncovered""#.to_owned()
         };
 
         // Compute the blame data for this line (if any)
@@ -855,7 +869,7 @@ pub fn format_file_data(
                     // accessible we expose it as a role=button which needs its own
                     // element.
                     F::T(format!(
-                        r#"<div role="cell"><div{coverage_data}></div></div>"#
+                        r#"<div role="cell"><div role="button" aria-expanded="false"{coverage_data}></div></div>"#
                     )),
                     // Blame info.  Contents are nested for the exact same reason as
                     // the coverage info (role=button needs its own div).

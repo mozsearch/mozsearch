@@ -5,7 +5,7 @@ input_file: inputs/analysis/cpp/big_cpp.cpp/include_big_header__html
 ---
 <div role="row" id="line-NORM" class="source-line-with-number">
   <div class="line-strip">
-    <div role="cell"><div class="cov-strip cov-uncovered cov-unknown" role="button" aria-label="missing data"></div></div>
+    <div role="cell"><div role="button" aria-expanded="false" class="cov-strip cov-uncovered cov-unknown" aria-label="missing data"></div></div>
     <div role="cell"><div class="blame-strip" data-blame="BLAME" role="button" aria-expanded="false"></div></div>
   </div>
   <div role="cell" class="line-number" data-line-number="NORM"></div>

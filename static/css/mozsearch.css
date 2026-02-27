@@ -1231,6 +1231,9 @@ span[data-symbols].selected {
   max-height: 80vh;
   overflow-y: scroll;
 }
+.blame-popup p {
+  margin: 0;
+}
 .deemphasize {
   color: GrayText;
 }
