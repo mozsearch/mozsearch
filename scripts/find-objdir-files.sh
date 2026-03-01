@@ -19,10 +19,12 @@ find . -type f -not -regex "\.(o|out|so|a|so\..*|scip)$" -exec file --mime {} + 
     | sed -e 's#^./#__GENERATED__/#' \
     > ${INDEX_ROOT}/objdir-files
 set -o pipefail
-find . -mindepth 1 -type d \
-    | sed -e 's#^./#__GENERATED__/#' \
-    > ${INDEX_ROOT}/objdir-dirs
 popd
+
+# In order to exclude directories that contains only the excluded files,
+# only list ancestor directories of the files in objdir-files.
+$MOZSEARCH_PATH/scripts/generate-objdir-dirs.py \
+    ${INDEX_ROOT}/objdir-files ${INDEX_ROOT}/objdir-dirs
 
 # This is shuffled for the benefit of the "parallel" invocation in output.sh so that
 # file complexity is (more) randomly distributed.  crossref.rs also now ingests
