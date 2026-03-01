@@ -2432,6 +2432,19 @@ var TreeSwitcherMenu = new (class TreeSwitcherMenu extends ContextMenuBase {
       columnBoxes.push(columnBox);
     }
 
+    const item = new MenuItem({
+      html: "Top page",
+      classNames: ["indent"],
+      href: "/",
+    });
+    const columnBox = document.createElement("div");
+    const list = document.createElement("ul");
+    const li = item.createListItem(this, {col: columns.length, row: 0});
+    list.append(li);
+    columnBox.append(list);
+    columns.push([item]);
+    columnBoxes.push(columnBox);
+
     this.columns = columns;
 
     this.menu.replaceChildren(...columnBoxes);
