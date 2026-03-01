@@ -1,0 +1,13 @@
+$schema: moz://mozilla.org/schemas/glean/metrics/2-0-0
+$tags:
+  - 'Some tag'
+
+test.metrics:
+  probe_one:
+    type: counter
+  probe_two:
+    type: event
+    extra_keys:
+      field_one:
+        description: This is field
+        type: string
