@@ -561,6 +561,12 @@ g.diagram-overload-other polygon:hover + text {
   padding-inline-start: 2.5rem;
 }
 
+.diagram-no-path-hint {
+  border: 3px double var(--info-box-warning-background);
+  padding: 0 1rem;
+  margin: 0 1rem 1rem 1rem;
+}
+
 /**
  * See bug 1996714 for details on the fixed header mechanism history.
  *
