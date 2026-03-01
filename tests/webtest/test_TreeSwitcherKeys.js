@@ -136,9 +136,13 @@ add_task(async function test_TreeSwitcherKeyboardNavigation() {
      "The next column's tree should be focused");
   is(await tester.keydown("Right"), "mingw",
      "The next column's tree should be focused");
-  is(await tester.keydown("Right"), "mingw",
+  is(await tester.keydown("Right"), "Top page",
+     "The next column's tree should be focused");
+  is(await tester.keydown("Right"), "Top page",
      "Moving right from the last column keeps the focus");
 
+  is(await tester.keydown("Left"), "mingw",
+     "The previous column's tree should be focused");
   is(await tester.keydown("Left"), "mozilla-mobile",
      "The previous column's tree should be focused");
   is(await tester.keydown("Left"), "tests",
@@ -178,8 +182,13 @@ add_task(async function test_TreeSwitcherKeyboardNavigation() {
      "The first tree in the next column should be focused");
   is(await tester.keydown("PageDown"), "wubkat",
      "The last tree in the column should be focused");
-  is(await tester.keydown("Down"), "wubkat",
+  is(await tester.keydown("Down"), "Top page",
+     "The top page item should be focused");
+  is(await tester.keydown("Down"), "Top page",
      "Moving down from the last item keeps the focus");
+
+  is(await tester.keydown("Up"), "wubkat",
+     "The previous column should be focused");
 
   is(await tester.keydown("PageUp"), "mingw",
      "The first tree in the column should be focused");
@@ -192,8 +201,8 @@ add_task(async function test_TreeSwitcherKeyboardNavigation() {
   is(await tester.keydown("PageUp"), "tests",
      "The last tree in the column should be focused");
 
-  is(await tester.keydown("End"), "wubkat",
-     "The last tree in the last column should be focused");
+  is(await tester.keydown("End"), "Top page",
+     "The top page item should be focused");
   is(await tester.keydown("Home"), "tests",
      "The first tree in the first column should be focused");
 
