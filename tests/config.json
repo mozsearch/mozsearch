@@ -14,6 +14,7 @@
       "git_path": "$WORKING/tests/git",
       "git_blame_path": "$WORKING/tests/blame",
       "webidl_binding_local_path": "webidl/bindings",
+      "glean_binding_local_path": "yaml/bindings",
       "staticprefs_binding_local_path": "staticprefs/bindings",
       "objdir_path": "$WORKING/tests/objdir",
       "wpt_root": "testing/web-platform",
