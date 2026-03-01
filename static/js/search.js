@@ -556,6 +556,7 @@ var Diagram = new (class Diagram {
     this.addControl();
     this.addBadgeTooltips();
     this.addOverloadIcons();
+    this.addEmptyHint();
 
     this.setScrollPosition();
   }
@@ -881,6 +882,10 @@ var Diagram = new (class Diagram {
       }
     }
 
+    this.loadQuery(query);
+  }
+
+  loadQuery(query) {
     Dxr.fields.query.value = query;
     let url = Dxr.constructURL();
     document.location = url;
@@ -1106,6 +1111,103 @@ var Diagram = new (class Diagram {
     } else {
       toggle.textContent = "Hide details";
     }
+  }
+
+  addEmptyHint() {
+    if (!this.panel) {
+      return;
+    }
+
+    if (Object.keys(SYM_INFO).length > 0) {
+      return;
+    }
+
+    const query = Dxr.fields.query.value;
+    let type;
+    if (query.match(/calls-between:.+ calls-between:/)) {
+      type = "undirected";
+    } else if (query.includes("calls-between-source:") &&
+          query.includes("calls-between-target:")) {
+      type = "directed";
+    } else {
+      return;
+    }
+
+    const hint = document.createElement("div");
+
+    hint.classList.add("diagram-no-path-hint");
+    const header = document.createElement("h3");
+    header.append("No path found");
+    hint.append(header);
+
+    const p = document.createElement("p");
+    p.append("No path found between the specified nodes. This can be caused by the following reasons:");
+    hint.append(p);
+
+    const ul = document.createElement("ul");
+    if (type === "directed") {
+      const li = document.createElement("li");
+
+      li.append("There's a path in the opposite direction. ");
+
+      {
+        const button = document.createElement("button");
+        button.append("Flip the direction");
+        button.addEventListener("click", () => {
+          this.flipDirection();
+        });
+        li.append(button);
+      }
+
+      li.append(" ");
+
+      {
+        const button = document.createElement("button");
+        button.append("Use undirected diagram");
+        button.addEventListener("click", () => {
+          this.useUndirected();
+        });
+        li.append(button);
+      }
+
+      ul.append(li);
+    }
+    {
+      const li = document.createElement("li");
+
+      li.append("The path is longer than the specified depth. ");
+
+      const button = document.createElement("button");
+      button.append("Increase the depth");
+      button.addEventListener("click", () => {
+        this.increaseDepthLimit();
+      });
+      li.append(button);
+
+      ul.append(li);
+    }
+    hint.append(ul);
+
+    this.panel.after(hint);
+  }
+
+  flipDirection() {
+    let query = Dxr.fields.query.value;
+    query = query.replace(/calls-between(-source|-target):/g, m => {
+      if (m === "calls-between-source:") {
+        return "calls-between-target:";
+      }
+      return "calls-between-source:";
+    });
+    this.loadQuery(query);
+  }
+
+  useUndirected() {
+    let query = Dxr.fields.query.value;
+    query = query.replace(/calls-between(-source|-target):/g, m => {
+      return "calls-between:";
+    });
+    this.loadQuery(query);
   }
 
   setScrollPosition() {
