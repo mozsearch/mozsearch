@@ -1,0 +1,6 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/web/dirs/generated_empty__html
+---
+<td class="name"><a href="/tests/source/__GENERATED__/__linux64__/mozbuild" class="mimetype-fixed-container mimetype-icon-folder">mozbuild</a></td>
