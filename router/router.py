@@ -133,37 +133,56 @@ def expand_keys(tree_name, new_keyed, traverse_relations=True, depth=0):
             else:
                 new_keyed[old_name] = new_keyed.pop(new_name)
 
-    if 'meta' in new_keyed:
-        if traverse_relations:
-            # lookup_merging will have wrapped the value into a list
-            meta_arr = new_keyed.pop('meta')
-            for meta in meta_arr:
-                if 'overrides' in meta:
-                    merge_defs_from_symbols_as(tree_name, new_keyed, [x['sym'] for x in meta['overrides']], 'Overrides')
-                if 'overriddenBy' in meta:
-                    # Currently this derived relationship only includes the symbol
-                    # name, as opposed to the overrides cases which is an obj with
-                    # { sym, pretty }.
-                    merge_defs_from_symbols_as(tree_name, new_keyed, meta['overriddenBy'], 'Overridden By')
-                if 'supers' in meta:
-                    merge_defs_from_symbols_as(tree_name, new_keyed, [x['sym'] for x in meta['supers']], 'Superclasses')
-                if 'subclasses' in meta:
-                    # This is also a derived relationship with only the symbol.
-                    merge_defs_from_symbols_as(tree_name, new_keyed, meta['subclasses'], 'Subclasses')
-                if 'slotOwner' in meta:
-                    if meta['slotOwner']['ownerLang'] == 'idl':
-                        # The owner is an IDL parent, make sure we're showing the IDL (def) as IDL.
-                        merge_defs_from_symbols_as(tree_name, new_keyed, [meta['slotOwner']['sym']], 'IDL')
-                    else:
-                        # The owner is a definition in a foreign language
-                        merge_defs_from_symbols_as(tree_name, new_keyed, [meta['slotOwner']['sym']], 'Definitions')
-                if 'bindingSlots' in meta:
-                    # Show IDL binding slots as definitions.
-                    # But show non-IDL binding slots as bindings.
-                    merge_defs_from_symbols_as(tree_name, new_keyed, [x['sym'] for x in meta['bindingSlots'] if x['ownerLang'] == 'idl'], 'Definitions')
-                    merge_defs_from_symbols_as(tree_name, new_keyed, [x['sym'] for x in meta['bindingSlots'] if x['ownerLang'] != 'idl'], 'Bindings')
-        else:
-            del new_keyed['meta']
+    if 'meta' not in new_keyed:
+        return new_keyed
+    if not traverse_relations:
+        del new_keyed['meta']
+        return new_keyed
+
+    # lookup_merging will have wrapped the value into a list
+    meta_arr = new_keyed.pop('meta')
+    for meta in meta_arr:
+        if 'overrides' in meta:
+            merge_defs_from_symbols_as(
+                tree_name, new_keyed,
+                [x['sym'] for x in meta['overrides']], 'Overrides')
+        if 'overriddenBy' in meta:
+            # Currently this derived relationship only includes the symbol
+            # name, as opposed to the overrides cases which is an obj with
+            # { sym, pretty }.
+            merge_defs_from_symbols_as(
+                tree_name, new_keyed, meta['overriddenBy'], 'Overridden By')
+        if 'supers' in meta:
+            merge_defs_from_symbols_as(
+                tree_name, new_keyed,
+                [x['sym'] for x in meta['supers']], 'Superclasses')
+        if 'subclasses' in meta:
+            # This is also a derived relationship with only the symbol.
+            merge_defs_from_symbols_as(
+                tree_name, new_keyed, meta['subclasses'], 'Subclasses')
+        if 'slotOwner' in meta:
+            if meta['slotOwner']['ownerLang'] == 'idl':
+                # The owner is an IDL parent, make sure we're showing the IDL
+                # (def) as IDL.
+                merge_defs_from_symbols_as(
+                    tree_name, new_keyed,
+                    [meta['slotOwner']['sym']], 'IDL')
+            else:
+                # The owner is a definition in a foreign language
+                merge_defs_from_symbols_as(
+                    tree_name, new_keyed,
+                    [meta['slotOwner']['sym']], 'Definitions')
+        if 'bindingSlots' in meta:
+            # Show IDL binding slots as definitions.
+            # But show non-IDL binding slots as bindings.
+            merge_defs_from_symbols_as(
+                tree_name, new_keyed,
+                [x['sym'] for x in meta['bindingSlots']
+                 if x['ownerLang'] == 'idl'], 'Definitions')
+            merge_defs_from_symbols_as(
+                tree_name, new_keyed,
+                [x['sym'] for x in meta['bindingSlots']
+                 if x['ownerLang'] != 'idl'], 'Bindings')
 
     return new_keyed
 
