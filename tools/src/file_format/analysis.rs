@@ -139,6 +139,7 @@ pub enum AnalysisKind {
     Idl,
     // Partial interface/namespace in IDL.
     Idlp,
+    Glean,
     Alias,
 }
 
@@ -154,6 +155,7 @@ impl AnalysisKind {
             AnalysisKind::Forward => ustr("forward"),
             AnalysisKind::Idl => ustr("idl"),
             AnalysisKind::Idlp => ustr("idlp"),
+            AnalysisKind::Glean => ustr("glean"),
             AnalysisKind::Alias => ustr("alias"),
         }
     }
@@ -399,6 +401,7 @@ pub enum BindingSlotLang {
 #[serde(rename_all = "lowercase")]
 pub enum BindingOwnerLang {
     Idl,
+    Glean,
     Prefs,
     Cpp,
     JS,

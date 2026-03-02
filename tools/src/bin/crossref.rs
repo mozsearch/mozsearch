@@ -174,7 +174,7 @@ type XrefLinkSlots = BTreeMap<(Ustr, Ustr), (BindingSlotProps, Option<Ustr>)>;
 // The output from the reader threads for XrefLinkSlots.
 type XrefLinkSlotsItems = Vec<((Ustr, Ustr), (BindingSlotProps, Option<Ustr>))>;
 
-// Maps JS symbol to possible IDL symbols.
+// Maps JS symbol to possible IDL/Glean symbols.
 type JSIDLTable = HashMap<Ustr, Vec<Ustr>>;
 const MAX_JS_IDL_SYMS: usize = 4;
 
@@ -1309,6 +1309,7 @@ fn write_crossref_and_jumpref_thread(
                 AnalysisKind::Forward => "forwards",
                 AnalysisKind::Idl => "idl",
                 AnalysisKind::Idlp => "idlp",
+                AnalysisKind::Glean => "glean",
                 AnalysisKind::Alias => "aliases",
             };
             kindmap.insert(kindstr.to_string(), json!(result));

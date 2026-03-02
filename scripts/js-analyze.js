@@ -1604,6 +1604,14 @@ let Analyzer = {
         } else if (expr.object.type == "Identifier") {
           extra = `${expr.object.name}#${expr.property.name}`;
           extraPretty = `${expr.object.name}.${expr.property.name}`;
+        } else if (expr.object.type == "MemberExpression" &&
+                   expr.object.object.type == "Identifier" &&
+                   expr.object.object.name == "Glean" &&
+                   !expr.object.computed) {
+          const key0 = expr.object.property.name;
+          const key1 = expr.property.name;
+          extra = `Glean.${key0}#${key1}`;
+          extraPretty = `Glean.${key0}.${key1}`;
         }
 
         this.useProp(expr.property.name, memberPropLoc(expr), extra, extraPretty);
