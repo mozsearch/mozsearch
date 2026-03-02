@@ -1280,6 +1280,8 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
     let textSearchMenuItems = [];
     // then possible IDL definitions
     let idlMenuItems = [];
+    // then glean submenu.
+    let gleanMenuItems = [];
     // then sticky highlight option
     let stickyMenuItems = [];
 
@@ -1293,6 +1295,8 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
 
     let idlSubMenuItems = [];
     let idlSubMenuSearches = [];
+
+    let gleanSymbol = null;
 
     let expansions = {};
     let onlyOneExpansion = true;
@@ -1414,6 +1418,10 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         // Avoid processing the same symbol more than once.
         if (seenSyms.has(sym)) {
           return;
+        }
+
+        if (sym.startsWith("GLEAN_")) {
+          gleanSymbol = sym;
         }
 
         if (sym.match(/^\d+-\d+$/)) {
@@ -1642,6 +1650,11 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         if (symInfo.meta?.slotOwner) {
           let slotOwner = symInfo.meta.slotOwner;
           let ownerJumpref = SYM_INFO[slotOwner.sym];
+
+          if (slotOwner.sym.startsWith("GLEAN_")) {
+            gleanSymbol = slotOwner.sym;
+          }
+
           // XXX Ignore no_crossref data that's currently not useful/used.
           if (ownerJumpref && ownerJumpref.sym && ownerJumpref.pretty) {
             let implKind = ownerJumpref.meta.implKind || "impl";
@@ -1805,6 +1818,10 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             const def = idlInfo?.jumps?.idl;
 
             if (idlInfo?.meta?.implKind == "glean") {
+              if (idlInfo.sym.startsWith("GLEAN_")) {
+                gleanSymbol = idlInfo.sym;
+              }
+
               // Glean uses qualified symbol, and it doesn't have to be
               // pushed into the submenu.
               searches.push({
@@ -2033,6 +2050,76 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       }
     }
 
+    if (gleanSymbol) {
+      const gleanSubMenuItems = [];
+
+      // The symbol uses the following format:
+      //   * snake case
+      //   * "." inside the key is replaced with "_"
+      //   * keys are concatenated with "::"
+      //
+      // The symbol is generated also for extra_keys and its fields,
+      // but all the menu below should use the probe itself.
+      const parts = gleanSymbol.replace(/^GLEAN_/, "").split(/::/);
+      const key0 = parts[0];
+      const key1 = parts[1];
+
+      const dictionaryPrefix = "https://dictionary.telemetry.mozilla.org/apps/firefox_desktop/metrics/";
+      const glamPrefix = "https://glam.telemetry.mozilla.org/fog/probe/";
+      const glamSuffix = "/explore?";
+
+      // The Glean Dictionary and GLAM use the following format:
+      //   * snake case
+      //   * "." inside the key is replaced with "_"
+      //   * keys are concatenated with "."
+      const name = key0 + "_" + key1;
+
+      function toCamelCase(s) {
+        return s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+      }
+
+      // The JS binding uses the following format:
+      //   * camel case
+      //   * "." is treated as "_" before applyingthe camel case
+      //   * keys are concatenated with "."
+      const testName = "Glean." + toCamelCase(key0) + "." + toCamelCase(key1)
+            + ".testGetValue()";
+
+      gleanSubMenuItems.push(new MenuItem({
+        html: `Copy ${testName} for about:glean`,
+        action: () => {
+          navigator.clipboard.writeText(testName);
+          this.hide();
+        },
+        icon: "docs",
+        section: "glean",
+      }));
+
+      gleanSubMenuItems.push(new MenuItem({
+        html: "Glean dictionary",
+        href: dictionaryPrefix + name,
+        icon: "search",
+        section: "glean",
+      }));
+
+      gleanSubMenuItems.push(new MenuItem({
+        html: "GLAM",
+        href: glamPrefix + name + glamSuffix,
+        icon: "search",
+        section: "glean",
+      }));
+
+      gleanMenuItems.push(new MenuItemWithSubMenu({
+        html: "Glean",
+        tree,
+        icon: "export-alt",
+        section: "glean",
+        items: gleanSubMenuItems,
+        searches: [],
+        menu: this,
+      }));
+    }
+
     let menuItems = [
       ...jumpMenuItems,
       ...expansionMenuItems,
@@ -2041,6 +2128,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       ...fieldLayoutMenuItems,
       ...textSearchMenuItems,
       ...idlMenuItems,
+      ...gleanMenuItems,
       ...stickyMenuItems,
       ...diagramMenuItems,
       ...gcMenuItems,
