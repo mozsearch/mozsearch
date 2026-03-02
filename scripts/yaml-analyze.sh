@@ -16,7 +16,8 @@ TREE_NAME=$2
 cat $INDEX_ROOT/yaml-files | \
     parallel --pipe --halt 2 \
     $MOZSEARCH_PATH/scripts/yaml-analyze.py \
-    $INDEX_ROOT $FILES_ROOT $INDEX_ROOT/analysis
+    $INDEX_ROOT $FILES_ROOT $INDEX_ROOT/analysis \
+    $GLEAN_BINDINGS_LOCAL_PATH
 
 echo $?
 

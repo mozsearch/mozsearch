@@ -57,7 +57,8 @@ def parse_path_filter(filter):
     return filter
 
 key_remapping = { 'uses': 'Uses', 'defs': 'Definitions', 'assignments': 'Assignments',
-                  'decls': 'Declarations', 'idl': 'IDL', 'idlp': 'IDL Partial', 'aliases': 'Aliases',
+                  'decls': 'Declarations', 'idl': 'IDL', 'idlp': 'IDL Partial',
+                  'glean': 'Glean', 'aliases': 'Aliases',
                   'callees': None, 'field-member-uses': None }
 
 def merge_defs_from_symbols_as(tree_name, mix_target, symbol_names, as_key):
@@ -167,6 +168,10 @@ def expand_keys(tree_name, new_keyed, traverse_relations=True, depth=0):
                 merge_defs_from_symbols_as(
                     tree_name, new_keyed,
                     [meta['slotOwner']['sym']], 'IDL')
+            elif meta['slotOwner']['ownerLang'] == 'glean':
+                merge_defs_from_symbols_as(
+                    tree_name, new_keyed,
+                    [meta['slotOwner']['sym']], 'Glean')
             else:
                 # The owner is a definition in a foreign language
                 merge_defs_from_symbols_as(
@@ -178,11 +183,11 @@ def expand_keys(tree_name, new_keyed, traverse_relations=True, depth=0):
             merge_defs_from_symbols_as(
                 tree_name, new_keyed,
                 [x['sym'] for x in meta['bindingSlots']
-                 if x['ownerLang'] == 'idl'], 'Definitions')
+                 if x['ownerLang'] in ['idl','glean']], 'Definitions')
             merge_defs_from_symbols_as(
                 tree_name, new_keyed,
                 [x['sym'] for x in meta['bindingSlots']
-                 if x['ownerLang'] != 'idl'], 'Bindings')
+                 if x['ownerLang'] not in ['idl', 'glean']], 'Bindings')
 
     return new_keyed
 
@@ -281,9 +286,11 @@ class SearchResults(object):
     max_count = 1000 * EXTREME_FACTOR
     max_work = 1000 * EXTREME_FACTOR
     path_precedences = ['normal', 'thirdparty', 'test', 'generated']
-    key_precedences = ["Files", "IDL", "IDL Partial", "Definitions", "Declarations", "Bindings",
-        "Aliases", "Overrides", "Overridden By", "Superclasses", "Subclasses",
-        "Assignments", "Uses", "Textual Occurrences"]
+    key_precedences = [
+        "Files", "IDL", "IDL Partial", "Definitions", "Declarations",
+        "Bindings", "Glean", "Aliases", "Overrides", "Overridden By",
+        "Superclasses", "Subclasses", "Assignments", "Uses",
+        "Textual Occurrences"]
 
     def categorize_path(self, path):
         '''

@@ -1530,6 +1530,15 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
               confidence,
             }));
           }
+          if (jumpref.jumps.glean && jumpref.jumps.glean !== sourceLineClicked) {
+            jumpMenuItems.push(new GotoMenuItem({
+              html: this.fmt("Go to Glean definition of <strong>_</strong>", pretty),
+              href: `/${tree}/source/${jumpref.jumps.glean}`,
+              icon: "export-alt",
+              section: "jumps",
+              confidence,
+            }));
+          }
 
           if (jumpref.jumps.def && jumpref.jumps.def !== sourceLineClicked) {
             jumpMenuItems.push(new GotoMenuItem({
@@ -1778,46 +1787,59 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
 
         overrideJumpifyHelper(symInfo);
 
-        // Possible IDL definitions.
+        // Possible IDL/Glean definitions.
         if (symInfo.idl_syms) {
           for (const idlSym of symInfo.idl_syms) {
             const idlInfo = SYM_INFO[idlSym];
-            if (idlInfo) {
-              let prefix = "";
-              if (idlInfo?.meta?.bindingSlots) {
-                for (const slot of idlInfo.meta.bindingSlots) {
-                  if (slot.sym === sym) {
-                    prefix = `${slot.slotKind} `;
-                  }
+            if (!idlInfo) {
+              continue;
+            }
+            let prefix = "";
+            if (idlInfo?.meta?.bindingSlots) {
+              for (const slot of idlInfo.meta.bindingSlots) {
+                if (slot.sym === sym) {
+                  prefix = `${slot.slotKind} `;
                 }
               }
-              const def = idlInfo?.jumps?.idl;
-              if (def) {
-                idlSubMenuItems.push(new GotoMenuItem({
-                  html: this.fmt("Go to IDL definition of <strong>_</strong>", idlInfo.pretty),
-                  href: `/${tree}/source/${def}`,
-                  icon: "export-alt",
-                  section: "jumps",
-                  confidence,
-                }));
-              }
-              idlSubMenuSearches.push({
-                label: `IDL ${prefix}${idlInfo.pretty}`,
+            }
+            const def = idlInfo?.jumps?.idl;
+
+            if (idlInfo?.meta?.implKind == "glean") {
+              // Glean uses qualified symbol, and it doesn't have to be
+              // pushed into the submenu.
+              searches.push({
+                label: `Glean ${prefix}${idlInfo.pretty}`,
                 syms: [idlInfo.sym],
                 def,
               });
+              continue;
+            }
 
-              if (idlMenuItems.length == 0) {
-                idlMenuItems.push(new MenuItemWithSubMenu({
-                  html: "Possible IDL definitions",
-                  tree,
-                  icon: "export-alt",
-                  section: "idl",
-                  items: idlSubMenuItems,
-                  searches: idlSubMenuSearches,
-                  menu: this,
-                }));
-              }
+            if (def) {
+              idlSubMenuItems.push(new GotoMenuItem({
+                html: this.fmt(`Go to IDL definition of <strong>_</strong>`, idlInfo.pretty),
+                href: `/${tree}/source/${def}`,
+                icon: "export-alt",
+                section: "jumps",
+                confidence,
+              }));
+            }
+            idlSubMenuSearches.push({
+              label: `IDL ${prefix}${idlInfo.pretty}`,
+              syms: [idlInfo.sym],
+              def,
+            });
+
+            if (idlMenuItems.length == 0) {
+              idlMenuItems.push(new MenuItemWithSubMenu({
+                html: `Possible IDL definitions`,
+                tree,
+                icon: "export-alt",
+                section: "idl",
+                items: idlSubMenuItems,
+                searches: idlSubMenuSearches,
+                menu: this,
+              }));
             }
           }
         }

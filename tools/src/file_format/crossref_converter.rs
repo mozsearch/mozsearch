@@ -69,6 +69,7 @@ pub fn convert_crossref_value_to_sym_info_rep(
 
             let mut jumps = Map::new();
             jumpify(xref.remove("idl"), "idl", &mut jumps);
+            jumpify(xref.remove("glean"), "glean", &mut jumps);
             jumpify(xref.remove("defs"), "def", &mut jumps);
             jumpify(xref.remove("decls"), "decl", &mut jumps);
 
