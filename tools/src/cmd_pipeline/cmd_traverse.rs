@@ -784,7 +784,9 @@ impl PipelineCommand for TraverseCommand {
                             // Don't bother with IDL bindings; all the relevant traversals involve a
                             // slotOwner at this time.
                             (BindingOwnerLang::Idl, _) => (false, false, false, EdgeKind::Default),
-                            (BindingOwnerLang::Glean, _) => (false, false, false, EdgeKind::Default),
+                            (BindingOwnerLang::Glean, _) => {
+                                (false, false, false, EdgeKind::Default)
+                            }
                             // Cross-language binding class relationships are weird because
                             // the bindings inside are bidirectional, so let's ignore them.
                             (_, BindingSlotKind::Class) => (false, false, false, EdgeKind::Default),
