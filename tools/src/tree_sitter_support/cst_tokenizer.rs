@@ -116,7 +116,7 @@ pub fn hypertokenize_source_file(
         // Explicitly skip things we know are binary; this list copied from "langauages.rs"
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" | "gif" | "ogv" | "jpg" | "jpeg" | "bmp"
         | "icns" | "ico" | "mp4" | "sqlite" | "jar" | "webm" | "webp" | "woff" | "class"
-        | "m4s" | "mgif" | "wav" | "opus" | "mp3" | "otf" => {
+        | "m4s" | "mgif" | "wav" | "opus" | "mp3" | "otf" | "car" => {
             return Err("Binary files can't be tokenized".to_string());
         }
         _ => {

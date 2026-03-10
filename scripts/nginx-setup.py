@@ -57,7 +57,7 @@ binary_types = {
   'mp4': 'video/mpeg',
   'webm': 'video/webm',
   'webp': 'image/webp',
-  'ttf xpi bcmap icns sqlite jar woff class m4s mgif otf': 'application/x-unknown',
+  'ttf xpi bcmap icns sqlite jar woff class m4s mgif otf car': 'application/x-unknown',
 }
 
 binary_types_str = " ".join((mime + " " + exts + ";") for (exts, mime) in binary_types.items())
