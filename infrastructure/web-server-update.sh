@@ -27,7 +27,7 @@ rustup component remove rust-docs || true
 rustup update
 
 pushd mozsearch/tools
-CARGO_INCREMENTAL=false cargo install --path . --verbose
+CARGO_INCREMENTAL=false cargo install --locked --path . --verbose
 rm -rf target
 popd
 
