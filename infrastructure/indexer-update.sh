@@ -59,7 +59,7 @@ make
 popd
 
 pushd mozsearch/tools
-CARGO_INCREMENTAL=false cargo install --path . --verbose
+CARGO_INCREMENTAL=false cargo install --locked --path . --verbose
 rm -rf target
 popd
 

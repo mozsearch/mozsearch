@@ -20,7 +20,7 @@ build-clang-plugin: check-in-vagrant
 # We specify "--all-targets" in order to minimize rebuilding required when we invoke
 # `cargo test` to validate the build.
 build-rust-tools:
-	cd tools && CARGO_INCREMENTAL=1 cargo install --path .
+	cd tools && CARGO_INCREMENTAL=1 cargo install --locked --path .
 	cd scripts/web-analyze/wasm-css-analyzer && ./build.sh
 
 test-rust-tools:
