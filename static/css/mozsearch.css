@@ -783,6 +783,14 @@ tr.after-context-line + tr.before-context-line {
 .context-menu.bottom {
   border-bottom-left-radius: 0;
 }
+.context-menu.left:not(.bottom) {
+  border-top-left-radius: 6px;
+  border-top-right-radius: 0;
+}
+.context-menu.left.bottom {
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 0;
+}
 .context-menu:focus {
   outline: none;
 }
