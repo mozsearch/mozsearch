@@ -765,6 +765,7 @@ tr.after-context-line + tr.before-context-line {
   /* absolutely positioned within the containing block of the <body> relative
      to the click event */
   position: absolute;
+  width: max-content;
   background-color: var(--page-background);
   color: var(--page-color);
   margin: 0;
