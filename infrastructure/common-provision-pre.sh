@@ -4,12 +4,16 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-# Some domains resolve to IPv6 address, but not reachable.
-# Disable IPv6 for now.
-sudo sysctl --write net.ipv6.conf.all.disable_ipv6=1
-for DEVICE in $(ls /sys/class/net/); do
-    sudo sysctl --write net.ipv6.conf.${DEVICE}.disable_ipv6=1
-done
+disable_ipv6() {
+  # Some domains resolve to IPv6 address, but not reachable.
+  # Disable IPv6 for now.
+  sudo sysctl --write net.ipv6.conf.all.disable_ipv6=1
+  for DEVICE in $(ls /sys/class/net/); do
+      sudo sysctl --write net.ipv6.conf.${DEVICE}.disable_ipv6=1
+  done
+}
+
+disable_ipv6
 
 MOZSEARCH_REPO="${MOZSEARCH_REPO:-https://github.com/mozsearch/mozsearch}"
 MOZSEARCH_BRANCH="${MOZSEARCH_BRANCH:-master}"
@@ -65,6 +69,9 @@ sudo DEBIAN_FRONTEND=noninteractive \
   -o Dpkg::Options::=--force-confdef \
   -y --allow-downgrades --allow-remove-essential \
   dist-upgrade
+
+# The above restarts the network, and it re-enables IPv6.
+disable_ipv6
 
 # unattended upgrades pose a problem for debugging running processes because we
 # end up running version N but have debug symbols for N+1 and that doesn't work.
