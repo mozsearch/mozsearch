@@ -7,9 +7,6 @@ set -o pipefail # Check all commands in a pipeline
 # Some domains resolve to IPv6 address, but not reachable.
 # Disable IPv6 for now.
 sudo sysctl --write net.ipv6.conf.all.disable_ipv6=1
-for DEVICE in $(ls /sys/class/net/); do
-    sudo sysctl --write net.ipv6.conf.${DEVICE}.disable_ipv6=1
-done
 
 MOZSEARCH_REPO="${MOZSEARCH_REPO:-https://github.com/mozsearch/mozsearch}"
 MOZSEARCH_BRANCH="${MOZSEARCH_BRANCH:-master}"
