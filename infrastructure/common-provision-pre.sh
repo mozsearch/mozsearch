@@ -4,10 +4,6 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-# Some domains resolve to IPv6 address, but not reachable.
-# Disable IPv6 for now.
-sudo sysctl --write net.ipv6.conf.all.disable_ipv6=1
-
 MOZSEARCH_REPO="${MOZSEARCH_REPO:-https://github.com/mozsearch/mozsearch}"
 MOZSEARCH_BRANCH="${MOZSEARCH_BRANCH:-master}"
 MOZSEARCH_CONFIG_REPO="${MOZSEARCH_CONFIG_REPO:-https://github.com/mozsearch/mozsearch-mozilla}"
