@@ -2,7 +2,7 @@ use std::{cell::Cell, collections::HashMap, rc::Rc};
 
 use async_trait::async_trait;
 use clap::Parser;
-use lol_html::{element, HtmlRewriter, Settings};
+use lol_html::{HtmlRewriter, Settings, element};
 use ustr::UstrMap;
 
 use super::interface::{PipelineCommand, PipelineValues};

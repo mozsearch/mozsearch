@@ -21,7 +21,7 @@ use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::panic;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
 
 extern crate clap;
@@ -530,11 +530,11 @@ fn find_unmodified_lines(
     'outer: for entry in tree_at_path.iter() {
         path.push(entry.name().unwrap());
         for parent in commit.parents() {
-            if let Ok(parent_entry) = parent.tree()?.get_path(&path) {
-                if parent_entry.id() == entry.id() {
-                    path.pop();
-                    continue 'outer;
-                }
+            if let Ok(parent_entry) = parent.tree()?.get_path(&path)
+                && parent_entry.id() == entry.id()
+            {
+                path.pop();
+                continue 'outer;
             }
         }
 
@@ -597,45 +597,67 @@ fn build_blame_tree(
                 None => continue, // This parent doesn't even have a tree at this path
                 Some(p) => p,
             };
-            if let Some(parent_entry) = parent_tree.get_name(entry_name) {
-                if parent_entry.id() == entry.id() {
-                    // Item at `path` is the same in the tree for `commit` as in
-                    // `parent_trees[i]`, so the blame should be the same too.
-                    //
-                    // The exception to this situation is that empty sub-trees
-                    let oid = match read_path_oid(import_helper, &blame_parents[i], &path) {
-                        Some(oid) => oid,
-                        None => match entry.kind() {
-                            Some(ObjectType::Tree) => {
-                                info!("Probably found an empty tree hierarchy: Unable to find blame for {:?} oid {} on parent src oid {} for parent blame oid {:?}", path, entry.id(), parent_tree.id(), blame_parents[i]);
-                                path.pop();
-                                continue 'outer;
+            if let Some(parent_entry) = parent_tree.get_name(entry_name)
+                && parent_entry.id() == entry.id()
+            {
+                // Item at `path` is the same in the tree for `commit` as in
+                // `parent_trees[i]`, so the blame should be the same too.
+                //
+                // The exception to this situation is that empty sub-trees
+                let oid = match read_path_oid(import_helper, &blame_parents[i], &path) {
+                    Some(oid) => oid,
+                    None => match entry.kind() {
+                        Some(ObjectType::Tree) => {
+                            info!(
+                                "Probably found an empty tree hierarchy: Unable to find blame for {:?} oid {} on parent src oid {} for parent blame oid {:?}",
+                                path,
+                                entry.id(),
+                                parent_tree.id(),
+                                blame_parents[i]
+                            );
+                            path.pop();
+                            continue 'outer;
+                        }
+                        Some(ObjectType::Commit) => {
+                            if entry.id().as_bytes() == EMPTY_SHA1_BLOB_OID {
+                                info!(
+                                    "Missing commit (submodule) blame for empty blob OID for {:?} oid {}, this is expected.",
+                                    path,
+                                    entry.id()
+                                );
+                            } else {
+                                panic!(
+                                    "Missing commit (submodule) blame, unexpected: Unable to find blame for {:?} oid {} on parent src oid {} for parent blame oid {:?}",
+                                    path,
+                                    entry.id(),
+                                    parent_tree.id(),
+                                    blame_parents[i]
+                                );
                             }
-                            Some(ObjectType::Commit) => {
-                                if entry.id().as_bytes() == EMPTY_SHA1_BLOB_OID {
-                                    info!("Missing commit (submodule) blame for empty blob OID for {:?} oid {}, this is expected.", path, entry.id());
-                                } else {
-                                    panic!("Missing commit (submodule) blame, unexpected: Unable to find blame for {:?} oid {} on parent src oid {} for parent blame oid {:?}", path, entry.id(), parent_tree.id(), blame_parents[i]);
-                                }
-                                path.pop();
-                                continue 'outer;
-                            }
-                            _ => {
-                                panic!("Unable to find blame for {:?} oid {} on parent src oid {} for parent blame oid {:?}", path, entry.id(), parent_tree.id(), blame_parents[i]);
-                            }
-                        },
-                    };
-                    writeln!(
-                        import_helper.stdin.as_mut().unwrap(),
-                        "M {:06o} {} {}",
-                        entry.filemode(),
-                        oid,
-                        sanitize(&path)
-                    )
-                    .unwrap();
-                    path.pop();
-                    continue 'outer;
-                }
+                            path.pop();
+                            continue 'outer;
+                        }
+                        _ => {
+                            panic!(
+                                "Unable to find blame for {:?} oid {} on parent src oid {} for parent blame oid {:?}",
+                                path,
+                                entry.id(),
+                                parent_tree.id(),
+                                blame_parents[i]
+                            );
+                        }
+                    },
+                };
+                writeln!(
+                    import_helper.stdin.as_mut().unwrap(),
+                    "M {:06o} {} {}",
+                    entry.filemode(),
+                    oid,
+                    sanitize(&path)
+                )
+                .unwrap();
+                path.pop();
+                continue 'outer;
             }
         }
 
@@ -882,7 +904,8 @@ fn main() {
     env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     // force backtraces on in this file in general
-    std::env::set_var("RUST_BACKTRACE", "full");
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::set_var("RUST_BACKTRACE", "full") };
 
     let cli = BuildBlameCli::parse();
 
@@ -931,8 +954,10 @@ fn main() {
         let (revs_found, revs_needed) =
             ingest_git_fast_import_marks_file(&blame_repo, &mut blame_map, &contents);
         prev_revs_done = revs_found as usize;
-        info!("Marks file at {} (MARKS_FILE env overrides) had {} revs, {} were needed to augment branch data.",
-              cli.marks_file, revs_found, revs_needed);
+        info!(
+            "Marks file at {} (MARKS_FILE env overrides) had {} revs, {} were needed to augment branch data.",
+            cli.marks_file, revs_found, revs_needed
+        );
     } else {
         info!(
             "No pre-existing marks file at {} (MARKS_FILE env overrides).",
@@ -1023,7 +1048,7 @@ fn main() {
             // Note that we're actually giving it an hg rev to get a git rev;
             // a hash is a hash, the difference is the old helper was spawned
             // using hg2git
-            (Some(hgrev), Some(ref mut helper)) => get_git_rev(helper, hgrev),
+            (Some(hgrev), Some(helper)) => get_git_rev(helper, hgrev),
             _ => None,
         };
 
