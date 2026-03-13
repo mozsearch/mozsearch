@@ -23,7 +23,7 @@ const END: &str = "END";
 #[derive(Debug)]
 pub struct Report {
     root: Directory,
-    metadata: ReportMetadata,
+    pub metadata: ReportMetadata,
 }
 
 #[derive(Debug)]
@@ -106,7 +106,7 @@ impl Report {
         &self,
         fast_import: &mut impl Write,
         incremental: bool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<()> {
         let branch = &self.metadata.branch;
         let date = self.metadata.date.to_rfc2822();
 
