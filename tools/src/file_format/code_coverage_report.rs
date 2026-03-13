@@ -119,8 +119,8 @@ impl Report {
         writeln!(fast_import, "{}", self.metadata.commit)?;
         if incremental {
             writeln!(fast_import, "from {branch}^0")?;
-            writeln!(fast_import, "deleteall")?;
         }
+        writeln!(fast_import, "deleteall")?;
         self.root.write_to_git(fast_import, "")?;
 
         writeln!(fast_import, "tag reverse/{branch}/{}", self.metadata.commit)?;
