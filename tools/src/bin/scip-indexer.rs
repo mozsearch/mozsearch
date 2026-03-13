@@ -23,7 +23,7 @@ use tools::file_format::analysis::{
 };
 use tools::file_format::analysis_manglings::mangle_file;
 use tools::file_format::config;
-use ustr::{ustr, Ustr, UstrMap, UstrSet};
+use ustr::{Ustr, UstrMap, UstrSet, ustr};
 
 /// Normalize illegal symbol characters into underscores.
 fn sanitize_symbol(sym: &str) -> String {
@@ -643,11 +643,11 @@ fn analyse_symbol(
     // If we have an explicit doc namespace that provides context
     // the descriptors do not provide, then use that for all
     // pieces except the last piece we get from the descriptor.
-    if let Some(namespace) = doc_namespace {
-        if let Some(last_piece) = pretty_pieces.pop() {
-            pretty_pieces = namespace.split("::").map(|s| s.to_string()).collect();
-            pretty_pieces.push(last_piece);
-        }
+    if let Some(namespace) = doc_namespace
+        && let Some(last_piece) = pretty_pieces.pop()
+    {
+        pretty_pieces = namespace.split("::").map(|s| s.to_string()).collect();
+        pretty_pieces.push(last_piece);
     }
 
     // We've standardized on "::" as the delimiter here even though
@@ -825,10 +825,10 @@ fn analyze_using_scip(
                                     if let Some(s) = caps.get(3) {
                                         type_pretty = Some(ustr(s.as_str()));
                                     }
-                                } else if let Some(caps) = RE_TS_UNTYPED.captures(doc) {
-                                    if let Some(s) = caps.get(2) {
-                                        doc_name = Some(s.as_str().to_string());
-                                    }
+                                } else if let Some(caps) = RE_TS_UNTYPED.captures(doc)
+                                    && let Some(s) = caps.get(2)
+                                {
+                                    doc_name = Some(s.as_str().to_string());
                                 }
                             }
                             ScipLang::Jvm => {
@@ -847,10 +847,10 @@ fn analyze_using_scip(
 
                 // Signature documentation is new and a more reliable source of
                 // type information.
-                if let Some(doc) = scip_sym_info.signature_documentation.as_ref() {
-                    if !doc.text.is_empty() {
-                        type_pretty = Some(ustr(&doc.text));
-                    }
+                if let Some(doc) = scip_sym_info.signature_documentation.as_ref()
+                    && !doc.text.is_empty()
+                {
+                    type_pretty = Some(ustr(&doc.text));
                 }
 
                 let display_name = if !scip_sym_info.display_name.is_empty() {
@@ -998,43 +998,41 @@ fn analyze_using_scip(
                     our_symbol_to_scip_sym.insert(symbol_info.norm_sym, usym);
                 }
 
-                if symbol_info.contributes_to_parent {
-                    if let Some(psym) = symbol_info.parent_sym {
-                        if let Some(scip_psym) = our_symbol_to_scip_sym.get(&psym) {
-                            if let Some(pstruct) = scip_symbol_to_structured.get_mut(scip_psym) {
-                                match &symbol_info.kind {
-                                    Some("method") => {
-                                        pstruct.methods.push(StructuredMethodInfo {
-                                            pretty: symbol_info.pretty,
-                                            sym: symbol_info.norm_sym,
-                                            props: vec![],
-                                            labels: BTreeSet::default(),
-                                            // TODO: see about trying to extract args from markdown?
-                                            args: vec![],
-                                        });
-                                    }
-                                    Some("field") => {
-                                        pstruct.fields.push(StructuredFieldInfo {
-                                            line_range: ustr(""),
-                                            pretty: symbol_info.pretty,
-                                            sym: symbol_info.norm_sym,
-                                            type_pretty: type_pretty.unwrap_or_else(|| ustr("")),
-                                            type_sym: ustr(""),
-                                            offset_bytes: Some(offset_bytes),
-                                            bit_positions: None,
-                                            size_bytes: if size_bytes > 0 {
-                                                Some(size_bytes)
-                                            } else {
-                                                None
-                                            },
-                                            labels: BTreeSet::default(),
-                                            pointer_info: vec![],
-                                        });
-                                    }
-                                    _ => {}
-                                }
-                            }
+                if symbol_info.contributes_to_parent
+                    && let Some(psym) = symbol_info.parent_sym
+                    && let Some(scip_psym) = our_symbol_to_scip_sym.get(&psym)
+                    && let Some(pstruct) = scip_symbol_to_structured.get_mut(scip_psym)
+                {
+                    match &symbol_info.kind {
+                        Some("method") => {
+                            pstruct.methods.push(StructuredMethodInfo {
+                                pretty: symbol_info.pretty,
+                                sym: symbol_info.norm_sym,
+                                props: vec![],
+                                labels: BTreeSet::default(),
+                                // TODO: see about trying to extract args from markdown?
+                                args: vec![],
+                            });
                         }
+                        Some("field") => {
+                            pstruct.fields.push(StructuredFieldInfo {
+                                line_range: ustr(""),
+                                pretty: symbol_info.pretty,
+                                sym: symbol_info.norm_sym,
+                                type_pretty: type_pretty.unwrap_or_else(|| ustr("")),
+                                type_sym: ustr(""),
+                                offset_bytes: Some(offset_bytes),
+                                bit_positions: None,
+                                size_bytes: if size_bytes > 0 {
+                                    Some(size_bytes)
+                                } else {
+                                    None
+                                },
+                                labels: BTreeSet::default(),
+                                pointer_info: vec![],
+                            });
+                        }
+                        _ => {}
                     }
                 }
             } else {

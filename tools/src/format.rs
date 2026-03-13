@@ -11,7 +11,7 @@ use crate::blame;
 use crate::file_format::analysis_manglings::make_file_sym_from_path;
 use crate::file_format::coverage::InterpolatedCoverage;
 use crate::file_format::crossref_converter::{
-    determine_desired_extra_syms_from_jumpref, extra_syms_next_step_lookups, JumprefTraversals,
+    JumprefTraversals, determine_desired_extra_syms_from_jumpref, extra_syms_next_step_lookups,
 };
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
@@ -24,10 +24,10 @@ use crate::tokenize;
 use crate::utils::OwnedOrBorrowed;
 
 use crate::file_format::analysis::{
-    collect_file_syms_from_source, AnalysisSource, ExpansionInfo, WithLocation,
+    AnalysisSource, ExpansionInfo, WithLocation, collect_file_syms_from_source,
 };
-use crate::file_format::config::{extract_info_from_blame_commit, Config, GitData, TreeConfig};
-use crate::output::{self, BreadcrumbsLinksTo, Options, PanelItem, PanelSection, F};
+use crate::file_format::config::{Config, GitData, TreeConfig, extract_info_from_blame_commit};
+use crate::output::{self, BreadcrumbsLinksTo, F, Options, PanelItem, PanelSection};
 use crate::url_encode_path::url_encode_path;
 
 use chrono::datetime::DateTime;
@@ -35,8 +35,8 @@ use chrono::naive::datetime::NaiveDateTime;
 use chrono::offset::fixed::FixedOffset;
 use git2::{Oid, Repository, Tree, TreeEntry};
 use itertools::Itertools;
-use serde_json::{json, to_string, to_string_pretty, Map};
-use ustr::{ustr, Ustr, UstrMap};
+use serde_json::{Map, json, to_string, to_string_pretty};
+use ustr::{Ustr, UstrMap, ustr};
 
 #[derive(Debug)]
 pub struct FormattedLine {
@@ -242,64 +242,56 @@ pub fn format_code(
                                 }
                                 generated_sym_info.insert(*sym, json!(obj));
                             }
-                        } else if let Some(lookup) = jumpref_lookup {
-                            if let Ok(jumpref) = lookup.lookup(sym) {
-                                // See if there are any binding slot symbols that we should also
-                                // include.  This allows us to do things like, when presenting a
-                                // context menu for a synthetic XPIDL symbol, we can also provide an
-                                // option to go directly to the C++ binding definition.
-                                let mut extra_syms =
-                                    determine_desired_extra_syms_from_jumpref(&jumpref);
-                                jumpref_traversed
-                                    .entry(*sym)
-                                    .and_modify(|t| *t |= JumprefTraversals::NormalExtra)
-                                    .or_insert(JumprefTraversals::NormalExtra);
-                                while let Some((extra_sym, next_step)) = extra_syms.pop() {
-                                    // No need to lookup and add what we already know if there is
-                                    // no next step.  But if there is a next step, we potentially
-                                    // need to look-up a third symbol which may not already have
-                                    // been loaded.)
-                                    let extra_sym = ustr(&extra_sym);
-                                    if let Some(extra_traversed) =
-                                        jumpref_traversed.get_mut(&extra_sym)
-                                    {
-                                        // The jumpref should already be in generated_sym_info, it's
-                                        // just a question if we need to run an extra traversal for it.
-                                        if extra_traversed.contains(next_step) {
-                                            continue;
-                                        }
-                                        *extra_traversed |= next_step;
-                                        if let Some(extra_jumpref) =
-                                            generated_sym_info.get(&extra_sym)
-                                        {
-                                            for (next_sym, next_traversals) in
-                                                extra_syms_next_step_lookups(
-                                                    extra_jumpref,
-                                                    next_step,
-                                                )
-                                            {
-                                                extra_syms.push((next_sym, next_traversals));
-                                            }
-                                        }
-                                    } else if let Ok(extra_jumpref) = lookup.lookup(&extra_sym) {
-                                        // If there is a next step, process the info for what to contribute
-                                        // to extra_syms before we consume the value by storing it.
-                                        if !next_step.is_empty() {
-                                            for (next_sym, next_traversals) in
-                                                extra_syms_next_step_lookups(
-                                                    &extra_jumpref,
-                                                    next_step,
-                                                )
-                                            {
-                                                extra_syms.push((next_sym, next_traversals));
-                                            }
-                                        }
-                                        jumpref_traversed.insert(extra_sym, next_step);
-                                        generated_sym_info.insert(extra_sym, extra_jumpref);
+                        } else if let Some(lookup) = jumpref_lookup
+                            && let Ok(jumpref) = lookup.lookup(sym)
+                        {
+                            // See if there are any binding slot symbols that we should also
+                            // include.  This allows us to do things like, when presenting a
+                            // context menu for a synthetic XPIDL symbol, we can also provide an
+                            // option to go directly to the C++ binding definition.
+                            let mut extra_syms =
+                                determine_desired_extra_syms_from_jumpref(&jumpref);
+                            jumpref_traversed
+                                .entry(*sym)
+                                .and_modify(|t| *t |= JumprefTraversals::NormalExtra)
+                                .or_insert(JumprefTraversals::NormalExtra);
+                            while let Some((extra_sym, next_step)) = extra_syms.pop() {
+                                // No need to lookup and add what we already know if there is
+                                // no next step.  But if there is a next step, we potentially
+                                // need to look-up a third symbol which may not already have
+                                // been loaded.)
+                                let extra_sym = ustr(&extra_sym);
+                                if let Some(extra_traversed) = jumpref_traversed.get_mut(&extra_sym)
+                                {
+                                    // The jumpref should already be in generated_sym_info, it's
+                                    // just a question if we need to run an extra traversal for it.
+                                    if extra_traversed.contains(next_step) {
+                                        continue;
                                     }
+                                    *extra_traversed |= next_step;
+                                    if let Some(extra_jumpref) = generated_sym_info.get(&extra_sym)
+                                    {
+                                        for (next_sym, next_traversals) in
+                                            extra_syms_next_step_lookups(extra_jumpref, next_step)
+                                        {
+                                            extra_syms.push((next_sym, next_traversals));
+                                        }
+                                    }
+                                } else if let Ok(extra_jumpref) = lookup.lookup(&extra_sym) {
+                                    // If there is a next step, process the info for what to contribute
+                                    // to extra_syms before we consume the value by storing it.
+                                    if !next_step.is_empty() {
+                                        for (next_sym, next_traversals) in
+                                            extra_syms_next_step_lookups(&extra_jumpref, next_step)
+                                        {
+                                            extra_syms.push((next_sym, next_traversals));
+                                        }
+                                    }
+                                    jumpref_traversed.insert(extra_sym, next_step);
+                                    generated_sym_info.insert(extra_sym, extra_jumpref);
                                 }
-                                generated_sym_info.insert(*sym, jumpref);
                             }
+                            generated_sym_info.insert(*sym, jumpref);
                         }
                     }
                 }
@@ -375,7 +367,7 @@ pub fn format_code(
                     } else if has_datum {
                         // If the token has analysis record, do not apply keyword.
                         "".to_owned()
-                    } else if let Some(ref style) = maybe_style {
+                    } else if let Some(style) = maybe_style {
                         style.clone()
                     } else {
                         "".to_owned()
@@ -508,7 +500,7 @@ pub fn format_code(
                     })
                 })
                 .collect();
-            expansions.sort_unstable_by(|a, b| Ord::cmp(&(&a.0, &a.1 .1), &(&b.0, &b.1 .1)));
+            expansions.sort_unstable_by(|a, b| Ord::cmp(&(&a.0, &a.1.1), &(&b.0, &b.1.1)));
 
             // Format expansions into html
             let expansions = expansions.into_iter().map(|(key, (platform, expansion))| {
@@ -527,12 +519,12 @@ pub fn format_code(
                     let expansions = expansions.fold(
                         Vec::<(String, String)>::new(),
                         |mut expansions, (_symbol, (platform, expansion))| {
-                            if let Some((last_platform, last_expansion)) = expansions.last_mut() {
-                                if *last_expansion == expansion {
-                                    last_platform.push(' ');
-                                    last_platform.push_str(&platform);
-                                    return expansions;
-                                }
+                            if let Some((last_platform, last_expansion)) = expansions.last_mut()
+                                && *last_expansion == expansion
+                            {
+                                last_platform.push(' ');
+                                last_platform.push_str(&platform);
+                                return expansions;
                             }
 
                             expansions.push((platform.to_owned(), expansion));
@@ -721,12 +713,11 @@ pub fn format_file_data(
     ]);
     output::generate_formatted(writer, &info_boxes_container, 0)?;
 
-    if let Some(ext) = path_wrapper.extension() {
-        if ext.to_str().unwrap() == "svg" {
-            if let Some(url) = tree_config.paths.make_raw_resource_branch_url(path) {
-                output::generate_svg_preview(writer, &url)?
-            }
-        }
+    if let Some(ext) = path_wrapper.extension()
+        && ext.to_str().unwrap() == "svg"
+        && let Some(url) = tree_config.paths.make_raw_resource_branch_url(path)
+    {
+        output::generate_svg_preview(writer, &url)?
     }
 
     let f = F::Seq(vec![F::T(format!(
@@ -781,13 +772,20 @@ pub fn format_file_data(
                         .to_owned()
                 }
                 // Should this directly be a CSS variable?
-                Some(Covered(x)) => format!(
-                    r#" class="cov-strip cov-hit cov-known cov-log10-{}" aria-label="hit {}{}" data-coverage="{}""#,
-                    (*x as f64).log10().floor() as u32,
-                    if *x < 1000 { *x } else { *x / 1000 },
-                    if *x < 1000 { "" } else { "k" },
-                    *x
-                ),
+                Some(Covered(x)) => {
+                    let hit_count_min = 10_u32.pow(x - 1);
+                    format!(
+                        r#" class="cov-strip cov-hit cov-known cov-log10-{}" aria-label="hit {}{}" data-coverage="{}""#,
+                        *x,
+                        if hit_count_min < 1000 {
+                            hit_count_min
+                        } else {
+                            hit_count_min / 1000
+                        },
+                        if hit_count_min < 1000 { "" } else { "k" },
+                        *x
+                    )
+                }
             }
         } else {
             r#" class="cov-strip cov-no-data" aria-label="uncovered""#.to_owned()
@@ -1377,8 +1375,8 @@ pub fn format_diff(
             .get_path(Path::new(path))
             .map(|blame_entry| {
                 let blame = git_ops::read_blob_entry(blame_repo, &blame_entry);
-                let blame_lines = blame.lines().map(|s| s.to_owned()).collect::<Vec<_>>();
-                blame_lines
+
+                blame.lines().map(|s| s.to_owned()).collect::<Vec<_>>()
             })
             .ok();
         Ok(blame_lines)
@@ -1386,7 +1384,6 @@ pub fn format_diff(
 
     let parent_blames: Vec<_> = commit
         .parent_ids()
-        .into_iter()
         .map(get_blame_for_oid)
         .collect::<Result<_, _>>()?;
     let self_blame = get_blame_for_oid(commit.id())?;

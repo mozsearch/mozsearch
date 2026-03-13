@@ -125,10 +125,10 @@ pub struct TreeConfigPaths {
 
 impl TreeConfigPaths {
     pub fn get_github_user_and_repo(&self) -> Option<String> {
-        if let Some(github_url) = &self.github_repo {
-            if let Some(stripped) = github_url.strip_prefix("https://github.com/") {
-                return Some(stripped.to_owned());
-            }
+        if let Some(github_url) = &self.github_repo
+            && let Some(stripped) = github_url.strip_prefix("https://github.com/")
+        {
+            return Some(stripped.to_owned());
         }
         None
     }
@@ -487,10 +487,10 @@ pub fn load(
 
     let mut trees = BTreeMap::new();
     for (tree_name, paths) in config.trees {
-        if let Some(only_tree_name) = only_tree {
-            if tree_name != only_tree_name {
-                continue;
-            }
+        if let Some(only_tree_name) = only_tree
+            && tree_name != only_tree_name
+        {
+            continue;
         }
 
         let git = git_data(&paths, need_indexes);

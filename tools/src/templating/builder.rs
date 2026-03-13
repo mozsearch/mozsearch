@@ -1,6 +1,6 @@
 use std::borrow;
 
-use include_dir::{include_dir, Dir};
+use include_dir::{Dir, include_dir};
 use liquid::Template;
 
 use super::liquid_exts::{

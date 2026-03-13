@@ -1,7 +1,7 @@
 use crate::file_format::config::Config;
 use crate::links;
 
-use serde_json::{json, to_string, Map};
+use serde_json::{Map, json, to_string};
 use std::borrow::Cow;
 use std::str::Split;
 

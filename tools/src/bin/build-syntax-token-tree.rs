@@ -16,7 +16,7 @@ use std::fmt;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
 
 use git2::{ObjectType, Oid, Repository, Sort};
@@ -26,7 +26,7 @@ use tools::file_format::history::io_helpers::{
 };
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use tools::file_format::history::syntax_symdex::{SymdexHeader, SymdexRecord};
-use tools::tree_sitter_support::cst_tokenizer::{hypertokenize_source_file, HyperTokenized};
+use tools::tree_sitter_support::cst_tokenizer::{HyperTokenized, hypertokenize_source_file};
 
 fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
     writeln!(helper.stdin.as_mut().unwrap(), "{}", git_oid).unwrap();
@@ -221,11 +221,11 @@ fn process_modified_files(
     'outer: for entry in tree_at_path.iter() {
         path.push(entry.name().unwrap());
         for parent in commit.parents() {
-            if let Ok(parent_entry) = parent.tree()?.get_path(&path) {
-                if parent_entry.id() == entry.id() {
-                    path.pop();
-                    continue 'outer;
-                }
+            if let Ok(parent_entry) = parent.tree()?.get_path(&path)
+                && parent_entry.id() == entry.id()
+            {
+                path.pop();
+                continue 'outer;
             }
         }
 
@@ -233,10 +233,10 @@ fn process_modified_files(
             Some(ObjectType::Blob) => {
                 let blob = entry.to_object(git_repo)?.peel_to_blob()?;
                 let path_str = path.as_os_str().to_string_lossy();
-                if let Ok(blob_as_str) = std::str::from_utf8(blob.content()) {
-                    if let Ok(hypertokenized) = hypertokenize_source_file(&path_str, blob_as_str) {
-                        results.insert(path.clone(), hypertokenized);
-                    }
+                if let Ok(blob_as_str) = std::str::from_utf8(blob.content())
+                    && let Ok(hypertokenized) = hypertokenize_source_file(&path_str, blob_as_str)
+                {
+                    results.insert(path.clone(), hypertokenized);
                 }
             }
             Some(ObjectType::Tree) => {
@@ -305,57 +305,55 @@ fn recursively_process_source_tree(
                 None => continue, // This parent doesn't even have a tree at this path
                 Some(p) => p,
             };
-            if let Some(parent_entry) = parent_tree.get_name(entry_name) {
-                if parent_entry.id() == entry.id() {
-                    // Item at `path` is the same in the tree for `commit` as in
-                    // `parent_trees[i]` so we can propagate our existing derived
-                    // "files" and "files-struct" entries which will not have
-                    // changed.  This works for trees/blobs/everything.
+            if let Some(parent_entry) = parent_tree.get_name(entry_name)
+                && parent_entry.id() == entry.id()
+            {
+                // Item at `path` is the same in the tree for `commit` as in
+                // `parent_trees[i]` so we can propagate our existing derived
+                // "files" and "files-struct" entries which will not have
+                // changed.  This works for trees/blobs/everything.
 
-                    info!(
-                        "  For {} with id {} trying to propagate {} and {}",
-                        path.display(),
-                        entry.id(),
-                        tokenize_path.display(),
-                        struct_path.display()
-                    );
+                info!(
+                    "  For {} with id {} trying to propagate {} and {}",
+                    path.display(),
+                    entry.id(),
+                    tokenize_path.display(),
+                    struct_path.display()
+                );
 
-                    // "files" entry
-                    let oid = match read_path_oid(import_helper, &syntax_parents[i], &tokenize_path)
-                    {
-                        Some(oid) => oid,
-                        // If we lack existing history for this entry and nothing has changed in it,
-                        // just skip the entry, because there's nothing we can do to make it have
-                        // have history.
-                        _ => {
-                            path.pop();
-                            continue 'outer;
-                        }
-                    };
-                    writeln!(
-                        import_helper.stdin.as_mut().unwrap(),
-                        "M {:06o} {} {}",
-                        entry.filemode(),
-                        oid,
-                        sanitize(&tokenize_path)
-                    )
-                    .unwrap();
+                // "files" entry
+                let oid = match read_path_oid(import_helper, &syntax_parents[i], &tokenize_path) {
+                    Some(oid) => oid,
+                    // If we lack existing history for this entry and nothing has changed in it,
+                    // just skip the entry, because there's nothing we can do to make it have
+                    // have history.
+                    _ => {
+                        path.pop();
+                        continue 'outer;
+                    }
+                };
+                writeln!(
+                    import_helper.stdin.as_mut().unwrap(),
+                    "M {:06o} {} {}",
+                    entry.filemode(),
+                    oid,
+                    sanitize(&tokenize_path)
+                )
+                .unwrap();
 
-                    // "files-struct" entry
-                    let oid =
-                        read_path_oid(import_helper, &syntax_parents[i], &struct_path).unwrap();
-                    writeln!(
-                        import_helper.stdin.as_mut().unwrap(),
-                        "M {:06o} {} {}",
-                        entry.filemode(),
-                        oid,
-                        sanitize(&struct_path)
-                    )
-                    .unwrap();
+                // "files-struct" entry
+                let oid = read_path_oid(import_helper, &syntax_parents[i], &struct_path).unwrap();
+                writeln!(
+                    import_helper.stdin.as_mut().unwrap(),
+                    "M {:06o} {} {}",
+                    entry.filemode(),
+                    oid,
+                    sanitize(&struct_path)
+                )
+                .unwrap();
 
-                    path.pop();
-                    continue 'outer;
-                }
+                path.pop();
+                continue 'outer;
             }
         }
 

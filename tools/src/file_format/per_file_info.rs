@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use lexical_sort::natural_lexical_cmp;
 use regex::Regex;
-use serde_json::{from_reader, Map, Value};
-use ustr::{existing_ustr, Ustr, UstrMap};
+use serde_json::{Map, Value, from_reader};
+use ustr::{Ustr, UstrMap, existing_ustr};
 
 use crate::abstract_server::{FileMatch, FileMatches, Result};
 

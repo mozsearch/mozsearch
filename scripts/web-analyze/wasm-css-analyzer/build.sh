@@ -2,14 +2,6 @@
 
 set -e
 
-if ! which wasm-pack > /dev/null; then
-    cargo install wasm-pack
-fi
-
-if ! which wasm-snip > /dev/null; then
-    cargo install wasm-snip
-fi
-
 wasm-pack build --release --target web
 
 mkdir -p out
@@ -24,4 +16,5 @@ wasm-snip \
 cat pkg/wasm_css_analyzer.js | \
     sed -e 's/export function/function/' | \
     sed -e 's/import.meta.url/""/' | \
+    sed -e 's/console.warn/console.log/' | \
     grep -v '^export ' > out/wasm_css_analyzer.js
