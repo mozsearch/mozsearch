@@ -153,7 +153,7 @@ sudo apt-get install ripgrep
 
 # Install tools for web-analyze WASM bindings.
 cargo install wasm-pack
-cargo install wasm-snip
+cargo install --locked --git https://github.com/mozsearch/wasm-snip --tag 0.5.0
 
 # Install codesearch.
 if [ ! -d livegrep ]; then
