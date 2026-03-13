@@ -53,3 +53,26 @@ add_task(async function test_StickyLinesVarDecl() {
   ok(containers[3].firstChild.classList.contains("stuck"), "function should stuck");
   ok(containers[4].firstChild.classList.contains("stuck"), "varriable decl should stuck");
 });
+
+add_task(async function test_ScrollToStickyLines() {
+  await TestUtils.loadPath("/tests/source/big_cpp.cpp#360");
+
+  const breadcrumbs = frame.contentDocument.querySelector(".breadcrumbs");
+  const sticky = frame.contentDocument.querySelector("#line-128");
+
+  // The "stuck" class is added asynchronously.
+  await waitForCondition(() => sticky.classList.contains("stuck"),
+                         "namespace should stuck");
+
+  const lineno = sticky.querySelector(".line-number");
+
+  const scrollTop = frame.contentDocument.documentElement.scrollTop;
+
+  TestUtils.click(lineno);
+
+  await waitForCondition(() => frame.contentDocument.documentElement.scrollTop < scrollTop,
+                         "scroll happens");
+
+  await waitForCondition(() => !sticky.classList.contains("stuck"),
+                         "namespace should not stuck");
+});

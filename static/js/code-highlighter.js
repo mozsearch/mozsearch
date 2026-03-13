@@ -350,7 +350,6 @@ var Sticky = new (class Sticky {
   constructor() {
     // List of already stuck elements.
     this.stuck = [];
-    this.scroller = window;
 
     this.breadcrumbs = document.querySelector(".breadcrumbs");
     const fixedHeader = document.querySelector("#fixed-header");
@@ -374,11 +373,11 @@ var Sticky = new (class Sticky {
       .getElementById("content")
       .classList.contains("diff");
     if (this.firstLineNumber && !isDiffView) {
-      this.scroller.addEventListener("scroll", () => this.handleScroll(), {
+      window.addEventListener("scroll", () => this.handleScroll(), {
         passive: true,
       });
     } else if (this.breadcrumbs) {
-      this.scroller.addEventListener("scroll", () => this.handleScrollForBreadcrumbs(false), {
+      window.addEventListener("scroll", () => this.handleScrollForBreadcrumbs(false), {
         passive: true,
       });
     }
@@ -610,8 +609,9 @@ var Highlighter = new (class Highlighter {
       if (containingLine && containingLine.classList.contains("stuck")) {
         let nestingContainer = containingLine.closest(".nesting-container");
         if (nestingContainer) {
-          Sticky.scroller.scrollTop -=
-            containingLine.offsetTop - nestingContainer.offsetTop;
+          const stuckShadowRadius = 8;
+          const diff = containingLine.offsetTop - nestingContainer.offsetTop;
+          document.documentElement.scrollTop -= diff + stuckShadowRadius;
         }
         return;
       }
