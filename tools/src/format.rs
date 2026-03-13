@@ -777,13 +777,20 @@ pub fn format_file_data(
                         .to_owned()
                 }
                 // Should this directly be a CSS variable?
-                Some(Covered(x)) => format!(
-                    r#" class="cov-strip cov-hit cov-known cov-log10-{}" aria-label="hit {}{}" data-coverage="{}""#,
-                    (*x as f64).log10().floor() as u32,
-                    if *x < 1000 { *x } else { *x / 1000 },
-                    if *x < 1000 { "" } else { "k" },
-                    *x
-                ),
+                Some(Covered(x)) => {
+                    let hit_count_min = 10_u32.pow(x - 1);
+                    format!(
+                        r#" class="cov-strip cov-hit cov-known cov-log10-{}" aria-label="hit {}{}" data-coverage="{}""#,
+                        *x,
+                        if hit_count_min < 1000 {
+                            hit_count_min
+                        } else {
+                            hit_count_min / 1000
+                        },
+                        if hit_count_min < 1000 { "" } else { "k" },
+                        *x
+                    )
+                }
             }
         } else {
             r#" class="cov-strip cov-no-data" aria-label="uncovered""#.to_owned()
