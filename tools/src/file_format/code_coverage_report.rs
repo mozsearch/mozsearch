@@ -109,7 +109,6 @@ impl Report {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let branch = &self.metadata.branch;
 
-        writeln!(fast_import, "feature date-format=rfc2822")?;
         writeln!(fast_import, "commit refs/heads/{branch}")?;
         writeln!(fast_import, "mark :1")?;
         write!(fast_import, "committer <searchfox> ")?;
