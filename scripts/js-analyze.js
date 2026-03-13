@@ -2668,7 +2668,7 @@ class CSSAnalyzer {
     globalThis.TextEncoder = MyTextEncoder;
     globalThis.TextDecoder = MyTextDecoder;
     load(wasmPath + "/wasm_css_analyzer.js");
-    globalThis.initSync(wasmBinary);
+    globalThis.initSync({ module: wasmBinary });
 
     CSSAnalyzer.analyze_css_source = globalThis.analyze_css_source;
   }
