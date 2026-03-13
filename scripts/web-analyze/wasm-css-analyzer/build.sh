@@ -2,14 +2,6 @@
 
 set -e
 
-if ! which wasm-pack > /dev/null; then
-    cargo install wasm-pack
-fi
-
-if ! which wasm-snip > /dev/null; then
-    cargo install wasm-snip
-fi
-
 wasm-pack build --release --target web
 
 mkdir -p out
