@@ -7,7 +7,7 @@ use dot_generator::*;
 use dot_structures::*;
 use regex::{Captures, Regex};
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use graphviz_rust::cmd::{CommandArg, Format, Layout};
 use graphviz_rust::exec;
@@ -266,12 +266,12 @@ impl PipelineCommand for GraphCommand {
             for (i, colorize) in self.args.colorize_callees.iter().enumerate() {
                 if let Some(Value::Array(arr)) = sym_info.crossref_info.get("callees") {
                     for callee in arr {
-                        if let Some(Value::String(pretty)) = callee.get("pretty") {
-                            if pretty.ends_with(colorize) {
-                                node.attributes.push(attr!("colorscheme", "pastel28"));
-                                node.attributes.push(attr!("style", "filled"));
-                                node.attributes.push(attr!("fillcolor", i + 1));
-                            }
+                        if let Some(Value::String(pretty)) = callee.get("pretty")
+                            && pretty.ends_with(colorize)
+                        {
+                            node.attributes.push(attr!("colorscheme", "pastel28"));
+                            node.attributes.push(attr!("style", "filled"));
+                            node.attributes.push(attr!("fillcolor", i + 1));
                         }
                     }
                 }

@@ -12,8 +12,8 @@ use std::{
     path::Path,
 };
 
-use serde::{de, Deserialize, Deserializer, Serialize};
-use time::{format_description::well_known::Rfc2822, OffsetDateTime};
+use serde::{Deserialize, Deserializer, Serialize, de};
+use time::{OffsetDateTime, format_description::well_known::Rfc2822};
 
 /// End marker for use when sending fast-import data.
 /// NOTE: make sure the data doesn't actually contain this marker!

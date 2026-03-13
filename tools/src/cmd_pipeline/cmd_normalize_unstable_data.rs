@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use clap::Args;
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use lol_html::{element, rewrite_str, RewriteStrSettings};
+use lol_html::{RewriteStrSettings, element, rewrite_str};
 use regex::Regex;
 use serde_json::Value;
 
@@ -60,7 +60,6 @@ fn norm_html_value(s: String) -> String {
                 let classes = classes.as_deref().unwrap_or("");
                 let filtered_classes = classes
                     .split_ascii_whitespace()
-                    .into_iter()
                     .filter(|&class| class != "c1" && class != "c2")
                     .join(" ");
                 if filtered_classes.is_empty() {

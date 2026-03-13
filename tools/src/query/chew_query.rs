@@ -3,7 +3,7 @@ use std::{
     iter::FromIterator,
 };
 
-use query_parser::{parse, TermValue};
+use query_parser::{TermValue, parse};
 use serde::{Deserialize, Serialize};
 use toml::value::Table;
 
@@ -356,16 +356,16 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                     next_junction = Some(next_junction_name.clone());
                 }
             }
-        } else if let Some(junction_name) = unprocessed_junctions.pop_front() {
-            if let (Some(junction_config), Some(junction)) = (
+        } else if let Some(junction_name) = unprocessed_junctions.pop_front()
+            && let (Some(junction_config), Some(junction)) = (
                 QUERY_CORE.junction.get(&junction_name),
                 builder.junctions.get_mut(&junction_name),
-            ) {
-                junction.output = Some(junction_config.output.clone());
-                use_input = junction.output.clone();
-                if let Some(next_group_name) = &junction_config.next {
-                    next_group = Some(next_group_name.clone());
-                }
+            )
+        {
+            junction.output = Some(junction_config.output.clone());
+            use_input = junction.output.clone();
+            if let Some(next_group_name) = &junction_config.next {
+                next_group = Some(next_group_name.clone());
             }
         }
 
@@ -400,32 +400,32 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                     group.ensure_pipeline_step(cmd.command.clone(), flattened_args);
                 }
             }
-        } else if let Some(junction_name) = next_junction {
-            if let (Some(junction_config), junction, Some(input)) = (
+        } else if let Some(junction_name) = next_junction
+            && let (Some(junction_config), junction, Some(input)) = (
                 QUERY_CORE.junction.get(&junction_name),
                 builder
                     .junctions
                     .entry(junction_name.clone())
                     .or_insert_with(JunctionNode::default),
                 use_input,
-            ) {
-                inputs_to_names
-                    .entry(input.clone())
-                    .or_insert_with(std::vec::Vec::new)
-                    .push(junction_name.clone());
-                junction.inputs.push(input);
+            )
+        {
+            inputs_to_names
+                .entry(input.clone())
+                .or_insert_with(std::vec::Vec::new)
+                .push(junction_name.clone());
+            junction.inputs.push(input);
 
-                // junction.output will be set and next will be processed in the
-                // 1st phase of the loop above; we're just ensuring the junction
-                // exists and adding the "input" to the list.
-                //
-                // Logic to run only the first time we're processing the
-                // junction:
-                if junction.command.command.is_empty() {
-                    junction.command.command = junction_config.command.clone();
-                    junction.command.args = flatten_args("", 0, &junction_config.args);
-                    unprocessed_junctions.push_back(junction_name);
-                }
+            // junction.output will be set and next will be processed in the
+            // 1st phase of the loop above; we're just ensuring the junction
+            // exists and adding the "input" to the list.
+            //
+            // Logic to run only the first time we're processing the
+            // junction:
+            if junction.command.command.is_empty() {
+                junction.command.command = junction_config.command.clone();
+                junction.command.args = flatten_args("", 0, &junction_config.args);
+                unprocessed_junctions.push_back(junction_name);
             }
         }
     }

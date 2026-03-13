@@ -5,19 +5,19 @@ use std::{
 };
 
 use axum::{
+    Extension, Json, Router,
     extract::{Path, Query},
-    http::{header, HeaderMap, StatusCode},
+    http::{HeaderMap, StatusCode, header},
     response::{Html, IntoResponse, Response},
     routing::get,
-    Extension, Json, Router,
 };
 use axum_macros::debug_handler;
 use liquid::Template;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tools::{
-    abstract_server::{make_all_local_servers, AbstractServer, ServerError},
-    cmd_pipeline::{builder::build_pipeline_graph, PipelineValues},
-    logging::{init_logging, LoggedSpan},
+    abstract_server::{AbstractServer, ServerError, make_all_local_servers},
+    cmd_pipeline::{PipelineValues, builder::build_pipeline_graph},
+    logging::{LoggedSpan, init_logging},
     query::chew_query::chew_query,
     templating::builder::build_and_parse_query_results,
 };

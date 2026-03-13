@@ -3,8 +3,8 @@ use clap::Parser;
 use crate::{
     abstract_server::AbstractServer,
     cmd_pipeline::{
-        cmd_normalize_unstable_data::NormalizeUnstableDataCommand, cmd_query::QueryCommand,
-        cmd_search_text::SearchTextCommand, interface::JunctionInvocation, PipelineCommand,
+        PipelineCommand, cmd_normalize_unstable_data::NormalizeUnstableDataCommand,
+        cmd_query::QueryCommand, cmd_search_text::SearchTextCommand, interface::JunctionInvocation,
     },
     query::chew_query::QueryPipelineGroupBuilder,
 };
@@ -13,7 +13,7 @@ use url::Url;
 
 use crate::{
     abstract_server::{
-        make_local_server, make_remote_server, ErrorDetails, ErrorLayer, Result, ServerError,
+        ErrorDetails, ErrorLayer, Result, ServerError, make_local_server, make_remote_server,
     },
     cmd_pipeline::parser::{Command, OutputFormat, ToolOpts},
 };

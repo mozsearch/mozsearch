@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use clap::Args;
-use serde_json::{from_value, json, to_value, Value};
+use serde_json::{Value, from_value, json, to_value};
 
 use jaq_core;
 use jaq_json;
@@ -23,7 +23,7 @@ fn to_serde_json(v: &jaq_json::Val) -> Value {
         jaq_json::Val::Num(n) => {
             serde_json::Value::Number(serde_json::from_str(&n.to_string()).unwrap())
         }
-        jaq_json::Val::Str(s, jaq_json::Tag::Utf8) => serde_json::Value::String(from_utf8(&*s)),
+        jaq_json::Val::Str(s, jaq_json::Tag::Utf8) => serde_json::Value::String(from_utf8(s)),
         jaq_json::Val::Str(s, jaq_json::Tag::Bytes) => {
             serde_json::Value::String(s.iter().copied().map(char::from).collect())
         }
@@ -140,11 +140,11 @@ impl PipelineCommand for JQCommand {
 
                     by_file.push(JsonRecordsByFile {
                         file: jrbf.file,
-                        records: records,
+                        records,
                     });
                 }
 
-                PipelineValues::JsonRecords(JsonRecords { by_file: by_file })
+                PipelineValues::JsonRecords(JsonRecords { by_file })
             }
             PipelineValues::FileMatches(fm) => PipelineValues::JsonValue(JsonValue {
                 value: self.filter(to_value(fm).unwrap())?,

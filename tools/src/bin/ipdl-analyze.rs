@@ -17,7 +17,7 @@ use serde_json::json;
 
 use ipdl_parser::ast::ProtocolSide;
 use tools::file_format::analysis::{
-    read_analyses, read_target, AnalysisKind, AnalysisTarget, WithLocation,
+    AnalysisKind, AnalysisTarget, WithLocation, read_analyses, read_target,
 };
 
 use ipdl_parser::ast;

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use clap::Args;
-use serde_json::{from_str, Value};
+use serde_json::{Value, from_str};
 
 use super::interface::{JsonRecords, PipelineCommand, PipelineValues};
 use crate::{

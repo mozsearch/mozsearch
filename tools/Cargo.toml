@@ -2,7 +2,7 @@
 name = "tools"
 version = "0.1.0"
 authors = ["Bill McCloskey <billm@mozilla.com>"]
-edition = "2018"
+edition = "2024"
 
 [build-dependencies]
 tonic-build = "0.7.1"

@@ -9,7 +9,7 @@
 //! approach.  Additionally, we currently don't want the web-servers to have any
 //! IAM access at all to know what the other servers might be, etc.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::file_format::config::Config;
 

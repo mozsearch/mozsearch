@@ -1,13 +1,13 @@
 use std::{collections::HashMap, sync::Mutex};
 
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use tokio::{
     sync::oneshot::{self, Receiver, Sender},
     task::JoinHandle,
 };
 use tracing::{info, info_span, span::Span};
 use tracing_forest::{processor::from_fn, traits::*, tree::Tree, worker_task};
-use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter, Layer, Registry};
+use tracing_subscriber::{EnvFilter, Layer, Registry, fmt::format::FmtSpan};
 use uuid::Uuid;
 
 #[allow(dead_code)]
@@ -102,33 +102,32 @@ pub fn init_logging() {
     // frequently set RUST_LOG unconditionally but potentially with an empty
     // value, and we don't want that to be interpreted as a desire to enable
     // logging.
-    if let Ok(rustlog) = std::env::var("RUST_LOG") {
-        if !rustlog.is_empty() {
-            if let Ok(env_filter) = EnvFilter::try_from_default_env() {
-                let layer = tracing_subscriber::fmt::layer()
-                    .with_span_events(FmtSpan::ENTER | FmtSpan::EXIT)
-                    //.pretty()
-                    .compact()
-                    // We primarily expect this to go in our log which can be
-                    // excerpted for email purposes, and so ANSI isn't helpful
-                    // for this.
-                    .with_ansi(false)
-                    // In general we don't care about the wall time that much,
-                    // and it takes up a lot of columns, especially in tracing
-                    // which includes sub-second granularities.
-                    //
-                    // Also, if we leave time enabled, we have to fix
-                    // send-warning-email.py to deal with the sub-seconds.
-                    .without_time()
-                    // I had enabled the thread ids for diagnosing complicated
-                    // async issues, but ideally we won't see this much, so this
-                    // will just be noise most of the time.
-                    //.with_thread_ids(true)
-                    .with_filter(env_filter)
-                    .boxed();
-                layers.push(layer);
-            }
-        }
+    if let Ok(rustlog) = std::env::var("RUST_LOG")
+        && !rustlog.is_empty()
+        && let Ok(env_filter) = EnvFilter::try_from_default_env()
+    {
+        let layer = tracing_subscriber::fmt::layer()
+            .with_span_events(FmtSpan::ENTER | FmtSpan::EXIT)
+            //.pretty()
+            .compact()
+            // We primarily expect this to go in our log which can be
+            // excerpted for email purposes, and so ANSI isn't helpful
+            // for this.
+            .with_ansi(false)
+            // In general we don't care about the wall time that much,
+            // and it takes up a lot of columns, especially in tracing
+            // which includes sub-second granularities.
+            //
+            // Also, if we leave time enabled, we have to fix
+            // send-warning-email.py to deal with the sub-seconds.
+            .without_time()
+            // I had enabled the thread ids for diagnosing complicated
+            // async issues, but ideally we won't see this much, so this
+            // will just be noise most of the time.
+            //.with_thread_ids(true)
+            .with_filter(env_filter)
+            .boxed();
+        layers.push(layer);
     }
 
     let handle = tokio::spawn(
