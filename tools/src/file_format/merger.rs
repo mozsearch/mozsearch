@@ -1,20 +1,20 @@
 use itertools::Itertools;
-use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
 
 extern crate regex;
 use serde_json::to_value;
-use serde_json::{from_value, json, to_string, Value};
+use serde_json::{Value, from_value, json, to_string};
 
 use ustr::Ustr;
 
 use super::analysis::AnalysisUnion;
 use super::analysis::{
-    read_analyses, AnalysisSource, AnalysisStructured, ExpansionInfo, Location, WithLocation,
+    AnalysisSource, AnalysisStructured, ExpansionInfo, Location, WithLocation, read_analyses,
 };
 
 #[derive(Debug)]
@@ -202,11 +202,12 @@ pub fn merge_files<W: std::io::Write>(filenames: &[String], platforms: &[String]
             let mut hs = hmap.remove(&best_hash).unwrap();
             hs.data.extra.insert(
                 "platforms".to_string(),
-                json!(hs
-                    .platforms
-                    .iter()
-                    .map(|x| platforms[*x].clone())
-                    .collect::<Vec<String>>()),
+                json!(
+                    hs.platforms
+                        .iter()
+                        .map(|x| platforms[*x].clone())
+                        .collect::<Vec<String>>()
+                ),
             );
             let mut values: Vec<HashedStructured> = hmap.into_values().collect();
             values.sort_by(|a, b| {
@@ -221,11 +222,13 @@ pub fn merge_files<W: std::io::Write>(filenames: &[String], platforms: &[String]
                     .map(|mut variant| {
                         variant.data.extra.insert(
                             "platforms".to_string(),
-                            json!(variant
-                                .platforms
-                                .iter()
-                                .map(|x| platforms[*x].clone())
-                                .collect::<Vec<String>>()),
+                            json!(
+                                variant
+                                    .platforms
+                                    .iter()
+                                    .map(|x| platforms[*x].clone())
+                                    .collect::<Vec<String>>()
+                            ),
                         );
                         to_value(&variant.data).unwrap()
                     })

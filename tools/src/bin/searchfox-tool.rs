@@ -1,11 +1,11 @@
 use std::env::args_os;
 
-use serde_json::{to_string_pretty, to_value, Value};
+use serde_json::{Value, to_string_pretty, to_value};
 use tools::{
     abstract_server::{ErrorDetails, ErrorLayer, ServerError},
-    cmd_pipeline::{builder::build_pipeline, parser::OutputFormat, PipelineValues},
+    cmd_pipeline::{PipelineValues, builder::build_pipeline, parser::OutputFormat},
 };
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 #[tokio::main]
 async fn main() {
@@ -61,10 +61,10 @@ async fn main() {
     let emit_json = |val: &Value| {
         if output_format == OutputFormat::Concise {
             println!("{}", val);
-        } else if output_format == OutputFormat::Pretty {
-            if let Ok(pretty) = to_string_pretty(val) {
-                println!("{}", pretty);
-            }
+        } else if output_format == OutputFormat::Pretty
+            && let Ok(pretty) = to_string_pretty(val)
+        {
+            println!("{}", pretty);
         }
     };
 

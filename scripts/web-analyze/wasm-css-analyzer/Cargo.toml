@@ -2,7 +2,7 @@
 name = "wasm-css-analyzer"
 version = "1.0.0"
 authors = ["arai <arai_a@mac.com>"]
-edition = "2018"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib"]

@@ -4,9 +4,9 @@ use std::iter::FromIterator;
 use async_trait::async_trait;
 use bitflags::bitflags;
 use clap::Args;
-use serde_json::{from_value, json, Value};
+use serde_json::{Value, from_value, json};
 use tracing::trace;
-use ustr::{ustr, Ustr};
+use ustr::{Ustr, ustr};
 
 use super::{
     interface::{OverloadInfo, OverloadKind, PipelineCommand, PipelineValues, SymbolMetaFlags},
@@ -345,24 +345,24 @@ impl PipelineCommand for TraverseCommand {
             // really need that.
             let (sym_id, sym_info) = sym_node_set.ensure_symbol(&sym, server, depth).await?;
 
-            if let Some(stop_at_label) = &stop_at_class_label {
-                if let Some(labels_json) = sym_info.crossref_info.pointer("/meta/labels").cloned() {
-                    let labels: Vec<Ustr> = from_value(labels_json).unwrap();
-                    let mut skip_symbol = false;
-                    for label in labels {
-                        if label.as_str() == *stop_at_label {
-                            // Don't process the fields if we see a stop.  This is something
-                            // manually specified in ontology-mapping.toml currently.
-                            skip_symbol = true;
-                        }
+            if let Some(stop_at_label) = &stop_at_class_label
+                && let Some(labels_json) = sym_info.crossref_info.pointer("/meta/labels").cloned()
+            {
+                let labels: Vec<Ustr> = from_value(labels_json).unwrap();
+                let mut skip_symbol = false;
+                for label in labels {
+                    if label.as_str() == *stop_at_label {
+                        // Don't process the fields if we see a stop.  This is something
+                        // manually specified in ontology-mapping.toml currently.
+                        skip_symbol = true;
                     }
-                    // only skip if this isn't the requested symbol (depth == 0)
-                    if depth > 0 && skip_symbol {
-                        if !self.args.retain_all_symbol_data {
-                            sym_info.reduce_memory_usage_by_dropping_non_jumpref_info();
-                        }
-                        continue;
+                }
+                // only skip if this isn't the requested symbol (depth == 0)
+                if depth > 0 && skip_symbol {
+                    if !self.args.retain_all_symbol_data {
+                        sym_info.reduce_memory_usage_by_dropping_non_jumpref_info();
                     }
+                    continue;
                 }
             }
 

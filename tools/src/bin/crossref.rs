@@ -16,7 +16,7 @@ use chrono::Local;
 extern crate clap;
 use clap::Parser;
 use itertools::Itertools;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 extern crate tools;
 use tools::file_format::analysis::AnalysisStructured;
 use tools::file_format::analysis::BindingSlotLang;
@@ -25,8 +25,9 @@ use tools::file_format::analysis::OntologySlotKind;
 use tools::file_format::analysis::StructuredPointerInfo;
 use tools::file_format::analysis::StructuredTag;
 use tools::file_format::analysis::{
-    collect_file_syms_from_target, read_analysis, read_structured, read_target, AnalysisKind,
-    AnalysisTarget, BindingSlotProps, Location, SearchResult, StructuredBindingSlotInfo,
+    AnalysisKind, AnalysisTarget, BindingSlotProps, Location, SearchResult,
+    StructuredBindingSlotInfo, collect_file_syms_from_target, read_analysis, read_structured,
+    read_target,
 };
 use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::analysis_manglings::split_pretty;
@@ -38,14 +39,14 @@ use tools::file_format::ontology_mapping::{
     OntologyLabelOwningClass, OntologyMappingIngestion, OntologyPointerKind,
 };
 use tools::file_format::repo_data_ingestion::RepoIngestion;
-use tools::logging::init_logging;
 use tools::logging::LoggedSpan;
+use tools::logging::init_logging;
 use tools::templating::builder::build_and_parse_ontology_ingestion_explainer;
 use tools::templating::builder::build_and_parse_repo_ingestion_explainer;
-use ustr::ustr;
 use ustr::Ustr;
 use ustr::UstrMap;
 use ustr::UstrSet;
+use ustr::ustr;
 
 /// The size for a payload line (inclusive of leading indicating character and
 /// newline) at which we store it externally in `crossref-extra` instead of
@@ -502,7 +503,7 @@ fn read_analysis_files_thread(
         let subsystem = make_subsystem(
             path,
             &file_syms,
-            &ingestion,
+            ingestion,
             &mut structured_items,
             &mut pretty_items,
             &mut id_items,
@@ -571,7 +572,7 @@ fn read_analysis_files_thread(
             })
             .collect();
 
-        if lines.len() == 0 {
+        if lines.is_empty() {
             // Nothing to do with empty files.
             continue;
         }
@@ -733,7 +734,7 @@ fn read_analysis_files(
 
         for (sym, callee_sym, path, lineno) in callees_items {
             let callee_syms = callees_table.entry(sym).or_default();
-            let (from_path, ref mut callee_jump_lines) = callee_syms
+            let (from_path, callee_jump_lines) = callee_syms
                 .entry(callee_sym)
                 .or_insert_with(|| (path, BTreeSet::new()));
             if *from_path == path {
@@ -907,15 +908,15 @@ fn process_ontology_rules(
     // ### Process Ontology Rules
     for (pretty_id, rule) in ontology.config.pretty.iter() {
         // #### Labels we just slap on
-        if !rule.labels.is_empty() {
-            if let Some(root_syms) = id_table.get(pretty_id) {
-                for sym in root_syms {
-                    let Some(sym_meta) = meta_table.get_mut(sym) else {
-                        continue;
-                    };
-                    for label in &rule.labels {
-                        sym_meta.labels.insert(*label);
-                    }
+        if !rule.labels.is_empty()
+            && let Some(root_syms) = id_table.get(pretty_id)
+        {
+            for sym in root_syms {
+                let Some(sym_meta) = meta_table.get_mut(sym) else {
+                    continue;
+                };
+                for label in &rule.labels {
+                    sym_meta.labels.insert(*label);
                 }
             }
         }
@@ -1314,7 +1315,7 @@ fn write_crossref_and_jumpref_thread(
             };
             kindmap.insert(kindstr.to_string(), json!(result));
         }
-        if let Some(callee_syms) = callees_table.get(&id) {
+        if let Some(callee_syms) = callees_table.get(id) {
             let mut callees = Vec::new();
             for (callee_sym, (call_path, call_lines)) in callee_syms {
                 let Some(meta) = meta_table.get(callee_sym) else {
@@ -1334,7 +1335,7 @@ fn write_crossref_and_jumpref_thread(
             }
             kindmap.insert("callees".to_string(), json!(callees));
         }
-        if let Some(fmu_syms) = field_member_use_table.get(&id) {
+        if let Some(fmu_syms) = field_member_use_table.get(id) {
             let mut fmus = Vec::new();
             for (fmu_sym, fmu_field_infos) in fmu_syms {
                 let Some(meta) = meta_table.get(fmu_sym) else {
@@ -1357,13 +1358,13 @@ fn write_crossref_and_jumpref_thread(
         }
         // Put the metadata in there too.
         let mut fallback_pretty = None;
-        if let Some(meta) = meta_table.get(&id) {
+        if let Some(meta) = meta_table.get(id) {
             kindmap.insert("meta".to_string(), json!(meta));
         } else {
-            fallback_pretty = pretty_table.get(&id);
+            fallback_pretty = pretty_table.get(id);
         }
 
-        if let Some(idl_syms) = js_idl_table.get(&id) {
+        if let Some(idl_syms) = js_idl_table.get(id) {
             // Put the symbols only if there's a few candidates.
             if idl_syms.len() < MAX_JS_IDL_SYMS {
                 kindmap.insert("idl_syms".to_string(), json!(idl_syms));
@@ -1380,7 +1381,7 @@ fn write_crossref_and_jumpref_thread(
             is_first_chunk,
         );
 
-        let jumpref_info = convert_crossref_value_to_sym_info_rep(kindmap, &id, fallback_pretty);
+        let jumpref_info = convert_crossref_value_to_sym_info_rep(kindmap, id, fallback_pretty);
         write_inline_and_ext(
             &mut jumpref_out,
             &mut jumpref_ext_out,
@@ -1430,7 +1431,7 @@ fn write_crossref_and_jumpref(
             &search_result_list,
             0,
             total,
-            &ingestion,
+            ingestion,
             &pretty_table,
             &meta_table,
             &callees_table,
@@ -1666,7 +1667,7 @@ async fn main() {
 
     let ingestion = ingest_files(
         &cfg,
-        &tree_config,
+        tree_config,
         tree_name,
         all_files_paths,
         all_dirs_paths,
@@ -1675,7 +1676,7 @@ async fn main() {
     // Consume the ingestion logged span, pass it through our repo-ingestion
     // explainer template, and write it do sik.
     drop(ingestion_entered);
-    write_repo_ingestion_diag(&tree_config, logged_ingestion_span).await;
+    write_repo_ingestion_diag(tree_config, logged_ingestion_span).await;
 
     // ## Load Ontology Config
     //
@@ -1705,8 +1706,8 @@ async fn main() {
         callees_table,
     } = read_analysis_files(
         analysis_relative_paths,
-        &tree_name,
-        &tree_config,
+        tree_name,
+        tree_config,
         &ingestion,
         cli.thread_count,
     );
@@ -1734,7 +1735,7 @@ async fn main() {
     // Consume the ontology logged span, pass it through our ontology-ingestion
     // explainer template, and write it to disk.
     drop(ontology_entered);
-    write_ontology_ingestion_diag(&tree_config, logged_ontology_span).await;
+    write_ontology_ingestion_diag(tree_config, logged_ontology_span).await;
 
     println!(
         "Performing crossref::js-idl step for {} : {}",
@@ -1749,7 +1750,7 @@ async fn main() {
         Local::now().format("%Y-%m-%dT%H:%M:%S%z")
     );
     write_crossref_and_jumpref(
-        &tree_name,
+        tree_name,
         &tree_config.paths.index_path,
         search_result_table,
         &ingestion,
@@ -1766,7 +1767,7 @@ async fn main() {
         tree_name,
         Local::now().format("%Y-%m-%dT%H:%M:%S%z")
     );
-    write_identifiers(&tree_config, id_table);
+    write_identifiers(tree_config, id_table);
 
     println!(
         "Performing crossref::write-concise-file-info step for {} : {}",

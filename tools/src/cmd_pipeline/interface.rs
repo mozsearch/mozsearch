@@ -1,15 +1,15 @@
 use async_trait::async_trait;
 use bitflags::bitflags;
 use clap::{Args, ValueEnum};
-use serde::{ser::SerializeStruct, Serialize, Serializer};
-use serde_json::{json, to_string_pretty, Value};
+use serde::{Serialize, Serializer, ser::SerializeStruct};
+use serde_json::{Value, json, to_string_pretty};
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
 };
-use tracing::{trace, trace_span, Instrument};
-use ustr::{ustr, Ustr, UstrMap};
+use tracing::{Instrument, trace, trace_span};
+use ustr::{Ustr, UstrMap, ustr};
 
 pub use crate::abstract_server::{AbstractServer, Result};
 use crate::{

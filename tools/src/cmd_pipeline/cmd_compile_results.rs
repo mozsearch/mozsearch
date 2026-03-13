@@ -2,8 +2,8 @@ use std::collections::{BTreeMap, HashSet};
 
 use async_trait::async_trait;
 use clap::Args;
-use serde_json::{from_value, Value};
-use ustr::{ustr, Ustr, UstrMap};
+use serde_json::{Value, from_value};
+use ustr::{Ustr, UstrMap, ustr};
 
 use super::interface::{
     FlattenedKindGroupResults, FlattenedLineSpan, FlattenedPathKindGroupResults,

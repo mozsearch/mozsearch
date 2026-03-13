@@ -7,7 +7,7 @@ use std::io::BufRead;
 
 use std::str;
 use std::sync::Arc;
-use ustr::{ustr, Ustr};
+use ustr::{Ustr, ustr};
 
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
