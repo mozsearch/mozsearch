@@ -1,5 +1,5 @@
-use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
+use std::collections::btree_map::Entry;
 use std::fs;
 use std::fs::File;
 use std::io::BufWriter;
@@ -8,8 +8,8 @@ use std::path::Path;
 use liquid::Template;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serde_json::{from_str, from_value, json, to_writer, Map, Value};
-use ustr::{ustr, Ustr};
+use serde_json::{Map, Value, from_str, from_value, json, to_writer};
+use ustr::{Ustr, ustr};
 
 use crate::describe::describe_file;
 use crate::file_format::code_coverage_report;
@@ -335,12 +335,12 @@ impl JsonEvalNodeIngestion {
             },
             None => input_val.clone(),
         };
-        if traversed.is_null() {
-            if let Some(null_fallback) = &mut self.null_fallback {
-                traversed = null_fallback.eval(ctx, probing, &traversed, Value::Null);
-                if probing {
-                    trace!(val = ?traversed, "null_fallback");
-                }
+        if traversed.is_null()
+            && let Some(null_fallback) = &mut self.null_fallback
+        {
+            traversed = null_fallback.eval(ctx, probing, &traversed, Value::Null);
+            if probing {
+                trace!(val = ?traversed, "null_fallback");
             }
         }
         if let Some(mapper) = &mut self.map {
@@ -953,10 +953,10 @@ impl IngestionState {
         let probing = parent_probing || ctx.probe.should_probe_path(path);
 
         let concise_entry = self.concise_per_file.entry(*path);
-        if let Entry::Vacant(_) = &concise_entry {
-            if !create_if_does_not_exist {
-                return;
-            }
+        if let Entry::Vacant(_) = &concise_entry
+            && !create_if_does_not_exist
+        {
+            return;
         }
         let concise_storage =
             concise_entry.or_insert_with(|| ConcisePerFileInfo::default_is_dir(is_dir));

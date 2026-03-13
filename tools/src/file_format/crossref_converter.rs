@@ -1,5 +1,5 @@
 use bitflags::bitflags;
-use serde_json::{from_value, json, Map, Value};
+use serde_json::{Map, Value, from_value, json};
 use ustr::Ustr;
 
 use super::analysis::{BindingSlotKind, BindingSlotLang, StructuredBindingSlotInfo};
@@ -152,13 +152,13 @@ pub fn determine_desired_extra_syms_from_jumpref(
             }
         }
     }
-    if let Some(Value::Array(overridden)) = jumpref.pointer("/meta/overriddenBy") {
-        if overridden.len() <= 2 {
-            for over_info in overridden {
-                if let Value::String(over_sym) = over_info {
-                    // The override is all we need.
-                    extra_syms.push((over_sym.to_owned(), JumprefTraversals::empty()));
-                }
+    if let Some(Value::Array(overridden)) = jumpref.pointer("/meta/overriddenBy")
+        && overridden.len() <= 2
+    {
+        for over_info in overridden {
+            if let Value::String(over_sym) = over_info {
+                // The override is all we need.
+                extra_syms.push((over_sym.to_owned(), JumprefTraversals::empty()));
             }
         }
     }
@@ -175,26 +175,26 @@ pub fn extra_syms_next_step_lookups(
     next_step: JumprefTraversals,
 ) -> Vec<(String, JumprefTraversals)> {
     let mut extra_syms = vec![];
-    if next_step.contains(JumprefTraversals::Receive) {
-        if let Some(Value::Array(slots)) = jumpref.pointer("/meta/bindingSlots") {
-            for slot in slots {
-                if let Ok(slot_info) = from_value::<StructuredBindingSlotInfo>(slot.clone()) {
-                    if slot_info.props.slot_kind == BindingSlotKind::Recv {
-                        extra_syms.push((slot_info.sym.to_string(), JumprefTraversals::empty()));
-                    }
-                }
+    if next_step.contains(JumprefTraversals::Receive)
+        && let Some(Value::Array(slots)) = jumpref.pointer("/meta/bindingSlots")
+    {
+        for slot in slots {
+            if let Ok(slot_info) = from_value::<StructuredBindingSlotInfo>(slot.clone())
+                && slot_info.props.slot_kind == BindingSlotKind::Recv
+            {
+                extra_syms.push((slot_info.sym.to_string(), JumprefTraversals::empty()));
             }
         }
     }
     if next_step.contains(JumprefTraversals::OverriddenBy) {
         // this is copied from the same logic in determine_desired_extra_syms_from_jumpref.
-        if let Some(Value::Array(overridden)) = jumpref.pointer("/meta/overriddenBy") {
-            if overridden.len() <= 2 {
-                for over_info in overridden {
-                    if let Value::String(over_sym) = over_info {
-                        // The override is all we need.
-                        extra_syms.push((over_sym.to_owned(), JumprefTraversals::empty()));
-                    }
+        if let Some(Value::Array(overridden)) = jumpref.pointer("/meta/overriddenBy")
+            && overridden.len() <= 2
+        {
+            for over_info in overridden {
+                if let Value::String(over_sym) = over_info {
+                    // The override is all we need.
+                    extra_syms.push((over_sym.to_owned(), JumprefTraversals::empty()));
                 }
             }
         }

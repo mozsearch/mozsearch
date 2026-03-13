@@ -12,8 +12,8 @@ use std::{
     path::Path,
 };
 
-use serde::{de, Deserialize, Deserializer, Serialize};
-use time::{format_description::well_known::Rfc2822, OffsetDateTime};
+use serde::{Deserialize, Deserializer, Serialize, de};
+use time::{OffsetDateTime, format_description::well_known::Rfc2822};
 
 /// End marker for use when sending fast-import data.
 /// NOTE: make sure the data doesn't actually contain this marker!
@@ -23,7 +23,7 @@ const END: &str = "END";
 #[derive(Debug)]
 pub struct Report {
     root: Directory,
-    metadata: ReportMetadata,
+    pub metadata: ReportMetadata,
 }
 
 #[derive(Debug)]
@@ -106,10 +106,9 @@ impl Report {
         &self,
         fast_import: &mut impl Write,
         incremental: bool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> anyhow::Result<()> {
         let branch = &self.metadata.branch;
 
-        writeln!(fast_import, "feature date-format=rfc2822")?;
         writeln!(fast_import, "commit refs/heads/{branch}")?;
         writeln!(fast_import, "mark :1")?;
         write!(fast_import, "committer <searchfox> ")?;
@@ -119,8 +118,8 @@ impl Report {
         writeln!(fast_import, "{}", self.metadata.commit)?;
         if incremental {
             writeln!(fast_import, "from {branch}^0")?;
-            writeln!(fast_import, "deleteall")?;
         }
+        writeln!(fast_import, "deleteall")?;
         self.root.write_to_git(fast_import, "")?;
 
         writeln!(fast_import, "tag reverse/{branch}/{}", self.metadata.commit)?;
@@ -185,7 +184,8 @@ impl File {
             writeln!(fast_import, "data <<{END}")?;
             for line in &self.coverage {
                 if let Some(count) = line {
-                    writeln!(fast_import, "{count}")?;
+                    let log = (1 + count).ilog10();
+                    writeln!(fast_import, "{log}")?;
                 } else {
                     writeln!(fast_import)?;
                 }

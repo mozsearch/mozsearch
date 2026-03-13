@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use futures_core::stream::BoxStream;
-use serde_json::{from_str, Value};
+use serde_json::{Value, from_str};
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Read;
@@ -9,7 +9,7 @@ use std::time::Instant;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tracing::trace;
-use ustr::{ustr, Ustr};
+use ustr::{Ustr, ustr};
 
 use super::server_interface::{
     AbstractServer, ErrorDetails, ErrorLayer, FileMatches, HtmlFileRoot, Result,
@@ -20,7 +20,7 @@ use super::{CommitInfo, TextMatches, TextMatchesByFile, TreeInfo};
 use crate::abstract_server::lazy_crossref::perform_lazy_crossref;
 use crate::blame;
 use crate::file_format::analysis::{read_analyses, read_source};
-use crate::file_format::config::{load, TreeConfig, TreeConfigPaths};
+use crate::file_format::config::{TreeConfig, TreeConfigPaths, load};
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::identifiers::IdentMap;
 use crate::file_format::per_file_info::FileLookupMap;
@@ -36,8 +36,8 @@ pub mod livegrep {
     tonic::include_proto!("_");
 }
 
-use livegrep::code_search_client::CodeSearchClient;
 use livegrep::Query;
+use livegrep::code_search_client::CodeSearchClient;
 
 /// IO errors amount to a 404 for our purposes which means a sticky problem.
 impl From<std::io::Error> for ServerError {
@@ -314,8 +314,7 @@ impl AbstractServer for LocalIndex {
         };
         trace!(
             duration_us = now.elapsed().as_micros() as u64,
-            "crossref_lookup: {}",
-            symbol
+            "crossref_lookup: {}", symbol
         );
         if result.is_ok() && extra_processing {
             perform_lazy_crossref(self, result.unwrap()).await
@@ -332,8 +331,7 @@ impl AbstractServer for LocalIndex {
         };
         trace!(
             duration_us = now.elapsed().as_micros() as u64,
-            "jumpref_lookup: {}",
-            symbol
+            "jumpref_lookup: {}", symbol
         );
         result
     }
@@ -532,7 +530,7 @@ pub fn make_local_server(
             return Err(ServerError::StickyProblem(ErrorDetails {
                 layer: ErrorLayer::BadInput,
                 message: format!("bad tree name: {}", &tree_name),
-            }))
+            }));
         }
     };
 

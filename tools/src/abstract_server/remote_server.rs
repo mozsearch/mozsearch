@@ -1,15 +1,15 @@
 use async_trait::async_trait;
 use futures_core::stream::BoxStream;
-use serde_json::{from_str, Value};
+use serde_json::{Value, from_str};
 use url::{ParseError, Url};
 use ustr::Ustr;
 
 use super::{
+    CommitInfo, HtmlFileRoot, TextMatches, TreeInfo,
     server_interface::{
         AbstractServer, ErrorDetails, ErrorLayer, FileMatches, Result, SearchfoxIndexRoot,
         ServerError,
     },
-    CommitInfo, HtmlFileRoot, TextMatches, TreeInfo,
 };
 
 /// reqwest won't return an error for an unhappy status code itself; someone

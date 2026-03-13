@@ -619,19 +619,19 @@ fn analyze_file(
             .parent
             .and_then(|parent_id| defs.get(file_analysis, parent_id));
 
-        if let Some(ref parent) = parent {
-            if parent.kind == DefKind::Trait {
-                let trait_dependent_name = construct_qualname(&parent.qualname, &def.name);
-                visit_def(
-                    &mut dataset,
-                    AnalysisKind::Def,
-                    &def.span,
-                    &trait_dependent_name,
-                    def,
-                    Some(&parent.qualname),
-                    None,
-                )
-            }
+        if let Some(ref parent) = parent
+            && parent.kind == DefKind::Trait
+        {
+            let trait_dependent_name = construct_qualname(&parent.qualname, &def.name);
+            visit_def(
+                &mut dataset,
+                AnalysisKind::Def,
+                &def.span,
+                &trait_dependent_name,
+                def,
+                Some(&parent.qualname),
+                None,
+            )
         }
 
         let crate_id = &file_analysis.prelude.as_ref().unwrap().crate_id;
@@ -717,21 +717,21 @@ fn analyze_file(
 // because the paths are normalized by a sed script that will match backslashes
 // and output front-slashes.  The sed script could be made smarter.
 fn linuxized_path(path: &Path) -> PathBuf {
-    if let Some(pathstr) = path.to_str() {
-        if pathstr.find('\\').is_some() {
-            // Pesky backslashes, get rid of them!
-            let converted = pathstr.replace('\\', "/");
-            // If we're seeing this, it means the paths weren't normalized and
-            // now it's a question of minimizing fallout.
-            if converted.find(":/") == Some(1) {
-                // Starts with a drive letter, so let's turn this into
-                // an absolute path
-                let abs = "/".to_string() + converted.as_str();
-                return PathBuf::from(abs);
-            }
-            // Turn it into a relative path
-            return PathBuf::from(converted);
+    if let Some(pathstr) = path.to_str()
+        && pathstr.find('\\').is_some()
+    {
+        // Pesky backslashes, get rid of them!
+        let converted = pathstr.replace('\\', "/");
+        // If we're seeing this, it means the paths weren't normalized and
+        // now it's a question of minimizing fallout.
+        if converted.find(":/") == Some(1) {
+            // Starts with a drive letter, so let's turn this into
+            // an absolute path
+            let abs = "/".to_string() + converted.as_str();
+            return PathBuf::from(abs);
         }
+        // Turn it into a relative path
+        return PathBuf::from(converted);
     }
     // Already a valid path!
     path.to_path_buf()
