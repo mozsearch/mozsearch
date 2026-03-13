@@ -110,7 +110,6 @@ impl Report {
         let branch = &self.metadata.branch;
         let date = self.metadata.date.to_rfc2822();
 
-        writeln!(fast_import, "feature date-format=rfc2822")?;
         writeln!(fast_import, "commit refs/heads/{branch}")?;
         writeln!(fast_import, "mark :1")?;
         writeln!(fast_import, "committer <searchfox> {date}")?;
