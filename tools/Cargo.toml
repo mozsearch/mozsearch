@@ -17,6 +17,7 @@ serde_json = { version = "1.0.113", features = ["preserve_order"] }
 serde_repr = "0.1.18"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+anyhow = "1.0.86"
 async-stream = "0.3.2"
 async-trait = "0.1.50"
 axum = "0.6.17"
@@ -33,6 +34,9 @@ fantoccini = "0.22.1"
 flate2 = { version = "1.1.9" }
 futures-core = "0.3.17"
 getopts = "0.2.19"
+google-cloud-auth = "1.7.0"
+google-cloud-gax = "1.8.0"
+google-cloud-storage = "1.9.0"
 graphviz-rust = "0.9.7"
 git2 = "0.20.4"
 globset = "0.4.8"
@@ -94,6 +98,7 @@ urlencoding = "2.1.2"
 ustr = { version = "1.0", features = ["serde"] }
 uuid = { version = "1.2.1", features = ["std", "v4"] }
 walkdir = "2.3.2"
+zstd = "0.13.3"
 
 [patch.crates-io]
 # Our very old version of hyper depends on traitobject but rustc does not like
