@@ -533,73 +533,61 @@ function atEscape(text) {
  * XBL is a special-case via `XBLParser`.  It is dealing with single atomic
  * chunks of JS that exist in namespace
  */
-let Analyzer = {
-  /**
-   * The symbol table for the current scope.  When `enter` is invoked, the
-   * current `symbols` table is pushed onto `symbolTableStack` and a new
-   * SymbolTable is created and assigned to `symbols`.  When `exit` is invoked,
-   * the current `symbols` table is discarded and replaced by popping
-   * `symbolTableStack`.
-   */
-  symbols: new SymbolTable(),
-  /**
-   * Stack of `SymbolTable` instances corresponding to scopes that are reachable
-   * from the current scope.  Does not include the immediate scope which is
-   * found in `symbols`.
-   */
-  symbolTableStack: [],
-
-  /**
-   * Tracks the name of the current variable declaration so that qualified names
-   * can be inferred.  When nesting occurs, the previous value is saved off on
-   * the stack while call to recursive AST traversal occurs, and is restored on
-   * the way out.  No attempt is currently made to infer deeply nested names,
-   * just a single level, so this works as long as that assumption is okay.
-   * (Note however that `contextStack` does track this nesting.)
-   *
-   * Specialization occurs for cases like "prototype".
-   */
-  nameForThis: null,
-  /**
-   * Tracks explicit ES "class" names.  As with `nameForThis`, nesting happens
-   * on the stack so that context isn't lost, but those names are ignored for
-   * symbol naming purposes.  (Note however that `contextStack` does track this
-   * nesting.)
-   */
-  className: null,
-  /**
-   * Used to derive the "context" property for target records.  Whenever
-   * `symbolTableStack`, `nameForThis`, or `className` are modified, the name
-   * (possibly falsey) that is being used for the thing is pushed.  When
-   * traversing an ObjectExpression or ObjectPattern, the key is also pushed.
-   * (Object "dictionaries" like `{ a: { b: 1 } }` create a name hierarchy for
-   * "a.b" but do not create lexical scopes on their own.)
-   */
-  contextStack: [],
-
-  // Program lines.  Initialized by parse.  Used for getting back to program
-  // source given a SourceLocation/Position.  For JS files, this should be
-  // populated once.  For XUL/XBL files that invoke parse() multiple times with
-  // a new, non-consecutive `line` each time, the missing lines are padded out
-  // with empty strings.
-  _lines: [],
-
-  isModule: false,
-  isExport: false,
-
-  // The object expression for lazy getter API.
-  // Module imports in the object expression shouldn't be treated as
-  // definitions.
-  latestLazyObject: null,
-
-  resetState() {
+class Analyzer {
+  constructor() {
+    // The symbol table for the current scope.  When `enter` is invoked, the
+    // current `symbols` table is pushed onto `symbolTableStack` and a new
+    // SymbolTable is created and assigned to `symbols`.  When `exit` is
+    // invoked, the current `symbols` table is discarded and replaced by popping
+    // `symbolTableStack`.
     this.symbols = new SymbolTable();
+
+    // Stack of `SymbolTable` instances corresponding to scopes that are
+    // reachable from the current scope.  Does not include the immediate scope
+    // which is found in `symbols`.
     this.symbolTableStack = [];
+
+    // Tracks the name of the current variable declaration so that qualified
+    // names can be inferred.  When nesting occurs, the previous value is saved
+    // off on the stack while call to recursive AST traversal occurs, and is
+    // restored on the way out.  No attempt is currently made to infer deeply
+    // nested names, just a single level, so this works as long as that
+    // assumption is okay.
+    // (Note however that `contextStack` does track this nesting.)
+    //
+    // Specialization occurs for cases like "prototype".
     this.nameForThis = null;
+
+    // Tracks explicit ES "class" names.  As with `nameForThis`, nesting happens
+    // on the stack so that context isn't lost, but those names are ignored for
+    // symbol naming purposes.  (Note however that `contextStack` does track
+    // this nesting.)
     this.className = null;
+
+    // Used to derive the "context" property for target records.  Whenever
+    // `symbolTableStack`, `nameForThis`, or `className` are modified, the name
+    // (possibly falsey) that is being used for the thing is pushed.  When
+    // traversing an ObjectExpression or ObjectPattern, the key is also pushed.
+    // (Object "dictionaries" like `{ a: { b: 1 } }` create a name hierarchy for
+    // "a.b" but do not create lexical scopes on their own.)
     this.contextStack = [];
-    this._lines = [];
-  },
+
+    // Program lines.  Initialized by parse.  Used for getting back to program
+    // source given a SourceLocation/Position.  For JS files, this should be
+    // populated once.  For XUL/XBL files that invoke parse() multiple times
+    // with
+    // a new, non-consecutive `line` each time, the missing lines are padded out
+    // with empty strings.
+    this._lines =  [];
+
+    this.isModule = false;
+    this.isExport = false;
+
+    // The object expression for lazy getter API.
+    // Module imports in the object expression shouldn't be treated as
+    // definitions.
+    this.latestLazyObject = null;
+  }
 
   /**
    * Given a position, find the first instance of the given string starting
@@ -621,7 +609,7 @@ let Analyzer = {
       line: pos.line,
       column: idx
     };
-  },
+  }
 
   /**
    * If you've got some kind of outerNode like a ClassStatement where the left
@@ -640,7 +628,7 @@ let Analyzer = {
       start,
       end: outerNode.loc.end
     };
-  },
+  }
 
   /**
    * Enter a new lexical scope, pushing both a new SymbolTable() to track
@@ -652,30 +640,30 @@ let Analyzer = {
     this.symbols = new SymbolTable();
 
     this.contextStack.push(name);
-  },
+  }
 
   exit() {
     let old = this.symbols;
     this.symbols = this.symbolTableStack.pop();
     this.contextStack.pop();
     return old;
-  },
+  }
 
 
   isToplevel() {
     return this.symbolTableStack.length == 0;
-  },
+  }
 
   isGlobalSymbolScope() {
     if (this.isModule) {
       return this.isToplevel() && this.isExport;
     }
     return this.isToplevel();
-  },
+  }
 
   isModuleGlobalScope() {
     return this.isModule && this.isToplevel();
-  },
+  }
 
   /**
    * Syntactic sugar helper to enter(name) the (potentially falsey) named
@@ -686,11 +674,11 @@ let Analyzer = {
     this.enter(name);
     f();
     this.exit();
-  },
+  }
 
   get context() {
     return this.contextStack.filter(e => !!e).join(".");
-  },
+  }
 
   dummyProgram(prog, args) {
     let stmt = prog.body[0];
@@ -707,7 +695,7 @@ let Analyzer = {
     } else {
       this.expression(expr.body);
     }
-  },
+  }
 
   parse(text, filename, line, target, attrName="") {
     gAttrName = attrName;
@@ -761,13 +749,13 @@ let Analyzer = {
     }
     this.isModule = gParsedAs === "module";
     return ast;
-  },
+  }
 
   program(prog) {
     for (let stmt of prog.body) {
       this.statement(stmt);
     }
-  },
+  }
 
   // maybeNesting allows passing a SourceLocation directly or a Node.  The node
   // is tested via a call to `isNestingNode` to determine whether it's an
@@ -810,7 +798,7 @@ let Analyzer = {
       }
     }
     print(JSON.stringify(obj));
-  },
+  }
 
   target(loc, name, kind, pretty, sym) {
     let locProp;
@@ -821,7 +809,7 @@ let Analyzer = {
     }
     print(JSON.stringify({loc: locProp, target: 1, kind, pretty, sym,
                           context: this.context}));
-  },
+  }
 
   defProp(name, loc, extra, extraPretty, maybeNesting) {
     if (!nameValid(name)) {
@@ -835,7 +823,7 @@ let Analyzer = {
                   false, maybeNesting);
       this.target(loc, name, "def", extraPretty, extra);
     }
-  },
+  }
 
   useProp(name, loc, extra, extraPretty) {
     if (!nameValid(name)) {
@@ -848,7 +836,7 @@ let Analyzer = {
                   false);
       this.target(loc, name, "use", extraPretty, extra);
     }
-  },
+  }
 
   assignProp(name, loc, extra, extraPretty, maybeNesting) {
     if (!nameValid(name)) {
@@ -862,7 +850,7 @@ let Analyzer = {
                   false, maybeNesting);
       this.target(loc, name, "assign", extraPretty, extra);
     }
-  },
+  }
 
   defVar(name, loc, isAlias, maybeNesting) {
     if (!nameValid(name)) {
@@ -874,7 +862,7 @@ let Analyzer = {
     }
 
     this.defLocal(name, loc, isAlias, maybeNesting);
-  },
+  }
 
   findSymbol(name) {
     let sym = this.symbols.get(name);
@@ -887,7 +875,7 @@ let Analyzer = {
       }
     }
     return sym;
-  },
+  }
 
   useVar(name, loc) {
     if (!nameValid(name)) {
@@ -899,7 +887,7 @@ let Analyzer = {
     } else if (!sym.skip) {
       this.useLocal(name, loc, sym);
     }
-  },
+  }
 
   assignVar(name, loc) {
     if (!nameValid(name)) {
@@ -911,7 +899,7 @@ let Analyzer = {
     } else if (!sym.skip) {
       this.useLocal(name, loc, sym);
     }
-  },
+  }
 
   functionDecl(f) {
     for (let i = 0; i < f.params.length; i++) {
@@ -926,7 +914,7 @@ let Analyzer = {
     } else {
       this.expression(f.body);
     }
-  },
+  }
 
   defLocal(name, loc, isAlias, maybeNesting) {
     let sym = new SymbolTable.Symbol(name, loc, isAlias, this.isModuleGlobalScope());
@@ -951,7 +939,7 @@ let Analyzer = {
     if (sym.isModuleGlobal) {
       this.target(loc, name, syntax, name, sym.id);
     }
-  },
+  }
 
   useLocal(name, loc, sym) {
     let syntax, no_crossref;
@@ -968,7 +956,7 @@ let Analyzer = {
     if (sym.isModuleGlobal) {
       this.target(loc, name, syntax, name, sym.id);
     }
-  },
+  }
 
   statement(stmt) {
     switch (stmt.type) {
@@ -1250,13 +1238,13 @@ let Analyzer = {
       throw "Unexpected statement: " + stmt.type + " " + JSON.stringify(stmt);
       break;
     }
-  },
+  }
 
   variableDeclaration(decl) {
     for (let d of decl.declarations) {
       this.variableDeclarator(d);
     }
-  },
+  }
 
   // Returns true if the expression is either:
   //   * ChromeUtils.importESModule(...)
@@ -1293,7 +1281,7 @@ let Analyzer = {
     }
 
     return false;
-  },
+  }
 
   variableDeclarator(decl) {
     let rhsInfo = undefined;
@@ -1333,19 +1321,19 @@ let Analyzer = {
     this.maybeExpression(decl.init);
     this.contextStack.pop();
     this.nameForThis = oldNameForThis;
-  },
+  }
 
   maybeStatement(stmt) {
     if (stmt) {
       this.statement(stmt);
     }
-  },
+  }
 
   maybeExpression(expr) {
     if (expr) {
       this.expression(expr);
     }
-  },
+  }
 
   switchCase(scase) {
     if (scase.test) {
@@ -1354,7 +1342,7 @@ let Analyzer = {
     for (let stmt of scase.consequent) {
       this.statement(stmt);
     }
-  },
+  }
 
   catchClause(clause) {
     if (clause.param) {
@@ -1364,7 +1352,7 @@ let Analyzer = {
       this.expression(clause.guard);
     }
     this.statement(clause.body);
-  },
+  }
 
   maybeSetLazyObjectAt(args, index) {
     if (index >= args.length) {
@@ -1375,7 +1363,7 @@ let Analyzer = {
       return;
     }
     this.latestLazyObject = arg;
-  },
+  }
 
   checkDefineLazyAPI(callee, args) {
     if (callee.type !== "MemberExpression" ||
@@ -1399,7 +1387,7 @@ let Analyzer = {
         this.maybeSetLazyObjectAt(args, 1);
       }
     }
-  },
+  }
 
   expression(expr) {
     if (!expr) print(Error().stack);
@@ -1675,7 +1663,7 @@ let Analyzer = {
       throw `Invalid expression ${expr.type}: ${JSON.stringify(expr)}`;
       break;
     }
-  },
+  }
 
   comprehensionBlock(block) {
     switch (block.type) {
@@ -1688,7 +1676,7 @@ let Analyzer = {
       this.expression(block.test);
       break;
     }
-  },
+  }
 
   pattern(pat, isAlias=false, rhsInfo=false) {
     if (!pat) {
@@ -1759,7 +1747,7 @@ let Analyzer = {
       throw `Unexpected pattern: ${pat.type} ${JSON.stringify(pat)}`;
       break;
     }
-  },
+  }
 
   maybeLinkifyLiteral(expr) {
     if (typeof expr.value !== "string") {
@@ -1782,7 +1770,7 @@ let Analyzer = {
     this.target(loc, name, "use", url, sym);
 
     return true;
-  },
+  }
 
   maybeLinkifyModuleSpecifier(expr) {
     if (typeof expr.value !== "string") {
@@ -1809,7 +1797,7 @@ let Analyzer = {
 
     return true;
   }
-};
+}
 
 function printFileTarget(path) {
   print(JSON.stringify({
@@ -1933,10 +1921,11 @@ function analyzeJS(filename)
 
   let target = filename.endsWith(".mjs") ? "module" : "script";
 
-  let ast = Analyzer.parse(text, filename, 1, target);
+  const analyzer = new Analyzer();
+  let ast = analyzer.parse(text, filename, 1, target);
   if (ast) {
     try {
-      Analyzer.program(ast);
+      analyzer.program(ast);
     } catch (ex) {
       logError(`In ${filename}, got: ${ex}`);
     }
@@ -2027,15 +2016,17 @@ class BaseParser {
     let spaces = " ".repeat(column);
     text = `(function (val) {\n${spaces}${text}\n})`;
 
-    let ast = Analyzer.parse(text, this.filename, line, "script", prop);
+    const analyzer = new Analyzer();
+    let ast = analyzer.parse(text, this.filename, line, "script", prop);
     if (ast) {
       this.eventListeners.push(ast);
     }
   }
 
   processEventListeners() {
+    const analyzer = new Analyzer();
     for (let ast of this.eventListeners) {
-      Analyzer.dummyProgram(ast, [{name: "event", skip: true}]);
+      analyzer.dummyProgram(ast, [{name: "event", skip: true}]);
     }
   }
 
@@ -2046,8 +2037,9 @@ class BaseParser {
 
     const locStr = `${line + 1}:${column}-${column + url.length}`;
     const sym = "URL_" + atEscape(url);
-    Analyzer.source(locStr, url, "file,use", "file " + url, sym);
-    Analyzer.target(locStr, url, "use", url, sym);
+    const analyzer = new Analyzer();
+    analyzer.source(locStr, url, "file,use", "file " + url, sym);
+    analyzer.target(locStr, url, "use", url, sym);
   }
 
   getScriptTarget(tag) {
@@ -2098,9 +2090,10 @@ class BaseParser {
     let spaces = " ".repeat(column);
     text = spaces + text;
 
-    let ast = Analyzer.parse(text, this.filename, line + 1, target);
+    const analyzer = new Analyzer();
+    let ast = analyzer.parse(text, this.filename, line + 1, target);
     if (ast) {
-      Analyzer.program(ast);
+      analyzer.program(ast);
     }
   }
 
@@ -2193,17 +2186,19 @@ class XBLParser extends XMLParser {
     let column = tag.attrs.NAME.valueColumn;
     let name = tag.attrs.NAME.value;
 
+    const analyzer = new Analyzer();
+
     let locStr = `${line + 1}:${column}-${column + name.length}`;
-    Analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`,
+    analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`,
                     false);
-    Analyzer.target(locStr, name, "def", name, `#${name}`);
+    analyzer.target(locStr, name, "def", name, `#${name}`);
 
     let spaces = " ".repeat(tag.column);
     let text = spaces + this.curText;
 
-    let ast = Analyzer.parse(text, this.filename, tag.line + 1, "script");
+    let ast = analyzer.parse(text, this.filename, tag.line + 1, "script");
     if (ast) {
-      Analyzer.program(ast);
+      analyzer.program(ast);
     }
   }
 
@@ -2215,9 +2210,10 @@ class XBLParser extends XMLParser {
       name = tag.attrs.NAME.value;
 
       let locStr = `${line + 1}:${column}-${column + name.length}`;
-      Analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`,
+      const analyzer = new Analyzer();
+      analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`,
                       false);
-      Analyzer.target(locStr, name, "def", name, `#${name}`);
+      analyzer.target(locStr, name, "def", name, `#${name}`);
     }
 
     let line, column;
@@ -2233,9 +2229,10 @@ class XBLParser extends XMLParser {
       let spaces = " ".repeat(column);
       text = `(function (val) {\n${spaces}${text}\n})`;
 
-      let ast = Analyzer.parse(text, this.filename, line, "script", prop);
+      const analyzer = new Analyzer();
+      let ast = analyzer.parse(text, this.filename, line, "script", prop);
       if (ast) {
-        Analyzer.scoped(name, () => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
+        analyzer.scoped(name, () => analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
       }
     }
 
@@ -2251,9 +2248,10 @@ class XBLParser extends XMLParser {
       let spaces = " ".repeat(column);
       text = `(function (val) {\n${spaces}${text}\n})`;
 
-      let ast = Analyzer.parse(text, this.filename, line, "script", prop);
+      const analyzer = new Analyzer();
+      let ast = analyzer.parse(text, this.filename, line, "script", prop);
       if (ast) {
-        Analyzer.scoped(name, () => Analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
+        analyzer.scoped(name, () => analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
       }
     }
   }
@@ -2299,9 +2297,10 @@ class XBLParser extends XMLParser {
     let spaces = " ".repeat(column);
     text = `(function () {\n${spaces}${text}\n})`;
 
-    let ast = Analyzer.parse(text, this.filename, line, "script");
+    const analyzer = new Analyzer();
+    let ast = analyzer.parse(text, this.filename, line, "script");
     if (ast) {
-      Analyzer.scoped(null, () => Analyzer.dummyProgram(ast, []));
+      analyzer.scoped(null, () => analyzer.dummyProgram(ast, []));
     }
   }
 
@@ -2312,9 +2311,10 @@ class XBLParser extends XMLParser {
     let spaces = " ".repeat(column);
     text = `(function () {\n${spaces}${text}\n})`;
 
-    let ast = Analyzer.parse(text, this.filename, line, "script");
+    const analyzer = new Analyzer();
+    let ast = analyzer.parse(text, this.filename, line, "script");
     if (ast) {
-      Analyzer.scoped(null, () => Analyzer.dummyProgram(ast, []));
+      analyzer.scoped(null, () => analyzer.dummyProgram(ast, []));
     }
   }
 
@@ -2328,11 +2328,12 @@ class XBLParser extends XMLParser {
     let name = tag.attrs.NAME.value;
 
     let locStr = `${line + 1}:${column}-${column + name.length}`;
-    Analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`,
+    const analyzer = new Analyzer();
+    analyzer.source(locStr, name, "def,prop", `property ${name}`, `#${name}`,
                     false);
-    Analyzer.target(locStr, name, "def", name, `#${name}`);
+    analyzer.target(locStr, name, "def", name, `#${name}`);
 
-    Analyzer.enter(name);
+    analyzer.enter(name);
 
     let params = tag.params || [];
     for (let p of params) {
@@ -2340,7 +2341,7 @@ class XBLParser extends XMLParser {
       line = p.attrs.NAME.valueLine;
       column = p.attrs.NAME.valueColumn;
 
-      Analyzer.defVar(text, {start: {line: line + 1, column}}, false);
+      analyzer.defVar(text, {start: {line: line + 1, column}}, false);
     }
 
     if (tag.body) {
@@ -2354,13 +2355,13 @@ class XBLParser extends XMLParser {
       let spaces = " ".repeat(column);
       text = `(function (${paramsText}) {\n${spaces}${text}\n})`;
 
-      let ast = Analyzer.parse(text, this.filename, line, "script");
+      let ast = analyzer.parse(text, this.filename, line, "script");
       if (ast) {
-        Analyzer.dummyProgram(ast, []);
+        analyzer.dummyProgram(ast, []);
       }
     }
 
-    Analyzer.exit();
+    analyzer.exit();
   }
 }
 
@@ -2714,7 +2715,6 @@ function resetState() {
   gCouldBeJson = false;
   gAttrName = "";
   nextSymId = 0;
-  Analyzer.resetState();
 }
 
 
