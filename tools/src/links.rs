@@ -107,8 +107,9 @@ pub fn linkify_commit_header(s: &str) -> String {
 
 #[test]
 fn test_linkify_wpt_sync() {
-    let linkified =
-        linkify_commit_header("Bug 1643934 [wpt PR 24024] - Align prefers-color-scheme:no-preference tests with spec., a=testonly");
+    let linkified = linkify_commit_header(
+        "Bug 1643934 [wpt PR 24024] - Align prefers-color-scheme:no-preference tests with spec., a=testonly",
+    );
     assert_eq!(
         linkified,
         r#"<a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1643934">Bug 1643934</a> [<a href="https://github.com/web-platform-tests/wpt/pull/24024">wpt PR 24024</a>] - Align prefers-color-scheme:no-preference tests with spec., a=testonly"#,
@@ -117,8 +118,9 @@ fn test_linkify_wpt_sync() {
 
 #[test]
 fn test_linkify_servo_pr() {
-    let linkified =
-        linkify_commit_header("servo: Merge #1234 - stylo: Report a specific error for invalid CSS color values (from jdm:valueerr); r=heycam");
+    let linkified = linkify_commit_header(
+        "servo: Merge #1234 - stylo: Report a specific error for invalid CSS color values (from jdm:valueerr); r=heycam",
+    );
     assert!(linkified.contains("github.com"), "{:?}", linkified);
 }
 
@@ -137,5 +139,8 @@ fn test_bug_number() {
 fn test_bug_number_inside_link() {
     let link = "http://example.org/browser/editor/libeditor/tests/bug629172.html";
     let linkified = linkify_comment(None, link.into());
-    assert_eq!(linkified, "<a href=\"http://example.org/browser/editor/libeditor/tests/bug629172.html\">http://example.org/browser/editor/libeditor/tests/<a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=629172\">bug629172</a>.html</a>");
+    assert_eq!(
+        linkified,
+        "<a href=\"http://example.org/browser/editor/libeditor/tests/bug629172.html\">http://example.org/browser/editor/libeditor/tests/<a href=\"https://bugzilla.mozilla.org/show_bug.cgi?id=629172\">bug629172</a>.html</a>"
+    );
 }

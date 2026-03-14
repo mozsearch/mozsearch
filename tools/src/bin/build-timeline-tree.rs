@@ -15,7 +15,7 @@ use std::fmt;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
 
 use git2::{DiffFindOptions, ObjectType, Oid, Patch, Repository, Sort};
@@ -355,11 +355,11 @@ fn find_unmodified_lines(
     'outer: for entry in tree_at_path.iter() {
         path.push(entry.name().unwrap());
         for parent in commit.parents() {
-            if let Ok(parent_entry) = parent.tree()?.get_path(&path) {
-                if parent_entry.id() == entry.id() {
-                    path.pop();
-                    continue 'outer;
-                }
+            if let Ok(parent_entry) = parent.tree()?.get_path(&path)
+                && parent_entry.id() == entry.id()
+            {
+                path.pop();
+                continue 'outer;
             }
         }
 
@@ -414,22 +414,22 @@ fn build_blame_tree(
                 None => continue, // This parent doesn't even have a tree at this path
                 Some(p) => p,
             };
-            if let Some(parent_entry) = parent_tree.get_name(entry_name) {
-                if parent_entry.id() == entry.id() {
-                    // Item at `path` is the same in the tree for `commit` as in
-                    // `parent_trees[i]`, so the blame must be the same too
-                    let oid = read_path_oid(import_helper, &blame_parents[i], &path).unwrap();
-                    writeln!(
-                        import_helper.stdin.as_mut().unwrap(),
-                        "M {:06o} {} {}",
-                        entry.filemode(),
-                        oid,
-                        sanitize(&path)
-                    )
-                    .unwrap();
-                    path.pop();
-                    continue 'outer;
-                }
+            if let Some(parent_entry) = parent_tree.get_name(entry_name)
+                && parent_entry.id() == entry.id()
+            {
+                // Item at `path` is the same in the tree for `commit` as in
+                // `parent_trees[i]`, so the blame must be the same too
+                let oid = read_path_oid(import_helper, &blame_parents[i], &path).unwrap();
+                writeln!(
+                    import_helper.stdin.as_mut().unwrap(),
+                    "M {:06o} {} {}",
+                    entry.filemode(),
+                    oid,
+                    sanitize(&path)
+                )
+                .unwrap();
+                path.pop();
+                continue 'outer;
             }
         }
 

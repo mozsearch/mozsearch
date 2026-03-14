@@ -11,7 +11,7 @@ use std::{
 };
 
 use clap::Parser;
-use time::{format_description::well_known::Iso8601, OffsetDateTime};
+use time::{OffsetDateTime, format_description::well_known::Iso8601};
 
 use tools::file_format::code_coverage_report::{Report, ReportMetadata};
 

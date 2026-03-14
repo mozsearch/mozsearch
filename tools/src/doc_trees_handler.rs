@@ -1,5 +1,5 @@
 use crate::file_format::config::Config;
-use crate::file_format::doc_trees::{read_doc_trees, DocTrees};
+use crate::file_format::doc_trees::{DocTrees, read_doc_trees};
 use std::sync::OnceLock;
 
 pub fn find_doc_url(cfg: &Config, src_path: &str) -> Option<String> {

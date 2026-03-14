@@ -24,11 +24,11 @@ use flate2::read::GzDecoder;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(not(target_arch = "wasm32"))]
 use serde_json::from_str;
-use serde_json::{from_value, Map, Value};
+use serde_json::{Map, Value, from_value};
 use serde_repr::*;
 
 #[cfg(not(target_arch = "wasm32"))]
-use ustr::{ustr, Ustr, UstrMap};
+use ustr::{Ustr, UstrMap, ustr};
 #[cfg(target_arch = "wasm32")]
 type Ustr = String;
 

@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use ustr::{ustr, Ustr, UstrMap};
+use ustr::{Ustr, UstrMap, ustr};
 
 use crate::symbol_graph_edge_kind::EdgeKind;
 

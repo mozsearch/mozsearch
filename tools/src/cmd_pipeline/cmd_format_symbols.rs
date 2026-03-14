@@ -5,7 +5,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use async_trait::async_trait;
 use clap::{Args, ValueEnum};
 use itertools::Itertools;
-use serde_json::{from_str, Value};
+use serde_json::{Value, from_str};
 
 use ustr::Ustr;
 
@@ -279,12 +279,11 @@ impl FieldsWithHash {
             }
         }
 
-        if !self.fields.is_empty() {
-            if let Some(end_offset) = &self.fields[last_index].class_end_offset {
-                if last_end_offset < *end_offset {
-                    self.fields[last_index].end_padding_bytes = Some(end_offset - last_end_offset);
-                }
-            }
+        if !self.fields.is_empty()
+            && let Some(end_offset) = &self.fields[last_index].class_end_offset
+            && last_end_offset < *end_offset
+        {
+            self.fields[last_index].end_padding_bytes = Some(end_offset - last_end_offset);
         }
     }
 
@@ -1627,11 +1626,11 @@ impl ClassMap {
             for field_variants in &cls.merged_fields {
                 let mut has_hole = false;
                 for maybe_field in field_variants {
-                    if let Some(field) = &maybe_field {
-                        if field.hole_bytes.is_some() {
-                            has_hole = true;
-                            break;
-                        }
+                    if let Some(field) = &maybe_field
+                        && field.hole_bytes.is_some()
+                    {
+                        has_hole = true;
+                        break;
                     }
                 }
 
@@ -1756,11 +1755,11 @@ impl ClassMap {
 
                 let mut has_end_padding = false;
                 for maybe_field in field_variants {
-                    if let Some(field) = &maybe_field {
-                        if field.end_padding_bytes.is_some() {
-                            has_end_padding = true;
-                            break;
-                        }
+                    if let Some(field) = &maybe_field
+                        && field.end_padding_bytes.is_some()
+                    {
+                        has_end_padding = true;
+                        break;
                     }
                 }
 
