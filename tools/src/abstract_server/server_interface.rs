@@ -4,7 +4,7 @@ use axum::response::{IntoResponse, Response};
 use futures_core::stream::BoxStream;
 use serde::Serialize;
 use serde_json::Value;
-use ustr::{ustr, Ustr};
+use ustr::{Ustr, ustr};
 
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 

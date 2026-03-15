@@ -6,7 +6,7 @@ use std::{path::Path, str::FromStr};
 use crate::file_format::{
     code_coverage_report,
     config::GitData,
-    coverage::{interpolate_coverage, InterpolatedCoverage},
+    coverage::{InterpolatedCoverage, interpolate_coverage},
 };
 
 // Helpers to do things with git2

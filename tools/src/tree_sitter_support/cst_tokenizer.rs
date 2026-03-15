@@ -1,7 +1,7 @@
 use std::borrow;
 use std::path::Path;
 
-use include_dir::{include_dir, Dir};
+use include_dir::{Dir, include_dir};
 
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
 
@@ -190,16 +190,16 @@ pub fn hypertokenize_source_file(
                 visited_children = true;
                 _depth -= 1;
 
-                if let Some(container_id) = id_stack.last() {
-                    if cursor.node().id() == *container_id {
-                        context_stack.pop();
-                        context_pretty = if context_stack.is_empty() {
-                            empty_context.clone()
-                        } else {
-                            context_stack.join("::")
-                        };
-                        id_stack.pop();
-                    }
+                if let Some(container_id) = id_stack.last()
+                    && cursor.node().id() == *container_id
+                {
+                    context_stack.pop();
+                    context_pretty = if context_stack.is_empty() {
+                        empty_context.clone()
+                    } else {
+                        context_stack.join("::")
+                    };
+                    id_stack.pop();
                 }
             } else {
                 break;

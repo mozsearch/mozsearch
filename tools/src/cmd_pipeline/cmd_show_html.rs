@@ -2,7 +2,7 @@ use std::{cell::Cell, rc::Rc};
 
 use async_trait::async_trait;
 use clap::Args;
-use lol_html::{element, HtmlRewriter, Settings};
+use lol_html::{HtmlRewriter, Settings, element};
 
 use super::interface::{JsonRecords, PipelineCommand, PipelineValues};
 use crate::{

@@ -6,15 +6,15 @@ use dot_structures::*;
 use graphviz_rust::printer::{DotPrinter, PrinterContext};
 use itertools::Itertools;
 use petgraph::{
+    Directed, Graph as PetGraph,
     algo::all_simple_paths,
     graph::{DefaultIx, NodeIndex},
-    Directed, Graph as PetGraph,
 };
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
-use serde_json::{from_value, json, to_value, Value};
+use serde_json::{Value, from_value, json, to_value};
 use tracing::trace;
-use ustr::{ustr, Ustr, UstrMap};
+use ustr::{Ustr, UstrMap, ustr};
 
 use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
@@ -208,7 +208,7 @@ fn is_lambda_pretty(pretty: &str) -> bool {
             return false;
         }
     }
-    return true;
+    true
 }
 
 // TODO: evaluate the type of kinds we now allow thanks to SCIP; we may need to
@@ -670,10 +670,7 @@ impl SymbolGraphCollection {
                             unmerged_pieces_infos.push((
                                 piece,
                                 Some(use_sym_id.clone()),
-                                Some((
-                                    use_sym_is_class_or_lambda.clone(),
-                                    use_sym_is_namespace.clone(),
-                                )),
+                                Some((*use_sym_is_class_or_lambda, *use_sym_is_namespace)),
                             ));
                         }
                         _ => {
@@ -976,7 +973,8 @@ impl NamedSymbolGraph {
         let source_ix = self.ensure_node(source);
         let target_ix = self.ensure_node(target);
         let paths = all_simple_paths(&self.graph, source_ix, target_ix, 0, None);
-        let node_paths = paths
+
+        paths
             .map(|v: Vec<_>| {
                 v.into_iter()
                     .tuple_windows()
@@ -994,8 +992,7 @@ impl NamedSymbolGraph {
                     })
                     .collect()
             })
-            .collect();
-        node_paths
+            .collect()
     }
 
     /// XXX don't use this, use
@@ -1049,7 +1046,8 @@ impl NamedSymbolGraph {
         let paths = all_simple_paths(&self.graph, super_source_ix, super_target_ix, 0, None);
 
         trace!("have iterator");
-        let node_paths = paths
+
+        paths
             .map(|v: Vec<_>| {
                 v.into_iter()
                     // skip the source supernode
@@ -1071,8 +1069,7 @@ impl NamedSymbolGraph {
                     })
                     .collect()
             })
-            .collect();
-        node_paths
+            .collect()
     }
 }
 
@@ -1715,10 +1712,10 @@ impl HierarchicalNode {
                     sg.stmts
                         .extend(kid.render(policies, node_set, edge_set, state));
 
-                    if !kid.symbols.iter().any(|id| internal_targets.contains(id)) {
-                        if let Some(HierarchicalLayoutAction::Node(kid_id)) = &kid.action {
-                            top_nodes.stmts.push(stmt!(node!(esc kid_id)));
-                        }
+                    if !kid.symbols.iter().any(|id| internal_targets.contains(id))
+                        && let Some(HierarchicalLayoutAction::Node(kid_id)) = &kid.action
+                    {
+                        top_nodes.stmts.push(stmt!(node!(esc kid_id)));
                     }
                 }
 
@@ -1781,20 +1778,20 @@ impl HierarchicalNode {
                 // Only show group headers if there's more than 1 group!
                 let use_groups = grouped_kids.len() > 1;
                 for (group, ordered_kids) in grouped_kids {
-                    if let Some(group_name) = group {
-                        if use_groups {
-                            table.rows.push(LabelRow {
-                                cells: vec![LabelCell {
-                                    id: None,
-                                    bg_color: Some("#eee"),
-                                    contents: format!("<I>{}</I>", escape_html(&group_name)),
-                                    badges: vec![],
-                                    port: "".to_string(),
-                                    symbol: "".to_string(),
-                                    indent_level: 0,
-                                }],
-                            });
-                        }
+                    if let Some(group_name) = group
+                        && use_groups
+                    {
+                        table.rows.push(LabelRow {
+                            cells: vec![LabelCell {
+                                id: None,
+                                bg_color: Some("#eee"),
+                                contents: format!("<I>{}</I>", escape_html(&group_name)),
+                                badges: vec![],
+                                port: "".to_string(),
+                                symbol: "".to_string(),
+                                indent_level: 0,
+                            }],
+                        });
                     }
                     for kid in ordered_kids {
                         if let Some(HierarchicalLayoutAction::Record(kid_id)) = &kid.action {
@@ -2378,14 +2375,14 @@ impl SymbolGraphNodeSet {
         // useful in the context of the class.)
         if let Some(Value::Array(labels_json)) = sym_info.crossref_info.pointer("/meta/labels") {
             for label in labels_json {
-                if let Value::String(label) = label {
-                    if let Some((pri, shorter_label)) = label_to_badge_info(label) {
-                        sym_info.badges.push(SymbolBadge {
-                            pri,
-                            label: ustr(shorter_label),
-                            source_jump: None,
-                        });
-                    }
+                if let Value::String(label) = label
+                    && let Some((pri, shorter_label)) = label_to_badge_info(label)
+                {
+                    sym_info.badges.push(SymbolBadge {
+                        pri,
+                        label: ustr(shorter_label),
+                        source_jump: None,
+                    });
                 }
             }
         }

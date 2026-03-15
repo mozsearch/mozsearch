@@ -11,7 +11,7 @@ use std::{
 };
 
 use clap::Parser;
-use time::{format_description::well_known::Iso8601, OffsetDateTime};
+use time::{OffsetDateTime, format_description::well_known::Iso8601};
 
 use tools::file_format::code_coverage_report::{Report, ReportMetadata};
 
@@ -87,6 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .as_mut()
             .ok_or("failed to open child process stdin")?;
         let mut fast_import = BufWriter::new(fast_import);
+        writeln!(fast_import, "feature date-format=rfc2822")?;
         writeln!(&mut fast_import, "feature done")?;
         writeln!(&mut fast_import, "feature force")?;
         report.write_to_git(&mut fast_import, existing_branch)?;

@@ -2,7 +2,7 @@
 name = "tools"
 version = "0.1.0"
 authors = ["Bill McCloskey <billm@mozilla.com>"]
-edition = "2018"
+edition = "2024"
 
 [build-dependencies]
 tonic-build = "0.7.1"
@@ -18,6 +18,7 @@ serde_repr = "0.1.18"
 time = { version = "0.3.44", features = ["parsing", "formatting"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+anyhow = "1.0.86"
 async-stream = "0.3.2"
 async-trait = "0.1.50"
 axum = "0.6.17"
@@ -34,6 +35,9 @@ fantoccini = "0.19.3"
 flate2 = { version = "1", features = ["tokio"] }
 futures-core = "0.3.17"
 getopts = "0.2.19"
+google-cloud-auth = "1.7.0"
+google-cloud-gax = "1.8.0"
+google-cloud-storage = "1.9.0"
 graphviz-rust = "0.2.0"
 git2 = "0.16.1"
 globset = "0.4.8"
@@ -41,9 +45,9 @@ hyper = "0.10"
 include_dir = "0.7.2"
 insta = { version = "1.39.0", features = ["json"] }
 ipdl_parser = { path = "./ipdl_parser" }
-jaq-core = { version = "3.0.0-beta", default-features = false, features = [] }
-jaq-json = { version = "2.0.0-beta", default-features = false, features = ["serde"] }
-jaq-std = { version = "3.0.0-beta", default-features = false, features = [] }
+jaq-core = { version = "=3.0.0-beta", default-features = false, features = [] }
+jaq-json = { version = "=2.0.0-beta", default-features = false, features = ["serde"] }
+jaq-std = { version = "=3.0.0-beta", default-features = false, features = [] }
 json-structural-diff = "0.1.0"
 lazy_static = "1.1"
 lexical-sort = "0.3"
@@ -94,6 +98,7 @@ urlencoding = "2.1.2"
 ustr = { version = "1.0", features = ["serde"] }
 uuid = { version = "1.2.1", features = ["std", "v4"] }
 walkdir = "2.3.2"
+zstd = "0.13.3"
 
 [patch.crates-io]
 # Our very old version of hyper depends on traitobject but rustc does not like

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use clap::Args;
 use lol_html::{
-    element, html_content::ContentType, rewrite_str, HtmlRewriter, RewriteStrSettings, Settings,
+    HtmlRewriter, RewriteStrSettings, Settings, element, html_content::ContentType, rewrite_str,
 };
 use std::{cell::Cell, rc::Rc};
 

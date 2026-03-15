@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use clap::Args;
-use ustr::{ustr, Ustr};
+use ustr::{Ustr, ustr};
 
 use super::interface::{
     PipelineCommand, PipelineValues, SymbolCrossrefInfo, SymbolCrossrefInfoList, SymbolMetaFlags,
@@ -91,26 +91,26 @@ impl PipelineCommand for CrossrefLookupCommand {
                 overloads_hit: vec![],
                 flags: SymbolMetaFlags::default(),
             };
-            if let (true, Some(pretty)) = (self.args.exact_match, from_ident) {
-                if pretty.to_lowercase() != crossref_info.get_pretty().to_lowercase() {
-                    continue;
-                }
+            if let (true, Some(pretty)) = (self.args.exact_match, from_ident)
+                && pretty.to_lowercase() != crossref_info.get_pretty().to_lowercase()
+            {
+                continue;
             }
-            if self.args.methods {
-                if let Some(method_syms) = crossref_info.get_method_symbols() {
-                    for method_sym in method_syms {
-                        let method_info = server.crossref_lookup(&method_sym, false).await?;
-                        symbol_crossref_infos.push(SymbolCrossrefInfo {
-                            symbol: method_sym,
-                            crossref_info: method_info,
-                            relation: SymbolRelation::Queried,
-                            quality: crossref_info.quality.clone(),
-                            overloads_hit: vec![],
-                            flags: SymbolMetaFlags::default(),
-                        });
-                    }
-                    continue;
+            if self.args.methods
+                && let Some(method_syms) = crossref_info.get_method_symbols()
+            {
+                for method_sym in method_syms {
+                    let method_info = server.crossref_lookup(&method_sym, false).await?;
+                    symbol_crossref_infos.push(SymbolCrossrefInfo {
+                        symbol: method_sym,
+                        crossref_info: method_info,
+                        relation: SymbolRelation::Queried,
+                        quality: crossref_info.quality.clone(),
+                        overloads_hit: vec![],
+                        flags: SymbolMetaFlags::default(),
+                    });
                 }
+                continue;
             }
 
             symbol_crossref_infos.push(crossref_info);

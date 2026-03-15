@@ -16,8 +16,8 @@ use std::time::Instant;
 use lazy_static::lazy_static;
 use regex::Regex;
 use tools::file_format::config;
-use tools::file_format::per_file_info::read_detailed_file_info;
 use tools::file_format::per_file_info::FileLookupMap;
+use tools::file_format::per_file_info::read_detailed_file_info;
 use tools::output::BreadcrumbsLinksTo;
 use tools::templating::builder::build_and_parse;
 use ustr::ustr;
@@ -36,8 +36,8 @@ use tools::url_encode_path::url_encode_path;
 use tools::output::{PanelItem, PanelSection};
 
 extern crate flate2;
-use flate2::write::GzEncoder;
 use flate2::Compression;
+use flate2::write::GzEncoder;
 
 fn main() {
     env_logger::init();
@@ -319,25 +319,25 @@ fn main() {
             });
         };
 
-        if !path.contains("__GENERATED__") {
-            if let Some((product, component)) = concise_info.bugzilla_component {
-                source_panel_items.push(PanelItem {
-                    label: format!("File a bug in {} :: {}", product, component),
-                    tooltip: format!(
-                        "Open the new bug form for the {} :: {} component in bugzilla",
-                        product, component
-                    ),
-                    id: "panel-file-bug",
-                    link: format!(
-                        "https://bugzilla.mozilla.org/enter_bug.cgi?product={}&component={}",
-                        product.replace("&", "%26"),
-                        component.replace("&", "%26")
-                    ),
-                    update_link_lineno: "",
-                    accel_key: None,
-                    copyable: true,
-                });
-            }
+        if !path.contains("__GENERATED__")
+            && let Some((product, component)) = concise_info.bugzilla_component
+        {
+            source_panel_items.push(PanelItem {
+                label: format!("File a bug in {} :: {}", product, component),
+                tooltip: format!(
+                    "Open the new bug form for the {} :: {} component in bugzilla",
+                    product, component
+                ),
+                id: "panel-file-bug",
+                link: format!(
+                    "https://bugzilla.mozilla.org/enter_bug.cgi?product={}&component={}",
+                    product.replace("&", "%26"),
+                    component.replace("&", "%26")
+                ),
+                update_link_lineno: "",
+                accel_key: None,
+                copyable: true,
+            });
         }
 
         if !source_panel_items.is_empty() {
