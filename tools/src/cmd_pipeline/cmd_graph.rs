@@ -23,7 +23,7 @@ use super::symbol_graph::{
 use crate::abstract_server::{AbstractServer, Result};
 
 #[derive(Clone, Debug, PartialEq, ValueEnum, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "kebab-case")]
 pub enum GraphFormat {
     // JSON format, useful for when GraphMode is Hier.
     Json,
@@ -40,7 +40,7 @@ pub enum GraphFormat {
 }
 
 #[derive(Clone, Debug, PartialEq, ValueEnum, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "kebab-case")]
 pub enum GraphHierarchy {
     /// No hierarchy, everything is a node, there are no clusters.
     Flat,
@@ -65,7 +65,7 @@ pub enum GraphHierarchy {
 }
 
 #[derive(Clone, Debug, PartialEq, ValueEnum, Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "kebab-case")]
 pub enum GraphLayout {
     /// Default use of the dot engine.
     Dot,
