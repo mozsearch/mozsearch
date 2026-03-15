@@ -425,7 +425,7 @@ impl SymbolGraphCollection {
         // but probably should.
         let mut nodes = BTreeSet::new();
         let mut edges = BTreeMap::new();
-        for (source_id, target_id, _edge_id) in graph.list_edges() {
+        for (source_id, target_id, edge_id) in graph.list_edges() {
             let source_info = self.node_set.get(&source_id);
             nodes.insert(source_info.symbol);
             let source_sym = source_info.symbol;
@@ -434,9 +434,26 @@ impl SymbolGraphCollection {
             nodes.insert(target_info.symbol);
             let target_sym = target_info.symbol;
 
+            let edge_info = self.edge_set.get(&edge_id);
+
+            let mut jumps = vec![];
+            let mut hovers = vec![];
+            for detail in &edge_info.data {
+                match detail {
+                    EdgeDetail::Jump(s) => jumps.push(s.clone()),
+                    EdgeDetail::HoverClass(s) => hovers.push(s.clone()),
+                }
+            }
+
             edges.insert(
                 format!("{}-{}", source_sym, target_sym),
-                json!({ "from": source_sym, "to": target_sym }),
+                json!({
+                    "from": source_sym,
+                    "to": target_sym,
+                    "kind": edge_info.kind,
+                    "jumps": json!(jumps),
+                    "hovers": json!(hovers),
+                }),
             );
         }
 

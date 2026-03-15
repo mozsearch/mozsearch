@@ -1,4 +1,7 @@
-#[derive(Clone, Debug)]
+use serde::Serialize;
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum EdgeKind {
     Default, // solid line, closed arrow ("normal")
     // These value are meant to be UML-ish
