@@ -1635,11 +1635,20 @@ g.ptr-ref > polygon, g.ptr-contains > polygon {
 g.hovered-cur-node > polygon {
   fill: var(--diagram-hovered-cur-node);
 }
+div.hovered-cur-node {
+  background-color: var(--diagram-hovered-cur-node);
+}
 g.hovered-out-node > polygon {
   fill: var(--diagram-hovered-out-node);
 }
+div.hovered-out-node {
+  background-color: var(--diagram-hovered-out-node);
+}
 g.hovered-in-node > polygon {
   fill: var(--diagram-hovered-in-node);
+}
+div.hovered-in-node {
+  background-color: var(--diagram-hovered-in-node);
 }
 
 g.hovered-cur-edge > path:not(.clicktarget),
@@ -1863,6 +1872,139 @@ g.true-diag g.node polygon {
   border: 1px solid var(--tooltip-foreground);
   box-sizing: border-box;
   transform: rotate(45deg);
+}
+
+/* Interactive graph */
+
+html.for-interactive-graph {
+  height: 100%;
+}
+
+html.for-interactive-graph body {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+html.for-interactive-graph #scrolling {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+html.for-interactive-graph #content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+html.for-interactive-graph .footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  margin: 0 0 0 1.2rem;
+}
+
+html.for-interactive-graph .query-result {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+#interactive-graph-base {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+}
+
+#interactive-graph-viewport {
+  touch-action: none;
+  flex: 1;
+  position: relative;
+  flex-grow: 1;
+  overflow: hidden;
+}
+
+#interactive-graph-container {
+  position: absolute;
+  transform-origin: top left;
+}
+
+.interactive-graph-block {
+  position: absolute;
+  border: 1px solid var(--page-border-color);
+  box-sizing: border-box;
+  border-radius: 8px;
+  min-width: 120px;
+  width: max-content;
+  font-family: monospace;
+  cursor: pointer;
+}
+.interactive-graph-block-source,
+.interactive-graph-block-target {
+  border-width: 3px;
+}
+
+.interactive-graph-block-scope {
+  padding: 0.1rem 0.5rem;
+  font-size: 0.8rem;
+  text-align: start;
+  opacity: 0.6;
+}
+
+.interactive-graph-block-text {
+  padding: 0.8rem;
+  text-align: center;
+}
+.interactive-graph-block-scope + .interactive-graph-block-text {
+  padding-top: 0;
+}
+
+.interactive-graph-edge {
+  fill: none;
+  stroke: var(--page-foreground);
+}
+
+.interactive-graph-edge-implementation {
+  stroke-dasharray: 5px, 2px;
+}
+.interactive-graph-edge-ipc {
+  stroke-dasharray: 2px, 3px;
+}
+
+.interactive-graph-edge-head {
+  fill: var(--page-foreground);
+  stroke: none;
+}
+
+.interactive-graph-edge-head-inheritance,
+.interactive-graph-edge-head-implementation,
+.interactive-graph-edge-head-aggregation {
+  fill: var(--page-background);
+  stroke: var(--page-foreground);
+  stroke-width: 2px;
+}
+
+.interactive-graph-buttons {
+  position: fixed;
+  right: 8px;
+  bottom: 8px;
+  width: max-content;
+  display: flex;
+  flex-direction: column;
+}
+.interactive-graph-buttons button {
+  border: 1px solid var(--page-border-color);
+  padding: 0.2rem 0.4rem;
+}
+.interactive-graph-button-zoom-in {
+  border-radius: 4px 4px 0 0;
+}
+.interactive-graph-button-zoom-out {
+}
+.interactive-graph-button-fit {
+  border-radius: 0 0 4px 4px;
 }
 
 /* Field Layout */

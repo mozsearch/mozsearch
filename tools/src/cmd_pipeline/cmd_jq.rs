@@ -158,6 +158,9 @@ impl PipelineCommand for JQCommand {
             PipelineValues::FlattenedResultsBundle(frb) => PipelineValues::JsonValue(JsonValue {
                 value: self.filter(to_value(frb).unwrap())?,
             }),
+            PipelineValues::GraphInput(graphs) => PipelineValues::JsonValue(JsonValue {
+                value: self.filter(to_value(graphs).unwrap())?,
+            }),
             PipelineValues::GraphResultsBundle(grb) => PipelineValues::JsonValue(JsonValue {
                 value: self.filter(to_value(grb).unwrap())?,
             }),

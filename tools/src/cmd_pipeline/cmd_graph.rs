@@ -14,7 +14,7 @@ use graphviz_rust::exec;
 use graphviz_rust::printer::{DotPrinter, PrinterContext};
 
 use super::interface::{
-    GraphResultsBundle, PipelineCommand, PipelineValues, RenderedGraph, TextFile,
+    GraphResultsBundle, GraphInput, PipelineCommand, PipelineValues, RenderedGraph, TextFile,
 };
 use super::symbol_graph::{
     DerivedSymbolInfo, HierarchicalRenderState, HierarchyDefaultSummarizePolicy, HierarchyPolicies,
@@ -37,6 +37,8 @@ pub enum GraphFormat {
     Dot,
     // Transformed SVG accompanied by symbol metadata in a JSON structure.
     Mozsearch,
+    // JSON for client-side interactive SVG.
+    MozsearchInteractive,
 }
 
 #[derive(Clone, Debug, PartialEq, ValueEnum, Serialize)]
@@ -348,6 +350,7 @@ impl PipelineCommand for GraphCommand {
                     { "value": "dot", "label": "dot with layout", },
                     { "value": "raw-dot", "label": "dot without layout", },
                     { "value": "mozsearch", "label": "SVG and symbols", },
+                    { "value": "mozsearch-interactive", "label": "interactive SVG and symbols (experimental)", },
                 ],
             }));
             graph_options.push(json!({
@@ -393,6 +396,21 @@ impl PipelineCommand for GraphCommand {
         let graph_contents = exec(dot_graph, &mut PrinterContext::default(), exec_commands)?;
         match use_format {
             GraphFormat::Json => Ok(PipelineValues::SymbolGraphCollection(graphs)),
+            GraphFormat::MozsearchInteractive => {
+                let mut json_graphs = vec![];
+                for i in 0..graphs.graphs.len() {
+                    json_graphs.push(graphs.graph_to_json(i));
+                }
+                let symbols = graphs.node_set.symbols_meta_to_jumpref_json_destructive();
+                let overloads_hit = graphs.overloads_hit.clone();
+                let options = graphs.options.clone();
+                Ok(PipelineValues::GraphInput(GraphInput {
+                    graphs: json!(json_graphs),
+                    symbols,
+                    overloads_hit,
+                    options,
+                }))
+            },
             GraphFormat::Mozsearch => Ok(PipelineValues::GraphResultsBundle(GraphResultsBundle {
                 graphs: vec![RenderedGraph {
                     graph: transform_svg(&graph_contents),
