@@ -204,6 +204,9 @@ impl PipelineCommand for TraverseCommand {
         let mut source_set = vec![];
         let mut target_set = vec![];
 
+        let mut source_syms = vec![];
+        let mut target_syms = vec![];
+
         let mut overloads_hit = vec![];
 
         let all_traversals_valid = Traversals::Super | Traversals::Subclass;
@@ -231,9 +234,11 @@ impl PipelineCommand for TraverseCommand {
             // just too silly.  This can added as an overload.
             if is_source {
                 source_set.push(sym_node_id.clone());
+                source_syms.push(info.symbol.clone());
             }
             if is_target {
                 target_set.push(sym_node_id);
+                target_syms.push(info.symbol.clone());
             }
         }
 
@@ -1488,6 +1493,13 @@ impl PipelineCommand for TraverseCommand {
         }
 
         let mut traverse_options = vec![];
+        traverse_options.push(json!({
+            "name": "*syms*",
+            // Do not put "label", so that the frontend will ignore this,
+            // when showing the control panel.
+            "sources": json!(source_syms),
+            "targets": json!(target_syms),
+        }));
         traverse_options.push(json!({
             "name": "depth",
             "label": "Depth",
