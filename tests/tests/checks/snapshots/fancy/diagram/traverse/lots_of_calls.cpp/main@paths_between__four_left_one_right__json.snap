@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: sgc.to_json()
+input_file: inputs/fancy/diagram/traverse/lots_of_calls.cpp/paths_between__four_left_one_right__json
 ---
 {
   "jumprefs": {
@@ -180,15 +181,30 @@ expression: sgc.to_json()
       "edges": [
         {
           "from": "_ZN11CallerThree11three_nexusEP10CallerFour",
-          "to": "_ZN10CallerFour9four_leftEv"
+          "to": "_ZN10CallerFour9four_leftEv",
+          "kind": "default",
+          "jumps": [
+            "lots_of_calls.cpp#56"
+          ],
+          "hovers": []
         },
         {
           "from": "_ZN9CallerOne19one_calls_two_rightEP9CallerTwoP11CallerThreeP10CallerFour",
-          "to": "_ZN9CallerTwo27two_right_calls_three_nexusEP11CallerThreeP10CallerFour"
+          "to": "_ZN9CallerTwo27two_right_calls_three_nexusEP11CallerThreeP10CallerFour",
+          "kind": "default",
+          "jumps": [
+            "lots_of_calls.cpp#42"
+          ],
+          "hovers": []
         },
         {
           "from": "_ZN9CallerTwo27two_right_calls_three_nexusEP11CallerThreeP10CallerFour",
-          "to": "_ZN11CallerThree11three_nexusEP10CallerFour"
+          "to": "_ZN11CallerThree11three_nexusEP10CallerFour",
+          "kind": "default",
+          "jumps": [
+            "lots_of_calls.cpp#52"
+          ],
+          "hovers": []
         }
       ]
     }

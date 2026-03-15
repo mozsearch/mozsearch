@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: sgc.to_json()
+input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/callees__outercat_meet__json
 ---
 {
   "jumprefs": {
@@ -791,43 +792,91 @@ expression: sgc.to_json()
       "edges": [
         {
           "from": "_ZN7outerNS5Thing10takeDamageEi",
-          "to": "_ZN7outerNS9Superhero10takeDamageEi"
+          "to": "_ZN7outerNS9Superhero10takeDamageEi",
+          "kind": "inheritance",
+          "jumps": [],
+          "hovers": []
         },
         {
           "from": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
-          "to": "_ZN7outerNS8OuterCat13isFriendlyCatEv"
+          "to": "_ZN7outerNS8OuterCat13isFriendlyCatEv",
+          "kind": "default",
+          "jumps": [
+            "big_cpp.cpp#325"
+          ],
+          "hovers": []
         },
         {
           "from": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
-          "to": "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv"
+          "to": "_ZN7outerNS8OuterCat20isSecretlyUnfriendlyEv",
+          "kind": "default",
+          "jumps": [
+            "big_cpp.cpp#321"
+          ],
+          "hovers": []
         },
         {
           "from": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
-          "to": "_ZN7outerNS8OuterCat13isFriendlyCatEv"
+          "to": "_ZN7outerNS8OuterCat13isFriendlyCatEv",
+          "kind": "default",
+          "jumps": [
+            "big_cpp.cpp#351"
+          ],
+          "hovers": []
         },
         {
           "from": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
-          "to": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv"
+          "to": "_ZN7outerNS8OuterCat31isFriendlyIfNotCurrentlyVisibleEv",
+          "kind": "default",
+          "jumps": [
+            "big_cpp.cpp#360"
+          ],
+          "hovers": []
         },
         {
           "from": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
-          "to": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
+          "to": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+          "kind": "default",
+          "jumps": [
+            "big_cpp.cpp#349"
+          ],
+          "hovers": []
         },
         {
           "from": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
-          "to": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
+          "to": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
+          "kind": "default",
+          "jumps": [
+            "big_cpp.cpp#359,380"
+          ],
+          "hovers": []
         },
         {
           "from": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
-          "to": "_ZN7outerNS5Thing6ignoreEv"
+          "to": "_ZN7outerNS5Thing6ignoreEv",
+          "kind": "default",
+          "jumps": [
+            "big_cpp.cpp#339"
+          ],
+          "hovers": []
         },
         {
           "from": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
-          "to": "_ZN7outerNS5Thing10takeDamageEi"
+          "to": "_ZN7outerNS5Thing10takeDamageEi",
+          "kind": "default",
+          "jumps": [
+            "big_cpp.cpp#387"
+          ],
+          "hovers": []
         },
         {
           "from": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
-          "to": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
+          "to": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+          "kind": "default",
+          "jumps": [
+            "big_cpp.cpp#394,397,400,403,406"
+          ],
+          "hovers": []
         }
       ]
     }
