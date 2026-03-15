@@ -665,6 +665,10 @@ var Diagram = new (class Diagram {
       sectionBox.classList.add("diagram-panel-section");
 
       for (const item of items) {
+        if (!item.label) {
+          continue;
+        }
+
         const label = document.createElement("label");
         label.id = "diagram-option-label-" + item.name;
         label.setAttribute("for", "diagram-option-" + item.name);
@@ -852,6 +856,10 @@ var Diagram = new (class Diagram {
   getOption(name) {
     for (const { section, items } of GRAPH_OPTIONS) {
       for (const item of items) {
+        if (!item.label) {
+          continue;
+        }
+
         if (item.name === name) {
           return item;
         }
@@ -874,6 +882,10 @@ var Diagram = new (class Diagram {
 
     for (const { section, items } of GRAPH_OPTIONS) {
       for (const item of items) {
+        if (!item.label) {
+          continue;
+        }
+
         const re = new RegExp(" +" + item.name + ":[^ ]+");
         query = query.replace(re, "");
         if (item.value != item.default) {
