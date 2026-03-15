@@ -424,6 +424,20 @@ class TestUtils {
     elem.dispatchEvent(ev);
   }
 
+  static dispatchPointerEvent(name, elem, options = { bubbles: true }) {
+    TestHarness.debug(`Dispatching PointerEvent ${name}`);
+
+    const ev = new PointerEvent(name, options);
+    elem.dispatchEvent(ev);
+  }
+
+  static dispatchWheelEvent(name, elem, options = { bubbles: true }) {
+    TestHarness.debug(`Dispatching WheelEvent ${name}`);
+
+    const ev = new WheelEvent(name, options);
+    elem.dispatchEvent(ev);
+  }
+
   /**
    * Emulate keypress event.
    *
@@ -684,6 +698,24 @@ class TestUtils {
       result.value = text;
     };
     return result;
+  }
+
+  /**
+   * Setup a hook to test pointer capture.
+   *
+   * @return {set}
+   *         The set of the captured pointer ids.
+   */
+  static spyPointerCapture(node) {
+    let capturedIds = new Set();
+    node.hasPointerCapture = id => capturedIds.has(id);
+    node.setPointerCapture = id => {
+      capturedIds.add(id);
+    };
+    node.releasePointerCapture = id => {
+      capturedIds.delete(id);
+    };
+    return capturedIds;
   }
 }
 window.TestUtils = TestUtils;
