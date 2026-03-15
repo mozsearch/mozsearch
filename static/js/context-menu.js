@@ -1226,6 +1226,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
     // - diagrams ("svg")
     // - breadcrumbs ("breadcrumbs")
     if (!event.target.closest("code") &&
+        !event.target.closest(".interactive-graph-block") &&
         !event.target.closest("svg") &&
         !event.target.closest(".breadcrumbs") &&
         !event.target.closest(".symbol-tree-table") &&
@@ -2204,7 +2205,7 @@ var Hover = new (class Hover {
     // We're hovering over a graph so we also want to hover related graph nodes.
     // We will still also potentially want to highlight any document spans as
     // well.
-    if (elem.tagName === "g") {
+    if (elem.tagName === "g" || elem.classList.contains("interactive-graph-block")) {
       this.activateDiagram(elem);
     }
 

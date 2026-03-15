@@ -305,6 +305,7 @@ pub enum PipelineValues {
     TextMatches(TextMatches),
     HtmlExcerpts(HtmlExcerpts),
     FlattenedResultsBundle(FlattenedResultsBundle),
+    GraphInput(GraphInput),
     GraphResultsBundle(GraphResultsBundle),
     TextFile(TextFile),
     BatchGroups(BatchGroups),
@@ -801,6 +802,15 @@ impl FlattenedLineSpan {
         let end = self.line_range.1 + after;
         (start, end)
     }
+}
+
+/// Rendered graphs and associated metadata.
+#[derive(Serialize)]
+pub struct GraphInput {
+    pub graphs: Value,
+    pub overloads_hit: Vec<OverloadInfo>,
+    pub symbols: Value,
+    pub options: Value,
 }
 
 /// Rendered graphs and associated metadata.

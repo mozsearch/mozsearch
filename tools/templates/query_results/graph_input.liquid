@@ -1,0 +1,11 @@
+<script>var GRAPH_INPUT = {{ results.GraphInput.graphs | json }};</script>
+{% include 'query_results/graph_panel.liquid'
+   overloads_hit: results.GraphInput.overloads_hit,
+   options: results.GraphInput.options %}
+<div id="interactive-graph-base">
+<div id="interactive-graph-viewport">
+<div id="interactive-graph-container">
+</div>
+</div>
+</div>
+<script src="/{{tree}}/static/js/graph.js"></script>

@@ -91,6 +91,9 @@ async fn handle_query(
             PipelineValues::GraphResultsBundle(grb) => {
                 serde_json::to_string(&grb.symbols).unwrap_or_else(|_| "{}".to_string())
             }
+            PipelineValues::GraphInput(graphs) => {
+                serde_json::to_string(&graphs.symbols).unwrap_or_else(|_| "{}".to_string())
+            }
             PipelineValues::SymbolTreeTableList(sttl) => {
                 serde_json::to_string(&sttl.unioned_node_sets_as_jumprefs())
                     .unwrap_or_else(|_| "{}".to_string())

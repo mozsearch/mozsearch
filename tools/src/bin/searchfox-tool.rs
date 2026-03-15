@@ -97,6 +97,10 @@ async fn main() {
             emit_json(&to_value(frb).unwrap());
             0
         }
+        Ok(PipelineValues::GraphInput(graphs)) => {
+            emit_json(&to_value(graphs).unwrap());
+            0
+        }
         Ok(PipelineValues::GraphResultsBundle(grb)) => {
             emit_json(&to_value(grb).unwrap());
             0

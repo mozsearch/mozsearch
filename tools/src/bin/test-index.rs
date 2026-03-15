@@ -103,6 +103,9 @@ async fn main() -> Result<(), std::io::Error> {
                     Ok(PipelineValues::FlattenedResultsBundle(frb)) => {
                         insta::assert_json_snapshot!(&to_value(frb).unwrap());
                     }
+                    Ok(PipelineValues::GraphInput(graphs)) => {
+                        insta::assert_json_snapshot!(&to_value(graphs).unwrap());
+                    }
                     Ok(PipelineValues::GraphResultsBundle(grb)) => {
                         insta::assert_json_snapshot!(&to_value(grb).unwrap());
                     }
