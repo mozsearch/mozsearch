@@ -1,58 +1,7 @@
 <script>var GRAPH_EXTRA = [];</script>
-<script>var GRAPH_OPTIONS = {{ results.GraphResultsBundle.options | json }};</script>
-<script>var GRAPH_OVERLOADS = {{ results.GraphResultsBundle.overloads_hit | json }};</script>
-<div id="diagram-panel" class="hidden"></div>
-{%- if results.GraphResultsBundle.overloads_hit != empty -%}
-
-{%- assign has_other_overloads = false -%}
-
-{%- for overload in results.GraphResultsBundle.overloads_hit -%}
-  {%- assign kind_prefix = overload.kind | truncate: 10, "" -%}
-  {%- if kind_prefix != "DepthLimit" -%}
-    {%- assign has_other_overloads = true -%}
-  {%- endif -%}
-{%- endfor -%}
-
-{%- if has_other_overloads == true -%}
-<div class="diagram-limit-warning">
-<h3>Limits Hit:</h3>
-<p>Some items hit the limit, and the result is incomplete. <button id="diagram-limit-warning-overload-list-toggle" onclick="Diagram.toggleOverloadList()">Show details</button></p>
-<ul id="diagram-limit-warning-overload-list" class="hidden">
-  {%- for overload in results.GraphResultsBundle.overloads_hit -%}
-  {%- assign kind_prefix = overload.kind | truncate: 10, "" -%}
-  {%- if kind_prefix == "DepthLimit" -%}
-  {%- continue -%}
-  {%- endif -%}
-  <li>
-    <code>{{overload.pretty}}</code>
-    {% if overload.local_limit > 0 %} hit the local limit{% endif -%}
-    {%- if overload.global_limit > 0 %} hit the global limit{% endif -%}<br>
-    <span class="diagram-limit-kind">
-    {% if overload.kind == "Overrides" -%}too many overrides
-    {%- elsif overload.kind == "Subclasses" -%}too many subclasses
-    {%- elsif overload.kind == "UsesPaths" -%}too many uses
-    {%- elsif overload.kind == "UsesLines" -%}too many lines
-    {%- elsif overload.kind == "FieldMemberUses" -%}too many field member uses
-    {%- elsif overload.kind == "NodeLimit" -%}too many nodes
-    {%- else %}{{ overload.kind }}:{%- endif %}
-    </span>: <span class="diagram-limit-eq">
-    {%- if overload.exist == 0 -%}
-      (unknown)
-    {%- else -%}
-      {{ overload.exist }}
-    {%- endif -%}
-    {%- if overload.local_limit > 0 %} >= {{ overload.local_limit }}{% endif -%}
-    {%- if overload.global_limit > 0 %} >= {{ overload.global_limit }}{% endif -%}
-    </span>: only {{ overload.included }} included.
-    {% if overload.kind == "UsesPaths" or overload.kind == "UsesLines" or overload.kind == "NodeLimit" -%}
-    <button onclick="Diagram.liftLimit('{{overload.kind}}', {{overload.exist}})">Lift the limit</button>
-    {%- endif -%}
-  </li>
-  {%- endfor -%}
-</ul>
-</div>
-{%- endif -%}
-{%- endif -%}
+{% include 'query_results/graph_panel.liquid'
+   overloads_hit: results.GraphResultsBundle.overloads_hit,
+   options: results.GraphResultsBundle.options %}
 {% for graph in results.GraphResultsBundle.graphs %}
 {{ graph.graph }}
 <script>GRAPH_EXTRA.push({{ graph.extra | json }});</script>
