@@ -1482,7 +1482,7 @@ class Analyzer extends ASTVisitor {
 
 
   isToplevel() {
-    return this.symbolTableStack.length == 0;
+    return this.symbolTableStack.length == 1;
   }
 
   isGlobalSymbolScope() {
@@ -1896,9 +1896,27 @@ class Analyzer extends ASTVisitor {
 
   // ASTVisitor methods overloads
 
+  program(prog) {
+    this.scoped(null, prog, () => {
+      super.program(prog);
+    });
+  }
+
   blockStatement(stmt) {
     this.scoped(null, stmt, () => {
       super.blockStatement(stmt);
+    });
+  }
+
+  switchStatement(stmt) {
+    this.scoped(null, stmt, () => {
+      super.switchStatement(stmt);
+    });
+  }
+
+  catchClause(clause) {
+    this.scoped(null, clause, () => {
+      super.catchClause(clause);
     });
   }
 
