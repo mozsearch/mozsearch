@@ -1466,14 +1466,14 @@ class Analyzer extends ASTVisitor {
    * symbols defined in this scope, as well as pushing onto the contextStack
    * for "context" attribute generation purposes.
    */
-  enter(name) {
+  enter(name, node) {
     this.symbolTableStack.push(this.symbols);
     this.symbols = new SymbolTable();
 
     this.contextStack.push(name);
   }
 
-  exit() {
+  exit(node) {
     let old = this.symbols;
     this.symbols = this.symbolTableStack.pop();
     this.contextStack.pop();
@@ -1497,14 +1497,14 @@ class Analyzer extends ASTVisitor {
   }
 
   /**
-   * Syntactic sugar helper to enter(name) the (potentially falsey) named
-   * lexical scope, invoke the provided helper, then exit() the scope off the
+   * Syntactic sugar helper to enter the (potentially falsey) named
+   * lexical scope, invoke the provided helper, then exit the scope off the
    * scope/context stack.
    */
-  scoped(name, f) {
-    this.enter(name);
+  scoped(name, node, f) {
+    this.enter(name, node);
     f();
-    this.exit();
+    this.exit(node);
   }
 
   get context() {
@@ -1515,7 +1515,7 @@ class Analyzer extends ASTVisitor {
    * Event listeners and handler properties.
    */
   handler(name, args, prog) {
-    this.scoped(name, () => {
+    this.scoped(name, prog, () => {
       let stmt = prog.body[0];
       let expr = stmt.expression;
 
@@ -1897,38 +1897,38 @@ class Analyzer extends ASTVisitor {
   // ASTVisitor methods overloads
 
   blockStatement(stmt) {
-    this.scoped(null, () => {
+    this.scoped(null, stmt, () => {
       super.blockStatement(stmt);
     });
   }
 
   forStatement(stmt) {
-    this.scoped(null, () => {
+    this.scoped(null, stmt, () => {
       super.forStatement(stmt);
     });
   }
 
   forInStatement(stmt) {
-    this.scoped(null, () => {
+    this.scoped(null, stmt, () => {
       super.forInStatement(stmt);
     });
   }
 
   forOfStatement(stmt) {
-    this.scoped(null, () => {
+    this.scoped(null, stmt, () => {
       super.forInStatement(stmt);
     });
   }
 
   letStatement(stmt) {
-    this.scoped(null, () => {
+    this.scoped(null, stmt, () => {
       super.letStatement(stmt);
     });
   }
 
   functionDeclaration(stmt) {
     this.defVar(stmt.id.name, stmt.loc, false, stmt.body);
-    this.scoped(stmt.id.name, () => {
+    this.scoped(stmt.id.name, stmt, () => {
       super.functionDeclaration(stmt);
     });
   }
@@ -1980,7 +1980,7 @@ class Analyzer extends ASTVisitor {
   classStatement(stmt) {
     this.defVar(stmt.id.name, stmt.id.loc, false,
                 this.deriveLocationFromOuterNodeAndIdNode(stmt, stmt.id));
-    this.scoped(stmt.id.name, () => {
+    this.scoped(stmt.id.name, stmt, () => {
       let oldClass = this.className;
       this.className = stmt.id.name;
 
@@ -2009,7 +2009,7 @@ class Analyzer extends ASTVisitor {
         stmt.body);
     }
 
-    this.scoped(name, () => {
+    this.scoped(name, stmt, () => {
       super.classMethod(stmt);
     });
   }
@@ -2116,7 +2116,7 @@ class Analyzer extends ASTVisitor {
     // to be correct in the common case.
     //let name = expr.id ? expr.id.name : "";
     let name = null;
-    this.scoped(name, () => {
+    this.scoped(name, expr, () => {
       if (this.className && name == this.className) {
         // SPIDERMONKEY HACK: Fixes a bug where constructors get the
         // name of their class instead of "constructor".
@@ -2132,7 +2132,7 @@ class Analyzer extends ASTVisitor {
   }
 
   arrowFunctionExpression(expr) {
-    this.scoped(null, () => {
+    this.scoped(null, expr, () => {
       super.arrowFunctionExpression(expr);
     });
   }
@@ -2215,19 +2215,19 @@ class Analyzer extends ASTVisitor {
   }
 
   comprehensionExpression(expr) {
-    this.scoped(null, () => {
+    this.scoped(null, expr, () => {
       super.comprehensionExpression(expr);
     });
   }
 
   generatorExpression(expr) {
-    this.scoped(null, () => {
+    this.scoped(null, expr, () => {
       super.generatorExpression(expr);
     });
   }
 
   classExpression(expr) {
-    this.scoped(null, () => {
+    this.scoped(null, expr, () => {
       super.classExpression(expr);
     });
   }
@@ -2808,7 +2808,8 @@ class XBLParser extends XMLParser {
                     false);
     analyzer.target(locStr, name, "def", name, `#${name}`);
 
-    analyzer.enter(name);
+    const dummyNode = {};
+    analyzer.enter(name, dummyNode);
 
     let params = tag.params || [];
     for (let p of params) {
@@ -2836,7 +2837,7 @@ class XBLParser extends XMLParser {
       }
     }
 
-    analyzer.exit();
+    analyzer.exit(dummyNode);
   }
 }
 
