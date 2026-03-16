@@ -1,0 +1,29 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/js/all/all_export_default_1__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file js/all_export_default_1.mjs",
+    "sym": "FILE_js/all_export_default_1@2Emjs"
+  },
+  {
+    "loc": "1:15-35",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_EXPORT_DEFAULT_1",
+    "sym": "#USE_EXPORT_DEFAULT_1"
+  },
+  {
+    "loc": "1:15-35",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_EXPORT_DEFAULT_1",
+    "sym": "#USE_EXPORT_DEFAULT_1",
+    "context": ""
+  }
+]

@@ -1,0 +1,628 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/js/all/all_module__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file js/all.mjs",
+    "sym": "FILE_js/all@2Emjs"
+  },
+  {
+    "loc": "12:9-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property NAME_IMPORT_1",
+    "sym": "#NAME_IMPORT_1"
+  },
+  {
+    "loc": "12:9-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "NAME_IMPORT_1",
+    "sym": "#NAME_IMPORT_1",
+    "context": ""
+  },
+  {
+    "loc": "13:26-38",
+    "source": 1,
+    "syntax": "def,variable",
+    "pretty": "variable DEF_IMPORT_1",
+    "sym": "#M-DEF_IMPORT_1"
+  },
+  {
+    "loc": "13:26-38",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_IMPORT_1",
+    "sym": "#M-DEF_IMPORT_1",
+    "context": ""
+  },
+  {
+    "loc": "13:9-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property NAME_IMPORT_2",
+    "sym": "#NAME_IMPORT_2"
+  },
+  {
+    "loc": "13:9-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "NAME_IMPORT_2",
+    "sym": "#NAME_IMPORT_2",
+    "context": ""
+  },
+  {
+    "loc": "15:12-32",
+    "source": 1,
+    "syntax": "def,variable",
+    "pretty": "variable DEF_IMPORT_DEFAULT_2",
+    "sym": "#M-DEF_IMPORT_DEFAULT_2"
+  },
+  {
+    "loc": "15:12-32",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_IMPORT_DEFAULT_2",
+    "sym": "#M-DEF_IMPORT_DEFAULT_2",
+    "context": ""
+  },
+  {
+    "loc": "16:20-40",
+    "source": 1,
+    "syntax": "def,variable",
+    "pretty": "variable DEF_IMPORT_DEFAULT_3",
+    "sym": "#M-DEF_IMPORT_DEFAULT_3"
+  },
+  {
+    "loc": "16:20-40",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_IMPORT_DEFAULT_3",
+    "sym": "#M-DEF_IMPORT_DEFAULT_3",
+    "context": ""
+  },
+  {
+    "loc": "17:18-32",
+    "source": 1,
+    "syntax": "def,variable",
+    "pretty": "variable DEF_IMPORT_STR",
+    "sym": "#M-DEF_IMPORT_STR"
+  },
+  {
+    "loc": "17:18-32",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_IMPORT_STR",
+    "sym": "#M-DEF_IMPORT_STR",
+    "context": ""
+  },
+  {
+    "loc": "18:31-44",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property NAME_IMPORT_3",
+    "sym": "#NAME_IMPORT_3"
+  },
+  {
+    "loc": "18:31-44",
+    "target": 1,
+    "kind": "use",
+    "pretty": "NAME_IMPORT_3",
+    "sym": "#NAME_IMPORT_3",
+    "context": ""
+  },
+  {
+    "loc": "28:11-23",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_EXPORT_1",
+    "sym": "#DEF_EXPORT_1"
+  },
+  {
+    "loc": "28:11-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_EXPORT_1",
+    "sym": "#DEF_EXPORT_1",
+    "context": ""
+  },
+  {
+    "loc": "28:26-38",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_EXPORT_1",
+    "sym": "#USE_EXPORT_1"
+  },
+  {
+    "loc": "28:26-38",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_EXPORT_1",
+    "sym": "#USE_EXPORT_1",
+    "context": ""
+  },
+  {
+    "loc": "29:13-25",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_EXPORT_2",
+    "sym": "#DEF_EXPORT_2"
+  },
+  {
+    "loc": "29:13-25",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_EXPORT_2",
+    "sym": "#DEF_EXPORT_2",
+    "context": ""
+  },
+  {
+    "loc": "29:28-40",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_EXPORT_2",
+    "sym": "#USE_EXPORT_2"
+  },
+  {
+    "loc": "29:28-40",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_EXPORT_2",
+    "sym": "#USE_EXPORT_2",
+    "context": ""
+  },
+  {
+    "loc": "30:16-31",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_EXPORT_FUNC",
+    "sym": "#DEF_EXPORT_FUNC",
+    "nestingRange": "30:62-32:0"
+  },
+  {
+    "loc": "30:16-31",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_EXPORT_FUNC",
+    "sym": "#DEF_EXPORT_FUNC",
+    "context": ""
+  },
+  {
+    "loc": "30:32-45",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_EXPORT_1",
+    "sym": "11-0",
+    "no_crossref": 1
+  },
+  {
+    "loc": "30:48-60",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_EXPORT_3",
+    "sym": "#USE_EXPORT_3"
+  },
+  {
+    "loc": "30:48-60",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_EXPORT_3",
+    "sym": "#USE_EXPORT_3",
+    "context": "DEF_EXPORT_FUNC"
+  },
+  {
+    "loc": "31:9-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property NAME_EXPORT_2",
+    "sym": "#NAME_EXPORT_2"
+  },
+  {
+    "loc": "31:9-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "NAME_EXPORT_2",
+    "sym": "#NAME_EXPORT_2",
+    "context": "DEF_EXPORT_FUNC"
+  },
+  {
+    "loc": "33:17-31",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_EXPORT_GEN",
+    "sym": "#DEF_EXPORT_GEN",
+    "nestingRange": "33:62-35:0"
+  },
+  {
+    "loc": "33:17-31",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_EXPORT_GEN",
+    "sym": "#DEF_EXPORT_GEN",
+    "context": ""
+  },
+  {
+    "loc": "33:32-45",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_EXPORT_3",
+    "sym": "11-1",
+    "no_crossref": 1
+  },
+  {
+    "loc": "33:48-60",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_EXPORT_4",
+    "sym": "#USE_EXPORT_4"
+  },
+  {
+    "loc": "33:48-60",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_EXPORT_4",
+    "sym": "#USE_EXPORT_4",
+    "context": "DEF_EXPORT_GEN"
+  },
+  {
+    "loc": "34:9-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property NAME_EXPORT_4",
+    "sym": "#NAME_EXPORT_4"
+  },
+  {
+    "loc": "34:9-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "NAME_EXPORT_4",
+    "sym": "#NAME_EXPORT_4",
+    "context": "DEF_EXPORT_GEN"
+  },
+  {
+    "loc": "36:13-29",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_EXPORT_CLASS",
+    "sym": "#DEF_EXPORT_CLASS",
+    "nestingRange": "36:29-40:0"
+  },
+  {
+    "loc": "36:13-29",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_EXPORT_CLASS",
+    "sym": "#DEF_EXPORT_CLASS",
+    "context": ""
+  },
+  {
+    "loc": "37:2-13",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property constructor",
+    "sym": "#constructor",
+    "nestingRange": "37:2-39:2"
+  },
+  {
+    "loc": "37:2-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "constructor",
+    "sym": "#constructor",
+    "context": "DEF_EXPORT_CLASS"
+  },
+  {
+    "loc": "37:2-13",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_EXPORT_CLASS.constructor",
+    "sym": "DEF_EXPORT_CLASS#constructor",
+    "nestingRange": "37:2-39:2"
+  },
+  {
+    "loc": "37:2-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_EXPORT_CLASS.constructor",
+    "sym": "DEF_EXPORT_CLASS#constructor",
+    "context": "DEF_EXPORT_CLASS"
+  },
+  {
+    "loc": "37:14-27",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_EXPORT_5",
+    "sym": "11-2",
+    "no_crossref": 1
+  },
+  {
+    "loc": "38:4-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_EXPORT_5",
+    "sym": "#USE_EXPORT_5"
+  },
+  {
+    "loc": "38:4-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_EXPORT_5",
+    "sym": "#USE_EXPORT_5",
+    "context": "DEF_EXPORT_CLASS.constructor"
+  },
+  {
+    "loc": "41:4-13",
+    "source": 1,
+    "syntax": "def,variable",
+    "pretty": "variable DEF_VAR_1",
+    "sym": "#M-DEF_VAR_1"
+  },
+  {
+    "loc": "41:4-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_VAR_1",
+    "sym": "#M-DEF_VAR_1",
+    "context": ""
+  },
+  {
+    "loc": "41:19-28",
+    "source": 1,
+    "syntax": "def,variable",
+    "pretty": "variable DEF_VAR_2",
+    "sym": "#M-DEF_VAR_2"
+  },
+  {
+    "loc": "41:19-28",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_VAR_2",
+    "sym": "#M-DEF_VAR_2",
+    "context": ""
+  },
+  {
+    "loc": "42:4-13",
+    "source": 1,
+    "syntax": "def,variable",
+    "pretty": "variable DEF_VAR_3",
+    "sym": "#M-DEF_VAR_3"
+  },
+  {
+    "loc": "42:4-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_VAR_3",
+    "sym": "#M-DEF_VAR_3",
+    "context": ""
+  },
+  {
+    "loc": "42:19-28",
+    "source": 1,
+    "syntax": "def,variable",
+    "pretty": "variable DEF_VAR_4",
+    "sym": "#M-DEF_VAR_4"
+  },
+  {
+    "loc": "42:19-28",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_VAR_4",
+    "sym": "#M-DEF_VAR_4",
+    "context": ""
+  },
+  {
+    "loc": "43:4-13",
+    "source": 1,
+    "syntax": "def,variable",
+    "pretty": "variable DEF_VAR_5",
+    "sym": "#M-DEF_VAR_5"
+  },
+  {
+    "loc": "43:4-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_VAR_5",
+    "sym": "#M-DEF_VAR_5",
+    "context": ""
+  },
+  {
+    "loc": "44:9-18",
+    "source": 1,
+    "syntax": "use,variable",
+    "pretty": "variable DEF_VAR_1",
+    "sym": "#M-DEF_VAR_1"
+  },
+  {
+    "loc": "44:9-18",
+    "target": 1,
+    "kind": "use",
+    "pretty": "DEF_VAR_1",
+    "sym": "#M-DEF_VAR_1",
+    "context": ""
+  },
+  {
+    "loc": "44:9-18",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_VAR_1",
+    "sym": "#DEF_VAR_1"
+  },
+  {
+    "loc": "44:9-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_VAR_1",
+    "sym": "#DEF_VAR_1",
+    "context": ""
+  },
+  {
+    "loc": "44:20-29",
+    "source": 1,
+    "syntax": "use,variable",
+    "pretty": "variable DEF_VAR_2",
+    "sym": "#M-DEF_VAR_2"
+  },
+  {
+    "loc": "44:20-29",
+    "target": 1,
+    "kind": "use",
+    "pretty": "DEF_VAR_2",
+    "sym": "#M-DEF_VAR_2",
+    "context": ""
+  },
+  {
+    "loc": "44:20-29",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_VAR_2",
+    "sym": "#DEF_VAR_2"
+  },
+  {
+    "loc": "44:20-29",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_VAR_2",
+    "sym": "#DEF_VAR_2",
+    "context": ""
+  },
+  {
+    "loc": "45:9-18",
+    "source": 1,
+    "syntax": "use,variable",
+    "pretty": "variable DEF_VAR_3",
+    "sym": "#M-DEF_VAR_3"
+  },
+  {
+    "loc": "45:9-18",
+    "target": 1,
+    "kind": "use",
+    "pretty": "DEF_VAR_3",
+    "sym": "#M-DEF_VAR_3",
+    "context": ""
+  },
+  {
+    "loc": "45:22-35",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property NAME_EXPORT_6",
+    "sym": "#NAME_EXPORT_6"
+  },
+  {
+    "loc": "45:22-35",
+    "target": 1,
+    "kind": "def",
+    "pretty": "NAME_EXPORT_6",
+    "sym": "#NAME_EXPORT_6",
+    "context": ""
+  },
+  {
+    "loc": "46:9-18",
+    "source": 1,
+    "syntax": "use,variable",
+    "pretty": "variable DEF_VAR_4",
+    "sym": "#M-DEF_VAR_4"
+  },
+  {
+    "loc": "46:9-18",
+    "target": 1,
+    "kind": "use",
+    "pretty": "DEF_VAR_4",
+    "sym": "#M-DEF_VAR_4",
+    "context": ""
+  },
+  {
+    "loc": "47:9-18",
+    "source": 1,
+    "syntax": "use,variable",
+    "pretty": "variable DEF_VAR_5",
+    "sym": "#M-DEF_VAR_5"
+  },
+  {
+    "loc": "47:9-18",
+    "target": 1,
+    "kind": "use",
+    "pretty": "DEF_VAR_5",
+    "sym": "#M-DEF_VAR_5",
+    "context": ""
+  },
+  {
+    "loc": "50:12-25",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property NAME_EXPORT_7",
+    "sym": "#NAME_EXPORT_7"
+  },
+  {
+    "loc": "50:12-25",
+    "target": 1,
+    "kind": "def",
+    "pretty": "NAME_EXPORT_7",
+    "sym": "#NAME_EXPORT_7",
+    "context": ""
+  },
+  {
+    "loc": "51:9-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property NAME_EXPORT_8",
+    "sym": "#NAME_EXPORT_8"
+  },
+  {
+    "loc": "51:9-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "NAME_EXPORT_8",
+    "sym": "#NAME_EXPORT_8",
+    "context": ""
+  },
+  {
+    "loc": "52:9-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property NAME_EXPORT_9",
+    "sym": "#NAME_EXPORT_9"
+  },
+  {
+    "loc": "52:9-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "NAME_EXPORT_9",
+    "sym": "#NAME_EXPORT_9",
+    "context": ""
+  },
+  {
+    "loc": "52:26-40",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property NAME_EXPORT_10",
+    "sym": "#NAME_EXPORT_10"
+  },
+  {
+    "loc": "52:26-40",
+    "target": 1,
+    "kind": "def",
+    "pretty": "NAME_EXPORT_10",
+    "sym": "#NAME_EXPORT_10",
+    "context": ""
+  },
+  {
+    "loc": "53:20-34",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property NAME_EXPORT_11",
+    "sym": "#NAME_EXPORT_11"
+  },
+  {
+    "loc": "53:20-34",
+    "target": 1,
+    "kind": "def",
+    "pretty": "NAME_EXPORT_11",
+    "sym": "#NAME_EXPORT_11",
+    "context": ""
+  }
+]

@@ -1,0 +1,61 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/js/all/all_export_default_2__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file js/all_export_default_2.mjs",
+    "sym": "FILE_js/all_export_default_2@2Emjs"
+  },
+  {
+    "loc": "1:24-44",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_EXPORT_DEFAULT_2",
+    "sym": "#DEF_EXPORT_DEFAULT_2",
+    "nestingRange": "1:91-3:0"
+  },
+  {
+    "loc": "1:24-44",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_EXPORT_DEFAULT_2",
+    "sym": "#DEF_EXPORT_DEFAULT_2",
+    "context": ""
+  },
+  {
+    "loc": "1:45-66",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_EXPORT_DEFAULT_2",
+    "sym": "13-0",
+    "no_crossref": 1
+  },
+  {
+    "loc": "1:69-89",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_EXPORT_DEFAULT_2",
+    "sym": "#USE_EXPORT_DEFAULT_2"
+  },
+  {
+    "loc": "1:69-89",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_EXPORT_DEFAULT_2",
+    "sym": "#USE_EXPORT_DEFAULT_2",
+    "context": "DEF_EXPORT_DEFAULT_2"
+  },
+  {
+    "loc": "2:9-30",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_EXPORT_DEFAULT_2",
+    "sym": "13-0",
+    "no_crossref": 1
+  }
+]
