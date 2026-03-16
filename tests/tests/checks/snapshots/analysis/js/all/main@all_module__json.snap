@@ -337,7 +337,7 @@ input_file: inputs/analysis/js/all/all_module__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_EXPORT_5",
-    "sym": "11-2",
+    "sym": "11-3",
     "no_crossref": 1
   },
   {

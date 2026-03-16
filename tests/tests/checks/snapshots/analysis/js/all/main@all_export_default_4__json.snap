@@ -64,7 +64,7 @@ input_file: inputs/analysis/js/all/all_export_default_4__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_EXPORT_DEFAULT_4",
-    "sym": "15-0",
+    "sym": "15-1",
     "no_crossref": 1
   },
   {

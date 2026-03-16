@@ -24,7 +24,7 @@ input_file: inputs/web/files/contextual-keyword/contextual-keyword_js__html
 <span class="syn_def" data-symbols="#target" data-confidences="[&quot;concrete&quot;]">target</span>
 <span class="syn_def" data-symbols="#f" data-confidences="[&quot;concrete&quot;]">f</span>
 <span class="syn_deflocal" data-symbols="18-0" data-confidences="[&quot;concrete&quot;]">x</span>
-<span class="syn_deflocal" data-symbols="18-1" data-confidences="[&quot;concrete&quot;]">x</span>
+<span class="syn_def" data-symbols="#x" data-confidences="[&quot;concrete&quot;]">x</span>
 <span class="syn_def" data-symbols="#C" data-confidences="[&quot;concrete&quot;]">C</span>
 <span class="syn_def syn_def" data-symbols="#constructor,C#constructor" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">constructor</span>
 <span class="syn_def syn_def" data-symbols="#foo,C#foo" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">foo</span>
