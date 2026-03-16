@@ -524,6 +524,835 @@ function atEscape(text) {
   return text.replace(/[^A-Za-z0-9_/]/g, matched => "@" + matched.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0"));
 }
 
+class ASTVisitor {
+  program(prog) {
+    for (let stmt of prog.body) {
+      this.statement(stmt);
+    }
+  }
+
+  statement(stmt) {
+    switch (stmt.type) {
+    case "EmptyStatement":
+      this.emptyStatement(stmt);
+      break;
+
+    case "BreakStatement":
+      this.breakStatement(stmt);
+      break;
+
+    case "ContinueStatement":
+      this.continueStatement(stmt);
+      break;
+
+    case "DebuggerStatement":
+      this.debuggerStatement(stmt);
+      break;
+
+    case "BlockStatement":
+      this.blockStatement(stmt);
+      break;
+
+    case "ExpressionStatement":
+      this.expressionStatement(stmt);
+      break;
+
+    case "IfStatement":
+      this.ifStatement(stmt);
+      break;
+
+    case "LabeledStatement":
+      this.labeledStatement(stmt);
+      break;
+
+    case "WithStatement":
+      this.withStatement(stmt);
+      break;
+
+    case "SwitchStatement":
+      this.switchStatement(stmt);
+      break;
+
+    case "ReturnStatement":
+      this.returnStatement(stmt);
+      break;
+
+    case "ThrowStatement":
+      this.throwStatement(stmt);
+      break;
+
+    case "TryStatement":
+      this.tryStatement(stmt);
+      break;
+
+    case "WhileStatement":
+      this.whileStatement(stmt);
+      break;
+
+    case "DoWhileStatement":
+      this.doWhileStatement(stmt);
+      break;
+
+    case "ForStatement":
+      this.forStatement(stmt);
+      break;
+
+    case "ForInStatement":
+      this.forInStatement(stmt);
+      break;
+
+    case "ForOfStatement":
+      this.forOfStatement(stmt);
+      break;
+
+    case "LetStatement":
+      this.letStatement(stmt);
+      break;
+
+    case "FunctionDeclaration":
+      this.functionDeclaration(stmt);
+      break;
+
+    case "VariableDeclaration":
+      this.variableDeclaration(stmt);
+      break;
+
+    case "ClassStatement":
+      this.classStatement(stmt);
+      break;
+
+    case "ClassMethod":
+      this.classMethod(stmt);
+      break;
+
+    case "ClassField":
+      this.classField(stmt);
+      break;
+
+    case "StaticClassBlock":
+      this.staticClassBlock(stmt);
+      break;
+
+    case "ImportDeclaration":
+      this.importDeclaration(stmt);
+      break;
+
+    case "ExportDeclaration":
+      this.exportDeclaration(stmt);
+      break;
+
+    default:
+      throw "Unexpected statement: " + stmt.type + " " + JSON.stringify(stmt);
+      break;
+    }
+  }
+
+  maybeStatement(stmt) {
+    if (stmt) {
+      this.statement(stmt);
+    }
+  }
+
+  emptyStatement(stmt) {
+  }
+
+  breakStatement(stmt) {
+  }
+
+  continueStatement(stmt) {
+  }
+
+  debuggerStatement(stmt) {
+  }
+
+  blockStatement(stmt) {
+    for (let stmt2 of stmt.body) {
+      this.statement(stmt2);
+    }
+  }
+
+  expressionStatement(stmt) {
+    this.expression(stmt.expression);
+  }
+
+  ifStatement(stmt) {
+    this.expression(stmt.test);
+    this.statement(stmt.consequent);
+    this.maybeStatement(stmt.alternate);
+  }
+
+  labeledStatement(stmt) {
+    this.statement(stmt.body);
+  }
+
+  withStatement(stmt) {
+    this.expression(stmt.object);
+    this.statement(stmt.body);
+  }
+
+  switchStatement(stmt) {
+    this.expression(stmt.discriminant);
+    for (let scase of stmt.cases) {
+      this.switchCase(scase);
+    }
+  }
+
+  switchCase(scase) {
+    this.maybeExpression(scase.test);
+    for (let stmt of scase.consequent) {
+      this.statement(stmt);
+    }
+  }
+
+  returnStatement(stmt) {
+    this.maybeExpression(stmt.argument);
+  }
+
+  throwStatement(stmt) {
+    this.expression(stmt.argument);
+  }
+
+  tryStatement(stmt) {
+    this.statement(stmt.block);
+    if (stmt.handler) {
+      this.catchClause(stmt.handler);
+    }
+    this.maybeStatement(stmt.finalizer);
+  }
+
+  catchClause(clause) {
+    if (clause.param) {
+      this.defPattern(clause.param, false);
+    }
+    this.maybeExpression(clause.guard);
+    this.statement(clause.body);
+  }
+
+  whileStatement(stmt) {
+    this.expression(stmt.test);
+    this.statement(stmt.body);
+  }
+
+  doWhileStatement(stmt) {
+    this.statement(stmt.body);
+    this.expression(stmt.test);
+  }
+
+  forStatement(stmt) {
+    if (stmt.init && stmt.init.type == "VariableDeclaration") {
+      this.variableDeclaration(stmt.init);
+    } else {
+      this.maybeExpression(stmt.init);
+    }
+    this.maybeExpression(stmt.test);
+    this.maybeExpression(stmt.update);
+    this.statement(stmt.body);
+  }
+
+  forInStatement(stmt) {
+    this.forInOrOfStatement(stmt);
+  }
+
+  forOfStatement(stmt) {
+    this.forInOrOfStatement(stmt);
+  }
+
+  forInOrOfStatement(stmt) {
+    if (stmt.left && stmt.left.type == "VariableDeclaration") {
+      this.variableDeclaration(stmt.left);
+    } else {
+      this.expression(stmt.left);
+    }
+    this.expression(stmt.right);
+    this.statement(stmt.body);
+  }
+
+  letStatement(stmt) {
+    for (let decl of stmt.head) {
+      this.variableDeclarator(decl);
+    }
+    this.statement(stmt.body);
+  }
+
+  functionDeclaration(stmt) {
+    this.functionShared(stmt);
+  }
+
+  functionShared(f) {
+    for (let i = 0; i < f.params.length; i++) {
+      this.defPattern(f.params[i], false);
+      this.maybeExpression(f.defaults[i]);
+    }
+    if (f.rest) {
+      this.defPattern(f.rest, false);
+    }
+    if (f.body.type == "BlockStatement") {
+      this.statement(f.body);
+    } else {
+      this.expression(f.body);
+    }
+  }
+
+  variableDeclaration(stmt) {
+    for (let d of stmt.declarations) {
+      this.variableDeclarator(d);
+    }
+  }
+
+  variableDeclarator(decl) {
+    this.variableDeclaratorLHS(decl.id, decl.init);
+    if (decl.init) {
+      this.variableDeclaratorRHS(decl.id, decl.init);
+    }
+  }
+
+  variableDeclaratorLHS(pat, init, isAlias, rhsInfo) {
+    this.defPattern(pat, isAlias, rhsInfo);
+  }
+
+  variableDeclaratorRHS(pat, init) {
+    this.expression(init);
+  }
+
+  classStatement(stmt) {
+    this.maybeExpression(stmt.superClass);
+    for (let stmt2 of stmt.body) {
+      this.statement(stmt2);
+    }
+  }
+
+  classMethod(stmt) {
+    if (stmt.body.type == "FunctionExpression") {
+      // Don't want to find the name twice.
+      this.functionShared(stmt.body);
+    } else {
+      this.expression(stmt.body);
+    }
+  }
+
+  classField(stmt) {
+    this.maybeExpression(stmt.init);
+  }
+
+  staticClassBlock(stmt) {
+    this.statement(stmt.body);
+  }
+
+  importDeclaration(stmt) {
+    for (const spec of stmt.specifiers) {
+      if (spec.type === "ImportSpecifier" ||
+          spec.type === "ImportNamespaceSpecifier") {
+        // The following case shouldn't create any definition:
+        //   import { NAME } from "module.mjs";
+        //
+        // The following case should create a definition for NAME2:
+        //   import { NAME as NAME2 } from "module.mjs";
+        //
+        // The namespace import always define a new identifier:
+        //   import NS from "module.mjs";
+        if (spec.type === "ImportNamespaceSpecifier" ||
+            !isSameLocation(spec.id.loc, spec.name.loc)) {
+          this.defPattern(spec.name, false);
+        }
+
+        // In both of the following cases, the "NAME" is a reference to
+        // the exported symbol inside "module.mjs":
+        //   import { NAME } from "module.mjs";
+        //   import { NAME as NAME2 } from "module.mjs";
+        if (spec.type === "ImportSpecifier" &&
+            spec.id.type === "Identifier" &&
+            spec.id.name !== "default") {
+          this.expression(spec.id);
+        }
+      }
+    }
+  }
+
+  exportDeclaration(stmt) {
+    if (stmt.declaration) {
+      if (stmt.declaration.type === "FunctionDeclaration") {
+        if (stmt.declaration.id) {
+          this.statement(stmt.declaration);
+        }
+      }
+      else if (stmt.declaration.type === "VariableDeclaration" ||
+               stmt.declaration.type === "ClassStatement") {
+        this.statement(stmt.declaration);
+      } else {
+        this.expression(stmt.declaration);
+      }
+    }
+
+    if (stmt.specifiers) {
+      for (const spec of stmt.specifiers) {
+        if (spec.type === "ExportSpecifier" ||
+            spec.type === "ExportNamespaceSpecifier") {
+          if (spec.type === "ExportSpecifier" &&
+              !(spec.id.type === "Identifier" &&
+                spec.id.name === "default")) {
+            this.expression(spec.id);
+          }
+
+          // The following patterns don't need definitions:
+          //   export { "string" } from "./module.mjs";
+          //   export { default } from "./module.mjs";
+          //
+          // The following also doesn't need defintiion, given there's an
+          // actual definition in module.mjs:
+          //   export { NAME } from "module.mjs";
+          //
+          // The following needs definition, because it refers module global,
+          // which uses "defmg" instead of "def":
+          //   export { NAME };
+          if (spec.name.type !== "Literal" &&
+              !(spec.name.type === "Identifier" &&
+                spec.name.name === "default") &&
+              !(stmt.moduleRequest &&
+                spec.type === "ExportSpecifier" &&
+                spec.id.type === "Identifier" &&
+                spec.name.type === "Identifier" &&
+                spec.id.name === spec.name.name)) {
+            this.defPattern(spec.name, false);
+          }
+        }
+      }
+    }
+  }
+
+  expression(expr) {
+    if (!expr) print(Error().stack);
+
+    switch (expr.type) {
+    case "Identifier":
+      this.identifier(expr);
+      break;
+
+    case "Literal":
+      this.literal(expr);
+      break;
+
+    case "Super":
+      this._super(expr);
+      break;
+
+    case "TemplateLiteral":
+      this.templateLiteral(expr);
+      break;
+
+    case "TaggedTemplate":
+      this.taggedTemplate(expr);
+      break;
+
+    case "ThisExpression":
+      this.thisExpression(expr);
+      break;
+
+    case "ArrayExpression":
+    case "ArrayPattern":
+      // NOTE: ArrayPattern appears here is the LHS of AssignmentExpression.
+      //       Not a part of VariableDeclaration, function parameters, etc.
+      this.arrayExpression(expr);
+      break;
+
+    case "ObjectExpression":
+    case "ObjectPattern":
+      // NOTE: ObjectPattern appears here is the LHS of AssignmentExpression.
+      this.objectExpression(expr);
+      break;
+
+    case "FunctionExpression":
+      this.functionExpression(expr);
+      break;
+
+    case "ArrowFunctionExpression":
+      this.arrowFunctionExpression(expr);
+      break;
+
+    case "SequenceExpression":
+      this.sequenceExpression(expr);
+      break;
+
+    case "UnaryExpression":
+      this.unaryExpression(expr);
+      break;
+
+    case "UpdateExpression":
+      this.updateExpression(expr);
+      break;
+
+    case "AssignmentExpression":
+      this.assignmentExpression(expr);
+      break;
+
+    case "BinaryExpression":
+      this.binaryExpression(expr);
+      break;
+
+    case "LogicalExpression":
+      this.logicalExpression(expr);
+      break;
+
+    case "ConditionalExpression":
+      this.conditionalExpression(expr);
+      break;
+
+    case "NewExpression":
+      this.newExpression(expr);
+      break;
+
+    case "CallExpression":
+      this.callExpression(expr);
+      break;
+
+    case "OptionalCallExpression":
+      this.optionalCallExpression(expr);
+      break;
+
+    case "MemberExpression":
+      this.memberExpression(expr);
+      break;
+
+    case "OptionalMemberExpression":
+      this.optionalMemberExpression(expr);
+      break;
+
+    case "YieldExpression":
+      this.yieldExpression(expr);
+      break;
+
+    case "SpreadExpression":
+      this.callSpreadExpression(expr);
+      break;
+
+    case "ComprehensionExpression":
+      this.comprehensionExpression(expr);
+      break;
+
+    case "GeneratorExpression":
+      this.generatorExpression(expr);
+      break;
+
+    case "ClassExpression":
+      this.classExpression(expr);
+      break;
+
+    case "OptionalExpression":
+      this.optionalExpression(expr);
+      break;
+
+    case "DeleteOptionalExpression":
+      this.deleteOptionalExpression(expr);
+      break;
+
+    case "MetaProperty":
+      this.metaProperty(expr);
+      break;
+
+    case "CallImport":
+      this.callImport(expr);
+      break;
+
+    default:
+      printErr(Error().stack);
+      throw `Invalid expression ${expr.type}: ${JSON.stringify(expr)}`;
+      break;
+    }
+  }
+
+  maybeExpression(expr) {
+    if (expr) {
+      this.expression(expr);
+    }
+  }
+
+  identifier(expr) {
+  }
+
+  literal(expr) {
+  }
+
+  _super(expr) {
+  }
+
+  templateLiteral(expr) {
+    for (let elt of expr.elements) {
+      this.expression(elt);
+    }
+  }
+
+  taggedTemplate(expr) {
+    // Do something eventually!
+  }
+
+  thisExpression(expr) {
+    // Do something eventually!
+  }
+
+  arrayExpression(expr) {
+    for (let elt of expr.elements) {
+      if (!elt) {
+        continue;
+      }
+      if (elt.type === "SpreadExpression") {
+        this.arraySpread(elt);
+      } else {
+        this.arrayElement(elt);
+      }
+    }
+  }
+
+  arraySpread(expr) {
+    this.expression(expr.expression);
+  }
+
+  arrayElement(expr) {
+    this.expression(expr);
+  }
+
+  objectExpression(expr) {
+    for (let prop of expr.properties) {
+      if (prop.type === "SpreadExpression") {
+        this.objectSpread(prop, expr);
+      } else {
+        this.objectProperty(prop, expr);
+      }
+    }
+  }
+
+  objectSpread(expr, objExpr) {
+    this.expression(expr.expression);
+  }
+
+  objectProperty(prop, objExpr) {
+    this.maybeExpression(prop.value);
+  }
+
+  functionExpression(expr) {
+    this.functionShared(expr);
+  }
+
+  arrowFunctionExpression(expr) {
+    this.functionShared(expr);
+  }
+
+  sequenceExpression(expr) {
+    for (let elt of expr.expressions) {
+      this.expression(elt);
+    }
+  }
+
+  unaryExpression(expr) {
+    this.expression(expr.argument);
+  }
+  updateExpression(expr) {
+    this.expression(expr.argument);
+  }
+
+  assignmentExpression(expr) {
+    this.assignmentExpressionLHS(expr.left, expr.right);
+    this.assignmentExpressionRHS(expr.left, expr.right);
+  }
+  assignmentExpressionLHS(left, right) {
+    if (left.type == "Identifier") {
+    } else if (left.type == "MemberExpression" && !left.computed) {
+      this.expression(left.object);
+    } else {
+      this.expression(left);
+    }
+  }
+  assignmentExpressionRHS(left, right) {
+    this.expression(right);
+  }
+
+  binaryExpression(expr) {
+    this.expression(expr.left);
+    this.expression(expr.right);
+  }
+
+  logicalExpression(expr) {
+    this.expression(expr.left);
+    this.expression(expr.right);
+  }
+
+  conditionalExpression(expr) {
+    this.expression(expr.test);
+    this.expression(expr.consequent);
+    this.expression(expr.alternate);
+  }
+
+  newExpression(expr) {
+    this.callExpressionShared(expr);
+  }
+  callExpression(expr) {
+    this.callExpressionShared(expr);
+  }
+  optionalCallExpression(expr) {
+    this.callExpressionShared(expr);
+  }
+  callExpressionShared(expr) {
+    this.expression(expr.callee);
+    for (let arg of expr.arguments) {
+      this.expression(arg);
+    }
+  }
+
+  memberExpression(expr) {
+    this.memberExpressionShared(expr);
+  }
+  optionalMemberExpression(expr) {
+    this.memberExpressionShared(expr);
+  }
+  memberExpressionShared(expr) {
+    this.expression(expr.object);
+    if (expr.computed) {
+      this.expression(expr.property);
+    }
+  }
+
+  yieldExpression(expr) {
+    this.maybeExpression(expr.argument);
+  }
+
+  callSpreadExpression(expr) {
+    this.expression(expr.expression);
+  }
+
+  comprehensionExpression(expr) {
+    this.generatorExpressionShared(expr);
+  }
+  generatorExpression(expr) {
+    this.generatorExpressionShared(expr);
+  }
+  generatorExpressionShared(expr) {
+    let before = locBefore(expr.body.loc, expr.blocks[0].loc);
+    if (before) {
+      this.expression(expr.body);
+    }
+    for (let block of expr.blocks) {
+      this.comprehensionBlock(block);
+    }
+    this.maybeExpression(expr.filter);
+    if (!before) {
+      this.expression(expr.body);
+    }
+  }
+  comprehensionBlock(block) {
+    switch (block.type) {
+    case "ComprehensionBlock":
+      this.comprehensionBlock(block);
+      break;
+
+    case "ComprehensionIf":
+      this.comprehensionIf(block);
+      break;
+    }
+  }
+
+  comprehensionBlock(block) {
+    this.defPattern(block.left, false);
+    this.expression(block.right);
+  }
+
+  comprehensionIf(block) {
+    this.expression(block.test);
+  }
+
+  classExpression(expr) {
+    this.maybeExpression(expr.superClass);
+    for (let stmt2 of expr.body) {
+      this.statement(stmt2);
+    }
+  }
+
+  optionalExpression(expr) {
+    // a?.b is an optional expression that is equivalent to a && a.b.
+    // expr.expression is an OptionalMemberExpression or OptionalCallExpression
+    this.expression(expr.expression);
+  }
+
+  deleteOptionalExpression(expr) {
+    this.expression(expr.expression);
+  }
+
+  metaProperty(expr) {
+  }
+
+  callImport(expr) {
+  }
+
+  defPattern(pat, isAlias=false, rhsInfo=null) {
+    if (!pat) {
+      print(Error().stack);
+    }
+
+    switch (pat.type) {
+    case "Identifier":
+      this.identifierDefPattern(pat, isAlias, rhsInfo);
+      break;
+
+    case "ObjectPattern":
+      this.objectDefPattern(pat, isAlias, rhsInfo);
+      break;
+
+    case "ArrayPattern":
+      this.arrayDefPattern(pat, isAlias, rhsInfo);
+      break;
+
+    case "AssignmentExpression":
+      this.initializerDefPattern(pat, isAlias, rhsInfo);
+      break;
+
+    default:
+      throw `Unexpected pattern: ${pat.type} ${JSON.stringify(pat)}`;
+      break;
+    }
+  }
+
+  identifierDefPattern(pat, isAlias, rhsInfo) {
+  }
+
+  objectDefPattern(pat, isAlias, rhsInfo) {
+    for (let prop of pat.properties) {
+      if (prop.type === "SpreadExpression") {
+        this.objectSpreadDefPattern(prop, isAlias, rhsInfo);
+      } else {
+        this.objectPropertyDefPattern(prop, isAlias, rhsInfo);
+      }
+    }
+  }
+
+  objectPropertyDefPattern(prop, isAlias, rhsInfo) {
+    this.defPattern(prop.value, isAlias, rhsInfo);
+  }
+  objectSpreadDefPattern(prop, isAlias, rhsInfo) {
+    this.defPattern(prop.expression, false);
+  }
+
+  arrayDefPattern(pat, isAlias, rhsInfo) {
+    for (let e of pat.elements) {
+      if (!e) {
+        continue;
+      }
+      if (e.type === "SpreadExpression") {
+        this.arraySpreadDefPattern(e, isAlias, rhsInfo);
+      } else {
+        this.arrayElementDefPattern(e, isAlias, rhsInfo);
+      }
+    }
+  }
+  arrayElementDefPattern(e, isAlias, rhsInfo) {
+    this.defPattern(e, false);
+  }
+  arraySpreadDefPattern(e, isAlias, rhsInfo) {
+    this.defPattern(e.expression, false);
+  }
+
+  initializerDefPattern(pat, isAlias, rhsInfo) {
+    this.defPattern(pat.left, false);
+    this.expression(pat.right);
+  }
+}
+
 /**
  * Stateful singleton that assumes this script is run once per file.  General
  * structure is a imperative, recursive traversal of the
@@ -533,8 +1362,10 @@ function atEscape(text) {
  * XBL is a special-case via `XBLParser`.  It is dealing with single atomic
  * chunks of JS that exist in namespace
  */
-class Analyzer {
+class Analyzer extends ASTVisitor {
   constructor() {
+    super();
+
     // The symbol table for the current scope.  When `enter` is invoked, the
     // current `symbols` table is pushed onto `symbolTableStack` and a new
     // SymbolTable is created and assigned to `symbols`.  When `exit` is
@@ -895,21 +1726,6 @@ class Analyzer {
     }
   }
 
-  functionDecl(f) {
-    for (let i = 0; i < f.params.length; i++) {
-      this.defPattern(f.params[i], false);
-      this.maybeExpression(f.defaults[i]);
-    }
-    if (f.rest) {
-      this.defVar(f.rest.name, f.rest.loc, false);
-    }
-    if (f.body.type == "BlockStatement") {
-      this.statement(f.body);
-    } else {
-      this.expression(f.body);
-    }
-  }
-
   defLocal(name, loc, isAlias, maybeNesting) {
     let sym = new SymbolTable.Symbol(name, loc, isAlias, this.isModuleGlobalScope());
     this.symbols.put(name, sym);
@@ -950,1046 +1766,6 @@ class Analyzer {
     if (sym.isModuleGlobal) {
       this.target(loc, name, syntax, name, sym.id);
     }
-  }
-
-  program(prog) {
-    for (let stmt of prog.body) {
-      this.statement(stmt);
-    }
-  }
-
-  statement(stmt) {
-    switch (stmt.type) {
-    case "EmptyStatement":
-      this.emptyStatement(stmt);
-      break;
-
-    case "BreakStatement":
-      this.breakStatement(stmt);
-      break;
-
-    case "ContinueStatement":
-      this.continueStatement(stmt);
-      break;
-
-    case "DebuggerStatement":
-      this.debuggerStatement(stmt);
-      break;
-
-    case "BlockStatement":
-      this.blockStatement(stmt);
-      break;
-
-    case "ExpressionStatement":
-      this.expressionStatement(stmt);
-      break;
-
-    case "IfStatement":
-      this.ifStatement(stmt);
-      break;
-
-    case "LabeledStatement":
-      this.labeledStatement(stmt);
-      break;
-
-    case "WithStatement":
-      this.withStatement(stmt);
-      break;
-
-    case "SwitchStatement":
-      this.switchStatement(stmt);
-      break;
-
-    case "ReturnStatement":
-      this.returnStatement(stmt);
-      break;
-
-    case "ThrowStatement":
-      this.throwStatement(stmt);
-      break;
-
-    case "TryStatement":
-      this.tryStatement(stmt);
-      break;
-
-    case "WhileStatement":
-      this.whileStatement(stmt);
-      break;
-
-    case "DoWhileStatement":
-      this.doWhileStatement(stmt);
-      break;
-
-    case "ForStatement":
-      this.forStatement(stmt);
-      break;
-
-    case "ForInStatement":
-      this.forInStatement(stmt);
-      break;
-
-    case "ForOfStatement":
-      this.forOfStatement(stmt);
-      break;
-
-    case "LetStatement":
-      this.letStatement(stmt);
-      break;
-
-    case "FunctionDeclaration":
-      this.functionDeclaration(stmt);
-      break;
-
-    case "VariableDeclaration":
-      this.variableDeclaration(stmt);
-      break;
-
-    case "ClassStatement":
-      this.classStatement(stmt);
-      break;
-
-    case "ClassMethod":
-      this.classMethod(stmt);
-      break;
-
-    case "ClassField":
-      this.classField(stmt);
-      break;
-
-    case "StaticClassBlock":
-      this.staticClassBlock(stmt);
-      break;
-
-    case "ImportDeclaration":
-      this.importDeclaration(stmt);
-      break;
-
-    case "ExportDeclaration":
-      this.exportDeclaration(stmt);
-      break;
-
-    default:
-      throw "Unexpected statement: " + stmt.type + " " + JSON.stringify(stmt);
-      break;
-    }
-  }
-
-  maybeStatement(stmt) {
-    if (stmt) {
-      this.statement(stmt);
-    }
-  }
-
-  emptyStatement(stmt) {
-  }
-
-  breakStatement(stmt) {
-  }
-
-  continueStatement(stmt) {
-  }
-
-  debuggerStatement(stmt) {
-  }
-
-  blockStatement(stmt) {
-    this.scoped(null, () => {
-      for (let stmt2 of stmt.body) {
-        this.statement(stmt2);
-      }
-    });
-  }
-
-  expressionStatement(stmt) {
-    this.expression(stmt.expression);
-  }
-
-  ifStatement(stmt) {
-    this.expression(stmt.test);
-    this.statement(stmt.consequent);
-    this.maybeStatement(stmt.alternate);
-  }
-
-  labeledStatement(stmt) {
-    this.statement(stmt.body);
-  }
-
-  withStatement(stmt) {
-    this.expression(stmt.object);
-    this.statement(stmt.body);
-  }
-
-  switchStatement(stmt) {
-    this.expression(stmt.discriminant);
-    for (let scase of stmt.cases) {
-      this.switchCase(scase);
-    }
-  }
-
-  switchCase(scase) {
-    this.maybeExpression(scase.test);
-    for (let stmt of scase.consequent) {
-      this.statement(stmt);
-    }
-  }
-
-  returnStatement(stmt) {
-    this.maybeExpression(stmt.argument);
-  }
-
-  throwStatement(stmt) {
-    this.expression(stmt.argument);
-  }
-
-  tryStatement(stmt) {
-    this.statement(stmt.block);
-    if (stmt.handler) {
-      this.catchClause(stmt.handler);
-    }
-    this.maybeStatement(stmt.finalizer);
-  }
-
-  catchClause(clause) {
-    if (clause.param) {
-      this.defPattern(clause.param, false);
-    }
-    this.maybeExpression(clause.guard);
-    this.statement(clause.body);
-  }
-
-  whileStatement(stmt) {
-    this.expression(stmt.test);
-    this.statement(stmt.body);
-  }
-
-  doWhileStatement(stmt) {
-    this.statement(stmt.body);
-    this.expression(stmt.test);
-  }
-
-  forStatement(stmt) {
-    this.scoped(null, () => {
-      if (stmt.init && stmt.init.type == "VariableDeclaration") {
-        this.variableDeclaration(stmt.init);
-      } else {
-        this.maybeExpression(stmt.init);
-      }
-      this.maybeExpression(stmt.test);
-      this.maybeExpression(stmt.update);
-      this.statement(stmt.body);
-    });
-  }
-
-  forInStatement(stmt) {
-    this.forInOrOfStatement(stmt);
-  }
-
-  forOfStatement(stmt) {
-    this.forInOrOfStatement(stmt);
-  }
-
-  forInOrOfStatement(stmt) {
-    this.scoped(null, () => {
-      if (stmt.left && stmt.left.type == "VariableDeclaration") {
-        this.variableDeclaration(stmt.left);
-      } else {
-        this.expression(stmt.left);
-      }
-      this.expression(stmt.right);
-      this.statement(stmt.body);
-    });
-  }
-
-  letStatement(stmt) {
-    this.scoped(null, () => {
-      for (let decl of stmt.head) {
-        this.variableDeclarator(decl);
-      }
-      this.statement(stmt.body);
-    });
-  }
-
-  functionDeclaration(stmt) {
-    this.defVar(stmt.id.name, stmt.loc, false, stmt.body);
-    this.scoped(stmt.id.name, () => {
-      this.functionDecl(stmt);
-    });
-  }
-
-  variableDeclaration(stmt) {
-    for (let d of stmt.declarations) {
-      this.variableDeclarator(d);
-    }
-  }
-
-  variableDeclarator(decl) {
-    this.variableDeclaratorLHS(decl.id, decl.init);
-    if (decl.init) {
-      this.variableDeclaratorRHS(decl.id, decl.init);
-    }
-  }
-
-  variableDeclaratorLHS(pat, init) {
-    let rhsInfo = undefined;
-    if (init && this.isChromeUtilsImportESModule(init)) {
-      // This is the following code:
-      //   const ... = ChromeUtils.importESModule(...);
-      // If the LHS is an object destructuring, it can be an alias.
-      rhsInfo = {
-        isModuleNamespace: true,
-      };
-    }
-    if (init && init.type === "MemberExpression" &&
-        this.isChromeUtilsImportESModule(init.object) &&
-        init.property.type === "Identifier") {
-      // This is the following code:
-      //   const ... = ChromeUtils.importESModule(...).NAME;
-      // If the LHS is an identifier with NAME, it's an alias.
-      rhsInfo = {
-        isModuleExportedName: true,
-        name: init.property.name,
-      };
-    }
-
-    this.defPattern(pat, false, rhsInfo);
-  }
-
-  variableDeclaratorRHS(pat, init) {
-    let name = null;
-    let oldNameForThis = this.nameForThis;
-    if (pat.type == "Identifier") {
-      if (init.type == "ObjectExpression") {
-        this.nameForThis = pat.name;
-        name = this.nameForThis;
-      } else {
-        // Handle Object.freeze({...})
-      }
-    }
-    this.contextStack.push(name);
-    this.expression(init);
-    this.contextStack.pop();
-    this.nameForThis = oldNameForThis;
-  }
-
-  classStatement(stmt) {
-    this.defVar(stmt.id.name, stmt.id.loc, false,
-                this.deriveLocationFromOuterNodeAndIdNode(stmt, stmt.id));
-    this.scoped(stmt.id.name, () => {
-      let oldClass = this.className;
-      this.className = stmt.id.name;
-      this.maybeExpression(stmt.superClass);
-      for (let stmt2 of stmt.body) {
-        this.statement(stmt2);
-      }
-      this.className = oldClass;
-    });
-  }
-
-  classMethod(stmt) {
-    let name = null;
-    if (stmt.name.type == "Identifier") {
-      name = stmt.name.name;
-      this.defProp(
-        stmt.name.name, stmt.name.loc,
-        `${this.className}#${name}`, `${this.className}.${name}`,
-        stmt.body);
-    }
-
-    this.scoped(name, () => {
-      if (stmt.body.type == "FunctionExpression") {
-        // Don't want to find the name twice.
-        this.functionDecl(stmt.body);
-      } else {
-        this.expression(stmt.body);
-      }
-    });
-  }
-
-  // Class fields: https://github.com/tc39/proposal-class-fields
-  // These are defined to have Object.defineProperty semantics.  The spec also
-  // introduces private fields and these are partially supported, but
-  // bug 1559269 disabled TokenStream support for them, so we don't support
-  // them for now.
-  classField(stmt) {
-    let name = null;
-    // name could be a computed name!
-    if (stmt.name.type == "Identifier") {
-      name = stmt.name.name;
-      this.defProp(
-        stmt.name.name, stmt.name.loc,
-        `${this.className}#${name}`, `${this.className}.${name}`);
-    }
-    this.contextStack.push(name);
-    if (stmt.init) {
-      this.expression(stmt.init);
-    }
-    this.contextStack.pop();
-  }
-
-  staticClassBlock(stmt) {
-    this.statement(stmt.body);
-  }
-
-  importDeclaration(stmt) {
-    for (const spec of stmt.specifiers) {
-      if (spec.type === "ImportSpecifier" ||
-          spec.type === "ImportNamespaceSpecifier") {
-        // The following case shouldn't create any definition:
-        //   import { NAME } from "module.mjs";
-        //
-        // The following case should create a definition for NAME2:
-        //   import { NAME as NAME2 } from "module.mjs";
-        //
-        // The namespace import always define a new identifier:
-        //   import NS from "module.mjs";
-        if (spec.type === "ImportNamespaceSpecifier" ||
-            !isSameLocation(spec.id.loc, spec.name.loc)) {
-          this.defPattern(spec.name, false);
-        }
-
-        // In both of the following cases, the "NAME" is a reference to
-        // the exported symbol inside "module.mjs":
-        //   import { NAME } from "module.mjs";
-        //   import { NAME as NAME2 } from "module.mjs";
-        if (spec.type === "ImportSpecifier" &&
-            spec.id.type === "Identifier" &&
-            spec.id.name !== "default") {
-          this.expression(spec.id);
-        }
-      }
-    }
-
-    if (stmt.moduleRequest && stmt.moduleRequest.source &&
-        stmt.moduleRequest.source.type === "Literal") {
-      this.maybeLinkifyModuleSpecifier(stmt.moduleRequest.source);
-    }
-  }
-
-  exportDeclaration(stmt) {
-    this.isExport = true;
-
-    if (stmt.declaration) {
-      if (stmt.declaration.type === "FunctionDeclaration") {
-        if (stmt.declaration.id) {
-          this.statement(stmt.declaration);
-        }
-      }
-      else if (stmt.declaration.type === "VariableDeclaration" ||
-               stmt.declaration.type === "ClassStatement") {
-        this.statement(stmt.declaration);
-      } else {
-        this.expression(stmt.declaration);
-      }
-    }
-
-    if (stmt.specifiers) {
-      for (const spec of stmt.specifiers) {
-        if (spec.type === "ExportSpecifier" ||
-            spec.type === "ExportNamespaceSpecifier") {
-          if (spec.type === "ExportSpecifier" &&
-              !(spec.id.type === "Identifier" &&
-                spec.id.name === "default")) {
-            this.expression(spec.id);
-          }
-
-          // The following patterns don't need definitions:
-          //   export { "string" } from "./module.mjs";
-          //   export { default } from "./module.mjs";
-          //
-          // The following also doesn't need defintiion, given there's an
-          // actual definition in module.mjs:
-          //   export { NAME } from "module.mjs";
-          //
-          // The following needs definition, because it refers module global,
-          // which uses "defmg" instead of "def":
-          //   export { NAME };
-          if (spec.name.type !== "Literal" &&
-              !(spec.name.type === "Identifier" &&
-                spec.name.name === "default") &&
-              !(stmt.moduleRequest &&
-                spec.type === "ExportSpecifier" &&
-                spec.id.type === "Identifier" &&
-                spec.name.type === "Identifier" &&
-                spec.id.name === spec.name.name)) {
-            this.defPattern(spec.name, false);
-          }
-        }
-      }
-    }
-
-    if (stmt.moduleRequest && stmt.moduleRequest.source &&
-        stmt.moduleRequest.source.type === "Literal") {
-      this.maybeLinkifyModuleSpecifier(stmt.moduleRequest.source, true);
-    }
-
-    this.isExport = false;
-  }
-
-  expression(expr) {
-    if (!expr) print(Error().stack);
-
-    switch (expr.type) {
-    case "Identifier":
-      this.identifier(expr);
-      break;
-
-    case "Literal":
-      this.literal(expr);
-      break;
-
-    case "Super":
-      this._super(expr);
-      break;
-
-    case "TemplateLiteral":
-      this.templateLiteral(expr);
-      break;
-
-    case "TaggedTemplate":
-      this.taggedTemplate(expr);
-      break;
-
-    case "ThisExpression":
-      this.thisExpression(expr);
-      break;
-
-    case "ArrayExpression":
-    case "ArrayPattern":
-      // NOTE: ArrayPattern appears here is the LHS of AssignmentExpression.
-      //       Not a part of VariableDeclaration, function parameters, etc.
-      this.arrayExpression(expr);
-      break;
-
-    case "ObjectExpression":
-    case "ObjectPattern":
-      // NOTE: ObjectPattern appears here is the LHS of AssignmentExpression.
-      this.objectExpression(expr);
-      break;
-
-    case "FunctionExpression":
-      this.functionExpression(expr);
-      break;
-
-    case "ArrowFunctionExpression":
-      this.arrowFunctionExpression(expr);
-      break;
-
-    case "SequenceExpression":
-      this.sequenceExpression(expr);
-      break;
-
-    case "UnaryExpression":
-      this.unaryExpression(expr);
-      break;
-
-    case "UpdateExpression":
-      this.updateExpression(expr);
-      break;
-
-    case "AssignmentExpression":
-      this.assignmentExpression(expr);
-      break;
-
-    case "BinaryExpression":
-      this.binaryExpression(expr);
-      break;
-
-    case "LogicalExpression":
-      this.logicalExpression(expr);
-      break;
-
-    case "ConditionalExpression":
-      this.conditionalExpression(expr);
-      break;
-
-    case "NewExpression":
-      this.newExpression(expr);
-      break;
-
-    case "CallExpression":
-      this.callExpression(expr);
-      break;
-
-    case "OptionalCallExpression":
-      this.optionalCallExpression(expr);
-      break;
-
-    case "MemberExpression":
-      this.memberExpression(expr);
-      break;
-
-    case "OptionalMemberExpression":
-      this.optionalMemberExpression(expr);
-      break;
-
-    case "YieldExpression":
-      this.yieldExpression(expr);
-      break;
-
-    case "SpreadExpression":
-      this.callSpreadExpression(expr);
-      break;
-
-    case "ComprehensionExpression":
-      this.comprehensionExpression(expr);
-      break;
-
-    case "GeneratorExpression":
-      this.generatorExpression(expr);
-      break;
-
-    case "ClassExpression":
-      this.classExpression(expr);
-      break;
-
-    case "OptionalExpression":
-      this.optionalExpression(expr);
-      break;
-
-    case "DeleteOptionalExpression":
-      this.deleteOptionalExpression(expr);
-      break;
-
-    case "MetaProperty":
-      this.metaProperty(expr);
-      break;
-
-    case "CallImport":
-      this.callImport(expr);
-      break;
-
-    default:
-      printErr(Error().stack);
-      throw `Invalid expression ${expr.type}: ${JSON.stringify(expr)}`;
-      break;
-    }
-  }
-
-  maybeExpression(expr) {
-    if (expr) {
-      this.expression(expr);
-    }
-  }
-
-  identifier(expr) {
-    this.useVar(expr.name, expr.loc);
-  }
-
-  literal(expr) {
-    this.maybeLinkifyLiteral(expr);
-  }
-
-  _super(expr) {
-  }
-
-  templateLiteral(expr) {
-    for (let elt of expr.elements) {
-      this.expression(elt);
-    }
-  }
-
-  taggedTemplate(expr) {
-    // Do something eventually!
-  }
-
-  thisExpression(expr) {
-    // Do something eventually!
-  }
-
-  arrayExpression(expr) {
-    for (let elt of expr.elements) {
-      if (!elt) {
-        continue;
-      }
-      if (elt.type === "SpreadExpression") {
-        this.arraySpread(elt);
-      } else {
-        this.arrayElement(elt);
-      }
-    }
-  }
-
-  arraySpread(expr) {
-    this.expression(expr.expression);
-  }
-
-  arrayElement(expr) {
-    this.expression(expr);
-  }
-
-  objectExpression(expr) {
-    for (let prop of expr.properties) {
-      if (prop.type === "SpreadExpression") {
-        this.objectSpread(prop, expr);
-      } else {
-        this.objectProperty(prop, expr);
-      }
-    }
-  }
-
-  objectSpread(expr, objExpr) {
-    this.expression(expr.expression);
-  }
-
-  objectProperty(prop, objExpr) {
-    let name;
-
-    if (prop.key) {
-      let loc;
-      if (prop.key.type == "Identifier") {
-        name = prop.key.name;
-        loc = prop.key.loc;
-      } else if (prop.key.type == "Literal" && typeof(prop.key.value) == "string") {
-        name = prop.key.value;
-        loc = prop.key.loc;
-        loc.start.column++;
-      }
-      let extra = null;
-      let extraPretty = null;
-      if (this.nameForThis) {
-        extra = `${this.nameForThis}#${name}`;
-        extraPretty = `${this.nameForThis}.${name}`;
-      }
-      if (name) {
-        if (objExpr === this.latestLazyObject &&
-            prop.value &&
-            prop.value.type === "Literal" &&
-            typeof(prop.value.value) == "string") {
-          // This is lazy module import API.
-          // The property definition shouldn't be treated as a definition,
-          // but a reference to the exported symbol.
-          if (prop.key.type == "Identifier") {
-            this.useProp(name, prop.key.loc);
-          }
-        } else {
-          this.defProp(name, prop.key.loc, extra, extraPretty, prop.value);
-        }
-      }
-    }
-
-    this.contextStack.push(name);
-    if (prop.value) {
-      this.expression(prop.value);
-    }
-    this.contextStack.pop();
-  }
-
-  functionExpression(expr) {
-    this.arrowOrNormalFunctionExpression(expr);
-  }
-  arrowFunctionExpression(expr) {
-    this.arrowOrNormalFunctionExpression(expr);
-  }
-  arrowOrNormalFunctionExpression(expr) {
-    // In theory this could declare a variable that can be used in
-    // the function. But most of the time, it appears on class
-    // methods that don't actually define such a variable. This is
-    // probably a SpiderMonkey bug. We just don't do anything here
-    // to be correct in the common case.
-    //let name = expr.id ? expr.id.name : "";
-    let name = null;
-    this.scoped(name, () => {
-      if (this.className && name == this.className) {
-        // SPIDERMONKEY HACK: Fixes a bug where constructors get the
-        // name of their class instead of "constructor".
-        name = "constructor";
-      }
-
-      if (expr.type == "FunctionExpression" && name) {
-        this.defVar(name, expr.loc, false);
-      }
-
-      this.functionDecl(expr);
-    });
-  }
-
-  sequenceExpression(expr) {
-    for (let elt of expr.expressions) {
-      this.expression(elt);
-    }
-  }
-
-  unaryExpression(expr) {
-    this.expression(expr.argument);
-  }
-  updateExpression(expr) {
-    this.expression(expr.argument);
-  }
-
-  assignmentExpression(expr) {
-    this.assignmentExpressionLHS(expr.left, expr.right);
-    this.assignmentExpressionRHS(expr.left, expr.right);
-  }
-  assignmentExpressionLHS(left, right) {
-    if (left.type == "Identifier") {
-      this.assignVar(left.name, left.loc);
-    } else if (left.type == "MemberExpression" && !left.computed) {
-      this.expression(left.object);
-
-      let extra = null;
-      let extraPretty = null;
-      if (left.object.type == "ThisExpression" && this.nameForThis) {
-        extra = `${this.nameForThis}#${left.property.name}`;
-        extraPretty = `${this.nameForThis}.${left.property.name}`;
-      } else if (left.object.type == "Identifier") {
-        extra = `${left.object.name}#${left.property.name}`;
-        extraPretty = `${left.object.name}.${left.property.name}`;
-      }
-      this.assignProp(left.property.name, memberPropLoc(left), extra, extraPretty,
-                      right.loc);
-    } else {
-      this.expression(left);
-    }
-  }
-  assignmentExpressionRHS(left, right) {
-    let name = null;
-    let oldNameForThis = this.nameForThis;
-    if (left.type == "MemberExpression" &&
-        !left.computed)
-    {
-      if (left.property.name == "prototype" &&
-          left.object.type == "Identifier")
-      {
-        this.nameForThis = left.object.name;
-        name = this.nameForThis;
-      }
-      if (left.object.type == "ThisExpression") {
-        this.nameForThis = left.property.name;
-        name = this.nameForThis;
-      }
-    }
-    this.contextStack.push(name);
-    this.expression(right);
-    this.contextStack.pop();
-    this.nameForThis = oldNameForThis;
-  }
-
-  binaryExpression(expr) {
-    this.expression(expr.left);
-    this.expression(expr.right);
-  }
-
-  logicalExpression(expr) {
-    this.expression(expr.left);
-    this.expression(expr.right);
-  }
-
-  conditionalExpression(expr) {
-    this.expression(expr.test);
-    this.expression(expr.consequent);
-    this.expression(expr.alternate);
-  }
-
-  newExpression(expr) {
-    this.callExpressionShared(expr);
-  }
-  callExpression(expr) {
-    this.callExpressionShared(expr);
-  }
-  optionalCallExpression(expr) {
-    this.callExpressionShared(expr);
-  }
-  callExpressionShared(expr) {
-    this.expression(expr.callee);
-
-    this.checkDefineLazyAPI(expr.callee, expr.arguments);
-
-    for (let arg of expr.arguments) {
-      this.expression(arg);
-    }
-  }
-
-  memberExpression(expr) {
-    this.memberExpressionShared(expr);
-  }
-  optionalMemberExpression(expr) {
-    this.memberExpressionShared(expr);
-  }
-  memberExpressionShared(expr) {
-    this.expression(expr.object);
-    if (expr.computed) {
-      this.expression(expr.property);
-    } else {
-      let extra = null;
-      let extraPretty = null;
-      if (expr.object.type == "ThisExpression" && this.nameForThis) {
-        extra = `${this.nameForThis}#${expr.property.name}`;
-        extraPretty = `${this.nameForThis}.${expr.property.name}`;
-      } else if (expr.object.type == "Identifier") {
-        extra = `${expr.object.name}#${expr.property.name}`;
-        extraPretty = `${expr.object.name}.${expr.property.name}`;
-      } else if (expr.object.type == "MemberExpression" &&
-                 expr.object.object.type == "Identifier" &&
-                 expr.object.object.name == "Glean" &&
-                 !expr.object.computed) {
-        const key0 = expr.object.property.name;
-        const key1 = expr.property.name;
-        extra = `Glean.${key0}#${key1}`;
-        extraPretty = `Glean.${key0}.${key1}`;
-      }
-
-      this.useProp(expr.property.name, memberPropLoc(expr), extra, extraPretty);
-    }
-  }
-
-  yieldExpression(expr) {
-    this.maybeExpression(expr.argument);
-  }
-
-  callSpreadExpression(expr) {
-    this.expression(expr.expression);
-  }
-
-  comprehensionExpression(expr) {
-    this.generatorExpressionShared(expr);
-  }
-  generatorExpression(expr) {
-    this.generatorExpressionShared(expr);
-  }
-  generatorExpressionShared(expr) {
-    this.scoped(null, () => {
-      let before = locBefore(expr.body.loc, expr.blocks[0].loc);
-      if (before) {
-        this.expression(expr.body);
-      }
-      for (let block of expr.blocks) {
-        this.comprehensionBlock(block);
-      }
-      this.maybeExpression(expr.filter);
-      if (!before) {
-        this.expression(expr.body);
-      }
-    });
-  }
-
-  classExpression(expr) {
-    this.scoped(null, () => {
-      if (expr.superClass) {
-        this.expression(expr.superClass);
-      }
-      for (let stmt2 of expr.body) {
-        this.statement(stmt2);
-      }
-    });
-  }
-
-  optionalExpression(expr) {
-    // a?.b is an optional expression that is equivalent to a && a.b.
-    // expr.expression is an OptionalMemberExpression or OptionalCallExpression
-    this.expression(expr.expression);
-  }
-
-  deleteOptionalExpression(expr) {
-    this.expression(expr.expression);
-  }
-
-  metaProperty(expr) {
-  }
-
-  callImport(expr) {
-    if (expr.arguments && expr.arguments.length > 0 &&
-        expr.arguments[0].type === "Literal") {
-      this.maybeLinkifyModuleSpecifier(expr.arguments[0]);
-    }
-  }
-
-  defPattern(pat, isAlias=false, rhsInfo=null) {
-    if (!pat) {
-      print(Error().stack);
-    }
-
-    switch (pat.type) {
-    case "Identifier":
-      this.identifierDefPattern(pat, isAlias, rhsInfo);
-      break;
-
-    case "ObjectPattern":
-      this.objectDefPattern(pat, isAlias, rhsInfo);
-      break;
-
-    case "ArrayPattern":
-      this.arrayDefPattern(pat, isAlias, rhsInfo);
-      break;
-
-    case "AssignmentExpression":
-      this.initializerDefPattern(pat, isAlias, rhsInfo);
-      break;
-
-    default:
-      throw `Unexpected pattern: ${pat.type} ${JSON.stringify(pat)}`;
-      break;
-    }
-  }
-
-  identifierDefPattern(pat, isAlias, rhsInfo) {
-    if (rhsInfo && rhsInfo.isModuleExportedName &&
-        rhsInfo.name === pat.name) {
-      // This is the following code:
-      //   const NAME = ChromeUtils.importESModule(...).NAME;
-      // Treat the NAME also as use.
-      isAlias = true;
-      this.useProp(pat.name, pat.loc);
-    }
-    this.defVar(pat.name, pat.loc, isAlias);
-  }
-
-  objectDefPattern(pat, isAlias, rhsInfo) {
-    for (let prop of pat.properties) {
-      if (prop.type === "SpreadExpression") {
-        this.objectSpreadDefPattern(prop, isAlias, rhsInfo);
-      } else {
-        this.objectPropertyDefPattern(prop, isAlias, rhsInfo);
-      }
-    }
-  }
-
-  objectPropertyDefPattern(prop, isAlias, rhsInfo) {
-    if (prop.key.type === "Identifier") {
-      this.useProp(prop.key.name, prop.key.loc);
-    }
-
-    isAlias = false;
-    if (rhsInfo &&
-        rhsInfo.isModuleNamespace &&
-        prop.key.type === "Identifier" &&
-        prop.value.type === "Identifier" &&
-        prop.key.name === prop.value.name) {
-      // This is the following code:
-      //   const { NAME } = ChromeUtils.importESModule(...);
-      // The following defPattern(...) will create an alias symbol,
-      // without creating "def" record.
-      // The use record is created above.
-      isAlias = true;
-    }
-
-    this.defPattern(prop.value, isAlias);
-  }
-  objectSpreadDefPattern(prop, isAlias, rhsInfo) {
-    this.defPattern(prop.expression, false);
-  }
-
-  arrayDefPattern(pat, isAlias, rhsInfo) {
-    for (let e of pat.elements) {
-      if (!e) {
-        continue;
-      }
-      if (e.type === "SpreadExpression") {
-        this.arraySpreadDefPattern(e, isAlias, rhsInfo);
-      } else {
-        this.arrayElementDefPattern(e, isAlias, rhsInfo);
-      }
-    }
-  }
-  arrayElementDefPattern(e, isAlias, rhsInfo) {
-    this.defPattern(e, false);
-  }
-  arraySpreadDefPattern(e, isAlias, rhsInfo) {
-    this.defPattern(e.expression, false);
-  }
-
-  initializerDefPattern(pat, isAlias, rhsInfo) {
-    this.defPattern(pat.left, false);
-    this.expression(pat.right);
   }
 
   // Returns true if the expression is either:
@@ -2064,27 +1840,6 @@ class Analyzer {
     }
   }
 
-  comprehensionBlock(block) {
-    switch (block.type) {
-    case "ComprehensionBlock":
-      this.comprehensionBlock(block);
-      break;
-
-    case "ComprehensionIf":
-      this.comprehensionIf(block);
-      break;
-    }
-  }
-
-  comprehensionBlock(block) {
-    this.defPattern(block.left, false);
-    this.expression(block.right);
-  }
-
-  comprehensionIf(block) {
-    this.expression(block.test);
-  }
-
   maybeLinkifyLiteral(expr) {
     if (typeof expr.value !== "string") {
       return false;
@@ -2132,6 +1887,385 @@ class Analyzer {
     this.target(loc, name, "use", relpath, sym);
 
     return true;
+  }
+
+  // ASTVisitor methods overloads
+
+  blockStatement(stmt) {
+    this.scoped(null, () => {
+      super.blockStatement(stmt);
+    });
+  }
+
+  forStatement(stmt) {
+    this.scoped(null, () => {
+      super.forStatement(stmt);
+    });
+  }
+
+  forInStatement(stmt) {
+    this.scoped(null, () => {
+      super.forInStatement(stmt);
+    });
+  }
+
+  forOfStatement(stmt) {
+    this.scoped(null, () => {
+      super.forInStatement(stmt);
+    });
+  }
+
+  letStatement(stmt) {
+    this.scoped(null, () => {
+      super.letStatement(stmt);
+    });
+  }
+
+  functionDeclaration(stmt) {
+    this.defVar(stmt.id.name, stmt.loc, false, stmt.body);
+    this.scoped(stmt.id.name, () => {
+      super.functionDeclaration(stmt);
+    });
+  }
+
+  variableDeclaratorLHS(pat, init) {
+    let rhsInfo = undefined;
+    if (init && this.isChromeUtilsImportESModule(init)) {
+      // This is the following code:
+      //   const ... = ChromeUtils.importESModule(...);
+      // If the LHS is an object destructuring, it can be an alias.
+      rhsInfo = {
+        isModuleNamespace: true,
+      };
+    }
+    if (init && init.type === "MemberExpression" &&
+        this.isChromeUtilsImportESModule(init.object) &&
+        init.property.type === "Identifier") {
+      // This is the following code:
+      //   const ... = ChromeUtils.importESModule(...).NAME;
+      // If the LHS is an identifier with NAME, it's an alias.
+      rhsInfo = {
+        isModuleExportedName: true,
+        name: init.property.name,
+      };
+    }
+
+    super.variableDeclaratorLHS(pat, init, false, rhsInfo);
+  }
+
+  variableDeclaratorRHS(pat, init) {
+    let name = null;
+    let oldNameForThis = this.nameForThis;
+    if (pat.type == "Identifier") {
+      if (init.type == "ObjectExpression") {
+        this.nameForThis = pat.name;
+        name = this.nameForThis;
+      } else {
+        // Handle Object.freeze({...})
+      }
+    }
+    this.contextStack.push(name);
+
+    super.variableDeclaratorRHS(pat, init);
+
+    this.contextStack.pop();
+    this.nameForThis = oldNameForThis;
+  }
+
+  classStatement(stmt) {
+    this.defVar(stmt.id.name, stmt.id.loc, false,
+                this.deriveLocationFromOuterNodeAndIdNode(stmt, stmt.id));
+    this.scoped(stmt.id.name, () => {
+      let oldClass = this.className;
+      this.className = stmt.id.name;
+
+      super.classStatement(stmt);
+
+      this.className = oldClass;
+    });
+  }
+
+  classMethod(stmt) {
+    if (stmt.body.type == "FunctionExpression") {
+      // Don't want to find the name twice.
+      this.functionShared(stmt.body);
+    } else {
+      this.expression(stmt.body);
+    }
+  }
+
+  classMethod(stmt) {
+    let name = null;
+    if (stmt.name.type == "Identifier") {
+      name = stmt.name.name;
+      this.defProp(
+        stmt.name.name, stmt.name.loc,
+        `${this.className}#${name}`, `${this.className}.${name}`,
+        stmt.body);
+    }
+
+    this.scoped(name, () => {
+      super.classMethod(stmt);
+    });
+  }
+
+  // Class fields: https://github.com/tc39/proposal-class-fields
+  // These are defined to have Object.defineProperty semantics.  The spec also
+  // introduces private fields and these are partially supported, but
+  // bug 1559269 disabled TokenStream support for them, so we don't support
+  // them for now.
+  classField(stmt) {
+    let name = null;
+    // name could be a computed name!
+    if (stmt.name.type == "Identifier") {
+      name = stmt.name.name;
+      this.defProp(
+        stmt.name.name, stmt.name.loc,
+        `${this.className}#${name}`, `${this.className}.${name}`);
+    }
+    this.contextStack.push(name);
+
+    super.classField(stmt);
+
+    this.contextStack.pop();
+  }
+
+  importDeclaration(stmt) {
+    super.importDeclaration(stmt);
+
+    if (stmt.moduleRequest && stmt.moduleRequest.source &&
+        stmt.moduleRequest.source.type === "Literal") {
+      this.maybeLinkifyModuleSpecifier(stmt.moduleRequest.source);
+    }
+  }
+
+  exportDeclaration(stmt) {
+    this.isExport = true;
+
+    super.exportDeclaration(stmt);
+
+    if (stmt.moduleRequest && stmt.moduleRequest.source &&
+        stmt.moduleRequest.source.type === "Literal") {
+      this.maybeLinkifyModuleSpecifier(stmt.moduleRequest.source, true);
+    }
+
+    this.isExport = false;
+  }
+
+  identifier(expr) {
+    this.useVar(expr.name, expr.loc);
+  }
+
+  literal(expr) {
+    this.maybeLinkifyLiteral(expr);
+  }
+
+  objectProperty(prop, objExpr) {
+    let name;
+
+    if (prop.key) {
+      let loc;
+      if (prop.key.type == "Identifier") {
+        name = prop.key.name;
+        loc = prop.key.loc;
+      } else if (prop.key.type == "Literal" && typeof(prop.key.value) == "string") {
+        name = prop.key.value;
+        loc = prop.key.loc;
+        loc.start.column++;
+      }
+      let extra = null;
+      let extraPretty = null;
+      if (this.nameForThis) {
+        extra = `${this.nameForThis}#${name}`;
+        extraPretty = `${this.nameForThis}.${name}`;
+      }
+      if (name) {
+        if (objExpr === this.latestLazyObject &&
+            prop.value &&
+            prop.value.type === "Literal" &&
+            typeof(prop.value.value) == "string") {
+          // This is lazy module import API.
+          // The property definition shouldn't be treated as a definition,
+          // but a reference to the exported symbol.
+          if (prop.key.type == "Identifier") {
+            this.useProp(name, prop.key.loc);
+          }
+        } else {
+          this.defProp(name, prop.key.loc, extra, extraPretty, prop.value);
+        }
+      }
+    }
+
+    this.contextStack.push(name);
+
+    super.objectProperty(prop, objExpr);
+
+    this.contextStack.pop();
+  }
+
+  functionExpression(expr) {
+    // In theory this could declare a variable that can be used in
+    // the function. But most of the time, it appears on class
+    // methods that don't actually define such a variable. This is
+    // probably a SpiderMonkey bug. We just don't do anything here
+    // to be correct in the common case.
+    //let name = expr.id ? expr.id.name : "";
+    let name = null;
+    this.scoped(name, () => {
+      if (this.className && name == this.className) {
+        // SPIDERMONKEY HACK: Fixes a bug where constructors get the
+        // name of their class instead of "constructor".
+        name = "constructor";
+      }
+
+      if (expr.type == "FunctionExpression" && name) {
+        this.defVar(name, expr.loc, false);
+      }
+
+      super.functionExpression(expr);
+    });
+  }
+
+  arrowFunctionExpression(expr) {
+    this.scoped(null, () => {
+      super.arrowFunctionExpression(expr);
+    });
+  }
+
+  assignmentExpressionLHS(left, right) {
+    if (left.type == "Identifier") {
+      this.assignVar(left.name, left.loc);
+    } else if (left.type == "MemberExpression" && !left.computed) {
+      let extra = null;
+      let extraPretty = null;
+      if (left.object.type == "ThisExpression" && this.nameForThis) {
+        extra = `${this.nameForThis}#${left.property.name}`;
+        extraPretty = `${this.nameForThis}.${left.property.name}`;
+      } else if (left.object.type == "Identifier") {
+        extra = `${left.object.name}#${left.property.name}`;
+        extraPretty = `${left.object.name}.${left.property.name}`;
+      }
+      this.assignProp(left.property.name, memberPropLoc(left), extra, extraPretty,
+                      right.loc);
+    }
+
+    super.assignmentExpressionLHS(left, right);
+  }
+
+  assignmentExpressionRHS(left, right) {
+    let name = null;
+    let oldNameForThis = this.nameForThis;
+    if (left.type == "MemberExpression" &&
+        !left.computed)
+    {
+      if (left.property.name == "prototype" &&
+          left.object.type == "Identifier")
+      {
+        this.nameForThis = left.object.name;
+        name = this.nameForThis;
+      }
+      if (left.object.type == "ThisExpression") {
+        this.nameForThis = left.property.name;
+        name = this.nameForThis;
+      }
+    }
+    this.contextStack.push(name);
+
+    super.assignmentExpressionRHS(left, right);
+
+    this.contextStack.pop();
+    this.nameForThis = oldNameForThis;
+  }
+
+  callExpressionShared(expr) {
+    this.checkDefineLazyAPI(expr.callee, expr.arguments);
+
+    super.callExpressionShared(expr);
+  }
+
+  memberExpressionShared(expr) {
+    super.memberExpressionShared(expr);
+
+    if (!expr.computed) {
+      let extra = null;
+      let extraPretty = null;
+      if (expr.object.type == "ThisExpression" && this.nameForThis) {
+        extra = `${this.nameForThis}#${expr.property.name}`;
+        extraPretty = `${this.nameForThis}.${expr.property.name}`;
+      } else if (expr.object.type == "Identifier") {
+        extra = `${expr.object.name}#${expr.property.name}`;
+        extraPretty = `${expr.object.name}.${expr.property.name}`;
+      } else if (expr.object.type == "MemberExpression" &&
+                 expr.object.object.type == "Identifier" &&
+                 expr.object.object.name == "Glean" &&
+                 !expr.object.computed) {
+        const key0 = expr.object.property.name;
+        const key1 = expr.property.name;
+        extra = `Glean.${key0}#${key1}`;
+        extraPretty = `Glean.${key0}.${key1}`;
+      }
+
+      this.useProp(expr.property.name, memberPropLoc(expr), extra, extraPretty);
+    }
+  }
+
+  comprehensionExpression(expr) {
+    this.scoped(null, () => {
+      super.comprehensionExpression(expr);
+    });
+  }
+
+  generatorExpression(expr) {
+    this.scoped(null, () => {
+      super.generatorExpression(expr);
+    });
+  }
+
+  classExpression(expr) {
+    this.scoped(null, () => {
+      super.classExpression(expr);
+    });
+  }
+
+  callImport(expr) {
+    if (expr.arguments && expr.arguments.length > 0 &&
+        expr.arguments[0].type === "Literal") {
+      this.maybeLinkifyModuleSpecifier(expr.arguments[0]);
+    }
+  }
+
+  identifierDefPattern(pat, isAlias, rhsInfo) {
+    if (rhsInfo && rhsInfo.isModuleExportedName &&
+        rhsInfo.name === pat.name) {
+      // This is the following code:
+      //   const NAME = ChromeUtils.importESModule(...).NAME;
+      // Treat the NAME also as use.
+      isAlias = true;
+      this.useProp(pat.name, pat.loc);
+    }
+    this.defVar(pat.name, pat.loc, isAlias);
+  }
+
+  objectPropertyDefPattern(prop, isAlias, rhsInfo) {
+    if (prop.key.type === "Identifier") {
+      this.useProp(prop.key.name, prop.key.loc);
+    }
+
+    isAlias = false;
+    if (rhsInfo &&
+        rhsInfo.isModuleNamespace &&
+        prop.key.type === "Identifier" &&
+        prop.value.type === "Identifier" &&
+        prop.key.name === prop.value.name) {
+      // This is the following code:
+      //   const { NAME } = ChromeUtils.importESModule(...);
+      // The following defPattern(...) will create an alias symbol,
+      // without creating "def" record.
+      // The use record is created above.
+      isAlias = true;
+    }
+
+    super.objectPropertyDefPattern(prop, isAlias, undefined);
   }
 }
 
