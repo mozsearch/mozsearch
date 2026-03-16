@@ -1,0 +1,85 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/js/all/all_export_default_4__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file js/all_export_default_4.mjs",
+    "sym": "FILE_js/all_export_default_4@2Emjs"
+  },
+  {
+    "loc": "1:21-41",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_EXPORT_DEFAULT_4",
+    "sym": "#DEF_EXPORT_DEFAULT_4",
+    "nestingRange": "1:41-5:0"
+  },
+  {
+    "loc": "1:21-41",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_EXPORT_DEFAULT_4",
+    "sym": "#DEF_EXPORT_DEFAULT_4",
+    "context": ""
+  },
+  {
+    "loc": "2:2-13",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property constructor",
+    "sym": "#constructor",
+    "nestingRange": "2:2-4:2"
+  },
+  {
+    "loc": "2:2-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "constructor",
+    "sym": "#constructor",
+    "context": "DEF_EXPORT_DEFAULT_4"
+  },
+  {
+    "loc": "2:2-13",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_EXPORT_DEFAULT_4.constructor",
+    "sym": "DEF_EXPORT_DEFAULT_4#constructor",
+    "nestingRange": "2:2-4:2"
+  },
+  {
+    "loc": "2:2-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_EXPORT_DEFAULT_4.constructor",
+    "sym": "DEF_EXPORT_DEFAULT_4#constructor",
+    "context": "DEF_EXPORT_DEFAULT_4"
+  },
+  {
+    "loc": "2:14-35",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_EXPORT_DEFAULT_4",
+    "sym": "15-0",
+    "no_crossref": 1
+  },
+  {
+    "loc": "3:4-24",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_EXPORT_DEFAULT_4",
+    "sym": "#USE_EXPORT_DEFAULT_4"
+  },
+  {
+    "loc": "3:4-24",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_EXPORT_DEFAULT_4",
+    "sym": "#USE_EXPORT_DEFAULT_4",
+    "context": "DEF_EXPORT_DEFAULT_4.constructor"
+  }
+]

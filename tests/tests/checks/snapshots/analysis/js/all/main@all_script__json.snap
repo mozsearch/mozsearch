@@ -1,0 +1,5418 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/js/all/all_script__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file js/all.js",
+    "sym": "FILE_js/all@2Ejs"
+  },
+  {
+    "loc": "5:0-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_Identifier",
+    "sym": "#USE_Identifier"
+  },
+  {
+    "loc": "5:0-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_Identifier",
+    "sym": "#USE_Identifier",
+    "context": ""
+  },
+  {
+    "loc": "11:9-17",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_FUNC",
+    "sym": "#DEF_FUNC",
+    "nestingRange": "11:40-13:0"
+  },
+  {
+    "loc": "11:9-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_FUNC",
+    "sym": "#DEF_FUNC",
+    "context": ""
+  },
+  {
+    "loc": "11:18-27",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_FUNC",
+    "sym": "10-0",
+    "no_crossref": 1
+  },
+  {
+    "loc": "11:30-38",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FUNC",
+    "sym": "#USE_FUNC"
+  },
+  {
+    "loc": "11:30-38",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FUNC",
+    "sym": "#USE_FUNC",
+    "context": "DEF_FUNC"
+  },
+  {
+    "loc": "12:9-18",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_FUNC",
+    "sym": "10-0",
+    "no_crossref": 1
+  },
+  {
+    "loc": "14:10-17",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_GEN",
+    "sym": "#DEF_GEN",
+    "nestingRange": "14:38-16:0"
+  },
+  {
+    "loc": "14:10-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_GEN",
+    "sym": "#DEF_GEN",
+    "context": ""
+  },
+  {
+    "loc": "14:18-26",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_GEN",
+    "sym": "10-1",
+    "no_crossref": 1
+  },
+  {
+    "loc": "14:29-36",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_GEN",
+    "sym": "#USE_GEN"
+  },
+  {
+    "loc": "14:29-36",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_GEN",
+    "sym": "#USE_GEN",
+    "context": "DEF_GEN"
+  },
+  {
+    "loc": "15:9-17",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_GEN",
+    "sym": "10-1",
+    "no_crossref": 1
+  },
+  {
+    "loc": "17:15-24",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_ASYNC",
+    "sym": "#DEF_ASYNC",
+    "nestingRange": "17:49-19:0"
+  },
+  {
+    "loc": "17:15-24",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_ASYNC",
+    "sym": "#DEF_ASYNC",
+    "context": ""
+  },
+  {
+    "loc": "17:25-35",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_ASYNC",
+    "sym": "10-2",
+    "no_crossref": 1
+  },
+  {
+    "loc": "17:38-47",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASYNC",
+    "sym": "#USE_ASYNC"
+  },
+  {
+    "loc": "17:38-47",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASYNC",
+    "sym": "#USE_ASYNC",
+    "context": "DEF_ASYNC"
+  },
+  {
+    "loc": "18:9-19",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_ASYNC",
+    "sym": "10-2",
+    "no_crossref": 1
+  },
+  {
+    "loc": "20:16-29",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_ASYNC_GEN",
+    "sym": "#DEF_ASYNC_GEN",
+    "nestingRange": "20:62-22:0"
+  },
+  {
+    "loc": "20:16-29",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_ASYNC_GEN",
+    "sym": "#DEF_ASYNC_GEN",
+    "context": ""
+  },
+  {
+    "loc": "20:30-44",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_ASYNC_GEN",
+    "sym": "10-3",
+    "no_crossref": 1
+  },
+  {
+    "loc": "20:47-60",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASYNC_GEN",
+    "sym": "#USE_ASYNC_GEN"
+  },
+  {
+    "loc": "20:47-60",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASYNC_GEN",
+    "sym": "#USE_ASYNC_GEN",
+    "context": "DEF_ASYNC_GEN"
+  },
+  {
+    "loc": "21:9-23",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_ASYNC_GEN",
+    "sym": "10-3",
+    "no_crossref": 1
+  },
+  {
+    "loc": "26:4-11",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_VAR",
+    "sym": "#DEF_VAR"
+  },
+  {
+    "loc": "26:4-11",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_VAR",
+    "sym": "#DEF_VAR",
+    "context": ""
+  },
+  {
+    "loc": "26:14-21",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_VAR",
+    "sym": "#USE_VAR"
+  },
+  {
+    "loc": "26:14-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_VAR",
+    "sym": "#USE_VAR",
+    "context": ""
+  },
+  {
+    "loc": "27:4-11",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_LET",
+    "sym": "#DEF_LET"
+  },
+  {
+    "loc": "27:4-11",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_LET",
+    "sym": "#DEF_LET",
+    "context": ""
+  },
+  {
+    "loc": "27:14-21",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_LET",
+    "sym": "#USE_LET"
+  },
+  {
+    "loc": "27:14-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_LET",
+    "sym": "#USE_LET",
+    "context": ""
+  },
+  {
+    "loc": "28:6-15",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_CONST",
+    "sym": "#DEF_CONST"
+  },
+  {
+    "loc": "28:6-15",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_CONST",
+    "sym": "#DEF_CONST",
+    "context": ""
+  },
+  {
+    "loc": "28:18-27",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_CONST",
+    "sym": "#USE_CONST"
+  },
+  {
+    "loc": "28:18-27",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_CONST",
+    "sym": "#USE_CONST",
+    "context": ""
+  },
+  {
+    "loc": "31:0-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_SEQ_1",
+    "sym": "#USE_SEQ_1"
+  },
+  {
+    "loc": "31:0-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_SEQ_1",
+    "sym": "#USE_SEQ_1",
+    "context": ""
+  },
+  {
+    "loc": "31:11-19",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USESEQ_2",
+    "sym": "#USESEQ_2"
+  },
+  {
+    "loc": "31:11-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USESEQ_2",
+    "sym": "#USESEQ_2",
+    "context": ""
+  },
+  {
+    "loc": "31:21-29",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USESEQ_3",
+    "sym": "#USESEQ_3"
+  },
+  {
+    "loc": "31:21-29",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USESEQ_3",
+    "sym": "#USESEQ_3",
+    "context": ""
+  },
+  {
+    "loc": "34:0-10",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_COND_1",
+    "sym": "#USE_COND_1"
+  },
+  {
+    "loc": "34:0-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_COND_1",
+    "sym": "#USE_COND_1",
+    "context": ""
+  },
+  {
+    "loc": "34:13-23",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_COND_2",
+    "sym": "#USE_COND_2"
+  },
+  {
+    "loc": "34:13-23",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_COND_2",
+    "sym": "#USE_COND_2",
+    "context": ""
+  },
+  {
+    "loc": "34:26-36",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_COND_3",
+    "sym": "#USE_COND_3"
+  },
+  {
+    "loc": "34:26-36",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_COND_3",
+    "sym": "#USE_COND_3",
+    "context": ""
+  },
+  {
+    "loc": "37:7-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_DEL",
+    "sym": "#USE_DEL"
+  },
+  {
+    "loc": "37:7-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_DEL",
+    "sym": "#USE_DEL",
+    "context": ""
+  },
+  {
+    "loc": "37:15-23",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_DEL",
+    "sym": "#PROP_DEL"
+  },
+  {
+    "loc": "37:15-23",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_DEL",
+    "sym": "#PROP_DEL",
+    "context": ""
+  },
+  {
+    "loc": "37:15-23",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_DEL.PROP_DEL",
+    "sym": "USE_DEL#PROP_DEL"
+  },
+  {
+    "loc": "37:15-23",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_DEL.PROP_DEL",
+    "sym": "USE_DEL#PROP_DEL",
+    "context": ""
+  },
+  {
+    "loc": "38:1-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_NEG",
+    "sym": "#USE_NEG"
+  },
+  {
+    "loc": "38:1-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_NEG",
+    "sym": "#USE_NEG",
+    "context": ""
+  },
+  {
+    "loc": "38:9-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_NEG",
+    "sym": "#PROP_NEG"
+  },
+  {
+    "loc": "38:9-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_NEG",
+    "sym": "#PROP_NEG",
+    "context": ""
+  },
+  {
+    "loc": "38:9-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_NEG.PROP_NEG",
+    "sym": "USE_NEG#PROP_NEG"
+  },
+  {
+    "loc": "38:9-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_NEG.PROP_NEG",
+    "sym": "USE_NEG#PROP_NEG",
+    "context": ""
+  },
+  {
+    "loc": "39:1-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_POS",
+    "sym": "#USE_POS"
+  },
+  {
+    "loc": "39:1-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_POS",
+    "sym": "#USE_POS",
+    "context": ""
+  },
+  {
+    "loc": "39:9-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_POS",
+    "sym": "#PROP_POS"
+  },
+  {
+    "loc": "39:9-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_POS",
+    "sym": "#PROP_POS",
+    "context": ""
+  },
+  {
+    "loc": "39:9-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_POS.PROP_POS",
+    "sym": "USE_POS#PROP_POS"
+  },
+  {
+    "loc": "39:9-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_POS.PROP_POS",
+    "sym": "USE_POS#PROP_POS",
+    "context": ""
+  },
+  {
+    "loc": "40:1-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_NOT",
+    "sym": "#USE_NOT"
+  },
+  {
+    "loc": "40:1-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_NOT",
+    "sym": "#USE_NOT",
+    "context": ""
+  },
+  {
+    "loc": "40:9-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_NOT",
+    "sym": "#PROP_NOT"
+  },
+  {
+    "loc": "40:9-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_NOT",
+    "sym": "#PROP_NOT",
+    "context": ""
+  },
+  {
+    "loc": "40:9-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_NOT.PROP_NOT",
+    "sym": "USE_NOT#PROP_NOT"
+  },
+  {
+    "loc": "40:9-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_NOT.PROP_NOT",
+    "sym": "USE_NOT#PROP_NOT",
+    "context": ""
+  },
+  {
+    "loc": "41:1-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_BITNOT",
+    "sym": "#USE_BITNOT"
+  },
+  {
+    "loc": "41:1-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_BITNOT",
+    "sym": "#USE_BITNOT",
+    "context": ""
+  },
+  {
+    "loc": "41:12-23",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_BITNOT",
+    "sym": "#PROP_BITNOT"
+  },
+  {
+    "loc": "41:12-23",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_BITNOT",
+    "sym": "#PROP_BITNOT",
+    "context": ""
+  },
+  {
+    "loc": "41:12-23",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_BITNOT.PROP_BITNOT",
+    "sym": "USE_BITNOT#PROP_BITNOT"
+  },
+  {
+    "loc": "41:12-23",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_BITNOT.PROP_BITNOT",
+    "sym": "USE_BITNOT#PROP_BITNOT",
+    "context": ""
+  },
+  {
+    "loc": "42:7-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_TYPEOF",
+    "sym": "#USE_TYPEOF"
+  },
+  {
+    "loc": "42:7-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_TYPEOF",
+    "sym": "#USE_TYPEOF",
+    "context": ""
+  },
+  {
+    "loc": "42:18-29",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_TYPEOF",
+    "sym": "#PROP_TYPEOF"
+  },
+  {
+    "loc": "42:18-29",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_TYPEOF",
+    "sym": "#PROP_TYPEOF",
+    "context": ""
+  },
+  {
+    "loc": "42:18-29",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_TYPEOF.PROP_TYPEOF",
+    "sym": "USE_TYPEOF#PROP_TYPEOF"
+  },
+  {
+    "loc": "42:18-29",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_TYPEOF.PROP_TYPEOF",
+    "sym": "USE_TYPEOF#PROP_TYPEOF",
+    "context": ""
+  },
+  {
+    "loc": "43:5-13",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_VOID",
+    "sym": "#USE_VOID"
+  },
+  {
+    "loc": "43:5-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_VOID",
+    "sym": "#USE_VOID",
+    "context": ""
+  },
+  {
+    "loc": "43:14-18",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP",
+    "sym": "#PROP"
+  },
+  {
+    "loc": "43:14-18",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP",
+    "sym": "#PROP",
+    "context": ""
+  },
+  {
+    "loc": "43:14-18",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_VOID.PROP",
+    "sym": "USE_VOID#PROP"
+  },
+  {
+    "loc": "43:14-18",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_VOID.PROP",
+    "sym": "USE_VOID#PROP",
+    "context": ""
+  },
+  {
+    "loc": "44:15-30",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_ASYNC_AWAIT",
+    "sym": "#DEF_ASYNC_AWAIT",
+    "nestingRange": "44:33-46:0"
+  },
+  {
+    "loc": "44:15-30",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_ASYNC_AWAIT",
+    "sym": "#DEF_ASYNC_AWAIT",
+    "context": ""
+  },
+  {
+    "loc": "45:8-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_AWAIT",
+    "sym": "#USE_AWAIT"
+  },
+  {
+    "loc": "45:8-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_AWAIT",
+    "sym": "#USE_AWAIT",
+    "context": "DEF_ASYNC_AWAIT"
+  },
+  {
+    "loc": "45:18-28",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_AWAIT",
+    "sym": "#PROP_AWAIT"
+  },
+  {
+    "loc": "45:18-28",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_AWAIT",
+    "sym": "#PROP_AWAIT",
+    "context": "DEF_ASYNC_AWAIT"
+  },
+  {
+    "loc": "45:18-28",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_AWAIT.PROP_AWAIT",
+    "sym": "USE_AWAIT#PROP_AWAIT"
+  },
+  {
+    "loc": "45:18-28",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_AWAIT.PROP_AWAIT",
+    "sym": "USE_AWAIT#PROP_AWAIT",
+    "context": "DEF_ASYNC_AWAIT"
+  },
+  {
+    "loc": "49:0-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_EQ_1",
+    "sym": "#USE_EQ_1"
+  },
+  {
+    "loc": "49:0-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_EQ_1",
+    "sym": "#USE_EQ_1",
+    "context": ""
+  },
+  {
+    "loc": "49:12-20",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_EQ_2",
+    "sym": "#USE_EQ_2"
+  },
+  {
+    "loc": "49:12-20",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_EQ_2",
+    "sym": "#USE_EQ_2",
+    "context": ""
+  },
+  {
+    "loc": "50:0-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_NE_1",
+    "sym": "#USE_NE_1"
+  },
+  {
+    "loc": "50:0-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_NE_1",
+    "sym": "#USE_NE_1",
+    "context": ""
+  },
+  {
+    "loc": "50:12-20",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_NE_2",
+    "sym": "#USE_NE_2"
+  },
+  {
+    "loc": "50:12-20",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_NE_2",
+    "sym": "#USE_NE_2",
+    "context": ""
+  },
+  {
+    "loc": "51:0-15",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_STRIST_EQ_1",
+    "sym": "#USE_STRIST_EQ_1"
+  },
+  {
+    "loc": "51:0-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_STRIST_EQ_1",
+    "sym": "#USE_STRIST_EQ_1",
+    "context": ""
+  },
+  {
+    "loc": "51:20-35",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_STRIST_EQ_2",
+    "sym": "#USE_STRIST_EQ_2"
+  },
+  {
+    "loc": "51:20-35",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_STRIST_EQ_2",
+    "sym": "#USE_STRIST_EQ_2",
+    "context": ""
+  },
+  {
+    "loc": "52:0-15",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_STRIST_NE_1",
+    "sym": "#USE_STRIST_NE_1"
+  },
+  {
+    "loc": "52:0-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_STRIST_NE_1",
+    "sym": "#USE_STRIST_NE_1",
+    "context": ""
+  },
+  {
+    "loc": "52:20-35",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_STRIST_NE_2",
+    "sym": "#USE_STRIST_NE_2"
+  },
+  {
+    "loc": "52:20-35",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_STRIST_NE_2",
+    "sym": "#USE_STRIST_NE_2",
+    "context": ""
+  },
+  {
+    "loc": "53:0-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_LT_1",
+    "sym": "#USE_LT_1"
+  },
+  {
+    "loc": "53:0-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_LT_1",
+    "sym": "#USE_LT_1",
+    "context": ""
+  },
+  {
+    "loc": "53:11-19",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_LT_2",
+    "sym": "#USE_LT_2"
+  },
+  {
+    "loc": "53:11-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_LT_2",
+    "sym": "#USE_LT_2",
+    "context": ""
+  },
+  {
+    "loc": "54:0-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_LE_1",
+    "sym": "#USE_LE_1"
+  },
+  {
+    "loc": "54:0-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_LE_1",
+    "sym": "#USE_LE_1",
+    "context": ""
+  },
+  {
+    "loc": "54:12-20",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_LE_2",
+    "sym": "#USE_LE_2"
+  },
+  {
+    "loc": "54:12-20",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_LE_2",
+    "sym": "#USE_LE_2",
+    "context": ""
+  },
+  {
+    "loc": "55:0-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_GT_1",
+    "sym": "#USE_GT_1"
+  },
+  {
+    "loc": "55:0-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_GT_1",
+    "sym": "#USE_GT_1",
+    "context": ""
+  },
+  {
+    "loc": "55:11-19",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_GT_2",
+    "sym": "#USE_GT_2"
+  },
+  {
+    "loc": "55:11-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_GT_2",
+    "sym": "#USE_GT_2",
+    "context": ""
+  },
+  {
+    "loc": "56:0-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_GE_1",
+    "sym": "#USE_GE_1"
+  },
+  {
+    "loc": "56:0-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_GE_1",
+    "sym": "#USE_GE_1",
+    "context": ""
+  },
+  {
+    "loc": "56:12-20",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_GE_2",
+    "sym": "#USE_GE_2"
+  },
+  {
+    "loc": "56:12-20",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_GE_2",
+    "sym": "#USE_GE_2",
+    "context": ""
+  },
+  {
+    "loc": "57:0-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_LSH_1",
+    "sym": "#USE_LSH_1"
+  },
+  {
+    "loc": "57:0-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_LSH_1",
+    "sym": "#USE_LSH_1",
+    "context": ""
+  },
+  {
+    "loc": "57:13-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_LSH_2",
+    "sym": "#USE_LSH_2"
+  },
+  {
+    "loc": "57:13-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_LSH_2",
+    "sym": "#USE_LSH_2",
+    "context": ""
+  },
+  {
+    "loc": "58:0-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_RSH_1",
+    "sym": "#USE_RSH_1"
+  },
+  {
+    "loc": "58:0-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_RSH_1",
+    "sym": "#USE_RSH_1",
+    "context": ""
+  },
+  {
+    "loc": "58:13-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_RSH_2",
+    "sym": "#USE_RSH_2"
+  },
+  {
+    "loc": "58:13-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_RSH_2",
+    "sym": "#USE_RSH_2",
+    "context": ""
+  },
+  {
+    "loc": "59:0-10",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_URSH_1",
+    "sym": "#USE_URSH_1"
+  },
+  {
+    "loc": "59:0-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_URSH_1",
+    "sym": "#USE_URSH_1",
+    "context": ""
+  },
+  {
+    "loc": "59:15-25",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_URSH_2",
+    "sym": "#USE_URSH_2"
+  },
+  {
+    "loc": "59:15-25",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_URSH_2",
+    "sym": "#USE_URSH_2",
+    "context": ""
+  },
+  {
+    "loc": "60:0-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ADD_1",
+    "sym": "#USE_ADD_1"
+  },
+  {
+    "loc": "60:0-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ADD_1",
+    "sym": "#USE_ADD_1",
+    "context": ""
+  },
+  {
+    "loc": "60:12-21",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ADD_2",
+    "sym": "#USE_ADD_2"
+  },
+  {
+    "loc": "60:12-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ADD_2",
+    "sym": "#USE_ADD_2",
+    "context": ""
+  },
+  {
+    "loc": "61:0-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_SUB_1",
+    "sym": "#USE_SUB_1"
+  },
+  {
+    "loc": "61:0-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_SUB_1",
+    "sym": "#USE_SUB_1",
+    "context": ""
+  },
+  {
+    "loc": "61:12-21",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_SUB_2",
+    "sym": "#USE_SUB_2"
+  },
+  {
+    "loc": "61:12-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_SUB_2",
+    "sym": "#USE_SUB_2",
+    "context": ""
+  },
+  {
+    "loc": "62:0-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_MUL_1",
+    "sym": "#USE_MUL_1"
+  },
+  {
+    "loc": "62:0-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_MUL_1",
+    "sym": "#USE_MUL_1",
+    "context": ""
+  },
+  {
+    "loc": "62:12-21",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_MUL_2",
+    "sym": "#USE_MUL_2"
+  },
+  {
+    "loc": "62:12-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_MUL_2",
+    "sym": "#USE_MUL_2",
+    "context": ""
+  },
+  {
+    "loc": "63:0-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_DIV_1",
+    "sym": "#USE_DIV_1"
+  },
+  {
+    "loc": "63:0-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_DIV_1",
+    "sym": "#USE_DIV_1",
+    "context": ""
+  },
+  {
+    "loc": "63:12-21",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_DIV_2",
+    "sym": "#USE_DIV_2"
+  },
+  {
+    "loc": "63:12-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_DIV_2",
+    "sym": "#USE_DIV_2",
+    "context": ""
+  },
+  {
+    "loc": "64:0-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_MOD_1",
+    "sym": "#USE_MOD_1"
+  },
+  {
+    "loc": "64:0-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_MOD_1",
+    "sym": "#USE_MOD_1",
+    "context": ""
+  },
+  {
+    "loc": "64:12-21",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_MOD_2",
+    "sym": "#USE_MOD_2"
+  },
+  {
+    "loc": "64:12-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_MOD_2",
+    "sym": "#USE_MOD_2",
+    "context": ""
+  },
+  {
+    "loc": "65:0-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_POW_1",
+    "sym": "#USE_POW_1"
+  },
+  {
+    "loc": "65:0-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_POW_1",
+    "sym": "#USE_POW_1",
+    "context": ""
+  },
+  {
+    "loc": "65:13-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_POW_2",
+    "sym": "#USE_POW_2"
+  },
+  {
+    "loc": "65:13-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_POW_2",
+    "sym": "#USE_POW_2",
+    "context": ""
+  },
+  {
+    "loc": "66:0-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_BITOR_1",
+    "sym": "#USE_BITOR_1"
+  },
+  {
+    "loc": "66:0-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_BITOR_1",
+    "sym": "#USE_BITOR_1",
+    "context": ""
+  },
+  {
+    "loc": "66:14-25",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_BITOR_2",
+    "sym": "#USE_BITOR_2"
+  },
+  {
+    "loc": "66:14-25",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_BITOR_2",
+    "sym": "#USE_BITOR_2",
+    "context": ""
+  },
+  {
+    "loc": "67:0-12",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_BITXOR_1",
+    "sym": "#USE_BITXOR_1"
+  },
+  {
+    "loc": "67:0-12",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_BITXOR_1",
+    "sym": "#USE_BITXOR_1",
+    "context": ""
+  },
+  {
+    "loc": "67:15-27",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_BITXOR_2",
+    "sym": "#USE_BITXOR_2"
+  },
+  {
+    "loc": "67:15-27",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_BITXOR_2",
+    "sym": "#USE_BITXOR_2",
+    "context": ""
+  },
+  {
+    "loc": "68:0-12",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_BITAND_1",
+    "sym": "#USE_BITAND_1"
+  },
+  {
+    "loc": "68:0-12",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_BITAND_1",
+    "sym": "#USE_BITAND_1",
+    "context": ""
+  },
+  {
+    "loc": "68:15-27",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_BITAND_2",
+    "sym": "#USE_BITAND_2"
+  },
+  {
+    "loc": "68:15-27",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_BITAND_2",
+    "sym": "#USE_BITAND_2",
+    "context": ""
+  },
+  {
+    "loc": "69:0-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_IN_1",
+    "sym": "#USE_IN_1"
+  },
+  {
+    "loc": "69:0-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_IN_1",
+    "sym": "#USE_IN_1",
+    "context": ""
+  },
+  {
+    "loc": "69:12-20",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_IN_2",
+    "sym": "#USE_IN_2"
+  },
+  {
+    "loc": "69:12-20",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_IN_2",
+    "sym": "#USE_IN_2",
+    "context": ""
+  },
+  {
+    "loc": "70:0-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_INSTANCEOF_1",
+    "sym": "#USE_INSTANCEOF_1"
+  },
+  {
+    "loc": "70:0-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_INSTANCEOF_1",
+    "sym": "#USE_INSTANCEOF_1",
+    "context": ""
+  },
+  {
+    "loc": "70:28-44",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_INSTANCEOF_2",
+    "sym": "#USE_INSTANCEOF_2"
+  },
+  {
+    "loc": "70:28-44",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_INSTANCEOF_2",
+    "sym": "#USE_INSTANCEOF_2",
+    "context": ""
+  },
+  {
+    "loc": "71:0-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_COALESCE_1",
+    "sym": "#USE_COALESCE_1"
+  },
+  {
+    "loc": "71:0-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_COALESCE_1",
+    "sym": "#USE_COALESCE_1",
+    "context": ""
+  },
+  {
+    "loc": "71:18-32",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_COALESCE_2",
+    "sym": "#USE_COALESCE_2"
+  },
+  {
+    "loc": "71:18-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_COALESCE_2",
+    "sym": "#USE_COALESCE_2",
+    "context": ""
+  },
+  {
+    "loc": "74:0-10",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ASSIGN",
+    "sym": "#LHS_ASSIGN"
+  },
+  {
+    "loc": "74:0-10",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_ASSIGN",
+    "sym": "#LHS_ASSIGN",
+    "context": ""
+  },
+  {
+    "loc": "74:13-23",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASSIGN",
+    "sym": "#USE_ASSIGN"
+  },
+  {
+    "loc": "74:13-23",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASSIGN",
+    "sym": "#USE_ASSIGN",
+    "context": ""
+  },
+  {
+    "loc": "75:0-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ASSIGN_ADD",
+    "sym": "#LHS_ASSIGN_ADD"
+  },
+  {
+    "loc": "75:0-14",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_ASSIGN_ADD",
+    "sym": "#LHS_ASSIGN_ADD",
+    "context": ""
+  },
+  {
+    "loc": "75:18-32",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASSIGN_ADD",
+    "sym": "#USE_ASSIGN_ADD"
+  },
+  {
+    "loc": "75:18-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASSIGN_ADD",
+    "sym": "#USE_ASSIGN_ADD",
+    "context": ""
+  },
+  {
+    "loc": "76:0-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ASSIGN_SUB",
+    "sym": "#LHS_ASSIGN_SUB"
+  },
+  {
+    "loc": "76:0-14",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_ASSIGN_SUB",
+    "sym": "#LHS_ASSIGN_SUB",
+    "context": ""
+  },
+  {
+    "loc": "76:18-32",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASSIGN_SUB",
+    "sym": "#USE_ASSIGN_SUB"
+  },
+  {
+    "loc": "76:18-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASSIGN_SUB",
+    "sym": "#USE_ASSIGN_SUB",
+    "context": ""
+  },
+  {
+    "loc": "77:0-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ASSIGN_MUL",
+    "sym": "#LHS_ASSIGN_MUL"
+  },
+  {
+    "loc": "77:0-14",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_ASSIGN_MUL",
+    "sym": "#LHS_ASSIGN_MUL",
+    "context": ""
+  },
+  {
+    "loc": "77:18-32",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASSIGN_MUL",
+    "sym": "#USE_ASSIGN_MUL"
+  },
+  {
+    "loc": "77:18-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASSIGN_MUL",
+    "sym": "#USE_ASSIGN_MUL",
+    "context": ""
+  },
+  {
+    "loc": "78:0-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ASSIGN_DIV",
+    "sym": "#LHS_ASSIGN_DIV"
+  },
+  {
+    "loc": "78:0-14",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_ASSIGN_DIV",
+    "sym": "#LHS_ASSIGN_DIV",
+    "context": ""
+  },
+  {
+    "loc": "78:18-32",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASSIGN_DIV",
+    "sym": "#USE_ASSIGN_DIV"
+  },
+  {
+    "loc": "78:18-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASSIGN_DIV",
+    "sym": "#USE_ASSIGN_DIV",
+    "context": ""
+  },
+  {
+    "loc": "79:0-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ASSIGN_MOD",
+    "sym": "#LHS_ASSIGN_MOD"
+  },
+  {
+    "loc": "79:0-14",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_ASSIGN_MOD",
+    "sym": "#LHS_ASSIGN_MOD",
+    "context": ""
+  },
+  {
+    "loc": "79:18-32",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASSIGN_MOD",
+    "sym": "#USE_ASSIGN_MOD"
+  },
+  {
+    "loc": "79:18-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASSIGN_MOD",
+    "sym": "#USE_ASSIGN_MOD",
+    "context": ""
+  },
+  {
+    "loc": "80:0-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ASSIGN_POW",
+    "sym": "#LHS_ASSIGN_POW"
+  },
+  {
+    "loc": "80:0-14",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_ASSIGN_POW",
+    "sym": "#LHS_ASSIGN_POW",
+    "context": ""
+  },
+  {
+    "loc": "80:19-33",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASSIGN_POW",
+    "sym": "#USE_ASSIGN_POW"
+  },
+  {
+    "loc": "80:19-33",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASSIGN_POW",
+    "sym": "#USE_ASSIGN_POW",
+    "context": ""
+  },
+  {
+    "loc": "81:0-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ASSING_BIROR",
+    "sym": "#LHS_ASSING_BIROR"
+  },
+  {
+    "loc": "81:0-16",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_ASSING_BIROR",
+    "sym": "#LHS_ASSING_BIROR",
+    "context": ""
+  },
+  {
+    "loc": "81:20-36",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASSING_BITOR",
+    "sym": "#USE_ASSING_BITOR"
+  },
+  {
+    "loc": "81:20-36",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASSING_BITOR",
+    "sym": "#USE_ASSING_BITOR",
+    "context": ""
+  },
+  {
+    "loc": "82:0-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ASSING_BIRXOR",
+    "sym": "#LHS_ASSING_BIRXOR"
+  },
+  {
+    "loc": "82:0-17",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_ASSING_BIRXOR",
+    "sym": "#LHS_ASSING_BIRXOR",
+    "context": ""
+  },
+  {
+    "loc": "82:21-38",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASSING_BIRXOR",
+    "sym": "#USE_ASSING_BIRXOR"
+  },
+  {
+    "loc": "82:21-38",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASSING_BIRXOR",
+    "sym": "#USE_ASSING_BIRXOR",
+    "context": ""
+  },
+  {
+    "loc": "83:0-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ASSING_BIRAND",
+    "sym": "#LHS_ASSING_BIRAND"
+  },
+  {
+    "loc": "83:0-17",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_ASSING_BIRAND",
+    "sym": "#LHS_ASSING_BIRAND",
+    "context": ""
+  },
+  {
+    "loc": "83:21-38",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASSING_BIRAND",
+    "sym": "#USE_ASSING_BIRAND"
+  },
+  {
+    "loc": "83:21-38",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASSING_BIRAND",
+    "sym": "#USE_ASSING_BIRAND",
+    "context": ""
+  },
+  {
+    "loc": "84:0-13",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ASSING_OR",
+    "sym": "#LHS_ASSING_OR"
+  },
+  {
+    "loc": "84:0-13",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_ASSING_OR",
+    "sym": "#LHS_ASSING_OR",
+    "context": ""
+  },
+  {
+    "loc": "84:18-31",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASSING_OR",
+    "sym": "#USE_ASSING_OR"
+  },
+  {
+    "loc": "84:18-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASSING_OR",
+    "sym": "#USE_ASSING_OR",
+    "context": ""
+  },
+  {
+    "loc": "85:0-13",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ASSING_ND",
+    "sym": "#LHS_ASSING_ND"
+  },
+  {
+    "loc": "85:0-13",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_ASSING_ND",
+    "sym": "#LHS_ASSING_ND",
+    "context": ""
+  },
+  {
+    "loc": "85:18-32",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASSING_AND",
+    "sym": "#USE_ASSING_AND"
+  },
+  {
+    "loc": "85:18-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASSING_AND",
+    "sym": "#USE_ASSING_AND",
+    "context": ""
+  },
+  {
+    "loc": "86:0-19",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ASSING_COALESCE",
+    "sym": "#LHS_ASSING_COALESCE"
+  },
+  {
+    "loc": "86:0-19",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_ASSING_COALESCE",
+    "sym": "#LHS_ASSING_COALESCE",
+    "context": ""
+  },
+  {
+    "loc": "86:24-43",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASSING_COALESCE",
+    "sym": "#USE_ASSING_COALESCE"
+  },
+  {
+    "loc": "86:24-43",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASSING_COALESCE",
+    "sym": "#USE_ASSING_COALESCE",
+    "context": ""
+  },
+  {
+    "loc": "89:0-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OR_1",
+    "sym": "#USE_OR_1"
+  },
+  {
+    "loc": "89:0-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OR_1",
+    "sym": "#USE_OR_1",
+    "context": ""
+  },
+  {
+    "loc": "89:12-20",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OR_2",
+    "sym": "#USE_OR_2"
+  },
+  {
+    "loc": "89:12-20",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OR_2",
+    "sym": "#USE_OR_2",
+    "context": ""
+  },
+  {
+    "loc": "90:0-13",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_COALECE_1",
+    "sym": "#USE_COALECE_1"
+  },
+  {
+    "loc": "90:0-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_COALECE_1",
+    "sym": "#USE_COALECE_1",
+    "context": ""
+  },
+  {
+    "loc": "90:17-30",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_COALECE_2",
+    "sym": "#USE_COALECE_2"
+  },
+  {
+    "loc": "90:17-30",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_COALECE_2",
+    "sym": "#USE_COALECE_2",
+    "context": ""
+  },
+  {
+    "loc": "91:0-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_AND_1",
+    "sym": "#USE_AND_1"
+  },
+  {
+    "loc": "91:0-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_AND_1",
+    "sym": "#USE_AND_1",
+    "context": ""
+  },
+  {
+    "loc": "91:13-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_AND_2",
+    "sym": "#USE_AND_2"
+  },
+  {
+    "loc": "91:13-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_AND_2",
+    "sym": "#USE_AND_2",
+    "context": ""
+  },
+  {
+    "loc": "94:0-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_INC_1",
+    "sym": "#LHS_INC_1"
+  },
+  {
+    "loc": "94:0-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LHS_INC_1",
+    "sym": "#LHS_INC_1",
+    "context": ""
+  },
+  {
+    "loc": "95:2-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_INC_2",
+    "sym": "#LHS_INC_2"
+  },
+  {
+    "loc": "95:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LHS_INC_2",
+    "sym": "#LHS_INC_2",
+    "context": ""
+  },
+  {
+    "loc": "96:0-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_DEC_1",
+    "sym": "#LHS_DEC_1"
+  },
+  {
+    "loc": "96:0-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LHS_DEC_1",
+    "sym": "#LHS_DEC_1",
+    "context": ""
+  },
+  {
+    "loc": "97:2-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_DEC_2",
+    "sym": "#LHS_DEC_2"
+  },
+  {
+    "loc": "97:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LHS_DEC_2",
+    "sym": "#LHS_DEC_2",
+    "context": ""
+  },
+  {
+    "loc": "100:4-13",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property REF_NEW_1",
+    "sym": "#REF_NEW_1"
+  },
+  {
+    "loc": "100:4-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "REF_NEW_1",
+    "sym": "#REF_NEW_1",
+    "context": ""
+  },
+  {
+    "loc": "100:14-23",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_NEW_1",
+    "sym": "#USE_NEW_1"
+  },
+  {
+    "loc": "100:14-23",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_NEW_1",
+    "sym": "#USE_NEW_1",
+    "context": ""
+  },
+  {
+    "loc": "101:4-13",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property REF_NEW_2",
+    "sym": "#REF_NEW_2"
+  },
+  {
+    "loc": "101:4-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "REF_NEW_2",
+    "sym": "#REF_NEW_2",
+    "context": ""
+  },
+  {
+    "loc": "101:14-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_NEW",
+    "sym": "#PROP_NEW"
+  },
+  {
+    "loc": "101:14-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_NEW",
+    "sym": "#PROP_NEW",
+    "context": ""
+  },
+  {
+    "loc": "101:14-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property REF_NEW_2.PROP_NEW",
+    "sym": "REF_NEW_2#PROP_NEW"
+  },
+  {
+    "loc": "101:14-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "REF_NEW_2.PROP_NEW",
+    "sym": "REF_NEW_2#PROP_NEW",
+    "context": ""
+  },
+  {
+    "loc": "101:23-32",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_NEW_2",
+    "sym": "#USE_NEW_2"
+  },
+  {
+    "loc": "101:23-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_NEW_2",
+    "sym": "#USE_NEW_2",
+    "context": ""
+  },
+  {
+    "loc": "101:37-46",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_NEW_3",
+    "sym": "#USE_NEW_3"
+  },
+  {
+    "loc": "101:37-46",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_NEW_3",
+    "sym": "#USE_NEW_3",
+    "context": ""
+  },
+  {
+    "loc": "104:0-10",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property REF_CALL_1",
+    "sym": "#REF_CALL_1"
+  },
+  {
+    "loc": "104:0-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "REF_CALL_1",
+    "sym": "#REF_CALL_1",
+    "context": ""
+  },
+  {
+    "loc": "104:11-21",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_CALL_1",
+    "sym": "#USE_CALL_1"
+  },
+  {
+    "loc": "104:11-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_CALL_1",
+    "sym": "#USE_CALL_1",
+    "context": ""
+  },
+  {
+    "loc": "105:0-10",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property REF_CALL_2",
+    "sym": "#REF_CALL_2"
+  },
+  {
+    "loc": "105:0-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "REF_CALL_2",
+    "sym": "#REF_CALL_2",
+    "context": ""
+  },
+  {
+    "loc": "105:11-20",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_CALL",
+    "sym": "#PROP_CALL"
+  },
+  {
+    "loc": "105:11-20",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_CALL",
+    "sym": "#PROP_CALL",
+    "context": ""
+  },
+  {
+    "loc": "105:11-20",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property REF_CALL_2.PROP_CALL",
+    "sym": "REF_CALL_2#PROP_CALL"
+  },
+  {
+    "loc": "105:11-20",
+    "target": 1,
+    "kind": "use",
+    "pretty": "REF_CALL_2.PROP_CALL",
+    "sym": "REF_CALL_2#PROP_CALL",
+    "context": ""
+  },
+  {
+    "loc": "105:21-31",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_CALL_2",
+    "sym": "#USE_CALL_2"
+  },
+  {
+    "loc": "105:21-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_CALL_2",
+    "sym": "#USE_CALL_2",
+    "context": ""
+  },
+  {
+    "loc": "105:36-46",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_CALL_3",
+    "sym": "#USE_CALL_3"
+  },
+  {
+    "loc": "105:36-46",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_CALL_3",
+    "sym": "#USE_CALL_3",
+    "context": ""
+  },
+  {
+    "loc": "108:0-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property REF_OPT_CALL_1",
+    "sym": "#REF_OPT_CALL_1"
+  },
+  {
+    "loc": "108:0-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "REF_OPT_CALL_1",
+    "sym": "#REF_OPT_CALL_1",
+    "context": ""
+  },
+  {
+    "loc": "108:17-31",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OPT_CALL_1",
+    "sym": "#USE_OPT_CALL_1"
+  },
+  {
+    "loc": "108:17-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OPT_CALL_1",
+    "sym": "#USE_OPT_CALL_1",
+    "context": ""
+  },
+  {
+    "loc": "109:0-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property REF_OPT_CALL_1",
+    "sym": "#REF_OPT_CALL_1"
+  },
+  {
+    "loc": "109:0-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "REF_OPT_CALL_1",
+    "sym": "#REF_OPT_CALL_1",
+    "context": ""
+  },
+  {
+    "loc": "109:15-28",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_OPT_CALL",
+    "sym": "#PROP_OPT_CALL"
+  },
+  {
+    "loc": "109:15-28",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_OPT_CALL",
+    "sym": "#PROP_OPT_CALL",
+    "context": ""
+  },
+  {
+    "loc": "109:15-28",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property REF_OPT_CALL_1.PROP_OPT_CALL",
+    "sym": "REF_OPT_CALL_1#PROP_OPT_CALL"
+  },
+  {
+    "loc": "109:15-28",
+    "target": 1,
+    "kind": "use",
+    "pretty": "REF_OPT_CALL_1.PROP_OPT_CALL",
+    "sym": "REF_OPT_CALL_1#PROP_OPT_CALL",
+    "context": ""
+  },
+  {
+    "loc": "109:31-45",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OPT_CALL_2",
+    "sym": "#USE_OPT_CALL_2"
+  },
+  {
+    "loc": "109:31-45",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OPT_CALL_2",
+    "sym": "#USE_OPT_CALL_2",
+    "context": ""
+  },
+  {
+    "loc": "109:50-64",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OPT_CALL_3",
+    "sym": "#USE_OPT_CALL_3"
+  },
+  {
+    "loc": "109:50-64",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OPT_CALL_3",
+    "sym": "#USE_OPT_CALL_3",
+    "context": ""
+  },
+  {
+    "loc": "112:0-12",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property REF_MEMBER_1",
+    "sym": "#REF_MEMBER_1"
+  },
+  {
+    "loc": "112:0-12",
+    "target": 1,
+    "kind": "use",
+    "pretty": "REF_MEMBER_1",
+    "sym": "#REF_MEMBER_1",
+    "context": ""
+  },
+  {
+    "loc": "112:13-24",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_MEMBER",
+    "sym": "#PROP_MEMBER"
+  },
+  {
+    "loc": "112:13-24",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_MEMBER",
+    "sym": "#PROP_MEMBER",
+    "context": ""
+  },
+  {
+    "loc": "112:13-24",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property REF_MEMBER_1.PROP_MEMBER",
+    "sym": "REF_MEMBER_1#PROP_MEMBER"
+  },
+  {
+    "loc": "112:13-24",
+    "target": 1,
+    "kind": "use",
+    "pretty": "REF_MEMBER_1.PROP_MEMBER",
+    "sym": "REF_MEMBER_1#PROP_MEMBER",
+    "context": ""
+  },
+  {
+    "loc": "113:0-12",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property REF_MEMBER_2",
+    "sym": "#REF_MEMBER_2"
+  },
+  {
+    "loc": "113:0-12",
+    "target": 1,
+    "kind": "use",
+    "pretty": "REF_MEMBER_2",
+    "sym": "#REF_MEMBER_2",
+    "context": ""
+  },
+  {
+    "loc": "113:13-23",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_MEMBER",
+    "sym": "#USE_MEMBER"
+  },
+  {
+    "loc": "113:13-23",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_MEMBER",
+    "sym": "#USE_MEMBER",
+    "context": ""
+  },
+  {
+    "loc": "116:0-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property REF_OPT_MEMBER_1",
+    "sym": "#REF_OPT_MEMBER_1"
+  },
+  {
+    "loc": "116:0-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "REF_OPT_MEMBER_1",
+    "sym": "#REF_OPT_MEMBER_1",
+    "context": ""
+  },
+  {
+    "loc": "116:18-33",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_OPT_MEMBER",
+    "sym": "#PROP_OPT_MEMBER"
+  },
+  {
+    "loc": "116:18-33",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_OPT_MEMBER",
+    "sym": "#PROP_OPT_MEMBER",
+    "context": ""
+  },
+  {
+    "loc": "116:18-33",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property REF_OPT_MEMBER_1.PROP_OPT_MEMBER",
+    "sym": "REF_OPT_MEMBER_1#PROP_OPT_MEMBER"
+  },
+  {
+    "loc": "116:18-33",
+    "target": 1,
+    "kind": "use",
+    "pretty": "REF_OPT_MEMBER_1.PROP_OPT_MEMBER",
+    "sym": "REF_OPT_MEMBER_1#PROP_OPT_MEMBER",
+    "context": ""
+  },
+  {
+    "loc": "117:0-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property REF_OPT_MEMBER_2",
+    "sym": "#REF_OPT_MEMBER_2"
+  },
+  {
+    "loc": "117:0-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "REF_OPT_MEMBER_2",
+    "sym": "#REF_OPT_MEMBER_2",
+    "context": ""
+  },
+  {
+    "loc": "117:19-33",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OPT_MEMBER",
+    "sym": "#USE_OPT_MEMBER"
+  },
+  {
+    "loc": "117:19-33",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OPT_MEMBER",
+    "sym": "#USE_OPT_MEMBER",
+    "context": ""
+  },
+  {
+    "loc": "120:24-38",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_FUNC_EXPR",
+    "sym": "10-4",
+    "no_crossref": 1
+  },
+  {
+    "loc": "120:41-54",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FUNC_EXPR",
+    "sym": "#USE_FUNC_EXPR"
+  },
+  {
+    "loc": "120:41-54",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FUNC_EXPR",
+    "sym": "#USE_FUNC_EXPR",
+    "context": ""
+  },
+  {
+    "loc": "121:9-23",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_FUNC_EXPR",
+    "sym": "10-4",
+    "no_crossref": 1
+  },
+  {
+    "loc": "123:10-29",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_ANON_FUNC_EXPR",
+    "sym": "10-5",
+    "no_crossref": 1
+  },
+  {
+    "loc": "123:32-50",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ANON_FUNC_EXPR",
+    "sym": "#USE_ANON_FUNC_EXPR"
+  },
+  {
+    "loc": "123:32-50",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ANON_FUNC_EXPR",
+    "sym": "#USE_ANON_FUNC_EXPR",
+    "context": ""
+  },
+  {
+    "loc": "124:9-28",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_ANON_FUNC_EXPR",
+    "sym": "10-5",
+    "no_crossref": 1
+  },
+  {
+    "loc": "126:24-37",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_GEN_EXPR",
+    "sym": "10-6",
+    "no_crossref": 1
+  },
+  {
+    "loc": "126:40-52",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_GEN_EXPR",
+    "sym": "#USE_GEN_EXPR"
+  },
+  {
+    "loc": "126:40-52",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_GEN_EXPR",
+    "sym": "#USE_GEN_EXPR",
+    "context": ""
+  },
+  {
+    "loc": "127:9-22",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_GEN_EXPR",
+    "sym": "10-6",
+    "no_crossref": 1
+  },
+  {
+    "loc": "129:12-30",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_ANON_GEN_EXPR",
+    "sym": "10-7",
+    "no_crossref": 1
+  },
+  {
+    "loc": "129:33-50",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ANON_GEN_EXPR",
+    "sym": "#USE_ANON_GEN_EXPR"
+  },
+  {
+    "loc": "129:33-50",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ANON_GEN_EXPR",
+    "sym": "#USE_ANON_GEN_EXPR",
+    "context": ""
+  },
+  {
+    "loc": "130:9-27",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_ANON_GEN_EXPR",
+    "sym": "10-7",
+    "no_crossref": 1
+  },
+  {
+    "loc": "132:31-46",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_ASYNC_EXPR",
+    "sym": "10-8",
+    "no_crossref": 1
+  },
+  {
+    "loc": "132:49-63",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASYNC_EXPR",
+    "sym": "#USE_ASYNC_EXPR"
+  },
+  {
+    "loc": "132:49-63",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASYNC_EXPR",
+    "sym": "#USE_ASYNC_EXPR",
+    "context": ""
+  },
+  {
+    "loc": "133:9-24",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_ASYNC_EXPR",
+    "sym": "10-8",
+    "no_crossref": 1
+  },
+  {
+    "loc": "135:16-36",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_ANON_ASYNC_EXPR",
+    "sym": "10-9",
+    "no_crossref": 1
+  },
+  {
+    "loc": "135:39-58",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ANON_ASYNC_EXPR",
+    "sym": "#USE_ANON_ASYNC_EXPR"
+  },
+  {
+    "loc": "135:39-58",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ANON_ASYNC_EXPR",
+    "sym": "#USE_ANON_ASYNC_EXPR",
+    "context": ""
+  },
+  {
+    "loc": "136:9-29",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_ANON_ASYNC_EXPR",
+    "sym": "10-9",
+    "no_crossref": 1
+  },
+  {
+    "loc": "138:36-55",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_ASYNC_GEN_EXPR",
+    "sym": "10-10",
+    "no_crossref": 1
+  },
+  {
+    "loc": "138:58-76",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASYNC_GEN_EXPR",
+    "sym": "#USE_ASYNC_GEN_EXPR"
+  },
+  {
+    "loc": "138:58-76",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASYNC_GEN_EXPR",
+    "sym": "#USE_ASYNC_GEN_EXPR",
+    "context": ""
+  },
+  {
+    "loc": "139:9-28",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_ASYNC_GEN_EXPR",
+    "sym": "10-10",
+    "no_crossref": 1
+  },
+  {
+    "loc": "141:18-42",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_ANON_ASYNC_GEN_EXPR",
+    "sym": "10-11",
+    "no_crossref": 1
+  },
+  {
+    "loc": "141:45-68",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ANON_ASYNC_GEN_EXPR",
+    "sym": "#USE_ANON_ASYNC_GEN_EXPR"
+  },
+  {
+    "loc": "141:45-68",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ANON_ASYNC_GEN_EXPR",
+    "sym": "#USE_ANON_ASYNC_GEN_EXPR",
+    "context": ""
+  },
+  {
+    "loc": "142:9-33",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_ANON_ASYNC_GEN_EXPR",
+    "sym": "10-11",
+    "no_crossref": 1
+  },
+  {
+    "loc": "146:1-13",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_ARROW_1",
+    "sym": "10-12",
+    "no_crossref": 1
+  },
+  {
+    "loc": "146:16-25",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ARROW",
+    "sym": "#USE_ARROW"
+  },
+  {
+    "loc": "146:16-25",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ARROW",
+    "sym": "#USE_ARROW",
+    "context": ""
+  },
+  {
+    "loc": "147:9-19",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property NAME_ARROW",
+    "sym": "#NAME_ARROW"
+  },
+  {
+    "loc": "147:9-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "NAME_ARROW",
+    "sym": "#NAME_ARROW",
+    "context": ""
+  },
+  {
+    "loc": "149:0-12",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_ARROW_2",
+    "sym": "10-13",
+    "no_crossref": 1
+  },
+  {
+    "loc": "150:9-21",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_ARROW_2",
+    "sym": "10-13",
+    "no_crossref": 1
+  },
+  {
+    "loc": "152:7-25",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_ASYNC_ARROW_1",
+    "sym": "10-14",
+    "no_crossref": 1
+  },
+  {
+    "loc": "152:28-43",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ASYNC_ARROW",
+    "sym": "#USE_ASYNC_ARROW"
+  },
+  {
+    "loc": "152:28-43",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ASYNC_ARROW",
+    "sym": "#USE_ASYNC_ARROW",
+    "context": ""
+  },
+  {
+    "loc": "153:9-27",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_ASYNC_ARROW_1",
+    "sym": "10-14",
+    "no_crossref": 1
+  },
+  {
+    "loc": "157:1-12",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ARRAY_1",
+    "sym": "#USE_ARRAY_1"
+  },
+  {
+    "loc": "157:1-12",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ARRAY_1",
+    "sym": "#USE_ARRAY_1",
+    "context": ""
+  },
+  {
+    "loc": "157:16-27",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ARRAY_2",
+    "sym": "#USE_ARRAY_2"
+  },
+  {
+    "loc": "157:16-27",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ARRAY_2",
+    "sym": "#USE_ARRAY_2",
+    "context": ""
+  },
+  {
+    "loc": "160:7-18",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OPT_DEL",
+    "sym": "#USE_OPT_DEL"
+  },
+  {
+    "loc": "160:7-18",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OPT_DEL",
+    "sym": "#USE_OPT_DEL",
+    "context": ""
+  },
+  {
+    "loc": "160:20-32",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_OPT_DEL",
+    "sym": "#PROP_OPT_DEL"
+  },
+  {
+    "loc": "160:20-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_OPT_DEL",
+    "sym": "#PROP_OPT_DEL",
+    "context": ""
+  },
+  {
+    "loc": "160:20-32",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OPT_DEL.PROP_OPT_DEL",
+    "sym": "USE_OPT_DEL#PROP_OPT_DEL"
+  },
+  {
+    "loc": "160:20-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OPT_DEL.PROP_OPT_DEL",
+    "sym": "USE_OPT_DEL#PROP_OPT_DEL",
+    "context": ""
+  },
+  {
+    "loc": "163:0-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OPT_1",
+    "sym": "#USE_OPT_1"
+  },
+  {
+    "loc": "163:0-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OPT_1",
+    "sym": "#USE_OPT_1",
+    "context": ""
+  },
+  {
+    "loc": "163:11-21",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_OPT_1",
+    "sym": "#PROP_OPT_1"
+  },
+  {
+    "loc": "163:11-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_OPT_1",
+    "sym": "#PROP_OPT_1",
+    "context": ""
+  },
+  {
+    "loc": "163:11-21",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OPT_1.PROP_OPT_1",
+    "sym": "USE_OPT_1#PROP_OPT_1"
+  },
+  {
+    "loc": "163:11-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OPT_1.PROP_OPT_1",
+    "sym": "USE_OPT_1#PROP_OPT_1",
+    "context": ""
+  },
+  {
+    "loc": "164:0-9",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OPT_2",
+    "sym": "#USE_OPT_2"
+  },
+  {
+    "loc": "164:0-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OPT_2",
+    "sym": "#USE_OPT_2",
+    "context": ""
+  },
+  {
+    "loc": "164:12-21",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OPT_3",
+    "sym": "#USE_OPT_3"
+  },
+  {
+    "loc": "164:12-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OPT_3",
+    "sym": "#USE_OPT_3",
+    "context": ""
+  },
+  {
+    "loc": "167:4-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_SPREAD_1",
+    "sym": "#USE_SPREAD_1"
+  },
+  {
+    "loc": "167:4-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_SPREAD_1",
+    "sym": "#USE_SPREAD_1",
+    "context": ""
+  },
+  {
+    "loc": "168:6-18",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_SPREAD_1",
+    "sym": "#USE_SPREAD_1"
+  },
+  {
+    "loc": "168:6-18",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_SPREAD_1",
+    "sym": "#USE_SPREAD_1",
+    "context": ""
+  },
+  {
+    "loc": "174:2-10",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property PROP_OBJ",
+    "sym": "#PROP_OBJ"
+  },
+  {
+    "loc": "174:2-10",
+    "target": 1,
+    "kind": "def",
+    "pretty": "PROP_OBJ",
+    "sym": "#PROP_OBJ",
+    "context": ""
+  },
+  {
+    "loc": "174:12-21",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OBJ_1",
+    "sym": "#USE_OBJ_1"
+  },
+  {
+    "loc": "174:12-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OBJ_1",
+    "sym": "#USE_OBJ_1",
+    "context": "PROP_OBJ"
+  },
+  {
+    "loc": "175:15-24",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OBJ_2",
+    "sym": "#USE_OBJ_2"
+  },
+  {
+    "loc": "175:15-24",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OBJ_2",
+    "sym": "#USE_OBJ_2",
+    "context": ""
+  },
+  {
+    "loc": "178:6-17",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property PROP_GETTER",
+    "sym": "#PROP_GETTER",
+    "nestingRange": "178:6-178:43"
+  },
+  {
+    "loc": "178:6-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "PROP_GETTER",
+    "sym": "#PROP_GETTER",
+    "context": ""
+  },
+  {
+    "loc": "178:29-41",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_GETTER_1",
+    "sym": "#USE_GETTER_1"
+  },
+  {
+    "loc": "178:29-41",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_GETTER_1",
+    "sym": "#USE_GETTER_1",
+    "context": "PROP_GETTER"
+  },
+  {
+    "loc": "179:32-44",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_GETTER_3",
+    "sym": "#USE_GETTER_3"
+  },
+  {
+    "loc": "179:32-44",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_GETTER_3",
+    "sym": "#USE_GETTER_3",
+    "context": ""
+  },
+  {
+    "loc": "182:6-17",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property PROP_SETTER",
+    "sym": "#PROP_SETTER",
+    "nestingRange": "182:6-184:2"
+  },
+  {
+    "loc": "182:6-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "PROP_SETTER",
+    "sym": "#PROP_SETTER",
+    "context": ""
+  },
+  {
+    "loc": "182:18-31",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_SETTER_1",
+    "sym": "10-15",
+    "no_crossref": 1
+  },
+  {
+    "loc": "182:34-46",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_SETTER_1",
+    "sym": "#USE_SETTER_1"
+  },
+  {
+    "loc": "182:34-46",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_SETTER_1",
+    "sym": "#USE_SETTER_1",
+    "context": "PROP_SETTER"
+  },
+  {
+    "loc": "183:4-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_SETTER_2",
+    "sym": "#USE_SETTER_2"
+  },
+  {
+    "loc": "183:4-16",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "USE_SETTER_2",
+    "sym": "#USE_SETTER_2",
+    "context": "PROP_SETTER"
+  },
+  {
+    "loc": "183:19-32",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_SETTER_1",
+    "sym": "10-15",
+    "no_crossref": 1
+  },
+  {
+    "loc": "185:21-34",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_SETTER_2",
+    "sym": "10-16",
+    "no_crossref": 1
+  },
+  {
+    "loc": "186:4-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_SETTER_3",
+    "sym": "#USE_SETTER_3"
+  },
+  {
+    "loc": "186:4-16",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "USE_SETTER_3",
+    "sym": "#USE_SETTER_3",
+    "context": ""
+  },
+  {
+    "loc": "186:19-32",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_SETTER_2",
+    "sym": "10-16",
+    "no_crossref": 1
+  },
+  {
+    "loc": "190:2-13",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property PROP_METHOD",
+    "sym": "#PROP_METHOD",
+    "nestingRange": "190:2-192:2"
+  },
+  {
+    "loc": "190:2-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "PROP_METHOD",
+    "sym": "#PROP_METHOD",
+    "context": ""
+  },
+  {
+    "loc": "190:14-27",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_METHOD_1",
+    "sym": "10-17",
+    "no_crossref": 1
+  },
+  {
+    "loc": "190:30-42",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_METHOD_1",
+    "sym": "#USE_METHOD_1"
+  },
+  {
+    "loc": "190:30-42",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_METHOD_1",
+    "sym": "#USE_METHOD_1",
+    "context": "PROP_METHOD"
+  },
+  {
+    "loc": "191:4-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_METHOD_2",
+    "sym": "#USE_METHOD_2"
+  },
+  {
+    "loc": "191:4-16",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "USE_METHOD_2",
+    "sym": "#USE_METHOD_2",
+    "context": "PROP_METHOD"
+  },
+  {
+    "loc": "191:19-32",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_METHOD_1",
+    "sym": "10-17",
+    "no_crossref": 1
+  },
+  {
+    "loc": "193:17-30",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_METHOD_2",
+    "sym": "10-18",
+    "no_crossref": 1
+  },
+  {
+    "loc": "193:33-45",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_METHOD_4",
+    "sym": "#USE_METHOD_4"
+  },
+  {
+    "loc": "193:33-45",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_METHOD_4",
+    "sym": "#USE_METHOD_4",
+    "context": ""
+  },
+  {
+    "loc": "194:4-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_METHOD_5",
+    "sym": "#USE_METHOD_5"
+  },
+  {
+    "loc": "194:4-16",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "USE_METHOD_5",
+    "sym": "#USE_METHOD_5",
+    "context": ""
+  },
+  {
+    "loc": "194:19-32",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_METHOD_2",
+    "sym": "10-18",
+    "no_crossref": 1
+  },
+  {
+    "loc": "200:13-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_PROTO",
+    "sym": "#USE_PROTO"
+  },
+  {
+    "loc": "200:13-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_PROTO",
+    "sym": "#USE_PROTO",
+    "context": ""
+  },
+  {
+    "loc": "204:5-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_THIS",
+    "sym": "#PROP_THIS"
+  },
+  {
+    "loc": "204:5-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_THIS",
+    "sym": "#PROP_THIS",
+    "context": ""
+  },
+  {
+    "loc": "205:5-13",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_THIS",
+    "sym": "#USE_THIS"
+  },
+  {
+    "loc": "205:5-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_THIS",
+    "sym": "#USE_THIS",
+    "context": ""
+  },
+  {
+    "loc": "209:8-19",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_YIELD_1",
+    "sym": "#USE_YIELD_1"
+  },
+  {
+    "loc": "209:8-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_YIELD_1",
+    "sym": "#USE_YIELD_1",
+    "context": ""
+  },
+  {
+    "loc": "210:9-20",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_YIELD_2",
+    "sym": "#USE_YIELD_2"
+  },
+  {
+    "loc": "210:9-20",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_YIELD_2",
+    "sym": "#USE_YIELD_2",
+    "context": ""
+  },
+  {
+    "loc": "214:6-17",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_CLASS_1",
+    "sym": "#DEF_CLASS_1",
+    "nestingRange": "214:17-218:0"
+  },
+  {
+    "loc": "214:6-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_CLASS_1",
+    "sym": "#DEF_CLASS_1",
+    "context": ""
+  },
+  {
+    "loc": "215:2-13",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property constructor",
+    "sym": "#constructor",
+    "nestingRange": "215:2-217:2"
+  },
+  {
+    "loc": "215:2-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "constructor",
+    "sym": "#constructor",
+    "context": "DEF_CLASS_1"
+  },
+  {
+    "loc": "215:2-13",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_CLASS_1.constructor",
+    "sym": "DEF_CLASS_1#constructor",
+    "nestingRange": "215:2-217:2"
+  },
+  {
+    "loc": "215:2-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_CLASS_1.constructor",
+    "sym": "DEF_CLASS_1#constructor",
+    "context": "DEF_CLASS_1"
+  },
+  {
+    "loc": "216:4-15",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_CLASS_1",
+    "sym": "#USE_CLASS_1"
+  },
+  {
+    "loc": "216:4-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_CLASS_1",
+    "sym": "#USE_CLASS_1",
+    "context": "DEF_CLASS_1.constructor"
+  },
+  {
+    "loc": "219:6-17",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_CLASS_2",
+    "sym": "#DEF_CLASS_2",
+    "nestingRange": "219:37-220:0"
+  },
+  {
+    "loc": "219:6-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_CLASS_2",
+    "sym": "#DEF_CLASS_2",
+    "context": ""
+  },
+  {
+    "loc": "219:26-37",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_CLASS_2",
+    "sym": "#USE_CLASS_2"
+  },
+  {
+    "loc": "219:26-37",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_CLASS_2",
+    "sym": "#USE_CLASS_2",
+    "context": "DEF_CLASS_2"
+  },
+  {
+    "loc": "224:2-19",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property PROP_CLASS_METHOD",
+    "sym": "#PROP_CLASS_METHOD",
+    "nestingRange": "224:2-226:2"
+  },
+  {
+    "loc": "224:2-19",
+    "target": 1,
+    "kind": "def",
+    "pretty": "PROP_CLASS_METHOD",
+    "sym": "#PROP_CLASS_METHOD",
+    "context": ""
+  },
+  {
+    "loc": "224:2-19",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property null.PROP_CLASS_METHOD",
+    "sym": "null#PROP_CLASS_METHOD",
+    "nestingRange": "224:2-226:2"
+  },
+  {
+    "loc": "224:2-19",
+    "target": 1,
+    "kind": "def",
+    "pretty": "null.PROP_CLASS_METHOD",
+    "sym": "null#PROP_CLASS_METHOD",
+    "context": ""
+  },
+  {
+    "loc": "224:20-39",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_CLASS_METHOD_1",
+    "sym": "10-19",
+    "no_crossref": 1
+  },
+  {
+    "loc": "224:42-60",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_CLASS_METHOD_1",
+    "sym": "#USE_CLASS_METHOD_1"
+  },
+  {
+    "loc": "224:42-60",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_CLASS_METHOD_1",
+    "sym": "#USE_CLASS_METHOD_1",
+    "context": "PROP_CLASS_METHOD"
+  },
+  {
+    "loc": "225:11-30",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_CLASS_METHOD_1",
+    "sym": "10-19",
+    "no_crossref": 1
+  },
+  {
+    "loc": "227:23-42",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_CLASS_METHOD_2",
+    "sym": "10-20",
+    "no_crossref": 1
+  },
+  {
+    "loc": "227:45-63",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_CLASS_METHOD_3",
+    "sym": "#USE_CLASS_METHOD_3"
+  },
+  {
+    "loc": "227:45-63",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_CLASS_METHOD_3",
+    "sym": "#USE_CLASS_METHOD_3",
+    "context": ""
+  },
+  {
+    "loc": "228:11-30",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_CLASS_METHOD_2",
+    "sym": "10-20",
+    "no_crossref": 1
+  },
+  {
+    "loc": "232:6-23",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property PROP_CLASS_GETTER",
+    "sym": "#PROP_CLASS_GETTER",
+    "nestingRange": "232:6-232:55"
+  },
+  {
+    "loc": "232:6-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "PROP_CLASS_GETTER",
+    "sym": "#PROP_CLASS_GETTER",
+    "context": ""
+  },
+  {
+    "loc": "232:6-23",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property null.PROP_CLASS_GETTER",
+    "sym": "null#PROP_CLASS_GETTER",
+    "nestingRange": "232:6-232:55"
+  },
+  {
+    "loc": "232:6-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "null.PROP_CLASS_GETTER",
+    "sym": "null#PROP_CLASS_GETTER",
+    "context": ""
+  },
+  {
+    "loc": "232:35-53",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_CLASS_GETTER_1",
+    "sym": "#USE_CLASS_GETTER_1"
+  },
+  {
+    "loc": "232:35-53",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_CLASS_GETTER_1",
+    "sym": "#USE_CLASS_GETTER_1",
+    "context": "PROP_CLASS_GETTER"
+  },
+  {
+    "loc": "233:38-56",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_CLASS_GETTER_3",
+    "sym": "#USE_CLASS_GETTER_3"
+  },
+  {
+    "loc": "233:38-56",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_CLASS_GETTER_3",
+    "sym": "#USE_CLASS_GETTER_3",
+    "context": ""
+  },
+  {
+    "loc": "236:6-23",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property PROP_CLASS_SETTER",
+    "sym": "#PROP_CLASS_SETTER",
+    "nestingRange": "236:6-238:2"
+  },
+  {
+    "loc": "236:6-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "PROP_CLASS_SETTER",
+    "sym": "#PROP_CLASS_SETTER",
+    "context": ""
+  },
+  {
+    "loc": "236:6-23",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property null.PROP_CLASS_SETTER",
+    "sym": "null#PROP_CLASS_SETTER",
+    "nestingRange": "236:6-238:2"
+  },
+  {
+    "loc": "236:6-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "null.PROP_CLASS_SETTER",
+    "sym": "null#PROP_CLASS_SETTER",
+    "context": ""
+  },
+  {
+    "loc": "236:24-43",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_CLASS_SETTER_1",
+    "sym": "10-21",
+    "no_crossref": 1
+  },
+  {
+    "loc": "236:46-64",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_CLASS_SETTER_1",
+    "sym": "#USE_CLASS_SETTER_1"
+  },
+  {
+    "loc": "236:46-64",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_CLASS_SETTER_1",
+    "sym": "#USE_CLASS_SETTER_1",
+    "context": "PROP_CLASS_SETTER"
+  },
+  {
+    "loc": "237:4-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_CLASS_SETTER_2",
+    "sym": "#USE_CLASS_SETTER_2"
+  },
+  {
+    "loc": "237:4-22",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "USE_CLASS_SETTER_2",
+    "sym": "#USE_CLASS_SETTER_2",
+    "context": "PROP_CLASS_SETTER"
+  },
+  {
+    "loc": "237:25-44",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_CLASS_SETTER_1",
+    "sym": "10-21",
+    "no_crossref": 1
+  },
+  {
+    "loc": "239:27-46",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_CLASS_SETTER_2",
+    "sym": "10-22",
+    "no_crossref": 1
+  },
+  {
+    "loc": "240:4-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_CLASS_SETTER_4",
+    "sym": "#USE_CLASS_SETTER_4"
+  },
+  {
+    "loc": "240:4-22",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "USE_CLASS_SETTER_4",
+    "sym": "#USE_CLASS_SETTER_4",
+    "context": ""
+  },
+  {
+    "loc": "240:25-44",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_CLASS_SETTER_2",
+    "sym": "10-22",
+    "no_crossref": 1
+  },
+  {
+    "loc": "246:2-13",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_FIELD_1",
+    "sym": "#DEF_FIELD_1"
+  },
+  {
+    "loc": "246:2-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_FIELD_1",
+    "sym": "#DEF_FIELD_1",
+    "context": ""
+  },
+  {
+    "loc": "246:2-13",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property null.DEF_FIELD_1",
+    "sym": "null#DEF_FIELD_1"
+  },
+  {
+    "loc": "246:2-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "null.DEF_FIELD_1",
+    "sym": "null#DEF_FIELD_1",
+    "context": ""
+  },
+  {
+    "loc": "247:2-13",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_FIELD_2",
+    "sym": "#DEF_FIELD_2"
+  },
+  {
+    "loc": "247:2-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_FIELD_2",
+    "sym": "#DEF_FIELD_2",
+    "context": ""
+  },
+  {
+    "loc": "247:2-13",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property null.DEF_FIELD_2",
+    "sym": "null#DEF_FIELD_2"
+  },
+  {
+    "loc": "247:2-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "null.DEF_FIELD_2",
+    "sym": "null#DEF_FIELD_2",
+    "context": ""
+  },
+  {
+    "loc": "247:16-27",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FIELD_1",
+    "sym": "#USE_FIELD_1"
+  },
+  {
+    "loc": "247:16-27",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FIELD_1",
+    "sym": "#USE_FIELD_1",
+    "context": "DEF_FIELD_2"
+  },
+  {
+    "loc": "250:2-16",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property #DEF_PRIVATE_1",
+    "sym": "##DEF_PRIVATE_1"
+  },
+  {
+    "loc": "250:2-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "#DEF_PRIVATE_1",
+    "sym": "##DEF_PRIVATE_1",
+    "context": ""
+  },
+  {
+    "loc": "250:2-16",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property null.#DEF_PRIVATE_1",
+    "sym": "null##DEF_PRIVATE_1"
+  },
+  {
+    "loc": "250:2-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "null.#DEF_PRIVATE_1",
+    "sym": "null##DEF_PRIVATE_1",
+    "context": ""
+  },
+  {
+    "loc": "251:2-16",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property #DEF_PRIVATE_2",
+    "sym": "##DEF_PRIVATE_2"
+  },
+  {
+    "loc": "251:2-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "#DEF_PRIVATE_2",
+    "sym": "##DEF_PRIVATE_2",
+    "context": ""
+  },
+  {
+    "loc": "251:2-16",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property null.#DEF_PRIVATE_2",
+    "sym": "null##DEF_PRIVATE_2"
+  },
+  {
+    "loc": "251:2-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "null.#DEF_PRIVATE_2",
+    "sym": "null##DEF_PRIVATE_2",
+    "context": ""
+  },
+  {
+    "loc": "251:19-30",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FIELD_2",
+    "sym": "#USE_FIELD_2"
+  },
+  {
+    "loc": "251:19-30",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FIELD_2",
+    "sym": "#USE_FIELD_2",
+    "context": "#DEF_PRIVATE_2"
+  },
+  {
+    "loc": "257:4-20",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_CLASS_STATIC",
+    "sym": "#USE_CLASS_STATIC"
+  },
+  {
+    "loc": "257:4-20",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_CLASS_STATIC",
+    "sym": "#USE_CLASS_STATIC",
+    "context": ""
+  },
+  {
+    "loc": "267:2-13",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property constructor",
+    "sym": "#constructor",
+    "nestingRange": "267:2-269:2"
+  },
+  {
+    "loc": "267:2-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "constructor",
+    "sym": "#constructor",
+    "context": ""
+  },
+  {
+    "loc": "267:2-13",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property null.constructor",
+    "sym": "null#constructor",
+    "nestingRange": "267:2-269:2"
+  },
+  {
+    "loc": "267:2-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "null.constructor",
+    "sym": "null#constructor",
+    "context": ""
+  },
+  {
+    "loc": "273:15-24",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_SUPER",
+    "sym": "#USE_SUPER"
+  },
+  {
+    "loc": "273:15-24",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_SUPER",
+    "sym": "#USE_SUPER",
+    "context": ""
+  },
+  {
+    "loc": "274:2-14",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property PROP_SUPER_1",
+    "sym": "#PROP_SUPER_1",
+    "nestingRange": "274:2-276:2"
+  },
+  {
+    "loc": "274:2-14",
+    "target": 1,
+    "kind": "def",
+    "pretty": "PROP_SUPER_1",
+    "sym": "#PROP_SUPER_1",
+    "context": ""
+  },
+  {
+    "loc": "274:2-14",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property null.PROP_SUPER_1",
+    "sym": "null#PROP_SUPER_1",
+    "nestingRange": "274:2-276:2"
+  },
+  {
+    "loc": "274:2-14",
+    "target": 1,
+    "kind": "def",
+    "pretty": "null.PROP_SUPER_1",
+    "sym": "null#PROP_SUPER_1",
+    "context": ""
+  },
+  {
+    "loc": "275:10-22",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_SUPER_2",
+    "sym": "#PROP_SUPER_2"
+  },
+  {
+    "loc": "275:10-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_SUPER_2",
+    "sym": "#PROP_SUPER_2",
+    "context": "PROP_SUPER_1"
+  },
+  {
+    "loc": "290:2-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_BLOCK",
+    "sym": "#USE_BLOCK"
+  },
+  {
+    "loc": "290:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_BLOCK",
+    "sym": "#USE_BLOCK",
+    "context": ""
+  },
+  {
+    "loc": "294:0-8",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_EXPR",
+    "sym": "#USE_EXPR"
+  },
+  {
+    "loc": "294:0-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_EXPR",
+    "sym": "#USE_EXPR",
+    "context": ""
+  },
+  {
+    "loc": "297:7-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_LABEL",
+    "sym": "#USE_LABEL"
+  },
+  {
+    "loc": "297:7-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_LABEL",
+    "sym": "#USE_LABEL",
+    "context": ""
+  },
+  {
+    "loc": "300:4-12",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_IF_1",
+    "sym": "#USE_IF_1"
+  },
+  {
+    "loc": "300:4-12",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_IF_1",
+    "sym": "#USE_IF_1",
+    "context": ""
+  },
+  {
+    "loc": "301:2-10",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_IF_2",
+    "sym": "#USE_IF_2"
+  },
+  {
+    "loc": "301:2-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_IF_2",
+    "sym": "#USE_IF_2",
+    "context": ""
+  },
+  {
+    "loc": "303:2-10",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_IF_3",
+    "sym": "#USE_IF_3"
+  },
+  {
+    "loc": "303:2-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_IF_3",
+    "sym": "#USE_IF_3",
+    "context": ""
+  },
+  {
+    "loc": "309:8-20",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_SWITCH_1",
+    "sym": "#USE_SWITCH_1"
+  },
+  {
+    "loc": "309:8-20",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_SWITCH_1",
+    "sym": "#USE_SWITCH_1",
+    "context": ""
+  },
+  {
+    "loc": "310:7-19",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_SWITCH_2",
+    "sym": "#USE_SWITCH_2"
+  },
+  {
+    "loc": "310:7-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_SWITCH_2",
+    "sym": "#USE_SWITCH_2",
+    "context": ""
+  },
+  {
+    "loc": "311:4-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_SWITCH_3",
+    "sym": "#USE_SWITCH_3"
+  },
+  {
+    "loc": "311:4-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_SWITCH_3",
+    "sym": "#USE_SWITCH_3",
+    "context": ""
+  },
+  {
+    "loc": "314:4-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_SWITCH_4",
+    "sym": "#USE_SWITCH_4"
+  },
+  {
+    "loc": "314:4-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_SWITCH_4",
+    "sym": "#USE_SWITCH_4",
+    "context": ""
+  },
+  {
+    "loc": "319:7-18",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_WHILE_1",
+    "sym": "#USE_WHILE_1"
+  },
+  {
+    "loc": "319:7-18",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_WHILE_1",
+    "sym": "#USE_WHILE_1",
+    "context": ""
+  },
+  {
+    "loc": "320:2-13",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_WHILE_2",
+    "sym": "#USE_WHILE_2"
+  },
+  {
+    "loc": "320:2-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_WHILE_2",
+    "sym": "#USE_WHILE_2",
+    "context": ""
+  },
+  {
+    "loc": "325:2-10",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_DO_1",
+    "sym": "#USE_DO_1"
+  },
+  {
+    "loc": "325:2-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_DO_1",
+    "sym": "#USE_DO_1",
+    "context": ""
+  },
+  {
+    "loc": "326:9-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_DO_2",
+    "sym": "#USE_DO_2"
+  },
+  {
+    "loc": "326:9-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_DO_2",
+    "sym": "#USE_DO_2",
+    "context": ""
+  },
+  {
+    "loc": "329:5-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_1",
+    "sym": "#USE_FOR_1"
+  },
+  {
+    "loc": "329:5-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_1",
+    "sym": "#USE_FOR_1",
+    "context": ""
+  },
+  {
+    "loc": "329:16-25",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_2",
+    "sym": "#USE_FOR_2"
+  },
+  {
+    "loc": "329:16-25",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_2",
+    "sym": "#USE_FOR_2",
+    "context": ""
+  },
+  {
+    "loc": "329:27-36",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_3",
+    "sym": "#USE_FOR_3"
+  },
+  {
+    "loc": "329:27-36",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_3",
+    "sym": "#USE_FOR_3",
+    "context": ""
+  },
+  {
+    "loc": "330:2-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_4",
+    "sym": "#USE_FOR_4"
+  },
+  {
+    "loc": "330:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_4",
+    "sym": "#USE_FOR_4",
+    "context": ""
+  },
+  {
+    "loc": "332:9-18",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable DEF_FOR_1",
+    "sym": "10-23",
+    "no_crossref": 1
+  },
+  {
+    "loc": "332:24-33",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_5",
+    "sym": "#USE_FOR_5"
+  },
+  {
+    "loc": "332:24-33",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_5",
+    "sym": "#USE_FOR_5",
+    "context": ""
+  },
+  {
+    "loc": "332:35-44",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_6",
+    "sym": "#USE_FOR_6"
+  },
+  {
+    "loc": "332:35-44",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_6",
+    "sym": "#USE_FOR_6",
+    "context": ""
+  },
+  {
+    "loc": "333:2-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_7",
+    "sym": "#USE_FOR_7"
+  },
+  {
+    "loc": "333:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_7",
+    "sym": "#USE_FOR_7",
+    "context": ""
+  },
+  {
+    "loc": "335:9-18",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable DEF_FOR_2",
+    "sym": "10-24",
+    "no_crossref": 1
+  },
+  {
+    "loc": "335:24-33",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_8",
+    "sym": "#USE_FOR_8"
+  },
+  {
+    "loc": "335:24-33",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_8",
+    "sym": "#USE_FOR_8",
+    "context": ""
+  },
+  {
+    "loc": "335:35-44",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_9",
+    "sym": "#USE_FOR_9"
+  },
+  {
+    "loc": "335:35-44",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_9",
+    "sym": "#USE_FOR_9",
+    "context": ""
+  },
+  {
+    "loc": "336:2-12",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_10",
+    "sym": "#USE_FOR_10"
+  },
+  {
+    "loc": "336:2-12",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_10",
+    "sym": "#USE_FOR_10",
+    "context": ""
+  },
+  {
+    "loc": "340:5-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_FOR_IN_1",
+    "sym": "#LHS_FOR_IN_1"
+  },
+  {
+    "loc": "340:5-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LHS_FOR_IN_1",
+    "sym": "#LHS_FOR_IN_1",
+    "context": ""
+  },
+  {
+    "loc": "340:21-33",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_IN_1",
+    "sym": "#USE_FOR_IN_1"
+  },
+  {
+    "loc": "340:21-33",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_IN_1",
+    "sym": "#USE_FOR_IN_1",
+    "context": ""
+  },
+  {
+    "loc": "341:2-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_IN_2",
+    "sym": "#USE_FOR_IN_2"
+  },
+  {
+    "loc": "341:2-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_IN_2",
+    "sym": "#USE_FOR_IN_2",
+    "context": ""
+  },
+  {
+    "loc": "343:9-21",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable LHS_FOR_IN_2",
+    "sym": "10-25",
+    "no_crossref": 1
+  },
+  {
+    "loc": "343:25-37",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_IN_3",
+    "sym": "#USE_FOR_IN_3"
+  },
+  {
+    "loc": "343:25-37",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_IN_3",
+    "sym": "#USE_FOR_IN_3",
+    "context": ""
+  },
+  {
+    "loc": "344:2-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_IN_4",
+    "sym": "#USE_FOR_IN_4"
+  },
+  {
+    "loc": "344:2-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_IN_4",
+    "sym": "#USE_FOR_IN_4",
+    "context": ""
+  },
+  {
+    "loc": "346:9-21",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable LHS_FOR_IN_3",
+    "sym": "10-26",
+    "no_crossref": 1
+  },
+  {
+    "loc": "346:25-37",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_IN_5",
+    "sym": "#USE_FOR_IN_5"
+  },
+  {
+    "loc": "346:25-37",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_IN_5",
+    "sym": "#USE_FOR_IN_5",
+    "context": ""
+  },
+  {
+    "loc": "347:2-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_IN_6",
+    "sym": "#USE_FOR_IN_6"
+  },
+  {
+    "loc": "347:2-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_IN_6",
+    "sym": "#USE_FOR_IN_6",
+    "context": ""
+  },
+  {
+    "loc": "349:11-23",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable LHS_FOR_IN_4",
+    "sym": "10-27",
+    "no_crossref": 1
+  },
+  {
+    "loc": "349:27-39",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_IN_7",
+    "sym": "#USE_FOR_IN_7"
+  },
+  {
+    "loc": "349:27-39",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_IN_7",
+    "sym": "#USE_FOR_IN_7",
+    "context": ""
+  },
+  {
+    "loc": "350:2-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_IN_8",
+    "sym": "#USE_FOR_IN_8"
+  },
+  {
+    "loc": "350:2-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_IN_8",
+    "sym": "#USE_FOR_IN_8",
+    "context": ""
+  },
+  {
+    "loc": "354:5-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_FOR_OF_1",
+    "sym": "#LHS_FOR_OF_1"
+  },
+  {
+    "loc": "354:5-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LHS_FOR_OF_1",
+    "sym": "#LHS_FOR_OF_1",
+    "context": ""
+  },
+  {
+    "loc": "354:21-33",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_OF_1",
+    "sym": "#USE_FOR_OF_1"
+  },
+  {
+    "loc": "354:21-33",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_OF_1",
+    "sym": "#USE_FOR_OF_1",
+    "context": ""
+  },
+  {
+    "loc": "355:2-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_OF_2",
+    "sym": "#USE_FOR_OF_2"
+  },
+  {
+    "loc": "355:2-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_OF_2",
+    "sym": "#USE_FOR_OF_2",
+    "context": ""
+  },
+  {
+    "loc": "357:9-21",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable LHS_FOR_OF_2",
+    "sym": "10-28",
+    "no_crossref": 1
+  },
+  {
+    "loc": "357:25-37",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_OF_3",
+    "sym": "#USE_FOR_OF_3"
+  },
+  {
+    "loc": "357:25-37",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_OF_3",
+    "sym": "#USE_FOR_OF_3",
+    "context": ""
+  },
+  {
+    "loc": "358:2-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_OF_4",
+    "sym": "#USE_FOR_OF_4"
+  },
+  {
+    "loc": "358:2-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_OF_4",
+    "sym": "#USE_FOR_OF_4",
+    "context": ""
+  },
+  {
+    "loc": "360:9-21",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable LHS_FOR_OF_3",
+    "sym": "10-29",
+    "no_crossref": 1
+  },
+  {
+    "loc": "360:25-37",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_OF_5",
+    "sym": "#USE_FOR_OF_5"
+  },
+  {
+    "loc": "360:25-37",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_OF_5",
+    "sym": "#USE_FOR_OF_5",
+    "context": ""
+  },
+  {
+    "loc": "361:2-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_OF_6",
+    "sym": "#USE_FOR_OF_6"
+  },
+  {
+    "loc": "361:2-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_OF_6",
+    "sym": "#USE_FOR_OF_6",
+    "context": ""
+  },
+  {
+    "loc": "363:11-23",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable LHS_FOR_OF_4",
+    "sym": "10-30",
+    "no_crossref": 1
+  },
+  {
+    "loc": "363:27-39",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_OF_7",
+    "sym": "#USE_FOR_OF_7"
+  },
+  {
+    "loc": "363:27-39",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_OF_7",
+    "sym": "#USE_FOR_OF_7",
+    "context": ""
+  },
+  {
+    "loc": "364:2-14",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_OF_8",
+    "sym": "#USE_FOR_OF_8"
+  },
+  {
+    "loc": "364:2-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_OF_8",
+    "sym": "#USE_FOR_OF_8",
+    "context": ""
+  },
+  {
+    "loc": "367:19-31",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable LHS_FOR_OF_5",
+    "sym": "10-31",
+    "no_crossref": 1
+  },
+  {
+    "loc": "367:35-47",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_OF_9",
+    "sym": "#USE_FOR_OF_9"
+  },
+  {
+    "loc": "367:35-47",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_OF_9",
+    "sym": "#USE_FOR_OF_9",
+    "context": ""
+  },
+  {
+    "loc": "368:4-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_FOR_OF_10",
+    "sym": "#USE_FOR_OF_10"
+  },
+  {
+    "loc": "368:4-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_FOR_OF_10",
+    "sym": "#USE_FOR_OF_10",
+    "context": ""
+  },
+  {
+    "loc": "385:6-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_WITH_1",
+    "sym": "#USE_WITH_1"
+  },
+  {
+    "loc": "385:6-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_WITH_1",
+    "sym": "#USE_WITH_1",
+    "context": ""
+  },
+  {
+    "loc": "386:2-12",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_WITH_2",
+    "sym": "#USE_WITH_2"
+  },
+  {
+    "loc": "386:2-12",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_WITH_2",
+    "sym": "#USE_WITH_2",
+    "context": ""
+  },
+  {
+    "loc": "394:9-19",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_RETURN",
+    "sym": "#USE_RETURN"
+  },
+  {
+    "loc": "394:9-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_RETURN",
+    "sym": "#USE_RETURN",
+    "context": ""
+  },
+  {
+    "loc": "399:2-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_TRY_1",
+    "sym": "#USE_TRY_1"
+  },
+  {
+    "loc": "399:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_TRY_1",
+    "sym": "#USE_TRY_1",
+    "context": ""
+  },
+  {
+    "loc": "400:9-20",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_CATCH_1",
+    "sym": "#DEF_CATCH_1"
+  },
+  {
+    "loc": "400:9-20",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_CATCH_1",
+    "sym": "#DEF_CATCH_1",
+    "context": ""
+  },
+  {
+    "loc": "401:2-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_TRY_2",
+    "sym": "#USE_TRY_2"
+  },
+  {
+    "loc": "401:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_TRY_2",
+    "sym": "#USE_TRY_2",
+    "context": ""
+  },
+  {
+    "loc": "404:2-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_TRY_3",
+    "sym": "#USE_TRY_3"
+  },
+  {
+    "loc": "404:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_TRY_3",
+    "sym": "#USE_TRY_3",
+    "context": ""
+  },
+  {
+    "loc": "405:9-20",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_CATCH_2",
+    "sym": "#DEF_CATCH_2"
+  },
+  {
+    "loc": "405:9-20",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_CATCH_2",
+    "sym": "#DEF_CATCH_2",
+    "context": ""
+  },
+  {
+    "loc": "406:2-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_TRY_4",
+    "sym": "#USE_TRY_4"
+  },
+  {
+    "loc": "406:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_TRY_4",
+    "sym": "#USE_TRY_4",
+    "context": ""
+  },
+  {
+    "loc": "408:2-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_TRY_5",
+    "sym": "#USE_TRY_5"
+  },
+  {
+    "loc": "408:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_TRY_5",
+    "sym": "#USE_TRY_5",
+    "context": ""
+  },
+  {
+    "loc": "411:2-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_TRY_6",
+    "sym": "#USE_TRY_6"
+  },
+  {
+    "loc": "411:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_TRY_6",
+    "sym": "#USE_TRY_6",
+    "context": ""
+  },
+  {
+    "loc": "413:2-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_TRY_7",
+    "sym": "#USE_TRY_7"
+  },
+  {
+    "loc": "413:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_TRY_7",
+    "sym": "#USE_TRY_7",
+    "context": ""
+  },
+  {
+    "loc": "416:2-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_TRY_8",
+    "sym": "#USE_TRY_8"
+  },
+  {
+    "loc": "416:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_TRY_8",
+    "sym": "#USE_TRY_8",
+    "context": ""
+  },
+  {
+    "loc": "418:2-11",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_TRY_9",
+    "sym": "#USE_TRY_9"
+  },
+  {
+    "loc": "418:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_TRY_9",
+    "sym": "#USE_TRY_9",
+    "context": ""
+  },
+  {
+    "loc": "423:8-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_THROW",
+    "sym": "#USE_THROW"
+  },
+  {
+    "loc": "423:8-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_THROW",
+    "sym": "#USE_THROW",
+    "context": ""
+  },
+  {
+    "loc": "436:2-17",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_ARRAY_PAT_1",
+    "sym": "#DEF_ARRAY_PAT_1"
+  },
+  {
+    "loc": "436:2-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_ARRAY_PAT_1",
+    "sym": "#DEF_ARRAY_PAT_1",
+    "context": ""
+  },
+  {
+    "loc": "437:2-17",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_ARRAY_PAT_2",
+    "sym": "#DEF_ARRAY_PAT_2"
+  },
+  {
+    "loc": "437:2-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_ARRAY_PAT_2",
+    "sym": "#DEF_ARRAY_PAT_2",
+    "context": ""
+  },
+  {
+    "loc": "437:20-35",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ARRAY_PAT_1",
+    "sym": "#USE_ARRAY_PAT_1"
+  },
+  {
+    "loc": "437:20-35",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ARRAY_PAT_1",
+    "sym": "#USE_ARRAY_PAT_1",
+    "context": ""
+  },
+  {
+    "loc": "438:5-20",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_ARRAY_PAT_3",
+    "sym": "#DEF_ARRAY_PAT_3"
+  },
+  {
+    "loc": "438:5-20",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_ARRAY_PAT_3",
+    "sym": "#DEF_ARRAY_PAT_3",
+    "context": ""
+  },
+  {
+    "loc": "439:4-19",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ARRAY_PAT_2",
+    "sym": "#USE_ARRAY_PAT_2"
+  },
+  {
+    "loc": "439:4-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ARRAY_PAT_2",
+    "sym": "#USE_ARRAY_PAT_2",
+    "context": ""
+  },
+  {
+    "loc": "441:2-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ARRAY_PAT_1",
+    "sym": "#LHS_ARRAY_PAT_1"
+  },
+  {
+    "loc": "441:2-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LHS_ARRAY_PAT_1",
+    "sym": "#LHS_ARRAY_PAT_1",
+    "context": ""
+  },
+  {
+    "loc": "442:2-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ARRAY_PAT_2",
+    "sym": "#LHS_ARRAY_PAT_2"
+  },
+  {
+    "loc": "442:2-17",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_ARRAY_PAT_2",
+    "sym": "#LHS_ARRAY_PAT_2",
+    "context": ""
+  },
+  {
+    "loc": "442:20-35",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ARRAY_PAT_3",
+    "sym": "#USE_ARRAY_PAT_3"
+  },
+  {
+    "loc": "442:20-35",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ARRAY_PAT_3",
+    "sym": "#USE_ARRAY_PAT_3",
+    "context": ""
+  },
+  {
+    "loc": "443:5-20",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_ARRAY_PAT_3",
+    "sym": "#LHS_ARRAY_PAT_3"
+  },
+  {
+    "loc": "443:5-20",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LHS_ARRAY_PAT_3",
+    "sym": "#LHS_ARRAY_PAT_3",
+    "context": ""
+  },
+  {
+    "loc": "444:4-19",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_ARRAY_PAT_4",
+    "sym": "#USE_ARRAY_PAT_4"
+  },
+  {
+    "loc": "444:4-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_ARRAY_PAT_4",
+    "sym": "#USE_ARRAY_PAT_4",
+    "context": ""
+  },
+  {
+    "loc": "448:2-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_OBJ_PAT_1",
+    "sym": "#PROP_OBJ_PAT_1"
+  },
+  {
+    "loc": "448:2-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_OBJ_PAT_1",
+    "sym": "#PROP_OBJ_PAT_1",
+    "context": ""
+  },
+  {
+    "loc": "448:18-31",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_OBJ_PAT_1",
+    "sym": "#DEF_OBJ_PAT_1"
+  },
+  {
+    "loc": "448:18-31",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_OBJ_PAT_1",
+    "sym": "#DEF_OBJ_PAT_1",
+    "context": ""
+  },
+  {
+    "loc": "449:2-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property PROP_OBJ_PAT_2",
+    "sym": "#PROP_OBJ_PAT_2"
+  },
+  {
+    "loc": "449:2-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "PROP_OBJ_PAT_2",
+    "sym": "#PROP_OBJ_PAT_2",
+    "context": ""
+  },
+  {
+    "loc": "449:18-31",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_OBJ_PAT_2",
+    "sym": "#DEF_OBJ_PAT_2"
+  },
+  {
+    "loc": "449:18-31",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_OBJ_PAT_2",
+    "sym": "#DEF_OBJ_PAT_2",
+    "context": ""
+  },
+  {
+    "loc": "449:34-47",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OBJ_PAT_1",
+    "sym": "#USE_OBJ_PAT_1"
+  },
+  {
+    "loc": "449:34-47",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OBJ_PAT_1",
+    "sym": "#USE_OBJ_PAT_1",
+    "context": ""
+  },
+  {
+    "loc": "450:2-15",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property DEF_OBJ_PAT_3",
+    "sym": "#DEF_OBJ_PAT_3"
+  },
+  {
+    "loc": "450:2-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "DEF_OBJ_PAT_3",
+    "sym": "#DEF_OBJ_PAT_3",
+    "context": ""
+  },
+  {
+    "loc": "450:2-15",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_OBJ_PAT_3",
+    "sym": "#DEF_OBJ_PAT_3"
+  },
+  {
+    "loc": "450:2-15",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_OBJ_PAT_3",
+    "sym": "#DEF_OBJ_PAT_3",
+    "context": ""
+  },
+  {
+    "loc": "450:18-31",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OBJ_PAT_2",
+    "sym": "#USE_OBJ_PAT_2"
+  },
+  {
+    "loc": "450:18-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OBJ_PAT_2",
+    "sym": "#USE_OBJ_PAT_2",
+    "context": ""
+  },
+  {
+    "loc": "451:5-18",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_OBJ_PAT_4",
+    "sym": "#DEF_OBJ_PAT_4"
+  },
+  {
+    "loc": "451:5-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_OBJ_PAT_4",
+    "sym": "#DEF_OBJ_PAT_4",
+    "context": ""
+  },
+  {
+    "loc": "452:4-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OBJ_PAT_3",
+    "sym": "#USE_OBJ_PAT_3"
+  },
+  {
+    "loc": "452:4-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OBJ_PAT_3",
+    "sym": "#USE_OBJ_PAT_3",
+    "context": ""
+  },
+  {
+    "loc": "455:2-16",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property PROP_OBJ_PAT_3",
+    "sym": "#PROP_OBJ_PAT_3"
+  },
+  {
+    "loc": "455:2-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "PROP_OBJ_PAT_3",
+    "sym": "#PROP_OBJ_PAT_3",
+    "context": ""
+  },
+  {
+    "loc": "455:18-31",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_OBJ_PAT_1",
+    "sym": "#LHS_OBJ_PAT_1"
+  },
+  {
+    "loc": "455:18-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LHS_OBJ_PAT_1",
+    "sym": "#LHS_OBJ_PAT_1",
+    "context": "PROP_OBJ_PAT_3"
+  },
+  {
+    "loc": "456:2-16",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property PROP_OBJ_PAT_4",
+    "sym": "#PROP_OBJ_PAT_4"
+  },
+  {
+    "loc": "456:2-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "PROP_OBJ_PAT_4",
+    "sym": "#PROP_OBJ_PAT_4",
+    "context": ""
+  },
+  {
+    "loc": "456:18-31",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_OBJ_PAT_2",
+    "sym": "#LHS_OBJ_PAT_2"
+  },
+  {
+    "loc": "456:18-31",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_OBJ_PAT_2",
+    "sym": "#LHS_OBJ_PAT_2",
+    "context": "PROP_OBJ_PAT_4"
+  },
+  {
+    "loc": "456:34-47",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OBJ_PAT_4",
+    "sym": "#USE_OBJ_PAT_4"
+  },
+  {
+    "loc": "456:34-47",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OBJ_PAT_4",
+    "sym": "#USE_OBJ_PAT_4",
+    "context": "PROP_OBJ_PAT_4"
+  },
+  {
+    "loc": "457:2-15",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property LHS_OBJ_PAT_3",
+    "sym": "#LHS_OBJ_PAT_3"
+  },
+  {
+    "loc": "457:2-15",
+    "target": 1,
+    "kind": "def",
+    "pretty": "LHS_OBJ_PAT_3",
+    "sym": "#LHS_OBJ_PAT_3",
+    "context": ""
+  },
+  {
+    "loc": "457:2-15",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_OBJ_PAT_3",
+    "sym": "#LHS_OBJ_PAT_3"
+  },
+  {
+    "loc": "457:2-15",
+    "target": 1,
+    "kind": "assign",
+    "pretty": "LHS_OBJ_PAT_3",
+    "sym": "#LHS_OBJ_PAT_3",
+    "context": "LHS_OBJ_PAT_3"
+  },
+  {
+    "loc": "457:18-31",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OBJ_PAT_5",
+    "sym": "#USE_OBJ_PAT_5"
+  },
+  {
+    "loc": "457:18-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OBJ_PAT_5",
+    "sym": "#USE_OBJ_PAT_5",
+    "context": "LHS_OBJ_PAT_3"
+  },
+  {
+    "loc": "458:5-18",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property LHS_OBJ_PAT_4",
+    "sym": "#LHS_OBJ_PAT_4"
+  },
+  {
+    "loc": "458:5-18",
+    "target": 1,
+    "kind": "use",
+    "pretty": "LHS_OBJ_PAT_4",
+    "sym": "#LHS_OBJ_PAT_4",
+    "context": ""
+  },
+  {
+    "loc": "459:4-17",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_OBJ_PAT_6",
+    "sym": "#USE_OBJ_PAT_6"
+  },
+  {
+    "loc": "459:4-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_OBJ_PAT_6",
+    "sym": "#USE_OBJ_PAT_6",
+    "context": ""
+  },
+  {
+    "loc": "462:6-16",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_TMPL_1",
+    "sym": "#USE_TMPL_1"
+  },
+  {
+    "loc": "462:6-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_TMPL_1",
+    "sym": "#USE_TMPL_1",
+    "context": ""
+  },
+  {
+    "loc": "462:19-29",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_TMPL_2",
+    "sym": "#USE_TMPL_2"
+  },
+  {
+    "loc": "462:19-29",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_TMPL_2",
+    "sym": "#USE_TMPL_2",
+    "context": ""
+  },
+  {
+    "loc": "462:32-42",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_TMPL_3",
+    "sym": "#USE_TMPL_3"
+  },
+  {
+    "loc": "462:32-42",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_TMPL_3",
+    "sym": "#USE_TMPL_3",
+    "context": ""
+  }
+]

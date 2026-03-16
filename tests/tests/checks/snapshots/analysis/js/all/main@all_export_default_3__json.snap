@@ -1,0 +1,61 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/js/all/all_export_default_3__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file js/all_export_default_3.mjs",
+    "sym": "FILE_js/all_export_default_3@2Emjs"
+  },
+  {
+    "loc": "1:25-45",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property DEF_EXPORT_DEFUALT_3",
+    "sym": "#DEF_EXPORT_DEFUALT_3",
+    "nestingRange": "1:92-3:0"
+  },
+  {
+    "loc": "1:25-45",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_EXPORT_DEFUALT_3",
+    "sym": "#DEF_EXPORT_DEFUALT_3",
+    "context": ""
+  },
+  {
+    "loc": "1:46-67",
+    "source": 1,
+    "syntax": "deflocal,variable",
+    "pretty": "variable NAME_EXPORT_DEFUALT_3",
+    "sym": "14-0",
+    "no_crossref": 1
+  },
+  {
+    "loc": "1:70-90",
+    "source": 1,
+    "syntax": "use,prop",
+    "pretty": "property USE_EXPORT_DEFUALT_3",
+    "sym": "#USE_EXPORT_DEFUALT_3"
+  },
+  {
+    "loc": "1:70-90",
+    "target": 1,
+    "kind": "use",
+    "pretty": "USE_EXPORT_DEFUALT_3",
+    "sym": "#USE_EXPORT_DEFUALT_3",
+    "context": "DEF_EXPORT_DEFUALT_3"
+  },
+  {
+    "loc": "2:9-30",
+    "source": 1,
+    "syntax": "uselocal,variable",
+    "pretty": "variable NAME_EXPORT_DEFUALT_3",
+    "sym": "14-0",
+    "no_crossref": 1
+  }
+]

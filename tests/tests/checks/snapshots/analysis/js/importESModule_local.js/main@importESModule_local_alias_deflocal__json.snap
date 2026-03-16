@@ -9,7 +9,7 @@ input_file: inputs/analysis/js/importESModule_local.js/importESModule_local_alia
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable func2b",
-    "sym": "24-1",
+    "sym": "30-1",
     "no_crossref": 1
   },
   {
@@ -17,7 +17,7 @@ input_file: inputs/analysis/js/importESModule_local.js/importESModule_local_alia
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable func4b",
-    "sym": "24-3",
+    "sym": "30-3",
     "no_crossref": 1
   }
 ]
