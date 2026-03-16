@@ -4758,17 +4758,10 @@ input_file: inputs/analysis/js/all/all_script__json
   {
     "loc": "400:9-20",
     "source": 1,
-    "syntax": "def,prop",
-    "pretty": "property DEF_CATCH_1",
-    "sym": "#DEF_CATCH_1"
-  },
-  {
-    "loc": "400:9-20",
-    "target": 1,
-    "kind": "def",
-    "pretty": "DEF_CATCH_1",
-    "sym": "#DEF_CATCH_1",
-    "context": ""
+    "syntax": "deflocal,variable",
+    "pretty": "variable DEF_CATCH_1",
+    "sym": "10-32",
+    "no_crossref": 1
   },
   {
     "loc": "401:2-11",
@@ -4803,17 +4796,10 @@ input_file: inputs/analysis/js/all/all_script__json
   {
     "loc": "405:9-20",
     "source": 1,
-    "syntax": "def,prop",
-    "pretty": "property DEF_CATCH_2",
-    "sym": "#DEF_CATCH_2"
-  },
-  {
-    "loc": "405:9-20",
-    "target": 1,
-    "kind": "def",
-    "pretty": "DEF_CATCH_2",
-    "sym": "#DEF_CATCH_2",
-    "context": ""
+    "syntax": "deflocal,variable",
+    "pretty": "variable DEF_CATCH_2",
+    "sym": "10-33",
+    "no_crossref": 1
   },
   {
     "loc": "406:2-11",
