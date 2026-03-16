@@ -1511,21 +1511,26 @@ class Analyzer extends ASTVisitor {
     return this.contextStack.filter(e => !!e).join(".");
   }
 
-  dummyProgram(prog, args) {
-    let stmt = prog.body[0];
-    let expr = stmt.expression;
+  /**
+   * Event listeners and handler properties.
+   */
+  handler(name, args, prog) {
+    this.scoped(name, () => {
+      let stmt = prog.body[0];
+      let expr = stmt.expression;
 
-    for (let {name, skip} of args) {
-      let sym = new SymbolTable.Symbol(name, null);
-      sym.skip = true;
-      this.symbols.put(name, sym);
-    }
+      for (let name of args) {
+        let sym = new SymbolTable.Symbol(name, null);
+        sym.skip = true;
+        this.symbols.put(name, sym);
+      }
 
-    if (expr.body.type == "BlockStatement") {
-      this.statement(expr.body);
-    } else {
-      this.expression(expr.body);
-    }
+      if (expr.body.type == "BlockStatement") {
+        this.statement(expr.body);
+      } else {
+        this.expression(expr.body);
+      }
+    });
   }
 
   parse(text, filename, line, target, attrName="") {
@@ -2496,7 +2501,7 @@ class BaseParser {
   processEventListeners() {
     const analyzer = new Analyzer();
     for (let ast of this.eventListeners) {
-      analyzer.dummyProgram(ast, [{name: "event", skip: true}]);
+      analyzer.handler(null, ["event"], ast);
     }
   }
 
@@ -2702,7 +2707,7 @@ class XBLParser extends XMLParser {
       const analyzer = new Analyzer();
       let ast = analyzer.parse(text, this.filename, line, "script", prop);
       if (ast) {
-        analyzer.scoped(name, () => analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
+        analyzer.handler(name, ["val"], ast);
       }
     }
 
@@ -2721,7 +2726,7 @@ class XBLParser extends XMLParser {
       const analyzer = new Analyzer();
       let ast = analyzer.parse(text, this.filename, line, "script", prop);
       if (ast) {
-        analyzer.scoped(name, () => analyzer.dummyProgram(ast, [{name: "val", skip: true}]));
+        analyzer.handler(name, ["val"], ast);
       }
     }
   }
@@ -2770,7 +2775,7 @@ class XBLParser extends XMLParser {
     const analyzer = new Analyzer();
     let ast = analyzer.parse(text, this.filename, line, "script");
     if (ast) {
-      analyzer.scoped(null, () => analyzer.dummyProgram(ast, []));
+      analyzer.handler(null, [], ast);
     }
   }
 
@@ -2784,7 +2789,7 @@ class XBLParser extends XMLParser {
     const analyzer = new Analyzer();
     let ast = analyzer.parse(text, this.filename, line, "script");
     if (ast) {
-      analyzer.scoped(null, () => analyzer.dummyProgram(ast, []));
+      analyzer.handler(null, [], ast);
     }
   }
 
@@ -2827,7 +2832,7 @@ class XBLParser extends XMLParser {
 
       let ast = analyzer.parse(text, this.filename, line, "script");
       if (ast) {
-        analyzer.dummyProgram(ast, []);
+        analyzer.handler(null, [], ast);
       }
     }
 
