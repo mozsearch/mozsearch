@@ -1,4 +1,5 @@
 let nextSymId = 0;
+let nextSymId2 = 0;
 let localFile, sourcePath, fileIndex, mozSearchRoot;
 
 // The parsing mode we're currently using.
@@ -806,8 +807,8 @@ class ASTVisitor {
     }
   }
 
-  variableDeclaratorLHS(pat, init, isAlias, rhsInfo) {
-    this.defPattern(pat, isAlias, rhsInfo);
+  variableDeclaratorLHS(pat, init) {
+    this.defPattern(pat);
   }
 
   variableDeclaratorRHS(pat, init) {
@@ -1280,26 +1281,26 @@ class ASTVisitor {
   callImport(expr) {
   }
 
-  defPattern(pat, isAlias=false, rhsInfo=null) {
+  defPattern(pat) {
     if (!pat) {
       print(Error().stack);
     }
 
     switch (pat.type) {
     case "Identifier":
-      this.identifierDefPattern(pat, isAlias, rhsInfo);
+      this.identifierDefPattern(pat);
       break;
 
     case "ObjectPattern":
-      this.objectDefPattern(pat, isAlias, rhsInfo);
+      this.objectDefPattern(pat);
       break;
 
     case "ArrayPattern":
-      this.arrayDefPattern(pat, isAlias, rhsInfo);
+      this.arrayDefPattern(pat);
       break;
 
     case "AssignmentExpression":
-      this.initializerDefPattern(pat, isAlias, rhsInfo);
+      this.initializerDefPattern(pat);
       break;
 
     default:
@@ -1308,48 +1309,663 @@ class ASTVisitor {
     }
   }
 
-  identifierDefPattern(pat, isAlias, rhsInfo) {
+  identifierDefPattern(pat) {
   }
 
-  objectDefPattern(pat, isAlias, rhsInfo) {
+  objectDefPattern(pat) {
     for (let prop of pat.properties) {
       if (prop.type === "SpreadExpression") {
-        this.objectSpreadDefPattern(prop, isAlias, rhsInfo);
+        this.objectSpreadDefPattern(prop);
       } else {
-        this.objectPropertyDefPattern(prop, isAlias, rhsInfo);
+        this.objectPropertyDefPattern(prop);
       }
     }
   }
 
-  objectPropertyDefPattern(prop, isAlias, rhsInfo) {
-    this.defPattern(prop.value, isAlias, rhsInfo);
+  objectPropertyDefPattern(prop) {
+    this.defPattern(prop.value);
   }
-  objectSpreadDefPattern(prop, isAlias, rhsInfo) {
-    this.defPattern(prop.expression, false);
+  objectSpreadDefPattern(prop) {
+    this.defPattern(prop.expression);
   }
 
-  arrayDefPattern(pat, isAlias, rhsInfo) {
+  arrayDefPattern(pat) {
     for (let e of pat.elements) {
       if (!e) {
         continue;
       }
       if (e.type === "SpreadExpression") {
-        this.arraySpreadDefPattern(e, isAlias, rhsInfo);
+        this.arraySpreadDefPattern(e);
       } else {
-        this.arrayElementDefPattern(e, isAlias, rhsInfo);
+        this.arrayElementDefPattern(e);
       }
     }
   }
-  arrayElementDefPattern(e, isAlias, rhsInfo) {
-    this.defPattern(e, false);
+  arrayElementDefPattern(e) {
+    this.defPattern(e);
   }
-  arraySpreadDefPattern(e, isAlias, rhsInfo) {
-    this.defPattern(e.expression, false);
+  arraySpreadDefPattern(e) {
+    this.defPattern(e.expression);
   }
 
-  initializerDefPattern(pat, isAlias, rhsInfo) {
-    this.defPattern(pat.left, false);
+  initializerDefPattern(pat) {
+    this.defPattern(pat.left);
     this.expression(pat.right);
+  }
+}
+
+class Environment {
+  #map;
+
+  constructor() {
+    this.#map = new Map();
+  }
+
+  has(name) {
+    return this.#map.has(name);
+  }
+
+  get(name) {
+    return this.#map.get(name);
+  }
+
+  set(name, value) {
+    this.#map.set(name, value);
+  }
+}
+
+class VarEnvironment extends Environment {
+}
+class GlobalVarEnvironment extends VarEnvironment {
+}
+class ModuleGlobalVarEnvironment extends GlobalVarEnvironment {
+}
+class LexicalEnvironment extends Environment {
+}
+class GlobalLexicalEnvironment extends LexicalEnvironment {
+}
+class ModuleGlobalLexicalEnvironment extends GlobalLexicalEnvironment {
+}
+class ModuleNamespace extends Environment {
+}
+class NameEnvironment extends Environment {
+}
+
+/**
+ * Analyze the names.
+ *
+ * - Hoist the variable-declarations to the body-level
+ * - Hoist the function-declarations to the body-level, ignoring the
+ *   block-scoped function declarations
+ * - Tag declarations that aliases other imported declarations
+ *
+ * Scope-related AST node can get the following properties:
+ * - __varEnv: instance of VarEnvironment or its subclass
+ * - __lexicalEnv: instance of LexicalEnvironment or its subclass
+ * - __moduleNS: instance of ModuleNamespace
+ * - __nameEnv: instance of NameEnvironment
+ *
+ * Identifier AST node can get the following properties:
+ * - __sym: symbol string
+ * - __isAlias: true if this is an alias of other definition.
+ *              If this is true, this shouldn't be treated as a definition
+ * - __isAliasShorthand: true if this is an alias with object shorthand
+ * - __isGlobal: true if this is a global variable
+ * - __isModuleGlobal: true if this is a module global variable
+ *                     except for exported symbols
+ * - __isModuleExported: true if this is an exported symbol
+ * - __skip: true if the analysis record shouldn't be emitted for this
+ * - __dup: true if this is a duplicate definition
+ */
+class NameAnalysis extends ASTVisitor {
+  #moduleNS = null;
+  #isExport = false;
+  #varEnvStack = [];
+  #lexicalEnvStack = [];
+
+  constructor(analyzer) {
+    super();
+
+    if (analyzer.isModule) {
+      this.#moduleNS = new ModuleNamespace();
+    }
+  }
+
+  get #isModule() {
+    return !!this.#moduleNS;
+  }
+
+  #withVarEnv(n, process, options) {
+    const prevLexicalEnvStack = this.#lexicalEnvStack;
+    this.#lexicalEnvStack = [];
+
+    let env;
+    if (options?.global) {
+      if (this.#isModule) {
+        env = new ModuleGlobalVarEnvironment();
+      } else {
+        env = new GlobalVarEnvironment();
+      }
+    } else {
+      env = new VarEnvironment();
+    }
+
+    this.#varEnvStack.push(env);
+
+    n.__varEnv = env;
+
+    process();
+
+    this.#varEnvStack.pop();
+
+    this.#lexicalEnvStack = prevLexicalEnvStack;
+  }
+
+  #withLexicalEnv(n, collect, process, options) {
+    let env;
+    if (options?.global) {
+      if (this.#isModule) {
+        env = new ModuleGlobalLexicalEnvironment();
+      } else {
+        env = new GlobalLexicalEnvironment();
+      }
+    } else {
+      env = new LexicalEnvironment();
+    }
+
+    this.#lexicalEnvStack.push(env);
+
+    n.__lexicalEnv = env;
+
+    // All lexical variables in this scope should be collected before
+    // processing any var variables.
+    collect(env);
+
+    process();
+
+    this.#lexicalEnvStack.pop();
+  }
+
+  #withNameEnv(n, collect, process) {
+    // NOTE: The name env doesn't affect the hoisting, and no need to track.
+
+    const env = new NameEnvironment();
+
+    n.__nameEnv = env;
+
+    collect(env);
+
+    process();
+  }
+
+  #hasLexicalBinding(name) {
+    for (let i = this.#lexicalEnvStack.length - 1; i >= 0; i--) {
+      const env = this.#lexicalEnvStack[i];
+      if (env.has(name)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  #handleDefPattern(env, pat, isAlias=false, isAliasShorthand=false, rhsInfo=null) {
+    switch (pat.type) {
+      case "Identifier":
+        this.#handleIdentifierDefPattern(env, pat, isAlias, isAliasShorthand, rhsInfo);
+        break;
+
+      case "ObjectPattern":
+        this.#handleObjectDefPattern(env, pat, rhsInfo);
+        break;
+
+      case "ArrayPattern":
+        this.#handleArrayDefPattern(env, pat);
+        break;
+
+      case "AssignmentExpression":
+        this.#handleDefPattern(env, pat.left);
+        break;
+    }
+  }
+
+  #handleIdentifierDefPattern(env, id, isAlias, isAliasShorthand, rhsInfo) {
+    if (this.#isExport &&
+        (env instanceof ModuleGlobalVarEnvironment ||
+         env instanceof ModuleGlobalLexicalEnvironment)) {
+      env = this.#moduleNS;
+    }
+
+    if (env.has(id.name)) {
+      const dup = env.get(id.name);
+
+      if (dup.__isAlias) {
+        id.__isAlias = dup.__isAlias;
+      }
+      if (dup.__isAliasShorthand) {
+        id.__isAliasShorthand = dup.__isAliasShorthand;
+      }
+      if (dup.__isGlobal) {
+        id.__isGlobal = dup.__isGlobal;
+      }
+      if (dup.__isModuleExported) {
+        id.__isModuleExported = dup.__isModuleExported;
+      }
+      if (dup.__isModuleGlobal) {
+        id.__isModuleGlobal = dup.__isModuleGlobal;
+      }
+      id.__sym = dup.__sym;
+
+      id.__dup = true;
+
+      return;
+    }
+
+    if (rhsInfo && rhsInfo.isModuleExportedName &&
+        rhsInfo.name === id.name) {
+      // This is the following code:
+      //   const NAME = ChromeUtils.importESModule(...).NAME;
+      // Treat the NAME also as use.
+      isAlias = true;
+    }
+
+    id.__isAlias = isAlias;
+    id.__isAliasShorthand = isAliasShorthand;
+
+    if (env instanceof ModuleNamespace) {
+      id.__sym = "#" + id.name;
+      id.__isModuleExported = true;
+    } else if (env instanceof ModuleGlobalVarEnvironment ||
+               env instanceof ModuleGlobalLexicalEnvironment) {
+      id.__sym = "#M-" + id.name;
+      id.__isModuleGlobal = true;
+    } else if (env instanceof GlobalVarEnvironment ||
+               env instanceof GlobalLexicalEnvironment) {
+      id.__sym = "#" + id.name;
+      id.__isGlobal = true;
+    } else {
+      id.__sym = fileIndex + "-" + nextSymId2++;
+    }
+
+    env.set(id.name, id);
+  }
+
+  #handleObjectDefPattern(env, pat, rhsInfo) {
+    for (let prop of pat.properties) {
+      if (prop.type === "SpreadExpression") {
+        this.#handleObjectSpreadDefPattern(env, prop);
+      } else {
+        this.#handleObjectPropertyDefPattern(env, prop, rhsInfo);
+      }
+    }
+  }
+
+  #handleObjectSpreadDefPattern(env, prop) {
+    this.#handleDefPattern(env, prop.expression);
+  }
+
+  #handleObjectPropertyDefPattern(env, prop, rhsInfo) {
+    let isAlias = false;
+    let isAliasShorthand = false;
+    if (rhsInfo &&
+        rhsInfo.isModuleNamespace &&
+        prop.key.type === "Identifier" &&
+        prop.value.type === "Identifier" &&
+        prop.key.name === prop.value.name) {
+      // This is the following code:
+      //   const { NAME } = ChromeUtils.importESModule(...);
+      // The following defPattern(...) will create an alias symbol,
+      // without creating "def" record.
+      // The use record is created above.
+      isAlias = true;
+      isAliasShorthand = prop.shorthand;
+    }
+
+    this.#handleDefPattern(env, prop.value, isAlias, isAliasShorthand);
+  }
+
+  #handleArrayDefPattern(env, pat) {
+    for (let e of pat.elements) {
+      if (!e) {
+        continue;
+      }
+      if (e.type === "SpreadExpression") {
+        this.#handleArraySpreadDefPattern(env, e);
+      } else {
+        this.#handleArrayElementDefPattern(env, e);
+      }
+    }
+  }
+
+  #handleArraySpreadDefPattern(env, e) {
+    this.#handleDefPattern(env, e.expression);
+  }
+
+  #handleArrayElementDefPattern(env, e) {
+    this.#handleDefPattern(env, e);
+  }
+
+  #handleLexicalStatement(env, stmt) {
+    switch (stmt.type) {
+      case "VariableDeclaration":
+        switch (stmt.kind) {
+          case "let":
+          case "const":
+          case "using":
+            this.#handleVariableDeclaration(env, stmt);
+            break;
+        }
+        break;
+      case "ClassStatement":
+        this.#handleDefPattern(env, stmt.id);
+        break;
+      case "ImportDeclaration":
+        this.#handleImportDeclaration(env, stmt);
+        break;
+      case "ExportDeclaration":
+        this.#handleExportDeclaration(env, stmt);
+        break;
+    }
+  }
+
+  #handleVariableDeclaration(env, stmt) {
+    for (const d of stmt.declarations) {
+      const rhsInfo = this.#getRHSInfo(d.init);
+      this.#handleDefPattern(env, d.id, false, false, rhsInfo);
+    }
+  }
+
+  #handleImportDeclaration(env, stmt) {
+    for (const spec of stmt.specifiers) {
+      if (spec.type === "ImportSpecifier" ||
+          spec.type === "ImportNamespaceSpecifier") {
+        // See the comment in the ASTVisitor.importDeclaration.
+        if (spec.type === "ImportNamespaceSpecifier" ||
+            !isSameLocation(spec.id.loc, spec.name.loc)) {
+          this.#handleDefPattern(env, spec.name);
+        }
+      }
+    }
+  }
+
+  #handleExportDeclaration(env, stmt) {
+    this.#isExport = true;
+
+    if (stmt.declaration) {
+      this.#handleLexicalStatement(env, stmt.declaration);
+    }
+
+    if (stmt.specifiers) {
+      for (const spec of stmt.specifiers) {
+        if (spec.type === "ExportSpecifier" ||
+            spec.type === "ExportNamespaceSpecifier") {
+          // See the comment in the ASTVisitor.exportDeclaration.
+          if (spec.name.type !== "Literal" &&
+              !(spec.name.type === "Identifier" &&
+                spec.name.name === "default") &&
+              !(stmt.moduleRequest &&
+                spec.type === "ExportSpecifier" &&
+                spec.id.type === "Identifier" &&
+                spec.name.type === "Identifier" &&
+                spec.id.name === spec.name.name)) {
+            this.#handleDefPattern(env, spec.name);
+          }
+        }
+      }
+    }
+
+    this.#isExport = false;
+  }
+
+  handler(name, args, prog) {
+    this.#withVarEnv(prog, () => {
+      this.#withLexicalEnv(prog, env => {
+        for (const name of args) {
+          this.#handleDefPattern(env, {
+            type: "Identifier",
+            loc: null,
+            name,
+            __skip: true,
+          });
+        }
+      }, () => {
+        const stmt = prog.body[0];
+        const expr = stmt.expression;
+
+        if (expr.body.type == "BlockStatement") {
+          this.statement(expr.body);
+        } else {
+          this.expression(expr.body);
+        }
+      });
+    });
+  }
+
+  #getRHSInfo(init) {
+    if (!init) {
+      return undefined;
+    }
+
+    if (this.#isChromeUtilsImportESModule(init)) {
+      // This is the following code:
+      //   const ... = ChromeUtils.importESModule(...);
+      // If the LHS is an object destructuring, it can be an alias.
+      return {
+        isModuleNamespace: true,
+      };
+    }
+
+    if (init.type === "MemberExpression" &&
+        this.#isChromeUtilsImportESModule(init.object) &&
+        init.property.type === "Identifier") {
+      // This is the following code:
+      //   const ... = ChromeUtils.importESModule(...).NAME;
+      // If the LHS is an identifier with NAME, it's an alias.
+      return {
+        isModuleExportedName: true,
+        name: init.property.name,
+      };
+    }
+
+    return undefined;
+  }
+
+  // Returns true if the expression is either:
+  //   * ChromeUtils.importESModule(...)
+  //   * SpecialPowers.ChromeUtils.importESModule(...)
+  #isChromeUtilsImportESModule(expr) {
+    if (expr.type !== "CallExpression") {
+      return false;
+    }
+
+    if (expr.callee.type !== "MemberExpression") {
+      return false;
+    }
+
+    const property = expr.callee.property;
+
+    if (property.type !== "Identifier" ||
+        property.name !== "importESModule") {
+      return false;
+    }
+
+    const object = expr.callee.object;
+
+    if (object.type === "Identifier" &&
+        object.name === "ChromeUtils") {
+      return true;
+    }
+
+    if (object.type === "MemberExpression" &&
+        object.object.type === "Identifier" &&
+        object.object.name === "SpecialPowers" &&
+        object.property.type === "Identifier" &&
+        object.property.name === "ChromeUtils") {
+      return true;
+    }
+
+    return false;
+  }
+
+  // ASTVisitor methods overloads
+
+  program(prog) {
+    if (this.#isModule) {
+      prog.__moduleNS = this.#moduleNS;
+    }
+
+    this.#withVarEnv(prog, () => {
+      this.#withLexicalEnv(prog, env => {
+        for (let stmt of prog.body) {
+          this.#handleLexicalStatement(env, stmt);
+        }
+      }, () => {
+        super.program(prog);
+      }, { global: true });
+    }, { global: true });
+  }
+
+  blockStatement(stmt) {
+    this.#withLexicalEnv(stmt, env => {
+      for (let stmt2 of stmt.body) {
+        this.#handleLexicalStatement(env, stmt2);
+      }
+    }, () => {
+      super.blockStatement(stmt);
+    });
+  }
+
+  switchStatement(stmt) {
+    this.#withLexicalEnv(stmt, env => {
+      for (let scase of stmt.cases) {
+        for (let stmt2 of scase.consequent) {
+          this.#handleLexicalStatement(env, stmt2);
+        }
+      }
+    }, () => {
+      super.switchStatement(stmt);
+    });
+  }
+
+  catchClause(clause) {
+    this.#withLexicalEnv(clause, env => {
+      if (clause.param) {
+        this.#handleDefPattern(env, clause.param);
+      }
+    }, () => {
+      super.catchClause(clause);
+    });
+  }
+
+  forStatement(stmt) {
+    this.#withLexicalEnv(stmt, env => {
+      if (stmt.init) {
+        this.#handleLexicalStatement(env, stmt.init);
+      }
+    }, () => {
+      super.forStatement(stmt);
+    });
+  }
+
+  forInStatement(stmt) {
+    this.#withLexicalEnv(stmt, env => {
+      if (stmt.left) {
+        this.#handleLexicalStatement(env, stmt.left);
+      }
+    }, () => {
+      super.forInStatement(stmt);
+    });
+  }
+
+  forOfStatement(stmt) {
+    this.#withLexicalEnv(stmt, env => {
+      if (stmt.left) {
+        this.#handleLexicalStatement(env, stmt.left);
+      }
+    }, () => {
+      super.forOfStatement(stmt);
+    });
+  }
+
+  functionExpression(expr) {
+    // funcEnv for the name
+    this.#withNameEnv(expr, env => {
+      // ASTVisitor doesn't handle expr.id.
+      if (expr.id) {
+        this.#handleDefPattern(env, expr.id);
+      }
+    }, () => {
+      super.functionExpression(expr);
+    });
+  }
+
+  // NOTE: Do not handle the obsolete let-statement syntax.
+
+  functionDeclaration(stmt) {
+    if (this.#hasLexicalBinding(stmt.id.name)) {
+      const env = this.#lexicalEnvStack.at(-1);
+      this.#handleDefPattern(env, stmt.id);
+    } else {
+      const env = this.#varEnvStack.at(-1);
+      this.#handleDefPattern(env, stmt.id);
+    }
+
+    super.functionDeclaration(stmt);
+  }
+
+  functionShared(f) {
+    // NOTE: Do not handle the difference between the environments around
+    //       hasParameterExpressions in the spec, given that doesn't affect
+    //       the analysis here.
+    this.#withVarEnv(f, () => {
+      this.#withLexicalEnv(f, env => {
+        for (const p of f.params) {
+          this.#handleDefPattern(env, p);
+        }
+      }, () => {
+        super.functionShared(f);
+      });
+    });
+  }
+
+  variableDeclaration(stmt) {
+    // NOTE: Lexical declarations are handled by #handleLexicalStatement.
+    if (stmt.kind === "var") {
+      const env = this.#varEnvStack.at(-1);
+      this.#handleVariableDeclaration(env, stmt);
+    }
+
+    super.variableDeclaration(stmt);
+  }
+
+  classStatement(stmt) {
+    this.#withLexicalEnv(stmt, env => {
+      if (stmt.id) {
+        this.#handleDefPattern(env, stmt.id);
+      }
+    }, () => {
+      super.classStatement(stmt);
+    });
+  }
+
+  exportDeclaration(stmt) {
+    this.#isExport = true;
+
+    super.exportDeclaration(stmt);
+
+    this.#isExport = false;
+  }
+
+  classExpression(expr) {
+    this.#withNameEnv(expr, env => {
+      if (expr.id) {
+        this.#handleDefPattern(env, expr.id);
+      }
+    }, () => {
+      this.#withLexicalEnv(expr, env => {
+      }, () => {
+        super.classExpression(expr);
+      });
+    });
   }
 }
 
@@ -1366,17 +1982,9 @@ class Analyzer extends ASTVisitor {
   constructor() {
     super();
 
-    // The symbol table for the current scope.  When `enter` is invoked, the
-    // current `symbols` table is pushed onto `symbolTableStack` and a new
-    // SymbolTable is created and assigned to `symbols`.  When `exit` is
-    // invoked, the current `symbols` table is discarded and replaced by popping
-    // `symbolTableStack`.
-    this.symbols = new SymbolTable();
-
-    // Stack of `SymbolTable` instances corresponding to scopes that are
-    // reachable from the current scope.  Does not include the immediate scope
-    // which is found in `symbols`.
-    this.symbolTableStack = [];
+    // Stack of `Environment` instances corresponding to scopes that are
+    // reachable from the current scope.
+    this.envStack = [];
 
     // Tracks the name of the current variable declaration so that qualified
     // names can be inferred.  When nesting occurs, the previous value is saved
@@ -1396,7 +2004,7 @@ class Analyzer extends ASTVisitor {
     this.className = null;
 
     // Used to derive the "context" property for target records.  Whenever
-    // `symbolTableStack`, `nameForThis`, or `className` are modified, the name
+    // `envStack`, `nameForThis`, or `className` are modified, the name
     // (possibly falsey) that is being used for the thing is pushed.  When
     // traversing an ObjectExpression or ObjectPattern, the key is also pushed.
     // (Object "dictionaries" like `{ a: { b: 1 } }` create a name hierarchy for
@@ -1412,7 +2020,6 @@ class Analyzer extends ASTVisitor {
     this._lines =  [];
 
     this.isModule = false;
-    this.isExport = false;
 
     // The object expression for lazy getter API.
     // Module imports in the object expression shouldn't be treated as
@@ -1467,33 +2074,37 @@ class Analyzer extends ASTVisitor {
    * for "context" attribute generation purposes.
    */
   enter(name, node) {
-    this.symbolTableStack.push(this.symbols);
-    this.symbols = new SymbolTable();
+    if (node.__moduleNS) {
+      this.envStack.push(node.__moduleNS);
+    }
+    if (node.__nameEnv) {
+      this.envStack.push(node.__nameEnv);
+    }
+    if (node.__varEnv) {
+      this.envStack.push(node.__varEnv);
+    }
+    if (node.__lexicalEnv) {
+      this.envStack.push(node.__lexicalEnv);
+    }
 
     this.contextStack.push(name);
   }
 
   exit(node) {
-    let old = this.symbols;
-    this.symbols = this.symbolTableStack.pop();
     this.contextStack.pop();
-    return old;
-  }
 
-
-  isToplevel() {
-    return this.symbolTableStack.length == 1;
-  }
-
-  isGlobalSymbolScope() {
-    if (this.isModule) {
-      return this.isToplevel() && this.isExport;
+    if (node.__lexicalEnv) {
+      this.envStack.pop();
     }
-    return this.isToplevel();
-  }
-
-  isModuleGlobalScope() {
-    return this.isModule && this.isToplevel();
+    if (node.__varEnv) {
+      this.envStack.pop();
+    }
+    if (node.__nameEnv) {
+      this.envStack.pop();
+    }
+    if (node.__moduleNS) {
+      this.envStack.pop();
+    }
   }
 
   /**
@@ -1515,15 +2126,11 @@ class Analyzer extends ASTVisitor {
    * Event listeners and handler properties.
    */
   handler(name, args, prog) {
+    new NameAnalysis(this).handler(name, args, prog);
+
     this.scoped(name, prog, () => {
       let stmt = prog.body[0];
       let expr = stmt.expression;
-
-      for (let name of args) {
-        let sym = new SymbolTable.Symbol(name, null);
-        sym.skip = true;
-        this.symbols.put(name, sym);
-      }
 
       if (expr.body.type == "BlockStatement") {
         this.statement(expr.body);
@@ -1682,40 +2289,38 @@ class Analyzer extends ASTVisitor {
     }
   }
 
-  defVar(name, loc, isAlias, maybeNesting) {
-    if (!nameValid(name)) {
+  defVar(pat, loc, maybeNesting) {
+    if (!nameValid(pat.name)) {
       return;
     }
-    if (this.isGlobalSymbolScope() && !isAlias) {
-      this.defProp(name, loc, undefined, undefined, maybeNesting);
+    if ((pat.__isGlobal || pat.__isModuleExported) && !pat.__isAlias) {
+      this.defProp(pat.name, loc, undefined, undefined, maybeNesting);
       return;
     }
 
-    this.defLocal(name, loc, isAlias, maybeNesting);
+    this.defLocal(pat, loc, maybeNesting);
   }
 
-  findSymbol(name) {
-    let sym = this.symbols.get(name);
-    if (!sym) {
-      for (let i = this.symbolTableStack.length - 1; i >= 0; i--) {
-        sym = this.symbolTableStack[i].get(name);
-        if (sym) {
-          break;
-        }
+  findBinding(name) {
+    for (let i = this.envStack.length - 1; i >= 0; i--) {
+      const env = this.envStack[i];
+      const id = env.get(name);
+      if (id) {
+        return id;
       }
     }
-    return sym;
+    return null;
   }
 
   useVar(name, loc) {
     if (!nameValid(name)) {
       return;
     }
-    let sym = this.findSymbol(name);
-    if (!sym || sym.isAlias) {
+    let id = this.findBinding(name);
+    if (!id || id.__isGlobal || id.__isModuleExported || id.__isAlias) {
       this.useProp(name, loc);
-    } else if (!sym.skip) {
-      this.useLocal(name, loc, sym);
+    } else if (!id.__skip) {
+      this.useLocal(id, loc);
     }
   }
 
@@ -1723,24 +2328,23 @@ class Analyzer extends ASTVisitor {
     if (!nameValid(name)) {
       return;
     }
-    let sym = this.findSymbol(name);
-    if (!sym || sym.isAlias) {
+    let id = this.findBinding(name);
+    if (!id || id.__isGlobal || id.__isModuleExported || id.__isAlias) {
       this.assignProp(name, loc);
-    } else if (!sym.skip) {
-      this.useLocal(name, loc, sym);
+    } else if (!id.__skip) {
+      this.useLocal(id, loc);
     }
   }
 
-  defLocal(name, loc, isAlias, maybeNesting) {
-    let sym = new SymbolTable.Symbol(name, loc, isAlias, this.isModuleGlobalScope());
-    this.symbols.put(name, sym);
-
-    if (sym.isAlias) {
+  defLocal(id, loc, maybeNesting) {
+    if (id.__isAlias) {
       return;
     }
 
+    const name = id.name;
+
     let syntax, no_crossref;
-    if (sym.isModuleGlobal) {
+    if (id.__isModuleGlobal) {
       syntax = "def";
       no_crossref = false;
     } else {
@@ -1748,28 +2352,30 @@ class Analyzer extends ASTVisitor {
       no_crossref = true;
     }
 
-    this.source(loc, name, syntax + ",variable", `variable ${name}`, sym.id,
+    this.source(loc, name, syntax + ",variable", `variable ${name}`, id.__sym,
                 no_crossref, maybeNesting);
 
-    if (sym.isModuleGlobal) {
-      this.target(loc, name, syntax, name, sym.id);
+    if (id.__isModuleGlobal) {
+      this.target(loc, name, syntax, name, id.__sym);
     }
   }
 
-  useLocal(name, loc, sym) {
+  useLocal(id, loc) {
+    const name = id.name;
+
     let syntax, no_crossref;
-    if (sym.isModuleGlobal) {
+    if (id.__isModuleGlobal) {
       syntax = "use";
       no_crossref = false;
     } else {
       syntax = "uselocal";
       no_crossref = true;
     }
-    this.source(loc, name, syntax + ",variable", `variable ${name}`, sym.id,
+    this.source(loc, name, syntax + ",variable", `variable ${name}`, id.__sym,
                 no_crossref);
 
-    if (sym.isModuleGlobal) {
-      this.target(loc, name, syntax, name, sym.id);
+    if (id.__isModuleGlobal) {
+      this.target(loc, name, syntax, name, id.__sym);
     }
   }
 
@@ -1897,6 +2503,8 @@ class Analyzer extends ASTVisitor {
   // ASTVisitor methods overloads
 
   program(prog) {
+    new NameAnalysis(this).program(prog);
+
     this.scoped(null, prog, () => {
       super.program(prog);
     });
@@ -1945,35 +2553,16 @@ class Analyzer extends ASTVisitor {
   }
 
   functionDeclaration(stmt) {
-    this.defVar(stmt.id.name, stmt.loc, false, stmt.body);
+    this.defVar(stmt.id, stmt.loc, stmt.body);
     this.scoped(stmt.id.name, stmt, () => {
       super.functionDeclaration(stmt);
     });
   }
 
-  variableDeclaratorLHS(pat, init) {
-    let rhsInfo = undefined;
-    if (init && this.isChromeUtilsImportESModule(init)) {
-      // This is the following code:
-      //   const ... = ChromeUtils.importESModule(...);
-      // If the LHS is an object destructuring, it can be an alias.
-      rhsInfo = {
-        isModuleNamespace: true,
-      };
-    }
-    if (init && init.type === "MemberExpression" &&
-        this.isChromeUtilsImportESModule(init.object) &&
-        init.property.type === "Identifier") {
-      // This is the following code:
-      //   const ... = ChromeUtils.importESModule(...).NAME;
-      // If the LHS is an identifier with NAME, it's an alias.
-      rhsInfo = {
-        isModuleExportedName: true,
-        name: init.property.name,
-      };
-    }
-
-    super.variableDeclaratorLHS(pat, init, false, rhsInfo);
+  functionShared(f) {
+    this.scoped(null, f, () => {
+      super.functionShared(f);
+    });
   }
 
   variableDeclaratorRHS(pat, init) {
@@ -1996,7 +2585,7 @@ class Analyzer extends ASTVisitor {
   }
 
   classStatement(stmt) {
-    this.defVar(stmt.id.name, stmt.id.loc, false,
+    this.defVar(stmt.id, stmt.id.loc,
                 this.deriveLocationFromOuterNodeAndIdNode(stmt, stmt.id));
     this.scoped(stmt.id.name, stmt, () => {
       let oldClass = this.className;
@@ -2063,16 +2652,12 @@ class Analyzer extends ASTVisitor {
   }
 
   exportDeclaration(stmt) {
-    this.isExport = true;
-
     super.exportDeclaration(stmt);
 
     if (stmt.moduleRequest && stmt.moduleRequest.source &&
         stmt.moduleRequest.source.type === "Literal") {
       this.maybeLinkifyModuleSpecifier(stmt.moduleRequest.source, true);
     }
-
-    this.isExport = false;
   }
 
   identifier(expr) {
@@ -2142,7 +2727,9 @@ class Analyzer extends ASTVisitor {
       }
 
       if (expr.type == "FunctionExpression" && name) {
-        this.defVar(name, expr.loc, false);
+        this.defVar({
+          name: "constructor",
+        }, expr.loc);
       }
 
       super.functionExpression(expr);
@@ -2257,38 +2844,22 @@ class Analyzer extends ASTVisitor {
     }
   }
 
-  identifierDefPattern(pat, isAlias, rhsInfo) {
-    if (rhsInfo && rhsInfo.isModuleExportedName &&
-        rhsInfo.name === pat.name) {
-      // This is the following code:
-      //   const NAME = ChromeUtils.importESModule(...).NAME;
-      // Treat the NAME also as use.
-      isAlias = true;
+  identifierDefPattern(pat) {
+    if (pat.__isAliasShorthand) {
+      // The property key already emitted the same record.
+      return;
+    }
+    if (pat.__isAlias) {
       this.useProp(pat.name, pat.loc);
     }
-    this.defVar(pat.name, pat.loc, isAlias);
+    this.defVar(pat, pat.loc);
   }
 
-  objectPropertyDefPattern(prop, isAlias, rhsInfo) {
+  objectPropertyDefPattern(prop) {
     if (prop.key.type === "Identifier") {
       this.useProp(prop.key.name, prop.key.loc);
     }
-
-    isAlias = false;
-    if (rhsInfo &&
-        rhsInfo.isModuleNamespace &&
-        prop.key.type === "Identifier" &&
-        prop.value.type === "Identifier" &&
-        prop.key.name === prop.value.name) {
-      // This is the following code:
-      //   const { NAME } = ChromeUtils.importESModule(...);
-      // The following defPattern(...) will create an alias symbol,
-      // without creating "def" record.
-      // The use record is created above.
-      isAlias = true;
-    }
-
-    super.objectPropertyDefPattern(prop, isAlias, undefined);
+    super.objectPropertyDefPattern(prop);
   }
 }
 
@@ -2835,7 +3406,10 @@ class XBLParser extends XMLParser {
       line = p.attrs.NAME.valueLine;
       column = p.attrs.NAME.valueColumn;
 
-      analyzer.defVar(text, {start: {line: line + 1, column}}, false);
+      analyzer.defVar({
+        name: text,
+        isLocal: true,
+      }, {start: {line: line + 1, column}});
     }
 
     if (tag.body) {
@@ -3209,6 +3783,7 @@ function resetState() {
   gCouldBeJson = false;
   gAttrName = "";
   nextSymId = 0;
+  nextSymId2 = 0;
 }
 
 

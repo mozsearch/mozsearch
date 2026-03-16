@@ -2470,7 +2470,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_FUNC_EXPR",
-    "sym": "10-4",
+    "sym": "10-5",
     "no_crossref": 1
   },
   {
@@ -2493,7 +2493,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_FUNC_EXPR",
-    "sym": "10-4",
+    "sym": "10-5",
     "no_crossref": 1
   },
   {
@@ -2501,7 +2501,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_ANON_FUNC_EXPR",
-    "sym": "10-5",
+    "sym": "10-6",
     "no_crossref": 1
   },
   {
@@ -2524,7 +2524,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_ANON_FUNC_EXPR",
-    "sym": "10-5",
+    "sym": "10-6",
     "no_crossref": 1
   },
   {
@@ -2532,7 +2532,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_GEN_EXPR",
-    "sym": "10-6",
+    "sym": "10-8",
     "no_crossref": 1
   },
   {
@@ -2555,7 +2555,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_GEN_EXPR",
-    "sym": "10-6",
+    "sym": "10-8",
     "no_crossref": 1
   },
   {
@@ -2563,7 +2563,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_ANON_GEN_EXPR",
-    "sym": "10-7",
+    "sym": "10-9",
     "no_crossref": 1
   },
   {
@@ -2586,7 +2586,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_ANON_GEN_EXPR",
-    "sym": "10-7",
+    "sym": "10-9",
     "no_crossref": 1
   },
   {
@@ -2594,7 +2594,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_ASYNC_EXPR",
-    "sym": "10-8",
+    "sym": "10-11",
     "no_crossref": 1
   },
   {
@@ -2617,7 +2617,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_ASYNC_EXPR",
-    "sym": "10-8",
+    "sym": "10-11",
     "no_crossref": 1
   },
   {
@@ -2625,7 +2625,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_ANON_ASYNC_EXPR",
-    "sym": "10-9",
+    "sym": "10-12",
     "no_crossref": 1
   },
   {
@@ -2648,7 +2648,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_ANON_ASYNC_EXPR",
-    "sym": "10-9",
+    "sym": "10-12",
     "no_crossref": 1
   },
   {
@@ -2656,7 +2656,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_ASYNC_GEN_EXPR",
-    "sym": "10-10",
+    "sym": "10-14",
     "no_crossref": 1
   },
   {
@@ -2679,7 +2679,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_ASYNC_GEN_EXPR",
-    "sym": "10-10",
+    "sym": "10-14",
     "no_crossref": 1
   },
   {
@@ -2687,7 +2687,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_ANON_ASYNC_GEN_EXPR",
-    "sym": "10-11",
+    "sym": "10-15",
     "no_crossref": 1
   },
   {
@@ -2710,7 +2710,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_ANON_ASYNC_GEN_EXPR",
-    "sym": "10-11",
+    "sym": "10-15",
     "no_crossref": 1
   },
   {
@@ -2718,7 +2718,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_ARROW_1",
-    "sym": "10-12",
+    "sym": "10-16",
     "no_crossref": 1
   },
   {
@@ -2756,7 +2756,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_ARROW_2",
-    "sym": "10-13",
+    "sym": "10-17",
     "no_crossref": 1
   },
   {
@@ -2764,7 +2764,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_ARROW_2",
-    "sym": "10-13",
+    "sym": "10-17",
     "no_crossref": 1
   },
   {
@@ -2772,7 +2772,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_ASYNC_ARROW_1",
-    "sym": "10-14",
+    "sym": "10-18",
     "no_crossref": 1
   },
   {
@@ -2795,7 +2795,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_ASYNC_ARROW_1",
-    "sym": "10-14",
+    "sym": "10-18",
     "no_crossref": 1
   },
   {
@@ -3090,7 +3090,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_SETTER_1",
-    "sym": "10-15",
+    "sym": "10-21",
     "no_crossref": 1
   },
   {
@@ -3128,7 +3128,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_SETTER_1",
-    "sym": "10-15",
+    "sym": "10-21",
     "no_crossref": 1
   },
   {
@@ -3136,7 +3136,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_SETTER_2",
-    "sym": "10-16",
+    "sym": "10-22",
     "no_crossref": 1
   },
   {
@@ -3159,7 +3159,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_SETTER_2",
-    "sym": "10-16",
+    "sym": "10-22",
     "no_crossref": 1
   },
   {
@@ -3183,7 +3183,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_METHOD_1",
-    "sym": "10-17",
+    "sym": "10-24",
     "no_crossref": 1
   },
   {
@@ -3221,7 +3221,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_METHOD_1",
-    "sym": "10-17",
+    "sym": "10-24",
     "no_crossref": 1
   },
   {
@@ -3229,7 +3229,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_METHOD_2",
-    "sym": "10-18",
+    "sym": "10-25",
     "no_crossref": 1
   },
   {
@@ -3267,7 +3267,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_METHOD_2",
-    "sym": "10-18",
+    "sym": "10-25",
     "no_crossref": 1
   },
   {
@@ -3476,7 +3476,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_CLASS_METHOD_1",
-    "sym": "10-19",
+    "sym": "10-28",
     "no_crossref": 1
   },
   {
@@ -3499,7 +3499,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_CLASS_METHOD_1",
-    "sym": "10-19",
+    "sym": "10-28",
     "no_crossref": 1
   },
   {
@@ -3507,7 +3507,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_CLASS_METHOD_2",
-    "sym": "10-20",
+    "sym": "10-29",
     "no_crossref": 1
   },
   {
@@ -3530,7 +3530,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_CLASS_METHOD_2",
-    "sym": "10-20",
+    "sym": "10-29",
     "no_crossref": 1
   },
   {
@@ -3632,7 +3632,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_CLASS_SETTER_1",
-    "sym": "10-21",
+    "sym": "10-30",
     "no_crossref": 1
   },
   {
@@ -3670,7 +3670,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_CLASS_SETTER_1",
-    "sym": "10-21",
+    "sym": "10-30",
     "no_crossref": 1
   },
   {
@@ -3678,7 +3678,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_CLASS_SETTER_2",
-    "sym": "10-22",
+    "sym": "10-31",
     "no_crossref": 1
   },
   {
@@ -3701,7 +3701,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_CLASS_SETTER_2",
-    "sym": "10-22",
+    "sym": "10-31",
     "no_crossref": 1
   },
   {
@@ -4236,10 +4236,17 @@ input_file: inputs/analysis/js/all/all_script__json
   {
     "loc": "332:9-18",
     "source": 1,
-    "syntax": "deflocal,variable",
-    "pretty": "variable DEF_FOR_1",
-    "sym": "10-23",
-    "no_crossref": 1
+    "syntax": "def,prop",
+    "pretty": "property DEF_FOR_1",
+    "sym": "#DEF_FOR_1"
+  },
+  {
+    "loc": "332:9-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "DEF_FOR_1",
+    "sym": "#DEF_FOR_1",
+    "context": ""
   },
   {
     "loc": "332:24-33",
@@ -4291,7 +4298,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable DEF_FOR_2",
-    "sym": "10-24",
+    "sym": "10-33",
     "no_crossref": 1
   },
   {
@@ -4387,10 +4394,17 @@ input_file: inputs/analysis/js/all/all_script__json
   {
     "loc": "343:9-21",
     "source": 1,
-    "syntax": "deflocal,variable",
-    "pretty": "variable LHS_FOR_IN_2",
-    "sym": "10-25",
-    "no_crossref": 1
+    "syntax": "def,prop",
+    "pretty": "property LHS_FOR_IN_2",
+    "sym": "#LHS_FOR_IN_2"
+  },
+  {
+    "loc": "343:9-21",
+    "target": 1,
+    "kind": "def",
+    "pretty": "LHS_FOR_IN_2",
+    "sym": "#LHS_FOR_IN_2",
+    "context": ""
   },
   {
     "loc": "343:25-37",
@@ -4427,7 +4441,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable LHS_FOR_IN_3",
-    "sym": "10-26",
+    "sym": "10-34",
     "no_crossref": 1
   },
   {
@@ -4465,7 +4479,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable LHS_FOR_IN_4",
-    "sym": "10-27",
+    "sym": "10-35",
     "no_crossref": 1
   },
   {
@@ -4546,10 +4560,17 @@ input_file: inputs/analysis/js/all/all_script__json
   {
     "loc": "357:9-21",
     "source": 1,
-    "syntax": "deflocal,variable",
-    "pretty": "variable LHS_FOR_OF_2",
-    "sym": "10-28",
-    "no_crossref": 1
+    "syntax": "def,prop",
+    "pretty": "property LHS_FOR_OF_2",
+    "sym": "#LHS_FOR_OF_2"
+  },
+  {
+    "loc": "357:9-21",
+    "target": 1,
+    "kind": "def",
+    "pretty": "LHS_FOR_OF_2",
+    "sym": "#LHS_FOR_OF_2",
+    "context": ""
   },
   {
     "loc": "357:25-37",
@@ -4586,7 +4607,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable LHS_FOR_OF_3",
-    "sym": "10-29",
+    "sym": "10-36",
     "no_crossref": 1
   },
   {
@@ -4624,7 +4645,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable LHS_FOR_OF_4",
-    "sym": "10-30",
+    "sym": "10-37",
     "no_crossref": 1
   },
   {
@@ -4662,7 +4683,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable LHS_FOR_OF_5",
-    "sym": "10-31",
+    "sym": "10-38",
     "no_crossref": 1
   },
   {
@@ -4760,7 +4781,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable DEF_CATCH_1",
-    "sym": "10-32",
+    "sym": "10-39",
     "no_crossref": 1
   },
   {
@@ -4798,7 +4819,7 @@ input_file: inputs/analysis/js/all/all_script__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable DEF_CATCH_2",
-    "sym": "10-33",
+    "sym": "10-40",
     "no_crossref": 1
   },
   {
