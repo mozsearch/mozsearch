@@ -901,7 +901,7 @@ fn compute_thread_main(
 }
 
 fn main() {
-    env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     // force backtraces on in this file in general
     // TODO: Audit that the environment access only happens in single-threaded code.
