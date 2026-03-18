@@ -25,6 +25,8 @@ use tools::file_format::analysis_manglings::mangle_file;
 use tools::file_format::config;
 use ustr::{Ustr, UstrMap, UstrSet, ustr};
 
+use tree_sitter::StreamingIterator as _;
+
 /// Normalize illegal symbol characters into underscores.
 fn sanitize_symbol(sym: &str) -> String {
     // Downstream processing of the symbol doesn't deal well with

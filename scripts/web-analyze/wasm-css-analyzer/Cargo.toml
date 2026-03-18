@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 tools = { path = "../../../tools" }
 js-sys = "0.3.69"
 wasm-bindgen = "0.2.78"
-getrandom = { version = "0.2.15", features = ["js"] }
+getrandom = { version = "0.4.2", features = ["wasm_js"] }
 
 [profile.release]
 lto = true

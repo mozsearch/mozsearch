@@ -5,6 +5,8 @@ use include_dir::{Dir, include_dir};
 
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
 
+use tree_sitter::StreamingIterator as _;
+
 static QUERIES_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/languages/tokenizer_queries");
 
 fn load_language_queries(

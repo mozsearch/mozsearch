@@ -14,7 +14,7 @@ use graphviz_rust::exec;
 use graphviz_rust::printer::{DotPrinter, PrinterContext};
 
 use super::interface::{
-    GraphResultsBundle, GraphInput, PipelineCommand, PipelineValues, RenderedGraph, TextFile,
+    GraphInput, GraphResultsBundle, PipelineCommand, PipelineValues, RenderedGraph, TextFile,
 };
 use super::symbol_graph::{
     DerivedSymbolInfo, HierarchicalRenderState, HierarchyDefaultSummarizePolicy, HierarchyPolicies,
@@ -410,10 +410,10 @@ impl PipelineCommand for GraphCommand {
                     overloads_hit,
                     options,
                 }))
-            },
+            }
             GraphFormat::Mozsearch => Ok(PipelineValues::GraphResultsBundle(GraphResultsBundle {
                 graphs: vec![RenderedGraph {
-                    graph: transform_svg(&graph_contents),
+                    graph: transform_svg(str::from_utf8(&graph_contents).unwrap()),
                     extra: json!({
                         "nodes": render_state.svg_node_extra,
                         "edges": render_state.svg_edge_extra,
@@ -425,7 +425,7 @@ impl PipelineCommand for GraphCommand {
             })),
             _ => Ok(PipelineValues::TextFile(TextFile {
                 mime_type,
-                contents: graph_contents,
+                contents: String::from_utf8(graph_contents).unwrap(),
             })),
         }
     }

@@ -2,7 +2,7 @@ use std::{cell::Cell, rc::Rc};
 
 use async_trait::async_trait;
 use clap::Args;
-use lol_html::{HtmlRewriter, Settings, element};
+use lol_html::{EndTagHandler, HtmlRewriter, Settings, element};
 
 use super::interface::{JsonRecords, PipelineCommand, PipelineValues};
 use crate::{
@@ -97,10 +97,12 @@ impl PipelineCommand for ShowHtmlCommand {
                         element!(r#"div.nesting-container"#, move |el| {
                             nesting_suppress.set(true);
                             let end_suppress = nesting_suppress.clone();
-                            el.on_end_tag(move |_end| {
-                                end_suppress.set(true);
-                                Ok(())
-                            })?;
+                            el.end_tag_handlers()
+                                .unwrap()
+                                .push(EndTagHandler::from(Box::new(move |_end| {
+                                    end_suppress.set(true);
+                                    Ok(())
+                                })));
                             Ok(())
                         }),
                         element!(r#"div.source-line-with-number"#, |el| {

@@ -30,9 +30,8 @@ use crate::file_format::config::{Config, GitData, TreeConfig, extract_info_from_
 use crate::output::{self, BreadcrumbsLinksTo, F, Options, PanelItem, PanelSection};
 use crate::url_encode_path::url_encode_path;
 
-use chrono::datetime::DateTime;
-use chrono::naive::datetime::NaiveDateTime;
-use chrono::offset::fixed::FixedOffset;
+use chrono::DateTime;
+use chrono::offset::FixedOffset;
 use git2::{Oid, Repository, Tree, TreeEntry};
 use itertools::Itertools;
 use serde_json::{Map, json, to_string, to_string_pretty};
@@ -509,7 +508,7 @@ pub fn format_code(
             });
 
             // Group by key again
-            let expansions = expansions.group_by(|(key, _)| key.clone());
+            let expansions = expansions.chunk_by(|(key, _)| key.clone());
 
             // For each key: merge platforms that yielded the same expansion together
             expansions
@@ -1684,9 +1683,11 @@ fn generate_commit_info(
         )
     });
 
-    let naive_t = NaiveDateTime::from_timestamp(commit.time().seconds(), 0);
-    let tz = FixedOffset::east(commit.time().offset_minutes() * 60);
-    let t: DateTime<FixedOffset> = DateTime::from_utc(naive_t, tz);
+    let naive_t = DateTime::from_timestamp(commit.time().seconds(), 0)
+        .unwrap()
+        .naive_utc();
+    let tz = FixedOffset::east_opt(commit.time().offset_minutes() * 60).unwrap();
+    let t: DateTime<FixedOffset> = DateTime::from_naive_utc_and_offset(naive_t, tz);
     let t = t.to_rfc2822();
 
     let f = F::Seq(vec![

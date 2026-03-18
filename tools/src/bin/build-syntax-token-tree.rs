@@ -695,7 +695,7 @@ fn compute_thread_main(
 }
 
 fn main() {
-    env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     let args: Vec<_> = env::args().collect();
     let git_repo_path = args[1].to_string();

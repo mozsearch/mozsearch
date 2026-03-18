@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    hash::RandomState,
+};
 
 use clap::ValueEnum;
 use dot_generator::*;
@@ -989,7 +992,8 @@ impl NamedSymbolGraph {
     ) -> Vec<Vec<(SymbolGraphNodeId, SymbolGraphNodeId, SymbolGraphEdgeId)>> {
         let source_ix = self.ensure_node(source);
         let target_ix = self.ensure_node(target);
-        let paths = all_simple_paths(&self.graph, source_ix, target_ix, 0, None);
+        let paths =
+            all_simple_paths::<Vec<_>, _, RandomState>(&self.graph, source_ix, target_ix, 0, None);
 
         paths
             .map(|v: Vec<_>| {
@@ -1060,7 +1064,13 @@ impl NamedSymbolGraph {
         trace!(num_nodes=%super_target_id, num_edges=%synth_target_edge_id, "created supernodes, running petgraph all_simple_paths algorithm");
 
         // Now we get the paths...
-        let paths = all_simple_paths(&self.graph, super_source_ix, super_target_ix, 0, None);
+        let paths = all_simple_paths::<Vec<_>, _, RandomState>(
+            &self.graph,
+            super_source_ix,
+            super_target_ix,
+            0,
+            None,
+        );
 
         trace!("have iterator");
 
@@ -2281,7 +2291,7 @@ impl SymbolGraphNodeSet {
         trace!(num_nodes=%super_target_id, num_edges=%synth_target_edge_id, "created supernodes, running petgraph all_simple_paths algorithm");
 
         // Now we get the paths...
-        let paths = all_simple_paths::<Vec<_>, _>(
+        let paths = all_simple_paths::<Vec<_>, _, RandomState>(
             &nsgraph.graph,
             super_source_ix,
             super_target_ix,

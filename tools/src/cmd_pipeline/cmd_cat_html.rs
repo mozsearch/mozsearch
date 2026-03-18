@@ -1,7 +1,8 @@
 use async_trait::async_trait;
 use clap::Args;
 use lol_html::{
-    HtmlRewriter, RewriteStrSettings, Settings, element, html_content::ContentType, rewrite_str,
+    EndTagHandler, HtmlRewriter, RewriteStrSettings, Settings, element, html_content::ContentType,
+    rewrite_str,
 };
 use std::{cell::Cell, rc::Rc};
 
@@ -89,11 +90,13 @@ fn extract_html_snippet(html_str: String, selector: &str) -> String {
                 suppressing.set(false);
                 let end_suppress = suppressing.clone();
                 let end_closing = synthetic_closing.clone();
-                el.on_end_tag(move |end| {
-                    end_closing.set(Some(format!("</{}>", end.name())));
-                    end_suppress.set(true);
-                    Ok(())
-                })?;
+                el.end_tag_handlers()
+                    .unwrap()
+                    .push(EndTagHandler::from(Box::new(move |end| {
+                        end_closing.set(Some(format!("</{}>", end.name())));
+                        end_suppress.set(true);
+                        Ok(())
+                    })));
                 Ok(())
             })],
             ..Settings::default()
