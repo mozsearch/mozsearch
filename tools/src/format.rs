@@ -30,8 +30,6 @@ use crate::file_format::config::{Config, GitData, TreeConfig, extract_info_from_
 use crate::output::{self, BreadcrumbsLinksTo, F, Options, PanelItem, PanelSection};
 use crate::url_encode_path::url_encode_path;
 
-use chrono::DateTime;
-use chrono::offset::FixedOffset;
 use git2::{Oid, Repository, Tree, TreeEntry};
 use itertools::Itertools;
 use serde_json::{Map, json, to_string, to_string_pretty};
@@ -1683,11 +1681,7 @@ fn generate_commit_info(
         )
     });
 
-    let naive_t = DateTime::from_timestamp(commit.time().seconds(), 0)
-        .unwrap()
-        .naive_utc();
-    let tz = FixedOffset::east_opt(commit.time().offset_minutes() * 60).unwrap();
-    let t: DateTime<FixedOffset> = DateTime::from_naive_utc_and_offset(naive_t, tz);
+    let t = git_ops::git_time_to_chrono(commit.time());
     let t = t.to_rfc2822();
 
     let f = F::Seq(vec![
