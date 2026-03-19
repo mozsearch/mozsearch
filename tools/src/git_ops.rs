@@ -34,6 +34,21 @@ pub fn read_blob_entry(repo: &Repository, entry: &TreeEntry) -> String {
     read_blob_object(&blob_obj)
 }
 
+pub fn git_time_to_chrono(git_time: git2::Time) -> chrono::DateTime<chrono::FixedOffset> {
+    let tz = chrono::FixedOffset::east_opt(git_time.offset_minutes() * 60).unwrap();
+    chrono::DateTime::from_timestamp(git_time.seconds(), 0)
+        .unwrap()
+        .with_timezone(&tz)
+}
+
+#[test]
+fn test_git_time_to_chrono() {
+    let source = git2::Time::new(1773370074, 2 * 60); // Fri Mar 13 04:47:54 2026 +0200
+    let expected = chrono::DateTime::parse_from_rfc3339("2026-03-13T04:47:54+02:00").unwrap();
+    let actual = git_time_to_chrono(source);
+    assert_eq!(actual, expected);
+}
+
 pub fn get_blame_lines(
     git_data: Option<&GitData>,
     blame_commit: &Option<Commit>,
