@@ -10,14 +10,10 @@ use std::{
     process::{Command, Stdio},
 };
 
+use chrono::{DateTime, FixedOffset};
 use clap::Parser;
-use time::{OffsetDateTime, format_description::well_known::Iso8601};
 
 use tools::file_format::code_coverage_report::{Report, ReportMetadata};
-
-fn parse_date(string: &str) -> Result<OffsetDateTime, time::error::Parse> {
-    OffsetDateTime::parse(string, &Iso8601::DEFAULT)
-}
 
 #[derive(Parser)]
 #[command(version, about)]
@@ -34,9 +30,9 @@ struct Args {
     #[arg(short, long)]
     commit: String,
 
-    /// Date of the commit the report came from, in ISO 8601-1:2019 format
-    #[arg(short, long, value_parser=parse_date)]
-    date: OffsetDateTime,
+    /// Date of the commit the report came from, in RFC3339 format
+    #[arg(short, long, value_parser=chrono::DateTime::parse_from_rfc3339)]
+    date: DateTime<FixedOffset>,
 
     /// Name of the platform covered by this report
     #[arg(short, long, default_value = "all")]
