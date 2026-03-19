@@ -5,17 +5,16 @@ authors = ["Bill McCloskey <billm@mozilla.com>"]
 edition = "2024"
 
 [build-dependencies]
-tonic-build = "0.7.1"
+tonic-prost-build = "0.14.5"
 
 [dependencies]
-cssparser = "0.29"
-itertools = "0.10"
+cssparser = "0.37"
+itertools = "0.14"
 # Note that the "rc" feature as documented at https://serde.rs/feature-flags.html
 # does not make any effort to do interning
 serde = { version = "1.0.196", features = ["derive", "rc", "std"] }
 serde_json = { version = "1.0.113", features = ["preserve_order"] }
 serde_repr = "0.1.18"
-time = { version = "0.3.44", features = ["parsing", "formatting"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 async-stream = "0.3.2"
@@ -25,17 +24,17 @@ axum-macros = "0.3.7"
 bitflags = { version = "2.4.2", features = ["serde"] }
 # NOTE: jaq-json requires newer bytes.
 bytes = "1.11.0"
-chrono = "0.2"
+chrono = "0.4"
 clap = { version = "4.0", features = ["cargo", "derive", "env"] }
 dot-generator = "0.2.0"
 dot-structures = "0.1.0"
-env_logger = "0.7.1"
-fantoccini = "0.19.3"
-flate2 = { version = "1", features = ["tokio"] }
+env_logger = "0.11.9"
+fantoccini = "0.22.1"
+flate2 = { version = "1.1.9" }
 futures-core = "0.3.17"
 getopts = "0.2.19"
-graphviz-rust = "0.2.0"
-git2 = "0.16.1"
+graphviz-rust = "0.9.7"
+git2 = "0.20.4"
 globset = "0.4.8"
 hyper = "0.10"
 include_dir = "0.7.2"
@@ -44,22 +43,22 @@ ipdl_parser = { path = "./ipdl_parser" }
 jaq-core = { version = "=3.0.0-beta", default-features = false, features = [] }
 jaq-json = { version = "=2.0.0-beta", default-features = false, features = ["serde"] }
 jaq-std = { version = "=3.0.0-beta", default-features = false, features = [] }
-json-structural-diff = "0.1.0"
+json-structural-diff = "0.2.0"
 lazy_static = "1.1"
 lexical-sort = "0.3"
-linkify = "0.2.0"
+linkify = "0.3.1"
 liquid = "0.26.0"
 liquid-core = "0.26.0"
 log = "0.4.0"
-lol_html = "0.3.1"
-memmap = { package = "memmap2", version = "0.5.3" }
+lol_html = "2.7.2"
+memmap = { package = "memmap2", version = "0.9.10" }
 num_cpus = "1"
-petgraph = "0.6.0"
-prost = "0.10.1"
+petgraph = "0.8.3"
+prost = "0.14.3"
 protobuf = "3.7.2"
 query-parser = "0.2.0"
 regex = "1"
-reqwest = "0.11.3"
+reqwest = "0.13.2"
 rls-analysis = "0.18.1"
 rls-data = "0.19.1"
 scip = { git = "https://github.com/mozsearch/scip", rev = "9ffd696ad0d32e594f48ccf937138d0c9fa77004" }
@@ -70,24 +69,25 @@ shell-words = "1.0.0"
 termcolor = "1.4.1"
 tokio = { version = "1.6.0", features = ["rt-multi-thread", "net", "macros", "fs", "io-util", "signal"] }
 tokio-stream = "0.1.8"
-tree-sitter = "0.23.0"
+tree-sitter = "0.26.7"
 # We previously used tree-sitter-mozcpp because it understands our XPCOM
 # macrology and doesn't freak out, but since it is only used for our WIP
 # hyperblame implementation and lags behind on updates, we are switching to
 # tree-sitter-cpp for now.
 tree-sitter-cpp = "0.23.0"
-tree-sitter-python = "0.23.2"
-tree-sitter-rust = "0.23.0"
+tree-sitter-python = "0.25.0"
+tree-sitter-rust = "0.24.0"
 tree-sitter-typescript = "0.23.0"
 tree-sitter-java = "0.23.2"
 tree-sitter-kotlin-ng = "1.0.1"
-toml = "0.7.3"
-tonic = "0.7.1"
+toml = "1.0.7"
+tonic = "0.14.5"
+tonic-prost = "0.14.5"
 tracing = "0.1.37"
 # We explicitly do not enable the "uuid" feature because by default it will be
 # serialized as a u128 in serde which will error out when attempting to convert
 # to a Value or via #flatten, which causes a problem.
-tracing-forest = { version = "0.1.5", features = ["smallvec", "tokio", "uuid"] }
+tracing-forest = { version = "0.3.1", features = ["smallvec", "tokio", "uuid"] }
 tracing-subscriber = { version = "0.3.16", features = ["std", "env-filter", "fmt", "local-time", "registry", "json"] }
 url = "2.2.2"
 urlencoding = "2.1.2"

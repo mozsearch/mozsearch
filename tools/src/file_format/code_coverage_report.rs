@@ -12,8 +12,8 @@ use std::{
     path::Path,
 };
 
+use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Deserializer, Serialize, de};
-use time::{OffsetDateTime, format_description::well_known::Rfc2822};
 
 /// End marker for use when sending fast-import data.
 /// NOTE: make sure the data doesn't actually contain this marker!
@@ -30,7 +30,7 @@ pub struct Report {
 pub struct ReportMetadata {
     pub commit: String,
     pub branch: String,
-    pub date: OffsetDateTime,
+    pub date: DateTime<FixedOffset>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -108,13 +108,12 @@ impl Report {
         incremental: bool,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let branch = &self.metadata.branch;
+        let date = self.metadata.date.to_rfc2822();
 
         writeln!(fast_import, "feature date-format=rfc2822")?;
         writeln!(fast_import, "commit refs/heads/{branch}")?;
         writeln!(fast_import, "mark :1")?;
-        write!(fast_import, "committer <searchfox> ")?;
-        self.metadata.date.format_into(fast_import, &Rfc2822)?;
-        writeln!(fast_import)?;
+        writeln!(fast_import, "committer <searchfox> {date}")?;
         writeln!(fast_import, "data {}", self.metadata.commit.len() + 1)?;
         writeln!(fast_import, "{}", self.metadata.commit)?;
         if incremental {
@@ -125,9 +124,7 @@ impl Report {
 
         writeln!(fast_import, "tag reverse/{branch}/{}", self.metadata.commit)?;
         writeln!(fast_import, "from :1")?;
-        write!(fast_import, "tagger <searchfox> ")?;
-        self.metadata.date.format_into(fast_import, &Rfc2822)?;
-        writeln!(fast_import)?;
+        writeln!(fast_import, "tagger <searchfox> {date}")?;
         writeln!(fast_import, "data 0")?;
 
         Ok(())

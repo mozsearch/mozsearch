@@ -1,13 +1,9 @@
 use crate::file_format::config::Config;
-use crate::links;
+use crate::{git_ops, links};
 
 use serde_json::{Map, json, to_string};
 use std::borrow::Cow;
 use std::str::Split;
-
-use chrono::datetime::DateTime;
-use chrono::naive::datetime::NaiveDateTime;
-use chrono::offset::fixed::FixedOffset;
 
 fn find_phab_rev(iter: Split<char>) -> Option<String> {
     const PREFIX: &str = "Differential Revision: ";
@@ -92,9 +88,7 @@ pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<Stri
         let commit = commit_obj.as_commit().ok_or("Bad revision")?;
         let (msg, phab_rev, pr) = commit_header_patch(commit)?;
 
-        let naive_t = NaiveDateTime::from_timestamp(commit.time().seconds(), 0);
-        let tz = FixedOffset::east(commit.time().offset_minutes() * 60);
-        let t: DateTime<FixedOffset> = DateTime::from_utc(naive_t, tz);
+        let t = git_ops::git_time_to_chrono(commit.time());
         let t = t.to_rfc2822();
 
         let sig = commit.author();
