@@ -33,7 +33,7 @@ add_task(async function test_BreadcrumbsOnLoad() {
     {
       path: "/tests/source/webtest/Webtest.cpp",
       hidden: false,
-      text: "tests/webtest/Webtest.cpp  (file symbol)",
+      text: "tests/webtest/Webtest.cpp (file symbol)",
       firstLink: "/tests/source/",
     },
     {
@@ -77,7 +77,11 @@ add_task(async function test_BreadcrumbsOnLoad() {
       is(breadcrumbs.style.display, "none", `Breadcrumbs is hidden on ${path}`);
     } else {
       isnot(breadcrumbs.style.display, "none", `Breadcrumbs is shown on ${path}`);
-      is(breadcrumbs.textContent.trim(), text,
+      let breadcrumbsText = breadcrumbs.textContent.trim().replaceAll("\n", " ");
+      while (breadcrumbsText.includes("  ")) {
+        breadcrumbsText = breadcrumbsText.replace("  ", " ");
+      }
+      is(breadcrumbsText, text,
          `Breadcrumbs shows the correct path on ${path}`);
     }
 
