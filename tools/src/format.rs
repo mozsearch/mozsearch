@@ -27,7 +27,7 @@ use crate::file_format::analysis::{
     AnalysisSource, ExpansionInfo, WithLocation, collect_file_syms_from_source,
 };
 use crate::file_format::config::{Config, GitData, TreeConfig, extract_info_from_blame_commit};
-use crate::output::{self, BreadcrumbsLinksTo, F, Options, PanelItem, PanelSection};
+use crate::output::{self, BreadcrumbsLinksTo, F, Options, PanelItem, PanelSection, RevisionData};
 use crate::url_encode_path::url_encode_path;
 
 use git2::{Oid, Repository, Tree, TreeEntry};
@@ -656,7 +656,10 @@ pub fn format_file_data(
         None => None,
     };
     let revision = match revision_owned {
-        Some((ref rev, ref header)) => Some((rev.as_str(), header.as_str())),
+        Some((ref rev, ref header)) => Some(RevisionData {
+            rev: rev.as_str(),
+            desc: header.as_str(),
+        }),
         None => None,
     };
     format_perf.commit_info_duration_us = pre_commit.elapsed().as_micros() as u64;
@@ -1459,7 +1462,7 @@ pub fn format_diff(
         title: &title,
         tree_name,
         include_date: true,
-        revision: Some((rev, &header)),
+        revision: Some(RevisionData { rev, desc: &header }),
         breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
         extra_content_classes: "source-listing diff",
     };
@@ -1816,7 +1819,7 @@ pub fn format_commit(
         title: &title,
         tree_name,
         include_date: true,
-        revision: Some((rev, "")),
+        revision: Some(RevisionData { rev, desc: "" }),
         breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
         extra_content_classes: "commit",
     };

@@ -24,10 +24,15 @@ pub enum BreadcrumbsLinksTo {
     Historical,
 }
 
+pub struct RevisionData<'a> {
+    pub rev: &'a str,
+    pub desc: &'a str,
+}
+
 pub struct Options<'a> {
     pub title: &'a str,
     pub tree_name: &'a str,
-    pub revision: Option<(&'a str, &'a str)>,
+    pub revision: Option<RevisionData<'a>>,
     pub breadcrumbs_links_to: BreadcrumbsLinksTo,
     pub include_date: bool,
     /// Extra classes to include on the content element.  This allows less padding to be used on
@@ -51,8 +56,10 @@ pub fn choose_icon(path: &str) -> String {
 }
 
 pub fn file_url(opt: &Options, path: &str) -> String {
-    let rev_fragment = match (opt.breadcrumbs_links_to, opt.revision) {
-        (BreadcrumbsLinksTo::Historical, Some((rev, _header))) => Some(format!("rev/{rev}")),
+    let rev_fragment = match (opt.breadcrumbs_links_to, &opt.revision) {
+        (BreadcrumbsLinksTo::Historical, Some(RevisionData { rev, .. })) => {
+            Some(format!("rev/{rev}"))
+        }
         (BreadcrumbsLinksTo::Latest, _) | (_, None) => None,
     };
     let rev_fragment = rev_fragment.as_deref().unwrap_or("source");
@@ -238,14 +245,14 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
     ];
 
     let revision = match opt.revision {
-        Some((rev_id, rev_desc)) => vec![
+        Some(RevisionData { rev, desc }) => vec![
             F::T(format!(
                 r#"<span id="rev-id">Showing <a href="/{}/commit/{}">{}</a>:</span>"#,
                 opt.tree_name,
-                rev_id,
-                &rev_id[..8]
+                rev,
+                &rev[..8]
             )),
-            F::T(format!(r#"<span id="rev-desc">{}</span>"#, rev_desc)),
+            F::T(format!(r#"<span id="rev-desc">{}</span>"#, desc)),
         ],
         None => vec![],
     };
