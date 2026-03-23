@@ -26,7 +26,7 @@ use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::identifiers::IdentMap;
 use crate::file_format::per_file_info::FileLookupMap;
 use crate::format::format_code;
-use crate::git_ops::{RevisionCoverage, coverage_history, coverage_summary};
+use crate::git_ops::{RevisionCoverage, coverage_history, coverage_summary, git_time_to_chrono};
 use crate::languages::select_formatting;
 
 pub mod livegrep {
@@ -520,9 +520,11 @@ fn fab_server(
                 Some(rev) => {
                     let commit = git.repo.find_commit(rev).unwrap();
                     let header = blame::commit_header(&commit).unwrap();
+                    let date = git_time_to_chrono(commit.time());
                     Some(CommitInfo {
                         rev: rev.to_string(),
                         header,
+                        date,
                     })
                 }
                 None => None,

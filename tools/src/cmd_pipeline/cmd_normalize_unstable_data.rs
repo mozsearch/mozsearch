@@ -97,6 +97,10 @@ fn norm_html_value(s: String) -> String {
             }
             Ok(())
         }),
+        element!(r#"#rev-id time"#, |el| {
+            el.replace("DATE", lol_html::html_content::ContentType::Text);
+            Ok(())
+        }),
         element!(r"a#panel-permalink", |el| {
             for attribute in ["href", "data-link"] {
                 if let Some(url) = el.get_attribute(attribute) {
