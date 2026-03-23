@@ -23,10 +23,13 @@ var CoverageGraph = new (class CoverageGraph {
     this.sparkline = document.querySelector("#coverage-sparkline");
     this.graph = document.querySelector("#coverage-graph");
     this.history = document.querySelector("#coverage-history");
+    const dateEl = document.querySelector("#rev-id time");
 
-    if (!this.toggleButton || !this.sparkline || !this.graph || !this.history)
+    if (!this.toggleButton || !this.sparkline || !this.graph || !this.history || !dateEl) {
       return;
     }
+
+    this.commitDate = new Date(dateEl.dateTime);
 
     const items = this.history.querySelectorAll(".coverage-history-item");
     this.revisions = Array.from(items).map(item => {
@@ -41,7 +44,9 @@ var CoverageGraph = new (class CoverageGraph {
       return;
     }
 
-    this.xDomain = [this.revisions[0].date, this.revisions[this.revisions.length - 1].date];
+    const minDate = this.commitDate < this.revisions[0].date ? this.commitDate : this.revisions[0].date;
+    const maxDate = this.commitDate > this.revisions[this.revisions.length - 1].date ? this.commitDate : this.revisions[this.revisions.length - 1].date;
+    this.xDomain = [minDate, maxDate];
     this.yDomain = [0, 100];
 
     this.drawSparkLine();
@@ -100,10 +105,29 @@ var CoverageGraph = new (class CoverageGraph {
       .attr("stop-color", color => color);
   }
 
+  drawCommitDateMarker(svg, x, y) {
+    const color = "#7a7a7a";
+    const strokeWidth = 2;
+
+    const path = d3.path();
+    path.moveTo(x(this.commitDate), y(this.yDomain[0]))
+    path.lineTo(x(this.commitDate), y(this.yDomain[1]));;
+
+    svg.append("path")
+      .attr("fill", "none")
+      .attr("stroke", color)
+      .attr("stroke-width", strokeWidth)
+      .attr("stroke-linecap", "round")
+      .attr("stroke-linejoin", "round")
+      .attr("d", path);
+  }
+
   drawLine(svg, x, y, gradientId) {
     const strokeWidth = 2;
 
     this.makeLineGradient(svg, y, gradientId);
+
+    this.drawCommitDateMarker(svg, x, y);
 
     const line = d3.line()
       .x(revision => x(revision.date))
