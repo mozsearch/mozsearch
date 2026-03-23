@@ -65,12 +65,15 @@ impl PipelineCommand for BatchRenderCommand {
                             "coverage_history": coverage_history,
                         });
                         if let Some(info) = &commit_info {
+                            let date = info.date.format("%F %T %z").to_string();
+                            let date = liquid::model::DateTime::from_str(&date).unwrap();
                             liquid_globals.insert(
                                 "rev_box".into(),
                                 liquid::object!({
                                     "long": info.rev,
                                     "short": &info.rev[..8],
                                     "desc_html": info.header.as_str(),
+                                    "date": date,
                                 })
                                 .into(),
                             );

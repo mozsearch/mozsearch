@@ -4,7 +4,7 @@
 use std::io::Write;
 use std::path::Path;
 
-use chrono::{DateTime, Local};
+use chrono::{DateTime, FixedOffset, Local};
 use serde::Serialize;
 
 use crate::{
@@ -25,6 +25,7 @@ pub enum BreadcrumbsLinksTo {
 pub struct RevisionData<'a> {
     pub rev: &'a str,
     pub desc: &'a str,
+    pub date: DateTime<FixedOffset>,
 }
 
 pub struct Options<'a> {
@@ -243,15 +244,21 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
     ];
 
     let revision = match opt.revision {
-        Some(RevisionData { rev, desc }) => vec![
-            F::T(format!(
-                r#"<span id="rev-id">Showing <a href="/{}/commit/{}">{}</a>:</span>"#,
-                opt.tree_name,
-                rev,
-                &rev[..8]
-            )),
-            F::T(format!(r#"<span id="rev-desc">{}</span>"#, desc)),
-        ],
+        Some(RevisionData { rev, desc, date }) => {
+            let iso_date = date.to_rfc3339();
+            let human_date = date.format("%F");
+            vec![
+                F::T(format!(
+                    r#"<span id="rev-id">Showing <a href="/{}/commit/{}">{}</a> from <time datetime="{}">{}</time>:</span>"#,
+                    opt.tree_name,
+                    rev,
+                    &rev[..8],
+                    iso_date,
+                    human_date,
+                )),
+                F::T(format!(r#"<span id="rev-desc">{}</span>"#, desc)),
+            ]
+        }
         None => vec![],
     };
 

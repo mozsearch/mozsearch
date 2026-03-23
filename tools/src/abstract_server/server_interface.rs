@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use chrono::{DateTime, FixedOffset};
 use futures_core::stream::BoxStream;
 use serde::Serialize;
 use serde_json::Value;
@@ -229,6 +230,7 @@ pub struct TreeInfo {
 pub struct CommitInfo {
     pub rev: String,
     pub header: String,
+    pub date: DateTime<FixedOffset>,
 }
 
 /// Unified exposure for interacting with a local Searchfox index on disk or

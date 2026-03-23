@@ -15,7 +15,7 @@ use crate::file_format::crossref_converter::{
 };
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
-use crate::git_ops::{self, coverage_history, coverage_summary};
+use crate::git_ops::{self, coverage_history, coverage_summary, git_time_to_chrono};
 use crate::languages;
 use crate::languages::FormatAs;
 use crate::links;
@@ -651,14 +651,16 @@ pub fn format_file_data(
         Some(ref commit) => {
             let rev = commit.id().to_string();
             let header = blame::commit_header(commit)?;
-            Some((rev, header))
+            let date = git_time_to_chrono(commit.time());
+            Some((rev, header, date))
         }
         None => None,
     };
     let revision = match revision_owned {
-        Some((ref rev, ref header)) => Some(RevisionData {
+        Some((ref rev, ref header, date)) => Some(RevisionData {
             rev: rev.as_str(),
             desc: header.as_str(),
+            date,
         }),
         None => None,
     };
@@ -1118,6 +1120,9 @@ fn format_tree(
     let coverage = git_ops::coverage_summary(Some(git), &coverage_rev, path);
 
     let commit_hash = commit.id().to_string();
+    let date = git_time_to_chrono(commit.time());
+    let date = date.format("%F %T %z").to_string();
+    let date = liquid::model::DateTime::from_str(&date).unwrap();
 
     let liquid_globals = liquid::object!({
         "tree": tree_name,
@@ -1130,6 +1135,7 @@ fn format_tree(
             "long": commit_hash,
             "short": &commit_hash[..8],
             "desc_html": desc_html,
+            "date": date,
         },
         "coverage": coverage,
         "coverage_history": coverage_history,
@@ -1455,6 +1461,7 @@ pub fn format_diff(
     let (formatted_lines, _) = format_code(Some(cfg), &None, format, path, &new_lines, &analysis);
 
     let header = blame::commit_header(commit)?;
+    let date = git_time_to_chrono(commit.time());
 
     let filename = Path::new(path).file_name().unwrap().to_str().unwrap();
     let title = format!("{} - mozsearch", filename);
@@ -1462,7 +1469,11 @@ pub fn format_diff(
         title: &title,
         tree_name,
         include_date: true,
-        revision: Some(RevisionData { rev, desc: &header }),
+        revision: Some(RevisionData {
+            rev,
+            desc: &header,
+            date,
+        }),
         breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
         extra_content_classes: "source-listing diff",
     };
@@ -1808,6 +1819,7 @@ pub fn format_commit(
     let git = tree_config.get_git()?;
     let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
     let commit = commit_obj.as_commit().ok_or("Bad revision")?;
+    let date = git_time_to_chrono(commit.time());
 
     let blame_commit = match (&git.blame_repo, git.blame_map.get(&commit.id())) {
         (Some(blame_repo), Some(blame_oid)) => blame_repo.find_commit(*blame_oid).ok(),
@@ -1819,7 +1831,11 @@ pub fn format_commit(
         title: &title,
         tree_name,
         include_date: true,
-        revision: Some(RevisionData { rev, desc: "" }),
+        revision: Some(RevisionData {
+            rev,
+            desc: "",
+            date,
+        }),
         breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
         extra_content_classes: "commit",
     };
