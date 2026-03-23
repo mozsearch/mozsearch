@@ -4,15 +4,13 @@
 use std::io::Write;
 use std::path::Path;
 
+use chrono::{DateTime, Local};
 use serde::Serialize;
 
-extern crate chrono;
 use crate::{
     file_format::code_coverage_report, templating::builder::build_and_parse_coverage_graph_toggle,
     url_encode_path::url_encode_path,
 };
-
-use self::chrono::{DateTime, Local};
 
 /// Selects where breadcrumbs links should point to
 /// NOTE: This can't decided solely based on the value of Options::revision because main source code display also has a revision set in most cases.
