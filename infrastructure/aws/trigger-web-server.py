@@ -97,7 +97,7 @@ image_id = images['Images'][0]['ImageId']
 
 # Config files shouldn't be able to do whatever they want.  Instance types must
 # first be explicitly allow-listed here.
-LEGAL_INSTANCE_TYPES = ['t3.xlarge', 't3.2xlarge']
+LEGAL_INSTANCE_TYPES = ['t3.xlarge', 't3.2xlarge', 'm6id.2xlarge']
 # Our new default is the 4-core 16GiB t3.xlarge
 instance_type = 't3.xlarge'
 
