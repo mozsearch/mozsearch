@@ -59,12 +59,12 @@ CHANNEL=$4
 #
 # Note that the volume id is exposed as the serial number, so we can use jq to
 # locate the given device.  (We do need to remove any dashes, however.)
-JQ_QUERY=".Devices[] | select(.SerialNumber == \"${VOLUME_ID/-/}\") | .DevicePath"
+EBS_JQ_QUERY=".Devices[] | select(.SerialNumber == \"${VOLUME_ID/-/}\") | .DevicePath"
 
 set +o pipefail   # The grep command below can return nonzero, so temporarily allow pipefail
 for (( i = 0; i < 3600; i++ ))
 do
-    EBS_NVME_DEV=$(sudo nvme list -o json | jq --raw-output "$JQ_QUERY")
+    EBS_NVME_DEV=$(sudo nvme list -o json | jq --raw-output "$EBS_JQ_QUERY")
     if [[ $EBS_NVME_DEV ]]
     then break
     fi
@@ -74,9 +74,38 @@ set -o pipefail
 
 echo "Index volume detected"
 
-sudo mkdir /index
-sudo mount $EBS_NVME_DEV /index
-sudo chown ubuntu:ubuntu /index
+EBS_PATH=/index
+
+LOCAL_JQ_QUERY=".Devices[] | select(.ModelNumber == \"Amazon EC2 NVMe Instance Storage\") | .DevicePath"
+LOCAL_NVME_DEV=$(sudo nvme list -o json | jq --raw-output "$LOCAL_JQ_QUERY")
+
+if [[ $LOCAL_NVME_DEV ]]; then
+    EBS_PATH=/index-ebs
+
+    date
+
+    sudo mkfs -t ext4 $LOCAL_NVME_DEV
+    sudo mkdir /index
+    sudo mount $LOCAL_NVME_DEV /index
+    sudo chown ubuntu:ubuntu /index
+
+    date
+fi
+
+sudo mkdir $EBS_PATH
+sudo mount $EBS_NVME_DEV $EBS_PATH
+sudo chown ubuntu:ubuntu $EBS_PATH
+
+if [[ $LOCAL_NVME_DEV ]]; then
+    date
+
+    sudo rsync -a $EBS_PATH/ /index/
+
+    sudo umount $EBS_PATH
+    sudo rmdir $EBS_PATH
+
+    date
+fi
 
 # Create a writable directory for nginx caching purposes on the indexer's EBS
 # store.  We choose this spot because:
