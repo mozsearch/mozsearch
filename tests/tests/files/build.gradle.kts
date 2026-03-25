@@ -38,8 +38,8 @@ dependencies {
     implementation("com.google.guava:guava:32.1.1-jre")
 
     //
-    compileOnly("com.sourcegraph:semanticdb-javac:0.10.3")
-    testCompileOnly("com.sourcegraph:semanticdb-javac:0.10.3")
+    compileOnly("com.sourcegraph:semanticdb-javac:0.12.0")
+    testCompileOnly("com.sourcegraph:semanticdb-javac:0.12.0")
     kotlinCompilerPluginClasspath("com.github.mozsearch:semanticdb-kotlinc:0.9.0")
 }
 
