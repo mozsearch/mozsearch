@@ -1240,8 +1240,13 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       return;
     }
 
-    // Diagram toggle does not need context menu.
-    if (event.target.closest("#diagram-panel-toggle")) {
+    // Breadcrumbs extra buttons don't need context menu.
+    if (event.target.closest(".breadcrumbs-extra-button")) {
+      return;
+    }
+
+    // Coverage graph svg doesn't need context menu
+    if (event.target.closest("#coverage-graph")) {
       return;
     }
 
