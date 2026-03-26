@@ -890,10 +890,41 @@ tr.after-context-line + tr.before-context-line {
   margin: 0.5rem 2rem;
   width: calc(100% - 4rem);
   border: 1px solid var(--page-border-color);
+  cursor: pointer;
 
-  svg a:hover circle {
-    fill: var(--list-hover-color);
-    stroke: var(--list-hover-color);
+  svg a .tooltip {
+    display: none;
+
+    transform: translateY(-1.5rem);
+
+    rect {
+      width: 16ch;
+      height: 2rem;
+      transform: translate(-8ch, -1rem);
+      fill: var(--blame-popup-background);
+      rx: 3px;
+      ry: 3px;
+    }
+
+    text {
+      dominant-baseline: middle;
+      text-anchor: middle;
+      fill: var(--blame-popup-color);
+    }
+  }
+
+  svg {
+    a.hovered, a:focus {
+      circle {
+        fill: var(--list-hover-color);
+        stroke: var(--list-hover-color);
+        r: 3px;
+      }
+
+      .tooltip {
+        display: inline;
+      }
+    }
   }
 }
 

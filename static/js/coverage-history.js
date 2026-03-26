@@ -33,11 +33,12 @@ var CoverageGraph = new (class CoverageGraph {
 
     const items = this.history.querySelectorAll(".coverage-history-item");
     this.revisions = Array.from(items).map(item => {
+      const rev = item.dataset.rev
       const percentage = parseFloat(item.dataset.percentage)
       const date = new Date(item.querySelector("time").dateTime);
       const link = item.querySelector("a").href;
 
-      return {percentage, date, link};
+      return {rev, percentage, date, link};
     });
 
     if (this.revisions.length < 1) {
@@ -192,9 +193,20 @@ var CoverageGraph = new (class CoverageGraph {
       .data(this.revisions)
       .join("a")
       .attr("href", revision => revision.link)
+      .attr("aria-labelledby", revision => `coverage-graph-tooltip-${revision.rev}`);
 
-    dots.append("title")
-      .text(revision => `${revision.date.toLocaleDateString()}: ${Math.round(revision.percentage)} %`)
+    const tooltips = dots.append("g")
+      .attr("id", revision => `coverage-graph-tooltip-${revision.rev}`)
+      .classed("tooltip", true);
+
+    tooltips.append("rect")
+      .attr("x", revision => Math.min(Math.max(x(revision.date), x(this.xDomain[0]) + 25), x(this.xDomain[1]) - 25))
+      .attr("y", revision => y(revision.percentage));
+
+    tooltips.append("text")
+      .attr("x", revision => Math.min(Math.max(x(revision.date), x(this.xDomain[0]) + 25), x(this.xDomain[1]) - 25))
+      .attr("y", revision => y(revision.percentage))
+      .text(revision => `${revision.date.toISOString().split("T")[0]}: ${Math.round(revision.percentage)} %`);
 
     dots.append("circle")
       .attr("fill", revision => this.colorForRevision(revision))
@@ -215,6 +227,40 @@ var CoverageGraph = new (class CoverageGraph {
     this.drawArea(svg, x, y);
     this.drawLine(svg, x, y, "coverage-graph-gradient");
     this.drawDots(svg, x, y);
+
+    let hovered = null;
+    svg.
+      on("mousemove", (event) => {
+        let closest = null;
+        let distance = null;
+        for (const revision of svg.selectAll("a")) {
+          let x = revision.querySelector("circle").cx.animVal.value;
+          let thisDistance = Math.abs(x - event.offsetX);
+          if (distance === null || thisDistance <= distance) {
+            closest = revision;
+            distance = thisDistance;
+          }
+        }
+
+        if (hovered !== null) {
+          hovered.classList.remove("hovered");
+        }
+        hovered = closest;
+        if (hovered !== null) {
+          closest.classList.add("hovered");
+        }
+      })
+      .on("mouseleave", () => {
+        if (hovered !== null) {
+          hovered.classList.remove("hovered");
+        }
+        hovered = null;
+      })
+      .on("click", (event) => {
+        if (hovered !== null) {
+          window.location = hovered.attributes.href.value;
+        }
+      })
   }
 
   toggle() {
