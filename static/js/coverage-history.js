@@ -229,6 +229,10 @@ var CoverageGraph = new (class CoverageGraph {
       return;
     }
 
+    if (Panel.isExpanded()) {
+      Panel.toggle();
+    }
+
     this.toggleButton.ariaExpanded = "true";
     this.graph.classList.remove("hidden");
     this.drawGraph();
