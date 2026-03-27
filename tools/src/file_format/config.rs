@@ -100,8 +100,6 @@ pub struct TreeConfigPaths {
     /// If this is actually a mercurial repo, the URL of the hg server, no
     /// trailing `/`.
     pub hg_root: Option<String>,
-    /// Coverage server URL.
-    pub ccov_root: Option<String>,
     /// Relative path within the source tree that's really a WPT root.
     pub wpt_root: Option<String>,
     /// If this is actually a git repo hosted on github, its URL.  If the repo

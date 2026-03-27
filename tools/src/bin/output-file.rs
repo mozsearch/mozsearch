@@ -470,20 +470,6 @@ fn main() {
                 copyable: false,
             });
         }
-        if let Some(ref ccov_root) = tree_config.paths.ccov_root {
-            tools_items.push(PanelItem {
-                label: "Code Coverage".to_owned(),
-                tooltip: "Open the Code Coverage result of the current file".to_owned(),
-                id: "panel-coverage",
-                link: format!(
-                    "{}#revision=latest&path={}&view=file",
-                    ccov_root, encoded_path
-                ),
-                update_link_lineno: "&line={}",
-                accel_key: None,
-                copyable: false,
-            });
-        }
 
         match Path::new(path.as_str()).extension().and_then(OsStr::to_str) {
             Some("md") | Some("rst") => {
@@ -525,7 +511,6 @@ fn main() {
             // Propagate config settings that aren't absolute paths.  We do some
             // renaming here compared to `TreeConfigPaths` for clarity.
             "config": {
-                "coverage_url": &tree_config.paths.ccov_root.as_deref().unwrap_or(""),
                 "github_repo_url": &tree_config.paths.github_repo.as_deref().unwrap_or(""),
                 "hg_repo_url": &tree_config.paths.hg_root.as_deref().unwrap_or(""),
                 "wpt_root": &tree_config.paths.wpt_root.as_deref().unwrap_or(""),
