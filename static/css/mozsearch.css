@@ -833,6 +833,10 @@ tr.after-context-line + tr.before-context-line {
 }
 .breadcrumbs.stuck {
   white-space: nowrap;
+
+  .breadcrumbs-extra-button {
+    display: none !important;
+  }
 }
 
 #tree-switcher {
