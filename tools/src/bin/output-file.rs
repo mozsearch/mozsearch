@@ -554,7 +554,7 @@ fn main() {
         match format_file_data(
             &cfg,
             tree_name,
-            &panel,
+            panel,
             source_file_info_boxes,
             &head_commit,
             BreadcrumbsLinksTo::Latest,

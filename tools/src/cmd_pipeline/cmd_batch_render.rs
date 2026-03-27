@@ -7,6 +7,7 @@ use crate::{
         AbstractServer, ErrorDetails, ErrorLayer, Result, SearchfoxIndexRoot, ServerError,
     },
     file_utils::write_file_ensuring_parent_dir,
+    format::add_coverage_panel_item,
     templating::builder::build_and_parse_dir_listing,
 };
 
@@ -53,15 +54,20 @@ impl PipelineCommand for BatchRenderCommand {
                 for item in batch_groups.groups {
                     if let PipelineValues::FileMatches(fm) = item.value {
                         let coverage_history = server.coverage_history(&item.name).await?;
-                        let coverage = server.coverage_summary(&item.name).await?;
+
+                        let mut panel = vec![];
+                        if coverage_history.is_some() {
+                            let coverage_summary = server.coverage_summary(&item.name).await?;
+                            add_coverage_panel_item(&mut panel, coverage_summary.as_ref());
+                        }
+
                         let mut liquid_globals = liquid::object!({
                             "tree": tree_info.name,
                             // the header always needs this
                             "query": "",
                             "path": item.name,
                             "files": fm.file_matches,
-                            "panel": liquid::model::Value::Nil,
-                            "coverage": coverage,
+                            "panel": panel,
                             "coverage_history": coverage_history,
                         });
                         if let Some(info) = &commit_info {

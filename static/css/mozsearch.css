@@ -429,7 +429,7 @@ table.folder-content td.description a {
 table.folder-content td.size {
   min-width: 9ch;
 }
-table.folder-content td.coverage, #coverage-graph-toggle {
+table.folder-content td.coverage, #panel-coverage:is(:hover, :focus) {
   .cov-percentage {
     font-weight: 600;
   }
@@ -879,22 +879,24 @@ tr.after-context-line + tr.before-context-line {
   padding-inline-end: 24px;
 }
 
-#coverage-graph-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: .5rem;
-}
-
 #coverage-sparkline {
   display: flex;
+  margin-left: 1ch;
 }
 
 #coverage-graph {
-  display: flex;
   margin: 0.5rem 2rem;
   width: calc(100% - 4rem);
   border: 1px solid var(--page-border-color);
   cursor: pointer;
+
+  position: fixed;
+  top: 50%;
+  translate: 0 -50%;
+
+  &:open {
+    display: flex;
+  }
 
   svg a .tooltip {
     display: none;
@@ -978,6 +980,17 @@ tr.after-context-line + tr.before-context-line {
   text-align: left;
   cursor: pointer;
 }
+#panel-coverage {
+  #coverage-sparkline {
+    filter: contrast(0%);
+  }
+
+  &:is(:hover, :focus) {
+    #coverage-sparkline {
+      filter: unset;
+    }
+  }
+}
 .navpanel-other-icons {
   float: right;
 }
@@ -1020,7 +1033,7 @@ tr.after-context-line + tr.before-context-line {
   background-position: 2px 10px;
 }
 .panel section .item {
-  display: inline-block;
+  display: inline-flex;
   width: 100%;
   cursor: pointer;
 }

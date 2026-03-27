@@ -15,7 +15,7 @@ add_task(async function test_BreadcrumbsOnLoad() {
     {
       path: "/tests/source/",
       hidden: false,
-      text: "tests Coverage 96 %",
+      text: "tests",
       firstLink: "/tests/source/",
     },
     {

@@ -11,7 +11,7 @@
     {%- else -%}
       {%- assign has_coverage_history = false -%}
     {%- endif -%}
-    {% include 'breadcrumbs.liquid' path: path, hidden: false, is_graph: false, coverage: coverage, has_coverage_history: has_coverage_history %}
+    {% include 'breadcrumbs.liquid' path: path, hidden: false, is_graph: false %}
     {% include 'navigation_panel.liquid' expanded: false, panel: panel %}
     {%- if coverage_history != nil -%}
       {% include 'coverage_history.liquid' coverage_history: coverage_history %}

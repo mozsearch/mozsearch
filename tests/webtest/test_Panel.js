@@ -5,62 +5,62 @@ add_task(async function test_PanelOnLoad() {
     {
       path: "/",
       expanded: false,
-      empty: true,
+      itemCount: 1,
     },
     {
       path: "/tests/pages/settings.html",
       expanded: false,
-      empty: true,
+      itemCount: 1,
     },
     {
       path: "/tests/source/",
       expanded: false,
-      empty: true,
+      itemCount: 3,
     },
     {
       path: "/tests/source/webtest",
       expanded: false,
-      empty: true,
+      itemCount: 1,
     },
     {
       path: "/tests/source/.gitignore",
       expanded: true,
-      empty: false,
+      itemCount: null,
     },
     {
       path: "/tests/source/webtest/Webtest.cpp",
       expanded: true,
-      empty: false,
+      itemCount: null,
     },
     {
       path: "/tests/search?q=webtest&path=&case=false&regexp=false",
       expanded: false,
-      empty: true,
+      itemCount: 1,
     },
     {
       path: "/tests/query/default?q=webtest",
       expanded: false,
       // Debug items are added on tests repository.
-      empty: false,
+      itemCount: null,
     },
     {
       path: "/searchfox/diff/4e266f75295afe5f94d14eb9b72445c830c095ef/.eslintrc.js",
       expanded: true,
-      empty: false,
+      itemCount: null,
     },
     {
       path: "/searchfox/commit/4e266f75295afe5f94d14eb9b72445c830c095ef",
       expanded: false,
-      empty: true,
+      itemCount: 1,
     },
     {
       path: "/searchfox/rev/e6ff7d3798a68e41c1166524be276fac4a8dfeb2/.gitignore",
       expanded: true,
-      empty: false,
+      itemCount: null,
     },
   ];
 
-  for (const { path, expanded, empty } of tests) {
+  for (const { path, expanded, itemCount } of tests) {
     await TestUtils.loadPath(path);
 
     const panel = frame.contentDocument.querySelector("#panel");
@@ -75,9 +75,9 @@ add_task(async function test_PanelOnLoad() {
          `Navigation panel is collapsed on ${path}`);
     }
 
-    if (empty) {
-      is(content.children.length, 1,
-         `Navigation panel has only keyboard shortcut checkbox on ${path}`);
+    if (itemCount !== null) {
+      is(content.children.length, itemCount,
+         `Navigation panel has keyboard shortcut checkbox and maybe coverage on ${path}`);
     } else {
       is(content.children.length > 1, true,
          `Navigation panel has multiple items on ${path}`);
