@@ -832,7 +832,7 @@ tr.after-context-line + tr.before-context-line {
   text-align: left;
 }
 .breadcrumbs.stuck {
-  white-space: no-wrap;
+  white-space: nowrap;
 }
 
 #tree-switcher {
