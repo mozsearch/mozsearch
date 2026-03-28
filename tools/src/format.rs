@@ -9,6 +9,7 @@ use std::time::Instant;
 use crate::abstract_server::FileMatch;
 use crate::blame;
 use crate::file_format::analysis_manglings::make_file_sym_from_path;
+use crate::file_format::code_coverage_report;
 use crate::file_format::coverage::InterpolatedCoverage;
 use crate::file_format::crossref_converter::{
     JumprefTraversals, determine_desired_extra_syms_from_jumpref, extra_syms_next_step_lookups,
@@ -27,7 +28,9 @@ use crate::file_format::analysis::{
     AnalysisSource, ExpansionInfo, WithLocation, collect_file_syms_from_source,
 };
 use crate::file_format::config::{Config, GitData, TreeConfig, extract_info_from_blame_commit};
-use crate::output::{self, BreadcrumbsLinksTo, F, Options, PanelItem, PanelSection, RevisionData};
+use crate::output::{
+    self, BreadcrumbsLinksTo, F, Options, PanelItem, PanelItemLabel, PanelSection, RevisionData,
+};
 use crate::url_encode_path::url_encode_path;
 
 use git2::{Oid, Repository, Tree, TreeEntry};
@@ -606,7 +609,7 @@ pub struct FormatPerfInfo {
 pub fn format_file_data(
     cfg: &Config,
     tree_name: &str,
-    panel: &[PanelSection],
+    mut panel: Vec<PanelSection>,
     info_boxes: String,
     commit: &Option<git2::Commit>,
     breadcrumbs_links_to: BreadcrumbsLinksTo,
@@ -685,20 +688,7 @@ pub fn format_file_data(
 
     let file_syms = collect_file_syms_from_source(path, analysis);
 
-    let coverage_history = coverage_history(cfg.trees[tree_name].git.as_ref(), path);
-    let coverage_summary = coverage_commit.and_then(|commit| {
-        let coverage_rev = commit.id().to_string();
-        git_ops::coverage_summary(tree_config.git.as_ref(), &coverage_rev, path)
-    });
-    output::generate_breadcrumbs(
-        &opt,
-        writer,
-        path,
-        &file_syms,
-        !analysis.is_empty(),
-        coverage_summary,
-        coverage_history.is_some(),
-    )?;
+    output::generate_breadcrumbs(&opt, writer, path, &file_syms, !analysis.is_empty())?;
 
     let coverage_navigation = commit
         .as_ref()
@@ -719,6 +709,7 @@ pub fn format_file_data(
     }
     write!(writer, r#"></span>"#).unwrap();
 
+    let coverage_history = coverage_history(cfg.trees[tree_name].git.as_ref(), path);
     if let Some(coverage_history) = coverage_history {
         let liquid_globals = liquid::object!({
             "tree": tree_name,
@@ -730,8 +721,14 @@ pub fn format_file_data(
         template
             .render_to(writer, &liquid_globals)
             .or(Err("Template problems"))?;
+
+        let coverage_summary = coverage_commit.as_ref().and_then(|commit| {
+            let coverage_rev = commit.id().to_string();
+            git_ops::coverage_summary(tree_config.git.as_ref(), &coverage_rev, path)
+        });
+        add_coverage_panel_item(&mut panel, coverage_summary.as_ref());
     }
-    output::generate_panel(&opt, writer, panel, false)?;
+    output::generate_panel(&opt, writer, &panel, false)?;
 
     let info_boxes_container = F::Seq(vec![
         F::S(r#"<section class="info-boxes" id="info-boxes-container">"#),
@@ -913,6 +910,48 @@ pub fn format_file_data(
     format_perf.format_mixing_duration_us = pre_format_mixing.elapsed().as_micros() as u64;
 
     Ok(format_perf)
+}
+
+pub fn add_coverage_panel_item(
+    panel: &mut Vec<PanelSection>,
+    coverage_summary: Option<&code_coverage_report::NodeMetadata>,
+) {
+    let coverage_percentage = match coverage_summary {
+        Some(summary) => {
+            let coverage_bucket = (summary.coverage_percent / 10.).round();
+            let coverage_percent = summary.coverage_percent.round();
+            format!(
+                r#"&nbsp;<span class="cov-percentage cov-percentage-{coverage_bucket}">{coverage_percent} %</span>"#
+            )
+        }
+        None => String::new(),
+    };
+
+    let panel_item = PanelItem {
+        label: PanelItemLabel::Html(format!(
+            r#"Coverage:{}<span id="coverage-sparkline"></span>"#,
+            coverage_percentage
+        )),
+        tooltip: "Show the test coverage graph".to_owned(),
+        id: "panel-coverage",
+        link: "javascript:CoverageGraph.open()".to_owned(),
+        update_link_lineno: "",
+        accel_key: None,
+        copyable: false,
+    };
+
+    const SECTION_NAME: &str = "Revision control";
+    let section = panel
+        .iter_mut()
+        .find(|section| section.name == SECTION_NAME);
+    match section {
+        Some(section) => section.items.push(panel_item),
+        None => panel.push(PanelSection {
+            name: SECTION_NAME.to_owned(),
+            items: vec![panel_item],
+            raw_items: vec![],
+        }),
+    }
 }
 
 fn format_to_slug_attribute(format: &FormatAs) -> String {
@@ -1102,10 +1141,10 @@ fn format_tree(
         })
         .collect::<Result<Vec<_>, &str>>()?;
 
-    let panel = vec![PanelSection {
+    let mut panel = vec![PanelSection {
         name: "Revision control".to_owned(),
         items: vec![PanelItem {
-            label: "Go to latest revision".to_owned(),
+            label: PanelItemLabel::Plaintext("Go to latest revision".to_owned()),
             tooltip: "Open the latest revision-agnostic link of the current file".to_owned(),
             id: "panel-vcs-latest",
             link: format!("/{}/source/{}", tree_name, path.to_string_lossy()),
@@ -1118,6 +1157,18 @@ fn format_tree(
 
     let coverage_history = coverage_history(Some(git), path);
     let coverage = git_ops::coverage_summary(Some(git), &coverage_rev, path);
+    if coverage_history.is_some() {
+        let coverage_commit = git.coverage_repo.as_ref().and_then(|repo| {
+            repo.revparse_single(&format!("refs/tags/reverse/all/all/{}", commit.id()))
+                .ok()
+                .and_then(|object| object.peel_to_commit().ok())
+        });
+        let coverage_summary = coverage_commit.as_ref().and_then(|commit| {
+            let coverage_rev = commit.id().to_string();
+            git_ops::coverage_summary(Some(git), &coverage_rev, path)
+        });
+        add_coverage_panel_item(&mut panel, coverage_summary.as_ref());
+    }
 
     let commit_hash = commit.id().to_string();
     let date = git_time_to_chrono(commit.time());
@@ -1192,7 +1243,7 @@ fn format_blob(
 
     let mut vcs_panel_items = vec![];
     vcs_panel_items.push(PanelItem {
-        label: "Go to latest version".to_owned(),
+        label: PanelItemLabel::Plaintext("Go to latest version".to_owned()),
         tooltip: "Open the latest revision-agnostic link of the current file".to_owned(),
         id: "panel-vcs-latest",
         link: format!("/{}/source/{}", tree_name, encoded_path),
@@ -1213,7 +1264,7 @@ fn format_blob(
         .map(|hg_root| format!("{}/log/{}/{}", hg_root, hg_rev, encoded_path));
     if let Some(link) = gh_log_link {
         vcs_panel_items.push(PanelItem {
-            label: "Git log".to_owned(),
+            label: PanelItemLabel::Plaintext("Git log".to_owned()),
             tooltip: "Open git log of the current file".to_owned(),
             id: "panel-log-git",
             link,
@@ -1224,7 +1275,7 @@ fn format_blob(
     }
     if let Some(link) = hg_log_link {
         vcs_panel_items.push(PanelItem {
-            label: "Mercurial log".to_owned(),
+            label: PanelItemLabel::Plaintext("Mercurial log".to_owned()),
             tooltip: "Open mercurial log of the current file".to_owned(),
             id: "panel-log-hg",
             link,
@@ -1240,7 +1291,7 @@ fn format_blob(
             .make_raw_resource_rev_url(&commit.id().to_string(), hg_rev, path)
     {
         vcs_panel_items.push(PanelItem {
-            label: "Raw".to_owned(),
+            label: PanelItemLabel::Plaintext("Raw".to_owned()),
             tooltip: "Open a raw file of the current file".to_owned(),
             id: "panel-raw",
             link,
@@ -1252,7 +1303,7 @@ fn format_blob(
 
     if tree_config.paths.git_blame_path.is_some() {
         vcs_panel_items.push(PanelItem {
-            label: "Blame".to_owned(),
+            label: PanelItemLabel::Plaintext("Blame".to_owned()),
             tooltip: "Hover over the gray bar on the left to see blame information".to_owned(),
             id: "panel-blame",
             link:
@@ -1275,7 +1326,7 @@ fn format_blob(
     format_file_data(
         cfg,
         tree_name,
-        &panel,
+        panel,
         "".to_string(),
         &Some(commit),
         BreadcrumbsLinksTo::Historical,
@@ -1293,7 +1344,7 @@ fn format_blob(
 pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
     let mut markdown_panel_items = vec![];
     markdown_panel_items.push(PanelItem {
-        label: "Filename Link".to_owned(),
+        label: PanelItemLabel::Plaintext("Filename Link".to_owned()),
         tooltip: "Copy a Markdown link to clipboard, with the filename".to_owned(),
         id: "panel-copy-filename-link",
         link: String::new(),
@@ -1303,7 +1354,7 @@ pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
     });
     if add_symbol_link {
         markdown_panel_items.push(PanelItem {
-            label: "Symbol Link".to_owned(),
+            label: PanelItemLabel::Plaintext("Symbol Link".to_owned()),
             tooltip: "Copy a Markdown link to clipboard, with the selected symbol".to_owned(),
             id: "panel-copy-symbol-link",
             link: String::new(),
@@ -1313,7 +1364,7 @@ pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
         });
     }
     markdown_panel_items.push(PanelItem {
-        label: "Code Block".to_owned(),
+        label: PanelItemLabel::Plaintext("Code Block".to_owned()),
         tooltip: "Copy a Markdown code block of the selected code to clipboard".to_owned(),
         id: "panel-copy-code-block",
         link: String::new(),
@@ -1484,13 +1535,13 @@ pub fn format_diff(
     // the file symbol should never contain the platform.
     let file_syms = vec![make_file_sym_from_path(path)];
 
-    output::generate_breadcrumbs(&opt, writer, path, &file_syms, false, None, false)?;
+    output::generate_breadcrumbs(&opt, writer, path, &file_syms, false)?;
 
     let encoded_path = url_encode_path(path);
 
     let mut vcs_panel_items = vec![
         PanelItem {
-            label: "Show changeset".to_owned(),
+            label: PanelItemLabel::Plaintext("Show changeset".to_owned()),
             tooltip: "Open the changeset information hosted on searchfox".to_owned(),
             id: "panel-vcs-changeset",
             link: format!("/{}/commit/{}", tree_name, rev),
@@ -1499,7 +1550,7 @@ pub fn format_diff(
             copyable: true,
         },
         PanelItem {
-            label: "Show file without diff".to_owned(),
+            label: PanelItemLabel::Plaintext("Show file without diff".to_owned()),
             tooltip: "Open the last revision without the current diff".to_owned(),
             id: "panel-vcs-without-diff",
             link: format!("/{}/rev/{}/{}", tree_name, rev, encoded_path),
@@ -1508,7 +1559,7 @@ pub fn format_diff(
             copyable: true,
         },
         PanelItem {
-            label: "Go to latest version".to_owned(),
+            label: PanelItemLabel::Plaintext("Go to latest version".to_owned()),
             tooltip: "Open the latest revision-agnostic link of the current file".to_owned(),
             id: "panel-vcs-latest",
             link: format!("/{}/source/{}", tree_name, encoded_path),
@@ -1533,7 +1584,7 @@ pub fn format_diff(
         .map(|hg_root| format!("{}/log/default/{}", hg_root, encoded_path));
     if let Some(link) = gh_log_link {
         vcs_panel_items.push(PanelItem {
-            label: "Git log".to_owned(),
+            label: PanelItemLabel::Plaintext("Git log".to_owned()),
             tooltip: "Open git log of the current file".to_owned(),
             id: "panel-log-git",
             link,
@@ -1544,7 +1595,7 @@ pub fn format_diff(
     }
     if let Some(link) = hg_log_link {
         vcs_panel_items.push(PanelItem {
-            label: "Mercurial log".to_owned(),
+            label: PanelItemLabel::Plaintext("Mercurial log".to_owned()),
             tooltip: "Open mercurial log of the current file".to_owned(),
             id: "panel-log-hg",
             link,
@@ -1842,7 +1893,7 @@ pub fn format_commit(
 
     output::generate_header(&opt, writer)?;
 
-    output::generate_breadcrumbs(&opt, writer, "", &[], false, None, false)?;
+    output::generate_breadcrumbs(&opt, writer, "", &[], false)?;
 
     output::generate_panel(&opt, writer, &[], true)?;
 

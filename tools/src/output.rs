@@ -1,16 +1,13 @@
+use std::path::Path;
 /**
  * Common rust HTML output logic.
  **/
-use std::io::Write;
-use std::path::Path;
+use std::{borrow::Cow, io::Write};
 
 use chrono::{DateTime, FixedOffset, Local};
 use serde::Serialize;
 
-use crate::{
-    file_format::code_coverage_report, templating::builder::build_and_parse_coverage_graph_toggle,
-    url_encode_path::url_encode_path,
-};
+use crate::url_encode_path::url_encode_path;
 
 /// Selects where breadcrumbs links should point to
 /// NOTE: This can't decided solely based on the value of Options::revision because main source code display also has a revision set in most cases.
@@ -76,8 +73,6 @@ pub fn generate_breadcrumbs(
     path: &str,
     file_syms: &[String],
     generate_symbol: bool,
-    coverage: Option<code_coverage_report::NodeMetadata>,
-    has_coverage_history: bool,
 ) -> Result<(), &'static str> {
     let mut breadcrumbs = format!("<a href=\"{}\">{}</a>", file_url(opt, ""), opt.tree_name);
 
@@ -104,16 +99,6 @@ pub fn generate_breadcrumbs(
             "  <span data-symbols=\"{}\">(file symbol)</span>",
             file_syms.join(","),
         ));
-    }
-
-    if has_coverage_history {
-        let template = build_and_parse_coverage_graph_toggle();
-        let coverage_toggle = template
-            .render(&liquid::object!({
-                "coverage": coverage,
-            }))
-            .or(Err("Template problems"))?;
-        breadcrumbs.push_str(&coverage_toggle);
     }
 
     writeln!(*writer, "<div class=\"breadcrumbs\">{}</div>", breadcrumbs)
@@ -375,8 +360,36 @@ pub fn generate_footer(
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PanelItemLabel {
+    Plaintext(String),
+    Html(String),
+}
+
+impl PanelItemLabel {
+    pub fn as_html<'a>(&'a self) -> Cow<'a, String> {
+        use PanelItemLabel::*;
+        match self {
+            Plaintext(plaintext) => Cow::Owned(
+                plaintext
+                    .replace('&', "&amp;")
+                    .replace('<', "&lt;")
+                    .replace('>', "&gt;"),
+            ),
+            Html(html) => Cow::Borrowed(html),
+        }
+    }
+}
+
+impl std::fmt::Display for PanelItemLabel {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str(&self.as_html())
+    }
+}
+
+#[derive(Serialize)]
 pub struct PanelItem {
-    pub label: String,
+    pub label: PanelItemLabel,
     pub tooltip: String,
     pub id: &'static str,
     pub link: String,

@@ -19,13 +19,12 @@ var CoverageGraph = new (class CoverageGraph {
   }
 
   constructor() {
-    this.toggleButton = document.querySelector("#coverage-graph-toggle");
     this.sparkline = document.querySelector("#coverage-sparkline");
     this.graph = document.querySelector("#coverage-graph");
     this.history = document.querySelector("#coverage-history");
     const dateEl = document.querySelector("#rev-id time");
 
-    if (!this.toggleButton || !this.sparkline || !this.graph || !this.history || !dateEl) {
+    if (!this.sparkline || !this.graph || !this.history || !dateEl) {
       return;
     }
 
@@ -150,7 +149,7 @@ var CoverageGraph = new (class CoverageGraph {
       return;
     }
 
-    const width = 150;
+    const width = 100;
     const height = 18;
     const padding = 0;
 
@@ -218,7 +217,7 @@ var CoverageGraph = new (class CoverageGraph {
 
   drawGraph() {
     const width = this.graph.getBoundingClientRect().width;
-    const height = 200;
+    const height = 300;
     const padding = 30;
 
     const [svg, x, y] = this.makeSvg(this.graph, width, height, padding);
@@ -263,24 +262,8 @@ var CoverageGraph = new (class CoverageGraph {
       })
   }
 
-  toggle() {
-    // NOTE: Element.ariaExpanded is _always_ a string.
-    const isOpen = this.toggleButton.ariaExpanded === "true";
-
-    if (isOpen) {
-      this.toggleButton.ariaExpanded = "false";
-      this.graph.classList.add("hidden");
-      this.graph.innerHTML = "";
-      d3.select(window).on('resize.updatesvg', null);
-      return;
-    }
-
-    if (Panel.isExpanded()) {
-      Panel.toggle();
-    }
-
-    this.toggleButton.ariaExpanded = "true";
-    this.graph.classList.remove("hidden");
+  open() {
+    this.graph.showModal();
     this.drawGraph();
     d3.select(window).on('resize.updatesvg', () => this.drawGraph());
   }
