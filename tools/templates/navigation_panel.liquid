@@ -40,7 +40,7 @@
                if item.update_link_lineno != ""
                %} data-update-link="{{item.update_link_lineno | escape}}" data-link="{{item.link | escape}}}"{%
                endif
-               %}>{{item.label | escape}}{%
+               %}>{%- if item.label.plaintext -%}{{ item.label.plaintext | escape }}{%- else -%}{{ item.label.html }}{%- endif -%}{%
         if item.copyable
         %}<button class="copy" title="Copy to clipboard"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button>{%
         endif

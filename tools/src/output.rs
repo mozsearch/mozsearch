@@ -1,8 +1,8 @@
+use std::path::Path;
 /**
  * Common rust HTML output logic.
  **/
-use std::io::Write;
-use std::path::Path;
+use std::{borrow::Cow, io::Write};
 
 use chrono::{DateTime, FixedOffset, Local};
 use serde::Serialize;
@@ -375,8 +375,36 @@ pub fn generate_footer(
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PanelItemLabel {
+    Plaintext(String),
+    Html(String),
+}
+
+impl PanelItemLabel {
+    pub fn as_html<'a>(&'a self) -> Cow<'a, String> {
+        use PanelItemLabel::*;
+        match self {
+            Plaintext(plaintext) => Cow::Owned(
+                plaintext
+                    .replace('&', "&amp;")
+                    .replace('<', "&lt;")
+                    .replace('>', "&gt;"),
+            ),
+            Html(html) => Cow::Borrowed(html),
+        }
+    }
+}
+
+impl std::fmt::Display for PanelItemLabel {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str(&self.as_html())
+    }
+}
+
+#[derive(Serialize)]
 pub struct PanelItem {
-    pub label: String,
+    pub label: PanelItemLabel,
     pub tooltip: String,
     pub id: &'static str,
     pub link: String,
