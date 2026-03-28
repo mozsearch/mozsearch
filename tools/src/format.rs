@@ -27,7 +27,9 @@ use crate::file_format::analysis::{
     AnalysisSource, ExpansionInfo, WithLocation, collect_file_syms_from_source,
 };
 use crate::file_format::config::{Config, GitData, TreeConfig, extract_info_from_blame_commit};
-use crate::output::{self, BreadcrumbsLinksTo, F, Options, PanelItem, PanelSection, RevisionData};
+use crate::output::{
+    self, BreadcrumbsLinksTo, F, Options, PanelItem, PanelItemLabel, PanelSection, RevisionData,
+};
 use crate::url_encode_path::url_encode_path;
 
 use git2::{Oid, Repository, Tree, TreeEntry};
@@ -1105,7 +1107,7 @@ fn format_tree(
     let panel = vec![PanelSection {
         name: "Revision control".to_owned(),
         items: vec![PanelItem {
-            label: "Go to latest revision".to_owned(),
+            label: PanelItemLabel::Plaintext("Go to latest revision".to_owned()),
             tooltip: "Open the latest revision-agnostic link of the current file".to_owned(),
             id: "panel-vcs-latest",
             link: format!("/{}/source/{}", tree_name, path.to_string_lossy()),
@@ -1192,7 +1194,7 @@ fn format_blob(
 
     let mut vcs_panel_items = vec![];
     vcs_panel_items.push(PanelItem {
-        label: "Go to latest version".to_owned(),
+        label: PanelItemLabel::Plaintext("Go to latest version".to_owned()),
         tooltip: "Open the latest revision-agnostic link of the current file".to_owned(),
         id: "panel-vcs-latest",
         link: format!("/{}/source/{}", tree_name, encoded_path),
@@ -1213,7 +1215,7 @@ fn format_blob(
         .map(|hg_root| format!("{}/log/{}/{}", hg_root, hg_rev, encoded_path));
     if let Some(link) = gh_log_link {
         vcs_panel_items.push(PanelItem {
-            label: "Git log".to_owned(),
+            label: PanelItemLabel::Plaintext("Git log".to_owned()),
             tooltip: "Open git log of the current file".to_owned(),
             id: "panel-log-git",
             link,
@@ -1224,7 +1226,7 @@ fn format_blob(
     }
     if let Some(link) = hg_log_link {
         vcs_panel_items.push(PanelItem {
-            label: "Mercurial log".to_owned(),
+            label: PanelItemLabel::Plaintext("Mercurial log".to_owned()),
             tooltip: "Open mercurial log of the current file".to_owned(),
             id: "panel-log-hg",
             link,
@@ -1240,7 +1242,7 @@ fn format_blob(
             .make_raw_resource_rev_url(&commit.id().to_string(), hg_rev, path)
     {
         vcs_panel_items.push(PanelItem {
-            label: "Raw".to_owned(),
+            label: PanelItemLabel::Plaintext("Raw".to_owned()),
             tooltip: "Open a raw file of the current file".to_owned(),
             id: "panel-raw",
             link,
@@ -1252,7 +1254,7 @@ fn format_blob(
 
     if tree_config.paths.git_blame_path.is_some() {
         vcs_panel_items.push(PanelItem {
-            label: "Blame".to_owned(),
+            label: PanelItemLabel::Plaintext("Blame".to_owned()),
             tooltip: "Hover over the gray bar on the left to see blame information".to_owned(),
             id: "panel-blame",
             link:
@@ -1293,7 +1295,7 @@ fn format_blob(
 pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
     let mut markdown_panel_items = vec![];
     markdown_panel_items.push(PanelItem {
-        label: "Filename Link".to_owned(),
+        label: PanelItemLabel::Plaintext("Filename Link".to_owned()),
         tooltip: "Copy a Markdown link to clipboard, with the filename".to_owned(),
         id: "panel-copy-filename-link",
         link: String::new(),
@@ -1303,7 +1305,7 @@ pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
     });
     if add_symbol_link {
         markdown_panel_items.push(PanelItem {
-            label: "Symbol Link".to_owned(),
+            label: PanelItemLabel::Plaintext("Symbol Link".to_owned()),
             tooltip: "Copy a Markdown link to clipboard, with the selected symbol".to_owned(),
             id: "panel-copy-symbol-link",
             link: String::new(),
@@ -1313,7 +1315,7 @@ pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
         });
     }
     markdown_panel_items.push(PanelItem {
-        label: "Code Block".to_owned(),
+        label: PanelItemLabel::Plaintext("Code Block".to_owned()),
         tooltip: "Copy a Markdown code block of the selected code to clipboard".to_owned(),
         id: "panel-copy-code-block",
         link: String::new(),
@@ -1490,7 +1492,7 @@ pub fn format_diff(
 
     let mut vcs_panel_items = vec![
         PanelItem {
-            label: "Show changeset".to_owned(),
+            label: PanelItemLabel::Plaintext("Show changeset".to_owned()),
             tooltip: "Open the changeset information hosted on searchfox".to_owned(),
             id: "panel-vcs-changeset",
             link: format!("/{}/commit/{}", tree_name, rev),
@@ -1499,7 +1501,7 @@ pub fn format_diff(
             copyable: true,
         },
         PanelItem {
-            label: "Show file without diff".to_owned(),
+            label: PanelItemLabel::Plaintext("Show file without diff".to_owned()),
             tooltip: "Open the last revision without the current diff".to_owned(),
             id: "panel-vcs-without-diff",
             link: format!("/{}/rev/{}/{}", tree_name, rev, encoded_path),
@@ -1508,7 +1510,7 @@ pub fn format_diff(
             copyable: true,
         },
         PanelItem {
-            label: "Go to latest version".to_owned(),
+            label: PanelItemLabel::Plaintext("Go to latest version".to_owned()),
             tooltip: "Open the latest revision-agnostic link of the current file".to_owned(),
             id: "panel-vcs-latest",
             link: format!("/{}/source/{}", tree_name, encoded_path),
@@ -1533,7 +1535,7 @@ pub fn format_diff(
         .map(|hg_root| format!("{}/log/default/{}", hg_root, encoded_path));
     if let Some(link) = gh_log_link {
         vcs_panel_items.push(PanelItem {
-            label: "Git log".to_owned(),
+            label: PanelItemLabel::Plaintext("Git log".to_owned()),
             tooltip: "Open git log of the current file".to_owned(),
             id: "panel-log-git",
             link,
@@ -1544,7 +1546,7 @@ pub fn format_diff(
     }
     if let Some(link) = hg_log_link {
         vcs_panel_items.push(PanelItem {
-            label: "Mercurial log".to_owned(),
+            label: PanelItemLabel::Plaintext("Mercurial log".to_owned()),
             tooltip: "Open mercurial log of the current file".to_owned(),
             id: "panel-log-hg",
             link,
