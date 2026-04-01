@@ -208,6 +208,10 @@ var BlamePopup = new (class BlamePopup {
 
     if (elt.classList.contains("cov-no-data")) {
       content += `There is no coverage data for this file.`;
+      if (document.getElementById("panel-coverage") !== null) {
+        content += "<br>";
+        content += "Find coverage for other revisions from the Navigation panel.";
+      }
     } else if (elt.classList.contains("cov-unknown")) {
       content += `There was coverage data for this file but not for this line.`;
     } else if (elt.classList.contains("cov-interpolated")) {
