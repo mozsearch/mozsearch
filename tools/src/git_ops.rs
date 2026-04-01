@@ -1,5 +1,4 @@
 use git2::{Commit, Object, Repository, TreeEntry};
-use itertools::Itertools;
 use serde::Serialize;
 use std::{
     path::{Path, PathBuf},
@@ -150,66 +149,6 @@ pub fn coverage_summary_for_head(
     let coverage_rev = format!("refs/tags/reverse/all/all/{}", head_oid);
 
     coverage_summary(git_data, &coverage_rev, path)
-}
-
-#[derive(Serialize, Default, Debug)]
-pub struct CoverageNavigation {
-    pub previous: Option<String>,
-    pub next: Option<String>,
-    pub latest: Option<String>,
-}
-
-/// Returns the previous, next and latest commit ids (in the main repository) for which coverage data is available for the given path.
-pub fn coverage_navigation(
-    git_data: Option<&GitData>,
-    path: impl AsRef<Path>,
-    rev: git2::Oid,
-) -> Option<CoverageNavigation> {
-    let path = path.as_ref();
-    let git = git_data?;
-
-    let main_repo = &git.repo;
-    let coverage_repo = git.coverage_repo.as_ref()?;
-    let main_commit = main_repo.find_commit(rev).ok()?;
-
-    let mut revwalk = coverage_repo.revwalk().ok()?;
-    revwalk.set_sorting(git2::Sort::TIME).ok()?;
-    revwalk.push_head().ok()?;
-
-    let mut revwalk = revwalk
-        .flatten()
-        .flat_map(|oid| coverage_repo.find_commit(oid).ok())
-        .filter(|commit| {
-            path == ""
-                || commit
-                    .tree()
-                    .ok()
-                    .is_some_and(|tree| tree.get_path(path).is_ok())
-        })
-        .peekable();
-    // We want the later_coverage and previous_coverage iterators below to advance the same underlying iterator.
-    let revwalk = revwalk.by_ref();
-
-    let mut later_coverage = revwalk.peeking_take_while(|coverage_commit| {
-        coverage_commit.committer().when() > main_commit.committer().when()
-    });
-    let latest_coverage = later_coverage.next();
-    let next_coverage = later_coverage.last();
-
-    let mut earlier_coverage = revwalk.skip_while(|coverage_commit| {
-        coverage_commit.committer().when() >= main_commit.committer().when()
-    });
-    let previous_coverage = earlier_coverage.next();
-
-    let main_repo_oid = |coverage_commit: Option<git2::Commit>| {
-        coverage_commit.and_then(|coverage_commit| coverage_commit.message().map(ToOwned::to_owned))
-    };
-
-    Some(CoverageNavigation {
-        previous: main_repo_oid(previous_coverage),
-        next: main_repo_oid(next_coverage),
-        latest: main_repo_oid(latest_coverage),
-    })
 }
 
 #[derive(Serialize, Debug)]
