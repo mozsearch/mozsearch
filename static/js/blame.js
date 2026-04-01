@@ -204,25 +204,27 @@ var BlamePopup = new (class BlamePopup {
   }
 
   async generateCoverageContent(elt) {
-    let content;
+    let content = "<div>";
 
     if (elt.classList.contains("cov-no-data")) {
-      content = `<div>There is no coverage data for this file.</div>`;
+      content += `There is no coverage data for this file.`;
     } else if (elt.classList.contains("cov-unknown")) {
-      content = `<div>There was coverage data for this file but not for this line.</div>`;
+      content += `There was coverage data for this file but not for this line.`;
     } else if (elt.classList.contains("cov-interpolated")) {
-      content =
-        `<div>This line wasn't instrumented for coverage, but we ` +
+      content +=
+        `This line wasn't instrumented for coverage, but we ` +
         `interpolated coverage for this line to make it visually less ` +
-        `distracting.</div>`;
+        `distracting.`;
     } else if (elt.classList.contains("cov-uncovered")) {
-      content = `<div>This line wasn't instrumented for coverage.</div>`;
+      content += `This line wasn't instrumented for coverage.`;
     } else {
       const hitCount = parseInt(elt.dataset.coverage, 10);
-      content =
-        `<div>This line was hit ${hitCount} times per coverage ` +
-        `instrumentation.<div>`;
+      content +=
+        `This line was hit ${hitCount} times per coverage ` +
+        `instrumentation.`;
     }
+
+    content += "</div>";
 
     return content;
   }
