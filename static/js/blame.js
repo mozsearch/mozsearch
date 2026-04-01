@@ -74,6 +74,8 @@ var BlamePopup = new (class BlamePopup {
       return;
     }
 
+    // Latch the current element in case by the time our fetch comes back it's
+    // no longer the current one.
     const elt = this.triggerElement;
     let content;
 
@@ -97,6 +99,7 @@ var BlamePopup = new (class BlamePopup {
     }
 
     const isExpansion = typeof elt.dataset.expansions !== 'undefined' && elt.dataset.expansions !== null;
+    const isAnnotate = !!elt.dataset.blame;
     if (isExpansion) {
       content = await this.generateExpansionContent(elt);
       let rect = elt.getBoundingClientRect();
@@ -119,21 +122,25 @@ var BlamePopup = new (class BlamePopup {
       top = rect.bottom + window.scrollY;
       left = rect.left + window.scrollX;
     } else {
-      // this.triggerElement can be the .cov-strip or .blame-strip element.
-      // Get their parent .line-strip and find the other one.
-      const lineElt = this.triggerElement.closest(".line-strip");
-      const covElt = lineElt.querySelector(".cov-strip");
-      const blameElt = lineElt.querySelector(".blame-strip");
+      // The coverage and annotate strips are adjacent and it would be bad UX for
+      // hovering over the coverage strip to occlude the annotate strip, so we
+      // adjust the coverage elements to use the annotate element for positioning.
+      let hoverRightOfElt;
 
-      content = "";
-      // In the diff view we don't have coverage data.
-      if (covElt !== null) {
-        content += await this.generateCoverageContent(covElt);
-        content += "<hr>";
+      if (isAnnotate) {
+        content = await this.generateAnnotateContent(elt);
+        hoverRightOfElt = elt;
+      } else {
+        content = await this.generateCoverageContent(elt);
+        // This obviously assumes the known hard-coded DOM from `format.rs`.
+        hoverRightOfElt = elt.parentElement.nextElementSibling?.firstElementChild;
       }
-      content += await this.generateAnnotateContent(blameElt);
 
-      let rect = lineElt.getBoundingClientRect();
+      if (!hoverRightOfElt) {
+        return;
+      }
+
+      let rect = hoverRightOfElt.getBoundingClientRect();
       top = rect.top + window.scrollY;
       left = rect.right + window.scrollX;
     }
@@ -148,10 +155,8 @@ var BlamePopup = new (class BlamePopup {
     // This also works, but transform doesn't even require layout.
     // this.popup.style.left = left + "px";
     // this.popup.style.top = top + "px";
-    this.popup.innerHTML = content;
-    const blameContent = this.popup.querySelector(".blame-entry");
-    top -= blameContent ? blameContent.offsetTop : 0;
     this.popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
+    this.popup.innerHTML = content;
     this.popupOwner = this.triggerElement;
     // We set aria-owns on the parent role=cell instead of the button.
     this.popupOwner.parentNode.setAttribute("aria-owns", "blame-popup");
@@ -165,7 +170,11 @@ var BlamePopup = new (class BlamePopup {
     }
 
     if (!isExpansion && !isGC) {
-      this.showCoverageStripDetails();
+      if (isAnnotate) {
+        this.hideCoverageStripDetails();
+      } else {
+        this.showCoverageStripDetails();
+      }
     }
   }
 
@@ -195,42 +204,25 @@ var BlamePopup = new (class BlamePopup {
   }
 
   async generateCoverageContent(elt) {
-    let content = `<p class="coverage-entry">`;
+    let content;
 
     if (elt.classList.contains("cov-no-data")) {
-      content += `There is no coverage data for this file.`;
+      content = `<div>There is no coverage data for this file.</div>`;
     } else if (elt.classList.contains("cov-unknown")) {
-      content += `There was coverage data for this file but not for this line.`;
+      content = `<div>There was coverage data for this file but not for this line.</div>`;
     } else if (elt.classList.contains("cov-interpolated")) {
-      content +=
-        `This line wasn't instrumented for coverage, but we ` +
+      content =
+        `<div>This line wasn't instrumented for coverage, but we ` +
         `interpolated coverage for this line to make it visually less ` +
-        `distracting.`;
+        `distracting.</div>`;
     } else if (elt.classList.contains("cov-uncovered")) {
-      content += `This line wasn't instrumented for coverage.`;
+      content = `<div>This line wasn't instrumented for coverage.</div>`;
     } else {
       const hitCount = parseInt(elt.dataset.coverage, 10);
-      content +=
-        `This line was hit ${hitCount} times per coverage ` +
-        `instrumentation.`;
+      content =
+        `<div>This line was hit ${hitCount} times per coverage ` +
+        `instrumentation.<div>`;
     }
-
-    const makeLink = (revision) =>  {
-      const data = document.getElementById("data");
-      const path = data.dataset.path;
-      const tree = data.dataset.tree;
-      return `/${tree}/rev/${revision}/${path}`;
-    };
-
-    const data = document.getElementById("coverage-navigation").dataset;
-    if ("previous" in data)
-      content += `<br><a href="${makeLink(data.previous)}">Show previous file revision with coverage</a>`;
-    if ("next" in data)
-      content += `<br><a href="${makeLink(data.next)}">Show next file revision with coverage</a>`;
-    if ("latest" in data)
-      content += `<br><a href="${makeLink(data.latest)}">Show latest file revision with coverage</a>`;
-
-    content += `</p>`;
 
     return content;
   }
@@ -247,10 +239,6 @@ var BlamePopup = new (class BlamePopup {
     const path = data.getAttribute("data-path");
     const tree = data.getAttribute("data-tree");
 
-    // Latch the current element in case by the time our fetch comes back it's
-    // no longer the current one.
-    const triggerElement = this.triggerElement;
-
     if (this.prevRevs != revs) {
       let response = await fetch(`/${tree}/commit-info/${revs}`);
       this.prevJson = await response.json();
@@ -259,7 +247,7 @@ var BlamePopup = new (class BlamePopup {
 
     // If the request was too slow, we may no longer want to display blame for
     // this element, bail.
-    if (this.triggerElement != triggerElement) {
+    if (this.triggerElement != elt) {
       return;
     }
 
@@ -284,7 +272,7 @@ var BlamePopup = new (class BlamePopup {
 
       let rendered = "";
       let revPath = filespecList[i] == "%" ? path : filespecList[i];
-      rendered += `<p class="blame-entry">`;
+      rendered += `<div class="blame-entry">`;
       rendered += json[i].header;
 
       let diffLink = `/${tree}/diff/${revList[i]}/${revPath}#${linenoList[i]}`;
@@ -319,7 +307,7 @@ var BlamePopup = new (class BlamePopup {
 
       let revLink = `/${tree}/rev/${revList[i]}/${revPath}#${linenoList[i]}`;
       rendered += `<br><a href="${encodeURI(revLink)}" class="deemphasize">Show earliest version with this line</a>`;
-      rendered += "</p>";
+      rendered += "</div>";
 
       if (i < revList.length - 1) {
         ignored.push(rendered);

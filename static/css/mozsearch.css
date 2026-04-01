@@ -1256,9 +1256,6 @@ span[data-symbols].selected {
 }
 
 /* ## Blame ## */
-.line-strip {
-  display: flex;
-}
 .blame-strip {
   display: block;
   width: 20px;
@@ -1315,9 +1312,6 @@ span[data-symbols].selected {
   white-space: pre;
   max-height: 80vh;
   overflow-y: scroll;
-}
-.blame-popup p {
-  margin: 0;
 }
 .deemphasize {
   color: GrayText;
