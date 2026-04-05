@@ -1501,26 +1501,26 @@ class Graph {
   }
 }
 
-var GRAPH_EXTRA = [];
+if (typeof GRAPH_INPUT !== "undefined") {
+  window.addEventListener("load", () => {
+    // Make the page fit the content area, so that no scrollbar is shown.
+    document.documentElement.classList.add("for-interactive-graph");
 
-window.addEventListener("load", () => {
-  // Make the page fit the content area, so that no scrollbar is shown.
-  document.documentElement.classList.add("for-interactive-graph");
-
-  let sources = [];
-  let targets = [];
-  for (const { items } of GRAPH_OPTIONS) {
-    for (const item of items) {
-      if (item.name === "*syms*") {
-        sources = item.sources;
-        targets = item.targets;
+    let sources = [];
+    let targets = [];
+    for (const { items } of GRAPH_OPTIONS) {
+      for (const item of items) {
+        if (item.name === "*syms*") {
+          sources = item.sources;
+          targets = item.targets;
+        }
       }
     }
-  }
 
-  new Graph(
-    document.querySelector("#interactive-graph-viewport"),
-    document.querySelector("#interactive-graph-container"),
-    GRAPH_INPUT[0], sources, targets,
-    GRAPH_EXTRA);
-}, { once: true });
+    new Graph(
+      document.querySelector("#interactive-graph-viewport"),
+      document.querySelector("#interactive-graph-container"),
+      GRAPH_INPUT[0], sources, targets,
+      GRAPH_EXTRA);
+  }, { once: true });
+}
