@@ -389,9 +389,10 @@ class GridLayout {
   }
 }
 
-// Construct a graph for the given input data.
-class Graph {
-  constructor(viewport, container, input, sources, targets, extraList) {
+class PanAndZoom {
+  constructor(viewport, container, size) {
+    document.documentElement.classList.add("with-pan-and-zoom");
+
     this.viewport = viewport;
     this.graphContainer = container;
 
@@ -406,6 +407,309 @@ class Graph {
 
     this.appliedZoom = 1;
     this.appliedTranslation = { x: 0, y: 0 };
+
+    this.size = size;
+
+    this.needInitialFitToViewport = true;
+
+    this.addEventListeners();
+
+    this.initialFitToViewport();
+
+    this.addButtons();
+  }
+
+  // Try to fit the graph to the viewport.
+  //
+  // At this point, the viewport may still be zero-size.
+  // In that case, try again after the resize.
+  // See the ResizeObserver in the addEventListeners method.
+  initialFitToViewport() {
+    if (this.viewportSize.x === 0 ||
+        this.viewportSize.y === 0) {
+      return;
+    }
+    this.needInitialFitToViewport = false;
+    this.fitToViewport(1);
+  }
+
+  // Apply pan and zoom, to make the graph fit to the viewport.
+  fitToViewport(maxZoom, useTransition=false) {
+    this.zoom = this.clampZoom(Math.min(this.viewportSize.x / this.size.x,
+                                        this.viewportSize.y / this.size.y,
+                                        maxZoom));
+    this.translation.x = (this.viewportSize.x - this.size.x * this.zoom) / 2;
+    this.translation.y = (this.viewportSize.y - this.size.y * this.zoom) / 2;
+
+    const clampedT = this.clampTranslation(this.translation, this.zoom);
+    this.translation.x = clampedT.x;
+    this.translation.y = clampedT.y;
+
+    this.updatePanAndZoom(useTransition);
+  }
+
+  // Zoom by given ratio, using cx and cy as the center of the zoom operation.
+  // If cx and cy are not provided, treat it as the zoom operation at the
+  // center of the viewport.
+  zoomBy(ratio, cx = undefined, cy = undefined) {
+    const oldZoom = this.zoom;
+    this.zoom = this.clampZoom(this.zoom * ratio);
+
+    if (cx === undefined) {
+      cx = this.viewportSize.x / 2;
+    }
+    if (cy === undefined) {
+      cy = this.viewportSize.y / 2;
+    }
+    const dx = this.translation.x - cx;
+    const dy = this.translation.y - cy;
+    this.translation.x = cx + dx * this.zoom / oldZoom;
+    this.translation.y = cy + dy * this.zoom / oldZoom;
+
+    const clampedT = this.clampTranslation(this.translation, this.zoom);
+    this.translation.x = clampedT.x;
+    this.translation.y = clampedT.y;
+  }
+
+  // Translate by given offset.
+  translateBy(dx, dy) {
+    this.translation.x += dx;
+    this.translation.y += dy;
+
+    const clampedT = this.clampTranslation(this.translation, this.zoom);
+    this.translation.x = clampedT.x;
+    this.translation.y = clampedT.y;
+  }
+
+  // Show buttons for zoom operation.
+  addButtons() {
+    const buttons = document.createElement("div");
+    buttons.classList.add("interactive-graph-buttons");
+
+    const zoomIn = document.createElement("button");
+    zoomIn.classList.add("interactive-graph-button-zoom-in");
+    zoomIn.append("+");
+    zoomIn.addEventListener("click", e => {
+      e.preventDefault();
+      this.zoomBy(1.5);
+      this.updatePanAndZoom(true);
+    });
+    buttons.append(zoomIn);
+
+    const zoomOut = document.createElement("button");
+    zoomOut.classList.add("interactive-graph-button-zoom-out");
+    zoomOut.append("-");
+    zoomOut.addEventListener("click", e => {
+      e.preventDefault();
+      this.zoomBy(1 / 1.5);
+      this.updatePanAndZoom(true);
+    });
+    buttons.append(zoomOut);
+
+    const fit = document.createElement("button");
+    fit.classList.add("interactive-graph-button-fit");
+    fit.append("Fit");
+    fit.addEventListener("click", e => {
+      e.preventDefault();
+      this.fitToViewport(1, true);
+    });
+    buttons.append(fit);
+
+    document.body.append(buttons);
+  }
+
+  // The following code is copied from iongraph main.js,
+  // with some modifications.
+
+  // Add event listeners for pan and zoom operations.
+  addEventListeners() {
+    this.viewport.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      let newZoom = this.zoom;
+      if (e.ctrlKey) {
+        newZoom = this.clampZoom(this.zoom * Math.pow(ZOOM_SENSITIVITY, -e.deltaY * WHEEL_DELTA_SCALE));
+        const zoomDelta = newZoom / this.zoom - 1;
+        this.zoom = newZoom;
+        const { x: gx, y: gy } = this.viewport.getBoundingClientRect();
+        const mouseOffsetX = e.clientX - gx - this.translation.x;
+        const mouseOffsetY = e.clientY - gy - this.translation.y;
+        this.translation.x -= mouseOffsetX * zoomDelta;
+        this.translation.y -= mouseOffsetY * zoomDelta;
+      } else {
+        this.translation.x -= e.deltaX;
+        this.translation.y -= e.deltaY;
+      }
+      const clampedT = this.clampTranslation(this.translation, newZoom);
+      this.translation.x = clampedT.x;
+      this.translation.y = clampedT.y;
+      this.updatePanAndZoom();
+    });
+
+    const pinchState = {
+      lastX: 0,
+      lastY: 0,
+      origR: 0,
+      origZoom: 1,
+      viewportX: 0,
+      viewportY: 0,
+    };
+    function calculatePinchInfo() {
+      let x = 0, y = 0, r = 0;
+      for (const info of pointerMap.values()) {
+        x += info.clientX;
+        y += info.clientY;
+      }
+      x = x / pointerMap.size;
+      y = y / pointerMap.size;
+      for (const info of pointerMap.values()) {
+        r += ((info.clientX - x) ** 2 +
+              (info.clientY - y) ** 2) ** 0.5;
+      }
+      r = r / pointerMap.size;
+      return { x, y, r };
+    }
+    const pointerMap = new Map();
+    this.viewport.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) {
+        return;
+      }
+      if (e.target.closest(".interactive-graph-block")) {
+        return;
+      }
+      if (e.target.closest(".edge")) {
+        return;
+      }
+      e.preventDefault();
+
+      ContextMenu.hide();
+      this.viewport.setPointerCapture(e.pointerId);
+      pointerMap.set(e.pointerId, {
+        clientX: e.clientX,
+        clientY: e.clientY,
+      });
+
+      if (pointerMap.size >= 2) {
+        const pinchInfo = calculatePinchInfo();
+        pinchState.lastX = pinchInfo.x;
+        pinchState.lastY = pinchInfo.y;
+        pinchState.origR = pinchInfo.r;
+        pinchState.origZoom = this.zoom;
+
+        const viewportRect = this.viewport.getBoundingClientRect();
+        pinchState.viewportX = viewportRect.x;
+        pinchState.viewportY = viewportRect.y;
+      }
+    });
+    this.viewport.addEventListener("pointermove", (e) => {
+      if (!this.viewport.hasPointerCapture(e.pointerId)) {
+        return;
+      }
+
+      if (!pointerMap.has(e.pointerId)) {
+        return;
+      }
+
+      const info = pointerMap.get(e.pointerId);
+      const last = {
+        clientX: info.clientX,
+        clientY: info.clientY,
+      };
+      info.clientX = e.clientX;
+      info.clientY = e.clientY;
+
+      if (pointerMap.size >= 2) {
+        const pinchInfo = calculatePinchInfo();
+
+        const scale = pinchInfo.r / pinchState.origR;
+
+        const dx = pinchInfo.x - pinchState.lastX;
+        const dy = pinchInfo.y - pinchState.lastY;
+
+        pinchState.lastX = pinchInfo.x;
+        pinchState.lastY = pinchInfo.y;
+
+        this.zoomBy(pinchState.origZoom * scale / this.zoom,
+                    pinchState.lastX - pinchState.viewportX,
+                    pinchState.lastY - pinchState.viewportY);
+        this.translateBy(dx, dy);
+        this.updatePanAndZoom();
+        return;
+      }
+
+      const dx = info.clientX - last.clientX;
+      const dy = info.clientY - last.clientY;
+
+      this.translateBy(dx, dy);
+      this.updatePanAndZoom();
+    });
+    const onEnd = e => {
+      pointerMap.delete(e.pointerId);
+      if (!this.viewport.hasPointerCapture(e.pointerId)) {
+        return;
+      }
+
+      this.viewport.releasePointerCapture(e.pointerId);
+    };
+
+    this.viewport.addEventListener("pointerup", onEnd);
+    this.viewport.addEventListener("pointercancel", onEnd);
+    const ro = new ResizeObserver((entries) => {
+      const rect = entries[0].contentRect;
+      this.viewportSize.x = rect.width;
+      this.viewportSize.y = rect.height;
+
+      if (this.needInitialFitToViewport) {
+        this.initialFitToViewport();
+      }
+    });
+    ro.observe(this.viewport);
+
+    this.viewport.addEventListener("dblclick", (e) => {
+      this.zoomBy(1.5, e.offsetX, e.offsetY);
+      this.updatePanAndZoom(true);
+    });
+  }
+
+  clampTranslation(t, scale) {
+    const minX = TRANSLATION_CLAMP_AMOUNT - this.size.x * scale;
+    const maxX = this.viewportSize.x - TRANSLATION_CLAMP_AMOUNT;
+    const minY = TRANSLATION_CLAMP_AMOUNT - this.size.y * scale;
+    const maxY = this.viewportSize.y - TRANSLATION_CLAMP_AMOUNT;
+    const newX = clamp(t.x, minX, maxX);
+    const newY = clamp(t.y, minY, maxY);
+    return { x: newX, y: newY };
+  }
+  clampZoom(z) {
+    return clamp(z, MIN_ZOOM, MAX_ZOOM);
+  }
+
+  updatePanAndZoom(useTransition=false) {
+    if (this.appliedZoom === this.zoom &&
+        this.appliedTranslation.x === this.translation.x &&
+        this.appliedTranslation.y === this.translation.y) {
+      return;
+    }
+
+    this.appliedZoom = this.zoom;
+    this.appliedTranslation.x = this.translation.x;
+    this.appliedTranslation.y = this.translation.y;
+
+    if (useTransition) {
+      this.graphContainer.style.transition = `transform 0.2s ease-out`;
+
+      this.graphContainer.addEventListener("transitionend", () => {
+        this.graphContainer.style.transition = "none";
+      }, { once: true });
+    }
+
+    this.graphContainer.style.transform = `translate(${Math.round(this.translation.x)}px, ${Math.round(this.translation.y)}px) scale(${this.zoom})`;
+  }
+}
+
+// Construct a graph for the given input data.
+class GraphRenderer {
+  constructor(container, input, sources, targets, extraList) {
+    this.graphContainer = container;
 
     this.blocks = [];
     this.edges = [];
@@ -442,15 +746,7 @@ class Graph {
 
     this.createLoopEdgeNodes();
 
-    this.needInitialFitToViewport = true;
-
     this.populateExtra(extraList);
-
-    this.addEventListeners();
-
-    this.initialFitToViewport();
-
-    this.addButtons();
   }
 
   // Create data objects for blocks and edges.
@@ -1213,299 +1509,10 @@ class Graph {
       p.after(dupe);
     }
   }
-
-  // Try to fit the graph to the viewport.
-  //
-  // At this point, the viewport may still be zero-size.
-  // In that case, try again after the resize.
-  // See the ResizeObserver in the addEventListeners method.
-  initialFitToViewport() {
-    if (this.viewportSize.x === 0 ||
-        this.viewportSize.y === 0) {
-      return;
-    }
-    this.needInitialFitToViewport = false;
-    this.fitToViewport(1);
-  }
-
-  // Apply pan and zoom, to make the graph fit to the viewport.
-  fitToViewport(maxZoom, useTransition=false) {
-    this.zoom = this.clampZoom(Math.min(this.viewportSize.x / this.size.x,
-                                        this.viewportSize.y / this.size.y,
-                                        maxZoom));
-    this.translation.x = (this.viewportSize.x - this.size.x * this.zoom) / 2;
-    this.translation.y = (this.viewportSize.y - this.size.y * this.zoom) / 2;
-
-    const clampedT = this.clampTranslation(this.translation, this.zoom);
-    this.translation.x = clampedT.x;
-    this.translation.y = clampedT.y;
-
-    this.updatePanAndZoom(useTransition);
-  }
-
-  // Zoom by given ratio, using cx and cy as the center of the zoom operation.
-  // If cx and cy are not provided, treat it as the zoom operation at the
-  // center of the viewport.
-  zoomBy(ratio, cx = undefined, cy = undefined) {
-    const oldZoom = this.zoom;
-    this.zoom = this.clampZoom(this.zoom * ratio);
-
-    if (cx === undefined) {
-      cx = this.viewportSize.x / 2;
-    }
-    if (cy === undefined) {
-      cy = this.viewportSize.y / 2;
-    }
-    const dx = this.translation.x - cx;
-    const dy = this.translation.y - cy;
-    this.translation.x = cx + dx * this.zoom / oldZoom;
-    this.translation.y = cy + dy * this.zoom / oldZoom;
-
-    const clampedT = this.clampTranslation(this.translation, this.zoom);
-    this.translation.x = clampedT.x;
-    this.translation.y = clampedT.y;
-  }
-
-  // Translate by given offset.
-  translateBy(dx, dy) {
-    this.translation.x += dx;
-    this.translation.y += dy;
-
-    const clampedT = this.clampTranslation(this.translation, this.zoom);
-    this.translation.x = clampedT.x;
-    this.translation.y = clampedT.y;
-  }
-
-  // Show buttons for zoom operation.
-  addButtons() {
-    const buttons = document.createElement("div");
-    buttons.classList.add("interactive-graph-buttons");
-
-    const zoomIn = document.createElement("button");
-    zoomIn.classList.add("interactive-graph-button-zoom-in");
-    zoomIn.append("+");
-    zoomIn.addEventListener("click", e => {
-      e.preventDefault();
-      this.zoomBy(1.5);
-      this.updatePanAndZoom(true);
-    });
-    buttons.append(zoomIn);
-
-    const zoomOut = document.createElement("button");
-    zoomOut.classList.add("interactive-graph-button-zoom-out");
-    zoomOut.append("-");
-    zoomOut.addEventListener("click", e => {
-      e.preventDefault();
-      this.zoomBy(1 / 1.5);
-      this.updatePanAndZoom(true);
-    });
-    buttons.append(zoomOut);
-
-    const fit = document.createElement("button");
-    fit.classList.add("interactive-graph-button-fit");
-    fit.append("Fit");
-    fit.addEventListener("click", e => {
-      e.preventDefault();
-      this.fitToViewport(1, true);
-    });
-    buttons.append(fit);
-
-    document.body.append(buttons);
-  }
-
-  // The following code is copied from iongraph main.js,
-  // with some modifications.
-
-  // Add event listeners for pan and zoom operations.
-  addEventListeners() {
-    this.viewport.addEventListener("wheel", (e) => {
-      e.preventDefault();
-      let newZoom = this.zoom;
-      if (e.ctrlKey) {
-        newZoom = this.clampZoom(this.zoom * Math.pow(ZOOM_SENSITIVITY, -e.deltaY * WHEEL_DELTA_SCALE));
-        const zoomDelta = newZoom / this.zoom - 1;
-        this.zoom = newZoom;
-        const { x: gx, y: gy } = this.viewport.getBoundingClientRect();
-        const mouseOffsetX = e.clientX - gx - this.translation.x;
-        const mouseOffsetY = e.clientY - gy - this.translation.y;
-        this.translation.x -= mouseOffsetX * zoomDelta;
-        this.translation.y -= mouseOffsetY * zoomDelta;
-      } else {
-        this.translation.x -= e.deltaX;
-        this.translation.y -= e.deltaY;
-      }
-      const clampedT = this.clampTranslation(this.translation, newZoom);
-      this.translation.x = clampedT.x;
-      this.translation.y = clampedT.y;
-      this.updatePanAndZoom();
-    });
-
-    const pinchState = {
-      lastX: 0,
-      lastY: 0,
-      origR: 0,
-      origZoom: 1,
-      viewportX: 0,
-      viewportY: 0,
-    };
-    function calculatePinchInfo() {
-      let x = 0, y = 0, r = 0;
-      for (const info of pointerMap.values()) {
-        x += info.clientX;
-        y += info.clientY;
-      }
-      x = x / pointerMap.size;
-      y = y / pointerMap.size;
-      for (const info of pointerMap.values()) {
-        r += ((info.clientX - x) ** 2 +
-              (info.clientY - y) ** 2) ** 0.5;
-      }
-      r = r / pointerMap.size;
-      return { x, y, r };
-    }
-    const pointerMap = new Map();
-    this.viewport.addEventListener("pointerdown", (e) => {
-      if (e.button !== 0) {
-        return;
-      }
-      if (e.target.closest(".interactive-graph-block")) {
-        return;
-      }
-      if (e.target.closest(".edge")) {
-        return;
-      }
-      e.preventDefault();
-
-      ContextMenu.hide();
-      this.viewport.setPointerCapture(e.pointerId);
-      pointerMap.set(e.pointerId, {
-        clientX: e.clientX,
-        clientY: e.clientY,
-      });
-
-      if (pointerMap.size >= 2) {
-        const pinchInfo = calculatePinchInfo();
-        pinchState.lastX = pinchInfo.x;
-        pinchState.lastY = pinchInfo.y;
-        pinchState.origR = pinchInfo.r;
-        pinchState.origZoom = this.zoom;
-
-        const viewportRect = this.viewport.getBoundingClientRect();
-        pinchState.viewportX = viewportRect.x;
-        pinchState.viewportY = viewportRect.y;
-      }
-    });
-    this.viewport.addEventListener("pointermove", (e) => {
-      if (!this.viewport.hasPointerCapture(e.pointerId)) {
-        return;
-      }
-
-      if (!pointerMap.has(e.pointerId)) {
-        return;
-      }
-
-      const info = pointerMap.get(e.pointerId);
-      const last = {
-        clientX: info.clientX,
-        clientY: info.clientY,
-      };
-      info.clientX = e.clientX;
-      info.clientY = e.clientY;
-
-      if (pointerMap.size >= 2) {
-        const pinchInfo = calculatePinchInfo();
-
-        const scale = pinchInfo.r / pinchState.origR;
-
-        const dx = pinchInfo.x - pinchState.lastX;
-        const dy = pinchInfo.y - pinchState.lastY;
-
-        pinchState.lastX = pinchInfo.x;
-        pinchState.lastY = pinchInfo.y;
-
-        this.zoomBy(pinchState.origZoom * scale / this.zoom,
-                    pinchState.lastX - pinchState.viewportX,
-                    pinchState.lastY - pinchState.viewportY);
-        this.translateBy(dx, dy);
-        this.updatePanAndZoom();
-        return;
-      }
-
-      const dx = info.clientX - last.clientX;
-      const dy = info.clientY - last.clientY;
-
-      this.translateBy(dx, dy);
-      this.updatePanAndZoom();
-    });
-    const onEnd = e => {
-      pointerMap.delete(e.pointerId);
-      if (!this.viewport.hasPointerCapture(e.pointerId)) {
-        return;
-      }
-
-      this.viewport.releasePointerCapture(e.pointerId);
-    };
-
-    this.viewport.addEventListener("pointerup", onEnd);
-    this.viewport.addEventListener("pointercancel", onEnd);
-    const ro = new ResizeObserver((entries) => {
-      const rect = entries[0].contentRect;
-      this.viewportSize.x = rect.width;
-      this.viewportSize.y = rect.height;
-
-      if (this.needInitialFitToViewport) {
-        this.initialFitToViewport();
-      }
-    });
-    ro.observe(this.viewport);
-
-    this.viewport.addEventListener("dblclick", (e) => {
-      this.zoomBy(1.5, e.offsetX, e.offsetY);
-      this.updatePanAndZoom(true);
-    });
-  }
-
-  clampTranslation(t, scale) {
-    const minX = TRANSLATION_CLAMP_AMOUNT - this.size.x * scale;
-    const maxX = this.viewportSize.x - TRANSLATION_CLAMP_AMOUNT;
-    const minY = TRANSLATION_CLAMP_AMOUNT - this.size.y * scale;
-    const maxY = this.viewportSize.y - TRANSLATION_CLAMP_AMOUNT;
-    const newX = clamp(t.x, minX, maxX);
-    const newY = clamp(t.y, minY, maxY);
-    return { x: newX, y: newY };
-  }
-  clampZoom(z) {
-    return clamp(z, MIN_ZOOM, MAX_ZOOM);
-  }
-
-  updatePanAndZoom(useTransition=false) {
-    if (this.appliedZoom === this.zoom &&
-        this.appliedTranslation.x === this.translation.x &&
-        this.appliedTranslation.y === this.translation.y) {
-      return;
-    }
-
-    this.appliedZoom = this.zoom;
-    this.appliedTranslation.x = this.translation.x;
-    this.appliedTranslation.y = this.translation.y;
-
-    if (useTransition) {
-      this.graphContainer.style.transition = `transform 0.2s ease-out`;
-
-      this.graphContainer.addEventListener("transitionend", () => {
-        this.graphContainer.style.transition = "none";
-      }, { once: true });
-    }
-
-    this.graphContainer.style.transform = `translate(${Math.round(this.translation.x)}px, ${Math.round(this.translation.y)}px) scale(${this.zoom})`;
-  }
 }
 
 if (typeof GRAPH_INPUT !== "undefined") {
   window.addEventListener("load", () => {
-    // Make the page fit the content area, so that no scrollbar is shown.
-    document.documentElement.classList.add("for-interactive-graph");
-
     let sources = [];
     let targets = [];
     for (const { items } of GRAPH_OPTIONS) {
@@ -1517,10 +1524,12 @@ if (typeof GRAPH_INPUT !== "undefined") {
       }
     }
 
-    new Graph(
-      document.querySelector("#interactive-graph-viewport"),
-      document.querySelector("#interactive-graph-container"),
-      GRAPH_INPUT[0], sources, targets,
-      GRAPH_EXTRA);
+    const viewport = document.querySelector("#interactive-graph-viewport");
+    const container = document.querySelector("#interactive-graph-container");
+
+    const graph = new GraphRenderer(
+      container, GRAPH_INPUT[0], sources, targets, GRAPH_EXTRA);
+
+    new PanAndZoom(viewport, container, graph.size);
   }, { once: true });
 }
