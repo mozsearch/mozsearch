@@ -3,6 +3,12 @@
    overloads_hit: results.GraphResultsBundle.overloads_hit,
    options: results.GraphResultsBundle.options %}
 {% for graph in results.GraphResultsBundle.graphs %}
+<div id="interactive-graph-base">
+<div id="interactive-graph-viewport">
+<div id="interactive-graph-container">
 {{ graph.graph }}
+</div>
+</div>
+</div>
 <script>GRAPH_EXTRA.push({{ graph.extra | json }});</script>
 {% endfor %}

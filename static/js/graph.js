@@ -574,9 +574,19 @@ class PanAndZoom {
         return;
       }
       if (e.target.closest(".interactive-graph-block")) {
+        // for GraphRenderer node.
+        return;
+      }
+      if (e.target.closest("g.node")) {
+        // for server-side rendered node.
         return;
       }
       if (e.target.closest(".edge")) {
+        // for both edges.
+        return;
+      }
+      if (e.target.closest(".diagram-overload")) {
+        // overload icons.
         return;
       }
       e.preventDefault();
@@ -805,8 +815,6 @@ var Diagram = new (class Diagram {
     this.addBadgeTooltips();
     this.addOverloadIcons();
     this.addEmptyHint();
-
-    this.setScrollPosition();
 
     this.makeDiagramHoverEdges();
   }
@@ -1468,25 +1476,7 @@ var Diagram = new (class Diagram {
     });
     this.loadQuery(query);
   }
-
-  setScrollPosition() {
-    // Scroll the first root node of the diagram so that it's centered.
-    // Through use of `?.` this won't freak out if there are no matches.
-    // According to performance.now(), this takes 3ms on the 20,765 line
-    // indexedDB/ActorsParent.cpp right now.
-    //
-    // This file is loaded at the bottom of the HTML file so the DOM is
-    // available, although I'm not entirely sure this is wise versus hooking
-    // the load event.
-    //
-    // TODO: Be more wise.
-    document.querySelector(".diagram-depth-0 polygon")?.scrollIntoView({
-      behavior: "instant",
-      block: "center",
-      inline: "center"
-    });
-  }
-
+  
   // In order to provide more useful click/hover targets for diagram edges, we
   // duplicate line body "path" element to create one with a wider stroke that
   // is not visible.
@@ -2477,5 +2467,18 @@ if (typeof GRAPH_INPUT !== "undefined") {
       container, GRAPH_INPUT[0], sources, targets, GRAPH_EXTRA);
 
     new PanAndZoom(viewport, container, graph.size);
+  }, { once: true });
+} else if (typeof GRAPH_EXTRA !== "undefined" && GRAPH_EXTRA.length === 1) {
+  // The pan/zoom functionalities can be used only when there's only one
+  // graph.
+  const diag = document.querySelector("svg");
+  const rect = diag.getBoundingClientRect();
+  const size = { x: rect.width, y: rect.height };
+
+  window.addEventListener("load", () => {
+    const viewport = document.querySelector("#interactive-graph-viewport");
+    const container = document.querySelector("#interactive-graph-container");
+
+    new PanAndZoom(viewport, container, size);
   }, { once: true });
 }
