@@ -785,31 +785,3 @@ var Panel = new (class Panel {
   }
 
 })();
-
-// In order to provide more useful click/hover targets for diagram edges, we
-// duplicate line body "path" element to create one with a wider stroke that is
-// not visible.
-function makeDiagramHoverEdges() {
-  const diag = document.querySelector("svg");
-  if (!diag) {
-    return;
-  }
-
-  const edges = diag.querySelectorAll("g.edge > path");
-  for (const path of edges) {
-    // The default "dotted" style is hard to see.
-    // the "dashed" style uses "5,2".
-    if (path.getAttribute("stroke-dasharray") === "1,5") {
-      path.setAttribute("stroke-dasharray", "2,3");
-    }
-
-    const dupe = path.cloneNode(false);
-    dupe.classList.add("clicktarget");
-    // Dashed/dotted edge should be clickable even in the gap part.
-    dupe.removeAttribute("stroke-dasharray");
-    // let's insert the clicktarget after the actual path so it is always what
-    // the hit test finds.
-    path.insertAdjacentElement("afterend", dupe);
-  }
-}
-makeDiagramHoverEdges();
