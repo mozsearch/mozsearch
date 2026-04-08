@@ -92,6 +92,7 @@ indexes C++ and JavaScript code. This is the help page for Searchfox.
 <script src="/tree-list.js"></script>
 <script src="/tests/static/js/settings.js"></script>
 <script src="/tests/static/js/search.js"></script>
+<script src="/tests/static/js/graph.js"></script>
 <script src="/tests/static/js/context-menu.js"></script>
 <script src="/tests/static/js/panel.js"></script>
 <script src="/tests/static/js/code-highlighter.js"></script>

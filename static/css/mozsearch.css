@@ -139,7 +139,6 @@ table {
   --diagram-edge-clicktarget: rgba(0,0,0,0);
   --diagram-hovered-out-edge: blue;
   --diagram-hovered-in-edge: green;
-  --diagram-true-diag: white;
   --diagram-overload-depth: #d0d0d0;
   --diagram-overload-depth-text: var(--page-foreground);
   --diagram-overload-other: #ffdd40;
@@ -249,7 +248,6 @@ table {
     --diagram-edge-clicktarget: rgba(0,0,0,0);
     --diagram-hovered-out-edge: #4c50fc;
     --diagram-hovered-in-edge: #53cb59;
-    --diagram-true-diag: #646464;
     --diagram-overload-depth: #a0a0a0;
     --diagram-overload-depth-text: var(--page-foreground);
     --diagram-overload-other: #d0d040;
@@ -1750,78 +1748,8 @@ g.edge > path {
   stroke-opacity: 0.2;
 }
 
-g.blurry g.edge polygon,
-g.blurry g.edge path {
-  stroke: none
-}
-
-g.blurry g.node text {
-  fill: none;
-}
-
-g.blurry g.cluster polygon {
-  stroke: none;
-}
-g.blurry g.cluster text {
-  fill: none;
-}
-
-/* The depth mechanism was initially introduce for experimental metablob
- * blurring, but we can use the 0 depth to help emphasize the roots of the
- * graph without the blurring and in a way that doesn't conflict with uses of
- * color.
- */
 .diagram-depth-0 {
-  --diagram-depth: 0;
   stroke-width: 2;
-}
-.diagram-depth-1 {
-  --diagram-depth: 1;
-}
-.diagram-depth-2 {
-  --diagram-depth: 2;
-}
-.diagram-depth-3 {
-  --diagram-depth: 3;
-}
-.diagram-depth-4 {
-  --diagram-depth: 4;
-}
-.diagram-depth-5 {
-  --diagram-depth: 5;
-}
-.diagram-depth-6 {
-  --diagram-depth: 6;
-}
-.diagram-depth-7 {
-  --diagram-depth: 7;
-}
-.diagram-depth-8 {
-  --diagram-depth: 8;
-}
-.diagram-depth-9 {
-  --diagram-depth: 9;
-}
-.diagram-depth-10 {
-  --diagram-depth: 10;
-}
-.diagram-depth-11 {
-  --diagram-depth: 10;
-}
-.diagram-depth-12 {
-  --diagram-depth: 10;
-}
-.diagram-depth-13 {
-  --diagram-depth: 10;
-}
-
-g.blurry.depth-mode g.node polygon {
-  fill: hwb(var(--diagram-depth-hue) calc(40% + 60% * var(--diagram-depth) / 3) 0%);
-  stroke: hwb(var(--diagram-depth-hue) calc(40% + 60% * var(--diagram-depth) / 3) 0%);
-}
-
-g.true-diag g.node polygon {
-  fill: var(--diagram-true-diag);
 }
 
 .diagram-limit-warning {
@@ -1946,36 +1874,36 @@ g.true-diag g.node polygon {
 
 /* Interactive graph */
 
-html.for-interactive-graph {
+html.with-pan-and-zoom {
   height: 100%;
 }
 
-html.for-interactive-graph body {
+html.with-pan-and-zoom body {
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-html.for-interactive-graph #scrolling {
+html.with-pan-and-zoom #scrolling {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-html.for-interactive-graph #content {
+html.with-pan-and-zoom #content {
   flex: 1;
   display: flex;
   flex-direction: column;
 }
 
-html.for-interactive-graph .footer {
+html.with-pan-and-zoom .footer {
   position: fixed;
   bottom: 0;
   left: 0;
   margin: 0 0 0 1.2rem;
 }
 
-html.for-interactive-graph .query-result {
+html.with-pan-and-zoom .query-result {
   flex: 1;
   display: flex;
   flex-direction: column;

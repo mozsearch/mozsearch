@@ -2161,7 +2161,6 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
 var Hover = new (class Hover {
   constructor() {
     this.items = [];
-    this.graphItems = [];
     this.hoveredElem = null;
     this.sticky = false;
     window.addEventListener("mousedown", (evt) => {
@@ -2171,7 +2170,7 @@ var Hover = new (class Hover {
       // on the modern normally-hidden scrollbars, but I'm being conservative
       // with this change.
       if (this.sticky && evt.button === 0) {
-        this.deactivateDiagram();
+        Diagram.deactivateHover();
         this.deactivate();
       }
     });
@@ -2201,19 +2200,13 @@ var Hover = new (class Hover {
       return;
     }
     if (!elem) {
-      this.deactivateDiagram();
+      Diagram.deactivateHover();
       this.deactivate();
       return;
     }
 
     let symbolNames = this.symbolsFromString(elem.getAttribute("data-symbols"));
-    // We're hovering over a graph so we also want to hover related graph nodes.
-    // We will still also potentially want to highlight any document spans as
-    // well.
-    if (elem.tagName === "g" || elem.classList.contains("interactive-graph-block")) {
-      this.activateDiagram(elem);
-    }
-
+    Diagram.maybeActivateHover(elem);
     this.activate(symbolNames, elem.textContent);
     this.hoveredElem = elem;
   }
@@ -2264,132 +2257,6 @@ var Hover = new (class Hover {
         )
       );
     });
-  }
-
-  #edgeReverseMap
-  // Derive a map from edges to the source and target nodes by processing the
-  // GRAPH_EXTRA node data on first use.  This could be generated on the server
-  // but since the data is easily derived and we expect our graphs to be
-  // O(1000), we don't expect this computation to be too bad.
-  #ensureEdgeReverseMap() {
-    if (this.#edgeReverseMap) {
-      return;
-    }
-
-    this.#edgeReverseMap = new Map();
-    if (!GRAPH_EXTRA?.[0]) {
-      return;
-    }
-
-    for (const [node, nodeInfo] of Object.entries(GRAPH_EXTRA[0].nodes)) {
-      for (const inEdge of nodeInfo.in_edges) {
-        let edgeInfo = this.#edgeReverseMap.get(inEdge);
-        if (!edgeInfo) {
-          this.#edgeReverseMap.set(inEdge, [undefined, node]);
-        } else {
-          edgeInfo[1] = node;
-        }
-      }
-      for (const outEdge of nodeInfo.out_edges) {
-        let edgeInfo = this.#edgeReverseMap.get(outEdge);
-        if (!edgeInfo) {
-          this.#edgeReverseMap.set(outEdge, [node, undefined]);
-        } else {
-          edgeInfo[0] = node;
-        }
-      }
-    }
-  }
-
-  activateDiagram(elem) {
-    this.deactivateDiagram();
-
-    let id;
-    if (elem.id) {
-      id = elem.id;
-    } else {
-      id = elem.parentElement.id;
-    }
-    if (id.startsWith("a_")) {
-      id = id.substring(2);
-    }
-
-    const applyStyling = (targetId, clazzes) => {
-      let maybeTarget = document.getElementById(targetId);
-      // For the table rows, the id ends up on a "g" container with an "a_"
-      // prefix.  We want to locate the a_ prefix and then adjust to its sole
-      // child for consistency.
-      if (!maybeTarget) {
-        maybeTarget = document.getElementById(`a_${targetId}`);
-        if (!maybeTarget) {
-          return;
-        }
-        maybeTarget = maybeTarget.children[0];
-      }
-      maybeTarget.classList.add(...clazzes);
-
-      this.graphItems.push([maybeTarget, clazzes])
-    };
-
-    // ## Hovered Edge
-    if (id.startsWith("Gide")) {
-      const edgeExtra = GRAPH_EXTRA[0].edges[id];
-      if (!edgeExtra) {
-        return;
-      }
-
-      this.#ensureEdgeReverseMap();
-
-      const curEdgeHover = ["hovered-cur-edge"];
-      elem.classList.add(...curEdgeHover);
-      this.graphItems.push([elem, curEdgeHover]);
-
-      let [srcNode, targNode] = this.#edgeReverseMap.get(id);
-
-      const defaultInNodeHover = ["hovered-in-node"];
-      applyStyling(srcNode, defaultInNodeHover);
-
-      const defaultOutNodeHover = ["hovered-out-node"];
-      applyStyling(targNode, defaultOutNodeHover);
-
-      return;
-    }
-
-    let nodeExtra = GRAPH_EXTRA[0].nodes[id];
-    if (!nodeExtra) {
-      return;
-    }
-
-    // ## Hovered Node
-    const curNodeHover = ["hovered-cur-node"];
-    elem.classList.add(...curNodeHover);
-    this.graphItems.push([elem, curNodeHover]);
-
-    const defaultInNodeHover = ["hovered-in-node"];
-    for (const [nid, clazzes] of nodeExtra.in_nodes) {
-      applyStyling(nid, clazzes.length ? clazzes : defaultInNodeHover);
-    }
-    const defaultOutNodeHover = ["hovered-out-node"];
-    for (const [nid, clazzes] of nodeExtra.out_nodes) {
-      applyStyling(nid, clazzes.length ? clazzes : defaultOutNodeHover);
-    }
-
-    const inEdgeHover = ["hovered-in-edge"];
-    for (const eid of nodeExtra.in_edges) {
-      applyStyling(eid, inEdgeHover);
-    }
-
-    const outEdgeHover = ["hovered-out-edge"];
-    for (const eid of nodeExtra.out_edges) {
-      applyStyling(eid, outEdgeHover);
-    }
-  }
-
-  deactivateDiagram() {
-    for (const [item, clazzes] of this.graphItems) {
-      item.classList.remove(...clazzes);
-    }
-    this.graphItems = [];
   }
 
   stickyHighlight(symbols, visibleToken) {

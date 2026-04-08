@@ -321,6 +321,7 @@ pub fn generate_footer(
     let scripts = [
         "settings.js",
         "search.js",
+        "graph.js",
         "context-menu.js",
         "panel.js",
         "code-highlighter.js",
