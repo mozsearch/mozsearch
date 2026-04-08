@@ -32,6 +32,11 @@ const ERROR_INTERVENTIONS = [
     prepend: "Not yet supported: "
   },
   {
+    includes: "expected meta, got 'source'",
+    severity: "INFO",
+    prepend: "Not yet supported: "
+  },
+  {
     includes: "illegal character",
     severity: "INFO",
     prepend: "Illegal characters are probably intentional: "
