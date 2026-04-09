@@ -257,3 +257,70 @@ add_task(async function test_DiagramInteractive_wheel_zoom_in() {
 
   ok(rect.width > initRect.width, "The node should be shown smaller");
 });
+
+add_task(async function test_DiagramInteractive_Ignore_CallsBetween_Undirected() {
+  await TestUtils.resetFeatureGate("diagramming");
+
+  await TestUtils.loadQuery("tests", "calls-between:'diagram_ignore::F7' calls-between:'diagram_ignore::F1' depth:8 graph-format:mozsearch-interactive");
+
+  const doc = frame.contentDocument;
+  const win = frame.contentWindow;
+
+  ok(doc.querySelector('[data-symbols="_ZN14diagram_ignore2F3Ev"]'), "F3 exists initially");
+  ok(doc.querySelector('[data-symbols="_ZN14diagram_ignore2F2Ev"]'), "F2 exists initially");
+
+  const f2Node = doc.querySelector('[data-symbols="_ZN14diagram_ignore2F2Ev"]');
+  ok(f2Node, "F2 node exists");
+  TestUtils.click(f2Node);
+
+  const menuItems = Array.from(doc.querySelectorAll(".contextmenu-row a"));
+  const ignoreItem = menuItems.find(a => a.textContent && a.textContent.includes("Ignore this node"));
+  TestUtils.click(ignoreItem);
+
+  await waitForCondition(() => !doc.querySelector('[data-symbols="_ZN14diagram_ignore2F2Ev"]'), "F2 removed");
+
+  ok(!doc.querySelector('[data-symbols="_ZN14diagram_ignore2F3Ev"]'), "F3 should be pruned because the undirected path is broken");
+
+  const searchInput = doc.getElementById("query");
+  ok(searchInput.value.includes("ignore-nodes:diagram_ignore::F2"), "Search input should be updated with F2");
+
+  const url = new URL(win.location.href);
+  const qParam = url.searchParams.get("q") || "";
+  ok(qParam.includes("ignore-nodes:diagram_ignore::F2"), "URL should be updated with ignore-nodes syntax for F2");
+});
+
+add_task(async function test_DiagramInteractive_Ignore_Twice() {
+  await TestUtils.resetFeatureGate("diagramming");
+
+  await TestUtils.loadQuery("tests", "calls-to:'diagram_ignore::F1' depth:8 graph-format:mozsearch-interactive");
+
+  const doc = frame.contentDocument;
+  const win = frame.contentWindow;
+
+  let f5Node = doc.querySelector('[data-symbols="_ZN14diagram_ignore2F5Ev"]');
+  TestUtils.click(f5Node);
+  let menuItems = Array.from(doc.querySelectorAll(".contextmenu-row a"));
+  let ignoreItem = menuItems.find(a => a.textContent && a.textContent.includes("Ignore this node"));
+  TestUtils.click(ignoreItem);
+
+  await waitForCondition(() => !doc.querySelector('[data-symbols="_ZN14diagram_ignore2F5Ev"]'), "F5 removed");
+
+  let f3Node = doc.querySelector('[data-symbols="_ZN14diagram_ignore2F3Ev"]');
+  TestUtils.click(f3Node);
+  menuItems = Array.from(doc.querySelectorAll(".contextmenu-row a"));
+  ignoreItem = menuItems.find(a => a.textContent && a.textContent.includes("Ignore this node"));
+  TestUtils.click(ignoreItem);
+
+  await waitForCondition(() => !doc.querySelector('[data-symbols="_ZN14diagram_ignore2F3Ev"]'), "F3 removed");
+
+  const searchInput = doc.getElementById("query");
+  ok(searchInput.value.includes("ignore-nodes:diagram_ignore::F5,diagram_ignore::F3") ||
+     searchInput.value.includes("ignore-nodes:diagram_ignore::F3,diagram_ignore::F5"),
+     "Search input should contain both ignored nodes comma-separated");
+
+  const url = new URL(win.location.href);
+  const qParam = url.searchParams.get("q") || "";
+  ok(qParam.includes("ignore-nodes:diagram_ignore::F5,diagram_ignore::F3") ||
+     qParam.includes("ignore-nodes:diagram_ignore::F3,diagram_ignore::F5"),
+     "URL should contain both ignored nodes comma-separated");
+});
