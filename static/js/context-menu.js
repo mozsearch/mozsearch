@@ -1923,7 +1923,13 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
               icon: "brush",
               section: "diagrams-ignore",
               action: () => {
-                Diagram.ignoreNode(symInfo.pretty);
+                if (window.interactiveGraphInstance) {
+                  window.interactiveGraphInstance.removeNodeByPrettyName(symInfo.pretty);
+                  window.interactiveGraphInstance.updateQueryForIgnoredNode(symInfo.pretty);
+                  this.hide();
+                } else {
+                  Diagram.ignoreNode(symInfo.pretty);
+                }
               },
             }));
           }

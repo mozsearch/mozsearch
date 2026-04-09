@@ -394,6 +394,7 @@ class Graph {
   constructor(viewport, container, input, sources, targets, extraList) {
     this.viewport = viewport;
     this.graphContainer = container;
+    this.extraList = extraList;
 
     const viewportRect = this.viewport.getBoundingClientRect();
     this.viewportSize = {
@@ -411,6 +412,19 @@ class Graph {
     this.edges = [];
 
     this.createBlocksAndEdges(input, sources, targets);
+
+    this.render();
+
+    this.needInitialFitToViewport = true;
+    this.addEventListeners();
+    this.initialFitToViewport();
+    this.addButtons();
+  }
+
+  render() {
+    this.graphContainer.replaceChildren();
+
+    this.resetBlockAndEdgeState();
 
     this.calculateDepth();
 
@@ -442,15 +456,137 @@ class Graph {
 
     this.createLoopEdgeNodes();
 
-    this.needInitialFitToViewport = true;
+    // Re-populate interaction data
+    this.extraList.length = 0;
+    this.populateExtra(this.extraList);
+  }
 
-    this.populateExtra(extraList);
+  resetBlockAndEdgeState() {
+    for (const block of this.blocks) {
+      block.depth = -1;
+      block.breadth = -1;
+    }
 
-    this.addEventListeners();
+    for (const edge of this.edges) {
+      edge.path = [];
+    }
+  }
 
-    this.initialFitToViewport();
+  removeNodeByPrettyName(prettyName) {
+    const blockToRemove = this.blocks.find(b => b.pretty === prettyName);
+    if (!blockToRemove) {
+      return;
+    }
 
-    this.addButtons();
+    const blockIdToRemove = blockToRemove.id;
+
+    this.blocks = this.blocks.filter(block => block.id !== blockIdToRemove);
+
+    this.edges = this.edges.filter(edge => {
+      return edge.pred.id !== blockIdToRemove && edge.succ.id !== blockIdToRemove;
+    });
+
+    for (const block of this.blocks) {
+      block.preds = block.preds.filter(p => p.id !== blockIdToRemove);
+      block.succs = block.succs.filter(s => s.id !== blockIdToRemove);
+    }
+
+    this.pruneUnreachableNodes();
+
+    this.render(false);
+  }
+
+  pruneUnreachableNodes() {
+    const sources = this.blocks.filter(b => b.isSource);
+    const targets = this.blocks.filter(b => b.isTarget);
+
+    const searchInput = document.getElementById("query");
+    const queryStr = searchInput ? searchInput.value : (new URL(window.location.href)).searchParams.get("q") || "";
+    const undirectedNames = [];
+    const regex = /calls-between:(?:'([^']+)'|([^\s]+))/g;
+    let match;
+    while ((match = regex.exec(queryStr)) !== null) {
+      undirectedNames.push(match[1] || match[2]);
+    }
+    const undirectedAnchors = this.blocks.filter(b => undirectedNames.includes(b.pretty));
+
+    const focalNodes = [...new Set([...sources, ...targets, ...undirectedAnchors])];
+
+    if (focalNodes.length === 0) {
+      const isolatedIds = new Set(
+        this.blocks.filter(b => b.preds.length === 0 && b.succs.length === 0 && !b.loopback).map(b => b.id)
+      );
+      if (isolatedIds.size > 0) {
+        this.blocks = this.blocks.filter(b => !isolatedIds.has(b.id));
+      }
+      return;
+    }
+
+    const getReachable = (startNodes, direction) => {
+      const visited = new Set(startNodes.map(b => b.id));
+      const queue = startNodes.slice();
+      while (queue.length > 0) {
+        const curr = queue.shift();
+        for (const next of curr[direction]) {
+          if (!visited.has(next.id)) {
+            visited.add(next.id);
+            queue.push(next);
+          }
+        }
+      }
+      return visited;
+    };
+
+    const isCallsBetweenDirected = sources.length > 0 && targets.length > 0 && !sources.some(s => targets.includes(s));
+    const isCallsBetweenUndirected = undirectedAnchors.length > 1;
+
+    let validIds = new Set();
+
+    if (isCallsBetweenDirected) {
+      const fromSources = getReachable(sources, "succs");
+      const toTargets = getReachable(targets, "preds");
+      validIds = new Set([...fromSources].filter(id => toTargets.has(id)));
+    } else if (isCallsBetweenUndirected) {
+      const fromAnchors = getReachable(undirectedAnchors, "succs");
+      const toAnchors = getReachable(undirectedAnchors, "preds");
+      validIds = new Set([...fromAnchors].filter(id => toAnchors.has(id)));
+    } else {
+      getReachable(focalNodes, "succs").forEach(id => validIds.add(id));
+      getReachable(focalNodes, "preds").forEach(id => validIds.add(id));
+    }
+
+    this.blocks = this.blocks.filter(b => validIds.has(b.id));
+    this.edges = this.edges.filter(e => validIds.has(e.pred.id) && validIds.has(e.succ.id));
+
+    for (const block of this.blocks) {
+      block.preds = block.preds.filter(p => validIds.has(p.id));
+      block.succs = block.succs.filter(s => validIds.has(s.id));
+    }
+  }
+
+  // Updates the search input and URL query string without reloading the page.
+  updateQueryForIgnoredNode(prettyName) {
+    const searchInput = document.getElementById("query");
+    const url = new URL(window.location.href);
+    let query = searchInput ? searchInput.value : url.searchParams.get("q");
+
+    if (query) {
+      let newIgnoreList = prettyName;
+
+      const match = query.match(/ignore-nodes:([^\s]+)/);
+      if (match) {
+        newIgnoreList = match[1] + "," + prettyName;
+      }
+
+      query = query.replace(/ +ignore-nodes:[^\s]+/g, "");
+      query += " ignore-nodes:" + newIgnoreList;
+
+      if (searchInput) {
+        searchInput.value = query.trim();
+      }
+      url.searchParams.set("q", query.trim());
+      window.history.pushState({}, "", url);
+    }
   }
 
   // Create data objects for blocks and edges.
@@ -1518,7 +1654,7 @@ window.addEventListener("load", () => {
     }
   }
 
-  new Graph(
+  window.interactiveGraphInstance = new Graph(
     document.querySelector("#interactive-graph-viewport"),
     document.querySelector("#interactive-graph-container"),
     GRAPH_INPUT[0], sources, targets,
