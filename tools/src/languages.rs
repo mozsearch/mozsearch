@@ -681,7 +681,9 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         "ipdl" | "ipdlh" => FormatAs::FormatCLike(&IPDL_SPEC),
         "idl" => FormatAs::FormatXPIDL(&IDL_SPEC, &CPP_SPEC),
         "webidl" => FormatAs::FormatCLike(&WEBIDL_SPEC),
-        "js" | "jsm" | "json" | "mjs" | "sjs" => FormatAs::FormatCLike(&JS_SPEC),
+        "js" | "jsm" | "json" | "mjs" | "cjs" | "sjs" | "ts" | "mts" | "cts" => {
+            FormatAs::FormatCLike(&JS_SPEC)
+        }
         "py" | "build" | "mozbuild" | "configure" => FormatAs::FormatCLike(&PYTHON_SPEC),
         "rs" => FormatAs::FormatCLike(&RUST_SPEC),
         "java" => FormatAs::FormatCLike(&JAVA_SPEC),

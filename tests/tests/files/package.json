@@ -1,0 +1,12 @@
+{
+  "name": "test-ts",
+  "version": "1.0.0",
+  "description": "Example TS/JS project",
+  "author": "",
+  "license": "MPL",
+  "private": true,
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "@types/node": "24.1.0"
+  }
+}
