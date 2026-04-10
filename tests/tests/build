@@ -114,7 +114,7 @@ for PLATFORM in ${PLATFORMS}; do
 done
 
 ## Python Stuff
-echo "Performing build::cp-generated step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+echo "Performing build::scip-python step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
 scip-python index --show-progress-rate-limit 0 --project-name python --project-version 0.0.0 --environment ../python-scip-env.json --output python.scip
 mv python.scip $INDEX_ROOT
