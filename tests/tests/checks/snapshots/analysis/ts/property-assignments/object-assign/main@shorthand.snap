@@ -1,0 +1,58 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ts/property-assignments/object-assign/shorthand
+---
+[
+  {
+    "loc": "00006:2-11",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field objectAssign::shorthand",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.shorthand.",
+    "type": "\"shorthand\""
+  },
+  {
+    "loc": "00006:2-11",
+    "structured": 1,
+    "pretty": "objectAssign::shorthand",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.shorthand.",
+    "type_pretty": "\"shorthand\"",
+    "kind": "field",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00006:2-11",
+    "target": 1,
+    "kind": "def",
+    "pretty": "objectAssign::shorthand",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.shorthand."
+  },
+  {
+    "loc": "00019:13-22",
+    "source": 1,
+    "syntax": "use,field",
+    "pretty": "field objectAssign::shorthand",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.shorthand.",
+    "type": "\"shorthand\""
+  },
+  {
+    "loc": "00019:13-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "objectAssign::shorthand",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.shorthand."
+  }
+]

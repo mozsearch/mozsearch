@@ -1,0 +1,58 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ts/property-assignments/object-define-properties/prop
+---
+[
+  {
+    "loc": "00003:2-6",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field objectDefineProperties::prop",
+    "sym": "S_js_ts/src/property-assignments/object-define-properties.js/objectDefineProperties.prop.",
+    "type": "\"prop\""
+  },
+  {
+    "loc": "00003:2-6",
+    "structured": 1,
+    "pretty": "objectDefineProperties::prop",
+    "sym": "S_js_ts/src/property-assignments/object-define-properties.js/objectDefineProperties.prop.",
+    "type_pretty": "\"prop\"",
+    "kind": "field",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00003:2-6",
+    "target": 1,
+    "kind": "def",
+    "pretty": "objectDefineProperties::prop",
+    "sym": "S_js_ts/src/property-assignments/object-define-properties.js/objectDefineProperties.prop."
+  },
+  {
+    "loc": "00013:23-27",
+    "source": 1,
+    "syntax": "use,field",
+    "pretty": "field objectDefineProperties::prop",
+    "sym": "S_js_ts/src/property-assignments/object-define-properties.js/objectDefineProperties.prop.",
+    "type": "\"prop\""
+  },
+  {
+    "loc": "00013:23-27",
+    "target": 1,
+    "kind": "use",
+    "pretty": "objectDefineProperties::prop",
+    "sym": "S_js_ts/src/property-assignments/object-define-properties.js/objectDefineProperties.prop."
+  }
+]

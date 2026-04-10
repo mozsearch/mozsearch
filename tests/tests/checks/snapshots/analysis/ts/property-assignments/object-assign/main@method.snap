@@ -1,0 +1,57 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ts/property-assignments/object-assign/method
+---
+[
+  {
+    "loc": "00008:2-8",
+    "source": 1,
+    "syntax": "def,method",
+    "pretty": "method objectAssign::method",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.method().",
+    "nestingRange": "8:11-10:3"
+  },
+  {
+    "loc": "00008:2-8",
+    "structured": 1,
+    "pretty": "objectAssign::method",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.method().",
+    "type_pretty": null,
+    "kind": "method",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00008:2-8",
+    "target": 1,
+    "kind": "def",
+    "pretty": "objectAssign::method",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.method()."
+  },
+  {
+    "loc": "00021:13-19",
+    "source": 1,
+    "syntax": "use,method",
+    "pretty": "method objectAssign::method",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.method()."
+  },
+  {
+    "loc": "00021:13-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "objectAssign::method",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.method()."
+  }
+]

@@ -1,0 +1,73 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ts/property-assignments/object-define-properties/accessors
+---
+[
+  {
+    "loc": "00004:2-11",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field objectDefineProperties::accessors",
+    "sym": "S_js_ts/src/property-assignments/object-define-properties.js/objectDefineProperties.accessors.",
+    "type": "\"accessors\""
+  },
+  {
+    "loc": "00004:2-11",
+    "structured": 1,
+    "pretty": "objectDefineProperties::accessors",
+    "sym": "S_js_ts/src/property-assignments/object-define-properties.js/objectDefineProperties.accessors.",
+    "type_pretty": "\"accessors\"",
+    "kind": "field",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00004:2-11",
+    "target": 1,
+    "kind": "def",
+    "pretty": "objectDefineProperties::accessors",
+    "sym": "S_js_ts/src/property-assignments/object-define-properties.js/objectDefineProperties.accessors."
+  },
+  {
+    "loc": "00014:23-32",
+    "source": 1,
+    "syntax": "use,field",
+    "pretty": "field objectDefineProperties::accessors",
+    "sym": "S_js_ts/src/property-assignments/object-define-properties.js/objectDefineProperties.accessors.",
+    "type": "\"accessors\""
+  },
+  {
+    "loc": "00014:23-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "objectDefineProperties::accessors",
+    "sym": "S_js_ts/src/property-assignments/object-define-properties.js/objectDefineProperties.accessors."
+  },
+  {
+    "loc": "00015:23-32",
+    "source": 1,
+    "syntax": "use,field",
+    "pretty": "field objectDefineProperties::accessors",
+    "sym": "S_js_ts/src/property-assignments/object-define-properties.js/objectDefineProperties.accessors.",
+    "type": "\"accessors\""
+  },
+  {
+    "loc": "00015:23-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "objectDefineProperties::accessors",
+    "sym": "S_js_ts/src/property-assignments/object-define-properties.js/objectDefineProperties.accessors."
+  }
+]

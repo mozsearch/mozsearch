@@ -1,0 +1,58 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ts/ChromeUtils.js/defineLazyGetter/inner
+---
+[
+  {
+    "loc": "00014:11-16",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field inner0",
+    "sym": "S_js_ts/src/ChromeUtils.js/inner0:",
+    "type": "number"
+  },
+  {
+    "loc": "00014:11-16",
+    "structured": 1,
+    "pretty": "inner0",
+    "sym": "S_js_ts/src/ChromeUtils.js/inner0:",
+    "type_pretty": "number",
+    "kind": "field",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00014:11-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "inner0",
+    "sym": "S_js_ts/src/ChromeUtils.js/inner0:"
+  },
+  {
+    "loc": "00019:9-14",
+    "source": 1,
+    "syntax": "use,field",
+    "pretty": "field inner0",
+    "sym": "S_js_ts/src/ChromeUtils.js/inner0:",
+    "type": "number"
+  },
+  {
+    "loc": "00019:9-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "inner0",
+    "sym": "S_js_ts/src/ChromeUtils.js/inner0:"
+  }
+]

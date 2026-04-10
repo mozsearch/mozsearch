@@ -1,0 +1,111 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ts/property-assignments/object-assign/accessor
+---
+[
+  {
+    "loc": "00011:6-14",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field objectAssign::accessor",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
+    "nestingRange": "11:17-13:3",
+    "type": "\"accessor\""
+  },
+  {
+    "loc": "00011:6-14",
+    "structured": 1,
+    "pretty": "objectAssign::accessor",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
+    "type_pretty": "\"accessor\"",
+    "kind": "field",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00011:6-14",
+    "target": 1,
+    "kind": "def",
+    "pretty": "objectAssign::accessor",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor."
+  },
+  {
+    "loc": "00014:6-14",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field objectAssign::accessor",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
+    "nestingRange": "14:20-16:3",
+    "type": "\"accessor\""
+  },
+  {
+    "loc": "00014:6-14",
+    "structured": 1,
+    "pretty": "objectAssign::accessor",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
+    "type_pretty": "\"accessor\"",
+    "kind": "field",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00014:6-14",
+    "target": 1,
+    "kind": "def",
+    "pretty": "objectAssign::accessor",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor."
+  },
+  {
+    "loc": "00022:13-21",
+    "source": 1,
+    "syntax": "use,field",
+    "pretty": "field objectAssign::accessor",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
+    "type": "\"accessor\""
+  },
+  {
+    "loc": "00022:13-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "objectAssign::accessor",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor."
+  },
+  {
+    "loc": "00023:13-21",
+    "source": 1,
+    "syntax": "use,field",
+    "pretty": "field objectAssign::accessor",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
+    "type": "\"accessor\""
+  },
+  {
+    "loc": "00023:13-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "objectAssign::accessor",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor."
+  }
+]

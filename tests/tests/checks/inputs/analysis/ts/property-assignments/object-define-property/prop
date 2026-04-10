@@ -1,0 +1,1 @@
+filter-analysis ts/src/property-assignments/object-define-property.js -s "S_js_ts/src/property-assignments/object-define-property.js/objectDefineProperty.prop."

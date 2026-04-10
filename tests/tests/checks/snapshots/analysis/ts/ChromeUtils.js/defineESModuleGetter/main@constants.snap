@@ -1,0 +1,58 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ts/ChromeUtils.js/defineESModuleGetter/constants
+---
+[
+  {
+    "loc": "00009:2-11",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field obj::constants",
+    "sym": "S_js_ts/src/ChromeUtils.js/obj.constants.",
+    "type": "\"constants\""
+  },
+  {
+    "loc": "00009:2-11",
+    "structured": 1,
+    "pretty": "obj::constants",
+    "sym": "S_js_ts/src/ChromeUtils.js/obj.constants.",
+    "type_pretty": "\"constants\"",
+    "kind": "field",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00009:2-11",
+    "target": 1,
+    "kind": "def",
+    "pretty": "obj::constants",
+    "sym": "S_js_ts/src/ChromeUtils.js/obj.constants."
+  },
+  {
+    "loc": "00017:4-13",
+    "source": 1,
+    "syntax": "use,field",
+    "pretty": "field obj::constants",
+    "sym": "S_js_ts/src/ChromeUtils.js/obj.constants.",
+    "type": "\"constants\""
+  },
+  {
+    "loc": "00017:4-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "obj::constants",
+    "sym": "S_js_ts/src/ChromeUtils.js/obj.constants."
+  }
+]

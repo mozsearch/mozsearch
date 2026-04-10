@@ -1,0 +1,58 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ts/ChromeUtils.js/defineLazyGetter/prop
+---
+[
+  {
+    "loc": "00013:34-40",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field obj::prop",
+    "sym": "S_js_ts/src/ChromeUtils.js/obj.prop.",
+    "type": "\"prop\""
+  },
+  {
+    "loc": "00013:34-40",
+    "structured": 1,
+    "pretty": "obj::prop",
+    "sym": "S_js_ts/src/ChromeUtils.js/obj.prop.",
+    "type_pretty": "\"prop\"",
+    "kind": "field",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00013:34-40",
+    "target": 1,
+    "kind": "def",
+    "pretty": "obj::prop",
+    "sym": "S_js_ts/src/ChromeUtils.js/obj.prop."
+  },
+  {
+    "loc": "00019:4-8",
+    "source": 1,
+    "syntax": "use,field",
+    "pretty": "field obj::prop",
+    "sym": "S_js_ts/src/ChromeUtils.js/obj.prop.",
+    "type": "\"prop\""
+  },
+  {
+    "loc": "00019:4-8",
+    "target": 1,
+    "kind": "use",
+    "pretty": "obj::prop",
+    "sym": "S_js_ts/src/ChromeUtils.js/obj.prop."
+  }
+]

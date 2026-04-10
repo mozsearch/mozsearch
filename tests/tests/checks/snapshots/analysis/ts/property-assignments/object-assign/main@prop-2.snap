@@ -1,0 +1,58 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ts/property-assignments/object-assign/prop
+---
+[
+  {
+    "loc": "00005:2-6",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field objectAssign::prop",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.prop.",
+    "type": "\"prop\""
+  },
+  {
+    "loc": "00005:2-6",
+    "structured": 1,
+    "pretty": "objectAssign::prop",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.prop.",
+    "type_pretty": "\"prop\"",
+    "kind": "field",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00005:2-6",
+    "target": 1,
+    "kind": "def",
+    "pretty": "objectAssign::prop",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.prop."
+  },
+  {
+    "loc": "00018:13-17",
+    "source": 1,
+    "syntax": "use,field",
+    "pretty": "field objectAssign::prop",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.prop.",
+    "type": "\"prop\""
+  },
+  {
+    "loc": "00018:13-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "objectAssign::prop",
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.prop."
+  }
+]
