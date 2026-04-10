@@ -151,7 +151,7 @@ input_file: inputs/web/dirs/root_listing__html
         <tr>
           <td class="name"><a href="/tests/source/.gitignore" class="mimetype-fixed-container mimetype-icon-gitignore">.gitignore</a></td>
           <td class="description"><a href="/tests/source/.gitignore" title=""></td>
-          <td class="size"><a href="/tests/source/.gitignore">103</a></td>
+          <td class="size"><a href="/tests/source/.gitignore">117</a></td>
           <td class="coverage"><a href="/tests/source/.gitignore" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
@@ -607,6 +607,20 @@ input_file: inputs/web/dirs/root_listing__html
         </tr>
 
         <tr>
+          <td class="name"><a href="/tests/source/package-lock.json" class="mimetype-fixed-container mimetype-icon-json">package-lock.json</a></td>
+          <td class="description"><a href="/tests/source/package-lock.json" title=""></td>
+          <td class="size"><a href="/tests/source/package-lock.json">1440</a></td>
+          <td class="coverage"><a href="/tests/source/package-lock.json" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
+        </tr>
+
+        <tr>
+          <td class="name"><a href="/tests/source/package.json" class="mimetype-fixed-container mimetype-icon-json">package.json</a></td>
+          <td class="description"><a href="/tests/source/package.json" title=""></td>
+          <td class="size"><a href="/tests/source/package.json">226</a></td>
+          <td class="coverage"><a href="/tests/source/package.json" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
+        </tr>
+
+        <tr>
           <td class="name"><a href="/tests/source/python" class="mimetype-fixed-container mimetype-icon-folder">python</a></td>
           <td class="description"><a href="/tests/source/python" title=""></td>
           <td class="size"><a href="/tests/source/python"></a></td>
@@ -901,6 +915,13 @@ Spread over multiple lines.
           <td class="description"><a href="/tests/source/tricky_symbol_names.cpp" title=""></td>
           <td class="size"><a href="/tests/source/tricky_symbol_names.cpp">313</a></td>
           <td class="coverage"><a href="/tests/source/tricky_symbol_names.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
+        </tr>
+
+        <tr>
+          <td class="name"><a href="/tests/source/ts" class="mimetype-fixed-container mimetype-icon-folder">ts</a></td>
+          <td class="description"><a href="/tests/source/ts" title=""></td>
+          <td class="size"><a href="/tests/source/ts"></a></td>
+          <td class="coverage"><a href="/tests/source/ts" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
