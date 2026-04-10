@@ -1,0 +1,21 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ts/ChromeUtils.js/defineESModuleGetter/constants_O_CREAT
+---
+[
+  {
+    "loc": "00017:14-21",
+    "source": 1,
+    "syntax": "use,field",
+    "pretty": "field O_CREAT",
+    "sym": "S_js_fs.d.ts/\"fs\"/constants/O_CREAT."
+  },
+  {
+    "loc": "00017:14-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "O_CREAT",
+    "sym": "S_js_fs.d.ts/\"fs\"/constants/O_CREAT."
+  }
+]

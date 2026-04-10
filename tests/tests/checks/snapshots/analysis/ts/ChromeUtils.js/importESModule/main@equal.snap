@@ -1,0 +1,21 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ts/ChromeUtils.js/importESModule/equal
+---
+[
+  {
+    "loc": "00018:11-16",
+    "source": 1,
+    "syntax": "use,method",
+    "pretty": "method equal",
+    "sym": "S_js_assert.d.ts/\"assert\"/assert/equal()."
+  },
+  {
+    "loc": "00018:11-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "equal",
+    "sym": "S_js_assert.d.ts/\"assert\"/assert/equal()."
+  }
+]

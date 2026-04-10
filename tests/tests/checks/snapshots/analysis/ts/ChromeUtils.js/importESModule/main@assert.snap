@@ -1,0 +1,58 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ts/ChromeUtils.js/importESModule/assert
+---
+[
+  {
+    "loc": "00012:4-10",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field obj::assert",
+    "sym": "S_js_ts/src/ChromeUtils.js/obj.assert.",
+    "type": "typeof assert"
+  },
+  {
+    "loc": "00012:4-10",
+    "structured": 1,
+    "pretty": "obj::assert",
+    "sym": "S_js_ts/src/ChromeUtils.js/obj.assert.",
+    "type_pretty": "typeof assert",
+    "kind": "field",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00012:4-10",
+    "target": 1,
+    "kind": "def",
+    "pretty": "obj::assert",
+    "sym": "S_js_ts/src/ChromeUtils.js/obj.assert."
+  },
+  {
+    "loc": "00018:4-10",
+    "source": 1,
+    "syntax": "use,field",
+    "pretty": "field obj::assert",
+    "sym": "S_js_ts/src/ChromeUtils.js/obj.assert.",
+    "type": "typeof assert"
+  },
+  {
+    "loc": "00018:4-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "obj::assert",
+    "sym": "S_js_ts/src/ChromeUtils.js/obj.assert."
+  }
+]

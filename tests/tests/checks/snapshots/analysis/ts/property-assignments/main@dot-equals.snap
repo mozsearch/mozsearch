@@ -1,0 +1,73 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ts/property-assignments/dot-equals
+---
+[
+  {
+    "loc": "00002:10-14",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field dotEquals::prop",
+    "sym": "S_js_ts/src/property-assignments/dot-equals.js/dotEquals.prop.",
+    "type": "number"
+  },
+  {
+    "loc": "00002:10-14",
+    "structured": 1,
+    "pretty": "dotEquals::prop",
+    "sym": "S_js_ts/src/property-assignments/dot-equals.js/dotEquals.prop.",
+    "type_pretty": "number",
+    "kind": "field",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00002:10-14",
+    "target": 1,
+    "kind": "def",
+    "pretty": "dotEquals::prop",
+    "sym": "S_js_ts/src/property-assignments/dot-equals.js/dotEquals.prop."
+  },
+  {
+    "loc": "00003:10-14",
+    "source": 1,
+    "syntax": "use,field",
+    "pretty": "field dotEquals::prop",
+    "sym": "S_js_ts/src/property-assignments/dot-equals.js/dotEquals.prop.",
+    "type": "number"
+  },
+  {
+    "loc": "00003:10-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "dotEquals::prop",
+    "sym": "S_js_ts/src/property-assignments/dot-equals.js/dotEquals.prop."
+  },
+  {
+    "loc": "00004:10-16",
+    "source": 1,
+    "syntax": "use,field",
+    "pretty": "field dotEquals::prop",
+    "sym": "S_js_ts/src/property-assignments/dot-equals.js/dotEquals.prop.",
+    "type": "number"
+  },
+  {
+    "loc": "00004:10-16",
+    "target": 1,
+    "kind": "use",
+    "pretty": "dotEquals::prop",
+    "sym": "S_js_ts/src/property-assignments/dot-equals.js/dotEquals.prop."
+  }
+]

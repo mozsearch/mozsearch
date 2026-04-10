@@ -1,0 +1,22 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ts/ChromeUtils.js/defineESModuleGetter/SomeExportedClass_method
+---
+[
+  {
+    "loc": "00020:28-34",
+    "source": 1,
+    "syntax": "use,method",
+    "pretty": "method SomeExportedClass::method",
+    "sym": "S_js_ts/src/exports.mjs/SomeExportedClass#method().",
+    "type": "void"
+  },
+  {
+    "loc": "00020:28-34",
+    "target": 1,
+    "kind": "use",
+    "pretty": "SomeExportedClass::method",
+    "sym": "S_js_ts/src/exports.mjs/SomeExportedClass#method()."
+  }
+]

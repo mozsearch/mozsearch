@@ -1,0 +1,1 @@
+filter-analysis ts/src/property-assignments/dot-equals.js -s "S_js_ts/src/property-assignments/dot-equals.js/dotEquals.prop."
