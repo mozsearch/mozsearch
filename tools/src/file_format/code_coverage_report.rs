@@ -116,7 +116,7 @@ impl Report {
         writeln!(fast_import, "data {}", self.metadata.commit.len() + 1)?;
         writeln!(fast_import, "{}", self.metadata.commit)?;
         if incremental {
-            writeln!(fast_import, "from {branch}^0")?;
+            writeln!(fast_import, "from refs/heads/{branch}^0")?;
         }
         writeln!(fast_import, "deleteall")?;
         self.root.write_to_git(fast_import, "")?;
