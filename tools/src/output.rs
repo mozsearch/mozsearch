@@ -1,4 +1,3 @@
-use std::path::Path;
 /**
  * Common rust HTML output logic.
  **/
@@ -35,20 +34,6 @@ pub struct Options<'a> {
     /// source listings where we have particular styling needs for "position: sticky" but want
     /// every other display to have normal padding.
     pub extra_content_classes: &'a str,
-}
-
-pub fn choose_icon(path: &str) -> String {
-    let ext: &str = match Path::new(path).extension() {
-        Some(ext) => ext.to_str().unwrap(),
-        None => "",
-    };
-    if ext == "jsm" {
-        return "js".to_string();
-    }
-    if ["cpp", "h", "c", "js", "py"].contains(&ext) {
-        return ext.to_string();
-    }
-    "".to_string()
 }
 
 pub fn file_url(opt: &Options, path: &str) -> String {
