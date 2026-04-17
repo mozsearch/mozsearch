@@ -222,10 +222,14 @@ var CoverageGraph = new (class CoverageGraph {
 
     const [svg, x, y] = this.makeSvg(this.graph, width, height, padding);
 
-    this.drawAxes(svg, x, y, height, padding);
-    this.drawArea(svg, x, y);
-    this.drawLine(svg, x, y, "coverage-graph-gradient");
-    this.drawDots(svg, x, y);
+    const redraw = () => {
+      svg.selectChildren().remove();
+      this.drawAxes(svg, x, y, height, padding);
+      this.drawArea(svg, x, y);
+      this.drawLine(svg, x, y, "coverage-graph-gradient");
+      this.drawDots(svg, x, y);
+    };
+    redraw();
 
     let hovered = null;
     svg.
@@ -260,6 +264,16 @@ var CoverageGraph = new (class CoverageGraph {
           window.location = hovered.attributes.href.value;
         }
       })
+
+    const extent = [[padding, padding], [width - padding, height - padding]];
+    svg.call(d3.zoom()
+      .scaleExtent([1, 8])
+      .translateExtent(extent)
+      .extent(extent)
+      .on("zoom", event => {
+        x.range([padding, width - padding].map(d => event.transform.applyX(d)));
+        redraw();
+      }));
   }
 
   open() {
