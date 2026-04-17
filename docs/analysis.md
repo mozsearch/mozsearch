@@ -13,7 +13,7 @@ Analysis records are currently generated from:
 * `scripts/js-analyze.js` for the JavaScript analysis.
 * `scripts/idl-analyze.py` for IDL files.
 * `clang-plugin/MozsearchIndexer.cpp` for C++ files.
-* `tools/src/bin/rust-indexer.rs` for Rust files.
+* `tools/src/bin/scip-indexer.rs` for Rust, Java and Kotlin files.
 
 Analysis records may also be downloaded from Taskcluster for
 firefox-main builds (this can be viewed as an optimization to
