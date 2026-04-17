@@ -9,7 +9,6 @@ use std::io::BufReader;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::process::Command;
-use std::sync::Mutex;
 
 use git2::Oid;
 use hyper::header::{ContentType, Location};
@@ -338,8 +337,6 @@ fn main() {
 
     let ident_map = IdentMap::load(&cfg);
 
-    let internal_data = Mutex::new((cfg, ident_map));
-
     let handler = move |req: Request, mut res: Response| {
         if req.method != Method::Get {
             *res.status_mut() = StatusCode::MethodNotAllowed;
@@ -356,13 +353,7 @@ fn main() {
             _ => panic!("Unexpected URI"),
         };
 
-        let guard = match internal_data.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
-        let (ref cfg, ref ident_map) = *guard;
-
-        let response = handle(cfg, ident_map, WebRequest { path: &path });
+        let response = handle(&cfg, &ident_map, WebRequest { path: &path });
 
         *res.status_mut() = response.status;
         let output = response.output.into_bytes();

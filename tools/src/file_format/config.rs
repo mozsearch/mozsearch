@@ -9,6 +9,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use git2::{Oid, Repository};
+use thread_local::ThreadLocal;
 
 use crate::url_encode_path::url_encode_path;
 
@@ -214,10 +215,38 @@ pub struct ScipSubtreeConfig {
     pub subtree_root: String,
 }
 
+/// Thin wrapper around ThreadLocal<Repository> to make GitData Sync
+/// Created From<Repository>, it Derefs to Repository and will create new thread-local Repository instances as needed.
+pub struct ThreadLocalRepository {
+    path: PathBuf,
+    repository: ThreadLocal<Repository>,
+}
+
+impl std::ops::Deref for ThreadLocalRepository {
+    type Target = Repository;
+    fn deref(&self) -> &Self::Target {
+        // ThreadLocalRepository can only be created from an existing Repository, so if we fail here, it means the repo was removed from under our feet.
+        self.repository
+            .get_or(|| Repository::open(&self.path).expect("Failed to re-open git Repository"))
+    }
+}
+
+impl From<Repository> for ThreadLocalRepository {
+    fn from(repository: Repository) -> Self {
+        let path = repository.path().to_owned();
+        let thread_local = ThreadLocal::new();
+        thread_local.get_or(move || repository);
+        Self {
+            path,
+            repository: thread_local,
+        }
+    }
+}
+
 pub struct GitData {
-    pub repo: Repository,
-    pub blame_repo: Option<Repository>,
-    pub coverage_repo: Option<Repository>,
+    pub repo: ThreadLocalRepository,
+    pub blame_repo: Option<ThreadLocalRepository>,
+    pub coverage_repo: Option<ThreadLocalRepository>,
 
     pub blame_map: HashMap<Oid, Oid>, // Maps repo OID to blame_repo OID.
     // Maps repo OID to Hg rev.  This comes from our blame commits, but cinnabar
@@ -518,9 +547,9 @@ pub fn git_data(paths: &TreeConfigPaths, need_indexes: bool) -> Option<GitData> 
         .map(|path| Repository::open(path).unwrap());
 
     Some(GitData {
-        repo,
-        blame_repo,
-        coverage_repo,
+        repo: repo.into(),
+        blame_repo: blame_repo.map(Into::into),
+        coverage_repo: coverage_repo.map(Into::into),
         blame_map,
         hg_map,
         old_map,

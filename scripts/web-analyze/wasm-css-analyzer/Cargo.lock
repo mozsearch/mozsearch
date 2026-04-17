@@ -4466,6 +4466,7 @@ dependencies = [
  "serde_repr",
  "shell-words",
  "termcolor",
+ "thread_local 1.1.9",
  "tokio",
  "tokio-stream",
  "toml",
