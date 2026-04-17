@@ -128,6 +128,8 @@ class TriggerCommandBase:
 
         user_data = '''#!/usr/bin/env bash
 
+    set -euxo pipefail
+
     cd ~ubuntu
 
 cat > /home/ubuntu/.bashrc_prompt_data <<"FINAL"
