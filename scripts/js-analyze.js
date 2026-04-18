@@ -318,6 +318,13 @@ const FILENAME_INTERVENTIONS = [
     severity: "INFO",
     prepend: "CSS module: ",
   },
+  {
+    includes_list: [
+      "testing/web-platform/tests/html/semantics/scripting-1/the-script-element/text-module/file.js",
+    ],
+    severity: "INFO",
+    prepend: "Not a JS: ",
+  },
 ];
 
 function logError(msg)
