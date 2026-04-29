@@ -325,6 +325,13 @@ const FILENAME_INTERVENTIONS = [
     severity: "INFO",
     prepend: "Not a JS: ",
   },
+  {
+    includes_list: [
+      "testing/web-platform/tests/infrastructure/test262/negative-",
+    ],
+    severity: "INFO",
+    prepend: "Negative testcases: ",
+  },
 ];
 
 function logError(msg)
