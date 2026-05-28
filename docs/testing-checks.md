@@ -104,7 +104,7 @@ fulfill the original plan of having non-release channel builds not fail
 
 ### mozsearch "tests" repo
 
-Inside the VM, cd to `/vagrant` and then run:
+Inside the container, cd to `/vagrant` and then run:
 ```
 make review-test-repo
 ```
@@ -126,9 +126,9 @@ Check out mozsearch-mozilla as `config` inside your mozsearch checkout:
 git clone https://github.com/mozsearch/mozsearch-mozilla.git config
 ```
 
-This will also expose it at `/vagrant/config` inside the VM because of the (NFS)
-mount in use.  Note that the VM will also have made its own checkout at
-`~/config` but that directory isn't exposed outside the VM and so isn't useful.
+This will also expose it at `/vagrant/config` inside the container because of the (NFS)
+mount in use.  Note that the container will also have made its own checkout at
+`~/config` but that directory isn't exposed outside the container and so isn't useful.
 
 You probably will then want to add your own fork as a remote.  For example,
 assuming you are asuth, you would do:
@@ -138,7 +138,7 @@ git remote add gh-asuth git@github.com:asutherland/mozsearch-mozilla.git
 
 #### Updating
 
-Outside the VM, make sure you have an up-to-date copy of the default branch and
+Outside the container, make sure you have an up-to-date copy of the default branch and
 then branch from that.
 ```shell
 # change into the mozsearch-mozilla checkout
@@ -151,16 +151,16 @@ git pull origin master
 git checkout -b update-checks
 ```
 
-Inside the VM:
+Inside the container:
 ```shell
-# change into the mozsearch-mozilla checkout dir in the VM
+# change into the mozsearch-mozilla checkout dir in the container
 cd /vagrant/config
 # run the checks from this repo against the current state of
 # https://
 ./review-build-check-results.sh config1.json firefox-main release
 ```
 
-Then, outside the VM, commit the changes to the branch and create a pull
+Then, outside the container, commit the changes to the branch and create a pull
 request and submit it.
 
 #### Updating checks on a stopped AWS indexer due to local (disk) check failure

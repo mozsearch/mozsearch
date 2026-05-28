@@ -277,11 +277,11 @@ when static resources changed.
 If you just want to update the existing daily lambda jobs for the release jobs,
 you can:
 
-- Inside the vagrant VM:
+- Inside the container:
   - `cd /vagrant`
   - `./infrastructure/aws/build-lambda-zips-from-inside-vm.sh`
     - This will produce 6 zips files in `/vagrant` matching `lambda-release*.zip`
-- Outside the vagrant VM where you have active credentials so that `ssh.py`
+- Outside the container where you have active credentials so that `ssh.py`
   works.  This will upload the zips and delete them after each successful upload
   so there should be no zip files left over.
   - `./infrastructure/aws/upload-lambda-zips-from-outside-vm.sh`

@@ -1,13 +1,13 @@
 # Adding a new repository
 
 The basic steps needed to add a new repository to searchfox are listed below. This assumes as a prerequisite
-that you have set up the Vagrant VM as documented in the [top level README](../README.md).
+that you have set up the container as documented in the [top level README](../README.md).
 
 ## 1. Create a tarball with the git repo
 
 This is as simple as running `git clone` to clone the repo locally, and then running `tar` and `lz4`
 to make an lz4-compressed tarball.  Note that it's best to do this inside your mozsearch folder so
-that it's automatically mirrored inside the vagrant VM instance for other steps below. For example:
+that it's automatically mirrored inside the container instance for other steps below. For example:
 
 ```
 cd $MOZSEARCH
@@ -31,7 +31,7 @@ tar cf - git | lz4 - version-control-tools.tar.lz4
 To create the blame repo, you can manually run the `build-blame` tool. If your git repo has hg metadata that
 git-cinnabar can access, that will also be included into the blame repo. If you don't have git-cinnabar
 installed at all, set `CINNABAR=0` in your environment before running the `build-blame` tool. You can run
-this step inside or outside the Vagrant VM, wherever you prefer. The instructions assume you're inside
+this step inside or outside the container, wherever you prefer. The instructions assume you're inside
 the VM because that's usually where the rust code is built and run.
 
 ```
@@ -47,7 +47,7 @@ tar cf - blame | lz4 - glean-blame.tar.lz4
 
 This uses the `upload.py` script, and assumes you have appropriate AWS permissions (see the section on
 [Setting up AWS access locally](aws.md#setting-up-aws-locally)). These commands should be run in whatever
-environment you have AWS access with (typically outside the vagrant VM). If you do not have AWS access,
+environment you have AWS access with (typically outside the container). If you do not have AWS access,
 please contact one of the searchfox maintainers who can do the upload for you so you can finish debugging
 and testing the setup.
 
@@ -109,7 +109,7 @@ Finally, update the top-level `help.html` file to include a link to your new rep
 
 ## 5. Test and debug
 
-Assuming you did step 4 inside the vagrant VM, you can use the `build-mozilla-repo` target in the Makefile to test out
+Assuming you did step 4 inside the container, you can use the `build-mozilla-repo` target in the Makefile to test out
 and debug the indexing of your new repository. However this will do a lot of work, including all the firefox-main
 indexing, which you probably don't want as it takes a lot of time. So first edit the `/home/vagrant/mozilla-config/config.json`
 file to just have the entry for your new repo (i.e. delete all the other entries). Also ensure the `default_tree` field
@@ -121,7 +121,7 @@ make build-mozilla-repo
 ```
 
 This will spew out a lot of output as it does stuff, and either end in an error (which you will need to debug), or deploy
-the web server in your vagrant VM which you will be able to access from http://localhost:16995/.
+the web server in your container which you will be able to access from http://localhost:16995/.
 
 Once any issues are debugged, push a PR with your changes to the `mozsearch-mozilla` repo.
 
