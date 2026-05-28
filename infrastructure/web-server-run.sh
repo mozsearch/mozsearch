@@ -34,11 +34,6 @@ pkill -x pipeline-server || true
 
 sleep 0.1s
 
-# activate the venv we created for livegrep
-# TODO: remove after next provisioning
-LIVEGREP_VENV="$HOME/livegrep-venv"
-PATH="$LIVEGREP_VENV/bin:$PATH"
-
 nohup \
     $MOZSEARCH_PATH/infrastructure/with-auto-restart.sh \
     $MOZSEARCH_PATH $CHANNEL router $DEST_EMAIL $LOG_DIR/router.err \
