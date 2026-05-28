@@ -19,29 +19,13 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-# Update Rust (make sure we have the latest version).
-# We need rust nightly to use the save-analysis, and firefox requires recent
-# versions of Rust.
-#
-# Before we do the update, we remove some components that we don't need and
-# that are sometimes missing. If they are missing, `rustup update` will try
-# to use a previous nightly instead that does have the components, which means
-# we end up with a slightly older rustc. Using rustc from a few days ago is
-# usually fine, but in cases where we hit ICEs that have been fixed upstream,
-# we want the very latest rustc to get the fix. Removing these components also
-# reduces download time during `rustup update`.
-#
-# Note that these commands are not idempotent, so we need to `|| true` for cases
-# where they've already been removed by a prior invocation of this script.
-# (Originally this script would only ever be run on the indexers and web-servers
-# at most once because the script would not be run during provisioning and each
-# VM's root partition would be discarded after running.  Now we run this script
-# as part of provisioning for side-effects.)
-rustup component remove clippy || true
-rustup component remove rustfmt || true
-rustup component remove rust-docs || true
-rustup component add rust-analyzer || true
+# Update Rust
 rustup update
+
+# Install latest rust-analyzer release
+mkdir -p ~/.local/bin
+curl -L https://github.com/rust-lang/rust-analyzer/releases/latest/download/rust-analyzer-x86_64-unknown-linux-gnu.gz | gunzip -c - > ~/.local/bin/rust-analyzer
+chmod +x ~/.local/bin/rust-analyzer
 
 # Install SpiderMonkey.
 rm -rf target.jsshell.zip js
