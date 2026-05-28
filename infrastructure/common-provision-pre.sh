@@ -138,15 +138,11 @@ sudo apt-get install -y pkg-config vmtouch
 # rust gRPC via tonic/tonic-build and prost-build needs protoc (and cmake?)
 sudo apt-get install -y cmake protobuf-compiler
 
-# Install Rust. We need rust nightly to use the save-analysis
+# Install Rust
 if [ ! -d $HOME/.cargo ]; then
-  curl https://sh.rustup.rs -sSf | sh -s -- -y
+  curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain stable
   source $HOME/.cargo/env
 fi
-rustup install nightly
-rustup default nightly
-rustup uninstall stable
-rustup component add rust-analyzer
 
 # install ripgrep so we can stop experiencing grep pain / footguns
 sudo apt-get install ripgrep
