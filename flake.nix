@@ -35,7 +35,28 @@
             boto3
             rich
           ];
+
+        commonPackages = with pkgs; [
+        ];
+
+        indexerPackages = with pkgs; [
+        ];
+
+        serverPackages = with pkgs; [
+        ];
       in {
+        packages = {
+          indexerPackages = pkgs.symlinkJoin {
+            name = "indexerPackages";
+            paths = commonPackages ++ indexerPackages;
+          };
+
+          serverPackages = pkgs.symlinkJoin {
+            name = "serverPackages";
+            paths = commonPackages ++ serverPackages;
+          };
+        };
+
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             dockerCompat

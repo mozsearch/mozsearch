@@ -23,6 +23,16 @@ jobs:
           submodules: true
           fetch-depth: 0
 
+      - uses: DeterminateSystems/determinate-nix-action@v3
+
+      - uses: nix-ocaml/nix-s3-action@84d7b6415d8603e815741fe77f0aaffa22736d4b
+        with:
+          endpoint: "s3://searchfox-binary-cache?region=us-west-2"
+          signingKey: "${{ secrets.NIX_BINARY_CACHE_SIGNING_KEY }}"
+          awsAccessKeyId: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+          awsSecretAccessKey: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          pushFilter: "(-source$|nixpkgs\\.tar\\.gz$)"
+
       # Provisioning
       - name: Common Provision (pre)
         run: $GITHUB_WORKSPACE/infrastructure/common-provision-pre.sh

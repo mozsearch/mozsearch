@@ -86,3 +86,6 @@ done
 sudo resize2fs ${ROOT_DEV}p1
 
 date
+
+# Install Nix
+curl -fsSL https://install.determinate.systems/nix | sh -s -- install linux --no-confirm
