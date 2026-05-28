@@ -22,14 +22,6 @@ sudo apt-get install -y ninja-build
 # the update process.
 cargo install cargo-insta
 
-# Install node.js for scip-typescript; github lists v18 and v20 as supported;
-# we are sticking with v18 for now because currently all the invocations
-# hardcode v18 as well; that will need to be addressed.
-sudo apt install -y npm
-
-# Install scip-typescript under node.js v18
-sudo npm install -g @sourcegraph/scip-typescript
-
 # Install a JDK and Coursier.
 # v17 is the version used on Firefox CI.
 sudo apt install -y openjdk-17-jdk

@@ -53,7 +53,28 @@
       "inputs": {
         "crane": "crane",
         "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "scip-typescript": "scip-typescript"
+      }
+    },
+    "scip-typescript": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1780331254,
+        "narHash": "sha256-ZgicGl13cOdZSxb9dLZl1k9XB44oKd5jo6Mjv64lMw4=",
+        "owner": "mozsearch",
+        "repo": "scip-typescript",
+        "rev": "5fec9871c381ae75f0efdd75221c8071df08c0e8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mozsearch",
+        "repo": "scip-typescript",
+        "type": "github"
       }
     },
     "systems": {

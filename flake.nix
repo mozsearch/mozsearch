@@ -4,6 +4,10 @@
     nixpkgs.url = github:NixOS/nixpkgs/nixpkgs-unstable;
     flake-utils.url = github:numtide/flake-utils;
     crane.url = "github:ipetkov/crane";
+    scip-typescript = {
+      url = "github:mozsearch/scip-typescript";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {
@@ -20,6 +24,7 @@
     nixpkgs,
     flake-utils,
     crane,
+    scip-typescript,
   }: (
     flake-utils.lib.eachDefaultSystem (
       system: let
@@ -68,6 +73,8 @@
         indexerPackages = with pkgs; [
           rust-analyzer
           scip-python
+          nodejs
+          scip-typescript.packages.${system}.default
           mozsearch-clang-plugin
           mozsearch-wasm-css-analyzer
         ];
