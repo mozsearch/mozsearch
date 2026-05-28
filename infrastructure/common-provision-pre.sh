@@ -98,16 +98,6 @@ fi
 # Prior livegrep deps, now rust wants libssl-dev still
 sudo apt-get install -y unzip libssl-dev
 
-# Install Bazelisk to install bazel as needed.  bazezlisk is like nvm.
-if [ ! -d bazelisk ]; then
-  mkdir bazelisk
-  pushd bazelisk
-    curl -sSfL -O https://github.com/bazelbuild/bazelisk/releases/download/v1.11.0/bazelisk-linux-amd64
-    chmod +x bazelisk-linux-amd64
-  popd
-fi
-BAZEL=~/bazelisk/bazelisk-linux-amd64
-
 # Install gcc-12 because bazel 5.x can't build with gcc-13 because of problems
 # with abseil and simply telling the livesearch bazel to use the latest bazel or
 # clang just gives us different problems.
@@ -151,17 +141,9 @@ sudo apt-get install ripgrep
 cargo install wasm-pack
 cargo install --locked --git https://github.com/mozsearch/wasm-snip --tag 0.5.0
 
-# Install codesearch.
+# Install codesearch gRPC python libs.
 if [ ! -d livegrep ]; then
   git clone https://github.com/livegrep/livegrep --revision=44b2fb62ac4685ab3070f030d7130a21c2f67e31 --depth=1
-  pushd livegrep
-  # For some reason bazelisk seems to ignore the .bazelversion file in the livegrep repo, so force that version here
-  export USE_BAZEL_VERSION=7.6.0
-  $BAZEL build -c opt //src/tools:codesearch
-  sudo install bazel-bin/src/tools/codesearch /usr/local/bin
-  popd
-  # Remove ~2G of build artifacts that we don't need anymore
-  rm -rf .cache/bazel
 
   # Install gRPC python libs and generate the python modules to communicate with the codesearch server
   # We need to create a venv for this because Ubuntu 24.04 gets very angry if we
