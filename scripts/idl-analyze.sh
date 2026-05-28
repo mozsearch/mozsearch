@@ -18,11 +18,6 @@ if [[ $(cat $INDEX_ROOT/idl-files $INDEX_ROOT/webidl-files | wc -l) -eq 0 ]]; th
     exit 0
 fi
 
-# make xpidl, webidl and ply available
-# TODO: remove after next provisioning
-PYMODULES="$HOME/pymodules"
-export PYTHONPATH="${PYMODULES}${PYTHONPATH:+:${PYTHONPATH}}"
-
 # Use xpidl and webidl parsers from the tree itself if available.
 # They are unstable and for instance the esr140 and nightly tree disagree on how to define async iterables in WebIDL.
 if [ -f "${FILES_ROOT}/xpcom/idl-parser/xpidl/xpidl.py" -a \
