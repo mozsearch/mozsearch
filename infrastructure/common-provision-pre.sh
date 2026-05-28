@@ -168,7 +168,7 @@ if [ ! -d livegrep ]; then
   # use pip to install things outside of a venv.
   LIVEGREP_VENV=$HOME/livegrep-venv
   python3 -m venv $LIVEGREP_VENV --system-site-packages
-  echo "PATH=$LIVEGREP_VENV/bin:$PATH" >> ~/.profile
+  echo "PATH=$LIVEGREP_VENV/bin:\$PATH" >> ~/.profile
   PATH=$LIVEGREP_VENV/bin:$PATH
 
   pip install grpcio grpcio-tools
