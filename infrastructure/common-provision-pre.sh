@@ -215,8 +215,3 @@ pushd git-cinnabar
     sudo ln -fs $(pwd)/$file /usr/local/bin/$file
   done
 popd
-
-# Install scip
-SCIP_VERSION=v0.5.0
-curl -L https://github.com/sourcegraph/scip/releases/download/$SCIP_VERSION/scip-linux-amd64.tar.gz | tar xzf - scip
-sudo ln -fs $(pwd)/scip /usr/local/bin/scip
