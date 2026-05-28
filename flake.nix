@@ -37,6 +37,7 @@
           ];
 
         commonPackages = with pkgs; [
+          livegrep
         ];
 
         indexerPackages = with pkgs; [
