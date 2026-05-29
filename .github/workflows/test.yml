@@ -18,7 +18,7 @@ jobs:
       MOZSEARCH_BRANCH: ${{ github.ref }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: true
           fetch-depth: 0
@@ -68,7 +68,7 @@ jobs:
       - name: "Test config: Web server test"
         run: $GITHUB_WORKSPACE/infrastructure/web-server-check.sh $GITHUB_WORKSPACE/tests ~/index "http://127.0.0.1:16995/"
       - name: "Test config: Upload updated snapshots"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: updated-test-snapshots
           path: tests/tests/checks/snapshots/**/*.snap.new
@@ -92,7 +92,7 @@ jobs:
       - name: "Webtest config: Web server test"
         run: $GITHUB_WORKSPACE/scripts/webtest.sh
       - name: "Webtest config: Upload updated snapshots"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: updated-webtest-snapshots
           path: tests/tests/checks/snapshots/**/*.snap.new
