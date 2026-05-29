@@ -326,7 +326,7 @@ pub fn format_code(
                         if !syms.is_empty() {
                             format!(
                                 "data-symbols=\"{}\" data-confidences=\"{}\"",
-                                syms,
+                                syms.replace('"', "&quot;"),
                                 serde_json::to_string(&confidences)
                                     .unwrap()
                                     .replace('"', "&quot;")
