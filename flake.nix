@@ -57,12 +57,12 @@
             pkg-config
 
             # Must be before (unwrapped) clang in path
-            llvmPackages_19.clang-tools
+            llvmPackages_21.clang-tools
 
             # Dependencies required to build clang-plugin
-            clang_19
-            llvmPackages_19.libllvm
-            llvmPackages_19.libclang
+            clang_21
+            llvmPackages_21.libllvm
+            llvmPackages_21.libclang
 
             gdb
 
