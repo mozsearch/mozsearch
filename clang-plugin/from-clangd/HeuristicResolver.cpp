@@ -12,6 +12,7 @@
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/Type.h"
+#include "clang/Basic/Version.h"
 
 namespace clang {
 namespace clangd {
@@ -206,9 +207,16 @@ std::vector<const NamedDecl *> HeuristicResolver::resolveDependentNameType(
 std::vector<const NamedDecl *>
 HeuristicResolver::resolveTemplateSpecializationType(
     const DependentTemplateSpecializationType *DTST) const {
+#if CLANG_VERSION_MAJOR >= 21
+  const DependentTemplateStorage &DTN = DTST->getDependentTemplateName();
+  return resolveDependentMember(
+      resolveNestedNameSpecifierToType(DTN.getQualifier()),
+      DTN.getName().getIdentifier(), TemplateFilter);
+#else
   return resolveDependentMember(
       resolveNestedNameSpecifierToType(DTST->getQualifier()),
       DTST->getIdentifier(), TemplateFilter);
+#endif
 }
 
 std::vector<const NamedDecl *>
@@ -250,7 +258,9 @@ const Type *HeuristicResolver::resolveNestedNameSpecifierToType(
   // the TypeSpec cases too.
   switch (NNS->getKind()) {
   case NestedNameSpecifier::TypeSpec:
+#if CLANG_VERSION_MAJOR < 21
   case NestedNameSpecifier::TypeSpecWithTemplate:
+#endif
     return NNS->getAsType();
   case NestedNameSpecifier::Identifier: {
     return resolveDeclsToType(
