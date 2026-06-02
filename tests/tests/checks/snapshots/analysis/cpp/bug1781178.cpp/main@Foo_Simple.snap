@@ -37,9 +37,6 @@ input_file: inputs/analysis/cpp/bug1781178.cpp/Foo_Simple
     "syntax": "function,use",
     "pretty": "function Foo::Simple",
     "sym": "_ZN3Foo6SimpleEv",
-    "type": "void (void)",
-    "confidence": [
-      "cppTemplateHeuristic"
-    ]
+    "type": "void"
   }
 ]
