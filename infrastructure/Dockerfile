@@ -29,7 +29,7 @@ RUN /infrastructure/common-provision-post.sh
 
 # installs extra tooling only required for docker
 RUN /infrastructure/docker-provision-post.sh
-ENV PATH=/home/vagrant/mozsearch-firefox:$PATH
+ENV PATH=/home/vagrant/mozsearch-firefox:/home/vagrant/.local/bin:$PATH
 
 EXPOSE 16995/tcp
 
