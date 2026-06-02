@@ -4,6 +4,15 @@
     flake-utils.url = github:numtide/flake-utils;
   };
 
+  nixConfig = {
+    extra-substituters = [
+      "https://searchfox-binary-cache.s3.amazonaws.com?priority=42"
+    ];
+    extra-trusted-public-keys = [
+      "searchfox-binary-cache-1:X2B8qJE4uQJpf42POhKaKf23nlXj+SjifH4OjK7Kgh0="
+    ];
+  };
+
   outputs = {
     self,
     nixpkgs,
