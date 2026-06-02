@@ -2,23 +2,18 @@
   inputs = {
     nixpkgs.url = github:NixOS/nixpkgs/nixpkgs-unstable;
     flake-utils.url = github:numtide/flake-utils;
-    fenix = {
-      url = "github:nix-community/fenix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs = {
     self,
     nixpkgs,
     flake-utils,
-    fenix,
   }: (
     flake-utils.lib.eachDefaultSystem (
       system: let
-        pkgs = nixpkgs.legacyPackages.${system}.extend fenix.overlays.default;
-
-        rustToolchain = pkgs.fenix.stable.toolchain;
+        pkgs = import nixpkgs {
+          inherit system;
+        };
 
         # A symlink from `docker` to `podman`, because the scripts call `docker`.
         dockerCompat = pkgs.runCommand "docker-podman-compat" {} ''
@@ -51,7 +46,10 @@
             awscli2
 
             # Dependencies required to build tools
-            rustToolchain
+            rustc
+            cargo
+            rust-analyzer
+            rustfmt
             openssl
             cmake
             pkg-config
