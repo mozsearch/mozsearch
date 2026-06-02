@@ -2449,7 +2449,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "function,use",
     "pretty": "function std::shared_ptr::operator=",
     "sym": "_ZNSt10shared_ptraSEOSt10shared_ptrIT_E",
-    "type": "shared_ptr<Human> &",
+    "type": "shared_ptr<outerNS::Human> &",
     "typesym": "T_std::shared_ptr",
     "argRanges": [
       "332:6-332:11",
