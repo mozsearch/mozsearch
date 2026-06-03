@@ -35,11 +35,6 @@ sudo -i nix profile add "$(pwd)/mozsearch#indexerPackages" --accept-flake-config
 # Update Rust
 rustup update
 
-# Install latest rust-analyzer release
-mkdir -p ~/.local/bin
-curl -L https://github.com/rust-lang/rust-analyzer/releases/latest/download/rust-analyzer-x86_64-unknown-linux-gnu.gz | gunzip -c - > ~/.local/bin/rust-analyzer
-chmod +x ~/.local/bin/rust-analyzer
-
 # Install SpiderMonkey.
 rm -rf target.jsshell.zip js
 wget -nv https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.v2.mozilla-central.latest.firefox.linux64-opt/artifacts/public/build/target.jsshell.zip
