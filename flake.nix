@@ -43,6 +43,7 @@
         ];
 
         indexerPackages = with pkgs; [
+          rust-analyzer
           scip-python
         ];
 
