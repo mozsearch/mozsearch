@@ -229,7 +229,7 @@ if should_perform "codesearch-start"; then
     # Check the resulting index for correctness, but there's no webserver so the
     # 4th argument needs to be empty.  We now also need the livegrep server to be
     # available, so start that first.
-    $MOZSEARCH_PATH/router/codesearch.py $CONFIG_FILE start $TREE_NAME
+    codesearchctl $CONFIG_FILE start $TREE_NAME
 fi
 
 if should_perform "check-index"; then
@@ -241,5 +241,5 @@ if should_perform "codesearch-stop"; then
     # still be hanging around, but codesearch.py always stops an existing server
     # first, so we're not really concerned about this affecting a re-run of the
     # indexing process.
-    $MOZSEARCH_PATH/router/codesearch.py $CONFIG_FILE stop $TREE_NAME
+    codesearchctl $CONFIG_FILE stop $TREE_NAME
 fi
