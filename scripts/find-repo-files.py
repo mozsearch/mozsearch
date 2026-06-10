@@ -66,8 +66,6 @@ for line in lines:
         if c in path:
             continue
 
-    fullpath = os.path.join(tree_repo, path)
-
     elts = path.split('/')
     for i in range(len(elts)):
         sub = '/'.join(elts[:i])
