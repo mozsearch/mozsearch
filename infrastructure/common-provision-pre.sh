@@ -137,34 +137,15 @@ fi
 # install ripgrep so we can stop experiencing grep pain / footguns
 sudo apt-get install ripgrep
 
-# Install codesearch gRPC python libs.
-if [ ! -d livegrep ]; then
-  git clone https://github.com/livegrep/livegrep --revision=44b2fb62ac4685ab3070f030d7130a21c2f67e31 --depth=1
-
-  # Install gRPC python libs and generate the python modules to communicate with the codesearch server
-  # We need to create a venv for this because Ubuntu 24.04 gets very angry if we
-  # use pip to install things outside of a venv.
-  LIVEGREP_VENV=$HOME/livegrep-venv
+# Install six in a Python virtual env for xpidl.py.
+# The venv is called livegrep-venv because it used to host the livegrep python library as well.
+LIVEGREP_VENV=$HOME/livegrep-venv
+if [ ! -d $LIVEGREP_VENV ]; then
   python3 -m venv $LIVEGREP_VENV --system-site-packages
   echo "PATH=$LIVEGREP_VENV/bin:\$PATH" >> ~/.profile
   PATH=$LIVEGREP_VENV/bin:$PATH
 
-  pip install grpcio grpcio-tools
-  # also install "six" in this venv for xpidl.py for now
   pip install six
-
-  mkdir livegrep-grpc3
-  pushd livegrep
-  sed 's|import "src/proto/config.proto";|import "livegrep/config.proto";|' -i src/proto/livegrep.proto
-  mkdir build
-  python3 -m grpc_tools.protoc --python_out=build --grpc_python_out=build -I livegrep=src/proto "src/proto/config.proto" "src/proto/livegrep.proto"
-  popd
-  mv livegrep/build/livegrep livegrep-grpc3/livegrep
-  # Add the generated modules to the python path
-  SITEDIR=$(python3 -c "import site; print(site.getsitepackages()[0])")
-  mkdir -p "$SITEDIR"
-  echo "$PWD/livegrep-grpc3" > "$SITEDIR/livegrep.pth"
-  rm -rf livegrep
 fi
 
 sudo apt-get install -y python3-boto3 python3-rich

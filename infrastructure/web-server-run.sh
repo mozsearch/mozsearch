@@ -28,7 +28,7 @@ CONFIG_FILE="$SERVER_ROOT/config.json"
 STATUS_FILE="${SERVER_ROOT}/docroot/status.txt"
 
 pkill -x codesearch || true
-pkill -f router/router.py || true
+pkill -x .router-wrapped || true
 pkill -x web-server || true
 pkill -x pipeline-server || true
 
@@ -38,7 +38,7 @@ nohup \
     $MOZSEARCH_PATH/infrastructure/with-auto-restart.sh \
     $MOZSEARCH_PATH $CHANNEL router $DEST_EMAIL $LOG_DIR/router.err \
     \
-    $MOZSEARCH_PATH/router/router.py $CONFIG_FILE $STATUS_FILE \
+    router $CONFIG_FILE $STATUS_FILE \
     > $LOG_DIR/router.log \
     2> $LOG_DIR/router.err \
     < /dev/null &
@@ -92,7 +92,7 @@ nohup \
 
 # If WAIT was passed, wait until the servers report they loaded.
 if [[ $WAIT = "WAIT" ]]; then
-  echo "Waiting for router.py and web-server to report they have started in ${STATUS_FILE}"
+  echo "Waiting for router and web-server to report they have started in ${STATUS_FILE}"
   until [[ $(grep -c loaded ${STATUS_FILE}) -eq 2 ]]; do
     sleep 0.1s
   done
