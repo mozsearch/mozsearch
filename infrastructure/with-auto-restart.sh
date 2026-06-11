@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-MAX_RETRY=10
+EMAIL_ITER=10
 ITER=1
 
 MOZSEARCH_PATH=$1
@@ -20,6 +20,7 @@ while true; do
     EXIT_CODE=$?
 
     echo "!!!! PROCESS EXIT WITH $EXIT_CODE !!!!" 1>&2
+    date +"%Y-%m-%dT%H:%M:%S%z" 1>&2
 
     if [[ $EXIT_CODE -eq 0 ]]; then
         exit $EXIT_CODE
@@ -35,14 +36,12 @@ while true; do
     # NOTE: We restart on SIGKILL (137), given OOM-killer uses it.
     # NOTE: We also restart on 101, which is used by Rust panic!().
 
-    if [[ $ITER -le $MAX_RETRY ]]; then
-        echo "!!!! RETRYING ($ITER/$MAX_RETRY) !!!!" 1>&2
-        ITER=$(($ITER + 1))
-    else
-        echo "!!!! GIVING UP !!!!" 1>&2
+    if [[ $ITER -eq $EMAIL_ITER ]]; then
+        echo "!!!! SENDING EMAIL !!!!" 1>&2
 
         $MOZSEARCH_PATH/infrastructure/aws/send-server-failure-email.py $CHANNEL $SERVER_NAME $DEST_EMAIL $ERROR_LOG_FILE
-
-        exit $EXIT_CODE
     fi
+
+    echo "!!!! RETRYING ($ITER) !!!!" 1>&2
+    ITER=$(($ITER + 1))
 done
