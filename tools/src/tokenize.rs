@@ -677,6 +677,34 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 kind: TokenKind::Identifier(class),
             });
             next_token_maybe_regexp_literal = false;
+        } else if ch == '<'
+            && spec.c_preprocessor
+            && let Some(previous_token) = tokens.last()
+            && let previous_token = &string[previous_token.start..previous_token.end]
+            && previous_token.starts_with('#')
+            && previous_token.ends_with("include")
+        {
+            let start = start;
+            loop {
+                if peek_pos() == string.len() {
+                    debug!("Unterminated include");
+                    return tokens;
+                }
+
+                let (_, next) = get_char();
+                if next == '\n' {
+                    debug!("Unterminated include");
+                    return tokens;
+                }
+                if next == '>' {
+                    break;
+                }
+            }
+            tokens.push(Token {
+                start,
+                end: peek_pos(),
+                kind: TokenKind::StringLiteral,
+            });
         } else if ch == '/' && spec.c_style_comments {
             let ch = peek_char();
             if ch == '*' {
@@ -2318,6 +2346,30 @@ mod tests {
                 "#  \t  \t  define",
                 TokenKind::Identifier(Some("class=\"syn_reserved\" ".to_string())),
             )],
+            cpp_spec,
+        );
+
+        check_tokens(
+            r#"#include "test.h""#,
+            &[
+                (
+                    "#include",
+                    TokenKind::Identifier(Some("class=\"syn_reserved\" ".to_string())),
+                ),
+                (r#""test.h""#, TokenKind::StringLiteral),
+            ],
+            cpp_spec,
+        );
+
+        check_tokens(
+            "#include <test.h>",
+            &[
+                (
+                    "#include",
+                    TokenKind::Identifier(Some("class=\"syn_reserved\" ".to_string())),
+                ),
+                ("<test.h>", TokenKind::StringLiteral),
+            ],
             cpp_spec,
         );
     }
