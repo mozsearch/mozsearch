@@ -161,7 +161,7 @@ impl AbstractServer for RemoteServer {
         Ok(html)
     }
 
-    async fn crossref_lookup(&self, _symbol: &str, _extra_processing: bool) -> Result<Value> {
+    async fn crossref_lookup(&self, _symbol: &str) -> Result<Value> {
         // Let's require local index for now; we'll expose this once this
         // mechanism is exposed to the web so we can talk to the corresponding
         // local server over https.

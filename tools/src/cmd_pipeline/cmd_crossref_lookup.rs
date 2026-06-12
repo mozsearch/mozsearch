@@ -72,7 +72,7 @@ impl PipelineCommand for CrossrefLookupCommand {
         let mut symbol_crossref_infos = vec![];
         let mut unknown_symbols = vec![];
         for (symbol, quality, from_ident) in symbol_list {
-            let info = server.crossref_lookup(&symbol, false).await?;
+            let info = server.crossref_lookup(&symbol).await?;
 
             if info.is_null() {
                 unknown_symbols.push(symbol);
@@ -100,7 +100,7 @@ impl PipelineCommand for CrossrefLookupCommand {
                 && let Some(method_syms) = crossref_info.get_method_symbols()
             {
                 for method_sym in method_syms {
-                    let method_info = server.crossref_lookup(&method_sym, false).await?;
+                    let method_info = server.crossref_lookup(&method_sym).await?;
                     symbol_crossref_infos.push(SymbolCrossrefInfo {
                         symbol: method_sym,
                         crossref_info: method_info,

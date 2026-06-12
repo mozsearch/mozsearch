@@ -17,7 +17,6 @@ use super::server_interface::{
 };
 use super::{CommitInfo, TextMatches, TextMatchesByFile, TreeInfo};
 
-use crate::abstract_server::lazy_crossref::perform_lazy_crossref;
 use crate::blame;
 use crate::file_format::analysis::{read_analyses, read_source};
 use crate::file_format::code_coverage_report;
@@ -332,7 +331,7 @@ impl AbstractServer for LocalIndex {
         Ok(raw_str)
     }
 
-    async fn crossref_lookup(&self, symbol: &str, extra_processing: bool) -> Result<Value> {
+    async fn crossref_lookup(&self, symbol: &str) -> Result<Value> {
         let now = Instant::now();
         let result = match &self.crossref_lookup_map {
             Some(crossref) => crossref.lookup(symbol),
@@ -342,11 +341,7 @@ impl AbstractServer for LocalIndex {
             duration_us = now.elapsed().as_micros() as u64,
             "crossref_lookup: {}", symbol
         );
-        if result.is_ok() && extra_processing {
-            perform_lazy_crossref(self, result.unwrap()).await
-        } else {
-            result
-        }
+        result
     }
 
     async fn jumpref_lookup(&self, symbol: &str) -> Result<Value> {

@@ -139,7 +139,7 @@ impl PipelineCommand for CrossrefExpandCommand {
             let mut info = match maybe_info {
                 Some(existing) => existing,
                 None => {
-                    let fresh_info = server.crossref_lookup(&symbol, false).await?;
+                    let fresh_info = server.crossref_lookup(&symbol).await?;
                     SymbolCrossrefInfo {
                         symbol,
                         crossref_info: fresh_info,
