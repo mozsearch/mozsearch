@@ -1,10 +1,10 @@
 extern crate memmap;
 
 use self::memmap::Mmap;
+use std::cmp::Ordering;
 use std::fs::File;
 use std::str;
 use std::sync::Arc;
-use std::{cmp::Ordering, collections::HashMap};
 
 use serde_json::{Value, from_slice};
 
@@ -12,8 +12,6 @@ use crate::{
     abstract_server::Result,
     abstract_server::{ErrorDetails, ErrorLayer, ServerError},
 };
-
-use super::config::Config;
 
 #[derive(Clone, Debug)]
 pub struct CrossrefLookupMap {
@@ -57,18 +55,6 @@ impl CrossrefLookupMap {
             inline_mm,
             extra_mm,
         })
-    }
-
-    pub fn load(config: &Config) -> HashMap<String, Option<CrossrefLookupMap>> {
-        let mut result = HashMap::new();
-        for (tree_name, tree_config) in &config.trees {
-            println!("Loading crossref {}", tree_name);
-            let inline_path = format!("{}/crossref", tree_config.paths.index_path);
-            let extra_path = format!("{}/crossref-extra", tree_config.paths.index_path);
-            let map = CrossrefLookupMap::new(&inline_path, &extra_path);
-            result.insert(tree_name.clone(), map);
-        }
-        result
     }
 
     // Given a memory map and a position, expand from `pos` to find the identifier
