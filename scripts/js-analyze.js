@@ -1069,6 +1069,7 @@ class ASTVisitor {
       break;
 
     case "CallImport":
+    case "CallImportSource":
       this.callImport(expr);
       break;
 
