@@ -338,10 +338,8 @@ pub trait AbstractServer {
     async fn fetch_html(&self, root: HtmlFileRoot, sf_path: &str) -> Result<String>;
 
     /// Retrieve the JSON contents of the crossref database for the given
-    /// symbol.  Optionally performs the extra processing provided by
-    /// `lazy_crossref.rs` on local indices; this should only be passed for
-    /// specific use-cases that know they need the new experimental data.
-    async fn crossref_lookup(&self, symbol: &str, extra_processing: bool) -> Result<Value>;
+    /// symbol.
+    async fn crossref_lookup(&self, symbol: &str) -> Result<Value>;
 
     /// Retrieve the JSON contents of the jumpref database for the given
     /// symbol.

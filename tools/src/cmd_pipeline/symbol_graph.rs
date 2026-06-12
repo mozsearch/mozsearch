@@ -2443,7 +2443,7 @@ impl SymbolGraphNodeSet {
             return Ok((SymbolGraphNodeId(*index), sym_info));
         }
 
-        let info = server.crossref_lookup(sym, false).await?;
+        let info = server.crossref_lookup(sym).await?;
         Ok(self.add_symbol(DerivedSymbolInfo::new(*sym, info, depth)))
     }
 
