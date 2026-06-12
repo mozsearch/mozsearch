@@ -49,6 +49,7 @@ use tools::logging::LoggedSpan;
 use tools::logging::init_logging;
 use tools::templating::builder::build_and_parse_ontology_ingestion_explainer;
 use tools::templating::builder::build_and_parse_repo_ingestion_explainer;
+use tools::utils::case_semisensitive_cmp;
 use ustr::Ustr;
 use ustr::UstrMap;
 use ustr::UstrSet;
@@ -1582,11 +1583,16 @@ fn write_identifiers(tree_config: &TreeConfig, id_table: IdTable) {
     let id_file = format!("{}/identifiers", tree_config.paths.index_path);
 
     let mut idf = File::create(id_file).unwrap();
-    for (id, syms) in id_table {
-        for sym in syms {
-            let line = format!("{} {}\n", id, sym);
-            let _ = idf.write_all(line.as_bytes());
-        }
+
+    let mut lines: Vec<_> = id_table
+        .into_iter()
+        .flat_map(|(key, syms)| syms.into_iter().map(move |sym| (key, sym)))
+        .map(|(id, sym)| format!("{} {}\n", id, sym))
+        .collect();
+    lines.sort_unstable_by(|lhs, rhs| case_semisensitive_cmp(lhs, rhs));
+
+    for line in lines {
+        let _ = idf.write_all(line.as_bytes());
     }
 }
 
