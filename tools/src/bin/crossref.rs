@@ -16,12 +16,14 @@ use chrono::Local;
 extern crate clap;
 use clap::Parser;
 use itertools::Itertools;
-use serde_json::{Map, Value, json};
+use serde::Serialize;
+use serde_json::Map;
 extern crate tools;
 use tools::file_format::analysis::AnalysisStructured;
 use tools::file_format::analysis::BindingSlotLang;
 use tools::file_format::analysis::OntologySlotInfo;
 use tools::file_format::analysis::OntologySlotKind;
+use tools::file_format::analysis::PathSearchResult;
 use tools::file_format::analysis::StructuredPointerInfo;
 use tools::file_format::analysis::StructuredTag;
 use tools::file_format::analysis::{
@@ -33,7 +35,11 @@ use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::analysis_manglings::split_pretty;
 use tools::file_format::config;
 use tools::file_format::config::{Config, FindSourceFile, TreeConfig};
-use tools::file_format::crossref_converter::convert_crossref_value_to_sym_info_rep;
+use tools::file_format::crossref::Callee;
+use tools::file_format::crossref::CrossrefData;
+use tools::file_format::crossref::FieldInfos;
+use tools::file_format::crossref::FieldMemberUse;
+use tools::file_format::jumpref::convert_crossref_value_to_sym_info_rep;
 use tools::file_format::ontology_mapping::OntologyRunnableMode;
 use tools::file_format::ontology_mapping::{
     OntologyLabelOwningClass, OntologyMappingIngestion, OntologyPointerKind,
@@ -1204,11 +1210,11 @@ fn write_inline_and_ext(
     ext_out: &mut File,
     ext_offset: &mut usize,
     id: &Ustr,
-    inline: &Value,
+    data: &impl Serialize,
     is_first_chunk: bool,
 ) {
     let id_line = format!("!{}\n", id);
-    let inline_line = format!(":{}\n", inline);
+    let inline_line = format!(":{}\n", serde_json::to_string(data).unwrap());
     if inline_line.len() >= EXTERNAL_STORAGE_THRESHOLD {
         // ### External storage.
         out.write_all(id_line.as_bytes()).unwrap();
@@ -1283,16 +1289,16 @@ fn write_crossref_and_jumpref_thread(
     let mut reported_missing_concise = UstrSet::default();
 
     for (id, id_data) in &search_result_list[start..end] {
-        let mut kindmap = Map::new();
+        let mut crossref_data = CrossrefData::default();
         for (kind, kind_data) in id_data {
             let mut result = Vec::new();
             for (path, results) in kind_data {
                 if let Some(concise_info) = ingestion.state.concise_per_file.get(path) {
-                    result.push(json!({
-                        "path": path,
-                        "path_kind": concise_info.path_kind,
-                        "lines": results,
-                    }));
+                    result.push(PathSearchResult {
+                        path: *path,
+                        path_kind: concise_info.path_kind,
+                        lines: results.clone(),
+                    });
                 } else {
                     // NSS seems to have an issue with auto-generated files we
                     // don't know about, so this can't be a warning because it's
@@ -1302,18 +1308,17 @@ fn write_crossref_and_jumpref_thread(
                     }
                 }
             }
-            let kindstr = match *kind {
-                AnalysisKind::Use => "uses",
-                AnalysisKind::Def => "defs",
-                AnalysisKind::Assign => "assignments",
-                AnalysisKind::Decl => "decls",
-                AnalysisKind::Forward => "forwards",
-                AnalysisKind::Idl => "idl",
-                AnalysisKind::Idlp => "idlp",
-                AnalysisKind::Glean => "glean",
-                AnalysisKind::Alias => "aliases",
-            };
-            kindmap.insert(kindstr.to_string(), json!(result));
+            match kind {
+                AnalysisKind::Use => crossref_data.uses = Some(result),
+                AnalysisKind::Def => crossref_data.definitions = Some(result),
+                AnalysisKind::Assign => crossref_data.assignments = Some(result),
+                AnalysisKind::Decl => crossref_data.declarations = Some(result),
+                AnalysisKind::Forward => crossref_data.forwards = Some(result),
+                AnalysisKind::Idl => crossref_data.idl = Some(result),
+                AnalysisKind::Idlp => crossref_data.idl_partial = Some(result),
+                AnalysisKind::Glean => crossref_data.glean = Some(result),
+                AnalysisKind::Alias => crossref_data.aliases = Some(result),
+            }
         }
         if let Some(callee_syms) = callees_table.get(id) {
             let mut callees = Vec::new();
@@ -1321,19 +1326,15 @@ fn write_crossref_and_jumpref_thread(
                 let Some(meta) = meta_table.get(callee_sym) else {
                     continue;
                 };
-                let mut obj = BTreeMap::new();
-                obj.insert("sym".to_string(), callee_sym.to_string());
-                if let Some(pretty) = pretty_table.get(callee_sym) {
-                    obj.insert("pretty".to_string(), pretty.to_string());
-                }
-                obj.insert("kind".to_string(), meta.kind.to_string());
-                obj.insert(
-                    "jump".to_string(),
-                    format!("{}#{}", call_path, call_lines.iter().join(",")),
-                );
-                callees.push(json!(obj));
+                let callee = Callee {
+                    sym: *callee_sym,
+                    pretty: pretty_table.get(callee_sym).copied(),
+                    kind: meta.kind,
+                    jump: format!("{}#{}", call_path, call_lines.iter().join(",")),
+                };
+                callees.push(callee);
             }
-            kindmap.insert("callees".to_string(), json!(callees));
+            crossref_data.callees = Some(callees);
         }
         if let Some(fmu_syms) = field_member_use_table.get(id) {
             let mut fmus = Vec::new();
@@ -1341,47 +1342,44 @@ fn write_crossref_and_jumpref_thread(
                 let Some(meta) = meta_table.get(fmu_sym) else {
                     continue;
                 };
-                let mut fields = vec![];
-                for (field_pretty, ptr_kind) in fmu_field_infos {
-                    fields.push(json!({
-                        "pretty": field_pretty,
-                        "ptr": ptr_kind,
-                    }));
-                }
-                fmus.push(json!({
-                    "sym": fmu_sym,
-                    "pretty": meta.pretty,
-                    "fields": fields,
-                }));
+                let fields: Vec<_> = fmu_field_infos
+                    .into_iter()
+                    .map(|&(pretty, ptr)| FieldInfos { pretty, ptr })
+                    .collect();
+                fmus.push(FieldMemberUse {
+                    sym: *fmu_sym,
+                    pretty: meta.pretty,
+                    fields,
+                });
             }
-            kindmap.insert("field-member-uses".to_string(), json!(fmus));
+            crossref_data.field_member_uses = Some(fmus);
         }
         // Put the metadata in there too.
         let mut fallback_pretty = None;
         if let Some(meta) = meta_table.get(id) {
-            kindmap.insert("meta".to_string(), json!(meta));
+            crossref_data.meta = Some(meta.clone());
         } else {
-            fallback_pretty = pretty_table.get(id);
+            fallback_pretty = pretty_table.get(id).copied();
         }
 
         if let Some(idl_syms) = js_idl_table.get(id) {
             // Put the symbols only if there's a few candidates.
             if idl_syms.len() < MAX_JS_IDL_SYMS {
-                kindmap.insert("idl_syms".to_string(), json!(idl_syms));
+                crossref_data.idl_syms = Some(idl_syms.clone());
             }
         }
 
-        let kindmap = json!(kindmap);
         write_inline_and_ext(
             &mut xref_out,
             &mut xref_ext_out,
             &mut xref_ext_offset,
             id,
-            &kindmap,
+            &crossref_data,
             is_first_chunk,
         );
 
-        let jumpref_info = convert_crossref_value_to_sym_info_rep(kindmap, id, fallback_pretty);
+        let jumpref_info =
+            convert_crossref_value_to_sym_info_rep(Some(crossref_data), id, fallback_pretty);
         write_inline_and_ext(
             &mut jumpref_out,
             &mut jumpref_ext_out,

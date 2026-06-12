@@ -1,22 +1,21 @@
 extern crate memmap;
 
 use self::memmap::Mmap;
-use std::cmp::Ordering;
 use std::fs::File;
 use std::str;
 use std::sync::Arc;
+use std::{cmp::Ordering, marker::PhantomData};
 
-use serde_json::{Value, from_slice};
+use serde::Deserialize;
+use serde_json::from_slice;
 
-use crate::{
-    abstract_server::Result,
-    abstract_server::{ErrorDetails, ErrorLayer, ServerError},
-};
+use crate::abstract_server::{ErrorDetails, ErrorLayer, Result, ServerError};
 
 #[derive(Clone, Debug)]
-pub struct CrossrefLookupMap {
+pub struct CrossrefLookupMap<T> {
     inline_mm: Arc<Mmap>,
     extra_mm: Arc<Mmap>,
+    _data_type: PhantomData<T>,
 }
 
 const SPACE: u8 = b' ';
@@ -35,8 +34,8 @@ fn make_crossref_data_error(sym: &str) -> ServerError {
 // This implementation is a port of `crossrefs.py` (which was adapted from
 // `identifiers.py`) and informed by `identifiers.rs` (which presumably was
 // adapted from `identifiers.py` as well).
-impl CrossrefLookupMap {
-    pub fn new(inline_path: &str, extra_path: &str) -> Option<CrossrefLookupMap> {
+impl<'de, T: Deserialize<'de>> CrossrefLookupMap<T> {
+    pub fn new(inline_path: &str, extra_path: &str) -> Option<Self> {
         let inline_file = File::open(inline_path).unwrap();
         let inline_mm = unsafe {
             match Mmap::map(&inline_file) {
@@ -51,9 +50,10 @@ impl CrossrefLookupMap {
                 Err(_) => return None,
             }
         };
-        Some(CrossrefLookupMap {
+        Some(Self {
             inline_mm,
             extra_mm,
+            _data_type: PhantomData,
         })
     }
 
@@ -183,12 +183,12 @@ impl CrossrefLookupMap {
         &[]
     }
 
-    pub fn lookup(&self, sym: &str) -> Result<Value> {
+    pub fn lookup(&'de self, sym: &str) -> Result<Option<T>> {
         let payload = self.bisect_for_payload(sym.as_bytes());
         let payload_len = payload.len();
         // Finding nothing (a miss!) is not an error and so is an in-band null.
         if payload_len == 0 {
-            return Ok(Value::Null);
+            return Ok(None);
         }
         // Let's also rule out results that are too short and therefore must be
         // an error.
@@ -199,7 +199,7 @@ impl CrossrefLookupMap {
         let marker_char = payload[0];
 
         if marker_char == INLINE_STORED {
-            return from_slice(&payload[1..]).or(Ok(Value::Null));
+            return from_slice(&payload[1..]).or(Ok(None));
         } else if marker_char != EXTERNALLY_STORED {
             // Fail if we're seeing something other than an external ref.
             return Err(make_crossref_data_error(sym));

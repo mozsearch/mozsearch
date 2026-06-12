@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use bitflags::bitflags;
 use clap::{Args, ValueEnum};
 use serde::{Serialize, Serializer, ser::SerializeStruct};
-use serde_json::{Value, json, to_string_pretty};
+use serde_json::{Value, to_string_pretty};
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap, HashSet},
@@ -14,7 +14,10 @@ use ustr::{Ustr, UstrMap, ustr};
 pub use crate::abstract_server::{AbstractServer, Result};
 use crate::{
     abstract_server::{FileMatches, TextMatches},
-    file_format::crossref_converter::convert_crossref_value_to_sym_info_rep,
+    file_format::{
+        crossref::CrossrefData,
+        jumpref::{JumprefData, convert_crossref_value_to_sym_info_rep},
+    },
 };
 
 use super::symbol_graph::{SymbolGraphCollection, SymbolGraphNodeSet};
@@ -73,7 +76,7 @@ pub struct SymbolTreeTable {
     pub rows: Vec<SymbolTreeTableNode>,
 
     /// Symbols to put into SYM_INFO, in addition to node_set.
-    pub extra_syms: HashMap<String, Value>,
+    pub extra_syms: HashMap<String, JumprefData>,
 }
 
 #[derive(Serialize)]
@@ -84,14 +87,14 @@ pub struct SymbolTreeTableList {
 }
 
 impl SymbolTreeTableList {
-    pub fn unioned_node_sets_as_jumprefs(&self) -> Value {
+    pub fn unioned_node_sets_as_jumprefs(&self) -> BTreeMap<Ustr, JumprefData> {
         let mut jumprefs = BTreeMap::new();
         for table in &self.tables {
             for sym_info in table.node_set.symbol_crossref_infos.iter() {
                 let info = sym_info.crossref_info.clone();
                 jumprefs.insert(
                     sym_info.symbol,
-                    convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
+                    convert_crossref_value_to_sym_info_rep(Some(info), &sym_info.symbol, None),
                 );
             }
             for (sym, info) in &table.extra_syms {
@@ -99,7 +102,7 @@ impl SymbolTreeTableList {
             }
         }
 
-        json!(jumprefs)
+        jumprefs
     }
 }
 
@@ -518,7 +521,7 @@ bitflags! {
 #[derive(Serialize)]
 pub struct SymbolCrossrefInfo {
     pub symbol: Ustr,
-    pub crossref_info: Value,
+    pub crossref_info: CrossrefData,
     pub relation: SymbolRelation,
     pub quality: SymbolQuality,
     /// Any overloads encountered when processing this symbol.
@@ -531,23 +534,19 @@ impl SymbolCrossrefInfo {
     /// Return the pretty identifier for this symbol from its "meta" "pretty"
     /// field, falling back to the symbol name if we don't have a pretty name.
     pub fn get_pretty(&self) -> Ustr {
-        if let Some(Value::String(s)) = self.crossref_info.pointer("/meta/pretty") {
-            ustr(s)
+        if let Some(s) = self.crossref_info.meta.as_ref().map(|meta| meta.pretty) {
+            s
         } else {
             self.symbol
         }
     }
 
     pub fn get_method_symbols(&self) -> Option<Vec<Ustr>> {
-        if let Some(Value::Array(arr)) = self.crossref_info.pointer("/meta/methods") {
+        if let Some(arr) = self.crossref_info.meta.as_ref().map(|meta| &meta.methods) {
             if arr.is_empty() {
                 return None;
             }
-            Some(
-                arr.iter()
-                    .map(|v| ustr(v["sym"].as_str().unwrap_or("")))
-                    .collect(),
-            )
+            Some(arr.iter().map(|v| v.sym).collect())
         } else {
             None
         }
@@ -559,7 +558,7 @@ impl SymbolCrossrefInfo {
 #[derive(Serialize)]
 pub struct SymbolCrossrefInfoList {
     pub symbol_crossref_infos: Vec<SymbolCrossrefInfo>,
-    pub unknown_symbols: Vec<String>,
+    pub unknown_symbols: Vec<Ustr>,
 }
 
 /// router.py-style mozsearch compiled results that has top-level path-kind
@@ -809,7 +808,7 @@ impl FlattenedLineSpan {
 pub struct GraphInput {
     pub graphs: Value,
     pub overloads_hit: Vec<OverloadInfo>,
-    pub symbols: Value,
+    pub symbols: BTreeMap<Ustr, JumprefData>,
     pub options: Value,
 }
 
@@ -818,7 +817,7 @@ pub struct GraphInput {
 pub struct GraphResultsBundle {
     pub graphs: Vec<RenderedGraph>,
     pub overloads_hit: Vec<OverloadInfo>,
-    pub symbols: Value,
+    pub symbols: BTreeMap<Ustr, JumprefData>,
     pub options: Value,
 }
 

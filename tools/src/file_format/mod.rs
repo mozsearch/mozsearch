@@ -13,7 +13,7 @@ pub mod config;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod coverage;
 #[cfg(not(target_arch = "wasm32"))]
-pub mod crossref_converter;
+pub mod crossref;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod crossref_lookup;
 #[cfg(not(target_arch = "wasm32"))]
@@ -22,6 +22,8 @@ pub mod doc_trees;
 pub mod globbing_file_list;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod identifiers;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod jumpref;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod merger;
 #[cfg(not(target_arch = "wasm32"))]

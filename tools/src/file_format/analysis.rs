@@ -223,7 +223,7 @@ where
 }
 
 /// See TargetTag for more info
-#[derive(Debug, Eq, PartialEq, Serialize_repr, Deserialize_repr)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize_repr, Deserialize_repr)]
 #[repr(u8)]
 pub enum StructuredTag {
     Structured = 1,
@@ -264,7 +264,7 @@ where
     pub layout: Option<StructuredLayoutOnlyInfo<StrT>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StructuredArgInfo<StrT = Ustr>
 where
     StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
@@ -276,7 +276,7 @@ where
     pub type_sym: StrT,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StructuredMethodInfo<StrT = Ustr>
 where
     StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
@@ -299,7 +299,7 @@ pub struct StructuredBitPositionInfo {
     pub width: u32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StructuredOverrideInfo<StrT = Ustr> {
     #[serde(default)]
     pub sym: StrT,
@@ -444,7 +444,7 @@ pub struct BindingSlotProps {
     #[serde(rename = "ownerLang")]
     pub owner_lang: BindingOwnerLang,
 }
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StructuredBindingSlotInfo<StrT = Ustr>
 where
     StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
@@ -521,7 +521,7 @@ pub enum OntologySlotKind {
 /// extensive that a normal faceting UI would be of dubious utility because the
 /// user should probably just keep typing if they are interested in a specific
 /// preference.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OntologySlotInfo<StrT = Ustr>
 where
     StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
@@ -541,7 +541,7 @@ where
 /// Structured records are merged by choosing one platform rep to be the canonical variant and
 /// embedding the other variants observed under a `variants` attribute.  See `analysis.md` and
 /// `merge-analyses.rs` for more details.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AnalysisStructured<StrT = Ustr>
 where
     StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
@@ -1280,7 +1280,7 @@ pub struct SearchResult {
     pub peek_range: LineRange,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct PathSearchResult {
     pub path: Ustr,
     pub path_kind: Ustr,

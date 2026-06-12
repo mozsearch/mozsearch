@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(sttl).unwrap()"
+input_file: inputs/fancy/format-symbol/field-layout/non-struct.cpp/field_layout__non_struct__json
 ---
 {
   "tables": [

@@ -11,10 +11,11 @@ use crate::blame;
 use crate::file_format::analysis_manglings::make_file_sym_from_path;
 use crate::file_format::code_coverage_report;
 use crate::file_format::coverage::InterpolatedCoverage;
-use crate::file_format::crossref_converter::{
-    JumprefTraversals, determine_desired_extra_syms_from_jumpref, extra_syms_next_step_lookups,
-};
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
+use crate::file_format::jumpref::{
+    JumprefData, JumprefTraversals, determine_desired_extra_syms_from_jumpref,
+    extra_syms_next_step_lookups,
+};
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::{self, coverage_history, coverage_summary, git_time_to_chrono};
 use crate::languages;
@@ -35,7 +36,7 @@ use crate::url_encode_path::url_encode_path;
 
 use git2::{Oid, Repository, Tree, TreeEntry};
 use itertools::Itertools;
-use serde_json::{Map, json, to_string, to_string_pretty};
+use serde_json::{json, to_string, to_string_pretty};
 use ustr::{Ustr, UstrMap, ustr};
 
 #[derive(Debug)]
@@ -53,7 +54,7 @@ pub struct FormattedLine {
 /// for generating line numbers and any blame information.
 pub fn format_code(
     cfg: Option<&Config>,
-    jumpref_lookup: &Option<CrossrefLookupMap>,
+    jumpref_lookup: &Option<CrossrefLookupMap<JumprefData>>,
     format: FormatAs,
     path: &str,
     input: &str,
@@ -223,26 +224,12 @@ pub fn format_code(
                             continue;
                         }
 
-                        // Pass-through local symbol information that won't be available from the
-                        // cross-reference database because it was marked no_crossref.  This is only
-                        // intended to cover type information about the locals; other info like srcsym
-                        // and targetsym doesn't make sense for locals.
-                        if a.no_crossref {
-                            if let Some(type_pretty) = a.type_pretty {
-                                let mut obj = Map::new();
-                                if let Some(syntax_kind) = a.get_syntax_kind() {
-                                    obj.insert(
-                                        "syntax".to_string(),
-                                        json!(syntax_kind.to_string()),
-                                    );
-                                }
-                                obj.insert("type".to_string(), json!(type_pretty.to_string()));
-                                if let Some(type_sym) = &a.type_sym {
-                                    obj.insert("typesym".to_string(), json!(type_sym.to_string()));
-                                }
-                                generated_sym_info.insert(*sym, json!(obj));
-                            }
-                        } else if let Some(lookup) = jumpref_lookup
+                        // The Clang plugin provides type information which could be used here,
+                        // especially in the non-crossref case.
+                        // See bug 2047542 to either use or remove that data.
+
+                        if !a.no_crossref
+                            && let Some(lookup) = jumpref_lookup
                             && let Ok(jumpref) = lookup.lookup(sym)
                         {
                             // See if there are any binding slot symbols that we should also
@@ -250,7 +237,7 @@ pub fn format_code(
                             // context menu for a synthetic XPIDL symbol, we can also provide an
                             // option to go directly to the C++ binding definition.
                             let mut extra_syms =
-                                determine_desired_extra_syms_from_jumpref(&jumpref);
+                                determine_desired_extra_syms_from_jumpref(jumpref.as_ref());
                             jumpref_traversed
                                 .entry(*sym)
                                 .and_modify(|t| *t |= JumprefTraversals::NormalExtra)
@@ -272,7 +259,10 @@ pub fn format_code(
                                     if let Some(extra_jumpref) = generated_sym_info.get(&extra_sym)
                                     {
                                         for (next_sym, next_traversals) in
-                                            extra_syms_next_step_lookups(extra_jumpref, next_step)
+                                            extra_syms_next_step_lookups(
+                                                extra_jumpref.as_ref(),
+                                                next_step,
+                                            )
                                         {
                                             extra_syms.push((next_sym, next_traversals));
                                         }
@@ -282,7 +272,10 @@ pub fn format_code(
                                     // to extra_syms before we consume the value by storing it.
                                     if !next_step.is_empty() {
                                         for (next_sym, next_traversals) in
-                                            extra_syms_next_step_lookups(&extra_jumpref, next_step)
+                                            extra_syms_next_step_lookups(
+                                                extra_jumpref.as_ref(),
+                                                next_step,
+                                            )
                                         {
                                             extra_syms.push((next_sym, next_traversals));
                                         }
@@ -617,7 +610,7 @@ pub fn format_file_data(
     coverage_commit: Option<&git2::Commit>,
     path: &str,
     data: String,
-    crossref_lookup_map: &Option<CrossrefLookupMap>,
+    jumpref_lookup: &Option<CrossrefLookupMap<JumprefData>>,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
     writer: &mut dyn Write,
 ) -> Result<FormatPerfInfo, &'static str> {
@@ -635,14 +628,8 @@ pub fn format_file_data(
 
     let slug = format_to_slug_attribute(&format);
     let pre_format_code = Instant::now();
-    let (output_lines, sym_json) = format_code(
-        Some(cfg),
-        crossref_lookup_map,
-        format,
-        path,
-        &data,
-        analysis,
-    );
+    let (output_lines, sym_json) =
+        format_code(Some(cfg), jumpref_lookup, format, path, &data, analysis);
     format_perf.format_code_duration_us = pre_format_code.elapsed().as_micros() as u64;
 
     let pre_blame_lines = Instant::now();

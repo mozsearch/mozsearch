@@ -85,7 +85,7 @@ async fn main() {
         }
         Ok(PipelineValues::SymbolCrossrefInfoList(sl)) => {
             for symbol_info in sl.symbol_crossref_infos {
-                emit_json(&symbol_info.crossref_info);
+                emit_json(&serde_json::json!(symbol_info.crossref_info));
             }
             0
         }

@@ -15,15 +15,17 @@ use petgraph::{
 };
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
-use serde_json::{Value, from_value, json, to_value};
+use serde_json::{Value, json, to_value};
 use tracing::trace;
 use ustr::{Ustr, UstrMap, ustr};
 
 use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
     file_format::{
-        analysis::AnalysisStructured, analysis_manglings::split_pretty,
-        crossref_converter::convert_crossref_value_to_sym_info_rep,
+        analysis::{AnalysisStructured, BindingSlotKind},
+        analysis_manglings::split_pretty,
+        crossref::CrossrefData,
+        jumpref::{JumprefData, convert_crossref_value_to_sym_info_rep},
         ontology_mapping::label_to_badge_info,
     },
 };
@@ -99,7 +101,7 @@ pub fn make_safe_port_id(dubious_id: &str) -> String {
 #[derive(Clone, Debug)]
 pub struct DerivedSymbolInfo {
     pub symbol: Ustr,
-    pub crossref_info: Value,
+    pub crossref_info: CrossrefData,
     pub badges: Vec<SymbolBadge>,
     /// For symbols that are fields with pointer_infos, we set the effective
     /// subsystem to be the subsystem of the first pointer_info payload.  We
@@ -228,34 +230,29 @@ pub fn semantic_kind_is_class(semantic_kind: &str) -> bool {
 
 impl DerivedSymbolInfo {
     pub fn is_callable(&self) -> bool {
-        match self.crossref_info.pointer("/meta/kind") {
-            Some(Value::String(sem_kind)) => semantic_kind_is_callable(sem_kind),
+        match self.get_structured().map(|meta| meta.kind) {
+            Some(sem_kind) => semantic_kind_is_callable(&sem_kind),
             _ => false,
         }
     }
 
     pub fn is_class(&self) -> bool {
-        match self.crossref_info.pointer("/meta/kind") {
-            Some(Value::String(sem_kind)) => semantic_kind_is_class(sem_kind),
+        match self.get_structured().map(|meta| meta.kind) {
+            Some(sem_kind) => semantic_kind_is_class(&sem_kind),
             _ => false,
         }
     }
 
     pub fn is_lambda(&self) -> bool {
-        match self.crossref_info.pointer("/meta/pretty") {
-            Some(Value::String(pretty)) => is_lambda_pretty(pretty),
+        match self.get_structured().map(|meta| meta.pretty) {
+            Some(pretty) => is_lambda_pretty(&pretty),
             _ => false,
         }
     }
 
-    /// Provide the structured rep of this symbol if it has one.  If we use this
-    /// a lot we should potentially consider using interior mutability to cache
-    /// this or have performed the conversion eagerly upon creation.
-    pub fn get_structured(&self) -> Option<AnalysisStructured> {
-        match self.crossref_info.get("meta") {
-            Some(v) => from_value(v.clone()).ok(),
-            _ => None,
-        }
+    /// Provide the structured rep of this symbol if it has one.
+    pub fn get_structured(&self) -> Option<&AnalysisStructured> {
+        self.crossref_info.meta.as_ref()
     }
 
     /// For hierarchy purposes we want to skip over namespace or namespace-like
@@ -270,68 +267,62 @@ impl DerivedSymbolInfo {
     }
 
     pub fn get_pretty(&self) -> Ustr {
-        match self.crossref_info.pointer("/meta/pretty") {
-            Some(Value::String(pretty)) => ustr(pretty),
+        match self.get_structured().map(|meta| meta.pretty) {
+            Some(pretty) => pretty,
             _ => self.symbol,
         }
     }
 
-    pub fn get_binding_slot_sym(&self, kind: &str) -> Option<Ustr> {
-        if let Some(Value::Array(slots)) = self.crossref_info.pointer("/meta/bindingSlots") {
+    pub fn get_binding_slot_sym(&self, kind: BindingSlotKind) -> Option<Ustr> {
+        if let Some(slots) = self.get_structured().map(|meta| &meta.binding_slots) {
             for slot in slots {
-                if let Some(Value::String(slot_kind)) = slot.get("slotKind") {
-                    if slot_kind.as_str() != kind {
-                        continue;
-                    }
-                    if let Some(Value::String(sym)) = slot.get("sym") {
-                        return Some(ustr(sym));
-                    }
-                    break;
+                if slot.props.slot_kind != kind {
+                    continue;
                 }
+                return Some(slot.sym);
             }
         }
         None
     }
 
     pub fn get_subsystem(&self) -> Option<Ustr> {
-        match self.crossref_info.pointer("/meta/subsystem") {
-            Some(Value::String(subsystem)) => Some(ustr(subsystem)),
-            _ => None,
-        }
+        self.get_structured().and_then(|meta| meta.subsystem)
     }
 
     /// Find the path that contains a "def" record for this symbol.  (There
     /// should ideally only be a single definition path, even if we might have
     /// multiple line hits at the path because of #ifdefs.)
-    pub fn get_def_path(&self) -> Option<&String> {
-        match self.crossref_info.pointer("/defs/0/path") {
-            Some(Value::String(path)) => Some(path),
-            _ => None,
-        }
+    pub fn get_def_path(&self) -> Option<Ustr> {
+        self.crossref_info
+            .definitions
+            .as_ref()
+            .and_then(|defs| defs.get(0).map(|def| def.path))
     }
 
     /// If this symbol has a definition, return the definition's line number.
     /// This is intended to assist with lexically ordering fields within a
     /// structure/class.
     pub fn get_def_lno(&self) -> u64 {
-        match self.crossref_info.pointer("/defs/0/lines/0/lno") {
-            Some(Value::Number(lno)) => lno.as_u64().unwrap_or(0),
-            _ => 0,
-        }
+        self.crossref_info
+            .definitions
+            .as_ref()
+            .and_then(|defs| {
+                defs.get(0)
+                    .and_then(|def| def.lines.get(0).map(|line| line.lineno.into()))
+            })
+            .unwrap_or(0)
     }
 
     // Potentially reduce our memory usage by dropping our uses and calls fields
     // if they are present, as they won't be used for jumpref production.
     pub fn reduce_memory_usage_by_dropping_non_jumpref_info(&mut self) {
-        if let Some(obj) = self.crossref_info.as_object_mut() {
-            obj.remove("uses");
-            obj.remove("callees");
-        }
+        self.crossref_info.uses = None;
+        self.crossref_info.callees = None;
     }
 }
 
 impl DerivedSymbolInfo {
-    pub fn new(symbol: Ustr, crossref_info: Value, depth: u32) -> Self {
+    pub fn new(symbol: Ustr, crossref_info: CrossrefData, depth: u32) -> Self {
         DerivedSymbolInfo {
             symbol,
             crossref_info,
@@ -2400,11 +2391,14 @@ impl SymbolGraphNodeSet {
         // each individual field, and that's weird.  This may or may not change,
         // since there is also some sense in field (meta)data being most
         // useful in the context of the class.)
-        if let Some(Value::Array(labels_json)) = sym_info.crossref_info.pointer("/meta/labels") {
-            for label in labels_json {
-                if let Value::String(label) = label
-                    && let Some((pri, shorter_label)) = label_to_badge_info(label)
-                {
+        if let Some(labels) = sym_info
+            .crossref_info
+            .meta
+            .as_ref()
+            .map(|meta| &meta.labels)
+        {
+            for label in labels {
+                if let Some((pri, shorter_label)) = label_to_badge_info(&label) {
                     sym_info.badges.push(SymbolBadge {
                         pri,
                         label: ustr(shorter_label),
@@ -2443,7 +2437,12 @@ impl SymbolGraphNodeSet {
             return Ok((SymbolGraphNodeId(*index), sym_info));
         }
 
-        let info = server.crossref_lookup(sym).await?;
+        let Some(info) = server.crossref_lookup(sym).await? else {
+            return Err(ServerError::StickyProblem(ErrorDetails {
+                layer: ErrorLayer::DataLayer,
+                message: "ensure_symbol: symbol not found in crossref table".to_owned(),
+            }));
+        };
         Ok(self.add_symbol(DerivedSymbolInfo::new(*sym, info, depth)))
     }
 
@@ -2460,32 +2459,32 @@ impl SymbolGraphNodeSet {
     ///
     /// Okay, now there's a nondestructive version below this that's less
     /// efficient.
-    pub fn symbols_meta_to_jumpref_json_destructive(&mut self) -> Value {
+    pub fn symbols_meta_to_jumpref_json_destructive(&mut self) -> BTreeMap<Ustr, JumprefData> {
         let mut jumprefs = BTreeMap::new();
         for sym_info in self.symbol_crossref_infos.iter_mut() {
-            let info = sym_info.crossref_info.take();
+            let info = std::mem::take(&mut sym_info.crossref_info);
             jumprefs.insert(
                 sym_info.symbol,
-                convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
+                convert_crossref_value_to_sym_info_rep(Some(info), &sym_info.symbol, None),
             );
         }
 
-        json!(jumprefs)
+        jumprefs
     }
 
     /// Nondestructive, less efficient version of `symbols_meta_to_jumpref_json_destructive`.
-    pub fn symbols_meta_to_jumpref_json_nomut(&self) -> Value {
+    pub fn symbols_meta_to_jumpref_json_nomut(&self) -> BTreeMap<Ustr, JumprefData> {
         let mut jumprefs = BTreeMap::new();
         for sym_info in self.symbol_crossref_infos.iter() {
             // XXX This is inefficient!
             let info = sym_info.crossref_info.clone();
             jumprefs.insert(
                 sym_info.symbol,
-                convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
+                convert_crossref_value_to_sym_info_rep(Some(info), &sym_info.symbol, None),
             );
         }
 
-        json!(jumprefs)
+        jumprefs
     }
 }
 

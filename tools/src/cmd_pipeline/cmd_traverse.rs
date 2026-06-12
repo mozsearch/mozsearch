@@ -4,9 +4,9 @@ use std::iter::FromIterator;
 use async_trait::async_trait;
 use bitflags::bitflags;
 use clap::Args;
-use serde_json::{Value, from_value, json};
+use serde_json::json;
 use tracing::trace;
-use ustr::{Ustr, ustr};
+use ustr::ustr;
 
 use super::{
     interface::{OverloadInfo, OverloadKind, PipelineCommand, PipelineValues, SymbolMetaFlags},
@@ -20,10 +20,7 @@ use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
     cmd_pipeline::symbol_graph::{EdgeDetail, EdgeKind},
     file_format::{
-        analysis::{
-            BindingOwnerLang, BindingSlotKind, OntologySlotInfo, OntologySlotKind,
-            StructuredBindingSlotInfo, StructuredFieldInfo,
-        },
+        analysis::{BindingOwnerLang, BindingSlotKind, OntologySlotKind},
         ontology_mapping::{label_to_badge_info, pointer_kind_to_badge_info},
     },
 };
@@ -351,9 +348,8 @@ impl PipelineCommand for TraverseCommand {
             let (sym_id, sym_info) = sym_node_set.ensure_symbol(&sym, server, depth).await?;
 
             if let Some(stop_at_label) = &stop_at_class_label
-                && let Some(labels_json) = sym_info.crossref_info.pointer("/meta/labels").cloned()
+                && let Some(labels) = sym_info.get_structured().map(|meta| &meta.labels).clone()
             {
-                let labels: Vec<Ustr> = from_value(labels_json).unwrap();
                 let mut skip_symbol = false;
                 for label in labels {
                     if label.as_str() == *stop_at_label {
@@ -372,14 +368,16 @@ impl PipelineCommand for TraverseCommand {
             }
 
             // ## Clone the slotOwner now before engaging in additional borrows.
-            let slot_owner = sym_info.crossref_info.pointer("/meta/slotOwner").cloned();
+            let slot_owner = sym_info
+                .get_structured()
+                .and_then(|meta| meta.slot_owner.as_ref())
+                .cloned();
 
             if traverse_fields {
                 // Traverse the fields out of this class
                 // Note that depth won't stop us from showing a class's fields,
                 // just whether we process the target symbol!
-                if let Some(fields_json) = sym_info.crossref_info.pointer("/meta/fields").cloned() {
-                    let fields: Vec<StructuredFieldInfo> = from_value(fields_json).unwrap();
+                if let Some(fields) = sym_info.get_structured().map(|meta| &meta.fields).cloned() {
                     for field in fields {
                         let mut show_field = !field.labels.is_empty();
                         // Attempt to mark the fields with the subsystem of the field's target class
@@ -389,15 +387,15 @@ impl PipelineCommand for TraverseCommand {
                         let mut effective_subsystem = None;
 
                         let mut targets = vec![];
-                        for ptr_info in field.pointer_info {
+                        for ptr_info in &field.pointer_info {
                             show_field = true;
                             let (target_id, target_info) = sym_node_set
                                 .ensure_symbol(&ptr_info.sym, server, next_depth)
                                 .await?;
 
                             let target_pretty =
-                                match target_info.crossref_info.pointer("/meta/pretty") {
-                                    Some(Value::String(pretty)) => ustr(pretty),
+                                match target_info.get_structured().map(|meta| meta.pretty) {
+                                    Some(pretty) => pretty,
                                     _ => ustr(""),
                                 };
                             if ignore_node_set.contains(&*target_pretty) {
@@ -455,7 +453,7 @@ impl PipelineCommand for TraverseCommand {
                             .ensure_symbol(&field.sym, server, next_depth)
                             .await?;
                         field_info.effective_subsystem = effective_subsystem;
-                        for label in field.labels {
+                        for label in &field.labels {
                             // XXX like above, consider moving the emoji label mapping here to
                             // the ontology file or elsewhere.
                             let Some((pri, shorter_label)) = label_to_badge_info(&label) else {
@@ -486,13 +484,6 @@ impl PipelineCommand for TraverseCommand {
             }
 
             if depth as i32 <= traverse_field_member_uses {
-                let bad_data = || {
-                    ServerError::StickyProblem(ErrorDetails {
-                        layer: ErrorLayer::DataLayer,
-                        message: format!("Bad edge info in sym {sym} on field-member-uses"),
-                    })
-                };
-
                 // Find the places where this type is used as a field member.
                 //
                 // A hack/simplification we do here is just add the class and leave
@@ -502,12 +493,11 @@ impl PipelineCommand for TraverseCommand {
                 // class's fields; the field traversal is not a separate step with
                 // its own depth addition.
                 let sym_info = sym_node_set.get(&sym_id);
-                let member_uses_storage = sym_info
+                let member_uses = sym_info
                     .crossref_info
-                    .pointer("/field-member-uses")
-                    .unwrap_or(&Value::Array(vec![]))
-                    .clone();
-                let member_uses = member_uses_storage.as_array().unwrap();
+                    .field_member_uses
+                    .clone()
+                    .unwrap_or_default();
 
                 if member_uses.len() as u32 >= self.args.skip_field_member_uses_at_count {
                     overloads_hit.push(OverloadInfo {
@@ -531,20 +521,15 @@ impl PipelineCommand for TraverseCommand {
                     });
                 } else {
                     for target in member_uses {
-                        // fmu is { sym, pretty, fields }
-                        // The sym is the class referencing our type.
-                        let target_sym_str = target["sym"].as_str().ok_or_else(bad_data)?;
-                        let target_sym = ustr(target_sym_str);
-
                         let (_target_id, target_info) = sym_node_set
-                            .ensure_symbol(&target_sym, server, next_depth)
+                            .ensure_symbol(&target.sym, server, next_depth)
                             .await?;
 
-                        let target_pretty = match target_info.crossref_info.pointer("/meta/pretty")
-                        {
-                            Some(Value::String(pretty)) => ustr(pretty),
-                            _ => ustr(""),
-                        };
+                        let target_pretty =
+                            match target_info.get_structured().map(|meta| meta.pretty) {
+                                Some(pretty) => pretty,
+                                _ => ustr(""),
+                            };
                         if ignore_node_set.contains(&*target_pretty) {
                             continue;
                         }
@@ -553,7 +538,7 @@ impl PipelineCommand for TraverseCommand {
                         if !considered.insert(target_info.symbol) {
                             continue;
                         }
-                        trace!(sym = target_sym_str, "scheduling field-member-use");
+                        trace!(sym = target.sym.as_str(), "scheduling field-member-use");
                         to_traverse.push_back((
                             target_info.symbol,
                             target_pretty,
@@ -565,9 +550,7 @@ impl PipelineCommand for TraverseCommand {
             }
 
             // Check whether to traverse a parent binding slot relationship.
-            if let Some(val) = slot_owner {
-                let slot_owner: StructuredBindingSlotInfo = from_value(val).unwrap();
-
+            if let Some(slot_owner) = slot_owner {
                 // There are a few possibilities with a binding slot.  It can be
                 // a binding type that is:
                 //
@@ -610,7 +593,7 @@ impl PipelineCommand for TraverseCommand {
                         (_, BindingSlotKind::Send) => (
                             self.args.edge == "callees",
                             true,
-                            Some("recv"),
+                            Some(BindingSlotKind::Recv),
                             true,
                             EdgeKind::IPC,
                         ),
@@ -618,7 +601,7 @@ impl PipelineCommand for TraverseCommand {
                         (_, BindingSlotKind::Recv) => (
                             self.args.edge == "uses",
                             true,
-                            Some("send"),
+                            Some(BindingSlotKind::Send),
                             false,
                             EdgeKind::IPC,
                         ),
@@ -650,8 +633,8 @@ impl PipelineCommand for TraverseCommand {
                         .ensure_symbol(&slot_owner.sym, server, next_depth)
                         .await?;
 
-                    let owner_pretty = match owner_info.crossref_info.pointer("/meta/pretty") {
-                        Some(Value::String(pretty)) => ustr(pretty),
+                    let owner_pretty = match owner_info.get_structured().map(|meta| meta.pretty) {
+                        Some(pretty) => pretty,
                         _ => ustr(""),
                     };
 
@@ -664,8 +647,9 @@ impl PipelineCommand for TraverseCommand {
                             .ensure_symbol(&other_sym, server, next_depth)
                             .await?;
 
-                        let other_pretty = match other_info.crossref_info.pointer("/meta/pretty") {
-                            Some(Value::String(pretty)) => ustr(pretty),
+                        let other_pretty = match other_info.get_structured().map(|meta| meta.pretty)
+                        {
+                            Some(pretty) => pretty,
                             _ => ustr(""),
                         };
                         if ignore_node_set.contains(&*other_pretty) {
@@ -776,14 +760,13 @@ impl PipelineCommand for TraverseCommand {
             // like for XPIDL where in theory XPConnect allows calls between C++ and JS but we don't
             // have the necessary analysis data to handle that.
             let sym_info = sym_node_set.get(&sym_id);
-            if let Some(Value::Array(slots)) = sym_info
-                .crossref_info
-                .pointer("/meta/bindingSlots")
+            if let Some(slots) = sym_info
+                .get_structured()
+                .map(|meta| &meta.binding_slots)
                 .cloned()
             {
                 let mut skip_after_slots = false;
-                for slot_val in slots {
-                    let slot: StructuredBindingSlotInfo = from_value(slot_val).unwrap();
+                for slot in &slots {
                     let (should_traverse, skip_other_edges, outbound_edge, edge_kind) =
                         match (slot.props.owner_lang, slot.props.slot_kind) {
                             // Don't bother with IDL bindings; all the relevant traversals involve a
@@ -816,8 +799,8 @@ impl PipelineCommand for TraverseCommand {
                         .ensure_symbol(&slot.sym, server, next_depth)
                         .await?;
 
-                    let rel_pretty = match rel_info.crossref_info.pointer("/meta/pretty") {
-                        Some(Value::String(pretty)) => ustr(pretty),
+                    let rel_pretty = match rel_info.get_structured().map(|meta| meta.pretty) {
+                        Some(pretty) => pretty,
                         _ => ustr(""),
                     };
                     if ignore_node_set.contains(&*rel_pretty) {
@@ -867,14 +850,13 @@ impl PipelineCommand for TraverseCommand {
 
             // Check whether we have any ontology shortcuts to handle.
             let sym_info = sym_node_set.get(&sym_id);
-            if let Some(Value::Array(slots)) = sym_info
-                .crossref_info
-                .pointer("/meta/ontologySlots")
+            if let Some(slots) = sym_info
+                .get_structured()
+                .map(|meta| &meta.ontology_slots)
                 .cloned()
             {
                 let mut keep_going = true;
-                for slot_val in slots {
-                    let slot: OntologySlotInfo = from_value(slot_val).unwrap();
+                for slot in &slots {
                     let (should_traverse, upwards) = match slot.slot_kind {
                         OntologySlotKind::RunnableConstructor => (self.args.edge == "uses", true),
                         OntologySlotKind::RunnableMethod => (self.args.edge == "callees", false),
@@ -882,13 +864,13 @@ impl PipelineCommand for TraverseCommand {
                     if !should_traverse {
                         continue;
                     }
-                    for rel_sym in slot.syms {
+                    for rel_sym in &slot.syms {
                         let (rel_id, rel_info) = sym_node_set
                             .ensure_symbol(&rel_sym, server, next_depth)
                             .await?;
 
-                        let rel_pretty = match rel_info.crossref_info.pointer("/meta/pretty") {
-                            Some(Value::String(pretty)) => ustr(pretty),
+                        let rel_pretty = match rel_info.get_structured().map(|meta| meta.pretty) {
+                            Some(pretty) => pretty,
                             _ => ustr(""),
                         };
                         if ignore_node_set.contains(&*rel_pretty) {
@@ -912,7 +894,7 @@ impl PipelineCommand for TraverseCommand {
                                 &mut graph,
                             );
                         }
-                        if !considered.insert(rel_sym) {
+                        if !considered.insert(*rel_sym) {
                             continue;
                         }
                         if next_depth >= max_depth {
@@ -929,7 +911,7 @@ impl PipelineCommand for TraverseCommand {
                         }
                         trace!(sym = rel_sym.as_str(), "scheduling ontology sym");
                         to_traverse.push_back((
-                            rel_sym,
+                            *rel_sym,
                             rel_pretty,
                             next_depth,
                             all_traversals_valid,
@@ -948,31 +930,19 @@ impl PipelineCommand for TraverseCommand {
             }
 
             if traverse_subclasses && cur_traversals.contains(Traversals::Subclass) {
-                let bad_data = || {
-                    ServerError::StickyProblem(ErrorDetails {
-                        layer: ErrorLayer::DataLayer,
-                        message: format!("Bad edge info in sym {sym} on meta subclasses"),
-                    })
-                };
-
                 let sym_info = sym_node_set.get(&sym_id);
                 let overrides = sym_info
-                    .crossref_info
-                    .pointer("/meta/subclasses")
-                    .unwrap_or(&Value::Array(vec![]))
-                    .clone();
+                    .get_structured()
+                    .map(|meta| meta.subclass_syms.clone())
+                    .unwrap_or_default();
 
-                for target in overrides.as_array().unwrap() {
-                    // subclasses are just the raw symbol, not an object dict.
-                    let target_sym_str = target.as_str().ok_or_else(bad_data)?;
-                    let target_sym = ustr(target_sym_str);
-
+                for target in overrides {
                     let (target_id, target_info) = sym_node_set
-                        .ensure_symbol(&target_sym, server, next_depth)
+                        .ensure_symbol(&target, server, next_depth)
                         .await?;
 
-                    let target_pretty = match target_info.crossref_info.pointer("/meta/pretty") {
-                        Some(Value::String(pretty)) => ustr(pretty),
+                    let target_pretty = match target_info.get_structured().map(|meta| meta.pretty) {
+                        Some(pretty) => pretty,
                         _ => ustr(""),
                     };
                     if ignore_node_set.contains(&*target_pretty) {
@@ -1001,7 +971,7 @@ impl PipelineCommand for TraverseCommand {
                         });
                         continue;
                     }
-                    trace!(sym = target_sym_str, "scheduling subclass");
+                    trace!(sym = target.as_str(), "scheduling subclass");
                     // If we're going in the subclass direction continue only going in the subclass
                     // direction; don't change direction and perform superclass traversals.
                     // XXX we should potentially be tying this into "considered" somehow.
@@ -1015,44 +985,27 @@ impl PipelineCommand for TraverseCommand {
             }
 
             if traverse_superclasses && cur_traversals.contains(Traversals::Super) {
-                let bad_data = || {
-                    ServerError::StickyProblem(ErrorDetails {
-                        layer: ErrorLayer::DataLayer,
-                        message: format!("Bad edge info in sym {sym} on meta superclasses"),
-                    })
-                };
-
                 let sym_info = sym_node_set.get(&sym_id);
                 let overrides = sym_info
-                    .crossref_info
-                    .pointer("/meta/supers")
-                    .unwrap_or(&Value::Array(vec![]))
-                    .clone();
+                    .get_structured()
+                    .map(|meta| meta.supers.clone())
+                    .unwrap_or_default();
 
-                'target: for target in overrides.as_array().unwrap() {
-                    // overrides is { sym, pretty, props }
-                    let target_sym_str = target["sym"].as_str().ok_or_else(bad_data)?;
-                    let target_sym = ustr(target_sym_str);
-
+                'target: for target in overrides {
                     let (target_id, target_info) = sym_node_set
-                        .ensure_symbol(&target_sym, server, next_depth)
+                        .ensure_symbol(&target.sym, server, next_depth)
                         .await?;
 
-                    let target_pretty = match target_info.crossref_info.pointer("/meta/pretty") {
-                        Some(Value::String(pretty)) => ustr(pretty),
+                    let target_pretty = match target_info.get_structured().map(|meta| meta.pretty) {
+                        Some(pretty) => pretty,
                         _ => ustr(""),
                     };
                     if ignore_node_set.contains(&*target_pretty) {
                         continue;
                     }
 
-                    if let Some(Value::Array(labels_json)) =
-                        target_info.crossref_info.pointer("/meta/labels").cloned()
-                    {
-                        for label in labels_json {
-                            let Value::String(label) = label else {
-                                continue;
-                            };
+                    if let Some(labels) = target_info.get_structured().map(|meta| &meta.labels) {
+                        for &label in labels {
                             let Some(badge_label) =
                                 label.strip_prefix("class-diagram:elide-and-badge:")
                             else {
@@ -1091,7 +1044,7 @@ impl PipelineCommand for TraverseCommand {
                         });
                         continue;
                     }
-                    trace!(sym = target_sym_str, "scheduling super");
+                    trace!(sym = target.sym.as_str(), "scheduling super");
                     // If we're going in the superclass direction, continue only going in the
                     // superclass direction; don't allow going back down subclasses!
                     // XXX we should potentially be tying this into "considered" somehow
@@ -1105,31 +1058,19 @@ impl PipelineCommand for TraverseCommand {
             }
 
             if traverse_overrides {
-                let bad_data = || {
-                    ServerError::StickyProblem(ErrorDetails {
-                        layer: ErrorLayer::DataLayer,
-                        message: format!("Bad edge info in sym {sym} on meta overrides"),
-                    })
-                };
-
                 let sym_info = sym_node_set.get(&sym_id);
                 let overrides = sym_info
-                    .crossref_info
-                    .pointer("/meta/overrides")
-                    .unwrap_or(&Value::Array(vec![]))
-                    .clone();
+                    .get_structured()
+                    .map(|meta| meta.overrides.clone())
+                    .unwrap_or_default();
 
-                for target in overrides.as_array().unwrap() {
-                    // overrides is { sym, pretty }
-                    let target_sym_str = target["sym"].as_str().ok_or_else(bad_data)?;
-                    let target_sym = ustr(target_sym_str);
-
+                for target in overrides {
                     let (target_id, target_info) = sym_node_set
-                        .ensure_symbol(&target_sym, server, next_depth)
+                        .ensure_symbol(&target.sym, server, next_depth)
                         .await?;
 
-                    let target_pretty = match target_info.crossref_info.pointer("/meta/pretty") {
-                        Some(Value::String(pretty)) => ustr(pretty),
+                    let target_pretty = match target_info.get_structured().map(|meta| meta.pretty) {
+                        Some(pretty) => pretty,
                         _ => ustr(""),
                     };
                     if ignore_node_set.contains(&*target_pretty) {
@@ -1168,7 +1109,7 @@ impl PipelineCommand for TraverseCommand {
                         });
                         continue;
                     }
-                    trace!(sym = target_sym_str, "scheduling overrides");
+                    trace!(sym = target.sym.as_str(), "scheduling overrides");
                     to_traverse.push_back((
                         target_info.symbol,
                         target_pretty,
@@ -1179,31 +1120,19 @@ impl PipelineCommand for TraverseCommand {
             }
 
             if traverse_overridden_by {
-                let bad_data = || {
-                    ServerError::StickyProblem(ErrorDetails {
-                        layer: ErrorLayer::DataLayer,
-                        message: format!("Bad edge info in sym {sym} on meta overriddenBy"),
-                    })
-                };
-
                 let sym_info = sym_node_set.get(&sym_id);
                 let overridden_by = sym_info
-                    .crossref_info
-                    .pointer("/meta/overriddenBy")
-                    .unwrap_or(&Value::Array(vec![]))
-                    .clone();
+                    .get_structured()
+                    .map(|meta| meta.overridden_by_syms.clone())
+                    .unwrap_or_default();
 
-                for target in overridden_by.as_array().unwrap() {
-                    // overriddenBy is just a bare symbol name currently
-                    let target_sym_str = target.as_str().ok_or_else(bad_data)?;
-                    let target_sym = ustr(target_sym_str);
-
+                for target in overridden_by {
                     let (target_id, target_info) = sym_node_set
-                        .ensure_symbol(&target_sym, server, next_depth)
+                        .ensure_symbol(&target, server, next_depth)
                         .await?;
 
-                    let target_pretty = match target_info.crossref_info.pointer("/meta/pretty") {
-                        Some(Value::String(pretty)) => ustr(pretty),
+                    let target_pretty = match target_info.get_structured().map(|meta| meta.pretty) {
+                        Some(pretty) => pretty,
                         _ => ustr(""),
                     };
                     if ignore_node_set.contains(&*target_pretty) {
@@ -1233,7 +1162,7 @@ impl PipelineCommand for TraverseCommand {
                         });
                         continue;
                     }
-                    trace!(sym = target_sym_str, "scheduling overridenBy");
+                    trace!(sym = target.as_str(), "scheduling overridenBy");
                     to_traverse.push_back((
                         target_info.symbol,
                         target_pretty,
@@ -1244,26 +1173,13 @@ impl PipelineCommand for TraverseCommand {
             }
 
             if traverse_callees {
-                let bad_data = || {
-                    ServerError::StickyProblem(ErrorDetails {
-                        layer: ErrorLayer::DataLayer,
-                        message: format!("Bad edge info in sym {sym} on callees"),
-                    })
-                };
-
                 let sym_info = sym_node_set.get_mut(&sym_id);
                 let callees = match (
                     self.args.retain_all_symbol_data,
-                    sym_info.crossref_info.get_mut("callees"),
+                    sym_info.crossref_info.callees.as_mut(),
                 ) {
-                    (true, Some(v)) => match v.clone() {
-                        Value::Array(arr) => arr,
-                        _ => vec![],
-                    },
-                    (false, Some(v)) => match v.take() {
-                        Value::Array(arr) => arr,
-                        _ => vec![],
-                    },
+                    (true, Some(v)) => v.clone(),
+                    (false, Some(v)) => core::mem::take(v),
                     _ => vec![],
                 };
 
@@ -1271,23 +1187,17 @@ impl PipelineCommand for TraverseCommand {
                 // flat list of { kind, pretty, sym }.  This differs from
                 // most other edges which are path hit-lists.
                 for target in callees {
-                    let target_sym_str = target["sym"].as_str().ok_or_else(bad_data)?;
-                    let target_sym = ustr(target_sym_str);
-                    //let target_kind = target["kind"].as_str().ok_or_else(bad_data)?;
-
                     let mut edge_info = vec![];
                     // The jump is precomputed by the crossref process when
                     // deriving the "callees" kindmap entry.
-                    if let Some(Value::String(jump)) = target.get("jump") {
-                        edge_info.push(EdgeDetail::Jump(jump.clone()));
-                    }
+                    edge_info.push(EdgeDetail::Jump(target.jump.clone()));
 
                     let (target_id, target_info) = sym_node_set
-                        .ensure_symbol(&target_sym, server, next_depth)
+                        .ensure_symbol(&target.sym, server, next_depth)
                         .await?;
 
-                    let target_pretty = match target_info.crossref_info.pointer("/meta/pretty") {
-                        Some(Value::String(pretty)) => ustr(pretty),
+                    let target_pretty = match target_info.get_structured().map(|meta| meta.pretty) {
+                        Some(pretty) => pretty,
                         _ => ustr(""),
                     };
                     if ignore_node_set.contains(&*target_pretty) {
@@ -1319,7 +1229,7 @@ impl PipelineCommand for TraverseCommand {
                         });
                         continue;
                     }
-                    trace!(sym = target_sym_str, "scheduling callees");
+                    trace!(sym = target.sym.as_str(), "scheduling callees");
                     to_traverse.push_back((
                         target_info.symbol,
                         target_pretty,
@@ -1330,26 +1240,13 @@ impl PipelineCommand for TraverseCommand {
             }
 
             if traverse_uses {
-                let bad_data = || {
-                    ServerError::StickyProblem(ErrorDetails {
-                        layer: ErrorLayer::DataLayer,
-                        message: format!("Bad edge info in sym {sym} on callees"),
-                    })
-                };
-
                 let sym_info = sym_node_set.get_mut(&sym_id);
                 let uses = match (
                     self.args.retain_all_symbol_data,
-                    sym_info.crossref_info.get_mut("uses"),
+                    sym_info.crossref_info.uses.as_mut(),
                 ) {
-                    (true, Some(v)) => match v.clone() {
-                        Value::Array(arr) => arr,
-                        _ => vec![],
-                    },
-                    (false, Some(v)) => match v.take() {
-                        Value::Array(arr) => arr,
-                        _ => vec![],
-                    },
+                    (true, Some(v)) => v.clone(),
+                    (false, Some(v)) => core::mem::take(v),
                     _ => vec![],
                 };
                 // we just took the uses, but drop the callees too.
@@ -1383,8 +1280,8 @@ impl PipelineCommand for TraverseCommand {
                 // of the hit fields.  We really just care about the
                 // contextsym.
                 for path_hits in uses {
-                    let path = path_hits["path"].as_str().ok_or_else(bad_data)?;
-                    let hits = path_hits["lines"].as_array().ok_or_else(bad_data)?;
+                    let path = path_hits.path;
+                    let hits = &path_hits.lines;
                     // For now we're just going to use the path limit for this too.
                     //
                     // The specific scenario driving this is the "abort" method
@@ -1423,23 +1320,17 @@ impl PipelineCommand for TraverseCommand {
                         break;
                     }
                     for source in hits {
-                        let source_sym_str = source["contextsym"].as_str().unwrap_or("");
-                        //let source_kind = source["kind"].as_str().ok_or_else(bad_data)?;
-
-                        if source_sym_str.is_empty() {
-                            continue;
-                        }
-                        let source_sym = ustr(source_sym_str);
+                        let source_sym = source.contextsym;
 
                         let (source_id, source_info) = sym_node_set
                             .ensure_symbol(&source_sym, server, next_depth)
                             .await?;
 
-                        let source_pretty = match source_info.crossref_info.pointer("/meta/pretty")
-                        {
-                            Some(Value::String(pretty)) => ustr(pretty),
-                            _ => ustr(""),
-                        };
+                        let source_pretty =
+                            match source_info.get_structured().map(|meta| meta.pretty) {
+                                Some(pretty) => pretty,
+                                _ => ustr(""),
+                            };
                         if ignore_node_set.contains(&*source_pretty) {
                             continue;
                         }
@@ -1450,7 +1341,7 @@ impl PipelineCommand for TraverseCommand {
                         // We call this even if our check below determines we've already created
                         // and traversed this edge because we want to merge in edge detail
                         // information.
-                        let jump = format!("{}#{}", path, source["lno"].as_u64().unwrap_or(0));
+                        let jump = format!("{}#{}", path, source.lineno);
                         sym_edge_set.ensure_edge_in_graph(
                             source_id,
                             sym_id.clone(),
@@ -1477,7 +1368,7 @@ impl PipelineCommand for TraverseCommand {
                             });
                             continue;
                         }
-                        trace!(sym = source_sym_str, "scheduling uses");
+                        trace!(sym = source_sym.as_str(), "scheduling uses");
                         to_traverse.push_back((
                             source_info.symbol,
                             source_pretty,
