@@ -8,6 +8,8 @@ use serde_json::Value;
 use ustr::{Ustr, ustr};
 
 use crate::file_format::code_coverage_report;
+use crate::file_format::crossref::CrossrefData;
+use crate::file_format::jumpref::JumprefData;
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::RevisionCoverage;
 
@@ -339,11 +341,11 @@ pub trait AbstractServer {
 
     /// Retrieve the JSON contents of the crossref database for the given
     /// symbol.
-    async fn crossref_lookup(&self, symbol: &str) -> Result<Value>;
+    async fn crossref_lookup(&self, symbol: &str) -> Result<Option<CrossrefData>>;
 
     /// Retrieve the JSON contents of the jumpref database for the given
     /// symbol.
-    async fn jumpref_lookup(&self, symbol: &str) -> Result<Value>;
+    async fn jumpref_lookup(&self, symbol: &str) -> Result<Option<JumprefData>>;
 
     /// Search the list of all files using a (potentially empty) regexp string
     /// and optionally enforcing a limit.  The underlying list of files should

@@ -46,11 +46,11 @@ impl PipelineCommand for CrossrefLookupCommand {
         // input and we have no reason to believe the `Ustr` interned symbol
         // table contains all potentially known strings, we must operate in
         // String space until we get values back from the crossref lookup!
-        let symbol_list: Vec<(String, SymbolQuality, Option<Ustr>)> = match input {
+        let symbol_list: Vec<(Ustr, SymbolQuality, Option<Ustr>)> = match input {
             PipelineValues::SymbolList(sl) => sl
                 .symbols
                 .into_iter()
-                .map(|info| (info.symbol.to_string(), info.quality, info.from_identifier))
+                .map(|info| (info.symbol, info.quality, info.from_identifier))
                 .collect(),
             // Right now we're assuming that we're the first command in the
             // pipeline so that we would have no inputs if someone wants to use
@@ -59,7 +59,7 @@ impl PipelineCommand for CrossrefLookupCommand {
                 .args
                 .symbols
                 .iter()
-                .map(|sym| (sym.clone(), SymbolQuality::ExplicitSymbol, None))
+                .map(|sym| (ustr(sym), SymbolQuality::ExplicitSymbol, None))
                 .collect(),
             _ => {
                 return Err(ServerError::StickyProblem(ErrorDetails {
@@ -72,12 +72,10 @@ impl PipelineCommand for CrossrefLookupCommand {
         let mut symbol_crossref_infos = vec![];
         let mut unknown_symbols = vec![];
         for (symbol, quality, from_ident) in symbol_list {
-            let info = server.crossref_lookup(&symbol).await?;
-
-            if info.is_null() {
+            let Some(info) = server.crossref_lookup(&symbol).await? else {
                 unknown_symbols.push(symbol);
                 continue;
-            }
+            };
 
             let crossref_info = SymbolCrossrefInfo {
                 // Now that we've validted that the symbol exists via crossref
@@ -100,7 +98,10 @@ impl PipelineCommand for CrossrefLookupCommand {
                 && let Some(method_syms) = crossref_info.get_method_symbols()
             {
                 for method_sym in method_syms {
-                    let method_info = server.crossref_lookup(&method_sym).await?;
+                    let Some(method_info) = server.crossref_lookup(&method_sym).await? else {
+                        unknown_symbols.push(symbol);
+                        continue;
+                    };
                     symbol_crossref_infos.push(SymbolCrossrefInfo {
                         symbol: method_sym,
                         crossref_info: method_info,

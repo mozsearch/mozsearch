@@ -5,7 +5,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use async_trait::async_trait;
 use clap::{Args, ValueEnum};
 use itertools::Itertools;
-use serde_json::{Value, from_str};
+use serde_json::from_str;
 
 use ustr::Ustr;
 
@@ -23,6 +23,7 @@ use crate::file_format::analysis::{
 };
 
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
+use crate::file_format::jumpref::JumprefData;
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
 pub enum SymbolFormatMode {
@@ -975,7 +976,7 @@ impl ClassMap {
     ) -> Result<()> {
         let (root_sym_id, _) = self.stt.node_set.add_symbol(DerivedSymbolInfo::new(
             nom_sym_info.symbol,
-            nom_sym_info.crossref_info.clone(),
+            nom_sym_info.crossref_info,
             0,
         ));
 
@@ -1120,7 +1121,7 @@ impl ClassMap {
 
             let sym_info = self.stt.node_set.get(&class_id);
             let depth = sym_info.depth;
-            let struct_def_path = sym_info.get_def_path().cloned();
+            let struct_def_path = sym_info.get_def_path();
 
             let mut cls = Class::new(class_id.clone(), pretty.to_string());
 
@@ -1203,7 +1204,7 @@ impl ClassMap {
                         s.size_bytes,
                         field_id.clone(),
                         field_type_syms,
-                        &struct_def_path,
+                        &struct_def_path.map(|sdp| sdp.to_string()),
                         field_lineno,
                         &field,
                     );
@@ -1265,7 +1266,7 @@ impl ClassMap {
             let Some(structured) = Self::get_struct_structured(sym_info) else {
                 continue;
             };
-            let struct_def_path = sym_info.get_def_path().cloned();
+            let struct_def_path = sym_info.get_def_path();
 
             let mut cls = Class::new(class_id.clone(), structured.pretty.to_string());
 
@@ -1416,7 +1417,7 @@ impl ClassMap {
                             s.size_bytes,
                             field_id.clone(),
                             field_type_syms,
-                            &struct_def_path,
+                            &struct_def_path.map(|ustr| ustr.to_string()),
                             field_lineno,
                             &field,
                         );
@@ -1432,7 +1433,7 @@ impl ClassMap {
                                 s.size_bytes,
                                 field_id.clone(),
                                 field_type_syms.clone(),
-                                &struct_def_path,
+                                &struct_def_path.map(|ustr| ustr.to_string()),
                                 field_lineno,
                                 &field,
                             );
@@ -1490,7 +1491,7 @@ impl ClassMap {
 
         let (lines, sym_json) = result.unwrap();
 
-        let syms: serde_json::Result<HashMap<String, Value>> = from_str(&sym_json);
+        let syms: serde_json::Result<HashMap<String, JumprefData>> = from_str(&sym_json);
         if let Ok(syms) = syms {
             for (sym, info) in syms {
                 self.stt.extra_syms.insert(sym, info);
@@ -1516,7 +1517,7 @@ impl ClassMap {
             return None;
         }
 
-        Some(structured)
+        Some(structured.clone())
     }
 
     fn layout_populate_platform_map(&mut self, root_sym_id: ClassId) {

@@ -4,7 +4,10 @@ use serde_json::{Value, from_str};
 use url::{ParseError, Url};
 use ustr::Ustr;
 
-use crate::{file_format::code_coverage_report, git_ops::RevisionCoverage};
+use crate::{
+    file_format::{code_coverage_report, crossref::CrossrefData, jumpref::JumprefData},
+    git_ops::RevisionCoverage,
+};
 
 use super::{
     CommitInfo, HtmlFileRoot, TextMatches, TreeInfo,
@@ -161,7 +164,7 @@ impl AbstractServer for RemoteServer {
         Ok(html)
     }
 
-    async fn crossref_lookup(&self, _symbol: &str) -> Result<Value> {
+    async fn crossref_lookup(&self, _symbol: &str) -> Result<Option<CrossrefData>> {
         // Let's require local index for now; we'll expose this once this
         // mechanism is exposed to the web so we can talk to the corresponding
         // local server over https.
@@ -173,7 +176,7 @@ impl AbstractServer for RemoteServer {
         Err(ServerError::Unsupported)
     }
 
-    async fn jumpref_lookup(&self, _symbol: &str) -> Result<Value> {
+    async fn jumpref_lookup(&self, _symbol: &str) -> Result<Option<JumprefData>> {
         // Same rationale for `crossref_lookup` above.
         Err(ServerError::Unsupported)
     }

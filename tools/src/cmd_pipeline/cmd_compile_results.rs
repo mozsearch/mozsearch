@@ -2,7 +2,6 @@ use std::collections::{BTreeMap, HashSet};
 
 use async_trait::async_trait;
 use clap::Args;
-use serde_json::{Value, from_value};
 use ustr::{Ustr, UstrMap, ustr};
 
 use super::interface::{
@@ -16,7 +15,7 @@ use crate::{
     abstract_server::{
         AbstractServer, ErrorDetails, ErrorLayer, FileMatch, Result, ServerError, TextMatchesByFile,
     },
-    file_format::analysis::PathSearchResult,
+    file_format::analysis::{AnalysisStructured, PathSearchResult},
 };
 
 /// Process file, crossref, and fulltext search results into a classic
@@ -90,7 +89,7 @@ pub struct SearchResults {
     /// for the benefit of the UI for future use.  We may also end up expanding
     /// the set of symbols-with-meta here as we address the class hierarchy, if
     /// that doesn't end up in a separate output structure.
-    pub sym_to_meta: UstrMap<Value>,
+    pub sym_to_meta: UstrMap<AnalysisStructured>,
     pub path_kind_groups: UstrMap<PathKindGroup>,
     /// Every key_line gets added to this set like `{path}:{key_line}` to
     /// suppress redundant hits on the line (from fulltext matches).
@@ -178,42 +177,14 @@ impl SearchResults {
             })
         })?;
 
-        if let Value::Object(obj) = info.crossref_info {
-            // This generic traversal is currently somewhat required because we
-            // have different shapes for "meta", "callees", and everything else
-            // (the kinds).  It could make sense to normalize the schema by not
-            // having everything at the top-level.  (If doing that, it might
-            // also be worth re-thinking other aspects of storage if it lets us
-            // be lazier about parsing, etc.)
-            for (kind, val) in obj.into_iter() {
-                let pkind = match kind.as_str() {
-                    "idl" => PresentationKind::IDL,
-                    "idlp" => PresentationKind::IDLPartial,
-                    "defs" => PresentationKind::Definitions,
-                    "decls" => PresentationKind::Declarations,
-                    "assignments" => PresentationKind::Assignments,
-                    "uses" => PresentationKind::Uses,
-                    "meta" => {
-                        // We save off the meta for this symbol for the UI.
-                        self.sym_to_meta.insert(info.symbol, val);
-                        continue;
-                    }
-                    // We expect this to match:
-                    // - "callees": This is used only for call-graph stuff and is
-                    //   something a human can learn from just looking at the
-                    //   contents of a given method/symbol, etc.
-                    _ => {
-                        continue;
-                    }
-                };
+        let mut ingest = |kind, path_containers| {
+            let descriptor = QualKindDescriptor {
+                kind: kind,
+                quality: info.quality.clone(),
+                pretty: root_pretty,
+            };
 
-                let descriptor = QualKindDescriptor {
-                    kind: pkind,
-                    quality: info.quality.clone(),
-                    pretty: root_pretty,
-                };
-
-                let path_containers: Vec<PathSearchResult> = from_value(val)?;
+            if let Some(path_containers) = path_containers {
                 for path_container in path_containers {
                     self.ingest_path_hits(
                         &info.symbol,
@@ -223,6 +194,25 @@ impl SearchResults {
                     );
                 }
             }
+        };
+        ingest(PresentationKind::IDL, info.crossref_info.idl);
+        ingest(PresentationKind::IDLPartial, info.crossref_info.idl_partial);
+        ingest(
+            PresentationKind::Definitions,
+            info.crossref_info.definitions,
+        );
+        ingest(
+            PresentationKind::Declarations,
+            info.crossref_info.declarations,
+        );
+        ingest(
+            PresentationKind::Assignments,
+            info.crossref_info.assignments,
+        );
+        ingest(PresentationKind::Uses, info.crossref_info.uses);
+
+        if let Some(meta) = info.crossref_info.meta {
+            self.sym_to_meta.insert(info.symbol, meta);
         }
 
         Ok(())

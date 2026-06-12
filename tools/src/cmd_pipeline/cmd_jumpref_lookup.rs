@@ -54,7 +54,9 @@ impl PipelineCommand for JumprefLookupCommand {
         let mut jumpref_values = vec![];
         for symbol in symbol_list {
             let info = server.jumpref_lookup(&symbol).await?;
-            jumpref_values.push(JsonValue { value: info });
+            jumpref_values.push(JsonValue {
+                value: serde_json::json!(info),
+            });
         }
 
         Ok(PipelineValues::JsonValueList(JsonValueList {

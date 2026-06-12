@@ -2,9 +2,7 @@ use std::collections::{HashSet, VecDeque};
 
 use async_trait::async_trait;
 use clap::Args;
-use serde_json::Value;
-use tracing::trace;
-use ustr::ustr;
+use ustr::Ustr;
 
 use super::interface::{
     OverloadInfo, OverloadKind, PipelineCommand, PipelineValues, SymbolCrossrefInfo,
@@ -135,11 +133,15 @@ impl PipelineCommand for CrossrefExpandCommand {
             global_limit: self.args.subclass_global_limit,
         };
 
+        let mut unknown_symbols = vec![];
         while let Some((symbol, relation, quality, maybe_info)) = to_traverse.pop_front() {
             let mut info = match maybe_info {
                 Some(existing) => existing,
                 None => {
-                    let fresh_info = server.crossref_lookup(&symbol).await?;
+                    let Some(fresh_info) = server.crossref_lookup(&symbol).await? else {
+                        unknown_symbols.push(symbol);
+                        continue;
+                    };
                     SymbolCrossrefInfo {
                         symbol,
                         crossref_info: fresh_info,
@@ -151,26 +153,24 @@ impl PipelineCommand for CrossrefExpandCommand {
                 }
             };
 
-            // Given a JSON pointer to a an array, if present, process it, transforming
-            // each array value using `xfunc` to extract the symbol.  `use_relation`
-            // specifies the resulting relationship that should be associated
-            // with the extracted symbol.  `use_limits` is the `LimitGroup` to
-            // adjust and apply.
+            // Given an optional iterator to symbols, if present, process it.
+            // `use_relation` specifies the resulting relationship that should
+            // be associated with the extracted symbol.
+            // `use_limits` is the `LimitGroup` to adjust and apply.
             let mut proc_ptr =
-                |ptr: &str,
-                 xfunc: &dyn Fn(&Value) -> &Value,
+                |syms: Option<&mut dyn ExactSizeIterator<Item = Ustr>>,
                  use_relation: SymbolRelation,
                  use_limits: Option<&mut LimitGroup>| {
-                    if let Some(Value::Array(arr)) = info.crossref_info.pointer(ptr) {
+                    if let Some(syms) = syms {
                         if let Some(limits) = use_limits {
-                            if limits.local_limit > 0 && arr.len() as u32 > limits.local_limit {
+                            if limits.local_limit > 0 && syms.len() as u32 > limits.local_limit {
                                 info.overloads_hit.push(OverloadInfo {
                                     kind: limits.kind.clone(),
                                     // We're explicitly hanging off a symbol, so we don't need to
                                     // encode any other symbol here.
                                     sym: None,
                                     pretty: None,
-                                    exist: arr.len() as u32,
+                                    exist: syms.len() as u32,
                                     included: 0,
                                     local_limit: limits.local_limit,
                                     global_limit: 0,
@@ -178,7 +178,7 @@ impl PipelineCommand for CrossrefExpandCommand {
                                 return;
                             }
                             if limits.global_limit > 0
-                                && limits.global_count + arr.len() as u32 > limits.global_limit
+                                && limits.global_count + syms.len() as u32 > limits.global_limit
                             {
                                 info.overloads_hit.push(OverloadInfo {
                                     kind: limits.kind.clone(),
@@ -186,27 +186,23 @@ impl PipelineCommand for CrossrefExpandCommand {
                                     // encode any other symbol here.
                                     sym: None,
                                     pretty: None,
-                                    exist: arr.len() as u32,
+                                    exist: syms.len() as u32,
                                     included: 0,
                                     local_limit: 0,
                                     global_limit: limits.global_limit,
                                 });
                                 return;
                             }
-                            limits.global_count += arr.len() as u32;
+                            limits.global_count += syms.len() as u32;
                         }
-                        trace!(edge = ptr, count = arr.len(), "considering");
-                        for wrapped in arr.iter() {
-                            if let Value::String(sym) = xfunc(wrapped) {
-                                let usym = ustr(sym);
-                                if considered.insert(usym) {
-                                    to_traverse.push_back((
-                                        usym,
-                                        use_relation.clone(),
-                                        info.quality.clone(),
-                                        None,
-                                    ));
-                                }
+                        for usym in syms {
+                            if considered.insert(usym) {
+                                to_traverse.push_back((
+                                    usym,
+                                    use_relation.clone(),
+                                    info.quality.clone(),
+                                    None,
+                                ));
                             }
                         }
                     }
@@ -228,89 +224,92 @@ impl PipelineCommand for CrossrefExpandCommand {
             //   nsISupports or all the overrides of nsISupports::AddRef
             //   automatically without the user explicitly indicating that's
             //   what they want.
+
+            let meta = info.crossref_info.meta.as_ref();
+
+            let mut overridden_by = meta.map(|meta| meta.overridden_by_syms.iter().copied());
+            let overridden_by = overridden_by
+                .as_mut()
+                .map(|i| i as &mut dyn ExactSizeIterator<Item = Ustr>);
+
+            let mut overrides = meta.map(|meta| meta.overrides.iter().map(|o| o.sym));
+            let overrides = overrides
+                .as_mut()
+                .map(|i| i as &mut dyn ExactSizeIterator<Item = Ustr>);
+
+            let mut subclasses = meta.map(|meta| meta.subclass_syms.iter().copied());
+            let subclasses = subclasses
+                .as_mut()
+                .map(|i| i as &mut dyn ExactSizeIterator<Item = Ustr>);
+
+            let mut supers = meta.map(|meta| meta.supers.iter().map(|s| s.sym));
+            let supers = supers
+                .as_mut()
+                .map(|i| i as &mut dyn ExactSizeIterator<Item = Ustr>);
+
             match &relation {
                 SymbolRelation::Queried => {
                     proc_ptr(
-                        "/meta/overridenBy",
-                        &|x| x,
+                        overridden_by,
                         SymbolRelation::OverrideOf(symbol, 1),
                         Some(&mut override_limits),
                     );
+                    proc_ptr(overrides, SymbolRelation::OverriddenBy(symbol, 1), None);
                     proc_ptr(
-                        "/meta/overrides",
-                        &|x| &x["sym"],
-                        SymbolRelation::OverriddenBy(symbol, 1),
-                        None,
-                    );
-                    proc_ptr(
-                        "/meta/subclasses",
-                        &|x| x,
+                        subclasses,
                         SymbolRelation::SubclassOf(symbol, 1),
                         Some(&mut subclass_limits),
                     );
-                    proc_ptr(
-                        "/meta/supers",
-                        &|x| &x["sym"],
-                        SymbolRelation::SuperclassOf(symbol, 1),
-                        None,
-                    );
+                    proc_ptr(supers, SymbolRelation::SuperclassOf(symbol, 1), None);
                 }
                 SymbolRelation::OverriddenBy(root_sym, dist) => {
                     proc_ptr(
-                        "/meta/overrides",
-                        &|x| &x["sym"],
+                        overrides,
                         SymbolRelation::OverriddenBy(*root_sym, dist + 1),
                         None,
                     );
                     proc_ptr(
-                        "/meta/overridenBy",
-                        &|x| x,
+                        overridden_by,
                         SymbolRelation::CousinOverrideOf(*root_sym, dist + 1),
                         Some(&mut override_limits),
                     );
                 }
                 SymbolRelation::OverrideOf(root_sym, dist) => {
                     proc_ptr(
-                        "/meta/overridenBy",
-                        &|x| x,
+                        overridden_by,
                         SymbolRelation::OverrideOf(*root_sym, dist + 1),
                         Some(&mut override_limits),
                     );
                 }
                 SymbolRelation::CousinOverrideOf(root_sym, dist) => {
                     proc_ptr(
-                        "/meta/overridenBy",
-                        &|x| x,
+                        overridden_by,
                         SymbolRelation::CousinOverrideOf(*root_sym, dist + 1),
                         Some(&mut override_limits),
                     );
                 }
                 SymbolRelation::SubclassOf(root_sym, dist) => {
                     proc_ptr(
-                        "/meta/subclasses",
-                        &|x| x,
+                        subclasses,
                         SymbolRelation::SubclassOf(*root_sym, dist + 1),
                         Some(&mut subclass_limits),
                     );
                 }
                 SymbolRelation::SuperclassOf(root_sym, dist) => {
                     proc_ptr(
-                        "/meta/supers",
-                        &|x| &x["sym"],
+                        supers,
                         SymbolRelation::SuperclassOf(*root_sym, dist + 1),
                         None,
                     );
                     proc_ptr(
-                        "/meta/subclasses",
-                        &|x| x,
+                        subclasses,
                         SymbolRelation::CousinClassOf(*root_sym, dist + 1),
                         Some(&mut subclass_limits),
                     );
                 }
                 SymbolRelation::CousinClassOf(root_sym, dist) => {
                     proc_ptr(
-                        "/meta/subclasses",
-                        &|x| x,
+                        subclasses,
                         SymbolRelation::CousinClassOf(*root_sym, dist + 1),
                         Some(&mut subclass_limits),
                     );
@@ -323,7 +322,7 @@ impl PipelineCommand for CrossrefExpandCommand {
         Ok(PipelineValues::SymbolCrossrefInfoList(
             SymbolCrossrefInfoList {
                 symbol_crossref_infos: expanded,
-                unknown_symbols: vec![],
+                unknown_symbols,
             },
         ))
     }

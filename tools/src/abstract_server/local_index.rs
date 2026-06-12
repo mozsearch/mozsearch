@@ -21,8 +21,10 @@ use crate::blame;
 use crate::file_format::analysis::{read_analyses, read_source};
 use crate::file_format::code_coverage_report;
 use crate::file_format::config::{TreeConfig, TreeConfigPaths, git_data, load};
+use crate::file_format::crossref::CrossrefData;
 use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::identifiers::IdentMap;
+use crate::file_format::jumpref::JumprefData;
 use crate::file_format::per_file_info::FileLookupMap;
 use crate::format::format_code;
 use crate::git_ops::{RevisionCoverage, coverage_history, coverage_summary, git_time_to_chrono};
@@ -142,8 +144,8 @@ pub struct LocalIndex {
     // Note: IdentMap internally handles the identifiers db not existing
     ident_map: Option<IdentMap>,
     // But for crossref, it's on us.
-    crossref_lookup_map: Option<CrossrefLookupMap>,
-    jumpref_lookup_map: Option<CrossrefLookupMap>,
+    crossref_lookup_map: Option<CrossrefLookupMap<CrossrefData>>,
+    jumpref_lookup_map: Option<CrossrefLookupMap<JumprefData>>,
     file_lookup_map: FileLookupMap,
     head_info: Option<CommitInfo>,
 }
@@ -331,11 +333,11 @@ impl AbstractServer for LocalIndex {
         Ok(raw_str)
     }
 
-    async fn crossref_lookup(&self, symbol: &str) -> Result<Value> {
+    async fn crossref_lookup(&self, symbol: &str) -> Result<Option<CrossrefData>> {
         let now = Instant::now();
         let result = match &self.crossref_lookup_map {
             Some(crossref) => crossref.lookup(symbol),
-            None => Ok(Value::Null),
+            None => Ok(None),
         };
         trace!(
             duration_us = now.elapsed().as_micros() as u64,
@@ -344,11 +346,11 @@ impl AbstractServer for LocalIndex {
         result
     }
 
-    async fn jumpref_lookup(&self, symbol: &str) -> Result<Value> {
+    async fn jumpref_lookup(&self, symbol: &str) -> Result<Option<JumprefData>> {
         let now = Instant::now();
         let result = match &self.jumpref_lookup_map {
             Some(jumpref) => jumpref.lookup(symbol),
-            None => Ok(Value::Null),
+            None => Ok(None),
         };
         trace!(
             duration_us = now.elapsed().as_micros() as u64,

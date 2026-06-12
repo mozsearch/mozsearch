@@ -266,9 +266,9 @@ impl PipelineCommand for GraphCommand {
 
         let decorate_node = |node: &mut Node, sym_info: &DerivedSymbolInfo| {
             for (i, colorize) in self.args.colorize_callees.iter().enumerate() {
-                if let Some(Value::Array(arr)) = sym_info.crossref_info.get("callees") {
+                if let Some(arr) = &sym_info.crossref_info.callees {
                     for callee in arr {
-                        if let Some(Value::String(pretty)) = callee.get("pretty")
+                        if let Some(pretty) = callee.pretty
                             && pretty.ends_with(colorize)
                         {
                             node.attributes.push(attr!("colorscheme", "pastel28"));
@@ -401,7 +401,7 @@ impl PipelineCommand for GraphCommand {
                 for i in 0..graphs.graphs.len() {
                     json_graphs.push(graphs.graph_to_json(i));
                 }
-                let symbols = graphs.node_set.symbols_meta_to_jumpref_json_destructive();
+                let symbols = graphs.node_set.symbols_meta_to_jumpref_json_nomut();
                 let overloads_hit = graphs.overloads_hit.clone();
                 let options = graphs.options.clone();
                 Ok(PipelineValues::GraphInput(GraphInput {
@@ -419,7 +419,7 @@ impl PipelineCommand for GraphCommand {
                         "edges": render_state.svg_edge_extra,
                     }),
                 }],
-                symbols: graphs.node_set.symbols_meta_to_jumpref_json_destructive(),
+                symbols: graphs.node_set.symbols_meta_to_jumpref_json_nomut(),
                 overloads_hit: graphs.overloads_hit,
                 options: graphs.options,
             })),
