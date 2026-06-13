@@ -654,6 +654,7 @@ class ASTVisitor {
       break;
 
     case "ImportDeclaration":
+    case "ImportSourceDeclaration":
       this.importDeclaration(stmt);
       break;
 
@@ -1679,6 +1680,7 @@ class NameAnalysis extends ASTVisitor {
         this.#handleDefPattern(env, stmt.id);
         break;
       case "ImportDeclaration":
+      case "ImportSourceDeclaration":
         this.#handleImportDeclaration(env, stmt);
         break;
       case "ExportDeclaration":
