@@ -29,7 +29,7 @@ extern crate tools;
 use crate::languages::FormatAs;
 use tools::doc_trees_handler::find_doc_url;
 use tools::file_format::analysis::{read_analysis, read_source};
-use tools::file_format::crossref_lookup::CrossrefLookupMap;
+use tools::file_format::bisectable_mmap::BisectableMmap;
 use tools::format::{create_markdown_panel_section, format_file_data};
 use tools::languages;
 use tools::url_encode_path::url_encode_path;
@@ -88,7 +88,7 @@ fn main() {
     let jumpref_extra_path = format!("{}/jumpref-extra", tree_config.paths.index_path);
 
     let pre_jumpref = Instant::now();
-    let jumpref_lookup_map = CrossrefLookupMap::new(&jumpref_path, &jumpref_extra_path);
+    let jumpref_lookup_map = BisectableMmap::new(&jumpref_path, &jumpref_extra_path);
 
     writeln!(
         stdout,

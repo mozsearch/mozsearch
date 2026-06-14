@@ -7,6 +7,8 @@ pub mod history;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod analysis_manglings;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod bisectable_mmap;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod code_coverage_report;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod config;
@@ -14,8 +16,6 @@ pub mod config;
 pub mod coverage;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod crossref;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod crossref_lookup;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod doc_trees;
 #[cfg(not(target_arch = "wasm32"))]

@@ -12,7 +12,7 @@ use serde_json::from_slice;
 use crate::abstract_server::{ErrorDetails, ErrorLayer, Result, ServerError};
 
 #[derive(Clone, Debug)]
-pub struct CrossrefLookupMap<T> {
+pub struct BisectableMmap<T> {
     inline_mm: Arc<Mmap>,
     extra_mm: Arc<Mmap>,
     _data_type: PhantomData<T>,
@@ -24,17 +24,17 @@ const ID_START: u8 = b'!';
 const INLINE_STORED: u8 = b':';
 const EXTERNALLY_STORED: u8 = b'@';
 
-fn make_crossref_data_error(sym: &str) -> ServerError {
+fn make_data_error(sym: &str) -> ServerError {
     ServerError::StickyProblem(ErrorDetails {
         layer: ErrorLayer::DataLayer,
-        message: format!("bad crossref data for symbol: {}", sym),
+        message: format!("bad bisectable mmap data for symbol: {}", sym),
     })
 }
 
 // This implementation is a port of `crossrefs.py` (which was adapted from
 // `identifiers.py`) and informed by `identifiers.rs` (which presumably was
 // adapted from `identifiers.py` as well).
-impl<'de, T: Deserialize<'de>> CrossrefLookupMap<T> {
+impl<'de, T: Deserialize<'de>> BisectableMmap<T> {
     pub fn new(inline_path: &str, extra_path: &str) -> Option<Self> {
         let inline_file = File::open(inline_path).unwrap();
         let inline_mm = unsafe {
@@ -193,7 +193,7 @@ impl<'de, T: Deserialize<'de>> CrossrefLookupMap<T> {
         // Let's also rule out results that are too short and therefore must be
         // an error.
         if payload_len < 3 {
-            return Err(make_crossref_data_error(sym));
+            return Err(make_data_error(sym));
         }
 
         let marker_char = payload[0];
@@ -202,7 +202,7 @@ impl<'de, T: Deserialize<'de>> CrossrefLookupMap<T> {
             return from_slice(&payload[1..]).or(Ok(None));
         } else if marker_char != EXTERNALLY_STORED {
             // Fail if we're seeing something other than an external ref.
-            return Err(make_crossref_data_error(sym));
+            return Err(make_data_error(sym));
         }
 
         let mut space_pos = 2;
@@ -212,11 +212,11 @@ impl<'de, T: Deserialize<'de>> CrossrefLookupMap<T> {
 
         let brace_offset = unsafe {
             usize::from_str_radix(str::from_utf8_unchecked(&payload[1..space_pos]), 16)
-                .map_err(|_| make_crossref_data_error(sym))?
+                .map_err(|_| make_data_error(sym))?
         };
         let length_with_newline = unsafe {
             usize::from_str_radix(str::from_utf8_unchecked(&payload[space_pos + 1..]), 16)
-                .map_err(|_| make_crossref_data_error(sym))?
+                .map_err(|_| make_data_error(sym))?
         };
 
         let extra_bytes: &[u8] = self.extra_mm.as_ref();
