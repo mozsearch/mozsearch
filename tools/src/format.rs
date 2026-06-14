@@ -9,9 +9,9 @@ use std::time::Instant;
 use crate::abstract_server::FileMatch;
 use crate::blame;
 use crate::file_format::analysis_manglings::make_file_sym_from_path;
+use crate::file_format::bisectable_mmap::BisectableMmap;
 use crate::file_format::code_coverage_report;
 use crate::file_format::coverage::InterpolatedCoverage;
-use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::jumpref::{
     JumprefData, JumprefTraversals, determine_desired_extra_syms_from_jumpref,
     extra_syms_next_step_lookups,
@@ -54,7 +54,7 @@ pub struct FormattedLine {
 /// for generating line numbers and any blame information.
 pub fn format_code(
     cfg: Option<&Config>,
-    jumpref_lookup: &Option<CrossrefLookupMap<JumprefData>>,
+    jumpref_lookup: &Option<BisectableMmap<JumprefData>>,
     format: FormatAs,
     path: &str,
     input: &str,
@@ -610,7 +610,7 @@ pub fn format_file_data(
     coverage_commit: Option<&git2::Commit>,
     path: &str,
     data: String,
-    jumpref_lookup: &Option<CrossrefLookupMap<JumprefData>>,
+    jumpref_lookup: &Option<BisectableMmap<JumprefData>>,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
     writer: &mut dyn Write,
 ) -> Result<FormatPerfInfo, &'static str> {

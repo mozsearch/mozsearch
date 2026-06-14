@@ -19,10 +19,10 @@ use super::{CommitInfo, TextMatches, TextMatchesByFile, TreeInfo};
 
 use crate::blame;
 use crate::file_format::analysis::{read_analyses, read_source};
+use crate::file_format::bisectable_mmap::BisectableMmap;
 use crate::file_format::code_coverage_report;
 use crate::file_format::config::{TreeConfig, TreeConfigPaths, git_data, load};
 use crate::file_format::crossref::CrossrefData;
-use crate::file_format::crossref_lookup::CrossrefLookupMap;
 use crate::file_format::identifiers::IdentMap;
 use crate::file_format::jumpref::JumprefData;
 use crate::file_format::per_file_info::FileLookupMap;
@@ -144,8 +144,8 @@ pub struct LocalIndex {
     // Note: IdentMap internally handles the identifiers db not existing
     ident_map: Option<IdentMap>,
     // But for crossref, it's on us.
-    crossref_lookup_map: Option<CrossrefLookupMap<CrossrefData>>,
-    jumpref_lookup_map: Option<CrossrefLookupMap<JumprefData>>,
+    crossref_lookup_map: Option<BisectableMmap<CrossrefData>>,
+    jumpref_lookup_map: Option<BisectableMmap<JumprefData>>,
     file_lookup_map: FileLookupMap,
     head_info: Option<CommitInfo>,
 }
@@ -260,7 +260,7 @@ impl AbstractServer for LocalIndex {
         let jumpref_path = format!("{}/jumpref", self.config_paths.index_path);
         let jumpref_extra_path = format!("{}/jumpref-extra", self.config_paths.index_path);
 
-        let jumpref_lookup_map = CrossrefLookupMap::new(&jumpref_path, &jumpref_extra_path);
+        let jumpref_lookup_map = BisectableMmap::new(&jumpref_path, &jumpref_extra_path);
 
         let (raw_lines, sym_json) = format_code(
             None,
@@ -497,12 +497,12 @@ fn fab_server(
     let crossref_path = format!("{}/crossref", tree_config.paths.index_path);
     let crossref_extra_path = format!("{}/crossref-extra", tree_config.paths.index_path);
 
-    let crossref_lookup_map = CrossrefLookupMap::new(&crossref_path, &crossref_extra_path);
+    let crossref_lookup_map = BisectableMmap::new(&crossref_path, &crossref_extra_path);
 
     let jumpref_path = format!("{}/jumpref", tree_config.paths.index_path);
     let jumpref_extra_path = format!("{}/jumpref-extra", tree_config.paths.index_path);
 
-    let jumpref_lookup_map = CrossrefLookupMap::new(&jumpref_path, &jumpref_extra_path);
+    let jumpref_lookup_map = BisectableMmap::new(&jumpref_path, &jumpref_extra_path);
 
     let file_lookup_path = format!(
         "{}/concise-per-file-info.json",
