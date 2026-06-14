@@ -654,8 +654,11 @@ class ASTVisitor {
       break;
 
     case "ImportDeclaration":
-    case "ImportSourceDeclaration":
       this.importDeclaration(stmt);
+      break;
+
+    case "ImportSourceDeclaration":
+      this.importSourceDeclaration(stmt);
       break;
 
     case "ExportDeclaration":
@@ -887,6 +890,9 @@ class ASTVisitor {
         }
       }
     }
+  }
+
+  importSourceDeclaration(stmt) {
   }
 
   exportDeclaration(stmt) {
@@ -1680,8 +1686,9 @@ class NameAnalysis extends ASTVisitor {
         this.#handleDefPattern(env, stmt.id);
         break;
       case "ImportDeclaration":
-      case "ImportSourceDeclaration":
         this.#handleImportDeclaration(env, stmt);
+      case "ImportSourceDeclaration":
+        this.#handleImportSourceDeclaration(env, stmt);
         break;
       case "ExportDeclaration":
         this.#handleExportDeclaration(env, stmt);
@@ -1707,6 +1714,9 @@ class NameAnalysis extends ASTVisitor {
         }
       }
     }
+  }
+
+  #handleImportSourceDeclaration(env, stmt) {
   }
 
   #handleExportDeclaration(env, stmt) {
