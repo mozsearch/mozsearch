@@ -21,3 +21,10 @@ if ! [ -d mozsearch-firefox ]; then
     tar xf mozsearch-firefox.tar.bz2
     mv firefox mozsearch-firefox
 fi
+
+# indexer-update.sh and web-server-update.sh installed our packages from a fresh clone of the Git repo,
+# but we don't want that in Docker, we want to use the existing local clone in /vagrant.
+sudo -i nix profile remove indexerPackages serverPackages
+rm -rf /home/vagrant/mozsearch
+sudo -i nix profile add "/vagrant#indexerPackages" --accept-flake-config --print-build-logs --priority 3
+sudo -i nix profile add "/vagrant#serverPackages" --accept-flake-config --print-build-logs --priority 4

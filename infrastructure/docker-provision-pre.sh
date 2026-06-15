@@ -23,9 +23,5 @@ groupmod -o -g $USE_GID $USERNAME
 usermod -aG sudo $USERNAME && echo "$USERNAME ALL=(ALL) NOPASSWD: ALL" > /etc/sudoers.d/$USERNAME
 chmod 0440 /etc/sudoers.d/$USERNAME
 
-# This bind point `/vagrant` is technically separate from the username.
-mkdir /vagrant
-chown $USERNAME:$USERNAME /vagrant
-
 # Install Nix
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install linux --extra-conf "sandbox = false" --init none --no-confirm

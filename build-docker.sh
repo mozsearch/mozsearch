@@ -14,6 +14,7 @@ docker build \
     -t ${IMAGE_NAME} \
     --build-arg LOCAL_UID=$(id -u $USER) \
     --build-arg LOCAL_GID=$(id -g $USER) \
+    --build-context repo=. \
     infrastructure/
 
 ## Clean up any existing container and affiliated volumes
