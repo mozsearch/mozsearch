@@ -976,7 +976,7 @@ impl ClassMap {
     ) -> Result<()> {
         let (root_sym_id, _) = self.stt.node_set.add_symbol(DerivedSymbolInfo::new(
             nom_sym_info.symbol,
-            nom_sym_info.crossref_info,
+            Some(nom_sym_info.crossref_info),
             0,
         ));
 

@@ -22,7 +22,7 @@ use ustr::{Ustr, UstrMap, ustr};
 use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
     file_format::{
-        analysis::{AnalysisStructured, BindingSlotKind},
+        analysis::{AnalysisStructured, BindingSlotKind, PathSearchResult},
         analysis_manglings::split_pretty,
         crossref::CrossrefData,
         jumpref::{JumprefData, convert_crossref_value_to_sym_info_rep},
@@ -101,7 +101,7 @@ pub fn make_safe_port_id(dubious_id: &str) -> String {
 #[derive(Clone, Debug)]
 pub struct DerivedSymbolInfo {
     pub symbol: Ustr,
-    pub crossref_info: CrossrefData,
+    pub crossref_info: Option<CrossrefData>,
     pub badges: Vec<SymbolBadge>,
     /// For symbols that are fields with pointer_infos, we set the effective
     /// subsystem to be the subsystem of the first pointer_info payload.  We
@@ -250,9 +250,17 @@ impl DerivedSymbolInfo {
         }
     }
 
+    pub fn get_crossref_info(&self) -> Option<&CrossrefData> {
+        self.crossref_info.as_ref()
+    }
+
+    pub fn get_definitions(&self) -> Option<&[PathSearchResult]> {
+        self.get_crossref_info().and_then(|ci| ci.definitions.as_deref())
+    }
+
     /// Provide the structured rep of this symbol if it has one.
     pub fn get_structured(&self) -> Option<&AnalysisStructured> {
-        self.crossref_info.meta.as_ref()
+        self.get_crossref_info().and_then(|ci| ci.meta.as_ref())
     }
 
     /// For hierarchy purposes we want to skip over namespace or namespace-like
@@ -293,9 +301,7 @@ impl DerivedSymbolInfo {
     /// should ideally only be a single definition path, even if we might have
     /// multiple line hits at the path because of #ifdefs.)
     pub fn get_def_path(&self) -> Option<Ustr> {
-        self.crossref_info
-            .definitions
-            .as_ref()
+        self.get_definitions()
             .and_then(|defs| defs.get(0).map(|def| def.path))
     }
 
@@ -303,9 +309,7 @@ impl DerivedSymbolInfo {
     /// This is intended to assist with lexically ordering fields within a
     /// structure/class.
     pub fn get_def_lno(&self) -> u64 {
-        self.crossref_info
-            .definitions
-            .as_ref()
+        self.get_definitions()
             .and_then(|defs| {
                 defs.get(0)
                     .and_then(|def| def.lines.get(0).map(|line| line.lineno.into()))
@@ -316,13 +320,15 @@ impl DerivedSymbolInfo {
     // Potentially reduce our memory usage by dropping our uses and calls fields
     // if they are present, as they won't be used for jumpref production.
     pub fn reduce_memory_usage_by_dropping_non_jumpref_info(&mut self) {
-        self.crossref_info.uses = None;
-        self.crossref_info.callees = None;
+        if let Some (crossref_info) = self.crossref_info.as_mut() {
+            crossref_info.uses = None;
+            crossref_info.callees = None;
+        }
     }
 }
 
 impl DerivedSymbolInfo {
-    pub fn new(symbol: Ustr, crossref_info: CrossrefData, depth: u32) -> Self {
+    pub fn new(symbol: Ustr, crossref_info: Option<CrossrefData>, depth: u32) -> Self {
         DerivedSymbolInfo {
             symbol,
             crossref_info,
@@ -2393,8 +2399,8 @@ impl SymbolGraphNodeSet {
         // useful in the context of the class.)
         if let Some(labels) = sym_info
             .crossref_info
-            .meta
             .as_ref()
+            .and_then(|ci| ci.meta.as_ref())
             .map(|meta| &meta.labels)
         {
             for label in labels {
@@ -2437,12 +2443,7 @@ impl SymbolGraphNodeSet {
             return Ok((SymbolGraphNodeId(*index), sym_info));
         }
 
-        let Some(info) = server.crossref_lookup(sym).await? else {
-            return Err(ServerError::StickyProblem(ErrorDetails {
-                layer: ErrorLayer::DataLayer,
-                message: "ensure_symbol: symbol not found in crossref table".to_owned(),
-            }));
-        };
+        let info = server.crossref_lookup(sym).await?;
         Ok(self.add_symbol(DerivedSymbolInfo::new(*sym, info, depth)))
     }
 
@@ -2465,7 +2466,7 @@ impl SymbolGraphNodeSet {
             let info = std::mem::take(&mut sym_info.crossref_info);
             jumprefs.insert(
                 sym_info.symbol,
-                convert_crossref_value_to_sym_info_rep(Some(info), &sym_info.symbol, None),
+                convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
             );
         }
 
@@ -2480,7 +2481,7 @@ impl SymbolGraphNodeSet {
             let info = sym_info.crossref_info.clone();
             jumprefs.insert(
                 sym_info.symbol,
-                convert_crossref_value_to_sym_info_rep(Some(info), &sym_info.symbol, None),
+                convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
             );
         }
 

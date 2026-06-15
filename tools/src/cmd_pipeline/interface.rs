@@ -94,7 +94,7 @@ impl SymbolTreeTableList {
                 let info = sym_info.crossref_info.clone();
                 jumprefs.insert(
                     sym_info.symbol,
-                    convert_crossref_value_to_sym_info_rep(Some(info), &sym_info.symbol, None),
+                    convert_crossref_value_to_sym_info_rep(info, &sym_info.symbol, None),
                 );
             }
             for (sym, info) in &table.extra_syms {
