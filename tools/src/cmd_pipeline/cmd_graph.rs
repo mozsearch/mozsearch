@@ -266,7 +266,7 @@ impl PipelineCommand for GraphCommand {
 
         let decorate_node = |node: &mut Node, sym_info: &DerivedSymbolInfo| {
             for (i, colorize) in self.args.colorize_callees.iter().enumerate() {
-                if let Some(arr) = &sym_info.crossref_info.callees {
+                if let Some(arr) = sym_info.crossref_info.as_ref().and_then(|ci| ci.callees.as_ref()) {
                     for callee in arr {
                         if let Some(pretty) = callee.pretty
                             && pretty.ends_with(colorize)
