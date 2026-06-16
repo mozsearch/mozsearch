@@ -20,15 +20,5 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-# Fix frozen PATH in .profile
-# TODO: remove after next provisioning
-sed 's|PATH=\(.*livegrep-venv/bin\):.*|PATH=\1:$PATH|' -i ~/.profile
-
-# Install Nix TODO: remove after next provisioning
-if ! command -v nix > /dev/null; then
-    curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install linux --extra-conf "sandbox = false" --init none --no-confirm
-    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
-fi
-
 # Install Nix-provided packages
 sudo -i nix profile add "$(pwd)/mozsearch#serverPackages" --accept-flake-config --print-build-logs --priority 4
