@@ -49,12 +49,12 @@ popd
 
 date
 
-# Size up our root partition to 20G
+# Size up our root partition to 50G
 #
 # We will be growing from a size of 8G.  Previously we increased the indexer
 # size to 12G, but now with "wubkat" and "blinkyum" we have at least seen that
 # the extra install steps can result in us hitting the 12G limit.  The choice of
-# 20G is intended to be more than is required and we can potentially reel this
+# 50G is intended to be more than is required and we can potentially reel this
 # back in.
 #
 # To this end we need to know the volume id in order to issue an EBS resizing
@@ -67,7 +67,7 @@ ROOT_DEV=$(jq -M -r '.DevicePath' <<< "$ROOT_DEV_INFO")
 
 AWS_REGION=us-west-2
 # The size is in gigs.
-aws ec2 modify-volume --region ${AWS_REGION} --volume-id ${ROOT_VOL_ID} --size 20
+aws ec2 modify-volume --region ${AWS_REGION} --volume-id ${ROOT_VOL_ID} --size 50
 
 # We use an until loop because it can take some time for the change to
 # propagate to this VM.  The error will look like:
