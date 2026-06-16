@@ -219,8 +219,11 @@ impl PipelineCommand for TraverseCommand {
             }
             considered.insert(info.symbol);
 
-            let (sym_node_id, _info) =
-                sym_node_set.add_symbol(DerivedSymbolInfo::new(info.symbol, Some(info.crossref_info), 0));
+            let (sym_node_id, _info) = sym_node_set.add_symbol(DerivedSymbolInfo::new(
+                info.symbol,
+                Some(info.crossref_info),
+                0,
+            ));
             // Explicitly put the node in the graph so if we don't find any
             // edges, we still display the node.  This is important for things
             // like "class-diagram" where showing nothing is very confusing.
@@ -494,7 +497,9 @@ impl PipelineCommand for TraverseCommand {
                 // its own depth addition.
                 let sym_info = sym_node_set.get(&sym_id);
                 let member_uses = sym_info
-                    .crossref_info.as_ref().and_then(|ci| ci.field_member_uses.clone())
+                    .crossref_info
+                    .as_ref()
+                    .and_then(|ci| ci.field_member_uses.clone())
                     .unwrap_or_default();
 
                 if member_uses.len() as u32 >= self.args.skip_field_member_uses_at_count {
@@ -1174,7 +1179,10 @@ impl PipelineCommand for TraverseCommand {
                 let sym_info = sym_node_set.get_mut(&sym_id);
                 let callees = match (
                     self.args.retain_all_symbol_data,
-                    sym_info.crossref_info.as_mut().and_then(|ci| ci.callees.as_mut()),
+                    sym_info
+                        .crossref_info
+                        .as_mut()
+                        .and_then(|ci| ci.callees.as_mut()),
                 ) {
                     (true, Some(v)) => v.clone(),
                     (false, Some(v)) => core::mem::take(v),
@@ -1241,7 +1249,10 @@ impl PipelineCommand for TraverseCommand {
                 let sym_info = sym_node_set.get_mut(&sym_id);
                 let uses = match (
                     self.args.retain_all_symbol_data,
-                    sym_info.crossref_info.as_mut().and_then(|ci| ci.uses.as_mut()),
+                    sym_info
+                        .crossref_info
+                        .as_mut()
+                        .and_then(|ci| ci.uses.as_mut()),
                 ) {
                     (true, Some(v)) => v.clone(),
                     (false, Some(v)) => core::mem::take(v),
