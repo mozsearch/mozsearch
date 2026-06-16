@@ -19,16 +19,6 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-# Fix frozen PATH in .profile
-# TODO: remove after next provisioning
-sed 's|PATH=\(.*livegrep-venv/bin\):.*|PATH=\1:$PATH|' -i ~/.profile
-
-# Install Nix TODO: remove after next provisioning
-if ! command -v nix > /dev/null; then
-    curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install linux --extra-conf "sandbox = false" --init none --no-confirm
-    . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
-fi
-
 # Install Nix-provided packages
 sudo -i nix profile add "$(pwd)/mozsearch#indexerPackages" --accept-flake-config --print-build-logs --priority 3
 
@@ -42,18 +32,6 @@ sudo install js /usr/local/bin
 sudo install *.so /usr/local/lib
 sudo ldconfig
 popd
-
-# TODO: remove after next provisioning
-# This is where the wasm-css-analyzer will be built
-# Set it in ~/.profile for indexer-update call on indexer start and also now for indexer-update call at the end of this file.
-echo 'export MOZSEARCH_WASM_DIR="/nix/var/nix/profiles/default/share/wasm-css-analyzer"' >> ~/.profile
-export MOZSEARCH_WASM_DIR="/nix/var/nix/profiles/default/share/wasm-css-analyzer"
-
-# TODO: remove after next provisioning
-# This is where the clang plugin will be built
-# Set it in ~/.profile for indexer-update call on indexer start and also now for indexer-update call at the end of this file.
-echo 'export MOZSEARCH_CLANG_PLUGIN_DIR="/nix/var/nix/profiles/default/lib"' >> ~/.profile
-export MOZSEARCH_CLANG_PLUGIN_DIR="/nix/var/nix/profiles/default/lib"
 
 PYMODULES=$HOME/pymodules
 
