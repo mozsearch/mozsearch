@@ -89,3 +89,4 @@ date
 
 # Install Nix
 curl -fsSL https://install.determinate.systems/nix | sh -s -- install linux --no-confirm
+. /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
