@@ -8,17 +8,18 @@ pub use owned_or_borrowed::OwnedOrBorrowed;
 /// ```
 /// # use tools::utils::case_insensitive_cmp;
 /// # use core::cmp::Ordering::*;
-/// assert_eq!(case_insensitive_cmp("ABCD", "ABC"), Greater);
-/// assert_eq!(case_insensitive_cmp("ABC", "ABCD"), Less);
-/// assert_eq!(case_insensitive_cmp("ABC", "ABC"), Equal);
-/// assert_eq!(case_insensitive_cmp("ABC", "abc"), Equal);
+/// assert_eq!(case_insensitive_cmp("ABCD".chars(), "ABC".chars()), Greater);
+/// assert_eq!(case_insensitive_cmp("ABC".chars(), "ABCD".chars()), Less);
+/// assert_eq!(case_insensitive_cmp("ABC".chars(), "ABC".chars()), Equal);
+/// assert_eq!(case_insensitive_cmp("ABC".chars(), "abc".chars()), Equal);
 /// ```
-pub fn case_insensitive_cmp(lhs: impl AsRef<str>, rhs: impl AsRef<str>) -> core::cmp::Ordering {
-    let lhs = lhs.as_ref();
-    let rhs = rhs.as_ref();
-
-    let lhs_uppercase = lhs.chars().flat_map(char::to_uppercase);
-    let rhs_uppercase = rhs.chars().flat_map(char::to_uppercase);
+pub fn case_insensitive_cmp<Lhs, Rhs>(lhs: Lhs, rhs: Rhs) -> core::cmp::Ordering
+where
+    Lhs: Iterator<Item = char>,
+    Rhs: Iterator<Item = char>,
+{
+    let lhs_uppercase = lhs.flat_map(char::to_uppercase);
+    let rhs_uppercase = rhs.flat_map(char::to_uppercase);
     lhs_uppercase.cmp(rhs_uppercase)
 }
 
@@ -31,14 +32,15 @@ pub fn case_insensitive_cmp(lhs: impl AsRef<str>, rhs: impl AsRef<str>) -> core:
 /// ```
 /// # use tools::utils::case_semisensitive_cmp;
 /// # use core::cmp::Ordering::*;
-/// assert_eq!(case_semisensitive_cmp("ABCD", "ABC"), Greater);
-/// assert_eq!(case_semisensitive_cmp("ABC", "ABCD"), Less);
-/// assert_eq!(case_semisensitive_cmp("ABC", "ABC"), Equal);
-/// assert_eq!(case_semisensitive_cmp("ABC", "abc"), Less);
+/// assert_eq!(case_semisensitive_cmp("ABCD".chars(), "ABC".chars()), Greater);
+/// assert_eq!(case_semisensitive_cmp("ABC".chars(), "ABCD".chars()), Less);
+/// assert_eq!(case_semisensitive_cmp("ABC".chars(), "ABC".chars()), Equal);
+/// assert_eq!(case_semisensitive_cmp("ABC".chars(), "abc".chars()), Less);
 /// ```
-pub fn case_semisensitive_cmp(lhs: impl AsRef<str>, rhs: impl AsRef<str>) -> core::cmp::Ordering {
-    let lhs = lhs.as_ref();
-    let rhs = rhs.as_ref();
-
-    case_insensitive_cmp(lhs, rhs).then_with(|| lhs.cmp(rhs))
+pub fn case_semisensitive_cmp<Lhs, Rhs>(lhs: Lhs, rhs: Rhs) -> core::cmp::Ordering
+where
+    Lhs: Iterator<Item = char> + Clone,
+    Rhs: Iterator<Item = char> + Clone,
+{
+    case_insensitive_cmp(lhs.clone(), rhs.clone()).then_with(move || lhs.cmp(rhs))
 }

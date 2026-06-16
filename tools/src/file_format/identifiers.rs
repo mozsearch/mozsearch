@@ -1,6 +1,9 @@
 extern crate memmap;
 
+use crate::utils::case_insensitive_cmp;
+
 use self::memmap::Mmap;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufRead;
@@ -14,8 +17,11 @@ use serde_json::to_string;
 
 use super::config::Config;
 
-fn uppercase(s: &[u8]) -> Vec<u8> {
-    s.iter().map(u8::to_ascii_uppercase).collect()
+fn uppercase(s: &[u8]) -> impl Iterator<Item = char> + Clone {
+    s.iter()
+        .copied()
+        .map(char::from)
+        .flat_map(char::to_uppercase)
 }
 
 #[derive(Clone, Debug)]
@@ -111,10 +117,8 @@ impl IdentMap {
     }
 
     fn bisect(&self, needle: &[u8], upper_bound: bool) -> usize {
-        let mut needle = uppercase(needle);
-        if upper_bound {
-            needle.push(b'~');
-        }
+        let needle = uppercase(needle);
+        let needle = needle.chain(upper_bound.then_some('~').into_iter());
 
         let mut first = 0;
         let mut count = self.mmap.len();
@@ -123,13 +127,15 @@ impl IdentMap {
             let step = count / 2;
             let pos = first + step;
 
-            let line = self.get_line(pos);
-            let line_upper = uppercase(line);
-            if line_upper < needle || (upper_bound && line_upper == needle) {
-                first = pos + 1;
-                count -= step + 1;
-            } else {
-                count = step;
+            let line = self.get_line(pos).iter().copied().map(char::from);
+            match (upper_bound, case_insensitive_cmp(line, needle.clone())) {
+                (_, Ordering::Less) | (true, Ordering::Equal) => {
+                    first = pos + 1;
+                    count -= step + 1;
+                }
+                _ => {
+                    count = step;
+                }
             }
         }
 
