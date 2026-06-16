@@ -255,7 +255,8 @@ impl DerivedSymbolInfo {
     }
 
     pub fn get_definitions(&self) -> Option<&[PathSearchResult]> {
-        self.get_crossref_info().and_then(|ci| ci.definitions.as_deref())
+        self.get_crossref_info()
+            .and_then(|ci| ci.definitions.as_deref())
     }
 
     /// Provide the structured rep of this symbol if it has one.
@@ -320,7 +321,7 @@ impl DerivedSymbolInfo {
     // Potentially reduce our memory usage by dropping our uses and calls fields
     // if they are present, as they won't be used for jumpref production.
     pub fn reduce_memory_usage_by_dropping_non_jumpref_info(&mut self) {
-        if let Some (crossref_info) = self.crossref_info.as_mut() {
+        if let Some(crossref_info) = self.crossref_info.as_mut() {
             crossref_info.uses = None;
             crossref_info.callees = None;
         }
