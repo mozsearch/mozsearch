@@ -127,6 +127,7 @@
             llvmPackages.clang-tools
 
             gdb
+            heaptrack
 
             scip
             protobuf
