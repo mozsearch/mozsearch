@@ -1589,7 +1589,7 @@ fn write_identifiers(tree_config: &TreeConfig, id_table: IdTable) {
         .flat_map(|(key, syms)| syms.into_iter().map(move |sym| (key, sym)))
         .map(|(id, sym)| format!("{} {}\n", id, sym))
         .collect();
-    lines.sort_unstable_by(|lhs, rhs| case_semisensitive_cmp(lhs, rhs));
+    lines.sort_unstable_by(|lhs, rhs| case_semisensitive_cmp(lhs.chars(), rhs.chars()));
 
     for line in lines {
         let _ = idf.write_all(line.as_bytes());
