@@ -31,6 +31,7 @@ buildNpmPackage rec {
     ./0002-npm-run-fix-syncpack.patch
     ./0003-Fix-build.patch
     ./0004-Lambda-arguments-should-be-locals-when-the-lambda-is.patch
+    ./0005-Silence-spurious-Could-not-find-package-information-.patch
   ];
 
   npmDepsHash = "sha256-PAHhFWfxx8NfDUbplHv93bWH+06zYhReMKR7V2YlJFA=";
