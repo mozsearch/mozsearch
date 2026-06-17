@@ -1,0 +1,31 @@
+From f7a81aadbb2900c768f429821e75458b06070230 Mon Sep 17 00:00:00 2001
+From: Nicolas Guichard <nicolas.guichard@kdab.com>
+Date: Wed, 17 Jun 2026 15:49:41 +0200
+Subject: [PATCH] =?UTF-8?q?Silence=20spurious=20=E2=80=9CCould=20not=20fin?=
+ =?UTF-8?q?d=20package=20information=E2=80=9D=20warning?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ packages/pyright-scip/src/virtualenv/environment.ts | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/packages/pyright-scip/src/virtualenv/environment.ts b/packages/pyright-scip/src/virtualenv/environment.ts
+index 8843c8bc4..db0368b35 100644
+--- a/packages/pyright-scip/src/virtualenv/environment.ts
++++ b/packages/pyright-scip/src/virtualenv/environment.ts
+@@ -93,7 +93,9 @@ function validatePackageResults(results: PythonPackage[], requestedNames: string
+     if (results.length !== requestedNames.length) {
+         const foundNames = new Set(results.map((pkg) => pkg.name));
+         const missingNames = requestedNames.filter((name) => !foundNames.has(name));
+-        console.warn(`Warning: Could not find package information for: ${missingNames.join(', ')}`);
++        if (missingNames.length !== 0) {
++            console.warn(`Warning: Could not find package information for: ${missingNames.join(', ')}`);
++        }
+     }
+     return results;
+ }
+-- 
+2.54.0
+
