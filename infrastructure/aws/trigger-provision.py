@@ -93,6 +93,14 @@ fi
 
 echo "Provisioning complete.  Attempting Registration." >> ~ubuntu/provision.log
 
+# Log what the sync is going to do for us for general info.
+grep -E "Dirty|Writeback" /proc/meminfo >> ~ubuntu/provision.log
+
+sync
+
+# hopefully not needed on top of the sync, but since we've had problems, why risk it.
+sleep 5
+
 # AWS commands, etc. should work now if provisioning completed.
 INSTANCE_ID=$(ec2metadata --instance-id)
 # include the hour and minute for sufficient uniqueness
