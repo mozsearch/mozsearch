@@ -22,3 +22,5 @@ set -o pipefail # Check all commands in a pipeline
 
 # Install Nix-provided packages
 sudo -i nix profile add "$(pwd)/mozsearch#serverPackages" --accept-flake-config --print-build-logs --priority 4
+# If the package was already installed we need to explicitly upgrade as well
+sudo -i nix profile upgrade serverPackages --accept-flake-config --print-build-logs

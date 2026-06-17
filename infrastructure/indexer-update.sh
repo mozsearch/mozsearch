@@ -21,6 +21,8 @@ set -o pipefail # Check all commands in a pipeline
 
 # Install Nix-provided packages
 sudo -i nix profile add "$(pwd)/mozsearch#indexerPackages" --accept-flake-config --print-build-logs --priority 3
+# If the package was already installed we need to explicitly upgrade as well
+sudo -i nix profile upgrade indexerPackages --accept-flake-config --print-build-logs
 
 # Install SpiderMonkey.
 rm -rf target.jsshell.zip js
