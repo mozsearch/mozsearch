@@ -68,6 +68,7 @@
         commonPackages = with pkgs; [
           livegrep
           mozsearch-tools
+          mozsearch-router
         ];
 
         indexerPackages = with pkgs; [
@@ -80,7 +81,6 @@
         ];
 
         serverPackages = with pkgs; [
-          mozsearch-router
         ];
       in {
         packages = {
