@@ -40,7 +40,8 @@ input_file: inputs/analysis/cpp/big_cpp.cpp/structured_human__json
         "sym": "_ZN7outerNS5HumanaSERKS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -49,7 +50,8 @@ input_file: inputs/analysis/cpp/big_cpp.cpp/structured_human__json
         "sym": "_ZN7outerNS5HumanaSEOS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -58,7 +60,8 @@ input_file: inputs/analysis/cpp/big_cpp.cpp/structured_human__json
         "sym": "_ZN7outerNS5HumanD1Ev",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },

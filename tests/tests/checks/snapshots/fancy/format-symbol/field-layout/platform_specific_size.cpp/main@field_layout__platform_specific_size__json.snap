@@ -58,7 +58,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_size.cpp/f
                 "sym": "_ZN12field_layout22platform_specific_size1SC1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -118,7 +119,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_size.cpp/f
                     "sym": "_ZN12field_layout22platform_specific_size1SC1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },

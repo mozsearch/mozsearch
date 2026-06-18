@@ -153,7 +153,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout13template_base4Sub5C1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
