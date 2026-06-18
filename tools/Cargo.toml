@@ -9,6 +9,7 @@ tonic-prost-build = "0.14.5"
 
 [dependencies]
 cssparser = "0.37"
+hyper-util = { version = "0.1.20", features = ["tokio"] }
 itertools = "0.15"
 # Note that the "rc" feature as documented at https://serde.rs/feature-flags.html
 # does not make any effort to do interning
@@ -41,7 +42,7 @@ google-cloud-storage = "1.9.0"
 graphviz-rust = "0.9.7"
 git2 = "0.21.0"
 globset = "0.4.8"
-hyper = "0.10"
+hyper = "1.10"
 include_dir = "0.7.2"
 insta = { version = "1.39.0", features = ["json"] }
 ipdl_parser = { path = "./ipdl_parser" }
@@ -102,18 +103,6 @@ walkdir = "2.3.2"
 zstd = "0.13.3"
 
 [patch.crates-io]
-# Our very old version of hyper depends on traitobject but rustc does not like
-# a formulation it uses.  We are able to use the patch mechanism documented at
-# https://doc.rust-lang.org/cargo/reference/overriding-dependencies.html to
-# replace the version hyper sees.  Honestly we would be fine with just using the
-# crates.io version of https://github.com/philip-peterson/destructure_traitobject
-# but my immediate attempts to alias that did not work out.
-#
-# We use revision
-# https://github.com/philip-peterson/destructure_traitobject/commit/d49b0af9087b3b7848d19d5baae43948ebc7fb9d
-# because that's the last revision before Cargo.toml updated the package's name
-# which causes problems.
-traitobject = { git = "https://github.com/philip-peterson/destructure_traitobject", rev = "d49b0af9087b3b7848d19d5baae43948ebc7fb9d" }
 # If we want to debug what tracing-forest is seeing, I instrumented this with
 # `println!` at some important spots.
 #tracing-forest = { git = "https://github.com/asutherland/tracing-forest.git", rev = "0fef62de683f52f7888ad83891203ac4a645bf8d" }
