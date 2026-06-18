@@ -43,7 +43,7 @@ fn commit_header_impl(
         s.replace("&", "&amp;").replace("<", "&lt;")
     }
 
-    let msg = commit.message().ok_or("Invalid message")?;
+    let msg = commit.message().map_err(|_| "Invalid message")?;
     let mut iter = msg.split('\n');
     let header = iter.next().unwrap();
     let phab_rev = match kind {
