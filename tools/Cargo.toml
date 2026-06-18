@@ -22,8 +22,8 @@ thread_local = "1.1.9"
 anyhow = "1.0.86"
 async-stream = "0.3.2"
 async-trait = "0.1.50"
-axum = "0.6.17"
-axum-macros = "0.3.7"
+axum = "0.8.9"
+axum-macros = "0.5.1"
 bitflags = { version = "2.4.2", features = ["serde"] }
 # NOTE: jaq-json requires newer bytes.
 bytes = "1.11.0"

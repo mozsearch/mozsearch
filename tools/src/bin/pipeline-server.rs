@@ -14,6 +14,7 @@ use axum::{
 use axum_macros::debug_handler;
 use liquid::Template;
 use serde_json::{Value, json};
+use tokio::net::TcpListener;
 use tools::{
     abstract_server::{AbstractServer, ServerError, make_all_local_servers},
     cmd_pipeline::{PipelineValues, builder::build_pipeline_graph},
@@ -141,12 +142,10 @@ async fn main() {
 
     // build our application with a single route
     let app = Router::new()
-        .route("/:tree/query/:preset", get(handle_query))
+        .route("/{tree}/query/{preset}", get(handle_query))
         .layer(Extension(local_servers))
         .layer(Extension(templates));
 
-    axum::Server::bind(&"0.0.0.0:8002".parse().unwrap())
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    let listener = TcpListener::bind("0.0.0.0:8002").await.unwrap();
+    axum::serve(listener, app).await.unwrap();
 }
