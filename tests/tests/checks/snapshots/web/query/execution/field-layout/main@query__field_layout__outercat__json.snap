@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(sttl).unwrap()"
+input_file: inputs/web/query/execution/field-layout/query__field_layout__outercat__json
 ---
 {
   "tables": [
@@ -212,7 +213,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN7outerNS5CouchaSERKS0_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -221,7 +223,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN7outerNS5CouchaSEOS0_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -230,7 +233,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN7outerNS5CouchD1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               }
@@ -282,7 +286,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN7outerNS5HumanaSERKS0_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -291,7 +296,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN7outerNS5HumanaSEOS0_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -300,7 +306,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN7outerNS5HumanD1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -438,7 +445,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN7outerNS8OuterCatC1ERKS0_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -447,7 +455,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN7outerNS8OuterCatC1EOS0_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -456,7 +465,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN7outerNS8OuterCataSERKS0_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -465,7 +475,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN7outerNS8OuterCataSEOS0_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -474,7 +485,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN7outerNS8OuterCatD1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               }
@@ -601,7 +613,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN7outerNS5ThingaSERKS0_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -610,7 +623,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN7outerNS5ThingaSEOS0_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -619,7 +633,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN7outerNS5ThingD1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },

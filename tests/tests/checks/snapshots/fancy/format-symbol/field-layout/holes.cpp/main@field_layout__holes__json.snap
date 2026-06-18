@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(sttl).unwrap()"
+input_file: inputs/fancy/format-symbol/field-layout/holes.cpp/field_layout__holes__json
 ---
 {
   "tables": [
@@ -197,7 +198,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN12field_layout5holes4BaseC1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -206,7 +208,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN12field_layout5holes4BaseD1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -313,7 +316,8 @@ expression: "&to_value(sttl).unwrap()"
                 "sym": "_ZN12field_layout5holes3SubC1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },

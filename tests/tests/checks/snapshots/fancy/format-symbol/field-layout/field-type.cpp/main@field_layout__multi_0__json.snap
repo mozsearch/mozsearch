@@ -156,7 +156,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout14template_multi2C1C1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -165,7 +166,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout14template_multi2C1D1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -242,7 +244,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout14template_multi2C2C1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -251,7 +254,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout14template_multi2C2D1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -319,7 +323,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout14template_multi2C3C1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -328,7 +333,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout14template_multi2C3D1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -534,7 +540,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout14template_multi2C6C1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },

@@ -599,7 +599,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout10field_type1SC1ERKS1_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -608,7 +609,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout10field_type1SC1EOS1_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -617,7 +619,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout10field_type1SaSERKS1_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -626,7 +629,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout10field_type1SaSEOS1_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -635,7 +639,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout10field_type1SD1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -644,7 +649,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout10field_type1SC1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               }
@@ -964,7 +970,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout10field_type5Type1D1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -993,7 +1000,8 @@ input_file: inputs/fancy/format-symbol/field-layout/field-type.cpp/field_layout_
                 "sym": "_ZN12field_layout10field_type5Type1C1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               }

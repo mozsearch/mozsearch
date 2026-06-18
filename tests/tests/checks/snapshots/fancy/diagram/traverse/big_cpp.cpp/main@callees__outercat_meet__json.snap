@@ -155,7 +155,8 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/callees__outercat_meet__js
             "sym": "_ZN7outerNS5CouchaSERKS0_",
             "props": [
               "instance",
-              "defaulted"
+              "defaulted",
+              "constexpr"
             ],
             "args": []
           },
@@ -164,7 +165,8 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/callees__outercat_meet__js
             "sym": "_ZN7outerNS5CouchaSEOS0_",
             "props": [
               "instance",
-              "defaulted"
+              "defaulted",
+              "constexpr"
             ],
             "args": []
           },
@@ -173,7 +175,8 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/callees__outercat_meet__js
             "sym": "_ZN7outerNS5CouchD1Ev",
             "props": [
               "instance",
-              "defaulted"
+              "defaulted",
+              "constexpr"
             ],
             "args": []
           }
@@ -225,7 +228,8 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/callees__outercat_meet__js
             "sym": "_ZN7outerNS5HumanaSERKS0_",
             "props": [
               "instance",
-              "defaulted"
+              "defaulted",
+              "constexpr"
             ],
             "args": []
           },
@@ -234,7 +238,8 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/callees__outercat_meet__js
             "sym": "_ZN7outerNS5HumanaSEOS0_",
             "props": [
               "instance",
-              "defaulted"
+              "defaulted",
+              "constexpr"
             ],
             "args": []
           },
@@ -243,7 +248,8 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/callees__outercat_meet__js
             "sym": "_ZN7outerNS5HumanD1Ev",
             "props": [
               "instance",
-              "defaulted"
+              "defaulted",
+              "constexpr"
             ],
             "args": []
           },
@@ -331,7 +337,8 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/callees__outercat_meet__js
             "sym": "_ZN7outerNS5ThingaSERKS0_",
             "props": [
               "instance",
-              "defaulted"
+              "defaulted",
+              "constexpr"
             ],
             "args": []
           },
@@ -340,7 +347,8 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/callees__outercat_meet__js
             "sym": "_ZN7outerNS5ThingaSEOS0_",
             "props": [
               "instance",
-              "defaulted"
+              "defaulted",
+              "constexpr"
             ],
             "args": []
           },
@@ -349,7 +357,8 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/callees__outercat_meet__js
             "sym": "_ZN7outerNS5ThingD1Ev",
             "props": [
               "instance",
-              "defaulted"
+              "defaulted",
+              "constexpr"
             ],
             "args": []
           },

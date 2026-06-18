@@ -50,7 +50,8 @@ input_file: inputs/analysis/cpp/big_cpp.cpp/structured_superhero__json
         "sym": "_ZN7outerNS9SuperheroaSERKS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -59,7 +60,8 @@ input_file: inputs/analysis/cpp/big_cpp.cpp/structured_superhero__json
         "sym": "_ZN7outerNS9SuperheroaSEOS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -68,7 +70,8 @@ input_file: inputs/analysis/cpp/big_cpp.cpp/structured_superhero__json
         "sym": "_ZN7outerNS9SuperheroD1Ev",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },

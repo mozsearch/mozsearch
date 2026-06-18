@@ -432,7 +432,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance9BaseEmptyD1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -501,7 +502,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance4SubAC1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -510,7 +512,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance4SubAD1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -597,7 +600,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance4SubBC1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -606,7 +610,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance4SubBD1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -695,7 +700,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                     "sym": "_ZN12field_layout20multiple_inheritance4SubBC1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -704,7 +710,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                     "sym": "_ZN12field_layout20multiple_inheritance4SubBD1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -800,7 +807,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance4SubCC1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -809,7 +817,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance4SubCD1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -896,7 +905,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance4SubDC1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -905,7 +915,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance4SubDD1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -992,7 +1003,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance4SubEC1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -1001,7 +1013,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance4SubED1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -1098,7 +1111,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance7SubSubAC1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -1107,7 +1121,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance7SubSubAD1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -1186,7 +1201,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                     "sym": "_ZN12field_layout20multiple_inheritance7SubSubAC1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -1195,7 +1211,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                     "sym": "_ZN12field_layout20multiple_inheritance7SubSubAD1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -1281,7 +1298,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance7SubSubBC1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -1290,7 +1308,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance7SubSubBD1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -1372,7 +1391,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                 "sym": "_ZN12field_layout20multiple_inheritance10SubSubSubAC1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -1443,7 +1463,8 @@ input_file: inputs/fancy/format-symbol/field-layout/multiple_inheritance.cpp/fie
                     "sym": "_ZN12field_layout20multiple_inheritance10SubSubSubAC1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },

@@ -226,7 +226,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                 "sym": "_ZN12field_layout23platform_specific_field2S1C1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -235,7 +236,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                 "sym": "_ZN12field_layout23platform_specific_field2S1D1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -318,7 +320,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                     "sym": "_ZN12field_layout23platform_specific_field2S1C1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -327,7 +330,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                     "sym": "_ZN12field_layout23platform_specific_field2S1D1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -412,7 +416,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                     "sym": "_ZN12field_layout23platform_specific_field2S1C1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -421,7 +426,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                     "sym": "_ZN12field_layout23platform_specific_field2S1D1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -496,7 +502,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                     "sym": "_ZN12field_layout23platform_specific_field2S1C1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -505,7 +512,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                     "sym": "_ZN12field_layout23platform_specific_field2S1D1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -597,7 +605,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                 "sym": "_ZN12field_layout23platform_specific_field2S2C1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -606,7 +615,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                 "sym": "_ZN12field_layout23platform_specific_field2S2D1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -675,7 +685,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                     "sym": "_ZN12field_layout23platform_specific_field2S2C1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -684,7 +695,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                     "sym": "_ZN12field_layout23platform_specific_field2S2D1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -764,7 +776,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                     "sym": "_ZN12field_layout23platform_specific_field2S2C1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -773,7 +786,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                     "sym": "_ZN12field_layout23platform_specific_field2S2D1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -853,7 +867,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                     "sym": "_ZN12field_layout23platform_specific_field2S2C1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -862,7 +877,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                     "sym": "_ZN12field_layout23platform_specific_field2S2D1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -946,7 +962,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                 "sym": "_ZN12field_layout23platform_specific_field2S3C1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -1012,7 +1029,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                     "sym": "_ZN12field_layout23platform_specific_field2S3C1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -1082,7 +1100,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                     "sym": "_ZN12field_layout23platform_specific_field2S3C1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },
@@ -1152,7 +1171,8 @@ input_file: inputs/fancy/format-symbol/field-layout/platform_specific_field.cpp/
                     "sym": "_ZN12field_layout23platform_specific_field2S3C1Ev",
                     "props": [
                       "instance",
-                      "defaulted"
+                      "defaulted",
+                      "constexpr"
                     ],
                     "args": []
                   },

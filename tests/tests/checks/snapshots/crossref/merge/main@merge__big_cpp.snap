@@ -3386,7 +3386,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS11AbstractArtaSERKS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -3395,7 +3396,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS11AbstractArtaSEOS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -3404,7 +3406,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS11AbstractArtD1Ev",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -3470,7 +3473,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS5CouchaSERKS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -3479,7 +3483,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS5CouchaSEOS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -3488,7 +3493,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS5CouchD1Ev",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       }
@@ -3549,7 +3555,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS20CycleCollectingMagicD1Ev",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       }
@@ -3595,7 +3602,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS5HumanaSERKS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -3604,7 +3612,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS5HumanaSEOS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -3613,7 +3622,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS5HumanD1Ev",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -3742,7 +3752,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS8OuterCatC1ERKS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -3751,7 +3762,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS8OuterCatC1EOS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -3760,7 +3772,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS8OuterCataSERKS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -3769,7 +3782,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS8OuterCataSEOS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -3778,7 +3792,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS8OuterCatD1Ev",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       }
@@ -3886,7 +3901,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS8OuterCat18CycleCollectingCatD1Ev",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       }
@@ -3942,7 +3958,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS12PracticalArtaSERKS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -3951,7 +3968,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS12PracticalArtaSEOS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -3960,7 +3978,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS12PracticalArtD1Ev",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       }
@@ -4058,7 +4077,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS9SuperheroaSERKS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -4067,7 +4087,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS9SuperheroaSEOS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -4076,7 +4097,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS9SuperheroD1Ev",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -4155,7 +4177,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS5ThingaSERKS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -4164,7 +4187,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS5ThingaSEOS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -4173,7 +4197,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
         "sym": "_ZN7outerNS5ThingD1Ev",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },

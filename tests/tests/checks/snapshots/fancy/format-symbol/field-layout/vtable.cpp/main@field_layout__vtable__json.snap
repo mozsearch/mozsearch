@@ -180,7 +180,8 @@ input_file: inputs/fancy/format-symbol/field-layout/vtable.cpp/field_layout__vta
                 "sym": "_ZN12field_layout6vtable5Base1aSERKS1_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -251,7 +252,8 @@ input_file: inputs/fancy/format-symbol/field-layout/vtable.cpp/field_layout__vta
                 "sym": "_ZN12field_layout6vtable5Base2aSERKS1_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -331,7 +333,8 @@ input_file: inputs/fancy/format-symbol/field-layout/vtable.cpp/field_layout__vta
                 "sym": "_ZN12field_layout6vtable5Base3D1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -427,7 +430,8 @@ input_file: inputs/fancy/format-symbol/field-layout/vtable.cpp/field_layout__vta
                 "sym": "_ZN12field_layout6vtable5Sub1aaSERKS1_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -436,7 +440,8 @@ input_file: inputs/fancy/format-symbol/field-layout/vtable.cpp/field_layout__vta
                 "sym": "_ZN12field_layout6vtable5Sub1aC1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               }
@@ -513,7 +518,8 @@ input_file: inputs/fancy/format-symbol/field-layout/vtable.cpp/field_layout__vta
                 "sym": "_ZN12field_layout6vtable5Sub1baSERKS1_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -522,7 +528,8 @@ input_file: inputs/fancy/format-symbol/field-layout/vtable.cpp/field_layout__vta
                 "sym": "_ZN12field_layout6vtable5Sub1bC1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               }
@@ -599,7 +606,8 @@ input_file: inputs/fancy/format-symbol/field-layout/vtable.cpp/field_layout__vta
                 "sym": "_ZN12field_layout6vtable4Sub2aSERKS1_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -608,7 +616,8 @@ input_file: inputs/fancy/format-symbol/field-layout/vtable.cpp/field_layout__vta
                 "sym": "_ZN12field_layout6vtable4Sub2C1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               }
@@ -675,7 +684,8 @@ input_file: inputs/fancy/format-symbol/field-layout/vtable.cpp/field_layout__vta
                 "sym": "_ZN12field_layout6vtable4Sub3aSERKS1_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -694,7 +704,8 @@ input_file: inputs/fancy/format-symbol/field-layout/vtable.cpp/field_layout__vta
                 "sym": "_ZN12field_layout6vtable4Sub3C1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               }
@@ -786,7 +797,8 @@ input_file: inputs/fancy/format-symbol/field-layout/vtable.cpp/field_layout__vta
                 "sym": "_ZN12field_layout6vtable6SubSubaSERKS1_",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               },
@@ -795,7 +807,8 @@ input_file: inputs/fancy/format-symbol/field-layout/vtable.cpp/field_layout__vta
                 "sym": "_ZN12field_layout6vtable6SubSubC1Ev",
                 "props": [
                   "instance",
-                  "defaulted"
+                  "defaulted",
+                  "constexpr"
                 ],
                 "args": []
               }

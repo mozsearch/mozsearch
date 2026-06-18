@@ -103,7 +103,8 @@ input_file: inputs/analysis/cpp/big_cpp.cpp/structured_outercat__json
         "sym": "_ZN7outerNS8OuterCatC1ERKS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -112,7 +113,8 @@ input_file: inputs/analysis/cpp/big_cpp.cpp/structured_outercat__json
         "sym": "_ZN7outerNS8OuterCatC1EOS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -121,7 +123,8 @@ input_file: inputs/analysis/cpp/big_cpp.cpp/structured_outercat__json
         "sym": "_ZN7outerNS8OuterCataSERKS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -130,7 +133,8 @@ input_file: inputs/analysis/cpp/big_cpp.cpp/structured_outercat__json
         "sym": "_ZN7outerNS8OuterCataSEOS0_",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       },
@@ -139,7 +143,8 @@ input_file: inputs/analysis/cpp/big_cpp.cpp/structured_outercat__json
         "sym": "_ZN7outerNS8OuterCatD1Ev",
         "props": [
           "instance",
-          "defaulted"
+          "defaulted",
+          "constexpr"
         ],
         "args": []
       }
