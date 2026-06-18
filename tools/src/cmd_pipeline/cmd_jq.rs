@@ -23,8 +23,8 @@ fn to_serde_json(v: &jaq_json::Val) -> Value {
         jaq_json::Val::Num(n) => {
             serde_json::Value::Number(serde_json::from_str(&n.to_string()).unwrap())
         }
-        jaq_json::Val::Str(s, jaq_json::Tag::Utf8) => serde_json::Value::String(from_utf8(s)),
-        jaq_json::Val::Str(s, jaq_json::Tag::Bytes) => {
+        jaq_json::Val::TStr(s) => serde_json::Value::String(from_utf8(s)),
+        jaq_json::Val::BStr(s) => {
             serde_json::Value::String(s.iter().copied().map(char::from).collect())
         }
         jaq_json::Val::Arr(a) => serde_json::Value::Array(a.iter().map(to_serde_json).collect()),
@@ -55,7 +55,10 @@ impl JQCommand {
             path: (),
         };
 
-        let loader = jaq_core::load::Loader::new(jaq_std::defs());
+        let defs = jaq_core::defs().chain(jaq_std::defs()).chain(jaq_json::defs());
+        let funs = jaq_core::funs().chain(jaq_std::funs()).chain(jaq_json::funs());
+
+        let loader = jaq_core::load::Loader::new(defs);
         let arena = jaq_core::load::Arena::default();
 
         let modules = match loader.load(&arena, program) {
@@ -69,7 +72,7 @@ impl JQCommand {
         };
 
         let filter_result = jaq_core::Compiler::default()
-            .with_funs(jaq_std::funs())
+            .with_funs(funs)
             .compile(modules);
         let filter = match filter_result {
             Ok(f) => f,
