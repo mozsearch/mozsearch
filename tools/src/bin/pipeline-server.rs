@@ -22,6 +22,7 @@ use tools::{
     query::chew_query::chew_query,
     templating::builder::build_and_parse_query_results,
 };
+use tower::limit::GlobalConcurrencyLimitLayer;
 use tracing::Instrument;
 
 #[debug_handler]
@@ -144,7 +145,8 @@ async fn main() {
     let app = Router::new()
         .route("/{tree}/query/{preset}", get(handle_query))
         .layer(Extension(local_servers))
-        .layer(Extension(templates));
+        .layer(Extension(templates))
+        .layer(GlobalConcurrencyLimitLayer::new(4));
 
     let listener = TcpListener::bind("0.0.0.0:8002").await.unwrap();
     axum::serve(listener, app).await.unwrap();
