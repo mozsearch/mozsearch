@@ -125,69 +125,63 @@ impl PipelineCommand for AugmentResultsCommand {
 
             let mut buf = vec![];
 
-            let mut rewrite = HtmlRewriter::new(
-                Settings {
-                    element_content_handlers: vec![
-                        element!(r#"div.nesting-container"#, move |el| {
-                            nesting_suppress.set(true);
-                            let end_suppress = nesting_suppress.clone();
-                            el.end_tag_handlers()
-                                .unwrap()
-                                .push(EndTagHandler::from(Box::new(move |_end| {
-                                    end_suppress.set(true);
-                                    Ok(())
-                                })));
+            let settings = Settings::new()
+                .append_element_content_handler(element!(r#"div.nesting-container"#, move |el| {
+                    nesting_suppress.set(true);
+                    let end_suppress = nesting_suppress.clone();
+                    el.end_tag_handlers()
+                        .unwrap()
+                        .push(EndTagHandler::from(Box::new(move |_end| {
+                            end_suppress.set(true);
                             Ok(())
-                        }),
-                        element!(r#"div.source-line-with-number"#, |el| {
-                            suppressing.set(false);
-                            if let Some(id_str) = el.get_attribute("id") {
-                                let id_parts: Vec<&str> = id_str.split("-").collect();
-                                if id_parts.len() == 2 && id_parts[0] == "line" {
-                                    let lno = id_parts[1].parse().unwrap_or(0);
-                                    cur_line.set(lno);
-                                    want_cur_line.set(lines_to_show.contains(&lno));
-                                }
-                            }
+                        })));
+                    Ok(())
+                }))
+                .append_element_content_handler(element!(r#"div.source-line-with-number"#, |el| {
+                    suppressing.set(false);
+                    if let Some(id_str) = el.get_attribute("id") {
+                        let id_parts: Vec<&str> = id_str.split("-").collect();
+                        if id_parts.len() == 2 && id_parts[0] == "line" {
+                            let lno = id_parts[1].parse().unwrap_or(0);
+                            cur_line.set(lno);
+                            want_cur_line.set(lines_to_show.contains(&lno));
+                        }
+                    }
 
-                            Ok(())
-                        }),
-                    ],
-                    ..Settings::default()
-                },
-                |c: &[u8]| {
-                    if suppressing.get() {
+                    Ok(())
+                }));
+
+            let mut rewrite = HtmlRewriter::new(settings, |c: &[u8]| {
+                if suppressing.get() {
+                    return;
+                }
+
+                // We were actively writing and potentially have some
+                // buffer.
+                if writing_line > 0 {
+                    // We're done writing; flush!
+                    if cur_line.get() != writing_line {
+                        file_lines.insert(writing_line, String::from_utf8_lossy(&buf).to_string());
+                        writing_line = 0;
+                        buf.clear();
+                    }
+                    // We're still writing!
+                    else {
+                        // Write into the buffer and then leave, because we
+                        // don't need to consider switching into writing, as
+                        // we're still here.
+                        buf.extend_from_slice(c);
                         return;
                     }
-
-                    // We were actively writing and potentially have some
-                    // buffer.
-                    if writing_line > 0 {
-                        // We're done writing; flush!
-                        if cur_line.get() != writing_line {
-                            file_lines
-                                .insert(writing_line, String::from_utf8_lossy(&buf).to_string());
-                            writing_line = 0;
-                            buf.clear();
-                        }
-                        // We're still writing!
-                        else {
-                            // Write into the buffer and then leave, because we
-                            // don't need to consider switching into writing, as
-                            // we're still here.
-                            buf.extend_from_slice(c);
-                            return;
-                        }
-                    }
-                    // We either closed out writing or weren't writing.  But now
-                    // we need to see if we should be writing!
-                    if cur_line.get() > 0 && want_cur_line.get() {
-                        writing_line = cur_line.get();
-                        buf.extend_from_slice(c);
-                    }
-                    // Otherwise, this wasn't interesting.
-                },
-            );
+                }
+                // We either closed out writing or weren't writing.  But now
+                // we need to see if we should be writing!
+                if cur_line.get() > 0 && want_cur_line.get() {
+                    writing_line = cur_line.get();
+                    buf.extend_from_slice(c);
+                }
+                // Otherwise, this wasn't interesting.
+            });
 
             rewrite.write(html_str.as_bytes()).unwrap();
             rewrite.end().unwrap();

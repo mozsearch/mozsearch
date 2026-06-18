@@ -49,8 +49,8 @@ fn norm_json_value(mut val: Value) -> Value {
 /// - Replacing data-i values with "NORM".
 /// - Replacing the permalink revision with REV.
 fn norm_html_value(s: String) -> String {
-    let element_content_handlers = vec![
-        element!(r#"div.blame-strip"#, |el| {
+    let settings = RewriteStrSettings::new()
+        .append_element_content_handler(element!(r#"div.blame-strip"#, |el| {
             if el.has_attribute("data-blame") {
                 el.set_attribute("data-blame", "BLAME").unwrap();
             }
@@ -70,23 +70,23 @@ fn norm_html_value(s: String) -> String {
             }
 
             Ok(())
-        }),
+        }))
         // As a transient thing, remove data-i entirely since this will allow us
         // to update the production checks before landing.  This rule can be
         // removed after we've transitioned as "data-i" should no longer exist.
-        element!(r#"span[data-i]"#, |el| {
+        .append_element_content_handler(element!(r#"span[data-i]"#, |el| {
             el.remove_attribute("data-i");
             Ok(())
-        }),
-        element!(r#"div.source-line-with-number"#, |el| {
+        }))
+        .append_element_content_handler(element!(r#"div.source-line-with-number"#, |el| {
             el.set_attribute("id", "line-NORM").unwrap();
             Ok(())
-        }),
-        element!(r#"div.line-number"#, |el| {
+        }))
+        .append_element_content_handler(element!(r#"div.line-number"#, |el| {
             el.set_attribute("data-line-number", "NORM").unwrap();
             Ok(())
-        }),
-        element!(r#"#rev-id a"#, |el| {
+        }))
+        .append_element_content_handler(element!(r#"#rev-id a"#, |el| {
             if let Some(url) = el.get_attribute("href") {
                 lazy_static! {
                     static ref PATTERN: Regex = Regex::new("/commit/[0-9a-f]+").unwrap();
@@ -96,12 +96,12 @@ fn norm_html_value(s: String) -> String {
                 el.set_inner_content("REV", lol_html::html_content::ContentType::Text);
             }
             Ok(())
-        }),
-        element!(r#"#rev-id time"#, |el| {
+        }))
+        .append_element_content_handler(element!(r#"#rev-id time"#, |el| {
             el.replace("DATE", lol_html::html_content::ContentType::Text);
             Ok(())
-        }),
-        element!(r"a#panel-permalink", |el| {
+        }))
+        .append_element_content_handler(element!(r"a#panel-permalink", |el| {
             for attribute in ["href", "data-link"] {
                 if let Some(url) = el.get_attribute(attribute) {
                     lazy_static! {
@@ -113,14 +113,14 @@ fn norm_html_value(s: String) -> String {
             }
 
             Ok(())
-        }),
-        element!(r#".coverage-history-item"#, |el| {
+        }))
+        .append_element_content_handler(element!(r#".coverage-history-item"#, |el| {
             if let Some(_) = el.get_attribute("data-rev") {
                 el.set_attribute("data-rev", "REV").unwrap();
             }
             Ok(())
-        }),
-        element!(r#".coverage-history-item a"#, |el| {
+        }))
+        .append_element_content_handler(element!(r#".coverage-history-item a"#, |el| {
             if let Some(url) = el.get_attribute("href") {
                 lazy_static! {
                     static ref PATTERN: Regex = Regex::new("/rev/[^/]+/").unwrap();
@@ -129,17 +129,9 @@ fn norm_html_value(s: String) -> String {
                 el.set_attribute("href", &url).unwrap();
             }
             Ok(())
-        }),
-    ];
+        }));
 
-    rewrite_str(
-        &s,
-        RewriteStrSettings {
-            element_content_handlers,
-            ..RewriteStrSettings::default()
-        },
-    )
-    .unwrap()
+    rewrite_str(&s, settings).unwrap()
 }
 
 #[async_trait]
