@@ -7,17 +7,20 @@ use std::env;
 use std::fs::{File, OpenOptions};
 use std::io::BufReader;
 use std::io::{Read, Write};
+use std::net::SocketAddr;
 use std::path::Path;
 use std::process::Command;
+use std::sync::Arc;
 
 use git2::Oid;
-use hyper::header::{ContentType, Location};
-use hyper::method::Method;
-use hyper::mime::Mime;
-use hyper::server::{Request, Response};
-use hyper::status::StatusCode;
-use hyper::uri;
+use hyper::http;
+use hyper::server::conn::http1;
+use hyper::service::service_fn;
+use hyper::{Method, StatusCode, header};
 
+use hyper_util::rt::TokioIo;
+use tokio::net::TcpListener;
+use tokio::sync::Semaphore;
 use tools::blame;
 use tools::diagnostics::diagnostics_from_config;
 use tools::file_format::config;
@@ -41,7 +44,7 @@ struct WebResponse {
 impl Default for WebResponse {
     fn default() -> WebResponse {
         WebResponse {
-            status: StatusCode::Ok,
+            status: StatusCode::OK,
             content_type: "text/plain".to_owned(),
             redirect_location: None,
             output: String::new(),
@@ -68,7 +71,7 @@ impl WebResponse {
 
     fn internal_error(body: String) -> WebResponse {
         WebResponse {
-            status: StatusCode::InternalServerError,
+            status: StatusCode::INTERNAL_SERVER_ERROR,
             output: body,
             ..WebResponse::default()
         }
@@ -76,7 +79,7 @@ impl WebResponse {
 
     fn not_found() -> WebResponse {
         WebResponse {
-            status: StatusCode::NotFound,
+            status: StatusCode::NOT_FOUND,
             output: "Not found".to_owned(),
             ..WebResponse::default()
         }
@@ -84,7 +87,7 @@ impl WebResponse {
 
     fn redirect(url: String) -> WebResponse {
         WebResponse {
-            status: StatusCode::MovedPermanently,
+            status: StatusCode::MOVED_PERMANENTLY,
             redirect_location: Some(url),
             ..WebResponse::default()
         }
@@ -330,42 +333,15 @@ fn handle(
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::init();
 
     let cfg = config::load(&env::args().nth(1).unwrap(), true, None, None, None);
-
     let ident_map = IdentMap::load(&cfg);
 
-    let handler = move |req: Request, mut res: Response| {
-        if req.method != Method::Get {
-            *res.status_mut() = StatusCode::MethodNotAllowed;
-            let resp = "Invalid method".to_string().into_bytes();
-            if let Err(e) = res.send(&resp) {
-                eprintln!("Error when replying to {}: {:?}", req.uri, e);
-            }
-            return;
-        }
-
-        let path = match req.uri {
-            uri::RequestUri::AbsolutePath(path) => path,
-            uri::RequestUri::AbsoluteUri(url) => url.path().to_owned(),
-            _ => panic!("Unexpected URI"),
-        };
-
-        let response = handle(&cfg, &ident_map, WebRequest { path: &path });
-
-        *res.status_mut() = response.status;
-        let output = response.output.into_bytes();
-        let mime: Mime = response.content_type.parse().unwrap();
-        res.headers_mut().set(ContentType(mime));
-        if let Some(loc) = response.redirect_location {
-            res.headers_mut().set(Location(loc));
-        }
-        if let Err(e) = res.send(&output) {
-            eprintln!("Error when replying to {}: {:?}", path, e);
-        }
-    };
+    let cfg = Arc::new(cfg);
+    let ident_map = Arc::new(ident_map);
 
     {
         // We *append* to the status file because other server components
@@ -379,10 +355,51 @@ fn main() {
         writeln!(status_out, "web-server.rs loaded").unwrap();
     }
 
-    println!("On 8001");
-    // Use 4 threads instead of the 2 that would be automatically chosen on our
-    // AWS boxes.
-    let _listening = hyper::Server::http("0.0.0.0:8001")
-        .unwrap()
-        .handle_threads(handler, 4);
+    // Limit ourselves to processing 4 requests at the same time.
+    static SEMAPHORE: Semaphore = Semaphore::const_new(4);
+
+    let addr: SocketAddr = "0.0.0.0:8001".parse().unwrap();
+    let server = TcpListener::bind(addr).await.unwrap();
+    println!("Listening on http://{addr}");
+    loop {
+        let (stream, _) = server.accept().await.unwrap();
+        let io = TokioIo::new(stream);
+
+        let handler = async |req: http::Request<_>| {
+            if req.method() != Method::GET {
+                return http::Response::builder()
+                    .status(StatusCode::METHOD_NOT_ALLOWED)
+                    .body("Invalid method".to_string());
+            }
+
+            let response = {
+                let _ = SEMAPHORE.acquire().await.unwrap();
+                let cfg = cfg.clone();
+                let ident_map = ident_map.clone();
+                tokio::task::spawn_blocking(move || {
+                    let path = req.uri().path();
+                    handle(&cfg, &ident_map, WebRequest { path })
+                })
+                .await
+                .unwrap()
+            };
+
+            let mut builder = http::Response::builder()
+                .status(response.status)
+                .header(header::CONTENT_TYPE, response.content_type);
+
+            if let Some(loc) = response.redirect_location {
+                builder = builder.header(header::LOCATION, loc);
+            }
+
+            builder.body(response.output)
+        };
+
+        if let Err(err) = http1::Builder::new()
+            .serve_connection(io, service_fn(handler))
+            .await
+        {
+            println!("Error serving connection: {:?}", err);
+        }
+    }
 }
