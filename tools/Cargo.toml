@@ -9,7 +9,7 @@ tonic-prost-build = "0.14.5"
 
 [dependencies]
 cssparser = "0.37"
-itertools = "0.14"
+itertools = "0.15"
 # Note that the "rc" feature as documented at https://serde.rs/feature-flags.html
 # does not make any effort to do interning
 serde = { version = "1.0.196", features = ["derive", "rc", "std"] }
