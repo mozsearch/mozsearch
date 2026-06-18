@@ -58,19 +58,15 @@ pub struct CatHtmlCommand {
 //   `<span>NORMALIZED</span>` which loses the extra attributes but we don't
 //   care about that level of fidelity.
 fn norm_html_file(s: String) -> String {
-    let element_content_handlers = vec![element!(r#"span.pretty-date"#, |el| {
-        el.replace("<span>NORMALIZED</span>", ContentType::Html);
-        Ok(())
-    })];
+    let settings = RewriteStrSettings::new().append_element_content_handler(element!(
+        r#"span.pretty-date"#,
+        |el| {
+            el.replace("<span>NORMALIZED</span>", ContentType::Html);
+            Ok(())
+        }
+    ));
 
-    rewrite_str(
-        &s,
-        RewriteStrSettings {
-            element_content_handlers,
-            ..RewriteStrSettings::default()
-        },
-    )
-    .unwrap()
+    rewrite_str(&s, settings).unwrap()
 }
 
 fn extract_html_snippet(html_str: String, selector: &str) -> String {
@@ -84,40 +80,36 @@ fn extract_html_snippet(html_str: String, selector: &str) -> String {
     let synthetic_closing = Rc::new(Cell::new(None));
     let sink_closing = synthetic_closing.clone();
 
-    let mut rewrite = HtmlRewriter::new(
-        Settings {
-            element_content_handlers: vec![element!(selector, move |el| {
-                suppressing.set(false);
-                let end_suppress = suppressing.clone();
-                let end_closing = synthetic_closing.clone();
-                el.end_tag_handlers()
-                    .unwrap()
-                    .push(EndTagHandler::from(Box::new(move |end| {
-                        end_closing.set(Some(format!("</{}>", end.name())));
-                        end_suppress.set(true);
-                        Ok(())
-                    })));
+    let settings = Settings::new().append_element_content_handler(element!(selector, move |el| {
+        suppressing.set(false);
+        let end_suppress = suppressing.clone();
+        let end_closing = synthetic_closing.clone();
+        el.end_tag_handlers()
+            .unwrap()
+            .push(EndTagHandler::from(Box::new(move |end| {
+                end_closing.set(Some(format!("</{}>", end.name())));
+                end_suppress.set(true);
                 Ok(())
-            })],
-            ..Settings::default()
-        },
-        |c: &[u8]| {
-            if sink_suppressing.get() {
-                if let Some(closing) = sink_closing.take() {
-                    buf.extend_from_slice(closing.as_bytes());
-                }
-                // Flush if this was apparently a transition from accumulating
-                // into our buffer.
-                if !buf.is_empty() {
-                    excerpts.push(String::from_utf8_lossy(&buf).to_string());
-                    buf.clear();
-                }
-                return;
-            }
+            })));
+        Ok(())
+    }));
 
-            buf.extend_from_slice(c);
-        },
-    );
+    let mut rewrite = HtmlRewriter::new(settings, |c: &[u8]| {
+        if sink_suppressing.get() {
+            if let Some(closing) = sink_closing.take() {
+                buf.extend_from_slice(closing.as_bytes());
+            }
+            // Flush if this was apparently a transition from accumulating
+            // into our buffer.
+            if !buf.is_empty() {
+                excerpts.push(String::from_utf8_lossy(&buf).to_string());
+                buf.clear();
+            }
+            return;
+        }
+
+        buf.extend_from_slice(c);
+    });
 
     rewrite.write(html_str.as_bytes()).unwrap();
     rewrite.end().unwrap();

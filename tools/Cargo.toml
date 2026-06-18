@@ -55,7 +55,7 @@ linkify = "0.3.1"
 liquid = "0.26.0"
 liquid-core = "0.26.0"
 log = "0.4.0"
-lol_html = "2.7.2"
+lol_html = "3.0.0"
 memmap = { package = "memmap2", version = "0.9.10" }
 num_cpus = "1"
 petgraph = "0.8.3"
