@@ -1091,7 +1091,7 @@ fn format_tree(
     let files = tree
         .iter()
         .map(|entry| {
-            let filename = entry.name().ok_or("Utf-8 error")?;
+            let filename = entry.name().map_err(|_| "Utf-8 error")?;
 
             let is_dir = matches!(
                 entry.kind(),

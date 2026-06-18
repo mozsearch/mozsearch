@@ -179,7 +179,7 @@ pub fn coverage_history(
 
             let coverage_commit = coverage_repo.find_commit(commit_oid).ok()?;
 
-            let main_repo_oid = coverage_commit.message()?.trim().to_owned();
+            let main_repo_oid = coverage_commit.message().ok()?.trim().to_owned();
 
             let commit_rev = commit_oid.to_string();
             let data = coverage_summary(git_data, &commit_rev, path)?;
