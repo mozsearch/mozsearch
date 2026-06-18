@@ -9,7 +9,6 @@
   protobuf,
   wasm-bindgen-cli_0_2_114,
   craneLib,
-  breakpointHook,
 }: let
   wasm-bindgen-cli = wasm-bindgen-cli_0_2_114;
   subdir = "scripts/web-analyze/wasm-css-analyzer";
@@ -38,7 +37,6 @@
       wasm-bindgen-cli
       llvmPackages.bintools
       protobuf
-      breakpointHook
     ];
   };
 
