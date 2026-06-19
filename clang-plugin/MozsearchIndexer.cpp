@@ -2504,6 +2504,9 @@ public:
         if (const auto *DeclRef = dyn_cast<DeclRefExpr>(CalleeExpr)) {
           return DeclRef->getLocation();
         }
+        if (const auto *UnresolvedLookup = dyn_cast<UnresolvedLookupExpr>(CalleeExpr)) {
+          return UnresolvedLookup->getNameLoc();
+        }
 
         // Does the right thing for MemberExpr and UnresolvedMemberExpr at
         // least.
@@ -2517,7 +2520,7 @@ public:
       //   ForwardedTemplateLocations, convert the location to an actual Stmt*
       //   in ForwardingTemplates
       if (TemplateStack->inGatherMode()) {
-        if (CalleeExpr->isTypeDependent()) {
+        if (CalleeExpr->isTypeDependent() || isa<UnresolvedLookupExpr>(CalleeExpr)) {
           TemplateStack->visitDependent(CalleeLocation);
           ForwardedTemplateLocations.insert(CalleeLocation.getRawEncoding());
         }
