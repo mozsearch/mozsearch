@@ -32,6 +32,7 @@ addons
 !/tree-configs/README.md
 .direnv
 .envrc
+/result*
 mozsearch-firefox*
 /tests/tests/checks/target
 /tests/tests/files/target
