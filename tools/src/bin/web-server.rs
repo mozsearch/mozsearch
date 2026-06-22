@@ -373,7 +373,7 @@ async fn main() {
             }
 
             let response = {
-                let _ = SEMAPHORE.acquire().await.unwrap();
+                let _permit = SEMAPHORE.acquire().await.unwrap();
                 let cfg = cfg.clone();
                 let ident_map = ident_map.clone();
                 match tokio::task::spawn_blocking(move || {
