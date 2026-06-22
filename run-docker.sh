@@ -35,6 +35,12 @@ THIS_DIR=$(pwd)
 # For consistency we mount the source dir at /vagrant still
 INSIDE_CONTAINER_DIR=/vagrant
 
+# Force only passing through on IPv4 since nginx currently only binds as IPv4.
+# This was necessary for me when using podman rootless and trying to connect to
+# http://localhost:16995/ from the browser because "pasta" otherwise does a tcp6
+# bind and at least on my ubuntu machine nightly firefox as packaged by mozilla
+# and curl both try IPv6.
+MAYBE_BIND_IPV4=127.0.0.1:
 # connect to this port on your computer
 OUTSIDE_CONTAINER_PORT=16995
 # which is served at this port inside the container
@@ -98,7 +104,7 @@ else
         --mount type=bind,source=${THIS_DIR},target=${INSIDE_CONTAINER_DIR} \
         "${LINKMOUNTS[@]}" \
         "${VOLMOUNTS[@]}" \
-        -p ${OUTSIDE_CONTAINER_PORT}:${INSIDE_CONTAINER_PORT} \
+        -p ${MAYBE_BIND_IPV4}${OUTSIDE_CONTAINER_PORT}:${INSIDE_CONTAINER_PORT} \
         ${IMAGE_NAME} \
         ${SHELL}
 fi
