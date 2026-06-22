@@ -376,12 +376,24 @@ async fn main() {
                 let _ = SEMAPHORE.acquire().await.unwrap();
                 let cfg = cfg.clone();
                 let ident_map = ident_map.clone();
-                tokio::task::spawn_blocking(move || {
+                match tokio::task::spawn_blocking(move || {
                     let path = req.uri().path();
                     handle(&cfg, &ident_map, WebRequest { path })
                 })
                 .await
-                .unwrap()
+                {
+                    Ok(response) => response,
+
+                    Err(join_err) if join_err.is_panic() => {
+                        eprintln!("Request handler panicked: {:?}", join_err);
+                        WebResponse::internal_error("Internal server error".to_owned())
+                    }
+
+                    Err(join_err) => {
+                        eprintln!("Request handler task failed or was cancelled: {:?}", join_err);
+                        WebResponse::internal_error("Internal server error".to_owned())
+                    }
+                }
             };
 
             let mut builder = http::Response::builder()
