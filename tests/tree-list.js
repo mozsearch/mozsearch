@@ -13,6 +13,7 @@ var TREE_LIST = [
         { value: "firefox-main" },
         { value: "firefox-beta" },
         { value: "firefox-release" },
+        { value: "firefox-esr153" },
         { value: "firefox-esr140" },
         { value: "firefox-esr128" },
         { value: "firefox-esr115" },
