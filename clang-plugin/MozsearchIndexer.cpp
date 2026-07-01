@@ -36,9 +36,15 @@
 #include "BindingOperations.h"
 #include "FileOperations.h"
 #include "StringOperations.h"
-#include "from-clangd/HeuristicResolver.h"
 
 using namespace clang;
+
+#if CLANG_VERSION_MAJOR >= 20
+#include "clang/Sema/HeuristicResolver.h"
+#else
+#include "from-clangd/HeuristicResolver.h"
+using HeuristicResolver = clangd::HeuristicResolver;
+#endif
 
 const std::string GENERATED("__GENERATED__" PATHSEP_STRING);
 
@@ -270,7 +276,7 @@ private:
   std::map<FileID, std::unique_ptr<FileInfo>> FileMap;
   MangleContext *CurMangleContext;
   ASTContext *AstContext;
-  std::unique_ptr<clangd::HeuristicResolver> Resolver;
+  std::unique_ptr<HeuristicResolver> Resolver;
 
   // Used during a macro expansion to build the expanded string
   TokenConcatenation ConcatInfo;
@@ -785,7 +791,7 @@ public:
         clang::ItaniumMangleContext::create(Ctx, CI.getDiagnostics());
 
     AstContext = &Ctx;
-    Resolver = std::make_unique<clangd::HeuristicResolver>(Ctx);
+    Resolver = std::make_unique<HeuristicResolver>(Ctx);
     TraverseDecl(Ctx.getTranslationUnitDecl());
 
     // Emit the JSON data for all files now.
