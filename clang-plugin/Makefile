@@ -7,14 +7,19 @@ CXXFLAGS := $(shell ${LLVM_CONFIG} --cxxflags) -fPIC -Wall -Wno-strict-aliasing 
 LDFLAGS := -fPIC -g -Wl,-R -Wl,'$$ORIGIN' $(LLVM_LDFLAGS) -shared
 MOZSEARCH_CLANG_PLUGIN_DIR ?= .
 MOZSEARCH_CLANG_PLUGIN_OBJDIR ?= .
+CLANG_VERSION := $(shell ${LLVM_CONFIG} --version | cut -d'.' -f 1)
+# "true" if CLANG_VERSION < 20 else "false"
+USE_VENDORED_HEURISTIC_RESOLVER := $(shell if [ ${CLANG_VERSION} -lt 20 ]; then echo true; else echo false; fi)
 
 build: dirs $(MOZSEARCH_CLANG_PLUGIN_DIR)/libclang-index-plugin.so
 
 dirs:
-	mkdir -p from-clangd
 	mkdir -p $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)
-	mkdir -p $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/from-clangd
 	mkdir -p $(MOZSEARCH_CLANG_PLUGIN_DIR)
+ifeq ($(USE_VENDORED_HEURISTIC_RESOLVER),true)
+	mkdir -p from-clangd
+	mkdir -p $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/from-clangd
+endif
 
 build_with_version_check: clang-version-guard build
 
@@ -39,10 +44,12 @@ clang-version-guard:
 $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/%.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
+ifeq ($(USE_VENDORED_HEURISTIC_RESOLVER),true)
 $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/from-clangd/%.o: from-clangd/%.cpp
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
+endif
 
-$(MOZSEARCH_CLANG_PLUGIN_DIR)/libclang-index-plugin.so: $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/FileOperations.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/StringOperations.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/BindingOperations.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/MozsearchIndexer.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/from-clangd/HeuristicResolver.o
+$(MOZSEARCH_CLANG_PLUGIN_DIR)/libclang-index-plugin.so: $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/FileOperations.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/StringOperations.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/BindingOperations.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/MozsearchIndexer.o $(if $(findstring $(USE_VENDORED_HEURISTIC_RESOLVER),true), $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/from-clangd/HeuristicResolver.o)
 	$(CXX) $(LDFLAGS) $^ -o $@ -lclangASTMatchers
 
 check: build
@@ -51,7 +58,10 @@ check: build
 
 clean: dirs
 clean:
-	$(RM) $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/*.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/from-clangd/*.o *.dwo $(MOZSEARCH_CLANG_PLUGIN_DIR)/libclang-index-plugin.so
+	$(RM) $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/*.o *.dwo $(MOZSEARCH_CLANG_PLUGIN_DIR)/libclang-index-plugin.so
+ifeq ($(USE_VENDORED_HEURISTIC_RESOLVER),true)
+	$(RM) $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/from-clangd/*.o
+endif
 
 dump: build
 	-clang++ -c -Xclang -ast-dump testfiles/test.cpp
