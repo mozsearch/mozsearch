@@ -38,11 +38,6 @@
 #include "StringOperations.h"
 #include "from-clangd/HeuristicResolver.h"
 
-#if CLANG_VERSION_MAJOR < 8
-// Starting with Clang 8.0 some basic functions have been renamed
-#define getBeginLoc getLocStart
-#define getEndLoc getLocEnd
-#endif
 using namespace clang;
 
 const std::string GENERATED("__GENERATED__" PATHSEP_STRING);
@@ -240,13 +235,7 @@ public:
   virtual void InclusionDirective(SourceLocation HashLoc,
                                   const Token &IncludeTok, StringRef FileName,
                                   bool IsAngled, CharSourceRange FileNameRange,
-#if CLANG_VERSION_MAJOR >= 16
                                   OptionalFileEntryRef File,
-#elif CLANG_VERSION_MAJOR >= 15
-                                  Optional<FileEntryRef> File,
-#else
-                                  const FileEntry *File,
-#endif
                                   StringRef SearchPath, StringRef RelativePath,
 #if CLANG_VERSION_MAJOR >= 19
                                   const Module *SuggestedModule,
@@ -688,7 +677,6 @@ private:
           isa<TagDecl>(DC)) {
         llvm::SmallVector<char, 512> Output;
         llvm::raw_svector_ostream Out(Output);
-#if CLANG_VERSION_MAJOR >= 11
         // This code changed upstream in version 11:
         // https://github.com/llvm/llvm-project/commit/29e1a16be8216066d1ed733a763a749aed13ff47
         GlobalDecl GD;
@@ -701,16 +689,6 @@ private:
           GD = GlobalDecl(Decl);
         }
         Ctx->mangleName(GD, Out);
-#else
-        if (const CXXConstructorDecl *D = dyn_cast<CXXConstructorDecl>(Decl)) {
-          Ctx->mangleCXXCtor(D, CXXCtorType::Ctor_Complete, Out);
-        } else if (const CXXDestructorDecl *D =
-                       dyn_cast<CXXDestructorDecl>(Decl)) {
-          Ctx->mangleCXXDtor(D, CXXDtorType::Dtor_Complete, Out);
-        } else {
-          Ctx->mangleName(Decl, Out);
-        }
-#endif
         return Out.str().str();
       } else {
         return std::string("V_") + mangleLocation(Decl->getLocation()) +
@@ -3264,13 +3242,7 @@ void PreprocessorHook::FileChanged(SourceLocation Loc, FileChangeReason Reason,
 void PreprocessorHook::InclusionDirective(
     SourceLocation HashLoc, const Token &IncludeTok, StringRef FileName,
     bool IsAngled, CharSourceRange FileNameRange,
-#if CLANG_VERSION_MAJOR >= 16
     OptionalFileEntryRef File,
-#elif CLANG_VERSION_MAJOR >= 15
-    Optional<FileEntryRef> File,
-#else
-    const FileEntry *File,
-#endif
     StringRef SearchPath, StringRef RelativePath,
 #if CLANG_VERSION_MAJOR >= 19
     const Module *SuggestedModule, bool ModuleImported,
@@ -3278,15 +3250,11 @@ void PreprocessorHook::InclusionDirective(
     const Module *Imported,
 #endif
     SrcMgr::CharacteristicKind FileType) {
-#if CLANG_VERSION_MAJOR >= 15
   if (!File) {
     return;
   }
   Indexer->inclusionDirective(HashLoc, FileNameRange.getAsRange(),
                               &File->getFileEntry());
-#else
-  Indexer->inclusionDirective(HashLoc, FileNameRange.getAsRange(), File);
-#endif
 }
 
 void PreprocessorHook::MacroDefined(const Token &Tok,
