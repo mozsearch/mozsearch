@@ -12,18 +12,11 @@
 #include <algorithm>
 #include <array>
 #include <cuchar>
+#include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-#ifdef __cpp_lib_optional
-#include <optional>
-template <typename T> using optional = std::optional<T>;
-#else
-#include <llvm/ADT/Optional.h>
-template <typename T> using optional = clang::Optional<T>;
-#endif
 
 using namespace clang;
 
@@ -79,7 +72,7 @@ const NamedDecl *fieldNamed(StringRef name, const RecordDecl &strukt) {
   return {};
 }
 
-optional<StringRef> nameFieldValue(const RecordDecl &strukt) {
+std::optional<StringRef> nameFieldValue(const RecordDecl &strukt) {
   const auto *nameField = dyn_cast_or_null<VarDecl>(fieldNamed("name", strukt));
   if (!nameField)
     return {};
@@ -107,7 +100,7 @@ struct AbstractBinding {
       "jvm",
   };
 
-  static optional<Lang> langFromString(StringRef langName) {
+  static std::optional<Lang> langFromString(StringRef langName) {
     const auto it = std::find(langNames.begin(), langNames.end(), langName);
     if (it == langNames.end())
       return {};
@@ -129,7 +122,7 @@ struct AbstractBinding {
       "class", "method", "getter", "setter", "const",
   };
 
-  static optional<Kind> kindFromString(StringRef kindName) {
+  static std::optional<Kind> kindFromString(StringRef kindName) {
     const auto it = std::find(kindNames.begin(), kindNames.end(), kindName);
     if (it == kindNames.end())
       return {};
@@ -180,7 +173,7 @@ void setBindingAttr(ASTContext &C, Decl &decl, B binding) {
   decl.addAttr(attr);
 }
 
-optional<AbstractBinding> readBinding(const AnnotateAttr &attr) {
+std::optional<AbstractBinding> readBinding(const AnnotateAttr &attr) {
   if (attr.args_size() != 3)
     return {};
 
@@ -212,7 +205,7 @@ optional<AbstractBinding> readBinding(const AnnotateAttr &attr) {
   };
 }
 
-optional<BindingTo> getBindingTo(const Decl &decl) {
+std::optional<BindingTo> getBindingTo(const Decl &decl) {
   for (const auto *attr : decl.specific_attrs<AnnotateAttr>()) {
     if (attr->getAnnotation() != BindingTo::ANNOTATION)
       continue;
@@ -253,18 +246,18 @@ public:
     StringRef name;
   };
 
-  static optional<Result> search(Stmt *statement) {
+  static std::optional<Result> search(Stmt *statement) {
     FindCallCall finder;
     finder.TraverseStmt(statement);
     return finder.result;
   }
 
 private:
-  optional<Result> result;
+  std::optional<Result> result;
 
   friend RecursiveASTVisitor<FindCallCall>;
 
-  optional<Result> tryParseCallCall(CallExpr *callExpr) {
+  std::optional<Result> tryParseCallCall(CallExpr *callExpr) {
     const auto *callee =
         dyn_cast_or_null<CXXMethodDecl>(callExpr->getDirectCallee());
     if (!callee)
@@ -402,7 +395,7 @@ void addBindingSlotsAttribute(llvm::json::OStream &J, const Decl &decl) {
 //  second the demangled overload specification
 // But we don't use the later for now because we have no way to map that to how
 // SCIP resolves overloads.
-optional<std::string> demangleJnicallPart(StringRef &remainder) {
+std::optional<std::string> demangleJnicallPart(StringRef &remainder) {
   std::string demangled;
 
   std::mbstate_t ps = {};
@@ -476,7 +469,7 @@ optional<std::string> demangleJnicallPart(StringRef &remainder) {
   return demangled;
 }
 
-optional<std::string>
+std::optional<std::string>
 scipSymbolFromJnicallFunctionName(StringRef functionName) {
   if (!functionName.consume_front("Java_"))
     return {};
