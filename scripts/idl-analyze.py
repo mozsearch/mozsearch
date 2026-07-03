@@ -2,59 +2,22 @@
 #
 # ## Overview / Purpose ##
 #
-# Currently, this file is responsible for using the downloaded python XPIDL
-# parser to produce analysis records for XPIDL files (with an `idl` extension).
-# The XPIDL file is parsed and used to cross-reference the C++ analysis records
-# produced from the C++ analysis pass of the generated XPIDL C++ bindings in
-# order to establish the relationship between the IDL file and the bindingss.
+# This script is responsible for using the downloaded python XPIDL parser to
+# produce analysis records for XPIDL files (with an `idl` extension).
 #
-# This file is also aware of the JS bindings but because of the limitations of
-# our JS language analyzers at this time, the JS bindings will generally result
-# in an immense number of false positives.  Specifically, for an XPIDL method
-# "foo", we will generate a symbol `#foo` which will match every JS method or
-# variable named "foo".
+# The XPIDL files can embed C++ code via CDATA tags, we query the C++ analysis
+# to copy the relevant records over to the XPIDL files.
 #
-# It is our hope that in the future this script can be superseded by having the
-# in-tree XPIDL binding generator (and source of the `xpidl` import) directly
-# generate analysis records with meta-data providing support for a new semantic
-# linker step proposed at https://bugzilla.mozilla.org/show_bug.cgi?id=1727789
-# to allow for a more
+# The code generated from XPIDL files should link back to IDL definitions, so
+# that the respective analyzers can populate the `slotOwner` field (see bugs
+# 2053875, 2053134 and 1800008), but this hasn't always been the case.
+# To cover older Firefox versions where the generated code doesn't have those
+# annotations, we fill the `bindingSlots` field with:
+# - mangled C++ names obtained from the C++ header analysis
+# - #<itemName> for Javascript. This will generally result in an immense number
+#   of false positives.
 #
-# ## XPIDL symbols versus C++, JS Symbols and router.py ##
-#
-# Before the "structured" branch landed, our IDL files (XPIDL, IPDL) never had
-# symbols that corresponded directly to the IDL file itself.  Instead, the IDL
-# analyzers would try and find the relevant C++ symbols and guess the relevant
-# JS symbols and then reference them in the file.  This was necessary because
-# searchfox never had any concept of relationship with symbols, it only had the
-# ability to associate symbols with a token, grouping by the "pretty" identifier
-# associated with the symbols.
-#
-# The "structured" functionality has now enabled us to convey the explicit
-# relationships between symbols.  This comment is being written as part of an
-# effort to transition the context-menu's "source" records from pre-conflating
-# the C++ and JS symbols to instead using explicit `XPIDL_foo` symbols which
-# have explicit relationship to the binding symbols.
-#
-# However, we can only modernize the "source" records right now because the UI
-# breakdown is:
-# - "source" records power the context menu in source listings.
-# - "target" records power the crossref database which router.py displays.
-#
-# The new `pipeline-server.rs` and its "query" endpoint have been intentionally
-# designed to be able to understand and handle following these relationship
-# edges.
-#
-# `router.py` has also been augmented to:
-# - Process the "slotOwner" "meta" field by exposing its def(s) as "IDL".  This
-#   means that when looking at a C++ method/getter/setter, the IDL definition
-#   will be exposed as "IDL".  Note that we will not traverse the IDL def, so
-#   in order to see the JS method/getter/setter, the user will need to switch
-# - Process the "bindingSlots"
-# traverse the "slotOwner"
-# and "bindingSlots" "meta" fields to maintain its behavior prior to this change
-# but no attempt is made to enhance the "search" endpoint to opt out of this
-# behavior or
+# This can be opted-out of by using the --do-not-fill-binding-slots flag.
 
 import argparse
 import sys
@@ -158,16 +121,17 @@ def read_cpp_analysis(fname, cdata_line_map):
         except ValueError as e:
             print('Syntax error in JSON file', p, line.strip(), file=sys.stderr)
             raise e
-        # Inline method definitions and pure virtual method declarations
-        # will both be reported as definitions by the C++ indexer without a
-        # declaration, so we need to accept both decls and defs.
-        if 'target' in j and j['kind'] in ('decl', 'def'):
-            if j['sym'].startswith('_Z'):
-                idents = parse_mangled(j['sym'])
-                if idents and len(idents) == 2:
-                    methods.setdefault(idents[0], {})[idents[1]] = j['sym']
-            elif j['sym'].startswith('E_'):
-                enums.append(j['sym'])
+        if fill_binding_slots:
+            # Inline method definitions and pure virtual method declarations
+            # will both be reported as definitions by the C++ indexer without a
+            # declaration, so we need to accept both decls and defs.
+            if 'target' in j and j['kind'] in ('decl', 'def'):
+                if j['sym'].startswith('_Z'):
+                    idents = parse_mangled(j['sym'])
+                    if idents and len(idents) == 2:
+                        methods.setdefault(idents[0], {})[idents[1]] = j['sym']
+                elif j['sym'].startswith('E_'):
+                    enums.append(j['sym'])
         if 'loc' in j and j['loc']:
             m = re.match(r'^(\d+)(:\d+)', j['loc'])
             if m:
@@ -261,7 +225,7 @@ def handle_interface(methods, enums, iface):
         'sym': iface_idl_sym,
     })
 
-    if iface.attributes.scriptable:
+    if fill_binding_slots and iface.attributes.scriptable:
         iface_js_sym = f'#{ iface.name }'
 
         iface_slots.append({
@@ -336,23 +300,24 @@ def handle_interface(methods, enums, iface):
             })
 
             method_slots = []
-            if method_cpp_sym:
-                method_slots.append({
-                    'slotKind': 'method',
-                    'slotLang': 'cpp',
-                    'ownerLang': 'idl',
-                    'sym': method_cpp_sym,
-                })
+            if fill_binding_slots:
+                if method_cpp_sym:
+                    method_slots.append({
+                        'slotKind': 'method',
+                        'slotLang': 'cpp',
+                        'ownerLang': 'idl',
+                        'sym': method_cpp_sym,
+                    })
 
 
-            if not m.noscript:
-                method_js_sym = f'#{m.name}'
-                method_slots.append({
-                    'slotKind': 'method',
-                    'slotLang': 'js',
-                    'ownerLang': 'idl',
-                    'sym': method_js_sym,
-                })
+                if not m.noscript:
+                    method_js_sym = f'#{m.name}'
+                    method_slots.append({
+                        'slotKind': 'method',
+                        'slotLang': 'js',
+                        'ownerLang': 'idl',
+                        'sym': method_js_sym,
+                    })
 
             # structured
             emit_record({
@@ -397,33 +362,34 @@ def handle_interface(methods, enums, iface):
             })
 
             attr_slots = []
-            if getter_cpp_sym:
-                attr_slots.append({
-                    'slotKind': 'getter',
-                    'slotLang': 'cpp',
-                    'ownerLang': 'idl',
-                    'sym': getter_cpp_sym,
-                })
-
-            if not m.readonly:
-                setter_cpp_sym = methods.get(cpp_setter_name(m))
-
-                if setter_cpp_sym:
+            if fill_binding_slots:
+                if getter_cpp_sym:
                     attr_slots.append({
-                        'slotKind': 'setter',
+                        'slotKind': 'getter',
                         'slotLang': 'cpp',
                         'ownerLang': 'idl',
-                        'sym': setter_cpp_sym,
+                        'sym': getter_cpp_sym,
                     })
 
-            if not m.noscript:
-                attr_js_sym = f'#{m.name}'
-                attr_slots.append({
-                    'slotKind': 'attribute',
-                    'slotLang': 'js',
-                    'ownerLang': 'idl',
-                    'sym': attr_js_sym,
-                })
+                if not m.readonly:
+                    setter_cpp_sym = methods.get(cpp_setter_name(m))
+
+                    if setter_cpp_sym:
+                        attr_slots.append({
+                            'slotKind': 'setter',
+                            'slotLang': 'cpp',
+                            'ownerLang': 'idl',
+                            'sym': setter_cpp_sym,
+                        })
+
+                if not m.noscript:
+                    attr_js_sym = f'#{m.name}'
+                    attr_slots.append({
+                        'slotKind': 'attribute',
+                        'slotLang': 'js',
+                        'ownerLang': 'idl',
+                        'sym': attr_js_sym,
+                    })
 
             emit_record({
                 'loc': attr_loc,
@@ -467,26 +433,26 @@ def handle_interface(methods, enums, iface):
                 'sym': const_idl_sym,
             })
 
-            const_slots = [
-                {
+            const_slots = []
+            if fill_binding_slots:
+                const_slots.append({
                     'slotKind': 'const',
                     'slotLang': 'cpp',
                     'ownerLang': 'idl',
                     'sym': const_cpp_sym,
-                }
-            ]
-
-            # there's no such thing as noscript for a const, so we just go based
-            # on whether the interface is itself scriptable.
-            # XXX uh, should we have been checking that above too?
-            if iface.attributes.scriptable:
-                const_js_sym = f'#{m.name}'
-                const_slots.append({
-                    'slotKind': 'const',
-                    'slotLang': 'js',
-                    'ownerLang': 'idl',
-                    'sym': const_js_sym,
                 })
+
+                # there's no such thing as noscript for a const, so we just go based
+                # on whether the interface is itself scriptable.
+                # XXX uh, should we have been checking that above too?
+                if iface.attributes.scriptable:
+                    const_js_sym = f'#{m.name}'
+                    const_slots.append({
+                        'slotKind': 'const',
+                        'slotLang': 'js',
+                        'ownerLang': 'idl',
+                        'sym': const_js_sym,
+                    })
 
             emit_record({
                 'loc': const_loc,
@@ -526,12 +492,14 @@ parser = argparse.ArgumentParser(
 parser.add_argument('index_root', help="The location to read the C++ analysis from and output XPIDL analysis to")
 parser.add_argument('xpidl_file', help="The full path to the XPIDL file to analyze")
 parser.add_argument('objdir', help="The path to the objdir, where we will read the generated C++ header to build the line map")
+parser.add_argument('--do-not-fill-binding-slots', action="store_true", help="Do not generate synthetic bindingSlots items, expect other analyzers to fill slotOwner instead.")
 
 args = parser.parse_args()
 
 indexRoot = args.index_root
 fname = args.xpidl_file
 objdir = args.objdir
+fill_binding_slots = not args.do_not_fill_binding_slots
 
 text = open(fname).read()
 cdata_line_map = read_header_cdata_line_map(fname, objdir)
