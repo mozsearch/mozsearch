@@ -141,7 +141,7 @@ def read_header_cdata_line_map(fname, objdir):
     return cdata_line_map
 
 
-def read_cpp_analysis(fname, cdata_line_map):
+def read_cpp_cdata_analysis(fname, cdata_line_map):
     base = os.path.basename(fname)
     (idlName, suffix) = os.path.splitext(base)
     headerName = idlName + '.h'
@@ -151,24 +151,12 @@ def read_cpp_analysis(fname, cdata_line_map):
     except IOError as e:
         return None
     cdata_analysis = []
-    methods = {}
-    enums = []
     for line in lines:
         try:
             j = json.loads(line.strip())
         except ValueError as e:
             print('Syntax error in JSON file', p, line.strip(), file=sys.stderr)
             raise e
-        # Inline method definitions and pure virtual method declarations
-        # will both be reported as definitions by the C++ indexer without a
-        # declaration, so we need to accept both decls and defs.
-        if 'target' in j and j['kind'] in ('decl', 'def'):
-            if j['sym'].startswith('_Z'):
-                idents = parse_mangled(j['sym'])
-                if idents and len(idents) == 2:
-                    methods.setdefault(idents[0], {})[idents[1]] = j['sym']
-            elif j['sym'].startswith('E_'):
-                enums.append(j['sym'])
         if 'loc' in j and j['loc']:
             m = re.match(r'^(\d+)(:\d+)', j['loc'])
             if m:
@@ -179,30 +167,12 @@ def read_cpp_analysis(fname, cdata_line_map):
                     j['loc'] = f'{mapped:05d}{tail}'
                     cdata_analysis.append(json.dumps(j))
 
-    return (methods, enums, cdata_analysis)
+    return cdata_analysis
 
 def find_enum(enums, name):
     for e in enums:
         if e.endswith(name):
             return e
-
-def cpp_method_name(m):
-    '''Return the C++ pretty name for this method per binaryname or capitalization.'''
-    if m.binaryname:
-        return m.binaryname
-    return m.name[0].capitalize() + m.name[1:]
-
-def cpp_getter_name(attr):
-    '''Return the C++ pretty name for this getter per binaryname or capitalization.'''
-    if attr.binaryname:
-        return 'Get' + attr.binaryname
-    return 'Get' + attr.name[0].capitalize() + attr.name[1:]
-
-def cpp_setter_name(attr):
-    '''Return the C++ pretty name for this setter per binaryname or capitalization.'''
-    if attr.binaryname:
-        return 'Set' + attr.binaryname
-    return 'Set' + attr.name[0].capitalize() + attr.name[1:]
 
 def emit_record(o, variations=None):
     '''Emit a single record or a number of optional variations of a record.
@@ -223,26 +193,18 @@ def emit_record(o, variations=None):
         cur.update(mods)
         print(json.dumps(cur))
 
-def handle_interface(methods, enums, iface):
+def handle_interface(iface):
     '''Derives analysis records for each provided interface.
 
     '''
     (lineno, colno) = find_line_column(text, iface.name, iface.location._lexpos)
-    iface_cpp_sym = 'T_' + iface.name
     iface_idl_sym = f'XPIDL_{ iface.name }'
 
     iface_loc = '%d:%d-%d' % (lineno, colno, colno + len(iface.name))
 
     # structured record will be emitted after processing all the members, but
     # we build up any complex sub-structures here.
-    iface_slots = [
-        {
-            'slotKind': 'class',
-            'slotLang': 'cpp',
-            'ownerLang': 'idl',
-            'sym': iface_cpp_sym,
-        }
-    ]
+    iface_slots = []
 
     # source
     emit_record({
@@ -315,7 +277,6 @@ def handle_interface(methods, enums, iface):
 
         if isinstance(m, xpidl.Method):
             method_pretty = f'{iface.name}::{m.name}'
-            method_cpp_sym = methods.get(cpp_method_name(m))
             method_idl_sym = f'XPIDL_{iface.name}_{m.name}'
 
             method_loc = '%d:%d-%d' % (lineno, colno, colno + len(m.name))
@@ -339,15 +300,6 @@ def handle_interface(methods, enums, iface):
             })
 
             method_slots = []
-            if method_cpp_sym:
-                method_slots.append({
-                    'slotKind': 'method',
-                    'slotLang': 'cpp',
-                    'ownerLang': 'idl',
-                    'sym': method_cpp_sym,
-                })
-
-
             if not m.noscript:
                 method_js_sym = f'#{m.name}'
                 method_slots.append({
@@ -377,7 +329,6 @@ def handle_interface(methods, enums, iface):
         elif isinstance(m, xpidl.Attribute):
             attr_pretty = f'{iface.name}::{m.name}'
             attr_idl_sym = f'XPIDL_{iface.name}_{m.name}'
-            getter_cpp_sym = methods.get(cpp_getter_name(m))
 
             attr_loc = '%d:%d-%d' % (lineno, colno, colno + len(m.name))
 
@@ -400,25 +351,6 @@ def handle_interface(methods, enums, iface):
             })
 
             attr_slots = []
-            if getter_cpp_sym:
-                attr_slots.append({
-                    'slotKind': 'getter',
-                    'slotLang': 'cpp',
-                    'ownerLang': 'idl',
-                    'sym': getter_cpp_sym,
-                })
-
-            if not m.readonly:
-                setter_cpp_sym = methods.get(cpp_setter_name(m))
-
-                if setter_cpp_sym:
-                    attr_slots.append({
-                        'slotKind': 'setter',
-                        'slotLang': 'cpp',
-                        'ownerLang': 'idl',
-                        'sym': setter_cpp_sym,
-                    })
-
             if not m.noscript:
                 attr_js_sym = f'#{m.name}'
                 attr_slots.append({
@@ -448,7 +380,6 @@ def handle_interface(methods, enums, iface):
         elif isinstance(m, xpidl.ConstMember):
             const_pretty = f'{iface.name}::{m.name}'
             const_idl_sym = f'XPIDL_{iface.name}_{m.name}'
-            const_cpp_sym = find_enum(enums, m.name)
 
             const_loc = '%d:%d-%d' % (lineno, colno, colno + len(m.name))
 
@@ -470,14 +401,7 @@ def handle_interface(methods, enums, iface):
                 'sym': const_idl_sym,
             })
 
-            const_slots = [
-                {
-                    'slotKind': 'const',
-                    'slotLang': 'cpp',
-                    'ownerLang': 'idl',
-                    'sym': const_cpp_sym,
-                }
-            ]
+            const_slots = []
 
             # there's no such thing as noscript for a const, so we just go based
             # on whether the interface is itself scriptable.
@@ -527,7 +451,7 @@ objdir = sys.argv[3]
 
 text = open(fname).read()
 cdata_line_map = read_header_cdata_line_map(fname, objdir)
-analysis = read_cpp_analysis(fname, cdata_line_map)
+cdata_analysis = read_cpp_cdata_analysis(fname, cdata_line_map)
 
 linebreaks = []
 lines = text.split('\n')
@@ -536,8 +460,10 @@ for l in lines:
     cur += len(l) + 1
     linebreaks.append(cur)
 
-if analysis:
-    (methods, enums, cdata_analysis) = analysis
+# Some .idl files are meant to be included using preprocessor #include directives, and can't be parsed on their own.
+# IMO ideally those should be renamed from .idl to something like .idl.inc in the Firefox source tree.
+# For now only try to parse .idl files which have a matching generated C++ header.
+if cdata_analysis is not None:
     p = xpidl.IDLParser()
 
     try:
@@ -549,7 +475,7 @@ if analysis:
     print('XPIDL: Parsed', fname, 'into', len(r.productions), 'productions', file=sys.stderr)
     for p in r.productions:
         if isinstance(p, xpidl.Interface):
-            handle_interface(methods.get(p.name, {}), enums, p)
+            handle_interface(p)
 
     if cdata_analysis:
         for item in cdata_analysis:
