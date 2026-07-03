@@ -480,7 +480,8 @@ def handle_method(records, iface_name, methods, cpp_symbols, target):
             append_slot(slots, 'method', 'cpp', 'binding', sym)
         for sym in cpp_item.impl_syms:
             append_slot(slots, 'method', 'cpp', 'impl', sym)
-    append_slot(slots, 'method', 'js', None, js_sym)
+    if fill_js_binding_slots:
+        append_slot(slots, 'method', 'js', None, js_sym)
 
     emit_structured(records, loc, 'method', pretty, idl_sym,
                     slots=slots)
@@ -527,7 +528,8 @@ def handle_attribute(records, iface_name, fields, cpp_symbols, target):
                 append_slot(slots, 'setter', 'cpp', 'binding', sym)
             for sym in  setter_cpp_item.impl_syms:
                 append_slot(slots, 'setter', 'cpp', 'impl', sym)
-    append_slot(slots, 'attribute', 'js', None, js_sym)
+    if fill_js_binding_slots:
+        append_slot(slots, 'attribute', 'js', None, js_sym)
 
     emit_structured(records, loc, 'field', pretty, idl_sym,
                     slots=slots)
@@ -558,7 +560,8 @@ def handle_const(records, iface_name, fields, cpp_symbols, target):
     if cpp_item:
         for sym in cpp_item.binding_syms:
             append_slot(slots, 'const', 'cpp', None, sym)
-    append_slot(slots, 'const', 'js', None, js_sym)
+    if fill_js_binding_slots:
+        append_slot(slots, 'const', 'js', None, js_sym)
 
     emit_structured(records, loc, 'field', pretty, idl_sym,
                     slots=slots)
@@ -677,10 +680,11 @@ def handle_interface_or_namespace(records, target, mixin_consumers_map=None):
     if not is_mixin:
         append_slot(slots, 'class', 'cpp', None, cpp_sym)
 
-    if isinstance(target, WebIDL.IDLInterface):
-        append_slot(slots, 'interface', 'js', None, js_sym)
-    if isinstance(target, WebIDL.IDLNamespace):
-        append_slot(slots, 'namespace', 'js', None, js_sym)
+    if fill_js_binding_slots:
+        if isinstance(target, WebIDL.IDLInterface):
+            append_slot(slots, 'interface', 'js', None, js_sym)
+        if isinstance(target, WebIDL.IDLNamespace):
+            append_slot(slots, 'namespace', 'js', None, js_sym)
 
     if not is_mixin:
         supers = []
@@ -732,7 +736,8 @@ def handle_dictionary_field(records, dictionary_name, dictionary_cpp_sym,
 
     slots = []
     append_slot(slots, 'attribute', 'cpp', None, cpp_sym)
-    append_slot(slots, 'member', 'js', None, js_sym)
+    if fill_js_binding_slots:
+        append_slot(slots, 'member', 'js', None, js_sym)
 
     emit_structured(records, loc, 'field', pretty, idl_sym,
                     slots=slots)
@@ -1000,6 +1005,7 @@ parser.add_argument('files_root', help="The path to the source files' root")
 parser.add_argument('analysis_root', help="The path to the analysis directory, where we read C++ analysis files and output our own analysis to")
 parser.add_argument('cache_dir', help="Path to a directory for the WebIDL parser to put temporary files into")
 parser.add_argument('bindings_local_path', help="Overrides analysis_root when for testing")
+parser.add_argument('--do-not-fill-js-binding-slots', action="store_true", help="Do not generate synthetic JS bindingSlots items, expect other analyzers to fill slotOwner instead.")
 
 args = parser.parse_args()
 
@@ -1010,6 +1016,7 @@ cache_dir = args.cache_dir
 bindings_local_path = args.bindings_local_path
 if bindings_local_path == 'null':
     bindings_local_path = None
+fill_js_binding_slots = not args.do_not_fill_js_binding_slots
 
 productions = parse_files(index_root, files_root, analysis_root, cache_dir, bindings_local_path)
 handle_productions(productions)

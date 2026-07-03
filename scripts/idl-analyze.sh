@@ -37,12 +37,22 @@ if [ -f "${FILES_ROOT}/xpcom/idl-parser/xpidl/xpidl.py" -a \
   export PYTHONPATH="${TREE_PYMODULES}${PYTHONPATH:+:${PYTHONPATH}}"
 fi
 
+DO_NOT_FILL_IDL_BINDING_SLOTS="${DO_NOT_FILL_IDL_BINDING_SLOTS:-}"
+if [ "$DO_NOT_FILL_IDL_BINDING_SLOTS" == "true" ]; then
+    IDL_EXTRA_ARGS="--do-not-fill-binding-slots"
+    WEBIDL_EXTRA_ARGS="--do-not-fill-js-binding-slots"
+else
+    IDL_EXTRA_ARGS=""
+    WEBIDL_EXTRA_ARGS=""
+fi
+
 cat $INDEX_ROOT/idl-files | \
     parallel $MOZSEARCH_PATH/scripts/idl-analyze.py \
-    $INDEX_ROOT $FILES_ROOT/{} $OBJDIR ">" $INDEX_ROOT/analysis/{}
+    $INDEX_ROOT $FILES_ROOT/{} $OBJDIR $IDL_EXTRA_ARGS ">" $INDEX_ROOT/analysis/{}
 
 cat $INDEX_ROOT/webidl-files | \
     $MOZSEARCH_PATH/scripts/webidl-analyze.py \
     $INDEX_ROOT $FILES_ROOT $INDEX_ROOT/analysis /tmp \
-    $WEBIDL_BINDINGS_LOCAL_PATH
+    $WEBIDL_BINDINGS_LOCAL_PATH \
+    $WEBIDL_EXTRA_ARGS
 echo $?
