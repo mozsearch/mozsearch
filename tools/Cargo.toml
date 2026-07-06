@@ -21,13 +21,10 @@ tower = { version = "0.5.3", features = ["limit"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 anyhow = "1.0.86"
-async-stream = "0.3.2"
 async-trait = "0.1.50"
 axum = "0.8.9"
 axum-macros = "0.5.1"
 bitflags = { version = "2.4.2", features = ["serde"] }
-# NOTE: jaq-json requires newer bytes.
-bytes = "1.11.0"
 chrono = "0.4"
 clap = { version = "4.0", features = ["cargo", "derive", "env"] }
 dot-generator = "0.2.0"
@@ -66,8 +63,6 @@ protobuf = "3.7.2"
 query-parser = "0.2.0"
 regex = "1"
 reqwest = "0.13.2"
-rls-analysis = "0.18.1"
-rls-data = "0.19.1"
 scip = { git = "https://github.com/mozsearch/scip", rev = "9ffd696ad0d32e594f48ccf937138d0c9fa77004" }
 # NOTE: serde_json dependency is also defined above, without "std" feature.
 #       The "std" feature should be enabled only for non-wasm case.
