@@ -599,7 +599,7 @@ instance using the EC2 web console, and then SSH in to it to examine
 the log in more detail and/or inspect other state to debug the problem.
 After SSH'ing to the indexer, you should run the command:
 ```
-sudo mount /dev/`lsblk | grep 300G | cut -d" " -f1` /index
+sudo mount /dev/`lsblk | grep 300G | cut -d" " -f1` /index-ebs
 ```
 to re-mount the data volume. This will allow you to inspect the state
 on the data volume as well as run additional commands for debugging
@@ -613,6 +613,7 @@ mount point.  So the in-progress indexing data can be found at
 `/index-ebs/interrupted` after the above mount.  In order to make paths sane
 again, you can run the command:
 ```
+sudo rmdir /index
 sudo ln -s /index-ebs/interrupted /index
 ```
 to provide the same effective path mapping.  Note that you wouldn't want
