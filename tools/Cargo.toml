@@ -63,7 +63,7 @@ protobuf = "3.7.2"
 query-parser = "0.2.0"
 regex = "1"
 reqwest = "0.13.2"
-scip = { git = "https://github.com/mozsearch/scip", rev = "9ffd696ad0d32e594f48ccf937138d0c9fa77004" }
+scip = "0.9.0"
 # NOTE: serde_json dependency is also defined above, without "std" feature.
 #       The "std" feature should be enabled only for non-wasm case.
 serde_json = { version = "1.0.113", features = ["preserve_order", "std"] }
