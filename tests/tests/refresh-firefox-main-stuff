@@ -3,14 +3,14 @@
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-# This scripts pull down interesting build byproducts from mozilla-central
+# This scripts pull down interesting build byproducts from firefox-main
 # searchfox runs that we want to have available (and checked into the tests
 # repo) so that we can have as much testing fidelity as possible in this repo,
 # but without creating maintenance hassles where we try and replicate the
-# mozilla-central build system or parts of it.
+# firefox-main build system or parts of it.
 #
 # File handling:
-# - Source files (which are source files in mozilla-central) get reflected into
+# - Source files (which are source files in firefox-main) get reflected into
 #   `files` here to be source files we check in.
 # - Generated files get checked in under `mc-generated` here and will be copied
 #   into `$OBJDIR` by `build`.
@@ -19,7 +19,7 @@ set -o pipefail # Check all commands in a pipeline
 #   for the generated files above, so the mapping is the same.
 #
 # How we get the data:
-# - We copy it from a running searchfox web-server that has the mozilla-central
+# - We copy it from a running searchfox web-server that has the firefox-main
 #   data we need.  We need data that's in the `objdir` and currently searchfox
 #   doesn't directly expose that data to the web.
 # - Note that we gzip up all the analysis files, so we need to grab the `.gz`
@@ -40,7 +40,7 @@ TEST_REPO_FILES=$(dirname $0)/files
 TEST_SAVED_GENERATED_FILES=$(dirname $0)/mc-generated
 TEST_SAVED_ANALYSIS_FILES=$(dirname $0)/mc-analysis
 
-REMOTE_MC_BASE=index/mozilla-central
+REMOTE_MC_BASE=/index/firefox-main
 
 # Maps source file relative path to target directory (sans filename)
 declare -A SOURCE_FILES
