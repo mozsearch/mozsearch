@@ -6,9 +6,7 @@
 #define __gen_xpctest_bug809674_h__
 
 
-#ifndef __gen_nsISupports_h__
 #include "nsISupports.h"
-#endif
 
 #include "js/Value.h"
 
@@ -29,7 +27,7 @@
 class NS_NO_VTABLE nsIXPCTestBug809674 : public nsISupports {
  public:
 
-  NS_DECLARE_STATIC_IID_ACCESSOR(NS_IXPCTESTBUG809674_IID)
+  NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTBUG809674_IID)
 
   /* Used by ToJSValue to check which scriptable interface is implemented. */
   using ScriptableInterfaceType = nsIXPCTestBug809674;
@@ -65,7 +63,6 @@ class NS_NO_VTABLE nsIXPCTestBug809674 : public nsISupports {
 
 };
 
-  NS_DEFINE_STATIC_IID_ACCESSOR(nsIXPCTestBug809674, NS_IXPCTESTBUG809674_IID)
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTBUG809674 \

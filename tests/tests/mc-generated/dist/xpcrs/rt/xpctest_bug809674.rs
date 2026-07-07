@@ -13,14 +13,30 @@
 
 #[repr(C)]
 pub struct nsIXPCTestBug809674 {
-    vtable: *const nsIXPCTestBug809674VTable,
+    vtable: &'static nsIXPCTestBug809674VTable,
 
     /// This field is a phantomdata to ensure that the VTable type and any
-    /// struct containing it is not safe to send across threads, as XPCOM is
-    /// generally not threadsafe.
+    /// struct containing it is not safe to send across threads by default, as
+    /// XPCOM is generally not threadsafe.
     ///
-    /// XPCOM interfaces in general are not safe to send across threads.
+    /// If this type is marked as [rust_sync], there will be explicit `Send` and
+    /// `Sync` implementations on this type, which will override the inherited
+    /// negative impls from `Rc`.
     __nosync: ::std::marker::PhantomData<::std::rc::Rc<u8>>,
+
+    // Make the rust compiler aware that there might be interior mutability
+    // in what actually implements the interface. This works around UB
+    // introduced by https://github.com/llvm/llvm-project/commit/01859da84bad95fd51d6a03b08b60c660e642a4f
+    // that a rust lint would make blatantly obvious, but doesn't exist.
+    // (See https://github.com/rust-lang/rust/issues/111229).
+    // This prevents optimizations, but those optimizations weren't available
+    // before rustc switched to LLVM 16, and they now cause problems because
+    // of the UB.
+    // Until there's a lint available to find all our UB, it's simpler to
+    // avoid the UB in the first place, at the cost of preventing optimizations
+    // in places that don't cause UB. But again, those optimizations weren't
+    // available before.
+    __maybe_interior_mutability: ::std::cell::UnsafeCell<[u8; 0]>,
 }
 
 // Implementing XpCom for an interface exposes its IID, which allows for easy
@@ -113,7 +129,7 @@ pub struct nsIXPCTestBug809674VTable {
     pub AddSubMulArgs: *const ::libc::c_void,
 
     /* [implicit_jscontext] jsval addVals (in jsval x, in jsval y); */
-    /// Unable to generate binding because `specialtype jsval unsupported`
+    /// Unable to generate binding because `special type jsval unsupported`
     pub AddVals: *const ::libc::c_void,
 
     /* [implicit_jscontext] unsigned long methodNoArgs (); */
@@ -129,11 +145,11 @@ pub struct nsIXPCTestBug809674VTable {
     pub AddMany: *const ::libc::c_void,
 
     /* [implicit_jscontext] attribute jsval valProperty; */
-    /// Unable to generate binding because `specialtype jsval unsupported`
+    /// Unable to generate binding because `special type jsval unsupported`
     pub GetValProperty: *const ::libc::c_void,
 
     /* [implicit_jscontext] attribute jsval valProperty; */
-    /// Unable to generate binding because `specialtype jsval unsupported`
+    /// Unable to generate binding because `special type jsval unsupported`
     pub SetValProperty: *const ::libc::c_void,
 
     /* [implicit_jscontext] attribute unsigned long uintProperty; */

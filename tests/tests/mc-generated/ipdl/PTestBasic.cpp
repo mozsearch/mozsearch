@@ -23,28 +23,28 @@ namespace PTestBasic {
 
 nsresult
 CreateEndpoints(
-        base::ProcessId aParentDestPid,
-        base::ProcessId aChildDestPid,
-        mozilla::ipc::Endpoint<mozilla::_ipdltest::PTestBasicParent>* aParent,
-        mozilla::ipc::Endpoint<mozilla::_ipdltest::PTestBasicChild>* aChild)
+        mozilla::ipc::EndpointProcInfo aParentDestInfo,
+        mozilla::ipc::EndpointProcInfo aChildDestInfo,
+        mozilla::ipc::Endpoint<::mozilla::_ipdltest::PTestBasicParent>* aParent,
+        mozilla::ipc::Endpoint<::mozilla::_ipdltest::PTestBasicChild>* aChild)
 {
     return mozilla::ipc::CreateEndpoints(
         mozilla::ipc::PrivateIPDLInterface(),
-        aParentDestPid, aChildDestPid, aParent, aChild);
+        aParentDestInfo, aChildDestInfo, aParent, aChild);
 }
 nsresult
 CreateEndpoints(
-        mozilla::ipc::Endpoint<mozilla::_ipdltest::PTestBasicParent>* aParent,
-        mozilla::ipc::Endpoint<mozilla::_ipdltest::PTestBasicChild>* aChild)
+        mozilla::ipc::Endpoint<::mozilla::_ipdltest::PTestBasicParent>* aParent,
+        mozilla::ipc::Endpoint<::mozilla::_ipdltest::PTestBasicChild>* aChild)
 {
     return mozilla::ipc::CreateEndpoints(
         mozilla::ipc::PrivateIPDLInterface(),
         aParent, aChild);
 }
 mozilla::UniquePtr<IPC::Message>
-Msg_Hello(int32_t routingId)
+Msg_Hello(IPC::Message::routeid_t routingId)
 {
-    return IPC::Message::IPDLMessage(routingId, Msg_Hello__ID, 0, IPC::Message::HeaderFlags(IPC::Message::NOT_NESTED, IPC::Message::NORMAL_PRIORITY, IPC::Message::COMPRESSION_NONE, IPC::Message::NOT_CONSTRUCTOR, IPC::Message::ASYNC, IPC::Message::NOT_REPLY));
+    return IPC::Message::IPDLMessage(routingId, Msg_Hello__ID, 0, IPC::Message::HeaderFlags(IPC::Message::NOT_NESTED, IPC::Message::NORMAL_PRIORITY, IPC::Message::COMPRESSION_NONE, IPC::Message::EAGER_SEND, IPC::Message::NOT_CONSTRUCTOR, IPC::Message::ASYNC, IPC::Message::NOT_REPLY));
 }
 
 } // namespace PTestBasic

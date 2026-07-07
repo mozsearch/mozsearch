@@ -7,6 +7,6 @@ input_file: inputs/analysis/xpidl/xpctest_attributes.idl/idl_stringProperty__htm
   <div role="cell"><div role="button" aria-expanded="false" class="cov-strip cov-no-data" aria-label="uncovered"></div></div>
   <div role="cell"><div class="blame-strip" data-blame="BLAME" role="button" aria-expanded="false"></div></div>
   <div role="cell" class="line-number" data-line-number="NORM"></div>
-  <code role="cell" class="source-line">	<span class="syn_reserved" >attribute</span> <span class="syn_reserved" >string</span>  <span class="syn_def" data-symbols="XPIDL_nsIXPCTestObjectReadWrite_stringProperty" data-confidences="[&quot;concrete&quot;]">stringProperty</span>;
+  <code role="cell" class="source-line">    <span class="syn_reserved" >attribute</span> <span class="syn_reserved" >string</span>  <span class="syn_def" data-symbols="XPIDL_nsIXPCTestObjectReadWrite_stringProperty" data-confidences="[&quot;concrete&quot;]">stringProperty</span>;
 </code>
 </div>

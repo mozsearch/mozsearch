@@ -6,9 +6,7 @@
 #define __gen_xpctest_attributes_h__
 
 
-#ifndef __gen_nsISupports_h__
 #include "nsISupports.h"
-#endif
 
 #include "js/GCAnnotations.h"
 
@@ -27,7 +25,7 @@
 class NS_NO_VTABLE nsIXPCTestObjectReadOnly : public nsISupports {
  public:
 
-  NS_DECLARE_STATIC_IID_ACCESSOR(NS_IXPCTESTOBJECTREADONLY_IID)
+  NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTOBJECTREADONLY_IID)
 
   /* Used by ToJSValue to check which scriptable interface is implemented. */
   using ScriptableInterfaceType = nsIXPCTestObjectReadOnly;
@@ -55,7 +53,6 @@ class NS_NO_VTABLE nsIXPCTestObjectReadOnly : public nsISupports {
 
 };
 
-  NS_DEFINE_STATIC_IID_ACCESSOR(nsIXPCTestObjectReadOnly, NS_IXPCTESTOBJECTREADONLY_IID)
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTOBJECTREADONLY \
@@ -109,7 +106,7 @@ class NS_NO_VTABLE nsIXPCTestObjectReadOnly : public nsISupports {
 class NS_NO_VTABLE nsIXPCTestObjectReadWrite : public nsISupports {
  public:
 
-  NS_DECLARE_STATIC_IID_ACCESSOR(NS_IXPCTESTOBJECTREADWRITE_IID)
+  NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTOBJECTREADWRITE_IID)
 
   /* Used by ToJSValue to check which scriptable interface is implemented. */
   using ScriptableInterfaceType = nsIXPCTestObjectReadWrite;
@@ -144,7 +141,6 @@ class NS_NO_VTABLE nsIXPCTestObjectReadWrite : public nsISupports {
 
 };
 
-  NS_DEFINE_STATIC_IID_ACCESSOR(nsIXPCTestObjectReadWrite, NS_IXPCTESTOBJECTREADWRITE_IID)
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTOBJECTREADWRITE \

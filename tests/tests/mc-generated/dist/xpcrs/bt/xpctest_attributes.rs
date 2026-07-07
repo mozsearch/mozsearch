@@ -3,11 +3,12 @@
 //
 
 
-{static D: &'static [Interface] = &[
+{static D: &[Interface] = &[
 
         Interface {
             name: "nsIXPCTestObjectReadOnly",
             base: Some("nsISupports"),
+            sync: false,
             methods: Ok(&[
                     /* readonly attribute string strReadOnly; */
                     Method {
@@ -64,6 +65,7 @@
         Interface {
             name: "nsIXPCTestObjectReadWrite",
             base: Some("nsISupports"),
+            sync: false,
             methods: Ok(&[
                     /* attribute string stringProperty; */
                     Method {

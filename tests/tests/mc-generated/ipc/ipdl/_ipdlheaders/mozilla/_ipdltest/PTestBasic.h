@@ -17,7 +17,7 @@
 #include "mozilla/UniquePtr.h"
 #include "mozilla/ipc/ByteBuf.h"
 #include "mozilla/ipc/FileDescriptor.h"
-#include "mozilla/ipc/ProtocolUtilsFwd.h"
+#include "mozilla/ipc/IPCForwards.h"
 #include "mozilla/ipc/Shmem.h"
 
 namespace mozilla {
@@ -40,15 +40,15 @@ namespace PTestBasic {
 
 nsresult
 CreateEndpoints(
-        base::ProcessId aParentDestPid,
-        base::ProcessId aChildDestPid,
-        mozilla::ipc::Endpoint<mozilla::_ipdltest::PTestBasicParent>* aParent,
-        mozilla::ipc::Endpoint<mozilla::_ipdltest::PTestBasicChild>* aChild);
+        mozilla::ipc::EndpointProcInfo aParentDestInfo,
+        mozilla::ipc::EndpointProcInfo aChildDestInfo,
+        mozilla::ipc::Endpoint<::mozilla::_ipdltest::PTestBasicParent>* aParent,
+        mozilla::ipc::Endpoint<::mozilla::_ipdltest::PTestBasicChild>* aChild);
 
 nsresult
 CreateEndpoints(
-        mozilla::ipc::Endpoint<mozilla::_ipdltest::PTestBasicParent>* aParent,
-        mozilla::ipc::Endpoint<mozilla::_ipdltest::PTestBasicChild>* aChild);
+        mozilla::ipc::Endpoint<::mozilla::_ipdltest::PTestBasicParent>* aParent,
+        mozilla::ipc::Endpoint<::mozilla::_ipdltest::PTestBasicChild>* aChild);
 
 enum MessageType {
     PTestBasicStart = PTestBasicMsgStart << 16,
@@ -57,7 +57,7 @@ enum MessageType {
 };
 
 mozilla::UniquePtr<IPC::Message>
-Msg_Hello(int32_t routingId);
+Msg_Hello(IPC::Message::routeid_t routingId);
 
 
 

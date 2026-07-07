@@ -32,7 +32,7 @@ input_file: inputs/crossref/crossref/xpctest_attributes.idl/booleanProperty_gett
             "path_kind": "Generated code",
             "lines": [
               {
-                "lno": 122,
+                "lno": 119,
                 "bounds": [
                   33,
                   51
@@ -40,12 +40,19 @@ input_file: inputs/crossref/crossref/xpctest_attributes.idl/booleanProperty_gett
                 "line": "JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD GetBooleanProperty(bool *aBooleanProperty) = 0;",
                 "context": "nsIXPCTestObjectReadWrite",
                 "contextsym": "T_nsIXPCTestObjectReadWrite",
-                "peekRange": "122-122"
+                "peekRange": "119-119"
               }
             ]
           }
         ],
-        "callees": [],
+        "callees": [
+          {
+            "jump": "__GENERATED__/dist/include/xpctest_attributes.h#119",
+            "kind": "enum",
+            "pretty": "nsresult",
+            "sym": "T_nsresult"
+          }
+        ],
         "meta": {
           "structured": 1,
           "pretty": "nsIXPCTestObjectReadWrite::GetBooleanProperty",

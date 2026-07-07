@@ -3,16 +3,17 @@
 //
 
 
-{static D: &'static [Interface] = &[
+{static D: &[Interface] = &[
 
         Interface {
             name: "nsIXPCTestReturnCodeParent",
             base: Some("nsISupports"),
+            sync: false,
             methods: Ok(&[
                     /* nsresult callChild (in long childBehavior); */
                     Method {
                         name: "CallChild",
-                        params: &[Param { name: "childBehavior", ty: "i32" }, Param { name: "_retval", ty: "*mut ::nserror::nsresult" }],
+                        params: &[Param { name: "childBehavior", ty: "i32" }, Param { name: "_retval", ty: "*mut nserror::nsresult" }],
                         ret: "::nserror::nsresult",
                     },
 
@@ -22,6 +23,7 @@
         Interface {
             name: "nsIXPCTestReturnCodeChild",
             base: Some("nsISupports"),
+            sync: false,
             methods: Ok(&[
                     /* void doIt (in long behavior); */
                     Method {

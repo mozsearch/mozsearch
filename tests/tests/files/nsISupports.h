@@ -16,6 +16,7 @@
 #define JS_HAZ_CAN_RUN_SCRIPT
 #define NS_IMETHOD virtual uint32_t
 #define NS_DEFINE_STATIC_IID_ACCESSOR(foo, bar)
+#define NS_INLINE_DECL_STATIC_IID(the_iid) static constexpr nsIID kIID = the_iid;
 
 class nsISupports {};
 
@@ -25,7 +26,13 @@ class nsString;
 class nsACString;
 class nsCString;
 
-class nsIID;
+struct nsID {
+  uint32_t m0;
+  uint16_t m1;
+  uint16_t m2;
+  uint8_t m3[8];
+};
+typedef nsID nsIID;
 
 template <class E>
 class RefPtr {};

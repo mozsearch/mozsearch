@@ -6,13 +6,9 @@
 #define __gen_xpctest_params_h__
 
 
-#ifndef __gen_nsISupports_h__
 #include "nsISupports.h"
-#endif
 
-#ifndef __gen_nsTArray_h__
 #include "nsTArray.h"
-#endif
 
 #include "js/Value.h"
 
@@ -39,7 +35,7 @@ class nsIXPCTestInterfaceB; /* forward declaration */
 class NS_NO_VTABLE nsIXPCTestParams : public nsISupports {
  public:
 
-  NS_DECLARE_STATIC_IID_ACCESSOR(NS_IXPCTESTPARAMS_IID)
+  NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTPARAMS_IID)
 
   /* Used by ToJSValue to check which scriptable interface is implemented. */
   using ScriptableInterfaceType = nsIXPCTestParams;
@@ -164,12 +160,14 @@ class NS_NO_VTABLE nsIXPCTestParams : public nsISupports {
   /* ACString testStringArrayOptionalSize ([array, size_is (aLength)] in string a, [optional] in unsigned long aLength); */
   JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD TestStringArrayOptionalSize(const char * *a, uint32_t aLength, nsACString& _retval) = 0;
 
-  /* void testOmittedOptionalOut ([optional] out nsIURI aOut); */
-  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD TestOmittedOptionalOut(nsIURI **aOut = nullptr) = 0;
+  /* void testOmittedOptionalOut (in nsIXPCTestParams aJSObj, [optional] out nsIURI aOut); */
+  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD TestOmittedOptionalOut(nsIXPCTestParams *aJSObj, nsIURI **aOut = nullptr) = 0;
+
+  /* readonly attribute double testNaN; */
+  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD GetTestNaN(double *aTestNaN) = 0;
 
 };
 
-  NS_DEFINE_STATIC_IID_ACCESSOR(nsIXPCTestParams, NS_IXPCTESTPARAMS_IID)
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTPARAMS \
@@ -213,7 +211,8 @@ class NS_NO_VTABLE nsIXPCTestParams : public nsISupports {
   NS_IMETHOD TestJsvalArray(uint32_t aLength, JS::Value *a, uint32_t *bLength, JS::Value **b, uint32_t *rvLength, JS::Value **rv) override; \
   NS_IMETHOD TestOutAString(nsAString& o) override; \
   NS_IMETHOD TestStringArrayOptionalSize(const char * *a, uint32_t aLength, nsACString& _retval) override; \
-  NS_IMETHOD TestOmittedOptionalOut(nsIURI **aOut = nullptr) override; 
+  NS_IMETHOD TestOmittedOptionalOut(nsIXPCTestParams *aJSObj, nsIURI **aOut = nullptr) override; \
+  NS_IMETHOD GetTestNaN(double *aTestNaN) override; 
 
 /* Use this macro when declaring the members of this interface when the
    class doesn't implement the interface. This is useful for forwarding. */
@@ -258,7 +257,8 @@ class NS_NO_VTABLE nsIXPCTestParams : public nsISupports {
   nsresult TestJsvalArray(uint32_t aLength, JS::Value *a, uint32_t *bLength, JS::Value **b, uint32_t *rvLength, JS::Value **rv); \
   nsresult TestOutAString(nsAString& o); \
   nsresult TestStringArrayOptionalSize(const char * *a, uint32_t aLength, nsACString& _retval); \
-  nsresult TestOmittedOptionalOut(nsIURI **aOut = nullptr); 
+  nsresult TestOmittedOptionalOut(nsIXPCTestParams *aJSObj, nsIURI **aOut = nullptr); \
+  nsresult GetTestNaN(double *aTestNaN); 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object. */
 #define NS_FORWARD_NSIXPCTESTPARAMS(_to) \
@@ -302,7 +302,8 @@ class NS_NO_VTABLE nsIXPCTestParams : public nsISupports {
   NS_IMETHOD TestJsvalArray(uint32_t aLength, JS::Value *a, uint32_t *bLength, JS::Value **b, uint32_t *rvLength, JS::Value **rv) override { return _to TestJsvalArray(aLength, a, bLength, b, rvLength, rv); } \
   NS_IMETHOD TestOutAString(nsAString& o) override { return _to TestOutAString(o); } \
   NS_IMETHOD TestStringArrayOptionalSize(const char * *a, uint32_t aLength, nsACString& _retval) override { return _to TestStringArrayOptionalSize(a, aLength, _retval); } \
-  NS_IMETHOD TestOmittedOptionalOut(nsIURI **aOut = nullptr) override { return _to TestOmittedOptionalOut(aOut); } 
+  NS_IMETHOD TestOmittedOptionalOut(nsIXPCTestParams *aJSObj, nsIURI **aOut = nullptr) override { return _to TestOmittedOptionalOut(aJSObj, aOut); } \
+  NS_IMETHOD GetTestNaN(double *aTestNaN) override { return _to GetTestNaN(aTestNaN); } 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object in a safe way. */
 #define NS_FORWARD_SAFE_NSIXPCTESTPARAMS(_to) \
@@ -346,7 +347,8 @@ class NS_NO_VTABLE nsIXPCTestParams : public nsISupports {
   NS_IMETHOD TestJsvalArray(uint32_t aLength, JS::Value *a, uint32_t *bLength, JS::Value **b, uint32_t *rvLength, JS::Value **rv) override { return !_to ? NS_ERROR_NULL_POINTER : _to->TestJsvalArray(aLength, a, bLength, b, rvLength, rv); } \
   NS_IMETHOD TestOutAString(nsAString& o) override { return !_to ? NS_ERROR_NULL_POINTER : _to->TestOutAString(o); } \
   NS_IMETHOD TestStringArrayOptionalSize(const char * *a, uint32_t aLength, nsACString& _retval) override { return !_to ? NS_ERROR_NULL_POINTER : _to->TestStringArrayOptionalSize(a, aLength, _retval); } \
-  NS_IMETHOD TestOmittedOptionalOut(nsIURI **aOut = nullptr) override { return !_to ? NS_ERROR_NULL_POINTER : _to->TestOmittedOptionalOut(aOut); } 
+  NS_IMETHOD TestOmittedOptionalOut(nsIXPCTestParams *aJSObj, nsIURI **aOut = nullptr) override { return !_to ? NS_ERROR_NULL_POINTER : _to->TestOmittedOptionalOut(aJSObj, aOut); } \
+  NS_IMETHOD GetTestNaN(double *aTestNaN) override { return !_to ? NS_ERROR_NULL_POINTER : _to->GetTestNaN(aTestNaN); } 
 
 
 #endif /* __gen_xpctest_params_h__ */

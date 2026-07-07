@@ -3,16 +3,17 @@
 //
 
 
-{static D: &'static [Interface] = &[
+{static D: &[Interface] = &[
 
         Interface {
             name: "nsIXPCTestCEnums",
             base: Some("nsISupports"),
+            sync: false,
             methods: Ok(&[
                     /* void testCEnumInput (in nsIXPCTestCEnums_testFlagsExplicit abc); */
                     Method {
                         name: "TestCEnumInput",
-                        params: &[Param { name: "abc", ty: " u8" }],
+                        params: &[Param { name: "abc", ty: "u8" }],
                         ret: "::nserror::nsresult",
                     },
 

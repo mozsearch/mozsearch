@@ -3,11 +3,12 @@
 //
 
 
-{static D: &'static [Interface] = &[
+{static D: &[Interface] = &[
 
         Interface {
             name: "nsIXPCTestBug809674",
             base: Some("nsISupports"),
+            sync: false,
             methods: Err("jscontext is unsupported"),
         },
 

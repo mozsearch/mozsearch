@@ -24,17 +24,32 @@ class PTestBasicParent :
     public mozilla::ipc::IToplevelProtocol
 {
 private:
+public:
+    static constexpr ::mozilla::ipc::ProtocolId kProtocolId = PTestBasicMsgStart;
 protected:
-    typedef mozilla::ipc::ActorHandle ActorHandle;
-    typedef mozilla::ipc::ByteBuf ByteBuf;
+    typedef mozilla::ipc::ActorId ActorId;
+    typedef ::mozilla::ipc::ByteBuf ByteBuf;
     template<class FooSide> using Endpoint = mozilla::ipc::Endpoint<FooSide>;
-    typedef mozilla::ipc::FileDescriptor FileDescriptor;
+    typedef ::mozilla::ipc::FileDescriptor FileDescriptor;
     template<class FooSide> using ManagedEndpoint = mozilla::ipc::ManagedEndpoint<FooSide>;
     typedef base::ProcessId ProcessId;
     typedef mozilla::ipc::ProtocolId ProtocolId;
     typedef mozilla::ipc::ResponseRejectReason ResponseRejectReason;
-    typedef mozilla::ipc::Shmem Shmem;
+    typedef ::mozilla::ipc::Shmem Shmem;
     template<class T> using UniquePtr = mozilla::UniquePtr<T>;
+    typedef ::int16_t int16_t;
+    typedef ::int32_t int32_t;
+    typedef ::int64_t int64_t;
+    typedef ::int8_t int8_t;
+    typedef ::intptr_t intptr_t;
+    typedef ::nsCString nsCString;
+    typedef ::nsString nsString;
+    typedef ::nsresult nsresult;
+    typedef ::uint16_t uint16_t;
+    typedef ::uint32_t uint32_t;
+    typedef ::uint64_t uint64_t;
+    typedef ::uint8_t uint8_t;
+    typedef ::uintptr_t uintptr_t;
 
 protected:
     void
@@ -49,31 +64,30 @@ public:
     typedef IPC::Message Message;
     typedef base::ProcessHandle ProcessHandle;
     typedef mozilla::ipc::MessageChannel MessageChannel;
-    typedef mozilla::ipc::SharedMemory SharedMemory;
 
 public:
     MOZ_IMPLICIT PTestBasicParent();
 
     virtual ~PTestBasicParent();
 
-    NS_INLINE_DECL_PURE_VIRTUAL_REFCOUNTING
 protected:
-    void ActorAlloc() final { AddRef(); }
-    void ActorDealloc() final { Release(); }
-public:
     void
-    AllManagedActors(nsTArray<RefPtr<mozilla::ipc::ActorLifecycleProxy>>& arr__) const override;
+    ActorAlloc() final;
+    void
+    ActorDealloc() final;
+public:
+    mozilla::Span<mozilla::ipc::ProtocolId const>
+    ManagedProtocolIds() const final;
+
+    UntypedManagedContainer*
+    GetManagedActors(mozilla::ipc::ProtocolId aProtocol) final;
 
     [[nodiscard]] bool
     SendHello();
 
     void
-    RemoveManagee(
-            int32_t aProtocolId,
-            IProtocol* aListener) override;
-    void
     DeallocManagee(
-            int32_t aProtocolId,
+            mozilla::ipc::ProtocolId aProtocolId,
             IProtocol* aListener) override;
 
     Result
@@ -84,21 +98,7 @@ public:
             const Message& msg__,
             UniquePtr<Message>& reply__) override;
 
-    Result
-    OnCallReceived(
-            const Message& msg__,
-            UniquePtr<Message>& reply__) override;
-
-    void
-    OnChannelClose() override;
-
-    void
-    OnChannelError() override;
-
 private:
-    void
-    ClearSubtree();
-
 };
 
 
@@ -106,17 +106,15 @@ private:
 } // namespace mozilla
 namespace IPC {
 template<>
-struct ParamTraits <mozilla::_ipdltest::PTestBasicParent*>
+struct ParamTraits <::mozilla::_ipdltest::PTestBasicParent*>
 {
-    typedef mozilla::_ipdltest::PTestBasicParent* paramType;
+    typedef ::mozilla::_ipdltest::PTestBasicParent* paramType;
     static void
     Write(
             IPC::MessageWriter* aWriter,
             const paramType& aVar);
-    static bool
-    Read(
-            IPC::MessageReader* aReader,
-            paramType* aVar);
+    static IPC::ReadResult<paramType>
+    Read(IPC::MessageReader* aReader);
 };
 } // namespace IPC
 
