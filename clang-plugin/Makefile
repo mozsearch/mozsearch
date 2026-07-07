@@ -49,7 +49,7 @@ $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/from-clangd/%.o: from-clangd/%.cpp
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
 endif
 
-$(MOZSEARCH_CLANG_PLUGIN_DIR)/libclang-index-plugin.so: $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/FileOperations.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/StringOperations.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/BindingOperations.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/MozsearchIndexer.o $(if $(findstring $(USE_VENDORED_HEURISTIC_RESOLVER),true), $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/from-clangd/HeuristicResolver.o)
+$(MOZSEARCH_CLANG_PLUGIN_DIR)/libclang-index-plugin.so: $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/Registration.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/FileOperations.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/StringOperations.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/BindingOperations.o $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/MozsearchIndexer.o $(if $(findstring $(USE_VENDORED_HEURISTIC_RESOLVER),true), $(MOZSEARCH_CLANG_PLUGIN_OBJDIR)/from-clangd/HeuristicResolver.o)
 	$(CXX) $(LDFLAGS) $^ -o $@ -lclangASTMatchers
 
 check: build

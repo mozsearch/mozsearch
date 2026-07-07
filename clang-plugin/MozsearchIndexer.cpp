@@ -35,6 +35,7 @@
 #include "BindingOperations.h"
 #include "FileOperations.h"
 #include "StringOperations.h"
+#include "MozsearchAction.h"
 
 using namespace clang;
 
@@ -3293,58 +3294,50 @@ void PreprocessorHook::Ifndef(SourceLocation Loc, const Token &Tok,
   Indexer->macroUsed(Tok, Md.getMacroInfo());
 }
 
-class IndexAction : public PluginASTAction {
-protected:
-  std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &CI,
-                                                 llvm::StringRef F) {
-    return std::make_unique<IndexConsumer>(CI);
+std::unique_ptr<ASTConsumer> MozsearchAction::CreateASTConsumer(CompilerInstance &CI,
+                                                llvm::StringRef F) {
+  return std::make_unique<IndexConsumer>(CI);
+}
+
+bool MozsearchAction::ParseArgs(const CompilerInstance &CI,
+                const std::vector<std::string> &Args) {
+  if (Args.size() != 3) {
+    DiagnosticsEngine &D = CI.getDiagnostics();
+    unsigned DiagID = D.getCustomDiagID(
+        DiagnosticsEngine::Error,
+        "Need arguments for the source, output, and object directories");
+    D.Report(DiagID);
+    return false;
   }
 
-  bool ParseArgs(const CompilerInstance &CI,
-                 const std::vector<std::string> &Args) {
-    if (Args.size() != 3) {
-      DiagnosticsEngine &D = CI.getDiagnostics();
-      unsigned DiagID = D.getCustomDiagID(
-          DiagnosticsEngine::Error,
-          "Need arguments for the source, output, and object directories");
-      D.Report(DiagID);
-      return false;
-    }
-
-    // Load our directories
-    Srcdir = getAbsolutePath(Args[0]);
-    if (Srcdir.empty()) {
-      DiagnosticsEngine &D = CI.getDiagnostics();
-      unsigned DiagID = D.getCustomDiagID(
-          DiagnosticsEngine::Error, "Source directory '%0' does not exist");
-      D.Report(DiagID) << Args[0];
-      return false;
-    }
-
-    ensurePath(Args[1] + PATHSEP_STRING);
-    Outdir = getAbsolutePath(Args[1]);
-    Outdir += PATHSEP_STRING;
-
-    Objdir = getAbsolutePath(Args[2]);
-    if (Objdir.empty()) {
-      DiagnosticsEngine &D = CI.getDiagnostics();
-      unsigned DiagID = D.getCustomDiagID(DiagnosticsEngine::Error,
-                                          "Objdir '%0' does not exist");
-      D.Report(DiagID) << Args[2];
-      return false;
-    }
-    Objdir += PATHSEP_STRING;
-
-    printf("MOZSEARCH: %s %s %s\n", Srcdir.c_str(), Outdir.c_str(),
-           Objdir.c_str());
-
-    return true;
+  // Load our directories
+  Srcdir = getAbsolutePath(Args[0]);
+  if (Srcdir.empty()) {
+    DiagnosticsEngine &D = CI.getDiagnostics();
+    unsigned DiagID = D.getCustomDiagID(
+        DiagnosticsEngine::Error, "Source directory '%0' does not exist");
+    D.Report(DiagID) << Args[0];
+    return false;
   }
 
-  void printHelp(llvm::raw_ostream &Ros) {
-    Ros << "Help for mozsearch plugin goes here\n";
-  }
-};
+  ensurePath(Args[1] + PATHSEP_STRING);
+  Outdir = getAbsolutePath(Args[1]);
+  Outdir += PATHSEP_STRING;
 
-static FrontendPluginRegistry::Add<IndexAction>
-    Y("mozsearch-index", "create the mozsearch index database");
+  Objdir = getAbsolutePath(Args[2]);
+  if (Objdir.empty()) {
+    DiagnosticsEngine &D = CI.getDiagnostics();
+    unsigned DiagID = D.getCustomDiagID(DiagnosticsEngine::Error,
+                                        "Objdir '%0' does not exist");
+    D.Report(DiagID) << Args[2];
+    return false;
+  }
+  Objdir += PATHSEP_STRING;
+
+  printf("MOZSEARCH: %s %s %s\n", Srcdir.c_str(), Outdir.c_str(),
+          Objdir.c_str());
+
+  return true;
+}
+
+PluginASTAction::ActionType MozsearchAction::getActionType() { return CmdlineBeforeMainAction; }
