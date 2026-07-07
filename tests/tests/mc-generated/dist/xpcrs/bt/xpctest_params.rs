@@ -3,12 +3,13 @@
 //
 
 
-{static D: &'static [Interface] = &[
+{static D: &[Interface] = &[
 
         Interface {
             name: "nsIXPCTestParams",
             base: Some("nsISupports"),
-            methods: Err("specialtype jsval unsupported"),
+            sync: false,
+            methods: Err("special type jsval unsupported"),
         },
 
         ]; D}

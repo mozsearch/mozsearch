@@ -13,14 +13,30 @@
 
 #[repr(C)]
 pub struct nsIXPCTestParams {
-    vtable: *const nsIXPCTestParamsVTable,
+    vtable: &'static nsIXPCTestParamsVTable,
 
     /// This field is a phantomdata to ensure that the VTable type and any
-    /// struct containing it is not safe to send across threads, as XPCOM is
-    /// generally not threadsafe.
+    /// struct containing it is not safe to send across threads by default, as
+    /// XPCOM is generally not threadsafe.
     ///
-    /// XPCOM interfaces in general are not safe to send across threads.
+    /// If this type is marked as [rust_sync], there will be explicit `Send` and
+    /// `Sync` implementations on this type, which will override the inherited
+    /// negative impls from `Rc`.
     __nosync: ::std::marker::PhantomData<::std::rc::Rc<u8>>,
+
+    // Make the rust compiler aware that there might be interior mutability
+    // in what actually implements the interface. This works around UB
+    // introduced by https://github.com/llvm/llvm-project/commit/01859da84bad95fd51d6a03b08b60c660e642a4f
+    // that a rust lint would make blatantly obvious, but doesn't exist.
+    // (See https://github.com/rust-lang/rust/issues/111229).
+    // This prevents optimizations, but those optimizations weren't available
+    // before rustc switched to LLVM 16, and they now cause problems because
+    // of the UB.
+    // Until there's a lint available to find all our UB, it's simpler to
+    // avoid the UB in the first place, at the cost of preventing optimizations
+    // in places that don't cause UB. But again, those optimizations weren't
+    // available before.
+    __maybe_interior_mutability: ::std::cell::UnsafeCell<[u8; 0]>,
 }
 
 // Implementing XpCom for an interface exposes its IID, which allows for easy
@@ -141,10 +157,10 @@ pub struct nsIXPCTestParamsVTable {
     pub TestString: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: *const libc::c_char, b: *mut *const libc::c_char, _retval: *mut *const libc::c_char) -> ::nserror::nsresult,
 
     /* wchar testWchar (in wchar a, inout wchar b); */
-    pub TestWchar: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: i16, b: *mut i16, _retval: *mut i16) -> ::nserror::nsresult,
+    pub TestWchar: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: u16, b: *mut u16, _retval: *mut u16) -> ::nserror::nsresult,
 
     /* wstring testWstring (in wstring a, inout wstring b); */
-    pub TestWstring: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: *const i16, b: *mut *const i16, _retval: *mut *const i16) -> ::nserror::nsresult,
+    pub TestWstring: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: *const u16, b: *mut *const u16, _retval: *mut *const u16) -> ::nserror::nsresult,
 
     /* AString testAString (in AString a, inout AString b); */
     pub TestAString: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: *const ::nsstring::nsAString, b: *mut ::nsstring::nsAString, _retval: *mut ::nsstring::nsAString) -> ::nserror::nsresult,
@@ -156,7 +172,7 @@ pub struct nsIXPCTestParamsVTable {
     pub TestACString: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: *const ::nsstring::nsACString, b: *mut ::nsstring::nsACString, _retval: *mut ::nsstring::nsACString) -> ::nserror::nsresult,
 
     /* jsval testJsval (in jsval a, inout jsval b); */
-    /// Unable to generate binding because `specialtype jsval unsupported`
+    /// Unable to generate binding because `special type jsval unsupported`
     pub TestJsval: *const ::libc::c_void,
 
     /* Array<short> testShortSequence (in Array<short> a, inout Array<short> b); */
@@ -166,7 +182,7 @@ pub struct nsIXPCTestParamsVTable {
     pub TestDoubleSequence: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: *const thin_vec::ThinVec<libc::c_double>, b: *mut thin_vec::ThinVec<libc::c_double>, _retval: *mut thin_vec::ThinVec<libc::c_double>) -> ::nserror::nsresult,
 
     /* Array<nsIXPCTestInterfaceA> testInterfaceSequence (in Array<nsIXPCTestInterfaceA> a, inout Array<nsIXPCTestInterfaceA> b); */
-    pub TestInterfaceSequence: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: *const thin_vec::ThinVec<RefPtr<nsIXPCTestInterfaceA>>, b: *mut thin_vec::ThinVec<RefPtr<nsIXPCTestInterfaceA>>, _retval: *mut thin_vec::ThinVec<RefPtr<nsIXPCTestInterfaceA>>) -> ::nserror::nsresult,
+    pub TestInterfaceSequence: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: *const thin_vec::ThinVec<Option<RefPtr<nsIXPCTestInterfaceA>>>, b: *mut thin_vec::ThinVec<Option<RefPtr<nsIXPCTestInterfaceA>>>, _retval: *mut thin_vec::ThinVec<Option<RefPtr<nsIXPCTestInterfaceA>>>) -> ::nserror::nsresult,
 
     /* Array<AString> testAStringSequence (in Array<AString> a, inout Array<AString> b); */
     pub TestAStringSequence: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: *const thin_vec::ThinVec<::nsstring::nsString>, b: *mut thin_vec::ThinVec<::nsstring::nsString>, _retval: *mut thin_vec::ThinVec<::nsstring::nsString>) -> ::nserror::nsresult,
@@ -175,17 +191,17 @@ pub struct nsIXPCTestParamsVTable {
     pub TestACStringSequence: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: *const thin_vec::ThinVec<::nsstring::nsCString>, b: *mut thin_vec::ThinVec<::nsstring::nsCString>, _retval: *mut thin_vec::ThinVec<::nsstring::nsCString>) -> ::nserror::nsresult,
 
     /* Array<jsval> testJsvalSequence (in Array<jsval> a, inout Array<jsval> b); */
-    /// Unable to generate binding because `specialtype jsval unsupported`
+    /// Unable to generate binding because `special type jsval unsupported`
     pub TestJsvalSequence: *const ::libc::c_void,
 
     /* Array<Array<short>> testSequenceSequence (in Array<Array<short>> a, inout Array<Array<short>> b); */
     pub TestSequenceSequence: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: *const thin_vec::ThinVec<thin_vec::ThinVec<i16>>, b: *mut thin_vec::ThinVec<thin_vec::ThinVec<i16>>, _retval: *mut thin_vec::ThinVec<thin_vec::ThinVec<i16>>) -> ::nserror::nsresult,
 
     /* void testInterfaceIsSequence (in nsIIDPtr aIID, [iid_is (aIID)] in Array<nsQIResult> a, inout nsIIDPtr bIID, [iid_is (bIID)] inout Array<nsQIResult> b, out nsIIDPtr rvIID, [iid_is (rvIID), retval] out Array<nsQIResult> rv); */
-    pub TestInterfaceIsSequence: unsafe extern "system" fn (this: *const nsIXPCTestParams, aIID: *const nsIID, a: *const thin_vec::ThinVec<*const libc::c_void>, bIID: *mut *mut nsIID, b: *mut thin_vec::ThinVec<*const libc::c_void>, rvIID: *mut *mut nsIID, rv: *mut thin_vec::ThinVec<*const libc::c_void>) -> ::nserror::nsresult,
+    pub TestInterfaceIsSequence: unsafe extern "system" fn (this: *const nsIXPCTestParams, aIID: *const nsIID, a: *const thin_vec::ThinVec<*mut libc::c_void>, bIID: *mut *mut nsIID, b: *mut thin_vec::ThinVec<*mut libc::c_void>, rvIID: *mut *mut nsIID, rv: *mut thin_vec::ThinVec<*mut libc::c_void>) -> ::nserror::nsresult,
 
     /* Array<uint8_t> testOptionalSequence ([optional] in Array<uint8_t> arr); */
-    pub TestOptionalSequence: unsafe extern "system" fn (this: *const nsIXPCTestParams, arr: *const thin_vec::ThinVec<uint8_t>, _retval: *mut thin_vec::ThinVec<uint8_t>) -> ::nserror::nsresult,
+    pub TestOptionalSequence: unsafe extern "system" fn (this: *const nsIXPCTestParams, arr: *const thin_vec::ThinVec<u8>, _retval: *mut thin_vec::ThinVec<u8>) -> ::nserror::nsresult,
 
     /* void testShortArray (in unsigned long aLength, [array, size_is (aLength)] in short a, inout unsigned long bLength, [array, size_is (bLength)] inout short b, out unsigned long rvLength, [array, size_is (rvLength), retval] out short rv); */
     pub TestShortArray: unsafe extern "system" fn (this: *const nsIXPCTestParams, aLength: u32, a: *mut i16, bLength: *mut u32, b: *mut *mut i16, rvLength: *mut u32, rv: *mut *mut i16) -> ::nserror::nsresult,
@@ -197,28 +213,28 @@ pub struct nsIXPCTestParamsVTable {
     pub TestStringArray: unsafe extern "system" fn (this: *const nsIXPCTestParams, aLength: u32, a: *mut *const libc::c_char, bLength: *mut u32, b: *mut *mut *const libc::c_char, rvLength: *mut u32, rv: *mut *mut *const libc::c_char) -> ::nserror::nsresult,
 
     /* void testWstringArray (in unsigned long aLength, [array, size_is (aLength)] in wstring a, inout unsigned long bLength, [array, size_is (bLength)] inout wstring b, out unsigned long rvLength, [array, size_is (rvLength), retval] out wstring rv); */
-    pub TestWstringArray: unsafe extern "system" fn (this: *const nsIXPCTestParams, aLength: u32, a: *mut *const i16, bLength: *mut u32, b: *mut *mut *const i16, rvLength: *mut u32, rv: *mut *mut *const i16) -> ::nserror::nsresult,
+    pub TestWstringArray: unsafe extern "system" fn (this: *const nsIXPCTestParams, aLength: u32, a: *mut *const u16, bLength: *mut u32, b: *mut *mut *const u16, rvLength: *mut u32, rv: *mut *mut *const u16) -> ::nserror::nsresult,
 
     /* void testInterfaceArray (in unsigned long aLength, [array, size_is (aLength)] in nsIXPCTestInterfaceA a, inout unsigned long bLength, [array, size_is (bLength)] inout nsIXPCTestInterfaceA b, out unsigned long rvLength, [array, size_is (rvLength), retval] out nsIXPCTestInterfaceA rv); */
     pub TestInterfaceArray: unsafe extern "system" fn (this: *const nsIXPCTestParams, aLength: u32, a: *mut *const nsIXPCTestInterfaceA, bLength: *mut u32, b: *mut *mut *const nsIXPCTestInterfaceA, rvLength: *mut u32, rv: *mut *mut *const nsIXPCTestInterfaceA) -> ::nserror::nsresult,
 
     /* unsigned long testByteArrayOptionalLength ([array, size_is (aLength)] in uint8_t a, [optional] in unsigned long aLength); */
-    pub TestByteArrayOptionalLength: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: *mut uint8_t, aLength: u32, _retval: *mut u32) -> ::nserror::nsresult,
+    pub TestByteArrayOptionalLength: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: *mut u8, aLength: u32, _retval: *mut u32) -> ::nserror::nsresult,
 
     /* void testSizedString (in unsigned long aLength, [size_is (aLength)] in string a, inout unsigned long bLength, [size_is (bLength)] inout string b, out unsigned long rvLength, [size_is (rvLength), retval] out string rv); */
     pub TestSizedString: unsafe extern "system" fn (this: *const nsIXPCTestParams, aLength: u32, a: *const libc::c_char, bLength: *mut u32, b: *mut *const libc::c_char, rvLength: *mut u32, rv: *mut *const libc::c_char) -> ::nserror::nsresult,
 
     /* void testSizedWstring (in unsigned long aLength, [size_is (aLength)] in wstring a, inout unsigned long bLength, [size_is (bLength)] inout wstring b, out unsigned long rvLength, [size_is (rvLength), retval] out wstring rv); */
-    pub TestSizedWstring: unsafe extern "system" fn (this: *const nsIXPCTestParams, aLength: u32, a: *const i16, bLength: *mut u32, b: *mut *const i16, rvLength: *mut u32, rv: *mut *const i16) -> ::nserror::nsresult,
+    pub TestSizedWstring: unsafe extern "system" fn (this: *const nsIXPCTestParams, aLength: u32, a: *const u16, bLength: *mut u32, b: *mut *const u16, rvLength: *mut u32, rv: *mut *const u16) -> ::nserror::nsresult,
 
     /* void testInterfaceIs (in nsIIDPtr aIID, [iid_is (aIID)] in nsQIResult a, inout nsIIDPtr bIID, [iid_is (bIID)] inout nsQIResult b, out nsIIDPtr rvIID, [iid_is (rvIID), retval] out nsQIResult rv); */
-    pub TestInterfaceIs: unsafe extern "system" fn (this: *const nsIXPCTestParams, aIID: *const nsIID, a: *const libc::c_void, bIID: *mut *mut nsIID, b: *mut *mut libc::c_void, rvIID: *mut *mut nsIID, rv: *mut *mut libc::c_void) -> ::nserror::nsresult,
+    pub TestInterfaceIs: unsafe extern "system" fn (this: *const nsIXPCTestParams, aIID: *const nsIID, a: *mut libc::c_void, bIID: *mut *mut nsIID, b: *mut *mut libc::c_void, rvIID: *mut *mut nsIID, rv: *mut *mut libc::c_void) -> ::nserror::nsresult,
 
     /* void testInterfaceIsArray (in unsigned long aLength, in nsIIDPtr aIID, [array, size_is (aLength), iid_is (aIID)] in nsQIResult a, inout unsigned long bLength, inout nsIIDPtr bIID, [array, size_is (bLength), iid_is (bIID)] inout nsQIResult b, out unsigned long rvLength, out nsIIDPtr rvIID, [retval, array, size_is (rvLength), iid_is (rvIID)] out nsQIResult rv); */
-    pub TestInterfaceIsArray: unsafe extern "system" fn (this: *const nsIXPCTestParams, aLength: u32, aIID: *const nsIID, a: *mut *const libc::c_void, bLength: *mut u32, bIID: *mut *mut nsIID, b: *mut *mut *const libc::c_void, rvLength: *mut u32, rvIID: *mut *mut nsIID, rv: *mut *mut *const libc::c_void) -> ::nserror::nsresult,
+    pub TestInterfaceIsArray: unsafe extern "system" fn (this: *const nsIXPCTestParams, aLength: u32, aIID: *const nsIID, a: *mut *mut libc::c_void, bLength: *mut u32, bIID: *mut *mut nsIID, b: *mut *mut *mut libc::c_void, rvLength: *mut u32, rvIID: *mut *mut nsIID, rv: *mut *mut *mut libc::c_void) -> ::nserror::nsresult,
 
     /* void testJsvalArray (in unsigned long aLength, [array, size_is (aLength)] in jsval a, inout unsigned long bLength, [array, size_is (bLength)] inout jsval b, out unsigned long rvLength, [array, size_is (rvLength), retval] out jsval rv); */
-    /// Unable to generate binding because `specialtype jsval unsupported`
+    /// Unable to generate binding because `special type jsval unsupported`
     pub TestJsvalArray: *const ::libc::c_void,
 
     /* void testOutAString (out AString o); */
@@ -227,8 +243,11 @@ pub struct nsIXPCTestParamsVTable {
     /* ACString testStringArrayOptionalSize ([array, size_is (aLength)] in string a, [optional] in unsigned long aLength); */
     pub TestStringArrayOptionalSize: unsafe extern "system" fn (this: *const nsIXPCTestParams, a: *mut *const libc::c_char, aLength: u32, _retval: *mut ::nsstring::nsACString) -> ::nserror::nsresult,
 
-    /* void testOmittedOptionalOut ([optional] out nsIURI aOut); */
-    pub TestOmittedOptionalOut: unsafe extern "system" fn (this: *const nsIXPCTestParams, aOut: *mut*const nsIURI) -> ::nserror::nsresult,
+    /* void testOmittedOptionalOut (in nsIXPCTestParams aJSObj, [optional] out nsIURI aOut); */
+    pub TestOmittedOptionalOut: unsafe extern "system" fn (this: *const nsIXPCTestParams, aJSObj: *const nsIXPCTestParams, aOut: *mut *const nsIURI) -> ::nserror::nsresult,
+
+    /* readonly attribute double testNaN; */
+    pub GetTestNaN: unsafe extern "system" fn (this: *const nsIXPCTestParams, aTestNaN: *mut libc::c_double) -> ::nserror::nsresult,
 }
 
 
@@ -335,7 +354,7 @@ impl nsIXPCTestParams {
 
     /// `wchar testWchar (in wchar a, inout wchar b);`
     #[inline]
-    pub unsafe fn TestWchar(&self, a: i16, b: *mut i16, _retval: *mut i16) -> ::nserror::nsresult {
+    pub unsafe fn TestWchar(&self, a: u16, b: *mut u16, _retval: *mut u16) -> ::nserror::nsresult {
         ((*self.vtable).TestWchar)(self, a, b, _retval)
     }
 
@@ -343,7 +362,7 @@ impl nsIXPCTestParams {
 
     /// `wstring testWstring (in wstring a, inout wstring b);`
     #[inline]
-    pub unsafe fn TestWstring(&self, a: *const i16, b: *mut *const i16, _retval: *mut *const i16) -> ::nserror::nsresult {
+    pub unsafe fn TestWstring(&self, a: *const u16, b: *mut *const u16, _retval: *mut *const u16) -> ::nserror::nsresult {
         ((*self.vtable).TestWstring)(self, a, b, _retval)
     }
 
@@ -395,7 +414,7 @@ impl nsIXPCTestParams {
 
     /// `Array<nsIXPCTestInterfaceA> testInterfaceSequence (in Array<nsIXPCTestInterfaceA> a, inout Array<nsIXPCTestInterfaceA> b);`
     #[inline]
-    pub unsafe fn TestInterfaceSequence(&self, a: *const thin_vec::ThinVec<RefPtr<nsIXPCTestInterfaceA>>, b: *mut thin_vec::ThinVec<RefPtr<nsIXPCTestInterfaceA>>, _retval: *mut thin_vec::ThinVec<RefPtr<nsIXPCTestInterfaceA>>) -> ::nserror::nsresult {
+    pub unsafe fn TestInterfaceSequence(&self, a: *const thin_vec::ThinVec<Option<RefPtr<nsIXPCTestInterfaceA>>>, b: *mut thin_vec::ThinVec<Option<RefPtr<nsIXPCTestInterfaceA>>>, _retval: *mut thin_vec::ThinVec<Option<RefPtr<nsIXPCTestInterfaceA>>>) -> ::nserror::nsresult {
         ((*self.vtable).TestInterfaceSequence)(self, a, b, _retval)
     }
 
@@ -431,7 +450,7 @@ impl nsIXPCTestParams {
 
     /// `void testInterfaceIsSequence (in nsIIDPtr aIID, [iid_is (aIID)] in Array<nsQIResult> a, inout nsIIDPtr bIID, [iid_is (bIID)] inout Array<nsQIResult> b, out nsIIDPtr rvIID, [iid_is (rvIID), retval] out Array<nsQIResult> rv);`
     #[inline]
-    pub unsafe fn TestInterfaceIsSequence(&self, aIID: *const nsIID, a: *const thin_vec::ThinVec<*const libc::c_void>, bIID: *mut *mut nsIID, b: *mut thin_vec::ThinVec<*const libc::c_void>, rvIID: *mut *mut nsIID, rv: *mut thin_vec::ThinVec<*const libc::c_void>) -> ::nserror::nsresult {
+    pub unsafe fn TestInterfaceIsSequence(&self, aIID: *const nsIID, a: *const thin_vec::ThinVec<*mut libc::c_void>, bIID: *mut *mut nsIID, b: *mut thin_vec::ThinVec<*mut libc::c_void>, rvIID: *mut *mut nsIID, rv: *mut thin_vec::ThinVec<*mut libc::c_void>) -> ::nserror::nsresult {
         ((*self.vtable).TestInterfaceIsSequence)(self, aIID, a, bIID, b, rvIID, rv)
     }
 
@@ -439,7 +458,7 @@ impl nsIXPCTestParams {
 
     /// `Array<uint8_t> testOptionalSequence ([optional] in Array<uint8_t> arr);`
     #[inline]
-    pub unsafe fn TestOptionalSequence(&self, arr: *const thin_vec::ThinVec<uint8_t>, _retval: *mut thin_vec::ThinVec<uint8_t>) -> ::nserror::nsresult {
+    pub unsafe fn TestOptionalSequence(&self, arr: *const thin_vec::ThinVec<u8>, _retval: *mut thin_vec::ThinVec<u8>) -> ::nserror::nsresult {
         ((*self.vtable).TestOptionalSequence)(self, arr, _retval)
     }
 
@@ -471,7 +490,7 @@ impl nsIXPCTestParams {
 
     /// `void testWstringArray (in unsigned long aLength, [array, size_is (aLength)] in wstring a, inout unsigned long bLength, [array, size_is (bLength)] inout wstring b, out unsigned long rvLength, [array, size_is (rvLength), retval] out wstring rv);`
     #[inline]
-    pub unsafe fn TestWstringArray(&self, aLength: u32, a: *mut *const i16, bLength: *mut u32, b: *mut *mut *const i16, rvLength: *mut u32, rv: *mut *mut *const i16) -> ::nserror::nsresult {
+    pub unsafe fn TestWstringArray(&self, aLength: u32, a: *mut *const u16, bLength: *mut u32, b: *mut *mut *const u16, rvLength: *mut u32, rv: *mut *mut *const u16) -> ::nserror::nsresult {
         ((*self.vtable).TestWstringArray)(self, aLength, a, bLength, b, rvLength, rv)
     }
 
@@ -487,7 +506,7 @@ impl nsIXPCTestParams {
 
     /// `unsigned long testByteArrayOptionalLength ([array, size_is (aLength)] in uint8_t a, [optional] in unsigned long aLength);`
     #[inline]
-    pub unsafe fn TestByteArrayOptionalLength(&self, a: *mut uint8_t, aLength: u32, _retval: *mut u32) -> ::nserror::nsresult {
+    pub unsafe fn TestByteArrayOptionalLength(&self, a: *mut u8, aLength: u32, _retval: *mut u32) -> ::nserror::nsresult {
         ((*self.vtable).TestByteArrayOptionalLength)(self, a, aLength, _retval)
     }
 
@@ -503,7 +522,7 @@ impl nsIXPCTestParams {
 
     /// `void testSizedWstring (in unsigned long aLength, [size_is (aLength)] in wstring a, inout unsigned long bLength, [size_is (bLength)] inout wstring b, out unsigned long rvLength, [size_is (rvLength), retval] out wstring rv);`
     #[inline]
-    pub unsafe fn TestSizedWstring(&self, aLength: u32, a: *const i16, bLength: *mut u32, b: *mut *const i16, rvLength: *mut u32, rv: *mut *const i16) -> ::nserror::nsresult {
+    pub unsafe fn TestSizedWstring(&self, aLength: u32, a: *const u16, bLength: *mut u32, b: *mut *const u16, rvLength: *mut u32, rv: *mut *const u16) -> ::nserror::nsresult {
         ((*self.vtable).TestSizedWstring)(self, aLength, a, bLength, b, rvLength, rv)
     }
 
@@ -511,7 +530,7 @@ impl nsIXPCTestParams {
 
     /// `void testInterfaceIs (in nsIIDPtr aIID, [iid_is (aIID)] in nsQIResult a, inout nsIIDPtr bIID, [iid_is (bIID)] inout nsQIResult b, out nsIIDPtr rvIID, [iid_is (rvIID), retval] out nsQIResult rv);`
     #[inline]
-    pub unsafe fn TestInterfaceIs(&self, aIID: *const nsIID, a: *const libc::c_void, bIID: *mut *mut nsIID, b: *mut *mut libc::c_void, rvIID: *mut *mut nsIID, rv: *mut *mut libc::c_void) -> ::nserror::nsresult {
+    pub unsafe fn TestInterfaceIs(&self, aIID: *const nsIID, a: *mut libc::c_void, bIID: *mut *mut nsIID, b: *mut *mut libc::c_void, rvIID: *mut *mut nsIID, rv: *mut *mut libc::c_void) -> ::nserror::nsresult {
         ((*self.vtable).TestInterfaceIs)(self, aIID, a, bIID, b, rvIID, rv)
     }
 
@@ -519,7 +538,7 @@ impl nsIXPCTestParams {
 
     /// `void testInterfaceIsArray (in unsigned long aLength, in nsIIDPtr aIID, [array, size_is (aLength), iid_is (aIID)] in nsQIResult a, inout unsigned long bLength, inout nsIIDPtr bIID, [array, size_is (bLength), iid_is (bIID)] inout nsQIResult b, out unsigned long rvLength, out nsIIDPtr rvIID, [retval, array, size_is (rvLength), iid_is (rvIID)] out nsQIResult rv);`
     #[inline]
-    pub unsafe fn TestInterfaceIsArray(&self, aLength: u32, aIID: *const nsIID, a: *mut *const libc::c_void, bLength: *mut u32, bIID: *mut *mut nsIID, b: *mut *mut *const libc::c_void, rvLength: *mut u32, rvIID: *mut *mut nsIID, rv: *mut *mut *const libc::c_void) -> ::nserror::nsresult {
+    pub unsafe fn TestInterfaceIsArray(&self, aLength: u32, aIID: *const nsIID, a: *mut *mut libc::c_void, bLength: *mut u32, bIID: *mut *mut nsIID, b: *mut *mut *mut libc::c_void, rvLength: *mut u32, rvIID: *mut *mut nsIID, rv: *mut *mut *mut libc::c_void) -> ::nserror::nsresult {
         ((*self.vtable).TestInterfaceIsArray)(self, aLength, aIID, a, bLength, bIID, b, rvLength, rvIID, rv)
     }
 
@@ -545,10 +564,18 @@ impl nsIXPCTestParams {
 
 
 
-    /// `void testOmittedOptionalOut ([optional] out nsIURI aOut);`
+    /// `void testOmittedOptionalOut (in nsIXPCTestParams aJSObj, [optional] out nsIURI aOut);`
     #[inline]
-    pub unsafe fn TestOmittedOptionalOut(&self, aOut: *mut*const nsIURI) -> ::nserror::nsresult {
-        ((*self.vtable).TestOmittedOptionalOut)(self, aOut)
+    pub unsafe fn TestOmittedOptionalOut(&self, aJSObj: *const nsIXPCTestParams, aOut: *mut *const nsIURI) -> ::nserror::nsresult {
+        ((*self.vtable).TestOmittedOptionalOut)(self, aJSObj, aOut)
+    }
+
+
+
+    /// `readonly attribute double testNaN;`
+    #[inline]
+    pub unsafe fn GetTestNaN(&self, aTestNaN: *mut libc::c_double) -> ::nserror::nsresult {
+        ((*self.vtable).GetTestNaN)(self, aTestNaN)
     }
 
 

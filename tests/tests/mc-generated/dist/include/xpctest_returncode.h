@@ -6,9 +6,7 @@
 #define __gen_xpctest_returncode_h__
 
 
-#ifndef __gen_nsISupports_h__
 #include "nsISupports.h"
-#endif
 
 #include "js/GCAnnotations.h"
 
@@ -27,7 +25,7 @@
 class NS_NO_VTABLE nsIXPCTestReturnCodeParent : public nsISupports {
  public:
 
-  NS_DECLARE_STATIC_IID_ACCESSOR(NS_IXPCTESTRETURNCODEPARENT_IID)
+  NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTRETURNCODEPARENT_IID)
 
   /* Used by ToJSValue to check which scriptable interface is implemented. */
   using ScriptableInterfaceType = nsIXPCTestReturnCodeParent;
@@ -37,7 +35,6 @@ class NS_NO_VTABLE nsIXPCTestReturnCodeParent : public nsISupports {
 
 };
 
-  NS_DEFINE_STATIC_IID_ACCESSOR(nsIXPCTestReturnCodeParent, NS_IXPCTESTRETURNCODEPARENT_IID)
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTRETURNCODEPARENT \
@@ -67,7 +64,7 @@ class NS_NO_VTABLE nsIXPCTestReturnCodeParent : public nsISupports {
 class NS_NO_VTABLE nsIXPCTestReturnCodeChild : public nsISupports {
  public:
 
-  NS_DECLARE_STATIC_IID_ACCESSOR(NS_IXPCTESTRETURNCODECHILD_IID)
+  NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTRETURNCODECHILD_IID)
 
   /* Used by ToJSValue to check which scriptable interface is implemented. */
   using ScriptableInterfaceType = nsIXPCTestReturnCodeChild;
@@ -84,7 +81,6 @@ class NS_NO_VTABLE nsIXPCTestReturnCodeChild : public nsISupports {
 
 };
 
-  NS_DEFINE_STATIC_IID_ACCESSOR(nsIXPCTestReturnCodeChild, NS_IXPCTESTRETURNCODECHILD_IID)
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTRETURNCODECHILD \

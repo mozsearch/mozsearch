@@ -3,11 +3,12 @@
 //
 
 
-{static D: &'static [Interface] = &[
+{static D: &[Interface] = &[
 
         Interface {
             name: "nsIXPCTestInterfaceA",
             base: Some("nsISupports"),
+            sync: false,
             methods: Ok(&[
                     /* attribute string name; */
                     Method {
@@ -27,6 +28,7 @@
         Interface {
             name: "nsIXPCTestInterfaceB",
             base: Some("nsISupports"),
+            sync: false,
             methods: Ok(&[
                     /* attribute string name; */
                     Method {
@@ -46,6 +48,7 @@
         Interface {
             name: "nsIXPCTestInterfaceC",
             base: Some("nsISupports"),
+            sync: false,
             methods: Ok(&[
                     /* attribute long someInteger; */
                     Method {

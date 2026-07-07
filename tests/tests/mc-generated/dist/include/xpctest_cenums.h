@@ -6,9 +6,7 @@
 #define __gen_xpctest_cenums_h__
 
 
-#ifndef __gen_nsISupports_h__
 #include "nsISupports.h"
-#endif
 
 #include "js/GCAnnotations.h"
 
@@ -27,7 +25,7 @@
 class NS_NO_VTABLE nsIXPCTestCEnums : public nsISupports {
  public:
 
-  NS_DECLARE_STATIC_IID_ACCESSOR(NS_IXPCTESTCENUMS_IID)
+  NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTCENUMS_IID)
 
   /* Used by ToJSValue to check which scriptable interface is implemented. */
   using ScriptableInterfaceType = nsIXPCTestCEnums;
@@ -63,7 +61,6 @@ class NS_NO_VTABLE nsIXPCTestCEnums : public nsISupports {
 
 };
 
-  NS_DEFINE_STATIC_IID_ACCESSOR(nsIXPCTestCEnums, NS_IXPCTESTCENUMS_IID)
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTCENUMS \

@@ -34,7 +34,7 @@ auto PTestBasicParent::ShouldContinueFromReplyTimeout() -> bool
 }
 
 MOZ_IMPLICIT PTestBasicParent::PTestBasicParent() :
-    mozilla::ipc::IToplevelProtocol("PTestBasicParent", PTestBasicMsgStart, mozilla::ipc::ParentSide)
+    mozilla::ipc::IToplevelProtocol("PTestBasicParent", kProtocolId, mozilla::ipc::ParentSide)
 {
     MOZ_COUNT_CTOR(PTestBasicParent);
 }
@@ -44,11 +44,28 @@ PTestBasicParent::~PTestBasicParent()
     MOZ_COUNT_DTOR(PTestBasicParent);
 }
 
-auto PTestBasicParent::AllManagedActors(nsTArray<RefPtr<mozilla::ipc::ActorLifecycleProxy>>& arr__) const -> void
+auto PTestBasicParent::ActorAlloc() -> void
 {
-    uint32_t total = 0;
-    arr__.SetCapacity(total);
+    MOZ_RELEASE_ASSERT(XRE_IsParentProcess(), "Invalid process for `PTestBasicParent'");
+    AddRef();
+}
 
+auto PTestBasicParent::ActorDealloc() -> void
+{
+    Release();
+}
+
+auto PTestBasicParent::ManagedProtocolIds() const -> mozilla::Span<mozilla::ipc::ProtocolId const>
+{
+    return {};
+}
+
+auto PTestBasicParent::GetManagedActors(mozilla::ipc::ProtocolId aProtocol) -> UntypedManagedContainer*
+{
+    switch (aProtocol) {
+    default:
+        return nullptr;
+    }
 }
 
 auto PTestBasicParent::SendHello() -> bool
@@ -60,9 +77,7 @@ auto PTestBasicParent::SendHello() -> bool
 
 
 
-
-
-    if (mozilla::ipc::LoggingEnabledFor("PTestBasicParent")) {
+    if (mozilla::ipc::LoggingEnabledFor("PTestBasic", mozilla::ipc::ParentSide)) {
         mozilla::ipc::LogMessageForProtocol(
             "PTestBasicParent",
             this->ToplevelProtocol()->OtherPidMaybeInvalid(),
@@ -76,16 +91,8 @@ auto PTestBasicParent::SendHello() -> bool
     return sendok__;
 }
 
-auto PTestBasicParent::RemoveManagee(
-        int32_t aProtocolId,
-        IProtocol* aListener) -> void
-{
-    FatalError("unreached");
-    return;
-}
-
 auto PTestBasicParent::DeallocManagee(
-        int32_t aProtocolId,
+        mozilla::ipc::ProtocolId aProtocolId,
         IProtocol* aListener) -> void
 {
     FatalError("unreached");
@@ -94,18 +101,34 @@ auto PTestBasicParent::DeallocManagee(
 
 auto PTestBasicParent::OnMessageReceived(const Message& msg__) -> PTestBasicParent::Result
 {
+    if (!CanSend()) {
+        if (mozilla::ipc::LoggingEnabledFor("PTestBasic", mozilla::ipc::ParentSide)) {
+            mozilla::ipc::LogMessageForProtocol(
+                "PTestBasicParent",
+                this->ToplevelProtocol()->OtherPidMaybeInvalid(),
+                "Ignored message for dead actor",
+                (&(msg__))->type(),
+                mozilla::ipc::MessageDirection::eSending);
+        }
+        return MsgProcessed;
+
+    }
     switch (msg__.type()) {
     default:
         return MsgNotKnown;
     case SHMEM_CREATED_MESSAGE_TYPE:
         {
-            FatalError("this protocol tree does not use shmem");
-            return MsgNotKnown;
+            if (!ShmemCreated(msg__)) {
+                return MsgPayloadError;
+            }
+            return MsgProcessed;
         }
     case SHMEM_DESTROYED_MESSAGE_TYPE:
         {
-            FatalError("this protocol tree does not use shmem");
-            return MsgNotKnown;
+            if (!ShmemDestroyed(msg__)) {
+                return MsgPayloadError;
+            }
+            return MsgProcessed;
         }
     }
 }
@@ -114,40 +137,12 @@ auto PTestBasicParent::OnMessageReceived(
         const Message& msg__,
         UniquePtr<Message>& reply__) -> PTestBasicParent::Result
 {
+    if (!CanSend()) {
+        return MsgDropped;
+
+    }
     MOZ_ASSERT_UNREACHABLE("message protocol not supported");
     return MsgNotKnown;
-}
-
-auto PTestBasicParent::OnCallReceived(
-        const Message& msg__,
-        UniquePtr<Message>& reply__) -> PTestBasicParent::Result
-{
-    MOZ_ASSERT_UNREACHABLE("message protocol not supported");
-    return MsgNotKnown;
-}
-
-auto PTestBasicParent::OnChannelClose() -> void
-{
-    DestroySubtree(NormalShutdown);
-    ClearSubtree();
-    DeallocShmems();
-    if (GetLifecycleProxy()) {
-        GetLifecycleProxy()->Release();
-    }
-}
-
-auto PTestBasicParent::OnChannelError() -> void
-{
-    DestroySubtree(AbnormalShutdown);
-    ClearSubtree();
-    DeallocShmems();
-    if (GetLifecycleProxy()) {
-        GetLifecycleProxy()->Release();
-    }
-}
-
-auto PTestBasicParent::ClearSubtree() -> void
-{
 }
 
 
@@ -155,50 +150,36 @@ auto PTestBasicParent::ClearSubtree() -> void
 } // namespace _ipdltest
 } // namespace mozilla
 namespace IPC {
-auto ParamTraits<mozilla::_ipdltest::PTestBasicParent*>::Write(
+auto ParamTraits<::mozilla::_ipdltest::PTestBasicParent*>::Write(
         IPC::MessageWriter* aWriter,
         const paramType& aVar) -> void
 {
-    MOZ_RELEASE_ASSERT(
-        aWriter->GetActor(),
-        "Cannot serialize managed actors without an actor");
-
-    int32_t id;
-    if (!aVar) {
-        id = 0;  // kNullActorId
-    } else {
-        id = aVar->Id();
-        if (id == 1) {  // kFreedActorId
-            aVar->FatalError("Actor has been |delete|d");
-        }
-        MOZ_RELEASE_ASSERT(
-            aWriter->GetActor()->GetIPCChannel() == aVar->GetIPCChannel(),
-            "Actor must be from the same channel as the"
-            " actor it's being sent over");
-        MOZ_RELEASE_ASSERT(
-            aVar->CanSend(),
-            "Actor must still be open when sending");
-    }
-
-    IPC::WriteParam(aWriter, id);
+    IPC::WriteParam(aWriter, static_cast<mozilla::ipc::IProtocol*>(aVar));
+    // Sentinel = 'PTestBasic'
+    (aWriter)->WriteSentinel(343868371);
 }
 
-auto ParamTraits<mozilla::_ipdltest::PTestBasicParent*>::Read(
-        IPC::MessageReader* aReader,
-        paramType* aVar) -> bool
+auto ParamTraits<::mozilla::_ipdltest::PTestBasicParent*>::Read(IPC::MessageReader* aReader) -> IPC::ReadResult<paramType>
 {
-    MOZ_RELEASE_ASSERT(
-        aReader->GetActor(),
-        "Cannot deserialize managed actors without an actor");
+    auto maybe__actor = IPC::ReadParam<mozilla::ipc::IProtocol*>(aReader);
+    if (!maybe__actor) {
+        aReader->FatalError("Error deserializing managed PTestBasic actor");
+        return {};
 
-    mozilla::Maybe<mozilla::ipc::IProtocol*> actor =
-        aReader->GetActor()->ReadActor(aReader, true, "PTestBasic", PTestBasicMsgStart);
-    if (actor.isNothing()) {
-        return false;
+    }
+    auto& actor = *maybe__actor;
+    // Sentinel = 'PTestBasic'
+    if ((!((aReader)->ReadSentinel(343868371)))) {
+        mozilla::ipc::SentinelReadError("Error deserializing managed PTestBasic actor");
+        return {};
     }
 
-    *aVar = static_cast<mozilla::_ipdltest::PTestBasicParent*>(actor.value());
-    return true;
+    if (actor && actor->GetProtocolId() != PTestBasicMsgStart) {
+        aReader->FatalError("Unexpected actor type (expected PTestBasic)");
+
+        return {};
+    }
+    return static_cast<::mozilla::_ipdltest::PTestBasicParent*>(actor);
 }
 
 } // namespace IPC

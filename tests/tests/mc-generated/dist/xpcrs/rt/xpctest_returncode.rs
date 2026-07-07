@@ -13,14 +13,30 @@
 
 #[repr(C)]
 pub struct nsIXPCTestReturnCodeParent {
-    vtable: *const nsIXPCTestReturnCodeParentVTable,
+    vtable: &'static nsIXPCTestReturnCodeParentVTable,
 
     /// This field is a phantomdata to ensure that the VTable type and any
-    /// struct containing it is not safe to send across threads, as XPCOM is
-    /// generally not threadsafe.
+    /// struct containing it is not safe to send across threads by default, as
+    /// XPCOM is generally not threadsafe.
     ///
-    /// XPCOM interfaces in general are not safe to send across threads.
+    /// If this type is marked as [rust_sync], there will be explicit `Send` and
+    /// `Sync` implementations on this type, which will override the inherited
+    /// negative impls from `Rc`.
     __nosync: ::std::marker::PhantomData<::std::rc::Rc<u8>>,
+
+    // Make the rust compiler aware that there might be interior mutability
+    // in what actually implements the interface. This works around UB
+    // introduced by https://github.com/llvm/llvm-project/commit/01859da84bad95fd51d6a03b08b60c660e642a4f
+    // that a rust lint would make blatantly obvious, but doesn't exist.
+    // (See https://github.com/rust-lang/rust/issues/111229).
+    // This prevents optimizations, but those optimizations weren't available
+    // before rustc switched to LLVM 16, and they now cause problems because
+    // of the UB.
+    // Until there's a lint available to find all our UB, it's simpler to
+    // avoid the UB in the first place, at the cost of preventing optimizations
+    // in places that don't cause UB. But again, those optimizations weren't
+    // available before.
+    __maybe_interior_mutability: ::std::cell::UnsafeCell<[u8; 0]>,
 }
 
 // Implementing XpCom for an interface exposes its IID, which allows for easy
@@ -105,7 +121,7 @@ pub struct nsIXPCTestReturnCodeParentVTable {
     pub __base: nsISupportsVTable,
 
     /* nsresult callChild (in long childBehavior); */
-    pub CallChild: unsafe extern "system" fn (this: *const nsIXPCTestReturnCodeParent, childBehavior: i32, _retval: *mut ::nserror::nsresult) -> ::nserror::nsresult,
+    pub CallChild: unsafe extern "system" fn (this: *const nsIXPCTestReturnCodeParent, childBehavior: i32, _retval: *mut nserror::nsresult) -> ::nserror::nsresult,
 }
 
 
@@ -116,7 +132,7 @@ impl nsIXPCTestReturnCodeParent {
 
     /// `nsresult callChild (in long childBehavior);`
     #[inline]
-    pub unsafe fn CallChild(&self, childBehavior: i32, _retval: *mut ::nserror::nsresult) -> ::nserror::nsresult {
+    pub unsafe fn CallChild(&self, childBehavior: i32, _retval: *mut nserror::nsresult) -> ::nserror::nsresult {
         ((*self.vtable).CallChild)(self, childBehavior, _retval)
     }
 
@@ -134,14 +150,30 @@ impl nsIXPCTestReturnCodeParent {
 
 #[repr(C)]
 pub struct nsIXPCTestReturnCodeChild {
-    vtable: *const nsIXPCTestReturnCodeChildVTable,
+    vtable: &'static nsIXPCTestReturnCodeChildVTable,
 
     /// This field is a phantomdata to ensure that the VTable type and any
-    /// struct containing it is not safe to send across threads, as XPCOM is
-    /// generally not threadsafe.
+    /// struct containing it is not safe to send across threads by default, as
+    /// XPCOM is generally not threadsafe.
     ///
-    /// XPCOM interfaces in general are not safe to send across threads.
+    /// If this type is marked as [rust_sync], there will be explicit `Send` and
+    /// `Sync` implementations on this type, which will override the inherited
+    /// negative impls from `Rc`.
     __nosync: ::std::marker::PhantomData<::std::rc::Rc<u8>>,
+
+    // Make the rust compiler aware that there might be interior mutability
+    // in what actually implements the interface. This works around UB
+    // introduced by https://github.com/llvm/llvm-project/commit/01859da84bad95fd51d6a03b08b60c660e642a4f
+    // that a rust lint would make blatantly obvious, but doesn't exist.
+    // (See https://github.com/rust-lang/rust/issues/111229).
+    // This prevents optimizations, but those optimizations weren't available
+    // before rustc switched to LLVM 16, and they now cause problems because
+    // of the UB.
+    // Until there's a lint available to find all our UB, it's simpler to
+    // avoid the UB in the first place, at the cost of preventing optimizations
+    // in places that don't cause UB. But again, those optimizations weren't
+    // available before.
+    __maybe_interior_mutability: ::std::cell::UnsafeCell<[u8; 0]>,
 }
 
 // Implementing XpCom for an interface exposes its IID, which allows for easy

@@ -6,9 +6,7 @@
 #define __gen_xpctest_interfaces_h__
 
 
-#ifndef __gen_nsISupports_h__
 #include "nsISupports.h"
-#endif
 
 #include "js/GCAnnotations.h"
 
@@ -27,7 +25,7 @@
 class NS_NO_VTABLE nsIXPCTestInterfaceA : public nsISupports {
  public:
 
-  NS_DECLARE_STATIC_IID_ACCESSOR(NS_IXPCTESTINTERFACEA_IID)
+  NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTINTERFACEA_IID)
 
   /* Used by ToJSValue to check which scriptable interface is implemented. */
   using ScriptableInterfaceType = nsIXPCTestInterfaceA;
@@ -38,7 +36,6 @@ class NS_NO_VTABLE nsIXPCTestInterfaceA : public nsISupports {
 
 };
 
-  NS_DEFINE_STATIC_IID_ACCESSOR(nsIXPCTestInterfaceA, NS_IXPCTESTINTERFACEA_IID)
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTINTERFACEA \
@@ -72,7 +69,7 @@ class NS_NO_VTABLE nsIXPCTestInterfaceA : public nsISupports {
 class NS_NO_VTABLE nsIXPCTestInterfaceB : public nsISupports {
  public:
 
-  NS_DECLARE_STATIC_IID_ACCESSOR(NS_IXPCTESTINTERFACEB_IID)
+  NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTINTERFACEB_IID)
 
   /* Used by ToJSValue to check which scriptable interface is implemented. */
   using ScriptableInterfaceType = nsIXPCTestInterfaceB;
@@ -83,7 +80,6 @@ class NS_NO_VTABLE nsIXPCTestInterfaceB : public nsISupports {
 
 };
 
-  NS_DEFINE_STATIC_IID_ACCESSOR(nsIXPCTestInterfaceB, NS_IXPCTESTINTERFACEB_IID)
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTINTERFACEB \
@@ -117,7 +113,7 @@ class NS_NO_VTABLE nsIXPCTestInterfaceB : public nsISupports {
 class NS_NO_VTABLE nsIXPCTestInterfaceC : public nsISupports {
  public:
 
-  NS_DECLARE_STATIC_IID_ACCESSOR(NS_IXPCTESTINTERFACEC_IID)
+  NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTINTERFACEC_IID)
 
   /* Used by ToJSValue to check which scriptable interface is implemented. */
   using ScriptableInterfaceType = nsIXPCTestInterfaceC;
@@ -128,7 +124,6 @@ class NS_NO_VTABLE nsIXPCTestInterfaceC : public nsISupports {
 
 };
 
-  NS_DEFINE_STATIC_IID_ACCESSOR(nsIXPCTestInterfaceC, NS_IXPCTESTINTERFACEC_IID)
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTINTERFACEC \

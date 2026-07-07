@@ -98,7 +98,7 @@ input_file: inputs/crossref/crossref/xpctest_params.idl/testOctet__json
             "path_kind": "Generated code",
             "lines": [
               {
-                "lno": 51,
+                "lno": 47,
                 "bounds": [
                   33,
                   42
@@ -106,12 +106,19 @@ input_file: inputs/crossref/crossref/xpctest_params.idl/testOctet__json
                 "line": "JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD TestOctet(uint8_t a, uint8_t *b, uint8_t *_retval) = 0;",
                 "context": "nsIXPCTestParams",
                 "contextsym": "T_nsIXPCTestParams",
-                "peekRange": "51-51"
+                "peekRange": "47-47"
               }
             ]
           }
         ],
-        "callees": [],
+        "callees": [
+          {
+            "jump": "__GENERATED__/dist/include/xpctest_params.h#47",
+            "kind": "enum",
+            "pretty": "nsresult",
+            "sym": "T_nsresult"
+          }
+        ],
         "meta": {
           "structured": 1,
           "pretty": "nsIXPCTestParams::TestOctet",

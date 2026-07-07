@@ -93,7 +93,7 @@ interface nsIXPCTestParams : nsISupports {
                                         out nsIIDPtr rvIID, [retval, iid_is(rvIID)] out nsQIResult rv);
 
   // Test arrays of iid_is. According to khuey we don't use it for anything
-  // in firefox-main, but calendar stuff depends on it.
+  // in mozilla-central, but calendar stuff depends on it.
   void                  testInterfaceIsArray(in unsigned long aLength, in nsIIDPtr aIID,
                                              [array, size_is(aLength), iid_is(aIID)] in nsQIResult a,
                                              inout unsigned long bLength, inout nsIIDPtr bIID,
@@ -114,5 +114,7 @@ interface nsIXPCTestParams : nsISupports {
   ACString             testStringArrayOptionalSize([array, size_is(aLength)] in string a, [optional] in unsigned long aLength);
 
   // Test for omitted optional out parameter.
-  void                 testOmittedOptionalOut([optional] out nsIURI aOut);
+  void                 testOmittedOptionalOut(in nsIXPCTestParams aJSObj, [optional] out nsIURI aOut);
+
+  readonly attribute double testNaN;
 };

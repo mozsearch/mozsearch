@@ -13,14 +13,30 @@
 
 #[repr(C)]
 pub struct nsIXPCTestCEnums {
-    vtable: *const nsIXPCTestCEnumsVTable,
+    vtable: &'static nsIXPCTestCEnumsVTable,
 
     /// This field is a phantomdata to ensure that the VTable type and any
-    /// struct containing it is not safe to send across threads, as XPCOM is
-    /// generally not threadsafe.
+    /// struct containing it is not safe to send across threads by default, as
+    /// XPCOM is generally not threadsafe.
     ///
-    /// XPCOM interfaces in general are not safe to send across threads.
+    /// If this type is marked as [rust_sync], there will be explicit `Send` and
+    /// `Sync` implementations on this type, which will override the inherited
+    /// negative impls from `Rc`.
     __nosync: ::std::marker::PhantomData<::std::rc::Rc<u8>>,
+
+    // Make the rust compiler aware that there might be interior mutability
+    // in what actually implements the interface. This works around UB
+    // introduced by https://github.com/llvm/llvm-project/commit/01859da84bad95fd51d6a03b08b60c660e642a4f
+    // that a rust lint would make blatantly obvious, but doesn't exist.
+    // (See https://github.com/rust-lang/rust/issues/111229).
+    // This prevents optimizations, but those optimizations weren't available
+    // before rustc switched to LLVM 16, and they now cause problems because
+    // of the UB.
+    // Until there's a lint available to find all our UB, it's simpler to
+    // avoid the UB in the first place, at the cost of preventing optimizations
+    // in places that don't cause UB. But again, those optimizations weren't
+    // available before.
+    __maybe_interior_mutability: ::std::cell::UnsafeCell<[u8; 0]>,
 }
 
 // Implementing XpCom for an interface exposes its IID, which allows for easy
@@ -105,7 +121,7 @@ pub struct nsIXPCTestCEnumsVTable {
     pub __base: nsISupportsVTable,
 
     /* void testCEnumInput (in nsIXPCTestCEnums_testFlagsExplicit abc); */
-    pub TestCEnumInput: unsafe extern "system" fn (this: *const nsIXPCTestCEnums, abc:  u8) -> ::nserror::nsresult,
+    pub TestCEnumInput: unsafe extern "system" fn (this: *const nsIXPCTestCEnums, abc: u8) -> ::nserror::nsresult,
 
     /* nsIXPCTestCEnums_testFlagsExplicit testCEnumOutput (); */
     pub TestCEnumOutput: unsafe extern "system" fn (this: *const nsIXPCTestCEnums, _retval: *mut u8) -> ::nserror::nsresult,
@@ -119,9 +135,48 @@ impl nsIXPCTestCEnums {
     pub const testConst: i32 = 1;
 
 
+    pub const shouldBe1Explicit: u8 = 1;
+
+
+    pub const shouldBe2Explicit: u8 = 2;
+
+
+    pub const shouldBe4Explicit: u8 = 4;
+
+
+    pub const shouldBe8Explicit: u8 = 8;
+
+
+    pub const shouldBe12Explicit: u8 = 12;
+
+
+    pub const shouldBe0Implicit: u8 = 0;
+
+
+    pub const shouldBe1Implicit: u8 = 1;
+
+
+    pub const shouldBe2Implicit: u8 = 2;
+
+
+    pub const shouldBe3Implicit: u8 = 3;
+
+
+    pub const shouldBe5Implicit: u8 = 5;
+
+
+    pub const shouldBe6Implicit: u8 = 6;
+
+
+    pub const shouldBe2AgainImplicit: u8 = 2;
+
+
+    pub const shouldBe3AgainImplicit: u8 = 3;
+
+
     /// `void testCEnumInput (in nsIXPCTestCEnums_testFlagsExplicit abc);`
     #[inline]
-    pub unsafe fn TestCEnumInput(&self, abc:  u8) -> ::nserror::nsresult {
+    pub unsafe fn TestCEnumInput(&self, abc: u8) -> ::nserror::nsresult {
         ((*self.vtable).TestCEnumInput)(self, abc)
     }
 
