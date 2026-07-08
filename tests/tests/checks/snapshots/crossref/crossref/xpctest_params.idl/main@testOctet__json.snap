@@ -100,10 +100,10 @@ input_file: inputs/crossref/crossref/xpctest_params.idl/testOctet__json
               {
                 "lno": 47,
                 "bounds": [
-                  33,
-                  42
+                  104,
+                  113
                 ],
-                "line": "JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD TestOctet(uint8_t a, uint8_t *b, uint8_t *_retval) = 0;",
+                "line": "JS_HAZ_CAN_RUN_SCRIPT MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestParams_testOctet) NS_IMET",
                 "context": "nsIXPCTestParams",
                 "contextsym": "T_nsIXPCTestParams",
                 "peekRange": "47-47"

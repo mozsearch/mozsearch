@@ -34,10 +34,10 @@ input_file: inputs/crossref/crossref/xpctest_attributes.idl/booleanProperty_gett
               {
                 "lno": 119,
                 "bounds": [
-                  33,
-                  51
+                  119,
+                  137
                 ],
-                "line": "JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD GetBooleanProperty(bool *aBooleanProperty) = 0;",
+                "line": "JS_HAZ_CAN_RUN_SCRIPT MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestObjectReadWrite_booleanPr",
                 "context": "nsIXPCTestObjectReadWrite",
                 "contextsym": "T_nsIXPCTestObjectReadWrite",
                 "peekRange": "119-119"
