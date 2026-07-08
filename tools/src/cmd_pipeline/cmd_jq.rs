@@ -55,8 +55,12 @@ impl JQCommand {
             path: (),
         };
 
-        let defs = jaq_core::defs().chain(jaq_std::defs()).chain(jaq_json::defs());
-        let funs = jaq_core::funs().chain(jaq_std::funs()).chain(jaq_json::funs());
+        let defs = jaq_core::defs()
+            .chain(jaq_std::defs())
+            .chain(jaq_json::defs());
+        let funs = jaq_core::funs()
+            .chain(jaq_std::funs())
+            .chain(jaq_json::funs());
 
         let loader = jaq_core::load::Loader::new(defs);
         let arena = jaq_core::load::Arena::default();
