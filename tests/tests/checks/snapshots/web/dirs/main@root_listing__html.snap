@@ -584,7 +584,7 @@ input_file: inputs/web/dirs/root_listing__html
         <tr>
           <td class="name"><a href="/tests/source/nsISupports.h" class="mimetype-fixed-container mimetype-icon-h">nsISupports.h</a></td>
           <td class="description"><a href="/tests/source/nsISupports.h" title=""></td>
-          <td class="size"><a href="/tests/source/nsISupports.h">898</a></td>
+          <td class="size"><a href="/tests/source/nsISupports.h">1018</a></td>
           <td class="coverage"><a href="/tests/source/nsISupports.h" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
