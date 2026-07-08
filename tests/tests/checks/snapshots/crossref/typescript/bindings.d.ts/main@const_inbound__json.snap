@@ -1,0 +1,72 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/typescript/bindings.d.ts/const_inbound__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "S_js_ts/src/bindings.d.ts/TsEnum#TsConstInbound.",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "ts/src/bindings.d.ts",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 19,
+                "bounds": [
+                  0,
+                  14
+                ],
+                "line": "TsConstInbound,",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "TsEnum::TsConstInbound",
+          "sym": "S_js_ts/src/bindings.d.ts/TsEnum#TsConstInbound.",
+          "type_pretty": "(enum member) TsConstInbound",
+          "kind": "field",
+          "subsystem": null,
+          "parentsym": "S_js_ts/src/bindings.d.ts/TsEnum#",
+          "slotOwner": {
+            "slotKind": "const",
+            "slotLang": "js",
+            "implKind": null,
+            "ownerLang": "cpp",
+            "sym": "E_<T_NS::R::XYZ>_TAG1"
+          },
+          "implKind": "impl",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        },
+        "idl_syms": [
+          "E_<T_NS::R::XYZ>_TAG1"
+        ]
+      },
+      "relation": "Queried",
+      "quality": {
+        "IdentifierPrefix": [
+          14,
+          0
+        ]
+      },
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

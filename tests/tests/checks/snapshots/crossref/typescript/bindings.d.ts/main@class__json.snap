@@ -1,0 +1,90 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/typescript/bindings.d.ts/class__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "S_js_ts/src/bindings.d.ts/tsClass#",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "ts/src/bindings.d.ts",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 2,
+                "bounds": [
+                  14,
+                  21
+                ],
+                "line": "declare class tsClass  {",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "tsClass",
+          "sym": "S_js_ts/src/bindings.d.ts/tsClass#",
+          "type_pretty": "class tsClass",
+          "kind": "class",
+          "subsystem": null,
+          "slotOwner": {
+            "slotKind": "class",
+            "slotLang": "js",
+            "implKind": null,
+            "ownerLang": "idl",
+            "sym": "XPIDL_nsIXPCTestObjectReadWrite"
+          },
+          "implKind": "impl",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [
+            {
+              "pretty": "tsClass::tsGetter",
+              "sym": "S_js_ts/src/bindings.d.ts/tsClass#tsGetter().",
+              "props": [],
+              "args": []
+            },
+            {
+              "pretty": "tsClass::tsSetter",
+              "sym": "S_js_ts/src/bindings.d.ts/tsClass#tsSetter().",
+              "props": [],
+              "args": []
+            }
+          ],
+          "fields": [
+            {
+              "lineRange": "",
+              "pretty": "tsClass::tsAttribute",
+              "sym": "S_js_ts/src/bindings.d.ts/tsClass#tsAttribute.",
+              "type": "string",
+              "typesym": "",
+              "offsetBytes": 0,
+              "bitPositions": null,
+              "sizeBytes": null
+            }
+          ],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        },
+        "idl_syms": [
+          "XPIDL_nsIXPCTestObjectReadWrite"
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}
