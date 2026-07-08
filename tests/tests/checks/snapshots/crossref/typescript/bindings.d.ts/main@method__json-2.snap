@@ -1,0 +1,66 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/typescript/bindings.d.ts/method__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "S_js_ts/src/bindings.d.ts/tsMethod().",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "ts/src/bindings.d.ts",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 14,
+                "bounds": [
+                  17,
+                  25
+                ],
+                "line": "declare function tsMethod(a: boolean, b: boolean): boolean;",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "tsMethod",
+          "sym": "S_js_ts/src/bindings.d.ts/tsMethod().",
+          "type_pretty": "boolean",
+          "kind": "method",
+          "subsystem": null,
+          "slotOwner": {
+            "slotKind": "method",
+            "slotLang": "js",
+            "implKind": null,
+            "ownerLang": "idl",
+            "sym": "XPIDL_nsIXPCTestParams_testBoolean"
+          },
+          "implKind": "impl",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        },
+        "idl_syms": [
+          "XPIDL_nsIXPCTestParams_testBoolean"
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

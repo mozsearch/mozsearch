@@ -17,8 +17,9 @@ use std::io;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use tools::file_format::analysis::{
-    AnalysisKind, AnalysisSource, AnalysisStructured, AnalysisTarget, LineRange, Location,
-    SourceRange, SourceTag, StructuredFieldInfo, StructuredMethodInfo, StructuredOverrideInfo,
+    AnalysisKind, AnalysisSource, AnalysisStructured, AnalysisTarget, BindingOwnerLang,
+    BindingSlotLang, BindingSlotProps, LineRange, Location, SourceRange, SourceTag,
+    StructuredBindingSlotInfo, StructuredFieldInfo, StructuredMethodInfo, StructuredOverrideInfo,
     StructuredSuperInfo, StructuredTag, TargetTag, WithLocation,
 };
 use tools::file_format::analysis_manglings::mangle_file;
@@ -151,6 +152,7 @@ fn scip_roles_to_searchfox_analysis_kind(roles: i32) -> AnalysisKind {
 
 /// Our specifically handled languages for conditional logic.  We currently
 /// require tree-sitter support for all supported languages.
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum ScipLang {
     Python,
     Rust,
@@ -923,6 +925,8 @@ fn analyze_using_scip(
                 supers.sort_unstable_by_key(|r| r.sym);
                 overrides.sort_unstable_by_key(|r| r.sym);
 
+                let (slot_owner, binding_slots) = binding_links(scip_sym_info, lang);
+
                 let structured = AnalysisStructured {
                     structured: StructuredTag::Structured,
                     pretty: symbol_info.pretty,
@@ -931,7 +935,7 @@ fn analyze_using_scip(
                     kind: ustr(symbol_info.kind.or(fallback_kind).unwrap_or("")),
                     subsystem: None,
                     parent_sym: symbol_info.parent_sym,
-                    slot_owner: None,
+                    slot_owner,
                     impl_kind: ustr("impl"),
                     size_bytes: if size_bytes > 0 {
                         Some(size_bytes)
@@ -940,7 +944,7 @@ fn analyze_using_scip(
                     },
                     alignment_bytes: None,
                     own_vf_ptr_bytes: None,
-                    binding_slots: vec![],
+                    binding_slots,
                     ontology_slots: vec![],
                     supers,
                     methods: vec![],
@@ -1478,6 +1482,100 @@ fn analyze_using_scip(
     }
 
     assert_eq!(file.pos(), byte_count, "Should've processed the whole file");
+}
+
+/// Returns the binding slot data for scip_sym_info.
+///
+/// There is at most one other symbol this symbol is a binding to, but many symbols can bind to it.
+///
+/// This currently extracts binding information from the symbol's documentation.
+fn binding_links(
+    symbol: &scip::types::SymbolInformation,
+    language: ScipLang,
+) -> (
+    Option<StructuredBindingSlotInfo>,
+    Vec<StructuredBindingSlotInfo>,
+) {
+    lazy_static! {
+        static ref RE_BINDING_TO: Regex = Regex::new(
+            r"binding_to\s*\(\s*(?<language>[^,]+)\s*,\s*(?<kind>[^,]+)\s*,\s*(?<symbol>[^,]+)\s*\)"
+        )
+        .unwrap();
+        static ref RE_BOUND_AS: Regex = Regex::new(
+            r"bound_as\s*\(\s*(?<language>[^,]+)\s*,\s*(?<kind>[^,]+)\s*,\s*(?<symbol>[^,]+)\s*\)"
+        )
+        .unwrap();
+    }
+
+    let mut slot_owners = symbol
+        .documentation
+        .iter()
+        .flat_map(|doc| RE_BINDING_TO.captures_iter(doc))
+        .map(|captures| captures.extract())
+        .flat_map(|(_, [target_language, kind, target_symbol])| {
+            let self_language = match language {
+                ScipLang::Python => return None,
+                ScipLang::Rust => BindingSlotLang::Rust,
+                ScipLang::Typescript => BindingSlotLang::JS,
+                ScipLang::Jvm => BindingSlotLang::Jvm,
+            };
+
+            let other_language = target_language.parse().ok()?;
+            let kind = kind.parse().ok()?;
+
+            let props = BindingSlotProps {
+                slot_kind: kind,
+                slot_lang: self_language,
+                owner_lang: other_language,
+                impl_kind: None,
+            };
+
+            let info = StructuredBindingSlotInfo {
+                props,
+                sym: ustr(target_symbol),
+            };
+
+            Some(info)
+        });
+    let slot_owner = slot_owners.next();
+    for extra_slot_owner in slot_owners {
+        // Technically, nothing prevents having multiple binding_to annotations on the same item
+        warn!("Extra slot owner ignored: {:?}", extra_slot_owner);
+    }
+
+    let binding_slots = symbol
+        .documentation
+        .iter()
+        .flat_map(|doc| RE_BOUND_AS.captures_iter(doc))
+        .map(|captures| captures.extract())
+        .flat_map(|(_, [target_language, kind, target_symbol])| {
+            let self_language = match language {
+                ScipLang::Python => return None,
+                ScipLang::Rust => BindingOwnerLang::Rust,
+                ScipLang::Typescript => BindingOwnerLang::JS,
+                ScipLang::Jvm => BindingOwnerLang::Jvm,
+            };
+
+            let other_language = target_language.parse().ok()?;
+            let kind = kind.parse().ok()?;
+
+            let props = BindingSlotProps {
+                slot_kind: kind,
+                slot_lang: other_language,
+                owner_lang: self_language,
+                impl_kind: None,
+            };
+
+            let info = StructuredBindingSlotInfo {
+                props,
+                sym: ustr(target_symbol),
+            };
+
+            Some(info)
+        })
+        .collect();
+
+    (slot_owner, binding_slots)
 }
 
 fn main() {

@@ -18,6 +18,7 @@ use std::marker::PhantomData;
 use std::ops::Deref;
 
 use itertools::Itertools;
+use strum::EnumString;
 
 #[cfg(not(target_arch = "wasm32"))]
 use flate2::read::GzDecoder;
@@ -351,8 +352,11 @@ where
     pub sym: StrT,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, EnumString,
+)]
 #[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
 pub enum BindingSlotKind {
     /// A class that directly implements or will be subclassed.
     Class,
@@ -388,8 +392,11 @@ pub enum BindingSlotKind {
     EnablingFunc,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, EnumString,
+)]
 #[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
 pub enum BindingSlotLang {
     Cpp,
     JS,
@@ -397,8 +404,11 @@ pub enum BindingSlotLang {
     Jvm,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, EnumString,
+)]
 #[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
 pub enum BindingOwnerLang {
     Idl,
     Glean,

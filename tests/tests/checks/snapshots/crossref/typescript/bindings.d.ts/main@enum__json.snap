@@ -1,0 +1,92 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/typescript/bindings.d.ts/enum__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "S_js_ts/src/bindings.d.ts/TsEnum#",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "ts/src/bindings.d.ts",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 17,
+                "bounds": [
+                  5,
+                  11
+                ],
+                "line": "enum TsEnum {",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "TsEnum",
+          "sym": "S_js_ts/src/bindings.d.ts/TsEnum#",
+          "type_pretty": "enum TsEnum",
+          "kind": "class",
+          "subsystem": null,
+          "slotOwner": {
+            "slotKind": "class",
+            "slotLang": "js",
+            "implKind": null,
+            "ownerLang": "cpp",
+            "sym": "T_NS::R::XYZ"
+          },
+          "implKind": "impl",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [
+            {
+              "lineRange": "",
+              "pretty": "TsEnum::TsConstInbound",
+              "sym": "S_js_ts/src/bindings.d.ts/TsEnum#TsConstInbound.",
+              "type": "(enum member) TsConstInbound",
+              "typesym": "",
+              "offsetBytes": 0,
+              "bitPositions": null,
+              "sizeBytes": null
+            },
+            {
+              "lineRange": "",
+              "pretty": "TsEnum::TsConstOutbound",
+              "sym": "S_js_ts/src/bindings.d.ts/TsEnum#TsConstOutbound.",
+              "type": "(enum member) TsConstOutbound",
+              "typesym": "",
+              "offsetBytes": 0,
+              "bitPositions": null,
+              "sizeBytes": null
+            }
+          ],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        },
+        "idl_syms": [
+          "T_NS::R::XYZ"
+        ]
+      },
+      "relation": "Queried",
+      "quality": {
+        "IdentifierPrefix": [
+          6,
+          0
+        ]
+      },
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

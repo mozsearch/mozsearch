@@ -1,0 +1,67 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/typescript/bindings.d.ts/getter__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "S_js_ts/src/bindings.d.ts/tsClass#tsGetter().",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "ts/src/bindings.d.ts",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 7,
+                "bounds": [
+                  0,
+                  8
+                ],
+                "line": "tsGetter(): string;",
+                "context": "tsClass",
+                "contextsym": "S_js_ts/src/bindings.d.ts/tsClass#"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "tsClass::tsGetter",
+          "sym": "S_js_ts/src/bindings.d.ts/tsClass#tsGetter().",
+          "type_pretty": "string",
+          "kind": "method",
+          "subsystem": null,
+          "parentsym": "S_js_ts/src/bindings.d.ts/tsClass#",
+          "slotOwner": {
+            "slotKind": "getter",
+            "slotLang": "js",
+            "implKind": null,
+            "ownerLang": "idl",
+            "sym": "XPIDL_nsIXPCTestObjectReadWrite_stringProperty"
+          },
+          "implKind": "impl",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        },
+        "idl_syms": [
+          "XPIDL_nsIXPCTestObjectReadWrite_stringProperty"
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

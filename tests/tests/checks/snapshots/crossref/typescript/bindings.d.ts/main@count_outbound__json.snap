@@ -1,0 +1,70 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/typescript/bindings.d.ts/count_outbound__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "S_js_ts/src/bindings.d.ts/TsEnum#TsConstOutbound.",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "ts/src/bindings.d.ts",
+            "path_kind": "Normal",
+            "lines": [
+              {
+                "lno": 21,
+                "bounds": [
+                  0,
+                  15
+                ],
+                "line": "TsConstOutbound,",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "TsEnum::TsConstOutbound",
+          "sym": "S_js_ts/src/bindings.d.ts/TsEnum#TsConstOutbound.",
+          "type_pretty": "(enum member) TsConstOutbound",
+          "kind": "field",
+          "subsystem": null,
+          "parentsym": "S_js_ts/src/bindings.d.ts/TsEnum#",
+          "implKind": "impl",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "const",
+              "slotLang": "cpp",
+              "implKind": null,
+              "ownerLang": "js",
+              "sym": "E_<T_NS::R::XYZ>_TAG2"
+            }
+          ],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": {
+        "IdentifierPrefix": [
+          15,
+          0
+        ]
+      },
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}
