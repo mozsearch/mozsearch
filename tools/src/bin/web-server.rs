@@ -390,7 +390,10 @@ async fn main() {
                     }
 
                     Err(join_err) => {
-                        eprintln!("Request handler task failed or was cancelled: {:?}", join_err);
+                        eprintln!(
+                            "Request handler task failed or was cancelled: {:?}",
+                            join_err
+                        );
                         WebResponse::internal_error("Internal server error".to_owned())
                     }
                 }
