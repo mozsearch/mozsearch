@@ -22,7 +22,7 @@
   {0xd58a82ab, 0xd8f7, 0x4ca9, \
     { 0x92, 0x73, 0xb3, 0x29, 0x0d, 0x42, 0xa0, 0xcf }}
 
-class NS_NO_VTABLE nsIXPCTestFunctionInterface : public nsISupports {
+class NS_NO_VTABLE MOZ_BINDING(binding_to, idl, class, XPIDL_nsIXPCTestFunctionInterface) nsIXPCTestFunctionInterface : public nsISupports {
  public:
 
   NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTFUNCTIONINTERFACE_IID)
@@ -31,27 +31,27 @@ class NS_NO_VTABLE nsIXPCTestFunctionInterface : public nsISupports {
   using ScriptableInterfaceType = nsIXPCTestFunctionInterface;
 
   /* string echo (in string arg); */
-  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD Echo(const char * arg, char * *_retval) = 0;
+  JS_HAZ_CAN_RUN_SCRIPT MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestFunctionInterface_echo) NS_IMETHOD Echo(const char * arg, char * *_retval) = 0;
 
 };
 
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTFUNCTIONINTERFACE \
-  NS_IMETHOD Echo(const char * arg, char * *_retval) override; 
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestFunctionInterface_echo) NS_IMETHOD Echo(const char * arg, char * *_retval) override; 
 
 /* Use this macro when declaring the members of this interface when the
    class doesn't implement the interface. This is useful for forwarding. */
 #define NS_DECL_NON_VIRTUAL_NSIXPCTESTFUNCTIONINTERFACE \
-  nsresult Echo(const char * arg, char * *_retval); 
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestFunctionInterface_echo) nsresult Echo(const char * arg, char * *_retval); 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object. */
 #define NS_FORWARD_NSIXPCTESTFUNCTIONINTERFACE(_to) \
-  NS_IMETHOD Echo(const char * arg, char * *_retval) override { return _to Echo(arg, _retval); } 
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestFunctionInterface_echo) NS_IMETHOD Echo(const char * arg, char * *_retval) override { return _to Echo(arg, _retval); } 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object in a safe way. */
 #define NS_FORWARD_SAFE_NSIXPCTESTFUNCTIONINTERFACE(_to) \
-  NS_IMETHOD Echo(const char * arg, char * *_retval) override { return !_to ? NS_ERROR_NULL_POINTER : _to->Echo(arg, _retval); } 
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestFunctionInterface_echo) NS_IMETHOD Echo(const char * arg, char * *_retval) override { return !_to ? NS_ERROR_NULL_POINTER : _to->Echo(arg, _retval); } 
 
 
 /* starting interface:    nsIXPCTestUtils */
@@ -61,7 +61,7 @@ class NS_NO_VTABLE nsIXPCTestFunctionInterface : public nsISupports {
   {0x1e9cddeb, 0x510d, 0x449a, \
     { 0xb1, 0x52, 0x3c, 0x1b, 0x5b, 0x31, 0xd4, 0x1d }}
 
-class NS_NO_VTABLE nsIXPCTestUtils : public nsISupports {
+class NS_NO_VTABLE MOZ_BINDING(binding_to, idl, class, XPIDL_nsIXPCTestUtils) nsIXPCTestUtils : public nsISupports {
  public:
 
   NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTUTILS_IID)
@@ -70,27 +70,27 @@ class NS_NO_VTABLE nsIXPCTestUtils : public nsISupports {
   using ScriptableInterfaceType = nsIXPCTestUtils;
 
   /* nsIXPCTestFunctionInterface doubleWrapFunction (in nsIXPCTestFunctionInterface f); */
-  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD DoubleWrapFunction(nsIXPCTestFunctionInterface *f, nsIXPCTestFunctionInterface **_retval) = 0;
+  JS_HAZ_CAN_RUN_SCRIPT MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestUtils_doubleWrapFunction) NS_IMETHOD DoubleWrapFunction(nsIXPCTestFunctionInterface *f, nsIXPCTestFunctionInterface **_retval) = 0;
 
 };
 
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTUTILS \
-  NS_IMETHOD DoubleWrapFunction(nsIXPCTestFunctionInterface *f, nsIXPCTestFunctionInterface **_retval) override; 
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestUtils_doubleWrapFunction) NS_IMETHOD DoubleWrapFunction(nsIXPCTestFunctionInterface *f, nsIXPCTestFunctionInterface **_retval) override; 
 
 /* Use this macro when declaring the members of this interface when the
    class doesn't implement the interface. This is useful for forwarding. */
 #define NS_DECL_NON_VIRTUAL_NSIXPCTESTUTILS \
-  nsresult DoubleWrapFunction(nsIXPCTestFunctionInterface *f, nsIXPCTestFunctionInterface **_retval); 
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestUtils_doubleWrapFunction) nsresult DoubleWrapFunction(nsIXPCTestFunctionInterface *f, nsIXPCTestFunctionInterface **_retval); 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object. */
 #define NS_FORWARD_NSIXPCTESTUTILS(_to) \
-  NS_IMETHOD DoubleWrapFunction(nsIXPCTestFunctionInterface *f, nsIXPCTestFunctionInterface **_retval) override { return _to DoubleWrapFunction(f, _retval); } 
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestUtils_doubleWrapFunction) NS_IMETHOD DoubleWrapFunction(nsIXPCTestFunctionInterface *f, nsIXPCTestFunctionInterface **_retval) override { return _to DoubleWrapFunction(f, _retval); } 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object in a safe way. */
 #define NS_FORWARD_SAFE_NSIXPCTESTUTILS(_to) \
-  NS_IMETHOD DoubleWrapFunction(nsIXPCTestFunctionInterface *f, nsIXPCTestFunctionInterface **_retval) override { return !_to ? NS_ERROR_NULL_POINTER : _to->DoubleWrapFunction(f, _retval); } 
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestUtils_doubleWrapFunction) NS_IMETHOD DoubleWrapFunction(nsIXPCTestFunctionInterface *f, nsIXPCTestFunctionInterface **_retval) override { return !_to ? NS_ERROR_NULL_POINTER : _to->DoubleWrapFunction(f, _retval); } 
 
 typedef void *  Noncompat;
 
@@ -102,7 +102,7 @@ typedef void *  Noncompat;
   {0xddf64cfb, 0x668a, 0x4571, \
     { 0xa9, 0x00, 0x0f, 0xe2, 0xba, 0xbb, 0x62, 0x49 }}
 
-class NS_NO_VTABLE nsIXPCTestNotScriptable : public nsISupports {
+class NS_NO_VTABLE MOZ_BINDING(binding_to, idl, class, XPIDL_nsIXPCTestNotScriptable) nsIXPCTestNotScriptable : public nsISupports {
  public:
 
   NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTNOTSCRIPTABLE_IID)
@@ -135,7 +135,7 @@ class NS_NO_VTABLE nsIXPCTestNotScriptable : public nsISupports {
   {0x1bbfe703, 0xc67d, 0x4995, \
     { 0xb0, 0x61, 0x56, 0x4c, 0x8a, 0x1c, 0x39, 0xd7 }}
 
-class NS_NO_VTABLE nsIXPCTestTypeScript : public nsISupports {
+class NS_NO_VTABLE MOZ_BINDING(binding_to, idl, class, XPIDL_nsIXPCTestTypeScript) nsIXPCTestTypeScript : public nsISupports {
  public:
 
   NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTTYPESCRIPT_IID)
@@ -144,77 +144,77 @@ class NS_NO_VTABLE nsIXPCTestTypeScript : public nsISupports {
   using ScriptableInterfaceType = nsIXPCTestTypeScript;
 
   /* attribute long exposedProp; */
-  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD GetExposedProp(int32_t *aExposedProp) = 0;
-  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD SetExposedProp(int32_t aExposedProp) = 0;
+  JS_HAZ_CAN_RUN_SCRIPT MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestTypeScript_exposedProp) NS_IMETHOD GetExposedProp(int32_t *aExposedProp) = 0;
+  JS_HAZ_CAN_RUN_SCRIPT MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestTypeScript_exposedProp) NS_IMETHOD SetExposedProp(int32_t aExposedProp) = 0;
 
   /* void exposedMethod (in long arg); */
-  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD ExposedMethod(int32_t arg) = 0;
+  JS_HAZ_CAN_RUN_SCRIPT MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestTypeScript_exposedMethod) NS_IMETHOD ExposedMethod(int32_t arg) = 0;
 
   /* [noscript] attribute Noncompat noncompatProp; */
-  NS_IMETHOD GetNoncompatProp(Noncompat *aNoncompatProp) = 0;
-  NS_IMETHOD SetNoncompatProp(Noncompat aNoncompatProp) = 0;
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestTypeScript_noncompatProp) NS_IMETHOD GetNoncompatProp(Noncompat *aNoncompatProp) = 0;
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestTypeScript_noncompatProp) NS_IMETHOD SetNoncompatProp(Noncompat aNoncompatProp) = 0;
 
   /* [noscript] void noncompatMethod (in Noncompat arg); */
-  NS_IMETHOD NoncompatMethod(Noncompat arg) = 0;
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestTypeScript_noncompatMethod) NS_IMETHOD NoncompatMethod(Noncompat arg) = 0;
 
   /* [noscript] attribute long noscriptProp; */
-  NS_IMETHOD GetNoscriptProp(int32_t *aNoscriptProp) = 0;
-  NS_IMETHOD SetNoscriptProp(int32_t aNoscriptProp) = 0;
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestTypeScript_noscriptProp) NS_IMETHOD GetNoscriptProp(int32_t *aNoscriptProp) = 0;
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestTypeScript_noscriptProp) NS_IMETHOD SetNoscriptProp(int32_t aNoscriptProp) = 0;
 
   /* [noscript] void noscriptMethod (in long arg); */
-  NS_IMETHOD NoscriptMethod(int32_t arg) = 0;
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestTypeScript_noscriptMethod) NS_IMETHOD NoscriptMethod(int32_t arg) = 0;
 
 };
 
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTTYPESCRIPT \
-  NS_IMETHOD GetExposedProp(int32_t *aExposedProp) override; \
-  NS_IMETHOD SetExposedProp(int32_t aExposedProp) override; \
-  NS_IMETHOD ExposedMethod(int32_t arg) override; \
-  NS_IMETHOD GetNoncompatProp(Noncompat *aNoncompatProp) override; \
-  NS_IMETHOD SetNoncompatProp(Noncompat aNoncompatProp) override; \
-  NS_IMETHOD NoncompatMethod(Noncompat arg) override; \
-  NS_IMETHOD GetNoscriptProp(int32_t *aNoscriptProp) override; \
-  NS_IMETHOD SetNoscriptProp(int32_t aNoscriptProp) override; \
-  NS_IMETHOD NoscriptMethod(int32_t arg) override; 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestTypeScript_exposedProp) NS_IMETHOD GetExposedProp(int32_t *aExposedProp) override; \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestTypeScript_exposedProp) NS_IMETHOD SetExposedProp(int32_t aExposedProp) override; \
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestTypeScript_exposedMethod) NS_IMETHOD ExposedMethod(int32_t arg) override; \
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestTypeScript_noncompatProp) NS_IMETHOD GetNoncompatProp(Noncompat *aNoncompatProp) override; \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestTypeScript_noncompatProp) NS_IMETHOD SetNoncompatProp(Noncompat aNoncompatProp) override; \
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestTypeScript_noncompatMethod) NS_IMETHOD NoncompatMethod(Noncompat arg) override; \
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestTypeScript_noscriptProp) NS_IMETHOD GetNoscriptProp(int32_t *aNoscriptProp) override; \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestTypeScript_noscriptProp) NS_IMETHOD SetNoscriptProp(int32_t aNoscriptProp) override; \
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestTypeScript_noscriptMethod) NS_IMETHOD NoscriptMethod(int32_t arg) override; 
 
 /* Use this macro when declaring the members of this interface when the
    class doesn't implement the interface. This is useful for forwarding. */
 #define NS_DECL_NON_VIRTUAL_NSIXPCTESTTYPESCRIPT \
-  nsresult GetExposedProp(int32_t *aExposedProp); \
-  nsresult SetExposedProp(int32_t aExposedProp); \
-  nsresult ExposedMethod(int32_t arg); \
-  nsresult GetNoncompatProp(Noncompat *aNoncompatProp); \
-  nsresult SetNoncompatProp(Noncompat aNoncompatProp); \
-  nsresult NoncompatMethod(Noncompat arg); \
-  nsresult GetNoscriptProp(int32_t *aNoscriptProp); \
-  nsresult SetNoscriptProp(int32_t aNoscriptProp); \
-  nsresult NoscriptMethod(int32_t arg); 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestTypeScript_exposedProp) nsresult GetExposedProp(int32_t *aExposedProp); \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestTypeScript_exposedProp) nsresult SetExposedProp(int32_t aExposedProp); \
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestTypeScript_exposedMethod) nsresult ExposedMethod(int32_t arg); \
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestTypeScript_noncompatProp) nsresult GetNoncompatProp(Noncompat *aNoncompatProp); \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestTypeScript_noncompatProp) nsresult SetNoncompatProp(Noncompat aNoncompatProp); \
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestTypeScript_noncompatMethod) nsresult NoncompatMethod(Noncompat arg); \
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestTypeScript_noscriptProp) nsresult GetNoscriptProp(int32_t *aNoscriptProp); \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestTypeScript_noscriptProp) nsresult SetNoscriptProp(int32_t aNoscriptProp); \
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestTypeScript_noscriptMethod) nsresult NoscriptMethod(int32_t arg); 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object. */
 #define NS_FORWARD_NSIXPCTESTTYPESCRIPT(_to) \
-  NS_IMETHOD GetExposedProp(int32_t *aExposedProp) override { return _to GetExposedProp(aExposedProp); } \
-  NS_IMETHOD SetExposedProp(int32_t aExposedProp) override { return _to SetExposedProp(aExposedProp); } \
-  NS_IMETHOD ExposedMethod(int32_t arg) override { return _to ExposedMethod(arg); } \
-  NS_IMETHOD GetNoncompatProp(Noncompat *aNoncompatProp) override { return _to GetNoncompatProp(aNoncompatProp); } \
-  NS_IMETHOD SetNoncompatProp(Noncompat aNoncompatProp) override { return _to SetNoncompatProp(aNoncompatProp); } \
-  NS_IMETHOD NoncompatMethod(Noncompat arg) override { return _to NoncompatMethod(arg); } \
-  NS_IMETHOD GetNoscriptProp(int32_t *aNoscriptProp) override { return _to GetNoscriptProp(aNoscriptProp); } \
-  NS_IMETHOD SetNoscriptProp(int32_t aNoscriptProp) override { return _to SetNoscriptProp(aNoscriptProp); } \
-  NS_IMETHOD NoscriptMethod(int32_t arg) override { return _to NoscriptMethod(arg); } 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestTypeScript_exposedProp) NS_IMETHOD GetExposedProp(int32_t *aExposedProp) override { return _to GetExposedProp(aExposedProp); } \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestTypeScript_exposedProp) NS_IMETHOD SetExposedProp(int32_t aExposedProp) override { return _to SetExposedProp(aExposedProp); } \
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestTypeScript_exposedMethod) NS_IMETHOD ExposedMethod(int32_t arg) override { return _to ExposedMethod(arg); } \
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestTypeScript_noncompatProp) NS_IMETHOD GetNoncompatProp(Noncompat *aNoncompatProp) override { return _to GetNoncompatProp(aNoncompatProp); } \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestTypeScript_noncompatProp) NS_IMETHOD SetNoncompatProp(Noncompat aNoncompatProp) override { return _to SetNoncompatProp(aNoncompatProp); } \
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestTypeScript_noncompatMethod) NS_IMETHOD NoncompatMethod(Noncompat arg) override { return _to NoncompatMethod(arg); } \
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestTypeScript_noscriptProp) NS_IMETHOD GetNoscriptProp(int32_t *aNoscriptProp) override { return _to GetNoscriptProp(aNoscriptProp); } \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestTypeScript_noscriptProp) NS_IMETHOD SetNoscriptProp(int32_t aNoscriptProp) override { return _to SetNoscriptProp(aNoscriptProp); } \
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestTypeScript_noscriptMethod) NS_IMETHOD NoscriptMethod(int32_t arg) override { return _to NoscriptMethod(arg); } 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object in a safe way. */
 #define NS_FORWARD_SAFE_NSIXPCTESTTYPESCRIPT(_to) \
-  NS_IMETHOD GetExposedProp(int32_t *aExposedProp) override { return !_to ? NS_ERROR_NULL_POINTER : _to->GetExposedProp(aExposedProp); } \
-  NS_IMETHOD SetExposedProp(int32_t aExposedProp) override { return !_to ? NS_ERROR_NULL_POINTER : _to->SetExposedProp(aExposedProp); } \
-  NS_IMETHOD ExposedMethod(int32_t arg) override { return !_to ? NS_ERROR_NULL_POINTER : _to->ExposedMethod(arg); } \
-  NS_IMETHOD GetNoncompatProp(Noncompat *aNoncompatProp) override { return !_to ? NS_ERROR_NULL_POINTER : _to->GetNoncompatProp(aNoncompatProp); } \
-  NS_IMETHOD SetNoncompatProp(Noncompat aNoncompatProp) override { return !_to ? NS_ERROR_NULL_POINTER : _to->SetNoncompatProp(aNoncompatProp); } \
-  NS_IMETHOD NoncompatMethod(Noncompat arg) override { return !_to ? NS_ERROR_NULL_POINTER : _to->NoncompatMethod(arg); } \
-  NS_IMETHOD GetNoscriptProp(int32_t *aNoscriptProp) override { return !_to ? NS_ERROR_NULL_POINTER : _to->GetNoscriptProp(aNoscriptProp); } \
-  NS_IMETHOD SetNoscriptProp(int32_t aNoscriptProp) override { return !_to ? NS_ERROR_NULL_POINTER : _to->SetNoscriptProp(aNoscriptProp); } \
-  NS_IMETHOD NoscriptMethod(int32_t arg) override { return !_to ? NS_ERROR_NULL_POINTER : _to->NoscriptMethod(arg); } 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestTypeScript_exposedProp) NS_IMETHOD GetExposedProp(int32_t *aExposedProp) override { return !_to ? NS_ERROR_NULL_POINTER : _to->GetExposedProp(aExposedProp); } \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestTypeScript_exposedProp) NS_IMETHOD SetExposedProp(int32_t aExposedProp) override { return !_to ? NS_ERROR_NULL_POINTER : _to->SetExposedProp(aExposedProp); } \
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestTypeScript_exposedMethod) NS_IMETHOD ExposedMethod(int32_t arg) override { return !_to ? NS_ERROR_NULL_POINTER : _to->ExposedMethod(arg); } \
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestTypeScript_noncompatProp) NS_IMETHOD GetNoncompatProp(Noncompat *aNoncompatProp) override { return !_to ? NS_ERROR_NULL_POINTER : _to->GetNoncompatProp(aNoncompatProp); } \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestTypeScript_noncompatProp) NS_IMETHOD SetNoncompatProp(Noncompat aNoncompatProp) override { return !_to ? NS_ERROR_NULL_POINTER : _to->SetNoncompatProp(aNoncompatProp); } \
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestTypeScript_noncompatMethod) NS_IMETHOD NoncompatMethod(Noncompat arg) override { return !_to ? NS_ERROR_NULL_POINTER : _to->NoncompatMethod(arg); } \
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestTypeScript_noscriptProp) NS_IMETHOD GetNoscriptProp(int32_t *aNoscriptProp) override { return !_to ? NS_ERROR_NULL_POINTER : _to->GetNoscriptProp(aNoscriptProp); } \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestTypeScript_noscriptProp) NS_IMETHOD SetNoscriptProp(int32_t aNoscriptProp) override { return !_to ? NS_ERROR_NULL_POINTER : _to->SetNoscriptProp(aNoscriptProp); } \
+  MOZ_BINDING(binding_to, idl, method, XPIDL_nsIXPCTestTypeScript_noscriptMethod) NS_IMETHOD NoscriptMethod(int32_t arg) override { return !_to ? NS_ERROR_NULL_POINTER : _to->NoscriptMethod(arg); } 
 
 
 #endif /* __gen_xpctest_utils_h__ */
