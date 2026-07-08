@@ -479,7 +479,6 @@ fn analyse_symbol(
     subtree_name: Option<&str>,
     relative_path: &str,
     doc_name: Option<&str>,
-    doc_namespace: Option<&str>,
 ) -> SymbolAnalysis {
     let mut pretty_pieces = vec![];
     let mut sym_pieces = vec![];
@@ -642,16 +641,6 @@ fn analyse_symbol(
         }
     }
 
-    // If we have an explicit doc namespace that provides context
-    // the descriptors do not provide, then use that for all
-    // pieces except the last piece we get from the descriptor.
-    if let Some(namespace) = doc_namespace
-        && let Some(last_piece) = pretty_pieces.pop()
-    {
-        pretty_pieces = namespace.split("::").map(|s| s.to_string()).collect();
-        pretty_pieces.push(last_piece);
-    }
-
     // We've standardized on "::" as the delimiter here even though
     // one might argue on a convention of using ".".  But crossref
     // currently requires "::" and this seems like a reasonable
@@ -756,22 +745,6 @@ fn analyze_using_scip(
                 //let mut align_bytes = 0;
                 let offset_bytes = 0;
 
-                // Until https://github.com/rust-lang/rust-analyzer/pull/16559
-                // landed in rust-analyzer, we tried to use the doc string
-                // containing the tunneled hover information to additionally
-                // namespace the pretty identifier in an attempt to match our
-                // original rust-analysis behavior.  This ended up only working
-                // for fields (where we also would populate size_bytes and
-                // offset_bytes above).  Bug 1881645 provides some more context
-                // but the general situation is that this specific logic can
-                // likely be removed as part of a nice clean-up, but it's also
-                // worth revisiting the symbol and pretty mappings with more
-                // intent.
-                //
-                // That said, there may be other SCIP languages where this could
-                // still be a useful hack.
-                let doc_namespace: Option<String> = None;
-
                 // High confidence identifier name of what's being defined for
                 // fallback use in the case of locals as extracted from the doc
                 // strings.
@@ -811,10 +784,7 @@ fn analyze_using_scip(
                                 // TODO: try and extract some info from here;
                                 // It looks like this could be very descriptor-dependent.
                             }
-                            ScipLang::Rust => {
-                                // We no longer do anything for rust.  See the
-                                // doc_namespace comments above.
-                            }
+                            ScipLang::Rust => {}
                             ScipLang::Typescript => {
                                 if let Some(caps) = RE_TS_TYPED.captures(doc) {
                                     if let Some(s) = caps.get(1) {
@@ -873,7 +843,6 @@ fn analyze_using_scip(
                             subtree_name,
                             &doc.relative_path,
                             None,
-                            None,
                         );
                         Some(enclosing_symbol_info.norm_sym)
                     } else {
@@ -892,7 +861,6 @@ fn analyze_using_scip(
                     subtree_name,
                     &doc.relative_path,
                     display_name,
-                    doc_namespace.as_deref(),
                 );
 
                 let mut supers = vec![];
@@ -913,7 +881,6 @@ fn analyze_using_scip(
                         lang_name,
                         subtree_name,
                         &doc.relative_path,
-                        None,
                         None,
                     );
 
@@ -1216,7 +1183,6 @@ fn analyze_using_scip(
                         lang_name,
                         subtree_name,
                         &doc.relative_path,
-                        None,
                         None,
                     );
 
