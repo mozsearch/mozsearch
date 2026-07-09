@@ -95,8 +95,7 @@ input_file: inputs/analysis/xpidl/CDATATest.h/cdata__json
     "target": 1,
     "kind": "def",
     "pretty": "CDATATestNS",
-    "sym": "NS_CDATATestNS",
-    "peekRange": "12-13"
+    "sym": "NS_CDATATestNS"
   },
   {
     "loc": "00013:7",

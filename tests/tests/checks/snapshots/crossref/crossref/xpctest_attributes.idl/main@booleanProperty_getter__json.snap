@@ -40,7 +40,7 @@ input_file: inputs/crossref/crossref/xpctest_attributes.idl/booleanProperty_gett
                 "line": "JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD GetBooleanProperty(bool *aBooleanProperty) = 0;",
                 "context": "nsIXPCTestObjectReadWrite",
                 "contextsym": "T_nsIXPCTestObjectReadWrite",
-                "peekRange": "121-122"
+                "peekRange": "122-122"
               }
             ]
           }

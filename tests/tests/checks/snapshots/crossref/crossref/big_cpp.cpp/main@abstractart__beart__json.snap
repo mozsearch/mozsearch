@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/crossref/big_cpp.cpp/abstractart__beart__json
 ---
 {
   "symbol_crossref_infos": [
@@ -21,7 +22,7 @@ expression: "&to_value(scil).unwrap()"
                 "line": "virtual void beArt() = 0;",
                 "context": "outerNS::AbstractArt",
                 "contextsym": "T_outerNS::AbstractArt",
-                "peekRange": "416-418"
+                "peekRange": "418-418"
               }
             ]
           }
