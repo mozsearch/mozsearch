@@ -64,11 +64,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1780331254,
-        "narHash": "sha256-ZgicGl13cOdZSxb9dLZl1k9XB44oKd5jo6Mjv64lMw4=",
+        "lastModified": 1783513756,
+        "narHash": "sha256-VGKWOC5zI50gOLoJKJSw7Yexpg8S2uq+cZdb2KUe8tc=",
         "owner": "mozsearch",
         "repo": "scip-typescript",
-        "rev": "5fec9871c381ae75f0efdd75221c8071df08c0e8",
+        "rev": "9137ccfccce3cc98891fc4fe1c6a22a357f3488e",
         "type": "github"
       },
       "original": {

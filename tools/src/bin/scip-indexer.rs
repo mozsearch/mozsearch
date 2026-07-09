@@ -764,12 +764,6 @@ fn analyze_using_scip(
                 let mut type_pretty = None;
 
                 lazy_static! {
-                    // used for fields, methods, arguments/parameters
-                    static ref RE_TS_TYPED: Regex =
-                        Regex::new(r"^```ts\n([^ ]+) (.+): ([^\n]+)\n```$").unwrap();
-                    // used for modules, classes
-                    static ref RE_TS_UNTYPED: Regex =
-                        Regex::new(r"^```ts\n([^ ]+) (.+)\n```$").unwrap();
                     // used for modules, classes
                     static ref RE_KT_FUNCTION: Regex =
                         Regex::new(r"^```kt\n([^ ]+) ([^ ]+) fun ([^ ]+)\(.*\)(?:: (.*))?\n```$").unwrap();
@@ -785,24 +779,7 @@ fn analyze_using_scip(
                                 // It looks like this could be very descriptor-dependent.
                             }
                             ScipLang::Rust => {}
-                            ScipLang::Typescript => {
-                                if let Some(caps) = RE_TS_TYPED.captures(doc) {
-                                    if let Some(s) = caps.get(1) {
-                                        fallback_kind =
-                                            Some(s.as_str().trim_matches(|c| c == '(' || c == ')'));
-                                    }
-                                    if let Some(s) = caps.get(2) {
-                                        doc_name = Some(s.as_str().to_string());
-                                    }
-                                    if let Some(s) = caps.get(3) {
-                                        type_pretty = Some(ustr(s.as_str()));
-                                    }
-                                } else if let Some(caps) = RE_TS_UNTYPED.captures(doc)
-                                    && let Some(s) = caps.get(2)
-                                {
-                                    doc_name = Some(s.as_str().to_string());
-                                }
-                            }
+                            ScipLang::Typescript => {}
                             ScipLang::Jvm => {
                                 if let Some(caps) = RE_KT_FUNCTION.captures(doc) {
                                     fallback_kind = Some("method");
@@ -822,7 +799,35 @@ fn analyze_using_scip(
                 if let Some(doc) = scip_sym_info.signature_documentation.as_ref()
                     && !doc.text.is_empty()
                 {
-                    type_pretty = Some(ustr(&doc.text));
+                    lazy_static! {
+                        // used for fields, methods, arguments/parameters
+                        static ref RE_TS_TYPED: Regex =
+                            Regex::new(r"^([^ ]+) (.+): ([^\n]+)$").unwrap();
+                        // used for modules, classes
+                        static ref RE_TS_UNTYPED: Regex =
+                            Regex::new(r"^([^ ]+) (.+)\$").unwrap();
+                    }
+
+                    if lang == ScipLang::Typescript
+                        && let Some(caps) = RE_TS_TYPED.captures(&doc.text)
+                    {
+                        if let Some(s) = caps.get(1) {
+                            fallback_kind = Some(s.as_str().trim_matches(|c| c == '(' || c == ')'));
+                        }
+                        if let Some(s) = caps.get(2) {
+                            doc_name = Some(s.as_str().to_string());
+                        }
+                        if let Some(s) = caps.get(3) {
+                            type_pretty = Some(ustr(s.as_str()));
+                        }
+                    } else if lang == ScipLang::Typescript
+                        && let Some(caps) = RE_TS_UNTYPED.captures(&doc.text)
+                        && let Some(s) = caps.get(2)
+                    {
+                        doc_name = Some(s.as_str().to_string());
+                    } else {
+                        type_pretty = Some(ustr(&doc.text));
+                    }
                 }
 
                 let display_name = if !scip_sym_info.display_name.is_empty() {

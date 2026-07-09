@@ -10,14 +10,15 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/method
     "syntax": "def,method",
     "pretty": "method objectAssign::method",
     "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.method().",
-    "nestingRange": "8:11-10:3"
+    "nestingRange": "8:11-10:3",
+    "type": "(method) method\"method\""
   },
   {
     "loc": "00008:2-8",
     "structured": 1,
     "pretty": "objectAssign::method",
     "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.method().",
-    "type_pretty": null,
+    "type_pretty": "(method) method\"method\"",
     "kind": "method",
     "subsystem": null,
     "implKind": "impl",
@@ -45,7 +46,8 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/method
     "source": 1,
     "syntax": "use,method",
     "pretty": "method objectAssign::method",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.method()."
+    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.method().",
+    "type": "(method) method\"method\""
   },
   {
     "loc": "00021:13-19",
