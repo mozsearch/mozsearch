@@ -147,7 +147,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "_ZN13GlobalContext17LessGlobalContext21decideWhetherToDecideEv",
     "context": "GlobalContext::LessGlobalContext",
     "contextsym": "T_GlobalContext::LessGlobalContext",
-    "peekRange": "75-84"
+    "peekRange": "84-84"
   },
   {
     "loc": "00119:14-35",
@@ -157,7 +157,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "_ZN13GlobalContext21decideDogBooleanTraitEv",
     "context": "GlobalContext",
     "contextsym": "T_GlobalContext",
-    "peekRange": "109-119"
+    "peekRange": "119-119"
   },
   {
     "loc": "00120:27-48",
@@ -234,7 +234,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "F_<T_outerNS::Thing>_mHP",
     "context": "outerNS::Thing",
     "contextsym": "T_outerNS::Thing",
-    "peekRange": "138-142"
+    "peekRange": "142-142"
   },
   {
     "loc": "00146:7-15",
@@ -244,7 +244,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "F_<T_outerNS::Thing>_mDefunct",
     "context": "outerNS::Thing",
     "contextsym": "T_outerNS::Thing",
-    "peekRange": "144-146"
+    "peekRange": "146-146"
   },
   {
     "loc": "00149:2-7",
@@ -618,7 +618,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "212-224"
+    "peekRange": "224-224"
   },
   {
     "loc": "00225:7-28",
@@ -685,7 +685,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "_ZN7outerNS8OuterCatC1Ebb",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "231-246"
+    "peekRange": "240-246"
   },
   {
     "loc": "00240:2-10",
@@ -756,7 +756,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "_ZN7outerNS8OuterCat13isFriendlyCatEv",
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
-    "peekRange": "293-303"
+    "peekRange": "303-303"
   },
   {
     "loc": "00305:7-27",
@@ -1178,7 +1178,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "_ZN7outerNS11AbstractArt5beArtEv",
     "context": "outerNS::AbstractArt",
     "contextsym": "T_outerNS::AbstractArt",
-    "peekRange": "416-418"
+    "peekRange": "418-418"
   },
   {
     "loc": "00421:28-39",
@@ -1232,7 +1232,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "_ZN7outerNS12PracticalArt5beArtEv",
     "context": "outerNS::PracticalArt",
     "contextsym": "T_outerNS::PracticalArt",
-    "peekRange": "425-426"
+    "peekRange": "426-426"
   },
   {
     "loc": "00428:4-7",

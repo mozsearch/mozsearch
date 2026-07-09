@@ -106,7 +106,7 @@ input_file: inputs/crossref/crossref/xpctest_params.idl/testOctet__json
                 "line": "JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD TestOctet(uint8_t a, uint8_t *b, uint8_t *_retval) = 0;",
                 "context": "nsIXPCTestParams",
                 "contextsym": "T_nsIXPCTestParams",
-                "peekRange": "50-51"
+                "peekRange": "51-51"
               }
             ]
           }

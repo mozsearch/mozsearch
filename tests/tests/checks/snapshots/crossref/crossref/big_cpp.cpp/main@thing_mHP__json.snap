@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/crossref/big_cpp.cpp/thing_mHP__json
 ---
 {
   "symbol_crossref_infos": [
@@ -59,7 +60,7 @@ expression: "&to_value(scil).unwrap()"
                 "line": "int mHP;",
                 "context": "outerNS::Thing",
                 "contextsym": "T_outerNS::Thing",
-                "peekRange": "138-142"
+                "peekRange": "142-142"
               }
             ]
           }

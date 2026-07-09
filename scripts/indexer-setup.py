@@ -19,7 +19,6 @@ flags = [
     '-plugin-arg-mozsearch-index', treeRoot,
     '-plugin-arg-mozsearch-index', os.path.join(indexRoot, 'analysis'),
     '-plugin-arg-mozsearch-index', objdir,
-    '-fparse-all-comments',
 ]
 flags_str = " ".join([ '-Xclang {}'.format(flag) for flag in flags ])
 
