@@ -658,7 +658,7 @@ class ASTVisitor {
       break;
 
     case "ImportSourceDeclaration":
-      this.importSourceDeclaration(stmt);
+      // Obsolete.
       break;
 
     case "ExportDeclaration":
@@ -863,36 +863,35 @@ class ASTVisitor {
   }
 
   importDeclaration(stmt) {
-    for (const spec of stmt.specifiers) {
-      if (spec.type === "ImportSpecifier" ||
-          spec.type === "ImportNamespaceSpecifier") {
-        // The following case shouldn't create any definition:
-        //   import { NAME } from "module.mjs";
-        //
-        // The following case should create a definition for NAME2:
-        //   import { NAME as NAME2 } from "module.mjs";
-        //
-        // The namespace import always define a new identifier:
-        //   import NS from "module.mjs";
-        if (spec.type === "ImportNamespaceSpecifier" ||
-            !isSameLocation(spec.id.loc, spec.name.loc)) {
-          this.defPattern(spec.name, false);
-        }
+    if (stmt.specifiers) {
+      for (const spec of stmt.specifiers) {
+        if (spec.type === "ImportSpecifier" ||
+            spec.type === "ImportNamespaceSpecifier") {
+          // The following case shouldn't create any definition:
+          //   import { NAME } from "module.mjs";
+          //
+          // The following case should create a definition for NAME2:
+          //   import { NAME as NAME2 } from "module.mjs";
+          //
+          // The namespace import always define a new identifier:
+          //   import NS from "module.mjs";
+          if (spec.type === "ImportNamespaceSpecifier" ||
+              !isSameLocation(spec.id.loc, spec.name.loc)) {
+            this.defPattern(spec.name, false);
+          }
 
-        // In both of the following cases, the "NAME" is a reference to
-        // the exported symbol inside "module.mjs":
-        //   import { NAME } from "module.mjs";
-        //   import { NAME as NAME2 } from "module.mjs";
-        if (spec.type === "ImportSpecifier" &&
-            spec.id.type === "Identifier" &&
-            spec.id.name !== "default") {
-          this.expression(spec.id);
+          // In both of the following cases, the "NAME" is a reference to
+          // the exported symbol inside "module.mjs":
+          //   import { NAME } from "module.mjs";
+          //   import { NAME as NAME2 } from "module.mjs";
+          if (spec.type === "ImportSpecifier" &&
+              spec.id.type === "Identifier" &&
+              spec.id.name !== "default") {
+            this.expression(spec.id);
+          }
         }
       }
     }
-  }
-
-  importSourceDeclaration(stmt) {
   }
 
   exportDeclaration(stmt) {
@@ -1076,8 +1075,11 @@ class ASTVisitor {
       break;
 
     case "CallImport":
-    case "CallImportSource":
       this.callImport(expr);
+      break;
+
+    case "CallImportSource":
+      // Obsolete.
       break;
 
     default:
@@ -1687,9 +1689,6 @@ class NameAnalysis extends ASTVisitor {
         break;
       case "ImportDeclaration":
         this.#handleImportDeclaration(env, stmt);
-      case "ImportSourceDeclaration":
-        this.#handleImportSourceDeclaration(env, stmt);
-        break;
       case "ExportDeclaration":
         this.#handleExportDeclaration(env, stmt);
         break;
@@ -1704,19 +1703,18 @@ class NameAnalysis extends ASTVisitor {
   }
 
   #handleImportDeclaration(env, stmt) {
-    for (const spec of stmt.specifiers) {
-      if (spec.type === "ImportSpecifier" ||
-          spec.type === "ImportNamespaceSpecifier") {
-        // See the comment in the ASTVisitor.importDeclaration.
-        if (spec.type === "ImportNamespaceSpecifier" ||
-            !isSameLocation(spec.id.loc, spec.name.loc)) {
-          this.#handleDefPattern(env, spec.name);
+    if (stmt.specifiers) {
+      for (const spec of stmt.specifiers) {
+        if (spec.type === "ImportSpecifier" ||
+            spec.type === "ImportNamespaceSpecifier") {
+          // See the comment in the ASTVisitor.importDeclaration.
+          if (spec.type === "ImportNamespaceSpecifier" ||
+              !isSameLocation(spec.id.loc, spec.name.loc)) {
+            this.#handleDefPattern(env, spec.name);
+          }
         }
       }
     }
-  }
-
-  #handleImportSourceDeclaration(env, stmt) {
   }
 
   #handleExportDeclaration(env, stmt) {
