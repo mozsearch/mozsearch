@@ -13,8 +13,6 @@
 # listings), but that could just as easily be accomplished with slightly fancier
 # location directives.
 
-from __future__ import absolute_import
-from __future__ import print_function
 import sys
 import json
 import os.path

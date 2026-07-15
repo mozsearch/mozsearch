@@ -4,7 +4,6 @@
 # doesn't end up getting specialized to perform a grep, this could potentially
 # be unified.
 
-from __future__ import absolute_import
 import sys
 import boto3
 import os

@@ -1,6 +1,5 @@
 # Functions for working with the `nsresult`.
 
-from __future__ import absolute_import
 import json
 import re
 import sys

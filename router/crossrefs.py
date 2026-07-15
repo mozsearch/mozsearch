@@ -1,7 +1,6 @@
 # Functions for working with the `crossref` and `crossref-extra` cross-reference
 # files documented in `crossref.md`.
 
-from __future__ import absolute_import
 import json
 import sys
 import mmap

@@ -6,7 +6,6 @@
 # - indexer
 # - web-server
 
-from __future__ import absolute_import
 import boto3
 from datetime import datetime, timedelta
 import re

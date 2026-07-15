@@ -33,8 +33,6 @@
 # - If you want to copy a file TO the machine, you need to update this script or
 #   fork it to make a TO version.
 
-from __future__ import absolute_import
-from __future__ import print_function
 import boto3
 from datetime import datetime
 import os

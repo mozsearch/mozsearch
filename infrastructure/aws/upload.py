@@ -4,7 +4,6 @@
 #
 # Usage: upload.py <filename> <bucket> <key>
 
-from __future__ import absolute_import
 import sys
 import boto3
 import awslib

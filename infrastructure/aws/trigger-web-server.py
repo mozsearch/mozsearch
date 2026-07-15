@@ -16,8 +16,6 @@
 # Pass "-" to <check-script> and <working-dir> when using this script
 # outside of the indexer.
 
-from __future__ import absolute_import
-from __future__ import print_function
 import sys
 from datetime import datetime, timedelta
 import dateutil.parser
