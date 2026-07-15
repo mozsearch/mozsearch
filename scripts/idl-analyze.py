@@ -536,6 +536,9 @@ for l in lines:
     cur += len(l) + 1
     linebreaks.append(cur)
 
+# Some .idl files are meant to be included using preprocessor #include directives, and can't be parsed on their own.
+# IMO ideally those should be renamed from .idl to something like .idl.inc in the Firefox source tree.
+# For now only try to parse .idl files which have a matching generated C++ header.
 if analysis:
     (methods, enums, cdata_analysis) = analysis
     p = xpidl.IDLParser()
