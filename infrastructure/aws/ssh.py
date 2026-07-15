@@ -7,8 +7,6 @@
 #   Without arguments, prints a list of instances to connect to.
 #   With an instance ID as argument, connects to that instance.
 
-from __future__ import absolute_import
-from __future__ import print_function
 import boto3
 from datetime import datetime
 import os

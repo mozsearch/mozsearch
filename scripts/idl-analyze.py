@@ -56,8 +56,6 @@
 # but no attempt is made to enhance the "search" endpoint to opt out of this
 # behavior or
 
-from __future__ import absolute_import
-from __future__ import print_function
 import sys
 import xpidl
 import os.path
@@ -305,8 +303,6 @@ def handle_interface(methods, enums, iface):
     iface_methods = []
     iface_fields = []
 
-    #print p.name
-    #print 'BASE', p.base
     for m in iface.members:
         name = getattr(m, 'name', '')
         (lineno, colno) = find_line_column(text, name, m.location._lexpos)
