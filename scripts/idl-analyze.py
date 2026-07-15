@@ -56,6 +56,7 @@
 # but no attempt is made to enhance the "search" endpoint to opt out of this
 # behavior or
 
+import argparse
 import sys
 import xpidl
 import os.path
@@ -517,9 +518,20 @@ def handle_interface(methods, enums, iface):
         'fields': iface_fields
     })
 
-indexRoot = sys.argv[1]
-fname = sys.argv[2]
-objdir = sys.argv[3]
+parser = argparse.ArgumentParser(
+    prog='idl-analyze',
+    description='Turns XPIDL files into mozsearch analysis records',
+)
+
+parser.add_argument('index_root', help="The location to read the C++ analysis from and output XPIDL analysis to")
+parser.add_argument('xpidl_file', help="The full path to the XPIDL file to analyze")
+parser.add_argument('objdir', help="The path to the objdir, where we will read the generated C++ header to build the line map")
+
+args = parser.parse_args()
+
+indexRoot = args.index_root
+fname = args.xpidl_file
+objdir = args.objdir
 
 text = open(fname).read()
 cdata_line_map = read_header_cdata_line_map(fname, objdir)
