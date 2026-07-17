@@ -365,56 +365,60 @@ async fn main() {
         let (stream, _) = server.accept().await.unwrap();
         let io = TokioIo::new(stream);
 
-        let handler = async |req: http::Request<_>| {
-            if req.method() != Method::GET {
-                return http::Response::builder()
-                    .status(StatusCode::METHOD_NOT_ALLOWED)
-                    .body("Invalid method".to_string());
-            }
-
-            let response = {
-                let _permit = SEMAPHORE.acquire().await.unwrap();
-                let cfg = cfg.clone();
-                let ident_map = ident_map.clone();
-                match tokio::task::spawn_blocking(move || {
-                    let path = req.uri().path();
-                    handle(&cfg, &ident_map, WebRequest { path })
-                })
-                .await
-                {
-                    Ok(response) => response,
-
-                    Err(join_err) if join_err.is_panic() => {
-                        eprintln!("Request handler panicked: {:?}", join_err);
-                        WebResponse::internal_error("Internal server error".to_owned())
-                    }
-
-                    Err(join_err) => {
-                        eprintln!(
-                            "Request handler task failed or was cancelled: {:?}",
-                            join_err
-                        );
-                        WebResponse::internal_error("Internal server error".to_owned())
-                    }
+        let cfg = cfg.clone();
+        let ident_map = ident_map.clone();
+        tokio::spawn(async move {
+            let handler = async |req: http::Request<_>| {
+                if req.method() != Method::GET {
+                    return http::Response::builder()
+                        .status(StatusCode::METHOD_NOT_ALLOWED)
+                        .body("Invalid method".to_string());
                 }
+
+                let response = {
+                    let _permit = SEMAPHORE.acquire().await.unwrap();
+                    let cfg = cfg.clone();
+                    let ident_map = ident_map.clone();
+                    match tokio::task::spawn_blocking(move || {
+                        let path = req.uri().path();
+                        handle(&cfg, &ident_map, WebRequest { path })
+                    })
+                    .await
+                    {
+                        Ok(response) => response,
+
+                        Err(join_err) if join_err.is_panic() => {
+                            eprintln!("Request handler panicked: {:?}", join_err);
+                            WebResponse::internal_error("Internal server error".to_owned())
+                        }
+
+                        Err(join_err) => {
+                            eprintln!(
+                                "Request handler task failed or was cancelled: {:?}",
+                                join_err
+                            );
+                            WebResponse::internal_error("Internal server error".to_owned())
+                        }
+                    }
+                };
+
+                let mut builder = http::Response::builder()
+                    .status(response.status)
+                    .header(header::CONTENT_TYPE, response.content_type);
+
+                if let Some(loc) = response.redirect_location {
+                    builder = builder.header(header::LOCATION, loc);
+                }
+
+                builder.body(response.output)
             };
 
-            let mut builder = http::Response::builder()
-                .status(response.status)
-                .header(header::CONTENT_TYPE, response.content_type);
-
-            if let Some(loc) = response.redirect_location {
-                builder = builder.header(header::LOCATION, loc);
+            if let Err(err) = http1::Builder::new()
+                .serve_connection(io, service_fn(handler))
+                .await
+            {
+                println!("Error serving connection: {:?}", err);
             }
-
-            builder.body(response.output)
-        };
-
-        if let Err(err) = http1::Builder::new()
-            .serve_connection(io, service_fn(handler))
-            .await
-        {
-            println!("Error serving connection: {:?}", err);
-        }
+        });
     }
 }
