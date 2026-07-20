@@ -22,7 +22,7 @@
   {0x3c8fd2f5, 0x970c, 0x42c6, \
     { 0xb5, 0xdd, 0xcd, 0xa1, 0xc1, 0x6d, 0xcf, 0xd8 }}
 
-class NS_NO_VTABLE nsIXPCTestInterfaceA : public nsISupports {
+class NS_NO_VTABLE MOZ_BINDING(binding_to, idl, class, XPIDL_nsIXPCTestInterfaceA) nsIXPCTestInterfaceA : public nsISupports {
  public:
 
   NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTINTERFACEA_IID)
@@ -31,32 +31,32 @@ class NS_NO_VTABLE nsIXPCTestInterfaceA : public nsISupports {
   using ScriptableInterfaceType = nsIXPCTestInterfaceA;
 
   /* attribute string name; */
-  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD GetName(char * *aName) = 0;
-  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD SetName(const char * aName) = 0;
+  JS_HAZ_CAN_RUN_SCRIPT MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestInterfaceA_name) NS_IMETHOD GetName(char * *aName) = 0;
+  JS_HAZ_CAN_RUN_SCRIPT MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestInterfaceA_name) NS_IMETHOD SetName(const char * aName) = 0;
 
 };
 
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTINTERFACEA \
-  NS_IMETHOD GetName(char * *aName) override; \
-  NS_IMETHOD SetName(const char * aName) override; 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestInterfaceA_name) NS_IMETHOD GetName(char * *aName) override; \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestInterfaceA_name) NS_IMETHOD SetName(const char * aName) override; 
 
 /* Use this macro when declaring the members of this interface when the
    class doesn't implement the interface. This is useful for forwarding. */
 #define NS_DECL_NON_VIRTUAL_NSIXPCTESTINTERFACEA \
-  nsresult GetName(char * *aName); \
-  nsresult SetName(const char * aName); 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestInterfaceA_name) nsresult GetName(char * *aName); \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestInterfaceA_name) nsresult SetName(const char * aName); 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object. */
 #define NS_FORWARD_NSIXPCTESTINTERFACEA(_to) \
-  NS_IMETHOD GetName(char * *aName) override { return _to GetName(aName); } \
-  NS_IMETHOD SetName(const char * aName) override { return _to SetName(aName); } 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestInterfaceA_name) NS_IMETHOD GetName(char * *aName) override { return _to GetName(aName); } \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestInterfaceA_name) NS_IMETHOD SetName(const char * aName) override { return _to SetName(aName); } 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object in a safe way. */
 #define NS_FORWARD_SAFE_NSIXPCTESTINTERFACEA(_to) \
-  NS_IMETHOD GetName(char * *aName) override { return !_to ? NS_ERROR_NULL_POINTER : _to->GetName(aName); } \
-  NS_IMETHOD SetName(const char * aName) override { return !_to ? NS_ERROR_NULL_POINTER : _to->SetName(aName); } 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestInterfaceA_name) NS_IMETHOD GetName(char * *aName) override { return !_to ? NS_ERROR_NULL_POINTER : _to->GetName(aName); } \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestInterfaceA_name) NS_IMETHOD SetName(const char * aName) override { return !_to ? NS_ERROR_NULL_POINTER : _to->SetName(aName); } 
 
 
 /* starting interface:    nsIXPCTestInterfaceB */
@@ -66,7 +66,7 @@ class NS_NO_VTABLE nsIXPCTestInterfaceA : public nsISupports {
   {0xff528c3a, 0x2410, 0x46de, \
     { 0xac, 0xaa, 0x44, 0x9a, 0xa6, 0x40, 0x3a, 0x33 }}
 
-class NS_NO_VTABLE nsIXPCTestInterfaceB : public nsISupports {
+class NS_NO_VTABLE MOZ_BINDING(binding_to, idl, class, XPIDL_nsIXPCTestInterfaceB) nsIXPCTestInterfaceB : public nsISupports {
  public:
 
   NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTINTERFACEB_IID)
@@ -75,32 +75,32 @@ class NS_NO_VTABLE nsIXPCTestInterfaceB : public nsISupports {
   using ScriptableInterfaceType = nsIXPCTestInterfaceB;
 
   /* attribute string name; */
-  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD GetName(char * *aName) = 0;
-  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD SetName(const char * aName) = 0;
+  JS_HAZ_CAN_RUN_SCRIPT MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestInterfaceB_name) NS_IMETHOD GetName(char * *aName) = 0;
+  JS_HAZ_CAN_RUN_SCRIPT MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestInterfaceB_name) NS_IMETHOD SetName(const char * aName) = 0;
 
 };
 
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTINTERFACEB \
-  NS_IMETHOD GetName(char * *aName) override; \
-  NS_IMETHOD SetName(const char * aName) override; 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestInterfaceB_name) NS_IMETHOD GetName(char * *aName) override; \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestInterfaceB_name) NS_IMETHOD SetName(const char * aName) override; 
 
 /* Use this macro when declaring the members of this interface when the
    class doesn't implement the interface. This is useful for forwarding. */
 #define NS_DECL_NON_VIRTUAL_NSIXPCTESTINTERFACEB \
-  nsresult GetName(char * *aName); \
-  nsresult SetName(const char * aName); 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestInterfaceB_name) nsresult GetName(char * *aName); \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestInterfaceB_name) nsresult SetName(const char * aName); 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object. */
 #define NS_FORWARD_NSIXPCTESTINTERFACEB(_to) \
-  NS_IMETHOD GetName(char * *aName) override { return _to GetName(aName); } \
-  NS_IMETHOD SetName(const char * aName) override { return _to SetName(aName); } 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestInterfaceB_name) NS_IMETHOD GetName(char * *aName) override { return _to GetName(aName); } \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestInterfaceB_name) NS_IMETHOD SetName(const char * aName) override { return _to SetName(aName); } 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object in a safe way. */
 #define NS_FORWARD_SAFE_NSIXPCTESTINTERFACEB(_to) \
-  NS_IMETHOD GetName(char * *aName) override { return !_to ? NS_ERROR_NULL_POINTER : _to->GetName(aName); } \
-  NS_IMETHOD SetName(const char * aName) override { return !_to ? NS_ERROR_NULL_POINTER : _to->SetName(aName); } 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestInterfaceB_name) NS_IMETHOD GetName(char * *aName) override { return !_to ? NS_ERROR_NULL_POINTER : _to->GetName(aName); } \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestInterfaceB_name) NS_IMETHOD SetName(const char * aName) override { return !_to ? NS_ERROR_NULL_POINTER : _to->SetName(aName); } 
 
 
 /* starting interface:    nsIXPCTestInterfaceC */
@@ -110,7 +110,7 @@ class NS_NO_VTABLE nsIXPCTestInterfaceB : public nsISupports {
   {0x401cf1b4, 0x355b, 0x4cee, \
     { 0xb7, 0xb3, 0xc7, 0x97, 0x3a, 0xee, 0x49, 0xbd }}
 
-class NS_NO_VTABLE nsIXPCTestInterfaceC : public nsISupports {
+class NS_NO_VTABLE MOZ_BINDING(binding_to, idl, class, XPIDL_nsIXPCTestInterfaceC) nsIXPCTestInterfaceC : public nsISupports {
  public:
 
   NS_INLINE_DECL_STATIC_IID(NS_IXPCTESTINTERFACEC_IID)
@@ -119,32 +119,32 @@ class NS_NO_VTABLE nsIXPCTestInterfaceC : public nsISupports {
   using ScriptableInterfaceType = nsIXPCTestInterfaceC;
 
   /* attribute long someInteger; */
-  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD GetSomeInteger(int32_t *aSomeInteger) = 0;
-  JS_HAZ_CAN_RUN_SCRIPT NS_IMETHOD SetSomeInteger(int32_t aSomeInteger) = 0;
+  JS_HAZ_CAN_RUN_SCRIPT MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestInterfaceC_someInteger) NS_IMETHOD GetSomeInteger(int32_t *aSomeInteger) = 0;
+  JS_HAZ_CAN_RUN_SCRIPT MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestInterfaceC_someInteger) NS_IMETHOD SetSomeInteger(int32_t aSomeInteger) = 0;
 
 };
 
 
 /* Use this macro when declaring classes that implement this interface. */
 #define NS_DECL_NSIXPCTESTINTERFACEC \
-  NS_IMETHOD GetSomeInteger(int32_t *aSomeInteger) override; \
-  NS_IMETHOD SetSomeInteger(int32_t aSomeInteger) override; 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestInterfaceC_someInteger) NS_IMETHOD GetSomeInteger(int32_t *aSomeInteger) override; \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestInterfaceC_someInteger) NS_IMETHOD SetSomeInteger(int32_t aSomeInteger) override; 
 
 /* Use this macro when declaring the members of this interface when the
    class doesn't implement the interface. This is useful for forwarding. */
 #define NS_DECL_NON_VIRTUAL_NSIXPCTESTINTERFACEC \
-  nsresult GetSomeInteger(int32_t *aSomeInteger); \
-  nsresult SetSomeInteger(int32_t aSomeInteger); 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestInterfaceC_someInteger) nsresult GetSomeInteger(int32_t *aSomeInteger); \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestInterfaceC_someInteger) nsresult SetSomeInteger(int32_t aSomeInteger); 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object. */
 #define NS_FORWARD_NSIXPCTESTINTERFACEC(_to) \
-  NS_IMETHOD GetSomeInteger(int32_t *aSomeInteger) override { return _to GetSomeInteger(aSomeInteger); } \
-  NS_IMETHOD SetSomeInteger(int32_t aSomeInteger) override { return _to SetSomeInteger(aSomeInteger); } 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestInterfaceC_someInteger) NS_IMETHOD GetSomeInteger(int32_t *aSomeInteger) override { return _to GetSomeInteger(aSomeInteger); } \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestInterfaceC_someInteger) NS_IMETHOD SetSomeInteger(int32_t aSomeInteger) override { return _to SetSomeInteger(aSomeInteger); } 
 
 /* Use this macro to declare functions that forward the behavior of this interface to another object in a safe way. */
 #define NS_FORWARD_SAFE_NSIXPCTESTINTERFACEC(_to) \
-  NS_IMETHOD GetSomeInteger(int32_t *aSomeInteger) override { return !_to ? NS_ERROR_NULL_POINTER : _to->GetSomeInteger(aSomeInteger); } \
-  NS_IMETHOD SetSomeInteger(int32_t aSomeInteger) override { return !_to ? NS_ERROR_NULL_POINTER : _to->SetSomeInteger(aSomeInteger); } 
+  MOZ_BINDING(binding_to, idl, getter, XPIDL_nsIXPCTestInterfaceC_someInteger) NS_IMETHOD GetSomeInteger(int32_t *aSomeInteger) override { return !_to ? NS_ERROR_NULL_POINTER : _to->GetSomeInteger(aSomeInteger); } \
+  MOZ_BINDING(binding_to, idl, setter, XPIDL_nsIXPCTestInterfaceC_someInteger) NS_IMETHOD SetSomeInteger(int32_t aSomeInteger) override { return !_to ? NS_ERROR_NULL_POINTER : _to->SetSomeInteger(aSomeInteger); } 
 
 
 #endif /* __gen_xpctest_interfaces_h__ */

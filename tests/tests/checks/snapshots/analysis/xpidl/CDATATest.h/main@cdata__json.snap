@@ -27,12 +27,6 @@ input_file: inputs/analysis/xpidl/CDATATest.h/cdata__json
     "implKind": "idl",
     "bindingSlots": [
       {
-        "slotKind": "class",
-        "slotLang": "cpp",
-        "ownerLang": "idl",
-        "sym": "T_ICDATATest1"
-      },
-      {
         "slotKind": "interface_name",
         "slotLang": "js",
         "ownerLang": "idl",
@@ -65,12 +59,6 @@ input_file: inputs/analysis/xpidl/CDATATest.h/cdata__json
     "kind": "class",
     "implKind": "idl",
     "bindingSlots": [
-      {
-        "slotKind": "class",
-        "slotLang": "cpp",
-        "ownerLang": "idl",
-        "sym": "T_ICDATATest2"
-      },
       {
         "slotKind": "interface_name",
         "slotLang": "js",
