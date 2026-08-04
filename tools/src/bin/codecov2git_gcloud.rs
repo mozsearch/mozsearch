@@ -40,6 +40,7 @@ struct RevisionData {
     datetime: DateTime<FixedOffset>,
     git_revision: String,
     hg_revision: String,
+    exact: bool,
 }
 
 #[derive(Parser)]
@@ -123,6 +124,7 @@ async fn main() -> anyhow::Result<()> {
             datetime,
             git_revision,
             hg_revision,
+            exact: false,
         })
         .collect();
     revisions.sort_by_key(|revision_data| revision_data.datetime);
@@ -404,6 +406,7 @@ fn parse(decompressed: &DecompressedReport) -> anyhow::Result<Report> {
         commit: decompressed.metadata.git_revision.to_string(),
         branch,
         date: decompressed.metadata.datetime,
+        exact: decompressed.metadata.exact,
     };
 
     let report = Report::read(decompressed.decompressed_bytes.as_slice(), metadata)?;

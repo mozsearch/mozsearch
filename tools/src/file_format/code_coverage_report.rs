@@ -20,6 +20,14 @@ use serde::{Deserialize, Deserializer, Serialize, de};
 /// (This shouldn't be the case, we only output numbers and a couple of static strings.)
 const END: &str = "END";
 
+/// Marker written in the commit message for revisions with exact hit counts.
+pub const EXACT: &str = "exact";
+
+/// Reference used to identify the last quantized revision for a given branch.
+pub fn last_quantized_ref(branch: &str) -> String {
+    format!("refs/tags/last-quantized/{branch}")
+}
+
 #[derive(Debug)]
 pub struct Report {
     root: Directory,
@@ -31,6 +39,7 @@ pub struct ReportMetadata {
     pub commit: String,
     pub branch: String,
     pub date: DateTime<FixedOffset>,
+    pub exact: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -109,16 +118,32 @@ impl Report {
         writeln!(fast_import, "commit refs/heads/{branch}")?;
         writeln!(fast_import, "mark :1")?;
         writeln!(fast_import, "committer <searchfox> {date}")?;
-        writeln!(fast_import, "data {}", self.metadata.commit.len() + 1)?;
+        let data_length = if self.metadata.exact {
+            self.metadata.commit.len() + 2 + EXACT.len() + 1
+        } else {
+            self.metadata.commit.len() + 1
+        };
+        writeln!(fast_import, "data {data_length}")?;
         writeln!(fast_import, "{}", self.metadata.commit)?;
+        if self.metadata.exact {
+            writeln!(fast_import, "")?;
+            writeln!(fast_import, "{}", EXACT)?;
+        }
         writeln!(fast_import, "deleteall")?;
-        self.root.write_to_git(fast_import, "")?;
+        self.root
+            .write_to_git(fast_import, self.metadata.exact, "")?;
 
         writeln!(
             fast_import,
             "reset refs/tags/reverse/{branch}/{}",
             self.metadata.commit
         )?;
+        writeln!(fast_import, "from :1")?;
+
+        if !self.metadata.exact {
+            writeln!(fast_import, "reset {}", last_quantized_ref(branch))?;
+            writeln!(fast_import, "from :1")?;
+        }
 
         Ok(())
     }
@@ -128,12 +153,13 @@ impl Node {
     fn write_to_git<P: AsRef<Path>>(
         &self,
         fast_import: &mut impl Write,
+        exact: bool,
         path: P,
     ) -> io::Result<()> {
         use Node::*;
         match self {
-            Directory(directory) => directory.write_to_git(fast_import, path),
-            File(file) => file.write_to_git(fast_import, path),
+            Directory(directory) => directory.write_to_git(fast_import, exact, path),
+            File(file) => file.write_to_git(fast_import, exact, path),
         }
     }
 }
@@ -142,11 +168,12 @@ impl Directory {
     fn write_to_git<P: AsRef<Path>>(
         &self,
         fast_import: &mut impl Write,
+        exact: bool,
         path: P,
     ) -> io::Result<()> {
         for (name, child) in &self.children {
             let path = path.as_ref().join(name);
-            child.write_to_git(fast_import, &path)?;
+            child.write_to_git(fast_import, exact, &path)?;
         }
 
         {
@@ -167,6 +194,7 @@ impl File {
     fn write_to_git<P: AsRef<Path>>(
         &self,
         fast_import: &mut impl Write,
+        exact: bool,
         path: P,
     ) -> io::Result<()> {
         let path = path.as_ref().as_os_str().to_string_lossy();
@@ -175,8 +203,12 @@ impl File {
             writeln!(fast_import, "data <<{END}")?;
             for line in &self.coverage {
                 if let Some(count) = line {
-                    let log = (1 + count).ilog10();
-                    writeln!(fast_import, "{log}")?;
+                    if exact {
+                        writeln!(fast_import, "{count}")?;
+                    } else {
+                        let log = (1 + count).ilog10();
+                        writeln!(fast_import, "{log}")?;
+                    }
                 } else {
                     writeln!(fast_import)?;
                 }
