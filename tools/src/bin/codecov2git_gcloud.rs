@@ -22,7 +22,7 @@ use tokio::{
     task::{self, JoinHandle},
 };
 use tools::{
-    file_format::code_coverage_report::{Report, ReportMetadata},
+    file_format::code_coverage_report::{EXACT, Report, ReportMetadata, last_quantized_ref},
     git_ops,
 };
 use tracing::{debug, info, warn};
@@ -34,6 +34,9 @@ use tracing_subscriber::{
 /// The number of tasks in-between each pipeline steps.
 /// Because the git fast-import task needs to be serialized anyway, there's little interest in going above 1.
 const PIPELINE_SIZE: usize = 1;
+
+/// The number of revisions which should keep the exact hit count instead of log10(count + 1)
+const EXACT_REVISION_COUNT: usize = 5;
 
 #[derive(Clone, Debug)]
 struct RevisionData {
@@ -128,6 +131,10 @@ async fn main() -> anyhow::Result<()> {
         })
         .collect();
     revisions.sort_by_key(|revision_data| revision_data.datetime);
+
+    for rev in revisions.iter_mut().rev().take(EXACT_REVISION_COUNT) {
+        rev.exact = true;
+    }
 
     info!("Nb sorted and filtered revisions: {}", revisions.len());
 
@@ -285,7 +292,10 @@ fn file_lister(
                         platform, testsuite, revision.git_revision
                     );
 
-                    if repo.find_reference(&ref_revision).is_ok() {
+                    if let Ok(reference) = repo.find_reference(&ref_revision)
+                        && let Ok(commit) = reference.peel_to_commit()
+                        && !commit.message().unwrap_or_default().contains(EXACT)
+                    {
                         warn!("Tag {} already exists, skipping...", ref_revision);
                         continue;
                     }
@@ -439,11 +449,30 @@ fn send_to_git(
     let ref_branch = format!("refs/heads/{}", report.metadata.branch);
 
     if seen_branches.insert(ref_branch.clone()) {
-        if output_repo_git.find_reference(&ref_branch).is_ok() {
-            // Git fast-import will not add new commits to an existing branch unless we initialize it first.
-            // See https://git-scm.com/docs/git-fast-import#_from
-            writeln!(fast_import_buffer, "reset {ref_branch}")?;
-            writeln!(fast_import_buffer, "from {ref_branch}^0")?;
+        if let Ok(reference) = output_repo_git.find_reference(&ref_branch) {
+            let last_quantized_ref = last_quantized_ref(&report.metadata.branch);
+            let has_last_quantized = output_repo_git.find_reference(&last_quantized_ref).is_ok();
+
+            if has_last_quantized {
+                info!("Resetting {ref_branch} to {last_quantized_ref}");
+                writeln!(fast_import_buffer, "reset {ref_branch}")?;
+                writeln!(fast_import_buffer, "from {last_quantized_ref}")?;
+            } else {
+                if !reference.peel_to_commit()?.message()?.contains(EXACT) {
+                    info!(
+                        "Incremental import on top of an old coverage repo, initializing {last_quantized_ref} to {ref_branch}"
+                    );
+                    writeln!(fast_import_buffer, "reset {last_quantized_ref}")?;
+                    writeln!(fast_import_buffer, "from {ref_branch}^0")?;
+
+                    // Git fast-import will not add new commits to an existing branch unless we initialize it first.
+                    // See https://git-scm.com/docs/git-fast-import#_from
+                    writeln!(fast_import_buffer, "reset {ref_branch}")?;
+                    writeln!(fast_import_buffer, "from {ref_branch}^0")?;
+                } else {
+                    info!("Ignoring all existing commits from {ref_branch}");
+                }
+            }
         }
     }
 
