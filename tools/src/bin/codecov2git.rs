@@ -13,7 +13,7 @@ use std::{
 use chrono::{DateTime, FixedOffset};
 use clap::Parser;
 
-use tools::file_format::code_coverage_report::{Report, ReportMetadata};
+use tools::file_format::code_coverage_report::{EXACT, Report, ReportMetadata, last_quantized_ref};
 
 #[derive(Parser)]
 #[command(version, about)]
@@ -41,6 +41,10 @@ struct Args {
     /// Name of the testsuite covered by this report
     #[arg(short, long, default_value = "all")]
     testsuite: String,
+
+    /// Whether to save log10(hit count + 1) (default) or the exact hit count
+    #[arg(short, long)]
+    exact: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -52,6 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         commit: args.commit,
         branch: branch.clone(),
         date: args.date,
+        exact: args.exact,
     };
 
     Command::new("git")
@@ -61,9 +66,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .wait()?;
 
     let reference = format!("refs/heads/{branch}");
-    let existing_branch = Command::new("git")
+    let last_commit_message = Command::new("git")
         .current_dir(&args.output_repo)
-        .args(["show-ref", "--quiet", &reference])
+        .args(["log", "--format=%B", "-n", "1", &reference, "--"])
+        .output()?;
+    let existing_branch = last_commit_message.status.success();
+
+    let last_quantized_ref = last_quantized_ref(&metadata.branch);
+    let has_last_quantized = Command::new("git")
+        .current_dir(&args.output_repo)
+        .args(["show-ref", "--quiet", &last_quantized_ref])
         .output()?
         .status
         .success();
@@ -89,10 +101,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         writeln!(&mut fast_import, "feature force")?;
 
         if existing_branch {
-            // Git fast-import will not add new commits to an existing branch unless we initialize it first.
-            // See https://git-scm.com/docs/git-fast-import#_from
-            writeln!(fast_import, "reset {reference}")?;
-            writeln!(fast_import, "from {reference}^0")?;
+            if has_last_quantized && !report.metadata.exact {
+                writeln!(fast_import, "reset {reference}")?;
+                writeln!(fast_import, "from {last_quantized_ref}")?;
+            } else {
+                let last_is_not_exact = existing_branch
+                    && !last_commit_message
+                        .stdout
+                        .windows(EXACT.as_bytes().len())
+                        .any(|window| window == EXACT.as_bytes());
+
+                if last_is_not_exact {
+                    writeln!(fast_import, "reset {last_quantized_ref}")?;
+                    writeln!(fast_import, "from {reference}^0")?;
+                }
+
+                // Git fast-import will not add new commits to an existing branch unless we initialize it first.
+                // See https://git-scm.com/docs/git-fast-import#_from
+                writeln!(fast_import, "reset {reference}")?;
+                writeln!(fast_import, "from {reference}^0")?;
+            }
         }
 
         report.write_to_git(&mut fast_import)?;

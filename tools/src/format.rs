@@ -744,7 +744,7 @@ pub fn format_file_data(
             //    coverage data is for a different revision control revision
             //    than the source code.
             use InterpolatedCoverage::*;
-            match coverage.get(i) {
+            match coverage.lines.get(i) {
                 None => r#" class="cov-strip cov-uncovered cov-unknown" aria-label="missing data""#
                     .to_owned(),
                 Some(InterpolatedMiss) => {
@@ -764,18 +764,24 @@ pub fn format_file_data(
                         .to_owned()
                 }
                 // Should this directly be a CSS variable?
-                Some(Covered(x)) => {
-                    let hit_count_min = 10_u32.pow(x - 1);
+                Some(&Covered(x)) => {
+                    let (hit_count, log_hit_count, precision_class) = if coverage.exact {
+                        (x, (x + 1).ilog10(), "cov-exact")
+                    } else {
+                        (10_u32.pow(x - 1), x, "cov-approx")
+                    };
+
                     format!(
-                        r#" class="cov-strip cov-hit cov-known cov-log10-{}" aria-label="hit {}{}" data-coverage="{}""#,
-                        *x,
-                        if hit_count_min < 1000 {
-                            hit_count_min
+                        r#" class="cov-strip cov-hit cov-known cov-log10-{} {}" aria-label="hit {}{}" data-coverage="{}""#,
+                        log_hit_count,
+                        precision_class,
+                        if hit_count < 1000 {
+                            hit_count
                         } else {
-                            hit_count_min / 1000
+                            hit_count / 1000
                         },
-                        if hit_count_min < 1000 { "" } else { "k" },
-                        *x
+                        if hit_count < 1000 { "" } else { "k" },
+                        x,
                     )
                 }
             }

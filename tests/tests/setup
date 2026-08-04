@@ -74,7 +74,7 @@ git commit -m "Add remaining files"
 
 HEAD_OID="$(git -C "$GIT_ROOT" rev-parse HEAD)"
 HEAD_DATE="$(git -C "$GIT_ROOT" show --no-patch --format=%cI HEAD)"
-codecov2git --report "$CONFIG_REPO/tests/metadata/code-coverage-report-full.json" --output-repo "$COVERAGE_ROOT" --commit "$HEAD_OID" --date "$HEAD_DATE"
+codecov2git --report "$CONFIG_REPO/tests/metadata/code-coverage-report-full.json" --output-repo "$COVERAGE_ROOT" --commit "$HEAD_OID" --date "$HEAD_DATE" --exact
 popd
 
 echo "Performing setup::build-blame step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"

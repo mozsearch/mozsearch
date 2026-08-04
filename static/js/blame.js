@@ -222,15 +222,19 @@ var BlamePopup = new (class BlamePopup {
     } else if (elt.classList.contains("cov-uncovered")) {
       content += `This line wasn't instrumented for coverage.`;
     } else {
-      const logOnePlusHitCount = parseInt(elt.dataset.coverage, 10);
-      if (logOnePlusHitCount === 0) {
+      const x = parseInt(elt.dataset.coverage, 10);
+      if (x === 0) {
         content += `This line was not hit during test runs.`;
       } else {
-        const hitCountMin = 10 ** (logOnePlusHitCount - 1);
-        const hitCountMax = 10 ** logOnePlusHitCount;
-        content +=
-          `This line was hit between ${hitCountMin} and ${hitCountMax} times ` +
-          `per coverage instrumentation.`;
+        if (elt.classList.contains("cov-exact")) {
+          content += `This line was hit ${x} times per coverage instrumentation.`;
+        } else {
+          const hitCountMin = 10 ** (x - 1);
+          const hitCountMax = 10 ** x;
+          content +=
+            `This line was hit between ${hitCountMin} and ${hitCountMax} times ` +
+            `per coverage instrumentation.`;
+        }
       }
     }
 

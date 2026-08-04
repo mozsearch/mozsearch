@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::file_format::{
-    code_coverage_report,
+    code_coverage_report::{self, EXACT},
     config::GitData,
     coverage::{InterpolatedCoverage, interpolate_coverage},
 };
@@ -78,11 +78,16 @@ pub fn get_blame_lines(
     }
 }
 
+pub struct FileCoverage {
+    pub exact: bool,
+    pub lines: Vec<InterpolatedCoverage>,
+}
+
 pub fn get_coverage(
     git_data: Option<&GitData>,
     coverage_commit: Option<&Commit>,
     path: impl AsRef<Path>,
-) -> Option<Vec<InterpolatedCoverage>> {
+) -> Option<FileCoverage> {
     git_data
         .and_then(|git_data| git_data.coverage_repo.as_ref())
         .zip(coverage_commit)
@@ -94,7 +99,13 @@ pub fn get_coverage(
                 .map(|coverage_entry| {
                     let coverage_data = read_blob_entry(coverage_repo, &coverage_entry);
                     let raw = coverage_data.lines().map(FromStr::from_str).map(Result::ok);
-                    interpolate_coverage(raw)
+                    FileCoverage {
+                        exact: coverage_commit
+                            .message()
+                            .unwrap_or_default()
+                            .contains(EXACT),
+                        lines: interpolate_coverage(raw),
+                    }
                 })
         })
 }
@@ -179,7 +190,13 @@ pub fn coverage_history(
 
             let coverage_commit = coverage_repo.find_commit(commit_oid).ok()?;
 
-            let main_repo_oid = coverage_commit.message().ok()?.trim().to_owned();
+            let main_repo_oid = coverage_commit
+                .message()
+                .ok()?
+                .lines()
+                .next()?
+                .trim()
+                .to_owned();
 
             let commit_rev = commit_oid.to_string();
             let data = coverage_summary(git_data, &commit_rev, path)?;
