@@ -121,10 +121,11 @@ impl Report {
         writeln!(fast_import, "deleteall")?;
         self.root.write_to_git(fast_import, "")?;
 
-        writeln!(fast_import, "tag reverse/{branch}/{}", self.metadata.commit)?;
-        writeln!(fast_import, "from :1")?;
-        writeln!(fast_import, "tagger <searchfox> {date}")?;
-        writeln!(fast_import, "data 0")?;
+        writeln!(
+            fast_import,
+            "reset refs/tags/reverse/{branch}/{}",
+            self.metadata.commit
+        )?;
 
         Ok(())
     }
