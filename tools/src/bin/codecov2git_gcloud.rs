@@ -431,21 +431,20 @@ fn send_to_git(
     output_repo_git: &Repository,
     fast_import_buffer: &mut impl Write,
     report: Report,
-    existing_branches: &mut HashSet<String>,
+    seen_branches: &mut HashSet<String>,
 ) -> anyhow::Result<()> {
     let ref_branch = format!("refs/heads/{}", report.metadata.branch);
 
-    // Only send `from {branch}^0` to fast-import once per branch
-    let resume_preexisting_branch = if existing_branches.contains(&ref_branch) {
-        false
-    } else {
-        let exists_in_repo = output_repo_git.find_reference(&ref_branch).is_ok();
-        existing_branches.insert(ref_branch.clone());
-        exists_in_repo
-    };
+    if seen_branches.insert(ref_branch.clone()) {
+        if output_repo_git.find_reference(&ref_branch).is_ok() {
+            // Git fast-import will not add new commits to an existing branch unless we initialize it first.
+            // See https://git-scm.com/docs/git-fast-import#_from
+            writeln!(fast_import_buffer, "reset {ref_branch}")?;
+            writeln!(fast_import_buffer, "from {ref_branch}^0")?;
+        }
+    }
 
-    debug!("Existing branch '{ref_branch}' in output repo: {resume_preexisting_branch}");
-    report.write_to_git(fast_import_buffer, resume_preexisting_branch)?;
+    report.write_to_git(fast_import_buffer)?;
     Ok(())
 }
 
@@ -482,14 +481,14 @@ fn git_sender(
     writeln!(&mut fast_import_buffer, "feature force")?;
     writeln!(&mut fast_import_buffer, "feature date-format=rfc2822")?;
 
-    let mut existing_branches = HashSet::new();
+    let mut seen_branches = HashSet::new();
     let handle = task::spawn_blocking(move || {
         while let Some(report) = reports.blocking_recv() {
             send_to_git(
                 &output_repo_git,
                 &mut fast_import_buffer,
                 report,
-                &mut existing_branches,
+                &mut seen_branches,
             )?;
         }
         // Call done => finish fast-import process and wait for it to complete.

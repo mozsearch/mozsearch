@@ -60,9 +60,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .spawn()?
         .wait()?;
 
+    let reference = format!("refs/heads/{branch}");
     let existing_branch = Command::new("git")
         .current_dir(&args.output_repo)
-        .args(["show-ref", "--quiet", &format!("refs/heads/{branch}")])
+        .args(["show-ref", "--quiet", &reference])
         .output()?
         .status
         .success();
@@ -86,7 +87,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         writeln!(fast_import, "feature date-format=rfc2822")?;
         writeln!(&mut fast_import, "feature done")?;
         writeln!(&mut fast_import, "feature force")?;
-        report.write_to_git(&mut fast_import, existing_branch)?;
+
+        if existing_branch {
+            // Git fast-import will not add new commits to an existing branch unless we initialize it first.
+            // See https://git-scm.com/docs/git-fast-import#_from
+            writeln!(fast_import, "reset {reference}")?;
+            writeln!(fast_import, "from {reference}^0")?;
+        }
+
+        report.write_to_git(&mut fast_import)?;
         writeln!(&mut fast_import, "done")?;
     }
 
