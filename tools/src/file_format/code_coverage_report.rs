@@ -102,11 +102,7 @@ impl Report {
         Ok(report)
     }
 
-    pub fn write_to_git(
-        &self,
-        fast_import: &mut impl Write,
-        incremental: bool,
-    ) -> anyhow::Result<()> {
+    pub fn write_to_git(&self, fast_import: &mut impl Write) -> anyhow::Result<()> {
         let branch = &self.metadata.branch;
         let date = self.metadata.date.to_rfc2822();
 
@@ -115,9 +111,6 @@ impl Report {
         writeln!(fast_import, "committer <searchfox> {date}")?;
         writeln!(fast_import, "data {}", self.metadata.commit.len() + 1)?;
         writeln!(fast_import, "{}", self.metadata.commit)?;
-        if incremental {
-            writeln!(fast_import, "from refs/heads/{branch}^0")?;
-        }
         writeln!(fast_import, "deleteall")?;
         self.root.write_to_git(fast_import, "")?;
 
