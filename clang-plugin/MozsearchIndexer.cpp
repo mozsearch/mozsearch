@@ -2579,7 +2579,7 @@ public:
 
     SourceLocation SpellingLoc = SM.getSpellingLoc(Loc);
 
-    NamedDecl *Decl = L.getTypedefNameDecl();
+    NamedDecl *Decl = L.getTypePtr()->getDecl();
     std::string Mangled = getMangledName(CurMangleContext, Decl);
     visitIdentifier("use", "type", getQualifiedName(Decl), Loc, Mangled,
                     L.getType(), getContext(SpellingLoc));
@@ -2923,12 +2923,30 @@ public:
       TemplateStack->visitDependent(Loc);
 
       // Also record the dependent NestedNameSpecifier locations
+#if CLANG_VERSION_MAJOR >= 22
+      // clang 22 (commit 91cdd35008e9) turned NestedNameSpecifier into a value
+      // type and moved the prefix of a qualifier naming a type into the type
+      // itself, so a dependent name is a DependentNameType holding its own
+      // prefix rather than an Identifier specifier in the NNS chain.
+      for (auto NestedNameLoc = E->getQualifierLoc();
+           NestedNameLoc &&
+           NestedNameLoc.getNestedNameSpecifier().isDependent();) {
+        auto DNTL = NestedNameLoc.getAsTypeLoc().getAs<DependentNameTypeLoc>();
+        if (!DNTL) {
+          TemplateStack->visitDependent(NestedNameLoc.getLocalBeginLoc());
+          break;
+        }
+        TemplateStack->visitDependent(DNTL.getNameLoc());
+        NestedNameLoc = DNTL.getQualifierLoc();
+      }
+#else
       for (auto NestedNameLoc = E->getQualifierLoc();
            NestedNameLoc &&
            NestedNameLoc.getNestedNameSpecifier()->isDependent();
            NestedNameLoc = NestedNameLoc.getPrefix()) {
         TemplateStack->visitDependent(NestedNameLoc.getLocalBeginLoc());
       }
+#endif
     }
 
     return true;
