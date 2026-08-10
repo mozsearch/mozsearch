@@ -98,7 +98,9 @@
           };
         };
 
-        devShells.default = pkgs.mkShell {
+        devShells.default = pkgs.mkShell.override {
+          stdenv = llvmPackages.stdenv;
+        } {
           inputsFrom = with self.packages.${system}; [
             mozsearch-tools
             mozsearch-clang-plugin
