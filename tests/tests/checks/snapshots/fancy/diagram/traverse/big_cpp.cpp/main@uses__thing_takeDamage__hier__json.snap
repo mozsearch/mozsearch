@@ -433,7 +433,7 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/uses__thing_takeDamage__hi
         "args": [
           {
             "name": "couch",
-            "type": "Couch &",
+            "type": "outerNS::Couch &",
             "typesym": "T_outerNS::Couch"
           }
         ]
@@ -471,7 +471,7 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/uses__thing_takeDamage__hi
         "args": [
           {
             "name": "thing",
-            "type": "Thing &",
+            "type": "outerNS::Thing &",
             "typesym": "T_outerNS::Thing"
           }
         ]
@@ -509,7 +509,7 @@ input_file: inputs/fancy/diagram/traverse/big_cpp.cpp/uses__thing_takeDamage__hi
         "args": [
           {
             "name": "thing",
-            "type": "Thing &",
+            "type": "outerNS::Thing &",
             "typesym": "T_outerNS::Thing"
           }
         ]

@@ -866,7 +866,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "target": 1,
     "kind": "use",
     "pretty": "std::shared_ptr::operator=",
-    "sym": "_ZNSt10shared_ptraSEOSt10shared_ptrIT_E",
+    "sym": "_ZNSt10shared_ptraSEOS_",
     "context": "outerNS::OuterCat::CycleCollectingCat::unlink",
     "contextsym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv",
     "argRanges": [
@@ -1541,7 +1541,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type GlobalContext::LessGlobalContext",
     "sym": "T_GlobalContext::LessGlobalContext",
-    "type": "class GlobalContext::LessGlobalContext",
+    "type": "GlobalContext::LessGlobalContext",
     "typesym": "T_GlobalContext::LessGlobalContext"
   },
   {
@@ -1743,7 +1743,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
-    "type": "class outerNS::Thing",
+    "type": "outerNS::Thing",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -1769,7 +1769,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
-    "type": "class outerNS::Thing",
+    "type": "outerNS::Thing",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -1794,7 +1794,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
-    "type": "class outerNS::Thing",
+    "type": "outerNS::Thing",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -1828,7 +1828,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Human",
     "sym": "T_outerNS::Human",
-    "type": "class outerNS::Human",
+    "type": "outerNS::Human",
     "typesym": "T_outerNS::Human"
   },
   {
@@ -1853,7 +1853,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Human",
     "sym": "T_outerNS::Human",
-    "type": "class outerNS::Human",
+    "type": "outerNS::Human",
     "typesym": "T_outerNS::Human"
   },
   {
@@ -1888,7 +1888,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
-    "type": "class outerNS::Thing",
+    "type": "outerNS::Thing",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -1922,7 +1922,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
-    "type": "class outerNS::Thing",
+    "type": "outerNS::Thing",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -1940,7 +1940,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Superhero",
     "sym": "T_outerNS::Superhero",
-    "type": "class outerNS::Superhero",
+    "type": "outerNS::Superhero",
     "typesym": "T_outerNS::Superhero"
   },
   {
@@ -1957,7 +1957,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable superBob",
     "sym": "V_c6b4e335607c3527_74bc848dc87ea1",
     "no_crossref": 1,
-    "type": "Superhero",
+    "type": "outerNS::Superhero",
     "typesym": "T_outerNS::Superhero"
   },
   {
@@ -1973,7 +1973,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Superhero",
     "sym": "T_outerNS::Superhero",
-    "type": "class outerNS::Superhero",
+    "type": "outerNS::Superhero",
     "typesym": "T_outerNS::Superhero"
   },
   {
@@ -1990,7 +1990,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable victor",
     "sym": "V_a58abe45607c3527_c9114c22356",
     "no_crossref": 1,
-    "type": "WhatsYourVector<Superhero>",
+    "type": "WhatsYourVector<outerNS::Superhero>",
     "typesym": "T_WhatsYourVector"
   },
   {
@@ -2000,7 +2000,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable superBob",
     "sym": "V_c6b4e335607c3527_74bc848dc87ea1",
     "no_crossref": 1,
-    "type": "Superhero",
+    "type": "outerNS::Superhero",
     "typesym": "T_outerNS::Superhero"
   },
   {
@@ -2009,7 +2009,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Human",
     "sym": "T_outerNS::Human",
-    "type": "class outerNS::Human",
+    "type": "outerNS::Human",
     "typesym": "T_outerNS::Human"
   },
   {
@@ -2026,7 +2026,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable bob",
     "sym": "V_9d0cce45607c3527_872688b",
     "no_crossref": 1,
-    "type": "Human",
+    "type": "outerNS::Human",
     "typesym": "T_outerNS::Human"
   },
   {
@@ -2042,7 +2042,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Human",
     "sym": "T_outerNS::Human",
-    "type": "class outerNS::Human",
+    "type": "outerNS::Human",
     "typesym": "T_outerNS::Human"
   },
   {
@@ -2059,7 +2059,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable goodReferenceRight",
     "sym": "V_26d4de45607c3527_bbca21f4b95005a5",
     "no_crossref": 1,
-    "type": "WhatsYourVector<Human>",
+    "type": "WhatsYourVector<outerNS::Human>",
     "typesym": "T_WhatsYourVector"
   },
   {
@@ -2069,7 +2069,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable bob",
     "sym": "V_9d0cce45607c3527_872688b",
     "no_crossref": 1,
-    "type": "Human",
+    "type": "outerNS::Human",
     "typesym": "T_outerNS::Human"
   },
   {
@@ -2079,7 +2079,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable victor",
     "sym": "V_a58abe45607c3527_c9114c22356",
     "no_crossref": 1,
-    "type": "WhatsYourVector<Superhero>",
+    "type": "WhatsYourVector<outerNS::Superhero>",
     "typesym": "T_WhatsYourVector"
   },
   {
@@ -2088,7 +2088,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "function,use",
     "pretty": "function WhatsYourVector_impl::forwardDeclaredTemplateThingInlinedBelow",
     "sym": "_ZN20WhatsYourVector_impl40forwardDeclaredTemplateThingInlinedBelowEPKTL0__",
-    "type": "elem_type",
+    "type": "WhatsYourVector_impl<class outerNS::Superhero, class CoolAlloc>::elem_type",
     "typesym": "T_outerNS::Superhero",
     "argRanges": [
       "205:52-205:52"
@@ -2101,7 +2101,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable goodReferenceRight",
     "sym": "V_26d4de45607c3527_bbca21f4b95005a5",
     "no_crossref": 1,
-    "type": "WhatsYourVector<Human>",
+    "type": "WhatsYourVector<outerNS::Human>",
     "typesym": "T_WhatsYourVector"
   },
   {
@@ -2110,7 +2110,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "function,use",
     "pretty": "function WhatsYourVector_impl::forwardDeclaredTemplateThingInlinedBelow",
     "sym": "_ZN20WhatsYourVector_impl40forwardDeclaredTemplateThingInlinedBelowEPKTL0__",
-    "type": "elem_type",
+    "type": "WhatsYourVector_impl<class outerNS::Human, class CoolAlloc>::elem_type",
     "typesym": "T_outerNS::Human",
     "argRanges": [
       "206:64-206:64"
@@ -2130,7 +2130,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
-    "type": "class outerNS::Thing",
+    "type": "outerNS::Thing",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -2162,7 +2162,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Human",
     "sym": "T_outerNS::Human",
-    "type": "class outerNS::Human",
+    "type": "outerNS::Human",
     "typesym": "T_outerNS::Human"
   },
   {
@@ -2171,7 +2171,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "def,field",
     "pretty": "field outerNS::OuterCat::mOwner",
     "sym": "F_<T_outerNS::OuterCat>_mOwner",
-    "type": "std::shared_ptr<Human>",
+    "type": "std::shared_ptr<outerNS::Human>",
     "typesym": "T_std::shared_ptr"
   },
   {
@@ -2180,7 +2180,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Couch",
     "sym": "T_outerNS::Couch",
-    "type": "class outerNS::Couch",
+    "type": "outerNS::Couch",
     "typesym": "T_outerNS::Couch"
   },
   {
@@ -2189,7 +2189,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "def,field",
     "pretty": "field outerNS::OuterCat::mFavoriteCouch",
     "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
-    "type": "Couch *",
+    "type": "outerNS::Couch *",
     "typesym": "T_outerNS::Couch"
   },
   {
@@ -2239,7 +2239,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
-    "type": "class outerNS::Thing",
+    "type": "outerNS::Thing",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -2366,7 +2366,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::CycleCollectingMagic",
     "sym": "T_outerNS::CycleCollectingMagic",
-    "type": "class outerNS::CycleCollectingMagic",
+    "type": "outerNS::CycleCollectingMagic",
     "typesym": "T_outerNS::CycleCollectingMagic"
   },
   {
@@ -2393,7 +2393,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::OuterCat",
     "sym": "T_outerNS::OuterCat",
-    "type": "class outerNS::OuterCat",
+    "type": "outerNS::OuterCat",
     "typesym": "T_outerNS::OuterCat"
   },
   {
@@ -2403,7 +2403,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable cat",
     "sym": "V_2a6a7775607c3527_df4688b",
     "no_crossref": 1,
-    "type": "OuterCat *",
+    "type": "outerNS::OuterCat *",
     "typesym": "T_outerNS::OuterCat"
   },
   {
@@ -2412,7 +2412,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::OuterCat",
     "sym": "T_outerNS::OuterCat",
-    "type": "class outerNS::OuterCat",
+    "type": "outerNS::OuterCat",
     "typesym": "T_outerNS::OuterCat"
   },
   {
@@ -2431,7 +2431,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable cat",
     "sym": "V_2a6a7775607c3527_df4688b",
     "no_crossref": 1,
-    "type": "OuterCat *",
+    "type": "outerNS::OuterCat *",
     "typesym": "T_outerNS::OuterCat"
   },
   {
@@ -2440,7 +2440,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "field,use",
     "pretty": "field outerNS::OuterCat::mOwner",
     "sym": "F_<T_outerNS::OuterCat>_mOwner",
-    "type": "std::shared_ptr<Human>",
+    "type": "std::shared_ptr<outerNS::Human>",
     "typesym": "T_std::shared_ptr"
   },
   {
@@ -2448,8 +2448,8 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "source": 1,
     "syntax": "function,use",
     "pretty": "function std::shared_ptr::operator=",
-    "sym": "_ZNSt10shared_ptraSEOSt10shared_ptrIT_E",
-    "type": "shared_ptr<outerNS::Human> &",
+    "sym": "_ZNSt10shared_ptraSEOS_",
+    "type": "std::shared_ptr<class outerNS::Human> &",
     "typesym": "T_std::shared_ptr",
     "argRanges": [
       "332:6-332:11",
@@ -2470,7 +2470,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable cat",
     "sym": "V_2a6a7775607c3527_df4688b",
     "no_crossref": 1,
-    "type": "OuterCat *",
+    "type": "outerNS::OuterCat *",
     "typesym": "T_outerNS::OuterCat"
   },
   {
@@ -2479,7 +2479,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "field,use",
     "pretty": "field outerNS::OuterCat::mFavoriteCouch",
     "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
-    "type": "Couch *",
+    "type": "outerNS::Couch *",
     "typesym": "T_outerNS::Couch"
   },
   {
@@ -2498,7 +2498,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "function outerNS::OuterCat::meet",
     "sym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
     "nestingRange": "339:26-339:44",
-    "type": "void (Human &)"
+    "type": "void (outerNS::Human &)"
   },
   {
     "loc": "00339:12-17",
@@ -2506,7 +2506,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Human",
     "sym": "T_outerNS::Human",
-    "type": "class outerNS::Human",
+    "type": "outerNS::Human",
     "typesym": "T_outerNS::Human"
   },
   {
@@ -2516,7 +2516,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable human",
     "sym": "V_da90c775607c3527_e79fa9f013",
     "no_crossref": 1,
-    "type": "Human &",
+    "type": "outerNS::Human &",
     "typesym": "T_outerNS::Human"
   },
   {
@@ -2526,7 +2526,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable human",
     "sym": "V_da90c775607c3527_e79fa9f013",
     "no_crossref": 1,
-    "type": "Human &",
+    "type": "outerNS::Human &",
     "typesym": "T_outerNS::Human"
   },
   {
@@ -2544,7 +2544,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "function outerNS::OuterCat::meet",
     "sym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
     "nestingRange": "348:26-382:2",
-    "type": "void (Couch &)"
+    "type": "void (outerNS::Couch &)"
   },
   {
     "loc": "00348:12-17",
@@ -2552,7 +2552,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Couch",
     "sym": "T_outerNS::Couch",
-    "type": "class outerNS::Couch",
+    "type": "outerNS::Couch",
     "typesym": "T_outerNS::Couch"
   },
   {
@@ -2562,7 +2562,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable couch",
     "sym": "V_dc59d875607c3527_7f65d3f013",
     "no_crossref": 1,
-    "type": "Couch &",
+    "type": "outerNS::Couch &",
     "typesym": "T_outerNS::Couch"
   },
   {
@@ -2583,7 +2583,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable couch",
     "sym": "V_dc59d875607c3527_7f65d3f013",
     "no_crossref": 1,
-    "type": "Couch &",
+    "type": "outerNS::Couch &",
     "typesym": "T_outerNS::Couch"
   },
   {
@@ -2612,7 +2612,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable couch",
     "sym": "V_dc59d875607c3527_7f65d3f013",
     "no_crossref": 1,
-    "type": "Couch &",
+    "type": "outerNS::Couch &",
     "typesym": "T_outerNS::Couch"
   },
   {
@@ -2641,7 +2641,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable couch",
     "sym": "V_dc59d875607c3527_7f65d3f013",
     "no_crossref": 1,
-    "type": "Couch &",
+    "type": "outerNS::Couch &",
     "typesym": "T_outerNS::Couch"
   },
   {
@@ -2651,7 +2651,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "function outerNS::OuterCat::shred",
     "sym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
     "nestingRange": "387:27-387:50",
-    "type": "void (Thing &)"
+    "type": "void (outerNS::Thing &)"
   },
   {
     "loc": "00387:13-18",
@@ -2659,7 +2659,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
-    "type": "class outerNS::Thing",
+    "type": "outerNS::Thing",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -2669,7 +2669,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable thing",
     "sym": "V_88b65d75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &",
+    "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -2679,7 +2679,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable thing",
     "sym": "V_88b65d75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &",
+    "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -2700,7 +2700,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "function outerNS::OuterCat::destroy",
     "sym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE",
     "nestingRange": "392:29-407:2",
-    "type": "void (Thing &)"
+    "type": "void (outerNS::Thing &)"
   },
   {
     "loc": "00392:15-20",
@@ -2708,7 +2708,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
-    "type": "class outerNS::Thing",
+    "type": "outerNS::Thing",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -2718,7 +2718,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable thing",
     "sym": "V_626c4e75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &",
+    "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -2739,7 +2739,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable thing",
     "sym": "V_626c4e75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &",
+    "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -2760,7 +2760,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable thing",
     "sym": "V_626c4e75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &",
+    "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -2781,7 +2781,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable thing",
     "sym": "V_626c4e75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &",
+    "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -2802,7 +2802,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable thing",
     "sym": "V_626c4e75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &",
+    "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -2823,7 +2823,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable thing",
     "sym": "V_626c4e75607c3527_f3fec60113",
     "no_crossref": 1,
-    "type": "Thing &",
+    "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -2847,7 +2847,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
-    "type": "class outerNS::Thing",
+    "type": "outerNS::Thing",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -2872,7 +2872,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::Thing",
     "sym": "T_outerNS::Thing",
-    "type": "class outerNS::Thing",
+    "type": "outerNS::Thing",
     "typesym": "T_outerNS::Thing"
   },
   {
@@ -2914,7 +2914,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::AbstractArt",
     "sym": "T_outerNS::AbstractArt",
-    "type": "class outerNS::AbstractArt",
+    "type": "outerNS::AbstractArt",
     "typesym": "T_outerNS::AbstractArt"
   },
   {
@@ -2939,7 +2939,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::AbstractArt",
     "sym": "T_outerNS::AbstractArt",
-    "type": "class outerNS::AbstractArt",
+    "type": "outerNS::AbstractArt",
     "typesym": "T_outerNS::AbstractArt"
   },
   {
@@ -2973,7 +2973,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::PracticalArt",
     "sym": "T_outerNS::PracticalArt",
-    "type": "class outerNS::PracticalArt",
+    "type": "outerNS::PracticalArt",
     "typesym": "T_outerNS::PracticalArt"
   },
   {
@@ -2982,7 +2982,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "def,field",
     "pretty": "field outerNS::StackArtHolder::mHeldArt",
     "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
-    "type": "PracticalArt &",
+    "type": "outerNS::PracticalArt &",
     "typesym": "T_outerNS::PracticalArt"
   },
   {
@@ -2992,7 +2992,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "function outerNS::StackArtHolder::StackArtHolder",
     "sym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE",
     "nestingRange": "436:54-436:55",
-    "type": "void (PracticalArt &)"
+    "type": "void (outerNS::PracticalArt &)"
   },
   {
     "loc": "00436:17-29",
@@ -3000,7 +3000,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "type,use",
     "pretty": "type outerNS::PracticalArt",
     "sym": "T_outerNS::PracticalArt",
-    "type": "class outerNS::PracticalArt",
+    "type": "outerNS::PracticalArt",
     "typesym": "T_outerNS::PracticalArt"
   },
   {
@@ -3010,7 +3010,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable aArt",
     "sym": "V_56d8fc95607c3527_de3639c71",
     "no_crossref": 1,
-    "type": "PracticalArt &",
+    "type": "outerNS::PracticalArt &",
     "typesym": "T_outerNS::PracticalArt"
   },
   {
@@ -3019,7 +3019,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "field,use",
     "pretty": "field outerNS::StackArtHolder::mHeldArt",
     "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
-    "type": "PracticalArt &",
+    "type": "outerNS::PracticalArt &",
     "typesym": "T_outerNS::PracticalArt"
   },
   {
@@ -3029,7 +3029,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "pretty": "variable aArt",
     "sym": "V_56d8fc95607c3527_de3639c71",
     "no_crossref": 1,
-    "type": "PracticalArt &",
+    "type": "outerNS::PracticalArt &",
     "typesym": "T_outerNS::PracticalArt"
   },
   {
@@ -5046,7 +5046,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "args": [
       {
         "name": "aArt",
-        "type": "PracticalArt &",
+        "type": "outerNS::PracticalArt &",
         "typesym": "T_outerNS::PracticalArt"
       }
     ]
@@ -5370,7 +5370,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "args": [
       {
         "name": "couch",
-        "type": "Couch &",
+        "type": "outerNS::Couch &",
         "typesym": "T_outerNS::Couch"
       }
     ]
@@ -5402,7 +5402,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "args": [
       {
         "name": "human",
-        "type": "Human &",
+        "type": "outerNS::Human &",
         "typesym": "T_outerNS::Human"
       }
     ]
@@ -5434,7 +5434,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "args": [
       {
         "name": "thing",
-        "type": "Thing &",
+        "type": "outerNS::Thing &",
         "typesym": "T_outerNS::Thing"
       }
     ]
@@ -5466,7 +5466,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "args": [
       {
         "name": "thing",
-        "type": "Thing &",
+        "type": "outerNS::Thing &",
         "typesym": "T_outerNS::Thing"
       }
     ]

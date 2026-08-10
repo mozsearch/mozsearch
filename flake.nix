@@ -40,7 +40,7 @@
           ln -s ${pkgs.podman}/bin/podman $out/bin/docker
         '';
 
-        llvmPackages = pkgs.llvmPackages_21;
+        llvmPackages = pkgs.llvmPackages_22;
 
         pythonPackages = p:
           with p; [

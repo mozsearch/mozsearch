@@ -46,7 +46,7 @@ input_file: inputs/analysis/cpp/bug1781178.cpp/Foo_E
     "syntax": "type,use",
     "pretty": "type Foo::E",
     "sym": "T_Foo::E",
-    "type": "enum Foo::E",
+    "type": "Foo::E",
     "typesym": "T_Foo::E"
   },
   {
@@ -55,7 +55,7 @@ input_file: inputs/analysis/cpp/bug1781178.cpp/Foo_E
     "syntax": "type,use",
     "pretty": "type Foo::E",
     "sym": "T_Foo::E",
-    "type": "enum Foo<int>::E",
+    "type": "Foo<int>::E",
     "typesym": "T_Foo::E"
   }
 ]
