@@ -1819,15 +1819,9 @@ public:
     F->Output.push_back(std::move(ros.str()));
   }
 
-  std::string typeToString(QualType Type) {
-    if (CXXRecordDecl* cxxDecl = Type->getAsCXXRecordDecl()) {
-      if (cxxDecl->isLambda()) {
-        return getQualifiedName(cxxDecl);
-      }
-    }
-    return Type.getAsString();
-  }
-  std::string typeToString(QualType Type, PrintingPolicy policy) {
+  std::string typeToString(QualType Type, PrintingPolicy policy = LangOptions{}) {
+    policy.FullyQualifiedName = true;
+
     if (CXXRecordDecl* cxxDecl = Type->getAsCXXRecordDecl()) {
       if (cxxDecl->isLambda()) {
         return getQualifiedName(cxxDecl);
