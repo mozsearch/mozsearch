@@ -2557,7 +2557,7 @@ public:
   }
 
   bool VisitTagTypeLoc(TagTypeLoc L) {
-    SourceLocation Loc = L.getBeginLoc();
+    SourceLocation Loc = L.getNameLoc();
     if (!isInterestingLocation(Loc)) {
       return true;
     }
@@ -2572,7 +2572,7 @@ public:
   }
 
   bool VisitTypedefTypeLoc(TypedefTypeLoc L) {
-    SourceLocation Loc = L.getBeginLoc();
+    SourceLocation Loc = L.getNameLoc();
     if (!isInterestingLocation(Loc)) {
       return true;
     }
@@ -2587,7 +2587,7 @@ public:
   }
 
   bool VisitInjectedClassNameTypeLoc(InjectedClassNameTypeLoc L) {
-    SourceLocation Loc = L.getBeginLoc();
+    SourceLocation Loc = L.getNameLoc();
     if (!isInterestingLocation(Loc)) {
       return true;
     }
@@ -2602,7 +2602,7 @@ public:
   }
 
   bool VisitTemplateSpecializationTypeLoc(TemplateSpecializationTypeLoc L) {
-    SourceLocation Loc = L.getBeginLoc();
+    SourceLocation Loc = L.getTemplateNameLoc();
     if (!isInterestingLocation(Loc)) {
       return true;
     }
