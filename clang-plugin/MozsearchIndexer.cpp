@@ -2146,7 +2146,11 @@ public:
   }
 
   SourceRange getCommentRange(NamedDecl *D) {
+#if CLANG_VERSION_MAJOR >= 23
+    const RawComment *RC = AstContext->getRawCommentNoCache(D);
+#else
     const RawComment *RC = AstContext->getRawCommentForDeclNoCache(D);
+#endif
     if (!RC) {
       return SourceRange();
     }
