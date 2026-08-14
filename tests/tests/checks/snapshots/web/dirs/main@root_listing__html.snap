@@ -300,6 +300,13 @@ input_file: inputs/web/dirs/root_listing__html
         </tr>
 
         <tr>
+          <td class="name"><a href="/tests/source/bug2063622.cpp" class="mimetype-fixed-container mimetype-icon-cpp">bug2063622.cpp</a></td>
+          <td class="description"><a href="/tests/source/bug2063622.cpp" title=""></td>
+          <td class="size"><a href="/tests/source/bug2063622.cpp">350</a></td>
+          <td class="coverage"><a href="/tests/source/bug2063622.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
+        </tr>
+
+        <tr>
           <td class="name"><a href="/tests/source/build.gradle.kts" class="mimetype-fixed-container mimetype-icon-kts">build.gradle.kts</a></td>
           <td class="description"><a href="/tests/source/build.gradle.kts" title=""></td>
           <td class="size"><a href="/tests/source/build.gradle.kts">2436</a></td>

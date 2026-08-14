@@ -2604,6 +2604,10 @@ public:
     SourceLocation SpellingLoc = SM.getSpellingLoc(Loc);
 
     TemplateDecl *Td = L.getTypePtr()->getTemplateName().getAsTemplateDecl();
+    if (!Td) {
+      return true;
+    }
+
     if (ClassTemplateDecl *D = dyn_cast<ClassTemplateDecl>(Td)) {
       NamedDecl *Decl = D->getTemplatedDecl();
       std::string Mangled = getMangledName(CurMangleContext, Decl);
