@@ -1191,8 +1191,18 @@ fn create_js_idl_table(meta_table: &MetaTable) -> JSIDLTable {
             if slot.props.slot_lang != BindingSlotLang::JS {
                 continue;
             }
-            let idl_sym = meta.sym;
             let js_sym = slot.sym;
+            let has_concrete_slot_owner = meta_table
+                .get(&js_sym)
+                .and_then(|js_meta| js_meta.slot_owner.as_ref())
+                .is_some();
+
+            if has_concrete_slot_owner {
+                continue;
+            }
+
+            let idl_sym = meta.sym;
+
             if let Some(idl_syms) = js_idl_table.get_mut(&js_sym) {
                 if idl_syms.len() < MAX_JS_IDL_SYMS {
                     idl_syms.push(idl_sym);

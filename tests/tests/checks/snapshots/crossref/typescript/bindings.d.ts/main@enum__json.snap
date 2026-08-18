@@ -73,10 +73,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/enum__json
           "overrides": [],
           "props": [],
           "variants": []
-        },
-        "idl_syms": [
-          "T_NS::R::XYZ"
-        ]
+        }
       },
       "relation": "Queried",
       "quality": {

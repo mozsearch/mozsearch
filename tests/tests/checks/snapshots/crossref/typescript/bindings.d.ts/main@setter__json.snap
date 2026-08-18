@@ -53,10 +53,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/setter__json
           "overrides": [],
           "props": [],
           "variants": []
-        },
-        "idl_syms": [
-          "XPIDL_nsIXPCTestObjectReadWrite_stringProperty"
-        ]
+        }
       },
       "relation": "Queried",
       "quality": "ExactIdentifier",

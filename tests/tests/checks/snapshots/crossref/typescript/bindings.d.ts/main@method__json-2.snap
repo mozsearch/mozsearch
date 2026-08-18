@@ -52,10 +52,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/method__json
           "overrides": [],
           "props": [],
           "variants": []
-        },
-        "idl_syms": [
-          "XPIDL_nsIXPCTestParams_testBoolean"
-        ]
+        }
       },
       "relation": "Queried",
       "quality": "ExactIdentifier",
