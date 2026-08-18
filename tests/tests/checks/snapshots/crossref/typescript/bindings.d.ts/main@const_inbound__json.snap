@@ -53,10 +53,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/const_inbound__json
           "overrides": [],
           "props": [],
           "variants": []
-        },
-        "idl_syms": [
-          "E_<T_NS::R::XYZ>_TAG1"
-        ]
+        }
       },
       "relation": "Queried",
       "quality": {
