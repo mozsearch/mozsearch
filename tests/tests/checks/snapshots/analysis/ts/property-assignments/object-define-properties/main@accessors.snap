@@ -17,6 +17,7 @@ input_file: inputs/analysis/ts/property-assignments/object-define-properties/acc
     "structured": 1,
     "pretty": "objectDefineProperties::accessors",
     "sym": "S_js_ts/src/property-assignments/object-define-properties.js/objectDefineProperties.accessors.",
+    "js_sym": "#accessors",
     "type_pretty": "\"accessors\"",
     "kind": "field",
     "subsystem": null,

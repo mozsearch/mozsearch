@@ -30,6 +30,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/const_inbound__json
           "structured": 1,
           "pretty": "TsEnum::TsConstInbound",
           "sym": "S_js_ts/src/bindings.d.ts/TsEnum#TsConstInbound.",
+          "js_sym": "#TsConstInbound",
           "type_pretty": "(enum member) TsConstInbound",
           "kind": "field",
           "subsystem": null,

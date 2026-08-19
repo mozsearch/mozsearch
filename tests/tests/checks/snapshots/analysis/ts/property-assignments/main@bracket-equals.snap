@@ -17,6 +17,7 @@ input_file: inputs/analysis/ts/property-assignments/bracket-equals
     "structured": 1,
     "pretty": "bracketEquals::prop",
     "sym": "S_js_ts/src/property-assignments/brackets-equals.js/bracketEquals.prop.",
+    "js_sym": "#prop",
     "type_pretty": "\"prop\"",
     "kind": "field",
     "subsystem": null,

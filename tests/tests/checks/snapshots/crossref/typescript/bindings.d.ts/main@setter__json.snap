@@ -6,6 +6,38 @@ input_file: inputs/crossref/typescript/bindings.d.ts/setter__json
 {
   "symbol_crossref_infos": [
     {
+      "symbol": "#tsSetter",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "js/idl_via_ts.mjs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 4,
+                "bounds": [
+                  4,
+                  12
+                ],
+                "line": "obj.tsSetter(\"test\")",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "idl_syms": [
+          "XPIDL_nsIXPCTestObjectReadWrite_stringProperty"
+        ],
+        "ts_syms": [
+          "S_js_ts/src/bindings.d.ts/tsClass#tsSetter()."
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    },
+    {
       "symbol": "S_js_ts/src/bindings.d.ts/tsClass#tsSetter().",
       "crossref_info": {
         "defs": [
@@ -30,6 +62,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/setter__json
           "structured": 1,
           "pretty": "tsClass::tsSetter",
           "sym": "S_js_ts/src/bindings.d.ts/tsClass#tsSetter().",
+          "js_sym": "#tsSetter",
           "type_pretty": "any",
           "kind": "method",
           "subsystem": null,

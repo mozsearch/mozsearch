@@ -17,6 +17,7 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/prop
     "structured": 1,
     "pretty": "objectAssign::prop",
     "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.prop.",
+    "js_sym": "#prop",
     "type_pretty": "\"prop\"",
     "kind": "field",
     "subsystem": null,

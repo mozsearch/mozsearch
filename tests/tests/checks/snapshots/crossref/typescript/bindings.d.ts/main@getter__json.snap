@@ -6,6 +6,38 @@ input_file: inputs/crossref/typescript/bindings.d.ts/getter__json
 {
   "symbol_crossref_infos": [
     {
+      "symbol": "#tsGetter",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "js/idl_via_ts.mjs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 3,
+                "bounds": [
+                  4,
+                  12
+                ],
+                "line": "obj.tsGetter()",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "idl_syms": [
+          "XPIDL_nsIXPCTestObjectReadWrite_stringProperty"
+        ],
+        "ts_syms": [
+          "S_js_ts/src/bindings.d.ts/tsClass#tsGetter()."
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    },
+    {
       "symbol": "S_js_ts/src/bindings.d.ts/tsClass#tsGetter().",
       "crossref_info": {
         "defs": [
@@ -30,6 +62,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/getter__json
           "structured": 1,
           "pretty": "tsClass::tsGetter",
           "sym": "S_js_ts/src/bindings.d.ts/tsClass#tsGetter().",
+          "js_sym": "#tsGetter",
           "type_pretty": "string",
           "kind": "method",
           "subsystem": null,

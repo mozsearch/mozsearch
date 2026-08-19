@@ -17,6 +17,7 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/shorthand
     "structured": 1,
     "pretty": "objectAssign::shorthand",
     "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.shorthand.",
+    "js_sym": "#shorthand",
     "type_pretty": "\"shorthand\"",
     "kind": "field",
     "subsystem": null,

@@ -1304,6 +1304,9 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
     let idlSubMenuItems = [];
     let idlSubMenuSearches = [];
 
+    let tsSubMenuItems = [];
+    let tsSubMenuSearches = [];
+
     let gleanSymbol = null;
 
     let expansions = {};
@@ -1901,6 +1904,54 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
                 menu: this,
               }));
             }
+          }
+        }
+
+        // If this is a js-analyze symbol, offer matching scip-typescript symbols as well
+        if (symInfo.ts_syms && Array.isArray(symInfo.ts_syms)) {
+          for (const tsSym of symInfo.ts_syms) {
+            const tsInfo = SYM_INFO[tsSym];
+            if (!tsInfo) {
+              continue;
+            }
+
+            const def = tsInfo?.jumps?.def;
+            if (def) {
+              tsSubMenuItems.push(new GotoMenuItem({
+                html: this.fmt(`Go to definition of <strong>_</strong>`, tsInfo.pretty),
+                href: `/${tree}/source/${def}`,
+                icon: "export-alt",
+                section: "jumps",
+                confidence,
+              }));
+            }
+
+            const decl = tsInfo?.jumps?.decl;
+            if (decl) {
+              tsSubMenuItems.push(new GotoMenuItem({
+                html: this.fmt(`Go to declaration of <strong>_</strong>`, tsInfo.pretty),
+                href: `/${tree}/source/${decl}`,
+                icon: "export-alt",
+                section: "jumps",
+                confidence,
+              }));
+            }
+
+            tsSubMenuSearches.push({
+              label: `${tsInfo.pretty}`,
+              syms: [tsInfo.sym],
+              def,
+            });
+
+            heuristicsMenuItems.push(new MenuItemWithSubMenu({
+              html: `Possible TypeScript definitions`,
+              tree,
+              icon: "export-alt",
+              section: "heuristics",
+              items: tsSubMenuItems,
+              searches: tsSubMenuSearches,
+              menu: this,
+            }));
           }
         }
 

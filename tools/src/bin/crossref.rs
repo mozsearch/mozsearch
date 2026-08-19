@@ -186,6 +186,9 @@ type XrefLinkSlotsItems = Vec<((Ustr, Ustr), (BindingSlotProps, Option<Ustr>))>;
 type JSIDLTable = HashMap<Ustr, Vec<Ustr>>;
 const MAX_JS_IDL_SYMS: usize = 4;
 
+// Maps JavaScript symbols to possible TypeScript symbols.
+type JsTsTable = HashMap<Ustr, Vec<Ustr>>;
+
 #[allow(clippy::too_many_arguments)]
 fn process_analysis_target(
     mut piece: AnalysisTarget,
@@ -320,6 +323,7 @@ fn make_subsystem(
             structured: StructuredTag::Structured,
             pretty: *path,
             sym: file_sym,
+            js_sym: None,
             type_pretty: None,
             kind: ustr("file"),
             subsystem,
@@ -1183,8 +1187,9 @@ async fn write_ontology_ingestion_diag(tree_config: &TreeConfig, logged_ontology
     std::fs::write(ingestion_diag_path, output).unwrap();
 }
 
-fn create_js_idl_table(meta_table: &MetaTable) -> JSIDLTable {
+fn create_js_tables(meta_table: &MetaTable) -> (JSIDLTable, JsTsTable) {
     let mut js_idl_table = JSIDLTable::new();
+    let mut js_ts_table = JsTsTable::new();
     for meta in meta_table.values() {
         for slot in &meta.binding_slots {
             if slot.props.slot_lang != BindingSlotLang::JS {
@@ -1207,9 +1212,26 @@ fn create_js_idl_table(meta_table: &MetaTable) -> JSIDLTable {
                 idl_syms.push(idl_sym);
             }
         }
+
+        if let Some(js_sym) = meta.js_sym {
+            let ts_sym = meta.sym;
+            js_ts_table.entry(js_sym).or_default().push(ts_sym);
+
+            let ts_slot_owner = meta_table
+                .get(&ts_sym)
+                .and_then(|ts_meta| ts_meta.slot_owner.as_ref())
+                .map(|idl_meta| idl_meta.sym);
+
+            if let Some(ts_slot_owner) = ts_slot_owner {
+                let idl_syms = js_idl_table.entry(js_sym).or_default();
+                if idl_syms.len() < MAX_JS_IDL_SYMS {
+                    idl_syms.push(ts_slot_owner);
+                }
+            }
+        }
     }
 
-    js_idl_table
+    (js_idl_table, js_ts_table)
 }
 
 fn write_inline_and_ext(
@@ -1267,6 +1289,7 @@ fn write_crossref_and_jumpref_thread(
     callees_table: &CalleesTable,
     field_member_use_table: &FieldMemberUseTable,
     js_idl_table: &JSIDLTable,
+    js_ts_table: &JsTsTable,
     is_first_chunk: bool,
     xref_ext_size: &mut Option<usize>,
     jumpref_ext_size: &mut Option<usize>,
@@ -1376,6 +1399,10 @@ fn write_crossref_and_jumpref_thread(
             }
         }
 
+        if let Some(ts_syms) = js_ts_table.get(id) {
+            crossref_data.ts_syms = ts_syms.clone();
+        }
+
         write_inline_and_ext(
             &mut xref_out,
             &mut xref_ext_out,
@@ -1411,6 +1438,7 @@ fn write_crossref_and_jumpref(
     callees_table: CalleesTable,
     field_member_use_table: FieldMemberUseTable,
     js_idl_table: JSIDLTable,
+    js_ts_table: JsTsTable,
     thread_count: usize,
 ) {
     let search_result_list: SearchResultList = search_result_table.into_iter().collect();
@@ -1442,6 +1470,7 @@ fn write_crossref_and_jumpref(
             &callees_table,
             &field_member_use_table,
             &js_idl_table,
+            &js_ts_table,
             true,
             &mut xref_ext_size,
             &mut jumpref_ext_size,
@@ -1478,6 +1507,7 @@ fn write_crossref_and_jumpref(
             let callees_table = &callees_table;
             let field_member_use_table = &field_member_use_table;
             let js_idl_table = &js_idl_table;
+            let js_ts_table = &js_ts_table;
 
             let start = chunk * index;
             let end = if index == thread_count - 1 {
@@ -1500,6 +1530,7 @@ fn write_crossref_and_jumpref(
                     callees_table,
                     field_member_use_table,
                     js_idl_table,
+                    js_ts_table,
                     index == 0,
                     xref_ext_size,
                     jumpref_ext_size,
@@ -1748,11 +1779,11 @@ async fn main() {
     write_ontology_ingestion_diag(tree_config, logged_ontology_span).await;
 
     println!(
-        "Performing crossref::js-idl step for {} : {}",
+        "Performing crossref::js-idl and js-ts step for {} : {}",
         tree_name,
         Local::now().format("%Y-%m-%dT%H:%M:%S%z")
     );
-    let js_idl_table = create_js_idl_table(&meta_table);
+    let (js_idl_table, js_ts_table) = create_js_tables(&meta_table);
 
     println!(
         "Performing crossref::write-crossref step for {} : {}",
@@ -1769,6 +1800,7 @@ async fn main() {
         callees_table,
         field_member_use_table,
         js_idl_table,
+        js_ts_table,
         cli.thread_count,
     );
 

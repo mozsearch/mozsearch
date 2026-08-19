@@ -927,10 +927,25 @@ fn analyze_using_scip(
 
                 let (slot_owner, binding_slots) = binding_links(scip_sym_info, lang);
 
+                let js_sym = if lang == ScipLang::Typescript
+                    && let Some(last_descriptor) = scip_sym.descriptors.last()
+                    && let Ok(suffix) = last_descriptor.suffix.enum_value()
+                {
+                    use Suffix::*;
+                    match suffix {
+                        Type | Term | Method => Some(format!("#{}", last_descriptor.name).into()),
+                        UnspecifiedSuffix | Namespace | Package | TypeParameter | Parameter
+                        | Meta | Local | Macro => None,
+                    }
+                } else {
+                    None
+                };
+
                 let structured = AnalysisStructured {
                     structured: StructuredTag::Structured,
                     pretty: symbol_info.pretty,
                     sym: symbol_info.norm_sym,
+                    js_sym,
                     type_pretty,
                     kind: ustr(symbol_info.kind.or(fallback_kind).unwrap_or("")),
                     subsystem: None,
@@ -1198,6 +1213,7 @@ fn analyze_using_scip(
                         structured: StructuredTag::Structured,
                         pretty: symbol_info.pretty,
                         sym: symbol_info.norm_sym,
+                        js_sym: None,
                         type_pretty: None,
                         kind: ustr(symbol_info.kind.unwrap_or("")),
                         subsystem: None,
@@ -1407,6 +1423,7 @@ fn analyze_using_scip(
             structured: StructuredTag::Structured,
             pretty: symbol_info.pretty,
             sym: symbol_info.norm_sym,
+            js_sym: None,
             type_pretty: None,
             kind: ustr(symbol_info.kind.unwrap_or("")),
             subsystem: None,

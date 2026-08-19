@@ -17,6 +17,7 @@ input_file: inputs/analysis/ts/ChromeUtils.js/defineLazyGetter/prop
     "structured": 1,
     "pretty": "obj::prop",
     "sym": "S_js_ts/src/ChromeUtils.js/obj.prop.",
+    "js_sym": "#prop",
     "type_pretty": "\"prop\"",
     "kind": "field",
     "subsystem": null,
