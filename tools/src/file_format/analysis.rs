@@ -610,9 +610,6 @@ where
     #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub labels: BTreeSet<StrT>,
 
-    // ### Derived by cross-referencing
-    #[serde(rename = "idlsym", skip_serializing_if = "Option::is_none")]
-    pub idl_sym: Option<StrT>,
     // Note: Originally these (subclasses, overriddenBy) were meant to hold
     // { pretty, sym } for symmetry, but now the code and docs do reflect these
     // as being symbol only.

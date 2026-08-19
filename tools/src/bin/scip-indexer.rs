@@ -953,7 +953,6 @@ fn analyze_using_scip(
                     props: vec![],
                     labels: BTreeSet::default(),
 
-                    idl_sym: None,
                     subclass_syms: vec![],
                     overridden_by_syms: vec![],
                     variants: vec![],
@@ -1221,7 +1220,6 @@ fn analyze_using_scip(
                         props: vec![],
                         labels: BTreeSet::default(),
 
-                        idl_sym: None,
                         subclass_syms: vec![],
                         overridden_by_syms: vec![],
                         variants: vec![],
@@ -1428,7 +1426,6 @@ fn analyze_using_scip(
             props: vec![],
             labels: BTreeSet::default(),
 
-            idl_sym: None,
             subclass_syms: vec![],
             overridden_by_syms: vec![],
             variants: vec![],
