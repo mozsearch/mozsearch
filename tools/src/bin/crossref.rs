@@ -342,7 +342,6 @@ fn make_subsystem(
             props: vec![],
             labels: BTreeSet::default(),
 
-            idl_sym: None,
             subclass_syms: vec![],
             overridden_by_syms: vec![],
             variants: vec![],
