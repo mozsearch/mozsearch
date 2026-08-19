@@ -17,6 +17,7 @@ input_file: inputs/analysis/ts/ChromeUtils.js/importESModule/assert
     "structured": 1,
     "pretty": "obj::assert",
     "sym": "S_js_ts/src/ChromeUtils.js/obj.assert.",
+    "js_sym": "#assert",
     "type_pretty": "typeof assert",
     "kind": "field",
     "subsystem": null,

@@ -30,6 +30,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/count_outbound__json
           "structured": 1,
           "pretty": "TsEnum::TsConstOutbound",
           "sym": "S_js_ts/src/bindings.d.ts/TsEnum#TsConstOutbound.",
+          "js_sym": "#TsConstOutbound",
           "type_pretty": "(enum member) TsConstOutbound",
           "kind": "field",
           "subsystem": null,

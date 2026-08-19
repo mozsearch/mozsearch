@@ -89,6 +89,21 @@ def merge_defs_from_symbols_as(tree_name, mix_target, symbol_names, as_key):
         else:
             mix_target[as_key] = aggr_defs
 
+def merge_uses_from_symbols_as(tree_name, mix_target, symbol_names, as_key):
+    aggr_uses = []
+    for symbol_name in symbol_names:
+        info = crossrefs.lookup_single_symbol(tree_name, symbol_name)
+        if info is None or 'uses' not in info:
+            continue
+
+        aggr_uses += info['uses']
+
+    if len(aggr_uses):
+        if as_key in mix_target:
+            mix_target[as_key].extend(aggr_uses)
+        else:
+            mix_target[as_key] = aggr_uses
+
 
 def expand_keys(tree_name, new_keyed, traverse_relations=True, depth=0):
     '''
@@ -142,6 +157,8 @@ def expand_keys(tree_name, new_keyed, traverse_relations=True, depth=0):
     # lookup_merging will have wrapped the value into a list
     meta_arr = new_keyed.pop('meta')
     for meta in meta_arr:
+        if 'js_sym' in meta:
+            merge_uses_from_symbols_as(tree_name, new_keyed, [meta['js_sym']], 'Possible JavaScript Uses')
         if 'overrides' in meta:
             merge_defs_from_symbols_as(
                 tree_name, new_keyed,
@@ -289,7 +306,7 @@ class SearchResults(object):
         "Files", "IDL", "IDL Partial", "Definitions", "Declarations",
         "Bindings", "Glean", "Aliases", "Overrides", "Overridden By",
         "Superclasses", "Subclasses", "Assignments", "Uses",
-        "Textual Occurrences"]
+        "Possible JavaScript Uses", "Textual Occurrences"]
 
     def categorize_path(self, path):
         '''

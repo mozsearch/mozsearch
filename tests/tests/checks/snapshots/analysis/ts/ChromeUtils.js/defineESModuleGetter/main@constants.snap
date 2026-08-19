@@ -17,6 +17,7 @@ input_file: inputs/analysis/ts/ChromeUtils.js/defineESModuleGetter/constants
     "structured": 1,
     "pretty": "obj::constants",
     "sym": "S_js_ts/src/ChromeUtils.js/obj.constants.",
+    "js_sym": "#constants",
     "type_pretty": "\"constants\"",
     "kind": "field",
     "subsystem": null,

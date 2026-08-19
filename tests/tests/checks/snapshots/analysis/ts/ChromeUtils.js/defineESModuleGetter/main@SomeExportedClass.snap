@@ -17,6 +17,7 @@ input_file: inputs/analysis/ts/ChromeUtils.js/defineESModuleGetter/SomeExportedC
     "structured": 1,
     "pretty": "obj::SomeExportedClass",
     "sym": "S_js_ts/src/ChromeUtils.js/obj.SomeExportedClass.",
+    "js_sym": "#SomeExportedClass",
     "type_pretty": "\"SomeExportedClass\"",
     "kind": "field",
     "subsystem": null,

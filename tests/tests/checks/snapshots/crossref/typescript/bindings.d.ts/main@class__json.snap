@@ -6,6 +6,38 @@ input_file: inputs/crossref/typescript/bindings.d.ts/class__json
 {
   "symbol_crossref_infos": [
     {
+      "symbol": "#tsClass",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "js/idl_via_ts.mjs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 1,
+                "bounds": [
+                  14,
+                  21
+                ],
+                "line": "let obj = new tsClass()",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "idl_syms": [
+          "XPIDL_nsIXPCTestObjectReadWrite"
+        ],
+        "ts_syms": [
+          "S_js_ts/src/bindings.d.ts/tsClass#"
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    },
+    {
       "symbol": "S_js_ts/src/bindings.d.ts/tsClass#",
       "crossref_info": {
         "defs": [
@@ -30,6 +62,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/class__json
           "structured": 1,
           "pretty": "tsClass",
           "sym": "S_js_ts/src/bindings.d.ts/tsClass#",
+          "js_sym": "#tsClass",
           "type_pretty": "class tsClass",
           "kind": "class",
           "subsystem": null,

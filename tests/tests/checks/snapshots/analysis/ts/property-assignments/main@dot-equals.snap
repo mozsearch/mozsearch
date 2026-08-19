@@ -17,6 +17,7 @@ input_file: inputs/analysis/ts/property-assignments/dot-equals
     "structured": 1,
     "pretty": "dotEquals::prop",
     "sym": "S_js_ts/src/property-assignments/dot-equals.js/dotEquals.prop.",
+    "js_sym": "#prop",
     "type_pretty": "number",
     "kind": "field",
     "subsystem": null,

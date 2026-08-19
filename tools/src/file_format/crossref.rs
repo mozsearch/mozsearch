@@ -60,6 +60,9 @@ pub struct CrossrefData {
     pub meta: Option<AnalysisStructured>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idl_syms: Option<Vec<Ustr>>,
+    /// Candidate scip-typescript symbols if this is a js-analyze symbol
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ts_syms: Vec<Ustr>,
 }
 
 pub trait OptionalCrossrefDataHelpers {

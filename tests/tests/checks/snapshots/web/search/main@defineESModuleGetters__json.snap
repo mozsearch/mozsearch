@@ -1,0 +1,150 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/web/search/defineESModuleGetters__json
+---
+{
+  "normal": {
+    "Definitions (ChromeUtils::defineESModuleGetters)": [
+      {
+        "path": "ts/src/ChromeUtils.js",
+        "lines": [
+          {
+            "lno": 2,
+            "bounds": [
+              0,
+              21
+            ],
+            "line": "defineESModuleGetters(obj, props) {},",
+            "context": "",
+            "contextsym": ""
+          }
+        ],
+        "path_kind": "normal"
+      }
+    ],
+    "Uses (ChromeUtils::defineESModuleGetters)": [
+      {
+        "path": "ts/src/ChromeUtils.js",
+        "lines": [
+          {
+            "lno": 8,
+            "bounds": [
+              12,
+              33
+            ],
+            "line": "ChromeUtils.defineESModuleGetters(obj, {",
+            "context": "",
+            "contextsym": ""
+          }
+        ],
+        "path_kind": "normal"
+      }
+    ],
+    "Possible JavaScript Uses (ChromeUtils::defineESModuleGetters)": [
+      {
+        "path": "js/lazyGetterAPI.js",
+        "lines": [
+          {
+            "lno": 30,
+            "bounds": [
+              12,
+              33
+            ],
+            "line": "ChromeUtils.defineESModuleGetters(lazy, {",
+            "context": "",
+            "contextsym": ""
+          }
+        ],
+        "path_kind": "normal"
+      },
+      {
+        "path": "urlmap/root.html",
+        "lines": [
+          {
+            "lno": 22,
+            "bounds": [
+              12,
+              33
+            ],
+            "line": "ChromeUtils.defineESModuleGetters(lazy, {",
+            "context": "",
+            "contextsym": ""
+          },
+          {
+            "lno": 42,
+            "bounds": [
+              12,
+              33
+            ],
+            "line": "ChromeUtils.defineESModuleGetters(lazy, {",
+            "context": "",
+            "contextsym": ""
+          }
+        ],
+        "path_kind": "normal"
+      },
+      {
+        "path": "urlmap/root.js",
+        "lines": [
+          {
+            "lno": 5,
+            "bounds": [
+              12,
+              33
+            ],
+            "line": "ChromeUtils.defineESModuleGetters(lazy, {",
+            "context": "",
+            "contextsym": ""
+          }
+        ],
+        "path_kind": "normal"
+      },
+      {
+        "path": "urlmap/root.mjs",
+        "lines": [
+          {
+            "lno": 10,
+            "bounds": [
+              12,
+              33
+            ],
+            "line": "ChromeUtils.defineESModuleGetters(lazy, {",
+            "context": "",
+            "contextsym": ""
+          }
+        ],
+        "path_kind": "normal"
+      },
+      {
+        "path": "urlmap/root.xhtml",
+        "lines": [
+          {
+            "lno": 19,
+            "bounds": [
+              12,
+              33
+            ],
+            "line": "ChromeUtils.defineESModuleGetters(lazy, {",
+            "context": "",
+            "contextsym": ""
+          },
+          {
+            "lno": 41,
+            "bounds": [
+              12,
+              33
+            ],
+            "line": "ChromeUtils.defineESModuleGetters(lazy, {",
+            "context": "",
+            "contextsym": ""
+          }
+        ],
+        "path_kind": "normal"
+      }
+    ]
+  },
+  "*title*": "ChromeUtils::defineESModuleGetters",
+  "*timedout*": false,
+  "*limits*": []
+}

@@ -30,6 +30,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/enum__json
           "structured": 1,
           "pretty": "TsEnum",
           "sym": "S_js_ts/src/bindings.d.ts/TsEnum#",
+          "js_sym": "#TsEnum",
           "type_pretty": "enum TsEnum",
           "kind": "class",
           "subsystem": null,

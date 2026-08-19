@@ -17,6 +17,7 @@ input_file: inputs/analysis/ts/property-assignments/object-define-properties/pro
     "structured": 1,
     "pretty": "objectDefineProperties::prop",
     "sym": "S_js_ts/src/property-assignments/object-define-properties.js/objectDefineProperties.prop.",
+    "js_sym": "#prop",
     "type_pretty": "\"prop\"",
     "kind": "field",
     "subsystem": null,

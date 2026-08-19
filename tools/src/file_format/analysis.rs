@@ -561,6 +561,9 @@ where
     pub pretty: StrT,
     #[serde(default)]
     pub sym: StrT,
+    /// For scip-typescript symbols, the equivalent js-analyze symbol.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub js_sym: Option<StrT>,
     // XXX Adding this right now for scip-indexer because we're using the analysis
     // rep as the canonical info to provide to the source record, and right now this
     // only exists on source records and fields.

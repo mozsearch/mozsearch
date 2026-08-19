@@ -6,6 +6,38 @@ input_file: inputs/crossref/typescript/bindings.d.ts/method__json
 {
   "symbol_crossref_infos": [
     {
+      "symbol": "#tsMethod",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "js/idl_via_ts.mjs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 6,
+                "bounds": [
+                  0,
+                  8
+                ],
+                "line": "tsMethod(true, false)",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "idl_syms": [
+          "XPIDL_nsIXPCTestParams_testBoolean"
+        ],
+        "ts_syms": [
+          "S_js_ts/src/bindings.d.ts/tsMethod()."
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    },
+    {
       "symbol": "S_js_ts/src/bindings.d.ts/tsMethod().",
       "crossref_info": {
         "defs": [
@@ -30,6 +62,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/method__json
           "structured": 1,
           "pretty": "tsMethod",
           "sym": "S_js_ts/src/bindings.d.ts/tsMethod().",
+          "js_sym": "#tsMethod",
           "type_pretty": "boolean",
           "kind": "method",
           "subsystem": null,

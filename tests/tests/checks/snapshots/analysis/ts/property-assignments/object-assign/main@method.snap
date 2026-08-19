@@ -18,6 +18,7 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/method
     "structured": 1,
     "pretty": "objectAssign::method",
     "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.method().",
+    "js_sym": "#method",
     "type_pretty": "(method) method\"method\"",
     "kind": "method",
     "subsystem": null,

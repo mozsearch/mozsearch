@@ -6,6 +6,38 @@ input_file: inputs/crossref/typescript/bindings.d.ts/attribute__json
 {
   "symbol_crossref_infos": [
     {
+      "symbol": "#tsAttribute",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "js/idl_via_ts.mjs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 2,
+                "bounds": [
+                  4,
+                  15
+                ],
+                "line": "obj.tsAttribute",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "idl_syms": [
+          "XPIDL_nsIXPCTestObjectReadWrite_stringProperty"
+        ],
+        "ts_syms": [
+          "S_js_ts/src/bindings.d.ts/tsClass#tsAttribute."
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    },
+    {
       "symbol": "S_js_ts/src/bindings.d.ts/tsClass#tsAttribute.",
       "crossref_info": {
         "defs": [
@@ -30,6 +62,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/attribute__json
           "structured": 1,
           "pretty": "tsClass::tsAttribute",
           "sym": "S_js_ts/src/bindings.d.ts/tsClass#tsAttribute.",
+          "js_sym": "#tsAttribute",
           "type_pretty": "string",
           "kind": "field",
           "subsystem": null,
