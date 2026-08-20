@@ -314,7 +314,7 @@ class SearchResults(object):
                     '/googletest/' in p or '/gtest/' in p or '/gtests/' in p or
                     '/imptests/' in p)
 
-        if '__GENERATED__' in path:
+        if '__GENERATED__' in path or path.startswith('tools/@types/generated/'):
             return 'generated'
         elif path.startswith('third_party/'):
             return "third_party"
