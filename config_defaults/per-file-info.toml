@@ -13,6 +13,7 @@ sort_order = 3
 [pathkind.generated.heuristics]
 path_prefixes = [
     "__GENERATED__/",
+    "tools/@types/generated/",
 ]
 
 [pathkind.test]
