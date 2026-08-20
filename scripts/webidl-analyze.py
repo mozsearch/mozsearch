@@ -3,6 +3,7 @@
 # See the comment at the top of idl-analyze.py file for the details about
 # how IDL indexing works.
 
+import argparse
 import json
 import os.path
 import re
@@ -989,11 +990,24 @@ def write_files(analysis_root):
                 print(json.dumps(r), file=fh)
 
 
-index_root = sys.argv[1]
-files_root = sys.argv[2]
-analysis_root = sys.argv[3]
-cache_dir = sys.argv[4]
-bindings_local_path = sys.argv[5]
+parser = argparse.ArgumentParser(
+    prog='webidl-analyze',
+    description='Turns WebIDL files into mozsearch analysis records',
+)
+
+parser.add_argument('index_root', help="The path to the index root, use to retrieve generated files")
+parser.add_argument('files_root', help="The path to the source files' root")
+parser.add_argument('analysis_root', help="The path to the analysis directory, where we read C++ analysis files and output our own analysis to")
+parser.add_argument('cache_dir', help="Path to a directory for the WebIDL parser to put temporary files into")
+parser.add_argument('bindings_local_path', help="Overrides analysis_root when for testing")
+
+args = parser.parse_args()
+
+index_root = args.index_root
+files_root = args.files_root
+analysis_root = args.analysis_root
+cache_dir = args.cache_dir
+bindings_local_path = args.bindings_local_path
 if bindings_local_path == 'null':
     bindings_local_path = None
 
