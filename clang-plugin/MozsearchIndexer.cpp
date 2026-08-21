@@ -1821,6 +1821,7 @@ public:
 
   std::string typeToString(QualType Type, PrintingPolicy policy = LangOptions{}) {
     policy.FullyQualifiedName = true;
+    policy.CleanUglifiedParameters = true;
 
     if (CXXRecordDecl* cxxDecl = Type->getAsCXXRecordDecl()) {
       if (cxxDecl->isLambda()) {
