@@ -98,13 +98,6 @@ fi
 # Prior livegrep deps, now rust wants libssl-dev still
 sudo apt-get install -y unzip libssl-dev
 
-# Install gcc-12 because bazel 5.x can't build with gcc-13 because of problems
-# with abseil and simply telling the livesearch bazel to use the latest bazel or
-# clang just gives us different problems.
-sudo apt-get install -y gcc-12 g++-12
-sudo update-alternatives --install /usr/local/bin/gcc gcc /usr/bin/gcc-12 ${CLANG_PRIORITY}
-sudo update-alternatives --install /usr/local/bin/g++ g++ /usr/bin/g++-12 ${CLANG_PRIORITY}
-
 # Clang
 wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
 sudo apt-add-repository -y "deb https://apt.llvm.org/${UBUNTU_RELEASE}/ llvm-toolchain-${UBUNTU_RELEASE}${CLANG_SUFFIX} main"
