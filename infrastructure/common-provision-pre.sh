@@ -102,8 +102,8 @@ sudo apt-get install -y unzip libssl-dev
 # with abseil and simply telling the livesearch bazel to use the latest bazel or
 # clang just gives us different problems.
 sudo apt-get install -y gcc-12 g++-12
-sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 ${CLANG_PRIORITY}
-sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/local/bin/gcc gcc /usr/bin/gcc-12 ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/local/bin/g++ g++ /usr/bin/g++-12 ${CLANG_PRIORITY}
 
 # Clang
 wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
@@ -112,14 +112,14 @@ sudo apt-get update
 sudo apt-get install -y clang${CLANG_SUFFIX} libclang${CLANG_SUFFIX}-dev lld${CLANG_SUFFIX}
 
 # Setup direct links to clang, including having clang be cc/c++
-sudo update-alternatives --install /usr/bin/llvm-config llvm-config /usr/bin/llvm-config${CLANG_SUFFIX} ${CLANG_PRIORITY}
-sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang${CLANG_SUFFIX} ${CLANG_PRIORITY}
-sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang${CLANG_SUFFIX} ${CLANG_PRIORITY}
-sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++${CLANG_SUFFIX} ${CLANG_PRIORITY}
-sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang${CLANG_SUFFIX} ${CLANG_PRIORITY}
-sudo update-alternatives --install /usr/bin/llvm-symbolizer llvm-symbolizer /usr/bin/llvm-symbolizer${CLANG_SUFFIX} ${CLANG_PRIORITY}
-sudo update-alternatives --install /usr/bin/lld lld /usr/bin/lld${CLANG_SUFFIX} ${CLANG_PRIORITY}
-sudo update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld${CLANG_SUFFIX} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/local/bin/llvm-config llvm-config /usr/bin/llvm-config${CLANG_SUFFIX} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/local/bin/clang clang /usr/bin/clang${CLANG_SUFFIX} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/local/bin/cc cc /usr/bin/clang${CLANG_SUFFIX} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/local/bin/clang++ clang++ /usr/bin/clang++${CLANG_SUFFIX} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/local/bin/c++ c++ /usr/bin/clang${CLANG_SUFFIX} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/local/bin/llvm-symbolizer llvm-symbolizer /usr/bin/llvm-symbolizer${CLANG_SUFFIX} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/local/bin/lld lld /usr/bin/lld${CLANG_SUFFIX} ${CLANG_PRIORITY}
+sudo update-alternatives --install /usr/local/bin/ld.lld ld.lld /usr/bin/ld.lld${CLANG_SUFFIX} ${CLANG_PRIORITY}
 
 # Install pkg-config (needed for Rust's OpenSSL wrappers)
 # Install vmtouch for caching files into memory
