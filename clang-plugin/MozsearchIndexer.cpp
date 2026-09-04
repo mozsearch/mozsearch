@@ -1604,10 +1604,11 @@ public:
       } else {
         // Try and get the field as a record itself so we can know its size, but
         // we don't actually want to recurse into it.
-        if (auto FieldRec = Field.getType()->getAs<RecordType>()) {
+        auto FieldRec = Field.getType()->getAs<RecordType>();
+        if (FieldRec && !FieldRec->getDecl()->isInvalidDecl()) {
           auto const &FieldLayout = C.getASTRecordLayout(FieldRec->getDecl());
           J.attribute("sizeBytes", FieldLayout.getSize().getQuantity());
-        } else {
+        } else if (!FieldRec) {
           // We were unable to get it as a record, which suggests it's a normal
           // type, in which case let's just ask for the type size.  (Maybe this
           // would also work for the above case too?)
@@ -2363,7 +2364,7 @@ public:
           // the Layout handling in emitStructuredRecordInfo.
           //
           // See https://github.com/mozsearch/mozsearch/pull/906
-          !D2->isDependentType() && !TemplateStack) {
+          !D2->isDependentType() && !D2->isInvalidDecl() && !TemplateStack) {
         if (auto *D3 = dyn_cast<CXXRecordDecl>(D2)) {
           findBindingToJavaClass(*AstContext, *D3);
           findBoundAsJavaClasses(*AstContext, *D3);
