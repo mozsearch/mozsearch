@@ -20,7 +20,8 @@ input_file: inputs/web/search/big_cpp.cpp/abstractart_beart__json
             "contextsym": "T_outerNS::AbstractArt",
             "peekRange": "418-418"
           }
-        ]
+        ],
+        "path_kind": "normal"
       }
     ],
     "Overridden By (outerNS::AbstractArt::beArt)": [
@@ -39,7 +40,8 @@ input_file: inputs/web/search/big_cpp.cpp/abstractart_beart__json
             "peekRange": "426-426",
             "upsearch": "symbol:_ZN7outerNS12PracticalArt5beArtEv"
           }
-        ]
+        ],
+        "path_kind": "normal"
       }
     ]
   },

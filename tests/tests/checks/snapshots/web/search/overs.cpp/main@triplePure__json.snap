@@ -1,7 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&jv.value"
-snapshot_kind: text
+input_file: inputs/web/search/overs.cpp/triplePure__json
 ---
 {
   "normal": {
@@ -20,7 +20,8 @@ snapshot_kind: text
             "contextsym": "T_TripleBase",
             "peekRange": "27-27"
           }
-        ]
+        ],
+        "path_kind": "normal"
       }
     ],
     "Overridden By (TripleBase::triplePure)": [
@@ -63,7 +64,8 @@ snapshot_kind: text
             "peekRange": "46-46",
             "upsearch": "symbol:_ZN14TripleSubThree10triplePureEv"
           }
-        ]
+        ],
+        "path_kind": "normal"
       }
     ],
     "Uses (TripleBase::triplePure)": [
@@ -100,7 +102,8 @@ snapshot_kind: text
             "context": "generateTripleUses",
             "contextsym": "_Z18generateTripleUsesv"
           }
-        ]
+        ],
+        "path_kind": "normal"
       }
     ]
   },
