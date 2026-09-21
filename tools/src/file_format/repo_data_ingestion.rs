@@ -547,20 +547,20 @@ impl RepoIngestion {
         files: &Vec<Ustr>,
         tree_config: &TreeConfig,
     ) {
-        let mut ordered_path_kinds: Vec<&PathKindConfig> = self.config.pathkind.values().collect();
-        ordered_path_kinds.sort_unstable_by_key(|x| x.decision_order);
-        let default_pk = ordered_path_kinds[0].name;
+        let mut ordered_path_kinds: Vec<_> = self.config.pathkind.iter().collect();
+        ordered_path_kinds.sort_unstable_by_key(|(_key, x)| x.decision_order);
+        let default_pk = ordered_path_kinds[0].0;
 
         for file_path in files {
             // split in reverse order so we can skip the filename itself.
             let segments = file_path.rsplit("/").skip(1);
             let mut use_path_kind = default_pk;
             for pk_config in &ordered_path_kinds {
-                if pk_config
+                if pk_config.1
                     .heuristics
                     .file_matches(file_path, segments.clone())
                 {
-                    use_path_kind = pk_config.name;
+                    use_path_kind = pk_config.0;
                     break;
                 }
             }
@@ -611,7 +611,7 @@ impl RepoIngestion {
             };
 
             self.state.with_file_info(file_path, false, |pfi, _dfi| {
-                pfi.path_kind = use_path_kind;
+                pfi.path_kind = *use_path_kind;
                 pfi.description = description;
                 pfi.file_size = file_size;
                 pfi.coverage =

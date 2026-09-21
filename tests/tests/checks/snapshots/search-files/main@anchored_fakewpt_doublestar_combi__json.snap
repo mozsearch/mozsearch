@@ -8,7 +8,7 @@ input_file: inputs/search-files/anchored_fakewpt_doublestar_combi__json
     {
       "path": "testing/web-platform/meta/complex-tests/some_cross_global_test.any.js.ini",
       "concise": {
-        "path_kind": "Test files",
+        "path_kind": "test",
         "is_dir": false,
         "file_size": 109,
         "bugzilla_component": null,
@@ -22,7 +22,7 @@ input_file: inputs/search-files/anchored_fakewpt_doublestar_combi__json
     {
       "path": "testing/web-platform/meta/fake-standard/test_ima_disabled_wpt.js.ini",
       "concise": {
-        "path_kind": "Test files",
+        "path_kind": "test",
         "is_dir": false,
         "file_size": 133,
         "bugzilla_component": null,
@@ -36,7 +36,7 @@ input_file: inputs/search-files/anchored_fakewpt_doublestar_combi__json
     {
       "path": "testing/web-platform/meta/fake-standard/test_ima_sad_subtests_wpt.js.ini",
       "concise": {
-        "path_kind": "Test files",
+        "path_kind": "test",
         "is_dir": false,
         "file_size": 133,
         "bugzilla_component": null,
@@ -50,7 +50,7 @@ input_file: inputs/search-files/anchored_fakewpt_doublestar_combi__json
     {
       "path": "testing/web-platform/meta/fake-standard/test_ima_weird_meta_wpt.js.ini",
       "concise": {
-        "path_kind": "Test files",
+        "path_kind": "test",
         "is_dir": false,
         "file_size": 133,
         "bugzilla_component": null,
@@ -64,7 +64,7 @@ input_file: inputs/search-files/anchored_fakewpt_doublestar_combi__json
     {
       "path": "testing/web-platform/mozilla/tests/random-standard/mozilla_specific_test.any.js",
       "concise": {
-        "path_kind": "Test files",
+        "path_kind": "test",
         "is_dir": false,
         "file_size": 33,
         "bugzilla_component": null,
@@ -87,7 +87,7 @@ input_file: inputs/search-files/anchored_fakewpt_doublestar_combi__json
     {
       "path": "testing/web-platform/tests/complex-tests/some_cross_global_test.any.js",
       "concise": {
-        "path_kind": "Test files",
+        "path_kind": "test",
         "is_dir": false,
         "file_size": 44,
         "bugzilla_component": [
@@ -120,7 +120,7 @@ input_file: inputs/search-files/anchored_fakewpt_doublestar_combi__json
     {
       "path": "testing/web-platform/tests/fake-standard/test_ima_disabled_wpt.js",
       "concise": {
-        "path_kind": "Test files",
+        "path_kind": "test",
         "is_dir": false,
         "file_size": 43,
         "bugzilla_component": [
@@ -163,7 +163,7 @@ input_file: inputs/search-files/anchored_fakewpt_doublestar_combi__json
     {
       "path": "testing/web-platform/tests/fake-standard/test_ima_sad_subtests_wpt.js",
       "concise": {
-        "path_kind": "Test files",
+        "path_kind": "test",
         "is_dir": false,
         "file_size": 43,
         "bugzilla_component": [
@@ -193,7 +193,7 @@ input_file: inputs/search-files/anchored_fakewpt_doublestar_combi__json
     {
       "path": "testing/web-platform/tests/fake-standard/test_ima_weird_meta_wpt.js",
       "concise": {
-        "path_kind": "Test files",
+        "path_kind": "test",
         "is_dir": false,
         "file_size": 43,
         "bugzilla_component": [

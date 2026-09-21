@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/java/package__json
 ---
 {
   "symbol_crossref_infos": [
@@ -74,7 +75,7 @@ expression: "&to_value(scil).unwrap()"
           },
           {
             "path": "src/test/java/sample/JavaTest.java",
-            "path_kind": "Test files",
+            "path_kind": "test",
             "lines": [
               {
                 "lno": 4,
@@ -90,7 +91,7 @@ expression: "&to_value(scil).unwrap()"
           },
           {
             "path": "src/test/kotlin/sample/KotlinTest.kt",
-            "path_kind": "Test files",
+            "path_kind": "test",
             "lines": [
               {
                 "lno": 4,
