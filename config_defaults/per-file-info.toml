@@ -1,6 +1,6 @@
 # ## Path Kind Mapping
 [pathkind.normal]
-name = "Normal"
+name = "Core code"
 default = true
 decision_order = 0
 sort_order = 0
