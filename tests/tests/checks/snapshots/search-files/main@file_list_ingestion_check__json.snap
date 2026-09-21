@@ -8,7 +8,7 @@ input_file: inputs/search-files/file_list_ingestion_check__json
     {
       "path": "ignored-js/doublestar-ignored/ignored-by-doublestar.js",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 70,
         "bugzilla_component": null,
@@ -24,7 +24,7 @@ input_file: inputs/search-files/file_list_ingestion_check__json
     {
       "path": "ignored-js/explicit-ignored.js",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 56,
         "bugzilla_component": null,
@@ -40,7 +40,7 @@ input_file: inputs/search-files/file_list_ingestion_check__json
     {
       "path": "ignored-js/not-ignored-after-reinclusion.js",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 81,
         "bugzilla_component": null,
@@ -54,7 +54,7 @@ input_file: inputs/search-files/file_list_ingestion_check__json
     {
       "path": "ignored-js/reignored-after-reinclusion.js",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 61,
         "bugzilla_component": null,
@@ -70,7 +70,7 @@ input_file: inputs/search-files/file_list_ingestion_check__json
     {
       "path": "ignored-js/wildcard-ignored.js",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 54,
         "bugzilla_component": null,

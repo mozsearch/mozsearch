@@ -285,7 +285,7 @@ class SearchResults(object):
 
     max_count = 1000 * EXTREME_FACTOR
     max_work = 1000 * EXTREME_FACTOR
-    path_precedences = ['normal', 'thirdparty', 'test', 'generated']
+    path_precedences = ['normal', 'third_party', 'test', 'generated']
     key_precedences = [
         "Files", "IDL", "IDL Partial", "Definitions", "Declarations",
         "Bindings", "Glean", "Aliases", "Overrides", "Overridden By",
@@ -317,7 +317,7 @@ class SearchResults(object):
         if '__GENERATED__' in path:
             return 'generated'
         elif path.startswith('third_party/'):
-            return "thirdparty"
+            return "third_party"
         elif is_test(path):
             return 'test'
         else:

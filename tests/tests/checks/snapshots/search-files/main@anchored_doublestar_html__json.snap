@@ -8,7 +8,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
     {
       "path": "bug1446220_unicode.html",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 10479,
         "bugzilla_component": null,
@@ -27,7 +27,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
     {
       "path": "css/embed_css.html",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 598,
         "bugzilla_component": null,
@@ -41,7 +41,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
     {
       "path": "html/html-in-script.html",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 479,
         "bugzilla_component": null,
@@ -60,7 +60,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
     {
       "path": "html/invalid-entity-ref.html",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 232,
         "bugzilla_component": null,
@@ -74,7 +74,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
     {
       "path": "html/script.html",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 402,
         "bugzilla_component": null,
@@ -107,7 +107,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
     {
       "path": "test_DOMWindowCreated_chromeonly.html",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 728,
         "bugzilla_component": null,
@@ -184,7 +184,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
     {
       "path": "urlmap/chrome1.html",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 109,
         "bugzilla_component": null,
@@ -198,7 +198,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
     {
       "path": "urlmap/mozsrc1.html",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 109,
         "bugzilla_component": null,
@@ -212,7 +212,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
     {
       "path": "urlmap/resource1.html",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 111,
         "bugzilla_component": null,
@@ -226,7 +226,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
     {
       "path": "urlmap/root.html",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 2345,
         "bugzilla_component": null,

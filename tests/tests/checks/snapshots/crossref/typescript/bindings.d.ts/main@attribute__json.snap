@@ -11,7 +11,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/attribute__json
         "defs": [
           {
             "path": "ts/src/bindings.d.ts",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 4,

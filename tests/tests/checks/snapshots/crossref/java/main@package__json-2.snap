@@ -10,7 +10,7 @@ expression: "&to_value(scil).unwrap()"
         "uses": [
           {
             "path": "src/main/java/sample/JavaLibrary.java",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 4,
@@ -26,7 +26,7 @@ expression: "&to_value(scil).unwrap()"
           },
           {
             "path": "src/main/kotlin/sample/KotlinLibrary.kt",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 4,

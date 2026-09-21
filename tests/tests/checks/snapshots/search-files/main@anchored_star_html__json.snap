@@ -8,7 +8,7 @@ input_file: inputs/search-files/anchored_star_html__json
     {
       "path": "bug1446220_unicode.html",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 10479,
         "bugzilla_component": null,
@@ -27,7 +27,7 @@ input_file: inputs/search-files/anchored_star_html__json
     {
       "path": "test_DOMWindowCreated_chromeonly.html",
       "concise": {
-        "path_kind": "Normal",
+        "path_kind": "normal",
         "is_dir": false,
         "file_size": 728,
         "bugzilla_component": null,

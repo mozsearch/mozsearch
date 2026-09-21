@@ -11,7 +11,7 @@ input_file: inputs/crossref/crossref/xpctest_attributes.idl/booleanProperty_sett
         "uses": [
           {
             "path": "xpidl_cpp_consumer.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 16,

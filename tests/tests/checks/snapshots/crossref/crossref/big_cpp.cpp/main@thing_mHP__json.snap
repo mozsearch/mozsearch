@@ -11,7 +11,7 @@ input_file: inputs/crossref/crossref/big_cpp.cpp/thing_mHP__json
         "uses": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 149,
@@ -49,7 +49,7 @@ input_file: inputs/crossref/crossref/big_cpp.cpp/thing_mHP__json
         "defs": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 142,

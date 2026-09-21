@@ -10,7 +10,7 @@ expression: "&to_value(scil).unwrap()"
         "defs": [
           {
             "path": "src/main/java/sample/JavaLibrary.java",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 16,

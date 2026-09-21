@@ -10,7 +10,7 @@ expression: "&to_value(scil).unwrap()"
         "defs": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 432,
