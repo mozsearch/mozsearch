@@ -1,7 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&jv.value"
-snapshot_kind: text
+input_file: inputs/web/search/big_cpp.cpp/abstractart__json
 ---
 {
   "normal": {
@@ -20,7 +20,8 @@ snapshot_kind: text
             "contextsym": "",
             "peekRange": "412-412"
           }
-        ]
+        ],
+        "path_kind": "normal"
       }
     ],
     "Superclasses (outerNS::AbstractArt)": [
@@ -39,7 +40,8 @@ snapshot_kind: text
             "peekRange": "136-136",
             "upsearch": "symbol:T_outerNS::Thing"
           }
-        ]
+        ],
+        "path_kind": "normal"
       }
     ],
     "Subclasses (outerNS::AbstractArt)": [
@@ -58,7 +60,8 @@ snapshot_kind: text
             "peekRange": "421-421",
             "upsearch": "symbol:T_outerNS::PracticalArt"
           }
-        ]
+        ],
+        "path_kind": "normal"
       }
     ],
     "Uses (outerNS::AbstractArt)": [
@@ -75,7 +78,8 @@ snapshot_kind: text
             "context": "outerNS::PracticalArt::PracticalArt",
             "contextsym": "_ZN7outerNS12PracticalArtC1Ev"
           }
-        ]
+        ],
+        "path_kind": "normal"
       }
     ]
   },

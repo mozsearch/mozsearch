@@ -1,7 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&jv.value"
-snapshot_kind: text
+input_file: inputs/web/search/overs.cpp/doublePure__json
 ---
 {
   "normal": {
@@ -20,7 +20,8 @@ snapshot_kind: text
             "contextsym": "T_DoubleBase",
             "peekRange": "8-8"
           }
-        ]
+        ],
+        "path_kind": "normal"
       }
     ],
     "Overridden By (DoubleBase::doublePure)": [
@@ -51,7 +52,8 @@ snapshot_kind: text
             "peekRange": "20-20",
             "upsearch": "symbol:_ZN12DoubleSubTwo10doublePureEv"
           }
-        ]
+        ],
+        "path_kind": "normal"
       }
     ],
     "Uses (DoubleBase::doublePure)": [
@@ -78,7 +80,8 @@ snapshot_kind: text
             "context": "generateDoubleUses",
             "contextsym": "_Z18generateDoubleUsesv"
           }
-        ]
+        ],
+        "path_kind": "normal"
       }
     ]
   },

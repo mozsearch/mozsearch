@@ -346,8 +346,7 @@ class SearchResults(object):
 
         path = pathr['path']
         lines = pathr['lines']
-
-        pathkind = self.categorize_path(path)
+        pathkind = pathr.get('path_kind', self.categorize_path(path))
 
         if self.pathre and not self.pathre.search(path):
             return
@@ -411,7 +410,7 @@ class SearchResults(object):
 
                     if lines_out or qkind == 'Files':
                         l = result.setdefault(pathkind, collections.OrderedDict()).setdefault(qkind, [])
-                        l.append({'path': path, 'lines': lines_out})
+                        l.append({'path': path, 'lines': lines_out, 'path_kind': pathkind})
                     if count == self.max_count:
                         break
                 if count == self.max_count:
