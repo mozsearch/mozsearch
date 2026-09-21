@@ -1678,6 +1678,7 @@ function populateResults(data, full, jumpToSingle) {
 
     var counter = 0;
 
+    // TODO: source from per-file-info.toml
     var pathkindNames = {
       // Previously we would not say normal, but we need a place to hang the
       // counts.
