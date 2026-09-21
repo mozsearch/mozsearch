@@ -11,7 +11,7 @@ input_file: inputs/crossref/crossref/big_cpp.cpp/abstractart__beart__json
         "defs": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 418,

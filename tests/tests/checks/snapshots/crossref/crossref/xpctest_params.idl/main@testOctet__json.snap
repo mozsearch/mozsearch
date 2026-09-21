@@ -11,7 +11,7 @@ input_file: inputs/crossref/crossref/xpctest_params.idl/testOctet__json
         "idl": [
           {
             "path": "xpidl/xpctest_params.idl",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 24,
@@ -77,7 +77,7 @@ input_file: inputs/crossref/crossref/xpctest_params.idl/testOctet__json
         "uses": [
           {
             "path": "xpidl_cpp_consumer.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 7,

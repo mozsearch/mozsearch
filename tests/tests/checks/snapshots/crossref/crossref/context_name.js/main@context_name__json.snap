@@ -11,7 +11,7 @@ input_file: inputs/crossref/crossref/context_name.js/context_name__json
         "uses": [
           {
             "path": "js/context_name.js",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 13,
@@ -29,7 +29,7 @@ input_file: inputs/crossref/crossref/context_name.js/context_name__json
         "defs": [
           {
             "path": "js/context_name.js",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 1,

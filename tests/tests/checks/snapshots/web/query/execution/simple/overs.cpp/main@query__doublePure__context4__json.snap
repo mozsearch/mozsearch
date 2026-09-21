@@ -6,7 +6,7 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__conte
 {
   "path_kind_results": [
     {
-      "path_kind": "Normal",
+      "path_kind": "normal",
       "file_names": [],
       "kind_groups": [
         {

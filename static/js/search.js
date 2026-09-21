@@ -1684,7 +1684,7 @@ function populateResults(data, full, jumpToSingle) {
       normal: "Core code",
       test: "Test files",
       generated: "Generated code",
-      thirdparty: "Third-party code",
+      third_party: "Third-party code",
     };
 
     var html = "";

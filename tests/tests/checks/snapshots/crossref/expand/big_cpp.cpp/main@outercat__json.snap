@@ -11,7 +11,7 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
         "uses": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 331,
@@ -39,7 +39,7 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
         "defs": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 210,
@@ -303,7 +303,7 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
         "uses": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 165,
@@ -421,7 +421,7 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
         "defs": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 136,
@@ -579,7 +579,7 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
         "uses": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 183,
@@ -647,7 +647,7 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
         "defs": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 178,
@@ -788,7 +788,7 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
         "uses": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 228,
@@ -816,7 +816,7 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
         "defs": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 196,
@@ -934,7 +934,7 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
         "uses": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 421,
@@ -962,7 +962,7 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
         "defs": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 412,
@@ -1101,7 +1101,7 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
         "uses": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 199,
@@ -1129,7 +1129,7 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
         "defs": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 183,
@@ -1265,7 +1265,7 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
         "uses": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 433,
@@ -1293,7 +1293,7 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
         "defs": [
           {
             "path": "big_cpp.cpp",
-            "path_kind": "Normal",
+            "path_kind": "normal",
             "lines": [
               {
                 "lno": 421,
