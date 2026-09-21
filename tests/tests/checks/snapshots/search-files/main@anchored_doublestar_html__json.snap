@@ -93,7 +93,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
     {
       "path": "mobile/androidTest/asserts/inputs.html",
       "concise": {
-        "path_kind": "Test files",
+        "path_kind": "test",
         "is_dir": false,
         "file_size": 845,
         "bugzilla_component": null,
@@ -128,7 +128,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
     {
       "path": "tests/file_something.html",
       "concise": {
-        "path_kind": "Test files",
+        "path_kind": "test",
         "is_dir": false,
         "file_size": 85,
         "bugzilla_component": null,
@@ -142,7 +142,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
     {
       "path": "tests/support.html",
       "concise": {
-        "path_kind": "Test files",
+        "path_kind": "test",
         "is_dir": false,
         "file_size": 80,
         "bugzilla_component": null,
@@ -156,7 +156,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
     {
       "path": "tests/test_otherthing.html",
       "concise": {
-        "path_kind": "Test files",
+        "path_kind": "test",
         "is_dir": false,
         "file_size": 86,
         "bugzilla_component": null,
@@ -170,7 +170,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
     {
       "path": "tests/test_something.html",
       "concise": {
-        "path_kind": "Test files",
+        "path_kind": "test",
         "is_dir": false,
         "file_size": 85,
         "bugzilla_component": null,

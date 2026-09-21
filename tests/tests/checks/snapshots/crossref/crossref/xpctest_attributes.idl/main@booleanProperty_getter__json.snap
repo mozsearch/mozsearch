@@ -29,7 +29,7 @@ input_file: inputs/crossref/crossref/xpctest_attributes.idl/booleanProperty_gett
         "defs": [
           {
             "path": "__GENERATED__/dist/include/xpctest_attributes.h",
-            "path_kind": "Generated code",
+            "path_kind": "generated",
             "lines": [
               {
                 "lno": 119,

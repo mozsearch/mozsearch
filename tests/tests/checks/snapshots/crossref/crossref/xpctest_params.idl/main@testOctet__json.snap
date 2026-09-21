@@ -95,7 +95,7 @@ input_file: inputs/crossref/crossref/xpctest_params.idl/testOctet__json
         "defs": [
           {
             "path": "__GENERATED__/dist/include/xpctest_params.h",
-            "path_kind": "Generated code",
+            "path_kind": "generated",
             "lines": [
               {
                 "lno": 47,
