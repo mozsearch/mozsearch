@@ -1202,12 +1202,9 @@ fn create_js_idl_table(meta_table: &MetaTable) -> JSIDLTable {
 
             let idl_sym = meta.sym;
 
-            if let Some(idl_syms) = js_idl_table.get_mut(&js_sym) {
-                if idl_syms.len() < MAX_JS_IDL_SYMS {
-                    idl_syms.push(idl_sym);
-                }
-            } else {
-                js_idl_table.insert(js_sym, vec![idl_sym]);
+            let idl_syms = js_idl_table.entry(js_sym).or_default();
+            if idl_syms.len() < MAX_JS_IDL_SYMS {
+                idl_syms.push(idl_sym);
             }
         }
     }
