@@ -48,6 +48,10 @@ const PER_FILE_INFO_INPUTS = {
     "source.source-bugzilla-info/artifacts/public/components-normalized.json",
   "wpt-metadata-summary.json":
     "source.source-wpt-metadata-summary/artifacts/public/summary.json",
+  "xpcshell-issues.json":
+    "source.test-info-xpcshell-timings/artifacts/public/xpcshell-issues.json",
+  "mochitest-issues.json":
+    "source.test-info-mochitest-timings/artifacts/public/mochitest-issues.json",
 };
 const DATA = path.join(TOOLS, "target/dev-server");
 const OVERRIDES = path.join(DATA, "per-file-info.json");
@@ -147,6 +151,14 @@ async function fetchPerFileInfoInputs() {
     } else {
       console.error(`Failed to download ${name}: ${response.status}`);
     }
+  }
+  if (!fs.existsSync(treeDir("index/test-results.json"))) {
+    await run("python3", [
+      path.join(MOZSEARCH, "scripts/summarize-test-results.py"),
+      treeDir("index/test-results.json"),
+      treeDir("index/xpcshell-issues.json"),
+      treeDir("index/mochitest-issues.json"),
+    ]);
   }
 }
 

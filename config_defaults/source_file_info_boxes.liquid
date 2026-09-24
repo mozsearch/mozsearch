@@ -1,4 +1,4 @@
-{% if concise.info contains "test" -%}
+{% if concise.info contains "test" or concise.info contains "test_results" -%}
   {%- assign test_heading = "Test Info:" -%}
   {%- assign test_severity = "info" -%}
   {%- if concise.info.test contains "failure_count" and concise.info.test.failure_count > 0 -%}
@@ -19,6 +19,24 @@
       {%- assign test_severity = "warning" -%}
     {%- endif -%}
   {%- endif -%}
+  {%- if concise.info contains "test_results" -%}
+    {%- assign results = concise.info.test_results -%}
+    {%- assign low_pass_rate = false -%}
+    {%- if results contains "pass_rate" -%}
+      {%- if results.pass_rate < 90 -%}
+        {%- assign low_pass_rate = true -%}
+      {%- endif -%}
+    {%- endif -%}
+    {%- if low_pass_rate -%}
+      {%- assign test_heading = "Test Info: Errors" -%}
+      {%- assign test_severity = "error" -%}
+    {%- elsif test_severity == "info" -%}
+      {%- if results.failures > 0 or results.timeouts > 0 or results.crashes > 0 -%}
+        {%- assign test_heading = "Test Info: Warnings" -%}
+        {%- assign test_severity = "warning" -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
   {%- if concise.bugzilla_component == empty -%}
     {%- assign bugzillaString = "" %}
   {%- else -%}
@@ -33,6 +51,31 @@
     <h4>{{ test_heading }}</h4>
     <div>
       <ul>
+{%- if concise.info contains "test_results" %}
+        <li>In CI from {{ results.start_date }} to {{ results.end_date }}: {{ results.runs }} runs
+          {%- if results contains "pass_rate" %} ({{ results.pass_rate }}% pass){% endif -%}
+          , {{ results.failures }} failures, {{ results.timeouts }} timeouts, {{ results.crashes }} crashes, {{ results.skips }} skips.
+          <a href="https://tests.firefox.dev/test.html?test={{ path | url_encode }}">More details on tests.firefox.dev</a>
+  {%- assign detailed_results = detailed.info -%}
+  {%- if detailed.info contains "test_results" -%}
+    {%- assign detailed_results = detailed.info.test_results -%}
+  {%- endif -%}
+  {%- if detailed_results contains "top_failures" %}
+          <ul>
+    {%- for failure in detailed_results.top_failures %}
+            <li>{{ failure.count }} × <span class="test-failure-info">{{ failure.message | escape }}</span></li>
+    {%- endfor %}
+          </ul>
+  {%- endif -%}
+  {%- if detailed_results contains "top_crashes" %}
+          <ul>
+    {%- for crash in detailed_results.top_crashes %}
+            <li>{{ crash.count }} × crash: <span class="test-failure-info">{{ crash.signature | escape }}</span></li>
+    {%- endfor %}
+          </ul>
+  {%- endif %}
+        </li>
+{%- endif %}
 {% if concise.info.test contains "skip_if" and concise.info.test.skip_if != empty %}
         <li>This test gets skipped with pattern: <span class="test-skip-info">{{ concise.info.test.skip_if | replace: double_newline, newline | replace: newline, " OR " }}</span></li>
 {%- endif -%}

@@ -1101,7 +1101,8 @@ tr.after-context-line + tr.before-context-line {
   padding-inline-start: 20px;
   margin: 0;
 }
-.info-box .test-skip-info {
+.info-box .test-skip-info,
+.info-box .test-failure-info {
   font-family: monospace;
   background-color: var(--info-box-test-skip-info-background);
   padding: 5px;
