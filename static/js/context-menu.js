@@ -1286,8 +1286,8 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
     let fieldLayoutMenuItems = [];
     // then the text search
     let textSearchMenuItems = [];
-    // then possible IDL definitions
-    let idlMenuItems = [];
+    // then possible IDL and TS definitions
+    let heuristicsMenuItems = [];
     // then glean submenu.
     let gleanMenuItems = [];
     // then sticky highlight option
@@ -1890,12 +1890,12 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
               def,
             });
 
-            if (idlMenuItems.length == 0) {
-              idlMenuItems.push(new MenuItemWithSubMenu({
+            if (heuristicsMenuItems.length == 0) {
+              heuristicsMenuItems.push(new MenuItemWithSubMenu({
                 html: `Possible IDL definitions`,
                 tree,
                 icon: "export-alt",
-                section: "idl",
+                section: "heuristics",
                 items: idlSubMenuItems,
                 searches: idlSubMenuSearches,
                 menu: this,
@@ -2176,7 +2176,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       ...searchMenuItems,
       ...fieldLayoutMenuItems,
       ...textSearchMenuItems,
-      ...idlMenuItems,
+      ...heuristicsMenuItems,
       ...gleanMenuItems,
       ...stickyMenuItems,
       ...diagramMenuItems,
