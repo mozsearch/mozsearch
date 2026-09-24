@@ -158,8 +158,7 @@ pub fn determine_desired_extra_syms_from_jumpref(
             extra_syms.push((slot.sym, next_step));
         }
     }
-    if let Some(overridden) = jumpref.meta.as_ref().map(|meta| &meta.overridden_by_syms)
-    {
+    if let Some(overridden) = jumpref.meta.as_ref().map(|meta| &meta.overridden_by_syms) {
         // Keep in sync with overrideJumpifyHelper in context-menu.js
         const MAX_OVERRIDEN_BY_LINKS: usize = 10;
 

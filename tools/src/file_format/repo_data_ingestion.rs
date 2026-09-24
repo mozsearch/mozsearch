@@ -556,7 +556,8 @@ impl RepoIngestion {
             let segments = file_path.rsplit("/").skip(1);
             let mut use_path_kind = default_pk;
             for pk_config in &ordered_path_kinds {
-                if pk_config.1
+                if pk_config
+                    .1
                     .heuristics
                     .file_matches(file_path, segments.clone())
                 {
