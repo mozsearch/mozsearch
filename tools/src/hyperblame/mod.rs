@@ -4,4 +4,5 @@
 //! See `file_format/history` for the on-disk representations.
 
 pub mod inference;
+pub mod stats;
 pub mod suffix_array;
