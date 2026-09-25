@@ -334,3 +334,47 @@ pub fn hypertokenize_source_file(
         structure,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Tree-sitter grammar upgrades can rename node types, which makes our
+    /// queries fail to compile, which makes every file in that language fail to
+    /// tokenize.  So make sure every language can tokenize something.
+    #[test]
+    fn test_all_languages_tokenize() {
+        for (filename, source, lang) in [
+            (
+                "a.cpp",
+                "namespace ns { int Foo::bar() { return 1; } }",
+                "cpp",
+            ),
+            (
+                "a.js",
+                "class C { m() {} } function f(a) { return a > 1; }",
+                "js",
+            ),
+            ("a.tsx", "const f = (a: number) => <div>{a}</div>;", "js"),
+            (
+                "a.py",
+                "class C:\n    def m(self):\n        return 1\n",
+                "py",
+            ),
+            ("a.rs", "impl Foo { fn bar() -> u32 { 1 } }", "rust"),
+            ("a.txt", "just some words", "none"),
+        ] {
+            let tokenized = hypertokenize_source_file(filename, source)
+                .unwrap_or_else(|e| panic!("{} failed to tokenize: {}", filename, e));
+            assert_eq!(tokenized.lang, lang);
+            assert!(!tokenized.tokenized.is_empty(), "{}", filename);
+            if lang != "none" {
+                assert!(
+                    !tokenized.structure.is_empty(),
+                    "{} has no structure",
+                    filename
+                );
+            }
+        }
+    }
+}

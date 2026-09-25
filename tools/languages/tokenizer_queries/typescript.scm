@@ -22,7 +22,7 @@
   (#set! structure.kind "class"))
 
 (([
-  (function
+  (function_expression
     name: (identifier) @name)
   (function_declaration
     name: (identifier) @name)
@@ -39,13 +39,13 @@
 ((lexical_declaration
   (variable_declarator
     name: (identifier) @name
-    value: [(arrow_function) (function)]) @container)
+    value: [(arrow_function) (function_expression)]) @container)
   (#set! structure.kind "lexdecl"))
 
 ((variable_declaration
   (variable_declarator
     name: (identifier) @name
-    value: [(arrow_function) (function)]) @container)
+    value: [(arrow_function) (function_expression)]) @container)
   (#set! structure.kind "lexdecl"))
 
 (((assignment_expression
@@ -54,14 +54,14 @@
     (member_expression
       property: (property_identifier) @name)
   ]
-  right: [(arrow_function) (function)]
+  right: [(arrow_function) (function_expression)]
 ) @container)
   (#set! structure.kind "lexdecl"))
 
 
 (((pair
   key: (property_identifier) @name
-  value: [(arrow_function) (function)]) @container)
+  value: [(arrow_function) (function_expression)]) @container)
   (#set! structure.kind "lexdecl"))
 
 (((export_statement value: (assignment_expression left: (identifier) @name right: ([
