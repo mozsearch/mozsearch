@@ -54,11 +54,17 @@
 //!    stable context on either side, we infer that the token "evolved", ex: a
 //!    type or variable was renamed or `>` became `>=`.  Specifically, within
 //!    each block we use the tokens matched in the prior passes as anchors, and
-//!    for each gap between anchors where the number of unmatched removed and
-//!    added tokens are the same, we pair them up positionally if they are
-//!    similar enough (currently: both alphanumeric or both not).  That is, if
-//!    an argument "Type argName" changes to "NewType newArgName", we model that
-//!    as "Type" evolving to "NewType" and "argName" evolving to "newArgName".
+//!    for each gap between anchors where the removed and added sides of the
+//!    gap consist entirely of the same number of unmatched tokens, we pair them
+//!    up positionally if they have the same `LexicalClass`.  That is, if an
+//!    argument "Type argName" changes to "NewType newArgName", we model that as
+//!    "Type" evolving to "NewType" and "argName" evolving to "newArgName".
+//!    - Requiring that the gaps consist entirely of the paired tokens on both
+//!      sides is what "stable context on either side" means.  If the removed
+//!      side of a gap also contains tokens which were moved elsewhere, the
+//!      removed and added tokens were not in the same "slot".  (In a
+//!      refactoring the removed side of a gap can span hundreds of tokens that
+//!      moved into newly extracted functions with a stray leftover token.)
 //!
 //! ## Future work
 //!
@@ -114,6 +120,51 @@ pub fn token_file_lines(contents: &str) -> Vec<&str> {
 /// Does this token contain content-bearing (alphanumeric) characters?
 pub fn is_word_token(token: &str) -> bool {
     token.chars().any(|c| c.is_alphanumeric())
+}
+
+/// Coarse lexical classification of a token used to decide whether two tokens
+/// are similar enough for one to have evolved into the other.
+///
+/// This is an interim approximation derived purely from the token text.  The
+/// plan is for the tokenizer to emit a class derived from tree-sitter which will
+/// also be able to distinguish keywords from identifiers and comment words from
+/// code.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LexicalClass {
+    /// No alphanumeric characters: operators and punctuation.
+    Punctuation,
+    /// String and character literals, including prefixed forms like `r"..."`,
+    /// `u8"..."`, and `r#"..."#`.
+    StringLiteral,
+    /// Numeric literals like `0`, `0x10`, `-1`, and `.5`.
+    NumberLiteral,
+    /// Everything else with alphanumeric characters: identifiers, keywords, and
+    /// words in comments.
+    Word,
+}
+
+pub fn lexical_class(token: &str) -> LexicalClass {
+    if !is_word_token(token) {
+        return LexicalClass::Punctuation;
+    }
+    // Allow a short literal prefix (ex: `r`, `b`, `u8`, `L`, `rb`) and Rust raw
+    // string `#`s before the opening quote.
+    let after_prefix = token.trim_start_matches(|c: char| c.is_ascii_alphanumeric());
+    let prefix_len = token.len() - after_prefix.len();
+    if prefix_len <= 3
+        && after_prefix
+            .trim_start_matches('#')
+            .starts_with(['"', '\'', '`'])
+    {
+        return LexicalClass::StringLiteral;
+    }
+    let unsigned = token.strip_prefix(['-', '+']).unwrap_or(token);
+    let unsigned = unsigned.strip_prefix('.').unwrap_or(unsigned);
+    if unsigned.starts_with(|c: char| c.is_ascii_digit()) {
+        LexicalClass::NumberLiteral
+    } else {
+        LexicalClass::Word
+    }
 }
 
 /// Diff old and new token lines.
@@ -724,24 +775,25 @@ fn infer_evolutions(state: &mut InferenceState) {
             old_start + block.old_len as i64,
         ));
 
-        // ## Pair up equal-sized gaps.
+        // ## Pair up equal-sized gaps which occupy the same slot.
         let mut pairs = vec![];
         for window in anchors.windows(2) {
             let ((n0, o0), (n1, o1)) = (window[0], window[1]);
-            let gap_new: Vec<usize> = ((n0 + 1)..n1)
-                .map(|n| n as usize)
-                .filter(|&n| state.is_unmatched_new(file, n))
-                .collect();
-            let gap_old: Vec<usize> = ((o0 + 1)..o1)
-                .map(|o| o as usize)
-                .filter(|&o| state.is_unmatched_old(file, o))
-                .collect();
-            if gap_new.is_empty() || gap_new.len() != gap_old.len() {
+            let new_gap = (n0 + 1) as usize..n1 as usize;
+            let old_gap = (o0 + 1) as usize..o1 as usize;
+            if new_gap.is_empty() || new_gap.len() != old_gap.len() {
                 continue;
             }
-            for (&n, &o) in gap_new.iter().zip(gap_old.iter()) {
-                if is_word_token(state.new_tokens[file][n].token)
-                    == is_word_token(state.old_tokens[file][o].token)
+            // Both sides of the gap must consist entirely of unmatched tokens;
+            // see the module docs.
+            if !new_gap.clone().all(|n| state.is_unmatched_new(file, n))
+                || !old_gap.clone().all(|o| state.is_unmatched_old(file, o))
+            {
+                continue;
+            }
+            for (n, o) in new_gap.zip(old_gap) {
+                if lexical_class(state.new_tokens[file][n].token)
+                    == lexical_class(state.old_tokens[file][o].token)
                 {
                     pairs.push((o, n));
                 }
@@ -925,6 +977,75 @@ mod tests {
                 .iter()
                 .all(|r| r.fate != RemovedFate::Extinguished)
         );
+    }
+
+    #[test]
+    fn test_lexical_class() {
+        use LexicalClass::*;
+        for (token, class) in [
+            ("foo", Word),
+            ("#include", Word),
+            ("$el", Word),
+            ("for", Word),
+            ("\"loc\"", StringLiteral),
+            ("'a'", StringLiteral),
+            ("`tmpl`", StringLiteral),
+            ("u8\"x\"", StringLiteral),
+            ("r#\"raw\"#", StringLiteral),
+            ("0", NumberLiteral),
+            ("0x10", NumberLiteral),
+            ("-1", NumberLiteral),
+            (".5", NumberLiteral),
+            (">=", Punctuation),
+            ("::", Punctuation),
+        ] {
+            assert_eq!(lexical_class(token), class, "{}", token);
+        }
+    }
+
+    #[test]
+    fn test_evolution_requires_same_slot() {
+        // From a real refactoring: most of the removed tokens in the block were
+        // moved into a new function in another file, leaving a stray `continue`
+        // which is not in the same slot as the added `for`.
+        let old = toks(
+            "main",
+            "fn main ( ) { let v = compute ( alpha , beta ) ; continue }",
+        );
+        let new = toks("main", "fn main ( ) { for }");
+        let empty: Vec<String> = vec![];
+        let helper = toks("helper", "let v = compute ( alpha , beta ) ;");
+        let inputs = vec![
+            input(FileChangeKind::Modified, &old, &new),
+            input(FileChangeKind::Added, &empty, &helper),
+        ];
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        assert_eq!(summarize(&results[1]), "M".repeat(helper.len()));
+        assert_eq!(summarize(&results[0]), "UUUUUAU");
+        let continue_fate = results[0]
+            .removed
+            .iter()
+            .find(|r| r.old_lineno == 16)
+            .unwrap()
+            .fate;
+        assert_eq!(continue_fate, RemovedFate::Extinguished);
+    }
+
+    #[test]
+    fn test_evolution_requires_compatible_class() {
+        // A string replaced by a number or an identifier isn't an evolution...
+        let old = toks("f", "log ( \"loc\" ) ; x = \"name\" ;");
+        let new = toks("f", "log ( 42 ) ; x = null ;");
+        let inputs = vec![input(FileChangeKind::Modified, &old, &new)];
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        assert_eq!(summarize(&results[0]), "UUAUUUUAU");
+
+        // ...but number to number and punctuation to punctuation are.
+        let old = toks("f", "if ( a > 0 ) return 1 ;");
+        let new = toks("f", "if ( a >= 0 ) return 2 ;");
+        let inputs = vec![input(FileChangeKind::Modified, &old, &new)];
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        assert_eq!(summarize(&results[0]), "UUUEUUUEU");
     }
 
     #[test]
