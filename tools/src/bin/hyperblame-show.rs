@@ -21,8 +21,8 @@ use std::path::Path;
 use git2::Repository;
 
 use tools::file_format::config::timeline_commit_to_meta;
+use tools::file_format::history::syntax_files::{split_token_line, token_file_lines};
 use tools::file_format::history::timeline_annotated::{HyperLineData, HyperTokenRef};
-use tools::hyperblame::inference::{split_token_line, token_file_lines};
 
 fn read_path(repo: &Repository, tree: &git2::Tree, path: &str) -> Option<String> {
     let entry = tree.get_path(Path::new(path)).ok()?;
@@ -120,7 +120,12 @@ fn main() {
             .get(i + 1)
             .map(|a| describe(&HyperLineData::parse(a)))
             .unwrap_or_else(|| "???".to_string());
-        let shown = format!("{} {}", token.context, token.token);
+        let shown = format!(
+            "{} {} {}",
+            token.context,
+            token.class.as_char(),
+            token.token
+        );
         println!("{:>5} {:<40} | {}", i + 1, shown, desc);
     }
 }

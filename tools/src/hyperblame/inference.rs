@@ -8,7 +8,8 @@
 //!
 //! ## Data we have
 //!
-//! We diff the token-per-line files, where each line is "{context} {token}".
+//! We diff the token-per-line files, where each line is "{context} {class}
+//! {token}" (see `file_format::history::syntax_files`).
 //! We get the byproduct of an insert/delete diff which is trying to perform
 //! minimal edits and where we absolutely expect re-orderings to result in
 //! paired insertions and deletions.  Additionally, because the context is part
@@ -56,7 +57,10 @@
 //!    each block we use the tokens matched in the prior passes as anchors, and
 //!    for each gap between anchors where the removed and added sides of the
 //!    gap consist entirely of the same number of unmatched tokens, we pair them
-//!    up positionally if they have the same `LexicalClass`.  That is, if an
+//!    up positionally if they have the same `TokenClass`.  Keywords are only
+//!    paired when the gap is a single token on each side (ex: `const` to `mut`
+//!    or `var` to `let`) because a keyword in a larger gap is more likely to be
+//!    part of a rewrite than an evolution.  That is, if an
 //!    argument "Type argName" changes to "NewType newArgName", we model that as
 //!    "Type" evolving to "NewType" and "argName" evolving to "newArgName".
 //!    - Requiring that the gaps consist entirely of the paired tokens on both
@@ -83,88 +87,11 @@ use std::time::{Duration, Instant};
 use similar::{Algorithm, DiffOp, capture_diff_slices_deadline};
 
 use super::suffix_array::SuffixArray;
-
-/// A parsed line from a `history/syntax/files` token-per-line file.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct TokenLine<'a> {
-    /// The pretty identifier of the structural context of the token, or "%" if
-    /// there is none.
-    pub context: &'a str,
-    pub token: &'a str,
-}
-
-/// Split a token file line into its context and token.  The tokenizer emits
-/// "{context} {token}" where the token may contain spaces (ex: string
-/// literals), so we split on the first space.  Lines without any space are
-/// treated as having an empty context.
-pub fn split_token_line(line: &str) -> TokenLine<'_> {
-    match line.split_once(' ') {
-        Some((context, token)) => TokenLine { context, token },
-        None => TokenLine {
-            context: "",
-            token: line,
-        },
-    }
-}
-
-/// Split the contents of a `history/syntax/files` token file into lines.
-pub fn token_file_lines(contents: &str) -> Vec<&str> {
-    let contents = contents.strip_suffix('\n').unwrap_or(contents);
-    if contents.is_empty() {
-        vec![]
-    } else {
-        contents.split('\n').collect()
-    }
-}
+use crate::file_format::history::syntax_files::{TokenClass, TokenLine, split_token_line};
 
 /// Does this token contain content-bearing (alphanumeric) characters?
 pub fn is_word_token(token: &str) -> bool {
     token.chars().any(|c| c.is_alphanumeric())
-}
-
-/// Coarse lexical classification of a token used to decide whether two tokens
-/// are similar enough for one to have evolved into the other.
-///
-/// This is an interim approximation derived purely from the token text.  The
-/// plan is for the tokenizer to emit a class derived from tree-sitter which will
-/// also be able to distinguish keywords from identifiers and comment words from
-/// code.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum LexicalClass {
-    /// No alphanumeric characters: operators and punctuation.
-    Punctuation,
-    /// String and character literals, including prefixed forms like `r"..."`,
-    /// `u8"..."`, and `r#"..."#`.
-    StringLiteral,
-    /// Numeric literals like `0`, `0x10`, `-1`, and `.5`.
-    NumberLiteral,
-    /// Everything else with alphanumeric characters: identifiers, keywords, and
-    /// words in comments.
-    Word,
-}
-
-pub fn lexical_class(token: &str) -> LexicalClass {
-    if !is_word_token(token) {
-        return LexicalClass::Punctuation;
-    }
-    // Allow a short literal prefix (ex: `r`, `b`, `u8`, `L`, `rb`) and Rust raw
-    // string `#`s before the opening quote.
-    let after_prefix = token.trim_start_matches(|c: char| c.is_ascii_alphanumeric());
-    let prefix_len = token.len() - after_prefix.len();
-    if prefix_len <= 3
-        && after_prefix
-            .trim_start_matches('#')
-            .starts_with(['"', '\'', '`'])
-    {
-        return LexicalClass::StringLiteral;
-    }
-    let unsigned = token.strip_prefix(['-', '+']).unwrap_or(token);
-    let unsigned = unsigned.strip_prefix('.').unwrap_or(unsigned);
-    if unsigned.starts_with(|c: char| c.is_ascii_digit()) {
-        LexicalClass::NumberLiteral
-    } else {
-        LexicalClass::Word
-    }
 }
 
 /// Diff old and new token lines.
@@ -791,12 +718,15 @@ fn infer_evolutions(state: &mut InferenceState) {
             {
                 continue;
             }
+            let isolated = new_gap.len() == 1;
             for (n, o) in new_gap.zip(old_gap) {
-                if lexical_class(state.new_tokens[file][n].token)
-                    == lexical_class(state.old_tokens[file][o].token)
+                let class = state.new_tokens[file][n].effective_class();
+                if class != state.old_tokens[file][o].effective_class()
+                    || (class == TokenClass::Keyword && !isolated)
                 {
-                    pairs.push((o, n));
+                    continue;
                 }
+                pairs.push((o, n));
             }
         }
         for (o, n) in pairs {
@@ -871,13 +801,27 @@ fn finalize(mut state: InferenceState) -> Vec<FileInference> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::file_format::history::syntax_files::format_token_line;
+
+    /// Keywords for the purposes of our test helper; everything else gets
+    /// `TokenClass::guess`.
+    const TEST_KEYWORDS: &[&str] = &[
+        "class", "const", "continue", "else", "fn", "for", "if", "let", "mut", "return", "while",
+    ];
 
     /// Helper to build token lines from a context and a space-separated list of
     /// tokens.
     fn toks(context: &str, tokens: &str) -> Vec<String> {
         tokens
             .split_whitespace()
-            .map(|t| format!("{} {}", context, t))
+            .map(|t| {
+                let class = if TEST_KEYWORDS.contains(&t) {
+                    TokenClass::Keyword
+                } else {
+                    TokenClass::guess(t)
+                };
+                format_token_line(context, class, t)
+            })
             .collect()
     }
 
@@ -905,27 +849,6 @@ mod tests {
                 TokenOrigin::Added => "A",
             })
             .collect()
-    }
-
-    #[test]
-    fn test_split_token_line() {
-        assert_eq!(
-            split_token_line("Foo::bar \"hello world\""),
-            TokenLine {
-                context: "Foo::bar",
-                token: "\"hello world\""
-            }
-        );
-        assert_eq!(
-            split_token_line("continuation"),
-            TokenLine {
-                context: "",
-                token: "continuation"
-            }
-        );
-        assert_eq!(token_file_lines(""), Vec::<&str>::new());
-        assert_eq!(token_file_lines("% a\n% b"), vec!["% a", "% b"]);
-        assert_eq!(token_file_lines("% a\n% b\n"), vec!["% a", "% b"]);
     }
 
     #[test]
@@ -980,30 +903,6 @@ mod tests {
     }
 
     #[test]
-    fn test_lexical_class() {
-        use LexicalClass::*;
-        for (token, class) in [
-            ("foo", Word),
-            ("#include", Word),
-            ("$el", Word),
-            ("for", Word),
-            ("\"loc\"", StringLiteral),
-            ("'a'", StringLiteral),
-            ("`tmpl`", StringLiteral),
-            ("u8\"x\"", StringLiteral),
-            ("r#\"raw\"#", StringLiteral),
-            ("0", NumberLiteral),
-            ("0x10", NumberLiteral),
-            ("-1", NumberLiteral),
-            (".5", NumberLiteral),
-            (">=", Punctuation),
-            ("::", Punctuation),
-        ] {
-            assert_eq!(lexical_class(token), class, "{}", token);
-        }
-    }
-
-    #[test]
     fn test_evolution_requires_same_slot() {
         // From a real refactoring: most of the removed tokens in the block were
         // moved into a new function in another file, leaving a stray `continue`
@@ -1046,6 +945,30 @@ mod tests {
         let inputs = vec![input(FileChangeKind::Modified, &old, &new)];
         let results = infer_revision(&inputs, &InferenceConfig::default());
         assert_eq!(summarize(&results[0]), "UUUEUUUEU");
+    }
+
+    #[test]
+    fn test_keyword_evolution_policy() {
+        // An isolated keyword to keyword replacement is an evolution.
+        let old = toks("f", "let p : * const u8 ;");
+        let new = toks("f", "let p : * mut u8 ;");
+        let inputs = vec![input(FileChangeKind::Modified, &old, &new)];
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        assert_eq!(summarize(&results[0]), "UUUUEUU");
+
+        // A keyword to identifier replacement in the same slot is not.
+        let old = toks("f", "data { let ( piece ) }");
+        let new = toks("f", "data { process_analysis_target ( piece ) }");
+        let inputs = vec![input(FileChangeKind::Modified, &old, &new)];
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        assert_eq!(summarize(&results[0]), "UUAUUUU");
+
+        // Keywords in a multi-token gap don't pair, but identifiers do.
+        let old = toks("f", "a ( if x ) ;");
+        let new = toks("f", "a ( while y ) ;");
+        let inputs = vec![input(FileChangeKind::Modified, &old, &new)];
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        assert_eq!(summarize(&results[0]), "UUAEUU");
     }
 
     #[test]

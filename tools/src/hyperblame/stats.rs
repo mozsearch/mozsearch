@@ -10,9 +10,8 @@ use crate::file_format::history::timeline_common::{
 };
 use crate::file_format::history::timeline_tokens::is_trackable_token;
 
-use super::inference::{
-    FileChangeInput, FileInference, RemovedFate, TokenOrigin, split_token_line,
-};
+use super::inference::{FileChangeInput, FileInference, RemovedFate, TokenOrigin};
+use crate::file_format::history::syntax_files::split_token_line;
 
 /// The context used by the tokenizer when a token is not inside any structure.
 pub const NO_CONTEXT: &str = "%";

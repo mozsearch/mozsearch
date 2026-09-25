@@ -3,6 +3,7 @@ use std::path::Path;
 
 use include_dir::{Dir, include_dir};
 
+use crate::file_format::history::syntax_files::{TokenClass, format_token_line};
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
 
 use tree_sitter::StreamingIterator as _;
@@ -52,6 +53,71 @@ pub fn namespace_for_file(path: &Path) -> &'static str {
         | "icns" | "ico" | "mp4" | "sqlite" | "jar" | "webm" | "webp" | "woff" | "class"
         | "m4s" | "mgif" | "wav" | "opus" | "mp3" | "otf" | "car" => "",
         _ => "none",
+    }
+}
+
+/// Words fixed by grammars which we want to treat as values (like `this` and
+/// `self` which tree-sitter makes named nodes) rather than keywords for
+/// consistency across grammars.  Ex: tree-sitter-cpp's `null` node has
+/// anonymous `NULL`/`nullptr` children and tree-sitter-rust's `boolean_literal`
+/// has anonymous `true`/`false` children, whereas in other grammars these are
+/// named nodes.
+const VALUE_WORDS: &[&str] = &[
+    "true",
+    "false",
+    "null",
+    "nullptr",
+    "NULL",
+    "None",
+    "undefined",
+];
+
+/// Classify a tree-sitter leaf node for the `history/syntax/files`
+/// representation.  See `TokenClass`.
+///
+/// The primary distinction is that anonymous nodes are strings fixed by the
+/// grammar (keywords and punctuation) whereas named nodes have text chosen by
+/// the author (identifiers and literals), with some adjustments for grammar
+/// quirks.
+fn classify_leaf(node: &tree_sitter::Node, token: &str, in_comment: bool) -> TokenClass {
+    if in_comment {
+        return TokenClass::Comment;
+    }
+    let has_alnum = token.chars().any(|c| c.is_alphanumeric());
+    if node.is_error() {
+        return if has_alnum {
+            TokenClass::Identifier
+        } else {
+            TokenClass::Operator
+        };
+    }
+    if !node.is_named() {
+        return if !has_alnum {
+            TokenClass::Operator
+        } else if VALUE_WORDS.contains(&token) {
+            TokenClass::Identifier
+        } else {
+            TokenClass::Keyword
+        };
+    }
+    let kind = node.kind();
+    if kind.contains("string")
+        || kind.contains("char")
+        || kind.contains("escape")
+        || kind.contains("regex")
+        || kind.contains("template")
+    {
+        TokenClass::String
+    } else if kind.contains("number") || kind.contains("integer") || kind.contains("float") {
+        TokenClass::Number
+    } else if kind.ends_with("_specifier") || kind == "preproc_directive" {
+        // Ex: tree-sitter-rust's `mutable_specifier` for `mut`, whereas `const`
+        // is anonymous.
+        TokenClass::Keyword
+    } else if kind.contains("text") || kind == "preproc_arg" {
+        TokenClass::Text
+    } else {
+        TokenClass::Identifier
     }
 }
 
@@ -157,7 +223,7 @@ pub fn hypertokenize_source_file(
                 lang: "none".to_string(),
                 tokenized: source_contents
                     .split_whitespace()
-                    .map(|s| format!("% {}", s))
+                    .map(|s| format_token_line("%", TokenClass::Text, s))
                     .collect(),
                 structure: vec![],
             });
@@ -191,6 +257,11 @@ pub fn hypertokenize_source_file(
     let mut cursor = parse_tree.walk();
     let mut _depth = 0;
     let mut visited_children = false;
+    // Tracks whether the node whose children we are currently visiting is (or
+    // is inside of) an "extra" node, which is how comments are represented.
+    // We need this because comments can have children which aren't themselves
+    // extra, like tree-sitter-rust's `doc_comment`.
+    let mut in_comment_stack: Vec<bool> = vec![];
 
     let mut query_cursor = tree_sitter::QueryCursor::new();
     let mut query_matches = query_cursor.matches(
@@ -222,6 +293,7 @@ pub fn hypertokenize_source_file(
             } else if cursor.goto_parent() {
                 visited_children = true;
                 _depth -= 1;
+                in_comment_stack.pop();
 
                 if let Some(container_id) = id_stack.last()
                     && cursor.node().id() == *container_id
@@ -294,34 +366,36 @@ pub fn hypertokenize_source_file(
                 }
             }
             let node_kind_id = node.kind_id();
+            let in_comment = node.is_extra() || in_comment_stack.last() == Some(&true);
             if ignore_nodes.contains(&node_kind_id) {
                 // ignore this node!
                 visited_children = true;
             } else if !atom_nodes.contains(&node_kind_id) && cursor.goto_first_child() {
                 visited_children = false;
                 _depth += 1;
+                in_comment_stack.push(in_comment);
             } else {
                 let token = node.utf8_text(source_contents.as_bytes()).unwrap().trim();
-                // Comments don't get further tokenized and are marked as extra, so for now we
-                // only perform additional whitespace tokenization for "extra" nodes.  This
-                // may turn out to be wrong.
+                let class = classify_leaf(&node, token, in_comment);
+                // Comments don't get further tokenized by tree-sitter, so we perform
+                // additional whitespace tokenization for comments.
                 //
                 // We also perform whitespace tokenization for any token that contains a newline
                 // (ex: multi-line string literals) because our output format is one token per
                 // line.
                 if token.is_empty() {
                     // ignore empty tokens!
-                } else if node.is_extra() || token.contains('\n') {
+                } else if in_comment || token.contains('\n') {
                     // TODO: probably better to use the regex crate here to avoid a bunch of empty
                     // matches for consecutive whitespace.
                     for piece in token.split(char::is_whitespace) {
                         if piece.is_empty() {
                             continue;
                         }
-                        tokenized.push(format!("{} {}", context_pretty, piece));
+                        tokenized.push(format_token_line(&context_pretty, class, piece));
                     }
                 } else {
-                    tokenized.push(format!("{} {}", context_pretty, token));
+                    tokenized.push(format_token_line(&context_pretty, class, token));
                 }
                 visited_children = true;
             }
@@ -338,6 +412,7 @@ pub fn hypertokenize_source_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::file_format::history::syntax_files::split_token_line;
 
     /// Tree-sitter grammar upgrades can rename node types, which makes our
     /// queries fail to compile, which makes every file in that language fail to
@@ -376,5 +451,90 @@ mod tests {
                 );
             }
         }
+    }
+
+    fn classes(filename: &str, source: &str) -> Vec<String> {
+        hypertokenize_source_file(filename, source)
+            .unwrap()
+            .tokenized
+            .iter()
+            .map(|line| {
+                let parsed = split_token_line(line);
+                format!("{}:{}", parsed.class.as_char(), parsed.token)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_token_classes() {
+        assert_eq!(
+            classes(
+                "a.cpp",
+                "// Hi there\nint* f() { if (x > 1) return nullptr; return \"s\"; }"
+            ),
+            vec![
+                "c://",
+                "c:Hi",
+                "c:there",
+                "i:int",
+                "o:*",
+                "i:f",
+                "o:(",
+                "o:)",
+                "o:{",
+                "k:if",
+                "o:(",
+                "i:x",
+                "o:>",
+                "n:1",
+                "o:)",
+                "k:return",
+                "i:nullptr",
+                "o:;",
+                "k:return",
+                "s:\"s\"",
+                "o:;",
+                "o:}"
+            ]
+        );
+        assert_eq!(
+            classes(
+                "a.rs",
+                "/// Doc comment.\nfn f(&mut self) -> bool { let p: *const u8; true }"
+            ),
+            vec![
+                "c://",
+                "c:/",
+                "c:Doc",
+                "c:comment.",
+                "k:fn",
+                "i:f",
+                "o:(",
+                "o:&",
+                "k:mut",
+                "i:self",
+                "o:)",
+                "o:->",
+                "i:bool",
+                "o:{",
+                "k:let",
+                "i:p",
+                "o::",
+                "o:*",
+                "k:const",
+                "i:u8",
+                "o:;",
+                "i:true",
+                "o:}"
+            ]
+        );
+        assert_eq!(
+            classes("a.js", "var x = this.y || null; // done"),
+            vec![
+                "k:var", "i:x", "o:=", "i:this", "o:.", "i:y", "o:||", "i:null", "o:;", "c://",
+                "c:done"
+            ]
+        );
+        assert_eq!(classes("a.txt", "plain words"), vec!["t:plain", "t:words"]);
     }
 }

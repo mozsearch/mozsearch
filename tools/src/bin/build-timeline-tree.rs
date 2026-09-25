@@ -84,6 +84,7 @@ use tools::file_format::history::io_helpers::{
 use tools::file_format::history::rev_summaries::{
     RevFileSummaryRecord, RevSummaryRecord, rev_summary_path,
 };
+use tools::file_format::history::syntax_files::{split_token_line, token_file_lines};
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use tools::file_format::history::timeline_annotated::{
     HyperLineData, PATH_UNCHANGED, RemovalMarker,
@@ -104,7 +105,7 @@ use tools::file_format::history::timeline_tokens::{
 use tools::git_ops::git_time_to_chrono;
 use tools::hyperblame::inference::{
     FileChangeInput, FileChangeKind, FileInference, InferenceConfig, RemovedFate, TokenOrigin,
-    diff_token_lines, infer_revision, split_token_line, token_file_lines,
+    diff_token_lines, infer_revision,
 };
 use tools::hyperblame::stats::compute_revision_stats;
 use tools::tree_sitter_support::cst_tokenizer::namespace_for_file;
