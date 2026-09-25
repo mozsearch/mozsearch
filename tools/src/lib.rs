@@ -65,6 +65,8 @@ pub mod git_ops;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod glob_helper;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod hyperblame;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod languages;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod links;
