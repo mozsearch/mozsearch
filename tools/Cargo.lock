@@ -4267,6 +4267,7 @@ dependencies = [
  "serde_repr",
  "serde_with",
  "shell-words",
+ "similar",
  "strum",
  "termcolor",
  "thread_local 1.1.9",
