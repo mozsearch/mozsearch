@@ -50,7 +50,7 @@ pub fn namespace_for_file(path: &Path) -> &'static str {
         "rs" => "rust",
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" | "gif" | "ogv" | "jpg" | "jpeg" | "bmp"
         | "icns" | "ico" | "mp4" | "sqlite" | "jar" | "webm" | "webp" | "woff" | "class"
-        | "m4s" | "mgif" | "wav" | "opus" | "mp3" | "otf" => "",
+        | "m4s" | "mgif" | "wav" | "opus" | "mp3" | "otf" | "car" => "",
         _ => "none",
     }
 }
@@ -305,9 +305,13 @@ pub fn hypertokenize_source_file(
                 // Comments don't get further tokenized and are marked as extra, so for now we
                 // only perform additional whitespace tokenization for "extra" nodes.  This
                 // may turn out to be wrong.
+                //
+                // We also perform whitespace tokenization for any token that contains a newline
+                // (ex: multi-line string literals) because our output format is one token per
+                // line.
                 if token.is_empty() {
                     // ignore empty tokens!
-                } else if node.is_extra() {
+                } else if node.is_extra() || token.contains('\n') {
                     // TODO: probably better to use the regex crate here to avoid a bunch of empty
                     // matches for consecutive whitespace.
                     for piece in token.split(char::is_whitespace) {
