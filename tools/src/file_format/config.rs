@@ -507,35 +507,64 @@ pub fn extract_info_from_blame_commit(commit: &git2::Commit) -> BlameCommitInfo 
 /// Metadata about a syntax commit from its commit data.  This will frequently
 /// be stored in a map where one of its members will redundantly express the key
 /// of the map it resides in, but it's easier this way.
+#[derive(Clone, Debug)]
 pub struct HistorySyntaxCommitMeta {
     pub source_rev: Oid,
     pub syntax_rev: Oid,
     pub source_hg_rev: Option<String>,
 }
 
-pub fn syntax_commit_to_meta(commit: &Commit) -> HistorySyntaxCommitMeta {
+/// Walk the "key value" pairs of a history commit message like:
+/// ```text
+/// git SOURCE_REV
+/// syntax SYNTAX_REV
+/// hg HG_REV
+/// ```
+/// Where only the "git" line is guaranteed to be present.
+fn history_commit_message_pairs<'a>(
+    commit: &'a Commit,
+) -> impl Iterator<Item = (&'a str, &'a str)> {
     let msg = commit.message().unwrap();
-    let pieces = msg.split_whitespace().collect::<Vec<_>>();
+    msg.split_whitespace().tuples()
+}
 
-    // `git REV`
-    let source_rev = Oid::from_str(pieces[1]).unwrap();
-
-    // `hg REV`
-    let source_hg_rev = if pieces.len() > 2 {
-        Some(pieces[3].to_owned())
-    } else {
-        None
-    };
+pub fn syntax_commit_to_meta(commit: &Commit) -> HistorySyntaxCommitMeta {
+    let mut source_rev = None;
+    let mut source_hg_rev = None;
+    for (key, val) in history_commit_message_pairs(commit) {
+        match key {
+            "git" => source_rev = Some(Oid::from_str(val).unwrap()),
+            "hg" => source_hg_rev = Some(val.to_owned()),
+            _ => {}
+        }
+    }
 
     HistorySyntaxCommitMeta {
-        source_rev,
+        source_rev: source_rev.expect("syntax commits always have a `git` line"),
         syntax_rev: commit.id(),
         source_hg_rev,
     }
 }
 
+/// Walk the ancestry of the provided `head_ref` (or HEAD if None) in a history
+/// repository, invoking `handler` for each commit.
+fn walk_history_repo(repo: &Repository, head_ref: Option<Oid>, mut handler: impl FnMut(&Commit)) {
+    let mut walk = repo.revwalk().unwrap();
+    if let Some(oid) = head_ref {
+        walk.push(oid).unwrap();
+    } else {
+        walk.push_head().unwrap();
+    }
+
+    for r in walk {
+        let oid = r.unwrap();
+        let commit = repo.find_commit(oid).unwrap();
+        handler(&commit);
+    }
+}
+
 /// Given a mozsearch token-centric history syntax repository and the head we
-/// plan to serve from, walk its ancestry populating a `syntax_map` freom source
+/// plan to serve from, walk its ancestry populating a `syntax_map` from source
 /// repo OID to a struct containing the syntax repo OID as well as any hg rev id
 /// if such data is present.
 ///
@@ -545,29 +574,18 @@ pub fn index_syntax_history(
     syntax_repo: &Repository,
     head_ref: Option<Oid>,
 ) -> HashMap<Oid, HistorySyntaxCommitMeta> {
-    let mut walk = syntax_repo.revwalk().unwrap();
-    if let Some(oid) = head_ref {
-        walk.push(oid).unwrap();
-    } else {
-        walk.push_head().unwrap();
-    }
-
     let mut syntax_map = HashMap::new();
-
-    for r in walk {
-        let oid = r.unwrap();
-        let commit = syntax_repo.find_commit(oid).unwrap();
-
-        let meta = syntax_commit_to_meta(&commit);
-        syntax_map.insert(orig_oid, meta);
-    }
-
+    walk_history_repo(syntax_repo, head_ref, |commit| {
+        let meta = syntax_commit_to_meta(commit);
+        syntax_map.insert(meta.source_rev, meta);
+    });
     syntax_map
 }
 
 /// Metadata about a timeline commit from its commit data.  This will frequently
 /// be stored in a map where one of its members will redundantly express the key
 /// of the map it resides in, but it's easier this way.
+#[derive(Clone, Debug)]
 pub struct HistoryTimelineCommitMeta {
     pub source_rev: Oid,
     pub syntax_rev: Oid,
@@ -576,24 +594,21 @@ pub struct HistoryTimelineCommitMeta {
 }
 
 pub fn timeline_commit_to_meta(commit: &Commit) -> HistoryTimelineCommitMeta {
-    let msg = commit.message().unwrap();
-    let pieces = msg.split_whitespace().collect::<Vec<_>>();
-
-    // `git REV`
-    let source_rev = Oid::from_str(pieces[1]).unwrap();
-    // `syntax REV`
-    let syntax_rev = Oid::from_str(pieces[3]).unwrap();
-
-    // `hg REV`
-    let source_hg_rev = if pieces.len() > 4 {
-        Some(pieces[5].to_owned())
-    } else {
-        None
-    };
+    let mut source_rev = None;
+    let mut syntax_rev = None;
+    let mut source_hg_rev = None;
+    for (key, val) in history_commit_message_pairs(commit) {
+        match key {
+            "git" => source_rev = Some(Oid::from_str(val).unwrap()),
+            "syntax" => syntax_rev = Some(Oid::from_str(val).unwrap()),
+            "hg" => source_hg_rev = Some(val.to_owned()),
+            _ => {}
+        }
+    }
 
     HistoryTimelineCommitMeta {
-        source_rev,
-        syntax_rev,
+        source_rev: source_rev.expect("timeline commits always have a `git` line"),
+        syntax_rev: syntax_rev.expect("timeline commits always have a `syntax` line"),
         source_hg_rev,
         timeline_rev: commit.id(),
     }
@@ -603,26 +618,14 @@ pub fn timeline_commit_to_meta(commit: &Commit) -> HistoryTimelineCommitMeta {
 /// plan to serve from, walk its ancestry populating a `timeline_map` from
 /// source repo OID to a HistoryTimelineCommitMeta struct.
 pub fn index_timeline_history_by_source_rev(
-    syntax_repo: &Repository,
+    timeline_repo: &Repository,
     head_ref: Option<Oid>,
 ) -> HashMap<Oid, HistoryTimelineCommitMeta> {
-    let mut walk = syntax_repo.revwalk().unwrap();
-    if let Some(oid) = head_ref {
-        walk.push(oid).unwrap();
-    } else {
-        walk.push_head().unwrap();
-    }
-
     let mut timeline_map = HashMap::new();
-
-    for r in walk {
-        let oid = r.unwrap();
-        let commit = syntax_repo.find_commit(oid).unwrap();
-
-        let meta = timeline_commit_to_meta(&commit);
-        timeline_map.insert(meta.source_rev.clone(), meta);
-    }
-
+    walk_history_repo(timeline_repo, head_ref, |commit| {
+        let meta = timeline_commit_to_meta(commit);
+        timeline_map.insert(meta.source_rev, meta);
+    });
     timeline_map
 }
 
@@ -630,26 +633,14 @@ pub fn index_timeline_history_by_source_rev(
 /// plan to serve from, walk its ancestry populating a `timeline_map` from
 /// syntax repo OID to a HistoryTimelineCommitMeta struct.
 pub fn index_timeline_history_by_syntax_rev(
-    syntax_repo: &Repository,
+    timeline_repo: &Repository,
     head_ref: Option<Oid>,
 ) -> HashMap<Oid, HistoryTimelineCommitMeta> {
-    let mut walk = syntax_repo.revwalk().unwrap();
-    if let Some(oid) = head_ref {
-        walk.push(oid).unwrap();
-    } else {
-        walk.push_head().unwrap();
-    }
-
     let mut timeline_map = HashMap::new();
-
-    for r in walk {
-        let oid = r.unwrap();
-        let commit = syntax_repo.find_commit(oid).unwrap();
-
-        let meta = timeline_commit_to_meta(&commit);
-        timeline_map.insert(meta.syntax_rev.clone(), meta);
-    }
-
+    walk_history_repo(timeline_repo, head_ref, |commit| {
+        let meta = timeline_commit_to_meta(commit);
+        timeline_map.insert(meta.syntax_rev, meta);
+    });
     timeline_map
 }
 

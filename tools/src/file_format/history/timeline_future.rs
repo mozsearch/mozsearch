@@ -7,21 +7,29 @@
 //! This enables us to enable functionality like "take me to where this token is
 //! now or tell me when it was deleted / moved".  It also enables us to address
 //! people following links to old/deleted files.
+//!
+//! The first line of each file is a `FutureHeader` and the remaining lines are
+//! `FutureRecord`s ordered from newest to oldest.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
-use super::timeline_common::{SummaryRecordRef, DetailRecordRef};
+use super::timeline_common::{
+    DetailRecordRef, SummaryRecordRef, TimelineRecord, TokenLinenoSet, TokenRefSet,
+};
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FutureHeader {
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct FutureHeader {}
 
+fn is_false(v: &bool) -> bool {
+    !*v
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct FutureFileChanges {
     /// Was the file deleted in this ref?
+    #[serde(default, skip_serializing_if = "is_false")]
     pub file_deleted: bool,
 
     /// If the file was moved in this ref, what path was it moved to?
@@ -33,12 +41,18 @@ pub struct FutureFileChanges {
     /// weird situation here.  (In particular, we'd expect any backed out file
     /// to end up with both sides of the move pointing at each other, which is
     /// not really helpful, but that's backouts for you.)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file_moved_to: Option<String>,
-}
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct FutureTokenChanges {
+    /// If the file was created in this ref as the result of a move/rename or a
+    /// copy, what path did it come from?  This is primarily for symmetry with
+    /// `file_moved_to` so that the physical history can be followed backwards.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_moved_from: Option<String>,
 
+    /// True if `file_moved_from` was a copy rather than a move.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub file_copied: bool,
 }
 
 /// Details changes from a specific revision for the source file containing this
@@ -62,8 +76,11 @@ pub struct FutureTokenChanges {
 ///    might have happened during the backout.  (They should be rare, but they
 ///    can happen.)
 ///
-///
-#[derive(Debug, Serialize, Deserialize)]
+/// All of the token sets use the `TokenRefSet` representation which maps from
+/// the source revision of the token's canonical "introduced" `HyperTokenRef` to
+/// its path (with "%" meaning the path of this file) to the set of token line
+/// numbers.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FutureDetailRecord {
     #[serde(flatten)]
     pub desc: DetailRecordRef,
@@ -71,42 +88,70 @@ pub struct FutureDetailRecord {
     #[serde(flatten)]
     pub file_changes: FutureFileChanges,
 
-    /// Map tracking extinguished tokens where the keys are the source revision
-    /// corresponding to the "introduced" ref for the token and the values are
-    /// all of the token line indices ("lineno") for those tokens.
+    /// Tracks tokens which were removed without moving anywhere else or having
+    /// them evolve into another token.
     ///
     /// This enables us to efficiently find the commit that removed a token
-    /// without moving it anywhere else or having it evolve into another token
-    /// because we can scan the future file
-    ///
-    /// TODO: Try and encode the token indices in a more compressed rep, like
-    /// how IMAP UIDs work.  But for now let's stick with this.
-    pub extinguished_tokens: BTreeMap<String, BTreeSet<u32>>,
+    /// because we can scan the future file.
+    #[serde(default, skip_serializing_if = "TokenRefSet::is_empty")]
+    pub extinguished_tokens: TokenRefSet,
 
     /// Same rep as extinguished_tokens, but for tokens moved to other files.
     ///
     /// The current assumption is that we will consult the other data for the
     /// ref'ed revision to figure out where they went, but this could be
     /// enhanced to indicate where the tokens went if helpful
-    pub moved_out_tokens: BTreeMap<String, BTreeSet<u32>>,
+    #[serde(default, skip_serializing_if = "TokenRefSet::is_empty")]
+    pub moved_out_tokens: TokenRefSet,
 
     /// Same rep as extinguished_tokens, but for tokens moved into this file.
-    pub moved_in_tokens: BTreeMap<String, BTreeSet<u32>>,
+    #[serde(default, skip_serializing_if = "TokenRefSet::is_empty")]
+    pub moved_in_tokens: TokenRefSet,
 
     /// Same rep as extinguished_tokens for token refs that have moved from
-    /// "introduced" to "predecessor".  For tokens that have both moved and
-    /// evolved, there will be an entry here in the file where the token is
-    /// treated as "moved-in".  (For processing back-outs, the moved-out
-    /// tracking is sufficient for us to know the line to re-add in the source
-    /// file, and it's only in the moved-in file that we need to know about
-    /// the evolution for the corresponding removal.)
-    pub evolved_tokens: BTreeSet<u32>,
+    /// "introduced" to "predecessor".  That is, the tokens (as they existed in
+    /// this file) that evolved into other tokens.  For tokens that have both
+    /// moved and evolved, there will be an entry here in the file the token
+    /// was originally in.  (For processing back-outs, this lets us know the
+    /// line to re-add in the source file, and the newly introduced token will
+    /// show up in `added_tokens` in the file it evolved into.)
+    #[serde(default, skip_serializing_if = "TokenRefSet::is_empty")]
+    pub evolved_tokens: TokenRefSet,
 
-    /// Token indices for newly added tokens in this source revision.
-    pub added_tokens: BTreeSet<u32>,
+    /// Token indices for newly introduced tokens in this source revision,
+    /// including tokens which are the result of an evolution.  Because all such
+    /// tokens will have a canonical ref of this source revision and this path,
+    /// we only need the line numbers.
+    #[serde(default, skip_serializing_if = "TokenLinenoSet::is_empty")]
+    pub added_tokens: TokenLinenoSet,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+impl FutureDetailRecord {
+    pub fn new(desc: DetailRecordRef) -> Self {
+        FutureDetailRecord {
+            desc,
+            file_changes: FutureFileChanges::default(),
+            extinguished_tokens: TokenRefSet::new(),
+            moved_out_tokens: TokenRefSet::new(),
+            moved_in_tokens: TokenRefSet::new(),
+            evolved_tokens: TokenRefSet::new(),
+            added_tokens: TokenLinenoSet::default(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        !self.file_changes.file_deleted
+            && self.file_changes.file_moved_to.is_none()
+            && self.file_changes.file_moved_from.is_none()
+            && self.extinguished_tokens.is_empty()
+            && self.moved_out_tokens.is_empty()
+            && self.moved_in_tokens.is_empty()
+            && self.evolved_tokens.is_empty()
+            && self.added_tokens.is_empty()
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FutureSummaryRecord {
     #[serde(flatten)]
     pub desc: SummaryRecordRef,
@@ -114,8 +159,8 @@ pub struct FutureSummaryRecord {
     #[serde(flatten)]
     pub file_changes: FutureFileChanges,
 
-    /// The union of all of the removed_tokens' revision keys over all the detail
-    /// records digested into this summary.
+    /// The union of all of the extinguished_tokens' revision keys over all the
+    /// detail records digested into this summary.
     pub removed_token_revs: BTreeSet<String>,
     /// The union of all of the moved_tokens' revision keys over all the detail
     /// records digested into this summary.
@@ -124,9 +169,25 @@ pub struct FutureSummaryRecord {
 
 /// Internally tagged enum for our detail and summary types.  This ends up
 /// serializing as `{"type": "Detail" , ...}` or `{"type": "Summary", ...}`.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum FutureRecord {
     Detail(FutureDetailRecord),
     Summary(FutureSummaryRecord),
+}
+
+impl TimelineRecord for FutureRecord {
+    fn dedupe_key(&self) -> String {
+        match self {
+            FutureRecord::Detail(d) => format!("D{}", d.desc.source_rev),
+            FutureRecord::Summary(s) => format!("S{:?}", s.desc.iso_week_range),
+        }
+    }
+
+    fn iso_date(&self) -> Option<&str> {
+        match self {
+            FutureRecord::Detail(d) => Some(&d.desc.iso_date),
+            FutureRecord::Summary(_) => None,
+        }
+    }
 }
