@@ -129,8 +129,8 @@ pub enum FileChangeKind {
 pub struct FileChangeInput<'a> {
     pub kind: FileChangeKind,
     /// Tokens can only move between files in the same namespace.  See
-    /// `namespace_for_file`.
-    pub namespace: &'static str,
+    /// `LanguageProfile::namespace`.
+    pub namespace: &'a str,
     /// The old token lines; empty for `Added`.
     pub old_lines: Vec<&'a str>,
     /// The new token lines; empty for `Deleted`.
@@ -326,7 +326,7 @@ pub fn infer_revision(inputs: &[FileChangeInput], config: &InferenceConfig) -> V
 
     diff_files(&mut state, config);
 
-    let mut namespaces: Vec<&'static str> = inputs.iter().map(|i| i.namespace).collect();
+    let mut namespaces: Vec<&str> = inputs.iter().map(|i| i.namespace).collect();
     namespaces.sort_unstable();
     namespaces.dedup();
     for namespace in namespaces {

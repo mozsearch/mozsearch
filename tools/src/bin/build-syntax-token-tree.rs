@@ -26,7 +26,9 @@ use tools::file_format::history::io_helpers::{
 };
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use tools::file_format::history::syntax_symdex::{SymdexHeader, SymdexRecord};
-use tools::tree_sitter_support::cst_tokenizer::{HyperTokenized, hypertokenize_source_file};
+use tools::tree_sitter_support::cst_tokenizer::{
+    HyperTokenized, TOKENIZER_VERSION, hypertokenize_source_file,
+};
 
 fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
     writeln!(helper.stdin.as_mut().unwrap(), "{}", git_oid).unwrap();
@@ -369,11 +371,11 @@ fn recursively_process_source_tree(
                     let parsed_file: Option<(FileStructureHeader, Vec<FileStructureRow>)> =
                         read_record_file_contents(&parent_syntax_struct_blob);
                     if let Some((header, records)) = parsed_file {
-                        let lang = match header.lang {
-                            Some(lang) => lang,
+                        let namespace = match header.effective_namespace() {
+                            Some(namespace) => namespace.to_string(),
                             _ => continue,
                         };
-                        let by_lang = symdex.entry(lang.clone()).or_default();
+                        let by_lang = symdex.entry(namespace).or_default();
                         for record in records {
                             let sym_notes = by_lang.entry(record.pretty.clone()).or_default();
                             sym_notes.files_to_filter.insert(path.clone());
@@ -416,7 +418,10 @@ fn recursively_process_source_tree(
                     // ## Write the files-struct contents
                     let struct_text = record_file_contents_to_string(
                         &FileStructureHeader {
-                            lang: Some(hypertokenized.lang.clone()),
+                            lang: Some(hypertokenized.profile.lang.to_string()),
+                            namespace: Some(hypertokenized.profile.namespace.to_string()),
+                            tokenizer: Some(TOKENIZER_VERSION),
+                            lang_source: Some("extension".to_string()),
                         },
                         &hypertokenized.structure,
                     );
@@ -435,7 +440,9 @@ fn recursively_process_source_tree(
 
                     // ## Accumulate the symdex data.
                     if !hypertokenized.structure.is_empty() {
-                        let by_lang = symdex.entry(hypertokenized.lang.clone()).or_default();
+                        let by_lang = symdex
+                            .entry(hypertokenized.profile.namespace.to_string())
+                            .or_default();
                         let source_path = path.to_str().unwrap();
                         for record in &hypertokenized.structure {
                             // Place the record on its parent if it has one too.
@@ -880,7 +887,7 @@ fn main() {
         }
 
         // Keying:
-        // - language ("cxx", "rust", etc.) as returned by `hypertokenize_source_file`
+        // - namespace ("cpp", "rust", etc.) of the `LanguageProfile` used
         // - "pretty" symbol identifier
         let mut symdex: HashMap<String, HashMap<String, SymbolNotes>> = HashMap::new();
 

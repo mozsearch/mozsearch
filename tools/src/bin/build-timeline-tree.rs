@@ -408,15 +408,27 @@ fn path_blob_string(repo: &Repository, tree: Option<&git2::Tree>, path: &str) ->
 }
 
 /// Load the set of symbol "pretty" identifiers from a "files-struct" file.
-fn load_symbols(repo: &Repository, tree: Option<&git2::Tree>, path: &str) -> BTreeSet<String> {
+/// The parts of a "files-struct" file we care about.
+#[derive(Default)]
+struct FilesStruct {
+    /// The namespace recorded in the header, if any.
+    namespace: Option<String>,
+    /// The set of symbol "pretty" identifiers.
+    symbols: BTreeSet<String>,
+}
+
+fn load_files_struct(repo: &Repository, tree: Option<&git2::Tree>, path: &str) -> FilesStruct {
     let Some(contents) = path_blob_string(repo, tree, path) else {
-        return BTreeSet::new();
+        return FilesStruct::default();
     };
     let parsed: Option<(FileStructureHeader, Vec<FileStructureRow>)> =
         read_record_file_contents(contents.as_bytes());
     match parsed {
-        Some((_, rows)) => rows.into_iter().map(|row| row.pretty).collect(),
-        None => BTreeSet::new(),
+        Some((header, rows)) => FilesStruct {
+            namespace: header.effective_namespace().map(str::to_string),
+            symbols: rows.into_iter().map(|row| row.pretty).collect(),
+        },
+        None => FilesStruct::default(),
     }
 }
 
@@ -457,10 +469,6 @@ fn delta_kind(status: Delta) -> Option<FileChangeKind> {
     }
 }
 
-fn namespace_for_path_str(path: &str) -> &'static str {
-    namespace_for_file(Path::new(path))
-}
-
 /// Process a non-merge revision (including root revisions).
 fn preprocess_linear(
     repo: &Repository,
@@ -487,6 +495,12 @@ fn preprocess_linear(
         new_path: Option<String>,
         old_contents: String,
         new_contents: String,
+        old_struct: FilesStruct,
+        new_struct: FilesStruct,
+        /// The namespace for inference purposes.  This comes from the
+        /// "files-struct" header when available because it accounts for
+        /// language overrides, falling back to the default for the path.
+        namespace: String,
     }
 
     let diff = diff_files_trees(repo, parent_files.as_ref(), cur_files.as_ref(), true)?;
@@ -503,8 +517,27 @@ fn preprocess_linear(
             FileChangeKind::Deleted => None,
             _ => path_string(delta.new_file().path()),
         };
+        let old_struct = match &old_path {
+            Some(path) => load_files_struct(repo, parent_structs.as_ref(), path),
+            None => FilesStruct::default(),
+        };
+        let new_struct = match &new_path {
+            Some(path) => load_files_struct(repo, cur_structs.as_ref(), path),
+            None => FilesStruct::default(),
+        };
+        let namespace = new_struct
+            .namespace
+            .clone()
+            .or_else(|| old_struct.namespace.clone())
+            .unwrap_or_else(|| {
+                let path = new_path.as_deref().or(old_path.as_deref()).unwrap();
+                namespace_for_file(Path::new(path)).to_string()
+            });
         pending.push(Pending {
             kind,
+            old_struct,
+            new_struct,
+            namespace,
             old_contents: match old_path {
                 Some(_) => blob_string(repo, delta.old_file().id()),
                 None => String::new(),
@@ -522,9 +555,7 @@ fn preprocess_linear(
         .iter()
         .map(|p| FileChangeInput {
             kind: p.kind,
-            namespace: namespace_for_path_str(
-                p.new_path.as_deref().or(p.old_path.as_deref()).unwrap(),
-            ),
+            namespace: &p.namespace,
             old_lines: token_file_lines(&p.old_contents),
             new_lines: token_file_lines(&p.new_contents),
         })
@@ -555,9 +586,7 @@ fn preprocess_linear(
         .iter()
         .map(|p| FileChangeInput {
             kind: p.kind,
-            namespace: namespace_for_path_str(
-                p.new_path.as_deref().or(p.old_path.as_deref()).unwrap(),
-            ),
+            namespace: &p.namespace,
             old_lines: token_file_lines(&p.old_contents),
             new_lines: token_file_lines(&p.new_contents),
         })
@@ -565,20 +594,15 @@ fn preprocess_linear(
 
     let old_symbols: Vec<BTreeSet<String>> = pending
         .iter()
-        .map(|p| match (&p.old_path, p.kind) {
+        .map(|p| match p.kind {
             // (Downgraded copies are `Added` but still have an `old_path`.)
-            (Some(path), kind) if kind != FileChangeKind::Added => {
-                load_symbols(repo, parent_structs.as_ref(), path)
-            }
-            _ => BTreeSet::new(),
+            FileChangeKind::Added => BTreeSet::new(),
+            _ => p.old_struct.symbols.clone(),
         })
         .collect();
     let new_symbols: Vec<BTreeSet<String>> = pending
         .iter()
-        .map(|p| match &p.new_path {
-            Some(path) => load_symbols(repo, cur_structs.as_ref(), path),
-            None => BTreeSet::new(),
-        })
+        .map(|p| p.new_struct.symbols.clone())
         .collect();
     let stats = compute_revision_stats(&inputs, &inferences, &old_symbols, &new_symbols);
     drop(inputs);

@@ -16,12 +16,41 @@ use serde::{Deserialize, Serialize};
 /// what tree-sitter parser was used to derive the contents, as well as
 /// indicating specifically when we did not recognize the file as a supported
 /// type and therefore had no parser.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct FileStructureHeader {
-    // The tree-sitter language we parsed this as, or None if we did not parse
-    // this file using tree-sitter.  If the value is None, we expect there will
-    // be no `FileStructureRow` records following the header.
+    /// The `LanguageProfile::lang` we tokenized this file as, which is "none"
+    /// for files we did not parse with tree-sitter (in which case there will be
+    /// no `FileStructureRow` records following the header).  None for files
+    /// produced by older versions of build-syntax-token-tree.
     pub lang: Option<String>,
+
+    /// The `LanguageProfile::namespace` for `lang`.  Tokens can move between
+    /// files in the same namespace and symbols in the same namespace share a
+    /// symdex.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub namespace: Option<String>,
+
+    /// The `TOKENIZER_VERSION` that produced the "files" representation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tokenizer: Option<u32>,
+
+    /// Why we picked `lang`: "extension" if it was the default for the path's
+    /// extension, or "attribute" if it came from a `searchfox-lang` history
+    /// attribute.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "langSource"
+    )]
+    pub lang_source: Option<String>,
+}
+
+impl FileStructureHeader {
+    /// The namespace, falling back to `lang` for older files where they were
+    /// always the same.
+    pub fn effective_namespace(&self) -> Option<&str> {
+        self.namespace.as_deref().or(self.lang.as_deref())
+    }
 }
 
 /// The remainder of the records in the file after the header.  These are
