@@ -190,10 +190,11 @@ impl<'a> TomlTokenizer<'a> {
         self.src.as_bytes()[self.pos..].starts_with(s.as_bytes())
     }
 
-    /// Skip spaces and tabs (and newlines if `newlines`).
+    /// Skip spaces, tabs, and carriage returns (so CRLF newlines look like LF
+    /// newlines), and newlines if `newlines`.
     fn skip_ws(&mut self, newlines: bool) {
         while let Some(b) = self.peek() {
-            if b == b' ' || b == b'\t' || (newlines && (b == b'\n' || b == b'\r')) {
+            if b == b' ' || b == b'\t' || b == b'\r' || (newlines && b == b'\n') {
                 self.pos += 1;
             } else {
                 break;
@@ -399,6 +400,9 @@ impl<'a> TomlTokenizer<'a> {
                 }
                 Some(_) => {
                     let start = self.pos;
+                    // Always consume at least one character so that we can't
+                    // get stuck on unexpected whitespace.
+                    self.advance_char();
                     while let Some(b) = self.peek() {
                         if b.is_ascii_whitespace() || b == b'#' {
                             break;
@@ -406,7 +410,7 @@ impl<'a> TomlTokenizer<'a> {
                         self.advance_char();
                     }
                     let text = &self.src[start..self.pos];
-                    self.out.push(context, TokenClass::Text, text);
+                    self.out.push_words(context, TokenClass::Text, text);
                 }
             }
         }
@@ -656,6 +660,13 @@ mod tests {
     }
 
     #[test]
+    fn test_crlf() {
+        let source = "[a]\nk = { x = [\n  \"y\",\n] } # c\nl = 1\n";
+        assert_eq!(toml(&source.replace('\n', "\r\n")), toml(source));
+        assert_eq!(ini(&source.replace('\n', "\r\n")), ini(source));
+    }
+
+    #[test]
     fn test_no_panics_on_garbage() {
         // Tiny deterministic PRNG so we don't need a dependency.
         let mut state: u64 = 0x9E3779B97F4A7C15;
@@ -665,7 +676,7 @@ mod tests {
             state ^= state << 17;
             state
         };
-        let alphabet: Vec<char> = "[]=:#;\"'{},. \t\n\\ab1é’".chars().collect();
+        let alphabet: Vec<char> = "[]=:#;\"'{},. \t\r\n\\ab1é’".chars().collect();
         for _ in 0..2000 {
             let len = (next() % 80) as usize;
             let source: String = (0..len)
