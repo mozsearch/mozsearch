@@ -84,6 +84,9 @@ tree-sitter-python = "0.25.0"
 tree-sitter-rust = "0.24.0"
 tree-sitter-typescript = "0.23.0"
 tree-sitter-java = "0.23.2"
+# These grammars aren't published on crates.io, so we pin revisions.
+tree-sitter-ipdl = { git = "https://github.com/padenot/tree-sitter-ipdl", rev = "ee939a389fbf170afa0ada2d45434f15aefbeeff" }
+tree-sitter-webidl = { git = "https://github.com/padenot/tree-sitter-webidl", rev = "e6870d31a485bf021f12e0f72a44eefc57173f93" }
 tree-sitter-kotlin-ng = "1.0.1"
 toml = "1.0.7"
 tonic = "0.14.5"

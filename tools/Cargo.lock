@@ -4283,11 +4283,13 @@ dependencies = [
  "tracing-subscriber",
  "tree-sitter",
  "tree-sitter-cpp",
+ "tree-sitter-ipdl",
  "tree-sitter-java",
  "tree-sitter-kotlin-ng",
  "tree-sitter-python",
  "tree-sitter-rust",
  "tree-sitter-typescript",
+ "tree-sitter-webidl",
  "url",
  "urlencoding",
  "ustr",
@@ -4474,6 +4476,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tree-sitter-ipdl"
+version = "0.1.0"
+source = "git+https://github.com/padenot/tree-sitter-ipdl?rev=ee939a389fbf170afa0ada2d45434f15aefbeeff#ee939a389fbf170afa0ada2d45434f15aefbeeff"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
 name = "tree-sitter-java"
 version = "0.23.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4524,6 +4535,15 @@ name = "tree-sitter-typescript"
 version = "0.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c5f76ed8d947a75cc446d5fccd8b602ebf0cde64ccf2ffa434d873d7a575eff"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-webidl"
+version = "0.1.0"
+source = "git+https://github.com/padenot/tree-sitter-webidl?rev=e6870d31a485bf021f12e0f72a44eefc57173f93#e6870d31a485bf021f12e0f72a44eefc57173f93"
 dependencies = [
  "cc",
  "tree-sitter-language",

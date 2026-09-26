@@ -110,6 +110,7 @@ fn namespace_value_words(namespace: &str) -> &'static [&'static str] {
     match namespace {
         "cpp" => &["this", "nullptr", "NULL", "true", "false"],
         "js" => &["this", "super", "null", "undefined", "true", "false"],
+        "webidl" => &["true", "false", "null"],
         "py" => &["self", "None", "True", "False"],
         "rust" => &[
             "self", "Self", "super", "crate", "true", "false", "Some", "None", "Ok", "Err",

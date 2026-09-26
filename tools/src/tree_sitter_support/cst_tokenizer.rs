@@ -36,6 +36,8 @@ enum Grammar {
     Tsx,
     Python,
     Rust,
+    Webidl,
+    Ipdl,
     /// Whitespace-delimited words.
     PlainText,
 }
@@ -84,6 +86,16 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
         grammar: Grammar::Rust,
     },
     LanguageProfile {
+        lang: "webidl",
+        namespace: "webidl",
+        grammar: Grammar::Webidl,
+    },
+    LanguageProfile {
+        lang: "ipdl",
+        namespace: "ipdl",
+        grammar: Grammar::Ipdl,
+    },
+    LanguageProfile {
         lang: "none",
         namespace: "none",
         grammar: Grammar::PlainText,
@@ -94,7 +106,11 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 /// This should be bumped whenever the tokens produced for the same input
 /// change, which lets consumers of history know that a change in tokens may be
 /// due to the tokenizer rather than the source.
-pub const TOKENIZER_VERSION: u32 = 1;
+///
+/// - 2: WebIDL and IPDL grammars; `TokenClass::Text` leaves (ex: C++ `#define`
+///   arguments) are split on whitespace; named leaves without alphanumeric
+///   characters are operators.
+pub const TOKENIZER_VERSION: u32 = 2;
 
 pub fn profile_for_lang(lang: &str) -> Option<LanguageProfile> {
     LANGUAGE_PROFILES.iter().find(|p| p.lang == lang).copied()
@@ -113,6 +129,8 @@ pub fn default_profile_for_path(path: &Path) -> Option<LanguageProfile> {
         "jsx" | "tsx" => "jsx",
         "py" | "build" | "configure" => "py",
         "rs" => "rust",
+        "webidl" => "webidl",
+        "ipdl" | "ipdlh" => "ipdl",
         // Explicitly skip things we know are binary; this list copied from
         // "languages.rs".
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" | "gif" | "ogv" | "jpg" | "jpeg" | "bmp"
@@ -153,11 +171,65 @@ const VALUE_WORDS: &[&str] = &[
 /// grammar (keywords and punctuation) whereas named nodes have text chosen by
 /// the author (identifiers and literals), with some adjustments for grammar
 /// quirks.
-fn classify_leaf(node: &tree_sitter::Node, token: &str, in_comment: bool) -> TokenClass {
+/// Per-grammar adjustments to `classify_leaf` for cases the general rules get
+/// wrong.
+#[derive(Default)]
+struct ClassQuirks {
+    /// Classes for named leaf node kinds, ex: tree-sitter-webidl's
+    /// `or_keyword`.
+    named_kinds: Vec<(u16, TokenClass)>,
+    /// Classes for anonymous leaves with the given parent node kinds.  Ex:
+    /// tree-sitter-ipdl's builtin type names like `nsString` and `uint32_t` are
+    /// anonymous children of `type_name`, but they are type names like C++'s
+    /// named `primitive_type` nodes, so we want them to be identifiers rather
+    /// than keywords.
+    parent_kinds: Vec<(u16, TokenClass)>,
+}
+
+impl ClassQuirks {
+    fn new(
+        ts_lang: &tree_sitter::Language,
+        named_kinds: &[(&str, TokenClass)],
+        parent_kinds: &[(&str, TokenClass)],
+    ) -> Self {
+        // Unknown kinds (ex: renamed by a grammar update) resolve to 0 and are
+        // dropped; `test_token_classes` should catch that.
+        let resolve = |kinds: &[(&str, TokenClass)]| {
+            kinds
+                .iter()
+                .map(|(kind, class)| (ts_lang.id_for_node_kind(kind, true), *class))
+                .filter(|(id, _)| *id != 0)
+                .collect()
+        };
+        ClassQuirks {
+            named_kinds: resolve(named_kinds),
+            parent_kinds: resolve(parent_kinds),
+        }
+    }
+
+    fn lookup(list: &[(u16, TokenClass)], kind_id: u16) -> Option<TokenClass> {
+        list.iter()
+            .find(|(id, _)| *id == kind_id)
+            .map(|(_, class)| *class)
+    }
+}
+
+fn classify_leaf(
+    node: &tree_sitter::Node,
+    token: &str,
+    in_comment: bool,
+    parent_kind_id: Option<u16>,
+    quirks: &ClassQuirks,
+) -> TokenClass {
     if in_comment {
         return TokenClass::Comment;
     }
     let has_alnum = token.chars().any(|c| c.is_alphanumeric());
+    if node.is_named()
+        && let Some(class) = ClassQuirks::lookup(&quirks.named_kinds, node.kind_id())
+    {
+        return class;
+    }
     if node.is_error() {
         return if has_alnum {
             TokenClass::Identifier
@@ -168,6 +240,10 @@ fn classify_leaf(node: &tree_sitter::Node, token: &str, in_comment: bool) -> Tok
     if !node.is_named() {
         return if !has_alnum {
             TokenClass::Operator
+        } else if let Some(class) =
+            parent_kind_id.and_then(|parent| ClassQuirks::lookup(&quirks.parent_kinds, parent))
+        {
+            class
         } else if VALUE_WORDS.contains(&token) {
             TokenClass::Identifier
         } else {
@@ -190,6 +266,9 @@ fn classify_leaf(node: &tree_sitter::Node, token: &str, in_comment: bool) -> Tok
         TokenClass::Keyword
     } else if kind.contains("text") || kind == "preproc_arg" {
         TokenClass::Text
+    } else if !has_alnum {
+        // Ex: tree-sitter-ipdl's `nullable_suffix` for `?`.
+        TokenClass::Operator
     } else {
         TokenClass::Identifier
     }
@@ -248,7 +327,11 @@ pub fn hypertokenize_with_profile(
     // C preprocessor nodes currently are weird and include the trailing
     // newline.  For our purposes, we never actually want to emit a newline
     // token, so it's easy enough for us to just forbid that node.
-    let (ts_lang, ts_query_filename, atom_nodes, ignore_nodes) = match profile.grammar {
+    //
+    // ### quirks
+    //
+    // See `ClassQuirks`.
+    let (ts_lang, ts_query_filename, atom_nodes, ignore_nodes, quirks) = match profile.grammar {
         Grammar::Cpp => {
             let ts_lang: tree_sitter::Language = tree_sitter_cpp::LANGUAGE.into();
             let string_literal = ts_lang.id_for_node_kind("string_literal", true);
@@ -259,6 +342,7 @@ pub fn hypertokenize_with_profile(
                 "cpp",
                 vec![string_literal, char_literal],
                 vec![newline],
+                ClassQuirks::default(),
             )
         }
         Grammar::TypeScript => (
@@ -266,20 +350,60 @@ pub fn hypertokenize_with_profile(
             "typescript",
             vec![],
             vec![],
+            ClassQuirks::default(),
         ),
         Grammar::Tsx => (
             tree_sitter_typescript::LANGUAGE_TSX.into(),
             "typescript",
             vec![],
             vec![],
+            ClassQuirks::default(),
         ),
         Grammar::Python => (
             tree_sitter_python::LANGUAGE.into(),
             "python",
             vec![],
             vec![],
+            ClassQuirks::default(),
         ),
-        Grammar::Rust => (tree_sitter_rust::LANGUAGE.into(), "rust", vec![], vec![]),
+        Grammar::Rust => (
+            tree_sitter_rust::LANGUAGE.into(),
+            "rust",
+            vec![],
+            vec![],
+            ClassQuirks::default(),
+        ),
+        Grammar::Webidl => {
+            let ts_lang: tree_sitter::Language = tree_sitter_webidl::LANGUAGE.into();
+            let quirks = ClassQuirks::new(
+                &ts_lang,
+                &[("or_keyword", TokenClass::Keyword)],
+                &[
+                    // Builtin types like `long`, `DOMString`, `Promise`,
+                    // `sequence`, and `Uint8Array` are anonymous.
+                    ("primitive_type", TokenClass::Identifier),
+                    ("string_type", TokenClass::Identifier),
+                    ("type_base", TokenClass::Identifier),
+                    ("array_type", TokenClass::Identifier),
+                    // `Infinity`, `-Infinity`, and `NaN`.
+                    ("float_literal", TokenClass::Number),
+                ],
+            );
+            (ts_lang, "webidl", vec![], vec![], quirks)
+        }
+        Grammar::Ipdl => {
+            let ts_lang: tree_sitter::Language = tree_sitter_ipdl::LANGUAGE.into();
+            let quirks = ClassQuirks::new(
+                &ts_lang,
+                // These are entire lines like `#ifdef MOZ_ENABLE_SKIA`, which we
+                // split into words like other text.
+                &[("preprocessor_directive", TokenClass::Text)],
+                // Builtin types like `nsString`, `uint32_t`, and `Endpoint` are
+                // anonymous.
+                &[("type_name", TokenClass::Identifier)],
+            );
+            (ts_lang, "ipdl", vec![], vec![], quirks)
+        }
         Grammar::PlainText => {
             return Ok(HyperTokenized {
                 profile,
@@ -319,11 +443,11 @@ pub fn hypertokenize_with_profile(
     let mut cursor = parse_tree.walk();
     let mut _depth = 0;
     let mut visited_children = false;
-    // Tracks whether the node whose children we are currently visiting is (or
-    // is inside of) an "extra" node, which is how comments are represented.
-    // We need this because comments can have children which aren't themselves
-    // extra, like tree-sitter-rust's `doc_comment`.
-    let mut in_comment_stack: Vec<bool> = vec![];
+    // For each node whose children we are currently visiting, its kind and
+    // whether it is (or is inside of) an "extra" node, which is how comments
+    // are represented.  We need the latter because comments can have children
+    // which aren't themselves extra, like tree-sitter-rust's `doc_comment`.
+    let mut parent_stack: Vec<(u16, bool)> = vec![];
 
     let mut query_cursor = tree_sitter::QueryCursor::new();
     let mut query_matches = query_cursor.matches(
@@ -355,7 +479,7 @@ pub fn hypertokenize_with_profile(
             } else if cursor.goto_parent() {
                 visited_children = true;
                 _depth -= 1;
-                in_comment_stack.pop();
+                parent_stack.pop();
 
                 if let Some(container_id) = id_stack.last()
                     && cursor.node().id() == *container_id
@@ -428,26 +552,31 @@ pub fn hypertokenize_with_profile(
                 }
             }
             let node_kind_id = node.kind_id();
-            let in_comment = node.is_extra() || in_comment_stack.last() == Some(&true);
+            // Grammars conventionally mark comments as "extra" nodes, but not all
+            // of them do (ex: tree-sitter-webidl), so we also go by the name.
+            let in_comment = node.is_extra()
+                || (node.is_named() && node.kind().contains("comment"))
+                || parent_stack.last().is_some_and(|p| p.1);
             if ignore_nodes.contains(&node_kind_id) {
                 // ignore this node!
                 visited_children = true;
             } else if !atom_nodes.contains(&node_kind_id) && cursor.goto_first_child() {
                 visited_children = false;
                 _depth += 1;
-                in_comment_stack.push(in_comment);
+                parent_stack.push((node_kind_id, in_comment));
             } else {
                 let token = node.utf8_text(source_contents.as_bytes()).unwrap().trim();
-                let class = classify_leaf(&node, token, in_comment);
-                // Comments don't get further tokenized by tree-sitter, so we perform
-                // additional whitespace tokenization for comments.
+                let parent_kind_id = parent_stack.last().map(|p| p.0);
+                let class = classify_leaf(&node, token, in_comment, parent_kind_id, &quirks);
+                // Comments and text don't get further tokenized by tree-sitter, so we
+                // perform additional whitespace tokenization for them.
                 //
                 // We also perform whitespace tokenization for any token that contains a newline
                 // (ex: multi-line string literals) because our output format is one token per
                 // line.
                 if token.is_empty() {
                     // ignore empty tokens!
-                } else if in_comment || token.contains('\n') {
+                } else if in_comment || class == TokenClass::Text || token.contains('\n') {
                     // TODO: probably better to use the regex crate here to avoid a bunch of empty
                     // matches for consecutive whitespace.
                     for piece in token.split(char::is_whitespace) {
@@ -499,6 +628,16 @@ mod tests {
                 "py",
             ),
             ("a.rs", "impl Foo { fn bar() -> u32 { 1 } }", "rust"),
+            (
+                "a.webidl",
+                "interface Foo { readonly attribute long x; undefined go(); };",
+                "webidl",
+            ),
+            (
+                "a.ipdl",
+                "namespace mozilla { protocol PFoo { parent: async Go(); }; }",
+                "ipdl",
+            ),
             ("a.txt", "just some words", "none"),
         ] {
             let tokenized = hypertokenize_source_file(filename, source)
@@ -598,5 +737,126 @@ mod tests {
             ]
         );
         assert_eq!(classes("a.txt", "plain words"), vec!["t:plain", "t:words"]);
+        assert_eq!(
+            classes(
+                "a.webidl",
+                "// A comment\ninterface Foo { readonly attribute (DOMString or long)? x; undefined go(optional float y = NaN); };"
+            ),
+            vec![
+                "c://",
+                "c:A",
+                "c:comment",
+                "k:interface",
+                "i:Foo",
+                "o:{",
+                "k:readonly",
+                "k:attribute",
+                "o:(",
+                "i:DOMString",
+                "k:or",
+                "i:long",
+                "o:)",
+                "o:?",
+                "i:x",
+                "o:;",
+                "i:undefined",
+                "i:go",
+                "o:(",
+                "k:optional",
+                "i:float",
+                "i:y",
+                "o:=",
+                "n:NaN",
+                "o:)",
+                "o:;",
+                "o:}",
+                "o:;"
+            ]
+        );
+        assert_eq!(
+            classes(
+                "a.ipdl",
+                "#ifdef MOZ_FOO\nprotocol PFoo { parent: async Go(nsString s, FooId? id); };\n#endif"
+            ),
+            vec![
+                "t:#ifdef",
+                "t:MOZ_FOO",
+                "k:protocol",
+                "i:PFoo",
+                "o:{",
+                "k:parent",
+                "o::",
+                "k:async",
+                "i:Go",
+                "o:(",
+                "i:nsString",
+                "i:s",
+                "o:,",
+                "i:FooId",
+                "o:?",
+                "i:id",
+                "o:)",
+                "o:;",
+                "o:}",
+                "o:;",
+                "k:#endif"
+            ]
+        );
+    }
+
+    fn structure(filename: &str, source: &str) -> Vec<String> {
+        hypertokenize_source_file(filename, source)
+            .unwrap()
+            .structure
+            .iter()
+            .map(|row| format!("{}:{}", row.kind, row.pretty))
+            .collect()
+    }
+
+    #[test]
+    fn test_webidl_ipdl_structure() {
+        assert_eq!(
+            structure(
+                "a.webidl",
+                "interface Foo { constructor(); readonly attribute long x; undefined go(); \
+                 const long K = 1; };\n\
+                 partial interface Foo { undefined more(); };\n\
+                 dictionary FooInit { long count; };\n\
+                 enum FooMode { \"a\" };\n\
+                 callback FooCallback = undefined (long x);"
+            ),
+            vec![
+                "class:Foo",
+                "method:Foo::constructor",
+                "field:Foo::x",
+                "method:Foo::go",
+                "field:Foo::K",
+                "class:Foo",
+                "method:Foo::more",
+                "struct:FooInit",
+                "field:FooInit::count",
+                "enum:FooMode",
+                "function:FooCallback",
+            ]
+        );
+        assert_eq!(
+            structure(
+                "a.ipdl",
+                "namespace mozilla { namespace dom {\n\
+                 struct FooArgs { nsString name; };\n\
+                 union FooResult { nsresult; FooArgs; };\n\
+                 protocol PFoo { manager PBackground; parent: async Start(FooArgs a) returns (bool ok); };\n\
+                 } }"
+            ),
+            vec![
+                "namespace:mozilla",
+                "namespace:mozilla::dom",
+                "struct:mozilla::dom::FooArgs",
+                "field:mozilla::dom::FooArgs::name",
+                "union:mozilla::dom::FooResult",
+                "class:mozilla::dom::PFoo",
+                "method:mozilla::dom::PFoo::Start",
+            ]
+        );
     }
 }
