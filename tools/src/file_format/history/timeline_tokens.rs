@@ -111,6 +111,7 @@ fn namespace_value_words(namespace: &str) -> &'static [&'static str] {
         "cpp" => &["this", "nullptr", "NULL", "true", "false"],
         "js" => &["this", "super", "null", "undefined", "true", "false"],
         "webidl" => &["true", "false", "null"],
+        "config" => &["true", "false"],
         "py" => &["self", "None", "True", "False"],
         "rust" => &[
             "self", "Self", "super", "crate", "true", "false", "Some", "None", "Ok", "Err",
@@ -220,7 +221,10 @@ pub fn tracked_token_key<'a>(
                 .then_some(Cow::Borrowed(token));
             }
             let word = trim_punctuation(line.token);
-            (is_trackable_token(word) && !is_prose_stopword(word)).then_some(Cow::Borrowed(word))
+            (is_trackable_token(word)
+                && !is_prose_stopword(word)
+                && !namespace_value_words(namespace).contains(&word))
+            .then_some(Cow::Borrowed(word))
         }
         TokenClass::Unknown => unreachable!(),
     }
@@ -299,6 +303,8 @@ mod tests {
         assert_eq!(key("cpp", Comment, "`Foo()`.", None), some("Foo"));
         assert_eq!(key("cpp", Comment, "mozilla::dom", None), None);
         assert_eq!(key("none", Text, "skip-if", None), None);
+        assert_eq!(key("config", Text, "true", None), None);
+        assert_eq!(key("config", Text, "condprof", None), some("condprof"));
         // Bug references.
         assert_eq!(
             key("none", Text, "1620052", Some("Bug")),

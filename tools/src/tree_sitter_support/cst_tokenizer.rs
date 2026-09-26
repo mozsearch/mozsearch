@@ -5,6 +5,7 @@ use include_dir::{Dir, include_dir};
 
 use crate::file_format::history::syntax_files::{TokenClass, format_token_line};
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
+use crate::tree_sitter_support::config_tokenizer::{tokenize_ini, tokenize_toml};
 
 use tree_sitter::StreamingIterator as _;
 
@@ -38,6 +39,10 @@ enum Grammar {
     Rust,
     Webidl,
     Ipdl,
+    /// See `config_tokenizer.rs`.
+    Ini,
+    /// See `config_tokenizer.rs`.
+    Toml,
     /// Whitespace-delimited words.
     PlainText,
 }
@@ -95,6 +100,19 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
         namespace: "ipdl",
         grammar: Grammar::Ipdl,
     },
+    // INI and TOML share a namespace because they are tokenized equivalently so
+    // that history can follow Firefox's conversion of manifests from .ini to
+    // .toml.
+    LanguageProfile {
+        lang: "ini",
+        namespace: "config",
+        grammar: Grammar::Ini,
+    },
+    LanguageProfile {
+        lang: "toml",
+        namespace: "config",
+        grammar: Grammar::Toml,
+    },
     LanguageProfile {
         lang: "none",
         namespace: "none",
@@ -110,7 +128,8 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 /// - 2: WebIDL and IPDL grammars; `TokenClass::Text` leaves (ex: C++ `#define`
 ///   arguments) are split on whitespace; named leaves without alphanumeric
 ///   characters are operators.
-pub const TOKENIZER_VERSION: u32 = 2;
+/// - 3: INI and TOML tokenizers.
+pub const TOKENIZER_VERSION: u32 = 3;
 
 pub fn profile_for_lang(lang: &str) -> Option<LanguageProfile> {
     LANGUAGE_PROFILES.iter().find(|p| p.lang == lang).copied()
@@ -131,6 +150,8 @@ pub fn default_profile_for_path(path: &Path) -> Option<LanguageProfile> {
         "rs" => "rust",
         "webidl" => "webidl",
         "ipdl" | "ipdlh" => "ipdl",
+        "ini" => "ini",
+        "toml" => "toml",
         // Explicitly skip things we know are binary; this list copied from
         // "languages.rs".
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" | "gif" | "ogv" | "jpg" | "jpeg" | "bmp"
@@ -404,6 +425,17 @@ pub fn hypertokenize_with_profile(
             );
             (ts_lang, "ipdl", vec![], vec![], quirks)
         }
+        Grammar::Ini | Grammar::Toml => {
+            let (tokenized, structure) = match profile.grammar {
+                Grammar::Ini => tokenize_ini(source_contents),
+                _ => tokenize_toml(source_contents),
+            };
+            return Ok(HyperTokenized {
+                profile,
+                tokenized,
+                structure,
+            });
+        }
         Grammar::PlainText => {
             return Ok(HyperTokenized {
                 profile,
@@ -637,6 +669,12 @@ mod tests {
                 "a.ipdl",
                 "namespace mozilla { protocol PFoo { parent: async Go(); }; }",
                 "ipdl",
+            ),
+            ("a.ini", "[test.html]\nskip-if = os == 'win'", "ini"),
+            (
+                "a.toml",
+                "[\"test.html\"]\nskip-if = [\"os == 'win'\"]",
+                "toml",
             ),
             ("a.txt", "just some words", "none"),
         ] {

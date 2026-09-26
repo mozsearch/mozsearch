@@ -579,6 +579,38 @@ fn recursively_process_source_tree(
     Ok(())
 }
 
+/// Convert a pretty identifier into a relative path by turning each "::"
+/// delimited segment into a path component.  Segments are escaped so they
+/// can't introduce additional path components or be "." or "..", which is
+/// possible for things like INI section names.
+fn symdex_path_for_pretty(pretty: &str) -> String {
+    pretty
+        .split("::")
+        .map(|segment| {
+            let escaped = segment.replace('%', "%25").replace('/', "%2F");
+            match escaped.as_str() {
+                "" | "." | ".." => escaped.replace('.', "%2E") + "%",
+                _ => escaped,
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+#[test]
+fn test_symdex_path_for_pretty() {
+    assert_eq!(
+        symdex_path_for_pretty("mozilla::dom::Foo"),
+        "mozilla/dom/Foo"
+    );
+    assert_eq!(
+        symdex_path_for_pretty("../x/test.html::a%20b"),
+        "..%2Fx%2Ftest.html/a%2520b"
+    );
+    assert_eq!(symdex_path_for_pretty("a::..::b"), "a/%2E%2E%/b");
+    assert_eq!(symdex_path_for_pretty("a::::b"), "a/%/b");
+}
+
 /// Process the symdex data populated by `recursively_process_source_tree` by
 /// modifying the contents of the "symdex" subtree of the syntax repo.
 ///
@@ -615,7 +647,7 @@ fn process_symdex_tree(
             let sym_path = PathBuf::from(format!(
                 "symdex/{}/{}.ndjson",
                 lang,
-                pretty.replace("::", "/")
+                symdex_path_for_pretty(&pretty)
             ));
             let mut records: Vec<SymdexRecord> = vec![];
 
