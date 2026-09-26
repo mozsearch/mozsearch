@@ -161,7 +161,10 @@ fn bug_number<'a>(token: &'a str, prev: Option<&str>) -> Option<&'a str> {
         return (!digits.is_empty()).then_some(digits);
     }
     let word = trim_punctuation(token);
-    if word.len() > 3 && word[..3].eq_ignore_ascii_case("bug") {
+    // (`get` avoids panicking when byte 3 isn't a char boundary, ex: "It’s".)
+    if let Some(prefix) = word.get(..3)
+        && prefix.eq_ignore_ascii_case("bug")
+    {
         let digits = word[3..].trim_start_matches(['-', '_']);
         if is_bug_digits(digits) {
             return Some(digits);
@@ -322,6 +325,10 @@ mod tests {
             key("js", String, "1620052", Some("bug")),
             some("bug-1620052")
         );
+        // Non-ASCII text doesn't cause problems.
+        assert_eq!(key("cpp", Comment, "It’s", None), None);
+        assert_eq!(key("cpp", Comment, "bu’g", None), None);
+        assert_eq!(key("cpp", Comment, "Größe", None), some("Größe"));
         // Other numbers in comments aren't bug references.
         assert_eq!(key("cpp", Comment, "65536", Some("up")), None);
         // Words in strings must look like identifiers.
