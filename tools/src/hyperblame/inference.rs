@@ -195,6 +195,72 @@ pub struct FileInference {
     pub removal_runs: Vec<RemovalRun>,
 }
 
+/// How much of the content of a file git paired with an old file (as a rename
+/// or copy) actually came from the old file according to the inference.
+///
+/// git's pairing is based on the similarity of the token files, which counts
+/// every token.  Small unrelated files can be similar enough to be paired just
+/// because they share a license header and some syntax, so here only "content"
+/// tokens count: identifiers, strings, comments, and text, but not keywords,
+/// operators, numbers, or boilerplate (see
+/// `tree_sitter_support::boilerplate`).  In particular, ordinary comments,
+/// including large block comments at the top of a file, do count.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PairingSupport {
+    pub old_content: u32,
+    pub new_content: u32,
+    /// Content tokens in the new file which are unchanged from, or moved
+    /// within, the old file.  Evolutions don't count because they're a
+    /// consequence of the pairing rather than evidence for it: when unrelated
+    /// files are paired, the tokens between their shared syntax get paired up
+    /// as evolutions.
+    pub supported: u32,
+}
+
+fn is_content(line: &str) -> bool {
+    matches!(
+        split_token_line(line).effective_class(),
+        TokenClass::Identifier | TokenClass::String | TokenClass::Comment | TokenClass::Text
+    )
+}
+
+impl PairingSupport {
+    /// `file` is the index of `input` in the inputs passed to `infer_revision`
+    /// and `inference` its result.
+    pub fn compute(file: usize, input: &FileChangeInput, inference: &FileInference) -> Self {
+        let file = file as u32;
+        let mut support = PairingSupport {
+            old_content: input.old_lines.iter().filter(|l| is_content(l)).count() as u32,
+            ..Default::default()
+        };
+        for (line, origin) in input.new_lines.iter().zip(&inference.origins) {
+            if !is_content(line) {
+                continue;
+            }
+            support.new_content += 1;
+            let from_old = match *origin {
+                TokenOrigin::Unchanged { .. } => true,
+                TokenOrigin::Moved { from_file, .. } => from_file == file,
+                TokenOrigin::Evolved { .. } | TokenOrigin::Added => false,
+            };
+            if from_old {
+                support.supported += 1;
+            }
+        }
+        support
+    }
+
+    /// The content similarity of the files as a Dice coefficient like git's
+    /// similarity score, or None if neither file has content, in which case
+    /// we can't second-guess git.
+    pub fn similarity(&self) -> Option<f64> {
+        match self.old_content + self.new_content {
+            0 => None,
+            total => Some(2.0 * self.supported as f64 / total as f64),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct InferenceConfig {
     /// Maximum number of suffix array candidates to consider for a match at a
@@ -1130,6 +1196,66 @@ mod tests {
                 .iter()
                 .all(|r| matches!(r.fate, RemovedFate::MovedTo { to_file: 1, .. }))
         );
+    }
+
+    fn classed(class: TokenClass, tokens: &str) -> Vec<String> {
+        tokens
+            .split_whitespace()
+            .map(|t| format_token_line("%", class, t))
+            .collect()
+    }
+
+    #[test]
+    fn test_pairing_support() {
+        let license = classed(
+            TokenClass::Boilerplate,
+            "/* This Source Code Form is subject to the terms of the Mozilla Public License */",
+        );
+
+        // Unrelated small files which git paired because they share a license
+        // header and some syntax.
+        let mut old = license.clone();
+        old.extend(toks("%", "const fs = require ( \"fs\" ) ;"));
+        let mut new = license.clone();
+        new.extend(toks("%", "const symbol = Symbol ( \"handle\" ) ;"));
+        let inputs = vec![input(FileChangeKind::Renamed, &old, &new)];
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        let support = PairingSupport::compute(0, &inputs[0], &results[0]);
+        assert_eq!(
+            support,
+            PairingSupport {
+                old_content: 3,
+                new_content: 3,
+                supported: 0
+            }
+        );
+        assert_eq!(support.similarity(), Some(0.0));
+
+        // A real rename where the code was rewritten but the big block comment
+        // at the top survived.
+        let comment = classed(
+            TokenClass::Comment,
+            "/* This module coordinates the widgets and must be kept in sync with the \
+             frobnicator because of the reasons described at length here */",
+        );
+        let mut old = license.clone();
+        old.extend(comment.clone());
+        old.extend(toks("go", "void go ( ) { doSomething ( ) ; }"));
+        let mut new = license.clone();
+        new.extend(comment.clone());
+        new.extend(toks("go", "fn go ( ) { other_thing ( ) ; }"));
+        let inputs = vec![input(FileChangeKind::Renamed, &old, &new)];
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        let support = PairingSupport::compute(0, &inputs[0], &results[0]);
+        // The 24 comment tokens plus `go`.
+        assert_eq!(support.supported, 25);
+        assert!(support.similarity().unwrap() > 0.9, "{:?}", support);
+
+        // Nothing to judge by.
+        let inputs = vec![input(FileChangeKind::Renamed, &license, &license)];
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        let support = PairingSupport::compute(0, &inputs[0], &results[0]);
+        assert_eq!(support.similarity(), None);
     }
 
     #[test]

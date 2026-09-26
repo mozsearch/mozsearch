@@ -3,8 +3,9 @@ use std::path::Path;
 
 use include_dir::{Dir, include_dir};
 
-use crate::file_format::history::syntax_files::{TokenClass, format_token_line};
+use crate::file_format::history::syntax_files::TokenClass;
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
+use crate::tree_sitter_support::boilerplate::{RawToken, finish_tokens};
 use crate::tree_sitter_support::config_tokenizer::{tokenize_ini, tokenize_toml};
 
 use tree_sitter::StreamingIterator as _;
@@ -129,7 +130,8 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   arguments) are split on whitespace; named leaves without alphanumeric
 ///   characters are operators.
 /// - 3: INI and TOML tokenizers.
-pub const TOKENIZER_VERSION: u32 = 3;
+/// - 4: License headers and modelines are `TokenClass::Boilerplate`.
+pub const TOKENIZER_VERSION: u32 = 4;
 
 pub fn profile_for_lang(lang: &str) -> Option<LanguageProfile> {
     LANGUAGE_PROFILES.iter().find(|p| p.lang == lang).copied()
@@ -439,10 +441,17 @@ pub fn hypertokenize_with_profile(
         Grammar::PlainText => {
             return Ok(HyperTokenized {
                 profile,
-                tokenized: source_contents
-                    .split_whitespace()
-                    .map(|s| format_token_line("%", TokenClass::Text, s))
-                    .collect(),
+                tokenized: finish_tokens(
+                    source_contents,
+                    source_contents
+                        .split_whitespace()
+                        .map(|text| RawToken {
+                            context: "%".to_string(),
+                            class: TokenClass::Text,
+                            text,
+                        })
+                        .collect(),
+                ),
                 structure: vec![],
             });
         }
@@ -615,10 +624,18 @@ pub fn hypertokenize_with_profile(
                         if piece.is_empty() {
                             continue;
                         }
-                        tokenized.push(format_token_line(&context_pretty, class, piece));
+                        tokenized.push(RawToken {
+                            context: context_pretty.clone(),
+                            class,
+                            text: piece,
+                        });
                     }
                 } else {
-                    tokenized.push(format_token_line(&context_pretty, class, token));
+                    tokenized.push(RawToken {
+                        context: context_pretty.clone(),
+                        class,
+                        text: token,
+                    });
                 }
                 visited_children = true;
             }
@@ -627,7 +644,7 @@ pub fn hypertokenize_with_profile(
 
     Ok(HyperTokenized {
         profile,
-        tokenized,
+        tokenized: finish_tokens(source_contents, tokenized),
         structure,
     })
 }
@@ -702,6 +719,69 @@ mod tests {
                 format!("{}:{}", parsed.class.as_char(), parsed.token)
             })
             .collect()
+    }
+
+    /// Boilerplate is marked through every tokenizer, which also checks that
+    /// line starts are recovered for the line-based rules.
+    #[test]
+    fn test_boilerplate_classes() {
+        let unmarked = |filename: &str, source: &str| -> Vec<String> {
+            let all = classes(filename, source);
+            assert!(all.iter().any(|c| c.starts_with("b:")), "{}", filename);
+            all.into_iter().filter(|c| !c.starts_with("b:")).collect()
+        };
+        assert_eq!(
+            unmarked(
+                "a.cpp",
+                "/* -*- Mode: C++; tab-width: 2 -*- */\n\
+                 /* This Source Code Form is subject to the terms of the Mozilla Public\n \
+                  * License, v. 2.0. If a copy of the MPL was not distributed with this\n \
+                  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */\n\
+                 /* Design notes. */\n\
+                 int x;"
+            ),
+            vec![
+                "c:/*", "c:Design", "c:notes.", "c:*/", "i:int", "i:x", "o:;"
+            ]
+        );
+        assert_eq!(
+            unmarked(
+                "a.js",
+                "/**\n * @license\n * Copyright 2017 Google Inc.\n * SPDX-License-Identifier: Apache-2.0\n */\n\
+                 // Keep me\nlet copyright = 2017;"
+            ),
+            vec![
+                "c:/**",
+                "c:*/",
+                "c://",
+                "c:Keep",
+                "c:me",
+                "k:let",
+                "i:copyright",
+                "o:=",
+                "n:2017",
+                "o:;"
+            ]
+        );
+        assert_eq!(
+            unmarked(
+                "a.toml",
+                "# Any copyright is dedicated to the Public Domain.\n\
+                 # http://creativecommons.org/publicdomain/zero/1.0/\n\
+                 # Keep\n[a]"
+            ),
+            vec!["c:#", "c:Keep", "o:[", "i:a", "o:]"]
+        );
+        // INI section brackets are synthesized rather than slices of the
+        // source, which `finish_tokens` has to cope with.
+        assert_eq!(
+            unmarked("a.ini", "[a]\n# Copyright 2020 Foo\n# Keep\nx = 1"),
+            vec!["o:[", "i:a", "o:]", "c:#", "c:Keep", "i:x", "o:=", "t:1"]
+        );
+        assert_eq!(
+            unmarked("a.txt", "vim: set ts=2 et:\nplain words"),
+            vec!["t:plain", "t:words"]
+        );
     }
 
     #[test]

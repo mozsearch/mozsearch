@@ -184,7 +184,8 @@ fn bug_number<'a>(token: &'a str, prev: Option<&str>) -> Option<&'a str> {
 /// tracked under.  `prev` is the preceding token in the file, if any, which is
 /// used to recognize "Bug NNNNNNN" references.
 ///
-/// - Keywords, operators, and number literals are never tracked.
+/// - Keywords, operators, number literals, and boilerplate (license headers
+///   and modelines) are never tracked.
 /// - Identifiers and words in strings must look like identifiers (see
 ///   `is_trackable_token`) and not be one of the namespace's ubiquitous value
 ///   words like `this` or `self`.
@@ -204,7 +205,10 @@ pub fn tracked_token_key<'a>(
         class => class,
     };
     match class {
-        TokenClass::Keyword | TokenClass::Operator | TokenClass::Number => None,
+        TokenClass::Keyword
+        | TokenClass::Operator
+        | TokenClass::Number
+        | TokenClass::Boilerplate => None,
         TokenClass::Identifier => {
             let token = line.token;
             (is_trackable_token(token) && !namespace_value_words(namespace).contains(&token))
@@ -285,6 +289,7 @@ mod tests {
         assert_eq!(key("rust", Keyword, "match", None), None);
         assert_eq!(key("cpp", Operator, "::", None), None);
         assert_eq!(key("cpp", Number, "1620052", None), None);
+        assert_eq!(key("cpp", Boilerplate, "License", None), None);
         // Identifiers, minus the namespace's ubiquitous values.
         assert_eq!(key("cpp", Identifier, "mCount", None), some("mCount"));
         assert_eq!(key("cpp", Identifier, "this", None), None);

@@ -35,6 +35,11 @@ pub enum TokenClass {
     Number,
     /// Words in comments.
     Comment,
+    /// License headers and editor modelines in comments or plain text.  These
+    /// are shared by huge numbers of files, so they shouldn't count as
+    /// evidence that files are related and aren't worth tracking.  See
+    /// `tree_sitter_support::boilerplate`.
+    Boilerplate,
     /// Plain text from files we don't have a tree-sitter grammar for, or other
     /// raw text like preprocessor arguments.
     Text,
@@ -52,6 +57,7 @@ impl TokenClass {
             TokenClass::String => 's',
             TokenClass::Number => 'n',
             TokenClass::Comment => 'c',
+            TokenClass::Boilerplate => 'b',
             TokenClass::Text => 't',
             TokenClass::Unknown => '?',
         }
@@ -65,6 +71,7 @@ impl TokenClass {
             's' => TokenClass::String,
             'n' => TokenClass::Number,
             'c' => TokenClass::Comment,
+            'b' => TokenClass::Boilerplate,
             't' => TokenClass::Text,
             '?' => TokenClass::Unknown,
             _ => return None,

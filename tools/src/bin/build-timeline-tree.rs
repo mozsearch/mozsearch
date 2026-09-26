@@ -104,8 +104,8 @@ use tools::file_format::history::timeline_tokens::{
 };
 use tools::git_ops::git_time_to_chrono;
 use tools::hyperblame::inference::{
-    FileChangeInput, FileChangeKind, FileInference, InferenceConfig, RemovedFate, TokenOrigin,
-    diff_token_lines, infer_revision,
+    FileChangeInput, FileChangeKind, FileInference, InferenceConfig, PairingSupport, RemovedFate,
+    TokenOrigin, diff_token_lines, infer_revision,
 };
 use tools::hyperblame::stats::compute_revision_stats;
 use tools::tree_sitter_support::cst_tokenizer::namespace_for_file;
@@ -432,6 +432,31 @@ fn load_files_struct(repo: &Repository, tree: Option<&git2::Tree>, path: &str) -
     }
 }
 
+/// The namespace for a file for inference purposes.  This comes from the
+/// "files-struct" header when available because it accounts for language
+/// overrides, falling back to the default for the path.
+fn struct_namespace(path: &str, file_struct: &FilesStruct) -> String {
+    file_struct
+        .namespace
+        .clone()
+        .unwrap_or_else(|| namespace_for_file(Path::new(path)).to_string())
+}
+
+/// git pairs renamed files by similarity (see `diff_files_trees`), which small
+/// unrelated files can reach just by sharing a license header and some syntax.
+/// We only keep a rename if the content similarity of the files (see
+/// `PairingSupport`) is at least this, otherwise we treat it as a deletion and
+/// an addition.
+///
+/// This is deliberately lower than git's threshold (30%).  In the mozsearch
+/// history and a replay of vendored puppeteer syncs, the renames below 0.2
+/// were all unrelated files, but 0.2 to 0.45 also has real renames of
+/// rewritten files (ex: a 0.24 move of ProductLauncher.ts into a new package, a
+/// 0.42 .js to .ts conversion).  Wrongly splitting a rename loses more than
+/// wrongly keeping one: shared content is only found as moved if it's in long
+/// enough runs.
+const MIN_RENAME_CONTENT_SIMILARITY: f64 = 0.2;
+
 fn path_string(path: Option<&Path>) -> Option<String> {
     path.map(|p| p.to_string_lossy().into_owned())
 }
@@ -503,6 +528,18 @@ fn preprocess_linear(
         namespace: String,
     }
 
+    fn inputs_for(pending: &[Pending]) -> Vec<FileChangeInput<'_>> {
+        pending
+            .iter()
+            .map(|p| FileChangeInput {
+                kind: p.kind,
+                namespace: &p.namespace,
+                old_lines: token_file_lines(&p.old_contents),
+                new_lines: token_file_lines(&p.new_contents),
+            })
+            .collect()
+    }
+
     let diff = diff_files_trees(repo, parent_files.as_ref(), cur_files.as_ref(), true)?;
     let mut pending = vec![];
     for delta in diff.deltas() {
@@ -551,46 +588,101 @@ fn preprocess_linear(
         });
     }
 
-    let inputs: Vec<FileChangeInput> = pending
+    let mut inferences = infer_revision(&inputs_for(&pending), config);
+    let supports: Vec<Option<PairingSupport>> = inputs_for(&pending)
         .iter()
-        .map(|p| FileChangeInput {
-            kind: p.kind,
-            namespace: &p.namespace,
-            old_lines: token_file_lines(&p.old_contents),
-            new_lines: token_file_lines(&p.new_contents),
+        .zip(&inferences)
+        .enumerate()
+        .map(|(idx, (input, inference))| {
+            (input.kind == FileChangeKind::Renamed)
+                .then(|| PairingSupport::compute(idx, input, inference))
         })
         .collect();
-    let inferences = infer_revision(&inputs, config);
-    drop(inputs);
+
+    // Only keep renames whose content supports them (see
+    // `MIN_RENAME_CONTENT_SIMILARITY`).  Splitting a rename into a deletion and
+    // an addition means the old file's tokens become potential move sources for
+    // every file, so we need to re-run the inference.  Any real shared content
+    // (ex: a large comment) can still be found as moved.
+    let mut split = vec![];
+    for (p, support) in pending.iter_mut().zip(&supports) {
+        let Some(support) = support else {
+            continue;
+        };
+        let similarity = support.similarity();
+        let keep = similarity.is_none_or(|s| s >= MIN_RENAME_CONTENT_SIMILARITY);
+        info!(
+            "{} {} -> {}: {:?} similarity {:?}",
+            if keep {
+                "Keeping rename"
+            } else {
+                "Splitting rename"
+            },
+            p.old_path.as_deref().unwrap_or_default(),
+            p.new_path.as_deref().unwrap_or_default(),
+            support,
+            similarity
+        );
+        if !keep {
+            let old_path = p.old_path.take().unwrap();
+            let old_struct = std::mem::take(&mut p.old_struct);
+            split.push(Pending {
+                kind: FileChangeKind::Deleted,
+                namespace: struct_namespace(&old_path, &old_struct),
+                old_path: Some(old_path),
+                new_path: None,
+                old_contents: std::mem::take(&mut p.old_contents),
+                new_contents: String::new(),
+                old_struct,
+                new_struct: FilesStruct::default(),
+            });
+            p.kind = FileChangeKind::Added;
+            p.namespace = struct_namespace(p.new_path.as_deref().unwrap(), &p.new_struct);
+        }
+    }
+    if !split.is_empty() {
+        pending.extend(split);
+        inferences = infer_revision(&inputs_for(&pending), config);
+    }
 
     // git's copy detection is similarity based, so a new file which was split
     // out of an existing file (and which the inference determined was mainly
-    // moved tokens) can be detected as a copy.  For the purposes of the
-    // file-level history (sentinel, files-delta, symbol changes) we only want
-    // to treat the file as a copy if the majority of its tokens were actually
+    // moved tokens) or which just shares boilerplate with an existing file can
+    // be detected as a copy.  For the purposes of the file-level history
+    // (sentinel, files-delta, symbol changes) we only want to treat the file as
+    // a copy if the majority of its content (see `PairingSupport`) was actually
     // copied, otherwise it's a new file.  Note that the token origins still
     // reference the copy source for the tokens that were copied.
-    for (p, inference) in pending.iter_mut().zip(inferences.iter()) {
-        if p.kind == FileChangeKind::Copied {
-            let copied = inference
-                .origins
-                .iter()
-                .filter(|o| matches!(o, TokenOrigin::Unchanged { .. }))
-                .count();
-            if copied * 2 < inference.origins.len() {
-                p.kind = FileChangeKind::Added;
-            }
-        }
-    }
-    let inputs: Vec<FileChangeInput> = pending
+    let downgrade: Vec<bool> = inputs_for(&pending)
         .iter()
-        .map(|p| FileChangeInput {
-            kind: p.kind,
-            namespace: &p.namespace,
-            old_lines: token_file_lines(&p.old_contents),
-            new_lines: token_file_lines(&p.new_contents),
+        .zip(&inferences)
+        .enumerate()
+        .map(|(idx, (input, inference))| {
+            if input.kind != FileChangeKind::Copied {
+                return false;
+            }
+            let support = PairingSupport::compute(idx, input, inference);
+            let keep = support.new_content == 0 || support.supported * 2 >= support.new_content;
+            info!(
+                "{} {} -> {}: {:?}",
+                if keep {
+                    "Keeping copy"
+                } else {
+                    "Downgrading copy"
+                },
+                pending[idx].old_path.as_deref().unwrap_or_default(),
+                pending[idx].new_path.as_deref().unwrap_or_default(),
+                support
+            );
+            !keep
         })
         .collect();
+    for (p, downgrade) in pending.iter_mut().zip(downgrade) {
+        if downgrade {
+            p.kind = FileChangeKind::Added;
+        }
+    }
+    let inputs = inputs_for(&pending);
 
     let old_symbols: Vec<BTreeSet<String>> = pending
         .iter()

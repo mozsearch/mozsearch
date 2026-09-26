@@ -27,8 +27,9 @@
 //! on subsequent indented lines, and web-platform-tests' metadata format,
 //! where sections nest by indentation and keys use `:`.
 
-use crate::file_format::history::syntax_files::{TokenClass, format_token_line};
+use crate::file_format::history::syntax_files::TokenClass;
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
+use crate::tree_sitter_support::boilerplate::{RawToken, finish_tokens};
 
 /// Escape a section or key name for use in a context: contexts can't contain
 /// spaces (see `syntax_files.rs`) and "::" is the context delimiter.
@@ -39,19 +40,23 @@ fn escape_name(name: &str) -> String {
         .replace("::", "%3A%3A")
 }
 
-struct Output {
-    tokens: Vec<String>,
+struct Output<'a> {
+    tokens: Vec<RawToken<'a>>,
     structure: Vec<FileStructureRow>,
 }
 
-impl Output {
-    fn push(&mut self, context: &str, class: TokenClass, token: &str) {
+impl<'a> Output<'a> {
+    fn push(&mut self, context: &str, class: TokenClass, token: &'a str) {
         if !token.is_empty() {
-            self.tokens.push(format_token_line(context, class, token));
+            self.tokens.push(RawToken {
+                context: context.to_string(),
+                class,
+                text: token,
+            });
         }
     }
 
-    fn push_words(&mut self, context: &str, class: TokenClass, text: &str) {
+    fn push_words(&mut self, context: &str, class: TokenClass, text: &'a str) {
         for word in text.split_whitespace() {
             self.push(context, class, word);
         }
@@ -171,13 +176,13 @@ pub fn tokenize_ini(source: &str) -> (Vec<String>, Vec<FileStructureRow>) {
         }
     }
 
-    (out.tokens, out.structure)
+    (finish_tokens(source, out.tokens), out.structure)
 }
 
 struct TomlTokenizer<'a> {
     src: &'a str,
     pos: usize,
-    out: Output,
+    out: Output<'a>,
     table_context: String,
 }
 
@@ -477,7 +482,7 @@ impl<'a> TomlTokenizer<'a> {
                 }
             }
         }
-        (self.out.tokens, self.out.structure)
+        (finish_tokens(self.src, self.out.tokens), self.out.structure)
     }
 }
 
