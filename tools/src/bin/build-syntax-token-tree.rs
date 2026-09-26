@@ -1026,9 +1026,15 @@ fn main() {
             .iter()
             .map(|(oid, parents)| (*oid, parents.first().copied()))
             .collect::<Vec<_>>(),
-        history_config
-            .start
-            .and_then(|start| attributes_inherited_by(&git_repo, &history_config, start)),
+        // Revisions without parents in the window (the start revision and any
+        // branches which forked before it) get the attributes in effect at the
+        // start revision, including from a note on the start revision itself.
+        history_config.start.and_then(|start| {
+            history_config
+                .note(start)
+                .and_then(|note| note.attributes.clone())
+                .or_else(|| attributes_inherited_by(&git_repo, &history_config, start))
+        }),
     );
     for rev in history_config.note_revs() {
         // Notes on ancestors of the start revision can be inherited by it.

@@ -1,5 +1,7 @@
 use std::borrow;
+use std::collections::HashMap;
 use std::path::Path;
+use std::sync::{Arc, LazyLock, Mutex};
 
 use include_dir::{Dir, include_dir};
 
@@ -11,6 +13,31 @@ use crate::tree_sitter_support::config_tokenizer::{tokenize_ini, tokenize_toml};
 use tree_sitter::StreamingIterator as _;
 
 static QUERIES_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/languages/tokenizer_queries");
+
+/// Compiled container queries by grammar.  Compiling a query takes tens of
+/// milliseconds, which dominated the time to tokenize small files when we did it
+/// for every file.  (A query is only valid for the grammar it was compiled for,
+/// and some grammars share query files.)
+static CONTAINER_QUERIES: LazyLock<Mutex<HashMap<Grammar, Arc<tree_sitter::Query>>>> =
+    LazyLock::new(Default::default);
+
+fn container_query(
+    grammar: Grammar,
+    ts_lang: &tree_sitter::Language,
+    lang_str: &str,
+) -> Result<Arc<tree_sitter::Query>, String> {
+    if let Some(query) = CONTAINER_QUERIES.lock().unwrap().get(&grammar) {
+        return Ok(query.clone());
+    }
+    // Compile without holding the lock; racing threads just compile twice.
+    let query = Arc::new(load_language_queries(ts_lang, lang_str)?);
+    Ok(CONTAINER_QUERIES
+        .lock()
+        .unwrap()
+        .entry(grammar)
+        .or_insert(query)
+        .clone())
+}
 
 fn load_language_queries(
     ts_lang: &tree_sitter::Language,
@@ -31,7 +58,7 @@ fn load_language_queries(
 }
 
 /// The tree-sitter grammar (or lack thereof) used to tokenize a language.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum Grammar {
     Cpp,
     TypeScript,
@@ -490,7 +517,7 @@ pub fn hypertokenize_with_profile(
     parser
         .set_language(&ts_lang)
         .expect("Error loading grammar");
-    let container_query = load_language_queries(&ts_lang, ts_query_filename)?;
+    let container_query = container_query(profile.grammar, &ts_lang, ts_query_filename)?;
 
     let name_capture_ix = container_query.capture_index_for_name("name").unwrap();
     let container_capture_ix = container_query.capture_index_for_name("container").unwrap();
