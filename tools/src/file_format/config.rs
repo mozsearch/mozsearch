@@ -518,6 +518,9 @@ pub struct HistorySyntaxCommitMeta {
     /// The history configuration's start revision when this revision was
     /// derived, if any.
     pub hstart: Option<Oid>,
+    /// The comma-separated old revisions of the source revision, if any; see
+    /// `tools::cinnabar`.
+    pub oldrevs: Option<String>,
 }
 
 /// Walk the "key value" pairs of a history commit message like:
@@ -525,6 +528,7 @@ pub struct HistorySyntaxCommitMeta {
 /// git SOURCE_REV
 /// syntax SYNTAX_REV
 /// hg HG_REV
+/// oldrevs OLD_REV,OLD_REV
 /// ```
 /// Where only the "git" line is guaranteed to be present.
 fn history_commit_message_pairs<'a>(
@@ -539,12 +543,14 @@ pub fn syntax_commit_to_meta(commit: &Commit) -> HistorySyntaxCommitMeta {
     let mut source_hg_rev = None;
     let mut hconfig = None;
     let mut hstart = None;
+    let mut oldrevs = None;
     for (key, val) in history_commit_message_pairs(commit) {
         match key {
             "git" => source_rev = Some(Oid::from_str(val).unwrap()),
             "hg" => source_hg_rev = Some(val.to_owned()),
             "hconfig" => hconfig = Some(Oid::from_str(val).unwrap()),
             "hstart" => hstart = Some(Oid::from_str(val).unwrap()),
+            "oldrevs" => oldrevs = Some(val.to_owned()),
             _ => {}
         }
     }
@@ -555,6 +561,7 @@ pub fn syntax_commit_to_meta(commit: &Commit) -> HistorySyntaxCommitMeta {
         source_hg_rev,
         hconfig,
         hstart,
+        oldrevs,
     }
 }
 
@@ -602,6 +609,8 @@ pub struct HistoryTimelineCommitMeta {
     pub source_rev: Oid,
     pub syntax_rev: Oid,
     pub source_hg_rev: Option<String>,
+    /// See `HistorySyntaxCommitMeta::oldrevs`.
+    pub oldrevs: Option<String>,
     pub timeline_rev: Oid,
 }
 
@@ -609,11 +618,13 @@ pub fn timeline_commit_to_meta(commit: &Commit) -> HistoryTimelineCommitMeta {
     let mut source_rev = None;
     let mut syntax_rev = None;
     let mut source_hg_rev = None;
+    let mut oldrevs = None;
     for (key, val) in history_commit_message_pairs(commit) {
         match key {
             "git" => source_rev = Some(Oid::from_str(val).unwrap()),
             "syntax" => syntax_rev = Some(Oid::from_str(val).unwrap()),
             "hg" => source_hg_rev = Some(val.to_owned()),
+            "oldrevs" => oldrevs = Some(val.to_owned()),
             _ => {}
         }
     }
@@ -622,6 +633,7 @@ pub fn timeline_commit_to_meta(commit: &Commit) -> HistoryTimelineCommitMeta {
         source_rev: source_rev.expect("timeline commits always have a `git` line"),
         syntax_rev: syntax_rev.expect("timeline commits always have a `syntax` line"),
         source_hg_rev,
+        oldrevs,
         timeline_rev: commit.id(),
     }
 }

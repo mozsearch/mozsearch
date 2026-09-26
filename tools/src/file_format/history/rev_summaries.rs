@@ -39,6 +39,15 @@ pub struct RevSummaryRecord {
     /// filename.
     pub source_rev: String,
 
+    /// The corresponding hg revision, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hg_rev: Option<String>,
+
+    /// The corresponding old revisions (ex: gecko-dev revisions for the
+    /// firefox-* trees), if any; see `tools::cinnabar`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub old_revs: Vec<String>,
+
     /// The "syntax" history git repo revision corresponding to this revision.
     pub syntax_rev: String,
 

@@ -5,8 +5,20 @@
 //
 // Usage:
 //   build-syntax-token-tree SOURCE_REPO SYNTAX_REPO [HISTORY_CONFIG_DIR]
+//     [--old-cinnabar-repo-path OLD_REPO] [--old-revision-map MAP_FILE]
 //
-// See `hyperblame::history_config` for the optional history configuration.
+// See `hyperblame::history_config` for the optional history configuration and
+// `tools::cinnabar` for the old revision ("oldrevs") options, which match
+// build-blame's.  The environment variables `BLAME_REF`, `COMMIT_LIMIT`, and
+// `CINNABAR` (set to 0 to not ask git-cinnabar for hg revisions) are handled
+// like build-blame.
+//
+// Like build-blame, we have git-fast-import maintain a marks file (in the syntax
+// repo's git directory; see `git_ops::fast_import_marks_path`) so that we don't
+// lose track of processed revisions which aren't (yet) reachable from the
+// branch we write to, like the first parent of a merge of long unrelated
+// histories when a run stops partway through the second parent.  The marks file
+// is removed after a successful run without `COMMIT_LIMIT`.
 
 extern crate env_logger;
 extern crate git2;
@@ -25,13 +37,16 @@ use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
 
+use clap::Parser;
 use git2::{ObjectType, Oid, Repository, Sort, TreeWalkMode, TreeWalkResult};
+use tools::cinnabar::{CinnabarBatch, OldRevisions};
 use tools::file_format::config::{index_blame, syntax_commit_to_meta};
 use tools::file_format::history::io_helpers::{
     read_record_file_contents, record_file_contents_to_string,
 };
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use tools::file_format::history::syntax_symdex::{SymdexHeader, SymdexRecord};
+use tools::git_ops::{fast_import_marks_path, parse_fast_import_marks};
 use tools::hyperblame::history_config::{
     AttributeRules, AttributeSet, EffectiveAttributes, HistoryConfig, LangSource, ResolvedLanguage,
     parse_repo_gitattributes, resolve_language,
@@ -40,35 +55,37 @@ use tools::tree_sitter_support::cst_tokenizer::{
     HyperTokenized, TOKENIZER_VERSION, hypertokenize_with_profile,
 };
 
-fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
-    writeln!(helper.stdin.as_mut().unwrap(), "{}", git_oid).unwrap();
-    let mut reader = BufReader::new(helper.stdout.as_mut().unwrap());
-    let mut result = String::new();
-    reader.read_line(&mut result).unwrap();
-    let hgrev = result.trim();
-    if hgrev.chars().all(|c| c == '0') {
-        return None;
-    }
-    Some(hgrev.to_string())
-}
+#[derive(Parser)]
+struct Cli {
+    /// Path to the source git repository.
+    #[clap(value_parser)]
+    git_repo_path: String,
 
-fn start_cinnabar_helper(git_repo: &Repository) -> Child {
-    Command::new("git")
-        .arg("cinnabar")
-        .arg("git2hg")
-        .arg("--batch")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .current_dir(git_repo.path())
-        .spawn()
-        .unwrap()
+    /// Path to the syntax git repository to populate.
+    #[clap(value_parser)]
+    syntax_repo_path: String,
+
+    /// Optional history configuration directory; see
+    /// `hyperblame::history_config`.
+    #[clap(value_parser)]
+    history_config_dir: Option<String>,
+
+    /// The old git-cinnabar repository to map hg revisions to old revisions
+    /// with; see `tools::cinnabar` and build-blame's option of the same name.
+    #[clap(long, value_parser)]
+    old_cinnabar_repo_path: Option<String>,
+
+    /// A file mapping revisions to old revisions which takes precedence over
+    /// the old cinnabar repository; see build-blame's option of the same name.
+    #[clap(long, value_parser)]
+    old_revision_map: Option<String>,
 }
 
 /// Starts the git-fast-import subcommand, to which data
 /// is fed for adding to the blame repo. Refer to
 /// https://git-scm.com/docs/git-fast-import for detailed
 /// documentation on git-fast-import.
-fn start_fast_import(git_repo: &Repository) -> Child {
+fn start_fast_import(git_repo: &Repository, marks_file: &Path) -> Child {
     // Note that we use the `--force` flag here, because there
     // are cases where the blame repo branch we're building was
     // initialized from some other branch (e.g. gecko-dev beta
@@ -82,6 +99,8 @@ fn start_fast_import(git_repo: &Repository) -> Child {
         .arg("fast-import")
         .arg("--force")
         .arg("--quiet")
+        .arg(format!("--import-marks-if-exists={}", marks_file.display()))
+        .arg(format!("--export-marks={}", marks_file.display()))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .current_dir(git_repo.path())
@@ -944,11 +963,11 @@ fn attributes_inherited_by(
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
-    let args: Vec<_> = env::args().collect();
-    let git_repo_path = args[1].to_string();
+    let cli = Cli::parse();
+    let git_repo_path = cli.git_repo_path.clone();
     let git_repo = Repository::open(&git_repo_path).unwrap();
-    let blame_repo = Repository::open(&args[2]).unwrap();
-    let history_config = match args.get(3) {
+    let blame_repo = Repository::open(&cli.syntax_repo_path).unwrap();
+    let history_config = match &cli.history_config_dir {
         Some(dir) => HistoryConfig::load(Path::new(dir)).unwrap_or_else(|e| {
             error!("Unable to load history configuration: {}", e);
             std::process::exit(1);
@@ -956,11 +975,15 @@ fn main() {
         None => HistoryConfig::empty(),
     };
     let use_cinnabar = env::var("CINNABAR").map_or(true, |v| v != "0");
-    let mut hg_helper = if use_cinnabar {
-        Some(start_cinnabar_helper(&git_repo))
-    } else {
-        None
-    };
+    let mut hg_helper = use_cinnabar.then(|| CinnabarBatch::git2hg(&git_repo));
+    let mut old_revisions = OldRevisions::new(
+        cli.old_cinnabar_repo_path.as_deref().map(Path::new),
+        cli.old_revision_map.as_deref().map(Path::new),
+    )
+    .unwrap_or_else(|e| {
+        error!("Unable to set up old revision mapping: {}", e);
+        std::process::exit(1);
+    });
     let blame_ref = env::var("BLAME_REF").ok().unwrap_or("HEAD".to_string());
     let commit_limit = env::var("COMMIT_LIMIT")
         .ok()
@@ -981,6 +1004,29 @@ fn main() {
         HashMap::new()
     };
     info!("  Blame map has {} existing entries.", blame_map.len());
+
+    // ## Revisions processed by previous runs which aren't reachable from the
+    // branch; see the marks file discussion at the top of this file.
+    let marks_file = fast_import_marks_path(&blame_repo);
+    let mut prev_max_mark = 0;
+    if let Ok(contents) = std::fs::read_to_string(&marks_file) {
+        let marks = parse_fast_import_marks(&contents);
+        let mut needed = 0;
+        for (mark, syntax_oid) in &marks {
+            prev_max_mark = prev_max_mark.max(*mark);
+            let meta = syntax_commit_to_meta(&blame_repo.find_commit(*syntax_oid).unwrap());
+            blame_map.entry(meta.source_rev).or_insert_with(|| {
+                needed += 1;
+                SyntaxRepoCommit::Commit(*syntax_oid)
+            });
+        }
+        info!(
+            "  Marks file {} had {} revisions, {} of which weren't reachable from the branch.",
+            marks_file.display(),
+            marks.len(),
+            needed
+        );
+    }
 
     let head = git_repo.refname_to_id(&blame_ref).unwrap();
     let mut walk = git_repo.revwalk().unwrap();
@@ -1127,7 +1173,7 @@ fn main() {
     // if we ran out of requests because there were so few.
     assert!((compute_index % num_threads == 0) || compute_index == rev_count);
 
-    let mut import_helper = start_fast_import(&blame_repo);
+    let mut import_helper = start_fast_import(&blame_repo, &marks_file);
 
     // Tracks completion count and serves as the basis for the mark <idnum>
     // assigned to each commit.
@@ -1151,10 +1197,10 @@ fn main() {
 
         rev_done += 1;
 
-        let hg_rev = match hg_helper {
-            Some(ref mut helper) => get_hg_rev(helper, git_oid),
-            None => None, // we don't support mapfiles any more.
-        };
+        let hg_rev = hg_helper
+            .as_mut()
+            .and_then(|helper| helper.lookup(&git_oid.to_string()));
+        let oldrevs = old_revisions.lookup(*git_oid, hg_rev.as_deref());
 
         info!(
             "Transforming {} (hg {:?}) progress {}/{}",
@@ -1176,8 +1222,10 @@ fn main() {
             // https://git-scm.com/docs/git-fast-import#_mark
             let mut import_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
             writeln!(import_stream, "commit {}", blame_ref).unwrap();
-            writeln!(import_stream, "mark :{}", rev_done).unwrap();
-            blame_map.insert(*git_oid, SyntaxRepoCommit::Mark(rev_done));
+            // Marks from previous runs are imported, so don't reuse them.
+            let mark = prev_max_mark + rev_done;
+            writeln!(import_stream, "mark :{}", mark).unwrap();
+            blame_map.insert(*git_oid, SyntaxRepoCommit::Mark(mark));
 
             let mut write_role = |role: &str, sig: &git2::Signature| {
                 write!(import_stream, "{} ", role).unwrap();
@@ -1207,6 +1255,9 @@ fn main() {
             } else {
                 format!("git {}\n", git_oid)
             };
+            if let Some(oldrevs) = &oldrevs {
+                commit_msg.push_str(&format!("oldrevs {}\n", oldrevs));
+            }
             if let Some(hconfig) = diff_data.hconfig {
                 commit_msg.push_str(&format!("hconfig {}\n", hconfig));
             }
@@ -1264,14 +1315,17 @@ fn main() {
         }
     }
 
-    if let Some(mut helper) = hg_helper {
-        helper.kill().unwrap();
-    }
+    drop(hg_helper);
 
     info!("Shutting down fast-import...");
     let exitcode = import_helper.wait().unwrap();
     if exitcode.success() {
         info!("Done!");
+        // The marks file is only needed to resume a limited or failed run.
+        if commit_limit == 0 && marks_file.exists() {
+            info!("Removing marks file {}.", marks_file.display());
+            std::fs::remove_file(&marks_file).unwrap();
+        }
     } else {
         info!("Fast-import exited with {:?}", exitcode.code());
     }

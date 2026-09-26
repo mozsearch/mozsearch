@@ -5,7 +5,10 @@
 //   build-timeline-tree SOURCE_REPO SYNTAX_REPO TIMELINE_REPO REV_SUMMARIES_DIR
 //
 // The environment variables `BLAME_REF` and `COMMIT_LIMIT` are handled the same
-// as by `build-blame` and `build-syntax-token-tree`.
+// as by `build-blame` and `build-syntax-token-tree`, as is the marks file (in
+// the timeline repo's git directory) which lets us resume a limited or failed
+// run without losing track of processed revisions which aren't reachable from
+// the branch.
 //
 // ## Timeline repo contents
 //
@@ -98,6 +101,7 @@ use serde::de::DeserializeOwned;
 
 use tools::file_format::config::{
     HistorySyntaxCommitMeta, index_timeline_history_by_syntax_rev, syntax_commit_to_meta,
+    timeline_commit_to_meta,
 };
 use tools::file_format::history::io_helpers::{
     read_record_file_contents, record_file_contents_to_string,
@@ -123,7 +127,7 @@ use tools::file_format::history::timeline_future::{
 use tools::file_format::history::timeline_tokens::{
     TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, token_timeline_path, tracked_token_key,
 };
-use tools::git_ops::git_time_to_chrono;
+use tools::git_ops::{fast_import_marks_path, git_time_to_chrono, parse_fast_import_marks};
 use tools::hyperblame::backouts::{BackoutTargetIndex, find_backed_out};
 use tools::hyperblame::inference::{
     FileChangeInput, FileChangeKind, FileInference, InferenceConfig, PairingSupport, RemovedFate,
@@ -136,7 +140,7 @@ use tools::tree_sitter_support::cst_tokenizer::namespace_for_file;
 /// is fed for adding to the blame repo. Refer to
 /// https://git-scm.com/docs/git-fast-import for detailed
 /// documentation on git-fast-import.
-fn start_fast_import(git_repo: &Repository) -> Child {
+fn start_fast_import(git_repo: &Repository, marks_file: &Path) -> Child {
     // Note that we use the `--force` flag here, because there
     // are cases where the blame repo branch we're building was
     // initialized from some other branch (e.g. gecko-dev beta
@@ -150,6 +154,8 @@ fn start_fast_import(git_repo: &Repository) -> Child {
         .arg("fast-import")
         .arg("--force")
         .arg("--quiet")
+        .arg(format!("--import-marks-if-exists={}", marks_file.display()))
+        .arg(format!("--export-marks={}", marks_file.display()))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .current_dir(git_repo.path())
@@ -1908,6 +1914,29 @@ fn main() {
         timeline_map.len()
     );
 
+    // Revisions processed by previous runs which aren't reachable from the
+    // branch; see build-syntax-token-tree.
+    let marks_file = fast_import_marks_path(&timeline_repo);
+    let mut prev_max_mark = 0;
+    if let Ok(contents) = fs::read_to_string(&marks_file) {
+        let marks = parse_fast_import_marks(&contents);
+        let mut needed = 0;
+        for (mark, timeline_oid) in &marks {
+            prev_max_mark = prev_max_mark.max(*mark);
+            let meta = timeline_commit_to_meta(&timeline_repo.find_commit(*timeline_oid).unwrap());
+            timeline_map.entry(meta.syntax_rev).or_insert_with(|| {
+                needed += 1;
+                TimelineRepoCommit::Commit(*timeline_oid)
+            });
+        }
+        info!(
+            "  Marks file {} had {} revisions, {} of which weren't reachable from the branch.",
+            marks_file.display(),
+            marks.len(),
+            needed
+        );
+    }
+
     // We are primarily processing the "syntax" repo which is derived from the
     // "source" repo.  So start a walk in the syntax repo from the provided
     // BLAME_REF.
@@ -1971,7 +2000,7 @@ fn main() {
     // if we ran out of requests because there were so few.
     assert!((compute_index % num_threads == 0) || compute_index == rev_count);
 
-    let mut import_helper = start_fast_import(&timeline_repo);
+    let mut import_helper = start_fast_import(&timeline_repo, &marks_file);
 
     // Tracks completion count and serves as the basis for the mark <idnum>
     // assigned to each commit.
@@ -2013,8 +2042,10 @@ fn main() {
             // https://git-scm.com/docs/git-fast-import#_mark
             let mut import_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
             writeln!(import_stream, "commit {}", blame_ref).unwrap();
-            writeln!(import_stream, "mark :{}", rev_done).unwrap();
-            timeline_map.insert(rev_meta.syntax_rev, TimelineRepoCommit::Mark(rev_done));
+            // Marks from previous runs are imported, so don't reuse them.
+            let mark = prev_max_mark + rev_done;
+            writeln!(import_stream, "mark :{}", mark).unwrap();
+            timeline_map.insert(rev_meta.syntax_rev, TimelineRepoCommit::Mark(mark));
 
             let mut write_role = |role: &str, sig: &git2::Signature| {
                 write!(import_stream, "{} ", role).unwrap();
@@ -2040,7 +2071,7 @@ fn main() {
             write_role("author", &syntax_commit.author());
             write_role("committer", &syntax_commit.committer());
 
-            let commit_msg = if let Some(hg_rev) = &rev_meta.source_hg_rev {
+            let mut commit_msg = if let Some(hg_rev) = &rev_meta.source_hg_rev {
                 format!(
                     "git {}\nsyntax {}\nhg {}\n",
                     rev_meta.source_rev, rev_meta.syntax_rev, hg_rev
@@ -2051,6 +2082,9 @@ fn main() {
                     rev_meta.source_rev, rev_meta.syntax_rev
                 )
             };
+            if let Some(oldrevs) = &rev_meta.oldrevs {
+                commit_msg.push_str(&format!("oldrevs {}\n", oldrevs));
+            }
 
             write!(import_stream, "data {}\n{}\n", commit_msg.len(), commit_msg).unwrap();
             if let Some(first_parent) = timeline_parents.first() {
@@ -2090,12 +2124,18 @@ fn main() {
 
         // Terminate the commit so we can get its oid for the rev-summary.
         writeln!(import_helper.stdin.as_mut().unwrap()).unwrap();
-        let timeline_rev = read_mark_oid(&mut import_helper, rev_done);
+        let timeline_rev = read_mark_oid(&mut import_helper, prev_max_mark + rev_done);
 
         write_rev_summary(
             &rev_summary_root,
             &RevSummaryRecord {
                 source_rev: rev_meta.source_rev.to_string(),
+                hg_rev: rev_meta.source_hg_rev.clone(),
+                old_revs: rev_meta
+                    .oldrevs
+                    .as_deref()
+                    .map(|revs| revs.split(',').map(str::to_string).collect())
+                    .unwrap_or_default(),
                 syntax_rev: rev_meta.syntax_rev.to_string(),
                 timeline_rev,
                 message: data.message.clone(),
@@ -2124,6 +2164,11 @@ fn main() {
     let exitcode = import_helper.wait().unwrap();
     if exitcode.success() {
         info!("Done!");
+        // The marks file is only needed to resume a limited or failed run.
+        if commit_limit == 0 && marks_file.exists() {
+            info!("Removing marks file {}.", marks_file.display());
+            fs::remove_file(&marks_file).unwrap();
+        }
     } else {
         info!("Fast-import exited with {:?}", exitcode.code());
     }
