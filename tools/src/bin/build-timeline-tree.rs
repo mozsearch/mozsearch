@@ -100,7 +100,7 @@ use tools::file_format::history::timeline_future::{
     FutureDetailRecord, FutureHeader, FutureRecord,
 };
 use tools::file_format::history::timeline_tokens::{
-    TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, is_trackable_token, token_timeline_path,
+    TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, token_timeline_path, tracked_token_key,
 };
 use tools::git_ops::git_time_to_chrono;
 use tools::hyperblame::inference::{
@@ -641,11 +641,20 @@ fn preprocess_linear(
     })
 }
 
-fn add_trackable_tokens(lines: &[&str], candidate_tokens: &mut BTreeSet<String>) {
-    for line in lines {
-        let token = split_token_line(line).token;
-        if is_trackable_token(token) {
-            candidate_tokens.insert(token.to_string());
+/// Add the tracked tokens for `lines[range]` to `candidate_tokens`.  We don't
+/// know the file's namespace here, so we use a namespace with no value words
+/// which produces a superset of the tokens tracked in any namespace.  That's
+/// fine because these are just candidates for journal merging.
+fn add_tracked_tokens(
+    lines: &[&str],
+    range: std::ops::Range<usize>,
+    candidate_tokens: &mut BTreeSet<String>,
+) {
+    for idx in range {
+        let line = split_token_line(lines[idx]);
+        let prev = idx.checked_sub(1).map(|i| split_token_line(lines[i]));
+        if let Some(key) = tracked_token_key("", &line, prev.as_ref()) {
+            candidate_tokens.insert(key.into_owned());
         }
     }
 }
@@ -763,8 +772,8 @@ fn preprocess_merge(
                 match op {
                     similar::DiffOp::Equal { .. } => {}
                     _ => {
-                        add_trackable_tokens(&old_lines[op.old_range()], &mut candidate_tokens);
-                        add_trackable_tokens(&new_lines[op.new_range()], &mut candidate_tokens);
+                        add_tracked_tokens(&old_lines, op.old_range(), &mut candidate_tokens);
+                        add_tracked_tokens(&new_lines, op.new_range(), &mut candidate_tokens);
                     }
                 }
             }

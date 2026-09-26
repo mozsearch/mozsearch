@@ -5,10 +5,11 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
+use crate::file_format::history::syntax_files::TokenLine;
 use crate::file_format::history::timeline_common::{
     ChangeKind, SymbolSyntaxDelta, SymbolSyntaxDeltaGroup, TokenDeltaDetails,
 };
-use crate::file_format::history::timeline_tokens::is_trackable_token;
+use crate::file_format::history::timeline_tokens::tracked_token_key;
 
 use super::inference::{FileChangeInput, FileInference, RemovedFate, TokenOrigin};
 use crate::file_format::history::syntax_files::split_token_line;
@@ -42,6 +43,11 @@ fn bump(details: &mut TokenDeltaDetails, delta: Delta) {
     }
 }
 
+/// The token preceding the given 0-based index, for bug number detection.
+fn prev_line<'a>(lines: &[&'a str], idx: usize) -> Option<TokenLine<'a>> {
+    idx.checked_sub(1).map(|i| split_token_line(lines[i]))
+}
+
 /// Compute per-file symbol deltas and per-token totals.
 ///
 /// `old_symbols` and `new_symbols` are parallel to `inputs` and provide the set
@@ -65,22 +71,20 @@ pub fn compute_revision_stats(
 
     let mut record = |groups: &mut Vec<BTreeMap<String, SymbolSyntaxDelta>>,
                       file: usize,
-                      context: &str,
-                      token: &str,
+                      namespace: &str,
+                      line: &TokenLine,
+                      prev: Option<&TokenLine>,
                       delta: Delta| {
         let sym_delta = groups[file]
-            .entry(context.to_string())
+            .entry(line.context.to_string())
             .or_insert_with(|| SymbolSyntaxDelta::new(ChangeKind::Changed));
         bump(&mut sym_delta.token_totals, delta);
-        if is_trackable_token(token) {
+        if let Some(key) = tracked_token_key(namespace, line, prev) {
             bump(
-                sym_delta
-                    .token_changes
-                    .entry(token.to_string())
-                    .or_default(),
+                sym_delta.token_changes.entry(key.to_string()).or_default(),
                 delta,
             );
-            bump(token_totals.entry(token.to_string()).or_default(), delta);
+            bump(token_totals.entry(key.into_owned()).or_default(), delta);
         }
     };
 
@@ -103,7 +107,15 @@ pub fn compute_revision_stats(
                     old_lineno,
                 } => (Delta::EvolvedFrom, Some((from_file, old_lineno))),
             };
-            record(&mut groups, file, line.context, line.token, delta);
+            let prev = prev_line(&input.new_lines, new_idx);
+            record(
+                &mut groups,
+                file,
+                input.namespace,
+                &line,
+                prev.as_ref(),
+                delta,
+            );
             if let Some((from_file, old_lineno)) = source {
                 let old_line =
                     split_token_line(inputs[from_file as usize].old_lines[old_lineno as usize - 1]);
@@ -117,14 +129,23 @@ pub fn compute_revision_stats(
 
         // ## Old side
         for removed in &inference.removed {
-            let line = split_token_line(input.old_lines[removed.old_lineno as usize - 1]);
+            let old_idx = removed.old_lineno as usize - 1;
+            let line = split_token_line(input.old_lines[old_idx]);
             let delta = match removed.fate {
                 RemovedFate::Extinguished => Delta::Removed,
                 RemovedFate::EvolvedInto { .. } => Delta::EvolvedInto,
                 // Moves are counted on the new side.
                 RemovedFate::MovedTo { .. } => continue,
             };
-            record(&mut groups, file, line.context, line.token, delta);
+            let prev = prev_line(&input.old_lines, old_idx);
+            record(
+                &mut groups,
+                file,
+                input.namespace,
+                &line,
+                prev.as_ref(),
+                delta,
+            );
         }
     }
 
@@ -218,6 +239,46 @@ mod tests {
 
     fn syms(list: &[&str]) -> BTreeSet<String> {
         list.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn test_tracking_filter() {
+        use crate::file_format::history::syntax_files::{TokenClass, format_token_line};
+        let line = |class, token| format_token_line("Foo::bar", class, token);
+        let old = vec![
+            line(TokenClass::Keyword, "return"),
+            line(TokenClass::Operator, ";"),
+        ];
+        let new = vec![
+            line(TokenClass::Keyword, "if"),
+            line(TokenClass::Identifier, "this"),
+            line(TokenClass::Identifier, "mReady"),
+            line(TokenClass::Comment, "//"),
+            line(TokenClass::Comment, "See"),
+            line(TokenClass::Comment, "Bug"),
+            line(TokenClass::Comment, "1620052."),
+            line(TokenClass::Keyword, "return"),
+            line(TokenClass::Operator, ";"),
+        ];
+        let inputs = vec![FileChangeInput {
+            kind: FileChangeKind::Modified,
+            namespace: "cpp",
+            old_lines: old.iter().map(|s| s.as_str()).collect(),
+            new_lines: new.iter().map(|s| s.as_str()).collect(),
+        }];
+        let inferences = infer_revision(&inputs, &InferenceConfig::default());
+        let stats = compute_revision_stats(
+            &inputs,
+            &inferences,
+            &[syms(&["Foo::bar"])],
+            &[syms(&["Foo::bar"])],
+        );
+        let tracked: Vec<&str> = stats.token_totals.keys().map(|k| k.as_str()).collect();
+        assert_eq!(tracked, vec!["bug-1620052", "mReady"]);
+        let sym = &stats.file_groups[0].symbol_deltas["Foo::bar"];
+        // Everything still counts towards the totals.
+        assert_eq!(sym.token_totals.added, 7);
+        assert_eq!(sym.token_changes.len(), 2);
     }
 
     #[test]

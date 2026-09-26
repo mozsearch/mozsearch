@@ -22,17 +22,22 @@
 //! to efficiently perform filtering by intersecting commit sets before moving
 //! on to look up the commits.
 //!
-//! Only identifier-like tokens (see `is_trackable_token`) get files, and we only
-//! emit a record for a revision if the token was added/removed/evolved; pure
-//! moves are not recorded here because they are noise for these use-cases, but
-//! they can be found in the rev-summaries and files-delta records.
+//! Only tokens selected by `tracked_token_key` get files, and we only emit a
+//! record for a revision if the token was added/removed/evolved; pure moves are
+//! not recorded here because they are noise for these use-cases, but they can
+//! be found in the rev-summaries and files-delta records.  The same selection is
+//! used for the per-symbol `token_changes` in files-delta records and
+//! rev-summaries.
 //!
 //! The first line of each file is a `TokenHeader` and the remaining lines are
 //! `TokenDeltaRecord`s ordered from newest to oldest.
 
+use std::borrow::Cow;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+
+use super::syntax_files::{TokenClass, TokenLine};
 
 use super::timeline_common::{
     DetailRecordRef, SummaryRecordRef, TimelineRecord, TokenDeltaDetails,
@@ -85,14 +90,9 @@ impl TimelineRecord for TokenDeltaRecord {
     }
 }
 
-/// Is this token interesting enough to be tracked in the per-token timeline
-/// and itemized in per-symbol `token_changes`?  Currently we require the token
-/// look like an identifier: at least 2 characters long, made up of alphanumeric
-/// characters, "_", and "$", not starting with a digit, and with at least one
-/// alphabetic character.
-///
-/// Note that we will end up including words from comments since the tokenizer
-/// does not currently distinguish them, but this is arguably a feature.
+/// Does this text look like an identifier?  Specifically: at least 2
+/// characters long, made up of alphanumeric characters, "_", and "$", not
+/// starting with a digit, and with at least one alphabetic character.
 pub fn is_trackable_token(token: &str) -> bool {
     token.len() >= 2
         && token.len() <= 128
@@ -101,6 +101,125 @@ pub fn is_trackable_token(token: &str) -> bool {
             .chars()
             .all(|c| c.is_alphanumeric() || c == '_' || c == '$')
         && token.chars().any(|c| c.is_alphabetic())
+}
+
+/// Words which tree-sitter classifies as identifiers (or which we classify as
+/// identifiers for consistency) but which are ubiquitous in their language and
+/// so are as uninteresting to track as keywords.
+fn namespace_value_words(namespace: &str) -> &'static [&'static str] {
+    match namespace {
+        "cpp" => &["this", "nullptr", "NULL", "true", "false"],
+        "js" => &["this", "super", "null", "undefined", "true", "false"],
+        "py" => &["self", "None", "True", "False"],
+        "rust" => &[
+            "self", "Self", "super", "crate", "true", "false", "Some", "None", "Ok", "Err",
+        ],
+        _ => &[],
+    }
+}
+
+/// English words which are too common in comments (and plain text) to be
+/// worth tracking.  Compared case-insensitively.  This is only applied to
+/// comment/text words so that, for example, Python's `is` and `not` keywords
+/// or a variable named `from` are handled by their token class.  "bug" and
+/// "see" are included because bug references ("See bug 1620052") are tracked
+/// as `bug-NNNNNNN` keys instead.
+const PROSE_STOPWORDS: &[&str] = &[
+    "bug", "bugs", "see", "a", "about", "after", "all", "also", "an", "and", "any", "are", "as",
+    "at", "be", "because", "been", "before", "but", "by", "can", "could", "do", "does", "doesn",
+    "don", "each", "for", "from", "has", "have", "here", "how", "if", "in", "into", "is", "isn",
+    "it", "its", "just", "may", "more", "most", "must", "need", "no", "not", "now", "of", "on",
+    "one", "only", "or", "other", "our", "out", "should", "so", "some", "such", "than", "that",
+    "the", "their", "them", "then", "there", "these", "they", "this", "those", "to", "up", "us",
+    "use", "used", "using", "want", "was", "way", "we", "were", "what", "when", "where", "whether",
+    "which", "while", "who", "why", "will", "with", "would", "you",
+];
+
+fn is_prose_stopword(word: &str) -> bool {
+    PROSE_STOPWORDS
+        .iter()
+        .any(|stop| stop.eq_ignore_ascii_case(word))
+}
+
+fn trim_punctuation(word: &str) -> &str {
+    word.trim_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '$')
+}
+
+fn is_bug_digits(digits: &str) -> bool {
+    (4..=8).contains(&digits.len()) && digits.chars().all(|c| c.is_ascii_digit())
+}
+
+/// Recognize bug references like "Bug 1620052" (where `prev` is "Bug"),
+/// "bug1620052", "bug-1620052", and bugzilla `show_bug.cgi?id=1620052` URLs,
+/// returning the bug number.
+fn bug_number<'a>(token: &'a str, prev: Option<&str>) -> Option<&'a str> {
+    if let Some(idx) = token.find("show_bug.cgi?id=") {
+        let rest = &token[idx + "show_bug.cgi?id=".len()..];
+        let digits = &rest[..rest
+            .find(|c: char| !c.is_ascii_digit())
+            .unwrap_or(rest.len())];
+        return (!digits.is_empty()).then_some(digits);
+    }
+    let word = trim_punctuation(token);
+    if word.len() > 3 && word[..3].eq_ignore_ascii_case("bug") {
+        let digits = word[3..].trim_start_matches(['-', '_']);
+        if is_bug_digits(digits) {
+            return Some(digits);
+        }
+    }
+    let prev_is_bug = prev.is_some_and(|p| trim_punctuation(p).eq_ignore_ascii_case("bug"));
+    if prev_is_bug && is_bug_digits(word) {
+        return Some(word);
+    }
+    None
+}
+
+/// Decide whether a token is interesting enough to be tracked in the per-token
+/// timeline and itemized in per-symbol `token_changes`, returning the key it is
+/// tracked under.  `prev` is the preceding token in the file, if any, which is
+/// used to recognize "Bug NNNNNNN" references.
+///
+/// - Keywords, operators, and number literals are never tracked.
+/// - Identifiers and words in strings must look like identifiers (see
+///   `is_trackable_token`) and not be one of the namespace's ubiquitous value
+///   words like `this` or `self`.
+/// - Words in comments and plain text have surrounding punctuation trimmed,
+///   and must look like identifiers and not be English stopwords.
+/// - Bug references in comments, plain text, and strings are tracked under a
+///   `bug-NNNNNNN` key, which can't collide with identifiers.
+///
+/// Lines lacking a class (from older syntax repos) are treated as identifiers.
+pub fn tracked_token_key<'a>(
+    namespace: &str,
+    line: &TokenLine<'a>,
+    prev: Option<&TokenLine>,
+) -> Option<Cow<'a, str>> {
+    let class = match line.class {
+        TokenClass::Unknown => TokenClass::Identifier,
+        class => class,
+    };
+    match class {
+        TokenClass::Keyword | TokenClass::Operator | TokenClass::Number => None,
+        TokenClass::Identifier => {
+            let token = line.token;
+            (is_trackable_token(token) && !namespace_value_words(namespace).contains(&token))
+                .then_some(Cow::Borrowed(token))
+        }
+        TokenClass::String | TokenClass::Comment | TokenClass::Text => {
+            if let Some(bug) = bug_number(line.token, prev.map(|p| p.token)) {
+                return Some(Cow::Owned(format!("bug-{}", bug)));
+            }
+            if class == TokenClass::String {
+                let token = line.token;
+                return (is_trackable_token(token)
+                    && !namespace_value_words(namespace).contains(&token))
+                .then_some(Cow::Borrowed(token));
+            }
+            let word = trim_punctuation(line.token);
+            (is_trackable_token(word) && !is_prose_stopword(word)).then_some(Cow::Borrowed(word))
+        }
+        TokenClass::Unknown => unreachable!(),
+    }
 }
 
 /// Derive the path of the token's timeline file relative to the timeline root,
@@ -121,6 +240,7 @@ pub fn token_timeline_path(token: &str) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::file_format::history::syntax_files::{TokenClass, TokenLine};
 
     #[test]
     fn test_trackable() {
@@ -133,6 +253,82 @@ mod tests {
         assert!(!is_trackable_token("0x10"));
         assert!(!is_trackable_token("::"));
         assert!(!is_trackable_token("\"hello\""));
+    }
+
+    fn key(namespace: &str, class: TokenClass, token: &str, prev: Option<&str>) -> Option<String> {
+        let line = TokenLine {
+            context: "%",
+            class,
+            token,
+        };
+        let prev = prev.map(|p| TokenLine {
+            context: "%",
+            class,
+            token: p,
+        });
+        tracked_token_key(namespace, &line, prev.as_ref()).map(|k| k.into_owned())
+    }
+
+    #[test]
+    fn test_tracked_token_key() {
+        use TokenClass::*;
+        let some = |s: &str| Some(s.to_string());
+        // Classes that are never tracked.
+        assert_eq!(key("rust", Keyword, "match", None), None);
+        assert_eq!(key("cpp", Operator, "::", None), None);
+        assert_eq!(key("cpp", Number, "1620052", None), None);
+        // Identifiers, minus the namespace's ubiquitous values.
+        assert_eq!(key("cpp", Identifier, "mCount", None), some("mCount"));
+        assert_eq!(key("cpp", Identifier, "this", None), None);
+        assert_eq!(key("py", Identifier, "self", None), None);
+        assert_eq!(key("js", Identifier, "self", None), some("self"));
+        assert_eq!(key("rust", Identifier, "Some", None), None);
+        assert_eq!(key("cpp", Identifier, "Some", None), some("Some"));
+        // Comment words get trimmed and stopwords are dropped.
+        assert_eq!(key("cpp", Comment, "The", None), None);
+        assert_eq!(key("cpp", Comment, "the", None), None);
+        assert_eq!(key("cpp", Comment, "Bug", None), None);
+        assert_eq!(
+            key("cpp", Comment, "ServiceWorker,", None),
+            some("ServiceWorker")
+        );
+        assert_eq!(key("cpp", Comment, "`Foo()`.", None), some("Foo"));
+        assert_eq!(key("cpp", Comment, "mozilla::dom", None), None);
+        assert_eq!(key("none", Text, "skip-if", None), None);
+        // Bug references.
+        assert_eq!(
+            key("none", Text, "1620052", Some("Bug")),
+            some("bug-1620052")
+        );
+        assert_eq!(
+            key("cpp", Comment, "123456).", Some("(bug")),
+            some("bug-123456")
+        );
+        assert_eq!(key("cpp", Comment, "bug1620052", None), some("bug-1620052"));
+        assert_eq!(
+            key("cpp", Comment, "Bug-1620052:", None),
+            some("bug-1620052")
+        );
+        assert_eq!(
+            key(
+                "cpp",
+                Comment,
+                "https://bugzilla.mozilla.org/show_bug.cgi?id=1620052#c3",
+                None
+            ),
+            some("bug-1620052")
+        );
+        assert_eq!(
+            key("js", String, "1620052", Some("bug")),
+            some("bug-1620052")
+        );
+        // Other numbers in comments aren't bug references.
+        assert_eq!(key("cpp", Comment, "65536", Some("up")), None);
+        // Words in strings must look like identifiers.
+        assert_eq!(key("js", String, "error", None), some("error"));
+        assert_eq!(key("cpp", String, "\"dom.foo\"", None), None);
+        // Lines from older syntax repos lack a class.
+        assert_eq!(key("cpp", Unknown, "mCount", None), some("mCount"));
     }
 
     #[test]
