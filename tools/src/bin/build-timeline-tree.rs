@@ -599,6 +599,43 @@ fn preprocess_linear(
         })
         .collect();
 
+    // libgit2 can report a deleted file as the source of several renames (ex:
+    // when a file is split in two), which would give the old file's tokens
+    // fates from each of them.  Only the most similar one is a rename; the
+    // others are copies, which the copy check below may downgrade to additions
+    // if their content was mainly moved rather than copied.
+    // Maps old paths to the index, similarity, and new path of their best
+    // rename.
+    let mut best_renames: HashMap<String, (usize, f64, String)> = HashMap::new();
+    for (idx, (p, support)) in pending.iter().zip(&supports).enumerate() {
+        if let (Some(support), Some(old_path), Some(new_path)) = (support, &p.old_path, &p.new_path)
+        {
+            let similarity = support.similarity().unwrap_or(0.0);
+            let best = best_renames
+                .entry(old_path.clone())
+                .or_insert_with(|| (idx, similarity, new_path.clone()));
+            if similarity > best.1 {
+                *best = (idx, similarity, new_path.clone());
+            }
+        }
+    }
+    let mut changed = false;
+    for (idx, p) in pending.iter_mut().enumerate() {
+        if let (FileChangeKind::Renamed, Some(old_path)) = (p.kind, &p.old_path) {
+            let (best_idx, _, best_new_path) = &best_renames[old_path];
+            if *best_idx != idx {
+                info!(
+                    "Treating rename {} -> {} as a copy because {} is more similar",
+                    old_path,
+                    p.new_path.as_deref().unwrap_or_default(),
+                    best_new_path
+                );
+                p.kind = FileChangeKind::Copied;
+                changed = true;
+            }
+        }
+    }
+
     // Only keep renames whose content supports them (see
     // `MIN_RENAME_CONTENT_SIMILARITY`).  Splitting a rename into a deletion and
     // an addition means the old file's tokens become potential move sources for
@@ -609,6 +646,9 @@ fn preprocess_linear(
         let Some(support) = support else {
             continue;
         };
+        if p.kind != FileChangeKind::Renamed {
+            continue;
+        }
         let similarity = support.similarity();
         let keep = similarity.is_none_or(|s| s >= MIN_RENAME_CONTENT_SIMILARITY);
         info!(
@@ -640,7 +680,7 @@ fn preprocess_linear(
             p.namespace = struct_namespace(p.new_path.as_deref().unwrap(), &p.new_struct);
         }
     }
-    if !split.is_empty() {
+    if changed || !split.is_empty() {
         pending.extend(split);
         inferences = infer_revision(&inputs_for(&pending), config);
     }
