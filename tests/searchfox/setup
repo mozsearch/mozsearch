@@ -47,6 +47,11 @@ git init $HISTORY_ROOT/syntax
 mkdir -p $HISTORY_ROOT/timeline
 git init $HISTORY_ROOT/timeline
 mkdir -p $HISTORY_ROOT/rev-summaries
-build-syntax-token-tree $GIT_ROOT $HISTORY_ROOT/syntax
+HISTORY_CONFIG=$CONFIG_REPO/$TREE_NAME/history
+if [ -d "$HISTORY_CONFIG" ]; then
+  build-syntax-token-tree $GIT_ROOT $HISTORY_ROOT/syntax $HISTORY_CONFIG
+else
+  build-syntax-token-tree $GIT_ROOT $HISTORY_ROOT/syntax
+fi
 build-timeline-tree $GIT_ROOT $HISTORY_ROOT/syntax $HISTORY_ROOT/timeline $HISTORY_ROOT/rev-summaries
 

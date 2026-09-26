@@ -1,0 +1,7 @@
+# Bug 1755807 added searchfox analysis records for the test tree which are
+# stored as JSON lines in files named after the source files they describe (ex:
+# tests/tests/mc-analysis/ipdl/TestBasic.cpp), so tokenize them as plain text
+# rather than mis-parsing them as C++/Rust.
+attributes = """
+tests/tests/mc-analysis/** searchfox-lang=none
+"""
