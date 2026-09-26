@@ -3,6 +3,7 @@
 //!
 //! See `file_format/history` for the on-disk representations.
 
+pub mod history_config;
 pub mod inference;
 pub mod stats;
 pub mod suffix_array;

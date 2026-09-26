@@ -512,6 +512,9 @@ pub struct HistorySyntaxCommitMeta {
     pub source_rev: Oid,
     pub syntax_rev: Oid,
     pub source_hg_rev: Option<String>,
+    /// The id of the effective history configuration note attributes used to
+    /// derive this revision, if any.  See `hyperblame::history_config`.
+    pub hconfig: Option<Oid>,
 }
 
 /// Walk the "key value" pairs of a history commit message like:
@@ -531,10 +534,12 @@ fn history_commit_message_pairs<'a>(
 pub fn syntax_commit_to_meta(commit: &Commit) -> HistorySyntaxCommitMeta {
     let mut source_rev = None;
     let mut source_hg_rev = None;
+    let mut hconfig = None;
     for (key, val) in history_commit_message_pairs(commit) {
         match key {
             "git" => source_rev = Some(Oid::from_str(val).unwrap()),
             "hg" => source_hg_rev = Some(val.to_owned()),
+            "hconfig" => hconfig = Some(Oid::from_str(val).unwrap()),
             _ => {}
         }
     }
@@ -543,6 +548,7 @@ pub fn syntax_commit_to_meta(commit: &Commit) -> HistorySyntaxCommitMeta {
         source_rev: source_rev.expect("syntax commits always have a `git` line"),
         syntax_rev: commit.id(),
         source_hg_rev,
+        hconfig,
     }
 }
 

@@ -1,7 +1,12 @@
 // This binary derives both a token-centric (token per line) representation of
 // the source files in the input source tree using tree-sitter as well as
 // synthetic files using the same tree-sitter derived information.  It is
-// intended to be subsequently processed by build-syntax-blame-tree.rs.
+// intended to be subsequently processed by build-timeline-tree.rs.
+//
+// Usage:
+//   build-syntax-token-tree SOURCE_REPO SYNTAX_REPO [HISTORY_CONFIG_DIR]
+//
+// See `hyperblame::history_config` for the optional history configuration.
 
 extern crate env_logger;
 extern crate git2;
@@ -16,18 +21,23 @@ use std::fmt;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
 
-use git2::{ObjectType, Oid, Repository, Sort};
-use tools::file_format::config::index_blame;
+use git2::{ObjectType, Oid, Repository, Sort, TreeWalkMode, TreeWalkResult};
+use tools::file_format::config::{index_blame, syntax_commit_to_meta};
 use tools::file_format::history::io_helpers::{
     read_record_file_contents, record_file_contents_to_string,
 };
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use tools::file_format::history::syntax_symdex::{SymdexHeader, SymdexRecord};
+use tools::hyperblame::history_config::{
+    AttributeRules, AttributeSet, EffectiveAttributes, HistoryConfig, LangSource, ResolvedLanguage,
+    parse_repo_gitattributes, resolve_language,
+};
 use tools::tree_sitter_support::cst_tokenizer::{
-    HyperTokenized, TOKENIZER_VERSION, hypertokenize_source_file,
+    HyperTokenized, TOKENIZER_VERSION, hypertokenize_with_profile,
 };
 
 fn get_hg_rev(helper: &mut Child, git_oid: &Oid) -> Option<String> {
@@ -205,11 +215,28 @@ fn test_sanitize() {
     assert_eq!(sanitize(&p4), "\"internal/lf/\\\n/needs/escaping\"");
 }
 
+/// A file tokenized for the syntax repo and why we picked its language.
+struct TokenizedFile {
+    hypertokenized: HyperTokenized,
+    lang_source: LangSource,
+}
+
+/// The state needed by `process_modified_files`.
+struct ModifiedFilesContext<'a> {
+    attrs: &'a EffectiveAttributes,
+    /// Paths (and their ancestor directories) which must be processed even
+    /// though they are unchanged because their resolved language changed.
+    forced: &'a HashSet<PathBuf>,
+    results: HashMap<PathBuf, TokenizedFile>,
+    /// Files we intentionally didn't tokenize.
+    skipped: HashSet<PathBuf>,
+}
+
 fn process_modified_files(
     git_repo: &git2::Repository,
     commit: &git2::Commit,
     mut path: PathBuf,
-    results: &mut HashMap<PathBuf, HyperTokenized>,
+    ctx: &mut ModifiedFilesContext,
 ) -> Result<(), git2::Error> {
     let tree_at_path = if path == PathBuf::new() {
         commit.tree()?
@@ -222,27 +249,43 @@ fn process_modified_files(
     };
     'outer: for entry in tree_at_path.iter() {
         path.push(entry.name().unwrap());
-        for parent in commit.parents() {
-            if let Ok(parent_entry) = parent.tree()?.get_path(&path)
-                && parent_entry.id() == entry.id()
-            {
-                path.pop();
-                continue 'outer;
+        if !ctx.forced.contains(&path) {
+            for parent in commit.parents() {
+                if let Ok(parent_entry) = parent.tree()?.get_path(&path)
+                    && parent_entry.id() == entry.id()
+                {
+                    path.pop();
+                    continue 'outer;
+                }
             }
         }
 
         match entry.kind() {
             Some(ObjectType::Blob) => {
-                let blob = entry.to_object(git_repo)?.peel_to_blob()?;
-                let path_str = path.as_os_str().to_string_lossy();
-                if let Ok(blob_as_str) = std::str::from_utf8(blob.content())
-                    && let Ok(hypertokenized) = hypertokenize_source_file(&path_str, blob_as_str)
-                {
-                    results.insert(path.clone(), hypertokenized);
+                let path_str = path.as_os_str().to_string_lossy().into_owned();
+                match resolve_language(&path_str, ctx.attrs) {
+                    ResolvedLanguage::Skip => {
+                        ctx.skipped.insert(path.clone());
+                    }
+                    ResolvedLanguage::Tokenize(profile, lang_source) => {
+                        let blob = entry.to_object(git_repo)?.peel_to_blob()?;
+                        if let Ok(blob_as_str) = std::str::from_utf8(blob.content())
+                            && let Ok(hypertokenized) =
+                                hypertokenize_with_profile(profile, blob_as_str)
+                        {
+                            ctx.results.insert(
+                                path.clone(),
+                                TokenizedFile {
+                                    hypertokenized,
+                                    lang_source,
+                                },
+                            );
+                        }
+                    }
                 }
             }
             Some(ObjectType::Tree) => {
-                process_modified_files(git_repo, commit, path.clone(), results)?;
+                process_modified_files(git_repo, commit, path.clone(), ctx)?;
             }
             _ => (),
         };
@@ -309,6 +352,7 @@ fn recursively_process_source_tree(
             };
             if let Some(parent_entry) = parent_tree.get_name(entry_name)
                 && parent_entry.id() == entry.id()
+                && !syntax_data.forced.contains(&path)
             {
                 // Item at `path` is the same in the tree for `commit` as in
                 // `parent_trees[i]` so we can propagate our existing derived
@@ -390,7 +434,11 @@ fn recursively_process_source_tree(
                 // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Exactbytecountformat
                 let import_stream = import_helper.stdin.as_mut().unwrap();
 
-                if let Some(hypertokenized) = syntax_data.hypertokenized_files.get(&path) {
+                if let Some(TokenizedFile {
+                    hypertokenized,
+                    lang_source,
+                }) = syntax_data.hypertokenized_files.get(&path)
+                {
                     info!(
                         "  Writing out {} and {} (tokens: {} structure: {})",
                         tokenize_path.display(),
@@ -421,7 +469,7 @@ fn recursively_process_source_tree(
                             lang: Some(hypertokenized.profile.lang.to_string()),
                             namespace: Some(hypertokenized.profile.namespace.to_string()),
                             tokenizer: Some(TOKENIZER_VERSION),
-                            lang_source: Some("extension".to_string()),
+                            lang_source: Some(lang_source.as_str().to_string()),
                         },
                         &hypertokenized.structure,
                     );
@@ -465,7 +513,7 @@ fn recursively_process_source_tree(
                             });
                         }
                     }
-                } else {
+                } else if !syntax_data.skipped.contains(&path) {
                     warn!(
                         "  Did not find hypertokenized version of {}",
                         path.display()
@@ -633,7 +681,99 @@ struct SyntaxTreeData {
     revision: git2::Oid,
 
     /// The hypertokenized state for each modified source path.
-    hypertokenized_files: HashMap<PathBuf, HyperTokenized>,
+    hypertokenized_files: HashMap<PathBuf, TokenizedFile>,
+
+    /// Paths (and their ancestor directories) which must not be propagated
+    /// from a parent even though they are unchanged because their resolved
+    /// language changed.
+    forced: HashSet<PathBuf>,
+
+    /// Files we intentionally didn't tokenize.
+    skipped: HashSet<PathBuf>,
+
+    /// The id of the effective history configuration note attributes.
+    hconfig: Option<Oid>,
+}
+
+/// A request for a compute thread to process a revision.
+struct SyntaxJob {
+    rev: Oid,
+    /// The effective history configuration note attributes for the revision.
+    note: Option<Arc<AttributeSet>>,
+    /// The same for each of the revision's parents.
+    parent_notes: Vec<Option<Arc<AttributeSet>>>,
+}
+
+/// Cache of parsed source repository `.gitattributes` by blob id.
+type RepoAttributesCache = HashMap<Oid, Option<Arc<AttributeRules>>>;
+
+fn effective_attributes(
+    git_repo: &git2::Repository,
+    tree: &git2::Tree,
+    note: Option<Arc<AttributeSet>>,
+    cache: &mut RepoAttributesCache,
+) -> EffectiveAttributes {
+    let repo = tree
+        .get_name(".gitattributes")
+        .filter(|entry| entry.kind() == Some(ObjectType::Blob))
+        .and_then(|entry| {
+            let id = entry.id();
+            let rules = cache
+                .entry(id)
+                .or_insert_with(|| {
+                    let blob = git_repo.find_blob(id).ok()?;
+                    let rules = parse_repo_gitattributes(&String::from_utf8_lossy(blob.content()));
+                    // Attributes without any `searchfox-*` rules don't matter to
+                    // us, so we don't want them to be part of the identity.
+                    (!rules.is_empty()).then(|| Arc::new(rules))
+                })
+                .clone()?;
+            Some((id, rules))
+        });
+    EffectiveAttributes { repo, note }
+}
+
+/// If the effective attributes differ from any parent's, find the paths whose
+/// resolved language changed, plus their ancestor directories.
+fn find_forced_paths(
+    tree: &git2::Tree,
+    attrs: &EffectiveAttributes,
+    parent_attrs: &[EffectiveAttributes],
+) -> HashSet<PathBuf> {
+    let mut forced = HashSet::new();
+    let differing: Vec<&EffectiveAttributes> = parent_attrs
+        .iter()
+        .filter(|p| p.identity() != attrs.identity())
+        .collect();
+    if differing.is_empty() {
+        return forced;
+    }
+    tree.walk(TreeWalkMode::PreOrder, |dir, entry| {
+        if entry.kind() == Some(ObjectType::Blob) {
+            let path = format!("{}{}", dir, entry.name().unwrap_or(""));
+            let resolved = resolve_language(&path, attrs);
+            if differing
+                .iter()
+                .any(|p| resolve_language(&path, p) != resolved)
+            {
+                for ancestor in Path::new(&path).ancestors() {
+                    if ancestor.as_os_str().is_empty() {
+                        break;
+                    }
+                    forced.insert(ancestor.to_path_buf());
+                }
+            }
+        }
+        TreeWalkResult::Ok
+    })
+    .unwrap();
+    if !forced.is_empty() {
+        info!(
+            "  History attributes changed; re-tokenizing {} paths",
+            forced.len()
+        );
+    }
+    forced
 }
 
 // Does the CPU-intensive work required for blame computation of a given revision.
@@ -641,21 +781,44 @@ struct SyntaxTreeData {
 // it can be parallelized.
 fn compute_diff_data(
     git_repo: &git2::Repository,
-    git_oid: &git2::Oid,
+    job: &SyntaxJob,
+    cache: &mut RepoAttributesCache,
 ) -> Result<SyntaxTreeData, git2::Error> {
-    let commit = git_repo.find_commit(*git_oid).unwrap();
+    let commit = git_repo.find_commit(job.rev).unwrap();
+    let tree = commit.tree()?;
 
-    let mut hypertokenized_files = HashMap::new();
-    process_modified_files(git_repo, &commit, PathBuf::new(), &mut hypertokenized_files)?;
+    let attrs = effective_attributes(git_repo, &tree, job.note.clone(), cache);
+    let mut parent_attrs = vec![];
+    for (parent, note) in commit.parents().zip(job.parent_notes.iter()) {
+        parent_attrs.push(effective_attributes(
+            git_repo,
+            &parent.tree()?,
+            note.clone(),
+            cache,
+        ));
+    }
+    let forced = find_forced_paths(&tree, &attrs, &parent_attrs);
+
+    let mut ctx = ModifiedFilesContext {
+        attrs: &attrs,
+        forced: &forced,
+        results: HashMap::new(),
+        skipped: HashSet::new(),
+    };
+    process_modified_files(git_repo, &commit, PathBuf::new(), &mut ctx)?;
+    let (hypertokenized_files, skipped) = (ctx.results, ctx.skipped);
 
     Ok(SyntaxTreeData {
-        revision: *git_oid,
+        revision: job.rev,
         hypertokenized_files,
+        forced,
+        skipped,
+        hconfig: job.note.as_ref().map(|n| n.id),
     })
 }
 
 struct ComputeThread {
-    query_tx: Sender<git2::Oid>,
+    query_tx: Sender<SyntaxJob>,
     response_rx: Receiver<SyntaxTreeData>,
 }
 
@@ -674,8 +837,8 @@ impl ComputeThread {
         }
     }
 
-    fn compute(&self, rev: &git2::Oid) {
-        self.query_tx.send(*rev).unwrap();
+    fn compute(&self, job: SyntaxJob) {
+        self.query_tx.send(job).unwrap();
     }
 
     fn read_result(&self) -> SyntaxTreeData {
@@ -690,13 +853,14 @@ impl ComputeThread {
 }
 
 fn compute_thread_main(
-    query_rx: Receiver<git2::Oid>,
+    query_rx: Receiver<SyntaxJob>,
     response_tx: Sender<SyntaxTreeData>,
     git_repo_path: String,
 ) {
     let git_repo = Repository::open(git_repo_path).unwrap();
-    while let Ok(rev) = query_rx.recv() {
-        let result = compute_diff_data(&git_repo, &rev).unwrap();
+    let mut cache = RepoAttributesCache::new();
+    while let Ok(job) = query_rx.recv() {
+        let result = compute_diff_data(&git_repo, &job, &mut cache).unwrap();
         response_tx.send(result).unwrap();
     }
 }
@@ -708,6 +872,13 @@ fn main() {
     let git_repo_path = args[1].to_string();
     let git_repo = Repository::open(&git_repo_path).unwrap();
     let blame_repo = Repository::open(&args[2]).unwrap();
+    let history_config = match args.get(3) {
+        Some(dir) => HistoryConfig::load(Path::new(dir)).unwrap_or_else(|e| {
+            error!("Unable to load history configuration: {}", e);
+            std::process::exit(1);
+        }),
+        None => HistoryConfig::empty(),
+    };
     let use_cinnabar = env::var("CINNABAR").map_or(true, |v| v != "0");
     let mut hg_helper = if use_cinnabar {
         Some(start_cinnabar_helper(&git_repo))
@@ -739,10 +910,64 @@ fn main() {
     walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE).unwrap();
     walk.push(git_repo.refname_to_id(&blame_ref).unwrap())
         .unwrap();
-    let mut revs_to_process = walk
+    // All of the revisions (parents before children) and their parents.
+    let all_revs = walk
         .map(|r| r.unwrap()) // walk produces Result<git2::Oid> so we unwrap to just the Oid
+        .map(|oid| {
+            let parents: Vec<Oid> = git_repo.find_commit(oid).unwrap().parent_ids().collect();
+            (oid, parents)
+        })
+        .collect::<Vec<_>>();
+
+    // ## Determine the effective history configuration for every revision.
+    let effective_notes = history_config.effective_attributes(
+        &all_revs
+            .iter()
+            .map(|(oid, parents)| (*oid, parents.first().copied()))
+            .collect::<Vec<_>>(),
+    );
+    for rev in history_config.note_revs() {
+        if !effective_notes.contains_key(&rev) {
+            warn!(
+                "History config note for {} which is not in the history",
+                rev
+            );
+        }
+    }
+
+    // ## Refuse to proceed if already processed revisions used a different
+    // configuration, because then the history needs to be regenerated.
+    for (oid, _) in &all_revs {
+        if let Some(SyntaxRepoCommit::Commit(syntax_oid)) = blame_map.get(oid) {
+            let recorded =
+                syntax_commit_to_meta(&blame_repo.find_commit(*syntax_oid).unwrap()).hconfig;
+            let expected = effective_notes[oid].as_ref().map(|n| n.id);
+            if recorded != expected {
+                error!(
+                    "The history configuration for already processed revision {} changed \
+                     (recorded {:?}, now {:?}).  The syntax history needs to be regenerated \
+                     from that revision.",
+                    oid, recorded, expected
+                );
+                std::process::exit(1);
+            }
+        }
+    }
+
+    let mut revs_to_process = all_revs
+        .iter()
+        .map(|(oid, _)| *oid)
         .filter(|git_oid| !blame_map.contains_key(git_oid))
         .collect::<Vec<_>>();
+    let parents_of: HashMap<Oid, &Vec<Oid>> = all_revs.iter().map(|(o, p)| (*o, p)).collect();
+    let make_job = |rev: Oid| SyntaxJob {
+        rev,
+        note: effective_notes[&rev].clone(),
+        parent_notes: parents_of[&rev]
+            .iter()
+            .map(|p| effective_notes[p].clone())
+            .collect(),
+    };
     if commit_limit > 0 && commit_limit < revs_to_process.len() {
         info!(
             "Truncating list of commits from {} to specified limit {}",
@@ -771,7 +996,7 @@ fn main() {
     let initial_request_count = rev_count.min(COMPUTE_BUFFER_SIZE * num_threads);
     while compute_index < initial_request_count {
         let thread = &compute_threads[compute_index % num_threads];
-        thread.compute(&revs_to_process[compute_index]);
+        thread.compute(make_job(revs_to_process[compute_index]));
         compute_index += 1;
     }
 
@@ -797,7 +1022,7 @@ fn main() {
         // If there are more revisions that we haven't requested yet, request
         // another one from this thread.
         if compute_index < rev_count {
-            thread.compute(&revs_to_process[compute_index]);
+            thread.compute(make_job(revs_to_process[compute_index]));
             compute_index += 1;
         }
 
@@ -856,11 +1081,14 @@ fn main() {
             write_role("author", &commit.author());
             write_role("committer", &commit.committer());
 
-            let commit_msg = if let Some(hg_rev) = hg_rev {
+            let mut commit_msg = if let Some(hg_rev) = hg_rev {
                 format!("git {}\nhg {}\n", git_oid, hg_rev)
             } else {
                 format!("git {}\n", git_oid)
             };
+            if let Some(hconfig) = diff_data.hconfig {
+                commit_msg.push_str(&format!("hconfig {}\n", hconfig));
+            }
 
             write!(import_stream, "data {}\n{}\n", commit_msg.len(), commit_msg).unwrap();
             if let Some(first_parent) = blame_parents.first() {
