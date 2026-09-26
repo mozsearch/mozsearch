@@ -51,6 +51,26 @@
 // repo, and the tokens that differ in those files.  This misses journal
 // changes whose net effect cancelled out on a branch, like a token being added
 // and then removed on the branch.  TODO: Improve this if it matters.
+//
+// ### Backouts
+//
+// For a revision which backs out earlier revisions (see `hyperblame::backouts`)
+// we want blame to point at the history from before the backed out revisions
+// landed rather than at the backout.  The compute thread aligns each file the
+// backout writes with the file from before the earliest backed out revision
+// which touched it (identical token lines, via the same diff used for merges).
+// When building the annotated file, aligned tokens get the record from that
+// earlier version unless their record has information from a revision which
+// landed in between (see `restore_backed_out_records`).  So a backout that
+// exactly undoes its revisions restores the earlier annotated file exactly, and
+// one with other changes mixed in restores what lines up.  Aligning with the
+// earlier version rather than following the diffs also puts the right records
+// on duplicated tokens.
+//
+// The backout's journal records and rev-summary list the revisions it backs
+// out in `backs_out`, and the backed out revisions' rev-summaries get
+// `backed_out_by`.  Journal records are never rewritten, which keeps journal
+// merging simple.
 
 extern crate env_logger;
 extern crate git2;
@@ -60,13 +80,14 @@ extern crate num_cpus;
 extern crate tools;
 
 use std::borrow::Cow;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::env;
 use std::fmt;
 use std::fs;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
 
@@ -103,6 +124,7 @@ use tools::file_format::history::timeline_tokens::{
     TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, token_timeline_path, tracked_token_key,
 };
 use tools::git_ops::git_time_to_chrono;
+use tools::hyperblame::backouts::{BackoutTargetIndex, find_backed_out};
 use tools::hyperblame::inference::{
     FileChangeInput, FileChangeKind, FileInference, InferenceConfig, PairingSupport, RemovedFate,
     TokenOrigin, diff_token_lines, infer_revision,
@@ -333,6 +355,22 @@ struct FileChange {
     new_path: Option<String>,
     inference: FileInference,
     delta: FileSyntaxDelta,
+    /// For files written by a backout, the earlier version of the file to
+    /// restore token records from.
+    restore: Option<RestoreBase>,
+}
+
+/// The version of a file (at the same path) from before the revisions a backout
+/// backs out.
+struct RestoreBase {
+    /// The parent of the earliest backed out revision which touched the file.
+    syntax_rev: Oid,
+    /// For each token in the backout's version of the file, the 1-based line
+    /// number of the identical token in the earlier version, if any.
+    aligned: Vec<Option<u32>>,
+    /// The source revisions which landed between the earlier version and the
+    /// backout, other than the backed out revisions.
+    intervening: Arc<HashSet<String>>,
 }
 
 /// How a file in a merge commit relates to a specific parent.
@@ -384,6 +422,8 @@ struct TimelineData {
     unmapped_author: String,
     message: String,
     changes: RevisionChanges,
+    /// The source revisions this revision backs out, earliest first.
+    backed_out: Vec<String>,
 }
 
 fn subtree<'r>(repo: &'r Repository, root: &git2::Tree, name: &str) -> Option<git2::Tree<'r>> {
@@ -763,6 +803,7 @@ fn preprocess_linear(
                     copied: p.kind == FileChangeKind::Copied,
                     symbol_group,
                 },
+                restore: None,
             }
         })
         .collect();
@@ -771,6 +812,107 @@ fn preprocess_linear(
         files,
         token_totals: stats.token_totals,
     })
+}
+
+/// For each of `new_lines`, the 1-based line number of the identical token in
+/// `old_lines` per their diff, if any.
+fn unchanged_mapping(
+    old_lines: &[&str],
+    new_lines: &[&str],
+    config: &InferenceConfig,
+) -> Vec<Option<u32>> {
+    let mut unchanged = vec![None; new_lines.len()];
+    for op in diff_token_lines(old_lines, new_lines, config.diff_timeout) {
+        if let similar::DiffOp::Equal {
+            old_index,
+            new_index,
+            len,
+        } = op
+        {
+            for j in 0..len {
+                unchanged[new_index + j] = Some((old_index + j) as u32 + 1);
+            }
+        }
+    }
+    unchanged
+}
+
+/// For each file written by a backout, find the version of the file from before
+/// the earliest backed out revision (`backed_out`, earliest first) which touched
+/// it, and align the backout's tokens with it.
+fn add_restore_bases(
+    repo: &Repository,
+    commit: &git2::Commit,
+    backed_out: &[Oid],
+    files: &mut [FileChange],
+    config: &InferenceConfig,
+) -> Result<(), git2::Error> {
+    let cur_files = subtree(repo, &commit.tree()?, "files");
+    let mut intervening_by_base: HashMap<Oid, Arc<HashSet<String>>> = HashMap::new();
+    let mut intervening_since = |base: Oid| -> Result<Arc<HashSet<String>>, git2::Error> {
+        if let Some(revs) = intervening_by_base.get(&base) {
+            return Ok(revs.clone());
+        }
+        let mut revs = HashSet::new();
+        if let Some(parent) = commit.parent_ids().next() {
+            let mut walk = repo.revwalk()?;
+            walk.push(parent)?;
+            walk.hide(base)?;
+            for oid in walk {
+                let oid = oid?;
+                if !backed_out.contains(&oid) {
+                    let meta = syntax_commit_to_meta(&repo.find_commit(oid)?);
+                    revs.insert(meta.source_rev.to_string());
+                }
+            }
+        }
+        let revs = Arc::new(revs);
+        intervening_by_base.insert(base, revs.clone());
+        Ok(revs)
+    };
+    let mut targets = vec![];
+    for oid in backed_out {
+        let target = repo.find_commit(*oid)?;
+        let target_files = subtree(repo, &target.tree()?, "files");
+        let base = match target.parents().next() {
+            Some(parent) => Some((parent.id(), subtree(repo, &parent.tree()?, "files"))),
+            None => None,
+        };
+        targets.push((target_files, base));
+    }
+    let entry_id = |tree: &Option<git2::Tree>, path: &str| {
+        tree.as_ref()
+            .and_then(|t| t.get_path(Path::new(path)).ok())
+            .map(|e| e.id())
+    };
+    for change in files.iter_mut() {
+        let Some(new_path) = change.new_path.as_deref() else {
+            continue;
+        };
+        let touched_by = targets.iter().find(|(target_files, base)| {
+            let base_id = base.as_ref().and_then(|(_, tree)| entry_id(tree, new_path));
+            entry_id(target_files, new_path) != base_id
+        });
+        let Some((_, Some((base_rev, base_files)))) = touched_by else {
+            continue;
+        };
+        let (Some(base_contents), Some(new_contents)) = (
+            path_blob_string(repo, base_files.as_ref(), new_path),
+            path_blob_string(repo, cur_files.as_ref(), new_path),
+        ) else {
+            continue;
+        };
+        change.restore = Some(RestoreBase {
+            syntax_rev: *base_rev,
+            aligned: unchanged_mapping(
+                &token_file_lines(&base_contents),
+                &token_file_lines(&new_contents),
+                config,
+            ),
+            intervening: intervening_since(*base_rev)?,
+        });
+    }
+    Ok(())
 }
 
 /// Add the tracked tokens for `lines[range]` to `candidate_tokens`.  We don't
@@ -848,19 +990,7 @@ fn preprocess_merge(
                 (Some(path), Some(entry)) => {
                     let old_contents = blob_string(repo, entry.id());
                     let old_lines = token_file_lines(&old_contents);
-                    let mut unchanged = vec![None; new_lines.len()];
-                    for op in diff_token_lines(&old_lines, &new_lines, config.diff_timeout) {
-                        if let similar::DiffOp::Equal {
-                            old_index,
-                            new_index,
-                            len,
-                        } = op
-                        {
-                            for j in 0..len {
-                                unchanged[new_index + j] = Some((old_index + j) as u32 + 1);
-                            }
-                        }
-                    }
+                    let unchanged = unchanged_mapping(&old_lines, &new_lines, config);
                     Some(ParentMapping::Diffed { path, unchanged })
                 }
                 _ => None,
@@ -928,6 +1058,7 @@ fn preprocess_merge(
 fn thread_preprocess_revision(
     syntax_repo: &Repository,
     source_repo: &Repository,
+    backout_index: &BackoutTargetIndex,
     rev_meta: &HistorySyntaxCommitMeta,
     config: &InferenceConfig,
 ) -> Result<TimelineData, git2::Error> {
@@ -960,11 +1091,23 @@ fn thread_preprocess_revision(
         ),
     };
 
-    let changes = if commit.parent_count() <= 1 {
+    let mut changes = if commit.parent_count() <= 1 {
         preprocess_linear(syntax_repo, &commit, config)?
     } else {
         preprocess_merge(syntax_repo, &commit, config)?
     };
+
+    let mut backed_out = vec![];
+    if let RevisionChanges::Linear { files, .. } = &mut changes {
+        let targets = find_backed_out(syntax_repo, backout_index, &commit, &message);
+        if !targets.is_empty() {
+            add_restore_bases(syntax_repo, &commit, &targets, files, config)?;
+            for target in targets {
+                let meta = syntax_commit_to_meta(&syntax_repo.find_commit(target)?);
+                backed_out.push(meta.source_rev.to_string());
+            }
+        }
+    }
 
     Ok(TimelineData {
         meta: rev_meta.clone(),
@@ -972,6 +1115,7 @@ fn thread_preprocess_revision(
         unmapped_author,
         message,
         changes,
+        backed_out,
     })
 }
 
@@ -981,13 +1125,23 @@ struct ComputeThread {
 }
 
 impl ComputeThread {
-    fn new(syntax_repo_path: &str, source_repo_path: &str) -> Self {
+    fn new(
+        syntax_repo_path: &str,
+        source_repo_path: &str,
+        backout_index: Arc<BackoutTargetIndex>,
+    ) -> Self {
         let (query_tx, query_rx) = channel();
         let (response_tx, response_rx) = channel();
         let syntax_repo_path = syntax_repo_path.to_string();
         let source_repo_path = source_repo_path.to_string();
         thread::spawn(move || {
-            compute_thread_main(query_rx, response_tx, syntax_repo_path, source_repo_path);
+            compute_thread_main(
+                query_rx,
+                response_tx,
+                syntax_repo_path,
+                source_repo_path,
+                backout_index,
+            );
         });
 
         ComputeThread {
@@ -1016,12 +1170,15 @@ fn compute_thread_main(
     response_tx: Sender<TimelineData>,
     syntax_repo_path: String,
     source_repo_path: String,
+    backout_index: Arc<BackoutTargetIndex>,
 ) {
     let syntax_repo = Repository::open(syntax_repo_path).unwrap();
     let source_repo = Repository::open(source_repo_path).unwrap();
     let config = InferenceConfig::default();
     while let Ok(rev) = query_rx.recv() {
-        let result = thread_preprocess_revision(&syntax_repo, &source_repo, &rev, &config).unwrap();
+        let result =
+            thread_preprocess_revision(&syntax_repo, &source_repo, &backout_index, &rev, &config)
+                .unwrap();
         response_tx.send(result).unwrap();
     }
 }
@@ -1113,13 +1270,13 @@ fn parent_line<'a>(parents: &'a ParentAnnotated, path: &str, lineno: u32) -> Opt
     parents.get(path)?.get(lineno as usize).map(|s| s.as_str())
 }
 
-/// Build the annotated file contents for a changed file in a linear revision.
+/// Build the annotated file lines for a changed file in a linear revision.
 fn build_linear_annotated(
     rev: &str,
     change: &FileChange,
     changes: &[FileChange],
     parents: &ParentAnnotated,
-) -> String {
+) -> Vec<String> {
     let new_path = change.new_path.as_deref().unwrap();
     let old_path = change.old_path.as_deref();
     let origins = &change.inference.origins;
@@ -1228,15 +1385,78 @@ fn build_linear_annotated(
         }
     }
 
-    join_annotated(lines)
+    lines
+}
+
+/// For a file written by a backout, give each token which is aligned with a
+/// token in the file's earlier version (`base`, see `RestoreBase`) the earlier
+/// token's record, unless its record has information from one of the
+/// `intervening` revisions which landed in between, like a removal marker from
+/// an unrelated commit.  Records which reference the backout or the backed out
+/// revisions are replaced, but so are records which only reference older
+/// revisions, because the backed out revisions' and the backout's diffs can
+/// shuffle records between identical tokens (ex: punctuation), moves clear
+/// removal markers, and a token moved to another file and back can get a
+/// record from the other file.  Returns the line numbers of the restored tokens
+/// and how many tokens are still introduced by one of `backout_revs` (the
+/// backout and the backed out revisions), which happens when the backout
+/// didn't exactly undo the backed out revisions.
+fn restore_backed_out_records(
+    lines: &mut [String],
+    base: &[String],
+    aligned: &[Option<u32>],
+    backout_revs: &BTreeSet<&str>,
+    intervening: &HashSet<String>,
+) -> (BTreeSet<u32>, usize) {
+    let has_new_info = |line: &str| {
+        let data = HyperLineData::parse(line);
+        intervening.contains(data.introduced.source_rev.as_ref())
+            || data
+                .predecessor
+                .is_some_and(|pred| intervening.contains(pred.source_rev.as_ref()))
+            || data
+                .removal_marker
+                .is_some_and(|marker| intervening.contains(marker.source_rev.as_ref()))
+    };
+    let mut restored = BTreeSet::new();
+    // The sentinel (ex: when the backout restores a file that was deleted).
+    if let (Some(sentinel), Some(base_sentinel)) = (lines.first(), base.first())
+        && sentinel != base_sentinel
+        && !has_new_info(sentinel)
+    {
+        lines[0] = base_sentinel.clone();
+    }
+    for (idx, base_lineno) in aligned.iter().enumerate() {
+        let lineno = idx + 1;
+        if let Some(base_line) = base_lineno.and_then(|l| base.get(l as usize))
+            && lines
+                .get(lineno)
+                .is_some_and(|line| line != base_line && !has_new_info(line))
+        {
+            lines[lineno] = base_line.clone();
+            restored.insert(lineno as u32);
+        }
+    }
+    let unrestored = lines
+        .iter()
+        .skip(1)
+        .filter(|line| {
+            backout_revs.contains(HyperLineData::parse(line).introduced.source_rev.as_ref())
+        })
+        .count();
+    (restored, unrestored)
 }
 
 /// Build the future records for all of the physical paths touched by a linear
 /// revision.
+///
+/// `restored` has the line numbers of tokens whose records a backout restored
+/// for each path (see `restore_backed_out_records`); they aren't newly added.
 fn build_linear_future(
     desc: &DetailRecordRef,
     changes: &[FileChange],
     parents: &ParentAnnotated,
+    restored: &HashMap<String, BTreeSet<u32>>,
 ) -> BTreeMap<String, FutureDetailRecord> {
     let mut records: BTreeMap<String, FutureDetailRecord> = BTreeMap::new();
     fn record_for<'r>(
@@ -1301,7 +1521,11 @@ fn build_linear_future(
 
         // ## Added and moved-in tokens, recorded against the new physical path.
         if let Some(new_path) = new_path {
+            let restored = restored.get(new_path);
             for (new_idx, origin) in change.inference.origins.iter().enumerate() {
+                if restored.is_some_and(|r| r.contains(&(new_idx as u32 + 1))) {
+                    continue;
+                }
                 match *origin {
                     TokenOrigin::Added | TokenOrigin::Evolved { .. } => {
                         record_for(&mut records, desc, new_path)
@@ -1342,6 +1566,7 @@ fn process_linear_revision(
     files: &[FileChange],
     token_totals: &BTreeMap<String, TokenDeltaDetails>,
     timeline_parents: &[TimelineRepoCommit],
+    timeline_map: &HashMap<Oid, TimelineRepoCommit>,
 ) -> BTreeMap<String, RevFileSummaryRecord> {
     let rev = data.meta.source_rev.to_string();
     let parent = timeline_parents.first();
@@ -1349,7 +1574,11 @@ fn process_linear_revision(
         source_rev: rev.clone(),
         syntax_rev: data.meta.syntax_rev.to_string(),
         iso_date: data.iso_date.clone(),
+        backs_out: data.backed_out.clone(),
     };
+    let backout_revs: BTreeSet<&str> = std::iter::once(rev.as_str())
+        .chain(data.backed_out.iter().map(String::as_str))
+        .collect();
 
     // ## Load the parent annotated files.
     let mut parent_annotated: ParentAnnotated = HashMap::new();
@@ -1379,20 +1608,48 @@ fn process_linear_revision(
     }
 
     // ## Annotated files
+    let mut restored_tokens: HashMap<String, BTreeSet<u32>> = HashMap::new();
+    let (mut num_restored, mut num_unrestored) = (0, 0);
     for change in files {
         if let Some(new_path) = &change.new_path {
             debug!("  Writing annotated {}", new_path);
-            let contents = build_linear_annotated(&rev, change, files, &parent_annotated);
+            let mut lines = build_linear_annotated(&rev, change, files, &parent_annotated);
+            let base = change.restore.as_ref().and_then(|restore| {
+                let base_commit = timeline_map.get(&restore.syntax_rev)?;
+                let blob = read_path_blob(import_helper, base_commit, &annotated_path(new_path))?;
+                Some((annotated_lines(&blob), restore))
+            });
+            if let Some((base_lines, restore)) = base {
+                let (restored, unrestored) = restore_backed_out_records(
+                    &mut lines,
+                    &base_lines,
+                    &restore.aligned,
+                    &backout_revs,
+                    &restore.intervening,
+                );
+                num_restored += restored.len();
+                num_unrestored += unrestored;
+                restored_tokens.insert(new_path.clone(), restored);
+            }
             write_inline_blob(
                 import_helper,
                 &annotated_path(new_path),
-                contents.as_bytes(),
+                join_annotated(lines).as_bytes(),
             );
         }
     }
+    if !data.backed_out.is_empty() {
+        info!(
+            "  Backout of {}: restored {} token records; {} tokens are still attributed to the \
+             backout or the backed out revisions",
+            data.backed_out.join(", "),
+            num_restored,
+            num_unrestored
+        );
+    }
 
     // ## Future journals
-    let future_records = build_linear_future(&desc, files, &parent_annotated);
+    let future_records = build_linear_future(&desc, files, &parent_annotated, &restored_tokens);
     for (path, record) in future_records {
         let journal = future_path(&path);
         prepend_journal_record::<FutureHeader, FutureRecord>(
@@ -1584,6 +1841,26 @@ fn write_rev_summary(rev_summary_root: &Path, summary: &RevSummaryRecord) {
     fs::write(&path, serde_json::to_string_pretty(summary).unwrap()).unwrap();
 }
 
+/// Record in the rev-summary of `backed_out_rev` that `backout_rev` backed it
+/// out.
+fn mark_rev_summary_backed_out(rev_summary_root: &Path, backed_out_rev: &str, backout_rev: &str) {
+    let path = rev_summary_root.join(rev_summary_path(backed_out_rev));
+    let Some(mut summary) = fs::read_to_string(&path)
+        .ok()
+        .and_then(|contents| serde_json::from_str::<RevSummaryRecord>(&contents).ok())
+    else {
+        warn!(
+            "No rev-summary for {} to mark as backed out by {}",
+            backed_out_rev, backout_rev
+        );
+        return;
+    };
+    if !summary.backed_out_by.iter().any(|r| r == backout_rev) {
+        summary.backed_out_by.push(backout_rev.to_string());
+        write_rev_summary(rev_summary_root, &summary);
+    }
+}
+
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
@@ -1656,13 +1933,23 @@ fn main() {
     }
     let rev_count = revs_to_process.len();
 
+    info!("Indexing syntax commits for resolving backouts...");
+    let backout_index = Arc::new(BackoutTargetIndex::build(
+        &syntax_repo,
+        syntax_repo.refname_to_id(&blame_ref).unwrap(),
+    ));
+
     let num_threads: usize = (num_cpus::get() - 1).max(1); // 1 for the main thread
     const COMPUTE_BUFFER_SIZE: usize = 10;
 
     info!("Starting {} compute threads...", num_threads);
     let mut compute_threads = Vec::with_capacity(num_threads);
     for _ in 0..num_threads {
-        compute_threads.push(ComputeThread::new(&syntax_repo_path, &source_repo_path));
+        compute_threads.push(ComputeThread::new(
+            &syntax_repo_path,
+            &source_repo_path,
+            backout_index.clone(),
+        ));
     }
 
     // This tracks the index of the next revision in revs_to_process for which
@@ -1791,6 +2078,7 @@ fn main() {
                 files,
                 token_totals,
                 &timeline_parents,
+                &timeline_map,
             ),
             RevisionChanges::Merge(merge) => {
                 process_merge_revision(&mut import_helper, &data, merge, &timeline_parents);
@@ -1812,8 +2100,17 @@ fn main() {
                 iso_date: data.iso_date.clone(),
                 unmapped_author: data.unmapped_author.clone(),
                 file_deltas,
+                backs_out: data.backed_out.clone(),
+                backed_out_by: vec![],
             },
         );
+        for backed_out_rev in &data.backed_out {
+            mark_rev_summary_backed_out(
+                &rev_summary_root,
+                backed_out_rev,
+                &rev_meta.source_rev.to_string(),
+            );
+        }
 
         if rev_done % 100000 == 0 {
             info!("Completed 100,000 commits, issuing checkpoint...");

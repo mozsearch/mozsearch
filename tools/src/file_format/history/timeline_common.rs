@@ -13,6 +13,12 @@ pub struct DetailRecordRef {
     /// ISO 8601 date of the commit as told to us by git; git cinnabar seems to
     /// give us the autoland date, which is nice.
     pub iso_date: String,
+    /// If this revision is a backout (see `hyperblame::backouts`), the source
+    /// revisions it backs out.  Records are never modified after they're
+    /// written, so readers wanting to hide backouts should hide records for
+    /// revisions that newer records say they back out.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub backs_out: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

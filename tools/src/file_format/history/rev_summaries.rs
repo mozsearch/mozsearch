@@ -11,9 +11,8 @@
 //! map or add a git on-disk map like git-cinnabar does for hg2git.  This also
 //! saves us from having to use git to get a checkout of the revision, etc.  We
 //! can also easily compress the files, but git can handle that, it just isn't
-//! useful if the files change.  Note that we do expect these files to be
-//! immutable except potentially in the face of backouts when we would probably
-//! update the files.
+//! useful if the files change.  These files are immutable except that
+//! `backed_out_by` is updated when a later revision backs this one out.
 //!
 //! ## File Contents and Relation to File Deltas
 //!
@@ -65,6 +64,16 @@ pub struct RevSummaryRecord {
     /// revision (or its previous path if it was deleted).  This will be empty
     /// for merge commits.
     pub file_deltas: BTreeMap<String, RevFileSummaryRecord>,
+
+    /// If this revision is a backout (see `hyperblame::backouts`), the source
+    /// revisions it backs out, earliest first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub backs_out: Vec<String>,
+
+    /// The source revisions which back out this revision, added when they're
+    /// processed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub backed_out_by: Vec<String>,
 }
 
 /// The path of the summary for the given source revision relative to the
