@@ -121,6 +121,20 @@ serve-firefox-repo: _CONFIG_REPO=/vagrant/config
 serve-firefox-repo: _CONFIG_NAME=just-fm.json
 serve-firefox-repo: check-in-vagrant update-indexer-packages internal-serve-repo
 
+# firefox-disco is a temporary tree for developing the token-centric history
+# (bug 1517978); it indexes the same revision as firefox-main and also builds
+# the history.  It uses the same index root as firefox-main so that the
+# firefox-shared downloads can be reused.
+build-firefox-disco-repo: _INDEX_ROOT=~/firefox-index
+build-firefox-disco-repo: _CONFIG_REPO=/vagrant/config
+build-firefox-disco-repo: _CONFIG_NAME=just-fd.json
+build-firefox-disco-repo: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo
+
+serve-firefox-disco-repo: _INDEX_ROOT=~/firefox-index
+serve-firefox-disco-repo: _CONFIG_REPO=/vagrant/config
+serve-firefox-disco-repo: _CONFIG_NAME=just-fd.json
+serve-firefox-disco-repo: check-in-vagrant update-indexer-packages internal-serve-repo
+
 # This builds both mozsearch and mozsearch-mozilla using the trees as they exist
 # on github rather than your local copies.  This differs from the
 # "build-searchfox-repo" make target which uses your current tree, which can be
