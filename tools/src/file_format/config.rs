@@ -515,6 +515,9 @@ pub struct HistorySyntaxCommitMeta {
     /// The id of the effective history configuration note attributes used to
     /// derive this revision, if any.  See `hyperblame::history_config`.
     pub hconfig: Option<Oid>,
+    /// The history configuration's start revision when this revision was
+    /// derived, if any.
+    pub hstart: Option<Oid>,
 }
 
 /// Walk the "key value" pairs of a history commit message like:
@@ -535,11 +538,13 @@ pub fn syntax_commit_to_meta(commit: &Commit) -> HistorySyntaxCommitMeta {
     let mut source_rev = None;
     let mut source_hg_rev = None;
     let mut hconfig = None;
+    let mut hstart = None;
     for (key, val) in history_commit_message_pairs(commit) {
         match key {
             "git" => source_rev = Some(Oid::from_str(val).unwrap()),
             "hg" => source_hg_rev = Some(val.to_owned()),
             "hconfig" => hconfig = Some(Oid::from_str(val).unwrap()),
+            "hstart" => hstart = Some(Oid::from_str(val).unwrap()),
             _ => {}
         }
     }
@@ -549,6 +554,7 @@ pub fn syntax_commit_to_meta(commit: &Commit) -> HistorySyntaxCommitMeta {
         syntax_rev: commit.id(),
         source_hg_rev,
         hconfig,
+        hstart,
     }
 }
 

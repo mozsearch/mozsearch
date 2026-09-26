@@ -5,8 +5,18 @@
 //! ## Layout and semantics
 //!
 //! The configuration is a directory (conventionally `$CONFIG_REPO/$TREE_NAME/history`)
-//! containing notes-style files named by the (full) source revision they apply
-//! to: `revs/<rev>.toml`.  The attributes a note provides apply to its revision
+//! containing an optional `config.toml` with settings for the whole history
+//! and notes-style files named by the (full) source revision they apply to:
+//! `revs/<rev>.toml`.
+//!
+//! ```toml
+//! # config.toml: The first source revision to derive history for.  Its
+//! # ancestors are ignored, so it's treated as if it created every file, and
+//! # merge parents from before it are dropped.  This lets us derive history for
+//! # a window of a huge repository's history.
+//! start = "<full revision>"
+//! ```
+//!  The attributes a note provides apply to its revision
 //! and are inherited by all of its descendants (following first parents) until
 //! another note provides attributes.  A note which doesn't provide `attributes`
 //! inherits them, which will allow for future notes which only provide one-time
@@ -36,10 +46,10 @@
 //!
 //! History is a pure function of the source repository, the history
 //! configuration, and the tokenizer.  build-syntax-token-tree records the id of
-//! each revision's effective note attributes in its syntax commit and refuses to
-//! run if the recorded values for already processed revisions don't match the
-//! current configuration, since that means the history needs to be regenerated
-//! from that point.
+//! each revision's effective note attributes (and the start revision, if any)
+//! in its syntax commit and refuses to run if the recorded values for already
+//! processed revisions don't match the current configuration, since that means
+//! the history needs to be regenerated from that point.
 
 use std::collections::HashMap;
 use std::fs;
@@ -236,9 +246,28 @@ pub struct RevNote {
     pub attributes: Option<Arc<AttributeSet>>,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ConfigFile {
+    start: Option<String>,
+}
+
+fn parse_full_rev(rev: &str, path: &Path) -> Result<Oid, String> {
+    match Oid::from_str(rev) {
+        Ok(oid) if rev.len() == 40 || rev.len() == 64 => Ok(oid),
+        _ => Err(format!(
+            "{}: {:?} isn't a full revision",
+            path.display(),
+            rev
+        )),
+    }
+}
+
 #[derive(Default)]
 pub struct HistoryConfig {
     notes: HashMap<Oid, RevNote>,
+    /// The first source revision to derive history for, if not the root(s).
+    pub start: Option<Oid>,
 }
 
 impl HistoryConfig {
@@ -246,27 +275,45 @@ impl HistoryConfig {
         HistoryConfig::default()
     }
 
-    /// Load the notes in `dir/revs/`.
+    /// Load `dir/config.toml` and the notes in `dir/revs/`, both of which are
+    /// optional, but `dir` must exist.
     pub fn load(dir: &Path) -> Result<HistoryConfig, String> {
+        if !dir.is_dir() {
+            return Err(format!("{} isn't a directory", dir.display()));
+        }
+        let config_path = dir.join("config.toml");
+        let start = if config_path.exists() {
+            let text = fs::read_to_string(&config_path).map_err(|e| e.to_string())?;
+            let file: ConfigFile =
+                toml::from_str(&text).map_err(|e| format!("{}: {}", config_path.display(), e))?;
+            file.start
+                .map(|rev| parse_full_rev(&rev, &config_path))
+                .transpose()?
+        } else {
+            None
+        };
+
         let revs_dir = dir.join("revs");
         let mut notes = HashMap::new();
-        let entries = fs::read_dir(&revs_dir)
-            .map_err(|e| format!("Unable to read {}: {}", revs_dir.display(), e))?;
+        let entries = match fs::read_dir(&revs_dir) {
+            Ok(entries) => entries,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(HistoryConfig { notes, start });
+            }
+            Err(e) => return Err(format!("Unable to read {}: {}", revs_dir.display(), e)),
+        };
         for entry in entries {
             let path = entry.map_err(|e| e.to_string())?.path();
             let name = path.file_name().unwrap().to_string_lossy().into_owned();
             let Some(rev_str) = name.strip_suffix(".toml") else {
                 continue;
             };
-            let rev = match Oid::from_str(rev_str) {
-                Ok(rev) if rev_str.len() == 40 || rev_str.len() == 64 => rev,
-                _ => {
-                    return Err(format!(
-                        "{}: history notes must be named by full revision",
-                        path.display()
-                    ));
-                }
-            };
+            let rev = parse_full_rev(rev_str, &path).map_err(|_| {
+                format!(
+                    "{}: history notes must be named by full revision",
+                    path.display()
+                )
+            })?;
             let text = fs::read_to_string(&path).map_err(|e| e.to_string())?;
             let file: RevNoteFile =
                 toml::from_str(&text).map_err(|e| format!("{}: {}", path.display(), e))?;
@@ -279,11 +326,11 @@ impl HistoryConfig {
             };
             notes.insert(rev, RevNote { rev, attributes });
         }
-        Ok(HistoryConfig { notes })
+        Ok(HistoryConfig { notes, start })
     }
 
     pub fn is_empty(&self) -> bool {
-        self.notes.is_empty()
+        self.notes.is_empty() && self.start.is_none()
     }
 
     pub fn note(&self, rev: Oid) -> Option<&RevNote> {
@@ -296,20 +343,22 @@ impl HistoryConfig {
 
     /// Compute the effective note attributes for each revision, where `revs`
     /// must be in topological order (parents before children) and provides
-    /// each revision's first parent.
+    /// each revision's first parent.  Revisions without a first parent inherit
+    /// `root_attributes`, which is how revisions at the start of a history
+    /// window inherit notes from before the window.
     pub fn effective_attributes(
         &self,
         revs: &[(Oid, Option<Oid>)],
+        root_attributes: Option<Arc<AttributeSet>>,
     ) -> HashMap<Oid, Option<Arc<AttributeSet>>> {
         let mut effective: HashMap<Oid, Option<Arc<AttributeSet>>> =
             HashMap::with_capacity(revs.len());
         for (rev, first_parent) in revs {
             let own = self.notes.get(rev).and_then(|n| n.attributes.clone());
-            let attrs = match own {
-                Some(attrs) => Some(attrs),
-                None => first_parent
-                    .and_then(|p| effective.get(&p).cloned())
-                    .flatten(),
+            let attrs = match (own, first_parent) {
+                (Some(attrs), _) => Some(attrs),
+                (None, Some(p)) => effective.get(p).cloned().flatten(),
+                (None, None) => root_attributes.clone(),
             };
             effective.insert(*rev, attrs);
         }
@@ -504,11 +553,16 @@ mod tests {
         // A note without attributes inherits.
         fs::write(revs.join(format!("{}.toml", c)), "").unwrap();
         let config = HistoryConfig::load(&dir).unwrap();
-        let effective =
-            config.effective_attributes(&[(a, None), (b, Some(a)), (c, Some(b)), (d, Some(c))]);
+        let effective = config
+            .effective_attributes(&[(a, None), (b, Some(a)), (c, Some(b)), (d, Some(c))], None);
         assert!(effective[&a].is_none());
         let b_id = effective[&b].as_ref().unwrap().id;
         assert_eq!(effective[&c].as_ref().unwrap().id, b_id);
+        assert_eq!(effective[&d].as_ref().unwrap().id, b_id);
+        // Revisions without a first parent (ex: the start of a history window)
+        // inherit the provided root attributes.
+        let effective =
+            config.effective_attributes(&[(c, None), (d, Some(c))], effective[&b].clone());
         assert_eq!(effective[&d].as_ref().unwrap().id, b_id);
 
         // Unknown keys (ex: misspelled or not-yet-supported hints) are errors.
@@ -521,5 +575,29 @@ mod tests {
         assert!(HistoryConfig::load(&dir).is_err());
 
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn test_load_start() {
+        let dir = std::env::temp_dir().join(format!("hb-history-start-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        // A directory without any files is an empty configuration.
+        assert!(HistoryConfig::load(&dir).unwrap().is_empty());
+
+        // `revs/` is optional when there's a `config.toml`.
+        let start = "1111111111111111111111111111111111111111";
+        fs::write(dir.join("config.toml"), format!("start = \"{}\"\n", start)).unwrap();
+        let config = HistoryConfig::load(&dir).unwrap();
+        assert_eq!(config.start, Some(Oid::from_str(start).unwrap()));
+        assert!(!config.is_empty());
+
+        // The start must be a full revision and unknown keys are errors.
+        fs::write(dir.join("config.toml"), "start = \"111111\"\n").unwrap();
+        assert!(HistoryConfig::load(&dir).is_err());
+        fs::write(dir.join("config.toml"), "begin = \"x\"\n").unwrap();
+        assert!(HistoryConfig::load(&dir).is_err());
+
+        fs::remove_dir_all(&dir).unwrap();
+        assert!(HistoryConfig::load(&dir).is_err());
     }
 }

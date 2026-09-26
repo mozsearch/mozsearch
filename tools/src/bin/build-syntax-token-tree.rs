@@ -223,6 +223,9 @@ struct TokenizedFile {
 
 /// The state needed by `process_modified_files`.
 struct ModifiedFilesContext<'a> {
+    /// The trees of the revision's parents, excluding any from before the
+    /// history's start revision.
+    parent_trees: &'a [git2::Tree<'a>],
     attrs: &'a EffectiveAttributes,
     /// Paths (and their ancestor directories) which must be processed even
     /// though they are unchanged because their resolved language changed.
@@ -250,8 +253,8 @@ fn process_modified_files(
     'outer: for entry in tree_at_path.iter() {
         path.push(entry.name().unwrap());
         if !ctx.forced.contains(&path) {
-            for parent in commit.parents() {
-                if let Ok(parent_entry) = parent.tree()?.get_path(&path)
+            for parent_tree in ctx.parent_trees {
+                if let Ok(parent_entry) = parent_tree.get_path(&path)
                     && parent_entry.id() == entry.id()
                 {
                     path.pop();
@@ -730,9 +733,12 @@ struct SyntaxTreeData {
 /// A request for a compute thread to process a revision.
 struct SyntaxJob {
     rev: Oid,
+    /// The revision's parents, excluding any from before the history's start
+    /// revision.
+    parents: Vec<Oid>,
     /// The effective history configuration note attributes for the revision.
     note: Option<Arc<AttributeSet>>,
-    /// The same for each of the revision's parents.
+    /// The same for each of `parents`.
     parent_notes: Vec<Option<Arc<AttributeSet>>>,
 }
 
@@ -820,18 +826,22 @@ fn compute_diff_data(
     let tree = commit.tree()?;
 
     let attrs = effective_attributes(git_repo, &tree, job.note.clone(), cache);
+    let mut parent_trees = vec![];
     let mut parent_attrs = vec![];
-    for (parent, note) in commit.parents().zip(job.parent_notes.iter()) {
+    for (parent, note) in job.parents.iter().zip(job.parent_notes.iter()) {
+        let parent_tree = git_repo.find_commit(*parent)?.tree()?;
         parent_attrs.push(effective_attributes(
             git_repo,
-            &parent.tree()?,
+            &parent_tree,
             note.clone(),
             cache,
         ));
+        parent_trees.push(parent_tree);
     }
     let forced = find_forced_paths(&tree, &attrs, &parent_attrs);
 
     let mut ctx = ModifiedFilesContext {
+        parent_trees: &parent_trees,
         attrs: &attrs,
         forced: &forced,
         results: HashMap::new(),
@@ -897,6 +907,38 @@ fn compute_thread_main(
     }
 }
 
+/// The note attributes `rev` inherits from notes on its ancestors, which is to
+/// say the attributes of the nearest ancestor with a note providing attributes.
+/// This is used for the history's start revision (and any other revisions in
+/// the window without parents in the window), since its ancestors aren't
+/// processed.  Nearest means an ancestor note that none of the other ancestor
+/// notes descend from, which approximates first-parent inheritance.
+fn attributes_inherited_by(
+    git_repo: &Repository,
+    config: &HistoryConfig,
+    rev: Oid,
+) -> Option<Arc<AttributeSet>> {
+    let mut nearest: Option<(Oid, Arc<AttributeSet>)> = None;
+    for note_rev in config.note_revs() {
+        let Some(attrs) = config.note(note_rev).and_then(|n| n.attributes.clone()) else {
+            continue;
+        };
+        if note_rev == rev || !git_repo.graph_descendant_of(rev, note_rev).unwrap_or(false) {
+            continue;
+        }
+        let is_nearer = match &nearest {
+            None => true,
+            Some((best, _)) => git_repo
+                .graph_descendant_of(note_rev, *best)
+                .unwrap_or(false),
+        };
+        if is_nearer {
+            nearest = Some((note_rev, attrs));
+        }
+    }
+    nearest.map(|(_, attrs)| attrs)
+}
+
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
@@ -938,15 +980,40 @@ fn main() {
     };
     info!("  Blame map has {} existing entries.", blame_map.len());
 
+    let head = git_repo.refname_to_id(&blame_ref).unwrap();
     let mut walk = git_repo.revwalk().unwrap();
     walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE).unwrap();
-    walk.push(git_repo.refname_to_id(&blame_ref).unwrap())
-        .unwrap();
-    // All of the revisions (parents before children) and their parents.
-    let all_revs = walk
-        .map(|r| r.unwrap()) // walk produces Result<git2::Oid> so we unwrap to just the Oid
+    walk.push(head).unwrap();
+    // If the history configuration has a start revision, we ignore its
+    // ancestors.  Descendants of those ancestors which aren't descendants of the
+    // start revision (ex: a merged branch which forked before the start) are
+    // still processed, but without their parents from before the start.
+    if let Some(start) = history_config.start {
+        if !(start == head || git_repo.graph_descendant_of(head, start).unwrap_or(false)) {
+            error!(
+                "The history start revision {} isn't an ancestor of {}",
+                start, blame_ref
+            );
+            std::process::exit(1);
+        }
+        info!("History starts at {}", start);
+        for parent in git_repo.find_commit(start).unwrap().parent_ids() {
+            walk.hide(parent).unwrap();
+        }
+    }
+    // All of the revisions (parents before children) and their parents within
+    // the window.
+    let walked: Vec<Oid> = walk.map(|r| r.unwrap()).collect();
+    let in_window: HashSet<Oid> = walked.iter().copied().collect();
+    let all_revs = walked
+        .into_iter()
         .map(|oid| {
-            let parents: Vec<Oid> = git_repo.find_commit(oid).unwrap().parent_ids().collect();
+            let parents: Vec<Oid> = git_repo
+                .find_commit(oid)
+                .unwrap()
+                .parent_ids()
+                .filter(|p| in_window.contains(p))
+                .collect();
             (oid, parents)
         })
         .collect::<Vec<_>>();
@@ -957,9 +1024,16 @@ fn main() {
             .iter()
             .map(|(oid, parents)| (*oid, parents.first().copied()))
             .collect::<Vec<_>>(),
+        history_config
+            .start
+            .and_then(|start| attributes_inherited_by(&git_repo, &history_config, start)),
     );
     for rev in history_config.note_revs() {
-        if !effective_notes.contains_key(&rev) {
+        // Notes on ancestors of the start revision can be inherited by it.
+        let before_start = history_config
+            .start
+            .is_some_and(|start| git_repo.graph_descendant_of(start, rev).unwrap_or(false));
+        if !effective_notes.contains_key(&rev) && !before_start {
             warn!(
                 "History config note for {} which is not in the history",
                 rev
@@ -971,8 +1045,16 @@ fn main() {
     // configuration, because then the history needs to be regenerated.
     for (oid, _) in &all_revs {
         if let Some(SyntaxRepoCommit::Commit(syntax_oid)) = blame_map.get(oid) {
-            let recorded =
-                syntax_commit_to_meta(&blame_repo.find_commit(*syntax_oid).unwrap()).hconfig;
+            let meta = syntax_commit_to_meta(&blame_repo.find_commit(*syntax_oid).unwrap());
+            if meta.hstart != history_config.start {
+                error!(
+                    "Already processed revision {} was derived with history start {:?}, but \
+                     the start is now {:?}.  The syntax history needs to be regenerated.",
+                    oid, meta.hstart, history_config.start
+                );
+                std::process::exit(1);
+            }
+            let recorded = meta.hconfig;
             let expected = effective_notes[oid].as_ref().map(|n| n.id);
             if recorded != expected {
                 error!(
@@ -994,6 +1076,7 @@ fn main() {
     let parents_of: HashMap<Oid, &Vec<Oid>> = all_revs.iter().map(|(o, p)| (*o, p)).collect();
     let make_job = |rev: Oid| SyntaxJob {
         rev,
+        parents: parents_of[&rev].clone(),
         note: effective_notes[&rev].clone(),
         parent_notes: parents_of[&rev]
             .iter()
@@ -1070,14 +1153,12 @@ fn main() {
             git_oid, hg_rev, rev_done, rev_count
         );
         let commit = git_repo.find_commit(*git_oid).unwrap();
-        let parent_trees = commit
-            .parents()
-            .map(|parent_commit| Some(parent_commit.tree().unwrap()))
+        let parents = parents_of[git_oid];
+        let parent_trees = parents
+            .iter()
+            .map(|pid| Some(git_repo.find_commit(*pid).unwrap().tree().unwrap()))
             .collect::<Vec<_>>();
-        let blame_parents = commit
-            .parent_ids()
-            .map(|pid| blame_map[&pid])
-            .collect::<Vec<_>>();
+        let blame_parents = parents.iter().map(|pid| blame_map[pid]).collect::<Vec<_>>();
 
         // Scope the import_helper borrow
         {
@@ -1120,6 +1201,9 @@ fn main() {
             };
             if let Some(hconfig) = diff_data.hconfig {
                 commit_msg.push_str(&format!("hconfig {}\n", hconfig));
+            }
+            if let Some(start) = history_config.start {
+                commit_msg.push_str(&format!("hstart {}\n", start));
             }
 
             write!(import_stream, "data {}\n{}\n", commit_msg.len(), commit_msg).unwrap();
