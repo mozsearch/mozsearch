@@ -131,7 +131,38 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   characters are operators.
 /// - 3: INI and TOML tokenizers.
 /// - 4: License headers and modelines are `TokenClass::Boilerplate`.
-pub const TOKENIZER_VERSION: u32 = 4;
+/// - 5: Whitespace in structural context names is normalized; see
+///   `context_name`.
+pub const TOKENIZER_VERSION: u32 = 5;
+
+/// Normalize the text of a container's name node for use in a context.  Names
+/// can contain whitespace (ex: C++ template arguments in out-of-line method
+/// definitions, possibly spanning lines), but contexts can't contain whitespace
+/// (see `syntax_files.rs`).  So we drop whitespace except between two word
+/// characters, where it becomes an escaped space ("%20", with "%" escaped as
+/// "%25" like `config_tokenizer` does).  This also makes contexts insensitive
+/// to reformatting, ex: `Foo<A, B>` and `Foo<A,B>` are the same.
+fn context_name(name: &str) -> String {
+    let is_word = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
+    let mut out = String::with_capacity(name.len());
+    let mut pending_space = false;
+    for c in name.chars() {
+        if c.is_whitespace() {
+            pending_space = true;
+            continue;
+        }
+        if pending_space && out.chars().last().is_some_and(is_word) && is_word(c) {
+            out.push_str("%20");
+        }
+        pending_space = false;
+        if c == '%' {
+            out.push_str("%25");
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
 
 pub fn profile_for_lang(lang: &str) -> Option<LanguageProfile> {
     LANGUAGE_PROFILES.iter().find(|p| p.lang == lang).copied()
@@ -550,7 +581,7 @@ pub fn hypertokenize_with_profile(
                     .next()
                     .unwrap();
                 let name = name_node.utf8_text(source_contents.as_bytes()).unwrap();
-                context_stack.push(name.to_string());
+                context_stack.push(context_name(name));
                 context_pretty = if context_stack.is_empty() {
                     empty_context.clone()
                 } else {
@@ -782,6 +813,35 @@ mod tests {
             unmarked("a.txt", "vim: set ts=2 et:\nplain words"),
             vec!["t:plain", "t:words"]
         );
+    }
+
+    #[test]
+    fn test_context_names() {
+        assert_eq!(
+            context_name("MapField<Derived, Key,\n              int>::SyncMap"),
+            "MapField<Derived,Key,int>::SyncMap"
+        );
+        assert_eq!(context_name("operator new"), "operator%20new");
+        assert_eq!(context_name("Foo<unsigned  int>"), "Foo<unsigned%20int>");
+        assert_eq!(context_name("100%"), "100%25");
+        // End to end: contexts in token lines never contain whitespace.
+        let tokenized = hypertokenize_source_file(
+            "a.cpp",
+            "template <typename D, typename K>\nvoid MapField<D, K,\n  int>::Sync() const {\n  mX = 1;\n}\n",
+        )
+        .unwrap();
+        assert!(
+            tokenized
+                .tokenized
+                .iter()
+                .any(|l| l.starts_with("MapField<D,K,int>::Sync i mX")),
+            "{:?}",
+            tokenized.tokenized
+        );
+        for line in &tokenized.tokenized {
+            assert_eq!(line.split(' ').count(), 3, "{:?}", line);
+        }
+        assert_eq!(tokenized.structure[0].pretty, "MapField<D,K,int>::Sync");
     }
 
     #[test]

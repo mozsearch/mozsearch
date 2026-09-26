@@ -353,7 +353,9 @@ fn sanitize(path: &Path) -> std::borrow::Cow<'_, str> {
         // preceding them with a backslash.
         let escaped = result
             .replace("\\", "\\\\")
-            .replace("\n", "\\\n")
+            // (LF must be written as `\n`; a backslash followed by an actual LF
+            // would end the command line.)
+            .replace("\n", "\\n")
             .replace("\"", "\\\"");
         result = std::borrow::Cow::Owned(format!(r#""{}""#, escaped));
     }
@@ -369,7 +371,7 @@ fn test_sanitize() {
     let p3 = PathBuf::from(r#"internal/quote/"/is/ok"#);
     assert_eq!(sanitize(&p3), r#"internal/quote/"/is/ok"#);
     let p4 = PathBuf::from("internal/lf/\n/needs/escaping");
-    assert_eq!(sanitize(&p4), "\"internal/lf/\\\n/needs/escaping\"");
+    assert_eq!(sanitize(&p4), "\"internal/lf/\\n/needs/escaping\"");
 }
 
 fn count_lines(blob: &git2::Blob) -> usize {
