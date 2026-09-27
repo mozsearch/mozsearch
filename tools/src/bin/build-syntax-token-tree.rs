@@ -53,7 +53,7 @@ use tools::source_mapping::{
     NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer, require_notes_for_existing_branch,
 };
 use tools::tree_sitter_support::cst_tokenizer::{
-    HyperTokenized, TOKENIZER_VERSION, hypertokenize_with_profile,
+    HyperTokenized, LanguageProfile, TOKENIZER_VERSION, hypertokenize_with_profile,
 };
 
 #[derive(Parser)]
@@ -288,9 +288,61 @@ struct ModifiedFilesContext<'a> {
     /// Paths (and their ancestor directories) which must be processed even
     /// though they are unchanged because their resolved language changed.
     forced: &'a HashSet<PathBuf>,
-    results: HashMap<PathBuf, TokenizedFile>,
+    /// The files to tokenize; see `tokenize_files`.
+    to_tokenize: Vec<(PathBuf, Oid, LanguageProfile, LangSource)>,
     /// Files we intentionally didn't tokenize.
     skipped: HashSet<PathBuf>,
+}
+
+/// How many files a revision needs to change for us to tokenize them in
+/// parallel.  Revisions are processed in parallel anyway, but a big revision
+/// (ex: the start of a history window, or a big merge) would otherwise hold up
+/// everything after it.
+const PARALLEL_TOKENIZE_FILES: usize = 64;
+
+/// Tokenize the files collected by `process_modified_files`.
+fn tokenize_files(
+    git_repo: &git2::Repository,
+    to_tokenize: Vec<(PathBuf, Oid, LanguageProfile, LangSource)>,
+) -> Result<HashMap<PathBuf, TokenizedFile>, git2::Error> {
+    let mut inputs = Vec::with_capacity(to_tokenize.len());
+    for (path, oid, profile, lang_source) in to_tokenize {
+        let content = git_repo.find_blob(oid)?.content().to_vec();
+        inputs.push((path, content, profile, lang_source));
+    }
+    let tokenize =
+        |(path, content, profile, lang_source): (PathBuf, Vec<u8>, LanguageProfile, LangSource)| {
+            let text = std::str::from_utf8(&content).ok()?;
+            let hypertokenized = hypertokenize_with_profile(profile, text).ok()?;
+            Some((
+                path,
+                TokenizedFile {
+                    hypertokenized,
+                    lang_source,
+                },
+            ))
+        };
+    if inputs.len() < PARALLEL_TOKENIZE_FILES {
+        return Ok(inputs.into_iter().filter_map(tokenize).collect());
+    }
+    // Deal the files out round robin so that each thread gets a mix.
+    let num_workers = num_cpus::get().min(inputs.len());
+    let mut chunks: Vec<Vec<_>> = (0..num_workers).map(|_| vec![]).collect();
+    for (idx, input) in inputs.into_iter().enumerate() {
+        chunks[idx % num_workers].push(input);
+    }
+    Ok(thread::scope(|scope| {
+        let workers: Vec<_> = chunks
+            .into_iter()
+            .map(|chunk| {
+                scope.spawn(move || chunk.into_iter().filter_map(tokenize).collect::<Vec<_>>())
+            })
+            .collect();
+        workers
+            .into_iter()
+            .flat_map(|worker| worker.join().unwrap())
+            .collect()
+    }))
 }
 
 fn process_modified_files(
@@ -329,19 +381,8 @@ fn process_modified_files(
                         ctx.skipped.insert(path.clone());
                     }
                     ResolvedLanguage::Tokenize(profile, lang_source) => {
-                        let blob = entry.to_object(git_repo)?.peel_to_blob()?;
-                        if let Ok(blob_as_str) = std::str::from_utf8(blob.content())
-                            && let Ok(hypertokenized) =
-                                hypertokenize_with_profile(profile, blob_as_str)
-                        {
-                            ctx.results.insert(
-                                path.clone(),
-                                TokenizedFile {
-                                    hypertokenized,
-                                    lang_source,
-                                },
-                            );
-                        }
+                        ctx.to_tokenize
+                            .push((path.clone(), entry.id(), profile, lang_source));
                     }
                 }
             }
@@ -994,11 +1035,12 @@ fn compute_diff_data(
         parent_trees: &parent_trees,
         attrs: &attrs,
         forced: &forced,
-        results: HashMap::new(),
+        to_tokenize: vec![],
         skipped: HashSet::new(),
     };
     process_modified_files(git_repo, &commit, PathBuf::new(), &mut ctx)?;
-    let (hypertokenized_files, skipped) = (ctx.results, ctx.skipped);
+    let hypertokenized_files = tokenize_files(git_repo, ctx.to_tokenize)?;
+    let skipped = ctx.skipped;
 
     Ok(SyntaxTreeData {
         revision: job.rev,
