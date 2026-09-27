@@ -13,12 +13,11 @@
 // `CINNABAR` (set to 0 to not ask git-cinnabar for hg revisions) are handled
 // like build-blame.
 //
-// Like build-blame, we have git-fast-import maintain a marks file (in the syntax
-// repo's git directory; see `git_ops::fast_import_marks_path`) so that we don't
-// lose track of processed revisions which aren't (yet) reachable from the
-// branch we write to, like the first parent of a merge of long unrelated
-// histories when a run stops partway through the second parent.  The marks file
-// is removed after a successful run without `COMMIT_LIMIT`.
+// Rather than walking the syntax repo's branch to find the revisions we've
+// already processed, we record them in git notes in the syntax repo, which also
+// covers processed revisions that aren't reachable from the branch; see
+// `hyperblame::source_mapping` for details, including the `NOTES_REF` and
+// `READ_NOTES_REFS` environment variables.
 
 extern crate env_logger;
 extern crate git2;
@@ -40,16 +39,18 @@ use std::thread;
 use clap::Parser;
 use git2::{ObjectType, Oid, Repository, Sort, TreeWalkMode, TreeWalkResult};
 use tools::cinnabar::{CinnabarBatch, OldRevisions};
-use tools::file_format::config::{index_blame, syntax_commit_to_meta};
+use tools::file_format::config::{HistorySyntaxCommitMeta, syntax_commit_to_meta};
 use tools::file_format::history::io_helpers::{
     read_record_file_contents, record_file_contents_to_string,
 };
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use tools::file_format::history::syntax_symdex::{SymdexHeader, SymdexRecord};
-use tools::git_ops::{fast_import_marks_path, parse_fast_import_marks};
 use tools::hyperblame::history_config::{
     AttributeRules, AttributeSet, EffectiveAttributes, HistoryConfig, LangSource, ResolvedLanguage,
     parse_repo_gitattributes, resolve_language,
+};
+use tools::hyperblame::source_mapping::{
+    NOTES_BATCH_SIZE, NotesRefs, NotesWriter, SourceMapping, require_notes_for_existing_branch,
 };
 use tools::tree_sitter_support::cst_tokenizer::{
     HyperTokenized, TOKENIZER_VERSION, hypertokenize_with_profile,
@@ -85,7 +86,7 @@ struct Cli {
 /// is fed for adding to the blame repo. Refer to
 /// https://git-scm.com/docs/git-fast-import for detailed
 /// documentation on git-fast-import.
-fn start_fast_import(git_repo: &Repository, marks_file: &Path) -> Child {
+fn start_fast_import(git_repo: &Repository) -> Child {
     // Note that we use the `--force` flag here, because there
     // are cases where the blame repo branch we're building was
     // initialized from some other branch (e.g. gecko-dev beta
@@ -99,8 +100,6 @@ fn start_fast_import(git_repo: &Repository, marks_file: &Path) -> Child {
         .arg("fast-import")
         .arg("--force")
         .arg("--quiet")
-        .arg(format!("--import-marks-if-exists={}", marks_file.display()))
-        .arg(format!("--export-marks={}", marks_file.display()))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .current_dir(git_repo.path())
@@ -129,6 +128,16 @@ impl fmt::Display for SyntaxRepoCommit {
             Self::Mark(id) => write!(f, ":{}", id),
         }
     }
+}
+
+/// Retrieve the commit oid for a mark via the `get-mark` command.  The commit
+/// that defined the mark must have been terminated.
+fn read_mark_oid(import_helper: &mut Child, mark: usize) -> String {
+    writeln!(import_helper.stdin.as_mut().unwrap(), "get-mark :{}", mark).unwrap();
+    let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
+    let mut result = String::new();
+    reader.read_line(&mut result).unwrap();
+    result.trim().to_string()
 }
 
 /// Read the oid of the object at the given path in the given
@@ -990,43 +999,12 @@ fn main() {
         .and_then(|x| x.parse::<usize>().ok())
         .unwrap_or(0);
 
-    // TODO: switch this mechanism to using `index_syntax_history` that was introduced for this.
-    // Currently the format is the same for both so it works, but it's appropriate to modernize,
-    // and it will be necessary to update when we remove classic blame support.
-    info!("Reading existing blame map of ref {}...", blame_ref);
-    let mut blame_map = if let Ok(oid) = blame_repo.refname_to_id(&blame_ref) {
-        let (blame_map, _, _) = index_blame(&blame_repo, Some(oid));
-        blame_map
-            .into_iter()
-            .map(|(k, v)| (k, SyntaxRepoCommit::Commit(v)))
-            .collect::<HashMap<git2::Oid, SyntaxRepoCommit>>()
-    } else {
-        HashMap::new()
-    };
-    info!("  Blame map has {} existing entries.", blame_map.len());
-
-    // ## Revisions processed by previous runs which aren't reachable from the
-    // branch; see the marks file discussion at the top of this file.
-    let marks_file = fast_import_marks_path(&blame_repo);
-    let mut prev_max_mark = 0;
-    if let Ok(contents) = std::fs::read_to_string(&marks_file) {
-        let marks = parse_fast_import_marks(&contents);
-        let mut needed = 0;
-        for (mark, syntax_oid) in &marks {
-            prev_max_mark = prev_max_mark.max(*mark);
-            let meta = syntax_commit_to_meta(&blame_repo.find_commit(*syntax_oid).unwrap());
-            blame_map.entry(meta.source_rev).or_insert_with(|| {
-                needed += 1;
-                SyntaxRepoCommit::Commit(*syntax_oid)
-            });
-        }
-        info!(
-            "  Marks file {} had {} revisions, {} of which weren't reachable from the branch.",
-            marks_file.display(),
-            marks.len(),
-            needed
-        );
-    }
+    // The syntax repo's notes map the source revisions we've already processed
+    // to their syntax commits; see `hyperblame::source_mapping`.
+    let notes_refs = NotesRefs::from_env(&blame_repo, &blame_ref);
+    let mapping = SourceMapping::open(&blame_repo, &notes_refs);
+    require_notes_for_existing_branch(&blame_repo, &blame_ref, &notes_refs, &mapping);
+    info!("Using source mapping notes {}", notes_refs.write);
 
     let head = git_repo.refname_to_id(&blame_ref).unwrap();
     let mut walk = git_repo.revwalk().unwrap();
@@ -1049,10 +1027,32 @@ fn main() {
             walk.hide(parent).unwrap();
         }
     }
-    // All of the revisions (parents before children) and their parents within
-    // the window.
-    let walked: Vec<Oid> = walk.map(|r| r.unwrap()).collect();
-    let in_window: HashSet<Oid> = walked.iter().copied().collect();
+    // We also hide the revisions we've already processed (and so their
+    // ancestors), recording them as we go.  These are the processed parents of
+    // the revisions we walk (plus the head if it has been processed).
+    let mut processed: HashMap<Oid, HistorySyntaxCommitMeta> = HashMap::new();
+    let mut hide_processed = |rev: Oid| {
+        let meta = mapping
+            .lookup(&blame_repo, rev)
+            .and_then(|syntax_rev| blame_repo.find_commit(syntax_rev).ok())
+            .map(|commit| syntax_commit_to_meta(&commit));
+        match meta {
+            Some(meta) => {
+                processed.insert(rev, meta);
+                true
+            }
+            None => false,
+        }
+    };
+    // The revisions to process (parents before children) and their parents
+    // within the window, which have either been processed or are to be
+    // processed.
+    let walked: Vec<Oid> = walk
+        .with_hide_callback(&mut hide_processed)
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    let to_process: HashSet<Oid> = walked.iter().copied().collect();
     let all_revs = walked
         .into_iter()
         .map(|oid| {
@@ -1060,11 +1060,80 @@ fn main() {
                 .find_commit(oid)
                 .unwrap()
                 .parent_ids()
-                .filter(|p| in_window.contains(p))
+                .filter(|p| to_process.contains(p) || processed.contains_key(p))
                 .collect();
             (oid, parents)
         })
         .collect::<Vec<_>>();
+    info!(
+        "{} revisions to process, building on {} processed revisions",
+        all_revs.len(),
+        processed.len()
+    );
+
+    // ## Refuse to proceed if the history configuration changed for already
+    // processed revisions, because then the history needs to be regenerated.
+    // See "Determinism" in `hyperblame::history_config`.  This also determines
+    // the effective note attributes of the processed parents.
+    let mut processed_attributes = HashMap::new();
+    for (oid, meta) in &processed {
+        if meta.hstart != history_config.start {
+            error!(
+                "Already processed revision {} was derived with history start {:?}, but \
+                 the start is now {:?}.  The syntax history needs to be regenerated.",
+                oid, meta.hstart, history_config.start
+            );
+            std::process::exit(1);
+        }
+        let attributes = match meta.hconfig {
+            Some(id) => match history_config.attributes_by_id(id) {
+                Some(attributes) => Some(attributes),
+                None => {
+                    error!(
+                        "Already processed revision {} was derived with history note \
+                         attributes {} which are no longer in the configuration.  The syntax \
+                         history needs to be regenerated from where they were introduced.",
+                        oid, id
+                    );
+                    std::process::exit(1);
+                }
+            },
+            None => None,
+        };
+        processed_attributes.insert(*oid, attributes);
+    }
+    for rev in history_config.note_revs() {
+        match mapping.lookup(&blame_repo, rev) {
+            Some(syntax_rev) => {
+                let Some(attributes) = history_config.note(rev).unwrap().attributes.as_ref() else {
+                    continue;
+                };
+                let recorded =
+                    syntax_commit_to_meta(&blame_repo.find_commit(syntax_rev).unwrap()).hconfig;
+                if recorded != Some(attributes.id) {
+                    error!(
+                        "The history configuration for already processed revision {} changed \
+                         (recorded {:?}, now {:?}).  The syntax history needs to be regenerated \
+                         from that revision.",
+                        rev, recorded, attributes.id
+                    );
+                    std::process::exit(1);
+                }
+            }
+            None => {
+                // Notes on ancestors of the start revision can be inherited by it.
+                let before_start = history_config
+                    .start
+                    .is_some_and(|start| git_repo.graph_descendant_of(start, rev).unwrap_or(false));
+                if !to_process.contains(&rev) && !before_start {
+                    warn!(
+                        "History config note for {} which is not in the history",
+                        rev
+                    );
+                }
+            }
+        }
+    }
 
     // ## Determine the effective history configuration for every revision.
     let effective_notes = history_config.effective_attributes(
@@ -1072,6 +1141,7 @@ fn main() {
             .iter()
             .map(|(oid, parents)| (*oid, parents.first().copied()))
             .collect::<Vec<_>>(),
+        processed_attributes,
         // Revisions without parents in the window (the start revision and any
         // branches which forked before it) get the attributes in effect at the
         // start revision, including from a note on the start revision itself.
@@ -1082,51 +1152,12 @@ fn main() {
                 .or_else(|| attributes_inherited_by(&git_repo, &history_config, start))
         }),
     );
-    for rev in history_config.note_revs() {
-        // Notes on ancestors of the start revision can be inherited by it.
-        let before_start = history_config
-            .start
-            .is_some_and(|start| git_repo.graph_descendant_of(start, rev).unwrap_or(false));
-        if !effective_notes.contains_key(&rev) && !before_start {
-            warn!(
-                "History config note for {} which is not in the history",
-                rev
-            );
-        }
-    }
-
-    // ## Refuse to proceed if already processed revisions used a different
-    // configuration, because then the history needs to be regenerated.
-    for (oid, _) in &all_revs {
-        if let Some(SyntaxRepoCommit::Commit(syntax_oid)) = blame_map.get(oid) {
-            let meta = syntax_commit_to_meta(&blame_repo.find_commit(*syntax_oid).unwrap());
-            if meta.hstart != history_config.start {
-                error!(
-                    "Already processed revision {} was derived with history start {:?}, but \
-                     the start is now {:?}.  The syntax history needs to be regenerated.",
-                    oid, meta.hstart, history_config.start
-                );
-                std::process::exit(1);
-            }
-            let recorded = meta.hconfig;
-            let expected = effective_notes[oid].as_ref().map(|n| n.id);
-            if recorded != expected {
-                error!(
-                    "The history configuration for already processed revision {} changed \
-                     (recorded {:?}, now {:?}).  The syntax history needs to be regenerated \
-                     from that revision.",
-                    oid, recorded, expected
-                );
-                std::process::exit(1);
-            }
-        }
-    }
-
-    let mut revs_to_process = all_revs
+    let mut blame_map: HashMap<Oid, SyntaxRepoCommit> = processed
         .iter()
-        .map(|(oid, _)| *oid)
-        .filter(|git_oid| !blame_map.contains_key(git_oid))
-        .collect::<Vec<_>>();
+        .map(|(oid, meta)| (*oid, SyntaxRepoCommit::Commit(meta.syntax_rev)))
+        .collect();
+
+    let mut revs_to_process = all_revs.iter().map(|(oid, _)| *oid).collect::<Vec<_>>();
     let parents_of: HashMap<Oid, &Vec<Oid>> = all_revs.iter().map(|(o, p)| (*o, p)).collect();
     let make_job = |rev: Oid| SyntaxJob {
         rev,
@@ -1173,7 +1204,8 @@ fn main() {
     // if we ran out of requests because there were so few.
     assert!((compute_index % num_threads == 0) || compute_index == rev_count);
 
-    let mut import_helper = start_fast_import(&blame_repo, &marks_file);
+    let mut import_helper = start_fast_import(&blame_repo);
+    let mut notes = NotesWriter::new(&blame_repo, &notes_refs.write);
 
     // Tracks completion count and serves as the basis for the mark <idnum>
     // assigned to each commit.
@@ -1222,10 +1254,8 @@ fn main() {
             // https://git-scm.com/docs/git-fast-import#_mark
             let mut import_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
             writeln!(import_stream, "commit {}", blame_ref).unwrap();
-            // Marks from previous runs are imported, so don't reuse them.
-            let mark = prev_max_mark + rev_done;
-            writeln!(import_stream, "mark :{}", mark).unwrap();
-            blame_map.insert(*git_oid, SyntaxRepoCommit::Mark(mark));
+            writeln!(import_stream, "mark :{}", rev_done).unwrap();
+            blame_map.insert(*git_oid, SyntaxRepoCommit::Mark(rev_done));
 
             let mut write_role = |role: &str, sig: &git2::Signature| {
                 write!(import_stream, "{} ", role).unwrap();
@@ -1309,23 +1339,27 @@ fn main() {
 
         process_symdex_tree(symdex, &mut import_helper, &blame_parents).unwrap();
 
+        // Terminate the commit so we can get its oid for the notes.
+        writeln!(import_helper.stdin.as_mut().unwrap()).unwrap();
+        let syntax_rev = read_mark_oid(&mut import_helper, rev_done);
+        notes.add(*git_oid, &syntax_rev, commit.committer().when().seconds());
+        if notes.num_pending() >= NOTES_BATCH_SIZE {
+            notes.flush(import_helper.stdin.as_mut().unwrap()).unwrap();
+        }
+
         if rev_done % 100000 == 0 {
             info!("Completed 100,000 commits, issuing checkpoint...");
             writeln!(import_helper.stdin.as_mut().unwrap(), "checkpoint").unwrap();
         }
     }
 
+    notes.flush(import_helper.stdin.as_mut().unwrap()).unwrap();
     drop(hg_helper);
 
     info!("Shutting down fast-import...");
     let exitcode = import_helper.wait().unwrap();
     if exitcode.success() {
         info!("Done!");
-        // The marks file is only needed to resume a limited or failed run.
-        if commit_limit == 0 && marks_file.exists() {
-            info!("Removing marks file {}.", marks_file.display());
-            std::fs::remove_file(&marks_file).unwrap();
-        }
     } else {
         info!("Fast-import exited with {:?}", exitcode.code());
     }

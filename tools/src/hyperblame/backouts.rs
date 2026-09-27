@@ -12,8 +12,11 @@
 //!   backed out changeset, identified by an (usually 12 hex digit) hg
 //!   revision: `Backed out changeset 1a2b3c4d5e6f (bug 1234567) for ...`, or
 //!   variants like `Back out`, `Backout`, and `Backed out changesets X, Y`.
-//!   These are resolved via the "hg" lines git-cinnabar lets
-//!   `build-syntax-token-tree` put in the syntax commits.
+//!   These are resolved by asking git-cinnabar for the source repo's git
+//!   revision, which it can do for abbreviated hg revisions.
+//!
+//! Git revisions are then mapped to syntax commits with the syntax repo's
+//! source mapping notes (see `hyperblame::source_mapping`).
 //!
 //! Only commits within `BACKOUT_HORIZON_SECS` before the backout count.  Older
 //! reverts are usually deliberate decisions to remove something rather than
@@ -21,13 +24,16 @@
 //! 378 of 385 reverts were of commits which had landed less than 7 days
 //! before.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use git2::{Commit, Oid, Repository};
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use crate::file_format::config::syntax_commit_to_meta;
+use crate::cinnabar::CinnabarBatch;
+use crate::hyperblame::source_mapping::SourceMapping;
 
 /// How long after landing a revert of a commit is considered a backout.
 pub const BACKOUT_HORIZON_SECS: i64 = 14 * 24 * 60 * 60;
@@ -68,76 +74,61 @@ pub fn parse_backout_targets(message: &str) -> Vec<BackoutTargetRef> {
     targets
 }
 
-/// The number of hex digits of hg revisions we index by, which is the length
-/// of the abbreviated revisions used in backout messages.
-const HG_PREFIX_LEN: usize = 12;
-
-/// Maps the revisions backout messages can reference to syntax commits.
-#[derive(Default)]
-pub struct BackoutTargetIndex {
-    source_to_syntax: HashMap<Oid, Oid>,
-    /// Maps the first `HG_PREFIX_LEN` hex digits of hg revisions to the full
-    /// hg revisions and their syntax commits.
-    hg_by_prefix: HashMap<String, Vec<(String, Oid)>>,
+/// Resolves the revisions backout messages reference to syntax commits.  This
+/// is shared by the compute threads.
+pub struct BackoutTargetResolver {
+    syntax_mapping: SourceMapping,
+    source_repo_path: PathBuf,
+    /// A `git cinnabar hg2git` process for the source repo, started when first
+    /// needed, or None if we aren't using git-cinnabar.  Backouts are rare
+    /// enough that there's no point in having one per thread.
+    hg2git: Option<Mutex<Option<CinnabarBatch>>>,
 }
 
-impl BackoutTargetIndex {
-    /// Index all the commits in the syntax repo reachable from `head`.
-    pub fn build(syntax_repo: &Repository, head: Oid) -> Self {
-        let mut index = BackoutTargetIndex::default();
-        let mut walk = syntax_repo.revwalk().unwrap();
-        walk.push(head).unwrap();
-        for oid in walk {
-            let commit = syntax_repo.find_commit(oid.unwrap()).unwrap();
-            let meta = syntax_commit_to_meta(&commit);
-            index.add(
-                meta.source_rev,
-                meta.syntax_rev,
-                meta.source_hg_rev.as_deref(),
-            );
-        }
-        index
-    }
-
-    pub fn add(&mut self, source_rev: Oid, syntax_rev: Oid, hg_rev: Option<&str>) {
-        self.source_to_syntax.insert(source_rev, syntax_rev);
-        if let Some(hg_rev) = hg_rev
-            && let Some(prefix) = hg_rev.get(..HG_PREFIX_LEN)
-        {
-            self.hg_by_prefix
-                .entry(prefix.to_lowercase())
-                .or_default()
-                .push((hg_rev.to_lowercase(), syntax_rev));
+impl BackoutTargetResolver {
+    pub fn new(
+        syntax_mapping: SourceMapping,
+        source_repo_path: &Path,
+        use_cinnabar: bool,
+    ) -> BackoutTargetResolver {
+        BackoutTargetResolver {
+            syntax_mapping,
+            source_repo_path: source_repo_path.to_path_buf(),
+            hg2git: use_cinnabar.then(|| Mutex::new(None)),
         }
     }
 
-    /// The syntax commits a target could refer to.
-    pub fn resolve(&self, target: &BackoutTargetRef) -> Vec<Oid> {
-        let git = |rev: &str| {
-            Oid::from_str(rev)
-                .ok()
-                .and_then(|oid| self.source_to_syntax.get(&oid).copied())
-        };
+    /// The source repo revision a target refers to, if known.
+    fn source_rev(&self, target: &BackoutTargetRef) -> Option<Oid> {
         match target {
-            BackoutTargetRef::Git(rev) => git(rev).into_iter().collect(),
+            BackoutTargetRef::Git(rev) => Oid::from_str(rev).ok(),
             BackoutTargetRef::Hg(rev) => {
-                let matches: Vec<Oid> = rev
-                    .get(..HG_PREFIX_LEN)
-                    .and_then(|prefix| self.hg_by_prefix.get(prefix))
-                    .into_iter()
-                    .flatten()
-                    .filter(|(hg_rev, _)| hg_rev.starts_with(rev.as_str()))
-                    .map(|(_, syntax_rev)| *syntax_rev)
-                    .collect();
-                if matches.is_empty() && rev.len() == 40 {
+                let from_hg = self.hg2git.as_ref().and_then(|hg2git| {
+                    let mut hg2git = hg2git.lock().unwrap();
+                    hg2git
+                        .get_or_insert_with(|| {
+                            CinnabarBatch::hg2git(
+                                &Repository::open(&self.source_repo_path).unwrap(),
+                            )
+                        })
+                        .lookup(rev)
+                });
+                match from_hg {
+                    Some(git_rev) => Oid::from_str(&git_rev).ok(),
                     // Some "Backed out changeset" messages may use git
                     // revisions.
-                    git(rev).into_iter().collect()
-                } else {
-                    matches
+                    None if rev.len() == 40 => Oid::from_str(rev).ok(),
+                    None => None,
                 }
             }
         }
+    }
+
+    /// The syntax commit a target refers to, if its revision has been
+    /// processed.
+    pub fn resolve(&self, syntax_repo: &Repository, target: &BackoutTargetRef) -> Option<Oid> {
+        self.syntax_mapping
+            .lookup(syntax_repo, self.source_rev(target)?)
     }
 }
 
@@ -148,30 +139,31 @@ impl BackoutTargetIndex {
 /// in one push) can have the same timestamp.
 pub fn find_backed_out(
     syntax_repo: &Repository,
-    index: &BackoutTargetIndex,
+    resolver: &BackoutTargetResolver,
     backout: &Commit,
     message: &str,
 ) -> Vec<Oid> {
     let backout_time = backout.committer().when().seconds();
     let mut found: Vec<(Oid, i64)> = vec![];
     for target in parse_backout_targets(message) {
-        for oid in index.resolve(&target) {
-            if oid == backout.id() || found.iter().any(|(o, _)| *o == oid) {
-                continue;
-            }
-            let Ok(commit) = syntax_repo.find_commit(oid) else {
-                continue;
-            };
-            let time = commit.committer().when().seconds();
-            if backout_time - time > BACKOUT_HORIZON_SECS
-                || !syntax_repo
-                    .graph_descendant_of(backout.id(), oid)
-                    .unwrap_or(false)
-            {
-                continue;
-            }
-            found.push((oid, time));
+        let Some(oid) = resolver.resolve(syntax_repo, &target) else {
+            continue;
+        };
+        if oid == backout.id() || found.iter().any(|(o, _)| *o == oid) {
+            continue;
         }
+        let Ok(commit) = syntax_repo.find_commit(oid) else {
+            continue;
+        };
+        let time = commit.committer().when().seconds();
+        if backout_time - time > BACKOUT_HORIZON_SECS
+            || !syntax_repo
+                .graph_descendant_of(backout.id(), oid)
+                .unwrap_or(false)
+        {
+            continue;
+        }
+        found.push((oid, time));
     }
 
     // Order by how many of the other targets descend from each target (a total
@@ -199,6 +191,8 @@ pub fn find_backed_out(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hyperblame::source_mapping::test_support::write_notes;
+    use crate::hyperblame::source_mapping::{NotesRefs, default_notes_ref};
     use BackoutTargetRef::*;
 
     #[test]
@@ -270,32 +264,31 @@ mod tests {
 
     #[test]
     fn test_resolve() {
+        let dir = std::env::temp_dir().join(format!("hb-backout-resolve-{}", std::process::id()));
+        let repo = Repository::init(&dir).unwrap();
         let source = |n: u8| Oid::from_bytes(&[n; 20]).unwrap();
         let syntax = |n: u8| Oid::from_bytes(&[n + 100; 20]).unwrap();
-        let mut index = BackoutTargetIndex::default();
-        index.add(
-            source(1),
-            syntax(1),
-            Some("f16bd0803a60aaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
-        );
-        index.add(
-            source(2),
-            syntax(2),
-            Some("f16bd0803a60bbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
-        );
-        index.add(source(3), syntax(3), None);
-        // An ambiguous prefix resolves to all candidates; `find_backed_out`
-        // then only keeps ancestors within the horizon.
+        let refs = NotesRefs {
+            write: default_notes_ref(&repo, "refs/heads/main"),
+            read: vec![],
+        };
+        write_notes(&repo, &refs.write, &[(source(1), syntax(1))]);
+        // Without git-cinnabar, only git revisions resolve, including 40 digit
+        // "hg" revisions.
+        let resolver = BackoutTargetResolver::new(SourceMapping::open(&repo, &refs), &dir, false);
         assert_eq!(
-            index.resolve(&Hg("f16bd0803a60".to_string())),
-            vec![syntax(1), syntax(2)]
+            resolver.resolve(&repo, &Git(source(1).to_string())),
+            Some(syntax(1))
         );
         assert_eq!(
-            index.resolve(&Hg("f16bd0803a60bb".to_string())),
-            vec![syntax(2)]
+            resolver.resolve(&repo, &Hg(source(1).to_string())),
+            Some(syntax(1))
         );
-        assert_eq!(index.resolve(&Git(source(3).to_string())), vec![syntax(3)]);
-        assert_eq!(index.resolve(&Hg(source(3).to_string())), vec![syntax(3)]);
-        assert_eq!(index.resolve(&Git(source(4).to_string())), vec![]);
+        assert_eq!(
+            resolver.resolve(&repo, &Hg("010101010101".to_string())),
+            None
+        );
+        assert_eq!(resolver.resolve(&repo, &Git(source(2).to_string())), None);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

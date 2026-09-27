@@ -219,38 +219,3 @@ pub fn coverage_history(
         Some(history)
     }
 }
-
-/// The path of the git-fast-import marks file the history tools use for a
-/// repository they write to.  It lives in the repository's git directory so
-/// that it can't be confused with another repository's marks file (ex: blame's
-/// or another tree's on the same machine).
-pub fn fast_import_marks_path(repo: &Repository) -> std::path::PathBuf {
-    repo.path().join("mozsearch-fast-import.marks")
-}
-
-/// Parse the contents of a marks file written by git-fast-import's
-/// `--export-marks=` argument into (mark, oid) pairs.
-pub fn parse_fast_import_marks(contents: &str) -> Vec<(usize, git2::Oid)> {
-    contents
-        .lines()
-        .filter_map(|line| {
-            let (mark, oid) = line.split_once(' ')?;
-            Some((
-                mark.strip_prefix(':')?.parse().ok()?,
-                git2::Oid::from_str(oid.trim()).ok()?,
-            ))
-        })
-        .collect()
-}
-
-#[test]
-fn test_parse_fast_import_marks() {
-    let oid = "1111111111111111111111111111111111111111";
-    assert_eq!(
-        parse_fast_import_marks(&format!(":1 {}\n:17 {}\n\nbogus\n", oid, oid)),
-        vec![
-            (1, git2::Oid::from_str(oid).unwrap()),
-            (17, git2::Oid::from_str(oid).unwrap())
-        ]
-    );
-}

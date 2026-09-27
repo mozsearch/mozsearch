@@ -7,6 +7,7 @@
   craneLib,
   makeBinaryWrapper,
   graphviz,
+  gitMinimal,
 }: let
   commonArgs = {
     src = runCommandLocal "mozsearch-tools-source" {} ''
@@ -34,6 +35,11 @@ in
   craneLib.buildPackage (commonArgs
     // {
       inherit cargoArtifacts;
+
+      # Some tests write history notes with git fast-import.
+      nativeCheckInputs = [
+        gitMinimal
+      ];
 
       postFixup = ''
         wrapProgram $out/bin/pipeline-server \

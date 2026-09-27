@@ -47,9 +47,13 @@
 //! History is a pure function of the source repository, the history
 //! configuration, and the tokenizer.  build-syntax-token-tree records the id of
 //! each revision's effective note attributes (and the start revision, if any)
-//! in its syntax commit and refuses to run if the recorded values for already
-//! processed revisions don't match the current configuration, since that means
-//! the history needs to be regenerated from that point.
+//! in its syntax commit and refuses to run if the configuration no longer
+//! matches what was recorded for the already processed revisions it builds on
+//! (the parents of the revisions it processes) or for already processed
+//! revisions which have notes, since that means the history needs to be
+//! regenerated from that point.  (Since it doesn't look at all of the processed
+//! revisions, removing the note of a processed revision is only detected if
+//! the new revisions inherit its attributes.)
 
 use std::collections::HashMap;
 use std::fs;
@@ -341,18 +345,31 @@ impl HistoryConfig {
         self.notes.keys().copied()
     }
 
+    /// The note attributes with the given id (as recorded in syntax commits),
+    /// if any note still provides them.
+    pub fn attributes_by_id(&self, id: Oid) -> Option<Arc<AttributeSet>> {
+        self.notes
+            .values()
+            .filter_map(|note| note.attributes.as_ref())
+            .find(|attrs| attrs.id == id)
+            .cloned()
+    }
+
     /// Compute the effective note attributes for each revision, where `revs`
     /// must be in topological order (parents before children) and provides
-    /// each revision's first parent.  Revisions without a first parent inherit
-    /// `root_attributes`, which is how revisions at the start of a history
-    /// window inherit notes from before the window.
+    /// each revision's first parent, which must be in `revs` or have its
+    /// effective attributes in `known` (ex: for already processed revisions).
+    /// Revisions without a first parent inherit `root_attributes`, which is how
+    /// revisions at the start of a history window inherit notes from before
+    /// the window.  Returns `known` extended with `revs`.
     pub fn effective_attributes(
         &self,
         revs: &[(Oid, Option<Oid>)],
+        known: HashMap<Oid, Option<Arc<AttributeSet>>>,
         root_attributes: Option<Arc<AttributeSet>>,
     ) -> HashMap<Oid, Option<Arc<AttributeSet>>> {
-        let mut effective: HashMap<Oid, Option<Arc<AttributeSet>>> =
-            HashMap::with_capacity(revs.len());
+        let mut effective = known;
+        effective.reserve(revs.len());
         for (rev, first_parent) in revs {
             let own = self.notes.get(rev).and_then(|n| n.attributes.clone());
             let attrs = match (own, first_parent) {
@@ -553,17 +570,33 @@ mod tests {
         // A note without attributes inherits.
         fs::write(revs.join(format!("{}.toml", c)), "").unwrap();
         let config = HistoryConfig::load(&dir).unwrap();
-        let effective = config
-            .effective_attributes(&[(a, None), (b, Some(a)), (c, Some(b)), (d, Some(c))], None);
+        let effective = config.effective_attributes(
+            &[(a, None), (b, Some(a)), (c, Some(b)), (d, Some(c))],
+            HashMap::new(),
+            None,
+        );
         assert!(effective[&a].is_none());
         let b_id = effective[&b].as_ref().unwrap().id;
         assert_eq!(effective[&c].as_ref().unwrap().id, b_id);
         assert_eq!(effective[&d].as_ref().unwrap().id, b_id);
+        assert_eq!(config.attributes_by_id(b_id).unwrap().id, b_id);
+        assert!(config.attributes_by_id(a).is_none());
         // Revisions without a first parent (ex: the start of a history window)
         // inherit the provided root attributes.
-        let effective =
-            config.effective_attributes(&[(c, None), (d, Some(c))], effective[&b].clone());
+        let effective = config.effective_attributes(
+            &[(c, None), (d, Some(c))],
+            HashMap::new(),
+            effective[&b].clone(),
+        );
         assert_eq!(effective[&d].as_ref().unwrap().id, b_id);
+        // Revisions can inherit from already processed revisions.
+        let effective = config.effective_attributes(
+            &[(d, Some(c))],
+            HashMap::from([(c, config.attributes_by_id(b_id))]),
+            None,
+        );
+        assert_eq!(effective[&d].as_ref().unwrap().id, b_id);
+        assert_eq!(effective.len(), 2);
 
         // Unknown keys (ex: misspelled or not-yet-supported hints) are errors.
         fs::write(revs.join(format!("{}.toml", d)), "atributes = \"\"\n").unwrap();

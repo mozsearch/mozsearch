@@ -4,11 +4,12 @@
 // Usage:
 //   build-timeline-tree SOURCE_REPO SYNTAX_REPO TIMELINE_REPO REV_SUMMARIES_DIR
 //
-// The environment variables `BLAME_REF` and `COMMIT_LIMIT` are handled the same
-// as by `build-blame` and `build-syntax-token-tree`, as is the marks file (in
-// the timeline repo's git directory) which lets us resume a limited or failed
-// run without losing track of processed revisions which aren't reachable from
-// the branch.
+// The environment variables `BLAME_REF`, `COMMIT_LIMIT`, and `CINNABAR` (set to 0
+// to not ask git-cinnabar about the hg revisions in backout messages) are handled
+// the same as by `build-syntax-token-tree`.  Like it, we record the revisions
+// we've processed in git notes (in the timeline repo), and we find the syntax
+// commits of source revisions via the syntax repo's notes; see
+// `hyperblame::source_mapping`.
 //
 // ## Timeline repo contents
 //
@@ -100,8 +101,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 
 use tools::file_format::config::{
-    HistorySyntaxCommitMeta, index_timeline_history_by_syntax_rev, syntax_commit_to_meta,
-    timeline_commit_to_meta,
+    HistorySyntaxCommitMeta, syntax_commit_to_meta, timeline_commit_to_meta,
 };
 use tools::file_format::history::io_helpers::{
     read_record_file_contents, record_file_contents_to_string,
@@ -127,11 +127,14 @@ use tools::file_format::history::timeline_future::{
 use tools::file_format::history::timeline_tokens::{
     TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, token_timeline_path, tracked_token_key,
 };
-use tools::git_ops::{fast_import_marks_path, git_time_to_chrono, parse_fast_import_marks};
-use tools::hyperblame::backouts::{BackoutTargetIndex, find_backed_out};
+use tools::git_ops::git_time_to_chrono;
+use tools::hyperblame::backouts::{BackoutTargetResolver, find_backed_out};
 use tools::hyperblame::inference::{
     FileChangeInput, FileChangeKind, FileInference, InferenceConfig, PairingSupport, RemovedFate,
     TokenOrigin, diff_token_lines, infer_revision,
+};
+use tools::hyperblame::source_mapping::{
+    NOTES_BATCH_SIZE, NotesRefs, NotesWriter, SourceMapping, require_notes_for_existing_branch,
 };
 use tools::hyperblame::stats::compute_revision_stats;
 use tools::tree_sitter_support::cst_tokenizer::namespace_for_file;
@@ -140,7 +143,7 @@ use tools::tree_sitter_support::cst_tokenizer::namespace_for_file;
 /// is fed for adding to the blame repo. Refer to
 /// https://git-scm.com/docs/git-fast-import for detailed
 /// documentation on git-fast-import.
-fn start_fast_import(git_repo: &Repository, marks_file: &Path) -> Child {
+fn start_fast_import(git_repo: &Repository) -> Child {
     // Note that we use the `--force` flag here, because there
     // are cases where the blame repo branch we're building was
     // initialized from some other branch (e.g. gecko-dev beta
@@ -154,8 +157,6 @@ fn start_fast_import(git_repo: &Repository, marks_file: &Path) -> Child {
         .arg("fast-import")
         .arg("--force")
         .arg("--quiet")
-        .arg(format!("--import-marks-if-exists={}", marks_file.display()))
-        .arg(format!("--export-marks={}", marks_file.display()))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .current_dir(git_repo.path())
@@ -183,6 +184,48 @@ impl fmt::Display for TimelineRepoCommit {
             // Mark-type commit references take the form :<idnum>
             Self::Mark(id) => write!(f, ":{}", id),
         }
+    }
+}
+
+/// The timeline commit a previous run derived from `syntax_rev`, if any.  The
+/// notes are keyed by source revision, so we check that the timeline commit was
+/// derived from this syntax commit rather than another syntax commit for the
+/// same source revision (ex: if the syntax repo was regenerated, or had a
+/// commit left incomplete by a crash which was since replaced).
+fn processed_timeline_commit(
+    syntax_repo: &Repository,
+    timeline_repo: &Repository,
+    mapping: &SourceMapping,
+    syntax_rev: Oid,
+) -> Option<Oid> {
+    let source_rev = syntax_commit_to_meta(&syntax_repo.find_commit(syntax_rev).ok()?).source_rev;
+    let timeline_rev = mapping.lookup(timeline_repo, source_rev)?;
+    let meta = timeline_commit_to_meta(&timeline_repo.find_commit(timeline_rev).ok()?);
+    (meta.syntax_rev == syntax_rev).then_some(timeline_rev)
+}
+
+/// The timeline commits for syntax commits: those written by this run and
+/// those written by previous runs.
+struct TimelineCommits<'a> {
+    syntax_repo: &'a Repository,
+    timeline_repo: &'a Repository,
+    mapping: SourceMapping,
+    /// The commits written by this run and the processed parents of the first
+    /// revisions it processes.
+    known: HashMap<Oid, TimelineRepoCommit>,
+}
+
+impl TimelineCommits<'_> {
+    fn get(&self, syntax_rev: Oid) -> Option<TimelineRepoCommit> {
+        self.known.get(&syntax_rev).copied().or_else(|| {
+            processed_timeline_commit(
+                self.syntax_repo,
+                self.timeline_repo,
+                &self.mapping,
+                syntax_rev,
+            )
+            .map(TimelineRepoCommit::Commit)
+        })
     }
 }
 
@@ -1066,7 +1109,7 @@ fn preprocess_merge(
 fn thread_preprocess_revision(
     syntax_repo: &Repository,
     source_repo: &Repository,
-    backout_index: &BackoutTargetIndex,
+    backout_resolver: &BackoutTargetResolver,
     rev_meta: &HistorySyntaxCommitMeta,
     config: &InferenceConfig,
 ) -> Result<TimelineData, git2::Error> {
@@ -1107,7 +1150,7 @@ fn thread_preprocess_revision(
 
     let mut backed_out = vec![];
     if let RevisionChanges::Linear { files, .. } = &mut changes {
-        let targets = find_backed_out(syntax_repo, backout_index, &commit, &message);
+        let targets = find_backed_out(syntax_repo, backout_resolver, &commit, &message);
         if !targets.is_empty() {
             add_restore_bases(syntax_repo, &commit, &targets, files, config)?;
             for target in targets {
@@ -1136,7 +1179,7 @@ impl ComputeThread {
     fn new(
         syntax_repo_path: &str,
         source_repo_path: &str,
-        backout_index: Arc<BackoutTargetIndex>,
+        backout_resolver: Arc<BackoutTargetResolver>,
     ) -> Self {
         let (query_tx, query_rx) = channel();
         let (response_tx, response_rx) = channel();
@@ -1148,7 +1191,7 @@ impl ComputeThread {
                 response_tx,
                 syntax_repo_path,
                 source_repo_path,
-                backout_index,
+                backout_resolver,
             );
         });
 
@@ -1178,15 +1221,20 @@ fn compute_thread_main(
     response_tx: Sender<TimelineData>,
     syntax_repo_path: String,
     source_repo_path: String,
-    backout_index: Arc<BackoutTargetIndex>,
+    backout_resolver: Arc<BackoutTargetResolver>,
 ) {
     let syntax_repo = Repository::open(syntax_repo_path).unwrap();
     let source_repo = Repository::open(source_repo_path).unwrap();
     let config = InferenceConfig::default();
     while let Ok(rev) = query_rx.recv() {
-        let result =
-            thread_preprocess_revision(&syntax_repo, &source_repo, &backout_index, &rev, &config)
-                .unwrap();
+        let result = thread_preprocess_revision(
+            &syntax_repo,
+            &source_repo,
+            &backout_resolver,
+            &rev,
+            &config,
+        )
+        .unwrap();
         response_tx.send(result).unwrap();
     }
 }
@@ -1574,7 +1622,7 @@ fn process_linear_revision(
     files: &[FileChange],
     token_totals: &BTreeMap<String, TokenDeltaDetails>,
     timeline_parents: &[TimelineRepoCommit],
-    timeline_map: &HashMap<Oid, TimelineRepoCommit>,
+    timeline_commits: &TimelineCommits,
 ) -> BTreeMap<String, RevFileSummaryRecord> {
     let rev = data.meta.source_rev.to_string();
     let parent = timeline_parents.first();
@@ -1623,8 +1671,8 @@ fn process_linear_revision(
             debug!("  Writing annotated {}", new_path);
             let mut lines = build_linear_annotated(&rev, change, files, &parent_annotated);
             let base = change.restore.as_ref().and_then(|restore| {
-                let base_commit = timeline_map.get(&restore.syntax_rev)?;
-                let blob = read_path_blob(import_helper, base_commit, &annotated_path(new_path))?;
+                let base_commit = timeline_commits.get(restore.syntax_rev)?;
+                let blob = read_path_blob(import_helper, &base_commit, &annotated_path(new_path))?;
                 Some((annotated_lines(&blob), restore))
             });
             if let Some((base_lines, restore)) = base {
@@ -1886,74 +1934,72 @@ fn main() {
     let timeline_repo = Repository::open(&args[3]).unwrap();
     let rev_summary_root = PathBuf::from(&args[4]);
 
-    // Note that don't do anything with hg or cinnabar in this program; we depend
-    // on build-syntax-token-tree to have included an "hg HGREV" line in the
-    // commit messages it emitted into the syntax_repo.
-
     let blame_ref = env::var("BLAME_REF").ok().unwrap_or("HEAD".to_string());
     let commit_limit = env::var("COMMIT_LIMIT")
         .ok()
         .and_then(|x| x.parse::<usize>().ok())
         .unwrap_or(0);
+    let use_cinnabar = env::var("CINNABAR").map_or(true, |v| v != "0");
 
-    info!(
-        "Reading existing timeline map of timeline repo ref {}...",
-        blame_ref
+    // The syntax repo's notes map source revisions to the syntax commits, which
+    // we need to resolve backouts, and the timeline repo's notes map them to the
+    // timeline commits we've already written.
+    let syntax_notes_refs = NotesRefs::from_env(&syntax_repo, &blame_ref);
+    let syntax_mapping = SourceMapping::open(&syntax_repo, &syntax_notes_refs);
+    require_notes_for_existing_branch(
+        &syntax_repo,
+        &blame_ref,
+        &syntax_notes_refs,
+        &syntax_mapping,
     );
-    // Maps syntax repo revision to timeline repo commit
-    let mut timeline_map = if let Ok(oid) = timeline_repo.refname_to_id(&blame_ref) {
-        index_timeline_history_by_syntax_rev(&timeline_repo, Some(oid))
-            .into_iter()
-            .map(|(k, v)| (k, TimelineRepoCommit::Commit(v.timeline_rev)))
-            .collect::<HashMap<git2::Oid, TimelineRepoCommit>>()
-    } else {
-        HashMap::new()
-    };
-    info!(
-        "  Timeline map has {} existing entries.",
-        timeline_map.len()
-    );
-
-    // Revisions processed by previous runs which aren't reachable from the
-    // branch; see build-syntax-token-tree.
-    let marks_file = fast_import_marks_path(&timeline_repo);
-    let mut prev_max_mark = 0;
-    if let Ok(contents) = fs::read_to_string(&marks_file) {
-        let marks = parse_fast_import_marks(&contents);
-        let mut needed = 0;
-        for (mark, timeline_oid) in &marks {
-            prev_max_mark = prev_max_mark.max(*mark);
-            let meta = timeline_commit_to_meta(&timeline_repo.find_commit(*timeline_oid).unwrap());
-            timeline_map.entry(meta.syntax_rev).or_insert_with(|| {
-                needed += 1;
-                TimelineRepoCommit::Commit(*timeline_oid)
-            });
-        }
-        info!(
-            "  Marks file {} had {} revisions, {} of which weren't reachable from the branch.",
-            marks_file.display(),
-            marks.len(),
-            needed
-        );
-    }
+    let notes_refs = NotesRefs::from_env(&timeline_repo, &blame_ref);
+    let mapping = SourceMapping::open(&timeline_repo, &notes_refs);
+    require_notes_for_existing_branch(&timeline_repo, &blame_ref, &notes_refs, &mapping);
+    info!("Using source mapping notes {}", notes_refs.write);
 
     // We are primarily processing the "syntax" repo which is derived from the
     // "source" repo.  So start a walk in the syntax repo from the provided
-    // BLAME_REF.
+    // BLAME_REF, hiding the syntax commits we've already processed (and so their
+    // ancestors) and recording them as we go.  These are the processed parents
+    // of the revisions we walk (plus the head if it has been processed).
+    let mut processed = HashMap::new();
+    let mut hide_processed = |syntax_rev: Oid| match processed_timeline_commit(
+        &syntax_repo,
+        &timeline_repo,
+        &mapping,
+        syntax_rev,
+    ) {
+        Some(timeline_rev) => {
+            processed.insert(syntax_rev, TimelineRepoCommit::Commit(timeline_rev));
+            true
+        }
+        None => false,
+    };
     let mut walk = syntax_repo.revwalk().unwrap();
     walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE).unwrap();
     walk.push(syntax_repo.refname_to_id(&blame_ref).unwrap())
         .unwrap();
     let mut revs_to_process = walk
+        .with_hide_callback(&mut hide_processed)
+        .unwrap()
         .map(|r| r.unwrap()) // walk produces Result<git2::Oid> so we unwrap to just the Oid
-        // We don't need to process revisions we already have a timeline revision for.
-        .filter(|syntax_oid| !timeline_map.contains_key(syntax_oid))
         // Read the commit so we can have all the relevant revision identifiers.
         .map(|syntax_oid| {
             let commit = syntax_repo.find_commit(syntax_oid).unwrap();
             syntax_commit_to_meta(&commit)
         })
         .collect::<Vec<_>>();
+    info!(
+        "{} revisions to process, building on {} processed revisions",
+        revs_to_process.len(),
+        processed.len()
+    );
+    let mut timeline_commits = TimelineCommits {
+        syntax_repo: &syntax_repo,
+        timeline_repo: &timeline_repo,
+        mapping: mapping.clone(),
+        known: processed,
+    };
     if commit_limit > 0 && commit_limit < revs_to_process.len() {
         info!(
             "Truncating list of commits from {} to specified limit {}",
@@ -1964,10 +2010,10 @@ fn main() {
     }
     let rev_count = revs_to_process.len();
 
-    info!("Indexing syntax commits for resolving backouts...");
-    let backout_index = Arc::new(BackoutTargetIndex::build(
-        &syntax_repo,
-        syntax_repo.refname_to_id(&blame_ref).unwrap(),
+    let backout_resolver = Arc::new(BackoutTargetResolver::new(
+        syntax_mapping,
+        Path::new(&source_repo_path),
+        use_cinnabar,
     ));
 
     let num_threads: usize = (num_cpus::get() - 1).max(1); // 1 for the main thread
@@ -1979,7 +2025,7 @@ fn main() {
         compute_threads.push(ComputeThread::new(
             &syntax_repo_path,
             &source_repo_path,
-            backout_index.clone(),
+            backout_resolver.clone(),
         ));
     }
 
@@ -2000,7 +2046,8 @@ fn main() {
     // if we ran out of requests because there were so few.
     assert!((compute_index % num_threads == 0) || compute_index == rev_count);
 
-    let mut import_helper = start_fast_import(&timeline_repo, &marks_file);
+    let mut import_helper = start_fast_import(&timeline_repo);
+    let mut notes = NotesWriter::new(&timeline_repo, &notes_refs.write);
 
     // Tracks completion count and serves as the basis for the mark <idnum>
     // assigned to each commit.
@@ -2031,7 +2078,11 @@ fn main() {
         let syntax_commit = syntax_repo.find_commit(rev_meta.syntax_rev).unwrap();
         let timeline_parents = syntax_commit
             .parent_ids()
-            .map(|pid| timeline_map[&pid])
+            .map(|pid| {
+                timeline_commits
+                    .get(pid)
+                    .expect("parents are processed before their children")
+            })
             .collect::<Vec<_>>();
 
         // Scope the import_helper borrow
@@ -2042,10 +2093,10 @@ fn main() {
             // https://git-scm.com/docs/git-fast-import#_mark
             let mut import_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
             writeln!(import_stream, "commit {}", blame_ref).unwrap();
-            // Marks from previous runs are imported, so don't reuse them.
-            let mark = prev_max_mark + rev_done;
-            writeln!(import_stream, "mark :{}", mark).unwrap();
-            timeline_map.insert(rev_meta.syntax_rev, TimelineRepoCommit::Mark(mark));
+            writeln!(import_stream, "mark :{}", rev_done).unwrap();
+            timeline_commits
+                .known
+                .insert(rev_meta.syntax_rev, TimelineRepoCommit::Mark(rev_done));
 
             let mut write_role = |role: &str, sig: &git2::Signature| {
                 write!(import_stream, "{} ", role).unwrap();
@@ -2114,7 +2165,7 @@ fn main() {
                 files,
                 token_totals,
                 &timeline_parents,
-                &timeline_map,
+                &timeline_commits,
             ),
             RevisionChanges::Merge(merge) => {
                 process_merge_revision(&mut import_helper, &data, merge, &timeline_parents);
@@ -2124,7 +2175,7 @@ fn main() {
 
         // Terminate the commit so we can get its oid for the rev-summary.
         writeln!(import_helper.stdin.as_mut().unwrap()).unwrap();
-        let timeline_rev = read_mark_oid(&mut import_helper, prev_max_mark + rev_done);
+        let timeline_rev = read_mark_oid(&mut import_helper, rev_done);
 
         write_rev_summary(
             &rev_summary_root,
@@ -2137,7 +2188,7 @@ fn main() {
                     .map(|revs| revs.split(',').map(str::to_string).collect())
                     .unwrap_or_default(),
                 syntax_rev: rev_meta.syntax_rev.to_string(),
-                timeline_rev,
+                timeline_rev: timeline_rev.clone(),
                 message: data.message.clone(),
                 iso_date: data.iso_date.clone(),
                 unmapped_author: data.unmapped_author.clone(),
@@ -2154,21 +2205,28 @@ fn main() {
             );
         }
 
+        // Only record the revision as processed once its rev-summary exists.
+        notes.add(
+            rev_meta.source_rev,
+            &timeline_rev,
+            syntax_commit.committer().when().seconds(),
+        );
+        if notes.num_pending() >= NOTES_BATCH_SIZE {
+            notes.flush(import_helper.stdin.as_mut().unwrap()).unwrap();
+        }
+
         if rev_done % 100000 == 0 {
             info!("Completed 100,000 commits, issuing checkpoint...");
             writeln!(import_helper.stdin.as_mut().unwrap(), "checkpoint").unwrap();
         }
     }
 
+    notes.flush(import_helper.stdin.as_mut().unwrap()).unwrap();
+
     info!("Shutting down fast-import...");
     let exitcode = import_helper.wait().unwrap();
     if exitcode.success() {
         info!("Done!");
-        // The marks file is only needed to resume a limited or failed run.
-        if commit_limit == 0 && marks_file.exists() {
-            info!("Removing marks file {}.", marks_file.display());
-            fs::remove_file(&marks_file).unwrap();
-        }
     } else {
         info!("Fast-import exited with {:?}", exitcode.code());
     }

@@ -565,42 +565,6 @@ pub fn syntax_commit_to_meta(commit: &Commit) -> HistorySyntaxCommitMeta {
     }
 }
 
-/// Walk the ancestry of the provided `head_ref` (or HEAD if None) in a history
-/// repository, invoking `handler` for each commit.
-fn walk_history_repo(repo: &Repository, head_ref: Option<Oid>, mut handler: impl FnMut(&Commit)) {
-    let mut walk = repo.revwalk().unwrap();
-    if let Some(oid) = head_ref {
-        walk.push(oid).unwrap();
-    } else {
-        walk.push_head().unwrap();
-    }
-
-    for r in walk {
-        let oid = r.unwrap();
-        let commit = repo.find_commit(oid).unwrap();
-        handler(&commit);
-    }
-}
-
-/// Given a mozsearch token-centric history syntax repository and the head we
-/// plan to serve from, walk its ancestry populating a `syntax_map` from source
-/// repo OID to a struct containing the syntax repo OID as well as any hg rev id
-/// if such data is present.
-///
-/// Note that unlike the classic line-centric maps built by `index_blame`, this
-/// data is not intended to be used for web-serving.
-pub fn index_syntax_history(
-    syntax_repo: &Repository,
-    head_ref: Option<Oid>,
-) -> HashMap<Oid, HistorySyntaxCommitMeta> {
-    let mut syntax_map = HashMap::new();
-    walk_history_repo(syntax_repo, head_ref, |commit| {
-        let meta = syntax_commit_to_meta(commit);
-        syntax_map.insert(meta.source_rev, meta);
-    });
-    syntax_map
-}
-
 /// Metadata about a timeline commit from its commit data.  This will frequently
 /// be stored in a map where one of its members will redundantly express the key
 /// of the map it resides in, but it's easier this way.
@@ -636,36 +600,6 @@ pub fn timeline_commit_to_meta(commit: &Commit) -> HistoryTimelineCommitMeta {
         oldrevs,
         timeline_rev: commit.id(),
     }
-}
-
-/// Given a mozsearch token-centric history timeline repository and the head we
-/// plan to serve from, walk its ancestry populating a `timeline_map` from
-/// source repo OID to a HistoryTimelineCommitMeta struct.
-pub fn index_timeline_history_by_source_rev(
-    timeline_repo: &Repository,
-    head_ref: Option<Oid>,
-) -> HashMap<Oid, HistoryTimelineCommitMeta> {
-    let mut timeline_map = HashMap::new();
-    walk_history_repo(timeline_repo, head_ref, |commit| {
-        let meta = timeline_commit_to_meta(commit);
-        timeline_map.insert(meta.source_rev, meta);
-    });
-    timeline_map
-}
-
-/// Given a mozsearch token-centric history timeline repository and the head we
-/// plan to serve from, walk its ancestry populating a `timeline_map` from
-/// syntax repo OID to a HistoryTimelineCommitMeta struct.
-pub fn index_timeline_history_by_syntax_rev(
-    timeline_repo: &Repository,
-    head_ref: Option<Oid>,
-) -> HashMap<Oid, HistoryTimelineCommitMeta> {
-    let mut timeline_map = HashMap::new();
-    walk_history_repo(timeline_repo, head_ref, |commit| {
-        let meta = timeline_commit_to_meta(commit);
-        timeline_map.insert(meta.syntax_rev, meta);
-    });
-    timeline_map
 }
 
 pub fn load(
