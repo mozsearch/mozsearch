@@ -31,7 +31,7 @@ use std::env;
 use std::fmt;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Stdio};
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
@@ -45,6 +45,7 @@ use tools::file_format::history::io_helpers::{
 };
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use tools::file_format::history::syntax_symdex::{SymdexHeader, SymdexRecord};
+use tools::git_ops::fast_import_git;
 use tools::hyperblame::history_config::{
     AttributeRules, AttributeSet, EffectiveAttributes, HistoryConfig, LangSource, ResolvedLanguage,
     parse_repo_gitattributes, resolve_language,
@@ -96,7 +97,7 @@ fn start_fast_import(git_repo: &Repository) -> Child {
     // (for beta) the new branch head (beta) is not going to be a
     // a descendant of the original (master), and we need `--force`
     // to make git-fast-import allow that.
-    Command::new("git")
+    fast_import_git()
         // We rewrite big files (ex: journals) a lot, and the fastest zlib level
         // saves time without making much difference in size.  (The packs get
         // repacked by maintenance anyway.)

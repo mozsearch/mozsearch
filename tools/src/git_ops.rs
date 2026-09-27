@@ -11,6 +11,18 @@ use crate::file_format::{
     coverage::{InterpolatedCoverage, interpolate_coverage},
 };
 
+/// A git command to run git fast-import with: the git named by MOZSEARCH_GIT at
+/// run time, or else when the tools were built, or else the git on the PATH.
+/// The nix package builds the tools with a git whose fast-import scales to
+/// repos with millions of distinct file names (see nix/mozsearch/git.nix),
+/// which makes the history tools several times faster on firefox-main.
+pub fn fast_import_git() -> std::process::Command {
+    let git = std::env::var_os("MOZSEARCH_GIT")
+        .or_else(|| option_env!("MOZSEARCH_GIT").map(Into::into))
+        .unwrap_or_else(|| "git".into());
+    std::process::Command::new(git)
+}
+
 // Helpers to do things with git2
 
 fn latin1_to_string(bytes: Vec<u8>) -> String {

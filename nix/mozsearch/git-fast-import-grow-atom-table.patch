@@ -1,0 +1,62 @@
+Subject: fast-import: grow the atom table as names are added
+
+git fast-import interns the name of every tree entry it loads or writes in
+its atom table, which is a hash table with a fixed 4451 buckets.  With the
+millions of distinct names in mozsearch's history repos (ex: 4.75M for all
+of firefox-main's timeline), the chains are ~1000 entries long, and walking
+them (a cache miss per entry) dominates git fast-import's time whenever it
+loads a tree: ex: 76% of it when building the timeline, which made each
+revision take 0.37s rather than 0.10s and each merge 13.5s rather than 3.0s.
+
+Double the table (plus one, to keep its size odd) and rehash whenever it
+averages more than one name per bucket.
+
+---
+diff --git a/builtin/fast-import.c b/builtin/fast-import.c
+index aa656c5..31ae7bf 100644
+--- a/builtin/fast-import.c
++++ b/builtin/fast-import.c
+@@ -594,6 +594,34 @@ static void *find_mark(struct mark_set *s, uintmax_t idnum)
+ 	return oe;
+ }
+ 
++/*
++ * Double the atom table (plus one, to keep it odd) and rehash, so that the
++ * chains stay short however many names we see: every tree entry's name is
++ * looked up when a tree is loaded, and a big repository can have millions of
++ * distinct names.
++ */
++static void grow_atom_table(void)
++{
++	unsigned int new_sz = atom_table_sz * 2 + 1;
++	struct atom_str **new_table;
++	unsigned int i;
++
++	CALLOC_ARRAY(new_table, new_sz);
++	for (i = 0; i < atom_table_sz; i++) {
++		struct atom_str *c = atom_table[i];
++		while (c) {
++			struct atom_str *next = c->next_atom;
++			unsigned int hc = hc_str(c->str_dat, c->str_len) % new_sz;
++			c->next_atom = new_table[hc];
++			new_table[hc] = c;
++			c = next;
++		}
++	}
++	free(atom_table);
++	atom_table = new_table;
++	atom_table_sz = new_sz;
++}
++
+ static struct atom_str *to_atom(const char *s, unsigned short len)
+ {
+ 	unsigned int hc = hc_str(s, len) % atom_table_sz;
+@@ -610,6 +638,8 @@ static struct atom_str *to_atom(const char *s, unsigned short len)
+ 	c->next_atom = atom_table[hc];
+ 	atom_table[hc] = c;
+ 	atom_cnt++;
++	if (atom_cnt > atom_table_sz)
++		grow_atom_table();
+ 	return c;
+ }
+ 

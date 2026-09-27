@@ -52,8 +52,9 @@
 
         wasm-snip = pkgs.callPackage ./nix/wasm-snip {};
 
+        mozsearch-git = pkgs.callPackage ./nix/mozsearch/git.nix {};
         mozsearch-tools = pkgs.callPackage ./nix/mozsearch/tools.nix {
-          inherit craneLib;
+          inherit craneLib mozsearch-git;
         };
         mozsearch-clang-plugin = pkgs.callPackage ./nix/mozsearch/clang-plugin.nix {
           inherit llvmPackages;
@@ -85,7 +86,7 @@
       in {
         packages = {
           inherit scip-python wasm-snip;
-          inherit mozsearch-tools mozsearch-clang-plugin mozsearch-wasm-css-analyzer mozsearch-router;
+          inherit mozsearch-git mozsearch-tools mozsearch-clang-plugin mozsearch-wasm-css-analyzer mozsearch-router;
 
           indexerPackages = pkgs.symlinkJoin {
             name = "indexerPackages";

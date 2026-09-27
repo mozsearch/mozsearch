@@ -100,7 +100,7 @@ use std::fmt;
 use std::fs;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Stdio};
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
@@ -137,7 +137,7 @@ use tools::file_format::history::timeline_future::{
 use tools::file_format::history::timeline_tokens::{
     TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, token_timeline_path, tracked_token_key,
 };
-use tools::git_ops::git_time_to_chrono;
+use tools::git_ops::{fast_import_git, git_time_to_chrono};
 use tools::hyperblame::backouts::{BackoutTargetResolver, find_backed_out};
 use tools::hyperblame::consolidation::{Summarize, consolidate_appended, merge_journal_versions};
 use tools::hyperblame::inference::{
@@ -164,7 +164,7 @@ fn start_fast_import(git_repo: &Repository) -> Child {
     // (for beta) the new branch head (beta) is not going to be a
     // a descendant of the original (master), and we need `--force`
     // to make git-fast-import allow that.
-    Command::new("git")
+    fast_import_git()
         // We rewrite big files (ex: journals) a lot, and the fastest zlib level
         // saves time without making much difference in size.  (The packs get
         // repacked by maintenance anyway.)

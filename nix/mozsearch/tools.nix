@@ -8,6 +8,7 @@
   makeBinaryWrapper,
   graphviz,
   gitMinimal,
+  mozsearch-git,
 }: let
   commonArgs = {
     src = runCommandLocal "mozsearch-tools-source" {} ''
@@ -36,7 +37,12 @@ in
     // {
       inherit cargoArtifacts;
 
-      # Some tests write history notes with git fast-import.
+      # The tools run git fast-import from this git; see `fast_import_git` in
+      # tools/src/git_ops.rs.
+      MOZSEARCH_GIT = "${mozsearch-git}/bin/git";
+
+      # Some tests write history notes with git fast-import, and read them
+      # with git.
       nativeCheckInputs = [
         gitMinimal
       ];

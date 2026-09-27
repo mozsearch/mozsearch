@@ -39,6 +39,7 @@ use tools::blame::LineData;
 use tools::cinnabar::{old_revision_notes_writer, parse_oldrevs, write_old_revision_notes};
 use tools::file_format::config::index_blame;
 use tools::git_notes::NotesReader;
+use tools::git_ops::fast_import_git;
 use tools::source_mapping::{NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer};
 
 #[derive(Parser)]
@@ -171,7 +172,7 @@ fn start_fast_import(git_repo: &Repository) -> Child {
     // (for beta) the new branch head (beta) is not going to be a
     // a descendant of the original (master), and we need `--force`
     // to make git-fast-import allow that.
-    Command::new("git")
+    fast_import_git()
         .arg("fast-import")
         .arg("--force")
         .arg("--quiet")

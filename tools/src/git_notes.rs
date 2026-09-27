@@ -218,7 +218,7 @@ pub(crate) mod test_support {
     use std::process::{ChildStdin, Command, Stdio};
 
     pub fn fast_import(repo: &Repository, write: impl FnOnce(&mut ChildStdin)) {
-        let mut child = Command::new("git")
+        let mut child = crate::git_ops::fast_import_git()
             .arg("fast-import")
             .arg("--quiet")
             .stdin(Stdio::piped())
