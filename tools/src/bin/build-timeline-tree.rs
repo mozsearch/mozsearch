@@ -50,7 +50,8 @@
 // added by the merge.  For journals, we union the records from all of the
 // parents so that the records from commits on the non-first-parent branches
 // are not lost.  The merge commit itself doesn't get journal records, but it
-// does get a rev-summary.
+// does get a rev-summary.  Merges read their parents from the repo on disk
+// rather than through git-fast-import; see `MergeParents`.
 //
 // To determine which journals may differ between parents, we look at the files
 // which differ between the first parent and each other parent in the syntax
@@ -1362,17 +1363,86 @@ fn prepend_journal_record<H: DeserializeOwned + Default + Serialize, R: Summariz
     num_summaries
 }
 
+/// The parent commits of a merge, which we read from the timeline repo on disk
+/// with git2 rather than through git fast-import (which requires a checkpoint
+/// if they were written by this run).  Unlike linear revisions, which can read
+/// most things from the commit being written (see `ReadFrom`), merges read
+/// from other commits, and git fast-import reloads a commit's trees along the
+/// path for every such read.  Loading a tree looks up the name of every entry in
+/// a hash table which has a fixed number of buckets (4451, as of git 2.53) and
+/// holds every name git fast-import has seen, which gets very slow with
+/// millions of names: ex: over 10s per journal for all of firefox-main.
+struct MergeParents<'r> {
+    repo: &'r Repository,
+    trees: Vec<git2::Tree<'r>>,
+}
+
+impl<'r> MergeParents<'r> {
+    /// The parents with the given hex ids.
+    fn new(repo: &'r Repository, parent_revs: &[String]) -> Self {
+        let trees = parent_revs
+            .iter()
+            .map(|rev| {
+                repo.find_commit(Oid::from_str(rev).unwrap())
+                    .and_then(|commit| commit.tree())
+                    .unwrap()
+            })
+            .collect();
+        MergeParents { repo, trees }
+    }
+
+    /// The oid of the object at the given path in the `i`th parent, if any.
+    fn path_oid(&self, i: usize, path: &Path) -> Option<Oid> {
+        self.trees[i].get_path(path).ok().map(|entry| entry.id())
+    }
+
+    fn blob(&self, oid: Oid) -> Vec<u8> {
+        self.repo.find_blob(oid).unwrap().content().to_vec()
+    }
+
+    fn path_blob(&self, i: usize, path: &Path) -> Option<Vec<u8>> {
+        self.path_oid(i, path).map(|oid| self.blob(oid))
+    }
+
+    /// Load the records of a journal version, which must be in a commit on disk
+    /// (as the parents' journals and their predecessors are).
+    fn load_journal_version<H: DeserializeOwned + Default, R: DeserializeOwned>(
+        &self,
+        version: &JournalVersionRef,
+    ) -> Result<Vec<R>, String> {
+        let oid = Oid::from_str(&version.timeline_rev).map_err(|e| e.to_string())?;
+        let tree = self
+            .repo
+            .find_commit(oid)
+            .and_then(|commit| commit.tree())
+            .map_err(|e| e.to_string())?;
+        Ok(tree
+            .get_path(Path::new(&version.path))
+            .ok()
+            .and_then(|entry| read_record_file_contents::<H, R>(&self.blob(entry.id())))
+            .map(|(_, records)| records)
+            .unwrap_or_default())
+    }
+}
+
+/// Make git fast-import write out its pack and refs so that we can read the
+/// commits it wrote with git2, and wait for that by asking it for the oid of
+/// `mark`.
+fn checkpoint(import_helper: &mut Child, mark: usize) {
+    writeln!(import_helper.stdin.as_mut().unwrap(), "checkpoint").unwrap();
+    read_mark_oid(import_helper, mark);
+}
+
 /// Union the journal at `path` across all parents (whose hex ids are
 /// `parent_revs`), writing it if the parents' versions differ.
 fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
     import_helper: &mut Child,
-    parents: &[TimelineRepoCommit],
+    parents: &MergeParents,
     parent_revs: &[String],
     path: &Path,
 ) {
-    let oids: Vec<Option<String>> = parents
-        .iter()
-        .map(|p| read_path_oid(import_helper, ReadFrom::Commit(p), path))
+    let oids: Vec<Option<Oid>> = (0..parent_revs.len())
+        .map(|i| parents.path_oid(i, path))
         .collect();
     if oids.iter().all(|oid| *oid == oids[0]) {
         // The tree already has the first parent's version.
@@ -1384,8 +1454,7 @@ fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
         let Some(oid) = oid else {
             continue;
         };
-        let blob = read_blob(import_helper, oid);
-        if let Some((h, records)) = read_record_file_contents::<H, R>(&blob) {
+        if let Some((h, records)) = read_record_file_contents::<H, R>(&parents.blob(*oid)) {
             header.get_or_insert(h);
             let version = JournalVersionRef {
                 timeline_rev: parent_rev.clone(),
@@ -1395,7 +1464,7 @@ fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
         }
     }
     let records = merge_journal_versions(versions, &mut |version| {
-        load_journal_version::<H, R>(import_helper, version)
+        parents.load_journal_version::<H, R>(version)
     })
     .unwrap();
     let contents = record_file_contents_to_string(&header.unwrap_or_default(), &records);
@@ -1876,7 +1945,7 @@ fn process_merge_revision(
     import_helper: &mut Child,
     data: &TimelineData,
     merge: &MergeChanges,
-    timeline_parents: &[TimelineRepoCommit],
+    parents: &MergeParents,
     parent_revs: &[String],
 ) {
     let rev = data.meta.source_rev.to_string();
@@ -1904,13 +1973,9 @@ fn process_merge_revision(
             });
         if let Some((i, path)) = identical
             && path == new_path
-            && let Some(oid) = read_path_oid(
-                import_helper,
-                ReadFrom::Commit(&timeline_parents[i]),
-                &annotated_path(path),
-            )
+            && let Some(oid) = parents.path_oid(i, &annotated_path(path))
         {
-            write_existing_blob(import_helper, &new_annotated, &oid);
+            write_existing_blob(import_helper, &new_annotated, &oid.to_string());
             continue;
         }
 
@@ -1924,11 +1989,7 @@ fn process_merge_revision(
                 ParentMapping::Identical { path } => (path, None),
                 ParentMapping::Diffed { path, unchanged } => (path, Some(unchanged)),
             };
-            let Some(blob) = read_path_blob(
-                import_helper,
-                ReadFrom::Commit(&timeline_parents[i]),
-                &annotated_path(path),
-            ) else {
+            let Some(blob) = parents.path_blob(i, &annotated_path(path)) else {
                 continue;
             };
             let parent_lines = annotated_lines(&blob);
@@ -1976,14 +2037,14 @@ fn process_merge_revision(
     for (path, exists) in &merge.candidate_paths {
         union_journal::<FutureHeader, FutureRecord>(
             import_helper,
-            timeline_parents,
+            parents,
             parent_revs,
             &future_path(path),
         );
         if *exists {
             union_journal::<FileDeltaHeader, FileDeltaRecord>(
                 import_helper,
-                timeline_parents,
+                parents,
                 parent_revs,
                 &files_delta_path(path),
             );
@@ -1994,7 +2055,7 @@ fn process_merge_revision(
     for token in &merge.candidate_tokens {
         union_journal::<TokenHeader, TokenDeltaRecord>(
             import_helper,
-            timeline_parents,
+            parents,
             parent_revs,
             &token_timeline_path(token),
         );
@@ -2163,6 +2224,8 @@ fn main() {
     let consolidate = env::var("CONSOLIDATE").map_or(true, |v| v != "0");
     let mut mark_revs: HashMap<usize, String> = HashMap::new();
     let mut num_summaries = 0;
+    // The last mark whose commit git fast-import has written to disk.
+    let mut checkpointed_mark = 0;
 
     // Tracks completion count and serves as the basis for the mark <idnum>
     // assigned to each commit.
@@ -2199,6 +2262,16 @@ fn main() {
                     .expect("parents are processed before their children")
             })
             .collect::<Vec<_>>();
+
+        // Merges read their parents from disk; see `MergeParents`.
+        if matches!(data.changes, RevisionChanges::Merge(_))
+            && timeline_parents.iter().any(
+                |parent| matches!(parent, TimelineRepoCommit::Mark(mark) if *mark > checkpointed_mark),
+            )
+        {
+            checkpoint(&mut import_helper, rev_done - 1);
+            checkpointed_mark = rev_done - 1;
+        }
 
         // Scope the import_helper borrow
         {
@@ -2303,7 +2376,7 @@ fn main() {
                     &mut import_helper,
                     &data,
                     merge,
-                    &timeline_parents,
+                    &MergeParents::new(&timeline_repo, &parent_revs),
                     &parent_revs,
                 );
                 BTreeMap::new()
@@ -2355,7 +2428,8 @@ fn main() {
 
         if rev_done % 100000 == 0 {
             info!("Completed 100,000 commits, issuing checkpoint...");
-            writeln!(import_helper.stdin.as_mut().unwrap(), "checkpoint").unwrap();
+            checkpoint(&mut import_helper, rev_done);
+            checkpointed_mark = rev_done;
         }
     }
 
