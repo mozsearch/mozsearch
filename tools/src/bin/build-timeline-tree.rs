@@ -9,7 +9,7 @@
 // the same as by `build-syntax-token-tree`.  Like it, we record the revisions
 // we've processed in git notes (in the timeline repo), and we find the syntax
 // commits of source revisions via the syntax repo's notes; see
-// `hyperblame::source_mapping`.
+// `source_mapping`.
 //
 // ## Timeline repo contents
 //
@@ -133,10 +133,10 @@ use tools::hyperblame::inference::{
     FileChangeInput, FileChangeKind, FileInference, InferenceConfig, PairingSupport, RemovedFate,
     TokenOrigin, diff_token_lines, infer_revision,
 };
-use tools::hyperblame::source_mapping::{
+use tools::hyperblame::stats::compute_revision_stats;
+use tools::source_mapping::{
     NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer, require_notes_for_existing_branch,
 };
-use tools::hyperblame::stats::compute_revision_stats;
 use tools::tree_sitter_support::cst_tokenizer::namespace_for_file;
 
 /// Starts the git-fast-import subcommand, to which data

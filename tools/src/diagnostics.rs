@@ -12,7 +12,7 @@
 use serde_json::{Value, json};
 
 use crate::cinnabar::OldRevisionMap;
-use crate::file_format::config::Config;
+use crate::file_format::config::{BlameMap, Config};
 
 /// Emit relevant runtime data for this tree.  We're not interested in surfacing
 /// the static values from our config.json but instead on the dynamic state that
@@ -31,14 +31,24 @@ pub fn diagnostics_from_config(cfg: &Config, tree_name: &str) -> Value {
 
     if let Some(gitdata) = &tree_config.git {
         git_stats = json!({
-            "blame": json!({
-                "count": gitdata.blame_map.len()
-            }),
-            "hg": json!({
-                "count": gitdata.hg_map.len()
-            }),
+            // Counting the notes would mean reading all of them.
+            "blame": match &gitdata.blame {
+                BlameMap::Notes { notes_ref, .. } => json!({
+                    "notes_ref": notes_ref
+                }),
+                BlameMap::InMemory { blame_map, .. } => json!({
+                    "count": blame_map.len()
+                }),
+            },
+            "hg": match &gitdata.blame {
+                BlameMap::Notes { notes_ref, .. } => json!({
+                    "notes_ref": notes_ref
+                }),
+                BlameMap::InMemory { hg_map, .. } => json!({
+                    "count": hg_map.len()
+                }),
+            },
             "old": match &gitdata.old_revisions {
-                // Counting the notes would mean reading all of them.
                 OldRevisionMap::Notes { notes_ref, .. } => json!({
                     "notes_ref": notes_ref
                 }),

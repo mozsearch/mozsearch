@@ -6,7 +6,7 @@
 //! so these can replace in-memory maps built by walking a whole branch.
 //!
 //! Uses:
-//! - `hyperblame::source_mapping`: source revisions to history repo commits.
+//! - `source_mapping`: source revisions to blame and history repo commits.
 //! - `cinnabar::OldRevisionMap`: old revisions (ex: gecko-dev revisions) to new
 //!   source revisions, in the blame repo.
 //!
@@ -180,6 +180,10 @@ impl NotesWriter {
 
     pub fn num_pending(&self) -> usize {
         self.pending.len()
+    }
+
+    pub fn notes_ref(&self) -> &str {
+        &self.notes_ref
     }
 
     /// Write a notes commit with the pending notes, if any.  This must not be

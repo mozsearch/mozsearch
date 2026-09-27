@@ -532,7 +532,7 @@ fn fab_server(
     };
 
     Ok(Box::new(LocalIndex {
-        // We don't need the blame_map and hg_map (yet)
+        // We don't need the blame and hg maps (yet)
         config_paths: tree_config.paths,
         config_repo_path: config_repo_path.to_string(),
         tree_name: tree_name.to_string(),

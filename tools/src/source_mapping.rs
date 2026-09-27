@@ -1,21 +1,23 @@
-//! Mapping source revisions to the history repos' commits with git notes (bug
-//! 1983433).
+//! Mapping source revisions to the commits derived from them in the blame and
+//! history repos with git notes (bug 1983433).
 //!
-//! The syntax and timeline repos each have a notes ref, by default
+//! build-blame's blame repo and the history tools' syntax and timeline repos
+//! each have a notes ref per branch, by default
 //! `refs/notes/mozsearch-source-mapping-<BRANCH>`, whose notes are keyed by
-//! source revision and contain the hex id of the syntax/timeline commit derived
-//! from it.  Like git-cinnabar's hg2git notes, the annotated objects (source
-//! revisions) don't exist in the repos, which git notes allow.
+//! source revision and contain the id of the commit derived from it (see
+//! `git_notes`).
 //!
-//! This lets the history tools find the revisions they've already processed
-//! without walking the whole history branch to build in-memory maps: they walk
-//! the source (or syntax) history with a revwalk hide callback which hides
-//! processed revisions, so only the new revisions and the processed parents of
-//! the oldest ones are visited.  The notes also cover processed revisions which
-//! aren't reachable from the branch, like the first history of a merge of long
+//! This lets the tools find the revisions they've already processed without
+//! walking the whole branch to build in-memory maps: they walk the source (or
+//! syntax) history with a revwalk hide callback which hides processed
+//! revisions, so only the new revisions and the processed parents of the oldest
+//! ones are visited.  The notes also cover processed revisions which aren't
+//! reachable from the branch, like the first history of a merge of long
 //! unrelated histories when a run stopped partway through the second (which is
-//! what build-blame's marks file is for).  The web server will be able to map
-//! source revisions to history commits the same way.
+//! what build-blame's marks file used to be for, see bug 1782285).  And the
+//! web server looks up the blame commits of source revisions (and so their hg
+//! revisions, which the blame commits record) in the notes rather than walking
+//! the tree's blame branch at startup; see `file_format::config::BlameMap`.
 //!
 //! ## Multiple heads (try and review)
 //!
@@ -32,13 +34,21 @@
 //!
 //! ## Writing
 //!
-//! See `git_notes` for how the notes are stored.  Notes are written in batches
-//! of `NOTES_BATCH_SIZE` revisions, and only for revisions whose commits were
-//! completely written.  Since the history commits are a deterministic function
-//! of their inputs, a crash just means the revisions since the last batch get
-//! processed again with identical results, and a commit left incomplete by a
-//! crash (git fast-import commits whatever it has at the end of its input) is
-//! replaced rather than being mistaken for a processed revision.
+//! Notes are written in batches of `NOTES_BATCH_SIZE` revisions, and only for
+//! revisions whose commits were completely written.  Since the derived commits
+//! are a deterministic function of their inputs, a crash just means the
+//! revisions since the last batch get processed again with identical results,
+//! and a commit left incomplete by a crash (git fast-import commits whatever it
+//! has at the end of its input) is replaced rather than being mistaken for a
+//! processed revision.
+//!
+//! ## Repos from before the notes
+//!
+//! build-blame seeds the notes of blame branches which don't have any (blame
+//! repos from before the notes existed, and new branches, which are created
+//! from existing branches) from a walk of the branch like `index_blame`'s.  The
+//! history tools instead refuse to run (`require_notes_for_existing_branch`),
+//! since no history was published before they wrote notes.
 
 use std::env;
 

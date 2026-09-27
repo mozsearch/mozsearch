@@ -5,6 +5,14 @@
 //   in time.  This is not a blame tree.
 // - build-timeline-tree.rs - This converts the syntax token tree into the
 //   token-centric blame tree and other derived history data.
+//
+// We record the source revisions we've processed in git notes in the blame repo
+// (refs/notes/mozsearch-source-mapping-<BRANCH>) mapping them to their blame
+// commits, which is how we find the revisions to process without walking the
+// whole blame branch, and how web-server.rs finds blame commits; see
+// `tools::source_mapping`, including for the `NOTES_REF` and `READ_NOTES_REFS`
+// environment variables.  We also record the old revisions of revisions in
+// notes; see `tools::cinnabar`.
 
 extern crate env_logger;
 extern crate git2;
@@ -14,7 +22,7 @@ extern crate num_cpus;
 extern crate tools;
 
 use std::borrow::{Borrow, Cow};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs::read_to_string;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
@@ -28,8 +36,10 @@ extern crate clap;
 use clap::Parser;
 use git2::{DiffFindOptions, ObjectType, Oid, Patch, Repository, Sort};
 use tools::blame::LineData;
-use tools::cinnabar::{old_revision_notes_ref, parse_oldrevs, write_old_revision_notes};
+use tools::cinnabar::{old_revision_notes_writer, parse_oldrevs, write_old_revision_notes};
 use tools::file_format::config::index_blame;
+use tools::git_notes::NotesReader;
+use tools::source_mapping::{NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer};
 
 #[derive(Parser)]
 struct BuildBlameCli {
@@ -47,20 +57,11 @@ struct BuildBlameCli {
     #[clap(long, value_parser, env = "BLAME_REF", default_value = "HEAD")]
     blame_ref: String,
 
-    /// Path to use for the git-fast-import marks file.  If we find this file
-    /// when we start-up, we will use it to augment our understanding of what
-    /// commmits have already been transformed.  This file will always be left
-    /// in place if this program aborts since it's necessary to resume
-    /// processing without losing work due to the existence of merges.
-    /// Otherwise, this file will be deleted on successful exit if no
-    /// commit-limit was used, but will be retained if a limit was used.
-    #[clap(
-        long,
-        value_parser,
-        env = "MARKS_FILE",
-        default_value = "/tmp/mozsearch-fast-import.marks"
-    )]
-    marks_file: String,
+    /// Ignored.  We used to use a git-fast-import marks file to keep track of
+    /// processed revisions which aren't reachable from the branch (bug
+    /// 1782285), which the source mapping notes now do.
+    #[clap(long, value_parser, env = "MARKS_FILE", hide = true)]
+    marks_file: Option<String>,
 
     /// An option to disable asking git-cinnabar to try and map revisions.
     /// It's always been the case that we default to using cinnabar, because
@@ -160,7 +161,7 @@ fn start_old_cinnabar_hg2git_helper(git_repo: &Repository) -> Child {
 /// is fed for adding to the blame repo. Refer to
 /// https://git-scm.com/docs/git-fast-import for detailed
 /// documentation on git-fast-import.
-fn start_fast_import(git_repo: &Repository, marks_file: &str) -> Child {
+fn start_fast_import(git_repo: &Repository) -> Child {
     // Note that we use the `--force` flag here, because there
     // are cases where the blame repo branch we're building was
     // initialized from some other branch (e.g. gecko-dev beta
@@ -174,8 +175,6 @@ fn start_fast_import(git_repo: &Repository, marks_file: &str) -> Child {
         .arg("fast-import")
         .arg("--force")
         .arg("--quiet")
-        .arg(format!("--import-marks-if-exists={}", marks_file))
-        .arg(format!("--export-marks={}", marks_file))
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .current_dir(git_repo.path())
@@ -196,69 +195,14 @@ enum BlameRepoCommit {
     Mark(usize),
 }
 
-/// Helper to parse the contents of a marks file written by git-fast-import's
-/// `--export-marks=` argument.
-///
-/// This is used by our blame/history preprocessing logic in order to be able to
-///  handle restarting processing when a (large) merge wasn't fully processing
-/// in a single run.  The problem that can happen in those cases is that
-/// `index_blame`/similar methods only revwalk a single branch of our
-/// transformed blame and until the merge commit is ingested, we will lose track
-/// of the first parent of the merge if we've begun processing the second parent
-/// of the merge (modulo any commits they may share).
-///
-/// As the most dramatic example, our revwalk of the blink repository's history
-/// up until the point of the merge of the "chromium" and "link trees" looks
-/// like: [(289k commits of chromium), (182k commits of blink), (merge commit)].
-/// As long as our import process doesn't fail, we're fine, but if we crash or
-/// stop because of our "limit" mechanism once we've moved onto the blink
-/// commits, then they won't be referenced by the single branch tag we're using
-/// in our processing.
-///
-/// To this end, we load up the marks file to augment the information from
-/// index_blame and make sure to pass `--import-marks-if-exists=` when we kick
-/// off git-fast-import.  Note that we currently don't actually reference the
-/// marker identifiers we get from the file since we do have the hashes
-/// available and it makes sense to just use that, so the main reason we want
-/// to tell git-fast-import to import the marks file is so that the contents of
-/// the file are maintained through successive runs rather than only containing
-/// revisions processed in the last run.
-///
-/// Note that another alternative would have been some kind of complex branch
-/// management.  See bug 1782285 for more context.
-fn ingest_git_fast_import_marks_file(
-    blame_repo: &Repository,
-    blame_map: &mut HashMap<Oid, BlameRepoCommit>,
-    marks_file: &str,
-) -> (u32, u32) {
-    // The number of revisions the marker file told us about.
-    let mut marker_revs_exist: u32 = 0;
-    // The number of marker revisions we used to fill in the blame_map.  If this
-    // is zero it means that `index_blame`
-    let mut marker_revs_needed: u32 = 0;
-
-    for line in marks_file.lines() {
-        let line_pieces = line.split_whitespace().collect::<Vec<_>>();
-        let marker_oid = Oid::from_str(line_pieces[1]).unwrap();
-
-        marker_revs_exist += 1;
-
-        let commit = blame_repo.find_commit(marker_oid).unwrap();
-
-        let msg = commit.message().unwrap();
-        // (This must match what's in `index_blame`.)
-        let pieces = msg.split_whitespace().collect::<Vec<_>>();
-
-        let orig_oid = Oid::from_str(pieces[1]).unwrap();
-        blame_map.entry(orig_oid).or_insert_with(|| {
-            marker_revs_needed += 1;
-            BlameRepoCommit::Commit(marker_oid)
-        });
-
-        // (we don't care about pieces[3] which is the hg commit if it's there)
-    }
-
-    (marker_revs_exist, marker_revs_needed)
+/// Retrieve the commit oid for a mark via the `get-mark` command.  The commit
+/// that defined the mark must have been terminated.
+fn read_mark_oid(import_helper: &mut Child, mark: usize) -> String {
+    writeln!(import_helper.stdin.as_mut().unwrap(), "get-mark :{}", mark).unwrap();
+    let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
+    let mut result = String::new();
+    reader.read_line(&mut result).unwrap();
+    result.trim().to_string()
 }
 
 impl fmt::Display for BlameRepoCommit {
@@ -942,60 +886,77 @@ fn main() {
         None
     };
 
-    info!("Reading existing blame map of ref {}...", cli.blame_ref);
-    // We also keep the map from the old revisions of the branch's revisions to
-    // those revisions, which we extend with the revisions we process, for
-    // `write_old_revision_notes`.
-    let (mut blame_map, mut old_to_new) = if let Ok(oid) = blame_repo.refname_to_id(&cli.blame_ref)
-    {
-        let (blame_map, _, old_to_new) = index_blame(&blame_repo, Some(oid), true);
-        (
-            blame_map
-                .into_iter()
-                .map(|(k, v)| (k, BlameRepoCommit::Commit(v)))
-                .collect::<HashMap<git2::Oid, BlameRepoCommit>>(),
-            old_to_new,
-        )
-    } else {
-        (HashMap::new(), HashMap::new())
-    };
-    // The time for the old revision notes commit: that of the last revision we
-    // process, or of the branch head if there aren't any.
-    let mut notes_time = blame_repo
+    if let Some(marks_file) = &cli.marks_file {
+        warn!(
+            "Ignoring the marks file {}; the source mapping notes replaced it.",
+            marks_file
+        );
+    }
+
+    // ## Find the revisions to process.
+    //
+    // The blame repo's notes map the source revisions we've already processed
+    // to their blame commits (see `tools::source_mapping`), and we also maintain
+    // notes mapping old revisions to new revisions (see `tools::cinnabar`).
+    let notes_refs = NotesRefs::from_env(&blame_repo, &cli.blame_ref);
+    let mapping = SourceMapping::open(&blame_repo, &notes_refs);
+    let mut notes = notes_writer(&blame_repo, &notes_refs);
+    let mut old_notes = old_revision_notes_writer(&blame_repo, &cli.blame_ref);
+    let head_time = blame_repo
         .refname_to_id(&cli.blame_ref)
         .and_then(|oid| blame_repo.find_commit(oid))
         .map_or(0, |commit| commit.committer().when().seconds());
 
-    let mut prev_revs_done: usize = 0;
-    if let Ok(contents) = std::fs::read_to_string(cli.marks_file.clone()) {
-        let (revs_found, revs_needed) =
-            ingest_git_fast_import_marks_file(&blame_repo, &mut blame_map, &contents);
-        prev_revs_done = revs_found as usize;
+    // If the branch doesn't have notes yet (blame repos from before the notes,
+    // and new branches, which are created from other branches), we seed them
+    // from a walk of the branch.
+    let mut seed_blame_map = HashMap::new();
+    let mut seed_old_to_new = HashMap::new();
+    if mapping.is_empty()
+        && let Ok(oid) = blame_repo.refname_to_id(&cli.blame_ref)
+    {
         info!(
-            "Marks file at {} (MARKS_FILE env overrides) had {} revs, {} were needed to augment branch data.",
-            cli.marks_file, revs_found, revs_needed
+            "Seeding {} and {} from {}...",
+            notes.notes_ref(),
+            old_notes.notes_ref(),
+            cli.blame_ref
         );
-    } else {
-        info!(
-            "No pre-existing marks file at {} (MARKS_FILE env overrides).",
-            cli.marks_file
-        );
-        if cli.commit_limit > 0 {
-            info!("The marks file will be retained because you specified a LIMIT.");
-        } else {
-            info!("The marks file will be deleted on success but left around on error.");
+        (seed_blame_map, _, seed_old_to_new) = index_blame(&blame_repo, Some(oid), true);
+    }
+
+    // We hide the revisions we've already processed (and so their ancestors),
+    // recording them as we go.  These are the processed parents of the
+    // revisions we walk (plus the head if it has been processed).
+    let mut processed = HashMap::new();
+    let mut hide_processed = |rev: Oid| {
+        let blame_rev = seed_blame_map.get(&rev).copied().or_else(|| {
+            mapping
+                .lookup(&blame_repo, rev)
+                .filter(|blame_rev| blame_repo.find_commit(*blame_rev).is_ok())
+        });
+        match blame_rev {
+            Some(blame_rev) => {
+                processed.insert(rev, BlameRepoCommit::Commit(blame_rev));
+                true
+            }
+            None => false,
         }
     };
-
     let mut walk = git_repo.revwalk().unwrap();
     walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE).unwrap();
     walk.push(git_repo.refname_to_id(&cli.blame_ref).unwrap())
         .unwrap();
-    info!("Existing blame map has {} commits.", blame_map.len());
     let mut revs_to_process = walk
+        .with_hide_callback(&mut hide_processed)
+        .unwrap()
         .map(|r| r.unwrap()) // walk produces Result<git2::Oid> so we unwrap to just the Oid
-        .filter(|git_oid| !blame_map.contains_key(git_oid))
         .collect::<Vec<_>>();
+    info!(
+        "{} revisions to process, building on {} processed revisions",
+        revs_to_process.len(),
+        processed.len()
+    );
+    let mut blame_map = processed;
     if cli.commit_limit > 0 && cli.commit_limit < revs_to_process.len() {
         info!(
             "Truncating list of commits from {} to specified limit {}",
@@ -1032,7 +993,38 @@ fn main() {
     // if we ran out of requests because there were so few.
     assert!((compute_index % num_threads == 0) || compute_index == rev_count);
 
-    let mut import_helper = start_fast_import(&blame_repo, &cli.marks_file);
+    let mut import_helper = start_fast_import(&blame_repo);
+
+    // Write the seeded notes, if any.  The old revision notes come first
+    // throughout so that a crash can't leave a revision recorded as processed
+    // without its old revision notes.
+    if !seed_blame_map.is_empty() {
+        let mut stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
+        let num_old_notes = write_old_revision_notes(
+            &blame_repo,
+            &mut old_notes,
+            &seed_old_to_new,
+            head_time,
+            &mut stream,
+        )
+        .unwrap();
+        let mut seeds: Vec<_> = seed_blame_map.into_iter().collect();
+        seeds.sort();
+        for (source_rev, blame_rev) in &seeds {
+            notes.add(*source_rev, &blame_rev.to_string(), head_time);
+        }
+        notes.flush(&mut stream).unwrap();
+        stream.flush().unwrap();
+        info!(
+            "Seeded {} source mapping notes and {} of {} old revision notes.",
+            seeds.len(),
+            num_old_notes,
+            seed_old_to_new.len()
+        );
+    }
+    // The old revisions we've written notes for in this run.
+    let mut old_revs_noted = HashSet::new();
+    let existing_old_notes = NotesReader::open(&blame_repo, [old_notes.notes_ref()]);
 
     // Tracks completion count and serves as the basis for the mark <idnum>
     // assigned to each commit.
@@ -1096,12 +1088,8 @@ fn main() {
             // https://git-scm.com/docs/git-fast-import#_mark
             let mut import_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
             writeln!(import_stream, "commit {}", cli.blame_ref).unwrap();
-            // Because we maintain the markers through multiple consecutive runs,
-            // we need to add the count of imported marks so we don't clobber any
-            // existing ones.
-            let mark_id = rev_done + prev_revs_done;
-            writeln!(import_stream, "mark :{}", mark_id).unwrap();
-            blame_map.insert(*git_oid, BlameRepoCommit::Mark(mark_id));
+            writeln!(import_stream, "mark :{}", rev_done).unwrap();
+            blame_map.insert(*git_oid, BlameRepoCommit::Mark(rev_done));
 
             let mut write_role = |role: &str, sig: &git2::Signature| {
                 write!(import_stream, "{} ", role).unwrap();
@@ -1132,11 +1120,20 @@ fn main() {
             }
             if let Some(oldrevs) = oldrev_via_map.cloned().or(oldrev_via_hg) {
                 commit_msg.push_str(&format!("oldrevs {}\n", oldrevs));
+                // Like `index_blame`, the earliest revision with an old
+                // revision wins in the unlikely event of duplicates.
                 for old_rev in parse_oldrevs(&oldrevs) {
-                    old_to_new.entry(old_rev).or_insert(*git_oid);
+                    if old_revs_noted.insert(old_rev)
+                        && existing_old_notes.lookup(&blame_repo, old_rev).is_none()
+                    {
+                        old_notes.add(
+                            old_rev,
+                            &git_oid.to_string(),
+                            commit.committer().when().seconds(),
+                        );
+                    }
                 }
             }
-            notes_time = commit.committer().when().seconds();
 
             write!(import_stream, "data {}\n{}\n", commit_msg.len(), commit_msg).unwrap();
             if let Some(first_parent) = blame_parents.first() {
@@ -1177,6 +1174,17 @@ fn main() {
         )
         .unwrap();
 
+        // Terminate the commit so we can get its oid for the notes.
+        writeln!(import_helper.stdin.as_mut().unwrap()).unwrap();
+        let blame_rev = read_mark_oid(&mut import_helper, rev_done);
+        notes.add(*git_oid, &blame_rev, commit.committer().when().seconds());
+        if notes.num_pending() >= NOTES_BATCH_SIZE {
+            old_notes
+                .flush(import_helper.stdin.as_mut().unwrap())
+                .unwrap();
+            notes.flush(import_helper.stdin.as_mut().unwrap()).unwrap();
+        }
+
         if rev_done % 100000 == 0 {
             info!("Completed 100,000 commits, issuing checkpoint...");
             writeln!(import_helper.stdin.as_mut().unwrap(), "checkpoint").unwrap();
@@ -1187,24 +1195,10 @@ fn main() {
         helper.kill().unwrap();
     }
 
-    let notes_ref = old_revision_notes_ref(&blame_repo, &cli.blame_ref);
-    let mut notes_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
-    let num_notes = write_old_revision_notes(
-        &blame_repo,
-        &notes_ref,
-        &old_to_new,
-        notes_time,
-        &mut notes_stream,
-    )
-    .unwrap();
-    notes_stream.flush().unwrap();
-    drop(notes_stream);
-    info!(
-        "Wrote {} of the {} old revision notes to {}.",
-        num_notes,
-        old_to_new.len(),
-        notes_ref
-    );
+    old_notes
+        .flush(import_helper.stdin.as_mut().unwrap())
+        .unwrap();
+    notes.flush(import_helper.stdin.as_mut().unwrap()).unwrap();
 
     info!("Shutting down fast-import...");
     let exitcode = import_helper.wait().unwrap();
@@ -1212,18 +1206,5 @@ fn main() {
         info!("Done!");
     } else {
         info!("Fast-import exited with {:?}", exitcode.code());
-    }
-
-    // The marks file is intended to be retained only in cases where the env var
-    // LIMIT is specified and we need it for subsequent runs or we crash and
-    // it's useful for investigation and then being able to restart without
-    // data-loss.  Also, if we leave it around when it's not expected, it will
-    // cause problems for other trees being indexed on the same machine.
-    if cli.commit_limit == 0 {
-        info!(
-            "Removing marks file {} after successful run because no limit was specified.",
-            cli.marks_file
-        );
-        std::fs::remove_file(cli.marks_file).unwrap();
     }
 }

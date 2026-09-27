@@ -12,6 +12,7 @@ use git2::{Commit, Oid, Repository};
 use thread_local::ThreadLocal;
 
 use crate::cinnabar::OldRevisionMap;
+use crate::source_mapping::{NotesRefs, SourceMapping, default_notes_ref};
 use crate::url_encode_path::url_encode_path;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -249,10 +250,9 @@ pub struct GitData {
     pub blame_repo: Option<ThreadLocalRepository>,
     pub coverage_repo: Option<ThreadLocalRepository>,
 
-    pub blame_map: HashMap<Oid, Oid>, // Maps repo OID to blame_repo OID.
-    // Maps repo OID to Hg rev.  This comes from our blame commits, but cinnabar
-    // can also tell us this bidirectionally via `git2hg` and `hg2git`.
-    pub hg_map: HashMap<Oid, String>,
+    /// Maps repo OIDs to blame_repo OIDs and hg revs; use `blame_rev` and
+    /// `hg_rev`.
+    pub blame: BlameMap,
     /// Maps oldgit OIDs to repo OIDs; use `new_rev_for_old_rev`.
     pub old_revisions: OldRevisionMap,
 
@@ -261,7 +261,58 @@ pub struct GitData {
     pub blame_ignore: BlameIgnoreList,
 }
 
+/// How a tree's repo revisions map to blame commits and hg revisions (which
+/// the blame commits record, though cinnabar can also tell us this
+/// bidirectionally via `git2hg` and `hg2git`).
+pub enum BlameMap {
+    /// The blame repo's source mapping notes for the tree's branch; see
+    /// `source_mapping`.
+    Notes {
+        notes_ref: String,
+        mapping: SourceMapping,
+    },
+    /// Maps built by walking the blame branch (`index_blame`), for blame repos
+    /// from before build-blame wrote the notes.
+    InMemory {
+        blame_map: HashMap<Oid, Oid>,
+        hg_map: HashMap<Oid, String>,
+    },
+}
+
+impl Default for BlameMap {
+    fn default() -> Self {
+        BlameMap::InMemory {
+            blame_map: HashMap::new(),
+            hg_map: HashMap::new(),
+        }
+    }
+}
+
 impl GitData {
+    /// The blame repo commit for a repo revision, if blame has been built for
+    /// it.
+    pub fn blame_rev(&self, rev: Oid) -> Option<Oid> {
+        match &self.blame {
+            BlameMap::Notes { mapping, .. } => mapping.lookup(self.blame_repo.as_deref()?, rev),
+            BlameMap::InMemory { blame_map, .. } => blame_map.get(&rev).copied(),
+        }
+    }
+
+    /// The hg revision of a repo revision, if known.
+    pub fn hg_rev(&self, rev: Oid) -> Option<String> {
+        match &self.blame {
+            BlameMap::Notes { .. } => {
+                let blame_commit = self
+                    .blame_repo
+                    .as_deref()?
+                    .find_commit(self.blame_rev(rev)?)
+                    .ok()?;
+                extract_info_from_blame_commit(&blame_commit).hgrev
+            }
+            BlameMap::InMemory { hg_map, .. } => hg_map.get(&rev).cloned(),
+        }
+    }
+
     /// The repo revision of an oldgit revision (ex: the firefox-* revision of a
     /// gecko-dev revision), if known.
     pub fn new_rev_for_old_rev(&self, old_rev: Oid) -> Option<Oid> {
@@ -655,7 +706,7 @@ pub fn git_data(paths: &TreeConfigPaths, need_indexes: bool) -> Option<GitData> 
     let mailmap = Mailmap::load(&repo);
     let blame_ignore = BlameIgnoreList::load(&repo);
 
-    let (blame_repo, blame_map, hg_map, old_revisions) = blame_data(paths, need_indexes);
+    let (blame_repo, blame, old_revisions) = blame_data(paths, need_indexes);
     let coverage_repo = paths
         .coverage_repo()
         .as_deref()
@@ -665,8 +716,7 @@ pub fn git_data(paths: &TreeConfigPaths, need_indexes: bool) -> Option<GitData> 
         repo: repo.into(),
         blame_repo: blame_repo.map(Into::into),
         coverage_repo: coverage_repo.map(Into::into),
-        blame_map,
-        hg_map,
+        blame,
         old_revisions,
         mailmap,
         blame_ignore,
@@ -676,12 +726,7 @@ pub fn git_data(paths: &TreeConfigPaths, need_indexes: bool) -> Option<GitData> 
 fn blame_data(
     paths: &TreeConfigPaths,
     need_indexes: bool,
-) -> (
-    Option<Repository>,
-    HashMap<Oid, Oid>,
-    HashMap<Oid, String>,
-    OldRevisionMap,
-) {
+) -> (Option<Repository>, BlameMap, OldRevisionMap) {
     let Some(git_blame_path) = paths.git_blame_path.as_deref() else {
         return Default::default();
     };
@@ -695,17 +740,32 @@ fn blame_data(
             .refname_to_id(&format!("refs/heads/{}", branch_name))
             .unwrap()
     });
-    // Prefer the old revision notes (which don't need an index) if the blame
-    // repo has them.
-    let old_revision_notes = OldRevisionMap::from_notes(
+    // Prefer the source mapping and old revision notes, which don't need an
+    // index, if the blame repo has them.
+    let branch_ref = paths
+        .git_branch
+        .as_ref()
+        .map_or("HEAD".to_string(), |branch_name| {
+            format!("refs/heads/{}", branch_name)
+        });
+    let notes_ref = default_notes_ref(&blame_repo, &branch_ref);
+    let mapping = SourceMapping::open(
         &blame_repo,
-        &paths
-            .git_branch
-            .as_ref()
-            .map_or("HEAD".to_string(), |branch_name| {
-                format!("refs/heads/{}", branch_name)
-            }),
+        &NotesRefs {
+            write: notes_ref.clone(),
+            read: vec![],
+        },
     );
+    let old_revision_notes = OldRevisionMap::from_notes(&blame_repo, &branch_ref);
+    if !mapping.is_empty() {
+        // build-blame maintains the old revision notes along with the source
+        // mapping notes, so if there aren't any, there aren't old revisions.
+        return (
+            Some(blame_repo),
+            BlameMap::Notes { notes_ref, mapping },
+            old_revision_notes.unwrap_or_default(),
+        );
+    }
     let (blame_map, hg_map, old_map) = if need_indexes {
         index_blame(&blame_repo, blame_ref, old_revision_notes.is_none())
     } else {
@@ -713,7 +773,11 @@ fn blame_data(
     };
     let old_revisions = old_revision_notes.unwrap_or(OldRevisionMap::InMemory(old_map));
 
-    (Some(blame_repo), blame_map, hg_map, old_revisions)
+    (
+        Some(blame_repo),
+        BlameMap::InMemory { blame_map, hg_map },
+        old_revisions,
+    )
 }
 
 #[derive(Hash, Eq, PartialEq, Debug)]

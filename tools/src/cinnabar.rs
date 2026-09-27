@@ -149,26 +149,35 @@ pub fn old_revision_notes_ref(blame_repo: &Repository, blame_ref: &str) -> Strin
     notes_ref_for_branch(blame_repo, OLD_REVISION_NOTES_REF_PREFIX, blame_ref)
 }
 
-/// Bring the old revision notes in `notes_ref` up to date with `old_to_new`,
+/// A writer for the blame repo's old revision notes for the branch
+/// `blame_ref`.
+pub fn old_revision_notes_writer(blame_repo: &Repository, blame_ref: &str) -> NotesWriter {
+    NotesWriter::new(
+        blame_repo,
+        &old_revision_notes_ref(blame_repo, blame_ref),
+        "old revisions to new revisions",
+    )
+}
+
+/// Bring the old revision notes of `writer` up to date with `old_to_new`,
 /// which should map all of the old revisions of the branch's revisions (as
-/// found by `index_blame` plus those of any revisions just processed) to their
-/// new revisions, by writing a notes commit with the notes which are missing or
-/// differ to the git fast-import `stream`.  Returns how many notes that was.
+/// found by `index_blame`) to their new revisions, by writing a notes commit
+/// with the notes which are missing or differ to the git fast-import `stream`.
+/// Returns how many notes that was.  build-blame uses this when it seeds a
+/// blame branch's notes (see `source_mapping`); otherwise it writes notes for
+/// the revisions it processes.
 ///
-/// Checking every old revision each time, rather than only writing notes for
-/// newly processed revisions, seeds the notes of blame branches from before
-/// the notes existed and of new blame branches (which are created from
-/// existing branches), and restores notes lost to a crash, for the cost of
-/// reading the notes trees (a few seconds for a million notes).  build-blame
-/// walks the whole branch anyway.
+/// This compares the note blob ids with those of the expected contents rather
+/// than looking up each note, which takes a few seconds for a million notes
+/// rather than minutes.
 pub fn write_old_revision_notes(
     blame_repo: &Repository,
-    notes_ref: &str,
+    writer: &mut NotesWriter,
     old_to_new: &HashMap<Oid, Oid>,
     time: i64,
     stream: &mut impl Write,
 ) -> io::Result<usize> {
-    let existing = NotesReader::open(blame_repo, [notes_ref])
+    let existing = NotesReader::open(blame_repo, [writer.notes_ref()])
         .note_blob_ids(blame_repo)
         .map_err(io::Error::other)?;
     let mut needed: Vec<(Oid, Oid)> = old_to_new
@@ -177,7 +186,6 @@ pub fn write_old_revision_notes(
         .map(|(old_rev, new_rev)| (*old_rev, *new_rev))
         .collect();
     needed.sort();
-    let mut writer = NotesWriter::new(blame_repo, notes_ref, "old revisions to new revisions");
     for (old_rev, new_rev) in &needed {
         writer.add(*old_rev, &new_rev.to_string(), time);
     }
@@ -275,15 +283,18 @@ mod tests {
         let repo = Repository::init(&dir).unwrap();
         let old = |n: u8| Oid::from_bytes(&[n; 20]).unwrap();
         let new = |n: u8| Oid::from_bytes(&[n + 100; 20]).unwrap();
-        let notes_ref = old_revision_notes_ref(&repo, "refs/heads/beta");
-        assert_eq!(notes_ref, "refs/notes/mozsearch-old-revision-mapping-beta");
+        assert_eq!(
+            old_revision_notes_ref(&repo, "refs/heads/beta"),
+            "refs/notes/mozsearch-old-revision-mapping-beta"
+        );
         assert!(OldRevisionMap::from_notes(&repo, "refs/heads/beta").is_none());
 
         let write = |old_to_new: &HashMap<Oid, Oid>| {
             let mut num_written = 0;
             fast_import(&repo, |stream| {
+                let mut writer = old_revision_notes_writer(&repo, "refs/heads/beta");
                 num_written =
-                    write_old_revision_notes(&repo, &notes_ref, old_to_new, 1000, stream).unwrap();
+                    write_old_revision_notes(&repo, &mut writer, old_to_new, 1000, stream).unwrap();
             });
             num_written
         };

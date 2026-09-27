@@ -110,7 +110,7 @@ pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<Stri
         obj.insert("date".to_owned(), json!(t));
 
         if let (Some(hg_path), Some(hg_id)) =
-            (&tree_config.paths.hg_root, git.hg_map.get(&commit_obj.id()))
+            (&tree_config.paths.hg_root, git.hg_rev(commit_obj.id()))
         {
             obj.insert(
                 "fulldiff".to_owned(),

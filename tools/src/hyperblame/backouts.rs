@@ -16,7 +16,7 @@
 //!   revision, which it can do for abbreviated hg revisions.
 //!
 //! Git revisions are then mapped to syntax commits with the syntax repo's
-//! source mapping notes (see `hyperblame::source_mapping`).
+//! source mapping notes (see `source_mapping`).
 //!
 //! Only commits within `BACKOUT_HORIZON_SECS` before the backout count.  Older
 //! reverts are usually deliberate decisions to remove something rather than
@@ -33,7 +33,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::cinnabar::CinnabarBatch;
-use crate::hyperblame::source_mapping::SourceMapping;
+use crate::source_mapping::SourceMapping;
 
 /// How long after landing a revert of a commit is considered a backout.
 pub const BACKOUT_HORIZON_SECS: i64 = 14 * 24 * 60 * 60;
@@ -192,7 +192,7 @@ pub fn find_backed_out(
 mod tests {
     use super::*;
     use crate::git_notes::test_support::write_notes;
-    use crate::hyperblame::source_mapping::{NotesRefs, default_notes_ref};
+    use crate::source_mapping::{NotesRefs, default_notes_ref};
     use BackoutTargetRef::*;
 
     #[test]

@@ -124,9 +124,8 @@ fn main() {
             // sufficient for us to just use the blame-map here to find the right blame commit
             // for the head_oid above.
             let blame_commit = git.blame_repo.as_ref().and_then(|blame_repo| {
-                git.blame_map
-                    .get(&head_oid)
-                    .map(|blame_oid| blame_repo.find_commit(*blame_oid).unwrap())
+                git.blame_rev(head_oid)
+                    .map(|blame_oid| blame_repo.find_commit(blame_oid).unwrap())
             });
             (blame_commit, Some(head_oid))
         }

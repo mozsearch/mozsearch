@@ -1206,12 +1206,11 @@ fn format_blob(
     // Get blame.
     let blame_commit = if let Some(ref blame_repo) = git.blame_repo {
         let blame_oid = git
-            .blame_map
-            .get(&commit.id())
+            .blame_rev(commit.id())
             .ok_or("Unable to find blame for revision")?;
         Some(
             blame_repo
-                .find_commit(*blame_oid)
+                .find_commit(blame_oid)
                 .map_err(|_| "Blame is not a blob")?,
         )
     } else {
@@ -1226,12 +1225,12 @@ fn format_blob(
 
     let analysis = Vec::new();
 
-    let hg_rev: &str = tree_config
+    let hg_rev = tree_config
         .git
         .as_ref()
-        .and_then(|git| git.hg_map.get(&commit.id()))
-        .map(|rev| rev.as_ref()) // &String to &str conversion
-        .unwrap_or("default");
+        .and_then(|git| git.hg_rev(commit.id()))
+        .unwrap_or_else(|| "default".to_string());
+    let hg_rev: &str = &hg_rev;
 
     let encoded_path = url_encode_path(path);
 
@@ -1426,9 +1425,9 @@ pub fn format_diff(
             return Ok(None);
         };
 
-        let blame_oid = git.blame_map.get(&oid).ok_or("Unable to find blame")?;
+        let blame_oid = git.blame_rev(oid).ok_or("Unable to find blame")?;
         let blame_commit = blame_repo
-            .find_commit(*blame_oid)
+            .find_commit(blame_oid)
             .map_err(|_| "Blame is not a blob")?;
         let blame_tree = blame_commit.tree().map_err(|_| "Bad revision")?;
         let blame_lines = blame_tree
@@ -1748,7 +1747,7 @@ fn generate_commit_info(
         vec![]
     };
 
-    let hg = match git.hg_map.get(&commit.id()) {
+    let hg = match git.hg_rev(commit.id()) {
         Some(hg_id) => {
             let hg_link = format!(
                 "<a href=\"{}/rev/{}\">{}</a>",
@@ -1866,8 +1865,8 @@ pub fn format_commit(
     let commit = commit_obj.as_commit().ok_or("Bad revision")?;
     let date = git_time_to_chrono(commit.time());
 
-    let blame_commit = match (&git.blame_repo, git.blame_map.get(&commit.id())) {
-        (Some(blame_repo), Some(blame_oid)) => blame_repo.find_commit(*blame_oid).ok(),
+    let blame_commit = match (&git.blame_repo, git.blame_rev(commit.id())) {
+        (Some(blame_repo), Some(blame_oid)) => blame_repo.find_commit(blame_oid).ok(),
         _ => None,
     };
 

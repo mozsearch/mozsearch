@@ -16,7 +16,7 @@
 // Rather than walking the syntax repo's branch to find the revisions we've
 // already processed, we record them in git notes in the syntax repo, which also
 // covers processed revisions that aren't reachable from the branch; see
-// `hyperblame::source_mapping` for details, including the `NOTES_REF` and
+// `source_mapping` for details, including the `NOTES_REF` and
 // `READ_NOTES_REFS` environment variables.
 
 extern crate env_logger;
@@ -49,7 +49,7 @@ use tools::hyperblame::history_config::{
     AttributeRules, AttributeSet, EffectiveAttributes, HistoryConfig, LangSource, ResolvedLanguage,
     parse_repo_gitattributes, resolve_language,
 };
-use tools::hyperblame::source_mapping::{
+use tools::source_mapping::{
     NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer, require_notes_for_existing_branch,
 };
 use tools::tree_sitter_support::cst_tokenizer::{
@@ -1000,7 +1000,7 @@ fn main() {
         .unwrap_or(0);
 
     // The syntax repo's notes map the source revisions we've already processed
-    // to their syntax commits; see `hyperblame::source_mapping`.
+    // to their syntax commits; see `source_mapping`.
     let notes_refs = NotesRefs::from_env(&blame_repo, &blame_ref);
     let mapping = SourceMapping::open(&blame_repo, &notes_refs);
     require_notes_for_existing_branch(&blame_repo, &blame_ref, &notes_refs, &mapping);
