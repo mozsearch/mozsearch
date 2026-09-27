@@ -21,8 +21,8 @@
 //   and the file at PATH.  See `timeline_future.rs`.
 // - `files-delta/PATH.ndjson`: Logical-path journal of per-symbol changes to
 //   the file at PATH.  See `timeline_files_delta.rs`.
-// - `tokens/AB/CD/TOKEN.ndjson`: Journal of changes involving TOKEN.  See
-//   `timeline_tokens.rs`.
+// - `tokens/AB/CD/TOKEN.ndjson`: Journal of changes involving TOKEN, where ABCD
+//   starts a hash of TOKEN.  See `timeline_tokens.rs`.
 //
 // Journals start with a header line and then have one record per revision
 // ordered from newest to oldest.

@@ -693,6 +693,42 @@ fn process_source_tree_changes(
     Ok(())
 }
 
+/// The directories grouping a pretty identifier's symdex files: three levels
+/// named by pairs of its first six characters (lowercased, and padded with "_"),
+/// like `timeline_tokens::token_timeline_path`, so that a namespace's directory
+/// doesn't get an entry for every top-level symbol, which git fast-import
+/// handles slowly.
+fn symdex_prefix_dir(pretty: &str) -> String {
+    let mut prefix: Vec<char> = pretty
+        .chars()
+        .flat_map(char::to_lowercase)
+        .take(6)
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' || c == '$' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    while prefix.len() < 6 {
+        prefix.push('_');
+    }
+    prefix
+        .chunks(2)
+        .map(|pair| pair.iter().collect::<String>())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
+#[test]
+fn test_symdex_prefix_dir() {
+    assert_eq!(symdex_prefix_dir("mozilla::dom::Foo"), "mo/zi/ll");
+    assert_eq!(symdex_prefix_dir("test_foo"), "te/st/_f");
+    assert_eq!(symdex_prefix_dir("Ab"), "ab/__/__");
+    assert_eq!(symdex_prefix_dir("../x.y"), "__/_x/_y");
+}
+
 /// Convert a pretty identifier into a relative path by turning each "::"
 /// delimited segment into a path component.  Segments are escaped so they
 /// can't introduce additional path components or be "." or "..", which is
@@ -758,8 +794,9 @@ fn process_symdex_tree(
         );
         for (pretty, mut notes) in lang_symbols {
             let sym_path = PathBuf::from(format!(
-                "symdex/{}/{}.ndjson",
+                "symdex/{}/{}/{}.ndjson",
                 lang,
+                symdex_prefix_dir(&pretty),
                 symdex_path_for_pretty(&pretty)
             ));
             let mut records: Vec<SymdexRecord> = vec![];

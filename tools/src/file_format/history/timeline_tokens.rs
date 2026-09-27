@@ -1,7 +1,11 @@
 //! This file defines the ND-JSON records we write into files under
-//! `history/timeline/tokens/ab/cd/` where "ab" and "cd" are pairs of characters
-//! from the (lowercased) prefix of the token to help keep the file-system, or
-//! at least directory listings, sane.  See `token_timeline_path`.
+//! `history/timeline/tokens/ab/cd/` where "abcd" starts a hash of the
+//! (lowercased) token, which keeps the directories small and evenly sized; see
+//! `token_timeline_path`.  (git fast-import handles big directories slowly, and
+//! directories named by the tokens' first characters grew huge: ex: with
+//! "tokens/ab/cd/ef/" for the first 6 characters, the whole of firefox-main had
+//! 17k journals in "tokens/ep/ox/y_/" and 314k first-level directories, mostly
+//! for pairs of CJK characters from ICU's CJK dictionary.)
 //!
 //! The files are intended to support UX functionality along the lines of:
 //! - `git log -S` by helping make it clear when there are net changes in the
@@ -242,16 +246,16 @@ pub fn tracked_token_key<'a>(
 }
 
 /// Derive the path of the token's timeline file relative to the timeline root,
-/// ex: "nsresult" => "tokens/ns/re/nsresult.ndjson".  Tokens shorter than 4
-/// characters are padded with "_" for directory naming purposes.
+/// ex: "nsresult" => "tokens/84/da/nsresult.ndjson", where "84da" starts the
+/// git blob id of the lowercased token (which `printf %s nsresult | git
+/// hash-object --stdin` also computes), so case variants share a directory.
 pub fn token_timeline_path(token: &str) -> PathBuf {
-    let mut prefix: Vec<char> = token.to_lowercase().chars().take(4).collect();
-    while prefix.len() < 4 {
-        prefix.push('_');
-    }
+    let hash = git2::Oid::hash_object(git2::ObjectType::Blob, token.to_lowercase().as_bytes())
+        .unwrap()
+        .to_string();
     let mut path = PathBuf::from("tokens");
-    path.push(prefix[0..2].iter().collect::<String>());
-    path.push(prefix[2..4].iter().collect::<String>());
+    path.push(&hash[0..2]);
+    path.push(&hash[2..4]);
     path.push(format!("{}.ndjson", token));
     path
 }
@@ -361,15 +365,19 @@ mod tests {
     fn test_paths() {
         assert_eq!(
             token_timeline_path("nsresult"),
-            PathBuf::from("tokens/ns/re/nsresult.ndjson")
+            PathBuf::from("tokens/84/da/nsresult.ndjson")
         );
         assert_eq!(
             token_timeline_path("rv"),
-            PathBuf::from("tokens/rv/__/rv.ndjson")
+            PathBuf::from("tokens/91/3c/rv.ndjson")
         );
         assert_eq!(
             token_timeline_path("RefPtr"),
-            PathBuf::from("tokens/re/fp/RefPtr.ndjson")
+            PathBuf::from("tokens/b5/24/RefPtr.ndjson")
+        );
+        assert_eq!(
+            token_timeline_path("refptr"),
+            PathBuf::from("tokens/b5/24/refptr.ndjson")
         );
     }
 }

@@ -411,7 +411,7 @@ mod tests {
         );
         assert_eq!(
             JournalKind::Tokens.journal_path("nsresult"),
-            "tokens/ns/re/nsresult.ndjson"
+            "tokens/84/da/nsresult.ndjson"
         );
         assert_eq!(
             JournalKind::for_path("files-delta/dom/Foo.cpp.ndjson"),
