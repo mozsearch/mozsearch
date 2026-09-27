@@ -6,7 +6,9 @@
 //
 // The environment variables `BLAME_REF`, `COMMIT_LIMIT`, and `CINNABAR` (set to 0
 // to not ask git-cinnabar about the hg revisions in backout messages) are handled
-// the same as by `build-syntax-token-tree`.  Like it, we record the revisions
+// the same as by `build-syntax-token-tree`.  `CONSOLIDATE=0` disables the
+// consolidation of journals into weekly summaries (see below), which is useful
+// for checking consolidation.  Like it, we record the revisions
 // we've processed in git notes (in the timeline repo), and we find the syntax
 // commits of source revisions via the syntax repo's notes; see
 // `source_mapping`.
@@ -75,6 +77,13 @@
 // out in `backs_out`, and the backed out revisions' rev-summaries get
 // `backed_out_by`.  Journal records are never rewritten, which keeps journal
 // merging simple.
+//
+// ### Consolidation
+//
+// When a revision appends to a journal, older weeks' records get consolidated
+// into weekly summary records whose details can be recovered from the journal
+// versions they reference, and merges union summaries as well as details; see
+// `hyperblame::consolidation`.
 
 extern crate env_logger;
 extern crate git2;
@@ -115,8 +124,8 @@ use tools::file_format::history::timeline_annotated::{
     HyperLineData, PATH_UNCHANGED, RemovalMarker,
 };
 use tools::file_format::history::timeline_common::{
-    ChangeKind, DetailRecordRef, FileSyntaxDelta, TimelineRecord, TokenDeltaDetails,
-    merge_journal_records, token_ref_set_insert,
+    ChangeKind, DetailRecordRef, FileSyntaxDelta, JournalVersionRef, TokenDeltaDetails,
+    token_ref_set_insert,
 };
 use tools::file_format::history::timeline_files_delta::{
     FileDeltaDetailRecord, FileDeltaHeader, FileDeltaRecord,
@@ -129,6 +138,7 @@ use tools::file_format::history::timeline_tokens::{
 };
 use tools::git_ops::git_time_to_chrono;
 use tools::hyperblame::backouts::{BackoutTargetResolver, find_backed_out};
+use tools::hyperblame::consolidation::{Summarize, consolidate_appended, merge_journal_versions};
 use tools::hyperblame::inference::{
     FileChangeInput, FileChangeKind, FileInference, InferenceConfig, PairingSupport, RemovedFate,
     TokenOrigin, diff_token_lines, infer_revision,
@@ -1265,35 +1275,70 @@ fn read_journal<H: DeserializeOwned + Default, R: DeserializeOwned>(
         .unwrap_or_else(|| (H::default(), vec![]))
 }
 
+/// Load the records of a journal version through git fast-import, which (unlike
+/// the repo on disk) has the commits written earlier in this run.
+fn load_journal_version<H: DeserializeOwned + Default, R: DeserializeOwned>(
+    import_helper: &mut Child,
+    version: &JournalVersionRef,
+) -> Result<Vec<R>, String> {
+    let oid = Oid::from_str(&version.timeline_rev).map_err(|e| e.to_string())?;
+    let (_, records): (H, Vec<R>) = read_journal(
+        import_helper,
+        &TimelineRepoCommit::Commit(oid),
+        Path::new(&version.path),
+    );
+    Ok(records)
+}
+
+/// What a linear revision needs to consolidate the journals it appends to.
+struct Consolidation<'a> {
+    /// The hex id of the parent timeline commit.
+    parent_rev: &'a str,
+    /// The revision's date.
+    iso_date: &'a str,
+}
+
 /// Prepend a record to the journal at `from_path` in the parent timeline commit
-/// and write it to `to_path` in the new commit.
-fn prepend_journal_record<
-    H: DeserializeOwned + Default + Serialize,
-    R: DeserializeOwned + Serialize,
->(
+/// and write it to `to_path` in the new commit, consolidating it if requested.
+/// Returns the number of summary records written.
+fn prepend_journal_record<H: DeserializeOwned + Default + Serialize, R: Summarize>(
     import_helper: &mut Child,
     parent: Option<&TimelineRepoCommit>,
     from_path: &Path,
     to_path: &Path,
     record: R,
-) {
+    consolidation: Option<&Consolidation>,
+) -> usize {
     let (header, mut records): (H, Vec<R>) = match parent {
         Some(parent) => read_journal(import_helper, parent, from_path),
         None => (H::default(), vec![]),
     };
     records.insert(0, record);
+    let mut num_summaries = 0;
+    if let (Some(consolidation), Some(_)) = (consolidation, parent) {
+        let pred = JournalVersionRef {
+            timeline_rev: consolidation.parent_rev.to_string(),
+            path: from_path.to_string_lossy().into_owned(),
+        };
+        num_summaries = consolidate_appended(
+            &mut records,
+            consolidation.iso_date,
+            &pred,
+            &mut |version| load_journal_version::<H, R>(import_helper, version),
+        )
+        .unwrap();
+    }
     let contents = record_file_contents_to_string(&header, &records);
     write_inline_blob(import_helper, to_path, contents.as_bytes());
+    num_summaries
 }
 
-/// Union the journal at `path` across all parents, writing it if the parents'
-/// versions differ.
-fn union_journal<
-    H: DeserializeOwned + Default + Serialize,
-    R: DeserializeOwned + Serialize + TimelineRecord,
->(
+/// Union the journal at `path` across all parents (whose hex ids are
+/// `parent_revs`), writing it if the parents' versions differ.
+fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
     import_helper: &mut Child,
     parents: &[TimelineRepoCommit],
+    parent_revs: &[String],
     path: &Path,
 ) {
     let oids: Vec<Option<String>> = parents
@@ -1306,14 +1351,24 @@ fn union_journal<
     }
     let mut header: Option<H> = None;
     let mut versions = vec![];
-    for oid in oids.iter().flatten() {
+    for (oid, parent_rev) in oids.iter().zip(parent_revs) {
+        let Some(oid) = oid else {
+            continue;
+        };
         let blob = read_blob(import_helper, oid);
         if let Some((h, records)) = read_record_file_contents::<H, R>(&blob) {
             header.get_or_insert(h);
-            versions.push(records);
+            let version = JournalVersionRef {
+                timeline_rev: parent_rev.clone(),
+                path: path.to_string_lossy().into_owned(),
+            };
+            versions.push((version, records));
         }
     }
-    let records = merge_journal_records(versions);
+    let records = merge_journal_versions(versions, &mut |version| {
+        load_journal_version::<H, R>(import_helper, version)
+    })
+    .unwrap();
     let contents = record_file_contents_to_string(&header.unwrap_or_default(), &records);
     write_inline_blob(import_helper, path, contents.as_bytes());
 }
@@ -1623,6 +1678,8 @@ fn process_linear_revision(
     token_totals: &BTreeMap<String, TokenDeltaDetails>,
     timeline_parents: &[TimelineRepoCommit],
     timeline_commits: &TimelineCommits,
+    consolidation: Option<&Consolidation>,
+    num_summaries: &mut usize,
 ) -> BTreeMap<String, RevFileSummaryRecord> {
     let rev = data.meta.source_rev.to_string();
     let parent = timeline_parents.first();
@@ -1708,12 +1765,13 @@ fn process_linear_revision(
     let future_records = build_linear_future(&desc, files, &parent_annotated, &restored_tokens);
     for (path, record) in future_records {
         let journal = future_path(&path);
-        prepend_journal_record::<FutureHeader, FutureRecord>(
+        *num_summaries += prepend_journal_record::<FutureHeader, FutureRecord>(
             import_helper,
             parent,
             &journal,
             &journal,
             FutureRecord::Detail(record),
+            consolidation,
         );
     }
 
@@ -1738,7 +1796,7 @@ fn process_linear_revision(
             FileChangeKind::Renamed | FileChangeKind::Copied => change.old_path.as_ref().unwrap(),
             _ => new_path,
         };
-        prepend_journal_record::<FileDeltaHeader, FileDeltaRecord>(
+        *num_summaries += prepend_journal_record::<FileDeltaHeader, FileDeltaRecord>(
             import_helper,
             parent,
             &files_delta_path(from_path),
@@ -1747,6 +1805,7 @@ fn process_linear_revision(
                 desc: desc.clone(),
                 delta: change.delta.clone(),
             }),
+            consolidation,
         );
     }
 
@@ -1756,7 +1815,7 @@ fn process_linear_revision(
             continue;
         }
         let journal = token_timeline_path(token);
-        prepend_journal_record::<TokenHeader, TokenDeltaRecord>(
+        *num_summaries += prepend_journal_record::<TokenHeader, TokenDeltaRecord>(
             import_helper,
             parent,
             &journal,
@@ -1765,6 +1824,7 @@ fn process_linear_revision(
                 desc: desc.clone(),
                 delta: delta.clone(),
             }),
+            consolidation,
         );
     }
 
@@ -1776,6 +1836,7 @@ fn process_merge_revision(
     data: &TimelineData,
     merge: &MergeChanges,
     timeline_parents: &[TimelineRepoCommit],
+    parent_revs: &[String],
 ) {
     let rev = data.meta.source_rev.to_string();
 
@@ -1870,12 +1931,14 @@ fn process_merge_revision(
         union_journal::<FutureHeader, FutureRecord>(
             import_helper,
             timeline_parents,
+            parent_revs,
             &future_path(path),
         );
         if *exists {
             union_journal::<FileDeltaHeader, FileDeltaRecord>(
                 import_helper,
                 timeline_parents,
+                parent_revs,
                 &files_delta_path(path),
             );
         } else {
@@ -1886,6 +1949,7 @@ fn process_merge_revision(
         union_journal::<TokenHeader, TokenDeltaRecord>(
             import_helper,
             timeline_parents,
+            parent_revs,
             &token_timeline_path(token),
         );
     }
@@ -2048,6 +2112,11 @@ fn main() {
 
     let mut import_helper = start_fast_import(&timeline_repo);
     let mut notes = notes_writer(&timeline_repo, &notes_refs);
+    // Journal consolidation (see `hyperblame::consolidation`) and the hex ids of
+    // the commits written by this run, which summaries reference.
+    let consolidate = env::var("CONSOLIDATE").map_or(true, |v| v != "0");
+    let mut mark_revs: HashMap<usize, String> = HashMap::new();
+    let mut num_summaries = 0;
 
     // Tracks completion count and serves as the basis for the mark <idnum>
     // assigned to each commit.
@@ -2155,20 +2224,42 @@ fn main() {
             import_stream.flush().unwrap();
         }
 
+        // The parents' hex ids, for journal versions referenced by summaries.
+        let parent_revs: Vec<String> = timeline_parents
+            .iter()
+            .map(|parent| match parent {
+                TimelineRepoCommit::Commit(oid) => oid.to_string(),
+                TimelineRepoCommit::Mark(mark) => mark_revs[mark].clone(),
+            })
+            .collect();
         let file_deltas = match &data.changes {
             RevisionChanges::Linear {
                 files,
                 token_totals,
-            } => process_linear_revision(
-                &mut import_helper,
-                &data,
-                files,
-                token_totals,
-                &timeline_parents,
-                &timeline_commits,
-            ),
+            } => {
+                let consolidation = parent_revs.first().map(|parent_rev| Consolidation {
+                    parent_rev,
+                    iso_date: &data.iso_date,
+                });
+                process_linear_revision(
+                    &mut import_helper,
+                    &data,
+                    files,
+                    token_totals,
+                    &timeline_parents,
+                    &timeline_commits,
+                    consolidation.as_ref().filter(|_| consolidate),
+                    &mut num_summaries,
+                )
+            }
             RevisionChanges::Merge(merge) => {
-                process_merge_revision(&mut import_helper, &data, merge, &timeline_parents);
+                process_merge_revision(
+                    &mut import_helper,
+                    &data,
+                    merge,
+                    &timeline_parents,
+                    &parent_revs,
+                );
                 BTreeMap::new()
             }
         };
@@ -2176,6 +2267,7 @@ fn main() {
         // Terminate the commit so we can get its oid for the rev-summary.
         writeln!(import_helper.stdin.as_mut().unwrap()).unwrap();
         let timeline_rev = read_mark_oid(&mut import_helper, rev_done);
+        mark_revs.insert(rev_done, timeline_rev.clone());
 
         write_rev_summary(
             &rev_summary_root,
@@ -2222,6 +2314,7 @@ fn main() {
     }
 
     notes.flush(import_helper.stdin.as_mut().unwrap()).unwrap();
+    info!("Wrote {} journal summary records.", num_summaries);
 
     info!("Shutting down fast-import...");
     let exitcode = import_helper.wait().unwrap();

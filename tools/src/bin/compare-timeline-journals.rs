@@ -2,16 +2,18 @@
 // the same syntax repo, typically one with history consolidation and one
 // without, by expanding their summary records (see `hyperblame::journals`).
 // Expanded journals must have identical detail records, which verifies that
-// consolidation doesn't lose or change anything.
+// consolidation doesn't lose or change anything, and every summary record must
+// equal the aggregate of its expanded details (see
+// `hyperblame::consolidation::verify_summaries`).
 //
 // Usage:
-//   compare-timeline-journals TIMELINE_A TIMELINE_B [--all-revisions]
+//   compare-timeline-journals TIMELINE_A TIMELINE_B [--all-revisions [--every N]]
 //
 // This compares every journal at the branch heads (`BLAME_REF`, defaulting to
 // HEAD, like the history tools), which must be for the same source revision.
 // With `--all-revisions`, it also compares the journals each revision changed
-// in either repo, as of that revision.  Exits with an error status if anything
-// differs.
+// in either repo, as of that revision (or only every Nth revision, plus all
+// merges, with `--every N`).  Exits with an error status if anything differs.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::env;
@@ -22,6 +24,10 @@ use git2::{Commit, DiffOptions, ObjectType, Oid, Repository, TreeWalkMode, TreeW
 use serde_json::Value;
 use tools::file_format::config::timeline_commit_to_meta;
 use tools::file_format::history::timeline_common::JournalVersionRef;
+use tools::file_format::history::timeline_files_delta::FileDeltaRecord;
+use tools::file_format::history::timeline_future::FutureRecord;
+use tools::file_format::history::timeline_tokens::TokenDeltaRecord;
+use tools::hyperblame::consolidation::verify_summaries;
 use tools::hyperblame::journals::{JournalKind, JournalReader};
 
 #[derive(Parser)]
@@ -38,6 +44,11 @@ struct Cli {
     /// revision.
     #[clap(long, value_parser)]
     all_revisions: bool,
+
+    /// With `--all-revisions`, only compare every Nth revision (in an arbitrary
+    /// but stable order) and merges.
+    #[clap(long, value_parser, default_value = "1")]
+    every: usize,
 }
 
 /// How many differences to describe in detail.
@@ -48,6 +59,7 @@ struct Comparison {
     compared: usize,
     differing: usize,
     reported: usize,
+    summaries: usize,
 }
 
 impl Comparison {
@@ -80,6 +92,29 @@ fn expanded_by_rev(
     Ok(by_rev)
 }
 
+/// Check the summaries of a journal version; see `verify_summaries`.
+fn check_summaries(
+    reader: &mut JournalReader,
+    kind: JournalKind,
+    version: &JournalVersionRef,
+    comparison: &mut Comparison,
+) {
+    let result = match kind {
+        JournalKind::Future => verify_summaries::<FutureRecord>(reader, version),
+        JournalKind::FilesDelta => verify_summaries::<FileDeltaRecord>(reader, version),
+        JournalKind::Tokens => verify_summaries::<TokenDeltaRecord>(reader, version),
+    };
+    match result {
+        Ok((checked, problems)) => {
+            comparison.summaries += checked;
+            for problem in problems {
+                comparison.report(problem);
+            }
+        }
+        Err(e) => comparison.report(format!("{}:{}: {}", version.timeline_rev, version.path, e)),
+    }
+}
+
 /// Compare the journal at `path` in the commits `a` and `b` of the two repos.
 fn compare_journal(
     readers: &mut (JournalReader, JournalReader),
@@ -95,6 +130,8 @@ fn compare_journal(
         timeline_rev: rev.to_string(),
         path: path.to_string(),
     };
+    check_summaries(&mut readers.0, kind, &version(a), comparison);
+    check_summaries(&mut readers.1, kind, &version(b), comparison);
     let (records_a, records_b) = match (
         expanded_by_rev(&mut readers.0, kind, &version(a)),
         expanded_by_rev(&mut readers.1, kind, &version(b)),
@@ -215,8 +252,8 @@ fn main() -> ExitCode {
         compare_journal(&mut readers, (head_a, head_b), path, &mut heads);
     }
     println!(
-        "Heads (source revision {}): {} of {} journals differ",
-        source_a, heads.differing, heads.compared
+        "Heads (source revision {}): {} of {} journals differ ({} summaries checked)",
+        source_a, heads.differing, heads.compared, heads.summaries
     );
     let mut differing = heads.differing;
 
@@ -225,14 +262,22 @@ fn main() -> ExitCode {
         let by_source_b = commits_by_source_rev(&repo_b, head_b).unwrap();
         let mut revisions = Comparison::default();
         let mut num_revisions = 0;
-        for (source_rev, rev_a) in commits_by_source_rev(&repo_a, head_a).unwrap() {
+        let mut by_source_a: Vec<(Oid, Oid)> = commits_by_source_rev(&repo_a, head_a)
+            .unwrap()
+            .into_iter()
+            .collect();
+        by_source_a.sort();
+        for (idx, (source_rev, rev_a)) in by_source_a.into_iter().enumerate() {
             let Some(&rev_b) = by_source_b.get(&source_rev) else {
                 revisions.report(format!("{} is only in A", source_rev));
                 continue;
             };
+            let commit_a = repo_a.find_commit(rev_a).unwrap();
+            if idx % cli.every.max(1) != 0 && commit_a.parent_count() < 2 {
+                continue;
+            }
             num_revisions += 1;
-            let mut paths =
-                changed_journal_paths(&repo_a, &repo_a.find_commit(rev_a).unwrap()).unwrap();
+            let mut paths = changed_journal_paths(&repo_a, &commit_a).unwrap();
             paths.extend(
                 changed_journal_paths(&repo_b, &repo_b.find_commit(rev_b).unwrap()).unwrap(),
             );
@@ -243,8 +288,8 @@ fn main() -> ExitCode {
             }
         }
         println!(
-            "All {} revisions: {} of {} changed journal versions differ",
-            num_revisions, revisions.differing, revisions.compared
+            "All {} revisions: {} of {} changed journal versions differ ({} summaries checked)",
+            num_revisions, revisions.differing, revisions.compared, revisions.summaries
         );
         differing += revisions.differing;
     }

@@ -48,13 +48,6 @@ pub enum FileDeltaRecord {
 }
 
 impl TimelineRecord for FileDeltaRecord {
-    fn dedupe_key(&self) -> String {
-        match self {
-            FileDeltaRecord::Detail(d) => format!("D{}", d.desc.source_rev),
-            FileDeltaRecord::Summary(s) => format!("S{:?}", s.desc.iso_week_range),
-        }
-    }
-
     fn iso_date(&self) -> Option<&str> {
         match self {
             FileDeltaRecord::Detail(d) => Some(&d.desc.iso_date),

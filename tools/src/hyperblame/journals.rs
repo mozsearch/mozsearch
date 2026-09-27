@@ -150,65 +150,7 @@ impl<'a> JournalReader<'a> {
         &mut self,
         records: Vec<R>,
     ) -> Result<Vec<R>, String> {
-        let mut seen = HashSet::new();
-        self.expand_wanted(records, None, &mut seen, 0)
-    }
-
-    /// Expand `records`, only keeping the detail records for the `wanted`
-    /// source revisions if provided, and skipping ones already `seen`.
-    fn expand_wanted<R: TimelineRecord + DeserializeOwned>(
-        &mut self,
-        records: Vec<R>,
-        wanted: Option<&HashSet<String>>,
-        seen: &mut HashSet<String>,
-        depth: usize,
-    ) -> Result<Vec<R>, String> {
-        if depth > MAX_EXPANSION_DEPTH {
-            return Err("summary records nested too deeply (a cycle?)".to_string());
-        }
-        let mut expanded = vec![];
-        for record in records {
-            if let Some(summary) = record.summary_ref() {
-                let needed: HashSet<String> = summary
-                    .source_revs
-                    .iter()
-                    .filter(|rev| wanted.is_none_or(|wanted| wanted.contains(*rev)))
-                    .filter(|rev| !seen.contains(*rev))
-                    .cloned()
-                    .collect();
-                if needed.is_empty() {
-                    continue;
-                }
-                let mut found = HashSet::new();
-                for pred in &summary.preds {
-                    let pred_records = self.records::<R>(pred)?;
-                    let mut pred_seen = seen.clone();
-                    for detail in
-                        self.expand_wanted(pred_records, Some(&needed), &mut pred_seen, depth + 1)?
-                    {
-                        let rev = detail.detail_source_rev().unwrap().to_string();
-                        if !found.contains(&rev) && seen.insert(rev.clone()) {
-                            found.insert(rev);
-                            expanded.push(detail);
-                        }
-                    }
-                }
-                let mut missing: Vec<&String> = needed.difference(&found).collect();
-                if !missing.is_empty() {
-                    missing.sort();
-                    return Err(format!(
-                        "summary for week {:?} lacks detail records for {:?} in its preds {:?}",
-                        summary.iso_week_range, missing, summary.preds
-                    ));
-                }
-            } else if let Some(rev) = record.detail_source_rev()
-                && wanted.is_none_or(|wanted| wanted.contains(rev))
-                && seen.insert(rev.to_string())
-            {
-                expanded.push(record);
-            }
-        }
-        Ok(expanded)
+        expand_records(records, &mut |version| self.records(version))
     }
 
     fn records_json_as<R: TimelineRecord + DeserializeOwned + Serialize>(
@@ -239,6 +181,74 @@ impl<'a> JournalReader<'a> {
             JournalKind::Tokens => self.records_json_as::<TokenDeltaRecord>(version, expand),
         }
     }
+}
+
+/// Replace the summary records in `records` with the detail records they
+/// summarize (see the module docs), using `load` to load the records of journal
+/// versions.
+pub fn expand_records<R: TimelineRecord>(
+    records: Vec<R>,
+    load: &mut impl FnMut(&JournalVersionRef) -> Result<Vec<R>, String>,
+) -> Result<Vec<R>, String> {
+    let mut seen = HashSet::new();
+    expand_wanted(records, None, &mut seen, load, 0)
+}
+
+/// Expand `records`, only keeping the detail records for the `wanted` source
+/// revisions if provided, and skipping ones already `seen`.
+fn expand_wanted<R: TimelineRecord>(
+    records: Vec<R>,
+    wanted: Option<&HashSet<String>>,
+    seen: &mut HashSet<String>,
+    load: &mut impl FnMut(&JournalVersionRef) -> Result<Vec<R>, String>,
+    depth: usize,
+) -> Result<Vec<R>, String> {
+    if depth > MAX_EXPANSION_DEPTH {
+        return Err("summary records nested too deeply (a cycle?)".to_string());
+    }
+    let mut expanded = vec![];
+    for record in records {
+        if let Some(summary) = record.summary_ref() {
+            let needed: HashSet<String> = summary
+                .source_revs
+                .iter()
+                .filter(|rev| wanted.is_none_or(|wanted| wanted.contains(*rev)))
+                .filter(|rev| !seen.contains(*rev))
+                .cloned()
+                .collect();
+            if needed.is_empty() {
+                continue;
+            }
+            let mut found = HashSet::new();
+            for pred in &summary.preds {
+                let pred_records = load(pred)?;
+                let mut pred_seen = seen.clone();
+                for detail in
+                    expand_wanted(pred_records, Some(&needed), &mut pred_seen, load, depth + 1)?
+                {
+                    let rev = detail.detail_source_rev().unwrap().to_string();
+                    if !found.contains(&rev) && seen.insert(rev.clone()) {
+                        found.insert(rev);
+                        expanded.push(detail);
+                    }
+                }
+            }
+            let mut missing: Vec<&String> = needed.difference(&found).collect();
+            if !missing.is_empty() {
+                missing.sort();
+                return Err(format!(
+                    "summary for week {:?} lacks detail records for {:?} in its preds {:?}",
+                    summary.iso_week_range, missing, summary.preds
+                ));
+            }
+        } else if let Some(rev) = record.detail_source_rev()
+            && wanted.is_none_or(|wanted| wanted.contains(rev))
+            && seen.insert(rev.to_string())
+        {
+            expanded.push(record);
+        }
+    }
+    Ok(expanded)
 }
 
 #[cfg(test)]

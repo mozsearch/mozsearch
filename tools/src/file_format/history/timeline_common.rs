@@ -330,16 +330,10 @@ pub fn token_ref_set_insert(set: &mut TokenRefSet, source_rev: &str, path: &str,
 }
 
 /// Common interface over the "Detail"/"Summary" record enums stored in timeline
-/// journal files so that we can generically merge journal files when processing
-/// merge commits.
+/// journal files, for reading, consolidating, and merging journals generically;
+/// see `hyperblame::journals` and `hyperblame::consolidation`.
 pub trait TimelineRecord {
-    /// Key used to de-duplicate records when merging journals from multiple
-    /// parents.
-    fn dedupe_key(&self) -> String;
-
-    /// The ISO 8601 date of detail records, used to keep journals ordered from
-    /// newest to oldest.  Summary records return None and sort after detail
-    /// records because they are always older.
+    /// The ISO 8601 date of detail records.
     fn iso_date(&self) -> Option<&str>;
 
     /// The source revision of a detail record.
@@ -347,30 +341,6 @@ pub trait TimelineRecord {
 
     /// The common summary fields of a summary record.
     fn summary_ref(&self) -> Option<&SummaryRecordRef>;
-}
-
-/// Merge the records from multiple versions of a journal file, de-duplicating
-/// and ordering them newest to oldest.  Order is stable for records with the
-/// same date, favoring the order of the earlier versions.
-pub fn merge_journal_records<R: TimelineRecord>(versions: Vec<Vec<R>>) -> Vec<R> {
-    let mut seen = std::collections::HashSet::new();
-    let mut merged: Vec<R> = vec![];
-    for records in versions {
-        for record in records {
-            if seen.insert(record.dedupe_key()) {
-                merged.push(record);
-            }
-        }
-    }
-    // `sort_by` is stable.  Detail records (Some) sort before summaries (None),
-    // and newer dates sort first.
-    merged.sort_by(|a, b| match (a.iso_date(), b.iso_date()) {
-        (Some(a), Some(b)) => b.cmp(a),
-        (Some(_), None) => std::cmp::Ordering::Less,
-        (None, Some(_)) => std::cmp::Ordering::Greater,
-        (None, None) => std::cmp::Ordering::Equal,
-    });
-    merged
 }
 
 #[cfg(test)]

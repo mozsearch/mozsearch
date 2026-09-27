@@ -161,10 +161,16 @@ pub struct FutureSummaryRecord {
 
     /// The union of all of the extinguished_tokens' revision keys over all the
     /// detail records digested into this summary.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub removed_token_revs: BTreeSet<String>,
-    /// The union of all of the moved_tokens' revision keys over all the detail
-    /// records digested into this summary.
+    /// The union of all of the moved_out_tokens' revision keys over all the
+    /// detail records digested into this summary.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
     pub moved_token_revs: BTreeSet<String>,
+    /// The union of all of the evolved_tokens' revision keys over all the
+    /// detail records digested into this summary.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub evolved_token_revs: BTreeSet<String>,
 }
 
 /// Internally tagged enum for our detail and summary types.  This ends up
@@ -177,13 +183,6 @@ pub enum FutureRecord {
 }
 
 impl TimelineRecord for FutureRecord {
-    fn dedupe_key(&self) -> String {
-        match self {
-            FutureRecord::Detail(d) => format!("D{}", d.desc.source_rev),
-            FutureRecord::Summary(s) => format!("S{:?}", s.desc.iso_week_range),
-        }
-    }
-
     fn iso_date(&self) -> Option<&str> {
         match self {
             FutureRecord::Detail(d) => Some(&d.desc.iso_date),

@@ -75,13 +75,6 @@ pub enum TokenDeltaRecord {
 }
 
 impl TimelineRecord for TokenDeltaRecord {
-    fn dedupe_key(&self) -> String {
-        match self {
-            TokenDeltaRecord::Detail(d) => format!("D{}", d.desc.source_rev),
-            TokenDeltaRecord::Summary(s) => format!("S{:?}", s.desc.iso_week_range),
-        }
-    }
-
     fn iso_date(&self) -> Option<&str> {
         match self {
             TokenDeltaRecord::Detail(d) => Some(&d.desc.iso_date),
