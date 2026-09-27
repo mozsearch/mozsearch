@@ -117,7 +117,7 @@ use tools::file_format::history::io_helpers::{
     read_record_file_contents, record_file_contents_to_string,
 };
 use tools::file_format::history::rev_summaries::{
-    RevFileSummaryRecord, RevSummaryRecord, rev_summary_path,
+    RevFileSummaryRecord, RevSummaryRecord, file_deltas_or_totals, rev_summary_path,
 };
 use tools::file_format::history::syntax_files::{split_token_line, token_file_lines};
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
@@ -2065,7 +2065,7 @@ fn process_merge_revision(
 fn write_rev_summary(rev_summary_root: &Path, summary: &RevSummaryRecord) {
     let path = rev_summary_root.join(rev_summary_path(&summary.source_rev));
     fs::create_dir_all(path.parent().unwrap()).unwrap();
-    fs::write(&path, serde_json::to_string_pretty(summary).unwrap()).unwrap();
+    fs::write(&path, serde_json::to_string(summary).unwrap()).unwrap();
 }
 
 /// Record in the rev-summary of `backed_out_rev` that `backout_rev` backed it
@@ -2388,6 +2388,7 @@ fn main() {
         let timeline_rev = read_mark_oid(&mut import_helper, rev_done);
         mark_revs.insert(rev_done, timeline_rev.clone());
 
+        let (file_deltas, file_totals) = file_deltas_or_totals(file_deltas);
         write_rev_summary(
             &rev_summary_root,
             &RevSummaryRecord {
@@ -2404,6 +2405,7 @@ fn main() {
                 iso_date: data.iso_date.clone(),
                 unmapped_author: data.unmapped_author.clone(),
                 file_deltas,
+                file_totals,
                 backs_out: data.backed_out.clone(),
                 backed_out_by: vec![],
             },

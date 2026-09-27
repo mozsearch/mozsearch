@@ -19,12 +19,22 @@
 //! The revision summary is primarily an aggregation of the individual file
 //! deltas.  We only write out a single JSON blob so we only need a record and
 //! there's no need for a header.
+//!
+//! Revisions which change more than `MAX_REV_SUMMARY_FILES` files (ex: the
+//! start of a history window, which adds every file, or a tree-wide reformat)
+//! only get totals, since listing every file would make the summary huge (ex:
+//! 3 GB for the start of an unscoped firefox-main window) while the per-file
+//! details are in the files-delta journals anyway.
 
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::timeline_common::FileSyntaxDelta;
+use super::timeline_common::{ChangeKind, FileSyntaxDelta, TokenDeltaDetails};
+
+/// The most files a rev-summary lists in `file_deltas`, which is a few MB for
+/// big firefox-main revisions.
+pub const MAX_REV_SUMMARY_FILES: usize = 1000;
 
 /// The same payload as the `FileDeltaDetailRecord` for the given file.
 #[derive(Debug, Serialize, Deserialize)]
@@ -71,8 +81,14 @@ pub struct RevSummaryRecord {
     /// Basically the contents of all the `FileDeltaDetailRecords` for all the
     /// files changed in this revision, keyed by the path of the file in this
     /// revision (or its previous path if it was deleted).  This will be empty
-    /// for merge commits.
+    /// for merge commits, and for revisions which changed more than
+    /// `MAX_REV_SUMMARY_FILES` files, which get `file_totals` instead.
     pub file_deltas: BTreeMap<String, RevFileSummaryRecord>,
+
+    /// The totals over the files for revisions which changed too many files to
+    /// list in `file_deltas`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_totals: Option<RevFileTotals>,
 
     /// If this revision is a backout (see `hyperblame::backouts`), the source
     /// revisions it backs out, earliest first.
@@ -85,6 +101,38 @@ pub struct RevSummaryRecord {
     pub backed_out_by: Vec<String>,
 }
 
+/// Totals over the files changed by a revision; see `MAX_REV_SUMMARY_FILES`.
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct RevFileTotals {
+    /// The number of files with each kind of change.
+    pub files: BTreeMap<ChangeKind, u32>,
+
+    /// The changes to all of the tokens in the files.
+    #[serde(default, skip_serializing_if = "TokenDeltaDetails::is_empty")]
+    pub token_totals: TokenDeltaDetails,
+}
+
+/// The `file_deltas` and `file_totals` of a rev-summary for the given file
+/// deltas: the file deltas themselves unless there are too many.
+pub fn file_deltas_or_totals(
+    file_deltas: BTreeMap<String, RevFileSummaryRecord>,
+) -> (
+    BTreeMap<String, RevFileSummaryRecord>,
+    Option<RevFileTotals>,
+) {
+    if file_deltas.len() <= MAX_REV_SUMMARY_FILES {
+        return (file_deltas, None);
+    }
+    let mut totals = RevFileTotals::default();
+    for file in file_deltas.values() {
+        *totals.files.entry(file.delta.change).or_default() += 1;
+        for symbol in file.delta.symbol_group.symbol_deltas.values() {
+            totals.token_totals.accumulate(&symbol.token_totals);
+        }
+    }
+    (BTreeMap::new(), Some(totals))
+}
+
 /// The path of the summary for the given source revision relative to the
 /// rev-summaries root.
 pub fn rev_summary_path(source_rev: &str) -> std::path::PathBuf {
@@ -94,4 +142,47 @@ pub fn rev_summary_path(source_rev: &str) -> std::path::PathBuf {
     path.push(&rev[2..4]);
     path.push(format!("{}.json", rev));
     path
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::file_format::history::timeline_common::{SymbolSyntaxDelta, SymbolSyntaxDeltaGroup};
+
+    fn file(change: ChangeKind, added: u32) -> RevFileSummaryRecord {
+        let mut symbol = SymbolSyntaxDelta::new(ChangeKind::Changed);
+        symbol.token_totals.added = added;
+        RevFileSummaryRecord {
+            delta: FileSyntaxDelta {
+                change,
+                moved_from: None,
+                copied: false,
+                symbol_group: SymbolSyntaxDeltaGroup {
+                    symbol_deltas: BTreeMap::from([("%".to_string(), symbol)]),
+                },
+            },
+        }
+    }
+
+    fn files(n: usize) -> BTreeMap<String, RevFileSummaryRecord> {
+        (0..n)
+            .map(|i| (format!("f{}", i), file(ChangeKind::Added, 2)))
+            .collect()
+    }
+
+    #[test]
+    fn test_file_totals() {
+        let (deltas, totals) = file_deltas_or_totals(files(MAX_REV_SUMMARY_FILES));
+        assert_eq!(deltas.len(), MAX_REV_SUMMARY_FILES);
+        assert!(totals.is_none());
+
+        let mut many = files(MAX_REV_SUMMARY_FILES);
+        many.insert("changed".to_string(), file(ChangeKind::Changed, 3));
+        let (deltas, totals) = file_deltas_or_totals(many);
+        assert!(deltas.is_empty());
+        assert_eq!(
+            serde_json::to_string(&totals.unwrap()).unwrap(),
+            r#"{"files":{"added":1000,"changed":1},"token_totals":{"added":2003}}"#
+        );
+    }
 }
