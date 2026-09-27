@@ -21,11 +21,13 @@ COMMIT_LIMIT limits how many revisions each tool processes in total.
 """
 
 import argparse
+import collections
 import os
 import re
 import shlex
 import subprocess
 import sys
+import threading
 import time
 
 
@@ -92,18 +94,21 @@ class Status:
     def __init__(self, command):
         self.command = shlex.split(command) if command else None
         self.last = None
+        # Reports come from the thread reading a tool's log and its heartbeat.
+        self.lock = threading.Lock()
 
     def report(self, message, force=False):
-        now = time.monotonic()
-        if not force and self.last is not None and now - self.last < self.INTERVAL:
-            return
-        self.last = now
-        log(message)
-        if self.command:
-            try:
-                subprocess.run(self.command + [message], timeout=120)
-            except (OSError, subprocess.SubprocessError) as e:
-                log(f"The status command failed: {e}")
+        with self.lock:
+            now = time.monotonic()
+            if not force and self.last is not None and now - self.last < self.INTERVAL:
+                return
+            self.last = now
+            log(message)
+            if self.command:
+                try:
+                    subprocess.run(self.command + [message], timeout=120)
+                except (OSError, subprocess.SubprocessError) as e:
+                    log(f"The status command failed: {e}")
 
 
 class Progress:
@@ -115,6 +120,13 @@ class Progress:
     REMAINING = re.compile(rb"(\d+) revisions to process")
     STARTED = re.compile(rb"progress (\d+)/\d+")
 
+    # Heartbeat reports mention the current revision once it has taken this
+    # long (ex: a history window's start, which takes minutes).
+    SLOW_REVISION = 120
+    # The rate (and so the ETA) is over about this long, so that a slow
+    # revision (ex: that window start) doesn't skew it for long.
+    RATE_WINDOW = 600
+
     def __init__(self, label, status):
         self.label = label
         self.status = status
@@ -123,30 +135,55 @@ class Progress:
         self.processed = 0
         self.done = 0
         self.total = None
+        # When the current revision started, and whether we've reported yet.
+        self.revision_started = None
+        self.reported = False
+        # (time, done) samples for the rate, oldest first.
+        self.samples = collections.deque([(self.start, 0)])
 
     def chunk_started(self, processed):
         self.processed = self.done = processed
+        self.revision_started = None
 
     def log_line(self, line):
         if b"revisions to process" in line and (m := self.REMAINING.search(line)):
             self.total = self.processed + int(m.group(1))
         elif b"progress " in line and (m := self.STARTED.search(line)):
             self.done = self.processed + int(m.group(1)) - 1
-            self.report()
+            self.revision_started = time.monotonic()
+            self.samples.append((self.revision_started, self.done))
+            # Keep one sample from before the window.
+            while len(self.samples) > 2 and self.samples[1][0] < self.revision_started - self.RATE_WINDOW:
+                self.samples.popleft()
+            # Always report the tool starting, even just after the last tool's
+            # final report.  (Later chunks start just after a report.)
+            self.report(force=not self.reported)
+            self.reported = True
 
     def report(self, force=False):
+        now = time.monotonic()
         message = f"{self.label}: {self.done}"
         if self.total:
             message += f"/{self.total} revisions ({100 * self.done / self.total:.1f}%)"
         else:
             message += " revisions"
-        elapsed = time.monotonic() - self.start
-        if self.done and elapsed > 0:
-            per_second = self.done / elapsed
+        since, done_then = self.samples[0]
+        if self.done > done_then and now > since:
+            per_second = (self.done - done_then) / (now - since)
             message += f", {60 * per_second:.0f}/min"
             if self.total:
                 message += f", ETA {format_duration((self.total - self.done) / per_second)}"
+        started = self.revision_started
+        if started is not None and now - started >= self.SLOW_REVISION:
+            message += f", on revision {self.done + 1} for {format_duration(now - started)}"
         self.status.report(message, force)
+
+
+def heartbeat(progress, stop):
+    """Report the progress every minute (subject to Status's limit) even when
+    the tool logs nothing, so that a long revision doesn't look like a hang."""
+    while not stop.wait(Status.INTERVAL):
+        progress.report()
 
 
 def run_tool(command, limit, progress):
@@ -154,10 +191,17 @@ def run_tool(command, limit, progress):
     proc = subprocess.Popen(
         command, env=dict(os.environ, COMMIT_LIMIT=str(limit)), stderr=subprocess.PIPE
     )
-    for line in proc.stderr:
-        sys.stderr.buffer.write(line)
-        progress.log_line(line)
-    sys.stderr.buffer.flush()
+    stop = threading.Event()
+    beat = threading.Thread(target=heartbeat, args=(progress, stop), daemon=True)
+    beat.start()
+    try:
+        for line in proc.stderr:
+            sys.stderr.buffer.write(line)
+            progress.log_line(line)
+        sys.stderr.buffer.flush()
+    finally:
+        stop.set()
+        beat.join()
     if proc.wait() != 0:
         raise subprocess.CalledProcessError(proc.returncode, command)
 
