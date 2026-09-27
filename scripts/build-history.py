@@ -22,8 +22,11 @@ COMMIT_LIMIT limits how many revisions each tool processes in total.
 
 import argparse
 import os
+import re
+import shlex
 import subprocess
 import sys
+import time
 
 
 def log(message):
@@ -69,10 +72,101 @@ def repack(repo):
     subprocess.run(["git", "-C", repo, "repack", "-d", "-q", "--geometric=2"], check=True)
 
 
-def run_in_chunks(name, command, repo, ref, chunk_size, total_limit):
+def format_duration(seconds):
+    minutes = int(seconds // 60)
+    days, minutes = divmod(minutes, 24 * 60)
+    hours, minutes = divmod(minutes, 60)
+    if days:
+        return f"{days}d {hours}h"
+    if hours:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m"
+
+
+class Status:
+    """Reports status messages to the log and to the --status-command (with
+    the message as its last argument), at most once a minute unless forced."""
+
+    INTERVAL = 60
+
+    def __init__(self, command):
+        self.command = shlex.split(command) if command else None
+        self.last = None
+
+    def report(self, message, force=False):
+        now = time.monotonic()
+        if not force and self.last is not None and now - self.last < self.INTERVAL:
+            return
+        self.last = now
+        log(message)
+        if self.command:
+            try:
+                subprocess.run(self.command + [message], timeout=120)
+            except (OSError, subprocess.SubprocessError) as e:
+                log(f"The status command failed: {e}")
+
+
+class Progress:
+    """A tool's progress through its revisions across chunks, which we get
+    from its log: it says how many revisions it has to process when it starts
+    and logs "progress I/N" as it starts each one.  (Only for reporting; if the
+    log changes, we just report less.)"""
+
+    REMAINING = re.compile(rb"(\d+) revisions to process")
+    STARTED = re.compile(rb"progress (\d+)/\d+")
+
+    def __init__(self, label, status):
+        self.label = label
+        self.status = status
+        self.start = time.monotonic()
+        # The revisions processed before the current chunk.
+        self.processed = 0
+        self.done = 0
+        self.total = None
+
+    def chunk_started(self, processed):
+        self.processed = self.done = processed
+
+    def log_line(self, line):
+        if b"revisions to process" in line and (m := self.REMAINING.search(line)):
+            self.total = self.processed + int(m.group(1))
+        elif b"progress " in line and (m := self.STARTED.search(line)):
+            self.done = self.processed + int(m.group(1)) - 1
+            self.report()
+
+    def report(self, force=False):
+        message = f"{self.label}: {self.done}"
+        if self.total:
+            message += f"/{self.total} revisions ({100 * self.done / self.total:.1f}%)"
+        else:
+            message += " revisions"
+        elapsed = time.monotonic() - self.start
+        if self.done and elapsed > 0:
+            per_second = self.done / elapsed
+            message += f", {60 * per_second:.0f}/min"
+            if self.total:
+                message += f", ETA {format_duration((self.total - self.done) / per_second)}"
+        self.status.report(message, force)
+
+
+def run_tool(command, limit, progress):
+    """Run a tool with COMMIT_LIMIT, passing its log through."""
+    proc = subprocess.Popen(
+        command, env=dict(os.environ, COMMIT_LIMIT=str(limit)), stderr=subprocess.PIPE
+    )
+    for line in proc.stderr:
+        sys.stderr.buffer.write(line)
+        progress.log_line(line)
+    sys.stderr.buffer.flush()
+    if proc.wait() != 0:
+        raise subprocess.CalledProcessError(proc.returncode, command)
+
+
+def run_in_chunks(name, label, command, repo, ref, chunk_size, total_limit, status):
     """Run `command` with COMMIT_LIMIT until it has processed every revision
     (or `total_limit` revisions, if nonzero), repacking `repo` after each run.
     """
+    progress = Progress(label, status)
     before = num_processed(repo, ref)
     processed = 0
     chunk = 0
@@ -84,17 +178,24 @@ def run_in_chunks(name, command, repo, ref, chunk_size, total_limit):
                 break
         chunk += 1
         log(f"{name} chunk {chunk} (up to {limit} revisions, {processed} processed so far)")
-        subprocess.run(command, check=True, env=dict(os.environ, COMMIT_LIMIT=str(limit)))
+        progress.chunk_started(processed)
+        run_tool(command, limit, progress)
         after = num_processed(repo, ref)
         log(f"{name} processed {after - before} revisions; repacking {repo}")
         repack(repo)
         processed += after - before
+        progress.chunk_started(processed)
+        progress.report(force=True)
         # The tools only process fewer revisions than the limit if that's all
         # there were.
         if after - before < limit:
             break
         before = after
-    log(f"{name} processed {processed} revisions in {chunk} chunks")
+    status.report(
+        f"{label}: processed {processed} revisions in {chunk} chunks in "
+        f"{format_duration(time.monotonic() - progress.start)}",
+        force=True,
+    )
 
 
 def main():
@@ -111,6 +212,12 @@ def main():
         "--tools-dir",
         help="The directory with the tools (default: find them on PATH).",
     )
+    parser.add_argument(
+        "--status-command",
+        help="A command to run with a progress message (ex: \"timeline: "
+        "1200/5000 revisions (24.0%%), 350/min, ETA 11m\") as its last argument, "
+        "at most once a minute (ex: infrastructure/aws/set-status.py).",
+    )
     parser.add_argument("source_repo")
     parser.add_argument("history_root")
     parser.add_argument("syntax_args", nargs=argparse.REMAINDER)
@@ -126,21 +233,26 @@ def main():
     syntax = os.path.join(args.history_root, "syntax")
     timeline = os.path.join(args.history_root, "timeline")
     rev_summaries = os.path.join(args.history_root, "rev-summaries")
+    status = Status(args.status_command)
     run_in_chunks(
         "build-syntax-token-tree",
+        "syntax",
         [tool("build-syntax-token-tree"), args.source_repo, syntax, *args.syntax_args],
         syntax,
         ref,
         args.chunk_size,
         total_limit,
+        status,
     )
     run_in_chunks(
         "build-timeline-tree",
+        "timeline",
         [tool("build-timeline-tree"), args.source_repo, syntax, timeline, rev_summaries],
         timeline,
         ref,
         args.chunk_size,
         total_limit,
+        status,
     )
 
 
