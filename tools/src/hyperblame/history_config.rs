@@ -11,9 +11,11 @@
 //!
 //! ```toml
 //! # config.toml: The first source revision to derive history for.  Its
-//! # ancestors are ignored, so it's treated as if it created every file, and
-//! # merge parents from before it are dropped.  This lets us derive history for
-//! # a window of a huge repository's history.
+//! # ancestors are ignored, so it's treated as if it created every file, merge
+//! # parents from before it are dropped, and revisions whose parents are all
+//! # from before it (ex: the first revision of a branch which forked before
+//! # it) are derived from it instead.  This lets us derive history for a window
+//! # of a huge repository's history.
 //! start = "<full revision>"
 //! ```
 //!  The attributes a note provides apply to its revision

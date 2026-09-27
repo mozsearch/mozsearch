@@ -1101,9 +1101,8 @@ fn compute_thread_main(
 
 /// The note attributes `rev` inherits from notes on its ancestors, which is to
 /// say the attributes of the nearest ancestor with a note providing attributes.
-/// This is used for the history's start revision (and any other revisions in
-/// the window without parents in the window), since its ancestors aren't
-/// processed.  Nearest means an ancestor note that none of the other ancestor
+/// This is used for the history's start revision (and so the other revisions
+/// without parents), since its ancestors aren't processed.  Nearest means an ancestor note that none of the other ancestor
 /// notes descend from, which approximates first-parent inheritance.
 fn attributes_inherited_by(
     git_repo: &Repository,
@@ -1175,7 +1174,8 @@ fn main() {
     // If the history configuration has a start revision, we ignore its
     // ancestors.  Descendants of those ancestors which aren't descendants of the
     // start revision (ex: a merged branch which forked before the start) are
-    // still processed, but without their parents from before the start.
+    // still processed, but without their parents from before the start; see
+    // below.
     if let Some(start) = history_config.start {
         if !(start == head || git_repo.graph_descendant_of(head, start).unwrap_or(false)) {
             error!(
@@ -1209,24 +1209,56 @@ fn main() {
     // The revisions to process (parents before children) and their parents
     // within the window, which have either been processed or are to be
     // processed.
-    let walked: Vec<Oid> = walk
+    let mut walked: Vec<Oid> = walk
         .with_hide_callback(&mut hide_processed)
         .unwrap()
         .map(|r| r.unwrap())
         .collect();
+    // Revisions whose parents are all from before the start revision (ex: the
+    // first revision of a branch which forked before the start) are derived
+    // from the start revision instead, as if it were their parent, rather than
+    // being roots which add every file.  That's much cheaper for the history
+    // tools and attributes only their differences from the start to them.  So
+    // the start revision goes first if it's to be processed (which keeps the
+    // order topological, since it has no parents in the window), and otherwise
+    // we need its syntax commit.
+    if let Some(start) = history_config.start
+        && let Some(pos) = walked.iter().position(|rev| *rev == start)
+    {
+        walked.remove(pos);
+        walked.insert(0, start);
+    }
     let to_process: HashSet<Oid> = walked.iter().copied().collect();
     let all_revs = walked
         .into_iter()
         .map(|oid| {
-            let parents: Vec<Oid> = git_repo
-                .find_commit(oid)
-                .unwrap()
+            let commit = git_repo.find_commit(oid).unwrap();
+            let mut parents: Vec<Oid> = commit
                 .parent_ids()
                 .filter(|p| to_process.contains(p) || processed.contains_key(p))
                 .collect();
+            if let Some(start) = history_config.start
+                && oid != start
+                && parents.is_empty()
+                && commit.parent_count() > 0
+            {
+                parents.push(start);
+            }
             (oid, parents)
         })
         .collect::<Vec<_>>();
+    if let Some(start) = history_config.start
+        && !to_process.contains(&start)
+        && !processed.contains_key(&start)
+        && all_revs.iter().any(|(_, parents)| parents.contains(&start))
+    {
+        let meta = mapping
+            .lookup(&blame_repo, start)
+            .and_then(|syntax_rev| blame_repo.find_commit(syntax_rev).ok())
+            .map(|commit| syntax_commit_to_meta(&commit))
+            .expect("the start revision is processed before the revisions derived from it");
+        processed.insert(start, meta);
+    }
     info!(
         "{} revisions to process, building on {} processed revisions",
         all_revs.len(),
@@ -1304,9 +1336,10 @@ fn main() {
             .map(|(oid, parents)| (*oid, parents.first().copied()))
             .collect::<Vec<_>>(),
         processed_attributes,
-        // Revisions without parents in the window (the start revision and any
-        // branches which forked before it) get the attributes in effect at the
-        // start revision, including from a note on the start revision itself.
+        // Revisions without parents (the start revision, and the roots of
+        // unrelated histories in the window) get the attributes in effect at
+        // the start revision, including from a note on the start revision
+        // itself.
         history_config.start.and_then(|start| {
             history_config
                 .note(start)
