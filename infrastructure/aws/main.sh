@@ -30,6 +30,13 @@ handle_error() {
         lsof | grep /index-ebs
     fi
 
+    # Record the failure in the instance's status tag (see set-status.py), and
+    # keep the whole log, since the email only has its tail and the instance's
+    # local storage is lost when it shuts down.
+    $AWS_ROOT/set-status.py "failed: ${TARGETSCRIPT:-main.sh}; see the emailed log" || true
+    gzip -kf ~/index-log && $AWS_ROOT/upload.py ~/index-log.gz indexer-logs \
+        "failed-$(date -Iminutes)_${CHANNEL:-unknown}_${TARGETSCRIPT:-main}.gz" || true
+
     # Send failure email and shut down. Release channel failures get sent to the
     # default email address, other channel failures get sent to the author of
     # the head commit.

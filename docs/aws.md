@@ -379,6 +379,37 @@ Note that the .zip file created for AWS Lambda in the previous section
 merely includes a copy of the `trigger_indexer.py` script, which it
 invokes when the task runs.
 
+All of the trigger scripts accept `--instance-type` (the default is
+`m6id.4xlarge`; the scratch setup in `mkscratch.sh` needs a type with instance
+storage) and `--config-rev` for a config repo branch whose name differs from
+the mozsearch branch.
+
+## Rebuilding blame and history
+
+`infrastructure/aws/trigger_blame_rebuild.py` takes the same arguments and
+launches an instance which runs each tree's `reblame` script from the config
+repo (via `rebuild-blame.sh` and `infrastructure/reblame-run.sh`, which pass
+`--upload`), uploads its log to the `indexer-logs` bucket as `reblame-*.gz`, and
+terminates.  Scripts can take options from the environment with `--setenv`.
+For example, to generate firefox-disco's token-centric history for the last 14
+days (see `firefox-disco/reblame` in the config repo):
+
+```
+infrastructure/aws/trigger_blame_rebuild.py \
+  https://github.com/mozsearch/mozsearch \
+  https://github.com/mozsearch/mozsearch-mozilla \
+  just-fd.json hyperblame dev-history \
+  --config-rev firefox-disco --instance-type m8id.16xlarge \
+  --setenv HISTORY_WINDOW_DAYS=14
+```
+
+Instances record their progress in their `status` tag (see
+`infrastructure/aws/set-status.py`), so you can check on a rebuild without
+ssh-ing in with `infrastructure/aws/reblame-status.py`, which also lists the
+recent reblame logs and prints the end of one with `--tail`.  If a run fails,
+the failure email has the end of the log, the whole log is uploaded as
+`failed-*.gz`, and the instance shuts down.
+
 ## Creating additional development channels
 
 If many developers are working on features concurrently, it might be

@@ -4,6 +4,8 @@ from trigger_common import TriggerCommandBase
 
 # Usage: trigger_blame_rebuild.py <mozsearch-repo> <config-repo> <config-input> <branch> <channel>
 #  e.g.: trigger_blame_rebuild.py https://github.com/mozsearch/mozsearch https://github.com/mozsearch/mozsearch-mozilla config1.json master release
+# See "Rebuilding blame and history" in docs/aws.md, and reblame-status.py for
+# checking on the instance.
 
 class TriggerReblameCommand(TriggerCommandBase):
     def __init__(self):

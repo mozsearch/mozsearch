@@ -2,7 +2,7 @@
 # install steps in `build-lambda-indexer-start.sh`.
 import boto3
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import sys
 import os.path
 
@@ -51,6 +51,11 @@ class TriggerCommandBase:
         #   requires a re-provision so I'm punting.
         parser.add_argument('--config-rev', dest='config_rev')
 
+        # See the comment about the default in `trigger`.  Other types need
+        # instance storage (see `mkscratch.sh`), ex: m8id.16xlarge for history
+        # generation.
+        parser.add_argument('--instance-type', dest='instance_type', default='m6id.4xlarge')
+
         return parser
 
     def parse_args(self, args=None):
@@ -93,20 +98,20 @@ class TriggerCommandBase:
         ec2 = boto3.resource('ec2')
         client = boto3.client('ec2')
 
-        # We unconditionally use m6id.4xlarge for the following reasons:
+        # We use m6id.4xlarge by default for the following reasons:
         # - multi-threaded crossref needs more than 32GB RAM
         # - release4 (bug 1922407); runtimes have hit and timed out at 12 hours
         #   using an m5d.2xlarge
         # - release5 (bug 1912078 ish): runtime hit 8.5 hours and much of this
         #   is simply build duration for webkit, so should parallelize easily.
         #
-        # This decision is baked into the script here rather than present in
+        # This default is baked into the script here rather than present in
         # config files because we run this script as part of a lambda job run
         # out of a zipball we upload to AWS without doing any git checkouts,
         # etc.  The git stuff happens on the indexer after it is spawned.  (This
         # could of course be changed, but potentially would make the lambda jobs
-        # more complex / brittle.)
-        instance_type = 'm6id.4xlarge'
+        # more complex / brittle.)  Manual triggers can pass --instance-type.
+        instance_type = args.instance_type
 
         # Terminate any "running" or "stopped" instances.  We used to only
         # terminate "running" instances with the theory that someone might get
@@ -140,7 +145,13 @@ MOZSEARCH_PS_CONFIG="{config}"
 FINAL
 
     {extra_commands}
-    sudo -i -u ubuntu {cmd_env_vars} ./update.sh "{mozsearch_repo}" "{branch}" "{config_repo}" "{config_rev}"
+    # If updating fails, main.sh never runs to report the failure, so record it
+    # in the instance's status tag (see set-status.py) and stop the instance.
+    if ! sudo -i -u ubuntu {cmd_env_vars} ./update.sh "{mozsearch_repo}" "{branch}" "{config_repo}" "{config_rev}"; then
+        aws ec2 create-tags --region us-west-2 --resources "$(ec2metadata --instance-id)" --tags "Key=status,Value=failed: update.sh (see ~ubuntu/update-log)" "Key=status-updated,Value=$(date -u -Iseconds)" || true
+        shutdown -h +5
+        exit 1
+    fi
     sudo -i -u ubuntu {cmd_env_vars} mozsearch/infrastructure/aws/main.sh {core_script} {max_runtime_hours} "{branch}" "{channel}" {extra_args}
     '''.format(
         core_script=self.core_script,
@@ -198,6 +209,13 @@ FINAL
                 }, {
                     'Key': 'cfile',
                     'Value': args.config_input,
+                }, {
+                    # Updated by set-status.py as the instance works.
+                    'Key': 'status',
+                    'Value': 'booting',
+                }, {
+                    'Key': 'status-updated',
+                    'Value': datetime.now(timezone.utc).isoformat(timespec='seconds'),
                 }],
             }],
         }

@@ -18,6 +18,9 @@ CHANNEL=$2
 CONFIG_REPO_PATH=$(readlink -f $3)
 CONFIG_INPUT="$4"
 
+# The trees' reblame scripts can record more detailed progress the same way.
+$AWS_ROOT/set-status.py "rebuilding blame for $CONFIG_INPUT"
+
 $MOZSEARCH_PATH/infrastructure/reblame-run.sh $CONFIG_REPO_PATH $CONFIG_INPUT /index "--upload"
 
 date
@@ -34,9 +37,11 @@ release* )
     ;;
 esac
 
+LOG_KEY="reblame-$(date -Iminutes)_${CHANNEL}_${CONFIG_INPUT%.*}.gz"
 gzip -k ~ubuntu/index-log
-$AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs "reblame-$(date -Iminutes)_${CHANNEL}_${CONFIG_INPUT%.*}.gz"
+$AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs "$LOG_KEY"
 $AWS_ROOT/send-done-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
+$AWS_ROOT/set-status.py "done; the log is indexer-logs/$LOG_KEY; terminating"
 
 # Give logger time to catch up
 sleep 30
