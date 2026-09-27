@@ -21,7 +21,8 @@ use crate::{
 use super::{
     cmd_augment_results::AugmentResultsCommand, cmd_batch_render::BatchRenderCommand,
     cmd_format_symbols::FormatSymbolsCommand, cmd_fuse_crossrefs::FuseCrossrefsCommand,
-    cmd_jq::JQCommand, cmd_jumpref_lookup::JumprefLookupCommand, cmd_render::RenderCommand,
+    cmd_history_journal::HistoryJournalCommand, cmd_jq::JQCommand,
+    cmd_jumpref_lookup::JumprefLookupCommand, cmd_render::RenderCommand,
     cmd_tokenize_source::TokenizeSourceCommand, cmd_traverse::TraverseCommand,
     cmd_webtest::WebtestCommand,
 };
@@ -68,6 +69,8 @@ pub fn fab_command_from_opts(
         (Command::FormatSymbols(fs), _) => Ok(Box::new(FormatSymbolsCommand { args: fs })),
 
         (Command::Graph(g), _) => Ok(Box::new(GraphCommand { args: g })),
+
+        (Command::HistoryJournal(hj), _) => Ok(Box::new(HistoryJournalCommand { args: hj })),
 
         (Command::JumprefLookup(cl), _) => Ok(Box::new(JumprefLookupCommand { args: cl })),
 

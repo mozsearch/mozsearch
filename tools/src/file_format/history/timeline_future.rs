@@ -190,4 +190,18 @@ impl TimelineRecord for FutureRecord {
             FutureRecord::Summary(_) => None,
         }
     }
+
+    fn detail_source_rev(&self) -> Option<&str> {
+        match self {
+            FutureRecord::Detail(d) => Some(&d.desc.source_rev),
+            FutureRecord::Summary(_) => None,
+        }
+    }
+
+    fn summary_ref(&self) -> Option<&SummaryRecordRef> {
+        match self {
+            FutureRecord::Detail(_) => None,
+            FutureRecord::Summary(s) => Some(&s.desc),
+        }
+    }
 }

@@ -23,12 +23,15 @@ use crate::file_format::bisectable_mmap::BisectableMmap;
 use crate::file_format::code_coverage_report;
 use crate::file_format::config::{TreeConfig, TreeConfigPaths, git_data, load};
 use crate::file_format::crossref::CrossrefData;
+use crate::file_format::history::timeline_common::JournalVersionRef;
 use crate::file_format::identifiers::IdentMap;
 use crate::file_format::jumpref::JumprefData;
 use crate::file_format::per_file_info::FileLookupMap;
 use crate::format::format_code;
 use crate::git_ops::{RevisionCoverage, coverage_history, coverage_summary, git_time_to_chrono};
+use crate::hyperblame::journals::{JournalKind, JournalReader};
 use crate::languages::select_formatting;
+use crate::source_mapping::{NotesRefs, SourceMapping, default_notes_ref};
 
 pub mod livegrep {
     // Compilation gets upset about IndexSpec, CloneOptions, PathSpec, and
@@ -248,6 +251,63 @@ impl AbstractServer for LocalIndex {
         let mut raw_str = String::new();
         f.read_to_string(&mut raw_str).await?;
         Ok(raw_str)
+    }
+
+    async fn fetch_history_journal(
+        &self,
+        kind: JournalKind,
+        target: &str,
+        source_rev: Option<&str>,
+        expand: bool,
+    ) -> Result<Vec<Value>> {
+        let problem = |layer: ErrorLayer, message: String| {
+            ServerError::StickyProblem(ErrorDetails { layer, message })
+        };
+        let Some(history_path) = &self.config_paths.history_path else {
+            return Err(problem(
+                ErrorLayer::ConfigLayer,
+                "this tree has no history".to_string(),
+            ));
+        };
+        let repo = git2::Repository::open(format!("{}/timeline", history_path))
+            .map_err(|e| problem(ErrorLayer::DataLayer, e.to_string()))?;
+        let branch_ref = self
+            .config_paths
+            .git_branch
+            .as_ref()
+            .map_or("HEAD".to_string(), |branch| {
+                format!("refs/heads/{}", branch)
+            });
+        let timeline_rev = match source_rev {
+            // The timeline repo's notes map source revisions to timeline commits;
+            // see `source_mapping`.
+            Some(rev) => {
+                let rev = git2::Oid::from_str(rev)
+                    .map_err(|e| problem(ErrorLayer::BadInput, e.to_string()))?;
+                let notes_refs = NotesRefs {
+                    write: default_notes_ref(&repo, &branch_ref),
+                    read: vec![],
+                };
+                SourceMapping::open(&repo, &notes_refs)
+                    .lookup(&repo, rev)
+                    .ok_or_else(|| {
+                        problem(
+                            ErrorLayer::BadInput,
+                            format!("no history for source revision {}", rev),
+                        )
+                    })?
+            }
+            None => repo
+                .refname_to_id(&branch_ref)
+                .map_err(|e| problem(ErrorLayer::DataLayer, e.to_string()))?,
+        };
+        let version = JournalVersionRef {
+            timeline_rev: timeline_rev.to_string(),
+            path: kind.journal_path(target),
+        };
+        JournalReader::new(&repo)
+            .records_json(kind, &version, expand)
+            .map_err(|e| problem(ErrorLayer::DataLayer, e))
     }
 
     async fn fetch_formatted_lines(&self, sf_path: &str) -> Result<(Vec<String>, String)> {

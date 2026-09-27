@@ -12,6 +12,7 @@ use crate::file_format::crossref::CrossrefData;
 use crate::file_format::jumpref::JumprefData;
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::RevisionCoverage;
+use crate::hyperblame::journals::JournalKind;
 
 pub type Result<T> = std::result::Result<T, ServerError>;
 
@@ -408,4 +409,21 @@ pub trait AbstractServer {
     ) -> Result<TextMatches>;
 
     async fn perform_query(&self, q: &str) -> Result<Value>;
+
+    /// Fetch the records of a token-centric history timeline journal (see
+    /// `hyperblame::journals`) as JSON values, newest to oldest.  `target` is a
+    /// tree-relative path for future and files-delta journals, and a token for
+    /// token journals.  The journal is as of the source revision `source_rev`
+    /// if provided (which must be a full revision), or else the history's
+    /// head.  If `expand` is true, summary records are replaced by the detail
+    /// records they summarize.
+    ///
+    /// This is currently local-only.
+    async fn fetch_history_journal(
+        &self,
+        kind: JournalKind,
+        target: &str,
+        source_rev: Option<&str>,
+        expand: bool,
+    ) -> Result<Vec<Value>>;
 }

@@ -21,6 +21,15 @@ pub struct DetailRecordRef {
     pub backs_out: Vec<String>,
 }
 
+/// A version of a journal: the journal at `path` (relative to the root of the
+/// timeline repo, ex: "future/dom/base/nsINode.cpp.ndjson") in the timeline
+/// commit `timeline_rev`.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct JournalVersionRef {
+    pub timeline_rev: String,
+    pub path: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SummaryRecordRef {
     /// List of all of the source revisions whose data is aggregated into this
@@ -29,11 +38,14 @@ pub struct SummaryRecordRef {
     /// for now.
     pub source_revs: Vec<String>,
 
-    /// The timeline revision that precedes the creation of the revision that
-    /// holds this summary record.  So if you look at this revision, you will
-    /// find all of the detail records that were an input to the creation of
-    /// this summary record.
-    pub pred_timeline_rev: String,
+    /// The versions of this journal which contain the detail records for
+    /// `source_revs`, or summaries of them whose own `preds` do, and so on;
+    /// see `hyperblame::journals` for how summaries get expanded.  Usually
+    /// this is the journal in the timeline commit preceding the commit that
+    /// created this summary, but a summary created when merging has one per
+    /// parent, and the path differs if the journal was renamed or copied since
+    /// (files-delta journals follow their files).
+    pub preds: Vec<JournalVersionRef>,
 
     /// The [year, newest iso week inclusive, oldest iso week inclusive] time
     /// range that this summary is intended to cover.  For now we expect that
@@ -329,6 +341,12 @@ pub trait TimelineRecord {
     /// newest to oldest.  Summary records return None and sort after detail
     /// records because they are always older.
     fn iso_date(&self) -> Option<&str>;
+
+    /// The source revision of a detail record.
+    fn detail_source_rev(&self) -> Option<&str>;
+
+    /// The common summary fields of a summary record.
+    fn summary_ref(&self) -> Option<&SummaryRecordRef>;
 }
 
 /// Merge the records from multiple versions of a journal file, de-duplicating

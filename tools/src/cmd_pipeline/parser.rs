@@ -10,6 +10,7 @@ use super::cmd_filter_analysis::FilterAnalysis;
 use super::cmd_format_symbols::FormatSymbols;
 use super::cmd_fuse_crossrefs::FuseCrossrefs;
 use super::cmd_graph::Graph;
+use super::cmd_history_journal::HistoryJournal;
 use super::cmd_jq::JQ;
 use super::cmd_jumpref_lookup::JumprefLookup;
 use super::cmd_merge_analyses::MergeAnalyses;
@@ -71,6 +72,7 @@ pub enum Command {
     FilterAnalysis(FilterAnalysis),
     FormatSymbols(FormatSymbols),
     Graph(Graph),
+    HistoryJournal(HistoryJournal),
     JumprefLookup(JumprefLookup),
     JQ(JQ),
     MergeAnalyses(MergeAnalyses),

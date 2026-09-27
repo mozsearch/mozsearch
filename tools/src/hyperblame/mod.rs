@@ -6,5 +6,6 @@
 pub mod backouts;
 pub mod history_config;
 pub mod inference;
+pub mod journals;
 pub mod stats;
 pub mod suffix_array;

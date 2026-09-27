@@ -88,6 +88,20 @@ impl TimelineRecord for TokenDeltaRecord {
             TokenDeltaRecord::Summary(_) => None,
         }
     }
+
+    fn detail_source_rev(&self) -> Option<&str> {
+        match self {
+            TokenDeltaRecord::Detail(d) => Some(&d.desc.source_rev),
+            TokenDeltaRecord::Summary(_) => None,
+        }
+    }
+
+    fn summary_ref(&self) -> Option<&SummaryRecordRef> {
+        match self {
+            TokenDeltaRecord::Detail(_) => None,
+            TokenDeltaRecord::Summary(s) => Some(&s.desc),
+        }
+    }
 }
 
 /// Does this text look like an identifier?  Specifically: at least 2

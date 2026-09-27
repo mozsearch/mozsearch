@@ -61,4 +61,18 @@ impl TimelineRecord for FileDeltaRecord {
             FileDeltaRecord::Summary(_) => None,
         }
     }
+
+    fn detail_source_rev(&self) -> Option<&str> {
+        match self {
+            FileDeltaRecord::Detail(d) => Some(&d.desc.source_rev),
+            FileDeltaRecord::Summary(_) => None,
+        }
+    }
+
+    fn summary_ref(&self) -> Option<&SummaryRecordRef> {
+        match self {
+            FileDeltaRecord::Detail(_) => None,
+            FileDeltaRecord::Summary(s) => Some(&s.desc),
+        }
+    }
 }

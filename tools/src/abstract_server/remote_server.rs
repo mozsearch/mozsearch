@@ -7,6 +7,7 @@ use ustr::Ustr;
 use crate::{
     file_format::{code_coverage_report, crossref::CrossrefData, jumpref::JumprefData},
     git_ops::RevisionCoverage,
+    hyperblame::journals::JournalKind,
 };
 
 use super::{
@@ -143,6 +144,16 @@ impl AbstractServer for RemoteServer {
 
     async fn fetch_raw_source(&self, _sf_path: &str) -> Result<String> {
         // I'm not sure we actually expose the underlying raw file?
+        Err(ServerError::Unsupported)
+    }
+
+    async fn fetch_history_journal(
+        &self,
+        _kind: JournalKind,
+        _target: &str,
+        _source_rev: Option<&str>,
+        _expand: bool,
+    ) -> Result<Vec<Value>> {
         Err(ServerError::Unsupported)
     }
 

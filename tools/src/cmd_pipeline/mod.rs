@@ -16,6 +16,7 @@ mod cmd_filter_analysis;
 mod cmd_format_symbols;
 mod cmd_fuse_crossrefs;
 mod cmd_graph;
+mod cmd_history_journal;
 mod cmd_jq;
 mod cmd_jumpref_lookup;
 mod cmd_merge_analyses;
