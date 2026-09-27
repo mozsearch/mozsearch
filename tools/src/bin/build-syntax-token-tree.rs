@@ -97,6 +97,11 @@ fn start_fast_import(git_repo: &Repository) -> Child {
     // a descendant of the original (master), and we need `--force`
     // to make git-fast-import allow that.
     Command::new("git")
+        // We rewrite big files (ex: journals) a lot, and the fastest zlib level
+        // saves time without making much difference in size.  (The packs get
+        // repacked by maintenance anyway.)
+        .arg("-c")
+        .arg("core.compression=1")
         .arg("fast-import")
         .arg("--force")
         .arg("--quiet")
@@ -140,21 +145,48 @@ fn read_mark_oid(import_helper: &mut Child, mark: usize) -> String {
     result.trim().to_string()
 }
 
+/// Where to read syntax repo data from.  Reading from the commit being written
+/// (`Active`) gives the first parent's version of any path not yet modified in
+/// it, since it starts out with the first parent's tree, and is much cheaper
+/// than reading from the first parent itself, which makes git-fast-import load
+/// the first parent's trees along the path again (and the "symdex/js" tree can
+/// have tens of thousands of entries).
+#[derive(Clone, Copy)]
+enum ReadFrom<'a> {
+    Active,
+    Commit(&'a SyntaxRepoCommit),
+}
+
+/// Quote a path with git-fast-import's C-style quoting, which is required when
+/// reading from the active commit.
+fn quote_path(path: &Path) -> String {
+    let escaped = path
+        .to_string_lossy()
+        .replace('\\', "\\\\")
+        .replace('\n', "\\n")
+        .replace('"', "\\\"");
+    format!("\"{}\"", escaped)
+}
+
+#[test]
+fn test_quote_path() {
+    assert_eq!(quote_path(Path::new("files/a b.cpp")), "\"files/a b.cpp\"");
+    assert_eq!(
+        quote_path(Path::new("files/\"q\"\\x\ny")),
+        r#""files/\"q\"\\x\ny""#
+    );
+}
+
 /// Read the oid of the object at the given path in the given
 /// commit. Returns None if there is no such object.
 /// Documentation for the fast-import command used is at
 /// https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Readingfromanamedtree
-fn read_path_oid(
-    import_helper: &mut Child,
-    commit: &SyntaxRepoCommit,
-    path: &Path,
-) -> Option<String> {
-    writeln!(
-        import_helper.stdin.as_mut().unwrap(),
-        "ls {} {}",
-        commit,
-        sanitize(path)
-    )
+fn read_path_oid(import_helper: &mut Child, from: ReadFrom, path: &Path) -> Option<String> {
+    let stdin = import_helper.stdin.as_mut().unwrap();
+    match from {
+        ReadFrom::Active => writeln!(stdin, "ls {}", quote_path(path)),
+        ReadFrom::Commit(commit) => writeln!(stdin, "ls {} {}", commit, sanitize(path)),
+    }
     .unwrap();
     let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
     let mut result = String::new();
@@ -178,12 +210,8 @@ fn read_path_oid(
 /// given commit. Returns None if there is no such object.
 /// Documentation for the fast-import command used is at
 /// https://git-scm.com/docs/git-fast-import#_cat_blob
-fn read_path_blob(
-    import_helper: &mut Child,
-    commit: &SyntaxRepoCommit,
-    path: &Path,
-) -> Option<Vec<u8>> {
-    let oid = read_path_oid(import_helper, commit, path)?;
+fn read_path_blob(import_helper: &mut Child, from: ReadFrom, path: &Path) -> Option<Vec<u8>> {
+    let oid = read_path_oid(import_helper, from, path)?;
     writeln!(import_helper.stdin.as_mut().unwrap(), "cat-blob {}", oid).unwrap();
     let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
     let mut description = String::new();
@@ -353,7 +381,29 @@ struct SymbolNotes {
 /// actually need to walk the syntax repo "files" and "files-struct" subtrees;
 /// we can just look up their contents when we're propagating them.
 #[allow(clippy::too_many_arguments)]
-fn recursively_process_source_tree(
+/// Where to read the syntax repo data corresponding to `parent_idx`'s tree.
+fn parent_source(syntax_parents: &[SyntaxRepoCommit], parent_idx: usize) -> ReadFrom<'_> {
+    if parent_idx == 0 {
+        ReadFrom::Active
+    } else {
+        ReadFrom::Commit(&syntax_parents[parent_idx])
+    }
+}
+
+fn delete_syntax_path(import_helper: &mut Child, tokenize_path: &Path, struct_path: &Path) {
+    let stdin = import_helper.stdin.as_mut().unwrap();
+    writeln!(stdin, "D {}", sanitize(tokenize_path)).unwrap();
+    writeln!(stdin, "D {}", sanitize(struct_path)).unwrap();
+}
+
+/// Update the "files" and "files-struct" subtrees of the commit being written,
+/// which start out as its first parent's (or empty for a root), for the
+/// entries of the source tree at `path` which differ from the first parent's:
+/// entries identical to another parent's (for merges) get that parent's
+/// derived entries, changed files get written, changed directories get
+/// recursed into, and removed entries get deleted.  `parent_trees` are the
+/// parents' source trees at `path`.
+fn process_source_tree_changes(
     syntax_data: &SyntaxTreeData,
     symdex: &mut HashMap<String, HashMap<String, SymbolNotes>>,
     git_repo: &git2::Repository,
@@ -366,85 +416,113 @@ fn recursively_process_source_tree(
 ) -> Result<(), git2::Error> {
     let files_root = PathBuf::from("files");
     let files_struct_root = PathBuf::from("files-struct");
+    let first_tree = parent_trees.first().and_then(|tree| tree.as_ref());
+
+    // ## Entries the first parent had which are gone.
+    if let Some(first_tree) = first_tree {
+        for parent_entry in first_tree.iter() {
+            let name = parent_entry.name().unwrap();
+            if tree_at_path.get_name(name).is_none() {
+                path.push(name);
+                info!(" - Removing {}", path.display());
+                delete_syntax_path(
+                    import_helper,
+                    &files_root.join(&path),
+                    &files_struct_root.join(&path),
+                );
+                path.pop();
+            }
+        }
+    }
 
     'outer: for entry in tree_at_path.iter() {
         let entry_name = entry.name().unwrap();
         path.push(entry_name);
+        let tokenize_path = files_root.join(&path);
+        let struct_path = files_struct_root.join(&path);
+        let forced = syntax_data.forced.contains(&path);
+        let first_entry = first_tree.and_then(|tree| tree.get_name(entry_name));
+
+        if !forced
+            && first_entry
+                .as_ref()
+                .is_some_and(|e| e.id() == entry.id() && e.filemode() == entry.filemode())
+        {
+            // The commit already has the first parent's derived entries.
+            path.pop();
+            continue;
+        }
+
         info!(" - Considering {}", path.display());
-
-        let mut tokenize_path = files_root.clone();
-        tokenize_path.push(&path);
-
-        let mut struct_path = files_struct_root.clone();
-        struct_path.push(&path);
-
-        for (i, parent_tree) in parent_trees.iter().enumerate() {
-            let parent_tree = match parent_tree {
-                None => continue, // This parent doesn't even have a tree at this path
-                Some(p) => p,
-            };
-            if let Some(parent_entry) = parent_tree.get_name(entry_name)
-                && parent_entry.id() == entry.id()
-                && !syntax_data.forced.contains(&path)
-            {
+        if !forced {
+            for (i, parent_tree) in parent_trees.iter().enumerate() {
+                let Some(parent_tree) = parent_tree else {
+                    continue;
+                };
+                if !parent_tree
+                    .get_name(entry_name)
+                    .is_some_and(|parent_entry| parent_entry.id() == entry.id())
+                {
+                    continue;
+                }
                 // Item at `path` is the same in the tree for `commit` as in
-                // `parent_trees[i]` so we can propagate our existing derived
-                // "files" and "files-struct" entries which will not have
-                // changed.  This works for trees/blobs/everything.
-
+                // `parent_trees[i]` (apart from possibly its mode) so we can
+                // propagate that parent's derived "files" and "files-struct"
+                // entries.  This works for trees/blobs/everything.
                 info!(
-                    "  For {} with id {} trying to propagate {} and {}",
+                    "  For {} with id {} propagating {} and {} from parent {}",
                     path.display(),
                     entry.id(),
                     tokenize_path.display(),
-                    struct_path.display()
+                    struct_path.display(),
+                    i
                 );
-
-                // "files" entry
-                let oid = match read_path_oid(import_helper, &syntax_parents[i], &tokenize_path) {
-                    Some(oid) => oid,
-                    // If we lack existing history for this entry and nothing has changed in it,
-                    // just skip the entry, because there's nothing we can do to make it have
-                    // have history.
-                    _ => {
-                        path.pop();
-                        continue 'outer;
+                let from = parent_source(syntax_parents, i);
+                match read_path_oid(import_helper, from, &tokenize_path) {
+                    Some(oid) => {
+                        let struct_oid = read_path_oid(import_helper, from, &struct_path).unwrap();
+                        let stdin = import_helper.stdin.as_mut().unwrap();
+                        let mode = entry.filemode();
+                        writeln!(stdin, "M {:06o} {} {}", mode, oid, sanitize(&tokenize_path))
+                            .unwrap();
+                        writeln!(
+                            stdin,
+                            "M {:06o} {} {}",
+                            mode,
+                            struct_oid,
+                            sanitize(&struct_path)
+                        )
+                        .unwrap();
                     }
-                };
-                writeln!(
-                    import_helper.stdin.as_mut().unwrap(),
-                    "M {:06o} {} {}",
-                    entry.filemode(),
-                    oid,
-                    sanitize(&tokenize_path)
-                )
-                .unwrap();
-
-                // "files-struct" entry
-                let oid = read_path_oid(import_helper, &syntax_parents[i], &struct_path).unwrap();
-                writeln!(
-                    import_helper.stdin.as_mut().unwrap(),
-                    "M {:06o} {} {}",
-                    entry.filemode(),
-                    oid,
-                    sanitize(&struct_path)
-                )
-                .unwrap();
-
+                    // That parent has no history for the entry, so neither
+                    // do we.
+                    None => delete_syntax_path(import_helper, &tokenize_path, &struct_path),
+                }
                 path.pop();
                 continue 'outer;
             }
         }
 
+        // An entry which was a different kind of thing in the first parent
+        // (ex: a file which is now a directory) needs its old derived entries
+        // removed before we write new ones.
+        let first_kind = first_entry.as_ref().and_then(|e| e.kind());
+        if first_entry.is_some() && first_kind != entry.kind() {
+            delete_syntax_path(import_helper, &tokenize_path, &struct_path);
+        }
+
         match entry.kind() {
             Some(ObjectType::Blob) => {
                 // ## Load any old "files-struct" entries to populate SymbolNotes::files_to_filter
-                for syntax_parent in syntax_parents {
-                    let parent_syntax_struct_blob =
-                        match read_path_blob(import_helper, syntax_parent, &struct_path) {
-                            Some(blob) => blob,
-                            _ => continue,
-                        };
+                for i in 0..syntax_parents.len() {
+                    let parent_syntax_struct_blob = match read_path_blob(
+                        import_helper,
+                        parent_source(syntax_parents, i),
+                        &struct_path,
+                    ) {
+                        Some(blob) => blob,
+                        _ => continue,
+                    };
                     let parsed_file: Option<(FileStructureHeader, Vec<FileStructureRow>)> =
                         read_record_file_contents(&parent_syntax_struct_blob);
                     if let Some((header, records)) = parsed_file {
@@ -465,13 +543,12 @@ fn recursively_process_source_tree(
                 // For the inline data format documentation, refer to
                 // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Inlinedataformat
                 // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Exactbytecountformat
-                let import_stream = import_helper.stdin.as_mut().unwrap();
-
                 if let Some(TokenizedFile {
                     hypertokenized,
                     lang_source,
                 }) = syntax_data.hypertokenized_files.get(&path)
                 {
+                    let import_stream = import_helper.stdin.as_mut().unwrap();
                     info!(
                         "  Writing out {} and {} (tokens: {} structure: {})",
                         tokenize_path.display(),
@@ -546,22 +623,26 @@ fn recursively_process_source_tree(
                             });
                         }
                     }
-                } else if !syntax_data.skipped.contains(&path) {
-                    warn!(
-                        "  Did not find hypertokenized version of {}",
-                        path.display()
-                    );
+                } else {
+                    if !syntax_data.skipped.contains(&path) {
+                        warn!(
+                            "  Did not find hypertokenized version of {}",
+                            path.display()
+                        );
+                    }
+                    // Any derived entries from the first parent are stale.
+                    if first_entry.is_some() {
+                        delete_syntax_path(import_helper, &tokenize_path, &struct_path);
+                    }
                 }
-                // We skip the optional trailing LF character here since in practice it
-                // wasn't particularly useful for debugging. Also the blame blobs we write
-                // here always have a trailing LF anyway.
             }
             Some(ObjectType::Commit) => {
                 // This is a submodule.  We don't create any entries for these
                 // because we already won't have entries for things like binary
                 // files.  This can be revisited in the future, but for now it
                 // likely makes sense to not handle them and leave it up to the
-                // normal boring "git log" functionality.
+                // normal boring "git log" functionality.  (Anything the first
+                // parent had here was deleted above because its kind differed.)
             }
             Some(ObjectType::Tree) => {
                 let mut parent_subtrees = Vec::with_capacity(parent_trees.len());
@@ -584,7 +665,7 @@ fn recursively_process_source_tree(
                     };
                     parent_subtrees.push(parent_subtree);
                 }
-                recursively_process_source_tree(
+                process_source_tree_changes(
                     syntax_data,
                     symdex,
                     git_repo,
@@ -644,7 +725,7 @@ fn test_symdex_path_for_pretty() {
     assert_eq!(symdex_path_for_pretty("a::::b"), "a/%/b");
 }
 
-/// Process the symdex data populated by `recursively_process_source_tree` by
+/// Process the symdex data populated by `process_source_tree_changes` by
 /// modifying the contents of the "symdex" subtree of the syntax repo.
 ///
 /// Because the files in the "symdex" subtree are aggregations of data from both
@@ -656,14 +737,13 @@ fn test_symdex_path_for_pretty() {
 /// effected by deleted content not being propagated.
 ///
 /// But for our symdex, we want to propagate everything that hasn't been
-/// changed.  So our revised approach is to only issue deletion directives for
-/// our "files" and "files-struct" subdirs and then re-propagate them
-/// "build-blame" style.  This should net out the same for them, but this will
-/// leave around our "symdex" subdir.  We can then issue explicit "filemodify"
-/// commands for changed files and "filedelete" commands for files which would
-/// have 0 records after the header after being filtered.  (Although maybe we
-/// never actually want to delete those?  Need to figure out how easy it is for
-/// the next stage to explicitly notice the deletions.)
+/// changed.  So commits start out with their first parent's tree and we only
+/// modify what changed (see `process_source_tree_changes` for "files" and
+/// "files-struct"): we issue explicit "filemodify" commands for changed files
+/// and "filedelete" commands for files which would have 0 records after the
+/// header after being filtered.  (Although maybe we never actually want to
+/// delete those?  Need to figure out how easy it is for the next stage to
+/// explicitly notice the deletions.)
 fn process_symdex_tree(
     symdex: HashMap<String, HashMap<String, SymbolNotes>>,
     import_helper: &mut Child,
@@ -684,12 +764,15 @@ fn process_symdex_tree(
             ));
             let mut records: Vec<SymdexRecord> = vec![];
 
-            for syntax_parent in syntax_parents {
-                let parent_symdex_blob =
-                    match read_path_blob(import_helper, syntax_parent, &sym_path) {
-                        Some(blob) => blob,
-                        _ => continue,
-                    };
+            for i in 0..syntax_parents.len() {
+                let parent_symdex_blob = match read_path_blob(
+                    import_helper,
+                    parent_source(syntax_parents, i),
+                    &sym_path,
+                ) {
+                    Some(blob) => blob,
+                    _ => continue,
+                };
                 let parsed_file: Option<(SymdexHeader, Vec<SymdexRecord>)> =
                     read_record_file_contents(&parent_symdex_blob);
                 records = if let Some((_header, mut records)) = parsed_file {
@@ -1310,12 +1393,9 @@ fn main() {
             for additional_parent in blame_parents.iter().skip(1) {
                 writeln!(import_stream, "merge {}", additional_parent).unwrap();
             }
-            // In a change from "build-blame.rs", we don't use "deleteall" because we
-            // want to retain the existing contents of the "symdex" subdir.  However,
-            // we do want the semantics of starting from deletion for "files" and
-            // "files-struct", so we do explicitly delete those subdirectories.
-            writeln!(import_stream, "D files").unwrap();
-            writeln!(import_stream, "D files-struct").unwrap();
+            // In a change from "build-blame.rs", we don't use "deleteall": the
+            // commit starts out with the first parent's tree and we only modify
+            // what changed, which is much less work for git-fast-import.
             import_stream.flush().unwrap();
         }
 
@@ -1324,7 +1404,7 @@ fn main() {
         // - "pretty" symbol identifier
         let mut symdex: HashMap<String, HashMap<String, SymbolNotes>> = HashMap::new();
 
-        recursively_process_source_tree(
+        process_source_tree_changes(
             &diff_data,
             &mut symdex,
             &git_repo,

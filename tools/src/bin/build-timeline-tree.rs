@@ -164,6 +164,11 @@ fn start_fast_import(git_repo: &Repository) -> Child {
     // a descendant of the original (master), and we need `--force`
     // to make git-fast-import allow that.
     Command::new("git")
+        // We rewrite big files (ex: journals) a lot, and the fastest zlib level
+        // saves time without making much difference in size.  (The packs get
+        // repacked by maintenance anyway.)
+        .arg("-c")
+        .arg("core.compression=1")
         .arg("fast-import")
         .arg("--force")
         .arg("--quiet")
@@ -239,21 +244,38 @@ impl TimelineCommits<'_> {
     }
 }
 
+/// Where to read timeline repo data from.  Reading from the commit being
+/// written (`Active`) gives the first parent's version of any path not yet
+/// modified in it, since it starts out with the first parent's tree, and is
+/// much cheaper than reading from the first parent itself, which makes
+/// git-fast-import load the first parent's trees along the path again.
+#[derive(Clone, Copy)]
+enum ReadFrom<'a> {
+    Active,
+    Commit(&'a TimelineRepoCommit),
+}
+
+/// Quote a path with git-fast-import's C-style quoting, which is required when
+/// reading from the active commit.
+fn quote_path(path: &Path) -> String {
+    let escaped = path
+        .to_string_lossy()
+        .replace('\\', "\\\\")
+        .replace('\n', "\\n")
+        .replace('"', "\\\"");
+    format!("\"{}\"", escaped)
+}
+
 /// Read the oid of the object at the given path in the given
 /// commit. Returns None if there is no such object.
 /// Documentation for the fast-import command used is at
 /// https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Readingfromanamedtree
-fn read_path_oid(
-    import_helper: &mut Child,
-    commit: &TimelineRepoCommit,
-    path: &Path,
-) -> Option<String> {
-    writeln!(
-        import_helper.stdin.as_mut().unwrap(),
-        "ls {} {}",
-        commit,
-        sanitize(path)
-    )
+fn read_path_oid(import_helper: &mut Child, from: ReadFrom, path: &Path) -> Option<String> {
+    let stdin = import_helper.stdin.as_mut().unwrap();
+    match from {
+        ReadFrom::Active => writeln!(stdin, "ls {}", quote_path(path)),
+        ReadFrom::Commit(commit) => writeln!(stdin, "ls {} {}", commit, sanitize(path)),
+    }
     .unwrap();
     let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
     let mut result = String::new();
@@ -303,12 +325,8 @@ fn read_blob(import_helper: &mut Child, oid: &str) -> Vec<u8> {
 
 /// Return the contents of the object at the given path in the
 /// given commit. Returns None if there is no such object.
-fn read_path_blob(
-    import_helper: &mut Child,
-    commit: &TimelineRepoCommit,
-    path: &Path,
-) -> Option<Vec<u8>> {
-    let oid = read_path_oid(import_helper, commit, path)?;
+fn read_path_blob(import_helper: &mut Child, from: ReadFrom, path: &Path) -> Option<Vec<u8>> {
+    let oid = read_path_oid(import_helper, from, path)?;
     Some(read_blob(import_helper, &oid))
 }
 
@@ -1267,10 +1285,10 @@ fn join_annotated(lines: Vec<String>) -> String {
 
 fn read_journal<H: DeserializeOwned + Default, R: DeserializeOwned>(
     import_helper: &mut Child,
-    commit: &TimelineRepoCommit,
+    from: ReadFrom,
     path: &Path,
 ) -> (H, Vec<R>) {
-    read_path_blob(import_helper, commit, path)
+    read_path_blob(import_helper, from, path)
         .and_then(|blob| read_record_file_contents(&blob))
         .unwrap_or_else(|| (H::default(), vec![]))
 }
@@ -1284,7 +1302,7 @@ fn load_journal_version<H: DeserializeOwned + Default, R: DeserializeOwned>(
     let oid = Oid::from_str(&version.timeline_rev).map_err(|e| e.to_string())?;
     let (_, records): (H, Vec<R>) = read_journal(
         import_helper,
-        &TimelineRepoCommit::Commit(oid),
+        ReadFrom::Commit(&TimelineRepoCommit::Commit(oid)),
         Path::new(&version.path),
     );
     Ok(records)
@@ -1300,7 +1318,9 @@ struct Consolidation<'a> {
 
 /// Prepend a record to the journal at `from_path` in the parent timeline commit
 /// and write it to `to_path` in the new commit, consolidating it if requested.
-/// Returns the number of summary records written.
+/// `touched` has the paths already deleted or written in the new commit, which
+/// we can't read the parent's version of from it.  Returns the number of
+/// summary records written.
 fn prepend_journal_record<H: DeserializeOwned + Default + Serialize, R: Summarize>(
     import_helper: &mut Child,
     parent: Option<&TimelineRepoCommit>,
@@ -1308,11 +1328,20 @@ fn prepend_journal_record<H: DeserializeOwned + Default + Serialize, R: Summariz
     to_path: &Path,
     record: R,
     consolidation: Option<&Consolidation>,
+    touched: &mut HashSet<PathBuf>,
 ) -> usize {
     let (header, mut records): (H, Vec<R>) = match parent {
-        Some(parent) => read_journal(import_helper, parent, from_path),
+        Some(parent) => {
+            let from = if touched.contains(from_path) {
+                ReadFrom::Commit(parent)
+            } else {
+                ReadFrom::Active
+            };
+            read_journal(import_helper, from, from_path)
+        }
         None => (H::default(), vec![]),
     };
+    touched.insert(to_path.to_path_buf());
     records.insert(0, record);
     let mut num_summaries = 0;
     if let (Some(consolidation), Some(_)) = (consolidation, parent) {
@@ -1343,7 +1372,7 @@ fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
 ) {
     let oids: Vec<Option<String>> = parents
         .iter()
-        .map(|p| read_path_oid(import_helper, p, path))
+        .map(|p| read_path_oid(import_helper, ReadFrom::Commit(p), path))
         .collect();
     if oids.iter().all(|oid| *oid == oids[0]) {
         // The tree already has the first parent's version.
@@ -1695,20 +1724,24 @@ fn process_linear_revision(
 
     // ## Load the parent annotated files.
     let mut parent_annotated: ParentAnnotated = HashMap::new();
-    if let Some(parent) = parent {
+    if parent.is_some() {
         for change in files {
             if let Some(old_path) = &change.old_path
                 && !parent_annotated.contains_key(old_path)
             {
-                let lines = read_path_blob(import_helper, parent, &annotated_path(old_path))
-                    .map(|blob| annotated_lines(&blob))
-                    .unwrap_or_default();
+                // (Nothing has been modified in the new commit yet.)
+                let lines =
+                    read_path_blob(import_helper, ReadFrom::Active, &annotated_path(old_path))
+                        .map(|blob| annotated_lines(&blob))
+                        .unwrap_or_default();
                 parent_annotated.insert(old_path.clone(), lines);
             }
         }
     }
 
     // ## Deletions (before modifications so renames/swaps work out)
+    // The journal paths deleted or written so far; see `prepend_journal_record`.
+    let mut touched: HashSet<PathBuf> = HashSet::new();
     for change in files {
         if matches!(
             change.kind,
@@ -1717,6 +1750,7 @@ fn process_linear_revision(
             let old_path = change.old_path.as_deref().unwrap();
             delete_path(import_helper, &annotated_path(old_path));
             delete_path(import_helper, &files_delta_path(old_path));
+            touched.insert(files_delta_path(old_path));
         }
     }
 
@@ -1729,7 +1763,11 @@ fn process_linear_revision(
             let mut lines = build_linear_annotated(&rev, change, files, &parent_annotated);
             let base = change.restore.as_ref().and_then(|restore| {
                 let base_commit = timeline_commits.get(restore.syntax_rev)?;
-                let blob = read_path_blob(import_helper, &base_commit, &annotated_path(new_path))?;
+                let blob = read_path_blob(
+                    import_helper,
+                    ReadFrom::Commit(&base_commit),
+                    &annotated_path(new_path),
+                )?;
                 Some((annotated_lines(&blob), restore))
             });
             if let Some((base_lines, restore)) = base {
@@ -1772,6 +1810,7 @@ fn process_linear_revision(
             &journal,
             FutureRecord::Detail(record),
             consolidation,
+            &mut touched,
         );
     }
 
@@ -1806,6 +1845,7 @@ fn process_linear_revision(
                 delta: change.delta.clone(),
             }),
             consolidation,
+            &mut touched,
         );
     }
 
@@ -1825,6 +1865,7 @@ fn process_linear_revision(
                 delta: delta.clone(),
             }),
             consolidation,
+            &mut touched,
         );
     }
 
@@ -1863,8 +1904,11 @@ fn process_merge_revision(
             });
         if let Some((i, path)) = identical
             && path == new_path
-            && let Some(oid) =
-                read_path_oid(import_helper, &timeline_parents[i], &annotated_path(path))
+            && let Some(oid) = read_path_oid(
+                import_helper,
+                ReadFrom::Commit(&timeline_parents[i]),
+                &annotated_path(path),
+            )
         {
             write_existing_blob(import_helper, &new_annotated, &oid);
             continue;
@@ -1880,9 +1924,11 @@ fn process_merge_revision(
                 ParentMapping::Identical { path } => (path, None),
                 ParentMapping::Diffed { path, unchanged } => (path, Some(unchanged)),
             };
-            let Some(blob) =
-                read_path_blob(import_helper, &timeline_parents[i], &annotated_path(path))
-            else {
+            let Some(blob) = read_path_blob(
+                import_helper,
+                ReadFrom::Commit(&timeline_parents[i]),
+                &annotated_path(path),
+            ) else {
                 continue;
             };
             let parent_lines = annotated_lines(&blob);
