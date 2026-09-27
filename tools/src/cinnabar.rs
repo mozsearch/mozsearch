@@ -13,14 +13,26 @@
 //! so a mapping file provides the old revisions for those, taking precedence.
 //! build-blame records the old revisions in its commit messages as
 //! `oldrevs OID,OID,...` and so do the history tools.
+//!
+//! ## Mapping old revisions to new revisions
+//!
+//! For the permalinks, web-server.rs needs the reverse mapping, from old
+//! revisions to new revisions.  build-blame records it in git notes in the
+//! blame repo (see `git_notes`), one notes ref per branch,
+//! `refs/notes/mozsearch-old-revision-mapping-<BRANCH>`, keyed by old revision
+//! and containing the new revision, so that the web server can look up old
+//! revisions without walking the whole blame branch to build an in-memory map
+//! (bug 1983433).  See `write_old_revision_notes` and `OldRevisionMap`.
 
 use std::collections::HashMap;
 use std::fs::read_to_string;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::{Child, ChildStdout, Command, Stdio};
 
 use git2::{Oid, Repository};
+
+use crate::git_notes::{NotesReader, NotesWriter, note_blob_id, notes_ref_for_branch};
 
 /// A `git cinnabar git2hg --batch` or `git cinnabar hg2git --batch` process.
 pub struct CinnabarBatch {
@@ -123,6 +135,93 @@ impl OldRevisions {
     }
 }
 
+/// The revisions of an `oldrevs` value.
+pub fn parse_oldrevs(oldrevs: &str) -> impl Iterator<Item = Oid> + '_ {
+    oldrevs.split(',').filter_map(|rev| Oid::from_str(rev).ok())
+}
+
+pub const OLD_REVISION_NOTES_REF_PREFIX: &str = "refs/notes/mozsearch-old-revision-mapping-";
+
+/// The blame repo's old revision notes ref for the branch `blame_ref`, which
+/// is `refs/notes/mozsearch-old-revision-mapping-<BRANCH>`; see
+/// `git_notes::notes_ref_for_branch`.
+pub fn old_revision_notes_ref(blame_repo: &Repository, blame_ref: &str) -> String {
+    notes_ref_for_branch(blame_repo, OLD_REVISION_NOTES_REF_PREFIX, blame_ref)
+}
+
+/// Bring the old revision notes in `notes_ref` up to date with `old_to_new`,
+/// which should map all of the old revisions of the branch's revisions (as
+/// found by `index_blame` plus those of any revisions just processed) to their
+/// new revisions, by writing a notes commit with the notes which are missing or
+/// differ to the git fast-import `stream`.  Returns how many notes that was.
+///
+/// Checking every old revision each time, rather than only writing notes for
+/// newly processed revisions, seeds the notes of blame branches from before
+/// the notes existed and of new blame branches (which are created from
+/// existing branches), and restores notes lost to a crash, for the cost of
+/// reading the notes trees (a few seconds for a million notes).  build-blame
+/// walks the whole branch anyway.
+pub fn write_old_revision_notes(
+    blame_repo: &Repository,
+    notes_ref: &str,
+    old_to_new: &HashMap<Oid, Oid>,
+    time: i64,
+    stream: &mut impl Write,
+) -> io::Result<usize> {
+    let existing = NotesReader::open(blame_repo, [notes_ref])
+        .note_blob_ids(blame_repo)
+        .map_err(io::Error::other)?;
+    let mut needed: Vec<(Oid, Oid)> = old_to_new
+        .iter()
+        .filter(|(old_rev, new_rev)| existing.get(old_rev) != Some(&note_blob_id(**new_rev)))
+        .map(|(old_rev, new_rev)| (*old_rev, *new_rev))
+        .collect();
+    needed.sort();
+    let mut writer = NotesWriter::new(blame_repo, notes_ref, "old revisions to new revisions");
+    for (old_rev, new_rev) in &needed {
+        writer.add(*old_rev, &new_rev.to_string(), time);
+    }
+    writer.flush(stream)?;
+    Ok(needed.len())
+}
+
+/// How the web server maps a tree's old revisions to new revisions.
+pub enum OldRevisionMap {
+    /// The old revision notes for the tree's blame branch.
+    Notes {
+        notes_ref: String,
+        reader: NotesReader,
+    },
+    /// A map built by walking the blame branch (`index_blame`), for blame repos
+    /// from before build-blame wrote the notes.
+    InMemory(HashMap<Oid, Oid>),
+}
+
+impl Default for OldRevisionMap {
+    fn default() -> Self {
+        OldRevisionMap::InMemory(HashMap::new())
+    }
+}
+
+impl OldRevisionMap {
+    /// The notes-based map for the blame repo's branch `blame_ref`, if the notes
+    /// exist.
+    pub fn from_notes(blame_repo: &Repository, blame_ref: &str) -> Option<OldRevisionMap> {
+        let notes_ref = old_revision_notes_ref(blame_repo, blame_ref);
+        let reader = NotesReader::open(blame_repo, [notes_ref.as_str()]);
+        (!reader.is_empty()).then_some(OldRevisionMap::Notes { notes_ref, reader })
+    }
+
+    /// The new revision of `old_rev`, if known.  `blame_repo` is only needed for
+    /// notes.
+    pub fn get(&self, blame_repo: Option<&Repository>, old_rev: Oid) -> Option<Oid> {
+        match self {
+            OldRevisionMap::Notes { reader, .. } => reader.lookup(blame_repo?, old_rev),
+            OldRevisionMap::InMemory(map) => map.get(&old_rev).copied(),
+        }
+    }
+}
+
 fn parse_old_revision_map(contents: &str) -> Result<HashMap<Oid, String>, String> {
     let mut map = HashMap::new();
     for line in contents.lines() {
@@ -138,6 +237,7 @@ fn parse_old_revision_map(contents: &str) -> Result<HashMap<Oid, String>, String
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::git_notes::test_support::fast_import;
 
     #[test]
     fn test_old_revision_map() {
@@ -167,5 +267,44 @@ mod tests {
             None
         );
         assert!(parse_old_revision_map("nothex aaaa\n").is_err());
+    }
+
+    #[test]
+    fn test_old_revision_notes() {
+        let dir = std::env::temp_dir().join(format!("old-revision-notes-{}", std::process::id()));
+        let repo = Repository::init(&dir).unwrap();
+        let old = |n: u8| Oid::from_bytes(&[n; 20]).unwrap();
+        let new = |n: u8| Oid::from_bytes(&[n + 100; 20]).unwrap();
+        let notes_ref = old_revision_notes_ref(&repo, "refs/heads/beta");
+        assert_eq!(notes_ref, "refs/notes/mozsearch-old-revision-mapping-beta");
+        assert!(OldRevisionMap::from_notes(&repo, "refs/heads/beta").is_none());
+
+        let write = |old_to_new: &HashMap<Oid, Oid>| {
+            let mut num_written = 0;
+            fast_import(&repo, |stream| {
+                num_written =
+                    write_old_revision_notes(&repo, &notes_ref, old_to_new, 1000, stream).unwrap();
+            });
+            num_written
+        };
+        // Seeding writes everything, then only missing or different notes are
+        // written.
+        let mut old_to_new = HashMap::from([(old(1), new(1)), (old(2), new(2))]);
+        assert_eq!(write(&old_to_new), 2);
+        assert_eq!(write(&old_to_new), 0);
+        old_to_new.insert(old(3), new(3));
+        old_to_new.insert(old(2), new(9));
+        assert_eq!(write(&old_to_new), 2);
+
+        let map = OldRevisionMap::from_notes(&repo, "refs/heads/beta").unwrap();
+        assert_eq!(map.get(Some(&repo), old(1)), Some(new(1)));
+        assert_eq!(map.get(Some(&repo), old(2)), Some(new(9)));
+        assert_eq!(map.get(Some(&repo), old(3)), Some(new(3)));
+        assert_eq!(map.get(Some(&repo), old(4)), None);
+        assert_eq!(map.get(None, old(1)), None);
+        let in_memory = OldRevisionMap::InMemory(old_to_new);
+        assert_eq!(in_memory.get(None, old(3)), Some(new(3)));
+
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

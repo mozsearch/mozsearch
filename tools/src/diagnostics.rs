@@ -11,6 +11,7 @@
 
 use serde_json::{Value, json};
 
+use crate::cinnabar::OldRevisionMap;
 use crate::file_format::config::Config;
 
 /// Emit relevant runtime data for this tree.  We're not interested in surfacing
@@ -36,9 +37,15 @@ pub fn diagnostics_from_config(cfg: &Config, tree_name: &str) -> Value {
             "hg": json!({
                 "count": gitdata.hg_map.len()
             }),
-            "old": json!({
-                "count": gitdata.old_map.len()
-            }),
+            "old": match &gitdata.old_revisions {
+                // Counting the notes would mean reading all of them.
+                OldRevisionMap::Notes { notes_ref, .. } => json!({
+                    "notes_ref": notes_ref
+                }),
+                OldRevisionMap::InMemory(map) => json!({
+                    "count": map.len()
+                }),
+            },
             "mailmap": json!({
                 "count": gitdata.mailmap.entries.len()
             }),

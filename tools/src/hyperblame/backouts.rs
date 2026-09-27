@@ -191,7 +191,7 @@ pub fn find_backed_out(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hyperblame::source_mapping::test_support::write_notes;
+    use crate::git_notes::test_support::write_notes;
     use crate::hyperblame::source_mapping::{NotesRefs, default_notes_ref};
     use BackoutTargetRef::*;
 

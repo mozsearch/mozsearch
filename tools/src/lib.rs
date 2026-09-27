@@ -63,6 +63,8 @@ pub mod file_utils;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod format;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod git_notes;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod git_ops;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod glob_helper;

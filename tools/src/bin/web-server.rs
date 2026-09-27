@@ -212,7 +212,7 @@ fn handle(
             let tree_config = &cfg.trees[*tree_name];
             let old_rev = path[2];
             match (&tree_config.git, Oid::from_str(old_rev)) {
-                (Some(gitdata), Ok(old_oid)) => match gitdata.old_map.get(&old_oid) {
+                (Some(gitdata), Ok(old_oid)) => match gitdata.new_rev_for_old_rev(old_oid) {
                     Some(new_oid) => WebResponse::redirect(format!(
                         "/{}/rev/{}/{}",
                         tree_name,
@@ -259,7 +259,7 @@ fn handle(
             let tree_config = &cfg.trees[*tree_name];
             let old_rev = path[2];
             match (&tree_config.git, Oid::from_str(old_rev)) {
-                (Some(gitdata), Ok(old_oid)) => match gitdata.old_map.get(&old_oid) {
+                (Some(gitdata), Ok(old_oid)) => match gitdata.new_rev_for_old_rev(old_oid) {
                     Some(new_oid) => WebResponse::redirect(format!(
                         "/{}/diff/{}/{}",
                         tree_name,
@@ -294,7 +294,7 @@ fn handle(
             let tree_config = &cfg.trees[*tree_name];
             let old_rev = path[2];
             match (&tree_config.git, Oid::from_str(old_rev)) {
-                (Some(gitdata), Ok(old_oid)) => match gitdata.old_map.get(&old_oid) {
+                (Some(gitdata), Ok(old_oid)) => match gitdata.new_rev_for_old_rev(old_oid) {
                     Some(new_oid) => {
                         WebResponse::redirect(format!("/{}/commit/{}", tree_name, new_oid,))
                     }

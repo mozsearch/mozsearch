@@ -50,7 +50,7 @@ use tools::hyperblame::history_config::{
     parse_repo_gitattributes, resolve_language,
 };
 use tools::hyperblame::source_mapping::{
-    NOTES_BATCH_SIZE, NotesRefs, NotesWriter, SourceMapping, require_notes_for_existing_branch,
+    NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer, require_notes_for_existing_branch,
 };
 use tools::tree_sitter_support::cst_tokenizer::{
     HyperTokenized, TOKENIZER_VERSION, hypertokenize_with_profile,
@@ -1205,7 +1205,7 @@ fn main() {
     assert!((compute_index % num_threads == 0) || compute_index == rev_count);
 
     let mut import_helper = start_fast_import(&blame_repo);
-    let mut notes = NotesWriter::new(&blame_repo, &notes_refs.write);
+    let mut notes = notes_writer(&blame_repo, &notes_refs);
 
     // Tracks completion count and serves as the basis for the mark <idnum>
     // assigned to each commit.

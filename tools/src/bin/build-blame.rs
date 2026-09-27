@@ -28,6 +28,7 @@ extern crate clap;
 use clap::Parser;
 use git2::{DiffFindOptions, ObjectType, Oid, Patch, Repository, Sort};
 use tools::blame::LineData;
+use tools::cinnabar::{old_revision_notes_ref, parse_oldrevs, write_old_revision_notes};
 use tools::file_format::config::index_blame;
 
 #[derive(Parser)]
@@ -95,8 +96,9 @@ struct BuildBlameCli {
     ///
     /// Note that the list of old revisions isn't something we process in
     /// build-blame; it only matters that we propagate it through to the derived
-    /// git commit message so that it's available to web-server.rs and its
-    /// new oldrev endpoint.
+    /// git commit message and the old revision notes (see
+    /// `tools::cinnabar::write_old_revision_notes`) so that it's available to
+    /// web-server.rs and its oldrev endpoint.
     #[clap(long, value_parser)]
     old_revision_map: Option<String>,
 
@@ -941,15 +943,28 @@ fn main() {
     };
 
     info!("Reading existing blame map of ref {}...", cli.blame_ref);
-    let mut blame_map = if let Ok(oid) = blame_repo.refname_to_id(&cli.blame_ref) {
-        let (blame_map, _, _) = index_blame(&blame_repo, Some(oid));
-        blame_map
-            .into_iter()
-            .map(|(k, v)| (k, BlameRepoCommit::Commit(v)))
-            .collect::<HashMap<git2::Oid, BlameRepoCommit>>()
+    // We also keep the map from the old revisions of the branch's revisions to
+    // those revisions, which we extend with the revisions we process, for
+    // `write_old_revision_notes`.
+    let (mut blame_map, mut old_to_new) = if let Ok(oid) = blame_repo.refname_to_id(&cli.blame_ref)
+    {
+        let (blame_map, _, old_to_new) = index_blame(&blame_repo, Some(oid), true);
+        (
+            blame_map
+                .into_iter()
+                .map(|(k, v)| (k, BlameRepoCommit::Commit(v)))
+                .collect::<HashMap<git2::Oid, BlameRepoCommit>>(),
+            old_to_new,
+        )
     } else {
-        HashMap::new()
+        (HashMap::new(), HashMap::new())
     };
+    // The time for the old revision notes commit: that of the last revision we
+    // process, or of the branch head if there aren't any.
+    let mut notes_time = blame_repo
+        .refname_to_id(&cli.blame_ref)
+        .and_then(|oid| blame_repo.find_commit(oid))
+        .map_or(0, |commit| commit.committer().when().seconds());
 
     let mut prev_revs_done: usize = 0;
     if let Ok(contents) = std::fs::read_to_string(cli.marks_file.clone()) {
@@ -1115,11 +1130,13 @@ fn main() {
             if let Some(hg_rev) = hg_rev {
                 commit_msg.push_str(&format!("hg {}\n", hg_rev));
             }
-            if let Some(oldrevs) = oldrev_via_map {
+            if let Some(oldrevs) = oldrev_via_map.cloned().or(oldrev_via_hg) {
                 commit_msg.push_str(&format!("oldrevs {}\n", oldrevs));
-            } else if let Some(oldrev) = oldrev_via_hg {
-                commit_msg.push_str(&format!("oldrevs {}\n", oldrev));
+                for old_rev in parse_oldrevs(&oldrevs) {
+                    old_to_new.entry(old_rev).or_insert(*git_oid);
+                }
             }
+            notes_time = commit.committer().when().seconds();
 
             write!(import_stream, "data {}\n{}\n", commit_msg.len(), commit_msg).unwrap();
             if let Some(first_parent) = blame_parents.first() {
@@ -1169,6 +1186,25 @@ fn main() {
     if let Some(mut helper) = hg_helper {
         helper.kill().unwrap();
     }
+
+    let notes_ref = old_revision_notes_ref(&blame_repo, &cli.blame_ref);
+    let mut notes_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
+    let num_notes = write_old_revision_notes(
+        &blame_repo,
+        &notes_ref,
+        &old_to_new,
+        notes_time,
+        &mut notes_stream,
+    )
+    .unwrap();
+    notes_stream.flush().unwrap();
+    drop(notes_stream);
+    info!(
+        "Wrote {} of the {} old revision notes to {}.",
+        num_notes,
+        old_to_new.len(),
+        notes_ref
+    );
 
     info!("Shutting down fast-import...");
     let exitcode = import_helper.wait().unwrap();

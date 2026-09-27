@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use git2::{Commit, Oid, Repository};
 use thread_local::ThreadLocal;
 
+use crate::cinnabar::OldRevisionMap;
 use crate::url_encode_path::url_encode_path;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -252,11 +253,20 @@ pub struct GitData {
     // Maps repo OID to Hg rev.  This comes from our blame commits, but cinnabar
     // can also tell us this bidirectionally via `git2hg` and `hg2git`.
     pub hg_map: HashMap<Oid, String>,
-    pub old_map: HashMap<Oid, Oid>, // Maps oldgit OID to repo OID.
+    /// Maps oldgit OIDs to repo OIDs; use `new_rev_for_old_rev`.
+    pub old_revisions: OldRevisionMap,
 
     pub mailmap: Mailmap,
     /// Revs that we want to skip over during blame computation
     pub blame_ignore: BlameIgnoreList,
+}
+
+impl GitData {
+    /// The repo revision of an oldgit revision (ex: the firefox-* revision of a
+    /// gecko-dev revision), if known.
+    pub fn new_rev_for_old_rev(&self, old_rev: Oid) -> Option<Oid> {
+        self.old_revisions.get(self.blame_repo.as_deref(), old_rev)
+    }
 }
 
 fn find_source_file(files_path: &String, objdir_path: &String, path: &str) -> String {
@@ -398,7 +408,8 @@ impl Config {
 /// returning 3 maps:
 /// 1. Map from source git rev to blame repo git rev
 /// 2. Map from source git rev to hg repo git rev
-/// 3. Map from old git rev to source git rev
+/// 3. Map from old git rev to source git rev, if `index_old_revisions` (see
+///    `cinnabar::OldRevisionMap` for why that may not be needed)
 ///
 /// If changing what we encode in the blame commit, you also need to change
 /// the `extract_info_from_blame_commit` helper below.
@@ -410,6 +421,7 @@ impl Config {
 pub fn index_blame(
     blame_repo: &Repository,
     head_ref: Option<Oid>,
+    index_old_revisions: bool,
 ) -> (HashMap<Oid, Oid>, HashMap<Oid, String>, HashMap<Oid, Oid>) {
     let mut walk = blame_repo.revwalk().unwrap();
 
@@ -451,7 +463,7 @@ pub fn index_blame(
                     let hg_id = val.to_string();
                     hg_map.insert(orig_oid, hg_id);
                 }
-                "oldrevs" => {
+                "oldrevs" if index_old_revisions => {
                     for oldrev in val.split(',') {
                         let oldrev_oid = Oid::from_str(oldrev).unwrap();
                         oldrev_map.insert(oldrev_oid, orig_oid);
@@ -643,7 +655,7 @@ pub fn git_data(paths: &TreeConfigPaths, need_indexes: bool) -> Option<GitData> 
     let mailmap = Mailmap::load(&repo);
     let blame_ignore = BlameIgnoreList::load(&repo);
 
-    let (blame_repo, blame_map, hg_map, old_map) = blame_data(paths, need_indexes);
+    let (blame_repo, blame_map, hg_map, old_revisions) = blame_data(paths, need_indexes);
     let coverage_repo = paths
         .coverage_repo()
         .as_deref()
@@ -655,7 +667,7 @@ pub fn git_data(paths: &TreeConfigPaths, need_indexes: bool) -> Option<GitData> 
         coverage_repo: coverage_repo.map(Into::into),
         blame_map,
         hg_map,
-        old_map,
+        old_revisions,
         mailmap,
         blame_ignore,
     })
@@ -668,7 +680,7 @@ fn blame_data(
     Option<Repository>,
     HashMap<Oid, Oid>,
     HashMap<Oid, String>,
-    HashMap<Oid, Oid>,
+    OldRevisionMap,
 ) {
     let Some(git_blame_path) = paths.git_blame_path.as_deref() else {
         return Default::default();
@@ -683,13 +695,25 @@ fn blame_data(
             .refname_to_id(&format!("refs/heads/{}", branch_name))
             .unwrap()
     });
+    // Prefer the old revision notes (which don't need an index) if the blame
+    // repo has them.
+    let old_revision_notes = OldRevisionMap::from_notes(
+        &blame_repo,
+        &paths
+            .git_branch
+            .as_ref()
+            .map_or("HEAD".to_string(), |branch_name| {
+                format!("refs/heads/{}", branch_name)
+            }),
+    );
     let (blame_map, hg_map, old_map) = if need_indexes {
-        index_blame(&blame_repo, blame_ref)
+        index_blame(&blame_repo, blame_ref, old_revision_notes.is_none())
     } else {
         (HashMap::new(), HashMap::new(), HashMap::new())
     };
+    let old_revisions = old_revision_notes.unwrap_or(OldRevisionMap::InMemory(old_map));
 
-    (Some(blame_repo), blame_map, hg_map, old_map)
+    (Some(blame_repo), blame_map, hg_map, old_revisions)
 }
 
 #[derive(Hash, Eq, PartialEq, Debug)]
