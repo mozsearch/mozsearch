@@ -39,19 +39,31 @@ pub struct RawToken<'a> {
     pub text: &'a str,
 }
 
+/// Tokens formatted as `history/syntax/files` lines by `finish_tokens`.
+pub struct FinishedTokens {
+    pub lines: Vec<String>,
+    /// The byte offset of each token in the source, or None if the token isn't
+    /// a slice of the source.  (All of our tokenizers currently produce slices,
+    /// but this was not always the case.)  The token's length is the length of
+    /// the token in its line.
+    pub offsets: Vec<Option<u32>>,
+}
+
 /// Mark boilerplate in runs of consecutive comment/text tokens and format the
-/// tokens as `history/syntax/files` lines.  Line starts are recovered from the
-/// tokens' positions in `source`.  Tokens which aren't slices of `source` (ex:
-/// punctuation the INI tokenizer synthesizes) are never line starts and don't
-/// affect whether the next token is.
-pub fn finish_tokens(source: &str, mut tokens: Vec<RawToken>) -> Vec<String> {
+/// tokens as `history/syntax/files` lines.  Line starts and offsets are
+/// recovered from the tokens' positions in `source`.  Tokens which aren't
+/// slices of `source` are never line starts and don't affect whether the next
+/// token is.
+pub fn finish_tokens(source: &str, mut tokens: Vec<RawToken>) -> FinishedTokens {
     let base = source.as_ptr() as usize;
     let mut line_starts = Vec::with_capacity(tokens.len());
+    let mut offsets = Vec::with_capacity(tokens.len());
     let mut prev_end: Option<usize> = None;
     for token in &tokens {
         let offset = (token.text.as_ptr() as usize)
             .checked_sub(base)
             .filter(|offset| offset + token.text.len() <= source.len());
+        offsets.push(offset.and_then(|offset| u32::try_from(offset).ok()));
         let line_start = match (offset, prev_end) {
             (None, _) => false,
             (Some(_), None) => true,
@@ -89,10 +101,13 @@ pub fn finish_tokens(source: &str, mut tokens: Vec<RawToken>) -> Vec<String> {
         }
     }
 
-    tokens
-        .iter()
-        .map(|t| format_token_line(&t.context, t.class, t.text))
-        .collect()
+    FinishedTokens {
+        lines: tokens
+            .iter()
+            .map(|t| format_token_line(&t.context, t.class, t.text))
+            .collect(),
+        offsets,
+    }
 }
 
 /// A token for boilerplate detection: its text and whether it is the first

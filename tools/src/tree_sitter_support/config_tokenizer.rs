@@ -29,7 +29,7 @@
 
 use crate::file_format::history::syntax_files::TokenClass;
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
-use crate::tree_sitter_support::boilerplate::{RawToken, finish_tokens};
+use crate::tree_sitter_support::boilerplate::{FinishedTokens, RawToken, finish_tokens};
 
 /// Escape a section or key name for use in a context: contexts can't contain
 /// spaces (see `syntax_files.rs`) and "::" is the context delimiter.
@@ -92,7 +92,7 @@ fn split_inline_comment(text: &str) -> (&str, &str) {
     (text, "")
 }
 
-pub fn tokenize_ini(source: &str) -> (Vec<String>, Vec<FileStructureRow>) {
+pub fn tokenize_ini(source: &str) -> (FinishedTokens, Vec<FileStructureRow>) {
     let mut out = Output {
         tokens: vec![],
         structure: vec![],
@@ -137,10 +137,14 @@ pub fn tokenize_ini(source: &str) -> (Vec<String>, Vec<FileStructureRow>) {
                 .collect::<Vec<_>>()
                 .join("::");
             out.section(&section_context);
-            out.push(&section_context, TokenClass::Operator, "[");
+            out.push(&section_context, TokenClass::Operator, &trimmed[..1]);
             out.push(&section_context, TokenClass::Identifier, name.trim());
-            if close.is_some() {
-                out.push(&section_context, TokenClass::Operator, "]");
+            if let Some(end) = close {
+                out.push(
+                    &section_context,
+                    TokenClass::Operator,
+                    &trimmed[end..end + 1],
+                );
             }
             let (_, comment) = split_inline_comment(rest);
             out.push_words(&section_context, TokenClass::Comment, comment);
@@ -364,7 +368,12 @@ impl<'a> TomlTokenizer<'a> {
                             }
                             self.skip_ws(false);
                             if self.peek() == Some(b'=') {
-                                self.out.push(context, TokenClass::Operator, "=");
+                                let src = self.src;
+                                self.out.push(
+                                    context,
+                                    TokenClass::Operator,
+                                    &src[self.pos..self.pos + 1],
+                                );
                                 self.pos += 1;
                                 self.value(context, depth + 1);
                             }
@@ -422,8 +431,9 @@ impl<'a> TomlTokenizer<'a> {
     }
 
     fn table_header(&mut self) {
-        let double = self.starts_with("[[");
-        let (open, close) = if double { ("[[", "]]") } else { ("[", "]") };
+        let src = self.src;
+        let close = if self.starts_with("[[") { "]]" } else { "]" };
+        let open = &src[self.pos..self.pos + close.len()];
         self.pos += open.len();
         let segments = self.key();
         let name = segments.join(".");
@@ -436,6 +446,7 @@ impl<'a> TomlTokenizer<'a> {
         }
         self.skip_ws(false);
         if self.starts_with(close) {
+            let close = &src[self.pos..self.pos + close.len()];
             self.out.push(&context, TokenClass::Operator, close);
             self.pos += close.len();
         }
@@ -459,14 +470,16 @@ impl<'a> TomlTokenizer<'a> {
         }
         self.skip_ws(false);
         if self.peek() == Some(b'=') {
-            self.out.push(&context, TokenClass::Operator, "=");
+            let src = self.src;
+            self.out
+                .push(&context, TokenClass::Operator, &src[self.pos..self.pos + 1]);
             self.pos += 1;
             self.value(&context, 0);
         }
         self.end_of_line(&context);
     }
 
-    fn run(mut self) -> (Vec<String>, Vec<FileStructureRow>) {
+    fn run(mut self) -> (FinishedTokens, Vec<FileStructureRow>) {
         loop {
             let context = self.table_context.clone();
             self.skip_ws_and_comments(&context);
@@ -486,7 +499,7 @@ impl<'a> TomlTokenizer<'a> {
     }
 }
 
-pub fn tokenize_toml(source: &str) -> (Vec<String>, Vec<FileStructureRow>) {
+pub fn tokenize_toml(source: &str) -> (FinishedTokens, Vec<FileStructureRow>) {
     TomlTokenizer {
         src: source,
         pos: 0,
@@ -504,11 +517,11 @@ mod tests {
     use super::*;
 
     fn ini(source: &str) -> Vec<String> {
-        tokenize_ini(source).0
+        tokenize_ini(source).0.lines
     }
 
     fn toml(source: &str) -> Vec<String> {
-        tokenize_toml(source).0
+        tokenize_toml(source).0.lines
     }
 
     #[test]
@@ -585,7 +598,7 @@ mod tests {
             ]
         );
         assert_eq!(
-            tokens,
+            tokens.lines,
             vec![
                 "test.html o [",
                 "test.html i test.html",
@@ -688,10 +701,16 @@ mod tests {
                 .map(|_| alphabet[(next() % alphabet.len() as u64) as usize])
                 .collect();
             for tokens in [tokenize_ini(&source).0, tokenize_toml(&source).0] {
-                // Every token must be a verbatim substring of the source.
-                for line in tokens {
+                // Every token must be a slice of the source at its offset.
+                for (line, offset) in tokens.lines.iter().zip(&tokens.offsets) {
                     let token = line.splitn(3, ' ').nth(2).unwrap();
-                    assert!(source.contains(token), "{:?} not in {:?}", token, source);
+                    let offset = offset.unwrap() as usize;
+                    assert_eq!(
+                        source.get(offset..offset + token.len()),
+                        Some(token),
+                        "{:?}",
+                        source
+                    );
                 }
             }
         }

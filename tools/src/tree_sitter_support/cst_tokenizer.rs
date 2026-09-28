@@ -7,7 +7,7 @@ use include_dir::{Dir, include_dir};
 
 use crate::file_format::history::syntax_files::TokenClass;
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
-use crate::tree_sitter_support::boilerplate::{RawToken, finish_tokens};
+use crate::tree_sitter_support::boilerplate::{FinishedTokens, RawToken, finish_tokens};
 use crate::tree_sitter_support::config_tokenizer::{tokenize_ini, tokenize_toml};
 
 use tree_sitter::StreamingIterator as _;
@@ -357,8 +357,27 @@ fn classify_leaf(
 
 pub struct HyperTokenized {
     pub profile: LanguageProfile,
+    /// The `history/syntax/files` lines for the tokens.
     pub tokenized: Vec<String>,
+    /// The byte offset of each token in the source; see
+    /// `FinishedTokens::offsets`.
+    pub offsets: Vec<Option<u32>>,
     pub structure: Vec<FileStructureRow>,
+}
+
+impl HyperTokenized {
+    fn new(
+        profile: LanguageProfile,
+        tokens: FinishedTokens,
+        structure: Vec<FileStructureRow>,
+    ) -> Self {
+        HyperTokenized {
+            profile,
+            tokenized: tokens.lines,
+            offsets: tokens.offsets,
+            structure,
+        }
+    }
 }
 
 /// Process a source file with tree-sitter to derive the structurally-bound
@@ -486,32 +505,26 @@ pub fn hypertokenize_with_profile(
             (ts_lang, "ipdl", vec![], vec![], quirks)
         }
         Grammar::Ini | Grammar::Toml => {
-            let (tokenized, structure) = match profile.grammar {
+            let (tokens, structure) = match profile.grammar {
                 Grammar::Ini => tokenize_ini(source_contents),
                 _ => tokenize_toml(source_contents),
             };
-            return Ok(HyperTokenized {
-                profile,
-                tokenized,
-                structure,
-            });
+            return Ok(HyperTokenized::new(profile, tokens, structure));
         }
         Grammar::PlainText => {
-            return Ok(HyperTokenized {
+            let tokens = source_contents
+                .split_whitespace()
+                .map(|text| RawToken {
+                    context: "%".to_string(),
+                    class: TokenClass::Text,
+                    text,
+                })
+                .collect();
+            return Ok(HyperTokenized::new(
                 profile,
-                tokenized: finish_tokens(
-                    source_contents,
-                    source_contents
-                        .split_whitespace()
-                        .map(|text| RawToken {
-                            context: "%".to_string(),
-                            class: TokenClass::Text,
-                            text,
-                        })
-                        .collect(),
-                ),
-                structure: vec![],
-            });
+                finish_tokens(source_contents, tokens),
+                vec![],
+            ));
         }
     };
     parser
@@ -700,11 +713,11 @@ pub fn hypertokenize_with_profile(
         }
     }
 
-    Ok(HyperTokenized {
+    Ok(HyperTokenized::new(
         profile,
-        tokenized: finish_tokens(source_contents, tokenized),
+        finish_tokens(source_contents, tokenized),
         structure,
-    })
+    ))
 }
 
 #[cfg(test)]
@@ -763,6 +776,12 @@ mod tests {
                     "{} has no structure",
                     filename
                 );
+            }
+            // Token blame relies on every token having its source offset.
+            for (line, offset) in tokenized.tokenized.iter().zip(&tokenized.offsets) {
+                let token = split_token_line(line).token;
+                let offset = offset.unwrap_or_else(|| panic!("{} {:?}", filename, line)) as usize;
+                assert_eq!(source.get(offset..offset + token.len()), Some(token));
             }
         }
     }
@@ -830,8 +849,7 @@ mod tests {
             ),
             vec!["c:#", "c:Keep", "o:[", "i:a", "o:]"]
         );
-        // INI section brackets are synthesized rather than slices of the
-        // source, which `finish_tokens` has to cope with.
+        // Boilerplate right after an INI section header.
         assert_eq!(
             unmarked("a.ini", "[a]\n# Copyright 2020 Foo\n# Keep\nx = 1"),
             vec!["o:[", "i:a", "o:]", "c:#", "c:Keep", "i:x", "o:=", "t:1"]
