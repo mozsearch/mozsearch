@@ -641,6 +641,101 @@ fn step(
     }
 }
 
+/// Where the token at `cursor` (which should have one token) was just before
+/// the commit which introduced it, for "show the latest version without this
+/// token": in that commit's parent, the token it replaced if it evolved from
+/// one (of the same kind), or else the nearest token around it which already
+/// existed.  Returns the introducing commit too.
+pub fn before(
+    tree_history: &TreeHistory,
+    repo: &Repository,
+    cursor: &Cursor,
+) -> Option<(String, Cursor)> {
+    let rev = Oid::from_str(&cursor.rev).ok()?;
+    let state = State::load(tree_history, repo, rev, &cursor.path)?;
+    let tokens: Vec<TokenLine> = token_file_lines(&state.history.syntax)
+        .into_iter()
+        .map(split_token_line)
+        .collect();
+    let annotated_lines = token_file_lines(&state.history.annotated);
+    let anchor = *cursor.tokens.first()? as usize;
+    if anchor == 0 || anchor > tokens.len() || annotated_lines.len() != tokens.len() + 1 {
+        return None;
+    }
+    let anchor = anchor - 1;
+    let parse = |i: usize| -> Option<HyperLineData> {
+        let mut data: HyperLineData = serde_json::from_str(annotated_lines[i + 1]).ok()?;
+        data.introduced.resolve_path(&state.history.path);
+        if let Some(predecessor) = &mut data.predecessor {
+            predecessor.resolve_path(&state.history.path);
+        }
+        Some(data)
+    };
+    let anchor_data = parse(anchor)?;
+    let introduced_rev = anchor_data.introduced.source_rev.to_string();
+    let parent = repo
+        .find_commit(Oid::from_str(&introduced_rev).ok()?)
+        .ok()?
+        .parent_id(0)
+        .ok()?;
+
+    // What to look for in the parent, best first: the predecessor, then the
+    // nearest tokens which already existed, from the window outward.
+    let mut candidates: Vec<(HyperTokenRef, Option<TokenClass>)> = vec![];
+    if let Some(predecessor) = &anchor_data.predecessor {
+        candidates.push((predecessor.clone(), Some(tokens[anchor].effective_class())));
+    }
+    let win = window(&tokens, anchor);
+    let search_start = win.start.saturating_sub(MAX_WINDOW_TOKENS * 4);
+    let search_end = (win.end + MAX_WINDOW_TOKENS * 4).min(tokens.len());
+    let mut nearby: Vec<usize> = (search_start..search_end)
+        .filter(|&i| i != anchor)
+        .collect();
+    nearby.sort_by_key(|&i| (!win.contains(&i), (i as isize - anchor as isize).abs()));
+    for i in nearby {
+        if let Some(data) = parse(i)
+            && data.introduced.source_rev != introduced_rev
+        {
+            candidates.push((data.introduced, None));
+            if candidates.len() >= 8 {
+                break;
+            }
+        }
+    }
+
+    let mut paths = vec![cursor.path.clone()];
+    if anchor_data.introduced.path != cursor.path {
+        paths.push(anchor_data.introduced.path.to_string());
+    }
+    for path in paths {
+        let Some(parent_state) = State::load(tree_history, repo, parent, &path) else {
+            continue;
+        };
+        for (identity, required_class) in &candidates {
+            let Some(index) = parent_state.find_identity(identity) else {
+                continue;
+            };
+            if let Some(required_class) = required_class {
+                let class = token_file_lines(&parent_state.history.syntax)
+                    .get(index)
+                    .map(|line| split_token_line(line).effective_class());
+                if class != Some(*required_class) {
+                    continue;
+                }
+            }
+            return Some((
+                introduced_rev,
+                Cursor {
+                    rev: parent.to_string(),
+                    path,
+                    tokens: vec![index as u32 + 1],
+                },
+            ));
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

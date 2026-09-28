@@ -21,7 +21,7 @@ use crate::git_ops::{self, coverage_history, coverage_summary, git_time_to_chron
 use crate::hyperblame::future;
 use crate::hyperblame::page_blame::{CommitMeta, PageBlame, page_blame};
 use crate::hyperblame::page_data_cache::{PAGE_DATA_CACHE, PageData};
-use crate::hyperblame::peephole::{Cursor, peephole_page};
+use crate::hyperblame::peephole::{self, Cursor, peephole_page};
 use crate::hyperblame::token_blame::blame_tokens;
 use crate::languages;
 use crate::languages::FormatAs;
@@ -1166,6 +1166,41 @@ pub fn peephole_json(
         "next": next,
         "end": page.end,
         "cost": page.cost,
+    }))
+    .unwrap())
+}
+
+/// Where the token with the (1-based) index `token` in the file at `path` in
+/// revision `rev` was just before the commit which introduced it (see
+/// `hyperblame::peephole::before`): `rev` (that commit's parent), `path`, and
+/// `token`, plus `introduced`, the commit.
+pub fn before_json(
+    cfg: &Config,
+    tree_name: &str,
+    rev: &str,
+    path: &str,
+    token: u32,
+) -> Result<String, &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let history = git.history.as_ref().ok_or("No history")?;
+    let commit = git
+        .repo
+        .revparse_single(rev)
+        .and_then(|object| object.peel_to_commit())
+        .map_err(|_| "Bad revision")?;
+    let cursor = Cursor {
+        rev: commit.id().to_string(),
+        path: path.to_string(),
+        tokens: vec![token],
+    };
+    let (introduced, before) =
+        peephole::before(history, &git.repo, &cursor).ok_or("Couldn't find the token before")?;
+    Ok(to_string(&json!({
+        "rev": before.rev,
+        "path": before.path,
+        "token": before.tokens[0],
+        "introduced": introduced,
     }))
     .unwrap())
 }

@@ -188,21 +188,22 @@ fn handle(
 
             // Peephole histories (see `format::peephole_json`) as
             // `/{tree}/rev-hyperblame/{rev}/{path}/peephole/{tokens}.json` for
-            // comma-separated token indices, and futures (see
-            // `format::future_json`) as `.../future/{token}.json`.  (Data files
-            // have other names.)
+            // comma-separated token indices, futures (see `format::future_json`)
+            // as `.../future/{token}.json`, and where tokens were before they
+            // were introduced (see `format::before_json`) as
+            // `.../before/{token}.json`.  (Data files have other names.)
             let tokens: Option<Vec<u32>> = file_name
                 .strip_suffix(".json")
                 .and_then(|tokens| tokens.split(',').map(|t| t.parse::<u32>().ok()).collect());
             if let Some(tokens) = tokens
                 && path.len() >= 6
-                && matches!(path[path.len() - 2], "peephole" | "future")
+                && matches!(path[path.len() - 2], "peephole" | "future" | "before")
             {
                 let file_path = path[3..path.len() - 2].join("/");
-                let json = if path[path.len() - 2] == "peephole" {
-                    format::peephole_json(cfg, tree_name, rev, &file_path, tokens)
-                } else {
-                    format::future_json(cfg, tree_name, rev, &file_path, tokens[0])
+                let json = match path[path.len() - 2] {
+                    "peephole" => format::peephole_json(cfg, tree_name, rev, &file_path, tokens),
+                    "future" => format::future_json(cfg, tree_name, rev, &file_path, tokens[0]),
+                    _ => format::before_json(cfg, tree_name, rev, &file_path, tokens[0]),
                 };
                 return match json {
                     Ok(json) => WebResponse::json(json),
@@ -427,7 +428,9 @@ async fn main() {
                 let response = {
                     let low_priority = {
                         let path = req.uri().path();
-                        path.contains("/peephole/") || path.contains("/future/")
+                        ["/peephole/", "/future/", "/before/"]
+                            .iter()
+                            .any(|kind| path.contains(kind))
                     };
                     let _peephole_permit = if low_priority {
                         Some(PEEPHOLE_SEMAPHORE.acquire().await.unwrap())

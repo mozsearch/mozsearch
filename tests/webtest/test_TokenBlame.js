@@ -181,6 +181,20 @@ add_task(async function test_TokenFuture() {
   frame.contentWindow.BlamePopup.triggerElement = null;
 });
 
+add_task(async function test_LatestVersionWithoutToken() {
+  await TestUtils.loadPath(PATH);
+
+  // `strip_prefix` replaced `starts_with` in a clippy fix, so the latest
+  // version without it is the fix's parent, at `starts_with`.
+  await followFromTokenMenu(12, "strip_prefix", "Show the latest version without this token");
+  await waitForCondition(
+    () => frame.contentDocument.location.href.includes("/searchfox/rev/26279563bf84400343c7a717764887c0fba7564c/tools/src/blame.rs") &&
+      frame.contentDocument.querySelector(".highlighted"),
+    "Navigates to the parent of the commit which introduced the token");
+  ok(frame.contentDocument.querySelector(".highlighted code").textContent.includes("line.starts_with(PREFIX)"),
+     "The token it replaced is selected");
+});
+
 add_task(async function test_TokenHash() {
   // Token 5 is on line 1 and token 12 is on line 2.
   await TestUtils.loadPath(`${PATH}#tokens=5,12`);

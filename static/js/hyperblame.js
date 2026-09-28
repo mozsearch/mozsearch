@@ -447,6 +447,31 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     this.position();
   }
 
+  /**
+   * Go to the latest version without the token: the parent of the commit which
+   * introduced it, with the token it replaced (or the nearest token which
+   * already existed) selected (see `hyperblame::peephole::before`), or just the
+   * parent if we can't tell where it was.
+   */
+  async showBefore(token) {
+    const url = BLAME_INFO.peepholeUrl.replace(/\/peephole$/, "/before");
+    try {
+      const response = await fetch(`${url}/${token.index}.json`);
+      if (response.ok) {
+        const before = await response.json();
+        document.location = this.revLink(before.rev, before.path, `${before.token}`);
+        return;
+      }
+    } catch (ex) {
+      // Fall back to the parent.
+    }
+    const commits = await HyperblameData.getCommits();
+    const info = commits[token.commit];
+    if (info?.parent) {
+      document.location = this.revLink(info.parent, BLAME_INFO.paths[token.path]);
+    }
+  }
+
   showKeepGoing(state) {
     state.status.textContent = "";
     const button = document.createElement("button");
@@ -817,6 +842,17 @@ var TokenBlamePopup = new (class TokenBlamePopup {
         section: "hyperblame",
       }),
     ];
+    if (BLAME_INFO.peepholeUrl) {
+      items.push(new MenuItem({
+        html: "Show the latest version without this token",
+        action: () => {
+          ContextMenu.hide();
+          this.showBefore(token);
+        },
+        icon: "export-alt",
+        section: "hyperblame",
+      }));
+    }
     if (token.pred) {
       items.push(new MenuItem({
         html: "Show the earliest version of the token it replaced",
