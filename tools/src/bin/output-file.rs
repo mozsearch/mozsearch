@@ -30,7 +30,9 @@ use crate::languages::FormatAs;
 use tools::doc_trees_handler::find_doc_url;
 use tools::file_format::analysis::{read_analysis, read_source};
 use tools::file_format::bisectable_mmap::BisectableMmap;
-use tools::format::{create_markdown_panel_section, format_file_data};
+use tools::format::{
+    create_markdown_panel_section, format_file_data, tests_firefox_dev_panel_item,
+};
 use tools::languages;
 use tools::url_encode_path::url_encode_path;
 
@@ -473,6 +475,10 @@ fn main() {
                 accel_key: None,
                 copyable: false,
             });
+        }
+
+        if concise_info.info.get("test_results").is_some() {
+            tools_items.push(tests_firefox_dev_panel_item(&path, false));
         }
 
         match Path::new(path.as_str()).extension().and_then(OsStr::to_str) {

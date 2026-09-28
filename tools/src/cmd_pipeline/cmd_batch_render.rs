@@ -10,7 +10,8 @@ use crate::{
         AbstractServer, ErrorDetails, ErrorLayer, Result, SearchfoxIndexRoot, ServerError,
     },
     file_utils::write_file_ensuring_parent_dir,
-    format::add_coverage_panel_item,
+    format::{add_coverage_panel_item, tests_firefox_dev_panel_item},
+    output::PanelSection,
     templating::builder::build_and_parse_dir_listing,
 };
 
@@ -76,6 +77,15 @@ impl PipelineCommand for BatchRenderCommand {
                             add_coverage_panel_item(&mut panel, coverage_summary.as_ref());
                         }
 
+                        let dir_concise = dir_infos.get(&Ustr::from(&item.name));
+                        if dir_concise.is_some_and(|info| info.info.get("test_results").is_some()) {
+                            panel.push(PanelSection {
+                                name: "Other Tools".to_owned(),
+                                items: vec![tests_firefox_dev_panel_item(&item.name, true)],
+                                raw_items: vec![],
+                            });
+                        }
+
                         let mut liquid_globals = liquid::object!({
                             "tree": tree_info.name,
                             // the header always needs this
@@ -84,7 +94,7 @@ impl PipelineCommand for BatchRenderCommand {
                             "files": fm.file_matches,
                             "panel": panel,
                             "coverage_history": coverage_history,
-                            "dir_concise": dir_infos.get(&Ustr::from(&item.name)),
+                            "dir_concise": dir_concise,
                         });
                         if let Some(info) = &commit_info {
                             let date = info.date.format("%F %T %z").to_string();

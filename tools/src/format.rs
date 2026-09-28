@@ -906,6 +906,38 @@ pub fn format_file_data(
     Ok(format_perf)
 }
 
+/// Panel item linking to the CI results of a test, or of the tests in a
+/// directory, on tests.firefox.dev.  Only relevant if the per-file info has
+/// "test_results".
+pub fn tests_firefox_dev_panel_item(path: &str, is_dir: bool) -> PanelItem {
+    let (tooltip, link) = if is_dir {
+        (
+            "Open the CI results of the tests in the current directory on tests.firefox.dev",
+            format!(
+                "https://tests.firefox.dev/tests.html?path={}",
+                url_encode_path(path)
+            ),
+        )
+    } else {
+        (
+            "Open the CI results of the current test on tests.firefox.dev",
+            format!(
+                "https://tests.firefox.dev/test.html?test={}",
+                url_encode_path(path)
+            ),
+        )
+    };
+    PanelItem {
+        label: PanelItemLabel::Plaintext("tests.firefox.dev".to_owned()),
+        tooltip: tooltip.to_owned(),
+        id: "panel-tests-firefox-dev",
+        link,
+        update_link_lineno: "",
+        accel_key: Some('T'),
+        copyable: false,
+    }
+}
+
 pub fn add_coverage_panel_item(
     panel: &mut Vec<PanelSection>,
     coverage_summary: Option<&code_coverage_report::NodeMetadata>,
