@@ -232,8 +232,20 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     popup.append(root);
     popup.style.display = "";
 
-    // Align the replica's text with the line's text, starting the popup at
-    // the strip's right edge so the mouse can move from the strip into it.
+    this.current = { popup, elt, lineElt, root, upper, replica, lanes };
+    this.position();
+    this.drawLanes(root, lanes, upper, replica);
+    this.bindInteractions(root, tokens);
+    return true;
+  }
+
+  /**
+   * Position the popup so the replica's text is over the line's text, starting
+   * the popup at the strip's right edge so the mouse can move from the strip
+   * into it.
+   */
+  position() {
+    const { popup, elt, lineElt, replica } = this.current;
     const stripRect = elt.getBoundingClientRect();
     const codeRect = lineElt.querySelector("code.source-line").getBoundingClientRect();
     replica.style.paddingLeft = `${codeRect.left - stripRect.right}px`;
@@ -243,10 +255,170 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     // Don't let the popup start above the page.
     top = Math.max(top, window.scrollY);
     popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
+  }
 
-    this.drawLanes(root, lanes, upper, replica);
-    this.bindInteractions(root, tokens);
-    return true;
+  /**
+   * Show the peephole history of `token` (see `hyperblame::peephole`): how the
+   * window of tokens around it changed over time, newest (nearest the line)
+   * to oldest.  Older steps load as the user scrolls up, until they've seen
+   * `MAX_AUTO_STEPS` steps or the server has read `MAX_AUTO_COST` bytes, after
+   * which they need to ask for more.
+   */
+  static MAX_AUTO_STEPS = 50;
+  static MAX_AUTO_COST = 1_000_000_000;
+
+  showHistory(token) {
+    const { root, upper, lanes } = this.current;
+    // Keep the popup until the user clicks elsewhere.
+    BlameStripHoverHandler.keepVisible = true;
+    root.classList.add("hb-history-mode");
+    // Stop highlighting whatever the user clicked on.
+    root.classList.remove("hb-has-hot");
+    for (const elt of root.querySelectorAll(".hb-hot")) {
+      elt.classList.remove("hb-hot");
+    }
+    lanes.innerHTML = "";
+
+    const history = document.createElement("div");
+    history.className = "hb-history";
+    const status = document.createElement("div");
+    status.className = "hb-history-status";
+    status.textContent = "Loading the history of this token…";
+    const steps = document.createElement("div");
+    steps.className = "hb-history-steps";
+    history.append(status, steps);
+    upper.replaceChildren(history);
+    // Leave room for the popup above the line.
+    const lineTop = this.current.lineElt.getBoundingClientRect().top;
+    history.style.maxHeight = `${Math.max(150, lineTop - 120)}px`;
+
+    const state = {
+      history,
+      status,
+      steps,
+      next: `${BLAME_INFO.peepholeUrl}/${token.index}.json`,
+      loading: false,
+      stepCount: 0,
+      cost: 0,
+      userScrolled: false,
+    };
+    history.addEventListener("scroll", () => {
+      if (state.ignoreScroll) {
+        state.ignoreScroll = false;
+        return;
+      }
+      state.userScrolled = true;
+      if (history.scrollTop < 40) {
+        this.loadHistoryPage(state, false);
+      }
+    });
+    this.loadHistoryPage(state, false);
+  }
+
+  async loadHistoryPage(state, userAsked) {
+    if (state.loading || !state.next) {
+      return;
+    }
+    if (!userAsked && (state.stepCount >= TokenBlamePopup.MAX_AUTO_STEPS ||
+                       state.cost >= TokenBlamePopup.MAX_AUTO_COST)) {
+      this.showKeepGoing(state);
+      return;
+    }
+    state.loading = true;
+    let page;
+    try {
+      page = await fetch(state.next).then(r => r.json());
+    } catch (ex) {
+      state.status.textContent = "Couldn't load the history.";
+      state.loading = false;
+      return;
+    }
+    state.loading = false;
+    state.next = page.next;
+    state.stepCount += page.steps.length;
+    state.cost += page.cost;
+
+    // Steps are newest first, and older steps go above newer ones, keeping
+    // what the user is looking at in place.
+    const { history, steps } = state;
+    const fromBottom = history.scrollHeight - history.scrollTop;
+    for (const step of page.steps) {
+      steps.prepend(this.renderStep(step, page.commits[step.rev]));
+    }
+    state.ignoreScroll = true;
+    history.scrollTop = history.scrollHeight - fromBottom;
+
+    if (page.end) {
+      state.status.textContent = {
+        introduced: "The oldest commit above introduced all of these tokens.",
+        root: "The oldest commit above has no parent.",
+        lost: "Couldn't follow these tokens further back (they may have moved from another file).",
+        missing: "The history doesn't go further back.",
+      }[page.end] || "That's all.";
+    } else if (!state.userScrolled && state.stepCount < 5) {
+      // Fill a little without waiting for the user to scroll.
+      state.status.textContent = "Scroll up for older changes.";
+      this.loadHistoryPage(state, false);
+    } else {
+      state.status.textContent = "Scroll up for older changes.";
+    }
+    this.position();
+  }
+
+  showKeepGoing(state) {
+    state.status.textContent = "";
+    const button = document.createElement("button");
+    button.textContent = "Keep going";
+    button.addEventListener("click", () => {
+      state.stepCount = 0;
+      state.cost = 0;
+      this.loadHistoryPage(state, true);
+    });
+    state.status.append(button);
+  }
+
+  /**
+   * A step of a peephole history: the commit, and the window's lines as of
+   * that commit, with the tokens it introduced highlighted.
+   */
+  renderStep(step, info) {
+    const elt = document.createElement("div");
+    elt.className = "hb-step";
+    const header = document.createElement("div");
+    header.className = "hb-step-header";
+    header.innerHTML = info ? info.header : step.rev.substring(0, 8);
+    const last = step.firstToken + step.tokens.length - 1;
+    const view = document.createElement("a");
+    view.className = "deemphasize";
+    view.textContent = "view";
+    view.href = this.revLink(step.stateRev, step.path, `${step.firstToken}-${last}`);
+    header.append(" ", view);
+
+    const code = document.createElement("pre");
+    code.className = "hb-step-code";
+    let pos = 0;
+    step.tokens.forEach(([start, end, changed], i) => {
+      code.append(step.text.slice(pos, start));
+      const span = document.createElement("span");
+      span.textContent = step.text.slice(start, end);
+      if (changed) {
+        span.classList.add("hb-step-changed");
+      }
+      if (i == step.anchor) {
+        span.classList.add("hb-step-anchor");
+      }
+      code.append(span);
+      pos = end;
+    });
+    code.append(step.text.slice(pos));
+    elt.append(header, code);
+    if (step.removed) {
+      const removed = document.createElement("div");
+      removed.className = "hb-step-removed";
+      removed.textContent = `and removed ${step.removed} token${step.removed > 1 ? "s" : ""}`;
+      elt.append(removed);
+    }
+    return elt;
   }
 
   renderRow(commit, info) {
@@ -564,6 +736,17 @@ var TokenBlamePopup = new (class TokenBlamePopup {
         html: "Show the earliest version of the token it replaced",
         href: this.revLink(BLAME_INFO.commits[token.pred.commit][0],
                            BLAME_INFO.paths[token.pred.path], `${token.pred.lineno}`),
+        icon: "export-alt",
+        section: "hyperblame",
+      }));
+    }
+    if (BLAME_INFO.peepholeUrl) {
+      items.push(new MenuItem({
+        html: "Follow this token into the past",
+        action: () => {
+          ContextMenu.hide();
+          this.showHistory(token);
+        },
         icon: "export-alt",
         section: "hyperblame",
       }));

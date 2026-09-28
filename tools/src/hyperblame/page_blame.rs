@@ -42,6 +42,10 @@ pub struct BlameInfo {
     /// whether the page is for the tip or a revision.
     #[serde(rename = "dataUrl", skip_serializing_if = "Option::is_none")]
     pub data_url: Option<String>,
+    /// The URL prefix of the peephole histories of the page's tokens (see
+    /// `hyperblame::peephole`), which are `{peepholeUrl}/{token}.json`.
+    #[serde(rename = "peepholeUrl", skip_serializing_if = "Option::is_none")]
+    pub peephole_url: Option<String>,
 }
 
 /// About how many tokens each chunk of the popup's data has.  Chunks end at
@@ -231,6 +235,7 @@ fn page_blame_with_chunk_tokens(
             token_counts: vec![],
             chunks: vec![],
             data_url: None,
+            peephole_url: None,
         },
         commit_indices: HashMap::new(),
         author_indices: HashMap::new(),

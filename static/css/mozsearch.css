@@ -1489,6 +1489,37 @@ span[data-symbols].selected {
 .hb-token.hb-hot {
   background-color: color-mix(in srgb, var(--hb-color) 35%, transparent);
 }
+/* The peephole history of a token, which replaces the commits' rows. */
+.hb-history {
+  overflow-y: auto;
+  padding: 0 10px;
+  min-width: 40em;
+}
+.hb-history-status {
+  opacity: 0.8;
+  padding: 4px 0;
+}
+.hb-step {
+  border-top: 1px solid rgb(255 255 255 / 25%);
+  padding: 4px 0;
+}
+.hb-step-code {
+  margin: 4px 0 0;
+  padding: 2px 4px;
+  background-color: var(--page-background);
+  color: var(--page-foreground);
+  white-space: pre;
+}
+.hb-step-changed {
+  background-color: color-mix(in srgb, var(--hb-lane-1) 35%, transparent);
+}
+.hb-step-anchor {
+  text-decoration: underline 2px;
+}
+.hb-step-removed {
+  font-style: italic;
+  opacity: 0.8;
+}
 .hb-details {
   max-height: 40vh;
   overflow-y: auto;

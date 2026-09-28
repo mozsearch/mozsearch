@@ -185,6 +185,24 @@ fn handle(
 
             let rev = &path[2];
             let file_name = path[path.len() - 1];
+
+            // Peephole histories (see `format::peephole_json`), as
+            // `/{tree}/rev-hyperblame/{rev}/{path}/peephole/{token}.json`.
+            // (Data files have other names.)
+            let token = file_name
+                .strip_suffix(".json")
+                .and_then(|token| token.parse::<u32>().ok());
+            if let Some(token) = token
+                && path.len() >= 6
+                && path[path.len() - 2] == "peephole"
+            {
+                let file_path = path[3..path.len() - 2].join("/");
+                return match format::peephole_json(cfg, tree_name, rev, &file_path, token) {
+                    Ok(json) => WebResponse::json(json),
+                    Err(err) => WebResponse::internal_error(err.to_owned()),
+                };
+            }
+
             let file_path = path[3..path.len() - 1].join("/");
 
             match format::hyperblame_file(cfg, tree_name, rev, &file_path, file_name) {
@@ -376,6 +394,10 @@ async fn main() {
 
     // Limit ourselves to processing 4 requests at the same time.
     static SEMAPHORE: Semaphore = Semaphore::const_new(4);
+    // Peephole histories (see `format::peephole_json`) are relatively
+    // expensive and lower priority than pages, so only one of them is processed
+    // at a time, and they wait for this before taking one of the above.
+    static PEEPHOLE_SEMAPHORE: Semaphore = Semaphore::const_new(1);
 
     let addr: SocketAddr = "0.0.0.0:8001".parse().unwrap();
     let server = TcpListener::bind(addr).await.unwrap();
@@ -395,6 +417,11 @@ async fn main() {
                 }
 
                 let response = {
+                    let _peephole_permit = if req.uri().path().contains("/peephole/") {
+                        Some(PEEPHOLE_SEMAPHORE.acquire().await.unwrap())
+                    } else {
+                        None
+                    };
                     let _permit = SEMAPHORE.acquire().await.unwrap();
                     let cfg = cfg.clone();
                     let ident_map = ident_map.clone();

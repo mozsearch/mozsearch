@@ -14,7 +14,9 @@
 // the newest), and removals are shown on their own lines: "^^^" for a removal
 // at the start of the file, "~~~" for a removal within the preceding line, and
 // "___" for a removal after the preceding line.  With --tokens, each line is
-// followed by its tokens and their history.
+// followed by its tokens and their history.  With --peephole TOKEN, it instead
+// prints the peephole history (see `hyperblame::peephole`) of the token with
+// that (1-based) index.
 
 extern crate git2;
 extern crate tools;
@@ -29,6 +31,7 @@ use git2::{Oid, Repository};
 use tools::file_format::history::timeline_annotated::{
     HyperLineData, HyperTokenRef, RemovalMarker,
 };
+use tools::hyperblame::peephole::{Cursor, peephole_page};
 use tools::hyperblame::token_blame::{TreeHistory, blame_tokens};
 
 fn short(rev: &str) -> &str {
@@ -70,8 +73,15 @@ fn main() {
     if show_tokens {
         args.remove(0);
     }
+    let mut peephole_token = None;
+    if args.first().is_some_and(|arg| arg == "--peephole") && args.len() > 1 {
+        peephole_token = args[1].parse::<u32>().ok();
+        args.drain(..2);
+    }
     if !(3..=4).contains(&args.len()) {
-        eprintln!("Usage: token-blame-show [--tokens] HISTORY_DIR SOURCE_REPO PATH [SOURCE_REV]");
+        eprintln!(
+            "Usage: token-blame-show [--tokens | --peephole TOKEN] HISTORY_DIR SOURCE_REPO PATH [SOURCE_REV]"
+        );
         exit(1);
     }
     let history = TreeHistory::open(&args[0], None).unwrap_or_else(|e| {
@@ -113,6 +123,47 @@ fn main() {
             exit(1);
         }
     };
+    if let Some(token) = peephole_token {
+        let start = Cursor {
+            rev: file_history.source_rev.to_string(),
+            path: path.clone(),
+            token,
+        };
+        let page = peephole_page(&history, &source_repo, start, 50, usize::MAX);
+        for step in &page.steps {
+            let summary = Oid::from_str(&step.rev)
+                .and_then(|oid| source_repo.find_commit(oid))
+                .map(|commit| {
+                    let message = commit.message().unwrap_or("");
+                    message.lines().next().unwrap_or("").to_string()
+                })
+                .unwrap_or_default();
+            println!("{} {}", short(&step.rev), summary);
+            // Mark the tokens the commit introduced with brackets.
+            let text: Vec<u16> = step.text.encode_utf16().collect();
+            let mut shown = String::new();
+            let mut pos = 0;
+            for (i, (start, end, changed)) in step.tokens.iter().enumerate() {
+                shown.push_str(&String::from_utf16_lossy(&text[pos..*start]));
+                let token = String::from_utf16_lossy(&text[*start..*end]);
+                let marked = match (*changed, i == step.anchor) {
+                    (true, true) => format!("[*{}]", token),
+                    (true, false) => format!("[{}]", token),
+                    (false, true) => format!("*{}", token),
+                    (false, false) => token,
+                };
+                shown.push_str(&marked);
+                pos = *end;
+            }
+            if step.removed > 0 {
+                shown.push_str(&format!("  (-{} tokens)", step.removed));
+            }
+            println!("    {}", shown.replace('\n', "\n    "));
+        }
+        println!("end: {:?}, cost: {} MB", page.end, page.cost / 1_000_000);
+        return;
+    }
+
     let source_tree = source_repo
         .find_commit(file_history.source_rev)
         .and_then(|commit| commit.tree())
@@ -158,9 +209,10 @@ fn main() {
             text
         );
         if show_tokens {
-            for token in &blame.tokens[line.tokens.clone()] {
+            for (index, token) in blame.tokens[line.tokens.clone()].iter().enumerate() {
                 println!(
-                    "        {:<24} {}",
+                    "      {:>5} {:<24} {}",
+                    line.tokens.start + index + 1,
                     &source[token.range.clone()],
                     describe_token(&token.data, path)
                 );

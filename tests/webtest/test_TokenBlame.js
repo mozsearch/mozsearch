@@ -99,6 +99,37 @@ add_task(async function test_TokenBlamePopup() {
   }
 });
 
+add_task(async function test_TokenHistory() {
+  await TestUtils.loadPath(PATH);
+
+  // Line 12's `strip_prefix` replaced `starts_with` in a clippy fix, and the
+  // condition was introduced by the commit before that.
+  const popup = await showPopup(12);
+  const token = [...popup.querySelectorAll(".hb-replica .hb-token")].find(
+    t => t.textContent == "strip_prefix");
+  TestUtils.click(token);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "The context menu is shown");
+  const item = [...menu.querySelectorAll("a")].find(
+    a => a.textContent == "Follow this token into the past");
+  TestUtils.click(item);
+
+  await waitForCondition(
+    () => popup.querySelector(".hb-history-status")?.textContent.includes("introduced all of these tokens"),
+    "The history ends with the commit which introduced the condition");
+  const steps = popup.querySelectorAll(".hb-step");
+  is(steps.length, 2, "The history has 2 steps");
+  ok(steps[1].textContent.includes("cargo clippy --fix"),
+     "The newest step is nearest the line");
+  ok(steps[0].querySelector(".hb-step-code").textContent.includes("if line.starts_with(PREFIX) {"),
+     "The oldest step has the original condition");
+  const changed = [...steps[1].querySelectorAll(".hb-step-changed")].map(s => s.textContent);
+  ok(changed.includes("strip_prefix"), "The newest step highlights the tokens it introduced");
+
+  frame.contentWindow.BlameStripHoverHandler.keepVisible = false;
+  frame.contentWindow.BlamePopup.triggerElement = null;
+});
+
 add_task(async function test_TokenHash() {
   // Token 5 is on line 1 and token 12 is on line 2.
   await TestUtils.loadPath(`${PATH}#tokens=5,12`);
