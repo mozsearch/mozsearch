@@ -56,6 +56,11 @@ class TriggerCommandBase:
         # generation.
         parser.add_argument('--instance-type', dest='instance_type', default='m6id.4xlarge')
 
+        # A bigger root volume than the AMI's 20 GB, which isn't enough for
+        # update.sh to build the tools when they aren't in the binary cache
+        # yet (ex: a branch which was just pushed).
+        parser.add_argument('--root-volume-gb', dest='root_volume_gb', type=int)
+
         return parser
 
     def parse_args(self, args=None):
@@ -145,6 +150,11 @@ MOZSEARCH_PS_CONFIG="{config}"
 FINAL
 
     {extra_commands}
+    # Grow the root filesystem to fill its volume, in case --root-volume-gb made
+    # it bigger than the AMI's.  (growpart fails when there's nothing to grow.)
+    ROOT_PART=$(findmnt -n -o SOURCE /)
+    growpart "${{ROOT_PART%p*}}" "${{ROOT_PART##*p}}" || true
+    resize2fs "$ROOT_PART" || true
     # If updating fails, main.sh never runs to report the failure, so record it
     # in the instance's status tag (see set-status.py) and stop the instance.
     if ! sudo -i -u ubuntu {cmd_env_vars} ./update.sh "{mozsearch_repo}" "{branch}" "{config_repo}" "{config_rev}"; then
@@ -177,7 +187,19 @@ FINAL
             Owners=['self'],
             Filters=[{'Name': 'tag-key', 'Values': ['indexer']}]
         )
-        image_id = images['Images'][0]['ImageId']
+        image = images['Images'][0]
+        image_id = image['ImageId']
+
+        if args.root_volume_gb:
+            # The boot script grows the root filesystem to fill it.
+            block_devices.append({
+                'DeviceName': image['RootDeviceName'],
+                'Ebs': {
+                    'VolumeSize': args.root_volume_gb,
+                    'VolumeType': 'gp3',
+                    'DeleteOnTermination': True,
+                },
+            })
 
         launch_spec = {
             'ImageId': image_id,

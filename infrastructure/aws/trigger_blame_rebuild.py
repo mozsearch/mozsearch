@@ -12,6 +12,13 @@ class TriggerReblameCommand(TriggerCommandBase):
         timeout_hours = 7 * 24 # upper bound on how long we expect the blame-rebuild to take
         super().__init__('blame-builder', 'rebuild-blame.sh', timeout_hours)
 
+    def make_parser(self):
+        parser = super().make_parser()
+        # Rebuilds are usually of branches whose tools may not be in the binary
+        # cache yet, and a bigger root volume costs little for their duration.
+        parser.set_defaults(root_volume_gb=100)
+        return parser
+
     def script_args_after_branch_and_channel(self, args):
         return '''config "{config_input}"'''.format(
             mozsearch_repo=args.mozsearch_repo,
