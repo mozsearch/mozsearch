@@ -55,3 +55,7 @@ else
 fi
 build-timeline-tree $GIT_ROOT $HISTORY_ROOT/syntax $HISTORY_ROOT/timeline $HISTORY_ROOT/rev-summaries
 
+echo "Performing setup::build-commit-index step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
+build-commit-index $GIT_ROOT $HISTORY_ROOT/commit-index
+
