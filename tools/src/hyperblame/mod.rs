@@ -10,3 +10,4 @@ pub mod inference;
 pub mod journals;
 pub mod stats;
 pub mod suffix_array;
+pub mod token_blame;
