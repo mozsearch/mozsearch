@@ -1083,6 +1083,16 @@ tr.after-context-line + tr.before-context-line {
   opacity: 0.5;
   cursor: not-allowed;
 }
+/* A setting in the "Lenses" section (see panel.js), like the blame strip's
+   colors. */
+.panel .lens {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  /* Align with the items of the other sections. */
+  padding: 0.25rem 0.5rem 0.25rem 30px;
+}
 
 .panel .selected-symbol-section {
   width: 240px;

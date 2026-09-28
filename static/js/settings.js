@@ -116,12 +116,25 @@ const SETTING_DEFS = {
       default: 1024,
       introducedIn: 6,
     },
+
+    // Show the "Lenses" section, which lets the user change how the page
+    // presents information (ex: the blame strip colors) without visiting the
+    // settings page.
+    showLenses: {
+      default: true,
+      introducedIn: 9,
+    },
   },
   blame: {
-    // How to color the token-centric blame strip: "alternating", "age", or
-    // "author".  See BlameColorizer in blame.js.
+    // How to color the token-centric blame strip.  See BlameColorizer in
+    // blame.js.  `choices` provides the options for select elements.
     colorMode: {
       default: "alternating",
+      choices: [
+        ["alternating", "Alternating"],
+        ["age", "Commit age"],
+        ["author", "Author"],
+      ],
       introducedIn: 8,
     },
   },
@@ -197,7 +210,7 @@ const WIDGET_DEFS = {
  *   distracting and that they likely would want to actually process the new
  *   settings later on.
  */
-const SETTINGS_VERSION = 8;
+const SETTINGS_VERSION = 9;
 
 /**
  * Convert a "camelCaseString" to "camel-case-string".
@@ -516,6 +529,18 @@ const Settings = new (class Settings {
     this.#applyAndTransformCanonicalDataToSelf();
   }
 
+  /**
+   * Create the option elements for a select of a setting with `choices`.
+   */
+  createChoiceOptions(choices) {
+    return choices.map(([value, label]) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      return option;
+    });
+  }
+
   exportToJSON() {
     return JSON.stringify(this.#canonicalData);
   }
@@ -689,6 +714,8 @@ const SettingsBinder = new (class SettingsBinder {
             // just use our template clone on the inside, and it could also make
             // sense to may set/propagate any other attributes as appropriate.
             elem.appendChild(featureGateOptions.content.cloneNode(true));
+          } else if (info.keyDef.choices) {
+            elem.append(...Settings.createChoiceOptions(info.keyDef.choices));
           }
         }
         elem.value = info.rawValue;

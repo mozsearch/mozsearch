@@ -182,16 +182,20 @@
           For trees with token-centric history, each line's blame strip
           reflects the newest commit to have changed the line's tokens, so
           whitespace-only changes don't count.  Blank lines take the commit of
-          the lines around them when those match.  Bands at the top or bottom of
-          a line's strip mark tokens removed between lines, and bands at its
-          right edge mark tokens removed within the line.
+          the lines around them when those match, and otherwise the commit of
+          the line above them.  Bands at the top or bottom of a line's strip
+          mark tokens removed between lines, and bands at its right edge mark
+          tokens removed within the line.
+        </p>
+        <p>
+          The strip can alternate colors when the commit changes, or be colored
+          by the commit's age (within a week, a month, 3 months, a year, 2
+          years, 5 years, or older) or author.  You can also change this for
+          the current page from the "Lenses" section of the navigation panel.
         </p>
         <form>
           <label for="blame--color-mode">Color the blame strip by:</label>
           <select id="blame--color-mode">
-            <option value="alternating">Alternating colors when the commit changes</option>
-            <option value="age">Commit age (a week, a month, 3 months, a year, 2 years, 5 years, older)</option>
-            <option value="author">Author</option>
           </select>
         </form>
       </section>
@@ -224,6 +228,21 @@
             min="0"
             step="1"
           />
+        </form>
+      </section>
+
+      <section>
+        <h3>Lenses</h3>
+
+        <p>
+          The "Lenses" section of the navigation panel lets you change how the
+          current page presents information, like the colors of the blame
+          strip.  Changes also become the setting for pages you load later.
+        </p>
+
+        <form>
+          <input type="checkbox" id="nav-panel--show-lenses">
+          <label for="nav-panel--show-lenses">Show the Lenses section</label>
         </form>
       </section>
     </section>

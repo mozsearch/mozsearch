@@ -173,6 +173,10 @@ var Panel = new (class Panel {
       this.addOpenInEditorAction();
     }
 
+    if (Settings.navPanel.showLenses) {
+      this.addLensesSection();
+    }
+
     if (Settings.debug.ui) {
       this.addDebugSection();
     }
@@ -467,6 +471,44 @@ var Panel = new (class Panel {
     });
 
     markdownHeader.before(box);
+  }
+
+  /**
+   * The "Lenses" section lets the user change how the page presents
+   * information, currently how the token-centric blame strip is colored.
+   * Changes apply to this page immediately and become the setting for pages
+   * loaded later, but pages which are already loaded don't change.
+   */
+  addLensesSection() {
+    const items = [];
+
+    if (typeof BLAME_INFO !== "undefined") {
+      const li = document.createElement("li");
+      li.classList.add("lens");
+      const label = document.createElement("label");
+      label.textContent = "Blame";
+      label.htmlFor = "panel-lens-blame";
+      const select = document.createElement("select");
+      select.id = "panel-lens-blame";
+      select.append(...Settings.createChoiceOptions(SETTING_DEFS.blame.colorMode.choices));
+      select.value = Settings.blame.colorMode;
+      select.addEventListener("change", () => {
+        BlameColorizer.apply(select.value);
+        Settings.__setValueFromIdSpace("blame--color-mode", select.value);
+      });
+      li.append(label, select);
+      items.push(li);
+    }
+
+    if (items.length > 0) {
+      const h4 = document.createElement("h4");
+      h4.textContent = "Lenses";
+      this.content.append(h4);
+
+      const ul = document.createElement("ul");
+      ul.append(...items);
+      this.content.append(ul);
+    }
   }
 
   addDebugSection() {

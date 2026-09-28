@@ -94,6 +94,32 @@ add_task(async function test_TokenBlameEarliestVersionLink() {
     "Navigates to the commit with the line of its tokens selected");
 });
 
+add_task(async function test_BlameLens() {
+  await TestUtils.loadPath(PATH);
+
+  const doc = frame.contentDocument;
+  const headings = [...doc.querySelectorAll("#panel h4")].map(h => h.textContent);
+  ok(headings.indexOf("Lenses") == headings.indexOf("Copy as Markdown") + 1,
+     "The Lenses section comes after Copy as Markdown");
+
+  const select = doc.querySelector("#panel-lens-blame");
+  const original = select.value;
+  TestUtils.selectMenu(select, "author");
+  ok(doc.documentElement.classList.contains("blame-colorized"),
+     "Changing the lens colors the strip");
+  is(JSON.parse(frame.contentWindow.localStorage.getItem("settings")).settings.blame.colorMode,
+     "author", "Changing the lens changes the setting");
+
+  // Pages loaded later use the setting.
+  await TestUtils.loadPath(PATH);
+  is(frame.contentDocument.querySelector("#panel-lens-blame").value, "author",
+     "The lens shows the setting");
+  ok(frame.contentDocument.documentElement.classList.contains("blame-colorized"),
+     "The strip is colored by the setting");
+
+  TestUtils.selectMenu(frame.contentDocument.querySelector("#panel-lens-blame"), original);
+});
+
 add_task(async function test_TokenBlameColors() {
   await TestUtils.loadPath(PATH);
 
