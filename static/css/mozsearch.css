@@ -44,6 +44,17 @@ table {
   --info-box-warning-background: #ffffee;
   --info-box-info-background: #eeffee;
 
+  /* Colors of CI test results, the same as on https://tests.firefox.dev/ */
+  --test-results-failures: #ff8c00;
+  --test-results-timeouts: #ffc107;
+  --test-results-crashes: #dc3545;
+  --test-results-skips: #6c757d;
+  --test-results-good: #28a745;
+  --test-results-bad: #dc3545;
+  --test-results-flaky: #ff8c00;
+  --test-results-stable: #5cb85c;
+  --test-results-skipped: #9b9b9b;
+
   --table-header-color: #555;
   --table-header-background: #f5f5f5;
   --table-even-row-background: #f5f5f5;
@@ -195,6 +206,8 @@ table {
     --info-box-error-background: #57161c;
     --info-box-warning-background: #664d03;
     --info-box-info-background: #0a3722;
+
+    --test-results-skips: #8b949e;
 
     --table-header-color: var(--page-foreground);
     --table-header-background: rgb(43, 42, 51);
@@ -1106,6 +1119,223 @@ tr.after-context-line + tr.before-context-line {
   background-color: var(--info-box-test-skip-info-background);
   padding: 5px;
   margin: -5px;
+}
+
+/* CI test results, in test info boxes and directory listings. */
+.test-results {
+  container-type: inline-size;
+  background-color: var(--page-background);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 0.6rem;
+}
+.test-results-box .test-results {
+  margin-bottom: 0;
+}
+.test-results-header {
+  font-size: 90%;
+  color: var(--page-subtle-foreground);
+  margin-bottom: 6px;
+}
+.test-results-period {
+  text-decoration: underline dotted;
+  cursor: help;
+}
+/* Numbers above the charts, or on their right when there is enough room,
+   which depends on the number of charts. */
+.test-results-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px 48px;
+}
+@container (min-width: 960px) {
+  .test-results-body:has(.test-results-charts-1) {
+    flex-direction: row;
+  }
+  .test-results-charts-1 {
+    order: -1;
+  }
+}
+@container (min-width: 1150px) {
+  .test-results-body:has(.test-results-charts-dir) {
+    flex-direction: row;
+  }
+  .test-results-charts-dir {
+    order: -1;
+  }
+}
+@container (min-width: 1260px) {
+  .test-results-body:has(.test-results-charts-2) {
+    flex-direction: row;
+  }
+  .test-results-charts-2 {
+    order: -1;
+  }
+}
+.test-results-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+.info-box a.test-results-tiles {
+  text-decoration: none;
+  color: inherit;
+}
+.test-results-tiles:hover .test-results-tile-label {
+  text-decoration: underline;
+}
+.test-results-tile {
+  display: flex;
+  flex-direction: column;
+  min-width: 60px;
+  padding-inline-start: 6px;
+  border-inline-start: 3px solid transparent;
+}
+.test-results-tile:has(.test-results-tile-failures) {
+  border-color: var(--test-results-failures);
+}
+.test-results-tile:has(.test-results-tile-timeouts) {
+  border-color: var(--test-results-timeouts);
+}
+.test-results-tile:has(.test-results-tile-crashes) {
+  border-color: var(--test-results-crashes);
+}
+.test-results-tile:has(.test-results-tile-skips) {
+  border-color: var(--test-results-skips);
+}
+.test-results-tile:has(.test-results-tile-good) {
+  border-color: var(--test-results-good);
+}
+.test-results-tile:has(.test-results-tile-bad) {
+  border-color: var(--test-results-bad);
+}
+.test-results-tile-value {
+  font-size: 130%;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+}
+.test-results-tile-zero {
+  font-weight: normal;
+  color: var(--page-subtle-foreground);
+}
+.test-results-tile-label {
+  font-size: 80%;
+  text-transform: uppercase;
+  color: var(--page-subtle-foreground);
+}
+.test-results-charts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 32px;
+}
+.test-results-figure {
+  margin: 0;
+  width: min-content;
+}
+.test-results-figure figcaption {
+  font-size: 85%;
+  white-space: nowrap;
+  margin-bottom: 2px;
+}
+.test-results-chart {
+  display: block;
+  border-bottom: 1px solid var(--page-subtle-foreground);
+}
+.test-results-hit {
+  fill: transparent;
+}
+/* Highlight the hovered day by fading the others. */
+.test-results-chart:has(g:hover) g:not(:hover) rect {
+  opacity: 0.35;
+}
+.test-results-failures {
+  fill: var(--test-results-failures);
+  background-color: var(--test-results-failures);
+}
+.test-results-timeouts {
+  fill: var(--test-results-timeouts);
+  background-color: var(--test-results-timeouts);
+}
+.test-results-crashes {
+  fill: var(--test-results-crashes);
+  background-color: var(--test-results-crashes);
+}
+.test-results-skips {
+  fill: var(--test-results-skips);
+}
+.test-results-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 75%;
+  color: var(--page-subtle-foreground);
+}
+.info-box ul.test-results-legend {
+  display: flex;
+  gap: 12px;
+  list-style: none;
+  padding: 0;
+  font-size: 80%;
+}
+.test-results-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-inline-end: 4px;
+  vertical-align: -1px;
+}
+/* Make room for the CI results columns of directory listings. */
+table.folder-content:has(.test-results-cell) td.description {
+  max-width: 40vw;
+}
+.folder-content th.test-results-header-cell {
+  padding-inline-start: 0.5em;
+  width: 1px;
+  white-space: nowrap;
+}
+table.folder-content td.test-results-rate a {
+  text-align: end;
+  padding-inline-end: 0.5em;
+  font-variant-numeric: tabular-nums;
+}
+table.folder-content td.test-results-cell a {
+  display: flex;
+  align-items: center;
+}
+.test-results-sparkline .test-results-flaky {
+  fill: var(--test-results-flaky);
+}
+.test-results-sparkline .test-results-skipped {
+  fill: var(--test-results-skipped);
+}
+.test-results-baseline {
+  fill: var(--page-subtle-foreground);
+  opacity: 0.4;
+}
+/* A dot on the icon of tests showing their state, as on
+   https://tests.firefox.dev/flaky.html */
+.test-state {
+  position: relative;
+}
+.test-state::after {
+  content: "";
+  position: absolute;
+  left: calc(0.5em + 9px);
+  top: calc(50% + 1px);
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--page-background);
+}
+.test-state-flaky::after {
+  background-color: var(--test-results-flaky);
+}
+.test-state-stable::after {
+  background-color: var(--test-results-stable);
+}
+.test-state-skipped::after {
+  background-color: var(--test-results-skipped);
 }
 
 .no-results {
@@ -2297,3 +2527,4 @@ textarea.monospace {
 .export-import-buttons button + button {
   margin-inline-start: 1rem;
 }
+

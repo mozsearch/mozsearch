@@ -5,7 +5,7 @@ use liquid::Template;
 
 use super::liquid_exts::{
     CompactPathlikeFilterParser, EnsureBugUrlFilterParser, FileExtFilterParser, JsonFilterParser,
-    StripPrefixOrEmptyFilterParser,
+    StripPrefixOrEmptyFilterParser, ThousandsFilterParser,
 };
 
 static TEMPLATE_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/templates");
@@ -37,6 +37,7 @@ pub fn build_and_parse(s: &str) -> Template {
         .filter(FileExtFilterParser)
         .filter(JsonFilterParser)
         .filter(StripPrefixOrEmptyFilterParser)
+        .filter(ThousandsFilterParser)
         .partials(liquid::partials::LazyCompiler::<StaticTemplateSource>::empty())
         .build()
         .expect("Problem building the liquid template")

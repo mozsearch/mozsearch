@@ -1,5 +1,8 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use clap::Args;
+use ustr::Ustr;
 
 use super::interface::{PipelineCommand, PipelineValues};
 use crate::{
@@ -51,6 +54,18 @@ impl PipelineCommand for BatchRenderCommand {
                 let template = build_and_parse_dir_listing();
                 let tree_info = server.tree_info()?;
                 let commit_info = server.commit_info()?;
+                // Each directory's own per-file info is in the group of its
+                // parent directory.
+                let mut dir_infos = HashMap::new();
+                for item in &batch_groups.groups {
+                    if let PipelineValues::FileMatches(fm) = &item.value {
+                        for file in &fm.file_matches {
+                            if file.concise.is_dir {
+                                dir_infos.insert(file.path, file.concise.clone());
+                            }
+                        }
+                    }
+                }
                 for item in batch_groups.groups {
                     if let PipelineValues::FileMatches(fm) = item.value {
                         let coverage_history = server.coverage_history(&item.name).await?;
@@ -69,6 +84,7 @@ impl PipelineCommand for BatchRenderCommand {
                             "files": fm.file_matches,
                             "panel": panel,
                             "coverage_history": coverage_history,
+                            "dir_concise": dir_infos.get(&Ustr::from(&item.name)),
                         });
                         if let Some(info) = &commit_info {
                             let date = info.date.format("%F %T %z").to_string();

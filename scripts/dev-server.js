@@ -51,6 +51,10 @@ const PER_FILE_INFO_INPUTS = {
     "source.source-bugzilla-info/artifacts/public/components-normalized.json",
   "wpt-metadata-summary.json":
     "source.source-wpt-metadata-summary/artifacts/public/summary.json",
+  "xpcshell-issues.json":
+    "source.test-info-xpcshell-timings/artifacts/public/xpcshell-issues.json",
+  "mochitest-issues.json":
+    "source.test-info-mochitest-timings/artifacts/public/mochitest-issues.json",
 };
 const DATA = path.join(TOOLS, "target/dev-server");
 const OVERRIDES = path.join(DATA, "per-file-info.json");
@@ -150,6 +154,13 @@ async function fetchPerFileInfoInputs() {
     } else {
       console.error(`Failed to download ${name}: ${response.status}`);
     }
+  }
+  const script = path.join(MOZSEARCH, "scripts/summarize-test-results.py");
+  const issues = ["xpcshell", "mochitest"].map(harness =>
+    treeDir(`index/${harness}-issues.json`)
+  );
+  if (isOlderThan(treeDir("index/test-results.json"), script, ...issues)) {
+    await run("python3", [script, treeDir("index/test-results.json"), ...issues]);
   }
 }
 
@@ -268,19 +279,24 @@ async function crossref() {
   );
 }
 
-// Whether `output` is missing or older than any of `inputs`.
+// Whether `output` is missing or older than any of the existing `inputs`.
 function isOlderThan(output, ...inputs) {
   const outputStat = fs.statSync(output, { throwIfNoEntry: false });
   return (
     !outputStat ||
-    inputs.some(input => fs.statSync(input).mtimeMs > outputStat.mtimeMs)
+    inputs.some(
+      input =>
+        fs.statSync(input, { throwIfNoEntry: false })?.mtimeMs >
+        outputStat.mtimeMs
+    )
   );
 }
 
 function isPerFileInfoStale() {
   return isOlderThan(
     treeDir("index/concise-per-file-info.crossref.json"),
-    path.join(MOZSEARCH, "config_defaults/per-file-info.toml")
+    path.join(MOZSEARCH, "config_defaults/per-file-info.toml"),
+    treeDir("index/test-results.json")
   );
 }
 

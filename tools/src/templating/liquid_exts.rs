@@ -52,6 +52,39 @@ impl Filter for FileExtFilter {
 
 #[derive(Clone, ParseFilter, FilterReflection)]
 #[filter(
+    name = "thousands",
+    description = "Format an integer with commas separating groups of thousands.",
+    parsed(ThousandsFilter)
+)]
+pub struct ThousandsFilterParser;
+
+#[derive(Debug, Default, Display_filter)]
+#[name = "thousands"]
+struct ThousandsFilter;
+
+impl Filter for ThousandsFilter {
+    fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
+        let s = input.to_kstr();
+        let (sign, digits) = match s.strip_prefix('-') {
+            Some(rest) => ("-", rest),
+            None => ("", s.as_str()),
+        };
+        if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+            return Ok(Value::scalar(s.to_string()));
+        }
+        let mut result = String::from(sign);
+        for (i, c) in digits.chars().enumerate() {
+            if i > 0 && (digits.len() - i) % 3 == 0 {
+                result.push(',');
+            }
+            result.push(c);
+        }
+        Ok(Value::scalar(result))
+    }
+}
+
+#[derive(Clone, ParseFilter, FilterReflection)]
+#[filter(
     name = "compact_pathlike",
     description = "Remove excess whitespace in a path-like string",
     parsed(CompactPathlikeFilter)
