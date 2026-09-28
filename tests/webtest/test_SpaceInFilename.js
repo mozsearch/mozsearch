@@ -40,7 +40,9 @@ add_task(async function test_SpaceInFilenameInNavigationPanel() {
 });
 
 add_task(async function test_SpaceInFilenameInBlameAndOldRevision() {
-  await TestUtils.loadPath("/searchfox/source/tests/tests/files/js/with%20space.js");
+  // The classic line blame's popup links; see test_TokenBlame.js for the
+  // token-centric blame.
+  await TestUtils.loadPath("/searchfox-line-blame/source/tests/tests/files/js/with%20space.js");
 
   // Test the blame popup
 
@@ -73,7 +75,7 @@ add_task(async function test_SpaceInFilenameInBlameAndOldRevision() {
   TestUtils.click(links[2]);
 
   await waitForCondition(
-    () => frame.contentDocument.location.href.includes("/searchfox/rev"),
+    () => frame.contentDocument.location.href.includes("/searchfox-line-blame/rev"),
     "Navigates to the previous version");
 
   // In order to avoid hard-coding the old version's hash, continue testing
@@ -90,7 +92,7 @@ add_task(async function test_SpaceInFilenameInBlameAndOldRevision() {
 
     is(links.length, 6);
     is(links[5].getAttribute("href"),
-       "/searchfox/rev/a3389fc178d304cb78be7960a9597001219cc210/tests/tests/files/js/with%20space.js",
+       "/searchfox-line-blame/rev/a3389fc178d304cb78be7960a9597001219cc210/tests/tests/files/js/with%20space.js",
        "The space in the href should be escaped");
   }
 
@@ -105,7 +107,7 @@ add_task(async function test_SpaceInFilenameInBlameAndOldRevision() {
 });
 
 add_task(async function test_SpaceInFilenameInAnnotatedDiffAndChangeset() {
-  await TestUtils.loadPath("/searchfox/source/tests/tests/files/js/with%20space.js");
+  await TestUtils.loadPath("/searchfox-line-blame/source/tests/tests/files/js/with%20space.js");
 
   const blameStrip = frame.contentDocument.querySelector(`#line-2 .blame-strip`);
 
@@ -126,7 +128,7 @@ add_task(async function test_SpaceInFilenameInAnnotatedDiffAndChangeset() {
   TestUtils.click(links[1]);
 
   await waitForCondition(
-    () => frame.contentDocument.location.href.includes("/searchfox/diff"),
+    () => frame.contentDocument.location.href.includes("/searchfox-line-blame/diff"),
     "Navigates to the previous version");
 
   // Test breadcrumbs.
@@ -135,7 +137,7 @@ add_task(async function test_SpaceInFilenameInAnnotatedDiffAndChangeset() {
 
     is(links.length, 6);
     is(links[5].getAttribute("href"),
-       "/searchfox/rev/2d74c5c0819978ebdb7b201de5bff892c7091581/tests/tests/files/js/with%20space.js",
+       "/searchfox-line-blame/rev/2d74c5c0819978ebdb7b201de5bff892c7091581/tests/tests/files/js/with%20space.js",
        "The space in the href should be escaped");
   }
 
@@ -156,7 +158,7 @@ add_task(async function test_SpaceInFilenameInAnnotatedDiffAndChangeset() {
   }
 
   await waitForCondition(
-    () => frame.contentDocument.location.href.includes("/searchfox/commit"),
+    () => frame.contentDocument.location.href.includes("/searchfox-line-blame/commit"),
     "Navigates to the changeset view");
 
   // Test file listing.

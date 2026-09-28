@@ -16,6 +16,20 @@
         "file": "$MOZSEARCH_PATH/tests/searchfox-config.json",
         "tree_name": "searchfox"
       }
+    },
+    "searchfox-line-blame": {
+      "IMPORT": {
+        "file": "$MOZSEARCH_PATH/tests/searchfox-config.json",
+        "tree_name": "searchfox"
+      },
+      "priority": 90,
+      "index_path": "$WORKING/searchfox-line-blame",
+      "objdir_path": "$WORKING/searchfox-line-blame/objdir",
+      "git_blame_path": "$WORKING/searchfox-line-blame/blame",
+      "history_path": null,
+      "codesearch_path": "$WORKING/searchfox-line-blame/livegrep.idx",
+      "codesearch_port": 8082,
+      "scip_subtrees": {}
     }
   },
 
