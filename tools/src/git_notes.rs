@@ -215,7 +215,7 @@ impl NotesWriter {
 #[cfg(test)]
 pub(crate) mod test_support {
     use super::*;
-    use std::process::{ChildStdin, Command, Stdio};
+    use std::process::{ChildStdin, Stdio};
 
     pub fn fast_import(repo: &Repository, write: impl FnOnce(&mut ChildStdin)) {
         let mut child = crate::git_ops::fast_import_git()
