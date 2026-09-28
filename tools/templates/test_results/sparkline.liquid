@@ -1,0 +1,55 @@
+{%- comment -%}
+Small chart of the daily percentages of runs with issues of a test or
+directory, drawn in front of the daily percentages of scheduled runs that
+were skipped, as a static SVG, for directory listings.
+
+Both use the same scale, fitting the highest percentage of runs with issues,
+so that its evolution is visible even when it's much smaller than the
+percentage of skips, which is then cut at the top.  Without issues, the scale
+fits the highest percentage of skips.
+
+Parameters:
+- results: The "test_results" concise per-file info of the test or directory.
+{%- endcomment -%}
+{%- assign height = 16 -%}
+{%- assign bar_pitch = 4 -%}
+{%- assign has_issues = false -%}
+{%- assign has_skips = false -%}
+{%- assign scaled_rates = "" | split: "," -%}
+{%- if results contains "daily_issue_rates" -%}
+  {%- assign has_issues = true -%}
+  {%- assign issue_rates = results.daily_issue_rates -%}
+  {%- assign scaled_rates = issue_rates -%}
+{%- endif -%}
+{%- if results contains "daily_skip_rates" -%}
+  {%- assign has_skips = true -%}
+  {%- assign skip_rates = results.daily_skip_rates -%}
+  {%- unless has_issues -%}{%- assign scaled_rates = skip_rates -%}{%- endunless -%}
+{%- endif -%}
+{%- assign max = 0 -%}
+{%- for value in scaled_rates -%}
+  {%- if value > max -%}{%- assign max = value -%}{%- endif -%}
+{%- endfor -%}
+{%- assign last_day = results.days | minus: 1 -%}
+{%- assign width = results.days | times: bar_pitch -%}
+{%- assign baseline_y = height | minus: 1 -%}
+<svg class="test-results-sparkline" width="{{ width }}" height="{{ height }}" viewBox="0 0 {{ width }} {{ height }}" aria-hidden="true">
+  <rect class="test-results-baseline" x="0" y="{{ baseline_y }}" width="{{ width }}" height="1"/>
+{%- if max > 0 -%}
+  {%- assign scale = height | times: 1.0 | divided_by: max -%}
+  {%- for day in (0..last_day) -%}
+    {%- assign x = day | times: bar_pitch -%}
+    {%- comment -%} Liquid evaluates "and" conditions right to left. {%- endcomment -%}
+    {%- if has_skips -%}{%- if skip_rates[day] > 0 -%}
+      {%- assign bar_height = skip_rates[day] | times: scale | at_least: 1 | at_most: height | round: 1 -%}
+      {%- assign y = height | minus: bar_height | round: 1 %}
+  <rect class="test-results-skipped" x="{{ x }}" y="{{ y }}" width="3" height="{{ bar_height }}"/>
+    {%- endif -%}{%- endif -%}
+    {%- if has_issues -%}{%- if issue_rates[day] > 0 -%}
+      {%- assign bar_height = issue_rates[day] | times: scale | at_least: 1 | round: 1 -%}
+      {%- assign y = height | minus: bar_height | round: 1 %}
+  <rect class="test-results-flaky" x="{{ x }}" y="{{ y }}" width="3" height="{{ bar_height }}"/>
+    {%- endif -%}{%- endif -%}
+  {%- endfor -%}
+{%- endif %}
+</svg>

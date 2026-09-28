@@ -1,0 +1,7 @@
+{%- comment -%}
+Dates of the first and last days under a chart of CI test results.
+
+Parameters:
+- results: The "test_results" concise per-file info.
+{%- endcomment %}
+            <div class="test-results-axis"><span>{{ results.start_date | append: " 00:00:00 +0000" | date: "%b %-d" }}</span><span>{{ results.end_date | append: " 00:00:00 +0000" | date: "%b %-d" }}</span></div>

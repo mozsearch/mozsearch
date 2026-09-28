@@ -1,0 +1,44 @@
+{%- comment -%}
+Summary of the CI results of the tests in a directory, for directory listings.
+
+Parameters:
+- results: The "test_results" concise per-file info of the directory.
+- path: The path of the directory.
+{%- endcomment -%}
+{%- capture results_url %}https://tests.firefox.dev/tests.html?path={{ path | url_encode }}{% endcapture -%}
+{%- capture day_url %}{{ results_url }}#from={% endcapture -%}
+{%- if results.flaky_tests > 0 -%}{%- assign flaky_kind = "failures" -%}{%- else -%}{%- assign flaky_kind = "zero" -%}{%- endif -%}
+{%- if results.failures > 0 -%}{%- assign failures_kind = "failures" -%}{%- else -%}{%- assign failures_kind = "zero" -%}{%- endif -%}
+{%- if results.timeouts > 0 -%}{%- assign timeouts_kind = "timeouts" -%}{%- else -%}{%- assign timeouts_kind = "zero" -%}{%- endif -%}
+{%- if results.crashes > 0 -%}{%- assign crashes_kind = "crashes" -%}{%- else -%}{%- assign crashes_kind = "zero" -%}{%- endif -%}
+{%- if results.skips > 0 -%}{%- assign skips_kind = "skips" -%}{%- else -%}{%- assign skips_kind = "zero" -%}{%- endif %}
+    <section class="info-box test-results-box">
+      <div class="test-results">
+        <div class="test-results-header"><a href="{{ results_url }}" title="More details on tests.firefox.dev">CI results for the tests in this directory</a> <span class="test-results-period" title="{{ results.start_date }} to {{ results.end_date }}">over the last {{ results.days }} days</span></div>
+        <div class="test-results-body">
+        <a class="test-results-tiles" href="{{ results_url }}" title="More details on tests.firefox.dev">
+          {%- include 'test_results/tile.liquid' label: "Tests", value: results.tests, kind: "plain" -%}
+          {%- include 'test_results/tile.liquid' label: "Flaky tests", value: results.flaky_tests, kind: flaky_kind -%}
+          {%- include 'test_results/tile.liquid' label: "Runs", value: results.runs, kind: "plain" -%}
+          {%- include 'test_results/tile.liquid' label: "Failures", value: results.failures, kind: failures_kind -%}
+          {%- include 'test_results/tile.liquid' label: "Timeouts", value: results.timeouts, kind: timeouts_kind -%}
+          {%- include 'test_results/tile.liquid' label: "Crashes", value: results.crashes, kind: crashes_kind -%}
+          {%- include 'test_results/tile.liquid' label: "Skips", value: results.skips, kind: skips_kind %}
+        </a>
+{%- if results.issues > 0 %}
+        <div class="test-results-charts test-results-charts-dir">
+          <figure class="test-results-figure">
+            <figcaption>Issues per day (up to {{ results.max_daily_issues | thousands }})</figcaption>
+            {%- include 'test_results/daily_chart.liquid' results: results, values: results.daily_totals, series: "failures,timeouts,crashes", max: results.max_daily_issues, unit: "", counts: false, height: 60, day_url: day_url %}
+            {%- include 'test_results/axis.liquid' results: results %}
+            <ul class="test-results-legend">
+              {%- if results.failures > 0 %}<li><span class="test-results-swatch test-results-failures"></span>Failures</li>{% endif -%}
+              {%- if results.timeouts > 0 %}<li><span class="test-results-swatch test-results-timeouts"></span>Timeouts</li>{% endif -%}
+              {%- if results.crashes > 0 %}<li><span class="test-results-swatch test-results-crashes"></span>Crashes</li>{% endif -%}
+            </ul>
+          </figure>
+        </div>
+{%- endif %}
+        </div>
+      </div>
+    </section>

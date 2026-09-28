@@ -16,7 +16,14 @@
     {%- if coverage_history != nil -%}
       {% include 'coverage_history.liquid' coverage_history: coverage_history %}
     {%- endif -%}
-    {%- include 'query_results/file_table.liquid' files: files %}
+    {%- assign show_test_results = false -%}
+    {%- if dir_concise -%}
+      {%- if dir_concise.info contains "test_results" -%}
+        {%- assign show_test_results = true -%}
+        {% include 'test_results/dir_panel.liquid' results: dir_concise.info.test_results, path: path %}
+      {%- endif -%}
+    {%- endif -%}
+    {%- include 'query_results/file_table.liquid' files: files, show_test_results: show_test_results %}
   </div>
   {% include 'scroll_footer.liquid' %}
 </div>

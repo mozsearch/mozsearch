@@ -1,0 +1,46 @@
+{%- comment -%}
+Multi-line text summarizing the CI results of a test or directory, for
+tooltips.  Needs to be escaped.
+
+Parameters:
+- results: The "test_results" concise per-file info.
+- skip_if: The skip-if conditions of the test from its manifest, one per
+  line, or "".
+{%- endcomment -%}
+{%- assign days = results.days -%}
+{%- unless results contains "tests" -%}
+  {%- assign state = "" -%}
+  {%- if results contains "state" -%}{%- assign state = results.state -%}{%- endif -%}
+  {%- if state == "flaky" -%}
+Flaky in CI over the last {{ days }} days
+  {%- elsif state == "skipped" -%}
+Skipped on some CI configurations over the last {{ days }} days, never failed
+  {%- elsif state == "stable" -%}
+Stable in CI over the last {{ days }} days
+  {%- else -%}
+Not run in CI over the last {{ days }} days
+  {%- endif -%}
+{%- else -%}
+{{ results.tests | thousands }} test{% if results.tests != 1 %}s{% endif %} over the last {{ days }} days:
+  {%- assign separator = " " -%}
+  {%- if results.flaky_tests > 0 %}{{ separator }}{{ results.flaky_tests | thousands }} flaky{% assign separator = ", " %}{% endif -%}
+  {%- if results.skipped_tests > 0 %}{{ separator }}{{ results.skipped_tests | thousands }} skipped{% assign separator = ", " %}{% endif -%}
+  {%- if results.stable_tests > 0 %}{{ separator }}{{ results.stable_tests | thousands }} stable{% assign separator = ", " %}{% endif -%}
+  {%- assign not_run = results.tests | minus: results.flaky_tests | minus: results.skipped_tests | minus: results.stable_tests -%}
+  {%- if not_run > 0 %}{{ separator }}{{ not_run | thousands }} not run{% endif -%}
+{%- endunless -%}
+{%- if results.runs > 0 %}
+{% assign separator = "" -%}
+  {%- if results.failures > 0 %}{{ results.failures | thousands }} failure{% if results.failures != 1 %}s{% endif %}{% assign separator = ", " %}{% endif -%}
+  {%- if results.timeouts > 0 %}{{ separator }}{{ results.timeouts | thousands }} timeout{% if results.timeouts != 1 %}s{% endif %}{% assign separator = ", " %}{% endif -%}
+  {%- if results.crashes > 0 %}{{ separator }}{{ results.crashes | thousands }} crash{% if results.crashes != 1 %}es{% endif %}{% assign separator = ", " %}{% endif -%}
+  {%- if separator == "" -%}
+{{ results.runs | thousands }} run{% if results.runs != 1 %}s{% endif %}, all passed
+  {%- else %} in {{ results.runs | thousands }} run{% if results.runs != 1 %}s{% endif %}
+  {%- endif -%}
+{%- endif -%}
+{%- if results.skips > 0 %}
+{{ results.skips | thousands }} skip{% if results.skips != 1 %}s{% endif %}
+  {%- if skip_if != "" %}, skip-if:
+{{ skip_if }}{% endif -%}
+{%- endif -%}

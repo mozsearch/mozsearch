@@ -151,6 +151,10 @@ if should_perform "process-chrome-map"; then
     $MOZSEARCH_PATH/scripts/process-chrome-map.py $GIT_ROOT $URL_MAP_PATH $INDEX_ROOT/*.chrome-map.json || handle_tree_error "process-chrome-map.py"
 fi
 
+if should_perform "summarize-test-results"; then
+    $MOZSEARCH_PATH/scripts/summarize-test-results.py $INDEX_ROOT/test-results.json $INDEX_ROOT/xpcshell-issues.json $INDEX_ROOT/mochitest-issues.json || handle_tree_error "summarize-test-results.py"
+fi
+
 if should_perform "js-analyze"; then
     $MOZSEARCH_PATH/scripts/js-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "js-analyze.sh"
 fi

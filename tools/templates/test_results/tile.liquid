@@ -1,0 +1,9 @@
+{%- comment -%}
+One number of the summary of CI test results.
+
+Parameters:
+- label: What the number is.
+- value: The number, or text.
+- kind: Suffix of the CSS class coloring the value; "zero" for a 0 value.
+{%- endcomment %}
+<div class="test-results-tile"><span class="test-results-tile-value test-results-tile-{{ kind }}">{{ value | thousands }}</span><span class="test-results-tile-label">{{ label }}</span></div>

@@ -1,13 +1,22 @@
 <table class="folder-content">
     <thead>
       <tr>
+        {%- if show_test_results %}
+        <th scope="col" class="test-results-header-cell" aria-label="Percentage of CI runs with issues"></th>
+        {%- endif %}
         <th scope="col">Name</th>
         <th scope="col">Description</th>
         <th scope="col">Size</th>
         <th scope="col">Coverage</th>
+        {%- if show_test_results %}
+        <th scope="col" class="test-results-header-cell">CI issues</th>
+        {%- endif %}
       </tr>
     </thead>
     <tbody>
+    {%- capture newline %}
+{% endcapture -%}
+    {%- capture double_newline %}{{ newline }}{{ newline }}{% endcapture -%}
     {%- for file in files %}
         {% capture file_url %}/{{ tree }}/{% if rev %}rev/{{ rev }}{% else %}source{% endif %}/{{ file.path }}{% endcapture -%}
         {%- if file.concise.is_dir -%}
@@ -27,7 +36,45 @@
           for this feature to come back, we should probably pre-compute low(er)
           resolution versions of the icons.
           {% endcomment -%}
-          <td class="name"><a href="{{ file_url }}" class="mimetype-fixed-container mimetype-icon-{{ icon_kind }}">{{ file.path | split: "/" | last }}</a></td>
+          {%- assign state_class = "" -%}
+          {%- assign results_title = "" -%}
+          {%- if show_test_results -%}
+            {%- if file.concise.info contains "test_results" -%}
+              {%- assign results = file.concise.info.test_results -%}
+              {%- if results contains "state" -%}
+                {%- capture state_class %} test-state test-state-{{ results.state }}{% endcapture -%}
+              {%- endif -%}
+              {%- assign skip_if = "" -%}
+              {%- if file.concise.info contains "test" -%}
+                {%- if file.concise.info.test contains "skip_if" -%}
+                  {%- assign skip_if = file.concise.info.test.skip_if | strip | replace: double_newline, newline -%}
+                {%- endif -%}
+              {%- endif -%}
+              {%- capture results_title -%}
+                {%- include 'test_results/summary_title.liquid' results: results, skip_if: skip_if -%}
+              {%- endcapture -%}
+              {%- assign results_title = results_title | escape -%}
+              {%- if file.concise.is_dir -%}
+                {%- capture results_url %}https://tests.firefox.dev/tests.html?path={{ file.path | url_encode }}{% endcapture -%}
+              {%- else -%}
+                {%- capture results_url %}https://tests.firefox.dev/test.html?test={{ file.path | url_encode }}{% endcapture -%}
+              {%- endif -%}
+              {%- comment -%} Formatted as the "Issue %" column of https://tests.firefox.dev/tests.html, without 0%. {%- endcomment -%}
+              {%- assign issue_rate = "" -%}
+              {%- if results.issues > 0 -%}
+                {%- assign rate = results.issues | times: 100.0 | divided_by: results.runs -%}
+                {%- if rate < 1 -%}
+                  {%- assign issue_rate = "&lt;1%" -%}
+                {%- else -%}
+                  {%- capture issue_rate %}{{ rate | plus: 0.5 | floor }}%{% endcapture -%}
+                {%- endif -%}
+              {%- endif %}
+          <td class="test-results-rate"><a href="{{ results_url }}" title="{{ results_title }}">{{ issue_rate }}</a></td>
+            {%- else %}
+          <td class="test-results-rate"></td>
+            {%- endif -%}
+          {%- endif -%}
+          <td class="name"><a href="{{ file_url }}" class="mimetype-fixed-container mimetype-icon-{{ icon_kind }}{{ state_class }}"{% if results_title != "" %} title="{{ results_title }}"{% endif %}>{{ file.path | split: "/" | last }}</a></td>
           <td class="description"><a href="{{ file_url }}" title="{{ file.concise.description | default: "" | escape }}">{{ file.concise.description | default: "" | escape }}</td>
           <td class="size"><a href="{{ file_url }}">{{ file_size }}</a></td>
           {% assign coverage = file.concise.coverage %}
@@ -41,6 +88,15 @@
             {%- capture coverage_content -%} - {%- endcapture -%}
           {%- endif -%}
           <td class="coverage"><a href="{{ file_url }}" class="cov-percentage cov-percentage-{{ coverage_bucket }}" title="{{ coverage_title }}">{{ coverage_content }}</a></td>
+          {%- if show_test_results -%}
+            {%- if results_title != "" %}
+          <td class="test-results-cell"><a href="{{ results_url }}" title="{{ results_title }}">
+              {%- include 'test_results/sparkline.liquid' results: results -%}
+          </a></td>
+            {%- else %}
+          <td class="test-results-cell"></td>
+            {%- endif -%}
+          {%- endif %}
         </tr>
 {% endfor %}
     </tbody>

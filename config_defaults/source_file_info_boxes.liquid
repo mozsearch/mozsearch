@@ -1,4 +1,4 @@
-{% if concise.info contains "test" -%}
+{% if concise.info contains "test" or concise.info contains "test_results" -%}
   {%- assign test_heading = "Test Info:" -%}
   {%- assign test_severity = "info" -%}
   {%- if concise.info.test contains "failure_count" and concise.info.test.failure_count > 0 -%}
@@ -19,6 +19,19 @@
       {%- assign test_severity = "warning" -%}
     {%- endif -%}
   {%- endif -%}
+  {%- if concise.info contains "test_results" -%}
+    {%- assign results = concise.info.test_results -%}
+    {%- if results.issues > 0 -%}
+      {%- if test_severity == "info" -%}
+        {%- assign test_heading = "Test Info: Warnings" -%}
+        {%- assign test_severity = "warning" -%}
+      {%- endif -%}
+      {%- if results.pass_rate < 90 -%}
+        {%- assign test_heading = "Test Info: Errors" -%}
+        {%- assign test_severity = "error" -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
   {%- if concise.bugzilla_component == empty -%}
     {%- assign bugzillaString = "" %}
   {%- else -%}
@@ -33,6 +46,11 @@
     <h4>{{ test_heading }}</h4>
     <div>
       <ul>
+{%- if concise.info contains "test_results" and detailed.info contains "test_results" %}
+        <li>
+  {%- include 'test_results/test_panel.liquid' results: results, details: detailed.info.test_results, path: path %}
+        </li>
+{%- endif %}
 {% if concise.info.test contains "skip_if" and concise.info.test.skip_if != empty %}
         <li>This test gets skipped with pattern: <span class="test-skip-info">{{ concise.info.test.skip_if | replace: double_newline, newline | replace: newline, " OR " }}</span></li>
 {%- endif -%}
