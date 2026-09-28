@@ -174,6 +174,25 @@ fn handle(
             }
         }
 
+        // The hyperblame data files (`commits.json` and `lines-K.json`) of the
+        // token-centric blame of `/rev/` pages, as
+        // `/{tree}/rev-hyperblame/{rev}/{path}/{file}`.  The tip's are static
+        // files; see `format::hyperblame_files`.
+        "rev-hyperblame" => {
+            if path.len() < 5 {
+                return WebResponse::not_found();
+            }
+
+            let rev = &path[2];
+            let file_name = path[path.len() - 1];
+            let file_path = path[3..path.len() - 1].join("/");
+
+            match format::hyperblame_file(cfg, tree_name, rev, &file_path, file_name) {
+                Ok(json) => WebResponse::json(json),
+                Err(err) => WebResponse::internal_error(err.to_owned()),
+            }
+        }
+
         "hgrev" => {
             if path.len() < 3 {
                 return WebResponse::not_found();

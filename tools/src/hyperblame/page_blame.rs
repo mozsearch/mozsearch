@@ -1,9 +1,11 @@
 //! Token-centric blame as presented on source listing pages: what the blame
-//! strip shows for each line, and the `BLAME_INFO` data the page's JS uses to
+//! strip shows for each line, the `BLAME_INFO` data the page's JS uses to
 //! colorize the strip, describe lines in the blame popup, and map `#tokens=`
-//! hashes to lines.  See "Token blame UI plan" in the hyperblame notes.
+//! hashes to lines, and the per-token data for the popup, which the page loads
+//! separately in chunks of lines (the "hyperblame" data files).  See "Token
+//! blame UI plan" in the hyperblame notes.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write;
 use std::ops::RangeInclusive;
 
@@ -32,6 +34,50 @@ pub struct BlameInfo {
     /// name tokens by their (1-based) index in the file, to lines.
     #[serde(rename = "tokenCounts")]
     pub token_counts: Vec<u32>,
+    /// The (0-based) first line of each chunk of the popup's data; see
+    /// `LinesChunk`.
+    pub chunks: Vec<usize>,
+    /// The URL of the directory with the page's hyperblame data files
+    /// (`commits.json` and `lines-K.json` for each chunk K), which depends on
+    /// whether the page is for the tip or a revision.
+    #[serde(rename = "dataUrl", skip_serializing_if = "Option::is_none")]
+    pub data_url: Option<String>,
+}
+
+/// About how many tokens each chunk of the popup's data has.  Chunks end at
+/// line boundaries.
+pub const CHUNK_TOKENS: usize = 16384;
+
+/// The popup's data for a chunk of lines, the `lines-K.json` hyperblame file
+/// for chunk K.
+#[derive(Debug, PartialEq, Serialize)]
+pub struct LinesChunk {
+    /// The (0-based) index of the chunk's first line.
+    #[serde(rename = "firstLine")]
+    pub first_line: usize,
+    /// For each line, its tokens as `[GAP, LENGTH, COMMIT, LINENO]` or
+    /// `[GAP, LENGTH, COMMIT, LINENO, PATH]`, where:
+    /// - GAP is the number of UTF-16 code units between the end of the
+    ///   previous token on the line (or the start of the line) and the token,
+    ///   and LENGTH is the token's length in them.
+    /// - COMMIT and PATH (0, the file itself, if omitted) are the commit which
+    ///   introduced the token and the token's path there, as indices into
+    ///   `BlameInfo::commits` and `BlameInfo::paths`.
+    /// - LINENO is the token's (1-based) index in the file in that commit, as
+    ///   a delta from the previous token in the chunk with the same commit and
+    ///   path.
+    pub lines: Vec<Vec<Vec<i64>>>,
+    /// The predecessors of the tokens that evolved from other tokens, by the
+    /// (1-based) index of the token in the file, as `[COMMIT, PATH, LINENO]`.
+    pub preds: BTreeMap<u32, (usize, usize, u32)>,
+}
+
+fn utf16_len(s: &str) -> usize {
+    if s.is_ascii() {
+        s.len()
+    } else {
+        s.chars().map(char::len_utf16).sum()
+    }
 }
 
 /// The tokens on a line from one commit (and path).
@@ -87,6 +133,7 @@ pub struct StripLine {
 pub struct PageBlame {
     pub lines: Vec<StripLine>,
     pub info: BlameInfo,
+    pub chunks: Vec<LinesChunk>,
 }
 
 struct Indexer {
@@ -158,12 +205,23 @@ fn token_ranges(mut indices: Vec<u32>) -> Vec<RangeInclusive<u32>> {
     ranges
 }
 
-/// Build the page's token blame for the file at `path`.  `meta` provides the
-/// metadata of the commits the blame refers to.
+/// Build the page's token blame for the file at `path` whose contents are
+/// `source`.  `meta` provides the metadata of the commits the blame refers to.
 pub fn page_blame(
     blame: &FileTokenBlame,
+    source: &str,
+    path: &str,
+    meta: impl FnMut(&str) -> CommitMeta,
+) -> PageBlame {
+    page_blame_with_chunk_tokens(blame, source, path, meta, CHUNK_TOKENS)
+}
+
+fn page_blame_with_chunk_tokens(
+    blame: &FileTokenBlame,
+    source: &str,
     path: &str,
     mut meta: impl FnMut(&str) -> CommitMeta,
+    chunk_size: usize,
 ) -> PageBlame {
     let mut indexer = Indexer {
         info: BlameInfo {
@@ -171,6 +229,8 @@ pub fn page_blame(
             authors: vec![],
             paths: vec![],
             token_counts: vec![],
+            chunks: vec![],
+            data_url: None,
         },
         commit_indices: HashMap::new(),
         author_indices: HashMap::new(),
@@ -186,13 +246,33 @@ pub fn page_blame(
     });
 
     let mut lines = Vec::with_capacity(line_blames.len());
-    for line_blame in &line_blames {
+    let mut chunks: Vec<LinesChunk> = vec![];
+    let mut chunk_tokens = 0;
+    // The last LINENO in the chunk for each commit and path, for deltas.
+    let mut last_linenos: HashMap<(usize, usize), u32> = HashMap::new();
+    for (line_index, line_blame) in line_blames.iter().enumerate() {
         let tokens = &blame.tokens[line_blame.tokens.clone()];
         indexer.info.token_counts.push(tokens.len() as u32);
 
-        // Group the line's tokens by commit and path.
+        if chunks.is_empty() || chunk_tokens >= chunk_size {
+            indexer.info.chunks.push(line_index);
+            chunks.push(LinesChunk {
+                first_line: line_index,
+                lines: vec![],
+                preds: BTreeMap::new(),
+            });
+            chunk_tokens = 0;
+            last_linenos.clear();
+        }
+        let chunk = chunks.last_mut().unwrap();
+        chunk_tokens += tokens.len();
+
+        // Group the line's tokens by commit and path for the strip, and
+        // describe them for the popup.
         let mut groups: Vec<(usize, usize, Vec<u32>)> = vec![];
-        for token in tokens {
+        let mut chunk_line = Vec::with_capacity(tokens.len());
+        let mut prev_end = blame.line_starts[line_index];
+        for (offset, token) in tokens.iter().enumerate() {
             let introduced = &token.data.introduced;
             let commit = indexer.commit(&introduced.source_rev, &mut meta);
             let path = indexer.path(&introduced.path);
@@ -200,7 +280,35 @@ pub fn page_blame(
                 Some(group) => group.2.push(introduced.lineno),
                 None => groups.push((commit, path, vec![introduced.lineno])),
             }
+
+            let last_lineno = last_linenos
+                .insert((commit, path), introduced.lineno)
+                .unwrap_or(0);
+            let mut desc = vec![
+                utf16_len(&source[prev_end..token.range.start]) as i64,
+                utf16_len(&source[token.range.clone()]) as i64,
+                commit as i64,
+                introduced.lineno as i64 - last_lineno as i64,
+            ];
+            if path != 0 {
+                desc.push(path as i64);
+            }
+            chunk_line.push(desc);
+            prev_end = token.range.end;
+
+            if let Some(predecessor) = &token.data.predecessor {
+                let token_index = (line_blame.tokens.start + offset + 1) as u32;
+                chunk.preds.insert(
+                    token_index,
+                    (
+                        indexer.commit(&predecessor.source_rev, &mut meta),
+                        indexer.path(&predecessor.path),
+                        predecessor.lineno,
+                    ),
+                );
+            }
         }
+        chunk.lines.push(chunk_line);
         let mut entries: Vec<StripEntry> = groups
             .into_iter()
             .map(|(commit, path, indices)| StripEntry {
@@ -239,6 +347,7 @@ pub fn page_blame(
     PageBlame {
         lines,
         info: indexer.info,
+        chunks,
     }
 }
 
@@ -379,6 +488,77 @@ impl StripLine {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_chunks() {
+        use crate::file_format::history::timeline_annotated::{HyperLineData, HyperTokenRef};
+        use crate::hyperblame::token_blame::{FileHistory, blame_tokens};
+        use crate::tree_sitter_support::cst_tokenizer::hypertokenize_source_file;
+
+        // "é" is 2 bytes of UTF-8 but 1 UTF-16 code unit.
+        let source = "int x;\n\n  s = \"é\" + x;\n";
+        let tokenized = hypertokenize_source_file("a.cpp", source).unwrap();
+        // int x ; | s = "é" + x ;
+        let revs = ["1", "1", "1", "2", "2", "2", "1", "2", "2"];
+        assert_eq!(tokenized.tokenized.len(), revs.len());
+        let mut annotated = vec![HyperLineData::new_introduced("0", 0).serialize()];
+        for (i, rev) in revs.iter().enumerate() {
+            let mut data = HyperLineData::new_introduced(rev, i as u32 + 1);
+            if i == 3 {
+                data.predecessor = Some(HyperTokenRef {
+                    source_rev: "1".into(),
+                    path: "old.cpp".into(),
+                    lineno: 9,
+                });
+            }
+            annotated.push(data.serialize());
+        }
+        let history = FileHistory {
+            path: "a.cpp".to_string(),
+            source_rev: git2::Oid::ZERO_SHA1,
+            lang: "cpp".to_string(),
+            syntax: tokenized.tokenized.join("\n"),
+            annotated: annotated.join("\n"),
+        };
+        let blame = blame_tokens(source, &history).unwrap();
+        let meta = |rev: &str| CommitMeta {
+            time: rev.parse().unwrap(),
+            author: format!("author {}", rev),
+        };
+
+        let page = page_blame(&blame, source, "a.cpp", meta);
+        assert_eq!(page.info.chunks, vec![0]);
+        let commit = |rev: &str| page.info.commits.iter().position(|c| c.0 == rev).unwrap() as i64;
+        let (c1, c2) = (commit("1"), commit("2"));
+        assert_eq!(
+            page.chunks,
+            vec![LinesChunk {
+                first_line: 0,
+                lines: vec![
+                    vec![vec![0, 3, c1, 1], vec![1, 1, c1, 1], vec![0, 1, c1, 1]],
+                    vec![],
+                    vec![
+                        vec![2, 1, c2, 4],
+                        vec![1, 1, c2, 1],
+                        vec![1, 3, c2, 1],
+                        vec![1, 1, c1, 4],
+                        vec![1, 1, c2, 2],
+                        vec![0, 1, c2, 1],
+                    ],
+                ],
+                preds: BTreeMap::from([(4, (c1 as usize, 1, 9))]),
+            }]
+        );
+        assert_eq!(page.info.paths, vec!["a.cpp", "old.cpp"]);
+
+        // With tiny chunks, each chunk starts at a line boundary once the
+        // previous one has enough tokens, and deltas start over.
+        let page = page_blame_with_chunk_tokens(&blame, source, "a.cpp", meta, 3);
+        assert_eq!(page.info.chunks, vec![0, 1]);
+        assert_eq!(page.chunks[1].first_line, 1);
+        assert_eq!(page.chunks[1].lines[1][0], vec![2, 1, c2, 4]);
+        assert_eq!(page.chunks[1].lines[1][3], vec![1, 1, c1, 7]);
+    }
 
     #[test]
     fn test_token_ranges() {

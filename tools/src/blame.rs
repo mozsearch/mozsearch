@@ -1,7 +1,7 @@
-use crate::file_format::config::Config;
+use crate::file_format::config::{Config, GitData, TreeConfig};
 use crate::{git_ops, links};
 
-use serde_json::{Map, json, to_string};
+use serde_json::{Map, Value, json, to_string};
 use std::borrow::Cow;
 use std::str::Split;
 
@@ -86,6 +86,21 @@ pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<Stri
     for rev in revs.split(',') {
         let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
         let commit = commit_obj.as_commit().ok_or("Bad revision")?;
+        infos.push(commit_info_json(tree_config, git, commit)?);
+    }
+
+    Ok(to_string(&json!(infos)).unwrap())
+}
+
+/// What the blame popup shows about a commit: its header (with the author and
+/// date), and links to its parent (if it has only one), its full diff, and its
+/// Phabricator revision or pull request.
+pub fn commit_info_json(
+    tree_config: &TreeConfig,
+    git: &GitData,
+    commit: &git2::Commit,
+) -> Result<Value, &'static str> {
+    {
         let (msg, phab_rev, pr) = commit_header_patch(commit)?;
 
         let t = git_ops::git_time_to_chrono(commit.time());
@@ -109,8 +124,7 @@ pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<Stri
 
         obj.insert("date".to_owned(), json!(t));
 
-        if let (Some(hg_path), Some(hg_id)) =
-            (&tree_config.paths.hg_root, git.hg_rev(commit_obj.id()))
+        if let (Some(hg_path), Some(hg_id)) = (&tree_config.paths.hg_root, git.hg_rev(commit.id()))
         {
             obj.insert(
                 "fulldiff".to_owned(),
@@ -125,10 +139,8 @@ pub fn get_commit_info(cfg: &Config, tree_name: &str, revs: &str) -> Result<Stri
             obj.insert("pr".to_owned(), json!(pr_link));
         }
 
-        infos.push(json!(obj));
+        Ok(json!(obj))
     }
-
-    Ok(to_string(&json!(infos)).unwrap())
 }
 
 /// (Legacy) Line-centric blame data.  Token-centric reps are defined in

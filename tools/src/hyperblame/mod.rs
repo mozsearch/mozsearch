@@ -9,6 +9,7 @@ pub mod history_config;
 pub mod inference;
 pub mod journals;
 pub mod page_blame;
+pub mod page_data_cache;
 pub mod stats;
 pub mod suffix_array;
 pub mod token_blame;

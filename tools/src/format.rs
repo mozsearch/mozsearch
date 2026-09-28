@@ -19,6 +19,7 @@ use crate::file_format::jumpref::{
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::{self, coverage_history, coverage_summary, git_time_to_chrono};
 use crate::hyperblame::page_blame::{CommitMeta, PageBlame, page_blame};
+use crate::hyperblame::page_data_cache::{PAGE_DATA_CACHE, PageData};
 use crate::hyperblame::token_blame::blame_tokens;
 use crate::languages;
 use crate::languages::FormatAs;
@@ -596,6 +597,13 @@ pub struct FormatPerfInfo {
     pub format_mixing_duration_us: u64,
 }
 
+pub struct FormattedFile {
+    pub perf: FormatPerfInfo,
+    /// The page's token-centric blame, if it has one, for writing its
+    /// hyperblame data files (see `hyperblame_files`).
+    pub token_blame: Option<PageBlame>,
+}
+
 /// Renders source code with blame annotations and semantic analysis data (if provided).
 /// The caller provides the panel sections.  Currently used by `output-file.rs` to statically
 /// generate the tip of whatever branch it's on with semantic analysis data, and `format_path` to
@@ -615,7 +623,7 @@ pub fn format_file_data(
     jumpref_lookup: &Option<BisectableMmap<JumprefData>>,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
     writer: &mut dyn Write,
-) -> Result<FormatPerfInfo, &'static str> {
+) -> Result<FormattedFile, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
 
     let coverage = git_ops::get_coverage(tree_config.git.as_ref(), coverage_commit, path);
@@ -625,7 +633,10 @@ pub fn format_file_data(
     let format = languages::select_formatting(path);
     if let FormatAs::Binary = format {
         write!(writer, "Binary file").unwrap();
-        return Ok(format_perf);
+        return Ok(FormattedFile {
+            perf: format_perf,
+            token_blame: None,
+        });
     };
 
     let slug = format_to_slug_attribute(&format);
@@ -637,7 +648,7 @@ pub fn format_file_data(
     let pre_blame_lines = Instant::now();
     // We use the token-centric history when we have it for the file, falling
     // back to the classic line blame.
-    let token_blame = tree_config
+    let mut token_blame = tree_config
         .git
         .as_ref()
         .zip(commit.as_ref())
@@ -654,6 +665,21 @@ pub fn format_file_data(
             }
             matches
         });
+    // The page loads the popup's data from the tip's static files or from the
+    // web-server for other revisions; see `hyperblame_files`.
+    if let (Some(page), Some(commit)) = (&mut token_blame, commit) {
+        page.info.data_url = Some(match breadcrumbs_links_to {
+            BreadcrumbsLinksTo::Latest => {
+                format!("/{}/hyperblame/{}", tree_name, url_encode_path(path))
+            }
+            BreadcrumbsLinksTo::Historical => format!(
+                "/{}/rev-hyperblame/{}/{}",
+                tree_name,
+                commit.id(),
+                url_encode_path(path)
+            ),
+        });
+    }
     let blame_lines = match token_blame {
         Some(_) => None,
         None => git_ops::get_blame_lines(tree_config.git.as_ref(), blame_commit, path),
@@ -976,7 +1002,99 @@ pub fn format_file_data(
 
     format_perf.format_mixing_duration_us = pre_format_mixing.elapsed().as_micros() as u64;
 
-    Ok(format_perf)
+    Ok(FormattedFile {
+        perf: format_perf,
+        token_blame,
+    })
+}
+
+/// The hyperblame data files for a page's token-centric blame, by file name:
+/// `commits.json` has the `blame::commit_info_json` of each of the page's
+/// commits (in `BlameInfo::commits` order), and `lines-K.json` has chunk K of
+/// the popup's per-token data (see `LinesChunk`).
+pub fn hyperblame_files(
+    tree_config: &TreeConfig,
+    git: &GitData,
+    page: &PageBlame,
+) -> Vec<(String, String)> {
+    let revs = page.info.commits.iter().map(|(rev, _, _)| rev.as_str());
+    let mut files = vec![(
+        "commits.json".to_string(),
+        hyperblame_commits_json(tree_config, git, revs),
+    )];
+    for (k, chunk) in page.chunks.iter().enumerate() {
+        files.push((format!("lines-{}.json", k), to_string(chunk).unwrap()));
+    }
+    files
+}
+
+fn hyperblame_commits_json<'a>(
+    tree_config: &TreeConfig,
+    git: &GitData,
+    revs: impl Iterator<Item = &'a str>,
+) -> String {
+    let infos: Vec<serde_json::Value> = revs
+        .map(|rev| {
+            Oid::from_str(rev)
+                .and_then(|oid| git.repo.find_commit(oid))
+                .ok()
+                .and_then(|commit| blame::commit_info_json(tree_config, git, &commit).ok())
+                .unwrap_or(serde_json::Value::Null)
+        })
+        .collect();
+    to_string(&infos).unwrap()
+}
+
+/// One of the hyperblame data files (see `hyperblame_files`) for the file at
+/// `path` in revision `rev`, for pages of revisions other than the tip.  We
+/// use the data rendering the page left in `PAGE_DATA_CACHE`, if it's there.
+pub fn hyperblame_file(
+    cfg: &Config,
+    tree_name: &str,
+    rev: &str,
+    path: &str,
+    file_name: &str,
+) -> Result<String, &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let commit = git
+        .repo
+        .revparse_single(rev)
+        .and_then(|object| object.peel_to_commit())
+        .map_err(|_| "Bad revision")?;
+    let key = (
+        tree_name.to_string(),
+        commit.id().to_string(),
+        path.to_string(),
+    );
+    let data = PAGE_DATA_CACHE
+        .get_or_compute(key, || {
+            let (repo, oid) = get_object_at(
+                OwnedOrBorrowed::Borrowed(&git.repo),
+                commit.id(),
+                Path::new(path),
+            )
+            .ok()?;
+            let object = repo.find_object(oid, Some(git2::ObjectType::Blob)).ok()?;
+            let source = git_ops::read_blob_object(&object);
+            let page = page_token_blame(git, &commit, path, &source)?;
+            Some(PageData::new(&page))
+        })
+        .ok_or("No token blame for the file")?;
+
+    if file_name == "commits.json" {
+        let revs = || data.revs.iter().map(String::as_str);
+        return Ok(data
+            .commits_json
+            .get_or_init(|| hyperblame_commits_json(tree_config, git, revs()))
+            .clone());
+    }
+    file_name
+        .strip_prefix("lines-")
+        .and_then(|name| name.strip_suffix(".json"))
+        .and_then(|k| k.parse::<usize>().ok())
+        .and_then(|k| data.chunks.get(k).cloned())
+        .ok_or("No such hyperblame file")
 }
 
 /// The token-centric blame of the file at `path` in `commit` whose contents are
@@ -1003,7 +1121,7 @@ fn page_token_blame(
             return None;
         }
     };
-    Some(page_blame(&blame, path, |rev| {
+    Some(page_blame(&blame, source, path, |rev| {
         let commit = Oid::from_str(rev)
             .and_then(|oid| git.repo.find_commit(oid))
             .ok();
@@ -1436,7 +1554,8 @@ fn format_blob(
         create_markdown_panel_section(false),
     ];
 
-    format_file_data(
+    let rev = commit.id().to_string();
+    let formatted = format_file_data(
         cfg,
         tree_name,
         panel,
@@ -1450,8 +1569,16 @@ fn format_blob(
         &None,
         &analysis,
         writer,
-    )
-    .map(|_| ())
+    )?;
+    // The page will request its hyperblame data right away; see
+    // `hyperblame_file`.
+    if let Some(page) = formatted.token_blame {
+        PAGE_DATA_CACHE.insert(
+            (tree_name.to_string(), rev, path.to_string()),
+            PageData::new(&page),
+        );
+    }
+    Ok(())
 }
 
 pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {

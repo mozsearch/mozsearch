@@ -357,6 +357,19 @@ for repo in config['trees']:
         'gunzip on;',
     ])
 
+    # The token-centric blame's data files for the tip's source listings; see
+    # `format::hyperblame_files`.  (The web-server generates them for other
+    # revisions under `rev-hyperblame`.)
+    location(f'/{repo}/hyperblame', [
+        f'root {doc_root};',
+        'try_files /hyperblame/$uri =404;',
+        'types { }',
+        'default_type application/json;',
+        'add_header Cache-Control "must-revalidate";',
+        'gzip_static always;',
+        'gunzip on;',
+    ])
+
     location(f'/{repo}/file-lists', [
         f'root {doc_root};',
         'try_files /file-lists/$uri =404;',
@@ -379,6 +392,18 @@ for repo in config['trees']:
             'gunzip on;',
         ])
 
+    # Like the above, the head revision's hyperblame data is the static files.
+    if head_rev is not None:
+        location(f'~^/{repo}/rev-hyperblame/{head_rev}/(?<head_path>.*)$', [
+            f'root {doc_root};',
+            f'try_files /hyperblame/{repo}/hyperblame/$head_path =404;',
+            'types { }',
+            'default_type application/json;',
+            'add_header Cache-Control "must-revalidate";',
+            'gzip_static always;',
+            'gunzip on;',
+        ])
+
     # Handled by router/router.py
     location(f'/{repo}/search', ['proxy_pass http://127.0.0.1:8000;'])
     location(f'/{repo}/sorch', ['proxy_pass http://127.0.0.1:8000;'])
@@ -391,6 +416,7 @@ for repo in config['trees']:
     location(f'/{repo}/commit', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/oldcommit', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/rev', ['proxy_pass http://127.0.0.1:8001;'])
+    location(f'/{repo}/rev-hyperblame', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/hgrev', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/oldrev', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/complete', ['proxy_pass http://127.0.0.1:8001;'])

@@ -30,7 +30,7 @@ use crate::languages::FormatAs;
 use tools::doc_trees_handler::find_doc_url;
 use tools::file_format::analysis::{read_analysis, read_source};
 use tools::file_format::bisectable_mmap::BisectableMmap;
-use tools::format::{create_markdown_panel_section, format_file_data};
+use tools::format::{create_markdown_panel_section, format_file_data, hyperblame_files};
 use tools::languages;
 use tools::url_encode_path::url_encode_path;
 
@@ -39,6 +39,20 @@ use tools::output::{PanelItem, PanelSection};
 extern crate flate2;
 use flate2::Compression;
 use flate2::write::GzEncoder;
+
+/// Write a page's hyperblame data files (see `hyperblame_files`) gzipped into
+/// `dir`, along with the empty files nginx's `try_files` needs to find them
+/// (like our `file/` outputs; see below).
+fn write_hyperblame_files(dir: &str, files: Vec<(String, String)>) {
+    fs::create_dir_all(dir).unwrap();
+    for (name, contents) in files {
+        File::create(format!("{}/{}", dir, name)).unwrap();
+        let file = File::create(format!("{}/{}.gz", dir, name)).unwrap();
+        let mut writer = GzEncoder::new(BufWriter::new(file), Compression::default());
+        writer.write_all(contents.as_bytes()).unwrap();
+        writer.finish().unwrap();
+    }
+}
 
 fn main() {
     env_logger::init();
@@ -565,7 +579,8 @@ fn main() {
             &analysis,
             &mut writer,
         ) {
-            Ok(perf_info) => {
+            Ok(formatted) => {
+                let perf_info = formatted.perf;
                 writeln!(
                     stdout,
                     "  Format code duration: {}us",
@@ -590,6 +605,20 @@ fn main() {
                     perf_info.format_mixing_duration_us
                 )
                 .unwrap();
+
+                if let (Some(page), Some(git)) = (&formatted.token_blame, &tree_config.git) {
+                    let pre_hyperblame = Instant::now();
+                    write_hyperblame_files(
+                        &format!("{}/hyperblame/{}", tree_config.paths.index_path, path),
+                        hyperblame_files(tree_config, git, page),
+                    );
+                    writeln!(
+                        stdout,
+                        "  Hyperblame files duration: {}us",
+                        pre_hyperblame.elapsed().as_micros() as u64
+                    )
+                    .unwrap();
+                }
             }
             Err(err) => {
                 // Make sure our output log file indicates what happened.
