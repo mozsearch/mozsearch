@@ -12,6 +12,7 @@ use git2::{Commit, Oid, Repository};
 use thread_local::ThreadLocal;
 
 use crate::cinnabar::OldRevisionMap;
+use crate::hyperblame::token_blame::TreeHistory;
 use crate::source_mapping::{NotesRefs, SourceMapping, default_notes_ref};
 use crate::url_encode_path::url_encode_path;
 
@@ -259,6 +260,9 @@ pub struct GitData {
     pub mailmap: Mailmap,
     /// Revs that we want to skip over during blame computation
     pub blame_ignore: BlameIgnoreList,
+
+    /// The token-centric history, if the tree has one; see `history_path`.
+    pub history: Option<TreeHistory>,
 }
 
 /// How a tree's repo revisions map to blame commits and hg revisions (which
@@ -711,6 +715,13 @@ pub fn git_data(paths: &TreeConfigPaths, need_indexes: bool) -> Option<GitData> 
         .coverage_repo()
         .as_deref()
         .map(|path| Repository::open(path).unwrap());
+    // The history is optional even when configured, since it may not have been
+    // built (yet).
+    let history = paths.history_path.as_deref().and_then(|history_path| {
+        TreeHistory::open(history_path, paths.git_branch.as_deref())
+            .map_err(|e| log::warn!("Not using the history at {}: {}", history_path, e))
+            .ok()
+    });
 
     Some(GitData {
         repo: repo.into(),
@@ -720,6 +731,7 @@ pub fn git_data(paths: &TreeConfigPaths, need_indexes: bool) -> Option<GitData> 
         old_revisions,
         mailmap,
         blame_ignore,
+        history,
     })
 }
 

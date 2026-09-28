@@ -18,6 +18,8 @@ use crate::file_format::jumpref::{
 };
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::{self, coverage_history, coverage_summary, git_time_to_chrono};
+use crate::hyperblame::page_blame::{CommitMeta, PageBlame, page_blame};
+use crate::hyperblame::token_blame::blame_tokens;
 use crate::languages;
 use crate::languages::FormatAs;
 use crate::links;
@@ -633,7 +635,29 @@ pub fn format_file_data(
     format_perf.format_code_duration_us = pre_format_code.elapsed().as_micros() as u64;
 
     let pre_blame_lines = Instant::now();
-    let blame_lines = git_ops::get_blame_lines(tree_config.git.as_ref(), blame_commit, path);
+    // We use the token-centric history when we have it for the file, falling
+    // back to the classic line blame.
+    let token_blame = tree_config
+        .git
+        .as_ref()
+        .zip(commit.as_ref())
+        .and_then(|(git, commit)| page_token_blame(git, commit, path, &data))
+        .filter(|page| {
+            let matches = page.lines.len() == output_lines.len();
+            if !matches {
+                log::warn!(
+                    "Not using token blame for {}: {} lines but {} formatted lines",
+                    path,
+                    page.lines.len(),
+                    output_lines.len()
+                );
+            }
+            matches
+        });
+    let blame_lines = match token_blame {
+        Some(_) => None,
+        None => git_ops::get_blame_lines(tree_config.git.as_ref(), blame_commit, path),
+    };
     format_perf.blame_lines_duration_us = pre_blame_lines.elapsed().as_micros() as u64;
 
     let pre_commit = Instant::now();
@@ -730,6 +754,7 @@ pub fn format_file_data(
     // each line for blame purposes.
     let mut last_revs = None;
     let mut last_color = false;
+    let mut last_commit = None;
     let mut nest_depth = 0;
     for (i, line) in output_lines.iter().enumerate() {
         let lineno = i + 1;
@@ -790,7 +815,41 @@ pub fn format_file_data(
         };
 
         // Compute the blame data for this line (if any)
-        let blame_data = if let Some(ref lines) = blame_lines {
+        let blame_data = if let Some(ref page) = token_blame {
+            let strip = &page.lines[i];
+            // Like below, we alternate colors whenever the commit changes, but
+            // lines without a commit don't get a color.
+            let (color_class, aria_label) = match strip.commit {
+                Some(commit) => {
+                    let same_commit_as_last = last_commit == Some(commit);
+                    if !same_commit_as_last {
+                        last_color = !last_color;
+                    }
+                    last_commit = Some(commit);
+                    let human_id = blame_hash_to_human_id
+                        .entry(commit.to_string())
+                        .or_insert_with(|| {
+                            let id = next_human_id;
+                            next_human_id += 1;
+                            id
+                        });
+                    (
+                        if last_color { " c1" } else { " c2" },
+                        format!(
+                            "{} hash {}",
+                            if same_commit_as_last { "same" } else { "new" },
+                            human_id
+                        ),
+                    )
+                }
+                None => ("", "no tokens".to_string()),
+            };
+            let (classes, data) = strip.strip_attrs();
+            format!(
+                r#" class="blame-strip{}{}"{} role="button" aria-label="{}" aria-expanded="false""#,
+                color_class, classes, data, aria_label,
+            )
+        } else if let Some(ref lines) = blame_lines {
             let blame_line = blame::LineData::deserialize(&lines[i]);
 
             // These store the final data we ship to the front-end.
@@ -898,12 +957,73 @@ pub fn format_file_data(
     output::generate_formatted(writer, &f, 0).unwrap();
 
     writeln!(writer, "<script>var SYM_INFO = {};</script>", sym_json,).unwrap();
+    if let Some(page) = &token_blame {
+        let info_json = if env::var("MOZSEARCH_DIFFABLE").is_err() {
+            to_string(&page.info).unwrap()
+        } else {
+            to_string_pretty(&page.info).unwrap()
+        };
+        // Author names and paths could contain "</script>".
+        writeln!(
+            writer,
+            "<script>var BLAME_INFO = {};</script>",
+            info_json.replace("</", "<\\/")
+        )
+        .unwrap();
+    }
 
     output::generate_footer(&opt, tree_name, path, writer).unwrap();
 
     format_perf.format_mixing_duration_us = pre_format_mixing.elapsed().as_micros() as u64;
 
     Ok(format_perf)
+}
+
+/// The token-centric blame of the file at `path` in `commit` whose contents are
+/// `source`, if the tree's history has it.  See `hyperblame::token_blame`.
+fn page_token_blame(
+    git: &GitData,
+    commit: &git2::Commit,
+    path: &str,
+    source: &str,
+) -> Option<PageBlame> {
+    let history = git.history.as_ref()?;
+    let timeline_commit = history.timeline_commit(commit.id())?;
+    let file_history = match history.file_history(&timeline_commit, path) {
+        Ok(file_history) => file_history?,
+        Err(e) => {
+            log::warn!("Not using token blame for {}: {}", path, e);
+            return None;
+        }
+    };
+    let blame = match blame_tokens(source, &file_history) {
+        Ok(blame) => blame,
+        Err(e) => {
+            log::warn!("Not using token blame for {}: {}", path, e);
+            return None;
+        }
+    };
+    Some(page_blame(&blame, path, |rev| {
+        let commit = Oid::from_str(rev)
+            .and_then(|oid| git.repo.find_commit(oid))
+            .ok();
+        match commit {
+            Some(commit) => {
+                let author = commit.author();
+                let (name, _email) = git
+                    .mailmap
+                    .lookup(author.name().unwrap_or(""), author.email().unwrap_or(""));
+                CommitMeta {
+                    time: commit.time().seconds(),
+                    author: name.to_string(),
+                }
+            }
+            None => CommitMeta {
+                time: 0,
+                author: String::new(),
+            },
+        }
+    }))
 }
 
 pub fn add_coverage_panel_item(
