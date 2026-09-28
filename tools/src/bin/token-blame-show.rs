@@ -16,7 +16,8 @@
 // "___" for a removal after the preceding line.  With --tokens, each line is
 // followed by its tokens and their history.  With --peephole TOKEN, it instead
 // prints the peephole history (see `hyperblame::peephole`) of the token with
-// that (1-based) index.
+// that (1-based) index (or comma-separated indices, ex: a line's), and with
+// --future TOKEN, where that token is now (see `hyperblame::future`).
 
 extern crate git2;
 extern crate tools;
@@ -31,6 +32,7 @@ use git2::{Oid, Repository};
 use tools::file_format::history::timeline_annotated::{
     HyperLineData, HyperTokenRef, RemovalMarker,
 };
+use tools::hyperblame::future;
 use tools::hyperblame::peephole::{Cursor, peephole_page};
 use tools::hyperblame::token_blame::{TreeHistory, blame_tokens};
 
@@ -73,14 +75,24 @@ fn main() {
     if show_tokens {
         args.remove(0);
     }
-    let mut peephole_token = None;
+    let mut peephole_tokens = None;
     if args.first().is_some_and(|arg| arg == "--peephole") && args.len() > 1 {
-        peephole_token = args[1].parse::<u32>().ok();
+        peephole_tokens = Some(
+            args[1]
+                .split(',')
+                .filter_map(|token| token.parse::<u32>().ok())
+                .collect::<Vec<_>>(),
+        );
+        args.drain(..2);
+    }
+    let mut future_token = None;
+    if args.first().is_some_and(|arg| arg == "--future") && args.len() > 1 {
+        future_token = args[1].parse::<u32>().ok();
         args.drain(..2);
     }
     if !(3..=4).contains(&args.len()) {
         eprintln!(
-            "Usage: token-blame-show [--tokens | --peephole TOKEN] HISTORY_DIR SOURCE_REPO PATH [SOURCE_REV]"
+            "Usage: token-blame-show [--tokens | --peephole TOKENS | --future TOKEN] HISTORY_DIR SOURCE_REPO PATH [SOURCE_REV]"
         );
         exit(1);
     }
@@ -123,11 +135,19 @@ fn main() {
             exit(1);
         }
     };
-    if let Some(token) = peephole_token {
+    if let Some(token) = future_token {
+        match future::follow(&history, file_history.source_rev, path, token) {
+            Ok(future) => println!("{}", serde_json::to_string_pretty(&future).unwrap()),
+            Err(e) => eprintln!("Couldn't follow the token: {}", e),
+        }
+        return;
+    }
+
+    if let Some(tokens) = peephole_tokens {
         let start = Cursor {
             rev: file_history.source_rev.to_string(),
             path: path.clone(),
-            token,
+            tokens,
         };
         let page = peephole_page(&history, &source_repo, start, 50, usize::MAX);
         for step in &page.steps {
@@ -146,7 +166,7 @@ fn main() {
             for (i, (start, end, changed)) in step.tokens.iter().enumerate() {
                 shown.push_str(&String::from_utf16_lossy(&text[pos..*start]));
                 let token = String::from_utf16_lossy(&text[*start..*end]);
-                let marked = match (*changed, i == step.anchor) {
+                let marked = match (*changed, step.anchors.contains(&i)) {
                     (true, true) => format!("[*{}]", token),
                     (true, false) => format!("[{}]", token),
                     (false, true) => format!("*{}", token),

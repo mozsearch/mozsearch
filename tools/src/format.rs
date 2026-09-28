@@ -18,6 +18,7 @@ use crate::file_format::jumpref::{
 };
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::{self, coverage_history, coverage_summary, git_time_to_chrono};
+use crate::hyperblame::future;
 use crate::hyperblame::page_blame::{CommitMeta, PageBlame, page_blame};
 use crate::hyperblame::page_data_cache::{PAGE_DATA_CACHE, PageData};
 use crate::hyperblame::peephole::{Cursor, peephole_page};
@@ -1111,8 +1112,8 @@ const PEEPHOLE_STEPS: usize = 12;
 /// stopping.
 const PEEPHOLE_COST: usize = 64_000_000;
 
-/// A page of the peephole history (see `hyperblame::peephole`) of the token
-/// with the (1-based) index `token` in the file at `path` in revision `rev`:
+/// A page of the peephole history (see `hyperblame::peephole`) of the tokens
+/// with the (1-based) indices `tokens` in the file at `path` in revision `rev`:
 /// the steps, `commits` with the `blame::commit_info_json` of each step's
 /// commit, `next` with the URL of the next page (if any), `end` (if the
 /// history ended), and `cost` (the bytes of blobs read).
@@ -1121,7 +1122,7 @@ pub fn peephole_json(
     tree_name: &str,
     rev: &str,
     path: &str,
-    token: u32,
+    tokens: Vec<u32>,
 ) -> Result<String, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
@@ -1134,7 +1135,7 @@ pub fn peephole_json(
     let start = Cursor {
         rev: commit.id().to_string(),
         path: path.to_string(),
-        token,
+        tokens,
     };
     let page = peephole_page(history, &git.repo, start, PEEPHOLE_STEPS, PEEPHOLE_COST);
 
@@ -1156,7 +1157,7 @@ pub fn peephole_json(
             tree_name,
             cursor.rev,
             url_encode_path(&cursor.path),
-            cursor.token
+            cursor.tokens.iter().map(|t| t.to_string()).join(",")
         )
     });
     Ok(to_string(&json!({
@@ -1167,6 +1168,53 @@ pub fn peephole_json(
         "cost": page.cost,
     }))
     .unwrap())
+}
+
+/// Where the token with the (1-based) index `token` in the file at `path` in
+/// revision `rev` is now, or the commit which removed it (see
+/// `hyperblame::future`): `future` with the result, and `commits` with the
+/// `blame::commit_info_json` of the commits which changed it.
+pub fn future_json(
+    cfg: &Config,
+    tree_name: &str,
+    rev: &str,
+    path: &str,
+    token: u32,
+) -> Result<String, &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let history = git.history.as_ref().ok_or("No history")?;
+    let commit = git
+        .repo
+        .revparse_single(rev)
+        .and_then(|object| object.peel_to_commit())
+        .map_err(|_| "Bad revision")?;
+    let future = future::follow(history, commit.id(), path, token).map_err(|e| {
+        log::warn!(
+            "Couldn't follow {}:{}:{} into the future: {}",
+            rev,
+            path,
+            token,
+            e
+        );
+        "Couldn't follow the token"
+    })?;
+
+    let mut commits = serde_json::Map::new();
+    let revs = future
+        .changes
+        .iter()
+        .map(|change| &change.rev)
+        .chain(future.rev.iter());
+    for rev in revs {
+        let info = Oid::from_str(rev)
+            .and_then(|oid| git.repo.find_commit(oid))
+            .ok()
+            .and_then(|commit| blame::commit_info_json(tree_config, git, &commit).ok())
+            .unwrap_or(serde_json::Value::Null);
+        commits.insert(rev.clone(), info);
+    }
+    Ok(to_string(&json!({ "future": future, "commits": commits })).unwrap())
 }
 
 /// The token-centric blame of the file at `path` in `commit` whose contents are

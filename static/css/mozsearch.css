@@ -1510,11 +1510,31 @@ span[data-symbols].selected {
   color: var(--page-foreground);
   white-space: pre;
 }
+/* The tokens a step's commit added, like the diff view's added lines. */
 .hb-step-changed {
-  background-color: color-mix(in srgb, var(--hb-lane-1) 35%, transparent);
+  background-color: var(--diff-plus-line-background);
 }
-.hb-step-anchor {
+.hb-history-legend {
+  font-size: smaller;
+  opacity: 0.8;
+}
+.hb-history-legend .hb-step-changed,
+.hb-history-legend .hb-step-anchor {
+  color: var(--page-foreground);
+  background-color: var(--page-background);
+  padding: 0 2px;
+}
+.hb-history-legend .hb-step-changed {
+  background-color: var(--diff-plus-line-background);
+}
+/* The tokens being followed, in the steps and the replica of the line. */
+.hb-step-anchor,
+.hb-history-mode .hb-token.hb-followed {
   text-decoration: underline 2px;
+}
+/* The commits' colors don't mean anything when following tokens. */
+.hb-history-mode .hb-token {
+  border-bottom-color: transparent;
 }
 .hb-step-removed {
   font-style: italic;

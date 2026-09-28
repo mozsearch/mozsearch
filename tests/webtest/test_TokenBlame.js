@@ -115,7 +115,7 @@ add_task(async function test_TokenHistory() {
   TestUtils.click(item);
 
   await waitForCondition(
-    () => popup.querySelector(".hb-history-status")?.textContent.includes("introduced all of these tokens"),
+    () => popup.querySelector(".hb-history-status")?.textContent.includes("introduced all of the tokens followed"),
     "The history ends with the commit which introduced the condition");
   const steps = popup.querySelectorAll(".hb-step");
   is(steps.length, 2, "The history has 2 steps");
@@ -125,6 +125,57 @@ add_task(async function test_TokenHistory() {
      "The oldest step has the original condition");
   const changed = [...steps[1].querySelectorAll(".hb-step-changed")].map(s => s.textContent);
   ok(changed.includes("strip_prefix"), "The newest step highlights the tokens it introduced");
+
+  frame.contentWindow.BlameStripHoverHandler.keepVisible = false;
+  frame.contentWindow.BlamePopup.triggerElement = null;
+});
+
+async function followFromTokenMenu(lineno, tokenText, itemText) {
+  const popup = await showPopup(lineno);
+  const token = [...popup.querySelectorAll(".hb-replica .hb-token")].find(
+    t => t.textContent == tokenText);
+  TestUtils.click(token);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "The context menu is shown");
+  const item = [...menu.querySelectorAll("a")].find(a => a.textContent == itemText);
+  TestUtils.click(item);
+  return popup;
+}
+
+add_task(async function test_LineHistory() {
+  await TestUtils.loadPath(PATH);
+
+  // Following line 12 follows its identifiers, including `strip_prefix`
+  // back to the `starts_with` it replaced.
+  const popup = await followFromTokenMenu(12, "strip_prefix", "Follow this line into the past");
+  await waitForCondition(
+    () => popup.querySelector(".hb-history-status")?.textContent.includes("introduced all of the tokens followed"),
+    "The history ends with the commit which introduced the condition");
+  const steps = popup.querySelectorAll(".hb-step");
+  is(steps.length, 2, "The history has 2 steps");
+  const followed = [...steps[0].querySelectorAll(".hb-step-anchor")].map(s => s.textContent);
+  is(followed.join(" "), "line starts_with PREFIX", "The oldest step follows the line's identifiers");
+
+  frame.contentWindow.BlameStripHoverHandler.keepVisible = false;
+  frame.contentWindow.BlamePopup.triggerElement = null;
+});
+
+add_task(async function test_TokenFuture() {
+  // In the commit which introduced `find_phab_rev`, its condition used
+  // `starts_with`, which a clippy fix later changed into `strip_prefix`.
+  await TestUtils.loadPath("/searchfox/rev/681ef2a9293f916c9b9f20a58562cf77e3f18b12/tools/src/blame.rs");
+  const popup = await followFromTokenMenu(16, "starts_with", "Follow this token into the future");
+  await waitForCondition(
+    () => popup.querySelector(".hb-history-status")?.textContent.includes("This token is now"),
+    "The token's location now is shown");
+  const link = popup.querySelector(".hb-history-status a");
+  ok(link.getAttribute("href").startsWith("/searchfox/source/tools/src/blame.rs#tokens="),
+     "The link goes to the token in the latest version");
+  const changes = popup.querySelectorAll(".hb-step");
+  is(changes.length, 1, "One commit changed the token");
+  ok(changes[0].textContent.includes("cargo clippy --fix") &&
+     changes[0].textContent.includes("changed it into another token"),
+     "The clippy fix changed the token");
 
   frame.contentWindow.BlameStripHoverHandler.keepVisible = false;
   frame.contentWindow.BlamePopup.triggerElement = null;

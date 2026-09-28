@@ -186,18 +186,25 @@ fn handle(
             let rev = &path[2];
             let file_name = path[path.len() - 1];
 
-            // Peephole histories (see `format::peephole_json`), as
-            // `/{tree}/rev-hyperblame/{rev}/{path}/peephole/{token}.json`.
-            // (Data files have other names.)
-            let token = file_name
+            // Peephole histories (see `format::peephole_json`) as
+            // `/{tree}/rev-hyperblame/{rev}/{path}/peephole/{tokens}.json` for
+            // comma-separated token indices, and futures (see
+            // `format::future_json`) as `.../future/{token}.json`.  (Data files
+            // have other names.)
+            let tokens: Option<Vec<u32>> = file_name
                 .strip_suffix(".json")
-                .and_then(|token| token.parse::<u32>().ok());
-            if let Some(token) = token
+                .and_then(|tokens| tokens.split(',').map(|t| t.parse::<u32>().ok()).collect());
+            if let Some(tokens) = tokens
                 && path.len() >= 6
-                && path[path.len() - 2] == "peephole"
+                && matches!(path[path.len() - 2], "peephole" | "future")
             {
                 let file_path = path[3..path.len() - 2].join("/");
-                return match format::peephole_json(cfg, tree_name, rev, &file_path, token) {
+                let json = if path[path.len() - 2] == "peephole" {
+                    format::peephole_json(cfg, tree_name, rev, &file_path, tokens)
+                } else {
+                    format::future_json(cfg, tree_name, rev, &file_path, tokens[0])
+                };
+                return match json {
                     Ok(json) => WebResponse::json(json),
                     Err(err) => WebResponse::internal_error(err.to_owned()),
                 };
@@ -394,9 +401,10 @@ async fn main() {
 
     // Limit ourselves to processing 4 requests at the same time.
     static SEMAPHORE: Semaphore = Semaphore::const_new(4);
-    // Peephole histories (see `format::peephole_json`) are relatively
-    // expensive and lower priority than pages, so only one of them is processed
-    // at a time, and they wait for this before taking one of the above.
+    // Peephole histories and futures (see `format::peephole_json` and
+    // `format::future_json`) are relatively expensive and lower priority than
+    // pages, so only one of them is processed at a time, and they wait for this
+    // before taking one of the above.
     static PEEPHOLE_SEMAPHORE: Semaphore = Semaphore::const_new(1);
 
     let addr: SocketAddr = "0.0.0.0:8001".parse().unwrap();
@@ -417,7 +425,11 @@ async fn main() {
                 }
 
                 let response = {
-                    let _peephole_permit = if req.uri().path().contains("/peephole/") {
+                    let low_priority = {
+                        let path = req.uri().path();
+                        path.contains("/peephole/") || path.contains("/future/")
+                    };
+                    let _peephole_permit = if low_priority {
                         Some(PEEPHOLE_SEMAPHORE.acquire().await.unwrap())
                     } else {
                         None

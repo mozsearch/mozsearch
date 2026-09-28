@@ -232,7 +232,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     popup.append(root);
     popup.style.display = "";
 
-    this.current = { popup, elt, lineElt, root, upper, replica, lanes };
+    this.current = { popup, elt, lineElt, root, upper, replica, lanes, tokens };
     this.position();
     this.drawLanes(root, lanes, upper, replica);
     this.bindInteractions(root, tokens);
@@ -258,17 +258,12 @@ var TokenBlamePopup = new (class TokenBlamePopup {
   }
 
   /**
-   * Show the peephole history of `token` (see `hyperblame::peephole`): how the
-   * window of tokens around it changed over time, newest (nearest the line)
-   * to oldest.  Older steps load as the user scrolls up, until they've seen
-   * `MAX_AUTO_STEPS` steps or the server has read `MAX_AUTO_COST` bytes, after
-   * which they need to ask for more.
+   * Replace the commits' rows above the line with a panel for following
+   * tokens (`hb-history`), with a status line and a list of `hb-step`s, and
+   * mark the replica's tokens which we're following.
    */
-  static MAX_AUTO_STEPS = 50;
-  static MAX_AUTO_COST = 1_000_000_000;
-
-  showHistory(token) {
-    const { root, upper, lanes } = this.current;
+  startFollowing(followed, statusText) {
+    const { root, upper, lanes, replica } = this.current;
     // Keep the popup until the user clicks elsewhere.
     BlameStripHoverHandler.keepVisible = true;
     root.classList.add("hb-history-mode");
@@ -278,12 +273,17 @@ var TokenBlamePopup = new (class TokenBlamePopup {
       elt.classList.remove("hb-hot");
     }
     lanes.innerHTML = "";
+    const followedTokens = new Set(followed.map(String));
+    for (const span of replica.querySelectorAll(".hb-token")) {
+      const token = this.current.tokens[span.dataset.token];
+      span.classList.toggle("hb-followed", followedTokens.has(String(token.index)));
+    }
 
     const history = document.createElement("div");
     history.className = "hb-history";
     const status = document.createElement("div");
     status.className = "hb-history-status";
-    status.textContent = "Loading the history of this token…";
+    status.textContent = statusText;
     const steps = document.createElement("div");
     steps.className = "hb-history-steps";
     history.append(status, steps);
@@ -291,12 +291,33 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     // Leave room for the popup above the line.
     const lineTop = this.current.lineElt.getBoundingClientRect().top;
     history.style.maxHeight = `${Math.max(150, lineTop - 120)}px`;
+    this.position();
+    return { history, status, steps };
+  }
 
+  /**
+   * Show the peephole history of some of the line's tokens (see
+   * `hyperblame::peephole`): how the window of tokens around them changed over
+   * time, newest (nearest the line) to oldest.  Following several tokens (ex:
+   * the whole line) follows their identifiers.  Older steps load as the user
+   * scrolls up, until they've seen `MAX_AUTO_STEPS` steps or the server has
+   * read `MAX_AUTO_COST` bytes, after which they need to ask for more.
+   */
+  static MAX_AUTO_STEPS = 50;
+  static MAX_AUTO_COST = 1_000_000_000;
+
+  showHistory(tokenIndices, what) {
+    const { history, status, steps } = this.startFollowing(
+      tokenIndices, `Loading the history of this ${what}…`);
+    const legend = document.createElement("div");
+    legend.className = "hb-history-legend";
+    legend.innerHTML = `Each step shows the code after a commit, with the tokens it <span class="hb-step-changed">added</span> highlighted and the ${what == "line" ? "line's identifiers" : "token"} being followed <span class="hb-step-anchor">underlined</span>.`;
+    status.after(legend);
     const state = {
       history,
       status,
       steps,
-      next: `${BLAME_INFO.peepholeUrl}/${token.index}.json`,
+      next: `${BLAME_INFO.peepholeUrl}/${tokenIndices.join(",")}.json`,
       loading: false,
       stepCount: 0,
       cost: 0,
@@ -350,7 +371,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
 
     if (page.end) {
       state.status.textContent = {
-        introduced: "The oldest commit above introduced all of these tokens.",
+        introduced: "The oldest commit above introduced all of the tokens followed.",
         root: "The oldest commit above has no parent.",
         lost: "Couldn't follow these tokens further back (they may have moved from another file).",
         missing: "The history doesn't go further back.",
@@ -361,6 +382,67 @@ var TokenBlamePopup = new (class TokenBlamePopup {
       this.loadHistoryPage(state, false);
     } else {
       state.status.textContent = "Scroll up for older changes.";
+    }
+    this.position();
+  }
+
+  /**
+   * Show where the token is now, or the commit which removed it (see
+   * `hyperblame::future`), with the changes to it along the way, oldest (at the
+   * top) to newest.
+   */
+  async showFuture(token) {
+    const { status, steps } = this.startFollowing(
+      [token.index], "Following this token into the future…");
+    let result;
+    try {
+      const url = BLAME_INFO.peepholeUrl.replace(/\/peephole$/, "/future");
+      result = await fetch(`${url}/${token.index}.json`).then(r => r.json());
+    } catch (ex) {
+      status.textContent = "Couldn't follow this token.";
+      return;
+    }
+    const { future, commits } = result;
+    const describe = {
+      evolved: "changed it into another token",
+      moved: "moved it to",
+      renamed: "renamed its file to",
+    };
+    for (const change of future.changes) {
+      const elt = document.createElement("div");
+      elt.className = "hb-step";
+      const header = document.createElement("div");
+      header.className = "hb-step-header";
+      header.innerHTML = commits[change.rev]?.header || change.rev.substring(0, 8);
+      const what = document.createElement("div");
+      what.append(`This commit ${describe[change.kind]}${change.kind == "evolved" ? "" : " " + change.path}: `);
+      const view = document.createElement("a");
+      view.textContent = "view";
+      view.href = this.revLink(change.rev, change.path, `${change.token}`);
+      what.append(view);
+      elt.append(header, what);
+      // Newer changes go below older ones, nearest the line.
+      steps.append(elt);
+    }
+
+    status.textContent = "";
+    if (future.outcome == "now") {
+      status.append("This token is now ");
+      const link = document.createElement("a");
+      link.textContent = future.changes.length ? "here, after the changes below" : "here";
+      link.href = `/${this.tree}/source/${this.encodePath(future.path)}#tokens=${future.token}`;
+      status.append(link, ".");
+    } else if (future.outcome == "removed" || future.outcome == "deleted") {
+      status.append(future.outcome == "removed" ? "This token was removed by:" : "This token's file was deleted by:");
+      const header = document.createElement("div");
+      header.innerHTML = commits[future.rev]?.header || future.rev.substring(0, 8);
+      const view = document.createElement("a");
+      view.textContent = "view";
+      view.href = `/${this.tree}/commit/${future.rev}`;
+      header.append(" ", view);
+      status.append(header);
+    } else {
+      status.textContent = "Couldn't follow this token further.";
     }
     this.position();
   }
@@ -404,7 +486,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
       if (changed) {
         span.classList.add("hb-step-changed");
       }
-      if (i == step.anchor) {
+      if (step.anchors.includes(i)) {
         span.classList.add("hb-step-anchor");
       }
       code.append(span);
@@ -706,6 +788,10 @@ var TokenBlamePopup = new (class TokenBlamePopup {
       }
     };
     root.addEventListener("mouseover", event => {
+      // The commits' rows are gone when following tokens.
+      if (root.classList.contains("hb-history-mode")) {
+        return;
+      }
       const target = event.target.closest?.("[data-commit]");
       setHot(target ? target.dataset.commit : null);
     });
@@ -745,11 +831,32 @@ var TokenBlamePopup = new (class TokenBlamePopup {
         html: "Follow this token into the past",
         action: () => {
           ContextMenu.hide();
-          this.showHistory(token);
+          this.showHistory([token.index], "token");
         },
         icon: "export-alt",
         section: "hyperblame",
       }));
+      items.push(new MenuItem({
+        html: "Follow this line into the past",
+        action: () => {
+          ContextMenu.hide();
+          this.showHistory(this.current.tokens.map(t => t.index), "line");
+        },
+        icon: "export-alt",
+        section: "hyperblame",
+      }));
+      // Pages for the tip have nothing to follow into.
+      if (BLAME_INFO.dataUrl.includes("/rev-hyperblame/")) {
+        items.push(new MenuItem({
+          html: "Follow this token into the future",
+          action: () => {
+            ContextMenu.hide();
+            this.showFuture(token);
+          },
+          icon: "export-alt",
+          section: "hyperblame",
+        }));
+      }
     }
     items.push(new MenuItem({
       html: "Select this token's line",

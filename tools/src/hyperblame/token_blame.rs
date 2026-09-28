@@ -28,6 +28,8 @@ use crate::tree_sitter_support::cst_tokenizer::{hypertokenize_with_profile, prof
 
 /// A tree's history repos (see `TreeConfigPaths::history_path`) for its branch.
 pub struct TreeHistory {
+    /// The directory with the history's repos and rev-summaries.
+    pub path: String,
     pub syntax: ThreadLocalRepository,
     pub timeline: ThreadLocalRepository,
     branch_ref: String,
@@ -48,6 +50,7 @@ impl TreeHistory {
         };
         let mapping = SourceMapping::open(&timeline, &notes_refs);
         Ok(TreeHistory {
+            path: history_path.to_string(),
             syntax: syntax.into(),
             timeline: timeline.into(),
             branch_ref,

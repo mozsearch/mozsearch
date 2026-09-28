@@ -31,13 +31,14 @@ use crate::file_format::history::timeline_annotated::{HyperLineData, HyperTokenR
 /// The most tokens a window has.
 pub const MAX_WINDOW_TOKENS: usize = 48;
 
-/// Where a step starts: the anchor token, by its (1-based) index in the file
-/// at `path` in `rev`.
+/// Where a step starts: the anchor tokens, by their (1-based) indices in the
+/// file at `path` in `rev`.  Following several tokens (ex: a line) follows
+/// their identifiers.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Cursor {
     pub rev: String,
     pub path: String,
-    pub token: u32,
+    pub tokens: Vec<u32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -59,8 +60,8 @@ pub struct Step {
     /// The window's tokens as `[START, END, CHANGED]`, where START and END are
     /// UTF-16 offsets in `text` and CHANGED is whether `rev` introduced it.
     pub tokens: Vec<(usize, usize, bool)>,
-    /// The anchor's index in `tokens`.
-    pub anchor: usize,
+    /// The anchors' indices in `tokens`.
+    pub anchors: Vec<usize>,
     /// How many tokens `rev` removed from within the window.
     pub removed: u32,
 }
@@ -72,7 +73,7 @@ pub struct PeepholePage {
     pub next: Option<Cursor>,
     /// Why the history ended, if it did: "introduced" (the last step's commit
     /// introduced the whole window), "root" (the commit has no parent),
-    /// "lost" (we couldn't find the anchor in the parent), or "missing" (the
+    /// "lost" (we couldn't find the anchors in the parent), or "missing" (the
     /// history doesn't have the file in a revision).
     pub end: Option<&'static str>,
     /// The bytes of blobs we read.
@@ -316,6 +317,7 @@ pub fn peephole_page(
 
     let mut cursor = start;
     let mut preloaded: Option<State> = None;
+    let mut first = true;
     loop {
         if page.steps.len() >= max_steps || page.cost >= max_cost {
             page.next = Some(cursor);
@@ -344,13 +346,40 @@ pub fn peephole_page(
             .map(split_token_line)
             .collect();
         let annotated_lines = token_file_lines(&state.history.annotated);
-        let anchor = cursor.token as usize - 1;
-        if cursor.token == 0 || anchor >= tokens.len() || annotated_lines.len() != tokens.len() + 1
+        if cursor.tokens.is_empty()
+            || cursor
+                .tokens
+                .iter()
+                .any(|&t| t == 0 || t as usize > tokens.len())
+            || annotated_lines.len() != tokens.len() + 1
         {
             page.end = Some("lost");
             return page;
         }
-        let win = window(&tokens, anchor);
+        let mut anchors: Vec<usize> = cursor.tokens.iter().map(|&t| t as usize - 1).collect();
+        anchors.sort_unstable();
+        anchors.dedup();
+        // Following several tokens follows their identifiers, since
+        // punctuation and keywords match loosely and aren't what anyone is
+        // interested in.
+        if first && anchors.len() > 1 {
+            let identifiers: Vec<usize> = anchors
+                .iter()
+                .copied()
+                .filter(|&a| tokens[a].effective_class() == TokenClass::Identifier)
+                .collect();
+            if !identifiers.is_empty() {
+                anchors = identifiers;
+            }
+        }
+        first = false;
+
+        // The window covers all of the anchors' windows.
+        let win = anchors
+            .iter()
+            .map(|&a| window(&tokens, a))
+            .reduce(|a, b| a.start.min(b.start)..a.end.max(b.end))
+            .unwrap();
         let mut data: Vec<HyperLineData> = Vec::with_capacity(win.len());
         for i in win.clone() {
             let Ok(mut line_data) = serde_json::from_str::<HyperLineData>(annotated_lines[i + 1])
@@ -387,48 +416,55 @@ pub fn peephole_page(
             &tokens,
             &data,
             &win,
-            anchor,
+            &anchors,
             &cursor,
             &changed_rev,
         ));
 
-        // Where the next step starts: the anchor if the commit didn't change
-        // it, else its predecessor (if it's the same kind of token, since
-        // evolutions between kinds are usually wrong), else the nearest window
-        // token which already existed, if enough of the window did.  (Common
-        // tokens like punctuation and short words match loosely, so a few
-        // tokens which already existed don't mean much.)
-        let anchor_data = &data[anchor - win.start];
-        let anchor_class = tokens[anchor].effective_class();
+        // What the next step follows: each anchor if the commit didn't change
+        // it, else its predecessor if it's the same kind of token (evolutions
+        // between kinds are usually wrong), else nothing.  If that leaves
+        // nothing, the nearest window token which already existed, but only if
+        // enough of the window did.  (Common tokens like punctuation and short
+        // words match loosely, so a few tokens which already existed don't mean
+        // much.)
         let mut identities: Vec<(HyperTokenRef, Option<TokenClass>)> = vec![];
-        if anchor_data.introduced.source_rev != changed_rev {
-            identities.push((anchor_data.introduced.clone(), None));
-        } else {
-            if let Some(predecessor) = &anchor_data.predecessor {
-                identities.push((predecessor.clone(), Some(anchor_class)));
-            }
-            let words: Vec<usize> = (0..data.len())
-                .filter(|&j| {
-                    tokens[win.start + j]
-                        .token
-                        .chars()
-                        .any(char::is_alphanumeric)
-                })
-                .collect();
-            let old_words = words
-                .iter()
-                .filter(|&&j| data[j].introduced.source_rev != changed_rev)
-                .count();
-            if old_words * 3 >= words.len() {
-                let nearest = (0..data.len())
-                    .filter(|&j| data[j].introduced.source_rev != changed_rev)
-                    .min_by_key(|&j| (j as isize - (anchor - win.start) as isize).abs());
-                if let Some(j) = nearest {
-                    identities.push((data[j].introduced.clone(), None));
-                }
+        for &anchor in &anchors {
+            let anchor_data = &data[anchor - win.start];
+            if anchor_data.introduced.source_rev != changed_rev {
+                identities.push((anchor_data.introduced.clone(), None));
+            } else if let Some(predecessor) = &anchor_data.predecessor {
+                identities.push((predecessor.clone(), Some(tokens[anchor].effective_class())));
             }
         }
-        if identities.is_empty() {
+        let words: Vec<usize> = (0..data.len())
+            .filter(|&j| {
+                tokens[win.start + j]
+                    .token
+                    .chars()
+                    .any(char::is_alphanumeric)
+            })
+            .collect();
+        let old_words = words
+            .iter()
+            .filter(|&&j| data[j].introduced.source_rev != changed_rev)
+            .count();
+        let fallback = if old_words * 3 >= words.len() {
+            let distance = |j: usize| {
+                anchors
+                    .iter()
+                    .map(|&a| (j as isize - (a - win.start) as isize).abs())
+                    .min()
+                    .unwrap()
+            };
+            (0..data.len())
+                .filter(|&j| data[j].introduced.source_rev != changed_rev)
+                .min_by_key(|&j| distance(j))
+                .map(|j| data[j].introduced.clone())
+        } else {
+            None
+        };
+        if identities.is_empty() && fallback.is_none() {
             page.end = Some("introduced");
             return page;
         }
@@ -441,11 +477,13 @@ pub fn peephole_page(
             return page;
         };
 
-        // The anchor is usually in the same file, but it could have been
-        // renamed.
+        // Find what we're following in the parent.  It's usually in the same
+        // file, but it could have been renamed.
         let mut parent_states: HashMap<String, Option<State>> = HashMap::new();
-        let mut found = None;
-        'identities: for (identity, required_class) in &identities {
+        let mut locate = |identity: &HyperTokenRef,
+                          required_class: Option<TokenClass>,
+                          page: &mut PeepholePage|
+         -> Option<(String, usize)> {
             let mut paths = vec![cursor.path.clone()];
             if identity.path != cursor.path {
                 paths.push(identity.path.to_string());
@@ -463,31 +501,63 @@ pub fn peephole_page(
                     continue;
                 };
                 if let Some(required_class) = required_class {
-                    let line = token_file_lines(&parent_state.history.syntax)
+                    let class = token_file_lines(&parent_state.history.syntax)
                         .get(index)
                         .map(|line| split_token_line(line).effective_class());
-                    if line != Some(*required_class) {
+                    if class != Some(required_class) {
                         continue;
                     }
                 }
-                found = Some((path, index));
-                break 'identities;
+                return Some((path, index));
             }
+            None
+        };
+        // Everything we follow needs to be in the same file: this one if any of
+        // it is still here, else wherever most of it is.
+        let located: Vec<(String, u32)> = identities
+            .iter()
+            .filter_map(|(identity, required_class)| {
+                locate(identity, *required_class, &mut page)
+                    .map(|(path, index)| (path, index as u32 + 1))
+            })
+            .collect();
+        let mut next_path: Option<String> = if located.iter().any(|(path, _)| *path == cursor.path)
+        {
+            Some(cursor.path.clone())
+        } else {
+            let mut counts: HashMap<&str, usize> = HashMap::new();
+            for (path, _) in &located {
+                *counts.entry(path).or_default() += 1;
+            }
+            counts
+                .into_iter()
+                .max_by_key(|&(path, count)| (count, std::cmp::Reverse(path)))
+                .map(|(path, _)| path.to_string())
+        };
+        let mut next_tokens: Vec<u32> = located
+            .iter()
+            .filter(|(path, _)| Some(path) == next_path.as_ref())
+            .map(|&(_, token)| token)
+            .collect();
+        if next_tokens.is_empty()
+            && let Some(fallback) = &fallback
+            && let Some((path, index)) = locate(fallback, None, &mut page)
+        {
+            next_path = Some(path);
+            next_tokens.push(index as u32 + 1);
         }
-        let Some((path, index)) = found else {
-            // If we only rejected the predecessor, the window was new.
-            page.end = Some(if identities.len() == 1 && identities[0].1.is_some() {
-                "introduced"
-            } else {
-                "lost"
-            });
+        let Some(path) = next_path else {
+            // If we only rejected predecessors, the window was new.
+            let rejected_only =
+                fallback.is_none() && identities.iter().all(|(_, class)| class.is_some());
+            page.end = Some(if rejected_only { "introduced" } else { "lost" });
             return page;
         };
         let parent_state = parent_states.remove(&path).flatten();
         cursor = Cursor {
             rev: parent.to_string(),
             path,
-            token: index as u32 + 1,
+            tokens: next_tokens,
         };
         preloaded = parent_state;
     }
@@ -499,7 +569,7 @@ fn step(
     tokens: &[TokenLine],
     data: &[HyperLineData],
     win: &Range<usize>,
-    anchor: usize,
+    anchors: &[usize],
     cursor: &Cursor,
     changed_rev: &str,
 ) -> Step {
@@ -566,7 +636,7 @@ fn step(
         first_token: win.start as u32 + 1,
         text,
         tokens: token_ranges,
-        anchor: anchor - win.start,
+        anchors: anchors.iter().map(|a| a - win.start).collect(),
         removed,
     }
 }
