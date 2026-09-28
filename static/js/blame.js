@@ -131,6 +131,18 @@ var BlamePopup = new (class BlamePopup {
       // adjust the coverage elements to use the annotate element for positioning.
       let hoverRightOfElt;
 
+      if (elt.dataset.hyperblame !== undefined && await TokenBlamePopup.render(this.popup, elt)) {
+        // TokenBlamePopup renders and positions the popup itself.
+        if (this.triggerElement == elt) {
+          this.detachFromCurrentOwner();
+          this.popupOwner = elt;
+          elt.parentNode.setAttribute("aria-owns", "blame-popup");
+          elt.setAttribute("aria-expanded", "true");
+          this.hideCoverageStripDetails();
+        }
+        return;
+      }
+
       if (isAnnotate) {
         content = await this.generateAnnotateContent(elt);
         hoverRightOfElt = elt;
@@ -156,6 +168,7 @@ var BlamePopup = new (class BlamePopup {
 
     this.detachFromCurrentOwner();
     this.popup.style.display = "";
+    this.popup.classList.remove("hb-popup-host");
     // This also works, but transform doesn't even require layout.
     // this.popup.style.left = left + "px";
     // this.popup.style.top = top + "px";

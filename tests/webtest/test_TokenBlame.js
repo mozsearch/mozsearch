@@ -38,16 +38,46 @@ add_task(async function test_TokenBlameStrip() {
 add_task(async function test_TokenBlamePopup() {
   await TestUtils.loadPath(PATH);
 
-  // Line 1's tokens were last changed by 3 commits.
+  // Line 1's 9 tokens were last changed by 3 commits, whose rows are above the
+  // replica of the line (oldest first) and whose details are below it (newest
+  // first).
   {
     const popup = await showPopup(1);
-    ok(popup.textContent.includes("last changed in 3 commits"),
-       "The popup says how many commits changed the line");
-    const links = [...popup.querySelectorAll("a")].filter(
-      a => a.textContent == "Show earliest version with these tokens");
+    is(popup.querySelectorAll(".hb-row").length, 3, "Each commit has a row");
+    const tokens = new Set([...popup.querySelectorAll(".hb-replica .hb-token")].map(t => t.dataset.token));
+    is(tokens.size, 9, "Each token is in the replica");
+    is(popup.querySelectorAll(".hb-lane").length, 9, "Each token has a lane");
+    const entries = popup.querySelectorAll(".hb-entry");
+    is(entries.length, 3, "Each commit has details");
+    const links = [...popup.querySelectorAll(".hb-entry a")].filter(
+      a => a.textContent == "earliest version with these tokens");
     is(links.length, 3, "Each commit links to its tokens");
     ok(links[0].getAttribute("href").startsWith("/searchfox/rev/b6d5e2737a4ad27651c30fa47d92a14248c1a95c/tools/src/blame.rs#tokens="),
        "The newest commit comes first");
+    const rows = popup.querySelectorAll(".hb-row");
+    is(rows[rows.length - 1].dataset.commit, entries[0].dataset.commit,
+       "The newest commit's row is nearest the line");
+
+    // Hovering over a token highlights its commit's row and details.
+    const token = popup.querySelector(".hb-replica .hb-token");
+    token.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    const commit = token.dataset.commit;
+    ok(popup.querySelector(`.hb-row[data-commit="${commit}"]`).classList.contains("hb-hot"),
+       "The token's commit's row is highlighted");
+    ok(popup.querySelector(`.hb-entry[data-commit="${commit}"]`).classList.contains("hb-hot"),
+       "The token's commit's details are highlighted");
+
+    // Clicking on a token shows the context menu with links for it, rather
+    // than the menu for searching for text.
+    TestUtils.click(token);
+    const menu = frame.contentDocument.querySelector("#context-menu");
+    await waitForShown(menu, "The context menu is shown");
+    ok(menu.textContent.includes("Show the earliest version with this token"),
+       "The context menu has the token's links");
+    ok(!menu.textContent.includes("Search for"),
+       "The context menu doesn't offer to search for the token's text");
+    // The blame strip ignores hovers while a context menu is shown.
+    frame.contentWindow.ContextMenu.hide();
   }
 
   // The removal after line 6 is described for line 6 and the line after it.
@@ -84,8 +114,8 @@ add_task(async function test_TokenBlameEarliestVersionLink() {
   await TestUtils.loadPath(PATH);
 
   const popup = await showPopup(1);
-  const link = [...popup.querySelectorAll("a")].find(
-    a => a.textContent == "Show earliest version with these tokens");
+  const link = [...popup.querySelectorAll(".hb-entry a")].find(
+    a => a.textContent == "earliest version with these tokens");
   TestUtils.click(link);
 
   await waitForCondition(

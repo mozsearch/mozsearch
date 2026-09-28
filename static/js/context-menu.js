@@ -1261,6 +1261,12 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       return;
     }
 
+    // UI with its own menu for its elements (ex: the tokens in the
+    // token-centric blame popup, see hyperblame.js) shows it with `showItems`.
+    if (event.target.closest("[data-own-context-menu]")) {
+      return;
+    }
+
     let tree = document.getElementById("data").getAttribute("data-tree");
 
     // Figure out the source line this click was on, if it was on any line, so
@@ -2242,6 +2248,15 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
     this.closeSubMenu();
     this.populateMenu(this.menu, menuItems);
 
+    this.positionMenuAt(event.clientX, event.clientX, event.clientY, event.clientY);
+  }
+
+  /**
+   * Show a menu of the given `MenuItem`s at a click's position, for UI with its
+   * own menu (see `data-own-context-menu` in `tryShowOnClick`).
+   */
+  showItems(menuItems, event) {
+    this.populateMenu(this.menu, menuItems);
     this.positionMenuAt(event.clientX, event.clientX, event.clientY, event.clientY);
   }
 

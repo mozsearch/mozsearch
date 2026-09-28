@@ -87,6 +87,7 @@ input_file: inputs/web/templates/search_template__html
 <script src="/tests/static/js/panel.js"></script>
 <script src="/tests/static/js/code-highlighter.js"></script>
 <script src="/tests/static/js/blame.js"></script>
+<script src="/tests/static/js/hyperblame.js"></script>
 <script src="/tests/static/js/d3.v7.min.js"></script>
 <script src="/tests/static/js/coverage-history.js"></script>
 

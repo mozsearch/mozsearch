@@ -76,6 +76,16 @@ table {
   --blame-author-9: #bab0ac;
   --blame-author-10: #86bcb6;
   --blame-author-11: #d4a6c8;
+  /* The colors of the token-centric blame popup's commits; see hyperblame.js.
+     They need to work on both the popup and the page backgrounds. */
+  --hb-lane-0: #4e79a7;
+  --hb-lane-1: #f28e2b;
+  --hb-lane-2: #e15759;
+  --hb-lane-3: #59a14f;
+  --hb-lane-4: #b07aa1;
+  --hb-lane-5: #76b7b2;
+  --hb-lane-6: #ff9da7;
+  --hb-lane-7: #9c755f;
 
   --context-menu-new-section: #ccc;
   --context-menu-same-section: #f8f8f8;
@@ -1403,6 +1413,89 @@ span[data-symbols].selected {
 }
 .blame-popup .blame-removal {
   border-left: 3px solid rgb(255 255 255 / 40%);
+  padding-left: 0.5em;
+}
+
+/* The token-centric blame popup; see hyperblame.js.  The popup starts at the
+   blame strip's right edge, and its replica of the line is positioned over the
+   line itself, with the commits' rows above it and their details below. */
+.blame-popup.hb-popup-host {
+  padding: 0;
+}
+.hb-popup {
+  position: relative;
+  padding-bottom: 8px;
+}
+.hb-lanes {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.hb-upper {
+  padding-top: 6px;
+}
+.hb-row {
+  display: flex;
+  gap: 0.75em;
+  align-items: baseline;
+  padding-left: var(--hb-lanes-width, 10px);
+  padding-right: 10px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.hb-row-summary {
+  max-width: 45em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hb-row-meta {
+  opacity: 0.7;
+}
+.hb-replica {
+  background-color: var(--page-background);
+  color: var(--page-foreground);
+  line-height: var(--source-line-height);
+  margin: 4px 0;
+  padding-right: 10px;
+}
+/* Undo `.blame-popup code` so the replica's text lines up with the line's. */
+.blame-popup .hb-replica code {
+  display: inline-block;
+  padding: 0;
+  max-height: none;
+  overflow: visible;
+  background-color: transparent;
+}
+.hb-token {
+  border-bottom: 2px solid var(--hb-color);
+  cursor: pointer;
+}
+.hb-lane,
+.hb-track {
+  stroke: var(--hb-color);
+  stroke-width: 1.5;
+}
+.hb-dot {
+  fill: var(--hb-color);
+}
+/* Brushing: hovering over a commit's token, row, or details highlights the
+   commit's tokens, lanes, row, and details. */
+.hb-has-hot [data-commit]:not(.hb-hot) {
+  opacity: 0.3;
+}
+.hb-token.hb-hot {
+  background-color: color-mix(in srgb, var(--hb-color) 35%, transparent);
+}
+.hb-details {
+  max-height: 40vh;
+  overflow-y: auto;
+  padding: 0 10px;
+}
+.blame-popup .hb-entry {
+  border-left: 3px solid var(--hb-color);
   padding-left: 0.5em;
 }
 .blame-popup code {
