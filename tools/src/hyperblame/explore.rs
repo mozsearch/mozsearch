@@ -1,0 +1,466 @@
+//! The data of the `/explore/` pages, which show a group of commits (ex: the
+//! commits of a bug) and the files, classes, and methods they touched as a
+//! dense "horizontal Southern blot": a sparkline per file and symbol with a
+//! narrow slot per commit, filled if the commit changed it.  Symbols nest (ex:
+//! a class's methods under the class), and nested symbols are shown as thin
+//! unlabeled rows under their parent's sparkline until expanded.  See "Patch
+//! stack strip" and "History views" in the hyperblame notes.
+//!
+//! What each commit changed comes from its rev-summary (file deltas with
+//! per-symbol token totals), or for commits the history doesn't have (ex: from
+//! before a history window), just the files, from git.
+
+use std::collections::{BTreeMap, BTreeSet};
+use std::fmt::Write;
+use std::fs;
+use std::path::Path;
+
+use git2::{Oid, Repository};
+use serde::Serialize;
+
+use super::token_blame::TreeHistory;
+use crate::commit_index::CommitRef;
+use crate::file_format::history::rev_summaries::{RevSummaryRecord, rev_summary_path};
+
+/// The most commits a page shows.
+pub const MAX_COMMITS: usize = 200;
+
+#[derive(Debug, Serialize)]
+pub struct ExploreCommit {
+    /// The commit's (1-based) number on the page.
+    pub number: usize,
+    pub rev: String,
+    #[serde(rename = "isoDate")]
+    pub iso_date: String,
+    pub backout: bool,
+    /// The commit's header (see `blame::commit_info_json`), as HTML.
+    pub header: String,
+    /// The first line of the header: the commit message's summary line.
+    pub summary: String,
+}
+
+/// Order commits oldest first.  Commits landed together (ex: a stack of
+/// patches) share their commit time, so those are ordered by ancestry.
+pub fn order_commits(repo: &Repository, refs: &mut Vec<CommitRef>) {
+    refs.sort_by(|a, b| a.iso_date.cmp(&b.iso_date).then(a.rev.cmp(&b.rev)));
+    refs.dedup_by(|a, b| a.rev == b.rev);
+    let is_descendant =
+        |a: &CommitRef, b: &CommitRef| match (Oid::from_str(&a.rev), Oid::from_str(&b.rev)) {
+            (Ok(a), Ok(b)) => repo.graph_descendant_of(a, b).unwrap_or(false),
+            _ => false,
+        };
+    let mut start = 0;
+    while start < refs.len() {
+        let end = start
+            + refs[start..]
+                .iter()
+                .take_while(|r| r.iso_date == refs[start].iso_date)
+                .count();
+        // Repeatedly take a commit which isn't a descendant of any of the
+        // others left.
+        let mut group: Vec<CommitRef> = refs[start..end].to_vec();
+        let mut ordered = Vec::with_capacity(group.len());
+        while !group.is_empty() {
+            let next = (0..group.len())
+                .find(|&i| {
+                    !group
+                        .iter()
+                        .enumerate()
+                        .any(|(j, other)| j != i && is_descendant(&group[i], other))
+                })
+                .unwrap_or(0);
+            ordered.push(group.remove(next));
+        }
+        refs.splice(start..end, ordered);
+        start = end;
+    }
+}
+
+/// What a commit changed: the paths of its files, and for each, how many
+/// tokens it changed in each symbol (if we know).
+pub type CommitChanges = BTreeMap<String, BTreeMap<String, u32>>;
+
+/// What the commit `rev` changed.
+pub fn commit_changes(
+    history: Option<&TreeHistory>,
+    repo: &Repository,
+    rev: &str,
+) -> CommitChanges {
+    if let Some(history) = history {
+        let path = Path::new(&history.path)
+            .join("rev-summaries")
+            .join(rev_summary_path(rev));
+        let summary = fs::read_to_string(path)
+            .ok()
+            .and_then(|text| serde_json::from_str::<RevSummaryRecord>(&text).ok());
+        if let Some(summary) = summary
+            && !summary.file_deltas.is_empty()
+        {
+            return summary
+                .file_deltas
+                .into_iter()
+                .map(|(path, file)| {
+                    let symbols = file
+                        .delta
+                        .symbol_group
+                        .symbol_deltas
+                        .into_iter()
+                        .map(|(pretty, delta)| {
+                            let totals = &delta.token_totals;
+                            (pretty, totals.added + totals.removed)
+                        })
+                        .collect();
+                    (path, symbols)
+                })
+                .collect();
+        }
+    }
+
+    // Just the files, from git.
+    let mut changes = CommitChanges::new();
+    let Some(commit) = Oid::from_str(rev)
+        .ok()
+        .and_then(|oid| repo.find_commit(oid).ok())
+    else {
+        return changes;
+    };
+    let tree = commit.tree().ok();
+    let parent_tree = commit.parent(0).ok().and_then(|parent| parent.tree().ok());
+    if let Ok(diff) = repo.diff_tree_to_tree(parent_tree.as_ref(), tree.as_ref(), None) {
+        for delta in diff.deltas() {
+            let file = delta.new_file().path().or_else(|| delta.old_file().path());
+            if let Some(path) = file.and_then(|path| path.to_str()) {
+                changes.insert(path.to_string(), BTreeMap::new());
+            }
+        }
+    }
+    changes
+}
+
+/// The blot's rows for commits (in page order) which changed `changes`: a row
+/// per file (sorted by path) followed by a row per symbol in it (sorted by
+/// pretty).  `link` makes a file's link from its path and the last commit
+/// which changed it.
+/// How much a commit changed a file or symbol: 0 for not at all, and 1-3 for
+/// up to 5 tokens (or an unknown amount), up to 50, and more.
+fn level(cell: Option<u32>) -> u8 {
+    match cell {
+        None => 0,
+        Some(0..=5) => 1,
+        Some(6..=50) => 2,
+        Some(_) => 3,
+    }
+}
+
+/// The width of each commit's slot in sparklines, in pixels: 1 for many
+/// commits, and wider for a few so they're still visible.
+pub fn slot_width(commits: usize) -> usize {
+    (96 / commits.max(1)).clamp(1, 6)
+}
+
+/// An inline SVG of rows of slots, one per commit, where each row is given as
+/// its levels and height (in pixels), with a pixel between rows.  Runs of slots
+/// with the same level are single rects.  The SVG also has the cursor, which
+/// explore.js moves to the commit under the mouse.
+fn blot_svg(rows: &[(&[u8], usize)], slot: usize, class: &str) -> String {
+    let width = rows.first().map_or(0, |(levels, _)| levels.len()) * slot;
+    let height = rows.iter().map(|(_, h)| h).sum::<usize>() + rows.len().saturating_sub(1);
+    let mut svg = format!(
+        r#"<svg class="explore-sparkline {}" width="{}" height="{}"><rect class="explore-track" width="{}" height="{}"/>"#,
+        class, width, height, width, height
+    );
+    let mut y = 0;
+    for (levels, row_height) in rows {
+        let mut i = 0;
+        while i < levels.len() {
+            let run = levels[i..].iter().take_while(|&&l| l == levels[i]).count();
+            if levels[i] > 0 {
+                write!(
+                    svg,
+                    r#"<rect class="explore-l{}" x="{}" y="{}" width="{}" height="{}"/>"#,
+                    levels[i],
+                    i * slot,
+                    y,
+                    run * slot,
+                    row_height
+                )
+                .unwrap();
+            }
+            i += run;
+        }
+        y += row_height + 1;
+    }
+    write!(
+        svg,
+        r#"<rect class="explore-cursor" width="{}" height="{}"/></svg>"#,
+        slot, height
+    )
+    .unwrap();
+    svg
+}
+
+#[derive(Debug, Serialize)]
+pub struct ExploreSymbol {
+    /// The name, without its parent's prefix.
+    pub name: String,
+    /// The full pretty identifier.
+    pub pretty: String,
+    pub sparkline: String,
+    /// For symbols with nested symbols, the collapsed view: the symbol's
+    /// sparkline (including the nested symbols' changes) with a thin row for
+    /// each nested symbol under it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blot: Option<String>,
+    /// The nested symbols (all of them, including more deeply nested ones,
+    /// named relative to this symbol).
+    pub children: Vec<ExploreSymbol>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ExploreFile {
+    pub path: String,
+    /// The file as of the last commit which changed it.
+    pub link: String,
+    pub sparkline: String,
+    pub symbols: Vec<ExploreSymbol>,
+}
+
+/// The symbols' parents: the longest proper prefix (by "::" segments) which is
+/// itself a symbol or is shared by several symbols, which groups a class's
+/// methods even if the class itself didn't change.
+fn symbol_parents(symbols: &BTreeSet<&str>) -> BTreeMap<String, String> {
+    let mut prefix_counts: BTreeMap<String, usize> = BTreeMap::new();
+    for symbol in symbols {
+        let segments: Vec<&str> = symbol.split("::").collect();
+        for n in 1..segments.len() {
+            *prefix_counts.entry(segments[..n].join("::")).or_default() += 1;
+        }
+    }
+    let is_parent = |prefix: &str| {
+        symbols.contains(prefix) || prefix_counts.get(prefix).is_some_and(|&c| c > 1)
+    };
+    let mut parents = BTreeMap::new();
+    for symbol in symbols {
+        let segments: Vec<&str> = symbol.split("::").collect();
+        if let Some(n) = (1..segments.len())
+            .rev()
+            .find(|&n| is_parent(&segments[..n].join("::")))
+        {
+            parents.insert(symbol.to_string(), segments[..n].join("::"));
+        }
+    }
+    parents
+}
+
+/// The name of the changes outside of any symbol.
+const TOP_LEVEL: &str = "(top level)";
+
+/// The files which the commits (in page order) changed, sorted by path, with
+/// their symbols.  `link` makes a file's link from its path and the last commit
+/// which changed it.
+pub fn blot_files(
+    commits: &[CommitRef],
+    changes: &[CommitChanges],
+    link: impl Fn(&str, &str) -> String,
+) -> Vec<ExploreFile> {
+    let slot = slot_width(commits.len());
+    let paths: BTreeSet<&String> = changes.iter().flat_map(|c| c.keys()).collect();
+    let mut files = vec![];
+    for path in paths {
+        let file_levels: Vec<u8> = changes
+            .iter()
+            .map(|c| level(c.get(path).map(|symbols| symbols.values().sum())))
+            .collect();
+        let last = file_levels.iter().rposition(|&l| l > 0).unwrap();
+
+        // Each symbol's cells, with "%" (outside of any symbol) renamed.
+        let mut cells: BTreeMap<String, Vec<Option<u32>>> = BTreeMap::new();
+        for (i, commit_changes) in changes.iter().enumerate() {
+            for (symbol, &tokens) in commit_changes.get(path).into_iter().flatten() {
+                let name = if symbol == "%" { TOP_LEVEL } else { symbol };
+                cells
+                    .entry(name.to_string())
+                    .or_insert_with(|| vec![None; changes.len()])[i] = Some(tokens);
+            }
+        }
+        let names: BTreeSet<&str> = cells.keys().map(String::as_str).collect();
+        let parents = symbol_parents(&names);
+        let top_of = |name: &str| {
+            let mut top = name.to_string();
+            while let Some(parent) = parents.get(&top) {
+                top = parent.clone();
+            }
+            top
+        };
+        // Top-level symbols (including synthesized parents) and their
+        // descendants.
+        let mut groups: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for name in &names {
+            let top = top_of(name);
+            let descendants = groups.entry(top.clone()).or_default();
+            if top != *name {
+                descendants.push(name.to_string());
+            }
+        }
+
+        let mut symbols: Vec<ExploreSymbol> = groups
+            .into_iter()
+            .map(|(top, descendants)| {
+                let own = cells.get(&top);
+                // The symbol's sparkline includes its descendants' changes.
+                let top_levels: Vec<u8> = (0..changes.len())
+                    .map(|i| {
+                        let mut tokens = own.and_then(|c| c[i]);
+                        for descendant in &descendants {
+                            if let Some(t) = cells[descendant][i] {
+                                tokens = Some(tokens.unwrap_or(0) + t);
+                            }
+                        }
+                        level(tokens)
+                    })
+                    .collect();
+                let child_levels: Vec<Vec<u8>> = descendants
+                    .iter()
+                    .map(|d| cells[d].iter().map(|&c| level(c)).collect())
+                    .collect();
+                let children: Vec<ExploreSymbol> = descendants
+                    .iter()
+                    .zip(&child_levels)
+                    .map(|(descendant, levels)| ExploreSymbol {
+                        name: descendant
+                            .strip_prefix(&format!("{}::", top))
+                            .unwrap_or(descendant)
+                            .to_string(),
+                        pretty: descendant.clone(),
+                        sparkline: blot_svg(&[(levels, 4)], slot, "explore-child-sparkline"),
+                        blot: None,
+                        children: vec![],
+                    })
+                    .collect();
+                let blot = (!children.is_empty()).then(|| {
+                    let mut rows: Vec<(&[u8], usize)> = vec![(&top_levels, 6)];
+                    rows.extend(child_levels.iter().map(|levels| (levels.as_slice(), 2)));
+                    blot_svg(&rows, slot, "explore-blot-sparkline")
+                });
+                ExploreSymbol {
+                    name: top.clone(),
+                    pretty: top,
+                    sparkline: blot_svg(&[(&top_levels, 6)], slot, ""),
+                    blot,
+                    children,
+                }
+            })
+            .collect();
+        // Changes only outside of any symbol are the file's sparkline again.
+        if symbols.len() == 1 && symbols[0].pretty == TOP_LEVEL {
+            symbols.clear();
+        }
+
+        files.push(ExploreFile {
+            path: path.clone(),
+            link: link(path, &commits[last].rev),
+            sparkline: blot_svg(&[(&file_levels, 8)], slot, "explore-file-sparkline"),
+            symbols,
+        });
+    }
+    files
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_symbol_parents() {
+        let symbols: BTreeSet<&str> = [
+            "Foo",
+            "Foo::bar",
+            "Foo::Inner::baz",
+            "Popup::render",
+            "Popup::position",
+            "lonely::fn",
+        ]
+        .into_iter()
+        .collect();
+        let parents = symbol_parents(&symbols);
+        assert_eq!(parents.get("Foo::bar").map(String::as_str), Some("Foo"));
+        // "Foo::Inner" isn't a symbol and isn't shared, so "Foo" is the parent.
+        assert_eq!(
+            parents.get("Foo::Inner::baz").map(String::as_str),
+            Some("Foo")
+        );
+        // "Popup" isn't a symbol, but it's shared.
+        assert_eq!(
+            parents.get("Popup::render").map(String::as_str),
+            Some("Popup")
+        );
+        assert_eq!(parents.get("lonely::fn"), None);
+        assert_eq!(parents.get("Foo"), None);
+    }
+
+    #[test]
+    fn test_blot_files() {
+        let commit = |rev: &str| CommitRef {
+            rev: rev.to_string(),
+            iso_date: String::new(),
+            backout: false,
+        };
+        let commits = vec![commit("a"), commit("b")];
+        let changes: Vec<CommitChanges> = vec![
+            BTreeMap::from([(
+                "f.rs".to_string(),
+                BTreeMap::from([("Foo::bar".to_string(), 3), ("%".to_string(), 1)]),
+            )]),
+            BTreeMap::from([
+                (
+                    "f.rs".to_string(),
+                    BTreeMap::from([("Foo::baz".to_string(), 60)]),
+                ),
+                ("g.rs".to_string(), BTreeMap::new()),
+                ("h.rs".to_string(), BTreeMap::from([("%".to_string(), 2)])),
+            ]),
+        ];
+        let files = blot_files(&commits, &changes, |path, rev| format!("{}@{}", path, rev));
+        assert_eq!(files.len(), 3);
+        assert_eq!(files[0].path, "f.rs");
+        assert_eq!(files[0].link, "f.rs@b");
+        let symbols: Vec<(&str, Vec<&str>)> = files[0]
+            .symbols
+            .iter()
+            .map(|s| {
+                (
+                    s.name.as_str(),
+                    s.children.iter().map(|c| c.name.as_str()).collect(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            symbols,
+            vec![("(top level)", vec![]), ("Foo", vec!["bar", "baz"])]
+        );
+        let foo = &files[0].symbols[1];
+        assert!(foo.blot.is_some());
+        // 2 commits get 6px slots.  Foo changed a little in the first commit
+        // and a lot in the second.
+        assert!(
+            foo.sparkline
+                .contains(r#"<rect class="explore-l1" x="0" y="0" width="6" height="6"/>"#)
+        );
+        assert!(
+            foo.sparkline
+                .contains(r#"<rect class="explore-l3" x="6" y="0" width="6" height="6"/>"#)
+        );
+        assert_eq!(files[1].path, "g.rs");
+        assert!(files[1].symbols.is_empty());
+        // Changes only outside of any symbol don't get their own sparkline.
+        assert_eq!(files[2].path, "h.rs");
+        assert!(files[2].symbols.is_empty());
+    }
+
+    #[test]
+    fn test_blot_svg_runs() {
+        let svg = blot_svg(&[(&[0, 2, 2, 0, 1], 4)], 1, "x");
+        assert!(svg.contains(r#"<rect class="explore-l2" x="1" y="0" width="2" height="4"/>"#));
+        assert!(svg.contains(r#"<rect class="explore-l1" x="4" y="0" width="1" height="4"/>"#));
+    }
+}

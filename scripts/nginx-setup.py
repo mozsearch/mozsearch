@@ -430,6 +430,7 @@ for repo in config['trees']:
     location(f'/{repo}/oldcommit', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/rev', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/rev-hyperblame', ['proxy_pass http://127.0.0.1:8001;'])
+    location(f'/{repo}/explore', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/hgrev', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/oldrev', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/complete', ['proxy_pass http://127.0.0.1:8001;'])

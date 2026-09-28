@@ -317,6 +317,20 @@ fn handle(
             }
         }
 
+        // `/{tree}/explore/bug/{bugs}` and `/{tree}/explore/phab/{revs}`; see
+        // `format::format_explore`.
+        "explore" => {
+            if path.len() != 4 {
+                return WebResponse::not_found();
+            }
+
+            let mut writer = Vec::new();
+            match format::format_explore(cfg, tree_name, path[2], path[3], &mut writer) {
+                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                Err(err) => WebResponse::internal_error(err.to_owned()),
+            }
+        }
+
         "commit" => {
             if path.len() < 3 {
                 return WebResponse::not_found();

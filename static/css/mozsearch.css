@@ -1540,6 +1540,117 @@ span[data-symbols].selected {
   font-style: italic;
   opacity: 0.8;
 }
+/* The /explore/ pages; see explore.liquid. */
+.explore-page {
+  padding: 0 1rem 1rem;
+}
+.explore-note {
+  opacity: 0.8;
+}
+.explore-commit-list ol {
+  margin: 0.3em 0;
+  padding-left: 3em;
+}
+.explore-commit {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.explore-commit-date {
+  font-size: smaller;
+  opacity: 0.7;
+}
+.explore-backout .explore-commit-summary {
+  text-decoration: line-through;
+}
+.explore-current {
+  background-color: var(--line-highlight-background);
+}
+/* Stays visible while hovering over the sparklines of files further down. */
+.explore-status {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-height: 1.5em;
+  background-color: var(--page-background);
+}
+.explore-file {
+  margin: 0.4em 0;
+}
+.explore-file-header {
+  font-weight: bold;
+}
+.explore-symbols,
+.explore-children {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 2px 14px;
+  padding-left: 1.5em;
+}
+.explore-symbols {
+  font-size: 0.9em;
+}
+.explore-children {
+  font-size: 0.85em;
+}
+.explore-symbol {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.explore-parent {
+  display: inline-block;
+}
+.explore-parent > summary {
+  cursor: pointer;
+}
+/* A span rather than the summary itself, which would lose its disclosure
+   triangle as a flex box. */
+.explore-summary {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+.explore-count {
+  opacity: 0.7;
+}
+/* Expanded symbols take a whole row, with their members under them. */
+.explore-parent[open] {
+  flex-basis: 100%;
+}
+.explore-parent .explore-expanded,
+.explore-parent[open] .explore-collapsed,
+.explore-parent[open] .explore-count {
+  display: none;
+}
+.explore-parent[open] .explore-expanded {
+  display: inline;
+}
+.explore-sparkline {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.explore-track {
+  fill: var(--blame-light-gray);
+  opacity: 0.4;
+}
+.explore-l1 {
+  fill: var(--blame-age-4);
+}
+.explore-l2 {
+  fill: var(--blame-age-2);
+}
+.explore-l3 {
+  fill: var(--blame-age-0);
+}
+/* explore.js sets --explore-cursor to the position of the commit under the
+   mouse. */
+.explore-cursor {
+  x: var(--explore-cursor, -100px);
+  fill: var(--page-foreground);
+  opacity: 0.45;
+}
 .hb-details {
   max-height: 40vh;
   overflow-y: auto;

@@ -5,6 +5,7 @@
 
 pub mod backouts;
 pub mod consolidation;
+pub mod explore;
 pub mod future;
 pub mod history_config;
 pub mod inference;

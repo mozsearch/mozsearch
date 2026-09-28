@@ -8,6 +8,7 @@ use std::time::Instant;
 
 use crate::abstract_server::FileMatch;
 use crate::blame;
+use crate::commit_index::{CommitIndex, CommitRef};
 use crate::file_format::analysis_manglings::make_file_sym_from_path;
 use crate::file_format::bisectable_mmap::BisectableMmap;
 use crate::file_format::code_coverage_report;
@@ -18,6 +19,7 @@ use crate::file_format::jumpref::{
 };
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::{self, coverage_history, coverage_summary, git_time_to_chrono};
+use crate::hyperblame::explore::{self, ExploreCommit, blot_files, commit_changes};
 use crate::hyperblame::future;
 use crate::hyperblame::page_blame::{CommitMeta, PageBlame, page_blame};
 use crate::hyperblame::page_data_cache::{PAGE_DATA_CACHE, PageData};
@@ -26,7 +28,9 @@ use crate::hyperblame::token_blame::blame_tokens;
 use crate::languages;
 use crate::languages::FormatAs;
 use crate::links;
-use crate::templating::builder::{build_and_parse_coverage_history, build_and_parse_dir_listing};
+use crate::templating::builder::{
+    build_and_parse_coverage_history, build_and_parse_dir_listing, build_and_parse_explore,
+};
 use crate::tokenize;
 use crate::utils::OwnedOrBorrowed;
 
@@ -2251,6 +2255,118 @@ fn generate_commit_info(
     let f = F::Seq(vec![F::S("<ul>"), F::Indent(changes), F::S("</ul>")]);
     output::generate_formatted(writer, &f, 0)?;
 
+    Ok(())
+}
+
+/// The most bugs or Phabricator revisions an `/explore/` page shows.
+const MAX_EXPLORE_KEYS: usize = 10;
+
+/// The `/explore/bug/BUGS` and `/explore/phab/REVS` pages, where `kind` is
+/// "bug" or "phab" and `keys` is comma-separated: the commits which mention the
+/// bugs (or Phabricator revisions), oldest first, and what they changed (see
+/// `hyperblame::explore`).
+pub fn format_explore(
+    cfg: &Config,
+    tree_name: &str,
+    kind: &str,
+    keys: &str,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let history = git.history.as_ref();
+    let index = history
+        .and_then(|history| CommitIndex::open(&Path::new(&history.path).join("commit-index")))
+        .ok_or("This tree has no commit index")?;
+
+    let keys: Vec<String> = keys
+        .split(',')
+        .map(str::trim)
+        .filter(|key| !key.is_empty())
+        .take(MAX_EXPLORE_KEYS)
+        .map(|key| match kind {
+            // Accept "D123" or "123" for Phabricator revisions.
+            "phab" => format!("D{}", key.trim_start_matches(['D', 'd'])),
+            _ => key.to_string(),
+        })
+        .collect();
+    let mut refs: Vec<CommitRef> = vec![];
+    let mut missing = vec![];
+    for key in &keys {
+        let found = match kind {
+            "bug" => index.bug_commits(key),
+            "phab" => index.phab_commits(key),
+            _ => return Err("Unknown kind of exploration"),
+        };
+        if found.is_empty() {
+            missing.push(key.clone());
+        }
+        refs.extend(found);
+    }
+    explore::order_commits(&git.repo, &mut refs);
+    let truncated = refs.len() > explore::MAX_COMMITS;
+    refs.truncate(explore::MAX_COMMITS);
+
+    let commits: Vec<ExploreCommit> = refs
+        .iter()
+        .enumerate()
+        .map(|(i, commit_ref)| {
+            let header = Oid::from_str(&commit_ref.rev)
+                .and_then(|oid| git.repo.find_commit(oid))
+                .ok()
+                .and_then(|commit| blame::commit_info_json(tree_config, git, &commit).ok())
+                .and_then(|info| info["header"].as_str().map(str::to_string))
+                .unwrap_or_else(|| commit_ref.rev.clone());
+            // See `blame::commit_info_json` for the header's format.
+            let summary = header.split("\n<br>").next().unwrap_or("").to_string();
+            ExploreCommit {
+                number: i + 1,
+                rev: commit_ref.rev.clone(),
+                iso_date: commit_ref.iso_date.clone(),
+                backout: commit_ref.backout,
+                header,
+                summary,
+            }
+        })
+        .collect();
+    let changes: Vec<_> = refs
+        .iter()
+        .map(|commit_ref| commit_changes(history, &git.repo, &commit_ref.rev))
+        .collect();
+    let files = blot_files(&refs, &changes, |path, rev| {
+        format!("/{}/rev/{}/{}", tree_name, rev, url_encode_path(path))
+    });
+
+    let title = match kind {
+        "bug" if keys.len() == 1 => format!("Bug {}", keys[0]),
+        "bug" => format!("Bugs {}", keys.join(", ")),
+        _ => keys.join(", "),
+    };
+    let page_title = format!("{} - mozsearch", title);
+    let opt = Options {
+        title: &page_title,
+        tree_name,
+        include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
+        revision: None,
+        breadcrumbs_links_to: BreadcrumbsLinksTo::Latest,
+        extra_content_classes: "explore",
+    };
+    output::generate_header(&opt, writer)?;
+    output::generate_panel(&opt, writer, &[], true)?;
+    let globals = liquid::to_object(&json!({
+        "tree": tree_name,
+        "title": title,
+        "commits": commits,
+        "files": files,
+        "slot": explore::slot_width(commits.len()),
+        "missing": missing,
+        "truncated": truncated,
+    }))
+    .map_err(|_| "Template problems")?;
+    build_and_parse_explore()
+        .render_to(writer, &globals)
+        .map_err(|_| "Template problems")?;
+    output::generate_footer(&opt, tree_name, "", writer).unwrap();
     Ok(())
 }
 
