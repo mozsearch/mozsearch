@@ -896,13 +896,9 @@ fn preprocess_linear(
 
 /// For each of `new_lines`, the 1-based line number of the identical token in
 /// `old_lines` per their diff, if any.
-fn unchanged_mapping(
-    old_lines: &[&str],
-    new_lines: &[&str],
-    config: &InferenceConfig,
-) -> Vec<Option<u32>> {
+fn unchanged_mapping(old_lines: &[&str], new_lines: &[&str]) -> Vec<Option<u32>> {
     let mut unchanged = vec![None; new_lines.len()];
-    for op in diff_token_lines(old_lines, new_lines, config.diff_timeout) {
+    for op in diff_token_lines(old_lines, new_lines) {
         if let similar::DiffOp::Equal {
             old_index,
             new_index,
@@ -925,7 +921,6 @@ fn add_restore_bases(
     commit: &git2::Commit,
     backed_out: &[Oid],
     files: &mut [FileChange],
-    config: &InferenceConfig,
 ) -> Result<(), git2::Error> {
     let cur_files = subtree(repo, &commit.tree()?, "files");
     let mut intervening_by_base: HashMap<Oid, Arc<HashSet<String>>> = HashMap::new();
@@ -987,7 +982,6 @@ fn add_restore_bases(
             aligned: unchanged_mapping(
                 &token_file_lines(&base_contents),
                 &token_file_lines(&new_contents),
-                config,
             ),
             intervening: intervening_since(*base_rev)?,
         });
@@ -1017,7 +1011,6 @@ fn add_tracked_tokens(
 fn preprocess_merge(
     repo: &Repository,
     commit: &git2::Commit,
-    config: &InferenceConfig,
 ) -> Result<RevisionChanges, git2::Error> {
     let cur_root = commit.tree()?;
     let cur_files = subtree(repo, &cur_root, "files");
@@ -1070,7 +1063,7 @@ fn preprocess_merge(
                 (Some(path), Some(entry)) => {
                     let old_contents = blob_string(repo, entry.id());
                     let old_lines = token_file_lines(&old_contents);
-                    let unchanged = unchanged_mapping(&old_lines, &new_lines, config);
+                    let unchanged = unchanged_mapping(&old_lines, &new_lines);
                     Some(ParentMapping::Diffed { path, unchanged })
                 }
                 _ => None,
@@ -1110,7 +1103,7 @@ fn preprocess_merge(
                     .is_some_and(|t| t.get_path(Path::new(&path)).is_ok());
                 candidate_paths.insert(path, exists);
             }
-            for op in diff_token_lines(&old_lines, &new_lines, config.diff_timeout) {
+            for op in diff_token_lines(&old_lines, &new_lines) {
                 match op {
                     similar::DiffOp::Equal { .. } => {}
                     _ => {
@@ -1174,14 +1167,14 @@ fn thread_preprocess_revision(
     let mut changes = if commit.parent_count() <= 1 {
         preprocess_linear(syntax_repo, &commit, config)?
     } else {
-        preprocess_merge(syntax_repo, &commit, config)?
+        preprocess_merge(syntax_repo, &commit)?
     };
 
     let mut backed_out = vec![];
     if let RevisionChanges::Linear { files, .. } = &mut changes {
         let targets = find_backed_out(syntax_repo, backout_resolver, &commit, &message);
         if !targets.is_empty() {
-            add_restore_bases(syntax_repo, &commit, &targets, files, config)?;
+            add_restore_bases(syntax_repo, &commit, &targets, files)?;
             for target in targets {
                 let meta = syntax_commit_to_meta(&syntax_repo.find_commit(target)?);
                 backed_out.push(meta.source_rev.to_string());

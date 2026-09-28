@@ -82,9 +82,10 @@
 //!   automated changes.
 
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::hash::Hash;
 
-use similar::{Algorithm, DiffOp, capture_diff_slices_deadline};
+use imara_diff::{Algorithm, Diff, Interner, Token};
+use similar::DiffOp;
 
 use super::suffix_array::SuffixArray;
 use crate::file_format::history::syntax_files::{TokenClass, TokenLine, split_token_line};
@@ -94,14 +95,67 @@ pub fn is_word_token(token: &str) -> bool {
     token.chars().any(|c| c.is_alphanumeric())
 }
 
-/// Diff old and new token lines.
-pub fn diff_token_lines(old: &[&str], new: &[&str], timeout: Duration) -> Vec<DiffOp> {
-    capture_diff_slices_deadline(
-        Algorithm::Patience,
-        old,
-        new,
-        Some(Instant::now() + timeout),
-    )
+/// Diff old and new token lines with imara-diff's histogram diff, a
+/// refinement of patience diff: it anchors on the lines which occur least, so
+/// it doesn't synchronize on lines like `}` and `;`.  It's fast enough not to
+/// need a deadline (ex: 3ms for a 44k-token file most of whose lines changed,
+/// which took `similar`'s patience diff 9s), and so it's deterministic, unlike
+/// a diff which gives up when time runs out and so depends on how busy the
+/// machine is.
+pub fn diff_token_lines(old: &[&str], new: &[&str]) -> Vec<DiffOp> {
+    diff_slices(Algorithm::Histogram, old, new)
+}
+
+/// Diff two sequences with imara-diff, as `similar` ops: equal runs between
+/// its hunks, and a hunk with both removals and additions as a replacement
+/// (as `similar` reports them).
+fn diff_slices<T: Hash + Eq + Copy>(algorithm: Algorithm, old: &[T], new: &[T]) -> Vec<DiffOp> {
+    let mut interner = Interner::new(old.len() + new.len());
+    let before: Vec<Token> = old.iter().map(|&t| interner.intern(t)).collect();
+    let after: Vec<Token> = new.iter().map(|&t| interner.intern(t)).collect();
+    let mut diff = Diff::default();
+    diff.compute_with(algorithm, &before, &after, interner.num_tokens());
+
+    let mut ops = vec![];
+    let (mut old_index, mut new_index) = (0, 0);
+    for hunk in diff.hunks() {
+        let (old_start, old_end) = (hunk.before.start as usize, hunk.before.end as usize);
+        let (new_start, new_end) = (hunk.after.start as usize, hunk.after.end as usize);
+        if old_start > old_index {
+            ops.push(DiffOp::Equal {
+                old_index,
+                new_index,
+                len: old_start - old_index,
+            });
+        }
+        ops.push(match (old_end - old_start, new_end - new_start) {
+            (old_len, 0) => DiffOp::Delete {
+                old_index: old_start,
+                old_len,
+                new_index: new_start,
+            },
+            (0, new_len) => DiffOp::Insert {
+                old_index: old_start,
+                new_index: new_start,
+                new_len,
+            },
+            (old_len, new_len) => DiffOp::Replace {
+                old_index: old_start,
+                old_len,
+                new_index: new_start,
+                new_len,
+            },
+        });
+        (old_index, new_index) = (old_end, new_end);
+    }
+    if old_index < old.len() {
+        ops.push(DiffOp::Equal {
+            old_index,
+            new_index,
+            len: old.len() - old_index,
+        });
+    }
+    ops
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -272,8 +326,6 @@ pub struct InferenceConfig {
     /// safeguard against giant automated rewrites where the inference is both
     /// expensive and unlikely to be useful.
     pub max_removed_tokens_for_moves: usize,
-    /// Timeout for each individual diff.
-    pub diff_timeout: Duration,
 }
 
 impl Default for InferenceConfig {
@@ -281,7 +333,6 @@ impl Default for InferenceConfig {
         InferenceConfig {
             max_candidates: 256,
             max_removed_tokens_for_moves: 4_000_000,
-            diff_timeout: Duration::from_secs(10),
         }
     }
 }
@@ -390,7 +441,7 @@ pub fn infer_revision(inputs: &[FileChangeInput], config: &InferenceConfig) -> V
         blocks: vec![],
     };
 
-    diff_files(&mut state, config);
+    diff_files(&mut state);
 
     let mut namespaces: Vec<&str> = inputs.iter().map(|i| i.namespace).collect();
     namespaces.sort_unstable();
@@ -399,16 +450,16 @@ pub fn infer_revision(inputs: &[FileChangeInput], config: &InferenceConfig) -> V
         infer_big_rock_moves(&mut state, namespace, config);
     }
 
-    infer_local_recontexting(&mut state, config);
+    infer_local_recontexting(&mut state);
     infer_evolutions(&mut state);
 
     finalize(state)
 }
 
 /// Pass 1: Diff each file to establish the unchanged tokens and blocks.
-fn diff_files(state: &mut InferenceState, config: &InferenceConfig) {
+fn diff_files(state: &mut InferenceState) {
     for (file, input) in state.inputs.iter().enumerate() {
-        let ops = diff_token_lines(&input.old_lines, &input.new_lines, config.diff_timeout);
+        let ops = diff_token_lines(&input.old_lines, &input.new_lines);
 
         if input.kind == FileChangeKind::Copied {
             // See the `FileChangeKind::Copied` docs; the whole new file is an
@@ -689,7 +740,7 @@ fn infer_big_rock_moves(state: &mut InferenceState, namespace: &str, config: &In
 }
 
 /// Pass 3: Re-diff the leftover tokens in each block without their contexts.
-fn infer_local_recontexting(state: &mut InferenceState, config: &InferenceConfig) {
+fn infer_local_recontexting(state: &mut InferenceState) {
     for block_idx in 0..state.blocks.len() {
         let block = &state.blocks[block_idx];
         if !block.removals_real || block.old_len == 0 || block.new_len == 0 {
@@ -715,12 +766,10 @@ fn infer_local_recontexting(state: &mut InferenceState, config: &InferenceConfig
             .iter()
             .map(|&n| state.new_tokens[file][n].token)
             .collect();
-        let ops = capture_diff_slices_deadline(
-            Algorithm::Myers,
-            &old_texts,
-            &new_texts,
-            Some(Instant::now() + config.diff_timeout),
-        );
+        // Myers diff matches as many tokens as it can, which is what we want
+        // here; imara-diff's non-minimal variant bounds the cost of blocks
+        // which barely match (deterministically, unlike a deadline).
+        let ops = diff_slices(Algorithm::Myers, &old_texts, &new_texts);
         for op in ops {
             if let DiffOp::Equal {
                 old_index,
@@ -915,6 +964,35 @@ mod tests {
                 TokenOrigin::Added => "A",
             })
             .collect()
+    }
+
+    #[test]
+    fn test_diff_ops() {
+        // The ops tile both sides, equal runs are equal, and a removal next
+        // to an addition is a replacement.
+        let old: Vec<&str> = "a b } x y } c d".split(' ').collect();
+        let new: Vec<&str> = "a b } z } c d e".split(' ').collect();
+        let ops = diff_token_lines(&old, &new);
+        let (mut old_pos, mut new_pos) = (0, 0);
+        for op in &ops {
+            assert_eq!(op.old_range().start, old_pos, "{:?}", ops);
+            assert_eq!(op.new_range().start, new_pos, "{:?}", ops);
+            if let DiffOp::Equal { .. } = op {
+                assert_eq!(old[op.old_range()], new[op.new_range()]);
+            }
+            (old_pos, new_pos) = (op.old_range().end, op.new_range().end);
+        }
+        assert_eq!((old_pos, new_pos), (old.len(), new.len()));
+        assert!(matches!(
+            ops[1],
+            DiffOp::Replace {
+                old_index: 3,
+                old_len: 2,
+                new_index: 3,
+                new_len: 1,
+            }
+        ));
+        assert!(diff_token_lines(&[], &[]).is_empty());
     }
 
     #[test]
