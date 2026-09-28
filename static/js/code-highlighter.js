@@ -740,9 +740,59 @@ var Highlighter = new (class Highlighter {
       .join(",");
   }
 
+  /**
+   * Convert the TOKENS of a "#tokens=TOKENS" hash, like "5-7,9", into the
+   * equivalent line selection hash.  Tokens are named by their (1-based) index
+   * in the file's token-centric history, and `BLAME_INFO.tokenCounts` (see
+   * `page_blame.rs`) tells us how many tokens each line has.
+   */
+  linesHashForTokens(tokens) {
+    if (typeof BLAME_INFO === "undefined") {
+      return "";
+    }
+    // The index of the last token on each line.
+    const lastTokens = [];
+    let total = 0;
+    for (const count of BLAME_INFO.tokenCounts) {
+      total += count;
+      lastTokens.push(total);
+    }
+    const lineOfToken = token => {
+      let low = 0;
+      let high = lastTokens.length;
+      while (low < high) {
+        const mid = (low + high) >> 1;
+        if (lastTokens[mid] < token) {
+          low = mid + 1;
+        } else {
+          high = mid;
+        }
+      }
+      return low + 1;
+    };
+    const ranges = [];
+    for (const chunk of tokens.split(",")) {
+      const [first, last = first] = chunk.split("-").map(x => parseInt(x, 10));
+      if (isNaN(first) || isNaN(last)) {
+        continue;
+      }
+      const firstLine = lineOfToken(Math.min(first, last));
+      const lastLine = lineOfToken(Math.max(first, last));
+      ranges.push(firstLine == lastLine ? `${firstLine}` : `${firstLine}-${lastLine}`);
+    }
+    return ranges.join(",");
+  }
+
   updateFromHash() {
     this.removeAllLines();
     let hash = window.location.hash.substring(1);
+    // A "#tokens=" hash becomes a line selection, and since there was no
+    // element for the browser to scroll to, we scroll to it ourselves.
+    let scrollToSelection = false;
+    if (hash.startsWith("tokens=")) {
+      hash = this.linesHashForTokens(hash.substring("tokens=".length));
+      scrollToSelection = true;
+    }
     if (!hash) {
       return;
     }
@@ -787,6 +837,9 @@ var Highlighter = new (class Highlighter {
     // something of that sort.
     if (this.selectedLines.size) {
       this.updateHash();
+      if (scrollToSelection) {
+        document.getElementById(this.toHash())?.scrollIntoView();
+      }
     }
   }
 })();

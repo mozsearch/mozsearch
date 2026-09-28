@@ -52,6 +52,30 @@ table {
   --blame-popup-color: #fff;
   --blame-light-gray: lightgray;
   --blame-dark-gray: darkgray;
+  /* Token-centric blame: removal "scars" (a darker shade of the line's
+     alternating gray), and the colors of the age (newest to oldest) and author
+     color modes; see BlameColorizer in blame.js. */
+  --blame-light-gray-scar: #b1b1b1;
+  --blame-dark-gray-scar: #888888;
+  --blame-age-0: #a50f15;
+  --blame-age-1: #de2d26;
+  --blame-age-2: #fb6a4a;
+  --blame-age-3: #fc9272;
+  --blame-age-4: #fcbba1;
+  --blame-age-5: #fee0d2;
+  --blame-age-6: var(--blame-light-gray);
+  --blame-author-0: #4e79a7;
+  --blame-author-1: #f28e2b;
+  --blame-author-2: #e15759;
+  --blame-author-3: #76b7b2;
+  --blame-author-4: #59a14f;
+  --blame-author-5: #edc948;
+  --blame-author-6: #b07aa1;
+  --blame-author-7: #ff9da7;
+  --blame-author-8: #9c755f;
+  --blame-author-9: #bab0ac;
+  --blame-author-10: #86bcb6;
+  --blame-author-11: #d4a6c8;
 
   --context-menu-new-section: #ccc;
   --context-menu-same-section: #f8f8f8;
@@ -202,6 +226,15 @@ table {
 
     --blame-light-gray: #595959;
     --blame-dark-gray: #393939;
+    --blame-light-gray-scar: #454545;
+    --blame-dark-gray-scar: #282828;
+    --blame-age-0: #ff6b5b;
+    --blame-age-1: #e0453a;
+    --blame-age-2: #b8342c;
+    --blame-age-3: #8c2a24;
+    --blame-age-4: #682520;
+    --blame-age-5: #4d2320;
+    --blame-age-6: var(--blame-dark-gray);
 
     --context-menu-new-section: #444;
     --context-menu-same-section: #181818;
@@ -264,6 +297,8 @@ table {
     --blame-popup-color: CanvasText;
     --blame-light-gray: ButtonFace;
     --blame-dark-gray: ButtonText;
+    --blame-light-gray-scar: ButtonText;
+    --blame-dark-gray-scar: ButtonFace;
   }
 }
 
@@ -1286,6 +1321,50 @@ span[data-symbols].selected {
 .c2 {
   background-color: var(--blame-dark-gray);
 }
+/* Removal "scars" in the token-centric blame strip: a band at the bottom (or
+   top) of the line's strip for tokens removed between lines, and a band at its
+   right edge for tokens removed within the line.  They're a darker shade of the
+   line's alternating gray, but BlameColorizer in blame.js colors them by their
+   commit, which could be the strip's color, so then there's a gap between
+   them and the strip. */
+.c1 {
+  --blame-scar: var(--blame-light-gray-scar);
+}
+.c2 {
+  --blame-scar: var(--blame-dark-gray-scar);
+}
+.scar-above {
+  --sa: var(--blame-scar, var(--blame-dark-gray-scar));
+}
+.scar-below {
+  --sb: var(--blame-scar, var(--blame-dark-gray-scar));
+}
+.scar-within {
+  --sw: var(--blame-scar, var(--blame-dark-gray-scar));
+}
+.blame-colorized .scar-above {
+  --sa-gap: var(--page-background);
+}
+.blame-colorized .scar-below {
+  --sb-gap: var(--page-background);
+}
+.blame-colorized .scar-within {
+  --sw-gap: var(--page-background);
+}
+.scar-above, .scar-below, .scar-within {
+  box-shadow:
+    inset 0 3px 0 0 var(--sa, transparent),
+    inset 0 4px 0 0 var(--sa-gap, transparent),
+    inset 0 -3px 0 0 var(--sb, transparent),
+    inset 0 -4px 0 0 var(--sb-gap, transparent),
+    inset -3px 0 0 0 var(--sw, transparent),
+    inset -4px 0 0 0 var(--sw-gap, transparent);
+}
+/* When BlameColorizer colors the strip by age or author, neighboring commits
+   can get the same color, so we darken every other commit. */
+.blame-colorized .blame-strip.c2 {
+  background-image: linear-gradient(rgb(0 0 0 / 18%), rgb(0 0 0 / 18%));
+}
 
 .blame-popup {
   position: absolute;
@@ -1306,6 +1385,15 @@ span[data-symbols].selected {
 }
 .blame-popup .blame-entry {
   width: 600px;
+}
+.blame-popup .blame-entry + .blame-entry {
+  margin-top: 0.5em;
+  padding-top: 0.5em;
+  border-top: 1px solid rgb(255 255 255 / 25%);
+}
+.blame-popup .blame-removal {
+  border-left: 3px solid rgb(255 255 255 / 40%);
+  padding-left: 0.5em;
 }
 .blame-popup code {
   background-color: var(--page-background);

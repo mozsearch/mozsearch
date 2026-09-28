@@ -175,6 +175,26 @@
           </fieldset>
         </form>
       </section>
+
+      <section>
+        <h3>Blame Strip Colors</h3>
+        <p>
+          For trees with token-centric history, each line's blame strip
+          reflects the newest commit to have changed the line's tokens, so
+          whitespace-only changes don't count.  Blank lines take the commit of
+          the lines around them when those match.  Bands at the top or bottom of
+          a line's strip mark tokens removed between lines, and bands at its
+          right edge mark tokens removed within the line.
+        </p>
+        <form>
+          <label for="blame--color-mode">Color the blame strip by:</label>
+          <select id="blame--color-mode">
+            <option value="alternating">Alternating colors when the commit changes</option>
+            <option value="age">Commit age (a week, a month, 3 months, a year, 2 years, 5 years, older)</option>
+            <option value="author">Author</option>
+          </select>
+        </form>
+      </section>
     </section>
 
     <section>

@@ -117,6 +117,14 @@ const SETTING_DEFS = {
       introducedIn: 6,
     },
   },
+  blame: {
+    // How to color the token-centric blame strip: "alternating", "age", or
+    // "author".  See BlameColorizer in blame.js.
+    colorMode: {
+      default: "alternating",
+      introducedIn: 8,
+    },
+  },
 };
 
 const QUALITY_ORDERING = [
@@ -189,7 +197,7 @@ const WIDGET_DEFS = {
  *   distracting and that they likely would want to actually process the new
  *   settings later on.
  */
-const SETTINGS_VERSION = 7;
+const SETTINGS_VERSION = 8;
 
 /**
  * Convert a "camelCaseString" to "camel-case-string".

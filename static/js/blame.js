@@ -28,6 +28,10 @@ var BlamePopup = new (class BlamePopup {
     this.prevRevs = null;
     this.prevJson = null;
 
+    // Commit info by rev for the token-centric blame, whose lines can each
+    // involve several commits.
+    this.commitInfos = new Map();
+
     this.coverageDetailsShown = true;
     this.hideCoverageStripDetails();
   }
@@ -99,7 +103,7 @@ var BlamePopup = new (class BlamePopup {
     }
 
     const isExpansion = typeof elt.dataset.expansions !== 'undefined' && elt.dataset.expansions !== null;
-    const isAnnotate = !!elt.dataset.blame;
+    const isAnnotate = !!elt.dataset.blame || elt.dataset.hyperblame !== undefined;
     if (isExpansion) {
       content = await this.generateExpansionContent(elt);
       let rect = elt.getBoundingClientRect();
@@ -263,7 +267,189 @@ var BlamePopup = new (class BlamePopup {
     return content;
   }
 
+  /**
+   * Fetch the commit-info for the given revs, returning a Map from rev to the
+   * info.
+   */
+  async fetchCommitInfos(tree, revs) {
+    const missing = revs.filter(rev => !this.commitInfos.has(rev));
+    if (missing.length) {
+      const response = await fetch(`/${tree}/commit-info/${missing.join(",")}`);
+      const infos = await response.json();
+      missing.forEach((rev, i) => this.commitInfos.set(rev, infos[i]));
+    }
+    return this.commitInfos;
+  }
+
+  /**
+   * Parse the entries of a strip's `data-hyperblame` attribute; see
+   * `StripLine::strip_attrs` in `page_blame.rs`.
+   */
+  parseTokenBlameEntries(attr) {
+    if (!attr) {
+      return [];
+    }
+    return attr.split(";").map(entry => {
+      const [commit, path, tokens] = entry.split(":");
+      return {
+        commit: parseInt(commit, 10),
+        path: BLAME_INFO.paths[parseInt(path, 10)],
+        tokens,
+      };
+    });
+  }
+
+  /**
+   * Parse the removals of a strip's `data-rm-*` attribute; see
+   * `StripLine::strip_attrs` in `page_blame.rs`.
+   */
+  parseRemovals(attr) {
+    if (!attr) {
+      return [];
+    }
+    return attr.split(";").map(removal => {
+      const [commit, path, firstToken, numRemoved, numMoved] =
+        removal.split(":").map(x => parseInt(x, 10));
+      return {
+        commit,
+        path: BLAME_INFO.paths[path],
+        firstToken,
+        numRemoved,
+        numMoved,
+      };
+    });
+  }
+
+  /**
+   * The popup content for a line of the token-centric blame strip: the commits
+   * that last changed the line's tokens, newest first, and the removals of
+   * tokens within, before, and after the line.
+   */
+  async generateTokenBlameContent(elt) {
+    const data = document.getElementById("data");
+    const tree = data.getAttribute("data-tree");
+    const encodePath = path => path.split("/").map(encodeURIComponent).join("/");
+
+    const entries = this.parseTokenBlameEntries(elt.dataset.hyperblame);
+    let interpolatedCommit = null;
+    if (elt.classList.contains("blame-interpolated")) {
+      const commitClass = [...elt.classList].find(c => c.startsWith("bc-"));
+      interpolatedCommit = parseInt(commitClass.substring(3), 10);
+    }
+
+    // Removals before this line are described by the previous line's strip
+    // (or the first line's `data-rm-above`).
+    const removals = [];
+    const lineElt = elt.closest(".source-line-with-number");
+    const lineno = parseInt(lineElt.id.substring("line-".length), 10);
+    const prevStrip = document.querySelector(`#line-${lineno - 1} .blame-strip`);
+    for (const removal of this.parseRemovals(elt.dataset.rmAbove)) {
+      removals.push({ where: "at the start of the file", ...removal });
+    }
+    for (const removal of this.parseRemovals(prevStrip?.dataset.rmBelow)) {
+      removals.push({ where: "between the previous line and this line", ...removal });
+    }
+    for (const removal of this.parseRemovals(elt.dataset.rmWithin)) {
+      removals.push({ where: "within this line", ...removal });
+    }
+    for (const removal of this.parseRemovals(elt.dataset.rmBelow)) {
+      removals.push({ where: "between this line and the next line", ...removal });
+    }
+
+    const commits = entries.map(e => e.commit).concat(removals.map(r => r.commit));
+    if (interpolatedCommit !== null) {
+      commits.push(interpolatedCommit);
+    }
+    const revs = [...new Set(commits.map(c => BLAME_INFO.commits[c][0]))];
+    const infos = await this.fetchCommitInfos(tree, revs);
+
+    // If the request was too slow, we may no longer want to display blame for
+    // this element, bail.
+    if (this.triggerElement != elt) {
+      return;
+    }
+
+    const commitLinks = (info, rev, path) => {
+      let links = `Show <a href="/${tree}/diff/${rev}/${encodePath(path)}">diff</a>`;
+      if (info.fulldiff) {
+        links += ` or <a href="${encodeURI(info.fulldiff)}">full diff</a>`;
+      }
+      if (info.phab) {
+        let name = "Phabricator revision";
+        const m = info.phab.match(/\/(D[0-9]+)/);
+        if (m) {
+          name += " " + m[1];
+        }
+        links += ` or <a href="${encodeURI(info.phab)}">${name}</a>`;
+      }
+      if (info.pr) {
+        let name = "Pull request";
+        const m = info.pr.match(/\/([0-9]+)/);
+        if (m) {
+          name += " #" + m[1];
+        }
+        links += ` or <a href="${encodeURI(info.pr)}">${name}</a>`;
+      }
+      return links;
+    };
+
+    let content = "";
+    if (!entries.length) {
+      content += `<div class="blame-entry">This line has no tokens (it's blank).`;
+      if (interpolatedCommit !== null) {
+        const rev = BLAME_INFO.commits[interpolatedCommit][0];
+        // See `StripLine::strip_attrs` in `page_blame.rs`.
+        const neighbors = {
+          above: "the line above it, whose tokens were",
+          below: "the line below it, whose tokens were",
+        }[elt.dataset.interp] || "the lines around it, whose tokens were";
+        content += ` It's colored like ${neighbors} last changed in:`;
+        content += `<br>${infos.get(rev).header}`;
+      }
+      content += `</div>`;
+    } else if (entries.length > 1) {
+      content += `<div class="blame-entry">The tokens of this line were last changed in ${entries.length} commits, newest first.</div>`;
+    }
+
+    for (const entry of entries) {
+      const rev = BLAME_INFO.commits[entry.commit][0];
+      const info = infos.get(rev);
+      const path = encodePath(entry.path);
+      content += `<div class="blame-entry">`;
+      content += info.header;
+      content += `<br>${commitLinks(info, rev, entry.path)}`;
+      if (info.parent) {
+        content += `<br><a href="/${tree}/rev/${info.parent}/${path}" class="deemphasize">Show the version before this commit</a>`;
+      }
+      content += `<br><a href="/${tree}/rev/${rev}/${path}#tokens=${entry.tokens}" class="deemphasize">Show earliest version with these tokens</a>`;
+      content += `</div>`;
+    }
+
+    for (const removal of removals) {
+      const rev = BLAME_INFO.commits[removal.commit][0];
+      const info = infos.get(rev);
+      const count = removal.numRemoved == 1 ? "1 token was" : `${removal.numRemoved} tokens were`;
+      content += `<div class="blame-entry blame-removal">`;
+      content += `${count} removed ${removal.where}`;
+      if (removal.numMoved) {
+        content += ` (${removal.numMoved} moved elsewhere)`;
+      }
+      content += ` in:<br>${info.header}`;
+      if (info.parent) {
+        const last = removal.firstToken + removal.numRemoved - 1;
+        const tokens = last > removal.firstToken ? `${removal.firstToken}-${last}` : `${removal.firstToken}`;
+        content += `<br><a href="/${tree}/rev/${info.parent}/${encodePath(removal.path)}#tokens=${tokens}" class="deemphasize">Show the removed tokens</a>`;
+      }
+      content += `</div>`;
+    }
+
+    return content;
+  }
+
   async generateAnnotateContent(elt) {
+    if (elt.dataset.hyperblame !== undefined) {
+      return this.generateTokenBlameContent(elt);
+    }
     const blame = elt.dataset.blame;
     if (!blame) {
       return `<p class="blame-entry">No blame information available for this line.</p>`;
@@ -383,6 +569,63 @@ var BlamePopup = new (class BlamePopup {
     }
     this._expansionIndex = value;
     this.update();
+  }
+})();
+
+/**
+ * Colors the token-centric blame strip according to the
+ * `Settings.blame.colorMode` setting by generating a stylesheet with rules for
+ * each commit's `bc-N`, `sa-N`, `sb-N`, and `sw-N` classes (see
+ * `StripLine::strip_attrs` in `page_blame.rs`).  The colors are CSS variables
+ * defined in `mozsearch.css`.
+ */
+var BlameColorizer = new (class BlameColorizer {
+  constructor() {
+    this.style = null;
+    if (typeof BLAME_INFO !== "undefined") {
+      this.apply(Settings.blame.colorMode);
+    }
+  }
+
+  // The upper bounds of the age buckets, in days.
+  static AGE_BUCKET_DAYS = [7, 30, 91, 365, 730, 1826];
+  static AUTHOR_COLORS = 12;
+
+  colorFor(mode, time, author, now) {
+    if (mode === "age") {
+      const days = (now - time) / 86400;
+      let bucket = BlameColorizer.AGE_BUCKET_DAYS.findIndex(max => days < max);
+      if (bucket === -1) {
+        bucket = BlameColorizer.AGE_BUCKET_DAYS.length;
+      }
+      return `var(--blame-age-${bucket})`;
+    }
+    if (mode === "author") {
+      return `var(--blame-author-${author % BlameColorizer.AUTHOR_COLORS})`;
+    }
+    return null;
+  }
+
+  apply(mode) {
+    const now = Date.now() / 1000;
+    const rules = [];
+    BLAME_INFO.commits.forEach(([_rev, time, author], i) => {
+      const color = this.colorFor(mode, time, author, now);
+      if (color) {
+        rules.push(
+          `.bc-${i} { background-color: ${color}; }`,
+          `.sa-${i} { --sa: ${color}; }`,
+          `.sb-${i} { --sb: ${color}; }`,
+          `.sw-${i} { --sw: ${color}; }`
+        );
+      }
+    });
+    if (!this.style) {
+      this.style = document.createElement("style");
+      document.head.appendChild(this.style);
+    }
+    this.style.textContent = rules.join("\n");
+    document.documentElement.classList.toggle("blame-colorized", rules.length > 0);
   }
 })();
 
