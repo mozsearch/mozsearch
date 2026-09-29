@@ -20,6 +20,11 @@ AWS_ROOT=$(dirname "$(readlink -f "$0")")
 LOG=$(readlink -f ~ubuntu/index-log)
 KEY="$1-$(date -Iminutes)_$2.gz"
 
+# Have resource-monitor.py log its peaks first.
+if pkill -USR1 -f resource-monitor.py; then
+    sleep 1
+fi
+
 # (gzip won't compress a symlink, hence the readlink.)
 gzip -kf "$LOG"
 "$AWS_ROOT/upload.py" "$LOG.gz" indexer-logs "$KEY"

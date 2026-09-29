@@ -16,7 +16,10 @@ class TriggerReblameCommand(TriggerCommandBase):
         parser = super().make_parser()
         # Rebuilds are usually of branches whose tools may not be in the binary
         # cache yet, and a bigger root volume costs little for their duration.
-        parser.set_defaults(root_volume_gb=100)
+        # The history tools can briefly need more memory than an instance
+        # which is otherwise big enough has, so they get more swap (see
+        # mkscratch.sh) on its SSD.  (--setenv SWAP_GIB=N overrides this.)
+        parser.set_defaults(root_volume_gb=100, env_vars=['SWAP_GIB=64'])
         return parser
 
     def script_args_after_branch_and_channel(self, args):

@@ -407,8 +407,17 @@ Instances record their progress in their `status` tag (see
 `infrastructure/aws/set-status.py`), so you can check on a rebuild without
 ssh-ing in with `infrastructure/aws/reblame-status.py`, which also lists the
 recent reblame logs and prints the end of one with `--tail`.  If a run fails,
-the failure email has the end of the log, the whole log is uploaded as
-`failed-*.gz`, and the instance shuts down.
+or is still running after 14 days, the failure email has the end of the log,
+the whole log is uploaded as `failed-*.gz`, and the instance shuts down.
+
+The log is on the instance's SSD (`~/index-log` is a symlink to
+`/index/index-log`), and has a line with the instance's resource usage
+(memory, swap, CPU, and disk) every 5 minutes and at each new peak of memory
+use, and a summary of the peaks when it's uploaded (see
+`infrastructure/aws/resource-monitor.py`), which shows how much headroom an
+instance type had.  Rebuilds get 64 GiB of swap on the SSD rather than 8 (see
+`mkscratch.sh`; `--setenv SWAP_GIB=N` changes it), so that briefly needing
+more memory than the instance has only slows it down.
 
 ## Creating additional development channels
 

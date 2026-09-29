@@ -119,8 +119,10 @@ if [[ $SWAP_STORAGE_DEV && $SWAP_STORAGE_DEV != $INSTANCE_STORAGE_DEV ]]; then
   sudo swapon $SWAP_STORAGE_DEV
 else
   SWAP_FILE=/index/swapfile
-  # 8 GiB swap
-  sudo dd if=/dev/zero of=$SWAP_FILE bs=128M count=64
+  # SWAP_GIB GiB of swap (8 by default), ex: more for reblame (see
+  # trigger_blame_rebuild.py), so that briefly needing more memory than the
+  # instance has only slows it down.
+  sudo fallocate -l "${SWAP_GIB:-8}G" $SWAP_FILE
   sudo chmod 600 $SWAP_FILE
   sudo mkswap $SWAP_FILE
   sudo swapon $SWAP_FILE

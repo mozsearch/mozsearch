@@ -113,6 +113,10 @@ cp ~/index-log /index/index-log
 exec &>> /index/index-log
 ln -sf /index/index-log ~/index-log
 
+# Log resource usage (memory, swap, CPU, disk) as we go, so that we know how
+# much headroom the instance had.
+${AWS_ROOT}/resource-monitor.py &
+
 # Put our tmp directory on the SSD at /index instead of /tmp which is on our EBS
 # root image and which would be both slower and has had problems with filling
 # up (bug 1712578).
