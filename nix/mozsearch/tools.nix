@@ -30,6 +30,12 @@
     sourceRoot = "mozsearch-tools-source/tools";
     cargoToml = ../../tools/Cargo.toml;
     cargoLock = ../../tools/Cargo.lock;
+
+    # The release profile's debug info (for profiling local builds) is
+    # stripped from the installed binaries anyway, and before that, crane's
+    # removal of references to the vendored sources has to sed through it: on
+    # AWS, that took over an hour for the ~3 GB of binaries with debug info.
+    CARGO_PROFILE_RELEASE_DEBUG = "0";
   };
   cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 in
