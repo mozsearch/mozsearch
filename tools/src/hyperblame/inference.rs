@@ -554,6 +554,10 @@ const SENTINEL_SOURCE: TextSource = TextSource {
     block: u32::MAX,
 };
 
+/// Same-block move candidates are only considered in this many positions at
+/// the start of the removed text.
+const SAME_BLOCK_SCAN_LIMIT: usize = 1_000_001;
+
 /// Pass 2: Suffix-array based move inference within a namespace.
 fn infer_big_rock_moves(state: &mut InferenceState, namespace: &str, config: &InferenceConfig) {
     let in_namespace = |file: u32| state.inputs[file as usize].namespace == namespace;
@@ -565,11 +569,15 @@ fn infer_big_rock_moves(state: &mut InferenceState, namespace: &str, config: &In
 
     let mut text: Vec<u32> = vec![];
     let mut sources: Vec<TextSource> = vec![];
+    // The positions in the text of each block's removed tokens, which are
+    // contiguous.
+    let mut block_text: HashMap<u32, (usize, usize)> = HashMap::new();
     for (block_idx, block) in state.blocks.iter().enumerate() {
         if !block.removals_real || block.old_len == 0 || !in_namespace(block.file) {
             continue;
         }
         let file = block.file as usize;
+        let start = text.len();
         for old_idx in block.old_range() {
             let token = state.old_tokens[file][old_idx].token;
             let next_id = id_is_word.len() as u32;
@@ -584,6 +592,7 @@ fn infer_big_rock_moves(state: &mut InferenceState, namespace: &str, config: &In
                 block: block_idx as u32,
             });
         }
+        block_text.insert(block_idx as u32, (start, text.len()));
         text.push(0);
         sources.push(SENTINEL_SOURCE);
     }
@@ -666,15 +675,20 @@ fn infer_big_rock_moves(state: &mut InferenceState, namespace: &str, config: &In
                             }
                         }
                     }
-                    // Same-block candidates.
-                    let mut scanned = 0;
-                    for (p, source) in sources.iter().enumerate() {
-                        if source.block as usize == block_idx && is_usable(p) {
-                            candidates.push(p);
-                        }
-                        scanned += 1;
-                        if scanned > 1_000_000 {
-                            break;
+                    // Same-block candidates, from whichever is smaller: the
+                    // block's positions or the positions which match.  (Only
+                    // within the first SAME_BLOCK_SCAN_LIMIT positions of the
+                    // text, which is how far this used to scan.)
+                    if let Some(&(start, end)) = block_text.get(&(block_idx as u32)) {
+                        let end = end.min(SAME_BLOCK_SCAN_LIMIT);
+                        if end.saturating_sub(start) <= hi - lo {
+                            candidates.extend((start..end).filter(|&p| is_usable(p)));
+                        } else {
+                            candidates.extend(
+                                (lo..hi)
+                                    .map(|r| sa.suffix(r))
+                                    .filter(|&p| p >= start && p < end && is_usable(p)),
+                            );
                         }
                     }
                 }
