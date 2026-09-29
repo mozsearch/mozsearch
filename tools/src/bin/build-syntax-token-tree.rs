@@ -45,7 +45,7 @@ use tools::file_format::history::io_helpers::{
 };
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use tools::file_format::history::syntax_symdex::{SymdexHeader, SymdexRecord};
-use tools::git_ops::fast_import_git;
+use tools::git_ops::{fast_import_git, history_compute_threads};
 use tools::hyperblame::history_config::{
     AttributeRules, AttributeSet, EffectiveAttributes, HistoryConfig, LangSource, ResolvedLanguage,
     parse_repo_gitattributes, resolve_language,
@@ -104,6 +104,11 @@ fn start_fast_import(git_repo: &Repository) -> Child {
         // repacked by maintenance anyway.)
         .arg("-c")
         .arg("core.compression=1")
+        // Blobs over 1k are stored whole rather than as deltas against the
+        // previous blob, which is almost always a different file; see
+        // build-timeline-tree.
+        .arg("-c")
+        .arg("core.bigFileThreshold=1k")
         .arg("fast-import")
         .arg("--force")
         .arg("--quiet")
@@ -1293,6 +1298,10 @@ fn attributes_inherited_by(
 
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    // The syntax repo is ours and git fast-import already hashed what it wrote,
+    // so libgit2 needn't hash every object it reads to check it (see
+    // build-timeline-tree).
+    git2::opts::strict_hash_verification(false);
 
     let cli = Cli::parse();
     let git_repo_path = cli.git_repo_path.clone();
@@ -1539,7 +1548,7 @@ fn main() {
     }
     let rev_count = revs_to_process.len();
 
-    let num_threads: usize = num_cpus::get() - 1; // 1 for the main thread
+    let num_threads = history_compute_threads();
     const COMPUTE_BUFFER_SIZE: usize = 10;
 
     info!("Starting {} compute threads...", num_threads);

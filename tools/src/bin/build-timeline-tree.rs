@@ -99,10 +99,11 @@ use std::env;
 use std::fmt;
 use std::fs;
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Stdio};
-use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use chrono::{SecondsFormat, Utc};
@@ -137,7 +138,7 @@ use tools::file_format::history::timeline_future::{
 use tools::file_format::history::timeline_tokens::{
     TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, token_timeline_path, tracked_token_key,
 };
-use tools::git_ops::{fast_import_git, git_time_to_chrono};
+use tools::git_ops::{fast_import_git, git_time_to_chrono, history_compute_threads};
 use tools::hyperblame::backouts::{BackoutTargetResolver, find_backed_out};
 use tools::hyperblame::consolidation::{Summarize, consolidate_appended, merge_journal_versions};
 use tools::hyperblame::inference::{
@@ -171,6 +172,16 @@ fn start_fast_import(git_repo: &Repository) -> Child {
         // repacked by maintenance anyway.)
         .arg("-c")
         .arg("core.compression=1")
+        // git fast-import tries to delta each blob against the previous blob it
+        // was given, which for us is almost always a different file, so that's
+        // mostly wasted time, and reading the blobs back means resolving the
+        // deltas which do work out.  So blobs over 1k are stored whole (the
+        // option is `core.bigFileThreshold`, since fast-import's
+        // --big-file-threshold is ignored as of git 2.55), and repacking deltas
+        // them: on a firefox window, this made build-timeline-tree 22% faster,
+        // and what it wrote twice as big until it's repacked.
+        .arg("-c")
+        .arg("core.bigFileThreshold=1k")
         .arg("fast-import")
         .arg("--force")
         .arg("--quiet")
@@ -1193,55 +1204,85 @@ fn thread_preprocess_revision(
     })
 }
 
-struct ComputeThread {
-    query_tx: Sender<HistorySyntaxCommitMeta>,
-    response_rx: Receiver<TimelineData>,
+/// The compute threads, which take the revisions to preprocess (by their index
+/// in the revisions to process) from a shared queue, so that a revision which
+/// takes a while (ex: a merge whose parents differ a lot) only delays itself,
+/// rather than the revisions queued behind it on its thread, which is how it
+/// was when each thread had its own queue.  (On a firefox window, the main
+/// thread spent half of its time waiting on such revisions.)  Results arrive in
+/// any order, and `result` returns them in order.
+struct ComputePool {
+    query_tx: Sender<(usize, HistorySyntaxCommitMeta)>,
+    response_rx: Receiver<(usize, TimelineData)>,
+    /// Results which arrived before the ones before them.
+    early: HashMap<usize, TimelineData>,
 }
 
-impl ComputeThread {
+impl ComputePool {
     fn new(
+        num_threads: usize,
         syntax_repo_path: &str,
         source_repo_path: &str,
         backout_resolver: Arc<BackoutTargetResolver>,
     ) -> Self {
         let (query_tx, query_rx) = channel();
+        let query_rx = Arc::new(Mutex::new(query_rx));
         let (response_tx, response_rx) = channel();
-        let syntax_repo_path = syntax_repo_path.to_string();
-        let source_repo_path = source_repo_path.to_string();
-        thread::spawn(move || {
-            compute_thread_main(
-                query_rx,
-                response_tx,
-                syntax_repo_path,
-                source_repo_path,
-                backout_resolver,
-            );
-        });
-
-        ComputeThread {
+        for _ in 0..num_threads {
+            let query_rx = query_rx.clone();
+            let response_tx = response_tx.clone();
+            let syntax_repo_path = syntax_repo_path.to_string();
+            let source_repo_path = source_repo_path.to_string();
+            let backout_resolver = backout_resolver.clone();
+            thread::spawn(move || {
+                compute_thread_main(
+                    query_rx,
+                    response_tx,
+                    syntax_repo_path,
+                    source_repo_path,
+                    backout_resolver,
+                );
+            });
+        }
+        ComputePool {
             query_tx,
             response_rx,
+            early: HashMap::new(),
         }
     }
 
-    fn compute(&self, rev_meta: &HistorySyntaxCommitMeta) {
-        self.query_tx.send(rev_meta.clone()).unwrap();
+    fn compute(&self, index: usize, rev_meta: &HistorySyntaxCommitMeta) {
+        self.query_tx.send((index, rev_meta.clone())).unwrap();
     }
 
-    fn read_result(&self) -> TimelineData {
-        match self.response_rx.try_recv() {
-            Ok(result) => result,
-            Err(_) => {
-                info!("Waiting on compute, work on optimizing that...");
-                self.response_rx.recv().unwrap()
+    /// The result for the revision with the given index.
+    fn result(&mut self, index: usize) -> TimelineData {
+        if let Some(result) = self.early.remove(&index) {
+            return result;
+        }
+        let mut waited = false;
+        loop {
+            let (i, result) = match self.response_rx.try_recv() {
+                Ok(response) => response,
+                Err(_) => {
+                    if !waited {
+                        info!("Waiting on compute, work on optimizing that...");
+                        waited = true;
+                    }
+                    self.response_rx.recv().unwrap()
+                }
+            };
+            if i == index {
+                return result;
             }
+            self.early.insert(i, result);
         }
     }
 }
 
 fn compute_thread_main(
-    query_rx: Receiver<HistorySyntaxCommitMeta>,
-    response_tx: Sender<TimelineData>,
+    query_rx: Arc<Mutex<Receiver<(usize, HistorySyntaxCommitMeta)>>>,
+    response_tx: Sender<(usize, TimelineData)>,
     syntax_repo_path: String,
     source_repo_path: String,
     backout_resolver: Arc<BackoutTargetResolver>,
@@ -1249,16 +1290,24 @@ fn compute_thread_main(
     let syntax_repo = Repository::open(syntax_repo_path).unwrap();
     let source_repo = Repository::open(source_repo_path).unwrap();
     let config = InferenceConfig::default();
-    while let Ok(rev) = query_rx.recv() {
-        let result = thread_preprocess_revision(
-            &syntax_repo,
-            &source_repo,
-            &backout_resolver,
-            &rev,
-            &config,
-        )
-        .unwrap();
-        response_tx.send(result).unwrap();
+    loop {
+        // (The lock is only held while waiting for the next revision.)
+        let Ok((index, rev)) = query_rx.lock().unwrap().recv() else {
+            break;
+        };
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            thread_preprocess_revision(&syntax_repo, &source_repo, &backout_resolver, &rev, &config)
+                .unwrap()
+        }));
+        match result {
+            Ok(result) => response_tx.send((index, result)).unwrap(),
+            // The other threads keep the response channel open, so the main
+            // thread would wait for this result forever.
+            Err(_) => {
+                error!("Preprocessing {} failed", rev.source_rev);
+                std::process::exit(101);
+            }
+        }
     }
 }
 
@@ -2084,6 +2133,10 @@ fn mark_rev_summary_backed_out(rev_summary_root: &Path, backed_out_rev: &str, ba
 
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    // The history repos are ours and git fast-import already hashed what it
+    // wrote, so libgit2 needn't hash every object it reads to check it (the
+    // collision-detecting SHA-1 was over a tenth of the compute threads' time).
+    git2::opts::strict_hash_verification(false);
 
     let args: Vec<_> = env::args().collect();
     if args.len() != 5 {
@@ -2186,18 +2239,16 @@ fn main() {
         use_cinnabar,
     ));
 
-    let num_threads: usize = (num_cpus::get() - 1).max(1); // 1 for the main thread
+    let num_threads = history_compute_threads();
     const COMPUTE_BUFFER_SIZE: usize = 10;
 
     info!("Starting {} compute threads...", num_threads);
-    let mut compute_threads = Vec::with_capacity(num_threads);
-    for _ in 0..num_threads {
-        compute_threads.push(ComputeThread::new(
-            &syntax_repo_path,
-            &source_repo_path,
-            backout_resolver.clone(),
-        ));
-    }
+    let mut compute_pool = ComputePool::new(
+        num_threads,
+        &syntax_repo_path,
+        &source_repo_path,
+        backout_resolver.clone(),
+    );
 
     // This tracks the index of the next revision in revs_to_process for which
     // we want to request a compute. All revs at indices less than this index
@@ -2207,14 +2258,9 @@ fn main() {
     info!("Filling compute buffer...");
     let initial_request_count = rev_count.min(COMPUTE_BUFFER_SIZE * num_threads);
     while compute_index < initial_request_count {
-        let thread = &compute_threads[compute_index % num_threads];
-        thread.compute(&revs_to_process[compute_index]);
+        compute_pool.compute(compute_index, &revs_to_process[compute_index]);
         compute_index += 1;
     }
-
-    // We should have sent an equal number of requests to each thread, except
-    // if we ran out of requests because there were so few.
-    assert!((compute_index % num_threads == 0) || compute_index == rev_count);
 
     let mut import_helper = start_fast_import(&timeline_repo);
     let mut notes = notes_writer(&timeline_repo, &notes_refs);
@@ -2231,18 +2277,13 @@ fn main() {
     let mut rev_done = 0;
 
     for rev_meta in revs_to_process.iter() {
-        // Read a result. Since we hand out compute requests in round-robin order
-        // and each thread processes them in FIFO order we know exactly which
-        // thread is going to give us our result.
-        // We assert to make sure it's the right one.
-        let thread = &compute_threads[rev_done % num_threads];
-        let data = thread.read_result();
+        let data = compute_pool.result(rev_done);
         assert!(data.meta.syntax_rev == rev_meta.syntax_rev);
 
         // If there are more revisions that we haven't requested yet, request
-        // another one from this thread.
+        // another one.
         if compute_index < rev_count {
-            thread.compute(&revs_to_process[compute_index]);
+            compute_pool.compute(compute_index, &revs_to_process[compute_index]);
             compute_index += 1;
         }
 

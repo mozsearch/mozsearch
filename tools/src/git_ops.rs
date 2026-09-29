@@ -23,6 +23,24 @@ pub fn fast_import_git() -> std::process::Command {
     std::process::Command::new(git)
 }
 
+/// The most compute threads the history tools use by default.  More threads
+/// contend in libgit2 (which has process-wide locks, ex: for its pack windows):
+/// on 1500 revisions of a firefox window, build-timeline-tree took 158s with
+/// 15 compute threads, 198s with 31, and 334s with 63 (with a quarter of its
+/// time in the kernel), and about the same with 7 as with 15.
+const MAX_HISTORY_COMPUTE_THREADS: usize = 15;
+
+/// How many compute threads the history tools use: COMPUTE_THREADS if set, or
+/// one fewer than the CPUs (leaving one for the main thread), up to
+/// `MAX_HISTORY_COMPUTE_THREADS`.
+pub fn history_compute_threads() -> usize {
+    std::env::var("COMPUTE_THREADS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or_else(|| (num_cpus::get() - 1).min(MAX_HISTORY_COMPUTE_THREADS))
+        .max(1)
+}
+
 // Helpers to do things with git2
 
 fn latin1_to_string(bytes: Vec<u8>) -> String {
