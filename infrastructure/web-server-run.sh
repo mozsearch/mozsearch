@@ -31,6 +31,11 @@ pkill -x codesearch || true
 pkill -x .router-wrapped || true
 pkill -x web-server || true
 pkill -x pipeline-server || true
+# The nix package wraps pipeline-server (see nix/mozsearch/tools.nix), so its
+# process is named .pipeline-server-wrapped, which pkill sees as the first 15
+# characters.  (Otherwise the old one keeps its port and the new one keeps
+# failing to start.)
+pkill -x .pipeline-serve || true
 
 sleep 0.1s
 

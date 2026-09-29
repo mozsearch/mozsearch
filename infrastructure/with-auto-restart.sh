@@ -42,6 +42,10 @@ while true; do
         $MOZSEARCH_PATH/infrastructure/aws/send-server-failure-email.py $CHANNEL $SERVER_NAME $DEST_EMAIL $ERROR_LOG_FILE
     fi
 
-    echo "!!!! RETRYING ($ITER) !!!!" 1>&2
+    # Back off (up to a minute) so that a server which can't start (ex: its
+    # port is taken) doesn't restart as fast as it can forever.
+    DELAY=$(( ITER < 60 ? ITER : 60 ))
+    echo "!!!! RETRYING ($ITER) in ${DELAY}s !!!!" 1>&2
+    sleep $DELAY
     ITER=$(($ITER + 1))
 done
