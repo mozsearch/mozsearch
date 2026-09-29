@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build or update the token-centric history ("hyperblame", bug 1517978) of a
 source repo: run build-syntax-token-tree and build-timeline-tree in chunks of
-revisions, repacking the history repos after each chunk.
+revisions, keeping the history repos fast to read as they go.
 
 The timeline runs alongside the syntax (unless --no-pipeline is passed): after
 each syntax chunk, the timeline processes the revisions the syntax has
@@ -14,11 +14,15 @@ at the cost of both tools' memory at once.
 Each run of a tool leaves a pack in its repo, and build-timeline-tree also
 leaves a pack per merge (it has git fast-import checkpoint so that it can read
 the merge's parents from disk), so a single run over a long history (ex: all
-of firefox-main, which has 28k merges) would leave tens of thousands of packs,
-which makes reading the repo slow.  Chunking also bounds how much state each
-git fast-import process accumulates (ex: its table of every file name it has
-seen, which makes loading trees slower as it grows).  The tools resume from
-their source mapping notes, so a chunk is just a run with COMMIT_LIMIT.
+of firefox-main, which has 28k merges) would leave tens of thousands of packs:
+looking up an object means looking in each pack (on a firefox window, ~900
+packs made the timeline 9% slower than one), and each pack is an open file
+while it's being read.  So after each chunk, the repo is repacked in the
+background while the next chunk runs (see `PackMaintenance`).  Chunking also
+bounds how much state each git fast-import process accumulates (ex: its table
+of every file name it has seen, which makes loading trees slower as it grows).
+The tools resume from their source mapping notes, so a chunk is just a run
+with COMMIT_LIMIT.
 
 HISTORY_ROOT must contain the syntax/ and timeline/ repos, whose branch is
 BLAME_REF (as for the tools; HEAD if unset), and rev-summaries/.  Arguments
@@ -32,6 +36,7 @@ import argparse
 import collections
 import os
 import re
+import resource
 import shlex
 import subprocess
 import sys
@@ -75,11 +80,68 @@ def num_processed(repo, blame_ref):
     return len(notes.splitlines()) if notes else 0
 
 
-def repack(repo):
-    # Geometric repacking combines the small packs that runs add without
-    # rewriting the big ones every time, keeping the number of packs
-    # logarithmic in the number of objects.
-    subprocess.run(["git", "-C", repo, "repack", "-d", "-q", "--geometric=2"], check=True)
+# The threads a background repack's delta search uses, leaving most of the
+# CPUs to the tools.
+REPACK_THREADS = 8
+
+
+class PackMaintenance:
+    """Repacks a history repo in the background after each chunk (see the module
+    docs), unless its last repack is still running.  Repacking between chunks
+    took 17-68% of each tool's time in the full firefox reblame on AWS, mostly
+    single-threaded, even though on a firefox window it didn't make the tools
+    any faster: it combined the packs and made them smaller (2.5x for the
+    timeline, 15% for the syntax, since the tools have git fast-import store
+    blobs whole), which matters for the full history's disk space.
+
+    git and libgit2 cope with a repack deleting packs while they read the
+    repo: the new pack is written first, and an object not found in the packs
+    they know about makes them look for new packs.  (Not with a
+    multi-pack-index, though, which would make even thousands of packs as fast
+    as one: libgit2 then takes an object's pack from it, and fails to read the
+    object if the pack was deleted before it opened it.  So we don't write
+    one.)"""
+
+    def __init__(self, repo):
+        self.repo = repo
+        # The running `git repack`, if any.
+        self.repacking = None
+
+    def _repack_finished(self, wait=False):
+        """Whether no `git repack` is running (after waiting for it to finish
+        if `wait`)."""
+        if self.repacking is None:
+            return True
+        returncode = self.repacking.wait() if wait else self.repacking.poll()
+        if returncode is None:
+            return False
+        self.repacking = None
+        if returncode != 0:
+            raise subprocess.CalledProcessError(returncode, f"git -C {self.repo} repack")
+        return True
+
+    def after_chunk(self):
+        if not self._repack_finished():
+            log(f"not repacking {self.repo}, since its last repack is still running")
+            return
+        # Geometric repacking combines the small packs without rewriting the
+        # big ones every time, keeping the number of packs logarithmic in the
+        # number of objects.
+        self.repacking = subprocess.Popen(
+            [
+                "git",
+                "-C",
+                self.repo,
+                "repack",
+                "-d",
+                "-q",
+                "--geometric=2",
+                f"--threads={REPACK_THREADS}",
+            ]
+        )
+
+    def finish(self):
+        self._repack_finished(wait=True)
 
 
 def format_duration(seconds):
@@ -243,8 +305,8 @@ def run_tool(command, limit, progress):
 
 
 class ChunkedTool:
-    """Runs a tool with COMMIT_LIMIT in chunks, repacking `repo` after each
-    run, and reports its progress."""
+    """Runs a tool with COMMIT_LIMIT in chunks, maintaining `repo`'s packs
+    after each run, and reports its progress."""
 
     def __init__(self, name, label, command, repo, ref, chunk_size, total_limit, status):
         self.name = name
@@ -257,6 +319,7 @@ class ChunkedTool:
         self.total_limit = total_limit
         self.status = status
         self.progress = Progress(label, status)
+        self.packs = PackMaintenance(repo)
         self.processed = 0
         self.chunks = 0
 
@@ -279,8 +342,8 @@ class ChunkedTool:
             self.progress.chunk_started(self.processed)
             run_tool(self.command, limit, self.progress)
             after = num_processed(self.repo, self.ref)
-            log(f"{self.name} processed {after - before} revisions; repacking {self.repo}")
-            repack(self.repo)
+            log(f"{self.name} processed {after - before} revisions")
+            self.packs.after_chunk()
             self.processed += after - before
             self.progress.chunk_started(self.processed)
             self.progress.report(force=True)
@@ -293,6 +356,7 @@ class ChunkedTool:
             before = after
 
     def finish(self):
+        self.packs.finish()
         self.status.report(
             f"{self.label}: processed {self.processed} revisions in {self.chunks} chunks in "
             f"{format_duration(time.monotonic() - self.progress.start)}",
@@ -406,6 +470,14 @@ def main():
     args = parser.parse_args()
     if args.chunk_size <= 0:
         parser.error("--chunk-size must be positive")
+
+    # Each pack a tool reads is an open file, and the timeline's packs of a
+    # chunk (one per merge) and of the chunks since the last repack finished
+    # could be more than the usual soft limit of 1024.
+    soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+    wanted = hard if hard != resource.RLIM_INFINITY else 1 << 20
+    if soft != resource.RLIM_INFINITY and soft < wanted:
+        resource.setrlimit(resource.RLIMIT_NOFILE, (wanted, hard))
 
     def tool(name):
         return os.path.join(args.tools_dir, name) if args.tools_dir else name
