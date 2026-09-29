@@ -28,7 +28,7 @@
 //! Detail records for revisions a summary covers are dropped.  So a source
 //! revision only ever appears in one record of a journal.
 
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use chrono::{DateTime, Datelike, Duration, NaiveDate, Weekday};
 use serde::Serialize;
@@ -190,43 +190,73 @@ pub fn merge_journal_versions<R: Summarize>(
     versions: Vec<(JournalVersionRef, Vec<R>)>,
     load: &mut impl FnMut(&JournalVersionRef) -> Result<Vec<R>, String>,
 ) -> Result<Vec<R>, String> {
-    // ## Distinct summaries, with the versions they came from.
-    let mut summaries: Vec<(R, BTreeSet<String>, BTreeSet<usize>)> = vec![];
-    for (idx, (_, records)) in versions.iter().enumerate() {
-        for record in records {
-            let Some(summary) = record.summary_ref() else {
-                continue;
-            };
-            let revs: BTreeSet<String> = summary.source_revs.iter().cloned().collect();
-            match summaries.iter_mut().find(|(_, other, _)| *other == revs) {
-                Some((_, _, sources)) => {
-                    sources.insert(idx);
+    // ## Distinct summaries, with the versions they came from, in the order
+    // they're first found.  (Journals get a summary per week, so after years of
+    // history, comparing each summary with every other one made firefox's
+    // merges take close to a minute each.)
+    let mut summaries: Vec<(R, BTreeSet<usize>)> = vec![];
+    {
+        let mut by_revs: HashMap<Vec<&str>, usize> = HashMap::new();
+        for (idx, (_, records)) in versions.iter().enumerate() {
+            for record in records {
+                let Some(summary) = record.summary_ref() else {
+                    continue;
+                };
+                let mut revs: Vec<&str> = summary.source_revs.iter().map(String::as_str).collect();
+                revs.sort_unstable();
+                revs.dedup();
+                match by_revs.get(&revs) {
+                    Some(&existing) => {
+                        summaries[existing].1.insert(idx);
+                    }
+                    None => {
+                        by_revs.insert(revs, summaries.len());
+                        summaries.push((record.clone(), BTreeSet::from([idx])));
+                    }
                 }
-                None => summaries.push((record.clone(), revs, BTreeSet::from([idx]))),
             }
         }
     }
 
     // ## Overlapping summaries (necessarily of the same week, since each
-    // revision has one date) get summarized again.
-    let mut groups: Vec<Vec<usize>> = vec![];
-    for idx in 0..summaries.len() {
-        let overlapping: Vec<usize> = groups
-            .iter()
-            .enumerate()
-            .filter(|(_, group)| {
-                group
-                    .iter()
-                    .any(|other| !summaries[*other].1.is_disjoint(&summaries[idx].1))
-            })
-            .map(|(group_idx, _)| group_idx)
-            .collect();
-        let mut merged = vec![idx];
-        for group_idx in overlapping.into_iter().rev() {
-            merged.extend(groups.remove(group_idx));
+    // revision has one date) get summarized again.  They're the groups of
+    // summaries connected by sharing source revisions, ordered by their last
+    // summary (which is the order in which they're added below, and so the
+    // order of a week's summaries, which sort the same).
+    let mut parents: Vec<usize> = (0..summaries.len()).collect();
+    fn root(parents: &mut [usize], mut idx: usize) -> usize {
+        while parents[idx] != idx {
+            parents[idx] = parents[parents[idx]];
+            idx = parents[idx];
         }
-        groups.push(merged);
+        idx
     }
+    {
+        let mut first_with_rev: HashMap<&str, usize> = HashMap::new();
+        for (idx, (record, _)) in summaries.iter().enumerate() {
+            for rev in &record.summary_ref().unwrap().source_revs {
+                match first_with_rev.get(rev.as_str()) {
+                    Some(&other) => {
+                        let (a, b) = (root(&mut parents, other), root(&mut parents, idx));
+                        if a != b {
+                            parents[a] = b;
+                        }
+                    }
+                    None => {
+                        first_with_rev.insert(rev.as_str(), idx);
+                    }
+                }
+            }
+        }
+    }
+    let mut groups_by_root: HashMap<usize, Vec<usize>> = HashMap::new();
+    for idx in 0..summaries.len() {
+        let group_root = root(&mut parents, idx);
+        groups_by_root.entry(group_root).or_default().push(idx);
+    }
+    let mut groups: Vec<Vec<usize>> = groups_by_root.into_values().collect();
+    groups.sort_by_key(|group| *group.last().unwrap());
+
     let mut final_summaries = vec![];
     for group in groups {
         if let [only] = group[..] {
@@ -238,7 +268,7 @@ pub fn merge_journal_versions<R: Summarize>(
         let details = expand_records(group_records, load)?;
         let sources: BTreeSet<usize> = group
             .iter()
-            .flat_map(|idx| summaries[*idx].2.iter().copied())
+            .flat_map(|idx| summaries[*idx].1.iter().copied())
             .collect();
         let preds = sources.iter().map(|idx| versions[*idx].0.clone()).collect();
         final_summaries.push(summarize(&details, preds, week));
@@ -518,6 +548,172 @@ mod tests {
             panic!();
         };
         assert_eq!(summary.desc.preds, vec![version("q")]);
+    }
+
+    /// `merge_journal_versions` as it was before it was linear, to check that
+    /// it gives the same results.
+    fn merge_journal_versions_reference<R: Summarize>(
+        versions: Vec<(JournalVersionRef, Vec<R>)>,
+        load: &mut impl FnMut(&JournalVersionRef) -> Result<Vec<R>, String>,
+    ) -> Result<Vec<R>, String> {
+        // ## Distinct summaries, with the versions they came from.
+        let mut summaries: Vec<(R, BTreeSet<String>, BTreeSet<usize>)> = vec![];
+        for (idx, (_, records)) in versions.iter().enumerate() {
+            for record in records {
+                let Some(summary) = record.summary_ref() else {
+                    continue;
+                };
+                let revs: BTreeSet<String> = summary.source_revs.iter().cloned().collect();
+                match summaries.iter_mut().find(|(_, other, _)| *other == revs) {
+                    Some((_, _, sources)) => {
+                        sources.insert(idx);
+                    }
+                    None => summaries.push((record.clone(), revs, BTreeSet::from([idx]))),
+                }
+            }
+        }
+
+        // ## Overlapping summaries (necessarily of the same week, since each
+        // revision has one date) get summarized again.
+        let mut groups: Vec<Vec<usize>> = vec![];
+        for idx in 0..summaries.len() {
+            let overlapping: Vec<usize> = groups
+                .iter()
+                .enumerate()
+                .filter(|(_, group)| {
+                    group
+                        .iter()
+                        .any(|other| !summaries[*other].1.is_disjoint(&summaries[idx].1))
+                })
+                .map(|(group_idx, _)| group_idx)
+                .collect();
+            let mut merged = vec![idx];
+            for group_idx in overlapping.into_iter().rev() {
+                merged.extend(groups.remove(group_idx));
+            }
+            groups.push(merged);
+        }
+        let mut final_summaries = vec![];
+        for group in groups {
+            if let [only] = group[..] {
+                final_summaries.push(summaries[only].0.clone());
+                continue;
+            }
+            let week = record_week(&summaries[group[0]].0).unwrap();
+            let group_records: Vec<R> = group.iter().map(|idx| summaries[*idx].0.clone()).collect();
+            let details = expand_records(group_records, load)?;
+            let sources: BTreeSet<usize> = group
+                .iter()
+                .flat_map(|idx| summaries[*idx].2.iter().copied())
+                .collect();
+            let preds = sources.iter().map(|idx| versions[*idx].0.clone()).collect();
+            final_summaries.push(summarize(&details, preds, week));
+        }
+
+        // ## Details which no summary covers.
+        let covered: HashSet<String> = final_summaries
+            .iter()
+            .flat_map(|summary| summary.summary_ref().unwrap().source_revs.iter().cloned())
+            .collect();
+        let mut seen = HashSet::new();
+        let mut merged: Vec<R> = vec![];
+        for (_, records) in versions {
+            for record in records {
+                if let Some(rev) = record.detail_source_rev()
+                    && !covered.contains(rev)
+                    && seen.insert(rev.to_string())
+                {
+                    merged.push(record);
+                }
+            }
+        }
+        merged.extend(final_summaries);
+        // (`sort_by` is stable.)
+        merged.sort_by_key(|record| std::cmp::Reverse(sort_key(record)));
+        Ok(merged)
+    }
+
+    #[test]
+    fn test_merge_journal_versions_like_reference() {
+        // A little xorshift, for reproducible random journals.
+        let mut state = 0x2545_f491_4f6c_dd1du64;
+        let mut next = move |n: usize| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state % n as u64) as usize
+        };
+        let (mut resummarized, mut weeks_with_several) = (0, 0);
+        for case in 0..500 {
+            // Revisions in 3 weeks of 2024, each with a date in its week.
+            let revs: Vec<TokenDeltaRecord> = (0..12)
+                .map(|i| {
+                    let week = i % 3;
+                    let date = format!("2024-01-{:02}T00:00:{:02}Z", 1 + 7 * week + i % 5, i);
+                    detail(&format!("r{}", i), &date, 1 << (i % 10))
+                })
+                .collect();
+            let mut preds = vec![];
+            let mut versions = vec![];
+            for v in 0..(2 + next(2)) {
+                let mut records = vec![];
+                for week in 0..3u32 {
+                    let in_week: Vec<&TokenDeltaRecord> =
+                        revs.iter().skip(week as usize).step_by(3).collect();
+                    match next(4) {
+                        // Some of the week's details.
+                        0 | 1 => records.extend(
+                            in_week
+                                .iter()
+                                .filter(|_| next(2) == 0)
+                                .map(|r| (*r).clone()),
+                        ),
+                        // One or two summaries of subsets (sometimes
+                        // overlapping, sometimes the same as another
+                        // version's), with their pred.
+                        _ => {
+                            for _ in 0..(1 + next(2)) {
+                                let subset: Vec<TokenDeltaRecord> = in_week
+                                    .iter()
+                                    .filter(|_| next(3) != 0)
+                                    .map(|r| (*r).clone())
+                                    .collect();
+                                if subset.is_empty() {
+                                    continue;
+                                }
+                                let pred = version(&format!("pred-{}-{}", case, preds.len()));
+                                preds.push((pred.clone(), subset.clone()));
+                                records.push(summarize(&subset, vec![pred], (2024, week + 1)));
+                            }
+                        }
+                    }
+                }
+                records.sort_by_key(|record| std::cmp::Reverse(sort_key(record)));
+                versions.push((version(&format!("v{}-{}", case, v)), records));
+            }
+            let mut load = loader(preds);
+            let expected = merge_journal_versions_reference(versions.clone(), &mut load).unwrap();
+            let actual = merge_journal_versions(versions, &mut load).unwrap();
+            assert_eq!(
+                serde_json::to_string(&actual).unwrap(),
+                serde_json::to_string(&expected).unwrap(),
+                "case {}",
+                case
+            );
+            let mut summaries_by_week: BTreeMap<u8, usize> = BTreeMap::new();
+            for record in &actual {
+                if let Some(summary) = record.summary_ref() {
+                    resummarized += (summary.preds.len() > 1) as usize;
+                    *summaries_by_week
+                        .entry(summary.iso_week_range.1)
+                        .or_default() += 1;
+                }
+            }
+            weeks_with_several += summaries_by_week.values().filter(|&&n| n > 1).count();
+        }
+        // The cases include overlapping summaries, which get summarized
+        // again, and weeks with several summaries, whose order matters.
+        assert!(resummarized > 0 && weeks_with_several > 0);
     }
 
     #[test]
