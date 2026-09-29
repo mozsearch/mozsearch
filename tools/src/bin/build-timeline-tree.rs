@@ -102,6 +102,7 @@ use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Stdio};
+use std::rc::Rc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -154,11 +155,140 @@ use tools::source_mapping::{
 };
 use tools::tree_sitter_support::cst_tokenizer::namespace_for_file;
 
+/// git-fast-import writing the timeline repo, and what we know of the tree of
+/// the commit we're writing through it.
+struct FastImport {
+    child: Child,
+    cache: TreeCache,
+}
+
+/// The contents of paths in the first parent of the commit being written, from
+/// what we wrote to them and read from them, carried over from each commit to
+/// its child when that's the next commit we write, as it almost always is.  So
+/// a revision rarely needs to read its parent's annotated files and journals
+/// back through git fast-import, which answers each request only after it has
+/// processed everything we sent before it, making us and it take turns: when
+/// building 2 years of firefox history, the main thread spent 80% of its time
+/// waiting on it, and it spent over 40% of its time on our reads.
+///
+/// All changes to the commit being written must go through `write_inline_blob`,
+/// `write_existing_blob` and `delete_path`, which record them in `pending`.
+#[derive(Default)]
+struct TreeCache {
+    /// The first parent of the commit being written, which `entries` describe.
+    parent: Option<TimelineRepoCommit>,
+    entries: HashMap<PathBuf, CachedPath>,
+    /// The total size of the blobs in `entries`.
+    bytes: usize,
+    /// The paths the commit being written has changed, with their new contents
+    /// if we know them.
+    pending: HashMap<PathBuf, Option<CachedPath>>,
+    hits: usize,
+    misses: usize,
+    clears: usize,
+}
+
+#[derive(Clone)]
+enum CachedPath {
+    Blob(Rc<[u8]>),
+    Missing,
+}
+
+/// How much blob data `TreeCache` holds before we clear it (which is simpler
+/// than tracking use, and it quickly fills with the hot paths again).
+const TREE_CACHE_MAX_BYTES: usize = 8 << 30;
+
+impl TreeCache {
+    /// Start writing a commit whose first parent is `parent`.
+    fn begin(&mut self, parent: Option<&TimelineRepoCommit>) {
+        assert!(self.pending.is_empty());
+        if self.parent.as_ref() != parent || parent.is_none() {
+            self.entries.clear();
+            self.bytes = 0;
+        }
+        self.parent = parent.copied();
+    }
+
+    /// Finish writing the commit with mark `mark`, which becomes the parent the
+    /// entries describe.
+    fn end(&mut self, mark: usize) {
+        for (path, change) in self.pending.drain() {
+            let old = match change {
+                Some(contents) => {
+                    if let CachedPath::Blob(blob) = &contents {
+                        self.bytes += blob.len();
+                    }
+                    self.entries.insert(path, contents)
+                }
+                None => self.entries.remove(&path),
+            };
+            if let Some(CachedPath::Blob(blob)) = old {
+                self.bytes -= blob.len();
+            }
+        }
+        self.parent = Some(TimelineRepoCommit::Mark(mark));
+        if self.bytes > TREE_CACHE_MAX_BYTES {
+            self.entries.clear();
+            self.bytes = 0;
+            self.clears += 1;
+        }
+    }
+
+    /// Whether a read from `from` sees the entries (as opposed to a change the
+    /// commit being written made, or another commit).
+    fn reads_parent(&self, from: ReadFrom, path: &Path) -> bool {
+        match from {
+            ReadFrom::Active => !self.pending.contains_key(path),
+            ReadFrom::Commit(commit) => self.parent.as_ref() == Some(commit),
+        }
+    }
+
+    /// The contents of `path` read from `from`, if we know them: `Some(None)`
+    /// means the path doesn't exist.
+    fn get(&mut self, from: ReadFrom, path: &Path) -> Option<Option<Rc<[u8]>>> {
+        let found = match from {
+            ReadFrom::Active => match self.pending.get(path) {
+                Some(change) => change.as_ref(),
+                None => self.entries.get(path),
+            },
+            ReadFrom::Commit(_) if self.reads_parent(from, path) => self.entries.get(path),
+            ReadFrom::Commit(_) => None,
+        };
+        let found = found.map(|contents| match contents {
+            CachedPath::Blob(blob) => Some(blob.clone()),
+            CachedPath::Missing => None,
+        });
+        if found.is_some() {
+            self.hits += 1;
+        } else {
+            self.misses += 1;
+        }
+        found
+    }
+
+    /// Record the contents of `path` read from `from` through git fast-import.
+    fn note_read(&mut self, from: ReadFrom, path: &Path, blob: Option<&Rc<[u8]>>) {
+        if !self.reads_parent(from, path) {
+            return;
+        }
+        let contents = match blob {
+            Some(blob) => {
+                self.bytes += blob.len();
+                CachedPath::Blob(blob.clone())
+            }
+            None => CachedPath::Missing,
+        };
+        if let Some(CachedPath::Blob(old)) = self.entries.insert(path.to_path_buf(), contents) {
+            self.bytes -= old.len();
+        }
+    }
+}
+
 /// Starts the git-fast-import subcommand, to which data
 /// is fed for adding to the blame repo. Refer to
 /// https://git-scm.com/docs/git-fast-import for detailed
 /// documentation on git-fast-import.
-fn start_fast_import(git_repo: &Repository) -> Child {
+fn start_fast_import(git_repo: &Repository) -> FastImport {
     // Note that we use the `--force` flag here, because there
     // are cases where the blame repo branch we're building was
     // initialized from some other branch (e.g. gecko-dev beta
@@ -168,7 +298,7 @@ fn start_fast_import(git_repo: &Repository) -> Child {
     // (for beta) the new branch head (beta) is not going to be a
     // a descendant of the original (master), and we need `--force`
     // to make git-fast-import allow that.
-    fast_import_git()
+    let child = fast_import_git()
         // We rewrite big files (ex: journals) a lot, and the fastest zlib level
         // saves time without making much difference in size.  (The packs get
         // repacked by maintenance anyway.)
@@ -191,7 +321,11 @@ fn start_fast_import(git_repo: &Repository) -> Child {
         .stdout(Stdio::piped())
         .current_dir(git_repo.path())
         .spawn()
-        .unwrap()
+        .unwrap();
+    FastImport {
+        child,
+        cache: TreeCache::default(),
+    }
 }
 
 /// When writing to a git-fast-import stream, we can insert temporary
@@ -201,7 +335,7 @@ fn start_fast_import(git_repo: &Repository) -> Child {
 /// can refer to a specific commit that is either pre-existing in the
 /// blame repo (and for which we have an oid) or that was written
 /// earlier in the stream (and has a mark).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum TimelineRepoCommit {
     Commit(git2::Oid),
     Mark(usize),
@@ -292,7 +426,11 @@ fn read_path_oid(import_helper: &mut Child, from: ReadFrom, path: &Path) -> Opti
         ReadFrom::Commit(commit) => writeln!(stdin, "ls {} {}", commit, sanitize(path)),
     }
     .unwrap();
-    let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
+    read_ls_response(&mut BufReader::new(import_helper.stdout.as_mut().unwrap()))
+}
+
+/// Read git fast-import's answer to an `ls`.
+fn read_ls_response(reader: &mut impl BufRead) -> Option<String> {
     let mut result = String::new();
     reader.read_line(&mut result).unwrap();
     // result will be of format
@@ -315,7 +453,11 @@ fn read_path_oid(import_helper: &mut Child, from: ReadFrom, path: &Path) -> Opti
 /// https://git-scm.com/docs/git-fast-import#_cat_blob
 fn read_blob(import_helper: &mut Child, oid: &str) -> Vec<u8> {
     writeln!(import_helper.stdin.as_mut().unwrap(), "cat-blob {}", oid).unwrap();
-    let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
+    read_cat_blob_response(&mut BufReader::new(import_helper.stdout.as_mut().unwrap()))
+}
+
+/// Read git fast-import's answer to a `cat-blob`.
+fn read_cat_blob_response(reader: &mut impl BufRead) -> Vec<u8> {
     let mut description = String::new();
     reader.read_line(&mut description).unwrap();
     // description will be of the format:
@@ -340,9 +482,82 @@ fn read_blob(import_helper: &mut Child, oid: &str) -> Vec<u8> {
 
 /// Return the contents of the object at the given path in the
 /// given commit. Returns None if there is no such object.
-fn read_path_blob(import_helper: &mut Child, from: ReadFrom, path: &Path) -> Option<Vec<u8>> {
-    let oid = read_path_oid(import_helper, from, path)?;
-    Some(read_blob(import_helper, &oid))
+fn read_path_blob(import_helper: &mut FastImport, from: ReadFrom, path: &Path) -> Option<Rc<[u8]>> {
+    if let Some(found) = import_helper.cache.get(from, path) {
+        return found;
+    }
+    let blob = read_path_oid(&mut import_helper.child, from, path)
+        .map(|oid| Rc::from(read_blob(&mut import_helper.child, &oid)));
+    import_helper.cache.note_read(from, path, blob.as_ref());
+    blob
+}
+
+/// Read the first parent's version of each of `paths` that the cache doesn't
+/// have, asking git fast-import about many at once, so that we wait for it to
+/// catch up once per batch rather than once per path (see `TreeCache`).  This
+/// must be done before the commit being written changes anything.
+fn prefetch_parent_paths(import_helper: &mut FastImport, paths: Vec<PathBuf>) {
+    // The requests in a batch are few enough to fit in the pipe to git
+    // fast-import, so we don't block writing them while it blocks writing the
+    // answers we haven't started reading yet.
+    const MAX_BATCH_PATHS: usize = 64;
+    const MAX_BATCH_BYTES: usize = 16 * 1024;
+
+    assert!(import_helper.cache.pending.is_empty());
+    let mut missing: Vec<PathBuf> = paths
+        .into_iter()
+        .filter(|path| !import_helper.cache.entries.contains_key(path))
+        .collect();
+    missing.sort();
+    missing.dedup();
+    let mut rest = &missing[..];
+    while !rest.is_empty() {
+        let mut len = 0;
+        let mut bytes = 0;
+        while len < rest.len() && len < MAX_BATCH_PATHS && bytes < MAX_BATCH_BYTES {
+            bytes += rest[len].as_os_str().len();
+            len += 1;
+        }
+        let (batch, remaining) = rest.split_at(len);
+        rest = remaining;
+
+        // (git fast-import answers only what we ask, so the readers never read
+        // past the answers to a batch.)
+        let child = &mut import_helper.child;
+        let requests: String = batch
+            .iter()
+            .map(|path| format!("ls {}\n", quote_path(path)))
+            .collect();
+        let stdin = child.stdin.as_mut().unwrap();
+        stdin.write_all(requests.as_bytes()).unwrap();
+        stdin.flush().unwrap();
+        let mut reader = BufReader::new(child.stdout.as_mut().unwrap());
+        let oids: Vec<Option<String>> = batch
+            .iter()
+            .map(|_| read_ls_response(&mut reader))
+            .collect();
+        let requests: String = oids
+            .iter()
+            .flatten()
+            .map(|oid| format!("cat-blob {}\n", oid))
+            .collect();
+        let stdin = child.stdin.as_mut().unwrap();
+        stdin.write_all(requests.as_bytes()).unwrap();
+        stdin.flush().unwrap();
+        let mut reader = BufReader::new(child.stdout.as_mut().unwrap());
+        let blobs: Vec<Option<Rc<[u8]>>> = oids
+            .iter()
+            .map(|oid| {
+                oid.as_ref()
+                    .map(|_| Rc::from(read_cat_blob_response(&mut reader)))
+            })
+            .collect();
+        for (path, blob) in batch.iter().zip(blobs) {
+            import_helper
+                .cache
+                .note_read(ReadFrom::Active, path, blob.as_ref());
+        }
+    }
 }
 
 /// Retrieve the commit oid for a mark via the `get-mark` command.  The commit
@@ -355,35 +570,44 @@ fn read_mark_oid(import_helper: &mut Child, mark: usize) -> String {
     result.trim().to_string()
 }
 
-fn write_inline_blob(import_helper: &mut Child, path: &Path, contents: &[u8]) {
+fn write_inline_blob(import_helper: &mut FastImport, path: &Path, contents: &[u8]) {
     // For the inline data format documentation, refer to
     // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Inlinedataformat
     // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Exactbytecountformat
-    let import_stream = import_helper.stdin.as_mut().unwrap();
+    let import_stream = import_helper.child.stdin.as_mut().unwrap();
     writeln!(import_stream, "M 100644 inline {}", sanitize(path)).unwrap();
     writeln!(import_stream, "data {}", contents.len()).unwrap();
     import_stream.write_all(contents).unwrap();
     // We skip the optional trailing LF character here since in practice it
     // wasn't particularly useful for debugging.
+    import_helper.cache.pending.insert(
+        path.to_path_buf(),
+        Some(CachedPath::Blob(Rc::from(contents))),
+    );
 }
 
-fn write_existing_blob(import_helper: &mut Child, path: &Path, oid: &str) {
+fn write_existing_blob(import_helper: &mut FastImport, path: &Path, oid: &str) {
     writeln!(
-        import_helper.stdin.as_mut().unwrap(),
+        import_helper.child.stdin.as_mut().unwrap(),
         "M 100644 {} {}",
         oid,
         sanitize(path)
     )
     .unwrap();
+    import_helper.cache.pending.insert(path.to_path_buf(), None);
 }
 
-fn delete_path(import_helper: &mut Child, path: &Path) {
+fn delete_path(import_helper: &mut FastImport, path: &Path) {
     writeln!(
-        import_helper.stdin.as_mut().unwrap(),
+        import_helper.child.stdin.as_mut().unwrap(),
         "D {}",
         sanitize(path)
     )
     .unwrap();
+    import_helper
+        .cache
+        .pending
+        .insert(path.to_path_buf(), Some(CachedPath::Missing));
 }
 
 /// Sanitizes a path into a format that git-fast-import wants.
@@ -1330,7 +1554,7 @@ fn join_annotated(lines: Vec<String>) -> String {
 }
 
 fn read_journal<H: DeserializeOwned + Default, R: DeserializeOwned>(
-    import_helper: &mut Child,
+    import_helper: &mut FastImport,
     from: ReadFrom,
     path: &Path,
 ) -> (H, Vec<R>) {
@@ -1342,7 +1566,7 @@ fn read_journal<H: DeserializeOwned + Default, R: DeserializeOwned>(
 /// Load the records of a journal version through git fast-import, which (unlike
 /// the repo on disk) has the commits written earlier in this run.
 fn load_journal_version<H: DeserializeOwned + Default, R: DeserializeOwned>(
-    import_helper: &mut Child,
+    import_helper: &mut FastImport,
     version: &JournalVersionRef,
 ) -> Result<Vec<R>, String> {
     let oid = Oid::from_str(&version.timeline_rev).map_err(|e| e.to_string())?;
@@ -1368,7 +1592,7 @@ struct Consolidation<'a> {
 /// we can't read the parent's version of from it.  Returns the number of
 /// summary records written.
 fn prepend_journal_record<H: DeserializeOwned + Default + Serialize, R: Summarize>(
-    import_helper: &mut Child,
+    import_helper: &mut FastImport,
     parent: Option<&TimelineRepoCommit>,
     from_path: &Path,
     to_path: &Path,
@@ -1492,7 +1716,7 @@ fn checkpoint(import_helper: &mut Child, mark: usize) {
 /// Union the journal at `path` across all parents (whose hex ids are
 /// `parent_revs`), writing it if the parents' versions differ.
 fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
-    import_helper: &mut Child,
+    import_helper: &mut FastImport,
     parents: &MergeParents,
     parent_revs: &[String],
     path: &Path,
@@ -1826,7 +2050,7 @@ fn build_linear_future(
 }
 
 fn process_linear_revision(
-    import_helper: &mut Child,
+    import_helper: &mut FastImport,
     data: &TimelineData,
     files: &[FileChange],
     token_totals: &BTreeMap<String, TokenDeltaDetails>,
@@ -1850,6 +2074,31 @@ fn process_linear_revision(
     // ## Load the parent annotated files.
     let mut parent_annotated: ParentAnnotated = HashMap::new();
     if parent.is_some() {
+        // Along with the other files we read from the parent, below.
+        let mut paths = vec![];
+        for change in files {
+            if let Some(old_path) = &change.old_path {
+                paths.push(annotated_path(old_path));
+                paths.push(future_path(old_path));
+            }
+            if let Some(new_path) = &change.new_path {
+                paths.push(future_path(new_path));
+                let from_path = match change.kind {
+                    FileChangeKind::Renamed | FileChangeKind::Copied => {
+                        change.old_path.as_ref().unwrap()
+                    }
+                    _ => new_path,
+                };
+                paths.push(files_delta_path(from_path));
+            }
+        }
+        for (token, delta) in token_totals {
+            if delta.has_non_move_changes() {
+                paths.push(token_timeline_path(token));
+            }
+        }
+        prefetch_parent_paths(import_helper, paths);
+
         for change in files {
             if let Some(old_path) = &change.old_path
                 && !parent_annotated.contains_key(old_path)
@@ -1998,7 +2247,7 @@ fn process_linear_revision(
 }
 
 fn process_merge_revision(
-    import_helper: &mut Child,
+    import_helper: &mut FastImport,
     data: &TimelineData,
     merge: &MergeChanges,
     parents: &MergeParents,
@@ -2322,17 +2571,18 @@ fn main() {
                 |parent| matches!(parent, TimelineRepoCommit::Mark(mark) if *mark > checkpointed_mark),
             )
         {
-            checkpoint(&mut import_helper, rev_done - 1);
+            checkpoint(&mut import_helper.child, rev_done - 1);
             checkpointed_mark = rev_done - 1;
         }
 
+        import_helper.cache.begin(timeline_parents.first());
         // Scope the import_helper borrow
         {
             // Here we write out the metadata for a new commit to the timeline
             // repo.  For details on the data format, refer to the documentation at
             // https://git-scm.com/docs/git-fast-import#_commit
             // https://git-scm.com/docs/git-fast-import#_mark
-            let mut import_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
+            let mut import_stream = BufWriter::new(import_helper.child.stdin.as_mut().unwrap());
             writeln!(import_stream, "commit {}", blame_ref).unwrap();
             writeln!(import_stream, "mark :{}", rev_done).unwrap();
             timeline_commits
@@ -2437,8 +2687,9 @@ fn main() {
         };
 
         // Terminate the commit so we can get its oid for the rev-summary.
-        writeln!(import_helper.stdin.as_mut().unwrap()).unwrap();
-        let timeline_rev = read_mark_oid(&mut import_helper, rev_done);
+        writeln!(import_helper.child.stdin.as_mut().unwrap()).unwrap();
+        import_helper.cache.end(rev_done);
+        let timeline_rev = read_mark_oid(&mut import_helper.child, rev_done);
         mark_revs.insert(rev_done, timeline_rev.clone());
 
         let (file_deltas, file_totals) = file_deltas_or_totals(file_deltas);
@@ -2478,21 +2729,30 @@ fn main() {
             syntax_commit.committer().when().seconds(),
         );
         if notes.num_pending() >= NOTES_BATCH_SIZE {
-            notes.flush(import_helper.stdin.as_mut().unwrap()).unwrap();
+            notes
+                .flush(import_helper.child.stdin.as_mut().unwrap())
+                .unwrap();
         }
 
         if rev_done % 100000 == 0 {
             info!("Completed 100,000 commits, issuing checkpoint...");
-            checkpoint(&mut import_helper, rev_done);
+            checkpoint(&mut import_helper.child, rev_done);
             checkpointed_mark = rev_done;
         }
     }
 
-    notes.flush(import_helper.stdin.as_mut().unwrap()).unwrap();
+    notes
+        .flush(import_helper.child.stdin.as_mut().unwrap())
+        .unwrap();
     info!("Wrote {} journal summary records.", num_summaries);
+    let cache = &import_helper.cache;
+    info!(
+        "Tree cache: {} hits, {} misses, cleared {} times",
+        cache.hits, cache.misses, cache.clears
+    );
 
     info!("Shutting down fast-import...");
-    let exitcode = import_helper.wait().unwrap();
+    let exitcode = import_helper.child.wait().unwrap();
     if exitcode.success() {
         info!("Done!");
     } else {
