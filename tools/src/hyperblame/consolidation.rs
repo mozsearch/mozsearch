@@ -28,11 +28,12 @@
 //! Detail records for revisions a summary covers are dropped.  So a source
 //! revision only ever appears in one record of a journal.
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use chrono::{DateTime, Datelike, Duration, NaiveDate, Weekday};
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::file_format::history::timeline_common::{
@@ -178,6 +179,77 @@ pub fn consolidate_appended<R: Summarize>(
         records.insert(pos, summary);
     }
     Ok(by_week.len())
+}
+
+/// The fields of a journal record's line which say which week it's of (see
+/// `record_week`).
+#[derive(Deserialize)]
+struct WeekFields<'a> {
+    #[serde(borrow)]
+    iso_date: Option<Cow<'a, str>>,
+    iso_week_range: Option<(u16, u8, u8)>,
+}
+
+/// Prepend `record` to the journal `text` (a header line followed by a line per
+/// record) as `consolidate_appended` would after the record was appended by a
+/// revision dated `now` (None to not consolidate), if that wouldn't summarize
+/// any weeks, which is almost always the case.  Then only the weeks of the
+/// journal's lines are parsed, and they're kept as they are, rather than
+/// parsing and serializing every record, which was most of the timeline's time
+/// for hot tokens' journals.  Returns None if weeks would be summarized, or if
+/// the journal is empty or a line can't be read.
+pub fn prepend_unconsolidated<R: Summarize>(
+    text: &str,
+    record: &R,
+    now: Option<&str>,
+) -> Option<String> {
+    if text.is_empty() {
+        return None;
+    }
+    let (header, rest) = match text.split_once('\n') {
+        Some((header, rest)) => (header, Some(rest)),
+        None => (text, None),
+    };
+    let cutoff = now
+        .and_then(iso_week)
+        .and_then(week_monday)
+        .map(|monday| monday - Duration::weeks(LAG_WEEKS));
+    if let Some(cutoff) = cutoff {
+        let mut counts: HashMap<IsoWeek, usize> = HashMap::new();
+        let mut count_week = |week: Option<IsoWeek>| {
+            if let Some(week) = week
+                && week_monday(week).is_some_and(|monday| monday <= cutoff)
+            {
+                let count = counts.entry(week).or_default();
+                *count += 1;
+                return *count >= MIN_RECORDS;
+            }
+            false
+        };
+        if count_week(record_week(record)) {
+            return None;
+        }
+        for line in rest.into_iter().flat_map(str::lines) {
+            let fields: WeekFields = serde_json::from_str(line).ok()?;
+            let week = match fields.iso_week_range {
+                Some((year, week, _)) => Some((year as i32, week as u32)),
+                None => fields.iso_date.as_deref().and_then(iso_week),
+            };
+            if count_week(week) {
+                return None;
+            }
+        }
+    }
+    let record = serde_json::to_string(record).ok()?;
+    let mut prepended = String::with_capacity(text.len() + record.len() + 2);
+    prepended.push_str(header);
+    prepended.push('\n');
+    prepended.push_str(&record);
+    if let Some(rest) = rest {
+        prepended.push('\n');
+        prepended.push_str(rest);
+    }
+    Some(prepended)
 }
 
 /// Union the versions of a journal from the parents of a merge, each with the
@@ -714,6 +786,109 @@ mod tests {
         // The cases include overlapping summaries, which get summarized
         // again, and weeks with several summaries, whose order matters.
         assert!(resummarized > 0 && weeks_with_several > 0);
+    }
+
+    #[test]
+    fn test_prepend_unconsolidated() {
+        use crate::file_format::history::io_helpers::record_file_contents_to_string;
+        use crate::file_format::history::timeline_tokens::TokenHeader;
+        let mut state = 0x9e37_79b9_7f4a_7c15u64;
+        let mut next = move |n: usize| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state % n as u64) as usize
+        };
+        let (mut fast, mut consolidated) = (0, 0);
+        for case in 0..300 {
+            // A journal of details and summaries over 6 weeks, newest first.
+            let mut records = vec![];
+            for week in (0..6u32).rev() {
+                let in_week: Vec<TokenDeltaRecord> = (0..next(3))
+                    .map(|i| {
+                        let date =
+                            format!("2024-01-{:02}T00:00:{:02}Z", 1 + 7 * week + i as u32, i);
+                        detail(&format!("r{}-{}-{}", case, week, i), &date, 1)
+                    })
+                    .collect();
+                if next(2) == 0 && !in_week.is_empty() {
+                    records.push(summarize(&in_week, vec![version("p")], (2024, week + 1)));
+                } else {
+                    records.extend(in_week);
+                }
+            }
+            let text = record_file_contents_to_string(&TokenHeader::default(), &records);
+            let date = format!("2024-01-{:02}T12:00:00Z", 1 + next(49));
+            let new = detail(&format!("new{}", case), &date, 2);
+            let now = format!("2024-02-{:02}T00:00:00Z", 1 + next(20));
+
+            let mut expected = records.clone();
+            expected.insert(0, new.clone());
+            let summarized =
+                consolidate_appended(&mut expected, &now, &version("p"), &mut loader(vec![]))
+                    .unwrap_or(1);
+            match prepend_unconsolidated(&text, &new, Some(&now)) {
+                Some(prepended) => {
+                    assert_eq!(summarized, 0, "case {}", case);
+                    assert_eq!(
+                        prepended,
+                        record_file_contents_to_string(&TokenHeader::default(), &expected),
+                        "case {}",
+                        case
+                    );
+                    fast += 1;
+                }
+                None => {
+                    assert!(summarized > 0, "case {}", case);
+                    consolidated += 1;
+                }
+            }
+        }
+        assert!(fast > 0 && consolidated > 0);
+    }
+
+    /// Time prepending a record to real token journals (the files in
+    /// $JOURNAL_DIR) with `prepend_unconsolidated` and by parsing and
+    /// serializing every record.
+    #[test]
+    #[ignore]
+    fn bench_prepend_unconsolidated() {
+        use crate::file_format::history::io_helpers::{
+            read_record_file_contents, record_file_contents_to_string,
+        };
+        use crate::file_format::history::timeline_tokens::TokenHeader;
+        let dir = std::env::var("JOURNAL_DIR").expect("JOURNAL_DIR");
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.extension().is_none_or(|ext| ext != "ndjson") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).unwrap();
+            let new = detail("new", "2008-02-20T00:00:00Z", 1);
+            let now = Some("2008-02-20T00:00:00Z");
+            let start = std::time::Instant::now();
+            let fast = prepend_unconsolidated(&text, &new, now);
+            let fast_time = start.elapsed();
+            let start = std::time::Instant::now();
+            let (header, mut records): (TokenHeader, Vec<TokenDeltaRecord>) =
+                read_record_file_contents(text.as_bytes()).unwrap();
+            records.insert(0, new.clone());
+            let full = record_file_contents_to_string(&header, &records);
+            let full_time = start.elapsed();
+            println!(
+                "{}: {} bytes: fast {:?} ({}), full parse and serialize {:?}, same: {}",
+                path.display(),
+                text.len(),
+                fast_time,
+                if fast.is_some() {
+                    "no summaries"
+                } else {
+                    "would summarize"
+                },
+                full_time,
+                fast.as_deref().is_none_or(|fast| fast == full)
+            );
+        }
     }
 
     #[test]

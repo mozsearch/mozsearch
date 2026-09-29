@@ -140,7 +140,9 @@ use tools::file_format::history::timeline_tokens::{
 };
 use tools::git_ops::{fast_import_git, git_time_to_chrono, history_compute_threads};
 use tools::hyperblame::backouts::{BackoutTargetResolver, find_backed_out};
-use tools::hyperblame::consolidation::{Summarize, consolidate_appended, merge_journal_versions};
+use tools::hyperblame::consolidation::{
+    Summarize, consolidate_appended, merge_journal_versions, prepend_unconsolidated,
+};
 use tools::hyperblame::inference::{
     FileChangeInput, FileChangeKind, FileInference, InferenceConfig, PairingSupport, RemovedFate,
     TokenOrigin, diff_token_lines, infer_revision,
@@ -1374,18 +1376,29 @@ fn prepend_journal_record<H: DeserializeOwned + Default + Serialize, R: Summariz
     consolidation: Option<&Consolidation>,
     touched: &mut HashSet<PathBuf>,
 ) -> usize {
-    let (header, mut records): (H, Vec<R>) = match parent {
-        Some(parent) => {
-            let from = if touched.contains(from_path) {
-                ReadFrom::Commit(parent)
-            } else {
-                ReadFrom::Active
-            };
-            read_journal(import_helper, from, from_path)
-        }
-        None => (H::default(), vec![]),
-    };
+    let blob = parent.and_then(|parent| {
+        let from = if touched.contains(from_path) {
+            ReadFrom::Commit(parent)
+        } else {
+            ReadFrom::Active
+        };
+        read_path_blob(import_helper, from, from_path)
+    });
     touched.insert(to_path.to_path_buf());
+    // Almost always, no weeks get summarized, and the journal's other records
+    // stay as they are.
+    if let Some(blob) = &blob {
+        let now = consolidation.map(|consolidation| consolidation.iso_date);
+        if let Some(contents) =
+            prepend_unconsolidated(std::str::from_utf8(blob).unwrap(), &record, now)
+        {
+            write_inline_blob(import_helper, to_path, contents.as_bytes());
+            return 0;
+        }
+    }
+    let (header, mut records): (H, Vec<R>) = blob
+        .and_then(|blob| read_record_file_contents(&blob))
+        .unwrap_or_else(|| (H::default(), vec![]));
     records.insert(0, record);
     let mut num_summaries = 0;
     if let (Some(consolidation), Some(_)) = (consolidation, parent) {
