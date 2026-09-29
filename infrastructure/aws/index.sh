@@ -140,8 +140,7 @@ esac
 
 $AWS_ROOT/send-warning-email.py "$AWS_ROOT/warning-suppression.patterns" "$CHANNEL/$BRANCH" "$DEST_EMAIL" /home/ubuntu/index-log
 
-gzip -k ~ubuntu/index-log
-$AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs "index-$(date -Iminutes)_${CHANNEL}_${CONFIG_FILE_NAME%.*}.gz"
+$AWS_ROOT/upload-log.sh index "${CHANNEL}_${CONFIG_FILE_NAME%.*}"
 
 case "$CHANNEL" in
 release* )

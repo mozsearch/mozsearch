@@ -9,7 +9,7 @@ from trigger_common import TriggerCommandBase
 
 class TriggerReblameCommand(TriggerCommandBase):
     def __init__(self):
-        timeout_hours = 7 * 24 # upper bound on how long we expect the blame-rebuild to take
+        timeout_hours = 14 * 24 # upper bound on how long we expect the blame-rebuild to take
         super().__init__('blame-builder', 'rebuild-blame.sh', timeout_hours)
 
     def make_parser(self):

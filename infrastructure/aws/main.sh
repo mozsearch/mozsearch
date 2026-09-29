@@ -34,8 +34,7 @@ handle_error() {
     # keep the whole log, since the email only has its tail and the instance's
     # local storage is lost when it shuts down.
     $AWS_ROOT/set-status.py "failed: ${TARGETSCRIPT:-main.sh}; see the emailed log" || true
-    gzip -kf ~/index-log && $AWS_ROOT/upload.py ~/index-log.gz indexer-logs \
-        "failed-$(date -Iminutes)_${CHANNEL:-unknown}_${TARGETSCRIPT:-main}.gz" || true
+    $AWS_ROOT/upload-log.sh failed "${CHANNEL:-unknown}_${TARGETSCRIPT:-main}" || true
 
     # Send failure email and shut down. Release channel failures get sent to the
     # default email address, other channel failures get sent to the author of
@@ -83,10 +82,11 @@ cat > ~/.aws/config <<"STOP"
 region = us-west-2
 STOP
 
-# Create a crontab entry to send failure email if TARGETSCRIPT takes too long. This
-# is basically a failsafe for if this instance doesn't shut down within
-# 10 hours.
-${AWS_ROOT}/make-crontab.py "${EMAIL_PREFIX}/timeout" "${DEST_EMAIL}" ${MAXHOURS}
+# Create a crontab entry to upload the log and send failure email if
+# TARGETSCRIPT takes too long (MAXHOURS), which shuts the instance down.  This is
+# basically a failsafe for if this instance doesn't shut down on its own.
+${AWS_ROOT}/make-crontab.py "${EMAIL_PREFIX}/timeout" "${DEST_EMAIL}" ${MAXHOURS} \
+    "${CHANNEL}_${TARGETSCRIPT}_timeout"
 
 # Daily cron jobs can include things like the `locate` `updatedb` script which
 # can end up tying up the indexer's mount point.  These are run via `run-parts`
@@ -103,6 +103,15 @@ sudo chmod -x /etc/cron.daily/* /etc/cron.weekly/*
 
 echo "Creating /index on local instance SSD and setting up swap"
 ${AWS_ROOT}/mkscratch.sh
+
+# Write the log to the SSD from now on, since writing a big log (ex: reblame's)
+# to the EBS root volume is slow, and can fill it up.  The scripts which read
+# the log use ~/index-log, which becomes a symlink to it.  The SSD is lost when
+# the instance shuts down, so everything which shuts it down uploads the log
+# first (see upload-log.sh).
+cp ~/index-log /index/index-log
+exec &>> /index/index-log
+ln -sf /index/index-log ~/index-log
 
 # Put our tmp directory on the SSD at /index instead of /tmp which is on our EBS
 # root image and which would be both slower and has had problems with filling

@@ -37,9 +37,7 @@ release* )
     ;;
 esac
 
-LOG_KEY="reblame-$(date -Iminutes)_${CHANNEL}_${CONFIG_INPUT%.*}.gz"
-gzip -k ~ubuntu/index-log
-$AWS_ROOT/upload.py ~ubuntu/index-log.gz indexer-logs "$LOG_KEY"
+LOG_KEY=$($AWS_ROOT/upload-log.sh reblame "${CHANNEL}_${CONFIG_INPUT%.*}")
 $AWS_ROOT/send-done-email.py "[$CHANNEL/$BRANCH]" "$DEST_EMAIL"
 $AWS_ROOT/set-status.py "done; the log is indexer-logs/$LOG_KEY; terminating"
 
