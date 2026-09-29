@@ -146,7 +146,8 @@ use tools::hyperblame::inference::{
 };
 use tools::hyperblame::stats::compute_revision_stats;
 use tools::source_mapping::{
-    NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer, require_notes_for_existing_branch,
+    NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer, point_branch_at,
+    require_notes_for_existing_branch,
 };
 use tools::tree_sitter_support::cst_tokenizer::namespace_for_file;
 
@@ -2139,10 +2140,10 @@ fn main() {
         }
         None => false,
     };
+    let syntax_head = syntax_repo.refname_to_id(&blame_ref).unwrap();
     let mut walk = syntax_repo.revwalk().unwrap();
     walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE).unwrap();
-    walk.push(syntax_repo.refname_to_id(&blame_ref).unwrap())
-        .unwrap();
+    walk.push(syntax_head).unwrap();
     let mut revs_to_process = walk
         .with_hide_callback(&mut hide_processed)
         .unwrap()
@@ -2158,6 +2159,11 @@ fn main() {
         revs_to_process.len(),
         processed.len()
     );
+    if revs_to_process.is_empty()
+        && let Some(TimelineRepoCommit::Commit(timeline_rev)) = processed.get(&syntax_head)
+    {
+        point_branch_at(&timeline_repo, &blame_ref, *timeline_rev);
+    }
     let mut timeline_commits = TimelineCommits {
         syntax_repo: &syntax_repo,
         timeline_repo: &timeline_repo,

@@ -37,15 +37,23 @@ codecov2git --report "$GIT_ROOT/tests/searchfox/metadata/code-coverage-report.js
 
 echo "Performing setup::build-syntax-token-tree step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
-# When actively developing it's nice to purge the existing contents, but the rest
-# of the time it's nice to not reprocess it all.
-rm -rf $HISTORY_ROOT
+# The history tools only process revisions they haven't already (see
+# `tools::source_mapping`), so we keep the history between builds, even across
+# rebases.  After changing how the history is derived, set CLEAN_HISTORY=1 (ex:
+# `make clean-build-searchfox-repo`) to regenerate it from scratch.
+if [ -n "${CLEAN_HISTORY:-}" ]; then
+  rm -rf "$HISTORY_ROOT"
+fi
 
 mkdir -p $HISTORY_ROOT
-mkdir -p $HISTORY_ROOT/syntax
-git init $HISTORY_ROOT/syntax
-mkdir -p $HISTORY_ROOT/timeline
-git init $HISTORY_ROOT/timeline
+if [ ! -d $HISTORY_ROOT/syntax ]; then
+  mkdir -p $HISTORY_ROOT/syntax
+  git init $HISTORY_ROOT/syntax
+fi
+if [ ! -d $HISTORY_ROOT/timeline ]; then
+  mkdir -p $HISTORY_ROOT/timeline
+  git init $HISTORY_ROOT/timeline
+fi
 mkdir -p $HISTORY_ROOT/rev-summaries
 HISTORY_CONFIG=$CONFIG_REPO/$TREE_NAME/history
 if [ -d "$HISTORY_CONFIG" ]; then

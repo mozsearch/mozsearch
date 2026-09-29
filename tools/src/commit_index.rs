@@ -6,7 +6,9 @@
 //! `history_path`) so that updates only need to process new commits:
 //! - `state.json` has the schema version and the heads processed so far.  A
 //!   different schema version means rebuilding from scratch, which is cheap
-//!   (a revwalk and parsing the messages).
+//!   (a revwalk and parsing the messages), as does a processed head which isn't
+//!   an ancestor of the new head (ex: a rebased branch in development), whose
+//!   commits may no longer be in the history.
 //! - `by-bug` has `BUG<TAB>REV<TAB>ISO_DATE<TAB>FLAGS` lines and `by-phab` has
 //!   `DNNN<TAB>REV<TAB>ISO_DATE<TAB>FLAGS` lines, sorted, so lookups can
 //!   bisect.  FLAGS is "b" for backouts or "-".
@@ -109,7 +111,14 @@ pub fn update(repo: &Repository, head: Oid, dir: &Path) -> Result<usize, String>
         .ok()
         .and_then(|text| serde_json::from_str(&text).ok())
         .unwrap_or_default();
-    let rebuild = state.schema != SCHEMA_VERSION;
+    let rewritten = state
+        .heads
+        .iter()
+        .any(|processed| match Oid::from_str(processed) {
+            Ok(oid) => oid != head && !repo.graph_descendant_of(head, oid).unwrap_or(false),
+            Err(_) => true,
+        });
+    let rebuild = state.schema != SCHEMA_VERSION || rewritten;
     let (mut by_bug, mut by_phab) = if rebuild {
         state = State {
             schema: SCHEMA_VERSION,
@@ -127,13 +136,8 @@ pub fn update(repo: &Repository, head: Oid, dir: &Path) -> Result<usize, String>
     walk.set_sorting(Sort::NONE).map_err(|e| e.to_string())?;
     walk.push(head).map_err(|e| e.to_string())?;
     for processed in &state.heads {
-        // Heads which no longer exist (ex: a rewritten branch) just mean
-        // processing more.
-        if let Ok(oid) = Oid::from_str(processed)
-            && repo.find_commit(oid).is_ok()
-        {
-            walk.hide(oid).map_err(|e| e.to_string())?;
-        }
+        let oid = Oid::from_str(processed).map_err(|e| e.to_string())?;
+        walk.hide(oid).map_err(|e| e.to_string())?;
     }
     let mut count = 0;
     for oid in walk {
@@ -156,7 +160,7 @@ pub fn update(repo: &Repository, head: Oid, dir: &Path) -> Result<usize, String>
     write_lines(&dir.join("by-bug"), by_bug).map_err(|e| e.to_string())?;
     write_lines(&dir.join("by-phab"), by_phab).map_err(|e| e.to_string())?;
     // Only the new head matters from now on, since it includes the others it
-    // was built on (and if it doesn't, their commits are still in the files).
+    // was built on.
     state.heads = vec![head.to_string()];
     fs::write(&state_path, serde_json::to_string(&state).unwrap()).map_err(|e| e.to_string())?;
     Ok(count)
@@ -296,6 +300,24 @@ mod tests {
         let d = commit("Bug 1000 - Something else", 1_700_000_300);
         assert_eq!(update(&repo, d, &index_dir).unwrap(), 1);
         assert_eq!(index.bug_commits("1000").len(), 1);
+        assert_eq!(index.bug_commits("100").len(), 3);
+
+        // Rewriting the last commit (ex: amending it) replaces it.
+        let sig =
+            git2::Signature::new("A", "a@example.com", &git2::Time::new(1_700_000_400, 0)).unwrap();
+        let amended = repo
+            .commit(
+                None,
+                &sig,
+                &sig,
+                "Bug 1001 - Something else, amended",
+                &tree,
+                &[&repo.find_commit(c).unwrap()],
+            )
+            .unwrap();
+        assert_eq!(update(&repo, amended, &index_dir).unwrap(), 4);
+        assert!(index.bug_commits("1000").is_empty());
+        assert_eq!(index.bug_commits("1001").len(), 1);
         assert_eq!(index.bug_commits("100").len(), 3);
 
         fs::remove_dir_all(&dir).unwrap();

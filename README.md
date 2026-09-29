@@ -232,6 +232,13 @@ Note that you will need to do a couple things for this to work right:
   manually without first running `indexer-setup.sh`, you may experience
   problems.
 
+The token-centric history of the `searchfox` tree is kept between builds (the
+history tools only process revisions they haven't processed before, including
+after rebases), so only the first build derives all of it.  If you change how
+the history is derived, regenerate it from scratch with
+`make clean-build-searchfox-repo` (or `make clean-webtest` for the `webtest`
+configuration, whose `searchfox` tree has its own history under `~/index`).
+
 Also note that this will terminate any previously running `tests` web servers
 even though the indexes live at different directories (`~/index` versus
 `~/searchfox-index`). If you find that you want both the `tests` and `searchfox`

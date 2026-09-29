@@ -93,6 +93,12 @@ build-searchfox-repo: export CHECK_WARNINGS=1
 build-searchfox-repo: export MOZSEARCH_SOURCE_PATH=/vagrant
 build-searchfox-repo: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo
 
+# The history of the searchfox tree is kept between builds, since the history
+# tools only process new revisions.  These regenerate it from scratch, which is
+# only needed after changing how the history is derived.
+clean-build-searchfox-repo: export CLEAN_HISTORY=1
+clean-build-searchfox-repo: build-searchfox-repo
+
 # Notes:
 # - This also works with `export TRYPUSH_REV=full-40char-hash` for try runs
 #   that have the relevant jobs scheduled on them.  In particular:
@@ -247,6 +253,13 @@ serve-webtest-repo: check-in-vagrant update-indexer-packages internal-serve-repo
 webtest: export MOZSEARCH_SOURCE_PATH=/vagrant
 webtest: build-webtest-repo
 	./scripts/webtest.sh
+
+# See clean-build-searchfox-repo.
+clean-build-webtest-repo: export CLEAN_HISTORY=1
+clean-build-webtest-repo: build-webtest-repo
+
+clean-webtest: export CLEAN_HISTORY=1
+clean-webtest: webtest
 
 # Create favicon for the following 3 cases, from search.png:
 #   * production.png for searchfox.org

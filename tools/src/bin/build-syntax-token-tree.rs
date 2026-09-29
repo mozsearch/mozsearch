@@ -51,7 +51,8 @@ use tools::hyperblame::history_config::{
     parse_repo_gitattributes, resolve_language,
 };
 use tools::source_mapping::{
-    NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer, require_notes_for_existing_branch,
+    NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer, point_branch_at,
+    require_notes_for_existing_branch,
 };
 use tools::tree_sitter_support::cst_tokenizer::{
     HyperTokenized, LanguageProfile, TOKENIZER_VERSION, hypertokenize_with_profile,
@@ -1265,6 +1266,11 @@ fn main() {
         all_revs.len(),
         processed.len()
     );
+    if all_revs.is_empty()
+        && let Some(meta) = processed.get(&head)
+    {
+        point_branch_at(&blame_repo, &blame_ref, meta.syntax_rev);
+    }
 
     // ## Refuse to proceed if the history configuration changed for already
     // processed revisions, because then the history needs to be regenerated.

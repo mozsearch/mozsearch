@@ -139,6 +139,32 @@ pub fn require_notes_for_existing_branch(
     }
 }
 
+/// Point `repo`'s `blame_ref` branch (or the branch it's a symbolic ref to) at
+/// `commit`, the commit derived from the source head, which was already
+/// processed.  Nothing is written then, so otherwise the branch would stay at
+/// the last head processed (ex: a development branch after switching back to
+/// its base).
+pub fn point_branch_at(repo: &Repository, blame_ref: &str, commit: Oid) {
+    let name = match repo.find_reference(blame_ref) {
+        Ok(reference) => reference
+            .symbolic_target()
+            .ok()
+            .flatten()
+            .unwrap_or(blame_ref)
+            .to_string(),
+        Err(_) => blame_ref.to_string(),
+    };
+    if repo.refname_to_id(&name).ok() != Some(commit) {
+        log::info!(
+            "Pointing {} at {}, the already processed head",
+            name,
+            commit
+        );
+        repo.reference(&name, commit, true, "point at the already processed head")
+            .unwrap();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
