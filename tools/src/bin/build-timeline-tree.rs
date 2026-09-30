@@ -2526,6 +2526,14 @@ fn main() {
     // firefox history's 100 GB of timeline packs had the merge threads taking
     // turns unmapping and mapping windows.  Mapping only takes address space.
     unsafe { git2::opts::set_mwindow_mapped_limit(1 << 40) }.unwrap();
+    // libgit2 only caches trees of up to 4 KB, and 256 MB of objects for all
+    // of the process's repositories (each compute thread has its own).  In the
+    // 4-year firefox reblame, that was full, the compute threads' diffs of the
+    // syntax repo's trees had them mostly waiting for each other on libgit2's
+    // pack locks, and each chunk's rate fell from about 1,000 revisions a
+    // minute to 330.
+    unsafe { git2::opts::set_cache_object_limit(git2::ObjectType::Tree, 16 << 20) }.unwrap();
+    unsafe { git2::opts::set_cache_max_size(4 << 30) }.unwrap();
 
     let args: Vec<_> = env::args().collect();
     if args.len() != 5 {
