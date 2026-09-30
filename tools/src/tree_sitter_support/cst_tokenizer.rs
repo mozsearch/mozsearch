@@ -164,7 +164,10 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   make containers (see `clean_name_node`), and C++ calls of statement macros
 ///   which tree-sitter-cpp takes for function definitions (ex: `QM_TRY_UNWRAP`
 ///   with a lambda) aren't containers (see cpp.scm).
-pub const TOKENIZER_VERSION: u32 = 6;
+/// - 7: INI and TOML top-level section names which are URLs with a query or
+///   fragment are split into tokens and context segments for them; see
+///   `config_tokenizer::UrlParts`.
+pub const TOKENIZER_VERSION: u32 = 7;
 
 /// Normalize the text of a container's name node for use in a context.  Names
 /// can contain whitespace (ex: C++ template arguments in out-of-line method

@@ -370,7 +370,18 @@ mod tests {
     /// `revs[i]` and `markers` maps token indices (0 for the sentinel, token
     /// `i` is `i + 1`) to (revision, number removed).
     fn history(source: &str, revs: &[&str], markers: &[(usize, &str, u32)]) -> FileHistory {
-        let tokenized = hypertokenize_source_file("a.cpp", source).unwrap();
+        history_of("a.cpp", "cpp", source, revs, markers)
+    }
+
+    /// `history` for a file at `path` in language `lang`.
+    fn history_of(
+        path: &str,
+        lang: &str,
+        source: &str,
+        revs: &[&str],
+        markers: &[(usize, &str, u32)],
+    ) -> FileHistory {
+        let tokenized = hypertokenize_source_file(path, source).unwrap();
         assert_eq!(
             tokenized.tokenized.len(),
             revs.len(),
@@ -393,9 +404,9 @@ mod tests {
             annotated.push(data.serialize());
         }
         FileHistory {
-            path: "a.cpp".to_string(),
+            path: path.to_string(),
             source_rev: Oid::ZERO_SHA1,
-            lang: "cpp".to_string(),
+            lang: lang.to_string(),
             syntax: tokenized.tokenized.join("\n"),
             annotated: annotated.join("\n"),
         }
@@ -450,6 +461,43 @@ mod tests {
         assert!(lines[2].removal_below.is_none());
         assert_eq!(lines[2].removals_within.len(), 1);
         assert_eq!(lines[2].removals_within[0].source_rev, "6");
+    }
+
+    #[test]
+    fn test_blame_tokens_wpt_metadata() {
+        // A test's URL in a section header is several tokens (see the config
+        // tokenizer's `UrlParts`), which the popup's ranges follow.
+        let source = "[cts.https.html?q=webgpu:api:*]\n  expected: FAIL\n";
+        let revs = ["1", "1", "2", "2", "1", "1", "1", "3"];
+        let path = "meta/cts.https.html.ini";
+        let history = history_of(path, "ini", source, &revs, &[]);
+        let blame = blame_tokens(source, &history).unwrap();
+        let header: Vec<&str> = blame
+            .tokens
+            .iter()
+            .filter(|t| t.line == 0)
+            .map(|t| &source[t.range.clone()])
+            .collect();
+        assert_eq!(
+            header,
+            vec!["[", "cts.https.html", "?", "q=webgpu:api:*", "]"]
+        );
+        // A history from before URLs were split has the whole name as a token,
+        // so it doesn't match until it's regenerated.
+        let old = FileHistory {
+            syntax: history
+                .syntax
+                .replacen(
+                    "cts.https.html::?q=webgpu:api:* i cts.https.html\ncts.https.html::?q=webgpu:api:* o ?\ncts.https.html::?q=webgpu:api:* i q=webgpu:api:*",
+                    "cts.https.html?q=webgpu:api:* i cts.https.html?q=webgpu:api:*",
+                    1,
+                ),
+            ..history
+        };
+        assert!(matches!(
+            blame_tokens(source, &old),
+            Err(TokenBlameError::TokenMismatch(_))
+        ));
     }
 
     #[test]

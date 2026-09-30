@@ -9,7 +9,10 @@
 //! - Section headers: `[`, the section name as a single identifier token, `]`.
 //!   The context of the header tokens is the section name.  TOML quoted keys
 //!   have their quotes dropped, so `["test_foo.html"]` and `[test_foo.html]`
-//!   produce the same tokens.
+//!   produce the same tokens.  Top-level sections' names with a URL's query
+//!   or fragment (web-platform-tests metadata's test variants) are split into
+//!   the path, `?` and the query, and `#` and the fragment, with the query and
+//!   fragment as their own context segments; see `UrlParts`.
 //! - Keys: the key as an identifier and its `=` or `:` separator as an
 //!   operator, with the values as whitespace-delimited text words.  The
 //!   context of these tokens is `section::key`, so changes to a key like
@@ -68,6 +71,58 @@ impl<'a> Output<'a> {
             is_def: true,
             kind: "section".to_string(),
         });
+    }
+}
+
+/// A top-level section's name split into a URL's path, query, and fragment.
+/// web-platform-tests metadata's top-level sections are tests' URLs relative to
+/// their directory, like `cts.https.html?q=webgpu:api,operation,adapter,info:*`
+/// (WebGPU's conformance tests have thousands of variants of a few test
+/// files).  The parts are separate tokens (with `?` and `#` as operators) and
+/// context segments (keeping the `?` and `#` so they can't be mistaken for
+/// nested sections), so a test's variants are symbols within its own.
+struct UrlParts<'a> {
+    path: &'a str,
+    /// The `?` and the query after it.
+    query: Option<(&'a str, &'a str)>,
+    /// The `#` and the fragment after it.
+    fragment: Option<(&'a str, &'a str)>,
+}
+
+impl<'a> UrlParts<'a> {
+    /// The parts of `name`, if it has a query or a fragment.
+    fn of(name: &'a str) -> Option<Self> {
+        let (rest, fragment) = match name.find('#') {
+            Some(i) => (&name[..i], Some((&name[i..i + 1], &name[i + 1..]))),
+            None => (name, None),
+        };
+        let (path, query) = match rest.find('?') {
+            Some(i) => (&rest[..i], Some((&rest[i..i + 1], &rest[i + 1..]))),
+            None => (rest, None),
+        };
+        (query.is_some() || fragment.is_some()).then_some(UrlParts {
+            path,
+            query,
+            fragment,
+        })
+    }
+
+    fn context(&self) -> String {
+        let mut context = escape_name(self.path);
+        for (delimiter, part) in self.query.iter().chain(&self.fragment) {
+            context.push_str("::");
+            context.push_str(delimiter);
+            context.push_str(&escape_name(part));
+        }
+        context
+    }
+
+    fn push_tokens(&self, out: &mut Output<'a>, context: &str) {
+        out.push(context, TokenClass::Identifier, self.path);
+        for (delimiter, part) in self.query.iter().chain(&self.fragment) {
+            out.push(context, TokenClass::Operator, delimiter);
+            out.push(context, TokenClass::Identifier, part);
+        }
     }
 }
 
@@ -130,7 +185,17 @@ pub fn tokenize_ini(source: &str) -> (FinishedTokens, Vec<FileStructureRow>) {
             while sections.last().is_some_and(|(i, _)| *i >= indent) {
                 sections.pop();
             }
-            sections.push((indent, escape_name(name)));
+            // Top-level sections can be tests' URLs; see `UrlParts`.
+            let url = if sections.is_empty() {
+                UrlParts::of(name.trim())
+            } else {
+                None
+            };
+            let escaped = match &url {
+                Some(url) => url.context(),
+                None => escape_name(name),
+            };
+            sections.push((indent, escaped));
             section_context = sections
                 .iter()
                 .map(|(_, n)| n.as_str())
@@ -138,7 +203,10 @@ pub fn tokenize_ini(source: &str) -> (FinishedTokens, Vec<FileStructureRow>) {
                 .join("::");
             out.section(&section_context);
             out.push(&section_context, TokenClass::Operator, &trimmed[..1]);
-            out.push(&section_context, TokenClass::Identifier, name.trim());
+            match &url {
+                Some(url) => url.push_tokens(&mut out, &section_context),
+                None => out.push(&section_context, TokenClass::Identifier, name.trim()),
+            }
             if let Some(end) = close {
                 out.push(
                     &section_context,
@@ -436,13 +504,25 @@ impl<'a> TomlTokenizer<'a> {
         let open = &src[self.pos..self.pos + close.len()];
         self.pos += open.len();
         let segments = self.key();
-        let name = segments.join(".");
-        self.table_context = escape_name(&name);
+        // Like INI's top-level sections; see `UrlParts`.
+        let url = match segments[..] {
+            [name] => UrlParts::of(name),
+            _ => None,
+        };
+        self.table_context = match &url {
+            Some(url) => url.context(),
+            None => escape_name(&segments.join(".")),
+        };
         let context = self.table_context.clone();
         self.out.section(&context);
         self.out.push(&context, TokenClass::Operator, open);
-        for segment in &segments {
-            self.out.push(&context, TokenClass::Identifier, segment);
+        match &url {
+            Some(url) => url.push_tokens(&mut self.out, &context),
+            None => {
+                for segment in &segments {
+                    self.out.push(&context, TokenClass::Identifier, segment);
+                }
+            }
         }
         self.skip_ws(false);
         if self.starts_with(close) {
@@ -624,6 +704,44 @@ mod tests {
                 "test.html::Another%3A%3Asubtest::expected o :",
                 "test.html::Another%3A%3Asubtest::expected t FAIL",
             ]
+        );
+    }
+
+    #[test]
+    fn test_wpt_metadata_urls() {
+        // Top-level sections are tests' URLs, whose queries and fragments get
+        // their own tokens and context segments; nested sections (subtests)
+        // are left alone.
+        let source = "[cts.https.html?q=webgpu:api,operation:*]\n  [a?b #c]\n    expected: FAIL\n\n[test.html#frag]\n[plain.html]\n";
+        let (tokens, structure) = tokenize_ini(source);
+        let query = "cts.https.html::?q=webgpu:api,operation:*";
+        assert_eq!(
+            structure
+                .iter()
+                .map(|r| r.pretty.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                query,
+                &format!("{}::a?b%20#c", query),
+                "test.html::#frag",
+                "plain.html",
+            ]
+        );
+        assert_eq!(
+            &tokens.lines[..5],
+            &[
+                format!("{} o [", query),
+                format!("{} i cts.https.html", query),
+                format!("{} o ?", query),
+                format!("{} i q=webgpu:api,operation:*", query),
+                format!("{} o ]", query),
+            ]
+        );
+        assert_eq!(tokens.lines[6], format!("{}::a?b%20#c i a?b #c", query));
+        // TOML tables are tokenized the same way.
+        assert_eq!(
+            ini("[test.html?x=1#frag]\nexpected = FAIL\n"),
+            toml("[\"test.html?x=1#frag\"]\nexpected = \"FAIL\"\n")
         );
     }
 
