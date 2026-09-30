@@ -1743,7 +1743,7 @@ fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
         .iter()
         .map(|(version, blob)| (version.clone(), std::str::from_utf8(blob).unwrap()))
         .collect();
-    let contents = merge_journal_texts::<R>(&texts).unwrap_or_else(|| {
+    let contents = merge_journal_texts(&texts).unwrap_or_else(|| {
         let mut header: Option<H> = None;
         let mut versions = vec![];
         for (version, blob) in &blobs {

@@ -32,9 +32,11 @@ use crate::file_format::history::timeline_files_delta::FileDeltaRecord;
 use crate::file_format::history::timeline_future::FutureRecord;
 use crate::file_format::history::timeline_tokens::{TokenDeltaRecord, token_timeline_path};
 
-/// A limit on how deeply summaries can refer to other summaries, which is far
-/// beyond anything consolidation should produce, so that a cycle is an error
-/// rather than a hang.
+/// A limit on how deeply summaries can refer to other summaries, so that a
+/// cycle is an error rather than a hang.  (Consolidation keeps summaries from
+/// referring to other summaries; see `consolidation::flattened_preds`.  Before
+/// it did, each time a week was summarized again made a longer chain, and the
+/// full firefox history's chains passed this.)
 const MAX_EXPANSION_DEPTH: usize = 64;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

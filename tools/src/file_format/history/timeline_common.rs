@@ -42,9 +42,12 @@ pub struct SummaryRecordRef {
     /// `source_revs`, or summaries of them whose own `preds` do, and so on;
     /// see `hyperblame::journals` for how summaries get expanded.  Usually
     /// this is the journal in the timeline commit preceding the commit that
-    /// created this summary, but a summary created when merging has one per
-    /// parent, and the path differs if the journal was renamed or copied since
-    /// (files-delta journals follow their files).
+    /// created this summary, preceded by the preds of the summaries it
+    /// summarized again, if any, and a summary created when merging has the
+    /// preds of the summaries it merged (see `consolidation::flattened_preds`;
+    /// histories from before that pointed at the summaries' versions).  The
+    /// path differs if the journal was renamed or copied since (files-delta
+    /// journals follow their files).
     pub preds: Vec<JournalVersionRef>,
 
     /// The [year, newest iso week inclusive, oldest iso week inclusive] time
