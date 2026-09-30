@@ -19,7 +19,10 @@ looking up an object means looking in each pack (on a firefox window, ~900
 packs made the timeline 9% slower than one), and each pack is an open file
 while it's being read.  So after each chunk, the repo is repacked in the
 background while the next chunk runs, and during a chunk if it has too many
-packs, or fully when disk space is getting short (see `PackMaintenance`).  Chunking also
+packs, or fully when disk space is getting short (see `PackMaintenance`).  But
+git fast-import keeps its packs (with .keep files) until it exits, so a
+chunk's own packs can't be repacked until it ends, and build-timeline-tree
+ends a chunk early after MAX_CHECKPOINTS checkpoints.  Chunking also
 bounds how much state each git fast-import process accumulates (ex: its table
 of every file name it has seen, which makes loading trees slower as it grows).
 The tools resume from their source mapping notes, so a chunk is just a run
@@ -67,6 +70,9 @@ def log(message):
 # The exit status of a tool which stopped because we asked it to (the tools'
 # `history_stop::STOPPED_EXIT_CODE`).
 STOPPED_EXIT_CODE = 75
+# The exit status of a tool which ended its run early with revisions left, so
+# that we should just run it again (`history_stop::ENDED_EARLY_EXIT_CODE`).
+ENDED_EARLY_EXIT_CODE = 76
 
 
 class Stopped(Exception):
@@ -150,8 +156,17 @@ def num_processed(repo, blame_ref):
 # The threads a background repack's delta search uses, leaving most of the
 # CPUs to the tools.
 REPACK_THREADS = 8
-# How many packs a repo can have during a chunk before we repack it.
+# How many packs a repo can have during a chunk before we repack it, not
+# counting git fast-import's, which it keeps until it exits (so no repack can
+# combine them before then).
 MAX_PACKS = 64
+# How many checkpoints build-timeline-tree does before ending a chunk early
+# (its MAX_CHECKPOINTS), since each writes one of those packs, and it
+# checkpoints before most merges.  (In the full firefox reblame, 25 minutes
+# into a chunk of the 2010 merges, 600 packs had its merge threads mostly
+# waiting for each other to look up objects in each of them, and a 10,000
+# revision chunk of 2008 left ~735.)
+MAX_CHECKPOINTS = 150
 # Fully repacking a history repo (git gc), which reblame does to make the
 # history as small as possible to download, needs about as much free space
 # again as the repo.  So when a chunk leaves less free space than
@@ -164,11 +179,9 @@ GC_INTERVAL_CHUNKS = 10
 
 class PackMaintenance:
     """Repacks a history repo in the background after each chunk (see the module
-    docs), and during a chunk when it has more than MAX_PACKS packs, unless its
-    last repack is still running.  (In the full firefox reblame's 2010 merges,
-    build-timeline-tree's checkpoints left 600 packs 25 minutes into a chunk,
-    and its merge threads spent most of their time waiting for each other to
-    look up objects in each of them.)  Repacking between chunks
+    docs), and during a chunk when it has more than MAX_PACKS packs besides git
+    fast-import's (ex: packs left by earlier chunks while a repack ran), unless
+    its last repack is still running.  Repacking between chunks
     took 17-68% of each tool's time in the full firefox reblame on AWS, mostly
     single-threaded, even though on a firefox window it didn't make the tools
     any faster: it combined the packs and made them smaller (2.5x for the
@@ -242,10 +255,13 @@ class PackMaintenance:
             if self.repacking.poll() != 0:
                 return
             self.repacking = None
-        packs = len(glob.glob(os.path.join(self.repo, ".git", "objects", "pack", "*.pack")))
-        if packs > MAX_PACKS:
-            log(f"repacking {self.repo}, which has {packs} packs")
+        packs = [p for p in self._packs() if not os.path.exists(p.removesuffix(".pack") + ".keep")]
+        if len(packs) > MAX_PACKS:
+            log(f"repacking {self.repo}, which has {len(packs)} packs besides git fast-import's")
             self._repack()
+
+    def _packs(self):
+        return glob.glob(os.path.join(self.repo, ".git", "objects", "pack", "*.pack"))
 
     def _repack(self):
         # Geometric repacking combines the small packs without rewriting the
@@ -405,11 +421,14 @@ def terminate_running():
             proc.terminate()
 
 
-def run_tool(command, limit, progress, during=lambda: None):
-    """Run a tool with COMMIT_LIMIT, passing its log through, and calling
-    `during` every minute while it runs."""
+def run_tool(command, limit, progress, during=lambda: None, env=None):
+    """Run a tool with COMMIT_LIMIT (and `env`), passing its log through, and
+    calling `during` every minute while it runs.  Returns whether it ended
+    early with revisions left (see ENDED_EARLY_EXIT_CODE)."""
     proc = subprocess.Popen(
-        command, env=dict(os.environ, COMMIT_LIMIT=str(limit)), stderr=subprocess.PIPE
+        command,
+        env=dict(os.environ, **(env or {}), COMMIT_LIMIT=str(limit)),
+        stderr=subprocess.PIPE,
     )
     with RUNNING_LOCK:
         RUNNING.add(proc)
@@ -429,18 +448,22 @@ def run_tool(command, limit, progress, during=lambda: None):
             RUNNING.discard(proc)
     if returncode == STOPPED_EXIT_CODE:
         raise Stopped()
+    if returncode == ENDED_EARLY_EXIT_CODE:
+        return True
     if returncode != 0:
         raise subprocess.CalledProcessError(returncode, command)
+    return False
 
 
 class ChunkedTool:
-    """Runs a tool with COMMIT_LIMIT in chunks, maintaining `repo`'s packs
-    after each run, and reports its progress."""
+    """Runs a tool with COMMIT_LIMIT (and `env`) in chunks, maintaining `repo`'s
+    packs after each run, and reports its progress."""
 
-    def __init__(self, name, label, command, repo, ref, chunk_size, total_limit, status):
+    def __init__(self, name, label, command, repo, ref, chunk_size, total_limit, status, env=None):
         self.name = name
         self.label = label
         self.command = command
+        self.env = env
         self.repo = repo
         self.ref = ref
         self.chunk_size = chunk_size
@@ -470,9 +493,14 @@ class ChunkedTool:
                 f"{self.processed} processed so far)"
             )
             self.progress.chunk_started(self.processed)
-            run_tool(self.command, limit, self.progress, self.packs.during_chunk)
+            ended_early = run_tool(
+                self.command, limit, self.progress, self.packs.during_chunk, self.env
+            )
             after = num_processed(self.repo, self.ref)
-            log(f"{self.name} processed {after - before} revisions")
+            log(
+                f"{self.name} processed {after - before} revisions"
+                + (" (and ended the chunk early)" if ended_early else "")
+            )
             self.packs.after_chunk()
             self.processed += after - before
             self.progress.chunk_started(self.processed)
@@ -480,8 +508,8 @@ class ChunkedTool:
             if after_chunk:
                 after_chunk()
             # The tools only process fewer revisions than the limit if that's
-            # all there were.
-            if after - before < limit:
+            # all there were, unless they ended early.
+            if after - before < limit and not ended_early:
                 return
             before = after
 
@@ -642,6 +670,7 @@ def main():
         args.chunk_size,
         total_limit,
         status,
+        env={"MAX_CHECKPOINTS": str(MAX_CHECKPOINTS)},
     )
     global RESTART
     RESTART = Restart()

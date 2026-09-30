@@ -11,7 +11,8 @@
 // for checking consolidation.  Like it, we record the revisions
 // we've processed in git notes (in the timeline repo), and we find the syntax
 // commits of source revisions via the syntax repo's notes; see
-// `source_mapping`.
+// `source_mapping`.  `MAX_CHECKPOINTS` ends the run early after that many git
+// fast-import checkpoints (see `main`).
 //
 // ## Timeline repo contents
 //
@@ -140,7 +141,7 @@ use tools::file_format::history::timeline_tokens::{
     TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, token_timeline_path, tracked_token_key,
 };
 use tools::git_ops::{fast_import_git, git_time_to_chrono, history_compute_threads};
-use tools::history_stop::{STOPPED_EXIT_CODE, stop_requested};
+use tools::history_stop::{ENDED_EARLY_EXIT_CODE, STOPPED_EXIT_CODE, stop_requested};
 use tools::hyperblame::backouts::{BackoutTargetResolver, find_backed_out};
 use tools::hyperblame::consolidation::{
     Summarize, consolidate_appended, merge_journal_texts, merge_journal_versions,
@@ -2555,6 +2556,19 @@ fn main() {
         .and_then(|x| x.parse::<usize>().ok())
         .unwrap_or(0);
     let use_cinnabar = env::var("CINNABAR").map_or(true, |v| v != "0");
+    // git fast-import keeps every pack it writes (with a .keep file) until it
+    // exits, so that repacking can't delete them from under it, and each
+    // checkpoint writes one (as does each run).  We checkpoint before most
+    // merges (see `MergeParents`), so over a history with many merges, a run's
+    // packs pile up (ex: ~735 in 10,000 revisions of firefox's 2008 history),
+    // slowing every object lookup, and nothing can combine them.  So with
+    // MAX_CHECKPOINTS, we end the run after that many checkpoints, exiting with
+    // ENDED_EARLY_EXIT_CODE, and scripts/build-history.py repacks them before
+    // it runs us again.
+    let max_checkpoints = env::var("MAX_CHECKPOINTS")
+        .ok()
+        .and_then(|x| x.parse::<usize>().ok())
+        .filter(|&max| max > 0);
 
     // The syntax repo's notes map source revisions to the syntax commits, which
     // we need to resolve backouts, and the timeline repo's notes map them to the
@@ -2677,16 +2691,26 @@ fn main() {
     let mut num_summaries = 0;
     // The last mark whose commit git fast-import has written to disk.
     let mut checkpointed_mark = 0;
+    let mut checkpoints = 0;
 
     // Tracks completion count and serves as the basis for the mark <idnum>
     // assigned to each commit.
     let mut rev_done = 0;
 
-    let mut stopped = false;
+    // The exit status if we stop before the last revision.
+    let mut stopped_with = None;
     for rev_meta in revs_to_process.iter() {
         if stop_requested() {
             info!("Stopping after {} revisions, as requested", rev_done);
-            stopped = true;
+            stopped_with = Some(STOPPED_EXIT_CODE);
+            break;
+        }
+        if max_checkpoints.is_some_and(|max| checkpoints >= max) {
+            info!(
+                "Ending the run after {} revisions and {} checkpoints (MAX_CHECKPOINTS)",
+                rev_done, checkpoints
+            );
+            stopped_with = Some(ENDED_EARLY_EXIT_CODE);
             break;
         }
         let data = compute_pool.result(rev_done);
@@ -2723,6 +2747,7 @@ fn main() {
         {
             checkpoint(&mut import_helper.child, rev_done - 1);
             checkpointed_mark = rev_done - 1;
+            checkpoints += 1;
         }
 
         import_helper.cache.begin(timeline_parents.first());
@@ -2888,6 +2913,7 @@ fn main() {
             info!("Completed 100,000 commits, issuing checkpoint...");
             checkpoint(&mut import_helper.child, rev_done);
             checkpointed_mark = rev_done;
+            checkpoints += 1;
         }
     }
 
@@ -2908,7 +2934,7 @@ fn main() {
     } else {
         info!("Fast-import exited with {:?}", exitcode.code());
     }
-    if stopped {
-        std::process::exit(STOPPED_EXIT_CODE);
+    if let Some(code) = stopped_with {
+        std::process::exit(code);
     }
 }
