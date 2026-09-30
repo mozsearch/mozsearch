@@ -413,6 +413,25 @@ the whole log is uploaded as `failed-*.gz`, and the instance shuts down.  With
 running instead, for runs you're watching; the 14 day limit still shuts it
 down.
 
+### Upgrading a running history rebuild
+
+The history is built by `scripts/build-history.py` (see its docs), which
+restarts itself in place, with the scripts and tools as they are then, when
+sent SIGUSR1: the tools stop after the revision they're processing, and it
+resumes from their notes without losing anything.  So to upgrade a running
+rebuild to newer mozsearch commits, ssh in (`infrastructure/aws/ssh.py`) and:
+
+```
+cd ~/mozsearch && git fetch origin <branch> && git merge --ff-only FETCH_HEAD
+sudo -i nix profile upgrade indexerPackages
+pkill -USR1 -f '[s]cripts/build-history.py'
+```
+
+The log then says "restarting".  With `--setenv HISTORY_PAUSE_ON_FAILURE=1`, a
+failure of the history tools (ex: a crash) makes build-history.py wait (its
+status says "paused") rather than failing the rebuild, so that you can fix the
+problem, upgrade, and send SIGUSR1 to carry on.
+
 The log is on the instance's SSD (`~/index-log` is a symlink to
 `/index/index-log`), and has a line with the instance's resource usage
 (memory, swap, CPU, and disk) every 5 minutes and at each new peak of memory

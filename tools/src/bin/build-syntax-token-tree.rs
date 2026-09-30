@@ -46,6 +46,7 @@ use tools::file_format::history::io_helpers::{
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use tools::file_format::history::syntax_symdex::{SymdexHeader, SymdexRecord};
 use tools::git_ops::{fast_import_git, history_compute_threads};
+use tools::history_stop::{STOPPED_EXIT_CODE, stop_requested};
 use tools::hyperblame::history_config::{
     AttributeRules, AttributeSet, EffectiveAttributes, HistoryConfig, LangSource, ResolvedLanguage,
     parse_repo_gitattributes, resolve_language,
@@ -1588,7 +1589,13 @@ fn main() {
     // assigned to each commit.
     let mut rev_done = 0;
 
+    let mut stopped = false;
     for git_oid in revs_to_process.iter() {
+        if stop_requested() {
+            info!("Stopping after {} revisions, as requested", rev_done);
+            stopped = true;
+            break;
+        }
         // Read a result. Since we hand out compute requests in round-robin order
         // and each thread processes them in FIFO order we know exactly which
         // thread is going to give us our result.
@@ -1736,5 +1743,8 @@ fn main() {
         info!("Done!");
     } else {
         info!("Fast-import exited with {:?}", exitcode.code());
+    }
+    if stopped {
+        std::process::exit(STOPPED_EXIT_CODE);
     }
 }

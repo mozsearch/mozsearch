@@ -140,6 +140,7 @@ use tools::file_format::history::timeline_tokens::{
     TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, token_timeline_path, tracked_token_key,
 };
 use tools::git_ops::{fast_import_git, git_time_to_chrono, history_compute_threads};
+use tools::history_stop::{STOPPED_EXIT_CODE, stop_requested};
 use tools::hyperblame::backouts::{BackoutTargetResolver, find_backed_out};
 use tools::hyperblame::consolidation::{
     Summarize, consolidate_appended, merge_journal_texts, merge_journal_versions,
@@ -2673,7 +2674,13 @@ fn main() {
     // assigned to each commit.
     let mut rev_done = 0;
 
+    let mut stopped = false;
     for rev_meta in revs_to_process.iter() {
+        if stop_requested() {
+            info!("Stopping after {} revisions, as requested", rev_done);
+            stopped = true;
+            break;
+        }
         let data = compute_pool.result(rev_done);
         assert!(data.meta.syntax_rev == rev_meta.syntax_rev);
 
@@ -2892,5 +2899,8 @@ fn main() {
         info!("Done!");
     } else {
         info!("Fast-import exited with {:?}", exitcode.code());
+    }
+    if stopped {
+        std::process::exit(STOPPED_EXIT_CODE);
     }
 }

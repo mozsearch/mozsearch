@@ -31,6 +31,16 @@ after HISTORY_ROOT are passed to build-syntax-token-tree (ex: the history
 configuration directory and old revision options).  Other environment
 variables (ex: CINNABAR, NOTES_REF) are passed to the tools, except that
 COMMIT_LIMIT limits how many revisions each tool processes in total.
+
+Sending this process SIGUSR1 restarts it in place (as the same process, so
+whatever is waiting for it keeps waiting): the tools stop after the revision
+they're processing (see the tools' `history_stop`), and once they and any
+repacks have finished, the script runs itself again with the same arguments,
+which resumes from the tools' notes without losing anything.  So a running
+reblame can be upgraded by updating the checkout and the tools and sending
+SIGUSR1 (see docs/aws.md).  With HISTORY_PAUSE_ON_FAILURE set, a failure (ex:
+a tool crashing) makes it wait for SIGUSR1 to restart like that (ex: after
+fixing the tool) rather than exiting.
 """
 
 import argparse
@@ -40,14 +50,68 @@ import os
 import re
 import resource
 import shlex
+import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
+import traceback
 
 
 def log(message):
     print(f"build-history: {message}", file=sys.stderr, flush=True)
+
+
+# The exit status of a tool which stopped because we asked it to (the tools'
+# `history_stop::STOPPED_EXIT_CODE`).
+STOPPED_EXIT_CODE = 75
+
+
+class Stopped(Exception):
+    """A tool stopped, or we didn't start one, because a restart was requested
+    (see `Restart`)."""
+
+
+class Restart:
+    """Restarting this script in place on SIGUSR1; see the module docs."""
+
+    def __init__(self):
+        # The file that makes the tools stop (their `HISTORY_STOP_FILE`), which
+        # is per process so that concurrent runs don't stop each other.
+        self.stop_file = os.path.join(tempfile.gettempdir(), f"build-history-stop-{os.getpid()}")
+        self._remove_stop_file()
+        os.environ["HISTORY_STOP_FILE"] = self.stop_file
+        self.requested = threading.Event()
+        signal.signal(signal.SIGUSR1, self._request)
+
+    def _remove_stop_file(self):
+        try:
+            os.remove(self.stop_file)
+        except FileNotFoundError:
+            pass
+
+    def _request(self, signum, frame):
+        if not self.requested.is_set():
+            log("restarting (as SIGUSR1 requested) once the tools have stopped")
+        with open(self.stop_file, "w"):
+            pass
+        self.requested.set()
+
+    def check(self):
+        if self.requested.is_set():
+            raise Stopped()
+
+    def restart(self):
+        log("restarting")
+        self._remove_stop_file()
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os.execv(sys.executable, [sys.executable, *sys.argv])
+
+
+# The `Restart` for this process, set by main.
+RESTART = None
 
 
 def git_output(repo, *args):
@@ -327,6 +391,8 @@ def run_tool(command, limit, progress, during=lambda: None):
         returncode = proc.wait()
         with RUNNING_LOCK:
             RUNNING.discard(proc)
+    if returncode == STOPPED_EXIT_CODE:
+        raise Stopped()
     if returncode != 0:
         raise subprocess.CalledProcessError(returncode, command)
 
@@ -361,6 +427,7 @@ class ChunkedTool:
                 limit = min(limit, self.total_limit - self.processed)
                 if limit <= 0:
                     return
+            RESTART.check()
             self.chunks += 1
             log(
                 f"{self.name} chunk {self.chunks} (up to {limit} revisions, "
@@ -431,10 +498,12 @@ def run_pipelined(syntax, timeline):
     errors = []
 
     def fail(e):
-        if not errors:
-            errors.append(e)
+        errors.append(e)
         pipeline.fail()
-        terminate_running()
+        # A tool which stopped for a restart stops the other one too, since
+        # it stops for the same reason.
+        if not isinstance(e, Stopped):
+            terminate_running()
 
     def follow_syntax():
         try:
@@ -461,6 +530,9 @@ def run_pipelined(syntax, timeline):
     except BaseException as e:
         fail(e)
     thread.join()
+    for e in errors:
+        if not isinstance(e, Stopped):
+            raise e
     if errors:
         raise errors[0]
 
@@ -535,14 +607,41 @@ def main():
         total_limit,
         status,
     )
-    if args.pipeline:
-        timeline_tool.progress.total_from = syntax_tool.progress
-        run_pipelined(syntax_tool, timeline_tool)
-    else:
-        syntax_tool.catch_up()
-        syntax_tool.finish()
-        timeline_tool.catch_up()
-        timeline_tool.finish()
+    global RESTART
+    RESTART = Restart()
+    try:
+        if args.pipeline:
+            timeline_tool.progress.total_from = syntax_tool.progress
+            run_pipelined(syntax_tool, timeline_tool)
+        else:
+            syntax_tool.catch_up()
+            syntax_tool.finish()
+            timeline_tool.catch_up()
+            timeline_tool.finish()
+        return
+    except Stopped:
+        pass
+    except Exception as e:
+        if not os.environ.get("HISTORY_PAUSE_ON_FAILURE"):
+            raise
+        traceback.print_exc()
+        failure = e
+        if isinstance(e, subprocess.CalledProcessError):
+            failure = f"{' '.join(map(str, e.cmd[:1]))} failed with exit code {e.returncode}"
+        status.report(
+            f"paused after a failure ({failure}); send SIGUSR1 to build-history.py "
+            f"(pid {os.getpid()}) to restart it",
+            force=True,
+            key="paused",
+        )
+        while not RESTART.requested.wait(60):
+            pass
+    for chunked in (syntax_tool, timeline_tool):
+        try:
+            chunked.packs.finish()
+        except subprocess.CalledProcessError as e:
+            log(f"a repack of {chunked.repo} failed with exit code {e.returncode}")
+    RESTART.restart()
 
 
 if __name__ == "__main__":
