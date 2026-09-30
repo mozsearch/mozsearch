@@ -18,7 +18,8 @@ of firefox-main, which has 28k merges) would leave tens of thousands of packs:
 looking up an object means looking in each pack (on a firefox window, ~900
 packs made the timeline 9% slower than one), and each pack is an open file
 while it's being read.  So after each chunk, the repo is repacked in the
-background while the next chunk runs (see `PackMaintenance`).  Chunking also
+background while the next chunk runs, and during a chunk if it has too many
+packs (see `PackMaintenance`).  Chunking also
 bounds how much state each git fast-import process accumulates (ex: its table
 of every file name it has seen, which makes loading trees slower as it grows).
 The tools resume from their source mapping notes, so a chunk is just a run
@@ -34,6 +35,7 @@ COMMIT_LIMIT limits how many revisions each tool processes in total.
 
 import argparse
 import collections
+import glob
 import os
 import re
 import resource
@@ -83,11 +85,17 @@ def num_processed(repo, blame_ref):
 # The threads a background repack's delta search uses, leaving most of the
 # CPUs to the tools.
 REPACK_THREADS = 8
+# How many packs a repo can have during a chunk before we repack it.
+MAX_PACKS = 64
 
 
 class PackMaintenance:
     """Repacks a history repo in the background after each chunk (see the module
-    docs), unless its last repack is still running.  Repacking between chunks
+    docs), and during a chunk when it has more than MAX_PACKS packs, unless its
+    last repack is still running.  (In the full firefox reblame's 2010 merges,
+    build-timeline-tree's checkpoints left 600 packs 25 minutes into a chunk,
+    and its merge threads spent most of their time waiting for each other to
+    look up objects in each of them.)  Repacking between chunks
     took 17-68% of each tool's time in the full firefox reblame on AWS, mostly
     single-threaded, even though on a firefox window it didn't make the tools
     any faster: it combined the packs and made them smaller (2.5x for the
@@ -124,6 +132,22 @@ class PackMaintenance:
         if not self._repack_finished():
             log(f"not repacking {self.repo}, since its last repack is still running")
             return
+        self._repack()
+
+    def during_chunk(self):
+        """Called periodically while a tool runs (from another thread than
+        `after_chunk`, but never at the same time)."""
+        if self.repacking is not None:
+            # Leave a failed repack for `after_chunk` or `finish` to raise.
+            if self.repacking.poll() != 0:
+                return
+            self.repacking = None
+        packs = len(glob.glob(os.path.join(self.repo, ".git", "objects", "pack", "*.pack")))
+        if packs > MAX_PACKS:
+            log(f"repacking {self.repo}, which has {packs} packs")
+            self._repack()
+
+    def _repack(self):
         # Geometric repacking combines the small packs without rewriting the
         # big ones every time, keeping the number of packs logarithmic in the
         # number of objects.
@@ -261,11 +285,13 @@ class Progress:
         self.status.report(message, force, key=self.label)
 
 
-def heartbeat(progress, stop):
+def heartbeat(progress, stop, during):
     """Report the progress every minute (subject to Status's limit) even when
-    the tool logs nothing, so that a long revision doesn't look like a hang."""
+    the tool logs nothing, so that a long revision doesn't look like a hang,
+    and call `during`."""
     while not stop.wait(Status.INTERVAL):
         progress.report()
+        during()
 
 
 # The tools' processes, so that a failure of one can stop the other.
@@ -279,15 +305,16 @@ def terminate_running():
             proc.terminate()
 
 
-def run_tool(command, limit, progress):
-    """Run a tool with COMMIT_LIMIT, passing its log through."""
+def run_tool(command, limit, progress, during=lambda: None):
+    """Run a tool with COMMIT_LIMIT, passing its log through, and calling
+    `during` every minute while it runs."""
     proc = subprocess.Popen(
         command, env=dict(os.environ, COMMIT_LIMIT=str(limit)), stderr=subprocess.PIPE
     )
     with RUNNING_LOCK:
         RUNNING.add(proc)
     stop = threading.Event()
-    beat = threading.Thread(target=heartbeat, args=(progress, stop), daemon=True)
+    beat = threading.Thread(target=heartbeat, args=(progress, stop, during), daemon=True)
     beat.start()
     try:
         for line in proc.stderr:
@@ -340,7 +367,7 @@ class ChunkedTool:
                 f"{self.processed} processed so far)"
             )
             self.progress.chunk_started(self.processed)
-            run_tool(self.command, limit, self.progress)
+            run_tool(self.command, limit, self.progress, self.packs.during_chunk)
             after = num_processed(self.repo, self.ref)
             log(f"{self.name} processed {after - before} revisions")
             self.packs.after_chunk()
