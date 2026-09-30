@@ -1743,7 +1743,7 @@ fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
         .iter()
         .map(|(version, blob)| (version.clone(), std::str::from_utf8(blob).unwrap()))
         .collect();
-    let contents = merge_journal_texts(&texts).unwrap_or_else(|| {
+    let contents = merge_journal_texts::<R>(&texts).unwrap_or_else(|| {
         let mut header: Option<H> = None;
         let mut versions = vec![];
         for (version, blob) in &blobs {
@@ -1752,8 +1752,15 @@ fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
                 versions.push((version.clone(), records));
             }
         }
+        // A version is often the pred of several of the summaries.
+        let mut loaded: HashMap<JournalVersionRef, Vec<R>> = HashMap::new();
         let records = merge_journal_versions(versions, &mut |version| {
-            parents.load_journal_version::<H, R>(version)
+            if let Some(records) = loaded.get(version) {
+                return Ok(records.clone());
+            }
+            let records = parents.load_journal_version::<H, R>(version)?;
+            loaded.insert(version.clone(), records.clone());
+            Ok(records)
         })
         .unwrap();
         record_file_contents_to_string(&header.unwrap_or_default(), &records)

@@ -24,7 +24,8 @@
 //! Merges union their parents' versions of a journal (`merge_journal_versions`),
 //! and the parents may have summarized the same week independently.  Summaries
 //! with the same source revisions are deduplicated, and overlapping ones are
-//! expanded and summarized again with each of their parents' journals as preds.
+//! expanded and summarized again with each of their parents' journals as preds
+//! (unless one of them covers the others, which then just gets those preds).
 //! Detail records for revisions a summary covers are dropped.  So a source
 //! revision only ever appears in one record of a journal.
 
@@ -104,6 +105,9 @@ pub trait Summarize: TimelineRecord + Clone + Serialize + DeserializeOwned {
     /// A summary record with the common fields `desc` aggregating `details`,
     /// which are detail records ordered newest first.
     fn summarize_details(desc: SummaryRecordRef, details: &[&Self]) -> Self;
+
+    /// This summary record with `preds` as its preds.
+    fn with_preds(&self, preds: Vec<JournalVersionRef>) -> Self;
 }
 
 /// A summary record aggregating detail records (in any order).
@@ -262,10 +266,14 @@ pub fn merge_journal_versions<R: Summarize>(
     versions: Vec<(JournalVersionRef, Vec<R>)>,
     load: &mut impl FnMut(&JournalVersionRef) -> Result<Vec<R>, String>,
 ) -> Result<Vec<R>, String> {
-    merge_versions(versions, &mut |group, preds, week| {
-        let details = expand_records(group, load)?;
-        Ok(summarize(&details, preds, week))
-    })
+    merge_versions(
+        versions,
+        &mut |group, preds, week| {
+            let details = expand_records(group, load)?;
+            Ok(summarize(&details, preds, week))
+        },
+        &mut |summary, preds| Ok(summary.with_preds(preds)),
+    )
 }
 
 /// The fields of a journal record's line which merging needs.
@@ -285,7 +293,7 @@ struct MergeFields<'a> {
 /// its preds).
 #[derive(Clone)]
 struct MergeLine<'a> {
-    line: &'a str,
+    line: Cow<'a, str>,
     source_rev: Option<Cow<'a, str>>,
     iso_date: Option<Cow<'a, str>>,
     summary: Option<SummaryRecordRef>,
@@ -308,7 +316,7 @@ impl<'a> MergeLine<'a> {
             _ => return None,
         };
         Some(MergeLine {
-            line,
+            line: Cow::Borrowed(line),
             source_rev: fields.source_rev,
             iso_date: fields.iso_date,
             summary,
@@ -337,13 +345,14 @@ impl TimelineRecord for MergeLine<'_> {
 }
 
 /// `merge_journal_versions` for the texts of the versions (a header line and a
-/// line per record): the merged journal, with the lines of the records it keeps
-/// as they were and the first version's header, if no summaries need to be
-/// summarized again, which is almost always the case.  Then only a few fields
-/// of the records are parsed, rather than parsing and serializing every record,
-/// which made firefox's merges slow.  Returns None if summaries need to be
-/// summarized again, if no version has any lines, or if a line can't be read.
-pub fn merge_journal_texts(versions: &[(JournalVersionRef, &str)]) -> Option<String> {
+/// line per record) of a journal of `R`s: the merged journal, with the lines of
+/// the records it keeps as they were and the first version's header, unless
+/// summaries need to be summarized again from their details, which is rare.
+/// Then only a few fields of the records are parsed, rather than parsing and
+/// serializing every record, which made firefox's merges slow.  Returns None if
+/// summaries need to be summarized again, if no version has any lines, or if a
+/// line can't be read.
+pub fn merge_journal_texts<R: Summarize>(versions: &[(JournalVersionRef, &str)]) -> Option<String> {
     let mut header = None;
     let mut parsed = vec![];
     for (version, text) in versions {
@@ -356,7 +365,20 @@ pub fn merge_journal_texts(versions: &[(JournalVersionRef, &str)]) -> Option<Str
         parsed.push((version.clone(), records));
     }
     let header = header?;
-    let merged = merge_versions(parsed, &mut |_, _, _| Err(String::new())).ok()?;
+    let merged = merge_versions(
+        parsed,
+        &mut |_, _, _| Err(String::new()),
+        &mut |summary: &MergeLine, preds| {
+            let record: R = serde_json::from_str(&summary.line).map_err(|e| e.to_string())?;
+            let line =
+                serde_json::to_string(&record.with_preds(preds)).map_err(|e| e.to_string())?;
+            Ok(MergeLine {
+                line: Cow::Owned(line),
+                ..summary.clone()
+            })
+        },
+    )
+    .ok()?;
     let mut text = String::with_capacity(
         header.len()
             + merged
@@ -367,16 +389,18 @@ pub fn merge_journal_texts(versions: &[(JournalVersionRef, &str)]) -> Option<Str
     text.push_str(header);
     for record in merged {
         text.push('\n');
-        text.push_str(record.line);
+        text.push_str(&record.line);
     }
     Some(text)
 }
 
 /// `merge_journal_versions` with `resummarize` making the summary of a group of
-/// overlapping summaries from them, the versions they came from, and their week.
+/// overlapping summaries from them, the versions they came from, and their week,
+/// and `repred` making a summary with other preds.
 fn merge_versions<R: TimelineRecord + Clone>(
     versions: Vec<(JournalVersionRef, Vec<R>)>,
     resummarize: &mut impl FnMut(Vec<R>, Vec<JournalVersionRef>, IsoWeek) -> Result<R, String>,
+    repred: &mut impl FnMut(&R, Vec<JournalVersionRef>) -> Result<R, String>,
 ) -> Result<Vec<R>, String> {
     // ## Distinct summaries, with the versions they came from, in the order
     // they're first found.  (Journals get a summary per week, so after years of
@@ -451,14 +475,32 @@ fn merge_versions<R: TimelineRecord + Clone>(
             final_summaries.push(summaries[only].0.clone());
             continue;
         }
-        let week = record_week(&summaries[group[0]].0).unwrap();
-        let group_records: Vec<R> = group.iter().map(|idx| summaries[*idx].0.clone()).collect();
         let sources: BTreeSet<usize> = group
             .iter()
             .flat_map(|idx| summaries[*idx].1.iter().copied())
             .collect();
         let preds = sources.iter().map(|idx| versions[*idx].0.clone()).collect();
-        final_summaries.push(resummarize(group_records, preds, week)?);
+        // If one of the summaries covers the whole group, summarizing the group
+        // again gives that summary with the group's preds, since a summary is
+        // the aggregate of its expanded details, ordered canonically, so the
+        // details needn't be loaded.  (Once a branch has merged the other's
+        // summary of a week and summarized the week again, every later merge
+        // between them has such a group, whose details were ever more
+        // expensive to load through the growing chains of preds.)
+        let revs = |idx: usize| -> HashSet<&str> {
+            let summary = summaries[idx].0.summary_ref().unwrap();
+            summary.source_revs.iter().map(String::as_str).collect()
+        };
+        let union: HashSet<&str> = group.iter().flat_map(|idx| revs(*idx)).collect();
+        match group.iter().find(|idx| revs(**idx).len() == union.len()) {
+            Some(covering) => final_summaries.push(repred(&summaries[*covering].0, preds)?),
+            None => {
+                let week = record_week(&summaries[group[0]].0).unwrap();
+                let group_records: Vec<R> =
+                    group.iter().map(|idx| summaries[*idx].0.clone()).collect();
+                final_summaries.push(resummarize(group_records, preds, week)?);
+            }
+        }
     }
 
     // ## Details which no summary covers.
@@ -538,6 +580,14 @@ impl Summarize for TokenDeltaRecord {
         }
         TokenDeltaRecord::Summary(TokenDeltaSummaryRecord { desc, delta })
     }
+
+    fn with_preds(&self, preds: Vec<JournalVersionRef>) -> Self {
+        let mut record = self.clone();
+        if let TokenDeltaRecord::Summary(summary) = &mut record {
+            summary.desc.preds = preds;
+        }
+        record
+    }
 }
 
 impl Summarize for FutureRecord {
@@ -571,6 +621,14 @@ impl Summarize for FutureRecord {
             moved_token_revs: revs(&mut details.iter().map(|d| &d.moved_out_tokens)),
             evolved_token_revs: revs(&mut details.iter().map(|d| &d.evolved_tokens)),
         })
+    }
+
+    fn with_preds(&self, preds: Vec<JournalVersionRef>) -> Self {
+        let mut record = self.clone();
+        if let FutureRecord::Summary(summary) = &mut record {
+            summary.desc.preds = preds;
+        }
+        record
     }
 }
 
@@ -620,6 +678,14 @@ impl Summarize for FileDeltaRecord {
             }
         }
         FileDeltaRecord::Summary(FileDeltaSummaryRecord { desc, symbol_group })
+    }
+
+    fn with_preds(&self, preds: Vec<JournalVersionRef>) -> Self {
+        let mut record = self.clone();
+        if let FileDeltaRecord::Summary(summary) = &mut record {
+            summary.desc.preds = preds;
+        }
+        record
     }
 }
 
@@ -888,11 +954,23 @@ mod tests {
 
     #[test]
     fn test_merge_journal_versions_like_reference() {
-        let (mut resummarized, mut weeks_with_several) = (0, 0);
+        let (mut resummarized, mut weeks_with_several, mut covered) = (0, 0, 0);
         for (case, (versions, preds)) in random_merge_cases(500).into_iter().enumerate() {
+            // (Only summarizing summaries again from their details loads
+            // journal versions.)
+            let (mut expected_loads, mut actual_loads) = (0, 0);
             let mut load = loader(preds);
-            let expected = merge_journal_versions_reference(versions.clone(), &mut load).unwrap();
-            let actual = merge_journal_versions(versions, &mut load).unwrap();
+            let expected = merge_journal_versions_reference(versions.clone(), &mut |version| {
+                expected_loads += 1;
+                load(version)
+            })
+            .unwrap();
+            let actual = merge_journal_versions(versions, &mut |version| {
+                actual_loads += 1;
+                load(version)
+            })
+            .unwrap();
+            covered += (actual_loads == 0 && expected_loads > 0) as usize;
             assert_eq!(
                 serde_json::to_string(&actual).unwrap(),
                 serde_json::to_string(&expected).unwrap(),
@@ -911,8 +989,9 @@ mod tests {
             weeks_with_several += summaries_by_week.values().filter(|&&n| n > 1).count();
         }
         // The cases include overlapping summaries, which get summarized
-        // again, and weeks with several summaries, whose order matters.
-        assert!(resummarized > 0 && weeks_with_several > 0);
+        // again, some of them only covering ones, and weeks with several
+        // summaries, whose order matters.
+        assert!(resummarized > 0 && covered > 0 && weeks_with_several > 0);
     }
 
     #[test]
@@ -940,7 +1019,7 @@ mod tests {
                 load_pred(version)
             })
             .unwrap();
-            match merge_journal_texts(&texts) {
+            match merge_journal_texts::<TokenDeltaRecord>(&texts) {
                 Some(text) => {
                     assert_eq!(loads, 0, "case {}", case);
                     assert_eq!(
@@ -963,10 +1042,14 @@ mod tests {
         let text = r#"{}
 {"type":"Detail","source_rev":"a","syntax_rev":"s","iso_date":"2024-01-01T00:00:00Z","added":1}"#;
         assert_eq!(
-            merge_journal_texts(&[(version("x"), ""), (version("y"), text)]).as_deref(),
+            merge_journal_texts::<TokenDeltaRecord>(&[(version("x"), ""), (version("y"), text)])
+                .as_deref(),
             Some(text)
         );
-        assert_eq!(merge_journal_texts(&[(version("x"), "")]), None);
+        assert_eq!(
+            merge_journal_texts::<TokenDeltaRecord>(&[(version("x"), "")]),
+            None
+        );
     }
 
     #[test]
@@ -1085,7 +1168,7 @@ mod tests {
             read_record_file_contents, record_file_contents_to_string,
         };
         let start = std::time::Instant::now();
-        let fast = merge_journal_texts(texts);
+        let fast = merge_journal_texts::<R>(texts);
         let fast_time = start.elapsed();
         let start = std::time::Instant::now();
         let mut header = None;
