@@ -160,7 +160,11 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 /// - 4: License headers and modelines are `TokenClass::Boilerplate`.
 /// - 5: Whitespace in structural context names is normalized; see
 ///   `context_name`.
-pub const TOKENIZER_VERSION: u32 = 5;
+/// - 6: Names with parse errors are the innermost names without any, or don't
+///   make containers (see `clean_name_node`), and C++ calls of statement macros
+///   which tree-sitter-cpp takes for function definitions (ex: `QM_TRY_UNWRAP`
+///   with a lambda) aren't containers (see cpp.scm).
+pub const TOKENIZER_VERSION: u32 = 6;
 
 /// Normalize the text of a container's name node for use in a context.  Names
 /// can contain whitespace (ex: C++ template arguments in out-of-line method
@@ -169,6 +173,20 @@ pub const TOKENIZER_VERSION: u32 = 5;
 /// characters, where it becomes an escaped space ("%20", with "%" escaped as
 /// "%25" like `config_tokenizer` does).  This also makes contexts insensitive
 /// to reformatting, ex: `Foo<A, B>` and `Foo<A,B>` are the same.
+/// The node to name a container by, given the node its query captured as its
+/// name.  tree-sitter's error recovery can make that span unrecognized macros
+/// and the comments between them, ex: tree-sitter-cpp's name for
+/// `ALWAYS_INLINE ATTRIBUTE_NO_SANITIZE_ALL void TracePC::HandleCmp(...)` is
+/// all of it before the parameters, with ERROR nodes in its scope.  So for a
+/// name with errors, we use the innermost node along its `name` fields without
+/// any (`HandleCmp`), or if there isn't one, it doesn't name a container.
+fn clean_name_node(mut name: tree_sitter::Node) -> Option<tree_sitter::Node> {
+    while name.has_error() {
+        name = name.child_by_field_name("name")?;
+    }
+    Some(name)
+}
+
 fn context_name(name: &str) -> String {
     let is_word = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
     let mut out = String::with_capacity(name.len());
@@ -620,37 +638,39 @@ pub fn hypertokenize_with_profile(
                     .nodes_for_capture_index(name_capture_ix)
                     .next()
                     .unwrap();
-                let name = name_node.utf8_text(source_contents.as_bytes()).unwrap();
-                context_stack.push(context_name(name));
-                context_pretty = if context_stack.is_empty() {
-                    empty_context.clone()
-                } else {
-                    context_stack.join("::")
-                };
-                // We're assuming there's only one `#set!` directive right now and that it's
-                // "structure.kind" and that it exists.  We do require it to exist, but...
-                // TODO: It likely makes sense to preprocess the query by iterating over
-                // its patterns and explicitly mapping based on the key so that we can
-                // have the kind already available as a string we can clone.
-                let structure_kind = container_query
-                    .property_settings(pattern_index)
-                    .first()
-                    .unwrap()
-                    .value
-                    .as_ref()
-                    .unwrap()
-                    .to_string();
-                structure.push(FileStructureRow {
-                    pretty: context_pretty.clone(),
-                    // TODO: This should come from a `#set!` directive too but this nuance
-                    // won't matter for a bit, so I'm punting because there's a potential
-                    // the SCM queries would need to get a little more complex in order to
-                    // differentiate between decl and def and when making the change it
-                    // would probably be ideal to add more test coverage.
-                    is_def: true,
-                    kind: structure_kind.to_string(),
-                });
-                id_stack.push(next_container_id);
+                if let Some(name_node) = clean_name_node(name_node) {
+                    let name = name_node.utf8_text(source_contents.as_bytes()).unwrap();
+                    context_stack.push(context_name(name));
+                    context_pretty = if context_stack.is_empty() {
+                        empty_context.clone()
+                    } else {
+                        context_stack.join("::")
+                    };
+                    // We're assuming there's only one `#set!` directive right now and that it's
+                    // "structure.kind" and that it exists.  We do require it to exist, but...
+                    // TODO: It likely makes sense to preprocess the query by iterating over
+                    // its patterns and explicitly mapping based on the key so that we can
+                    // have the kind already available as a string we can clone.
+                    let structure_kind = container_query
+                        .property_settings(pattern_index)
+                        .first()
+                        .unwrap()
+                        .value
+                        .as_ref()
+                        .unwrap()
+                        .to_string();
+                    structure.push(FileStructureRow {
+                        pretty: context_pretty.clone(),
+                        // TODO: This should come from a `#set!` directive too but this nuance
+                        // won't matter for a bit, so I'm punting because there's a potential
+                        // the SCM queries would need to get a little more complex in order to
+                        // differentiate between decl and def and when making the change it
+                        // would probably be ideal to add more test coverage.
+                        is_def: true,
+                        kind: structure_kind.to_string(),
+                    });
+                    id_stack.push(next_container_id);
+                }
 
                 next_container_match = query_matches.next();
                 if let Some(container_match) = &next_container_match {
@@ -887,6 +907,36 @@ mod tests {
             assert_eq!(line.split(' ').count(), 3, "{:?}", line);
         }
         assert_eq!(tokenized.structure[0].pretty, "MapField<D,K,int>::Sync");
+    }
+
+    #[test]
+    fn test_misparsed_cpp_definitions() {
+        let prettys = |source: &str| -> Vec<String> {
+            hypertokenize_source_file("a.cpp", source)
+                .unwrap()
+                .structure
+                .into_iter()
+                .map(|row| row.pretty)
+                .collect()
+        };
+        // tree-sitter-cpp takes a statement macro with a lambda argument (here
+        // when another follows it) for a function definition named by the
+        // macro call, whose tokens belong to the enclosing function.  (From
+        // dom/quota/QuotaManagerService.cpp.)
+        assert_eq!(
+            prettys(
+                "NS_IMETHODIMP\nQuotaManagerService::TemporaryOriginInitialized(\n    const nsACString& aPersistenceType, nsIPrincipal* aPrincipal,\n    nsIQuotaRequest** _retval) {\n  MOZ_ASSERT(NS_IsMainThread());\n  MOZ_ASSERT(aPrincipal);\n  MOZ_ASSERT(nsContentUtils::IsCallerChrome());\n\n  QM_TRY(MOZ_TO_RESULT(StaticPrefs::dom_quotaManager_testing()),\n         NS_ERROR_UNEXPECTED);\n\n  QM_TRY(MOZ_TO_RESULT(EnsureBackgroundActor()));\n\n  QM_TRY_INSPECT(\n      const auto& persistenceType,\n      ([&aPersistenceType]() -> Result<PersistenceType, nsresult> {\n        const auto persistenceType =\n            PersistenceTypeFromString(aPersistenceType, fallible);\n        QM_TRY(MOZ_TO_RESULT(persistenceType.isSome()),\n               Err(NS_ERROR_INVALID_ARG));\n\n        QM_TRY(\n            MOZ_TO_RESULT(IsBestEffortPersistenceType(persistenceType.ref())),\n            Err(NS_ERROR_INVALID_ARG));\n\n        return persistenceType.ref();\n      }()));\n\n  QM_TRY_INSPECT(const auto& principalInfo,\n                 ([&aPrincipal]() -> Result<PrincipalInfo, nsresult> {\n                   PrincipalInfo principalInfo;\n                   QM_TRY(MOZ_TO_RESULT(\n                       PrincipalToPrincipalInfo(aPrincipal, &principalInfo)));\n\n                   QM_TRY(MOZ_TO_RESULT(IsPrincipalInfoValid(principalInfo)),\n                          Err(NS_ERROR_INVALID_ARG));\n\n                   return principalInfo;\n                 }()));\n\n  RefPtr<Request> request = new Request();\n\n  mBackgroundActor\n      ->SendTemporaryOriginInitialized(persistenceType, principalInfo)\n      ->Then(GetCurrentSerialEventTarget(), __func__,\n             BoolResponsePromiseResolveOrRejectCallback(request));\n\n  request.forget(_retval);\n  return NS_OK;\n}\n"
+            ),
+            vec!["QuotaManagerService::TemporaryOriginInitialized"]
+        );
+        // Macros it doesn't recognize before a definition, and comments after
+        // them, end up in the definition's name, along with ERROR nodes.
+        assert_eq!(
+            prettys(
+                "U_CDECL_BEGIN\nstatic char16_t U_CALLCONV\nCharAt(int32_t offset, void *context) {\n    return 0;\n}\nU_CDECL_END\n\nU_NAMESPACE_BEGIN\n\n/* The Replaceable virtual destructor can't be defined in the header\n   due to how AIX works. */\nReplaceable::~Replaceable() {}\n"
+            ),
+            vec!["CharAt", "Replaceable::~Replaceable"]
+        );
     }
 
     #[test]

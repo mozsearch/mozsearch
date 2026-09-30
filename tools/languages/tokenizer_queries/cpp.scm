@@ -37,14 +37,37 @@
 ;;
 ;; Also, `function_definition` is for inline definitions, whereas
 ;; `field_declaration` is for when it's just a decl and the def is elsewhere.
+;;
+;; The name has to be one of those (or a destructor, operator, template
+;; specialization, or a function pointer's `(*name)`), since tree-sitter-cpp
+;; takes calls of statement macros with a lambda argument, ex:
+;; `QM_TRY_UNWRAP(auto x, ([&]() -> Result<...> {...}()));` inside a function,
+;; for function definitions whose name is a `function_declarator` or
+;; `array_declarator` for the macro call.
 (((function_definition
   declarator: (function_declarator
-    declarator: (_) @name)) @container)
+    declarator: [
+      (identifier)
+      (field_identifier)
+      (qualified_identifier)
+      (destructor_name)
+      (operator_name)
+      (template_function)
+      (parenthesized_declarator)
+    ] @name)) @container)
   (#set! structure.kind "method"))
 
 (((field_declaration
   declarator: (function_declarator
-    declarator: (_) @name)) @container)
+    declarator: [
+      (identifier)
+      (field_identifier)
+      (qualified_identifier)
+      (destructor_name)
+      (operator_name)
+      (template_function)
+      (parenthesized_declarator)
+    ] @name)) @container)
   (#set! structure.kind "field"))
 
 ;; Field definitions for members will just have a field_identifier (versus the
