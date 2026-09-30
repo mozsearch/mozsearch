@@ -467,20 +467,30 @@ mod tests {
     fn test_blame_tokens_wpt_metadata() {
         // A test's URL in a section header is several tokens (see the config
         // tokenizer's `UrlParts`), which the popup's ranges follow.
-        let source = "[cts.https.html?q=webgpu:api:*]\n  expected: FAIL\n";
-        let revs = ["1", "1", "2", "2", "1", "1", "1", "3"];
+        let source =
+            "[cts.https.html?q=webgpu:api:*]\n  [dim=\"3d\";filt=\"linear\"]\n    expected: FAIL\n";
+        let revs = [
+            "1", "1", "2", "2", "1", "2", "2", "2", "4", "2", "2", "2", "3",
+        ];
         let path = "meta/cts.https.html.ini";
         let history = history_of(path, "ini", source, &revs, &[]);
         let blame = blame_tokens(source, &history).unwrap();
-        let header: Vec<&str> = blame
-            .tokens
-            .iter()
-            .filter(|t| t.line == 0)
-            .map(|t| &source[t.range.clone()])
-            .collect();
+        let line = |line: usize| -> Vec<&str> {
+            blame
+                .tokens
+                .iter()
+                .filter(|t| t.line == line)
+                .map(|t| &source[t.range.clone()])
+                .collect()
+        };
         assert_eq!(
-            header,
+            line(0),
             vec!["[", "cts.https.html", "?", "q=webgpu:api:*", "]"]
+        );
+        // As are a subtest's name's words and `;`s.
+        assert_eq!(
+            line(1),
+            vec!["[", "dim=\"3d\"", ";", "filt=\"linear\"", "]"]
         );
         // A history from before URLs were split has the whole name as a token,
         // so it doesn't match until it's regenerated.

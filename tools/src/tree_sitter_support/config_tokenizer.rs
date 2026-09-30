@@ -12,7 +12,9 @@
 //!   produce the same tokens.  Top-level sections' names with a URL's query
 //!   or fragment (web-platform-tests metadata's test variants) are split into
 //!   the path, `?` and the query, and `#` and the fragment, with the query and
-//!   fragment as their own context segments; see `UrlParts`.
+//!   fragment as their own context segments; see `UrlParts`.  Nested sections'
+//!   names (web-platform-tests metadata's subtests) are words and `;`s,
+//!   though the context is the whole name; see `Output::push_name_words`.
 //! - Keys: the key as an identifier and its `=` or `:` separator as an
 //!   operator, with the values as whitespace-delimited text words.  The
 //!   context of these tokens is `section::key`, so changes to a key like
@@ -63,6 +65,22 @@ impl<'a> Output<'a> {
         for word in text.split_whitespace() {
             self.push(context, class, word);
         }
+    }
+
+    /// Push a nested section's name, which in web-platform-tests metadata is a
+    /// subtest's, as words and `;`s: subtest names are prose (ex:
+    /// `Selection.extend() from selection at start of ...`) or, for WebGPU's
+    /// conformance tests, parameters separated by `;` (ex:
+    /// `:format="astc-8x5-unorm-srgb";dim="3d";filt="linear"`), and as single
+    /// tokens, any change to one made it all new.
+    fn push_name_words(&mut self, context: &str, name: &'a str) {
+        let mut rest = name;
+        while let Some(i) = rest.find(';') {
+            self.push_words(context, TokenClass::Text, &rest[..i]);
+            self.push(context, TokenClass::Operator, &rest[i..i + 1]);
+            rest = &rest[i + 1..];
+        }
+        self.push_words(context, TokenClass::Text, rest);
     }
 
     fn section(&mut self, pretty: &str) {
@@ -186,7 +204,8 @@ pub fn tokenize_ini(source: &str) -> (FinishedTokens, Vec<FileStructureRow>) {
                 sections.pop();
             }
             // Top-level sections can be tests' URLs; see `UrlParts`.
-            let url = if sections.is_empty() {
+            let top_level = sections.is_empty();
+            let url = if top_level {
                 UrlParts::of(name.trim())
             } else {
                 None
@@ -205,7 +224,10 @@ pub fn tokenize_ini(source: &str) -> (FinishedTokens, Vec<FileStructureRow>) {
             out.push(&section_context, TokenClass::Operator, &trimmed[..1]);
             match &url {
                 Some(url) => url.push_tokens(&mut out, &section_context),
-                None => out.push(&section_context, TokenClass::Identifier, name.trim()),
+                None if top_level => {
+                    out.push(&section_context, TokenClass::Identifier, name.trim())
+                }
+                None => out.push_name_words(&section_context, name.trim()),
             }
             if let Some(end) = close {
                 out.push(
@@ -687,7 +709,10 @@ mod tests {
                 "test.html::expected o :",
                 "test.html::expected t ERROR",
                 "test.html::Some%20subtest:%20with%20spaces o [",
-                "test.html::Some%20subtest:%20with%20spaces i Some subtest: with spaces",
+                "test.html::Some%20subtest:%20with%20spaces t Some",
+                "test.html::Some%20subtest:%20with%20spaces t subtest:",
+                "test.html::Some%20subtest:%20with%20spaces t with",
+                "test.html::Some%20subtest:%20with%20spaces t spaces",
                 "test.html::Some%20subtest:%20with%20spaces o ]",
                 "test.html::Some%20subtest:%20with%20spaces::expected i expected",
                 "test.html::Some%20subtest:%20with%20spaces::expected o :",
@@ -698,7 +723,7 @@ mod tests {
                 "test.html::Some%20subtest:%20with%20spaces::expected t FAIL",
                 "test.html::Some%20subtest:%20with%20spaces::expected t PASS",
                 "test.html::Another%3A%3Asubtest o [",
-                "test.html::Another%3A%3Asubtest i Another::subtest",
+                "test.html::Another%3A%3Asubtest t Another::subtest",
                 "test.html::Another%3A%3Asubtest o ]",
                 "test.html::Another%3A%3Asubtest::expected i expected",
                 "test.html::Another%3A%3Asubtest::expected o :",
@@ -737,7 +762,28 @@ mod tests {
                 format!("{} o ]", query),
             ]
         );
-        assert_eq!(tokens.lines[6], format!("{}::a?b%20#c i a?b #c", query));
+        assert_eq!(
+            &tokens.lines[6..8],
+            &[
+                format!("{}::a?b%20#c t a?b", query),
+                format!("{}::a?b%20#c t #c", query),
+            ]
+        );
+        // WebGPU's subtests are parameters separated by `;`.
+        let (tokens, structure) =
+            tokenize_ini("[cts.https.html]\n  [:format=\"rgba8unorm\";dim=\"3d\"; x]\n");
+        let subtest = "cts.https.html:::format=\"rgba8unorm\";dim=\"3d\";%20x";
+        assert_eq!(structure[1].pretty, subtest);
+        assert_eq!(
+            &tokens.lines[4..9],
+            &[
+                format!("{} t :format=\"rgba8unorm\"", subtest),
+                format!("{} o ;", subtest),
+                format!("{} t dim=\"3d\"", subtest),
+                format!("{} o ;", subtest),
+                format!("{} t x", subtest),
+            ]
+        );
         // TOML tables are tokenized the same way.
         assert_eq!(
             ini("[test.html?x=1#frag]\nexpected = FAIL\n"),

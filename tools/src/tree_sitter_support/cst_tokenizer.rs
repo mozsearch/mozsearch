@@ -167,7 +167,9 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 /// - 7: INI and TOML top-level section names which are URLs with a query or
 ///   fragment are split into tokens and context segments for them; see
 ///   `config_tokenizer::UrlParts`.
-pub const TOKENIZER_VERSION: u32 = 7;
+/// - 8: INI nested sections' names are words and `;`s rather than a single
+///   token; see `config_tokenizer::Output::push_name_words`.
+pub const TOKENIZER_VERSION: u32 = 8;
 
 /// Normalize the text of a container's name node for use in a context.  Names
 /// can contain whitespace (ex: C++ template arguments in out-of-line method
