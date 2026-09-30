@@ -106,6 +106,12 @@ impl SourceMapping {
         self.0.is_empty()
     }
 
+    /// Read the notes trees once, for looking up very many revisions; see
+    /// `NotesReader::preload`.
+    pub fn preload(&mut self, repo: &Repository) -> Result<(), git2::Error> {
+        self.0.preload(repo)
+    }
+
     /// The history commit id recorded for `source_rev`, if any.
     pub fn lookup(&self, repo: &Repository, source_rev: Oid) -> Option<Oid> {
         self.0.lookup(repo, source_rev)

@@ -1333,9 +1333,13 @@ fn main() {
     // The syntax repo's notes map the source revisions we've already processed
     // to their syntax commits; see `source_mapping`.
     let notes_refs = NotesRefs::from_env(&blame_repo, &blame_ref);
-    let mapping = SourceMapping::open(&blame_repo, &notes_refs);
+    let mut mapping = SourceMapping::open(&blame_repo, &notes_refs);
     require_notes_for_existing_branch(&blame_repo, &blame_ref, &notes_refs, &mapping);
     info!("Using source mapping notes {}", notes_refs.write);
+    // The walk below looks up every unprocessed revision in the notes, which is
+    // all of them for each chunk of a reblame, which took minutes with the
+    // full firefox history's notes.
+    mapping.preload(&blame_repo).unwrap();
 
     let head = git_repo.refname_to_id(&blame_ref).unwrap();
     let mut walk = git_repo.revwalk().unwrap();

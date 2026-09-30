@@ -19,6 +19,7 @@
 use std::collections::HashMap;
 use std::io::{self, Write};
 use std::path::Path;
+use std::sync::Arc;
 
 use git2::{ObjectType, Oid, Repository, TreeWalkMode, TreeWalkResult};
 
@@ -76,6 +77,8 @@ fn note_paths(key: Oid) -> [String; 3] {
 pub struct NotesReader {
     /// The trees of the notes refs which exist, in lookup order.
     trees: Vec<Oid>,
+    /// The blob ids of all of the notes by key, if `preload` was called.
+    blob_ids: Option<Arc<HashMap<Oid, Oid>>>,
 }
 
 impl NotesReader {
@@ -88,7 +91,15 @@ impl NotesReader {
                 .filter_map(|name| repo.find_reference(name).ok()?.peel_to_tree().ok())
                 .map(|tree| tree.id())
                 .collect(),
+            blob_ids: None,
         }
+    }
+
+    /// Read the notes trees once so that lookups only read the notes they find
+    /// (see `note_blob_ids`), for looking up very many keys.
+    pub fn preload(&mut self, repo: &Repository) -> Result<(), git2::Error> {
+        self.blob_ids = Some(Arc::new(self.note_blob_ids(repo)?));
+        Ok(())
     }
 
     /// True if none of the notes refs exist.
@@ -123,6 +134,12 @@ impl NotesReader {
 
     /// The revision `key` maps to, if any.
     pub fn lookup(&self, repo: &Repository, key: Oid) -> Option<Oid> {
+        if let Some(blob_ids) = &self.blob_ids {
+            let blob = repo.find_blob(*blob_ids.get(&key)?).ok()?;
+            return std::str::from_utf8(blob.content())
+                .ok()
+                .and_then(|contents| Oid::from_str(contents.trim()).ok());
+        }
         let paths = note_paths(key);
         for tree_id in &self.trees {
             let Ok(tree) = repo.find_tree(*tree_id) else {

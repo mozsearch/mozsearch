@@ -2553,9 +2553,13 @@ fn main() {
         &syntax_mapping,
     );
     let notes_refs = NotesRefs::from_env(&timeline_repo, &blame_ref);
-    let mapping = SourceMapping::open(&timeline_repo, &notes_refs);
+    let mut mapping = SourceMapping::open(&timeline_repo, &notes_refs);
     require_notes_for_existing_branch(&timeline_repo, &blame_ref, &notes_refs, &mapping);
     info!("Using source mapping notes {}", notes_refs.write);
+    // The walk below looks up every unprocessed revision in the notes, which is
+    // all of them for each chunk of a reblame, which took minutes with the
+    // full firefox history's notes.
+    mapping.preload(&timeline_repo).unwrap();
 
     // We are primarily processing the "syntax" repo which is derived from the
     // "source" repo.  So start a walk in the syntax repo from the provided
@@ -2579,22 +2583,17 @@ fn main() {
     let mut walk = syntax_repo.revwalk().unwrap();
     walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE).unwrap();
     walk.push(syntax_head).unwrap();
-    let mut revs_to_process = walk
+    let mut syntax_revs = walk
         .with_hide_callback(&mut hide_processed)
         .unwrap()
         .map(|r| r.unwrap()) // walk produces Result<git2::Oid> so we unwrap to just the Oid
-        // Read the commit so we can have all the relevant revision identifiers.
-        .map(|syntax_oid| {
-            let commit = syntax_repo.find_commit(syntax_oid).unwrap();
-            syntax_commit_to_meta(&commit)
-        })
         .collect::<Vec<_>>();
     info!(
         "{} revisions to process, building on {} processed revisions",
-        revs_to_process.len(),
+        syntax_revs.len(),
         processed.len()
     );
-    if revs_to_process.is_empty()
+    if syntax_revs.is_empty()
         && let Some(TimelineRepoCommit::Commit(timeline_rev)) = processed.get(&syntax_head)
     {
         point_branch_at(&timeline_repo, &blame_ref, *timeline_rev);
@@ -2605,14 +2604,24 @@ fn main() {
         mapping: mapping.clone(),
         known: processed,
     };
-    if commit_limit > 0 && commit_limit < revs_to_process.len() {
+    if commit_limit > 0 && commit_limit < syntax_revs.len() {
         info!(
             "Truncating list of commits from {} to specified limit {}",
-            revs_to_process.len(),
+            syntax_revs.len(),
             commit_limit
         );
-        revs_to_process.truncate(commit_limit);
+        syntax_revs.truncate(commit_limit);
     }
+    // Read the commits so we can have all the relevant revision identifiers
+    // (only after truncating, since build-history.py processes a chunk of all of
+    // the unprocessed revisions at a time).
+    let revs_to_process = syntax_revs
+        .into_iter()
+        .map(|syntax_oid| {
+            let commit = syntax_repo.find_commit(syntax_oid).unwrap();
+            syntax_commit_to_meta(&commit)
+        })
+        .collect::<Vec<_>>();
     let rev_count = revs_to_process.len();
 
     let backout_resolver = Arc::new(BackoutTargetResolver::new(
