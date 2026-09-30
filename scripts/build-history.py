@@ -19,7 +19,7 @@ looking up an object means looking in each pack (on a firefox window, ~900
 packs made the timeline 9% slower than one), and each pack is an open file
 while it's being read.  So after each chunk, the repo is repacked in the
 background while the next chunk runs, and during a chunk if it has too many
-packs (see `PackMaintenance`).  Chunking also
+packs, or fully when disk space is getting short (see `PackMaintenance`).  Chunking also
 bounds how much state each git fast-import process accumulates (ex: its table
 of every file name it has seen, which makes loading trees slower as it grows).
 The tools resume from their source mapping notes, so a chunk is just a run
@@ -50,6 +50,7 @@ import os
 import re
 import resource
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -151,6 +152,14 @@ def num_processed(repo, blame_ref):
 REPACK_THREADS = 8
 # How many packs a repo can have during a chunk before we repack it.
 MAX_PACKS = 64
+# Fully repacking a history repo (git gc), which reblame does to make the
+# history as small as possible to download, needs about as much free space
+# again as the repo.  So when a chunk leaves less free space than
+# GC_SPACE_FACTOR times a repo's size, we fully repack it (instead of
+# geometrically), which makes it smaller, at most every GC_INTERVAL_CHUNKS
+# chunks.
+GC_SPACE_FACTOR = 1.5
+GC_INTERVAL_CHUNKS = 10
 
 
 class PackMaintenance:
@@ -164,7 +173,9 @@ class PackMaintenance:
     single-threaded, even though on a firefox window it didn't make the tools
     any faster: it combined the packs and made them smaller (2.5x for the
     timeline, 15% for the syntax, since the tools have git fast-import store
-    blobs whole), which matters for the full history's disk space.
+    blobs whole), which matters for the full history's disk space.  When
+    disk space is getting short, it fully repacks the repo instead (see
+    GC_SPACE_FACTOR).
 
     git and libgit2 cope with a repack deleting packs while they read the
     repo: the new pack is written first, and an object not found in the packs
@@ -176,8 +187,9 @@ class PackMaintenance:
 
     def __init__(self, repo):
         self.repo = repo
-        # The running `git repack`, if any.
+        # The running `git repack` or `git gc`, if any.
         self.repacking = None
+        self.chunks_since_gc = GC_INTERVAL_CHUNKS
 
     def _repack_finished(self, wait=False):
         """Whether no `git repack` is running (after waiting for it to finish
@@ -189,14 +201,38 @@ class PackMaintenance:
             return False
         self.repacking = None
         if returncode != 0:
-            raise subprocess.CalledProcessError(returncode, f"git -C {self.repo} repack")
+            raise subprocess.CalledProcessError(returncode, self.repacking_args)
         return True
 
     def after_chunk(self):
+        self.chunks_since_gc += 1
         if not self._repack_finished():
             log(f"not repacking {self.repo}, since its last repack is still running")
             return
-        self._repack()
+        if self.chunks_since_gc >= GC_INTERVAL_CHUNKS and self._needs_gc():
+            self.chunks_since_gc = 0
+            self._start(["gc", "--quiet"])
+        else:
+            self._repack()
+
+    def _needs_gc(self):
+        """Whether the repo's file system has less free space than fully
+        repacking it could need; see GC_SPACE_FACTOR."""
+        du = subprocess.run(
+            ["du", "-sb", os.path.join(self.repo, ".git")],
+            stdout=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
+        size = int(du.stdout.split()[0])
+        free = shutil.disk_usage(self.repo).free
+        if free >= GC_SPACE_FACTOR * size:
+            return False
+        log(
+            f"fully repacking {self.repo} ({size / 2**30:.1f} GiB), since only "
+            f"{free / 2**30:.1f} GiB is free"
+        )
+        return True
 
     def during_chunk(self):
         """Called periodically while a tool runs (from another thread than
@@ -215,18 +251,18 @@ class PackMaintenance:
         # Geometric repacking combines the small packs without rewriting the
         # big ones every time, keeping the number of packs logarithmic in the
         # number of objects.
-        self.repacking = subprocess.Popen(
-            [
-                "git",
-                "-C",
-                self.repo,
-                "repack",
-                "-d",
-                "-q",
-                "--geometric=2",
-                f"--threads={REPACK_THREADS}",
-            ]
-        )
+        self._start(["repack", "-d", "-q", "--geometric=2"])
+
+    def _start(self, git_args):
+        self.repacking_args = [
+            "git",
+            "-c",
+            f"pack.threads={REPACK_THREADS}",
+            "-C",
+            self.repo,
+            *git_args,
+        ]
+        self.repacking = subprocess.Popen(self.repacking_args)
 
     def finish(self):
         self._repack_finished(wait=True)
