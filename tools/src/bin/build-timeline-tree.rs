@@ -1714,20 +1714,19 @@ fn checkpoint(import_helper: &mut Child, mark: usize) {
     read_mark_oid(import_helper, mark);
 }
 
-/// Union the journal at `path` across all parents (whose hex ids are
-/// `parent_revs`), writing it if the parents' versions differ.
+/// The union of the journal at `path` across all parents (whose hex ids are
+/// `parent_revs`), if the parents' versions differ.
 fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
-    import_helper: &mut FastImport,
     parents: &MergeParents,
     parent_revs: &[String],
     path: &Path,
-) {
+) -> Option<String> {
     let oids: Vec<Option<Oid>> = (0..parent_revs.len())
         .map(|i| parents.path_oid(i, path))
         .collect();
     if oids.iter().all(|oid| *oid == oids[0]) {
         // The tree already has the first parent's version.
-        return;
+        return None;
     }
     let blobs: Vec<(JournalVersionRef, Vec<u8>)> = oids
         .iter()
@@ -1759,7 +1758,123 @@ fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
         .unwrap();
         record_file_contents_to_string(&header.unwrap_or_default(), &records)
     });
-    write_inline_blob(import_helper, path, contents.as_bytes());
+    Some(contents)
+}
+
+/// A journal which a merge unions across its parents or deletes.
+enum MergeJournal {
+    Future(PathBuf),
+    FilesDelta(PathBuf),
+    Tokens(PathBuf),
+    Delete(PathBuf),
+}
+
+impl MergeJournal {
+    fn path(&self) -> &Path {
+        match self {
+            MergeJournal::Future(path)
+            | MergeJournal::FilesDelta(path)
+            | MergeJournal::Tokens(path)
+            | MergeJournal::Delete(path) => path,
+        }
+    }
+
+    /// The journal's new contents, if it's written.
+    fn merged(&self, parents: &MergeParents, parent_revs: &[String]) -> Option<String> {
+        match self {
+            MergeJournal::Future(path) => {
+                union_journal::<FutureHeader, FutureRecord>(parents, parent_revs, path)
+            }
+            MergeJournal::FilesDelta(path) => {
+                union_journal::<FileDeltaHeader, FileDeltaRecord>(parents, parent_revs, path)
+            }
+            MergeJournal::Tokens(path) => {
+                union_journal::<TokenHeader, TokenDeltaRecord>(parents, parent_revs, path)
+            }
+            MergeJournal::Delete(_) => None,
+        }
+    }
+
+    fn write(&self, import_helper: &mut FastImport, contents: Option<String>) {
+        match (self, contents) {
+            (MergeJournal::Delete(path), _) => delete_path(import_helper, path),
+            (_, Some(contents)) => {
+                write_inline_blob(import_helper, self.path(), contents.as_bytes())
+            }
+            (_, None) => {}
+        }
+    }
+}
+
+/// How many journals a merge needs to have for us to union them on threads.
+const MIN_JOURNALS_FOR_THREADS: usize = 16;
+
+/// Union or delete the journals of a merge, in order.  Firefox's merges can have
+/// thousands of journals, whose parents' versions all need to be read and
+/// parsed, so the unions are done on threads, each with its own handle on the
+/// timeline repo (since git2's can't be shared between threads).
+fn merge_journals(
+    import_helper: &mut FastImport,
+    parents: &MergeParents,
+    parent_revs: &[String],
+    journals: &[MergeJournal],
+) {
+    let num_threads = history_compute_threads().min(journals.len());
+    if journals.len() < MIN_JOURNALS_FOR_THREADS || num_threads < 2 {
+        for journal in journals {
+            journal.write(import_helper, journal.merged(parents, parent_revs));
+        }
+        return;
+    }
+    let repo_path = parents.repo.path();
+    let (job_tx, job_rx) = channel::<usize>();
+    let job_rx = Mutex::new(job_rx);
+    let (result_tx, result_rx) = channel::<(usize, Option<String>)>();
+    thread::scope(|scope| {
+        for _ in 0..num_threads {
+            let job_rx = &job_rx;
+            let result_tx = result_tx.clone();
+            scope.spawn(move || {
+                let repo = Repository::open(repo_path).unwrap();
+                let parents = MergeParents::new(&repo, parent_revs);
+                loop {
+                    let Ok(idx) = job_rx.lock().unwrap().recv() else {
+                        break;
+                    };
+                    let journal = &journals[idx];
+                    match catch_unwind(AssertUnwindSafe(|| journal.merged(&parents, parent_revs))) {
+                        Ok(contents) => result_tx.send((idx, contents)).unwrap(),
+                        // The main thread would wait for this result forever.
+                        Err(_) => {
+                            error!("Merging {} failed", journal.path().display());
+                            std::process::exit(101);
+                        }
+                    }
+                }
+            });
+        }
+        drop(result_tx);
+        // Only hand out journals up to a window ahead of the next one to write,
+        // so that the merged journals waiting to be written stay few.
+        let window = 4 * num_threads;
+        let mut sent = 0;
+        let mut merged: HashMap<usize, Option<String>> = HashMap::new();
+        for (idx, journal) in journals.iter().enumerate() {
+            while sent < journals.len() && sent < idx + window {
+                job_tx.send(sent).unwrap();
+                sent += 1;
+            }
+            let contents = loop {
+                if let Some(contents) = merged.remove(&idx) {
+                    break contents;
+                }
+                let (done, contents) = result_rx.recv().unwrap();
+                merged.insert(done, contents);
+            };
+            journal.write(import_helper, contents);
+        }
+        drop(job_tx);
+    });
 }
 
 /// The parent annotated files for the old paths of all changed files in a
@@ -2350,32 +2465,19 @@ fn process_merge_revision(
     }
 
     // ## Journals
+    let mut journals = vec![];
     for (path, exists) in &merge.candidate_paths {
-        union_journal::<FutureHeader, FutureRecord>(
-            import_helper,
-            parents,
-            parent_revs,
-            &future_path(path),
-        );
+        journals.push(MergeJournal::Future(future_path(path)));
         if *exists {
-            union_journal::<FileDeltaHeader, FileDeltaRecord>(
-                import_helper,
-                parents,
-                parent_revs,
-                &files_delta_path(path),
-            );
+            journals.push(MergeJournal::FilesDelta(files_delta_path(path)));
         } else {
-            delete_path(import_helper, &files_delta_path(path));
+            journals.push(MergeJournal::Delete(files_delta_path(path)));
         }
     }
     for token in &merge.candidate_tokens {
-        union_journal::<TokenHeader, TokenDeltaRecord>(
-            import_helper,
-            parents,
-            parent_revs,
-            &token_timeline_path(token),
-        );
+        journals.push(MergeJournal::Tokens(token_timeline_path(token)));
     }
+    merge_journals(import_helper, parents, parent_revs, &journals);
 }
 
 fn write_rev_summary(rev_summary_root: &Path, summary: &RevSummaryRecord) {
