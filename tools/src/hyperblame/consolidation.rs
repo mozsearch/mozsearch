@@ -262,6 +262,122 @@ pub fn merge_journal_versions<R: Summarize>(
     versions: Vec<(JournalVersionRef, Vec<R>)>,
     load: &mut impl FnMut(&JournalVersionRef) -> Result<Vec<R>, String>,
 ) -> Result<Vec<R>, String> {
+    merge_versions(versions, &mut |group, preds, week| {
+        let details = expand_records(group, load)?;
+        Ok(summarize(&details, preds, week))
+    })
+}
+
+/// The fields of a journal record's line which merging needs.
+#[derive(Deserialize)]
+struct MergeFields<'a> {
+    #[serde(rename = "type", borrow)]
+    kind: Cow<'a, str>,
+    #[serde(borrow)]
+    source_rev: Option<Cow<'a, str>>,
+    #[serde(borrow)]
+    iso_date: Option<Cow<'a, str>>,
+    source_revs: Option<Vec<String>>,
+    iso_week_range: Option<(u16, u8, u8)>,
+}
+
+/// A journal record's line, with the fields merging needs (a summary's without
+/// its preds).
+#[derive(Clone)]
+struct MergeLine<'a> {
+    line: &'a str,
+    source_rev: Option<Cow<'a, str>>,
+    iso_date: Option<Cow<'a, str>>,
+    summary: Option<SummaryRecordRef>,
+}
+
+impl<'a> MergeLine<'a> {
+    fn parse(line: &'a str) -> Option<Self> {
+        let fields: MergeFields = serde_json::from_str(line).ok()?;
+        let summary = match &*fields.kind {
+            "Detail" => {
+                fields.source_rev.as_ref()?;
+                fields.iso_date.as_ref()?;
+                None
+            }
+            "Summary" => Some(SummaryRecordRef {
+                source_revs: fields.source_revs?,
+                preds: vec![],
+                iso_week_range: fields.iso_week_range?,
+            }),
+            _ => return None,
+        };
+        Some(MergeLine {
+            line,
+            source_rev: fields.source_rev,
+            iso_date: fields.iso_date,
+            summary,
+        })
+    }
+}
+
+impl TimelineRecord for MergeLine<'_> {
+    fn iso_date(&self) -> Option<&str> {
+        match self.summary {
+            Some(_) => None,
+            None => self.iso_date.as_deref(),
+        }
+    }
+
+    fn detail_source_rev(&self) -> Option<&str> {
+        match self.summary {
+            Some(_) => None,
+            None => self.source_rev.as_deref(),
+        }
+    }
+
+    fn summary_ref(&self) -> Option<&SummaryRecordRef> {
+        self.summary.as_ref()
+    }
+}
+
+/// `merge_journal_versions` for the texts of the versions (a header line and a
+/// line per record): the merged journal, with the lines of the records it keeps
+/// as they were and the first version's header, if no summaries need to be
+/// summarized again, which is almost always the case.  Then only a few fields
+/// of the records are parsed, rather than parsing and serializing every record,
+/// which made firefox's merges slow.  Returns None if summaries need to be
+/// summarized again, if no version has any lines, or if a line can't be read.
+pub fn merge_journal_texts(versions: &[(JournalVersionRef, &str)]) -> Option<String> {
+    let mut header = None;
+    let mut parsed = vec![];
+    for (version, text) in versions {
+        let mut lines = text.lines();
+        let Some(first) = lines.next() else {
+            continue;
+        };
+        header.get_or_insert(first);
+        let records = lines.map(MergeLine::parse).collect::<Option<Vec<_>>>()?;
+        parsed.push((version.clone(), records));
+    }
+    let header = header?;
+    let merged = merge_versions(parsed, &mut |_, _, _| Err(String::new())).ok()?;
+    let mut text = String::with_capacity(
+        header.len()
+            + merged
+                .iter()
+                .map(|record| record.line.len() + 1)
+                .sum::<usize>(),
+    );
+    text.push_str(header);
+    for record in merged {
+        text.push('\n');
+        text.push_str(record.line);
+    }
+    Some(text)
+}
+
+/// `merge_journal_versions` with `resummarize` making the summary of a group of
+/// overlapping summaries from them, the versions they came from, and their week.
+fn merge_versions<R: TimelineRecord + Clone>(
+    versions: Vec<(JournalVersionRef, Vec<R>)>,
+    resummarize: &mut impl FnMut(Vec<R>, Vec<JournalVersionRef>, IsoWeek) -> Result<R, String>,
+) -> Result<Vec<R>, String> {
     // ## Distinct summaries, with the versions they came from, in the order
     // they're first found.  (Journals get a summary per week, so after years of
     // history, comparing each summary with every other one made firefox's
@@ -337,13 +453,12 @@ pub fn merge_journal_versions<R: Summarize>(
         }
         let week = record_week(&summaries[group[0]].0).unwrap();
         let group_records: Vec<R> = group.iter().map(|idx| summaries[*idx].0.clone()).collect();
-        let details = expand_records(group_records, load)?;
         let sources: BTreeSet<usize> = group
             .iter()
             .flat_map(|idx| summaries[*idx].1.iter().copied())
             .collect();
         let preds = sources.iter().map(|idx| versions[*idx].0.clone()).collect();
-        final_summaries.push(summarize(&details, preds, week));
+        final_summaries.push(resummarize(group_records, preds, week)?);
     }
 
     // ## Details which no summary covers.
@@ -705,8 +820,11 @@ mod tests {
         Ok(merged)
     }
 
-    #[test]
-    fn test_merge_journal_versions_like_reference() {
+    type Versions = Vec<(JournalVersionRef, Vec<TokenDeltaRecord>)>;
+
+    /// Random versions of a journal for merging, and the journal versions their
+    /// summaries' preds refer to.
+    fn random_merge_cases(count: usize) -> Vec<(Versions, Versions)> {
         // A little xorshift, for reproducible random journals.
         let mut state = 0x2545_f491_4f6c_dd1du64;
         let mut next = move |n: usize| {
@@ -715,8 +833,8 @@ mod tests {
             state ^= state << 17;
             (state % n as u64) as usize
         };
-        let (mut resummarized, mut weeks_with_several) = (0, 0);
-        for case in 0..500 {
+        let mut cases = vec![];
+        for case in 0..count {
             // Revisions in 3 weeks of 2024, each with a date in its week.
             let revs: Vec<TokenDeltaRecord> = (0..12)
                 .map(|i| {
@@ -763,6 +881,15 @@ mod tests {
                 records.sort_by_key(|record| std::cmp::Reverse(sort_key(record)));
                 versions.push((version(&format!("v{}-{}", case, v)), records));
             }
+            cases.push((versions, preds));
+        }
+        cases
+    }
+
+    #[test]
+    fn test_merge_journal_versions_like_reference() {
+        let (mut resummarized, mut weeks_with_several) = (0, 0);
+        for (case, (versions, preds)) in random_merge_cases(500).into_iter().enumerate() {
             let mut load = loader(preds);
             let expected = merge_journal_versions_reference(versions.clone(), &mut load).unwrap();
             let actual = merge_journal_versions(versions, &mut load).unwrap();
@@ -786,6 +913,60 @@ mod tests {
         // The cases include overlapping summaries, which get summarized
         // again, and weeks with several summaries, whose order matters.
         assert!(resummarized > 0 && weeks_with_several > 0);
+    }
+
+    #[test]
+    fn test_merge_journal_texts() {
+        use crate::file_format::history::io_helpers::record_file_contents_to_string;
+        use crate::file_format::history::timeline_tokens::TokenHeader;
+        let (mut fast, mut resummarized) = (0, 0);
+        for (case, (versions, preds)) in random_merge_cases(500).into_iter().enumerate() {
+            let texts: Vec<(JournalVersionRef, String)> = versions
+                .iter()
+                .map(|(version, records)| {
+                    let text = record_file_contents_to_string(&TokenHeader::default(), records);
+                    (version.clone(), text)
+                })
+                .collect();
+            let texts: Vec<(JournalVersionRef, &str)> = texts
+                .iter()
+                .map(|(version, text)| (version.clone(), text.as_str()))
+                .collect();
+            // (Only summarizing summaries again loads journal versions.)
+            let mut loads = 0;
+            let mut load_pred = loader(preds);
+            let merged = merge_journal_versions(versions, &mut |version| {
+                loads += 1;
+                load_pred(version)
+            })
+            .unwrap();
+            match merge_journal_texts(&texts) {
+                Some(text) => {
+                    assert_eq!(loads, 0, "case {}", case);
+                    assert_eq!(
+                        text,
+                        record_file_contents_to_string(&TokenHeader::default(), &merged),
+                        "case {}",
+                        case
+                    );
+                    fast += 1;
+                }
+                None => {
+                    assert!(loads > 0, "case {}", case);
+                    resummarized += 1;
+                }
+            }
+        }
+        assert!(fast > 0 && resummarized > 0);
+        // Versions without any lines are skipped, like parents without the
+        // journal.
+        let text = r#"{}
+{"type":"Detail","source_rev":"a","syntax_rev":"s","iso_date":"2024-01-01T00:00:00Z","added":1}"#;
+        assert_eq!(
+            merge_journal_texts(&[(version("x"), ""), (version("y"), text)]).as_deref(),
+            Some(text)
+        );
+        assert_eq!(merge_journal_texts(&[(version("x"), "")]), None);
     }
 
     #[test]
@@ -845,6 +1026,82 @@ mod tests {
             }
         }
         assert!(fast > 0 && consolidated > 0);
+    }
+
+    /// Time merging a real journal with the version without its newest record
+    /// with `merge_journal_texts` and by parsing, merging and serializing every
+    /// record.  The journals are the files in $JOURNAL_DIR (token journals)
+    /// and its files-delta/ and future/ directories.
+    #[test]
+    #[ignore]
+    fn bench_merge_journal_texts() {
+        use crate::file_format::history::timeline_files_delta::FileDeltaHeader;
+        use crate::file_format::history::timeline_future::FutureHeader;
+        use crate::file_format::history::timeline_tokens::TokenHeader;
+        let dir = std::path::PathBuf::from(std::env::var("JOURNAL_DIR").expect("JOURNAL_DIR"));
+        for (subdir, kind) in [("", 0), ("files-delta", 1), ("future", 2)] {
+            let Ok(entries) = std::fs::read_dir(dir.join(subdir)) else {
+                continue;
+            };
+            for entry in entries {
+                let path = entry.unwrap().path();
+                if path.extension().is_none_or(|ext| ext != "ndjson") {
+                    continue;
+                }
+                let text = std::fs::read_to_string(&path).unwrap();
+                let (header, rest) = text.split_once('\n').unwrap();
+                let older = match rest.split_once('\n') {
+                    Some((_, older)) => format!("{}\n{}", header, older),
+                    None => header.to_string(),
+                };
+                let texts = [
+                    (version("x"), text.as_str()),
+                    (version("y"), older.as_str()),
+                ];
+                let (fast_time, full_time, same) = match kind {
+                    0 => time_merges::<TokenHeader, TokenDeltaRecord>(&texts),
+                    1 => time_merges::<FileDeltaHeader, FileDeltaRecord>(&texts),
+                    _ => time_merges::<FutureHeader, FutureRecord>(&texts),
+                };
+                println!(
+                    "{}: {} bytes: fast {:?}, full parse, merge and serialize {:?}, same: {}",
+                    path.display(),
+                    text.len(),
+                    fast_time,
+                    full_time,
+                    same
+                );
+            }
+        }
+    }
+
+    /// The times to merge `texts` with `merge_journal_texts` and by parsing,
+    /// merging and serializing every record, and whether they gave the same
+    /// journal.
+    fn time_merges<H: Serialize + DeserializeOwned, R: Summarize>(
+        texts: &[(JournalVersionRef, &str)],
+    ) -> (std::time::Duration, std::time::Duration, bool) {
+        use crate::file_format::history::io_helpers::{
+            read_record_file_contents, record_file_contents_to_string,
+        };
+        let start = std::time::Instant::now();
+        let fast = merge_journal_texts(texts);
+        let fast_time = start.elapsed();
+        let start = std::time::Instant::now();
+        let mut header = None;
+        let versions: Vec<(JournalVersionRef, Vec<R>)> = texts
+            .iter()
+            .map(|(version, text)| {
+                let (h, records): (H, Vec<R>) = read_record_file_contents(text.as_bytes()).unwrap();
+                header.get_or_insert(h);
+                (version.clone(), records)
+            })
+            .collect();
+        let merged =
+            merge_journal_versions(versions, &mut |_| Err("no preds".to_string())).unwrap();
+        let full = record_file_contents_to_string(&header.unwrap(), &merged);
+        let full_time = start.elapsed();
+        (fast_time, full_time, fast.as_deref() == Some(full.as_str()))
     }
 
     /// Time prepending a record to real token journals (the files in

@@ -142,7 +142,8 @@ use tools::file_format::history::timeline_tokens::{
 use tools::git_ops::{fast_import_git, git_time_to_chrono, history_compute_threads};
 use tools::hyperblame::backouts::{BackoutTargetResolver, find_backed_out};
 use tools::hyperblame::consolidation::{
-    Summarize, consolidate_appended, merge_journal_versions, prepend_unconsolidated,
+    Summarize, consolidate_appended, merge_journal_texts, merge_journal_versions,
+    prepend_unconsolidated,
 };
 use tools::hyperblame::inference::{
     FileChangeInput, FileChangeKind, FileInference, InferenceConfig, PairingSupport, RemovedFate,
@@ -1728,26 +1729,36 @@ fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
         // The tree already has the first parent's version.
         return;
     }
-    let mut header: Option<H> = None;
-    let mut versions = vec![];
-    for (oid, parent_rev) in oids.iter().zip(parent_revs) {
-        let Some(oid) = oid else {
-            continue;
-        };
-        if let Some((h, records)) = read_record_file_contents::<H, R>(&parents.blob(*oid)) {
-            header.get_or_insert(h);
+    let blobs: Vec<(JournalVersionRef, Vec<u8>)> = oids
+        .iter()
+        .zip(parent_revs)
+        .filter_map(|(oid, parent_rev)| {
             let version = JournalVersionRef {
                 timeline_rev: parent_rev.clone(),
                 path: path.to_string_lossy().into_owned(),
             };
-            versions.push((version, records));
+            Some((version, parents.blob((*oid)?)))
+        })
+        .collect();
+    let texts: Vec<(JournalVersionRef, &str)> = blobs
+        .iter()
+        .map(|(version, blob)| (version.clone(), std::str::from_utf8(blob).unwrap()))
+        .collect();
+    let contents = merge_journal_texts(&texts).unwrap_or_else(|| {
+        let mut header: Option<H> = None;
+        let mut versions = vec![];
+        for (version, blob) in &blobs {
+            if let Some((h, records)) = read_record_file_contents::<H, R>(blob) {
+                header.get_or_insert(h);
+                versions.push((version.clone(), records));
+            }
         }
-    }
-    let records = merge_journal_versions(versions, &mut |version| {
-        parents.load_journal_version::<H, R>(version)
-    })
-    .unwrap();
-    let contents = record_file_contents_to_string(&header.unwrap_or_default(), &records);
+        let records = merge_journal_versions(versions, &mut |version| {
+            parents.load_journal_version::<H, R>(version)
+        })
+        .unwrap();
+        record_file_contents_to_string(&header.unwrap_or_default(), &records)
+    });
     write_inline_blob(import_helper, path, contents.as_bytes());
 }
 
