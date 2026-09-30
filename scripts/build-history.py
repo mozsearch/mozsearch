@@ -167,6 +167,14 @@ MAX_PACKS = 64
 # waiting for each other to look up objects in each of them, and a 10,000
 # revision chunk of 2008 left ~735.)
 MAX_CHECKPOINTS = 150
+# Background repacks leave the packs of at least this size which earlier
+# repacks wrote alone, so that none takes long: rolling a firefox timeline's
+# 28, 30 and 9 GB packs into one took 51 minutes, during which the chunks'
+# packs piled up, since we only run one repack at a time.  (Not git
+# fast-import's, which can be as big, but aren't deltified or very
+# compressed.)  So the repos accumulate packs of this size or so until they're
+# fully repacked (see GC_SPACE_FACTOR, and reblame's gc at the end).
+KEEP_PACK_BYTES = 8 << 30
 # Fully repacking a history repo (git gc), which reblame does to make the
 # history as small as possible to download, needs about as much free space
 # again as the repo.  So when a chunk leaves less free space than
@@ -186,8 +194,9 @@ class PackMaintenance:
     single-threaded, even though on a firefox window it didn't make the tools
     any faster: it combined the packs and made them smaller (2.5x for the
     timeline, 15% for the syntax, since the tools have git fast-import store
-    blobs whole), which matters for the full history's disk space.  When
-    disk space is getting short, it fully repacks the repo instead (see
+    blobs whole), which matters for the full history's disk space.  These
+    repacks leave the biggest packs alone (see KEEP_PACK_BYTES), and when disk
+    space is getting short, it fully repacks the repo instead (see
     GC_SPACE_FACTOR).
 
     git and libgit2 cope with a repack deleting packs while they read the
@@ -266,8 +275,17 @@ class PackMaintenance:
     def _repack(self):
         # Geometric repacking combines the small packs without rewriting the
         # big ones every time, keeping the number of packs logarithmic in the
-        # number of objects.
-        self._start(["repack", "-d", "-q", "--geometric=2"])
+        # number of objects, besides the biggest ones, which we keep as they
+        # are (see KEEP_PACK_BYTES).  Packs which git repack wrote have a
+        # reverse index (a .rev file, since git 2.41), and git fast-import's
+        # don't.
+        keep = [
+            f"--keep-pack={os.path.basename(pack)}"
+            for pack in self._packs()
+            if os.path.exists(pack.removesuffix(".pack") + ".rev")
+            and os.path.getsize(pack) >= KEEP_PACK_BYTES
+        ]
+        self._start(["repack", "-d", "-q", "--geometric=2", *keep])
 
     def _start(self, git_args):
         self.repacking_args = [
