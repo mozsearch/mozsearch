@@ -33,10 +33,11 @@ handle_error() {
     # Record the failure in the instance's status tag (see set-status.py), and
     # keep the whole log, since the email only has its tail and the instance's
     # local storage is lost when it shuts down.
-    $AWS_ROOT/set-status.py "failed: ${TARGETSCRIPT:-main.sh}; see the emailed log" || true
+    $AWS_ROOT/set-status.py "failed: ${TARGETSCRIPT:-main.sh}; see the emailed log${KEEP_ON_FAILURE:+ (the instance was left running)}" || true
     $AWS_ROOT/upload-log.sh failed "${CHANNEL:-unknown}_${TARGETSCRIPT:-main}" || true
 
-    # Send failure email and shut down. Release channel failures get sent to the
+    # Send failure email and shut down (unless KEEP_ON_FAILURE is set; see
+    # send-failure-email.py). Release channel failures get sent to the
     # default email address, other channel failures get sent to the author of
     # the head commit.
     $AWS_ROOT/send-failure-email.py "${EMAIL_PREFIX}" "${DEST_EMAIL}"

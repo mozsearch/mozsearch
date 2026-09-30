@@ -12,6 +12,14 @@ dest_email = sys.argv[2]
 log_tail = subprocess.check_output(["tail", "-n", "120", "/home/ubuntu/index-log"])
 log_tail = log_tail.decode('utf-8', 'replace')
 
+# With KEEP_ON_FAILURE set in the environment (ex: `--setenv KEEP_ON_FAILURE=1`
+# for a reblame we're watching), leave the instance running, with its local
+# storage, rather than shutting it down, so that we can salvage what it did.
+# (The crontab's timeout, from make-crontab.py, runs this without it.)
+keep = bool(os.environ.get('KEEP_ON_FAILURE'))
+kept = ('The instance was left running (KEEP_ON_FAILURE); terminate it when you are done with it.\n\n'
+        if keep else '')
+
 response = client.send_email(
     Source='daemon@searchfox.org',
     Destination={
@@ -25,10 +33,11 @@ response = client.send_email(
         },
         'Body': {
             'Text': {
-                'Data': 'Searchfox failed to index successfully! Last 120 lines of log:\n\n' + log_tail,
+                'Data': 'Searchfox failed to index successfully! ' + kept + 'Last 120 lines of log:\n\n' + log_tail,
             },
         }
     }
 )
 
-os.system("sudo /sbin/shutdown -h +5")
+if not keep:
+    os.system("sudo /sbin/shutdown -h +5")

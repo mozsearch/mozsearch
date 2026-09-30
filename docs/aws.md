@@ -408,7 +408,10 @@ Instances record their progress in their `status` tag (see
 ssh-ing in with `infrastructure/aws/reblame-status.py`, which also lists the
 recent reblame logs and prints the end of one with `--tail`.  If a run fails,
 or is still running after 14 days, the failure email has the end of the log,
-the whole log is uploaded as `failed-*.gz`, and the instance shuts down.
+the whole log is uploaded as `failed-*.gz`, and the instance shuts down.  With
+`--setenv KEEP_ON_FAILURE=1`, a failure leaves the instance (and its SSD)
+running instead, for runs you're watching; the 14 day limit still shuts it
+down.
 
 The log is on the instance's SSD (`~/index-log` is a symlink to
 `/index/index-log`), and has a line with the instance's resource usage
