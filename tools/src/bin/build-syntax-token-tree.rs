@@ -1302,6 +1302,9 @@ fn main() {
     // so libgit2 needn't hash every object it reads to check it (see
     // build-timeline-tree).
     git2::opts::strict_hash_verification(false);
+    // Don't make the compute threads take turns unmapping and mapping windows
+    // of pack files (see build-timeline-tree).
+    unsafe { git2::opts::set_mwindow_mapped_limit(1 << 40) }.unwrap();
 
     let cli = Cli::parse();
     let git_repo_path = cli.git_repo_path.clone();

@@ -2519,6 +2519,12 @@ fn main() {
     // wrote, so libgit2 needn't hash every object it reads to check it (the
     // collision-detecting SHA-1 was over a tenth of the compute threads' time).
     git2::opts::strict_hash_verification(false);
+    // libgit2 maps windows of pack files (shared by all of our Repository
+    // handles) under a global lock, and unmaps the least recently used ones
+    // when more than a limit (8 GB by default) is mapped, which with the full
+    // firefox history's 100 GB of timeline packs had the merge threads taking
+    // turns unmapping and mapping windows.  Mapping only takes address space.
+    unsafe { git2::opts::set_mwindow_mapped_limit(1 << 40) }.unwrap();
 
     let args: Vec<_> = env::args().collect();
     if args.len() != 5 {
