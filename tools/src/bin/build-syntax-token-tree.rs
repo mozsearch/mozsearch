@@ -930,19 +930,39 @@ fn test_symdex_prefix_dir() {
     assert_eq!(symdex_prefix_dir("../x.y"), "__/_x/_y");
 }
 
+/// The most bytes a path component of a symdex file can have (before its last
+/// one gets ".ndjson"); see `symdex_path_for_pretty`.
+const MAX_SYMDEX_SEGMENT_BYTES: usize = 128;
+
 /// Convert a pretty identifier into a relative path by turning each "::"
 /// delimited segment into a path component.  Segments are escaped so they
 /// can't introduce additional path components or be "." or "..", which is
-/// possible for things like INI section names.
+/// possible for things like INI section names.  Segments longer than
+/// `MAX_SYMDEX_SEGMENT_BYTES` are shortened to a prefix and a hash of the whole
+/// segment (the records have the whole pretty identifier): file systems limit
+/// names to 255 bytes, and firefox has many longer ones (ex: the section names
+/// of web-platform-tests metadata for WebGPU's conformance tests, which are
+/// test URLs with long queries).
 fn symdex_path_for_pretty(pretty: &str) -> String {
     pretty
         .split("::")
         .map(|segment| {
             let escaped = segment.replace('%', "%25").replace('/', "%2F");
-            match escaped.as_str() {
+            let escaped = match escaped.as_str() {
                 "" | "." | ".." => escaped.replace('.', "%2E") + "%",
                 _ => escaped,
+            };
+            if escaped.len() <= MAX_SYMDEX_SEGMENT_BYTES {
+                return escaped;
             }
+            let hash = Oid::hash_object(git2::ObjectType::Blob, segment.as_bytes())
+                .unwrap()
+                .to_string();
+            let mut end = MAX_SYMDEX_SEGMENT_BYTES - 17;
+            while !escaped.is_char_boundary(end) {
+                end -= 1;
+            }
+            format!("{}~{}", &escaped[..end], &hash[..16])
         })
         .collect::<Vec<_>>()
         .join("/")
@@ -960,6 +980,15 @@ fn test_symdex_path_for_pretty() {
     );
     assert_eq!(symdex_path_for_pretty("a::..::b"), "a/%2E%2E%/b");
     assert_eq!(symdex_path_for_pretty("a::::b"), "a/%/b");
+    // Long segments are shortened, differently for different segments.
+    let long = format!("x.html?q={}", "é".repeat(100));
+    let other = format!("{}é", long);
+    let path = symdex_path_for_pretty(&format!("{}::b", long));
+    let (first, rest) = path.split_once('/').unwrap();
+    assert_eq!(rest, "b");
+    assert!(first.len() <= MAX_SYMDEX_SEGMENT_BYTES && first.starts_with("x.html?q=é"));
+    assert_ne!(first, symdex_path_for_pretty(&other));
+    assert_eq!(path, symdex_path_for_pretty(&format!("{}::b", long)));
 }
 
 /// Process the symdex data populated by `process_source_tree_changes` by
