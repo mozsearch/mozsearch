@@ -49,9 +49,10 @@ popd
 
 date
 
-# Size up our root partition to 20G.  This is up from 12G and then from 18G
+# Size up our root partition to 50G.  This is up from 12G and then from 18G
 # both when we were hitting the limit for the self-update process during the
-# rust build.
+# rust build.  Most recently increaesd to 50G due to uncached nix updates
+# hitting the disk limit.  This can potentially be revisited.
 #
 # To this end we need to know the volume id in order to issue an EBS resizing
 # command.  Note that the select constraint here is intended more as a check
@@ -63,7 +64,7 @@ ROOT_DEV=$(jq -M -r '.DevicePath' <<< "$ROOT_DEV_INFO")
 
 AWS_REGION=us-west-2
 # The size is in gigs.
-aws ec2 modify-volume --region ${AWS_REGION} --volume-id ${ROOT_VOL_ID} --size 20
+aws ec2 modify-volume --region ${AWS_REGION} --volume-id ${ROOT_VOL_ID} --size 50
 
 # We use an until loop because it can take some time for the change to
 # propagate to this VM.  The error will look like:
