@@ -302,11 +302,13 @@ fn start_fast_import(git_repo: &Repository) -> FastImport {
     // a descendant of the original (master), and we need `--force`
     // to make git-fast-import allow that.
     let child = fast_import_git()
-        // We rewrite big files (ex: journals) a lot, and the fastest zlib level
-        // saves time without making much difference in size.  (The packs get
-        // repacked by maintenance anyway.)
+        // We rewrite big files (ex: journals) a lot, and compressing them was
+        // half of git fast-import's time in the full firefox reblame, but even
+        // the fastest zlib level only made them a quarter smaller.  So it just
+        // stores them, which made 4,000 recent firefox revisions 45% faster,
+        // and scripts/build-history.py's repacks compress them.
         .arg("-c")
-        .arg("core.compression=1")
+        .arg("core.compression=0")
         // git fast-import tries to delta each blob against the previous blob it
         // was given, which for us is almost always a different file, so that's
         // mostly wasted time, and reading the blobs back means resolving the
