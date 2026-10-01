@@ -179,8 +179,10 @@ KEEP_PACK_BYTES = 8 << 30
 # this many bytes of git fast-import's packs which no repack has combined yet.
 # (In the full firefox reblame, whose timeline wrote ~6 GiB of them a minute
 # once its git fast-import stored blobs uncompressed, a repack which took 3
-# hours let 1.25 TB of them pile up, filling the disk to 94%.)
-MAX_FAST_IMPORT_BACKLOG = 64 << 30
+# hours let 1.25 TB of them pile up, filling the disk to 94%.)  Its chunks of
+# 2012 each left 70-90 GiB, which took 3-4 minutes to repack, so this is a few
+# of those chunks, to let the next chunk run meanwhile.
+MAX_FAST_IMPORT_BACKLOG = 256 << 30
 # Fully repacking a history repo (as reblame does at the end to make the
 # history as small as possible to download) needs about as much free space
 # again as the repo.  So when a chunk leaves less free space than
