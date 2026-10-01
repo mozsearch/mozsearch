@@ -195,12 +195,12 @@ class PackMaintenance:
     any faster: it combined the packs and made them smaller (2.5x for the
     timeline, 15% for the syntax, since the tools have git fast-import store
     blobs whole), which matters for the full history's disk space.  These
-    repacks leave the biggest packs alone (see KEEP_PACK_BYTES) and recompress
-    everything else (see `_repack`).  When disk space is getting short, it fully
-    repacks the repo instead (see GC_SPACE_FACTOR), and once a tool has
-    processed every revision, it repacks git fast-import's last packs, so that
-    reblame's full repack at the end only has well compressed packs to
-    combine.
+    repacks combine git fast-import's packs, recompressing them, and then the
+    packs which earlier repacks wrote, besides the biggest (see `_repack`).
+    When disk space is getting short, it fully repacks the repo instead (see
+    GC_SPACE_FACTOR), and once a tool has processed every revision, it repacks
+    git fast-import's last packs, so that reblame's full repack at the end only
+    has well compressed packs to combine.
 
     git and libgit2 cope with a repack deleting packs while they read the
     repo: the new pack is written first, and an object not found in the packs
@@ -212,22 +212,28 @@ class PackMaintenance:
 
     def __init__(self, repo):
         self.repo = repo
-        # The running `git repack` or `git gc`, if any.
+        # The running `git repack`, if any, and the functions starting the
+        # repack's steps after it.
         self.repacking = None
+        self.next_steps = []
         self.chunks_since_gc = GC_INTERVAL_CHUNKS
 
     def _repack_finished(self, wait=False):
-        """Whether no `git repack` is running (after waiting for it to finish
-        if `wait`)."""
-        if self.repacking is None:
-            return True
-        returncode = self.repacking.wait() if wait else self.repacking.poll()
-        if returncode is None:
-            return False
-        self.repacking = None
-        if returncode != 0:
-            raise subprocess.CalledProcessError(returncode, self.repacking_args)
-        return True
+        """Whether no `git repack` is running (after waiting for it, and the
+        repack's later steps, to finish if `wait`), starting a repack's next
+        step when one finishes."""
+        while True:
+            if self.repacking is not None:
+                returncode = self.repacking.wait() if wait else self.repacking.poll()
+                if returncode is None:
+                    return False
+                self.repacking = None
+                if returncode != 0:
+                    self.next_steps = []
+                    raise subprocess.CalledProcessError(returncode, self.repacking_args)
+            if not self.next_steps:
+                return True
+            self.next_steps.pop(0)()
 
     def after_chunk(self):
         self.chunks_since_gc += 1
@@ -262,12 +268,12 @@ class PackMaintenance:
     def during_chunk(self):
         """Called periodically while a tool runs (from another thread than
         `after_chunk`, but never at the same time)."""
-        if self.repacking is not None:
-            # Leave a failed repack for `after_chunk` or `finish` to raise.
-            if self.repacking.poll() != 0:
-                return
-            self.repacking = None
-        packs = [p for p in self._packs() if not os.path.exists(p.removesuffix(".pack") + ".keep")]
+        # Leave a failed repack for `after_chunk` or `finish` to raise.
+        if self.repacking is not None and self.repacking.poll() != 0:
+            return
+        if not self._repack_finished():
+            return
+        packs = [p for p in self._packs() if not self._kept_by_fast_import(p)]
         if len(packs) > MAX_PACKS:
             log(f"repacking {self.repo}, which has {len(packs)} packs besides git fast-import's")
             self._repack()
@@ -282,24 +288,83 @@ class PackMaintenance:
         don't."""
         return os.path.exists(pack.removesuffix(".pack") + ".rev")
 
+    @staticmethod
+    def _kept_by_fast_import(pack):
+        """Whether a running git fast-import wrote `pack` (and keeps it, until
+        it exits)."""
+        return os.path.exists(pack.removesuffix(".pack") + ".keep")
+
+    def _fast_import_packs(self):
+        """The packs which git fast-import wrote and no longer keeps."""
+        return [
+            pack
+            for pack in self._packs()
+            if not self._repacked(pack) and not self._kept_by_fast_import(pack)
+        ]
+
     def _repack(self):
+        """Repack in two steps, one after the other: git fast-import's packs
+        into one, then the packs which repacks wrote."""
+        fast_import_packs = self._fast_import_packs()
+        if not fast_import_packs:
+            self._combine_repacked_packs()
+            return
+        self._combine_fast_import_packs(fast_import_packs)
+
+        def then():
+            self._remove_packs(fast_import_packs)
+            self._combine_repacked_packs()
+
+        self.next_steps = [then]
+
+    def _combine_fast_import_packs(self, fast_import_packs):
+        # git pack-objects --stdin-packs, as git repack --geometric runs, but
+        # with all of git fast-import's packs (git repack --geometric leaves
+        # those which happen to form a geometric progression alone, including
+        # a single one), and with --no-reuse-object to recompress everything,
+        # at git's default level: it otherwise copies the objects it doesn't
+        # deltify as they are, and git fast-import's are barely compressed, if
+        # at all (see build-timeline-tree's core.compression), which made the
+        # pack of 4,000 recent firefox revisions' timeline 799 MB rather than
+        # 350 MB.  (`_remove_packs` removes them afterwards.)
+        included = [os.path.basename(pack) for pack in fast_import_packs]
+        excluded = ["^" + os.path.basename(pack) for pack in self._packs() if self._repacked(pack)]
+        self._start(
+            [
+                "pack-objects",
+                "--stdin-packs",
+                "--no-reuse-object",
+                "--delta-base-offset",
+                "-q",
+                os.path.join(".git", "objects", "pack", "pack"),
+            ],
+            input="".join(f"{name}\n" for name in included + excluded),
+        )
+
+    @staticmethod
+    def _remove_packs(packs):
+        # The pack `_combine_fast_import_packs` wrote has all of their objects
+        # (but those in the packs which earlier repacks wrote).
+        for pack in packs:
+            for path in (pack.removesuffix(".pack") + ".idx", pack):
+                os.remove(path)
+
+    def _combine_repacked_packs(self):
         # Geometric repacking combines the small packs without rewriting the
         # big ones every time, keeping the number of packs logarithmic in the
         # number of objects, besides the biggest ones, which we keep as they
-        # are (see KEEP_PACK_BYTES).  -F (--no-reuse-object) has it recompress
-        # everything, at git's default level: otherwise it copies the objects
-        # it doesn't deltify as they are, and git fast-import's are barely
-        # compressed, if at all (see build-timeline-tree's core.compression),
-        # which made the pack of 4,000 recent firefox revisions' timeline 799
-        # MB rather than 350 MB.  It also redoes the deltas of the packs it
-        # combines which earlier repacks wrote, which the biggest packs being
-        # kept bounds.
+        # are (see KEEP_PACK_BYTES).  These packs' objects are well compressed
+        # (see `_combine_fast_import_packs`), so this reuses them and their
+        # deltas: redoing the deltas (with -F) of two repacked timeline packs
+        # of 2 GB between them made a repack take 32 minutes in the full
+        # firefox reblame, since they held journals deltified about 75 times
+        # smaller.
         keep = [
             f"--keep-pack={os.path.basename(pack)}"
             for pack in self._packs()
-            if self._repacked(pack) and os.path.getsize(pack) >= KEEP_PACK_BYTES
+            if not self._repacked(pack) or os.path.getsize(pack) >= KEEP_PACK_BYTES
         ]
-        self._start(["repack", "-d", "-q", "--geometric=2", "-F", *keep])
+        self._start(["repack", "-d", "-q", "--geometric=2", *keep])
 
     def _full_repack(self):
         # Like git gc, but leaving git fast-import's packs for `_repack`, since
@@ -314,42 +379,18 @@ class PackMaintenance:
             ["repack", "-d", "-l", "-q", "--cruft", "--cruft-expiration=2.weeks.ago", *keep]
         )
 
-    def _repack_fast_import_packs(self):
+    def _repack_last_fast_import_packs(self):
         """Repack all of git fast-import's packs into one, recompressing
-        everything (see `_repack`).  (git repack --geometric leaves a single
-        pack alone.)"""
-        packs = self._packs()
-        fast_import_packs = [pack for pack in packs if not self._repacked(pack)]
+        everything (see `_combine_fast_import_packs`), and wait for that."""
+        fast_import_packs = self._fast_import_packs()
         if not fast_import_packs:
             return
         log(f"repacking {self.repo}'s last {len(fast_import_packs)} git fast-import packs")
-        included = [os.path.basename(pack) for pack in fast_import_packs]
-        excluded = ["^" + os.path.basename(pack) for pack in packs if self._repacked(pack)]
-        subprocess.run(
-            [
-                "git",
-                "-c",
-                f"pack.threads={REPACK_THREADS}",
-                "-C",
-                self.repo,
-                "pack-objects",
-                "--stdin-packs",
-                "--no-reuse-object",
-                "--delta-base-offset",
-                "-q",
-                os.path.join(".git", "objects", "pack", "pack"),
-            ],
-            input="".join(f"{name}\n" for name in included + excluded),
-            stdout=subprocess.DEVNULL,
-            text=True,
-            check=True,
-        )
-        # The new pack has all of their objects (but those in the other packs).
-        for pack in fast_import_packs:
-            for path in (pack.removesuffix(".pack") + ".idx", pack):
-                os.remove(path)
+        self._combine_fast_import_packs(fast_import_packs)
+        self._repack_finished(wait=True)
+        self._remove_packs(fast_import_packs)
 
-    def _start(self, git_args):
+    def _start(self, git_args, input=None):
         self.repacking_args = [
             "git",
             "-c",
@@ -358,15 +399,24 @@ class PackMaintenance:
             self.repo,
             *git_args,
         ]
-        self.repacking = subprocess.Popen(self.repacking_args)
+        self.repacking = subprocess.Popen(
+            self.repacking_args,
+            stdin=None if input is None else subprocess.PIPE,
+            # (git pack-objects writes the new pack's name.)
+            stdout=subprocess.DEVNULL,
+            text=True,
+        )
+        if input is not None:
+            self.repacking.stdin.write(input)
+            self.repacking.stdin.close()
 
     def finish(self, repack_fast_import_packs=False):
         """Wait for the running repack, if any, and then, if
         `repack_fast_import_packs`, repack git fast-import's packs (see
-        `_repack_fast_import_packs`)."""
+        `_repack_last_fast_import_packs`)."""
         self._repack_finished(wait=True)
         if repack_fast_import_packs:
-            self._repack_fast_import_packs()
+            self._repack_last_fast_import_packs()
 
 
 def format_duration(seconds):
