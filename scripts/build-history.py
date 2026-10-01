@@ -175,6 +175,12 @@ MAX_CHECKPOINTS = 150
 # compressed.)  So the repos accumulate packs of this size or so until they're
 # fully repacked (see GC_SPACE_FACTOR, and reblame's repack at the end).
 KEEP_PACK_BYTES = 8 << 30
+# Before a chunk starts, we wait for the repacks while a repo has more than
+# this many bytes of git fast-import's packs which no repack has combined yet.
+# (In the full firefox reblame, whose timeline wrote ~6 GiB of them a minute
+# once its git fast-import stored blobs uncompressed, a repack which took 3
+# hours let 1.25 TB of them pile up, filling the disk to 94%.)
+MAX_FAST_IMPORT_BACKLOG = 64 << 30
 # Fully repacking a history repo (as reblame does at the end to make the
 # history as small as possible to download) needs about as much free space
 # again as the repo.  So when a chunk leaves less free space than
@@ -301,6 +307,29 @@ class PackMaintenance:
             for pack in self._packs()
             if not self._repacked(pack) and not self._kept_by_fast_import(pack)
         ]
+
+    def wait_for_repacks(self):
+        """Wait, repacking if need be, until the repo has at most
+        MAX_FAST_IMPORT_BACKLOG bytes of git fast-import's packs which no
+        repack has combined yet, or a restart is requested."""
+        logged = False
+        while True:
+            backlog = sum(os.path.getsize(pack) for pack in self._fast_import_packs())
+            if backlog <= MAX_FAST_IMPORT_BACKLOG:
+                return
+            RESTART.check()
+            if not logged:
+                log(
+                    f"waiting for repacks of {self.repo}'s {backlog / 2**30:.1f} GiB of git "
+                    "fast-import packs before the next chunk"
+                )
+                logged = True
+            if self._repack_finished():
+                self._repack()
+            try:
+                self.repacking.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                pass
 
     def _repack(self):
         """Repack in two steps, one after the other: git fast-import's packs
@@ -621,6 +650,7 @@ class ChunkedTool:
                 limit = min(limit, self.total_limit - self.processed)
                 if limit <= 0:
                     return
+            self.packs.wait_for_repacks()
             RESTART.check()
             self.chunks += 1
             log(
