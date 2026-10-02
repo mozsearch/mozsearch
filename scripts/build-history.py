@@ -22,7 +22,8 @@ background while the next chunk runs, and during a chunk if it has too many
 packs, or fully when disk space is getting short (see `PackMaintenance`).  But
 git fast-import keeps its packs (with .keep files) until it exits, so a
 chunk's own packs can't be repacked until it ends, and build-timeline-tree
-ends a chunk early after MAX_CHECKPOINTS checkpoints.  Chunking also
+ends a chunk early after MAX_CHECKPOINTS checkpoints or MAX_WRITTEN_BYTES of
+blobs.  Chunking also
 bounds how much state each git fast-import process accumulates (ex: its table
 of every file name it has seen, which makes loading trees slower as it grows).
 The tools resume from their source mapping notes, so a chunk is just a run
@@ -167,6 +168,13 @@ MAX_PACKS = 64
 # waiting for each other to look up objects in each of them, and a 10,000
 # revision chunk of 2008 left ~735.)
 MAX_CHECKPOINTS = 150
+# How many bytes of blobs build-timeline-tree gives git fast-import before
+# ending a chunk early (its MAX_WRITTEN_BYTES), since it rewrites whole
+# journals: the full firefox reblame's 10,000 revision chunks of 2020 each left
+# ~350 GiB of packs, which took ~19 minutes to repack, so with the chunk's
+# packs over MAX_FAST_IMPORT_BACKLOG, each chunk waited that long.  This much
+# repacks in ~5 minutes, while the next chunk runs.
+MAX_WRITTEN_BYTES = 96 << 30
 # Background repacks leave the packs of at least this size which earlier
 # repacks wrote alone, so that none takes long: rolling a firefox timeline's
 # 28, 30 and 9 GB packs into one took 51 minutes, during which the chunks'
@@ -837,7 +845,10 @@ def main():
         args.chunk_size,
         total_limit,
         status,
-        env={"MAX_CHECKPOINTS": str(MAX_CHECKPOINTS)},
+        env={
+            "MAX_CHECKPOINTS": str(MAX_CHECKPOINTS),
+            "MAX_WRITTEN_BYTES": str(MAX_WRITTEN_BYTES),
+        },
     )
     global RESTART
     RESTART = Restart()

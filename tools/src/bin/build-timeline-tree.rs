@@ -11,8 +11,9 @@
 // for checking consolidation.  Like it, we record the revisions
 // we've processed in git notes (in the timeline repo), and we find the syntax
 // commits of source revisions via the syntax repo's notes; see
-// `source_mapping`.  `MAX_CHECKPOINTS` ends the run early after that many git
-// fast-import checkpoints (see `main`).
+// `source_mapping`.  `MAX_CHECKPOINTS` and `MAX_WRITTEN_BYTES` end the run
+// early after that many git fast-import checkpoints or bytes of blobs (see
+// `main`).
 //
 // ## Timeline repo contents
 //
@@ -163,6 +164,8 @@ use tools::tree_sitter_support::cst_tokenizer::namespace_for_file;
 struct FastImport {
     child: Child,
     cache: TreeCache,
+    /// The bytes of blobs we've given it (see MAX_WRITTEN_BYTES in `main`).
+    written: u64,
 }
 
 /// The contents of paths in the first parent of the commit being written, from
@@ -330,6 +333,7 @@ fn start_fast_import(git_repo: &Repository) -> FastImport {
     FastImport {
         child,
         cache: TreeCache::default(),
+        written: 0,
     }
 }
 
@@ -583,6 +587,7 @@ fn write_inline_blob(import_helper: &mut FastImport, path: &Path, contents: &[u8
     writeln!(import_stream, "M 100644 inline {}", sanitize(path)).unwrap();
     writeln!(import_stream, "data {}", contents.len()).unwrap();
     import_stream.write_all(contents).unwrap();
+    import_helper.written += contents.len() as u64;
     // We skip the optional trailing LF character here since in practice it
     // wasn't particularly useful for debugging.
     import_helper.cache.pending.insert(
@@ -2571,6 +2576,14 @@ fn main() {
         .ok()
         .and_then(|x| x.parse::<usize>().ok())
         .filter(|&max| max > 0);
+    // Likewise, with MAX_WRITTEN_BYTES, we end the run once we've given git
+    // fast-import that many bytes of blobs, which bounds how much there is for
+    // scripts/build-history.py to repack after a run, since we rewrite whole
+    // journals: ex: ~350 GiB in 10,000 revisions of firefox's 2020 history.
+    let max_written_bytes = env::var("MAX_WRITTEN_BYTES")
+        .ok()
+        .and_then(|x| x.parse::<u64>().ok())
+        .filter(|&max| max > 0);
 
     // The syntax repo's notes map source revisions to the syntax commits, which
     // we need to resolve backouts, and the timeline repo's notes map them to the
@@ -2711,6 +2724,14 @@ fn main() {
             info!(
                 "Ending the run after {} revisions and {} checkpoints (MAX_CHECKPOINTS)",
                 rev_done, checkpoints
+            );
+            stopped_with = Some(ENDED_EARLY_EXIT_CODE);
+            break;
+        }
+        if max_written_bytes.is_some_and(|max| import_helper.written >= max) {
+            info!(
+                "Ending the run after {} revisions and {} bytes of blobs (MAX_WRITTEN_BYTES)",
+                rev_done, import_helper.written
             );
             stopped_with = Some(ENDED_EARLY_EXIT_CODE);
             break;
