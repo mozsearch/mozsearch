@@ -220,6 +220,33 @@ struct WeekFields<'a> {
     iso_week_range: Option<(u16, u8, u8)>,
 }
 
+/// The week of a journal record's line as `record_week` would give it, found
+/// without parsing the line, or None to parse it.  serde_json writes a record's
+/// "type" tag first, then a detail's "iso_date" before anything nested, and a
+/// summary's "iso_week_range" after its preds (whose keys are only
+/// "timeline_rev" and "path") but before anything else nested, and these keys
+/// followed by `":` can't be in a string, whose quotes would be escaped.
+/// Parsing whole lines to skip their other fields (like token sets) was most of
+/// the timeline's time to prepend to journals.
+fn line_week(line: &str) -> Option<Option<IsoWeek>> {
+    if let Some(rest) = line.strip_prefix(r#"{"type":"Detail","#) {
+        let start = rest.find(r#""iso_date":""#)?;
+        // Only the record's own "iso_date", before anything nested.
+        if rest[..start].contains(['{', '[']) {
+            return None;
+        }
+        let date = &rest[start + r#""iso_date":""#.len()..];
+        return Some(iso_week(&date[..date.find('"')?]));
+    }
+    let rest = line.strip_prefix(r#"{"type":"Summary","#)?;
+    let start = rest.find(r#""iso_week_range":["#)? + r#""iso_week_range":["#.len();
+    let range = &rest[start..];
+    let mut parts = range[..range.find(']')?].split(',');
+    let year: u16 = parts.next()?.parse().ok()?;
+    let week: u8 = parts.next()?.parse().ok()?;
+    Some(Some((year as i32, week as u32)))
+}
+
 /// Prepend `record` to the journal `text` (a header line followed by a line per
 /// record) as `consolidate_appended` would after the record was appended by a
 /// revision dated `now` (None to not consolidate), if that wouldn't summarize
@@ -260,10 +287,15 @@ pub fn prepend_unconsolidated<R: Summarize>(
             return None;
         }
         for line in rest.into_iter().flat_map(str::lines) {
-            let fields: WeekFields = serde_json::from_str(line).ok()?;
-            let week = match fields.iso_week_range {
-                Some((year, week, _)) => Some((year as i32, week as u32)),
-                None => fields.iso_date.as_deref().and_then(iso_week),
+            let week = match line_week(line) {
+                Some(week) => week,
+                None => {
+                    let fields: WeekFields = serde_json::from_str(line).ok()?;
+                    match fields.iso_week_range {
+                        Some((year, week, _)) => Some((year as i32, week as u32)),
+                        None => fields.iso_date.as_deref().and_then(iso_week),
+                    }
+                }
             };
             if count_week(week) {
                 return None;
@@ -678,6 +710,99 @@ mod tests {
                 ..Default::default()
             },
         })
+    }
+
+    /// `line_week` gives each record line the week `record_week` gives the
+    /// record, for all journal kinds, including keys like "iso_date" in token
+    /// sets and paths in preds which only parsing the lines tells apart.
+    #[test]
+    fn test_line_week() {
+        use crate::file_format::history::timeline_common::{
+            ChangeKind, FileSyntaxDelta, SymbolSyntaxDelta, SymbolSyntaxDeltaGroup, TokenRefSet,
+            token_ref_set_insert,
+        };
+        use crate::file_format::history::timeline_files_delta::{
+            FileDeltaDetailRecord, FileDeltaRecord, FileDeltaSummaryRecord,
+        };
+        use crate::file_format::history::timeline_future::{FutureDetailRecord, FutureRecord};
+
+        fn check<R: TimelineRecord + DeserializeOwned>(line: &str) {
+            let record: R = serde_json::from_str(line).unwrap();
+            assert_eq!(line_week(line), Some(record_week(&record)), "for {}", line);
+        }
+
+        let desc = DetailRecordRef {
+            source_rev: "abc".to_string(),
+            syntax_rev: "def".to_string(),
+            iso_date: "2024-01-14T23:59:59Z".to_string(),
+            backs_out: vec![],
+        };
+        check::<TokenDeltaRecord>(
+            &serde_json::to_string(&detail("a", "2008-02-20T00:00:00Z", 1)).unwrap(),
+        );
+        let mut summarized = vec![
+            detail("b", "2024-01-03T00:00:00Z", 1),
+            detail("a", "2024-01-02T00:00:00Z", 2),
+        ];
+        let mut pred = version("p");
+        pred.path = "tokens/is/o_/iso_week_range\":[2000,1,1].ndjson".to_string();
+        consolidate_appended(
+            &mut summarized,
+            "2024-03-01T00:00:00Z",
+            &pred,
+            &mut loader(vec![]),
+        )
+        .unwrap();
+        for record in &summarized {
+            check::<TokenDeltaRecord>(&serde_json::to_string(record).unwrap());
+        }
+
+        let mut tokens = TokenRefSet::new();
+        token_ref_set_insert(&mut tokens, "abc", "iso_date", 3);
+        let mut future = FutureDetailRecord::new(desc.clone());
+        future.moved_in_tokens = tokens;
+        check::<FutureRecord>(&serde_json::to_string(&FutureRecord::Detail(future)).unwrap());
+
+        let mut symbol = SymbolSyntaxDelta::new(ChangeKind::Changed);
+        symbol
+            .token_changes
+            .insert("iso_date".to_string(), TokenDeltaDetails::default());
+        let symbol_group = SymbolSyntaxDeltaGroup {
+            symbol_deltas: BTreeMap::from([("iso_week_range".to_string(), symbol)]),
+        };
+        check::<FileDeltaRecord>(
+            &serde_json::to_string(&FileDeltaRecord::Detail(FileDeltaDetailRecord {
+                desc: desc.clone(),
+                delta: FileSyntaxDelta {
+                    change: ChangeKind::Changed,
+                    moved_from: None,
+                    copied: false,
+                    symbol_group: symbol_group.clone(),
+                },
+            }))
+            .unwrap(),
+        );
+        check::<FileDeltaRecord>(
+            &serde_json::to_string(&FileDeltaRecord::Summary(FileDeltaSummaryRecord {
+                desc: SummaryRecordRef {
+                    source_revs: vec!["abc".to_string()],
+                    preds: vec![pred.clone()],
+                    iso_week_range: (2023, 52, 52),
+                },
+                symbol_group,
+            }))
+            .unwrap(),
+        );
+
+        // Lines in other forms are left to parsing.
+        assert_eq!(
+            line_week(r#"{"iso_date":"2024-01-14T23:59:59Z","type":"Detail"}"#),
+            None
+        );
+        assert_eq!(
+            line_week(r#"{"type":"Detail","x":{"iso_date":"2024-01-14T23:59:59Z"}}"#),
+            None
+        );
     }
 
     fn version(rev: &str) -> JournalVersionRef {
@@ -1200,6 +1325,103 @@ mod tests {
         let full = record_file_contents_to_string(&header.unwrap(), &merged);
         let full_time = start.elapsed();
         (fast_time, full_time, fast.as_deref() == Some(full.as_str()))
+    }
+
+    /// Check every record line of the real journals under $JOURNAL_DIR (in
+    /// "tokens", "future" and "files-delta" directories, ex: extracted from a
+    /// timeline repo) deserializes the same as with serde's derived
+    /// deserialization, and that `line_week` gives it the same week as parsing
+    /// it, and time those.
+    #[test]
+    #[ignore]
+    fn check_real_journals() {
+        use crate::file_format::history::timeline_common::test_support::{
+            DerivedFileDeltaRecord, DerivedFutureRecord, DerivedTokenDeltaRecord,
+            assert_record_parses_like,
+        };
+        use crate::file_format::history::timeline_files_delta::FileDeltaRecord;
+        use crate::file_format::history::timeline_future::FutureRecord;
+        use std::time::{Duration, Instant};
+
+        fn time_parse<R: DeserializeOwned>(lines: &[&str]) -> Duration {
+            let start = Instant::now();
+            for line in lines {
+                std::hint::black_box(serde_json::from_str::<R>(line).unwrap());
+            }
+            start.elapsed()
+        }
+
+        let dir = std::env::var("JOURNAL_DIR").expect("JOURNAL_DIR");
+        let mut pending = vec![std::path::PathBuf::from(dir)];
+        let mut texts: HashMap<&str, Vec<String>> = HashMap::new();
+        while let Some(path) = pending.pop() {
+            if path.is_dir() {
+                pending.extend(std::fs::read_dir(&path).unwrap().map(|e| e.unwrap().path()));
+                continue;
+            }
+            let path_str = path.to_string_lossy();
+            let Some(kind) = ["tokens", "future", "files-delta"]
+                .into_iter()
+                .find(|kind| path_str.contains(&format!("/{}/", kind)))
+            else {
+                continue;
+            };
+            texts
+                .entry(kind)
+                .or_default()
+                .push(std::fs::read_to_string(&path).unwrap());
+        }
+        for (kind, texts) in &texts {
+            let lines: Vec<&str> = texts.iter().flat_map(|text| text.lines().skip(1)).collect();
+            let mut summaries = 0;
+            for line in &lines {
+                assert_record_parses_like(kind, line);
+                let fields: WeekFields = serde_json::from_str(line).unwrap();
+                let week = match fields.iso_week_range {
+                    Some((year, week, _)) => Some((year as i32, week as u32)),
+                    None => fields.iso_date.as_deref().and_then(iso_week),
+                };
+                assert_eq!(line_week(line), Some(week), "for {}", line);
+                summaries += fields.iso_week_range.is_some() as usize;
+            }
+            let (derived, new) = match *kind {
+                "tokens" => (
+                    time_parse::<DerivedTokenDeltaRecord>(&lines),
+                    time_parse::<TokenDeltaRecord>(&lines),
+                ),
+                "future" => (
+                    time_parse::<DerivedFutureRecord>(&lines),
+                    time_parse::<FutureRecord>(&lines),
+                ),
+                _ => (
+                    time_parse::<DerivedFileDeltaRecord>(&lines),
+                    time_parse::<FileDeltaRecord>(&lines),
+                ),
+            };
+            let start = Instant::now();
+            for line in &lines {
+                std::hint::black_box(serde_json::from_str::<WeekFields>(line).unwrap());
+            }
+            let week_fields = start.elapsed();
+            let start = Instant::now();
+            for line in &lines {
+                std::hint::black_box(line_week(line));
+            }
+            let fast_weeks = start.elapsed();
+            println!(
+                "{}: {} journals, {} records ({} summaries), {} MB: parsing {:?} derived, {:?} \
+                 now; weeks {:?} parsing, {:?} now",
+                kind,
+                texts.len(),
+                lines.len(),
+                summaries,
+                lines.iter().map(|line| line.len()).sum::<usize>() >> 20,
+                derived,
+                new,
+                week_fields,
+                fast_weeks
+            );
+        }
     }
 
     /// Time prepending a record to real token journals (the files in

@@ -332,6 +332,47 @@ pub fn token_ref_set_insert(set: &mut TokenRefSet, source_rev: &str, path: &str,
         .insert(lineno);
 }
 
+/// A journal record line's "type" tag.  The record enums deserialize a line
+/// into a struct with every field it can have (the tag's, `DetailRecordRef`'s
+/// and `SummaryRecordRef`'s, and those of the records' other parts) and build
+/// the record from that, since serde's derived deserialization of an internally
+/// tagged enum buffers a line's fields to find the tag, and then flattened
+/// fields buffer them again, which was a lot of the timeline's time.  (Their
+/// serialization is derived.)
+#[derive(Deserialize)]
+pub(super) enum RecordKind {
+    Detail,
+    Summary,
+}
+
+/// The `DetailRecordRef` of a detail record line's fields (see `RecordKind`).
+pub(super) fn detail_record_ref<E: serde::de::Error>(
+    source_rev: Option<String>,
+    syntax_rev: Option<String>,
+    iso_date: Option<String>,
+    backs_out: Vec<String>,
+) -> Result<DetailRecordRef, E> {
+    Ok(DetailRecordRef {
+        source_rev: source_rev.ok_or_else(|| E::missing_field("source_rev"))?,
+        syntax_rev: syntax_rev.ok_or_else(|| E::missing_field("syntax_rev"))?,
+        iso_date: iso_date.ok_or_else(|| E::missing_field("iso_date"))?,
+        backs_out,
+    })
+}
+
+/// The `SummaryRecordRef` of a summary record line's fields (see `RecordKind`).
+pub(super) fn summary_record_ref<E: serde::de::Error>(
+    source_revs: Option<Vec<String>>,
+    preds: Option<Vec<JournalVersionRef>>,
+    iso_week_range: Option<(u16, u8, u8)>,
+) -> Result<SummaryRecordRef, E> {
+    Ok(SummaryRecordRef {
+        source_revs: source_revs.ok_or_else(|| E::missing_field("source_revs"))?,
+        preds: preds.ok_or_else(|| E::missing_field("preds"))?,
+        iso_week_range: iso_week_range.ok_or_else(|| E::missing_field("iso_week_range"))?,
+    })
+}
+
 /// Common interface over the "Detail"/"Summary" record enums stored in timeline
 /// journal files, for reading, consolidating, and merging journals generically;
 /// see `hyperblame::journals` and `hyperblame::consolidation`.
@@ -346,9 +387,246 @@ pub trait TimelineRecord {
     fn summary_ref(&self) -> Option<&SummaryRecordRef>;
 }
 
+/// Test support for the record enums' `Deserialize` implementations (see
+/// `RecordKind`).
+#[cfg(test)]
+pub(crate) mod test_support {
+    use serde::de::DeserializeOwned;
+    use serde::{Deserialize, Serialize};
+
+    use super::super::timeline_files_delta::{
+        FileDeltaDetailRecord, FileDeltaRecord, FileDeltaSummaryRecord,
+    };
+    use super::super::timeline_future::{FutureDetailRecord, FutureRecord, FutureSummaryRecord};
+    use super::super::timeline_tokens::{
+        TokenDeltaDetailRecord, TokenDeltaRecord, TokenDeltaSummaryRecord,
+    };
+
+    /// The record enums with serde's derived deserialization.
+    #[derive(Serialize, Deserialize)]
+    #[serde(tag = "type")]
+    pub enum DerivedTokenDeltaRecord {
+        Detail(TokenDeltaDetailRecord),
+        Summary(TokenDeltaSummaryRecord),
+    }
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(tag = "type")]
+    pub enum DerivedFutureRecord {
+        Detail(FutureDetailRecord),
+        Summary(FutureSummaryRecord),
+    }
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(tag = "type")]
+    pub enum DerivedFileDeltaRecord {
+        Detail(FileDeltaDetailRecord),
+        Summary(FileDeltaSummaryRecord),
+    }
+
+    /// Check that `line` deserializes the same for a journal of `kind`
+    /// ("tokens", "future" or "files-delta") as with the derived
+    /// deserialization (see `assert_parses_like`).
+    pub fn assert_record_parses_like(kind: &str, line: &str) {
+        match kind {
+            "tokens" => assert_parses_like::<DerivedTokenDeltaRecord, TokenDeltaRecord>(line),
+            "future" => assert_parses_like::<DerivedFutureRecord, FutureRecord>(line),
+            "files-delta" => assert_parses_like::<DerivedFileDeltaRecord, FileDeltaRecord>(line),
+            _ => panic!("unknown journal kind {}", kind),
+        }
+    }
+
+    /// Check that `line` deserializes as a `New` the same as it does as an
+    /// `Old` (the record enum with its derived deserialization), comparing
+    /// their serializations, or that neither can deserialize it.
+    pub fn assert_parses_like<Old, New>(line: &str)
+    where
+        Old: DeserializeOwned + Serialize,
+        New: DeserializeOwned + Serialize,
+    {
+        let old = serde_json::from_str::<Old>(line).map(|r| serde_json::to_string(&r).unwrap());
+        let new = serde_json::from_str::<New>(line).map(|r| serde_json::to_string(&r).unwrap());
+        match (old, new) {
+            (Ok(old), Ok(new)) => assert_eq!(old, new, "for {}", line),
+            (Err(_), Err(_)) => {}
+            (old, new) => panic!("for {}: derived {:?} but {:?}", line, old, new),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_record_deserialization_matches_derived() {
+        use super::super::timeline_files_delta::{
+            FileDeltaDetailRecord, FileDeltaRecord, FileDeltaSummaryRecord,
+        };
+        use super::super::timeline_future::{
+            FutureDetailRecord, FutureFileChanges, FutureRecord, FutureSummaryRecord,
+        };
+        use super::super::timeline_tokens::{
+            TokenDeltaDetailRecord, TokenDeltaRecord, TokenDeltaSummaryRecord,
+        };
+        use test_support::assert_record_parses_like;
+
+        let detail = DetailRecordRef {
+            source_rev: "abc".to_string(),
+            syntax_rev: "def".to_string(),
+            iso_date: "2024-01-14T23:59:59Z".to_string(),
+            backs_out: vec!["fed".to_string()],
+        };
+        let summary = SummaryRecordRef {
+            source_revs: vec!["abc".to_string(), "123".to_string()],
+            preds: vec![JournalVersionRef {
+                timeline_rev: "456".to_string(),
+                path: "future/iso_week_range\":[.ndjson".to_string(),
+            }],
+            iso_week_range: (2024, 2, 2),
+        };
+        let delta = TokenDeltaDetails {
+            added: 1,
+            moved: 2,
+            evolved_from: 3,
+            evolved_into: 4,
+            removed: 5,
+        };
+        let mut tokens = TokenRefSet::new();
+        token_ref_set_insert(&mut tokens, "abc", "iso_date", 3);
+        token_ref_set_insert(&mut tokens, "abc", "%", 5);
+        let file_changes = FutureFileChanges {
+            file_deleted: true,
+            file_moved_to: Some("to".to_string()),
+            file_moved_from: Some("from".to_string()),
+            file_copied: true,
+        };
+        let mut symbol = SymbolSyntaxDelta::new(ChangeKind::Evolved);
+        symbol.evolved_from = Some("Old".to_string());
+        symbol.token_totals = delta.clone();
+        symbol
+            .token_changes
+            .insert("iso_date".to_string(), delta.clone());
+        let symbol_group = SymbolSyntaxDeltaGroup {
+            symbol_deltas: BTreeMap::from([("New".to_string(), symbol)]),
+        };
+
+        let mut lines = vec![];
+        let mut add = |kind: &str, json: String| lines.push((kind.to_string(), json));
+        for detail in [
+            detail.clone(),
+            DetailRecordRef {
+                backs_out: vec![],
+                ..detail.clone()
+            },
+        ] {
+            add(
+                "tokens",
+                serde_json::to_string(&TokenDeltaRecord::Detail(TokenDeltaDetailRecord {
+                    desc: detail.clone(),
+                    delta: delta.clone(),
+                }))
+                .unwrap(),
+            );
+            add(
+                "future",
+                serde_json::to_string(&FutureRecord::Detail(FutureDetailRecord {
+                    desc: detail.clone(),
+                    file_changes: file_changes.clone(),
+                    extinguished_tokens: tokens.clone(),
+                    moved_out_tokens: tokens.clone(),
+                    moved_in_tokens: tokens.clone(),
+                    evolved_tokens: tokens.clone(),
+                    added_tokens: "1-3,7".parse().unwrap(),
+                }))
+                .unwrap(),
+            );
+            add(
+                "future",
+                serde_json::to_string(&FutureRecord::Detail(FutureDetailRecord::new(
+                    detail.clone(),
+                )))
+                .unwrap(),
+            );
+            add(
+                "files-delta",
+                serde_json::to_string(&FileDeltaRecord::Detail(FileDeltaDetailRecord {
+                    desc: detail.clone(),
+                    delta: FileSyntaxDelta {
+                        change: ChangeKind::Evolved,
+                        moved_from: Some("old/path".to_string()),
+                        copied: true,
+                        symbol_group: symbol_group.clone(),
+                    },
+                }))
+                .unwrap(),
+            );
+        }
+        add(
+            "tokens",
+            serde_json::to_string(&TokenDeltaRecord::Summary(TokenDeltaSummaryRecord {
+                desc: summary.clone(),
+                delta: TokenDeltaDetails::default(),
+            }))
+            .unwrap(),
+        );
+        add(
+            "future",
+            serde_json::to_string(&FutureRecord::Summary(FutureSummaryRecord {
+                desc: summary.clone(),
+                file_changes: file_changes.clone(),
+                removed_token_revs: BTreeSet::from(["abc".to_string()]),
+                moved_token_revs: BTreeSet::from(["def".to_string()]),
+                evolved_token_revs: BTreeSet::from(["fed".to_string()]),
+            }))
+            .unwrap(),
+        );
+        add(
+            "files-delta",
+            serde_json::to_string(&FileDeltaRecord::Summary(FileDeltaSummaryRecord {
+                desc: summary.clone(),
+                symbol_group: symbol_group.clone(),
+            }))
+            .unwrap(),
+        );
+
+        for (kind, line) in &lines {
+            assert_record_parses_like(kind, line);
+            // Lines missing a required field (or with an unknown one, or with
+            // the tag elsewhere), which neither should (or both should) read.
+            for field in [
+                "iso_date",
+                "source_rev",
+                "syntax_rev",
+                "source_revs",
+                "preds",
+                "iso_week_range",
+                "change",
+                "symbol_deltas",
+            ] {
+                let renamed = line.replacen(&format!("\"{}\":", field), "\"unknown\":", 1);
+                assert_record_parses_like(kind, &renamed);
+            }
+            assert_record_parses_like(kind, &line.replacen("\"Detail\"", "\"Bogus\"", 1));
+            let untagged = line.replacen("\"type\":\"Detail\",", "", 1).replacen(
+                "\"type\":\"Summary\",",
+                "",
+                1,
+            );
+            let tag = if line.contains("\"Detail\"") {
+                "Detail"
+            } else {
+                "Summary"
+            };
+            let moved_tag = format!(
+                "{},\"type\":\"{}\"}}",
+                untagged.strip_suffix('}').unwrap(),
+                tag
+            );
+            assert!(serde_json::from_str::<serde_json::Value>(&moved_tag).is_ok());
+            assert_record_parses_like(kind, &moved_tag);
+        }
+    }
 
     #[test]
     fn test_lineno_set_roundtrip() {

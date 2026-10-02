@@ -13,10 +13,11 @@
 
 use std::collections::BTreeSet;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use super::timeline_common::{
-    DetailRecordRef, SummaryRecordRef, TimelineRecord, TokenLinenoSet, TokenRefSet,
+    DetailRecordRef, JournalVersionRef, RecordKind, SummaryRecordRef, TimelineRecord,
+    TokenLinenoSet, TokenRefSet, detail_record_ref, summary_record_ref,
 };
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -175,11 +176,80 @@ pub struct FutureSummaryRecord {
 
 /// Internally tagged enum for our detail and summary types.  This ends up
 /// serializing as `{"type": "Detail" , ...}` or `{"type": "Summary", ...}`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(tag = "type")]
 pub enum FutureRecord {
     Detail(FutureDetailRecord),
     Summary(FutureSummaryRecord),
+}
+
+/// Every field a `FutureRecord` line can have (see `RecordKind`).
+#[derive(Deserialize)]
+struct FutureRecordFields {
+    #[serde(rename = "type")]
+    kind: RecordKind,
+    source_rev: Option<String>,
+    syntax_rev: Option<String>,
+    iso_date: Option<String>,
+    #[serde(default)]
+    backs_out: Vec<String>,
+    source_revs: Option<Vec<String>>,
+    preds: Option<Vec<JournalVersionRef>>,
+    iso_week_range: Option<(u16, u8, u8)>,
+    #[serde(default)]
+    file_deleted: bool,
+    #[serde(default)]
+    file_moved_to: Option<String>,
+    #[serde(default)]
+    file_moved_from: Option<String>,
+    #[serde(default)]
+    file_copied: bool,
+    #[serde(default)]
+    extinguished_tokens: TokenRefSet,
+    #[serde(default)]
+    moved_out_tokens: TokenRefSet,
+    #[serde(default)]
+    moved_in_tokens: TokenRefSet,
+    #[serde(default)]
+    evolved_tokens: TokenRefSet,
+    #[serde(default)]
+    added_tokens: TokenLinenoSet,
+    #[serde(default)]
+    removed_token_revs: BTreeSet<String>,
+    #[serde(default)]
+    moved_token_revs: BTreeSet<String>,
+    #[serde(default)]
+    evolved_token_revs: BTreeSet<String>,
+}
+
+impl<'de> Deserialize<'de> for FutureRecord {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let f = FutureRecordFields::deserialize(deserializer)?;
+        let file_changes = FutureFileChanges {
+            file_deleted: f.file_deleted,
+            file_moved_to: f.file_moved_to,
+            file_moved_from: f.file_moved_from,
+            file_copied: f.file_copied,
+        };
+        Ok(match f.kind {
+            RecordKind::Detail => FutureRecord::Detail(FutureDetailRecord {
+                desc: detail_record_ref(f.source_rev, f.syntax_rev, f.iso_date, f.backs_out)?,
+                file_changes,
+                extinguished_tokens: f.extinguished_tokens,
+                moved_out_tokens: f.moved_out_tokens,
+                moved_in_tokens: f.moved_in_tokens,
+                evolved_tokens: f.evolved_tokens,
+                added_tokens: f.added_tokens,
+            }),
+            RecordKind::Summary => FutureRecord::Summary(FutureSummaryRecord {
+                desc: summary_record_ref(f.source_revs, f.preds, f.iso_week_range)?,
+                file_changes,
+                removed_token_revs: f.removed_token_revs,
+                moved_token_revs: f.moved_token_revs,
+                evolved_token_revs: f.evolved_token_revs,
+            }),
+        })
+    }
 }
 
 impl TimelineRecord for FutureRecord {

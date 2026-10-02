@@ -39,12 +39,13 @@
 use std::borrow::Cow;
 use std::path::PathBuf;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use super::syntax_files::{TokenClass, TokenLine};
 
 use super::timeline_common::{
-    DetailRecordRef, SummaryRecordRef, TimelineRecord, TokenDeltaDetails,
+    DetailRecordRef, JournalVersionRef, RecordKind, SummaryRecordRef, TimelineRecord,
+    TokenDeltaDetails, detail_record_ref, summary_record_ref,
 };
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -71,11 +72,59 @@ pub struct TokenDeltaSummaryRecord {
 
 /// Internally tagged enum for our detail and summary types.  This ends up
 /// serializing as `{"type": "Detail" , ...}` or `{"type": "Summary", ...}`.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(tag = "type")]
 pub enum TokenDeltaRecord {
     Detail(TokenDeltaDetailRecord),
     Summary(TokenDeltaSummaryRecord),
+}
+
+/// Every field a `TokenDeltaRecord` line can have (see `RecordKind`).
+#[derive(Deserialize)]
+struct TokenDeltaRecordFields {
+    #[serde(rename = "type")]
+    kind: RecordKind,
+    source_rev: Option<String>,
+    syntax_rev: Option<String>,
+    iso_date: Option<String>,
+    #[serde(default)]
+    backs_out: Vec<String>,
+    source_revs: Option<Vec<String>>,
+    preds: Option<Vec<JournalVersionRef>>,
+    iso_week_range: Option<(u16, u8, u8)>,
+    #[serde(default)]
+    added: u32,
+    #[serde(default)]
+    moved: u32,
+    #[serde(default)]
+    evolved_from: u32,
+    #[serde(default)]
+    evolved_into: u32,
+    #[serde(default)]
+    removed: u32,
+}
+
+impl<'de> Deserialize<'de> for TokenDeltaRecord {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let f = TokenDeltaRecordFields::deserialize(deserializer)?;
+        let delta = TokenDeltaDetails {
+            added: f.added,
+            moved: f.moved,
+            evolved_from: f.evolved_from,
+            evolved_into: f.evolved_into,
+            removed: f.removed,
+        };
+        Ok(match f.kind {
+            RecordKind::Detail => TokenDeltaRecord::Detail(TokenDeltaDetailRecord {
+                desc: detail_record_ref(f.source_rev, f.syntax_rev, f.iso_date, f.backs_out)?,
+                delta,
+            }),
+            RecordKind::Summary => TokenDeltaRecord::Summary(TokenDeltaSummaryRecord {
+                desc: summary_record_ref(f.source_revs, f.preds, f.iso_week_range)?,
+                delta,
+            }),
+        })
+    }
 }
 
 impl TimelineRecord for TokenDeltaRecord {
