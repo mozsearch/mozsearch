@@ -1,16 +1,22 @@
-# git, with a fix for git fast-import's scaling to repos with millions of
-# distinct file names (see the patch), for the tools which write repos with
-# git fast-import (ex: the history tools).  The tools find it via MOZSEARCH_GIT;
-# see `fast_import_git` in tools/src/git_ops.rs.  Scripts working on those
-# repos run it as `mozsearch-git` (see flake.nix), so that it's clear which git
-# they use; `git` stays the system's, for the source repos.
+# git, with fixes for git fast-import's scaling to repos with millions of
+# distinct file names and for its hashing of packs (see the patches), for the
+# tools which write repos with git fast-import (ex: the history tools).  The
+# tools find it via MOZSEARCH_GIT; see `fast_import_git` in
+# tools/src/git_ops.rs.  Scripts working on those repos run it as
+# `mozsearch-git` (see flake.nix), so that it's clear which git they use; `git`
+# stays the system's, for the source repos.
 {
   gitMinimal,
   openssl,
 }:
 gitMinimal.overrideAttrs (old: {
   pname = "mozsearch-git";
-  patches = (old.patches or []) ++ [./git-fast-import-grow-atom-table.patch];
+  patches =
+    (old.patches or [])
+    ++ [
+      ./git-fast-import-grow-atom-table.patch
+      ./git-fast-import-hash-packs-once.patch
+    ];
   # OpenSSL's SHA-1 (which uses the CPU's SHA instructions) rather than git's
   # collision-detecting one, which was ~15% of git fast-import's time for
   # build-timeline-tree on firefox.  We only hash what the tools derive from
@@ -18,7 +24,7 @@ gitMinimal.overrideAttrs (old: {
   # them.
   makeFlags = (old.makeFlags or []) ++ ["OPENSSL_SHA1=YesPlease"];
   buildInputs = (old.buildInputs or []) ++ [openssl];
-  # Only run git fast-import's tests, since that's all the patch changes.
+  # Only run git fast-import's tests, since that's all the patches change.
   preInstallCheck =
     old.preInstallCheck
     + ''
