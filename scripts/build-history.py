@@ -188,9 +188,11 @@ KEEP_PACK_BYTES = 8 << 30
 # (In the full firefox reblame, whose timeline wrote ~6 GiB of them a minute
 # once its git fast-import stored blobs uncompressed, a repack which took 3
 # hours let 1.25 TB of them pile up, filling the disk to 94%.)  Its chunks of
-# 2012 each left 70-90 GiB, which took 3-4 minutes to repack, so this is a few
-# of those chunks, to let the next chunk run meanwhile.
-MAX_FAST_IMPORT_BACKLOG = 256 << 30
+# 2021 each write 96 GiB (MAX_WRITTEN_BYTES) in ~6.5 minutes, and a repack of
+# the ~186 GiB they'd left took ~11 minutes, so the backlog reaches ~2 repacks'
+# worth (counting the packs being repacked, which stay until it ends): with 256
+# GiB, chunks spent 21% of 10 hours waiting for repacks.
+MAX_FAST_IMPORT_BACKLOG = 512 << 30
 # Fully repacking a history repo (as reblame does at the end to make the
 # history as small as possible to download) needs about as much free space
 # again as the repo.  So when a chunk leaves less free space than
