@@ -165,6 +165,7 @@ struct FastImport {
     child: Child,
     input: FastImportInput,
     cache: TreeCache,
+    readers: DiskReaders,
     /// The bytes of blobs we've given it (see MAX_WRITTEN_BYTES in `main`).
     written: u64,
 }
@@ -298,6 +299,11 @@ impl Write for FastImportInput {
 /// building 2 years of firefox history, the main thread spent 80% of its time
 /// waiting on it, and it spent over 40% of its time on our reads.
 ///
+/// What the entries don't have is mostly paths the run hasn't touched yet (ex:
+/// the journals of tokens it hasn't seen), which the parent has the same
+/// version of as `base`, a commit on disk which the cache started from, and
+/// which `DiskReaders` read from it without waiting on git fast-import.
+///
 /// All changes to the commit being written must go through `write_inline_blob`,
 /// `write_existing_blob` and `delete_path`, which record them in `pending`.
 #[derive(Default)]
@@ -310,9 +316,16 @@ struct TreeCache {
     /// The paths the commit being written has changed, with their new contents
     /// if we know them.
     pending: HashMap<PathBuf, Option<CachedPath>>,
+    /// A commit on disk which `parent` descends from through commits we wrote
+    /// (or is), if we know of one, and the paths they changed, so that the
+    /// parent has the same version of every other path.
+    base: Option<Oid>,
+    changed: HashSet<PathBuf>,
     hits: usize,
     misses: usize,
     clears: usize,
+    disk_reads: usize,
+    fast_import_reads: usize,
 }
 
 #[derive(Clone)]
@@ -326,12 +339,21 @@ enum CachedPath {
 const TREE_CACHE_MAX_BYTES: usize = 8 << 30;
 
 impl TreeCache {
-    /// Start writing a commit whose first parent is `parent`.
-    fn begin(&mut self, parent: Option<&TimelineRepoCommit>) {
+    /// Whether the entries describe `parent`.
+    fn describes(&self, parent: Option<&TimelineRepoCommit>) -> bool {
+        parent.is_some() && self.parent.as_ref() == parent
+    }
+
+    /// Start writing a commit whose first parent is `parent`, whose id is
+    /// `on_disk` if it's on disk (which only matters if the entries don't
+    /// describe it).
+    fn begin(&mut self, parent: Option<&TimelineRepoCommit>, on_disk: Option<Oid>) {
         assert!(self.pending.is_empty());
-        if self.parent.as_ref() != parent || parent.is_none() {
+        if !self.describes(parent) {
             self.entries.clear();
             self.bytes = 0;
+            self.base = on_disk;
+            self.changed.clear();
         }
         self.parent = parent.copied();
     }
@@ -340,6 +362,9 @@ impl TreeCache {
     /// entries describe.
     fn end(&mut self, mark: usize) {
         for (path, change) in self.pending.drain() {
+            if self.base.is_some() {
+                self.changed.insert(path.clone());
+            }
             let old = match change {
                 Some(contents) => {
                     if let CachedPath::Blob(blob) = &contents {
@@ -370,6 +395,12 @@ impl TreeCache {
         }
     }
 
+    /// The commit on disk with the same version of `path` as `from`, if any.
+    fn on_disk(&self, from: ReadFrom, path: &Path) -> Option<Oid> {
+        self.base
+            .filter(|_| self.reads_parent(from, path) && !self.changed.contains(path))
+    }
+
     /// The contents of `path` read from `from`, if we know them: `Some(None)`
     /// means the path doesn't exist.
     fn get(&mut self, from: ReadFrom, path: &Path) -> Option<Option<Rc<[u8]>>> {
@@ -393,7 +424,7 @@ impl TreeCache {
         found
     }
 
-    /// Record the contents of `path` read from `from` through git fast-import.
+    /// Record the contents of `path` read from `from`.
     fn note_read(&mut self, from: ReadFrom, path: &Path, blob: Option<&Rc<[u8]>>) {
         if !self.reads_parent(from, path) {
             return;
@@ -408,6 +439,71 @@ impl TreeCache {
         if let Some(CachedPath::Blob(old)) = self.entries.insert(path.to_path_buf(), contents) {
             self.bytes -= old.len();
         }
+    }
+}
+
+/// How many `DiskReaders` threads read at once.
+const DISK_READER_THREADS: usize = 8;
+
+/// Threads which read paths from commits on disk with git2, for `TreeCache`.
+/// Reading through git fast-import took as long, but meant waiting for it to
+/// catch up, and it was usually the busier of us.
+struct DiskReaders {
+    /// Each thread's requests and answers.
+    threads: Vec<(Sender<(Oid, Vec<PathBuf>)>, Receiver<Vec<Option<Vec<u8>>>>)>,
+}
+
+impl DiskReaders {
+    fn new(repo_path: &Path) -> Self {
+        let threads = (0..DISK_READER_THREADS)
+            .map(|_| {
+                let (request_sender, requests) = channel::<(Oid, Vec<PathBuf>)>();
+                let (answer_sender, answers) = channel();
+                let repo_path = repo_path.to_path_buf();
+                thread::spawn(move || {
+                    let repo = Repository::open(&repo_path).unwrap();
+                    for (commit, paths) in requests {
+                        let tree = repo.find_commit(commit).unwrap().tree().unwrap();
+                        let blobs = paths
+                            .iter()
+                            .map(|path| match tree.get_path(path) {
+                                Ok(entry) => {
+                                    Some(repo.find_blob(entry.id()).unwrap().content().to_vec())
+                                }
+                                Err(e) if e.code() == git2::ErrorCode::NotFound => None,
+                                Err(e) => panic!("failed to read {}: {}", path.display(), e),
+                            })
+                            .collect();
+                        if answer_sender.send(blobs).is_err() {
+                            break;
+                        }
+                    }
+                });
+                (request_sender, answers)
+            })
+            .collect();
+        DiskReaders { threads }
+    }
+
+    /// Start reading `paths` from `commit`, returning how many threads are
+    /// reading them, for `finish`.
+    fn start(&self, commit: Oid, paths: &[PathBuf]) -> usize {
+        let per_thread = paths.len().div_ceil(self.threads.len()).max(1);
+        let mut started = 0;
+        for (chunk, (requests, _)) in paths.chunks(per_thread).zip(&self.threads) {
+            requests.send((commit, chunk.to_vec())).unwrap();
+            started += 1;
+        }
+        started
+    }
+
+    /// The contents of the paths of the last `start`, in order, `None` for
+    /// those which don't exist.
+    fn finish(&self, started: usize) -> Vec<Option<Vec<u8>>> {
+        self.threads[..started]
+            .iter()
+            .flat_map(|(_, answers)| answers.recv().expect("a disk reader thread failed"))
+            .collect()
     }
 }
 
@@ -456,6 +552,7 @@ fn start_fast_import(git_repo: &Repository) -> FastImport {
         child,
         input,
         cache: TreeCache::default(),
+        readers: DiskReaders::new(git_repo.path()),
         written: 0,
     }
 }
@@ -618,16 +715,28 @@ fn read_path_blob(import_helper: &mut FastImport, from: ReadFrom, path: &Path) -
     if let Some(found) = import_helper.cache.get(from, path) {
         return found;
     }
-    let blob = read_path_oid(import_helper, from, path)
-        .map(|oid| Rc::from(read_blob(import_helper, &oid)));
+    let blob = match import_helper.cache.on_disk(from, path) {
+        Some(commit) => {
+            import_helper.cache.disk_reads += 1;
+            let readers = &import_helper.readers;
+            let started = readers.start(commit, &[path.to_path_buf()]);
+            readers.finish(started).pop().unwrap().map(Rc::from)
+        }
+        None => {
+            import_helper.cache.fast_import_reads += 1;
+            read_path_oid(import_helper, from, path)
+                .map(|oid| Rc::from(read_blob(import_helper, &oid)))
+        }
+    };
     import_helper.cache.note_read(from, path, blob.as_ref());
     blob
 }
 
 /// Read the first parent's version of each of `paths` that the cache doesn't
-/// have, asking git fast-import about many at once, so that we wait for it to
-/// catch up once per batch rather than once per path (see `TreeCache`).  This
-/// must be done before the commit being written changes anything.
+/// have: from disk where we can (see `TreeCache`), and otherwise asking git
+/// fast-import about many at once, so that we wait for it to catch up once per
+/// batch rather than once per path.  This must be done before the commit being
+/// written changes anything.
 fn prefetch_parent_paths(import_helper: &mut FastImport, paths: Vec<PathBuf>) {
     // (The batches keep how many answers git fast-import has to write before
     // we read them small.)
@@ -641,6 +750,18 @@ fn prefetch_parent_paths(import_helper: &mut FastImport, paths: Vec<PathBuf>) {
         .collect();
     missing.sort();
     missing.dedup();
+    let cache = &mut import_helper.cache;
+    let (on_disk, missing): (Vec<PathBuf>, Vec<PathBuf>) = missing
+        .into_iter()
+        .partition(|path| cache.on_disk(ReadFrom::Active, path).is_some());
+    cache.disk_reads += on_disk.len();
+    cache.fast_import_reads += missing.len();
+    // (The threads read from disk while we wait on git fast-import.)
+    let started = match cache.base {
+        Some(base) => import_helper.readers.start(base, &on_disk),
+        None => 0,
+    };
+
     let mut rest = &missing[..];
     while !rest.is_empty() {
         let mut len = 0;
@@ -683,6 +804,14 @@ fn prefetch_parent_paths(import_helper: &mut FastImport, paths: Vec<PathBuf>) {
                 .cache
                 .note_read(ReadFrom::Active, path, blob.as_ref());
         }
+    }
+
+    let blobs = import_helper.readers.finish(started);
+    for (path, blob) in on_disk.iter().zip(blobs) {
+        let blob: Option<Rc<[u8]>> = blob.map(Rc::from);
+        import_helper
+            .cache
+            .note_read(ReadFrom::Active, path, blob.as_ref());
     }
 }
 
@@ -2878,7 +3007,16 @@ fn main() {
             checkpoints += 1;
         }
 
-        import_helper.cache.begin(timeline_parents.first());
+        let first_parent = timeline_parents.first();
+        let on_disk = match first_parent {
+            _ if import_helper.cache.describes(first_parent) => None,
+            Some(TimelineRepoCommit::Commit(oid)) => Some(*oid),
+            Some(TimelineRepoCommit::Mark(mark)) if *mark <= checkpointed_mark => {
+                Some(Oid::from_str(&mark_revs[mark]).unwrap())
+            }
+            _ => None,
+        };
+        import_helper.cache.begin(first_parent, on_disk);
         // Scope the import_helper borrow
         {
             // Here we write out the metadata for a new commit to the timeline
@@ -3046,8 +3184,8 @@ fn main() {
     info!("Wrote {} journal summary records.", num_summaries);
     let cache = &import_helper.cache;
     info!(
-        "Tree cache: {} hits, {} misses, cleared {} times",
-        cache.hits, cache.misses, cache.clears
+        "Tree cache: {} hits, {} misses, cleared {} times; read {} paths from disk and {} through git fast-import",
+        cache.hits, cache.misses, cache.clears, cache.disk_reads, cache.fast_import_reads
     );
 
     info!("Shutting down fast-import...");
