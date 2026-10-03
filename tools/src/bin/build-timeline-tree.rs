@@ -501,8 +501,12 @@ impl TreeCache {
     }
 
     /// Finish writing the commit with mark `mark`, which becomes the parent the
-    /// entries describe.
-    fn end(&mut self, mark: usize) {
+    /// entries describe.  Returns whether that cleared the entries, after which
+    /// the caller should `rebase` (once the commit is on disk), since the
+    /// entries were the only versions of `changed` we could read without asking
+    /// git fast-import: in the full firefox reblame, a chunk read 633,255 paths
+    /// through it after a clear, and took 36 minutes rather than ~6.
+    fn end(&mut self, mark: usize) -> bool {
         for (path, change) in self.pending.drain() {
             if self.base.is_some() {
                 self.changed.insert(path.clone());
@@ -525,7 +529,15 @@ impl TreeCache {
             self.entries.clear();
             self.bytes = 0;
             self.clears += 1;
+            return true;
         }
+        false
+    }
+
+    /// Make `base`, the parent (which must now be on disk), the base.
+    fn rebase(&mut self, base: Oid) {
+        self.base = Some(base);
+        self.changed.clear();
     }
 
     /// Whether a read from `from` sees the entries (as opposed to a change the
@@ -3342,7 +3354,7 @@ fn main() {
         // write once we've written the next revision, by when git fast-import
         // has usually answered, rather than waiting for it to catch up now.
         writeln!(import_helper.input).unwrap();
-        import_helper.cache.end(rev_done);
+        let cleared = import_helper.cache.end(rev_done);
         if let Some(previous) = unfinished.take() {
             previous.finish(&mut import_helper, &mut notes, &rev_summary_root);
         }
@@ -3372,11 +3384,19 @@ fn main() {
             time: syntax_commit.committer().when().seconds(),
         });
 
-        if rev_done % 100000 == 0 {
-            info!("Completed 100,000 commits, issuing checkpoint...");
+        if rev_done % 100000 == 0 || cleared {
+            if cleared {
+                info!("Cleared the tree cache, issuing checkpoint to rebase it...");
+            } else {
+                info!("Completed 100,000 commits, issuing checkpoint...");
+            }
             checkpoint(&mut import_helper, rev_done);
             checkpointed_mark = rev_done;
             checkpoints += 1;
+        }
+        if cleared {
+            let base = Oid::from_str(&import_helper.mark_rev(rev_done)).unwrap();
+            import_helper.cache.rebase(base);
         }
     }
 
