@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 # Show the status of blame/history rebuilding ("reblame") instances launched by
-# trigger_blame_rebuild.py, without ssh-ing into them: their state and the
+# trigger_blame_rebuild.py, and costly maintenance instances launched by
+# trigger_costly_maintenance.py, without ssh-ing into them: their state and the
 # status they record in their "status" tag as they go (see set-status.py; ex:
 # "timeline: 1200/5000 revisions (24.0%), 350/min, ETA 11m"), and the most
-# recent reblame logs, which are uploaded to S3 when a reblame finishes or
-# fails.  (Terminated instances are only listed for about an hour.)
+# recent of their logs, which are uploaded to S3 when they finish or fail.
+# (Terminated instances are only listed for about an hour.)
 #
 # Usage: reblame-status.py [--logs N] [--tail [KEY]]
 #   --logs N: How many recent logs to list (default 5).
@@ -18,7 +19,12 @@ import gzip
 
 import boto3
 
-INSTANCE_TAG = 'blame-builder'
+# The tag keys of the instances, with the prefixes of their logs, and the
+# names in their failure logs' keys (see upload-log.sh and main.sh).
+KINDS = {
+    'blame-builder': ('reblame-', 'rebuild-blame'),
+    'costly-maintenance': ('costly-maintenance-', 'costly-maintenance'),
+}
 LOG_BUCKET = 'indexer-logs'
 
 
@@ -36,13 +42,14 @@ def age(when, now):
 
 def show_instances(now):
     ec2 = boto3.resource('ec2')
-    instances = list(ec2.instances.filter(Filters=[{'Name': 'tag-key', 'Values': [INSTANCE_TAG]}]))
+    instances = list(ec2.instances.filter(Filters=[{'Name': 'tag-key', 'Values': list(KINDS)}]))
     if not instances:
-        print('No reblame instances.')
+        print('No reblame or costly maintenance instances.')
         return
     for instance in sorted(instances, key=lambda i: i.launch_time):
         tags = {tag['Key']: tag['Value'] for tag in instance.tags or []}
-        print(f"{instance.id} {instance.instance_type} {instance.state['Name']}, "
+        kind = next(kind for kind in KINDS if kind in tags)
+        print(f"{instance.id} ({kind}) {instance.instance_type} {instance.state['Name']}, "
               f"up {age(instance.launch_time, now)}, channel {tags.get('channel')}, "
               f"{tags.get('cfile')} on {tags.get('branch')}")
         status = tags.get('status')
@@ -56,12 +63,13 @@ def show_instances(now):
 
 def recent_logs(s3):
     logs = []
-    for prefix in ['reblame-', 'failed-']:
+    prefixes = [prefix for prefix, _ in KINDS.values()]
+    for prefix in prefixes + ['failed-']:
         paginator = s3.get_paginator('list_objects_v2')
         for page in paginator.paginate(Bucket=LOG_BUCKET, Prefix=prefix):
             for obj in page.get('Contents', []):
-                # Failure logs are for every kind of run; keep the reblames'.
-                if prefix == 'failed-' and 'rebuild-blame' not in obj['Key']:
+                # Failure logs are for every kind of run; keep ours.
+                if prefix == 'failed-' and not any(name in obj['Key'] for _, name in KINDS.values()):
                     continue
                 logs.append(obj)
     return sorted(logs, key=lambda obj: obj['LastModified'], reverse=True)
@@ -80,7 +88,8 @@ def main():
     logs = recent_logs(s3)
     if args.logs:
         print()
-        print(f'Recent reblame logs (s3://{LOG_BUCKET}/):' if logs else 'No reblame logs.')
+        print(f'Recent reblame and costly maintenance logs (s3://{LOG_BUCKET}/):' if logs
+              else 'No reblame or costly maintenance logs.')
         for obj in logs[:args.logs]:
             print(f"  {obj['Key']} ({obj['Size'] / 1e6:.1f} MB, {age(obj['LastModified'], now)} ago)")
 

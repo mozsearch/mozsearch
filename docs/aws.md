@@ -448,10 +448,65 @@ from our fork of git (`nix/mozsearch/git.nix`), whose path is compiled into
 them, and which they log ("Running git fast-import from ..."; `MOZSEARCH_GIT`
 overrides it).  The nix packages also install it as `mozsearch-git`, which the
 scripts working on those repos run (`scripts/build-history.py`, and the
-firefox-disco config's `reblame` and `update-history.sh` and the shared
-`rebuild-blame.sh`), so that the commands (and `ps`) say which git they use.
-`git` is the system's, which detects SHA-1 collisions in what it fetches, for
-the source repos.
+firefox-disco config's `repack-history.sh` and `update-history.sh` and the
+shared `rebuild-blame.sh`), so that the commands (and `ps`) say which git they
+use.  `git` is the system's, which detects SHA-1 collisions in what it
+fetches, for the source repos.
+
+## Costly maintenance
+
+Some maintenance needs more time or memory than the daily indexing has to
+spare, ex: fully repacking firefox-disco's history, which the daily indexing
+only repacks geometrically (see `scripts/build-history.py`), so that it grows
+faster than it would fully repacked: a week of firefox's timeline (in
+September 2026) took 688 MiB once geometric repacks had combined its days'
+packs, but 421 MiB as deltas of the history before it.
+`infrastructure/aws/trigger_costly_maintenance.py` takes the same arguments as
+the other trigger scripts and launches an instance (an `m8id.8xlarge`, with 64
+GiB of swap, by default) which runs the `costly-maintenance` script from the
+config repo of each tree in the config file which has one (via
+`costly-maintenance.sh` and `infrastructure/costly-maintenance-run.sh`; for
+the other trees, it does nothing), uploads its log to the `indexer-logs`
+bucket as `costly-maintenance-*.gz`, emails, and terminates, as reblame does
+(see above, including `reblame-status.py`, which shows these instances and
+logs too).  For example:
+
+```
+infrastructure/aws/trigger_costly_maintenance.py \
+  https://github.com/mozsearch/mozsearch \
+  https://github.com/mozsearch/mozsearch-mozilla \
+  just-fd.json hyperblame dev-history --config-rev firefox-disco
+```
+
+A script which updates something the daily indexing also updates (like
+firefox-disco's, which downloads the history, repacks it, and uploads it
+again) should only replace it if the daily indexing hasn't replaced it in the
+meantime: `infrastructure/aws/upload-if-unchanged.py` uploads to S3 only if the
+object still has the ETag it had before it was downloaded.
+
+The trigger script can't know which trees have a script (it runs in a lambda
+job without the config repo), so a lambda job for a config file launches the
+instance regardless.  To run the maintenance monthly, build its lambda zip
+inside the container:
+
+```
+./infrastructure/aws/build-lambda-costly-maintenance.sh \
+  https://github.com/mozsearch/mozsearch \
+  https://github.com/mozsearch/mozsearch-mozilla \
+  config1.json \
+  master \
+  release
+```
+
+and create a function for it as for the indexer's lambda jobs (see "Lambda
+Details / Manual Updates" above), named like
+`start-release-costly-maintenance`, with the handler
+`lambda-costly-maintenance.start`, and an EventBridge trigger with a monthly
+schedule (ex: `cron(0 12 1 * ? *)`, noon UTC on the 1st).  The maintenance takes
+hours, and a daily indexing which downloaded what it updates before it
+finished still replaces it with its own update of the old one, so pick a time
+at which it's done before the tree's next daily indexing starts.  (The scripts
+in "Automated-ish Updates" don't build or upload this zip.)
 
 ## Creating additional development channels
 

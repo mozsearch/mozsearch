@@ -222,11 +222,11 @@ class PackMaintenance:
     It never fully repacks a repo (like git gc), which needs memory for every
     object in it: for the full firefox history's timeline, 246M objects, ~50
     GiB, more than the indexers have to spare.  That's left to reblame's repack
-    at the end, on a big instance.  (Without full repacks, the objects in
-    different packs can't be deltas of each other, so the repos grow faster: a
-    week of firefox's timeline took 688 MiB once combined into one pack (see
-    `_combine_repacked_packs`), but 421 MiB as deltas of the history before
-    it.)
+    at the end, and to costly maintenance (see docs/aws.md), on big instances.
+    (Without full repacks, the objects in different packs can't be deltas of
+    each other, so the repos grow faster: a week of firefox's timeline took 688
+    MiB once combined into one pack (see `_combine_repacked_packs`), but 421
+    MiB as deltas of the history before it.)
 
     git and libgit2 cope with a repack deleting packs while they read the
     repo: the new pack is written first, and an object not found in the packs
