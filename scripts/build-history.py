@@ -203,9 +203,10 @@ GC_INTERVAL_CHUNKS = 10
 
 class PackMaintenance:
     """Repacks a history repo in the background after each chunk (see the module
-    docs), and during a chunk when it has more than MAX_PACKS packs besides git
-    fast-import's (ex: packs left by earlier chunks while a repack ran), unless
-    its last repack is still running.  Repacking between chunks
+    docs), and during a chunk when git fast-import packs from earlier chunks are
+    left (ex: if a repack was running when the last chunk ended) or it has more
+    than MAX_PACKS packs besides git fast-import's, unless its last repack is
+    still running.  Repacking between chunks
     took 17-68% of each tool's time in the full firefox reblame on AWS, mostly
     single-threaded, even though on a firefox window it didn't make the tools
     any faster: it combined the packs and made them smaller (2.5x for the
@@ -289,8 +290,20 @@ class PackMaintenance:
             return
         if not self._repack_finished():
             return
+        # Repack git fast-import packs from earlier chunks as soon as we can:
+        # a chunk's few big ones would otherwise wait for the next chunk to end
+        # if a repack was running when theirs ended, which in the full firefox
+        # reblame left 267 GiB of them for the next chunk to wait for (see
+        # MAX_FAST_IMPORT_BACKLOG).
+        fast_import_packs = self._fast_import_packs()
         packs = [p for p in self._packs() if not self._kept_by_fast_import(p)]
-        if len(packs) > MAX_PACKS:
+        if fast_import_packs:
+            log(
+                f"repacking {self.repo}'s {len(fast_import_packs)} git fast-import packs from "
+                "earlier chunks"
+            )
+            self._repack()
+        elif len(packs) > MAX_PACKS:
             log(f"repacking {self.repo}, which has {len(packs)} packs besides git fast-import's")
             self._repack()
 
