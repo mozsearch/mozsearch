@@ -1798,6 +1798,8 @@ pub fn format_diff(
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
 
     let git_path = tree_config.get_git_path()?;
+    // (The system git, with SHA-1 collision detection, since this works on a
+    // source repo; see `fast_import_git` for our git.)
     let output = Command::new("git")
         .arg("diff-tree")
         .arg("-p")
@@ -2213,6 +2215,8 @@ fn generate_commit_info(
     output::generate_formatted(writer, &f, 0)?;
 
     let git_path = tree_config.get_git_path()?;
+    // (The system git, with SHA-1 collision detection, since this works on a
+    // source repo; see `fast_import_git` for our git.)
     let output = Command::new("git")
         .arg("show")
         .arg("--cc")

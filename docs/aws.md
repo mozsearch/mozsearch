@@ -441,6 +441,18 @@ instance type had.  Rebuilds get 64 GiB of swap on the SSD rather than 8 (see
 `mkscratch.sh`; `--setenv SWAP_GIB=N` changes it), so that briefly needing
 more memory than the instance has only slows it down.
 
+### Which git
+
+The history tools (and build-blame) write their repos with git fast-import
+from our fork of git (`nix/mozsearch/git.nix`), whose path is compiled into
+them, and which they log ("Running git fast-import from ..."; `MOZSEARCH_GIT`
+overrides it).  The nix packages also install it as `mozsearch-git`, which the
+scripts working on those repos run (`scripts/build-history.py`, and the
+firefox-disco config's `reblame` and `update-history.sh` and the shared
+`rebuild-blame.sh`), so that the commands (and `ps`) say which git they use.
+`git` is the system's, which detects SHA-1 collisions in what it fetches, for
+the source repos.
+
 ## Creating additional development channels
 
 If many developers are working on features concurrently, it might be

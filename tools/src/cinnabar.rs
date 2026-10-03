@@ -42,6 +42,8 @@ pub struct CinnabarBatch {
 
 impl CinnabarBatch {
     fn start(repo: &Repository, command: &str) -> CinnabarBatch {
+        // (The system git, with SHA-1 collision detection, since this works on a
+        // source repo; see `fast_import_git` for our git.)
         let mut child = Command::new("git")
             .arg("cinnabar")
             .arg(command)

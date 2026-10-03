@@ -13,13 +13,18 @@ use crate::file_format::{
 
 /// A git command to run git fast-import with: the git named by MOZSEARCH_GIT at
 /// run time, or else when the tools were built, or else the git on the PATH.
-/// The nix package builds the tools with a git whose fast-import scales to
+/// The nix package builds the tools with our git, whose fast-import scales to
 /// repos with millions of distinct file names (see nix/mozsearch/git.nix),
-/// which makes the history tools several times faster on firefox-main.
+/// which makes the history tools several times faster on firefox-main.  (It's
+/// also `mozsearch-git` on the PATH, for scripts working on those repos.  The
+/// tools' other git commands are the system's `git`, which detects SHA-1
+/// collisions, since they work on the source repos.)
 pub fn fast_import_git() -> std::process::Command {
     let git = std::env::var_os("MOZSEARCH_GIT")
         .or_else(|| option_env!("MOZSEARCH_GIT").map(Into::into))
         .unwrap_or_else(|| "git".into());
+    // (So that the logs say which git wrote the repo.)
+    log::info!("Running git fast-import from {}", Path::new(&git).display());
     std::process::Command::new(git)
 }
 

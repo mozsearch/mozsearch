@@ -135,6 +135,8 @@ fn get_git_rev(helper: &mut Child, hg_rev: &str) -> Option<String> {
 }
 
 fn start_cinnabar_helper(git_repo: &Repository) -> Child {
+    // (The system git, with SHA-1 collision detection, since this works on a
+    // source repo; see `fast_import_git` for our git.)
     Command::new("git")
         .arg("cinnabar")
         .arg("git2hg")
@@ -147,6 +149,8 @@ fn start_cinnabar_helper(git_repo: &Repository) -> Child {
 }
 
 fn start_old_cinnabar_hg2git_helper(git_repo: &Repository) -> Child {
+    // (The system git, with SHA-1 collision detection, since this works on a
+    // source repo; see `fast_import_git` for our git.)
     Command::new("git")
         .arg("cinnabar")
         .arg("hg2git")

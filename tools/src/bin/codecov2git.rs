@@ -80,6 +80,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .status
         .success();
 
+    // (The system git: our git's fast-import fix matters only for repos with
+    // millions of file names, like the history repos; see `fast_import_git`.)
     let mut fast_import = Command::new("git")
         .current_dir(&args.output_repo)
         .arg("fast-import")

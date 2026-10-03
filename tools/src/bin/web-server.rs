@@ -231,6 +231,8 @@ fn handle(
             };
 
             let hg_rev = path[2];
+            // (The system git, with SHA-1 collision detection, since this works on a
+            // source repo; see `fast_import_git` for our git.)
             let output_result = Command::new("git")
                 .arg("cinnabar")
                 .arg("hg2git")

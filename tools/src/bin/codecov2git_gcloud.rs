@@ -183,6 +183,8 @@ async fn list_revisions(client: &StorageControl) -> anyhow::Result<Vec<String>> 
 
 #[tracing::instrument(skip(hg_revisions))]
 fn convert_hg_to_git(firefox_repo: &Path, hg_revisions: &[String]) -> anyhow::Result<Vec<String>> {
+    // (The system git, with SHA-1 collision detection, since this works on a
+    // source repo; see `fast_import_git` for our git.)
     let mut child = Command::new("git")
         .args([
             "-C",
@@ -497,6 +499,8 @@ fn git_sender(
 ) -> anyhow::Result<JoinHandle<anyhow::Result<()>>> {
     let output_repo_git = open_or_init_bare_repo(output_repo)?;
 
+    // (The system git: our git's fast-import fix matters only for repos with
+    // millions of file names, like the history repos; see `fast_import_git`.)
     let mut fast_import = Command::new("git")
         .current_dir(output_repo)
         .arg("fast-import")

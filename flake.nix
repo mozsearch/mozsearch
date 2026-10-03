@@ -53,6 +53,14 @@
         wasm-snip = pkgs.callPackage ./nix/wasm-snip {};
 
         mozsearch-git = pkgs.callPackage ./nix/mozsearch/git.nix {};
+        # Our git, as `mozsearch-git`, for the scripts which work on the repos
+        # the tools write with its git fast-import (ex: scripts/build-history.py),
+        # leaving `git` the system's, which detects SHA-1 collisions in what it
+        # fetches (see nix/mozsearch/git.nix).
+        mozsearch-git-command = pkgs.runCommandLocal "mozsearch-git-command" {} ''
+          mkdir -p $out/bin
+          ln -s ${mozsearch-git}/bin/git $out/bin/mozsearch-git
+        '';
         mozsearch-tools = pkgs.callPackage ./nix/mozsearch/tools.nix {
           inherit craneLib mozsearch-git;
         };
@@ -79,6 +87,7 @@
           scip-typescript.packages.${system}.default
           mozsearch-clang-plugin
           mozsearch-wasm-css-analyzer
+          mozsearch-git-command
         ];
 
         serverPackages = with pkgs; [
@@ -121,6 +130,8 @@
             fuse-overlayfs # CoW for images, much faster than default vfs
 
             jq
+
+            mozsearch-git-command
 
             (python3.withPackages pythonPackages)
             awscli2

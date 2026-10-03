@@ -121,11 +121,20 @@ class Restart:
 # The `Restart` for this process, set by main.
 RESTART = None
 
+# The git for the history repos (all the git this runs): the one the tools
+# write them with (see `fast_import_git` in tools/src/git_ops.rs), our fork of
+# git (see nix/mozsearch/git.nix), which the nix packages install as
+# `mozsearch-git`, or else MOZSEARCH_GIT, as for the tools.
+MOZSEARCH_GIT = os.environ.get("MOZSEARCH_GIT", "mozsearch-git")
+
 
 def git_output(repo, *args):
     """The output of a git command, or None if it failed."""
     result = subprocess.run(
-        ["git", "-C", repo, *args], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True
+        [MOZSEARCH_GIT, "-C", repo, *args],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
     )
     return result.stdout if result.returncode == 0 else None
 
@@ -446,7 +455,7 @@ class PackMaintenance:
 
     def _start(self, git_args, input=None):
         self.repacking_args = [
-            "git",
+            MOZSEARCH_GIT,
             "-c",
             f"pack.threads={REPACK_THREADS}",
             "-C",
