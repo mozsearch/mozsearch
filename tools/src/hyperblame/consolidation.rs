@@ -242,7 +242,18 @@ fn line_week(line: &str) -> Option<Option<IsoWeek>> {
         return Some(iso_week(&date[..date.find('"')?]));
     }
     let rest = line.strip_prefix(r#"{"type":"Summary","#)?;
-    let start = rest.find(r#""iso_week_range":["#)? + r#""iso_week_range":["#.len();
+    // It follows the source_revs and preds arrays, which can be long (ex: a
+    // week's hundreds of revisions for a hot token), so rather than searching
+    // them for it, hop between their "]"s, which is much faster.
+    const AFTER_ARRAY: &str = r#"],"iso_week_range":["#;
+    let mut from = 0;
+    let start = loop {
+        let end = from + rest[from..].find(']')?;
+        if rest[end..].starts_with(AFTER_ARRAY) {
+            break end + AFTER_ARRAY.len();
+        }
+        from = end + 1;
+    };
     let range = &rest[start..];
     let mut parts = range[..range.find(']')?].split(',');
     let year: u16 = parts.next()?.parse().ok()?;
@@ -846,6 +857,21 @@ mod tests {
                 check::<TokenDeltaRecord>(&line);
             }
         }
+        // Summaries' "iso_week_range" follows their arrays, whose strings can
+        // have "]"s.
+        let mut odd_pred = version("q");
+        odd_pred.path = r#"future/a]b/c],"iso.ndjson"#.to_string();
+        let summary = TokenDeltaRecord::Summary(TokenDeltaSummaryRecord {
+            desc: SummaryRecordRef {
+                source_revs: vec![sha1.to_string(); 300],
+                preds: vec![odd_pred, pred.clone()],
+                iso_week_range: (2021, 41, 41),
+            },
+            delta: TokenDeltaDetails::default(),
+        });
+        let line = serde_json::to_string(&summary).unwrap();
+        assert_eq!(line_week(&line), Some(Some((2021, 41))));
+        check::<TokenDeltaRecord>(&line);
         // (A source_rev one short, with a syntax_rev one long, puts the keys
         // elsewhere.)
         let shifted = format!(
