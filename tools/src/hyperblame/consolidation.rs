@@ -107,6 +107,9 @@ pub trait Summarize: TimelineRecord + Clone + Serialize + DeserializeOwned {
     /// A summary record with the common fields `desc` aggregating `details`,
     /// which are detail records ordered newest first.
     fn summarize_details(desc: SummaryRecordRef, details: &[&Self]) -> Self;
+
+    /// The common summary fields of a summary record.
+    fn summary_ref_mut(&mut self) -> Option<&mut SummaryRecordRef>;
 }
 
 /// A summary record aggregating detail records (in any order).
@@ -157,8 +160,9 @@ fn flattened_preds<R: TimelineRecord>(
 
 /// Consolidate the records (newest first) of a journal which a revision dated
 /// `now` just appended its detail record to; see the module docs.  `pred` is
-/// the journal version it appended to, and `load` loads journal versions for
-/// expanding summaries.  Returns the number of summaries written.
+/// the journal version it appended to (whose `timeline_rev` may be left empty
+/// for `fill_in_pred_revs`), and `load` loads journal versions for expanding
+/// summaries.  Returns the number of summaries written.
 pub fn consolidate_appended<R: Summarize>(
     records: &mut Vec<R>,
     now: &str,
@@ -209,6 +213,18 @@ pub fn consolidate_appended<R: Summarize>(
         records.insert(pos, summary);
     }
     Ok(by_week.len())
+}
+
+/// Give the summaries' preds which `consolidate_appended` was given with an
+/// empty `timeline_rev` the `timeline_rev` they're of, once it's known.
+pub fn fill_in_pred_revs<R: Summarize>(records: &mut [R], timeline_rev: &str) {
+    for summary in records.iter_mut().filter_map(R::summary_ref_mut) {
+        for pred in &mut summary.preds {
+            if pred.timeline_rev.is_empty() {
+                pred.timeline_rev = timeline_rev.to_string();
+            }
+        }
+    }
 }
 
 /// The fields of a journal record's line which say which week it's of (see
@@ -644,6 +660,13 @@ impl Summarize for TokenDeltaRecord {
         }
         TokenDeltaRecord::Summary(TokenDeltaSummaryRecord { desc, delta })
     }
+
+    fn summary_ref_mut(&mut self) -> Option<&mut SummaryRecordRef> {
+        match self {
+            TokenDeltaRecord::Detail(_) => None,
+            TokenDeltaRecord::Summary(s) => Some(&mut s.desc),
+        }
+    }
 }
 
 impl Summarize for FutureRecord {
@@ -677,6 +700,13 @@ impl Summarize for FutureRecord {
             moved_token_revs: revs(&mut details.iter().map(|d| &d.moved_out_tokens)),
             evolved_token_revs: revs(&mut details.iter().map(|d| &d.evolved_tokens)),
         })
+    }
+
+    fn summary_ref_mut(&mut self) -> Option<&mut SummaryRecordRef> {
+        match self {
+            FutureRecord::Detail(_) => None,
+            FutureRecord::Summary(s) => Some(&mut s.desc),
+        }
     }
 }
 
@@ -726,6 +756,13 @@ impl Summarize for FileDeltaRecord {
             }
         }
         FileDeltaRecord::Summary(FileDeltaSummaryRecord { desc, symbol_group })
+    }
+
+    fn summary_ref_mut(&mut self) -> Option<&mut SummaryRecordRef> {
+        match self {
+            FileDeltaRecord::Detail(_) => None,
+            FileDeltaRecord::Summary(s) => Some(&mut s.desc),
+        }
     }
 }
 
@@ -969,6 +1006,7 @@ mod tests {
         // A late commit for week 1 gets summarized with the existing summary,
         // which gets expanded from its pred.
         records.insert(1, detail("late", "2024-01-02T00:00:00Z", 16));
+        let mut unknown = records.clone();
         let mut load = loader(vec![(version("p"), parent)]);
         assert_eq!(
             consolidate_appended(
@@ -985,6 +1023,22 @@ mod tests {
         };
         // The old summary's details are in its pred, and the late commit's in q.
         assert_eq!(summary.desc.preds, vec![version("p"), version("q")]);
+
+        // Consolidating without q's id and filling it in later is the same.
+        assert_eq!(
+            consolidate_appended(
+                &mut unknown,
+                "2024-01-23T00:00:00Z",
+                &version(""),
+                &mut load
+            ),
+            Ok(1)
+        );
+        fill_in_pred_revs(&mut unknown, "q");
+        assert_eq!(
+            serde_json::to_string(&unknown).unwrap(),
+            serde_json::to_string(&records).unwrap()
+        );
     }
 
     /// `merge_journal_versions` as it was before it was linear, to check that

@@ -96,11 +96,11 @@ extern crate num_cpus;
 extern crate tools;
 
 use std::borrow::Cow;
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::env;
 use std::fmt;
 use std::fs;
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, BufRead, Read, Write};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Stdio};
@@ -141,12 +141,13 @@ use tools::file_format::history::timeline_future::{
 use tools::file_format::history::timeline_tokens::{
     TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, token_timeline_path, tracked_token_key,
 };
+use tools::git_notes::NotesWriter;
 use tools::git_ops::{fast_import_git, git_time_to_chrono, history_compute_threads};
 use tools::history_stop::{ENDED_EARLY_EXIT_CODE, STOPPED_EXIT_CODE, stop_requested};
 use tools::hyperblame::backouts::{BackoutTargetResolver, find_backed_out};
 use tools::hyperblame::consolidation::{
-    Summarize, consolidate_appended, merge_journal_texts, merge_journal_versions,
-    prepend_unconsolidated,
+    Summarize, consolidate_appended, fill_in_pred_revs, merge_journal_texts,
+    merge_journal_versions, prepend_unconsolidated,
 };
 use tools::hyperblame::inference::{
     FileChangeInput, FileChangeKind, FileInference, InferenceConfig, PairingSupport, RemovedFate,
@@ -164,7 +165,16 @@ use tools::tree_sitter_support::cst_tokenizer::namespace_for_file;
 struct FastImport {
     child: Child,
     input: FastImportInput,
+    output: FastImportOutput,
+    /// The marks we've asked for the commit ids of (see `request_mark`) whose
+    /// answers we haven't read yet, in order.
+    unread_marks: VecDeque<usize>,
+    /// The hex ids of the commits this run wrote whose answers we've read.
+    mark_revs: HashMap<usize, String>,
     cache: TreeCache,
+    /// Journals to write once we have the hex id of the commit's first parent,
+    /// given it; see `prepend_journal_record`.
+    deferred: Vec<(PathBuf, Box<dyn FnOnce(&str) -> String>)>,
     readers: DiskReaders,
     /// The bytes of blobs we've given it (see MAX_WRITTEN_BYTES in `main`).
     written: u64,
@@ -172,10 +182,71 @@ struct FastImport {
 
 impl FastImport {
     /// git fast-import's output, for reading its answers to the requests we've
-    /// written, which this sends on to it first.
-    fn output(&mut self) -> BufReader<&mut ChildStdout> {
+    /// written, which this sends on to it first, after any answers to
+    /// `request_mark` before them.
+    fn output(&mut self) -> &mut FastImportOutput {
         self.input.flush().unwrap();
-        BufReader::new(self.child.stdout.as_mut().unwrap())
+        while let Some(mark) = self.unread_marks.pop_front() {
+            let mut line = String::new();
+            self.output.read_line(&mut line).unwrap();
+            self.mark_revs.insert(mark, line.trim().to_string());
+        }
+        &mut self.output
+    }
+
+    /// Ask for the id of the commit with `mark`, which must have been
+    /// terminated, without waiting for git fast-import to write it, which it
+    /// does only once it has processed everything before.  `mark_rev` reads the
+    /// answer.
+    fn request_mark(&mut self, mark: usize) {
+        writeln!(self.input, "get-mark :{}", mark).unwrap();
+        // (So that it can answer while we go on.)
+        self.input.flush().unwrap();
+        self.unread_marks.push_back(mark);
+    }
+
+    /// The hex id of the commit with `mark`, which must have been requested.
+    fn mark_rev(&mut self, mark: usize) -> String {
+        if !self.mark_revs.contains_key(&mark) {
+            self.output();
+        }
+        self.mark_revs[&mark].clone()
+    }
+
+    /// The hex id of `commit`, which if it's a mark must have been requested.
+    fn commit_rev(&mut self, commit: &TimelineRepoCommit) -> String {
+        match commit {
+            TimelineRepoCommit::Commit(oid) => oid.to_string(),
+            TimelineRepoCommit::Mark(mark) => self.mark_rev(*mark),
+        }
+    }
+
+    /// The hex id of `commit` if we have it without waiting for git
+    /// fast-import.
+    fn known_commit_rev(&mut self, commit: &TimelineRepoCommit) -> Option<String> {
+        let TimelineRepoCommit::Mark(mark) = commit else {
+            return Some(commit.to_string());
+        };
+        if !self.mark_revs.contains_key(mark) {
+            self.output.take_available();
+            while !self.unread_marks.is_empty() && self.output.has_line() {
+                let mut line = String::new();
+                self.output.read_line(&mut line).unwrap();
+                let answered = self.unread_marks.pop_front().unwrap();
+                self.mark_revs.insert(answered, line.trim().to_string());
+            }
+        }
+        self.mark_revs.get(mark).cloned()
+    }
+
+    /// Check that `path` isn't one of the journals we've put off writing, which
+    /// we'd otherwise read or write out of order.
+    fn check_not_deferred(&self, path: &Path) {
+        assert!(
+            !self.deferred.iter().any(|(deferred, _)| deferred == path),
+            "{} was used after its write was deferred",
+            path.display()
+        );
     }
 
     /// Close git fast-import's input once it has everything we wrote, and wait
@@ -287,6 +358,77 @@ impl Write for FastImportInput {
     fn flush(&mut self) -> io::Result<()> {
         self.send_buffer();
         Ok(())
+    }
+}
+
+/// Our end of git fast-import's output, which a thread reads as it comes, so
+/// that we can see whether it has answered without waiting for it (see
+/// `FastImport::known_commit_rev`).
+struct FastImportOutput {
+    chunks: Receiver<Vec<u8>>,
+    /// What we've taken from the thread and not read.
+    buffer: Vec<u8>,
+    pos: usize,
+}
+
+impl FastImportOutput {
+    fn new(mut stdout: ChildStdout) -> Self {
+        let (sender, chunks) = channel();
+        thread::spawn(move || {
+            let mut chunk = vec![0; 64 << 10];
+            // (Until git fast-import exits, or we stop reading.)
+            while let Ok(len @ 1..) = stdout.read(&mut chunk) {
+                if sender.send(chunk[..len].to_vec()).is_err() {
+                    break;
+                }
+            }
+        });
+        FastImportOutput {
+            chunks,
+            buffer: vec![],
+            pos: 0,
+        }
+    }
+
+    /// Take what the thread has read so far, without waiting for more.
+    fn take_available(&mut self) {
+        while let Ok(chunk) = self.chunks.try_recv() {
+            self.buffer.drain(..self.pos);
+            self.pos = 0;
+            self.buffer.extend_from_slice(&chunk);
+        }
+    }
+
+    /// Whether what we've taken has a whole line we haven't read.
+    fn has_line(&self) -> bool {
+        self.buffer[self.pos..].contains(&b'\n')
+    }
+}
+
+impl Read for FastImportOutput {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let available = self.fill_buf()?;
+        let len = available.len().min(buf.len());
+        buf[..len].copy_from_slice(&available[..len]);
+        self.consume(len);
+        Ok(len)
+    }
+}
+
+impl BufRead for FastImportOutput {
+    fn fill_buf(&mut self) -> io::Result<&[u8]> {
+        if self.pos == self.buffer.len() {
+            // (Nothing more once git fast-import exits.)
+            if let Ok(chunk) = self.chunks.recv() {
+                self.buffer = chunk;
+                self.pos = 0;
+            }
+        }
+        Ok(&self.buffer[self.pos..])
+    }
+
+    fn consume(&mut self, amount: usize) {
+        self.pos += amount;
     }
 }
 
@@ -548,10 +690,15 @@ fn start_fast_import(git_repo: &Repository) -> FastImport {
         .spawn()
         .unwrap();
     let input = FastImportInput::new(child.stdin.take().unwrap());
+    let output = FastImportOutput::new(child.stdout.take().unwrap());
     FastImport {
         child,
         input,
+        output,
+        unread_marks: VecDeque::new(),
+        mark_revs: HashMap::new(),
         cache: TreeCache::default(),
+        deferred: vec![],
         readers: DiskReaders::new(git_repo.path()),
         written: 0,
     }
@@ -655,7 +802,7 @@ fn read_path_oid(import_helper: &mut FastImport, from: ReadFrom, path: &Path) ->
         ReadFrom::Commit(commit) => writeln!(input, "ls {} {}", commit, sanitize(path)),
     }
     .unwrap();
-    read_ls_response(&mut import_helper.output())
+    read_ls_response(import_helper.output())
 }
 
 /// Read git fast-import's answer to an `ls`.
@@ -682,7 +829,7 @@ fn read_ls_response(reader: &mut impl BufRead) -> Option<String> {
 /// https://git-scm.com/docs/git-fast-import#_cat_blob
 fn read_blob(import_helper: &mut FastImport, oid: &str) -> Vec<u8> {
     writeln!(import_helper.input, "cat-blob {}", oid).unwrap();
-    read_cat_blob_response(&mut import_helper.output())
+    read_cat_blob_response(import_helper.output())
 }
 
 /// Read git fast-import's answer to a `cat-blob`.
@@ -712,6 +859,9 @@ fn read_cat_blob_response(reader: &mut impl BufRead) -> Vec<u8> {
 /// Return the contents of the object at the given path in the
 /// given commit. Returns None if there is no such object.
 fn read_path_blob(import_helper: &mut FastImport, from: ReadFrom, path: &Path) -> Option<Rc<[u8]>> {
+    if matches!(from, ReadFrom::Active) {
+        import_helper.check_not_deferred(path);
+    }
     if let Some(found) = import_helper.cache.get(from, path) {
         return found;
     }
@@ -773,30 +923,25 @@ fn prefetch_parent_paths(import_helper: &mut FastImport, paths: Vec<PathBuf>) {
         let (batch, remaining) = rest.split_at(len);
         rest = remaining;
 
-        // (git fast-import answers only what we ask, so the readers never read
-        // past the answers to a batch.)
         let requests: String = batch
             .iter()
             .map(|path| format!("ls {}\n", quote_path(path)))
             .collect();
         import_helper.input.write_all(requests.as_bytes()).unwrap();
-        let mut reader = import_helper.output();
-        let oids: Vec<Option<String>> = batch
-            .iter()
-            .map(|_| read_ls_response(&mut reader))
-            .collect();
+        let reader = import_helper.output();
+        let oids: Vec<Option<String>> = batch.iter().map(|_| read_ls_response(reader)).collect();
         let requests: String = oids
             .iter()
             .flatten()
             .map(|oid| format!("cat-blob {}\n", oid))
             .collect();
         import_helper.input.write_all(requests.as_bytes()).unwrap();
-        let mut reader = import_helper.output();
+        let reader = import_helper.output();
         let blobs: Vec<Option<Rc<[u8]>>> = oids
             .iter()
             .map(|oid| {
                 oid.as_ref()
-                    .map(|_| Rc::from(read_cat_blob_response(&mut reader)))
+                    .map(|_| Rc::from(read_cat_blob_response(reader)))
             })
             .collect();
         for (path, blob) in batch.iter().zip(blobs) {
@@ -815,19 +960,11 @@ fn prefetch_parent_paths(import_helper: &mut FastImport, paths: Vec<PathBuf>) {
     }
 }
 
-/// Retrieve the commit oid for a mark via the `get-mark` command.  The commit
-/// that defined the mark must have been terminated.
-fn read_mark_oid(import_helper: &mut FastImport, mark: usize) -> String {
-    writeln!(import_helper.input, "get-mark :{}", mark).unwrap();
-    let mut result = String::new();
-    import_helper.output().read_line(&mut result).unwrap();
-    result.trim().to_string()
-}
-
 fn write_inline_blob(import_helper: &mut FastImport, path: &Path, contents: &[u8]) {
     // For the inline data format documentation, refer to
     // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Inlinedataformat
     // https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Exactbytecountformat
+    import_helper.check_not_deferred(path);
     let import_stream = &mut import_helper.input;
     writeln!(import_stream, "M 100644 inline {}", sanitize(path)).unwrap();
     writeln!(import_stream, "data {}", contents.len()).unwrap();
@@ -842,11 +979,13 @@ fn write_inline_blob(import_helper: &mut FastImport, path: &Path, contents: &[u8
 }
 
 fn write_existing_blob(import_helper: &mut FastImport, path: &Path, oid: &str) {
+    import_helper.check_not_deferred(path);
     writeln!(import_helper.input, "M 100644 {} {}", oid, sanitize(path)).unwrap();
     import_helper.cache.pending.insert(path.to_path_buf(), None);
 }
 
 fn delete_path(import_helper: &mut FastImport, path: &Path) {
+    import_helper.check_not_deferred(path);
     writeln!(import_helper.input, "D {}", sanitize(path)).unwrap();
     import_helper
         .cache
@@ -1824,8 +1963,6 @@ fn load_journal_version<H: DeserializeOwned + Default, R: DeserializeOwned>(
 
 /// What a linear revision needs to consolidate the journals it appends to.
 struct Consolidation<'a> {
-    /// The hex id of the parent timeline commit.
-    parent_rev: &'a str,
     /// The revision's date.
     iso_date: &'a str,
 }
@@ -1835,7 +1972,16 @@ struct Consolidation<'a> {
 /// `touched` has the paths already deleted or written in the new commit, which
 /// we can't read the parent's version of from it.  Returns the number of
 /// summary records written.
-fn prepend_journal_record<H: DeserializeOwned + Default + Serialize, R: Summarize>(
+///
+/// Summaries reference the parent's version of the journal, so when git
+/// fast-import hasn't given us the parent's id yet, a journal with new ones is
+/// written once it has, or at the end of the revision (see
+/// `write_deferred_journals`), rather than waiting for it to catch up in the
+/// middle of the revision.
+fn prepend_journal_record<
+    H: DeserializeOwned + Default + Serialize + 'static,
+    R: Summarize + 'static,
+>(
     import_helper: &mut FastImport,
     parent: Option<&TimelineRepoCommit>,
     from_path: &Path,
@@ -1870,8 +2016,9 @@ fn prepend_journal_record<H: DeserializeOwned + Default + Serialize, R: Summariz
     records.insert(0, record);
     let mut num_summaries = 0;
     if let (Some(consolidation), Some(_)) = (consolidation, parent) {
+        // (Without the parent's id; see `fill_in_pred_revs`.)
         let pred = JournalVersionRef {
-            timeline_rev: consolidation.parent_rev.to_string(),
+            timeline_rev: String::new(),
             path: from_path.to_string_lossy().into_owned(),
         };
         num_summaries = consolidate_appended(
@@ -1882,9 +2029,41 @@ fn prepend_journal_record<H: DeserializeOwned + Default + Serialize, R: Summariz
         )
         .unwrap();
     }
+    if num_summaries > 0 {
+        let parent = parent.unwrap();
+        match import_helper.known_commit_rev(parent) {
+            Some(parent_rev) => {
+                write_deferred_journals(import_helper, parent);
+                fill_in_pred_revs(&mut records, &parent_rev);
+            }
+            None => {
+                let contents = move |parent_rev: &str| {
+                    fill_in_pred_revs(&mut records, parent_rev);
+                    record_file_contents_to_string(&header, &records)
+                };
+                import_helper
+                    .deferred
+                    .push((to_path.to_path_buf(), Box::new(contents)));
+                return num_summaries;
+            }
+        }
+    }
     let contents = record_file_contents_to_string(&header, &records);
     write_inline_blob(import_helper, to_path, contents.as_bytes());
     num_summaries
+}
+
+/// Write the journals `prepend_journal_record` deferred, given the commit's
+/// first parent, waiting for its id if need be.
+fn write_deferred_journals(import_helper: &mut FastImport, parent: &TimelineRepoCommit) {
+    let deferred = std::mem::take(&mut import_helper.deferred);
+    if deferred.is_empty() {
+        return;
+    }
+    let parent_rev = import_helper.commit_rev(parent);
+    for (path, contents) in deferred {
+        write_inline_blob(import_helper, &path, contents(&parent_rev).as_bytes());
+    }
 }
 
 /// The parent commits of a merge, which we read from the timeline repo on disk
@@ -1954,7 +2133,8 @@ impl<'r> MergeParents<'r> {
 /// `mark`.
 fn checkpoint(import_helper: &mut FastImport, mark: usize) {
     writeln!(import_helper.input, "checkpoint").unwrap();
-    read_mark_oid(import_helper, mark);
+    import_helper.request_mark(mark);
+    import_helper.output();
 }
 
 /// The union of the journal at `path` across all parents (whose hex ids are
@@ -2756,6 +2936,38 @@ fn mark_rev_summary_backed_out(rev_summary_root: &Path, backed_out_rev: &str, ba
     }
 }
 
+/// A revision whose timeline commit we've written, but not the rev-summary and
+/// note which need its id.
+struct UnfinishedRevision {
+    mark: usize,
+    /// The rev-summary, but for `timeline_rev`.
+    summary: RevSummaryRecord,
+    source_rev: Oid,
+    /// The commit time, for the note.
+    time: i64,
+}
+
+impl UnfinishedRevision {
+    fn finish(
+        mut self,
+        import_helper: &mut FastImport,
+        notes: &mut NotesWriter,
+        rev_summary_root: &Path,
+    ) {
+        self.summary.timeline_rev = import_helper.mark_rev(self.mark);
+        write_rev_summary(rev_summary_root, &self.summary);
+        for backed_out_rev in &self.summary.backs_out {
+            mark_rev_summary_backed_out(rev_summary_root, backed_out_rev, &self.summary.source_rev);
+        }
+
+        // Only record the revision as processed once its rev-summary exists.
+        notes.add(self.source_rev, &self.summary.timeline_rev, self.time);
+        if notes.num_pending() >= NOTES_BATCH_SIZE {
+            notes.flush(&mut import_helper.input).unwrap();
+        }
+    }
+}
+
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     // The history repos are ours and git fast-import already hashed what it
@@ -2933,11 +3145,11 @@ fn main() {
 
     let mut import_helper = start_fast_import(&timeline_repo);
     let mut notes = notes_writer(&timeline_repo, &notes_refs);
-    // Journal consolidation (see `hyperblame::consolidation`) and the hex ids of
-    // the commits written by this run, which summaries reference.
+    // Journal consolidation (see `hyperblame::consolidation`).
     let consolidate = env::var("CONSOLIDATE").map_or(true, |v| v != "0");
-    let mut mark_revs: HashMap<usize, String> = HashMap::new();
     let mut num_summaries = 0;
+    // The last revision written, until we finish it with the next.
+    let mut unfinished: Option<UnfinishedRevision> = None;
     // The last mark whose commit git fast-import has written to disk.
     let mut checkpointed_mark = 0;
     let mut checkpoints = 0;
@@ -3012,7 +3224,7 @@ fn main() {
             _ if import_helper.cache.describes(first_parent) => None,
             Some(TimelineRepoCommit::Commit(oid)) => Some(*oid),
             Some(TimelineRepoCommit::Mark(mark)) if *mark <= checkpointed_mark => {
-                Some(Oid::from_str(&mark_revs[mark]).unwrap())
+                Some(Oid::from_str(&import_helper.mark_rev(*mark)).unwrap())
             }
             _ => None,
         };
@@ -3086,23 +3298,14 @@ fn main() {
             }
         }
 
-        // The parents' hex ids, for journal versions referenced by summaries.
-        let parent_revs: Vec<String> = timeline_parents
-            .iter()
-            .map(|parent| match parent {
-                TimelineRepoCommit::Commit(oid) => oid.to_string(),
-                TimelineRepoCommit::Mark(mark) => mark_revs[mark].clone(),
-            })
-            .collect();
         let file_deltas = match &data.changes {
             RevisionChanges::Linear {
                 files,
                 token_totals,
             } => {
-                let consolidation = parent_revs.first().map(|parent_rev| Consolidation {
-                    parent_rev,
+                let consolidation = Consolidation {
                     iso_date: &data.iso_date,
-                });
+                };
                 process_linear_revision(
                     &mut import_helper,
                     &data,
@@ -3110,11 +3313,17 @@ fn main() {
                     token_totals,
                     &timeline_parents,
                     &timeline_commits,
-                    consolidation.as_ref().filter(|_| consolidate),
+                    Some(&consolidation).filter(|_| consolidate),
                     &mut num_summaries,
                 )
             }
             RevisionChanges::Merge(merge) => {
+                // The parents' hex ids, for journal versions referenced by
+                // summaries.
+                let parent_revs: Vec<String> = timeline_parents
+                    .iter()
+                    .map(|parent| import_helper.commit_rev(parent))
+                    .collect();
                 process_merge_revision(
                     &mut import_helper,
                     &data,
@@ -3126,16 +3335,22 @@ fn main() {
             }
         };
 
-        // Terminate the commit so we can get its oid for the rev-summary.
+        if let Some(parent) = first_parent {
+            write_deferred_journals(&mut import_helper, parent);
+        }
+        // Terminate the commit, and ask for its id for the rev-summary, which we
+        // write once we've written the next revision, by when git fast-import
+        // has usually answered, rather than waiting for it to catch up now.
         writeln!(import_helper.input).unwrap();
         import_helper.cache.end(rev_done);
-        let timeline_rev = read_mark_oid(&mut import_helper, rev_done);
-        mark_revs.insert(rev_done, timeline_rev.clone());
-
+        if let Some(previous) = unfinished.take() {
+            previous.finish(&mut import_helper, &mut notes, &rev_summary_root);
+        }
+        import_helper.request_mark(rev_done);
         let (file_deltas, file_totals) = file_deltas_or_totals(file_deltas);
-        write_rev_summary(
-            &rev_summary_root,
-            &RevSummaryRecord {
+        unfinished = Some(UnfinishedRevision {
+            mark: rev_done,
+            summary: RevSummaryRecord {
                 source_rev: rev_meta.source_rev.to_string(),
                 hg_rev: rev_meta.source_hg_rev.clone(),
                 old_revs: rev_meta
@@ -3144,7 +3359,7 @@ fn main() {
                     .map(|revs| revs.split(',').map(str::to_string).collect())
                     .unwrap_or_default(),
                 syntax_rev: rev_meta.syntax_rev.to_string(),
-                timeline_rev: timeline_rev.clone(),
+                timeline_rev: String::new(),
                 message: data.message.clone(),
                 iso_date: data.iso_date.clone(),
                 unmapped_author: data.unmapped_author.clone(),
@@ -3153,24 +3368,9 @@ fn main() {
                 backs_out: data.backed_out.clone(),
                 backed_out_by: vec![],
             },
-        );
-        for backed_out_rev in &data.backed_out {
-            mark_rev_summary_backed_out(
-                &rev_summary_root,
-                backed_out_rev,
-                &rev_meta.source_rev.to_string(),
-            );
-        }
-
-        // Only record the revision as processed once its rev-summary exists.
-        notes.add(
-            rev_meta.source_rev,
-            &timeline_rev,
-            syntax_commit.committer().when().seconds(),
-        );
-        if notes.num_pending() >= NOTES_BATCH_SIZE {
-            notes.flush(&mut import_helper.input).unwrap();
-        }
+            source_rev: rev_meta.source_rev,
+            time: syntax_commit.committer().when().seconds(),
+        });
 
         if rev_done % 100000 == 0 {
             info!("Completed 100,000 commits, issuing checkpoint...");
@@ -3180,6 +3380,9 @@ fn main() {
         }
     }
 
+    if let Some(last) = unfinished.take() {
+        last.finish(&mut import_helper, &mut notes, &rev_summary_root);
+    }
     notes.flush(&mut import_helper.input).unwrap();
     info!("Wrote {} journal summary records.", num_summaries);
     let cache = &import_helper.cache;
