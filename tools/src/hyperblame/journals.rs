@@ -31,6 +31,7 @@ use crate::file_format::history::timeline_common::{JournalVersionRef, TimelineRe
 use crate::file_format::history::timeline_files_delta::FileDeltaRecord;
 use crate::file_format::history::timeline_future::FutureRecord;
 use crate::file_format::history::timeline_tokens::{TokenDeltaRecord, token_timeline_path};
+use crate::hyperblame::segments;
 
 /// A limit on how deeply summaries can refer to other summaries, so that a
 /// cycle is an error rather than a hang.  (Consolidation keeps summaries from
@@ -97,8 +98,9 @@ impl<'a> JournalReader<'a> {
         }
     }
 
-    /// The contents of a journal version, or None if that commit doesn't have
-    /// the journal.
+    /// The contents of a journal version (with its segments; see
+    /// `hyperblame::segments`), or None if that commit doesn't have the
+    /// journal.
     fn contents(&mut self, version: &JournalVersionRef) -> Result<Option<Rc<String>>, String> {
         if let Some(contents) = self.cache.get(version) {
             return Ok(contents.clone());
@@ -110,14 +112,31 @@ impl<'a> JournalReader<'a> {
             .find_commit(oid)
             .and_then(|commit| commit.tree())
             .map_err(describe)?;
-        let contents = match tree.get_path(Path::new(&version.path)) {
-            Ok(entry) => {
-                let blob = self.repo.find_blob(entry.id()).map_err(describe)?;
-                let text = String::from_utf8(blob.content().to_vec())
-                    .map_err(|e| format!("{}:{}: {}", version.timeline_rev, version.path, e))?;
-                Some(Rc::new(text))
+        let read = |path: &Path| -> Result<Option<String>, String> {
+            match tree.get_path(path) {
+                Ok(entry) => {
+                    let blob = self.repo.find_blob(entry.id()).map_err(describe)?;
+                    String::from_utf8(blob.content().to_vec())
+                        .map(Some)
+                        .map_err(|e| format!("{}:{}: {}", version.timeline_rev, path.display(), e))
+                }
+                Err(_) => Ok(None),
             }
-            Err(_) => None,
+        };
+        let path = Path::new(&version.path);
+        let contents = match read(path)? {
+            Some(head) => {
+                let header = head.lines().next().unwrap_or("");
+                let mut segments = vec![];
+                for year in segments::segment_years(header) {
+                    segments.extend(read(&segments::segment_path(path, year))?);
+                }
+                Some(Rc::new(segments::join(
+                    &head,
+                    segments.iter().map(String::as_str),
+                )))
+            }
+            None => None,
         };
         self.cache.insert(version.clone(), contents.clone());
         Ok(contents)
@@ -401,6 +420,61 @@ mod tests {
             })
             .unwrap();
         assert!(missing.is_empty());
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn test_segments() {
+        let dir = std::env::temp_dir().join(format!("journal-segments-{}", std::process::id()));
+        let repo = Repository::init(&dir).unwrap();
+        let path = "tokens/fo/o_/foo.ndjson";
+        let line = |record: &TokenDeltaRecord| serde_json::to_string(record).unwrap();
+        // A head of recent records whose 2019 records are in a segment.
+        let files = [
+            (
+                path.to_string(),
+                format!("{{\"segments\":[2019]}}\n{}", line(&detail("c", 3))),
+            ),
+            (
+                format!("{}.d/2019.ndjson", path),
+                format!("{{}}\n{}\n{}", line(&detail("b", 2)), line(&detail("a", 1))),
+            ),
+        ];
+        let mut index = git2::Index::new().unwrap();
+        for (path, contents) in &files {
+            index
+                .add(&git2::IndexEntry {
+                    ctime: git2::IndexTime::new(0, 0),
+                    mtime: git2::IndexTime::new(0, 0),
+                    dev: 0,
+                    ino: 0,
+                    mode: 0o100644,
+                    uid: 0,
+                    gid: 0,
+                    file_size: contents.len() as u32,
+                    id: repo.blob(contents.as_bytes()).unwrap(),
+                    flags: path.len() as u16,
+                    flags_extended: 0,
+                    path: path.as_bytes().to_vec(),
+                })
+                .unwrap();
+        }
+        let tree = repo.find_tree(index.write_tree_to(&repo).unwrap()).unwrap();
+        let sig = git2::Signature::new("test", "test@example.com", &git2::Time::new(0, 0)).unwrap();
+        let commit = repo
+            .commit(None, &sig, &sig, "journal", &tree, &[])
+            .unwrap();
+
+        // The journal's records are the head's and then the segment's.
+        let mut reader = JournalReader::new(&repo);
+        let records = reader
+            .records::<TokenDeltaRecord>(&JournalVersionRef {
+                timeline_rev: commit.to_string(),
+                path: path.to_string(),
+            })
+            .unwrap();
+        assert_eq!(revs(&records), vec!["c", "b", "a"]);
 
         std::fs::remove_dir_all(&dir).unwrap();
     }

@@ -146,13 +146,14 @@ use tools::git_ops::{fast_import_git, git_time_to_chrono, history_compute_thread
 use tools::history_stop::{ENDED_EARLY_EXIT_CODE, STOPPED_EXIT_CODE, stop_requested};
 use tools::hyperblame::backouts::{BackoutTargetResolver, find_backed_out};
 use tools::hyperblame::consolidation::{
-    Summarize, consolidate_appended, fill_in_pred_revs, merge_journal_texts,
+    Summarize, consolidate_appended, fill_in_pred_revs, iso_week, merge_journal_texts,
     merge_journal_versions, prepend_unconsolidated,
 };
 use tools::hyperblame::inference::{
     FileChangeInput, FileChangeKind, FileInference, InferenceConfig, PairingSupport, RemovedFate,
     TokenOrigin, diff_token_lines, infer_revision,
 };
+use tools::hyperblame::segments::{self, SPLIT_BYTES};
 use tools::hyperblame::stats::compute_revision_stats;
 use tools::source_mapping::{
     NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer, point_branch_at,
@@ -173,8 +174,9 @@ struct FastImport {
     mark_revs: HashMap<usize, String>,
     cache: TreeCache,
     /// Journals to write once we have the hex id of the commit's first parent,
-    /// given it; see `prepend_journal_record`.
-    deferred: Vec<(PathBuf, Box<dyn FnOnce(&str) -> String>)>,
+    /// given it (and if they're token journals, the first year their heads
+    /// keep; see `write_journal`); see `prepend_journal_record`.
+    deferred: Vec<(PathBuf, Option<i32>, Box<dyn FnOnce(&str) -> String>)>,
     readers: DiskReaders,
     /// The bytes of blobs we've given it (see MAX_WRITTEN_BYTES in `main`).
     written: u64,
@@ -243,7 +245,10 @@ impl FastImport {
     /// we'd otherwise read or write out of order.
     fn check_not_deferred(&self, path: &Path) {
         assert!(
-            !self.deferred.iter().any(|(deferred, _)| deferred == path),
+            !self
+                .deferred
+                .iter()
+                .any(|(deferred, _, _)| deferred == path),
             "{} was used after its write was deferred",
             path.display()
         );
@@ -1948,16 +1953,6 @@ fn join_annotated(lines: Vec<String>) -> String {
     contents
 }
 
-fn read_journal<H: DeserializeOwned + Default, R: DeserializeOwned>(
-    import_helper: &mut FastImport,
-    from: ReadFrom,
-    path: &Path,
-) -> (H, Vec<R>) {
-    read_path_blob(import_helper, from, path)
-        .and_then(|blob| read_record_file_contents(&blob))
-        .unwrap_or_else(|| (H::default(), vec![]))
-}
-
 /// Load the records of a journal version through git fast-import, which (unlike
 /// the repo on disk) has the commits written earlier in this run.
 fn load_journal_version<H: DeserializeOwned + Default, R: DeserializeOwned>(
@@ -1965,12 +1960,85 @@ fn load_journal_version<H: DeserializeOwned + Default, R: DeserializeOwned>(
     version: &JournalVersionRef,
 ) -> Result<Vec<R>, String> {
     let oid = Oid::from_str(&version.timeline_rev).map_err(|e| e.to_string())?;
-    let (_, records): (H, Vec<R>) = read_journal(
-        import_helper,
-        ReadFrom::Commit(&TimelineRepoCommit::Commit(oid)),
-        Path::new(&version.path),
-    );
-    Ok(records)
+    let commit = TimelineRepoCommit::Commit(oid);
+    let path = Path::new(&version.path);
+    let Some(head) = read_path_blob(import_helper, ReadFrom::Commit(&commit), path) else {
+        return Ok(vec![]);
+    };
+    let head = std::str::from_utf8(&head).unwrap();
+    let mut segment_texts = vec![];
+    for year in segments::segment_years(head.lines().next().unwrap_or("")) {
+        let segment = segments::segment_path(path, year);
+        if let Some(text) = read_path_blob(import_helper, ReadFrom::Commit(&commit), &segment) {
+            segment_texts.push(String::from_utf8(text.to_vec()).unwrap());
+        }
+    }
+    let text = segments::join(head, segment_texts.iter().map(String::as_str));
+    Ok(read_record_file_contents::<H, R>(text.as_bytes())
+        .map(|(_, records): (H, Vec<R>)| records)
+        .unwrap_or_default())
+}
+
+/// `segments::SPLIT_BYTES`, or HISTORY_SPLIT_BYTES (for tests, whose journals
+/// are small).
+fn split_bytes() -> usize {
+    static SPLIT: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    *SPLIT.get_or_init(|| {
+        env::var("HISTORY_SPLIT_BYTES")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(SPLIT_BYTES)
+    })
+}
+
+/// The first ISO year the heads of the token journals a revision dated
+/// `iso_date` writes keep; see `hyperblame::segments`.
+fn keep_from(iso_date: &str) -> Option<i32> {
+    iso_week(iso_date).map(|(year, _)| segments::keep_from(year))
+}
+
+/// Write a journal's new head, given the first year it keeps if it's a token
+/// journal: then once it's bigger than `split_bytes` (or has segments), the
+/// records of earlier years go into their segments; see `hyperblame::segments`.
+fn write_journal(
+    import_helper: &mut FastImport,
+    path: &Path,
+    contents: &str,
+    keep_from: Option<i32>,
+) {
+    let header = contents
+        .split_once('\n')
+        .map_or(contents, |(header, _)| header);
+    let split =
+        keep_from.filter(|_| contents.len() > split_bytes() || header.contains("\"segments\""));
+    let Some((head, old)) =
+        split.and_then(|keep_from| segments::take_old_years(contents, keep_from))
+    else {
+        write_inline_blob(import_helper, path, contents.as_bytes());
+        return;
+    };
+    let mut years = segments::segment_years(header);
+    for (year, lines) in old {
+        let segment = segments::segment_path(path, year);
+        let existing = if years.contains(&year) {
+            read_path_blob(import_helper, ReadFrom::Active, &segment)
+        } else {
+            years.push(year);
+            None
+        };
+        let existing = existing
+            .as_deref()
+            .map(|text| std::str::from_utf8(text).unwrap());
+        let text = segments::add_to_segment(existing, &lines);
+        write_inline_blob(import_helper, &segment, text.as_bytes());
+    }
+    years.sort_unstable_by(|a, b| b.cmp(a));
+    let header = segments::with_segment_years(header, &years);
+    let head = match head.split_once('\n') {
+        Some((_, records)) => format!("{}\n{}", header, records),
+        None => header,
+    };
+    write_inline_blob(import_helper, path, head.as_bytes());
 }
 
 /// What a linear revision needs to consolidate the journals it appends to.
@@ -2000,6 +2068,7 @@ fn prepend_journal_record<
     to_path: &Path,
     record: R,
     consolidation: Option<&Consolidation>,
+    keep_from: Option<i32>,
     touched: &mut HashSet<PathBuf>,
 ) -> usize {
     let blob = parent.and_then(|parent| {
@@ -2018,7 +2087,7 @@ fn prepend_journal_record<
         if let Some(contents) =
             prepend_unconsolidated(std::str::from_utf8(blob).unwrap(), &record, now)
         {
-            write_inline_blob(import_helper, to_path, contents.as_bytes());
+            write_journal(import_helper, to_path, &contents, keep_from);
             return 0;
         }
     }
@@ -2055,13 +2124,13 @@ fn prepend_journal_record<
                 };
                 import_helper
                     .deferred
-                    .push((to_path.to_path_buf(), Box::new(contents)));
+                    .push((to_path.to_path_buf(), keep_from, Box::new(contents)));
                 return num_summaries;
             }
         }
     }
     let contents = record_file_contents_to_string(&header, &records);
-    write_inline_blob(import_helper, to_path, contents.as_bytes());
+    write_journal(import_helper, to_path, &contents, keep_from);
     num_summaries
 }
 
@@ -2073,8 +2142,8 @@ fn write_deferred_journals(import_helper: &mut FastImport, parent: &TimelineRepo
         return;
     }
     let parent_rev = import_helper.commit_rev(parent);
-    for (path, contents) in deferred {
-        write_inline_blob(import_helper, &path, contents(&parent_rev).as_bytes());
+    for (path, keep_from, contents) in deferred {
+        write_journal(import_helper, &path, &contents(&parent_rev), keep_from);
     }
 }
 
@@ -2119,6 +2188,12 @@ impl<'r> MergeParents<'r> {
         self.path_oid(i, path).map(|oid| self.blob(oid))
     }
 
+    /// The text of the journal at `path` in the `i`th parent, with its
+    /// segments (see `hyperblame::segments`), if any.
+    fn journal_text(&self, i: usize, path: &Path) -> Option<String> {
+        journal_text_in(self.repo, &self.trees[i], path)
+    }
+
     /// Load the records of a journal version, which must be in a commit on disk
     /// (as the parents' journals and their predecessors are).
     fn load_journal_version<H: DeserializeOwned + Default, R: DeserializeOwned>(
@@ -2131,13 +2206,30 @@ impl<'r> MergeParents<'r> {
             .find_commit(oid)
             .and_then(|commit| commit.tree())
             .map_err(|e| e.to_string())?;
-        Ok(tree
-            .get_path(Path::new(&version.path))
-            .ok()
-            .and_then(|entry| read_record_file_contents::<H, R>(&self.blob(entry.id())))
+        Ok(journal_text_in(self.repo, &tree, Path::new(&version.path))
+            .and_then(|text| read_record_file_contents::<H, R>(text.as_bytes()))
             .map(|(_, records)| records)
             .unwrap_or_default())
     }
+}
+
+/// The text of the journal at `path` in `tree`, with its segments (see
+/// `hyperblame::segments`), if any.
+fn journal_text_in(repo: &Repository, tree: &git2::Tree, path: &Path) -> Option<String> {
+    let read = |path: &Path| {
+        let entry = tree.get_path(path).ok()?;
+        Some(String::from_utf8(repo.find_blob(entry.id()).unwrap().content().to_vec()).unwrap())
+    };
+    let head = read(path)?;
+    let years = segments::segment_years(head.lines().next().unwrap_or(""));
+    if years.is_empty() {
+        return Some(head);
+    }
+    let texts: Vec<String> = years
+        .iter()
+        .filter_map(|year| read(&segments::segment_path(path, *year)))
+        .collect();
+    Some(segments::join(&head, texts.iter().map(String::as_str)))
 }
 
 /// Make git fast-import write out its pack and refs so that we can read the
@@ -2155,23 +2247,28 @@ fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
     parents: &MergeParents,
     parent_revs: &[String],
     path: &Path,
-) -> Option<String> {
-    let oids: Vec<Option<Oid>> = (0..parent_revs.len())
-        .map(|i| parents.path_oid(i, path))
+    keep_from: Option<i32>,
+) -> Vec<(PathBuf, String)> {
+    // (With their segments, if any.)
+    let mut dir = path.as_os_str().to_owned();
+    dir.push(".d");
+    let dir = PathBuf::from(dir);
+    let oids: Vec<(Option<Oid>, Option<Oid>)> = (0..parent_revs.len())
+        .map(|i| (parents.path_oid(i, path), parents.path_oid(i, &dir)))
         .collect();
     if oids.iter().all(|oid| *oid == oids[0]) {
         // The tree already has the first parent's version.
-        return None;
+        return vec![];
     }
-    let blobs: Vec<(JournalVersionRef, Vec<u8>)> = oids
-        .iter()
+    let segmented = oids.iter().any(|(_, dir)| dir.is_some());
+    let blobs: Vec<(JournalVersionRef, Vec<u8>)> = (0..parent_revs.len())
         .zip(parent_revs)
-        .filter_map(|(oid, parent_rev)| {
+        .filter_map(|(i, parent_rev)| {
             let version = JournalVersionRef {
                 timeline_rev: parent_rev.clone(),
                 path: path.to_string_lossy().into_owned(),
             };
-            Some((version, parents.blob((*oid)?)))
+            Some((version, parents.journal_text(i, path)?.into_bytes()))
         })
         .collect();
     let texts: Vec<(JournalVersionRef, &str)> = blobs
@@ -2200,7 +2297,23 @@ fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
         .unwrap();
         record_file_contents_to_string(&header.unwrap_or_default(), &records)
     });
-    Some(contents)
+    let Some(keep_from) = keep_from.filter(|_| segmented || contents.len() > split_bytes()) else {
+        return vec![(path.to_path_buf(), contents)];
+    };
+    // Only the files which differ from the first parent's.
+    let split = segments::split(&contents, keep_from);
+    std::iter::once((path.to_path_buf(), split.head))
+        .chain(
+            split
+                .segments
+                .into_iter()
+                .map(|(year, text)| (segments::segment_path(path, year), text)),
+        )
+        .filter(|(path, text)| {
+            parents.path_oid(0, path)
+                != Some(Oid::hash_object(git2::ObjectType::Blob, text.as_bytes()).unwrap())
+        })
+        .collect()
 }
 
 /// A journal which a merge unions across its parents or deletes.
@@ -2221,29 +2334,38 @@ impl MergeJournal {
         }
     }
 
-    /// The journal's new contents, if it's written.
-    fn merged(&self, parents: &MergeParents, parent_revs: &[String]) -> Option<String> {
+    /// The files to write for the journal (its new contents and, for a token
+    /// journal, segments; see `hyperblame::segments`), given the first year a
+    /// token journal's head keeps.
+    fn merged(
+        &self,
+        parents: &MergeParents,
+        parent_revs: &[String],
+        keep_from: Option<i32>,
+    ) -> Vec<(PathBuf, String)> {
         match self {
             MergeJournal::Future(path) => {
-                union_journal::<FutureHeader, FutureRecord>(parents, parent_revs, path)
+                union_journal::<FutureHeader, FutureRecord>(parents, parent_revs, path, None)
             }
             MergeJournal::FilesDelta(path) => {
-                union_journal::<FileDeltaHeader, FileDeltaRecord>(parents, parent_revs, path)
+                union_journal::<FileDeltaHeader, FileDeltaRecord>(parents, parent_revs, path, None)
             }
-            MergeJournal::Tokens(path) => {
-                union_journal::<TokenHeader, TokenDeltaRecord>(parents, parent_revs, path)
-            }
-            MergeJournal::Delete(_) => None,
+            MergeJournal::Tokens(path) => union_journal::<TokenHeader, TokenDeltaRecord>(
+                parents,
+                parent_revs,
+                path,
+                keep_from,
+            ),
+            MergeJournal::Delete(_) => vec![],
         }
     }
 
-    fn write(&self, import_helper: &mut FastImport, contents: Option<String>) {
-        match (self, contents) {
-            (MergeJournal::Delete(path), _) => delete_path(import_helper, path),
-            (_, Some(contents)) => {
-                write_inline_blob(import_helper, self.path(), contents.as_bytes())
-            }
-            (_, None) => {}
+    fn write(&self, import_helper: &mut FastImport, files: Vec<(PathBuf, String)>) {
+        if let MergeJournal::Delete(path) = self {
+            delete_path(import_helper, path);
+        }
+        for (path, contents) in files {
+            write_inline_blob(import_helper, &path, contents.as_bytes());
         }
     }
 }
@@ -2260,18 +2382,22 @@ fn merge_journals(
     parents: &MergeParents,
     parent_revs: &[String],
     journals: &[MergeJournal],
+    keep_from: Option<i32>,
 ) {
     let num_threads = history_compute_threads().min(journals.len());
     if journals.len() < MIN_JOURNALS_FOR_THREADS || num_threads < 2 {
         for journal in journals {
-            journal.write(import_helper, journal.merged(parents, parent_revs));
+            journal.write(
+                import_helper,
+                journal.merged(parents, parent_revs, keep_from),
+            );
         }
         return;
     }
     let repo_path = parents.repo.path();
     let (job_tx, job_rx) = channel::<usize>();
     let job_rx = Mutex::new(job_rx);
-    let (result_tx, result_rx) = channel::<(usize, Option<String>)>();
+    let (result_tx, result_rx) = channel::<(usize, Vec<(PathBuf, String)>)>();
     thread::scope(|scope| {
         for _ in 0..num_threads {
             let job_rx = &job_rx;
@@ -2284,7 +2410,9 @@ fn merge_journals(
                         break;
                     };
                     let journal = &journals[idx];
-                    match catch_unwind(AssertUnwindSafe(|| journal.merged(&parents, parent_revs))) {
+                    match catch_unwind(AssertUnwindSafe(|| {
+                        journal.merged(&parents, parent_revs, keep_from)
+                    })) {
                         Ok(contents) => result_tx.send((idx, contents)).unwrap(),
                         // The main thread would wait for this result forever.
                         Err(_) => {
@@ -2300,7 +2428,7 @@ fn merge_journals(
         // so that the merged journals waiting to be written stay few.
         let window = 4 * num_threads;
         let mut sent = 0;
-        let mut merged: HashMap<usize, Option<String>> = HashMap::new();
+        let mut merged: HashMap<usize, Vec<(PathBuf, String)>> = HashMap::new();
         for (idx, journal) in journals.iter().enumerate() {
             while sent < journals.len() && sent < idx + window {
                 job_tx.send(sent).unwrap();
@@ -2752,6 +2880,7 @@ fn process_linear_revision(
             &journal,
             FutureRecord::Detail(record),
             consolidation,
+            None,
             &mut touched,
         );
     }
@@ -2787,11 +2916,13 @@ fn process_linear_revision(
                 delta: change.delta.clone(),
             }),
             consolidation,
+            None,
             &mut touched,
         );
     }
 
     // ## Token journals
+    let token_keep_from = keep_from(&data.iso_date);
     for (token, delta) in token_totals {
         if !delta.has_non_move_changes() {
             continue;
@@ -2807,6 +2938,7 @@ fn process_linear_revision(
                 delta: delta.clone(),
             }),
             consolidation,
+            token_keep_from,
             &mut touched,
         );
     }
@@ -2919,7 +3051,13 @@ fn process_merge_revision(
     for token in &merge.candidate_tokens {
         journals.push(MergeJournal::Tokens(token_timeline_path(token)));
     }
-    merge_journals(import_helper, parents, parent_revs, &journals);
+    merge_journals(
+        import_helper,
+        parents,
+        parent_revs,
+        &journals,
+        keep_from(&data.iso_date),
+    );
 }
 
 fn write_rev_summary(rev_summary_root: &Path, summary: &RevSummaryRecord) {
@@ -3405,6 +3543,10 @@ fn main() {
     }
     notes.flush(&mut import_helper.input).unwrap();
     info!("Wrote {} journal summary records.", num_summaries);
+    info!(
+        "Gave git fast-import {:.1} GiB of blobs.",
+        import_helper.written as f64 / (1u64 << 30) as f64
+    );
     let cache = &import_helper.cache;
     info!(
         "Tree cache: {} hits, {} misses, cleared {} times; read {} paths from disk and {} through git fast-import",

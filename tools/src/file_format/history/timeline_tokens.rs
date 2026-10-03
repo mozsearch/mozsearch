@@ -49,7 +49,12 @@ use super::timeline_common::{
 };
 
 #[derive(Debug, Default, Serialize, Deserialize)]
-pub struct TokenHeader {}
+pub struct TokenHeader {
+    /// The years of the journal's segments, newest first; see
+    /// `hyperblame::segments`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub segments: Vec<i32>,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TokenDeltaDetailRecord {

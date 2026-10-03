@@ -59,7 +59,7 @@ pub const LAG_WEEKS: i64 = 2;
 pub const MIN_RECORDS: usize = 2;
 
 /// An ISO (year, week).
-type IsoWeek = (i32, u32);
+pub type IsoWeek = (i32, u32);
 
 /// The ISO week of an ISO 8601 date and time.
 pub fn iso_week(iso_date: &str) -> Option<IsoWeek> {
@@ -234,6 +234,21 @@ struct WeekFields<'a> {
     #[serde(borrow)]
     iso_date: Option<Cow<'a, str>>,
     iso_week_range: Option<(u16, u8, u8)>,
+}
+
+/// The week of a journal record's line, as `record_week` would give the
+/// record (quickly if `line_week` can), or None if it has none or can't be read.
+pub fn line_iso_week(line: &str) -> Option<IsoWeek> {
+    match line_week(line) {
+        Some(week) => week,
+        None => {
+            let fields: WeekFields = serde_json::from_str(line).ok()?;
+            match fields.iso_week_range {
+                Some((year, week, _)) => Some((year as i32, week as u32)),
+                None => fields.iso_date.as_deref().and_then(iso_week),
+            }
+        }
+    }
 }
 
 /// The week of a journal record's line as `record_week` would give it, found
