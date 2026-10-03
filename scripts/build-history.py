@@ -54,7 +54,6 @@ import os
 import re
 import resource
 import shlex
-import shutil
 import signal
 import subprocess
 import sys
@@ -190,7 +189,7 @@ MAX_WRITTEN_BYTES = 96 << 30
 # packs piled up, since we only run one repack at a time.  (Not git
 # fast-import's, which can be as big, but aren't deltified or very
 # compressed.)  So the repos accumulate packs of this size or so until they're
-# fully repacked (see GC_SPACE_FACTOR, and reblame's repack at the end).
+# fully repacked (see `PackMaintenance`).
 KEEP_PACK_BYTES = 8 << 30
 # Before a chunk starts, we wait for the repacks while a repo has more than
 # this many bytes of git fast-import's packs which no repack has combined yet.
@@ -202,14 +201,6 @@ KEEP_PACK_BYTES = 8 << 30
 # worth (counting the packs being repacked, which stay until it ends): with 256
 # GiB, chunks spent 21% of 10 hours waiting for repacks.
 MAX_FAST_IMPORT_BACKLOG = 512 << 30
-# Fully repacking a history repo (as reblame does at the end to make the
-# history as small as possible to download) needs about as much free space
-# again as the repo.  So when a chunk leaves less free space than
-# GC_SPACE_FACTOR times a repo's size, we fully repack it (instead of
-# geometrically), which makes it smaller, at most every GC_INTERVAL_CHUNKS
-# chunks.
-GC_SPACE_FACTOR = 1.5
-GC_INTERVAL_CHUNKS = 10
 
 
 class PackMaintenance:
@@ -225,10 +216,17 @@ class PackMaintenance:
     blobs whole), which matters for the full history's disk space.  These
     repacks combine git fast-import's packs, recompressing them, and then the
     packs which earlier repacks wrote, besides the biggest (see `_repack`).
-    When disk space is getting short, it fully repacks the repo instead (see
-    GC_SPACE_FACTOR), and once a tool has processed every revision, it repacks
-    git fast-import's last packs, so that reblame's full repack at the end only
-    has well compressed packs to combine.
+    Once a tool has processed every revision, it repacks git fast-import's last
+    packs, so that a full repack only has well compressed packs to combine.
+
+    It never fully repacks a repo (like git gc), which needs memory for every
+    object in it: for the full firefox history's timeline, 246M objects, ~50
+    GiB, more than the indexers have to spare.  That's left to reblame's repack
+    at the end, on a big instance.  (Without full repacks, the objects in
+    different packs can't be deltas of each other, so the repos grow faster: a
+    week of firefox's timeline took 688 MiB once combined into one pack (see
+    `_combine_repacked_packs`), but 421 MiB as deltas of the history before
+    it.)
 
     git and libgit2 cope with a repack deleting packs while they read the
     repo: the new pack is written first, and an object not found in the packs
@@ -244,7 +242,6 @@ class PackMaintenance:
         # repack's steps after it.
         self.repacking = None
         self.next_steps = []
-        self.chunks_since_gc = GC_INTERVAL_CHUNKS
 
     def _repack_finished(self, wait=False):
         """Whether no `git repack` is running (after waiting for it, and the
@@ -264,34 +261,10 @@ class PackMaintenance:
             self.next_steps.pop(0)()
 
     def after_chunk(self):
-        self.chunks_since_gc += 1
         if not self._repack_finished():
             log(f"not repacking {self.repo}, since its last repack is still running")
             return
-        if self.chunks_since_gc >= GC_INTERVAL_CHUNKS and self._needs_gc():
-            self.chunks_since_gc = 0
-            self._full_repack()
-        else:
-            self._repack()
-
-    def _needs_gc(self):
-        """Whether the repo's file system has less free space than fully
-        repacking it could need; see GC_SPACE_FACTOR."""
-        du = subprocess.run(
-            ["du", "-sb", os.path.join(self.repo, ".git")],
-            stdout=subprocess.PIPE,
-            text=True,
-            check=True,
-        )
-        size = int(du.stdout.split()[0])
-        free = shutil.disk_usage(self.repo).free
-        if free >= GC_SPACE_FACTOR * size:
-            return False
-        log(
-            f"fully repacking {self.repo} ({size / 2**30:.1f} GiB), since only "
-            f"{free / 2**30:.1f} GiB is free"
-        )
-        return True
+        self._repack()
 
     def during_chunk(self):
         """Called periodically while a tool runs (from another thread than
@@ -421,26 +394,19 @@ class PackMaintenance:
         # deltas: redoing the deltas (with -F) of two repacked timeline packs
         # of 2 GB between them made a repack take 32 minutes in the full
         # firefox reblame, since they held journals deltified about 75 times
-        # smaller.
+        # smaller.  It still looks for deltas for the objects which aren't
+        # deltas, though, ex: each pack's first version of each journal, so
+        # it mostly does away with the packs' separate copies of the journals:
+        # combining a week of firefox's daily timeline packs, 1,843 MiB, made
+        # 688 MiB in 30 seconds, and redoing all their deltas (-f), 638 MiB in
+        # 85.  (Daily repacks combine them as they go, which redoing the deltas
+        # made 1% smaller in twice the time.)
         keep = [
             f"--keep-pack={os.path.basename(pack)}"
             for pack in self._packs()
             if not self._repacked(pack) or os.path.getsize(pack) >= KEEP_PACK_BYTES
         ]
         self._start(["repack", "-d", "-q", "--geometric=2", *keep])
-
-    def _full_repack(self):
-        # Like git gc, but leaving git fast-import's packs for `_repack`, since
-        # this copies the objects it doesn't deltify as they are (rather than
-        # recompressing everything, which would redo every delta in the repo).
-        keep = [
-            f"--keep-pack={os.path.basename(pack)}"
-            for pack in self._packs()
-            if not self._repacked(pack)
-        ]
-        self._start(
-            ["repack", "-d", "-l", "-q", "--cruft", "--cruft-expiration=2.weeks.ago", *keep]
-        )
 
     def _repack_last_fast_import_packs(self):
         """Repack all of git fast-import's packs into one, recompressing
