@@ -229,6 +229,9 @@ struct WeekFields<'a> {
 /// Parsing whole lines to skip their other fields (like token sets) was most of
 /// the timeline's time to prepend to journals.
 fn line_week(line: &str) -> Option<Option<IsoWeek>> {
+    if let Some(date) = fixed_offset_iso_date(line) {
+        return Some(iso_week(date));
+    }
     if let Some(rest) = line.strip_prefix(r#"{"type":"Detail","#) {
         let start = rest.find(r#""iso_date":""#)?;
         // Only the record's own "iso_date", before anything nested.
@@ -245,6 +248,30 @@ fn line_week(line: &str) -> Option<Option<IsoWeek>> {
     let year: u16 = parts.next()?.parse().ok()?;
     let week: u8 = parts.next()?.parse().ok()?;
     Some(Some((year as i32, week as u32)))
+}
+
+/// The "iso_date" of a detail record's line if it's where serde_json writes it
+/// when the line's "source_rev" and "syntax_rev" are SHA-1 hex ids, right after
+/// those and the "type" tag (hex ids can't contain quotes, so the keys can only
+/// be there if they are), which saves `line_week` searching for it: that was
+/// half of its time for token journals' short lines.
+fn fixed_offset_iso_date(line: &str) -> Option<&str> {
+    const PREFIX: &str = r#"{"type":"Detail","source_rev":""#;
+    const SYNTAX_REV: &str = r#"","syntax_rev":""#;
+    const ISO_DATE: &str = r#"","iso_date":""#;
+    const HEX_ID: usize = 40;
+    let syntax_rev = PREFIX.len() + HEX_ID;
+    let iso_date = syntax_rev + SYNTAX_REV.len() + HEX_ID;
+    let date = iso_date + ISO_DATE.len();
+    let bytes = line.as_bytes();
+    if !bytes.starts_with(PREFIX.as_bytes())
+        || bytes.get(syntax_rev..syntax_rev + SYNTAX_REV.len()) != Some(SYNTAX_REV.as_bytes())
+        || bytes.get(iso_date..date) != Some(ISO_DATE.as_bytes())
+    {
+        return None;
+    }
+    let rest = &line[date..];
+    Some(&rest[..rest.find('"')?])
 }
 
 /// Prepend `record` to the journal `text` (a header line followed by a line per
@@ -793,6 +820,41 @@ mod tests {
             }))
             .unwrap(),
         );
+
+        // Details with SHA-1 hex ids have their "iso_date" at a fixed offset
+        // (other ids are searched for it), whatever follows.
+        let sha1 = "0123456789abcdef0123456789abcdef01234567";
+        let sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        for (rev, fixed) in [(sha1, true), (sha256, false), ("abc", false)] {
+            for backs_out in [vec![], vec![sha1.to_string()]] {
+                let record = TokenDeltaRecord::Detail(TokenDeltaDetailRecord {
+                    desc: DetailRecordRef {
+                        source_rev: rev.to_string(),
+                        syntax_rev: rev.to_string(),
+                        iso_date: "2023-01-01T12:00:00Z".to_string(),
+                        backs_out,
+                    },
+                    delta: TokenDeltaDetails::default(),
+                });
+                let line = serde_json::to_string(&record).unwrap();
+                assert_eq!(
+                    fixed_offset_iso_date(&line),
+                    fixed.then_some("2023-01-01T12:00:00Z"),
+                    "for {}",
+                    line
+                );
+                check::<TokenDeltaRecord>(&line);
+            }
+        }
+        // (A source_rev one short, with a syntax_rev one long, puts the keys
+        // elsewhere.)
+        let shifted = format!(
+            r#"{{"type":"Detail","source_rev":"{}","syntax_rev":"{}a","iso_date":"2023-01-01T12:00:00Z"}}"#,
+            &sha1[1..],
+            sha1
+        );
+        assert_eq!(fixed_offset_iso_date(&shifted), None);
+        check::<TokenDeltaRecord>(&shifted);
 
         // Lines in other forms are left to parsing.
         assert_eq!(
