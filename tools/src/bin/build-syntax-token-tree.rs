@@ -38,13 +38,16 @@ use std::thread;
 
 use clap::Parser;
 use git2::{ObjectType, Oid, Repository, Sort, TreeWalkMode, TreeWalkResult};
-use tools::cinnabar::{CinnabarBatch, OldRevisions};
-use tools::file_format::config::{HistorySyntaxCommitMeta, syntax_commit_to_meta};
+use tools::cinnabar::{
+    CinnabarBatch, OldRevisions, old_revision_notes_writer, parse_oldrevs, write_old_revision_notes,
+};
+use tools::file_format::config::{HistorySyntaxCommitMeta, index_blame, syntax_commit_to_meta};
 use tools::file_format::history::io_helpers::{
     read_record_file_contents, record_file_contents_to_string,
 };
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use tools::file_format::history::syntax_symdex::{SymdexHeader, SymdexRecord};
+use tools::git_notes::NotesReader;
 use tools::git_ops::{fast_import_git, history_compute_threads};
 use tools::history_stop::{STOPPED_EXIT_CODE, stop_requested};
 use tools::hyperblame::history_config::{
@@ -1377,6 +1380,26 @@ fn main() {
     // full firefox history's notes.
     mapping.preload(&blame_repo).unwrap();
 
+    // We also maintain notes mapping the old revisions of the revisions we
+    // process to them, as build-blame does in the blame repo, for the web
+    // server's permalinks to old revisions (see `tools::cinnabar`).  Histories
+    // from before we wrote them get them for the revisions already processed
+    // from a walk of the branch, if we're given old revisions.
+    let mut old_notes = old_revision_notes_writer(&blame_repo, &blame_ref);
+    let existing_old_notes = NotesReader::open(&blame_repo, [old_notes.notes_ref()]);
+    let head_time = blame_repo
+        .refname_to_id(&blame_ref)
+        .and_then(|oid| blame_repo.find_commit(oid))
+        .map_or(0, |commit| commit.committer().when().seconds());
+    let mut seed_old_to_new = HashMap::new();
+    if existing_old_notes.is_empty()
+        && (cli.old_cinnabar_repo_path.is_some() || cli.old_revision_map.is_some())
+        && let Ok(oid) = blame_repo.refname_to_id(&blame_ref)
+    {
+        info!("Seeding {} from {}...", old_notes.notes_ref(), blame_ref);
+        (_, _, seed_old_to_new) = index_blame(&blame_repo, Some(oid), true);
+    }
+
     let head = git_repo.refname_to_id(&blame_ref).unwrap();
     let mut walk = git_repo.revwalk().unwrap();
     walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE).unwrap();
@@ -1616,6 +1639,23 @@ fn main() {
 
     let mut import_helper = start_fast_import(&blame_repo);
     let mut notes = notes_writer(&blame_repo, &notes_refs);
+    if !seed_old_to_new.is_empty() {
+        let num_old_notes = write_old_revision_notes(
+            &blame_repo,
+            &mut old_notes,
+            &seed_old_to_new,
+            head_time,
+            &mut BufWriter::new(import_helper.stdin.as_mut().unwrap()),
+        )
+        .unwrap();
+        info!(
+            "Seeded {} of {} old revision notes.",
+            num_old_notes,
+            seed_old_to_new.len()
+        );
+    }
+    // The old revisions we've written notes for in this run.
+    let mut old_revs_noted = HashSet::new();
 
     // Tracks completion count and serves as the basis for the mark <idnum>
     // assigned to each commit.
@@ -1703,6 +1743,19 @@ fn main() {
             };
             if let Some(oldrevs) = &oldrevs {
                 commit_msg.push_str(&format!("oldrevs {}\n", oldrevs));
+                // Like `index_blame`, the earliest revision with an old
+                // revision wins in the unlikely event of duplicates.
+                for old_rev in parse_oldrevs(oldrevs) {
+                    if old_revs_noted.insert(old_rev)
+                        && existing_old_notes.lookup(&blame_repo, old_rev).is_none()
+                    {
+                        old_notes.add(
+                            old_rev,
+                            &git_oid.to_string(),
+                            commit.committer().when().seconds(),
+                        );
+                    }
+                }
             }
             if let Some(hconfig) = diff_data.hconfig {
                 commit_msg.push_str(&format!("hconfig {}\n", hconfig));
@@ -1757,6 +1810,11 @@ fn main() {
         let syntax_rev = read_mark_oid(&mut import_helper, rev_done);
         notes.add(*git_oid, &syntax_rev, commit.committer().when().seconds());
         if notes.num_pending() >= NOTES_BATCH_SIZE {
+            // The old revision notes go first so that a crash can't leave a
+            // revision recorded as processed without its old revision notes.
+            old_notes
+                .flush(import_helper.stdin.as_mut().unwrap())
+                .unwrap();
             notes.flush(import_helper.stdin.as_mut().unwrap()).unwrap();
         }
 
@@ -1766,6 +1824,9 @@ fn main() {
         }
     }
 
+    old_notes
+        .flush(import_helper.stdin.as_mut().unwrap())
+        .unwrap();
     notes.flush(import_helper.stdin.as_mut().unwrap()).unwrap();
     drop(hg_helper);
 
