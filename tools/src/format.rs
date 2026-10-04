@@ -3086,14 +3086,16 @@ fn interdiff_differences(counts: &InterdiffCounts) -> String {
     .join(", ")
 }
 
-/// The commits of a side of an interdiff as an HTML list.
+/// The commits of a side of an interdiff as an HTML list, with when they
+/// landed.
 fn interdiff_commits_html(tree_name: &str, side: &InterdiffSide) -> String {
     let mut html = String::from("<ol>");
-    for commit in &side.commits {
+    for (commit, commit_ref) in side.commits.iter().zip(&side.refs) {
         let header = blame::commit_header(commit).unwrap_or_default();
         write!(
             html,
-            r#"<li><a href="/{}/commit/{}">{}</a> {}</li>"#,
+            r#"<li><span class="explore-commit-date" title="When it landed">{} UTC</span> <a href="/{}/commit/{}">{}</a> {}</li>"#,
+            commit_ref.iso_date.get(..16).unwrap_or("").replace('T', " "),
             tree_name,
             commit.id(),
             &commit.id().to_string()[..12],
@@ -3103,6 +3105,137 @@ fn interdiff_commits_html(tree_name: &str, side: &InterdiffSide) -> String {
     }
     html.push_str("</ol>");
     html
+}
+
+/// The words, runs of whitespace, and other characters of `text`, for diffs of
+/// commit messages.
+fn message_words(text: &str) -> Vec<&str> {
+    let class = |c: char| {
+        if c.is_alphanumeric() || c == '_' {
+            0
+        } else if c.is_whitespace() {
+            1
+        } else {
+            2
+        }
+    };
+    let mut words = vec![];
+    let mut chars = text.char_indices().peekable();
+    while let Some((start, c)) = chars.next() {
+        let mut end = start + c.len_utf8();
+        if class(c) != 2 {
+            while let Some(&(i, next)) = chars.peek() {
+                if class(next) != class(c) {
+                    break;
+                }
+                end = i + next.len_utf8();
+                chars.next();
+            }
+        }
+        words.push(&text[start..end]);
+    }
+    words
+}
+
+/// How many unchanged lines diffs of commit messages show around changes, and
+/// the fewest they elide.
+const MESSAGE_CONTEXT_LINES: usize = 3;
+
+/// A word diff of the sides' commit messages (each side's, oldest first) as
+/// HTML, with A's words which B doesn't have struck out and B's words which A
+/// doesn't have highlighted (ex: a reland's new reviewers), or an empty string
+/// if they're the same.
+fn interdiff_messages_html(a: &InterdiffSide, b: &InterdiffSide) -> String {
+    let messages = |side: &InterdiffSide| {
+        side.commits
+            .iter()
+            .map(|commit| {
+                String::from_utf8_lossy(commit.message_bytes())
+                    .trim_end()
+                    .to_string()
+            })
+            .join("\n\n")
+    };
+    message_diff_html(&messages(a), &messages(b))
+}
+
+/// A word diff of the texts as HTML; see `interdiff_messages_html`.
+fn message_diff_html(a_text: &str, b_text: &str) -> String {
+    if a_text == b_text {
+        return String::new();
+    }
+    let (a_words, b_words) = (message_words(a_text), message_words(b_text));
+
+    // The diff's lines, as pieces which are in both messages, only A's, or
+    // only B's.
+    use similar::DiffTag;
+    let mut lines: Vec<Vec<(DiffTag, String)>> = vec![vec![]];
+    for op in similar::capture_diff_slices(similar::Algorithm::Patience, &a_words, &b_words) {
+        let (tag, old, new) = op.as_tag_tuple();
+        let pieces = match tag {
+            DiffTag::Equal => vec![(DiffTag::Equal, &b_words[new])],
+            _ => vec![
+                (DiffTag::Delete, &a_words[old]),
+                (DiffTag::Insert, &b_words[new]),
+            ],
+        };
+        for (tag, words) in pieces {
+            for (i, piece) in words.concat().split('\n').enumerate() {
+                if i > 0 {
+                    lines.push(vec![]);
+                }
+                if !piece.is_empty() {
+                    lines.last_mut().unwrap().push((tag, piece.to_string()));
+                }
+            }
+        }
+    }
+
+    // The changed lines and the lines around them, with the other runs of
+    // unchanged lines elided (ex: a stack's other commits).
+    let changed: Vec<bool> = lines
+        .iter()
+        .map(|line| line.iter().any(|(tag, _)| *tag != DiffTag::Equal))
+        .collect();
+    let near_change = |i: usize| {
+        let around = i.saturating_sub(MESSAGE_CONTEXT_LINES)..(i + MESSAGE_CONTEXT_LINES + 1);
+        changed[around.start..around.end.min(lines.len())]
+            .iter()
+            .any(|&c| c)
+    };
+    let mut html = vec![];
+    let mut i = 0;
+    while i < lines.len() {
+        let hidden = (i..lines.len()).take_while(|&j| !near_change(j)).count();
+        if hidden >= MESSAGE_CONTEXT_LINES {
+            html.push(format!(
+                r#"<span class="interdiff-messages-gap">⋯ {} unchanged lines</span>"#,
+                hidden
+            ));
+            i += hidden;
+            continue;
+        }
+        let mut line = String::new();
+        for (tag, piece) in &lines[i] {
+            match tag {
+                DiffTag::Delete => write!(
+                    line,
+                    r#"<del class="idiff-only-a">{}</del>"#,
+                    entity_escape(piece)
+                ),
+                DiffTag::Insert => write!(
+                    line,
+                    r#"<ins class="idiff-new">{}</ins>"#,
+                    entity_escape(piece)
+                ),
+                _ => write!(line, "{}", entity_escape(piece)),
+            }
+            .unwrap();
+        }
+        html.push(line);
+        i += 1;
+    }
+    html.join("\n")
 }
 
 /// The interdiff of the file at `path` between two versions of a patch (ex: a
@@ -3223,11 +3356,11 @@ pub fn format_interdiff(
 /// `format_interdiff_files`).
 const MAX_INTERDIFF_SUMMARY_FILES: usize = 100;
 
-/// An interdiff's summary (see `format_interdiff`): the files either side
-/// changed, with the explore pages' sparklines (see `hyperblame::explore`) of
-/// A's commits and then B's, faded for the files and symbols where B's changes
-/// are the same as A's, and excerpts of B's diff where they differ (see
-/// `interdiff_excerpts`).
+/// An interdiff's summary (see `format_interdiff`): the sides' commits, with a
+/// diff of their messages, and the files either side changed, with the explore
+/// pages' sparklines (see `hyperblame::explore`) of A's commits and then B's,
+/// faded for the files and symbols where B's changes are the same as A's, and
+/// excerpts of B's diff where they differ (see `interdiff_excerpts`).
 pub fn format_interdiff_files(
     cfg: &Config,
     tree_name: &str,
@@ -3365,6 +3498,7 @@ pub fn format_interdiff_files(
         "files": files,
         "slot": explore::slot_width(commits.len()),
         "legend": interdiff_legend(&totals),
+        "messages": interdiff_messages_html(&a, &b),
         "swap": format!("/{}/interdiff/{}/{}", tree_name, b_key, a_key),
     }))
     .map_err(|_| "Template problems")?;
@@ -3689,4 +3823,28 @@ pub fn format_commit(
     output::generate_footer(&opt, tree_name, "", writer).unwrap();
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_message_diff_html() {
+        assert_eq!(
+            message_diff_html("Bug 1 - Fix. r=a", "Bug 1 - Fix. r=a"),
+            ""
+        );
+        assert_eq!(
+            message_diff_html("Bug 1 - Fix <x>. r=a,b", "Bug 1 - Fix <x>. r=a,c,d"),
+            r#"Bug 1 - Fix &lt;x>. r=a,<del class="idiff-only-a">b</del><ins class="idiff-new">c,d</ins>"#
+        );
+        // Unchanged runs of lines away from the changes are elided.
+        let a = "Bug 1 - One.\n\n1\n2\n3\n4\n5\n6\n7\n8";
+        let b = "Bug 1 - One.\n\n1\n2\n3\n4\n5\n6\n7\n8\n\nBug 1 - Two.";
+        assert_eq!(
+            message_diff_html(a, b),
+            "<span class=\"interdiff-messages-gap\">⋯ 8 unchanged lines</span>\n7\n8\n\n<ins class=\"idiff-new\">Bug 1 - Two.</ins>"
+        );
+    }
 }

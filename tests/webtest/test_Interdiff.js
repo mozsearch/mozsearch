@@ -36,6 +36,11 @@ add_task(async function test_InterdiffFiles() {
      "The file isn't faded, since the patches differ in it");
   is(doc.querySelectorAll(".explore-commit").length, 2,
      "The sides' commits are listed, for the sparklines");
+  const dates = [...doc.querySelectorAll(".interdiff-sides .explore-commit-date")];
+  ok(dates.length == 2 && dates.every(date => /^\d{4}-\d\d-\d\d \d\d:\d\d UTC$/.test(date.textContent)),
+     "with when they landed");
+  ok(doc.querySelector(".interdiff-summary").textContent.includes("The commit messages are the same"),
+     "The landing's and the reland's commit messages are the same");
 
   ok(files[0].querySelector(".interdiff-excerpt"),
      "The summary has excerpts of where the patches differ");

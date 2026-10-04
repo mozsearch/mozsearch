@@ -1770,6 +1770,22 @@ span[data-symbols].selected {
 .interdiff-same > .explore-file-header > a {
   font-weight: normal;
 }
+/* A diff of the sides' commit messages. */
+.interdiff-messages pre {
+  margin: 0.3em 0 0.3em 1.5em;
+  white-space: pre-wrap;
+  max-height: 20em;
+  overflow-y: auto;
+}
+.interdiff-messages ins {
+  text-decoration: none;
+}
+.interdiff-messages summary {
+  cursor: pointer;
+}
+.interdiff-messages-gap {
+  color: GrayText;
+}
 .interdiff-file-note {
   font-weight: normal;
   font-size: 0.9em;

@@ -1,6 +1,7 @@
 {%- comment -%}
   An interdiff's summary (see `format::format_interdiff_files`): the sides'
-  commits, and each file either side changed, with the explore pages'
+  commits (with when they landed, and a diff of their messages), and each file
+  either side changed, with the explore pages'
   sparklines (see explore_file.liquid), which have a slot for each of A's
   commits and then each of B's, faded where B's changes are the same as A's,
   and with excerpts of where they differ (see `format::interdiff_excerpts`).
@@ -15,12 +16,20 @@
         <h3>{{ side.name }}</h3>
         <ol start="{{ side.start }}">
           {%- for commit in side.commits %}
-          <li id="commit-{{ commit.number }}" class="explore-commit"><span class="explore-commit-summary">{{ commit.summary }}</span> <span class="explore-commit-date">{{ commit.isoDate | slice: 0, 10 }}</span> <a href="/{{ tree }}/commit/{{ commit.rev }}">{{ commit.rev | slice: 0, 12 }}</a></li>
+          <li id="commit-{{ commit.number }}" class="explore-commit"><span class="explore-commit-date" title="When it landed">{{ commit.isoDate | slice: 0, 16 | replace: "T", " " }} UTC</span> <a href="/{{ tree }}/commit/{{ commit.rev }}">{{ commit.rev | slice: 0, 12 }}</a> <span class="explore-commit-summary">{{ commit.summary }}</span></li>
           {%- endfor %}
         </ol>
       </div>
       {%- endfor %}
     </div>
+    {%- if messages != "" %}
+    <details class="interdiff-messages" open>
+      <summary>The commit messages differ, in the words only in <del class="idiff-only-a">A's</del> or <ins class="idiff-new">B's</ins></summary>
+      <pre>{{ messages }}</pre>
+    </details>
+    {%- else %}
+    <p class="explore-note">The commit messages are the same.</p>
+    {%- endif %}
     <p class="interdiff-legend">{{ legend }}</p>
     <p><a href="{{ swap }}">Swap A and B</a></p>
   </section>
