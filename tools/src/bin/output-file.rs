@@ -437,7 +437,7 @@ fn main() {
                     });
                 }
 
-                if tree_config.paths.git_blame_path.is_some() {
+                if tree_config.paths.has_blame() {
                     vcs_panel_items.push(PanelItem {
                         label: PanelItemLabel::Plaintext("Blame".to_owned()),
                         tooltip: "Hover over the gray bar on the left to see blame information".to_owned(),

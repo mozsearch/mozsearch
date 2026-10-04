@@ -4,8 +4,8 @@ set -x # Show commands
 set -eu # Errors/undefined vars are fatal
 set -o pipefail # Check all commands in a pipeline
 
-# The same repository as the "searchfox" tree, but without the token-centric
-# history, so that its source listings use the classic line blame.  This lets
+# The same repository as the "searchfox" tree, but with the classic line blame
+# rather than the token-centric history (a tree has one or the other), so that
 # the webtests cover both kinds of blame.
 
 echo "Performing setup::ensure-no-diff step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"

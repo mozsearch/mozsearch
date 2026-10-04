@@ -37,7 +37,7 @@ use crate::utils::OwnedOrBorrowed;
 use crate::file_format::analysis::{
     AnalysisSource, ExpansionInfo, WithLocation, collect_file_syms_from_source,
 };
-use crate::file_format::config::{Config, GitData, TreeConfig, extract_info_from_blame_commit};
+use crate::file_format::config::{Config, GitData, TreeConfig};
 use crate::output::{
     self, BreadcrumbsLinksTo, F, Options, PanelItem, PanelItemLabel, PanelSection, RevisionData,
 };
@@ -652,8 +652,9 @@ pub fn format_file_data(
     format_perf.format_code_duration_us = pre_format_code.elapsed().as_micros() as u64;
 
     let pre_blame_lines = Instant::now();
-    // We use the token-centric history when we have it for the file, falling
-    // back to the classic line blame.
+    // We use the token-centric history if the tree has it (and it has the
+    // file), and otherwise the classic line blame; trees only have one or the
+    // other (see `config::git_data`).
     let mut token_blame = tree_config
         .git
         .as_ref()
@@ -1691,7 +1692,7 @@ fn format_blob(
         });
     }
 
-    if tree_config.paths.git_blame_path.is_some() {
+    if tree_config.paths.has_blame() {
         vcs_panel_items.push(PanelItem {
             label: PanelItemLabel::Plaintext("Blame".to_owned()),
             tooltip: "Hover over the gray bar on the left to see blame information".to_owned(),
@@ -2114,7 +2115,6 @@ fn generate_commit_info(
     tree_config: &TreeConfig,
     writer: &mut dyn Write,
     commit: &git2::Commit,
-    blame_commit: Option<&git2::Commit>,
 ) -> Result<(), &'static str> {
     let (header, remainder) = blame::commit_header_remainder(commit)?;
 
@@ -2140,19 +2140,13 @@ fn generate_commit_info(
         .collect::<Vec<_>>();
 
     let git = tree_config.get_git()?;
-    let oldgit = if let Some(blame_commit) = blame_commit {
-        let blame_info = extract_info_from_blame_commit(blame_commit);
-        if let Some(oldrevs) = blame_info.oldrevs {
-            vec![F::T(format!(
-                "<tr><td>old {} git revs:</td><td>{}</td></tr>",
-                tree_config.paths.oldtree_name.clone().unwrap_or_default(),
-                oldrevs
-            ))]
-        } else {
-            vec![]
-        }
-    } else {
-        vec![]
+    let oldgit = match git.oldrevs(commit.id()) {
+        Some(oldrevs) => vec![F::T(format!(
+            "<tr><td>old {} git revs:</td><td>{}</td></tr>",
+            tree_config.paths.oldtree_name.clone().unwrap_or_default(),
+            oldrevs
+        ))],
+        None => vec![],
     };
 
     let hg = match git.hg_rev(commit.id()) {
@@ -2387,11 +2381,6 @@ pub fn format_commit(
     let commit = commit_obj.as_commit().ok_or("Bad revision")?;
     let date = git_time_to_chrono(commit.time());
 
-    let blame_commit = match (&git.blame_repo, git.blame_rev(commit.id())) {
-        (Some(blame_repo), Some(blame_oid)) => blame_repo.find_commit(blame_oid).ok(),
-        _ => None,
-    };
-
     let title = format!("{} - mozsearch", rev);
     let opt = Options {
         title: &title,
@@ -2412,13 +2401,7 @@ pub fn format_commit(
 
     output::generate_panel(&opt, writer, &[], true)?;
 
-    generate_commit_info(
-        tree_name,
-        tree_config,
-        writer,
-        commit,
-        blame_commit.as_ref(),
-    )?;
+    generate_commit_info(tree_name, tree_config, writer, commit)?;
 
     output::generate_footer(&opt, tree_name, "", writer).unwrap();
 

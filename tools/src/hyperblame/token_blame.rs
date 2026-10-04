@@ -19,6 +19,7 @@ use std::path::Path;
 
 use git2::{Commit, Oid, Repository};
 
+use crate::cinnabar::OldRevisionMap;
 use crate::file_format::config::{ThreadLocalRepository, timeline_commit_to_meta};
 use crate::file_format::history::syntax_files::{split_token_line, token_file_lines};
 use crate::file_format::history::syntax_files_struct::FileStructureHeader;
@@ -34,6 +35,9 @@ pub struct TreeHistory {
     pub timeline: ThreadLocalRepository,
     branch_ref: String,
     mapping: SourceMapping,
+    /// The syntax repo's old revision notes (see `tools::cinnabar`), which
+    /// build-syntax-token-tree writes as build-blame does in the blame repo.
+    old_revisions: OldRevisionMap,
 }
 
 impl TreeHistory {
@@ -49,12 +53,14 @@ impl TreeHistory {
             read: vec![],
         };
         let mapping = SourceMapping::open(&timeline, &notes_refs);
+        let old_revisions = OldRevisionMap::from_notes(&syntax, &branch_ref).unwrap_or_default();
         Ok(TreeHistory {
             path: history_path.to_string(),
             syntax: syntax.into(),
             timeline: timeline.into(),
             branch_ref,
             mapping,
+            old_revisions,
         })
     }
 
@@ -62,6 +68,23 @@ impl TreeHistory {
     pub fn timeline_commit(&self, source_rev: Oid) -> Option<Commit<'_>> {
         let timeline_rev = self.mapping.lookup(&self.timeline, source_rev)?;
         self.timeline.find_commit(timeline_rev).ok()
+    }
+
+    /// The hg revision of `source_rev`, if the history has it and knows it.
+    pub fn hg_rev(&self, source_rev: Oid) -> Option<String> {
+        timeline_commit_to_meta(&self.timeline_commit(source_rev)?).source_hg_rev
+    }
+
+    /// The comma-separated old revisions of `source_rev` (see
+    /// `tools::cinnabar`), if the history has it and it has any.
+    pub fn oldrevs(&self, source_rev: Oid) -> Option<String> {
+        timeline_commit_to_meta(&self.timeline_commit(source_rev)?).oldrevs
+    }
+
+    /// The source revision of the old revision `old_rev`, if the history knows
+    /// it (ex: the firefox-main revision of a gecko-dev revision).
+    pub fn new_rev_for_old_rev(&self, old_rev: Oid) -> Option<Oid> {
+        self.old_revisions.get(Some(&*self.syntax), old_rev)
     }
 
     /// The timeline commit at the head of the branch.

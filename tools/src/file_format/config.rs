@@ -92,7 +92,8 @@ pub struct TreeConfigPaths {
     /// mapping is via the shared hg revision associated with the revisions.
     pub oldgit_path: Option<String>,
     /// Absolute path to where the blame repo is which should be a sub-directory
-    /// of the `index_path`.
+    /// of the `index_path`.  Unused if the tree has a `history_path`: a tree has
+    /// either the classic line blame or the token-centric history.
     pub git_blame_path: Option<String>,
     /// Absolute path to where the history sub-tree lives; this should be a
     /// sub-directory of the `index_path`.
@@ -130,6 +131,12 @@ pub struct TreeConfigPaths {
 }
 
 impl TreeConfigPaths {
+    /// Whether the tree's pages have blame: the token-centric history's or the
+    /// classic line blame (see `git_blame_path`).
+    pub fn has_blame(&self) -> bool {
+        self.history_path.is_some() || self.git_blame_path.is_some()
+    }
+
     pub fn get_github_user_and_repo(&self) -> Option<String> {
         if let Some(github_url) = &self.github_repo
             && let Some(stripped) = github_url.strip_prefix("https://github.com/")
@@ -308,6 +315,9 @@ impl GitData {
 
     /// The hg revision of a repo revision, if known.
     pub fn hg_rev(&self, rev: Oid) -> Option<String> {
+        if let Some(history) = &self.history {
+            return history.hg_rev(rev);
+        }
         match &self.blame {
             BlameMap::Notes { .. } => {
                 let blame_commit = self
@@ -321,9 +331,26 @@ impl GitData {
         }
     }
 
+    /// The comma-separated oldgit revisions of a repo revision (see
+    /// `tools::cinnabar`), if known.
+    pub fn oldrevs(&self, rev: Oid) -> Option<String> {
+        if let Some(history) = &self.history {
+            return history.oldrevs(rev);
+        }
+        let blame_commit = self
+            .blame_repo
+            .as_deref()?
+            .find_commit(self.blame_rev(rev)?)
+            .ok()?;
+        extract_info_from_blame_commit(&blame_commit).oldrevs
+    }
+
     /// The repo revision of an oldgit revision (ex: the firefox-* revision of a
     /// gecko-dev revision), if known.
     pub fn new_rev_for_old_rev(&self, old_rev: Oid) -> Option<Oid> {
+        if let Some(history) = &self.history {
+            return history.new_rev_for_old_rev(old_rev);
+        }
         self.old_revisions.get(self.blame_repo.as_deref(), old_rev)
     }
 }
@@ -714,7 +741,16 @@ pub fn git_data(paths: &TreeConfigPaths, need_indexes: bool) -> Option<GitData> 
     let mailmap = Mailmap::load(&repo);
     let blame_ignore = BlameIgnoreList::load(&repo);
 
-    let (blame_repo, blame, old_revisions) = blame_data(paths, need_indexes);
+    // A tree has either the token-centric history or the classic line blame,
+    // not both, so with a history we don't use the blame repo even if one is
+    // configured (ex: firefox-disco, which shares firefox-shared with the
+    // firefox trees which have blame).  The history records the revisions' hg
+    // and old revisions too; see `GitData::hg_rev`.
+    let (blame_repo, blame, old_revisions) = if paths.history_path.is_some() {
+        Default::default()
+    } else {
+        blame_data(paths, need_indexes)
+    };
     let coverage_repo = paths
         .coverage_repo()
         .as_deref()
