@@ -118,9 +118,10 @@ add_task(async function test_BlamePopupInDiffView() {
   // test_HistoricalViewNotFound above is added by 7ebfd0db68e3105d0b869676af7fc4ce8b08ea1b
   // while the previous test functions were added by 8c206d60bf8ff33097065f5da02172f56864fac8.
   //
-  // The blame popup for the diff of 7ebfd0db should point at 8c206d60 for line 47 and 7ebfd0db
-  // itself for line 48.
-  const path = "/searchfox/diff/7ebfd0db68e3105d0b869676af7fc4ce8b08ea1b/tests/webtest/test_HistoricalViews.js";
+  // The (classic line) blame popup for the diff of 7ebfd0db should point at 8c206d60 for line 47
+  // and 7ebfd0db itself for line 48.  (The token-centric blame colors blank lines like their
+  // neighbors; see test_blameDiff.js for its diffs.)
+  const path = "/searchfox-line-blame/diff/7ebfd0db68e3105d0b869676af7fc4ce8b08ea1b/tests/webtest/test_HistoricalViews.js";
   await TestUtils.loadPath(path);
 
   const blamePopup = frame.contentDocument.querySelector(`#blame-popup`);

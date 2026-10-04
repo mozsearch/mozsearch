@@ -1,19 +1,27 @@
 /**
  * The token-centric blame popup (see "Token blame UI plan" in the hyperblame
  * notes).  Pages with token-centric blame have `BLAME_INFO` (see
- * `page_blame.rs`), which names the page's "hyperblame" data files: what the
- * popup shows about each commit (`commits.json`), and the tokens of the lines
- * in chunks (`lines-K.json`, see `LinesChunk`).
+ * `page_blame.rs`; diffs have one for each version of the file, see
+ * `HyperblameContexts`), which names the page's "hyperblame" data files: what
+ * the popup shows about each commit (`commits.json`), and the tokens of the
+ * lines in chunks (`lines-K.json`, see `LinesChunk`).
  */
 
 /**
- * Loads the page's hyperblame data files, starting with the commits and the
- * chunk with the page's first selected line (or its first line), and loading
- * other chunks as they near the viewport or when they're needed.
+ * Loads the hyperblame data files of one of the page's token-centric blames
+ * (see `HyperblameContexts`), starting with the commits and the chunk with the
+ * page's first selected line (or its first line), and loading other chunks as
+ * they near the viewport or when they're needed.
  */
-var HyperblameData = new (class HyperblameData {
-  constructor() {
-    this.available = typeof BLAME_INFO !== "undefined" && !!BLAME_INFO.dataUrl;
+class HyperblameData {
+  /**
+   * `rows` has the blame's rows by (1-based) line on diffs, whose rows' ids
+   * are only for the lines of the file in the commit.
+   */
+  constructor(info, rows) {
+    this.info = info;
+    this.rows = rows;
+    this.available = !!info.dataUrl;
     if (!this.available) {
       return;
     }
@@ -24,18 +32,17 @@ var HyperblameData = new (class HyperblameData {
     // The (1-based) index of each line's first token.
     this.lineFirstTokens = [];
     let total = 0;
-    for (const count of BLAME_INFO.tokenCounts) {
+    for (const count of info.tokenCounts) {
       this.lineFirstTokens.push(total + 1);
       total += count;
     }
 
     this.getCommits();
-    const selected = document.querySelector(".source-line-with-number.highlighted");
-    const firstLine = selected ? parseInt(selected.id.substring("line-".length), 10) : 1;
-    this.getChunk(this.chunkForLine(firstLine));
+    this.getChunk(this.chunkForLine(this.firstLine()));
 
-    // Load chunks when their first line gets near the viewport.
-    if (BLAME_INFO.chunks.length > 1) {
+    // Load chunks when their first line (or on diffs, the first of their lines
+    // which the diff has) gets near the viewport.
+    if (info.chunks.length > 1) {
       const observer = new IntersectionObserver(entries => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
@@ -44,8 +51,8 @@ var HyperblameData = new (class HyperblameData {
           }
         }
       }, { rootMargin: "100% 0px" });
-      BLAME_INFO.chunks.forEach((firstLine, k) => {
-        const line = document.getElementById(`line-${firstLine + 1}`);
+      info.chunks.forEach((firstLine, k) => {
+        const line = this.rowAtOrAfter(firstLine + 1, info.chunks[k + 1] ?? Infinity);
         if (line) {
           line.dataset.hyperblameChunk = k;
           observer.observe(line);
@@ -54,9 +61,54 @@ var HyperblameData = new (class HyperblameData {
     }
   }
 
+  /**
+   * The row of the given (1-based) line, if the page has it.
+   */
+  rowFor(lineno) {
+    return this.rows ? this.rows.get(lineno) : document.getElementById(`line-${lineno}`);
+  }
+
+  stripFor(lineno) {
+    return this.rowFor(lineno)?.querySelector(".blame-strip");
+  }
+
+  /**
+   * The row of the first line from `lineno` up to (but not including)
+   * `before` which the page has.
+   */
+  rowAtOrAfter(lineno, before) {
+    if (!this.rows) {
+      return this.rowFor(lineno);
+    }
+    let first = null;
+    for (const line of this.rows.keys()) {
+      if (line >= lineno && line < before && (first === null || line < first)) {
+        first = line;
+      }
+    }
+    return first === null ? null : this.rows.get(first);
+  }
+
+  /**
+   * The (1-based) line of the page's first selected line, if it's one of
+   * ours, or else of our first line.
+   */
+  firstLine() {
+    const selected = document.querySelector(".source-line-with-number.highlighted");
+    if (!this.rows) {
+      return selected ? parseInt(selected.id.substring("line-".length), 10) : 1;
+    }
+    for (const [line, row] of this.rows) {
+      if (row === selected) {
+        return line;
+      }
+    }
+    return this.rows.size ? Math.min(...this.rows.keys()) : 1;
+  }
+
   getCommits() {
     if (!this.commitsPromise) {
-      this.commitsPromise = fetch(`${BLAME_INFO.dataUrl}/commits.json`).then(r => r.json());
+      this.commitsPromise = fetch(`${this.info.dataUrl}/commits.json`).then(r => r.json());
     }
     return this.commitsPromise;
   }
@@ -65,7 +117,7 @@ var HyperblameData = new (class HyperblameData {
    * The index of the chunk with the given (1-based) line.
    */
   chunkForLine(lineno) {
-    const chunks = BLAME_INFO.chunks;
+    const chunks = this.info.chunks;
     let k = 0;
     while (k + 1 < chunks.length && chunks[k + 1] < lineno) {
       k++;
@@ -77,7 +129,7 @@ var HyperblameData = new (class HyperblameData {
     if (!this.chunkPromises.has(k)) {
       this.chunkPromises.set(
         k,
-        fetch(`${BLAME_INFO.dataUrl}/lines-${k}.json`)
+        fetch(`${this.info.dataUrl}/lines-${k}.json`)
           .then(r => r.json())
           .then(chunk => this.decodeChunk(chunk))
       );
@@ -121,6 +173,41 @@ var HyperblameData = new (class HyperblameData {
   async getLineTokens(lineno) {
     const chunk = await this.getChunk(this.chunkForLine(lineno));
     return chunk.lines[lineno - 1 - chunk.firstLine];
+  }
+}
+
+/**
+ * The page's token-centric blames: a source listing has one, of its file
+ * (`BLAME_INFO`), and a diff has the blame of the file in the commit and then
+ * in each of the commit's parents (`BLAME_INFOS`, with null for those which
+ * don't have the file or its blame).  A diff's strips name their blame (its
+ * index in `BLAME_INFOS`) and line in that file with `data-hb-ctx` and
+ * `data-hb-line`; see `format_diff` in `format.rs`.
+ */
+var HyperblameContexts = new (class HyperblameContexts {
+  constructor() {
+    const isDiff = typeof BLAME_INFOS !== "undefined";
+    const infos = isDiff ? BLAME_INFOS : typeof BLAME_INFO !== "undefined" ? [BLAME_INFO] : [];
+    const rows = infos.map(() => new Map());
+    if (isDiff) {
+      for (const strip of document.querySelectorAll(".blame-strip[data-hb-ctx]")) {
+        rows[strip.dataset.hbCtx].set(parseInt(strip.dataset.hbLine, 10),
+                                      strip.closest(".source-line-with-number"));
+      }
+    }
+    this.contexts = infos.map((info, i) => info && new HyperblameData(info, isDiff ? rows[i] : null));
+  }
+
+  /**
+   * The blame (a `HyperblameData`) of a strip element and its (1-based) line
+   * in that blame's file.
+   */
+  forStrip(elt) {
+    if (elt.dataset.hbCtx !== undefined) {
+      return { data: this.contexts[elt.dataset.hbCtx], lineno: parseInt(elt.dataset.hbLine, 10) };
+    }
+    const lineElt = elt.closest(".source-line-with-number");
+    return { data: this.contexts[0], lineno: parseInt(lineElt.id.substring("line-".length), 10) };
   }
 })();
 
@@ -170,16 +257,16 @@ var TokenBlamePopup = new (class TokenBlamePopup {
    * if the page doesn't have the data (or `elt` is no longer the trigger).
    */
   async render(popup, elt) {
-    if (!HyperblameData.available) {
+    const { data, lineno } = HyperblameContexts.forStrip(elt);
+    if (!data?.available) {
       return false;
     }
     const lineElt = elt.closest(".source-line-with-number");
-    const lineno = parseInt(lineElt.id.substring("line-".length), 10);
     let commits, tokens;
     try {
       [commits, tokens] = await Promise.all([
-        HyperblameData.getCommits(),
-        HyperblameData.getLineTokens(lineno),
+        data.getCommits(),
+        data.getLineTokens(lineno),
       ]);
     } catch (ex) {
       // The popup without the data will do.
@@ -189,10 +276,13 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     if (BlamePopup.triggerElement != elt) {
       return true;
     }
+    // The blame the popup is for, which the methods below use.
+    this.data = data;
+    this.info = data.info;
 
     // The line's commits, newest first, which get distinct colors.
     const lineCommits = [...new Set(tokens.map(t => t.commit))];
-    lineCommits.sort((a, b) => BLAME_INFO.commits[b][1] - BLAME_INFO.commits[a][1]);
+    lineCommits.sort((a, b) => this.info.commits[b][1] - this.info.commits[a][1]);
     this.colors = new Map(lineCommits.map((commit, i) => [commit, `var(--hb-lane-${i % 8})`]));
 
     const root = document.createElement("div");
@@ -317,7 +407,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
       history,
       status,
       steps,
-      next: `${BLAME_INFO.peepholeUrl}/${tokenIndices.join(",")}.json`,
+      next: `${this.info.peepholeUrl}/${tokenIndices.join(",")}.json`,
       loading: false,
       stepCount: 0,
       cost: 0,
@@ -396,7 +486,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
       [token.index], "Following this token into the future…");
     let result;
     try {
-      const url = BLAME_INFO.peepholeUrl.replace(/\/peephole$/, "/future");
+      const url = this.info.peepholeUrl.replace(/\/peephole$/, "/future");
       result = await fetch(`${url}/${token.index}.json`).then(r => r.json());
     } catch (ex) {
       status.textContent = "Couldn't follow this token.";
@@ -454,7 +544,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
    * parent if we can't tell where it was.
    */
   async showBefore(token) {
-    const url = BLAME_INFO.peepholeUrl.replace(/\/peephole$/, "/before");
+    const url = this.info.peepholeUrl.replace(/\/peephole$/, "/before");
     try {
       const response = await fetch(`${url}/${token.index}.json`);
       if (response.ok) {
@@ -465,10 +555,10 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     } catch (ex) {
       // Fall back to the parent.
     }
-    const commits = await HyperblameData.getCommits();
+    const commits = await this.data.getCommits();
     const info = commits[token.commit];
     if (info?.parent) {
-      document.location = this.revLink(info.parent, BLAME_INFO.paths[token.path]);
+      document.location = this.revLink(info.parent, this.info.paths[token.path]);
     }
   }
 
@@ -529,7 +619,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
   }
 
   renderRow(commit, info) {
-    const [rev, time, author] = BLAME_INFO.commits[commit];
+    const [rev, time, author] = this.info.commits[commit];
     const row = document.createElement("div");
     row.className = "hb-row";
     row.dataset.commit = commit;
@@ -541,7 +631,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     summary.innerHTML = info ? info.header.split("\n<br>")[0] : rev.substring(0, 8);
     const meta = document.createElement("span");
     meta.className = "hb-row-meta";
-    meta.textContent = `${BLAME_INFO.authors[author]}, ${this.relativeDate(time)}`;
+    meta.textContent = `${this.info.authors[author]}, ${this.relativeDate(time)}`;
     row.append(summary, meta);
     return row;
   }
@@ -554,6 +644,10 @@ var TokenBlamePopup = new (class TokenBlamePopup {
   renderReplica(code, tokens) {
     const replica = code.cloneNode(true);
     replica.removeAttribute("role");
+    // On diffs, the line starts with its origin (ex: "+ "), before the
+    // tokens' offsets.
+    const shift = parseInt(code.dataset.hbOffset || "0", 10);
+    tokens = tokens.map(t => ({ ...t, start: t.start + shift, end: t.end + shift }));
     // Each source line ends with a newline, which would add an empty line.
     const walker = document.createTreeWalker(replica, NodeFilter.SHOW_TEXT);
     let lastText = null;
@@ -622,14 +716,14 @@ var TokenBlamePopup = new (class TokenBlamePopup {
       }[elt.dataset.interp] || "the lines around it, whose tokens were";
       note.append(` It's colored like ${neighbors} last changed in:`);
       const header = document.createElement("div");
-      header.innerHTML = commits[commit]?.header || BLAME_INFO.commits[commit][0];
+      header.innerHTML = commits[commit]?.header || this.info.commits[commit][0];
       note.append(header);
     }
     return note;
   }
 
   renderDetails(commit, info, tokens) {
-    const [rev] = BLAME_INFO.commits[commit];
+    const [rev] = this.info.commits[commit];
     const entry = document.createElement("div");
     entry.className = "blame-entry hb-entry";
     entry.dataset.commit = commit;
@@ -641,7 +735,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     // The commit's tokens on this line, by their path in the commit.
     const byPath = new Map();
     for (const token of tokens.filter(t => t.commit == commit)) {
-      const path = BLAME_INFO.paths[token.path];
+      const path = this.info.paths[token.path];
       byPath.set(path, (byPath.get(path) || []).concat([token.lineno]));
     }
     const links = document.createElement("div");
@@ -695,10 +789,10 @@ var TokenBlamePopup = new (class TokenBlamePopup {
    * `StripLine::strip_attrs` in `page_blame.rs`.
    */
   lineRemovals(elt, lineno) {
-    const prevStrip = document.querySelector(`#line-${lineno - 1} .blame-strip`);
+    const prevStrip = this.data.stripFor(lineno - 1);
     const removals = [];
     const add = (attr, where) => {
-      for (const removal of BlamePopup.parseRemovals(attr)) {
+      for (const removal of BlamePopup.parseRemovals(attr, this.info)) {
         removals.push({ where, ...removal });
       }
     };
@@ -719,7 +813,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     }
     entry.append(`${text} in:`);
     const header = document.createElement("div");
-    header.innerHTML = info ? info.header : BLAME_INFO.commits[removal.commit][0];
+    header.innerHTML = info ? info.header : this.info.commits[removal.commit][0];
     entry.append(header);
     if (info?.parent) {
       const first = removal.firstToken;
@@ -833,16 +927,16 @@ var TokenBlamePopup = new (class TokenBlamePopup {
    * Show the context menu for a token in the replica.
    */
   showTokenMenu(event, token) {
-    const [rev] = BLAME_INFO.commits[token.commit];
+    const [rev] = this.info.commits[token.commit];
     const items = [
       new MenuItem({
         html: "Show the earliest version with this token",
-        href: this.revLink(rev, BLAME_INFO.paths[token.path], `${token.lineno}`),
+        href: this.revLink(rev, this.info.paths[token.path], `${token.lineno}`),
         icon: "export-alt",
         section: "hyperblame",
       }),
     ];
-    if (BLAME_INFO.peepholeUrl) {
+    if (this.info.peepholeUrl) {
       items.push(new MenuItem({
         html: "Show the latest version without this token",
         action: () => {
@@ -856,13 +950,13 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     if (token.pred) {
       items.push(new MenuItem({
         html: "Show the earliest version of the token it replaced",
-        href: this.revLink(BLAME_INFO.commits[token.pred.commit][0],
-                           BLAME_INFO.paths[token.pred.path], `${token.pred.lineno}`),
+        href: this.revLink(this.info.commits[token.pred.commit][0],
+                           this.info.paths[token.pred.path], `${token.pred.lineno}`),
         icon: "export-alt",
         section: "hyperblame",
       }));
     }
-    if (BLAME_INFO.peepholeUrl) {
+    if (this.info.peepholeUrl) {
       items.push(new MenuItem({
         html: "Follow this token into the past",
         action: () => {
@@ -882,7 +976,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
         section: "hyperblame",
       }));
       // Pages for the tip have nothing to follow into.
-      if (BLAME_INFO.dataUrl.includes("/rev-hyperblame/")) {
+      if (this.info.dataUrl.includes("/rev-hyperblame/")) {
         items.push(new MenuItem({
           html: "Follow this token into the future",
           action: () => {
@@ -894,13 +988,16 @@ var TokenBlamePopup = new (class TokenBlamePopup {
         }));
       }
     }
-    items.push(new MenuItem({
-      html: "Select this token's line",
-      href: `#tokens=${token.index}`,
-      preaction: () => ContextMenu.hide(),
-      icon: "export-alt",
-      section: "hyperblame",
-    }));
+    // (The page's `#tokens=` hash is for the file in the page's revision.)
+    if (this.data === HyperblameContexts.contexts[0]) {
+      items.push(new MenuItem({
+        html: "Select this token's line",
+        href: `#tokens=${token.index}`,
+        preaction: () => ContextMenu.hide(),
+        icon: "export-alt",
+        section: "hyperblame",
+      }));
+    }
     ContextMenu.showItems(items, event);
   }
 })();

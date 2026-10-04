@@ -295,10 +295,11 @@ var BlamePopup = new (class BlamePopup {
   }
 
   /**
-   * Parse the entries of a strip's `data-hyperblame` attribute; see
-   * `StripLine::strip_attrs` in `page_blame.rs`.
+   * Parse the entries of a strip's `data-hyperblame` attribute, whose paths
+   * are indices into `info.paths`; see `StripLine::strip_attrs` in
+   * `page_blame.rs`.
    */
-  parseTokenBlameEntries(attr) {
+  parseTokenBlameEntries(attr, info) {
     if (!attr) {
       return [];
     }
@@ -306,17 +307,17 @@ var BlamePopup = new (class BlamePopup {
       const [commit, path, tokens] = entry.split(":");
       return {
         commit: parseInt(commit, 10),
-        path: BLAME_INFO.paths[parseInt(path, 10)],
+        path: info.paths[parseInt(path, 10)],
         tokens,
       };
     });
   }
 
   /**
-   * Parse the removals of a strip's `data-rm-*` attribute; see
-   * `StripLine::strip_attrs` in `page_blame.rs`.
+   * Parse the removals of a strip's `data-rm-*` attribute, like
+   * `parseTokenBlameEntries`.
    */
-  parseRemovals(attr) {
+  parseRemovals(attr, info) {
     if (!attr) {
       return [];
     }
@@ -325,7 +326,7 @@ var BlamePopup = new (class BlamePopup {
         removal.split(":").map(x => parseInt(x, 10));
       return {
         commit,
-        path: BLAME_INFO.paths[path],
+        path: info.paths[path],
         firstToken,
         numRemoved,
         numMoved,
@@ -343,7 +344,10 @@ var BlamePopup = new (class BlamePopup {
     const tree = data.getAttribute("data-tree");
     const encodePath = path => path.split("/").map(encodeURIComponent).join("/");
 
-    const entries = this.parseTokenBlameEntries(elt.dataset.hyperblame);
+    // The blame the strip is for (see `HyperblameContexts`).
+    const { data: blame, lineno } = HyperblameContexts.forStrip(elt);
+    const blameInfo = blame.info;
+    const entries = this.parseTokenBlameEntries(elt.dataset.hyperblame, blameInfo);
     let interpolatedCommit = null;
     if (elt.classList.contains("blame-interpolated")) {
       const commitClass = [...elt.classList].find(c => c.startsWith("bc-"));
@@ -353,19 +357,17 @@ var BlamePopup = new (class BlamePopup {
     // Removals before this line are described by the previous line's strip
     // (or the first line's `data-rm-above`).
     const removals = [];
-    const lineElt = elt.closest(".source-line-with-number");
-    const lineno = parseInt(lineElt.id.substring("line-".length), 10);
-    const prevStrip = document.querySelector(`#line-${lineno - 1} .blame-strip`);
-    for (const removal of this.parseRemovals(elt.dataset.rmAbove)) {
+    const prevStrip = blame.stripFor(lineno - 1);
+    for (const removal of this.parseRemovals(elt.dataset.rmAbove, blameInfo)) {
       removals.push({ where: "at the start of the file", ...removal });
     }
-    for (const removal of this.parseRemovals(prevStrip?.dataset.rmBelow)) {
+    for (const removal of this.parseRemovals(prevStrip?.dataset.rmBelow, blameInfo)) {
       removals.push({ where: "between the previous line and this line", ...removal });
     }
-    for (const removal of this.parseRemovals(elt.dataset.rmWithin)) {
+    for (const removal of this.parseRemovals(elt.dataset.rmWithin, blameInfo)) {
       removals.push({ where: "within this line", ...removal });
     }
-    for (const removal of this.parseRemovals(elt.dataset.rmBelow)) {
+    for (const removal of this.parseRemovals(elt.dataset.rmBelow, blameInfo)) {
       removals.push({ where: "between this line and the next line", ...removal });
     }
 
@@ -373,7 +375,7 @@ var BlamePopup = new (class BlamePopup {
     if (interpolatedCommit !== null) {
       commits.push(interpolatedCommit);
     }
-    const revs = [...new Set(commits.map(c => BLAME_INFO.commits[c][0]))];
+    const revs = [...new Set(commits.map(c => blameInfo.commits[c][0]))];
     const infos = await this.fetchCommitInfos(tree, revs);
 
     // If the request was too slow, we may no longer want to display blame for
@@ -410,7 +412,7 @@ var BlamePopup = new (class BlamePopup {
     if (!entries.length) {
       content += `<div class="blame-entry">This line has no tokens (it's blank).`;
       if (interpolatedCommit !== null) {
-        const rev = BLAME_INFO.commits[interpolatedCommit][0];
+        const rev = blameInfo.commits[interpolatedCommit][0];
         // See `StripLine::strip_attrs` in `page_blame.rs`.
         const neighbors = {
           above: "the line above it, whose tokens were",
@@ -425,7 +427,7 @@ var BlamePopup = new (class BlamePopup {
     }
 
     for (const entry of entries) {
-      const rev = BLAME_INFO.commits[entry.commit][0];
+      const rev = blameInfo.commits[entry.commit][0];
       const info = infos.get(rev);
       const path = encodePath(entry.path);
       content += `<div class="blame-entry">`;
@@ -439,7 +441,7 @@ var BlamePopup = new (class BlamePopup {
     }
 
     for (const removal of removals) {
-      const rev = BLAME_INFO.commits[removal.commit][0];
+      const rev = blameInfo.commits[removal.commit][0];
       const info = infos.get(rev);
       const count = removal.numRemoved == 1 ? "1 token was" : `${removal.numRemoved} tokens were`;
       content += `<div class="blame-entry blame-removal">`;
@@ -595,7 +597,11 @@ var BlamePopup = new (class BlamePopup {
 var BlameColorizer = new (class BlameColorizer {
   constructor() {
     this.style = null;
-    if (typeof BLAME_INFO !== "undefined") {
+    // A diff has a blame for each version of the file (see `HyperblameContexts`
+    // in hyperblame.js, which loads after this), whose strips say which.
+    this.isDiff = typeof BLAME_INFOS !== "undefined";
+    this.infos = this.isDiff ? BLAME_INFOS : typeof BLAME_INFO !== "undefined" ? [BLAME_INFO] : [];
+    if (this.infos.length) {
       this.apply(Settings.blame.colorMode);
     }
   }
@@ -622,16 +628,23 @@ var BlameColorizer = new (class BlameColorizer {
   apply(mode) {
     const now = Date.now() / 1000;
     const rules = [];
-    BLAME_INFO.commits.forEach(([_rev, time, author], i) => {
-      const color = this.colorFor(mode, time, author, now);
-      if (color) {
-        rules.push(
-          `.bc-${i} { background-color: ${color}; }`,
-          `.sa-${i} { --sa: ${color}; }`,
-          `.sb-${i} { --sb: ${color}; }`,
-          `.sw-${i} { --sw: ${color}; }`
-        );
+    this.infos.forEach((info, ctx) => {
+      if (!info) {
+        return;
       }
+      // Each blame numbers its own commits.
+      const scope = this.isDiff ? `[data-hb-ctx="${ctx}"]` : "";
+      info.commits.forEach(([_rev, time, author], i) => {
+        const color = this.colorFor(mode, time, author, now);
+        if (color) {
+          rules.push(
+            `${scope}.bc-${i} { background-color: ${color}; }`,
+            `${scope}.sa-${i} { --sa: ${color}; }`,
+            `${scope}.sb-${i} { --sb: ${color}; }`,
+            `${scope}.sw-${i} { --sw: ${color}; }`
+          );
+        }
+      });
     });
     if (!this.style) {
       this.style = document.createElement("style");
