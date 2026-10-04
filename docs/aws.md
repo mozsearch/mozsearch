@@ -735,14 +735,16 @@ contain some of the log output. The log in the email may make it obvious
 what the root cause was. If not, you may have to start up the indexer
 instance using the EC2 web console, and then SSH in to it to examine
 the log in more detail and/or inspect other state to debug the problem.
-After SSH'ing to the indexer, you should run the command:
+After SSH'ing to the indexer, you should run the commands:
 ```
-sudo mount /dev/`lsblk | grep 300G | cut -d" " -f1` /index-ebs
+VOLUME_ID=$(aws ec2 describe-volumes --region us-west-2 --filters Name=attachment.instance-id,Values=$(ec2metadata --instance-id) Name=tag-key,Values=index --query 'Volumes[0].VolumeId' --output text)
+sudo mount $(sudo nvme list -o json | jq -r ".Devices[] | select(.SerialNumber == \"${VOLUME_ID/-/}\") | .DevicePath") /index-ebs
 ```
 to re-mount the data volume. This will allow you to inspect the state
 on the data volume as well as run additional commands for debugging
-purposes, or to test a fix.  Note that for release2 "400G" should be used
-instead of "300G".
+purposes, or to test a fix.  (Like `infrastructure/aws/index.sh`, this finds
+the volume's device by the volume's id, since its size depends on the channel
+and config file; see `attach-index-volume.py`.)
 
 Because the AWS indexing jobs now use a scratch-disk and that's relevant
 for the indexing process, when the indexer aborts, it moves the contents

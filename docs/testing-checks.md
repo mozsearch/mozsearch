@@ -174,10 +174,9 @@ In this case if you login, you can run the following to be able to reproduce the
 failures experienced by the indexer run:
 
 ```shell
-# mount the index to /index-ebs as documented in aws.md
-# Use the index volume's size: 300G, 400G for release2 and release3, or the
-# config file's index_volume_gb (see attach-index-volume.py)
-sudo mount /dev/`lsblk | grep 300G | cut -d" " -f1` /index-ebs
+# mount the index to /index-ebs as documented in aws.md ("Debugging errors")
+VOLUME_ID=$(aws ec2 describe-volumes --region us-west-2 --filters Name=attachment.instance-id,Values=$(ec2metadata --instance-id) Name=tag-key,Values=index --query 'Volumes[0].VolumeId' --output text)
+sudo mount $(sudo nvme list -o json | jq -r ".Devices[] | select(.SerialNumber == \"${VOLUME_ID/-/}\") | .DevicePath") /index-ebs
 # make /index paths valid again
 sudo ln -s /index-ebs/interrupted /index
 
