@@ -298,6 +298,27 @@ fn handle(
             }
         }
 
+        // `/{tree}/interdiff/{A}/{B}` lists the files either side changed, and
+        // `/{tree}/interdiff/{A}/{B}/{path}` is a file's interdiff, where each
+        // side is comma-separated revisions; see `format::format_interdiff`.
+        "interdiff" => {
+            if path.len() < 4 {
+                return WebResponse::not_found();
+            }
+
+            let mut writer = Vec::new();
+            let result = if path.len() == 4 {
+                format::format_interdiff_files(cfg, tree_name, path[2], path[3], &mut writer)
+            } else {
+                let file_path = path[4..].join("/");
+                format::format_interdiff(cfg, tree_name, path[2], path[3], &file_path, &mut writer)
+            };
+            match result {
+                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                Err(err) => WebResponse::internal_error(err.to_owned()),
+            }
+        }
+
         "olddiff" => {
             if path.len() < 3 {
                 return WebResponse::not_found();

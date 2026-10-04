@@ -426,6 +426,7 @@ for repo in config['trees']:
     location(f'/{repo}/diagnostics', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/diff', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/olddiff', ['proxy_pass http://127.0.0.1:8001;'])
+    location(f'/{repo}/interdiff', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/commit', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/oldcommit', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/rev', ['proxy_pass http://127.0.0.1:8001;'])

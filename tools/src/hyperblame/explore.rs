@@ -33,6 +33,9 @@ pub struct ExploreCommit {
     #[serde(rename = "isoDate")]
     pub iso_date: String,
     pub backout: bool,
+    /// For backouts, the interdiff of the commits they backed out and their
+    /// reland, if any (see `relands`).
+    pub interdiff: Option<String>,
     /// The commit's header (see `blame::commit_info_json`), as HTML.
     pub header: String,
     /// The first line of the header: the commit message's summary line.
@@ -135,6 +138,57 @@ pub fn commit_changes(
         }
     }
     changes
+}
+
+/// The relands on a page (see `format::format_interdiff`): for each backout
+/// on it (by index in `refs`), the commits on the page which it backed out,
+/// and the next commit after it which isn't a backout and changed some of the
+/// same files, with the commits after that which landed with it (within a
+/// minute of the commit before, since stacks land a second or so apart), if
+/// there is one.  The backed out commits come from the backout's rev-summary.
+pub fn relands(
+    history: Option<&TreeHistory>,
+    refs: &[CommitRef],
+    changes: &[CommitChanges],
+) -> Vec<(usize, Vec<usize>, Vec<usize>)> {
+    let Some(history) = history else {
+        return vec![];
+    };
+    let time = |r: &CommitRef| {
+        chrono::DateTime::parse_from_rfc3339(&r.iso_date).map_or(0, |date| date.timestamp())
+    };
+    let mut relands = vec![];
+    for (k, backout) in refs.iter().enumerate().filter(|(_, r)| r.backout) {
+        let path = Path::new(&history.path)
+            .join("rev-summaries")
+            .join(rev_summary_path(&backout.rev));
+        let Some(summary) = fs::read_to_string(path)
+            .ok()
+            .and_then(|text| serde_json::from_str::<RevSummaryRecord>(&text).ok())
+        else {
+            continue;
+        };
+        let backed_out: Vec<usize> = (0..k)
+            .filter(|&i| summary.backs_out.contains(&refs[i].rev))
+            .collect();
+        let files: BTreeSet<&String> = backed_out.iter().flat_map(|&i| changes[i].keys()).collect();
+        let Some(first) = (k + 1..refs.len())
+            .find(|&j| !refs[j].backout && changes[j].keys().any(|file| files.contains(file)))
+        else {
+            continue;
+        };
+        let mut reland = vec![first];
+        for j in first + 1..refs.len() {
+            if refs[j].backout || time(&refs[j]) - time(&refs[j - 1]) > 60 {
+                break;
+            }
+            reland.push(j);
+        }
+        if !backed_out.is_empty() {
+            relands.push((k, backed_out, reland));
+        }
+    }
+    relands
 }
 
 /// The blot's rows for commits (in page order) which changed `changes`: a row

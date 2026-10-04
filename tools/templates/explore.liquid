@@ -21,12 +21,17 @@
     <ol>
       {%- for commit in commits %}
       <li id="commit-{{ commit.number }}" class="explore-commit{% if commit.backout %} explore-backout{% endif %}">
+        <span class="explore-pick"><input type="checkbox" class="explore-pick-a" value="{{ commit.rev }}" title="Side A of an interdiff"><input type="checkbox" class="explore-pick-b" value="{{ commit.rev }}" title="Side B of an interdiff"></span>
+        {%- if commit.interdiff %}
+        <a class="explore-interdiff" href="{{ commit.interdiff }}" title="How the reland differs from the commits this backed out">interdiff of the reland</a>
+        {%- endif %}
         <span class="explore-commit-summary">{{ commit.summary }}</span>
         <span class="explore-commit-date">{{ commit.isoDate | slice: 0, 10 }}</span>
         <a href="/{{ tree }}/commit/{{ commit.rev }}">{{ commit.rev | slice: 0, 12 }}</a>
       </li>
       {%- endfor %}
     </ol>
+    <p class="explore-note explore-interdiff-picker">Check commits as side A and side B (the boxes before them) to see <a class="explore-interdiff-link">how B differs from A</a>, ex: a reland from the landing it relands.</p>
   </details>
   <p class="explore-status explore-note">Each sparkline has a slot per commit, filled (darker for more tokens) if the commit changed it.  Hover over them to see which commit is which, and expand classes to see their members.</p>
   {%- for file in files %}

@@ -311,6 +311,7 @@ pub fn generate_footer(
         "code-highlighter.js",
         "blame.js",
         "hyperblame.js",
+        "interdiff.js",
         "d3.v7.min.js",
         "coverage-history.js",
     ];

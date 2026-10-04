@@ -1,9 +1,11 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::env;
+use std::fmt::Write as _;
 use std::io::Write;
-use std::ops::Deref;
+use std::ops::{Deref, Range};
 use std::path::Path;
 use std::process::Command;
+use std::rc::Rc;
 use std::time::Instant;
 
 use crate::abstract_server::FileMatch;
@@ -21,10 +23,13 @@ use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::{self, coverage_history, coverage_summary, git_time_to_chrono};
 use crate::hyperblame::explore::{self, ExploreCommit, blot_files, commit_changes};
 use crate::hyperblame::future;
+use crate::hyperblame::interdiff::{
+    self, IdToken, Mark as InterdiffMark, Side as InterdiffSideTokens, TokenId,
+};
 use crate::hyperblame::page_blame::{CommitMeta, PageBlame, page_blame};
 use crate::hyperblame::page_data_cache::{PAGE_DATA_CACHE, PageData};
 use crate::hyperblame::peephole::{self, Cursor, peephole_page};
-use crate::hyperblame::token_blame::blame_tokens;
+use crate::hyperblame::token_blame::{TreeHistory, blame_tokens};
 use crate::languages;
 use crate::languages::FormatAs;
 use crate::links;
@@ -1916,87 +1921,18 @@ pub fn format_diff(
         None => vec![],
     };
 
-    let mut new_lineno = 1;
-    let mut old_lineno = commit.parent_ids().map(|_| 1).collect::<Vec<_>>();
+    let line_blames = git.blame_repo.as_ref().map(|_| parent_blames.as_slice());
+    let (rows, new_lines, num_lines) = parse_diff_rows(
+        &difftxt,
+        commit.parents().count(),
+        self_blame.as_ref(),
+        line_blames,
+    )?;
+    drop_mismatched_token_blames(path, &mut token_blames, &num_lines);
 
-    let mut lines = split_lines(&difftxt);
-    for i in 0..lines.len() {
-        if lines[i].starts_with('@') && i + 1 < lines.len() {
-            lines = lines.split_off(i + 1);
-            break;
-        }
-    }
-
-    let mut new_lines = String::new();
-
-    let mut output = Vec::new();
-    for line in lines {
-        if line.is_empty() || line.starts_with('\\') {
-            continue;
-        }
-
-        let num_parents = commit.parents().count();
-        let (origin, content) = line.split_at(num_parents);
-        let origin = origin.chars().collect::<Vec<_>>();
-        let mut cur_blame = None;
-        // The file and line the row's token blame is for (see `token_blames`).
-        let mut token_line = None;
-        for i in 0..num_parents {
-            let has_minus = origin.contains(&'-');
-            if (has_minus && origin[i] == '-') || (!has_minus && origin[i] != '+') {
-                if git.blame_repo.is_some() {
-                    cur_blame = match parent_blames[i] {
-                        Some(ref lines) => Some(&lines[old_lineno[i] - 1]),
-                        None => return Err("expected blame for '-' line, none found"),
-                    };
-                }
-                if has_minus && token_line.is_none() {
-                    token_line = Some((i + 1, old_lineno[i]));
-                }
-                old_lineno[i] += 1;
-            }
-        }
-
-        let mut lno = -1;
-        if !origin.contains(&'-') {
-            new_lines.push_str(content);
-            new_lines.push('\n');
-            cur_blame = self_blame
-                .as_ref()
-                .map(|blame_lines| &blame_lines[new_lineno - 1]);
-            token_line = Some((0, new_lineno));
-
-            lno = new_lineno as isize;
-            new_lineno += 1;
-        }
-
-        output.push((lno, cur_blame, token_line, origin, content));
-    }
-
-    // We can only use a file's token blame if it's for the lines the diff has
-    // (as for source listings; see `format_file_data`).
-    let num_lines = std::iter::once(new_lineno - 1).chain(old_lineno.iter().map(|n| n - 1));
-    for (blame, num_lines) in token_blames.iter_mut().zip(num_lines) {
-        if let Some(page) = blame
-            && page.lines.len() != num_lines
-        {
-            log::warn!(
-                "Not using token blame for {} in a diff: {} lines but {} in the diff",
-                path,
-                page.lines.len(),
-                num_lines
-            );
-            *blame = None;
-        }
-    }
-
-    let format = languages::select_formatting(path);
-    if let FormatAs::Binary = format {
+    if let FormatAs::Binary = languages::select_formatting(path) {
         return Err("Cannot diff binary file");
     };
-    let analysis = Vec::new();
-    let slug = format_to_slug_attribute(&format);
-    let (formatted_lines, _) = format_code(Some(cfg), &None, format, path, &new_lines, &analysis);
 
     let header = blame::commit_header(commit)?;
     let date = git_time_to_chrono(commit.time());
@@ -2099,6 +2035,165 @@ pub fn format_diff(
     }];
     output::generate_panel(&opt, writer, &sections, false)?;
 
+    write_diff_rows(
+        writer,
+        cfg,
+        path,
+        &rows,
+        &new_lines,
+        &token_blames,
+        &DiffRowExtras::default(),
+    )?;
+
+    output::generate_footer(&opt, tree_name, path, writer).unwrap();
+
+    Ok(())
+}
+
+/// A row of a diff page: a line of the file in the commit, or a line of the
+/// file in a parent which the commit removed.
+struct DiffRow<'a> {
+    /// The (1-based) line of the file in the commit, or -1 for removed lines.
+    lineno: isize,
+    /// The row's classic line blame, if the tree has it.
+    blame: Option<&'a String>,
+    /// The file and (1-based) line in it that the row's token blame is for:
+    /// 0 for the file in the commit, and i + 1 for the file in parent i (see
+    /// `format_diff`'s `token_blames`).
+    token_line: Option<(usize, usize)>,
+    origin: Vec<char>,
+    content: &'a str,
+}
+
+/// The rows of the unified diff `difftxt` of a file in a commit with
+/// `num_parents` parents (a combined diff, if more than one) which has a
+/// single hunk with all of the file's lines, the contents of the file in the
+/// commit, and the number of lines of the file in the commit and then in each
+/// parent.  `parent_blames` (with `self_blame`) has the files' classic line
+/// blames, if the tree has it.
+fn parse_diff_rows<'a>(
+    difftxt: &'a str,
+    num_parents: usize,
+    self_blame: Option<&'a Vec<String>>,
+    parent_blames: Option<&'a [Option<Vec<String>>]>,
+) -> Result<(Vec<DiffRow<'a>>, String, Vec<usize>), &'static str> {
+    let mut new_lineno = 1;
+    let mut old_lineno = vec![1; num_parents];
+
+    let mut lines = split_lines(difftxt);
+    for i in 0..lines.len() {
+        if lines[i].starts_with('@') && i + 1 < lines.len() {
+            lines = lines.split_off(i + 1);
+            break;
+        }
+    }
+
+    let mut new_lines = String::new();
+
+    let mut rows = Vec::new();
+    for line in lines {
+        if line.is_empty() || line.starts_with('\\') {
+            continue;
+        }
+
+        let (origin, content) = line.split_at(num_parents);
+        let origin = origin.chars().collect::<Vec<_>>();
+        let mut cur_blame = None;
+        let mut token_line = None;
+        for i in 0..num_parents {
+            let has_minus = origin.contains(&'-');
+            if (has_minus && origin[i] == '-') || (!has_minus && origin[i] != '+') {
+                if let Some(parent_blames) = parent_blames {
+                    cur_blame = match parent_blames[i] {
+                        Some(ref lines) => Some(&lines[old_lineno[i] - 1]),
+                        None => return Err("expected blame for '-' line, none found"),
+                    };
+                }
+                if has_minus && token_line.is_none() {
+                    token_line = Some((i + 1, old_lineno[i]));
+                }
+                old_lineno[i] += 1;
+            }
+        }
+
+        let mut lno = -1;
+        if !origin.contains(&'-') {
+            new_lines.push_str(content);
+            new_lines.push('\n');
+            cur_blame = self_blame.map(|blame_lines| &blame_lines[new_lineno - 1]);
+            token_line = Some((0, new_lineno));
+
+            lno = new_lineno as isize;
+            new_lineno += 1;
+        }
+
+        rows.push(DiffRow {
+            lineno: lno,
+            blame: cur_blame,
+            token_line,
+            origin,
+            content,
+        });
+    }
+
+    let num_lines = std::iter::once(new_lineno - 1)
+        .chain(old_lineno.iter().map(|n| n - 1))
+        .collect();
+    Ok((rows, new_lines, num_lines))
+}
+
+/// Drop the token blames which aren't for the lines the diff has (as source
+/// listings do; see `format_file_data`).  `num_lines` has the number of lines
+/// of the file in the commit and then in each parent, like `token_blames`.
+fn drop_mismatched_token_blames(
+    path: &str,
+    token_blames: &mut [Option<PageBlame>],
+    num_lines: &[usize],
+) {
+    for (blame, num_lines) in token_blames.iter_mut().zip(num_lines) {
+        if let Some(page) = blame
+            && page.lines.len() != *num_lines
+        {
+            log::warn!(
+                "Not using token blame for {} in a diff: {} lines but {} in the diff",
+                path,
+                page.lines.len(),
+                num_lines
+            );
+            *blame = None;
+        }
+    }
+}
+
+/// What interdiffs add to the rows of a diff page (see `format_interdiff`):
+/// attributes for the code of the rows of the lines of the file in the commit
+/// and of the removed lines of the file in its (one) parent, by their
+/// (1-based) lines, and rows to insert before the row of a line of the file in
+/// the commit (or after the last row, for the number of lines + 1).
+#[derive(Default)]
+struct DiffRowExtras {
+    line_attrs: HashMap<usize, String>,
+    removed_line_attrs: HashMap<usize, String>,
+    rows_before: BTreeMap<usize, Vec<String>>,
+}
+
+/// Write the rows of a diff page (see `parse_diff_rows`), with their blame
+/// strips, and its `BLAME_INFOS` (see `format_diff`).  `new_lines` is the
+/// contents of the file in the commit, for its syntax highlighting.
+fn write_diff_rows(
+    writer: &mut dyn Write,
+    cfg: &Config,
+    path: &str,
+    rows: &[DiffRow],
+    new_lines: &str,
+    token_blames: &[Option<PageBlame>],
+    extras: &DiffRowExtras,
+) -> Result<(), &'static str> {
+    let format = languages::select_formatting(path);
+    let analysis = Vec::new();
+    let slug = format_to_slug_attribute(&format);
+    let (formatted_lines, _) = format_code(Some(cfg), &None, format, path, new_lines, &analysis);
+
     let f = F::Seq(vec![F::T(format!(
         "<div id=\"file\" class=\"file\" role=\"table\"{}>",
         slug
@@ -2115,7 +2210,24 @@ pub fn format_diff(
     let mut blame_hash_to_human_id = HashMap::new();
     let mut last_rev = String::new();
     let mut last_color = false;
-    for &(lineno, blame, token_line, ref origin, content) in &output {
+    for row in rows {
+        let &DiffRow {
+            lineno,
+            blame,
+            token_line,
+            ref origin,
+            content,
+        } = row;
+        if lineno > 0 {
+            for extra_row in extras
+                .rows_before
+                .get(&(lineno as usize))
+                .into_iter()
+                .flatten()
+            {
+                writeln!(writer, "{}", extra_row).unwrap();
+            }
+        }
         let token_strip = token_line.and_then(|(blame_index, line)| {
             let page = token_blames.get(blame_index)?.as_ref()?;
             Some((blame_index, line, page, &page.lines[line - 1]))
@@ -2178,6 +2290,11 @@ pub fn format_diff(
         };
 
         let origin = origin.iter().cloned().collect::<String>();
+        let extra_attrs = match token_line {
+            _ if lineno > 0 => extras.line_attrs.get(&(lineno as usize)),
+            Some((1, line)) => extras.removed_line_attrs.get(&line),
+            _ => None,
+        };
 
         let class = if origin.contains('-') {
             " minus-line"
@@ -2215,13 +2332,14 @@ pub fn format_diff(
                 // The source line, after the origin, which the token blame
                 // popup skips with `data-hb-offset`.
                 F::T(format!(
-                    "<code role=\"cell\" class=\"source-line{}\"{}>{} {}\n</code>",
+                    "<code role=\"cell\" class=\"source-line{}\"{}{}>{} {}\n</code>",
                     class,
                     if token_strip.is_some() {
                         format!(r#" data-hb-offset="{}""#, origin.len() + 1)
                     } else {
                         String::new()
                     },
+                    extra_attrs.map_or("", String::as_str),
                     origin,
                     content
                 )),
@@ -2230,6 +2348,15 @@ pub fn format_diff(
         ]);
 
         output::generate_formatted(writer, &f, 0).unwrap();
+    }
+
+    let last_line = rows.iter().map(|row| row.lineno).max().unwrap_or(0).max(0) as usize;
+    for extra_row in extras
+        .rows_before
+        .range(last_line + 1..)
+        .flat_map(|(_, rows)| rows)
+    {
+        writeln!(writer, "{}", extra_row).unwrap();
     }
 
     let f = F::Seq(vec![F::S("</div>")]);
@@ -2261,8 +2388,543 @@ pub fn format_diff(
         .unwrap();
     }
 
-    output::generate_footer(&opt, tree_name, path, writer).unwrap();
+    Ok(())
+}
 
+/// The most commits a side of an interdiff can have.
+const MAX_INTERDIFF_COMMITS: usize = 50;
+
+/// A side of an interdiff (see `hyperblame::interdiff`): its commits, oldest
+/// first (as on explore pages), and the revision before the first.
+struct InterdiffSide<'r> {
+    commits: Vec<git2::Commit<'r>>,
+    revs: HashSet<String>,
+    base: git2::Commit<'r>,
+}
+
+impl InterdiffSide<'_> {
+    /// The side's commits as a URL component.
+    fn key(&self) -> String {
+        self.commits.iter().map(|c| c.id().to_string()).join(",")
+    }
+
+    fn post(&self) -> &git2::Commit<'_> {
+        self.commits.last().unwrap()
+    }
+}
+
+/// The side of an interdiff with the comma-separated revisions `revs`.
+fn interdiff_side<'r>(repo: &'r Repository, revs: &str) -> Result<InterdiffSide<'r>, &'static str> {
+    let mut refs = vec![];
+    for rev in revs
+        .split(',')
+        .map(str::trim)
+        .filter(|rev| !rev.is_empty())
+        .take(MAX_INTERDIFF_COMMITS)
+    {
+        let commit = repo
+            .revparse_single(rev)
+            .and_then(|object| object.peel_to_commit())
+            .map_err(|_| "Bad revision")?;
+        // (The commit index's dates, which `explore::order_commits` orders.)
+        let iso_date = chrono::DateTime::from_timestamp(commit.time().seconds(), 0)
+            .map(|date| date.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+            .unwrap_or_default();
+        refs.push(CommitRef {
+            rev: commit.id().to_string(),
+            iso_date,
+            backout: false,
+        });
+    }
+    if refs.is_empty() {
+        return Err("No revisions");
+    }
+    explore::order_commits(repo, &mut refs);
+    let commits: Vec<_> = refs
+        .iter()
+        .map(|commit_ref| {
+            Oid::from_str(&commit_ref.rev)
+                .and_then(|oid| repo.find_commit(oid))
+                .map_err(|_| "Bad revision")
+        })
+        .collect::<Result<_, _>>()?;
+    let base = commits[0]
+        .parent(0)
+        .map_err(|_| "The first commit of a side has no parent")?;
+    let revs = commits.iter().map(|c| c.id().to_string()).collect();
+    Ok(InterdiffSide {
+        commits,
+        revs,
+        base,
+    })
+}
+
+/// The file at `path` in revisions, with its tokens and their identities in the
+/// history (see `hyperblame::interdiff`), or nothing for revisions without the
+/// file, by revision.
+struct InterdiffFiles<'g> {
+    git: &'g GitData,
+    history: &'g TreeHistory,
+    path: &'g str,
+    files: HashMap<Oid, Rc<(String, Vec<IdToken>)>>,
+}
+
+impl InterdiffFiles<'_> {
+    fn get(&mut self, commit: &git2::Commit) -> Result<Rc<(String, Vec<IdToken>)>, &'static str> {
+        if let Some(file) = self.files.get(&commit.id()) {
+            return Ok(file.clone());
+        }
+        let file = Rc::new(self.read(commit)?);
+        self.files.insert(commit.id(), file.clone());
+        Ok(file)
+    }
+
+    fn read(&self, commit: &git2::Commit) -> Result<(String, Vec<IdToken>), &'static str> {
+        let Ok((repo, oid)) = get_object_at(
+            OwnedOrBorrowed::Borrowed(&self.git.repo),
+            commit.id(),
+            Path::new(self.path),
+        ) else {
+            return Ok((String::new(), vec![]));
+        };
+        let object = repo
+            .find_object(oid, Some(git2::ObjectType::Blob))
+            .map_err(|_| "Not a file")?;
+        let source = git_ops::read_blob_object(&object);
+        let timeline_commit = self
+            .history
+            .timeline_commit(commit.id())
+            .ok_or("The token-centric history doesn't have one of the revisions")?;
+        let file_history = self
+            .history
+            .file_history(&timeline_commit, self.path)
+            .map_err(|_| "Couldn't read the file's history")?
+            .ok_or("The token-centric history doesn't have the file (ex: it's binary)")?;
+        let tokens = {
+            let blame = blame_tokens(&source, &file_history)
+                .map_err(|_| "The file's history doesn't match it")?;
+            blame
+                .tokens
+                .iter()
+                .map(|t| IdToken {
+                    id: (
+                        t.data.introduced.source_rev.to_string(),
+                        t.data.introduced.path.to_string(),
+                        t.data.introduced.lineno,
+                    ),
+                    text: source[t.range.clone()].to_string(),
+                    range: t.range.clone(),
+                    line: t.line,
+                })
+                .collect()
+        };
+        Ok((source, tokens))
+    }
+
+    /// The tokens of the file at the side's base which the side's commits
+    /// removed: those each commit which changed the file removed from it.
+    fn removed(&mut self, side: &InterdiffSide) -> Result<HashSet<TokenId>, &'static str> {
+        let entry = |commit: &git2::Commit| {
+            commit
+                .tree()
+                .ok()
+                .and_then(|tree| tree.get_path(Path::new(self.path)).ok())
+                .map(|entry| entry.id())
+        };
+        let mut removed = HashSet::new();
+        for commit in &side.commits {
+            let parent = commit.parent(0).map_err(|_| "A commit has no parent")?;
+            if entry(&parent) == entry(commit) {
+                continue;
+            }
+            let (before, after) = (self.get(&parent)?, self.get(commit)?);
+            removed.extend(interdiff::removed(&before.1, &after.1));
+        }
+        let base = self.get(&side.base)?;
+        let base_ids: HashSet<&TokenId> = base.1.iter().map(|t| &t.id).collect();
+        removed.retain(|id| base_ids.contains(id));
+        Ok(removed)
+    }
+}
+
+/// The byte offset of the start of each line of `source`.
+fn line_starts(source: &str) -> Vec<usize> {
+    std::iter::once(0)
+        .chain(source.match_indices('\n').map(|(i, _)| i + 1))
+        .collect()
+}
+
+/// The `data-idiff` attributes of the code of the rows of the lines of a file,
+/// by (1-based) line, which interdiff.js marks the tokens with: "START:END:MARK"
+/// for each marked token (see `interdiff::Mark::class`), separated by ";",
+/// where START and END are UTF-16 offsets in the row's code, which starts with
+/// the row's origin (ex: "+ ").
+fn interdiff_attrs(
+    source: &str,
+    tokens: &[IdToken],
+    marks: &[Option<InterdiffMark>],
+) -> HashMap<usize, String> {
+    let starts = line_starts(source);
+    let utf16_len = |s: &str| s.encode_utf16().count();
+    let mut attrs: HashMap<usize, Vec<String>> = HashMap::new();
+    for (token, mark) in tokens.iter().zip(marks) {
+        let Some(mark) = mark else {
+            continue;
+        };
+        let start = 2 + utf16_len(&source[starts[token.line]..token.range.start]);
+        let end = start + utf16_len(&token.text);
+        attrs.entry(token.line + 1).or_default().push(format!(
+            "{}:{}:{}",
+            start,
+            end,
+            mark.class()
+        ));
+    }
+    attrs
+        .into_iter()
+        .map(|(line, marks)| (line, format!(r#" data-idiff="{}""#, marks.join(";"))))
+        .collect()
+}
+
+/// The rows of A's lines with the tokens which only A added (see
+/// `hyperblame::interdiff::Interdiff::only_a`), to go before the rows of B's
+/// lines (see `DiffRowExtras::rows_before`): each goes after the row of B's
+/// line with the nearest matched token before A's tokens.
+fn interdiff_only_a_rows(
+    a_source: &str,
+    a_tokens: &[IdToken],
+    only_a: &[(usize, Option<usize>)],
+) -> BTreeMap<usize, Vec<String>> {
+    fn entity_replace(s: &str) -> String {
+        s.replace("&", "&amp;").replace("<", "&lt;")
+    }
+    let starts = line_starts(a_source);
+    // A's lines with the tokens, with where they go and the tokens' byte ranges
+    // in the line.
+    let mut lines: BTreeMap<usize, (Option<usize>, Vec<Range<usize>>)> = BTreeMap::new();
+    for &(i, anchor) in only_a {
+        let token = &a_tokens[i];
+        let start = starts[token.line];
+        lines
+            .entry(token.line)
+            .or_insert((anchor, vec![]))
+            .1
+            .push(token.range.start - start..token.range.end - start);
+    }
+    let mut rows: BTreeMap<usize, Vec<String>> = BTreeMap::new();
+    for (line, (anchor, ranges)) in lines {
+        let end = starts.get(line + 1).map_or(a_source.len(), |next| next - 1);
+        let text = &a_source[starts[line]..end];
+        let mut content = String::new();
+        let mut pos = 0;
+        for range in ranges {
+            content.push_str(&entity_replace(&text[pos..range.start]));
+            write!(
+                content,
+                r#"<span class="idiff-only-a">{}</span>"#,
+                entity_replace(&text[range.clone()])
+            )
+            .unwrap();
+            pos = range.end;
+        }
+        content.push_str(&entity_replace(&text[pos..]));
+        // After B's line `anchor` (0-based), so before line `anchor` + 2.
+        rows.entry(anchor.map_or(1, |anchor| anchor + 2))
+            .or_default()
+            .push(format!(
+                r#"<div role="row" class="source-line-with-number interdiff-only-a"><div class="line-strip"><div role="cell" class="blame-container"><div class="blame-strip"></div></div></div><div role="cell" class="line-number" data-line-number=""></div><code role="cell" class="source-line" title="Line {} of A's version, whose highlighted tokens B doesn't have">~ {}
+</code></div>"#,
+                line + 1,
+                content
+            ));
+    }
+    rows
+}
+
+/// The commits of a side of an interdiff as an HTML list.
+fn interdiff_commits_html(tree_name: &str, side: &InterdiffSide) -> String {
+    let mut html = String::from("<ol>");
+    for commit in &side.commits {
+        let header = blame::commit_header(commit).unwrap_or_default();
+        write!(
+            html,
+            r#"<li><a href="/{}/commit/{}">{}</a> {}</li>"#,
+            tree_name,
+            commit.id(),
+            &commit.id().to_string()[..12],
+            header
+        )
+        .unwrap();
+    }
+    html.push_str("</ol>");
+    html
+}
+
+/// The interdiff of the file at `path` between two versions of a patch (ex: a
+/// landing and its reland), each a commit or a stack of them (comma-separated
+/// revisions): B's diff of the file, from before its first commit to its last,
+/// with its added and removed tokens marked by how they compare with A's (see
+/// `hyperblame::interdiff`).
+pub fn format_interdiff(
+    cfg: &Config,
+    tree_name: &str,
+    a_revs: &str,
+    b_revs: &str,
+    path: &str,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let history = git
+        .history
+        .as_ref()
+        .ok_or("Interdiffs need the token-centric history")?;
+    let repo: &Repository = &git.repo;
+    let a = interdiff_side(repo, a_revs)?;
+    let b = interdiff_side(repo, b_revs)?;
+
+    let mut files = InterdiffFiles {
+        git,
+        history,
+        path,
+        files: HashMap::new(),
+    };
+    let (a_base, a_post) = (files.get(&a.base)?, files.get(a.post())?);
+    let (b_base, b_post) = (files.get(&b.base)?, files.get(b.post())?);
+    if [&a_base, &a_post, &b_base, &b_post]
+        .iter()
+        .all(|file| file.1.is_empty() && file.0.is_empty())
+    {
+        return Err("Neither side has the file");
+    }
+    let (a_removed, b_removed) = (files.removed(&a)?, files.removed(&b)?);
+    let result = interdiff::interdiff(
+        &InterdiffSideTokens {
+            revs: &a.revs,
+            base: &a_base.1,
+            post: &a_post.1,
+            removed: &a_removed,
+        },
+        &InterdiffSideTokens {
+            revs: &b.revs,
+            base: &b_base.1,
+            post: &b_post.1,
+            removed: &b_removed,
+        },
+    );
+
+    // B's diff of the file.  (The system git, with SHA-1 collision detection,
+    // since this works on a source repo; see `fast_import_git` for our git.)
+    let git_path = tree_config.get_git_path()?;
+    let output = Command::new("git")
+        .arg("diff")
+        .arg("-p")
+        .arg("--patience")
+        .arg("--full-index")
+        .arg("--no-prefix")
+        .arg("-U100000")
+        .arg(b.base.id().to_string())
+        .arg(b.post().id().to_string())
+        .arg("--")
+        .arg(path)
+        .current_dir(git_path)
+        .output()
+        .map_err(|_| "Diff failed 1")?;
+    if !output.status.success() {
+        return Err("Diff failed 2");
+    }
+    let mut difftxt = git_ops::decode_bytes(output.stdout);
+    if difftxt.is_empty() {
+        // B didn't change the file, so its diff is all context.
+        difftxt = String::from("@@ @@\n");
+        for line in b_post.0.lines() {
+            writeln!(difftxt, " {}", line).unwrap();
+        }
+    }
+    let (rows, new_lines, num_lines) = parse_diff_rows(&difftxt, 1, None, None)?;
+    let mut token_blames = vec![
+        revision_token_blame(tree_name, git, b.post(), path),
+        revision_token_blame(tree_name, git, &b.base, path),
+    ];
+    drop_mismatched_token_blames(path, &mut token_blames, &num_lines);
+    if let FormatAs::Binary = languages::select_formatting(path) {
+        return Err("Cannot diff binary file");
+    };
+
+    let extras = DiffRowExtras {
+        line_attrs: interdiff_attrs(&b_post.0, &b_post.1, &result.post_marks),
+        removed_line_attrs: interdiff_attrs(&b_base.0, &b_base.1, &result.base_marks),
+        rows_before: interdiff_only_a_rows(&a_post.0, &a_post.1, &result.only_a),
+    };
+
+    let b_rev = b.post().id().to_string();
+    let header = blame::commit_header(b.post())?;
+    let filename = Path::new(path).file_name().unwrap().to_str().unwrap();
+    let title = format!("{} interdiff - mozsearch", filename);
+    let opt = Options {
+        title: &title,
+        tree_name,
+        include_date: true,
+        revision: Some(RevisionData {
+            rev: &b_rev,
+            desc: &header,
+            date: git_time_to_chrono(b.post().time()),
+        }),
+        breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
+        extra_content_classes: "source-listing diff interdiff",
+    };
+    output::generate_header(&opt, writer)?;
+    let file_syms = vec![make_file_sym_from_path(path)];
+    output::generate_breadcrumbs(&opt, writer, path, &file_syms, false)?;
+
+    let encoded_path = url_encode_path(path);
+    let (a_key, b_key) = (a.key(), b.key());
+    let sections = vec![PanelSection {
+        name: "Interdiff".to_owned(),
+        items: vec![
+            PanelItem {
+                label: PanelItemLabel::Plaintext("Swap A and B".to_owned()),
+                tooltip: "Show A's diff compared with B's".to_owned(),
+                id: "panel-interdiff-swap",
+                link: format!(
+                    "/{}/interdiff/{}/{}/{}",
+                    tree_name, b_key, a_key, encoded_path
+                ),
+                update_link_lineno: "",
+                accel_key: None,
+                copyable: true,
+            },
+            PanelItem {
+                label: PanelItemLabel::Plaintext("All files".to_owned()),
+                tooltip: "The files A or B changed".to_owned(),
+                id: "panel-interdiff-files",
+                link: format!("/{}/interdiff/{}/{}", tree_name, a_key, b_key),
+                update_link_lineno: "",
+                accel_key: None,
+                copyable: true,
+            },
+            PanelItem {
+                label: PanelItemLabel::Plaintext("Show B's version".to_owned()),
+                tooltip: "Open the file as of B's last commit".to_owned(),
+                id: "panel-interdiff-b",
+                link: format!("/{}/rev/{}/{}", tree_name, b_rev, encoded_path),
+                update_link_lineno: "#{}",
+                accel_key: None,
+                copyable: true,
+            },
+        ],
+        raw_items: vec![],
+    }];
+    output::generate_panel(&opt, writer, &sections, false)?;
+
+    let counts = &result.counts;
+    let plural = |n: usize| if n == 1 { "" } else { "s" };
+    write!(
+        writer,
+        r#"<section class="interdiff-summary">
+<div class="interdiff-sides"><div><h3>A</h3>{}</div><div><h3>B</h3>{}</div></div>
+<p class="interdiff-legend">B's diff, compared with A's: <span class="idiff-new">{} token{} new in B</span>, <span class="idiff-same">{} the same as A's</span>, <span class="idiff-only-a">{} of A's which B doesn't have</span> (on rows of A's lines), <span class="idiff-rm-new">{} removed only by B</span>, <span class="idiff-rm-same">{} removed by both</span>, <span class="idiff-kept">{} removed by A but kept by B</span>, and <span class="idiff-base">{} from neither patch</span>.</p>
+</section>
+"#,
+        interdiff_commits_html(tree_name, &a),
+        interdiff_commits_html(tree_name, &b),
+        counts.new,
+        plural(counts.new),
+        counts.same,
+        counts.only_a,
+        counts.removed_new,
+        counts.removed_same,
+        counts.kept,
+        counts.base,
+    )
+    .unwrap();
+
+    write_diff_rows(writer, cfg, path, &rows, &new_lines, &token_blames, &extras)?;
+
+    output::generate_footer(&opt, tree_name, path, writer).unwrap();
+    Ok(())
+}
+
+/// The files which either side of an interdiff changed (see `format_interdiff`),
+/// with links to their interdiffs.
+pub fn format_interdiff_files(
+    cfg: &Config,
+    tree_name: &str,
+    a_revs: &str,
+    b_revs: &str,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let repo: &Repository = &git.repo;
+    let a = interdiff_side(repo, a_revs)?;
+    let b = interdiff_side(repo, b_revs)?;
+
+    // The files each side's commits changed.
+    let mut paths: BTreeMap<String, [bool; 2]> = BTreeMap::new();
+    for (i, side) in [&a, &b].into_iter().enumerate() {
+        for commit in &side.commits {
+            let parent_tree = commit.parent(0).and_then(|p| p.tree()).ok();
+            let tree = commit.tree().map_err(|_| "Bad revision")?;
+            let diff = repo
+                .diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)
+                .map_err(|_| "Diff failed")?;
+            for delta in diff.deltas() {
+                for file in [delta.old_file(), delta.new_file()] {
+                    if let Some(path) = file.path().and_then(|p| p.to_str()) {
+                        paths.entry(path.to_string()).or_default()[i] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    let title = "Interdiff - mozsearch";
+    let opt = Options {
+        title,
+        tree_name,
+        include_date: true,
+        revision: None,
+        breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
+        extra_content_classes: "interdiff-files",
+    };
+    output::generate_header(&opt, writer)?;
+    output::generate_panel(&opt, writer, &[], true)?;
+    let (a_key, b_key) = (a.key(), b.key());
+    write!(
+        writer,
+        r#"<section class="interdiff-summary">
+<div class="interdiff-sides"><div><h3>A</h3>{}</div><div><h3>B</h3>{}</div></div>
+<p>The files A or B changed, each with B's diff compared with A's (<a href="/{}/interdiff/{}/{}">swap A and B</a>):</p>
+<ul class="interdiff-file-list">
+"#,
+        interdiff_commits_html(tree_name, &a),
+        interdiff_commits_html(tree_name, &b),
+        tree_name,
+        b_key,
+        a_key,
+    )
+    .unwrap();
+    for (path, [in_a, in_b]) in &paths {
+        let sides = match (in_a, in_b) {
+            (true, true) => "",
+            (true, false) => r#" <span class="interdiff-side-note">(only A)</span>"#,
+            _ => r#" <span class="interdiff-side-note">(only B)</span>"#,
+        };
+        writeln!(
+            writer,
+            r#"<li><a href="/{}/interdiff/{}/{}/{}">{}</a>{}</li>"#,
+            tree_name,
+            a_key,
+            b_key,
+            url_encode_path(path),
+            path.replace("&", "&amp;").replace("<", "&lt;"),
+            sides
+        )
+        .unwrap();
+    }
+    writeln!(writer, "</ul>\n</section>").unwrap();
+    output::generate_footer(&opt, tree_name, "", writer).unwrap();
     Ok(())
 }
 
@@ -2461,7 +3123,7 @@ pub fn format_explore(
     let truncated = refs.len() > explore::MAX_COMMITS;
     refs.truncate(explore::MAX_COMMITS);
 
-    let commits: Vec<ExploreCommit> = refs
+    let mut commits: Vec<ExploreCommit> = refs
         .iter()
         .enumerate()
         .map(|(i, commit_ref)| {
@@ -2478,6 +3140,7 @@ pub fn format_explore(
                 rev: commit_ref.rev.clone(),
                 iso_date: commit_ref.iso_date.clone(),
                 backout: commit_ref.backout,
+                interdiff: None,
                 header,
                 summary,
             }
@@ -2487,6 +3150,15 @@ pub fn format_explore(
         .iter()
         .map(|commit_ref| commit_changes(history, &git.repo, &commit_ref.rev))
         .collect();
+    for (backout, backed_out, reland) in explore::relands(history, &refs, &changes) {
+        let revs = |indices: &[usize]| indices.iter().map(|&i| refs[i].rev.as_str()).join(",");
+        commits[backout].interdiff = Some(format!(
+            "/{}/interdiff/{}/{}",
+            tree_name,
+            revs(&backed_out),
+            revs(&reland)
+        ));
+    }
     let files = blot_files(&refs, &changes, |path, rev| {
         format!("/{}/rev/{}/{}", tree_name, rev, url_encode_path(path))
     });

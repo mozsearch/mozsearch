@@ -9,6 +9,7 @@ pub mod explore;
 pub mod future;
 pub mod history_config;
 pub mod inference;
+pub mod interdiff;
 pub mod journals;
 pub mod page_blame;
 pub mod page_data_cache;

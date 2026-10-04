@@ -54,4 +54,27 @@
       root.querySelector(".explore-commit-list").open = true;
     }
   });
+
+  // The commits checked as side A and side B of an interdiff (see
+  // `format_interdiff` in format.rs) make the picker's link.
+  const interdiffLink = root.querySelector(".explore-interdiff-link");
+  function updateInterdiffLink() {
+    const picked = side =>
+      [...root.querySelectorAll(`.explore-pick-${side}:checked`)].map(box => box.value);
+    const [a, b] = [picked("a"), picked("b")];
+    if (a.length && b.length) {
+      const tree = document.getElementById("data").getAttribute("data-tree");
+      interdiffLink.href = `/${tree}/interdiff/${a.join(",")}/${b.join(",")}`;
+    } else {
+      interdiffLink.removeAttribute("href");
+    }
+  }
+  root.addEventListener("change", event => {
+    if (event.target.matches?.(".explore-pick-a, .explore-pick-b")) {
+      updateInterdiffLink();
+    }
+  });
+  if (interdiffLink) {
+    updateInterdiffLink();
+  }
 })();
