@@ -17,14 +17,20 @@ class TriggerCostlyMaintenanceCommand(TriggerCommandBase):
 
     def make_parser(self):
         parser = super().make_parser()
-        # The maintenance is costly in memory (ex: fully repacking the full
-        # firefox history's timeline, 246M objects, took ~50 GiB, besides the
-        # packs it mapped) and disk (the history, and its repack, which needs
-        # about as much space again), so it defaults to the instance type the
-        # full firefox reblame did that on, with more swap than the 8 GiB
-        # default (see mkscratch.sh), and the root volume reblame gets, for
-        # building the tools if they aren't in the binary cache.
-        parser.set_defaults(instance_type='m8id.8xlarge', root_volume_gb=100,
+        # The maintenance is costly in memory and disk, so it defaults to an
+        # r6id.4xlarge: 128 GiB of memory, 16 CPUs, and a 950 GB SSD, for $1.21
+        # an hour on demand in 2026-10 (an m8id.8xlarge, which has as much
+        # memory, twice the CPUs and SSD, was $2.09, and an m6id.4xlarge, with
+        # half the memory, $0.95).  Fully repacking the full firefox history's
+        # timeline, 246M objects, took ~50 GiB of memory, which would leave a
+        # 64 GiB instance little for caching the 130 GiB of packs it read, and
+        # used one CPU most of the time (on the full firefox reblame's
+        # m8id.8xlarge, which kept 70-90 GiB of the packs cached).  The
+        # history (~120 GiB) and its repack (about as much space again) fit
+        # on the SSD.  More swap than the 8 GiB default (see mkscratch.sh)
+        # covers needing more memory than that, and the root volume reblame
+        # gets is for building the tools if they aren't in the binary cache.
+        parser.set_defaults(instance_type='r6id.4xlarge', root_volume_gb=100,
                             env_vars=['SWAP_GIB=64'])
         return parser
 

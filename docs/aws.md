@@ -462,14 +462,20 @@ faster than it would fully repacked: a week of firefox's timeline (in
 September 2026) took 688 MiB once geometric repacks had combined its days'
 packs, but 421 MiB as deltas of the history before it.
 `infrastructure/aws/trigger_costly_maintenance.py` takes the same arguments as
-the other trigger scripts and launches an instance (an `m8id.8xlarge`, with 64
-GiB of swap, by default) which runs the `costly-maintenance` script from the
-config repo of each tree in the config file which has one (via
-`costly-maintenance.sh` and `infrastructure/costly-maintenance-run.sh`; for
-the other trees, it does nothing), uploads its log to the `indexer-logs`
-bucket as `costly-maintenance-*.gz`, emails, and terminates, as reblame does
-(see above, including `reblame-status.py`, which shows these instances and
-logs too).  For example:
+the other trigger scripts and launches an instance which runs the
+`costly-maintenance` script from the config repo of each tree in the config
+file which has one (via `costly-maintenance.sh` and
+`infrastructure/costly-maintenance-run.sh`; for the other trees, it does
+nothing), uploads its log to the `indexer-logs` bucket as
+`costly-maintenance-*.gz`, emails, and terminates, as reblame does (see above,
+including `reblame-status.py`, which shows these instances and logs too).  The
+instance is an `r6id.4xlarge` by default (`--instance-type` overrides it), for
+its 128 GiB of memory, with 64 GiB of swap: fully repacking the full firefox
+history's timeline took ~50 GiB, and the rest of the memory caches the packs
+it reads, but it mostly used one CPU, which makes the memory-optimized
+`r6id.4xlarge` (16 CPUs, $1.21 an hour in 2026-10) cheaper than the
+`m8id.8xlarge` which the full firefox reblame did it on (32 CPUs, $2.09).
+For example:
 
 ```
 infrastructure/aws/trigger_costly_maintenance.py \
