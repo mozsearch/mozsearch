@@ -1,0 +1,28 @@
+{%- comment -%}
+  A file of an /explore/ page (see explore.liquid) or of an interdiff's summary
+  (see interdiff_files.liquid): its sparkline and its symbols' (expandable for
+  symbols with nested symbols).  Interdiffs fade the files and symbols whose
+  changes are the same in both patches, and add a note and excerpts.
+{%- endcomment -%}
+  <section class="explore-file{% if file.same %} interdiff-same{% endif %}">
+    <div class="explore-file-header"><a href="{{ file.link }}">{{ file.path | escape }}</a> {{ file.sparkline }}{% if file.note != "" %} <span class="interdiff-file-note">{{ file.note }}</span>{% endif %}</div>
+    {%- if file.symbols.size > 0 %}
+    <div class="explore-symbols">
+      {%- for symbol in file.symbols %}
+      {%- if symbol.children.size > 0 %}
+      <details class="explore-symbol explore-parent{% if symbol.same %} interdiff-same{% endif %}">
+        <summary title="{{ symbol.pretty | escape }}"><span class="explore-summary"><span class="explore-name">{{ symbol.name | escape }}</span> <span class="explore-count">({{ symbol.children.size }})</span> <span class="explore-collapsed">{{ symbol.blot }}</span><span class="explore-expanded">{{ symbol.sparkline }}</span></span></summary>
+        <div class="explore-children">
+          {%- for child in symbol.children %}
+          <span class="explore-symbol explore-child{% if child.same %} interdiff-same{% endif %}" title="{{ child.pretty | escape }}"><span class="explore-name">{{ child.name | escape }}</span> {{ child.sparkline }}</span>
+          {%- endfor %}
+        </div>
+      </details>
+      {%- else %}
+      <span class="explore-symbol{% if symbol.same %} interdiff-same{% endif %}" title="{{ symbol.pretty | escape }}"><span class="explore-name">{{ symbol.name | escape }}</span> {{ symbol.sparkline }}</span>
+      {%- endif %}
+      {%- endfor %}
+    </div>
+    {%- endif %}
+    {{ file.excerpts }}
+  </section>

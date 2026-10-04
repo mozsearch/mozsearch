@@ -268,6 +268,9 @@ pub struct ExploreSymbol {
     /// The nested symbols (all of them, including more deeply nested ones,
     /// named relative to this symbol).
     pub children: Vec<ExploreSymbol>,
+    /// For interdiffs (see `format::format_interdiff_files`), whether the
+    /// patches' changes to the symbol are the same, which fades it.
+    pub same: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -277,6 +280,12 @@ pub struct ExploreFile {
     pub link: String,
     pub sparkline: String,
     pub symbols: Vec<ExploreSymbol>,
+    /// For interdiffs (see `format::format_interdiff_files`), whether the
+    /// patches' changes to the file are the same, and HTML notes about them
+    /// and excerpts of where they differ.
+    pub same: bool,
+    pub note: String,
+    pub excerpts: String,
 }
 
 /// The symbols' parents: the longest proper prefix (by "::" segments) which is
@@ -307,7 +316,7 @@ fn symbol_parents(symbols: &BTreeSet<&str>) -> BTreeMap<String, String> {
 }
 
 /// The name of the changes outside of any symbol.
-const TOP_LEVEL: &str = "(top level)";
+pub const TOP_LEVEL: &str = "(top level)";
 
 /// The files which the commits (in page order) changed, sorted by path, with
 /// their symbols.  `link` makes a file's link from its path and the last commit
@@ -389,6 +398,7 @@ pub fn blot_files(
                         sparkline: blot_svg(&[(levels, 4)], slot, "explore-child-sparkline"),
                         blot: None,
                         children: vec![],
+                        same: false,
                     })
                     .collect();
                 let blot = (!children.is_empty()).then(|| {
@@ -402,6 +412,7 @@ pub fn blot_files(
                     sparkline: blot_svg(&[(&top_levels, 6)], slot, ""),
                     blot,
                     children,
+                    same: false,
                 }
             })
             .collect();
@@ -415,6 +426,9 @@ pub fn blot_files(
             link: link(path, &commits[last].rev),
             sparkline: blot_svg(&[(&file_levels, 8)], slot, "explore-file-sparkline"),
             symbols,
+            same: false,
+            note: String::new(),
+            excerpts: String::new(),
         });
     }
     files

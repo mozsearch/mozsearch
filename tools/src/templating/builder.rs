@@ -89,6 +89,15 @@ pub fn build_and_parse_dir_listing() -> Template {
     build_and_parse(template_str)
 }
 
+pub fn build_and_parse_interdiff_files() -> Template {
+    let template_str = TEMPLATE_DIR
+        .get_file("interdiff_files.liquid")
+        .unwrap()
+        .contents_utf8()
+        .unwrap();
+    build_and_parse(template_str)
+}
+
 pub fn build_and_parse_explore() -> Template {
     let template_str = TEMPLATE_DIR
         .get_file("explore.liquid")

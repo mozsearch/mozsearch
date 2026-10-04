@@ -47,11 +47,13 @@
     }
   });
 
-  // The commit list may be collapsed.
+  // The commit list may be collapsed.  (Interdiffs' summaries list their
+  // sides' commits instead.)
+  const commitList = root.querySelector(".explore-commit-list");
   root.addEventListener("click", event => {
     const link = event.target.closest?.('a[href^="#commit-"]');
-    if (link) {
-      root.querySelector(".explore-commit-list").open = true;
+    if (link && commitList) {
+      commitList.open = true;
     }
   });
 

@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::env;
 use std::fmt::Write as _;
 use std::io::Write;
@@ -24,7 +24,8 @@ use crate::git_ops::{self, coverage_history, coverage_summary, git_time_to_chron
 use crate::hyperblame::explore::{self, ExploreCommit, blot_files, commit_changes};
 use crate::hyperblame::future;
 use crate::hyperblame::interdiff::{
-    self, IdToken, Mark as InterdiffMark, Side as InterdiffSideTokens, TokenId,
+    self, Counts as InterdiffCounts, IdToken, Mark as InterdiffMark, Side as InterdiffSideTokens,
+    TokenId,
 };
 use crate::hyperblame::page_blame::{CommitMeta, PageBlame, page_blame};
 use crate::hyperblame::page_data_cache::{PAGE_DATA_CACHE, PageData};
@@ -35,6 +36,7 @@ use crate::languages::FormatAs;
 use crate::links;
 use crate::templating::builder::{
     build_and_parse_coverage_history, build_and_parse_dir_listing, build_and_parse_explore,
+    build_and_parse_interdiff_files,
 };
 use crate::tokenize;
 use crate::utils::OwnedOrBorrowed;
@@ -43,6 +45,7 @@ use crate::file_format::analysis::{
     AnalysisSource, ExpansionInfo, WithLocation, collect_file_syms_from_source,
 };
 use crate::file_format::config::{Config, GitData, TreeConfig};
+use crate::file_format::history::syntax_files::{split_token_line, token_file_lines};
 use crate::output::{
     self, BreadcrumbsLinksTo, F, Options, PanelItem, PanelItemLabel, PanelSection, RevisionData,
 };
@@ -2398,6 +2401,7 @@ const MAX_INTERDIFF_COMMITS: usize = 50;
 /// first (as on explore pages), and the revision before the first.
 struct InterdiffSide<'r> {
     commits: Vec<git2::Commit<'r>>,
+    refs: Vec<CommitRef>,
     revs: HashSet<String>,
     base: git2::Commit<'r>,
 }
@@ -2454,6 +2458,7 @@ fn interdiff_side<'r>(repo: &'r Repository, revs: &str) -> Result<InterdiffSide<
     let revs = commits.iter().map(|c| c.id().to_string()).collect();
     Ok(InterdiffSide {
         commits,
+        refs,
         revs,
         base,
     })
@@ -2503,16 +2508,23 @@ impl InterdiffFiles<'_> {
         let tokens = {
             let blame = blame_tokens(&source, &file_history)
                 .map_err(|_| "The file's history doesn't match it")?;
+            // The syntax file has a line for each token, with its context.
+            let syntax_lines = token_file_lines(&file_history.syntax);
             blame
                 .tokens
                 .iter()
-                .map(|t| IdToken {
+                .enumerate()
+                .map(|(i, t)| IdToken {
                     id: (
                         t.data.introduced.source_rev.to_string(),
                         t.data.introduced.path.to_string(),
                         t.data.introduced.lineno,
                     ),
                     text: source[t.range.clone()].to_string(),
+                    context: syntax_lines
+                        .get(i)
+                        .map_or("%", |line| split_token_line(line).context)
+                        .to_string(),
                     range: t.range.clone(),
                     line: t.line,
                 })
@@ -2586,59 +2598,485 @@ fn interdiff_attrs(
         .collect()
 }
 
-/// The rows of A's lines with the tokens which only A added (see
+/// A's lines with the tokens which only A added (see
 /// `hyperblame::interdiff::Interdiff::only_a`), to go before the rows of B's
-/// lines (see `DiffRowExtras::rows_before`): each goes after the row of B's
-/// line with the nearest matched token before A's tokens.
-fn interdiff_only_a_rows(
+/// lines (see `DiffRowExtras::rows_before`), each after the row of B's line
+/// with the nearest matched token before A's tokens, by the line of B's
+/// version they go before.
+fn interdiff_only_a_lines(
     a_source: &str,
     a_tokens: &[IdToken],
     only_a: &[(usize, Option<usize>)],
-) -> BTreeMap<usize, Vec<String>> {
-    fn entity_replace(s: &str) -> String {
-        s.replace("&", "&amp;").replace("<", "&lt;")
-    }
+) -> BTreeMap<usize, Vec<OnlyALine>> {
     let starts = line_starts(a_source);
-    // A's lines with the tokens, with where they go and the tokens' byte ranges
-    // in the line.
-    let mut lines: BTreeMap<usize, (Option<usize>, Vec<Range<usize>>)> = BTreeMap::new();
+    // A's lines with the tokens, with where they go, the tokens' byte ranges in
+    // the line, and the first token's context.
+    type Line<'t> = (Option<usize>, Vec<Range<usize>>, &'t str);
+    let mut lines: BTreeMap<usize, Line> = BTreeMap::new();
     for &(i, anchor) in only_a {
         let token = &a_tokens[i];
         let start = starts[token.line];
         lines
             .entry(token.line)
-            .or_insert((anchor, vec![]))
+            .or_insert((anchor, vec![], &token.context))
             .1
             .push(token.range.start - start..token.range.end - start);
     }
-    let mut rows: BTreeMap<usize, Vec<String>> = BTreeMap::new();
-    for (line, (anchor, ranges)) in lines {
+    let mut rows: BTreeMap<usize, Vec<OnlyALine>> = BTreeMap::new();
+    for (line, (anchor, ranges, context)) in lines {
         let end = starts.get(line + 1).map_or(a_source.len(), |next| next - 1);
         let text = &a_source[starts[line]..end];
         let mut content = String::new();
         let mut pos = 0;
         for range in ranges {
-            content.push_str(&entity_replace(&text[pos..range.start]));
+            content.push_str(&entity_escape(&text[pos..range.start]));
             write!(
                 content,
                 r#"<span class="idiff-only-a">{}</span>"#,
-                entity_replace(&text[range.clone()])
+                entity_escape(&text[range.clone()])
             )
             .unwrap();
             pos = range.end;
         }
-        content.push_str(&entity_replace(&text[pos..]));
+        content.push_str(&entity_escape(&text[pos..]));
         // After B's line `anchor` (0-based), so before line `anchor` + 2.
         rows.entry(anchor.map_or(1, |anchor| anchor + 2))
             .or_default()
-            .push(format!(
-                r#"<div role="row" class="source-line-with-number interdiff-only-a"><div class="line-strip"><div role="cell" class="blame-container"><div class="blame-strip"></div></div></div><div role="cell" class="line-number" data-line-number=""></div><code role="cell" class="source-line" title="Line {} of A's version, whose highlighted tokens B doesn't have">~ {}
-</code></div>"#,
-                line + 1,
-                content
-            ));
+            .push(OnlyALine {
+                line,
+                content,
+                context: context.to_string(),
+            });
     }
     rows
+}
+
+/// One of A's lines with tokens which only A added; see
+/// `interdiff_only_a_lines`.
+struct OnlyALine {
+    /// The (0-based) line of A's version.
+    line: usize,
+    /// The line as HTML, with the tokens marked.
+    content: String,
+    /// The context of the line's first such token.
+    context: String,
+}
+
+impl OnlyALine {
+    fn title(&self) -> String {
+        format!(
+            "Line {} of A's version, whose highlighted tokens B doesn't have",
+            self.line + 1
+        )
+    }
+
+    /// The line's row, for diff pages (see `DiffRowExtras::rows_before`).
+    fn row_html(&self) -> String {
+        format!(
+            r#"<div role="row" class="source-line-with-number interdiff-only-a"><div class="line-strip"><div role="cell" class="blame-container"><div class="blame-strip"></div></div></div><div role="cell" class="line-number" data-line-number=""></div><code role="cell" class="source-line" title="{}">~ {}
+</code></div>"#,
+            self.title(),
+            self.content
+        )
+    }
+}
+
+fn entity_escape(s: &str) -> String {
+    s.replace("&", "&amp;").replace("<", "&lt;")
+}
+
+/// The interdiff of a file (see `format_interdiff`): B's diff of it, what marks
+/// its rows' tokens, and the contexts of the differences (see
+/// `interdiff::Mark::differs`) and of B's lines, by line (1-based).
+struct FileInterdiff {
+    difftxt: String,
+    /// The `data-idiff` attributes of the rows of B's version and of B's base,
+    /// and A's lines with tokens B doesn't have (see `DiffRowExtras`).
+    line_attrs: HashMap<usize, String>,
+    removed_line_attrs: HashMap<usize, String>,
+    only_a: BTreeMap<usize, Vec<OnlyALine>>,
+    counts: InterdiffCounts,
+    /// The contexts of the first differences on lines of B's version and of
+    /// B's base.
+    post_differences: BTreeMap<usize, String>,
+    base_differences: BTreeMap<usize, String>,
+    /// The contexts of the first tokens of the lines of B's version and of B's
+    /// base which have tokens.
+    post_contexts: HashMap<usize, String>,
+    base_contexts: HashMap<usize, String>,
+}
+
+impl FileInterdiff {
+    /// Whether the patches differ in the file.
+    fn differs(&self) -> bool {
+        !(self.post_differences.is_empty()
+            && self.base_differences.is_empty()
+            && self.only_a.is_empty())
+    }
+
+    /// The contexts with differences.
+    fn difference_contexts(&self) -> BTreeSet<&str> {
+        self.post_differences
+            .values()
+            .chain(self.base_differences.values())
+            .map(String::as_str)
+            .chain(
+                self.only_a
+                    .values()
+                    .flatten()
+                    .map(|line| line.context.as_str()),
+            )
+            .collect()
+    }
+
+    fn extras(&self) -> DiffRowExtras {
+        DiffRowExtras {
+            line_attrs: self.line_attrs.clone(),
+            removed_line_attrs: self.removed_line_attrs.clone(),
+            rows_before: self
+                .only_a
+                .iter()
+                .map(|(&key, lines)| (key, lines.iter().map(OnlyALine::row_html).collect()))
+                .collect(),
+        }
+    }
+}
+
+/// The contexts of the first tokens of the lines of a file (1-based) with
+/// tokens, and of its first tokens with marks which are differences.
+fn interdiff_line_contexts(
+    tokens: &[IdToken],
+    marks: &[Option<InterdiffMark>],
+) -> (HashMap<usize, String>, BTreeMap<usize, String>) {
+    let mut contexts = HashMap::new();
+    let mut differences = BTreeMap::new();
+    for (token, mark) in tokens.iter().zip(marks) {
+        contexts
+            .entry(token.line + 1)
+            .or_insert_with(|| token.context.clone());
+        if mark.is_some_and(InterdiffMark::differs) {
+            differences
+                .entry(token.line + 1)
+                .or_insert_with(|| token.context.clone());
+        }
+    }
+    (contexts, differences)
+}
+
+/// The interdiff of the file at `path` between the sides `a` and `b`.
+fn file_interdiff(
+    git: &GitData,
+    history: &TreeHistory,
+    git_path: &str,
+    a: &InterdiffSide,
+    b: &InterdiffSide,
+    path: &str,
+) -> Result<FileInterdiff, &'static str> {
+    let mut files = InterdiffFiles {
+        git,
+        history,
+        path,
+        files: HashMap::new(),
+    };
+    let (a_base, a_post) = (files.get(&a.base)?, files.get(a.post())?);
+    let (b_base, b_post) = (files.get(&b.base)?, files.get(b.post())?);
+    if [&a_base, &a_post, &b_base, &b_post]
+        .iter()
+        .all(|file| file.1.is_empty() && file.0.is_empty())
+    {
+        return Err("Neither side has the file");
+    }
+    let (a_removed, b_removed) = (files.removed(a)?, files.removed(b)?);
+    let result = interdiff::interdiff(
+        &InterdiffSideTokens {
+            revs: &a.revs,
+            base: &a_base.1,
+            post: &a_post.1,
+            removed: &a_removed,
+        },
+        &InterdiffSideTokens {
+            revs: &b.revs,
+            base: &b_base.1,
+            post: &b_post.1,
+            removed: &b_removed,
+        },
+    );
+
+    // B's diff of the file.  (The system git, with SHA-1 collision detection,
+    // since this works on a source repo; see `fast_import_git` for our git.)
+    let output = Command::new("git")
+        .arg("diff")
+        .arg("-p")
+        .arg("--patience")
+        .arg("--full-index")
+        .arg("--no-prefix")
+        .arg("-U100000")
+        .arg(b.base.id().to_string())
+        .arg(b.post().id().to_string())
+        .arg("--")
+        .arg(path)
+        .current_dir(git_path)
+        .output()
+        .map_err(|_| "Diff failed 1")?;
+    if !output.status.success() {
+        return Err("Diff failed 2");
+    }
+    let mut difftxt = git_ops::decode_bytes(output.stdout);
+    if difftxt.is_empty() {
+        // B didn't change the file, so its diff is all context.
+        difftxt = String::from("@@ @@\n");
+        for line in b_post.0.lines() {
+            writeln!(difftxt, " {}", line).unwrap();
+        }
+    }
+
+    let (post_contexts, post_differences) = interdiff_line_contexts(&b_post.1, &result.post_marks);
+    let (base_contexts, base_differences) = interdiff_line_contexts(&b_base.1, &result.base_marks);
+    Ok(FileInterdiff {
+        difftxt,
+        line_attrs: interdiff_attrs(&b_post.0, &b_post.1, &result.post_marks),
+        removed_line_attrs: interdiff_attrs(&b_base.0, &b_base.1, &result.base_marks),
+        only_a: interdiff_only_a_lines(&a_post.0, &a_post.1, &result.only_a),
+        counts: result.counts,
+        post_differences,
+        base_differences,
+        post_contexts,
+        base_contexts,
+    })
+}
+
+/// Excerpts of a function show all of its rows if it has at most this many,
+/// and otherwise its first row and the rows around its differences.
+const MAX_EXCERPT_FUNCTION_ROWS: usize = 40;
+/// How many rows around differences excerpts show.
+const EXCERPT_CONTEXT_ROWS: usize = 3;
+/// The most rows of excerpts a file shows, and an interdiff's summary.
+const MAX_EXCERPT_ROWS: usize = 300;
+const MAX_SUMMARY_EXCERPT_ROWS: usize = 3000;
+
+/// Excerpts of B's diff of a file (see `FileInterdiff`) where the patches
+/// differ, as HTML: for each function with differences, all of its rows if
+/// it's short, and otherwise its first row (its declaration) and the rows
+/// around the differences, as for differences outside of any function.  A
+/// function's rows are those whose first token has its context (or a nested
+/// one).  `link` is the file's interdiff, which the line numbers link to.  The
+/// excerpts stop after `max_rows` rows (and at most `MAX_EXCERPT_ROWS`), and
+/// this also returns how many they have.
+fn interdiff_excerpts<'f>(
+    cfg: &Config,
+    path: &str,
+    file: &'f FileInterdiff,
+    link: &str,
+    max_rows: usize,
+) -> Result<(String, usize), &'static str> {
+    let (rows, new_lines, _) = parse_diff_rows(&file.difftxt, 1, None, None)?;
+    let format = languages::select_formatting(path);
+    if let FormatAs::Binary = format {
+        return Ok((String::new(), 0));
+    }
+    let max_rows = max_rows.min(MAX_EXCERPT_ROWS);
+    let (formatted_lines, _) = format_code(Some(cfg), &None, format, path, &new_lines, &[]);
+
+    /// A row of the excerpts (a row of B's diff, or one of A's lines), with
+    /// its context and the context of its first difference.
+    struct Item<'a> {
+        html: String,
+        context: Option<&'a str>,
+        difference: Option<&'a str>,
+    }
+    // (Not `.line-number`, which would make code-highlighter.js select the
+    // line in this page.)
+    let row_html = |lineno: Option<usize>, class: &str, attrs: &str, code: &str| {
+        let number = match lineno {
+            Some(lineno) => format!(
+                r#"<a class="interdiff-excerpt-lineno" href="{}#{}">{}</a>"#,
+                link, lineno, lineno
+            ),
+            None => r#"<span class="interdiff-excerpt-lineno"></span>"#.to_string(),
+        };
+        format!(
+            r#"<div role="row" class="source-line-with-number{}">{}<code role="cell" class="source-line"{}>{}
+</code></div>"#,
+            class, number, attrs, code
+        )
+    };
+    let only_a_item = |line: &'f OnlyALine| Item {
+        html: row_html(
+            None,
+            " interdiff-only-a",
+            &format!(r#" title="{}""#, line.title()),
+            &format!("~ {}", line.content),
+        ),
+        context: Some(line.context.as_str()),
+        difference: Some(line.context.as_str()),
+    };
+    let mut items: Vec<Item> = vec![];
+    let mut last_line = 0;
+    for row in &rows {
+        let origin = row.origin.iter().collect::<String>();
+        let item = if row.lineno > 0 {
+            let lineno = row.lineno as usize;
+            items.extend(
+                file.only_a
+                    .get(&lineno)
+                    .into_iter()
+                    .flatten()
+                    .map(only_a_item),
+            );
+            last_line = lineno;
+            let content = formatted_lines
+                .get(lineno - 1)
+                .map_or_else(|| entity_escape(row.content), |line| line.line.clone());
+            Item {
+                html: row_html(
+                    Some(lineno),
+                    if origin.contains('+') {
+                        " plus-line"
+                    } else {
+                        ""
+                    },
+                    file.line_attrs.get(&lineno).map_or("", String::as_str),
+                    &format!("{} {}", origin, content),
+                ),
+                context: file.post_contexts.get(&lineno).map(String::as_str),
+                difference: file.post_differences.get(&lineno).map(String::as_str),
+            }
+        } else {
+            let base_line = row.token_line.map_or(0, |(_, line)| line);
+            Item {
+                html: row_html(
+                    None,
+                    " minus-line",
+                    file.removed_line_attrs
+                        .get(&base_line)
+                        .map_or("", String::as_str),
+                    &format!("{} {}", origin, entity_escape(row.content)),
+                ),
+                context: file.base_contexts.get(&base_line).map(String::as_str),
+                difference: file.base_differences.get(&base_line).map(String::as_str),
+            }
+        };
+        items.push(item);
+    }
+    items.extend(
+        file.only_a
+            .range(last_line + 1..)
+            .flat_map(|(_, lines)| lines)
+            .map(only_a_item),
+    );
+
+    // Each difference's range of items (its function's, or the items around
+    // it), with its function's first item if the range doesn't start there,
+    // merged with the ranges they overlap or touch.
+    let in_context = |item: &Item, context: &str| {
+        item.context.is_some_and(|c| {
+            c == context
+                || c.strip_prefix(context)
+                    .is_some_and(|rest| rest.starts_with("::"))
+        })
+    };
+    let mut extents: HashMap<&str, Option<(usize, usize)>> = HashMap::new();
+    let mut ranges: Vec<(usize, usize, Option<usize>, Vec<&str>)> = vec![];
+    for (i, item) in items.iter().enumerate() {
+        let Some(context) = item.difference else {
+            continue;
+        };
+        let extent = *extents.entry(context).or_insert_with(|| {
+            if context == "%" {
+                return None;
+            }
+            let first = items.iter().position(|item| in_context(item, context))?;
+            let last = items.iter().rposition(|item| in_context(item, context))?;
+            Some((first, last))
+        });
+        let around = (
+            i.saturating_sub(EXCERPT_CONTEXT_ROWS),
+            (i + EXCERPT_CONTEXT_ROWS).min(items.len() - 1),
+        );
+        let (start, end, first) = match extent {
+            Some((first, last)) if last - first < MAX_EXCERPT_FUNCTION_ROWS => (first, last, None),
+            Some((first, _)) => (around.0, around.1, Some(first)),
+            None => (around.0, around.1, None),
+        };
+        match ranges.last_mut() {
+            Some(last) if start <= last.1 + 1 => {
+                last.1 = last.1.max(end);
+                if !last.3.contains(&context) {
+                    last.3.push(context);
+                }
+            }
+            _ => ranges.push((start, end, first.filter(|&f| f < start), vec![context])),
+        }
+    }
+
+    let mut html = String::new();
+    let mut shown = 0;
+    for (start, end, first, contexts) in &ranges {
+        if shown >= max_rows {
+            write!(
+                html,
+                r#"<p class="interdiff-excerpt-more"><a href="{}">More differences are in the file's interdiff.</a></p>"#,
+                link
+            )
+            .unwrap();
+            break;
+        }
+        let names: Vec<String> = contexts
+            .iter()
+            .map(|&context| match context {
+                "%" => "the file, outside of any function".to_string(),
+                _ => format!("<code>{}</code>", entity_escape(context)),
+            })
+            .collect();
+        write!(
+            html,
+            r#"<div class="interdiff-excerpt"><div class="interdiff-excerpt-header">In {}</div><div class="interdiff-excerpt-rows" role="table">"#,
+            names.join(", "),
+        )
+        .unwrap();
+        if let Some(first) = first {
+            html.push_str(&items[*first].html);
+            html.push_str(r#"<div class="interdiff-excerpt-gap">⋯</div>"#);
+        }
+        for item in &items[*start..=*end] {
+            html.push_str(&item.html);
+        }
+        html.push_str("</div></div>\n");
+        shown += end - start + 1;
+    }
+    Ok((html, shown))
+}
+
+/// The legend of an interdiff's marks (see `interdiff::Mark`) as HTML, with how
+/// many tokens each marks.
+fn interdiff_legend(counts: &InterdiffCounts) -> String {
+    let plural = |n: usize| if n == 1 { "" } else { "s" };
+    format!(
+        r#"B's diff, compared with A's: <span class="idiff-new">{} token{} new in B</span>, <span class="idiff-same">{} the same as A's</span>, <span class="idiff-only-a">{} of A's which B doesn't have</span> (on rows of A's lines), <span class="idiff-rm-new">{} removed only by B</span>, <span class="idiff-rm-same">{} removed by both</span>, <span class="idiff-kept">{} removed by A but kept by B</span>, and <span class="idiff-base">{} from neither patch</span>."#,
+        counts.new,
+        plural(counts.new),
+        counts.same,
+        counts.only_a,
+        counts.removed_new,
+        counts.removed_same,
+        counts.kept,
+        counts.base,
+    )
+}
+
+/// How B's diff of a file differs from A's, as HTML: the counts of the marks
+/// which are differences (see `interdiff::Mark::differs`).
+fn interdiff_differences(counts: &InterdiffCounts) -> String {
+    [
+        (counts.new, "idiff-new", "new in B"),
+        (counts.only_a, "idiff-only-a", "only in A"),
+        (counts.removed_new, "idiff-rm-new", "removed only by B"),
+        (counts.kept, "idiff-kept", "removed by A but kept by B"),
+    ]
+    .into_iter()
+    .filter(|(n, _, _)| *n > 0)
+    .map(|(n, class, what)| format!(r#"<span class="{}">{} {}</span>"#, class, n, what))
+    .join(", ")
 }
 
 /// The commits of a side of an interdiff as an HTML list.
@@ -2683,65 +3121,8 @@ pub fn format_interdiff(
     let a = interdiff_side(repo, a_revs)?;
     let b = interdiff_side(repo, b_revs)?;
 
-    let mut files = InterdiffFiles {
-        git,
-        history,
-        path,
-        files: HashMap::new(),
-    };
-    let (a_base, a_post) = (files.get(&a.base)?, files.get(a.post())?);
-    let (b_base, b_post) = (files.get(&b.base)?, files.get(b.post())?);
-    if [&a_base, &a_post, &b_base, &b_post]
-        .iter()
-        .all(|file| file.1.is_empty() && file.0.is_empty())
-    {
-        return Err("Neither side has the file");
-    }
-    let (a_removed, b_removed) = (files.removed(&a)?, files.removed(&b)?);
-    let result = interdiff::interdiff(
-        &InterdiffSideTokens {
-            revs: &a.revs,
-            base: &a_base.1,
-            post: &a_post.1,
-            removed: &a_removed,
-        },
-        &InterdiffSideTokens {
-            revs: &b.revs,
-            base: &b_base.1,
-            post: &b_post.1,
-            removed: &b_removed,
-        },
-    );
-
-    // B's diff of the file.  (The system git, with SHA-1 collision detection,
-    // since this works on a source repo; see `fast_import_git` for our git.)
-    let git_path = tree_config.get_git_path()?;
-    let output = Command::new("git")
-        .arg("diff")
-        .arg("-p")
-        .arg("--patience")
-        .arg("--full-index")
-        .arg("--no-prefix")
-        .arg("-U100000")
-        .arg(b.base.id().to_string())
-        .arg(b.post().id().to_string())
-        .arg("--")
-        .arg(path)
-        .current_dir(git_path)
-        .output()
-        .map_err(|_| "Diff failed 1")?;
-    if !output.status.success() {
-        return Err("Diff failed 2");
-    }
-    let mut difftxt = git_ops::decode_bytes(output.stdout);
-    if difftxt.is_empty() {
-        // B didn't change the file, so its diff is all context.
-        difftxt = String::from("@@ @@\n");
-        for line in b_post.0.lines() {
-            writeln!(difftxt, " {}", line).unwrap();
-        }
-    }
-    let (rows, new_lines, num_lines) = parse_diff_rows(&difftxt, 1, None, None)?;
+    let file = file_interdiff(git, history, tree_config.get_git_path()?, &a, &b, path)?;
+    let (rows, new_lines, num_lines) = parse_diff_rows(&file.difftxt, 1, None, None)?;
     let mut token_blames = vec![
         revision_token_blame(tree_name, git, b.post(), path),
         revision_token_blame(tree_name, git, &b.base, path),
@@ -2750,12 +3131,7 @@ pub fn format_interdiff(
     if let FormatAs::Binary = languages::select_formatting(path) {
         return Err("Cannot diff binary file");
     };
-
-    let extras = DiffRowExtras {
-        line_attrs: interdiff_attrs(&b_post.0, &b_post.1, &result.post_marks),
-        removed_line_attrs: interdiff_attrs(&b_base.0, &b_base.1, &result.base_marks),
-        rows_before: interdiff_only_a_rows(&a_post.0, &a_post.1, &result.only_a),
-    };
+    let extras = file.extras();
 
     let b_rev = b.post().id().to_string();
     let header = blame::commit_header(b.post())?;
@@ -2817,25 +3193,16 @@ pub fn format_interdiff(
     }];
     output::generate_panel(&opt, writer, &sections, false)?;
 
-    let counts = &result.counts;
-    let plural = |n: usize| if n == 1 { "" } else { "s" };
     write!(
         writer,
         r#"<section class="interdiff-summary">
 <div class="interdiff-sides"><div><h3>A</h3>{}</div><div><h3>B</h3>{}</div></div>
-<p class="interdiff-legend">B's diff, compared with A's: <span class="idiff-new">{} token{} new in B</span>, <span class="idiff-same">{} the same as A's</span>, <span class="idiff-only-a">{} of A's which B doesn't have</span> (on rows of A's lines), <span class="idiff-rm-new">{} removed only by B</span>, <span class="idiff-rm-same">{} removed by both</span>, <span class="idiff-kept">{} removed by A but kept by B</span>, and <span class="idiff-base">{} from neither patch</span>.</p>
+<p class="interdiff-legend">{}</p>
 </section>
 "#,
         interdiff_commits_html(tree_name, &a),
         interdiff_commits_html(tree_name, &b),
-        counts.new,
-        plural(counts.new),
-        counts.same,
-        counts.only_a,
-        counts.removed_new,
-        counts.removed_same,
-        counts.kept,
-        counts.base,
+        interdiff_legend(&file.counts),
     )
     .unwrap();
 
@@ -2845,8 +3212,15 @@ pub fn format_interdiff(
     Ok(())
 }
 
-/// The files which either side of an interdiff changed (see `format_interdiff`),
-/// with links to their interdiffs.
+/// The most files an interdiff's summary compares (see
+/// `format_interdiff_files`).
+const MAX_INTERDIFF_SUMMARY_FILES: usize = 100;
+
+/// An interdiff's summary (see `format_interdiff`): the files either side
+/// changed, with the explore pages' sparklines (see `hyperblame::explore`) of
+/// A's commits and then B's, faded for the files and symbols where B's changes
+/// are the same as A's, and excerpts of B's diff where they differ (see
+/// `interdiff_excerpts`).
 pub fn format_interdiff_files(
     cfg: &Config,
     tree_name: &str,
@@ -2856,27 +3230,112 @@ pub fn format_interdiff_files(
 ) -> Result<(), &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
+    let history = git
+        .history
+        .as_ref()
+        .ok_or("Interdiffs need the token-centric history")?;
+    let git_path = tree_config.get_git_path()?;
     let repo: &Repository = &git.repo;
     let a = interdiff_side(repo, a_revs)?;
     let b = interdiff_side(repo, b_revs)?;
 
-    // The files each side's commits changed.
-    let mut paths: BTreeMap<String, [bool; 2]> = BTreeMap::new();
-    for (i, side) in [&a, &b].into_iter().enumerate() {
-        for commit in &side.commits {
-            let parent_tree = commit.parent(0).and_then(|p| p.tree()).ok();
-            let tree = commit.tree().map_err(|_| "Bad revision")?;
-            let diff = repo
-                .diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)
-                .map_err(|_| "Diff failed")?;
-            for delta in diff.deltas() {
-                for file in [delta.old_file(), delta.new_file()] {
-                    if let Some(path) = file.path().and_then(|p| p.to_str()) {
-                        paths.entry(path.to_string()).or_default()[i] = true;
-                    }
+    let refs: Vec<CommitRef> = a.refs.iter().chain(&b.refs).cloned().collect();
+    let commits: Vec<ExploreCommit> = refs
+        .iter()
+        .enumerate()
+        .map(|(i, commit_ref)| explore_commit(tree_config, git, i + 1, commit_ref))
+        .collect();
+    let changes: Vec<_> = refs
+        .iter()
+        .map(|commit_ref| commit_changes(Some(history), repo, &commit_ref.rev))
+        .collect();
+    let (a_key, b_key) = (a.key(), b.key());
+    let mut files = blot_files(&refs, &changes, |path, _| {
+        format!(
+            "/{}/interdiff/{}/{}/{}",
+            tree_name,
+            a_key,
+            b_key,
+            url_encode_path(path)
+        )
+    });
+
+    let mut totals = InterdiffCounts::default();
+    let mut excerpt_rows = 0;
+    for (n, file) in files.iter_mut().enumerate() {
+        let changed = |commits: Range<usize>| {
+            changes[commits]
+                .iter()
+                .any(|changes| changes.contains_key(&file.path))
+        };
+        let only = match (changed(0..a.refs.len()), changed(a.refs.len()..refs.len())) {
+            (true, false) => "Only A changed it.  ",
+            (false, true) => "Only B changed it.  ",
+            _ => "",
+        };
+        if n >= MAX_INTERDIFF_SUMMARY_FILES {
+            file.note = format!("{}Not compared here, since there are so many files.", only);
+            continue;
+        }
+        let interdiff = match file_interdiff(git, history, git_path, &a, &b, &file.path) {
+            Ok(interdiff) => interdiff,
+            Err(err) => {
+                file.note = format!("{}{}.", only, err);
+                continue;
+            }
+        };
+        totals += &interdiff.counts;
+        if !interdiff.differs() {
+            file.same = true;
+            file.note = format!("{}B's changes are the same as A's.", only);
+            for symbol in &mut file.symbols {
+                symbol.same = true;
+                for child in &mut symbol.children {
+                    child.same = true;
                 }
             }
+            continue;
         }
+
+        // A symbol (or its nested symbols) has differences if their tokens'
+        // contexts are it.
+        let contexts = interdiff.difference_contexts();
+        let differs = |pretty: &str| {
+            let pretty = if pretty == explore::TOP_LEVEL {
+                "%"
+            } else {
+                pretty
+            };
+            contexts.iter().any(|context| {
+                *context == pretty
+                    || context
+                        .strip_prefix(pretty)
+                        .is_some_and(|rest| rest.starts_with("::"))
+            })
+        };
+        for symbol in &mut file.symbols {
+            symbol.same = !differs(&symbol.pretty);
+            for child in &mut symbol.children {
+                child.same = !differs(&child.pretty);
+            }
+        }
+        file.note = format!("{}{}", only, interdiff_differences(&interdiff.counts));
+        file.excerpts = if excerpt_rows < MAX_SUMMARY_EXCERPT_ROWS {
+            let (html, rows) = interdiff_excerpts(
+                cfg,
+                &file.path,
+                &interdiff,
+                &file.link,
+                MAX_SUMMARY_EXCERPT_ROWS - excerpt_rows,
+            )?;
+            excerpt_rows += rows;
+            html
+        } else {
+            format!(
+                r#"<p class="interdiff-excerpt-more"><a href="{}">The differences are in the file's interdiff.</a></p>"#,
+                file.link
+            )
+        };
     }
 
     let title = "Interdiff - mozsearch";
@@ -2886,44 +3345,25 @@ pub fn format_interdiff_files(
         include_date: true,
         revision: None,
         breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
-        extra_content_classes: "interdiff-files",
+        extra_content_classes: "explore interdiff-files",
     };
     output::generate_header(&opt, writer)?;
     output::generate_panel(&opt, writer, &[], true)?;
-    let (a_key, b_key) = (a.key(), b.key());
-    write!(
-        writer,
-        r#"<section class="interdiff-summary">
-<div class="interdiff-sides"><div><h3>A</h3>{}</div><div><h3>B</h3>{}</div></div>
-<p>The files A or B changed, each with B's diff compared with A's (<a href="/{}/interdiff/{}/{}">swap A and B</a>):</p>
-<ul class="interdiff-file-list">
-"#,
-        interdiff_commits_html(tree_name, &a),
-        interdiff_commits_html(tree_name, &b),
-        tree_name,
-        b_key,
-        a_key,
-    )
-    .unwrap();
-    for (path, [in_a, in_b]) in &paths {
-        let sides = match (in_a, in_b) {
-            (true, true) => "",
-            (true, false) => r#" <span class="interdiff-side-note">(only A)</span>"#,
-            _ => r#" <span class="interdiff-side-note">(only B)</span>"#,
-        };
-        writeln!(
-            writer,
-            r#"<li><a href="/{}/interdiff/{}/{}/{}">{}</a>{}</li>"#,
-            tree_name,
-            a_key,
-            b_key,
-            url_encode_path(path),
-            path.replace("&", "&amp;").replace("<", "&lt;"),
-            sides
-        )
-        .unwrap();
-    }
-    writeln!(writer, "</ul>\n</section>").unwrap();
+    let globals = liquid::to_object(&json!({
+        "tree": tree_name,
+        "sides": [
+            {"name": "A", "start": 1, "commits": &commits[..a.refs.len()]},
+            {"name": "B", "start": a.refs.len() + 1, "commits": &commits[a.refs.len()..]},
+        ],
+        "files": files,
+        "slot": explore::slot_width(commits.len()),
+        "legend": interdiff_legend(&totals),
+        "swap": format!("/{}/interdiff/{}/{}", tree_name, b_key, a_key),
+    }))
+    .map_err(|_| "Template problems")?;
+    build_and_parse_interdiff_files()
+        .render_to(writer, &globals)
+        .map_err(|_| "Template problems")?;
     output::generate_footer(&opt, tree_name, "", writer).unwrap();
     Ok(())
 }
@@ -3074,6 +3514,32 @@ fn generate_commit_info(
     Ok(())
 }
 
+/// A commit of an `/explore/` page or an interdiff's summary, numbered from 1.
+fn explore_commit(
+    tree_config: &TreeConfig,
+    git: &GitData,
+    number: usize,
+    commit_ref: &CommitRef,
+) -> ExploreCommit {
+    let header = Oid::from_str(&commit_ref.rev)
+        .and_then(|oid| git.repo.find_commit(oid))
+        .ok()
+        .and_then(|commit| blame::commit_info_json(tree_config, git, &commit).ok())
+        .and_then(|info| info["header"].as_str().map(str::to_string))
+        .unwrap_or_else(|| commit_ref.rev.clone());
+    // See `blame::commit_info_json` for the header's format.
+    let summary = header.split("\n<br>").next().unwrap_or("").to_string();
+    ExploreCommit {
+        number,
+        rev: commit_ref.rev.clone(),
+        iso_date: commit_ref.iso_date.clone(),
+        backout: commit_ref.backout,
+        interdiff: None,
+        header,
+        summary,
+    }
+}
+
 /// The most bugs or Phabricator revisions an `/explore/` page shows.
 const MAX_EXPLORE_KEYS: usize = 10;
 
@@ -3126,25 +3592,7 @@ pub fn format_explore(
     let mut commits: Vec<ExploreCommit> = refs
         .iter()
         .enumerate()
-        .map(|(i, commit_ref)| {
-            let header = Oid::from_str(&commit_ref.rev)
-                .and_then(|oid| git.repo.find_commit(oid))
-                .ok()
-                .and_then(|commit| blame::commit_info_json(tree_config, git, &commit).ok())
-                .and_then(|info| info["header"].as_str().map(str::to_string))
-                .unwrap_or_else(|| commit_ref.rev.clone());
-            // See `blame::commit_info_json` for the header's format.
-            let summary = header.split("\n<br>").next().unwrap_or("").to_string();
-            ExploreCommit {
-                number: i + 1,
-                rev: commit_ref.rev.clone(),
-                iso_date: commit_ref.iso_date.clone(),
-                backout: commit_ref.backout,
-                interdiff: None,
-                header,
-                summary,
-            }
-        })
+        .map(|(i, commit_ref)| explore_commit(tree_config, git, i + 1, commit_ref))
         .collect();
     let changes: Vec<_> = refs
         .iter()

@@ -1,0 +1,32 @@
+{%- comment -%}
+  An interdiff's summary (see `format::format_interdiff_files`): the sides'
+  commits, and each file either side changed, with the explore pages'
+  sparklines (see explore_file.liquid), which have a slot for each of A's
+  commits and then each of B's, faded where B's changes are the same as A's,
+  and with excerpts of where they differ (see `format::interdiff_excerpts`).
+  explore.js shows the commit under the mouse.
+{%- endcomment -%}
+<div class="explore-page interdiff-page" data-slot="{{ slot }}">
+  <h2>Interdiff</h2>
+  <section class="interdiff-summary">
+    <div class="interdiff-sides">
+      {%- for side in sides %}
+      <div>
+        <h3>{{ side.name }}</h3>
+        <ol start="{{ side.start }}">
+          {%- for commit in side.commits %}
+          <li id="commit-{{ commit.number }}" class="explore-commit"><span class="explore-commit-summary">{{ commit.summary }}</span> <span class="explore-commit-date">{{ commit.isoDate | slice: 0, 10 }}</span> <a href="/{{ tree }}/commit/{{ commit.rev }}">{{ commit.rev | slice: 0, 12 }}</a></li>
+          {%- endfor %}
+        </ol>
+      </div>
+      {%- endfor %}
+    </div>
+    <p class="interdiff-legend">{{ legend }}</p>
+    <p><a href="{{ swap }}">Swap A and B</a></p>
+  </section>
+  <p class="explore-status explore-note">Each file's sparkline has a slot for each of A's commits and then each of B's, filled if the commit changed it.  The files and symbols where B's changes are the same as A's are faded, and the others have excerpts of where they differ.</p>
+  {%- for file in files %}
+  {%- include "explore_file.liquid" %}
+  {%- endfor %}
+</div>
+<script src="/{{ tree }}/static/js/explore.js"></script>

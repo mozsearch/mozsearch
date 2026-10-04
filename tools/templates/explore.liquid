@@ -35,27 +35,7 @@
   </details>
   <p class="explore-status explore-note">Each sparkline has a slot per commit, filled (darker for more tokens) if the commit changed it.  Hover over them to see which commit is which, and expand classes to see their members.</p>
   {%- for file in files %}
-  <section class="explore-file">
-    <div class="explore-file-header"><a href="{{ file.link }}">{{ file.path | escape }}</a> {{ file.sparkline }}</div>
-    {%- if file.symbols.size > 0 %}
-    <div class="explore-symbols">
-      {%- for symbol in file.symbols %}
-      {%- if symbol.children.size > 0 %}
-      <details class="explore-symbol explore-parent">
-        <summary title="{{ symbol.pretty | escape }}"><span class="explore-summary"><span class="explore-name">{{ symbol.name | escape }}</span> <span class="explore-count">({{ symbol.children.size }})</span> <span class="explore-collapsed">{{ symbol.blot }}</span><span class="explore-expanded">{{ symbol.sparkline }}</span></span></summary>
-        <div class="explore-children">
-          {%- for child in symbol.children %}
-          <span class="explore-symbol explore-child" title="{{ child.pretty | escape }}"><span class="explore-name">{{ child.name | escape }}</span> {{ child.sparkline }}</span>
-          {%- endfor %}
-        </div>
-      </details>
-      {%- else %}
-      <span class="explore-symbol" title="{{ symbol.pretty | escape }}"><span class="explore-name">{{ symbol.name | escape }}</span> {{ symbol.sparkline }}</span>
-      {%- endif %}
-      {%- endfor %}
-    </div>
-    {%- endif %}
-  </section>
+  {%- include "explore_file.liquid" %}
   {%- endfor %}
   {%- endif %}
 </div>

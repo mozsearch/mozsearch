@@ -27,9 +27,30 @@ add_task(async function test_InterdiffMarks() {
 add_task(async function test_InterdiffFiles() {
   await TestUtils.loadPath(`/searchfox/interdiff/${LANDING}/${RELAND}`);
 
-  const links = [...frame.contentDocument.querySelectorAll(".interdiff-file-list a")];
-  is(links.length, 1, "The landing and the reland changed one file");
-  ok(links[0].href.endsWith("/scripts/mkdirs.sh"), "The file links to its interdiff");
+  const doc = frame.contentDocument;
+  const files = [...doc.querySelectorAll(".explore-file")];
+  is(files.length, 1, "The landing and the reland changed one file");
+  ok(files[0].querySelector(".explore-file-header a").href.endsWith("/scripts/mkdirs.sh"),
+     "The file links to its interdiff");
+  ok(!files[0].classList.contains("interdiff-same"),
+     "The file isn't faded, since the patches differ in it");
+  is(doc.querySelectorAll(".explore-commit").length, 2,
+     "The sides' commits are listed, for the sparklines");
+
+  ok(files[0].querySelector(".interdiff-excerpt"),
+     "The summary has excerpts of where the patches differ");
+  const newTokens = [...files[0].querySelectorAll(".interdiff-excerpt .idiff-new")];
+  ok(newTokens.some(span => span.textContent == "cd"), "with the reland's new tokens marked");
+});
+
+add_task(async function test_InterdiffFilesSame() {
+  await TestUtils.loadPath(`/searchfox/interdiff/${LANDING}/${LANDING}`);
+
+  const doc = frame.contentDocument;
+  const files = [...doc.querySelectorAll(".explore-file")];
+  ok(files.length > 0 && files.every(file => file.classList.contains("interdiff-same")),
+     "A patch's interdiff with itself fades all of its files");
+  is(doc.querySelectorAll(".interdiff-excerpt").length, 0, "and has no excerpts");
 });
 
 add_task(async function test_ExploreRelandLink() {

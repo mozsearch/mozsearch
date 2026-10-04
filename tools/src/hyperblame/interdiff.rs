@@ -38,6 +38,9 @@ pub type TokenId = (String, String, u32);
 pub struct IdToken {
     pub id: TokenId,
     pub text: String,
+    /// The pretty identifier of the token's structural context (ex: the
+    /// method it's in), or "%" if it has none; see `TokenLine::context`.
+    pub context: String,
     /// The token's byte range in the source.
     pub range: Range<usize>,
     /// The (0-based) source line the token is on.
@@ -94,6 +97,15 @@ pub enum Mark {
 }
 
 impl Mark {
+    /// Whether the token is a difference between the patches (rather than
+    /// one of the patches' common changes, or from neither patch).
+    pub fn differs(self) -> bool {
+        matches!(
+            self,
+            Mark::New | Mark::Kept | Mark::RemovedNew | Mark::OnlyA
+        )
+    }
+
     pub fn class(self) -> &'static str {
         match self {
             Mark::Same => "same",
@@ -119,6 +131,18 @@ pub struct Counts {
     pub removed_same: usize,
     #[serde(rename = "removedNew")]
     pub removed_new: usize,
+}
+
+impl std::ops::AddAssign<&Counts> for Counts {
+    fn add_assign(&mut self, other: &Counts) {
+        self.same += other.same;
+        self.new += other.new;
+        self.only_a += other.only_a;
+        self.kept += other.kept;
+        self.base += other.base;
+        self.removed_same += other.removed_same;
+        self.removed_new += other.removed_new;
+    }
 }
 
 #[derive(Debug)]
@@ -254,6 +278,7 @@ mod tests {
                 out.push(IdToken {
                     id: (rev.to_string(), "f".to_string(), lineno),
                     text: text.to_string(),
+                    context: "%".to_string(),
                     range: offset..offset + text.len(),
                     line,
                 });
