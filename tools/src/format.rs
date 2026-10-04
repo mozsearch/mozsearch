@@ -2402,7 +2402,6 @@ const MAX_INTERDIFF_COMMITS: usize = 50;
 struct InterdiffSide<'r> {
     commits: Vec<git2::Commit<'r>>,
     refs: Vec<CommitRef>,
-    revs: HashSet<String>,
     base: git2::Commit<'r>,
 }
 
@@ -2455,11 +2454,9 @@ fn interdiff_side<'r>(repo: &'r Repository, revs: &str) -> Result<InterdiffSide<
     let base = commits[0]
         .parent(0)
         .map_err(|_| "The first commit of a side has no parent")?;
-    let revs = commits.iter().map(|c| c.id().to_string()).collect();
     Ok(InterdiffSide {
         commits,
         refs,
-        revs,
         base,
     })
 }
@@ -2534,8 +2531,13 @@ impl InterdiffFiles<'_> {
     }
 
     /// The tokens of the file at the side's base which the side's commits
-    /// removed: those each commit which changed the file removed from it.
-    fn removed(&mut self, side: &InterdiffSide) -> Result<HashSet<TokenId>, &'static str> {
+    /// removed, and the tokens of the file after the side's last commit which
+    /// they added: those each commit which changed the file removed from it or
+    /// added to it.
+    fn changes(
+        &mut self,
+        side: &InterdiffSide,
+    ) -> Result<(HashSet<TokenId>, HashSet<TokenId>), &'static str> {
         let entry = |commit: &git2::Commit| {
             commit
                 .tree()
@@ -2543,7 +2545,7 @@ impl InterdiffFiles<'_> {
                 .and_then(|tree| tree.get_path(Path::new(self.path)).ok())
                 .map(|entry| entry.id())
         };
-        let mut removed = HashSet::new();
+        let (mut removed, mut added) = (HashSet::new(), HashSet::new());
         for commit in &side.commits {
             let parent = commit.parent(0).map_err(|_| "A commit has no parent")?;
             if entry(&parent) == entry(commit) {
@@ -2551,11 +2553,16 @@ impl InterdiffFiles<'_> {
             }
             let (before, after) = (self.get(&parent)?, self.get(commit)?);
             removed.extend(interdiff::removed(&before.1, &after.1));
+            added.extend(interdiff::added(&before.1, &after.1));
         }
-        let base = self.get(&side.base)?;
-        let base_ids: HashSet<&TokenId> = base.1.iter().map(|t| &t.id).collect();
+        let (base, post) = (self.get(&side.base)?, self.get(side.post())?);
+        let ids = |file: &(String, Vec<IdToken>)| -> HashSet<TokenId> {
+            file.1.iter().map(|t| t.id.clone()).collect()
+        };
+        let (base_ids, post_ids) = (ids(&base), ids(&post));
         removed.retain(|id| base_ids.contains(id));
-        Ok(removed)
+        added.retain(|id| post_ids.contains(id));
+        Ok((removed, added))
     }
 }
 
@@ -2786,19 +2793,19 @@ fn file_interdiff(
     {
         return Err("Neither side has the file");
     }
-    let (a_removed, b_removed) = (files.removed(a)?, files.removed(b)?);
+    let ((a_removed, a_added), (b_removed, b_added)) = (files.changes(a)?, files.changes(b)?);
     let result = interdiff::interdiff(
         &InterdiffSideTokens {
-            revs: &a.revs,
             base: &a_base.1,
             post: &a_post.1,
             removed: &a_removed,
+            added: &a_added,
         },
         &InterdiffSideTokens {
-            revs: &b.revs,
             base: &b_base.1,
             post: &b_post.1,
             removed: &b_removed,
+            added: &b_added,
         },
     );
 

@@ -10,11 +10,16 @@
 //! (where it was introduced) which it keeps until it changes, and backouts
 //! restore the identities of the tokens they put back:
 //! - A token which both sides removed has the same identity on both sides.
-//! - The tokens a side added have its commits' identities, so B's added tokens
-//!   can't be A's (even in an unchanged reland), but they're the same as A's
-//!   if they match A's added tokens in an alignment of the two versions of the
-//!   file whose other tokens only match tokens with the same identity, which
-//!   keeps the matches within the same places in the file.
+//! - A side's added tokens are the ones its commits added (whose identities
+//!   their versions of the file didn't have before).  They usually have the
+//!   commits' identities, so B's can't be A's (even in an unchanged reland),
+//!   but they may also have the identities of tokens elsewhere which the
+//!   history thinks they were copied from, which each side may pick
+//!   differently (ex: a `: true,` copied from one test or another).  So B's
+//!   added tokens are the same as A's if they match A's added tokens by text
+//!   in an alignment of the two versions of the file whose other tokens only
+//!   match tokens with the same identity, which keeps the matches within the
+//!   same places in the file.
 //!
 //! We present B's diff with its added and removed tokens marked as the same as
 //! A's or new in B, the tokens A removed which B keeps, the tokens from
@@ -47,7 +52,8 @@ pub struct IdToken {
     pub line: usize,
 }
 
-/// The identities of the tokens of `before` which `after` doesn't have.
+/// The identities of the tokens of `before` which `after` doesn't have, which a
+/// commit from `before` to `after` removed.
 pub fn removed(before: &[IdToken], after: &[IdToken]) -> HashSet<TokenId> {
     let after: HashSet<&TokenId> = after.iter().map(|t| &t.id).collect();
     before
@@ -57,16 +63,23 @@ pub fn removed(before: &[IdToken], after: &[IdToken]) -> HashSet<TokenId> {
         .collect()
 }
 
+/// The identities of the tokens of `after` which `before` doesn't have, which a
+/// commit from `before` to `after` added.
+pub fn added(before: &[IdToken], after: &[IdToken]) -> HashSet<TokenId> {
+    removed(after, before)
+}
+
 /// A side of an interdiff in a file.
 pub struct Side<'a> {
-    /// The side's commits.
-    pub revs: &'a HashSet<String>,
     /// The file before the side's first commit, and after its last.
     pub base: &'a [IdToken],
     pub post: &'a [IdToken],
     /// The tokens of `base` which the side's commits removed (all of the ones
     /// `post` doesn't have, unless there are other commits in between).
     pub removed: &'a HashSet<TokenId>,
+    /// The tokens the side's commits added (of `post`, all of the ones `base`
+    /// doesn't have, unless there are other commits in between).
+    pub added: &'a HashSet<TokenId>,
 }
 
 /// What an interdiff says about a token of B's diff.
@@ -162,18 +175,20 @@ pub struct Interdiff {
 pub fn interdiff(a: &Side, b: &Side) -> Interdiff {
     let a_post_ids: HashSet<&TokenId> = a.post.iter().map(|t| &t.id).collect();
     let b_post_ids: HashSet<&TokenId> = b.post.iter().map(|t| &t.id).collect();
-    // A side's added tokens which the other side doesn't have match tokens
-    // with the same text, and other tokens match the tokens with the same
-    // identity.
-    let key = |t: &IdToken, side: &Side, other_ids: &HashSet<&TokenId>| {
-        if side.revs.contains(&t.id.0) && !other_ids.contains(&t.id) {
+    // A side's added tokens match tokens with the same text, unless the other
+    // side has them without adding them (ex: B is a follow-up to A, so A's
+    // added tokens are B's base), and other tokens match the tokens with the
+    // same identity.
+    let key = |t: &IdToken, side: &Side, other: &Side, other_ids: &HashSet<&TokenId>| {
+        if side.added.contains(&t.id) && (other.added.contains(&t.id) || !other_ids.contains(&t.id))
+        {
             format!("t\0{}", t.text)
         } else {
             format!("i\0{}\0{}\0{}", t.id.0, t.id.1, t.id.2)
         }
     };
-    let a_keys: Vec<String> = a.post.iter().map(|t| key(t, a, &b_post_ids)).collect();
-    let b_keys: Vec<String> = b.post.iter().map(|t| key(t, b, &a_post_ids)).collect();
+    let a_keys: Vec<String> = a.post.iter().map(|t| key(t, a, b, &b_post_ids)).collect();
+    let b_keys: Vec<String> = b.post.iter().map(|t| key(t, b, a, &a_post_ids)).collect();
     let a_refs: Vec<&str> = a_keys.iter().map(String::as_str).collect();
     let b_refs: Vec<&str> = b_keys.iter().map(String::as_str).collect();
     // The B post token matched to each A post token, and vice versa.
@@ -199,12 +214,11 @@ pub fn interdiff(a: &Side, b: &Side) -> Interdiff {
         .iter()
         .enumerate()
         .map(|(j, t)| {
-            let mark = if b.revs.contains(&t.id.0) {
-                if b_matched[j] && !a_post_ids.contains(&t.id) {
+            let mark = if b.added.contains(&t.id) {
+                if b_matched[j] && (a.added.contains(&t.id) || !a_post_ids.contains(&t.id)) {
                     Some(Mark::Same)
-                } else if a_post_ids.contains(&t.id) {
-                    // (A has it too, so B's base had it: B descends from A's
-                    // side, or the sides share commits.)
+                } else if a_post_ids.contains(&t.id) && !a.added.contains(&t.id) {
+                    // (A has it without adding it, so A's base had it.)
                     None
                 } else {
                     Some(Mark::New)
@@ -247,7 +261,7 @@ pub fn interdiff(a: &Side, b: &Side) -> Interdiff {
     for (i, t) in a.post.iter().enumerate() {
         if let Some(&j) = a_to_b.get(&i) {
             anchor = Some(b.post[j].line);
-        } else if a.revs.contains(&t.id.0) && !b_post_ids.contains(&t.id) {
+        } else if a.added.contains(&t.id) && !b_post_ids.contains(&t.id) {
             only_a.push((i, anchor));
         }
     }
@@ -288,10 +302,6 @@ mod tests {
         out
     }
 
-    fn revs(revs: &[&str]) -> HashSet<String> {
-        revs.iter().map(|r| r.to_string()).collect()
-    }
-
     fn marks(interdiff: &Interdiff, tokens: &[IdToken], base: bool) -> Vec<String> {
         let marks = if base {
             &interdiff.base_marks
@@ -317,19 +327,19 @@ mod tests {
         let b_post = tokens(
             "c:1:init c:2:; | o:1:if o:2:{ | o:3:return b:1:rv o:4:; | b:2:log b:3:rv b:4:; | o:5:}",
         );
-        let (a_revs, b_revs) = (revs(&["a"]), revs(&["b"]));
         let (a_removed, b_removed) = (removed(&a_base, &a_post), removed(&b_base, &b_post));
+        let (a_added, b_added) = (added(&a_base, &a_post), added(&b_base, &b_post));
         let a = Side {
-            revs: &a_revs,
             base: &a_base,
             post: &a_post,
             removed: &a_removed,
+            added: &a_added,
         };
         let b = Side {
-            revs: &b_revs,
             base: &b_base,
             post: &b_post,
             removed: &b_removed,
+            added: &b_added,
         };
         let result = interdiff(&a, &b);
         assert_eq!(
@@ -371,19 +381,19 @@ mod tests {
         let base = tokens("o:1:a o:2:b | o:3:c | o:4:d o:5:e");
         let a_post = tokens("o:1:a | o:4:d o:5:e");
         let b_post = tokens("o:1:a o:2:b | o:5:e");
-        let (a_revs, b_revs) = (revs(&["a"]), revs(&["b"]));
         let (a_removed, b_removed) = (removed(&base, &a_post), removed(&base, &b_post));
+        let (a_added, b_added) = (added(&base, &a_post), added(&base, &b_post));
         let a = Side {
-            revs: &a_revs,
             base: &base,
             post: &a_post,
             removed: &a_removed,
+            added: &a_added,
         };
         let b = Side {
-            revs: &b_revs,
             base: &base,
             post: &b_post,
             removed: &b_removed,
+            added: &b_added,
         };
         let result = interdiff(&a, &b);
         assert_eq!(marks(&result, &b_post, false), vec!["b=kept"]);
@@ -397,22 +407,65 @@ mod tests {
         let a_base = tokens("o:1:x");
         let a_post = tokens("o:1:x a:1:y");
         let b_post = tokens("o:1:x a:1:y b:1:z");
-        let (a_revs, b_revs) = (revs(&["a"]), revs(&["b"]));
         let (a_removed, b_removed) = (removed(&a_base, &a_post), removed(&a_post, &b_post));
+        let (a_added, b_added) = (added(&a_base, &a_post), added(&a_post, &b_post));
         let a = Side {
-            revs: &a_revs,
             base: &a_base,
             post: &a_post,
             removed: &a_removed,
+            added: &a_added,
         };
         let b = Side {
-            revs: &b_revs,
             base: &a_post,
             post: &b_post,
             removed: &b_removed,
+            added: &b_added,
         };
         let result = interdiff(&a, &b);
         assert_eq!(marks(&result, &b_post, false), vec!["z=new"]);
+        assert!(result.only_a.is_empty());
+    }
+
+    #[test]
+    fn test_copied_identities() {
+        // A (a) and an unchanged reland (b) added `x: true, y: true,`, but the
+        // history thought their `: true,`s were copied from other files (p
+        // and q), and picked them differently: A's `x`'s from p, and B's `x`'s
+        // from q and `y`'s from p.  Bug 2066086's SidebarState.sys.mjs had
+        // this.
+        let base = tokens("o:1:{ | o:2:}");
+        let a_post =
+            tokens("o:1:{ | a:1:x p:1:: p:2:true p:3:, | a:5:y a:6:: a:7:true a:8:, | o:2:}");
+        let b_post =
+            tokens("o:1:{ | b:1:x q:1:: q:2:true q:3:, | b:5:y p:1:: p:2:true p:3:, | o:2:}");
+        let (a_removed, b_removed) = (removed(&base, &a_post), removed(&base, &b_post));
+        let (a_added, b_added) = (added(&base, &a_post), added(&base, &b_post));
+        let a = Side {
+            base: &base,
+            post: &a_post,
+            removed: &a_removed,
+            added: &a_added,
+        };
+        let b = Side {
+            base: &base,
+            post: &b_post,
+            removed: &b_removed,
+            added: &b_added,
+        };
+        let result = interdiff(&a, &b);
+        assert_eq!(
+            marks(&result, &b_post, false),
+            vec![
+                "x=same",
+                ":=same",
+                "true=same",
+                ",=same",
+                "y=same",
+                ":=same",
+                "true=same",
+                ",=same"
+            ]
+        );
         assert!(result.only_a.is_empty());
     }
 }
