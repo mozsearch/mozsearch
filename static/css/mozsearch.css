@@ -1750,8 +1750,11 @@ span[data-symbols].selected {
   padding: 0 2px;
 }
 /* Interdiffs' summaries (see interdiff_files.liquid) fade the sparklines of
-   the files and symbols where B's changes are the same as A's, so that those
-   where they differ stand out. */
+   the files and symbols where B's changes are the same as A's, and their rows
+   of their parents' collapsed views (`explore-same-row`), so that those where
+   they differ stand out.  Faded slots are translucent and desaturated (in
+   their fills, since CSS filters don't apply to the elements of SVGs in every
+   browser). */
 .interdiff-page .interdiff-summary {
   margin-left: 0;
 }
@@ -1759,9 +1762,21 @@ span[data-symbols].selected {
 .interdiff-page .explore-commit {
   list-style-position: inside;
 }
-.interdiff-same .explore-sparkline {
-  filter: saturate(0.15);
+.interdiff-same .explore-sparkline,
+.explore-same-row {
   opacity: 0.4;
+}
+.interdiff-same .explore-l1,
+.explore-l1.explore-same-row {
+  fill: oklch(from var(--blame-age-4) l calc(c * 0.15) h);
+}
+.interdiff-same .explore-l2,
+.explore-l2.explore-same-row {
+  fill: oklch(from var(--blame-age-2) l calc(c * 0.15) h);
+}
+.interdiff-same .explore-l3,
+.explore-l3.explore-same-row {
+  fill: oklch(from var(--blame-age-0) l calc(c * 0.15) h);
 }
 .interdiff-same .explore-name,
 .interdiff-same > .explore-file-header > a {

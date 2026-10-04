@@ -3389,8 +3389,43 @@ pub fn format_interdiff_files(
         .iter()
         .map(|commit_ref| commit_changes(Some(history), repo, &commit_ref.rev))
         .collect();
+    // The files' interdiffs (of the first MAX_INTERDIFF_SUMMARY_FILES, in the
+    // page's order), and the contexts of their differences, which say which
+    // symbols' rows of the sparklines to fade: a symbol (or its nested
+    // symbols) has differences if their tokens' contexts are it.
+    let paths: BTreeSet<&String> = changes.iter().flat_map(|c| c.keys()).collect();
+    let interdiffs: HashMap<&str, Result<FileInterdiff, &str>> = paths
+        .into_iter()
+        .take(MAX_INTERDIFF_SUMMARY_FILES)
+        .map(|path| {
+            let interdiff = file_interdiff(git, history, git_path, &a, &b, path);
+            (path.as_str(), interdiff)
+        })
+        .collect();
+    let contexts: HashMap<&str, BTreeSet<&str>> = interdiffs
+        .iter()
+        .filter_map(|(&path, interdiff)| {
+            Some((path, interdiff.as_ref().ok()?.difference_contexts()))
+        })
+        .collect();
+    let same = |path: &str, pretty: &str| {
+        let Some(contexts) = contexts.get(path) else {
+            return false;
+        };
+        let pretty = if pretty == explore::TOP_LEVEL {
+            "%"
+        } else {
+            pretty
+        };
+        !contexts.iter().any(|context| {
+            *context == pretty
+                || context
+                    .strip_prefix(pretty)
+                    .is_some_and(|rest| rest.starts_with("::"))
+        })
+    };
     let (a_key, b_key) = (a.key(), b.key());
-    let mut files = blot_files(&refs, &changes, |path, _| {
+    let link = |path: &str, _: &str| {
         format!(
             "/{}/interdiff/{}/{}/{}",
             tree_name,
@@ -3398,11 +3433,12 @@ pub fn format_interdiff_files(
             b_key,
             url_encode_path(path)
         )
-    });
+    };
+    let mut files = blot_files(&refs, &changes, link, same);
 
     let mut totals = InterdiffCounts::default();
     let mut excerpt_rows = 0;
-    for (n, file) in files.iter_mut().enumerate() {
+    for file in &mut files {
         let changed = |commits: Range<usize>| {
             changes[commits]
                 .iter()
@@ -3413,14 +3449,14 @@ pub fn format_interdiff_files(
             (false, true) => "Only B changed it.  ",
             _ => "",
         };
-        if n >= MAX_INTERDIFF_SUMMARY_FILES {
-            file.note = format!("{}Not compared here, since there are so many files.", only);
-            continue;
-        }
-        let interdiff = match file_interdiff(git, history, git_path, &a, &b, &file.path) {
-            Ok(interdiff) => interdiff,
-            Err(err) => {
+        let interdiff = match interdiffs.get(file.path.as_str()) {
+            Some(Ok(interdiff)) => interdiff,
+            Some(Err(err)) => {
                 file.note = format!("{}{}.", only, err);
+                continue;
+            }
+            None => {
+                file.note = format!("{}Not compared here, since there are so many files.", only);
                 continue;
             }
         };
@@ -3428,43 +3464,14 @@ pub fn format_interdiff_files(
         if !interdiff.differs() {
             file.same = true;
             file.note = format!("{}B's changes are the same as A's.", only);
-            for symbol in &mut file.symbols {
-                symbol.same = true;
-                for child in &mut symbol.children {
-                    child.same = true;
-                }
-            }
             continue;
-        }
-
-        // A symbol (or its nested symbols) has differences if their tokens'
-        // contexts are it.
-        let contexts = interdiff.difference_contexts();
-        let differs = |pretty: &str| {
-            let pretty = if pretty == explore::TOP_LEVEL {
-                "%"
-            } else {
-                pretty
-            };
-            contexts.iter().any(|context| {
-                *context == pretty
-                    || context
-                        .strip_prefix(pretty)
-                        .is_some_and(|rest| rest.starts_with("::"))
-            })
-        };
-        for symbol in &mut file.symbols {
-            symbol.same = !differs(&symbol.pretty);
-            for child in &mut symbol.children {
-                child.same = !differs(&child.pretty);
-            }
         }
         file.note = format!("{}{}", only, interdiff_differences(&interdiff.counts));
         file.excerpts = if excerpt_rows < MAX_SUMMARY_EXCERPT_ROWS {
             let (html, rows) = interdiff_excerpts(
                 cfg,
                 &file.path,
-                &interdiff,
+                interdiff,
                 &file.link,
                 MAX_SUMMARY_EXCERPT_ROWS - excerpt_rows,
             )?;
@@ -3748,9 +3755,12 @@ pub fn format_explore(
             revs(&reland)
         ));
     }
-    let files = blot_files(&refs, &changes, |path, rev| {
-        format!("/{}/rev/{}/{}", tree_name, rev, url_encode_path(path))
-    });
+    let files = blot_files(
+        &refs,
+        &changes,
+        |path, rev| format!("/{}/rev/{}/{}", tree_name, rev, url_encode_path(path)),
+        |_, _| false,
+    );
 
     let title = match kind {
         "bug" if keys.len() == 1 => format!("Bug {}", keys[0]),

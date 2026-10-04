@@ -213,26 +213,28 @@ pub fn slot_width(commits: usize) -> usize {
 }
 
 /// An inline SVG of rows of slots, one per commit, where each row is given as
-/// its levels and height (in pixels), with a pixel between rows.  Runs of slots
-/// with the same level are single rects.  The SVG also has the cursor, which
-/// explore.js moves to the commit under the mouse.
-fn blot_svg(rows: &[(&[u8], usize)], slot: usize, class: &str) -> String {
-    let width = rows.first().map_or(0, |(levels, _)| levels.len()) * slot;
-    let height = rows.iter().map(|(_, h)| h).sum::<usize>() + rows.len().saturating_sub(1);
+/// its levels, height (in pixels), and whether to fade it (see `blot_files`),
+/// with a pixel between rows.  Runs of slots with the same level are single
+/// rects.  The SVG also has the cursor, which explore.js moves to the commit
+/// under the mouse.
+fn blot_svg(rows: &[(&[u8], usize, bool)], slot: usize, class: &str) -> String {
+    let width = rows.first().map_or(0, |(levels, _, _)| levels.len()) * slot;
+    let height = rows.iter().map(|(_, h, _)| h).sum::<usize>() + rows.len().saturating_sub(1);
     let mut svg = format!(
         r#"<svg class="explore-sparkline {}" width="{}" height="{}"><rect class="explore-track" width="{}" height="{}"/>"#,
         class, width, height, width, height
     );
     let mut y = 0;
-    for (levels, row_height) in rows {
+    for (levels, row_height, same) in rows {
         let mut i = 0;
         while i < levels.len() {
             let run = levels[i..].iter().take_while(|&&l| l == levels[i]).count();
             if levels[i] > 0 {
                 write!(
                     svg,
-                    r#"<rect class="explore-l{}" x="{}" y="{}" width="{}" height="{}"/>"#,
+                    r#"<rect class="explore-l{}{}" x="{}" y="{}" width="{}" height="{}"/>"#,
                     levels[i],
+                    if *same { " explore-same-row" } else { "" },
                     i * slot,
                     y,
                     run * slot,
@@ -320,11 +322,14 @@ pub const TOP_LEVEL: &str = "(top level)";
 
 /// The files which the commits (in page order) changed, sorted by path, with
 /// their symbols.  `link` makes a file's link from its path and the last commit
-/// which changed it.
+/// which changed it.  For interdiffs, `same` says whether the patches' changes
+/// to a file's symbol (by its pretty identifier, or `TOP_LEVEL`) are the same,
+/// which fades the symbol, or its row of its parent's collapsed view.
 pub fn blot_files(
     commits: &[CommitRef],
     changes: &[CommitChanges],
     link: impl Fn(&str, &str) -> String,
+    same: impl Fn(&str, &str) -> bool,
 ) -> Vec<ExploreFile> {
     let slot = slot_width(commits.len());
     let paths: BTreeSet<&String> = changes.iter().flat_map(|c| c.keys()).collect();
@@ -370,6 +375,7 @@ pub fn blot_files(
             .into_iter()
             .map(|(top, descendants)| {
                 let own = cells.get(&top);
+                let top_same = same(path, &top);
                 // The symbol's sparkline includes its descendants' changes.
                 let top_levels: Vec<u8> = (0..changes.len())
                     .map(|i| {
@@ -395,24 +401,29 @@ pub fn blot_files(
                             .unwrap_or(descendant)
                             .to_string(),
                         pretty: descendant.clone(),
-                        sparkline: blot_svg(&[(levels, 4)], slot, "explore-child-sparkline"),
+                        sparkline: blot_svg(&[(levels, 4, false)], slot, "explore-child-sparkline"),
                         blot: None,
                         children: vec![],
-                        same: false,
+                        same: same(path, descendant),
                     })
                     .collect();
-                let blot = (!children.is_empty()).then(|| {
-                    let mut rows: Vec<(&[u8], usize)> = vec![(&top_levels, 6)];
-                    rows.extend(child_levels.iter().map(|levels| (levels.as_slice(), 2)));
-                    blot_svg(&rows, slot, "explore-blot-sparkline")
-                });
+                // (A faded symbol's view is faded as a whole, and otherwise the
+                // collapsed view fades the rows of its faded nested symbols.)
+                let blot =
+                    (!children.is_empty()).then(|| {
+                        let mut rows: Vec<(&[u8], usize, bool)> = vec![(&top_levels, 6, false)];
+                        rows.extend(child_levels.iter().zip(&children).map(|(levels, child)| {
+                            (levels.as_slice(), 2, child.same && !top_same)
+                        }));
+                        blot_svg(&rows, slot, "explore-blot-sparkline")
+                    });
                 ExploreSymbol {
                     name: top.clone(),
                     pretty: top,
-                    sparkline: blot_svg(&[(&top_levels, 6)], slot, ""),
+                    sparkline: blot_svg(&[(&top_levels, 6, false)], slot, ""),
                     blot,
                     children,
-                    same: false,
+                    same: top_same,
                 }
             })
             .collect();
@@ -424,7 +435,7 @@ pub fn blot_files(
         files.push(ExploreFile {
             path: path.clone(),
             link: link(path, &commits[last].rev),
-            sparkline: blot_svg(&[(&file_levels, 8)], slot, "explore-file-sparkline"),
+            sparkline: blot_svg(&[(&file_levels, 8, false)], slot, "explore-file-sparkline"),
             symbols,
             same: false,
             note: String::new(),
@@ -488,7 +499,8 @@ mod tests {
                 ("h.rs".to_string(), BTreeMap::from([("%".to_string(), 2)])),
             ]),
         ];
-        let files = blot_files(&commits, &changes, |path, rev| format!("{}@{}", path, rev));
+        let link = |path: &str, rev: &str| format!("{}@{}", path, rev);
+        let files = blot_files(&commits, &changes, link, |_, _| false);
         assert_eq!(files.len(), 3);
         assert_eq!(files[0].path, "f.rs");
         assert_eq!(files[0].link, "f.rs@b");
@@ -518,16 +530,34 @@ mod tests {
             foo.sparkline
                 .contains(r#"<rect class="explore-l3" x="6" y="0" width="6" height="6"/>"#)
         );
+        assert!(!foo.blot.as_ref().unwrap().contains("explore-same-row"));
         assert_eq!(files[1].path, "g.rs");
         assert!(files[1].symbols.is_empty());
         // Changes only outside of any symbol don't get their own sparkline.
         assert_eq!(files[2].path, "h.rs");
         assert!(files[2].symbols.is_empty());
+
+        // In an interdiff where only `Foo::baz` differs, `Foo::bar` is faded,
+        // and so is its row of `Foo`'s collapsed view, which is under `Foo`'s
+        // (6px and a pixel) and is the first of `Foo`'s nested symbols' rows.
+        let files = blot_files(&commits, &changes, link, |_, pretty| {
+            pretty != "Foo" && pretty != "Foo::baz"
+        });
+        let foo = &files[0].symbols[1];
+        assert!(!foo.same);
+        let same: Vec<bool> = foo.children.iter().map(|c| c.same).collect();
+        assert_eq!(same, vec![true, false]);
+        let blot = foo.blot.as_ref().unwrap();
+        assert!(blot.contains(
+            r#"<rect class="explore-l1 explore-same-row" x="0" y="7" width="6" height="2"/>"#
+        ));
+        assert!(blot.contains(r#"<rect class="explore-l3" x="6" y="10" width="6" height="2"/>"#));
+        assert!(files[0].symbols[0].same);
     }
 
     #[test]
     fn test_blot_svg_runs() {
-        let svg = blot_svg(&[(&[0, 2, 2, 0, 1], 4)], 1, "x");
+        let svg = blot_svg(&[(&[0, 2, 2, 0, 1], 4, false)], 1, "x");
         assert!(svg.contains(r#"<rect class="explore-l2" x="1" y="0" width="2" height="4"/>"#));
         assert!(svg.contains(r#"<rect class="explore-l1" x="4" y="0" width="1" height="4"/>"#));
     }
