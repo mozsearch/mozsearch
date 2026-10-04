@@ -21,9 +21,12 @@ So there will be one indexer instance processing the repos in
 another instance processing the repos in
 [config2.json](https://github.com/mozsearch/mozsearch-mozilla/blob/master/config2.json),
 etc. The indexing instances have an extra Elastic Block Store volume attached
-where the index will be stored. The following paragraphs explain the
-lifecycle of a single indexer and its web server; the lifecycle applies
-to each indexer instance.
+where the index will be stored: 300 GiB (400 GiB for release2 and release3),
+unless the config file asks for a different size with `"index_volume_gb"` (ex:
+config8.json, whose firefox-disco tree keeps a ~120 GiB history in
+firefox-shared; see `infrastructure/aws/attach-index-volume.py`). The
+following paragraphs explain the lifecycle of a single indexer and its web
+server; the lifecycle applies to each indexer instance.
 
 Note that as of this writing, config1.json, config2.json, config4.json,
 config5.json, and config6.json

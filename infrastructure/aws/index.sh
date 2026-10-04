@@ -38,7 +38,7 @@ echo "  mozsearch repo $MOZSEARCH_REPO_URL rev is $MOZSEARCH_REV"
 echo "  config repo $CONFIG_REPO_URL rev is $CONFIG_REV"
 echo "Channel is $CHANNEL"
 
-VOLUME_ID=$($AWS_ROOT/attach-index-volume.py $CHANNEL $EC2_INSTANCE_ID)
+VOLUME_ID=$($AWS_ROOT/attach-index-volume.py $CHANNEL $EC2_INSTANCE_ID "$CONFIG_REPO_PATH/$CONFIG_FILE_NAME")
 
 # Since we know the volume id and it's exposed as the `SerialNumber` in the JSON
 # structure (see above), we can look that up here too.  Note that we need to

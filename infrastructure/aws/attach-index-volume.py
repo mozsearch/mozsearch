@@ -2,8 +2,9 @@
 
 # Creates an EBS volume for the index and attaches it to a given instance as /dev/xvdf.
 # Prints the volume ID on stdout.
-# Usage: attach-index-volume.py <channel> <instance-id>
+# Usage: attach-index-volume.py <channel> <instance-id> <config-file>
 
+import json
 import sys
 import boto3
 import awslib
@@ -11,6 +12,7 @@ from datetime import datetime
 
 channel = sys.argv[1]
 instanceId = sys.argv[2]
+configFile = sys.argv[3]
 
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
@@ -29,6 +31,21 @@ instance = list(instances)[0]
 volumeSize = 300
 if channel == 'release2' or channel == 'release3':
     volumeSize = 400
+
+# A config file can ask for a different size with "index_volume_gb" (in GiB, as
+# EBS sizes are), ex: config8.json, whose firefox-disco tree's full history
+# (see its update-history.sh) is ~120 GiB in firefox-shared, which moves to the
+# volume too (see indexer-run.sh).  (Like the web server's instance type, see
+# trigger-web-server.py, within limits, since the volume lives as long as the
+# web server serving it.)
+MAX_VOLUME_SIZE = 1000
+config = json.load(open(configFile))
+if 'index_volume_gb' in config:
+    requestedSize = config['index_volume_gb']
+    if not isinstance(requestedSize, int) or not 0 < requestedSize <= MAX_VOLUME_SIZE:
+        raise Exception(f'index_volume_gb must be a number of GiB up to {MAX_VOLUME_SIZE}, not {requestedSize!r}')
+    volumeSize = requestedSize
+print(f'Creating a {volumeSize} GiB index volume', file=sys.stderr)
 
 r = client.create_volume(
     Size=volumeSize,

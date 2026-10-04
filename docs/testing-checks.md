@@ -175,7 +175,8 @@ failures experienced by the indexer run:
 
 ```shell
 # mount the index to /index-ebs as documented in aws.md
-# Use 400G for release2
+# Use the index volume's size: 300G, 400G for release2 and release3, or the
+# config file's index_volume_gb (see attach-index-volume.py)
 sudo mount /dev/`lsblk | grep 300G | cut -d" " -f1` /index-ebs
 # make /index paths valid again
 sudo ln -s /index-ebs/interrupted /index

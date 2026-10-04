@@ -46,6 +46,10 @@ pub struct ConfigJson {
     /// What type of EC2 instance type to use for the web-server when it's spun
     /// up.
     pub instance_type: Option<String>,
+    /// How big (in GiB) to make the EBS volume which the indexer stores the
+    /// index on and the web-server serves it from, if not the default for the
+    /// channel; see infrastructure/aws/attach-index-volume.py.
+    pub index_volume_gb: Option<u32>,
     pub trees: BTreeMap<String, TreeConfigPaths>,
 
     #[serde(default)]
