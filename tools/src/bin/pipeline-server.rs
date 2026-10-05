@@ -106,7 +106,7 @@ async fn handle_query(
         build_pipeline_graph(server.clonify(), pipeline_plan)?
     };
 
-    let result = match &logged_span {
+    let mut result = match &logged_span {
         Some(lspan) => graph.run(true).instrument(lspan.span.clone()).await?,
         _ => graph.run(true).await?,
     };
@@ -141,6 +141,9 @@ async fn handle_query(
             _ => "{}".to_string(),
         };
 
+        if let PipelineValues::FlattenedResultsBundle(results) = &mut result {
+            results.inline_contexts(&tree);
+        }
         let file_facets = match &result {
             PipelineValues::FlattenedResultsBundle(results) => {
                 results_file_facets(server.as_ref(), results)

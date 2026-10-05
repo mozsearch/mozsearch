@@ -594,6 +594,25 @@ impl FlattenedResultsBundle {
             path_kind_group.ingest_html_lines(path_line_contents, before, after);
         }
     }
+
+    /// For HTML pages of the results (see query_results/line_span.liquid), put
+    /// the "// found in CONTEXT" of each of the line spans whose contents are
+    /// HTML rows (see `ingest_html_lines`) at the end of its key line's code,
+    /// like `/search/`, rather than under the rows, and clear its context.
+    pub fn inline_contexts(&mut self, tree: &str) {
+        if self.content_type != "text/html" {
+            return;
+        }
+        for path_kind_group in &mut self.path_kind_results {
+            for kind_group in &mut path_kind_group.kind_groups {
+                for file in &mut kind_group.by_file {
+                    for span in &mut file.line_spans {
+                        span.inline_context(tree);
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -799,6 +818,46 @@ pub struct FlattenedLineSpan {
 }
 
 impl FlattenedLineSpan {
+    /// See `FlattenedResultsBundle::inline_contexts`.  The key line's row looks
+    /// like `<div role="row" id="line-N" ...>...<code role="cell"
+    /// class="source-line">TEXT\n</code>\n</div>`.
+    fn inline_context(&mut self, tree: &str) {
+        if self.context.is_empty() {
+            return;
+        }
+        let Some(row) = self
+            .contents
+            .find(&format!(r#"id="line-{}""#, self.key_line))
+        else {
+            return;
+        };
+        let Some(code_end) = self.contents[row..].find("</code>").map(|i| row + i) else {
+            return;
+        };
+        // (Before the line's newline, which would put it on the next line.)
+        let at = code_end - usize::from(self.contents[..code_end].ends_with('\n'));
+        let context = self.context.replace('&', "&amp;").replace('<', "&lt;");
+        let inside = if self.contextsym.is_empty() {
+            context
+        } else {
+            format!(
+                r#"<a href="/{}/search?q=symbol:{}&amp;redirect=false">{}</a>"#,
+                tree,
+                urlencoding::encode(&self.contextsym),
+                context
+            )
+        };
+        self.contents.insert_str(
+            at,
+            &format!(
+                r#" <span class="result-context">// found in <code>{}</code></span>"#,
+                inside
+            ),
+        );
+        self.context = ustr("");
+        self.contextsym = ustr("");
+    }
+
     /// Expand the range by before/after, ensuring we don't go below line 1 for
     /// the start, and ignoring the fact that we potentially will expand into
     /// adjacent spans.
@@ -1142,5 +1201,46 @@ impl ServerPipelineGraph {
             Some(val) => val,
             None => PipelineValues::Void,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_inline_context() {
+        let row = |n: u32, text: &str| {
+            format!(
+                "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>\n  <code role=\"cell\" class=\"source-line\">{}\n</code>\n</div>\n",
+                n, n, text
+            )
+        };
+        let mut span = FlattenedLineSpan {
+            key_line: 8,
+            line_range: (7, 9),
+            contents: [row(7, "// a"), row(8, "void f();"), row(9, "}")].join("\n"),
+            context: ustr("Foo<T>"),
+            contextsym: ustr("#f"),
+        };
+        span.inline_context("tests");
+        // On the key line, before its newline, with an escaped context and
+        // an encoded symbol.
+        assert!(span.contents.contains(
+            "void f(); <span class=\"result-context\">// found in <code><a href=\"/tests/search?q=symbol:%23f&amp;redirect=false\">Foo&lt;T></a></code></span>\n</code>"
+        ));
+        assert_eq!(span.contents.matches("result-context").count(), 1);
+        assert!(span.context.is_empty() && span.contextsym.is_empty());
+
+        // Without a context (ex: a textual occurrence), nothing changes.
+        let mut span = FlattenedLineSpan {
+            key_line: 8,
+            line_range: (8, 8),
+            contents: row(8, "text"),
+            context: ustr(""),
+            contextsym: ustr(""),
+        };
+        span.inline_context("tests");
+        assert_eq!(span.contents, row(8, "text"));
     }
 }
