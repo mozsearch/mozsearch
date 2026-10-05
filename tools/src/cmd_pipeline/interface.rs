@@ -633,6 +633,12 @@ pub enum ResultFacetKind {
     SymbolByRelation,
     /// We're faceting based on the path of the definition for the symbol.
     PathByPath,
+    /// We're faceting paths by their path kind (ex: "test"), whose groups are
+    /// named by the kind.
+    PathByKind,
+    /// We're faceting paths by their subsystem (ex: "Firefox/Sidebar"), whose
+    /// groups are "Product/" and "Product/Component".
+    PathBySubsystem,
 }
 
 /// A context-sensitive facet for results.  Facets are only created when
