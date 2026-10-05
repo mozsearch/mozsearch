@@ -34,7 +34,7 @@
     <p class="interdiff-legend">{{ legend }}</p>
     <p><a href="{{ swap }}">Swap A and B</a></p>
   </section>
-  {%- include "facet_bar.liquid" %}
+  {%- include "facet_bar.liquid" group_by: true %}
   <p class="explore-status explore-note">Each file's sparkline has a slot for each of A's commits and then each of B's, filled if the commit changed it.  The files and symbols where B's changes are the same as A's are faded, and the others have excerpts of where they differ.</p>
   {%- include "explore_file_groups.liquid" %}
 </div>

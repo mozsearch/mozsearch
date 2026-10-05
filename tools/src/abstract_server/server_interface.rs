@@ -291,6 +291,19 @@ pub trait AbstractServer {
     /// Return info about the latest commit, primarily for templating purposes.
     fn commit_info(&self) -> Result<Option<CommitInfo>>;
 
+    /// The path kind and subsystem (ex: "Firefox/Sidebar") of the file at
+    /// `path` in the indexed revision, if we know it, for faceting results
+    /// (see `cmd_pipeline::facets::file_facets`).
+    fn file_facet_info(&self, _path: &str) -> Option<(Ustr, Option<Ustr>)> {
+        None
+    }
+
+    /// The tree's path kinds' keys and names (see per-file-info.toml), in
+    /// their display order.
+    fn path_kinds(&self) -> Vec<(Ustr, Ustr)> {
+        vec![]
+    }
+
     /// Convert a searchfox tree-local path into an absolute path on disk using
     /// the requested root.  This fundamentally only works for local indices.
     /// Note that many paths also have uncompressed (pre compress-outputs.sh)

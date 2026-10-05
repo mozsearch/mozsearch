@@ -1,3 +1,14 @@
+{%- comment -%}
+  File-centric results, grouped by path kind, with facets of their files like
+  the /explore/ pages' (see facet_bar.liquid and `results_file_facets` in
+  pipeline-server.rs), which filter the files (and hide the groups left
+  without any).
+{%- endcomment -%}
+{%- if file_facets %}
+{% include 'facet_bar.liquid' facets: file_facets.facets %}
+{%- endif %}
+<div class="facet-items">
 {% for pk_group in results.FlattenedResultsBundle.path_kind_results %}
 {% include 'query_results/pathkind_group.liquid' pk_group: pk_group, forloop: forloop %}
 {% endfor %}
+</div>

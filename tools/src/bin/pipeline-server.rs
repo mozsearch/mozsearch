@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     env,
     sync::Arc,
 };
@@ -17,13 +17,51 @@ use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tools::{
     abstract_server::{AbstractServer, ServerError, make_all_local_servers},
-    cmd_pipeline::{PipelineValues, builder::build_pipeline_graph},
+    cmd_pipeline::{
+        PipelineValues,
+        builder::build_pipeline_graph,
+        facets::{FacetFile, PathKinds, file_facets},
+        interface::FlattenedResultsBundle,
+    },
     logging::{LoggedSpan, init_logging},
     query::chew_query::chew_query,
     templating::builder::build_and_parse_query_results,
 };
 use tower::limit::GlobalConcurrencyLimitLayer;
 use tracing::Instrument;
+
+/// The facets of the files of file-centric results (see facet_bar.liquid), as
+/// on the `/explore/` pages: their path kinds, subsystems, and directories, as
+/// `{"facets": [...], "files": {PATH: {facets, groups, title}}}`.
+fn results_file_facets(
+    server: &(dyn AbstractServer + Send + Sync),
+    results: &FlattenedResultsBundle,
+) -> Value {
+    let mut seen = HashSet::new();
+    let mut files = vec![];
+    for pk_group in &results.path_kind_results {
+        let paths = pk_group.file_names.iter().chain(
+            pk_group
+                .kind_groups
+                .iter()
+                .flat_map(|kind_group| kind_group.by_file.iter().map(|file| &file.file)),
+        );
+        for path in paths {
+            if !seen.insert(*path) {
+                continue;
+            }
+            let info = server.file_facet_info(path);
+            files.push(FacetFile {
+                path: path.to_string(),
+                kind: pk_group.path_kind,
+                known: info.is_some(),
+                subsystem: info.and_then(|(_, subsystem)| subsystem),
+            });
+        }
+    }
+    let (facets, data) = file_facets(&files, &PathKinds(server.path_kinds()));
+    json!({ "facets": facets, "files": data })
+}
 
 #[debug_handler]
 async fn handle_query(
@@ -103,6 +141,13 @@ async fn handle_query(
             _ => "{}".to_string(),
         };
 
+        let file_facets = match &result {
+            PipelineValues::FlattenedResultsBundle(results) => {
+                results_file_facets(server.as_ref(), results)
+            }
+            _ => Value::Null,
+        };
+
         // For simplicity, the template expects "results" variable to always be
         // an array.
         // Use an empty array for the void result, which is used when the
@@ -119,6 +164,7 @@ async fn handle_query(
             "tree": tree.clone(),
             "logs": logs,
             "SYM_INFO_STR": sym_info_str,
+            "file_facets": file_facets,
         });
 
         let output = templates.query_results.render(&globals)?;

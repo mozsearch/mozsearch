@@ -1,4 +1,5 @@
-<details open>
+{%- assign facet_data = file_facets.files[file_results.file] -%}
+<details open{% if facet_data %} data-path="{{ file_results.file | escape }}" data-facets="{{ facet_data.facets | escape }}" data-groups="{{ facet_data.groups | escape }}"{% endif %}>
     <summary>{% include 'path.liquid' path: file_results.file %}</summary>
     {% for line_span in file_results.line_spans -%}
     {%- include 'query_results/line_span.liquid' line_span: line_span, forloop: forloop -%}

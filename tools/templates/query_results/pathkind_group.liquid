@@ -1,4 +1,4 @@
-<details open>
+<details open class="facet-group">
     <summary><h1>
         {%- case pk_group.path_kind -%}
             {%- when "normal" -%}
@@ -12,11 +12,12 @@
         {%- endcase -%}
     </h1></summary>
     {% if pk_group.file_names.length -%}
-        <details open>
+        <details open class="facet-group">
             <summary>Files</summary>
             <li>
             {% for path in pk_group.file_names %}
-                {% include 'path.liquid' path: path %}
+                {%- assign facet_data = file_facets.files[path] %}
+                <div{% if facet_data %} data-path="{{ path | escape }}" data-facets="{{ facet_data.facets | escape }}" data-groups="{{ facet_data.groups | escape }}"{% endif %}>{% include 'path.liquid' path: path %}</div>
             {% endfor %}
             </li>
         </details>

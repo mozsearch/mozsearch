@@ -27,6 +27,7 @@ use crate::file_format::history::timeline_common::JournalVersionRef;
 use crate::file_format::identifiers::IdentMap;
 use crate::file_format::jumpref::JumprefData;
 use crate::file_format::per_file_info::FileLookupMap;
+use crate::file_format::repo_data_ingestion::RepoIngestionConfig;
 use crate::format::format_code;
 use crate::git_ops::{RevisionCoverage, coverage_history, coverage_summary, git_time_to_chrono};
 use crate::hyperblame::journals::{JournalKind, JournalReader};
@@ -150,6 +151,8 @@ pub struct LocalIndex {
     crossref_lookup_map: Option<BisectableMmap<CrossrefData>>,
     jumpref_lookup_map: Option<BisectableMmap<JumprefData>>,
     file_lookup_map: FileLookupMap,
+    /// The tree's path kinds' keys and names, in display order.
+    path_kinds: Vec<(Ustr, Ustr)>,
     head_info: Option<CommitInfo>,
 }
 
@@ -180,6 +183,16 @@ impl AbstractServer for LocalIndex {
 
     fn commit_info(&self) -> Result<Option<CommitInfo>> {
         Ok(self.head_info.clone())
+    }
+
+    fn file_facet_info(&self, path: &str) -> Option<(Ustr, Option<Ustr>)> {
+        self.file_lookup_map
+            .lookup_file_from_str(path)
+            .map(|info| (info.path_kind, info.subsystem))
+    }
+
+    fn path_kinds(&self) -> Vec<(Ustr, Ustr)> {
+        self.path_kinds.clone()
     }
 
     fn translate_path(&self, root: SearchfoxIndexRoot, sf_path: &str) -> Result<String> {
@@ -550,7 +563,18 @@ fn fab_server(
     tree_config: TreeConfig,
     tree_name: &str,
     config_repo_path: &str,
+    per_file_info_toml: Option<String>,
 ) -> Result<Box<dyn AbstractServer + Send + Sync>> {
+    let path_kinds = per_file_info_toml
+        .and_then(|toml| toml::from_str::<RepoIngestionConfig>(&toml).ok())
+        .map_or_else(Vec::new, |config| {
+            let mut kinds: Vec<_> = config.pathkind.into_iter().collect();
+            kinds.sort_by_key(|(_, kind)| kind.sort_order);
+            kinds
+                .into_iter()
+                .map(|(key, kind)| (key, kind.name))
+                .collect()
+        });
     let ident_path = format!("{}/identifiers", tree_config.paths.index_path);
     let ident_map = IdentMap::new(&ident_path);
 
@@ -600,6 +624,7 @@ fn fab_server(
         crossref_lookup_map,
         jumpref_lookup_map,
         file_lookup_map,
+        path_kinds,
         head_info,
     }))
 }
@@ -619,16 +644,33 @@ pub fn make_local_server(
         }
     };
 
-    fab_server(tree_config, tree_name, &config.config_repo_path)
+    let per_file_info_toml = config
+        .read_tree_config_file_with_default("per-file-info.toml")
+        .ok();
+    fab_server(
+        tree_config,
+        tree_name,
+        &config.config_repo_path,
+        per_file_info_toml,
+    )
 }
 
 pub fn make_all_local_servers(
     config_path: &str,
 ) -> Result<BTreeMap<String, Box<dyn AbstractServer + Send + Sync>>> {
     let config = load(config_path, false, None, None, None);
+    // (The config repo's, so the same for every tree.)
+    let per_file_info_toml = config
+        .read_tree_config_file_with_default("per-file-info.toml")
+        .ok();
     let mut servers = BTreeMap::new();
     for (tree_name, tree_config) in config.trees {
-        let server = fab_server(tree_config, &tree_name, &config.config_repo_path)?;
+        let server = fab_server(
+            tree_config,
+            &tree_name,
+            &config.config_repo_path,
+            per_file_info_toml.clone(),
+        )?;
         servers.insert(tree_name, server);
     }
     Ok(servers)

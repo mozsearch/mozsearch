@@ -35,7 +35,7 @@
     </ol>
     <p class="explore-note explore-interdiff-picker">Check commits as side A and side B (the boxes before them) to see <a class="explore-interdiff-link">how B differs from A</a>, ex: a reland from the landing it relands.</p>
   </details>
-  {%- include "facet_bar.liquid" %}
+  {%- include "facet_bar.liquid" group_by: true %}
   <p class="explore-status explore-note">Each sparkline has a slot per commit, filled (darker for more tokens) if the commit changed it.  Hover over them to see which commit is which, and expand classes to see their members.</p>
   {%- include "explore_file_groups.liquid" %}
   {%- endif %}

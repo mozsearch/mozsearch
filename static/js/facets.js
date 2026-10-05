@@ -7,9 +7,12 @@
  * values of each facet each item is in, including their ancestors) to those
  * in any of a facet's selected values, for every facet with selected values.
  * Each value shows how many items it would have given the other facets'
- * selections.  The items can also be grouped by a facet (`data-groups`, whose
- * JSON gives each item's group's sort key and name for each way of grouping);
- * the server groups them by the first.
+ * selections.  Counts are of distinct paths (`data-path`), since a file can be
+ * several items (ex: `/query/`'s definitions and uses of a symbol), and the
+ * groups of items (`.facet-group`, which may nest) without any shown items
+ * are hidden.  The items can also be grouped by a facet (`data-groups`, whose
+ * JSON gives each item's group's sort key and name for each way of grouping),
+ * if there's a "Group by" choice; the server groups them by the first.
  *
  * The selections and the grouping go in the URL's query (`facet-KEY=VALUE`,
  * repeated, and `group-by=KEY`), so links reproduce the view.  The box of
@@ -34,10 +37,12 @@
     count: button.querySelector(".facet-count"),
   }));
   const groupBy = bar.querySelector(".facet-group-by select");
-  const defaultGroupBy = groupBy.value;
+  const defaultGroupBy = groupBy?.value;
   const status = bar.querySelector(".facet-status");
   const clear = bar.querySelector(".facet-clear");
   const plural = n => `${n} file${n == 1 ? "" : "s"}`;
+  const paths = someItems => new Set(someItems.map(item => item.path)).size;
+  const allPaths = paths(items);
 
   // The selected values, by facet.
   const selected = new Map();
@@ -57,21 +62,25 @@
       item.element.hidden = !matches(item);
     }
     for (const { button, facet, value, count } of buttons) {
-      const n = items.filter(item =>
-        matches(item, facet) && (item.facets[facet] || []).includes(value)).length;
+      const n = paths(items.filter(item =>
+        matches(item, facet) && (item.facets[facet] || []).includes(value)));
       count.textContent = n;
       button.classList.toggle("facet-empty", n == 0);
       button.setAttribute("aria-pressed", selected.get(facet)?.has(value) ? "true" : "false");
     }
     for (const section of container.querySelectorAll(".facet-group")) {
-      const shown = [...section.querySelectorAll("[data-facets]")]
-        .filter(element => !element.hidden).length;
+      const shown = new Set([...section.querySelectorAll("[data-facets]")]
+        .filter(element => !element.hidden)
+        .map(element => element.dataset.path)).size;
       section.hidden = shown == 0;
-      section.querySelector(".facet-group-count").textContent = `(${plural(shown)})`;
+      const count = section.querySelector(".facet-group-count");
+      if (count) {
+        count.textContent = `(${plural(shown)})`;
+      }
     }
-    const shown = items.filter(item => !item.element.hidden).length;
+    const shown = paths(items.filter(item => !item.element.hidden));
     const filtering = [...selected.values()].some(values => values.size);
-    status.textContent = filtering ? `Showing ${shown} of ${plural(items.length)}.` : "";
+    status.textContent = filtering ? `Showing ${shown} of ${plural(allPaths)}.` : "";
     clear.classList.toggle("facet-inactive", !filtering);
     saveState();
   }
@@ -117,7 +126,7 @@
         params.append(`facet-${facet}`, value);
       }
     }
-    if (groupBy.value != defaultGroupBy) {
+    if (groupBy && groupBy.value != defaultGroupBy) {
       params.set("group-by", groupBy.value);
     }
     const query = params.toString();
@@ -137,7 +146,7 @@
       }
     }
     const key = params.get("group-by");
-    if (key && [...groupBy.options].some(option => option.value == key)) {
+    if (groupBy && key && [...groupBy.options].some(option => option.value == key)) {
       groupBy.value = key;
     }
   }
@@ -159,7 +168,7 @@
       update();
     }
   });
-  groupBy.addEventListener("change", () => {
+  groupBy?.addEventListener("change", () => {
     regroup(groupBy.value);
     update();
   });
@@ -178,7 +187,7 @@
   setExpanded(localStorage.getItem("facets-collapsed") != "1");
 
   loadState();
-  if (groupBy.value != defaultGroupBy) {
+  if (groupBy && groupBy.value != defaultGroupBy) {
     regroup(groupBy.value);
   }
   update();

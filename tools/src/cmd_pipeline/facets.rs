@@ -2,11 +2,14 @@
 //! them (ex: the directories of their paths) when there are usefully sized
 //! groups; see `ResultFacetRoot`.  Used by the "compile-results" pipeline
 //! command for `/query/` results, and by the `/explore/` pages and interdiff
-//! summaries (see `format::explore_facets`).
+//! summaries (see `format::explore_facets`), whose files `file_facets`
+//! facets for facet_bar.liquid and facets.js, as for `/query/`'s results.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
-use ustr::Ustr;
+use serde::Serialize;
+use serde_json::json;
+use ustr::{Ustr, ustr};
 
 use super::interface::{ResultFacetGroup, ResultFacetKind, ResultFacetRoot};
 
@@ -251,6 +254,258 @@ impl MaybeFacetGroup {
                 1,
             )
         }
+    }
+}
+
+/// A facet of a list of files (see `file_facets`), for facet_bar.liquid: its
+/// key (as facets.js and URLs name it), label, and values.
+#[derive(Serialize)]
+pub struct FacetView {
+    pub key: &'static str,
+    pub label: String,
+    pub values: Vec<FacetValueView>,
+}
+
+/// A value of a facet (see `ResultFacetGroup`): its identity (its group's
+/// label, ex: "dom/base/"), its name relative to its parent's (ex: "base/") and
+/// a description, how many files it has, and its nested values.
+#[derive(Serialize)]
+pub struct FacetValueView {
+    pub value: String,
+    pub name: String,
+    pub title: String,
+    pub count: u32,
+    pub values: Vec<FacetValueView>,
+}
+
+/// A file to facet (see `file_facets`): its path, its path kind and whether
+/// that's the indexed revision's (rather than guessed from its path), and its
+/// subsystem (ex: "Firefox/Sidebar").
+pub struct FacetFile {
+    pub path: String,
+    pub kind: Ustr,
+    pub known: bool,
+    pub subsystem: Option<Ustr>,
+}
+
+/// facets.js's data for a file (see facet_bar.liquid), as JSON: the values of
+/// each facet it's in (with their ancestors), and its group (a sort key and a
+/// name) for each way of grouping files.  And a title for its link (ex: its
+/// subsystem).
+#[derive(Default, Serialize)]
+pub struct FileFacetData {
+    pub facets: String,
+    pub groups: String,
+    pub title: String,
+}
+
+/// A tree's path kinds' keys and names (see per-file-info.toml), in their
+/// display order.
+pub struct PathKinds(pub Vec<(Ustr, Ustr)>);
+
+impl PathKinds {
+    /// The kind's place in the display order (after the tree's kinds if it's
+    /// not one of them).
+    pub fn order(&self, kind: &str) -> usize {
+        self.0
+            .iter()
+            .position(|(key, _)| *key == kind)
+            .unwrap_or(self.0.len())
+    }
+
+    pub fn name(&self, kind: &str) -> String {
+        self.0
+            .iter()
+            .find(|(key, _)| *key == kind)
+            .map_or_else(|| "Files".to_string(), |(_, name)| name.to_string())
+    }
+}
+
+/// The subsystem facet's value for files without subsystems.
+pub const UNKNOWN_SUBSYSTEM: &str = "?";
+
+/// The facets of a list of files (ex: an `/explore/` page's, or `/query/`'s
+/// results'), for facet_bar.liquid and facets.js: their path kinds (in the
+/// tree's order), their subsystems (by product and then component), and their
+/// directories (the "Path" facet of compile-results), and each file's data
+/// for facets.js, by path.
+pub fn file_facets(
+    files: &[FacetFile],
+    kinds: &PathKinds,
+) -> (Vec<FacetView>, HashMap<String, FileFacetData>) {
+    let kind_order = |kind: &str| kinds.order(kind);
+    let kind_name = |kind: &str| kinds.name(kind);
+
+    // Each file's path kind, subsystem, and directory, placed in the facets.
+    let mut kind_facet = MaybeFacetRoot::new(ResultFacetKind::PathByKind);
+    let mut subsystem_facet = MaybeFacetRoot::new(ResultFacetKind::PathBySubsystem);
+    let mut dir_facet = MaybeFacetRoot::new(ResultFacetKind::PathByPath);
+    for file in files {
+        let path = ustr(&file.path);
+        kind_facet.place_item(vec![file.kind], path);
+        let subsystem_pieces = match file.subsystem.as_ref().map(|s| s.split_once('/')) {
+            Some(Some((product, component))) => {
+                vec![ustr(&format!("{}/", product)), ustr(component)]
+            }
+            Some(None) => vec![file.subsystem.unwrap()],
+            None => vec![ustr(UNKNOWN_SUBSYSTEM)],
+        };
+        subsystem_facet.place_item(subsystem_pieces, path);
+        dir_facet.place_item(
+            dir_of(&file.path).split_inclusive('/').map(ustr).collect(),
+            path,
+        );
+    }
+
+    // The facets' values, and the values each file is in (with their
+    // ancestors), by facet.
+    let mut memberships: HashMap<Ustr, BTreeMap<&'static str, Vec<String>>> = HashMap::new();
+    // Products (ex: "Firefox"), their components (ex: "Sidebar"), and lone
+    // components named like Bugzilla does (ex: "Core :: Machine
+    // Learning/Frontend").
+    let subsystem_name = |value: &str, parent: &str| match value.strip_prefix(parent) {
+        _ if value == UNKNOWN_SUBSYSTEM => "Unknown".to_string(),
+        Some(component) if !parent.is_empty() => component.to_string(),
+        _ => match value.strip_suffix('/') {
+            Some(product) => product.to_string(),
+            None => value.replacen('/', " :: ", 1),
+        },
+    };
+    // (The "*" groups of the other directories are "other", ex: "browser/
+    // other" if the facet's top level has "browser/"'s.)
+    let dir_name = |value: &str, parent: &str| {
+        let name = value.strip_prefix(parent).unwrap_or(value);
+        match name.strip_suffix('*') {
+            Some("") => "other".to_string(),
+            Some(dir) => format!("{} other", dir),
+            None => name.to_string(),
+        }
+    };
+    let mut facets = vec![];
+    // (The directory facet is `/query/`'s "Path" facet, but "Directory" is
+    // clearer next to the "Group by" choices.)
+    type FacetSpec<'n> = (
+        &'static str,
+        Option<&'static str>,
+        Option<ResultFacetRoot>,
+        &'n dyn Fn(&str, &str) -> String,
+    );
+    let facet_specs: [FacetSpec; 3] = [
+        ("kind", None, kind_facet.compile(), &|value, _| {
+            kind_name(value)
+        }),
+        (
+            "subsystem",
+            None,
+            subsystem_facet.compile(),
+            &subsystem_name,
+        ),
+        ("dir", Some("Directory"), dir_facet.compile(), &dir_name),
+    ];
+    for (key, label, root, name) in facet_specs {
+        let Some(root) = root else {
+            continue;
+        };
+        fn view(
+            key: &'static str,
+            group: ResultFacetGroup,
+            parent: &str,
+            ancestors: &mut Vec<String>,
+            name: &dyn Fn(&str, &str) -> String,
+            memberships: &mut HashMap<Ustr, BTreeMap<&'static str, Vec<String>>>,
+        ) -> FacetValueView {
+            ancestors.push(group.label.clone());
+            for value in &group.values {
+                memberships
+                    .entry(*value)
+                    .or_default()
+                    .entry(key)
+                    .or_default()
+                    .extend(ancestors.iter().cloned());
+            }
+            let values = group
+                .nested_groups
+                .into_iter()
+                .map(|nested| view(key, nested, &group.label, ancestors, name, memberships))
+                .collect();
+            ancestors.pop();
+            let title = match group.label.strip_suffix('*') {
+                Some("") => "The other directories".to_string(),
+                Some(dir) => format!("The other directories in {}", dir),
+                None if group.label == UNKNOWN_SUBSYSTEM => {
+                    "Files without subsystems, or not in the indexed revision".to_string()
+                }
+                None => group.label.clone(),
+            };
+            FacetValueView {
+                name: name(&group.label, parent),
+                value: group.label,
+                title,
+                count: group.count,
+                values,
+            }
+        }
+        let mut values: Vec<FacetValueView> = root
+            .groups
+            .into_iter()
+            .map(|group| view(key, group, "", &mut vec![], name, &mut memberships))
+            .collect();
+        match key {
+            "kind" => values.sort_by_key(|value| kind_order(&value.value)),
+            "subsystem" => values.sort_by_key(|value| value.value == UNKNOWN_SUBSYSTEM),
+            _ => {}
+        }
+        facets.push(FacetView {
+            key,
+            label: label.map_or(root.label, str::to_string),
+            values,
+        });
+    }
+
+    // Each file's data.
+    let data = files
+        .iter()
+        .map(|file| {
+            let subsystem_group = match file.subsystem {
+                Some(subsystem) => {
+                    let name = subsystem.replacen('/', " :: ", 1);
+                    json!([name, name])
+                }
+                None => json!(["\u{10ffff}", "Unknown subsystem"]),
+            };
+            let dir_group = match dir_of(&file.path) {
+                "" => json!(["", "(top level)"]),
+                dir => json!([dir, dir]),
+            };
+            let groups = json!({
+                "kind": [kind_order(&file.kind), kind_name(&file.kind)],
+                "subsystem": subsystem_group,
+                "dir": dir_group,
+            });
+            let title = match (file.known, file.subsystem) {
+                (false, _) => "Not in the indexed revision, so its path kind is guessed from its path, and its subsystem is unknown".to_string(),
+                (true, Some(subsystem)) => format!("Subsystem: {}", subsystem.replacen('/', " :: ", 1)),
+                (true, None) => String::new(),
+            };
+            let facets = json!(memberships.remove(&ustr(&file.path)).unwrap_or_default());
+            (
+                file.path.clone(),
+                FileFacetData {
+                    facets: facets.to_string(),
+                    groups: groups.to_string(),
+                    title,
+                },
+            )
+        })
+        .collect();
+    (facets, data)
+}
+
+/// The directory of the file at `path`, with its "/" (or "" at the top).
+fn dir_of(path: &str) -> &str {
+    match path.rfind('/') {
+        Some(offset) => &path[..offset + 1],
+        None => "",
     }
 }
 
