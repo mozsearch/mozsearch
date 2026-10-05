@@ -12,10 +12,11 @@
  * the server groups them by the first.
  *
  * The selections and the grouping go in the URL's query (`facet-KEY=VALUE`,
- * repeated, and `group-by=KEY`), so links reproduce the view.
+ * repeated, and `group-by=KEY`), so links reproduce the view.  The box of
+ * facets is collapsible, which we remember.
  */
 (function () {
-  const bar = document.querySelector(".facet-bar");
+  const bar = document.querySelector(".facet-box");
   const container = document.querySelector(".facet-items");
   if (!bar || !container) {
     return;
@@ -162,6 +163,19 @@
     regroup(groupBy.value);
     update();
   });
+
+  const toggle = bar.querySelector(".facet-toggle");
+  const content = bar.querySelector(".facet-bar");
+  function setExpanded(expanded) {
+    content.hidden = !expanded;
+    toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+    toggle.querySelector(".facet-toggle-icon").classList.toggle("expanded", expanded);
+  }
+  toggle.addEventListener("click", () => {
+    setExpanded(content.hidden);
+    localStorage.setItem("facets-collapsed", content.hidden ? "1" : "0");
+  });
+  setExpanded(localStorage.getItem("facets-collapsed") != "1");
 
   loadState();
   if (groupBy.value != defaultGroupBy) {

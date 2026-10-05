@@ -1063,12 +1063,15 @@ tr.after-context-line + tr.before-context-line {
 .navpanel-icon {
   display: inline-block;
 }
-.navpanel-toggle-icon::before {
+/* (Also the facets' toggle; see facet_bar.liquid.) */
+.navpanel-toggle-icon::before,
+.facet-toggle-icon::before {
   margin-right: 0.5rem;
   transform: rotate(-90deg);
   transition: all 0.1s;
 }
-.navpanel-toggle-icon.expanded::before {
+.navpanel-toggle-icon.expanded::before,
+.facet-toggle-icon.expanded::before {
   transform: rotate(0deg);
   transition: all 0.1s;
 }
@@ -1668,13 +1671,51 @@ span[data-symbols].selected {
   fill: var(--blame-age-0);
 }
 /* Facets of lists of files (see facet_bar.liquid and facets.js), as on the
-   /explore/ pages, whose files are in groups (by path kind by default). */
+   /explore/ pages, whose files are in groups (by path kind by default): a
+   collapsible gray box, with the choice of grouping in a column to the right
+   of the facets. */
+.facet-box {
+  margin: 0.5em 0;
+  padding: 4px 8px;
+  font-size: 0.9em;
+  background-color: var(--table-header-background);
+  border: 1px solid var(--blame-light-gray);
+  border-radius: 4px;
+}
+.facet-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.facet-toggle {
+  font: inherit;
+  font-weight: bold;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.facet-status {
+  opacity: 0.8;
+}
 .facet-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 2em;
+  margin-top: 6px;
+}
+.facet-bar[hidden] {
+  display: none;
+}
+.facet-filters {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin: 0.5em 0;
-  font-size: 0.9em;
+}
+.facet-group-by {
+  white-space: nowrap;
 }
 .facet {
   display: flex;
@@ -1702,7 +1743,7 @@ span[data-symbols].selected {
 .facet-value {
   font: inherit;
   color: inherit;
-  background: none;
+  background-color: var(--page-background);
   padding: 0 6px;
   border: 1px solid var(--blame-light-gray);
   border-radius: 10px;
@@ -1718,10 +1759,6 @@ span[data-symbols].selected {
 .facet-count {
   font-size: 0.9em;
   opacity: 0.7;
-}
-.facet-summary:empty,
-.facet-summary:has(.facet-status:empty):has(.facet-clear[hidden]) {
-  display: none;
 }
 .facet-clear,
 .facet-group-by select {

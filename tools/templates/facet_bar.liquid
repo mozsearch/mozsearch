@@ -1,24 +1,34 @@
 {%- comment -%}
   The facets of a list of files (see `format::explore_facets`), which
   facets.js uses to filter the files (`.facet-items [data-facets]`) to the
-  selected values, and to group them by a facet: each facet's values (nested
-  for hierarchical facets, ex: directories) with how many files each has.
+  selected values, and to group them by a facet: a collapsible box (with the
+  navigation panel's arrow, since it's a control rather than content) with
+  each facet's values (nested for hierarchical facets, ex: directories), how
+  many files each has, and the choice of grouping to their right.
 {%- endcomment -%}
-<div class="facet-bar">
-  <label class="facet-group-by">Group by <select>
-    <option value="kind" selected>Path kind</option>
-    <option value="subsystem">Subsystem</option>
-    <option value="dir">Directory</option>
-  </select></label>
-  {%- for facet in facets %}
-  <div class="facet" data-facet="{{ facet.key }}">
-    <span class="facet-label">{{ facet.label | escape }}:</span>
-    {%- for value in facet.values %}
-    {%- include "facet_value.liquid" value: value %}
-    {%- endfor %}
+<section class="facet-box">
+  <div class="facet-header">
+    <button type="button" class="facet-toggle" aria-expanded="true" aria-controls="facet-bar"><span class="facet-toggle-icon icon-down-dir expanded" aria-hidden="true"></span>Filtering</button>
+    <span class="facet-status"></span>
+    <button type="button" class="facet-clear" hidden>Show all files</button>
   </div>
-  {%- endfor %}
-  <div class="facet-summary"><span class="facet-status"></span> <button type="button" class="facet-clear" hidden>Show all files</button></div>
-</div>
+  <div class="facet-bar" id="facet-bar">
+    <div class="facet-filters">
+      {%- for facet in facets %}
+      <div class="facet" data-facet="{{ facet.key }}">
+        <span class="facet-label">{{ facet.label | escape }}:</span>
+        {%- for value in facet.values %}
+        {%- include "facet_value.liquid" value: value %}
+        {%- endfor %}
+      </div>
+      {%- endfor %}
+    </div>
+    <label class="facet-group-by">Group by <select>
+      <option value="kind" selected>Path kind</option>
+      <option value="subsystem">Subsystem</option>
+      <option value="dir">Directory</option>
+    </select></label>
+  </div>
+</section>
 {%- comment %} (Deferred, since the files come after the bar.) {% endcomment %}
 <script defer src="/{{ tree }}/static/js/facets.js"></script>

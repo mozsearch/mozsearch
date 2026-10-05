@@ -119,3 +119,20 @@ add_task(async function test_ExploreFacetsFromURL() {
   ok(doc.querySelector(".facet-status").textContent.startsWith(`Showing ${shown.length} of`),
      "The status says how many files are shown");
 });
+
+// The facets are in a collapsible box, which stays collapsed.
+add_task(async function test_ExploreFacetsCollapse() {
+  registerCleanupFunction(() => frame.contentWindow.localStorage.removeItem("facets-collapsed"));
+  await TestUtils.loadPath("/searchfox/explore/bug/2018468?facet-kind=test");
+
+  const doc = frame.contentDocument;
+  const toggle = doc.querySelector(".facet-toggle");
+  is(toggle.getAttribute("aria-expanded"), "true", "The facets are shown");
+  TestUtils.click(toggle);
+  await waitForCondition(() => doc.querySelector(".facet-bar").hidden, "Clicking the toggle hides the facets");
+  is(toggle.getAttribute("aria-expanded"), "false", "and says so");
+  ok(TestUtils.isShown(doc.querySelector(".facet-status")), "The status still says that files are hidden");
+
+  await TestUtils.loadPath("/searchfox/explore/bug/2018468");
+  ok(frame.contentDocument.querySelector(".facet-bar").hidden, "The facets stay hidden");
+});
