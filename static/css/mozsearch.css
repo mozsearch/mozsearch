@@ -1699,6 +1699,9 @@ span[data-symbols].selected {
 .facet-status {
   opacity: 0.8;
 }
+.facet-clear.facet-inactive {
+  visibility: hidden;
+}
 .facet-bar {
   display: flex;
   align-items: flex-start;

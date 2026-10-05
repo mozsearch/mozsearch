@@ -72,7 +72,7 @@
     const shown = items.filter(item => !item.element.hidden).length;
     const filtering = [...selected.values()].some(values => values.size);
     status.textContent = filtering ? `Showing ${shown} of ${plural(items.length)}.` : "";
-    clear.hidden = !filtering;
+    clear.classList.toggle("facet-inactive", !filtering);
     saveState();
   }
 

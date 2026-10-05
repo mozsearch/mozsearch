@@ -10,7 +10,9 @@
   <div class="facet-header">
     <button type="button" class="facet-toggle" aria-expanded="true" aria-controls="facet-bar"><span class="facet-toggle-icon icon-down-dir expanded" aria-hidden="true"></span>Filtering</button>
     <span class="facet-status"></span>
-    <button type="button" class="facet-clear" hidden>Show all files</button>
+    {%- comment %} (Invisible rather than hidden when nothing is filtered, so
+    that the header's height doesn't change.) {% endcomment %}
+    <button type="button" class="facet-clear facet-inactive">Show all files</button>
   </div>
   <div class="facet-bar" id="facet-bar">
     <div class="facet-filters">

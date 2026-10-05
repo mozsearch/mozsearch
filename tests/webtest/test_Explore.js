@@ -84,6 +84,8 @@ add_task(async function test_ExploreFacets() {
     .filter(file => !file.hidden)
     .map(file => file.dataset.path);
   const all = shown();
+  const toggleTop = () => doc.querySelector(".facet-toggle").getBoundingClientRect().top;
+  const top = toggleTop();
   ok(headers()[0].startsWith("Core code") && headers()[1].startsWith("Test files"),
      "The files are grouped by path kind, core code first");
 
@@ -92,6 +94,7 @@ add_task(async function test_ExploreFacets() {
   TestUtils.click(test);
   await waitForCondition(() => shown().length < all.length, "Selecting test files filters the files");
   ok(shown().every(path => path.startsWith("tests/")), "to the test files");
+  is(toggleTop(), top, "The facets' header doesn't move when it says files are hidden");
   is(test.getAttribute("aria-pressed"), "true", "The test files are selected");
   ok(frame.contentWindow.location.search.includes("facet-kind=test"), "The selection is in the URL");
   const others = [...doc.querySelectorAll('.facet[data-facet="dir"] .facet-value')]
