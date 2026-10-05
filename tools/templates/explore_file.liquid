@@ -4,8 +4,8 @@
   symbols with nested symbols).  Interdiffs fade the files and symbols whose
   changes are the same in both patches, and add a note and excerpts.
 {%- endcomment -%}
-  <section class="explore-file{% if file.same %} interdiff-same{% endif %}">
-    <div class="explore-file-header"><a href="{{ file.link }}">{{ file.path | escape }}</a> {{ file.sparkline }}{% if file.note != "" %} <span class="interdiff-file-note">{{ file.note }}</span>{% endif %}</div>
+  <section class="explore-file{% if file.same %} interdiff-same{% endif %}" data-path="{{ file.path | escape }}" data-facets="{{ file.facets | escape }}" data-groups="{{ file.groups | escape }}">
+    <div class="explore-file-header"><a href="{{ file.link }}"{% if file.title != "" %} title="{{ file.title | escape }}"{% endif %}>{{ file.path | escape }}</a> {{ file.sparkline }}{% if file.note != "" %} <span class="interdiff-file-note">{{ file.note }}</span>{% endif %}</div>
     {%- if file.symbols.size > 0 %}
     <div class="explore-symbols">
       {%- for symbol in file.symbols %}

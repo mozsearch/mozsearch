@@ -69,3 +69,53 @@ add_task(async function test_ExploreMissingBug() {
   ok(frame.contentDocument.querySelector(".explore-note").textContent.includes("No commits mention 9999999"),
      "The page says when a bug has no commits");
 });
+
+// The files are grouped by path kind (core code first, as on /search/), and
+// facets filter them by path kind, subsystem, and directory, or group them by
+// another facet.  Bug 2018468 changed the diagram code and its webtests.
+add_task(async function test_ExploreFacets() {
+  await TestUtils.loadPath("/searchfox/explore/bug/2018468");
+
+  const doc = frame.contentDocument;
+  const headers = () => [...doc.querySelectorAll(".facet-group")]
+    .filter(group => !group.hidden)
+    .map(group => group.querySelector(".facet-group-header").textContent);
+  const shown = () => [...doc.querySelectorAll(".explore-file")]
+    .filter(file => !file.hidden)
+    .map(file => file.dataset.path);
+  const all = shown();
+  ok(headers()[0].startsWith("Core code") && headers()[1].startsWith("Test files"),
+     "The files are grouped by path kind, core code first");
+
+  const test = doc.querySelector('.facet[data-facet="kind"] .facet-value[data-value="test"]');
+  ok(test, "There's a path kind facet");
+  TestUtils.click(test);
+  await waitForCondition(() => shown().length < all.length, "Selecting test files filters the files");
+  ok(shown().every(path => path.startsWith("tests/")), "to the test files");
+  is(test.getAttribute("aria-pressed"), "true", "The test files are selected");
+  ok(frame.contentWindow.location.search.includes("facet-kind=test"), "The selection is in the URL");
+  const others = [...doc.querySelectorAll('.facet[data-facet="dir"] .facet-value')]
+    .filter(value => /^(static|tools)\//.test(value.dataset.value));
+  ok(others.length > 0 && others.every(value => value.querySelector(".facet-count").textContent == "0"),
+     "The directories' counts are of the test files");
+
+  TestUtils.selectMenu(doc.querySelector(".facet-group-by select"), "dir");
+  await waitForCondition(() => headers().every(header => header.startsWith("tests/")),
+                         "The test files are grouped by directory");
+  ok(frame.contentWindow.location.search.includes("group-by=dir"), "The grouping is in the URL");
+
+  TestUtils.click(doc.querySelector(".facet-clear"));
+  await waitForCondition(() => shown().length == all.length, "Clearing the selection shows all the files");
+});
+
+add_task(async function test_ExploreFacetsFromURL() {
+  await TestUtils.loadPath("/searchfox/explore/bug/2018468?facet-kind=test&group-by=dir");
+
+  const doc = frame.contentDocument;
+  const shown = [...doc.querySelectorAll(".explore-file")].filter(file => !file.hidden);
+  ok(shown.length > 0 && shown.every(file => file.dataset.path.startsWith("tests/")),
+     "The URL's selection filters the files");
+  is(doc.querySelector(".facet-group-by select").value, "dir", "and groups them");
+  ok(doc.querySelector(".facet-status").textContent.startsWith(`Showing ${shown.length} of`),
+     "The status says how many files are shown");
+});

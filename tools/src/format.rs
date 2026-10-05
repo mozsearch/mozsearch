@@ -10,6 +10,8 @@ use std::time::Instant;
 
 use crate::abstract_server::FileMatch;
 use crate::blame;
+use crate::cmd_pipeline::facets::MaybeFacetRoot;
+use crate::cmd_pipeline::interface::{ResultFacetGroup, ResultFacetKind, ResultFacetRoot};
 use crate::commit_index::{CommitIndex, CommitRef};
 use crate::file_format::analysis_manglings::make_file_sym_from_path;
 use crate::file_format::bisectable_mmap::BisectableMmap;
@@ -19,9 +21,10 @@ use crate::file_format::jumpref::{
     JumprefData, JumprefTraversals, determine_desired_extra_syms_from_jumpref,
     extra_syms_next_step_lookups,
 };
+use crate::file_format::per_file_info::{PathFacetMap, path_facet_map};
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::{self, coverage_history, coverage_summary, git_time_to_chrono};
-use crate::hyperblame::explore::{self, ExploreCommit, blot_files, commit_changes};
+use crate::hyperblame::explore::{self, ExploreCommit, ExploreFile, blot_files, commit_changes};
 use crate::hyperblame::future;
 use crate::hyperblame::interdiff::{
     self, Counts as InterdiffCounts, IdToken, Mark as InterdiffMark, Side as InterdiffSideTokens,
@@ -53,6 +56,7 @@ use crate::url_encode_path::url_encode_path;
 
 use git2::{Oid, Repository, Tree, TreeEntry};
 use itertools::Itertools;
+use serde::Serialize;
 use serde_json::{json, to_string, to_string_pretty};
 use ustr::{Ustr, UstrMap, ustr};
 
@@ -3485,6 +3489,8 @@ pub fn format_interdiff_files(
         };
     }
 
+    let (facets, file_groups) = explore_facets(cfg, tree_name, files);
+
     let title = "Interdiff - mozsearch";
     let opt = Options {
         title,
@@ -3502,7 +3508,8 @@ pub fn format_interdiff_files(
             {"name": "A", "start": 1, "commits": &commits[..a.refs.len()]},
             {"name": "B", "start": a.refs.len() + 1, "commits": &commits[a.refs.len()..]},
         ],
-        "files": files,
+        "facets": facets,
+        "file_groups": file_groups,
         "slot": explore::slot_width(commits.len()),
         "legend": interdiff_legend(&totals),
         "messages": interdiff_messages_html(&a, &b),
@@ -3662,6 +3669,255 @@ fn generate_commit_info(
     Ok(())
 }
 
+/// A facet of the files of an `/explore/` page or interdiff summary (see
+/// `explore_facets`), for facet_bar.liquid: its key (as facets.js and URLs
+/// name it), label, and values.
+#[derive(Serialize)]
+struct FacetView {
+    key: &'static str,
+    label: String,
+    values: Vec<FacetValueView>,
+}
+
+/// A value of a facet (see `ResultFacetGroup`): its identity (its group's
+/// label, ex: "dom/base/"), its name relative to its parent's (ex: "base/") and
+/// a description, how many files it has, and its nested values.
+#[derive(Serialize)]
+struct FacetValueView {
+    value: String,
+    name: String,
+    title: String,
+    count: u32,
+    values: Vec<FacetValueView>,
+}
+
+/// A group of the files of an `/explore/` page or interdiff summary (ex: its
+/// test files), as the server renders them; facets.js can regroup them.
+#[derive(Serialize)]
+struct FileGroupView {
+    key: String,
+    name: String,
+    files: Vec<ExploreFile>,
+}
+
+/// The subsystem facet's value for files without subsystems.
+const UNKNOWN_SUBSYSTEM: &str = "?";
+
+/// The facets of the files of an `/explore/` page or interdiff summary, like
+/// `/query/`'s (see `cmd_pipeline::facets`): their path kinds (in the order of
+/// the tree's per-file-info.toml, as `/search/` shows them), their subsystems
+/// (ex: "Firefox/Sidebar", by product and then component), and their
+/// directories.  Path kinds and subsystems are the indexed revision's (see
+/// `PathFacetMap`), so the path kinds of files it doesn't have (ex: deleted
+/// ones) are guessed from their paths, and their subsystems are unknown.
+///
+/// Also returns the files grouped by path kind and then sorted by path, and
+/// sets their `facets` and `groups` for facets.js, which filters them by the
+/// facets' values and can group them by subsystem or directory instead.
+fn explore_facets(
+    cfg: &Config,
+    tree_name: &str,
+    files: Vec<ExploreFile>,
+) -> (Vec<FacetView>, Vec<FileGroupView>) {
+    explore_facets_with(path_facet_map(cfg, tree_name).as_deref(), files)
+}
+
+/// `explore_facets` with the tree's `PathFacetMap`, if it has one.
+fn explore_facets_with(
+    map: Option<&PathFacetMap>,
+    mut files: Vec<ExploreFile>,
+) -> (Vec<FacetView>, Vec<FileGroupView>) {
+    let kinds: Vec<(Ustr, Ustr)> = map.map_or_else(Vec::new, |map| map.kinds());
+    let kind_order = |kind: &str| {
+        kinds
+            .iter()
+            .position(|(key, _)| *key == kind)
+            .unwrap_or(kinds.len())
+    };
+    let kind_name = |kind: &str| {
+        kinds
+            .iter()
+            .find(|(key, _)| *key == kind)
+            .map_or_else(|| "Files".to_string(), |(_, name)| name.to_string())
+    };
+
+    // Each file's path kind, subsystem, and directory, placed in the facets.
+    let mut kind_facet = MaybeFacetRoot::new(ResultFacetKind::PathByKind);
+    let mut subsystem_facet = MaybeFacetRoot::new(ResultFacetKind::PathBySubsystem);
+    let mut dir_facet = MaybeFacetRoot::new(ResultFacetKind::PathByPath);
+    let mut facts = vec![];
+    for file in &files {
+        let (kind, known) = map
+            .as_ref()
+            .map_or((ustr(""), false), |map| map.path_kind(&file.path));
+        let subsystem = map.and_then(|map| map.subsystem(&file.path));
+        let dir = match file.path.rfind('/') {
+            Some(offset) => &file.path[..offset + 1],
+            None => "",
+        };
+        let path = ustr(&file.path);
+        kind_facet.place_item(vec![kind], path);
+        let subsystem_pieces = match subsystem.as_ref().map(|s| s.split_once('/')) {
+            Some(Some((product, component))) => {
+                vec![ustr(&format!("{}/", product)), ustr(component)]
+            }
+            Some(None) => vec![subsystem.unwrap()],
+            None => vec![ustr(UNKNOWN_SUBSYSTEM)],
+        };
+        subsystem_facet.place_item(subsystem_pieces, path);
+        dir_facet.place_item(dir.split_inclusive('/').map(ustr).collect(), path);
+        facts.push((kind, known, subsystem, dir.to_string()));
+    }
+
+    // The facets' values, and the values each file is in (with their
+    // ancestors), by facet.
+    let mut memberships: HashMap<Ustr, BTreeMap<&'static str, Vec<String>>> = HashMap::new();
+    // Products (ex: "Firefox"), their components (ex: "Sidebar"), and lone
+    // components named like Bugzilla does (ex: "Core :: Machine
+    // Learning/Frontend").
+    let subsystem_name = |value: &str, parent: &str| match value.strip_prefix(parent) {
+        _ if value == UNKNOWN_SUBSYSTEM => "Unknown".to_string(),
+        Some(component) if !parent.is_empty() => component.to_string(),
+        _ => match value.strip_suffix('/') {
+            Some(product) => product.to_string(),
+            None => value.replacen('/', " :: ", 1),
+        },
+    };
+    // (The "*" groups of the other directories are "other", ex: "browser/
+    // other" if the facet's top level has "browser/"'s.)
+    let dir_name = |value: &str, parent: &str| {
+        let name = value.strip_prefix(parent).unwrap_or(value);
+        match name.strip_suffix('*') {
+            Some("") => "other".to_string(),
+            Some(dir) => format!("{} other", dir),
+            None => name.to_string(),
+        }
+    };
+    let mut facets = vec![];
+    // (The directory facet is `/query/`'s "Path" facet, but "Directory" is
+    // clearer next to the "Group by" choices.)
+    type FacetSpec<'n> = (
+        &'static str,
+        Option<&'static str>,
+        Option<ResultFacetRoot>,
+        &'n dyn Fn(&str, &str) -> String,
+    );
+    let facet_specs: [FacetSpec; 3] = [
+        ("kind", None, kind_facet.compile(), &|value, _| {
+            kind_name(value)
+        }),
+        (
+            "subsystem",
+            None,
+            subsystem_facet.compile(),
+            &subsystem_name,
+        ),
+        ("dir", Some("Directory"), dir_facet.compile(), &dir_name),
+    ];
+    for (key, label, root, name) in facet_specs {
+        let Some(root) = root else {
+            continue;
+        };
+        fn view(
+            key: &'static str,
+            group: ResultFacetGroup,
+            parent: &str,
+            ancestors: &mut Vec<String>,
+            name: &dyn Fn(&str, &str) -> String,
+            memberships: &mut HashMap<Ustr, BTreeMap<&'static str, Vec<String>>>,
+        ) -> FacetValueView {
+            ancestors.push(group.label.clone());
+            for value in &group.values {
+                memberships
+                    .entry(*value)
+                    .or_default()
+                    .entry(key)
+                    .or_default()
+                    .extend(ancestors.iter().cloned());
+            }
+            let values = group
+                .nested_groups
+                .into_iter()
+                .map(|nested| view(key, nested, &group.label, ancestors, name, memberships))
+                .collect();
+            ancestors.pop();
+            let title = match group.label.strip_suffix('*') {
+                Some("") => "The other directories".to_string(),
+                Some(dir) => format!("The other directories in {}", dir),
+                None if group.label == UNKNOWN_SUBSYSTEM => {
+                    "Files without subsystems, or not in the indexed revision".to_string()
+                }
+                None => group.label.clone(),
+            };
+            FacetValueView {
+                name: name(&group.label, parent),
+                value: group.label,
+                title,
+                count: group.count,
+                values,
+            }
+        }
+        let mut values: Vec<FacetValueView> = root
+            .groups
+            .into_iter()
+            .map(|group| view(key, group, "", &mut vec![], name, &mut memberships))
+            .collect();
+        match key {
+            "kind" => values.sort_by_key(|value| kind_order(&value.value)),
+            "subsystem" => values.sort_by_key(|value| value.value == UNKNOWN_SUBSYSTEM),
+            _ => {}
+        }
+        facets.push(FacetView {
+            key,
+            label: label.map_or(root.label, str::to_string),
+            values,
+        });
+    }
+
+    // Each file's groups for each way of grouping files, as a sort key and a
+    // name, and the files grouped by path kind.
+    let mut groups: BTreeMap<(usize, String), FileGroupView> = BTreeMap::new();
+    for (mut file, (kind, known, subsystem, dir)) in files.drain(..).zip(facts) {
+        let subsystem_group = match subsystem {
+            Some(subsystem) => {
+                let name = subsystem.replacen('/', " :: ", 1);
+                json!([name, name])
+            }
+            None => json!(["\u{10ffff}", "Unknown subsystem"]),
+        };
+        let dir_group = match dir.as_str() {
+            "" => json!(["", "(top level)"]),
+            dir => json!([dir, dir]),
+        };
+        file.groups = json!({
+            "kind": [kind_order(&kind), kind_name(&kind)],
+            "subsystem": subsystem_group,
+            "dir": dir_group,
+        })
+        .to_string();
+        file.facets = json!(memberships.remove(&ustr(&file.path)).unwrap_or_default()).to_string();
+        file.title = match (known, subsystem) {
+            (false, _) => "Not in the indexed revision, so its path kind is guessed from its path, and its subsystem is unknown".to_string(),
+            (true, Some(subsystem)) => format!("Subsystem: {}", subsystem.replacen('/', " :: ", 1)),
+            (true, None) => String::new(),
+        };
+        groups
+            .entry((kind_order(&kind), kind.to_string()))
+            .or_insert_with(|| FileGroupView {
+                key: kind.to_string(),
+                name: kind_name(&kind),
+                files: vec![],
+            })
+            .files
+            .push(file);
+    }
+    let mut groups: Vec<FileGroupView> = groups.into_values().collect();
+    for group in &mut groups {
+        group.files.sort_by(|a, b| a.path.cmp(&b.path));
+    }
+    (facets, groups)
+}
+
 /// A commit of an `/explore/` page or an interdiff's summary, numbered from 1.
 fn explore_commit(
     tree_config: &TreeConfig,
@@ -3761,6 +4017,7 @@ pub fn format_explore(
         |path, rev| format!("/{}/rev/{}/{}", tree_name, rev, url_encode_path(path)),
         |_, _| false,
     );
+    let (facets, file_groups) = explore_facets(cfg, tree_name, files);
 
     let title = match kind {
         "bug" if keys.len() == 1 => format!("Bug {}", keys[0]),
@@ -3782,7 +4039,8 @@ pub fn format_explore(
         "tree": tree_name,
         "title": title,
         "commits": commits,
-        "files": files,
+        "facets": facets,
+        "file_groups": file_groups,
         "slot": explore::slot_width(commits.len()),
         "missing": missing,
         "truncated": truncated,
@@ -3856,5 +4114,131 @@ mod tests {
             message_diff_html(a, b),
             "<span class=\"interdiff-messages-gap\">⋯ 8 unchanged lines</span>\n7\n8\n\n<ins class=\"idiff-new\">Bug 1 - Two.</ins>"
         );
+    }
+
+    fn explore_file(path: &str) -> ExploreFile {
+        ExploreFile {
+            path: path.to_string(),
+            link: String::new(),
+            sparkline: String::new(),
+            symbols: vec![],
+            same: false,
+            note: String::new(),
+            excerpts: String::new(),
+            facets: String::new(),
+            groups: String::new(),
+            title: String::new(),
+        }
+    }
+
+    #[test]
+    fn test_explore_facets() {
+        let toml = r#"
+[pathkind.normal]
+name = "Core code"
+decision_order = 0
+sort_order = 0
+
+[pathkind.test]
+name = "Test files"
+decision_order = 1
+sort_order = 1
+
+[pathkind.test.heuristics]
+dir_names = ["tests"]
+"#;
+        let json = br#"{
+            "dom/base/a.cpp": {"path_kind": "normal", "is_dir": false, "subsystem": "Core/DOM"},
+            "dom/base/b.cpp": {"path_kind": "normal", "is_dir": false, "subsystem": "Core/DOM"},
+            "dom/base/c.cpp": {"path_kind": "normal", "is_dir": false, "subsystem": "Core/Layout"},
+            "dom/tests/t.html": {"path_kind": "test", "is_dir": false, "subsystem": "Core/DOM"}
+        }"#;
+        let map = PathFacetMap::parse(json, toml).unwrap();
+        // (A file the indexed revision doesn't have, in a test directory.)
+        let files = [
+            "dom/tests/gone.html",
+            "dom/base/c.cpp",
+            "dom/base/a.cpp",
+            "dom/tests/t.html",
+            "dom/base/b.cpp",
+        ]
+        .into_iter()
+        .map(explore_file)
+        .collect();
+        let (facets, groups) = explore_facets_with(Some(&map), files);
+
+        // Grouped by path kind, in the kinds' order, and then by path.
+        let grouped: Vec<(&str, Vec<&str>)> = groups
+            .iter()
+            .map(|group| {
+                (
+                    group.name.as_str(),
+                    group.files.iter().map(|f| f.path.as_str()).collect(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            grouped,
+            vec![
+                (
+                    "Core code",
+                    vec!["dom/base/a.cpp", "dom/base/b.cpp", "dom/base/c.cpp"]
+                ),
+                (
+                    "Test files",
+                    vec!["dom/tests/gone.html", "dom/tests/t.html"]
+                ),
+            ]
+        );
+        let names = |key: &str| -> Vec<(String, u32)> {
+            fn walk(values: &[FacetValueView], out: &mut Vec<(String, u32)>) {
+                for value in values {
+                    out.push((value.name.clone(), value.count));
+                    walk(&value.values, out);
+                }
+            }
+            let mut out = vec![];
+            walk(
+                &facets.iter().find(|f| f.key == key).unwrap().values,
+                &mut out,
+            );
+            out
+        };
+        assert_eq!(
+            names("kind"),
+            vec![("Core code".to_string(), 3), ("Test files".to_string(), 2)]
+        );
+        // Products, their components, and the unknown subsystem last.
+        assert_eq!(
+            names("subsystem"),
+            vec![
+                ("Core".to_string(), 4),
+                ("DOM".to_string(), 3),
+                ("Layout".to_string(), 1),
+                ("Unknown".to_string(), 1),
+            ]
+        );
+        // The directories share "dom/", which is collapsed, and those with
+        // fewer than 3 files are "dom/ other".
+        assert_eq!(
+            names("dir"),
+            vec![("dom/base/".to_string(), 3), ("dom/ other".to_string(), 2)]
+        );
+
+        // facets.js's data: the values each file is in (with their
+        // ancestors), and its group for each way of grouping.
+        let gone = &groups[1].files[0];
+        let facets: serde_json::Value = serde_json::from_str(&gone.facets).unwrap();
+        assert_eq!(
+            facets,
+            json!({"kind": ["test"], "subsystem": ["?"], "dir": ["dom/*"]})
+        );
+        let file_groups: serde_json::Value = serde_json::from_str(&gone.groups).unwrap();
+        assert_eq!(file_groups["kind"], json!([1, "Test files"]));
+        assert_eq!(file_groups["subsystem"][1], "Unknown subsystem");
+        assert!(gone.title.contains("guessed"));
+        let a: serde_json::Value = serde_json::from_str(&groups[0].files[0].facets).unwrap();
+        assert_eq!(a["subsystem"], json!(["Core/", "Core/DOM"]));
+        assert_eq!(groups[0].files[0].title, "Subsystem: Core :: DOM");
     }
 }

@@ -288,6 +288,12 @@ pub struct ExploreFile {
     pub same: bool,
     pub note: String,
     pub excerpts: String,
+    /// The file's facets (see `format::explore_facets`), as JSON for
+    /// facets.js: the values of each facet it's in, and its group for each way
+    /// of grouping files.  And the title of its link (ex: its subsystem).
+    pub facets: String,
+    pub groups: String,
+    pub title: String,
 }
 
 /// The symbols' parents: the longest proper prefix (by "::" segments) which is
@@ -440,6 +446,9 @@ pub fn blot_files(
             same: false,
             note: String::new(),
             excerpts: String::new(),
+            facets: String::new(),
+            groups: String::new(),
+            title: String::new(),
         });
     }
     files

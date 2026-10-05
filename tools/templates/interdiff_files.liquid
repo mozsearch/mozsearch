@@ -4,7 +4,8 @@
   either side changed, with the explore pages'
   sparklines (see explore_file.liquid), which have a slot for each of A's
   commits and then each of B's, faded where B's changes are the same as A's,
-  and with excerpts of where they differ (see `format::interdiff_excerpts`).
+  and with excerpts of where they differ (see `format::interdiff_excerpts`),
+  grouped and faceted like the /explore/ pages' (see facet_bar.liquid).
   explore.js shows the commit under the mouse.
 {%- endcomment -%}
 <div class="explore-page interdiff-page" data-slot="{{ slot }}">
@@ -33,9 +34,8 @@
     <p class="interdiff-legend">{{ legend }}</p>
     <p><a href="{{ swap }}">Swap A and B</a></p>
   </section>
+  {%- include "facet_bar.liquid" %}
   <p class="explore-status explore-note">Each file's sparkline has a slot for each of A's commits and then each of B's, filled if the commit changed it.  The files and symbols where B's changes are the same as A's are faded, and the others have excerpts of where they differ.</p>
-  {%- for file in files %}
-  {%- include "explore_file.liquid" %}
-  {%- endfor %}
+  {%- include "explore_file_groups.liquid" %}
 </div>
 <script src="/{{ tree }}/static/js/explore.js"></script>

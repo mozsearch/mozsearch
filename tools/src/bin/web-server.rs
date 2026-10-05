@@ -25,6 +25,7 @@ use tools::blame;
 use tools::diagnostics::diagnostics_from_config;
 use tools::file_format::config;
 use tools::file_format::identifiers::IdentMap;
+use tools::file_format::per_file_info::path_facet_map;
 use tools::format;
 use tools::git_ops;
 
@@ -435,6 +436,32 @@ async fn main() {
             .open(env::args().nth(2).unwrap())
             .unwrap();
         writeln!(status_out, "web-server.rs loaded").unwrap();
+    }
+
+    // The `/explore/` pages facet their files on the files' path kinds and
+    // subsystems, which take a few seconds to load for firefox, so load them
+    // now for the trees with explore pages (those with a commit index).
+    {
+        let cfg = cfg.clone();
+        std::thread::spawn(move || {
+            for (tree_name, tree_config) in &cfg.trees {
+                let has_commit_index = tree_config.git.as_ref().is_some_and(|git| {
+                    git.history.as_ref().is_some_and(|history| {
+                        Path::new(&history.path).join("commit-index").exists()
+                    })
+                });
+                if has_commit_index {
+                    let start = std::time::Instant::now();
+                    let loaded = path_facet_map(&cfg, tree_name).is_some();
+                    println!(
+                        "Loaded {}'s path kinds and subsystems ({}) in {:?}",
+                        tree_name,
+                        if loaded { "ok" } else { "failed" },
+                        start.elapsed()
+                    );
+                }
+            }
+        });
     }
 
     // Limit ourselves to processing 4 requests at the same time.

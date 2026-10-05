@@ -92,6 +92,25 @@ impl PathKindHeuristics {
     }
 }
 
+/// The path kind the heuristics of the path kinds (by key) give the file at
+/// `file_path`: the first (in decision order) whose heuristics match it, or else
+/// the first.
+pub fn heuristic_path_kind(path_kinds: &BTreeMap<Ustr, PathKindConfig>, file_path: &str) -> Ustr {
+    let mut ordered_path_kinds: Vec<_> = path_kinds.iter().collect();
+    ordered_path_kinds.sort_unstable_by_key(|(_key, x)| x.decision_order);
+    // split in reverse order so we can skip the filename itself.
+    let segments = file_path.rsplit("/").skip(1);
+    for (key, pk_config) in &ordered_path_kinds {
+        if pk_config
+            .heuristics
+            .file_matches(file_path, segments.clone())
+        {
+            return **key;
+        }
+    }
+    *ordered_path_kinds[0].0
+}
+
 /// Describes a location a file might be found in a directory tree known to the
 /// configuration.
 ///
@@ -547,24 +566,8 @@ impl RepoIngestion {
         files: &Vec<Ustr>,
         tree_config: &TreeConfig,
     ) {
-        let mut ordered_path_kinds: Vec<_> = self.config.pathkind.iter().collect();
-        ordered_path_kinds.sort_unstable_by_key(|(_key, x)| x.decision_order);
-        let default_pk = ordered_path_kinds[0].0;
-
         for file_path in files {
-            // split in reverse order so we can skip the filename itself.
-            let segments = file_path.rsplit("/").skip(1);
-            let mut use_path_kind = default_pk;
-            for pk_config in &ordered_path_kinds {
-                if pk_config
-                    .1
-                    .heuristics
-                    .file_matches(file_path, segments.clone())
-                {
-                    use_path_kind = pk_config.0;
-                    break;
-                }
-            }
+            let use_path_kind = heuristic_path_kind(&self.config.pathkind, file_path);
 
             let raw_file_path = tree_config.find_source_file(file_path);
             let path_wrapper = Path::new(&raw_file_path);
@@ -612,7 +615,7 @@ impl RepoIngestion {
             };
 
             self.state.with_file_info(file_path, false, |pfi, _dfi| {
-                pfi.path_kind = *use_path_kind;
+                pfi.path_kind = use_path_kind;
                 pfi.description = description;
                 pfi.file_size = file_size;
                 pfi.coverage =

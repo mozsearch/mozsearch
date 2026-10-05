@@ -1,0 +1,7 @@
+{%- comment -%}
+  A value of a facet (see facet_bar.liquid), and its nested values.
+{%- endcomment -%}
+<span class="facet-value-group"><button type="button" class="facet-value" data-value="{{ value.value | escape }}" aria-pressed="false" title="{{ value.title | escape }}">{{ value.name | escape }} <span class="facet-count">{{ value.count }}</span></button>
+{%- if value.values.size > 0 %}<span class="facet-nested">
+{%- for nested in value.values %}{% include "facet_value.liquid" value: nested %}{% endfor -%}
+</span>{% endif %}</span>

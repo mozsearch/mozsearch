@@ -1,0 +1,24 @@
+{%- comment -%}
+  The facets of a list of files (see `format::explore_facets`), which
+  facets.js uses to filter the files (`.facet-items [data-facets]`) to the
+  selected values, and to group them by a facet: each facet's values (nested
+  for hierarchical facets, ex: directories) with how many files each has.
+{%- endcomment -%}
+<div class="facet-bar">
+  <label class="facet-group-by">Group by <select>
+    <option value="kind" selected>Path kind</option>
+    <option value="subsystem">Subsystem</option>
+    <option value="dir">Directory</option>
+  </select></label>
+  {%- for facet in facets %}
+  <div class="facet" data-facet="{{ facet.key }}">
+    <span class="facet-label">{{ facet.label | escape }}:</span>
+    {%- for value in facet.values %}
+    {%- include "facet_value.liquid" value: value %}
+    {%- endfor %}
+  </div>
+  {%- endfor %}
+  <div class="facet-summary"><span class="facet-status"></span> <button type="button" class="facet-clear" hidden>Show all files</button></div>
+</div>
+{%- comment %} (Deferred, since the files come after the bar.) {% endcomment %}
+<script defer src="/{{ tree }}/static/js/facets.js"></script>

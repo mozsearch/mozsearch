@@ -1,0 +1,14 @@
+{%- comment -%}
+  The files of an /explore/ page or interdiff summary, grouped by path kind
+  (see `format::explore_facets`), which facets.js can filter and regroup.
+{%- endcomment -%}
+<div class="facet-items">
+  {%- for group in file_groups %}
+  <section class="facet-group">
+    <h3 class="facet-group-header">{{ group.name | escape }} <span class="facet-group-count">({{ group.files.size }} file{% if group.files.size != 1 %}s{% endif %})</span></h3>
+    {%- for file in group.files %}
+    {%- include "explore_file.liquid" %}
+    {%- endfor %}
+  </section>
+  {%- endfor %}
+</div>

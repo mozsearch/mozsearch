@@ -1667,6 +1667,75 @@ span[data-symbols].selected {
 .explore-l3 {
   fill: var(--blame-age-0);
 }
+/* Facets of lists of files (see facet_bar.liquid and facets.js), as on the
+   /explore/ pages, whose files are in groups (by path kind by default). */
+.facet-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0.5em 0;
+  font-size: 0.9em;
+}
+.facet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+}
+.facet-label {
+  font-weight: bold;
+  min-width: 6em;
+}
+.facet-value-group,
+.facet-nested {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+}
+/* Nested values are in boxes, which get darker as they nest. */
+.facet-nested {
+  padding: 1px 4px;
+  border-radius: 10px;
+  background-color: rgb(128 128 128 / 10%);
+}
+.facet-value {
+  font: inherit;
+  color: inherit;
+  background: none;
+  padding: 0 6px;
+  border: 1px solid var(--blame-light-gray);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.facet-value[aria-pressed="true"] {
+  background-color: var(--line-highlight-background);
+  border-color: currentColor;
+}
+.facet-value.facet-empty {
+  opacity: 0.45;
+}
+.facet-count {
+  font-size: 0.9em;
+  opacity: 0.7;
+}
+.facet-summary:empty,
+.facet-summary:has(.facet-status:empty):has(.facet-clear[hidden]) {
+  display: none;
+}
+.facet-clear,
+.facet-group-by select {
+  font: inherit;
+  padding: 0 4px;
+}
+.facet-group-header {
+  font-size: 1em;
+  margin: 0.8em 0 0.2em;
+}
+.facet-group-count {
+  font-weight: normal;
+  opacity: 0.7;
+}
 /* explore.js sets --explore-cursor to the position of the commit under the
    mouse. */
 .explore-cursor {
