@@ -26,7 +26,9 @@ pub struct SearchFiles {
     #[clap(long, value_parser)]
     pathre: Option<String>,
 
-    #[clap(short, long, value_parser, default_value = "2000")]
+    /// The most files to list (like `/search/`'s), noting whether there were
+    /// more (see `FileMatches::limit_hit`).
+    #[clap(short, long, value_parser, default_value = "4000")]
     limit: usize,
 
     #[clap(long, value_parser)]
@@ -67,9 +69,12 @@ impl PipelineCommand for SearchFilesCommand {
             self.args.limit
         };
 
-        let matches = server
-            .search_files(&pathre_pattern, self.args.include_dirs, use_limit)
+        // (One more than the limit, to know if there were more.)
+        let mut matches = server
+            .search_files(&pathre_pattern, self.args.include_dirs, use_limit + 1)
             .await?;
+        matches.limit_hit = matches.file_matches.len() > use_limit;
+        matches.file_matches.truncate(use_limit);
 
         match self.args.group_by {
             Some(GroupFilesBy::Directory) => {
@@ -82,6 +87,7 @@ impl PipelineCommand for SearchFilesCommand {
                         name: dir.to_string(),
                         value: PipelineValues::FileMatches(FileMatches {
                             file_matches: matches,
+                            limit_hit: false,
                         }),
                     })
                     .collect();

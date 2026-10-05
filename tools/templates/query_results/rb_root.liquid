@@ -4,6 +4,10 @@
   pipeline-server.rs), which filter the files (and hide the groups left
   without any).
 {%- endcomment -%}
+{%- comment %} (Like /search/'s; `limits_hit` is only there if some were.) {% endcomment %}
+{%- if results.FlattenedResultsBundle contains "limits_hit" %}
+<div class="query-limits"><b>Warning</b>: The following limits were hit in your search: {{ results.FlattenedResultsBundle.limits_hit | join: ", " | escape }}</div>
+{%- endif %}
 {%- if file_facets %}
 {% include 'facet_bar.liquid' facets: file_facets.facets %}
 {%- endif %}

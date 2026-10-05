@@ -1683,7 +1683,8 @@ span[data-symbols].selected {
   border-radius: 4px;
 }
 /* (On `/query/`'s results, which have no margin of their own.) */
-.query-result .facet-box {
+.query-result .facet-box,
+.query-limits {
   margin: 0.5em 1rem;
 }
 .facet-header {

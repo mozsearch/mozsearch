@@ -184,6 +184,12 @@ pub struct TextMatchesByFile {
 #[derive(Serialize)]
 pub struct TextMatches {
     pub by_file: Vec<TextMatchesByFile>,
+    /// Whether livegrep stopped at its limit on matches, or its timeout, so
+    /// there may have been more matches.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub limit_hit: bool,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub timed_out: bool,
 }
 
 #[derive(Serialize)]
@@ -205,6 +211,9 @@ impl FileMatch {
 #[derive(Serialize)]
 pub struct FileMatches {
     pub file_matches: Vec<FileMatch>,
+    /// Whether there were more matches than the limit (see `search-files`).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub limit_hit: bool,
 }
 
 pub enum SearchfoxIndexRoot {

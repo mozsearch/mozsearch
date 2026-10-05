@@ -47,8 +47,8 @@ pub mod livegrep {
     tonic::include_proto!("_");
 }
 
-use livegrep::Query;
 use livegrep::code_search_client::CodeSearchClient;
+use livegrep::{Query, search_stats};
 
 /// IO errors amount to a 404 for our purposes which means a sticky problem.
 impl From<std::io::Error> for ServerError {
@@ -562,8 +562,15 @@ impl AbstractServer for LocalIndex {
                 });
         }
 
+        let exit_reason = response
+            .stats
+            .as_ref()
+            .map(|stats| stats.exit_reason())
+            .unwrap_or_default();
         Ok(TextMatches {
             by_file: by_file.into_values().collect(),
+            limit_hit: exit_reason == search_stats::ExitReason::MatchLimit,
+            timed_out: exit_reason == search_stats::ExitReason::Timeout,
         })
     }
 

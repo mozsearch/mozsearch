@@ -98,6 +98,7 @@ impl FileLookupMap {
         matches.sort_unstable_by(|a, b| natural_lexical_cmp(&a.path, &b.path));
         Ok(FileMatches {
             file_matches: matches,
+            limit_hit: false,
         })
     }
 }

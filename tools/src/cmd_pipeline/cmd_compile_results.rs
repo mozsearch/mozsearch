@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use async_trait::async_trait;
 use clap::Args;
@@ -24,15 +24,23 @@ use crate::{
 /// by key/kind precedence (files, IDL, defs, override stuff, super/subclass
 /// stuff, assignments, uses, declarations, text matches), noting that
 /// precedences will likely change.
+///
+/// The limits are applied in that order (with the path kinds in the order of
+/// the tree's per-file-info.toml: core code, third-party, tests, generated),
+/// and then by path, so the results kept are core code's first, like
+/// `/search/`'s (router.py's `sort_compiled`), and the later commands (ex:
+/// augment-results) only do the work for the results that are shown.  The
+/// limits hit are listed in the results.
 #[derive(Debug, Args)]
 pub struct CompileResults {
-    /// Maximum number of file results to list, truncating at the limit.
-    #[clap(short, long, value_parser, default_value = "2000")]
+    /// Maximum number of file results (file name matches) to list, truncating
+    /// at the limit.  These also count toward `line_limit`, like `/search/`'s.
+    #[clap(short, long, value_parser, default_value = "4000")]
     file_limit: usize,
 
     /// Maximum number of result lines to limit, truncating at the limit.
-    /// Context lines don't impact this limit.
-    #[clap(short, long, value_parser, default_value = "2000")]
+    /// Context lines don't impact this limit.  (`/search/`'s is 4000 too.)
+    #[clap(short, long, value_parser, default_value = "4000")]
     line_limit: usize,
 }
 
@@ -94,6 +102,8 @@ pub struct SearchResults {
     /// Every key_line gets added to this set like `{path}:{key_line}` to
     /// suppress redundant hits on the line (from fulltext matches).
     pub path_line_suppressions: HashSet<String>,
+    /// The limits the inputs hit (ex: livegrep's on matches).
+    pub limits_hit: BTreeSet<String>,
 }
 
 #[derive(Default)]
@@ -373,9 +383,44 @@ impl SearchResults {
         }
     }
 
-    pub fn compile(self, _file_limit: usize, _line_limit: usize) -> FlattenedResultsBundle {
+    /// The results, limited to `file_limit` file name matches and `line_limit`
+    /// lines in all, keeping those of the path kinds in `path_kind_order`
+    /// first (and then any others by name), then by kind, then by path.
+    pub fn compile(
+        self,
+        file_limit: usize,
+        line_limit: usize,
+        path_kind_order: &[Ustr],
+    ) -> FlattenedResultsBundle {
+        let mut path_kind_groups: Vec<(Ustr, PathKindGroup)> =
+            self.path_kind_groups.into_iter().collect();
+        path_kind_groups.sort_by_key(|(path_kind, _)| {
+            let order = path_kind_order.iter().position(|kind| kind == path_kind);
+            (
+                order.unwrap_or(path_kind_order.len()),
+                path_kind.to_string(),
+            )
+        });
+        let mut limits_hit = self.limits_hit;
+        let (mut files, mut lines) = (0, 0);
+
         let mut path_kind_results = vec![];
-        for (path_kind, pk_group) in self.path_kind_groups {
+        for (path_kind, pk_group) in path_kind_groups {
+            let mut file_names = pk_group.file_names;
+            let room = file_limit
+                .saturating_sub(files)
+                .min(line_limit.saturating_sub(lines));
+            if file_names.len() > room {
+                file_names.truncate(room);
+                limits_hit.insert(if files + room >= file_limit {
+                    format!("file limit ({} files)", file_limit)
+                } else {
+                    format!("result count limit ({} results)", line_limit)
+                });
+            }
+            files += file_names.len();
+            lines += file_names.len();
+
             let mut kind_groups = vec![];
             for (descriptor, qk_group) in pk_group.qual_kind_groups {
                 let mut facets = vec![];
@@ -387,32 +432,45 @@ impl SearchResults {
                     facets.push(facet);
                 }
 
-                let mut by_file: Vec<FlattenedResultsByFile> =
-                    qk_group.path_hits.into_values().collect();
-                // The path_hits within each file are not guaranteed to be sorted,
-                // so we sort them now.
-                for results in by_file.iter_mut() {
+                let mut by_file: Vec<FlattenedResultsByFile> = vec![];
+                for mut results in qk_group.path_hits.into_values() {
+                    // The path_hits within each file are not guaranteed to be
+                    // sorted, so we sort them now.
                     results.line_spans.sort_by_key(|x| x.line_range);
+                    let room = line_limit.saturating_sub(lines);
+                    if results.line_spans.len() > room {
+                        results.line_spans.truncate(room);
+                        limits_hit.insert(format!("result count limit ({} results)", line_limit));
+                    }
+                    lines += results.line_spans.len();
+                    if !results.line_spans.is_empty() {
+                        by_file.push(results);
+                    }
                 }
 
-                kind_groups.push(FlattenedKindGroupResults {
-                    kind: descriptor.kind,
-                    pretty: descriptor.pretty,
-                    facets,
-                    by_file,
-                });
+                if !by_file.is_empty() {
+                    kind_groups.push(FlattenedKindGroupResults {
+                        kind: descriptor.kind,
+                        pretty: descriptor.pretty,
+                        facets,
+                        by_file,
+                    });
+                }
             }
 
-            path_kind_results.push(FlattenedPathKindGroupResults {
-                path_kind,
-                file_names: pk_group.file_names,
-                kind_groups,
-            });
+            if !file_names.is_empty() || !kind_groups.is_empty() {
+                path_kind_results.push(FlattenedPathKindGroupResults {
+                    path_kind,
+                    file_names,
+                    kind_groups,
+                });
+            }
         }
 
         FlattenedResultsBundle {
             path_kind_results,
             content_type: "text/plain".to_string(),
+            limits_hit: limits_hit.into_iter().collect(),
         }
     }
 }
@@ -426,7 +484,7 @@ pub struct CompileResultsCommand {
 impl PipelineJunctionCommand for CompileResultsCommand {
     async fn execute(
         &self,
-        _server: &(dyn AbstractServer + Send + Sync),
+        server: &(dyn AbstractServer + Send + Sync),
         input: Vec<(String, PipelineValues)>,
     ) -> Result<PipelineValues> {
         let mut results = SearchResults::default();
@@ -437,6 +495,11 @@ impl PipelineJunctionCommand for CompileResultsCommand {
         for (_, pipe_value) in input {
             match pipe_value {
                 PipelineValues::FileMatches(fm) => {
+                    if fm.limit_hit {
+                        results
+                            .limits_hit
+                            .insert("file search hit limit".to_string());
+                    }
                     results.ingest_file_match_hits(fm.file_matches);
                 }
                 PipelineValues::SymbolCrossrefInfoList(scil) => {
@@ -445,6 +508,16 @@ impl PipelineJunctionCommand for CompileResultsCommand {
                     }
                 }
                 PipelineValues::TextMatches(tm) => {
+                    if tm.limit_hit {
+                        results
+                            .limits_hit
+                            .insert("fulltext search hit limit".to_string());
+                    }
+                    if tm.timed_out {
+                        results
+                            .limits_hit
+                            .insert("fulltext search timeout".to_string());
+                    }
                     results.ingest_fulltext_hits(tm.by_file);
                 }
                 _ => {
@@ -456,8 +529,90 @@ impl PipelineJunctionCommand for CompileResultsCommand {
             }
         }
 
-        let results_bundle = results.compile(self.args.file_limit, self.args.line_limit);
+        // The tree's path kinds' order (see per-file-info.toml), or router.py's.
+        let mut path_kind_order: Vec<Ustr> = server
+            .path_kinds()
+            .into_iter()
+            .map(|(key, _)| key)
+            .collect();
+        if path_kind_order.is_empty() {
+            path_kind_order = ["normal", "third_party", "test", "generated"]
+                .into_iter()
+                .map(ustr)
+                .collect();
+        }
+        let results_bundle =
+            results.compile(self.args.file_limit, self.args.line_limit, &path_kind_order);
 
         Ok(PipelineValues::FlattenedResultsBundle(results_bundle))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::abstract_server::{TextBounds, TextMatchInFile};
+
+    fn text_hits(path: &str, path_kind: &str, lines: u32) -> TextMatchesByFile {
+        TextMatchesByFile {
+            file: ustr(path),
+            path_kind: ustr(path_kind),
+            matches: (1..=lines)
+                .map(|line_num| TextMatchInFile {
+                    line_num,
+                    bounds: TextBounds {
+                        start: 0,
+                        end_exclusive: 1,
+                    },
+                    line_str: format!("line {}", line_num),
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn test_compile_limits() {
+        let mut results = SearchResults::default();
+        results.ingest_fulltext_hits(vec![
+            text_hits("tests/a.js", "test", 2),
+            text_hits("b.cpp", "normal", 5),
+            text_hits("__GENERATED__/g.h", "generated", 1),
+            text_hits("third_party/t.c", "third_party", 2),
+        ]);
+        let order: Vec<Ustr> = ["normal", "third_party", "test", "generated"]
+            .into_iter()
+            .map(ustr)
+            .collect();
+        let bundle = results.compile(10, 6, &order);
+        // Core code's 5 lines, then 1 of third-party's 2, and none of the
+        // tests' or generated code's.
+        let kept: Vec<(&str, usize)> = bundle
+            .path_kind_results
+            .iter()
+            .map(|pk| {
+                let lines = pk.kind_groups.iter().flat_map(|kg| &kg.by_file);
+                (
+                    pk.path_kind.as_str(),
+                    lines.map(|f| f.line_spans.len()).sum(),
+                )
+            })
+            .collect();
+        assert_eq!(kept, vec![("normal", 5), ("third_party", 1)]);
+        assert_eq!(bundle.limits_hit, vec!["result count limit (6 results)"]);
+
+        // Under the limits, everything is kept in that order.
+        let mut results = SearchResults::default();
+        results.ingest_fulltext_hits(vec![
+            text_hits("tests/a.js", "test", 2),
+            text_hits("b.cpp", "normal", 1),
+        ]);
+        let bundle = results.compile(10, 10, &order);
+        let kinds: Vec<&str> = bundle
+            .path_kind_results
+            .iter()
+            .map(|pk| pk.path_kind.as_str())
+            .collect();
+        assert_eq!(kinds, vec!["normal", "test"]);
+        assert!(bundle.limits_hit.is_empty());
     }
 }

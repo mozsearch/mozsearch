@@ -572,6 +572,10 @@ pub struct SymbolCrossrefInfoList {
 pub struct FlattenedResultsBundle {
     pub path_kind_results: Vec<FlattenedPathKindGroupResults>,
     pub content_type: String,
+    /// The limits the results hit (ex: "result count limit"), so that there
+    /// may be more results (see `cmd_compile_results`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub limits_hit: Vec<String>,
 }
 
 impl FlattenedResultsBundle {
