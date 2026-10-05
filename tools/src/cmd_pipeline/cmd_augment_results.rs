@@ -36,6 +36,50 @@ pub struct AugmentResults {
     after: u32,
 }
 
+/// A row of a rendered file (see `chunked_gzip::ROW_START`) as `/query/`'s
+/// results show it, like `/search/`'s: without the cells of the coverage and
+/// blame strips, which are noise there, and without the macros' expansions,
+/// which the results don't show (and which can be most of a row, ex: 58 KB
+/// for a line using `NS_ENSURE_SUCCESS`).
+pub fn excerpt_row(row: &str) -> String {
+    // The strips' cells are lines of their own (see `format::format_code`).
+    let mut lines = String::with_capacity(row.len());
+    for line in row.split_inclusive('\n') {
+        let cell = line.trim_start();
+        if cell.starts_with("<div role=\"cell\"><div")
+            && (cell.contains("cov-strip") || cell.contains("blame-strip"))
+        {
+            continue;
+        }
+        lines.push_str(line);
+    }
+    strip_attribute(&lines, " data-expansions=\"")
+}
+
+/// `html` without the attribute whose name (with its leading space, `=`, and
+/// quote) is `attribute`, where it's in tags (attribute values have no quotes,
+/// which are entities, but the text could look like an attribute).
+fn strip_attribute(html: &str, attribute: &str) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut rest = html;
+    while let Some(i) = rest.find(attribute) {
+        let in_tag = rest[..i].rfind('<') > rest[..i].rfind('>');
+        let value = &rest[i + attribute.len()..];
+        match value.find('"') {
+            Some(end) if in_tag => {
+                out.push_str(&rest[..i]);
+                rest = &value[end + 1..];
+            }
+            _ => {
+                out.push_str(&rest[..i + attribute.len()]);
+                rest = value;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 #[derive(Debug)]
 pub struct AugmentResultsCommand {
     pub args: AugmentResults,
@@ -67,11 +111,30 @@ impl PipelineCommand for AugmentResultsCommand {
             .into_iter()
             .map(|(path, lines)| (path, lines.into_iter().collect()))
             .collect();
-        let path_line_contents = server.fetch_html_lines(requests).await?;
+        let mut path_line_contents = server.fetch_html_lines(requests).await?;
+        for rows in path_line_contents.values_mut() {
+            for row in rows.values_mut() {
+                *row = excerpt_row(row);
+            }
+        }
 
         // ## Ingest the new lines.
         results.ingest_html_lines(&path_line_contents, self.args.before, self.args.after);
 
         Ok(PipelineValues::FlattenedResultsBundle(results))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_excerpt_row() {
+        let row = "<div role=\"row\" id=\"line-7\" class=\"source-line-with-number\">\n  <div role=\"cell\"><div role=\"button\" aria-expanded=\"false\" class=\"cov-strip cov-no-data\" aria-label=\"uncovered\"></div></div>\n  <div role=\"cell\"><div class=\"blame-strip c1\" data-hyperblame=\"1:0:2\" role=\"button\" aria-label=\"blame\" aria-expanded=\"false\"></div></div>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"7\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-expansions=\"{&quot;M_1&quot;:{&quot;&quot;:&quot;x&quot;}}\" class=\"syn_macro\" data-symbols=\"M_1\">NS_ENSURE_SUCCESS</span>(rv, \" data-expansions=\"text\");\n</code>\n</div>\n";
+        assert_eq!(
+            excerpt_row(row),
+            "<div role=\"row\" id=\"line-7\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"7\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_macro\" data-symbols=\"M_1\">NS_ENSURE_SUCCESS</span>(rv, \" data-expansions=\"text\");\n</code>\n</div>\n"
+        );
     }
 }
