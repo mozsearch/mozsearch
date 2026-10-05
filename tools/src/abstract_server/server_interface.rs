@@ -5,8 +5,10 @@ use chrono::{DateTime, FixedOffset};
 use futures_core::stream::BoxStream;
 use serde::Serialize;
 use serde_json::Value;
-use ustr::{Ustr, ustr};
+use std::collections::{BTreeSet, HashMap};
+use ustr::{Ustr, UstrMap, ustr};
 
+use crate::file_format::chunked_gzip::extract_rows;
 use crate::file_format::code_coverage_report;
 use crate::file_format::crossref::CrossrefData;
 use crate::file_format::jumpref::JumprefData;
@@ -352,6 +354,23 @@ pub trait AbstractServer {
     /// request and we'll fetch the relevant `index.html.gz` file from the
     /// INDEX/dir sub-tree.
     async fn fetch_html(&self, root: HtmlFileRoot, sf_path: &str) -> Result<String>;
+
+    /// Fetch the rows (see `chunked_gzip::ROW_START`) of lines (1-based) of
+    /// rendered HTML files, by path and line, for excerpts of results (see
+    /// `cmd_augment_results`).  By default this fetches the whole files, but
+    /// local indexes only read the parts of the files with the lines, several
+    /// files at a time (see `chunked_gzip`).
+    async fn fetch_html_lines(
+        &self,
+        requests: Vec<(Ustr, BTreeSet<u32>)>,
+    ) -> Result<UstrMap<HashMap<u32, String>>> {
+        let mut rows = UstrMap::default();
+        for (path, lines) in requests {
+            let html = self.fetch_html(HtmlFileRoot::FormattedFile, &path).await?;
+            rows.insert(path, extract_rows(&html, &lines));
+        }
+        Ok(rows)
+    }
 
     /// Retrieve the JSON contents of the crossref database for the given
     /// symbol.

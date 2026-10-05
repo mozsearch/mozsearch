@@ -39,6 +39,7 @@ use tools::output::{PanelItem, PanelSection};
 extern crate flate2;
 use flate2::Compression;
 use flate2::write::GzEncoder;
+use tools::file_format::chunked_gzip::LineChunkedGzipWriter;
 
 /// Write a page's hyperblame data files (see `hyperblame_files`) gzipped into
 /// `dir`, along with the empty files nginx's `try_files` needs to find them
@@ -215,7 +216,10 @@ fn main() {
         }
         let output_file = File::create(gzip_output_fname).unwrap();
         let raw_writer = BufWriter::new(output_file);
-        let mut writer = GzEncoder::new(raw_writer, Compression::default());
+        // A gzip with chunks of lines, so that /query/'s results can read just
+        // the lines they show (see `chunked_gzip`).  (Written when it's
+        // finished below, or dropped by the early `continue`s.)
+        let mut writer = LineChunkedGzipWriter::new(raw_writer);
 
         let source_file = match File::open(source_fname.clone()) {
             Ok(f) => f,

@@ -2,14 +2,17 @@ use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use futures_core::stream::BoxStream;
 use serde_json::{Value, from_str};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::io::Read;
+use std::path::Path;
+use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use tracing::trace;
-use ustr::{Ustr, ustr};
+use ustr::{Ustr, UstrMap, ustr};
 
 use super::server_interface::{
     AbstractServer, ErrorDetails, ErrorLayer, FileMatches, HtmlFileRoot, Result,
@@ -20,6 +23,7 @@ use super::{CommitInfo, TextMatches, TextMatchesByFile, TreeInfo};
 use crate::blame;
 use crate::file_format::analysis::{read_analyses, read_source};
 use crate::file_format::bisectable_mmap::BisectableMmap;
+use crate::file_format::chunked_gzip;
 use crate::file_format::code_coverage_report;
 use crate::file_format::config::{TreeConfig, TreeConfigPaths, git_data, load};
 use crate::file_format::crossref::CrossrefData;
@@ -349,6 +353,19 @@ impl AbstractServer for LocalIndex {
         Ok((lines, sym_json))
     }
 
+    async fn fetch_html_lines(
+        &self,
+        requests: Vec<(Ustr, BTreeSet<u32>)>,
+    ) -> Result<UstrMap<HashMap<u32, String>>> {
+        let mut files = Vec::with_capacity(requests.len());
+        for (path, lines) in requests {
+            let norm_path = self.normalize_and_validate_path(&path)?;
+            let gz_path = format!("{}/file/{}.gz", self.config_paths.index_path, norm_path);
+            files.push((path, gz_path, lines));
+        }
+        tokio::task::spawn_blocking(move || read_rows_of_files(files)).await?
+    }
+
     async fn fetch_html(&self, root: HtmlFileRoot, sf_path: &str) -> Result<String> {
         let norm_path = self.normalize_and_validate_path(sf_path)?;
         let (full_path, is_gzipped) = match root {
@@ -557,6 +574,43 @@ impl AbstractServer for LocalIndex {
         // infrastructure...
         Err(ServerError::Unsupported)
     }
+}
+
+/// The most threads reading the lines of rendered files for a query (see
+/// `fetch_html_lines`).
+const MAX_HTML_LINES_THREADS: usize = 8;
+
+/// The rows of lines of the rendered files at paths (see
+/// `chunked_gzip::read_rows`), by path and line, several files at a time,
+/// since big queries' results are in many files (ex: 1477 for "nsIPrincipal"
+/// on firefox).
+fn read_rows_of_files(
+    files: Vec<(Ustr, String, BTreeSet<u32>)>,
+) -> Result<UstrMap<HashMap<u32, String>>> {
+    let threads = std::thread::available_parallelism()
+        .map_or(1, |n| n.get())
+        .min(MAX_HTML_LINES_THREADS)
+        .min(files.len())
+        .max(1);
+    let next = AtomicUsize::new(0);
+    let results = Mutex::new(Vec::with_capacity(files.len()));
+    std::thread::scope(|scope| {
+        for _ in 0..threads {
+            scope.spawn(|| {
+                while let Some((path, gz_path, lines)) =
+                    files.get(next.fetch_add(1, Ordering::Relaxed))
+                {
+                    let rows = chunked_gzip::read_rows(Path::new(gz_path), lines);
+                    results.lock().unwrap().push((*path, rows));
+                }
+            });
+        }
+    });
+    let mut rows = UstrMap::default();
+    for (path, file_rows) in results.into_inner().unwrap() {
+        rows.insert(path, file_rows?);
+    }
+    Ok(rows)
 }
 
 fn fab_server(

@@ -9,6 +9,8 @@ pub mod analysis_manglings;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod bisectable_mmap;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod chunked_gzip;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod code_coverage_report;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod config;

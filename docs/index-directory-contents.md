@@ -39,7 +39,12 @@ Directories:
   `output-file.rs` from the source/generated file itself, the corresponding
   analysis file found under `analysis/`, the `jumpref` all-files aggregate file,
   the `derived-per-file-info.json` all-files aggregate file, the
-  corresponding per-file aggregate file found under `per-file-info/`.
+  corresponding per-file aggregate file found under `per-file-info/`.  The
+  files are gzipped (`FOO.gz`, with an empty `FOO` for nginx's `try_files`),
+  and are ordinary gzips which nginx serves as is, but with a full flush
+  before the row of every 32nd line and the flushes' offsets in the gzip
+  header's extra field, so that `/query/`'s results can decompress just the
+  lines they show (see `tools/src/file_format/chunked_gzip.rs`).
 - `gecko-blame`: git repository containing pre-computed per-file blame/annotate
   info built by `build-blame.rs`.  The directory name is specific per repository
   configuration.
