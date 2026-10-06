@@ -204,8 +204,6 @@ and [filters](https://github.com/cobalt-org/liquid-rust/blob/master/crates/lib/s
     empty string if there is no file extension.  (Note that this does not use
     the "default" mechanism!)
   - json: Render the given value to JSON
-  - last_changed: The "Last changed" facet value (ex: "month") of a history
-    digest's array of bins (see `file_format::recency`).
   - recency_blot: The blot (HTML) of a history digest's array of bins (see
     `cmd_pipeline::recency_html`).
   - `strip_prefix_or_empty`: Takes an argument which is a prefix to attempt to

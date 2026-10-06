@@ -9,11 +9,7 @@
   (With history digests, lines are facets.js items too, inside their files',
   with their "Last changed" values; see `last_changed_facet`.)
 {% endcomment -%}
-{%- assign line_facets = "" -%}
-{%- if file_facets.recency -%}
-{%- capture line_facets %}{"recency":["{% if line_span contains "recency" %}{{ line_span.recency | last_changed }}{% else %}unknown{% endif %}"]}{% endcapture -%}
-{%- endif -%}
-<div class="file{% if line_span contains "repeated" %} query-repeated{% endif %}" role="table"{% if line_facets != empty %} data-facets="{{ line_facets | escape }}"{% endif %}>
+<div class="file{% if line_span contains "repeated" %} query-repeated{% endif %}" role="table"{% if line_span contains "last_changed" %} data-facets="{&quot;recency&quot;:[&quot;{{ line_span.last_changed }}&quot;]}"{% endif %}>
 {{ line_span.contents }}
 {%- if line_span.context != empty -%}
 {%- if line_span.contextsym != empty -%}

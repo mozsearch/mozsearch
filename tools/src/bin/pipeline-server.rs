@@ -27,6 +27,7 @@ use tools::{
         JumprefData, JumprefTraversals, determine_desired_extra_syms_from_jumpref,
         extra_syms_next_step_lookups,
     },
+    file_format::recency::Recency,
     logging::{LoggedSpan, init_logging},
     query::chew_query::chew_query,
     templating::builder::build_and_parse_query_results,
@@ -280,6 +281,13 @@ async fn handle_query(
             }
             _ => Value::Null,
         };
+        if let (PipelineValues::FlattenedResultsBundle(results), Some(true)) =
+            (&mut result, file_facets["recency"].as_bool())
+        {
+            for span in results.line_spans_mut() {
+                span.last_changed = Some(Recency::last_changed(span.recency.as_ref()));
+            }
+        }
 
         // For simplicity, the template expects "results" variable to always be
         // an array.

@@ -55,26 +55,6 @@ impl Filter for FileExtFilter {
 
 #[derive(Clone, ParseFilter, FilterReflection)]
 #[filter(
-    name = "last_changed",
-    description = "The \"Last changed\" facet value of a history digest (see `file_format::recency`).",
-    parsed(LastChangedFilter)
-)]
-pub struct LastChangedFilterParser;
-
-#[derive(Debug, Default, Display_filter)]
-#[name = "last_changed"]
-struct LastChangedFilter;
-
-impl Filter for LastChangedFilter {
-    fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
-        Ok(Value::scalar(Recency::last_changed(Some(&recency_of(
-            input,
-        )))))
-    }
-}
-
-#[derive(Clone, ParseFilter, FilterReflection)]
-#[filter(
     name = "recency_blot",
     description = "The blot (HTML) of a history digest (see `cmd_pipeline::recency_html`).",
     parsed(RecencyBlotFilter)

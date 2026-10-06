@@ -11,8 +11,9 @@ add_task(async function test_QueryRecency() {
   const doc = frame.contentDocument;
   const blots = [...doc.querySelectorAll(".query-result .query-recency[title]")];
   ok(blots.length > 0, "The results' key lines have blots");
-  ok(blots.every(blot => blot.querySelectorAll("i").length == 10),
-     "with a square per bin of age");
+  ok(blots.every(blot => blot.querySelectorAll("i").length > 0 &&
+                         [...blot.querySelectorAll("i")].every(i => /^b\d r[1-5]$/.test(i.className))),
+     "with squares for the bins of age with changes");
   ok(blots.every(blot => /tokens? changed/.test(blot.title)), "which say what changed");
   const rows = [...doc.querySelectorAll(".query-result div[role=row]")];
   ok(rows.every(row => row.querySelector(":scope > .query-recency")),

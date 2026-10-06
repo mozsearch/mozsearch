@@ -975,6 +975,11 @@ pub struct FlattenedLineSpan {
     /// and its context's, for uses and textual occurrences.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recency: Option<Recency>,
+    /// For HTML pages with the "Last changed" facet, the result's value (see
+    /// `Recency::last_changed`), which query_results/line_span.liquid gives
+    /// facets.js.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_changed: Option<&'static str>,
 }
 
 impl FlattenedLineSpan {
@@ -1385,6 +1390,7 @@ mod tests {
             hits: vec![],
             repeated: false,
             recency: None,
+            last_changed: None,
         };
         span.inline_context("tests");
         // On the key line, before its newline, with an escaped context and
@@ -1405,6 +1411,7 @@ mod tests {
             hits: vec![],
             repeated: false,
             recency: None,
+            last_changed: None,
         };
         span.inline_context("tests");
         assert_eq!(span.contents, row(8, "text"));
@@ -1421,6 +1428,7 @@ mod tests {
             hits: vec![],
             repeated: false,
             recency: None,
+            last_changed: None,
         };
         let mut by_file = FlattenedResultsByFile {
             file: ustr("a.h"),

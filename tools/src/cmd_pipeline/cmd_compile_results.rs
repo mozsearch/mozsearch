@@ -323,6 +323,7 @@ impl SearchResults {
                 hits: token.into_iter().collect(),
                 repeated: false,
                 recency,
+                last_changed: None,
             });
         }
     }
@@ -428,6 +429,7 @@ impl SearchResults {
                     hits,
                     repeated: tokens.is_some(),
                     recency: None,
+                    last_changed: None,
                 });
             }
             // The suppressions could mean we don't actually need this path hit,

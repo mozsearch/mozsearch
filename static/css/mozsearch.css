@@ -1739,25 +1739,39 @@ mark.query-match {
    numbers of the results' key lines (other rows have the cell, empty, so their
    code stays aligned), and sparklines on the "Last changed" facet's values. */
 .query-recency {
-  display: inline-flex;
+  display: inline-block;
+  position: relative;
   flex-shrink: 0;
-  gap: 1px;
+  align-self: center;
   width: 50px;
-  align-items: center;
-  justify-content: flex-end;
+  height: 10px;
+}
+/* (The empty squares are the background; the others are `<i>`s, ex: `b3 r2`
+   for the 4th bin's square, in the 2nd shade.) */
+.query-recency[title] {
+  background: repeating-linear-gradient(to right, var(--recency-empty) 0 4px, transparent 4px 5px);
 }
 .query-recency i {
+  position: absolute;
+  top: 0;
   width: 4px;
   height: 10px;
-  background-color: var(--recency-empty);
 }
-.query-recency .recency-1 { background-color: var(--recency-1); }
-.query-recency .recency-2 { background-color: var(--recency-2); }
-.query-recency .recency-3 { background-color: var(--recency-3); }
-.query-recency .recency-4 { background-color: var(--recency-4); }
-.query-recency .recency-5 { background-color: var(--recency-5); }
+.query-recency .b1 { left: 5px; }
+.query-recency .b2 { left: 10px; }
+.query-recency .b3 { left: 15px; }
+.query-recency .b4 { left: 20px; }
+.query-recency .b5 { left: 25px; }
+.query-recency .b6 { left: 30px; }
+.query-recency .b7 { left: 35px; }
+.query-recency .b8 { left: 40px; }
+.query-recency .b9 { left: 45px; }
+.query-recency .r1 { background-color: var(--recency-1); }
+.query-recency .r2 { background-color: var(--recency-2); }
+.query-recency .r3 { background-color: var(--recency-3); }
+.query-recency .r4 { background-color: var(--recency-4); }
+.query-recency .r5 { background-color: var(--recency-5); }
 .query-file-names .query-recency {
-  justify-content: flex-start;
   margin-left: 1em;
   vertical-align: middle;
 }

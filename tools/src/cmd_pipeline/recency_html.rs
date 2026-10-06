@@ -17,7 +17,9 @@ pub fn blot_cell(recency: Option<&Recency>) -> String {
 }
 
 /// The blot of a digest: a square per bin of age (newest first), shaded by how
-/// much changed then, with the element's `attributes`.
+/// much changed then, with the element's `attributes`.  The empty squares are
+/// the element's background, so only the others are elements (`<i>`s whose
+/// classes say their bins and shades), since pages have thousands of blots.
 pub fn blot(recency: &Recency, attributes: &str) -> String {
     let mut html = format!(
         r#"<span{} class="query-recency" title="{}">"#,
@@ -25,7 +27,10 @@ pub fn blot(recency: &Recency, attributes: &str) -> String {
         recency.describe()
     );
     for bin in 0..BINS {
-        let _ = write!(html, r#"<i class="recency-{}"></i>"#, recency.level(bin));
+        let level = recency.level(bin);
+        if level > 0 {
+            let _ = write!(html, r#"<i class="b{} r{}"></i>"#, bin, level);
+        }
     }
     html.push_str("</span>");
     html
@@ -69,8 +74,10 @@ mod tests {
     fn test_blot_cell() {
         let recency = Recency([150, 0, 0, 0, 0, 3, 0, 0, 0, 0]);
         let cell = blot_cell(Some(&recency));
-        assert!(cell.starts_with(r#"<span role="cell" class="query-recency" title="150 tokens changed under 1 week ago, 3 3-6 months ago"><i class="recency-3"></i><i class="recency-0"></i>"#));
-        assert_eq!(cell.matches("<i ").count(), BINS);
+        assert_eq!(
+            cell,
+            r#"<span role="cell" class="query-recency" title="150 tokens changed under 1 week ago, 3 3-6 months ago"><i class="b0 r3"></i><i class="b5 r1"></i></span>"#
+        );
         assert_eq!(
             blot_cell(None),
             r#"<span role="cell" class="query-recency"></span>"#
