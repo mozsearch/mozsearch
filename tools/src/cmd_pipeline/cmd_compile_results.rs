@@ -434,6 +434,22 @@ impl SearchResults {
 
                 let mut by_file: Vec<FlattenedResultsByFile> = vec![];
                 for mut results in qk_group.path_hits.into_values() {
+                    // Several results can be the same line (ex: several
+                    // structured records of a declaration), which is one
+                    // result, with the union of their ranges.
+                    results
+                        .line_spans
+                        .sort_by_key(|x| (x.key_line, x.line_range));
+                    results.line_spans.dedup_by(|later, earlier| {
+                        if later.key_line != earlier.key_line {
+                            return false;
+                        }
+                        earlier.line_range = (
+                            earlier.line_range.0.min(later.line_range.0),
+                            earlier.line_range.1.max(later.line_range.1),
+                        );
+                        true
+                    });
                     // The path_hits within each file are not guaranteed to be
                     // sorted, so we sort them now.
                     results.line_spans.sort_by_key(|x| x.line_range);
@@ -552,6 +568,7 @@ impl PipelineJunctionCommand for CompileResultsCommand {
 mod tests {
     use super::*;
     use crate::abstract_server::{TextBounds, TextMatchInFile};
+    use crate::file_format::analysis::{LineRange, SearchResult};
 
     fn text_hits(path: &str, path_kind: &str, lines: u32) -> TextMatchesByFile {
         TextMatchesByFile {
@@ -614,5 +631,49 @@ mod tests {
             .collect();
         assert_eq!(kinds, vec!["normal", "test"]);
         assert!(bundle.limits_hit.is_empty());
+    }
+
+    #[test]
+    fn test_compile_merges_same_lines() {
+        let line = |lineno: u32, peek: (u32, u32)| SearchResult {
+            lineno,
+            bounds: (0, 1),
+            line: format!("line {}", lineno),
+            context: ustr("C"),
+            contextsym: ustr("#C"),
+            peek_range: LineRange {
+                start_lineno: peek.0,
+                end_lineno: peek.1,
+            },
+        };
+        let mut results = SearchResults::default();
+        // A declaration's several records on line 7 (ex: one with a peek
+        // range, one without), and another result on line 9.
+        results.ingest_path_hits(
+            &ustr("#C"),
+            QualKindDescriptor {
+                kind: PresentationKind::Declarations,
+                quality: SymbolQuality::ExplicitSymbol,
+                pretty: ustr("C"),
+            },
+            &ustr("Self"),
+            PathSearchResult {
+                path: ustr("a.h"),
+                path_kind: ustr("normal"),
+                lines: vec![
+                    line(9, (0, 0)),
+                    line(7, (7, 12)),
+                    line(7, (0, 0)),
+                    line(7, (6, 8)),
+                ],
+            },
+        );
+        let bundle = results.compile(10, 10, &[ustr("normal")]);
+        let spans: Vec<(u32, (u32, u32))> = bundle.path_kind_results[0].kind_groups[0].by_file[0]
+            .line_spans
+            .iter()
+            .map(|span| (span.key_line, span.line_range))
+            .collect();
+        assert_eq!(spans, vec![(7, (6, 12)), (9, (9, 9))]);
     }
 }

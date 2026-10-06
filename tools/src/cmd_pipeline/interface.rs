@@ -805,6 +805,10 @@ impl FlattenedResultsByFile {
     ) {
         if let Some(file_contents) = path_line_contents.get(&self.file) {
             let mut highest_line: u32 = 0;
+            // Each span stops before the next starts, so a span the next one
+            // starts on the same line as (ex: several results on one line) is
+            // left without lines, and would only be its "// found in", so it
+            // goes (once it's emptied; rows are never empty).
             for i_span in 0..self.line_spans.len() {
                 let (mut this_start, mut this_end) =
                     self.line_spans[i_span].expand_range_in_isolation(before, after);
@@ -826,6 +830,10 @@ impl FlattenedResultsByFile {
                         lines.push(content.as_str());
                     }
                 }
+                if lines.is_empty() {
+                    self.line_spans[i_span].contents.clear();
+                    continue;
+                }
                 // this_end was aspirational; we may have run out of lines,
                 // so use the length.
                 self.line_spans[i_span].line_range =
@@ -834,6 +842,7 @@ impl FlattenedResultsByFile {
 
                 highest_line = this_end;
             }
+            self.line_spans.retain(|span| !span.contents.is_empty());
         }
     }
 }
@@ -1287,5 +1296,46 @@ mod tests {
         };
         span.inline_context("tests");
         assert_eq!(span.contents, row(8, "text"));
+    }
+
+    #[test]
+    fn test_ingest_html_lines_drops_empty_spans() {
+        let span = |key_line: u32, line_range: (u32, u32)| FlattenedLineSpan {
+            key_line,
+            line_range,
+            contents: String::new(),
+            context: ustr("C"),
+            contextsym: ustr("#C"),
+        };
+        let mut by_file = FlattenedResultsByFile {
+            file: ustr("a.h"),
+            // A definition's lines 3-6 (which stop before the next span), two
+            // results starting on line 5, and one on line 9.
+            line_spans: vec![
+                span(3, (3, 6)),
+                span(5, (5, 5)),
+                span(5, (5, 8)),
+                span(9, (9, 9)),
+            ],
+        };
+        let mut path_line_contents = UstrMap::default();
+        path_line_contents.insert(
+            by_file.file,
+            (1..=10).map(|n| (n, format!("row {}", n))).collect(),
+        );
+        by_file.ingest_html_lines(&path_line_contents, 0, 0);
+        let spans: Vec<(u32, (u32, u32), &str)> = by_file
+            .line_spans
+            .iter()
+            .map(|span| (span.key_line, span.line_range, span.contents.as_str()))
+            .collect();
+        assert_eq!(
+            spans,
+            vec![
+                (3, (3, 4), "row 3\nrow 4"),
+                (5, (5, 8), "row 5\nrow 6\nrow 7\nrow 8"),
+                (9, (9, 9), "row 9")
+            ]
+        );
     }
 }
