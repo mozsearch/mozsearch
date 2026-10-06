@@ -19,6 +19,15 @@
 //! files), since each chunk starts without the history of the rows before it,
 //! for a 15-60x speedup of big queries (ex: 16s to 0.3s for "nsIPrincipal" on
 //! firefox, whose results are in 1477 files with 7.8 GB of HTML).
+//!
+//! Rows also come with the symbol of the innermost nesting container around
+//! them (ex: their function, for "// found in" on `/query/`'s textual
+//! occurrences).  Containers start before the rows that start them and end
+//! after rows' ends (see `format::format_file_data`), and the rows that can
+//! start chunks (lines `K * LINES_PER_CHUNK + 1`) say which containers they're
+//! in (`data-nesting`), so a chunk's containers can be tracked from its start.
+//! (Older files' chunks don't say, so only the containers that start in them
+//! are known.)
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs::File;
@@ -38,15 +47,46 @@ pub const LINES_PER_CHUNK: u32 = 32;
 pub const ROW_START: &str = "<div role=\"row\" id=\"line-";
 pub const ROW_END: &str = "</code>\n</div>\n";
 
+/// The start of a nesting container, and its symbol's attribute.
+const NESTING_START: &str = "<div class=\"nesting-container ";
+const NESTING_SYM: &str = " data-nesting-sym=\"";
+/// The end of a nesting container, which is right after a row's end.
+const NESTING_END: &str = "</div>";
+/// A chunk-starting row's attribute with the symbols of the containers it's
+/// in, outermost first, comma-separated.
+const NESTING_ATTRIBUTE: &str = " data-nesting=\"";
+
+/// A row (see `ROW_START`), with the symbol of the innermost nesting
+/// container around it (ex: its function), if it's in one that's known.
+#[derive(Debug, PartialEq)]
+pub struct Row {
+    pub html: String,
+    pub nesting_sym: Option<String>,
+}
+
 const SUBFIELD_ID: &[u8; 2] = b"SF";
 const VERSION: u8 = 1;
 /// The most offsets that fit in an extra field (of at most 65535 bytes, with
 /// the subfield's ID, length, version, and lines per chunk).
 const MAX_CHUNKS: usize = (65535 - 4 - 3) / 4;
 
-/// The rows of the lines `lines` (1-based) of `html`, by line, found by
-/// searching for each from the end of the one before.
-pub fn extract_rows(html: &str, lines: &BTreeSet<u32>) -> HashMap<u32, String> {
+/// The rows of the lines `lines` (1-based) of `html` (a rendered file, or a
+/// chunk of one), by line, found by searching for each from the end of the
+/// one before, with their nesting containers' symbols (see the module docs).
+pub fn extract_rows(html: &str, lines: &BTreeSet<u32>) -> HashMap<u32, Row> {
+    // The containers open at `html`'s start (None if a chunk doesn't say),
+    // and those it starts.
+    let mut outer: Option<Vec<String>> = if html.starts_with(ROW_START) {
+        tag_attribute(html, NESTING_ATTRIBUTE).map(|syms| {
+            syms.split(',')
+                .filter(|sym| !sym.is_empty())
+                .map(|sym| sym.replace("&quot;", "\""))
+                .collect()
+        })
+    } else {
+        Some(vec![])
+    };
+    let mut inner: Vec<String> = vec![];
     let mut rows = HashMap::new();
     let mut pos = 0;
     for &line in lines {
@@ -54,16 +94,62 @@ pub fn extract_rows(html: &str, lines: &BTreeSet<u32>) -> HashMap<u32, String> {
         let Some(start) = html[pos..].find(&start_needle).map(|i| pos + i) else {
             continue;
         };
+        track_nesting(&html[pos..start], &mut outer, &mut inner);
         let Some(end) = html[start..]
             .find(ROW_END)
             .map(|i| start + i + ROW_END.len())
         else {
             continue;
         };
-        rows.insert(line, html[start..end].to_string());
+        let nesting_sym = match inner.last() {
+            Some(sym) => Some(sym.clone()),
+            None => outer.as_ref().and_then(|outer| outer.last().cloned()),
+        };
+        rows.insert(
+            line,
+            Row {
+                html: html[start..end].to_string(),
+                nesting_sym,
+            },
+        );
         pos = end;
     }
     rows
+}
+
+/// The value of the attribute `attribute` (its leading space, name, `=`, and
+/// quote) of the tag at the start of `html`, if it has it.
+fn tag_attribute<'a>(html: &'a str, attribute: &str) -> Option<&'a str> {
+    let tag = &html[..html.find('>')?];
+    let value = &tag[tag.find(attribute)? + attribute.len()..];
+    Some(&value[..value.find('"')?])
+}
+
+/// Track the nesting containers that start and end in `segment`, which is
+/// from a row's end (or the start of what has the rows) to a row's start.
+fn track_nesting(segment: &str, outer: &mut Option<Vec<String>>, inner: &mut Vec<String>) {
+    let row_end_then_end = format!("{}{}", ROW_END, NESTING_END);
+    let mut rest = segment;
+    loop {
+        while let Some(after) = rest.strip_prefix(NESTING_END) {
+            if let (None, Some(outer)) = (inner.pop(), outer.as_mut()) {
+                outer.pop();
+            }
+            rest = after;
+        }
+        match (rest.find(NESTING_START), rest.find(&row_end_then_end)) {
+            (Some(start), Some(end)) if end < start => rest = &rest[end + ROW_END.len()..],
+            (Some(start), _) => {
+                let container = &rest[start..];
+                if let Some(sym) = tag_attribute(container, NESTING_SYM) {
+                    inner.push(sym.replace("&quot;", "\""));
+                }
+                rest = &container[NESTING_START.len()..];
+            }
+            (None, Some(end)) => rest = &rest[end + ROW_END.len()..],
+            (None, None) => break,
+        }
+    }
 }
 
 /// The offsets of the rows of `html` with their line numbers, in order.
@@ -253,7 +339,7 @@ fn read_chunks(file: &mut File) -> io::Result<Option<Chunks>> {
 /// file whose gzip is at `path`, by line, from just the chunks with them if
 /// it has chunks of lines (see the module docs), and otherwise (ex: files of
 /// indexes from before them) from all of it.
-pub fn read_rows(path: &Path, lines: &BTreeSet<u32>) -> io::Result<HashMap<u32, String>> {
+pub fn read_rows(path: &Path, lines: &BTreeSet<u32>) -> io::Result<HashMap<u32, Row>> {
     let mut file = File::open(path)?;
     let Some((lines_per_chunk, chunks)) = read_chunks(&mut file)? else {
         file.seek(SeekFrom::Start(0))?;
@@ -305,30 +391,69 @@ fn inflate_raw(mut deflated: &[u8]) -> io::Result<Vec<u8>> {
 mod tests {
     use super::*;
 
-    fn row(line: u32, text: &str) -> String {
+    fn row(line: u32, attributes: &str, text: &str) -> String {
         format!(
-            "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>\n  <code role=\"cell\" class=\"source-line\">{}\n</code>\n</div>\n",
-            line, line, text
+            "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number\"{}>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>\n  <code role=\"cell\" class=\"source-line\">{}\n</code>\n</div>\n",
+            line, attributes, line, text
         )
     }
 
-    fn page(lines: u32) -> String {
+    /// Nesting containers (first line, last line, symbol), nested.
+    const NESTINGS: &[(u32, u32, &str)] = &[
+        (5, 150, "NS_a"),
+        (10, 20, "_Z1fv"),
+        (30, 70, "T_C"),
+        (31, 45, "_ZN1C1gEv"),
+        (64, 66, "_ZN1C1hEv"),
+        (160, 200, "#\"quoted\""),
+    ];
+
+    /// The innermost container around `line`.
+    fn nesting_of(line: u32) -> Option<String> {
+        NESTINGS
+            .iter()
+            .rev()
+            .find(|(first, last, _)| *first <= line && line <= *last)
+            .map(|(_, _, sym)| sym.to_string())
+    }
+
+    /// A page like `format::format_file_data`'s, with its nesting containers
+    /// (and their symbols at chunk-starting rows, if `say_nesting`).
+    fn page(lines: u32, say_nesting: bool) -> String {
         let mut html = String::from("<html><body><div id=\"file\">\n");
+        let mut open: Vec<&str> = vec![];
         for line in 1..=lines {
-            if line % 10 == 0 {
-                // (A nesting container, whose rows are rows too.)
-                html.push_str("<div class=\"nesting-container\">");
-                html.push_str(&row(line, &format!("fn f{}() {{", line)));
-                html.push_str("</div>\n");
+            for (_, _, sym) in NESTINGS.iter().filter(|(first, _, _)| *first == line) {
+                html.push_str(&format!(
+                    "<div class=\"nesting-container nesting-depth-{}\" data-nesting-sym=\"{}\">",
+                    open.len(),
+                    sym.replace('"', "&quot;")
+                ));
+                open.push(sym);
+            }
+            let attributes = if say_nesting && line > 1 && (line - 1) % LINES_PER_CHUNK == 0 {
+                format!(
+                    " data-nesting=\"{}\"",
+                    open.join(",").replace('"', "&quot;")
+                )
             } else {
-                html.push_str(&row(line, &format!("  let x{} = &lt;{}&gt;;", line, line)));
+                String::new()
+            };
+            html.push_str(&row(
+                line,
+                &attributes,
+                &format!("  let x{} = &lt;{}&gt;;", line, line),
+            ));
+            for _ in NESTINGS.iter().filter(|(_, last, _)| *last == line) {
+                html.push_str("</div>");
+                open.pop();
             }
         }
         html.push_str("</div></body></html>\n");
         html
     }
 
-    fn write_and_read(contents: &[u8], lines: &BTreeSet<u32>) -> HashMap<u32, String> {
+    fn write_and_read(contents: &[u8], lines: &BTreeSet<u32>) -> HashMap<u32, Row> {
         let dir = std::env::temp_dir().join(format!("chunked-gzip-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join(format!("{}.gz", lines.len()));
@@ -348,7 +473,7 @@ mod tests {
 
     #[test]
     fn test_chunked_rows() {
-        let html = page(200);
+        let html = page(200, true);
         let lines: BTreeSet<u32> = [1, 2, 10, 32, 33, 64, 65, 100, 199, 200, 201]
             .into_iter()
             .collect();
@@ -359,14 +484,53 @@ mod tests {
                 201 => assert!(!rows.contains_key(&line)),
                 _ => assert_eq!(
                     rows[&line],
-                    extract_rows(&html, &[line].into_iter().collect())[&line]
+                    extract_rows(&html, &[line].into_iter().collect())
+                        .remove(&line)
+                        .unwrap()
                 ),
             }
         }
-        assert!(rows[&10].starts_with("<div role=\"row\" id=\"line-10\""));
-        assert!(rows[&10].ends_with(ROW_END));
-        assert!(rows[&33].contains("x33 = &lt;33&gt;;"));
-        assert!(!rows[&1].contains("line-2\""));
+        assert!(
+            rows[&10]
+                .html
+                .starts_with("<div role=\"row\" id=\"line-10\"")
+        );
+        assert!(rows[&10].html.ends_with(ROW_END));
+        assert!(rows[&33].html.contains("x33 = &lt;33&gt;;"));
+        assert!(!rows[&1].html.contains("line-2\""));
+    }
+
+    #[test]
+    fn test_chunked_nesting() {
+        // Each line's innermost container, whether it starts in the line's
+        // chunk or before it, reading every line or a few.
+        let html = page(200, true);
+        let all: BTreeSet<u32> = (1..=200).collect();
+        let some: BTreeSet<u32> = [4, 5, 33, 46, 65, 67, 71, 97, 151, 161]
+            .into_iter()
+            .collect();
+        for lines in [&all, &some] {
+            let rows = write_and_read(html.as_bytes(), lines);
+            for &line in lines {
+                assert_eq!(rows[&line].nesting_sym, nesting_of(line), "line {}", line);
+            }
+        }
+        assert_eq!(rows_nesting(&html, 161), Some("#\"quoted\"".to_string()));
+
+        // Older files' chunks don't say which containers they start in, so
+        // only those that start in the chunk are known.
+        let rows = write_and_read(page(200, false).as_bytes(), &all);
+        assert_eq!(rows[&20].nesting_sym, nesting_of(20));
+        assert_eq!(rows[&33].nesting_sym, None);
+        assert_eq!(rows[&64].nesting_sym, Some("_ZN1C1hEv".to_string()));
+        assert_eq!(rows[&67].nesting_sym, None);
+    }
+
+    fn rows_nesting(html: &str, line: u32) -> Option<String> {
+        extract_rows(html, &[line].into_iter().collect())
+            .remove(&line)
+            .unwrap()
+            .nesting_sym
     }
 
     #[test]
@@ -381,7 +545,7 @@ mod tests {
     #[test]
     fn test_ordinary_gzip() {
         // Gzips from before chunks of lines are read whole.
-        let html = page(50);
+        let html = page(50, false);
         let dir = std::env::temp_dir().join(format!("chunked-gzip-plain-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("plain.gz");
@@ -392,6 +556,8 @@ mod tests {
         let rows = read_rows(&path, &[7, 40].into_iter().collect()).unwrap();
         std::fs::remove_file(&path).unwrap();
         assert_eq!(rows.len(), 2);
-        assert!(rows[&40].contains("fn f40()"));
+        assert!(rows[&40].html.contains("x40 = "));
+        // (And whole, every container is known.)
+        assert_eq!(rows[&40].nesting_sym, nesting_of(40));
     }
 }

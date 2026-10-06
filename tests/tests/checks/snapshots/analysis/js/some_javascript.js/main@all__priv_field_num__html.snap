@@ -3,7 +3,7 @@ source: src/bin/test-index.rs
 expression: "&aggr_str"
 input_file: inputs/analysis/js/some_javascript.js/all__priv_field_num__html
 ---
-<div role="row" id="line-NORM" class="source-line-with-number">
+<div role="row" id="line-NORM" class="source-line-with-number" data-nesting="#ClassWithProperties">
   <div role="cell"><div role="button" aria-expanded="false" class="cov-strip cov-no-data" aria-label="uncovered"></div></div>
   <div role="cell"><div class="blame-strip" data-blame="BLAME" role="button" aria-expanded="false"></div></div>
   <div role="cell" class="line-number" data-line-number="NORM"></div>

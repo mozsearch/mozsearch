@@ -1,10 +1,10 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use async_trait::async_trait;
 use clap::Parser;
-use ustr::Ustr;
+use ustr::{Ustr, UstrMap, ustr};
 
-use super::interface::{PipelineCommand, PipelineValues};
+use super::interface::{PipelineCommand, PipelineValues, PresentationKind};
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
 
 /// Augment a FlattenedResultsBundle by scraping the rendered HTML output files
@@ -42,7 +42,8 @@ pub struct AugmentResults {
 /// which the results don't show (and which can be most of a row, ex: 58 KB
 /// for a line using `NS_ENSURE_SUCCESS`), and not as a line that sticks at
 /// the top of its nesting (`nesting-sticky-line`, whose opaque background
-/// would cover the marks' underlines of the row above; see `highlight`).
+/// would cover the marks' underlines of the row above; see `highlight`) or
+/// says what nesting it's in (`data-nesting`, for `chunked_gzip`).
 pub fn excerpt_row(row: &str) -> String {
     // The strips' cells are lines of their own (see `format::format_code`),
     // after the row's tag.
@@ -60,7 +61,10 @@ pub fn excerpt_row(row: &str) -> String {
         }
         lines.push_str(line);
     }
-    strip_attribute(&lines, " data-expansions=\"")
+    strip_attribute(
+        &strip_attribute(&lines, " data-expansions=\""),
+        " data-nesting=\"",
+    )
 }
 
 /// `html` without the attribute whose name (with its leading space, `=`, and
@@ -118,10 +122,70 @@ impl PipelineCommand for AugmentResultsCommand {
             .into_iter()
             .map(|(path, lines)| (path, lines.into_iter().collect()))
             .collect();
-        let mut path_line_contents = server.fetch_html_lines(requests).await?;
-        for rows in path_line_contents.values_mut() {
-            for row in rows.values_mut() {
-                *row = excerpt_row(row);
+        let mut path_line_contents: UstrMap<HashMap<u32, String>> = UstrMap::default();
+        let mut path_line_nesting: UstrMap<HashMap<u32, String>> = UstrMap::default();
+        for (path, rows) in server.fetch_html_lines(requests).await? {
+            let contents = path_line_contents.entry(path).or_default();
+            for (line, row) in rows {
+                if let Some(sym) = row.nesting_sym {
+                    path_line_nesting.entry(path).or_default().insert(line, sym);
+                }
+                contents.insert(line, excerpt_row(&row.html));
+            }
+        }
+
+        // ### The contexts of textual occurrences
+        //
+        // Crossref's results say what they're in ("// found in"), but textual
+        // occurrences are just lines, so their contexts are the innermost
+        // nesting containers (ex: functions) around them, with their symbols'
+        // pretty names.
+        let mut prettys: HashMap<&str, Option<Ustr>> = HashMap::new();
+        for path_kind_group in &results.path_kind_results {
+            for kind_group in &path_kind_group.kind_groups {
+                if kind_group.kind != PresentationKind::TextualOccurrences {
+                    continue;
+                }
+                for file in &kind_group.by_file {
+                    let Some(nesting) = path_line_nesting.get(&file.file) else {
+                        continue;
+                    };
+                    for span in &file.line_spans {
+                        if let Some(sym) = nesting.get(&span.key_line) {
+                            prettys.entry(sym.as_str()).or_default();
+                        }
+                    }
+                }
+            }
+        }
+        for (sym, pretty) in prettys.iter_mut() {
+            *pretty = server
+                .jumpref_lookup(sym)
+                .await?
+                .map(|jumpref| jumpref.pretty);
+        }
+        for path_kind_group in &mut results.path_kind_results {
+            for kind_group in &mut path_kind_group.kind_groups {
+                if kind_group.kind != PresentationKind::TextualOccurrences {
+                    continue;
+                }
+                for file in &mut kind_group.by_file {
+                    let Some(nesting) = path_line_nesting.get(&file.file) else {
+                        continue;
+                    };
+                    for span in &mut file.line_spans {
+                        let Some(sym) = nesting.get(&span.key_line) else {
+                            continue;
+                        };
+                        match prettys.get(sym.as_str()) {
+                            Some(Some(pretty)) if span.context.is_empty() => {
+                                span.context = *pretty;
+                                span.contextsym = ustr(sym);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
             }
         }
 
@@ -138,7 +202,7 @@ mod tests {
 
     #[test]
     fn test_excerpt_row() {
-        let row = "<div role=\"row\" id=\"line-7\" class=\"source-line-with-number nesting-sticky-line\">\n  <div role=\"cell\"><div role=\"button\" aria-expanded=\"false\" class=\"cov-strip cov-no-data\" aria-label=\"uncovered\"></div></div>\n  <div role=\"cell\"><div class=\"blame-strip c1\" data-hyperblame=\"1:0:2\" role=\"button\" aria-label=\"blame\" aria-expanded=\"false\"></div></div>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"7\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-expansions=\"{&quot;M_1&quot;:{&quot;&quot;:&quot;x&quot;}}\" class=\"syn_macro\" data-symbols=\"M_1\">NS_ENSURE_SUCCESS</span>(rv, \" data-expansions=\"text\");\n</code>\n</div>\n";
+        let row = "<div role=\"row\" id=\"line-7\" class=\"source-line-with-number nesting-sticky-line\" data-nesting=\"NS_a,_Z1fv\">\n  <div role=\"cell\"><div role=\"button\" aria-expanded=\"false\" class=\"cov-strip cov-no-data\" aria-label=\"uncovered\"></div></div>\n  <div role=\"cell\"><div class=\"blame-strip c1\" data-hyperblame=\"1:0:2\" role=\"button\" aria-label=\"blame\" aria-expanded=\"false\"></div></div>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"7\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-expansions=\"{&quot;M_1&quot;:{&quot;&quot;:&quot;x&quot;}}\" class=\"syn_macro\" data-symbols=\"M_1\">NS_ENSURE_SUCCESS</span>(rv, \" data-expansions=\"text\");\n</code>\n</div>\n";
         assert_eq!(
             excerpt_row(row),
             "<div role=\"row\" id=\"line-7\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"7\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_macro\" data-symbols=\"M_1\">NS_ENSURE_SUCCESS</span>(rv, \" data-expansions=\"text\");\n</code>\n</div>\n"

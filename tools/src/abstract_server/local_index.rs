@@ -23,7 +23,7 @@ use super::{CommitInfo, TextMatches, TextMatchesByFile, TreeInfo};
 use crate::blame;
 use crate::file_format::analysis::{read_analyses, read_source};
 use crate::file_format::bisectable_mmap::BisectableMmap;
-use crate::file_format::chunked_gzip;
+use crate::file_format::chunked_gzip::{self, Row};
 use crate::file_format::code_coverage_report;
 use crate::file_format::config::{TreeConfig, TreeConfigPaths, git_data, load};
 use crate::file_format::crossref::CrossrefData;
@@ -356,7 +356,7 @@ impl AbstractServer for LocalIndex {
     async fn fetch_html_lines(
         &self,
         requests: Vec<(Ustr, BTreeSet<u32>)>,
-    ) -> Result<UstrMap<HashMap<u32, String>>> {
+    ) -> Result<UstrMap<HashMap<u32, Row>>> {
         let mut files = Vec::with_capacity(requests.len());
         for (path, lines) in requests {
             let norm_path = self.normalize_and_validate_path(&path)?;
@@ -594,7 +594,7 @@ const MAX_HTML_LINES_THREADS: usize = 8;
 /// on firefox).
 fn read_rows_of_files(
     files: Vec<(Ustr, String, BTreeSet<u32>)>,
-) -> Result<UstrMap<HashMap<u32, String>>> {
+) -> Result<UstrMap<HashMap<u32, Row>>> {
     let threads = std::thread::available_parallelism()
         .map_or(1, |n| n.get())
         .min(MAX_HTML_LINES_THREADS)

@@ -14,6 +14,7 @@ use crate::cmd_pipeline::facets::{FacetFile, FacetView, PathKinds, file_facets};
 use crate::commit_index::{CommitIndex, CommitRef};
 use crate::file_format::analysis_manglings::make_file_sym_from_path;
 use crate::file_format::bisectable_mmap::BisectableMmap;
+use crate::file_format::chunked_gzip::LINES_PER_CHUNK;
 use crate::file_format::code_coverage_report;
 use crate::file_format::coverage::InterpolatedCoverage;
 use crate::file_format::jumpref::{
@@ -788,6 +789,9 @@ pub fn format_file_data(
     let mut last_color = false;
     let mut last_commit = None;
     let mut nest_depth = 0;
+    // The symbols of the nesting containers around the current line (see
+    // `chunked_gzip`'s use of `data-nesting`).
+    let mut nest_syms: Vec<Ustr> = vec![];
     for (i, line) in output_lines.iter().enumerate() {
         let lineno = i + 1;
 
@@ -930,22 +934,39 @@ pub fn format_file_data(
             write!(
                 writer,
                 r#"<div class="nesting-container nesting-depth-{}" data-nesting-sym="{}">"#,
-                nest_depth, nest_sym
+                nest_depth,
+                nest_sym.replace('"', "&quot;")
             )
             .unwrap();
             nest_depth += 1;
+            nest_syms.push(*nest_sym);
         }
+
+        // The rows that can start the gzip's chunks (see `chunked_gzip`) say
+        // which nesting containers they're in, since their opening tags are
+        // in earlier chunks, so that `/query/`'s results can say which
+        // symbol (ex: function) each of their lines is in.
+        let nesting = if lineno > 1 && (lineno as u32 - 1).is_multiple_of(LINES_PER_CHUNK) {
+            let syms: Vec<&str> = nest_syms.iter().map(|sym| sym.as_str()).collect();
+            format!(
+                " data-nesting=\"{}\"",
+                syms.join(",").replace('"', "&quot;")
+            )
+        } else {
+            String::new()
+        };
 
         // Emit the actual source line here.
         let f = F::Seq(vec![
             F::T(format!(
-                "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number{}\">",
+                "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number{}\"{}>",
                 lineno,
                 if line.sym_starts_nest.is_some() {
                     " nesting-sticky-line"
                 } else {
                     ""
-                }
+                },
+                nesting
             )),
             F::Indent(vec![
                 // Coverage Info. Its contents go in a div nested inside the
@@ -981,6 +1002,7 @@ pub fn format_file_data(
         // containing elements.
         for _ in 0..line.pop_nest_count {
             nest_depth -= 1;
+            nest_syms.pop();
             write!(writer, "</div>").unwrap();
         }
     }
