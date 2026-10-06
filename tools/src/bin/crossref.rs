@@ -533,7 +533,7 @@ fn file_recency_items(
                 AnalysisKind::Decl => false,
                 _ => continue,
             };
-            if let Some(recency) = digests.recency_at(offset) {
+            if let Some(recency) = digests.recency_at(&source, offset) {
                 items.push((piece.sym, is_def, *path, recency));
             }
         }

@@ -8,7 +8,11 @@
 //! semantic symbols, so crossref links them by location: a definition's symbol
 //! gets the changes of the context its definition is in (a container's own
 //! tokens, like its name, are in it; see `cst_tokenizer`), including those of
-//! the contexts nested in it.  The syntax token files don't say where their
+//! the contexts nested in it, or just the context's own changes if it's the
+//! top level or a namespace, which would be too broad (and whose own changes
+//! are of definitions the tokenizer doesn't make contexts of, ex: C++ functions
+//! returning pointers, whose declarators don't match its query).  The syntax
+//! token files don't say where their
 //! tokens are, so we find them in the source, in order (they're its text
 //! without the whitespace), which also means that the contexts are the
 //! history's own, whichever version of the tokenizer made them.
@@ -230,15 +234,21 @@ impl FileDigests {
         recency
     }
 
-    /// The changes of the context at byte `offset` of the source, with those of
-    /// the contexts nested in it, unless it's a namespace or the file's top
-    /// level (which are too broad), or it had none.
-    pub fn recency_at(&self, offset: u32) -> Option<Recency> {
+    /// The changes of the context of the definition at byte `offset` of
+    /// `source`, with those of the contexts nested in it, or only its own
+    /// changes if it's a namespace or the file's top level (which would be too
+    /// broad), and none for a namespace's own declaration, or if it had none.
+    pub fn recency_at(&self, source: &str, offset: u32) -> Option<Recency> {
         let context = self.contexts.context_at(offset)?;
-        if context == "%" || self.namespaces.contains(context) {
-            return None;
-        }
-        let recency = nested_changes(&self.changes, context);
+        let recency = if context == "%" || self.namespaces.contains(context) {
+            let name = context.rsplit("::").next().unwrap_or(context);
+            if context != "%" && source.get(offset as usize..)?.starts_with(name) {
+                return None;
+            }
+            self.changes.get(context).copied().unwrap_or_default()
+        } else {
+            nested_changes(&self.changes, context)
+        };
         (!recency.is_empty()).then_some(recency)
     }
 }
@@ -340,5 +350,23 @@ mod tests {
         let file = digests.file_recency();
         assert_eq!(file.file, Recency([5, 2, 0, 0, 0, 0, 0, 0, 0, 0]));
         assert_eq!(file.scopes.keys().collect::<Vec<_>>(), vec!["%", "a"]);
+
+        // Definitions get their contexts' changes, with nested ones, but only
+        // the own changes of namespaces (except for their own declarations)
+        // and the top level.
+        let source = "int x;\nnamespace a {\nint* y();\nvoid f() {}\n}\n";
+        let digests = FileDigests {
+            contexts: FileContexts::align(
+                source,
+                "% i int\n% i x\n% o ;\na k namespace\na i a\na o {\na i int\na o *\na i y\na o (\na o )\na o ;\na::f i void\na::f i f\na::f o (\na::f o )\na::f o {\na::f o }\na o }\n",
+            )
+            .unwrap(),
+            ..digests
+        };
+        let at = |needle: &str| digests.recency_at(source, source.find(needle).unwrap() as u32);
+        assert_eq!(at("x;"), Some(Recency([1, 0, 0, 0, 0, 0, 0, 0, 0, 0])));
+        assert_eq!(at("y()"), Some(Recency([0, 2, 0, 0, 0, 0, 0, 0, 0, 0])));
+        assert_eq!(at("f()"), Some(Recency([4, 0, 0, 0, 0, 0, 0, 0, 0, 0])));
+        assert_eq!(at("a {"), None);
     }
 }
