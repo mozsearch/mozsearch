@@ -63,7 +63,7 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__json
                     13,
                     13
                   ],
-                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number nesting-sticky-line\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN12DoubleSubOne10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>() override {\n</code>\n</div>\n",
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN12DoubleSubOne10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>() override {\n</code>\n</div>\n",
                   "context": "DoubleSubOne",
                   "contextsym": "T_DoubleSubOne",
                   "hits": [
@@ -79,7 +79,7 @@ input_file: inputs/web/query/execution/simple/overs.cpp/query__doublePure__json
                     20,
                     20
                   ],
-                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number nesting-sticky-line\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN12DoubleSubTwo10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>() override {\n</code>\n</div>\n",
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" >void</span> <span class=\"syn_def\" data-symbols=\"_ZN12DoubleSubTwo10doublePureEv\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">doublePure</mark></span>() override {\n</code>\n</div>\n",
                   "context": "DoubleSubTwo",
                   "contextsym": "T_DoubleSubTwo",
                   "hits": [

@@ -38,13 +38,20 @@ pub struct AugmentResults {
 
 /// A row of a rendered file (see `chunked_gzip::ROW_START`) as `/query/`'s
 /// results show it, like `/search/`'s: without the cells of the coverage and
-/// blame strips, which are noise there, and without the macros' expansions,
+/// blame strips, which are noise there, without the macros' expansions,
 /// which the results don't show (and which can be most of a row, ex: 58 KB
-/// for a line using `NS_ENSURE_SUCCESS`).
+/// for a line using `NS_ENSURE_SUCCESS`), and not as a line that sticks at
+/// the top of its nesting (`nesting-sticky-line`, whose opaque background
+/// would cover the marks' underlines of the row above; see `highlight`).
 pub fn excerpt_row(row: &str) -> String {
-    // The strips' cells are lines of their own (see `format::format_code`).
+    // The strips' cells are lines of their own (see `format::format_code`),
+    // after the row's tag.
     let mut lines = String::with_capacity(row.len());
     for line in row.split_inclusive('\n') {
+        if line.starts_with("<div role=\"row\"") {
+            lines.push_str(&line.replacen(" nesting-sticky-line", "", 1));
+            continue;
+        }
         let cell = line.trim_start();
         if cell.starts_with("<div role=\"cell\"><div")
             && (cell.contains("cov-strip") || cell.contains("blame-strip"))
@@ -131,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_excerpt_row() {
-        let row = "<div role=\"row\" id=\"line-7\" class=\"source-line-with-number\">\n  <div role=\"cell\"><div role=\"button\" aria-expanded=\"false\" class=\"cov-strip cov-no-data\" aria-label=\"uncovered\"></div></div>\n  <div role=\"cell\"><div class=\"blame-strip c1\" data-hyperblame=\"1:0:2\" role=\"button\" aria-label=\"blame\" aria-expanded=\"false\"></div></div>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"7\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-expansions=\"{&quot;M_1&quot;:{&quot;&quot;:&quot;x&quot;}}\" class=\"syn_macro\" data-symbols=\"M_1\">NS_ENSURE_SUCCESS</span>(rv, \" data-expansions=\"text\");\n</code>\n</div>\n";
+        let row = "<div role=\"row\" id=\"line-7\" class=\"source-line-with-number nesting-sticky-line\">\n  <div role=\"cell\"><div role=\"button\" aria-expanded=\"false\" class=\"cov-strip cov-no-data\" aria-label=\"uncovered\"></div></div>\n  <div role=\"cell\"><div class=\"blame-strip c1\" data-hyperblame=\"1:0:2\" role=\"button\" aria-label=\"blame\" aria-expanded=\"false\"></div></div>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"7\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span data-expansions=\"{&quot;M_1&quot;:{&quot;&quot;:&quot;x&quot;}}\" class=\"syn_macro\" data-symbols=\"M_1\">NS_ENSURE_SUCCESS</span>(rv, \" data-expansions=\"text\");\n</code>\n</div>\n";
         assert_eq!(
             excerpt_row(row),
             "<div role=\"row\" id=\"line-7\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"7\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_macro\" data-symbols=\"M_1\">NS_ENSURE_SUCCESS</span>(rv, \" data-expansions=\"text\");\n</code>\n</div>\n"
