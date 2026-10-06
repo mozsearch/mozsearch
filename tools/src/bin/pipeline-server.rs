@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     env,
     sync::Arc,
 };
@@ -23,12 +23,17 @@ use tools::{
         facets::{FacetFile, PathKinds, file_facets},
         interface::FlattenedResultsBundle,
     },
+    file_format::jumpref::{
+        JumprefData, JumprefTraversals, determine_desired_extra_syms_from_jumpref,
+        extra_syms_next_step_lookups,
+    },
     logging::{LoggedSpan, init_logging},
     query::chew_query::chew_query,
     templating::builder::build_and_parse_query_results,
 };
 use tower::limit::GlobalConcurrencyLimitLayer;
 use tracing::Instrument;
+use ustr::{Ustr, UstrMap, ustr};
 
 /// The facets of the files of file-centric results (see facet_bar.liquid), as
 /// on the `/explore/` pages: their path kinds, subsystems, and directories, as
@@ -61,6 +66,90 @@ fn results_file_facets(
     }
     let (facets, data) = file_facets(&files, &PathKinds(server.path_kinds()));
     json!({ "facets": facets, "files": data })
+}
+
+/// The SYM_INFO (see `format::format_code`) of file-centric results: the
+/// jumprefs of the symbols in their excerpts' `data-symbols`, and of the extra
+/// symbols the context menu uses (ex: an XPIDL method's C++ binding), so that
+/// clicking a symbol in them works like in a source listing.  But without the
+/// structured information's platform variants and methods, which nothing on
+/// the page uses, and which are most of it for big classes (ex: 17.5 of the
+/// 22 MB for "nsIPrincipal" on firefox, with 2 MB for `Document`).
+const UNUSED_META: [&str; 2] = ["variants", "methods"];
+
+async fn results_sym_info(
+    server: &(dyn AbstractServer + Send + Sync),
+    results: &FlattenedResultsBundle,
+) -> String {
+    const DATA_SYMBOLS: &str = "data-symbols=\"";
+    let mut syms: BTreeSet<Ustr> = BTreeSet::new();
+    for pk_group in &results.path_kind_results {
+        for kind_group in &pk_group.kind_groups {
+            for file in &kind_group.by_file {
+                for span in &file.line_spans {
+                    let mut rest = span.contents.as_str();
+                    while let Some(start) = rest.find(DATA_SYMBOLS) {
+                        rest = &rest[start + DATA_SYMBOLS.len()..];
+                        let end = rest.find('"').unwrap_or(rest.len());
+                        syms.extend(rest[..end].split(',').filter(|s| !s.is_empty()).map(ustr));
+                        rest = &rest[end..];
+                    }
+                }
+            }
+        }
+    }
+
+    // (Like `format::format_code`'s.)
+    let mut sym_info: BTreeMap<Ustr, Option<JumprefData>> = BTreeMap::new();
+    let mut traversed: UstrMap<JumprefTraversals> = UstrMap::default();
+    for sym in syms {
+        if sym_info.contains_key(&sym) {
+            continue;
+        }
+        let Ok(jumpref) = server.jumpref_lookup(&sym).await else {
+            continue;
+        };
+        let mut extra_syms = determine_desired_extra_syms_from_jumpref(jumpref.as_ref());
+        traversed
+            .entry(sym)
+            .and_modify(|t| *t |= JumprefTraversals::NormalExtra)
+            .or_insert(JumprefTraversals::NormalExtra);
+        while let Some((extra_sym, next_step)) = extra_syms.pop() {
+            if let Some(extra_traversed) = traversed.get_mut(&extra_sym) {
+                if extra_traversed.contains(next_step) {
+                    continue;
+                }
+                *extra_traversed |= next_step;
+                if let Some(extra_jumpref) = sym_info.get(&extra_sym) {
+                    extra_syms.extend(extra_syms_next_step_lookups(
+                        extra_jumpref.as_ref(),
+                        next_step,
+                    ));
+                }
+            } else if let Ok(extra_jumpref) = server.jumpref_lookup(&extra_sym).await {
+                if !next_step.is_empty() {
+                    extra_syms.extend(extra_syms_next_step_lookups(
+                        extra_jumpref.as_ref(),
+                        next_step,
+                    ));
+                }
+                traversed.insert(extra_sym, next_step);
+                sym_info.insert(extra_sym, extra_jumpref);
+            }
+        }
+        sym_info.insert(sym, jumpref);
+    }
+    let mut sym_info = serde_json::to_value(&sym_info).unwrap_or_default();
+    if let Some(sym_info) = sym_info.as_object_mut() {
+        for jumpref in sym_info.values_mut() {
+            if let Some(meta) = jumpref.get_mut("meta").and_then(Value::as_object_mut) {
+                for key in UNUSED_META {
+                    meta.remove(key);
+                }
+            }
+        }
+    }
+    sym_info.to_string()
 }
 
 #[debug_handler]
@@ -138,11 +227,15 @@ async fn handle_query(
                 serde_json::to_string(&sttl.unioned_node_sets_as_jumprefs())
                     .unwrap_or_else(|_| "{}".to_string())
             }
+            PipelineValues::FlattenedResultsBundle(results) => {
+                results_sym_info(server.as_ref(), results).await
+            }
             _ => "{}".to_string(),
         };
 
         if let PipelineValues::FlattenedResultsBundle(results) = &mut result {
             results.inline_contexts(&tree);
+            results.link_line_numbers(&tree);
         }
         let file_facets = match &result {
             PipelineValues::FlattenedResultsBundle(results) => {

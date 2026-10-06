@@ -1682,6 +1682,21 @@ span[data-symbols].selected {
   border: 1px solid var(--blame-light-gray);
   border-radius: 4px;
 }
+/* `/query/`'s results' line numbers, which link to the lines (unlike
+   `.line-number`, which code-highlighter.js selects). */
+.query-line-number {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 8ex;
+  padding: 0 0.5rem;
+  text-align: right;
+  color: #aaa;
+  text-decoration: none;
+  user-select: none;
+}
+.query-line-number:hover {
+  text-decoration: underline;
+}
 /* (On `/query/`'s results, which have no margin of their own.) */
 .query-result .facet-box,
 .query-limits {

@@ -1,5 +1,6 @@
 <details open class="facet-group">
-    <summary><h2>{{kind_group.kind}}{% if kind_group.pretty != empty %} ({{ kind_group.pretty }}){% endif %}</h2></summary>
+    {%- comment %} (Only the triangle and the kind toggle it; see query-results.js.) {% endcomment %}
+    <summary><h2><span class="query-toggle">{{kind_group.kind}}</span>{% if kind_group.pretty != empty %} ({{ kind_group.pretty }}){% endif %}</h2></summary>
     {%- comment %} (The results' facets cover the "Path" facet.) {% endcomment -%}
     {%- for facet in kind_group.facets -%}
     {%- if facet.kind != "PathByPath" -%}

@@ -1,5 +1,5 @@
 <details open class="facet-group">
-    <summary><h1>
+    <summary><h1><span class="query-toggle">
         {%- case pk_group.path_kind -%}
             {%- when "normal" -%}
                 Normal Results
@@ -10,10 +10,10 @@
             {%- when "generated" -%}
                 Generated code
         {%- endcase -%}
-    </h1></summary>
+    </span></h1></summary>
     {% if pk_group.file_names.length -%}
         <details open class="facet-group">
-            <summary>Files</summary>
+            <summary><span class="query-toggle">Files</span></summary>
             <li>
             {% for path in pk_group.file_names %}
                 {%- assign facet_data = file_facets.files[path] %}

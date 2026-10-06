@@ -18,6 +18,7 @@ use crate::{
         crossref::CrossrefData,
         jumpref::{JumprefData, convert_crossref_value_to_sym_info_rep},
     },
+    url_encode_path::url_encode_path,
 };
 
 use super::symbol_graph::{SymbolGraphCollection, SymbolGraphNodeSet};
@@ -612,6 +613,46 @@ impl FlattenedResultsBundle {
                 for file in &mut kind_group.by_file {
                     for span in &mut file.line_spans {
                         span.inline_context(tree);
+                    }
+                }
+            }
+        }
+    }
+
+    /// For HTML pages of the results, make the line numbers of the rows (see
+    /// `ingest_html_lines`) links to their lines in the files, like
+    /// `/search/`'s, rather than the source listings' line numbers (which
+    /// code-highlighter.js would select, as if the page were the file).
+    pub fn link_line_numbers(&mut self, tree: &str) {
+        if self.content_type != "text/html" {
+            return;
+        }
+        const LINE_NUMBER: &str = r#"<div role="cell" class="line-number" data-line-number=""#;
+        for path_kind_group in &mut self.path_kind_results {
+            for kind_group in &mut path_kind_group.kind_groups {
+                for file in &mut kind_group.by_file {
+                    let href = format!("/{}/source/{}", tree, url_encode_path(&file.file));
+                    for span in &mut file.line_spans {
+                        let mut linked = String::with_capacity(span.contents.len() + 256);
+                        let mut rest = span.contents.as_str();
+                        while let Some(start) = rest.find(LINE_NUMBER) {
+                            let after = &rest[start + LINE_NUMBER.len()..];
+                            let digits = after.find(|c: char| !c.is_ascii_digit()).unwrap_or(0);
+                            let Some(tail) = after[digits..].strip_prefix(r#""></div>"#) else {
+                                linked.push_str(&rest[..start + LINE_NUMBER.len()]);
+                                rest = after;
+                                continue;
+                            };
+                            let line = &after[..digits];
+                            linked.push_str(&rest[..start]);
+                            linked.push_str(&format!(
+                                r#"<a role="cell" class="query-line-number" href="{}#{}">{}</a>"#,
+                                href, line, line
+                            ));
+                            rest = tail;
+                        }
+                        linked.push_str(rest);
+                        span.contents = linked;
                     }
                 }
             }
