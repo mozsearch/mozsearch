@@ -551,11 +551,28 @@ var Panel = new (class Panel {
       li.append(button);
       items.push(li);
 
-      button.addEventListener("click", () => {
+      button.addEventListener("click", async () => {
         if (this.resultsJSONBox.hasAttribute("aria-hidden")) {
           this.resultsJSONBox.removeAttribute("aria-hidden");
-          this.resultsJSONPre.textContent = JSON.stringify(window.QUERY_RESULTS_JSON, undefined, 2);
           button.textContent = "Hide results JSON";
+          // The page only has the results with `debug=true`, since they'd
+          // double big pages; otherwise, they're the URL's JSON.
+          let results = window.QUERY_RESULTS_JSON;
+          if (results === undefined) {
+            this.resultsJSONPre.textContent = "Loading...";
+            try {
+              const response = await fetch(document.location.href, {
+                headers: { Accept: "application/json" },
+              });
+              results = await response.json();
+            } catch (e) {
+              results = `Couldn't load the results JSON: ${e}`;
+            }
+            if (this.resultsJSONBox.hasAttribute("aria-hidden")) {
+              return;
+            }
+          }
+          this.resultsJSONPre.textContent = JSON.stringify(results, undefined, 2);
         } else {
           this.resultsJSONBox.setAttribute("aria-hidden", "true");
           this.resultsJSONPre.textContent = "";

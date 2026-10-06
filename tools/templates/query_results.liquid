@@ -51,7 +51,13 @@
   </div>
   <script>
 var SYM_INFO = {{ SYM_INFO_STR }};
+{%- comment %}
+  (A copy of the results, rows included, which would double big pages, so
+  only for debugging; otherwise the panel fetches the URL's JSON.)
+{% endcomment %}
+{%- if debug %}
 var QUERY_RESULTS_JSON = {{ results | json }};
+{%- endif %}
 // Debug logs are always available for queries, so always set the variable to true;
 // other pages will not have the variable defined and so the page will see undefined as false.
 var IS_DEBUG_LOGS_AVAILABLE = true;

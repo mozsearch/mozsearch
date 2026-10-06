@@ -1,7 +1,8 @@
 "use strict";
 
 add_task(async function test_EmptyQuery() {
-  await TestUtils.loadQuery("tests", "");
+  // (The page only has the results JSON when debugging.)
+  await TestUtils.loadQuery("tests", "", { debug: "true" });
 
   const query = frame.contentDocument.querySelector(`#query`);
   ok(query, "query field is shown");

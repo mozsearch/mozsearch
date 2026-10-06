@@ -91,6 +91,11 @@ add_task(async function test_QueryDebugLog() {
 add_task(async function test_QueryResultsJSON() {
   await TestUtils.loadQuery("tests", "field-layout:'field_layout::holes::Sub'");
 
+  // The page only has a copy of the results when debugging, since it would
+  // double big pages; otherwise the button fetches them.
+  is(frame.contentWindow.QUERY_RESULTS_JSON, undefined,
+     "The page doesn't have the results JSON");
+
   const box = frame.contentDocument.querySelector("#query-debug-results-json");
   ok(!!box, "results JSON node exists");
   ok(!TestUtils.isShown(box),
@@ -120,8 +125,8 @@ add_task(async function test_QueryResultsJSON() {
 
   ok(TestUtils.isShown(box),
      "results JSON node is shown");
-  ok(box.textContent.includes("SymbolTreeTableList"),
-     "results JSON is shown");
+  await waitForCondition(() => box.textContent.includes("SymbolTreeTableList"),
+                         "results JSON is shown");
 
   TestUtils.click(resultsJSONButtton);
 
@@ -130,4 +135,9 @@ add_task(async function test_QueryResultsJSON() {
 
   is(resultsJSONButtton.textContent, "Show results JSON",
      "Button text is updated");
+
+  await TestUtils.loadQuery("tests", "field-layout:'field_layout::holes::Sub'",
+                            { debug: "true" });
+  ok(frame.contentWindow.QUERY_RESULTS_JSON?.SymbolTreeTableList,
+     "When debugging, the page has the results JSON");
 });

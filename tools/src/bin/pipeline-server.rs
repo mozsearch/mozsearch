@@ -259,6 +259,7 @@ async fn handle_query(
             "preset": preset.clone(),
             "tree": tree.clone(),
             "logs": logs,
+            "debug": maybe_log,
             "SYM_INFO_STR": sym_info_str,
             "file_facets": file_facets,
         });
