@@ -4,6 +4,7 @@ use ustr::Ustr;
 use super::{
     analysis::{AnalysisStructured, PathSearchResult},
     ontology_mapping::OntologyPointerKind,
+    recency::Recency,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -60,6 +61,10 @@ pub struct CrossrefData {
     pub meta: Option<AnalysisStructured>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub idl_syms: Option<Vec<Ustr>>,
+    /// How recently, and how much, the symbol's code changed, if the tree has
+    /// a history (see `hyperblame::recency`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recency: Option<Recency>,
     /// Candidate scip-typescript symbols if this is a js-analyze symbol
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ts_syms: Vec<Ustr>,

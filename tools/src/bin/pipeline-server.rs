@@ -142,6 +142,10 @@ async fn results_sym_info(
     let mut sym_info = serde_json::to_value(&sym_info).unwrap_or_default();
     if let Some(sym_info) = sym_info.as_object_mut() {
         for jumpref in sym_info.values_mut() {
+            // (The history digests are in the results already.)
+            if let Some(jumpref) = jumpref.as_object_mut() {
+                jumpref.remove("recency");
+            }
             if let Some(meta) = jumpref.get_mut("meta").and_then(Value::as_object_mut) {
                 for key in UNUSED_META {
                     meta.remove(key);

@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs;
 use std::fs::File;
 use std::fs::{create_dir_all, remove_file};
@@ -28,8 +29,8 @@ use tools::file_format::analysis::StructuredPointerInfo;
 use tools::file_format::analysis::StructuredTag;
 use tools::file_format::analysis::{
     AnalysisKind, AnalysisTarget, BindingSlotProps, Location, SearchResult,
-    StructuredBindingSlotInfo, collect_file_syms_from_target, read_analysis, read_structured,
-    read_target,
+    StructuredBindingSlotInfo, WithLocation, collect_file_syms_from_target, read_analysis,
+    read_structured, read_target,
 };
 use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::analysis_manglings::split_pretty;
@@ -44,7 +45,9 @@ use tools::file_format::ontology_mapping::OntologyRunnableMode;
 use tools::file_format::ontology_mapping::{
     OntologyLabelOwningClass, OntologyMappingIngestion, OntologyPointerKind,
 };
+use tools::file_format::recency::Recency;
 use tools::file_format::repo_data_ingestion::RepoIngestion;
+use tools::hyperblame::recency::HistoryDigests;
 use tools::logging::LoggedSpan;
 use tools::logging::init_logging;
 use tools::templating::builder::build_and_parse_ontology_ingestion_explainer;
@@ -469,6 +472,10 @@ fn load_ontology(cfg: &Config) -> OntologyMappingIngestion {
     OntologyMappingIngestion::new(&ontology_toml_str).expect("ontology-mapping.toml has issues")
 }
 
+/// (sym, whether it's a definition rather than a declaration, path, its
+/// history digest there)
+type RecencyItems = Vec<(Ustr, bool, Ustr, Recency)>;
+
 struct PerThreadAnalysisData {
     search_result_items: SearchResultItems,
     top_level_search_result_items: TopLevelSearchResultItems,
@@ -479,8 +486,55 @@ struct PerThreadAnalysisData {
     xref_link_subclass: XrefLinkSubclass,
     xref_link_override: XrefLinkOverride,
     xref_link_slots_items: XrefLinkSlotsItems,
+    recency_items: RecencyItems,
+    /// How many files had history digests, and how many the history had but
+    /// didn't line up with.
+    recency_files: (usize, usize),
 }
 
+/// The history digests of the symbols defined (or declared) in a file: the
+/// changes of the history contexts their definitions are in, by location (see
+/// `hyperblame::recency`).  Returns whether the history lined up with the file,
+/// if it has the file.
+fn file_recency_items(
+    history: &HistoryDigests,
+    path: &Ustr,
+    source_fname: &str,
+    analysis: &[WithLocation<Vec<AnalysisTarget>>],
+    items: &mut RecencyItems,
+) -> Option<bool> {
+    let source = fs::read_to_string(source_fname).ok()?;
+    if !history.has_file(path) {
+        return None;
+    }
+    let Some(digests) = history.file(path, &source) else {
+        return Some(false);
+    };
+    let mut line_starts = vec![0];
+    line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
+    for datum in analysis {
+        let Some(&line_start) = (datum.loc.lineno as usize)
+            .checked_sub(1)
+            .and_then(|line| line_starts.get(line))
+        else {
+            continue;
+        };
+        let offset = line_start as u32 + datum.loc.col_start;
+        for piece in &datum.data {
+            let is_def = match piece.kind {
+                AnalysisKind::Def => true,
+                AnalysisKind::Decl => false,
+                _ => continue,
+            };
+            if let Some(recency) = digests.recency_at(offset) {
+                items.push((piece.sym, is_def, *path, recency));
+            }
+        }
+    }
+    Some(true)
+}
+
+#[allow(clippy::too_many_arguments)]
 fn read_analysis_files_thread(
     analysis_relative_paths: &Vec<Ustr>,
     start: usize,
@@ -488,6 +542,7 @@ fn read_analysis_files_thread(
     index_path: String,
     find_source_file: &FindSourceFile,
     ingestion: &RepoIngestion,
+    history: Option<&HistoryDigests>,
     out: &mut Option<PerThreadAnalysisData>,
 ) {
     let mut search_result_items = SearchResultItems::new();
@@ -499,6 +554,8 @@ fn read_analysis_files_thread(
     let mut xref_link_subclass = XrefLinkSubclass::new();
     let mut xref_link_override = XrefLinkOverride::new();
     let mut xref_link_slots_items = XrefLinkSlotsItems::new();
+    let mut recency_items = RecencyItems::new();
+    let mut recency_files = (0, 0);
 
     for path in &analysis_relative_paths[start..end] {
         println!("File {}", path);
@@ -587,6 +644,17 @@ fn read_analysis_files_thread(
             continue;
         }
 
+        if let Some(history) = history {
+            match file_recency_items(history, path, &source_fname, &analysis, &mut recency_items) {
+                Some(true) => recency_files.0 += 1,
+                Some(false) => {
+                    recency_files.1 += 1;
+                    println!("History doesn't line up with {}", path);
+                }
+                None => {}
+            }
+        }
+
         for datum in analysis {
             // If we're going to experience a bad line, skip out before
             // creating any structure.
@@ -623,6 +691,8 @@ fn read_analysis_files_thread(
         xref_link_subclass,
         xref_link_override,
         xref_link_slots_items,
+        recency_items,
+        recency_files,
     });
 }
 
@@ -632,6 +702,7 @@ struct AnalysisData {
     id_table: IdTable,
     meta_table: MetaTable,
     callees_table: CalleesTable,
+    recency_table: UstrMap<Recency>,
 }
 
 fn read_analysis_files(
@@ -639,6 +710,7 @@ fn read_analysis_files(
     tree_name: &String,
     tree_config: &TreeConfig,
     ingestion: &RepoIngestion,
+    history: Option<&HistoryDigests>,
     thread_count: usize,
 ) -> AnalysisData {
     let total = analysis_relative_paths.len();
@@ -677,6 +749,7 @@ fn read_analysis_files(
                     index_path,
                     &find_source_file,
                     ingestion,
+                    history,
                     out,
                 );
             });
@@ -694,6 +767,12 @@ fn read_analysis_files(
     let mut id_table = IdTable::default();
     let mut meta_table = MetaTable::new();
     let mut callees_table = CalleesTable::new();
+    // A symbol's digest is the sum of its definitions' (in their files), or
+    // of its declarations' if it has none.
+    let mut def_recency: UstrMap<Recency> = UstrMap::default();
+    let mut decl_recency: UstrMap<Recency> = UstrMap::default();
+    let mut recency_seen: HashSet<(Ustr, bool, Ustr)> = HashSet::new();
+    let mut recency_files = (0, 0);
 
     let mut xrefs = vec![];
 
@@ -708,7 +787,22 @@ fn read_analysis_files(
             xref_link_subclass,
             xref_link_override,
             xref_link_slots_items,
+            recency_items,
+            recency_files: (digested, unaligned),
         } = out.take().unwrap();
+        recency_files.0 += digested;
+        recency_files.1 += unaligned;
+
+        for (sym, is_def, path, recency) in recency_items {
+            if recency_seen.insert((sym, is_def, path)) {
+                let table = if is_def {
+                    &mut def_recency
+                } else {
+                    &mut decl_recency
+                };
+                table.entry(sym).or_default().accumulate(&recency);
+            }
+        }
 
         xrefs.push((
             xref_link_subclass,
@@ -809,12 +903,25 @@ fn read_analysis_files(
         }
     }
 
+    for (sym, recency) in decl_recency {
+        def_recency.entry(sym).or_insert(recency);
+    }
+    if history.is_some() {
+        println!(
+            "History digests: {} files, {} not lining up; {} symbols",
+            recency_files.0,
+            recency_files.1,
+            def_recency.len()
+        );
+    }
+
     AnalysisData {
         search_result_table,
         pretty_table,
         id_table,
         meta_table,
         callees_table,
+        recency_table: def_recency,
     }
 }
 
@@ -1290,6 +1397,7 @@ fn write_crossref_and_jumpref_thread(
     field_member_use_table: &FieldMemberUseTable,
     js_idl_table: &JSIDLTable,
     js_ts_table: &JsTsTable,
+    recency_table: &UstrMap<Recency>,
     is_first_chunk: bool,
     xref_ext_size: &mut Option<usize>,
     jumpref_ext_size: &mut Option<usize>,
@@ -1403,6 +1511,8 @@ fn write_crossref_and_jumpref_thread(
             crossref_data.ts_syms = ts_syms.clone();
         }
 
+        crossref_data.recency = recency_table.get(id).copied();
+
         write_inline_and_ext(
             &mut xref_out,
             &mut xref_ext_out,
@@ -1439,6 +1549,7 @@ fn write_crossref_and_jumpref(
     field_member_use_table: FieldMemberUseTable,
     js_idl_table: JSIDLTable,
     js_ts_table: JsTsTable,
+    recency_table: UstrMap<Recency>,
     thread_count: usize,
 ) {
     let search_result_list: SearchResultList = search_result_table.into_iter().collect();
@@ -1471,6 +1582,7 @@ fn write_crossref_and_jumpref(
             &field_member_use_table,
             &js_idl_table,
             &js_ts_table,
+            &recency_table,
             true,
             &mut xref_ext_size,
             &mut jumpref_ext_size,
@@ -1508,6 +1620,7 @@ fn write_crossref_and_jumpref(
             let field_member_use_table = &field_member_use_table;
             let js_idl_table = &js_idl_table;
             let js_ts_table = &js_ts_table;
+            let recency_table = &recency_table;
 
             let start = chunk * index;
             let end = if index == thread_count - 1 {
@@ -1531,6 +1644,7 @@ fn write_crossref_and_jumpref(
                     field_member_use_table,
                     js_idl_table,
                     js_ts_table,
+                    recency_table,
                     index == 0,
                     xref_ext_size,
                     jumpref_ext_size,
@@ -1739,17 +1853,27 @@ async fn main() {
         tree_name,
         Local::now().format("%Y-%m-%dT%H:%M:%S%z")
     );
+    // The tree's history, if it has one, for the symbols' history digests (see
+    // `hyperblame::recency`).
+    let history = tree_config.git.as_ref().and_then(HistoryDigests::open);
+    println!(
+        "History digests for {}: {}",
+        tree_name,
+        if history.is_some() { "yes" } else { "no" }
+    );
     let AnalysisData {
         search_result_table,
         pretty_table,
         id_table,
         mut meta_table,
         callees_table,
+        recency_table,
     } = read_analysis_files(
         analysis_relative_paths,
         tree_name,
         tree_config,
         &ingestion,
+        history.as_ref(),
         cli.thread_count,
     );
 
@@ -1801,6 +1925,7 @@ async fn main() {
         field_member_use_table,
         js_idl_table,
         js_ts_table,
+        recency_table,
         cli.thread_count,
     );
 

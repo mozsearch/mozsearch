@@ -14,6 +14,7 @@ pub mod journals;
 pub mod page_blame;
 pub mod page_data_cache;
 pub mod peephole;
+pub mod recency;
 pub mod segments;
 pub mod stats;
 pub mod suffix_array;

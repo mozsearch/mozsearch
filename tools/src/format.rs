@@ -599,6 +599,10 @@ pub fn format_code(
         });
     }
 
+    // (The history digests are for `/query/`'s results, not the page.)
+    for jumpref in generated_sym_info.values_mut().flatten() {
+        jumpref.recency = None;
+    }
     let sym_json = if env::var("MOZSEARCH_DIFFABLE").is_err() {
         to_string(&json!(generated_sym_info)).unwrap()
     } else {

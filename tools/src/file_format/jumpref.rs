@@ -6,6 +6,7 @@ use crate::utils::OverflowingVec;
 
 use super::analysis::{AnalysisStructured, BindingSlotKind, BindingSlotLang, PathSearchResult};
 use super::crossref::CrossrefData;
+use super::recency::Recency;
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 pub struct Jumps {
@@ -46,6 +47,9 @@ pub struct JumprefData {
     /// Candidate scip-typescript symbols if this is a js-analyze symbol
     #[serde(default, skip_serializing_if = "OverflowingVec::is_empty")]
     pub ts_syms: OverflowingVec<10, Ustr>,
+    /// See `CrossrefData::recency`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recency: Option<Recency>,
 }
 
 /// Transform a crossref data that will be written into crossref into the
@@ -72,6 +76,7 @@ pub fn convert_crossref_value_to_sym_info_rep(
             meta: None,
             idl_syms: None,
             ts_syms: Default::default(),
+            recency: None,
         };
     };
 
@@ -105,6 +110,7 @@ pub fn convert_crossref_value_to_sym_info_rep(
         meta: cross_val.meta,
         idl_syms: cross_val.idl_syms,
         ts_syms: cross_val.ts_syms.into(),
+        recency: cross_val.recency,
     }
 }
 
