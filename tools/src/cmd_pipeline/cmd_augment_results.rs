@@ -123,36 +123,50 @@ impl PipelineCommand for AugmentResultsCommand {
             .map(|(path, lines)| (path, lines.into_iter().collect()))
             .collect();
         let mut path_line_contents: UstrMap<HashMap<u32, String>> = UstrMap::default();
-        let mut path_line_nesting: UstrMap<HashMap<u32, String>> = UstrMap::default();
+        // The symbols of the innermost nesting containers of each line: the
+        // one around it, and the one around it that it doesn't start (see
+        // `chunked_gzip::Row`).
+        let mut path_line_nesting: UstrMap<HashMap<u32, (Option<String>, Option<String>)>> =
+            UstrMap::default();
         for (path, rows) in server.fetch_html_lines(requests).await? {
             let contents = path_line_contents.entry(path).or_default();
+            let nesting = path_line_nesting.entry(path).or_default();
             for (line, row) in rows {
-                if let Some(sym) = row.nesting_sym {
-                    path_line_nesting.entry(path).or_default().insert(line, sym);
-                }
+                nesting.insert(line, (row.nesting_sym, row.enclosing_sym));
                 contents.insert(line, excerpt_row(&row.html));
             }
         }
 
-        // ### The contexts of textual occurrences
+        // ### Contexts from the rendered files
         //
-        // Crossref's results say what they're in ("// found in"), but textual
-        // occurrences are just lines, so their contexts are the innermost
-        // nesting containers (ex: functions) around them, with their symbols'
-        // pretty names.
+        // Crossref's results say what they're in ("// found in"), except at
+        // namespace scope (ex: forward declarations, and definitions of
+        // classes, or of methods outside their classes), and textual
+        // occurrences are just lines, so those get the innermost nesting
+        // containers (ex: functions, classes, namespaces) around their key
+        // lines, with their symbols' pretty names: whatever textual
+        // occurrences are in (as for crossref's uses), and what's around
+        // crossref's results other than what they start (ex: a class's
+        // namespace, not the class, for its first line).
+        let context_sym = |kind: &PresentationKind, path: &Ustr, line: u32| -> Option<&str> {
+            let (nesting, enclosing) = path_line_nesting.get(path)?.get(&line)?;
+            if *kind == PresentationKind::TextualOccurrences {
+                nesting.as_deref()
+            } else {
+                enclosing.as_deref()
+            }
+        };
         let mut prettys: HashMap<&str, Option<Ustr>> = HashMap::new();
         for path_kind_group in &results.path_kind_results {
             for kind_group in &path_kind_group.kind_groups {
-                if kind_group.kind != PresentationKind::TextualOccurrences {
-                    continue;
-                }
                 for file in &kind_group.by_file {
-                    let Some(nesting) = path_line_nesting.get(&file.file) else {
-                        continue;
-                    };
                     for span in &file.line_spans {
-                        if let Some(sym) = nesting.get(&span.key_line) {
-                            prettys.entry(sym.as_str()).or_default();
+                        if !span.context.is_empty() {
+                            continue;
+                        }
+                        if let Some(sym) = context_sym(&kind_group.kind, &file.file, span.key_line)
+                        {
+                            prettys.entry(sym).or_default();
                         }
                     }
                 }
@@ -166,23 +180,18 @@ impl PipelineCommand for AugmentResultsCommand {
         }
         for path_kind_group in &mut results.path_kind_results {
             for kind_group in &mut path_kind_group.kind_groups {
-                if kind_group.kind != PresentationKind::TextualOccurrences {
-                    continue;
-                }
                 for file in &mut kind_group.by_file {
-                    let Some(nesting) = path_line_nesting.get(&file.file) else {
-                        continue;
-                    };
+                    let path = file.file;
                     for span in &mut file.line_spans {
-                        let Some(sym) = nesting.get(&span.key_line) else {
+                        if !span.context.is_empty() {
+                            continue;
+                        }
+                        let Some(sym) = context_sym(&kind_group.kind, &path, span.key_line) else {
                             continue;
                         };
-                        match prettys.get(sym.as_str()) {
-                            Some(Some(pretty)) if span.context.is_empty() => {
-                                span.context = *pretty;
-                                span.contextsym = ustr(sym);
-                            }
-                            _ => {}
+                        if let Some(Some(pretty)) = prettys.get(sym) {
+                            span.context = *pretty;
+                            span.contextsym = ustr(sym);
                         }
                     }
                 }

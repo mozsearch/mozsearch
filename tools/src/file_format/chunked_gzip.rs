@@ -20,9 +20,9 @@
 //! for a 15-60x speedup of big queries (ex: 16s to 0.3s for "nsIPrincipal" on
 //! firefox, whose results are in 1477 files with 7.8 GB of HTML).
 //!
-//! Rows also come with the symbol of the innermost nesting container around
-//! them (ex: their function, for "// found in" on `/query/`'s textual
-//! occurrences).  Containers start before the rows that start them and end
+//! Rows also come with the symbols of the innermost nesting containers around
+//! them (ex: their function, for "// found in" on `/query/`'s results).
+//! Containers start before the rows that start them and end
 //! after rows' ends (see `format::format_file_data`), and the rows that can
 //! start chunks (lines `K * LINES_PER_CHUNK + 1`) say which containers they're
 //! in (`data-nesting`), so a chunk's containers can be tracked from its start.
@@ -56,13 +56,21 @@ const NESTING_END: &str = "</div>";
 /// in, outermost first, comma-separated.
 const NESTING_ATTRIBUTE: &str = " data-nesting=\"";
 
-/// A row (see `ROW_START`), with the symbol of the innermost nesting
-/// container around it (ex: its function), if it's in one that's known.
+/// A row (see `ROW_START`), with the symbols of the innermost nesting
+/// containers around it, if it's in ones that are known.
 #[derive(Debug, PartialEq)]
 pub struct Row {
     pub html: String,
+    /// The innermost container (ex: the function a line is in).
     pub nesting_sym: Option<String>,
+    /// The innermost container that the row doesn't start (ex: a class's
+    /// namespace, for the first line of the class, which starts the class's
+    /// container if its brace is on it).
+    pub enclosing_sym: Option<String>,
 }
+
+/// The rows that start nesting containers are sticky in source listings.
+const STICKY_CLASS: &str = " nesting-sticky-line";
 
 const SUBFIELD_ID: &[u8; 2] = b"SF";
 const VERSION: u8 = 1;
@@ -101,20 +109,31 @@ pub fn extract_rows(html: &str, lines: &BTreeSet<u32>) -> HashMap<u32, Row> {
         else {
             continue;
         };
-        let nesting_sym = match inner.last() {
-            Some(sym) => Some(sym.clone()),
-            None => outer.as_ref().and_then(|outer| outer.last().cloned()),
-        };
+        let starts_nesting = html[start..]
+            .find('>')
+            .is_some_and(|tag_end| html[start..start + tag_end].contains(STICKY_CLASS));
         rows.insert(
             line,
             Row {
                 html: html[start..end].to_string(),
-                nesting_sym,
+                nesting_sym: nth_innermost(&outer, &inner, 0),
+                enclosing_sym: nth_innermost(&outer, &inner, usize::from(starts_nesting)),
             },
         );
         pos = end;
     }
     rows
+}
+
+/// The symbol of the `n`th innermost container (0 for the innermost) of those
+/// open (from before, if known, and since), if it's known.
+fn nth_innermost(outer: &Option<Vec<String>>, inner: &[String], n: usize) -> Option<String> {
+    if n < inner.len() {
+        return Some(inner[inner.len() - 1 - n].clone());
+    }
+    let outer = outer.as_ref()?;
+    let n = n - inner.len();
+    (n < outer.len()).then(|| outer[outer.len() - 1 - n].clone())
 }
 
 /// The value of the attribute `attribute` (its leading space, name, `=`, and
@@ -391,10 +410,14 @@ fn inflate_raw(mut deflated: &[u8]) -> io::Result<Vec<u8>> {
 mod tests {
     use super::*;
 
-    fn row(line: u32, attributes: &str, text: &str) -> String {
+    fn row(line: u32, sticky: bool, attributes: &str, text: &str) -> String {
         format!(
-            "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number\"{}>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>\n  <code role=\"cell\" class=\"source-line\">{}\n</code>\n</div>\n",
-            line, attributes, line, text
+            "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number{}\"{}>\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>\n  <code role=\"cell\" class=\"source-line\">{}\n</code>\n</div>\n",
+            line,
+            if sticky { STICKY_CLASS } else { "" },
+            attributes,
+            line,
+            text
         )
     }
 
@@ -414,6 +437,15 @@ mod tests {
             .iter()
             .rev()
             .find(|(first, last, _)| *first <= line && line <= *last)
+            .map(|(_, _, sym)| sym.to_string())
+    }
+
+    /// The innermost container around `line` that doesn't start on it.
+    fn enclosing_of(line: u32) -> Option<String> {
+        NESTINGS
+            .iter()
+            .rev()
+            .find(|(first, last, _)| *first < line && line <= *last)
             .map(|(_, _, sym)| sym.to_string())
     }
 
@@ -439,8 +471,10 @@ mod tests {
             } else {
                 String::new()
             };
+            let sticky = NESTINGS.iter().any(|(first, _, _)| *first == line);
             html.push_str(&row(
                 line,
+                sticky,
                 &attributes,
                 &format!("  let x{} = &lt;{}&gt;;", line, line),
             ));
@@ -513,6 +547,12 @@ mod tests {
             let rows = write_and_read(html.as_bytes(), lines);
             for &line in lines {
                 assert_eq!(rows[&line].nesting_sym, nesting_of(line), "line {}", line);
+                assert_eq!(
+                    rows[&line].enclosing_sym,
+                    enclosing_of(line),
+                    "line {}",
+                    line
+                );
             }
         }
         assert_eq!(rows_nesting(&html, 161), Some("#\"quoted\"".to_string()));
@@ -523,6 +563,7 @@ mod tests {
         assert_eq!(rows[&20].nesting_sym, nesting_of(20));
         assert_eq!(rows[&33].nesting_sym, None);
         assert_eq!(rows[&64].nesting_sym, Some("_ZN1C1hEv".to_string()));
+        assert_eq!(rows[&64].enclosing_sym, None);
         assert_eq!(rows[&67].nesting_sym, None);
     }
 
