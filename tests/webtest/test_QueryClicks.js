@@ -2,8 +2,9 @@
 
 // /query/'s results link their line numbers to the lines (rather than
 // selecting them as in a source listing), give their symbols the source
-// listings' context menu, and only toggle their groups from the disclosure
-// triangles, the files' icons, and the kinds' names.
+// listings' context menu, only toggle their groups from the disclosure
+// triangles, the files' icons, and the kinds' names, and head them like
+// /search/'s.
 
 add_task(async function test_QueryLineNumbers() {
   await TestUtils.loadQuery("tests", "doublePure");
@@ -75,4 +76,35 @@ add_task(async function test_QueryToggles() {
   ok(!kind.open, "Clicking the kind's name does");
   click(kindSummary, triangle(kindSummary));
   ok(kind.open, "Clicking its triangle does");
+});
+
+add_task(async function test_QueryHeadings() {
+  await TestUtils.loadQuery("tests", "big_header");
+
+  const doc = frame.contentDocument;
+  const files = [...doc.querySelectorAll(".query-result details")]
+    .find(details => details.querySelector(":scope > summary .query-toggle")?.textContent == "Files");
+  ok(files, "The file name matches are listed");
+  ok([...files.querySelectorAll("h3.path")].some(path => path.textContent.trim() == "big_header.h"),
+     "including big_header.h");
+  ok(/^Files \(\d+ files?\)$/.test(files.querySelector(":scope > summary").textContent.trim()),
+     "with their count");
+  const fileName = files.querySelector("h3.path");
+  const fileRow = doc.querySelector(".query-result details > summary > h3.path");
+  const view = frame.contentWindow;
+  is(view.getComputedStyle(fileName).fontSize, view.getComputedStyle(fileRow).fontSize,
+     "They look like the files' rows");
+  const iconLeft = path => Math.round(path.querySelector(".mimetype-bullet").getBoundingClientRect().left);
+  is(iconLeft(fileName), iconLeft(fileRow), "with their icons aligned");
+  is(view.getComputedStyle(fileName.closest("li"), "::marker").color, "rgba(0, 0, 0, 0)",
+     "and no bullets");
+
+  const headings = [...doc.querySelectorAll(".query-result summary > h2")]
+    .map(heading => heading.textContent.trim());
+  ok(headings.some(heading => /^Textual Occurrences \(\d+ lines? across \d+ files?\)$/.test(heading)),
+     "The kinds have router.py's names, and counts like /search/'s");
+  const pathKinds = [...doc.querySelectorAll(".query-result summary > h1")]
+    .map(heading => heading.textContent.trim());
+  ok(pathKinds.some(heading => /\(\d+ filenames? and \d+ lines? across \d+ files?\)$/.test(heading)),
+     "as do the path kinds");
 });

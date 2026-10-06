@@ -1697,6 +1697,23 @@ span[data-symbols].selected {
 .query-line-number:hover {
   text-decoration: underline;
 }
+/* `/query/`'s file name matches look like its files' rows (`details >
+   summary > h3`, nested in their kind's details), with an invisible marker
+   in place of their disclosure triangle, since they have nothing to
+   disclose. */
+.query-file-names {
+  margin: 0;
+  padding-left: 2rem;
+  list-style: disclosure-closed inside;
+}
+.query-file-names > li::marker {
+  color: transparent;
+}
+.query-file-names h3 {
+  display: inline-block;
+  margin: 4px 0px;
+  font-size: var(--base-font-size);
+}
 /* (On `/query/`'s results, which have no margin of their own.) */
 .query-result .facet-box,
 .query-limits {

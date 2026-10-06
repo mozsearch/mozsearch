@@ -1,0 +1,10 @@
+{%- comment -%}
+  A heading's counts, like /search/'s (see search.js): " (N filenames and X
+  lines across Y files)", " (X lines across Y files)", or " (Y files)", from
+  the `file_names`, `lines`, and `files` counts.
+{%- endcomment -%}
+{%- if lines > 0 -%}
+    {%- if file_names > 0 %} ({{ file_names }} filename{% if file_names != 1 %}s{% endif %} and {% else %} ({% endif -%}
+    {{ lines }} line{% if lines != 1 %}s{% endif %} across {{ files }} file{% if files != 1 %}s{% endif %})
+{%- else %} ({{ files }} file{% if files != 1 %}s{% endif %})
+{%- endif -%}

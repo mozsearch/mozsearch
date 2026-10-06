@@ -1,6 +1,20 @@
 <details open class="facet-group">
-    {%- comment %} (Only the triangle and the kind toggle it; see query-results.js.) {% endcomment %}
-    <summary><h2><span class="query-toggle">{{kind_group.kind}}</span>{% if kind_group.pretty != empty %} ({{ kind_group.pretty }}){% endif %}</h2></summary>
+    {%- assign kind_lines = 0 -%}
+    {%- for file_results in kind_group.by_file -%}
+        {%- assign kind_lines = kind_lines | plus: file_results.line_spans.size -%}
+    {%- endfor %}
+    {%- comment %} (Only the triangle and the kind toggle it; see query-results.js.  The kinds' names are router.py's.) {% endcomment %}
+    <summary><h2><span class="query-toggle">
+        {%- case kind_group.kind -%}
+            {%- when "IDLPartial" -%}
+                IDL Partial
+            {%- when "TextualOccurrences" -%}
+                Textual Occurrences
+            {%- else -%}
+                {{ kind_group.kind }}
+        {%- endcase -%}
+    </span>{% if kind_group.pretty != empty %} ({{ kind_group.pretty }}){% endif %}
+    {%- include 'query_results/counts.liquid' file_names: 0, lines: kind_lines, files: kind_group.by_file.size %}</h2></summary>
     {%- comment %} (The results' facets cover the "Path" facet.) {% endcomment -%}
     {%- for facet in kind_group.facets -%}
     {%- if facet.kind != "PathByPath" -%}

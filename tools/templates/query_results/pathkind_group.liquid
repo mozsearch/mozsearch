@@ -1,3 +1,15 @@
+{%- comment -%}
+  The counts are /search/'s: the file name matches, and the kinds' lines and
+  files (a file counts once per kind it's in).
+{%- endcomment -%}
+{%- assign pk_lines = 0 -%}
+{%- assign pk_files = pk_group.file_names.size -%}
+{%- for kind_group in pk_group.kind_groups -%}
+    {%- assign pk_files = pk_files | plus: kind_group.by_file.size -%}
+    {%- for file_results in kind_group.by_file -%}
+        {%- assign pk_lines = pk_lines | plus: file_results.line_spans.size -%}
+    {%- endfor -%}
+{%- endfor -%}
 <details open class="facet-group">
     <summary><h1><span class="query-toggle">
         {%- case pk_group.path_kind -%}
@@ -10,16 +22,16 @@
             {%- when "generated" -%}
                 Generated code
         {%- endcase -%}
-    </span></h1></summary>
-    {% if pk_group.file_names.length -%}
+    </span>{% include 'query_results/counts.liquid' file_names: pk_group.file_names.size, lines: pk_lines, files: pk_files %}</h1></summary>
+    {% if pk_group.file_names != empty -%}
         <details open class="facet-group">
-            <summary><span class="query-toggle">Files</span></summary>
-            <li>
-            {% for path in pk_group.file_names %}
+            <summary><h2><span class="query-toggle">Files</span>{% include 'query_results/counts.liquid' file_names: 0, lines: 0, files: pk_group.file_names.size %}</h2></summary>
+            <ul class="query-file-names">
+            {%- for path in pk_group.file_names %}
                 {%- assign facet_data = file_facets.files[path] %}
-                <div{% if facet_data %} data-path="{{ path | escape }}" data-facets="{{ facet_data.facets | escape }}" data-groups="{{ facet_data.groups | escape }}"{% endif %}>{% include 'path.liquid' path: path %}</div>
-            {% endfor %}
-            </li>
+                <li{% if facet_data %} data-path="{{ path | escape }}" data-facets="{{ facet_data.facets | escape }}" data-groups="{{ facet_data.groups | escape }}"{% endif %}>{% include 'path.liquid' path: path %}</li>
+            {%- endfor %}
+            </ul>
         </details>
     {%- endif %}
     {% for kind_group in pk_group.kind_groups %}
