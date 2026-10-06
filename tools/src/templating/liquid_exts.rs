@@ -8,6 +8,8 @@ use liquid_core::{Value, ValueView};
 use regex::Regex;
 use serde_json::to_string_pretty;
 
+use crate::file_format::recency::{BINS, Recency};
+
 #[derive(Clone, ParseFilter, FilterReflection)]
 #[filter(
     name = "json",
@@ -47,6 +49,31 @@ impl Filter for FileExtFilter {
             None => "".to_string(),
         };
         Ok(Value::scalar(ext))
+    }
+}
+
+#[derive(Clone, ParseFilter, FilterReflection)]
+#[filter(
+    name = "last_changed",
+    description = "The \"Last changed\" facet value of a history digest (see `file_format::recency`).",
+    parsed(LastChangedFilter)
+)]
+pub struct LastChangedFilterParser;
+
+#[derive(Debug, Default, Display_filter)]
+#[name = "last_changed"]
+struct LastChangedFilter;
+
+impl Filter for LastChangedFilter {
+    fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
+        let mut recency = Recency::default();
+        if let Some(bins) = input.as_array() {
+            for (bin, tokens) in bins.values().take(BINS).enumerate() {
+                let tokens = tokens.as_scalar().and_then(|s| s.to_integer()).unwrap_or(0);
+                recency.add(bin, u32::try_from(tokens).unwrap_or(0));
+            }
+        }
+        Ok(Value::scalar(Recency::last_changed(Some(&recency))))
     }
 }
 

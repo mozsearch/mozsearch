@@ -5,13 +5,15 @@
 //! summaries (see `format::explore_facets`), whose files `file_facets`
 //! facets for facet_bar.liquid and facets.js, as for `/query/`'s results.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use serde::Serialize;
 use serde_json::json;
 use ustr::{Ustr, ustr};
 
 use super::interface::{ResultFacetGroup, ResultFacetKind, ResultFacetRoot};
+use super::recency_html::sparkline;
+use crate::file_format::recency::{LAST_CHANGED, LAST_CHANGED_UNKNOWN, Recency};
 
 /// Faceting support logic; the ResultFacetKind bakes in rules.
 pub struct MaybeFacetRoot {
@@ -276,6 +278,9 @@ pub struct FacetValueView {
     pub title: String,
     pub count: u32,
     pub values: Vec<FacetValueView>,
+    /// A sparkline of the value's history digests (see `last_changed_facet`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sparkline: Option<String>,
 }
 
 /// A file to facet (see `file_facets`): its path, its path kind and whether
@@ -323,6 +328,62 @@ impl PathKinds {
 
 /// The subsystem facet's value for files without subsystems.
 pub const UNKNOWN_SUBSYSTEM: &str = "?";
+
+/// The "Last changed" facet of results' lines, by their history digests (see
+/// `file_format::recency`), if any have them: its values (newest first, then
+/// "unknown"), with how many files have lines in each and a sparkline of their
+/// lines' digests, and the values of each file's lines, by path.
+pub fn last_changed_facet<'a>(
+    lines: impl IntoIterator<Item = (&'a str, Option<&'a Recency>)>,
+) -> Option<(FacetView, HashMap<String, Vec<String>>)> {
+    let mut any = false;
+    let mut by_value: HashMap<&'static str, (HashSet<&str>, Recency)> = HashMap::new();
+    let mut file_values: HashMap<String, BTreeSet<&'static str>> = HashMap::new();
+    for (path, recency) in lines {
+        any |= recency.is_some();
+        let value = Recency::last_changed(recency);
+        let (paths, total) = by_value.entry(value).or_default();
+        paths.insert(path);
+        if let Some(recency) = recency {
+            total.accumulate(recency);
+        }
+        file_values
+            .entry(path.to_string())
+            .or_default()
+            .insert(value);
+    }
+    if !any {
+        return None;
+    }
+    let values = LAST_CHANGED
+        .iter()
+        .map(|(key, name, title, _)| (*key, *name, *title))
+        .chain([LAST_CHANGED_UNKNOWN])
+        .filter_map(|(key, name, title)| {
+            let (paths, total) = by_value.get(key)?;
+            Some(FacetValueView {
+                value: key.to_string(),
+                name: name.to_string(),
+                title: title.to_string(),
+                count: paths.len() as u32,
+                values: vec![],
+                sparkline: (!total.is_empty()).then(|| sparkline(total)),
+            })
+        })
+        .collect();
+    let file_values = file_values
+        .into_iter()
+        .map(|(path, values)| (path, values.into_iter().map(String::from).collect()))
+        .collect();
+    Some((
+        FacetView {
+            key: "recency",
+            label: "Last changed".to_string(),
+            values,
+        },
+        file_values,
+    ))
+}
 
 /// The facets of a list of files (ex: an `/explore/` page's, or `/query/`'s
 /// results'), for facet_bar.liquid and facets.js: their path kinds (in the
@@ -443,6 +504,7 @@ pub fn file_facets(
                 title,
                 count: group.count,
                 values,
+                sparkline: None,
             }
         }
         let mut values: Vec<FacetValueView> = root

@@ -4,7 +4,8 @@
  *
  * Each facet has values (nested for hierarchical facets, ex: directories),
  * which filter the items (`.facet-items [data-facets]`, whose JSON names the
- * values of each facet each item is in, including their ancestors) to those
+ * values of each facet each item is in, including their ancestors, and which
+ * can be in other items, ex: `/query/`'s lines in their files) to those
  * in any of a facet's selected values, for every facet with selected values.
  * Each value shows how many items it would have given the other facets'
  * selections.  Counts are of distinct paths (`data-path`), since a file can be
@@ -24,12 +25,20 @@
   if (!bar || !container) {
     return;
   }
-  const items = [...container.querySelectorAll("[data-facets]")].map(element => ({
-    element,
-    facets: JSON.parse(element.dataset.facets || "{}"),
-    groups: JSON.parse(element.dataset.groups || "{}"),
-    path: element.dataset.path || "",
-  }));
+  // Items can be in others (ex: `/query/`'s lines in their files), whose facets
+  // and path they have too, unless they say otherwise.
+  const items = [...container.querySelectorAll("[data-facets]")].map(element => {
+    const outer = element.parentElement.closest("[data-facets]");
+    return {
+      element,
+      facets: {
+        ...JSON.parse(outer?.dataset.facets || "{}"),
+        ...JSON.parse(element.dataset.facets || "{}"),
+      },
+      groups: JSON.parse(element.dataset.groups || "{}"),
+      path: element.dataset.path || outer?.dataset.path || "",
+    };
+  });
   const buttons = [...bar.querySelectorAll(".facet-value")].map(button => ({
     button,
     facet: button.closest(".facet").dataset.facet,

@@ -3,6 +3,8 @@
 //! tree's history (see `hyperblame::recency`) and puts them in the symbols'
 //! crossref and jumpref data.
 
+use std::ops::Range;
+
 use serde::{Deserialize, Serialize};
 
 /// The (exclusive) upper bounds of the bins' ages, in weeks before the indexed
@@ -10,6 +12,40 @@ use serde::{Deserialize, Serialize};
 /// months, 6-12 months, 1-2 years, 2-4 years, and older.
 pub const BIN_WEEKS: [i64; 9] = [1, 2, 4, 9, 13, 26, 52, 104, 208];
 pub const BINS: usize = BIN_WEEKS.len() + 1;
+
+/// The bins' ages, for descriptions.
+pub const BIN_LABELS: [&str; BINS] = [
+    "under 1 week",
+    "1-2 weeks",
+    "2-4 weeks",
+    "1-2 months",
+    "2-3 months",
+    "3-6 months",
+    "6-12 months",
+    "1-2 years",
+    "2-4 years",
+    "over 4 years",
+];
+
+/// The values of the "Last changed" facet (see `Recency::last_changed`): their
+/// keys, names, and descriptions, and the bins of the changes they're for.
+pub const LAST_CHANGED: [(&str, &str, &str, Range<usize>); 6] = [
+    ("week", "past week", "Last changed under 1 week ago", 0..1),
+    ("month", "past month", "Last changed 1-4 weeks ago", 1..3),
+    (
+        "quarter",
+        "past 3 months",
+        "Last changed 1-3 months ago",
+        3..5,
+    ),
+    ("year", "past year", "Last changed 3-12 months ago", 5..7),
+    ("years", "1-4 years", "Last changed 1-4 years ago", 7..9),
+    ("older", "4+ years", "Last changed over 4 years ago", 9..10),
+];
+
+/// The "Last changed" value of what has no digest (ex: generated files).
+pub const LAST_CHANGED_UNKNOWN: (&str, &str, &str) =
+    ("unknown", "unknown", "No history (ex: generated files)");
 
 /// The number of tokens changed (not counting moves) in each bin of age,
 /// newest first.
@@ -43,6 +79,58 @@ impl Recency {
     pub fn newest_bin(&self) -> Option<usize> {
         self.0.iter().position(|&tokens| tokens > 0)
     }
+
+    /// The key of the "Last changed" value (see `LAST_CHANGED`) of what has
+    /// this digest, if any.
+    pub fn last_changed(recency: Option<&Recency>) -> &'static str {
+        recency
+            .and_then(Recency::newest_bin)
+            .and_then(|bin| {
+                LAST_CHANGED
+                    .iter()
+                    .find(|(_, _, _, bins)| bins.contains(&bin))
+            })
+            .map_or(LAST_CHANGED_UNKNOWN.0, |(key, _, _, _)| key)
+    }
+
+    /// How much a bin changed, from 0 (nothing) to 5, roughly logarithmically,
+    /// for shading.
+    pub fn level(&self, bin: usize) -> u8 {
+        match self.0[bin] {
+            0 => 0,
+            1..=9 => 1,
+            10..=49 => 2,
+            50..=199 => 3,
+            200..=999 => 4,
+            _ => 5,
+        }
+    }
+
+    /// A description of the changes, ex: "150 tokens changed under 1 week
+    /// ago, 20 3-6 months ago".
+    pub fn describe(&self) -> String {
+        let changes: Vec<String> = self
+            .0
+            .iter()
+            .zip(BIN_LABELS)
+            .filter(|(tokens, _)| **tokens > 0)
+            .enumerate()
+            .map(|(i, (tokens, label))| match i {
+                0 => format!(
+                    "{} token{} changed {} ago",
+                    tokens,
+                    if *tokens == 1 { "" } else { "s" },
+                    label
+                ),
+                _ => format!("{} {} ago", tokens, label),
+            })
+            .collect();
+        if changes.is_empty() {
+            "No changes".to_string()
+        } else {
+            changes.join(", ")
+        }
+    }
 }
 
 #[cfg(test)]
@@ -69,6 +157,14 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&recency).unwrap(),
             "[0,0,0,6,2,0,0,0,0,0]"
+        );
+        assert_eq!(Recency::last_changed(Some(&recency)), "quarter");
+        assert_eq!(Recency::last_changed(None), "unknown");
+        assert_eq!(recency.level(3), 1);
+        assert_eq!(recency.level(0), 0);
+        assert_eq!(
+            recency.describe(),
+            "6 tokens changed 1-2 months ago, 2 2-3 months ago"
         );
     }
 }

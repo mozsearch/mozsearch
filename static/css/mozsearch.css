@@ -103,6 +103,14 @@ table {
   /* `/query/`'s hits and other matches (distinct from the symbol highlight). */
   --query-hit-background: #d6e6ff;
   --query-match-underline: #5b8fd9;
+  /* `/query/`'s history digests' shades (teals, unlike the blots' reds and
+     greens), from little to much changed. */
+  --recency-empty: #eef2f2;
+  --recency-1: #c7e9e4;
+  --recency-2: #8fd1c6;
+  --recency-3: #4fb3a5;
+  --recency-4: #23877b;
+  --recency-5: #0b5a52;
 
   /* Our red-blue color scheme is from
    * https://colorbrewer2.org/#type=diverging&scheme=RdBu&n=11 and was chosen
@@ -267,6 +275,12 @@ table {
     --syntax-symbol-highlight: #5d4d1d;
     --query-hit-background: #1f3a5f;
     --query-match-underline: #6f9fe6;
+    --recency-empty: #263030;
+    --recency-1: #1d4a45;
+    --recency-2: #23675f;
+    --recency-3: #2f8a7d;
+    --recency-4: #4fb3a5;
+    --recency-5: #8fe0d2;
     /* Shamelessly taken from source.chromium.org's dark theme */
     --syntax-type-color: #79a9c4;
     --syntax-reserved-color: #d8884b;
@@ -1719,6 +1733,34 @@ mark.query-hit {
 mark.query-match {
   text-decoration: underline dotted var(--query-match-underline) 2px;
   text-underline-offset: 3px;
+}
+/* `/query/`'s results' history digests (see `recency_html`): a square per bin
+   of age (newest first), shaded by how much changed then, before the line
+   numbers of the results' key lines (other rows have the cell, empty, so their
+   code stays aligned), and sparklines on the "Last changed" facet's values. */
+.query-recency {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 1px;
+  width: 50px;
+  align-items: center;
+  justify-content: flex-end;
+}
+.query-recency i {
+  width: 4px;
+  height: 10px;
+  background-color: var(--recency-empty);
+}
+.query-recency .recency-1 { background-color: var(--recency-1); }
+.query-recency .recency-2 { background-color: var(--recency-2); }
+.query-recency .recency-3 { background-color: var(--recency-3); }
+.query-recency .recency-4 { background-color: var(--recency-4); }
+.query-recency .recency-5 { background-color: var(--recency-5); }
+.recency-sparkline {
+  vertical-align: middle;
+}
+.recency-sparkline rect {
+  fill: var(--recency-3);
 }
 /* `/query/`'s textual occurrences on lines that other results already show
    (for their other matches) are hidden unless asked for (see

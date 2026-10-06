@@ -5,6 +5,7 @@ pub mod facets;
 pub mod highlight;
 pub mod interface;
 pub mod parser;
+pub mod recency_html;
 pub mod symbol_graph;
 pub mod transforms;
 

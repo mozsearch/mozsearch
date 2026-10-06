@@ -17,11 +17,13 @@ use crate::{
     file_format::{
         crossref::CrossrefData,
         jumpref::{JumprefData, convert_crossref_value_to_sym_info_rep},
+        recency::Recency,
     },
     url_encode_path::url_encode_path,
 };
 
 use super::highlight::highlight_row;
+use super::recency_html::blot_cell;
 use super::symbol_graph::{SymbolGraphCollection, SymbolGraphNodeSet};
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
@@ -585,6 +587,34 @@ pub struct FlattenedResultsBundle {
 }
 
 impl FlattenedResultsBundle {
+    /// All of the line spans.
+    pub fn line_spans(&self) -> impl Iterator<Item = &FlattenedLineSpan> {
+        self.path_kind_results.iter().flat_map(|path_kind_group| {
+            path_kind_group.kind_groups.iter().flat_map(|kind_group| {
+                kind_group
+                    .by_file
+                    .iter()
+                    .flat_map(|file| file.line_spans.iter())
+            })
+        })
+    }
+
+    pub fn line_spans_mut(&mut self) -> impl Iterator<Item = &mut FlattenedLineSpan> {
+        self.path_kind_results
+            .iter_mut()
+            .flat_map(|path_kind_group| {
+                path_kind_group
+                    .kind_groups
+                    .iter_mut()
+                    .flat_map(|kind_group| {
+                        kind_group
+                            .by_file
+                            .iter_mut()
+                            .flat_map(|file| file.line_spans.iter_mut())
+                    })
+            })
+    }
+
     pub fn compute_path_line_sets(&self, before: u32, after: u32) -> UstrMap<HashSet<u32>> {
         let mut path_line_sets = UstrMap::default();
         for path_kind_group in &self.path_kind_results {
@@ -625,6 +655,37 @@ impl FlattenedResultsBundle {
                     }
                 }
             }
+        }
+    }
+
+    /// For HTML pages of the results whose digests are known (see
+    /// `file_format::recency`), give each row (see `ingest_html_lines`) a cell
+    /// before its line number with the blot of its result's digest, if it's
+    /// the result's key line, or nothing.
+    pub fn add_recency_cells(&mut self) {
+        if self.content_type != "text/html" || !self.line_spans().any(|span| span.recency.is_some())
+        {
+            return;
+        }
+        const ROW: &str = r#"<div role="row" id="line-"#;
+        const LINE_NUMBER: &str = r#"<a role="cell" class="query-line-number""#;
+        for span in self.line_spans_mut() {
+            let mut cells = String::with_capacity(span.contents.len() + 256);
+            let mut rest = span.contents.as_str();
+            while let Some(row) = rest.find(ROW) {
+                let after = &rest[row + ROW.len()..];
+                let line: Option<u32> = after.split('"').next().and_then(|n| n.parse().ok());
+                let Some(cell) = after.find(LINE_NUMBER) else {
+                    break;
+                };
+                let at = row + ROW.len() + cell;
+                cells.push_str(&rest[..at]);
+                let key = line == Some(span.key_line);
+                cells.push_str(&blot_cell(span.recency.as_ref().filter(|_| key)));
+                rest = &rest[at..];
+            }
+            cells.push_str(rest);
+            span.contents = cells;
         }
     }
 
@@ -905,6 +966,11 @@ pub struct FlattenedLineSpan {
     /// only shows if asked to.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub repeated: bool,
+    /// How recently, and how much, the result's code changed (see
+    /// `file_format::recency`): its symbol's, for definitions and the like,
+    /// and its context's, for uses and textual occurrences.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recency: Option<Recency>,
 }
 
 impl FlattenedLineSpan {
@@ -1314,6 +1380,7 @@ mod tests {
             contextsym: ustr("#f"),
             hits: vec![],
             repeated: false,
+            recency: None,
         };
         span.inline_context("tests");
         // On the key line, before its newline, with an escaped context and
@@ -1333,6 +1400,7 @@ mod tests {
             contextsym: ustr(""),
             hits: vec![],
             repeated: false,
+            recency: None,
         };
         span.inline_context("tests");
         assert_eq!(span.contents, row(8, "text"));
@@ -1348,6 +1416,7 @@ mod tests {
             contextsym: ustr("#C"),
             hits: vec![],
             repeated: false,
+            recency: None,
         };
         let mut by_file = FlattenedResultsByFile {
             file: ustr("a.h"),

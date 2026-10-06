@@ -6,6 +6,7 @@ use ustr::{Ustr, UstrMap, ustr};
 
 use super::interface::{PipelineCommand, PipelineValues, PresentationKind};
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
+use crate::file_format::recency::Recency;
 
 /// Augment a FlattenedResultsBundle by scraping the rendered HTML output files
 /// for lines of interest plus any context, plus applying any predicates that
@@ -195,6 +196,29 @@ impl PipelineCommand for AugmentResultsCommand {
                         }
                     }
                 }
+            }
+        }
+
+        // ### Recency
+        //
+        // Results that aren't their symbols' own (uses, and textual
+        // occurrences, which now have contexts) are as recent as their
+        // contexts (see `file_format::recency`).
+        let mut recencies: HashMap<Ustr, Option<Recency>> = HashMap::new();
+        for span in results.line_spans() {
+            if span.recency.is_none() && !span.contextsym.is_empty() {
+                recencies.entry(span.contextsym).or_default();
+            }
+        }
+        for (sym, recency) in recencies.iter_mut() {
+            *recency = server
+                .jumpref_lookup(sym)
+                .await?
+                .and_then(|jumpref| jumpref.recency);
+        }
+        for span in results.line_spans_mut() {
+            if span.recency.is_none() {
+                span.recency = recencies.get(&span.contextsym).copied().flatten();
             }
         }
 

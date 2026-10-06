@@ -20,7 +20,7 @@ use tools::{
     cmd_pipeline::{
         PipelineValues,
         builder::build_pipeline_graph,
-        facets::{FacetFile, PathKinds, file_facets},
+        facets::{FacetFile, PathKinds, file_facets, last_changed_facet},
         interface::FlattenedResultsBundle,
     },
     file_format::jumpref::{
@@ -64,8 +64,40 @@ fn results_file_facets(
             });
         }
     }
-    let (facets, data) = file_facets(&files, &PathKinds(server.path_kinds()));
-    json!({ "facets": facets, "files": data })
+    let (mut facets, mut data) = file_facets(&files, &PathKinds(server.path_kinds()));
+
+    // The "Last changed" facet of the results' lines (and file name matches,
+    // which don't have history digests), whose values the lines have (see
+    // query_results/line_span.liquid), and their files the union of theirs.
+    let lines = results.path_kind_results.iter().flat_map(|pk_group| {
+        pk_group
+            .file_names
+            .iter()
+            .map(|path| (path.as_str(), None))
+            .chain(pk_group.kind_groups.iter().flat_map(|kind_group| {
+                kind_group.by_file.iter().flat_map(|file| {
+                    file.line_spans
+                        .iter()
+                        .map(move |span| (file.file.as_str(), span.recency.as_ref()))
+                })
+            }))
+    });
+    let recency = match last_changed_facet(lines) {
+        Some((facet, file_values)) => {
+            facets.push(facet);
+            for (path, values) in file_values {
+                if let Some(file_data) = data.get_mut(&path) {
+                    let mut file_facets: serde_json::Map<String, Value> =
+                        serde_json::from_str(&file_data.facets).unwrap_or_default();
+                    file_facets.insert("recency".to_string(), json!(values));
+                    file_data.facets = Value::Object(file_facets).to_string();
+                }
+            }
+            true
+        }
+        None => false,
+    };
+    json!({ "facets": facets, "files": data, "recency": recency })
 }
 
 /// The SYM_INFO (see `format::format_code`) of file-centric results: the
@@ -240,6 +272,7 @@ async fn handle_query(
         if let PipelineValues::FlattenedResultsBundle(results) = &mut result {
             results.inline_contexts(&tree);
             results.link_line_numbers(&tree);
+            results.add_recency_cells();
         }
         let file_facets = match &result {
             PipelineValues::FlattenedResultsBundle(results) => {

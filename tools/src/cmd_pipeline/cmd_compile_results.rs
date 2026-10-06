@@ -12,6 +12,7 @@ use super::interface::{
     PresentationKind, ResultFacetKind, SymbolCrossrefInfo, SymbolQuality, SymbolRelation,
 };
 
+use crate::file_format::recency::Recency;
 use crate::{
     abstract_server::{
         AbstractServer, ErrorDetails, ErrorLayer, FileMatch, Result, ServerError,
@@ -194,7 +195,14 @@ impl SearchResults {
             })
         })?;
 
+        // The symbol's digest is its definitions' (and the like), but its uses
+        // and assignments get their contexts' (see `cmd_augment_results`).
+        let recency = info.crossref_info.recency;
         let mut ingest = |kind, path_containers| {
+            let own_recency = match kind {
+                PresentationKind::Uses | PresentationKind::Assignments => None,
+                _ => recency,
+            };
             let descriptor = QualKindDescriptor {
                 kind: kind,
                 quality: info.quality.clone(),
@@ -208,6 +216,7 @@ impl SearchResults {
                         descriptor.clone(),
                         relation_facet,
                         path_container,
+                        own_recency,
                     );
                 }
             }
@@ -241,12 +250,15 @@ impl SearchResults {
         Ok(())
     }
 
+    /// `recency` is the hits' digest, if they're the symbol's own (ex: its
+    /// definitions rather than its uses).
     fn ingest_path_hits(
         &mut self,
         sym: &Ustr,
         descriptor: QualKindDescriptor,
         relation_facet: &Ustr,
         path_container: PathSearchResult,
+        recency: Option<Recency>,
     ) {
         let path_kind_group = self
             .path_kind_groups
@@ -310,6 +322,7 @@ impl SearchResults {
                 contextsym: search_result.contextsym,
                 hits: token.into_iter().collect(),
                 repeated: false,
+                recency,
             });
         }
     }
@@ -414,6 +427,7 @@ impl SearchResults {
                     contextsym: ustr(""),
                     hits,
                     repeated: tokens.is_some(),
+                    recency: None,
                 });
             }
             // The suppressions could mean we don't actually need this path hit,
@@ -509,6 +523,7 @@ impl SearchResults {
                         earlier.hits.append(&mut later.hits);
                         earlier.hits.sort_unstable();
                         earlier.hits.dedup();
+                        earlier.recency = earlier.recency.or(later.recency);
                         true
                     });
                     // The path_hits within each file are not guaranteed to be
@@ -743,6 +758,7 @@ mod tests {
                     line(7, (6, 8)),
                 ],
             },
+            None,
         );
         let bundle = results.compile(10, 10, &[ustr("normal")]);
         let spans: Vec<(u32, (u32, u32))> = bundle.path_kind_results[0].kind_groups[0].by_file[0]
@@ -797,6 +813,7 @@ mod tests {
                     path_kind: ustr("normal"),
                     lines,
                 },
+                None,
             );
         }
         let text_match = |line_num: u32, line_str: &str| {
