@@ -222,11 +222,17 @@ impl SearchResults {
             PresentationKind::Declarations,
             info.crossref_info.declarations,
         );
+        ingest(PresentationKind::Glean, info.crossref_info.glean);
+        ingest(PresentationKind::Aliases, info.crossref_info.aliases);
         ingest(
             PresentationKind::Assignments,
             info.crossref_info.assignments,
         );
         ingest(PresentationKind::Uses, info.crossref_info.uses);
+        ingest(
+            PresentationKind::ForwardDeclarations,
+            info.crossref_info.forwards,
+        );
 
         if let Some(meta) = info.crossref_info.meta {
             self.sym_to_meta.insert(info.symbol, meta);

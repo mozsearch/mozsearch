@@ -1,4 +1,5 @@
-<details open class="facet-group">
+{%- comment %} (Forward declarations start collapsed.) {% endcomment -%}
+<details{% if kind_group.kind != "ForwardDeclarations" %} open{% endif %} class="facet-group">
     {%- assign kind_lines = 0 -%}
     {%- for file_results in kind_group.by_file -%}
         {%- assign kind_lines = kind_lines | plus: file_results.line_spans.size -%}
@@ -10,6 +11,8 @@
                 IDL Partial
             {%- when "TextualOccurrences" -%}
                 Textual Occurrences
+            {%- when "ForwardDeclarations" -%}
+                Forward Declarations
             {%- else -%}
                 {{ kind_group.kind }}
         {%- endcase -%}

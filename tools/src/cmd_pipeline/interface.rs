@@ -747,8 +747,17 @@ pub enum PresentationKind {
     IDLPartial,
     Definitions,
     Declarations,
+    // Glean metrics' definitions, and type aliases (ex: typedefs), in
+    // router.py's order.
+    Glean,
+    Aliases,
     Assignments,
     Uses,
+    // Forward declarations (ex: `class Foo;`) are the least interesting
+    // semantic results, so they're after the others (and the first of them to
+    // go at the limits), and collapsed on the page, but still ahead of the
+    // textual occurrences, which their tokens keep their lines out of.
+    ForwardDeclarations,
     // We do give textual occurrences a kind because they are path hit-lists.
     TextualOccurrences,
 }
