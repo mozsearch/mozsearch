@@ -1,7 +1,8 @@
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use async_trait::async_trait;
 use clap::Args;
+use regex::Regex;
 use ustr::{Ustr, UstrMap, ustr};
 
 use super::facets::MaybeFacetRoot;
@@ -13,7 +14,8 @@ use super::interface::{
 
 use crate::{
     abstract_server::{
-        AbstractServer, ErrorDetails, ErrorLayer, FileMatch, Result, ServerError, TextMatchesByFile,
+        AbstractServer, ErrorDetails, ErrorLayer, FileMatch, Result, ServerError,
+        TextMatchesByFile, TextPattern,
     },
     file_format::analysis::{AnalysisStructured, PathSearchResult},
 };
@@ -99,9 +101,14 @@ pub struct SearchResults {
     /// that doesn't end up in a separate output structure.
     pub sym_to_meta: UstrMap<AnalysisStructured>,
     pub path_kind_groups: UstrMap<PathKindGroup>,
-    /// Every key_line gets added to this set like `{path}:{key_line}` to
-    /// suppress redundant hits on the line (from fulltext matches).
-    pub path_line_suppressions: HashSet<String>,
+    /// The tokens (byte ranges, as `FlattenedLineSpan::hits`) of the semantic
+    /// results on each line, by `{path}:{line}`, which make fulltext matches
+    /// inside them redundant.  (A result without a token covers its line.)
+    pub path_line_tokens: HashMap<String, Vec<(u32, u32)>>,
+    /// The `{path}:{line}`s of fulltext hits, which are a line's hit at most.
+    pub text_lines: HashSet<String>,
+    /// The fulltext search's pattern, if there was one.
+    pub text_pattern: Option<TextPattern>,
     /// The limits the inputs hit (ex: livegrep's on matches).
     pub limits_hit: BTreeSet<String>,
 }
@@ -273,22 +280,15 @@ impl SearchResults {
                 line_spans: vec![],
             });
         for search_result in path_container.lines {
-            // Path-line suppressions exist to avoid redundant fulltext matches
-            // showing up, so we don't actually care if there already was
-            // another instance of this line already.
-            //
-            // At least, probably; obviously if it turns out we are ending up
-            // with a ton of semantic results on the same line, maybe we need to
-            // change the heuristic here to be a Map that suppresses redundant
-            // lines for the same symbol on the same line, having the map store
-            // the most recently used symbol.  (So we would have a limited
-            // memory instead of a growing set.)  Practically speaking, we'd
-            // expect this to really only happen in cases like implicit
-            // constructors or macros where a ton of actual under-the-hood code
-            // gets mapped down to a single token, but in that case we already
-            // should have merged all of those redundant same-symbols.
-            self.path_line_suppressions
-                .insert(format!("{}:{}", path_container.path, search_result.lineno));
+            // The tokens only make fulltext matches inside them redundant;
+            // semantic results don't suppress each other (results on the same
+            // line of the same kind and symbol are merged in `compile`).
+            let (start, end) = search_result.bounds;
+            let token = (start < end).then_some((start, end));
+            self.path_line_tokens
+                .entry(format!("{}:{}", path_container.path, search_result.lineno))
+                .or_default()
+                .push(token.unwrap_or((0, u32::MAX)));
             file_results.line_spans.push(FlattenedLineSpan {
                 key_line: search_result.lineno,
                 line_range: if search_result.peek_range.is_empty() {
@@ -302,6 +302,7 @@ impl SearchResults {
                 contents: search_result.line,
                 context: search_result.context,
                 contextsym: search_result.contextsym,
+                hits: token.into_iter().collect(),
             });
         }
     }
@@ -316,7 +317,17 @@ impl SearchResults {
         }
     }
 
-    pub fn ingest_fulltext_hits(&mut self, matches_by_file: Vec<TextMatchesByFile>) {
+    /// Fulltext hits (after the semantic results, whose tokens make matches
+    /// inside them redundant), with all of their lines' matches of `pattern`
+    /// (livegrep only gives the first).  A line whose matches are all inside
+    /// the line's semantic results' tokens isn't a hit; otherwise its hits are
+    /// the other matches (ex: for "Foo", the string in `Food("Foo")`, a use of
+    /// `Food`).
+    pub fn ingest_fulltext_hits(
+        &mut self,
+        matches_by_file: Vec<TextMatchesByFile>,
+        pattern: Option<&Regex>,
+    ) {
         let descriptor = QualKindDescriptor {
             kind: PresentationKind::TextualOccurrences,
             // The quality doesn't matter; there's only one class of text matches.
@@ -345,18 +356,57 @@ impl SearchResults {
                         line_spans: vec![],
                     });
             for text_match in file_match.matches {
-                if self
-                    .path_line_suppressions
-                    .insert(format!("{}:{}", path, text_match.line_num))
-                {
-                    file_results.line_spans.push(FlattenedLineSpan {
-                        key_line: text_match.line_num,
-                        line_range: (text_match.line_num, text_match.line_num),
-                        contents: text_match.line_str,
-                        context: ustr(""),
-                        contextsym: ustr(""),
-                    });
+                let path_line = format!("{}:{}", path, text_match.line_num);
+                if !self.text_lines.insert(path_line.clone()) {
+                    continue;
                 }
+                let line = &text_match.line_str;
+                let mut matches: Vec<(usize, usize)> = pattern
+                    .map(|re| {
+                        re.find_iter(line)
+                            .filter(|found| !found.is_empty())
+                            .map(|found| (found.start(), found.end()))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                if matches.is_empty() {
+                    let bounds = &text_match.bounds;
+                    matches.push((
+                        bounds.start.max(0) as usize,
+                        bounds.end_exclusive.max(0) as usize,
+                    ));
+                }
+                // (As the semantic results' tokens, without the indentation.)
+                let indent = line.len() - line.trim_start().len();
+                let tokens = self.path_line_tokens.get(&path_line);
+                let hits: Vec<(u32, u32)> = matches
+                    .into_iter()
+                    .map(|(start, end)| {
+                        (
+                            start.saturating_sub(indent) as u32,
+                            end.saturating_sub(indent) as u32,
+                        )
+                    })
+                    .filter(|&(start, end)| {
+                        start < end
+                            && !tokens.is_some_and(|tokens| {
+                                tokens.iter().any(|&(token_start, token_end)| {
+                                    token_start <= start && end <= token_end
+                                })
+                            })
+                    })
+                    .collect();
+                if tokens.is_some() && hits.is_empty() {
+                    continue;
+                }
+                file_results.line_spans.push(FlattenedLineSpan {
+                    key_line: text_match.line_num,
+                    line_range: (text_match.line_num, text_match.line_num),
+                    contents: line.trim().to_string(),
+                    context: ustr(""),
+                    contextsym: ustr(""),
+                    hits,
+                });
             }
             // The suppressions could mean we don't actually need this path hit,
             // in which case we need to remove the file results.
@@ -448,6 +498,9 @@ impl SearchResults {
                             earlier.line_range.0.min(later.line_range.0),
                             earlier.line_range.1.max(later.line_range.1),
                         );
+                        earlier.hits.append(&mut later.hits);
+                        earlier.hits.sort_unstable();
+                        earlier.hits.dedup();
                         true
                     });
                     // The path_hits within each file are not guaranteed to be
@@ -487,6 +540,7 @@ impl SearchResults {
             path_kind_results,
             content_type: "text/plain".to_string(),
             limits_hit: limits_hit.into_iter().collect(),
+            text_pattern: self.text_pattern,
         }
     }
 }
@@ -507,7 +561,9 @@ impl PipelineJunctionCommand for CompileResultsCommand {
 
         // We currently don't care about the name of the input because we only
         // match by type, but one could imagine a scenario in which they serve
-        // as labels we want to propagate.
+        // as labels we want to propagate.  Text matches go last, since the
+        // semantic results' tokens make matches inside them redundant.
+        let mut text_inputs = vec![];
         for (_, pipe_value) in input {
             match pipe_value {
                 PipelineValues::FileMatches(fm) => {
@@ -523,25 +579,31 @@ impl PipelineJunctionCommand for CompileResultsCommand {
                         results.ingest_symbol(info)?;
                     }
                 }
-                PipelineValues::TextMatches(tm) => {
-                    if tm.limit_hit {
-                        results
-                            .limits_hit
-                            .insert("fulltext search hit limit".to_string());
-                    }
-                    if tm.timed_out {
-                        results
-                            .limits_hit
-                            .insert("fulltext search timeout".to_string());
-                    }
-                    results.ingest_fulltext_hits(tm.by_file);
-                }
+                PipelineValues::TextMatches(tm) => text_inputs.push(tm),
                 _ => {
                     return Err(ServerError::StickyProblem(ErrorDetails {
                         layer: ErrorLayer::ConfigLayer,
                         message: "compile-results got something weird".to_string(),
                     }));
                 }
+            }
+        }
+
+        for tm in text_inputs {
+            if tm.limit_hit {
+                results
+                    .limits_hit
+                    .insert("fulltext search hit limit".to_string());
+            }
+            if tm.timed_out {
+                results
+                    .limits_hit
+                    .insert("fulltext search timeout".to_string());
+            }
+            let pattern = tm.pattern.as_ref().and_then(TextPattern::regex);
+            results.ingest_fulltext_hits(tm.by_file, pattern.as_ref());
+            if results.text_pattern.is_none() {
+                results.text_pattern = tm.pattern;
             }
         }
 
@@ -590,12 +652,15 @@ mod tests {
     #[test]
     fn test_compile_limits() {
         let mut results = SearchResults::default();
-        results.ingest_fulltext_hits(vec![
-            text_hits("tests/a.js", "test", 2),
-            text_hits("b.cpp", "normal", 5),
-            text_hits("__GENERATED__/g.h", "generated", 1),
-            text_hits("third_party/t.c", "third_party", 2),
-        ]);
+        results.ingest_fulltext_hits(
+            vec![
+                text_hits("tests/a.js", "test", 2),
+                text_hits("b.cpp", "normal", 5),
+                text_hits("__GENERATED__/g.h", "generated", 1),
+                text_hits("third_party/t.c", "third_party", 2),
+            ],
+            None,
+        );
         let order: Vec<Ustr> = ["normal", "third_party", "test", "generated"]
             .into_iter()
             .map(ustr)
@@ -619,10 +684,13 @@ mod tests {
 
         // Under the limits, everything is kept in that order.
         let mut results = SearchResults::default();
-        results.ingest_fulltext_hits(vec![
-            text_hits("tests/a.js", "test", 2),
-            text_hits("b.cpp", "normal", 1),
-        ]);
+        results.ingest_fulltext_hits(
+            vec![
+                text_hits("tests/a.js", "test", 2),
+                text_hits("b.cpp", "normal", 1),
+            ],
+            None,
+        );
         let bundle = results.compile(10, 10, &order);
         let kinds: Vec<&str> = bundle
             .path_kind_results
@@ -675,5 +743,97 @@ mod tests {
             .map(|span| (span.key_line, span.line_range))
             .collect();
         assert_eq!(spans, vec![(7, (6, 12)), (9, (9, 9))]);
+    }
+
+    #[test]
+    fn test_fulltext_hits_outside_tokens() {
+        let mut results = SearchResults::default();
+        // A use of `Food` on line 3 (its token is bytes 0-4 of the line
+        // without its indentation, as crossref has it), and the `Foo` method's
+        // definition on line 5.
+        let line = |lineno: u32, bounds: (u32, u32), text: &str| SearchResult {
+            lineno,
+            bounds,
+            line: text.to_string(),
+            context: ustr(""),
+            contextsym: ustr(""),
+            peek_range: LineRange {
+                start_lineno: 0,
+                end_lineno: 0,
+            },
+        };
+        for (sym, pretty, kind, lines) in [
+            (
+                "_Z4Food",
+                "Food",
+                PresentationKind::Uses,
+                vec![line(3, (0, 4), "Food(\"Foo\");")],
+            ),
+            (
+                "_Z3Foo",
+                "Foo",
+                PresentationKind::Definitions,
+                vec![line(5, (5, 8), "void Foo() {")],
+            ),
+        ] {
+            results.ingest_path_hits(
+                &ustr(sym),
+                QualKindDescriptor {
+                    kind,
+                    quality: SymbolQuality::ExplicitSymbol,
+                    pretty: ustr(pretty),
+                },
+                &ustr("Self"),
+                PathSearchResult {
+                    path: ustr("a.cpp"),
+                    path_kind: ustr("normal"),
+                    lines,
+                },
+            );
+        }
+        let text_match = |line_num: u32, line_str: &str| {
+            let start = line_str.to_lowercase().find("foo").unwrap() as i32;
+            TextMatchInFile {
+                line_num,
+                bounds: TextBounds {
+                    start,
+                    end_exclusive: start + 3,
+                },
+                line_str: line_str.to_string(),
+            }
+        };
+        let pattern = Regex::new("(?i)foo").unwrap();
+        results.ingest_fulltext_hits(
+            vec![TextMatchesByFile {
+                file: ustr("a.cpp"),
+                path_kind: ustr("normal"),
+                matches: vec![
+                    text_match(3, "  Food(\"Foo\");"),
+                    text_match(5, "void Foo() {"),
+                    text_match(7, "  // foo"),
+                ],
+            }],
+            Some(&pattern),
+        );
+        let bundle = results.compile(10, 10, &[ustr("normal")]);
+        let text = bundle.path_kind_results[0]
+            .kind_groups
+            .iter()
+            .find(|group| group.kind == PresentationKind::TextualOccurrences)
+            .unwrap();
+        let hits: Vec<_> = text.by_file[0]
+            .line_spans
+            .iter()
+            .map(|span| (span.key_line, span.contents.as_str(), span.hits.as_slice()))
+            .collect();
+        // Line 3's string is a hit (its `Foo` in `Food` isn't), line 5's only
+        // match is the definition's token, and line 7 has no semantic results.
+        assert_eq!(
+            hits,
+            vec![
+                (3, "Food(\"Foo\");", &[(6, 9)][..]),
+                (7, "// foo", &[(3, 6)][..])
+            ]
+        );
     }
 }

@@ -190,6 +190,31 @@ pub struct TextMatches {
     pub limit_hit: bool,
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub timed_out: bool,
+    /// The search's pattern (set by `search-text`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<TextPattern>,
+}
+
+/// A fulltext search's pattern: livegrep only gives each line's first match,
+/// so this finds the others (to tell whether semantic results cover them; see
+/// `cmd_compile_results`) and the matches in excerpts (see
+/// `cmd_pipeline::highlight`).
+#[derive(Clone, Serialize)]
+pub struct TextPattern {
+    /// An RE2 regexp, as livegrep takes, which the `regex` crate mostly agrees
+    /// with (and does for escaped text).
+    pub re: String,
+    pub case_sensitive: bool,
+}
+
+impl TextPattern {
+    /// The pattern as a `Regex`, if the `regex` crate takes it.
+    pub fn regex(&self) -> Option<regex::Regex> {
+        regex::RegexBuilder::new(&self.re)
+            .case_insensitive(!self.case_sensitive)
+            .build()
+            .ok()
+    }
 }
 
 #[derive(Serialize)]

@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(tm).unwrap()"
+input_file: inputs/search-text/global/searchfox_plain__json
 ---
 {
   "by_file": [
@@ -46,5 +47,9 @@ expression: "&to_value(tm).unwrap()"
         }
       ]
     }
-  ]
+  ],
+  "pattern": {
+    "re": "searchfox",
+    "case_sensitive": false
+  }
 }

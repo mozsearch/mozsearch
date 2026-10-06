@@ -571,6 +571,7 @@ impl AbstractServer for LocalIndex {
             by_file: by_file.into_values().collect(),
             limit_hit: exit_reason == search_stats::ExitReason::MatchLimit,
             timed_out: exit_reason == search_stats::ExitReason::Timeout,
+            pattern: None,
         })
     }
 

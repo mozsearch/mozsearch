@@ -2,6 +2,7 @@ extern crate clap;
 
 pub mod builder;
 pub mod facets;
+pub mod highlight;
 pub mod interface;
 pub mod parser;
 pub mod symbol_graph;

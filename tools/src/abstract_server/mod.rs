@@ -7,5 +7,5 @@ pub use remote_server::make_remote_server;
 pub use server_interface::{
     AbstractServer, CommitInfo, ErrorDetails, ErrorLayer, FileMatch, FileMatches, HtmlFileRoot,
     Result, SearchfoxIndexRoot, ServerError, TextBounds, TextMatchInFile, TextMatches,
-    TextMatchesByFile, TreeInfo,
+    TextMatchesByFile, TextPattern, TreeInfo,
 };

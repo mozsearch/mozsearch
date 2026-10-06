@@ -6,7 +6,9 @@ use super::{
     transforms::path_glob_transform,
 };
 
-use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
+use crate::abstract_server::{
+    AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError, TextPattern,
+};
 
 /// Perform a fulltext search against our livegrep/codesearch server over gRPC.
 /// This is local-only at this time.
@@ -68,7 +70,7 @@ impl PipelineCommand for SearchTextCommand {
             "".to_string()
         };
 
-        let matches = server
+        let mut matches = server
             .search_text(
                 &re_pattern,
                 !self.args.case_sensitive,
@@ -76,6 +78,10 @@ impl PipelineCommand for SearchTextCommand {
                 self.args.limit,
             )
             .await?;
+        matches.pattern = Some(TextPattern {
+            re: re_pattern,
+            case_sensitive: self.args.case_sensitive,
+        });
 
         Ok(PipelineValues::TextMatches(matches))
     }

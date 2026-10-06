@@ -13,7 +13,7 @@ use ustr::{Ustr, UstrMap, ustr};
 
 pub use crate::abstract_server::{AbstractServer, Result};
 use crate::{
-    abstract_server::{FileMatches, TextMatches},
+    abstract_server::{FileMatches, TextMatches, TextPattern},
     file_format::{
         crossref::CrossrefData,
         jumpref::{JumprefData, convert_crossref_value_to_sym_info_rep},
@@ -21,6 +21,7 @@ use crate::{
     url_encode_path::url_encode_path,
 };
 
+use super::highlight::highlight_row;
 use super::symbol_graph::{SymbolGraphCollection, SymbolGraphNodeSet};
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
@@ -577,6 +578,10 @@ pub struct FlattenedResultsBundle {
     /// may be more results (see `cmd_compile_results`).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub limits_hit: Vec<String>,
+    /// The fulltext search's pattern, if there was one, whose matches the
+    /// excerpts mark (see `ingest_html_lines`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_pattern: Option<TextPattern>,
 }
 
 impl FlattenedResultsBundle {
@@ -588,6 +593,9 @@ impl FlattenedResultsBundle {
         path_line_sets
     }
 
+    /// Make the line spans' contents the rows of their lines (and context),
+    /// with their hits and the fulltext search's other matches marked (see
+    /// `highlight`).
     pub fn ingest_html_lines(
         &mut self,
         path_line_contents: &UstrMap<HashMap<u32, String>>,
@@ -595,8 +603,9 @@ impl FlattenedResultsBundle {
         after: u32,
     ) {
         self.content_type = "text/html".to_string();
+        let pattern = self.text_pattern.as_ref().and_then(TextPattern::regex);
         for path_kind_group in &mut self.path_kind_results {
-            path_kind_group.ingest_html_lines(path_line_contents, before, after);
+            path_kind_group.ingest_html_lines(path_line_contents, before, after, pattern.as_ref());
         }
     }
 
@@ -684,9 +693,10 @@ impl FlattenedPathKindGroupResults {
         path_line_contents: &UstrMap<HashMap<u32, String>>,
         before: u32,
         after: u32,
+        pattern: Option<&regex::Regex>,
     ) {
         for kind_group in &mut self.kind_groups {
-            kind_group.ingest_html_lines(path_line_contents, before, after);
+            kind_group.ingest_html_lines(path_line_contents, before, after, pattern);
         }
     }
 }
@@ -768,9 +778,10 @@ impl FlattenedKindGroupResults {
         path_line_contents: &UstrMap<HashMap<u32, String>>,
         before: u32,
         after: u32,
+        pattern: Option<&regex::Regex>,
     ) {
         for by_file in &mut self.by_file {
-            by_file.ingest_html_lines(path_line_contents, before, after);
+            by_file.ingest_html_lines(path_line_contents, before, after, pattern);
         }
     }
 }
@@ -802,6 +813,7 @@ impl FlattenedResultsByFile {
         path_line_contents: &UstrMap<HashMap<u32, String>>,
         before: u32,
         after: u32,
+        pattern: Option<&regex::Regex>,
     ) {
         if let Some(file_contents) = path_line_contents.get(&self.file) {
             let mut highest_line: u32 = 0;
@@ -824,21 +836,25 @@ impl FlattenedResultsByFile {
                     }
                 }
 
+                let span = &mut self.line_spans[i_span];
                 let mut lines = vec![];
                 for line in this_start..=this_end {
                     if let Some(content) = file_contents.get(&line) {
-                        lines.push(content.as_str());
+                        lines.push(if line == span.key_line {
+                            highlight_row(content, &span.hits, &span.contents, pattern)
+                        } else {
+                            highlight_row(content, &[], "", pattern)
+                        });
                     }
                 }
                 if lines.is_empty() {
-                    self.line_spans[i_span].contents.clear();
+                    span.contents.clear();
                     continue;
                 }
                 // this_end was aspirational; we may have run out of lines,
                 // so use the length.
-                self.line_spans[i_span].line_range =
-                    (this_start, this_start + (lines.len() - 1) as u32);
-                self.line_spans[i_span].contents = lines.join("\n");
+                span.line_range = (this_start, this_start + (lines.len() - 1) as u32);
+                span.contents = lines.join("\n");
 
                 highest_line = this_end;
             }
@@ -869,6 +885,12 @@ pub struct FlattenedLineSpan {
     // of being `Option<String>` so we just maintain that for now.
     pub context: Ustr,
     pub contextsym: Ustr,
+    /// The hits' byte ranges in the key line without its leading whitespace
+    /// (like crossref's lines, and the "text/plain" contents): semantic
+    /// results' tokens, and the fulltext search's matches that no semantic
+    /// result on the line covers (see `cmd_compile_results`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub hits: Vec<(u32, u32)>,
 }
 
 impl FlattenedLineSpan {
@@ -1276,6 +1298,7 @@ mod tests {
             contents: [row(7, "// a"), row(8, "void f();"), row(9, "}")].join("\n"),
             context: ustr("Foo<T>"),
             contextsym: ustr("#f"),
+            hits: vec![],
         };
         span.inline_context("tests");
         // On the key line, before its newline, with an escaped context and
@@ -1293,6 +1316,7 @@ mod tests {
             contents: row(8, "text"),
             context: ustr(""),
             contextsym: ustr(""),
+            hits: vec![],
         };
         span.inline_context("tests");
         assert_eq!(span.contents, row(8, "text"));
@@ -1306,6 +1330,7 @@ mod tests {
             contents: String::new(),
             context: ustr("C"),
             contextsym: ustr("#C"),
+            hits: vec![],
         };
         let mut by_file = FlattenedResultsByFile {
             file: ustr("a.h"),
@@ -1323,7 +1348,7 @@ mod tests {
             by_file.file,
             (1..=10).map(|n| (n, format!("row {}", n))).collect(),
         );
-        by_file.ingest_html_lines(&path_line_contents, 0, 0);
+        by_file.ingest_html_lines(&path_line_contents, 0, 0, None);
         let spans: Vec<(u32, (u32, u32), &str)> = by_file
             .line_spans
             .iter()
