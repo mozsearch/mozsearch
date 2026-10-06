@@ -5,7 +5,7 @@
   and clears the span's context.  (Empty strings are truthy in liquid, so the
   checks are against `empty`; see docs/liquid-templating-cheatsheet.md.)
 {%- endcomment -%}
-<div class="file" role="table">
+<div class="file{% if line_span contains "repeated" %} query-repeated{% endif %}" role="table">
 {{ line_span.contents }}
 {%- if line_span.context != empty -%}
 {%- if line_span.contextsym != empty -%}

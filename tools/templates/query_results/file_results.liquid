@@ -1,5 +1,10 @@
 {%- assign facet_data = file_facets.files[file_results.file] -%}
-<details open{% if facet_data %} data-path="{{ file_results.file | escape }}" data-facets="{{ facet_data.facets | escape }}" data-groups="{{ facet_data.groups | escape }}"{% endif %}>
+{%- comment %} (A file of only repeated lines is hidden with them; see kind_group.liquid.) {% endcomment -%}
+{%- assign shown_spans = 0 -%}
+{%- for line_span in file_results.line_spans -%}
+    {%- unless line_span contains "repeated" -%}{%- assign shown_spans = shown_spans | plus: 1 -%}{%- endunless -%}
+{%- endfor -%}
+<details open{% if shown_spans == 0 %} class="query-repeated"{% endif %}{% if facet_data %} data-path="{{ file_results.file | escape }}" data-facets="{{ facet_data.facets | escape }}" data-groups="{{ facet_data.groups | escape }}"{% endif %}>
     <summary>{% include 'path.liquid' path: file_results.file %}</summary>
     {% for line_span in file_results.line_spans -%}
     {%- include 'query_results/line_span.liquid' line_span: line_span, forloop: forloop -%}

@@ -1,13 +1,19 @@
 {%- comment -%}
   The counts are /search/'s: the file name matches, and the kinds' lines and
-  files (a file counts once per kind it's in).
+  files (a file counts once per kind it's in), without the textual
+  occurrences on lines that other results already show (see
+  kind_group.liquid).
 {%- endcomment -%}
 {%- assign pk_lines = 0 -%}
 {%- assign pk_files = pk_group.file_names.size -%}
 {%- for kind_group in pk_group.kind_groups -%}
-    {%- assign pk_files = pk_files | plus: kind_group.by_file.size -%}
     {%- for file_results in kind_group.by_file -%}
-        {%- assign pk_lines = pk_lines | plus: file_results.line_spans.size -%}
+        {%- assign file_lines = 0 -%}
+        {%- for line_span in file_results.line_spans -%}
+            {%- unless line_span contains "repeated" %}{% assign file_lines = file_lines | plus: 1 %}{% endunless -%}
+        {%- endfor -%}
+        {%- if file_lines > 0 %}{% assign pk_files = pk_files | plus: 1 %}{% endif -%}
+        {%- assign pk_lines = pk_lines | plus: file_lines -%}
     {%- endfor -%}
 {%- endfor -%}
 <details open class="facet-group">

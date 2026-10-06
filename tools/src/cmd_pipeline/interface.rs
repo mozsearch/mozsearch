@@ -900,6 +900,11 @@ pub struct FlattenedLineSpan {
     /// result on the line covers (see `cmd_compile_results`).
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub hits: Vec<(u32, u32)>,
+    /// Whether this is a textual occurrence on a line that semantic results
+    /// already show (for its matches outside their tokens), which the page
+    /// only shows if asked to.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub repeated: bool,
 }
 
 impl FlattenedLineSpan {
@@ -1308,6 +1313,7 @@ mod tests {
             context: ustr("Foo<T>"),
             contextsym: ustr("#f"),
             hits: vec![],
+            repeated: false,
         };
         span.inline_context("tests");
         // On the key line, before its newline, with an escaped context and
@@ -1326,6 +1332,7 @@ mod tests {
             context: ustr(""),
             contextsym: ustr(""),
             hits: vec![],
+            repeated: false,
         };
         span.inline_context("tests");
         assert_eq!(span.contents, row(8, "text"));
@@ -1340,6 +1347,7 @@ mod tests {
             context: ustr("C"),
             contextsym: ustr("#C"),
             hits: vec![],
+            repeated: false,
         };
         let mut by_file = FlattenedResultsByFile {
             file: ustr("a.h"),

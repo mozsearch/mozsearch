@@ -309,6 +309,7 @@ impl SearchResults {
                 context: search_result.context,
                 contextsym: search_result.contextsym,
                 hits: token.into_iter().collect(),
+                repeated: false,
             });
         }
     }
@@ -412,6 +413,7 @@ impl SearchResults {
                     context: ustr(""),
                     contextsym: ustr(""),
                     hits,
+                    repeated: tokens.is_some(),
                 });
             }
             // The suppressions could mean we don't actually need this path hit,
@@ -830,15 +832,23 @@ mod tests {
         let hits: Vec<_> = text.by_file[0]
             .line_spans
             .iter()
-            .map(|span| (span.key_line, span.contents.as_str(), span.hits.as_slice()))
+            .map(|span| {
+                (
+                    span.key_line,
+                    span.contents.as_str(),
+                    span.hits.as_slice(),
+                    span.repeated,
+                )
+            })
             .collect();
-        // Line 3's string is a hit (its `Foo` in `Food` isn't), line 5's only
-        // match is the definition's token, and line 7 has no semantic results.
+        // Line 3's string is a hit (its `Foo` in `Food` isn't), on a line the
+        // use already shows, line 5's only match is the definition's token,
+        // and line 7 has no semantic results.
         assert_eq!(
             hits,
             vec![
-                (3, "Food(\"Foo\");", &[(6, 9)][..]),
-                (7, "// foo", &[(3, 6)][..])
+                (3, "Food(\"Foo\");", &[(6, 9)][..], true),
+                (7, "// foo", &[(3, 6)][..], false)
             ]
         );
     }

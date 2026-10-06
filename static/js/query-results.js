@@ -2,8 +2,8 @@
  * /query/'s results (see query_results/*.liquid) are nested <details>: path
  * kinds, kinds (ex: "Definitions (Foo)"), and files.  Clicking anywhere in a
  * summary would toggle it, so only its disclosure triangle, a file's type
- * icon, and the name of a path kind or kind (`.query-toggle`) do, and links in
- * summaries (ex: a file's path) just work as links.
+ * icon, and the name of a path kind or kind (`.query-toggle`) do, and links
+ * and labels in summaries (ex: a file's path) just work.
  */
 
 /**
@@ -33,8 +33,30 @@ document.addEventListener("click", event => {
     if (event.detail === 0 || clickedMarker(summary, event)) {
       return;
     }
-  } else if (event.target.closest(".query-toggle, .mimetype-bullet, a")) {
+  } else if (event.target.closest(".query-toggle, .mimetype-bullet, a, label")) {
     return;
   }
   event.preventDefault();
+});
+
+/**
+ * Textual occurrences on lines that other results already show (for their
+ * other matches) are hidden unless the checkboxes in the textual occurrences'
+ * headings say to include them, which we remember.
+ */
+const SHOW_REPEATED_KEY = "query-show-repeated";
+
+function showRepeated(show) {
+  document.querySelector(".query-result")?.classList.toggle("query-show-repeated", show);
+  for (const checkbox of document.querySelectorAll(".query-repeated-toggle input")) {
+    checkbox.checked = show;
+  }
+}
+
+showRepeated(localStorage.getItem(SHOW_REPEATED_KEY) == "1");
+document.addEventListener("change", event => {
+  if (event.target.matches?.(".query-repeated-toggle input")) {
+    localStorage.setItem(SHOW_REPEATED_KEY, event.target.checked ? "1" : "0");
+    showRepeated(event.target.checked);
+  }
 });

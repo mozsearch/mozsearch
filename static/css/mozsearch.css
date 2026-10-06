@@ -1720,6 +1720,17 @@ mark.query-match {
   text-decoration: underline dotted var(--query-match-underline) 2px;
   text-underline-offset: 3px;
 }
+/* `/query/`'s textual occurrences on lines that other results already show
+   (for their other matches) are hidden unless asked for (see
+   query-results.js). */
+.query-result:not(.query-show-repeated) .query-repeated {
+  display: none;
+}
+.query-repeated-toggle {
+  margin-left: 1em;
+  font-size: 0.9em;
+  cursor: pointer;
+}
 /* `/query/`'s file name matches look like its files' rows (`details >
    summary > h3`, nested in their kind's details), with an invisible marker
    in place of their disclosure triangle, since they have nothing to
