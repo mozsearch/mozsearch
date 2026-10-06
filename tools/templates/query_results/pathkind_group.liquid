@@ -32,10 +32,15 @@
     {% if pk_group.file_names != empty -%}
         <details open class="facet-group">
             <summary><h2><span class="query-toggle">Files</span>{% include 'query_results/counts.liquid' file_names: 0, lines: 0, files: pk_group.file_names.size %}</h2></summary>
+            {%- comment %} (With their files' history digests, if they have them; see `FileRecency`.) {% endcomment %}
+            {%- assign file_recency = "" -%}
+            {%- if results.FlattenedResultsBundle contains "file_recency" -%}
+            {%- assign file_recency = results.FlattenedResultsBundle.file_recency -%}
+            {%- endif %}
             <ul class="query-file-names">
             {%- for path in pk_group.file_names %}
                 {%- assign facet_data = file_facets.files[path] %}
-                <li{% if facet_data %} data-path="{{ path | escape }}" data-facets="{{ facet_data.facets | escape }}" data-groups="{{ facet_data.groups | escape }}"{% endif %}>{% include 'path.liquid' path: path %}</li>
+                <li{% if facet_data %} data-path="{{ path | escape }}" data-facets="{{ facet_data.facets | escape }}" data-groups="{{ facet_data.groups | escape }}"{% endif %}>{% include 'path.liquid' path: path %}{% if file_recency != empty and file_recency contains path %} {{ file_recency[path] | recency_blot }}{% endif %}</li>
             {%- endfor %}
             </ul>
         </details>

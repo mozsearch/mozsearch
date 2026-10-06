@@ -45,7 +45,7 @@ use tools::file_format::ontology_mapping::OntologyRunnableMode;
 use tools::file_format::ontology_mapping::{
     OntologyLabelOwningClass, OntologyMappingIngestion, OntologyPointerKind,
 };
-use tools::file_format::recency::Recency;
+use tools::file_format::recency::{FileRecency, Recency};
 use tools::file_format::repo_data_ingestion::RepoIngestion;
 use tools::hyperblame::recency::HistoryDigests;
 use tools::logging::LoggedSpan;
@@ -487,6 +487,8 @@ struct PerThreadAnalysisData {
     xref_link_override: XrefLinkOverride,
     xref_link_slots_items: XrefLinkSlotsItems,
     recency_items: RecencyItems,
+    /// The files' digests for what symbols' don't cover.
+    file_recency_items: Vec<(Ustr, FileRecency)>,
     /// How many files had history digests, and how many the history had but
     /// didn't line up with.
     recency_files: (usize, usize),
@@ -494,14 +496,15 @@ struct PerThreadAnalysisData {
 
 /// The history digests of the symbols defined (or declared) in a file: the
 /// changes of the history contexts their definitions are in, by location (see
-/// `hyperblame::recency`).  Returns whether the history lined up with the file,
-/// if it has the file.
+/// `hyperblame::recency`), and the file's for what theirs don't cover.  Returns
+/// whether the history lined up with the file, if it has the file.
 fn file_recency_items(
     history: &HistoryDigests,
     path: &Ustr,
     source_fname: &str,
     analysis: &[WithLocation<Vec<AnalysisTarget>>],
     items: &mut RecencyItems,
+    file_items: &mut Vec<(Ustr, FileRecency)>,
 ) -> Option<bool> {
     let source = fs::read_to_string(source_fname).ok()?;
     if !history.has_file(path) {
@@ -510,6 +513,10 @@ fn file_recency_items(
     let Some(digests) = history.file(path, &source) else {
         return Some(false);
     };
+    let file_recency = digests.file_recency();
+    if !file_recency.file.is_empty() {
+        file_items.push((*path, file_recency));
+    }
     let mut line_starts = vec![0];
     line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
     for datum in analysis {
@@ -555,6 +562,7 @@ fn read_analysis_files_thread(
     let mut xref_link_override = XrefLinkOverride::new();
     let mut xref_link_slots_items = XrefLinkSlotsItems::new();
     let mut recency_items = RecencyItems::new();
+    let mut file_recencies = vec![];
     let mut recency_files = (0, 0);
 
     for path in &analysis_relative_paths[start..end] {
@@ -645,7 +653,14 @@ fn read_analysis_files_thread(
         }
 
         if let Some(history) = history {
-            match file_recency_items(history, path, &source_fname, &analysis, &mut recency_items) {
+            match file_recency_items(
+                history,
+                path,
+                &source_fname,
+                &analysis,
+                &mut recency_items,
+                &mut file_recencies,
+            ) {
                 Some(true) => recency_files.0 += 1,
                 Some(false) => {
                     recency_files.1 += 1;
@@ -692,6 +707,7 @@ fn read_analysis_files_thread(
         xref_link_override,
         xref_link_slots_items,
         recency_items,
+        file_recency_items: file_recencies,
         recency_files,
     });
 }
@@ -703,6 +719,7 @@ struct AnalysisData {
     meta_table: MetaTable,
     callees_table: CalleesTable,
     recency_table: UstrMap<Recency>,
+    file_recency_table: BTreeMap<String, FileRecency>,
 }
 
 fn read_analysis_files(
@@ -773,6 +790,7 @@ fn read_analysis_files(
     let mut decl_recency: UstrMap<Recency> = UstrMap::default();
     let mut recency_seen: HashSet<(Ustr, bool, Ustr)> = HashSet::new();
     let mut recency_files = (0, 0);
+    let mut file_recency_table: BTreeMap<String, FileRecency> = BTreeMap::new();
 
     let mut xrefs = vec![];
 
@@ -788,8 +806,12 @@ fn read_analysis_files(
             xref_link_override,
             xref_link_slots_items,
             recency_items,
+            file_recency_items,
             recency_files: (digested, unaligned),
         } = out.take().unwrap();
+        for (path, file_recency) in file_recency_items {
+            file_recency_table.insert(path.to_string(), file_recency);
+        }
         recency_files.0 += digested;
         recency_files.1 += unaligned;
 
@@ -922,6 +944,53 @@ fn read_analysis_files(
         meta_table,
         callees_table,
         recency_table: def_recency,
+        file_recency_table,
+    }
+}
+
+/// The whole-file history digests of files without analysis (ex: docs), which
+/// is all their lines can have (see `FileRecency`), several files at a time.
+fn unanalyzed_file_recency(
+    history: &HistoryDigests,
+    paths: &[Ustr],
+    thread_count: usize,
+) -> Vec<(Ustr, FileRecency)> {
+    let chunk = paths.len().div_ceil(thread_count.max(1)).max(1);
+    std::thread::scope(|s| {
+        let threads: Vec<_> = paths
+            .chunks(chunk)
+            .map(|paths| {
+                s.spawn(move || {
+                    paths
+                        .iter()
+                        .filter_map(|path| Some((*path, history.unanalyzed_file(path)?)))
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        threads
+            .into_iter()
+            .flat_map(|thread| thread.join().unwrap())
+            .collect()
+    })
+}
+
+/// Write the files' history digests for what symbols' don't cover (see
+/// `FileRecency`) to `file-recency` (and `file-recency-extra`), keyed by path,
+/// like the crossref.
+fn write_file_recency(index_path: &str, table: BTreeMap<String, FileRecency>) {
+    let mut out = File::create(format!("{}/file-recency", index_path)).unwrap();
+    let mut ext_out = File::create(format!("{}/file-recency-extra", index_path)).unwrap();
+    let mut ext_offset = 0;
+    for (path, file_recency) in table {
+        write_inline_and_ext(
+            &mut out,
+            &mut ext_out,
+            &mut ext_offset,
+            &ustr(&path),
+            &file_recency,
+            true,
+        );
     }
 }
 
@@ -1861,6 +1930,7 @@ async fn main() {
         tree_name,
         if history.is_some() { "yes" } else { "no" }
     );
+    let analyzed: UstrSet = analysis_relative_paths.iter().copied().collect();
     let AnalysisData {
         search_result_table,
         pretty_table,
@@ -1868,6 +1938,7 @@ async fn main() {
         mut meta_table,
         callees_table,
         recency_table,
+        mut file_recency_table,
     } = read_analysis_files(
         analysis_relative_paths,
         tree_name,
@@ -1928,6 +1999,26 @@ async fn main() {
         recency_table,
         cli.thread_count,
     );
+
+    if let Some(history) = &history {
+        let unanalyzed: Vec<Ustr> = ingestion
+            .state
+            .concise_per_file
+            .iter()
+            .filter(|(path, info)| !info.is_dir && !analyzed.contains(*path))
+            .map(|(path, _)| *path)
+            .collect();
+        let unanalyzed_recency = unanalyzed_file_recency(history, &unanalyzed, cli.thread_count);
+        println!(
+            "History digests of files without analysis: {} of {}",
+            unanalyzed_recency.len(),
+            unanalyzed.len()
+        );
+        for (path, file_recency) in unanalyzed_recency {
+            file_recency_table.insert(path.to_string(), file_recency);
+        }
+        write_file_recency(&tree_config.paths.index_path, file_recency_table);
+    }
 
     println!(
         "Performing crossref::write-identifiers step for {} : {}",

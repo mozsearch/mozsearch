@@ -12,6 +12,7 @@ use crate::file_format::chunked_gzip::{Row, extract_rows};
 use crate::file_format::code_coverage_report;
 use crate::file_format::crossref::CrossrefData;
 use crate::file_format::jumpref::JumprefData;
+use crate::file_format::recency::FileRecency;
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::RevisionCoverage;
 use crate::hyperblame::journals::JournalKind;
@@ -414,6 +415,12 @@ pub trait AbstractServer {
     /// Retrieve the JSON contents of the jumpref database for the given
     /// symbol.
     async fn jumpref_lookup(&self, symbol: &str) -> Result<Option<JumprefData>>;
+
+    /// A file's history digests, if the tree has a history (see
+    /// `file_format::recency::FileRecency`).
+    async fn file_recency_lookup(&self, _path: &str) -> Result<Option<FileRecency>> {
+        Ok(None)
+    }
 
     /// Search the list of all files using a (potentially empty) regexp string
     /// and optionally enforcing a limit.  The underlying list of files should

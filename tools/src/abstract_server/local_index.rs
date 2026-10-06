@@ -31,6 +31,7 @@ use crate::file_format::history::timeline_common::JournalVersionRef;
 use crate::file_format::identifiers::IdentMap;
 use crate::file_format::jumpref::JumprefData;
 use crate::file_format::per_file_info::FileLookupMap;
+use crate::file_format::recency::FileRecency;
 use crate::file_format::repo_data_ingestion::RepoIngestionConfig;
 use crate::format::format_code;
 use crate::git_ops::{RevisionCoverage, coverage_history, coverage_summary, git_time_to_chrono};
@@ -154,6 +155,9 @@ pub struct LocalIndex {
     // But for crossref, it's on us.
     crossref_lookup_map: Option<BisectableMmap<CrossrefData>>,
     jumpref_lookup_map: Option<BisectableMmap<JumprefData>>,
+    /// The files' history digests, for trees with histories (see
+    /// `file_format::recency::FileRecency`).
+    file_recency_lookup_map: Option<BisectableMmap<FileRecency>>,
     file_lookup_map: FileLookupMap,
     /// The tree's path kinds' keys and names, in display order.
     path_kinds: Vec<(Ustr, Ustr)>,
@@ -436,6 +440,13 @@ impl AbstractServer for LocalIndex {
         result
     }
 
+    async fn file_recency_lookup(&self, path: &str) -> Result<Option<FileRecency>> {
+        match &self.file_recency_lookup_map {
+            Some(file_recency) => file_recency.lookup(path),
+            None => Ok(None),
+        }
+    }
+
     async fn jumpref_lookup(&self, symbol: &str) -> Result<Option<JumprefData>> {
         let now = Instant::now();
         let result = match &self.jumpref_lookup_map {
@@ -650,6 +661,17 @@ fn fab_server(
 
     let jumpref_lookup_map = BisectableMmap::new(&jumpref_path, &jumpref_extra_path);
 
+    // (Only trees with histories have these, and `BisectableMmap::new` expects
+    // them.)
+    let file_recency_path = format!("{}/file-recency", tree_config.paths.index_path);
+    let file_recency_extra_path = format!("{}/file-recency-extra", tree_config.paths.index_path);
+    let file_recency_lookup_map =
+        if Path::new(&file_recency_path).exists() && Path::new(&file_recency_extra_path).exists() {
+            BisectableMmap::new(&file_recency_path, &file_recency_extra_path)
+        } else {
+            None
+        };
+
     let file_lookup_path = format!(
         "{}/concise-per-file-info.json",
         tree_config.paths.index_path
@@ -685,6 +707,7 @@ fn fab_server(
         ident_map,
         crossref_lookup_map,
         jumpref_lookup_map,
+        file_recency_lookup_map,
         file_lookup_map,
         path_kinds,
         head_info,

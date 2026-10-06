@@ -206,6 +206,8 @@ and [filters](https://github.com/cobalt-org/liquid-rust/blob/master/crates/lib/s
   - json: Render the given value to JSON
   - last_changed: The "Last changed" facet value (ex: "month") of a history
     digest's array of bins (see `file_format::recency`).
+  - recency_blot: The blot (HTML) of a history digest's array of bins (see
+    `cmd_pipeline::recency_html`).
   - `strip_prefix_or_empty`: Takes an argument which is a prefix to attempt to
     remove.  If the string started with the prefix, the prefix-stripped string
     is returned.  If the string did not start with the prefix, an empty string

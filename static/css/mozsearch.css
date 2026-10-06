@@ -1756,6 +1756,11 @@ mark.query-match {
 .query-recency .recency-3 { background-color: var(--recency-3); }
 .query-recency .recency-4 { background-color: var(--recency-4); }
 .query-recency .recency-5 { background-color: var(--recency-5); }
+.query-file-names .query-recency {
+  justify-content: flex-start;
+  margin-left: 1em;
+  vertical-align: middle;
+}
 .recency-sparkline {
   vertical-align: middle;
 }

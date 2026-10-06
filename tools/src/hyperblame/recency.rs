@@ -25,7 +25,7 @@ use crate::file_format::history::syntax_files::{split_token_line, token_file_lin
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
 use crate::file_format::history::timeline_common::JournalVersionRef;
 use crate::file_format::history::timeline_files_delta::FileDeltaRecord;
-use crate::file_format::recency::Recency;
+use crate::file_format::recency::{FileRecency, Recency};
 use crate::hyperblame::journals::{JournalKind, JournalReader};
 
 /// The history contexts of a file's source, as the byte offsets where runs of
@@ -177,17 +177,36 @@ impl<'a> HistoryDigests<'a> {
             .filter(|row| row.kind == "namespace")
             .map(|row| row.pretty)
             .collect();
-        let records = JournalReader::new(self.timeline)
+        Some(FileDigests {
+            contexts,
+            namespaces,
+            changes: context_changes(&self.records(path)?, self.indexed),
+        })
+    }
+
+    /// The whole-file digest of a file without analysis (ex: docs), whose
+    /// lines can't have digests of their own (see `FileRecency`), if the
+    /// history has changes to it.
+    pub fn unanalyzed_file(&self, path: &str) -> Option<FileRecency> {
+        let mut file = Recency::default();
+        for changes in context_changes(&self.records(path)?, self.indexed).values() {
+            file.accumulate(changes);
+        }
+        (!file.is_empty()).then(|| FileRecency {
+            file,
+            scopes: BTreeMap::new(),
+        })
+    }
+
+    /// The records of a file's files-delta journal (none if it doesn't have
+    /// one).
+    fn records(&self, path: &str) -> Option<Vec<FileDeltaRecord>> {
+        JournalReader::new(self.timeline)
             .records::<FileDeltaRecord>(&JournalVersionRef {
                 timeline_rev: self.timeline_rev.to_string(),
                 path: JournalKind::FilesDelta.journal_path(path),
             })
-            .ok()?;
-        Some(FileDigests {
-            contexts,
-            namespaces,
-            changes: context_changes(&records, self.indexed),
-        })
+            .ok()
     }
 }
 
@@ -199,6 +218,18 @@ pub struct FileDigests {
 }
 
 impl FileDigests {
+    /// The file's digests for what symbols' don't cover (see `FileRecency`).
+    pub fn file_recency(&self) -> FileRecency {
+        let mut recency = FileRecency::default();
+        for (context, changes) in &self.changes {
+            recency.file.accumulate(changes);
+            if context == "%" || self.namespaces.contains(context) {
+                recency.scopes.insert(context.clone(), *changes);
+            }
+        }
+        recency
+    }
+
     /// The changes of the context at byte `offset` of the source, with those of
     /// the contexts nested in it, unless it's a namespace or the file's top
     /// level (which are too broad), or it had none.
@@ -293,5 +324,21 @@ mod tests {
             Recency([0, 7, 0, 0, 0, 0, 0, 0, 2, 0])
         );
         assert_eq!(nested_changes(&changes, "b"), Recency::default());
+
+        // The file's digests: all of it, and its top level's and namespaces'.
+        let digests = FileDigests {
+            contexts: FileContexts { runs: vec![] },
+            namespaces: ["a".to_string()].into_iter().collect(),
+            changes: [
+                ("%".to_string(), Recency([1, 0, 0, 0, 0, 0, 0, 0, 0, 0])),
+                ("a".to_string(), Recency([0, 2, 0, 0, 0, 0, 0, 0, 0, 0])),
+                ("a::f".to_string(), Recency([4, 0, 0, 0, 0, 0, 0, 0, 0, 0])),
+            ]
+            .into_iter()
+            .collect(),
+        };
+        let file = digests.file_recency();
+        assert_eq!(file.file, Recency([5, 2, 0, 0, 0, 0, 0, 0, 0, 0]));
+        assert_eq!(file.scopes.keys().collect::<Vec<_>>(), vec!["%", "a"]);
     }
 }

@@ -564,6 +564,7 @@ impl SearchResults {
             content_type: "text/plain".to_string(),
             limits_hit: limits_hit.into_iter().collect(),
             text_pattern: self.text_pattern,
+            file_recency: BTreeMap::new(),
         }
     }
 }

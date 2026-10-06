@@ -584,6 +584,10 @@ pub struct FlattenedResultsBundle {
     /// excerpts mark (see `ingest_html_lines`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text_pattern: Option<TextPattern>,
+    /// The history digests of the files of the file name matches (see
+    /// `file_format::recency::FileRecency`), by path.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub file_recency: BTreeMap<Ustr, Recency>,
 }
 
 impl FlattenedResultsBundle {

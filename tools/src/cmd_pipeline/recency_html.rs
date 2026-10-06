@@ -7,14 +7,21 @@ use std::fmt::Write;
 use crate::file_format::recency::{BINS, Recency};
 
 /// The cell of a row with the blot of a result's digest, if it's the result's
-/// key line: a square per bin of age (newest first), shaded by how much changed
-/// then.  Other rows have an empty cell, which keeps the rows' code aligned.
+/// key line (see `blot`).  Other rows have an empty cell, which keeps the rows'
+/// code aligned.
 pub fn blot_cell(recency: Option<&Recency>) -> String {
-    let Some(recency) = recency else {
-        return r#"<span role="cell" class="query-recency"></span>"#.to_string();
-    };
+    match recency {
+        Some(recency) => blot(recency, r#" role="cell""#),
+        None => r#"<span role="cell" class="query-recency"></span>"#.to_string(),
+    }
+}
+
+/// The blot of a digest: a square per bin of age (newest first), shaded by how
+/// much changed then, with the element's `attributes`.
+pub fn blot(recency: &Recency, attributes: &str) -> String {
     let mut html = format!(
-        r#"<span role="cell" class="query-recency" title="{}">"#,
+        r#"<span{} class="query-recency" title="{}">"#,
+        attributes,
         recency.describe()
     );
     for bin in 0..BINS {

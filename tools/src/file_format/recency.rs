@@ -3,6 +3,7 @@
 //! tree's history (see `hyperblame::recency`) and puts them in the symbols'
 //! crossref and jumpref data.
 
+use std::collections::BTreeMap;
 use std::ops::Range;
 
 use serde::{Deserialize, Serialize};
@@ -51,6 +52,40 @@ pub const LAST_CHANGED_UNKNOWN: (&str, &str, &str) =
 /// newest first.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Recency(pub [u32; BINS]);
+
+/// A file's history digests, for what symbols' don't cover: the whole file's
+/// (for file name matches), and those of the contexts that symbols don't have
+/// digests for (for lines in them): the top level ("%") and namespaces (which
+/// span files), by context, without the contexts nested in them.  Files
+/// without analysis only have the whole file's (which their lines get, since
+/// they don't have contexts).  crossref writes them to `file-recency`, keyed by
+/// path.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileRecency {
+    pub file: Recency,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub scopes: BTreeMap<String, Recency>,
+}
+
+impl FileRecency {
+    /// The digest of a line in the file without its own, in a scope (its
+    /// context's pretty name, or "%" for the top level): the scope's, by the
+    /// name or its longest suffix (ex: "tests" for a Rust module whose
+    /// context is "foo::tests", since modules' contexts are their own names),
+    /// or the whole file's if the file has no scopes (no analysis).
+    pub fn scope(&self, scope: &str) -> Option<Recency> {
+        if self.scopes.is_empty() {
+            return Some(self.file);
+        }
+        let mut name = scope;
+        loop {
+            if let Some(recency) = self.scopes.get(name) {
+                return Some(*recency);
+            }
+            name = name.split_once("::")?.1;
+        }
+    }
+}
 
 impl Recency {
     /// The bin of a change `days` days before the indexed revision.
@@ -166,5 +201,27 @@ mod tests {
             recency.describe(),
             "6 tokens changed 1-2 months ago, 2 2-3 months ago"
         );
+    }
+
+    #[test]
+    fn test_file_scopes() {
+        let digest = |tokens: u32| Recency([tokens, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        let file = FileRecency {
+            file: digest(10),
+            scopes: [
+                ("%".to_string(), digest(1)),
+                ("tests".to_string(), digest(2)),
+            ]
+            .into_iter()
+            .collect(),
+        };
+        assert_eq!(file.scope("%"), Some(digest(1)));
+        assert_eq!(file.scope("a::b::tests"), Some(digest(2)));
+        assert_eq!(file.scope("a::b"), None);
+        let unanalyzed = FileRecency {
+            file: digest(10),
+            scopes: BTreeMap::new(),
+        };
+        assert_eq!(unanalyzed.scope("%"), Some(digest(10)));
     }
 }

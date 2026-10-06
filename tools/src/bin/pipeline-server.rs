@@ -73,7 +73,7 @@ fn results_file_facets(
         pk_group
             .file_names
             .iter()
-            .map(|path| (path.as_str(), None))
+            .map(|path| (path.as_str(), results.file_recency.get(path)))
             .chain(pk_group.kind_groups.iter().flat_map(|kind_group| {
                 kind_group.by_file.iter().flat_map(|file| {
                     file.line_spans

@@ -8,6 +8,7 @@ use liquid_core::{Value, ValueView};
 use regex::Regex;
 use serde_json::to_string_pretty;
 
+use crate::cmd_pipeline::recency_html::blot;
 use crate::file_format::recency::{BINS, Recency};
 
 #[derive(Clone, ParseFilter, FilterReflection)]
@@ -66,15 +67,40 @@ struct LastChangedFilter;
 
 impl Filter for LastChangedFilter {
     fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
-        let mut recency = Recency::default();
-        if let Some(bins) = input.as_array() {
-            for (bin, tokens) in bins.values().take(BINS).enumerate() {
-                let tokens = tokens.as_scalar().and_then(|s| s.to_integer()).unwrap_or(0);
-                recency.add(bin, u32::try_from(tokens).unwrap_or(0));
-            }
-        }
-        Ok(Value::scalar(Recency::last_changed(Some(&recency))))
+        Ok(Value::scalar(Recency::last_changed(Some(&recency_of(
+            input,
+        )))))
     }
+}
+
+#[derive(Clone, ParseFilter, FilterReflection)]
+#[filter(
+    name = "recency_blot",
+    description = "The blot (HTML) of a history digest (see `cmd_pipeline::recency_html`).",
+    parsed(RecencyBlotFilter)
+)]
+pub struct RecencyBlotFilterParser;
+
+#[derive(Debug, Default, Display_filter)]
+#[name = "recency_blot"]
+struct RecencyBlotFilter;
+
+impl Filter for RecencyBlotFilter {
+    fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
+        Ok(Value::scalar(blot(&recency_of(input), "")))
+    }
+}
+
+/// A digest from its liquid value (its bins' array).
+fn recency_of(input: &dyn ValueView) -> Recency {
+    let mut recency = Recency::default();
+    if let Some(bins) = input.as_array() {
+        for (bin, tokens) in bins.values().take(BINS).enumerate() {
+            let tokens = tokens.as_scalar().and_then(|s| s.to_integer()).unwrap_or(0);
+            recency.add(bin, u32::try_from(tokens).unwrap_or(0));
+        }
+    }
+    recency
 }
 
 #[derive(Clone, ParseFilter, FilterReflection)]

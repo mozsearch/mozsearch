@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use async_trait::async_trait;
 use clap::Parser;
@@ -6,7 +6,7 @@ use ustr::{Ustr, UstrMap, ustr};
 
 use super::interface::{PipelineCommand, PipelineValues, PresentationKind};
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
-use crate::file_format::recency::Recency;
+use crate::file_format::recency::{FileRecency, Recency};
 
 /// Augment a FlattenedResultsBundle by scraping the rendered HTML output files
 /// for lines of interest plus any context, plus applying any predicates that
@@ -221,6 +221,55 @@ impl PipelineCommand for AugmentResultsCommand {
                 span.recency = recencies.get(&span.contextsym).copied().flatten();
             }
         }
+
+        // Results still without digests are at their files' top levels, or in
+        // namespaces (whose symbols span files), so they get those scopes'
+        // changes in their files, and file name matches get their files' (see
+        // `FileRecency`).
+        let mut file_recencies: UstrMap<FileRecency> = UstrMap::default();
+        let mut paths: BTreeSet<Ustr> = BTreeSet::new();
+        for path_kind_group in &results.path_kind_results {
+            paths.extend(path_kind_group.file_names.iter().copied());
+            for kind_group in &path_kind_group.kind_groups {
+                for file in &kind_group.by_file {
+                    if file.line_spans.iter().any(|span| span.recency.is_none()) {
+                        paths.insert(file.file);
+                    }
+                }
+            }
+        }
+        for path in paths {
+            if let Some(file_recency) = server.file_recency_lookup(&path).await? {
+                file_recencies.insert(path, file_recency);
+            }
+        }
+        let mut file_name_recency = BTreeMap::new();
+        for path_kind_group in &mut results.path_kind_results {
+            for path in &path_kind_group.file_names {
+                if let Some(file_recency) = file_recencies.get(path) {
+                    file_name_recency.insert(*path, file_recency.file);
+                }
+            }
+            for kind_group in &mut path_kind_group.kind_groups {
+                for file in &mut kind_group.by_file {
+                    let Some(file_recency) = file_recencies.get(&file.file) else {
+                        continue;
+                    };
+                    for span in &mut file.line_spans {
+                        if span.recency.is_some() {
+                            continue;
+                        }
+                        let scope = if span.contextsym.is_empty() {
+                            "%"
+                        } else {
+                            span.context.as_str()
+                        };
+                        span.recency = file_recency.scope(scope);
+                    }
+                }
+            }
+        }
+        results.file_recency = file_name_recency;
 
         // ## Ingest the new lines.
         results.ingest_html_lines(&path_line_contents, self.args.before, self.args.after);

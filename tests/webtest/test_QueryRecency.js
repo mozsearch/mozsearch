@@ -34,3 +34,33 @@ add_task(async function test_QueryRecency() {
   TestUtils.click(button);
   ok(lines.every(line => !line.hidden), "and unselecting it shows them all");
 });
+
+add_task(async function test_QueryTextRecency() {
+  // Textual occurrences are as recent as their contexts, and lines at their
+  // files' top levels (ex: `use`s) or in namespaces are as recent as those
+  // scopes in their files, as file name matches are as recent as their files.
+  await TestUtils.loadQuery("searchfox", "recency_html");
+
+  const doc = frame.contentDocument;
+  const group = name => [...doc.querySelectorAll(".query-result details.facet-group")]
+    .find(details => details.querySelector(":scope > summary .query-toggle")?.textContent == name);
+
+  const files = group("Files");
+  ok(files?.querySelector(".query-file-names li .query-recency[title]"),
+     "File name matches have their files' blots");
+
+  // (In files with and without analysis, ex: docs and CSS, whose lines have
+  // their files' blots.)
+  const text = group("Textual Occurrences");
+  ok(text, "There are textual occurrences");
+  const textLines = [...text.querySelectorAll(".file")];
+  ok(textLines.length > 0 && textLines.every(line => line.querySelector(".query-recency[title]")),
+     "which have blots");
+
+  // (Including a Rust module's, whose scope is the module's own name.)
+  const uses = [...doc.querySelectorAll(".query-result .file")]
+    .filter(line => /^\s*use\b/.test(line.querySelector("code")?.textContent || ""));
+  ok(uses.length > 0, "There are `use` lines");
+  ok(uses.every(line => line.querySelector(".query-recency[title]")),
+     "which have their scopes' blots");
+});
