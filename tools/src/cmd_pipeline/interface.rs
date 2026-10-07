@@ -685,7 +685,10 @@ impl FlattenedResultsBundle {
                 let at = row + ROW.len() + cell;
                 cells.push_str(&rest[..at]);
                 let key = line == Some(span.key_line);
-                cells.push_str(&blot_cell(span.recency.as_ref().filter(|_| key)));
+                cells.push_str(&blot_cell(
+                    span.recency.as_ref().filter(|_| key),
+                    span.recency_label.as_deref(),
+                ));
                 rest = &rest[at..];
             }
             cells.push_str(rest);
@@ -975,6 +978,10 @@ pub struct FlattenedLineSpan {
     /// and its context's, for uses and textual occurrences.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recency: Option<Recency>,
+    /// Whose history `recency` is (ex: "History of Foo::Bar\nfrom history
+    /// context Foo in foo.cpp"; see `RecencyFrom::describe`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recency_label: Option<String>,
     /// For HTML pages with the "Last changed" facet, the result's value (see
     /// `Recency::last_changed`), which query_results/line_span.liquid gives
     /// facets.js.
@@ -1390,6 +1397,7 @@ mod tests {
             hits: vec![],
             repeated: false,
             recency: None,
+            recency_label: None,
             last_changed: None,
         };
         span.inline_context("tests");
@@ -1411,6 +1419,7 @@ mod tests {
             hits: vec![],
             repeated: false,
             recency: None,
+            recency_label: None,
             last_changed: None,
         };
         span.inline_context("tests");
@@ -1428,6 +1437,7 @@ mod tests {
             hits: vec![],
             repeated: false,
             recency: None,
+            recency_label: None,
             last_changed: None,
         };
         let mut by_file = FlattenedResultsByFile {

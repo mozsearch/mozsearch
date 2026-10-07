@@ -198,10 +198,16 @@ impl SearchResults {
         // The symbol's digest is its definitions' (and the like), but its uses
         // and assignments get their contexts' (see `cmd_augment_results`).
         let recency = info.crossref_info.recency;
+        let pretty = info.get_pretty();
+        let recency_label = info
+            .crossref_info
+            .recency_from
+            .as_ref()
+            .map(|from| from.describe(&pretty));
         let mut ingest = |kind, path_containers| {
-            let own_recency = match kind {
-                PresentationKind::Uses | PresentationKind::Assignments => None,
-                _ => recency,
+            let (own_recency, own_label) = match kind {
+                PresentationKind::Uses | PresentationKind::Assignments => (None, None),
+                _ => (recency, recency_label.clone()),
             };
             let descriptor = QualKindDescriptor {
                 kind: kind,
@@ -217,6 +223,7 @@ impl SearchResults {
                         relation_facet,
                         path_container,
                         own_recency,
+                        own_label.clone(),
                     );
                 }
             }
@@ -251,7 +258,8 @@ impl SearchResults {
     }
 
     /// `recency` is the hits' digest, if they're the symbol's own (ex: its
-    /// definitions rather than its uses).
+    /// definitions rather than its uses), and `recency_label` whose history it
+    /// is.
     fn ingest_path_hits(
         &mut self,
         sym: &Ustr,
@@ -259,6 +267,7 @@ impl SearchResults {
         relation_facet: &Ustr,
         path_container: PathSearchResult,
         recency: Option<Recency>,
+        recency_label: Option<String>,
     ) {
         let path_kind_group = self
             .path_kind_groups
@@ -323,6 +332,7 @@ impl SearchResults {
                 hits: token.into_iter().collect(),
                 repeated: false,
                 recency,
+                recency_label: recency.and(recency_label.clone()),
                 last_changed: None,
             });
         }
@@ -429,6 +439,7 @@ impl SearchResults {
                     hits,
                     repeated: tokens.is_some(),
                     recency: None,
+                    recency_label: None,
                     last_changed: None,
                 });
             }
@@ -762,6 +773,7 @@ mod tests {
                 ],
             },
             None,
+            None,
         );
         let bundle = results.compile(10, 10, &[ustr("normal")]);
         let spans: Vec<(u32, (u32, u32))> = bundle.path_kind_results[0].kind_groups[0].by_file[0]
@@ -816,6 +828,7 @@ mod tests {
                     path_kind: ustr("normal"),
                     lines,
                 },
+                None,
                 None,
             );
         }

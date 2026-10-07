@@ -204,21 +204,26 @@ impl PipelineCommand for AugmentResultsCommand {
         // Results that aren't their symbols' own (uses, and textual
         // occurrences, which now have contexts) are as recent as their
         // contexts (see `file_format::recency`).
-        let mut recencies: HashMap<Ustr, Option<Recency>> = HashMap::new();
+        // (With whose history it is; see `RecencyFrom`.)
+        let mut recencies: HashMap<Ustr, Option<(Recency, String)>> = HashMap::new();
         for span in results.line_spans() {
             if span.recency.is_none() && !span.contextsym.is_empty() {
                 recencies.entry(span.contextsym).or_default();
             }
         }
         for (sym, recency) in recencies.iter_mut() {
-            *recency = server
-                .jumpref_lookup(sym)
-                .await?
-                .and_then(|jumpref| jumpref.recency);
+            *recency = server.jumpref_lookup(sym).await?.and_then(|jumpref| {
+                let label = jumpref.recency_from.as_ref()?.describe(&jumpref.pretty);
+                Some((jumpref.recency?, label))
+            });
         }
         for span in results.line_spans_mut() {
-            if span.recency.is_none() {
-                span.recency = recencies.get(&span.contextsym).copied().flatten();
+            if span.recency.is_some() {
+                continue;
+            }
+            if let Some(Some((recency, label))) = recencies.get(&span.contextsym) {
+                span.recency = Some(*recency);
+                span.recency_label = Some(label.clone());
             }
         }
 
@@ -264,7 +269,16 @@ impl PipelineCommand for AugmentResultsCommand {
                         } else {
                             span.context.as_str()
                         };
-                        span.recency = file_recency.scope(scope);
+                        if let Some((recency, scope)) = file_recency.scope(scope) {
+                            span.recency = Some(recency);
+                            span.recency_label = Some(match scope {
+                                Some("%") => format!("History of the top level of {}", file.file),
+                                Some(scope) => {
+                                    format!("History of {}'s own code in {}", scope, file.file)
+                                }
+                                None => format!("History of {}", file.file),
+                            });
+                        }
                     }
                 }
             }

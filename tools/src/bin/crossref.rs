@@ -45,7 +45,7 @@ use tools::file_format::ontology_mapping::OntologyRunnableMode;
 use tools::file_format::ontology_mapping::{
     OntologyLabelOwningClass, OntologyMappingIngestion, OntologyPointerKind,
 };
-use tools::file_format::recency::{FileRecency, Recency};
+use tools::file_format::recency::{FileRecency, Recency, RecencyFrom};
 use tools::file_format::repo_data_ingestion::RepoIngestion;
 use tools::hyperblame::recency::HistoryDigests;
 use tools::logging::LoggedSpan;
@@ -473,8 +473,8 @@ fn load_ontology(cfg: &Config) -> OntologyMappingIngestion {
 }
 
 /// (sym, whether it's a definition rather than a declaration, path, its
-/// history digest there)
-type RecencyItems = Vec<(Ustr, bool, Ustr, Recency)>;
+/// history digest there, and the history context it's from)
+type RecencyItems = Vec<(Ustr, bool, Ustr, Recency, String)>;
 
 struct PerThreadAnalysisData {
     search_result_items: SearchResultItems,
@@ -533,8 +533,8 @@ fn file_recency_items(
                 AnalysisKind::Decl => false,
                 _ => continue,
             };
-            if let Some(recency) = digests.recency_at(&source, offset) {
-                items.push((piece.sym, is_def, *path, recency));
+            if let Some((recency, context)) = digests.recency_at(&source, offset) {
+                items.push((piece.sym, is_def, *path, recency, context.to_string()));
             }
         }
     }
@@ -718,7 +718,7 @@ struct AnalysisData {
     id_table: IdTable,
     meta_table: MetaTable,
     callees_table: CalleesTable,
-    recency_table: UstrMap<Recency>,
+    recency_table: UstrMap<(Recency, RecencyFrom)>,
     file_recency_table: BTreeMap<String, FileRecency>,
 }
 
@@ -786,8 +786,8 @@ fn read_analysis_files(
     let mut callees_table = CalleesTable::new();
     // A symbol's digest is the sum of its definitions' (in their files), or
     // of its declarations' if it has none.
-    let mut def_recency: UstrMap<Recency> = UstrMap::default();
-    let mut decl_recency: UstrMap<Recency> = UstrMap::default();
+    let mut def_recency: UstrMap<(Recency, RecencyFrom)> = UstrMap::default();
+    let mut decl_recency: UstrMap<(Recency, RecencyFrom)> = UstrMap::default();
     let mut recency_seen: HashSet<(Ustr, bool, Ustr)> = HashSet::new();
     let mut recency_files = (0, 0);
     let mut file_recency_table: BTreeMap<String, FileRecency> = BTreeMap::new();
@@ -815,14 +815,26 @@ fn read_analysis_files(
         recency_files.0 += digested;
         recency_files.1 += unaligned;
 
-        for (sym, is_def, path, recency) in recency_items {
+        for (sym, is_def, path, recency, context) in recency_items {
             if recency_seen.insert((sym, is_def, path)) {
                 let table = if is_def {
                     &mut def_recency
                 } else {
                     &mut decl_recency
                 };
-                table.entry(sym).or_default().accumulate(&recency);
+                // (Where it's from is the first definition, with a count.)
+                let (total, from) = table.entry(sym).or_insert_with(|| {
+                    (
+                        Recency::default(),
+                        RecencyFrom {
+                            path: path.to_string(),
+                            context,
+                            sites: 0,
+                        },
+                    )
+                });
+                total.accumulate(&recency);
+                from.sites += 1;
             }
         }
 
@@ -1466,7 +1478,7 @@ fn write_crossref_and_jumpref_thread(
     field_member_use_table: &FieldMemberUseTable,
     js_idl_table: &JSIDLTable,
     js_ts_table: &JsTsTable,
-    recency_table: &UstrMap<Recency>,
+    recency_table: &UstrMap<(Recency, RecencyFrom)>,
     is_first_chunk: bool,
     xref_ext_size: &mut Option<usize>,
     jumpref_ext_size: &mut Option<usize>,
@@ -1580,7 +1592,10 @@ fn write_crossref_and_jumpref_thread(
             crossref_data.ts_syms = ts_syms.clone();
         }
 
-        crossref_data.recency = recency_table.get(id).copied();
+        if let Some((recency, from)) = recency_table.get(id) {
+            crossref_data.recency = Some(*recency);
+            crossref_data.recency_from = Some(from.clone());
+        }
 
         write_inline_and_ext(
             &mut xref_out,
@@ -1618,7 +1633,7 @@ fn write_crossref_and_jumpref(
     field_member_use_table: FieldMemberUseTable,
     js_idl_table: JSIDLTable,
     js_ts_table: JsTsTable,
-    recency_table: UstrMap<Recency>,
+    recency_table: UstrMap<(Recency, RecencyFrom)>,
     thread_count: usize,
 ) {
     let search_result_list: SearchResultList = search_result_table.into_iter().collect();

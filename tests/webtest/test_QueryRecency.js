@@ -14,7 +14,10 @@ add_task(async function test_QueryRecency() {
   ok(blots.every(blot => blot.querySelectorAll("i").length > 0 &&
                          [...blot.querySelectorAll("i")].every(i => /^b\d r[1-5]$/.test(i.className))),
      "with squares for the bins of age with changes");
-  ok(blots.every(blot => /tokens? changed/.test(blot.title)), "which say what changed");
+  ok(blots.every(blot => /^History of .*\nTokens changed: /s.test(blot.title)),
+     "which say whose history it is and what changed");
+  ok(blots.some(blot => /^History of .*blot_cell\nfrom history context .*blot_cell in tools\/src\/cmd_pipeline\/recency_html.rs\n/.test(blot.title)),
+     "including the definition's, from its context");
   const rows = [...doc.querySelectorAll(".query-result div[role=row]")];
   ok(rows.every(row => row.querySelector(":scope > .query-recency")),
      "Every row has the blots' cell, to keep the code aligned");
@@ -47,7 +50,8 @@ add_task(async function test_QueryTextRecency() {
     .find(details => details.querySelector(":scope > summary .query-toggle")?.textContent == name);
 
   const files = group("Files");
-  ok(files?.querySelector(".query-file-names li .query-recency[title]"),
+  ok(/^History of tools\/src\/cmd_pipeline\/recency_html.rs\n/.test(
+       files?.querySelector(".query-file-names li .query-recency[title]")?.title),
      "File name matches have their files' blots");
 
   // (In files with and without analysis, ex: docs and CSS, whose lines have

@@ -9,22 +9,32 @@ use crate::file_format::recency::{BINS, Recency};
 /// The cell of a row with the blot of a result's digest, if it's the result's
 /// key line (see `blot`).  Other rows have an empty cell, which keeps the rows'
 /// code aligned.
-pub fn blot_cell(recency: Option<&Recency>) -> String {
+pub fn blot_cell(recency: Option<&Recency>, label: Option<&str>) -> String {
     match recency {
-        Some(recency) => blot(recency, r#" role="cell""#),
+        Some(recency) => blot(recency, label, r#" role="cell""#),
         None => r#"<span role="cell" class="query-recency"></span>"#.to_string(),
     }
 }
 
 /// The blot of a digest: a square per bin of age (newest first), shaded by how
-/// much changed then, with the element's `attributes`.  The empty squares are
-/// the element's background, so only the others are elements (`<i>`s whose
-/// classes say their bins and shades), since pages have thousands of blots.
-pub fn blot(recency: &Recency, attributes: &str) -> String {
+/// much changed then, with the element's `attributes`, and a title saying whose
+/// history it is (`label`, ex: "History of Foo::Bar\nfrom history context Foo
+/// in foo.cpp") and what changed.  The empty squares are the element's
+/// background, so only the others are elements (`<i>`s whose classes say
+/// their bins and shades), since pages have thousands of blots.
+pub fn blot(recency: &Recency, label: Option<&str>, attributes: &str) -> String {
+    let title = match label {
+        Some(label) => format!("{}\n{}", label, recency.describe()),
+        None => recency.describe(),
+    };
     let mut html = format!(
         r#"<span{} class="query-recency" title="{}">"#,
         attributes,
-        recency.describe()
+        title
+            .replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('"', "&quot;")
+            .replace('\n', "&#10;")
     );
     for bin in 0..BINS {
         let level = recency.level(bin);
@@ -73,13 +83,16 @@ mod tests {
     #[test]
     fn test_blot_cell() {
         let recency = Recency([150, 0, 0, 0, 0, 3, 0, 0, 0, 0]);
-        let cell = blot_cell(Some(&recency));
-        assert_eq!(
-            cell,
-            r#"<span role="cell" class="query-recency" title="150 tokens changed under 1 week ago, 3 3-6 months ago"><i class="b0 r3"></i><i class="b5 r1"></i></span>"#
+        let cell = blot_cell(
+            Some(&recency),
+            Some("History of Foo<T>::Bar\nfrom history context ns in a.cpp"),
         );
         assert_eq!(
-            blot_cell(None),
+            cell,
+            r#"<span role="cell" class="query-recency" title="History of Foo&lt;T>::Bar&#10;from history context ns in a.cpp&#10;Tokens changed: 150 under 1 week ago, 3 3-6 months ago"><i class="b0 r3"></i><i class="b5 r1"></i></span>"#
+        );
+        assert_eq!(
+            blot_cell(None, None),
             r#"<span role="cell" class="query-recency"></span>"#
         );
     }

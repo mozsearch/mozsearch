@@ -40,7 +40,7 @@
             <ul class="query-file-names">
             {%- for path in pk_group.file_names %}
                 {%- assign facet_data = file_facets.files[path] %}
-                <li{% if facet_data %} data-path="{{ path | escape }}" data-facets="{{ facet_data.facets | escape }}" data-groups="{{ facet_data.groups | escape }}"{% endif %}>{% include 'path.liquid' path: path %}{% if file_recency != empty and file_recency contains path %} {{ file_recency[path] | recency_blot }}{% endif %}</li>
+                <li{% if facet_data %} data-path="{{ path | escape }}" data-facets="{{ facet_data.facets | escape }}" data-groups="{{ facet_data.groups | escape }}"{% endif %}>{% include 'path.liquid' path: path %}{% if file_recency != empty and file_recency contains path %} {{ file_recency[path] | recency_blot: path }}{% endif %}</li>
             {%- endfor %}
             </ul>
         </details>

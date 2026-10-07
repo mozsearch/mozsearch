@@ -178,6 +178,7 @@ async fn results_sym_info(
             // (The history digests are in the results already.)
             if let Some(jumpref) = jumpref.as_object_mut() {
                 jumpref.remove("recency");
+                jumpref.remove("recency_from");
             }
             if let Some(meta) = jumpref.get_mut("meta").and_then(Value::as_object_mut) {
                 for key in UNUSED_META {

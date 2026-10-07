@@ -4,7 +4,7 @@ use ustr::Ustr;
 use super::{
     analysis::{AnalysisStructured, PathSearchResult},
     ontology_mapping::OntologyPointerKind,
-    recency::Recency,
+    recency::{Recency, RecencyFrom},
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -65,6 +65,9 @@ pub struct CrossrefData {
     /// a history (see `hyperblame::recency`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recency: Option<Recency>,
+    /// Where `recency` is from (see `RecencyFrom`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recency_from: Option<RecencyFrom>,
     /// Candidate scip-typescript symbols if this is a js-analyze symbol
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ts_syms: Vec<Ustr>,

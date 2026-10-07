@@ -237,8 +237,9 @@ impl FileDigests {
     /// The changes of the context of the definition at byte `offset` of
     /// `source`, with those of the contexts nested in it, or only its own
     /// changes if it's a namespace or the file's top level (which would be too
-    /// broad), and none for a namespace's own declaration, or if it had none.
-    pub fn recency_at(&self, source: &str, offset: u32) -> Option<Recency> {
+    /// broad), and none for a namespace's own declaration, or if it had none,
+    /// with the context.
+    pub fn recency_at(&self, source: &str, offset: u32) -> Option<(Recency, &str)> {
         let context = self.contexts.context_at(offset)?;
         let recency = if context == "%" || self.namespaces.contains(context) {
             let name = context.rsplit("::").next().unwrap_or(context);
@@ -249,7 +250,7 @@ impl FileDigests {
         } else {
             nested_changes(&self.changes, context)
         };
-        (!recency.is_empty()).then_some(recency)
+        (!recency.is_empty()).then_some((recency, context))
     }
 }
 
@@ -363,10 +364,21 @@ mod tests {
             .unwrap(),
             ..digests
         };
-        let at = |needle: &str| digests.recency_at(source, source.find(needle).unwrap() as u32);
+        let at = |needle: &str| {
+            digests
+                .recency_at(source, source.find(needle).unwrap() as u32)
+                .map(|(recency, _)| recency)
+        };
         assert_eq!(at("x;"), Some(Recency([1, 0, 0, 0, 0, 0, 0, 0, 0, 0])));
         assert_eq!(at("y()"), Some(Recency([0, 2, 0, 0, 0, 0, 0, 0, 0, 0])));
         assert_eq!(at("f()"), Some(Recency([4, 0, 0, 0, 0, 0, 0, 0, 0, 0])));
         assert_eq!(at("a {"), None);
+        assert_eq!(
+            digests
+                .recency_at(source, source.find("y()").unwrap() as u32)
+                .unwrap()
+                .1,
+            "a"
+        );
     }
 }

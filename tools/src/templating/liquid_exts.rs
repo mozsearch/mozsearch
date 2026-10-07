@@ -53,21 +53,36 @@ impl Filter for FileExtFilter {
     }
 }
 
+#[derive(Debug, FilterParameters)]
+struct RecencyBlotArgs {
+    #[parameter(
+        description = "Whose history the digest is (ex: a path).",
+        arg_type = "str"
+    )]
+    of: Expression,
+}
+
 #[derive(Clone, ParseFilter, FilterReflection)]
 #[filter(
     name = "recency_blot",
     description = "The blot (HTML) of a history digest (see `cmd_pipeline::recency_html`).",
+    parameters(RecencyBlotArgs),
     parsed(RecencyBlotFilter)
 )]
 pub struct RecencyBlotFilterParser;
 
-#[derive(Debug, Default, Display_filter)]
+#[derive(Debug, FromFilterParameters, Display_filter)]
 #[name = "recency_blot"]
-struct RecencyBlotFilter;
+struct RecencyBlotFilter {
+    #[parameters]
+    args: RecencyBlotArgs,
+}
 
 impl Filter for RecencyBlotFilter {
-    fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
-        Ok(Value::scalar(blot(&recency_of(input), "")))
+    fn evaluate(&self, input: &dyn ValueView, runtime: &dyn Runtime) -> Result<Value> {
+        let args = self.args.evaluate(runtime)?;
+        let label = format!("History of {}", args.of);
+        Ok(Value::scalar(blot(&recency_of(input), Some(&label), "")))
     }
 }
 

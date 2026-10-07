@@ -53,6 +53,44 @@ pub const LAST_CHANGED_UNKNOWN: (&str, &str, &str) =
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Recency(pub [u32; BINS]);
 
+/// Where a symbol's digest is from (see `hyperblame::recency`): the history
+/// context of its (first) definition, or declaration, and its file, and how
+/// many definitions (or declarations) it sums.  Which says when the history has
+/// no context of the symbol's own (ex: a method declared in a class, or whose
+/// definition the tokenizer didn't make a context of), so the digest is its
+/// class's or namespace's.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecencyFrom {
+    pub path: String,
+    pub context: String,
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub sites: u32,
+}
+
+fn one() -> u32 {
+    1
+}
+
+fn is_one(n: &u32) -> bool {
+    *n == 1
+}
+
+impl RecencyFrom {
+    /// A description of whose history a digest is, for the symbol `pretty`
+    /// (ex: "History of Foo::Bar, from history context ns in a.cpp").
+    pub fn describe(&self, pretty: &str) -> String {
+        let others = match self.sites {
+            0 | 1 => String::new(),
+            2 => " (and 1 more)".to_string(),
+            n => format!(" (and {} more)", n - 1),
+        };
+        format!(
+            "History of {}\nfrom history context {} in {}{}",
+            pretty, self.context, self.path, others
+        )
+    }
+}
+
 /// A file's history digests, for what symbols' don't cover: the whole file's
 /// (for file name matches), and those of the contexts that symbols don't have
 /// digests for (for lines in them): the top level ("%") and namespaces (which
@@ -72,15 +110,16 @@ impl FileRecency {
     /// context's pretty name, or "%" for the top level): the scope's, by the
     /// name or its longest suffix (ex: "tests" for a Rust module whose
     /// context is "foo::tests", since modules' contexts are their own names),
-    /// or the whole file's if the file has no scopes (no analysis).
-    pub fn scope(&self, scope: &str) -> Option<Recency> {
+    /// or the whole file's if the file has no scopes (no analysis), with the
+    /// scope's name if it's a scope's.
+    pub fn scope(&self, scope: &str) -> Option<(Recency, Option<&str>)> {
         if self.scopes.is_empty() {
-            return Some(self.file);
+            return Some((self.file, None));
         }
         let mut name = scope;
         loop {
-            if let Some(recency) = self.scopes.get(name) {
-                return Some(*recency);
+            if let Some((key, recency)) = self.scopes.get_key_value(name) {
+                return Some((*recency, Some(key.as_str())));
             }
             name = name.split_once("::")?.1;
         }
@@ -141,7 +180,7 @@ impl Recency {
         }
     }
 
-    /// A description of the changes, ex: "150 tokens changed under 1 week
+    /// A description of the changes, ex: "Tokens changed: 150 under 1 week
     /// ago, 20 3-6 months ago".
     pub fn describe(&self) -> String {
         let changes: Vec<String> = self
@@ -149,21 +188,12 @@ impl Recency {
             .iter()
             .zip(BIN_LABELS)
             .filter(|(tokens, _)| **tokens > 0)
-            .enumerate()
-            .map(|(i, (tokens, label))| match i {
-                0 => format!(
-                    "{} token{} changed {} ago",
-                    tokens,
-                    if *tokens == 1 { "" } else { "s" },
-                    label
-                ),
-                _ => format!("{} {} ago", tokens, label),
-            })
+            .map(|(tokens, label)| format!("{} {} ago", tokens, label))
             .collect();
         if changes.is_empty() {
             "No changes".to_string()
         } else {
-            changes.join(", ")
+            format!("Tokens changed: {}", changes.join(", "))
         }
     }
 }
@@ -199,7 +229,20 @@ mod tests {
         assert_eq!(recency.level(0), 0);
         assert_eq!(
             recency.describe(),
-            "6 tokens changed 1-2 months ago, 2 2-3 months ago"
+            "Tokens changed: 6 1-2 months ago, 2 2-3 months ago"
+        );
+        let from = RecencyFrom {
+            path: "a.cpp".to_string(),
+            context: "ns".to_string(),
+            sites: 3,
+        };
+        assert_eq!(
+            from.describe("ns::Foo::Bar"),
+            "History of ns::Foo::Bar\nfrom history context ns in a.cpp (and 2 more)"
+        );
+        assert_eq!(
+            serde_json::to_string(&RecencyFrom { sites: 1, ..from }).unwrap(),
+            r#"{"path":"a.cpp","context":"ns"}"#
         );
     }
 
@@ -215,13 +258,13 @@ mod tests {
             .into_iter()
             .collect(),
         };
-        assert_eq!(file.scope("%"), Some(digest(1)));
-        assert_eq!(file.scope("a::b::tests"), Some(digest(2)));
+        assert_eq!(file.scope("%"), Some((digest(1), Some("%"))));
+        assert_eq!(file.scope("a::b::tests"), Some((digest(2), Some("tests"))));
         assert_eq!(file.scope("a::b"), None);
         let unanalyzed = FileRecency {
             file: digest(10),
             scopes: BTreeMap::new(),
         };
-        assert_eq!(unanalyzed.scope("%"), Some(digest(10)));
+        assert_eq!(unanalyzed.scope("%"), Some((digest(10), None)));
     }
 }
