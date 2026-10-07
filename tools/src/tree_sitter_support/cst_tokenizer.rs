@@ -67,6 +67,8 @@ enum Grammar {
     Rust,
     Webidl,
     Ipdl,
+    Java,
+    Kotlin,
     /// See `config_tokenizer.rs`.
     Ini,
     /// See `config_tokenizer.rs`.
@@ -128,6 +130,19 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
         namespace: "ipdl",
         grammar: Grammar::Ipdl,
     },
+    // Java and Kotlin share a namespace because they share symbols (the JVM's
+    // fully qualified names), so that symbols' histories continue across
+    // conversions from Java to Kotlin, as moved comments and strings do.
+    LanguageProfile {
+        lang: "java",
+        namespace: "jvm",
+        grammar: Grammar::Java,
+    },
+    LanguageProfile {
+        lang: "kotlin",
+        namespace: "jvm",
+        grammar: Grammar::Kotlin,
+    },
     // INI and TOML share a namespace because they are tokenized equivalently so
     // that history can follow Firefox's conversion of manifests from .ini to
     // .toml.
@@ -178,7 +193,8 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   are words, its item macros' items are tokenized as items (see
 ///   `rust_item_macro_body`), and its functions without bodies are
 ///   containers; JS's private methods are containers, and its strings are
-///   single tokens.
+///   single tokens.  Java and Kotlin are tokenized with their grammars,
+///   rather than as plain text.
 pub const TOKENIZER_VERSION: u32 = 9;
 
 /// Normalize the text of a container's name node for use in a context.  Names
@@ -243,6 +259,8 @@ pub fn default_profile_for_path(path: &Path) -> Option<LanguageProfile> {
         "rs" => "rust",
         "webidl" => "webidl",
         "ipdl" | "ipdlh" => "ipdl",
+        "java" => "java",
+        "kt" | "kts" => "kotlin",
         "ini" => "ini",
         "toml" => "toml",
         // Explicitly skip things we know are binary; this list copied from
@@ -570,6 +588,26 @@ pub fn hypertokenize_with_profile(
             );
             (ts_lang, "ipdl", vec![], vec![], quirks)
         }
+        Grammar::Java => {
+            let ts_lang: tree_sitter::Language = tree_sitter_java::LANGUAGE.into();
+            // (Like C++'s.)
+            let string_literal = ts_lang.id_for_node_kind("string_literal", true);
+            (
+                ts_lang,
+                "java",
+                vec![string_literal],
+                vec![],
+                ClassQuirks::default(),
+            )
+        }
+        // (Kotlin's strings have interpolations, so they aren't atoms.)
+        Grammar::Kotlin => (
+            tree_sitter_kotlin_ng::LANGUAGE.into(),
+            "kotlin",
+            vec![],
+            vec![],
+            ClassQuirks::default(),
+        ),
         Grammar::Ini | Grammar::Toml => {
             let (tokens, structure) = match profile.grammar {
                 Grammar::Ini => tokenize_ini(source_contents),
@@ -1337,6 +1375,16 @@ mod tests {
                 "a.toml",
                 "[\"test.html\"]\nskip-if = [\"os == 'win'\"]",
                 "toml",
+            ),
+            (
+                "a.java",
+                "class C { int mX; void m(int a) { mX = a; } }",
+                "java",
+            ),
+            (
+                "a.kt",
+                "class C {\n    fun m(a: Int) = a + 1\n}\n",
+                "kotlin",
             ),
             ("a.txt", "just some words", "none"),
         ] {
