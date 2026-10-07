@@ -9,8 +9,10 @@
 
 ;; JS
 
+;; (Including private methods, ex: `#restoreWindowsFeatures() {}`, whose names
+;; are `private_property_identifier`s.)
 (((method_definition
-    name: (property_identifier) @name) @container)
+    name: [(property_identifier) (private_property_identifier)] @name) @container)
   (#set! structure.kind "method"))
 
 (([

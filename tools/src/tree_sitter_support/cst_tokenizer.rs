@@ -173,7 +173,12 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   with only preprocessor conditionals' first branches, and their
 ///   directives and other branches separately (see `tokenize_cpp`); and
 ///   functions returning pointers or references, and classes with qualified
-///   names, are containers (see cpp.scm).
+///   names, are containers (see cpp.scm).  Containers after a node matching
+///   more than once (ex: `int a, b;`) aren't skipped.  Rust's plain comments
+///   are words, its item macros' items are tokenized as items (see
+///   `rust_item_macro_body`), and its functions without bodies are
+///   containers; JS's private methods are containers, and its strings are
+///   single tokens.
 pub const TOKENIZER_VERSION: u32 = 9;
 
 /// Normalize the text of a container's name node for use in a context.  Names
@@ -494,20 +499,24 @@ pub fn hypertokenize_with_profile(
                 ClassQuirks::default(),
             )
         }
-        Grammar::TypeScript => (
-            tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
-            "typescript",
-            vec![],
-            vec![],
-            ClassQuirks::default(),
-        ),
-        Grammar::Tsx => (
-            tree_sitter_typescript::LANGUAGE_TSX.into(),
-            "typescript",
-            vec![],
-            vec![],
-            ClassQuirks::default(),
-        ),
+        Grammar::TypeScript | Grammar::Tsx => {
+            let ts_lang: tree_sitter::Language = match profile.grammar {
+                Grammar::TypeScript => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+                _ => tree_sitter_typescript::LANGUAGE_TSX.into(),
+            };
+            // Strings are single tokens, like C++'s, so that changing their
+            // quotes (`'` to `"`) changes them, rather than being two
+            // evolutions.  (Not template strings, whose substitutions are
+            // code.)
+            let string = ts_lang.id_for_node_kind("string", true);
+            (
+                ts_lang,
+                "typescript",
+                vec![string],
+                vec![],
+                ClassQuirks::default(),
+            )
+        }
         Grammar::Python => (
             tree_sitter_python::LANGUAGE.into(),
             "python",
@@ -515,13 +524,21 @@ pub fn hypertokenize_with_profile(
             vec![],
             ClassQuirks::default(),
         ),
-        Grammar::Rust => (
-            tree_sitter_rust::LANGUAGE.into(),
-            "rust",
-            vec![],
-            vec![],
-            ClassQuirks::default(),
-        ),
+        Grammar::Rust => {
+            // tree-sitter-rust's comments only have children for their
+            // delimiters and doc comments' text, not plain comments' text, so
+            // we split their whole text into words.
+            let ts_lang: tree_sitter::Language = tree_sitter_rust::LANGUAGE.into();
+            let line_comment = ts_lang.id_for_node_kind("line_comment", true);
+            let block_comment = ts_lang.id_for_node_kind("block_comment", true);
+            (
+                ts_lang,
+                "rust",
+                vec![line_comment, block_comment],
+                vec![],
+                ClassQuirks::default(),
+            )
+        }
         Grammar::Webidl => {
             let ts_lang: tree_sitter::Language = tree_sitter_webidl::LANGUAGE.into();
             let quirks = ClassQuirks::new(
@@ -590,7 +607,14 @@ pub fn hypertokenize_with_profile(
 
     let mut walked = Walked::default();
     if setup.grammar == Grammar::Cpp {
-        tokenize_cpp(&setup, source_contents, 0..source_contents.len(), &[], 0, &mut walked)?;
+        tokenize_cpp(
+            &setup,
+            source_contents,
+            0..source_contents.len(),
+            &[],
+            0,
+            &mut walked,
+        )?;
         // (Stable, so tokens at the same offset, if any, keep their order.)
         walked.tokens.sort_by_key(|(offset, _)| *offset);
         walked.structure.sort_by_key(|(offset, _)| *offset);
@@ -630,23 +654,51 @@ fn walk_tree<'s>(
     walked: &mut Walked<'s>,
     containers: &mut Vec<ContainerSpan>,
 ) -> Result<(), String> {
+    let parse_tree = parse(setup, text)?;
+    walk_parsed(
+        setup,
+        &parse_tree,
+        text,
+        source,
+        to_source,
+        outer,
+        walked,
+        containers,
+    )
+}
+
+fn parse(setup: &TreeSitterSetup, text: &str) -> Result<tree_sitter::Tree, String> {
     let mut parser = tree_sitter::Parser::new();
     parser
         .set_language(&setup.ts_lang)
         .expect("Error loading grammar");
-    let parse_tree = match parser.parse(text.as_bytes(), None) {
-        Some(t) => t,
-        _ => {
-            return Err("Parse failed!".to_string());
-        }
-    };
+    parser
+        .parse(text.as_bytes(), None)
+        .ok_or_else(|| "Parse failed!".to_string())
+}
+
+/// See `walk_tree`, for a parse of `text`.
+#[allow(clippy::too_many_arguments)]
+fn walk_parsed<'s>(
+    setup: &TreeSitterSetup,
+    parse_tree: &tree_sitter::Tree,
+    text: &str,
+    source: &'s str,
+    to_source: &dyn Fn(usize) -> Option<usize>,
+    outer: &[String],
+    walked: &mut Walked<'s>,
+    containers: &mut Vec<ContainerSpan>,
+) -> Result<(), String> {
     let container_query = &setup.query;
 
     // The source's version of a slice of `text`, if any.
     let source_slice = |slice: &str| -> Option<(usize, &'s str)> {
         let start = slice.as_ptr() as usize - text.as_ptr() as usize;
         let source_start = to_source(start)?;
-        Some((source_start, source.get(source_start..source_start + slice.len())?))
+        Some((
+            source_start,
+            source.get(source_start..source_start + slice.len())?,
+        ))
     };
 
     // The cursor traversal logic here is derived from the tree-sitter-cli
@@ -696,7 +748,10 @@ fn walk_tree<'s>(
         }
     }
     container_matches.sort_by_key(|(container, _, _)| {
-        (container.start_byte(), std::cmp::Reverse(container.end_byte()))
+        (
+            container.start_byte(),
+            std::cmp::Reverse(container.end_byte()),
+        )
     });
     let mut container_matches = container_matches.into_iter().peekable();
 
@@ -794,58 +849,166 @@ fn walk_tree<'s>(
             let in_comment = node.is_extra()
                 || (node.is_named() && node.kind().contains("comment"))
                 || parent_stack.last().is_some_and(|p| p.1);
+            let parent_kind_id = parent_stack.last().map(|p| p.0);
             if setup.ignore_nodes.contains(&node_kind_id) {
                 // ignore this node!
+                visited_children = true;
+            } else if let Some((open, body, close)) = rust_item_macro_body(setup, &node)
+                && let Some(items) = parse_rust_items(setup, &text[body.clone()])
+            {
+                // Items in a macro, which we tokenize as items (see
+                // `rust_item_macro_body`), between its delimiters.
+                push_leaf_tokens(
+                    &setup.quirks,
+                    &open,
+                    text,
+                    &source_slice,
+                    &context_pretty,
+                    in_comment,
+                    Some(node_kind_id),
+                    walked,
+                );
+                walk_parsed(
+                    setup,
+                    &items,
+                    &text[body.clone()],
+                    source,
+                    &|offset| to_source(body.start + offset),
+                    &context_stack,
+                    walked,
+                    containers,
+                )?;
+                push_leaf_tokens(
+                    &setup.quirks,
+                    &close,
+                    text,
+                    &source_slice,
+                    &context_pretty,
+                    in_comment,
+                    Some(node_kind_id),
+                    walked,
+                );
                 visited_children = true;
             } else if !setup.atom_nodes.contains(&node_kind_id) && cursor.goto_first_child() {
                 visited_children = false;
                 _depth += 1;
                 parent_stack.push((node_kind_id, in_comment));
             } else {
-                let token = node.utf8_text(text.as_bytes()).unwrap().trim();
-                let parent_kind_id = parent_stack.last().map(|p| p.0);
-                let class = classify_leaf(&node, token, in_comment, parent_kind_id, &setup.quirks);
-                // Comments and text don't get further tokenized by tree-sitter, so we
-                // perform additional whitespace tokenization for them.
-                //
-                // We also perform whitespace tokenization for any token that contains a newline
-                // (ex: multi-line string literals) because our output format is one token per
-                // line.
-                if token.is_empty() {
-                    // ignore empty tokens!
-                } else if in_comment || class == TokenClass::Text || token.contains('\n') {
-                    // TODO: probably better to use the regex crate here to avoid a bunch of empty
-                    // matches for consecutive whitespace.
-                    for piece in token.split(char::is_whitespace) {
-                        if piece.is_empty() {
-                            continue;
-                        }
-                        if let Some((offset, text)) = source_slice(piece) {
-                            walked.tokens.push((
-                                offset,
-                                RawToken {
-                                    context: context_pretty.clone(),
-                                    class,
-                                    text,
-                                },
-                            ));
-                        }
-                    }
-                } else if let Some((offset, text)) = source_slice(token) {
-                    walked.tokens.push((
-                        offset,
-                        RawToken {
-                            context: context_pretty.clone(),
-                            class,
-                            text,
-                        },
-                    ));
-                }
+                push_leaf_tokens(
+                    &setup.quirks,
+                    &node,
+                    text,
+                    &source_slice,
+                    &context_pretty,
+                    in_comment,
+                    parent_kind_id,
+                    walked,
+                );
                 visited_children = true;
             }
         }
     }
     Ok(())
+}
+
+/// A Rust macro's body (between its delimiters) where items could be, for
+/// tokenizing as items, ex: `feature! { #![feature = "fs"] pub fn open() {} }`
+/// (nix) or `thread_local! { static FOO: Cell<u32> = Cell::new(0); }`, whose
+/// items tree-sitter-rust leaves as tokens: a token tree of a macro invocation
+/// at the top level of a module, or in an `impl`, trait, or `extern` block.
+fn rust_item_macro_body<'t>(
+    setup: &TreeSitterSetup,
+    node: &tree_sitter::Node<'t>,
+) -> Option<(
+    tree_sitter::Node<'t>,
+    std::ops::Range<usize>,
+    tree_sitter::Node<'t>,
+)> {
+    if setup.grammar != Grammar::Rust || node.kind() != "token_tree" {
+        return None;
+    }
+    let invocation = node
+        .parent()
+        .filter(|parent| parent.kind() == "macro_invocation")?;
+    let scope = invocation.parent()?;
+    if !matches!(scope.kind(), "source_file" | "declaration_list") {
+        return None;
+    }
+    let count = node.child_count();
+    if count < 2 {
+        return None;
+    }
+    let open = node.child(0)?;
+    let close = node.child(u32::try_from(count - 1).ok()?)?;
+    Some((open, open.end_byte()..close.start_byte(), close))
+}
+
+/// A parse of a Rust macro's body as items (see `rust_item_macro_body`), if it
+/// is that, without errors: ex: not `macro_rules!` patterns, `bitflags!`'s
+/// `struct Flags: u32 {...}`, or `cfg_if!`'s `if #[cfg(...)] {...}`.
+fn parse_rust_items(setup: &TreeSitterSetup, text: &str) -> Option<tree_sitter::Tree> {
+    let tree = parse(setup, text).ok()?;
+    let is_items = {
+        let root = tree.root_node();
+        let mut cursor = root.walk();
+        !root.has_error()
+            && root
+                .named_children(&mut cursor)
+                .any(|child| child.kind().ends_with("_item"))
+    };
+    is_items.then_some(tree)
+}
+
+/// Add a leaf node's tokens to `walked`, in the context `context_pretty`.
+#[allow(clippy::too_many_arguments)]
+fn push_leaf_tokens<'s>(
+    quirks: &ClassQuirks,
+    node: &tree_sitter::Node,
+    text: &str,
+    source_slice: &dyn Fn(&str) -> Option<(usize, &'s str)>,
+    context_pretty: &str,
+    in_comment: bool,
+    parent_kind_id: Option<u16>,
+    walked: &mut Walked<'s>,
+) {
+    let token = node.utf8_text(text.as_bytes()).unwrap().trim();
+    let class = classify_leaf(node, token, in_comment, parent_kind_id, quirks);
+    // Comments and text don't get further tokenized by tree-sitter, so we
+    // perform additional whitespace tokenization for them.
+    //
+    // We also perform whitespace tokenization for any token that contains a newline
+    // (ex: multi-line string literals) because our output format is one token per
+    // line.
+    if token.is_empty() {
+        // ignore empty tokens!
+    } else if in_comment || class == TokenClass::Text || token.contains('\n') {
+        // TODO: probably better to use the regex crate here to avoid a bunch of empty
+        // matches for consecutive whitespace.
+        for piece in token.split(char::is_whitespace) {
+            if piece.is_empty() {
+                continue;
+            }
+            if let Some((offset, text)) = source_slice(piece) {
+                walked.tokens.push((
+                    offset,
+                    RawToken {
+                        context: context_pretty.to_string(),
+                        class,
+                        text,
+                    },
+                ));
+            }
+        }
+    } else if let Some((offset, text)) = source_slice(token) {
+        walked.tokens.push((
+            offset,
+            RawToken {
+                context: context_pretty.to_string(),
+                class,
+                text,
+            },
+        ));
+    }
 }
 
 /// How deeply `tokenize_cpp` recurses into conditionals' branches, ex:
@@ -901,11 +1064,24 @@ fn tokenize_cpp<'s>(
     };
     for directive in plan.directives {
         let directive = base + directive.start..base + directive.end;
-        tokenize_directive(setup, source, directive.clone(), &context_at(directive.start), walked)?;
+        tokenize_directive(
+            setup,
+            source,
+            directive.clone(),
+            &context_at(directive.start),
+            walked,
+        )?;
     }
     for branch in plan.other_branches {
         let branch = base + branch.start..base + branch.end;
-        tokenize_cpp(setup, source, branch.clone(), &context_at(branch.start), depth + 1, walked)?;
+        tokenize_cpp(
+            setup,
+            source,
+            branch.clone(),
+            &context_at(branch.start),
+            depth + 1,
+            walked,
+        )?;
     }
     Ok(())
 }
@@ -933,7 +1109,10 @@ fn tokenize_directive<'s>(
         setup,
         &text,
         source,
-        &|offset| kept.contains(&offset).then(|| range.start + offset - kept.start),
+        &|offset| {
+            kept.contains(&offset)
+                .then(|| range.start + offset - kept.start)
+        },
         context,
         walked,
         &mut vec![],
@@ -1425,8 +1604,7 @@ mod tests {
                 "/// Doc comment.\nfn f(&mut self) -> bool { let p: *const u8; true }"
             ),
             vec![
-                "c://",
-                "c:/",
+                "c:///",
                 "c:Doc",
                 "c:comment.",
                 "k:fn",
@@ -1523,6 +1701,58 @@ mod tests {
                 "k:#endif"
             ]
         );
+    }
+
+    /// Rust's plain comments' words, items in macros (see
+    /// `rust_item_macro_body`), and functions in `extern` blocks.
+    #[test]
+    fn test_rust_comments_and_macro_items() {
+        let source = "mod m {\n\
+                      // Plain words\n\
+                      feature! {\n    \
+                          #![feature = \"fs\"]\n    \
+                          pub fn open() -> u32 { 1 }\n\
+                      }\n\
+                      macro_rules! m { ($x:expr) => { $x }; }\n\
+                      extern \"C\" { fn malloc(size: usize) -> *mut u8; }\n\
+                      }\n";
+        assert_eq!(
+            structure("a.rs", source),
+            vec!["namespace:m", "method:m::open", "method:m::malloc"]
+        );
+        let classes = classes("a.rs", source);
+        for expected in [
+            "c://",
+            "c:Plain",
+            "c:words",
+            "i:feature",
+            "o:!",
+            "o:{",
+            "k:fn",
+            "i:open",
+            "o:}",
+        ] {
+            assert!(
+                classes.iter().any(|c| c == expected),
+                "{} in {:?}",
+                expected,
+                classes
+            );
+        }
+    }
+
+    /// JS's private methods are containers, and its strings are single
+    /// tokens (but not template strings, whose substitutions are code).
+    #[test]
+    fn test_js_private_methods_and_strings() {
+        let source = "class C {\n  #restore() { return 'a b' + `c ${d}`; }\n}\n";
+        assert_eq!(
+            structure("a.js", source),
+            vec!["class:C", "method:C::#restore"]
+        );
+        let classes = classes("a.js", source);
+        assert!(classes.iter().any(|c| c == "s:'a b'"), "{:?}", classes);
+        assert!(classes.iter().any(|c| c == "i:d"), "{:?}", classes);
     }
 
     fn structure(filename: &str, source: &str) -> Vec<String> {

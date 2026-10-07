@@ -30,6 +30,11 @@
     name: (identifier) @name) @container)
     (#set! structure.kind "method"))
 
+;; Functions without bodies, in `extern` blocks and traits.
+(((function_signature_item
+    name: (identifier) @name) @container)
+    (#set! structure.kind "method"))
+
 ; trait definitions
 (((trait_item
     name: (type_identifier) @name) @container)
