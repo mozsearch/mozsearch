@@ -25,6 +25,9 @@ use std::path::Path;
 use chrono::{DateTime, NaiveDate, Weekday};
 use git2::Oid;
 
+use ustr::{Ustr, UstrMap};
+
+use crate::file_format::analysis::{AnalysisKind, AnalysisTarget, WithLocation};
 use crate::file_format::config::{GitData, ThreadLocalRepository, timeline_commit_to_meta};
 use crate::file_format::history::syntax_files::{split_token_line, token_file_lines};
 use crate::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
@@ -116,25 +119,48 @@ pub fn context_changes(
 }
 
 /// The last segment of a pretty name or context (ex: "Bar" for "Foo::Bar", or
-/// JS's "Foo.bar"), without whitespace (contexts encode it as "%20").
+/// JS's "Foo.bar"), without whitespace (contexts encode it as "%20", and "%"
+/// as "%25"; see `cst_tokenizer::context_name`).
 fn last_segment(name: &str) -> String {
     raw_last_segment(name)
         .replace("%20", "")
+        .replace("%25", "%")
         .split_whitespace()
         .collect()
+}
+
+/// Where the last segment of a pretty name or context starts: after its last
+/// `::` or `.` outside of template arguments (ex: in
+/// "angle::GetParamVal<ParamType::TFoo>", the one before "GetParamVal").
+fn last_segment_start(name: &str) -> Option<usize> {
+    let bytes = name.as_bytes();
+    let mut depth = 0usize;
+    let mut start = None;
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            // (Not `operator<`, `operator<<`, or `operator<=`.)
+            b'<' if !name[..i].trim_end_matches('<').ends_with("operator") => depth += 1,
+            // (Not `->`.)
+            b'>' if depth > 0 && (i == 0 || bytes[i - 1] != b'-') => depth -= 1,
+            b':' if depth == 0 && bytes.get(i + 1) == Some(&b':') => {
+                start = Some(i + 2);
+                i += 2;
+                continue;
+            }
+            b'.' if depth == 0 => start = Some(i + 1),
+            _ => {}
+        }
+        i += 1;
+    }
+    start
 }
 
 /// The last segment of a pretty name as its source text, without template
 /// arguments (ex: "~Wrapper" for "ns::~Wrapper<Func>", but "operator<" for
 /// "Foo::operator<").
 fn raw_last_segment(name: &str) -> &str {
-    let last = name
-        .rsplit("::")
-        .next()
-        .unwrap_or(name)
-        .rsplit('.')
-        .next()
-        .unwrap_or(name);
+    let last = &name[last_segment_start(name).unwrap_or(0)..];
     match last.find('<') {
         Some(start) if start > 0 && last.ends_with('>') && !last.starts_with("operator") => {
             &last[..start]
@@ -213,10 +239,12 @@ pub fn is_own_context(pretty: &str, context: &str) -> bool {
 /// The pretty name of the symbol `pretty`'s parent (ex: "Foo" for "Foo::Bar"
 /// or "Foo.bar"), if it has one.
 fn parent_of(pretty: &str) -> Option<&str> {
-    let cut = [pretty.rfind("::"), pretty.rfind('.')]
-        .into_iter()
-        .flatten()
-        .max()?;
+    let start = last_segment_start(pretty)?;
+    let cut = if pretty[..start].ends_with("::") {
+        start - 2
+    } else {
+        start - 1
+    };
     Some(&pretty[..cut])
 }
 
@@ -344,6 +372,104 @@ impl<'a> HistoryDigests<'a> {
     }
 }
 
+/// The structured kinds of the definitions the tokenizer should make history
+/// contexts of, so that a definition of one without its own context, and not
+/// where members are (see `FileDigests::is_misplaced`), means the history's
+/// contexts are wrong around it (ex: a misparse).  (scip-indexer calls lots of
+/// Rust items classes, ex: enum variants and type aliases, which is why it
+/// matters where they are.)
+pub const CONTEXT_KINDS: [&str; 6] = ["function", "method", "class", "struct", "union", "enum"];
+
+/// How a file's definitions linked to its history contexts (see `Linkage`),
+/// for crossref's diagnostics (`diags/crossref/recency-linkage.tsv`), and
+/// `tokenizer-linkage`'s.
+#[derive(Default)]
+pub struct FileLinkage {
+    /// Definitions linked to their own contexts.
+    pub linked: u32,
+    /// Definitions of `CONTEXT_KINDS` that weren't: at the top level, in a
+    /// namespace, or in another context.
+    pub unlinked: [u32; 3],
+    /// (pretty, context, line) of the first few of those.
+    pub examples: Vec<(Ustr, String, u32)>,
+    /// Whether the history has no grammar for the file's language.
+    pub no_grammar: bool,
+}
+
+impl FileLinkage {
+    pub fn unlinked_total(&self) -> u32 {
+        self.unlinked.iter().sum()
+    }
+}
+
+/// Link the definitions (and declarations) in a file's analysis to their
+/// history contexts in `digests`, calling `own` with each symbol linked to its
+/// own (whether it's a definition, and its context's digest and name), and
+/// counting the definitions of `context_syms` (the file's symbols of
+/// `CONTEXT_KINDS`, and whether they're functions) which weren't but should
+/// have been.
+pub fn link_definitions(
+    digests: &FileDigests,
+    source: &str,
+    analysis: &[WithLocation<Vec<AnalysisTarget>>],
+    context_syms: &UstrMap<bool>,
+    mut own: impl FnMut(Ustr, bool, Recency, &str),
+) -> FileLinkage {
+    let mut linkage = FileLinkage::default();
+    let mut seen: HashSet<(Ustr, bool)> = HashSet::new();
+    let mut line_starts = vec![0];
+    line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
+    for datum in analysis {
+        let Some(&line_start) = (datum.loc.lineno as usize)
+            .checked_sub(1)
+            .and_then(|line| line_starts.get(line))
+        else {
+            continue;
+        };
+        let offset = line_start as u32 + datum.loc.col_start;
+        for piece in &datum.data {
+            let is_def = match piece.kind {
+                AnalysisKind::Def => true,
+                AnalysisKind::Decl => false,
+                _ => continue,
+            };
+            if !seen.insert((piece.sym, is_def)) {
+                continue;
+            }
+            match digests.linkage(&piece.pretty, offset) {
+                Linkage::Own(recency, context) => {
+                    linkage.linked += u32::from(is_def);
+                    own(piece.sym, is_def, recency, context);
+                }
+                Linkage::Other(context)
+                    if is_def
+                        && names_symbol(source, offset, &piece.pretty)
+                        && !is_from_macro(source, offset)
+                        && context_syms.get(&piece.sym).is_some_and(|&is_function| {
+                            digests.is_misplaced(&piece.pretty, context, is_function)
+                        }) =>
+                {
+                    let which = match context {
+                        "%" => 0,
+                        _ if digests.is_namespace(context) => 1,
+                        _ => 2,
+                    };
+                    linkage.unlinked[which] += 1;
+                    if linkage.examples.len() < 5 {
+                        linkage.examples.push((
+                            piece.pretty,
+                            context.to_string(),
+                            datum.loc.lineno,
+                        ));
+                    }
+                }
+                Linkage::Namespace | Linkage::Other(_) | Linkage::Missing => {}
+            }
+        }
+    }
+    linkage
+}
+
 /// A file's history contexts, with their changes.
 pub struct FileDigests {
     contexts: FileContexts,
@@ -355,6 +481,27 @@ pub struct FileDigests {
 }
 
 impl FileDigests {
+    /// The contexts of a file's tokens (`history/syntax/files` lines, ex: from
+    /// `cst_tokenizer`), without changes, if they line up with `source`: for
+    /// checking how definitions would link to them (see `link_definitions`).
+    pub fn from_tokens(
+        source: &str,
+        files: &str,
+        structure: &[FileStructureRow],
+        has_grammar: bool,
+    ) -> Option<FileDigests> {
+        Some(FileDigests {
+            contexts: FileContexts::align(source, files)?,
+            namespaces: structure
+                .iter()
+                .filter(|row| row.kind == "namespace")
+                .map(|row| row.pretty.clone())
+                .collect(),
+            has_grammar,
+            changes: BTreeMap::new(),
+        })
+    }
+
     /// The file's digests for what symbols' don't cover (see `FileRecency`).
     /// Files without a grammar are as if they had no analysis, since their
     /// lines have no contexts.
@@ -581,6 +728,17 @@ mod tests {
             "ns::Wrapper::~Wrapper"
         ));
         assert!(!is_own_context("Foo::operator<", "Foo"));
+        // (Template specializations' arguments can have `::`s.)
+        assert!(is_own_context(
+            "angle::GetParamVal",
+            "angle::GetParamVal<ParamType::TFoo,const%20Foo*>"
+        ));
+        assert!(is_own_context("Foo::operator<<", "Foo::operator<<"));
+        assert!(is_own_context("Foo::operator->", "Foo::operator->"));
+        assert!(is_own_context("Foo::operator%=", "Foo::operator%25="));
+        assert_eq!(parent_of("ns::Foo<A::B>::Bar"), Some("ns::Foo<A::B>"));
+        assert_eq!(parent_of("ns::Get<A::B>"), Some("ns"));
+        assert_eq!(parent_of("Foo"), None);
         assert!(names_symbol("void Foo::Bar() {}", 10, "ns::Foo::Bar"));
         assert!(!names_symbol("LIR_HEADER(Abs)", 0, "js::jit::LAbs::LAbs"));
         let macros = "#define ALLOW_CLONE(T) \\\n  bool canClone() const { return true; }\nMACRO_(abort, \"abort\")\nlink!(\"k32\" fn Compare());\nvoid f() {}\n";

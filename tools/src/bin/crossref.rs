@@ -47,7 +47,7 @@ use tools::file_format::ontology_mapping::{
 };
 use tools::file_format::recency::{FileRecency, Recency, RecencyFrom};
 use tools::file_format::repo_data_ingestion::RepoIngestion;
-use tools::hyperblame::recency::{HistoryDigests, Linkage, is_from_macro, names_symbol};
+use tools::hyperblame::recency::{CONTEXT_KINDS, FileLinkage, HistoryDigests, link_definitions};
 use tools::logging::LoggedSpan;
 use tools::logging::init_logging;
 use tools::templating::builder::build_and_parse_ontology_ingestion_explainer;
@@ -499,35 +499,6 @@ struct PerThreadAnalysisData {
     recency_linkages: Vec<(Ustr, FileLinkage)>,
 }
 
-/// The structured kinds of the definitions the tokenizer should make history
-/// contexts of, so that a definition of one without its own context, and not
-/// where members are (see `FileDigests::is_misplaced`), means the history's
-/// contexts are wrong around it (ex: a misparse).  (scip-indexer calls lots of
-/// Rust items classes, ex: enum variants and type aliases, which is why it
-/// matters where they are.)
-const CONTEXT_KINDS: [&str; 6] = ["function", "method", "class", "struct", "union", "enum"];
-
-/// How a file's definitions linked to its history (see `Linkage`), for
-/// crossref's diagnostics (`diags/crossref/recency-linkage.tsv`).
-#[derive(Default)]
-struct FileLinkage {
-    /// Definitions linked to their own contexts.
-    linked: u32,
-    /// Definitions of `CONTEXT_KINDS` that weren't: at the top level, in a
-    /// namespace, or in another context.
-    unlinked: [u32; 3],
-    /// (pretty, context, line) of the first few of those.
-    examples: Vec<(Ustr, String, u32)>,
-    /// Whether the history has no grammar for the file's language.
-    no_grammar: bool,
-}
-
-impl FileLinkage {
-    fn unlinked_total(&self) -> u32 {
-        self.unlinked.iter().sum()
-    }
-}
-
 /// The history digests of the symbols defined (or declared) in a file: the
 /// changes of the history contexts their definitions are in, if those are
 /// their own (see `hyperblame::recency`), and the file's for what theirs don't
@@ -549,67 +520,29 @@ fn file_recency_items(
     let Some(digests) = history.file(path, &source) else {
         return Some((false, FileLinkage::default()));
     };
-    let mut linkage = FileLinkage::default();
     if !digests.has_grammar {
         // (No contexts to link to, so just the whole file's digest; see
         // `FileDigests::file_recency`.)
         file_items.push((*path, digests.file_recency()));
-        linkage.no_grammar = true;
-        return Some((true, linkage));
+        return Some((
+            true,
+            FileLinkage {
+                no_grammar: true,
+                ..Default::default()
+            },
+        ));
     }
-    let mut seen: HashSet<(Ustr, bool)> = HashSet::new();
-    let mut line_starts = vec![0];
-    line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
-    for datum in analysis {
-        let Some(&line_start) = (datum.loc.lineno as usize)
-            .checked_sub(1)
-            .and_then(|line| line_starts.get(line))
-        else {
-            continue;
-        };
-        let offset = line_start as u32 + datum.loc.col_start;
-        for piece in &datum.data {
-            let is_def = match piece.kind {
-                AnalysisKind::Def => true,
-                AnalysisKind::Decl => false,
-                _ => continue,
-            };
-            if !seen.insert((piece.sym, is_def)) {
-                continue;
+    let linkage = link_definitions(
+        &digests,
+        &source,
+        analysis,
+        context_syms,
+        |sym, is_def, recency, context| {
+            if !recency.is_empty() {
+                items.push((sym, is_def, *path, recency, context.to_string()));
             }
-            match digests.linkage(&piece.pretty, offset) {
-                Linkage::Own(recency, context) => {
-                    linkage.linked += u32::from(is_def);
-                    if !recency.is_empty() {
-                        items.push((piece.sym, is_def, *path, recency, context.to_string()));
-                    }
-                }
-                Linkage::Other(context)
-                    if is_def
-                        && names_symbol(&source, offset, &piece.pretty)
-                        && !is_from_macro(&source, offset)
-                        && context_syms.get(&piece.sym).is_some_and(|&is_function| {
-                            digests.is_misplaced(&piece.pretty, context, is_function)
-                        }) =>
-                {
-                    let which = match context {
-                        "%" => 0,
-                        _ if digests.is_namespace(context) => 1,
-                        _ => 2,
-                    };
-                    linkage.unlinked[which] += 1;
-                    if linkage.examples.len() < 5 {
-                        linkage.examples.push((
-                            piece.pretty,
-                            context.to_string(),
-                            datum.loc.lineno,
-                        ));
-                    }
-                }
-                Linkage::Namespace | Linkage::Other(_) | Linkage::Missing => {}
-            }
-        }
-    }
+        },
+    );
     // (Misparses also put code in the top level's or namespaces' own changes,
     // so a file with them only has the whole file's.)
     let mut file_recency = digests.file_recency();
