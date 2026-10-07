@@ -169,7 +169,12 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   `config_tokenizer::UrlParts`.
 /// - 8: INI nested sections' names are words and `;`s rather than a single
 ///   token; see `config_tokenizer::Output::push_name_words`.
-pub const TOKENIZER_VERSION: u32 = 8;
+/// - 9: C++ is parsed with tree-sitter-mozcpp, which knows Gecko's macros,
+///   with only preprocessor conditionals' first branches, and their
+///   directives and other branches separately (see `tokenize_cpp`); and
+///   functions returning pointers or references, and classes with qualified
+///   names, are containers (see cpp.scm).
+pub const TOKENIZER_VERSION: u32 = 9;
 
 /// Normalize the text of a container's name node for use in a context.  Names
 /// can contain whitespace (ex: C++ template arguments in out-of-line method
@@ -416,15 +421,13 @@ pub fn hypertokenize_source_file(
     }
 }
 
-/// Process source contents with the given language profile.
-pub fn hypertokenize_with_profile(
-    profile: LanguageProfile,
-    source_contents: &str,
-) -> Result<HyperTokenized, String> {
-    let mut tokenized = Vec::new();
-    let mut structure = Vec::new();
-
-    let mut parser = tree_sitter::Parser::new();
+/// What tokenizing a language with tree-sitter takes.
+struct TreeSitterSetup {
+    grammar: Grammar,
+    ts_lang: tree_sitter::Language,
+    query: Arc<tree_sitter::Query>,
+    name_capture_ix: u32,
+    container_capture_ix: u32,
     // ### atom_nodes ###
     //
     // We borrow difftastic's terminology to deal with awkward tree-sitter nodes
@@ -443,20 +446,43 @@ pub fn hypertokenize_with_profile(
     //     differs from `<stdlib.h>` which is just a single monolithic string
     //     with no children.
     //   - `\n`: 0 children
-    //
+    atom_nodes: Vec<u16>,
     // ### ignore_nodes
     //
     // As noted in https://github.com/tree-sitter/tree-sitter-c/issues/97 the
     // C preprocessor nodes currently are weird and include the trailing
     // newline.  For our purposes, we never actually want to emit a newline
     // token, so it's easy enough for us to just forbid that node.
-    //
+    ignore_nodes: Vec<u16>,
     // ### quirks
     //
     // See `ClassQuirks`.
+    quirks: ClassQuirks,
+}
+
+/// Tokens and structure from (possibly several) parses of a file, in any
+/// order, with their offsets in the file for putting them in order.
+#[derive(Default)]
+struct Walked<'s> {
+    tokens: Vec<(usize, RawToken<'s>)>,
+    structure: Vec<(usize, FileStructureRow)>,
+}
+
+/// A container from a parse: its byte range in the file, and its context's
+/// segments.
+struct ContainerSpan {
+    range: std::ops::Range<usize>,
+    context: Vec<String>,
+}
+
+/// Process source contents with the given language profile.
+pub fn hypertokenize_with_profile(
+    profile: LanguageProfile,
+    source_contents: &str,
+) -> Result<HyperTokenized, String> {
     let (ts_lang, ts_query_filename, atom_nodes, ignore_nodes, quirks) = match profile.grammar {
         Grammar::Cpp => {
-            let ts_lang: tree_sitter::Language = tree_sitter_cpp::LANGUAGE.into();
+            let ts_lang: tree_sitter::Language = tree_sitter_mozcpp::LANGUAGE.into();
             let string_literal = ts_lang.id_for_node_kind("string_literal", true);
             let char_literal = ts_lang.id_for_node_kind("char_literal", true);
             let newline = ts_lang.id_for_node_kind("\n", false);
@@ -550,19 +576,77 @@ pub fn hypertokenize_with_profile(
             ));
         }
     };
+    let query = container_query(profile.grammar, &ts_lang, ts_query_filename)?;
+    let setup = TreeSitterSetup {
+        grammar: profile.grammar,
+        name_capture_ix: query.capture_index_for_name("name").unwrap(),
+        container_capture_ix: query.capture_index_for_name("container").unwrap(),
+        ts_lang,
+        query,
+        atom_nodes,
+        ignore_nodes,
+        quirks,
+    };
+
+    let mut walked = Walked::default();
+    if setup.grammar == Grammar::Cpp {
+        tokenize_cpp(&setup, source_contents, 0..source_contents.len(), &[], 0, &mut walked)?;
+        // (Stable, so tokens at the same offset, if any, keep their order.)
+        walked.tokens.sort_by_key(|(offset, _)| *offset);
+        walked.structure.sort_by_key(|(offset, _)| *offset);
+    } else {
+        walk_tree(
+            &setup,
+            source_contents,
+            source_contents,
+            &|offset| Some(offset),
+            &[],
+            &mut walked,
+            &mut vec![],
+        )?;
+    }
+
+    Ok(HyperTokenized::new(
+        profile,
+        finish_tokens(
+            source_contents,
+            walked.tokens.into_iter().map(|(_, token)| token).collect(),
+        ),
+        walked.structure.into_iter().map(|(_, row)| row).collect(),
+    ))
+}
+
+/// Parse `text` and add its tokens and structure to `walked`, for `source`, of
+/// which `text` is a version: `to_source` maps offsets in `text` to offsets in
+/// `source` (with the same text), or None for text which isn't the source's
+/// (whose tokens are dropped).  Contexts are nested in `outer`, and the
+/// containers are added to `containers`.
+fn walk_tree<'s>(
+    setup: &TreeSitterSetup,
+    text: &str,
+    source: &'s str,
+    to_source: &dyn Fn(usize) -> Option<usize>,
+    outer: &[String],
+    walked: &mut Walked<'s>,
+    containers: &mut Vec<ContainerSpan>,
+) -> Result<(), String> {
+    let mut parser = tree_sitter::Parser::new();
     parser
-        .set_language(&ts_lang)
+        .set_language(&setup.ts_lang)
         .expect("Error loading grammar");
-    let container_query = container_query(profile.grammar, &ts_lang, ts_query_filename)?;
-
-    let name_capture_ix = container_query.capture_index_for_name("name").unwrap();
-    let container_capture_ix = container_query.capture_index_for_name("container").unwrap();
-
-    let parse_tree = match parser.parse(source_contents.as_bytes(), None) {
+    let parse_tree = match parser.parse(text.as_bytes(), None) {
         Some(t) => t,
         _ => {
             return Err("Parse failed!".to_string());
         }
+    };
+    let container_query = &setup.query;
+
+    // The source's version of a slice of `text`, if any.
+    let source_slice = |slice: &str| -> Option<(usize, &'s str)> {
+        let start = slice.as_ptr() as usize - text.as_ptr() as usize;
+        let source_start = to_source(start)?;
+        Some((source_start, source.get(source_start..source_start + slice.len())?))
     };
 
     // The cursor traversal logic here is derived from the tree-sitter-cli
@@ -584,26 +668,48 @@ pub fn hypertokenize_with_profile(
     // which aren't themselves extra, like tree-sitter-rust's `doc_comment`.
     let mut parent_stack: Vec<(u16, bool)> = vec![];
 
-    let mut query_cursor = tree_sitter::QueryCursor::new();
-    let mut query_matches = query_cursor.matches(
-        &container_query,
-        parse_tree.root_node(),
-        source_contents.as_bytes(),
-    );
-
-    let mut next_container_match = query_matches.next();
-    let mut next_container_id = usize::MAX;
-    if let Some(container_match) = &next_container_match {
-        next_container_id = container_match
-            .nodes_for_capture_index(container_capture_ix)
-            .next()
-            .unwrap()
-            .id();
+    // The containers, in the order the traversal visits them (by start, outer
+    // ones first), with the first match for each: tree-sitter reports matches
+    // as they finish, so an inner node's (ex: `enum Foo` in `enum Foo mFoo;`)
+    // can come before an outer one's at the same position, and a node can
+    // match more than once (ex: a field declaration with two declarators, as
+    // in `int a, b;`).
+    let mut container_matches: Vec<(tree_sitter::Node, tree_sitter::Node, usize)> = vec![];
+    {
+        let mut query_cursor = tree_sitter::QueryCursor::new();
+        let mut query_matches =
+            query_cursor.matches(container_query, parse_tree.root_node(), text.as_bytes());
+        let mut seen = std::collections::HashSet::new();
+        while let Some(container_match) = query_matches.next() {
+            let container = container_match
+                .nodes_for_capture_index(setup.container_capture_ix)
+                .next()
+                .unwrap();
+            if !seen.insert(container.id()) {
+                continue;
+            }
+            let name = container_match
+                .nodes_for_capture_index(setup.name_capture_ix)
+                .next()
+                .unwrap();
+            container_matches.push((container, name, container_match.pattern_index));
+        }
     }
+    container_matches.sort_by_key(|(container, _, _)| {
+        (container.start_byte(), std::cmp::Reverse(container.end_byte()))
+    });
+    let mut container_matches = container_matches.into_iter().peekable();
 
-    let mut context_stack: Vec<String> = vec![];
+    let mut context_stack: Vec<String> = outer.to_vec();
     let empty_context = "%".to_string();
-    let mut context_pretty = empty_context.clone();
+    let pretty_for = |stack: &Vec<String>| {
+        if stack.is_empty() {
+            empty_context.clone()
+        } else {
+            stack.join("::")
+        }
+    };
+    let mut context_pretty = pretty_for(&context_stack);
     let mut id_stack: Vec<usize> = vec![];
 
     loop {
@@ -620,11 +726,7 @@ pub fn hypertokenize_with_profile(
                     && cursor.node().id() == *container_id
                 {
                     context_stack.pop();
-                    context_pretty = if context_stack.is_empty() {
-                        empty_context.clone()
-                    } else {
-                        context_stack.join("::")
-                    };
+                    context_pretty = pretty_for(&context_stack);
                     id_stack.pop();
                 }
             } else {
@@ -634,59 +736,57 @@ pub fn hypertokenize_with_profile(
             // We are considering this node for the first time and before any of
             // its children.
 
+            // (Skipping containers the traversal didn't get to, ex: in ignored
+            // nodes.)
+            while container_matches
+                .peek()
+                .is_some_and(|(container, _, _)| container.start_byte() < node.start_byte())
+            {
+                container_matches.next();
+            }
             // Handle if this is our next container.
-            if node.id() == next_container_id {
-                let pattern_index = next_container_match.as_ref().unwrap().pattern_index;
-                let name_node = next_container_match
+            if let Some((_, name_node, pattern_index)) =
+                container_matches.next_if(|(container, _, _)| container.id() == node.id())
+                && let Some(name_node) = clean_name_node(name_node)
+            {
+                let name = name_node.utf8_text(text.as_bytes()).unwrap();
+                context_stack.push(context_name(name));
+                context_pretty = pretty_for(&context_stack);
+                // We're assuming there's only one `#set!` directive right now and that it's
+                // "structure.kind" and that it exists.  We do require it to exist, but...
+                // TODO: It likely makes sense to preprocess the query by iterating over
+                // its patterns and explicitly mapping based on the key so that we can
+                // have the kind already available as a string we can clone.
+                let structure_kind = container_query
+                    .property_settings(pattern_index)
+                    .first()
+                    .unwrap()
+                    .value
                     .as_ref()
                     .unwrap()
-                    .nodes_for_capture_index(name_capture_ix)
-                    .next()
-                    .unwrap();
-                if let Some(name_node) = clean_name_node(name_node) {
-                    let name = name_node.utf8_text(source_contents.as_bytes()).unwrap();
-                    context_stack.push(context_name(name));
-                    context_pretty = if context_stack.is_empty() {
-                        empty_context.clone()
-                    } else {
-                        context_stack.join("::")
-                    };
-                    // We're assuming there's only one `#set!` directive right now and that it's
-                    // "structure.kind" and that it exists.  We do require it to exist, but...
-                    // TODO: It likely makes sense to preprocess the query by iterating over
-                    // its patterns and explicitly mapping based on the key so that we can
-                    // have the kind already available as a string we can clone.
-                    let structure_kind = container_query
-                        .property_settings(pattern_index)
-                        .first()
-                        .unwrap()
-                        .value
-                        .as_ref()
-                        .unwrap()
-                        .to_string();
-                    structure.push(FileStructureRow {
-                        pretty: context_pretty.clone(),
-                        // TODO: This should come from a `#set!` directive too but this nuance
-                        // won't matter for a bit, so I'm punting because there's a potential
-                        // the SCM queries would need to get a little more complex in order to
-                        // differentiate between decl and def and when making the change it
-                        // would probably be ideal to add more test coverage.
-                        is_def: true,
-                        kind: structure_kind.to_string(),
+                    .to_string();
+                if let (Some(start), Some(end)) =
+                    (to_source(node.start_byte()), to_source(node.end_byte()))
+                {
+                    walked.structure.push((
+                        start,
+                        FileStructureRow {
+                            pretty: context_pretty.clone(),
+                            // TODO: This should come from a `#set!` directive too but this nuance
+                            // won't matter for a bit, so I'm punting because there's a potential
+                            // the SCM queries would need to get a little more complex in order to
+                            // differentiate between decl and def and when making the change it
+                            // would probably be ideal to add more test coverage.
+                            is_def: true,
+                            kind: structure_kind.to_string(),
+                        },
+                    ));
+                    containers.push(ContainerSpan {
+                        range: start..end,
+                        context: context_stack.clone(),
                     });
-                    id_stack.push(next_container_id);
                 }
-
-                next_container_match = query_matches.next();
-                if let Some(container_match) = &next_container_match {
-                    next_container_id = container_match
-                        .nodes_for_capture_index(container_capture_ix)
-                        .next()
-                        .unwrap()
-                        .id();
-                } else {
-                    next_container_id = usize::MAX;
-                }
+                id_stack.push(node.id());
             }
             let node_kind_id = node.kind_id();
             // Grammars conventionally mark comments as "extra" nodes, but not all
@@ -694,17 +794,17 @@ pub fn hypertokenize_with_profile(
             let in_comment = node.is_extra()
                 || (node.is_named() && node.kind().contains("comment"))
                 || parent_stack.last().is_some_and(|p| p.1);
-            if ignore_nodes.contains(&node_kind_id) {
+            if setup.ignore_nodes.contains(&node_kind_id) {
                 // ignore this node!
                 visited_children = true;
-            } else if !atom_nodes.contains(&node_kind_id) && cursor.goto_first_child() {
+            } else if !setup.atom_nodes.contains(&node_kind_id) && cursor.goto_first_child() {
                 visited_children = false;
                 _depth += 1;
                 parent_stack.push((node_kind_id, in_comment));
             } else {
-                let token = node.utf8_text(source_contents.as_bytes()).unwrap().trim();
+                let token = node.utf8_text(text.as_bytes()).unwrap().trim();
                 let parent_kind_id = parent_stack.last().map(|p| p.0);
-                let class = classify_leaf(&node, token, in_comment, parent_kind_id, &quirks);
+                let class = classify_leaf(&node, token, in_comment, parent_kind_id, &setup.quirks);
                 // Comments and text don't get further tokenized by tree-sitter, so we
                 // perform additional whitespace tokenization for them.
                 //
@@ -720,29 +820,299 @@ pub fn hypertokenize_with_profile(
                         if piece.is_empty() {
                             continue;
                         }
-                        tokenized.push(RawToken {
+                        if let Some((offset, text)) = source_slice(piece) {
+                            walked.tokens.push((
+                                offset,
+                                RawToken {
+                                    context: context_pretty.clone(),
+                                    class,
+                                    text,
+                                },
+                            ));
+                        }
+                    }
+                } else if let Some((offset, text)) = source_slice(token) {
+                    walked.tokens.push((
+                        offset,
+                        RawToken {
                             context: context_pretty.clone(),
                             class,
-                            text: piece,
-                        });
-                    }
-                } else {
-                    tokenized.push(RawToken {
-                        context: context_pretty.clone(),
-                        class,
-                        text: token,
-                    });
+                            text,
+                        },
+                    ));
                 }
                 visited_children = true;
             }
         }
     }
+    Ok(())
+}
 
-    Ok(HyperTokenized::new(
-        profile,
-        finish_tokens(source_contents, tokenized),
-        structure,
-    ))
+/// How deeply `tokenize_cpp` recurses into conditionals' branches, ex:
+/// `#else` branches inside `#else` branches, before it gives up on their
+/// conditionals.
+const MAX_CONDITIONAL_DEPTH: u32 = 16;
+
+/// Tokenize C++ (a range of `source`): tree-sitter-cpp only parses
+/// preprocessor conditionals around whole declarations and statements, and
+/// conditionals elsewhere (ex: `#ifdef DEBUG` in a constructor's initializers,
+/// or `#else` between a declaration and a definition) make it misparse the
+/// rest of the file.  So we parse the code with only conditionals' first
+/// branches (blanking their directives and other branches, keeping offsets),
+/// and then tokenize the directives (see `tokenize_directive`) and the other
+/// branches (each the same way) separately, in the contexts at their
+/// locations in the first parse.
+fn tokenize_cpp<'s>(
+    setup: &TreeSitterSetup,
+    source: &'s str,
+    range: std::ops::Range<usize>,
+    outer: &[String],
+    depth: u32,
+    walked: &mut Walked<'s>,
+) -> Result<(), String> {
+    let text = &source[range.clone()];
+    let base = range.start;
+    let to_source = |offset: usize| Some(base + offset);
+    let plan = if depth < MAX_CONDITIONAL_DEPTH {
+        plan_conditionals(text)
+    } else {
+        None
+    };
+    let Some(plan) = plan else {
+        return walk_tree(setup, text, source, &to_source, outer, walked, &mut vec![]);
+    };
+    let mut containers = vec![];
+    walk_tree(
+        setup,
+        &plan.first_branches,
+        source,
+        &to_source,
+        outer,
+        walked,
+        &mut containers,
+    )?;
+    // The context at a location: its innermost container's.
+    let context_at = |offset: usize| -> Vec<String> {
+        containers
+            .iter()
+            .filter(|container| container.range.contains(&offset))
+            .max_by_key(|container| (container.range.start, container.context.len()))
+            .map_or_else(|| outer.to_vec(), |container| container.context.clone())
+    };
+    for directive in plan.directives {
+        let directive = base + directive.start..base + directive.end;
+        tokenize_directive(setup, source, directive.clone(), &context_at(directive.start), walked)?;
+    }
+    for branch in plan.other_branches {
+        let branch = base + branch.start..base + branch.end;
+        tokenize_cpp(setup, source, branch.clone(), &context_at(branch.start), depth + 1, walked)?;
+    }
+    Ok(())
+}
+
+/// A preprocessor conditional directive (`#if ...`, `#else`, ...) by itself:
+/// we parse it in a conditional of its own, ex: `#if 0\n#else\n#endif\n` for
+/// `#else`, so that its tokens are what they'd be in a whole conditional, and
+/// keep its tokens.
+fn tokenize_directive<'s>(
+    setup: &TreeSitterSetup,
+    source: &'s str,
+    range: std::ops::Range<usize>,
+    context: &[String],
+    walked: &mut Walked<'s>,
+) -> Result<(), String> {
+    let directive = &source[range.clone()];
+    let (prefix, suffix) = match directive_word(directive) {
+        Some("if" | "ifdef" | "ifndef") => ("", "\n#endif\n"),
+        Some("endif") => ("#if 0\n", "\n"),
+        _ => ("#if 0\n", "\n#endif\n"),
+    };
+    let text = format!("{}{}{}", prefix, directive, suffix);
+    let kept = prefix.len()..prefix.len() + directive.len();
+    walk_tree(
+        setup,
+        &text,
+        source,
+        &|offset| kept.contains(&offset).then(|| range.start + offset - kept.start),
+        context,
+        walked,
+        &mut vec![],
+    )
+}
+
+/// The word of a preprocessor directive line, ex: "ifdef" for `#  ifdef FOO`.
+fn directive_word(line: &str) -> Option<&str> {
+    let rest = line.trim_start().strip_prefix('#')?.trim_start();
+    let end = rest
+        .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .unwrap_or(rest.len());
+    Some(&rest[..end])
+}
+
+/// See `tokenize_cpp`.
+struct ConditionalPlan {
+    /// The text with only conditionals' first branches: their directives and
+    /// other branches are blanked (with spaces, keeping newlines).
+    first_branches: String,
+    /// The (blanked) directives, without their lines' newlines.
+    directives: Vec<std::ops::Range<usize>>,
+    /// The (blanked) other branches (including any conditionals in them).
+    other_branches: Vec<std::ops::Range<usize>>,
+}
+
+/// Plan how to tokenize C++ text with preprocessor conditionals (see
+/// `tokenize_cpp`), or None if it has none.  Directives are lines starting with
+/// `#` (and their continuation lines), outside of block comments.
+fn plan_conditionals(text: &str) -> Option<ConditionalPlan> {
+    let bytes = text.as_bytes();
+    let mut blanks: Vec<std::ops::Range<usize>> = vec![];
+    let mut directives = vec![];
+    let mut other_branches: Vec<std::ops::Range<usize>> = vec![];
+    // For each open conditional, whether we're past its first branch.
+    let mut stack: Vec<bool> = vec![];
+    let mut in_block_comment = false;
+    let mut any = false;
+    let mut pos = 0;
+    while pos < bytes.len() {
+        let start = pos;
+        // The line, through its newline, with continuation lines if it's a
+        // directive.
+        let mut end = start;
+        let is_directive = !in_block_comment && directive_word(line_at(text, start)).is_some();
+        loop {
+            while end < bytes.len() && bytes[end] != b'\n' {
+                end += 1;
+            }
+            let content = text[start..end].trim_end();
+            if is_directive && content.ends_with('\\') && end < bytes.len() {
+                end += 1;
+                continue;
+            }
+            break;
+        }
+        let line_end = end;
+        let next = (end + 1).min(bytes.len());
+        // Whether we're in a branch other than the first of some conditional,
+        // and the innermost such conditional's level.
+        let inactive = stack.iter().position(|past_first| *past_first);
+        let mut directive_here = false;
+        if is_directive {
+            let line = &text[start..line_end];
+            match directive_word(line) {
+                Some("if" | "ifdef" | "ifndef") => {
+                    any = true;
+                    directive_here = inactive.is_none();
+                    stack.push(false);
+                }
+                Some("elif" | "elifdef" | "elifndef" | "else") => {
+                    let level = stack.len().checked_sub(1);
+                    directive_here = match (inactive, level) {
+                        (Some(inactive), Some(level)) => inactive >= level,
+                        _ => true,
+                    };
+                    if let Some(level) = level
+                        && directive_here
+                    {
+                        stack[level] = true;
+                    }
+                }
+                Some("endif") => {
+                    let level = stack.len().checked_sub(1);
+                    directive_here = match (inactive, level) {
+                        (Some(inactive), Some(level)) => inactive >= level,
+                        _ => true,
+                    };
+                    stack.pop();
+                }
+                _ => {}
+            }
+        }
+        if directive_here {
+            directives.push(start..line_end);
+            blanks.push(start..line_end);
+        } else if inactive.is_some() {
+            // (Consecutive lines of a branch make one.)
+            match other_branches.last_mut() {
+                Some(branch) if branch.end == start => branch.end = next,
+                _ => other_branches.push(start..next),
+            }
+            blanks.push(start..next);
+        }
+        if !is_directive {
+            in_block_comment = ends_in_block_comment(&text[start..line_end], in_block_comment);
+        }
+        pos = next;
+        if next == line_end {
+            break;
+        }
+    }
+    if !any {
+        return None;
+    }
+    let mut first_branches = bytes.to_vec();
+    for blank in blanks {
+        for b in &mut first_branches[blank] {
+            if *b != b'\n' && *b != b'\r' {
+                *b = b' ';
+            }
+        }
+    }
+    // (Blanking ASCII bytes or whole characters keeps the text UTF-8: blanks
+    // are whole lines.)
+    let first_branches = String::from_utf8(first_branches).ok()?;
+    Some(ConditionalPlan {
+        first_branches,
+        directives,
+        other_branches,
+    })
+}
+
+/// The line of `text` starting at `start`.
+fn line_at(text: &str, start: usize) -> &str {
+    let rest = &text[start..];
+    &rest[..rest.find('\n').unwrap_or(rest.len())]
+}
+
+/// Whether a block comment is open at the end of a line, given whether one was
+/// at its start, skipping strings, characters, and line comments.
+fn ends_in_block_comment(line: &str, mut in_block_comment: bool) -> bool {
+    let bytes = line.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if in_block_comment {
+            if bytes[i] == b'*' && bytes.get(i + 1) == Some(&b'/') {
+                in_block_comment = false;
+                i += 2;
+            } else {
+                i += 1;
+            }
+            continue;
+        }
+        match bytes[i] {
+            b'/' if bytes.get(i + 1) == Some(&b'/') => return false,
+            b'/' if bytes.get(i + 1) == Some(&b'*') => {
+                in_block_comment = true;
+                i += 2;
+            }
+            quote @ (b'"' | b'\'') => {
+                // (Not a C++14 digit separator, ex: `1'000`.)
+                if quote == b'\'' && i > 0 && bytes[i - 1].is_ascii_alphanumeric() {
+                    i += 1;
+                    continue;
+                }
+                i += 1;
+                while i < bytes.len() && bytes[i] != quote {
+                    if bytes[i] == b'\\' {
+                        i += 1;
+                    }
+                    i += 1;
+                }
+                i += 1;
+            }
+            _ => i += 1,
+        }
+    }
+    in_block_comment
 }
 
 #[cfg(test)]
@@ -942,6 +1312,79 @@ mod tests {
             ),
             vec!["CharAt", "Replaceable::~Replaceable"]
         );
+    }
+
+    /// tree-sitter-mozcpp's macros, and preprocessor conditionals inside
+    /// declarations (see `tokenize_cpp`), don't throw off the structure.
+    #[test]
+    fn test_cpp_macros_and_conditionals() {
+        let source = "namespace mozilla {\n\
+                      class Foo final : public nsIRunnable {\n \
+                       public:\n  \
+                        NS_DECL_ISUPPORTS\n  \
+                        NS_DECL_NSIRUNNABLE\n\
+                      };\n\
+                      Foo::Foo()\n    \
+                          : mA(1)\n\
+                      #ifdef DEBUG\n      \
+                            ,\n      \
+                            mB(2)\n\
+                      #endif\n\
+                      {\n\
+                      }\n\
+                      #ifdef XP_WIN\n\
+                      void Bar() { Win(); }\n\
+                      #else\n\
+                      void Bar() { Posix(); }\n\
+                      #endif  // XP_WIN\n\
+                      nsIPrincipal* GetPrincipal() { return nullptr; }\n\
+                      class WorkerPrivate::EventTarget final {};\n\
+                      /*\n\
+                      #if 0\n\
+                      */\n\
+                      }  // namespace mozilla\n";
+        assert_eq!(
+            structure("a.cpp", source),
+            vec![
+                "namespace:mozilla",
+                "class:mozilla::Foo",
+                "method:mozilla::Foo::Foo",
+                "method:mozilla::Bar",
+                "method:mozilla::Bar",
+                "method:mozilla::GetPrincipal",
+                "class:mozilla::WorkerPrivate::EventTarget",
+            ]
+        );
+        let tokenized = hypertokenize_source_file("a.cpp", source).unwrap();
+        for expected in [
+            "mozilla::Foo i NS_DECL_NSIRUNNABLE",
+            // (The directives in the constructor's initializers are its.)
+            "mozilla::Foo::Foo k #ifdef",
+            "mozilla::Foo::Foo i DEBUG",
+            "mozilla::Foo::Foo i mB",
+            "mozilla::Foo::Foo k #endif",
+            "mozilla k #else",
+            "mozilla::Bar i Posix",
+            "mozilla c XP_WIN",
+            // (A directive in a block comment is the comment's.)
+            "mozilla c #if",
+        ] {
+            assert!(
+                tokenized.tokenized.iter().any(|line| line == expected),
+                "{} in {:#?}",
+                expected,
+                tokenized.tokenized
+            );
+        }
+        // The tokens are in order, with their offsets.
+        let mut previous = 0;
+        for (line, offset) in tokenized.tokenized.iter().zip(&tokenized.offsets) {
+            let token = split_token_line(line).token;
+            let offset = offset.unwrap() as usize;
+            assert_eq!(source.get(offset..offset + token.len()), Some(token));
+            assert!(offset >= previous, "{:?}", line);
+            previous = offset + token.len();
+        }
     }
 
     #[test]

@@ -4293,10 +4293,10 @@ dependencies = [
  "tracing-forest",
  "tracing-subscriber",
  "tree-sitter",
- "tree-sitter-cpp",
  "tree-sitter-ipdl",
  "tree-sitter-java",
  "tree-sitter-kotlin-ng",
+ "tree-sitter-mozcpp",
  "tree-sitter-python",
  "tree-sitter-rust",
  "tree-sitter-typescript",
@@ -4477,16 +4477,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tree-sitter-cpp"
-version = "0.23.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df2196ea9d47b4ab4a31b9297eaa5a5d19a0b121dceb9f118f6790ad0ab94743"
-dependencies = [
- "cc",
- "tree-sitter-language",
-]
-
-[[package]]
 name = "tree-sitter-ipdl"
 version = "0.1.0"
 source = "git+https://github.com/padenot/tree-sitter-ipdl?rev=ee939a389fbf170afa0ada2d45434f15aefbeeff#ee939a389fbf170afa0ada2d45434f15aefbeeff"
@@ -4520,6 +4510,15 @@ name = "tree-sitter-language"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "009994f150cc0cd50ff54917d5bc8bffe8cad10ca10d81c34da2ec421ae61782"
+
+[[package]]
+name = "tree-sitter-mozcpp"
+version = "0.1.0"
+source = "git+https://github.com/mozsearch/tree-sitter-mozcpp?rev=56c393d8a4b011d3220b85d71a4a47e0e2cd1ac1#56c393d8a4b011d3220b85d71a4a47e0e2cd1ac1"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
 
 [[package]]
 name = "tree-sitter-python"

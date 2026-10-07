@@ -10,14 +10,23 @@
 ;; captured node in our code, but with the C++ "::" delimiter baked in to the
 ;; string.
 
+;; Classes and structs can be named by qualified names (ex: an out-of-line
+;; definition of a nested class, `class WorkerPrivate::EventTarget final`) and
+;; template specializations (`struct Hash<Foo>`).
 (((struct_specifier
-  name: (type_identifier) @name
+  name: [(type_identifier) (qualified_identifier) (template_type)] @name
   body:(_)) @container)
   (#set! structure.kind "struct"))
 
 (((declaration
   type: (union_specifier
     name: (type_identifier) @name)) @container)
+  (#set! structure.kind "union"))
+
+;; (Unions defined elsewhere, ex: as fields' types, in `union Type {...} mType;`.)
+(((union_specifier
+  name: (type_identifier) @name
+  body: (_)) @container)
   (#set! structure.kind "union"))
 
 ;; We explicitly don't provide a type for the "@name"; this lets us cover all of
@@ -44,9 +53,13 @@
 ;; `QM_TRY_UNWRAP(auto x, ([&]() -> Result<...> {...}()));` inside a function,
 ;; for function definitions whose name is a `function_declarator` or
 ;; `array_declarator` for the macro call.
+;;
+;; Functions returning pointers or references have their `function_declarator`
+;; inside a `pointer_declarator` or `reference_declarator` (or two, for
+;; `char** Foo()`).
 (((function_definition
-  declarator: (function_declarator
-    declarator: [
+  declarator: [
+    (function_declarator declarator: [
       (identifier)
       (field_identifier)
       (qualified_identifier)
@@ -54,12 +67,79 @@
       (operator_name)
       (template_function)
       (parenthesized_declarator)
-    ] @name)) @container)
+    ] @name)
+    (pointer_declarator declarator: (function_declarator declarator: [
+      (identifier)
+      (field_identifier)
+      (qualified_identifier)
+      (destructor_name)
+      (operator_name)
+      (template_function)
+      (parenthesized_declarator)
+    ] @name))
+    (pointer_declarator declarator: (pointer_declarator declarator: (function_declarator declarator: [
+      (identifier)
+      (field_identifier)
+      (qualified_identifier)
+      (destructor_name)
+      (operator_name)
+      (template_function)
+      (parenthesized_declarator)
+    ] @name)))
+    (reference_declarator (function_declarator declarator: [
+      (identifier)
+      (field_identifier)
+      (qualified_identifier)
+      (destructor_name)
+      (operator_name)
+      (template_function)
+      (parenthesized_declarator)
+    ] @name))
+  ]) @container)
+  (#set! structure.kind "method"))
+
+;; Defaulted and deleted functions defined outside of their classes, whose
+;; return types have `&` or `*` (ex: `Foo& Foo::operator=(Foo&&) = default;`),
+;; tree-sitter-cpp takes for declarations initialized with `default` or
+;; `delete` (and the others for function definitions).
+(((declaration
+  declarator: (init_declarator
+    declarator: [
+      (function_declarator declarator: [
+      (identifier)
+      (field_identifier)
+      (qualified_identifier)
+      (destructor_name)
+      (operator_name)
+      (template_function)
+      (parenthesized_declarator)
+      ] @name)
+      (pointer_declarator declarator: (function_declarator declarator: [
+      (identifier)
+      (field_identifier)
+      (qualified_identifier)
+      (destructor_name)
+      (operator_name)
+      (template_function)
+      (parenthesized_declarator)
+      ] @name))
+      (reference_declarator (function_declarator declarator: [
+      (identifier)
+      (field_identifier)
+      (qualified_identifier)
+      (destructor_name)
+      (operator_name)
+      (template_function)
+      (parenthesized_declarator)
+      ] @name))
+    ]
+    value: (identifier) @value)) @container
+  (#any-of? @value "default" "delete"))
   (#set! structure.kind "method"))
 
 (((field_declaration
-  declarator: (function_declarator
-    declarator: [
+  declarator: [
+    (function_declarator declarator: [
       (identifier)
       (field_identifier)
       (qualified_identifier)
@@ -67,7 +147,35 @@
       (operator_name)
       (template_function)
       (parenthesized_declarator)
-    ] @name)) @container)
+    ] @name)
+    (pointer_declarator declarator: (function_declarator declarator: [
+      (identifier)
+      (field_identifier)
+      (qualified_identifier)
+      (destructor_name)
+      (operator_name)
+      (template_function)
+      (parenthesized_declarator)
+    ] @name))
+    (pointer_declarator declarator: (pointer_declarator declarator: (function_declarator declarator: [
+      (identifier)
+      (field_identifier)
+      (qualified_identifier)
+      (destructor_name)
+      (operator_name)
+      (template_function)
+      (parenthesized_declarator)
+    ] @name)))
+    (reference_declarator (function_declarator declarator: [
+      (identifier)
+      (field_identifier)
+      (qualified_identifier)
+      (destructor_name)
+      (operator_name)
+      (template_function)
+      (parenthesized_declarator)
+    ] @name))
+  ]) @container)
   (#set! structure.kind "field"))
 
 ;; Field definitions for members will just have a field_identifier (versus the
@@ -91,7 +199,7 @@
   (#set! structure.kind "enum"))
 
 (((class_specifier
-  name: (type_identifier) @name) @container)
+  name: [(type_identifier) (qualified_identifier) (template_type)] @name) @container)
   (#set! structure.kind "class"))
 
 ;; For `namespace foo {}` the name is an `identifier`, but for

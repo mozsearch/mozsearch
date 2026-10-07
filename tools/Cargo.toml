@@ -76,16 +76,14 @@ termcolor = "1.4.1"
 tokio = { version = "1.6.0", features = ["rt-multi-thread", "net", "macros", "fs", "io-util", "signal"] }
 tokio-stream = "0.1.8"
 tree-sitter = "0.26.7"
-# We previously used tree-sitter-mozcpp because it understands our XPCOM
-# macrology and doesn't freak out, but since it is only used for our WIP
-# hyperblame implementation and lags behind on updates, we are switching to
-# tree-sitter-cpp for now.
-tree-sitter-cpp = "0.23.0"
 tree-sitter-python = "0.25.0"
 tree-sitter-rust = "0.24.0"
 tree-sitter-typescript = "0.23.0"
 tree-sitter-java = "0.23.2"
 # These grammars aren't published on crates.io, so we pin revisions.
+# (tree-sitter-mozcpp is tree-sitter-cpp with Gecko's macros, for the history
+# tokenizer; see its README.)
+tree-sitter-mozcpp = { git = "https://github.com/mozsearch/tree-sitter-mozcpp", rev = "56c393d8a4b011d3220b85d71a4a47e0e2cd1ac1" }
 tree-sitter-ipdl = { git = "https://github.com/padenot/tree-sitter-ipdl", rev = "ee939a389fbf170afa0ada2d45434f15aefbeeff" }
 tree-sitter-webidl = { git = "https://github.com/padenot/tree-sitter-webidl", rev = "e6870d31a485bf021f12e0f72a44eefc57173f93" }
 tree-sitter-kotlin-ng = "1.0.1"
