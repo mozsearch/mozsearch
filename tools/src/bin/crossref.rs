@@ -47,7 +47,7 @@ use tools::file_format::ontology_mapping::{
 };
 use tools::file_format::recency::{FileRecency, Recency, RecencyFrom};
 use tools::file_format::repo_data_ingestion::RepoIngestion;
-use tools::hyperblame::recency::HistoryDigests;
+use tools::hyperblame::recency::{HistoryDigests, Linkage, is_from_macro, names_symbol};
 use tools::logging::LoggedSpan;
 use tools::logging::init_logging;
 use tools::templating::builder::build_and_parse_ontology_ingestion_explainer;
@@ -489,34 +489,75 @@ struct PerThreadAnalysisData {
     recency_items: RecencyItems,
     /// The files' digests for what symbols' don't cover.
     file_recency_items: Vec<(Ustr, FileRecency)>,
-    /// How many files had history digests, and how many the history had but
-    /// didn't line up with.
-    recency_files: (usize, usize),
+    /// How many files had history digests, how many the history had but
+    /// didn't line up with, and how many (of the first) the history has no
+    /// grammar for.
+    recency_files: (usize, usize, usize),
+    /// How many definitions linked to their own history contexts, and the
+    /// files with definitions that didn't but should have.
+    recency_linked: u32,
+    recency_linkages: Vec<(Ustr, FileLinkage)>,
+}
+
+/// The structured kinds of the definitions the tokenizer should make history
+/// contexts of, so that a definition of one without its own context, and not
+/// where members are (see `FileDigests::is_misplaced`), means the history's
+/// contexts are wrong around it (ex: a misparse).  (scip-indexer calls lots of
+/// Rust items classes, ex: enum variants and type aliases, which is why it
+/// matters where they are.)
+const CONTEXT_KINDS: [&str; 6] = ["function", "method", "class", "struct", "union", "enum"];
+
+/// How a file's definitions linked to its history (see `Linkage`), for
+/// crossref's diagnostics (`diags/crossref/recency-linkage.tsv`).
+#[derive(Default)]
+struct FileLinkage {
+    /// Definitions linked to their own contexts.
+    linked: u32,
+    /// Definitions of `CONTEXT_KINDS` that weren't: at the top level, in a
+    /// namespace, or in another context.
+    unlinked: [u32; 3],
+    /// (pretty, context, line) of the first few of those.
+    examples: Vec<(Ustr, String, u32)>,
+    /// Whether the history has no grammar for the file's language.
+    no_grammar: bool,
+}
+
+impl FileLinkage {
+    fn unlinked_total(&self) -> u32 {
+        self.unlinked.iter().sum()
+    }
 }
 
 /// The history digests of the symbols defined (or declared) in a file: the
-/// changes of the history contexts their definitions are in, by location (see
-/// `hyperblame::recency`), and the file's for what theirs don't cover.  Returns
-/// whether the history lined up with the file, if it has the file.
+/// changes of the history contexts their definitions are in, if those are
+/// their own (see `hyperblame::recency`), and the file's for what theirs don't
+/// cover.  Returns whether the history lined up with the file, if it has the
+/// file, and how its definitions linked.
 fn file_recency_items(
     history: &HistoryDigests,
     path: &Ustr,
     source_fname: &str,
     analysis: &[WithLocation<Vec<AnalysisTarget>>],
+    context_syms: &UstrMap<bool>,
     items: &mut RecencyItems,
     file_items: &mut Vec<(Ustr, FileRecency)>,
-) -> Option<bool> {
+) -> Option<(bool, FileLinkage)> {
     let source = fs::read_to_string(source_fname).ok()?;
     if !history.has_file(path) {
         return None;
     }
     let Some(digests) = history.file(path, &source) else {
-        return Some(false);
+        return Some((false, FileLinkage::default()));
     };
-    let file_recency = digests.file_recency();
-    if !file_recency.file.is_empty() {
-        file_items.push((*path, file_recency));
+    let mut linkage = FileLinkage::default();
+    if !digests.has_grammar {
+        // (No contexts to link to, so just the whole file's digest; see
+        // `FileDigests::file_recency`.)
+        file_items.push((*path, digests.file_recency()));
+        linkage.no_grammar = true;
+        return Some((true, linkage));
     }
+    let mut seen: HashSet<(Ustr, bool)> = HashSet::new();
     let mut line_starts = vec![0];
     line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
     for datum in analysis {
@@ -533,12 +574,52 @@ fn file_recency_items(
                 AnalysisKind::Decl => false,
                 _ => continue,
             };
-            if let Some((recency, context)) = digests.recency_at(&source, offset) {
-                items.push((piece.sym, is_def, *path, recency, context.to_string()));
+            if !seen.insert((piece.sym, is_def)) {
+                continue;
+            }
+            match digests.linkage(&piece.pretty, offset) {
+                Linkage::Own(recency, context) => {
+                    linkage.linked += u32::from(is_def);
+                    if !recency.is_empty() {
+                        items.push((piece.sym, is_def, *path, recency, context.to_string()));
+                    }
+                }
+                Linkage::Other(context)
+                    if is_def
+                        && names_symbol(&source, offset, &piece.pretty)
+                        && !is_from_macro(&source, offset)
+                        && context_syms.get(&piece.sym).is_some_and(|&is_function| {
+                            digests.is_misplaced(&piece.pretty, context, is_function)
+                        }) =>
+                {
+                    let which = match context {
+                        "%" => 0,
+                        _ if digests.is_namespace(context) => 1,
+                        _ => 2,
+                    };
+                    linkage.unlinked[which] += 1;
+                    if linkage.examples.len() < 5 {
+                        linkage.examples.push((
+                            piece.pretty,
+                            context.to_string(),
+                            datum.loc.lineno,
+                        ));
+                    }
+                }
+                Linkage::Namespace | Linkage::Other(_) | Linkage::Missing => {}
             }
         }
     }
-    Some(true)
+    // (Misparses also put code in the top level's or namespaces' own changes,
+    // so a file with them only has the whole file's.)
+    let mut file_recency = digests.file_recency();
+    if linkage.unlinked_total() > 0 {
+        file_recency.scopes.clear();
+    }
+    if !file_recency.file.is_empty() {
+        file_items.push((*path, file_recency));
+    }
+    Some((true, linkage))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -563,7 +644,9 @@ fn read_analysis_files_thread(
     let mut xref_link_slots_items = XrefLinkSlotsItems::new();
     let mut recency_items = RecencyItems::new();
     let mut file_recencies = vec![];
-    let mut recency_files = (0, 0);
+    let mut recency_files = (0, 0, 0);
+    let mut recency_linked = 0;
+    let mut recency_linkages = vec![];
 
     for path in &analysis_relative_paths[start..end] {
         println!("File {}", path);
@@ -589,8 +672,14 @@ fn read_analysis_files_thread(
         // do not actually correspond to a source file.  This is the case for
         // Java imports from the JDK/Kotlin/Android runtimes.
         let structured_analysis = read_analysis(&analysis_fname, &mut read_structured);
+        // (The definitions that should have their own history contexts, and
+        // whether they're functions; see `file_recency_items`.)
+        let mut context_syms: UstrMap<bool> = UstrMap::default();
         for datum in structured_analysis {
             for piece in datum.data {
+                if CONTEXT_KINDS.contains(&piece.kind.as_str()) {
+                    context_syms.insert(piece.sym, matches!(&*piece.kind, "function" | "method"));
+                }
                 // If we don't have a location for the structured record then
                 // this is the SCIP external structured record case mentioned
                 // above and we need to insert the pretty and id mappings
@@ -658,11 +747,24 @@ fn read_analysis_files_thread(
                 path,
                 &source_fname,
                 &analysis,
+                &context_syms,
                 &mut recency_items,
                 &mut file_recencies,
             ) {
-                Some(true) => recency_files.0 += 1,
-                Some(false) => {
+                Some((true, linkage)) => {
+                    recency_files.0 += 1;
+                    recency_files.2 += usize::from(linkage.no_grammar);
+                    recency_linked += linkage.linked;
+                    if linkage.unlinked_total() > 0 {
+                        println!(
+                            "History contexts aren't {} definitions' own in {}",
+                            linkage.unlinked_total(),
+                            path
+                        );
+                        recency_linkages.push((*path, linkage));
+                    }
+                }
+                Some((false, _)) => {
                     recency_files.1 += 1;
                     println!("History doesn't line up with {}", path);
                 }
@@ -709,6 +811,8 @@ fn read_analysis_files_thread(
         recency_items,
         file_recency_items: file_recencies,
         recency_files,
+        recency_linked,
+        recency_linkages,
     });
 }
 
@@ -720,6 +824,8 @@ struct AnalysisData {
     callees_table: CalleesTable,
     recency_table: UstrMap<(Recency, RecencyFrom)>,
     file_recency_table: BTreeMap<String, FileRecency>,
+    recency_linked: u32,
+    recency_linkages: Vec<(Ustr, FileLinkage)>,
 }
 
 fn read_analysis_files(
@@ -789,8 +895,10 @@ fn read_analysis_files(
     let mut def_recency: UstrMap<(Recency, RecencyFrom)> = UstrMap::default();
     let mut decl_recency: UstrMap<(Recency, RecencyFrom)> = UstrMap::default();
     let mut recency_seen: HashSet<(Ustr, bool, Ustr)> = HashSet::new();
-    let mut recency_files = (0, 0);
+    let mut recency_files = (0, 0, 0);
     let mut file_recency_table: BTreeMap<String, FileRecency> = BTreeMap::new();
+    let mut all_recency_linked = 0;
+    let mut all_recency_linkages = vec![];
 
     let mut xrefs = vec![];
 
@@ -807,13 +915,18 @@ fn read_analysis_files(
             xref_link_slots_items,
             recency_items,
             file_recency_items,
-            recency_files: (digested, unaligned),
+            recency_files: (digested, unaligned, no_grammar),
+            recency_linked,
+            recency_linkages,
         } = out.take().unwrap();
+        all_recency_linked += recency_linked;
+        all_recency_linkages.extend(recency_linkages);
         for (path, file_recency) in file_recency_items {
             file_recency_table.insert(path.to_string(), file_recency);
         }
         recency_files.0 += digested;
         recency_files.1 += unaligned;
+        recency_files.2 += no_grammar;
 
         for (sym, is_def, path, recency, context) in recency_items {
             if recency_seen.insert((sym, is_def, path)) {
@@ -942,8 +1055,9 @@ fn read_analysis_files(
     }
     if history.is_some() {
         println!(
-            "History digests: {} files, {} not lining up; {} symbols",
+            "History digests: {} files ({} in languages the history has no grammar for, so just the files' digests), {} not lining up; {} symbols",
             recency_files.0,
+            recency_files.2,
             recency_files.1,
             def_recency.len()
         );
@@ -957,6 +1071,66 @@ fn read_analysis_files(
         callees_table,
         recency_table: def_recency,
         file_recency_table,
+        recency_linked: all_recency_linked,
+        recency_linkages: all_recency_linkages,
+    }
+}
+
+/// Report the definitions that didn't link to their own history contexts but
+/// should have (see `FileLinkage`), which mean the history's contexts are wrong
+/// there (ex: tokenizer misparses), for targeted validation of fixes: a
+/// summary, and `diags/crossref/recency-linkage.tsv`, by file, worst first.
+fn write_recency_linkage(index_path: &str, linked: u32, mut linkages: Vec<(Ustr, FileLinkage)>) {
+    linkages.sort_by(|a, b| {
+        b.1.unlinked_total()
+            .cmp(&a.1.unlinked_total())
+            .then_with(|| a.0.cmp(&b.0))
+    });
+    let mut unlinked = [0u32; 3];
+    for (_, linkage) in &linkages {
+        for (total, n) in unlinked.iter_mut().zip(linkage.unlinked) {
+            *total += n;
+        }
+    }
+    println!(
+        "History digest linkage: {} definitions linked to their own contexts; {} of functions, classes, and the like weren't, in {} files (at the top level {}, in namespaces {}, in other contexts {}); see diags/crossref/recency-linkage.tsv",
+        linked,
+        unlinked.iter().sum::<u32>(),
+        linkages.len(),
+        unlinked[0],
+        unlinked[1],
+        unlinked[2]
+    );
+    for (path, linkage) in linkages.iter().take(10) {
+        println!("  {} {}", linkage.unlinked_total(), path);
+    }
+
+    let dir = format!("{}/diags/crossref", index_path);
+    create_dir_all(&dir).unwrap();
+    let mut out = File::create(format!("{}/recency-linkage.tsv", dir)).unwrap();
+    writeln!(
+        out,
+        "# Definitions of functions, classes, and the like whose history contexts aren't their own (see hyperblame::recency), so they get no history digests, by file\n# path\tunlinked\tlinked\ttop level\tnamespaces\tother contexts\texamples (pretty in context at line)"
+    )
+    .unwrap();
+    for (path, linkage) in &linkages {
+        let examples: Vec<String> = linkage
+            .examples
+            .iter()
+            .map(|(pretty, context, line)| format!("{} in {} at {}", pretty, context, line))
+            .collect();
+        writeln!(
+            out,
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            path,
+            linkage.unlinked_total(),
+            linkage.linked,
+            linkage.unlinked[0],
+            linkage.unlinked[1],
+            linkage.unlinked[2],
+            examples.join("; ")
+        )
+        .unwrap();
     }
 }
 
@@ -1954,6 +2128,8 @@ async fn main() {
         callees_table,
         recency_table,
         mut file_recency_table,
+        recency_linked,
+        recency_linkages,
     } = read_analysis_files(
         analysis_relative_paths,
         tree_name,
@@ -2033,6 +2209,11 @@ async fn main() {
             file_recency_table.insert(path.to_string(), file_recency);
         }
         write_file_recency(&tree_config.paths.index_path, file_recency_table);
+        write_recency_linkage(
+            &tree_config.paths.index_path,
+            recency_linked,
+            recency_linkages,
+        );
     }
 
     println!(

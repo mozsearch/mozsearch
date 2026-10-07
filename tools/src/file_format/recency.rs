@@ -94,15 +94,19 @@ impl RecencyFrom {
 /// A file's history digests, for what symbols' don't cover: the whole file's
 /// (for file name matches), and those of the contexts that symbols don't have
 /// digests for (for lines in them): the top level ("%") and namespaces (which
-/// span files), by context, without the contexts nested in them.  Files
-/// without analysis only have the whole file's (which their lines get, since
-/// they don't have contexts).  crossref writes them to `file-recency`, keyed by
-/// path.
+/// span files), by context, without the contexts nested in them, unless the
+/// history's contexts are wrong in the file (ex: misparses, which put code in
+/// them; see crossref's `file_recency_items`).  Files without analysis only
+/// have the whole file's (which their lines get, since they don't have
+/// contexts).  crossref writes them to `file-recency`, keyed by path.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileRecency {
     pub file: Recency,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub scopes: BTreeMap<String, Recency>,
+    /// Whether the file has analysis (so its lines have contexts).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub analyzed: bool,
 }
 
 impl FileRecency {
@@ -110,10 +114,10 @@ impl FileRecency {
     /// context's pretty name, or "%" for the top level): the scope's, by the
     /// name or its longest suffix (ex: "tests" for a Rust module whose
     /// context is "foo::tests", since modules' contexts are their own names),
-    /// or the whole file's if the file has no scopes (no analysis), with the
-    /// scope's name if it's a scope's.
+    /// or the whole file's if the file has no analysis, with the scope's name
+    /// if it's a scope's.
     pub fn scope(&self, scope: &str) -> Option<(Recency, Option<&str>)> {
-        if self.scopes.is_empty() {
+        if !self.analyzed {
             return Some((self.file, None));
         }
         let mut name = scope;
@@ -257,6 +261,7 @@ mod tests {
             ]
             .into_iter()
             .collect(),
+            analyzed: true,
         };
         assert_eq!(file.scope("%"), Some((digest(1), Some("%"))));
         assert_eq!(file.scope("a::b::tests"), Some((digest(2), Some("tests"))));
@@ -264,7 +269,14 @@ mod tests {
         let unanalyzed = FileRecency {
             file: digest(10),
             scopes: BTreeMap::new(),
+            analyzed: false,
         };
         assert_eq!(unanalyzed.scope("%"), Some((digest(10), None)));
+        // (Files whose contexts are wrong have no scopes, not the file's.)
+        let misparsed = FileRecency {
+            scopes: BTreeMap::new(),
+            ..file
+        };
+        assert_eq!(misparsed.scope("%"), None);
     }
 }
