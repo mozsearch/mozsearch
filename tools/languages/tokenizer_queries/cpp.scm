@@ -185,6 +185,22 @@
   declarator: (field_identifier) @name) @container)
   (#set! structure.kind "field"))
 
+;; And fields whose declarators are pointers, references, or arrays (ex: `Foo*
+;; mFoo;`, `const char* const mName;`, `Foo& mRef;`, `char mBuf[N];`), which
+;; are their own contexts like the others: a field's changes are its type's,
+;; annotations' (ex: `MOZ_GUARDED_BY(mMutex)`), and comments', not its class's
+;; other fields'.
+(((field_declaration
+  declarator: [
+    (pointer_declarator declarator: (field_identifier) @name)
+    (pointer_declarator declarator: (pointer_declarator declarator: (field_identifier) @name))
+    (pointer_declarator declarator: (array_declarator declarator: (field_identifier) @name))
+    (reference_declarator (field_identifier) @name)
+    (array_declarator declarator: (field_identifier) @name)
+    (array_declarator declarator: (array_declarator declarator: (field_identifier) @name))
+  ]) @container)
+  (#set! structure.kind "field"))
+
 ;; Note that we can end up with multiple declarators as in the example
 ;; `typedef struct {int a; int b;} S, *pS;` from
 ;; https://en.cppreference.com/w/cpp/language/typedef but if we just favor the

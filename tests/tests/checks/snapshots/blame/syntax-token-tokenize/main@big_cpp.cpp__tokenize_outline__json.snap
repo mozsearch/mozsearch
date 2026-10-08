@@ -1,6 +1,8 @@
 ---
 source: src/bin/test-index.rs
+assertion_line: 136
 expression: "&to_value(jvl).unwrap()"
+input_file: inputs/blame/syntax-token-tokenize/big_cpp.cpp__tokenize_outline__json
 ---
 {
   "values": [
@@ -209,6 +211,13 @@ expression: "&to_value(jvl).unwrap()"
     },
     {
       "value": {
+        "pretty": "outerNS::OuterCat::mFavoriteCouch",
+        "isDef": true,
+        "kind": "field"
+      }
+    },
+    {
+      "value": {
         "pretty": "outerNS::OuterCat::OuterCat",
         "isDef": true,
         "kind": "method"
@@ -324,6 +333,13 @@ expression: "&to_value(jvl).unwrap()"
         "pretty": "outerNS::StackArtHolder",
         "isDef": true,
         "kind": "class"
+      }
+    },
+    {
+      "value": {
+        "pretty": "outerNS::StackArtHolder::mHeldArt",
+        "isDef": true,
+        "kind": "field"
       }
     },
     {

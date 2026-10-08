@@ -222,8 +222,9 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   leave out of their trees is tokenized (with searchfox's forks of
 ///   tree-sitter-rust and tree-sitter-kotlin-ng, atoms, and ERROR nodes'
 ///   text; see `push_error_gap_tokens`).  Function pointers are named by
-///   their names (see `clean_name_node`), and C and C++'s enums and
-///   classes are containers only where they're defined (see cpp.scm).
+///   their names (see `clean_name_node`), C and C++'s enums and classes are
+///   containers only where they're defined, and C++'s fields are containers
+///   whatever their declarators (see cpp.scm).
 pub const TOKENIZER_VERSION: u32 = 9;
 
 /// The node to name a container by, given the node its query captured as its
@@ -2040,6 +2041,31 @@ mod tests {
         .map(|row| row.pretty)
         .collect();
         assert_eq!(prettys, vec!["Foo", "Foo::mBaz", "Holder<Foo>"]);
+        // Fields are their own contexts whatever their declarators (with their
+        // annotations, ex: `MOZ_GUARDED_BY`).
+        let tokenized = hypertokenize_source_file(
+            "a.cpp",
+            "struct S {\n  int mA;\n  Bar* mP MOZ_GUARDED_BY(mMutex);\n  Foo& mR;\n  \
+             int mArr[4];\n  const char* const mName;\n};\n",
+        )
+        .unwrap();
+        let prettys: Vec<&str> = tokenized
+            .structure
+            .iter()
+            .map(|row| row.pretty.as_str())
+            .collect();
+        assert_eq!(
+            prettys,
+            vec!["S", "S::mA", "S::mP", "S::mR", "S::mArr", "S::mName"]
+        );
+        assert!(
+            tokenized
+                .tokenized
+                .iter()
+                .any(|line| line == "S::mP i MOZ_GUARDED_BY"),
+            "{:?}",
+            tokenized.tokenized
+        );
     }
 
     #[test]
