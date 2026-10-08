@@ -82,7 +82,7 @@ tree-sitter-java = "0.23.2"
 # These grammars aren't published on crates.io, so we pin revisions.
 # (tree-sitter-mozcpp is tree-sitter-cpp with Gecko's macros, for the history
 # tokenizer; see its README.)
-tree-sitter-mozcpp = { git = "https://github.com/mozsearch/tree-sitter-mozcpp", rev = "49573594ae2701e8f88c3cf0b4ccf6db10cbf044" }
+tree-sitter-mozcpp = { git = "https://github.com/mozsearch/tree-sitter-mozcpp", rev = "54c5a7c5b6e901e6d227ab91137a2a4111c9c71f" }
 # (tree-sitter-xpidl is XPIDL, after mozilla-central's xpidl.py; see its
 # README.)
 tree-sitter-xpidl = { git = "https://github.com/mozsearch/tree-sitter-xpidl", rev = "9cfb0a8dd56cfb598a027be17cd38a42edf97515" }
