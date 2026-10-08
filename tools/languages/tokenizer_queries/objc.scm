@@ -32,7 +32,8 @@
   (#set! structure.kind "struct"))
 
 (((enum_specifier
-    name: (type_identifier) @name) @container)
+    name: (type_identifier) @name
+    body: (_)) @container)
   (#set! structure.kind "enum"))
 
 ;; (Like cpp.scm's, for fields' default values and consistency.)

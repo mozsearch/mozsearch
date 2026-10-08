@@ -195,7 +195,8 @@
   (#set! structure.kind "typedef"))
 
 (((enum_specifier
-  name: (type_identifier) @name) @container)
+  name: (type_identifier) @name
+  body: (_)) @container)
   (#set! structure.kind "enum"))
 
 (((class_specifier
