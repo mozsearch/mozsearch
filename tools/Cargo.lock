@@ -4301,6 +4301,7 @@ dependencies = [
  "tree-sitter-rust",
  "tree-sitter-typescript",
  "tree-sitter-webidl",
+ "tree-sitter-xpidl",
  "url",
  "urlencoding",
  "ustr",
@@ -4554,6 +4555,15 @@ dependencies = [
 name = "tree-sitter-webidl"
 version = "0.1.0"
 source = "git+https://github.com/padenot/tree-sitter-webidl?rev=e6870d31a485bf021f12e0f72a44eefc57173f93#e6870d31a485bf021f12e0f72a44eefc57173f93"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-xpidl"
+version = "0.1.0"
+source = "git+https://github.com/mozsearch/tree-sitter-xpidl?rev=cb265b93bed08d282e1a74ba1b7fee723fadf313#cb265b93bed08d282e1a74ba1b7fee723fadf313"
 dependencies = [
  "cc",
  "tree-sitter-language",

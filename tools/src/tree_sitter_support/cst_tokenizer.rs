@@ -67,6 +67,7 @@ enum Grammar {
     Rust,
     Webidl,
     Ipdl,
+    Xpidl,
     Java,
     Kotlin,
     /// See `config_tokenizer.rs`.
@@ -129,6 +130,11 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
         lang: "ipdl",
         namespace: "ipdl",
         grammar: Grammar::Ipdl,
+    },
+    LanguageProfile {
+        lang: "xpidl",
+        namespace: "xpidl",
+        grammar: Grammar::Xpidl,
     },
     // Java and Kotlin share a namespace because they share symbols (the JVM's
     // fully qualified names), so that symbols' histories continue across
@@ -193,8 +199,8 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   are words, its item macros' items are tokenized as items (see
 ///   `rust_item_macro_body`), and its functions without bodies are
 ///   containers; JS's private methods are containers, and its strings are
-///   single tokens.  Java and Kotlin are tokenized with their grammars,
-///   rather than as plain text.
+///   single tokens.  Java, Kotlin, and XPIDL are tokenized with their
+///   grammars, rather than as plain text.
 pub const TOKENIZER_VERSION: u32 = 9;
 
 /// Normalize the text of a container's name node for use in a context.  Names
@@ -259,6 +265,9 @@ pub fn default_profile_for_path(path: &Path) -> Option<LanguageProfile> {
         "rs" => "rust",
         "webidl" => "webidl",
         "ipdl" | "ipdlh" => "ipdl",
+        // (mozilla-central's other `.idl` files, ex: web-platform-tests'
+        // WebIDL, need `searchfox-lang` attributes.)
+        "idl" => "xpidl",
         "java" => "java",
         "kt" | "kts" => "kotlin",
         "ini" => "ini",
@@ -503,7 +512,73 @@ pub fn hypertokenize_with_profile(
     profile: LanguageProfile,
     source_contents: &str,
 ) -> Result<HyperTokenized, String> {
-    let (ts_lang, ts_query_filename, atom_nodes, ignore_nodes, quirks) = match profile.grammar {
+    match profile.grammar {
+        Grammar::Ini | Grammar::Toml => {
+            let (tokens, structure) = match profile.grammar {
+                Grammar::Ini => tokenize_ini(source_contents),
+                _ => tokenize_toml(source_contents),
+            };
+            return Ok(HyperTokenized::new(profile, tokens, structure));
+        }
+        Grammar::PlainText => {
+            let tokens = source_contents
+                .split_whitespace()
+                .map(|text| RawToken {
+                    context: "%".to_string(),
+                    class: TokenClass::Text,
+                    text,
+                })
+                .collect();
+            return Ok(HyperTokenized::new(
+                profile,
+                finish_tokens(source_contents, tokens),
+                vec![],
+            ));
+        }
+        _ => {}
+    }
+    let setup = tree_sitter_setup(profile.grammar)?;
+
+    let mut walked = Walked::default();
+    if setup.grammar == Grammar::Cpp {
+        tokenize_cpp(
+            &setup,
+            source_contents,
+            0..source_contents.len(),
+            &[],
+            0,
+            &mut walked,
+        )?;
+    } else {
+        walk_tree(
+            &setup,
+            source_contents,
+            source_contents,
+            &|offset| Some(offset),
+            &[],
+            &mut walked,
+            &mut vec![],
+        )?;
+    }
+    // (Parts of files can be tokenized separately, ex: C++'s conditionals'
+    // other branches, and XPIDL's C++ code blocks.  Stable, so tokens at the
+    // same offset, if any, keep their order.)
+    walked.tokens.sort_by_key(|(offset, _)| *offset);
+    walked.structure.sort_by_key(|(offset, _)| *offset);
+
+    Ok(HyperTokenized::new(
+        profile,
+        finish_tokens(
+            source_contents,
+            walked.tokens.into_iter().map(|(_, token)| token).collect(),
+        ),
+        walked.structure.into_iter().map(|(_, row)| row).collect(),
+    ))
+}
+
+/// The setup for tokenizing a language with a tree-sitter grammar.
+fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
+    let (ts_lang, ts_query_filename, atom_nodes, ignore_nodes, quirks) = match grammar {
         Grammar::Cpp => {
             let ts_lang: tree_sitter::Language = tree_sitter_mozcpp::LANGUAGE.into();
             let string_literal = ts_lang.id_for_node_kind("string_literal", true);
@@ -518,7 +593,7 @@ pub fn hypertokenize_with_profile(
             )
         }
         Grammar::TypeScript | Grammar::Tsx => {
-            let ts_lang: tree_sitter::Language = match profile.grammar {
+            let ts_lang: tree_sitter::Language = match grammar {
                 Grammar::TypeScript => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
                 _ => tree_sitter_typescript::LANGUAGE_TSX.into(),
             };
@@ -588,6 +663,21 @@ pub fn hypertokenize_with_profile(
             );
             (ts_lang, "ipdl", vec![], vec![], quirks)
         }
+        Grammar::Xpidl => {
+            let ts_lang: tree_sitter::Language = tree_sitter_xpidl::LANGUAGE.into();
+            let quirks = ClassQuirks::new(
+                &ts_lang,
+                // `native` declarations' C++ types, ex: `const nsAString`, and
+                // historical XPIDL's preprocessor lines, ex: `#ifndef
+                // nsIFoo_h__`, which we split into words like other text.
+                &[
+                    ("native_type", TokenClass::Text),
+                    ("preprocessor_line", TokenClass::Text),
+                ],
+                &[],
+            );
+            (ts_lang, "xpidl", vec![], vec![], quirks)
+        }
         Grammar::Java => {
             let ts_lang: tree_sitter::Language = tree_sitter_java::LANGUAGE.into();
             // (Like C++'s.)
@@ -608,32 +698,13 @@ pub fn hypertokenize_with_profile(
             vec![],
             ClassQuirks::default(),
         ),
-        Grammar::Ini | Grammar::Toml => {
-            let (tokens, structure) = match profile.grammar {
-                Grammar::Ini => tokenize_ini(source_contents),
-                _ => tokenize_toml(source_contents),
-            };
-            return Ok(HyperTokenized::new(profile, tokens, structure));
-        }
-        Grammar::PlainText => {
-            let tokens = source_contents
-                .split_whitespace()
-                .map(|text| RawToken {
-                    context: "%".to_string(),
-                    class: TokenClass::Text,
-                    text,
-                })
-                .collect();
-            return Ok(HyperTokenized::new(
-                profile,
-                finish_tokens(source_contents, tokens),
-                vec![],
-            ));
+        Grammar::Ini | Grammar::Toml | Grammar::PlainText => {
+            return Err(format!("{:?} isn't a tree-sitter grammar", grammar));
         }
     };
-    let query = container_query(profile.grammar, &ts_lang, ts_query_filename)?;
-    let setup = TreeSitterSetup {
-        grammar: profile.grammar,
+    let query = container_query(grammar, &ts_lang, ts_query_filename)?;
+    Ok(TreeSitterSetup {
+        grammar,
         name_capture_ix: query.capture_index_for_name("name").unwrap(),
         container_capture_ix: query.capture_index_for_name("container").unwrap(),
         ts_lang,
@@ -641,41 +712,7 @@ pub fn hypertokenize_with_profile(
         atom_nodes,
         ignore_nodes,
         quirks,
-    };
-
-    let mut walked = Walked::default();
-    if setup.grammar == Grammar::Cpp {
-        tokenize_cpp(
-            &setup,
-            source_contents,
-            0..source_contents.len(),
-            &[],
-            0,
-            &mut walked,
-        )?;
-        // (Stable, so tokens at the same offset, if any, keep their order.)
-        walked.tokens.sort_by_key(|(offset, _)| *offset);
-        walked.structure.sort_by_key(|(offset, _)| *offset);
-    } else {
-        walk_tree(
-            &setup,
-            source_contents,
-            source_contents,
-            &|offset| Some(offset),
-            &[],
-            &mut walked,
-            &mut vec![],
-        )?;
-    }
-
-    Ok(HyperTokenized::new(
-        profile,
-        finish_tokens(
-            source_contents,
-            walked.tokens.into_iter().map(|(_, token)| token).collect(),
-        ),
-        walked.structure.into_iter().map(|(_, row)| row).collect(),
-    ))
+    })
 }
 
 /// Parse `text` and add its tokens and structure to `walked`, for `source`, of
@@ -890,6 +927,16 @@ fn walk_parsed<'s>(
             let parent_kind_id = parent_stack.last().map(|p| p.0);
             if setup.ignore_nodes.contains(&node_kind_id) {
                 // ignore this node!
+                visited_children = true;
+            } else if setup.grammar == Grammar::Xpidl
+                && node.kind() == "code_text"
+                && let (Some(start), Some(end)) =
+                    (to_source(node.start_byte()), to_source(node.end_byte()))
+            {
+                // XPIDL's code blocks are C++, which goes in the generated
+                // headers, so we tokenize them as C++, in the context here.
+                let cpp = tree_sitter_setup(Grammar::Cpp)?;
+                tokenize_cpp(&cpp, source, start..end, &context_stack, 0, walked)?;
                 visited_children = true;
             } else if let Some((open, body, close)) = rust_item_macro_body(setup, &node)
                 && let Some(items) = parse_rust_items(setup, &text[body.clone()])
@@ -1377,6 +1424,11 @@ mod tests {
                 "toml",
             ),
             (
+                "a.idl",
+                "[scriptable, uuid(a88e5a60-205a-4bb1-94e1-2628daf51eae)]\ninterface nsIFoo : nsISupports { void go(in long a); };",
+                "xpidl",
+            ),
+            (
                 "a.java",
                 "class C { int mX; void m(int a) { mX = a; } }",
                 "java",
@@ -1801,6 +1853,52 @@ mod tests {
         let classes = classes("a.js", source);
         assert!(classes.iter().any(|c| c == "s:'a b'"), "{:?}", classes);
         assert!(classes.iter().any(|c| c == "i:d"), "{:?}", classes);
+    }
+
+    /// XPIDL's interfaces and members are containers, and its code blocks
+    /// are tokenized as C++.
+    #[test]
+    fn test_xpidl() {
+        let source = "#include \"nsISupports.idl\"\n\
+                      %{C++\n\
+                      inline bool IsFoo(int aX) { return aX > 1; }\n\
+                      %}\n\
+                      [scriptable, uuid(a88e5a60-205a-4bb1-94e1-2628daf51eae)]\n\
+                      interface nsIFoo : nsISupports {\n  \
+                        const unsigned long FLAG = 1 << 2;\n  \
+                        readonly attribute AString name;\n  \
+                        void go(in long aCount);\n\
+                      };\n\
+                      [ref] native StdFunction(std::function<void(int)>);\n";
+        assert_eq!(
+            structure("a.idl", source),
+            vec![
+                "method:IsFoo",
+                "class:nsIFoo",
+                "field:nsIFoo::FLAG",
+                "field:nsIFoo::name",
+                "method:nsIFoo::go",
+                "typedef:StdFunction",
+            ]
+        );
+        let classes = classes("a.idl", source);
+        for expected in [
+            "s:\"nsISupports.idl\"",
+            "k:inline",
+            "i:IsFoo",
+            "k:interface",
+            "i:nsIFoo",
+            "k:readonly",
+            "k:attribute",
+            "t:std::function<void(int)>",
+        ] {
+            assert!(
+                classes.iter().any(|c| c == expected),
+                "{} in {:?}",
+                expected,
+                classes
+            );
+        }
     }
 
     fn structure(filename: &str, source: &str) -> Vec<String> {
