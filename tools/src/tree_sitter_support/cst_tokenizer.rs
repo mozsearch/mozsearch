@@ -658,24 +658,38 @@ fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
                 ClassQuirks::default(),
             )
         }
-        Grammar::Python => (
-            tree_sitter_python::LANGUAGE.into(),
-            "python",
-            vec![],
-            vec![],
-            ClassQuirks::default(),
-        ),
+        Grammar::Python => {
+            // Strings' contents are tokens (with their escape sequences,
+            // which are their children, between which the text isn't), as
+            // are f-strings' format specifiers (ex: `:>10`, of which only the
+            // `:` is a child).
+            let ts_lang: tree_sitter::Language = tree_sitter_python::LANGUAGE.into();
+            let string_content = ts_lang.id_for_node_kind("string_content", true);
+            let format_specifier = ts_lang.id_for_node_kind("format_specifier", true);
+            let quirks =
+                ClassQuirks::new(&ts_lang, &[("format_specifier", TokenClass::String)], &[]);
+            (
+                ts_lang,
+                "python",
+                vec![string_content, format_specifier],
+                vec![],
+                quirks,
+            )
+        }
         Grammar::Rust => {
             // tree-sitter-rust's comments only have children for their
             // delimiters and doc comments' text, not plain comments' text, so
-            // we split their whole text into words.
+            // we split their whole text into words.  And raw strings'
+            // delimiters (`r#"`, `"#`) aren't in its trees, so raw strings are
+            // single tokens, like other languages' strings.
             let ts_lang: tree_sitter::Language = tree_sitter_rust::LANGUAGE.into();
             let line_comment = ts_lang.id_for_node_kind("line_comment", true);
             let block_comment = ts_lang.id_for_node_kind("block_comment", true);
+            let raw_string_literal = ts_lang.id_for_node_kind("raw_string_literal", true);
             (
                 ts_lang,
                 "rust",
-                vec![line_comment, block_comment],
+                vec![line_comment, block_comment, raw_string_literal],
                 vec![],
                 ClassQuirks::default(),
             )
@@ -709,7 +723,10 @@ fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
                 // anonymous.
                 &[("type_name", TokenClass::Identifier)],
             );
-            (ts_lang, "ipdl", vec![], vec![], quirks)
+            // Comments only have children for their delimiters, so we split
+            // their whole text into words, like Rust's.
+            let comment = ts_lang.id_for_node_kind("comment", true);
+            (ts_lang, "ipdl", vec![comment], vec![], quirks)
         }
         Grammar::Objc => {
             let ts_lang: tree_sitter::Language = tree_sitter_objc::LANGUAGE.into();
@@ -752,14 +769,19 @@ fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
                 ClassQuirks::default(),
             )
         }
-        // (Kotlin's strings have interpolations, so they aren't atoms.)
-        Grammar::Kotlin => (
-            tree_sitter_kotlin_ng::LANGUAGE.into(),
-            "kotlin",
-            vec![],
-            vec![],
-            ClassQuirks::default(),
-        ),
+        // (Kotlin's strings have interpolations, so they aren't atoms, but its
+        // characters are, whose contents aren't in its trees.)
+        Grammar::Kotlin => {
+            let ts_lang: tree_sitter::Language = tree_sitter_kotlin_ng::LANGUAGE.into();
+            let character_literal = ts_lang.id_for_node_kind("character_literal", true);
+            (
+                ts_lang,
+                "kotlin",
+                vec![character_literal],
+                vec![],
+                ClassQuirks::default(),
+            )
+        }
         Grammar::Ini | Grammar::Toml | Grammar::PlainText | Grammar::ObjCpp => {
             return Err(format!("{:?} isn't a tree-sitter grammar", grammar));
         }
@@ -987,6 +1009,11 @@ fn walk_parsed<'s>(
                 || (node.is_named() && node.kind().contains("comment"))
                 || parent_stack.last().is_some_and(|p| p.1);
             let parent_kind_id = parent_stack.last().map(|p| p.0);
+            if (node.is_error() || (node.parent().is_none() && node.has_error()))
+                && node.child_count() > 0
+            {
+                push_error_gap_tokens(&node, text, &source_slice, &context_pretty, walked);
+            }
             if setup.ignore_nodes.contains(&node_kind_id) {
                 // ignore this node!
                 visited_children = true;
@@ -1112,6 +1139,54 @@ fn parse_rust_items(setup: &TreeSitterSetup, text: &str) -> Option<tree_sitter::
                 .any(|child| child.kind().ends_with("_item"))
     };
     is_items.then_some(tree)
+}
+
+/// Add the tokens of an ERROR node's (or an erroneous parse's root's) text
+/// which isn't its children's to `walked`, in the context `context_pretty`:
+/// tree-sitter's error recovery can leave text out of them (ex:
+/// tree-sitter-kotlin-ng's, giving up on the rest of a file, makes an ERROR
+/// node of it with only its first token, or leaves it out of the tree).
+fn push_error_gap_tokens<'s>(
+    node: &tree_sitter::Node,
+    text: &str,
+    source_slice: &dyn Fn(&str) -> Option<(usize, &'s str)>,
+    context_pretty: &str,
+    walked: &mut Walked<'s>,
+) {
+    let mut cursor = node.walk();
+    let mut covered = node.start_byte();
+    let mut gaps = vec![];
+    for child in node.children(&mut cursor) {
+        if child.start_byte() > covered {
+            gaps.push(covered..child.start_byte());
+        }
+        covered = covered.max(child.end_byte());
+    }
+    if node.end_byte() > covered {
+        gaps.push(covered..node.end_byte());
+    }
+    for gap in gaps {
+        let Some(gap_text) = text.get(gap) else {
+            continue;
+        };
+        for piece in gap_text.split_whitespace() {
+            if let Some((offset, source_text)) = source_slice(piece) {
+                let class = if piece.chars().any(|c| c.is_alphanumeric()) {
+                    TokenClass::Identifier
+                } else {
+                    TokenClass::Operator
+                };
+                walked.tokens.push((
+                    offset,
+                    RawToken {
+                        context: context_pretty.to_string(),
+                        class,
+                        text: source_text,
+                    },
+                ));
+            }
+        }
+    }
 }
 
 /// Add a leaf node's tokens to `walked`, in the context `context_pretty`.
@@ -2331,6 +2406,40 @@ mod tests {
                 expected,
                 contexts
             );
+        }
+    }
+
+    /// Files' tokens cover their text (but whitespace): tokens that grammars
+    /// leave out of their trees (ex: anonymous regexes, and external
+    /// scanners' delimiters), and text that error recovery leaves out of
+    /// them, would be lost.
+    #[test]
+    fn test_tokens_cover_text() {
+        for (filename, source) in [
+            // (tree-sitter-cpp's `= 0`'s `0`.)
+            ("a.cpp", "class A {\n  virtual ~A() = 0;\n};\n"),
+            // (tree-sitter-xpidl's code blocks' delimiters.)
+            ("a.idl", "interface nsIFoo {\n%{C++\n  int x;\n%}\n};\n"),
+            // (Strings' contents around escape sequences, and f-strings'
+            // format specifiers.)
+            ("a.py", "x = \"fail in a\\n future\"\ny = f\"{a:>10}\"\n"),
+            // (tree-sitter-ipdl's comments' text.)
+            ("a.ipdl", "// a comment\n/* MPL\n * x */\nprotocol P {};\n"),
+            // (Characters' contents, and an ERROR node with only its `}`.)
+            ("a.kt", "val a = it == '-'\n"),
+            ("b.kt", "}\nprivate fun Intent.strip() {"),
+            // (Raw strings' delimiters.)
+            ("a.rs", "fn f() { let a = r#\"x y\"#; let b = r\"z\"; }\n"),
+        ] {
+            let tokens: String = hypertokenize_source_file(filename, source)
+                .unwrap()
+                .tokenized
+                .iter()
+                .flat_map(|line| split_token_line(line).token.chars().collect::<Vec<_>>())
+                .filter(|c| !c.is_whitespace())
+                .collect();
+            let text: String = source.chars().filter(|c| !c.is_whitespace()).collect();
+            assert_eq!(tokens, text, "{}", filename);
         }
     }
 
