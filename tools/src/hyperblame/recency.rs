@@ -428,8 +428,10 @@ pub fn link_definitions(
         };
         let offset = line_start as u32 + datum.loc.col_start;
         for piece in &datum.data {
+            // (IDL symbols' definitions are `idl` records, ex: XPIDL's and
+            // WebIDL's interfaces and members.)
             let is_def = match piece.kind {
-                AnalysisKind::Def => true,
+                AnalysisKind::Def | AnalysisKind::Idl => true,
                 AnalysisKind::Decl => false,
                 _ => continue,
             };
