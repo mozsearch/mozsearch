@@ -4514,7 +4514,7 @@ checksum = "ca0d1bf6fdd806e43ae5198f82f527056d359def39e54e67a0f478ac09dac081"
 [[package]]
 name = "tree-sitter-mozcpp"
 version = "0.1.0"
-source = "git+https://github.com/mozsearch/tree-sitter-mozcpp?rev=9745e0d705dd24fe1a1aee68603fcf89cd1cc7b6#9745e0d705dd24fe1a1aee68603fcf89cd1cc7b6"
+source = "git+https://github.com/mozsearch/tree-sitter-mozcpp?rev=49573594ae2701e8f88c3cf0b4ccf6db10cbf044#49573594ae2701e8f88c3cf0b4ccf6db10cbf044"
 dependencies = [
  "cc",
  "tree-sitter-language",

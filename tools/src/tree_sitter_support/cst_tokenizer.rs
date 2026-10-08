@@ -1992,7 +1992,8 @@ mod tests {
         let prettys: Vec<String> = hypertokenize_source_file(
             "a.cpp",
             "struct S {\n  void (*xFunc)(int);\n  int (*const fp)(int);\n  \
-             static int (max)();\n  void (*(*nested)(int))(int);\n};\n\
+             static int (max)();\n  void (*(*nested)(int))(int);\n  \
+             void (Foo::*mMethod)();\n};\n\
              void (*signal(int sig, void (*func)(int)))(int) { return 0; }\n",
         )
         .unwrap()
@@ -2002,7 +2003,15 @@ mod tests {
         .collect();
         assert_eq!(
             prettys,
-            vec!["S", "S::xFunc", "S::fp", "S::max", "S::nested", "signal"]
+            vec![
+                "S",
+                "S::xFunc",
+                "S::fp",
+                "S::max",
+                "S::nested",
+                "S::mMethod",
+                "signal"
+            ]
         );
         // Enums are containers where they're defined, not where they're
         // mentioned (ex: parameters' and fields' types, and forward
