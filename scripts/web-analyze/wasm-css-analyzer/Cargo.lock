@@ -4297,6 +4297,7 @@ dependencies = [
  "tree-sitter-java",
  "tree-sitter-kotlin-ng",
  "tree-sitter-mozcpp",
+ "tree-sitter-objc",
  "tree-sitter-python",
  "tree-sitter-rust",
  "tree-sitter-typescript",
@@ -4516,6 +4517,16 @@ checksum = "009994f150cc0cd50ff54917d5bc8bffe8cad10ca10d81c34da2ec421ae61782"
 name = "tree-sitter-mozcpp"
 version = "0.1.0"
 source = "git+https://github.com/mozsearch/tree-sitter-mozcpp?rev=56c393d8a4b011d3220b85d71a4a47e0e2cd1ac1#56c393d8a4b011d3220b85d71a4a47e0e2cd1ac1"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-objc"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ca8bb556423fc176f0535e79d525f783a6684d3c9da81bf9d905303c129e1d2"
 dependencies = [
  "cc",
  "tree-sitter-language",

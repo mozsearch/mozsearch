@@ -21,7 +21,9 @@ use ustr::UstrMap;
 
 use tools::file_format::analysis::{read_analysis, read_structured, read_target};
 use tools::hyperblame::recency::{CONTEXT_KINDS, FileDigests, FileLinkage, link_definitions};
-use tools::tree_sitter_support::cst_tokenizer::hypertokenize_source_file;
+use tools::tree_sitter_support::cst_tokenizer::{
+    hypertokenize_source_file, hypertokenize_with_profile, profile_for_lang,
+};
 
 #[derive(Parser)]
 struct Cli {
@@ -35,6 +37,10 @@ struct Cli {
     /// How many threads to use.
     #[arg(long, default_value_t = 16)]
     threads: usize,
+    /// Tokenize every file as this language (a `LanguageProfile::lang`, as a
+    /// `searchfox-lang` attribute would), rather than by its extension.
+    #[arg(long)]
+    lang: Option<String>,
 }
 
 /// A file to check, with the history's count of its definitions without their
@@ -55,7 +61,14 @@ fn check(cli: &Cli, path: &str) -> Checked {
     let Ok(source) = fs::read_to_string(format!("{}/{}", cli.files, path)) else {
         return Checked::Failed("no source");
     };
-    let Ok(tokenized) = hypertokenize_source_file(path, &source) else {
+    let tokenized = match &cli.lang {
+        Some(lang) => match profile_for_lang(lang) {
+            Some(profile) => hypertokenize_with_profile(profile, &source),
+            None => return Checked::Failed("unknown --lang"),
+        },
+        None => hypertokenize_source_file(path, &source),
+    };
+    let Ok(tokenized) = tokenized else {
         return Checked::Failed("not tokenized");
     };
     if tokenized.profile.lang == "none" {

@@ -68,6 +68,11 @@ enum Grammar {
     Webidl,
     Ipdl,
     Xpidl,
+    /// Objective-C, with tree-sitter-objc (see `tokenize_objcpp`).
+    Objc,
+    /// Objective-C++: its Objective-C sections with tree-sitter-objc, and the
+    /// rest as C++ (see `tokenize_objcpp`).
+    ObjCpp,
     Java,
     Kotlin,
     /// See `config_tokenizer.rs`.
@@ -136,6 +141,18 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
         namespace: "xpidl",
         grammar: Grammar::Xpidl,
     },
+    // Objective-C and Objective-C++ share C++'s namespace, since their files
+    // define and use C and C++ symbols.
+    LanguageProfile {
+        lang: "objc",
+        namespace: "cpp",
+        grammar: Grammar::Objc,
+    },
+    LanguageProfile {
+        lang: "objcpp",
+        namespace: "cpp",
+        grammar: Grammar::ObjCpp,
+    },
     // Java and Kotlin share a namespace because they share symbols (the JVM's
     // fully qualified names), so that symbols' histories continue across
     // conversions from Java to Kotlin, as moved comments and strings do.
@@ -199,8 +216,8 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   are words, its item macros' items are tokenized as items (see
 ///   `rust_item_macro_body`), and its functions without bodies are
 ///   containers; JS's private methods are containers, and its strings are
-///   single tokens.  Java, Kotlin, and XPIDL are tokenized with their
-///   grammars, rather than as plain text.
+///   single tokens.  Java, Kotlin, XPIDL, Objective-C, and Objective-C++
+///   are tokenized with grammars, rather than as plain text.
 pub const TOKENIZER_VERSION: u32 = 9;
 
 /// Normalize the text of a container's name node for use in a context.  Names
@@ -268,6 +285,10 @@ pub fn default_profile_for_path(path: &Path) -> Option<LanguageProfile> {
         // (mozilla-central's other `.idl` files, ex: web-platform-tests'
         // WebIDL, need `searchfox-lang` attributes.)
         "idl" => "xpidl",
+        // (Objective-C++ mixes C++ and Objective-C, which no grammar parses
+        // both of; see `tokenize_objcpp`.)
+        "m" => "objc",
+        "mm" => "objcpp",
         "java" => "java",
         "kt" | "kts" => "kotlin",
         "ini" => "ini",
@@ -537,14 +558,32 @@ pub fn hypertokenize_with_profile(
         }
         _ => {}
     }
+    let mut walked = Walked::default();
+    if matches!(profile.grammar, Grammar::ObjCpp | Grammar::Objc) {
+        let rest = match profile.grammar {
+            Grammar::ObjCpp => Grammar::Cpp,
+            _ => Grammar::Objc,
+        };
+        tokenize_objcpp(source_contents, rest, &mut walked)?;
+        walked.tokens.sort_by_key(|(offset, _)| *offset);
+        walked.structure.sort_by_key(|(offset, _)| *offset);
+        return Ok(HyperTokenized::new(
+            profile,
+            finish_tokens(
+                source_contents,
+                walked.tokens.into_iter().map(|(_, token)| token).collect(),
+            ),
+            walked.structure.into_iter().map(|(_, row)| row).collect(),
+        ));
+    }
     let setup = tree_sitter_setup(profile.grammar)?;
 
-    let mut walked = Walked::default();
     if setup.grammar == Grammar::Cpp {
         tokenize_cpp(
             &setup,
             source_contents,
-            0..source_contents.len(),
+            source_contents,
+            0,
             &[],
             0,
             &mut walked,
@@ -663,6 +702,20 @@ fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
             );
             (ts_lang, "ipdl", vec![], vec![], quirks)
         }
+        Grammar::Objc => {
+            let ts_lang: tree_sitter::Language = tree_sitter_objc::LANGUAGE.into();
+            // (Like C++'s.)
+            let string_literal = ts_lang.id_for_node_kind("string_literal", true);
+            let char_literal = ts_lang.id_for_node_kind("char_literal", true);
+            let newline = ts_lang.id_for_node_kind("\n", false);
+            (
+                ts_lang,
+                "objc",
+                vec![string_literal, char_literal],
+                vec![newline],
+                ClassQuirks::default(),
+            )
+        }
         Grammar::Xpidl => {
             let ts_lang: tree_sitter::Language = tree_sitter_xpidl::LANGUAGE.into();
             let quirks = ClassQuirks::new(
@@ -696,7 +749,7 @@ fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
             vec![],
             ClassQuirks::default(),
         ),
-        Grammar::Ini | Grammar::Toml | Grammar::PlainText => {
+        Grammar::Ini | Grammar::Toml | Grammar::PlainText | Grammar::ObjCpp => {
             return Err(format!("{:?} isn't a tree-sitter grammar", grammar));
         }
     };
@@ -934,7 +987,15 @@ fn walk_parsed<'s>(
                 // XPIDL's code blocks are C++, which goes in the generated
                 // headers, so we tokenize them as C++, in the context here.
                 let cpp = tree_sitter_setup(Grammar::Cpp)?;
-                tokenize_cpp(&cpp, source, start..end, &context_stack, 0, walked)?;
+                tokenize_cpp(
+                    &cpp,
+                    source,
+                    &source[start..end],
+                    start,
+                    &context_stack,
+                    0,
+                    walked,
+                )?;
                 visited_children = true;
             } else if let Some((open, body, close)) = rust_item_macro_body(setup, &node)
                 && let Some(items) = parse_rust_items(setup, &text[body.clone()])
@@ -1108,16 +1169,19 @@ const MAX_CONDITIONAL_DEPTH: u32 = 16;
 /// and then tokenize the directives (see `tokenize_directive`) and the other
 /// branches (each the same way) separately, in the contexts at their
 /// locations in the first parse.
+///
+/// `text` is the source's text at `base` (or a version of it of the same
+/// length, ex: with Objective-C++'s Objective-C blanked; see
+/// `tokenize_objcpp`).
 fn tokenize_cpp<'s>(
     setup: &TreeSitterSetup,
     source: &'s str,
-    range: std::ops::Range<usize>,
+    text: &str,
+    base: usize,
     outer: &[String],
     depth: u32,
     walked: &mut Walked<'s>,
 ) -> Result<(), String> {
-    let text = &source[range.clone()];
-    let base = range.start;
     let to_source = |offset: usize| Some(base + offset);
     let plan = if depth < MAX_CONDITIONAL_DEPTH {
         plan_conditionals(text)
@@ -1156,17 +1220,115 @@ fn tokenize_cpp<'s>(
         )?;
     }
     for branch in plan.other_branches {
-        let branch = base + branch.start..base + branch.end;
         tokenize_cpp(
             setup,
             source,
-            branch.clone(),
-            &context_at(branch.start),
+            &text[branch.clone()],
+            base + branch.start,
+            &context_at(base + branch.start),
             depth + 1,
             walked,
         )?;
     }
     Ok(())
+}
+
+/// Tokenize Objective-C++ or Objective-C: neither tree-sitter-cpp nor
+/// tree-sitter-objc parses both C++ and Objective-C, so Objective-C++'s
+/// Objective-C sections (`@interface`, `@implementation`, and `@protocol`
+/// through `@end`, and lines like `@class Foo;`) are parsed with
+/// tree-sitter-objc, and the `rest` with tree-sitter-mozcpp (see
+/// `tokenize_cpp`), with the sections blanked (keeping offsets).  Objective-C
+/// files' rest is parsed with tree-sitter-objc too, separately, which keeps
+/// errors in one part from affecting the other.  Objective-C declarations can
+/// only be at the top level, so the sections' contexts are their own.
+///
+/// On firefox-disco (2026-10-08), Objective-C++ (422 files) this way had
+/// containers for 92% of the Objective-C methods and 95% of the analyzed C++
+/// definitions (and 12.5% of the tokens at the top level), vs 92% and 73%
+/// (29%) parsing it all with tree-sitter-objc, or 0% and 94% (34%) as C++;
+/// Objective-C (106 files) had 100%, 100%, and 17%.
+fn tokenize_objcpp<'s>(
+    source: &'s str,
+    rest: Grammar,
+    walked: &mut Walked<'s>,
+) -> Result<(), String> {
+    let sections = objc_sections(source);
+    let mut cpp_text = source.as_bytes().to_vec();
+    for section in &sections {
+        for b in &mut cpp_text[section.clone()] {
+            if *b != b'\n' && *b != b'\r' {
+                *b = b' ';
+            }
+        }
+    }
+    // (Blanking whole lines keeps the text UTF-8.)
+    let cpp_text = String::from_utf8(cpp_text).map_err(|e| e.to_string())?;
+    let objc = tree_sitter_setup(Grammar::Objc)?;
+    if rest == Grammar::Cpp {
+        let cpp = tree_sitter_setup(Grammar::Cpp)?;
+        tokenize_cpp(&cpp, source, &cpp_text, 0, &[], 0, walked)?;
+    } else {
+        walk_tree(
+            &objc,
+            &cpp_text,
+            source,
+            &|offset| Some(offset),
+            &[],
+            walked,
+            &mut vec![],
+        )?;
+    }
+    for section in sections {
+        let start = section.start;
+        walk_tree(
+            &objc,
+            &source[section],
+            source,
+            &|offset| Some(start + offset),
+            &[],
+            walked,
+            &mut vec![],
+        )?;
+    }
+    Ok(())
+}
+
+/// The byte ranges (whole lines) of Objective-C sections in `source` (see
+/// `tokenize_objcpp`).
+fn objc_sections(source: &str) -> Vec<std::ops::Range<usize>> {
+    let mut sections = vec![];
+    let mut open: Option<usize> = None;
+    let mut pos = 0;
+    while pos < source.len() {
+        let end = source[pos..].find('\n').map_or(source.len(), |i| pos + i);
+        let next = (end + 1).min(source.len());
+        let line = source[pos..end].trim();
+        let word = line.strip_prefix('@').map(|rest| {
+            rest.split(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+                .next()
+                .unwrap_or("")
+        });
+        match (open, word) {
+            (None, Some("interface" | "implementation" | "protocol")) if !line.ends_with(';') => {
+                open = Some(pos);
+            }
+            (None, Some(_)) => sections.push(pos..next),
+            (Some(start), Some("end")) => {
+                sections.push(start..next);
+                open = None;
+            }
+            _ => {}
+        }
+        if next == end {
+            break;
+        }
+        pos = next;
+    }
+    if let Some(start) = open {
+        sections.push(start..source.len());
+    }
+    sections
 }
 
 /// A preprocessor conditional directive (`#if ...`, `#else`, ...) by itself:
@@ -1901,6 +2063,45 @@ mod tests {
                 classes
             );
         }
+    }
+
+    /// Objective-C++'s Objective-C sections are parsed with tree-sitter-objc
+    /// and the rest as C++, and Objective-C's both with tree-sitter-objc.
+    #[test]
+    fn test_objc() {
+        let source = "#import <Cocoa/Cocoa.h>\n\
+                      namespace mozilla {\n\
+                      void Foo(const nsTArray<int>& aArray) { Bar(); }\n\
+                      }  // namespace mozilla\n\
+                      @interface PixelHostingView : NSView\n\
+                      - (id)initWithFrame:(NSRect)inFrame geckoChild:(int)inChild;\n\
+                      @end\n\
+                      @implementation PixelHostingView\n\
+                      - (id)initWithFrame:(NSRect)inFrame geckoChild:(int)inChild {\n  \
+                        return [super initWithFrame:inFrame];\n\
+                      }\n\
+                      @end\n";
+        assert_eq!(
+            structure("a.mm", source),
+            vec![
+                "namespace:mozilla",
+                "method:mozilla::Foo",
+                "class:PixelHostingView",
+                "method:PixelHostingView::initWithFrame",
+                "class:PixelHostingView",
+                "method:PixelHostingView::initWithFrame",
+            ]
+        );
+        let c_source = "static int Helper(int a) { return [obj count] + a; }\n\
+                        @implementation Foo\n\
+                        + (void)reset { NSLog(@\"hi\"); }\n\
+                        @end\n";
+        assert_eq!(
+            structure("a.m", c_source),
+            vec!["method:Helper", "class:Foo", "method:Foo::reset"]
+        );
+        let classes = classes("a.m", c_source);
+        assert!(classes.iter().any(|c| c == "s:@\"hi\""), "{:?}", classes);
     }
 
     fn structure(filename: &str, source: &str) -> Vec<String> {
