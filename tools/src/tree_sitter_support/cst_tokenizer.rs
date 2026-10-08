@@ -1143,9 +1143,9 @@ fn parse_rust_items(setup: &TreeSitterSetup, text: &str) -> Option<tree_sitter::
 
 /// Add the tokens of an ERROR node's (or an erroneous parse's root's) text
 /// which isn't its children's to `walked`, in the context `context_pretty`:
-/// tree-sitter's error recovery can leave text out of them (ex:
-/// tree-sitter-kotlin-ng's, giving up on the rest of a file, makes an ERROR
-/// node of it with only its first token, or leaves it out of the tree).
+/// tree-sitter's error recovery can leave text out of them (ex: with
+/// tree-sitter-kotlin-ng 1.1.0, giving up on the rest of a file, it made an
+/// ERROR node of it with only its first token, or left it out of the tree).
 fn push_error_gap_tokens<'s>(
     node: &tree_sitter::Node,
     text: &str,
@@ -2425,11 +2425,23 @@ mod tests {
             ("a.py", "x = \"fail in a\\n future\"\ny = f\"{a:>10}\"\n"),
             // (tree-sitter-ipdl's comments' text.)
             ("a.ipdl", "// a comment\n/* MPL\n * x */\nprotocol P {};\n"),
-            // (Characters' contents, and an ERROR node with only its `}`.)
+            // (Characters' contents, and an ERROR node with only its `}`, and
+            // tree-sitter-kotlin-ng's hidden tokens: `;`s, `!is`'s `!`, and a
+            // `?` before a comment.)
             ("a.kt", "val a = it == '-'\n"),
             ("b.kt", "}\nprivate fun Intent.strip() {"),
-            // (Raw strings' delimiters.)
+            (
+                "c.kt",
+                "fun f() { a(); b() }\n\
+                 val c = x !is Foo\n\
+                 val d = y as? Bar? // e\n",
+            ),
+            // (Raw strings' delimiters, and macro repetitions' separators.)
             ("a.rs", "fn f() { let a = r#\"x y\"#; let b = r\"z\"; }\n"),
+            (
+                "b.rs",
+                "macro_rules! m { ($($e:expr),+) => { $($e);* }; }\n",
+            ),
         ] {
             let tokens: String = hypertokenize_source_file(filename, source)
                 .unwrap()
