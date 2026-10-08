@@ -622,14 +622,20 @@ fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
             let ts_lang: tree_sitter::Language = tree_sitter_mozcpp::LANGUAGE.into();
             let string_literal = ts_lang.id_for_node_kind("string_literal", true);
             let char_literal = ts_lang.id_for_node_kind("char_literal", true);
-            // (Objective-C's `@"..."`, in Objective-C++, one token, as in
-            // tree-sitter-objc.)
+            // (Objective-C's `@"..."` and `@selector(foo:bar:)`, in
+            // Objective-C++, are single tokens, as in tree-sitter-objc.)
             let objc_string_literal = ts_lang.id_for_node_kind("objc_string_literal", true);
+            let selector_expression = ts_lang.id_for_node_kind("selector_expression", true);
             let newline = ts_lang.id_for_node_kind("\n", false);
             (
                 ts_lang,
                 "cpp",
-                vec![string_literal, char_literal, objc_string_literal],
+                vec![
+                    string_literal,
+                    char_literal,
+                    objc_string_literal,
+                    selector_expression,
+                ],
                 vec![newline],
                 ClassQuirks::default(),
             )
@@ -707,14 +713,16 @@ fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
         }
         Grammar::Objc => {
             let ts_lang: tree_sitter::Language = tree_sitter_objc::LANGUAGE.into();
-            // (Like C++'s.)
+            // (Like C++'s.  `@selector(foo:bar:)`'s selector isn't in
+            // tree-sitter-objc's tree, so it's a single token too.)
             let string_literal = ts_lang.id_for_node_kind("string_literal", true);
             let char_literal = ts_lang.id_for_node_kind("char_literal", true);
+            let selector_expression = ts_lang.id_for_node_kind("selector_expression", true);
             let newline = ts_lang.id_for_node_kind("\n", false);
             (
                 ts_lang,
                 "objc",
-                vec![string_literal, char_literal],
+                vec![string_literal, char_literal, selector_expression],
                 vec![newline],
                 ClassQuirks::default(),
             )
@@ -1175,7 +1183,8 @@ const MAX_CONDITIONAL_DEPTH: u32 = 16;
 ///
 /// `text` is the source's text at `base` (or a version of it of the same
 /// length, ex: with Objective-C++'s Objective-C blanked; see
-/// `tokenize_objcpp`).
+/// `tokenize_objcpp`).  Returns the first parse's containers.  (Objective-C,
+/// with tree-sitter-objc's `setup`, is tokenized this way too.)
 fn tokenize_cpp<'s>(
     setup: &TreeSitterSetup,
     source: &'s str,
@@ -1184,17 +1193,26 @@ fn tokenize_cpp<'s>(
     outer: &[String],
     depth: u32,
     walked: &mut Walked<'s>,
-) -> Result<(), String> {
+) -> Result<Vec<ContainerSpan>, String> {
     let to_source = |offset: usize| Some(base + offset);
     let plan = if depth < MAX_CONDITIONAL_DEPTH {
         plan_conditionals(text)
     } else {
         None
     };
-    let Some(plan) = plan else {
-        return walk_tree(setup, text, source, &to_source, outer, walked, &mut vec![]);
-    };
     let mut containers = vec![];
+    let Some(plan) = plan else {
+        walk_tree(
+            setup,
+            text,
+            source,
+            &to_source,
+            outer,
+            walked,
+            &mut containers,
+        )?;
+        return Ok(containers);
+    };
     walk_tree(
         setup,
         &plan.first_branches,
@@ -1233,7 +1251,7 @@ fn tokenize_cpp<'s>(
             walked,
         )?;
     }
-    Ok(())
+    Ok(containers)
 }
 
 /// Tokenize Objective-C++ or Objective-C: tree-sitter-objc doesn't parse
@@ -1241,15 +1259,18 @@ fn tokenize_cpp<'s>(
 /// statements, so Objective-C++'s Objective-C sections (`@interface`,
 /// `@implementation`, and `@protocol` through `@end`, and lines like `@class
 /// Foo;`) are parsed with tree-sitter-objc, and the `rest` with
-/// tree-sitter-mozcpp (see `tokenize_cpp`), with the sections blanked
-/// (keeping offsets).  Objective-C files' rest is parsed with tree-sitter-objc
-/// too, separately, which keeps errors in one part from affecting the other.
-/// Objective-C declarations can only be at the top level, so the sections'
-/// contexts are their own.
+/// tree-sitter-mozcpp, with the sections blanked (keeping offsets), and its
+/// methods' bodies, which are C++, with tree-sitter-mozcpp too, in the
+/// methods' contexts (blanked for tree-sitter-objc).  Objective-C files' rest
+/// is parsed with tree-sitter-objc too, separately, which keeps errors in one
+/// part from affecting the other.  Objective-C declarations can only be at
+/// the top level, so the sections' contexts are their own.  All of them are
+/// parsed with preprocessor conditionals' first branches (see
+/// `tokenize_cpp`).
 ///
 /// On firefox-disco (2026-10-08), Objective-C++ (422 files) this way had
-/// containers for 92% of the Objective-C methods and 99.9% of the analyzed
-/// C++ definitions (and 9.2% of the tokens at the top level), vs 92% and 73%
+/// containers for 99.5% of the Objective-C methods and 99.9% of the analyzed
+/// C++ definitions (and 8% of the tokens at the top level), vs 92% and 73%
 /// (29%) parsing it all with tree-sitter-objc, or 0% and 94% (34%) as C++;
 /// Objective-C (106 files) had 100%, 100%, and 17%.
 fn tokenize_objcpp<'s>(
@@ -1269,33 +1290,143 @@ fn tokenize_objcpp<'s>(
     // (Blanking whole lines keeps the text UTF-8.)
     let cpp_text = String::from_utf8(cpp_text).map_err(|e| e.to_string())?;
     let objc = tree_sitter_setup(Grammar::Objc)?;
-    if rest == Grammar::Cpp {
-        let cpp = tree_sitter_setup(Grammar::Cpp)?;
-        tokenize_cpp(&cpp, source, &cpp_text, 0, &[], 0, walked)?;
-    } else {
-        walk_tree(
-            &objc,
-            &cpp_text,
-            source,
-            &|offset| Some(offset),
-            &[],
-            walked,
-            &mut vec![],
-        )?;
-    }
+    tokenize_cpp(
+        &tree_sitter_setup(rest)?,
+        source,
+        &cpp_text,
+        0,
+        &[],
+        0,
+        walked,
+    )?;
     for section in sections {
         let start = section.start;
-        walk_tree(
-            &objc,
-            &source[section],
-            source,
-            &|offset| Some(start + offset),
-            &[],
-            walked,
-            &mut vec![],
-        )?;
+        // Objective-C++'s methods' bodies are C++ (with Objective-C), which
+        // tree-sitter-objc can't parse, so we blank them (between their
+        // braces) for it, and tokenize them as C++, in the contexts at them.
+        let bodies: Vec<std::ops::Range<usize>> = if rest == Grammar::Cpp {
+            objc_method_bodies(&source[section.clone()])
+                .into_iter()
+                .map(|body| start + body.start + 1..start + body.end - 1)
+                .collect()
+        } else {
+            vec![]
+        };
+        let mut text = source[section.clone()].as_bytes().to_vec();
+        for body in &bodies {
+            for b in &mut text[body.start - start..body.end - start] {
+                if *b != b'\n' && *b != b'\r' {
+                    *b = b' ';
+                }
+            }
+        }
+        // (Blanking between ASCII braces keeps the text UTF-8.)
+        let text = String::from_utf8(text).map_err(|e| e.to_string())?;
+        let containers = tokenize_cpp(&objc, source, &text, start, &[], 0, walked)?;
+        if bodies.is_empty() {
+            continue;
+        }
+        let cpp = tree_sitter_setup(Grammar::Cpp)?;
+        for body in bodies {
+            // (The innermost container's, ex: the method's.)
+            let context = containers
+                .iter()
+                .filter(|container| container.range.contains(&body.start))
+                .max_by_key(|container| (container.range.start, container.context.len()))
+                .map_or_else(Vec::new, |container| container.context.clone());
+            tokenize_cpp(
+                &cpp,
+                source,
+                &source[body.clone()],
+                body.start,
+                &context,
+                0,
+                walked,
+            )?;
+        }
     }
     Ok(())
+}
+
+/// The byte ranges (`{` through `}`) of the methods' bodies in an Objective-C
+/// section (see `tokenize_objcpp`): braces after lines starting with `-` or
+/// `+` outside of braces, in preprocessor conditionals' first branches (as
+/// `tokenize_cpp` parses them), outside of comments, strings, and characters
+/// (or none, if its braces don't balance).
+fn objc_method_bodies(text: &str) -> Vec<std::ops::Range<usize>> {
+    let first_branches = plan_conditionals(text).map(|plan| plan.first_branches);
+    let bytes = first_branches.as_deref().unwrap_or(text).as_bytes();
+    let mut bodies = vec![];
+    let mut depth = 0;
+    let mut in_method = false;
+    let mut body_start = 0;
+    let mut line_start = true;
+    let mut i = 0;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if line_start && !b.is_ascii_whitespace() {
+            line_start = false;
+            if depth == 0 {
+                match b {
+                    b'-' | b'+' => in_method = true,
+                    b'@' => in_method = false,
+                    _ => {}
+                }
+            }
+        }
+        match b {
+            b'\n' => line_start = true,
+            b'/' if bytes.get(i + 1) == Some(&b'/') => {
+                while i + 1 < bytes.len() && bytes[i + 1] != b'\n' {
+                    i += 1;
+                }
+            }
+            b'/' if bytes.get(i + 1) == Some(&b'*') => {
+                i += 2;
+                while i + 1 < bytes.len() && !(bytes[i] == b'*' && bytes[i + 1] == b'/') {
+                    i += 1;
+                }
+                i += 1;
+            }
+            // (Up to the closing quote, or before the newline ending an
+            // unterminated one.)
+            b'"' | b'\'' => {
+                while i + 1 < bytes.len() && bytes[i + 1] != b && bytes[i + 1] != b'\n' {
+                    if bytes[i + 1] == b'\\' {
+                        i += 1;
+                    }
+                    i += 1;
+                }
+                if bytes.get(i + 1) == Some(&b) {
+                    i += 1;
+                }
+            }
+            b'{' => {
+                if depth == 0 && in_method {
+                    body_start = i;
+                }
+                depth += 1;
+            }
+            b'}' => {
+                if depth == 0 {
+                    return vec![];
+                }
+                depth -= 1;
+                if depth == 0 && in_method {
+                    bodies.push(body_start..i + 1);
+                    in_method = false;
+                }
+            }
+            // (A declaration, ex: `- (void)foo;`.)
+            b';' if depth == 0 => in_method = false,
+            _ => {}
+        }
+        i += 1;
+    }
+    if depth != 0 {
+        return vec![];
+    }
+    bodies
 }
 
 /// The byte ranges (whole lines) of Objective-C sections in `source` (see
@@ -2162,6 +2293,45 @@ mod tests {
             "{:?}",
             mm_classes
         );
+        // Objective-C++'s methods' bodies are C++, in the methods' contexts,
+        // and methods in conditionals are parsed in their first branches.
+        let methods = "@implementation Foo\n\
+                       #ifdef ACCESSIBILITY\n\
+                       - (id)accessible {\n  \
+                         RefPtr<a11y::Acc> acc = a11y::Get(self);\n  \
+                         return [acc native];\n\
+                       }\n\
+                       #endif\n\
+                       - (void)bar {\n  \
+                         gfx::IntPoint p = GetPoint(@selector(baz:qux:));\n\
+                       }\n\
+                       @end\n";
+        assert_eq!(
+            structure("a.mm", methods),
+            vec!["class:Foo", "method:Foo::accessible", "method:Foo::bar"]
+        );
+        let contexts: Vec<String> = hypertokenize_source_file("a.mm", methods)
+            .unwrap()
+            .tokenized
+            .iter()
+            .map(|line| {
+                let parsed = split_token_line(line);
+                format!("{}@{}", parsed.token, parsed.context)
+            })
+            .collect();
+        for expected in [
+            "a11y@Foo::accessible",
+            "native@Foo::accessible",
+            "IntPoint@Foo::bar",
+            "@selector(baz:qux:)@Foo::bar",
+        ] {
+            assert!(
+                contexts.iter().any(|c| c == expected),
+                "{} in {:?}",
+                expected,
+                contexts
+            );
+        }
     }
 
     fn structure(filename: &str, source: &str) -> Vec<String> {
