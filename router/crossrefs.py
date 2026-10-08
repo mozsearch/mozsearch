@@ -131,6 +131,17 @@ def bisect_for_payload(mm, search_sym):
 
     return None
 
+# Fields of crossref records which the router doesn't use, and whose values
+# aren't lists of results, which it assumes of all of them but 'meta' and
+# 'callees' (ex: `lookup_merging`): symbols' history digests, for /query/'s
+# recency facets (see tools/src/file_format/recency.rs).
+UNUSED_FIELDS = ('recency', 'recency_from')
+
+def without_unused_fields(result):
+    for field in UNUSED_FIELDS:
+        result.pop(field, None)
+    return result
+
 def lookup_raw(tree_name, sym):
     '''
     Look up the given symbol from `crossref` and parse and return the resulting
@@ -146,7 +157,7 @@ def lookup_raw(tree_name, sym):
         return None
 
     if payload[0] == INLINE_STORED_STR:
-        return json.loads(payload[1:])
+        return without_unused_fields(json.loads(payload[1:]))
     elif payload[0] != EXTERNALLY_STORED_STR:
         # Fail if we're seeing something other than an external ref.
         return None
@@ -158,7 +169,7 @@ def lookup_raw(tree_name, sym):
     data = extra_mm[braceOffset:(braceOffset + lengthWithNewline - 1)]
 
     result = json.loads(data)
-    return result
+    return without_unused_fields(result)
 
 def lookup_merging(tree_name, symbols):
     '''
