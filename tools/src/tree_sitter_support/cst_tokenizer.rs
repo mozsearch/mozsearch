@@ -222,8 +222,8 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   leave out of their trees is tokenized (with searchfox's forks of
 ///   tree-sitter-rust and tree-sitter-kotlin-ng, atoms, and ERROR nodes'
 ///   text; see `push_error_gap_tokens`).  Function pointers are named by
-///   their names (see `clean_name_node`), and C and C++'s enums are
-///   containers only where they're defined (see cpp.scm).
+///   their names (see `clean_name_node`), and C and C++'s enums and
+///   classes are containers only where they're defined (see cpp.scm).
 pub const TOKENIZER_VERSION: u32 = 9;
 
 /// The node to name a container by, given the node its query captured as its
@@ -2027,6 +2027,19 @@ mod tests {
         .map(|row| row.pretty)
         .collect();
         assert_eq!(prettys, vec!["Color", "T", "T::mColor", "T::Set"]);
+        // Classes too (ex: forward declarations, and `friend class`), but
+        // explicit instantiations, which are definitions, are.
+        let prettys: Vec<String> = hypertokenize_source_file(
+            "a.cpp",
+            "class nsIFoo;\nclass Foo {\n  friend class Bar;\n  class Baz mBaz;\n};\n\
+             template class Holder<Foo>;\n",
+        )
+        .unwrap()
+        .structure
+        .into_iter()
+        .map(|row| row.pretty)
+        .collect();
+        assert_eq!(prettys, vec!["Foo", "Foo::mBaz", "Holder<Foo>"]);
     }
 
     #[test]

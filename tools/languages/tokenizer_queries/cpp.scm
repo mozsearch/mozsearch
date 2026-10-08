@@ -199,8 +199,26 @@
   body: (_)) @container)
   (#set! structure.kind "enum"))
 
+;; (Classes, like enums, structs, and unions, are containers where they're
+;; defined, not where they're mentioned, ex: in forward declarations, `friend
+;; class Bar;`, and `class Foo* aFoo`.)
 (((class_specifier
-  name: [(type_identifier) (qualified_identifier) (template_type)] @name) @container)
+  name: [(type_identifier) (qualified_identifier) (template_type)] @name
+  body: (_)) @container)
+  (#set! structure.kind "class"))
+
+;; Explicit instantiations of class templates (ex: `template class
+;; DecoderTemplate<VideoDecoderTraits>;`), which are definitions, but not
+;; explicit instantiation declarations (`extern template class ...;`).
+(((template_instantiation
+  .
+  "template"
+  type: [
+    (class_specifier
+      name: [(type_identifier) (qualified_identifier) (template_type)] @name)
+    (struct_specifier
+      name: [(type_identifier) (qualified_identifier) (template_type)] @name)
+  ]) @container)
   (#set! structure.kind "class"))
 
 ;; For `namespace foo {}` the name is an `identifier`, but for
