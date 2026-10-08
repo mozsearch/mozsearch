@@ -224,7 +224,8 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   text; see `push_error_gap_tokens`).  Function pointers are named by
 ///   their names (see `clean_name_node`), C and C++'s enums and classes are
 ///   containers only where they're defined, and C++'s fields are containers
-///   whatever their declarators (see cpp.scm).
+///   whatever their declarators (see cpp.scm).  Containers' comments (and
+///   Rust's attributes) have their contexts (see `trivia_container`).
 pub const TOKENIZER_VERSION: u32 = 9;
 
 /// The node to name a container by, given the node its query captured as its
@@ -945,6 +946,20 @@ fn walk_parsed<'s>(
             std::cmp::Reverse(container.end_byte()),
         )
     });
+    // The containers' names, for the comments and attributes which belong to
+    // them (see `trivia_container`).
+    let container_names: Vec<ContainerName> = container_matches
+        .iter()
+        .filter_map(|(container, name, _)| {
+            let name = clean_name_node(*name)?;
+            Some(ContainerName {
+                start_byte: container.start_byte(),
+                start_row: container.start_position().row,
+                end_row: last_row(container),
+                name: context_name(name.utf8_text(text.as_bytes()).unwrap()),
+            })
+        })
+        .collect();
     let mut container_matches = container_matches.into_iter().peekable();
 
     let mut context_stack: Vec<String> = outer.to_vec();
@@ -1041,6 +1056,18 @@ fn walk_parsed<'s>(
             let in_comment = node.is_extra()
                 || (node.is_named() && node.kind().contains("comment"))
                 || parent_stack.last().is_some_and(|p| p.1);
+            // A comment (or attribute) which belongs to a container next to it
+            // has its context.
+            let trivia_context = if is_trivia(&node) && !parent_stack.last().is_some_and(|p| p.1) {
+                trivia_container(&node, &container_names).map(|name| {
+                    let mut stack = context_stack.clone();
+                    stack.push(name.to_string());
+                    stack
+                })
+            } else {
+                None
+            };
+            let leaf_context = trivia_context.as_ref().map(&pretty_for);
             let parent_kind_id = parent_stack.last().map(|p| p.0);
             if (node.is_error() || (node.parent().is_none() && node.has_error()))
                 && node.child_count() > 0
@@ -1108,13 +1135,18 @@ fn walk_parsed<'s>(
                 visited_children = false;
                 _depth += 1;
                 parent_stack.push((node_kind_id, in_comment));
+                if let Some(stack) = trivia_context {
+                    context_stack = stack;
+                    context_pretty = pretty_for(&context_stack);
+                    id_stack.push(node.id());
+                }
             } else {
                 push_leaf_tokens(
                     &setup.quirks,
                     &node,
                     text,
                     &source_slice,
-                    &context_pretty,
+                    leaf_context.as_deref().unwrap_or(&context_pretty),
                     in_comment,
                     parent_kind_id,
                     walked,
@@ -1124,6 +1156,96 @@ fn walk_parsed<'s>(
         }
     }
     Ok(())
+}
+
+/// A container's span and name, for `trivia_container`.
+struct ContainerName {
+    start_byte: usize,
+    start_row: usize,
+    end_row: usize,
+    name: String,
+}
+
+/// The last row of a node's text (not the row after a node ending with its
+/// line's newline, as some grammars' comments do).
+fn last_row(node: &tree_sitter::Node) -> usize {
+    let end = node.end_position();
+    if end.column == 0 && end.row > node.start_position().row {
+        end.row - 1
+    } else {
+        end.row
+    }
+}
+
+/// Whether a node is a comment or a Rust attribute (`#[derive(...)]`), which
+/// can belong to a container next to it (see `trivia_container`).
+fn is_trivia(node: &tree_sitter::Node) -> bool {
+    node.is_extra()
+        || (node.is_named() && node.kind().contains("comment"))
+        || node.kind() == "attribute_item"
+}
+
+/// The name of the container which a comment (or attribute) belongs to, if
+/// any, of `containers` (in the walk's order), so that a container's comments'
+/// changes are its own, not its enclosing container's (ex: a field's comment
+/// isn't its class's):
+/// - a comment after code on its line belongs to the outermost container in
+///   that code ending on that line (ex: `int mX;  // The x.`, or `}  //
+///   namespace mozilla`);
+/// - a comment starting its line, in a run of comments and attributes without
+///   blank lines, belongs to the outermost container starting on the first
+///   line of what's right after them (or in it, for C++'s templates and
+///   Python's decorated definitions), ex: a doc comment and `#[derive(...)]`
+///   before a Rust struct.  (Not, ex, a section's comment followed by a blank
+///   line, or a license header which a declaration follows.)
+fn trivia_container<'a>(
+    node: &tree_sitter::Node,
+    containers: &'a [ContainerName],
+) -> Option<&'a str> {
+    let start_row = node.start_position().row;
+    let first_at = |start: usize| containers.partition_point(|c| c.start_byte < start);
+    if let Some(prev) = node.prev_sibling()
+        && last_row(&prev) == start_row
+    {
+        if is_trivia(&prev) {
+            return None;
+        }
+        let i = first_at(prev.start_byte());
+        return containers[i..]
+            .iter()
+            .take_while(|c| c.start_byte < prev.end_byte())
+            .find(|c| c.end_row == start_row)
+            .map(|c| c.name.as_str());
+    }
+    // (A run of comments starting the file, ex: a license header, belongs to
+    // no container.)
+    let mut first = *node;
+    while let Some(prev) = first.prev_sibling()
+        && is_trivia(&prev)
+        && last_row(&prev) + 1 >= first.start_position().row
+    {
+        first = prev;
+    }
+    if first.prev_sibling().is_none() && first.parent().is_some_and(|p| p.parent().is_none()) {
+        return None;
+    }
+    let mut last = *node;
+    let mut next = node.next_sibling()?;
+    while is_trivia(&next) {
+        if next.start_position().row > last_row(&last) + 1 {
+            return None;
+        }
+        last = next;
+        next = next.next_sibling()?;
+    }
+    if next.start_position().row > last_row(&last) + 1 {
+        return None;
+    }
+    let wrapper = matches!(next.kind(), "template_declaration" | "decorated_definition");
+    let container = containers.get(first_at(next.start_byte()))?;
+    (container.start_byte < next.end_byte()
+        && (wrapper || container.start_row == next.start_position().row))
+        .then_some(container.name.as_str())
 }
 
 /// A Rust macro's body (between its delimiters) where items could be, for
@@ -2564,6 +2686,68 @@ mod tests {
             let text: String = source.chars().filter(|c| !c.is_whitespace()).collect();
             assert_eq!(tokens, text, "{}", filename);
         }
+    }
+
+    /// Comments (and Rust attributes) which belong to containers next to them
+    /// have their contexts (see `trivia_container`).
+    #[test]
+    fn test_comment_contexts() {
+        // Each comment's marker (its first word) and context.
+        let comments = |filename: &str, source: &str| -> Vec<String> {
+            hypertokenize_source_file(filename, source)
+                .unwrap()
+                .tokenized
+                .iter()
+                .map(|line| split_token_line(line))
+                .filter(|parsed| {
+                    matches!(parsed.class, TokenClass::Comment | TokenClass::Boilerplate)
+                        && parsed.token.starts_with('/')
+                })
+                .map(|parsed| format!("{}@{}", parsed.token, parsed.context))
+                .collect()
+        };
+        assert_eq!(
+            comments(
+                "a.cpp",
+                "/* License. */
+namespace mozilla {
+
+// About Foo.
+class Foo {
+  \
+                 // Accessors
+
+  // The count.
+  int mCount;
+  int mX;  // The x.
+  \
+                 /**\n   * Does it.\n   */\n  void Do();\n};\n\n}  // namespace mozilla\n"
+            ),
+            vec![
+                "/*@%",
+                "//@mozilla::Foo",
+                "//@mozilla::Foo",
+                "//@mozilla::Foo::mCount",
+                "//@mozilla::Foo::mX",
+                "/**@mozilla::Foo::Do",
+                "//@mozilla",
+            ]
+        );
+        let tokenized = hypertokenize_source_file(
+            "a.rs",
+            "// License.\n\n/// The S.\n#[derive(Debug)]\nstruct S {}\n",
+        )
+        .unwrap();
+        assert!(
+            tokenized.tokenized.iter().any(|line| line == "S i derive"),
+            "{:?}",
+            tokenized.tokenized
+        );
+        assert!(
+            tokenized.tokenized.iter().any(|line| line == "S c ///"),
+            "{:?}",
+            tokenized.tokenized
+        );
     }
 
     fn structure(filename: &str, source: &str) -> Vec<String> {
