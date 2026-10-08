@@ -217,8 +217,53 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   `rust_item_macro_body`), and its functions without bodies are
 ///   containers; JS's private methods are containers, and its strings are
 ///   single tokens.  Java, Kotlin, XPIDL, Objective-C, and Objective-C++
-///   are tokenized with grammars, rather than as plain text.
+///   are tokenized with grammars, rather than as plain text (Objective-C++'s
+///   methods' bodies as C++; see `tokenize_objcpp`).  Text that grammars
+///   leave out of their trees is tokenized (with searchfox's forks of
+///   tree-sitter-rust and tree-sitter-kotlin-ng, atoms, and ERROR nodes'
+///   text; see `push_error_gap_tokens`).  Function pointers are named by
+///   their names (see `clean_name_node`).
 pub const TOKENIZER_VERSION: u32 = 9;
+
+/// The node to name a container by, given the node its query captured as its
+/// name.  tree-sitter's error recovery can make that span unrecognized macros
+/// and the comments between them, ex: tree-sitter-cpp's name for
+/// `ALWAYS_INLINE ATTRIBUTE_NO_SANITIZE_ALL void TracePC::HandleCmp(...)` is
+/// all of it before the parameters, with ERROR nodes in its scope.  So for a
+/// name with errors, we use the innermost node along its `name` fields without
+/// any (`HandleCmp`), or if there isn't one, it doesn't name a container.
+///
+/// And C and C++'s declarators in parentheses (function pointers, ex: `void
+/// (*xFunc)(int);`, and `void (*(*nested)(int))(int);`, and names in
+/// parentheses, ex: `static T (max)();`) are named by the names in them
+/// (`xFunc`, `nested`, `max`), not `(*xFunc)`.
+fn clean_name_node(mut name: tree_sitter::Node) -> Option<tree_sitter::Node> {
+    if name.kind() == "parenthesized_declarator" {
+        loop {
+            name = match name.kind() {
+                "parenthesized_declarator"
+                | "pointer_declarator"
+                | "reference_declarator"
+                | "function_declarator" => match name.child_by_field_name("declarator") {
+                    Some(declarator) => declarator,
+                    // (A parenthesized declarator's and a reference
+                    // declarator's aren't fields.)
+                    None => {
+                        let mut cursor = name.walk();
+                        name.named_children(&mut cursor)
+                            .filter(|child| !child.is_error() && !child.is_extra())
+                            .last()?
+                    }
+                },
+                _ => break,
+            };
+        }
+    }
+    while name.has_error() {
+        name = name.child_by_field_name("name")?;
+    }
+    Some(name)
+}
 
 /// Normalize the text of a container's name node for use in a context.  Names
 /// can contain whitespace (ex: C++ template arguments in out-of-line method
@@ -227,20 +272,6 @@ pub const TOKENIZER_VERSION: u32 = 9;
 /// characters, where it becomes an escaped space ("%20", with "%" escaped as
 /// "%25" like `config_tokenizer` does).  This also makes contexts insensitive
 /// to reformatting, ex: `Foo<A, B>` and `Foo<A,B>` are the same.
-/// The node to name a container by, given the node its query captured as its
-/// name.  tree-sitter's error recovery can make that span unrecognized macros
-/// and the comments between them, ex: tree-sitter-cpp's name for
-/// `ALWAYS_INLINE ATTRIBUTE_NO_SANITIZE_ALL void TracePC::HandleCmp(...)` is
-/// all of it before the parameters, with ERROR nodes in its scope.  So for a
-/// name with errors, we use the innermost node along its `name` fields without
-/// any (`HandleCmp`), or if there isn't one, it doesn't name a container.
-fn clean_name_node(mut name: tree_sitter::Node) -> Option<tree_sitter::Node> {
-    while name.has_error() {
-        name = name.child_by_field_name("name")?;
-    }
-    Some(name)
-}
-
 fn context_name(name: &str) -> String {
     let is_word = |c: char| c.is_alphanumeric() || c == '_' || c == '$';
     let mut out = String::with_capacity(name.len());
@@ -1955,6 +1986,23 @@ mod tests {
             assert_eq!(line.split(' ').count(), 3, "{:?}", line);
         }
         assert_eq!(tokenized.structure[0].pretty, "MapField<D,K,int>::Sync");
+        // Function pointers, and names in parentheses, are named by the names
+        // in them (see `clean_name_node`).
+        let prettys: Vec<String> = hypertokenize_source_file(
+            "a.cpp",
+            "struct S {\n  void (*xFunc)(int);\n  int (*const fp)(int);\n  \
+             static int (max)();\n  void (*(*nested)(int))(int);\n};\n\
+             void (*signal(int sig, void (*func)(int)))(int) { return 0; }\n",
+        )
+        .unwrap()
+        .structure
+        .into_iter()
+        .map(|row| row.pretty)
+        .collect();
+        assert_eq!(
+            prettys,
+            vec!["S", "S::xFunc", "S::fp", "S::max", "S::nested", "signal"]
+        );
     }
 
     #[test]
