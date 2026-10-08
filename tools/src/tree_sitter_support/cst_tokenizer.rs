@@ -1152,7 +1152,7 @@ fn rust_item_macro_body<'t>(
         return None;
     }
     let open = node.child(0)?;
-    let close = node.child(u32::try_from(count - 1).ok()?)?;
+    let close = node.child(count - 1)?;
     Some((open, open.end_byte()..close.start_byte(), close))
 }
 

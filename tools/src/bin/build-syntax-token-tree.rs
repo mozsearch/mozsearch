@@ -617,6 +617,7 @@ fn delete_syntax_path(import_helper: &mut Child, tokenize_path: &Path, struct_pa
 /// derived entries, changed files get written, changed directories get
 /// recursed into, and removed entries get deleted.  `parent_trees` are the
 /// parents' source trees at `path`.
+#[allow(clippy::too_many_arguments)]
 fn process_source_tree_changes(
     syntax_data: &SyntaxTreeData,
     symdex: &mut HashMap<String, HashMap<String, SymbolNotes>>,

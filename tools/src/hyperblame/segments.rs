@@ -132,11 +132,14 @@ pub fn split(logical: &str, keep_from: i32) -> Segmented {
     }
 }
 
+/// Records by year (newest first): each year and its records.
+pub type YearRecords<'a> = Vec<(i32, Vec<&'a str>)>;
+
 /// The records of a head (its header and records, newest first) of years
 /// before `keep_from`, by year (newest first), and the head without them (with
 /// its header as it was), if its oldest record is of such a year.  (Records are
 /// newest first, so heads which don't need it are cheap to rule out.)
-pub fn take_old_years(head: &str, keep_from: i32) -> Option<(String, Vec<(i32, Vec<&str>)>)> {
+pub fn take_old_years(head: &str, keep_from: i32) -> Option<(String, YearRecords<'_>)> {
     let (header, rest) = head.split_once('\n')?;
     if !rest
         .lines()

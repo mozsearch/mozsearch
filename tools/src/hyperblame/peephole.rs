@@ -236,13 +236,13 @@ pub fn window(tokens: &[TokenLine], anchor: usize) -> Range<usize> {
     if let Some(open) = open {
         let mut close = None;
         let mut depth = 0;
-        for i in open + 1..group_end {
+        for (i, token) in tokens.iter().enumerate().take(group_end).skip(open + 1) {
             if !same_context(i) {
                 break;
             }
-            if is_open(&tokens[i]) {
+            if is_open(token) {
                 depth += 1;
-            } else if is_close(&tokens[i]) {
+            } else if is_close(token) {
                 if depth == 0 {
                     close = Some(i);
                     break;
@@ -258,12 +258,12 @@ pub fn window(tokens: &[TokenLine], anchor: usize) -> Range<usize> {
         let at_depth_0 = |from: usize, to: usize| {
             let mut depth = 0;
             let mut commas = vec![];
-            for i in from..to {
-                if is_open(&tokens[i]) {
+            for (i, token) in tokens.iter().enumerate().take(to).skip(from) {
+                if is_open(token) {
                     depth += 1;
-                } else if is_close(&tokens[i]) {
+                } else if is_close(token) {
                     depth -= 1;
-                } else if depth == 0 && tokens[i].token == "," {
+                } else if depth == 0 && token.token == "," {
                     commas.push(i);
                 }
             }

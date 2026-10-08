@@ -48,6 +48,10 @@ fn prev_line<'a>(lines: &[&'a str], idx: usize) -> Option<TokenLine<'a>> {
     idx.checked_sub(1).map(|i| split_token_line(lines[i]))
 }
 
+/// For a file's new contexts, the number of moved or evolved tokens which came
+/// from each (source file, old context); see `compute_revision_stats`.
+type Correspondences = HashMap<String, HashMap<(u32, String), u32>>;
+
 /// Compute per-file symbol deltas and per-token totals.
 ///
 /// `old_symbols` and `new_symbols` are parallel to `inputs` and provide the set
@@ -64,8 +68,7 @@ pub fn compute_revision_stats(
     let mut groups: Vec<BTreeMap<String, SymbolSyntaxDelta>> = vec![BTreeMap::new(); inputs.len()];
     // For each (file, new context), the number of moved/evolved tokens that came
     // from each (source file, old context).
-    let mut correspondences: Vec<HashMap<String, HashMap<(u32, String), u32>>> =
-        vec![HashMap::new(); inputs.len()];
+    let mut correspondences: Vec<Correspondences> = vec![HashMap::new(); inputs.len()];
     // For each (file, new context), the number of tokens in that context.
     let mut new_context_sizes: Vec<HashMap<String, u32>> = vec![HashMap::new(); inputs.len()];
 
@@ -245,7 +248,7 @@ mod tests {
     fn test_tracking_filter() {
         use crate::file_format::history::syntax_files::{TokenClass, format_token_line};
         let line = |class, token| format_token_line("Foo::bar", class, token);
-        let old = vec![
+        let old = [
             line(TokenClass::Keyword, "return"),
             line(TokenClass::Operator, ";"),
         ];

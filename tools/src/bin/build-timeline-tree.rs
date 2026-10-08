@@ -161,6 +161,12 @@ use tools::source_mapping::{
 };
 use tools::tree_sitter_support::cst_tokenizer::namespace_for_file;
 
+/// A journal to write once we have the hex id of the commit's first parent: its
+/// path, the first year its head keeps if it's a token journal (see
+/// `write_journal`), and its contents given that id; see `FastImport`'s
+/// `deferred`.
+type DeferredJournal = (PathBuf, Option<i32>, Box<dyn FnOnce(&str) -> String>);
+
 /// git-fast-import writing the timeline repo, and what we know of the tree of
 /// the commit we're writing through it.
 struct FastImport {
@@ -176,7 +182,7 @@ struct FastImport {
     /// Journals to write once we have the hex id of the commit's first parent,
     /// given it (and if they're token journals, the first year their heads
     /// keep; see `write_journal`); see `prepend_journal_record`.
-    deferred: Vec<(PathBuf, Option<i32>, Box<dyn FnOnce(&str) -> String>)>,
+    deferred: Vec<DeferredJournal>,
     readers: DiskReaders,
     /// The bytes of blobs we've given it (see MAX_WRITTEN_BYTES in `main`).
     written: u64,
@@ -604,12 +610,16 @@ impl TreeCache {
 /// How many `DiskReaders` threads read at once.
 const DISK_READER_THREADS: usize = 8;
 
+/// A disk reader thread's requests (a commit and paths in it) and answers (the
+/// paths' blobs, if any); see `DiskReaders`.
+type DiskReaderThread = (Sender<(Oid, Vec<PathBuf>)>, Receiver<Vec<Option<Vec<u8>>>>);
+
 /// Threads which read paths from commits on disk with git2, for `TreeCache`.
 /// Reading through git fast-import took as long, but meant waiting for it to
 /// catch up, and it was usually the busier of us.
 struct DiskReaders {
     /// Each thread's requests and answers.
-    threads: Vec<(Sender<(Oid, Vec<PathBuf>)>, Receiver<Vec<Option<Vec<u8>>>>)>,
+    threads: Vec<DiskReaderThread>,
 }
 
 impl DiskReaders {
@@ -2058,6 +2068,7 @@ struct Consolidation<'a> {
 /// written once it has, or at the end of the revision (see
 /// `write_deferred_journals`), rather than waiting for it to catch up in the
 /// middle of the revision.
+#[allow(clippy::too_many_arguments)]
 fn prepend_journal_record<
     H: DeserializeOwned + Default + Serialize + 'static,
     R: Summarize + 'static,
@@ -2745,6 +2756,7 @@ fn build_linear_future(
     records
 }
 
+#[allow(clippy::too_many_arguments)]
 fn process_linear_revision(
     import_helper: &mut FastImport,
     data: &TimelineData,
@@ -3463,7 +3475,7 @@ fn main() {
                     token_totals,
                     &timeline_parents,
                     &timeline_commits,
-                    Some(&consolidation).filter(|_| consolidate),
+                    consolidate.then_some(&consolidation),
                     &mut num_summaries,
                 )
             }

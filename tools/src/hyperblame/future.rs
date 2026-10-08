@@ -153,7 +153,7 @@ impl Follower<'_> {
         let since_revs: HashSet<String> = reader
             .expand(since_records)?
             .iter()
-            .filter_map(|record| detail_rev(record))
+            .filter_map(detail_rev)
             .collect();
         let mut after: Vec<FutureRecord> = head_records
             .into_iter()

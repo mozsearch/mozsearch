@@ -189,20 +189,9 @@ impl MaybeFacetGroup {
             let mut breadth: u32;
 
             // Yes, we're going to materialize this group and some sub-groups.
-            if other.is_none() || clump_miss_count == 0 {
-                breadth = self.nested_groups.len() as u32;
-                // We don't need to worry about building up an "other" group.
-                for (name, group) in self.nested_groups {
-                    let (sub_compiled, sub_breadth) =
-                        group.compile(prefix.clone() + name.as_str(), clump_thresh, other.clone());
-                    nested_groups.push(sub_compiled);
-                    if sub_breadth > breadth {
-                        breadth = sub_breadth;
-                    }
-                }
-            } else {
+            if let Some(other_label) = other.as_ref().filter(|_| clump_miss_count > 0) {
                 let mut other_group = ResultFacetGroup {
-                    label: prefix.clone() + other.as_ref().unwrap().as_str(),
+                    label: prefix.clone() + other_label.as_str(),
                     values: vec![],
                     nested_groups: vec![],
                     count: 0,
@@ -227,6 +216,17 @@ impl MaybeFacetGroup {
                     }
                 }
                 nested_groups.push(other_group);
+            } else {
+                breadth = self.nested_groups.len() as u32;
+                // We don't need to worry about building up an "other" group.
+                for (name, group) in self.nested_groups {
+                    let (sub_compiled, sub_breadth) =
+                        group.compile(prefix.clone() + name.as_str(), clump_thresh, other.clone());
+                    nested_groups.push(sub_compiled);
+                    if sub_breadth > breadth {
+                        breadth = sub_breadth;
+                    }
+                }
             }
 
             (
