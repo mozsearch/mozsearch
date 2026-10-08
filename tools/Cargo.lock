@@ -4563,7 +4563,7 @@ dependencies = [
 [[package]]
 name = "tree-sitter-xpidl"
 version = "0.1.0"
-source = "git+https://github.com/mozsearch/tree-sitter-xpidl?rev=cb265b93bed08d282e1a74ba1b7fee723fadf313#cb265b93bed08d282e1a74ba1b7fee723fadf313"
+source = "git+https://github.com/mozsearch/tree-sitter-xpidl?rev=9e390dd642c97706216a4d088aa23462ad726a10#9e390dd642c97706216a4d088aa23462ad726a10"
 dependencies = [
  "cc",
  "tree-sitter-language",

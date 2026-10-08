@@ -667,13 +667,11 @@ fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
             let ts_lang: tree_sitter::Language = tree_sitter_xpidl::LANGUAGE.into();
             let quirks = ClassQuirks::new(
                 &ts_lang,
-                // `native` declarations' C++ types, ex: `const nsAString`, and
-                // historical XPIDL's preprocessor lines, ex: `#ifndef
-                // nsIFoo_h__`, which we split into words like other text.
-                &[
-                    ("native_type", TokenClass::Text),
-                    ("preprocessor_line", TokenClass::Text),
-                ],
+                // `native` declarations' C++ types, ex: `const nsAString`,
+                // which we split into words like other text.  (Historical
+                // XPIDL's preprocessor lines, ex: `#ifndef nsIFoo_h__`, are
+                // extras, like comments, so they're comments' words.)
+                &[("native_type", TokenClass::Text)],
                 &[],
             );
             (ts_lang, "xpidl", vec![], vec![], quirks)
@@ -1855,11 +1853,13 @@ mod tests {
         assert!(classes.iter().any(|c| c == "i:d"), "{:?}", classes);
     }
 
-    /// XPIDL's interfaces and members are containers, and its code blocks
-    /// are tokenized as C++.
+    /// XPIDL's interfaces and members are containers, its code blocks are
+    /// tokenized as C++, and historical XPIDL's preprocessor lines are
+    /// comments' words.
     #[test]
     fn test_xpidl() {
-        let source = "#include \"nsISupports.idl\"\n\
+        let source = "#ifndef nsIFoo_h__\n\
+                      #include \"nsISupports.idl\"\n\
                       %{C++\n\
                       inline bool IsFoo(int aX) { return aX > 1; }\n\
                       %}\n\
@@ -1891,6 +1891,8 @@ mod tests {
             "k:readonly",
             "k:attribute",
             "t:std::function<void(int)>",
+            "c:#ifndef",
+            "c:nsIFoo_h__",
         ] {
             assert!(
                 classes.iter().any(|c| c == expected),
