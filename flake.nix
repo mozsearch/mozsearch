@@ -138,6 +138,7 @@
 
             rust-analyzer
             rustfmt
+            clippy
             llvmPackages.clang-tools
 
             gdb
