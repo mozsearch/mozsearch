@@ -622,11 +622,14 @@ fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
             let ts_lang: tree_sitter::Language = tree_sitter_mozcpp::LANGUAGE.into();
             let string_literal = ts_lang.id_for_node_kind("string_literal", true);
             let char_literal = ts_lang.id_for_node_kind("char_literal", true);
+            // (Objective-C's `@"..."`, in Objective-C++, one token, as in
+            // tree-sitter-objc.)
+            let objc_string_literal = ts_lang.id_for_node_kind("objc_string_literal", true);
             let newline = ts_lang.id_for_node_kind("\n", false);
             (
                 ts_lang,
                 "cpp",
-                vec![string_literal, char_literal],
+                vec![string_literal, char_literal, objc_string_literal],
                 vec![newline],
                 ClassQuirks::default(),
             )
@@ -1233,19 +1236,20 @@ fn tokenize_cpp<'s>(
     Ok(())
 }
 
-/// Tokenize Objective-C++ or Objective-C: neither tree-sitter-cpp nor
-/// tree-sitter-objc parses both C++ and Objective-C, so Objective-C++'s
-/// Objective-C sections (`@interface`, `@implementation`, and `@protocol`
-/// through `@end`, and lines like `@class Foo;`) are parsed with
-/// tree-sitter-objc, and the `rest` with tree-sitter-mozcpp (see
-/// `tokenize_cpp`), with the sections blanked (keeping offsets).  Objective-C
-/// files' rest is parsed with tree-sitter-objc too, separately, which keeps
-/// errors in one part from affecting the other.  Objective-C declarations can
-/// only be at the top level, so the sections' contexts are their own.
+/// Tokenize Objective-C++ or Objective-C: tree-sitter-objc doesn't parse
+/// C++, and tree-sitter-mozcpp only parses Objective-C's expressions and
+/// statements, so Objective-C++'s Objective-C sections (`@interface`,
+/// `@implementation`, and `@protocol` through `@end`, and lines like `@class
+/// Foo;`) are parsed with tree-sitter-objc, and the `rest` with
+/// tree-sitter-mozcpp (see `tokenize_cpp`), with the sections blanked
+/// (keeping offsets).  Objective-C files' rest is parsed with tree-sitter-objc
+/// too, separately, which keeps errors in one part from affecting the other.
+/// Objective-C declarations can only be at the top level, so the sections'
+/// contexts are their own.
 ///
 /// On firefox-disco (2026-10-08), Objective-C++ (422 files) this way had
-/// containers for 92% of the Objective-C methods and 95% of the analyzed C++
-/// definitions (and 12.5% of the tokens at the top level), vs 92% and 73%
+/// containers for 92% of the Objective-C methods and 99.9% of the analyzed
+/// C++ definitions (and 9.2% of the tokens at the top level), vs 92% and 73%
 /// (29%) parsing it all with tree-sitter-objc, or 0% and 94% (34%) as C++;
 /// Objective-C (106 files) had 100%, 100%, and 17%.
 fn tokenize_objcpp<'s>(
@@ -1295,7 +1299,10 @@ fn tokenize_objcpp<'s>(
 }
 
 /// The byte ranges (whole lines) of Objective-C sections in `source` (see
-/// `tokenize_objcpp`).
+/// `tokenize_objcpp`): `@interface`, `@implementation`, and `@protocol`
+/// through `@end`, and other lines starting with Objective-C's declarations'
+/// keywords (ex: `@class Foo;`), but not with its statements and expressions
+/// (ex: `@try {`, `@"..."`, `@protocol(Foo)`), which are the rest's.
 fn objc_sections(source: &str) -> Vec<std::ops::Range<usize>> {
     let mut sections = vec![];
     let mut open: Option<usize> = None;
@@ -1304,10 +1311,31 @@ fn objc_sections(source: &str) -> Vec<std::ops::Range<usize>> {
         let end = source[pos..].find('\n').map_or(source.len(), |i| pos + i);
         let next = (end + 1).min(source.len());
         let line = source[pos..end].trim();
-        let word = line.strip_prefix('@').map(|rest| {
-            rest.split(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+        let word = line.strip_prefix('@').and_then(|rest| {
+            let word = rest
+                .split(|c: char| !c.is_ascii_alphanumeric() && c != '_')
                 .next()
-                .unwrap_or("")
+                .unwrap_or("");
+            let declaration = matches!(
+                word,
+                "interface"
+                    | "implementation"
+                    | "protocol"
+                    | "end"
+                    | "class"
+                    | "compatibility_alias"
+                    | "import"
+                    | "property"
+                    | "synthesize"
+                    | "dynamic"
+                    | "optional"
+                    | "required"
+                    | "public"
+                    | "private"
+                    | "protected"
+                    | "package"
+            );
+            (declaration && !rest[word.len()..].trim_start().starts_with('(')).then_some(word)
         });
         match (open, word) {
             (None, Some("interface" | "implementation" | "protocol")) if !line.ends_with(';') => {
@@ -2100,8 +2128,40 @@ mod tests {
             structure("a.m", c_source),
             vec!["method:Helper", "class:Foo", "method:Foo::reset"]
         );
-        let classes = classes("a.m", c_source);
-        assert!(classes.iter().any(|c| c == "s:@\"hi\""), "{:?}", classes);
+        let m_classes = classes("a.m", c_source);
+        assert!(
+            m_classes.iter().any(|c| c == "s:@\"hi\""),
+            "{:?}",
+            m_classes
+        );
+        // Objective-C's statements and expressions in C++ functions are the
+        // C++'s, not sections of their own, so the `@try` and the
+        // `@protocol(...)` don't end or start them.
+        let statements = "void Foo(id aObj) {\n  \
+                          @try {\n    \
+                          [aObj bar];\n  \
+                          } @catch (NSException* e) {\n  \
+                          }\n  \
+                          Use(@\"a\"\n      \
+                          @\"b\",\n      \
+                          @protocol(NSObject));\n\
+                          }\n\
+                          void Bar() { for (id x in Items()) { Use(x); } }\n";
+        assert!(objc_sections(statements).is_empty());
+        assert_eq!(
+            objc_sections("@class Foo;\nvoid F();\n@protocol Bar\n- (void)x;\n@end\n"),
+            vec![0..12, 22..52]
+        );
+        assert_eq!(
+            structure("a.mm", statements),
+            vec!["method:Foo", "method:Bar"]
+        );
+        let mm_classes = classes("a.mm", statements);
+        assert!(
+            mm_classes.iter().any(|c| c == "s:@\"b\""),
+            "{:?}",
+            mm_classes
+        );
     }
 
     fn structure(filename: &str, source: &str) -> Vec<String> {
