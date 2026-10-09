@@ -254,10 +254,10 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   typescript.scm and rust.scm), and trailing comments after separators
 ///   (ex: a Rust field's `,`) have the contexts of the code before them.
 ///   C++'s conversion operators are containers (see `name_text`).  UniFFI's
-///   `.udl` files are tokenized as WebIDL (as "udl"), rather than plain text,
-///   and JSON files (and JSON-lines), rather than as JS, by `json_tokenizer`,
-///   with contexts from their structure.
-///   Dead
+///   `.udl` files are tokenized as WebIDL (as "udl", with searchfox's
+///   tree-sitter-webidl fork for UDL's records and custom types), rather than
+///   plain text, and JSON files (and JSON-lines), rather than as JS, by
+///   `json_tokenizer`, with contexts from their structure.  Dead
 ///   preprocessor branches (`#if 0`'s) are comments (see `tokenize_cpp`),
 ///   and ANGLE's `ANGLE_MTL_OBJC_SCOPE`s don't make their blocks compound
 ///   literals (see `SCOPE_MACROS`).
@@ -3540,6 +3540,24 @@ class Foo {
                 "union:mozilla::dom::FooResult",
                 "class:mozilla::dom::PFoo",
                 "method:mozilla::dom::PFoo::Start",
+            ]
+        );
+        // UDL's records with non-string keys and custom types (searchfox's
+        // tree-sitter-webidl fork).
+        assert_eq!(
+            structure(
+                "a.udl",
+                "[Custom]\ntypedef record JsonObject;\n\
+                 dictionary Counts { record<string, i64> by_name; record<i64, i64> values; };\n\
+                 interface Store { record<string, record<string, boolean>> get_flags(); };"
+            ),
+            vec![
+                "typedef:JsonObject",
+                "struct:Counts",
+                "field:Counts::by_name",
+                "field:Counts::values",
+                "class:Store",
+                "method:Store::get_flags",
             ]
         );
     }

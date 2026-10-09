@@ -87,7 +87,9 @@ tree-sitter-mozcpp = { git = "https://github.com/mozsearch/tree-sitter-mozcpp", 
 # README.)
 tree-sitter-xpidl = { git = "https://github.com/mozsearch/tree-sitter-xpidl", rev = "9cfb0a8dd56cfb598a027be17cd38a42edf97515" }
 tree-sitter-ipdl = { git = "https://github.com/padenot/tree-sitter-ipdl", rev = "ee939a389fbf170afa0ada2d45434f15aefbeeff" }
-tree-sitter-webidl = { git = "https://github.com/padenot/tree-sitter-webidl", rev = "e6870d31a485bf021f12e0f72a44eefc57173f93" }
+# (tree-sitter-webidl is searchfox's fork, which also parses UniFFI's UDL
+# dialect; see its testcases/UniFFI.udl.)
+tree-sitter-webidl = { git = "https://github.com/mozsearch/tree-sitter-webidl", rev = "fc50c56d2005202e2ca8003d6560b5ec4af81890" }
 # (tree-sitter-rust and tree-sitter-kotlin-ng are searchfox's forks, whose trees
 # have all of files' text, and which parse Firefox's Kotlin; see their READMEs.)
 tree-sitter-rust = { git = "https://github.com/mozsearch/tree-sitter-rust", rev = "4b9b5514d90828d092ff721ea7dc3579fb4829ac" }

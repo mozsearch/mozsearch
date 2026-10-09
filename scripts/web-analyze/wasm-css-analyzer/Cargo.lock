@@ -4562,7 +4562,7 @@ dependencies = [
 [[package]]
 name = "tree-sitter-webidl"
 version = "0.1.0"
-source = "git+https://github.com/padenot/tree-sitter-webidl?rev=e6870d31a485bf021f12e0f72a44eefc57173f93#e6870d31a485bf021f12e0f72a44eefc57173f93"
+source = "git+https://github.com/mozsearch/tree-sitter-webidl?rev=fc50c56d2005202e2ca8003d6560b5ec4af81890#fc50c56d2005202e2ca8003d6560b5ec4af81890"
 dependencies = [
  "cc",
  "tree-sitter-language",
