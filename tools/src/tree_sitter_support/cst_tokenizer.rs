@@ -9,6 +9,7 @@ use crate::file_format::history::syntax_files::TokenClass;
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
 use crate::tree_sitter_support::boilerplate::{FinishedTokens, RawToken, finish_tokens};
 use crate::tree_sitter_support::config_tokenizer::{tokenize_ini, tokenize_toml};
+use crate::tree_sitter_support::preprocessor::ConditionalStacks;
 
 use tree_sitter::StreamingIterator as _;
 
@@ -225,7 +226,9 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   their names (see `clean_name_node`), C and C++'s enums and classes are
 ///   containers only where they're defined, and C++'s fields are containers
 ///   whatever their declarators (see cpp.scm).  Containers' comments (and
-///   Rust's attributes) have their contexts (see `trivia_container`).
+///   Rust's attributes) have their contexts (see `trivia_container`).  C,
+///   C++, Objective-C, and Objective-C++'s "files-struct" rows have their
+///   preprocessor conditionals (see `ConditionalStacks`).
 pub const TOKENIZER_VERSION: u32 = 9;
 
 /// The node to name a container by, given the node its query captured as its
@@ -599,45 +602,46 @@ pub fn hypertokenize_with_profile(
             _ => Grammar::Objc,
         };
         tokenize_objcpp(source_contents, rest, &mut walked)?;
-        walked.tokens.sort_by_key(|(offset, _)| *offset);
-        walked.structure.sort_by_key(|(offset, _)| *offset);
-        return Ok(HyperTokenized::new(
-            profile,
-            finish_tokens(
-                source_contents,
-                walked.tokens.into_iter().map(|(_, token)| token).collect(),
-            ),
-            walked.structure.into_iter().map(|(_, row)| row).collect(),
-        ));
-    }
-    let setup = tree_sitter_setup(profile.grammar)?;
-
-    if setup.grammar == Grammar::Cpp {
-        tokenize_cpp(
-            &setup,
-            source_contents,
-            source_contents,
-            0,
-            &[],
-            0,
-            &mut walked,
-        )?;
     } else {
-        walk_tree(
-            &setup,
-            source_contents,
-            source_contents,
-            &|offset| Some(offset),
-            &[],
-            &mut walked,
-            &mut vec![],
-        )?;
+        let setup = tree_sitter_setup(profile.grammar)?;
+        if setup.grammar == Grammar::Cpp {
+            tokenize_cpp(
+                &setup,
+                source_contents,
+                source_contents,
+                0,
+                &[],
+                0,
+                &mut walked,
+            )?;
+        } else {
+            walk_tree(
+                &setup,
+                source_contents,
+                source_contents,
+                &|offset| Some(offset),
+                &[],
+                &mut walked,
+                &mut vec![],
+            )?;
+        }
     }
     // (Parts of files can be tokenized separately, ex: C++'s conditionals'
     // other branches, and XPIDL's C++ code blocks.  Stable, so tokens at the
     // same offset, if any, keep their order.)
     walked.tokens.sort_by_key(|(offset, _)| *offset);
     walked.structure.sort_by_key(|(offset, _)| *offset);
+    if matches!(
+        profile.grammar,
+        Grammar::Cpp | Grammar::ObjCpp | Grammar::Objc
+    ) {
+        let conditionals = ConditionalStacks::new(source_contents);
+        if !conditionals.is_empty() {
+            for (offset, row) in &mut walked.structure {
+                row.pp = conditionals.at_offset(*offset).to_vec();
+            }
+        }
+    }
 
     Ok(HyperTokenized::new(
         profile,
@@ -1041,6 +1045,7 @@ fn walk_parsed<'s>(
                             // would probably be ideal to add more test coverage.
                             is_def: true,
                             kind: structure_kind.to_string(),
+                            pp: vec![],
                         },
                     ));
                     containers.push(ContainerSpan {
@@ -1888,7 +1893,7 @@ fn line_at(text: &str, start: usize) -> &str {
 
 /// Whether a block comment is open at the end of a line, given whether one was
 /// at its start, skipping strings, characters, and line comments.
-fn ends_in_block_comment(line: &str, mut in_block_comment: bool) -> bool {
+pub(crate) fn ends_in_block_comment(line: &str, mut in_block_comment: bool) -> bool {
     let bytes = line.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
@@ -2262,6 +2267,15 @@ mod tests {
             ]
         );
         let tokenized = hypertokenize_source_file("a.cpp", source).unwrap();
+        // The rows have their conditionals.
+        assert_eq!(
+            tokenized
+                .structure
+                .iter()
+                .map(|row| row.pp.join(" | "))
+                .collect::<Vec<_>>(),
+            vec!["", "", "", "defined(XP_WIN)", "!defined(XP_WIN)", "", ""]
+        );
         for expected in [
             "mozilla::Foo i NS_DECL_NSIRUNNABLE",
             // (The directives in the constructor's initializers are its.)

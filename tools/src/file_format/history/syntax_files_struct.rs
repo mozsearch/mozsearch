@@ -74,4 +74,10 @@ pub struct FileStructureRow {
     /// primarily care about "class", "method", and "field" as those have clear
     /// benefit to listing in the symdex.
     pub kind: String,
+
+    /// For C-family languages, the preprocessor conditionals' branches this
+    /// is in (where it starts), outermost first, not counting include guards;
+    /// see `ConditionalStacks`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pp: Vec<String>,
 }

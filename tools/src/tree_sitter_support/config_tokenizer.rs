@@ -88,6 +88,7 @@ impl<'a> Output<'a> {
             pretty: pretty.to_string(),
             is_def: true,
             kind: "section".to_string(),
+            pp: vec![],
         });
     }
 }

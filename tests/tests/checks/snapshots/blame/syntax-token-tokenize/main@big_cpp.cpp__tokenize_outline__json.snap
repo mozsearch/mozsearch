@@ -374,14 +374,20 @@ input_file: inputs/blame/syntax-token-tokenize/big_cpp.cpp__tokenize_outline__js
       "value": {
         "pretty": "outerNS::innerNS::DebugAnonCat",
         "isDef": true,
-        "kind": "class"
+        "kind": "class",
+        "pp": [
+          "defined(DEBUG)"
+        ]
       }
     },
     {
       "value": {
         "pretty": "outerNS::innerNS::NondebugAnonCat",
         "isDef": true,
-        "kind": "class"
+        "kind": "class",
+        "pp": [
+          "!defined(DEBUG)"
+        ]
       }
     },
     {

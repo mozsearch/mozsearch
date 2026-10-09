@@ -473,6 +473,7 @@ fn test_drop_unchanged_files() {
             pretty: pretty.to_string(),
             is_def: true,
             kind: "method".to_string(),
+            pp: vec![],
         },
         path: path.to_string(),
     };
