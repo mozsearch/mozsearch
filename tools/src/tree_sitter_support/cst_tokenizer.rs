@@ -132,6 +132,14 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
         namespace: "webidl",
         grammar: Grammar::Webidl,
     },
+    // UniFFI's interface definitions, a dialect of WebIDL (which UniFFI parses
+    // with weedle), with tree-sitter-webidl, but in a namespace of their own,
+    // since their symbols are Rust components' bindings, not WebIDL's.
+    LanguageProfile {
+        lang: "udl",
+        namespace: "udl",
+        grammar: Grammar::Webidl,
+    },
     LanguageProfile {
         lang: "ipdl",
         namespace: "ipdl",
@@ -235,7 +243,9 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   TS class fields and Rust's named fields are containers (see
 ///   typescript.scm and rust.scm), and trailing comments after separators
 ///   (ex: a Rust field's `,`) have the contexts of the code before them.
-///   C++'s conversion operators are containers (see `name_text`).  Dead
+///   C++'s conversion operators are containers (see `name_text`).  UniFFI's
+///   `.udl` files are tokenized as WebIDL (as "udl"), rather than plain text.
+///   Dead
 ///   preprocessor branches (`#if 0`'s) are comments (see `tokenize_cpp`),
 ///   and ANGLE's `ANGLE_MTL_OBJC_SCOPE`s don't make their blocks compound
 ///   literals (see `SCOPE_MACROS`).
@@ -358,6 +368,7 @@ pub fn default_profile_for_path(path: &Path) -> Option<LanguageProfile> {
         "py" | "build" | "configure" => "py",
         "rs" => "rust",
         "webidl" => "webidl",
+        "udl" => "udl",
         "ipdl" | "ipdlh" => "ipdl",
         // (mozilla-central's other `.idl` files, ex: web-platform-tests'
         // WebIDL, need `searchfox-lang` attributes.)
@@ -2379,6 +2390,12 @@ mod tests {
                 "a.ipdl",
                 "namespace mozilla { protocol PFoo { parent: async Go(); }; }",
                 "ipdl",
+            ),
+            (
+                "a.udl",
+                "namespace tabs {};\n[Error]\ninterface TabsApiError { SyncError(string reason); };\n\
+                 interface TabsStore { constructor(string path); sequence<RemoteTabRecord> get_all(); };",
+                "udl",
             ),
             ("a.ini", "[test.html]\nskip-if = os == 'win'", "ini"),
             (
