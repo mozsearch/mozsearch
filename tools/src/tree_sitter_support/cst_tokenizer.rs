@@ -228,7 +228,8 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   whatever their declarators (see cpp.scm).  Containers' comments (and
 ///   Rust's attributes) have their contexts (see `trivia_container`).  C,
 ///   C++, Objective-C, and Objective-C++'s "files-struct" rows have their
-///   preprocessor conditionals (see `ConditionalStacks`).
+///   preprocessor conditionals (see `ConditionalStacks`).  ERROR nodes which
+///   error recovery makes extras aren't comments.
 pub const TOKENIZER_VERSION: u32 = 9;
 
 /// The node to name a container by, given the node its query captured as its
@@ -1058,7 +1059,9 @@ fn walk_parsed<'s>(
             let node_kind_id = node.kind_id();
             // Grammars conventionally mark comments as "extra" nodes, but not all
             // of them do (ex: tree-sitter-webidl), so we also go by the name.
-            let in_comment = node.is_extra()
+            // (Error recovery can make ERROR nodes extras too, ex: a lone
+            // `mozilla::Foo*`, but they aren't comments.)
+            let in_comment = (node.is_extra() && !node.is_error())
                 || (node.is_named() && node.kind().contains("comment"))
                 || parent_stack.last().is_some_and(|p| p.1);
             // A comment (or attribute) which belongs to a container next to it
@@ -2654,6 +2657,16 @@ mod tests {
                 contexts
             );
         }
+    }
+
+    /// ERROR nodes which error recovery makes extras (like comments) aren't
+    /// comments: their tokens are classed as they'd be otherwise.
+    #[test]
+    fn test_extra_errors_are_not_comments() {
+        assert_eq!(
+            classes("a.cpp", "mozilla::dom::Foo*"),
+            vec!["i:mozilla", "o:::", "i:dom", "o:::", "i:Foo", "o:*"]
+        );
     }
 
     /// Files' tokens cover their text (but whitespace): tokens that grammars
