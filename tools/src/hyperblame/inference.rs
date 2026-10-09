@@ -73,19 +73,24 @@
 //!      removed and added tokens were not in the same "slot".  (In a
 //!      refactoring the removed side of a gap can span hundreds of tokens that
 //!      moved into newly extracted functions with a stray leftover token.)
+//!    - Gaps whose sides differ in size (a "hole" in comby.dev terminology,
+//!      ex: `DtlsIdentity::DEFAULT_HASH_ALGORITHM` becoming
+//!      `DEFAULT_DTLS_HASH_ALGORITHM`) only pair identifiers and strings whose
+//!      subwords are similar (see `hole_pairs`), since they're often rewrites
+//!      (ex: `EventUtils.sendMouseEvent` becoming `clickOnRequestRow`).
+//!    - Then identifiers' renames inferred in the revision apply wherever else
+//!      both names are left unmatched in a block (see
+//!      `infer_revision_renames`), if they were seen twice or are similar.
 //!
 //! ## Future work
 //!
-//! - Runs of tokens where we would ideally be able to model "Type" evolving to
-//!   "SomeNamespace::NamespacedType" where we would be going from 1 token to 3
-//!   tokens but still occupying the same "hole" in comby.dev terminology.
-//! - Accumulating inferred renames across the revision to detect patterns like
-//!   "Remote" becoming "Shared" with "Args" appended so that we can use the
-//!   renames to re-synchronize sequences that lack sufficient context.
+//! - Renames' patterns across the revision, like "Remote" becoming "Shared"
+//!   with "Args" appended, to re-synchronize sequences that lack sufficient
+//!   context.
 //! - Looking at overall token metrics to skip inference for high-churn
 //!   automated changes.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
 use imara_diff::{Algorithm, Diff, Interner, Token};
@@ -871,6 +876,127 @@ fn infer_local_recontexting(state: &mut InferenceState) {
 }
 
 /// Pass 4: Pair up leftover tokens between anchors as evolutions.
+/// Unequal gaps (see `infer_evolutions`) with up to this many tokens on each
+/// side are aligned by their tokens' similarity.
+const MAX_HOLE_TOKENS: usize = 16;
+
+/// How similar (see `subword_similarity`) an identifier or string in a gap
+/// must be to one on the other side to evolve from it when the gap's sides
+/// differ in size.
+const MIN_HOLE_SIMILARITY: f64 = 0.5;
+
+/// The lowercase subwords of an identifier or string, split at non-
+/// alphanumeric characters, and at camelCase, ex: `["url", "parser", "for",
+/// "x"]` for `URLParser_forX`.
+fn subwords(token: &str) -> Vec<String> {
+    let mut words = vec![];
+    let mut word = String::new();
+    let chars: Vec<char> = token.chars().collect();
+    for (i, &c) in chars.iter().enumerate() {
+        if !c.is_alphanumeric() {
+            if !word.is_empty() {
+                words.push(std::mem::take(&mut word));
+            }
+            continue;
+        }
+        // (A new word at a lowercase-to-uppercase change, or at an uppercase
+        // letter followed by a lowercase one after uppercase ones.)
+        let boundary = c.is_uppercase()
+            && i > 0
+            && (chars[i - 1].is_lowercase()
+                || chars[i - 1].is_ascii_digit()
+                || (chars[i - 1].is_uppercase()
+                    && chars.get(i + 1).is_some_and(|next| next.is_lowercase())));
+        if boundary && !word.is_empty() {
+            words.push(std::mem::take(&mut word));
+        }
+        word.extend(c.to_lowercase());
+    }
+    if !word.is_empty() {
+        words.push(word);
+    }
+    words.sort();
+    words.dedup();
+    words
+}
+
+/// The Dice coefficient of two tokens' subwords (see `subwords`) of at least
+/// 3 characters (ex: not `ns` and `h` in `"nsIFile.h"` and
+/// `"nsShellService.h"`).
+fn subword_similarity(a: &str, b: &str) -> f64 {
+    let long = |token: &str| -> Vec<String> {
+        subwords(token)
+            .into_iter()
+            .filter(|word| word.chars().count() >= 3)
+            .collect()
+    };
+    let (a, b) = (long(a), long(b));
+    if a.is_empty() || b.is_empty() {
+        return 0.0;
+    }
+    let common = a.iter().filter(|word| b.contains(word)).count();
+    2.0 * common as f64 / (a.len() + b.len()) as f64
+}
+
+/// The pairs of an unequal gap's tokens which evolved: identifiers and
+/// strings similar enough to the other side's (see `MIN_HOLE_SIMILARITY`), as
+/// the alignment (in order) with the greatest total similarity.  Ex:
+/// `DtlsIdentity :: DEFAULT_HASH_ALGORITHM` becoming
+/// `DEFAULT_DTLS_HASH_ALGORITHM`, but not `EventUtils . sendMouseEvent`
+/// becoming `clickOnRequestRow`, which was rewritten.
+fn hole_pairs(
+    state: &InferenceState,
+    file: usize,
+    old_gap: std::ops::Range<usize>,
+    new_gap: std::ops::Range<usize>,
+) -> Vec<(usize, usize)> {
+    let (olds, news): (Vec<usize>, Vec<usize>) = (old_gap.collect(), new_gap.collect());
+    let score = |o: usize, n: usize| -> f64 {
+        let (old, new) = (&state.old_tokens[file][o], &state.new_tokens[file][n]);
+        let class = new.effective_class();
+        if class != old.effective_class()
+            || !matches!(class, TokenClass::Identifier | TokenClass::String)
+        {
+            return 0.0;
+        }
+        let similarity = subword_similarity(old.token, new.token);
+        if similarity >= MIN_HOLE_SIMILARITY {
+            similarity
+        } else {
+            0.0
+        }
+    };
+    // best[i][j]: the best total for olds[i..] and news[j..].
+    let (m, n) = (olds.len(), news.len());
+    let mut best = vec![vec![0.0f64; n + 1]; m + 1];
+    for i in (0..m).rev() {
+        for j in (0..n).rev() {
+            let paired = score(olds[i], news[j]);
+            let with = if paired > 0.0 {
+                paired + best[i + 1][j + 1]
+            } else {
+                0.0
+            };
+            best[i][j] = with.max(best[i + 1][j]).max(best[i][j + 1]);
+        }
+    }
+    let mut pairs = vec![];
+    let (mut i, mut j) = (0, 0);
+    while i < m && j < n {
+        let paired = score(olds[i], news[j]);
+        if paired > 0.0 && best[i][j] == paired + best[i + 1][j + 1] {
+            pairs.push((olds[i], news[j]));
+            i += 1;
+            j += 1;
+        } else if best[i][j] == best[i + 1][j] {
+            i += 1;
+        } else {
+            j += 1;
+        }
+    }
+    pairs
+}
+
 fn infer_evolutions(state: &mut InferenceState) {
     for block_idx in 0..state.blocks.len() {
         let block = &state.blocks[block_idx];
@@ -908,7 +1034,7 @@ fn infer_evolutions(state: &mut InferenceState) {
             let ((n0, o0), (n1, o1)) = (window[0], window[1]);
             let new_gap = (n0 + 1) as usize..n1 as usize;
             let old_gap = (o0 + 1) as usize..o1 as usize;
-            if new_gap.is_empty() || new_gap.len() != old_gap.len() {
+            if new_gap.is_empty() || old_gap.is_empty() {
                 continue;
             }
             // Both sides of the gap must consist entirely of unmatched tokens;
@@ -916,6 +1042,14 @@ fn infer_evolutions(state: &mut InferenceState) {
             if !new_gap.clone().all(|n| state.is_unmatched_new(file, n))
                 || !old_gap.clone().all(|o| state.is_unmatched_old(file, o))
             {
+                continue;
+            }
+            // Unequal sides (ex: a qualified name becoming another name) only
+            // pair similar tokens; see `hole_pairs`.
+            if new_gap.len() != old_gap.len() {
+                if new_gap.len() <= MAX_HOLE_TOKENS && old_gap.len() <= MAX_HOLE_TOKENS {
+                    pairs.extend(hole_pairs(state, file, old_gap, new_gap));
+                }
                 continue;
             }
             let isolated = new_gap.len() == 1;
@@ -930,6 +1064,109 @@ fn infer_evolutions(state: &mut InferenceState) {
             }
         }
         for (o, n) in pairs {
+            state.record_evolution(file, o, n);
+        }
+    }
+    infer_revision_renames(state);
+}
+
+/// A rename's old and new tokens' indices in a block (see
+/// `infer_revision_renames`).
+type RenameTokens = (Vec<usize>, Vec<usize>);
+
+/// Identifiers which evolved somewhere in the revision (ex: a renamed type's
+/// uses in the slots `infer_evolutions` pairs) evolve the same way wherever
+/// else both are left unmatched in a block, in order, since renames are
+/// usually consistent across a revision: ex: a renamed function's call in a
+/// line that was otherwise rewritten.  (If the rename was seen at least
+/// twice, or is between similar names.)
+fn infer_revision_renames(state: &mut InferenceState) {
+    // The renames, old text -> (new text, how many times).
+    let mut renames: HashMap<&str, (&str, usize)> = HashMap::new();
+    let mut ambiguous: HashSet<&str> = HashSet::new();
+    for (file, origins) in state.origins.iter().enumerate() {
+        for (new_idx, origin) in origins.iter().enumerate() {
+            let TokenOrigin::Evolved {
+                from_file,
+                old_lineno,
+            } = *origin
+            else {
+                continue;
+            };
+            let new = &state.new_tokens[file][new_idx];
+            let old = &state.old_tokens[from_file as usize][old_lineno as usize - 1];
+            if new.effective_class() != TokenClass::Identifier
+                || old.effective_class() != TokenClass::Identifier
+            {
+                continue;
+            }
+            // (An old name which became several different names isn't a
+            // rename to apply elsewhere.)
+            match renames.get_mut(old.token) {
+                Some((existing, _)) if *existing != new.token => {
+                    ambiguous.insert(old.token);
+                }
+                Some((_, count)) => *count += 1,
+                None => {
+                    renames.insert(old.token, (new.token, 1));
+                }
+            }
+        }
+    }
+    // (Positional evolutions can be wrong, ex: `queryString` to `isClass` in a
+    // rewritten line, so only renames seen at least twice, or between similar
+    // names, are applied elsewhere.)
+    let renames: HashMap<&str, &str> = renames
+        .into_iter()
+        .filter(|(old, (new, count))| {
+            !ambiguous.contains(old)
+                && (*count >= 2 || subword_similarity(old, new) >= MIN_HOLE_SIMILARITY)
+        })
+        .map(|(old, (new, _))| (old, new))
+        .collect();
+    if renames.is_empty() {
+        return;
+    }
+    let mut pairs = vec![];
+    for block in &state.blocks {
+        if !block.removals_real || block.old_len == 0 || block.new_len == 0 {
+            continue;
+        }
+        let file = block.file as usize;
+        // Each rename's unmatched old and new tokens in the block, in order.
+        let mut candidates: HashMap<(&str, &str), RenameTokens> = HashMap::new();
+        for old_idx in block.old_range() {
+            let token = &state.old_tokens[file][old_idx];
+            if state.is_unmatched_old(file, old_idx)
+                && token.effective_class() == TokenClass::Identifier
+                && let Some(new) = renames.get(token.token)
+            {
+                candidates
+                    .entry((token.token, new))
+                    .or_default()
+                    .0
+                    .push(old_idx);
+            }
+        }
+        for new_idx in block.new_range() {
+            let token = &state.new_tokens[file][new_idx];
+            if !state.is_unmatched_new(file, new_idx)
+                || token.effective_class() != TokenClass::Identifier
+            {
+                continue;
+            }
+            for ((_, new), (_, news)) in candidates.iter_mut() {
+                if *new == token.token {
+                    news.push(new_idx);
+                }
+            }
+        }
+        for (olds, news) in candidates.into_values() {
+            pairs.extend(olds.into_iter().zip(news).map(|(o, n)| (file, o, n)));
+        }
+    }
+    for (file, o, n) in pairs {
+        if state.is_unmatched_old(file, o) && state.is_unmatched_new(file, n) {
             state.record_evolution(file, o, n);
         }
     }
@@ -1273,6 +1510,70 @@ mod tests {
                 num_removed: b_new.len() as u32,
                 num_moved: b_new.len() as u32,
             }]
+        );
+    }
+
+    #[test]
+    fn test_hole_evolution() {
+        // A qualified name becoming a similar unqualified one evolves (but its
+        // scope is removed), and a rewritten call doesn't.
+        let old = toks(
+            "f",
+            "x = DtlsIdentity :: DEFAULT_HASH_ALGORITHM ; EventUtils . sendMouseEvent ( a ) ;",
+        );
+        let new = toks(
+            "f",
+            "x = DEFAULT_DTLS_HASH_ALGORITHM ; clickOnRequestRow ( a ) ;",
+        );
+        let inputs = vec![input(FileChangeKind::Modified, &old, &new)];
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        assert_eq!(summarize(&results[0]), "UUEUAUUUU");
+        assert_eq!(
+            results[0].origins[2],
+            TokenOrigin::Evolved {
+                from_file: 0,
+                old_lineno: 5
+            }
+        );
+        assert_eq!(
+            subwords("URLParser_forX"),
+            vec!["for", "parser", "url", "x"]
+        );
+        assert!(subword_similarity("startsWith", "startsWithNoEquals") >= MIN_HOLE_SIMILARITY);
+        assert_eq!(
+            subword_similarity("sendMouseEvent", "clickOnRequestRow"),
+            0.0
+        );
+    }
+
+    #[test]
+    fn test_revision_renames() {
+        // `copiedText` became `clipboard` in two slots, so it did in a line
+        // which was otherwise rewritten too (where its slot is unequal and the
+        // names aren't similar).  But a lone dissimilar rename isn't applied
+        // elsewhere.
+        let old = toks(
+            "f",
+            "use ( copiedText ) ; use ( copiedText ) ; if ( copiedText ) { go ( ) ; } use ( a ) ; check ( a , b ) ;",
+        );
+        let new = toks(
+            "f",
+            "use ( clipboard ) ; use ( clipboard ) ; while ( ready && clipboard ) { go ( ) ; } use ( z ) ; check ( b , z , c ) ;",
+        );
+        let inputs = vec![input(FileChangeKind::Modified, &old, &new)];
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        let evolved: Vec<&str> = results[0]
+            .origins
+            .iter()
+            .enumerate()
+            .filter(|(_, o)| matches!(o, TokenOrigin::Evolved { .. }))
+            .map(|(i, _)| split_token_line(&new[i]).token)
+            .collect();
+        // (`if` to `while` is an isolated keyword's evolution, and `a` to `z` a
+        // slot's.)
+        assert_eq!(
+            evolved,
+            vec!["clipboard", "clipboard", "while", "clipboard", "z"]
         );
     }
 
