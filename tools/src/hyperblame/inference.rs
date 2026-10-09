@@ -90,7 +90,7 @@
 //! - Looking at overall token metrics to skip inference for high-churn
 //!   automated changes.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 
 use imara_diff::{Algorithm, Diff, Interner, Token};
@@ -1134,7 +1134,9 @@ fn infer_revision_renames(state: &mut InferenceState) {
         }
         let file = block.file as usize;
         // Each rename's unmatched old and new tokens in the block, in order.
-        let mut candidates: HashMap<(&str, &str), RenameTokens> = HashMap::new();
+        // (In a stable order, since renames to the same new name compete for
+        // its tokens.)
+        let mut candidates: BTreeMap<(&str, &str), RenameTokens> = BTreeMap::new();
         for old_idx in block.old_range() {
             let token = &state.old_tokens[file][old_idx];
             if state.is_unmatched_old(file, old_idx)
@@ -1575,6 +1577,40 @@ mod tests {
             evolved,
             vec!["clipboard", "clipboard", "while", "clipboard", "z"]
         );
+    }
+
+    #[test]
+    fn test_revision_renames_to_the_same_name() {
+        // `alpha` and `beta` both became `item` (twice each), and a rewritten
+        // line has both but only one `item`, which consistently goes to the
+        // first rename by name, not by the hashing of the run.
+        let old = toks(
+            "f",
+            "use ( alpha ) ; use ( alpha ) ; take ( beta ) ; take ( beta ) ; if ( alpha || beta ) { }",
+        );
+        let new = toks(
+            "f",
+            "use ( item ) ; use ( item ) ; take ( item ) ; take ( item ) ; while ( item ) { }",
+        );
+        let inputs = vec![input(FileChangeKind::Modified, &old, &new)];
+        let last_item = new
+            .iter()
+            .rposition(|l| split_token_line(l).token == "item")
+            .unwrap();
+        let last_alpha = old
+            .iter()
+            .rposition(|l| split_token_line(l).token == "alpha")
+            .unwrap();
+        for _ in 0..8 {
+            let results = infer_revision(&inputs, &InferenceConfig::default());
+            assert_eq!(
+                results[0].origins[last_item],
+                TokenOrigin::Evolved {
+                    from_file: 0,
+                    old_lineno: last_alpha as u32 + 1
+                }
+            );
+        }
     }
 
     #[test]
