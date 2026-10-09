@@ -231,7 +231,10 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   preprocessor conditionals (see `ConditionalStacks`).  ERROR nodes which
 ///   error recovery makes extras aren't comments.  C and C++ files with
 ///   Objective-C declarations are tokenized like Objective-C++, whose
-///   declarations' C++ is tokenized as C++ (see `tokenize_objcpp`).
+///   declarations' C++ is tokenized as C++ (see `tokenize_objcpp`).  JS and
+///   TS class fields and Rust's named fields are containers (see
+///   typescript.scm and rust.scm), and trailing comments after separators
+///   (ex: a Rust field's `,`) have the contexts of the code before them.
 pub const TOKENIZER_VERSION: u32 = 9;
 
 /// The node to name a container by, given the node its query captured as its
@@ -1207,7 +1210,18 @@ fn trivia_container<'a>(
 ) -> Option<&'a str> {
     let start_row = node.start_position().row;
     let first_at = |start: usize| containers.partition_point(|c| c.start_byte < start);
-    if let Some(prev) = node.prev_sibling()
+    // (Past separators after code on the line which aren't in its nodes, ex: a
+    // Rust field's `,` or a JS class field's `;`.)
+    let mut prev = node.prev_sibling();
+    while let Some(separator) = prev
+        && !separator.is_named()
+        && separator
+            .prev_sibling()
+            .is_some_and(|before| last_row(&before) == start_row)
+    {
+        prev = separator.prev_sibling();
+    }
+    if let Some(prev) = prev
         && last_row(&prev) == start_row
     {
         if is_trivia(&prev) {
@@ -2961,6 +2975,86 @@ mod tests {
                 "{} in {:?}",
                 expected,
                 mm_classes
+            );
+        }
+    }
+
+    /// JS and TS class fields and Rust's named fields are containers, with
+    /// their comments, attributes, and decorators (and trailing comments after
+    /// their separators).
+    #[test]
+    fn test_js_rust_fields() {
+        let js = "class Foo {\n  \
+                  // The count.\n  \
+                  count = 0; // (Zero.)\n  \
+                  handleClick = () => { this.count++; };\n  \
+                  static #secret = 1;\n  \
+                  bar() {}\n\
+                  }\n";
+        assert_eq!(
+            structure("a.js", js),
+            vec![
+                "class:Foo",
+                "field:Foo::count",
+                "field:Foo::handleClick",
+                "field:Foo::#secret",
+                "method:Foo::bar",
+            ]
+        );
+        let contexts = |filename: &str, source: &str| -> Vec<String> {
+            hypertokenize_source_file(filename, source)
+                .unwrap()
+                .tokenized
+                .iter()
+                .map(|line| {
+                    let parsed = split_token_line(line);
+                    format!("{}@{}", parsed.token, parsed.context)
+                })
+                .collect()
+        };
+        let js_contexts = contexts("a.js", js);
+        for expected in [
+            "The@Foo::count",
+            "(Zero.)@Foo::count",
+            "this@Foo::handleClick",
+        ] {
+            assert!(
+                js_contexts.iter().any(|c| c == expected),
+                "{} in {:?}",
+                expected,
+                js_contexts
+            );
+        }
+        assert_eq!(
+            structure(
+                "a.ts",
+                "class Foo {\n  @observable\n  private name: string = \"x\";\n}\n"
+            ),
+            vec!["class:Foo", "field:Foo::name"]
+        );
+        let rust = "pub struct Foo {\n    \
+                    /// The count.\n    \
+                    #[serde(rename = \"c\")]\n    \
+                    pub count: u32,\n    \
+                    name: String, // its name\n\
+                    }\n\
+                    pub struct T(u32);\n";
+        assert_eq!(
+            structure("a.rs", rust),
+            vec![
+                "struct:Foo",
+                "field:Foo::count",
+                "field:Foo::name",
+                "struct:T"
+            ]
+        );
+        let rust_contexts = contexts("a.rs", rust);
+        for expected in ["The@Foo::count", "serde@Foo::count", "its@Foo::name"] {
+            assert!(
+                rust_contexts.iter().any(|c| c == expected),
+                "{} in {:?}",
+                expected,
+                rust_contexts
             );
         }
     }

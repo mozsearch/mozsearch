@@ -332,14 +332,13 @@ impl<'a> HistoryDigests<'a> {
             .next()
             .and_then(|line| serde_json::from_str(line).ok())
             .unwrap_or_default();
-        let namespaces = structure
-            .filter_map(|line| serde_json::from_str::<FileStructureRow>(line).ok())
-            .filter(|row| row.kind == "namespace")
-            .map(|row| row.pretty)
+        let rows: Vec<FileStructureRow> = structure
+            .filter_map(|line| serde_json::from_str(line).ok())
             .collect();
         Some(FileDigests {
             contexts,
-            namespaces,
+            namespaces: rows_of_kind(&rows, "namespace"),
+            fields: rows_of_kind(&rows, "field"),
             has_grammar: header.lang.is_some_and(|lang| lang != "none"),
             changes: context_changes(&self.records(path)?, self.indexed),
         })
@@ -472,10 +471,21 @@ pub fn link_definitions(
     linkage
 }
 
+/// The pretty identifiers of the structure rows of a kind.
+fn rows_of_kind(rows: &[FileStructureRow], kind: &str) -> HashSet<String> {
+    rows.iter()
+        .filter(|row| row.kind == kind)
+        .map(|row| row.pretty.clone())
+        .collect()
+}
+
 /// A file's history contexts, with their changes.
 pub struct FileDigests {
     contexts: FileContexts,
     namespaces: HashSet<String>,
+    /// The fields' contexts, which can be named like other definitions'
+    /// parents (ex: a Rust struct's `map` field and a `map` module).
+    fields: HashSet<String>,
     /// Whether the history tokenized the file with a grammar, so that it has
     /// contexts.
     pub has_grammar: bool,
@@ -494,11 +504,8 @@ impl FileDigests {
     ) -> Option<FileDigests> {
         Some(FileDigests {
             contexts: FileContexts::align(source, files)?,
-            namespaces: structure
-                .iter()
-                .filter(|row| row.kind == "namespace")
-                .map(|row| row.pretty.clone())
-                .collect(),
+            namespaces: rows_of_kind(structure, "namespace"),
+            fields: rows_of_kind(structure, "field"),
             has_grammar,
             changes: BTreeMap::new(),
         })
@@ -543,11 +550,10 @@ impl FileDigests {
         if last_segment(context) == parent {
             return false;
         }
-        let parent_is_context = self
-            .contexts
-            .runs
-            .iter()
-            .any(|(_, context)| last_segment(context) == parent);
+        let parent_is_context =
+            self.contexts.runs.iter().any(|(_, context)| {
+                last_segment(context) == parent && !self.fields.contains(context)
+            });
         parent_is_context || (is_function && at_scope)
     }
 
@@ -657,6 +663,7 @@ mod tests {
         let digests = FileDigests {
             contexts: FileContexts { runs: vec![] },
             namespaces: ["a".to_string()].into_iter().collect(),
+            fields: HashSet::new(),
             has_grammar: true,
             changes: [
                 ("%".to_string(), Recency([1, 0, 0, 0, 0, 0, 0, 0, 0, 0])),
@@ -708,6 +715,13 @@ mod tests {
         // file.)
         assert!(digests.is_misplaced("Class::method", "a", true));
         assert!(digests.is_misplaced("function", "%", true));
+        // Fields' contexts aren't parents, ex: a Rust struct's `f` field and
+        // an `f` module's `f::Impl`.
+        let digests = FileDigests {
+            fields: ["a::f".to_string()].into_iter().collect(),
+            ..digests
+        };
+        assert!(!digests.is_misplaced("f::Impl", "%", false));
     }
 
     #[test]

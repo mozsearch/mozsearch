@@ -15,6 +15,13 @@
     name: [(property_identifier) (private_property_identifier)] @name) @container)
   (#set! structure.kind "method"))
 
+;; Class fields, so that their comments and decorators are theirs, not their
+;; classes', like C++'s fields (and functions in them are in their contexts,
+;; ex: `handleClick = () => {...}`).
+(((public_field_definition
+    name: [(property_identifier) (private_property_identifier)] @name) @container)
+  (#set! structure.kind "field"))
+
 (([
   (class
     name: (_) @name)

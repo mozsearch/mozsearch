@@ -20,6 +20,13 @@
     name: (type_identifier) @name) @container)
     (#set! structure.kind "union"))
 
+;; Named fields of structs, unions, and enums' struct-like variants (not tuple
+;; structs'), so that their comments and attributes are theirs, not their
+;; types', like C++'s fields.
+(((field_declaration
+    name: (field_identifier) @name) @container)
+    (#set! structure.kind "field"))
+
 ;; we skip type aliases
 
 ; function definitions
