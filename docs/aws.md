@@ -402,9 +402,15 @@ infrastructure/aws/trigger_blame_rebuild.py \
   https://github.com/mozsearch/mozsearch \
   https://github.com/mozsearch/mozsearch-mozilla \
   just-fd.json hyperblame dev-history \
-  --config-rev firefox-disco --instance-type m8id.16xlarge \
+  --config-rev firefox-disco --instance-type m8id.8xlarge \
   --setenv HISTORY_WINDOW_DAYS=14
 ```
+
+An `m8id.8xlarge` (32 CPUs, 128 GiB, a 1.9 TB SSD, $2.09 an hour in 2026-10)
+generated firefox-disco's full history: its critical path is about a CPU
+each for build-timeline-tree's main thread and its git fast-import, so a
+16xlarge's other CPUs didn't help, and the final repack peaked at ~50 GiB.
+(The default instance type, an `m6id.4xlarge`, has only 64 GiB.)
 
 Instances record their progress in their `status` tag (see
 `infrastructure/aws/set-status.py`), so you can check on a rebuild without

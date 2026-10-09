@@ -52,8 +52,8 @@ class TriggerCommandBase:
         parser.add_argument('--config-rev', dest='config_rev')
 
         # See the comment about the default in `trigger`.  Other types need
-        # instance storage (see `mkscratch.sh`), ex: m8id.16xlarge for history
-        # generation.
+        # instance storage (see `mkscratch.sh`), ex: m8id.8xlarge for history
+        # generation (see docs/aws.md).
         parser.add_argument('--instance-type', dest='instance_type', default='m6id.4xlarge')
 
         # A bigger root volume than the AMI's 20 GB, which isn't enough for
