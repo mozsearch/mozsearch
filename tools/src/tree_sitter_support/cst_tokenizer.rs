@@ -236,7 +236,9 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   typescript.scm and rust.scm), and trailing comments after separators
 ///   (ex: a Rust field's `,`) have the contexts of the code before them.
 ///   C++'s conversion operators are containers (see `name_text`).  Dead
-///   preprocessor branches (`#if 0`'s) are comments (see `tokenize_cpp`).
+///   preprocessor branches (`#if 0`'s) are comments (see `tokenize_cpp`),
+///   and ANGLE's `ANGLE_MTL_OBJC_SCOPE`s don't make their blocks compound
+///   literals (see `SCOPE_MACROS`).
 pub const TOKENIZER_VERSION: u32 = 9;
 
 /// The node to name a container by, given the node its query captured as its
@@ -1482,21 +1484,25 @@ fn tokenize_cpp<'s>(
         None
     };
     let mut containers = vec![];
-    let Some(plan) = plan else {
-        walk_tree(
-            setup,
-            text,
-            source,
-            &to_source,
-            outer,
-            walked,
-            &mut containers,
-        )?;
-        return Ok(containers);
+    // (Statement macros before blocks are blanked for the parse; see
+    // `SCOPE_MACROS`.)
+    let parse_text = plan.as_ref().map_or(text, |plan| &plan.first_branches);
+    let scope_macros = scope_macros(parse_text);
+    let blanked;
+    let parse_text = if scope_macros.is_empty() {
+        parse_text
+    } else {
+        let mut bytes = parse_text.as_bytes().to_vec();
+        for range in &scope_macros {
+            bytes[range.clone()].fill(b' ');
+        }
+        // (Blanking ASCII names keeps the text UTF-8.)
+        blanked = String::from_utf8(bytes).map_err(|e| e.to_string())?;
+        &blanked
     };
     walk_tree(
         setup,
-        &plan.first_branches,
+        parse_text,
         source,
         &to_source,
         outer,
@@ -1510,6 +1516,25 @@ fn tokenize_cpp<'s>(
             .filter(|container| container.range.contains(&offset))
             .max_by_key(|container| (container.range.start, container.context.len()))
             .map_or_else(|| outer.to_vec(), |container| container.context.clone())
+    };
+    for range in scope_macros {
+        let offset = base + range.start;
+        let context = context_at(offset);
+        walked.tokens.push((
+            offset,
+            RawToken {
+                context: if context.is_empty() {
+                    "%".to_string()
+                } else {
+                    context.join("::")
+                },
+                class: TokenClass::Identifier,
+                text: &source[offset..base + range.end],
+            },
+        ));
+    }
+    let Some(plan) = plan else {
+        return Ok(containers);
     };
     for directive in plan.directives {
         let directive = base + directive.start..base + directive.end;
@@ -1832,6 +1857,42 @@ fn code_bytes(text: &[u8]) -> Vec<bool> {
         i = end;
     }
     code
+}
+
+/// Statement macros before blocks, which expand to statements taking them,
+/// ex: ANGLE's `ANGLE_MTL_OBJC_SCOPE { ... }` (62 uses), which is
+/// `@autoreleasepool`, but which tree-sitter-mozcpp takes for a compound
+/// literal (since a name before a block on the next line can't be a
+/// statement in general, ex: flex's `YY_DECL` starts a function definition),
+/// so that the block's statements were an initializer list's (ex: `if` and
+/// `else` were identifiers).  They're blanked for the parse (so their blocks
+/// are blocks), and their own tokens get the contexts at them.
+const SCOPE_MACROS: &[&str] = &["ANGLE_MTL_OBJC_SCOPE", "ANGLE_APPLE_OBJC_SCOPE"];
+
+/// The byte ranges of `SCOPE_MACROS` before blocks in `text`, outside of
+/// comments, strings, and characters.
+fn scope_macros(text: &str) -> Vec<std::ops::Range<usize>> {
+    let bytes = text.as_bytes();
+    let mut ranges = vec![];
+    let mut code = None;
+    let is_word = |b: u8| b.is_ascii_alphanumeric() || b == b'_';
+    for name in SCOPE_MACROS {
+        for (at, _) in text.match_indices(name) {
+            let end = at + name.len();
+            if at > 0 && is_word(bytes[at - 1]) || bytes.get(end).is_some_and(|b| is_word(*b)) {
+                continue;
+            }
+            let next = text[end..].trim_start();
+            if !next.starts_with('{') {
+                continue;
+            }
+            let code = code.get_or_insert_with(|| code_bytes(bytes));
+            if code[at] {
+                ranges.push(at..end);
+            }
+        }
+    }
+    ranges
 }
 
 /// The byte ranges of the contents of the outermost parentheses and braces
@@ -3080,6 +3141,34 @@ mod tests {
                 "{} in {:?}",
                 expected,
                 mm_classes
+            );
+        }
+    }
+
+    /// `SCOPE_MACROS` before blocks don't make the blocks compound
+    /// literals: their statements are statements, and the macros are
+    /// identifiers, but not in comments.
+    #[test]
+    fn test_scope_macros() {
+        let source = "void F() {\n  \
+                      ANGLE_MTL_OBJC_SCOPE\n  \
+                      {\n    \
+                      if (a) { G(); } else { H(); }\n  \
+                      }\n  \
+                      // ANGLE_MTL_OBJC_SCOPE {\n\
+                      }\n";
+        let classes = classes("a.mm", source);
+        for expected in [
+            "i:ANGLE_MTL_OBJC_SCOPE",
+            "k:if",
+            "k:else",
+            "c:ANGLE_MTL_OBJC_SCOPE",
+        ] {
+            assert!(
+                classes.iter().any(|c| c == expected),
+                "{} in {:?}",
+                expected,
+                classes
             );
         }
     }
