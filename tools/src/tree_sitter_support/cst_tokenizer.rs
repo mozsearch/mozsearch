@@ -9,7 +9,7 @@ use crate::file_format::history::syntax_files::TokenClass;
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
 use crate::tree_sitter_support::boilerplate::{FinishedTokens, RawToken, finish_tokens};
 use crate::tree_sitter_support::config_tokenizer::{tokenize_ini, tokenize_toml};
-use crate::tree_sitter_support::preprocessor::ConditionalStacks;
+use crate::tree_sitter_support::preprocessor::{ConditionalStacks, literal_condition};
 
 use tree_sitter::StreamingIterator as _;
 
@@ -235,7 +235,8 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   TS class fields and Rust's named fields are containers (see
 ///   typescript.scm and rust.scm), and trailing comments after separators
 ///   (ex: a Rust field's `,`) have the contexts of the code before them.
-///   C++'s conversion operators are containers (see `name_text`).
+///   C++'s conversion operators are containers (see `name_text`).  Dead
+///   preprocessor branches (`#if 0`'s) are comments (see `tokenize_cpp`).
 pub const TOKENIZER_VERSION: u32 = 9;
 
 /// The node to name a container by, given the node its query captured as its
@@ -1458,6 +1459,9 @@ const MAX_CONDITIONAL_DEPTH: u32 = 16;
 /// branches (each the same way) separately, in the contexts at their
 /// locations in the first parse.
 ///
+/// Dead branches (literally false ones, `#if 0`'s, and ones after literally
+/// true ones) are tokenized as comments' words (see `ConditionalPlan::dead`).
+///
 /// `text` is the source's text at `base` (or a version of it of the same
 /// length, ex: with Objective-C++'s Objective-C blanked; see
 /// `tokenize_objcpp`).  Returns the first parse's containers.  (Objective-C,
@@ -1527,6 +1531,33 @@ fn tokenize_cpp<'s>(
             depth + 1,
             walked,
         )?;
+    }
+    // Dead branches (ex: `#if 0`'s, which Gecko rarely has, since it removes
+    // dead code instead) are like comments: their words, in the contexts at
+    // them.  (Not parsed as code, which they may no longer be, and so code
+    // that becomes dead doesn't keep its context.)
+    for branch in plan.dead {
+        let context = context_at(base + branch.start);
+        let context = if context.is_empty() {
+            "%".to_string()
+        } else {
+            context.join("::")
+        };
+        let branch_text = &text[branch.clone()];
+        for word in branch_text.split_whitespace() {
+            let offset =
+                base + branch.start + (word.as_ptr() as usize - branch_text.as_ptr() as usize);
+            if let Some(text) = source.get(offset..offset + word.len()) {
+                walked.tokens.push((
+                    offset,
+                    RawToken {
+                        context: context.clone(),
+                        class: TokenClass::Comment,
+                        text,
+                    },
+                ));
+            }
+        }
     }
     Ok(containers)
 }
@@ -2049,6 +2080,10 @@ struct ConditionalPlan {
     directives: Vec<std::ops::Range<usize>>,
     /// The (blanked) other branches (including any conditionals in them).
     other_branches: Vec<std::ops::Range<usize>>,
+    /// The (blanked) dead branches: literally false ones (`#if 0`), and ones
+    /// after literally true ones (`#if 1`'s `#else`), including any
+    /// conditionals in them.
+    dead: Vec<std::ops::Range<usize>>,
 }
 
 /// Plan how to tokenize C++ text with preprocessor conditionals (see
@@ -2059,8 +2094,18 @@ fn plan_conditionals(text: &str) -> Option<ConditionalPlan> {
     let mut blanks: Vec<std::ops::Range<usize>> = vec![];
     let mut directives = vec![];
     let mut other_branches: Vec<std::ops::Range<usize>> = vec![];
-    // For each open conditional, whether we're past its first branch.
-    let mut stack: Vec<bool> = vec![];
+    let mut dead: Vec<std::ops::Range<usize>> = vec![];
+    // Each open conditional's state.
+    struct Level {
+        /// Whether we're past its first branch.
+        past_first: bool,
+        /// Whether a branch so far is literally true (`#if 1`).
+        taken: bool,
+        /// Whether its current branch is dead: literally false (`#if 0`), or
+        /// after one that's literally true.
+        dead: bool,
+    }
+    let mut stack: Vec<Level> = vec![];
     let mut in_block_comment = false;
     let mut any = false;
     let mut pos = 0;
@@ -2083,44 +2128,73 @@ fn plan_conditionals(text: &str) -> Option<ConditionalPlan> {
         }
         let line_end = end;
         let next = (end + 1).min(bytes.len());
-        // Whether we're in a branch other than the first of some conditional,
-        // and the innermost such conditional's level.
-        let inactive = stack.iter().position(|past_first| *past_first);
+        // The outermost conditional whose current branch isn't its first or
+        // is dead: whether we're in a branch other than the first of some
+        // conditional (and its level), or in a dead branch (and its level).
+        let blocking = stack
+            .iter()
+            .position(|level| level.past_first || level.dead);
+        let (inactive, dead_level) = match blocking {
+            Some(level) if stack[level].dead => (None, Some(level)),
+            Some(level) => (Some(level), None),
+            None => (None, None),
+        };
         let mut directive_here = false;
+        // (Directives in dead branches are dead too, but the dead
+        // conditional's own.)
+        let mut dead_here = dead_level.is_some();
         if is_directive {
             let line = &text[start..line_end];
+            let literal = literal_condition(line);
             match directive_word(line) {
                 Some("if" | "ifdef" | "ifndef") => {
                     any = true;
-                    directive_here = inactive.is_none();
-                    stack.push(false);
+                    directive_here = inactive.is_none() && dead_level.is_none();
+                    stack.push(Level {
+                        past_first: false,
+                        taken: literal == Some(true),
+                        dead: literal == Some(false),
+                    });
                 }
-                Some("elif" | "elifdef" | "elifndef" | "else") => {
+                Some(word @ ("elif" | "elifdef" | "elifndef" | "else")) => {
                     let level = stack.len().checked_sub(1);
-                    directive_here = match (inactive, level) {
-                        (Some(inactive), Some(level)) => inactive >= level,
+                    directive_here = match (inactive, dead_level, level) {
+                        (_, Some(dead_level), Some(level)) => dead_level == level,
+                        (Some(inactive), _, Some(level)) => inactive >= level,
                         _ => true,
                     };
                     if let Some(level) = level
                         && directive_here
                     {
-                        stack[level] = true;
+                        let state = &mut stack[level];
+                        state.past_first = true;
+                        state.dead = state.taken || (word == "elif" && literal == Some(false));
+                        state.taken |= literal == Some(true);
                     }
                 }
                 Some("endif") => {
                     let level = stack.len().checked_sub(1);
-                    directive_here = match (inactive, level) {
-                        (Some(inactive), Some(level)) => inactive >= level,
+                    directive_here = match (inactive, dead_level, level) {
+                        (_, Some(dead_level), Some(level)) => dead_level == level,
+                        (Some(inactive), _, Some(level)) => inactive >= level,
                         _ => true,
                     };
                     stack.pop();
                 }
                 _ => {}
             }
+            dead_here &= !directive_here;
         }
         if directive_here {
             directives.push(start..line_end);
             blanks.push(start..line_end);
+        } else if dead_here {
+            // (Consecutive lines of a dead branch make one.)
+            match dead.last_mut() {
+                Some(range) if range.end == start => range.end = next,
+                _ => dead.push(start..next),
+            }
+            blanks.push(start..next);
         } else if inactive.is_some() {
             // (Consecutive lines of a branch make one.)
             match other_branches.last_mut() {
@@ -2155,6 +2229,7 @@ fn plan_conditionals(text: &str) -> Option<ConditionalPlan> {
         first_branches,
         directives,
         other_branches,
+        dead,
     })
 }
 
@@ -3005,6 +3080,63 @@ mod tests {
                 "{} in {:?}",
                 expected,
                 mm_classes
+            );
+        }
+    }
+
+    /// Dead branches (`#if 0`'s, and `#if 1`'s `#else`), with any
+    /// conditionals in them, are comments' words, in the contexts at them,
+    /// and their conditionals' own directives are directives.
+    #[test]
+    fn test_dead_branches() {
+        let source = "namespace ns {\n\
+                      void F() {\n\
+                      #if 0\n  \
+                      Old(a, \"b\");\n\
+                      #  ifdef X\n  \
+                      Older();\n\
+                      #  endif\n\
+                      #else\n  \
+                      New();\n\
+                      #endif\n\
+                      }\n\
+                      #if 1\n\
+                      void G() {}\n\
+                      #else\n\
+                      void H() {}\n\
+                      #endif\n\
+                      }\n";
+        assert_eq!(
+            structure("a.cpp", source),
+            vec!["namespace:ns", "method:ns::F", "method:ns::G"]
+        );
+        let tokens: Vec<String> = hypertokenize_source_file("a.cpp", source)
+            .unwrap()
+            .tokenized
+            .iter()
+            .map(|line| {
+                let parsed = split_token_line(line);
+                format!(
+                    "{}:{}@{}",
+                    parsed.class.as_char(),
+                    parsed.token,
+                    parsed.context
+                )
+            })
+            .collect();
+        for expected in [
+            "k:#if@ns::F",
+            "c:Old(a,@ns::F",
+            "c:ifdef@ns::F",
+            "k:#else@ns::F",
+            "i:New@ns::F",
+            "c:H()@ns",
+        ] {
+            assert!(
+                tokens.iter().any(|t| t == expected),
+                "{} in {:?}",
+                expected,
+                tokens
             );
         }
     }

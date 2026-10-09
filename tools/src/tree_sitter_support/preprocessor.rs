@@ -320,6 +320,24 @@ fn guards(directives: &[Directive], lines: &[&str]) -> Vec<bool> {
     guards
 }
 
+/// Whether an `#if` or `#elif` directive's condition is literally false (`0`)
+/// or true (`1`), if it is (ex: `#if 0 // Disabled.` is false).
+pub(crate) fn literal_condition(directive: &str) -> Option<bool> {
+    let text = directive.trim_start().strip_prefix('#')?.trim_start();
+    let word_end = text
+        .find(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+        .unwrap_or(text.len());
+    if !matches!(&text[..word_end], "if" | "elif") {
+        return None;
+    }
+    let rest = text[word_end..].replace("\\\n", " ");
+    match normalize_condition(&strip_comments(&rest)).as_str() {
+        "0" | "(0)" => Some(false),
+        "1" | "(1)" => Some(true),
+        _ => None,
+    }
+}
+
 /// The normalized condition of an `#if`'s, `#ifdef`'s, `#ifndef`'s, or
 /// `#elif`'s (or C23's `#elifdef`'s and `#elifndef`'s) branch.
 fn branch_condition(word: &str, rest: &str) -> String {
@@ -545,6 +563,16 @@ mod tests {
             stacks.at_offset(text.find("x;").unwrap()),
             ["defined(A) && defined(B)"]
         );
+    }
+
+    #[test]
+    fn test_literal_condition() {
+        assert_eq!(literal_condition("#if 0"), Some(false));
+        assert_eq!(literal_condition("#  if (0) // Disabled."), Some(false));
+        assert_eq!(literal_condition("#elif 1"), Some(true));
+        assert_eq!(literal_condition("#if 0 && \\\n  defined(A)"), None);
+        assert_eq!(literal_condition("#ifdef DEBUG"), None);
+        assert_eq!(literal_condition("#if 01"), None);
     }
 
     #[test]
