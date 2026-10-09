@@ -38,7 +38,7 @@ use crate::tree_sitter_support::boilerplate::{FinishedTokens, RawToken, finish_t
 
 /// Escape a section or key name for use in a context: contexts can't contain
 /// spaces (see `syntax_files.rs`) and "::" is the context delimiter.
-fn escape_name(name: &str) -> String {
+pub(crate) fn escape_name(name: &str) -> String {
     name.replace('%', "%25")
         .replace(' ', "%20")
         .replace('\t', "%09")

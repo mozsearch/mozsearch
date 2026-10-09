@@ -9,6 +9,7 @@ use crate::file_format::history::syntax_files::TokenClass;
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
 use crate::tree_sitter_support::boilerplate::{FinishedTokens, RawToken, finish_tokens};
 use crate::tree_sitter_support::config_tokenizer::{tokenize_ini, tokenize_toml};
+use crate::tree_sitter_support::json_tokenizer::tokenize_json;
 use crate::tree_sitter_support::preprocessor::{ConditionalStacks, literal_condition};
 
 use tree_sitter::StreamingIterator as _;
@@ -80,6 +81,8 @@ enum Grammar {
     Ini,
     /// See `config_tokenizer.rs`.
     Toml,
+    /// See `json_tokenizer.rs`.
+    Json,
     /// Whitespace-delimited words.
     PlainText,
 }
@@ -188,6 +191,13 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
         namespace: "config",
         grammar: Grammar::Toml,
     },
+    // JSON data files (and JSON-lines), with contexts from their structure;
+    // see `json_tokenizer`.
+    LanguageProfile {
+        lang: "json",
+        namespace: "json",
+        grammar: Grammar::Json,
+    },
     LanguageProfile {
         lang: "none",
         namespace: "none",
@@ -244,7 +254,9 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   typescript.scm and rust.scm), and trailing comments after separators
 ///   (ex: a Rust field's `,`) have the contexts of the code before them.
 ///   C++'s conversion operators are containers (see `name_text`).  UniFFI's
-///   `.udl` files are tokenized as WebIDL (as "udl"), rather than plain text.
+///   `.udl` files are tokenized as WebIDL (as "udl"), rather than plain text,
+///   and JSON files (and JSON-lines), rather than as JS, by `json_tokenizer`,
+///   with contexts from their structure.
 ///   Dead
 ///   preprocessor branches (`#if 0`'s) are comments (see `tokenize_cpp`),
 ///   and ANGLE's `ANGLE_MTL_OBJC_SCOPE`s don't make their blocks compound
@@ -363,7 +375,8 @@ pub fn default_profile_for_path(path: &Path) -> Option<LanguageProfile> {
     };
     let lang = match ext {
         "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hxx" | "hpp" => "cpp",
-        "js" | "jsm" | "json" | "mjs" | "sjs" | "ts" => "js",
+        "js" | "jsm" | "mjs" | "sjs" | "ts" => "js",
+        "json" | "jsonl" | "ndjson" | "json5" | "webmanifest" | "har" | "geojson" => "json",
         "jsx" | "tsx" => "jsx",
         "py" | "build" | "configure" => "py",
         "rs" => "rust",
@@ -622,10 +635,11 @@ pub fn hypertokenize_with_profile(
     source_contents: &str,
 ) -> Result<HyperTokenized, String> {
     match profile.grammar {
-        Grammar::Ini | Grammar::Toml => {
+        Grammar::Ini | Grammar::Toml | Grammar::Json => {
             let (tokens, structure) = match profile.grammar {
                 Grammar::Ini => tokenize_ini(source_contents),
-                _ => tokenize_toml(source_contents),
+                Grammar::Toml => tokenize_toml(source_contents),
+                _ => tokenize_json(source_contents),
             };
             return Ok(HyperTokenized::new(profile, tokens, structure));
         }
@@ -864,7 +878,7 @@ fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
                 ClassQuirks::default(),
             )
         }
-        Grammar::Ini | Grammar::Toml | Grammar::PlainText | Grammar::ObjCpp => {
+        Grammar::Ini | Grammar::Toml | Grammar::Json | Grammar::PlainText | Grammar::ObjCpp => {
             return Err(format!("{:?} isn't a tree-sitter grammar", grammar));
         }
     };
@@ -2398,6 +2412,11 @@ mod tests {
                 "udl",
             ),
             ("a.ini", "[test.html]\nskip-if = os == 'win'", "ini"),
+            (
+                "a.json",
+                "{\"dependencies\": {\"react\": \"19.2.0\"}}",
+                "json",
+            ),
             (
                 "a.toml",
                 "[\"test.html\"]\nskip-if = [\"os == 'win'\"]",
