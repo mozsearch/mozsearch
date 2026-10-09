@@ -229,7 +229,9 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   Rust's attributes) have their contexts (see `trivia_container`).  C,
 ///   C++, Objective-C, and Objective-C++'s "files-struct" rows have their
 ///   preprocessor conditionals (see `ConditionalStacks`).  ERROR nodes which
-///   error recovery makes extras aren't comments.
+///   error recovery makes extras aren't comments.  C and C++ files with
+///   Objective-C declarations are tokenized like Objective-C++, whose
+///   declarations' C++ is tokenized as C++ (see `tokenize_objcpp`).
 pub const TOKENIZER_VERSION: u32 = 9;
 
 /// The node to name a container by, given the node its query captured as its
@@ -597,35 +599,28 @@ pub fn hypertokenize_with_profile(
         _ => {}
     }
     let mut walked = Walked::default();
-    if matches!(profile.grammar, Grammar::ObjCpp | Grammar::Objc) {
+    // (C and C++ files with Objective-C declarations, ex: headers of
+    // Objective-C++, are tokenized like Objective-C++, which is the same as
+    // C++ for files without any.)
+    if matches!(
+        profile.grammar,
+        Grammar::ObjCpp | Grammar::Objc | Grammar::Cpp
+    ) {
         let rest = match profile.grammar {
-            Grammar::ObjCpp => Grammar::Cpp,
-            _ => Grammar::Objc,
+            Grammar::Objc => Grammar::Objc,
+            _ => Grammar::Cpp,
         };
         tokenize_objcpp(source_contents, rest, &mut walked)?;
     } else {
-        let setup = tree_sitter_setup(profile.grammar)?;
-        if setup.grammar == Grammar::Cpp {
-            tokenize_cpp(
-                &setup,
-                source_contents,
-                source_contents,
-                0,
-                &[],
-                0,
-                &mut walked,
-            )?;
-        } else {
-            walk_tree(
-                &setup,
-                source_contents,
-                source_contents,
-                &|offset| Some(offset),
-                &[],
-                &mut walked,
-                &mut vec![],
-            )?;
-        }
+        walk_tree(
+            &tree_sitter_setup(profile.grammar)?,
+            source_contents,
+            source_contents,
+            &|offset| Some(offset),
+            &[],
+            &mut walked,
+            &mut vec![],
+        )?;
     }
     // (Parts of files can be tokenized separately, ex: C++'s conditionals'
     // other branches, and XPIDL's C++ code blocks.  Stable, so tokens at the
@@ -1499,7 +1494,11 @@ fn tokenize_cpp<'s>(
 /// Foo;`) are parsed with tree-sitter-objc, and the `rest` with
 /// tree-sitter-mozcpp, with the sections blanked (keeping offsets), and its
 /// methods' bodies, which are C++, with tree-sitter-mozcpp too, in the
-/// methods' contexts (blanked for tree-sitter-objc).  Objective-C files' rest
+/// methods' contexts (blanked for tree-sitter-objc), as is C++ in its
+/// declarations (see `objc_cpp_groups`).  C and C++ files with Objective-C
+/// declarations (ex: headers of Objective-C++) are tokenized this way too
+/// (which is the same as `tokenize_cpp` for files without any).  Objective-C
+/// files' rest
 /// is parsed with tree-sitter-objc too, separately, which keeps errors in one
 /// part from affecting the other.  Objective-C declarations can only be at
 /// the top level, so the sections' contexts are their own.  All of them are
@@ -1527,7 +1526,6 @@ fn tokenize_objcpp<'s>(
     }
     // (Blanking whole lines keeps the text UTF-8.)
     let cpp_text = String::from_utf8(cpp_text).map_err(|e| e.to_string())?;
-    let objc = tree_sitter_setup(Grammar::Objc)?;
     tokenize_cpp(
         &tree_sitter_setup(rest)?,
         source,
@@ -1537,6 +1535,10 @@ fn tokenize_objcpp<'s>(
         0,
         walked,
     )?;
+    if sections.is_empty() {
+        return Ok(());
+    }
+    let objc = tree_sitter_setup(Grammar::Objc)?;
     for section in sections {
         let start = section.start;
         // Objective-C++'s methods' bodies are C++ (with Objective-C), which
@@ -1558,20 +1560,65 @@ fn tokenize_objcpp<'s>(
                 }
             }
         }
-        // (Blanking between ASCII braces keeps the text UTF-8.)
+        // C++ in Objective-C++'s declarations (ex: instance variables'
+        // `std::unique_ptr<Foo>` types, in their blocks, and methods'
+        // parameters' types) is too, blanked and tokenized as C++.
+        let cpp_groups: Vec<std::ops::Range<usize>> = if rest == Grammar::Cpp {
+            objc_cpp_groups(&text)
+                .into_iter()
+                .map(|group| start + group.start..start + group.end)
+                .collect()
+        } else {
+            vec![]
+        };
+        for group in &cpp_groups {
+            for b in &mut text[group.start - start..group.end - start] {
+                if *b != b'\n' && *b != b'\r' {
+                    *b = b' ';
+                }
+            }
+        }
+        // (And name macros' names and parentheses; see `OBJC_NAME_MACROS`.)
+        let macro_tokens = objc_name_macros(&text);
+        for (range, _) in &macro_tokens {
+            for b in &mut text[range.clone()] {
+                *b = b' ';
+            }
+        }
+        // (Blanking between ASCII braces and parentheses, and ASCII names,
+        // keeps the text UTF-8.)
         let text = String::from_utf8(text).map_err(|e| e.to_string())?;
         let containers = tokenize_cpp(&objc, source, &text, start, &[], 0, walked)?;
-        if bodies.is_empty() {
+        let innermost_context = |offset: usize| -> Vec<String> {
+            containers
+                .iter()
+                .filter(|container| container.range.contains(&offset))
+                .max_by_key(|container| (container.range.start, container.context.len()))
+                .map_or_else(Vec::new, |container| container.context.clone())
+        };
+        for (range, class) in macro_tokens {
+            let offset = start + range.start;
+            let context = innermost_context(offset);
+            walked.tokens.push((
+                offset,
+                RawToken {
+                    context: if context.is_empty() {
+                        "%".to_string()
+                    } else {
+                        context.join("::")
+                    },
+                    class,
+                    text: &source[offset..start + range.end],
+                },
+            ));
+        }
+        if bodies.is_empty() && cpp_groups.is_empty() {
             continue;
         }
         let cpp = tree_sitter_setup(Grammar::Cpp)?;
-        for body in bodies {
+        for body in bodies.into_iter().chain(cpp_groups) {
             // (The innermost container's, ex: the method's.)
-            let context = containers
-                .iter()
-                .filter(|container| container.range.contains(&body.start))
-                .max_by_key(|container| (container.range.start, container.context.len()))
-                .map_or_else(Vec::new, |container| container.context.clone());
+            let context = innermost_context(body.start);
             tokenize_cpp(
                 &cpp,
                 source,
@@ -1667,48 +1714,227 @@ fn objc_method_bodies(text: &str) -> Vec<std::ops::Range<usize>> {
     bodies
 }
 
+/// Which of `text`'s bytes are code: not in comments, strings, or characters
+/// (up to their ends, or the ends of their lines if they're unterminated).
+fn code_bytes(text: &[u8]) -> Vec<bool> {
+    let mut code = vec![true; text.len()];
+    let mut i = 0;
+    while i < text.len() {
+        let start = i;
+        match text[i] {
+            b'/' if text.get(i + 1) == Some(&b'/') => {
+                while i + 1 < text.len() && text[i + 1] != b'\n' {
+                    i += 1;
+                }
+            }
+            b'/' if text.get(i + 1) == Some(&b'*') => {
+                i += 2;
+                while i + 1 < text.len() && !(text[i] == b'*' && text[i + 1] == b'/') {
+                    i += 1;
+                }
+                i += 1;
+            }
+            quote @ (b'"' | b'\'') => {
+                while i + 1 < text.len() && text[i + 1] != quote && text[i + 1] != b'\n' {
+                    if text[i + 1] == b'\\' {
+                        i += 1;
+                    }
+                    i += 1;
+                }
+                if text.get(i + 1) == Some(&quote) {
+                    i += 1;
+                }
+            }
+            _ => {
+                i += 1;
+                continue;
+            }
+        }
+        let end = (i + 1).min(text.len());
+        for b in &mut code[start..end] {
+            *b = false;
+        }
+        i = end;
+    }
+    code
+}
+
+/// The byte ranges of the contents of the outermost parentheses and braces
+/// in an Objective-C++ section (with its methods' bodies blanked; see
+/// `tokenize_objcpp`) which have C++'s `::` (ex: `std::unique_ptr<Foo>`
+/// types), outside of comments, strings, and characters (or none, if they
+/// don't balance).
+fn objc_cpp_groups(text: &[u8]) -> Vec<std::ops::Range<usize>> {
+    let code = code_bytes(text);
+    let mut groups = vec![];
+    let mut depth = 0;
+    let mut group_start = 0;
+    let mut has_scope = false;
+    for (i, b) in text.iter().enumerate() {
+        if !code[i] {
+            continue;
+        }
+        match b {
+            b'(' | b'{' => {
+                if depth == 0 {
+                    group_start = i + 1;
+                    has_scope = false;
+                }
+                depth += 1;
+            }
+            b')' | b'}' => {
+                if depth == 0 {
+                    return vec![];
+                }
+                depth -= 1;
+                if depth == 0 && has_scope {
+                    groups.push(group_start..i);
+                }
+            }
+            b':' if depth > 0 && text.get(i + 1) == Some(&b':') => has_scope = true,
+            _ => {}
+        }
+    }
+    if depth != 0 {
+        return vec![];
+    }
+    groups
+}
+
+/// Macros wrapping names in Objective-C declarations, which tree-sitter-objc
+/// can't parse, ex: libwebrtc's `RTC_OBJC_TYPE(RTCVideoFrame)` (2041 uses in
+/// 338 files), which prefixes them, in `@protocol RTC_OBJC_TYPE
+/// (RTCVideoEncoder)<NSObject>`, types, and protocol lists.  Its Objective-C
+/// sections are parsed with them blanked but for the names (see
+/// `objc_name_macros`), whose own tokens get the contexts at them.
+const OBJC_NAME_MACROS: &[&str] = &["RTC_OBJC_TYPE"];
+
+/// The byte ranges and classes of the tokens of `OBJC_NAME_MACROS` in `text`
+/// but their names: the macros' names and parentheses.
+fn objc_name_macros(text: &[u8]) -> Vec<(std::ops::Range<usize>, TokenClass)> {
+    let code = code_bytes(text);
+    let mut tokens = vec![];
+    let skip_space = |mut i: usize| {
+        while i < text.len() && text[i].is_ascii_whitespace() {
+            i += 1;
+        }
+        i
+    };
+    let is_word = |b: u8| b.is_ascii_alphanumeric() || b == b'_';
+    for name in OBJC_NAME_MACROS {
+        let mut from = 0;
+        while let Some(at) = text[from..]
+            .windows(name.len())
+            .position(|window| window == name.as_bytes())
+            .map(|i| from + i)
+        {
+            from = at + name.len();
+            if !code[at]
+                || at > 0 && is_word(text[at - 1])
+                || text.get(from).is_some_and(|b| is_word(*b))
+            {
+                continue;
+            }
+            let open = skip_space(from);
+            if text.get(open) != Some(&b'(') {
+                continue;
+            }
+            let word_start = skip_space(open + 1);
+            let mut word_end = word_start;
+            while word_end < text.len() && is_word(text[word_end]) {
+                word_end += 1;
+            }
+            let close = skip_space(word_end);
+            if word_end == word_start || text.get(close) != Some(&b')') {
+                continue;
+            }
+            tokens.push((at..from, TokenClass::Identifier));
+            tokens.push((open..open + 1, TokenClass::Operator));
+            tokens.push((close..close + 1, TokenClass::Operator));
+            from = close + 1;
+        }
+    }
+    tokens
+}
+
 /// The byte ranges (whole lines) of Objective-C sections in `source` (see
 /// `tokenize_objcpp`): `@interface`, `@implementation`, and `@protocol`
 /// through `@end`, and other lines starting with Objective-C's declarations'
-/// keywords (ex: `@class Foo;`), but not with its statements and expressions
-/// (ex: `@try {`, `@"..."`, `@protocol(Foo)`), which are the rest's.
+/// keywords (ex: `@class Foo;`, and forward declarations of protocols and
+/// classes through their `;`, ex: `@protocol RTC_OBJC_TYPE\n(Foo);`), but not
+/// with its statements and expressions (ex: `@try {`, `@"..."`,
+/// `@protocol(Foo)`), which are the rest's, nor in block comments (ex:
+/// Doxygen's `@class`).
 fn objc_sections(source: &str) -> Vec<std::ops::Range<usize>> {
+    // Whether the protocol or class declaration starting `rest` is a forward
+    // declaration: if all it has before its first `;` is names, commas,
+    // parentheses, and angle brackets (ex: not a method, `@end`, or a
+    // comment), the end of the line with it.
+    let forward_declaration_end = |rest: &str| -> Option<usize> {
+        let semicolon = rest.find(';')?;
+        let only_names = rest[1..semicolon]
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c.is_whitespace() || "_,()<>".contains(c));
+        if !only_names {
+            return None;
+        }
+        Some(
+            rest[semicolon..]
+                .find('\n')
+                .map_or(rest.len(), |i| semicolon + i + 1),
+        )
+    };
     let mut sections = vec![];
     let mut open: Option<usize> = None;
+    let mut in_block_comment = false;
     let mut pos = 0;
     while pos < source.len() {
         let end = source[pos..].find('\n').map_or(source.len(), |i| pos + i);
-        let next = (end + 1).min(source.len());
+        let mut next = (end + 1).min(source.len());
+        let in_comment = in_block_comment;
+        in_block_comment = ends_in_block_comment(&source[pos..end], in_block_comment);
         let line = source[pos..end].trim();
-        let word = line.strip_prefix('@').and_then(|rest| {
-            let word = rest
-                .split(|c: char| !c.is_ascii_alphanumeric() && c != '_')
-                .next()
-                .unwrap_or("");
-            let declaration = matches!(
-                word,
-                "interface"
-                    | "implementation"
-                    | "protocol"
-                    | "end"
-                    | "class"
-                    | "compatibility_alias"
-                    | "import"
-                    | "property"
-                    | "synthesize"
-                    | "dynamic"
-                    | "optional"
-                    | "required"
-                    | "public"
-                    | "private"
-                    | "protected"
-                    | "package"
-            );
-            (declaration && !rest[word.len()..].trim_start().starts_with('(')).then_some(word)
-        });
+        let word = line
+            .strip_prefix('@')
+            .filter(|_| !in_comment)
+            .and_then(|rest| {
+                let word = rest
+                    .split(|c: char| !c.is_ascii_alphanumeric() && c != '_')
+                    .next()
+                    .unwrap_or("");
+                let declaration = matches!(
+                    word,
+                    "interface"
+                        | "implementation"
+                        | "protocol"
+                        | "end"
+                        | "class"
+                        | "compatibility_alias"
+                        | "import"
+                        | "property"
+                        | "synthesize"
+                        | "dynamic"
+                        | "optional"
+                        | "required"
+                        | "public"
+                        | "private"
+                        | "protected"
+                        | "package"
+                );
+                (declaration && !rest[word.len()..].trim_start().starts_with('(')).then_some(word)
+            });
+        let at = pos + source[pos..end].find('@').unwrap_or(0);
         match (open, word) {
-            (None, Some("interface" | "implementation" | "protocol")) if !line.ends_with(';') => {
-                open = Some(pos);
+            (None, Some("implementation")) => open = Some(pos),
+            (None, Some("interface" | "protocol")) => {
+                match forward_declaration_end(&source[at..]) {
+                    Some(declaration_end) => {
+                        next = at + declaration_end;
+                        sections.push(pos..next);
+                        in_block_comment = false;
+                    }
+                    None => open = Some(pos),
+                }
             }
             (None, Some(_)) => sections.push(pos..next),
             (Some(start), Some("end")) => {
@@ -2655,6 +2881,86 @@ mod tests {
                 "{} in {:?}",
                 expected,
                 contexts
+            );
+        }
+
+        // Headers with Objective-C declarations are tokenized like
+        // Objective-C++: but not Doxygen's `@class` in a comment, and with
+        // forward declarations of protocols through their `;`, and
+        // libwebrtc's `RTC_OBJC_TYPE(...)`, whose tokens get the contexts at
+        // them.
+        let header = "#include \"foo.h\"\n\
+                      /**\n @class Doc\n */\n\
+                      @class NSView;\n\
+                      @protocol RTC_OBJC_TYPE\n(RTCVideoRenderer);\n\
+                      namespace webrtc {\n\
+                      class Renderer {};\n\
+                      }\n\
+                      RTC_OBJC_EXPORT\n\
+                      @protocol RTC_OBJC_TYPE\n(RTCVideoEncoder)<NSObject>\n\
+                      - (void)setCallback:(int)callback;\n\
+                      - (void)encode:(RTC_OBJC_TYPE(RTCVideoFrame) *)frame;\n\
+                      @end\n";
+        assert_eq!(
+            structure("a.h", header),
+            vec![
+                "namespace:webrtc",
+                "class:webrtc::Renderer",
+                "class:RTCVideoEncoder",
+                "method:RTCVideoEncoder::setCallback",
+                "method:RTCVideoEncoder::encode",
+            ]
+        );
+        let tokens: Vec<String> = hypertokenize_source_file("a.h", header)
+            .unwrap()
+            .tokenized
+            .iter()
+            .map(|line| {
+                let parsed = split_token_line(line);
+                format!(
+                    "{}:{}@{}",
+                    parsed.class.as_char(),
+                    parsed.token,
+                    parsed.context
+                )
+            })
+            .collect();
+        for expected in [
+            "c:@class@%",
+            "i:RTC_OBJC_TYPE@RTCVideoEncoder",
+            "i:RTCVideoEncoder@RTCVideoEncoder",
+            "i:RTC_OBJC_TYPE@RTCVideoEncoder::encode",
+            "i:RTCVideoFrame@RTCVideoEncoder::encode",
+        ] {
+            assert!(
+                tokens.iter().any(|t| t == expected),
+                "{} in {:?}",
+                expected,
+                tokens
+            );
+        }
+
+        // C++ in Objective-C++'s declarations (instance variables' and
+        // parameters' types) is tokenized as C++, but not in strings.
+        let cpp_types = "@implementation Foo {\n  \
+                         std::unique_ptr<Bar> mBar;\n\
+                         }\n\
+                         - (void)setBar:(std::unique_ptr<Bar>)bar {\n  \
+                         mBar = std::move(bar);\n\
+                         }\n\
+                         - (void)log { NSLog(@\"RTC_OBJC_TYPE(Foo)\"); }\n\
+                         @end\n";
+        assert_eq!(
+            structure("a.mm", cpp_types),
+            vec!["class:Foo", "method:Foo::setBar", "method:Foo::log"]
+        );
+        let mm_classes = classes("a.mm", cpp_types);
+        for expected in ["i:unique_ptr", "o:::", "s:@\"RTC_OBJC_TYPE(Foo)\""] {
+            assert!(
+                mm_classes.iter().any(|c| c == expected),
+                "{} in {:?}",
+                expected,
+                mm_classes
             );
         }
     }
