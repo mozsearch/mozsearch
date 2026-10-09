@@ -1,15 +1,17 @@
 {%- comment -%}
   A span of lines of results, with what contains its key line ("// found in
-  CONTEXT"), like /search/.  For HTML rows, the pipeline server puts that at
-  the end of the key line's code (see `FlattenedResultsBundle::inline_contexts`)
-  and clears the span's context.  (Empty strings are truthy in liquid, so the
+  CONTEXT"), like /search/, and the preprocessor conditionals it's in ("// #if
+  CONDITION").  For HTML rows, the pipeline server puts those at the end of
+  the key line's code (see `FlattenedResultsBundle::inline_contexts`) and
+  clears the span's context and conditionals.  (Empty strings are truthy in liquid, so the
   checks are against `empty`; see docs/liquid-templating-cheatsheet.md.)
 {%- endcomment -%}
 {%- comment %}
-  (With history digests, lines are facets.js items too, inside their files',
-  with their "Last changed" values; see `last_changed_facet`.)
+  (With facets of lines, ex: "Last changed" with history digests, lines are
+  facets.js items too, inside their files', with their values; see
+  `results_file_facets` in pipeline-server.rs.)
 {% endcomment -%}
-<div class="file{% if line_span contains "repeated" %} query-repeated{% endif %}" role="table"{% if line_span contains "last_changed" %} data-facets="{&quot;recency&quot;:[&quot;{{ line_span.last_changed }}&quot;]}"{% endif %}>
+<div class="file{% if line_span contains "repeated" %} query-repeated{% endif %}" role="table"{% if line_span contains "facets" %} data-facets="{{ line_span.facets | escape }}"{% endif %}>
 {{ line_span.contents }}
 {%- if line_span.context != empty -%}
 {%- if line_span.contextsym != empty -%}
@@ -17,5 +19,8 @@
 {%- else -%}
 <span class="result-context">// found in <code>{{ line_span.context | escape }}</code></span>
 {%- endif -%}
+{%- endif -%}
+{%- if line_span contains "pp" -%}
+<span class="result-context">// #if <code>{{ line_span.pp | join: " && " | escape }}</code></span>
 {%- endif -%}
 </div>

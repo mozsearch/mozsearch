@@ -19,6 +19,7 @@ use crate::{
         jumpref::{JumprefData, convert_crossref_value_to_sym_info_rep},
         recency::Recency,
     },
+    tree_sitter_support::preprocessor::joined_condition,
     url_encode_path::url_encode_path,
 };
 
@@ -644,9 +645,10 @@ impl FlattenedResultsBundle {
     }
 
     /// For HTML pages of the results (see query_results/line_span.liquid), put
-    /// the "// found in CONTEXT" of each of the line spans whose contents are
-    /// HTML rows (see `ingest_html_lines`) at the end of its key line's code,
-    /// like `/search/`, rather than under the rows, and clear its context.
+    /// the "// found in CONTEXT #if CONDITION" of each of the line spans whose
+    /// contents are HTML rows (see `ingest_html_lines`) at the end of its key
+    /// line's code, like `/search/`, rather than under the rows, and clear its
+    /// context and conditionals.
     pub fn inline_contexts(&mut self, tree: &str) {
         if self.content_type != "text/html" {
             return;
@@ -982,19 +984,35 @@ pub struct FlattenedLineSpan {
     /// context Foo in foo.cpp"; see `RecencyFrom::describe`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recency_label: Option<String>,
-    /// For HTML pages with the "Last changed" facet, the result's value (see
-    /// `Recency::last_changed`), which query_results/line_span.liquid gives
-    /// facets.js.
+    /// For semantic results, the preprocessor conditionals' branches the key
+    /// line is in, outermost first (see `SearchResult::pp`), which only
+    /// C-family languages have; None for textual occurrences, whose aren't
+    /// known.
+    #[serde(skip_serializing_if = "pp_is_empty")]
+    pub pp: Option<Vec<String>>,
+    /// For HTML pages with facets of lines ("Last changed" and
+    /// "Preprocessor"), the result's values of them, as facets.js's JSON
+    /// (see `results_file_facets` in pipeline-server.rs), which
+    /// query_results/line_span.liquid gives it.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_changed: Option<&'static str>,
+    pub facets: Option<String>,
 }
+
+fn pp_is_empty(pp: &Option<Vec<String>>) -> bool {
+    pp.as_ref().is_none_or(Vec::is_empty)
+}
+
+/// How many characters of a result's preprocessor condition its key line
+/// shows (see `FlattenedLineSpan::inline_context`).
+const MAX_SHOWN_CONDITION: usize = 100;
 
 impl FlattenedLineSpan {
     /// See `FlattenedResultsBundle::inline_contexts`.  The key line's row looks
     /// like `<div role="row" id="line-N" ...>...<code role="cell"
     /// class="source-line">TEXT\n</code>\n</div>`.
     fn inline_context(&mut self, tree: &str) {
-        if self.context.is_empty() {
+        let pp = self.pp.as_deref().unwrap_or_default();
+        if self.context.is_empty() && pp.is_empty() {
             return;
         }
         let Some(row) = self
@@ -1008,26 +1026,44 @@ impl FlattenedLineSpan {
         };
         // (Before the line's newline, which would put it on the next line.)
         let at = code_end - usize::from(self.contents[..code_end].ends_with('\n'));
-        let context = self.context.replace('&', "&amp;").replace('<', "&lt;");
-        let inside = if self.contextsym.is_empty() {
-            context
-        } else {
-            format!(
-                r#"<a href="/{}/search?q=symbol:{}&amp;redirect=false">{}</a>"#,
-                tree,
-                urlencoding::encode(&self.contextsym),
-                context
-            )
+        let escape = |text: &str| {
+            text.replace('&', "&amp;")
+                .replace('<', "&lt;")
+                .replace('"', "&quot;")
         };
-        self.contents.insert_str(
-            at,
-            &format!(
-                r#" <span class="result-context">// found in <code>{}</code></span>"#,
-                inside
-            ),
-        );
+        let mut annotation = String::from(r#" <span class="result-context">//"#);
+        if !self.context.is_empty() {
+            let context = escape(&self.context);
+            let inside = if self.contextsym.is_empty() {
+                context
+            } else {
+                format!(
+                    r#"<a href="/{}/search?q=symbol:{}&amp;redirect=false">{}</a>"#,
+                    tree,
+                    urlencoding::encode(&self.contextsym),
+                    context
+                )
+            };
+            annotation.push_str(&format!(" found in <code>{}</code>", inside));
+        }
+        // (Long conditions are cut, with all of them in the title.)
+        if !pp.is_empty() {
+            let condition = joined_condition(pp);
+            let shown = match condition.char_indices().nth(MAX_SHOWN_CONDITION) {
+                Some((cut, _)) => format!("{}…", &condition[..cut]),
+                None => condition.clone(),
+            };
+            annotation.push_str(&format!(
+                r#" <span class="result-pp" title="{}">#if <code>{}</code></span>"#,
+                escape(&format!("#if {}", condition)),
+                escape(&shown)
+            ));
+        }
+        annotation.push_str("</span>");
+        self.contents.insert_str(at, &annotation);
         self.context = ustr("");
         self.contextsym = ustr("");
+        self.pp = None;
     }
 
     /// Expand the range by before/after, ensuring we don't go below line 1 for
@@ -1398,7 +1434,8 @@ mod tests {
             repeated: false,
             recency: None,
             recency_label: None,
-            last_changed: None,
+            pp: None,
+            facets: None,
         };
         span.inline_context("tests");
         // On the key line, before its newline, with an escaped context and
@@ -1420,10 +1457,44 @@ mod tests {
             repeated: false,
             recency: None,
             recency_label: None,
-            last_changed: None,
+            pp: None,
+            facets: None,
         };
         span.inline_context("tests");
         assert_eq!(span.contents, row(8, "text"));
+
+        // The conditionals, with or without a context, escaped, and cut if
+        // they're long.
+        let mut span = FlattenedLineSpan {
+            key_line: 8,
+            line_range: (8, 8),
+            contents: row(8, "f();"),
+            context: ustr("g"),
+            contextsym: ustr(""),
+            hits: vec![],
+            repeated: false,
+            recency: None,
+            recency_label: None,
+            pp: Some(vec![
+                "defined(XP_WIN)".to_string(),
+                "A < 2 || B".to_string(),
+            ]),
+            facets: None,
+        };
+        span.inline_context("tests");
+        assert!(span.contents.contains(
+            "f(); <span class=\"result-context\">// found in <code>g</code> <span class=\"result-pp\" title=\"#if defined(XP_WIN) &amp;&amp; (A &lt; 2 || B)\">#if <code>defined(XP_WIN) &amp;&amp; (A &lt; 2 || B)</code></span></span>\n</code>"
+        ));
+        assert_eq!(span.pp, None);
+        let long = "A".repeat(150);
+        span.contents = row(8, "f();");
+        span.pp = Some(vec![long.clone()]);
+        span.inline_context("tests");
+        assert!(span.contents.contains(&format!(
+            "f(); <span class=\"result-context\">// <span class=\"result-pp\" title=\"#if {}\">#if <code>{}…</code></span></span>",
+            long,
+            &long[..100]
+        )));
     }
 
     #[test]
@@ -1438,7 +1509,8 @@ mod tests {
             repeated: false,
             recency: None,
             recency_label: None,
-            last_changed: None,
+            pp: None,
+            facets: None,
         };
         let mut by_file = FlattenedResultsByFile {
             file: ustr("a.h"),

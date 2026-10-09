@@ -316,6 +316,7 @@ impl SearchResults {
                 .entry(format!("{}:{}", path_container.path, search_result.lineno))
                 .or_default()
                 .push(token.unwrap_or((0, u32::MAX)));
+            let pp = search_result.pp_stack();
             file_results.line_spans.push(FlattenedLineSpan {
                 key_line: search_result.lineno,
                 line_range: if search_result.peek_range.is_empty() {
@@ -333,7 +334,8 @@ impl SearchResults {
                 repeated: false,
                 recency,
                 recency_label: recency.and(recency_label.clone()),
-                last_changed: None,
+                pp: Some(pp),
+                facets: None,
             });
         }
     }
@@ -440,7 +442,8 @@ impl SearchResults {
                     repeated: tokens.is_some(),
                     recency: None,
                     recency_label: None,
-                    last_changed: None,
+                    pp: None,
+                    facets: None,
                 });
             }
             // The suppressions could mean we don't actually need this path hit,

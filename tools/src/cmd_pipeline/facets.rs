@@ -14,6 +14,7 @@ use ustr::{Ustr, ustr};
 use super::interface::{ResultFacetGroup, ResultFacetKind, ResultFacetRoot};
 use super::recency_html::sparkline;
 use crate::file_format::recency::{LAST_CHANGED, LAST_CHANGED_UNKNOWN, Recency};
+use crate::tree_sitter_support::preprocessor::{is_c_family, joined_condition};
 
 /// Faceting support logic; the ResultFacetKind bakes in rules.
 pub struct MaybeFacetRoot {
@@ -385,6 +386,206 @@ pub fn last_changed_facet<'a>(
     ))
 }
 
+/// The "Preprocessor" facet's value for lines in no preprocessor conditionals
+/// (or in languages without them).
+pub const PP_NONE: &str = "";
+/// The "Preprocessor" facet's value for lines whose conditionals aren't known:
+/// C-family files' textual occurrences.
+pub const PP_UNKNOWN: &str = "?";
+/// How many conditions the "Preprocessor" facet shows at its top level, and
+/// in each condition, before folding the rest into an "other" value.
+const PP_SHOWN: [usize; 2] = [10, 5];
+
+/// The "Preprocessor" facet of results' lines, by the preprocessor
+/// conditionals' branches they're in (see `FlattenedLineSpan::pp`): for each
+/// line, the conditions of its stack's prefixes (ex: "defined(XP_WIN)" and
+/// "defined(XP_WIN)\ndefined(DEBUG)", the values in it), up to the most
+/// common few at each level (see `PP_SHOWN`), and the rest's "other" value
+/// (ex: "defined(XP_WIN)\n*"), or `PP_NONE` or `PP_UNKNOWN`.
+pub struct PpFacet {
+    pub view: FacetView,
+    /// The values shown, which aren't folded into their levels' "other"s.
+    shown: HashSet<String>,
+}
+
+impl PpFacet {
+    /// The facet, if any of the lines (paths and stacks, with None for
+    /// unknown) are in conditionals: its values (lines in none first, then
+    /// the conditions with lines in the most files, and the other conditions,
+    /// and lines in unknown ones), with how many files have lines in each, and
+    /// the values of each file's lines, by path.
+    pub fn new<'a>(
+        lines: impl IntoIterator<Item = (&'a str, Option<&'a [String]>)>,
+    ) -> Option<(PpFacet, HashMap<String, Vec<String>>)> {
+        let lines: Vec<(&str, Option<&[String]>)> = lines.into_iter().collect();
+        if !lines
+            .iter()
+            .any(|(_, pp)| pp.is_some_and(|pp| !pp.is_empty()))
+        {
+            return None;
+        }
+        // The files with lines in each value, and the values in each.
+        let mut paths: HashMap<String, HashSet<&str>> = HashMap::new();
+        let mut nested: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        for (path, pp) in &lines {
+            let mut parent = String::new();
+            for value in all_pp_values(path, *pp) {
+                paths.entry(value.clone()).or_default().insert(path);
+                nested.entry(parent).or_default().insert(value.clone());
+                parent = value;
+            }
+        }
+        let mut shown = HashSet::new();
+        let values = pp_views(&String::new(), 0, &paths, &nested, &mut shown);
+        let facet = PpFacet {
+            view: FacetView {
+                key: "pp",
+                label: "Preprocessor".to_string(),
+                values,
+            },
+            shown,
+        };
+        let mut file_values: HashMap<String, BTreeSet<String>> = HashMap::new();
+        for (path, pp) in &lines {
+            file_values
+                .entry(path.to_string())
+                .or_default()
+                .extend(facet.line_values(path, *pp));
+        }
+        let file_values = file_values
+            .into_iter()
+            .map(|(path, values)| (path, values.into_iter().collect()))
+            .collect();
+        Some((facet, file_values))
+    }
+
+    /// A line's values (see `PpFacet`).
+    pub fn line_values(&self, path: &str, pp: Option<&[String]>) -> Vec<String> {
+        let mut values = vec![];
+        for value in all_pp_values(path, pp) {
+            if self.shown.contains(&value) {
+                values.push(value);
+                continue;
+            }
+            let other = match value.rsplit_once('\n') {
+                Some((parent, _)) => format!("{}\n*", parent),
+                None => "*".to_string(),
+            };
+            values.push(other);
+            break;
+        }
+        values
+    }
+}
+
+/// A line's values of the "Preprocessor" facet without any folded into
+/// "other"s (see `PpFacet`).
+fn all_pp_values(path: &str, pp: Option<&[String]>) -> Vec<String> {
+    match pp {
+        None if is_c_family(path) => vec![PP_UNKNOWN.to_string()],
+        None | Some([]) => vec![PP_NONE.to_string()],
+        Some(stack) => (1..=stack.len()).map(|n| stack[..n].join("\n")).collect(),
+    }
+}
+
+/// The views of the "Preprocessor" facet's values in `parent` (see
+/// `PpFacet::new`), noting those shown.
+fn pp_views(
+    parent: &String,
+    depth: usize,
+    paths: &HashMap<String, HashSet<&str>>,
+    nested: &BTreeMap<String, BTreeSet<String>>,
+    shown: &mut HashSet<String>,
+) -> Vec<FacetValueView> {
+    let Some(values) = nested.get(parent) else {
+        return vec![];
+    };
+    let count = |value: &String| paths[value].len() as u32;
+    let mut conditions: Vec<&String> = values
+        .iter()
+        .filter(|value| *value != PP_NONE && *value != PP_UNKNOWN)
+        .collect();
+    conditions.sort_by_key(|value| std::cmp::Reverse(count(value)));
+    let limit = PP_SHOWN[depth.min(PP_SHOWN.len() - 1)];
+    // (Not an "other" of just one condition.)
+    let folded = if conditions.len() > limit + 1 {
+        conditions.split_off(limit)
+    } else {
+        vec![]
+    };
+    let condition = |value: &str| {
+        let stack: Vec<String> = value.split('\n').map(str::to_string).collect();
+        joined_condition(&stack)
+    };
+    let mut views = vec![];
+    if values.contains(PP_NONE) {
+        shown.insert(PP_NONE.to_string());
+        views.push(FacetValueView {
+            value: PP_NONE.to_string(),
+            name: "Not conditional".to_string(),
+            title: "Lines in no preprocessor conditionals (but include guards)".to_string(),
+            count: count(&PP_NONE.to_string()),
+            values: vec![],
+            sparkline: None,
+        });
+    }
+    for value in conditions {
+        shown.insert(value.clone());
+        let name = value.rsplit('\n').next().unwrap_or(value);
+        views.push(FacetValueView {
+            value: value.clone(),
+            name: truncated(name, 60),
+            title: format!("#if {}", condition(value)),
+            count: count(value),
+            values: pp_views(value, depth + 1, paths, nested, shown),
+            sparkline: None,
+        });
+    }
+    if !folded.is_empty() {
+        let files: HashSet<&str> = folded
+            .iter()
+            .flat_map(|value| paths[*value].iter().copied())
+            .collect();
+        views.push(FacetValueView {
+            value: if parent.is_empty() {
+                "*".to_string()
+            } else {
+                format!("{}\n*", parent)
+            },
+            name: "other".to_string(),
+            title: if parent.is_empty() {
+                "The other preprocessor conditions".to_string()
+            } else {
+                format!("The other conditions in #if {}", condition(parent))
+            },
+            count: files.len() as u32,
+            values: vec![],
+            sparkline: None,
+        });
+    }
+    if values.contains(PP_UNKNOWN) {
+        shown.insert(PP_UNKNOWN.to_string());
+        views.push(FacetValueView {
+            value: PP_UNKNOWN.to_string(),
+            name: "Unknown".to_string(),
+            title: "Textual occurrences in C-family files, whose conditionals aren't known"
+                .to_string(),
+            count: count(&PP_UNKNOWN.to_string()),
+            values: vec![],
+            sparkline: None,
+        });
+    }
+    views
+}
+
+/// `text`, cut to at most `max` characters (with an ellipsis if cut).
+fn truncated(text: &str, max: usize) -> String {
+    match text.char_indices().nth(max) {
+        Some((at, _)) => format!("{}…", &text[..at]),
+        None => text.to_string(),
+    }
+}
+
 /// The facets of a list of files (ex: an `/explore/` page's, or `/query/`'s
 /// results'), for facet_bar.liquid and facets.js: their path kinds (in the
 /// tree's order), their subsystems (by product and then component), and their
@@ -575,6 +776,81 @@ fn dir_of(path: &str) -> &str {
 mod tests {
     use super::*;
     use ustr::ustr;
+
+    #[test]
+    fn test_pp_facet() {
+        let stack = |conditions: &[&str]| -> Vec<String> {
+            conditions.iter().map(|c| c.to_string()).collect()
+        };
+        let win_debug = stack(&["defined(XP_WIN)", "defined(DEBUG)"]);
+        let win = stack(&["defined(XP_WIN)"]);
+        let none = stack(&[]);
+        let mut lines: Vec<(&str, Option<&[String]>)> = vec![
+            ("a.cpp", Some(&win_debug)),
+            ("a.cpp", Some(&none)),
+            ("b.cpp", Some(&win)),
+            // (A textual occurrence, and a JS line.)
+            ("b.cpp", None),
+            ("c.js", None),
+        ];
+        // (Lots of other conditions, with a file each, to fold.)
+        let others: Vec<(String, Vec<String>)> = (0..12)
+            .map(|i| (format!("o{}.h", i), vec![format!("C{}", i)]))
+            .collect();
+        lines.extend(
+            others
+                .iter()
+                .map(|(path, stack)| (path.as_str(), Some(stack.as_slice()))),
+        );
+        let (facet, file_values) = PpFacet::new(lines.clone()).unwrap();
+        fn names(values: &[FacetValueView]) -> Vec<String> {
+            values
+                .iter()
+                .map(|value| {
+                    let nested = names(&value.values);
+                    if nested.is_empty() {
+                        format!("{} {}", value.name, value.count)
+                    } else {
+                        format!("{} {} [{}]", value.name, value.count, nested.join(", "))
+                    }
+                })
+                .collect()
+        }
+        assert_eq!(
+            names(&facet.view.values),
+            vec![
+                "Not conditional 2",
+                "defined(XP_WIN) 2 [defined(DEBUG) 1]",
+                "C0 1",
+                "C1 1",
+                "C10 1",
+                "C11 1",
+                "C2 1",
+                "C3 1",
+                "C4 1",
+                "C5 1",
+                "C6 1",
+                "other 3",
+                "Unknown 1",
+            ]
+        );
+        assert_eq!(
+            facet.line_values("a.cpp", Some(&win_debug)),
+            vec!["defined(XP_WIN)", "defined(XP_WIN)\ndefined(DEBUG)"]
+        );
+        assert_eq!(facet.line_values("o9.h", Some(&others[9].1)), vec!["*"]);
+        assert_eq!(facet.line_values("b.cpp", None), vec![PP_UNKNOWN]);
+        assert_eq!(facet.line_values("c.js", None), vec![PP_NONE]);
+        let mut a_values = file_values["a.cpp"].clone();
+        a_values.sort();
+        assert_eq!(
+            a_values,
+            vec!["", "defined(XP_WIN)", "defined(XP_WIN)\ndefined(DEBUG)"]
+        );
+
+        // Without any conditionals, there's no facet.
+        assert!(PpFacet::new([("a.cpp", Some(none.as_slice())), ("b.cpp", None)]).is_none());
+    }
 
     #[test]
     fn test_path_facet_other() {

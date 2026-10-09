@@ -20,7 +20,7 @@ use tools::{
     cmd_pipeline::{
         PipelineValues,
         builder::build_pipeline_graph,
-        facets::{FacetFile, PathKinds, file_facets, last_changed_facet},
+        facets::{FacetFile, PathKinds, PpFacet, file_facets, last_changed_facet},
         interface::FlattenedResultsBundle,
     },
     file_format::jumpref::{
@@ -38,10 +38,13 @@ use ustr::{Ustr, UstrMap, ustr};
 
 /// The facets of the files of file-centric results (see facet_bar.liquid), as
 /// on the `/explore/` pages: their path kinds, subsystems, and directories, as
-/// `{"facets": [...], "files": {PATH: {facets, groups, title}}}`.
+/// `{"facets": [...], "files": {PATH: {facets, groups, title}}}`.  And the
+/// facets of their lines, "Last changed" and "Preprocessor", if they have
+/// them, whose values the lines have (see query_results/line_span.liquid),
+/// and their files the union of theirs; see `FlattenedLineSpan::facets`.
 fn results_file_facets(
     server: &(dyn AbstractServer + Send + Sync),
-    results: &FlattenedResultsBundle,
+    results: &mut FlattenedResultsBundle,
 ) -> Value {
     let mut seen = HashSet::new();
     let mut files = vec![];
@@ -66,10 +69,19 @@ fn results_file_facets(
         }
     }
     let (mut facets, mut data) = file_facets(&files, &PathKinds(server.path_kinds()));
+    let mut add_file_values = |key: &str, file_values: HashMap<String, Vec<String>>| {
+        for (path, values) in file_values {
+            if let Some(file_data) = data.get_mut(&path) {
+                let mut file_facets: serde_json::Map<String, Value> =
+                    serde_json::from_str(&file_data.facets).unwrap_or_default();
+                file_facets.insert(key.to_string(), json!(values));
+                file_data.facets = Value::Object(file_facets).to_string();
+            }
+        }
+    };
 
     // The "Last changed" facet of the results' lines (and file name matches,
-    // which don't have history digests), whose values the lines have (see
-    // query_results/line_span.liquid), and their files the union of theirs.
+    // which don't have history digests).
     let lines = results.path_kind_results.iter().flat_map(|pk_group| {
         pk_group
             .file_names
@@ -86,19 +98,56 @@ fn results_file_facets(
     let recency = match last_changed_facet(lines) {
         Some((facet, file_values)) => {
             facets.push(facet);
-            for (path, values) in file_values {
-                if let Some(file_data) = data.get_mut(&path) {
-                    let mut file_facets: serde_json::Map<String, Value> =
-                        serde_json::from_str(&file_data.facets).unwrap_or_default();
-                    file_facets.insert("recency".to_string(), json!(values));
-                    file_data.facets = Value::Object(file_facets).to_string();
-                }
-            }
+            add_file_values("recency", file_values);
             true
         }
         None => false,
     };
-    json!({ "facets": facets, "files": data, "recency": recency })
+
+    // The "Preprocessor" facet of the results' lines (not file name matches,
+    // which aren't lines).
+    let lines = results.path_kind_results.iter().flat_map(|pk_group| {
+        pk_group.kind_groups.iter().flat_map(|kind_group| {
+            kind_group.by_file.iter().flat_map(|file| {
+                file.line_spans
+                    .iter()
+                    .map(move |span| (file.file.as_str(), span.pp.as_deref()))
+            })
+        })
+    });
+    let pp = PpFacet::new(lines).map(|(facet, file_values)| {
+        add_file_values("pp", file_values);
+        facet
+    });
+
+    if recency || pp.is_some() {
+        for pk_group in &mut results.path_kind_results {
+            for kind_group in &mut pk_group.kind_groups {
+                for file in &mut kind_group.by_file {
+                    for span in &mut file.line_spans {
+                        let mut line_facets = serde_json::Map::new();
+                        if recency {
+                            line_facets.insert(
+                                "recency".to_string(),
+                                json!([Recency::last_changed(span.recency.as_ref())]),
+                            );
+                        }
+                        if let Some(pp) = &pp {
+                            line_facets.insert(
+                                "pp".to_string(),
+                                json!(pp.line_values(&file.file, span.pp.as_deref())),
+                            );
+                        }
+                        span.facets = Some(Value::Object(line_facets).to_string());
+                    }
+                }
+            }
+        }
+    }
+    if let Some(pp) = pp {
+        facets.push(pp.view);
+    }
+    json!({ "facets": facets, "files": data })
 }
 
 /// The SYM_INFO (see `format::format_code`) of file-centric results: the
@@ -271,23 +320,18 @@ async fn handle_query(
             _ => "{}".to_string(),
         };
 
-        if let PipelineValues::FlattenedResultsBundle(results) = &mut result {
-            results.inline_contexts(&tree);
-            results.link_line_numbers(&tree);
-            results.add_recency_cells();
-        }
-        let file_facets = match &result {
+        // (The facets first, since inlining the contexts clears the lines'
+        // conditionals.)
+        let file_facets = match &mut result {
             PipelineValues::FlattenedResultsBundle(results) => {
                 results_file_facets(server.as_ref(), results)
             }
             _ => Value::Null,
         };
-        if let (PipelineValues::FlattenedResultsBundle(results), Some(true)) =
-            (&mut result, file_facets["recency"].as_bool())
-        {
-            for span in results.line_spans_mut() {
-                span.last_changed = Some(Recency::last_changed(span.recency.as_ref()));
-            }
+        if let PipelineValues::FlattenedResultsBundle(results) = &mut result {
+            results.inline_contexts(&tree);
+            results.link_line_numbers(&tree);
+            results.add_recency_cells();
         }
 
         // For simplicity, the template expects "results" variable to always be
