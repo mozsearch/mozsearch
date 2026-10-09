@@ -22,6 +22,7 @@ use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 use tools::blame;
+use tools::commit_index::CommitIndex;
 use tools::diagnostics::diagnostics_from_config;
 use tools::file_format::config;
 use tools::file_format::identifiers::IdentMap;
@@ -447,7 +448,12 @@ async fn main() {
             for (tree_name, tree_config) in &cfg.trees {
                 let has_commit_index = tree_config.git.as_ref().is_some_and(|git| {
                     git.history.as_ref().is_some_and(|history| {
-                        Path::new(&history.path).join("commit-index").exists()
+                        let branch = tree_config.paths.git_branch.as_deref().unwrap_or("HEAD");
+                        CommitIndex::open_branch(
+                            &Path::new(&history.path).join("commit-index"),
+                            branch,
+                        )
+                        .is_some()
                     })
                 });
                 if has_commit_index {

@@ -3,7 +3,13 @@
 //!
 //! It's derived from the commit messages by `build-commit-index` in the setup
 //! phase, and kept beside the history (in `commit-index/` under the tree's
-//! `history_path`) so that updates only need to process new commits:
+//! `history_path`) so that updates only need to process new commits.  Each
+//! branch has its own index, in `commit-index/<branch>/` (see `branch_dir`),
+//! like the history repos' branches, since trees like firefox-main and
+//! firefox-beta share a history: one index for all of them couldn't tell
+//! which commits are on a tree's branch quickly (checking that a commit is an
+//! ancestor of a tree's head took 1-7s on firefox-main without a
+//! commit-graph), and each copy is small (~80 MB for firefox-main).  In each:
 //! - `state.json` has the schema version and the heads processed so far.  A
 //!   different schema version means rebuilding from scratch, which is cheap
 //!   (a revwalk and parsing the messages), as does a processed head which isn't
@@ -86,6 +92,23 @@ fn is_backout(message: &str) -> bool {
     }
     BACKOUT_REGEX.is_match(message.lines().next().unwrap_or(""))
 }
+
+/// The directory of `branch`'s index under a history's `commit-index/`, ex:
+/// "commit-index/main", or "commit-index/HEAD" for trees without a
+/// `git_branch`.
+pub fn branch_dir(index_root: &Path, branch: &str) -> PathBuf {
+    index_root.join(branch.replace('%', "%25").replace('/', "%2F"))
+}
+
+/// The branch of a git ref, for `branch_dir`: "refs/heads/beta" -> "beta",
+/// and other refs (ex: "HEAD") as they are.
+pub fn ref_branch(git_ref: &str) -> &str {
+    git_ref.strip_prefix("refs/heads/").unwrap_or(git_ref)
+}
+
+/// The files of the index from before branches had their own, directly in
+/// `commit-index/`.
+const UNBRANCHED_FILES: [&str; 3] = ["state.json", "by-bug", "by-phab"];
 
 fn read_lines(path: &Path) -> Vec<String> {
     fs::read_to_string(path)
@@ -171,6 +194,24 @@ pub fn update(repo: &Repository, head: Oid, dir: &Path) -> Result<usize, String>
     Ok(count)
 }
 
+/// Update the index of `branch` (see `branch_dir`) under `index_root` with the
+/// history of `head` (see `update`), removing an index from before branches
+/// had their own.
+pub fn update_branch(
+    repo: &Repository,
+    head: Oid,
+    index_root: &Path,
+    branch: &str,
+) -> Result<usize, String> {
+    for file in UNBRANCHED_FILES {
+        let path = index_root.join(file);
+        if path.is_file() {
+            fs::remove_file(&path).map_err(|e| e.to_string())?;
+        }
+    }
+    update(repo, head, &branch_dir(index_root, branch))
+}
+
 /// Read access to a commit index.
 pub struct CommitIndex {
     dir: PathBuf,
@@ -181,6 +222,11 @@ impl CommitIndex {
         dir.join("by-bug").exists().then(|| CommitIndex {
             dir: dir.to_path_buf(),
         })
+    }
+
+    /// Open `branch`'s index under `index_root` (see `branch_dir`).
+    pub fn open_branch(index_root: &Path, branch: &str) -> Option<CommitIndex> {
+        Self::open(&branch_dir(index_root, branch))
     }
 
     fn lookup(&self, file: &str, key: &str) -> Vec<CommitRef> {
@@ -325,6 +371,56 @@ mod tests {
         assert_eq!(index.bug_commits("1001").len(), 1);
         assert_eq!(index.bug_commits("100").len(), 3);
 
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn test_branches() {
+        let dir =
+            std::env::temp_dir().join(format!("commit-index-branches-{}", std::process::id()));
+        let repo = Repository::init(dir.join("repo")).unwrap();
+        let tree = repo
+            .find_tree(repo.index().unwrap().write_tree().unwrap())
+            .unwrap();
+        let commit = |message: &str, parent: Option<Oid>, seconds: i64| -> Oid {
+            let sig =
+                git2::Signature::new("A", "a@example.com", &git2::Time::new(seconds, 0)).unwrap();
+            let parents: Vec<git2::Commit> = parent
+                .iter()
+                .map(|p| repo.find_commit(*p).unwrap())
+                .collect();
+            let parents: Vec<&git2::Commit> = parents.iter().collect();
+            repo.commit(None, &sig, &sig, message, &tree, &parents)
+                .unwrap()
+        };
+        let base = commit("Bug 101 - Landed before the cut", None, 1_700_000_000);
+        let main = commit("Bug 102 - Landed after the cut", Some(base), 1_700_000_100);
+        let beta = commit("Bug 200 - Uplift", Some(base), 1_700_000_200);
+
+        let root = dir.join("commit-index");
+        // (An index from before branches had their own goes.)
+        fs::create_dir_all(&root).unwrap();
+        fs::write(root.join("by-bug"), "999\tabc\t2020-01-01T00:00:00Z\t-\n").unwrap();
+        assert_eq!(update_branch(&repo, main, &root, "main").unwrap(), 2);
+        assert_eq!(
+            update_branch(&repo, beta, &root, ref_branch("refs/heads/beta")).unwrap(),
+            2
+        );
+        assert!(!root.join("by-bug").exists());
+        // Updating one branch doesn't disturb the other, or redo its commits.
+        assert_eq!(update_branch(&repo, main, &root, "main").unwrap(), 0);
+        let bugs = |branch: &str| -> Vec<String> {
+            let index = CommitIndex::open_branch(&root, branch).unwrap();
+            ["101", "102", "200"]
+                .into_iter()
+                .filter(|bug| !index.bug_commits(bug).is_empty())
+                .map(str::to_string)
+                .collect()
+        };
+        assert_eq!(bugs("main"), vec!["101", "102"]);
+        assert_eq!(bugs("beta"), vec!["101", "200"]);
+        assert!(CommitIndex::open_branch(&root, "release").is_none());
+        assert_eq!(branch_dir(&root, "a/b%c"), root.join("a%2Fb%25c"));
         fs::remove_dir_all(&dir).unwrap();
     }
 

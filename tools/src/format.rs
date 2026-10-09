@@ -3809,8 +3809,11 @@ pub fn format_explore(
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
     let history = git.history.as_ref();
+    let branch = tree_config.paths.git_branch.as_deref().unwrap_or("HEAD");
     let index = history
-        .and_then(|history| CommitIndex::open(&Path::new(&history.path).join("commit-index")))
+        .and_then(|history| {
+            CommitIndex::open_branch(&Path::new(&history.path).join("commit-index"), branch)
+        })
         .ok_or("This tree has no commit index")?;
 
     let keys: Vec<String> = keys

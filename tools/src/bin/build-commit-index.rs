@@ -6,8 +6,10 @@
 // Usage:
 //   build-commit-index GIT_REPO INDEX_DIR [REF]
 //
-// REF defaults to HEAD.  Trees keep their index in `commit-index/` under their
-// `history_path`.
+// REF defaults to HEAD.  Trees keep their indexes in `commit-index/` under
+// their `history_path` (INDEX_DIR), a directory per branch, which REF names
+// (ex: "refs/heads/beta" is "commit-index/beta"; see
+// `commit_index::branch_dir`), matching the tree's `git_branch` (or "HEAD").
 
 extern crate env_logger;
 extern crate git2;
@@ -44,10 +46,12 @@ fn main() {
         .id();
 
     let start = Instant::now();
-    match commit_index::update(&repo, head, Path::new(&args[2])) {
+    let branch = commit_index::ref_branch(refname);
+    match commit_index::update_branch(&repo, head, Path::new(&args[2]), branch) {
         Ok(count) => println!(
-            "Processed {} commits up to {} in {:.1}s",
+            "Processed {} commits of {} up to {} in {:.1}s",
             count,
+            branch,
             head,
             start.elapsed().as_secs_f64()
         ),
