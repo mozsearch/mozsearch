@@ -429,8 +429,8 @@ impl SymbolNotes {
     /// Records don't have line numbers, so most changes to a file don't change
     /// its records, and rewriting the symdex files of all of a file's symbols
     /// means reading them all from git-fast-import, including huge ones (ex:
-    /// the "mozilla" namespace is in most C++ files).  Only for linear
-    /// revisions, since the first parent is what the symdex file comes from.
+    /// the "mozilla" namespace is in most C++ files).  (The symdex files of
+    /// merges start out as their first parent's too.)
     fn drop_unchanged_files(&mut self) {
         fn by_path(records: &[SymdexRecord]) -> HashMap<&str, Vec<&SymdexRecord>> {
             let mut by_path: HashMap<&str, Vec<&SymdexRecord>> = HashMap::new();
@@ -506,17 +506,6 @@ fn test_drop_unchanged_files() {
     );
 }
 
-/// syntax repo "files" and "file-struct" subtrees as we go and accumulating
-/// info in `symdex` for a post-pass once the root invocation of this method has
-/// finished.
-///
-/// Broadly, we walk the contents of the current source tree subtree and for
-/// each subtree (dir) or blob (file), we check if they've changed relative to
-/// the parent revisions.  If they haven't changed, then we can just propagate
-/// the existing syntax tree nodes.  A nice simplification here is that we don't
-/// actually need to walk the syntax repo "files" and "files-struct" subtrees;
-/// we can just look up their contents when we're propagating them.
-#[allow(clippy::too_many_arguments)]
 /// Where to read the syntax repo data corresponding to `parent_idx`'s tree.
 fn parent_source(syntax_parents: &[SyntaxRepoCommit], parent_idx: usize) -> ReadFrom<'_> {
     if parent_idx == 0 {
@@ -526,21 +515,19 @@ fn parent_source(syntax_parents: &[SyntaxRepoCommit], parent_idx: usize) -> Read
     }
 }
 
-/// Note the symdex records of a parent's version of the source file at `path`
-/// (from its "files-struct" entry), so that they're filtered out of their
-/// symbols' symdex files, and for the first parent, so that
-/// `SymbolNotes::drop_unchanged_files` can compare them with the new records.
-/// Reading from the commit being written gives the first parent's version as
-/// long as the entry hasn't been modified yet.
+/// Note the symdex records of the first parent's version of the source file at
+/// `path` (from its "files-struct" entry), so that they're filtered out of
+/// their symbols' symdex files, which start out as the first parent's, and so
+/// that `SymbolNotes::drop_unchanged_files` can compare them with the new
+/// records.  This reads from the commit being written, which gives the first
+/// parent's version as long as the entry hasn't been modified yet.
 fn note_old_records(
     import_helper: &mut Child,
     symdex: &mut HashMap<String, HashMap<String, SymbolNotes>>,
-    from: ReadFrom,
     path: &Path,
-    first_parent: bool,
 ) {
     let struct_path = PathBuf::from("files-struct").join(path);
-    let Some(blob) = read_path_blob(import_helper, from, &struct_path) else {
+    let Some(blob) = read_path_blob(import_helper, ReadFrom::Active, &struct_path) else {
         return;
     };
     let parsed_file: Option<(FileStructureHeader, Vec<FileStructureRow>)> =
@@ -559,13 +546,123 @@ fn note_old_records(
         for pretty in std::iter::once(record.pretty.as_str()).chain(parent) {
             let sym_notes = by_lang.entry(pretty.to_string()).or_default();
             sym_notes.files_to_filter.insert(path.to_path_buf());
-            if first_parent {
-                sym_notes.old_records.push(SymdexRecord {
-                    file_row: record.clone(),
-                    path: source_path.to_string(),
-                });
+            sym_notes.old_records.push(SymdexRecord {
+                file_row: record.clone(),
+                path: source_path.to_string(),
+            });
+        }
+    }
+}
+
+/// Add the symdex records of the rows of the file at `path` (whose language's
+/// namespace is `namespace`), for writing into their symbols' symdex files.
+fn add_symdex_records(
+    symdex: &mut HashMap<String, HashMap<String, SymbolNotes>>,
+    namespace: &str,
+    rows: &[FileStructureRow],
+    path: &Path,
+) {
+    if rows.is_empty() {
+        return;
+    }
+    let by_lang = symdex.entry(namespace.to_string()).or_default();
+    let source_path = path.to_str().unwrap();
+    for record in rows {
+        // Place the record on its parent if it has one too.
+        // XXX Currently we do this for all symbol types even the ones where
+        // maybe the parent doesn't really want the child present, but I think
+        // I came around to believing the linkage might be useful.
+        if let Some((parent, _)) = record.pretty.rsplit_once("::") {
+            let sym_notes = by_lang.entry(parent.to_string()).or_default();
+            sym_notes.symdex_records.push(SymdexRecord {
+                file_row: record.clone(),
+                path: source_path.to_string(),
+            });
+        }
+
+        // Add the entry for the symbol itself.
+        let sym_notes = by_lang.entry(record.pretty.clone()).or_default();
+        sym_notes.symdex_records.push(SymdexRecord {
+            file_row: record.clone(),
+            path: source_path.to_string(),
+        });
+    }
+}
+
+/// For a merge whose entry at `path` (a file or a directory) is another
+/// parent's (`from`), whose derived entries it gets, note the first parent's
+/// versions' symdex records for filtering, and add the other parent's
+/// versions' records, of the files which differ from the first parent's:
+/// the merge's symdex starts out as its first parent's.  This must happen
+/// before the entry is written, while reading from the commit being written
+/// gives the first parent's versions.
+fn note_propagated_records(
+    import_helper: &mut Child,
+    symdex: &mut HashMap<String, HashMap<String, SymbolNotes>>,
+    git_repo: &git2::Repository,
+    first_entry: Option<&git2::TreeEntry>,
+    entry: &git2::TreeEntry,
+    from: ReadFrom,
+    path: &Path,
+) {
+    // The other parent's version of a file: the first parent's records go,
+    // and its come.
+    fn propagate_file(
+        import_helper: &mut Child,
+        symdex: &mut HashMap<String, HashMap<String, SymbolNotes>>,
+        from: ReadFrom,
+        file: &Path,
+    ) {
+        note_old_records(import_helper, symdex, file);
+        let struct_path = PathBuf::from("files-struct").join(file);
+        let Some(blob) = read_path_blob(import_helper, from, &struct_path) else {
+            return;
+        };
+        let parsed: Option<(FileStructureHeader, Vec<FileStructureRow>)> =
+            read_record_file_contents(&blob);
+        if let Some((header, rows)) = parsed
+            && let Some(namespace) = header.effective_namespace()
+        {
+            add_symdex_records(symdex, namespace, &rows, file);
+        }
+    }
+    match entry.kind() {
+        Some(ObjectType::Blob) => {
+            // (A directory which is now a file.)
+            if let Some(first) = first_entry
+                && first.kind() == Some(ObjectType::Tree)
+            {
+                note_removed_records(import_helper, symdex, git_repo, first, path);
+            }
+            propagate_file(import_helper, symdex, from, path);
+        }
+        Some(ObjectType::Tree) => {
+            let Ok(new_tree) = entry.to_object(git_repo).and_then(|o| o.peel_to_tree()) else {
+                return;
+            };
+            let old_tree = first_entry
+                .filter(|first| first.kind() == Some(ObjectType::Tree))
+                .and_then(|first| first.to_object(git_repo).ok())
+                .and_then(|o| o.into_tree().ok());
+            // (A file which is now a directory.)
+            if first_entry.is_some_and(|first| first.kind() == Some(ObjectType::Blob)) {
+                note_old_records(import_helper, symdex, path);
+            }
+            let Ok(diff) = git_repo.diff_tree_to_tree(old_tree.as_ref(), Some(&new_tree), None)
+            else {
+                return;
+            };
+            for delta in diff.deltas() {
+                match (delta.old_file().path(), delta.new_file().path()) {
+                    (_, Some(new)) if !delta.new_file().id().is_zero() => {
+                        propagate_file(import_helper, symdex, from, &path.join(new));
+                    }
+                    (Some(old), _) => note_old_records(import_helper, symdex, &path.join(old)),
+                    _ => {}
+                }
             }
         }
+        _ => {}
     }
 }
 
@@ -583,7 +680,7 @@ fn note_removed_records(
 ) {
     match entry.kind() {
         Some(ObjectType::Blob) => {
-            note_old_records(import_helper, symdex, ReadFrom::Active, path, true);
+            note_old_records(import_helper, symdex, path);
         }
         Some(ObjectType::Tree) => {
             let Ok(tree) = entry.to_object(git_repo).and_then(|o| o.peel_to_tree()) else {
@@ -598,7 +695,7 @@ fn note_removed_records(
             })
             .unwrap();
             for file in files {
-                note_old_records(import_helper, symdex, ReadFrom::Active, &file, true);
+                note_old_records(import_helper, symdex, &file);
             }
         }
         _ => {}
@@ -617,7 +714,8 @@ fn delete_syntax_path(import_helper: &mut Child, tokenize_path: &Path, struct_pa
 /// entries identical to another parent's (for merges) get that parent's
 /// derived entries, changed files get written, changed directories get
 /// recursed into, and removed entries get deleted.  `parent_trees` are the
-/// parents' source trees at `path`.
+/// parents' source trees at `path`.  The symdex records of the changes
+/// accumulate in `symdex` for `process_symdex_tree`.
 #[allow(clippy::too_many_arguments)]
 fn process_source_tree_changes(
     syntax_data: &SyntaxTreeData,
@@ -695,6 +793,18 @@ fn process_source_tree_changes(
                     i
                 );
                 let from = parent_source(syntax_parents, i);
+                // (A merge's symdex starts out as its first parent's.)
+                if i > 0 {
+                    note_propagated_records(
+                        import_helper,
+                        symdex,
+                        git_repo,
+                        first_entry.as_ref(),
+                        &entry,
+                        from,
+                        &path,
+                    );
+                }
                 match read_path_oid(import_helper, from, &tokenize_path) {
                     Some(oid) => {
                         let struct_oid = read_path_oid(import_helper, from, &struct_path).unwrap();
@@ -733,16 +843,8 @@ fn process_source_tree_changes(
 
         match entry.kind() {
             Some(ObjectType::Blob) => {
-                // ## Load any old "files-struct" entries to populate SymbolNotes::files_to_filter
-                for i in 0..syntax_parents.len() {
-                    note_old_records(
-                        import_helper,
-                        symdex,
-                        parent_source(syntax_parents, i),
-                        &path,
-                        i == 0,
-                    );
-                }
+                // ## Load any old "files-struct" entry to populate SymbolNotes::files_to_filter
+                note_old_records(import_helper, symdex, &path);
 
                 // ## Process the new hypertokenized data, if any
 
@@ -803,32 +905,12 @@ fn process_source_tree_changes(
                     // (skipping trailing LF again)
 
                     // ## Accumulate the symdex data.
-                    if !hypertokenized.structure.is_empty() {
-                        let by_lang = symdex
-                            .entry(hypertokenized.profile.namespace.to_string())
-                            .or_default();
-                        let source_path = path.to_str().unwrap();
-                        for record in &hypertokenized.structure {
-                            // Place the record on its parent if it has one too.
-                            // XXX Currently we do this for all symbol types even the ones where
-                            // maybe the parent doesn't really want the child present, but I think
-                            // I came around to believing the linkage might be useful.
-                            if let Some((parent, _)) = record.pretty.rsplit_once("::") {
-                                let sym_notes = by_lang.entry(parent.to_string()).or_default();
-                                sym_notes.symdex_records.push(SymdexRecord {
-                                    file_row: record.clone(),
-                                    path: source_path.to_string(),
-                                });
-                            }
-
-                            // Add the entry for the symbol itself.
-                            let sym_notes = by_lang.entry(record.pretty.clone()).or_default();
-                            sym_notes.symdex_records.push(SymdexRecord {
-                                file_row: record.clone(),
-                                path: source_path.to_string(),
-                            });
-                        }
-                    }
+                    add_symdex_records(
+                        symdex,
+                        hypertokenized.profile.namespace,
+                        &hypertokenized.structure,
+                        &path,
+                    );
                 } else {
                     if !syntax_data.skipped.contains(&path) {
                         warn!(
@@ -1021,7 +1103,6 @@ fn process_symdex_tree(
     syntax_parents: &[SyntaxRepoCommit],
 ) -> Result<(), git2::Error> {
     info!("Processing symdex tree.");
-    let linear = syntax_parents.len() <= 1;
     for (lang, lang_symbols) in symdex {
         info!(
             "Processing symdex lang {} with {} symbols.",
@@ -1029,11 +1110,9 @@ fn process_symdex_tree(
             lang_symbols.len()
         );
         for (pretty, mut notes) in lang_symbols {
-            if linear {
-                notes.drop_unchanged_files();
-                if notes.files_to_filter.is_empty() && notes.symdex_records.is_empty() {
-                    continue;
-                }
+            notes.drop_unchanged_files();
+            if notes.files_to_filter.is_empty() && notes.symdex_records.is_empty() {
+                continue;
             }
             let sym_path = PathBuf::from(format!(
                 "symdex/{}/{}/{}.ndjson",
@@ -1041,29 +1120,22 @@ fn process_symdex_tree(
                 symdex_prefix_dir(&pretty),
                 symdex_path_for_pretty(&pretty)
             ));
+            // The symdex starts out as the first parent's, even for merges,
+            // whose other parents' versions of files are in `notes` (see
+            // `note_propagated_records`).
             let mut records: Vec<SymdexRecord> = vec![];
-
-            for i in 0..syntax_parents.len() {
-                let parent_symdex_blob = match read_path_blob(
-                    import_helper,
-                    parent_source(syntax_parents, i),
-                    &sym_path,
-                ) {
-                    Some(blob) => blob,
-                    _ => continue,
-                };
+            if !syntax_parents.is_empty()
+                && let Some(parent_symdex_blob) =
+                    read_path_blob(import_helper, ReadFrom::Active, &sym_path)
+            {
                 let parsed_file: Option<(SymdexHeader, Vec<SymdexRecord>)> =
                     read_record_file_contents(&parent_symdex_blob);
-                records = if let Some((_header, mut records)) = parsed_file {
-                    records
-                        .drain(0..)
+                if let Some((_header, parent_records)) = parsed_file {
+                    records = parent_records
+                        .into_iter()
                         .filter(|rec| !notes.files_to_filter.contains(&PathBuf::from(&rec.path)))
-                        .collect()
-                } else {
-                    records
-                };
-
-                break;
+                        .collect();
+                }
             }
 
             records.append(&mut notes.symdex_records);
