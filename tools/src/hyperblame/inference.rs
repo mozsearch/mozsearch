@@ -40,7 +40,11 @@
 //!    - Long/good means that we require that the match contains alphanumeric
 //!      tokens.  We don't want to throw away braces and such and forbid them
 //!      from having their detection transplanted, but we do require that they
-//!      are part of some actual content-bearing tokens.
+//!      are part of some actual content-bearing tokens.  And a match from
+//!      another file must be long, or have rare identifiers or several of
+//!      them (see `InferenceConfig::cross_file_min_len`), since short runs of
+//!      common tokens (ex: `: true ,`) match other files' removals by
+//!      coincidence.
 //!    - When there are multiple candidate locations for a match of a given
 //!      length, we apply a fitness function which favors (in order): directly
 //!      continuing the previous match from this added run, runs we've matched
@@ -321,6 +325,25 @@ pub struct InferenceConfig {
     /// given length.  Candidates adjacent to the previous match and in the same
     /// diff block are always considered.
     pub max_candidates: usize,
+    /// A match from another file must be at least this many tokens long, or
+    /// rare enough (see `cross_file_min_rarity`), or have enough identifiers
+    /// (see `cross_file_min_identifiers`): short runs of common tokens (ex: `:
+    /// true ,`, `) ; if ( !`, `for the`) match removals in other files by
+    /// coincidence, which would blame them on those files' histories.
+    pub cross_file_min_len: usize,
+    /// How rare a shorter match from another file must be: the sum, over its
+    /// identifiers and strings (not keywords, numbers, or comments' words), of
+    /// 1 / how many times each occurs in the old and new versions of the
+    /// namespace's changed files.  Ex: 0.5 for an `#include`'s path that's
+    /// only where it moved from and to, or more for a declaration with
+    /// several identifiers that occur a few times each, but ~0 for `: true ,`
+    /// or `return NS_OK ;`.
+    pub cross_file_min_rarity: f64,
+    /// How many distinct identifiers and strings a shorter match from another
+    /// file can have instead, ex: a moved declaration's `PRFileDesc *
+    /// fileDesc ; nsresult getRv = ...`, whose identifiers occur often in the
+    /// files, but not `if ( rv != SECSuccess ) { return`.
+    pub cross_file_min_identifiers: usize,
     /// If a namespace has more removed tokens than this in a single revision,
     /// we skip the suffix-array move inference for that namespace.  This is a
     /// safeguard against giant automated rewrites where the inference is both
@@ -333,6 +356,9 @@ impl Default for InferenceConfig {
         InferenceConfig {
             max_candidates: 256,
             max_removed_tokens_for_moves: 4_000_000,
+            cross_file_min_len: 16,
+            cross_file_min_rarity: 0.25,
+            cross_file_min_identifiers: 4,
         }
     }
 }
@@ -600,6 +626,20 @@ fn infer_big_rock_moves(state: &mut InferenceState, namespace: &str, config: &In
     if text.is_empty() || text.len() > config.max_removed_tokens_for_moves {
         return;
     }
+    // How many times each removed token occurs in the old and new versions of
+    // the namespace's files, for whether matches from other files are rare
+    // enough (see `InferenceConfig::cross_file_min_rarity`).
+    let mut file_count = vec![0u32; id_is_word.len()];
+    for (file, input) in state.inputs.iter().enumerate() {
+        if input.namespace != namespace {
+            continue;
+        }
+        for line in state.old_tokens[file].iter().chain(&state.new_tokens[file]) {
+            if let Some(&id) = interned.get(line.token) {
+                file_count[id as usize] += 1;
+            }
+        }
+    }
 
     // ## Gather the added runs, biggest first.
     let mut added_runs: Vec<usize> = state
@@ -633,12 +673,37 @@ fn infer_big_rock_moves(state: &mut InferenceState, namespace: &str, config: &In
                     .unwrap_or(u32::MAX)
             })
             .collect();
-        // word_prefix[i] is the number of word tokens in query[..i].
+        // word_prefix[i] is the number of word tokens in query[..i], and
+        // rarity_prefix[i] the rarity of query[..i] (see
+        // `InferenceConfig::cross_file_min_rarity`).
         let mut word_prefix = vec![0u32; query.len() + 1];
+        let mut rarity_prefix = vec![0f64; query.len() + 1];
+        // (Whether each token is an identifier or a string.)
+        let mut is_identifier = vec![false; query.len()];
         for (i, &id) in query.iter().enumerate() {
             let is_word = id != u32::MAX && id_is_word[id as usize];
             word_prefix[i + 1] = word_prefix[i] + is_word as u32;
+            is_identifier[i] = is_word
+                && matches!(
+                    state.new_tokens[file][new_range.start + i].effective_class(),
+                    TokenClass::Identifier | TokenClass::String
+                );
+            rarity_prefix[i + 1] = rarity_prefix[i]
+                + if is_identifier[i] {
+                    1.0 / file_count[id as usize] as f64
+                } else {
+                    0.0
+                };
         }
+        let distinct_identifiers = |range: std::ops::Range<usize>| {
+            let mut ids: Vec<u32> = range
+                .filter(|&j| is_identifier[j])
+                .map(|j| query[j])
+                .collect();
+            ids.sort_unstable();
+            ids.dedup();
+            ids.len()
+        };
 
         // The end position in the text of the last match and the block it was in.
         let mut last_match: Option<(usize, u32)> = None;
@@ -655,10 +720,16 @@ fn infer_big_rock_moves(state: &mut InferenceState, namespace: &str, config: &In
                     continue;
                 }
                 let (lo, hi) = ranges[k - 1];
+                // (A match from another file has to be long or have a rare
+                // word; see `InferenceConfig::cross_file_min_len`.)
+                let distinctive = k >= config.cross_file_min_len
+                    || rarity_prefix[i + k] - rarity_prefix[i] >= config.cross_file_min_rarity
+                    || distinct_identifiers(i..i + k) >= config.cross_file_min_identifiers;
                 let is_usable = |p: usize| -> bool {
                     p + k <= text.len()
                         && text[p..p + k] == query[i..i + k]
                         && !consumed[p..p + k].iter().any(|c| *c)
+                        && (distinctive || sources[p].file as usize == file)
                 };
 
                 let mut candidates: Vec<usize> = (lo..hi.min(lo + config.max_candidates))
@@ -1203,6 +1274,37 @@ mod tests {
                 num_moved: b_new.len() as u32,
             }]
         );
+    }
+
+    #[test]
+    fn test_cross_file_moves_need_distinctive_matches() {
+        // A test loses an `enabled : true ,` (it has other `true`s), and
+        // another file gains a `shown : true ,`, which isn't a move from the
+        // test (that would blame it on the test's history).  But an
+        // `#include` whose path is only where it moved from and to is one.
+        let a_old = toks(
+            "test",
+            "check ( { enabled : true , other : true } ) ; ok ( true ) ; #include \"mozilla/Foo.h\"",
+        );
+        let a_new = toks("test", "check ( { other : true } ) ; ok ( true ) ;");
+        let b_old = toks("State", "let state = { open : false } ;");
+        let b_new = toks(
+            "State",
+            "let state = { open : false , shown : true , } ; #include \"mozilla/Foo.h\"",
+        );
+        let inputs = vec![
+            input(FileChangeKind::Modified, &a_old, &a_new),
+            input(FileChangeKind::Modified, &b_old, &b_new),
+        ];
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        assert_eq!(summarize(&results[1]), "UUUUUUUAAAAAUUMM");
+        // (Without the requirement, the `: true ,` was a move.)
+        let config = InferenceConfig {
+            cross_file_min_len: 0,
+            ..InferenceConfig::default()
+        };
+        let results = infer_revision(&inputs, &config);
+        assert_eq!(summarize(&results[1]), "UUUUUUUAAMMMUUMM");
     }
 
     #[test]
