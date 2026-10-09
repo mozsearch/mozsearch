@@ -11,10 +11,15 @@
 //!   commits may no longer be in the history.
 //! - `by-bug` has `BUG<TAB>REV<TAB>ISO_DATE<TAB>FLAGS` lines and `by-phab` has
 //!   `DNNN<TAB>REV<TAB>ISO_DATE<TAB>FLAGS` lines, sorted, so lookups can
-//!   bisect.  FLAGS is "b" for backouts or "-".
+//!   bisect.  FLAGS is "b" for backouts (by their summary lines) or "-".
 //!
-//! Some day the history processing could derive the same files (the
-//! rev-summaries have the messages).
+//! This doesn't come from the history processing (which has the messages in
+//! its rev-summaries), because this covers more: all of the repo's commits,
+//! not just the history's (ex: a window's), including try and review heads,
+//! for 14s of processing for firefox-main from scratch.  What the history
+//! knows besides, which commits backed out which, is in the rev-summaries
+//! (`backs_out` and `backed_out_by`), which the explore pages read (see
+//! `hyperblame::explore::mark_history_backouts`).
 
 use std::fs;
 use std::io::Write;

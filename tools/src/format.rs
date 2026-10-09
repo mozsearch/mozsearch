@@ -3840,6 +3840,7 @@ pub fn format_explore(
     explore::order_commits(&git.repo, &mut refs);
     let truncated = refs.len() > explore::MAX_COMMITS;
     refs.truncate(explore::MAX_COMMITS);
+    explore::mark_history_backouts(history.map(|h| Path::new(&h.path)), &mut refs);
 
     let mut commits: Vec<ExploreCommit> = refs
         .iter()

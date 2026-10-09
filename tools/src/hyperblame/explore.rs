@@ -140,6 +140,32 @@ pub fn commit_changes(
     changes
 }
 
+/// Also mark the commits as backouts which the history recognized as backouts
+/// (their rev-summaries say what they backed out), which the commit index's
+/// summary-based flags can miss (ex: "Bug 123 - Backed out changeset X", or
+/// backouts whose targets came from their bugs; see
+/// `hyperblame::backouts`).  `history_path` is the history's directory.
+pub fn mark_history_backouts(history_path: Option<&Path>, refs: &mut [CommitRef]) {
+    #[derive(serde::Deserialize)]
+    struct Backouts {
+        #[serde(default)]
+        backs_out: Vec<String>,
+    }
+    let Some(history_path) = history_path else {
+        return;
+    };
+    for commit_ref in refs.iter_mut().filter(|r| !r.backout) {
+        let path = history_path
+            .join("rev-summaries")
+            .join(rev_summary_path(&commit_ref.rev));
+        let backs_out = fs::read_to_string(path)
+            .ok()
+            .and_then(|text| serde_json::from_str::<Backouts>(&text).ok())
+            .is_some_and(|summary| !summary.backs_out.is_empty());
+        commit_ref.backout = backs_out;
+    }
+}
+
 /// The relands on a page (see `format::format_interdiff`): for each backout
 /// on it (by index in `refs`), the commits on the page which it backed out,
 /// and the next commit after it which isn't a backout and changed some of the
@@ -484,6 +510,35 @@ mod tests {
         );
         assert_eq!(parents.get("lonely::fn"), None);
         assert_eq!(parents.get("Foo"), None);
+    }
+
+    #[test]
+    fn test_mark_history_backouts() {
+        let dir = std::env::temp_dir().join(format!("hb-explore-backouts-{}", std::process::id()));
+        let commit = |rev: &str, backout: bool| CommitRef {
+            rev: rev.to_string(),
+            iso_date: String::new(),
+            backout,
+        };
+        let (landing, backout, flagged) = ("a".repeat(40), "b".repeat(40), "c".repeat(40));
+        let write = |rev: &str, backs_out: &[&str]| {
+            let path = dir.join("rev-summaries").join(rev_summary_path(rev));
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            let summary = serde_json::json!({ "source_rev": rev, "backs_out": backs_out });
+            fs::write(path, summary.to_string()).unwrap();
+        };
+        write(&landing, &[]);
+        write(&backout, &[&landing]);
+        let mut refs = vec![
+            commit(&landing, false),
+            commit(&backout, false),
+            commit(&flagged, true),
+        ];
+        mark_history_backouts(Some(&dir), &mut refs);
+        let flags: Vec<bool> = refs.iter().map(|r| r.backout).collect();
+        // (The index's flag stands without a rev-summary.)
+        assert_eq!(flags, vec![false, true, true]);
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
