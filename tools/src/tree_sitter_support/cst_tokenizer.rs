@@ -235,6 +235,7 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   TS class fields and Rust's named fields are containers (see
 ///   typescript.scm and rust.scm), and trailing comments after separators
 ///   (ex: a Rust field's `,`) have the contexts of the code before them.
+///   C++'s conversion operators are containers (see `name_text`).
 pub const TOKENIZER_VERSION: u32 = 9;
 
 /// The node to name a container by, given the node its query captured as its
@@ -275,6 +276,36 @@ fn clean_name_node(mut name: tree_sitter::Node) -> Option<tree_sitter::Node> {
         name = name.child_by_field_name("name")?;
     }
     Some(name)
+}
+
+/// The text of a container's name node, but for C++'s conversion operators
+/// (`operator_cast`, or a qualified name ending in one), which have no name
+/// node: their text without their parameters and qualifiers, ex: `operator
+/// bool` for `operator bool() const`, and `Foo::operator const char*`.
+fn name_text<'t>(name: tree_sitter::Node, text: &'t str) -> &'t str {
+    let full = name.utf8_text(text.as_bytes()).unwrap();
+    let mut node = name;
+    while node.kind() == "qualified_identifier" {
+        let Some(inner) = node.child_by_field_name("name") else {
+            return full;
+        };
+        node = inner;
+    }
+    if node.kind() != "operator_cast" {
+        return full;
+    }
+    let mut declarator = node.child_by_field_name("declarator");
+    while let Some(inner) = declarator {
+        if inner.kind() == "abstract_function_declarator" {
+            return text[name.start_byte()..inner.start_byte()].trim_end();
+        }
+        // (A reference declarator's declarator isn't a field.)
+        declarator = inner.child_by_field_name("declarator").or_else(|| {
+            let mut cursor = inner.walk();
+            inner.named_children(&mut cursor).last()
+        });
+    }
+    full
 }
 
 /// Normalize the text of a container's name node for use in a context.  Names
@@ -959,7 +990,7 @@ fn walk_parsed<'s>(
                 start_byte: container.start_byte(),
                 start_row: container.start_position().row,
                 end_row: last_row(container),
-                name: context_name(name.utf8_text(text.as_bytes()).unwrap()),
+                name: context_name(name_text(name, text)),
             })
         })
         .collect();
@@ -1014,8 +1045,7 @@ fn walk_parsed<'s>(
                 container_matches.next_if(|(container, _, _)| container.id() == node.id())
                 && let Some(name_node) = clean_name_node(name_node)
             {
-                let name = name_node.utf8_text(text.as_bytes()).unwrap();
-                context_stack.push(context_name(name));
+                context_stack.push(context_name(name_text(name_node, text)));
                 context_pretty = pretty_for(&context_stack);
                 // We're assuming there's only one `#set!` directive right now and that it's
                 // "structure.kind" and that it exists.  We do require it to exist, but...
@@ -2977,6 +3007,30 @@ mod tests {
                 mm_classes
             );
         }
+    }
+
+    /// C++'s conversion operators are containers named by their types,
+    /// without their parameters and qualifiers.
+    #[test]
+    fn test_conversion_operators() {
+        let source = "class Foo {\n  \
+                      explicit operator bool() const { return mX; }\n  \
+                      operator const char*() const;\n  \
+                      operator Error&() { return mError; }\n\
+                      };\n\
+                      Foo::operator bool() const { return true; }\n\
+                      template <typename T> Foo::operator T*() { return nullptr; }\n";
+        assert_eq!(
+            structure("a.cpp", source),
+            vec![
+                "class:Foo",
+                "method:Foo::operator%20bool",
+                "field:Foo::operator%20const%20char*",
+                "method:Foo::operator%20Error&",
+                "method:Foo::operator%20bool",
+                "method:Foo::operator%20T*",
+            ]
+        );
     }
 
     /// JS and TS class fields and Rust's named fields are containers, with

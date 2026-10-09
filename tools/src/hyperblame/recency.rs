@@ -233,7 +233,30 @@ pub fn is_from_macro(source: &str, offset: u32) -> bool {
 /// segments (contexts can lack the namespaces' segments, ex: Rust modules', or
 /// differ, ex: JS objects'), so that its changes are the symbol's.
 pub fn is_own_context(pretty: &str, context: &str) -> bool {
-    context != "%" && !pretty.is_empty() && last_segment(pretty) == last_segment(context)
+    context != "%"
+        && !pretty.is_empty()
+        && (last_segment(pretty) == last_segment(context)
+            || (is_conversion_operator(pretty) && is_conversion_operator(context)))
+}
+
+/// Whether the last segment of a pretty name or context is a C++ conversion
+/// operator (ex: `operator bool`, or `operator%20bool` in a context), which
+/// the analysis and the tokenizer can name differently (ex: `operator int` and
+/// `operator%20int32_t`, `operator Span` and `operator%20Span<const%20T>`),
+/// so that a conversion operator's context at its definition is its own.
+fn is_conversion_operator(name: &str) -> bool {
+    let segment = raw_last_segment(name).replace("%20", " ");
+    let Some(rest) = segment.strip_prefix("operator") else {
+        return false;
+    };
+    let word = rest.trim_start();
+    word.len() < rest.len()
+        && word.starts_with(|c: char| c.is_alphabetic() || c == '_')
+        && !["new", "delete", "co_await"].iter().any(|keyword| {
+            word.split(|c: char| !c.is_alphanumeric() && c != '_')
+                .next()
+                == Some(keyword)
+        })
 }
 
 /// The pretty name of the symbol `pretty`'s parent (ex: "Foo" for "Foo::Bar"
@@ -715,6 +738,21 @@ mod tests {
         // file.)
         assert!(digests.is_misplaced("Class::method", "a", true));
         assert!(digests.is_misplaced("function", "%", true));
+        // Conversion operators' contexts are theirs however the analysis
+        // spells their types, but not other operators'.
+        assert!(is_own_context(
+            "ns::Foo::operator int",
+            "Foo::operator%20int32_t"
+        ));
+        assert!(is_own_context(
+            "Foo::operator Span",
+            "Foo::operator%20Span<const%20T>"
+        ));
+        assert!(!is_own_context(
+            "Foo::operator new",
+            "Foo::operator%20delete"
+        ));
+        assert!(!is_own_context("Foo::operator==", "Foo::operator%20bool"));
         // Fields' contexts aren't parents, ex: a Rust struct's `f` field and
         // an `f` module's `f::Impl`.
         let digests = FileDigests {

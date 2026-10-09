@@ -98,6 +98,24 @@
   ]) @container)
   (#set! structure.kind "method"))
 
+;; Conversion operators (`operator bool() const`), which have no name node: the
+;; `operator_cast` (or the qualified name ending in one) is their name, without
+;; its parameters and qualifiers (see `name_text` in cst_tokenizer.rs), ex:
+;; `operator bool`, `Foo::operator const char*`.
+(((function_definition
+  declarator: [
+    (operator_cast)
+    (qualified_identifier name: (operator_cast))
+    (qualified_identifier name: (qualified_identifier name: (operator_cast)))
+  ] @name) @container)
+  (#set! structure.kind "method"))
+
+;; (In classes, they're declarations, not field declarations.)
+(((field_declaration_list
+  (declaration
+    declarator: (operator_cast) @name) @container))
+  (#set! structure.kind "field"))
+
 ;; Defaulted and deleted functions defined outside of their classes, whose
 ;; return types have `&` or `*` (ex: `Foo& Foo::operator=(Foo&&) = default;`),
 ;; tree-sitter-cpp takes for declarations initialized with `default` or
