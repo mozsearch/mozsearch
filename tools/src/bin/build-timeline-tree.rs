@@ -1404,50 +1404,125 @@ fn preprocess_linear(
     }
 
     let mut inferences = infer_revision(&inputs_for(&pending), config);
+    // (Copies' too, for choosing renames below.)
     let supports: Vec<Option<PairingSupport>> = inputs_for(&pending)
         .iter()
         .zip(&inferences)
         .enumerate()
         .map(|(idx, (input, inference))| {
-            (input.kind == FileChangeKind::Renamed)
+            matches!(input.kind, FileChangeKind::Renamed | FileChangeKind::Copied)
                 .then(|| PairingSupport::compute(idx, input, inference))
         })
         .collect();
 
     // libgit2 can report a deleted file as the source of several renames (ex:
     // when a file is split in two), which would give the old file's tokens
-    // fates from each of them.  Only the most similar one is a rename; the
-    // others are copies, which the copy check below may downgrade to additions
-    // if their content was mainly moved rather than copied.
-    // Maps old paths to the index, similarity, and new path of their best
-    // rename.
-    let mut best_renames: HashMap<String, (usize, f64, String)> = HashMap::new();
+    // fates from each of them.  Only the most similar one is a rename, unless
+    // another of them, or of the copies from the deleted file, has clearly more
+    // of its content (see `continues_better`): ex: puppeteer's
+    // firefox-data.spec.ts was "renamed" to chromedriver/chromedriver-data.spec.ts
+    // (63 of its 108 content tokens) but "copied" to firefox/firefox-data.spec.ts
+    // (86).  The others are copies, which the copy check below may downgrade
+    // to additions if their content was mainly moved rather than copied.
+    struct Candidate {
+        idx: usize,
+        similarity: f64,
+        supported: u32,
+        same_name: bool,
+    }
+    /// Whether `challenger` continues the old file rather than `rename`: it
+    /// has at least a quarter (and 2 tokens) more of the old file's content,
+    /// since similarity favors smaller files (there, 0.65 vs 0.63), but small
+    /// differences in shared content are often generic (ex: ffvpx's deleted
+    /// x86/pixelutils.h has 16 to 19 content tokens in each of 3 unrelated new
+    /// headers).
+    fn continues_better(challenger: &Candidate, rename: &Candidate) -> bool {
+        challenger.supported >= rename.supported + (rename.supported / 4).max(2)
+    }
+    let renamed_from: HashSet<String> = pending
+        .iter()
+        .filter(|p| p.kind == FileChangeKind::Renamed)
+        .filter_map(|p| p.old_path.clone())
+        .collect();
+    let mut candidates: HashMap<String, (Vec<Candidate>, Vec<Candidate>)> = HashMap::new();
     for (idx, (p, support)) in pending.iter().zip(&supports).enumerate() {
-        if let (Some(support), Some(old_path), Some(new_path)) = (support, &p.old_path, &p.new_path)
-        {
-            let similarity = support.similarity().unwrap_or(0.0);
-            let best = best_renames
-                .entry(old_path.clone())
-                .or_insert_with(|| (idx, similarity, new_path.clone()));
-            if similarity > best.1 {
-                *best = (idx, similarity, new_path.clone());
-            }
+        let (Some(support), Some(old_path), Some(new_path)) = (support, &p.old_path, &p.new_path)
+        else {
+            continue;
+        };
+        if !renamed_from.contains(old_path) {
+            continue;
+        }
+        let candidate = Candidate {
+            idx,
+            similarity: support.similarity().unwrap_or(0.0),
+            supported: support.supported,
+            same_name: Path::new(old_path).file_name() == Path::new(new_path).file_name(),
+        };
+        let (renames, copies) = candidates.entry(old_path.clone()).or_default();
+        if p.kind == FileChangeKind::Renamed {
+            renames.push(candidate);
+        } else {
+            copies.push(candidate);
         }
     }
+    // Maps old paths to the index of the file which continues them.
+    let mut best_renames: HashMap<String, usize> = HashMap::new();
+    for (old_path, (renames, copies)) in &candidates {
+        // (The first of the most similar, and of the most content.)
+        let most_similar = renames
+            .iter()
+            .reduce(|a, b| if b.similarity > a.similarity { b } else { a })
+            .unwrap();
+        let challenger = renames
+            .iter()
+            .chain(copies)
+            .filter(|c| c.idx != most_similar.idx)
+            .reduce(|a, b| {
+                if (b.supported, b.same_name) > (a.supported, a.same_name) {
+                    b
+                } else {
+                    a
+                }
+            });
+        let best = match challenger {
+            Some(challenger) if continues_better(challenger, most_similar) => challenger,
+            _ => most_similar,
+        };
+        best_renames.insert(old_path.clone(), best.idx);
+    }
+    let new_paths: Vec<String> = pending
+        .iter()
+        .map(|p| p.new_path.clone().unwrap_or_default())
+        .collect();
     let mut changed = false;
     for (idx, p) in pending.iter_mut().enumerate() {
-        if let (FileChangeKind::Renamed, Some(old_path)) = (p.kind, &p.old_path) {
-            let (best_idx, _, best_new_path) = &best_renames[old_path];
-            if *best_idx != idx {
+        let Some(&best_idx) = p
+            .old_path
+            .as_ref()
+            .and_then(|old_path| best_renames.get(old_path))
+        else {
+            continue;
+        };
+        let old_path = p.old_path.as_deref().unwrap_or_default();
+        match p.kind {
+            FileChangeKind::Renamed if best_idx != idx => {
                 info!(
-                    "Treating rename {} -> {} as a copy because {} is more similar",
-                    old_path,
-                    p.new_path.as_deref().unwrap_or_default(),
-                    best_new_path
+                    "Treating rename {} -> {} as a copy because {} continues it",
+                    old_path, new_paths[idx], new_paths[best_idx]
                 );
                 p.kind = FileChangeKind::Copied;
                 changed = true;
             }
+            FileChangeKind::Copied if best_idx == idx => {
+                info!(
+                    "Treating copy {} -> {} as the rename because it has clearly the most of its content",
+                    old_path, new_paths[idx]
+                );
+                p.kind = FileChangeKind::Renamed;
+                changed = true;
+            }
+            _ => {}
         }
     }
 
