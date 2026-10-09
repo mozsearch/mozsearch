@@ -1047,6 +1047,52 @@ fn sanitize(path: &Path) -> std::borrow::Cow<'_, str> {
 }
 
 #[test]
+fn test_restore_backed_out_records() {
+    use tools::file_format::history::timeline_annotated::HyperTokenRef;
+    let line = |rev: &str, lineno: u32, pred: Option<(&str, u32)>| {
+        let mut data = HyperLineData::new_introduced(rev, lineno);
+        data.predecessor = pred.map(|(rev, lineno)| HyperTokenRef::new_unchanged_path(rev, lineno));
+        data.serialize()
+    };
+    // `x = 1` (r0), backed out `x = 2` (A), intervening `x = 3` (I), and a
+    // backout (B) of A making it `x = 1`, whose `1` B evolved from I's `3`.
+    let base = vec![
+        line("r0", 0, None),
+        line("r0", 1, None),
+        line("r0", 2, None),
+        line("r0", 3, None),
+    ];
+    let mut lines = vec![
+        line("r0", 0, None),
+        line("r0", 1, None),
+        line("r0", 2, None),
+        line("B", 3, Some(("I", 3))),
+    ];
+    let backout_revs: BTreeSet<&str> = ["A", "B"].into_iter().collect();
+    let intervening: HashSet<String> = ["I".to_string()].into_iter().collect();
+    let aligned = vec![Some(1), Some(2), Some(3)];
+    let (restored, unrestored) =
+        restore_backed_out_records(&mut lines, &base, &aligned, &backout_revs, &intervening);
+    assert_eq!(lines, base);
+    assert_eq!(restored, BTreeSet::from([3]));
+    assert_eq!(unrestored, 0);
+
+    // But tokens an intervening revision introduced, or evolved, are its.
+    let mut lines = vec![
+        line("r0", 0, None),
+        line("I", 1, None),
+        line("r0", 2, None),
+        line("I", 3, Some(("A", 3))),
+    ];
+    let expected = lines.clone();
+    let (restored, unrestored) =
+        restore_backed_out_records(&mut lines, &base, &aligned, &backout_revs, &intervening);
+    assert_eq!(lines, expected);
+    assert!(restored.is_empty());
+    assert_eq!(unrestored, 0);
+}
+
+#[test]
 fn test_sanitize() {
     let p1 = PathBuf::from("first/second/third");
     assert_eq!(sanitize(&p1), "first/second/third");
@@ -2589,7 +2635,9 @@ fn build_linear_annotated(
 /// token in the file's earlier version (`base`, see `RestoreBase`) the earlier
 /// token's record, unless its record has information from one of the
 /// `intervening` revisions which landed in between, like a removal marker from
-/// an unrelated commit.  Records which reference the backout or the backed out
+/// an unrelated commit (but not a predecessor from one, if the backout itself
+/// introduced the token, by evolving an intervening revision's token back
+/// into the earlier version's).  Records which reference the backout or the backed out
 /// revisions are replaced, but so are records which only reference older
 /// revisions, because the backed out revisions' and the backout's diffs can
 /// shuffle records between identical tokens (ex: punctuation), moves clear
@@ -2605,12 +2653,18 @@ fn restore_backed_out_records(
     backout_revs: &BTreeSet<&str>,
     intervening: &HashSet<String>,
 ) -> (BTreeSet<u32>, usize) {
+    // (A token which the backout itself evolved from an intervening
+    // revision's, back into the earlier version's, has nothing new from it:
+    // ex: `x = 1`, backed out `x = 2`, intervening `x = 3`, and the backout's
+    // `x = 1`, whose `1` is the earlier version's again.)
     let has_new_info = |line: &str| {
         let data = HyperLineData::parse(line);
-        intervening.contains(data.introduced.source_rev.as_ref())
-            || data
-                .predecessor
-                .is_some_and(|pred| intervening.contains(pred.source_rev.as_ref()))
+        let introduced = data.introduced.source_rev.as_ref();
+        intervening.contains(introduced)
+            || (!backout_revs.contains(introduced)
+                && data
+                    .predecessor
+                    .is_some_and(|pred| intervening.contains(pred.source_rev.as_ref())))
             || data
                 .removal_marker
                 .is_some_and(|marker| intervening.contains(marker.source_rev.as_ref()))
