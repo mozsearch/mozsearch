@@ -14,10 +14,18 @@
 //!   different schema version means rebuilding from scratch, which is cheap
 //!   (a revwalk and parsing the messages), as does a processed head which isn't
 //!   an ancestor of the new head (ex: a rebased branch in development), whose
-//!   commits may no longer be in the history.
+//!   commits may no longer be in the history, unless the index accumulates
+//!   heads (see `UpdateOptions`).
 //! - `by-bug` has `BUG<TAB>REV<TAB>ISO_DATE<TAB>FLAGS` lines and `by-phab` has
 //!   `DNNN<TAB>REV<TAB>ISO_DATE<TAB>FLAGS` lines, sorted, so lookups can
 //!   bisect.  FLAGS is "b" for backouts (by their summary lines) or "-".
+//!
+//! Trees like try (or review), which process many unrelated heads based on
+//! other branches' revisions, accumulate their heads in one index, which
+//! reads through to the indexes of the branches they're based on (ex: "main")
+//! rather than having their commits too, like `source_mapping`'s NOTES_REF and
+//! READ_NOTES_REFS.  And explore pages look for a bug's commits on other
+//! branches (ex: uplifts) in their indexes (see `other_branches`).
 //!
 //! This doesn't come from the history processing (which has the messages in
 //! its rev-summaries), because this covers more: all of the repo's commits,
@@ -45,6 +53,33 @@ struct State {
     schema: u32,
     /// The heads whose history has been processed.
     heads: Vec<String>,
+    /// See `UpdateOptions`.
+    #[serde(default)]
+    accumulate: bool,
+    #[serde(default)]
+    read: Vec<String>,
+}
+
+fn read_state(dir: &Path) -> State {
+    fs::read_to_string(dir.join("state.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default()
+}
+
+/// How a branch's index is updated (see `update_branch`).
+#[derive(Clone, Debug, Default)]
+pub struct UpdateOptions {
+    /// Keep every head's history, for trees like try (or review) which process
+    /// many unrelated heads: a head which doesn't descend from the processed
+    /// ones is added to them, rather than replacing them (and rebuilding the
+    /// index).
+    pub accumulate: bool,
+    /// The branches (under the same `commit-index/`) whose indexes have the
+    /// history this branch's heads are based on (ex: "main" for try), whose
+    /// processed commits aren't processed again here, and which lookups read
+    /// through to.
+    pub read: Vec<String>,
 }
 
 /// A commit which mentions a bug or Phabricator revision.
@@ -133,24 +168,39 @@ fn write_lines(path: &Path, mut lines: Vec<String>) -> std::io::Result<()> {
 /// Update the commit index in `dir` with the history of `head` in `repo`,
 /// returning how many commits we processed.
 pub fn update(repo: &Repository, head: Oid, dir: &Path) -> Result<usize, String> {
+    update_with(repo, head, dir, &UpdateOptions::default(), &[])
+}
+
+/// `update` with `options`, hiding `base_heads` (the processed heads of the
+/// branches `options.read` names).
+fn update_with(
+    repo: &Repository,
+    head: Oid,
+    dir: &Path,
+    options: &UpdateOptions,
+    base_heads: &[Oid],
+) -> Result<usize, String> {
     fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     let state_path = dir.join("state.json");
-    let mut state: State = fs::read_to_string(&state_path)
-        .ok()
-        .and_then(|text| serde_json::from_str(&text).ok())
-        .unwrap_or_default();
-    let rewritten = state
-        .heads
-        .iter()
-        .any(|processed| match Oid::from_str(processed) {
-            Ok(oid) => oid != head && !repo.graph_descendant_of(head, oid).unwrap_or(false),
-            Err(_) => true,
-        });
-    let rebuild = state.schema != SCHEMA_VERSION || rewritten;
+    let mut state = read_state(dir);
+    let rewritten = !options.accumulate
+        && state
+            .heads
+            .iter()
+            .any(|processed| match Oid::from_str(processed) {
+                Ok(oid) => oid != head && !repo.graph_descendant_of(head, oid).unwrap_or(false),
+                Err(_) => true,
+            });
+    let rebuild = state.schema != SCHEMA_VERSION
+        || rewritten
+        || state.accumulate != options.accumulate
+        || state.read != options.read;
     let (mut by_bug, mut by_phab) = if rebuild {
         state = State {
             schema: SCHEMA_VERSION,
             heads: vec![],
+            accumulate: options.accumulate,
+            read: options.read.clone(),
         };
         (vec![], vec![])
     } else {
@@ -165,7 +215,13 @@ pub fn update(repo: &Repository, head: Oid, dir: &Path) -> Result<usize, String>
     walk.push(head).map_err(|e| e.to_string())?;
     for processed in &state.heads {
         let oid = Oid::from_str(processed).map_err(|e| e.to_string())?;
-        walk.hide(oid).map_err(|e| e.to_string())?;
+        // (An accumulated head may be gone, ex: a try push's.)
+        if walk.hide(oid).is_err() && !options.accumulate {
+            return Err(format!("Couldn't hide processed head {}", oid));
+        }
+    }
+    for oid in base_heads {
+        let _ = walk.hide(*oid);
     }
     let mut count = 0;
     for oid in walk {
@@ -188,20 +244,26 @@ pub fn update(repo: &Repository, head: Oid, dir: &Path) -> Result<usize, String>
     write_lines(&dir.join("by-bug"), by_bug).map_err(|e| e.to_string())?;
     write_lines(&dir.join("by-phab"), by_phab).map_err(|e| e.to_string())?;
     // Only the new head matters from now on, since it includes the others it
-    // was built on.
-    state.heads = vec![head.to_string()];
+    // was built on, unless we accumulate heads.
+    if !options.accumulate {
+        state.heads.clear();
+    }
+    if !state.heads.contains(&head.to_string()) {
+        state.heads.push(head.to_string());
+    }
     fs::write(&state_path, serde_json::to_string(&state).unwrap()).map_err(|e| e.to_string())?;
     Ok(count)
 }
 
 /// Update the index of `branch` (see `branch_dir`) under `index_root` with the
-/// history of `head` (see `update`), removing an index from before branches
-/// had their own.
+/// history of `head` (see `update`, and `UpdateOptions`), removing an index
+/// from before branches had their own.
 pub fn update_branch(
     repo: &Repository,
     head: Oid,
     index_root: &Path,
     branch: &str,
+    options: &UpdateOptions,
 ) -> Result<usize, String> {
     for file in UNBRANCHED_FILES {
         let path = index_root.join(file);
@@ -209,24 +271,94 @@ pub fn update_branch(
             fs::remove_file(&path).map_err(|e| e.to_string())?;
         }
     }
-    update(repo, head, &branch_dir(index_root, branch))
+    let base_heads: Vec<Oid> = options
+        .read
+        .iter()
+        .flat_map(|base| read_state(&branch_dir(index_root, base)).heads)
+        .filter_map(|head| Oid::from_str(&head).ok())
+        .collect();
+    update_with(
+        repo,
+        head,
+        &branch_dir(index_root, branch),
+        options,
+        &base_heads,
+    )
+}
+
+/// The branch whose index is in `dir` under a `commit-index/` (see
+/// `branch_dir`).
+fn dir_branch(dir: &Path) -> Option<String> {
+    let name = dir.file_name()?.to_str()?;
+    Some(name.replace("%2F", "/").replace("%25", "%"))
 }
 
 /// Read access to a commit index.
 pub struct CommitIndex {
     dir: PathBuf,
+    /// The indexes it reads through to (see `UpdateOptions::read`).
+    bases: Vec<CommitIndex>,
 }
 
 impl CommitIndex {
     pub fn open(dir: &Path) -> Option<CommitIndex> {
         dir.join("by-bug").exists().then(|| CommitIndex {
             dir: dir.to_path_buf(),
+            bases: vec![],
         })
     }
 
-    /// Open `branch`'s index under `index_root` (see `branch_dir`).
+    /// Open `branch`'s index under `index_root` (see `branch_dir`), with the
+    /// indexes it reads through to.
     pub fn open_branch(index_root: &Path, branch: &str) -> Option<CommitIndex> {
-        Self::open(&branch_dir(index_root, branch))
+        let mut index = Self::open(&branch_dir(index_root, branch))?;
+        index.bases = read_state(&index.dir)
+            .read
+            .iter()
+            .filter(|base| *base != branch)
+            .filter_map(|base| Self::open(&branch_dir(index_root, base)))
+            .collect();
+        Some(index)
+    }
+
+    /// The branch of the index, if it's a branch's (see `open_branch`).
+    pub fn branch(&self) -> Option<String> {
+        dir_branch(&self.dir)
+    }
+
+    /// The other branches' indexes under the same `commit-index/` as this
+    /// branch's (not the ones it reads through to), by branch name, for
+    /// finding a bug's commits on other branches (ex: uplifts).
+    pub fn other_branches(&self) -> Vec<(String, CommitIndex)> {
+        let Some(root) = self.dir.parent() else {
+            return vec![];
+        };
+        let skip: Vec<&Path> = std::iter::once(self.dir.as_path())
+            .chain(self.bases.iter().map(|base| base.dir.as_path()))
+            .collect();
+        let Ok(entries) = fs::read_dir(root) else {
+            return vec![];
+        };
+        let mut branches: Vec<(String, CommitIndex)> = entries
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .filter(|dir| !skip.contains(&dir.as_path()))
+            .filter_map(|dir| Some((dir_branch(&dir)?, Self::open(&dir)?)))
+            .collect();
+        branches.sort_by(|a, b| a.0.cmp(&b.0));
+        branches
+    }
+
+    /// The refs for `key` in `file`, here and in the indexes this reads
+    /// through to, oldest first.
+    fn lookup_all(&self, file: &str, key: &str) -> Vec<CommitRef> {
+        let mut refs = self.lookup(file, key);
+        for base in &self.bases {
+            refs.extend(base.lookup(file, key));
+        }
+        refs.sort_by(|a, b| a.iso_date.cmp(&b.iso_date).then(a.rev.cmp(&b.rev)));
+        refs.dedup_by(|a, b| a.rev == b.rev);
+        refs
     }
 
     fn lookup(&self, file: &str, key: &str) -> Vec<CommitRef> {
@@ -286,12 +418,12 @@ impl CommitIndex {
 
     /// The commits mentioning a bug, oldest first.
     pub fn bug_commits(&self, bug: &str) -> Vec<CommitRef> {
-        self.lookup("by-bug", bug)
+        self.lookup_all("by-bug", bug)
     }
 
     /// The commits of a Phabricator revision (ex: "D12345"), oldest first.
     pub fn phab_commits(&self, phab_rev: &str) -> Vec<CommitRef> {
-        self.lookup("by-phab", phab_rev)
+        self.lookup_all("by-phab", phab_rev)
     }
 }
 
@@ -398,17 +530,24 @@ mod tests {
         let beta = commit("Bug 200 - Uplift", Some(base), 1_700_000_200);
 
         let root = dir.join("commit-index");
+        let plain = UpdateOptions::default();
         // (An index from before branches had their own goes.)
         fs::create_dir_all(&root).unwrap();
         fs::write(root.join("by-bug"), "999\tabc\t2020-01-01T00:00:00Z\t-\n").unwrap();
-        assert_eq!(update_branch(&repo, main, &root, "main").unwrap(), 2);
         assert_eq!(
-            update_branch(&repo, beta, &root, ref_branch("refs/heads/beta")).unwrap(),
+            update_branch(&repo, main, &root, "main", &plain).unwrap(),
+            2
+        );
+        assert_eq!(
+            update_branch(&repo, beta, &root, ref_branch("refs/heads/beta"), &plain).unwrap(),
             2
         );
         assert!(!root.join("by-bug").exists());
         // Updating one branch doesn't disturb the other, or redo its commits.
-        assert_eq!(update_branch(&repo, main, &root, "main").unwrap(), 0);
+        assert_eq!(
+            update_branch(&repo, main, &root, "main", &plain).unwrap(),
+            0
+        );
         let bugs = |branch: &str| -> Vec<String> {
             let index = CommitIndex::open_branch(&root, branch).unwrap();
             ["101", "102", "200"]
@@ -421,6 +560,53 @@ mod tests {
         assert_eq!(bugs("beta"), vec!["101", "200"]);
         assert!(CommitIndex::open_branch(&root, "release").is_none());
         assert_eq!(branch_dir(&root, "a/b%c"), root.join("a%2Fb%25c"));
+
+        // A try index accumulates unrelated pushes based on main, without
+        // main's commits, which it reads through to.
+        let try_options = UpdateOptions {
+            accumulate: true,
+            read: vec!["main".to_string()],
+        };
+        let push1 = commit(
+            "Bug 300 - Try this\n\nDifferential Revision: https://phab/D30",
+            Some(main),
+            1_700_000_300,
+        );
+        let push2 = commit("Bug 400 - Try that", Some(base), 1_700_000_400);
+        assert_eq!(
+            update_branch(&repo, push1, &root, "try", &try_options).unwrap(),
+            1
+        );
+        assert_eq!(
+            update_branch(&repo, push2, &root, "try", &try_options).unwrap(),
+            1
+        );
+        // (Again, nothing.)
+        assert_eq!(
+            update_branch(&repo, push1, &root, "try", &try_options).unwrap(),
+            0
+        );
+        let try_index = CommitIndex::open_branch(&root, "try").unwrap();
+        assert_eq!(try_index.bug_commits("300")[0].rev, push1.to_string());
+        assert_eq!(try_index.bug_commits("400")[0].rev, push2.to_string());
+        assert_eq!(try_index.phab_commits("D30").len(), 1);
+        assert_eq!(try_index.bug_commits("102")[0].rev, main.to_string());
+        assert_eq!(bugs("try"), vec!["101", "102"]);
+        // Its other branches (not main, which it reads through to).
+        let others: Vec<String> = try_index
+            .other_branches()
+            .into_iter()
+            .map(|(b, _)| b)
+            .collect();
+        assert_eq!(others, vec!["beta"]);
+        let main_others: Vec<String> = CommitIndex::open_branch(&root, "main")
+            .unwrap()
+            .other_branches()
+            .into_iter()
+            .map(|(b, _)| b)
+            .collect();
+        assert_eq!(main_others, vec!["beta", "try"]);
+        assert_eq!(try_index.branch().as_deref(), Some("try"));
         fs::remove_dir_all(&dir).unwrap();
     }
 
