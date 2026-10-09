@@ -1626,7 +1626,24 @@ fn preprocess_linear(
         .iter()
         .map(|p| p.new_struct.symbols.clone())
         .collect();
-    let stats = compute_revision_stats(&inputs, &inferences, &old_symbols, &new_symbols);
+    let old_paths: Vec<Option<&str>> = pending
+        .iter()
+        .map(|p| match p.kind {
+            FileChangeKind::Added => None,
+            _ => p.old_path.as_deref(),
+        })
+        .collect();
+    let new_paths: Vec<Option<&str>> = pending.iter().map(|p| p.new_path.as_deref()).collect();
+    let stats = compute_revision_stats(
+        &inputs,
+        &inferences,
+        &old_symbols,
+        &new_symbols,
+        &old_paths,
+        &new_paths,
+    );
+    drop(old_paths);
+    drop(new_paths);
     drop(inputs);
 
     let files = pending

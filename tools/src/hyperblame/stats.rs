@@ -57,12 +57,15 @@ type Correspondences = HashMap<String, HashMap<(u32, String), u32>>;
 /// `old_symbols` and `new_symbols` are parallel to `inputs` and provide the set
 /// of "pretty" symbol identifiers from the "files-struct" records for the old
 /// and new versions of each file.  These let us tell whether a symbol was added
-/// or removed versus just changed.
+/// or removed versus just changed.  `old_paths` and `new_paths` (also parallel)
+/// are the files' paths, for symbols which evolved across files.
 pub fn compute_revision_stats(
     inputs: &[FileChangeInput],
     inferences: &[FileInference],
     old_symbols: &[BTreeSet<String>],
     new_symbols: &[BTreeSet<String>],
+    old_paths: &[Option<&str>],
+    new_paths: &[Option<&str>],
 ) -> RevisionStats {
     let mut token_totals: BTreeMap<String, TokenDeltaDetails> = BTreeMap::new();
     let mut groups: Vec<BTreeMap<String, SymbolSyntaxDelta>> = vec![BTreeMap::new(); inputs.len()];
@@ -173,12 +176,13 @@ pub fn compute_revision_stats(
         }
     }
 
-    // ## Detect evolved (renamed) symbols
+    // ## Detect evolved (renamed or moved) symbols
     //
     // An added symbol evolved from a removed symbol if the majority of its
-    // tokens were moved/evolved from that symbol.  We process candidates with
-    // the most corresponding tokens first so that each removed symbol is only
-    // claimed once.
+    // tokens were moved/evolved from that symbol, which can be in another file,
+    // with the same name (ex: a class moved to a new file) or not.  We process
+    // candidates with the most corresponding tokens first so that each removed
+    // symbol is only claimed once.
     let mut candidates: Vec<(u32, usize, String, u32, String)> = vec![];
     for (file, group) in groups.iter().enumerate() {
         for (pretty, sym_delta) in group {
@@ -193,7 +197,10 @@ pub fn compute_revision_stats(
                 let from = *from_file as usize;
                 let removed_from_source = old_symbols[from].contains(old_pretty)
                     && !new_symbols[from].contains(old_pretty);
-                if old_pretty != pretty && removed_from_source && *count * 2 >= size {
+                if (old_pretty != pretty || from != file)
+                    && removed_from_source
+                    && *count * 2 >= size
+                {
                     candidates.push((*count, file, pretty.clone(), *from_file, old_pretty.clone()));
                 }
             }
@@ -210,12 +217,19 @@ pub fn compute_revision_stats(
         }
         claimed_new.insert((file, pretty.clone()));
         claimed_old.insert((from_file, old_pretty.clone()));
+        let cross_file = from_file as usize != file;
         if let Some(sym_delta) = groups[file].get_mut(&pretty) {
             sym_delta.change = ChangeKind::Evolved;
             sym_delta.evolved_from = Some(old_pretty.clone());
+            if cross_file {
+                sym_delta.evolved_from_path = old_paths[from_file as usize].map(str::to_string);
+            }
         }
         if let Some(sym_delta) = groups[from_file as usize].get_mut(&old_pretty) {
             sym_delta.evolved_into = Some(pretty);
+            if cross_file {
+                sym_delta.evolved_into_path = new_paths[file].map(str::to_string);
+            }
         }
     }
 
@@ -275,6 +289,8 @@ mod tests {
             &inferences,
             &[syms(&["Foo::bar"])],
             &[syms(&["Foo::bar"])],
+            &[Some("a.cpp")],
+            &[Some("a.cpp")],
         );
         let tracked: Vec<&str> = stats.token_totals.keys().map(|k| k.as_str()).collect();
         assert_eq!(tracked, vec!["bug-1620052", "mReady"]);
@@ -304,6 +320,8 @@ mod tests {
             &inferences,
             &[syms(&["Foo", "Foo::bar"])],
             &[syms(&["Foo", "Foo::baz"])],
+            &[Some("a.cpp")],
+            &[Some("a.cpp")],
         );
         let group = &stats.file_groups[0].symbol_deltas;
         let baz = &group["Foo::baz"];
@@ -321,5 +339,54 @@ mod tests {
         assert!(stats.token_totals["baz"].has_non_move_changes());
         assert!(stats.token_totals["bar"].has_non_move_changes());
         assert!(!stats.token_totals["mCount"].has_non_move_changes());
+        // (Within the file.)
+        assert_eq!(baz.evolved_from_path, None);
+        assert_eq!(bar.evolved_into_path, None);
+    }
+
+    #[test]
+    fn test_moved_symbol_is_evolution() {
+        // `Log` moved from a.cpp to a new file, log.cpp, keeping its name.  (A
+        // symbol which is still in the old file didn't move, though: `keep`.)
+        let mut a_old = toks("Log", "class Log { void write ( const char * aMsg ) ; } ;");
+        a_old.extend(toks("keep", "void keep ( ) { flush ( ) ; }"));
+        let a_new = toks("keep", "void keep ( ) { flush ( ) ; }");
+        let mut b_new = toks("Log", "class Log { void write ( const char * aMsg ) ; } ;");
+        b_new.extend(toks("keep", "void keep ( ) { flush ( ) ; }"));
+        let inputs = vec![
+            FileChangeInput {
+                kind: FileChangeKind::Modified,
+                namespace: "cpp",
+                old_lines: a_old.iter().map(|s| s.as_str()).collect(),
+                new_lines: a_new.iter().map(|s| s.as_str()).collect(),
+            },
+            FileChangeInput {
+                kind: FileChangeKind::Added,
+                namespace: "cpp",
+                old_lines: vec![],
+                new_lines: b_new.iter().map(|s| s.as_str()).collect(),
+            },
+        ];
+        let inferences = infer_revision(&inputs, &InferenceConfig::default());
+        let stats = compute_revision_stats(
+            &inputs,
+            &inferences,
+            &[syms(&["Log", "keep"]), syms(&[])],
+            &[syms(&["keep"]), syms(&["Log", "keep"])],
+            &[Some("a.cpp"), None],
+            &[Some("a.cpp"), Some("log.cpp")],
+        );
+        let log = &stats.file_groups[1].symbol_deltas["Log"];
+        assert_eq!(log.change, ChangeKind::Evolved);
+        assert_eq!(log.evolved_from.as_deref(), Some("Log"));
+        assert_eq!(log.evolved_from_path.as_deref(), Some("a.cpp"));
+        let old_log = &stats.file_groups[0].symbol_deltas["Log"];
+        assert_eq!(old_log.change, ChangeKind::Removed);
+        assert_eq!(old_log.evolved_into.as_deref(), Some("Log"));
+        assert_eq!(old_log.evolved_into_path.as_deref(), Some("log.cpp"));
+        assert_eq!(
+            stats.file_groups[1].symbol_deltas["keep"].change,
+            ChangeKind::Added
+        );
     }
 }

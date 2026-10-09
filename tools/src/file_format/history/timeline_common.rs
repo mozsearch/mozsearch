@@ -179,6 +179,17 @@ pub struct SymbolSyntaxDelta {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evolved_into: Option<String>,
 
+    /// When `evolved_from` is a symbol in another file (ex: the symbol moved to
+    /// a new file, maybe with the same name), that file's path in the parent
+    /// revision.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evolved_from_path: Option<String>,
+
+    /// When `evolved_into` is a symbol in another file, that file's path.  The
+    /// counterpart to `evolved_from_path`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evolved_into_path: Option<String>,
+
     /// Aggregate changes across all tokens within the owning scope, including
     /// punctuation and other tokens which are not interesting enough to be
     /// individually listed in `token_changes`.
@@ -196,6 +207,8 @@ impl SymbolSyntaxDelta {
             change,
             evolved_from: None,
             evolved_into: None,
+            evolved_from_path: None,
+            evolved_into_path: None,
             token_totals: TokenDeltaDetails::default(),
             token_changes: BTreeMap::new(),
         }

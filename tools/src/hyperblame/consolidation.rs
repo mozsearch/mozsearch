@@ -738,9 +738,11 @@ fn absorb_symbol_delta(week: &mut SymbolSyntaxDelta, newer: &SymbolSyntaxDelta) 
     };
     if week.evolved_from.is_none() {
         week.evolved_from = newer.evolved_from.clone();
+        week.evolved_from_path = newer.evolved_from_path.clone();
     }
     if newer.evolved_into.is_some() {
         week.evolved_into = newer.evolved_into.clone();
+        week.evolved_into_path = newer.evolved_into_path.clone();
     }
     week.token_totals.accumulate(&newer.token_totals);
     for (token, delta) in &newer.token_changes {
