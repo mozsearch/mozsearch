@@ -364,16 +364,26 @@ pub fn find_boilerplate(tokens: &[BoilerplateToken]) -> Vec<bool> {
             mark_range(&mut marked, *j, line.end - 1);
         }
 
-        // Copyright notices.
+        // Copyright notices.  (A line starting with `(c)` needs a year or
+        // "copyright" too, since it can be the third item of a list, ex: nss's
+        // ` *  (c) data (entire SSL3 record) has been received.`)
         let starts_with_symbol = first_text.is_some_and(|j| tokens[j].text.starts_with('©'));
-        let is_notice_start = first_word == "copyright" || first_word == "c" || starts_with_symbol;
-        let has_year_or_symbol = line_words
+        // (Or years' ranges, ex: `2009-2022`.)
+        let has_year = line_words
             .iter()
-            .any(|(_, w)| is_year(w) || w.contains('©'))
-            || line
-                .clone()
-                .any(|j| tokens[j].text == "(c)" || tokens[j].text == "©");
-        if is_notice_start && has_year_or_symbol {
+            .any(|(_, w)| w.split(|c: char| !c.is_ascii_digit()).any(is_year));
+        let is_notice = match first_word.as_str() {
+            "copyright" => {
+                has_year
+                    || line_words.iter().any(|(_, w)| w.contains('©'))
+                    || line
+                        .clone()
+                        .any(|j| tokens[j].text == "(c)" || tokens[j].text == "©")
+            }
+            "c" => has_year || line_words.iter().any(|(_, w)| w == "copyright"),
+            _ => starts_with_symbol,
+        };
+        if is_notice {
             let first = match first_text {
                 Some(j) if starts_with_symbol => j,
                 _ => *first_word_idx,
@@ -678,9 +688,21 @@ mod tests {
             "// This Source Code Form is lovely.",
             "/* The emacs -*- marker alone isn't a modeline. */",
             "// We use a license block to track BEGIN LICENSE BLOCK markers.",
+            // (A list's third item.)
+            "/* Returns once:\n *  (b) a handshake message, or\n *  (c) data (entire SSL3 record) has been received.\n */",
         ] {
             let (marked, _) = check(source);
             assert_eq!(marked, "", "{}", source);
+        }
+        // But `(c)` notices with years or "copyright" are notices.
+        for source in [
+            "// (c) 2016 Foo Inc.",
+            "// (C) Copyright IBM Corp.",
+            "// (c) 2009-2022 Jeremy Ashkenas",
+            "// Copyright 2009-2022 Foo",
+        ] {
+            let (marked, _) = check(source);
+            assert_ne!(marked, "", "{}", source);
         }
     }
 }
