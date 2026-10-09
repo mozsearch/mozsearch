@@ -57,9 +57,10 @@
 //
 // To determine which journals may differ between parents, we look at the files
 // which differ between the first parent and each other parent in the syntax
-// repo, and the tokens that differ in those files.  This misses journal
-// changes whose net effect cancelled out on a branch, like a token being added
-// and then removed on the branch.  TODO: Improve this if it matters.
+// repo, and the tokens that differ in those files, and at the journals which
+// differ between the parents' timeline commits, which the syntax repo's
+// differences miss when a branch's changes cancelled out (ex: a token added
+// and then removed on the branch, whose journal has the branch's records).
 //
 // ### Backouts
 //
@@ -110,7 +111,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
 
 use chrono::{SecondsFormat, Utc};
-use git2::{Delta, DiffFindOptions, Oid, Repository, Sort};
+use git2::{Delta, DiffFindOptions, ObjectType, Oid, Repository, Sort};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
@@ -3052,6 +3053,7 @@ fn process_merge_revision(
 
     // ## Journals
     let mut journals = vec![];
+    let mut seen: HashSet<PathBuf> = HashSet::new();
     for (path, exists) in &merge.candidate_paths {
         journals.push(MergeJournal::Future(future_path(path)));
         if *exists {
@@ -3063,6 +3065,46 @@ fn process_merge_revision(
     for token in &merge.candidate_tokens {
         journals.push(MergeJournal::Tokens(token_timeline_path(token)));
     }
+    seen.extend(journals.iter().map(|journal| journal.path().to_path_buf()));
+    // (And the journals which differ between the parents' timeline commits but
+    // weren't candidates, whose files exist in the merge if the first parent
+    // has them and the merge doesn't remove them, or the merge adds them.)
+    let removed: HashSet<&str> = merge
+        .files
+        .iter()
+        .filter_map(|change| change.removed_path.as_deref())
+        .collect();
+    let added: HashSet<&str> = merge
+        .files
+        .iter()
+        .filter_map(|change| change.new_path.as_deref())
+        .collect();
+    for path in differing_journals(parents) {
+        if seen.contains(&path) {
+            continue;
+        }
+        let path_str = path.to_string_lossy();
+        let journal = if path_str.starts_with("tokens/") {
+            MergeJournal::Tokens(path.clone())
+        } else if path_str.starts_with("future/") {
+            MergeJournal::Future(path.clone())
+        } else {
+            let source = path_str
+                .strip_prefix("files-delta/")
+                .and_then(|rest| rest.strip_suffix(".ndjson"))
+                .unwrap_or_default();
+            let exists = added.contains(source)
+                || (!removed.contains(source)
+                    && parents.path_oid(0, &annotated_path(source)).is_some());
+            if exists {
+                MergeJournal::FilesDelta(path.clone())
+            } else {
+                MergeJournal::Delete(path.clone())
+            }
+        };
+        seen.insert(path);
+        journals.push(journal);
+    }
     merge_journals(
         import_helper,
         parents,
@@ -3070,6 +3112,82 @@ fn process_merge_revision(
         &journals,
         keep_from(&data.iso_date),
     );
+}
+
+/// The journals (`tokens/`, `future/`, and `files-delta/` paths, with
+/// segments' paths as their journals') which differ between a merge's first
+/// parent and its other parents.
+fn differing_journals(parents: &MergeParents) -> BTreeSet<PathBuf> {
+    let mut paths = BTreeSet::new();
+    for other in &parents.trees[1..] {
+        for prefix in ["tokens", "future", "files-delta"] {
+            let first = subtree(parents.repo, &parents.trees[0], prefix);
+            let other = subtree(parents.repo, other, prefix);
+            let mut blobs = vec![];
+            differing_blobs(
+                parents.repo,
+                first.as_ref(),
+                other.as_ref(),
+                Path::new(prefix),
+                &mut blobs,
+            );
+            for path in blobs {
+                // (A segment, `PATH.d/YEAR.ndjson`, is its journal's.)
+                let text = path.to_string_lossy();
+                paths.insert(match text.find(".ndjson.d/") {
+                    Some(at) => PathBuf::from(&text[..at + ".ndjson".len()]),
+                    None => path,
+                });
+            }
+        }
+    }
+    paths
+}
+
+/// The paths (under `prefix`) of the blobs which differ between two trees,
+/// recursing only into subtrees whose ids differ.  (libgit2's tree diff takes
+/// ~8 times as long, ex: 1.5s for a merge on the firefox history window.)
+fn differing_blobs(
+    repo: &Repository,
+    a: Option<&git2::Tree>,
+    b: Option<&git2::Tree>,
+    prefix: &Path,
+    out: &mut Vec<PathBuf>,
+) {
+    if a.map(|t| t.id()) == b.map(|t| t.id()) {
+        return;
+    }
+    // Each name's (id, whether it's a tree) in each tree.
+    type Side = Option<(Oid, bool)>;
+    let mut entries: BTreeMap<Vec<u8>, (Side, Side)> = BTreeMap::new();
+    for (tree, first) in [(a, true), (b, false)] {
+        for entry in tree.into_iter().flat_map(|tree| tree.iter()) {
+            let side = Some((entry.id(), entry.kind() == Some(ObjectType::Tree)));
+            let slot = entries.entry(entry.name_bytes().to_vec()).or_default();
+            if first {
+                slot.0 = side;
+            } else {
+                slot.1 = side;
+            }
+        }
+    }
+    for (name, (x, y)) in entries {
+        if x.map(|(id, _)| id) == y.map(|(id, _)| id) {
+            continue;
+        }
+        let path = prefix.join(String::from_utf8_lossy(&name).as_ref());
+        let tree_of = |side: Side| {
+            side.filter(|(_, is_tree)| *is_tree)
+                .and_then(|(id, _)| repo.find_tree(id).ok())
+        };
+        let (x_tree, y_tree) = (tree_of(x), tree_of(y));
+        if x_tree.is_some() || y_tree.is_some() {
+            differing_blobs(repo, x_tree.as_ref(), y_tree.as_ref(), &path, out);
+        }
+        if x.is_some_and(|(_, is_tree)| !is_tree) || y.is_some_and(|(_, is_tree)| !is_tree) {
+            out.push(path);
+        }
+    }
 }
 
 fn write_rev_summary(rev_summary_root: &Path, summary: &RevSummaryRecord) {
