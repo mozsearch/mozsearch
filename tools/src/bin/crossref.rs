@@ -52,6 +52,7 @@ use tools::logging::LoggedSpan;
 use tools::logging::init_logging;
 use tools::templating::builder::build_and_parse_ontology_ingestion_explainer;
 use tools::templating::builder::build_and_parse_repo_ingestion_explainer;
+use tools::tree_sitter_support::preprocessor::{ConditionalStacks, is_c_family};
 use tools::utils::case_semisensitive_cmp;
 use ustr::Ustr;
 use ustr::UstrMap;
@@ -204,6 +205,7 @@ fn process_analysis_target(
     id_items: &mut IdItems,
     callees_items: &mut CalleesItems,
     lines: &[(String, u32)],
+    pp: Ustr,
 ) {
     if piece.pretty.is_empty() {
         info!("Skipping empty pretty for symbol {}", piece.sym);
@@ -244,6 +246,7 @@ fn process_analysis_target(
             context: piece.context,
             contextsym: piece.contextsym,
             peek_range: piece.peek_range,
+            pp,
         },
     ));
 
@@ -674,6 +677,25 @@ fn read_analysis_files_thread(
             continue;
         }
 
+        // C-family lines' preprocessor conditionals (see `SearchResult::pp`),
+        // as each distinct stack's interned string and the lines' stacks.
+        let conditionals = is_c_family(path)
+            .then(|| fs::read_to_string(&source_fname).ok())
+            .flatten()
+            .map(|text| ConditionalStacks::new(&text))
+            .filter(|conditionals| !conditionals.is_empty());
+        let stack_pps: Vec<Ustr> = conditionals.as_ref().map_or(vec![], |conditionals| {
+            conditionals
+                .stacks()
+                .iter()
+                .map(|stack| ustr(&stack.join("\n")))
+                .collect()
+        });
+        let line_pp = |lineno: usize| match &conditionals {
+            Some(conditionals) => stack_pps[conditionals.stack_index(lineno)],
+            None => Ustr::default(),
+        };
+
         if let Some(history) = history {
             match file_recency_items(
                 history,
@@ -726,6 +748,7 @@ fn read_analysis_files_thread(
                     &mut id_items,
                     &mut callees_items,
                     &lines,
+                    line_pp(lineno),
                 );
             }
         }

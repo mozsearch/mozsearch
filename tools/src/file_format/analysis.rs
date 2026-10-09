@@ -1288,6 +1288,37 @@ pub struct SearchResult {
         skip_serializing_if = "LineRange::is_empty"
     )]
     pub peek_range: LineRange,
+    /// For C-family languages, the preprocessor conditionals' branches the
+    /// line is in, outermost first, not counting include guards (see
+    /// `ConditionalStacks`), joined by newlines (which they can't contain),
+    /// so that it's one interned string; an array in JSON.  See `pp_stack`.
+    #[serde(default, skip_serializing_if = "Ustr::is_empty", with = "pp_stack")]
+    pub pp: Ustr,
+}
+
+impl SearchResult {
+    /// `pp`'s conditions.
+    pub fn pp_stack(&self) -> Vec<String> {
+        if self.pp.is_empty() {
+            return vec![];
+        }
+        self.pp.split('\n').map(str::to_string).collect()
+    }
+}
+
+/// `SearchResult::pp` as a JSON array.
+mod pp_stack {
+    use super::Ustr;
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(pp: &Ustr, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_seq(pp.split('\n'))
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Ustr, D::Error> {
+        let stack: Vec<String> = Vec::deserialize(deserializer)?;
+        Ok(Ustr::from(stack.join("\n").as_str()))
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

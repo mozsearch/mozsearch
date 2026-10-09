@@ -750,6 +750,7 @@ mod tests {
                 start_lineno: peek.0,
                 end_lineno: peek.1,
             },
+            pp: Ustr::default(),
         };
         let mut results = SearchResults::default();
         // A declaration's several records on line 7 (ex: one with a peek
@@ -800,6 +801,7 @@ mod tests {
                 start_lineno: 0,
                 end_lineno: 0,
             },
+            pp: Ustr::default(),
         };
         for (sym, pretty, kind, lines) in [
             (
