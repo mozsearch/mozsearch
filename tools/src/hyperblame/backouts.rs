@@ -17,10 +17,14 @@
 //!   asking git-cinnabar for the source repo's git revision, which it can do
 //!   for abbreviated hg revisions.
 //!
+//! - Backouts which only name bugs (ex: `Back out bug 1234567 for bustage`;
+//!   ~3000 since 2008 in firefox-main, and all of the CVS era's), whose
+//!   targets are guessed from recent commits for those bugs and the backout's
+//!   changes (see `find_backed_out_by_bugs`).
+//!
 //! Merges don't need examining: in firefox-main, each of the 80 merges with
 //! backout lines merges in the linear backout commit (hg's backout then merge
-//! workflow), which carries the same lines.  Backouts which only name bugs
-//! (ex: `Back out bug 1234567`, and all of the CVS era's) aren't recognized.
+//! workflow), which carries the same lines.
 //!
 //! Git revisions are then mapped to syntax commits with the syntax repo's
 //! source mapping notes (see `source_mapping`).
@@ -31,15 +35,16 @@
 //! 378 of 385 reverts were of commits which had landed less than 7 days
 //! before.
 
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use git2::{Commit, Oid, Repository};
+use git2::{Commit, Oid, Repository, Tree};
 use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::cinnabar::CinnabarBatch;
+use crate::commit_index::message_bugs;
 use crate::source_mapping::SourceMapping;
 
 /// How long after landing a revert of a commit is considered a backout.
@@ -48,6 +53,15 @@ pub const BACKOUT_HORIZON_SECS: i64 = 14 * 24 * 60 * 60;
 /// The most commits a backed out range (ex: "Back out X to Y") can have; more
 /// is more likely a misreading than a backout.
 const MAX_RANGE_COMMITS: usize = 100;
+
+/// How much of a commit's change a backout which only names bugs must have
+/// undone to have backed it out (see `find_backed_out_by_bugs`).
+const MIN_BUG_BACKOUT_REVERSAL: f64 = 0.8;
+
+/// How many of its ancestors to look through for what a backout which only
+/// names bugs backed out (see `find_backed_out_by_bugs`): several times the
+/// most commits firefox-main has had in `BACKOUT_HORIZON_SECS`.
+const MAX_BUG_BACKOUT_WALK: usize = 10_000;
 
 /// A reference to a backed out commit from a backout's commit message.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -79,6 +93,17 @@ lazy_static! {
     )
     .unwrap();
     static ref HEX_REV: Regex = Regex::new(r"[0-9a-fA-F]{12,40}").unwrap();
+    /// A backout's summary line, maybe after its own bug number (ex: "Bug 123
+    /// - Back out bug 456 for bustage").
+    static ref BACKOUT_SUMMARY: Regex = Regex::new(
+        r"(?i)^\s*(?:(?:bug|b=)\s*\d+\s*[-:.,]*\s*)?(?:back(?:ed|ing)?[ -]?out|revert(?:ed|ing|s)?)\b"
+    )
+    .unwrap();
+}
+
+/// Whether a commit message's summary line says it's a backout (or revert).
+pub fn is_backout_summary(message: &str) -> bool {
+    BACKOUT_SUMMARY.is_match(message.lines().next().unwrap_or(""))
 }
 
 /// Parse the commits a commit message says it backs out, in message order.
@@ -163,6 +188,11 @@ impl BackoutTargetResolver {
             .lookup(syntax_repo, self.source_rev(target)?)
     }
 
+    /// The syntax commit of a source revision, if it has been processed.
+    fn resolve_source(&self, syntax_repo: &Repository, source_rev: Oid) -> Option<Oid> {
+        self.syntax_mapping.lookup(syntax_repo, source_rev)
+    }
+
     /// The syntax commits a target refers to: for a range, the later end and
     /// its ancestors which descend from the earlier end, or none if the ends
     /// aren't both known, neither descends from the other, or there are more
@@ -209,24 +239,220 @@ impl BackoutTargetResolver {
     }
 }
 
-/// Find the syntax commits that `backout` (a syntax commit whose source commit
-/// has the given message) backs out: ancestors referenced by the message which
-/// landed within `BACKOUT_HORIZON_SECS` before it.  They're ordered earliest
-/// first by ancestry because commits landed together (ex: a stack of patches
-/// in one push) can have the same timestamp.
+/// The paths a (non-root) commit changed relative to its first parent.
+fn changed_paths(repo: &Repository, commit: &Commit) -> BTreeSet<PathBuf> {
+    let (Ok(parent), Ok(tree)) = (commit.parent(0), commit.tree()) else {
+        return BTreeSet::new();
+    };
+    let Ok(diff) = parent
+        .tree()
+        .and_then(|old| repo.diff_tree_to_tree(Some(&old), Some(&tree), None))
+    else {
+        return BTreeSet::new();
+    };
+    diff.deltas()
+        .filter_map(|delta| delta.new_file().path().or(delta.old_file().path()))
+        .map(Path::to_path_buf)
+        .collect()
+}
+
+/// How much of `commit`'s change to `paths` `backout` undid, rather than was
+/// already undone before it: the lines `commit` added which `backout`
+/// removed, and the lines it removed which `backout` added back, as a
+/// fraction of the lines it added and removed (counted as multisets per
+/// file).
+fn reversal(
+    repo: &Repository,
+    commit: &Commit,
+    backout: &Commit,
+    paths: &BTreeSet<PathBuf>,
+) -> f64 {
+    let trees = (|| -> Result<[Tree<'_>; 4], git2::Error> {
+        Ok([
+            commit.parent(0)?.tree()?,
+            commit.tree()?,
+            backout.parent(0)?.tree()?,
+            backout.tree()?,
+        ])
+    })();
+    let Ok(trees) = trees else {
+        return 0.0;
+    };
+    let (mut total, mut undone) = (0i64, 0i64);
+    for path in paths {
+        let blobs: Vec<Vec<u8>> = trees
+            .iter()
+            .map(|tree| {
+                tree.get_path(path)
+                    .ok()
+                    .and_then(|entry| repo.find_blob(entry.id()).ok())
+                    .map(|blob| blob.content().to_vec())
+                    .unwrap_or_default()
+            })
+            .collect();
+        let counts: Vec<HashMap<&[u8], i64>> = blobs
+            .iter()
+            .map(|data| {
+                let mut counts = HashMap::new();
+                for line in data.split(|&b| b == b'\n') {
+                    *counts.entry(line).or_default() += 1;
+                }
+                counts
+            })
+            .collect();
+        let count = |i: usize, line: &[u8]| counts[i].get(line).copied().unwrap_or(0);
+        let [before, after, before_backout, after_backout] = [0, 1, 2, 3];
+        let lines: HashSet<&[u8]> = counts[before]
+            .keys()
+            .chain(counts[after].keys())
+            .copied()
+            .collect();
+        for line in lines {
+            let change = count(after, line) - count(before, line);
+            let backout_change = count(after_backout, line) - count(before_backout, line);
+            total += change.abs();
+            // (An addition the backout removed, or a removal it restored.)
+            if change.signum() * backout_change.signum() < 0 {
+                undone += change.abs().min(backout_change.abs());
+            }
+        }
+    }
+    if total == 0 {
+        0.0
+    } else {
+        undone as f64 / total as f64
+    }
+}
+
+/// For a backout whose message names no revisions but whose summary names
+/// bugs (ex: "Back out bug 1234567 for bustage"; `backout` is its source
+/// commit), the source commits it backs out: its ancestors from within
+/// `BACKOUT_HORIZON_SECS` whose summaries mention one of the bugs, which
+/// aren't merges or backouts themselves, and whose changes to the files the
+/// backout changed it undid (see `reversal`), unless a backout of the bug in
+/// between already did (ex: an earlier landing of a relanded patch, whose
+/// lines are the same).  Validated on backouts which do name revisions (and
+/// bugs), ignoring the revisions: of 300 sampled from firefox-main since
+/// 2008, 268 got exactly their targets, with 501 of their 539 targets and 13
+/// others (several of them real targets the messages didn't name in a way
+/// we parse).  Of 300 sampled backouts naming only bugs, 164 resolve.
+pub fn find_backed_out_by_bugs(source_repo: &Repository, backout: &Commit) -> Vec<Oid> {
+    let message = String::from_utf8_lossy(backout.message_bytes());
+    if backout.parent_count() != 1 || !is_backout_summary(&message) {
+        return vec![];
+    }
+    let bugs: BTreeSet<String> = message_bugs(&message).into_iter().collect();
+    if bugs.is_empty() {
+        return vec![];
+    }
+    // The recent ancestors for the bugs, and whether each is a backout,
+    // breadth first (so newest first, mostly).  Commit times aren't
+    // monotonic (hg-era commits kept their local commit dates, sometimes
+    // weeks before they landed), so this goes by how many commits back, not
+    // when; libgit2's time-sorted revwalk walks all of the history first.
+    let cutoff = backout.committer().when().seconds() - BACKOUT_HORIZON_SECS;
+    let mut recent: Vec<(Commit, bool)> = vec![];
+    let mut seen: HashSet<Oid> = backout.parent_ids().collect();
+    let mut queue: VecDeque<Oid> = backout.parent_ids().collect();
+    let mut walked = 0;
+    while let Some(oid) = queue.pop_front() {
+        walked += 1;
+        if walked > MAX_BUG_BACKOUT_WALK {
+            break;
+        }
+        let Ok(commit) = source_repo.find_commit(oid) else {
+            continue;
+        };
+        for parent in commit.parent_ids() {
+            if seen.insert(parent) {
+                queue.push_back(parent);
+            }
+        }
+        if commit.committer().when().seconds() < cutoff || commit.parent_count() != 1 {
+            continue;
+        }
+        let message = String::from_utf8_lossy(commit.message_bytes());
+        if message_bugs(&message).iter().any(|bug| bugs.contains(bug)) {
+            let is_backout = is_backout_summary(&message);
+            recent.push((commit, is_backout));
+        }
+    }
+
+    let mut paths: HashMap<Oid, BTreeSet<PathBuf>> = HashMap::new();
+    let mut changed = |commit: &Commit| -> BTreeSet<PathBuf> {
+        paths
+            .entry(commit.id())
+            .or_insert_with(|| changed_paths(source_repo, commit))
+            .clone()
+    };
+    let backout_paths = changed(backout);
+    let mut found = vec![];
+    for (i, (commit, is_backout)) in recent.iter().enumerate() {
+        if *is_backout {
+            continue;
+        }
+        let commit_paths = changed(commit);
+        let shared: BTreeSet<PathBuf> =
+            commit_paths.intersection(&backout_paths).cloned().collect();
+        if shared.is_empty()
+            || reversal(source_repo, commit, backout, &shared) < MIN_BUG_BACKOUT_REVERSAL
+        {
+            continue;
+        }
+        // (The backouts in between come before it, being newer.)
+        let undone_before = recent[..i].iter().any(|(other, other_is_backout)| {
+            if !other_is_backout
+                || !source_repo
+                    .graph_descendant_of(other.id(), commit.id())
+                    .unwrap_or(false)
+            {
+                return false;
+            }
+            let shared: BTreeSet<PathBuf> = commit_paths
+                .intersection(&changed(other))
+                .cloned()
+                .collect();
+            !shared.is_empty()
+                && reversal(source_repo, commit, other, &shared) >= MIN_BUG_BACKOUT_REVERSAL
+        });
+        if !undone_before {
+            found.push(commit.id());
+        }
+    }
+    found
+}
+
+/// Find the syntax commits that `backout` (a syntax commit whose source commit,
+/// `source_rev`, has the given message) backs out: ancestors referenced by the
+/// message (or guessed from its bugs if it names no revisions we know; see
+/// `find_backed_out_by_bugs`) which landed within `BACKOUT_HORIZON_SECS` before
+/// it.  They're ordered earliest first by ancestry because commits landed
+/// together (ex: a stack of patches in one push) can have the same timestamp.
 pub fn find_backed_out(
     syntax_repo: &Repository,
+    source_repo: &Repository,
     resolver: &BackoutTargetResolver,
     backout: &Commit,
+    source_rev: Oid,
     message: &str,
 ) -> Vec<Oid> {
     let backout_time = backout.committer().when().seconds();
     let mut found: Vec<(Oid, i64)> = vec![];
-    let targets = parse_backout_targets(message);
-    for oid in targets
+    let mut candidates: Vec<Oid> = parse_backout_targets(message)
         .iter()
         .flat_map(|target| resolver.resolve_all(syntax_repo, target))
-    {
+        .collect();
+    // (Also when the revisions it names aren't known, ex: typos.)
+    if candidates.is_empty() {
+        candidates = source_repo
+            .find_commit(source_rev)
+            .map(|source| find_backed_out_by_bugs(source_repo, &source))
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|rev| resolver.resolve_source(syntax_repo, rev))
+            .collect();
+    }
+    for oid in candidates {
         if oid == backout.id() || found.iter().any(|(o, _)| *o == oid) {
             continue;
         }
@@ -425,6 +651,123 @@ mod tests {
             None
         );
         assert_eq!(resolver.resolve(&repo, &Git(source(2).to_string())), None);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn test_find_backed_out_by_bugs() {
+        let dir = std::env::temp_dir().join(format!("hb-backout-bugs-{}", std::process::id()));
+        let repo = Repository::init(&dir).unwrap();
+        let mut parent: Option<Oid> = None;
+        let mut time = 1_700_000_000;
+        let mut commit = |message: &str, files: &[(&str, &str)]| {
+            time += 3600;
+            let sig =
+                git2::Signature::new("a", "a@example.com", &git2::Time::new(time, 0)).unwrap();
+            let mut builder = repo.treebuilder(None).unwrap();
+            for (path, contents) in files {
+                let blob = repo.blob(contents.as_bytes()).unwrap();
+                builder.insert(path, blob, 0o100644).unwrap();
+            }
+            let tree = repo.find_tree(builder.write().unwrap()).unwrap();
+            let parents: Vec<Commit> = parent
+                .iter()
+                .map(|p| repo.find_commit(*p).unwrap())
+                .collect();
+            let parents: Vec<&Commit> = parents.iter().collect();
+            let oid = repo
+                .commit(None, &sig, &sig, message, &tree, &parents)
+                .unwrap();
+            parent = Some(oid);
+            oid
+        };
+        let base = "a\nb\n";
+        let other = "x\n";
+        let with_foo = "a\nfoo();\nfoo2();\nb\n";
+        let root = commit("Initial", &[("a.txt", base), ("b.txt", other)]);
+        let land = commit(
+            "Bug 100 - Add foo",
+            &[("a.txt", with_foo), ("b.txt", other)],
+        );
+        let unrelated = commit(
+            "Bug 200 - Change x",
+            &[("a.txt", with_foo), ("b.txt", "y\n")],
+        );
+        let backout = commit(
+            "Back out bug 100 for bustage",
+            &[("a.txt", base), ("b.txt", "y\n")],
+        );
+        let reland = commit(
+            "Bug 100 - Add foo",
+            &[("a.txt", with_foo), ("b.txt", "y\n")],
+        );
+        let backout2 = commit(
+            "Backed out bug 100 again",
+            &[("a.txt", base), ("b.txt", "y\n")],
+        );
+        // (Doesn't undo bug 200's change.)
+        let not_backout = commit(
+            "Back out bug 200's test",
+            &[("a.txt", base), ("b.txt", "y\n"), ("c.txt", "z\n")],
+        );
+        let find = |oid: Oid| find_backed_out_by_bugs(&repo, &repo.find_commit(oid).unwrap());
+        assert_eq!(find(backout), vec![land]);
+        // The first landing was already backed out.
+        assert_eq!(find(backout2), vec![reland]);
+        assert_eq!(find(not_backout), vec![]);
+        // Not a backout's summary, or no bugs.
+        assert_eq!(find(unrelated), vec![]);
+        let _ = root;
+
+        // Through `find_backed_out`, which maps them to syntax commits (here,
+        // themselves), but only for messages naming no revisions.
+        let refs = NotesRefs {
+            write: default_notes_ref(&repo, "refs/heads/main"),
+            read: vec![],
+        };
+        let all = [
+            root,
+            land,
+            unrelated,
+            backout,
+            reland,
+            backout2,
+            not_backout,
+        ];
+        let notes: Vec<(Oid, Oid)> = all.iter().map(|&c| (c, c)).collect();
+        write_notes(&repo, &refs.write, &notes);
+        let resolver = BackoutTargetResolver::new(SourceMapping::open(&repo, &refs), &dir, false);
+        let backout_commit = repo.find_commit(backout).unwrap();
+        let message = backout_commit.message().unwrap().to_string();
+        assert_eq!(
+            find_backed_out(&repo, &repo, &resolver, &backout_commit, backout, &message),
+            vec![land]
+        );
+        let names_revision = format!("Backed out changeset {} (bug 100)", unrelated);
+        assert_eq!(
+            find_backed_out(
+                &repo,
+                &repo,
+                &resolver,
+                &backout_commit,
+                backout,
+                &names_revision
+            ),
+            vec![unrelated]
+        );
+        // (A revision we don't know is like none.)
+        let names_unknown = "Backed out changeset 0123456789ab (bug 100)";
+        assert_eq!(
+            find_backed_out(
+                &repo,
+                &repo,
+                &resolver,
+                &backout_commit,
+                backout,
+                names_unknown
+            ),
+            vec![land]
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

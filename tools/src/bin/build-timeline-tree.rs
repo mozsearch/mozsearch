@@ -1959,7 +1959,14 @@ fn thread_preprocess_revision(
 
     let mut backed_out = vec![];
     if let RevisionChanges::Linear { files, .. } = &mut changes {
-        let targets = find_backed_out(syntax_repo, backout_resolver, &commit, &message);
+        let targets = find_backed_out(
+            syntax_repo,
+            source_repo,
+            backout_resolver,
+            &commit,
+            rev_meta.source_rev,
+            &message,
+        );
         if !targets.is_empty() {
             add_restore_bases(syntax_repo, &commit, &targets, files)?;
             for target in targets {
