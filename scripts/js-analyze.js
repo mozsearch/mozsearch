@@ -554,6 +554,23 @@ const FLUENT_RESOURCE_RE = /^[a-zA-Z0-9_-]+(\/[a-zA-Z0-9_.-]+)*\.ftl$/;
 const FLUENT_ID_KEY_RE = /^(l10nId|l10nID|string_id|data-l10n-id|[a-z]\w*L10nId)$/;
 const FLUENT_MARKUP_ID_RE = /(data-l10n-id\s*=\s*\\?["'])([a-zA-Z][a-zA-Z0-9_-]*)\\?["']/g;
 
+// Prefs (see tools/languages/semantic_mappings/staticpreflist.toml and
+// prefs_files.toml for their definitions): names (with dots, so not relative
+// ones, ex: a branch's "enabled"), nsIPrefBranch's methods whose first
+// argument is a name, and Preferences.sys.mjs' (and about:preferences').
+const PREF_NAME_RE = /^[A-Za-z0-9_-]+(\.[A-Za-z0-9_@*-]+)+$/;
+const PREF_BRANCH_METHODS = new Set([
+  "getBoolPref", "getIntPref", "getCharPref", "getStringPref", "getFloatPref",
+  "getComplexValue", "getPrefType", "setBoolPref", "setIntPref", "setCharPref",
+  "setStringPref", "setComplexValue", "clearUserPref", "prefHasUserValue",
+  "prefHasDefaultValue", "prefIsLocked", "lockPref", "unlockPref",
+  "addObserver", "removeObserver",
+]);
+const PREFERENCES_METHODS = new Set([
+  "get", "set", "isSet", "reset", "has", "observe", "ignore", "locked", "lock",
+  "unlock",
+]);
+
 // The value of an object literal's property named `name`.
 function objectLiteralProperty(obj, name) {
   for (let prop of obj.properties) {
@@ -2629,6 +2646,79 @@ class Analyzer extends ASTVisitor {
     }
   }
 
+  // A literal pref name, as a use of its pref.
+  maybeUsePref(expr) {
+    if (!expr || expr.type !== "Literal" || typeof expr.value !== "string" ||
+        !PREF_NAME_RE.test(expr.value)) {
+      return;
+    }
+    const name = `"${expr.value}"`;
+    this.source(expr.loc, name, "use", `pref ${expr.value}`,
+                "PREFS_" + atEscape(expr.value));
+    this.target(expr.loc, name, "use", expr.value,
+                "PREFS_" + atEscape(expr.value));
+  }
+
+  // Pref names passed to the prefs APIs: nsIPrefBranch's methods of
+  // `Services.prefs` (and other `prefs`), `SpecialPowers`, and default
+  // branches, `Preferences`' (and its `add`/`addAll`'s `{ id }`s),
+  // `XPCOMUtils.defineLazyPreferenceGetter`'s, and
+  // `SpecialPowers.pushPrefEnv({ set: [[name, value]], clear: [[name]] })`'s.
+  checkPrefsAPI(callee, args) {
+    if ((callee.type !== "MemberExpression" &&
+         callee.type !== "OptionalMemberExpression") ||
+        callee.computed || callee.property.type !== "Identifier") {
+      return;
+    }
+    const method = callee.property.name;
+    const object = callee.object;
+    const isBranch =
+      ((object.type === "MemberExpression" ||
+        object.type === "OptionalMemberExpression") &&
+       !object.computed && object.property.type === "Identifier" &&
+       object.property.name === "prefs") ||
+      (object.type === "Identifier" && object.name === "SpecialPowers") ||
+      (object.type === "CallExpression" &&
+       object.callee.type === "MemberExpression" &&
+       object.callee.property.type === "Identifier" &&
+       object.callee.property.name === "getDefaultBranch");
+    if (isBranch && PREF_BRANCH_METHODS.has(method)) {
+      this.maybeUsePref(args[0]);
+      return;
+    }
+    if (object.type === "Identifier" && object.name === "Preferences") {
+      if (PREFERENCES_METHODS.has(method)) {
+        this.maybeUsePref(args[0]);
+      } else if (method === "add" && args[0] && args[0].type === "ObjectExpression") {
+        this.maybeUsePref(objectLiteralProperty(args[0], "id"));
+      } else if (method === "addAll" && args[0] && args[0].type === "ArrayExpression") {
+        for (let elt of args[0].elements) {
+          if (elt && elt.type === "ObjectExpression") {
+            this.maybeUsePref(objectLiteralProperty(elt, "id"));
+          }
+        }
+      }
+      return;
+    }
+    if (method === "defineLazyPreferenceGetter") {
+      this.maybeUsePref(args[2]);
+      return;
+    }
+    if (method === "pushPrefEnv" && args[0] && args[0].type === "ObjectExpression") {
+      for (let key of ["set", "clear"]) {
+        const list = objectLiteralProperty(args[0], key);
+        if (!list || list.type !== "ArrayExpression") {
+          continue;
+        }
+        for (let elt of list.elements) {
+          if (elt && elt.type === "ArrayExpression") {
+            this.maybeUsePref(elt.elements[0]);
+          }
+        }
+      }
+    }
+  }
+
   // The literal data-l10n-id attributes in the markup of the source text which
   // `loc` spans (a string or a template), ex: html`<a data-l10n-id="id">`.
   scanFluentMarkup(loc) {
@@ -2965,6 +3055,7 @@ class Analyzer extends ASTVisitor {
   callExpressionShared(expr) {
     this.checkDefineLazyAPI(expr.callee, expr.arguments);
     this.checkL10nAPI(expr.callee, expr.arguments);
+    this.checkPrefsAPI(expr.callee, expr.arguments);
 
     super.callExpressionShared(expr);
   }
@@ -3251,6 +3342,7 @@ class BaseParser {
 
     this.handleL10nAttributes(tag);
     this.handleLocalizationLink(tag);
+    this.handlePreferenceAttribute(tag);
   }
 
   // The Fluent symbols which an element's data-l10n-id (a message),
@@ -3308,6 +3400,17 @@ class BaseParser {
     }
     this.useInValue(new Analyzer(), href, 0, href.value, "localization",
                     href.value, "FTLRES_" + atEscape(href.value));
+  }
+
+  // A `preference` attribute (ex: about:preferences' controls') is a use of
+  // its pref.
+  handlePreferenceAttribute(tag) {
+    const attr = tag.attrs.PREFERENCE;
+    if (!attr || !PREF_NAME_RE.test(attr.value)) {
+      return;
+    }
+    this.useInValue(new Analyzer(), attr, 0, attr.value, "pref", attr.value,
+                    "PREFS_" + atEscape(attr.value));
   }
 
   // A use of `name`, `offset` characters into the value of `attr`, if it's

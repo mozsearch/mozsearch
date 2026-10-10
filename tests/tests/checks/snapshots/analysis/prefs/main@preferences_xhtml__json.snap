@@ -1,0 +1,52 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/prefs/preferences_xhtml__json
+---
+[
+  {
+    "loc": "5:46-58",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.js.pref",
+    "sym": "PREFS_test@2Ejs@2Epref"
+  },
+  {
+    "loc": "5:46-58",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.js.pref",
+    "sym": "PREFS_test@2Ejs@2Epref",
+    "context": ""
+  },
+  {
+    "loc": "6:42-50",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.int",
+    "sym": "PREFS_test@2Eint"
+  },
+  {
+    "loc": "6:42-50",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.int",
+    "sym": "PREFS_test@2Eint",
+    "context": ""
+  },
+  {
+    "loc": "8:39-49",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.str",
+    "sym": "PREFS_test@2Estr"
+  },
+  {
+    "loc": "8:39-49",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.str",
+    "sym": "PREFS_test@2Estr",
+    "context": ""
+  }
+]

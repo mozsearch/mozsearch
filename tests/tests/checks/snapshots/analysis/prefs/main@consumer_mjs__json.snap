@@ -1,0 +1,157 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/prefs/consumer_mjs__json
+---
+[
+  {
+    "loc": "7:56-74",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.js.platform",
+    "sym": "PREFS_test@2Ejs@2Eplatform"
+  },
+  {
+    "loc": "7:56-74",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.js.platform",
+    "sym": "PREFS_test@2Ejs@2Eplatform",
+    "context": ""
+  },
+  {
+    "loc": "10:45-59",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.js.pref",
+    "sym": "PREFS_test@2Ejs@2Epref"
+  },
+  {
+    "loc": "10:45-59",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.js.pref",
+    "sym": "PREFS_test@2Ejs@2Epref",
+    "context": "readPrefs"
+  },
+  {
+    "loc": "11:28-38",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.int",
+    "sym": "PREFS_test@2Eint"
+  },
+  {
+    "loc": "11:28-38",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.int",
+    "sym": "PREFS_test@2Eint",
+    "context": "readPrefs"
+  },
+  {
+    "loc": "12:50-61",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.bool",
+    "sym": "PREFS_test@2Ebool"
+  },
+  {
+    "loc": "12:50-61",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.bool",
+    "sym": "PREFS_test@2Ebool",
+    "context": "readPrefs"
+  },
+  {
+    "loc": "13:29-39",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.str",
+    "sym": "PREFS_test@2Estr"
+  },
+  {
+    "loc": "13:29-39",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.str",
+    "sym": "PREFS_test@2Estr",
+    "context": "readPrefs"
+  },
+  {
+    "loc": "16:36-48",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test2.uint",
+    "sym": "PREFS_test2@2Euint"
+  },
+  {
+    "loc": "16:36-48",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test2.uint",
+    "sym": "PREFS_test2@2Euint",
+    "context": "readPrefs"
+  },
+  {
+    "loc": "22:7-21",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.js.pref",
+    "sym": "PREFS_test@2Ejs@2Epref"
+  },
+  {
+    "loc": "22:7-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.js.pref",
+    "sym": "PREFS_test@2Ejs@2Epref",
+    "context": "setUp"
+  },
+  {
+    "loc": "23:7-17",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.int",
+    "sym": "PREFS_test@2Eint"
+  },
+  {
+    "loc": "23:7-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.int",
+    "sym": "PREFS_test@2Eint",
+    "context": "setUp"
+  },
+  {
+    "loc": "25:13-24",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.bool",
+    "sym": "PREFS_test@2Ebool"
+  },
+  {
+    "loc": "25:13-24",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.bool",
+    "sym": "PREFS_test@2Ebool",
+    "context": "setUp"
+  },
+  {
+    "loc": "27:28-44",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.js.locked",
+    "sym": "PREFS_test@2Ejs@2Elocked"
+  },
+  {
+    "loc": "27:28-44",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.js.locked",
+    "sym": "PREFS_test@2Ejs@2Elocked",
+    "context": "setUp"
+  }
+]

@@ -1,0 +1,252 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/prefs/pref_uses__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "PREFS_test@2Ejs@2Epref",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "prefs/PrefsConsumer.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 21,
+                "bounds": [
+                  37,
+                  49
+                ],
+                "line": "bool enabled = Preferences::GetBool(\"test.js.pref\");",
+                "context": "PrefsConsumer",
+                "contextsym": "_Z13PrefsConsumerv"
+              }
+            ]
+          },
+          {
+            "path": "prefs/consumer.mjs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 10,
+                "bounds": [
+                  43,
+                  57
+                ],
+                "line": "const enabled = Services.prefs.getBoolPref(\"test.js.pref\", false);",
+                "context": "readPrefs",
+                "contextsym": ""
+              },
+              {
+                "lno": 22,
+                "bounds": [
+                  1,
+                  15
+                ],
+                "line": "[\"test.js.pref\", true],",
+                "context": "setUp",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "prefs/preferences.xhtml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 5,
+                "bounds": [
+                  44,
+                  56
+                ],
+                "line": "<xul:checkbox id=\"testCheckbox\" preference=\"test.js.pref\"/>",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "prefs/user.js",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 2,
+                "bounds": [
+                  11,
+                  23
+                ],
+                "line": "user_pref(\"test.js.pref\", false);",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "prefs/all.js",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 8,
+                "bounds": [
+                  6,
+                  18
+                ],
+                "line": "pref(\"test.js.pref\", true);",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "PREFS_test@2Eint",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "prefs/PrefsConsumer.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 22,
+                "bounds": [
+                  44,
+                  52
+                ],
+                "line": "Preferences::RegisterCallback(PrefChanged, \"test.int\");",
+                "context": "PrefsConsumer",
+                "contextsym": "_Z13PrefsConsumerv"
+              },
+              {
+                "lno": 23,
+                "bounds": [
+                  37,
+                  45
+                ],
+                "line": "return mozilla::Preferences::GetInt(\"test.int\") + int32_t(enabled);",
+                "context": "PrefsConsumer",
+                "contextsym": "_Z13PrefsConsumerv"
+              }
+            ]
+          },
+          {
+            "path": "prefs/consumer.mjs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 11,
+                "bounds": [
+                  26,
+                  36
+                ],
+                "line": "Services.prefs.setIntPref(\"test.int\", 3);",
+                "context": "readPrefs",
+                "contextsym": ""
+              },
+              {
+                "lno": 23,
+                "bounds": [
+                  1,
+                  11
+                ],
+                "line": "[\"test.int\", 5],",
+                "context": "setUp",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "prefs/preferences.xhtml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 6,
+                "bounds": [
+                  40,
+                  48
+                ],
+                "line": "<xul:menulist id=\"testList\" preference=\"test.int\"/>",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "prefs/user.js",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 3,
+                "bounds": [
+                  11,
+                  19
+                ],
+                "line": "user_pref(\"test.int\", 20);",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "staticprefs/StaticPrefList.yaml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 1,
+                "bounds": [
+                  8,
+                  16
+                ],
+                "line": "- name: test.int",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "test.int",
+          "sym": "PREFS_test@2Eint",
+          "type_pretty": null,
+          "kind": "prefs",
+          "subsystem": null,
+          "implKind": "StaticPrefs",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "getter",
+              "slotLang": "cpp",
+              "implKind": null,
+              "ownerLang": "prefs",
+              "sym": "_ZN7mozilla11StaticPrefs8test_intEv"
+            }
+          ],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

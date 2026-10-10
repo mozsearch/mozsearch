@@ -36,6 +36,48 @@ input_file: inputs/crossref/staticprefs/prefs__json
             ]
           },
           {
+            "path": "prefs/consumer.mjs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 11,
+                "bounds": [
+                  26,
+                  36
+                ],
+                "line": "Services.prefs.setIntPref(\"test.int\", 3);",
+                "context": "readPrefs",
+                "contextsym": ""
+              },
+              {
+                "lno": 23,
+                "bounds": [
+                  1,
+                  11
+                ],
+                "line": "[\"test.int\", 5],",
+                "context": "setUp",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "prefs/preferences.xhtml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 6,
+                "bounds": [
+                  40,
+                  48
+                ],
+                "line": "<xul:menulist id=\"testList\" preference=\"test.int\"/>",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
             "path": "prefs/user.js",
             "path_kind": "normal",
             "lines": [
@@ -106,6 +148,24 @@ input_file: inputs/crossref/staticprefs/prefs__json
     {
       "symbol": "PREFS_test2@2Euint",
       "crossref_info": {
+        "uses": [
+          {
+            "path": "prefs/consumer.mjs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 16,
+                "bounds": [
+                  34,
+                  46
+                ],
+                "line": "return enabled && Preferences.get(\"test2.uint\");",
+                "context": "readPrefs",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
         "defs": [
           {
             "path": "staticprefs/StaticPrefList.yaml",
@@ -160,6 +220,40 @@ input_file: inputs/crossref/staticprefs/prefs__json
     {
       "symbol": "PREFS_test@2Estr",
       "crossref_info": {
+        "uses": [
+          {
+            "path": "prefs/consumer.mjs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 13,
+                "bounds": [
+                  27,
+                  37
+                ],
+                "line": "Services.prefs.addObserver(\"test.str\", () => {});",
+                "context": "readPrefs",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "prefs/preferences.xhtml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 8,
+                "bounds": [
+                  35,
+                  45
+                ],
+                "line": "SpecialPowers.pushPrefEnv({ set: [[\"test.str\", \"a\"]] });",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
         "defs": [
           {
             "path": "staticprefs/StaticPrefList.yaml",
