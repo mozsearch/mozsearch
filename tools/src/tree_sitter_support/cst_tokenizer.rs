@@ -14,7 +14,7 @@ use crate::tree_sitter_support::config_tokenizer::{tokenize_ini, tokenize_toml};
 use crate::tree_sitter_support::docs_tokenizer::{tokenize_markdown, tokenize_rst};
 use crate::tree_sitter_support::json_tokenizer::tokenize_json;
 use crate::tree_sitter_support::preprocessor::{ConditionalStacks, literal_condition};
-use crate::tree_sitter_support::spec_tokenizer::tokenize_spec_html;
+use crate::tree_sitter_support::spec_tokenizer::{tokenize_bikeshed, tokenize_spec_html};
 use crate::tree_sitter_support::yaml_tokenizer::tokenize_yaml;
 
 use tree_sitter::StreamingIterator as _;
@@ -99,6 +99,8 @@ enum Grammar {
     Fluent,
     /// See `spec_tokenizer.rs`.
     SpecHtml,
+    /// See `spec_tokenizer.rs`.
+    Bikeshed,
     /// Whitespace-delimited words.
     PlainText,
 }
@@ -253,6 +255,11 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
         grammar: Grammar::SpecHtml,
     },
     LanguageProfile {
+        lang: "bikeshed",
+        namespace: "spec",
+        grammar: Grammar::Bikeshed,
+    },
+    LanguageProfile {
         lang: "none",
         namespace: "none",
         grammar: Grammar::PlainText,
@@ -330,7 +337,10 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 /// - 13: Web specs' HTML-based sources (with `searchfox-lang=spec-html`) are
 ///   tokenized by `spec_tokenizer`, with contexts from their sections and
 ///   algorithms, in a shared "spec" namespace.
-pub const TOKENIZER_VERSION: u32 = 13;
+/// - 14: Bikeshed's `.bs` sources are tokenized by `spec_tokenizer`, like
+///   other specs' sources (with Markdown headings and algorithms, and
+///   shorthands), rather than as plain text.
+pub const TOKENIZER_VERSION: u32 = 14;
 
 /// The node to name a container by, given the node its query captured as its
 /// name.  tree-sitter's error recovery can make that span unrecognized macros
@@ -467,6 +477,7 @@ pub fn default_profile_for_path(path: &Path) -> Option<LanguageProfile> {
         "yaml" | "yml" => "yaml",
         "md" | "markdown" => "md",
         "rst" => "rst",
+        "bs" => "bikeshed",
         // Explicitly skip things we know are binary; this list copied from
         // "languages.rs".
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" | "gif" | "ogv" | "jpg" | "jpeg" | "bmp"
@@ -714,7 +725,8 @@ pub fn hypertokenize_with_profile(
         | Grammar::Yaml
         | Grammar::Markdown
         | Grammar::Rst
-        | Grammar::SpecHtml => {
+        | Grammar::SpecHtml
+        | Grammar::Bikeshed => {
             let (tokens, structure) = match profile.grammar {
                 Grammar::Ini => tokenize_ini(source_contents),
                 Grammar::Toml => tokenize_toml(source_contents),
@@ -722,6 +734,7 @@ pub fn hypertokenize_with_profile(
                 Grammar::Markdown => tokenize_markdown(source_contents),
                 Grammar::Rst => tokenize_rst(source_contents),
                 Grammar::SpecHtml => tokenize_spec_html(source_contents),
+                Grammar::Bikeshed => tokenize_bikeshed(source_contents),
                 _ => tokenize_json(source_contents),
             };
             return Ok(HyperTokenized::new(profile, tokens, structure));
@@ -974,6 +987,7 @@ fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
         | Grammar::Markdown
         | Grammar::Rst
         | Grammar::SpecHtml
+        | Grammar::Bikeshed
         | Grammar::PlainText
         | Grammar::ObjCpp => {
             return Err(format!("{:?} isn't a tree-sitter grammar", grammar));

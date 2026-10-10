@@ -1,0 +1,44 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(jvl).unwrap()"
+input_file: inputs/blame/syntax-token-tokenize/specs__example_bs__tokenize_outline__json
+---
+{
+  "values": [
+    {
+      "value": {
+        "pretty": "Introduction",
+        "isDef": true,
+        "kind": "section"
+      }
+    },
+    {
+      "value": {
+        "pretty": "Widgets",
+        "isDef": true,
+        "kind": "section"
+      }
+    },
+    {
+      "value": {
+        "pretty": "Widgets::poke",
+        "isDef": true,
+        "kind": "algorithm"
+      }
+    },
+    {
+      "value": {
+        "pretty": "Widgets::unpoke",
+        "isDef": true,
+        "kind": "algorithm"
+      }
+    },
+    {
+      "value": {
+        "pretty": "Widgets::Gadgets",
+        "isDef": true,
+        "kind": "section"
+      }
+    }
+  ]
+}

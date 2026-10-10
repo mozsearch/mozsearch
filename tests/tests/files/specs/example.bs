@@ -1,0 +1,35 @@
+<pre class=metadata>
+Title: Example
+Shortname: example
+Abstract: A small spec in Bikeshed's format, for the bikeshed tokenizer (see
+    tools/src/tree_sitter_support/spec_tokenizer.rs).
+</pre>
+
+Introduction {#intro}
+=====================
+
+A <dfn>widget</dfn> has a <dfn for=widget>state</dfn>, which [[HTML]] doesn't define.
+
+# Widgets # {#widgets}
+
+To <dfn>poke</dfn> a [=widget=] |widget|, run these steps:
+
+1. Set |widget|'s [=widget/state=] to "poked".
+1. Return.
+
+<div algorithm>
+To <dfn>unpoke</dfn> a [=widget=] |widget|:
+
+1. Set |widget|'s [=widget/state|state=] to "idle".
+</div>
+
+## Gadgets ## {#gadgets}
+
+<pre class=idl>
+[Exposed=Window]
+interface Gadget {
+  undefined poke();
+};
+</pre>
+
+The {{Gadget/poke()}} method steps are to [=poke=] <{img}> elements.

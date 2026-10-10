@@ -4,18 +4,26 @@
 //! - `spec-html`: HTML-based sources, ex: the HTML Standard's Wattsi `source`,
 //!   ECMA-262's ecmarkup `spec.html`, and older specs' Anolis `.src.html`
 //!   and XML sources (and the generated HTML their repositories had early
-//!   on).
+//!   on);
+//! - `bikeshed`: Bikeshed's `.bs` sources, which are HTML with Markdown
+//!   (headings, and paragraphs and lists of steps) and shorthands for
+//!   references (ex: `[=fetch=]`, `{{Request}}`, `<{img}>`, `[[HTML]]`,
+//!   `|request|`).
 //!
 //! Contexts are the document's hierarchy, like `docs_tokenizer`'s:
 //! - sections, nested by their headings' ranks (`<h2>`..`<h6>`, since an
-//!   `<h1>` is the document's title), named by their titles' words, without markup or section numbers (so a generated
-//!   `index`'s "4.2 The fetch algorithm" is the source's "The fetch
-//!   algorithm"), or for ecmarkup, its nested `<emu-clause>`s (and annexes),
-//!   named by their abstract operations' names (`aoid`) or their titles
-//!   (without operations' parameters);
-//! - and within them, algorithms: a `<div algorithm>`, or a "To
-//!   <dfn>X</dfn> ...:" paragraph and the `<ol>` of steps after it, named by
-//!   the `algorithm` attribute's value or the first `<dfn>`'s words.
+//!   `<h1>` is the document's title, and Bikeshed's Markdown headings, whose
+//!   `#`s are `<h2>`s and whose `=`/`-` underlines are `<h2>`s/`<h3>`s),
+//!   named by their titles' words, without markup, character references, or
+//!   section numbers (so a generated `index`'s "4.2 The fetch algorithm" is
+//!   the source's "The fetch algorithm"), or for ecmarkup, its nested
+//!   `<emu-clause>`s (and annexes), named by their abstract operations' names
+//!   (`aoid`) or their titles (without operations' parameters);
+//! - and within them, algorithms: a `<div algorithm>` (or another element
+//!   with an `algorithm` attribute), or a "To
+//!   <dfn>X</dfn> ...:" paragraph and the `<ol>` of steps after it (or in
+//!   Bikeshed's Markdown, the list after it), named by the `algorithm`
+//!   attribute's value or the first `<dfn>`'s words.
 //!
 //! Sections and algorithms are structure rows.  Tokens:
 //! - text is prose words (see `prose_words`);
@@ -23,6 +31,9 @@
 //!   (or `name`), its value's quotes, and the tag's `>`, and end tags;
 //! - attributes' values are identifier words (ex: `data-x`'s and `id`'s, and
 //!   old specs' `title=` references);
+//! - Bikeshed's shorthands are their delimiters as operators around their
+//!   targets as identifier words (and their texts after `|`s as prose), ex:
+//!   `[=`, `list/sorted`, `=]`;
 //! - comments' words are comments, and declarations' are operators.
 //!
 //! Every token is a verbatim substring of the source, in source order.  (We
@@ -83,8 +94,8 @@ fn is_name_char(b: u8) -> bool {
 }
 
 /// Lex HTML (or XML) into items covering all of `src`.  Markup that isn't
-/// well formed is text.
-fn lex(src: &str) -> Vec<Item> {
+/// well formed is text, as are, for Bikeshed, `<<type>>` shorthands.
+fn lex(src: &str, bikeshed: bool) -> Vec<Item> {
     let bytes = src.as_bytes();
     let mut items = vec![];
     let mut text_start = 0;
@@ -117,6 +128,8 @@ fn lex(src: &str) -> Vec<Item> {
             }
             i = end;
             text_start = i;
+        } else if bikeshed && rest.starts_with("<<") {
+            i += 2;
         } else if rest.starts_with("<!") || rest.starts_with("<?") {
             let end = rest.find('>').map_or(src.len(), |e| i + e + 1);
             flush_text(&mut items, text_start, i);
@@ -277,7 +290,7 @@ lazy_static! {
 /// separate words, ex: "<code>img</code>, and" is "img, and".)
 fn plain_words(src: &str, range: Range<usize>) -> String {
     let mut out = String::new();
-    for item in lex(&src[range.clone()]) {
+    for item in lex(&src[range.clone()], false) {
         if let Item::Text(r) = item {
             out.push_str(&src[range.start + r.start..range.start + r.end]);
         }
@@ -481,8 +494,10 @@ fn html_contexts(src: &str, items: &[Item]) -> Vec<Context> {
                     kind: "section",
                 });
             }
-            "div" if attr(src, item, "algorithm").is_some() => {
-                let Some(end) = matching_end(items, i, "div") else {
+            // (Usually a `<div algorithm>`, but ex: Service Workers' are
+            // `<section algorithm="...">`s.)
+            tag if attr(src, item, "algorithm").is_some() => {
+                let Some(end) = matching_end(items, i, tag) else {
                     continue;
                 };
                 let name = attr(src, item, "algorithm")
@@ -560,6 +575,10 @@ struct Emitter<'a> {
     tokens: Vec<RawToken<'a>>,
     structure: Vec<FileStructureRow>,
     rows: HashSet<String>,
+    /// For Bikeshed, its Markdown's markup (see `markdown_markup`), and the
+    /// next of it to emit.
+    markup: Vec<(Range<usize>, TokenClass)>,
+    next_markup: usize,
 }
 
 impl<'a> Emitter<'a> {
@@ -575,6 +594,8 @@ impl<'a> Emitter<'a> {
             tokens: vec![],
             structure: vec![],
             rows: HashSet::new(),
+            markup: vec![],
+            next_markup: 0,
         }
     }
 
@@ -682,6 +703,60 @@ impl<'a> Emitter<'a> {
         }
     }
 
+    /// Bikeshed's text: its Markdown's markup, and the rest with shorthands.
+    fn markdown(&mut self, range: Range<usize>) {
+        let mut pos = range.start;
+        while let Some((markup, class)) = self.markup.get(self.next_markup).cloned()
+            && markup.start < range.end
+        {
+            self.next_markup += 1;
+            if markup.start < pos || markup.end > range.end {
+                continue;
+            }
+            self.shorthands(pos..markup.start);
+            self.token(class, markup.clone());
+            pos = markup.end;
+        }
+        self.shorthands(pos..range.end);
+    }
+
+    /// Text with Bikeshed's shorthands: their delimiters as operators, and
+    /// their targets as identifier words, with any text after a `|` as prose.
+    fn shorthands(&mut self, range: Range<usize>) {
+        let text = &self.src[range.clone()];
+        let mut pos = 0;
+        for m in SHORTHAND.captures_iter(text) {
+            let whole = m.get(0).unwrap();
+            // (An escaped shorthand isn't one.)
+            if text[..whole.start()].ends_with('\\') {
+                continue;
+            }
+            self.words(
+                TokenClass::Text,
+                range.start + pos..range.start + whole.start(),
+            );
+            let groups: Vec<regex::Match> = m.iter().skip(1).flatten().collect();
+            let [open, content, close] = groups[..] else {
+                continue;
+            };
+            let at = |m: &regex::Match| range.start + m.start()..range.start + m.end();
+            self.token(TokenClass::Operator, at(&open));
+            let content_range = at(&content);
+            match self.src[content_range.clone()].find('|') {
+                Some(bar) if open.as_str() != "|" => {
+                    let bar = content_range.start + bar;
+                    self.words(TokenClass::Identifier, content_range.start..bar);
+                    self.token(TokenClass::Operator, bar..bar + 1);
+                    self.words(TokenClass::Text, bar + 1..content_range.end);
+                }
+                _ => self.words(TokenClass::Identifier, content_range),
+            }
+            self.token(TokenClass::Operator, at(&close));
+            pos = whole.end();
+        }
+        self.words(TokenClass::Text, range.start + pos..range.end);
+    }
+
     /// A start tag's tokens.
     fn start_tag(&mut self, range: &Range<usize>, attrs: &[(Range<usize>, Option<Range<usize>>)]) {
         let src = self.src;
@@ -714,12 +789,24 @@ impl<'a> Emitter<'a> {
     }
 }
 
-/// Emit the tokens of lexed markup.
-fn emit_items(out: &mut Emitter, items: &[Item]) {
+/// Emit the tokens of lexed markup (for Bikeshed, with its shorthands, but
+/// for literal elements' contents; see `LITERAL`).
+fn emit_items(out: &mut Emitter, items: &[Item], bikeshed: bool) {
+    let mut literal: Vec<&str> = vec![];
     for item in items {
         match item {
-            Item::Start { range, attrs, .. } => out.start_tag(range, attrs),
-            Item::End { range, .. } => out.token(TokenClass::Operator, range.clone()),
+            Item::Start { range, attrs, name } => {
+                out.start_tag(range, attrs);
+                if LITERAL.contains(&name.as_str()) && !out.src[range.clone()].ends_with("/>") {
+                    literal.push(name);
+                }
+            }
+            Item::End { range, name } => {
+                out.token(TokenClass::Operator, range.clone());
+                if literal.last() == Some(&name.as_str()) {
+                    literal.pop();
+                }
+            }
             Item::Comment(range) => {
                 let inner_start = (range.start + 4).min(range.end);
                 let inner_end =
@@ -733,6 +820,7 @@ fn emit_items(out: &mut Emitter, items: &[Item]) {
                 out.token(TokenClass::Operator, inner_end..range.end);
             }
             Item::Declaration(range) => out.words(TokenClass::Operator, range.clone()),
+            Item::Text(range) if bikeshed && literal.is_empty() => out.markdown(range.clone()),
             Item::Text(range) => out.words(TokenClass::Text, range.clone()),
         }
     }
@@ -740,11 +828,226 @@ fn emit_items(out: &mut Emitter, items: &[Item]) {
 
 /// Tokenize an HTML-based spec source (see the module's documentation).
 pub fn tokenize_spec_html(source: &str) -> (FinishedTokens, Vec<FileStructureRow>) {
-    let items = lex(source);
+    let items = lex(source, false);
     let contexts = html_contexts(source, &items);
     let mut out = Emitter::new(source, contexts);
-    emit_items(&mut out, &items);
+    emit_items(&mut out, &items, false);
     out.finish()
+}
+
+/// Tokenize a Bikeshed source (see the module's documentation).
+pub fn tokenize_bikeshed(source: &str) -> (FinishedTokens, Vec<FileStructureRow>) {
+    let items = lex(source, true);
+    let mut contexts = html_contexts(source, &items);
+    contexts.extend(markdown_contexts(source, &items));
+    let mut out = Emitter::new(source, contexts);
+    out.markup = markdown_markup(source, &items);
+    emit_items(&mut out, &items, true);
+    out.finish()
+}
+
+// ## Bikeshed
+
+/// Elements whose contents aren't Markdown or shorthands.
+const LITERAL: &[&str] = &["pre", "xmp", "script", "style"];
+
+/// The ranges of the literal elements in `items` (see `LITERAL`).
+fn literal_ranges(items: &[Item]) -> Vec<Range<usize>> {
+    let mut ranges: Vec<Range<usize>> = vec![];
+    let mut i = 0;
+    while i < items.len() {
+        if let Item::Start { name, range, .. } = &items[i]
+            && LITERAL.contains(&name.as_str())
+        {
+            let end_index = (i + 1..items.len()).find(|&j| is_end(&items[j], name));
+            let end = end_index.map_or(usize::MAX, |j| items[j].range().end);
+            ranges.push(range.start..end);
+            i = end_index.map_or(items.len(), |j| j + 1);
+            continue;
+        }
+        i += 1;
+    }
+    ranges
+}
+
+lazy_static! {
+    /// A Markdown heading: its `#`s, and its title, without trailing `#`s or
+    /// an `{#id}`.
+    static ref MD_HEADING: Regex =
+        Regex::new(r"^(#{1,5})[ \t]+(.*?)[ \t#]*(?:\{#[^}]*\})?[ \t]*$").unwrap();
+    /// A setext heading's underline.
+    static ref MD_UNDERLINE: Regex = Regex::new(r"^(=+|-+)[ \t]*$").unwrap();
+    /// A setext heading's `{#id}`.
+    static ref MD_ID: Regex = Regex::new(r"[ \t]*\{#[^}]*\}[ \t]*$").unwrap();
+    /// A Markdown heading's markup: its `#`s, any trailing `#`s, and its
+    /// `{#id}`.
+    static ref MD_HEADING_MARKUP: Regex =
+        Regex::new(r"^(#{1,5})[ \t]+.*?(?:[ \t](#+))?[ \t]*(\{#([^}]*)\})?[ \t]*$").unwrap();
+    /// A setext heading's `{#id}`, for its markup.
+    static ref MD_ID_MARKUP: Regex = Regex::new(r"(\{#([^}]*)\})[ \t]*$").unwrap();
+    /// A Markdown list item's marker.
+    static ref MD_LIST_MARKER: Regex = Regex::new(r"^[ \t]*(\d+\.|[*+-])[ \t]").unwrap();
+    /// A Markdown list item.
+    static ref MD_LIST_ITEM: Regex = Regex::new(r"^[ \t]*(?:\d+\.|[*+-])[ \t]").unwrap();
+    /// Bikeshed's shorthands: their openers, contents, and closers.
+    static ref SHORTHAND: Regex = Regex::new(concat!(
+        r"(?s)(\[=)([^=\]]+?)(=\])|(\{\{)(.+?)(\}\})|(<\{)(.+?)(\}>)",
+        r"|(\[\[)([^\]\[]+?)(\]\])|('')([^'\n]+?)('')|(\[:)([^:\]]+?)(:\])",
+        r"|(\[\$)([^$\]]+?)(\$\])|(\[\^)([^^\]]+?)(\^\])|(<<)([^<>]+?)(>>)",
+        r"|(\|)([\w-]+)(\|)",
+    ))
+    .unwrap();
+}
+
+/// The Markdown markup of a Bikeshed source, outside literal elements:
+/// headings' `#`s and underlines and list items' markers as operators, and
+/// headings' `{#id}`s as their delimiters and the id.
+fn markdown_markup(src: &str, items: &[Item]) -> Vec<(Range<usize>, TokenClass)> {
+    let literal = literal_ranges(items);
+    let in_literal = |pos: usize| literal.iter().any(|r| r.contains(&pos));
+    let mut markup = vec![];
+    let mut lines = src.split_inclusive('\n').peekable();
+    let mut pos = 0;
+    let id = |markup: &mut Vec<(Range<usize>, TokenClass)>, braces: Range<usize>| {
+        markup.push((braces.start..braces.start + 2, TokenClass::Operator));
+        markup.push((braces.start + 2..braces.end - 1, TokenClass::Identifier));
+        markup.push((braces.end - 1..braces.end, TokenClass::Operator));
+    };
+    while let Some(raw) = lines.next() {
+        let line = raw.trim_end_matches(['\n', '\r']);
+        let start = pos;
+        pos += raw.len();
+        if in_literal(start) || line.trim().is_empty() {
+            continue;
+        }
+        if let Some(m) = MD_HEADING_MARKUP.captures(line) {
+            for group in [1, 2] {
+                if let Some(g) = m.get(group) {
+                    markup.push((start + g.start()..start + g.end(), TokenClass::Operator));
+                }
+            }
+            if let Some(g) = m.get(3) {
+                id(&mut markup, start + g.start()..start + g.end());
+            }
+        } else if let Some(m) = MD_LIST_MARKER.captures(line) {
+            let g = m.get(1).unwrap();
+            markup.push((start + g.start()..start + g.end(), TokenClass::Operator));
+        } else if let Some(next) = lines.peek()
+            && !line.starts_with(['<', ' ', '\t'])
+            && let Some(m) = MD_UNDERLINE.captures(next.trim_end_matches(['\n', '\r']))
+            && m[1].len() >= 3
+        {
+            if let Some(m) = MD_ID_MARKUP.captures(line) {
+                let g = m.get(1).unwrap();
+                id(&mut markup, start + g.start()..start + g.end());
+            }
+            let g = m.get(1).unwrap();
+            markup.push((pos + g.start()..pos + g.end(), TokenClass::Operator));
+        }
+    }
+    markup.sort_by_key(|(range, _)| range.start);
+    markup
+}
+
+/// The contexts from a Bikeshed source's Markdown: its headings, and its
+/// algorithms' paragraphs and lists of steps.
+fn markdown_contexts(src: &str, items: &[Item]) -> Vec<Context> {
+    let literal = literal_ranges(items);
+    let in_literal = |pos: usize| literal.iter().any(|r| r.contains(&pos));
+    let mut lines: Vec<(usize, &str)> = vec![];
+    let mut pos = 0;
+    for line in src.split_inclusive('\n') {
+        lines.push((pos, line.trim_end_matches(['\n', '\r'])));
+        pos += line.len();
+    }
+    let mut contexts = vec![];
+    let mut i = 0;
+    while i < lines.len() {
+        let (start, line) = lines[i];
+        if in_literal(start) {
+            i += 1;
+            continue;
+        }
+        if let Some(m) = MD_HEADING.captures(line) {
+            let rank = (m[1].len() + 1) as u8;
+            let title = m.get(2).unwrap();
+            let name = context_name(&plain_words(
+                src,
+                start + title.start()..start + title.end(),
+            ));
+            if !name.is_empty() {
+                contexts.push(Context {
+                    start,
+                    end: None,
+                    rank,
+                    name,
+                    kind: "section",
+                });
+            }
+        } else if !line.trim().is_empty()
+            && !MD_LIST_ITEM.is_match(line)
+            && !line.starts_with(['<', ' ', '\t'])
+            && let Some((_, next)) = lines.get(i + 1)
+            && let Some(m) = MD_UNDERLINE.captures(next)
+            && m[1].len() >= 3
+        {
+            let rank = if m[1].starts_with('=') { 2 } else { 3 };
+            let title = MD_ID.replace(line, "");
+            let name = context_name(&plain_words(src, start..start + title.len()));
+            if !name.is_empty() {
+                contexts.push(Context {
+                    start,
+                    end: None,
+                    rank,
+                    name,
+                    kind: "section",
+                });
+            }
+        } else if line.trim_start().starts_with("To <dfn") {
+            // "To <dfn>X</dfn> ...:" (the paragraph, to a blank line) and the
+            // list of steps after it, to the next line which is neither
+            // indented nor a list item.
+            let para_end = (i..lines.len())
+                .find(|&j| lines[j].1.trim().is_empty())
+                .unwrap_or(lines.len());
+            let first_step = (para_end..lines.len()).find(|&j| !lines[j].1.trim().is_empty());
+            if let Some(first_step) = first_step
+                && MD_LIST_ITEM.is_match(lines[first_step].1)
+            {
+                let end_line = (first_step + 1..lines.len())
+                    .find(|&j| {
+                        let line = lines[j].1;
+                        !line.trim().is_empty()
+                            && !line.starts_with([' ', '\t'])
+                            && !MD_LIST_ITEM.is_match(line)
+                    })
+                    .unwrap_or(lines.len());
+                let para_text_end = lines.get(para_end).map_or(src.len(), |(at, _)| *at);
+                let para = &src[start..para_text_end];
+                let dfn_words = para.find("<dfn").and_then(|at| {
+                    let open_end = para[at..].find('>')? + at + 1;
+                    let close = para[open_end..].find("</dfn>")? + open_end;
+                    Some(plain_words(src, start + open_end..start + close))
+                });
+                if let Some(name) = dfn_words.filter(|name| !name.is_empty()) {
+                    let end = lines
+                        .get(end_line)
+                        .map_or(src.len(), |(line_start, _)| *line_start);
+                    contexts.push(Context {
+                        start,
+                        end: Some(end),
+                        rank: 0,
+                        name: context_name(&name),
+                        kind: "algorithm",
+                    });
+                    i = first_step;
+                    continue;
+                }
+            }
+        }
+        i += 1;
+    }
+    contexts
 }
 
 #[cfg(test)]
@@ -771,7 +1074,7 @@ mod tests {
     #[test]
     fn test_lex() {
         let src = "<p class=note>A <a href=\"#x\" title='t u'>b</a> &amp; c<br/><!-- d --></p>";
-        let items = lex(src);
+        let items = lex(src, false);
         let kinds: Vec<String> = items
             .iter()
             .map(|item| match item {
@@ -797,7 +1100,7 @@ mod tests {
             ]
         );
         // (Not tags.)
-        let items = lex("a < b, c <3, <?xml?>");
+        let items = lex("a < b, c <3, <?xml?>", false);
         assert!(matches!(items[0], Item::Text(_)));
         assert!(matches!(items.last(), Some(Item::Declaration(_))));
     }
@@ -912,6 +1215,74 @@ mod tests {
             find("After"),
             "Attributes%20common%20to%20img,%20and%20link::After"
         );
+    }
+
+    fn bs_tokens(source: &str) -> Vec<(String, char, String)> {
+        let (finished, _) = tokenize_bikeshed(source);
+        finished
+            .lines
+            .iter()
+            .map(|line| {
+                let token = crate::file_format::history::syntax_files::split_token_line(line);
+                (
+                    token.context.to_string(),
+                    token.class.as_char(),
+                    token.token.to_string(),
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_bikeshed() {
+        let src = concat!(
+            "<pre class=metadata>\nTitle: X {{not}}\n</pre>\n\n",
+            "Introduction {#intro}\n============\n\n",
+            "A [=list/sorted|sorted=] {{Request}}, <{img}>, [[!HTML]], |var|, and \\[=escaped=].\n\n",
+            "# Keys # {#keys}\n\n",
+            "To <dfn>compare two keys</dfn> |a| and |b|, run these steps:\n\n",
+            "1. Let |ta| be the [=key/type=] of |a|.\n",
+            "    1. Nested.\n",
+            "1. Return.\n\n",
+            "After.\n\n",
+            "<h3 id=x>Third</h3>\n<<length>> stays.\n",
+        );
+        let tokens = bs_tokens(src);
+        let find = |text: &str| tokens.iter().find(|t| t.2 == text).unwrap().clone();
+        // (Shorthands in literal elements aren't.)
+        assert_eq!(find("{{").1, 't');
+        // (Markdown's markup is operators, and ids are identifiers.)
+        assert_eq!(find("============").1, 'o');
+        assert_eq!(find("intro").1, 'i');
+        assert_eq!(find("#").1, 'o');
+        assert_eq!(find("1.").1, 'o');
+        assert_eq!(find("A").0, "Introduction");
+        assert_eq!(find("[=").1, 'o');
+        assert_eq!(
+            find("list/sorted"),
+            ("Introduction".to_string(), 'i', "list/sorted".to_string())
+        );
+        assert_eq!(find("sorted").1, 't');
+        assert_eq!(find("Request").1, 'i');
+        assert_eq!(find("<{").1, 'o');
+        assert_eq!(find("img").1, 'i');
+        assert_eq!(find("!HTML").1, 'i');
+        assert_eq!(find("var").1, 'i');
+        // (Escaped shorthands are text.)
+        assert!(tokens.iter().any(|t| t.2.contains("escaped") && t.1 == 't'));
+        // `#` is an `<h2>`, like the `=` underline, so they're siblings.
+        assert_eq!(find("To").0, "Keys::compare%20two%20keys");
+        assert_eq!(find("Nested").0, "Keys::compare%20two%20keys");
+        assert_eq!(find("Return").0, "Keys::compare%20two%20keys");
+        assert_eq!(find("After").0, "Keys");
+        assert_eq!(find("Third").0, "Keys::Third");
+        assert_eq!(find("length").1, 'i');
+        // Every token is in the source, in order.
+        let mut pos = 0;
+        for (_, _, text) in &tokens {
+            let at = src[pos..].find(text.as_str()).unwrap();
+            pos += at + text.len();
+        }
     }
 
     #[test]

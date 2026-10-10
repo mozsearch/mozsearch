@@ -1,0 +1,1 @@
+tokenize-source --mode outline specs/example.bs
