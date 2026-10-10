@@ -11,6 +11,7 @@ use crate::tree_sitter_support::boilerplate::{FinishedTokens, RawToken, finish_t
 use crate::tree_sitter_support::config_tokenizer::{tokenize_ini, tokenize_toml};
 use crate::tree_sitter_support::json_tokenizer::tokenize_json;
 use crate::tree_sitter_support::preprocessor::{ConditionalStacks, literal_condition};
+use crate::tree_sitter_support::yaml_tokenizer::tokenize_yaml;
 
 use tree_sitter::StreamingIterator as _;
 
@@ -83,6 +84,8 @@ enum Grammar {
     Toml,
     /// See `json_tokenizer.rs`.
     Json,
+    /// See `yaml_tokenizer.rs`.
+    Yaml,
     /// Fluent, Project Fluent's localization format, with searchfox's
     /// tree-sitter-fluent.
     Fluent,
@@ -201,6 +204,13 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
         namespace: "json",
         grammar: Grammar::Json,
     },
+    // YAML files, like JSON's, with contexts from their structure; see
+    // `yaml_tokenizer`.
+    LanguageProfile {
+        lang: "yaml",
+        namespace: "yaml",
+        grammar: Grammar::Yaml,
+    },
     // Fluent localization files: messages, terms (with their "-"), and their
     // attributes are contexts.
     LanguageProfile {
@@ -273,7 +283,10 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   preprocessor branches (`#if 0`'s) are comments (see `tokenize_cpp`),
 ///   and ANGLE's `ANGLE_MTL_OBJC_SCOPE`s don't make their blocks compound
 ///   literals (see `SCOPE_MACROS`).
-pub const TOKENIZER_VERSION: u32 = 9;
+/// - 10: YAML files are tokenized by `yaml_tokenizer` (with searchfox's
+///   tree-sitter-yaml), with contexts from their structure like JSON's,
+///   rather than as plain text.
+pub const TOKENIZER_VERSION: u32 = 10;
 
 /// The node to name a container by, given the node its query captured as its
 /// name.  tree-sitter's error recovery can make that span unrecognized macros
@@ -407,6 +420,7 @@ pub fn default_profile_for_path(path: &Path) -> Option<LanguageProfile> {
         "ini" => "ini",
         "toml" => "toml",
         "ftl" => "ftl",
+        "yaml" | "yml" => "yaml",
         // Explicitly skip things we know are binary; this list copied from
         // "languages.rs".
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" | "gif" | "ogv" | "jpg" | "jpeg" | "bmp"
@@ -648,10 +662,11 @@ pub fn hypertokenize_with_profile(
     source_contents: &str,
 ) -> Result<HyperTokenized, String> {
     match profile.grammar {
-        Grammar::Ini | Grammar::Toml | Grammar::Json => {
+        Grammar::Ini | Grammar::Toml | Grammar::Json | Grammar::Yaml => {
             let (tokens, structure) = match profile.grammar {
                 Grammar::Ini => tokenize_ini(source_contents),
                 Grammar::Toml => tokenize_toml(source_contents),
+                Grammar::Yaml => tokenize_yaml(source_contents),
                 _ => tokenize_json(source_contents),
             };
             return Ok(HyperTokenized::new(profile, tokens, structure));
@@ -897,7 +912,12 @@ fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
                 ClassQuirks::default(),
             )
         }
-        Grammar::Ini | Grammar::Toml | Grammar::Json | Grammar::PlainText | Grammar::ObjCpp => {
+        Grammar::Ini
+        | Grammar::Toml
+        | Grammar::Json
+        | Grammar::Yaml
+        | Grammar::PlainText
+        | Grammar::ObjCpp => {
             return Err(format!("{:?} isn't a tree-sitter grammar", grammar));
         }
     };

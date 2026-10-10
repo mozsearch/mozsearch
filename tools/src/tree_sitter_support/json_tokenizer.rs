@@ -26,7 +26,7 @@ use crate::tree_sitter_support::config_tokenizer::escape_name;
 
 /// The keys whose (string or number) values identify a record, most preferred
 /// first.
-const IDENTITY_KEYS: &[&str] = &[
+pub(crate) const IDENTITY_KEYS: &[&str] = &[
     "id", "guid", "uuid", "sym", "name", "key", "path", "url", "test", "slug",
 ];
 
@@ -44,7 +44,7 @@ struct JsonTokenizer<'a> {
     rows: HashSet<String>,
 }
 
-fn context_of(path: &[String]) -> String {
+pub(crate) fn context_of(path: &[String]) -> String {
     if path.is_empty() {
         "%".to_string()
     } else {

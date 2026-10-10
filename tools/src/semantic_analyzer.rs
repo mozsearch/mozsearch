@@ -480,7 +480,7 @@ impl<'t> Data<'t> {
 /// (`@NAME@`, ex: in StaticPrefList.yaml) isn't valid YAML, so it becomes a
 /// quoted string of the same length, `"NAME"`.  (A plain scalar can't start
 /// with `@`, so this only changes YAML that isn't valid otherwise.)
-fn preprocess_yaml(source: &str) -> Option<String> {
+pub(crate) fn preprocess_yaml(source: &str) -> Option<String> {
     lazy_static::lazy_static! {
         static ref SUBSTITUTION: regex::Regex =
             regex::Regex::new(r"(?m)((?:^|:|-)[ ]+)@([A-Za-z_][A-Za-z0-9_]*)@([ ]*(?:#.*)?)$")
@@ -1197,7 +1197,7 @@ fn data_records(
 /// recovery ended the tree before the end of the text (ex: tree-sitter-yaml's,
 /// at some invalid quoted strings), the trees of the rest, each from the line
 /// after the previous tree's end.
-fn parse_all(
+pub(crate) fn parse_all(
     parser: &mut tree_sitter::Parser,
     source: &str,
     continue_after_errors: bool,
