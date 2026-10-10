@@ -1515,6 +1515,82 @@ fn get_object_at<'a>(
 /// Dynamically renders the contents of a specific file with blame annotations but without any
 /// semantic analysis data available.  Used by the "rev" display and the "diff" mechanism when
 /// there aren't actually any changes in the diff.
+/// Whether a tree's blame or history has a revision (see `tree_for_rev`).
+#[derive(Debug, PartialEq, Eq)]
+enum RevKnowledge {
+    /// The tree's blame or history has it.
+    Known,
+    /// The tree's repo has it, but its blame and history don't.
+    Unknown,
+    /// The tree's repo doesn't have it.
+    Missing,
+    /// The tree has no blame or history to tell.
+    CantTell,
+}
+
+fn rev_knowledge(tree_config: &TreeConfig, rev: &str) -> RevKnowledge {
+    let Some(git) = tree_config.git.as_ref() else {
+        return RevKnowledge::CantTell;
+    };
+    if git.blame_repo.is_none() && git.history.is_none() {
+        return RevKnowledge::CantTell;
+    }
+    let Some(oid) = git
+        .repo
+        .revparse_single(rev)
+        .and_then(|object| object.peel_to_commit())
+        .ok()
+        .map(|commit| commit.id())
+    else {
+        return RevKnowledge::Missing;
+    };
+    let in_history = || {
+        git.history
+            .as_ref()
+            .is_some_and(|history| history.timeline_commit(oid).is_some())
+    };
+    if git.blame_rev(oid).is_some() || in_history() {
+        RevKnowledge::Known
+    } else {
+        RevKnowledge::Unknown
+    }
+}
+
+/// For `/{tree}/rev/{rev}/` pages, another tree to show `rev` in, if this
+/// tree's repo has it but its blame and history don't, and another tree's
+/// do: ex: crash-stats links to firefox-main for crashes on every branch, and
+/// a revision only on beta is in firefox-beta's blame and history, not
+/// firefox-main's (the firefox trees share their repos, with a branch each).
+/// This tree's notes are checked first, so the usual case costs a notes
+/// lookup; the other trees' only when that fails.  (Like GitHub, any revision
+/// we know works with any of the trees' URLs, by redirecting.)
+pub fn tree_for_rev(cfg: &Config, tree_name: &str, rev: &str) -> Option<String> {
+    let tree_config = cfg.trees.get(tree_name)?;
+    redirect_target(
+        rev_knowledge(tree_config, rev),
+        cfg.trees
+            .iter()
+            .filter(|(name, _)| *name != tree_name)
+            .map(|(name, other)| (name, rev_knowledge(other, rev))),
+    )
+}
+
+/// `tree_for_rev`'s choice, given what this tree and the others (lazily, in
+/// order) know of the revision.  Not when this tree's repo doesn't have the
+/// revision at all, ex: the tree switcher keeping the revision of an
+/// unrelated repo, which would bounce back to where it came from.
+fn redirect_target<'a>(
+    this: RevKnowledge,
+    mut others: impl Iterator<Item = (&'a String, RevKnowledge)>,
+) -> Option<String> {
+    if this != RevKnowledge::Unknown {
+        return None;
+    }
+    others
+        .find(|(_, knowledge)| *knowledge == RevKnowledge::Known)
+        .map(|(name, _)| name.clone())
+}
+
 pub fn format_path(
     cfg: &Config,
     tree_name: &str,
@@ -3989,6 +4065,27 @@ pub fn format_commit(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_redirect_target() {
+        use super::RevKnowledge::*;
+        let names: Vec<String> = ["beta", "release"].iter().map(|n| n.to_string()).collect();
+        let others = |knowledge: [super::RevKnowledge; 2]| names.iter().zip(knowledge);
+        // A revision this tree's repo has but its blame and history don't
+        // goes to the first tree whose do.
+        assert_eq!(
+            super::redirect_target(Unknown, others([Unknown, Known])),
+            Some("release".to_string())
+        );
+        assert_eq!(
+            super::redirect_target(Unknown, others([Unknown, Missing])),
+            None
+        );
+        // Not if this tree has it, can't tell, or its repo doesn't have it.
+        for this in [Known, CantTell, Missing] {
+            assert_eq!(super::redirect_target(this, others([Known, Known])), None);
+        }
+    }
+
     use super::*;
     use crate::cmd_pipeline::facets::FacetValueView;
 

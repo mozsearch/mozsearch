@@ -169,6 +169,12 @@ fn handle(
             let path = path.clone().split_off(3);
             let path = path.join("/");
 
+            // (A revision another tree has, ex: crash-stats' links to
+            // firefox-main for revisions only on beta.)
+            if let Some(other_tree) = format::tree_for_rev(cfg, tree_name, rev) {
+                return WebResponse::redirect(format!("/{}/rev/{}/{}", other_tree, rev, path));
+            }
+
             let mut writer = Vec::new();
             match format::format_path(cfg, tree_name, rev, &path, &mut writer) {
                 Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
