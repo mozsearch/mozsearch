@@ -3840,10 +3840,50 @@ pub fn format_explore(
         }
         refs.extend(found);
     }
+    let own_revs: HashSet<String> = refs.iter().map(|r| r.rev.clone()).collect();
     explore::order_commits(&git.repo, &mut refs);
     let truncated = refs.len() > explore::MAX_COMMITS;
     refs.truncate(explore::MAX_COMMITS);
     explore::mark_history_backouts(history.map(|h| Path::new(&h.path)), &mut refs);
+
+    // The commits for the keys on other branches (ex: uplifts to beta, or
+    // main's after beta's cut), linked to the trees for those branches (with
+    // the same history), if any.
+    let mut other_branches = vec![];
+    for (branch, other_index) in index.other_branches() {
+        let mut found: Vec<CommitRef> = keys
+            .iter()
+            .flat_map(|key| match kind {
+                "bug" => other_index.bug_commits(key),
+                _ => other_index.phab_commits(key),
+            })
+            .filter(|r| !own_revs.contains(&r.rev))
+            .collect();
+        if found.is_empty() {
+            continue;
+        }
+        explore::order_commits(&git.repo, &mut found);
+        found.truncate(explore::MAX_COMMITS);
+        let branch_tree = cfg
+            .trees
+            .iter()
+            .find(|(_, other)| {
+                other.paths.history_path == tree_config.paths.history_path
+                    && other.paths.git_branch.as_deref().unwrap_or("HEAD") == branch
+            })
+            .map(|(name, _)| name.clone());
+        let commits: Vec<ExploreCommit> = found
+            .iter()
+            .enumerate()
+            .map(|(i, commit_ref)| explore_commit(tree_config, git, i + 1, commit_ref))
+            .collect();
+        other_branches.push(json!({
+            "branch": branch,
+            "tree": branch_tree,
+            "link_tree": branch_tree.as_deref().unwrap_or(tree_name),
+            "commits": commits,
+        }));
+    }
 
     let mut commits: Vec<ExploreCommit> = refs
         .iter()
@@ -3896,6 +3936,8 @@ pub fn format_explore(
         "slot": explore::slot_width(commits.len()),
         "missing": missing,
         "truncated": truncated,
+        "other_branches": other_branches,
+        "explore_url": format!("explore/{}/{}", kind, keys.join(",")),
     }))
     .map_err(|_| "Template problems")?;
     build_and_parse_explore()
