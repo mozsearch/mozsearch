@@ -30,6 +30,19 @@ impl DocTrees {
 
         None
     }
+
+    /// The source path (without an extension) of a document by its path in
+    /// the staged documentation (without an extension), the reverse of
+    /// `find`.
+    pub fn find_source(&self, target_path: &str) -> Option<String> {
+        self.data
+            .iter()
+            .filter(|(target_prefix, _)| target_path.starts_with(target_prefix.as_str()))
+            .max_by_key(|(target_prefix, _)| target_prefix.len())
+            .map(|(target_prefix, src_prefix)| {
+                src_prefix.to_owned() + &target_path[target_prefix.len()..]
+            })
+    }
 }
 
 pub fn read_doc_trees(filename: &String) -> DocTrees {

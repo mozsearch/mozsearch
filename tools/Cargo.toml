@@ -62,6 +62,7 @@ num_cpus = "1"
 petgraph = "0.8.3"
 prost = "0.14.3"
 protobuf = "3.7.2"
+pulldown-cmark = { version = "0.13.0", default-features = false }
 query-parser = "0.2.0"
 regex = "1"
 reqwest = "0.13.2"

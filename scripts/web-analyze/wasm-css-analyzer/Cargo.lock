@@ -4269,6 +4269,7 @@ dependencies = [
  "petgraph 0.8.3",
  "prost",
  "protobuf",
+ "pulldown-cmark",
  "query-parser",
  "regex 1.12.4",
  "reqwest",

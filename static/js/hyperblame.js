@@ -206,8 +206,371 @@ var HyperblameContexts = new (class HyperblameContexts {
     if (elt.dataset.hbCtx !== undefined) {
       return { data: this.contexts[elt.dataset.hbCtx], lineno: parseInt(elt.dataset.hbLine, 10) };
     }
+    // A block of a rendered document, whose first line it is.
+    if (RenderedBlocks.isBlockStrip(elt)) {
+      return { data: this.contexts[0], lineno: RenderedBlocks.lines(elt)[0] ?? 1 };
+    }
     const lineElt = elt.closest(".source-line-with-number");
     return { data: this.contexts[0], lineno: parseInt(lineElt.id.substring("line-".length), 10) };
+  }
+})();
+
+/**
+ * The blocks of a rendered document (see `rendered_docs` and
+ * `format_rendered` in the tools), whose blame strips are like source
+ * listings' strips, but for blocks (paragraphs, headings, code blocks, table
+ * rows, ...), which can be several lines of the file, and several lines on
+ * the page.  The popup for a block is for the visual line under the mouse, as
+ * the browser wrapped the block: the block's runs of text from the file
+ * (`span[data-l]`, with their line and UTF-16 column in the file, and
+ * `data-n` with their length in the file if it's not their text's) say where
+ * the tokens of the hyperblame data are.
+ */
+var RenderedBlocks = new (class RenderedBlocks {
+  constructor() {
+    this.root = document.getElementById("rendered-doc");
+    // The mouse's latest position over a strip.
+    this.lastY = null;
+    // The layout of the block whose popup is shown, and its visual line.
+    this.current = null;
+    if (!this.root) {
+      return;
+    }
+    const strips = [...this.root.querySelectorAll(".blame-strip")];
+    this.placeStrips(strips);
+    let width = this.root.clientWidth;
+    new ResizeObserver(() => {
+      if (this.root.clientWidth != width) {
+        width = this.root.clientWidth;
+        this.placeStrips(strips);
+      }
+    }).observe(this.root);
+
+    for (const strip of strips) {
+      strip.addEventListener("mouseenter", event => {
+        this.lastY = event.clientY;
+      });
+      strip.addEventListener("mousemove", event => this.moved(strip, event.clientY));
+      const touched = event => {
+        if (event.touches.length == 1) {
+          this.moved(strip, event.touches[0].clientY);
+        }
+      };
+      strip.addEventListener("touchstart", touched, { passive: true });
+      strip.addEventListener("touchmove", touched, { passive: true });
+    }
+
+    // Load the hyperblame data for blocks as they near the viewport.
+    const data = HyperblameContexts.contexts[0];
+    if (data?.available && data.info.chunks.length > 1) {
+      const observer = new IntersectionObserver(entries => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            observer.unobserve(entry.target);
+            const [first] = this.lines(entry.target);
+            if (first) {
+              data.getChunk(data.chunkForLine(first));
+            }
+          }
+        }
+      }, { rootMargin: "100% 0px" });
+      for (const strip of strips) {
+        observer.observe(strip);
+      }
+    }
+  }
+
+  isBlockStrip(elt) {
+    return elt.dataset.rdBlock !== undefined;
+  }
+
+  /**
+   * The (1-based) lines of the file which a strip's block covers.
+   */
+  lines(strip) {
+    const [first, last] = (strip.dataset.rdLines || "").split("-").map(n => parseInt(n, 10));
+    if (!first) {
+      return [];
+    }
+    return Array.from({ length: last - first + 1 }, (_, i) => first + i);
+  }
+
+  /**
+   * The element of a strip's block: the block, or a table's row.
+   */
+  blockOf(strip) {
+    return strip.closest("tr") || strip.parentElement;
+  }
+
+  previousStrip(strip) {
+    return this.root.querySelector(`.blame-strip[data-rd-block="${parseInt(strip.dataset.rdBlock, 10) - 1}"]`);
+  }
+
+  /**
+   * Move the strips into the gutter at the document's left edge, wherever
+   * their blocks are.
+   */
+  placeStrips(strips) {
+    const gutter = this.root.getBoundingClientRect().left + 8;
+    const lefts = strips.map(strip => {
+      const parent = strip.offsetParent;
+      return parent ? gutter - parent.getBoundingClientRect().left - parent.clientLeft : null;
+    });
+    strips.forEach((strip, i) => {
+      if (lefts[i] !== null) {
+        strip.style.setProperty("--rd-strip-left", `${lefts[i]}px`);
+      }
+    });
+  }
+
+  /**
+   * Show the popup for the visual line under the mouse, if it's another line
+   * of the block whose popup is shown.
+   */
+  moved(strip, y) {
+    this.lastY = y;
+    if (BlamePopup.triggerElement !== strip || BlameStripHoverHandler.keepVisible ||
+        this.current?.strip !== strip) {
+      return;
+    }
+    if (this.lineAt(this.current.layout, y) !== this.current.line) {
+      BlamePopup.update();
+    }
+  }
+
+  /**
+   * The layout of a strip's block, given the tokens of its lines (as
+   * `[{ lineno, tokens }]`, see `HyperblameData.getLineTokens`): its visual
+   * lines (`{ top, bottom }`, relative to the block's context's top, see
+   * `context`), and its tokens, with `srcLine` (their line), `pieces` (where
+   * their text is in the block's runs, if they're shown), and `visual` (the
+   * index of their visual line; tokens which aren't shown, like a link's
+   * target, are on the line of the shown token before them).
+   */
+  layout(strip, lines) {
+    const block = this.blockOf(strip);
+    const context = this.context(block);
+    const contextTop = context.getBoundingClientRect().top;
+
+    // The runs on each line.
+    const runs = new Map();
+    for (const run of block.querySelectorAll("span[data-l]")) {
+      const node = run.firstChild;
+      if (!node || node.nodeType != Node.TEXT_NODE) {
+        continue;
+      }
+      const line = parseInt(run.dataset.l, 10);
+      const length = node.length;
+      const n = run.dataset.n !== undefined ? parseInt(run.dataset.n, 10) : length;
+      if (!runs.has(line)) {
+        runs.set(line, []);
+      }
+      runs.get(line).push({ node, col: parseInt(run.dataset.c, 10), n, length });
+    }
+
+    const tokens = [];
+    for (const { lineno, tokens: lineTokens } of lines) {
+      const lineRuns = runs.get(lineno) || [];
+      for (const token of lineTokens) {
+        const pieces = [];
+        for (const run of lineRuns) {
+          const start = Math.max(token.start, run.col);
+          const end = Math.min(token.end, run.col + run.n);
+          if (start >= end) {
+            continue;
+          }
+          // A run that's not its text in the file (ex: an entity) is all of
+          // its tokens.
+          pieces.push(run.n == run.length
+            ? { node: run.node, start: start - run.col, end: end - run.col }
+            : { node: run.node, start: 0, end: run.length });
+        }
+        tokens.push({ ...token, srcLine: lineno, pieces });
+      }
+    }
+
+    // The visual lines, from the rectangles of the tokens' text: rectangles
+    // are on the same line if their middles are within each other.
+    const range = document.createRange();
+    const rects = [];
+    tokens.forEach((token, t) => {
+      for (const piece of token.pieces) {
+        range.setStart(piece.node, piece.start);
+        range.setEnd(piece.node, piece.end);
+        for (const rect of range.getClientRects()) {
+          if (rect.width || rect.height) {
+            rects.push({ top: rect.top - contextTop, bottom: rect.bottom - contextTop, t });
+          }
+        }
+      }
+    });
+    rects.sort((a, b) => (a.top + a.bottom) - (b.top + b.bottom));
+    const visual = [];
+    for (const rect of rects) {
+      const middle = (rect.top + rect.bottom) / 2;
+      let line = visual[visual.length - 1];
+      if (line && middle >= line.top && middle <= line.bottom) {
+        line.top = Math.min(line.top, rect.top);
+        line.bottom = Math.max(line.bottom, rect.bottom);
+      } else {
+        line = { top: rect.top, bottom: rect.bottom };
+        visual.push(line);
+      }
+      rect.line = line;
+    }
+    if (!visual.length) {
+      // Nothing is shown as text (ex: a rule or an image).
+      const rect = block.getBoundingClientRect();
+      visual.push({ top: rect.top - contextTop, bottom: rect.bottom - contextTop });
+    }
+    for (const rect of rects) {
+      if (tokens[rect.t].visual === undefined) {
+        tokens[rect.t].visual = visual.indexOf(rect.line);
+      }
+    }
+    let previous = 0;
+    for (const token of tokens) {
+      if (token.visual === undefined) {
+        token.visual = previous;
+      }
+      previous = token.visual;
+    }
+    return { strip, block, context, lines: visual, tokens };
+  }
+
+  /**
+   * The element whose layout a block's replica copies: the block, or the
+   * table of a row, whose columns depend on its other rows.
+   */
+  context(block) {
+    return block.tagName == "TR" ? block.closest("table") : block;
+  }
+
+  /**
+   * The index of the visual line of a layout nearest the (client) `y`.
+   */
+  lineAt(layout, y) {
+    if (y === null) {
+      return 0;
+    }
+    const top = layout.context.getBoundingClientRect().top;
+    let best = 0;
+    let bestDistance = Infinity;
+    layout.lines.forEach((line, i) => {
+      const distance = Math.max(line.top + top - y, y - (line.bottom + top), 0);
+      if (distance < bestDistance) {
+        best = i;
+        bestDistance = distance;
+      }
+    });
+    return best;
+  }
+
+  /**
+   * Where the visual line `index` of a layout is (in client coordinates):
+   * the left edge of its block's context and the top of the line.
+   */
+  anchor(layout, index) {
+    const rect = layout.context.getBoundingClientRect();
+    return { left: rect.left, top: rect.top + layout.lines[index].top - RenderedBlocks.MARGIN };
+  }
+
+  // The space above and below a visual line in its replica.
+  static MARGIN = 2;
+
+  /**
+   * Fill `replica` with a copy of the visual line `index` of a layout: a
+   * clone of the block's context, clipped to the line, with the text of
+   * `tokens` (the line's tokens, see `layout`) in `span.hb-token`s.
+   */
+  fillReplica(replica, layout, index, tokens, colorFor) {
+    const { block, context } = layout;
+    const line = layout.lines[index];
+    const contextRect = context.getBoundingClientRect();
+    const clone = context.cloneNode(true);
+    for (const strip of clone.querySelectorAll(".blame-strip")) {
+      strip.remove();
+    }
+    if (context !== block) {
+      // Only the row is shown, but the table keeps its other rows' layout.
+      const row = [...context.rows].indexOf(block);
+      [...clone.rows].forEach((cloneRow, i) => {
+        if (i != row) {
+          cloneRow.style.visibility = "hidden";
+        }
+      });
+    }
+    clone.removeAttribute("id");
+    for (const elt of clone.querySelectorAll("[id]")) {
+      elt.removeAttribute("id");
+    }
+
+    // The clone's text nodes are in the same order as the original's.
+    const textNodes = root => {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) {
+        nodes.push(walker.currentNode);
+      }
+      return nodes;
+    };
+    const indices = new Map(textNodes(context).map((node, i) => [node, i]));
+    const cloneNodes = textNodes(clone);
+    const byNode = new Map();
+    tokens.forEach((token, t) => {
+      for (const piece of token.pieces) {
+        const i = indices.get(piece.node);
+        if (i === undefined) {
+          continue;
+        }
+        if (!byNode.has(i)) {
+          byNode.set(i, []);
+        }
+        byNode.get(i).push({ ...piece, t, token });
+      }
+    });
+    for (const [i, pieces] of byNode) {
+      let node = cloneNodes[i];
+      // From the end, so that splitting doesn't move the earlier pieces.
+      pieces.sort((a, b) => b.start - a.start || a.t - b.t);
+      let limit = Infinity;
+      for (const piece of pieces) {
+        // (Tokens sharing a run that's not its text get the first's span.)
+        if (piece.end > limit) {
+          continue;
+        }
+        if (piece.end < node.length) {
+          node.splitText(piece.end);
+        }
+        const text = piece.start > 0 ? node.splitText(piece.start) : node;
+        const span = document.createElement("span");
+        span.className = "hb-token";
+        span.dataset.token = piece.t;
+        span.dataset.commit = piece.token.commit;
+        span.style.setProperty("--hb-color", colorFor(piece.token.commit));
+        text.replaceWith(span);
+        span.append(text);
+        limit = piece.start;
+      }
+    }
+
+    // The clone gets the context's styles that its ancestors gave it.
+    const style = getComputedStyle(context);
+    for (const property of ["font-family", "font-size", "font-style", "font-weight", "line-height",
+                            "letter-spacing", "word-spacing", "text-transform", "white-space",
+                            "text-align", "color"]) {
+      clone.style.setProperty(property, style.getPropertyValue(property));
+    }
+    clone.style.width = `${contextRect.width}px`;
+    clone.style.margin = "0";
+    clone.style.marginTop = `${-(line.top - RenderedBlocks.MARGIN)}px`;
+
+    const doc = document.createElement("div");
+    doc.className = "rendered-doc";
+    doc.append(clone);
+    replica.classList.add("rd-replica");
+    replica.style.height = `${line.bottom - line.top + 2 * RenderedBlocks.MARGIN + 2}px`;
+    replica.append(doc);
   }
 })();
 
@@ -261,12 +624,16 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     if (!data?.available) {
       return false;
     }
-    const lineElt = elt.closest(".source-line-with-number");
-    let commits, tokens;
+    // A block of a rendered document shows its visual line under the mouse;
+    // see `RenderedBlocks`.
+    const isBlock = RenderedBlocks.isBlockStrip(elt);
+    const lineElt = isBlock ? null : elt.closest(".source-line-with-number");
+    const linenos = isBlock ? RenderedBlocks.lines(elt) : [lineno];
+    let commits, lineTokens;
     try {
-      [commits, tokens] = await Promise.all([
+      [commits, lineTokens] = await Promise.all([
         data.getCommits(),
-        data.getLineTokens(lineno),
+        Promise.all(linenos.map(line => data.getLineTokens(line))),
       ]);
     } catch (ex) {
       // The popup without the data will do.
@@ -275,6 +642,16 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     }
     if (BlamePopup.triggerElement != elt) {
       return true;
+    }
+    let tokens = lineTokens[0] || [];
+    let layout = null;
+    let visualLine = 0;
+    if (isBlock) {
+      layout = RenderedBlocks.layout(
+        elt, linenos.map((line, i) => ({ lineno: line, tokens: lineTokens[i] || [] })));
+      visualLine = RenderedBlocks.lineAt(layout, RenderedBlocks.lastY);
+      tokens = layout.tokens.filter(token => token.visual == visualLine);
+      RenderedBlocks.current = { strip: elt, layout, line: visualLine };
     }
     // The blame the popup is for, which the methods below use.
     this.data = data;
@@ -299,7 +676,11 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     replica.className = "hb-replica";
     // Clicking on a token shows our menu; see `showTokenMenu`.
     replica.dataset.ownContextMenu = "";
-    replica.append(this.renderReplica(lineElt.querySelector("code.source-line"), tokens));
+    if (isBlock) {
+      RenderedBlocks.fillReplica(replica, layout, visualLine, tokens, commit => this.commitColor(commit));
+    } else {
+      replica.append(this.renderReplica(lineElt.querySelector("code.source-line"), tokens));
+    }
 
     const details = document.createElement("div");
     details.className = "hb-details";
@@ -322,7 +703,14 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     popup.append(root);
     popup.style.display = "";
 
-    this.current = { popup, elt, lineElt, root, upper, replica, lanes, tokens };
+    // Where the line's text is, for positioning the popup.
+    const anchor = isBlock
+      ? () => RenderedBlocks.anchor(layout, visualLine)
+      : () => ({
+        left: lineElt.querySelector("code.source-line").getBoundingClientRect().left,
+        top: lineElt.getBoundingClientRect().top,
+      });
+    this.current = { popup, elt, lineElt, isBlock, anchor, root, upper, replica, lanes, tokens };
     this.position();
     this.drawLanes(root, lanes, upper, replica);
     this.bindInteractions(root, tokens);
@@ -335,13 +723,12 @@ var TokenBlamePopup = new (class TokenBlamePopup {
    * into it.
    */
   position() {
-    const { popup, elt, lineElt, replica } = this.current;
+    const { popup, elt, anchor, replica } = this.current;
     const stripRect = elt.getBoundingClientRect();
-    const codeRect = lineElt.querySelector("code.source-line").getBoundingClientRect();
-    replica.style.paddingLeft = `${codeRect.left - stripRect.right}px`;
-    const lineRect = lineElt.getBoundingClientRect();
+    const text = anchor();
+    replica.style.paddingLeft = `${text.left - stripRect.right}px`;
     const left = stripRect.right + window.scrollX;
-    let top = lineRect.top + window.scrollY - replica.offsetTop;
+    let top = text.top + window.scrollY - replica.offsetTop;
     // Don't let the popup start above the page.
     top = Math.max(top, window.scrollY);
     popup.style.transform = `translatey(${top}px) translatex(${left}px)`;
@@ -379,7 +766,7 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     history.append(status, steps);
     upper.replaceChildren(history);
     // Leave room for the popup above the line.
-    const lineTop = this.current.lineElt.getBoundingClientRect().top;
+    const lineTop = this.current.anchor().top;
     history.style.maxHeight = `${Math.max(150, lineTop - 120)}px`;
     this.position();
     return { history, status, steps };
@@ -705,7 +1092,9 @@ var TokenBlamePopup = new (class TokenBlamePopup {
   renderNote(elt, commits) {
     const note = document.createElement("div");
     note.className = "blame-entry";
-    note.textContent = "This line has no tokens (it's blank).";
+    note.textContent = RenderedBlocks.isBlockStrip(elt)
+      ? "This block has no tokens."
+      : "This line has no tokens (it's blank).";
     // See `StripLine::strip_attrs` in `page_blame.rs`.
     const commitClass = [...elt.classList].find(c => c.startsWith("bc-"));
     if (elt.classList.contains("blame-interpolated") && commitClass) {
@@ -731,6 +1120,17 @@ var TokenBlamePopup = new (class TokenBlamePopup {
     const header = document.createElement("div");
     header.innerHTML = info ? info.header : rev;
     entry.append(header);
+
+    // A rendered document's markup (ex: a link's target) isn't shown.
+    const hidden = tokens.filter(t => t.commit == commit && t.pieces && !t.pieces.length).length;
+    if (hidden) {
+      const note = document.createElement("div");
+      note.className = "hb-hidden-note";
+      note.textContent = hidden == 1
+        ? "1 of its tokens here is markup that isn't shown (ex: a link's target)."
+        : `${hidden} of its tokens here are markup that isn't shown (ex: a link's target).`;
+      entry.append(note);
+    }
 
     // The commit's tokens on this line, by their path in the commit.
     const byPath = new Map();
@@ -789,7 +1189,10 @@ var TokenBlamePopup = new (class TokenBlamePopup {
    * `StripLine::strip_attrs` in `page_blame.rs`.
    */
   lineRemovals(elt, lineno) {
-    const prevStrip = this.data.stripFor(lineno - 1);
+    // A rendered document's block's removals are for all of its lines.
+    const isBlock = RenderedBlocks.isBlockStrip(elt);
+    const what = isBlock ? "block" : "line";
+    const prevStrip = isBlock ? RenderedBlocks.previousStrip(elt) : this.data.stripFor(lineno - 1);
     const removals = [];
     const add = (attr, where) => {
       for (const removal of BlamePopup.parseRemovals(attr, this.info)) {
@@ -797,9 +1200,9 @@ var TokenBlamePopup = new (class TokenBlamePopup {
       }
     };
     add(elt.dataset.rmAbove, "at the start of the file");
-    add(prevStrip?.dataset.rmBelow, "between the previous line and this line");
-    add(elt.dataset.rmWithin, "within this line");
-    add(elt.dataset.rmBelow, "between this line and the next line");
+    add(prevStrip?.dataset.rmBelow, `between the previous ${what} and this ${what}`);
+    add(elt.dataset.rmWithin, `within this ${what}`);
+    add(elt.dataset.rmBelow, `between this ${what} and the next ${what}`);
     return removals;
   }
 
@@ -868,6 +1271,10 @@ var TokenBlamePopup = new (class TokenBlamePopup {
       rowLefts.set(commit, Math.min(rowLefts.get(commit) ?? Infinity, x));
     }
     for (const [commit, y] of rowYs) {
+      // (A commit whose tokens here aren't shown has no lanes.)
+      if (!rowLefts.has(commit)) {
+        continue;
+      }
       const track = document.createElementNS(ns, "line");
       track.setAttribute("x1", rowLefts.get(commit));
       track.setAttribute("x2", maxX + 8);
@@ -988,8 +1395,9 @@ var TokenBlamePopup = new (class TokenBlamePopup {
         }));
       }
     }
-    // (The page's `#tokens=` hash is for the file in the page's revision.)
-    if (this.data === HyperblameContexts.contexts[0]) {
+    // (The page's `#tokens=` hash is for the file in the page's revision, and
+    // rendered documents don't have lines to select.)
+    if (this.data === HyperblameContexts.contexts[0] && !this.current.isBlock) {
       items.push(new MenuItem({
         html: "Select this token's line",
         href: `#tokens=${token.index}`,

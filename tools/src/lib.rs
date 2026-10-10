@@ -44,6 +44,8 @@ pub mod cmd_pipeline;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod query;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod rendered_docs;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod templating;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tree_sitter_support;

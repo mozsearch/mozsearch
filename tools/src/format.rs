@@ -17,6 +17,7 @@ use crate::file_format::bisectable_mmap::BisectableMmap;
 use crate::file_format::chunked_gzip::LINES_PER_CHUNK;
 use crate::file_format::code_coverage_report;
 use crate::file_format::coverage::InterpolatedCoverage;
+use crate::file_format::doc_trees::{DocTrees, read_doc_trees};
 use crate::file_format::jumpref::{
     JumprefData, JumprefTraversals, determine_desired_extra_syms_from_jumpref,
     extra_syms_next_step_lookups,
@@ -30,13 +31,16 @@ use crate::hyperblame::interdiff::{
     self, Counts as InterdiffCounts, IdToken, Mark as InterdiffMark, Side as InterdiffSideTokens,
     TokenId,
 };
-use crate::hyperblame::page_blame::{CommitMeta, PageBlame, page_blame};
+use crate::hyperblame::page_blame::{
+    CommitMeta, PageBlame, StripLine, interpolate_blank_lines, page_blame,
+};
 use crate::hyperblame::page_data_cache::{PAGE_DATA_CACHE, PageData};
 use crate::hyperblame::peephole::{self, Cursor, peephole_page};
 use crate::hyperblame::token_blame::{TreeHistory, blame_tokens};
 use crate::languages;
 use crate::languages::FormatAs;
 use crate::links;
+use crate::rendered_docs::{self, Rendered};
 use crate::templating::builder::{
     build_and_parse_coverage_history, build_and_parse_dir_listing, build_and_parse_explore,
     build_and_parse_interdiff_files,
@@ -1207,6 +1211,367 @@ pub fn hyperblame_file(
         .ok_or("No such hyperblame file")
 }
 
+/// Whether the file at `path` has a rendered view (see `format_rendered`).
+pub fn has_rendered_view(path: &str) -> bool {
+    rendered_docs::is_doc_path(path)
+}
+
+/// The URL of the rendered view of the document at `path`, at the tip or at
+/// the revision `rev`.
+pub fn rendered_url(tree_name: &str, rev: Option<&str>, path: &str) -> String {
+    match rev {
+        Some(rev) => format!(
+            "/{}/rev-rendered/{}/{}",
+            tree_name,
+            rev,
+            url_encode_path(path)
+        ),
+        None => format!("/{}/rendered/{}", tree_name, url_encode_path(path)),
+    }
+}
+
+lazy_static! {
+    /// Each tree's map of its documentation's staged layout (see
+    /// `DocTrees`), if it has one.
+    static ref DOC_TREES: std::sync::Mutex<HashMap<String, Option<std::sync::Arc<DocTrees>>>> =
+        std::sync::Mutex::new(HashMap::new());
+}
+
+fn tree_doc_trees(tree_name: &str, tree_config: &TreeConfig) -> Option<std::sync::Arc<DocTrees>> {
+    let mut cache = DOC_TREES.lock().unwrap();
+    cache
+        .entry(tree_name.to_string())
+        .or_insert_with(|| {
+            let path = format!("{}/doc-trees.json", tree_config.paths.index_path);
+            Path::new(&path)
+                .exists()
+                .then(|| std::sync::Arc::new(read_doc_trees(&path)))
+        })
+        .clone()
+}
+
+/// How a rendered document links to the tree's other files, at the tip or at
+/// a revision.
+struct DocLinks<'a> {
+    tree_name: &'a str,
+    tree_config: &'a TreeConfig,
+    /// The revision, for pages other than the tip's.
+    rev: Option<String>,
+    commit: &'a git2::Commit<'a>,
+    tree: Tree<'a>,
+    doc_trees: Option<std::sync::Arc<DocTrees>>,
+}
+
+impl rendered_docs::Links for DocLinks<'_> {
+    fn exists(&self, path: &str) -> bool {
+        !path.is_empty() && self.tree.get_path(Path::new(path)).is_ok()
+    }
+
+    fn source_url(&self, path: &str) -> String {
+        match &self.rev {
+            Some(rev) => format!("/{}/rev/{}/{}", self.tree_name, rev, url_encode_path(path)),
+            None => format!("/{}/source/{}", self.tree_name, url_encode_path(path)),
+        }
+    }
+
+    fn rendered_url(&self, path: &str) -> String {
+        rendered_url(self.tree_name, self.rev.as_deref(), path)
+    }
+
+    fn raw_url(&self, path: &str) -> Option<String> {
+        let hg_rev = self
+            .tree_config
+            .git
+            .as_ref()
+            .and_then(|git| git.hg_rev(self.commit.id()))
+            .unwrap_or_else(|| "default".to_string());
+        self.tree_config.paths.make_raw_resource_rev_url(
+            &self.commit.id().to_string(),
+            &hg_rev,
+            path,
+        )
+    }
+
+    fn search_url(&self, query: &str) -> String {
+        format!(
+            "/{}/search?q={}",
+            self.tree_name,
+            urlencoding::encode(query)
+        )
+    }
+
+    fn tree_name(&self) -> &str {
+        self.tree_name
+    }
+
+    fn staged_doc(&self, staged: &str) -> Option<String> {
+        self.doc_trees.as_ref()?.find_source(staged)
+    }
+}
+
+/// The blame strips of a rendered document's blocks, which merge the strips
+/// of their lines (see `rendered_docs::block_lines`), with the same classes
+/// and data attributes as source listings' strips, plus the block's index
+/// (`data-rd-block`) and (1-based) lines (`data-rd-lines`).
+fn rendered_strips(rendered: &Rendered, source: &str, page: &PageBlame) -> Vec<String> {
+    let mut line_starts = vec![0];
+    line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
+    let line_of = |offset: usize| line_starts.partition_point(|&start| start <= offset) - 1;
+    let has_tokens = |line: usize| page.info.token_counts.get(line).is_some_and(|&n| n > 0);
+    let ranges =
+        rendered_docs::block_lines(&rendered.blocks, line_of, page.lines.len(), has_tokens);
+    let mut strips: Vec<StripLine> = ranges
+        .iter()
+        .map(|range| match range {
+            Some(lines) => page.merge_lines(lines.clone()),
+            None => StripLine::default(),
+        })
+        .collect();
+    interpolate_blank_lines(&mut strips);
+
+    // Like source listings, we alternate colors whenever the commit changes.
+    let mut last_commit = None;
+    let mut color = false;
+    strips
+        .iter()
+        .zip(&ranges)
+        .enumerate()
+        .map(|(i, (strip, lines))| {
+            let color_class = match strip.commit {
+                Some(commit) => {
+                    if last_commit != Some(commit) {
+                        color = !color;
+                    }
+                    last_commit = Some(commit);
+                    if color { " c1" } else { " c2" }
+                }
+                None => "",
+            };
+            let (classes, data) = strip.strip_attrs();
+            let lines = lines.as_ref().map_or(String::new(), |lines| {
+                format!("{}-{}", lines.start() + 1, lines.end() + 1)
+            });
+            format!(
+                r#"<div class="blame-strip{}{}"{} data-rd-block="{}" data-rd-lines="{}" role="button" aria-label="blame of this block" aria-expanded="false"></div>"#,
+                color_class, classes, data, i, lines
+            )
+        })
+        .collect()
+}
+
+/// The rendered view of a document (Markdown or reStructuredText) at `path`,
+/// at the tip (`/{tree}/rendered/{path}`) or at the revision `rev`
+/// (`/{tree}/rev-rendered/{rev}/{path}`), with a blame strip for each of its
+/// blocks if the tree's history has the file.  See `rendered_docs`.
+pub fn format_rendered(
+    cfg: &Config,
+    tree_name: &str,
+    rev: Option<&str>,
+    path: &str,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let commit = match rev {
+        Some(rev) => git
+            .repo
+            .revparse_single(rev)
+            .and_then(|object| object.peel_to_commit())
+            .map_err(|_| "Bad revision")?,
+        None => git
+            .repo
+            .head()
+            .and_then(|head| head.peel_to_commit())
+            .map_err(|_| "No revision")?,
+    };
+    let path = path.trim_end_matches('/');
+    if !has_rendered_view(path) {
+        return Err("Only documents (Markdown and reStructuredText) have rendered views");
+    }
+    let source = {
+        let (repo, oid) = get_object_at(
+            OwnedOrBorrowed::Borrowed(&git.repo),
+            commit.id(),
+            Path::new(path),
+        )?;
+        let object = repo
+            .find_object(oid, Some(git2::ObjectType::Blob))
+            .map_err(|_| "Not a file")?;
+        git_ops::read_blob_object(&object)
+    };
+    let links_to = match rev {
+        Some(_) => BreadcrumbsLinksTo::Historical,
+        None => BreadcrumbsLinksTo::Latest,
+    };
+    let commit_id = commit.id().to_string();
+    let page_rev = rev.map(|_| commit_id.clone());
+
+    let mut token_blame = page_token_blame(git, &commit, path, &source);
+    if let Some(page) = &mut token_blame {
+        set_token_blame_urls(page, tree_name, &commit, path, links_to);
+        // The page will request its hyperblame data right away; see
+        // `hyperblame_file`.  (The tip's are static files.)
+        if rev.is_some() {
+            PAGE_DATA_CACHE.insert(
+                (tree_name.to_string(), commit_id.clone(), path.to_string()),
+                PageData::new(page),
+            );
+        }
+    }
+
+    let doc_trees = tree_doc_trees(tree_name, tree_config);
+    let links = DocLinks {
+        tree_name,
+        tree_config,
+        rev: page_rev.clone(),
+        commit: &commit,
+        tree: commit.tree().map_err(|_| "Git commit with no tree")?,
+        doc_trees: doc_trees.clone(),
+    };
+    let rendered = if path.ends_with(".rst") {
+        rendered_docs::rst::render(&source, path, &links)
+    } else {
+        rendered_docs::markdown::render(&source, path, &links)
+    };
+    let strips = match &token_blame {
+        Some(page) => rendered_strips(&rendered, &source, page),
+        None => vec![String::new(); rendered.blocks.len()],
+    };
+
+    let filename = Path::new(path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(path);
+    let title = format!(
+        "{} - mozsearch",
+        rendered_docs::escape(rendered.title.as_deref().unwrap_or(filename))
+    );
+    let header = blame::commit_header(&commit)?;
+    let revision = page_rev.as_deref().map(|rev| RevisionData {
+        rev,
+        desc: &header,
+        date: git_time_to_chrono(commit.time()),
+    });
+    let opt = Options {
+        title: &title,
+        tree_name,
+        include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
+        revision,
+        breadcrumbs_links_to: links_to,
+        extra_content_classes: "rendered-page",
+    };
+
+    let source_url = rendered_docs::Links::source_url(&links, path);
+    let encoded_path = url_encode_path(path);
+    let mut vcs_items = vec![PanelItem {
+        label: PanelItemLabel::Plaintext("Source listing".to_owned()),
+        tooltip: "Open the source listing of the document".to_owned(),
+        id: "panel-source-listing",
+        link: source_url.clone(),
+        update_link_lineno: "",
+        accel_key: None,
+        copyable: true,
+    }];
+    match rev {
+        Some(_) => vcs_items.push(PanelItem {
+            label: PanelItemLabel::Plaintext("Go to latest version".to_owned()),
+            tooltip: "Open the rendered view of the latest version of the document".to_owned(),
+            id: "panel-vcs-latest",
+            link: rendered_url(tree_name, None, path),
+            update_link_lineno: "",
+            accel_key: None,
+            copyable: true,
+        }),
+        None => vcs_items.push(PanelItem {
+            label: PanelItemLabel::Plaintext("Permalink".to_owned()),
+            tooltip: "Create a revision-specific link of the rendered view".to_owned(),
+            id: "panel-permalink",
+            link: rendered_url(tree_name, Some(&commit_id), path),
+            update_link_lineno: "",
+            accel_key: Some('Y'),
+            copyable: true,
+        }),
+    }
+    if let Some(link) = rendered_docs::Links::raw_url(&links, path) {
+        vcs_items.push(PanelItem {
+            label: PanelItemLabel::Plaintext("Raw".to_owned()),
+            tooltip: "Open a raw file of the current file".to_owned(),
+            id: "panel-raw",
+            link,
+            update_link_lineno: "",
+            accel_key: Some('R'),
+            copyable: true,
+        });
+    }
+    let mut panel = vec![PanelSection {
+        name: "Revision control".to_owned(),
+        items: vcs_items,
+        raw_items: vec![],
+    }];
+    if let Some(target) = doc_trees
+        .as_ref()
+        .and_then(|doc_trees| doc_trees.find(path))
+    {
+        panel.push(PanelSection {
+            name: "Other Tools".to_owned(),
+            items: vec![PanelItem {
+                label: PanelItemLabel::Plaintext("Source Docs".to_owned()),
+                tooltip: "Open the rendered documentation on Source Docs".to_owned(),
+                id: "panel-source-docs",
+                link: format!("https://firefox-source-docs.mozilla.org/{}", target),
+                update_link_lineno: "",
+                accel_key: None,
+                copyable: false,
+            }],
+            raw_items: vec![],
+        });
+    }
+
+    output::generate_header(&opt, writer)?;
+    output::generate_breadcrumbs(&opt, writer, path, &[], false)?;
+    output::generate_panel(&opt, writer, &panel, false)?;
+
+    writeln!(
+        writer,
+        r#"<div class="rd-notice">Searchfox's rendering of <a href="{}">{}</a>, which Sphinx may render differently.{}</div>"#,
+        rendered_docs::escape(&source_url),
+        rendered_docs::escape(&encoded_path),
+        if token_blame.is_some() {
+            " Hover over the bar to the left of a block to see what last changed its text."
+        } else {
+            ""
+        }
+    )
+    .unwrap();
+    write!(
+        writer,
+        r#"<article id="rendered-doc" class="rendered-doc">"#
+    )
+    .unwrap();
+    let mut pos = 0;
+    for (block, strip) in rendered.blocks.iter().zip(&strips) {
+        let at = block.strip_at.clamp(pos, rendered.html.len());
+        writer.write_all(&rendered.html.as_bytes()[pos..at]).unwrap();
+        writer.write_all(strip.as_bytes()).unwrap();
+        pos = at;
+    }
+    writer.write_all(&rendered.html.as_bytes()[pos..]).unwrap();
+    writeln!(writer, "</article>").unwrap();
+
+    if let Some(page) = &token_blame {
+        let info_json = to_string(&page.info).unwrap();
+        // Author names and paths could contain "</script>".
+        writeln!(
+            writer,
+            "<script>var BLAME_INFO = {};</script>",
+            info_json.replace("</", "<\\/")
+        )
+        .unwrap();
+    }
+
+    output::generate_footer(&opt, tree_name, path, writer)
+}
+
 /// How many steps a page of a peephole history has at most.
 const PEEPHOLE_STEPS: usize = 12;
 /// How many bytes of blobs we read for a page of a peephole history before
@@ -1939,6 +2304,17 @@ fn format_blob(
             update_link_lineno: "",
             accel_key: None,
             copyable: false,
+        });
+    }
+    if has_rendered_view(path) {
+        vcs_panel_items.push(PanelItem {
+            label: PanelItemLabel::Plaintext("Rendered view".to_owned()),
+            tooltip: "Show the rendered document, with the blame of its blocks".to_owned(),
+            id: "panel-rendered-view",
+            link: rendered_url(tree_name, Some(&commit.id().to_string()), path),
+            update_link_lineno: "",
+            accel_key: None,
+            copyable: true,
         });
     }
     let panel = vec![

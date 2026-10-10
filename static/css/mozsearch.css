@@ -1575,6 +1575,277 @@ span[data-symbols].selected {
   font-style: italic;
   opacity: 0.8;
 }
+/* Rendered documents (`/rendered/` and `/rev-rendered/` pages); see
+   `rendered_docs` and `format::format_rendered`.  Each block (paragraph,
+   heading, code block, table row, ...) has a blame strip, which
+   `RenderedBlocks` in hyperblame.js moves into the gutter at the document's
+   left edge, wherever the block is nested. */
+.rendered-doc {
+  --rd-strip-width: 14px;
+  --rd-gutter: 36px;
+  position: relative;
+  max-width: 62rem;
+  padding: 0.5rem 2rem 2rem var(--rd-gutter);
+  font-size: 15px;
+  line-height: 1.55;
+  overflow-wrap: break-word;
+}
+.rendered-doc .rd-block {
+  position: relative;
+}
+.rendered-doc .blame-strip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--rd-strip-left, calc(-1 * var(--rd-gutter) + 8px));
+  width: var(--rd-strip-width);
+  height: auto;
+}
+/* Table rows' strips are in their first cells. */
+.rendered-doc :is(td, th):has(> .blame-strip) {
+  position: relative;
+}
+.rendered-doc :is(h1, h2, h3, h4, h5, h6) {
+  margin: 1.1em 0 0.4em;
+  line-height: 1.25;
+}
+.rendered-doc h1 {
+  font-size: 1.9em;
+}
+.rendered-doc h2 {
+  font-size: 1.5em;
+  border-bottom: 1px solid var(--table-header-background);
+}
+.rendered-doc h3 {
+  font-size: 1.25em;
+}
+.rendered-doc h4 {
+  font-size: 1.1em;
+}
+.rendered-doc :is(h5, h6) {
+  font-size: 1em;
+}
+.rendered-doc p,
+.rendered-doc .rd-tight,
+.rendered-doc .rd-fields {
+  margin: 0.5em 0;
+}
+.rendered-doc .rd-tight {
+  margin: 0.15em 0;
+}
+.rendered-doc :is(ul, ol) {
+  margin: 0.4em 0;
+  padding-left: 2em;
+}
+.rendered-doc li > .rd-block > p {
+  margin: 0.25em 0;
+}
+.rendered-doc code,
+.rendered-doc kbd {
+  font-family: monospace;
+  font-size: 0.9em;
+  padding: 0 0.2em;
+  border-radius: 3px;
+  background-color: var(--table-even-row-background);
+}
+.rendered-doc kbd {
+  border: 1px solid var(--page-subtle-foreground);
+}
+.rendered-doc pre {
+  margin: 0.5em 0;
+  padding: 0.5em 0.75em;
+  overflow-x: auto;
+  border-radius: 3px;
+  background-color: var(--table-even-row-background);
+  line-height: 1.35;
+}
+.rendered-doc pre code {
+  padding: 0;
+  font-size: 0.9em;
+  background-color: transparent;
+}
+.rendered-doc .rd-code-caption {
+  font-style: italic;
+  opacity: 0.8;
+}
+.rendered-doc blockquote {
+  margin: 0.5em 0;
+  padding-left: 1em;
+  border-left: 4px solid var(--table-header-background);
+}
+.rendered-doc .rd-admonition,
+.rendered-doc .rd-topic {
+  margin: 0.75em 0;
+  padding: 0.1em 0.75em;
+  border-left: 4px solid var(--rd-admonition-color, #4e79a7);
+  background-color: color-mix(in srgb, var(--rd-admonition-color, #4e79a7) 8%, transparent);
+}
+.rendered-doc .rd-admonition-title > p,
+.rendered-doc p.rd-admonition-title,
+.rendered-doc .rd-topic-title {
+  font-weight: bold;
+}
+.rendered-doc :is(.rd-warning, .rd-caution, .rd-attention) {
+  --rd-admonition-color: #e8a33d;
+}
+.rendered-doc :is(.rd-danger, .rd-error) {
+  --rd-admonition-color: #e15759;
+}
+.rendered-doc :is(.rd-tip, .rd-hint, .rd-seealso, .rd-versionadded) {
+  --rd-admonition-color: #59a14f;
+}
+.rendered-doc :is(.rd-important, .rd-deprecated) {
+  --rd-admonition-color: #b07aa1;
+}
+.rendered-doc details {
+  margin: 0.5em 0;
+}
+.rendered-doc .rd-dropdown > summary {
+  cursor: pointer;
+  font-weight: bold;
+}
+.rendered-doc .rd-dropdown > summary > .rd-block {
+  display: inline-block;
+}
+.rendered-doc .rd-front-matter summary {
+  cursor: pointer;
+  opacity: 0.7;
+}
+.rendered-doc table.rd-table {
+  margin: 0.75em 0;
+  border-collapse: collapse;
+}
+.rendered-doc .rd-table :is(td, th) {
+  padding: 0.25em 0.6em;
+  border: 1px solid var(--table-header-background);
+  vertical-align: top;
+}
+.rendered-doc .rd-table th {
+  background-color: var(--table-header-background);
+  color: var(--table-header-color);
+}
+.rendered-doc .rd-table :is(td, th) > :is(p, .rd-block > p):first-child {
+  margin-top: 0;
+}
+.rendered-doc .rd-table :is(td, th) > :is(p, .rd-block > p):last-child {
+  margin-bottom: 0;
+}
+.rendered-doc dl {
+  margin: 0.5em 0;
+}
+.rendered-doc dt {
+  font-weight: bold;
+}
+.rendered-doc dd {
+  margin-left: 2em;
+}
+.rendered-doc .rd-fields > :is(dt, .rd-block) {
+  margin-top: 0.2em;
+}
+.rendered-doc .rd-fields dt {
+  display: inline;
+}
+.rendered-doc .rd-fields dt::after {
+  content: ":";
+}
+.rendered-doc .rd-fields dd {
+  display: inline;
+  margin-left: 0.5em;
+}
+.rendered-doc .rd-fields dd::after {
+  content: "";
+  display: block;
+}
+.rendered-doc .rd-rubric {
+  font-weight: bold;
+}
+.rendered-doc .rd-toctree ul {
+  list-style: none;
+  padding-left: 1em;
+}
+.rendered-doc .rd-toctree-caption {
+  font-weight: bold;
+}
+.rendered-doc .rd-generated,
+.rendered-doc .rd-include {
+  margin: 0.5em 0;
+  font-style: italic;
+  opacity: 0.85;
+}
+.rendered-doc .rd-unresolved {
+  text-decoration: underline dotted;
+}
+.rendered-doc img {
+  max-width: 100%;
+}
+.rendered-doc .rd-caption {
+  font-style: italic;
+}
+.rendered-doc .rd-footnote {
+  font-size: 0.9em;
+}
+.rendered-doc .rd-footnote-label {
+  float: left;
+  margin-right: 0.5em;
+}
+.rendered-doc .rd-footnote-label::before {
+  content: "[";
+}
+.rendered-doc .rd-footnote-label::after {
+  content: "]";
+}
+.rendered-doc hr {
+  border: none;
+  border-top: 1px solid var(--page-subtle-foreground);
+}
+.rendered-doc .rd-target {
+  scroll-margin-top: calc(var(--header-height) + var(--breadcrumbs-height) + 1em);
+}
+.rendered-doc [id] {
+  scroll-margin-top: calc(var(--header-height) + var(--breadcrumbs-height) + 1em);
+}
+.rd-notice {
+  max-width: 62rem;
+  padding: 0 2rem 0 36px;
+  font-style: italic;
+  opacity: 0.75;
+}
+.blame-popup .hb-hidden-note {
+  font-style: italic;
+  opacity: 0.8;
+}
+/* The block popup's replica of the visual line of a block; see
+   `RenderedBlocks.replica` in hyperblame.js. */
+.hb-replica.rd-replica {
+  overflow: hidden;
+  padding: 0;
+  margin: 4px 0;
+  line-height: normal;
+}
+.rd-replica .rendered-doc {
+  padding: 0;
+  max-width: none;
+}
+.rd-replica .rd-block > *,
+.rd-replica table {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+/* Undo `.blame-popup code`. */
+.blame-popup .rd-replica code {
+  display: inline;
+  padding: 0 0.2em;
+  white-space: inherit;
+  max-height: none;
+  overflow: visible;
+  color: inherit;
+  background-color: var(--table-even-row-background);
+}
+.blame-popup .rd-replica pre code {
+  padding: 0;
+  background-color: transparent;
+}
+
 /* The /explore/ pages; see explore.liquid. */
 .explore-page {
   padding: 0 1rem 1rem;

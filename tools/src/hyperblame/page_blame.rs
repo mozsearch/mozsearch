@@ -85,7 +85,7 @@ fn utf16_len(s: &str) -> usize {
 }
 
 /// The tokens on a line from one commit (and path).
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct StripEntry {
     pub commit: usize,
     pub path: usize,
@@ -94,7 +94,7 @@ pub struct StripEntry {
 }
 
 /// A removal of a run of tokens; see `RemovalMarker`.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct StripRemoval {
     pub commit: usize,
     /// The path of the file in the commit's parent.
@@ -360,7 +360,7 @@ fn page_blame_with_chunk_tokens(
 /// look like they're significant: the commit of the lines on both sides of
 /// them if those are the same, otherwise the line above's, which puts the
 /// color change at the start of the next line with tokens.
-fn interpolate_blank_lines(lines: &mut [StripLine]) {
+pub fn interpolate_blank_lines(lines: &mut [StripLine]) {
     let interpolate_run = |run: &mut [StripLine], above: Option<usize>, below: Option<usize>| {
         let (commit, how) = match (above, below) {
             (Some(above), Some(below)) if above == below => (above, Interpolation::Between),
@@ -388,6 +388,69 @@ fn interpolate_blank_lines(lines: &mut [StripLine]) {
     }
     if let Some(start) = run_start {
         interpolate_run(&mut lines[start..], above, None);
+    }
+}
+
+impl PageBlame {
+    /// What the blame strip of a block of lines shows (ex: a paragraph of a
+    /// rendered document; see `rendered_docs`): all of their tokens, by
+    /// commit (and the newest commit's color), the removals between their
+    /// tokens, and the removal after them.
+    pub fn merge_lines(&self, lines: RangeInclusive<usize>) -> StripLine {
+        let lines = *lines.start()..(*lines.end() + 1).min(self.lines.len());
+        let last_with_tokens = lines
+            .clone()
+            .rev()
+            .find(|&l| !self.lines[l].entries.is_empty());
+        let mut entries: Vec<StripEntry> = vec![];
+        let mut removals_within = vec![];
+        let mut removal_below = None;
+        let mut removal_above = None;
+        for l in lines {
+            let line = &self.lines[l];
+            for entry in &line.entries {
+                match entries
+                    .iter_mut()
+                    .find(|e| e.commit == entry.commit && e.path == entry.path)
+                {
+                    Some(merged) => merged.tokens.extend(entry.tokens.iter().cloned()),
+                    None => entries.push(entry.clone()),
+                }
+            }
+            removals_within.extend(line.removals_within.iter().cloned());
+            if let Some(removal) = &line.removal_below {
+                if Some(l) == last_with_tokens {
+                    removal_below = Some(removal.clone());
+                } else {
+                    removals_within.push(removal.clone());
+                }
+            }
+            if removal_above.is_none() {
+                removal_above = line.removal_above.clone();
+            }
+        }
+        for entry in &mut entries {
+            entry.tokens = token_ranges(
+                entry
+                    .tokens
+                    .iter()
+                    .flat_map(|range| range.clone())
+                    .collect(),
+            );
+        }
+        let commits = &self.info.commits;
+        let newest_first =
+            |a: usize, b: usize| (commits[b].1, &commits[b].0).cmp(&(commits[a].1, &commits[a].0));
+        entries.sort_by(|a, b| newest_first(a.commit, b.commit));
+        removals_within.sort_by(|a, b| newest_first(a.commit, b.commit));
+        StripLine {
+            commit: entries.first().map(|entry| entry.commit),
+            interpolated: None,
+            entries,
+            removal_above,
+            removal_below,
+            removals_within,
+        }
     }
 }
 
@@ -619,6 +682,59 @@ mod tests {
                 .iter()
                 .all(|l| l.commit.is_none() && l.interpolated.is_none())
         );
+    }
+
+    #[test]
+    fn test_merge_lines() {
+        let removal = |commit| StripRemoval {
+            commit,
+            path: 0,
+            first_token: 1,
+            num_removed: 2,
+            num_moved: 0,
+        };
+        let entry = |commit, tokens: Vec<RangeInclusive<u32>>| StripEntry {
+            commit,
+            path: 0,
+            tokens,
+        };
+        let page = PageBlame {
+            lines: vec![
+                StripLine {
+                    commit: Some(0),
+                    entries: vec![entry(0, vec![1..=2])],
+                    removal_below: Some(removal(1)),
+                    ..Default::default()
+                },
+                StripLine::default(),
+                StripLine {
+                    commit: Some(1),
+                    entries: vec![entry(1, vec![1..=1]), entry(0, vec![3..=3])],
+                    removal_below: Some(removal(0)),
+                    ..Default::default()
+                },
+            ],
+            info: BlameInfo {
+                commits: vec![("a".into(), 1, 0), ("b".into(), 2, 0)],
+                authors: vec![],
+                paths: vec![],
+                token_counts: vec![],
+                chunks: vec![],
+                data_url: None,
+                peephole_url: None,
+            },
+            chunks: vec![],
+        };
+        // The newest commit's tokens come first, and the removal after the
+        // first line is within the block.
+        let merged = page.merge_lines(0..=2);
+        assert_eq!(merged.commit, Some(1));
+        assert_eq!(
+            merged.entries,
+            vec![entry(1, vec![1..=1]), entry(0, vec![1..=3])]
+        );
+        assert_eq!(merged.removals_within, vec![removal(1)]);
+        assert_eq!(merged.removal_below, Some(removal(0)));
     }
 
     #[test]

@@ -227,6 +227,34 @@ fn handle(
             }
         }
 
+        // Rendered views of documents, at the tip as `/{tree}/rendered/{path}`
+        // and at other revisions as `/{tree}/rev-rendered/{rev}/{path}`; see
+        // `format::format_rendered`.
+        "rendered" | "rev-rendered" => {
+            let (rev, file_path) = if *kind == "rendered" {
+                (None, path[2..].join("/"))
+            } else {
+                if path.len() < 4 {
+                    return WebResponse::not_found();
+                }
+                (Some(path[2]), path[3..].join("/"))
+            };
+            if let Some(rev) = rev
+                && let Some(other_tree) = format::tree_for_rev(cfg, tree_name, rev)
+            {
+                return WebResponse::redirect(format!(
+                    "/{}/rev-rendered/{}/{}",
+                    other_tree, rev, file_path
+                ));
+            }
+
+            let mut writer = Vec::new();
+            match format::format_rendered(cfg, tree_name, rev, &file_path, &mut writer) {
+                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                Err(err) => WebResponse::internal_error(err.to_owned()),
+            }
+        }
+
         "hgrev" => {
             if path.len() < 3 {
                 return WebResponse::not_found();

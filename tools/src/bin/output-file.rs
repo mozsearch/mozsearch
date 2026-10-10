@@ -30,7 +30,9 @@ use crate::languages::FormatAs;
 use tools::doc_trees_handler::find_doc_url;
 use tools::file_format::analysis::{read_analysis, read_source};
 use tools::file_format::bisectable_mmap::BisectableMmap;
-use tools::format::{create_markdown_panel_section, format_file_data, hyperblame_files};
+use tools::format::{
+    create_markdown_panel_section, format_file_data, hyperblame_files, rendered_url,
+};
 use tools::languages;
 use tools::url_encode_path::url_encode_path;
 
@@ -494,6 +496,16 @@ fn main() {
 
         match Path::new(path.as_str()).extension().and_then(OsStr::to_str) {
             Some("md") | Some("rst") => {
+                tools_items.push(PanelItem {
+                    label: PanelItemLabel::Plaintext("Rendered view".to_owned()),
+                    tooltip: "Show the rendered document, with the blame of its blocks".to_owned(),
+                    id: "panel-rendered-view",
+                    link: rendered_url(tree_name, None, &path),
+                    update_link_lineno: "",
+                    accel_key: None,
+                    copyable: true,
+                });
+
                 if let Some(url) = find_doc_url(&cfg, path.as_str()) {
                     tools_items.push(PanelItem {
                         label: PanelItemLabel::Plaintext("Source Docs".to_owned()),
