@@ -1,0 +1,98 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/smdoc/smdoc__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "SMDOC_Test@20Concept@20@28with@20context@29",
+      "crossref_info": {
+        "doc-defs": [
+          {
+            "path": "js/src/smdoc.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 4,
+                "bounds": [
+                  11,
+                  38
+                ],
+                "line": "// [SMDOC] Test Concept (with context)",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "doc-uses": [
+          {
+            "path": "js/src/smdoc.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 16,
+                "bounds": [
+                  15,
+                  27
+                ],
+                "line": "// See [SMDOC] Test Concept for how this works, and [SMDOC] Another Concept.",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "SMDOC_Another@20Concept",
+      "crossref_info": {
+        "doc-defs": [
+          {
+            "path": "js/src/smdoc.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 9,
+                "bounds": [
+                  10,
+                  25
+                ],
+                "line": "* [SMDOC] Another Concept",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "doc-uses": [
+          {
+            "path": "js/src/smdoc.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 16,
+                "bounds": [
+                  60,
+                  75
+                ],
+                "line": "// See [SMDOC] Test Concept for how this works, and [SMDOC] Another Concept.",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

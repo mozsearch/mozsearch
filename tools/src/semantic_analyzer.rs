@@ -21,8 +21,15 @@
 //! - `rules`: queries capturing the node of a definition or use as `@id`
 //!   (other captures are template variables too), with templates for its
 //!   symbol and pretty name, and its syntax kind (the source records' pretty
-//!   prefix, ex: "message").  A definition can have a `nesting` capture, whose
-//!   node's lines are the definition's nesting range (for sticky headers).
+//!   prefix, ex: "message"), and optionally its target records' `kind`, if
+//!   not the role's (ex: "doc-def").  A definition can have a `nesting`
+//!   capture, whose node's lines are the definition's nesting range (for
+//!   sticky headers).  With a `regex`, a rule's records are at its matches in
+//!   the `@id` node's text (ex: a comment's), at their `id` groups (or the
+//!   whole matches, if it has none), whose named groups are template
+//!   variables too; matches without the `id` group have no records.  A use
+//!   can `resolve` to a definition in any file (see `Resolve`), for which its
+//!   `sym` is the definitions' symbols' prefix.
 //! - `data`: rules for data paths (for grammars with a data view, which is
 //!   YAML's maps, sequences, and scalars), whose records are at the keys or the
 //!   scalar values of the entries the paths match.  A path's segments are a
@@ -52,6 +59,8 @@
 //! Besides Liquid's filters, templates have `at_escape`, `camel_case`,
 //! `pascal_case`, `snake_case`, and `regex_expansions` (see
 //! `templating::liquid_exts`).
+
+use std::ops::Range;
 
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use include_dir::{Dir, include_dir};
@@ -124,6 +133,26 @@ pub struct QueryRule {
     pub syntax_kind: String,
     #[serde(default)]
     pub nesting: Option<String>,
+    /// The target records' kind, if not the role's (ex: "doc-def").
+    #[serde(default)]
+    pub kind: Option<AnalysisKind>,
+    #[serde(default)]
+    pub regex: Option<String>,
+    #[serde(default)]
+    pub resolve: Option<Resolve>,
+}
+
+/// How a use names a definition in any file (with the use rule's `sym` as
+/// the prefix of the definitions' symbols), which `resolve_uses` finds once
+/// all of the files are analyzed.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum Resolve {
+    /// The definition whose pretty name shares the most leading words with
+    /// the use's text (ignoring case, and punctuation around words), if just
+    /// one does (ex: "Atomics.wait for more details." names "Atomics.wait,
+    /// Atomics.waitAsync, and Atomics.notify"), at those words.
+    DefPrefix,
 }
 
 /// Which scalar of a matched entry a data rule's records are at.
@@ -215,6 +244,10 @@ struct CompiledRule {
     pretty: liquid::Template,
     syntax_kind: String,
     nesting: Option<String>,
+    kind: Option<AnalysisKind>,
+    regex: Option<regex::Regex>,
+    /// How its uses resolve, and the prefix of the symbols they resolve to.
+    resolve: Option<(Resolve, String)>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -359,13 +392,32 @@ impl CompiledMapping {
                 .rules
                 .iter()
                 .map(|rule| {
+                    let sym = template(&rule.sym)?;
+                    let resolve = match rule.resolve {
+                        Some(resolve) if rule.role == Role::Use => {
+                            let prefix = sym
+                                .render(&liquid::Object::new())
+                                .map_err(|e| e.to_string())?;
+                            Some((resolve, prefix))
+                        }
+                        Some(_) => return Err(format!("{}: only uses resolve", name)),
+                        None => None,
+                    };
                     Ok(CompiledRule {
                         role: rule.role,
                         query: query(&rule.query)?,
-                        sym: template(&rule.sym)?,
+                        sym,
                         pretty: template(&rule.pretty)?,
                         syntax_kind: rule.syntax_kind.clone(),
                         nesting: rule.nesting.clone(),
+                        kind: rule.kind,
+                        regex: rule
+                            .regex
+                            .as_deref()
+                            .map(regex::Regex::new)
+                            .transpose()
+                            .map_err(|e| format!("{}: regex: {}", name, e))?,
+                        resolve,
                     })
                 })
                 .collect::<Result<_, String>>()?,
@@ -427,6 +479,15 @@ impl CompiledMapping {
     /// Whether the mapping applies to a file with `source` (see `contains`).
     pub fn applies_to_source(&self, source: &str) -> bool {
         self.contains.is_empty() || self.contains.iter().any(|s| source.contains(s.as_str()))
+    }
+
+    /// The prefixes of the symbols of the definitions which its uses resolve
+    /// to (see `Resolve`).
+    pub fn resolving_prefixes(&self) -> Vec<String> {
+        self.rules
+            .iter()
+            .filter_map(|rule| Some(rule.resolve.as_ref()?.1.clone()))
+            .collect()
     }
 }
 
@@ -771,6 +832,27 @@ fn template_globals(enclosing: &[&ScopeInstance], captures: &[(String, String)])
     globals
 }
 
+/// The offsets of the starts of `source`'s lines.
+fn line_starts_of(source: &str) -> Vec<usize> {
+    let mut starts = vec![0];
+    starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
+    starts
+}
+
+/// The location of the bytes `range` of `source` (whose lines start at
+/// `line_starts`), which are on one line (or else the first line's).
+fn byte_location(source: &str, line_starts: &[usize], range: Range<usize>) -> Location {
+    let line = line_starts.partition_point(|&start| start <= range.start) - 1;
+    let end = source[range.clone()]
+        .find('\n')
+        .map_or(range.end, |i| range.start + i);
+    Location {
+        lineno: line as u32 + 1,
+        col_start: (range.start - line_starts[line]) as u32,
+        col_end: (end - line_starts[line]) as u32,
+    }
+}
+
 fn location(node: &tree_sitter::Node) -> Location {
     let start = node.start_position();
     let end = node.end_position();
@@ -924,12 +1006,110 @@ fn rule_records(
     records.push(target_record(loc, kind, pretty, sym, context.0, context.1));
 }
 
-/// The records of a mapping's query rules.
+/// A use which names a definition in any file (see `Resolve`).
+#[derive(Debug)]
+pub struct UnresolvedUse {
+    resolve: Resolve,
+    /// The prefix of the symbols of the definitions it can name.
+    prefix: String,
+    /// What names the definition, at `loc` (on one line).
+    text: String,
+    loc: Location,
+    syntax_kind: String,
+    kind: Option<AnalysisKind>,
+    context: (String, String),
+}
+
+/// A file's analysis, with the uses which name definitions in any file.
+pub struct Analysis {
+    pub records: Vec<Record>,
+    pub unresolved: Vec<UnresolvedUse>,
+}
+
+/// The words of `text`, with their bytes, without the punctuation around
+/// them, lowercased, for comparing names.
+fn name_words(text: &str) -> Vec<(Range<usize>, String)> {
+    let punctuation = |c: char| ".,;:!?\"'`()[]{}<>".contains(c);
+    let mut words = vec![];
+    let mut pos = 0;
+    for word in text.split_whitespace() {
+        let start = pos + text[pos..].find(word).unwrap_or(0);
+        pos = start + word.len();
+        let trimmed = word.trim_matches(punctuation);
+        if trimmed.is_empty() {
+            continue;
+        }
+        let start = start + word.find(trimmed).unwrap_or(0);
+        words.push((start..start + trimmed.len(), trimmed.to_lowercase()));
+    }
+    words
+}
+
+/// The records of `unresolved` uses which name `defs` (pretty names and
+/// symbols of definitions, in any file).
+pub fn resolve_uses(defs: &[(String, String)], unresolved: &[UnresolvedUse]) -> Vec<Record> {
+    let def_words: Vec<Vec<String>> = defs
+        .iter()
+        .map(|(pretty, _)| name_words(pretty).into_iter().map(|(_, w)| w).collect())
+        .collect();
+    let mut records = vec![];
+    for using in unresolved {
+        match using.resolve {
+            Resolve::DefPrefix => {
+                let words = name_words(&using.text);
+                // (The definitions sharing the most leading words.)
+                let mut best: Vec<usize> = vec![];
+                let mut best_count = 0;
+                for (i, (_, sym)) in defs.iter().enumerate() {
+                    if !sym.starts_with(&using.prefix) {
+                        continue;
+                    }
+                    let count = words
+                        .iter()
+                        .zip(&def_words[i])
+                        .take_while(|((_, a), b)| a == *b)
+                        .count();
+                    if count > best_count {
+                        best = vec![i];
+                        best_count = count;
+                    } else if count == best_count && count > 0 && defs[best[0]].1 != *sym {
+                        best.push(i);
+                    }
+                }
+                let [def] = best[..] else {
+                    continue;
+                };
+                let (start, end) = (words[0].0.start, words[best_count - 1].0.end);
+                let loc = Location {
+                    lineno: using.loc.lineno,
+                    col_start: using.loc.col_start + start as u32,
+                    col_end: using.loc.col_start + end as u32,
+                };
+                rule_records(
+                    &mut records,
+                    Role::Use,
+                    loc,
+                    &using.syntax_kind,
+                    using.kind,
+                    defs[def].0.clone(),
+                    defs[def].1.clone(),
+                    SourceRange::default(),
+                    using.context.clone(),
+                );
+            }
+        }
+    }
+    records
+}
+
+/// The records of a mapping's query rules, and its uses which name
+/// definitions in any file.
 fn query_records(
     mapping: &CompiledMapping,
     root: tree_sitter::Node,
     source: &str,
     records: &mut Vec<Record>,
+    unresolved: &mut Vec<UnresolvedUse>,
 ) -> Result<(), String> {
     // ## Scopes, outermost first.
     struct RawScope<'m> {
@@ -1008,6 +1188,7 @@ fn query_records(
     }
 
     // ## Records.
+    let mut line_starts = None;
     for rule in &mapping.rules {
         let Some(id_capture) = capture_index(&rule.query, "id") else {
             return Err(format!(
@@ -1044,41 +1225,94 @@ fn query_records(
                     )
                 })
                 .collect();
-            let globals = template_globals(&enclosing, &captures);
-            let sym = rule.sym.render(&globals).map_err(|e| e.to_string())?;
-            let pretty = rule.pretty.render(&globals).map_err(|e| e.to_string())?;
             let context = enclosing
                 .last()
                 .map(|s| (s.pretty.clone(), s.sym.clone()))
                 .unwrap_or_default();
-            let loc = location(&id);
-            // (From the definition's line, since the nesting node can start
-            // with a line break, ex: a Fluent attribute's.)
-            let nesting_range = nesting_capture
-                .and_then(|index| m.captures().iter().find(|c| c.index == index))
-                .map(|c| {
-                    let end = c.node.end_position();
-                    SourceRange {
-                        start_lineno: loc.lineno,
-                        start_col: loc.col_start,
-                        end_lineno: end.row as u32 + 1,
-                        end_col: end.column as u32,
+            // (With a regex, the records are at its matches in the node.)
+            let Some(regex) = &rule.regex else {
+                let globals = template_globals(&enclosing, &captures);
+                let sym = rule.sym.render(&globals).map_err(|e| e.to_string())?;
+                let pretty = rule.pretty.render(&globals).map_err(|e| e.to_string())?;
+                let loc = location(&id);
+                // (From the definition's line, since the nesting node can
+                // start with a line break, ex: a Fluent attribute's.)
+                let nesting_range = nesting_capture
+                    .and_then(|index| m.captures().iter().find(|c| c.index == index))
+                    .map(|c| {
+                        let end = c.node.end_position();
+                        SourceRange {
+                            start_lineno: loc.lineno,
+                            start_col: loc.col_start,
+                            end_lineno: end.row as u32 + 1,
+                            end_col: end.column as u32,
+                        }
+                    })
+                    // (Only for definitions spanning lines.)
+                    .filter(|range| range.end_lineno > range.start_lineno)
+                    .unwrap_or_default();
+                rule_records(
+                    records,
+                    rule.role,
+                    loc,
+                    &rule.syntax_kind,
+                    rule.kind,
+                    pretty,
+                    sym,
+                    nesting_range,
+                    context,
+                );
+                continue;
+            };
+            let node_start = id.start_byte();
+            let line_starts = line_starts.get_or_insert_with(|| line_starts_of(source));
+            let has_id_group = regex.capture_names().flatten().any(|name| name == "id");
+            for regex_match in regex.captures_iter(node_text(&id, source)) {
+                // (Matches without the `id` group, if the regex has one, are
+                // what the rule leaves out, ex: definitions, for uses.)
+                let at = match regex_match.name("id") {
+                    Some(at) => at,
+                    None if has_id_group => continue,
+                    None => regex_match.get(0).unwrap(),
+                };
+                let mut captures = captures.clone();
+                for name in regex.capture_names().flatten() {
+                    if let Some(group) = regex_match.name(name) {
+                        captures.push((name.to_string(), group.as_str().to_string()));
                     }
-                })
-                // (Only for definitions spanning lines.)
-                .filter(|range| range.end_lineno > range.start_lineno)
-                .unwrap_or_default();
-            rule_records(
-                records,
-                rule.role,
-                loc,
-                &rule.syntax_kind,
-                None,
-                pretty,
-                sym,
-                nesting_range,
-                context,
-            );
+                }
+                let globals = template_globals(&enclosing, &captures);
+                let loc = byte_location(
+                    source,
+                    line_starts,
+                    node_start + at.start()..node_start + at.end(),
+                );
+                if let Some((resolve, prefix)) = &rule.resolve {
+                    unresolved.push(UnresolvedUse {
+                        resolve: *resolve,
+                        prefix: prefix.clone(),
+                        text: at.as_str().to_string(),
+                        loc,
+                        syntax_kind: rule.syntax_kind.clone(),
+                        kind: rule.kind,
+                        context: context.clone(),
+                    });
+                    continue;
+                }
+                let sym = rule.sym.render(&globals).map_err(|e| e.to_string())?;
+                let pretty = rule.pretty.render(&globals).map_err(|e| e.to_string())?;
+                rule_records(
+                    records,
+                    rule.role,
+                    loc,
+                    &rule.syntax_kind,
+                    rule.kind,
+                    pretty,
+                    sym,
+                    SourceRange::default(),
+                    context.clone(),
+                );
+            }
         }
     }
     Ok(())
@@ -1324,13 +1558,25 @@ pub(crate) fn parse_all(
 
 /// Analyze the file at `path` (with `source` contents) with the `mappings`
 /// which apply to it: its file definition, and the definitions, uses, and
-/// keys the mappings' rules find.
+/// keys the mappings' rules find, but for uses which name definitions in any
+/// file (see `analyze_resolving`).
 pub fn analyze(
     mappings: &[&CompiledMapping],
     path: &str,
     source: &str,
 ) -> Result<Vec<Record>, String> {
+    Ok(analyze_resolving(mappings, path, source)?.records)
+}
+
+/// `analyze`, and the uses which name definitions in any file, for
+/// `resolve_uses` once all of the files are analyzed.
+pub fn analyze_resolving(
+    mappings: &[&CompiledMapping],
+    path: &str,
+    source: &str,
+) -> Result<Analysis, String> {
     let mut records = vec![file_def_record(path)];
+    let mut unresolved = vec![];
     let mut parser = tree_sitter::Parser::new();
     // (Mappings with the same grammar share its parse.)
     let mut grammars: Vec<&str> = vec![];
@@ -1378,13 +1624,16 @@ pub fn analyze(
                 continue;
             }
             for root in &roots {
-                query_records(mapping, *root, source, &mut records)?;
+                query_records(mapping, *root, source, &mut records, &mut unresolved)?;
             }
             data_records(mapping, &data, path, source, &mut records)?;
         }
     }
     sort_records(&mut records);
-    Ok(records)
+    Ok(Analysis {
+        records,
+        unresolved,
+    })
 }
 
 /// The definition of the file at `path`.
@@ -1763,6 +2012,84 @@ pretty = "{{ value }}"
         for key in ["key", "a", "c"] {
             assert!(syms.contains(&key.to_string()), "{:?}", syms);
         }
+    }
+
+    #[test]
+    fn test_smdoc_mappings() {
+        let mappings = builtin_mappings().unwrap();
+        let smdoc = mappings
+            .iter()
+            .find(|m| m.name == "smdoc_cpp.toml")
+            .unwrap();
+        assert!(smdoc.applies_to("js/src/vm/A.cpp"));
+        let source = concat!(
+            "// [SMDOC] Atomics.wait, Atomics.waitAsync, and Atomics.notify\n",
+            "//\n",
+            "// Details.\n",
+            "\n",
+            "/*\n",
+            " * [SMDOC] \"JIT Register-Set (Live)\":\n",
+            " */\n",
+            "\n",
+            "// See [SMDOC] Atomics.wait for details, \"[SMDOC] JIT Register-Set\", and\n",
+            "// the [SMDOC] for Debug.\n",
+            "int x;  // As in [SMDOC] JIT Register-Set (Live).\n",
+            "int y;  // Not [SMDOC] Atomics.\n",
+        );
+        let analysis = analyze_resolving(&[smdoc], "js/src/vm/A.cpp", source).unwrap();
+        let targets = |records: &[Record]| -> Vec<String> {
+            records
+                .iter()
+                .filter_map(|record| match record {
+                    Record::Target(t) if !t.loc.is_file_target() => Some(format!(
+                        "{}:{}-{} {} {}",
+                        t.loc.lineno,
+                        t.loc.col_start,
+                        t.loc.col_end,
+                        t.data.kind.to_ustr(),
+                        t.data.sym
+                    )),
+                    _ => None,
+                })
+                .collect()
+        };
+        // Definitions are at their titles, without their quotes and trailing
+        // punctuation.
+        assert_eq!(
+            targets(&analysis.records),
+            [
+                "1:11-62 doc-def SMDOC_Atomics@2Ewait@2C@20Atomics@2EwaitAsync@2C@20and@20Atomics@2Enotify",
+                "6:12-35 doc-def SMDOC_JIT@20Register@2DSet@20@28Live@29",
+            ]
+        );
+        // Citations name the definitions sharing the most leading (whole)
+        // words, at those words, if just one does.
+        assert_eq!(analysis.unresolved.len(), 5);
+        let defs: Vec<(String, String)> = analysis
+            .records
+            .iter()
+            .filter_map(|record| match record {
+                Record::Target(t) if t.data.kind == AnalysisKind::DocDef => {
+                    Some((t.data.pretty.clone(), t.data.sym.clone()))
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            targets(&resolve_uses(&defs, &analysis.unresolved)),
+            [
+                "9:15-27 doc-use SMDOC_Atomics@2Ewait@2C@20Atomics@2EwaitAsync@2C@20and@20Atomics@2Enotify",
+                "9:50-66 doc-use SMDOC_JIT@20Register@2DSet@20@28Live@29",
+                "11:25-47 doc-use SMDOC_JIT@20Register@2DSet@20@28Live@29",
+            ]
+        );
+        // (But not when several share as many.)
+        let more = [
+            defs.clone(),
+            vec![("Atomics.wait in workers".to_string(), "SMDOC_x".to_string())],
+        ]
+        .concat();
+        assert_eq!(targets(&resolve_uses(&more, &analysis.unresolved)).len(), 2);
     }
 
     #[test]

@@ -142,6 +142,14 @@ index of the field starting from 0.
    references are `doc-use`s, as are documents' references to other documents
    (their `FILE_` symbols).
 
+ * SpiderMonkey's `[SMDOC]` comment blocks (see
+   `tools/languages/semantic_mappings/smdoc_cpp.toml`) use `SMDOC_` followed by
+   the block's title (without its quotes and trailing punctuation), escaped
+   like `FILE_` symbols, ex: `SMDOC_Garbage@20Collector`.  The title is a
+   `doc-def`, and citations of it in other comments (`[SMDOC] Title`, which
+   name the block whose title shares the most leading words, in any file) are
+   `doc-use`s.
+
  * Firefox's privileged URLs (chrome://, resource://) temporarily use special
    symbols with `URL_` prefix followed by normalized URL.  The symbol is replaced
    with the corresponding file's symbol by `scripts/replace-aliases.py` script.

@@ -10,7 +10,9 @@
 // mappings apply to, and documents, get their analysis (all of those mappings'
 // records) written to ANALYSIS_ROOT/<path>, or added to its analysis there if
 // it has some (ex: C++ files' uses of prefs; see
-// `semantic_analyzer::merge_records`).  DOC_TREES_JSON is the map of the
+// `semantic_analyzer::merge_records`).  Files with uses which name
+// definitions in any file (see `semantic_analyzer::Resolve`) are written once
+// all of the files are analyzed.  DOC_TREES_JSON is the map of the
 // documentation's staged layout (see `file_format::doc_trees`), if the tree
 // has one.
 
@@ -18,12 +20,31 @@ use std::io::{BufRead, Write};
 use std::path::Path;
 use std::process::exit;
 
+use tools::file_format::analysis::AnalysisKind;
 use tools::file_format::doc_trees::read_doc_trees;
 use tools::rendered_docs::analysis::{TreeFiles, doc_records};
 use tools::rendered_docs::is_doc_path;
 use tools::semantic_analyzer::{
-    Record, analyze, builtin_mappings, file_def_record, merge_records, sort_records,
+    Analysis, Record, UnresolvedUse, analyze_resolving, builtin_mappings, file_def_record,
+    merge_records, resolve_uses, sort_records,
 };
+
+/// Write a file's analysis records to ANALYSIS_ROOT/<path>, or add them to
+/// the analysis there.
+fn write_records(analysis_root: &Path, path: &str, records: Vec<Record>) {
+    let out_path = analysis_root.join(path);
+    let lines = match std::fs::read_to_string(&out_path) {
+        Ok(existing) => merge_records(&existing, records),
+        Err(_) => records.iter().map(Record::to_json).collect(),
+    };
+    if let Some(dir) = out_path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let mut out = std::io::BufWriter::new(std::fs::File::create(&out_path).unwrap());
+    for line in &lines {
+        writeln!(out, "{}", line).unwrap();
+    }
+}
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -51,6 +72,15 @@ fn main() {
         .filter(|path| Path::new(path).exists())
         .map(read_doc_trees);
     let files = TreeFiles::new(paths.iter().cloned(), doc_trees);
+    // The definitions which uses in any file can name (see
+    // `semantic_analyzer::Resolve`), and the files with such uses, which
+    // wait for all of the definitions.
+    let prefixes: Vec<String> = mappings
+        .iter()
+        .flat_map(|m| m.resolving_prefixes())
+        .collect();
+    let mut defs: Vec<(String, String)> = vec![];
+    let mut resolving: Vec<(&str, Vec<Record>, Vec<UnresolvedUse>)> = vec![];
     let (mut analyzed, mut failed) = (0, 0);
     for path in &paths {
         let path = path.as_str();
@@ -68,35 +98,44 @@ fn main() {
         if applying.is_empty() && !is_doc {
             continue;
         }
-        let records = if applying.is_empty() {
-            Ok(vec![file_def_record(path)])
+        let analysis = if applying.is_empty() {
+            Ok(Analysis {
+                records: vec![file_def_record(path)],
+                unresolved: vec![],
+            })
         } else {
-            analyze(&applying, path, &source)
+            analyze_resolving(&applying, path, &source)
         };
-        let records = records.and_then(|mut records| {
+        let analysis = analysis.and_then(|mut analysis| {
             if is_doc {
                 // (A document that rendering can't handle shouldn't stop
                 // the rest.)
                 let docs = std::panic::catch_unwind(|| doc_records(path, &source, &files))
                     .map_err(|_| "Couldn't render the document".to_string())?;
-                records.extend(docs);
-                sort_records(&mut records);
+                analysis.records.extend(docs);
+                sort_records(&mut analysis.records);
             }
-            Ok(records)
+            Ok(analysis)
         });
-        match records {
-            Ok(records) => {
-                let out_path = analysis_root.join(path);
-                let lines = match std::fs::read_to_string(&out_path) {
-                    Ok(existing) => merge_records(&existing, records),
-                    Err(_) => records.iter().map(Record::to_json).collect(),
-                };
-                if let Some(dir) = out_path.parent() {
-                    let _ = std::fs::create_dir_all(dir);
+        match analysis {
+            Ok(Analysis {
+                records,
+                unresolved,
+            }) => {
+                for record in &records {
+                    if let Record::Target(target) = record
+                        && matches!(target.data.kind, AnalysisKind::Def | AnalysisKind::DocDef)
+                        && prefixes
+                            .iter()
+                            .any(|p| target.data.sym.starts_with(p.as_str()))
+                    {
+                        defs.push((target.data.pretty.clone(), target.data.sym.clone()));
+                    }
                 }
-                let mut out = std::io::BufWriter::new(std::fs::File::create(&out_path).unwrap());
-                for line in &lines {
-                    writeln!(out, "{}", line).unwrap();
+                if unresolved.is_empty() {
+                    write_records(analysis_root, path, records);
+                } else {
+                    resolving.push((path, records, unresolved));
                 }
                 analyzed += 1;
             }
@@ -106,5 +145,18 @@ fn main() {
             }
         }
     }
-    println!("Analyzed {} files ({} failed)", analyzed, failed);
+    let unresolved_count: usize = resolving.iter().map(|(_, _, u)| u.len()).sum();
+    let mut resolved_count = 0;
+    for (path, mut records, unresolved) in resolving {
+        let resolved = resolve_uses(&defs, &unresolved);
+        // (A source and a target record for each.)
+        resolved_count += resolved.len() / 2;
+        records.extend(resolved);
+        sort_records(&mut records);
+        write_records(analysis_root, path, records);
+    }
+    println!(
+        "Analyzed {} files ({} failed); resolved {} of {} uses of definitions in any file",
+        analyzed, failed, resolved_count, unresolved_count
+    );
 }

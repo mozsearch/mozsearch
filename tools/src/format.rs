@@ -77,8 +77,9 @@ pub struct FormattedLine {
 /// Splits string literal tokens at the analysis records within them (ex: a
 /// data-l10n-id in markup in a JS string, or a quoted JS object key's
 /// property), so that the records get tokens, and so spans, of their own, and
-/// likewise plain text's lines (ex: a document's references to Sphinx labels),
-/// whose records' tokens are like identifiers'.
+/// likewise comments' lines (ex: SpiderMonkey's `[SMDOC]` references) and
+/// plain text's (ex: a document's references to Sphinx labels), whose
+/// records' tokens are like identifiers'.
 fn split_strings_at_records(
     input: &str,
     tokens: Vec<tokenize::Token>,
@@ -97,6 +98,7 @@ fn split_strings_at_records(
         }
         let record_kind = match token.kind {
             tokenize::TokenKind::StringLiteral => tokenize::TokenKind::StringLiteral,
+            tokenize::TokenKind::Comment => tokenize::TokenKind::Comment,
             tokenize::TokenKind::PlainText => tokenize::TokenKind::Identifier(None),
             _ => {
                 result.push(token);
@@ -299,7 +301,8 @@ pub fn format_code(
 
         match (&token.kind, datum) {
             (&tokenize::TokenKind::Identifier(_), Some(d))
-            | (&tokenize::TokenKind::StringLiteral, Some(d)) => {
+            | (&tokenize::TokenKind::StringLiteral, Some(d))
+            | (&tokenize::TokenKind::Comment, Some(d)) => {
                 for a in d.iter() {
                     // If this symbol starts a relevant nesting range and we haven't already pushed a
                     // symbol for this line, push it onto our stack.  Note that the nesting_range
@@ -402,7 +405,9 @@ pub fn format_code(
         let get_symbols =
             |token: &tokenize::Token, datum: &mut dyn Iterator<Item = &AnalysisSource>| {
                 match &token.kind {
-                    &tokenize::TokenKind::Identifier(_) | &tokenize::TokenKind::StringLiteral => {
+                    &tokenize::TokenKind::Identifier(_)
+                    | &tokenize::TokenKind::StringLiteral
+                    | &tokenize::TokenKind::Comment => {
                         // Build the list of symbols for the highlighter.  We do this for all source
                         // records, even ones marked "no_crossref" because we still want to highlight
                         // locals.  These will be emitted into a `data-symbols` attribute below.
@@ -4702,6 +4707,31 @@ mod tests {
                 ("Nothing here.", false)
             ]
         );
+    }
+
+    #[test]
+    fn test_split_comments_at_records() {
+        use crate::file_format::analysis::Location;
+        let input = "int x;  // See [SMDOC] X Y here.\n";
+        let FormatAs::FormatCLike(spec) = languages::select_formatting("a.cpp") else {
+            panic!("C++ isn't C-like");
+        };
+        let analysis = [WithLocation {
+            loc: Location {
+                lineno: 1,
+                col_start: 23,
+                col_end: 26,
+            },
+            data: vec![],
+        }];
+        let tokens =
+            split_strings_at_records(input, tokenize::tokenize_c_like(input, spec), &analysis);
+        let comments: Vec<&str> = tokens
+            .iter()
+            .filter(|t| t.kind == tokenize::TokenKind::Comment)
+            .map(|t| &input[t.start..t.end])
+            .collect();
+        assert_eq!(comments, ["// See [SMDOC] ", "X Y", " here."]);
     }
 
     #[test]

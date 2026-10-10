@@ -1,0 +1,32 @@
+# SpiderMonkey's `[SMDOC]` comment blocks (see semantic_analyzer.rs): a
+# comment line starting with `[SMDOC] Title` is the documentation (a doc-def)
+# of `SMDOC_<title>`, and `[SMDOC] Title` elsewhere in comments (ex: "See
+# [SMDOC] Atomics.wait for more details.") is a reference to it (a doc-use),
+# of the block whose title shares the most leading words with what follows,
+# in any file (ex: "Atomics.wait, Atomics.waitAsync, and Atomics.notify").
+# Titles are without their quotes and trailing punctuation, but with their
+# parentheticals, which tell some blocks apart (ex: "JIT Register-Set
+# (Allocatable)" and "JIT Register-Set (Live)").
+grammar = "mozcpp"
+paths = ["js/**/*.cpp", "js/**/*.h"]
+contains = ["[SMDOC]"]
+
+[[rules]]
+role = "def"
+kind = "doc-def"
+query = "(comment) @id"
+regex = '''(?m)^[ \t]*(?:/{2,}|/\*+|\*+)?[!<]?[ \t]*\[SMDOC\][ \t]*(?:-[ \t]+)?"?(?P<id>[^\n"*]*[^\n"*:.\s])'''
+sym = "SMDOC_{{ id | at_escape }}"
+pretty = "{{ id }}"
+syntax_kind = "SMDOC"
+
+[[rules]]
+role = "use"
+kind = "doc-use"
+query = "(comment) @id"
+# (Not definitions' `[SMDOC]`s, which have no `id`.)
+regex = '''(?m)^[ \t]*(?:/{2,}|/\*+|\*+)?[!<]?[ \t]*\[SMDOC\]|\[\[?SMDOC\][ \t]+(?P<id>[^\n\[\]]*[^\n\[\]\s])'''
+resolve = "def-prefix"
+sym = "SMDOC_"
+pretty = "{{ id }}"
+syntax_kind = "SMDOC"
