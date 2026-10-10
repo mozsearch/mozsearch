@@ -1,0 +1,13 @@
+# YAML files' keys (see semantic_analyzer.rs): every key of every map has a
+# `YAMLKEY_` source record (the `key` syntax, and highlighting the file's other
+# uses of the key), with a nesting range (for sticky headers) when its value
+# spans lines.  (Formerly yaml-analyze.py's.)
+grammar = "yaml"
+paths = ["**/*.yaml", "**/*.yml"]
+
+[[data]]
+path = "**/*"
+role = "key"
+sym = "YAMLKEY_{{ text | at_escape }}"
+pretty = "{{ text }}"
+nesting = true

@@ -1,0 +1,52 @@
+# StaticPrefList.yaml (see semantic_analyzer.rs): each pref (`- name: a.b-c`)
+# defines `PREFS_<name>`, with FILE_-style escapes (`PREFS_a@2Eb@2Dc`, so that
+# names don't collide), and has binding slots for the getters generated for
+# it, by pretty name for crossref to resolve: generate_static_pref_list.py's
+# `mozilla::StaticPrefs::<name with '.'s and '-'s as '_'s>`, with `_AtStartup`
+# for `once` mirrors and `_DoNotUseDirectly` for `do_not_use_directly` prefs
+# (whichever exist), and js/src/GeneratePrefs.py's `JS::Prefs::<...>` for
+# `javascript.options.<...>` prefs.  (Formerly staticprefs-analyze.py's.)
+grammar = "yaml"
+paths = ["**/StaticPrefList.yaml"]
+
+[[data]]
+path = "[]/name"
+at = "value"
+role = "def"
+sym = "PREFS_{{ value | at_escape }}"
+pretty = "{{ value }}"
+syntax_kind = "StaticPrefs"
+
+[data.structured]
+kind = "prefs"
+impl_kind = "StaticPrefs"
+
+[[data.structured.bindings]]
+slot_kind = "getter"
+slot_lang = "cpp"
+owner_lang = "prefs"
+pretty = "mozilla::StaticPrefs::{{ value | replace: '.', '_' | replace: '-', '_' }}"
+
+[[data.structured.bindings]]
+slot_kind = "getter"
+slot_lang = "cpp"
+owner_lang = "prefs"
+pretty = "mozilla::StaticPrefs::{{ value | replace: '.', '_' | replace: '-', '_' }}_AtStartup"
+
+[[data.structured.bindings]]
+slot_kind = "getter"
+slot_lang = "cpp"
+owner_lang = "prefs"
+pretty = "mozilla::StaticPrefs::{{ value | replace: '.', '_' | replace: '-', '_' }}_DoNotUseDirectly"
+
+[[data.structured.bindings]]
+slot_kind = "getter"
+slot_lang = "cpp"
+owner_lang = "prefs"
+pretty = "mozilla::StaticPrefs::{{ value | replace: '.', '_' | replace: '-', '_' }}_AtStartup_DoNotUseDirectly"
+
+[[data.structured.bindings]]
+slot_kind = "getter"
+slot_lang = "cpp"
+owner_lang = "prefs"
+pretty = "{% assign rest = value | remove_first: 'javascript.options.' %}{% if rest != value %}JS::Prefs::{{ rest | replace: '.', '_' | replace: '-', '_' }}{% endif %}"

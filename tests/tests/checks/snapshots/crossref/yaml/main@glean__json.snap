@@ -1,0 +1,252 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/yaml/glean__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "GLEAN_test_metrics::probe_one",
+      "crossref_info": {
+        "glean": [
+          {
+            "path": "yaml/metrics.yaml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 6,
+                "bounds": [
+                  0,
+                  9
+                ],
+                "line": "probe_one:",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "test_metrics::probe_one",
+          "sym": "GLEAN_test_metrics::probe_one",
+          "type_pretty": null,
+          "kind": "field",
+          "subsystem": null,
+          "implKind": "glean",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "member",
+              "slotLang": "js",
+              "implKind": "binding",
+              "ownerLang": "glean",
+              "sym": "Glean.testMetrics#probeOne"
+            },
+            {
+              "slotKind": "member",
+              "slotLang": "cpp",
+              "implKind": "binding",
+              "ownerLang": "glean",
+              "sym": "_ZN7mozilla5glean12test_metrics9probe_oneE"
+            }
+          ],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "GLEAN_test_metrics::probe_two::extra_keys",
+      "crossref_info": {
+        "glean": [
+          {
+            "path": "yaml/metrics.yaml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 10,
+                "bounds": [
+                  0,
+                  10
+                ],
+                "line": "extra_keys:",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "test_metrics::probe_two::extra_keys",
+          "sym": "GLEAN_test_metrics::probe_two::extra_keys",
+          "type_pretty": null,
+          "kind": "field",
+          "subsystem": null,
+          "implKind": "glean",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "class",
+              "slotLang": "cpp",
+              "implKind": "binding",
+              "ownerLang": "glean",
+              "sym": "T_mozilla::glean::test_metrics::ProbeTwoExtra"
+            }
+          ],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "GLEAN_test_metrics::probe_two::extra_keys::field_one",
+      "crossref_info": {
+        "glean": [
+          {
+            "path": "yaml/metrics.yaml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 11,
+                "bounds": [
+                  0,
+                  9
+                ],
+                "line": "field_one:",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "test_metrics::probe_two::extra_keys::field_one",
+          "sym": "GLEAN_test_metrics::probe_two::extra_keys::field_one",
+          "type_pretty": null,
+          "kind": "field",
+          "subsystem": null,
+          "implKind": "glean",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "member",
+              "slotLang": "cpp",
+              "implKind": "binding",
+              "ownerLang": "glean",
+              "sym": "F_<T_mozilla::glean::test_metrics::ProbeTwoExtra>_fieldOne"
+            }
+          ],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "_ZN7mozilla5glean12test_metrics9probe_oneE",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "yaml/bindings/TestMetrics.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 7,
+                "bounds": [
+                  4,
+                  13
+                ],
+                "line": "int probe_one = 0;",
+                "context": "",
+                "contextsym": "",
+                "peekRange": "7-7"
+              }
+            ]
+          }
+        ],
+        "decls": [
+          {
+            "path": "yaml/bindings/TestMetrics.h",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 7,
+                "bounds": [
+                  11,
+                  20
+                ],
+                "line": "extern int probe_one;",
+                "context": "",
+                "contextsym": "",
+                "peekRange": "7-7"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "mozilla::glean::test_metrics::probe_one",
+          "sym": "_ZN7mozilla5glean12test_metrics9probe_oneE",
+          "type_pretty": null,
+          "kind": "variable",
+          "subsystem": null,
+          "slotOwner": {
+            "slotKind": "member",
+            "slotLang": "cpp",
+            "implKind": "binding",
+            "ownerLang": "glean",
+            "sym": "GLEAN_test_metrics::probe_one"
+          },
+          "implKind": "",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

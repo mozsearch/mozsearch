@@ -191,9 +191,6 @@ Files:
   As with `objdir-dirs`, this needs to exist because of the split between source
   files and generated files.
 - `repo-files`: File variant of `repo-dirs`, see above for more info.
-- `staticprefs-files`: A list of all the 'StaticPrefList.yaml' files in the
-  tree produced by `find-repo-files.py`.  Used by `staticprefs-analyze.sh`
-  to know what files to process when invoked by `mkindex.sh`.
 - `target.json`: Downloaded by `resolve-gecko-revs.sh` as part of the process
   of identifying the most recent successful searchfox indexing jobs run on
   taskcluster for the given channel/tree.  Taskclusters' routes mechanism means

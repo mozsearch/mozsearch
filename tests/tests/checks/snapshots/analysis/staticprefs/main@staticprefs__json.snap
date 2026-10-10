@@ -1,27 +1,104 @@
 ---
 source: src/bin/test-index.rs
 expression: "&json_results"
+input_file: inputs/analysis/staticprefs/staticprefs__json
 ---
 [
   {
-    "loc": "1:8-16",
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "staticprefs/StaticPrefList.yaml",
+    "sym": "FILE_staticprefs/StaticPrefList@2Eyaml"
+  },
+  {
+    "loc": "00001:2-6",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "name",
+    "sym": "YAMLKEY_name"
+  },
+  {
+    "loc": "00001:8-16",
+    "structured": 1,
+    "pretty": "test.int",
+    "sym": "PREFS_test@2Eint",
+    "kind": "prefs",
+    "implKind": "StaticPrefs",
+    "bindingSlots": [
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "pretty": "mozilla::StaticPrefs::test_int"
+      },
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "pretty": "mozilla::StaticPrefs::test_int_AtStartup"
+      },
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "pretty": "mozilla::StaticPrefs::test_int_DoNotUseDirectly"
+      },
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "pretty": "mozilla::StaticPrefs::test_int_AtStartup_DoNotUseDirectly"
+      }
+    ]
+  },
+  {
+    "loc": "00001:8-16",
     "source": 1,
     "syntax": "def",
     "pretty": "StaticPrefs test.int",
-    "sym": "PREFS_test_int"
+    "sym": "PREFS_test@2Eint"
   },
   {
-    "loc": "1:8-16",
+    "loc": "00001:8-16",
     "target": 1,
     "kind": "def",
     "pretty": "test.int",
-    "sym": "PREFS_test_int"
+    "sym": "PREFS_test@2Eint"
   },
   {
-    "loc": "1:8-16",
+    "loc": "00002:2-6",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "type",
+    "sym": "YAMLKEY_type"
+  },
+  {
+    "loc": "00003:2-7",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "value",
+    "sym": "YAMLKEY_value"
+  },
+  {
+    "loc": "00004:2-8",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "mirror",
+    "sym": "YAMLKEY_mirror"
+  },
+  {
+    "loc": "00006:2-6",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "name",
+    "sym": "YAMLKEY_name"
+  },
+  {
+    "loc": "00006:8-18",
     "structured": 1,
-    "pretty": "test.int",
-    "sym": "PREFS_test_int",
+    "pretty": "test2.uint",
+    "sym": "PREFS_test2@2Euint",
     "kind": "prefs",
     "implKind": "StaticPrefs",
     "bindingSlots": [
@@ -29,29 +106,75 @@ expression: "&json_results"
         "slotKind": "getter",
         "slotLang": "cpp",
         "ownerLang": "prefs",
-        "sym": "_ZN7mozilla11StaticPrefs8test_intEv"
+        "pretty": "mozilla::StaticPrefs::test2_uint"
+      },
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "pretty": "mozilla::StaticPrefs::test2_uint_AtStartup"
+      },
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "pretty": "mozilla::StaticPrefs::test2_uint_DoNotUseDirectly"
+      },
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "pretty": "mozilla::StaticPrefs::test2_uint_AtStartup_DoNotUseDirectly"
       }
     ]
   },
   {
-    "loc": "6:8-18",
+    "loc": "00006:8-18",
     "source": 1,
     "syntax": "def",
     "pretty": "StaticPrefs test2.uint",
-    "sym": "PREFS_test2_uint"
+    "sym": "PREFS_test2@2Euint"
   },
   {
-    "loc": "6:8-18",
+    "loc": "00006:8-18",
     "target": 1,
     "kind": "def",
     "pretty": "test2.uint",
-    "sym": "PREFS_test2_uint"
+    "sym": "PREFS_test2@2Euint"
   },
   {
-    "loc": "6:8-18",
+    "loc": "00007:2-6",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "type",
+    "sym": "YAMLKEY_type"
+  },
+  {
+    "loc": "00008:2-7",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "value",
+    "sym": "YAMLKEY_value"
+  },
+  {
+    "loc": "00009:2-8",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "mirror",
+    "sym": "YAMLKEY_mirror"
+  },
+  {
+    "loc": "00011:2-6",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "name",
+    "sym": "YAMLKEY_name"
+  },
+  {
+    "loc": "00011:8-17",
     "structured": 1,
-    "pretty": "test2.uint",
-    "sym": "PREFS_test2_uint",
+    "pretty": "test.bool",
+    "sym": "PREFS_test@2Ebool",
     "kind": "prefs",
     "implKind": "StaticPrefs",
     "bindingSlots": [
@@ -59,29 +182,75 @@ expression: "&json_results"
         "slotKind": "getter",
         "slotLang": "cpp",
         "ownerLang": "prefs",
-        "sym": "_ZN7mozilla11StaticPrefs10test2_uintEv"
+        "pretty": "mozilla::StaticPrefs::test_bool"
+      },
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "pretty": "mozilla::StaticPrefs::test_bool_AtStartup"
+      },
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "pretty": "mozilla::StaticPrefs::test_bool_DoNotUseDirectly"
+      },
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "pretty": "mozilla::StaticPrefs::test_bool_AtStartup_DoNotUseDirectly"
       }
     ]
   },
   {
-    "loc": "11:8-17",
+    "loc": "00011:8-17",
     "source": 1,
     "syntax": "def",
     "pretty": "StaticPrefs test.bool",
-    "sym": "PREFS_test_bool"
+    "sym": "PREFS_test@2Ebool"
   },
   {
-    "loc": "11:8-17",
+    "loc": "00011:8-17",
     "target": 1,
     "kind": "def",
     "pretty": "test.bool",
-    "sym": "PREFS_test_bool"
+    "sym": "PREFS_test@2Ebool"
   },
   {
-    "loc": "11:8-17",
+    "loc": "00012:2-6",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "type",
+    "sym": "YAMLKEY_type"
+  },
+  {
+    "loc": "00013:2-7",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "value",
+    "sym": "YAMLKEY_value"
+  },
+  {
+    "loc": "00014:2-8",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "mirror",
+    "sym": "YAMLKEY_mirror"
+  },
+  {
+    "loc": "00017:2-6",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "name",
+    "sym": "YAMLKEY_name"
+  },
+  {
+    "loc": "00017:8-16",
     "structured": 1,
-    "pretty": "test.bool",
-    "sym": "PREFS_test_bool",
+    "pretty": "test.str",
+    "sym": "PREFS_test@2Estr",
     "kind": "prefs",
     "implKind": "StaticPrefs",
     "bindingSlots": [
@@ -89,31 +258,61 @@ expression: "&json_results"
         "slotKind": "getter",
         "slotLang": "cpp",
         "ownerLang": "prefs",
-        "sym": "_ZN7mozilla11StaticPrefs9test_boolEv"
+        "pretty": "mozilla::StaticPrefs::test_str"
+      },
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "pretty": "mozilla::StaticPrefs::test_str_AtStartup"
+      },
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "pretty": "mozilla::StaticPrefs::test_str_DoNotUseDirectly"
+      },
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "prefs",
+        "pretty": "mozilla::StaticPrefs::test_str_AtStartup_DoNotUseDirectly"
       }
     ]
   },
   {
-    "loc": "17:8-16",
+    "loc": "00017:8-16",
     "source": 1,
     "syntax": "def",
     "pretty": "StaticPrefs test.str",
-    "sym": "PREFS_test_str"
+    "sym": "PREFS_test@2Estr"
   },
   {
-    "loc": "17:8-16",
+    "loc": "00017:8-16",
     "target": 1,
     "kind": "def",
     "pretty": "test.str",
-    "sym": "PREFS_test_str"
+    "sym": "PREFS_test@2Estr"
   },
   {
-    "loc": "17:8-16",
-    "structured": 1,
-    "pretty": "test.str",
-    "sym": "PREFS_test_str",
-    "kind": "prefs",
-    "implKind": "StaticPrefs",
-    "bindingSlots": []
+    "loc": "00018:2-6",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "type",
+    "sym": "YAMLKEY_type"
+  },
+  {
+    "loc": "00019:2-7",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "value",
+    "sym": "YAMLKEY_value"
+  },
+  {
+    "loc": "00020:2-8",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "mirror",
+    "sym": "YAMLKEY_mirror"
   }
 ]

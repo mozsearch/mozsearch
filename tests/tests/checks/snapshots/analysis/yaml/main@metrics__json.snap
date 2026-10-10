@@ -1,0 +1,235 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/yaml/metrics__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "yaml/metrics.yaml",
+    "sym": "FILE_yaml/metrics@2Eyaml"
+  },
+  {
+    "loc": "00001:0-7",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "$schema",
+    "sym": "YAMLKEY_@24schema"
+  },
+  {
+    "loc": "00002:0-5",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "$tags",
+    "sym": "YAMLKEY_@24tags",
+    "nestingRange": "2:0-4:0"
+  },
+  {
+    "loc": "00005:0-12",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "test.metrics",
+    "sym": "YAMLKEY_test@2Emetrics",
+    "nestingRange": "5:0-14:0"
+  },
+  {
+    "loc": "00006:2-11",
+    "structured": 1,
+    "pretty": "test_metrics::probe_one",
+    "sym": "GLEAN_test_metrics::probe_one",
+    "kind": "field",
+    "implKind": "glean",
+    "bindingSlots": [
+      {
+        "slotKind": "member",
+        "slotLang": "cpp",
+        "ownerLang": "glean",
+        "pretty": "mozilla::glean::test_metrics::probe_one",
+        "implKind": "binding"
+      },
+      {
+        "slotKind": "member",
+        "slotLang": "js",
+        "ownerLang": "glean",
+        "sym": "Glean.testMetrics#probeOne",
+        "implKind": "binding"
+      }
+    ]
+  },
+  {
+    "loc": "00006:2-11",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "test_metrics::probe_one",
+    "sym": "GLEAN_test_metrics::probe_one"
+  },
+  {
+    "loc": "00006:2-11",
+    "target": 1,
+    "kind": "glean",
+    "pretty": "test_metrics::probe_one",
+    "sym": "GLEAN_test_metrics::probe_one"
+  },
+  {
+    "loc": "00006:2-11",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "probe_one",
+    "sym": "YAMLKEY_probe_one",
+    "nestingRange": "6:2-8:0"
+  },
+  {
+    "loc": "00007:4-8",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "type",
+    "sym": "YAMLKEY_type"
+  },
+  {
+    "loc": "00008:2-11",
+    "structured": 1,
+    "pretty": "test_metrics::probe_two",
+    "sym": "GLEAN_test_metrics::probe_two",
+    "kind": "field",
+    "implKind": "glean",
+    "bindingSlots": [
+      {
+        "slotKind": "member",
+        "slotLang": "cpp",
+        "ownerLang": "glean",
+        "pretty": "mozilla::glean::test_metrics::probe_two",
+        "implKind": "binding"
+      },
+      {
+        "slotKind": "member",
+        "slotLang": "js",
+        "ownerLang": "glean",
+        "sym": "Glean.testMetrics#probeTwo",
+        "implKind": "binding"
+      }
+    ]
+  },
+  {
+    "loc": "00008:2-11",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "test_metrics::probe_two",
+    "sym": "GLEAN_test_metrics::probe_two"
+  },
+  {
+    "loc": "00008:2-11",
+    "target": 1,
+    "kind": "glean",
+    "pretty": "test_metrics::probe_two",
+    "sym": "GLEAN_test_metrics::probe_two"
+  },
+  {
+    "loc": "00008:2-11",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "probe_two",
+    "sym": "YAMLKEY_probe_two",
+    "nestingRange": "8:2-14:0"
+  },
+  {
+    "loc": "00009:4-8",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "type",
+    "sym": "YAMLKEY_type"
+  },
+  {
+    "loc": "00010:4-14",
+    "structured": 1,
+    "pretty": "test_metrics::probe_two::extra_keys",
+    "sym": "GLEAN_test_metrics::probe_two::extra_keys",
+    "kind": "field",
+    "implKind": "glean",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "glean",
+        "pretty": "mozilla::glean::test_metrics::ProbeTwoExtra",
+        "implKind": "binding"
+      }
+    ]
+  },
+  {
+    "loc": "00010:4-14",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "test_metrics::probe_two::extra_keys",
+    "sym": "GLEAN_test_metrics::probe_two::extra_keys"
+  },
+  {
+    "loc": "00010:4-14",
+    "target": 1,
+    "kind": "glean",
+    "pretty": "test_metrics::probe_two::extra_keys",
+    "sym": "GLEAN_test_metrics::probe_two::extra_keys"
+  },
+  {
+    "loc": "00010:4-14",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "extra_keys",
+    "sym": "YAMLKEY_extra_keys",
+    "nestingRange": "10:4-14:0"
+  },
+  {
+    "loc": "00011:6-15",
+    "structured": 1,
+    "pretty": "test_metrics::probe_two::extra_keys::field_one",
+    "sym": "GLEAN_test_metrics::probe_two::extra_keys::field_one",
+    "kind": "field",
+    "implKind": "glean",
+    "bindingSlots": [
+      {
+        "slotKind": "member",
+        "slotLang": "cpp",
+        "ownerLang": "glean",
+        "pretty": "mozilla::glean::test_metrics::ProbeTwoExtra::fieldOne",
+        "implKind": "binding"
+      }
+    ]
+  },
+  {
+    "loc": "00011:6-15",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "test_metrics::probe_two::extra_keys::field_one",
+    "sym": "GLEAN_test_metrics::probe_two::extra_keys::field_one"
+  },
+  {
+    "loc": "00011:6-15",
+    "target": 1,
+    "kind": "glean",
+    "pretty": "test_metrics::probe_two::extra_keys::field_one",
+    "sym": "GLEAN_test_metrics::probe_two::extra_keys::field_one"
+  },
+  {
+    "loc": "00011:6-15",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "field_one",
+    "sym": "YAMLKEY_field_one",
+    "nestingRange": "11:6-14:0"
+  },
+  {
+    "loc": "00012:8-19",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "description",
+    "sym": "YAMLKEY_description"
+  },
+  {
+    "loc": "00013:8-12",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "type",
+    "sym": "YAMLKEY_type"
+  }
+]

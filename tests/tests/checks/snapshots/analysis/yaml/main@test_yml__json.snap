@@ -1,0 +1,102 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/yaml/test_yml__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "yaml/test.yml",
+    "sym": "FILE_yaml/test@2Eyml"
+  },
+  {
+    "loc": "00002:0-3",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "key",
+    "sym": "YAMLKEY_key"
+  },
+  {
+    "loc": "00003:4-7",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "num",
+    "sym": "YAMLKEY_num"
+  },
+  {
+    "loc": "00004:4-11",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "string1",
+    "sym": "YAMLKEY_string1"
+  },
+  {
+    "loc": "00005:4-11",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "string2",
+    "sym": "YAMLKEY_string2"
+  },
+  {
+    "loc": "00006:4-11",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "comment",
+    "sym": "YAMLKEY_comment"
+  },
+  {
+    "loc": "00008:4-15",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "not-comment",
+    "sym": "YAMLKEY_not@2Dcomment"
+  },
+  {
+    "loc": "00009:4-7",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "url",
+    "sym": "YAMLKEY_url",
+    "nestingRange": "9:4-11:0"
+  },
+  {
+    "loc": "00011:4-12",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "$Aa_./-0",
+    "sym": "YAMLKEY_@24Aa_@2E/@2D0"
+  },
+  {
+    "loc": "00012:4-8",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "code",
+    "sym": "YAMLKEY_code",
+    "nestingRange": "12:4-18:0"
+  },
+  {
+    "loc": "00018:4-8",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "list",
+    "sym": "YAMLKEY_list",
+    "nestingRange": "18:4-22:0"
+  },
+  {
+    "loc": "00022:4-7",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "obj",
+    "sym": "YAMLKEY_obj",
+    "nestingRange": "22:4-24:0"
+  },
+  {
+    "loc": "00023:10-13",
+    "source": 1,
+    "syntax": "key",
+    "pretty": "key",
+    "sym": "YAMLKEY_key"
+  }
+]

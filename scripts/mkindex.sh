@@ -167,20 +167,12 @@ if should_perform "idl-analyze"; then
     $MOZSEARCH_PATH/scripts/idl-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "idl-analyze.sh"
 fi
 
-if should_perform "staticprefs-analyze"; then
-    $MOZSEARCH_PATH/scripts/staticprefs-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "idl-analyze.sh"
-fi
-
 if should_perform "ipdl-analyze"; then
     $MOZSEARCH_PATH/scripts/ipdl-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "ipdl-analyze.sh"
 fi
 
 if should_perform "toml-analyze"; then
     $MOZSEARCH_PATH/scripts/toml-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "toml-analyze.sh"
-fi
-
-if should_perform "yaml-analyze"; then
-    $MOZSEARCH_PATH/scripts/yaml-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "yaml-analyze.sh"
 fi
 
 if should_perform "semantic-analyze"; then

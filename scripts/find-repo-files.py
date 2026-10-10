@@ -42,9 +42,7 @@ css = []
 idl = []
 webidl = []
 ipdl = []
-staticprefs = []
 toml = []
-yaml = []
 mozbuild = []
 
 dirs = collections.OrderedDict()
@@ -120,18 +118,6 @@ for line in lines:
 
         css.append(path + '\n')
 
-    name = os.path.basename(path)
-
-    if name == 'StaticPrefList.yaml':
-        staticprefs.append(path + '\n')
-    else:
-        if ext == '.yaml' or ext == '.yml':
-            if 'filter_yaml' in repo_files:
-                if not repo_files['filter_yaml'](path):
-                    continue
-
-            yaml.append(path + '\n')
-
     if ext == '.toml':
         if 'filter_toml' in repo_files:
             if not repo_files['filter_toml'](path):
@@ -156,7 +142,5 @@ open(os.path.join(index_path, 'idl-files'), 'w').writelines(idl)
 open(os.path.join(index_path, 'webidl-files'), 'w').writelines(webidl)
 open(os.path.join(index_path, 'ipdl-files'), 'w').writelines(ipdl)
 open(os.path.join(index_path, 'ipdl-includes'), 'w').write(' '.join(['-I ' + d for d in ipdl_dirs]))
-open(os.path.join(index_path, 'staticprefs-files'), 'w').writelines(staticprefs)
 open(os.path.join(index_path, 'toml-files'), 'w').writelines(toml)
-open(os.path.join(index_path, 'yaml-files'), 'w').writelines(yaml)
 open(os.path.join(index_path, 'mozbuild-files'), 'w').writelines(mozbuild)

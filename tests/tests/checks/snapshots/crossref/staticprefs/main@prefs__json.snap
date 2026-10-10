@@ -1,0 +1,238 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/staticprefs/prefs__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "PREFS_test@2Eint",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "staticprefs/StaticPrefList.yaml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 1,
+                "bounds": [
+                  8,
+                  16
+                ],
+                "line": "- name: test.int",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "test.int",
+          "sym": "PREFS_test@2Eint",
+          "type_pretty": null,
+          "kind": "prefs",
+          "subsystem": null,
+          "implKind": "StaticPrefs",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "getter",
+              "slotLang": "cpp",
+              "implKind": null,
+              "ownerLang": "prefs",
+              "sym": "_ZN7mozilla11StaticPrefs8test_intEv"
+            }
+          ],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "PREFS_test2@2Euint",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "staticprefs/StaticPrefList.yaml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 6,
+                "bounds": [
+                  8,
+                  18
+                ],
+                "line": "- name: test2.uint",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "test2.uint",
+          "sym": "PREFS_test2@2Euint",
+          "type_pretty": null,
+          "kind": "prefs",
+          "subsystem": null,
+          "implKind": "StaticPrefs",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "getter",
+              "slotLang": "cpp",
+              "implKind": null,
+              "ownerLang": "prefs",
+              "sym": "_ZN7mozilla11StaticPrefs10test2_uintEv"
+            }
+          ],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "PREFS_test@2Estr",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "staticprefs/StaticPrefList.yaml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 17,
+                "bounds": [
+                  8,
+                  16
+                ],
+                "line": "- name: test.str",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "test.str",
+          "sym": "PREFS_test@2Estr",
+          "type_pretty": null,
+          "kind": "prefs",
+          "subsystem": null,
+          "implKind": "StaticPrefs",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "_ZN7mozilla11StaticPrefs8test_intEv",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "staticprefs/StaticPrefsConsumer.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 7,
+                "bounds": [
+                  35,
+                  43
+                ],
+                "line": "int32_t v1 = mozilla::StaticPrefs::test_int();",
+                "context": "StaticPrefsConsumer",
+                "contextsym": "_Z19StaticPrefsConsumerv"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "staticprefs/bindings/StaticPrefList_test.h",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 6,
+                "bounds": [
+                  15,
+                  23
+                ],
+                "line": "inline int32_t test_int() { return 10; }",
+                "context": "",
+                "contextsym": "",
+                "peekRange": "6-6"
+              }
+            ]
+          }
+        ],
+        "callees": [],
+        "meta": {
+          "structured": 1,
+          "pretty": "mozilla::StaticPrefs::test_int",
+          "sym": "_ZN7mozilla11StaticPrefs8test_intEv",
+          "type_pretty": null,
+          "kind": "function",
+          "subsystem": null,
+          "slotOwner": {
+            "slotKind": "getter",
+            "slotLang": "cpp",
+            "implKind": null,
+            "ownerLang": "prefs",
+            "sym": "PREFS_test@2Eint"
+          },
+          "implKind": "",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "args": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

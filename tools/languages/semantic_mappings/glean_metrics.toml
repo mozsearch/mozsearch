@@ -1,0 +1,94 @@
+# Glean metrics files (see semantic_analyzer.rs): a metric (a category's key,
+# ex: `test.metrics: probe_one:`) defines `GLEAN_<category>::<metric>` (with
+# '.'s as '_'s), as do an event's `extra_keys` and each of its extra keys
+# (`GLEAN_<category>::<metric>::extra_keys[::<key>]`), with target kind
+# "glean".  Their binding slots are what glean_parser generates for them (see
+# toolkit/components/glean/build_scripts/glean_parser_ext/templates/), by
+# pretty name for crossref to resolve: the C++ metric
+# (`mozilla::glean::<category>::<metric>`, snake case) and its JS
+# (`Glean.<category>.<metric>`, camel case, as js-analyze names it), and an
+# event's C++ extra struct (`<Metric>Extra`) and its fields (`<key>`, camel
+# case).  (Formerly yaml-analyze.py's.)
+#
+# Only Firefox desktop's metrics (see toolkit/components/glean/metrics_index.py),
+# since the context menu's Glean Dictionary and GLAM links are desktop's: not
+# the Android apps', application-services', mach's, the crash ping's, or the
+# glean-parser lint's test files.
+grammar = "yaml"
+paths = ["**/*metrics.yaml"]
+exclude_paths = [
+  "mobile/android/**",
+  "python/**",
+  "third_party/**",
+  "toolkit/crashreporter/crashping/**",
+  "tools/**",
+]
+
+[[when]]
+path = "$schema"
+prefix = "moz://mozilla.org/schemas/glean/metrics/"
+
+## Metrics
+
+[[data]]
+path = "*/*"
+role = "def"
+kind = "glean"
+sym = "GLEAN_{{ keys[0] | replace: '.', '_' }}::{{ key | replace: '.', '_' }}"
+pretty = "{{ keys[0] | replace: '.', '_' }}::{{ key | replace: '.', '_' }}"
+
+[data.structured]
+kind = "field"
+impl_kind = "glean"
+
+[[data.structured.bindings]]
+slot_kind = "member"
+slot_lang = "cpp"
+owner_lang = "glean"
+impl_kind = "binding"
+pretty = "mozilla::glean::{{ keys[0] | snake_case }}::{{ key | snake_case }}"
+
+[[data.structured.bindings]]
+slot_kind = "member"
+slot_lang = "js"
+owner_lang = "glean"
+impl_kind = "binding"
+sym = "Glean.{{ keys[0] | camel_case }}#{{ key | camel_case }}"
+
+## Events' extra keys
+
+[[data]]
+path = "*/*/extra_keys"
+role = "def"
+kind = "glean"
+sym = "GLEAN_{{ keys[0] | replace: '.', '_' }}::{{ keys[1] | replace: '.', '_' }}::extra_keys"
+pretty = "{{ keys[0] | replace: '.', '_' }}::{{ keys[1] | replace: '.', '_' }}::extra_keys"
+
+[data.structured]
+kind = "field"
+impl_kind = "glean"
+
+[[data.structured.bindings]]
+slot_kind = "class"
+slot_lang = "cpp"
+owner_lang = "glean"
+impl_kind = "binding"
+pretty = "mozilla::glean::{{ keys[0] | snake_case }}::{{ keys[1] | pascal_case }}Extra"
+
+[[data]]
+path = "*/*/extra_keys/*"
+role = "def"
+kind = "glean"
+sym = "GLEAN_{{ keys[0] | replace: '.', '_' }}::{{ keys[1] | replace: '.', '_' }}::extra_keys::{{ key | replace: '.', '_' }}"
+pretty = "{{ keys[0] | replace: '.', '_' }}::{{ keys[1] | replace: '.', '_' }}::extra_keys::{{ key | replace: '.', '_' }}"
+
+[data.structured]
+kind = "field"
+impl_kind = "glean"
+
+[[data.structured.bindings]]
+slot_kind = "member"
+slot_lang = "cpp"
+owner_lang = "glean"
+impl_kind = "binding"
+pretty = "mozilla::glean::{{ keys[0] | snake_case }}::{{ keys[1] | pascal_case }}Extra::{{ key | camel_case }}"
