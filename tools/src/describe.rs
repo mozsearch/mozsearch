@@ -34,7 +34,7 @@ pub fn describe_file(contents: &str, path: &Path, format: &FormatAs) -> Option<S
         }
         FormatAs::FormatXPIDL(_, _) => describe_from_c_comment(substr),
         FormatAs::Binary => None,
-        FormatAs::YAML => None,
+        FormatAs::YAML | FormatAs::Fluent => None,
         FormatAs::Plain => {
             let stem = path.file_stem()?.to_str()?;
             if stem.eq_ignore_ascii_case("README") {

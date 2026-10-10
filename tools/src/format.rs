@@ -86,6 +86,7 @@ pub fn format_code(
         FormatAs::CSS => tokenize::tokenize_css(input),
         FormatAs::Plain => tokenize::tokenize_plain(input),
         FormatAs::YAML => tokenize::tokenize_yaml(input),
+        FormatAs::Fluent => tokenize::tokenize_fluent(input),
         FormatAs::FormatCLike(spec) => tokenize::tokenize_c_like(input, spec),
         FormatAs::FormatXPIDL(spec, cdata_spec) => {
             tokenize::tokenize_xpidl(input, spec, cdata_spec)
@@ -430,6 +431,7 @@ pub fn format_code(
                 FormatAs::CSS => tokenize::tokenize_css(input),
                 FormatAs::Plain => tokenize::tokenize_plain(input),
                 FormatAs::YAML => tokenize::tokenize_yaml(input),
+                FormatAs::Fluent => tokenize::tokenize_fluent(input),
                 FormatAs::FormatCLike(spec) => tokenize::tokenize_c_like(input, spec),
                 FormatAs::FormatXPIDL(spec, cdata_spec) => {
                     tokenize::tokenize_xpidl(input, spec, cdata_spec)

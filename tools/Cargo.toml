@@ -87,6 +87,9 @@ tree-sitter-mozcpp = { git = "https://github.com/mozsearch/tree-sitter-mozcpp", 
 # README.)
 tree-sitter-xpidl = { git = "https://github.com/mozsearch/tree-sitter-xpidl", rev = "9cfb0a8dd56cfb598a027be17cd38a42edf97515" }
 tree-sitter-ipdl = { git = "https://github.com/padenot/tree-sitter-ipdl", rev = "ee939a389fbf170afa0ada2d45434f15aefbeeff" }
+# (tree-sitter-fluent is searchfox's fork, rewritten after the Fluent Syntax
+# 1.0 EBNF; see its README.)
+tree-sitter-fluent = { git = "https://github.com/mozsearch/tree-sitter-fluent", rev = "e4ff53883eb6eddc832a73452fdc3d9c46fe698d" }
 # (tree-sitter-webidl is searchfox's fork, which also parses UniFFI's UDL
 # dialect; see its testcases/UniFFI.udl.)
 tree-sitter-webidl = { git = "https://github.com/mozsearch/tree-sitter-webidl", rev = "fc50c56d2005202e2ca8003d6560b5ec4af81890" }

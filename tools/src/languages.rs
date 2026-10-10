@@ -665,6 +665,8 @@ pub enum FormatAs {
     CSS,
     Plain,
     YAML,
+    /// Fluent (`.ftl`), with tree-sitter-fluent.
+    Fluent,
     Binary,
 }
 
@@ -695,6 +697,8 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         "css" => FormatAs::CSS,
 
         "yml" | "yaml" => FormatAs::YAML,
+
+        "ftl" => FormatAs::Fluent,
 
         // Keep this list in sync with the binary types list in nginx-setup.py
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" | "gif" | "ogv" | "jpg" | "jpeg" | "bmp"

@@ -356,6 +356,95 @@ pub fn tokenize_yaml(string: &str) -> Vec<Token> {
     tokens
 }
 
+/// Tokenize Fluent (`.ftl`) with tree-sitter-fluent: messages', terms', and
+/// attributes' identifiers and references are identifiers (for the analysis'
+/// records), patterns' text is plain text, and comments are comments.  (Like
+/// the other tokenizers, there's a token for every line break, and whitespace
+/// is between tokens.)
+pub fn tokenize_fluent(string: &str) -> Vec<Token> {
+    let mut parser = tree_sitter::Parser::new();
+    let language: tree_sitter::Language = tree_sitter_fluent::LANGUAGE.into();
+    if parser.set_language(&language).is_err() {
+        return tokenize_plain(string);
+    }
+    let Some(tree) = parser.parse(string, None) else {
+        return tokenize_plain(string);
+    };
+
+    let mut tokens = Vec::new();
+    // Newline tokens for the line breaks in `start..end`, and pieces of the
+    // other text of `kind` (if any) between them.
+    let push_split =
+        |tokens: &mut Vec<Token>, start: usize, end: usize, kind: Option<&TokenKind>| {
+            let mut piece_start = start;
+            for (i, byte) in string.as_bytes()[start..end].iter().enumerate() {
+                if *byte == b'\n' {
+                    let newline = start + i;
+                    if let Some(kind) = kind
+                        && newline > piece_start
+                        && !string[piece_start..newline].trim().is_empty()
+                    {
+                        tokens.push(Token {
+                            start: piece_start,
+                            end: newline,
+                            kind: kind.clone(),
+                        });
+                    }
+                    tokens.push(Token {
+                        start: newline,
+                        end: newline + 1,
+                        kind: TokenKind::Newline,
+                    });
+                    piece_start = newline + 1;
+                }
+            }
+            if let Some(kind) = kind
+                && end > piece_start
+                && !string[piece_start..end].trim().is_empty()
+            {
+                tokens.push(Token {
+                    start: piece_start,
+                    end,
+                    kind: kind.clone(),
+                });
+            }
+        };
+
+    let mut cursor = tree.walk();
+    let mut pos = 0;
+    let mut visited_children = false;
+    loop {
+        let node = cursor.node();
+        if !visited_children && node.child_count() == 0 {
+            let (start, end) = (node.start_byte(), node.end_byte());
+            if start >= pos && end > start {
+                push_split(&mut tokens, pos, start, None);
+                let kind = match node.kind() {
+                    "comment" | "group_comment" | "resource_comment" => TokenKind::Comment,
+                    "identifier" | "term_identifier" => TokenKind::Identifier(None),
+                    "string_literal" => TokenKind::StringLiteral,
+                    _ if node.is_named() => TokenKind::PlainText,
+                    _ => TokenKind::Punctuation,
+                };
+                push_split(&mut tokens, start, end, Some(&kind));
+                pos = end;
+            }
+        }
+        if !visited_children && cursor.goto_first_child() {
+            continue;
+        }
+        if cursor.goto_next_sibling() {
+            visited_children = false;
+        } else if cursor.goto_parent() {
+            visited_children = true;
+        } else {
+            break;
+        }
+    }
+    push_split(&mut tokens, pos, string.len(), None);
+    tokens
+}
+
 pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
     let is_ident = |ch: char| -> bool {
         (ch == '_')
@@ -1700,6 +1789,40 @@ pub fn tokenize_tag_like(string: &str, script_spec: &LanguageSpec) -> Vec<Token>
 mod tests {
     use super::*;
     use crate::languages::*;
+
+    #[test]
+    fn test_tokenize_fluent() {
+        let source =
+            "# Comment\nhello = Hi { $name }, from { -brand }\n    .title = { msg.attr }\n";
+        let tokens = tokenize_fluent(source);
+        // Tokens are in order and don't overlap, every line break is one, and
+        // only whitespace is between them.
+        let mut pos = 0;
+        for token in &tokens {
+            assert!(token.start >= pos && token.end > token.start, "{:?}", token);
+            assert!(source[pos..token.start].trim().is_empty());
+            assert_eq!(
+                token.kind == TokenKind::Newline,
+                &source[token.start..token.end] == "\n"
+            );
+            pos = token.end;
+        }
+        assert!(source[pos..].trim().is_empty());
+        let of = |kind: TokenKind| -> Vec<&str> {
+            tokens
+                .iter()
+                .filter(|t| t.kind == kind)
+                .map(|t| &source[t.start..t.end])
+                .collect()
+        };
+        assert_eq!(
+            of(TokenKind::Identifier(None)),
+            vec!["hello", "name", "-brand", "title", "msg", "attr"]
+        );
+        assert_eq!(of(TokenKind::Comment), vec!["# Comment"]);
+        assert_eq!(of(TokenKind::PlainText), vec!["Hi ", ", from "]);
+        assert_eq!(of(TokenKind::Newline).len(), 3);
+    }
 
     fn token_matches(start: usize, end: usize, kind: TokenKind, rhs: &Token) {
         assert_eq!(start, rhs.start, "start matches");

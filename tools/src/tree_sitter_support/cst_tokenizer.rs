@@ -83,6 +83,9 @@ enum Grammar {
     Toml,
     /// See `json_tokenizer.rs`.
     Json,
+    /// Fluent, Project Fluent's localization format, with searchfox's
+    /// tree-sitter-fluent.
+    Fluent,
     /// Whitespace-delimited words.
     PlainText,
 }
@@ -198,6 +201,13 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
         namespace: "json",
         grammar: Grammar::Json,
     },
+    // Fluent localization files: messages, terms (with their "-"), and their
+    // attributes are contexts.
+    LanguageProfile {
+        lang: "ftl",
+        namespace: "ftl",
+        grammar: Grammar::Fluent,
+    },
     LanguageProfile {
         lang: "none",
         namespace: "none",
@@ -257,7 +267,9 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   `.udl` files are tokenized as WebIDL (as "udl", with searchfox's
 ///   tree-sitter-webidl fork for UDL's records and custom types), rather than
 ///   plain text, and JSON files (and JSON-lines), rather than as JS, by
-///   `json_tokenizer`, with contexts from their structure.  Dead
+///   `json_tokenizer`, with contexts from their structure, and Fluent `.ftl`
+///   files (messages, terms, and attributes as contexts) with searchfox's
+///   tree-sitter-fluent, rather than as plain text.  Dead
 ///   preprocessor branches (`#if 0`'s) are comments (see `tokenize_cpp`),
 ///   and ANGLE's `ANGLE_MTL_OBJC_SCOPE`s don't make their blocks compound
 ///   literals (see `SCOPE_MACROS`).
@@ -394,6 +406,7 @@ pub fn default_profile_for_path(path: &Path) -> Option<LanguageProfile> {
         "kt" | "kts" => "kotlin",
         "ini" => "ini",
         "toml" => "toml",
+        "ftl" => "ftl",
         // Explicitly skip things we know are binary; this list copied from
         // "languages.rs".
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" | "gif" | "ogv" | "jpg" | "jpeg" | "bmp"
@@ -852,6 +865,12 @@ fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
                 &[],
             );
             (ts_lang, "xpidl", vec![], vec![], quirks)
+        }
+        // (Patterns' text is split into words, and comments are tokens whose
+        // words are split too, like other languages'.)
+        Grammar::Fluent => {
+            let ts_lang: tree_sitter::Language = tree_sitter_fluent::LANGUAGE.into();
+            (ts_lang, "fluent", vec![], vec![], ClassQuirks::default())
         }
         Grammar::Java => {
             let ts_lang: tree_sitter::Language = tree_sitter_java::LANGUAGE.into();
@@ -2437,6 +2456,11 @@ mod tests {
                 "class C {\n    fun m(a: Int) = a + 1\n}\n",
                 "kotlin",
             ),
+            (
+                "a.ftl",
+                "tabs = { $count ->\n    [one] One tab\n   *[other] { $count } tabs\n}\n    .title = { -brand }\n",
+                "ftl",
+            ),
             ("a.txt", "just some words", "none"),
         ] {
             let tokenized = hypertokenize_source_file(filename, source)
@@ -3542,6 +3566,33 @@ class Foo {
                 "method:mozilla::dom::PFoo::Start",
             ]
         );
+        // Fluent's messages, terms (with their "-"), and attributes, whose
+        // doc comments are theirs.
+        assert_eq!(
+            structure(
+                "a.ftl",
+                "# License\n\nfirst = One\n    .title = T\n\n# Variables:\n#   $n (Number)\n\
+                 -brand = Firefox\n    .gender = masculine\n"
+            ),
+            vec![
+                "message:first",
+                "attribute:first::title",
+                "term:-brand",
+                "attribute:-brand::gender",
+            ]
+        );
+        let tokens = hypertokenize_source_file(
+            "a.ftl",
+            "first = One\n\n# Variables:\n#   $n (Number)\nsecond = { $n }\n",
+        )
+        .unwrap()
+        .tokenized;
+        assert!(
+            tokens.iter().any(|t| t == "second c (Number)"),
+            "{:?}",
+            tokens
+        );
+        assert!(tokens.iter().any(|t| t == "second i n"), "{:?}", tokens);
         // UDL's records with non-string keys and custom types (searchfox's
         // tree-sitter-webidl fork).
         assert_eq!(
