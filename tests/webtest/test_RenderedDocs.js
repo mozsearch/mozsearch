@@ -33,11 +33,10 @@ async function showPopup(strip, clientY) {
   return popup;
 }
 
-// The words of the replica's tokens.  (Prose's tokens are words with their
-// punctuation, like "Vagrant.".)
+// The words of the replica's tokens.  (Prose's punctuation is tokens of its
+// own.)
 function replicaTokens(popup) {
-  return [...popup.querySelectorAll(".rd-replica .hb-token")].map(
-    t => t.textContent.replace(/[.,;:!?]+$/, ""));
+  return [...popup.querySelectorAll(".rd-replica .hb-token")].map(t => t.textContent);
 }
 
 add_task(async function test_RenderedDocument() {
@@ -108,6 +107,40 @@ add_task(async function test_RenderedBlockPopup() {
   }
   frame.contentWindow.BlameStripHoverHandler.keepVisible = false;
   frame.contentWindow.BlamePopup.triggerElement = null;
+});
+
+add_task(async function test_RenderedLabels() {
+  // References to Sphinx labels in other documents link (by the tree's
+  // cross-reference) to the labels' lines in their documents' rendered views.
+  await TestUtils.loadPath("/tests/rendered/docs/md_test/index.md");
+  const refs = [...doc().querySelectorAll("a.rd-ref")];
+  const label = refs.find(a => a.textContent == "rst-test-label");
+  is(label?.getAttribute("href"), "/tests/rendered/docs/rst_test/index.rst#6",
+     "A reference to another document's label links to the label's line");
+  const title = refs.find(a => a.textContent == "the reST test");
+  is(title?.getAttribute("href"), "/tests/rendered/docs/rst_test/index.rst#1",
+     "Documents' titles are labels");
+  ok(refs.find(a => a.getAttribute("href") == "#md-test-label"),
+     "References to the document's own labels link to their anchors");
+
+  // A label's line goes to the section it labels.
+  await TestUtils.loadPath("/tests/rendered/docs/rst_test/index.rst#6");
+  const target = doc().querySelector(".rd-hash-target");
+  ok(target?.querySelector("h2"), "The line's block is highlighted");
+  ok(target?.textContent.includes("Linking"), "The block is the section's heading");
+
+  // In the documents' source listings, labels go to their documentation.
+  await TestUtils.loadPath("/tests/source/docs/md_test/index.md");
+  const use = frame.contentDocument.querySelector('[data-symbols="DOCLABEL_rst@2Dtest@2Dlabel"]');
+  ok(use, "The reference to the label has its symbol");
+  TestUtils.click(use);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "The context menu is shown");
+  const item = [...menu.querySelectorAll("a")].find(
+    a => a.textContent.includes("Go to documentation of"));
+  is(item?.getAttribute("href"), "/tests/rendered/docs/rst_test/index.rst#6",
+     "The menu goes to the label in its document's rendered view");
+  frame.contentWindow.ContextMenu.hide();
 });
 
 add_task(async function test_RenderedTip() {

@@ -50,6 +50,7 @@ use tools::file_format::repo_data_ingestion::RepoIngestion;
 use tools::hyperblame::recency::{CONTEXT_KINDS, FileLinkage, HistoryDigests, link_definitions};
 use tools::logging::LoggedSpan;
 use tools::logging::init_logging;
+use tools::rendered_docs::is_doc_path;
 use tools::templating::builder::build_and_parse_ontology_ingestion_explainer;
 use tools::templating::builder::build_and_parse_repo_ingestion_explainer;
 use tools::tree_sitter_support::preprocessor::{ConditionalStacks, is_c_family};
@@ -589,6 +590,12 @@ fn file_recency_items(
     let mut file_recency = digests.file_recency();
     if linkage.unlinked_total() > 0 {
         file_recency.scopes.clear();
+    }
+    // (Documents' analysis is their labels and references, which don't give
+    // their lines contexts, so they're as if they had no analysis.)
+    if is_doc_path(path) {
+        file_recency.scopes.clear();
+        file_recency.analyzed = false;
     }
     if !file_recency.file.is_empty() {
         file_items.push((*path, file_recency));

@@ -1,0 +1,27 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(jvl).unwrap()"
+input_file: inputs/jumpref/jumpref/docs/labels__lookup__json
+---
+{
+  "values": [
+    {
+      "value": {
+        "sym": "DOCLABEL_rst@2Dtest@2Dlabel",
+        "pretty": "rst-test-label",
+        "jumps": {
+          "doc": "docs/rst_test/index.rst#6"
+        }
+      }
+    },
+    {
+      "value": {
+        "sym": "DOCLABEL_md@2Dtest@2Dlabel",
+        "pretty": "md-test-label",
+        "jumps": {
+          "doc": "docs/md_test/index.md#5"
+        }
+      }
+    }
+  ]
+}

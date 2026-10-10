@@ -132,6 +132,16 @@ index of the field starting from 0.
       merge-analyses ends up merging things.  Right now it creates diverging
       symbols that potentially don't need to diverge.
 
+ * Sphinx labels in documentation (Markdown and reStructuredText files, which
+   `semantic-analyze` analyzes; see `tools/src/rendered_docs/analysis.rs`) use
+   `DOCLABEL_` followed by the label's slug (lowercased, without punctuation,
+   with dashes for whitespace and underscores), escaped like `FILE_` symbols.
+   So the label of a "Crash Reporter" section, which documents also refer to
+   as "crash-reporter", is `DOCLABEL_crash@2Dreporter`.  Their targets (and
+   section titles, like Sphinx's `autosectionlabel`) are `doc-def`s, and their
+   references are `doc-use`s, as are documents' references to other documents
+   (their `FILE_` symbols).
+
  * Firefox's privileged URLs (chrome://, resource://) temporarily use special
    symbols with `URL_` prefix followed by normalized URL.  The symbol is replaced
    with the corresponding file's symbol by `scripts/replace-aliases.py` script.

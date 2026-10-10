@@ -1585,11 +1585,13 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             }));
           }
 
-          // The symbol's documentation (a doc-def record).
+          // The symbol's documentation (a doc-def record), in its document's
+          // rendered view if it's in a document.
           if (jumpref.jumps.doc && jumpref.jumps.doc !== sourceLineClicked) {
+            const isDoc = /\.(md|markdown|rst)#/.test(jumpref.jumps.doc);
             jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to documentation of <strong>_</strong>", pretty),
-              href: `/${tree}/source/${jumpref.jumps.doc}`,
+              href: `/${tree}/${isDoc ? "rendered" : "source"}/${jumpref.jumps.doc}`,
               icon: "export-alt",
               section: "jumps",
               confidence,

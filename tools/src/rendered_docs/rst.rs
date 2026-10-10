@@ -11,8 +11,8 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use tree_sitter::{Node, Parser, Tree};
 
-use super::doc::{DirectiveContent, Doc, Flavor, Substitution, title_target};
-use super::{Links, OffsetMap, Rendered, Writer, escape, link_url, slugify};
+use super::doc::{DirectiveContent, Doc, Flavor, Substitution, title_target, trimmed_real};
+use super::{Links, OffsetMap, Rendered, Writer, escape, label_symbol, link_url, slugify};
 
 lazy_static! {
     /// The first line of a grid table, or the border of a simple table.
@@ -139,6 +139,13 @@ impl Doc<'_, '_, '_> {
                         None if !name.is_empty() => {
                             self.add_target(name);
                             pending.push(name.to_string());
+                            let name_node = child.child_by_field_name("name");
+                            let range = name_node.and_then(|n| {
+                                let at = node_text(text, n).find(name)? + n.start_byte();
+                                map.exact(at..at + name.len())
+                            });
+                            self.w
+                                .record(true, label_symbol(name), name, range, "label");
                         }
                         None => {}
                     }
@@ -164,17 +171,51 @@ impl Doc<'_, '_, '_> {
                     }
                 }
                 "section" => {
-                    let title = child_of_kind(child, "title")
+                    let title_node = child_of_kind(child, "title");
+                    let title = title_node
                         .map(|t| plain(node_text(text, t)))
                         .unwrap_or_default();
                     let labels = std::mem::take(pending);
                     self.add_heading(map.real(child.start_byte()), &title, &labels);
+                    // Sphinx's `autosectionlabel` makes top-level sections'
+                    // titles labels (Firefox's docs have a maxdepth of 1).
+                    // Levels are the order styles appear in, which rendering
+                    // then reuses.
+                    if self.section_level(child, text) == 1
+                        && let Some(title_node) = title_node
+                    {
+                        let range = map.exact(title_node.byte_range());
+                        self.w
+                            .record(true, label_symbol(&title), &title, range, "label");
+                    }
                 }
                 "comment" => {}
                 _ => {
                     pending.clear();
                     self.rst_collect(child, text, map, pending);
                 }
+            }
+        }
+    }
+
+    /// A section's level: the order its adornment style (the character, and
+    /// whether it has an overline) first appears in.
+    fn section_level(&mut self, node: Node, text: &str) -> usize {
+        let parts = children(node);
+        let title_index = parts.iter().position(|c| c.kind() == "title");
+        let overline = title_index.is_some_and(|i| i > 0);
+        let style_char = parts
+            .iter()
+            .rev()
+            .find(|c| c.kind() == "adornment")
+            .and_then(|c| node_text(text, *c).chars().next())
+            .unwrap_or('=');
+        let style = (style_char, overline);
+        match self.styles.iter().position(|s| *s == style) {
+            Some(i) => i + 1,
+            None => {
+                self.styles.push(style);
+                self.styles.len()
             }
         }
     }
@@ -191,22 +232,7 @@ impl Doc<'_, '_, '_> {
             "section" => {
                 let parts = children(node);
                 let title_index = parts.iter().position(|c| c.kind() == "title");
-                let overline = title_index.is_some_and(|i| i > 0);
-                let style_char = parts
-                    .iter()
-                    .rev()
-                    .find(|c| c.kind() == "adornment")
-                    .and_then(|c| node_text(text, *c).chars().next())
-                    .unwrap_or('=');
-                let style = (style_char, overline);
-                let level = match self.styles.iter().position(|s| *s == style) {
-                    Some(i) => i + 1,
-                    None => {
-                        self.styles.push(style);
-                        self.styles.len()
-                    }
-                };
-                let level = level.min(6);
+                let level = self.section_level(node, text).min(6);
                 let title = title_index.map(|i| parts[i]);
                 let title_text = title.map(|t| plain(node_text(text, t))).unwrap_or_default();
                 let id = self.heading_id(real.start, &title_text);
@@ -331,7 +357,7 @@ impl Doc<'_, '_, '_> {
                     let name = name.trim_start_matches('_').trim_end_matches(':').trim();
                     let name = name.trim_matches('`');
                     if !name.is_empty() {
-                        self.target_anchor(name);
+                        self.target_anchor(name, map.real(node.start_byte()));
                     }
                 }
             }
@@ -644,7 +670,18 @@ impl Doc<'_, '_, '_> {
         let url = if embedded && !target_text.ends_with('_') {
             link_url(self.links, &self.dir, target_text)
         } else {
-            named(self, target_text.trim_end_matches('_'))
+            let name = target_text.trim_end_matches('_');
+            // (A reference to one of the document's Sphinx labels is a
+            // reference to the label, but its other section titles are only
+            // its own targets.)
+            let sym = label_symbol(name);
+            if !self.link_targets.contains_key(&name.to_lowercase())
+                && self.w.records.iter().any(|r| r.def && r.sym == sym)
+            {
+                let range = trimmed_real(code, &real, &target);
+                self.w.record(false, sym, name, range, "label");
+            }
+            named(self, name)
         };
         match url {
             Some(url) => write!(self.w.html, r#"<a href="{}">"#, escape(&url)).unwrap(),
@@ -839,7 +876,7 @@ mod tests {
             "{}",
             html
         );
-        assert!(html.contains(r#"<span class="rd-target" id="label"></span><div class="rd-block">[2]<h2 id="section">"#), "{}", html);
+        assert!(html.contains(r#"<span class="rd-target" id="label" data-rd-line="7"></span><div class="rd-block">[2]<h2 id="section">"#), "{}", html);
         assert!(html.contains(r#"<div class="rd-admonition rd-note"><div class="rd-block rd-admonition-title">[4]<p>Note</p></div><div class="rd-block">[5]<p><span data-l="16" data-c="5">A </span><em><span data-l="16" data-c="8">note</span></em><span data-l="16" data-c="13">.</span></p></div></div>"#), "{}", html);
         assert!(html.contains(r#"<div class="rd-block">[6]<p><span data-l="18" data-c="0">Code</span>:</p></div><div class="rd-block rd-code">[7]<pre><code><span data-l="20" data-c="4">x = 1</span>"#), "{}", html);
     }

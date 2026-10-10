@@ -11,5 +11,7 @@ then
 fi
 
 # The tree-sitter mappings (tools/languages/semantic_mappings) pick the files
-# they apply to (ex: Fluent's .ftl files) out of all of the repo's files.
-semantic-analyze $FILES_ROOT $INDEX_ROOT/analysis < $INDEX_ROOT/repo-files
+# they apply to (ex: Fluent's .ftl files) out of all of the repo's files, and
+# documents (Markdown and reStructuredText) get their Sphinx labels and
+# references (with the documentation's staged layout, if the tree has one).
+semantic-analyze $FILES_ROOT $INDEX_ROOT/analysis $INDEX_ROOT/doc-trees.json < $INDEX_ROOT/repo-files

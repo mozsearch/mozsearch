@@ -13,8 +13,8 @@ use regex::Regex;
 
 use super::markdown::Mode;
 use super::{
-    HtmlSanitizer, Links, OffsetMap, Writer, escape, find_doc, image_url, is_doc_path,
-    resolve_path, searchfox_url, slugify,
+    HtmlSanitizer, Links, OffsetMap, Writer, escape, file_symbol, find_doc, image_url, is_doc_path,
+    label_symbol, resolve_path, searchfox_url, slugify,
 };
 
 lazy_static! {
@@ -130,16 +130,20 @@ impl<'a, 'w, 's> Doc<'a, 'w, 's> {
             .insert(label.to_lowercase(), Label { id, title: None });
     }
 
-    /// An anchor for a target.
-    pub fn target_anchor(&mut self, label: &str) {
+    /// An anchor for a target, with the (1-based) line of the file it's at
+    /// (the offset `at`), for links to its line (ex: to its label, from
+    /// other documents), which are to the section it labels rather than to
+    /// the block its line's blame goes with (see `block_lines`).
+    pub fn target_anchor(&mut self, label: &str, at: usize) {
         let id = match self.labels.get(&label.to_lowercase()) {
             Some(label) => label.id.clone(),
             None => self.w.unique_id(label),
         };
         write!(
             self.w.html,
-            r#"<span class="rd-target" id="{}"></span>"#,
-            escape(&id)
+            r#"<span class="rd-target" id="{}" data-rd-line="{}"></span>"#,
+            escape(&id),
+            self.w.line_of(at) + 1
         )
         .unwrap();
     }
@@ -199,9 +203,22 @@ impl<'a, 'w, 's> Doc<'a, 'w, 's> {
                 self.w.push("</a>");
             }
             "ref" | "numref" => {
+                self.w.record(
+                    false,
+                    label_symbol(target_text),
+                    target_text,
+                    trimmed_real(code, &real, &target),
+                    "label",
+                );
                 let found = self.find_label(target_text);
-                let closer = match &found {
-                    Some((id, _)) => {
+                // (Labels in other documents come from the tree's
+                // cross-reference data.)
+                let elsewhere = match found {
+                    Some(_) => None,
+                    None => self.links.label_url(target_text),
+                };
+                let closer = match (&found, &elsewhere) {
+                    (Some((id, _)), _) => {
                         write!(
                             self.w.html,
                             r##"<a class="rd-ref" href="#{}">"##,
@@ -210,7 +227,12 @@ impl<'a, 'w, 's> Doc<'a, 'w, 's> {
                         .unwrap();
                         "</a>"
                     }
-                    None => {
+                    (None, Some(url)) => {
+                        write!(self.w.html, r#"<a class="rd-ref" href="{}">"#, escape(url))
+                            .unwrap();
+                        "</a>"
+                    }
+                    (None, None) => {
                         write!(
                             self.w.html,
                             r#"<span class="rd-ref rd-unresolved" title="Sphinx reference to {}">"#,
@@ -228,12 +250,21 @@ impl<'a, 'w, 's> Doc<'a, 'w, 's> {
             }
             "doc" => {
                 match find_doc(self.links, &self.dir, target_text) {
-                    Some(doc) => write!(
-                        self.w.html,
-                        r#"<a class="rd-doc" href="{}">"#,
-                        escape(&self.links.rendered_url(&doc))
-                    )
-                    .unwrap(),
+                    Some(doc) => {
+                        self.w.record(
+                            false,
+                            file_symbol(&doc),
+                            &doc,
+                            trimmed_real(code, &real, &target),
+                            "document",
+                        );
+                        write!(
+                            self.w.html,
+                            r#"<a class="rd-doc" href="{}">"#,
+                            escape(&self.links.rendered_url(&doc))
+                        )
+                        .unwrap()
+                    }
                     None => self.w.push(r#"<a class="rd-doc">"#),
                 }
                 self.role_text(code, &real, &title, target);
@@ -661,12 +692,21 @@ impl<'a, 'w, 's> Doc<'a, 'w, 's> {
                 find_doc(self.links, &self.dir, target_text)
             };
             match doc {
-                Some(doc) => write!(
-                    self.w.html,
-                    r#"<a href="{}">"#,
-                    escape(&self.links.rendered_url(&doc))
-                )
-                .unwrap(),
+                Some(doc) => {
+                    self.w.record(
+                        false,
+                        file_symbol(&doc),
+                        &doc,
+                        trimmed_real(entry, &real, &target),
+                        "document",
+                    );
+                    write!(
+                        self.w.html,
+                        r#"<a href="{}">"#,
+                        escape(&self.links.rendered_url(&doc))
+                    )
+                    .unwrap()
+                }
                 None => self.w.push("<a>"),
             }
             self.role_text(entry, &real, &title, target);
@@ -788,6 +828,21 @@ impl DirectiveContent {
             })
             .collect()
     }
+}
+
+/// The bytes of the file of `text[range]` without its surrounding whitespace,
+/// where `text`'s bytes in the file are at `real`.
+pub(super) fn trimmed_real(
+    text: &str,
+    real: &Option<Range<usize>>,
+    range: &Range<usize>,
+) -> Option<Range<usize>> {
+    let piece = text.get(range.clone())?;
+    let start = range.start + (piece.len() - piece.trim_start().len());
+    let end = range.start + piece.trim_end().len();
+    real.as_ref()
+        .filter(|_| start < end)
+        .map(|real| real.start + start..real.start + end)
 }
 
 /// `TITLE <TARGET>`: the ranges of the title (if any) and the target in

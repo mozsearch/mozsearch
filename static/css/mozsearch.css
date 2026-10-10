@@ -1593,6 +1593,10 @@ span[data-symbols].selected {
 .rendered-doc .rd-block {
   position: relative;
 }
+/* The block of the line that the page's hash names. */
+.rendered-doc .rd-hash-target {
+  background-color: var(--line-highlight-background);
+}
 .rendered-doc .blame-strip {
   position: absolute;
   top: 0;

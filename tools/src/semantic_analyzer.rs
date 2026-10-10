@@ -837,7 +837,7 @@ impl Record {
     }
 }
 
-fn source_record(
+pub(crate) fn source_record(
     loc: Location,
     syntax: &str,
     pretty: String,
@@ -862,7 +862,7 @@ fn source_record(
     })
 }
 
-fn target_record(
+pub(crate) fn target_record(
     loc: Location,
     kind: AnalysisKind,
     pretty: String,
@@ -1330,18 +1330,7 @@ pub fn analyze(
     path: &str,
     source: &str,
 ) -> Result<Vec<Record>, String> {
-    let mut records = vec![target_record(
-        Location {
-            lineno: 1,
-            col_start: 0,
-            col_end: 0,
-        },
-        AnalysisKind::Def,
-        path.to_string(),
-        format!("FILE_{}", mangle_file(path)),
-        String::new(),
-        String::new(),
-    )];
+    let mut records = vec![file_def_record(path)];
     let mut parser = tree_sitter::Parser::new();
     // (Mappings with the same grammar share its parse.)
     let mut grammars: Vec<&str> = vec![];
@@ -1394,13 +1383,34 @@ pub fn analyze(
             data_records(mapping, &data, path, source, &mut records)?;
         }
     }
+    sort_records(&mut records);
+    Ok(records)
+}
+
+/// The definition of the file at `path`.
+pub fn file_def_record(path: &str) -> Record {
+    target_record(
+        Location {
+            lineno: 1,
+            col_start: 0,
+            col_end: 0,
+        },
+        AnalysisKind::Def,
+        path.to_string(),
+        format!("FILE_{}", mangle_file(path)),
+        String::new(),
+        String::new(),
+    )
+}
+
+/// Sort a file's records by their locations.
+pub fn sort_records(records: &mut [Record]) {
     // (Stable, so a location's records stay in the order they're made: the
     // structured record, the source, and then the target.)
     records.sort_by_key(|record| {
         let loc = record.loc();
         (loc.lineno, loc.col_start)
     });
-    Ok(records)
 }
 
 #[cfg(test)]

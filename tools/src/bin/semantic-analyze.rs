@@ -1,24 +1,37 @@
 // Analyze data formats with the tree-sitter mappings of
-// `tools::semantic_analyzer` (ex: Fluent .ftl files).
+// `tools::semantic_analyzer` (ex: Fluent .ftl files), and documents (Markdown
+// and reStructuredText) for their Sphinx labels and references to labels and
+// documents (see `tools::rendered_docs::analysis`).
 //
 // Usage:
-//   semantic-analyze FILES_ROOT ANALYSIS_ROOT < paths
+//   semantic-analyze FILES_ROOT ANALYSIS_ROOT [DOC_TREES_JSON] < paths
 //
 // Paths (relative to FILES_ROOT, one per line, ex: the repo-files list) which
-// mappings apply to get their analysis (all of those mappings' records) written
-// to ANALYSIS_ROOT/<path>, or added to its analysis there if it has some (ex:
-// C++ files' uses of prefs; see `semantic_analyzer::merge_records`).
+// mappings apply to, and documents, get their analysis (all of those mappings'
+// records) written to ANALYSIS_ROOT/<path>, or added to its analysis there if
+// it has some (ex: C++ files' uses of prefs; see
+// `semantic_analyzer::merge_records`).  DOC_TREES_JSON is the map of the
+// documentation's staged layout (see `file_format::doc_trees`), if the tree
+// has one.
 
 use std::io::{BufRead, Write};
 use std::path::Path;
 use std::process::exit;
 
-use tools::semantic_analyzer::{Record, analyze, builtin_mappings, merge_records};
+use tools::file_format::doc_trees::read_doc_trees;
+use tools::rendered_docs::analysis::{TreeFiles, doc_records};
+use tools::rendered_docs::is_doc_path;
+use tools::semantic_analyzer::{
+    Record, analyze, builtin_mappings, file_def_record, merge_records, sort_records,
+};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() != 3 {
-        eprintln!("Usage: {} FILES_ROOT ANALYSIS_ROOT < paths", args[0]);
+    if args.len() != 3 && args.len() != 4 {
+        eprintln!(
+            "Usage: {} FILES_ROOT ANALYSIS_ROOT [DOC_TREES_JSON] < paths",
+            args[0]
+        );
         exit(1);
     }
     let (files_root, analysis_root) = (Path::new(&args[1]), Path::new(&args[2]));
@@ -26,11 +39,23 @@ fn main() {
         eprintln!("Bad mapping: {}", e);
         exit(1);
     });
+    // (Documents link to the tree's other files, so we need them all first.)
+    let paths: Vec<String> = std::io::stdin()
+        .lock()
+        .lines()
+        .map(|line| line.unwrap().trim().to_string())
+        .filter(|path| !path.is_empty())
+        .collect();
+    let doc_trees = args
+        .get(3)
+        .filter(|path| Path::new(path).exists())
+        .map(read_doc_trees);
+    let files = TreeFiles::new(paths.iter().cloned(), doc_trees);
     let (mut analyzed, mut failed) = (0, 0);
-    for line in std::io::stdin().lock().lines() {
-        let path = line.unwrap();
-        let path = path.trim();
-        if !mappings.iter().any(|m| m.applies_to(path)) {
+    for path in &paths {
+        let path = path.as_str();
+        let is_doc = is_doc_path(path);
+        if !is_doc && !mappings.iter().any(|m| m.applies_to(path)) {
             continue;
         }
         let Ok(source) = std::fs::read_to_string(files_root.join(path)) else {
@@ -40,10 +65,26 @@ fn main() {
             .iter()
             .filter(|m| m.applies_to(path) && m.applies_to_source(&source))
             .collect();
-        if applying.is_empty() {
+        if applying.is_empty() && !is_doc {
             continue;
         }
-        match analyze(&applying, path, &source) {
+        let records = if applying.is_empty() {
+            Ok(vec![file_def_record(path)])
+        } else {
+            analyze(&applying, path, &source)
+        };
+        let records = records.and_then(|mut records| {
+            if is_doc {
+                // (A document that rendering can't handle shouldn't stop
+                // the rest.)
+                let docs = std::panic::catch_unwind(|| doc_records(path, &source, &files))
+                    .map_err(|_| "Couldn't render the document".to_string())?;
+                records.extend(docs);
+                sort_records(&mut records);
+            }
+            Ok(records)
+        });
+        match records {
             Ok(records) => {
                 let out_path = analysis_root.join(path);
                 let lines = match std::fs::read_to_string(&out_path) {

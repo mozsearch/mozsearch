@@ -19,6 +19,9 @@ use std::ops::{Range, RangeInclusive};
 use lazy_static::lazy_static;
 use regex::Regex;
 
+use crate::file_format::analysis_manglings::mangle_file;
+
+pub mod analysis;
 mod doc;
 pub mod markdown;
 pub mod rst;
@@ -44,6 +47,50 @@ pub trait Links {
     fn staged_doc(&self, _staged: &str) -> Option<String> {
         None
     }
+    /// The URL of a Sphinx label in another document (see `label_symbol`),
+    /// from the tree's cross-reference data, if it has the label.
+    fn label_url(&self, _label: &str) -> Option<String> {
+        None
+    }
+}
+
+/// The symbol of a Sphinx label, by its slug (see `slugify`, and
+/// `Doc::find_label`), with dashes for underscores, like docutils' ids,
+/// escaped like `FILE_` symbols.  Sphinx compares labels lowercased and with
+/// their whitespace normalized, but documents also refer to sections by their
+/// anchors (ex: "crash-reporter", for "Crash Reporter"), and to targets by
+/// their names before their conversion from reStructuredText (ex: NSS's
+/// "mozilla_projects_nss_reference", for "mozilla-projects-nss-reference"),
+/// and section titles' labels come from their rendered text (ex: with smart
+/// quotes).
+pub fn label_symbol(label: &str) -> String {
+    let normalized = label.split_whitespace().collect::<Vec<_>>().join(" ");
+    let slug = slugify(&normalized).replace('_', "-");
+    let key = if slug.is_empty() {
+        normalized.to_lowercase()
+    } else {
+        slug
+    };
+    format!("DOCLABEL_{}", mangle_file(&key))
+}
+
+/// The symbol of a document (or other file) that documentation refers to.
+pub fn file_symbol(path: &str) -> String {
+    format!("FILE_{}", mangle_file(path))
+}
+
+/// A documentation definition or reference found while rendering, for the
+/// documents' analysis records (see `analysis`).
+#[derive(Debug, PartialEq)]
+pub struct DocRecord {
+    /// Whether it's a doc-def (else a doc-use).
+    pub def: bool,
+    pub sym: String,
+    pub pretty: String,
+    /// The bytes of the file it's at.
+    pub range: Range<usize>,
+    /// The source record's syntax kind (ex: "label").
+    pub syntax: &'static str,
 }
 
 /// A block of the rendered document, which gets a blame strip.
@@ -63,6 +110,7 @@ pub struct Rendered {
     pub blocks: Vec<Block>,
     /// The text of the first heading, if any.
     pub title: Option<String>,
+    pub records: Vec<DocRecord>,
 }
 
 /// Maps offsets in a virtual document (ex: the content of a directive,
@@ -232,6 +280,7 @@ pub struct Writer<'s> {
     /// The ids of elements, which need to be unique.
     ids: HashSet<String>,
     pub title: Option<String>,
+    pub records: Vec<DocRecord>,
 }
 
 impl<'s> Writer<'s> {
@@ -246,6 +295,7 @@ impl<'s> Writer<'s> {
             open: None,
             ids: HashSet::new(),
             title: None,
+            records: vec![],
         }
     }
 
@@ -259,6 +309,28 @@ impl<'s> Writer<'s> {
             html: self.html,
             blocks: self.blocks,
             title: self.title,
+            records: self.records,
+        }
+    }
+
+    /// Note a documentation definition or reference at the bytes `range` of
+    /// the file, if known.
+    pub fn record(
+        &mut self,
+        def: bool,
+        sym: String,
+        pretty: &str,
+        range: Option<Range<usize>>,
+        syntax: &'static str,
+    ) {
+        if let Some(range) = range.filter(|r| r.end <= self.src.len() && r.start < r.end) {
+            self.records.push(DocRecord {
+                def,
+                sym,
+                pretty: pretty.to_string(),
+                range,
+                syntax,
+            });
         }
     }
 
@@ -581,6 +653,34 @@ pub fn link_url(links: &dyn Links, dir: &str, dest: &str) -> Option<String> {
         return Some(with_fragment(links.rendered_url(&doc)));
     }
     Some(with_fragment(links.source_url(&resolved)))
+}
+
+/// The file in the tree that a link's destination names, if it's a relative
+/// link (or MyST's `project:` and `path:`) to a file the tree has, or to a
+/// document by its name without its extension.
+pub fn link_target_path(links: &dyn Links, dir: &str, dest: &str) -> Option<String> {
+    lazy_static! {
+        static ref SCHEME: Regex = Regex::new(r"^([A-Za-z][A-Za-z0-9+.-]*):").unwrap();
+    }
+    let mut dest = dest.trim();
+    if dest.is_empty() || dest.starts_with('#') || dest.starts_with("//") {
+        return None;
+    }
+    if let Some(captures) = SCHEME.captures(dest) {
+        match captures[1].to_ascii_lowercase().as_str() {
+            "project" | "path" => dest = &dest[captures[0].len()..],
+            _ => return None,
+        }
+    }
+    let path = percent_decode(dest.split('#').next().unwrap_or(""));
+    if path.is_empty() {
+        return None;
+    }
+    let resolved = resolve_path(dir, &path)?;
+    if links.exists(&resolved) {
+        return Some(resolved);
+    }
+    find_doc(links, dir, &path)
 }
 
 fn percent_decode(s: &str) -> String {
@@ -924,6 +1024,31 @@ mod tests {
         let slice = map.slice(3..6);
         assert_eq!(slice.real(0), 5);
         assert_eq!(slice.exact(0..2), Some(5..7));
+    }
+
+    #[test]
+    fn test_label_symbol() {
+        // The ways documents write the same label.
+        for label in [
+            "Crash Reporter",
+            "crash reporter",
+            "crash  Reporter",
+            "crash-reporter",
+            "crash_reporter",
+        ] {
+            assert_eq!(
+                label_symbol(label),
+                "DOCLABEL_crash@2Dreporter",
+                "{}",
+                label
+            );
+        }
+        assert_eq!(
+            label_symbol("\u{201c}uninstall\u{201d} ping"),
+            label_symbol("\"uninstall\" ping")
+        );
+        // (Labels with no letters or digits keep their punctuation.)
+        assert_eq!(label_symbol("$"), "DOCLABEL_@24");
     }
 
     #[test]

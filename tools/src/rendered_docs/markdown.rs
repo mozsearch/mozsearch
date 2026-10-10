@@ -11,13 +11,16 @@ use std::ops::Range;
 
 use lazy_static::lazy_static;
 use pulldown_cmark::{
-    Alignment, BlockQuoteKind, BrokenLink, CodeBlockKind, CowStr, Event, LinkType, Options, Parser,
-    Tag, TagEnd,
+    Alignment, BlockQuoteKind, BrokenLink, CodeBlockKind, CowStr, Event, HeadingLevel, LinkType,
+    Options, Parser, Tag, TagEnd,
 };
 use regex::Regex;
 
 use super::doc::{DirectiveContent, Doc, Flavor};
-use super::{HtmlSanitizer, Links, OffsetMap, Rendered, Writer, escape, link_url, slugify};
+use super::{
+    HtmlSanitizer, Links, OffsetMap, Rendered, Writer, escape, file_symbol, label_symbol,
+    link_target_path, link_url, slugify,
+};
 
 type Events = Vec<(Event<'static>, Range<usize>)>;
 
@@ -150,20 +153,40 @@ impl Doc<'_, '_, '_> {
         let mut pending: Vec<String> = vec![];
         for (i, (event, range)) in events.iter().enumerate() {
             match event {
-                Event::Start(Tag::Heading { .. }) => {
+                Event::Start(Tag::Heading { level, .. }) => {
                     let title = inline_text(events, i);
                     // A target right before a section labels the section.
                     let labels = std::mem::take(&mut pending);
                     self.add_heading(map.real(range.start), &title, &labels);
+                    // Sphinx's `autosectionlabel` makes top-level sections'
+                    // titles labels (Firefox's docs have a maxdepth of 1).
+                    let end = end_of(events, i);
+                    if *level == HeadingLevel::H1 && end > i + 1 {
+                        let text = events[i + 1].1.start..events[end - 1].1.end;
+                        self.w.record(
+                            true,
+                            label_symbol(&title),
+                            &title,
+                            Some(map.span(text)),
+                            "label",
+                        );
+                    }
                 }
                 Event::Start(Tag::Paragraph) => {
                     let (targets, next) = leading_targets(events, i);
-                    for target in &targets {
+                    for (target, label_range) in &targets {
                         self.add_target(target);
+                        self.w.record(
+                            true,
+                            label_symbol(target),
+                            target,
+                            map.exact(label_range.clone()),
+                            "label",
+                        );
                     }
                     // (Only paragraphs that are all targets label sections.)
                     pending = if matches!(events.get(next), Some((Event::End(_), _))) {
-                        targets
+                        targets.into_iter().map(|(target, _)| target).collect()
                     } else {
                         vec![]
                     };
@@ -343,6 +366,25 @@ impl Doc<'_, '_, '_> {
                     } else {
                         dest_url.to_string()
                     };
+                    // Links to the tree's documents (and other files) are
+                    // references to them, at their destinations (which come
+                    // after their text).
+                    if let Some(path) = link_target_path(self.links, &self.dir, &dest)
+                        && let Some(at) = self
+                            .w
+                            .src()
+                            .get(real.clone())
+                            .and_then(|t| t.rfind(dest_url.as_ref()))
+                    {
+                        let at = real.start + at;
+                        self.w.record(
+                            false,
+                            file_symbol(&path),
+                            &path,
+                            Some(at..at + dest_url.len()),
+                            "document",
+                        );
+                    }
                     match link_url(self.links, &self.dir, &dest) {
                         Some(url) => {
                             write!(self.w.html, r#"<a href="{}""#, escape(&url)).unwrap();
@@ -601,8 +643,8 @@ impl Doc<'_, '_, '_> {
         let range = &events[i].1;
         // Sphinx targets are anchors.
         let (targets, next) = leading_targets(events, i);
-        for target in &targets {
-            self.target_anchor(target);
+        for (target, label_range) in &targets {
+            self.target_anchor(target, map.real(label_range.start));
         }
         if matches!(
             events.get(next),
@@ -770,7 +812,7 @@ fn inline_text(events: &Events, i: usize) -> String {
 
 /// The labels of the Sphinx targets (`(label)=` lines) at the start of the
 /// paragraph starting at `i`, and the index of its first event after them.
-fn leading_targets(events: &Events, i: usize) -> (Vec<String>, usize) {
+fn leading_targets(events: &Events, i: usize) -> (Vec<(String, Range<usize>)>, usize) {
     let mut targets = vec![];
     let mut j = i + 1;
     loop {
@@ -783,13 +825,17 @@ fn leading_targets(events: &Events, i: usize) -> (Vec<String>, usize) {
         let Some(captures) = TARGET.captures(line.trim()) else {
             break;
         };
+        // (Where the label is, if the line's text is its source.)
+        let label = captures[1].to_string();
+        let start = events[j].1.start + line.find('(').map_or(0, |i| i + 1);
+        let target = (label.clone(), start..start + label.len());
         match events.get(k) {
             Some((Event::SoftBreak, _)) if k > j => {
-                targets.push(captures[1].to_string());
+                targets.push(target);
                 j = k + 1;
             }
             Some((Event::End(TagEnd::Paragraph), _)) if k > j => {
-                targets.push(captures[1].to_string());
+                targets.push(target);
                 j = k;
                 break;
             }
@@ -917,7 +963,7 @@ pub(super) mod tests {
         );
         let rendered = render_test(src);
         let html = with_strips(&rendered);
-        assert!(html.starts_with(r#"<span class="rd-target" id="intro"></span><div class="rd-block">[0]<h1 id="intro-1">"#), "{}", html);
+        assert!(html.starts_with(r#"<span class="rd-target" id="intro" data-rd-line="1"></span><div class="rd-block">[0]<h1 id="intro-1">"#), "{}", html);
         assert!(html.contains(r#"See </span><a class="rd-searchfox" href="/t/source/dom/base/Element.cpp"><span data-l="4" data-c="16">dom/base/Element.cpp</span></a>"#), "{}", html);
         assert!(html.contains(r#"<a class="rd-searchfox" href="/t/source/dom/x.cpp"><span data-l="4" data-c="51">this</span></a>"#), "{}", html);
         assert!(

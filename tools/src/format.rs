@@ -76,7 +76,9 @@ pub struct FormattedLine {
 
 /// Splits string literal tokens at the analysis records within them (ex: a
 /// data-l10n-id in markup in a JS string, or a quoted JS object key's
-/// property), so that the records get tokens, and so spans, of their own.
+/// property), so that the records get tokens, and so spans, of their own, and
+/// likewise plain text's lines (ex: a document's references to Sphinx labels),
+/// whose records' tokens are like identifiers'.
 fn split_strings_at_records(
     input: &str,
     tokens: Vec<tokenize::Token>,
@@ -93,10 +95,14 @@ fn split_strings_at_records(
             result.push(token);
             continue;
         }
-        if token.kind != tokenize::TokenKind::StringLiteral {
-            result.push(token);
-            continue;
-        }
+        let record_kind = match token.kind {
+            tokenize::TokenKind::StringLiteral => tokenize::TokenKind::StringLiteral,
+            tokenize::TokenKind::PlainText => tokenize::TokenKind::Identifier(None),
+            _ => {
+                result.push(token);
+                continue;
+            }
+        };
         let column = (token.start - line_start) as u32;
         let end_column = (token.end - line_start) as u32;
         while cur_datum < analysis.len()
@@ -125,13 +131,13 @@ fn split_strings_at_records(
                     result.push(tokenize::Token {
                         start: pos,
                         end: start,
-                        kind: tokenize::TokenKind::StringLiteral,
+                        kind: token.kind.clone(),
                     });
                 }
                 result.push(tokenize::Token {
                     start,
                     end,
-                    kind: tokenize::TokenKind::StringLiteral,
+                    kind: record_kind.clone(),
                 });
                 pos = end;
             }
@@ -141,7 +147,7 @@ fn split_strings_at_records(
             result.push(tokenize::Token {
                 start: pos,
                 end: token.end,
-                kind: tokenize::TokenKind::StringLiteral,
+                kind: token.kind,
             });
         }
     }
@@ -1237,6 +1243,32 @@ lazy_static! {
         std::sync::Mutex::new(HashMap::new());
 }
 
+lazy_static! {
+    /// Each tree's jumpref data, if it has it, for the rendered views' links
+    /// to labels in other documents.
+    static ref DOC_JUMPREFS: std::sync::Mutex<
+        HashMap<String, Option<std::sync::Arc<BisectableMmap<JumprefData>>>>,
+    > = std::sync::Mutex::new(HashMap::new());
+}
+
+fn tree_jumprefs(
+    tree_name: &str,
+    tree_config: &TreeConfig,
+) -> Option<std::sync::Arc<BisectableMmap<JumprefData>>> {
+    let mut cache = DOC_JUMPREFS.lock().unwrap();
+    cache
+        .entry(tree_name.to_string())
+        .or_insert_with(|| {
+            let inline_path = format!("{}/jumpref", tree_config.paths.index_path);
+            let extra_path = format!("{}/jumpref-extra", tree_config.paths.index_path);
+            if !Path::new(&inline_path).exists() || !Path::new(&extra_path).exists() {
+                return None;
+            }
+            BisectableMmap::new(&inline_path, &extra_path).map(std::sync::Arc::new)
+        })
+        .clone()
+}
+
 fn tree_doc_trees(tree_name: &str, tree_config: &TreeConfig) -> Option<std::sync::Arc<DocTrees>> {
     let mut cache = DOC_TREES.lock().unwrap();
     cache
@@ -1260,6 +1292,7 @@ struct DocLinks<'a> {
     commit: &'a git2::Commit<'a>,
     tree: Tree<'a>,
     doc_trees: Option<std::sync::Arc<DocTrees>>,
+    jumprefs: Option<std::sync::Arc<BisectableMmap<JumprefData>>>,
 }
 
 impl rendered_docs::Links for DocLinks<'_> {
@@ -1306,6 +1339,28 @@ impl rendered_docs::Links for DocLinks<'_> {
 
     fn staged_doc(&self, staged: &str) -> Option<String> {
         self.doc_trees.as_ref()?.find_source(staged)
+    }
+
+    /// The label's documentation (its doc-def, if it has one), at the tip,
+    /// whose line numbers the cross-reference has: the line of its rendered
+    /// view (see `RenderedBlocks` in hyperblame.js), or of its source listing.
+    fn label_url(&self, label: &str) -> Option<String> {
+        let jumprefs = self.jumprefs.as_ref()?;
+        let lookup = |label: &str| {
+            let jumpref = jumprefs
+                .lookup(&rendered_docs::label_symbol(label))
+                .ok()??;
+            jumpref.jumps.doc
+        };
+        // (Labels can be prefixed by their document; see `Doc::find_label`.)
+        let doc = lookup(label).or_else(|| lookup(label.rsplit_once(':')?.1))?;
+        let (path, line) = doc.rsplit_once('#')?;
+        let url = if has_rendered_view(path) {
+            rendered_url(self.tree_name, None, path)
+        } else {
+            format!("/{}/source/{}", self.tree_name, url_encode_path(path))
+        };
+        Some(format!("{}#{}", url, line))
     }
 }
 
@@ -1355,6 +1410,27 @@ fn rendered_strips(rendered: &Rendered, source: &str, page: &PageBlame) -> Vec<S
                 r#"<div class="blame-strip{}{}"{} data-rd-block="{}" data-rd-lines="{}" role="button" aria-label="blame of this block" aria-expanded="false"></div>"#,
                 color_class, classes, data, i, lines
             )
+        })
+        .collect()
+}
+
+/// For a rendered document without blame, markers of its blocks' lines, like
+/// their strips' `data-rd-lines`, for links to its lines.
+fn rendered_line_markers(rendered: &Rendered, source: &str) -> Vec<String> {
+    let lines: Vec<&str> = source.lines().collect();
+    let mut line_starts = vec![0];
+    line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
+    let line_of = |offset: usize| line_starts.partition_point(|&start| start <= offset) - 1;
+    let has_text = |line: usize| lines.get(line).is_some_and(|line| !line.trim().is_empty());
+    rendered_docs::block_lines(&rendered.blocks, line_of, lines.len(), has_text)
+        .iter()
+        .map(|range| match range {
+            Some(range) => format!(
+                r#"<span class="rd-lines" data-rd-lines="{}-{}" hidden></span>"#,
+                range.start() + 1,
+                range.end() + 1
+            ),
+            None => String::new(),
         })
         .collect()
 }
@@ -1427,6 +1503,7 @@ pub fn format_rendered(
         commit: &commit,
         tree: commit.tree().map_err(|_| "Git commit with no tree")?,
         doc_trees: doc_trees.clone(),
+        jumprefs: tree_jumprefs(tree_name, tree_config),
     };
     let rendered = if path.ends_with(".rst") {
         rendered_docs::rst::render(&source, path, &links)
@@ -1435,7 +1512,7 @@ pub fn format_rendered(
     };
     let strips = match &token_blame {
         Some(page) => rendered_strips(&rendered, &source, page),
-        None => vec![String::new(); rendered.blocks.len()],
+        None => rendered_line_markers(&rendered, &source),
     };
 
     let filename = Path::new(path)
@@ -1551,7 +1628,9 @@ pub fn format_rendered(
     let mut pos = 0;
     for (block, strip) in rendered.blocks.iter().zip(&strips) {
         let at = block.strip_at.clamp(pos, rendered.html.len());
-        writer.write_all(&rendered.html.as_bytes()[pos..at]).unwrap();
+        writer
+            .write_all(&rendered.html.as_bytes()[pos..at])
+            .unwrap();
         writer.write_all(strip.as_bytes()).unwrap();
         pos = at;
     }
@@ -4584,6 +4663,43 @@ mod tests {
                 "c\"",
                 "\"bc\"",
                 "\"\u{e9}a\""
+            ]
+        );
+    }
+
+    #[test]
+    fn test_split_plain_text_at_records() {
+        use crate::file_format::analysis::Location;
+        let input = "See {ref}`a-label` and [b](b.md).\nNothing here.\n";
+        let record = |lineno, col_start, col_end| WithLocation {
+            loc: Location {
+                lineno,
+                col_start,
+                col_end,
+            },
+            data: vec![],
+        };
+        let analysis = [record(1, 10, 17), record(1, 27, 31)];
+        let tokens = split_strings_at_records(input, tokenize::tokenize_plain(input), &analysis);
+        let pieces: Vec<(&str, bool)> = tokens
+            .iter()
+            .filter(|t| t.kind != tokenize::TokenKind::Newline)
+            .map(|t| {
+                (
+                    &input[t.start..t.end],
+                    t.kind == tokenize::TokenKind::Identifier(None),
+                )
+            })
+            .collect();
+        assert_eq!(
+            pieces,
+            [
+                ("See {ref}`", false),
+                ("a-label", true),
+                ("` and [b](", false),
+                ("b.md", true),
+                (").", false),
+                ("Nothing here.", false)
             ]
         );
     }

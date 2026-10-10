@@ -236,6 +236,11 @@ var RenderedBlocks = new (class RenderedBlocks {
     if (!this.root) {
       return;
     }
+    // Links to the document's lines (ex: to its labels, from other documents)
+    // go to the block with the line.
+    this.showLineHash();
+    window.addEventListener("hashchange", () => this.showLineHash());
+
     const strips = [...this.root.querySelectorAll(".blame-strip")];
     this.placeStrips(strips);
     let width = this.root.clientWidth;
@@ -280,6 +285,43 @@ var RenderedBlocks = new (class RenderedBlocks {
     }
   }
 
+  /**
+   * Scroll to the block with the line of the page's hash, if it's a line
+   * number (like source listings') rather than an element's id: the block
+   * after the line's Sphinx target (`.rd-target`), if it has one, which the
+   * target labels, or else the block whose lines (see `lines`) have it, or
+   * else the next block.
+   */
+  showLineHash() {
+    const match = /^#(\d+)$/.exec(location.hash);
+    if (!match || document.getElementById(match[1])) {
+      return;
+    }
+    const line = parseInt(match[1], 10);
+    // (The blocks' strips, or their lines' markers if the page has no blame.)
+    const marks = [...this.root.querySelectorAll("[data-rd-lines]")];
+    const target = this.root.querySelector(`.rd-target[data-rd-line="${line}"]`);
+    const mark = target
+      ? marks.find(mark => {
+        const block = this.blockOf(mark);
+        return block.contains(target) ||
+          target.compareDocumentPosition(block) & Node.DOCUMENT_POSITION_FOLLOWING;
+      })
+      : marks.find(mark => {
+        const lines = this.lines(mark);
+        return lines.length && lines[lines.length - 1] >= line;
+      });
+    if (!mark) {
+      return;
+    }
+    const found = this.blockOf(mark);
+    for (const old of this.root.querySelectorAll(".rd-hash-target")) {
+      old.classList.remove("rd-hash-target");
+    }
+    found.classList.add("rd-hash-target");
+    found.scrollIntoView({ block: "start" });
+  }
+
   isBlockStrip(elt) {
     return elt.dataset.rdBlock !== undefined;
   }
@@ -296,7 +338,8 @@ var RenderedBlocks = new (class RenderedBlocks {
   }
 
   /**
-   * The element of a strip's block: the block, or a table's row.
+   * The element of a strip's block (or of its lines' marker, if the page has
+   * no blame): the block, or a table's row.
    */
   blockOf(strip) {
     return strip.closest("tr") || strip.parentElement;

@@ -1,0 +1,194 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/docs/labels__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "DOCLABEL_rst@2Dtest@2Dlabel",
+      "crossref_info": {
+        "doc-defs": [
+          {
+            "path": "docs/rst_test/index.rst",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 6,
+                "bounds": [
+                  4,
+                  18
+                ],
+                "line": ".. _rst-test-label:",
+                "context": "reST Test",
+                "contextsym": "FILE_docs/rst_test/index@2Erst"
+              }
+            ]
+          }
+        ],
+        "doc-uses": [
+          {
+            "path": "docs/md_test/index.md",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 8,
+                "bounds": [
+                  10,
+                  24
+                ],
+                "line": "See {ref}`rst-test-label` and {ref}`the reST test <rest test>` in",
+                "context": "Markdown Test",
+                "contextsym": "FILE_docs/md_test/index@2Emd"
+              }
+            ]
+          },
+          {
+            "path": "docs/rst_test/index.rst",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 12,
+                "bounds": [
+                  4,
+                  18
+                ],
+                "line": "and rst-test-label_ in this document.",
+                "context": "reST Test",
+                "contextsym": "FILE_docs/rst_test/index@2Erst"
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "DOCLABEL_rest@2Dtest",
+      "crossref_info": {
+        "doc-defs": [
+          {
+            "path": "docs/rst_test/index.rst",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 1,
+                "bounds": [
+                  0,
+                  9
+                ],
+                "line": "reST Test",
+                "context": "reST Test",
+                "contextsym": "FILE_docs/rst_test/index@2Erst"
+              }
+            ]
+          }
+        ],
+        "doc-uses": [
+          {
+            "path": "docs/md_test/index.md",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 8,
+                "bounds": [
+                  51,
+                  60
+                ],
+                "line": "See {ref}`rst-test-label` and {ref}`the reST test <rest test>` in",
+                "context": "Markdown Test",
+                "contextsym": "FILE_docs/md_test/index@2Emd"
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "FILE_docs/md_test/index@2Emd",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "docs/md_test/index.md",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 1,
+                "bounds": [
+                  0,
+                  0
+                ],
+                "line": "# Markdown Test",
+                "context": "docs/md_test/index.md",
+                "contextsym": "FILE_docs/md_test/index@2Emd"
+              }
+            ]
+          }
+        ],
+        "doc-uses": [
+          {
+            "path": "docs/md_test/index.md",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 10,
+                "bounds": [
+                  16,
+                  24
+                ],
+                "line": "[this document](index.md).",
+                "context": "Markdown Test",
+                "contextsym": "FILE_docs/md_test/index@2Emd"
+              }
+            ]
+          },
+          {
+            "path": "docs/rst_test/index.rst",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 11,
+                "bounds": [
+                  59,
+                  73
+                ],
+                "line": "See :ref:`md-test-label` and :ref:`Markdown Test` in :doc:`/md_test/index`,",
+                "context": "reST Test",
+                "contextsym": "FILE_docs/rst_test/index@2Erst"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "docs/md_test/index.md",
+          "sym": "FILE_docs/md_test/index@2Emd",
+          "type_pretty": null,
+          "kind": "file",
+          "subsystem": null,
+          "implKind": "impl",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}
