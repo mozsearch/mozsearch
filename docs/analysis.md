@@ -209,6 +209,17 @@ or `idl`. This property determines whether the identifier will appear
 under the "Uses", "Definitions", "Declarations", "Assignments", or
 "IDL" category of the search results page.
 
+There are also documentation kinds, for things that are definitely
+documentation rather than mentions (bug 1763532):
+- `doc-def`: documentation of the symbol, ex: a Sphinx label's target, or an
+  `[SMDOC]` comment block.  These appear as "Documentation", just after the
+  definitions, and a symbol with exactly one gets a "Go to documentation"
+  context menu item.  (A comment on a definition isn't a `doc-def`; it's part
+  of the definition.)
+- `doc-use`: a reference from documentation, ex: a Sphinx `{ref}`, or a spec
+  URL in a comment.  These appear as "Documentation References", just before
+  the uses, and aren't calls (they don't make their `contextsym` a caller).
+
 The `pretty` property is also used for the context menu. If a target
 record is the only `def` target for a given symbol, then the context
 menu for any source records with that symbol will contain a `Go to

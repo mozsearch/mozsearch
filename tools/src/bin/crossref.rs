@@ -1713,6 +1713,8 @@ fn write_crossref_and_jumpref_thread(
                 AnalysisKind::Idlp => crossref_data.idl_partial = Some(result),
                 AnalysisKind::Glean => crossref_data.glean = Some(result),
                 AnalysisKind::Alias => crossref_data.aliases = Some(result),
+                AnalysisKind::DocDef => crossref_data.doc_defs = Some(result),
+                AnalysisKind::DocUse => crossref_data.doc_uses = Some(result),
             }
         }
         if let Some(callee_syms) = callees_table.get(id) {

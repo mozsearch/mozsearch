@@ -816,12 +816,17 @@ pub enum PresentationKind {
     IDL,
     IDLPartial,
     Definitions,
+    // Documentation of the symbol, just after its definitions, and references
+    // to it from documentation (or to its documentation), just before its uses;
+    // see `AnalysisKind::DocDef`.
+    DocDefinitions,
     Declarations,
     // Glean metrics' definitions, and type aliases (ex: typedefs), in
     // router.py's order.
     Glean,
     Aliases,
     Assignments,
+    DocUses,
     Uses,
     // Forward declarations (ex: `class Foo;`) are the least interesting
     // semantic results, so they're after the others (and the first of them to

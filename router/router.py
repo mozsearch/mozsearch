@@ -58,6 +58,7 @@ def parse_path_filter(filter):
 key_remapping = { 'uses': 'Uses', 'defs': 'Definitions', 'assignments': 'Assignments',
                   'decls': 'Declarations', 'idl': 'IDL', 'idlp': 'IDL Partial',
                   'glean': 'Glean', 'aliases': 'Aliases',
+                  'doc-defs': 'Documentation', 'doc-uses': 'Documentation References',
                   'callees': None, 'field-member-uses': None }
 
 def merge_defs_from_symbols_as(tree_name, mix_target, symbol_names, as_key):
@@ -303,10 +304,11 @@ class SearchResults(object):
     max_work = 1000 * EXTREME_FACTOR
     path_precedences = ['normal', 'third_party', 'test', 'generated']
     key_precedences = [
-        "Files", "IDL", "IDL Partial", "Definitions", "Declarations",
-        "Bindings", "Glean", "Aliases", "Overrides", "Overridden By",
-        "Superclasses", "Subclasses", "Assignments", "Uses",
-        "Possible JavaScript Uses", "Textual Occurrences"]
+        "Files", "IDL", "IDL Partial", "Definitions", "Documentation",
+        "Declarations", "Bindings", "Glean", "Aliases", "Overrides",
+        "Overridden By", "Superclasses", "Subclasses", "Assignments",
+        "Documentation References", "Uses", "Possible JavaScript Uses",
+        "Textual Occurrences"]
 
     def categorize_path(self, path):
         '''

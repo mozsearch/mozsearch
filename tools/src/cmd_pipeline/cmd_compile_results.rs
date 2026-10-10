@@ -196,7 +196,8 @@ impl SearchResults {
         })?;
 
         // The symbol's digest is its definitions' (and the like), but its uses
-        // and assignments get their contexts' (see `cmd_augment_results`).
+        // and assignments (and documentation's records, which are elsewhere) get
+        // their contexts' (see `cmd_augment_results`).
         let recency = info.crossref_info.recency;
         let pretty = info.get_pretty();
         let recency_label = info
@@ -206,7 +207,10 @@ impl SearchResults {
             .map(|from| from.describe(&pretty));
         let mut ingest = |kind, path_containers| {
             let (own_recency, own_label) = match kind {
-                PresentationKind::Uses | PresentationKind::Assignments => (None, None),
+                PresentationKind::Uses
+                | PresentationKind::Assignments
+                | PresentationKind::DocDefinitions
+                | PresentationKind::DocUses => (None, None),
                 _ => (recency, recency_label.clone()),
             };
             let descriptor = QualKindDescriptor {
@@ -235,6 +239,10 @@ impl SearchResults {
             info.crossref_info.definitions,
         );
         ingest(
+            PresentationKind::DocDefinitions,
+            info.crossref_info.doc_defs,
+        );
+        ingest(
             PresentationKind::Declarations,
             info.crossref_info.declarations,
         );
@@ -244,6 +252,7 @@ impl SearchResults {
             PresentationKind::Assignments,
             info.crossref_info.assignments,
         );
+        ingest(PresentationKind::DocUses, info.crossref_info.doc_uses);
         ingest(PresentationKind::Uses, info.crossref_info.uses);
         ingest(
             PresentationKind::ForwardDeclarations,

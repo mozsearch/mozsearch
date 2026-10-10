@@ -49,6 +49,10 @@ pub struct CrossrefData {
     pub glean: Option<Vec<PathSearchResult>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aliases: Option<Vec<PathSearchResult>>,
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "doc-defs")]
+    pub doc_defs: Option<Vec<PathSearchResult>>,
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "doc-uses")]
+    pub doc_uses: Option<Vec<PathSearchResult>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub callees: Option<Vec<Callee>>,
     #[serde(

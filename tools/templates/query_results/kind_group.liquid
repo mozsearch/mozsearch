@@ -30,6 +30,10 @@
                 Textual Occurrences
             {%- when "ForwardDeclarations" -%}
                 Forward Declarations
+            {%- when "DocDefinitions" -%}
+                Documentation
+            {%- when "DocUses" -%}
+                Documentation References
             {%- else -%}
                 {{ kind_group.kind }}
         {%- endcase -%}

@@ -142,6 +142,16 @@ pub enum AnalysisKind {
     Idlp,
     Glean,
     Alias,
+    /// Something that's definitely documentation of the symbol (ex: a
+    /// documentation label's target, or an `[SMDOC]` comment block), as
+    /// opposed to a comment on a definition, which is part of the definition.
+    #[serde(rename = "doc-def")]
+    DocDef,
+    /// Something that definitely refers to the symbol's documentation or to
+    /// the symbol from documentation (ex: a Sphinx `{ref}`, or a spec URL in a
+    /// comment), as opposed to a mention.
+    #[serde(rename = "doc-use")]
+    DocUse,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -158,6 +168,8 @@ impl AnalysisKind {
             AnalysisKind::Idlp => ustr("idlp"),
             AnalysisKind::Glean => ustr("glean"),
             AnalysisKind::Alias => ustr("alias"),
+            AnalysisKind::DocDef => ustr("doc-def"),
+            AnalysisKind::DocUse => ustr("doc-use"),
         }
     }
 }

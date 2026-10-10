@@ -1585,6 +1585,17 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             }));
           }
 
+          // The symbol's documentation (a doc-def record).
+          if (jumpref.jumps.doc && jumpref.jumps.doc !== sourceLineClicked) {
+            jumpMenuItems.push(new GotoMenuItem({
+              html: this.fmt("Go to documentation of <strong>_</strong>", pretty),
+              href: `/${tree}/source/${jumpref.jumps.doc}`,
+              icon: "export-alt",
+              section: "jumps",
+              confidence,
+            }));
+          }
+
           for (const key in expansions) {
             if (key.startsWith(sym)) {
               for (const platform in expansions[key]) {

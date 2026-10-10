@@ -18,6 +18,9 @@ pub struct Jumps {
     pub definition: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "decl")]
     pub declaration: Option<String>,
+    /// The symbol's documentation, if it has one doc-def.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub doc: Option<String>,
 }
 
 impl Jumps {
@@ -28,7 +31,8 @@ impl Jumps {
                 idl: None,
                 glean: None,
                 definition: None,
-                declaration: None
+                declaration: None,
+                doc: None,
             }
         )
     }
@@ -74,6 +78,7 @@ pub fn convert_crossref_value_to_sym_info_rep(
                 glean: None,
                 definition: None,
                 declaration: None,
+                doc: None,
             },
             meta: None,
             idl_syms: None,
@@ -97,6 +102,7 @@ pub fn convert_crossref_value_to_sym_info_rep(
         glean: jumpify(&cross_val.glean),
         definition: jumpify(&cross_val.definitions),
         declaration: jumpify(&cross_val.declarations),
+        doc: jumpify(&cross_val.doc_defs),
     };
 
     let pretty = cross_val
