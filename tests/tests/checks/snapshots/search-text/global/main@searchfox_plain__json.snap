@@ -34,6 +34,28 @@ input_file: inputs/search-text/global/searchfox_plain__json
       ]
     },
     {
+      "file": "fluent/test.ftl",
+      "path_kind": "normal",
+      "matches": [
+        {
+          "line_num": 5,
+          "bounds": {
+            "start": 20,
+            "end_exclusive": 29
+          },
+          "line_str": "-brand-short-name = Searchfox"
+        },
+        {
+          "line_num": 24,
+          "bounds": {
+            "start": 33,
+            "end_exclusive": 42
+          },
+          "line_str": "about-link = See { -https(host: \"searchfox.org\") } for more."
+        }
+      ]
+    },
+    {
       "file": "simple.rs",
       "path_kind": "normal",
       "matches": [

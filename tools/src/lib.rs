@@ -83,6 +83,8 @@ pub mod logging;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod output;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod semantic_analyzer;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod source_mapping;
 #[cfg(not(target_arch = "wasm32"))]
 mod symbol_graph_edge_kind;

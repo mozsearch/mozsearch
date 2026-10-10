@@ -1,0 +1,53 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/web/files/markup/fluent__html
+---
+<code role="cell" class="source-line"><span class="syn_comment" ># This Source Code Form is subject to the terms of the Mozilla Public</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" ># License, v. 2.0. If a copy of the MPL was not distributed with this</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" ># file, You can obtain one at <a href="http://mozilla.org/MPL/2.0/">http://mozilla.org/MPL/2.0/</a>.</span>
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_def" data-symbols="FTL_-brand-short-name" data-confidences="[&quot;concrete&quot;]">-brand-short-name</span> = Searchfox
+</code>
+<code role="cell" class="source-line">    .<span class="syn_def" data-symbols="FTL_-brand-short-name.gender" data-confidences="[&quot;concrete&quot;]">gender</span> = feminine
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" >## Tabs</span>
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" ># Variables:</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" >#   $count (Number) - The number of tabs.</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_def" data-symbols="FTL_tabs-close-warning" data-confidences="[&quot;concrete&quot;]">tabs-close-warning</span> =
+</code>
+<code role="cell" class="source-line">    { $<span data-symbols="FTL_tabs-close-warning$count" data-confidences="[&quot;concrete&quot;]">count</span> ->
+</code>
+<code role="cell" class="source-line">        [one] Close { $<span data-symbols="FTL_tabs-close-warning$count" data-confidences="[&quot;concrete&quot;]">count</span> } tab of { <span data-symbols="FTL_-brand-short-name" data-confidences="[&quot;concrete&quot;]">-brand-short-name</span> }?
+</code>
+<code role="cell" class="source-line">       *[other] Close { $<span data-symbols="FTL_tabs-close-warning$count" data-confidences="[&quot;concrete&quot;]">count</span> } tabs of { <span data-symbols="FTL_-brand-short-name" data-confidences="[&quot;concrete&quot;]">-brand-short-name</span> }?
+</code>
+<code role="cell" class="source-line">    }
+</code>
+<code role="cell" class="source-line">    .<span class="syn_def" data-symbols="FTL_tabs-close-warning.title" data-confidences="[&quot;concrete&quot;]">title</span> = { <span data-symbols="FTL_tabs-close-button" data-confidences="[&quot;concrete&quot;]">tabs-close-button</span>.<span data-symbols="FTL_tabs-close-button.tooltip" data-confidences="[&quot;concrete&quot;]">tooltip</span> }
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_def" data-symbols="FTL_tabs-close-button" data-confidences="[&quot;concrete&quot;]">tabs-close-button</span> = Close
+</code>
+<code role="cell" class="source-line">    .<span class="syn_def" data-symbols="FTL_tabs-close-button.tooltip" data-confidences="[&quot;concrete&quot;]">tooltip</span> = Close the tab
+</code>
+<code role="cell" class="source-line">    .<span class="syn_def" data-symbols="FTL_tabs-close-button.accesskey" data-confidences="[&quot;concrete&quot;]">accesskey</span> = C
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_def" data-symbols="FTL_-https" data-confidences="[&quot;concrete&quot;]">-https</span> = https://{ $<span data-symbols="FTL_-https$host" data-confidences="[&quot;concrete&quot;]">host</span> }
+</code>
+<code role="cell" class="source-line"><span class="syn_def" data-symbols="FTL_about-link" data-confidences="[&quot;concrete&quot;]">about-link</span> = See { <span data-symbols="FTL_-https" data-confidences="[&quot;concrete&quot;]">-https</span>(<span data-symbols="FTL_-https$host" data-confidences="[&quot;concrete&quot;]">host</span>: <span class="syn_string" >"searchfox.org"</span>) } for more.
+</code>

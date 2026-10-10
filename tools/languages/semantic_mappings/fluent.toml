@@ -1,0 +1,98 @@
+# Fluent (.ftl) localizations (see semantic_analyzer.rs): messages, terms
+# (whose identifiers include their "-"), and their attributes are definitions
+# of FTL_ symbols, and references to them, variables, and terms' named
+# arguments are uses:
+# - message `FTL_<id>`, attribute `FTL_<id>.<attr>`, term `FTL_-<id>`;
+# - variable `FTL_<id>$<var>`, scoped to its message or term (whose callers'
+#   arguments set it, ex: a term's named arguments, or markup's
+#   data-l10n-args).
+grammar = "fluent"
+paths = ["**/*.ftl"]
+
+[[scopes]]
+name = "message"
+query = "(message id: (identifier) @name) @scope"
+sym = "FTL_{{ name }}"
+pretty = "{{ name }}"
+
+[[scopes]]
+name = "term"
+query = "(term id: (term_identifier) @name) @scope"
+sym = "FTL_{{ name }}"
+pretty = "{{ name }}"
+
+[[scopes]]
+name = "attribute"
+query = "(attribute id: (identifier) @name) @scope"
+sym = "FTL_{{ context.name }}.{{ name }}"
+pretty = "{{ context.pretty }}.{{ name }}"
+
+## Definitions
+
+[[rules]]
+role = "def"
+query = "(message id: (identifier) @id) @message"
+sym = "FTL_{{ id }}"
+pretty = "{{ id }}"
+syntax_kind = "message"
+nesting = "message"
+
+[[rules]]
+role = "def"
+query = "(term id: (term_identifier) @id) @term"
+sym = "FTL_{{ id }}"
+pretty = "{{ id }}"
+syntax_kind = "term"
+nesting = "term"
+
+[[rules]]
+role = "def"
+query = "(attribute id: (identifier) @id) @attribute"
+sym = "FTL_{{ context.name }}.{{ id }}"
+pretty = "{{ context.pretty }}.{{ id }}"
+syntax_kind = "attribute"
+nesting = "attribute"
+
+## Uses
+
+[[rules]]
+role = "use"
+query = "(message_reference id: (identifier) @id)"
+sym = "FTL_{{ id }}"
+pretty = "{{ id }}"
+syntax_kind = "message"
+
+[[rules]]
+role = "use"
+query = "(message_reference id: (identifier) @message attribute: (identifier) @id)"
+sym = "FTL_{{ message }}.{{ id }}"
+pretty = "{{ message }}.{{ id }}"
+syntax_kind = "attribute"
+
+[[rules]]
+role = "use"
+query = "(term_reference id: (term_identifier) @id)"
+sym = "FTL_{{ id }}"
+pretty = "{{ id }}"
+syntax_kind = "term"
+
+[[rules]]
+role = "use"
+query = "(term_reference id: (term_identifier) @term attribute: (identifier) @id)"
+sym = "FTL_{{ term }}.{{ id }}"
+pretty = "{{ term }}.{{ id }}"
+syntax_kind = "attribute"
+
+[[rules]]
+role = "use"
+query = "(variable_reference id: (identifier) @id)"
+sym = "FTL_{{ outer.name }}${{ id }}"
+pretty = "{{ outer.pretty }}${{ id }}"
+syntax_kind = "variable"
+
+[[rules]]
+role = "use"
+query = "(term_reference id: (term_identifier) @term arguments: (call_arguments (named_argument name: (identifier) @id)))"
+sym = "FTL_{{ term }}${{ id }}"
+pretty = "{{ term }}${{ id }}"
+syntax_kind = "variable"

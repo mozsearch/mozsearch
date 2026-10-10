@@ -183,6 +183,10 @@ if should_perform "yaml-analyze"; then
     $MOZSEARCH_PATH/scripts/yaml-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "yaml-analyze.sh"
 fi
 
+if should_perform "semantic-analyze"; then
+    $MOZSEARCH_PATH/scripts/semantic-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "semantic-analyze.sh"
+fi
+
 if should_perform "mozbuild-analyze"; then
     $MOZSEARCH_PATH/scripts/mozbuild-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "mozbuild-analyze.sh"
 fi
