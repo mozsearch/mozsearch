@@ -1546,6 +1546,7 @@ fn binding_links(
 
             let info = StructuredBindingSlotInfo {
                 props,
+                pretty: None,
                 sym: ustr(target_symbol),
             };
 
@@ -1582,6 +1583,7 @@ fn binding_links(
 
             let info = StructuredBindingSlotInfo {
                 props,
+                pretty: None,
                 sym: ustr(target_symbol),
             };
 

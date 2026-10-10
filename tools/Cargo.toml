@@ -97,6 +97,9 @@ tree-sitter-webidl = { git = "https://github.com/mozsearch/tree-sitter-webidl", 
 # have all of files' text, and which parse Firefox's Kotlin; see their READMEs.)
 tree-sitter-rust = { git = "https://github.com/mozsearch/tree-sitter-rust", rev = "4b9b5514d90828d092ff721ea7dc3579fb4829ac" }
 tree-sitter-kotlin-ng = { git = "https://github.com/mozsearch/tree-sitter-kotlin", rev = "27d1cbeffb8ae300ba6c17116fb46e7e5596db11" }
+# (tree-sitter-yaml is searchfox's fork, whose scanner handles files of more
+# than 32767 lines; see its README.)
+tree-sitter-yaml = { git = "https://github.com/mozsearch/tree-sitter-yaml", rev = "8a9ce44fec0dbea5705617debb513e2dd5ff90ca" }
 tree-sitter-objc = "3.0.2"
 toml = "1.0.7"
 tonic = "0.14.5"

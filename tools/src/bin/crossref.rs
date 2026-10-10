@@ -183,8 +183,10 @@ type XrefLinkOverride = Vec<(Ustr, Ustr)>;
 // flaky tests.
 type XrefLinkSlots = BTreeMap<(Ustr, Ustr), (BindingSlotProps, Option<Ustr>)>;
 
-// The output from the reader threads for XrefLinkSlots.
-type XrefLinkSlotsItems = Vec<((Ustr, Ustr), (BindingSlotProps, Option<Ustr>))>;
+// The output from the reader threads for XrefLinkSlots, with whether the
+// slotted symbol is the pretty name of the symbols to slot (for slots whose
+// `sym` is empty, which `resolve_pretty_slots` resolves).
+type XrefLinkSlotsItems = Vec<((Ustr, Ustr), (BindingSlotProps, Option<Ustr>, bool))>;
 
 // Maps JS symbol to possible IDL/Glean symbols.
 type JSIDLTable = HashMap<Ustr, Vec<Ustr>>;
@@ -281,6 +283,32 @@ fn process_analysis_target(
     }
 }
 
+/// Binding slots by pretty name (owner symbol, pretty name, props, subsystem)
+/// become slots of the symbols whose structured records have that pretty name,
+/// once all of the structured records are in the `meta_table`.  (Pretty names
+/// that no symbol has don't become slots.)
+fn resolve_pretty_slots(
+    pretty_slots: Vec<(Ustr, Ustr, BindingSlotProps, Option<Ustr>)>,
+    meta_table: &MetaTable,
+    xref_link_slots: &mut XrefLinkSlots,
+) {
+    if pretty_slots.is_empty() {
+        return;
+    }
+    let wanted: HashSet<Ustr> = pretty_slots.iter().map(|slot| slot.1).collect();
+    let mut syms_by_pretty: HashMap<Ustr, Vec<Ustr>> = HashMap::new();
+    for (sym, meta) in meta_table {
+        if wanted.contains(&meta.pretty) {
+            syms_by_pretty.entry(meta.pretty).or_default().push(*sym);
+        }
+    }
+    for (owner_sym, pretty, props, subsystem) in pretty_slots {
+        for slotted_sym in syms_by_pretty.get(&pretty).into_iter().flatten() {
+            xref_link_slots.insert((owner_sym, *slotted_sym), (props, subsystem));
+        }
+    }
+}
+
 fn process_analysis_structured(
     mut piece: AnalysisStructured,
     subsystem: Option<Ustr>,
@@ -300,10 +328,20 @@ fn process_analysis_structured(
     // We remove all bindings infos from AnalysisStructured instances here
     // but add them back both ways when we iterate over xref_link_slots_items.
     for slot_info in piece.binding_slots.drain(..) {
-        xref_link_slots_items.push(((piece.sym, slot_info.sym), (slot_info.props, subsystem)));
+        match slot_info.pretty {
+            Some(pretty) if slot_info.sym.is_empty() => xref_link_slots_items
+                .push(((piece.sym, pretty), (slot_info.props, subsystem, true))),
+            _ => xref_link_slots_items.push((
+                (piece.sym, slot_info.sym),
+                (slot_info.props, subsystem, false),
+            )),
+        }
     }
     if let Some(slot_info) = piece.slot_owner.take() {
-        xref_link_slots_items.push(((slot_info.sym, piece.sym), (slot_info.props, subsystem)));
+        xref_link_slots_items.push((
+            (slot_info.sym, piece.sym),
+            (slot_info.props, subsystem, false),
+        ));
     }
 
     piece.subsystem = subsystem;
@@ -967,6 +1005,7 @@ fn read_analysis_files(
     // xref_link_slots is a map, and we need to de-duplicate before reflecting
     // to the meta_table.
     let mut xref_link_slots = XrefLinkSlots::new();
+    let mut pretty_slots = vec![];
     for item in xrefs {
         let (xref_link_subclass, xref_link_override, xref_link_slots_items) = item;
 
@@ -982,16 +1021,22 @@ fn read_analysis_files(
             }
         }
 
-        for (key, value) in xref_link_slots_items {
-            xref_link_slots.insert(key, value);
+        for ((owner_sym, slotted), (props, subsystem, by_pretty)) in xref_link_slots_items {
+            if by_pretty {
+                pretty_slots.push((owner_sym, slotted, props, subsystem));
+            } else {
+                xref_link_slots.insert((owner_sym, slotted), (props, subsystem));
+            }
         }
     }
+    resolve_pretty_slots(pretty_slots, &meta_table, &mut xref_link_slots);
 
     for ((owner_sym, slotted_sym), (props, subsystem)) in xref_link_slots {
         if let Some(owner) = meta_table.get_mut(&owner_sym) {
             owner.binding_slots.push(StructuredBindingSlotInfo {
                 sym: slotted_sym,
                 props,
+                pretty: None,
             });
             if owner.subsystem.is_none() {
                 owner.subsystem = subsystem;
@@ -1001,6 +1046,7 @@ fn read_analysis_files(
             slotted.slot_owner = Some(StructuredBindingSlotInfo {
                 sym: owner_sym,
                 props,
+                pretty: None,
             });
             slotted.subsystem = subsystem;
         }

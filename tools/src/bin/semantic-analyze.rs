@@ -5,7 +5,8 @@
 //   semantic-analyze FILES_ROOT ANALYSIS_ROOT < paths
 //
 // Paths (relative to FILES_ROOT, one per line, ex: the repo-files list) which
-// a mapping applies to get their analysis written to ANALYSIS_ROOT/<path>.
+// mappings apply to get their analysis (all of those mappings' records) written
+// to ANALYSIS_ROOT/<path>.
 
 use std::io::{BufRead, Write};
 use std::path::Path;
@@ -28,13 +29,14 @@ fn main() {
     for line in std::io::stdin().lock().lines() {
         let path = line.unwrap();
         let path = path.trim();
-        let Some(mapping) = mappings.iter().find(|m| m.applies_to(path)) else {
+        let applying: Vec<_> = mappings.iter().filter(|m| m.applies_to(path)).collect();
+        if applying.is_empty() {
             continue;
-        };
+        }
         let Ok(source) = std::fs::read_to_string(files_root.join(path)) else {
             continue;
         };
-        match analyze(mapping, path, &source) {
+        match analyze(&applying, path, &source) {
             Ok(records) => {
                 let out_path = analysis_root.join(path);
                 if let Some(dir) = out_path.parent() {

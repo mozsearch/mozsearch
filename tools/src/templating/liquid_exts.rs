@@ -9,6 +9,7 @@ use regex::Regex;
 use serde_json::to_string_pretty;
 
 use crate::cmd_pipeline::recency_html::blot;
+use crate::file_format::analysis_manglings::mangle_file;
 use crate::file_format::recency::{BINS, Recency};
 
 #[derive(Clone, ParseFilter, FilterReflection)]
@@ -184,5 +185,105 @@ impl Filter for StripPrefixOrEmptyFilter {
         } else {
             Ok(Value::scalar("".to_string()))
         }
+    }
+}
+
+// Filters for the symbols of the semantic analyzer's mappings: escaping like
+// `FILE_` symbols', and the casing of glean_parser's generated names
+// (glean_parser/util.py's `camelize`, `Camelize`, and `snake_case`).
+
+#[derive(Clone, ParseFilter, FilterReflection)]
+#[filter(
+    name = "at_escape",
+    description = "Escape everything but letters, digits, '_' and '/' as @XX, like FILE_ symbols.",
+    parsed(AtEscapeFilter)
+)]
+pub struct AtEscapeFilterParser;
+
+#[derive(Debug, Default, Display_filter)]
+#[name = "at_escape"]
+struct AtEscapeFilter;
+
+impl Filter for AtEscapeFilter {
+    fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
+        Ok(Value::scalar(mangle_file(&input.to_kstr())))
+    }
+}
+
+/// glean_parser's `to_camel_case`: words split at '.', '-', and '_',
+/// capitalized (so lower-cased after their first letters), and joined.
+fn glean_camel_case(s: &str, capitalize_first: bool) -> String {
+    let mut out = String::new();
+    for (i, word) in s
+        .split(['.', '-', '_'])
+        .filter(|w| !w.is_empty())
+        .enumerate()
+    {
+        let mut chars = word.chars();
+        if let Some(first) = chars.next() {
+            if i == 0 && !capitalize_first {
+                out.extend(first.to_lowercase());
+            } else {
+                out.extend(first.to_uppercase());
+            }
+            out.extend(chars.flat_map(|c| c.to_lowercase()));
+        }
+    }
+    out
+}
+
+#[derive(Clone, ParseFilter, FilterReflection)]
+#[filter(
+    name = "camel_case",
+    description = "camelCase, like glean_parser's `camelize`.",
+    parsed(CamelCaseFilter)
+)]
+pub struct CamelCaseFilterParser;
+
+#[derive(Debug, Default, Display_filter)]
+#[name = "camel_case"]
+struct CamelCaseFilter;
+
+impl Filter for CamelCaseFilter {
+    fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
+        Ok(Value::scalar(glean_camel_case(&input.to_kstr(), false)))
+    }
+}
+
+#[derive(Clone, ParseFilter, FilterReflection)]
+#[filter(
+    name = "pascal_case",
+    description = "PascalCase, like glean_parser's `Camelize`.",
+    parsed(PascalCaseFilter)
+)]
+pub struct PascalCaseFilterParser;
+
+#[derive(Debug, Default, Display_filter)]
+#[name = "pascal_case"]
+struct PascalCaseFilter;
+
+impl Filter for PascalCaseFilter {
+    fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
+        Ok(Value::scalar(glean_camel_case(&input.to_kstr(), true)))
+    }
+}
+
+#[derive(Clone, ParseFilter, FilterReflection)]
+#[filter(
+    name = "snake_case",
+    description = "snake_case, like glean_parser's `snake_case`: lower case, with '.' and '-' as '_'.",
+    parsed(SnakeCaseFilter)
+)]
+pub struct SnakeCaseFilterParser;
+
+#[derive(Debug, Default, Display_filter)]
+#[name = "snake_case"]
+struct SnakeCaseFilter;
+
+impl Filter for SnakeCaseFilter {
+    fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
+        Ok(Value::scalar(
+            input.to_kstr().to_lowercase().replace(['.', '-'], "_"),
+        ))
     }
 }

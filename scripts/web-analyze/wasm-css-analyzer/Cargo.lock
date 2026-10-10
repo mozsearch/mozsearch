@@ -4304,6 +4304,7 @@ dependencies = [
  "tree-sitter-typescript",
  "tree-sitter-webidl",
  "tree-sitter-xpidl",
+ "tree-sitter-yaml",
  "url",
  "urlencoding",
  "ustr",
@@ -4582,6 +4583,15 @@ dependencies = [
 name = "tree-sitter-xpidl"
 version = "0.1.0"
 source = "git+https://github.com/mozsearch/tree-sitter-xpidl?rev=9cfb0a8dd56cfb598a027be17cd38a42edf97515#9cfb0a8dd56cfb598a027be17cd38a42edf97515"
+dependencies = [
+ "cc",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-yaml"
+version = "0.7.2"
+source = "git+https://github.com/mozsearch/tree-sitter-yaml?rev=8a9ce44fec0dbea5705617debb513e2dd5ff90ca#8a9ce44fec0dbea5705617debb513e2dd5ff90ca"
 dependencies = [
  "cc",
  "tree-sitter-language",

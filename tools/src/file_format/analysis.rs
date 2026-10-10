@@ -463,6 +463,11 @@ where
     pub props: BindingSlotProps,
     #[serde(default)]
     pub sym: StrT,
+    /// Instead of `sym`, the pretty name of the slotted symbol, for crossref
+    /// to resolve (ex: from the semantic analyzer's mappings, whose bindings
+    /// to generated C++ only know its names).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pretty: Option<StrT>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]

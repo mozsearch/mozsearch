@@ -2,12 +2,15 @@
 //! data-semantics.md in the notes): mappings (TOML, in
 //! `languages/semantic_mappings/`) say which files a grammar parses and which
 //! of their nodes are definitions and uses of which symbols, with tree-sitter
-//! queries and Liquid templates, and `semantic-analyze` turns their matches
-//! into analysis records.
+//! queries or data paths, and Liquid templates, and `semantic-analyze` turns
+//! their matches into analysis records.
 //!
 //! A mapping has:
-//! - `grammar`: the grammar which parses the files (ex: "fluent"), and
-//!   `paths`, globs of the files it applies to (ex: "**/*.ftl");
+//! - `grammar`: the grammar which parses the files (ex: "fluent", "yaml"), and
+//!   `paths`, globs of the files it applies to (ex: "**/*.ftl"), except for
+//!   `exclude_paths`;
+//! - `when`: conditions on the document's data which must all hold for the
+//!   mapping to apply to a file (ex: Glean metrics files' `$schema`);
 //! - `scopes`: queries capturing an enclosing node as `@scope` and its name as
 //!   `@name` (ex: a Fluent message), with templates for its symbol and pretty
 //!   name, which are the context of the records inside it (and which the
@@ -17,24 +20,44 @@
 //!   symbol and pretty name, and its syntax kind (the source records' pretty
 //!   prefix, ex: "message").  A definition can have a `nesting` capture, whose
 //!   node's lines are the definition's nesting range (for sticky headers).
+//! - `data`: rules for data paths (for grammars with a data view, which is
+//!   YAML's maps, sequences, and scalars), whose records are at the keys or the
+//!   scalar values of the entries the paths match.  A path's segments are a
+//!   key, `*` (any key of a map), `[]` (any item of a sequence), or `**` (any
+//!   number of levels), separated by `/` (ex: `[]/name` is each top-level
+//!   item's `name`).  Besides definitions and uses, a data rule can be for
+//!   keys (source records only, with the `key` syntax, and with a nesting
+//!   range for a value spanning lines), and its definitions can have
+//!   structured records with binding slots (by symbol, or by the pretty name
+//!   of a symbol, for crossref to resolve, ex: a C++ getter generated from a
+//!   pref).
 //!
-//! Templates see each capture's text by name, `scope.<name>` for the
-//! innermost enclosing scope of each name (with its `name`, `sym`, and
+//! Query rules' templates see each capture's text by name, `scope.<name>` for
+//! the innermost enclosing scope of each name (with its `name`, `sym`, and
 //! `pretty`), `context` for the innermost enclosing scope, and `outer` for the
 //! outermost one (ex: the message whose attribute's pattern a variable is in).
 //! The scope a record names (ex: a message's own identifier) doesn't enclose
-//! it.
+//! it.  Data rules' templates see `value` (the key's or scalar's value),
+//! `text` (its source text, ex: with quotes), `key` (the entry's key), and
+//! `keys` (the keys from the document's root to the entry).  Besides Liquid's
+//! filters, templates have `at_escape`, `camel_case`, `pascal_case`, and
+//! `snake_case` (see `templating::liquid_exts`).
 
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use include_dir::{Dir, include_dir};
 use serde::Deserialize;
+use serde_json::json;
 use tree_sitter::StreamingIterator;
 
 use crate::file_format::analysis::{
-    AnalysisKind, AnalysisSource, AnalysisTarget, LineRange, Location, SourceRange, SourceTag,
-    TargetTag, WithLocation,
+    AnalysisKind, AnalysisSource, AnalysisTarget, BindingImplKind, BindingOwnerLang,
+    BindingSlotKind, BindingSlotLang, LineRange, Location, SourceRange, SourceTag, TargetTag,
+    WithLocation,
 };
 use crate::file_format::analysis_manglings::mangle_file;
+use crate::templating::liquid_exts::{
+    AtEscapeFilterParser, CamelCaseFilterParser, PascalCaseFilterParser, SnakeCaseFilterParser,
+};
 
 static MAPPINGS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/languages/semantic_mappings");
 
@@ -43,9 +66,22 @@ pub struct Mapping {
     pub grammar: String,
     pub paths: Vec<String>,
     #[serde(default)]
+    pub exclude_paths: Vec<String>,
+    #[serde(default)]
+    pub when: Vec<Condition>,
+    #[serde(default)]
     pub scopes: Vec<ScopeRule>,
     #[serde(default)]
     pub rules: Vec<QueryRule>,
+    #[serde(default)]
+    pub data: Vec<DataRule>,
+}
+
+/// A data path to a scalar whose value starts with `prefix`.
+#[derive(Debug, Deserialize)]
+pub struct Condition {
+    pub path: String,
+    pub prefix: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,6 +97,8 @@ pub struct ScopeRule {
 pub enum Role {
     Def,
     Use,
+    /// A key of data, with source records only.
+    Key,
 }
 
 #[derive(Debug, Deserialize)]
@@ -74,10 +112,64 @@ pub struct QueryRule {
     pub nesting: Option<String>,
 }
 
+/// Which scalar of a matched entry a data rule's records are at.
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum DataSubject {
+    #[default]
+    Key,
+    Value,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DataRule {
+    pub path: String,
+    #[serde(default)]
+    pub at: DataSubject,
+    pub role: Role,
+    pub sym: String,
+    pub pretty: String,
+    /// The source records' pretty prefix, if any.
+    #[serde(default)]
+    pub syntax_kind: String,
+    /// The target records' kind, if not the role's (ex: "glean").
+    #[serde(default)]
+    pub kind: Option<AnalysisKind>,
+    /// Whether keys whose values span lines have nesting ranges.
+    #[serde(default)]
+    pub nesting: bool,
+    #[serde(default)]
+    pub structured: Option<StructuredRule>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StructuredRule {
+    pub kind: String,
+    pub impl_kind: String,
+    #[serde(default)]
+    pub bindings: Vec<BindingRule>,
+}
+
+/// A binding slot, to `sym` or to the symbol whose pretty name is `pretty`
+/// (templates; a slot whose template renders empty is left out).
+#[derive(Debug, Deserialize)]
+pub struct BindingRule {
+    pub slot_kind: BindingSlotKind,
+    pub slot_lang: BindingSlotLang,
+    pub owner_lang: BindingOwnerLang,
+    #[serde(default)]
+    pub impl_kind: Option<BindingImplKind>,
+    #[serde(default)]
+    pub sym: Option<String>,
+    #[serde(default)]
+    pub pretty: Option<String>,
+}
+
 /// The language of a mapping's grammar.
 fn grammar_language(grammar: &str) -> Result<tree_sitter::Language, String> {
     match grammar {
         "fluent" => Ok(tree_sitter_fluent::LANGUAGE.into()),
+        "yaml" => Ok(tree_sitter_yaml::LANGUAGE.into()),
         _ => Err(format!("Unknown grammar {}", grammar)),
     }
 }
@@ -98,19 +190,73 @@ struct CompiledRule {
     nesting: Option<String>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum Segment {
+    Key(String),
+    AnyKey,
+    Item,
+    AnyDepth,
+}
+
+fn parse_data_path(path: &str) -> Vec<Segment> {
+    path.split('/')
+        .map(|segment| match segment {
+            "*" => Segment::AnyKey,
+            "[]" => Segment::Item,
+            "**" => Segment::AnyDepth,
+            key => Segment::Key(key.to_string()),
+        })
+        .collect()
+}
+
+struct CompiledBinding {
+    slot_kind: BindingSlotKind,
+    slot_lang: BindingSlotLang,
+    owner_lang: BindingOwnerLang,
+    impl_kind: Option<BindingImplKind>,
+    sym: Option<liquid::Template>,
+    pretty: Option<liquid::Template>,
+}
+
+struct CompiledStructured {
+    kind: String,
+    impl_kind: String,
+    bindings: Vec<CompiledBinding>,
+}
+
+struct CompiledDataRule {
+    path: Vec<Segment>,
+    at: DataSubject,
+    role: Role,
+    sym: liquid::Template,
+    pretty: liquid::Template,
+    syntax_kind: String,
+    kind: Option<AnalysisKind>,
+    nesting: bool,
+    structured: Option<CompiledStructured>,
+}
+
 /// A mapping ready to analyze files with.
 pub struct CompiledMapping {
     pub name: String,
+    grammar: String,
     paths: GlobSet,
+    exclude_paths: GlobSet,
     language: tree_sitter::Language,
+    when: Vec<(Vec<Segment>, String)>,
     scopes: Vec<CompiledScope>,
     rules: Vec<CompiledRule>,
+    data: Vec<CompiledDataRule>,
 }
 
 impl CompiledMapping {
     pub fn new(name: &str, mapping: &Mapping) -> Result<CompiledMapping, String> {
         let language = grammar_language(&mapping.grammar)?;
         let liquid = liquid::ParserBuilder::with_stdlib()
+            .filter(AtEscapeFilterParser)
+            .filter(CamelCaseFilterParser)
+            .filter(PascalCaseFilterParser)
+            .filter(SnakeCaseFilterParser)
             .build()
             .map_err(|e| e.to_string())?;
         let template = |source: &str| {
@@ -122,13 +268,27 @@ impl CompiledMapping {
             tree_sitter::Query::new(&language, source)
                 .map_err(|e| format!("{}: query {:?}: {}", name, source, e.message))
         };
-        let mut paths = GlobSetBuilder::new();
-        for path in &mapping.paths {
-            paths.add(Glob::new(path).map_err(|e| e.to_string())?);
+        let globs = |globs: &[String]| {
+            let mut set = GlobSetBuilder::new();
+            for glob in globs {
+                set.add(Glob::new(glob).map_err(|e| e.to_string())?);
+            }
+            set.build().map_err(|e| e.to_string())
+        };
+        if !mapping.data.is_empty() || !mapping.when.is_empty() {
+            data_view_kind(&mapping.grammar)
+                .ok_or_else(|| format!("{}: {} has no data view", name, mapping.grammar))?;
         }
         Ok(CompiledMapping {
             name: name.to_string(),
-            paths: paths.build().map_err(|e| e.to_string())?,
+            grammar: mapping.grammar.clone(),
+            paths: globs(&mapping.paths)?,
+            exclude_paths: globs(&mapping.exclude_paths)?,
+            when: mapping
+                .when
+                .iter()
+                .map(|condition| (parse_data_path(&condition.path), condition.prefix.clone()))
+                .collect(),
             scopes: mapping
                 .scopes
                 .iter()
@@ -155,14 +315,56 @@ impl CompiledMapping {
                     })
                 })
                 .collect::<Result<_, String>>()?,
+            data: mapping
+                .data
+                .iter()
+                .map(|rule| {
+                    let structured = match &rule.structured {
+                        Some(structured) => Some(CompiledStructured {
+                            kind: structured.kind.clone(),
+                            impl_kind: structured.impl_kind.clone(),
+                            bindings: structured
+                                .bindings
+                                .iter()
+                                .map(|binding| {
+                                    Ok(CompiledBinding {
+                                        slot_kind: binding.slot_kind,
+                                        slot_lang: binding.slot_lang,
+                                        owner_lang: binding.owner_lang,
+                                        impl_kind: binding.impl_kind,
+                                        sym: binding.sym.as_deref().map(template).transpose()?,
+                                        pretty: binding
+                                            .pretty
+                                            .as_deref()
+                                            .map(template)
+                                            .transpose()?,
+                                    })
+                                })
+                                .collect::<Result<_, String>>()?,
+                        }),
+                        None => None,
+                    };
+                    Ok(CompiledDataRule {
+                        path: parse_data_path(&rule.path),
+                        at: rule.at,
+                        role: rule.role,
+                        sym: template(&rule.sym)?,
+                        pretty: template(&rule.pretty)?,
+                        syntax_kind: rule.syntax_kind.clone(),
+                        kind: rule.kind,
+                        nesting: rule.nesting,
+                        structured,
+                    })
+                })
+                .collect::<Result<_, String>>()?,
             language,
         })
     }
 
     /// Whether the mapping applies to the file at `path` (relative to the
-    /// tree's root).
+    /// tree's root), if its `when` conditions hold for the file.
     pub fn applies_to(&self, path: &str) -> bool {
-        self.paths.is_match(path)
+        self.paths.is_match(path) && !self.exclude_paths.is_match(path)
     }
 }
 
@@ -181,6 +383,266 @@ pub fn builtin_mappings() -> Result<Vec<CompiledMapping>, String> {
     }
     Ok(mappings)
 }
+
+// ## Data views
+
+#[derive(Clone, Copy)]
+enum DataViewKind {
+    Yaml,
+}
+
+fn data_view_kind(grammar: &str) -> Option<DataViewKind> {
+    match grammar {
+        "yaml" => Some(DataViewKind::Yaml),
+        _ => None,
+    }
+}
+
+/// A scalar of a document's data, with its node and its value (ex: without
+/// its quotes).
+struct Scalar<'t> {
+    node: tree_sitter::Node<'t>,
+    value: String,
+}
+
+/// A document's data, from its syntax tree.
+enum Data<'t> {
+    Map(Vec<Entry<'t>>),
+    Seq(Vec<Entry<'t>>),
+    Scalar(Scalar<'t>),
+    /// Null, aliases, and keys which aren't scalars.
+    Other,
+}
+
+/// An entry of a map (with a key) or a sequence (without).
+struct Entry<'t> {
+    key: Option<Scalar<'t>>,
+    value: Data<'t>,
+    value_node: Option<tree_sitter::Node<'t>>,
+}
+
+impl<'t> Data<'t> {
+    fn entries(&self) -> &[Entry<'t>] {
+        match self {
+            Data::Map(entries) | Data::Seq(entries) => entries,
+            _ => &[],
+        }
+    }
+}
+
+/// YAML which Mozilla's build preprocesses: a value that's a substitution
+/// (`@NAME@`, ex: in StaticPrefList.yaml) isn't valid YAML, so it becomes a
+/// quoted string of the same length, `"NAME"`.  (A plain scalar can't start
+/// with `@`, so this only changes YAML that isn't valid otherwise.)
+fn preprocess_yaml(source: &str) -> Option<String> {
+    lazy_static::lazy_static! {
+        static ref SUBSTITUTION: regex::Regex =
+            regex::Regex::new(r"(?m)((?:^|:|-)[ ]+)@([A-Za-z_][A-Za-z0-9_]*)@([ ]*(?:#.*)?)$")
+                .unwrap();
+    }
+    if !SUBSTITUTION.is_match(source) {
+        return None;
+    }
+    Some(SUBSTITUTION.replace_all(source, "$1\"$2\"$3").into_owned())
+}
+
+/// A YAML scalar's value: plain scalars' lines folded, quoted scalars' quotes
+/// and escapes removed.
+fn yaml_scalar_value(node: &tree_sitter::Node, text: &str) -> String {
+    match node.kind() {
+        "single_quote_scalar" => text
+            .strip_prefix('\'')
+            .and_then(|t| t.strip_suffix('\''))
+            .unwrap_or(text)
+            .replace("''", "'"),
+        "double_quote_scalar" => {
+            let inner = text
+                .strip_prefix('"')
+                .and_then(|t| t.strip_suffix('"'))
+                .unwrap_or(text);
+            let mut value = String::new();
+            let mut chars = inner.chars();
+            while let Some(c) = chars.next() {
+                if c != '\\' {
+                    value.push(c);
+                    continue;
+                }
+                match chars.next() {
+                    Some('n') => value.push('\n'),
+                    Some('t') => value.push('\t'),
+                    Some('0') => value.push('\0'),
+                    Some(other) => value.push(other),
+                    None => {}
+                }
+            }
+            value
+        }
+        "plain_scalar" => text.lines().map(str::trim).collect::<Vec<_>>().join(" "),
+        _ => text.to_string(),
+    }
+}
+
+/// The data of a tree-sitter-yaml node (for a stream, its first document's).
+fn yaml_data<'t>(node: tree_sitter::Node<'t>, source: &str) -> Data<'t> {
+    let content = |node: tree_sitter::Node<'t>| {
+        let mut cursor = node.walk();
+        node.named_children(&mut cursor)
+            .find(|child| !matches!(child.kind(), "anchor" | "tag" | "comment"))
+    };
+    let entry = |key: Option<tree_sitter::Node<'t>>, value: Option<tree_sitter::Node<'t>>| {
+        let key = key.and_then(|key| match yaml_data(key, source) {
+            Data::Scalar(scalar) => Some(scalar),
+            _ => None,
+        });
+        Entry {
+            key,
+            value: value
+                .map(|value| yaml_data(value, source))
+                .unwrap_or(Data::Other),
+            value_node: value,
+        }
+    };
+    match node.kind() {
+        "stream" => {
+            let mut cursor = node.walk();
+            let document = node
+                .named_children(&mut cursor)
+                .find(|child| child.kind() == "document" || child.kind() == "ERROR");
+            document.map_or(Data::Other, |document| yaml_data(document, source))
+        }
+        "document" | "block_node" | "flow_node" => {
+            content(node).map_or(Data::Other, |content| yaml_data(content, source))
+        }
+        "block_mapping" | "flow_mapping" => {
+            let mut cursor = node.walk();
+            Data::Map(
+                node.named_children(&mut cursor)
+                    .filter_map(|child| match child.kind() {
+                        "block_mapping_pair" | "flow_pair" => Some(entry(
+                            child.child_by_field_name("key"),
+                            child.child_by_field_name("value"),
+                        )),
+                        // (A flow mapping's key without a value.)
+                        "flow_node" => Some(entry(Some(child), None)),
+                        _ => None,
+                    })
+                    .collect(),
+            )
+        }
+        "block_sequence" | "flow_sequence" => {
+            let mut cursor = node.walk();
+            Data::Seq(
+                node.named_children(&mut cursor)
+                    .filter_map(|child| match child.kind() {
+                        "block_sequence_item" => Some(entry(None, content(child))),
+                        "flow_node" => Some(entry(None, Some(child))),
+                        "flow_pair" => Some(Entry {
+                            key: None,
+                            value: Data::Map(vec![entry(
+                                child.child_by_field_name("key"),
+                                child.child_by_field_name("value"),
+                            )]),
+                            value_node: Some(child),
+                        }),
+                        _ => None,
+                    })
+                    .collect(),
+            )
+        }
+        "plain_scalar" | "single_quote_scalar" | "double_quote_scalar" | "block_scalar" => {
+            Data::Scalar(Scalar {
+                node,
+                value: yaml_scalar_value(&node, &source[node.start_byte()..node.end_byte()]),
+            })
+        }
+        // (Error recovery: the pairs which parsed, and keys whose values
+        // didn't.)
+        "ERROR" => {
+            let mut cursor = node.walk();
+            let children: Vec<_> = node.children(&mut cursor).collect();
+            let mut entries = vec![];
+            for (i, child) in children.iter().enumerate() {
+                match child.kind() {
+                    "block_mapping_pair" | "flow_pair" => entries.push(entry(
+                        child.child_by_field_name("key"),
+                        child.child_by_field_name("value"),
+                    )),
+                    "flow_node" if children.get(i + 1).is_some_and(|next| next.kind() == ":") => {
+                        entries.push(entry(Some(*child), None))
+                    }
+                    "block_node" | "block_mapping" | "ERROR" => {
+                        if let Data::Map(more) = yaml_data(*child, source) {
+                            entries.extend(more);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            Data::Map(entries)
+        }
+        _ => Data::Other,
+    }
+}
+
+/// An entry which a data path matched, with the keys from the root to it.
+struct DataMatch<'d, 't> {
+    keys: Vec<String>,
+    entry: &'d Entry<'t>,
+}
+
+fn match_data_path<'d, 't>(
+    data: &'d Data<'t>,
+    path: &[Segment],
+    keys: &mut Vec<String>,
+    out: &mut Vec<DataMatch<'d, 't>>,
+) {
+    let Some((first, rest)) = path.split_first() else {
+        return;
+    };
+    let is_map = matches!(data, Data::Map(_));
+    for entry in data.entries() {
+        let accepted = match first {
+            Segment::Key(key) => is_map && entry.key.as_ref().is_some_and(|k| k.value == *key),
+            Segment::AnyKey => is_map && entry.key.is_some(),
+            Segment::Item => !is_map,
+            Segment::AnyDepth => true,
+        };
+        if !accepted {
+            continue;
+        }
+        let pushed = entry.key.as_ref().map(|key| keys.push(key.value.clone()));
+        if *first == Segment::AnyDepth {
+            // (One more level; zero levels are below.)
+            match_data_path(&entry.value, path, keys, out);
+        } else if rest.is_empty() {
+            out.push(DataMatch {
+                keys: keys.clone(),
+                entry,
+            });
+        } else {
+            match_data_path(&entry.value, rest, keys, out);
+        }
+        if pushed.is_some() {
+            keys.pop();
+        }
+    }
+    if *first == Segment::AnyDepth {
+        match_data_path(data, rest, keys, out);
+    }
+}
+
+fn conditions_hold(conditions: &[(Vec<Segment>, String)], data: &Data) -> bool {
+    conditions.iter().all(|(path, prefix)| {
+        let mut matches = vec![];
+        match_data_path(data, path, &mut vec![], &mut matches);
+        matches.iter().any(|m| match &m.entry.value {
+            Data::Scalar(scalar) => scalar.value.starts_with(prefix.as_str()),
+            _ => false,
+        })
+    })
+}
+
+// ## Records
 
 /// An enclosing scope in a file.
 struct ScopeInstance {
@@ -255,10 +717,37 @@ fn location(node: &tree_sitter::Node) -> Location {
     }
 }
 
+/// The (1-based) last line with any of `node`'s text, other than comments
+/// (which a YAML block can end with, even when they're outdented).
+fn last_line(node: &tree_sitter::Node) -> u32 {
+    let mut node = *node;
+    // (Scalars' children, if any, aren't all of their text, ex: a block
+    // scalar's only child is its `|`.)
+    while !node.kind().ends_with("_scalar") {
+        let mut cursor = node.walk();
+        let last = node
+            .named_children(&mut cursor)
+            .filter(|child| child.kind() != "comment")
+            .last();
+        match last {
+            Some(child) => node = child,
+            None => break,
+        }
+    }
+    let start = node.start_position();
+    let end = node.end_position();
+    if end.column == 0 && end.row > start.row {
+        end.row as u32
+    } else {
+        end.row as u32 + 1
+    }
+}
+
 /// An analysis record for a file, in the order they're written.
 pub enum Record {
     Source(WithLocation<AnalysisSource<String>>),
     Target(WithLocation<AnalysisTarget<String>>),
+    Structured(Location, serde_json::Value),
 }
 
 impl Record {
@@ -266,6 +755,7 @@ impl Record {
         match self {
             Record::Source(source) => &source.loc,
             Record::Target(target) => &target.loc,
+            Record::Structured(loc, _) => loc,
         }
     }
 
@@ -273,22 +763,105 @@ impl Record {
         match self {
             Record::Source(source) => serde_json::to_string(source).unwrap(),
             Record::Target(target) => serde_json::to_string(target).unwrap(),
+            Record::Structured(_, value) => serde_json::to_string(value).unwrap(),
         }
     }
 }
 
-/// Analyze the file at `path` (with `source` contents) with `mapping`: its file
-/// definition, and the definitions and uses its rules find.
-pub fn analyze(mapping: &CompiledMapping, path: &str, source: &str) -> Result<Vec<Record>, String> {
-    let mut parser = tree_sitter::Parser::new();
-    parser
-        .set_language(&mapping.language)
-        .map_err(|e| e.to_string())?;
-    let tree = parser
-        .parse(source, None)
-        .ok_or_else(|| format!("Couldn't parse {}", path))?;
-    let root = tree.root_node();
+fn source_record(
+    loc: Location,
+    syntax: &str,
+    pretty: String,
+    sym: String,
+    nesting_range: SourceRange,
+) -> Record {
+    Record::Source(WithLocation {
+        loc,
+        data: AnalysisSource {
+            source: SourceTag::Source,
+            syntax: vec![syntax.to_string()],
+            pretty,
+            sym: vec![sym],
+            no_crossref: false,
+            nesting_range,
+            type_pretty: None,
+            type_sym: None,
+            arg_ranges: vec![],
+            expansion_info: None,
+            confidence: None,
+        },
+    })
+}
 
+fn target_record(
+    loc: Location,
+    kind: AnalysisKind,
+    pretty: String,
+    sym: String,
+    context: String,
+    contextsym: String,
+) -> Record {
+    Record::Target(WithLocation {
+        loc,
+        data: AnalysisTarget {
+            target: TargetTag::Target,
+            kind,
+            pretty,
+            sym,
+            context,
+            contextsym,
+            peek_range: LineRange::default(),
+            arg_ranges: vec![],
+        },
+    })
+}
+
+/// A rule's source (and, unless it's for keys, target) records.
+#[allow(clippy::too_many_arguments)]
+fn rule_records(
+    records: &mut Vec<Record>,
+    role: Role,
+    loc: Location,
+    syntax_kind: &str,
+    kind: Option<AnalysisKind>,
+    pretty: String,
+    sym: String,
+    nesting_range: SourceRange,
+    context: (String, String),
+) {
+    let syntax = match role {
+        Role::Def => "def",
+        Role::Use => "use",
+        Role::Key => "key",
+    };
+    let source_pretty = if syntax_kind.is_empty() {
+        pretty.clone()
+    } else {
+        format!("{} {}", syntax_kind, pretty)
+    };
+    records.push(source_record(
+        loc,
+        syntax,
+        source_pretty,
+        sym.clone(),
+        nesting_range,
+    ));
+    let kind = match (role, kind) {
+        (Role::Key, _) => return,
+        (_, Some(kind)) => kind,
+        (Role::Def, None) => AnalysisKind::Def,
+        (Role::Use, None) => AnalysisKind::Use,
+    };
+    records.push(target_record(loc, kind, pretty, sym, context.0, context.1));
+}
+
+/// The records of a mapping's query rules.
+fn query_records(
+    mapping: &CompiledMapping,
+    root: tree_sitter::Node,
+    source: &str,
+    records: &mut Vec<Record>,
+) -> Result<(), String> {
     // ## Scopes, outermost first.
     struct RawScope<'m> {
         start_byte: usize,
@@ -366,25 +939,6 @@ pub fn analyze(mapping: &CompiledMapping, path: &str, source: &str) -> Result<Ve
     }
 
     // ## Records.
-    let mut records = vec![];
-    let file_loc = Location {
-        lineno: 1,
-        col_start: 0,
-        col_end: 0,
-    };
-    records.push(Record::Target(WithLocation {
-        loc: file_loc,
-        data: AnalysisTarget {
-            target: TargetTag::Target,
-            kind: AnalysisKind::Def,
-            pretty: path.to_string(),
-            sym: format!("FILE_{}", mangle_file(path)),
-            context: String::new(),
-            contextsym: String::new(),
-            peek_range: LineRange::default(),
-            arg_ranges: vec![],
-        },
-    }));
     for rule in &mapping.rules {
         let Some(id_capture) = capture_index(&rule.query, "id") else {
             return Err(format!(
@@ -424,7 +978,7 @@ pub fn analyze(mapping: &CompiledMapping, path: &str, source: &str) -> Result<Ve
             let globals = template_globals(&enclosing, &captures);
             let sym = rule.sym.render(&globals).map_err(|e| e.to_string())?;
             let pretty = rule.pretty.render(&globals).map_err(|e| e.to_string())?;
-            let (context, contextsym) = enclosing
+            let context = enclosing
                 .last()
                 .map(|s| (s.pretty.clone(), s.sym.clone()))
                 .unwrap_or_default();
@@ -445,42 +999,236 @@ pub fn analyze(mapping: &CompiledMapping, path: &str, source: &str) -> Result<Ve
                 // (Only for definitions spanning lines.)
                 .filter(|range| range.end_lineno > range.start_lineno)
                 .unwrap_or_default();
-            let (syntax, kind) = match rule.role {
-                Role::Def => ("def", AnalysisKind::Def),
-                Role::Use => ("use", AnalysisKind::Use),
-            };
-            records.push(Record::Source(WithLocation {
+            rule_records(
+                records,
+                rule.role,
                 loc,
-                data: AnalysisSource {
-                    source: SourceTag::Source,
-                    syntax: vec![syntax.to_string()],
-                    pretty: format!("{} {}", rule.syntax_kind, pretty),
-                    sym: vec![sym.clone()],
-                    no_crossref: false,
-                    nesting_range,
-                    type_pretty: None,
-                    type_sym: None,
-                    arg_ranges: vec![],
-                    expansion_info: None,
-                    confidence: None,
-                },
-            }));
-            records.push(Record::Target(WithLocation {
-                loc,
-                data: AnalysisTarget {
-                    target: TargetTag::Target,
-                    kind,
-                    pretty,
-                    sym,
-                    context,
-                    contextsym,
-                    peek_range: LineRange::default(),
-                    arg_ranges: vec![],
-                },
-            }));
+                &rule.syntax_kind,
+                None,
+                pretty,
+                sym,
+                nesting_range,
+                context,
+            );
         }
     }
-    // (Stable, so a location's source comes before its target.)
+    Ok(())
+}
+
+/// The records of a mapping's data rules.
+fn data_records(
+    mapping: &CompiledMapping,
+    data: &Data,
+    source: &str,
+    records: &mut Vec<Record>,
+) -> Result<(), String> {
+    let render = |template: &liquid::Template, globals: &liquid::Object| {
+        template.render(globals).map_err(|e| e.to_string())
+    };
+    for rule in &mapping.data {
+        let mut matches = vec![];
+        match_data_path(data, &rule.path, &mut vec![], &mut matches);
+        for DataMatch { keys, entry } in matches {
+            let subject = match rule.at {
+                DataSubject::Key => entry.key.as_ref(),
+                DataSubject::Value => match &entry.value {
+                    Data::Scalar(scalar) => Some(scalar),
+                    _ => None,
+                },
+            };
+            let Some(subject) = subject else {
+                continue;
+            };
+            let globals = liquid::object!({
+                "value": subject.value,
+                "text": node_text(&subject.node, source),
+                "key": entry.key.as_ref().map(|key| key.value.clone()).unwrap_or_default(),
+                "keys": keys,
+            });
+            let sym = render(&rule.sym, &globals)?;
+            let pretty = render(&rule.pretty, &globals)?;
+            let loc = location(&subject.node);
+            // (Through the last line of the value, so that the line after it
+            // ends the sticky header.)
+            let nesting_range = match entry.value_node {
+                Some(value) if rule.nesting && last_line(&value) > loc.lineno => SourceRange {
+                    start_lineno: loc.lineno,
+                    start_col: loc.col_start,
+                    end_lineno: last_line(&value) + 1,
+                    end_col: 0,
+                },
+                _ => SourceRange::default(),
+            };
+            if let Some(structured) = &rule.structured {
+                let mut slots = vec![];
+                for binding in &structured.bindings {
+                    let mut slot = json!({
+                        "slotKind": binding.slot_kind,
+                        "slotLang": binding.slot_lang,
+                        "ownerLang": binding.owner_lang,
+                    });
+                    let (field, template) = match (&binding.sym, &binding.pretty) {
+                        (Some(sym), _) => ("sym", sym),
+                        (None, Some(pretty)) => ("pretty", pretty),
+                        (None, None) => continue,
+                    };
+                    let value = render(template, &globals)?;
+                    if value.is_empty() {
+                        continue;
+                    }
+                    slot[field] = json!(value);
+                    if let Some(impl_kind) = binding.impl_kind {
+                        slot["implKind"] = json!(impl_kind);
+                    }
+                    slots.push(slot);
+                }
+                records.push(Record::Structured(
+                    loc,
+                    json!({
+                        "loc": loc,
+                        "structured": 1,
+                        "pretty": pretty,
+                        "sym": sym,
+                        "kind": structured.kind,
+                        "implKind": structured.impl_kind,
+                        "bindingSlots": slots,
+                    }),
+                ));
+            }
+            rule_records(
+                records,
+                rule.role,
+                loc,
+                &rule.syntax_kind,
+                rule.kind,
+                pretty,
+                sym,
+                nesting_range,
+                (String::new(), String::new()),
+            );
+        }
+    }
+    Ok(())
+}
+
+/// The trees of `source`: its tree, and, if `continue_after_errors` and error
+/// recovery ended the tree before the end of the text (ex: tree-sitter-yaml's,
+/// at some invalid quoted strings), the trees of the rest, each from the line
+/// after the previous tree's end.
+fn parse_all(
+    parser: &mut tree_sitter::Parser,
+    source: &str,
+    continue_after_errors: bool,
+) -> Option<Vec<tree_sitter::Tree>> {
+    let point = |byte: usize| {
+        let before = &source[..byte];
+        let row = before.matches('\n').count();
+        let column = byte - before.rfind('\n').map_or(0, |i| i + 1);
+        tree_sitter::Point { row, column }
+    };
+    let mut trees = vec![parser.parse(source, None)?];
+    if !continue_after_errors {
+        return Some(trees);
+    }
+    loop {
+        let end = trees.last()?.root_node().end_byte();
+        let Some(start) = source[end..].find('\n').map(|i| end + i + 1) else {
+            break;
+        };
+        if source[start..].trim().is_empty() {
+            break;
+        }
+        let range = tree_sitter::Range {
+            start_byte: start,
+            end_byte: source.len(),
+            start_point: point(start),
+            end_point: point(source.len()),
+        };
+        parser.set_included_ranges(&[range]).ok()?;
+        let tree = parser.parse(source, None);
+        parser.set_included_ranges(&[]).ok()?;
+        match tree {
+            Some(tree) if tree.root_node().end_byte() > start => trees.push(tree),
+            _ => break,
+        }
+    }
+    Some(trees)
+}
+
+/// Analyze the file at `path` (with `source` contents) with the `mappings`
+/// which apply to it: its file definition, and the definitions, uses, and
+/// keys the mappings' rules find.
+pub fn analyze(
+    mappings: &[&CompiledMapping],
+    path: &str,
+    source: &str,
+) -> Result<Vec<Record>, String> {
+    let mut records = vec![target_record(
+        Location {
+            lineno: 1,
+            col_start: 0,
+            col_end: 0,
+        },
+        AnalysisKind::Def,
+        path.to_string(),
+        format!("FILE_{}", mangle_file(path)),
+        String::new(),
+        String::new(),
+    )];
+    let mut parser = tree_sitter::Parser::new();
+    // (Mappings with the same grammar share its parse.)
+    let mut grammars: Vec<&str> = vec![];
+    for mapping in mappings {
+        if !grammars.contains(&mapping.grammar.as_str()) {
+            grammars.push(&mapping.grammar);
+        }
+    }
+    for grammar in grammars {
+        let grammar_mappings: Vec<&&CompiledMapping> =
+            mappings.iter().filter(|m| m.grammar == grammar).collect();
+        let view = data_view_kind(grammar);
+        let preprocessed = match view {
+            Some(DataViewKind::Yaml) => preprocess_yaml(source),
+            None => None,
+        };
+        let source = preprocessed.as_deref().unwrap_or(source);
+        parser
+            .set_language(&grammar_mappings[0].language)
+            .map_err(|e| e.to_string())?;
+        let trees = parse_all(&mut parser, source, view.is_some())
+            .ok_or_else(|| format!("Couldn't parse {}", path))?;
+        let roots: Vec<tree_sitter::Node> = trees.iter().map(|tree| tree.root_node()).collect();
+        let data = match view {
+            Some(DataViewKind::Yaml) => {
+                let mut datas = roots.iter().map(|root| yaml_data(*root, source));
+                let first = datas.next().unwrap_or(Data::Other);
+                // (The rest of a document after errors is more of its map.)
+                match first {
+                    Data::Map(mut entries) => {
+                        for more in datas {
+                            if let Data::Map(more) = more {
+                                entries.extend(more);
+                            }
+                        }
+                        Data::Map(entries)
+                    }
+                    first => first,
+                }
+            }
+            None => Data::Other,
+        };
+        for mapping in grammar_mappings {
+            if !conditions_hold(&mapping.when, &data) {
+                continue;
+            }
+            for root in &roots {
+                query_records(mapping, *root, source, &mut records)?;
+            }
+            data_records(mapping, &data, source, &mut records)?;
+        }
+    }
+    // (Stable, so a location's records stay in the order they're made: the
+    // structured record, the source, and then the target.)
     records.sort_by_key(|record| {
         let loc = record.loc();
         (loc.lineno, loc.col_start)
@@ -492,13 +1240,17 @@ pub fn analyze(mapping: &CompiledMapping, path: &str, source: &str) -> Result<Ve
 mod tests {
     use super::*;
 
+    fn mapping(name: &str, toml: &str) -> CompiledMapping {
+        CompiledMapping::new(name, &toml::from_str(toml).unwrap()).unwrap()
+    }
+
     #[test]
     fn test_fluent_mapping() {
         let mappings = builtin_mappings().unwrap();
         let fluent = mappings.iter().find(|m| m.applies_to("a/b.ftl")).unwrap();
         let source =
             "-brand = Firefox\nmsg = { -brand } { $n }\n    .title = { other.label } { $n }\n";
-        let records = analyze(fluent, "a/b.ftl", source).unwrap();
+        let records = analyze(&[fluent], "a/b.ftl", source).unwrap();
         let targets: Vec<(String, String, String)> = records
             .iter()
             .filter_map(|r| match r {
@@ -507,7 +1259,7 @@ mod tests {
                     t.data.sym.clone(),
                     t.data.contextsym.clone(),
                 )),
-                Record::Source(_) => None,
+                _ => None,
             })
             .collect();
         let target = |kind: &str, sym: &str, contextsym: &str| {
@@ -541,5 +1293,167 @@ mod tests {
             .collect();
         assert_eq!(nesting.len(), 1, "{:?}", nesting);
         assert!(nesting[0].starts_with("FTL_msg "), "{:?}", nesting);
+    }
+
+    /// The JSON of records, without the file's definition.
+    fn json(records: &[Record]) -> Vec<String> {
+        records.iter().skip(1).map(Record::to_json).collect()
+    }
+
+    #[test]
+    fn test_data_paths() {
+        let keys = mapping(
+            "keys",
+            r#"
+grammar = "yaml"
+paths = ["**/*.yaml"]
+[[data]]
+path = "**/*"
+role = "key"
+sym = "K_{{ text | at_escape }}"
+pretty = "{{ text }}"
+nesting = true
+"#,
+        );
+        let source = "a:\n  b: 1\n  'c d':\n    - e: 2\n    - [f, {g: 3}]\nh: x\n";
+        let records = analyze(&[&keys], "x.yaml", source).unwrap();
+        assert_eq!(
+            json(&records),
+            [
+                r#"{"loc":"00001:0-1","source":1,"syntax":"key","pretty":"a","sym":"K_a","nestingRange":"1:0-6:0"}"#,
+                r#"{"loc":"00002:2-3","source":1,"syntax":"key","pretty":"b","sym":"K_b"}"#,
+                r#"{"loc":"00003:2-7","source":1,"syntax":"key","pretty":"'c d'","sym":"K_@27c@20d@27","nestingRange":"3:2-6:0"}"#,
+                r#"{"loc":"00004:6-7","source":1,"syntax":"key","pretty":"e","sym":"K_e"}"#,
+                r#"{"loc":"00005:11-12","source":1,"syntax":"key","pretty":"g","sym":"K_g"}"#,
+                r#"{"loc":"00006:0-1","source":1,"syntax":"key","pretty":"h","sym":"K_h"}"#,
+            ]
+        );
+
+        // Values, structured records with binding slots (by pretty name, or by
+        // symbol, unless their templates are empty), and Mozilla's
+        // preprocessor substitutions (without which the first item's value
+        // isn't valid).
+        let prefs = mapping(
+            "prefs",
+            r#"
+grammar = "yaml"
+paths = ["**/*.yaml"]
+[[data]]
+path = "[]/name"
+at = "value"
+role = "def"
+sym = "P_{{ value | at_escape }}"
+pretty = "{{ value }}"
+syntax_kind = "Pref"
+[data.structured]
+kind = "prefs"
+impl_kind = "Test"
+[[data.structured.bindings]]
+slot_kind = "getter"
+slot_lang = "cpp"
+owner_lang = "prefs"
+pretty = "ns::{{ value | snake_case }}"
+[[data.structured.bindings]]
+slot_kind = "getter"
+slot_lang = "js"
+owner_lang = "prefs"
+impl_kind = "binding"
+sym = "{% if value contains 'js' %}JS#{{ value | camel_case }}{% endif %}"
+"#,
+        );
+        let source = "- name: a.b-c\n  value: @IS_NIGHTLY@\n- name: \"js.d_e\"\n";
+        let records = analyze(&[&prefs], "x.yaml", source).unwrap();
+        assert_eq!(
+            json(&records),
+            [
+                r#"{"loc":"00001:8-13","structured":1,"pretty":"a.b-c","sym":"P_a@2Eb@2Dc","kind":"prefs","implKind":"Test","bindingSlots":[{"slotKind":"getter","slotLang":"cpp","ownerLang":"prefs","pretty":"ns::a_b_c"}]}"#,
+                r#"{"loc":"00001:8-13","source":1,"syntax":"def","pretty":"Pref a.b-c","sym":"P_a@2Eb@2Dc"}"#,
+                r#"{"loc":"00001:8-13","target":1,"kind":"def","pretty":"a.b-c","sym":"P_a@2Eb@2Dc"}"#,
+                r#"{"loc":"00003:8-16","structured":1,"pretty":"js.d_e","sym":"P_js@2Ed_e","kind":"prefs","implKind":"Test","bindingSlots":[{"slotKind":"getter","slotLang":"cpp","ownerLang":"prefs","pretty":"ns::js_d_e"},{"slotKind":"getter","slotLang":"js","ownerLang":"prefs","sym":"JS#jsDE","implKind":"binding"}]}"#,
+                r#"{"loc":"00003:8-16","source":1,"syntax":"def","pretty":"Pref js.d_e","sym":"P_js@2Ed_e"}"#,
+                r#"{"loc":"00003:8-16","target":1,"kind":"def","pretty":"js.d_e","sym":"P_js@2Ed_e"}"#,
+            ]
+        );
+        // (Several mappings' records together.)
+        let records = analyze(&[&prefs, &keys], "x.yaml", source).unwrap();
+        assert_eq!(records.len(), 1 + 6 + 3);
+    }
+
+    #[test]
+    fn test_data_conditions() {
+        let metrics = mapping(
+            "metrics",
+            r#"
+grammar = "yaml"
+paths = ["**/*.yaml"]
+[[when]]
+path = "$schema"
+prefix = "moz://test/"
+[[data]]
+path = "*/*"
+role = "def"
+sym = "M_{{ keys[0] | snake_case }}::{{ key }}"
+pretty = "{{ keys[0] }}.{{ key }}"
+kind = "glean"
+"#,
+        );
+        let source = "$schema: moz://test/1\n$tags: [a]\ncat.x:\n  one: {}\n  two:\n    type: y\n";
+        let targets: Vec<String> = analyze(&[&metrics], "x.yaml", source)
+            .unwrap()
+            .iter()
+            .filter_map(|r| match r {
+                Record::Target(t) => Some(format!("{:?} {}", t.data.kind, t.data.sym)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            targets,
+            [
+                "Def FILE_x@2Eyaml",
+                "Glean M_cat_x::one",
+                "Glean M_cat_x::two"
+            ]
+        );
+        let source = source.replace("moz://test/1", "other");
+        assert_eq!(analyze(&[&metrics], "x.yaml", &source).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_yaml_errors() {
+        // Keys and pairs which parse around an error are still entries.
+        let keys = mapping(
+            "keys",
+            r#"
+grammar = "yaml"
+paths = ["**/*.yaml"]
+[[data]]
+path = "**/*"
+role = "key"
+sym = "{{ value }}"
+pretty = "{{ value }}"
+"#,
+        );
+        let source = "key:\n    a: 1\n    b: 'x\\'y'\n    c: 2\n";
+        let syms: Vec<String> = analyze(&[&keys], "x.yaml", source)
+            .unwrap()
+            .iter()
+            .filter_map(|r| match r {
+                Record::Source(s) => Some(s.data.sym[0].clone()),
+                _ => None,
+            })
+            .collect();
+        // (Including the ones after the tree that error recovery ended.)
+        for key in ["key", "a", "c"] {
+            assert!(syms.contains(&key.to_string()), "{:?}", syms);
+        }
+    }
+
+    #[test]
+    fn test_preprocess_yaml() {
+        assert_eq!(
+            preprocess_yaml("a: @X_Y@\n- @Z@ # z\nb: '@W@'\n").as_deref(),
+            Some("a: \"X_Y\"\n- \"Z\" # z\nb: '@W@'\n")
+        );
+        assert_eq!(preprocess_yaml("a: x@Y@\n"), None);
     }
 }
