@@ -1,0 +1,75 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/web/files/markup/fluent_js__html
+---
+<code role="cell" class="source-line"><span class="syn_comment" >/* This Source Code Form is subject to the terms of the Mozilla Public</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" > * License, v. 2.0. If a copy of the MPL was not distributed with this</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" > * file, You can obtain one at <a href="http://mozilla.org/MPL/2.0/">http://mozilla.org/MPL/2.0/</a>. */</span>
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >const</span> <span class="syn_def" data-symbols="#M-l10n" data-confidences="[&quot;concrete&quot;]">l10n</span> = <span class="syn_reserved" >new</span> <span data-symbols="#Localization" data-confidences="[&quot;concrete&quot;]">Localization</span>([<span class="syn_string" data-symbols="FILE_fluent/test@2Eftl" data-confidences="[&quot;concrete&quot;]">"fluent/test.ftl"</span>], <span class="syn_reserved" >true</span>);
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >export</span> <span class="syn_reserved" >function</span> <span class="syn_def" data-symbols="#insertLocalization" data-confidences="[&quot;concrete&quot;]">insertLocalization</span>(<span class="syn_deflocal" data-symbols="4-0" data-confidences="[&quot;concrete&quot;]">win</span>) {
+</code>
+<code role="cell" class="source-line">  <span data-symbols="4-0" data-confidences="[&quot;concrete&quot;]">win</span>.<span data-symbols="#MozXULElement,win#MozXULElement" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">MozXULElement</span>.<span data-symbols="#insertFTLIfNeeded" data-confidences="[&quot;concrete&quot;]">insertFTLIfNeeded</span>(<span class="syn_string" data-symbols="FILE_fluent/test@2Eftl" data-confidences="[&quot;concrete&quot;]">"fluent/test.ftl"</span>);
+</code>
+<code role="cell" class="source-line">}
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >export</span> async <span class="syn_reserved" >function</span> <span class="syn_def" data-symbols="#closeWarning" data-confidences="[&quot;concrete&quot;]">closeWarning</span>(<span class="syn_deflocal" data-symbols="4-1" data-confidences="[&quot;concrete&quot;]">elem</span>, <span class="syn_deflocal" data-symbols="4-2" data-confidences="[&quot;concrete&quot;]">count</span>) {
+</code>
+<code role="cell" class="source-line">  <span data-symbols="#document" data-confidences="[&quot;concrete&quot;]">document</span>.<span data-symbols="#l10n,document#l10n" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">l10n</span>.<span data-symbols="#setAttributes" data-confidences="[&quot;concrete&quot;]">setAttributes</span>(<span data-symbols="4-1" data-confidences="[&quot;concrete&quot;]">elem</span>, <span class="syn_string" data-symbols="FTL_tabs-close-warning" data-confidences="[&quot;concrete&quot;]">"tabs-close-warning"</span>, { <span class="syn_def" data-symbols="FTL_tabs-close-warning$count,#count,4-2" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;,&quot;concrete&quot;]">count</span> });
+</code>
+<code role="cell" class="source-line">  <span class="syn_reserved" >const</span> [<span class="syn_deflocal" data-symbols="4-3" data-confidences="[&quot;concrete&quot;]">title</span>, <span class="syn_deflocal" data-symbols="4-4" data-confidences="[&quot;concrete&quot;]">label</span>] = await <span data-symbols="#M-l10n" data-confidences="[&quot;concrete&quot;]">l10n</span>.<span data-symbols="#formatValues,l10n#formatValues" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">formatValues</span>([
+</code>
+<code role="cell" class="source-line">    { <span class="syn_def" data-symbols="#id" data-confidences="[&quot;concrete&quot;]">id</span>: <span class="syn_string" data-symbols="FTL_tabs-close-warning" data-confidences="[&quot;concrete&quot;]">"tabs-close-warning"</span>, <span class="syn_def" data-symbols="#args" data-confidences="[&quot;concrete&quot;]">args</span>: { <span class="syn_string" >"</span><span class="syn_string" data-symbols="FTL_tabs-close-warning$count,#count" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">count</span><span class="syn_string" >"</span>: <span data-symbols="4-2" data-confidences="[&quot;concrete&quot;]">count</span> } },
+</code>
+<code role="cell" class="source-line">    <span class="syn_string" data-symbols="FTL_tabs-close-button" data-confidences="[&quot;concrete&quot;]">"tabs-close-button"</span>,
+</code>
+<code role="cell" class="source-line">  ]);
+</code>
+<code role="cell" class="source-line">  <span data-symbols="4-1" data-confidences="[&quot;concrete&quot;]">elem</span>.<span data-symbols="#setAttribute,elem#setAttribute" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">setAttribute</span>(<span class="syn_string" >"data-l10n-id"</span>, <span class="syn_string" data-symbols="FTL_tabs-close-button" data-confidences="[&quot;concrete&quot;]">"tabs-close-button"</span>);
+</code>
+<code role="cell" class="source-line">  <span data-symbols="4-1" data-confidences="[&quot;concrete&quot;]">elem</span>.<span data-symbols="#title,elem#title" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">title</span> = <span data-symbols="4-3" data-confidences="[&quot;concrete&quot;]">title</span>;
+</code>
+<code role="cell" class="source-line">  <span class="syn_reserved" >return</span> <span data-symbols="4-4" data-confidences="[&quot;concrete&quot;]">label</span> + <span data-symbols="#M-l10n" data-confidences="[&quot;concrete&quot;]">l10n</span>.<span data-symbols="#formatValueSync,l10n#formatValueSync" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">formatValueSync</span>(<span class="syn_string" data-symbols="FTL_about-link" data-confidences="[&quot;concrete&quot;]">"about-link"</span>);
+</code>
+<code role="cell" class="source-line">}
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >export</span> <span class="syn_reserved" >const</span> <span class="syn_def" data-symbols="#BUTTON" data-confidences="[&quot;concrete&quot;]">BUTTON</span> = {
+</code>
+<code role="cell" class="source-line">  <span class="syn_def syn_def" data-symbols="#l10nId,BUTTON#l10nId" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">l10nId</span>: <span class="syn_string" data-symbols="FTL_tabs-close-button" data-confidences="[&quot;concrete&quot;]">"tabs-close-button"</span>,
+</code>
+<code role="cell" class="source-line">  <span class="syn_def syn_def" data-symbols="#titleL10nId,BUTTON#titleL10nId" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">titleL10nId</span>: <span class="syn_string" data-symbols="FTL_tabs-close-warning" data-confidences="[&quot;concrete&quot;]">"tabs-close-warning"</span>,
+</code>
+<code role="cell" class="source-line">  <span class="syn_def syn_def" data-symbols="#titleL10nArgs,BUTTON#titleL10nArgs" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">titleL10nArgs</span>: { <span class="syn_def syn_def" data-symbols="FTL_tabs-close-warning$count,#count,BUTTON#count" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;,&quot;concrete&quot;]">count</span>: 1 },
+</code>
+<code role="cell" class="source-line">};
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >export</span> <span class="syn_reserved" >function</span> <span class="syn_def" data-symbols="#template" data-confidences="[&quot;concrete&quot;]">template</span>(<span class="syn_deflocal" data-symbols="4-5" data-confidences="[&quot;concrete&quot;]">html</span>, <span class="syn_deflocal" data-symbols="4-6" data-confidences="[&quot;concrete&quot;]">items</span>) {
+</code>
+<code role="cell" class="source-line">  <span class="syn_reserved" >return</span> html<span class="syn_string" >`&lt;button data-l10n-id="</span><span class="syn_string" data-symbols="FTL_tabs-close-button" data-confidences="[&quot;concrete&quot;]">tabs-close-button</span><span class="syn_string" >"></span>
+</code>
+<code role="cell" class="source-line"><span class="syn_string" >    ${</span>items.map(item => html<span class="syn_string" >`&lt;li data-l10n-id="</span><span class="syn_string" data-symbols="FTL_about-link" data-confidences="[&quot;concrete&quot;]">about-link</span><span class="syn_string" >">${</span>item<span class="syn_string" >}&lt;/li>`</span>)<span class="syn_string" >}</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_string" >  &lt;/button>`</span>;
+</code>
+<code role="cell" class="source-line">}
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >export</span> <span class="syn_reserved" >const</span> <span class="syn_def" data-symbols="#MARKUP" data-confidences="[&quot;concrete&quot;]">MARKUP</span> = <span class="syn_string" >`&lt;span data-l10n-id="</span><span class="syn_string" data-symbols="FTL_about-link" data-confidences="[&quot;concrete&quot;]">about-link</span><span class="syn_string" >">&lt;/span>`</span>;
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >export</span> <span class="syn_reserved" >const</span> <span class="syn_def" data-symbols="#ESCAPED" data-confidences="[&quot;concrete&quot;]">ESCAPED</span> = <span class="syn_string" >"&lt;span data-l10n-id=\"</span><span class="syn_string" data-symbols="FTL_tabs-close-button" data-confidences="[&quot;concrete&quot;]">tabs-close-button</span><span class="syn_string" >\">&lt;/span>"</span>;
+</code>

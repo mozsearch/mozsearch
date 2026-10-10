@@ -70,6 +70,80 @@ pub struct FormattedLine {
     pub pop_nest_count: u32,
 }
 
+/// Splits string literal tokens at the analysis records within them (ex: a
+/// data-l10n-id in markup in a JS string, or a quoted JS object key's
+/// property), so that the records get tokens, and so spans, of their own.
+fn split_strings_at_records(
+    input: &str,
+    tokens: Vec<tokenize::Token>,
+    analysis: &[WithLocation<Vec<AnalysisSource>>],
+) -> Vec<tokenize::Token> {
+    let mut result = Vec::with_capacity(tokens.len());
+    let mut line_start = 0;
+    let mut cur_line = 1;
+    let mut cur_datum = 0;
+    for token in tokens {
+        if token.kind == tokenize::TokenKind::Newline {
+            cur_line += 1;
+            line_start = token.end;
+            result.push(token);
+            continue;
+        }
+        if token.kind != tokenize::TokenKind::StringLiteral {
+            result.push(token);
+            continue;
+        }
+        let column = (token.start - line_start) as u32;
+        let end_column = (token.end - line_start) as u32;
+        while cur_datum < analysis.len()
+            && (analysis[cur_datum].loc.lineno < cur_line
+                || (analysis[cur_datum].loc.lineno == cur_line
+                    && analysis[cur_datum].loc.col_start < column))
+        {
+            cur_datum += 1;
+        }
+        let mut pos = token.start;
+        while cur_datum < analysis.len()
+            && analysis[cur_datum].loc.lineno == cur_line
+            && analysis[cur_datum].loc.col_start < end_column
+        {
+            let loc = &analysis[cur_datum].loc;
+            let start = line_start + loc.col_start as usize;
+            let end = (line_start + loc.col_end as usize).min(token.end);
+            // (Overlapping records, or ones whose columns aren't byte offsets,
+            // stay in the string.)
+            if start >= pos
+                && end > start
+                && input.is_char_boundary(start)
+                && input.is_char_boundary(end)
+            {
+                if start > pos {
+                    result.push(tokenize::Token {
+                        start: pos,
+                        end: start,
+                        kind: tokenize::TokenKind::StringLiteral,
+                    });
+                }
+                result.push(tokenize::Token {
+                    start,
+                    end,
+                    kind: tokenize::TokenKind::StringLiteral,
+                });
+                pos = end;
+            }
+            cur_datum += 1;
+        }
+        if pos < token.end {
+            result.push(tokenize::Token {
+                start: pos,
+                end: token.end,
+                kind: tokenize::TokenKind::StringLiteral,
+            });
+        }
+    }
+    result
+}
+
 /// Renders source code into a Vec of HTML-formatted lines wrapped in `FormattedLine` objects that
 /// provide the metadata for the position:sticky post-processing step.  Caller is responsible
 /// for generating line numbers and any blame information.
@@ -93,6 +167,7 @@ pub fn format_code(
         }
         FormatAs::FormatTagLike(script_spec) => tokenize::tokenize_tag_like(input, script_spec),
     };
+    let tokens = split_strings_at_records(input, tokens, analysis);
 
     let mut output_lines = Vec::new();
     let mut output = String::new();
@@ -4090,6 +4165,52 @@ mod tests {
 
     use super::*;
     use crate::cmd_pipeline::facets::FacetValueView;
+
+    #[test]
+    fn test_split_strings_at_records() {
+        use crate::file_format::analysis::Location;
+        let input = "s = \"<a data-l10n-id='x-y'>\";\nt = \"bc\";\nu = \"bc\";\nv = \"\u{e9}a\";\n";
+        let FormatAs::FormatCLike(spec) = languages::select_formatting("a.js") else {
+            panic!("JS isn't C-like");
+        };
+        let record = |lineno, col_start, col_end| WithLocation {
+            loc: Location {
+                lineno,
+                col_start,
+                col_end,
+            },
+            data: vec![],
+        };
+        // Records inside a string, at the start of one, covering one (which
+        // stays whole, as does the overlapping record inside it), and inside
+        // an "é" (which doesn't split it).
+        let analysis = [
+            record(1, 22, 25),
+            record(2, 4, 6),
+            record(3, 4, 8),
+            record(3, 5, 6),
+            record(4, 6, 7),
+        ];
+        let tokens =
+            split_strings_at_records(input, tokenize::tokenize_c_like(input, spec), &analysis);
+        let strings: Vec<&str> = tokens
+            .iter()
+            .filter(|t| t.kind == tokenize::TokenKind::StringLiteral)
+            .map(|t| &input[t.start..t.end])
+            .collect();
+        assert_eq!(
+            strings,
+            [
+                "\"<a data-l10n-id='",
+                "x-y",
+                "'>\"",
+                "\"b",
+                "c\"",
+                "\"bc\"",
+                "\"\u{e9}a\""
+            ]
+        );
+    }
 
     #[test]
     fn test_message_diff_html() {

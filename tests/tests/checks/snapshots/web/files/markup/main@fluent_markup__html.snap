@@ -1,0 +1,49 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/web/files/markup/fluent_markup__html
+---
+<code role="cell" class="source-line">&lt;!DOCTYPE html>
+</code>
+<code role="cell" class="source-line">&lt;<span class="syn_tag" >html</span>>
+</code>
+<code role="cell" class="source-line">&lt;<span class="syn_tag" >head</span>>
+</code>
+<code role="cell" class="source-line">  &lt;<span class="syn_tag" >meta</span> <span class="syn_tag" >charset</span>="<span class="syn_string" >utf-8</span>">
+</code>
+<code role="cell" class="source-line">  &lt;<span class="syn_tag" >link</span> <span class="syn_tag" >rel</span>="<span class="syn_string" >localization</span>" <span class="syn_tag" >href</span>="<span class="syn_string" data-symbols="FILE_fluent/test@2Eftl" data-confidences="[&quot;concrete&quot;]">fluent/test.ftl</span>">
+</code>
+<code role="cell" class="source-line">  &lt;<span class="syn_tag" >link</span> <span class="syn_tag" >rel</span>="<span class="syn_string" >localization</span>" <span class="syn_tag" >href</span>="<span class="syn_string" data-symbols="FTLRES_fluent/missing@2Eftl" data-confidences="[&quot;concrete&quot;]">fluent/missing.ftl</span>">
+</code>
+<code role="cell" class="source-line">&lt;/<span class="syn_tag" >head</span>>
+</code>
+<code role="cell" class="source-line">&lt;<span class="syn_tag" >body</span>>
+</code>
+<code role="cell" class="source-line">  &lt;<span class="syn_tag" >button</span> <span class="syn_tag" >data-l10n-id</span>="<span class="syn_string" data-symbols="FTL_tabs-close-button" data-confidences="[&quot;concrete&quot;]">tabs-close-button</span>"
+</code>
+<code role="cell" class="source-line">          <span class="syn_tag" >data-l10n-attrs</span>="<span class="syn_string" data-symbols="FTL_tabs-close-button.tooltip" data-confidences="[&quot;concrete&quot;]">tooltip</span><span class="syn_string" >, </span><span class="syn_string" data-symbols="FTL_tabs-close-button.accesskey" data-confidences="[&quot;concrete&quot;]">accesskey</span>">&lt;/<span class="syn_tag" >button</span>>
+</code>
+<code role="cell" class="source-line">  &lt;<span class="syn_tag" >p</span> <span class="syn_tag" >data-l10n-id</span>="<span class="syn_string" data-symbols="FTL_tabs-close-warning" data-confidences="[&quot;concrete&quot;]">tabs-close-warning</span>" <span class="syn_tag" >data-l10n-args</span>='<span class="syn_string" >{"</span><span class="syn_string" data-symbols="FTL_tabs-close-warning$count" data-confidences="[&quot;concrete&quot;]">count</span><span class="syn_string" >": 3}</span>'>&lt;/<span class="syn_tag" >p</span>>
+</code>
+<code role="cell" class="source-line">  &lt;<span class="syn_tag" >p</span> <span class="syn_tag" >data-l10n-id</span>="<span class="syn_string" data-symbols="FTL_tabs-close-warning" data-confidences="[&quot;concrete&quot;]">tabs-close-warning</span>"
+</code>
+<code role="cell" class="source-line">     <span class="syn_tag" >data-l10n-args</span>='<span class="syn_string" >{</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_string" >       "</span><span class="syn_string" data-symbols="FTL_tabs-close-warning$count" data-confidences="[&quot;concrete&quot;]">count</span><span class="syn_string" >": 2</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_string" >     }</span>'>&lt;/<span class="syn_tag" >p</span>>
+</code>
+<code role="cell" class="source-line">  &lt;<span class="syn_tag" >p</span> <span class="syn_tag" >data-l10n-id</span>="<span class="syn_string" data-symbols="FTL_tabs-close-warning" data-confidences="[&quot;concrete&quot;]">tabs-close-warning</span>" <span class="syn_tag" >data-l10n-args</span>="<span class="syn_string" >{&amp;quot;count&amp;quot;: 1}</span>">&lt;/<span class="syn_tag" >p</span>>
+</code>
+<code role="cell" class="source-line">  &lt;<span class="syn_tag" >p</span> <span class="syn_tag" >data-l10n-id</span>="<span class="syn_string" >{{ templated }}</span>">&lt;/<span class="syn_tag" >p</span>>
+</code>
+<code role="cell" class="source-line">  &lt;<span class="syn_tag" >script</span>>
+</code>
+<code role="cell" class="source-line">    <span data-symbols="#document" data-confidences="[&quot;concrete&quot;]">document</span>.<span data-symbols="#l10n,document#l10n" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">l10n</span>.<span data-symbols="#setAttributes" data-confidences="[&quot;concrete&quot;]">setAttributes</span>(<span data-symbols="#document" data-confidences="[&quot;concrete&quot;]">document</span>.<span data-symbols="#body,document#body" data-confidences="[&quot;concrete&quot;,&quot;concrete&quot;]">body</span>.<span data-symbols="#lastChild" data-confidences="[&quot;concrete&quot;]">lastChild</span>, <span class="syn_string" data-symbols="FTL_about-link" data-confidences="[&quot;concrete&quot;]">"about-link"</span>);
+</code>
+<code role="cell" class="source-line">  &lt;/<span class="syn_tag" >script</span>>
+</code>
+<code role="cell" class="source-line">&lt;/<span class="syn_tag" >body</span>>
+</code>
+<code role="cell" class="source-line">&lt;/<span class="syn_tag" >html</span>>
+</code>
