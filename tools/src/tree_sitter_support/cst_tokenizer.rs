@@ -14,6 +14,7 @@ use crate::tree_sitter_support::config_tokenizer::{tokenize_ini, tokenize_toml};
 use crate::tree_sitter_support::docs_tokenizer::{tokenize_markdown, tokenize_rst};
 use crate::tree_sitter_support::json_tokenizer::tokenize_json;
 use crate::tree_sitter_support::preprocessor::{ConditionalStacks, literal_condition};
+use crate::tree_sitter_support::spec_tokenizer::tokenize_spec_html;
 use crate::tree_sitter_support::yaml_tokenizer::tokenize_yaml;
 
 use tree_sitter::StreamingIterator as _;
@@ -96,6 +97,8 @@ enum Grammar {
     /// Fluent, Project Fluent's localization format, with searchfox's
     /// tree-sitter-fluent.
     Fluent,
+    /// See `spec_tokenizer.rs`.
+    SpecHtml,
     /// Whitespace-delimited words.
     PlainText,
 }
@@ -239,6 +242,16 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
         namespace: "ftl",
         grammar: Grammar::Fluent,
     },
+    // Web specs' sources, with contexts from their sections and algorithms,
+    // in a shared "spec" namespace, so that history can follow a spec between
+    // formats; see `spec_tokenizer`.  (HTML-based sources need
+    // `searchfox-lang` attributes, since ex: the HTML Standard's `source` has
+    // no extension, and other HTML isn't a spec.)
+    LanguageProfile {
+        lang: "spec-html",
+        namespace: "spec",
+        grammar: Grammar::SpecHtml,
+    },
     LanguageProfile {
         lang: "none",
         namespace: "none",
@@ -314,7 +327,10 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 /// - 12: Prose (comments and text) has its words' leading and trailing
 ///   punctuation as tokens of their own (see `prose_words`), so that
 ///   extending or shortening a sentence doesn't change its last word.
-pub const TOKENIZER_VERSION: u32 = 12;
+/// - 13: Web specs' HTML-based sources (with `searchfox-lang=spec-html`) are
+///   tokenized by `spec_tokenizer`, with contexts from their sections and
+///   algorithms, in a shared "spec" namespace.
+pub const TOKENIZER_VERSION: u32 = 13;
 
 /// The node to name a container by, given the node its query captured as its
 /// name.  tree-sitter's error recovery can make that span unrecognized macros
@@ -697,13 +713,15 @@ pub fn hypertokenize_with_profile(
         | Grammar::Json
         | Grammar::Yaml
         | Grammar::Markdown
-        | Grammar::Rst => {
+        | Grammar::Rst
+        | Grammar::SpecHtml => {
             let (tokens, structure) = match profile.grammar {
                 Grammar::Ini => tokenize_ini(source_contents),
                 Grammar::Toml => tokenize_toml(source_contents),
                 Grammar::Yaml => tokenize_yaml(source_contents),
                 Grammar::Markdown => tokenize_markdown(source_contents),
                 Grammar::Rst => tokenize_rst(source_contents),
+                Grammar::SpecHtml => tokenize_spec_html(source_contents),
                 _ => tokenize_json(source_contents),
             };
             return Ok(HyperTokenized::new(profile, tokens, structure));
@@ -955,6 +973,7 @@ fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
         | Grammar::Yaml
         | Grammar::Markdown
         | Grammar::Rst
+        | Grammar::SpecHtml
         | Grammar::PlainText
         | Grammar::ObjCpp => {
             return Err(format!("{:?} isn't a tree-sitter grammar", grammar));

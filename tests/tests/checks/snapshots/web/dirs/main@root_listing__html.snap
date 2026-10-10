@@ -778,6 +778,13 @@ Spread over multiple lines.
         </tr>
 
         <tr>
+          <td class="name"><a href="/tests/source/specs" class="mimetype-fixed-container mimetype-icon-folder">specs</a></td>
+          <td class="description"><a href="/tests/source/specs" title=""></td>
+          <td class="size"><a href="/tests/source/specs"></a></td>
+          <td class="coverage"><a href="/tests/source/specs" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
+        </tr>
+
+        <tr>
           <td class="name"><a href="/tests/source/src" class="mimetype-fixed-container mimetype-icon-folder">src</a></td>
           <td class="description"><a href="/tests/source/src" title=""></td>
           <td class="size"><a href="/tests/source/src"></a></td>

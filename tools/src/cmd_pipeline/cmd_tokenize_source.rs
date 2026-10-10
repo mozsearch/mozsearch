@@ -4,7 +4,9 @@ use clap::{Args, ValueEnum};
 use super::interface::{JsonValue, JsonValueList, PipelineCommand, PipelineValues, TextFile};
 use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
-    tree_sitter_support::cst_tokenizer::hypertokenize_source_file,
+    tree_sitter_support::cst_tokenizer::{
+        hypertokenize_source_file, hypertokenize_with_profile, profile_for_lang,
+    },
 };
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
@@ -24,6 +26,11 @@ pub struct TokenizeSource {
 
     #[clap(long, value_enum, default_value_t=TokenizeMode::Tokenize)]
     mode: TokenizeMode,
+
+    /// The language to tokenize the file as (ex: "spec-html"), like a
+    /// `searchfox-lang` history attribute, instead of by its path.
+    #[clap(long)]
+    lang: Option<String>,
 }
 
 #[derive(Debug)]
@@ -40,7 +47,14 @@ impl PipelineCommand for TokenizeSourceCommand {
     ) -> Result<PipelineValues> {
         let source_str = server.fetch_raw_source(&self.args.file).await?;
 
-        let token_lines = match hypertokenize_source_file(&self.args.file, &source_str) {
+        let tokenized = match &self.args.lang {
+            Some(lang) => match profile_for_lang(lang) {
+                Some(profile) => hypertokenize_with_profile(profile, &source_str),
+                None => Err(format!("Unknown language {:?}", lang)),
+            },
+            None => hypertokenize_source_file(&self.args.file, &source_str),
+        };
+        let token_lines = match tokenized {
             Ok(content) => content,
             Err(e) => {
                 return Err(ServerError::StickyProblem(ErrorDetails {

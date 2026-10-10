@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<!-- A small spec in the HTML Standard's Wattsi format, for the spec-html
+     tokenizer (see tools/src/tree_sitter_support/spec_tokenizer.rs). -->
+<h1>Example: The Living Standard</h1>
+
+<h2 id=infrastructure>Infrastructure</h2>
+
+<p>A <dfn data-x=concept-widget>widget</dfn> has a <dfn data-x=concept-widget-state>state</dfn>.</p>
+
+<h3 id=widgets>Widgets</h3>
+
+<p>To <dfn data-x=concept-widget-poke>poke</dfn> a <span data-x=concept-widget>widget</span>
+<var>widget</var>:</p>
+
+<ol>
+ <li><p>Set <var>widget</var>'s <span data-x=concept-widget-state>state</span> to "poked".</p></li>
+ <li><p>Return.</p></li>
+</ol>
+
+<div algorithm>
+<p>To <dfn>unpoke</dfn> a widget <var>widget</var>, run these steps:</p>
+<ol><li><p>Set <var>widget</var>'s state to "idle".</p></li></ol>
+</div>
+
+<h3 id=gadgets>Gadgets <code>&lt;gadget></code></h3>
+
+<pre class=idl>[Exposed=Window]
+interface Gadget {};</pre>
