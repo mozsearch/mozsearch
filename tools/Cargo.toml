@@ -101,6 +101,8 @@ tree-sitter-kotlin-ng = { git = "https://github.com/mozsearch/tree-sitter-kotlin
 # than 32767 lines; see its README.)
 tree-sitter-yaml = { git = "https://github.com/mozsearch/tree-sitter-yaml", rev = "8a9ce44fec0dbea5705617debb513e2dd5ff90ca" }
 tree-sitter-objc = "3.0.2"
+tree-sitter-md = "0.5.3"
+tree-sitter-rst = "0.2.0"
 toml = "1.0.7"
 tonic = "0.14.5"
 tonic-prost = "0.14.5"
