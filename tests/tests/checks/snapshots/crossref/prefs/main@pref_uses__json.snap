@@ -52,6 +52,22 @@ input_file: inputs/crossref/prefs/pref_uses__json
             ]
           },
           {
+            "path": "prefs/mochitest.toml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 3,
+                "bounds": [
+                  1,
+                  13
+                ],
+                "line": "\"test.js.pref=true\",",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
             "path": "prefs/preferences.xhtml",
             "path_kind": "normal",
             "lines": [
@@ -159,6 +175,22 @@ input_file: inputs/crossref/prefs/pref_uses__json
                 ],
                 "line": "[\"test.int\", 5],",
                 "context": "setUp",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "prefs/mochitest.toml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 4,
+                "bounds": [
+                  1,
+                  9
+                ],
+                "line": "\"test.int=3\",",
+                "context": "",
                 "contextsym": ""
               }
             ]

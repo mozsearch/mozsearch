@@ -10,6 +10,10 @@ def at_escape(text):
   return re.sub("[^A-Za-z0-9_/]", lambda m: "@" + "{:02X}".format(ord(m.group(0))), text)
 
 
+# A pref's name: dotted words.
+PREF_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+(\.[A-Za-z0-9_@*-]+)+$")
+
+
 def to_file_sym(filename):
     return "FILE_" + at_escape(filename)
 
@@ -248,7 +252,7 @@ class Parser:
         s = ""
         while True:
             if self.match("\\"):
-                 s = self.escaped()
+                s += self.escaped()
             elif self.match('"'):
                 break
             else:
@@ -609,6 +613,31 @@ class AnalysisWriter:
             "sym": to_file_sym(path),
         })
 
+    # A pref (see tools/languages/semantic_mappings/staticpreflist.toml), the
+    # name of a test manifest's `prefs = ["name=value"]` (a single-line string
+    # at k, whose name is right after its quote).
+    def add_pref_use(self, k):
+        name = k[1].split("=", 1)[0]
+        if not PREF_NAME_RE.match(name) or k[2][0] != k[3][0]:
+            return
+        line = k[2][0]
+        c1 = k[2][1] + 1
+        sym = "PREFS_" + at_escape(name)
+        self.items.append({
+            "loc": to_loc(line, c1, c1 + len(name)),
+            "target": 1,
+            "kind": "use",
+            "pretty": name,
+            "sym": sym,
+        })
+        self.items.append({
+            "loc": to_loc(line, c1, c1 + len(name)),
+            "source": 1,
+            "syntax": "use",
+            "pretty": "pref " + name,
+            "sym": sym,
+        })
+
     def write(self):
         with open(self.analysis_path, "w") as f:
             for item in self.items:
@@ -619,6 +648,11 @@ class AnalysisWriter:
             return
 
         name = ks[0][1]
+        if name == "prefs" and v[0] == "array":
+            for k in v[1]:
+                if k[0] == "string":
+                    self.add_pref_use(k)
+            return
         if name != "support-files" and name != "head":
             return
 

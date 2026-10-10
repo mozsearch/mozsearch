@@ -62,6 +62,22 @@ input_file: inputs/crossref/staticprefs/prefs__json
             ]
           },
           {
+            "path": "prefs/mochitest.toml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 4,
+                "bounds": [
+                  1,
+                  9
+                ],
+                "line": "\"test.int=3\",",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
             "path": "prefs/preferences.xhtml",
             "path_kind": "normal",
             "lines": [
@@ -233,6 +249,22 @@ input_file: inputs/crossref/staticprefs/prefs__json
                 ],
                 "line": "Services.prefs.addObserver(\"test.str\", () => {});",
                 "context": "readPrefs",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "prefs/mochitest.toml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 10,
+                "bounds": [
+                  10,
+                  18
+                ],
+                "line": "prefs = [\"test.str=\\\"x\\\"\"]",
+                "context": "",
                 "contextsym": ""
               }
             ]

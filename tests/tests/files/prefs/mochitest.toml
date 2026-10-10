@@ -1,0 +1,10 @@
+[DEFAULT]
+prefs = [
+  "test.js.pref=true",
+  "test.int=3",
+  "not a pref",
+]
+support-files = ["consumer.mjs"]
+
+["test_one.html"]
+prefs = ["test.str=\"x\""]

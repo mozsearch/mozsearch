@@ -1,0 +1,1 @@
+filter-analysis prefs/mochitest.toml --symbol-prefix PREFS_
