@@ -150,6 +150,15 @@ index of the field starting from 0.
    name the block whose title shares the most leading words, in any file) are
    `doc-use`s.
 
+ * Observer service topics (see
+   `tools/languages/semantic_mappings/observer_topics_cpp.toml` and
+   `observer_topics_js.toml`) use `OBSTOPIC_` followed by the topic, escaped
+   like `FILE_` symbols, ex: `OBSTOPIC_xpcom@2Dshutdown`.  Notifications of
+   topics, registrations and unregistrations of their observers, and
+   observers' comparisons of their topics are uses, whether by literals or by
+   constants (ex: `NS_XPCOM_SHUTDOWN_OBSERVER_ID`), which `semantic-analyze`
+   resolves from the constants' definitions in any file.
+
  * Firefox's privileged URLs (chrome://, resource://) temporarily use special
    symbols with `URL_` prefix followed by normalized URL.  The symbol is replaced
    with the corresponding file's symbol by `scripts/replace-aliases.py` script.

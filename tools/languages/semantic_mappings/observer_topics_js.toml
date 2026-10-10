@@ -1,0 +1,143 @@
+# Observer service topics in JS (see semantic_analyzer.rs, and
+# observer_topics_cpp.toml): notifications of topics
+# (`Services.obs.notifyObservers(subject, "topic", data)`), registrations
+# and unregistrations of observers of them (`Services.obs.addObserver(this,
+# "topic")`, `Services.obs.removeObserver(this, "topic")`), and `observe`
+# methods' comparisons of their topics (`topic == "topic"`, and `switch
+# (topic)`'s `case "topic":`) use `OBSTOPIC_<topic>`, by literals, or by
+# constants (ex: `UIState.ON_UPDATE`, for `UIState`'s `ON_UPDATE:
+# "sync-ui-state:update"`), in the contexts of the JS analysis's records on
+# their lines.  (Prefs' `Services.prefs.addObserver("pref", this)` have their
+# prefs first.)
+grammar = "typescript"
+paths = ["**/*.js", "**/*.mjs", "**/*.jsm"]
+contains = [
+  "notifyObservers", "addObserver", "removeObserver", "topic", "Topic", "TOPIC", "NOTIFICATION",
+]
+
+# ## Uses
+
+[[rules]]
+role = "use"
+query = '''
+(call_expression
+  function: (member_expression property: (property_identifier) @method)
+  arguments: (arguments . (_) . (string (string_fragment) @id))
+  (#match? @method "^(notifyObservers|addObserver|removeObserver)$"))
+'''
+sym = "OBSTOPIC_{{ id | at_escape }}"
+pretty = "{{ id }}"
+syntax_kind = "observer topic"
+
+[[rules]]
+role = "use"
+query = '''
+(call_expression
+  function: (member_expression property: (property_identifier) @method)
+  arguments: (arguments . (_) . [
+    (identifier) @id
+    (member_expression property: (property_identifier) @id)
+  ])
+  (#match? @method "^(notifyObservers|addObserver|removeObserver)$"))
+'''
+resolve = "constant"
+sym = "OBSTOPIC_{{ value | at_escape }}"
+pretty = "{{ value }}"
+syntax_kind = "observer topic"
+
+[[rules]]
+role = "use"
+query = '''
+(binary_expression
+  left: (identifier) @topic
+  operator: ["==" "===" "!=" "!=="]
+  right: (string (string_fragment) @id)
+  (#match? @topic "^a?[Tt]opic$"))
+'''
+sym = "OBSTOPIC_{{ id | at_escape }}"
+pretty = "{{ id }}"
+syntax_kind = "observer topic"
+
+[[rules]]
+role = "use"
+query = '''
+(binary_expression
+  left: (identifier) @topic
+  operator: ["==" "===" "!=" "!=="]
+  right: [
+    (identifier) @id
+    (member_expression property: (property_identifier) @id)
+  ]
+  (#match? @topic "^a?[Tt]opic$"))
+'''
+resolve = "constant"
+sym = "OBSTOPIC_{{ value | at_escape }}"
+pretty = "{{ value }}"
+syntax_kind = "observer topic"
+
+[[rules]]
+role = "use"
+query = '''
+(switch_statement
+  value: (parenthesized_expression (identifier) @topic)
+  body: (switch_body (switch_case value: (string (string_fragment) @id)))
+  (#match? @topic "^a?[Tt]opic$"))
+'''
+sym = "OBSTOPIC_{{ id | at_escape }}"
+pretty = "{{ id }}"
+syntax_kind = "observer topic"
+
+[[rules]]
+role = "use"
+query = '''
+(switch_statement
+  value: (parenthesized_expression (identifier) @topic)
+  body: (switch_body (switch_case value: [
+    (identifier) @id
+    (member_expression property: (property_identifier) @id)
+  ]))
+  (#match? @topic "^a?[Tt]opic$"))
+'''
+resolve = "constant"
+sym = "OBSTOPIC_{{ value | at_escape }}"
+pretty = "{{ value }}"
+syntax_kind = "observer topic"
+
+# ## Constants, which look like constants (ex: `kTopic`, `TOPIC_NAME`), but
+# not modules' URLs (ex: lazy getters' `{ TOPIC_NAME: "resource://..." }`)
+
+[[rules]]
+role = "constant"
+query = '''
+(variable_declarator
+  name: (identifier) @name
+  value: (string (string_fragment) @id)
+  (#match? @name "^(k[A-Z][A-Za-z0-9_]*|[A-Z][A-Z0-9_]*)$")
+  (#not-match? @id "^(resource|chrome|moz-src)://"))
+'''
+sym = "{{ name }}"
+pretty = "{{ id }}"
+
+[[rules]]
+role = "constant"
+query = '''
+(pair
+  key: (property_identifier) @name
+  value: (string (string_fragment) @id)
+  (#match? @name "^[A-Z][A-Z0-9_]*$")
+  (#not-match? @id "^(resource|chrome|moz-src)://"))
+'''
+sym = "{{ name }}"
+pretty = "{{ id }}"
+
+[[rules]]
+role = "constant"
+query = '''
+(public_field_definition
+  name: (property_identifier) @name
+  value: (string (string_fragment) @id)
+  (#match? @name "^[A-Z][A-Z0-9_]*$")
+  (#not-match? @id "^(resource|chrome|moz-src)://"))
+'''
+sym = "{{ name }}"
+pretty = "{{ id }}"

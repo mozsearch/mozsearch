@@ -1,0 +1,14 @@
+# Constants for observer_topics_cpp.toml from XPIDL files' `%{C++` blocks
+# (ex: `#define NS_NETWORK_LINK_TOPIC "network:link-status-changed"`), which
+# are in the headers generated from them.  (Only their `#define` lines
+# matter, so they're parsed as C++, and the rule's regex finds the lines.)
+grammar = "mozcpp"
+paths = ["**/*.idl"]
+contains = ["#define"]
+
+[[rules]]
+role = "constant"
+query = "(translation_unit) @id"
+regex = '''(?m)^[ \t]*#[ \t]*define[ \t]+(?P<name>(?:k[A-Z]|[A-Z])[A-Za-z0-9_]*)[ \t]+"(?P<value>[^"\\\n]*)"'''
+sym = "{{ name }}"
+pretty = "{{ value }}"

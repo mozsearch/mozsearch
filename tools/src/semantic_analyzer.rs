@@ -27,9 +27,9 @@
 //!   sticky headers).  With a `regex`, a rule's records are at its matches in
 //!   the `@id` node's text (ex: a comment's), at their `id` groups (or the
 //!   whole matches, if it has none), whose named groups are template
-//!   variables too; matches without the `id` group have no records.  A use
-//!   can `resolve` to a definition in any file (see `Resolve`), for which its
-//!   `sym` is the definitions' symbols' prefix.
+//!   variables too; matches without the `id` group have no records.  A rule
+//!   can be for constants (see `Role::Constant`), and a use can `resolve`
+//!   to a definition or a constant in any file (see `Resolve`).
 //! - `data`: rules for data paths (for grammars with a data view, which is
 //!   YAML's maps, sequences, and scalars), whose records are at the keys or the
 //!   scalar values of the entries the paths match.  A path's segments are a
@@ -122,6 +122,10 @@ pub enum Role {
     Use,
     /// A key of data, with source records only.
     Key,
+    /// A constant's definition, whose `sym` is its name and whose `pretty`
+    /// is its value, which uses can resolve through (see
+    /// `Resolve::Constant`), without records of its own.
+    Constant,
 }
 
 #[derive(Debug, Deserialize)]
@@ -130,6 +134,8 @@ pub struct QueryRule {
     pub query: String,
     pub sym: String,
     pub pretty: String,
+    /// (Constants have none.)
+    #[serde(default)]
     pub syntax_kind: String,
     #[serde(default)]
     pub nesting: Option<String>,
@@ -142,17 +148,22 @@ pub struct QueryRule {
     pub resolve: Option<Resolve>,
 }
 
-/// How a use names a definition in any file (with the use rule's `sym` as
-/// the prefix of the definitions' symbols), which `resolve_uses` finds once
-/// all of the files are analyzed.
+/// How a use names something in any file, which `Resolvables` finds once all
+/// of the files are analyzed.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum Resolve {
-    /// The definition whose pretty name shares the most leading words with
-    /// the use's text (ignoring case, and punctuation around words), if just
-    /// one does (ex: "Atomics.wait for more details." names "Atomics.wait,
+    /// The definition (with the use rule's `sym` as the prefix of its
+    /// symbol) whose pretty name shares the most leading words with the use's
+    /// text (ignoring case, and punctuation around words), if just one does
+    /// (ex: "Atomics.wait for more details." names "Atomics.wait,
     /// Atomics.waitAsync, and Atomics.notify"), at those words.
     DefPrefix,
+    /// The constant (of the use's grammar) that the use's text names (by its
+    /// last component, ex: "ON_UPDATE" for "UIState.ON_UPDATE"): the file's
+    /// own, or else the tree's, if all of the tree's constants of that name
+    /// have the same value.  The rule's templates see its `value`.
+    Constant,
 }
 
 /// Which scalar of a matched entry a data rule's records are at.
@@ -240,8 +251,10 @@ struct CompiledScope {
 struct CompiledRule {
     role: Role,
     query: tree_sitter::Query,
-    sym: liquid::Template,
-    pretty: liquid::Template,
+    // (Shared with uses resolving through constants, which render them once
+    // they know the constants' values.)
+    sym: std::sync::Arc<liquid::Template>,
+    pretty: std::sync::Arc<liquid::Template>,
     syntax_kind: String,
     nesting: Option<String>,
     kind: Option<AnalysisKind>,
@@ -394,11 +407,14 @@ impl CompiledMapping {
                 .map(|rule| {
                     let sym = template(&rule.sym)?;
                     let resolve = match rule.resolve {
-                        Some(resolve) if rule.role == Role::Use => {
+                        Some(Resolve::DefPrefix) if rule.role == Role::Use => {
                             let prefix = sym
                                 .render(&liquid::Object::new())
                                 .map_err(|e| e.to_string())?;
-                            Some((resolve, prefix))
+                            Some((Resolve::DefPrefix, prefix))
+                        }
+                        Some(Resolve::Constant) if rule.role == Role::Use => {
+                            Some((Resolve::Constant, String::new()))
                         }
                         Some(_) => return Err(format!("{}: only uses resolve", name)),
                         None => None,
@@ -406,8 +422,8 @@ impl CompiledMapping {
                     Ok(CompiledRule {
                         role: rule.role,
                         query: query(&rule.query)?,
-                        sym,
-                        pretty: template(&rule.pretty)?,
+                        sym: std::sync::Arc::new(sym),
+                        pretty: std::sync::Arc::new(template(&rule.pretty)?),
                         syntax_kind: rule.syntax_kind.clone(),
                         nesting: rule.nesting.clone(),
                         kind: rule.kind,
@@ -450,6 +466,9 @@ impl CompiledMapping {
                         }),
                         None => None,
                     };
+                    if rule.role == Role::Constant {
+                        return Err(format!("{}: data rules can't be constants", name));
+                    }
                     Ok(CompiledDataRule {
                         path: parse_data_path(&rule.path),
                         at: rule.at,
@@ -984,6 +1003,7 @@ fn rule_records(
         Role::Def => "def",
         Role::Use => "use",
         Role::Key => "key",
+        Role::Constant => return,
     };
     let source_pretty = if syntax_kind.is_empty() {
         pretty.clone()
@@ -998,7 +1018,7 @@ fn rule_records(
         nesting_range,
     ));
     let kind = match (role, kind) {
-        (Role::Key, _) => return,
+        (Role::Key | Role::Constant, _) => return,
         (_, Some(kind)) => kind,
         (Role::Def, None) => AnalysisKind::Def,
         (Role::Use, None) => AnalysisKind::Use,
@@ -1006,23 +1026,48 @@ fn rule_records(
     records.push(target_record(loc, kind, pretty, sym, context.0, context.1));
 }
 
-/// A use which names a definition in any file (see `Resolve`).
-#[derive(Debug)]
+/// A use which names something in any file (see `Resolve`).
 pub struct UnresolvedUse {
     resolve: Resolve,
-    /// The prefix of the symbols of the definitions it can name.
+    /// For `DefPrefix`, the prefix of the symbols of the definitions it can
+    /// name.
     prefix: String,
-    /// What names the definition, at `loc` (on one line).
+    /// What names the definition or constant, at `loc` (on one line).
     text: String,
     loc: Location,
     syntax_kind: String,
     kind: Option<AnalysisKind>,
     context: (String, String),
+    /// For `Constant`, the grammar (whose constants it can name), and the
+    /// rule's templates, and their variables, but for the constant's value.
+    grammar: String,
+    templates: Option<(
+        std::sync::Arc<liquid::Template>,
+        std::sync::Arc<liquid::Template>,
+        liquid::Object,
+    )>,
 }
 
-/// A file's analysis, with the uses which name definitions in any file.
+impl UnresolvedUse {
+    /// What names the definition or constant.
+    pub fn text(&self) -> &str {
+        &self.text
+    }
+}
+
+/// A constant's definition (see `Role::Constant`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Constant {
+    pub grammar: String,
+    pub name: String,
+    pub value: String,
+}
+
+/// A file's analysis: its records, its constants, and the uses which name
+/// things in any file.
 pub struct Analysis {
     pub records: Vec<Record>,
+    pub constants: Vec<Constant>,
     pub unresolved: Vec<UnresolvedUse>,
 }
 
@@ -1045,71 +1090,156 @@ fn name_words(text: &str) -> Vec<(Range<usize>, String)> {
     words
 }
 
-/// The records of `unresolved` uses which name `defs` (pretty names and
-/// symbols of definitions, in any file).
-pub fn resolve_uses(defs: &[(String, String)], unresolved: &[UnresolvedUse]) -> Vec<Record> {
-    let def_words: Vec<Vec<String>> = defs
-        .iter()
-        .map(|(pretty, _)| name_words(pretty).into_iter().map(|(_, w)| w).collect())
-        .collect();
-    let mut records = vec![];
-    for using in unresolved {
-        match using.resolve {
-            Resolve::DefPrefix => {
-                let words = name_words(&using.text);
-                // (The definitions sharing the most leading words.)
-                let mut best: Vec<usize> = vec![];
-                let mut best_count = 0;
-                for (i, (_, sym)) in defs.iter().enumerate() {
-                    if !sym.starts_with(&using.prefix) {
-                        continue;
-                    }
-                    let count = words
-                        .iter()
-                        .zip(&def_words[i])
-                        .take_while(|((_, a), b)| a == *b)
-                        .count();
-                    if count > best_count {
-                        best = vec![i];
-                        best_count = count;
-                    } else if count == best_count && count > 0 && defs[best[0]].1 != *sym {
-                        best.push(i);
-                    }
-                }
-                let [def] = best[..] else {
-                    continue;
-                };
-                let (start, end) = (words[0].0.start, words[best_count - 1].0.end);
-                let loc = Location {
-                    lineno: using.loc.lineno,
-                    col_start: using.loc.col_start + start as u32,
-                    col_end: using.loc.col_start + end as u32,
-                };
-                rule_records(
-                    &mut records,
-                    Role::Use,
-                    loc,
-                    &using.syntax_kind,
-                    using.kind,
-                    defs[def].0.clone(),
-                    defs[def].1.clone(),
-                    SourceRange::default(),
-                    using.context.clone(),
-                );
-            }
-        }
-    }
-    records
+/// What uses in any file can name (see `Resolve`), from all of the files'
+/// analyses, for resolving the uses once all of the files are analyzed.
+#[derive(Default)]
+pub struct Resolvables {
+    /// The prefixes of the symbols of the definitions uses can name.
+    prefixes: Vec<String>,
+    /// Those definitions' pretty names (as words) and symbols.
+    defs: Vec<(Vec<String>, String, String)>,
+    /// Constants by their grammars and names, with their files and values.
+    constants: std::collections::HashMap<(String, String), Vec<(String, String)>>,
 }
 
-/// The records of a mapping's query rules, and its uses which name
-/// definitions in any file.
+impl Resolvables {
+    pub fn new(mappings: &[CompiledMapping]) -> Resolvables {
+        Resolvables {
+            prefixes: mappings
+                .iter()
+                .flat_map(|m| m.resolving_prefixes())
+                .collect(),
+            ..Default::default()
+        }
+    }
+
+    /// Learn of what the analysis of the file at `path` defines.
+    pub fn add(&mut self, path: &str, analysis: &Analysis) {
+        for record in &analysis.records {
+            if let Record::Target(target) = record
+                && matches!(target.data.kind, AnalysisKind::Def | AnalysisKind::DocDef)
+                && self
+                    .prefixes
+                    .iter()
+                    .any(|p| target.data.sym.starts_with(p.as_str()))
+            {
+                self.add_def(&target.data.pretty, &target.data.sym);
+            }
+        }
+        for constant in &analysis.constants {
+            self.constants
+                .entry((constant.grammar.clone(), constant.name.clone()))
+                .or_default()
+                .push((path.to_string(), constant.value.clone()));
+        }
+    }
+
+    pub fn add_def(&mut self, pretty: &str, sym: &str) {
+        let words = name_words(pretty).into_iter().map(|(_, w)| w).collect();
+        self.defs.push((words, pretty.to_string(), sym.to_string()));
+    }
+
+    /// The value of the constant of `grammar` named `name`, for a use in the
+    /// file at `path`.
+    fn constant(&self, grammar: &str, name: &str, path: &str) -> Option<&str> {
+        let constants = self
+            .constants
+            .get(&(grammar.to_string(), name.to_string()))?;
+        if let Some((_, value)) = constants.iter().find(|(file, _)| file == path) {
+            return Some(value);
+        }
+        let value = &constants.first()?.1;
+        constants
+            .iter()
+            .all(|(_, other)| other == value)
+            .then_some(value.as_str())
+    }
+
+    /// The records of the `unresolved` uses of the file at `path` which name
+    /// something.
+    pub fn resolve(&self, path: &str, unresolved: &[UnresolvedUse]) -> Result<Vec<Record>, String> {
+        let mut records = vec![];
+        for using in unresolved {
+            let (loc, pretty, sym) = match using.resolve {
+                Resolve::DefPrefix => {
+                    let words = name_words(&using.text);
+                    // (The definitions sharing the most leading words.)
+                    let mut best: Vec<usize> = vec![];
+                    let mut best_count = 0;
+                    for (i, (def_words, _, sym)) in self.defs.iter().enumerate() {
+                        if !sym.starts_with(&using.prefix) {
+                            continue;
+                        }
+                        let count = words
+                            .iter()
+                            .zip(def_words)
+                            .take_while(|((_, a), b)| a == *b)
+                            .count();
+                        if count > best_count {
+                            best = vec![i];
+                            best_count = count;
+                        } else if count == best_count && count > 0 && self.defs[best[0]].2 != *sym {
+                            best.push(i);
+                        }
+                    }
+                    let [def] = best[..] else {
+                        continue;
+                    };
+                    let (start, end) = (words[0].0.start, words[best_count - 1].0.end);
+                    let loc = Location {
+                        lineno: using.loc.lineno,
+                        col_start: using.loc.col_start + start as u32,
+                        col_end: using.loc.col_start + end as u32,
+                    };
+                    let (_, pretty, sym) = &self.defs[def];
+                    (loc, pretty.clone(), sym.clone())
+                }
+                Resolve::Constant => {
+                    let name = using
+                        .text
+                        .rsplit(['.', ':', '>'])
+                        .next()
+                        .unwrap_or_default()
+                        .trim();
+                    let Some(value) = self.constant(&using.grammar, name, path) else {
+                        continue;
+                    };
+                    let Some((sym, pretty, globals)) = &using.templates else {
+                        continue;
+                    };
+                    let mut globals = globals.clone();
+                    globals.insert(
+                        "value".into(),
+                        liquid::model::Value::scalar(value.to_string()),
+                    );
+                    let sym = sym.render(&globals).map_err(|e| e.to_string())?;
+                    let pretty = pretty.render(&globals).map_err(|e| e.to_string())?;
+                    (using.loc, pretty, sym)
+                }
+            };
+            rule_records(
+                &mut records,
+                Role::Use,
+                loc,
+                &using.syntax_kind,
+                using.kind,
+                pretty,
+                sym,
+                SourceRange::default(),
+                using.context.clone(),
+            );
+        }
+        Ok(records)
+    }
+}
+
+/// The records of a mapping's query rules, its constants, and its uses which
+/// name things in any file.
 fn query_records(
     mapping: &CompiledMapping,
     root: tree_sitter::Node,
     source: &str,
-    records: &mut Vec<Record>,
-    unresolved: &mut Vec<UnresolvedUse>,
+    analysis: &mut Analysis,
 ) -> Result<(), String> {
     // ## Scopes, outermost first.
     struct RawScope<'m> {
@@ -1229,15 +1359,72 @@ fn query_records(
                 .last()
                 .map(|s| (s.pretty.clone(), s.sym.clone()))
                 .unwrap_or_default();
-            // (With a regex, the records are at its matches in the node.)
-            let Some(regex) = &rule.regex else {
+            // The rule's hits (their locations, texts, and template
+            // variables): the node, or, with a regex, its matches in the
+            // node (with their groups too).
+            type Hit = (Location, String, Vec<(String, String)>);
+            let mut hits: Vec<Hit> = vec![];
+            match &rule.regex {
+                None => hits.push((location(&id), node_text(&id, source).to_string(), captures)),
+                Some(regex) => {
+                    let node_start = id.start_byte();
+                    let line_starts = line_starts.get_or_insert_with(|| line_starts_of(source));
+                    let has_id_group = regex.capture_names().flatten().any(|name| name == "id");
+                    for regex_match in regex.captures_iter(node_text(&id, source)) {
+                        // (Matches without the `id` group, if the regex has
+                        // one, are what the rule leaves out, ex: definitions,
+                        // for uses.)
+                        let at = match regex_match.name("id") {
+                            Some(at) => at,
+                            None if has_id_group => continue,
+                            None => regex_match.get(0).unwrap(),
+                        };
+                        let mut captures = captures.clone();
+                        for name in regex.capture_names().flatten() {
+                            if let Some(group) = regex_match.name(name) {
+                                captures.push((name.to_string(), group.as_str().to_string()));
+                            }
+                        }
+                        let loc = byte_location(
+                            source,
+                            line_starts,
+                            node_start + at.start()..node_start + at.end(),
+                        );
+                        hits.push((loc, at.as_str().to_string(), captures));
+                    }
+                }
+            }
+            for (loc, text, captures) in hits {
                 let globals = template_globals(&enclosing, &captures);
+                if let Some((resolve, prefix)) = &rule.resolve {
+                    analysis.unresolved.push(UnresolvedUse {
+                        resolve: *resolve,
+                        prefix: prefix.clone(),
+                        text,
+                        loc,
+                        syntax_kind: rule.syntax_kind.clone(),
+                        kind: rule.kind,
+                        context: context.clone(),
+                        grammar: mapping.grammar.clone(),
+                        templates: (*resolve == Resolve::Constant)
+                            .then(|| (rule.sym.clone(), rule.pretty.clone(), globals)),
+                    });
+                    continue;
+                }
                 let sym = rule.sym.render(&globals).map_err(|e| e.to_string())?;
                 let pretty = rule.pretty.render(&globals).map_err(|e| e.to_string())?;
-                let loc = location(&id);
+                if rule.role == Role::Constant {
+                    analysis.constants.push(Constant {
+                        grammar: mapping.grammar.clone(),
+                        name: sym,
+                        value: pretty,
+                    });
+                    continue;
+                }
                 // (From the definition's line, since the nesting node can
                 // start with a line break, ex: a Fluent attribute's.)
                 let nesting_range = nesting_capture
+                    .filter(|_| rule.regex.is_none())
                     .and_then(|index| m.captures().iter().find(|c| c.index == index))
                     .map(|c| {
                         let end = c.node.end_position();
@@ -1252,7 +1439,7 @@ fn query_records(
                     .filter(|range| range.end_lineno > range.start_lineno)
                     .unwrap_or_default();
                 rule_records(
-                    records,
+                    &mut analysis.records,
                     rule.role,
                     loc,
                     &rule.syntax_kind,
@@ -1260,56 +1447,6 @@ fn query_records(
                     pretty,
                     sym,
                     nesting_range,
-                    context,
-                );
-                continue;
-            };
-            let node_start = id.start_byte();
-            let line_starts = line_starts.get_or_insert_with(|| line_starts_of(source));
-            let has_id_group = regex.capture_names().flatten().any(|name| name == "id");
-            for regex_match in regex.captures_iter(node_text(&id, source)) {
-                // (Matches without the `id` group, if the regex has one, are
-                // what the rule leaves out, ex: definitions, for uses.)
-                let at = match regex_match.name("id") {
-                    Some(at) => at,
-                    None if has_id_group => continue,
-                    None => regex_match.get(0).unwrap(),
-                };
-                let mut captures = captures.clone();
-                for name in regex.capture_names().flatten() {
-                    if let Some(group) = regex_match.name(name) {
-                        captures.push((name.to_string(), group.as_str().to_string()));
-                    }
-                }
-                let globals = template_globals(&enclosing, &captures);
-                let loc = byte_location(
-                    source,
-                    line_starts,
-                    node_start + at.start()..node_start + at.end(),
-                );
-                if let Some((resolve, prefix)) = &rule.resolve {
-                    unresolved.push(UnresolvedUse {
-                        resolve: *resolve,
-                        prefix: prefix.clone(),
-                        text: at.as_str().to_string(),
-                        loc,
-                        syntax_kind: rule.syntax_kind.clone(),
-                        kind: rule.kind,
-                        context: context.clone(),
-                    });
-                    continue;
-                }
-                let sym = rule.sym.render(&globals).map_err(|e| e.to_string())?;
-                let pretty = rule.pretty.render(&globals).map_err(|e| e.to_string())?;
-                rule_records(
-                    records,
-                    rule.role,
-                    loc,
-                    &rule.syntax_kind,
-                    rule.kind,
-                    pretty,
-                    sym,
-                    SourceRange::default(),
                     context.clone(),
                 );
             }
@@ -1558,8 +1695,8 @@ pub(crate) fn parse_all(
 
 /// Analyze the file at `path` (with `source` contents) with the `mappings`
 /// which apply to it: its file definition, and the definitions, uses, and
-/// keys the mappings' rules find, but for uses which name definitions in any
-/// file (see `analyze_resolving`).
+/// keys the mappings' rules find, but for uses which name things in any file
+/// (see `analyze_resolving`).
 pub fn analyze(
     mappings: &[&CompiledMapping],
     path: &str,
@@ -1568,15 +1705,18 @@ pub fn analyze(
     Ok(analyze_resolving(mappings, path, source)?.records)
 }
 
-/// `analyze`, and the uses which name definitions in any file, for
-/// `resolve_uses` once all of the files are analyzed.
+/// `analyze`, with the file's constants and its uses which name things in any
+/// file, for `Resolvables` once all of the files are analyzed.
 pub fn analyze_resolving(
     mappings: &[&CompiledMapping],
     path: &str,
     source: &str,
 ) -> Result<Analysis, String> {
-    let mut records = vec![file_def_record(path)];
-    let mut unresolved = vec![];
+    let mut analysis = Analysis {
+        records: vec![file_def_record(path)],
+        constants: vec![],
+        unresolved: vec![],
+    };
     let mut parser = tree_sitter::Parser::new();
     // (Mappings with the same grammar share its parse.)
     let mut grammars: Vec<&str> = vec![];
@@ -1624,16 +1764,13 @@ pub fn analyze_resolving(
                 continue;
             }
             for root in &roots {
-                query_records(mapping, *root, source, &mut records, &mut unresolved)?;
+                query_records(mapping, *root, source, &mut analysis)?;
             }
-            data_records(mapping, &data, path, source, &mut records)?;
+            data_records(mapping, &data, path, source, &mut analysis.records)?;
         }
     }
-    sort_records(&mut records);
-    Ok(Analysis {
-        records,
-        unresolved,
-    })
+    sort_records(&mut analysis.records);
+    Ok(analysis)
 }
 
 /// The definition of the file at `path`.
@@ -2065,18 +2202,15 @@ pretty = "{{ value }}"
         // Citations name the definitions sharing the most leading (whole)
         // words, at those words, if just one does.
         assert_eq!(analysis.unresolved.len(), 5);
-        let defs: Vec<(String, String)> = analysis
-            .records
-            .iter()
-            .filter_map(|record| match record {
-                Record::Target(t) if t.data.kind == AnalysisKind::DocDef => {
-                    Some((t.data.pretty.clone(), t.data.sym.clone()))
-                }
-                _ => None,
-            })
-            .collect();
+        let mut resolvables = Resolvables::new(&mappings);
+        resolvables.add("js/src/vm/A.cpp", &analysis);
+        let resolve = |resolvables: &Resolvables| {
+            resolvables
+                .resolve("js/src/vm/A.cpp", &analysis.unresolved)
+                .unwrap()
+        };
         assert_eq!(
-            targets(&resolve_uses(&defs, &analysis.unresolved)),
+            targets(&resolve(&resolvables)),
             [
                 "9:15-27 doc-use SMDOC_Atomics@2Ewait@2C@20Atomics@2EwaitAsync@2C@20and@20Atomics@2Enotify",
                 "9:50-66 doc-use SMDOC_JIT@20Register@2DSet@20@28Live@29",
@@ -2084,12 +2218,133 @@ pretty = "{{ value }}"
             ]
         );
         // (But not when several share as many.)
-        let more = [
-            defs.clone(),
-            vec![("Atomics.wait in workers".to_string(), "SMDOC_x".to_string())],
-        ]
-        .concat();
-        assert_eq!(targets(&resolve_uses(&more, &analysis.unresolved)).len(), 2);
+        resolvables.add_def("Atomics.wait in workers", "SMDOC_x");
+        assert_eq!(targets(&resolve(&resolvables)).len(), 2);
+    }
+
+    #[test]
+    fn test_observer_topic_mappings() {
+        let mappings = builtin_mappings().unwrap();
+        let mapping = |name: &str| mappings.iter().find(|m| m.name == name).unwrap();
+        let cpp_source = concat!(
+            "#define NS_TEST_TOPIC \"test-topic\"\n",
+            "static const char kOther[] = \"other-topic\";\n",
+            "void F() {\n",
+            "  obs->NotifyObservers(nullptr, \"lit-topic\", nullptr);\n",
+            "  obs->AddObserver(this, NS_TEST_TOPIC, false);\n",
+            "  obs->RemoveObserver(this, kElsewhere);\n",
+            "  self->NotifyObservers(NS_TEST_TOPIC, \"data\");\n",
+            "  Preferences::RemoveObserver(this, \"a.pref\");\n",
+            "  obs->AddObserver(this, aTopic, false);\n",
+            "}\n",
+            "NS_IMETHODIMP C::Observe(nsISupports*, const char* aTopic, const char16_t*) {\n",
+            "  if (!strcmp(aTopic, \"lit-topic\")) {}\n",
+            "  if (!strcmp(aTopic, kOther)) {}\n",
+            "  return NS_OK;\n",
+            "}\n",
+        );
+        let header_source = "static constexpr auto kElsewhere = \"elsewhere\"_ns;\n";
+        let js_source = concat!(
+            "const TOPIC = \"js-const\";\n",
+            "const lazy = {};\n",
+            "ChromeUtils.defineESModuleGetters(lazy, { MODULE_TOPIC: \"resource://x.sys.mjs\" });\n",
+            "Services.obs.notifyObservers(null, \"js-topic\");\n",
+            "Services.obs.addObserver(this, TOPIC);\n",
+            "Services.prefs.addObserver(\"a.pref\", this);\n",
+            "Services.obs.removeObserver(this, lazy.MODULE_TOPIC);\n",
+            "var o = {\n",
+            "  observe(subject, topic, data) {\n",
+            "    if (topic == \"js-topic\") {}\n",
+            "    switch (topic) {\n",
+            "      case TOPIC:\n",
+            "      case \"case-topic\":\n",
+            "        break;\n",
+            "    }\n",
+            "  },\n",
+            "};\n",
+        );
+        let cpp =
+            analyze_resolving(&[mapping("observer_topics_cpp.toml")], "a.cpp", cpp_source).unwrap();
+        let header =
+            analyze_resolving(&[mapping("observer_topics_cpp.toml")], "b.h", header_source)
+                .unwrap();
+        let js =
+            analyze_resolving(&[mapping("observer_topics_js.toml")], "c.mjs", js_source).unwrap();
+        let mut resolvables = Resolvables::new(&mappings);
+        for (path, analysis) in [("a.cpp", &cpp), ("b.h", &header), ("c.mjs", &js)] {
+            resolvables.add(path, analysis);
+        }
+        let uses = |path: &str, analysis: &Analysis| -> Vec<String> {
+            let mut records: Vec<&Record> = analysis.records.iter().collect();
+            let resolved = resolvables.resolve(path, &analysis.unresolved).unwrap();
+            records.extend(&resolved);
+            let mut uses: Vec<(u32, String)> = records
+                .iter()
+                .filter_map(|record| match record {
+                    Record::Target(t) if !t.loc.is_file_target() => {
+                        Some((t.loc.lineno, format!("{} {}", t.loc.lineno, t.data.sym)))
+                    }
+                    _ => None,
+                })
+                .collect();
+            uses.sort();
+            uses.into_iter().map(|(_, use_)| use_).collect()
+        };
+        // Literals, the file's constants, and the tree's (but not the
+        // observer service's methods' namesakes, prefs, or variables).
+        assert_eq!(
+            uses("a.cpp", &cpp),
+            [
+                "4 OBSTOPIC_lit@2Dtopic",
+                "5 OBSTOPIC_test@2Dtopic",
+                "6 OBSTOPIC_elsewhere",
+                "12 OBSTOPIC_lit@2Dtopic",
+                "13 OBSTOPIC_other@2Dtopic",
+            ]
+        );
+        // (Not modules' URLs, or prefs.)
+        assert_eq!(
+            uses("c.mjs", &js),
+            [
+                "4 OBSTOPIC_js@2Dtopic",
+                "5 OBSTOPIC_js@2Dconst",
+                "10 OBSTOPIC_js@2Dtopic",
+                "12 OBSTOPIC_js@2Dconst",
+                "13 OBSTOPIC_case@2Dtopic",
+            ]
+        );
+        // XPIDL files' C++ blocks have constants too.
+        let idl = analyze_resolving(
+            &[mapping("observer_topics_idl.toml")],
+            "e.idl",
+            "interface nsIX : nsISupports {};\n%{C++\n#define NS_X_TOPIC   \"x-topic\"\n#define NS_X_CID {0}\n%}\n",
+        )
+        .unwrap();
+        assert_eq!(
+            idl.constants,
+            [Constant {
+                grammar: "mozcpp".to_string(),
+                name: "NS_X_TOPIC".to_string(),
+                value: "x-topic".to_string(),
+            }]
+        );
+        // Constants of the same name with different values in other files
+        // don't resolve.
+        let mut ambiguous = Resolvables::new(&mappings);
+        ambiguous.add("a.cpp", &cpp);
+        ambiguous.add("b.h", &header);
+        ambiguous.add(
+            "d.h",
+            &analyze_resolving(
+                &[mapping("observer_topics_cpp.toml")],
+                "d.h",
+                "#define kElsewhere \"different\"\n",
+            )
+            .unwrap(),
+        );
+        let resolved = ambiguous.resolve("a.cpp", &cpp.unresolved).unwrap();
+        assert!(!resolved.iter().any(|record| matches!(record,
+            Record::Target(t) if t.data.sym.contains("elsewhere") || t.data.sym.contains("different"))));
     }
 
     #[test]

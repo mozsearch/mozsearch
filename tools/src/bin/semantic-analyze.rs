@@ -11,8 +11,8 @@
 // records) written to ANALYSIS_ROOT/<path>, or added to its analysis there if
 // it has some (ex: C++ files' uses of prefs; see
 // `semantic_analyzer::merge_records`).  Files with uses which name
-// definitions in any file (see `semantic_analyzer::Resolve`) are written once
-// all of the files are analyzed.  DOC_TREES_JSON is the map of the
+// definitions or constants in any file (see `semantic_analyzer::Resolve`) are
+// written once all of the files are analyzed.  DOC_TREES_JSON is the map of the
 // documentation's staged layout (see `file_format::doc_trees`), if the tree
 // has one.
 
@@ -20,13 +20,12 @@ use std::io::{BufRead, Write};
 use std::path::Path;
 use std::process::exit;
 
-use tools::file_format::analysis::AnalysisKind;
 use tools::file_format::doc_trees::read_doc_trees;
 use tools::rendered_docs::analysis::{TreeFiles, doc_records};
 use tools::rendered_docs::is_doc_path;
 use tools::semantic_analyzer::{
-    Analysis, Record, UnresolvedUse, analyze_resolving, builtin_mappings, file_def_record,
-    merge_records, resolve_uses, sort_records,
+    Analysis, Record, Resolvables, UnresolvedUse, analyze_resolving, builtin_mappings,
+    file_def_record, merge_records, sort_records,
 };
 
 /// Write a file's analysis records to ANALYSIS_ROOT/<path>, or add them to
@@ -72,14 +71,9 @@ fn main() {
         .filter(|path| Path::new(path).exists())
         .map(read_doc_trees);
     let files = TreeFiles::new(paths.iter().cloned(), doc_trees);
-    // The definitions which uses in any file can name (see
-    // `semantic_analyzer::Resolve`), and the files with such uses, which
-    // wait for all of the definitions.
-    let prefixes: Vec<String> = mappings
-        .iter()
-        .flat_map(|m| m.resolving_prefixes())
-        .collect();
-    let mut defs: Vec<(String, String)> = vec![];
+    // What uses in any file can name (see `semantic_analyzer::Resolve`), and
+    // the files with such uses, which wait for all of the files.
+    let mut resolvables = Resolvables::new(&mappings);
     let mut resolving: Vec<(&str, Vec<Record>, Vec<UnresolvedUse>)> = vec![];
     let (mut analyzed, mut failed) = (0, 0);
     for path in &paths {
@@ -101,6 +95,7 @@ fn main() {
         let analysis = if applying.is_empty() {
             Ok(Analysis {
                 records: vec![file_def_record(path)],
+                constants: vec![],
                 unresolved: vec![],
             })
         } else {
@@ -118,20 +113,13 @@ fn main() {
             Ok(analysis)
         });
         match analysis {
-            Ok(Analysis {
-                records,
-                unresolved,
-            }) => {
-                for record in &records {
-                    if let Record::Target(target) = record
-                        && matches!(target.data.kind, AnalysisKind::Def | AnalysisKind::DocDef)
-                        && prefixes
-                            .iter()
-                            .any(|p| target.data.sym.starts_with(p.as_str()))
-                    {
-                        defs.push((target.data.pretty.clone(), target.data.sym.clone()));
-                    }
-                }
+            Ok(analysis) => {
+                resolvables.add(path, &analysis);
+                let Analysis {
+                    records,
+                    unresolved,
+                    ..
+                } = analysis;
                 if unresolved.is_empty() {
                     write_records(analysis_root, path, records);
                 } else {
@@ -148,15 +136,19 @@ fn main() {
     let unresolved_count: usize = resolving.iter().map(|(_, _, u)| u.len()).sum();
     let mut resolved_count = 0;
     for (path, mut records, unresolved) in resolving {
-        let resolved = resolve_uses(&defs, &unresolved);
-        // (A source and a target record for each.)
-        resolved_count += resolved.len() / 2;
-        records.extend(resolved);
+        match resolvables.resolve(path, &unresolved) {
+            Ok(resolved) => {
+                // (A source and a target record for each.)
+                resolved_count += resolved.len() / 2;
+                records.extend(resolved);
+            }
+            Err(e) => eprintln!("Couldn't resolve {}'s uses: {}", path, e),
+        }
         sort_records(&mut records);
         write_records(analysis_root, path, records);
     }
     println!(
-        "Analyzed {} files ({} failed); resolved {} of {} uses of definitions in any file",
+        "Analyzed {} files ({} failed); resolved {} of {} uses of definitions and constants in any file",
         analyzed, failed, resolved_count, unresolved_count
     );
 }

@@ -1,0 +1,164 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/observer/topics__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "OBSTOPIC_test@2Dliteral",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "observer/observer.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 25,
+                "bounds": [
+                  25,
+                  37
+                ],
+                "line": "aObs->AddObserver(this, \"test-literal\", false);",
+                "context": "observer_test::Observer::Register",
+                "contextsym": "_ZN13observer_test8Observer8RegisterEPNS_15ObserverServiceE"
+              },
+              {
+                "lno": 29,
+                "bounds": [
+                  21,
+                  33
+                ],
+                "line": "if (!strcmp(aTopic, \"test-literal\")) {",
+                "context": "observer_test::Observer::Observe",
+                "contextsym": "_ZN13observer_test8Observer7ObserveEPNS_8SupportsEPKcPKDs"
+              }
+            ]
+          },
+          {
+            "path": "observer/observer.sys.mjs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 10,
+                "bounds": [
+                  32,
+                  44
+                ],
+                "line": "Services.obs.addObserver(this, \"test-literal\");",
+                "context": "Observer.init",
+                "contextsym": ""
+              },
+              {
+                "lno": 17,
+                "bounds": [
+                  6,
+                  18
+                ],
+                "line": "case \"test-literal\":",
+                "context": "",
+                "contextsym": ""
+              },
+              {
+                "lno": 23,
+                "bounds": [
+                  36,
+                  48
+                ],
+                "line": "Services.obs.notifyObservers(null, \"test-literal\");",
+                "context": "Observer.notify",
+                "contextsym": ""
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "OBSTOPIC_test@2Dshutdown",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "observer/observer.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 24,
+                "bounds": [
+                  24,
+                  46
+                ],
+                "line": "aObs->AddObserver(this, NS_TEST_SHUTDOWN_TOPIC, false);",
+                "context": "observer_test::Observer::Register",
+                "contextsym": "_ZN13observer_test8Observer8RegisterEPNS_15ObserverServiceE"
+              },
+              {
+                "lno": 32,
+                "bounds": [
+                  20,
+                  42
+                ],
+                "line": "if (!strcmp(aTopic, NS_TEST_SHUTDOWN_TOPIC)) {",
+                "context": "observer_test::Observer::Observe",
+                "contextsym": "_ZN13observer_test8Observer7ObserveEPNS_8SupportsEPKcPKDs"
+              },
+              {
+                "lno": 40,
+                "bounds": [
+                  31,
+                  53
+                ],
+                "line": "aObs->NotifyObservers(nullptr, NS_TEST_SHUTDOWN_TOPIC, nullptr);",
+                "context": "observer_test::Shutdown",
+                "contextsym": "_ZN13observer_test8ShutdownEPNS_15ObserverServiceE"
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "OBSTOPIC_test@2Djs@2Dtopic",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "observer/observer.sys.mjs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 9,
+                "bounds": [
+                  31,
+                  41
+                ],
+                "line": "Services.obs.addObserver(this, TEST_TOPIC);",
+                "context": "Observer.init",
+                "contextsym": ""
+              },
+              {
+                "lno": 15,
+                "bounds": [
+                  5,
+                  15
+                ],
+                "line": "case TEST_TOPIC:",
+                "context": "Observer.observe",
+                "contextsym": ""
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

@@ -1,0 +1,160 @@
+# Observer service topics in C++ (see semantic_analyzer.rs, and
+# observer_topics_js.toml): notifications of topics
+# (`obs->NotifyObservers(subject, "topic", data)`), registrations and
+# unregistrations of observers of them (`obs->AddObserver(this, "topic",
+# weak)`, `obs->RemoveObserver(this, "topic")`), and `Observe` methods'
+# comparisons of their topics (`!strcmp(aTopic, "topic")`) use
+# `OBSTOPIC_<topic>`, by literals, or by constants (ex:
+# `NS_XPCOM_SHUTDOWN_OBSERVER_ID`, for `#define NS_XPCOM_SHUTDOWN_OBSERVER_ID
+# "xpcom-shutdown"`), in the contexts of the clang plugin's records on their
+# lines.  (Only calls of methods through pointers or references, since
+# `Preferences::RemoveObserver(this, "pref")` is for prefs, and with
+# nsIObserverService's numbers of arguments, since other classes' helpers
+# have the same names, ex: `NotifyObservers(topic, data)`; prefs branches'
+# `AddObserver("pref", this, weak)` have their prefs first.)
+grammar = "mozcpp"
+paths = ["**/*.cpp", "**/*.cc", "**/*.h", "**/*.hpp", "**/*.mm"]
+contains = [
+  "NotifyObservers", "AddObserver", "RemoveObserver", "NotifyWhenScriptSafe",
+  "Topic", "TOPIC", "OBSERVER_ID",
+]
+
+# ## Uses
+
+[[rules]]
+role = "use"
+query = '''
+(call_expression
+  function: (field_expression field: (field_identifier) @method)
+  arguments: (argument_list . (_) . [
+    (string_literal (string_content) @id)
+    (user_defined_literal (string_literal (string_content) @id))
+  ] . (_) .)
+  (#match? @method "^(NotifyObservers|AddObserver|NotifyWhenScriptSafe)$"))
+(call_expression
+  function: (field_expression field: (field_identifier) @method)
+  arguments: (argument_list . (_) . [
+    (string_literal (string_content) @id)
+    (user_defined_literal (string_literal (string_content) @id))
+  ] .)
+  (#eq? @method "RemoveObserver"))
+'''
+sym = "OBSTOPIC_{{ id | at_escape }}"
+pretty = "{{ id }}"
+syntax_kind = "observer topic"
+
+[[rules]]
+role = "use"
+query = '''
+(call_expression
+  function: (field_expression field: (field_identifier) @method)
+  arguments: (argument_list . (_) . [(identifier) (qualified_identifier)] @id . (_) .)
+  (#match? @method "^(NotifyObservers|AddObserver|NotifyWhenScriptSafe)$"))
+(call_expression
+  function: (field_expression field: (field_identifier) @method)
+  arguments: (argument_list . (_) . [(identifier) (qualified_identifier)] @id .)
+  (#eq? @method "RemoveObserver"))
+'''
+resolve = "constant"
+sym = "OBSTOPIC_{{ value | at_escape }}"
+pretty = "{{ value }}"
+syntax_kind = "observer topic"
+
+[[rules]]
+role = "use"
+query = '''
+(call_expression
+  function: (_) @fn
+  arguments: (argument_list . (identifier) @topic . [
+    (string_literal (string_content) @id)
+    (user_defined_literal (string_literal (string_content) @id))
+  ])
+  (#match? @fn "^((nsCRT|std)::)?(PL_)?strcmp$")
+  (#match? @topic "^a?[Tt]opic$"))
+'''
+sym = "OBSTOPIC_{{ id | at_escape }}"
+pretty = "{{ id }}"
+syntax_kind = "observer topic"
+
+[[rules]]
+role = "use"
+query = '''
+(call_expression
+  function: (_) @fn
+  arguments: (argument_list . (identifier) @topic . [(identifier) (qualified_identifier)] @id)
+  (#match? @fn "^((nsCRT|std)::)?(PL_)?strcmp$")
+  (#match? @topic "^a?[Tt]opic$"))
+'''
+resolve = "constant"
+sym = "OBSTOPIC_{{ value | at_escape }}"
+pretty = "{{ value }}"
+syntax_kind = "observer topic"
+
+[[rules]]
+role = "use"
+query = '''
+(call_expression
+  function: (field_expression argument: (identifier) @topic field: (field_identifier) @method)
+  arguments: (argument_list . [
+    (string_literal (string_content) @id)
+    (user_defined_literal (string_literal (string_content) @id))
+  ])
+  (#match? @method "^Equals(Literal|ASCII)$")
+  (#match? @topic "^a?[Tt]opic$"))
+'''
+sym = "OBSTOPIC_{{ id | at_escape }}"
+pretty = "{{ id }}"
+syntax_kind = "observer topic"
+
+# ## Constants, which look like constants (ex: `kTopic`, `TOPIC_NAME`)
+
+[[rules]]
+role = "constant"
+query = '''
+(preproc_def
+  name: (identifier) @name
+  value: (preproc_arg) @id
+  (#match? @name "^(k[A-Z][A-Za-z0-9_]*|[A-Z][A-Z0-9_]*)$"))
+'''
+regex = '''^\s*"(?P<value>[^"\\]*)"'''
+sym = "{{ name }}"
+pretty = "{{ value }}"
+
+[[rules]]
+role = "constant"
+query = '''
+(init_declarator
+  declarator: [
+    (identifier) @name
+    (array_declarator declarator: (identifier) @name)
+    (pointer_declarator declarator: (identifier) @name)
+    (qualified_identifier name: (identifier) @name)
+    (array_declarator declarator: (qualified_identifier name: (identifier) @name))
+    (pointer_declarator declarator: (qualified_identifier name: (identifier) @name))
+  ]
+  value: [
+    (string_literal (string_content) @id)
+    (user_defined_literal (string_literal (string_content) @id))
+  ]
+  (#match? @name "^(k[A-Z][A-Za-z0-9_]*|[A-Z][A-Z0-9_]*)$"))
+'''
+sym = "{{ name }}"
+pretty = "{{ id }}"
+
+[[rules]]
+role = "constant"
+query = '''
+(field_declaration
+  declarator: [
+    (field_identifier) @name
+    (array_declarator declarator: (field_identifier) @name)
+    (pointer_declarator declarator: (field_identifier) @name)
+  ]
+  default_value: [
+    (string_literal (string_content) @id)
+    (user_defined_literal (string_literal (string_content) @id))
+  ]
+  (#match? @name "^(k[A-Z][A-Za-z0-9_]*|[A-Z][A-Z0-9_]*)$"))
+'''
+sym = "{{ name }}"
+pretty = "{{ id }}"

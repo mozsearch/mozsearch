@@ -617,6 +617,13 @@ input_file: inputs/web/dirs/root_listing__html
         </tr>
 
         <tr>
+          <td class="name"><a href="/tests/source/observer" class="mimetype-fixed-container mimetype-icon-folder">observer</a></td>
+          <td class="description"><a href="/tests/source/observer" title=""></td>
+          <td class="size"><a href="/tests/source/observer"></a></td>
+          <td class="coverage"><a href="/tests/source/observer" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
+        </tr>
+
+        <tr>
           <td class="name"><a href="/tests/source/overs.cpp" class="mimetype-fixed-container mimetype-icon-cpp">overs.cpp</a></td>
           <td class="description"><a href="/tests/source/overs.cpp" title="This file is intended to create interesting test cases for searches against
  a base class with a limited number of overrides.
