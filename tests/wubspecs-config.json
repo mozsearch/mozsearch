@@ -1,0 +1,21 @@
+{
+  "mozsearch_path": "$MOZSEARCH_PATH",
+  "config_repo": "$CONFIG_REPO",
+
+  "default_tree": "wubspecs",
+
+  "trees": {
+    "wubspecs": {
+      "priority": 100,
+      "on_error": "halt",
+      "cache": "everything",
+      "index_path": "$WORKING/wubspecs",
+      "files_path": "$WORKING/wubspecs/git",
+      "objdir_path": "$WORKING/wubspecs/objdir",
+      "git_path": "$WORKING/wubspecs/git",
+      "history_path": "$WORKING/wubspecs/history",
+      "codesearch_path": "$WORKING/wubspecs/livegrep.idx",
+      "codesearch_port": 8083
+    }
+  }
+}

@@ -99,6 +99,18 @@ build-searchfox-repo: check-in-vagrant update-indexer-packages internal-build-re
 clean-build-searchfox-repo: export CLEAN_HISTORY=1
 clean-build-searchfox-repo: build-searchfox-repo
 
+# The "wubspecs" tree of web specs (see tests/wubspecs/specs.toml), fetched
+# from their upstream repositories, with their history back to the start of
+# each (for the HTML Standard, 2006).  Like the searchfox tree's, the history
+# is kept between builds (see clean-build-searchfox-repo).
+build-wubspecs-repo: _INDEX_ROOT=~/wubspecs-index
+build-wubspecs-repo: _CONFIG_REPO=/vagrant/tests
+build-wubspecs-repo: _CONFIG_NAME=wubspecs-config.json
+build-wubspecs-repo: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo
+
+clean-build-wubspecs-repo: export CLEAN_HISTORY=1
+clean-build-wubspecs-repo: build-wubspecs-repo
+
 # Notes:
 # - This also works with `export TRYPUSH_REV=full-40char-hash` for try runs
 #   that have the relevant jobs scheduled on them.  In particular:

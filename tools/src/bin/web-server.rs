@@ -152,6 +152,27 @@ fn handle(
     let tree_name = &path[0];
     let kind = &path[1];
 
+    // Upstream revisions of a forest of specs' repos (ex: from a permalink to
+    // a spec's own repository) are their forest commits'; see
+    // `format::forest_rev`.  (A path in another spec than the revision's is an
+    // error, rather than that spec's file at the time.)
+    if matches!(&kind[..], "rev" | "rev-rendered" | "diff" | "commit")
+        && path.len() >= 3
+        && let Some((forest_rev, spec)) = format::forest_rev(cfg, tree_name, path[2])
+    {
+        let file_path = path[3..].join("/");
+        if !file_path.is_empty() && file_path.split('/').next() != Some(spec.as_str()) {
+            return WebResponse::internal_error(format!(
+                "{} is a revision of {}, not of {}",
+                path[2], spec, file_path
+            ));
+        }
+        return WebResponse::redirect(format!(
+            "/{}/{}/{}/{}",
+            tree_name, kind, forest_rev, file_path
+        ));
+    }
+
     println!("DBG {:?} {} {}", path, tree_name, kind);
 
     match &kind[..] {

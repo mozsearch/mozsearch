@@ -2103,6 +2103,23 @@ pub fn tree_for_rev(cfg: &Config, tree_name: &str, rev: &str) -> Option<String> 
     )
 }
 
+/// For a tree whose repo is a forest of specs' repos (see `spec_forest`), the
+/// forest commit of an upstream commit (ex: from a permalink to a spec's own
+/// repository, `/{tree}/rev/{upstream rev}/fetch/fetch.bs`), and its spec.
+pub fn forest_rev(cfg: &Config, tree_name: &str, rev: &str) -> Option<(String, String)> {
+    let git = cfg.trees.get(tree_name)?.get_git().ok()?;
+    // (Only forests have upstream notes.)
+    git.repo
+        .find_reference(crate::spec_forest::UPSTREAM_NOTES_REF)
+        .ok()?;
+    let upstream = git.repo.revparse_single(rev).ok()?.peel_to_commit().ok()?;
+    let forest = crate::spec_forest::forest_commit(&git.repo, upstream.id())?;
+    let commit = git.repo.find_commit(forest).ok()?;
+    let message = String::from_utf8_lossy(commit.message_bytes()).into_owned();
+    let (spec, _) = crate::spec_forest::parse_upstream_trailer(&message)?;
+    Some((forest.to_string(), spec.to_string()))
+}
+
 /// `tree_for_rev`'s choice, given what this tree and the others (lazily, in
 /// order) know of the revision.  Not when this tree's repo doesn't have the
 /// revision at all, ex: the tree switcher keeping the revision of an

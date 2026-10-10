@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
+
+# The specs have nothing to build (yet; their semantic analysis is to come).
+echo "Performing build step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"

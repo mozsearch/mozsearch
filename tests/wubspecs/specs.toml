@@ -1,0 +1,65 @@
+# The specs of the "wubspecs" tree: each is a top-level directory of the
+# tree's forest repository, with the history of its upstream repository's
+# branch (see tools/src/spec_forest.rs and build-spec-forest).
+
+# The forest's root .gitattributes: specs' HTML-based sources are tokenized
+# as such for history (see tools/src/tree_sitter_support/spec_tokenizer.rs),
+# including the HTML Standard's `source` (and the `index` it generated, which
+# its repository had until 2012), and old specs' XML and Anolis `.src` files.
+# (Bikeshed's `.bs` files are tokenized as Bikeshed by default.)
+attributes = """
+*.html searchfox-lang=spec-html
+*.htm searchfox-lang=spec-html
+*.xml searchfox-lang=spec-html
+*.src searchfox-lang=spec-html
+html/source searchfox-lang=spec-html
+html/index searchfox-lang=spec-html
+"""
+
+[[spec]]
+name = "html"
+url = "https://github.com/whatwg/html.git"
+
+[[spec]]
+name = "dom"
+url = "https://github.com/whatwg/dom.git"
+
+[[spec]]
+name = "fetch"
+url = "https://github.com/whatwg/fetch.git"
+
+[[spec]]
+name = "url"
+url = "https://github.com/whatwg/url.git"
+
+[[spec]]
+name = "infra"
+url = "https://github.com/whatwg/infra.git"
+
+[[spec]]
+name = "webidl"
+url = "https://github.com/whatwg/webidl.git"
+
+[[spec]]
+name = "streams"
+url = "https://github.com/whatwg/streams.git"
+
+[[spec]]
+name = "service-workers"
+url = "https://github.com/w3c/ServiceWorker.git"
+
+[[spec]]
+name = "indexeddb"
+url = "https://github.com/w3c/IndexedDB.git"
+
+[[spec]]
+name = "storage"
+url = "https://github.com/whatwg/storage.git"
+
+[[spec]]
+name = "fs"
+url = "https://github.com/whatwg/fs.git"
+
+[[spec]]
+name = "ecma262"
+url = "https://github.com/tc39/ecma262.git"

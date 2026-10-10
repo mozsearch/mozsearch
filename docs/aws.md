@@ -406,6 +406,20 @@ infrastructure/aws/trigger_blame_rebuild.py \
   --setenv HISTORY_WINDOW_DAYS=14
 ```
 
+Likewise, the wubspecs tree of web specs (see `wubspecs/reblame` in the
+config repo) builds its forest repository (see `build-spec-forest`) and its
+full history from scratch, and with `HISTORY_IN_PLACE=1` uploads them where
+its setup downloads them:
+
+```
+infrastructure/aws/trigger_blame_rebuild.py \
+  https://github.com/mozsearch/mozsearch \
+  https://github.com/mozsearch/mozsearch-mozilla \
+  just-wubspecs.json hyperblame dev-history \
+  --config-rev firefox-disco --instance-type m8id.8xlarge \
+  --setenv HISTORY_IN_PLACE=1
+```
+
 An `m8id.8xlarge` (32 CPUs, 128 GiB, a 1.9 TB SSD, $2.09 an hour in 2026-10)
 generated firefox-disco's full history: its critical path is about a CPU
 each for build-timeline-tree's main thread and its git fast-import, so a

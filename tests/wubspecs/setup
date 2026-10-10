@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
+
+# The "wubspecs" tree: web specs (see specs.toml), as a forest repository
+# whose top-level directories are the specs' upstream repositories, with the
+# token-centric history of all of them.
+
+echo "Performing setup::build-spec-forest step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
+# Fetch the specs and append their new commits to the forest (see
+# tools/src/spec_forest.rs), whose working tree is the tree's files.
+build-spec-forest --fetch $CONFIG_REPO/$TREE_NAME/specs.toml $GIT_ROOT
+
+echo "Performing setup::build-history step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
+# The history is kept between builds, like the searchfox tree's (set
+# CLEAN_HISTORY=1 to regenerate it).  It's built in chunks, with the history
+# repos repacked between them (see build-history.py), since the HTML
+# Standard's early revisions each rewrote several files of 2-8 MB, which git
+# fast-import's packs barely compress.  And with 4 compute threads rather
+# than 15, since build-syntax-token-tree keeps 10 revisions in flight per
+# thread, and those revisions' tokens take ~0.8 GB each, so 15 threads took
+# 77 GB.  (The config repo's wubspecs tree is this one, for AWS.)
+if [ -n "${CLEAN_HISTORY:-}" ]; then
+  rm -rf "$HISTORY_ROOT"
+fi
+mkdir -p $HISTORY_ROOT/rev-summaries
+for repo in syntax timeline; do
+  if [ ! -d $HISTORY_ROOT/$repo ]; then
+    mkdir -p $HISTORY_ROOT/$repo
+    git init $HISTORY_ROOT/$repo
+  fi
+done
+COMPUTE_THREADS=${COMPUTE_THREADS:-4} \
+  $MOZSEARCH_PATH/scripts/build-history.py --chunk-size ${HISTORY_CHUNK_SIZE:-500} \
+  $GIT_ROOT $HISTORY_ROOT
+
+echo "Performing setup::build-commit-index step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
+build-commit-index $GIT_ROOT $HISTORY_ROOT/commit-index
