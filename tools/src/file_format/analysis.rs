@@ -413,6 +413,8 @@ pub enum BindingOwnerLang {
     Idl,
     Glean,
     Prefs,
+    /// CrashAnnotations.yaml's crash annotations.
+    CrashAnnotation,
     Cpp,
     JS,
     Rust,

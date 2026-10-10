@@ -1,0 +1,24 @@
+# Crash annotations (CrashAnnotations.yaml; see semantic_analyzer.rs): each
+# annotation (a top-level key) defines `CRASHANN_<name>`, with a binding slot
+# (by pretty name, for crossref to resolve) for the C++ enum constant that
+# toolkit/crashreporter/annotations/generate.py makes for it,
+# `CrashReporter::Annotation::<name>`.
+grammar = "yaml"
+paths = ["**/CrashAnnotations.yaml"]
+
+[[data]]
+path = "*"
+role = "def"
+sym = "CRASHANN_{{ value }}"
+pretty = "{{ value }}"
+syntax_kind = "annotation"
+
+[data.structured]
+kind = "annotation"
+impl_kind = "CrashAnnotation"
+
+[[data.structured.bindings]]
+slot_kind = "const"
+slot_lang = "cpp"
+owner_lang = "crashannotation"
+pretty = "CrashReporter::Annotation::{{ value }}"

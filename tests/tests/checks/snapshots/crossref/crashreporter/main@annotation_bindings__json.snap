@@ -1,0 +1,136 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/crashreporter/annotation_bindings__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "CRASHANN_AbortMessage",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "crashreporter/CrashAnnotations.yaml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 4,
+                "bounds": [
+                  0,
+                  12
+                ],
+                "line": "AbortMessage:",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "AbortMessage",
+          "sym": "CRASHANN_AbortMessage",
+          "type_pretty": null,
+          "kind": "annotation",
+          "subsystem": null,
+          "implKind": "CrashAnnotation",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "const",
+              "slotLang": "cpp",
+              "implKind": null,
+              "ownerLang": "crashannotation",
+              "sym": "E_<T_CrashReporter::Annotation>_AbortMessage"
+            }
+          ],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "E_<T_CrashReporter::Annotation>_AbortMessage",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "crashreporter/CrashAnnotationsConsumer.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 4,
+                "bounds": [
+                  34,
+                  46
+                ],
+                "line": "return CrashReporter::Annotation::AbortMessage;",
+                "context": "CrashAnnotationsConsumer",
+                "contextsym": "_Z24CrashAnnotationsConsumerv"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "crashreporter/bindings/CrashAnnotations.h",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 10,
+                "bounds": [
+                  0,
+                  12
+                ],
+                "line": "AbortMessage = 0,",
+                "context": "CrashReporter::Annotation",
+                "contextsym": "T_CrashReporter::Annotation",
+                "peekRange": "10-10"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "CrashReporter::Annotation::AbortMessage",
+          "sym": "E_<T_CrashReporter::Annotation>_AbortMessage",
+          "type_pretty": null,
+          "kind": "enumConstant",
+          "subsystem": null,
+          "slotOwner": {
+            "slotKind": "const",
+            "slotLang": "cpp",
+            "implKind": null,
+            "ownerLang": "crashannotation",
+            "sym": "CRASHANN_AbortMessage"
+          },
+          "implKind": "",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

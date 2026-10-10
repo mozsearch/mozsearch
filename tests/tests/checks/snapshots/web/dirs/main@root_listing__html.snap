@@ -356,6 +356,13 @@ input_file: inputs/web/dirs/root_listing__html
         </tr>
 
         <tr>
+          <td class="name"><a href="/tests/source/crashreporter" class="mimetype-fixed-container mimetype-icon-folder">crashreporter</a></td>
+          <td class="description"><a href="/tests/source/crashreporter" title=""></td>
+          <td class="size"><a href="/tests/source/crashreporter"></a></td>
+          <td class="coverage"><a href="/tests/source/crashreporter" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
+        </tr>
+
+        <tr>
           <td class="name"><a href="/tests/source/critters-postcard.jpg" class="mimetype-fixed-container mimetype-icon-jpg">critters-postcard.jpg</a></td>
           <td class="description"><a href="/tests/source/critters-postcard.jpg" title=""></td>
           <td class="size"><a href="/tests/source/critters-postcard.jpg">108154</a></td>

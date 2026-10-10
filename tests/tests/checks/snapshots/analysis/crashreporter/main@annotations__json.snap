@@ -1,0 +1,67 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/crashreporter/annotations__json
+---
+[
+  {
+    "loc": "00004:0-12",
+    "structured": 1,
+    "pretty": "AbortMessage",
+    "sym": "CRASHANN_AbortMessage",
+    "kind": "annotation",
+    "implKind": "CrashAnnotation",
+    "bindingSlots": [
+      {
+        "slotKind": "const",
+        "slotLang": "cpp",
+        "ownerLang": "crashannotation",
+        "pretty": "CrashReporter::Annotation::AbortMessage"
+      }
+    ]
+  },
+  {
+    "loc": "00004:0-12",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "annotation AbortMessage",
+    "sym": "CRASHANN_AbortMessage"
+  },
+  {
+    "loc": "00004:0-12",
+    "target": 1,
+    "kind": "def",
+    "pretty": "AbortMessage",
+    "sym": "CRASHANN_AbortMessage"
+  },
+  {
+    "loc": "00010:0-20",
+    "structured": 1,
+    "pretty": "AsyncShutdownTimeout",
+    "sym": "CRASHANN_AsyncShutdownTimeout",
+    "kind": "annotation",
+    "implKind": "CrashAnnotation",
+    "bindingSlots": [
+      {
+        "slotKind": "const",
+        "slotLang": "cpp",
+        "ownerLang": "crashannotation",
+        "pretty": "CrashReporter::Annotation::AsyncShutdownTimeout"
+      }
+    ]
+  },
+  {
+    "loc": "00010:0-20",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "annotation AsyncShutdownTimeout",
+    "sym": "CRASHANN_AsyncShutdownTimeout"
+  },
+  {
+    "loc": "00010:0-20",
+    "target": 1,
+    "kind": "def",
+    "pretty": "AsyncShutdownTimeout",
+    "sym": "CRASHANN_AsyncShutdownTimeout"
+  }
+]

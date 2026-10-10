@@ -1,0 +1,14 @@
+# Crash annotations, after toolkit/crashreporter/CrashAnnotations.yaml (whose
+# generated C++ is like bindings/CrashAnnotations.h).
+
+AbortMessage:
+  description: >
+    Message passed to NS_DebugBreak().
+  type: string
+  scope: report
+
+AsyncShutdownTimeout:
+  description: >
+    The shutdown blockers which timed out.
+  type: string
+  scope: ping
