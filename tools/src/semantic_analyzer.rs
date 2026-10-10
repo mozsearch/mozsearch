@@ -146,6 +146,11 @@ pub struct QueryRule {
     pub regex: Option<String>,
     #[serde(default)]
     pub resolve: Option<Resolve>,
+    /// For uses, the binding slot of the symbol which their contexts fill
+    /// (ex: "send", for notifications of observer topics; see
+    /// `AnalysisTarget::slot`).
+    #[serde(default)]
+    pub slot: Option<BindingSlotKind>,
 }
 
 /// How a use names something in any file, which `Resolvables` finds once all
@@ -261,6 +266,7 @@ struct CompiledRule {
     regex: Option<regex::Regex>,
     /// How its uses resolve, and the prefix of the symbols they resolve to.
     resolve: Option<(Resolve, String)>,
+    slot: Option<BindingSlotKind>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -434,6 +440,7 @@ impl CompiledMapping {
                             .transpose()
                             .map_err(|e| format!("{}: regex: {}", name, e))?,
                         resolve,
+                        slot: rule.slot,
                     })
                 })
                 .collect::<Result<_, String>>()?,
@@ -982,6 +989,7 @@ pub(crate) fn target_record(
             contextsym,
             peek_range: LineRange::default(),
             arg_ranges: vec![],
+            slot: None,
         },
     })
 }
@@ -998,6 +1006,7 @@ fn rule_records(
     sym: String,
     nesting_range: SourceRange,
     context: (String, String),
+    slot: Option<BindingSlotKind>,
 ) {
     let syntax = match role {
         Role::Def => "def",
@@ -1023,7 +1032,11 @@ fn rule_records(
         (Role::Def, None) => AnalysisKind::Def,
         (Role::Use, None) => AnalysisKind::Use,
     };
-    records.push(target_record(loc, kind, pretty, sym, context.0, context.1));
+    let mut target = target_record(loc, kind, pretty, sym, context.0, context.1);
+    if let Record::Target(target) = &mut target {
+        target.data.slot = slot;
+    }
+    records.push(target);
 }
 
 /// A use which names something in any file (see `Resolve`).
@@ -1037,6 +1050,7 @@ pub struct UnresolvedUse {
     loc: Location,
     syntax_kind: String,
     kind: Option<AnalysisKind>,
+    slot: Option<BindingSlotKind>,
     context: (String, String),
     /// For `Constant`, the grammar (whose constants it can name), and the
     /// rule's templates, and their variables, but for the constant's value.
@@ -1227,6 +1241,7 @@ impl Resolvables {
                 sym,
                 SourceRange::default(),
                 using.context.clone(),
+                using.slot,
             );
         }
         Ok(records)
@@ -1404,6 +1419,7 @@ fn query_records(
                         loc,
                         syntax_kind: rule.syntax_kind.clone(),
                         kind: rule.kind,
+                        slot: rule.slot,
                         context: context.clone(),
                         grammar: mapping.grammar.clone(),
                         templates: (*resolve == Resolve::Constant)
@@ -1448,6 +1464,7 @@ fn query_records(
                     sym,
                     nesting_range,
                     context.clone(),
+                    rule.slot,
                 );
             }
         }
@@ -1573,6 +1590,7 @@ fn data_records(
                     sym,
                     nesting_range.clone(),
                     (String::new(), String::new()),
+                    None,
                 );
             }
         }
@@ -2281,9 +2299,18 @@ pretty = "{{ value }}"
             let mut uses: Vec<(u32, String)> = records
                 .iter()
                 .filter_map(|record| match record {
-                    Record::Target(t) if !t.loc.is_file_target() => {
-                        Some((t.loc.lineno, format!("{} {}", t.loc.lineno, t.data.sym)))
-                    }
+                    Record::Target(t) if !t.loc.is_file_target() => Some((
+                        t.loc.lineno,
+                        format!(
+                            "{} {}{}",
+                            t.loc.lineno,
+                            t.data.sym,
+                            match t.data.slot {
+                                Some(slot) => format!(" {:?}", slot),
+                                None => String::new(),
+                            }
+                        ),
+                    )),
                     _ => None,
                 })
                 .collect();
@@ -2291,26 +2318,27 @@ pretty = "{{ value }}"
             uses.into_iter().map(|(_, use_)| use_).collect()
         };
         // Literals, the file's constants, and the tree's (but not the
-        // observer service's methods' namesakes, prefs, or variables).
+        // observer service's methods' namesakes, prefs, or variables), with
+        // the slots notifications and observers' comparisons fill.
         assert_eq!(
             uses("a.cpp", &cpp),
             [
-                "4 OBSTOPIC_lit@2Dtopic",
+                "4 OBSTOPIC_lit@2Dtopic Send",
                 "5 OBSTOPIC_test@2Dtopic",
                 "6 OBSTOPIC_elsewhere",
-                "12 OBSTOPIC_lit@2Dtopic",
-                "13 OBSTOPIC_other@2Dtopic",
+                "12 OBSTOPIC_lit@2Dtopic Recv",
+                "13 OBSTOPIC_other@2Dtopic Recv",
             ]
         );
         // (Not modules' URLs, or prefs.)
         assert_eq!(
             uses("c.mjs", &js),
             [
-                "4 OBSTOPIC_js@2Dtopic",
+                "4 OBSTOPIC_js@2Dtopic Send",
                 "5 OBSTOPIC_js@2Dconst",
-                "10 OBSTOPIC_js@2Dtopic",
-                "12 OBSTOPIC_js@2Dconst",
-                "13 OBSTOPIC_case@2Dtopic",
+                "10 OBSTOPIC_js@2Dtopic Recv",
+                "12 OBSTOPIC_js@2Dconst Recv",
+                "13 OBSTOPIC_case@2Dtopic Recv",
             ]
         );
         // XPIDL files' C++ blocks have constants too.

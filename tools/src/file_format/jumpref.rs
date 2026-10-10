@@ -175,7 +175,16 @@ pub fn determine_desired_extra_syms_from_jumpref(
         };
         extra_syms.push((owner.sym, next_step));
     }
-    if let Some(slots) = jumpref.meta.as_ref().map(|meta| &meta.binding_slots) {
+    // (Events can have many senders and receivers, which the context menu
+    // only links to if they're few; see `MAX_EVENT_SLOT_LINKS` in
+    // context-menu.js.)
+    const MAX_EVENT_SLOT_LINKS: usize = 10;
+    if let Some(slots) = jumpref
+        .meta
+        .as_ref()
+        .filter(|meta| meta.kind != "event" || meta.binding_slots.len() <= MAX_EVENT_SLOT_LINKS)
+        .map(|meta| &meta.binding_slots)
+    {
         for slot in slots {
             let next_step = match (slot.props.slot_kind, slot.props.slot_lang) {
                 // For IDL symbols in an .idl file, this implies XPIDL (we could check more

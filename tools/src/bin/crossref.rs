@@ -32,6 +32,7 @@ use tools::file_format::analysis::{
     StructuredBindingSlotInfo, WithLocation, collect_file_syms_from_target, read_analysis,
     read_structured, read_target,
 };
+use tools::file_format::analysis::{BindingOwnerLang, BindingSlotKind};
 use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::analysis_manglings::split_pretty;
 use tools::file_format::config;
@@ -162,6 +163,59 @@ type CalleesTable = BTreeMap<Ustr, BTreeMap<Ustr, (Ustr, BTreeSet<u32>)>>;
 // The output from the reader threads for CalleesTable.
 type CalleesItems = Vec<(Ustr, Ustr, Ustr, u32)>;
 
+// Uses' contexts which fill binding slots of the uses' symbols (see
+// `AnalysisTarget::slot`): (symbol, its pretty name, context symbol, slot
+// kind, the context's language).
+type UseSlotItems = Vec<(Ustr, Ustr, Ustr, BindingSlotKind, BindingSlotLang)>;
+
+/// The binding slot language of a file's symbols, by its path.
+fn path_slot_lang(path: &str) -> Option<BindingSlotLang> {
+    let ext = path.rsplit_once('.')?.1;
+    match ext {
+        "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hpp" | "hxx" | "mm" | "m" => {
+            Some(BindingSlotLang::Cpp)
+        }
+        "js" | "jsm" | "mjs" | "cjs" | "sjs" | "ts" | "mts" => Some(BindingSlotLang::JS),
+        "rs" => Some(BindingSlotLang::Rust),
+        "java" | "kt" => Some(BindingSlotLang::Jvm),
+        _ => None,
+    }
+}
+
+/// The structured record of a symbol whose uses' contexts fill its binding
+/// slots, if its analysis has none (see `BindingOwnerLang::Event`).
+fn event_structured(sym: Ustr, pretty: Ustr) -> AnalysisStructured {
+    AnalysisStructured {
+        structured: StructuredTag::Structured,
+        pretty,
+        sym,
+        js_sym: None,
+        type_pretty: None,
+        kind: ustr("event"),
+        subsystem: None,
+        parent_sym: None,
+        slot_owner: None,
+        impl_kind: ustr("event"),
+        size_bytes: None,
+        alignment_bytes: None,
+        own_vf_ptr_bytes: None,
+        binding_slots: vec![],
+        ontology_slots: vec![],
+        supers: vec![],
+        methods: vec![],
+        fields: vec![],
+        overrides: vec![],
+        props: vec![],
+        labels: BTreeSet::default(),
+        subclass_syms: vec![],
+        overridden_by_syms: vec![],
+        variants: vec![],
+        extra: Map::default(),
+        can_gc: None,
+        gc_path: None,
+    }
+}
+
 // Maps the (raw) symbol corresponding to a type to a BTreeMap whose key
 // is the class referencing the type and whose values are a vec of tuples of
 // the form (field pretty, pointer kind).
@@ -207,6 +261,7 @@ fn process_analysis_target(
     pretty_items: &mut PrettyItems,
     id_items: &mut IdItems,
     callees_items: &mut CalleesItems,
+    use_slot_items: &mut UseSlotItems,
     lines: &[(String, u32)],
     pp: Ustr,
 ) {
@@ -234,8 +289,20 @@ fn process_analysis_target(
     // entry under the contextsym.  We also want to invert the use of "context"
     // to be the symbol in question; it's not useful to name the context symbol
     // redundantly when it's the symbol we're attaching data to.
-    if piece.kind == AnalysisKind::Use && !piece.contextsym.is_empty() {
+    //
+    // (But a use whose context receives its symbol, ex: an observer's
+    // comparison of its topic with an observer topic, doesn't call it.)
+    if piece.kind == AnalysisKind::Use
+        && !piece.contextsym.is_empty()
+        && piece.slot != Some(BindingSlotKind::Recv)
+    {
         callees_items.push((piece.contextsym, piece.sym, *path, loc.lineno));
+    }
+    if let Some(slot) = piece.slot
+        && !piece.contextsym.is_empty()
+        && let Some(lang) = path_slot_lang(path)
+    {
+        use_slot_items.push((piece.sym, piece.pretty, piece.contextsym, slot, lang));
     }
 
     search_result_items.push((
@@ -525,6 +592,7 @@ struct PerThreadAnalysisData {
     id_items: IdItems,
     structured_items: StructuredItems,
     callees_items: CalleesItems,
+    use_slot_items: UseSlotItems,
     xref_link_subclass: XrefLinkSubclass,
     xref_link_override: XrefLinkOverride,
     xref_link_slots_items: XrefLinkSlotsItems,
@@ -620,6 +688,7 @@ fn read_analysis_files_thread(
     let mut id_items = IdItems::default();
     let mut structured_items = StructuredItems::new();
     let mut callees_items = CalleesItems::new();
+    let mut use_slot_items = UseSlotItems::new();
     let mut xref_link_subclass = XrefLinkSubclass::new();
     let mut xref_link_override = XrefLinkOverride::new();
     let mut xref_link_slots_items = XrefLinkSlotsItems::new();
@@ -792,6 +861,7 @@ fn read_analysis_files_thread(
                     &mut pretty_items,
                     &mut id_items,
                     &mut callees_items,
+                    &mut use_slot_items,
                     &lines,
                     line_pp(lineno),
                 );
@@ -806,6 +876,7 @@ fn read_analysis_files_thread(
         id_items,
         structured_items,
         callees_items,
+        use_slot_items,
         xref_link_subclass,
         xref_link_override,
         xref_link_slots_items,
@@ -902,6 +973,7 @@ fn read_analysis_files(
     let mut all_recency_linkages = vec![];
 
     let mut xrefs = vec![];
+    let mut all_use_slots = vec![];
 
     for out in out_list.iter_mut() {
         let PerThreadAnalysisData {
@@ -911,6 +983,7 @@ fn read_analysis_files(
             id_items,
             structured_items,
             callees_items,
+            use_slot_items,
             xref_link_subclass,
             xref_link_override,
             xref_link_slots_items,
@@ -957,6 +1030,7 @@ fn read_analysis_files(
             xref_link_override,
             xref_link_slots_items,
         ));
+        all_use_slots.extend(use_slot_items);
 
         for (id, kind, path, result) in search_result_items {
             let t1 = search_result_table.entry(id).or_default();
@@ -1057,6 +1131,28 @@ fn read_analysis_files(
             });
             slotted.subsystem = subsystem;
         }
+    }
+
+    // Uses' contexts which fill their symbols' binding slots are slots of the
+    // symbols (which get structured records if they have none), but the
+    // symbols aren't their slot owners, since a context can fill slots of
+    // many symbols (ex: a function notifying observers of several topics).
+    all_use_slots.sort();
+    all_use_slots.dedup();
+    for (sym, pretty, slotted_sym, slot_kind, slot_lang) in all_use_slots {
+        let owner = meta_table
+            .entry(sym)
+            .or_insert_with(|| event_structured(sym, pretty));
+        owner.binding_slots.push(StructuredBindingSlotInfo {
+            sym: slotted_sym,
+            props: BindingSlotProps {
+                slot_kind,
+                slot_lang,
+                impl_kind: None,
+                owner_lang: BindingOwnerLang::Event,
+            },
+            pretty: None,
+        });
     }
 
     for (sym, recency) in decl_recency {

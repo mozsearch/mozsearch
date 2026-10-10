@@ -135,6 +135,10 @@ pub fn semantic_kind_is_callable(semantic_kind: &str) -> bool {
         // fields being referenced when we're talking about control-flow.  That
         // might suggest an orthogonal diagram setting or something.
         "file" => true,
+        // Events (ex: observer topics) are control flow too: their senders
+        // call them, and they call their receivers (see
+        // `BindingOwnerLang::Event`).
+        "event" => true,
         _ => false,
     }
 }

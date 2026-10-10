@@ -233,6 +233,13 @@ where
     pub peek_range: LineRange,
     #[serde(rename = "argRanges", default, skip_serializing_if = "Vec::is_empty")]
     pub arg_ranges: Vec<SourceRange>,
+    /// For a use, the binding slot of its symbol which its context fills
+    /// (ex: an observer topic's `send` slot, for a function notifying
+    /// observers of the topic), which crossref adds to its symbol's
+    /// structured record (without making the symbol its context's slot owner,
+    /// since a context can fill slots of many symbols; see `Event`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slot: Option<BindingSlotKind>,
 }
 
 /// See TargetTag for more info
@@ -427,6 +434,12 @@ pub enum BindingOwnerLang {
     Prefs,
     /// CrashAnnotations.yaml's crash annotations.
     CrashAnnotation,
+    /// Symbols whose slots are filled by their uses' contexts (see
+    /// `AnalysisTarget::slot`), ex: an observer topic's `send` slots are the
+    /// functions notifying observers of it, and its `recv` slots are the
+    /// observers' methods comparing their topics with it.  (Their structured
+    /// records are crossref's, of kind "event", if their analysis has none.)
+    Event,
     Cpp,
     JS,
     Rust,

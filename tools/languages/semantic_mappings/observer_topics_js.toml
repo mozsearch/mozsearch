@@ -7,7 +7,9 @@
 # (topic)`'s `case "topic":`) use `OBSTOPIC_<topic>`, by literals, or by
 # constants (ex: `UIState.ON_UPDATE`, for `UIState`'s `ON_UPDATE:
 # "sync-ui-state:update"`), in the contexts of the JS analysis's records on
-# their lines.  (Prefs' `Services.prefs.addObserver("pref", this)` have their
+# their lines.  Notifying functions fill the topics' `send` slots, and
+# observers' methods comparing their topics fill their `recv` slots (see
+# `AnalysisTarget::slot`).  (Prefs' `Services.prefs.addObserver("pref", this)` have their
 # prefs first.)
 grammar = "typescript"
 paths = ["**/*.js", "**/*.mjs", "**/*.jsm"]
@@ -23,7 +25,20 @@ query = '''
 (call_expression
   function: (member_expression property: (property_identifier) @method)
   arguments: (arguments . (_) . (string (string_fragment) @id))
-  (#match? @method "^(notifyObservers|addObserver|removeObserver)$"))
+  (#eq? @method "notifyObservers"))
+'''
+slot = "send"
+sym = "OBSTOPIC_{{ id | at_escape }}"
+pretty = "{{ id }}"
+syntax_kind = "observer topic"
+
+[[rules]]
+role = "use"
+query = '''
+(call_expression
+  function: (member_expression property: (property_identifier) @method)
+  arguments: (arguments . (_) . (string (string_fragment) @id))
+  (#match? @method "^(addObserver|removeObserver)$"))
 '''
 sym = "OBSTOPIC_{{ id | at_escape }}"
 pretty = "{{ id }}"
@@ -38,7 +53,24 @@ query = '''
     (identifier) @id
     (member_expression property: (property_identifier) @id)
   ])
-  (#match? @method "^(notifyObservers|addObserver|removeObserver)$"))
+  (#eq? @method "notifyObservers"))
+'''
+resolve = "constant"
+slot = "send"
+sym = "OBSTOPIC_{{ value | at_escape }}"
+pretty = "{{ value }}"
+syntax_kind = "observer topic"
+
+[[rules]]
+role = "use"
+query = '''
+(call_expression
+  function: (member_expression property: (property_identifier) @method)
+  arguments: (arguments . (_) . [
+    (identifier) @id
+    (member_expression property: (property_identifier) @id)
+  ])
+  (#match? @method "^(addObserver|removeObserver)$"))
 '''
 resolve = "constant"
 sym = "OBSTOPIC_{{ value | at_escape }}"
@@ -54,6 +86,7 @@ query = '''
   right: (string (string_fragment) @id)
   (#match? @topic "^a?[Tt]opic$"))
 '''
+slot = "recv"
 sym = "OBSTOPIC_{{ id | at_escape }}"
 pretty = "{{ id }}"
 syntax_kind = "observer topic"
@@ -70,6 +103,7 @@ query = '''
   ]
   (#match? @topic "^a?[Tt]opic$"))
 '''
+slot = "recv"
 resolve = "constant"
 sym = "OBSTOPIC_{{ value | at_escape }}"
 pretty = "{{ value }}"
@@ -83,6 +117,7 @@ query = '''
   body: (switch_body (switch_case value: (string (string_fragment) @id)))
   (#match? @topic "^a?[Tt]opic$"))
 '''
+slot = "recv"
 sym = "OBSTOPIC_{{ id | at_escape }}"
 pretty = "{{ id }}"
 syntax_kind = "observer topic"
@@ -98,6 +133,7 @@ query = '''
   ]))
   (#match? @topic "^a?[Tt]opic$"))
 '''
+slot = "recv"
 resolve = "constant"
 sym = "OBSTOPIC_{{ value | at_escape }}"
 pretty = "{{ value }}"

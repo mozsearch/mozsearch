@@ -71,7 +71,35 @@ input_file: inputs/crossref/observer/topics__json
               }
             ]
           }
-        ]
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "test-literal",
+          "sym": "OBSTOPIC_test@2Dliteral",
+          "type_pretty": null,
+          "kind": "event",
+          "subsystem": null,
+          "implKind": "event",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "recv",
+              "slotLang": "cpp",
+              "implKind": null,
+              "ownerLang": "event",
+              "sym": "_ZN13observer_test8Observer7ObserveEPNS_8SupportsEPKcPKDs"
+            }
+          ],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
       },
       "relation": "Queried",
       "quality": "ExplicitSymbol",
@@ -117,7 +145,42 @@ input_file: inputs/crossref/observer/topics__json
               }
             ]
           }
-        ]
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "test-shutdown",
+          "sym": "OBSTOPIC_test@2Dshutdown",
+          "type_pretty": null,
+          "kind": "event",
+          "subsystem": null,
+          "implKind": "event",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "recv",
+              "slotLang": "cpp",
+              "implKind": null,
+              "ownerLang": "event",
+              "sym": "_ZN13observer_test8Observer7ObserveEPNS_8SupportsEPKcPKDs"
+            },
+            {
+              "slotKind": "send",
+              "slotLang": "cpp",
+              "implKind": null,
+              "ownerLang": "event",
+              "sym": "_ZN13observer_test8ShutdownEPNS_15ObserverServiceE"
+            }
+          ],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
       },
       "relation": "Queried",
       "quality": "ExplicitSymbol",

@@ -259,6 +259,16 @@ link to the context in search results that include the target record.
 The `peekRange` property is a range of lines that appears to be
 currently unused.
 
+A use's optional `slot` property (`send` or `recv`) says that its context
+fills that binding slot of its symbol, ex: a function notifying observers of
+an observer topic is the topic's `send` slot, and an observer's method
+comparing its topic with it is a `recv` slot.  Crossref adds the contexts to
+the symbol's structured record's `bindingSlots` (with an `ownerLang` of
+`event`; symbols without structured records get them, of kind `event`), but
+doesn't make the symbol their `slotOwner`, since a context can fill slots of
+many symbols.  Diagrams then go from the senders, through the symbol, to the
+receivers, and `recv` uses aren't calls.
+
 ### Structured Records
 
 Structured records are an attempt to provide richer information about types and

@@ -82,6 +82,7 @@ fn to_target(
                 end_lineno: 0,
             },
             arg_ranges: vec![],
+            slot: None,
         },
         loc,
     }

@@ -7,7 +7,9 @@
 # `OBSTOPIC_<topic>`, by literals, or by constants (ex:
 # `NS_XPCOM_SHUTDOWN_OBSERVER_ID`, for `#define NS_XPCOM_SHUTDOWN_OBSERVER_ID
 # "xpcom-shutdown"`), in the contexts of the clang plugin's records on their
-# lines.  (Only calls of methods through pointers or references, since
+# lines.  Notifying functions fill the topics' `send` slots, and observers'
+# methods comparing their topics fill their `recv` slots (see
+# `AnalysisTarget::slot`).  (Only calls of methods through pointers or references, since
 # `Preferences::RemoveObserver(this, "pref")` is for prefs, and with
 # nsIObserverService's numbers of arguments, since other classes' helpers
 # have the same names, ex: `NotifyObservers(topic, data)`; prefs branches'
@@ -30,7 +32,23 @@ query = '''
     (string_literal (string_content) @id)
     (user_defined_literal (string_literal (string_content) @id))
   ] . (_) .)
-  (#match? @method "^(NotifyObservers|AddObserver|NotifyWhenScriptSafe)$"))
+  (#match? @method "^(NotifyObservers|NotifyWhenScriptSafe)$"))
+'''
+slot = "send"
+sym = "OBSTOPIC_{{ id | at_escape }}"
+pretty = "{{ id }}"
+syntax_kind = "observer topic"
+
+[[rules]]
+role = "use"
+query = '''
+(call_expression
+  function: (field_expression field: (field_identifier) @method)
+  arguments: (argument_list . (_) . [
+    (string_literal (string_content) @id)
+    (user_defined_literal (string_literal (string_content) @id))
+  ] . (_) .)
+  (#eq? @method "AddObserver"))
 (call_expression
   function: (field_expression field: (field_identifier) @method)
   arguments: (argument_list . (_) . [
@@ -49,7 +67,21 @@ query = '''
 (call_expression
   function: (field_expression field: (field_identifier) @method)
   arguments: (argument_list . (_) . [(identifier) (qualified_identifier)] @id . (_) .)
-  (#match? @method "^(NotifyObservers|AddObserver|NotifyWhenScriptSafe)$"))
+  (#match? @method "^(NotifyObservers|NotifyWhenScriptSafe)$"))
+'''
+resolve = "constant"
+slot = "send"
+sym = "OBSTOPIC_{{ value | at_escape }}"
+pretty = "{{ value }}"
+syntax_kind = "observer topic"
+
+[[rules]]
+role = "use"
+query = '''
+(call_expression
+  function: (field_expression field: (field_identifier) @method)
+  arguments: (argument_list . (_) . [(identifier) (qualified_identifier)] @id . (_) .)
+  (#eq? @method "AddObserver"))
 (call_expression
   function: (field_expression field: (field_identifier) @method)
   arguments: (argument_list . (_) . [(identifier) (qualified_identifier)] @id .)
@@ -72,6 +104,7 @@ query = '''
   (#match? @fn "^((nsCRT|std)::)?(PL_)?strcmp$")
   (#match? @topic "^a?[Tt]opic$"))
 '''
+slot = "recv"
 sym = "OBSTOPIC_{{ id | at_escape }}"
 pretty = "{{ id }}"
 syntax_kind = "observer topic"
@@ -85,6 +118,7 @@ query = '''
   (#match? @fn "^((nsCRT|std)::)?(PL_)?strcmp$")
   (#match? @topic "^a?[Tt]opic$"))
 '''
+slot = "recv"
 resolve = "constant"
 sym = "OBSTOPIC_{{ value | at_escape }}"
 pretty = "{{ value }}"
@@ -102,6 +136,7 @@ query = '''
   (#match? @method "^Equals(Literal|ASCII)$")
   (#match? @topic "^a?[Tt]opic$"))
 '''
+slot = "recv"
 sym = "OBSTOPIC_{{ id | at_escape }}"
 pretty = "{{ id }}"
 syntax_kind = "observer topic"

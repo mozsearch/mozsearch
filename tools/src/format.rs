@@ -489,16 +489,18 @@ pub fn format_code(
         };
 
         // Only get the symbols and style of the symbols that appear directly in the source code, not in expansions
+        // (but also those of other analyses' records there, without expansions, ex: an observer topic's, for
+        // a macro naming it).
         let datum_outside_expansions = datum.iter().flat_map(|d| d.iter());
         let has_expansion = |data: &AnalysisSource| {
             matches!(data.expansion_info, Some(ExpansionInfo::ExpandsTo(_)))
         };
+        let is_direct =
+            |data: &AnalysisSource| has_expansion(data) || data.expansion_info.is_none();
         let (symbols, style) = if datum_outside_expansions.clone().any(has_expansion) {
             let symbols = get_symbols(
                 &token,
-                &mut datum_outside_expansions
-                    .clone()
-                    .filter(|&a| has_expansion(a)),
+                &mut datum_outside_expansions.clone().filter(|&a| is_direct(a)),
             );
             let style = get_style(
                 &token,

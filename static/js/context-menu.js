@@ -1784,8 +1784,14 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           });
         }
 
-        // Binding slots
-        if (symInfo.meta?.bindingSlots) {
+        // Binding slots.  (An event's, ex: an observer topic's, are its
+        // senders and receivers, which can be many, so we only link to them
+        // if they're few, and they're not searches; see `AnalysisTarget::slot`
+        // and `MAX_EVENT_SLOT_LINKS` in jumpref.rs.)
+        const MAX_EVENT_SLOT_LINKS = 10;
+        const isEvent = symInfo.meta?.kind === "event";
+        if (symInfo.meta?.bindingSlots &&
+            (!isEvent || symInfo.meta.bindingSlots.length <= MAX_EVENT_SLOT_LINKS)) {
           let implKind = symInfo.meta.implKind || "impl";
           if (implKind === "idl") {
             implKind = "IDL";
@@ -1820,6 +1826,11 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             let maybeSlotImplKind = "";
             if (slot?.implKind) {
               maybeSlotImplKind = ` ${slot.implKind}`;
+            }
+            if (isEvent) {
+              const role = slot.slotKind === "send" ? "sender" : "receiver";
+              jumpify(slotJumpref, `${role} ${effectivePretty}`);
+              continue;
             }
             let slotPretty =
               `${implKind}${maybeLang} ${slot.slotKind}${maybeSlotImplKind} ${effectivePretty}`;

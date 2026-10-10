@@ -778,6 +778,19 @@ impl PipelineCommand for TraverseCommand {
                             (BindingOwnerLang::Glean, _) => {
                                 (false, false, false, EdgeKind::Default)
                             }
+                            // An event's (ex: an observer topic's) callees are its receivers,
+                            // and its uses are its senders, rather than its uses' contexts,
+                            // so that a diagram goes from the functions sending it, through
+                            // it, to the methods receiving it.
+                            (BindingOwnerLang::Event, BindingSlotKind::Recv) => {
+                                (self.args.edge == "callees", true, true, EdgeKind::IPC)
+                            }
+                            (BindingOwnerLang::Event, BindingSlotKind::Send) => {
+                                (self.args.edge == "uses", true, false, EdgeKind::IPC)
+                            }
+                            (BindingOwnerLang::Event, _) => {
+                                (false, false, false, EdgeKind::Default)
+                            }
                             // Cross-language binding class relationships are weird because
                             // the bindings inside are bidirectional, so let's ignore them.
                             (_, BindingSlotKind::Class) => (false, false, false, EdgeKind::Default),

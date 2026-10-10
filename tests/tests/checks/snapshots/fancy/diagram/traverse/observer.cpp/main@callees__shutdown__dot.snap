@@ -1,0 +1,13 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/traverse/observer.cpp/callees__shutdown__dot
+---
+digraph g {
+  node[shape=box fontname="Courier New" fontsize=10]
+  "_ZN13observer_test8ShutdownEPNS_15ObserverServiceE"[label="observer_test::Shutdown"]
+  "OBSTOPIC_test@2Dshutdown"[label="test-shutdown"]
+  "_ZN13observer_test8ShutdownEPNS_15ObserverServiceE" -> "OBSTOPIC_test@2Dshutdown"
+  "_ZN13observer_test8Observer7ObserveEPNS_8SupportsEPKcPKDs"[label="observer_test::Observer::Observe"]
+  "OBSTOPIC_test@2Dshutdown" -> "_ZN13observer_test8Observer7ObserveEPNS_8SupportsEPKcPKDs"
+}
