@@ -63,6 +63,10 @@
     "dist/bin/resource/test/resource1.png": [
       "urlmap/resource1.png",
       null
+    ],
+    "dist/bin/localization/en-US/fluent": [
+      "fluent/**/*.ftl",
+      null
     ]
   },
   {

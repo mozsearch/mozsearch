@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="localization" href="fluent/test.ftl">
+  <link rel="localization" href="fluent/missing.ftl">
+</head>
+<body>
+  <button data-l10n-id="tabs-close-button"
+          data-l10n-attrs="tooltip, accesskey"></button>
+  <p data-l10n-id="tabs-close-warning" data-l10n-args='{"count": 3}'></p>
+  <p data-l10n-id="tabs-close-warning"
+     data-l10n-args='{
+       "count": 2
+     }'></p>
+  <p data-l10n-id="tabs-close-warning" data-l10n-args="{&quot;count&quot;: 1}"></p>
+  <p data-l10n-id="{{ templated }}"></p>
+  <script>
+    document.l10n.setAttributes(document.body.lastChild, "about-link");
+  </script>
+</body>
+</html>

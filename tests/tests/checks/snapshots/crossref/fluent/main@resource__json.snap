@@ -1,0 +1,116 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/fluent/resource__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "FILE_fluent/test@2Eftl",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "fluent/fluent.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 5,
+                "bounds": [
+                  31,
+                  46
+                ],
+                "line": "<link rel=\"localization\" href=\"fluent/test.ftl\">",
+                "context": "fluent/fluent.html",
+                "contextsym": "FILE_fluent/fluent@2Ehtml"
+              }
+            ]
+          },
+          {
+            "path": "fluent/fluent.mjs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 5,
+                "bounds": [
+                  31,
+                  48
+                ],
+                "line": "const l10n = new Localization([\"fluent/test.ftl\"], true);",
+                "context": "fluent/fluent.mjs",
+                "contextsym": "FILE_fluent/fluent@2Emjs"
+              },
+              {
+                "lno": 8,
+                "bounds": [
+                  36,
+                  53
+                ],
+                "line": "win.MozXULElement.insertFTLIfNeeded(\"fluent/test.ftl\");",
+                "context": "fluent/fluent.mjs",
+                "contextsym": "FILE_fluent/fluent@2Emjs"
+              }
+            ]
+          },
+          {
+            "path": "fluent/fluent.xhtml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 5,
+                "bounds": [
+                  36,
+                  51
+                ],
+                "line": "<html:link rel=\"localization\" href=\"fluent/test.ftl\"/>",
+                "context": "fluent/fluent.xhtml",
+                "contextsym": "FILE_fluent/fluent@2Exhtml"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "fluent/test.ftl",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 1,
+                "bounds": [
+                  0,
+                  0
+                ],
+                "line": "# This Source Code Form is subject to the terms of the Mozilla Public",
+                "context": "fluent/test.ftl",
+                "contextsym": "FILE_fluent/test@2Eftl"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "fluent/test.ftl",
+          "sym": "FILE_fluent/test@2Eftl",
+          "type_pretty": null,
+          "kind": "file",
+          "subsystem": null,
+          "implKind": "impl",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

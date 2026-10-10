@@ -1,0 +1,37 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/fluent/markup_xhtml__json
+---
+[
+  {
+    "loc": "8:23-40",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "message tabs-close-button",
+    "sym": "FTL_tabs-close-button"
+  },
+  {
+    "loc": "8:23-40",
+    "target": 1,
+    "kind": "use",
+    "pretty": "tabs-close-button",
+    "sym": "FTL_tabs-close-button",
+    "context": ""
+  },
+  {
+    "loc": "8:59-66",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "attribute tabs-close-button.tooltip",
+    "sym": "FTL_tabs-close-button.tooltip"
+  },
+  {
+    "loc": "8:59-66",
+    "target": 1,
+    "kind": "use",
+    "pretty": "tabs-close-button.tooltip",
+    "sym": "FTL_tabs-close-button.tooltip",
+    "context": ""
+  }
+]

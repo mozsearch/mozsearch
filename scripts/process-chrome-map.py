@@ -7,7 +7,31 @@ import os
 import sys
 
 
-def process_chrome_map(url_map, chrome_map_path, topsrcdir):
+# Localization directories, whose files are Fluent resources with ids that are
+# their paths under the locale, ex: browser/preferences/preferences.ftl is
+# dist/bin/browser/localization/en-US/browser/preferences/preferences.ftl.
+LOCALIZATION_RE = re.compile(r"(?:^|/)localization/[^/]+/(.+)$")
+
+
+def add_localization_entries(resource_map, resource_id, src, topsrcdir):
+    """Map the Fluent resources which `src` (a file, or a glob like
+    browser/locales/en-US/browser/**/*.ftl) installs as `resource_id` (or
+    under it, for a glob: matches go at their paths under the glob's literal
+    prefix)."""
+    if "*" not in src:
+        matches = [(src, resource_id)]
+    else:
+        base = src[: src.index("*")].rpartition("/")[0]
+        matches = [
+            (path, resource_id + "/" + os.path.relpath(path, base))
+            for path in glob.glob(src, root_dir=topsrcdir, recursive=True)
+        ]
+    for path, id in matches:
+        if path.endswith(".ftl"):
+            resource_map.setdefault(id, set()).add(path)
+
+
+def process_chrome_map(url_map, resource_map, chrome_map_path, topsrcdir):
     if not os.path.exists(chrome_map_path):
         return
 
@@ -65,6 +89,9 @@ def process_chrome_map(url_map, chrome_map_path, topsrcdir):
     for obj, item in install_info.items():
         src = item[0]
 
+        if m := LOCALIZATION_RE.search(obj):
+            add_localization_entries(resource_map, m.group(1), src, topsrcdir)
+
         if "*" in src:
             # The source path is written with glob.
             # Handle all matching files.
@@ -80,8 +107,9 @@ url_map_path = sys.argv[2]
 chrome_map_paths = sys.argv[3:]
 
 url_map = {}
+resource_map = {}
 for path in chrome_map_paths:
-    process_chrome_map(url_map, path, topsrcdir)
+    process_chrome_map(url_map, resource_map, path, topsrcdir)
 
 
 def atEscape(text):
@@ -101,6 +129,16 @@ for url, paths in url_map.items():
     sym = "URL_" + atEscape(url)
 
     alias_map[sym] = aliases
+
+# Fluent resources, for replace-aliases.py like URLs.
+for resource_id, paths in resource_map.items():
+    alias_map["FTLRES_" + atEscape(resource_id)] = [
+        {
+            "pretty": "file " + path,
+            "sym": "FILE_" + atEscape(path),
+        }
+        for path in sorted(paths)
+    ]
 
 with open(url_map_path, "w") as f:
     json.dump(alias_map, f)

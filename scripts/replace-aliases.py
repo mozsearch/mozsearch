@@ -33,8 +33,10 @@ def resolve_relpath(url, relpath):
 
 
 def replace_aliases(path, alias_map, reverse_map):
-    """Replace URL records and RELPATH records with FILE records, based on
-    the mapping extracted from *.chrome-map.json files.
+    """Replace URL records, RELPATH records, and FTLRES (Fluent resource)
+    records with FILE records, based on the mapping extracted from
+    *.chrome-map.json files.  (FTLRES records without a mapping stay, ex:
+    for resources of other apps.)
 
     Note that the analysis record transformations done below are only safe for
     URL records which are currently never referenced for contextsym purposes
@@ -52,7 +54,7 @@ def replace_aliases(path, alias_map, reverse_map):
             line = line.rstrip()
 
             # Filter out definitely non-target lines.
-            if "URL_" not in line and "RELPATH" not in line:
+            if "URL_" not in line and "RELPATH" not in line and "FTLRES_" not in line:
                 lines.append(line)
                 continue
 
@@ -60,7 +62,11 @@ def replace_aliases(path, alias_map, reverse_map):
             sym = datum["sym"]
 
             # Actually test if the symbol is the target.
-            if not sym.startswith("URL_") and sym != "RELPATH":
+            if not sym.startswith("URL_") and sym != "RELPATH" and not sym.startswith("FTLRES_"):
+                lines.append(line)
+                continue
+
+            if sym.startswith("FTLRES_") and sym not in alias_map:
                 lines.append(line)
                 continue
 
@@ -117,6 +123,8 @@ with open(alias_map_path, "r") as f:
 
 reverse_map = {}
 for sym, aliases in alias_map.items():
+    if not sym.startswith("URL_"):
+        continue
     for item in aliases:
         path = item["pretty"].replace("file ", "")
         url = at_unescape(sym.replace("URL_", ""))

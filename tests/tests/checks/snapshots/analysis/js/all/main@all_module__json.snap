@@ -197,7 +197,7 @@ input_file: inputs/analysis/js/all/all_module__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_EXPORT_1",
-    "sym": "11-0",
+    "sym": "12-0",
     "no_crossref": 1
   },
   {
@@ -251,7 +251,7 @@ input_file: inputs/analysis/js/all/all_module__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_EXPORT_3",
-    "sym": "11-1",
+    "sym": "12-1",
     "no_crossref": 1
   },
   {
@@ -337,7 +337,7 @@ input_file: inputs/analysis/js/all/all_module__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_EXPORT_5",
-    "sym": "11-3",
+    "sym": "12-3",
     "no_crossref": 1
   },
   {

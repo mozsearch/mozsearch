@@ -1,0 +1,295 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/fluent/message__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "FTL_tabs-close-warning",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "fluent/fluent.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 11,
+                "bounds": [
+                  17,
+                  35
+                ],
+                "line": "<p data-l10n-id=\"tabs-close-warning\" data-l10n-args='{\"count\": 3}'></p>",
+                "context": "",
+                "contextsym": ""
+              },
+              {
+                "lno": 12,
+                "bounds": [
+                  17,
+                  35
+                ],
+                "line": "<p data-l10n-id=\"tabs-close-warning\"",
+                "context": "",
+                "contextsym": ""
+              },
+              {
+                "lno": 16,
+                "bounds": [
+                  17,
+                  35
+                ],
+                "line": "<p data-l10n-id=\"tabs-close-warning\" data-l10n-args=\"{&quot;count&quot;: 1}\"></p>",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "fluent/fluent.mjs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 12,
+                "bounds": [
+                  34,
+                  54
+                ],
+                "line": "document.l10n.setAttributes(elem, \"tabs-close-warning\", { count });",
+                "context": "closeWarning",
+                "contextsym": ""
+              },
+              {
+                "lno": 14,
+                "bounds": [
+                  6,
+                  26
+                ],
+                "line": "{ id: \"tabs-close-warning\", args: { \"count\": count } },",
+                "context": "closeWarning",
+                "contextsym": ""
+              },
+              {
+                "lno": 24,
+                "bounds": [
+                  13,
+                  33
+                ],
+                "line": "titleL10nId: \"tabs-close-warning\",",
+                "context": "BUTTON",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "fluent/test.ftl",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 12,
+                "bounds": [
+                  0,
+                  18
+                ],
+                "line": "tabs-close-warning =",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "callees": []
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "FTL_tabs-close-warning$count",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "fluent/fluent.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 11,
+                "bounds": [
+                  55,
+                  60
+                ],
+                "line": "<p data-l10n-id=\"tabs-close-warning\" data-l10n-args='{\"count\": 3}'></p>",
+                "context": "",
+                "contextsym": ""
+              },
+              {
+                "lno": 14,
+                "bounds": [
+                  1,
+                  6
+                ],
+                "line": "\"count\": 2",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "fluent/fluent.mjs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 12,
+                "bounds": [
+                  58,
+                  63
+                ],
+                "line": "document.l10n.setAttributes(elem, \"tabs-close-warning\", { count });",
+                "context": "closeWarning",
+                "contextsym": ""
+              },
+              {
+                "lno": 14,
+                "bounds": [
+                  37,
+                  42
+                ],
+                "line": "{ id: \"tabs-close-warning\", args: { \"count\": count } },",
+                "context": "closeWarning",
+                "contextsym": ""
+              },
+              {
+                "lno": 25,
+                "bounds": [
+                  17,
+                  22
+                ],
+                "line": "titleL10nArgs: { count: 1 },",
+                "context": "BUTTON",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "fluent/test.ftl",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 13,
+                "bounds": [
+                  3,
+                  8
+                ],
+                "line": "{ $count ->",
+                "context": "tabs-close-warning",
+                "contextsym": "FTL_tabs-close-warning"
+              },
+              {
+                "lno": 14,
+                "bounds": [
+                  15,
+                  20
+                ],
+                "line": "[one] Close { $count } tab of { -brand-short-name }?",
+                "context": "tabs-close-warning",
+                "contextsym": "FTL_tabs-close-warning"
+              },
+              {
+                "lno": 15,
+                "bounds": [
+                  18,
+                  23
+                ],
+                "line": "*[other] Close { $count } tabs of { -brand-short-name }?",
+                "context": "tabs-close-warning",
+                "contextsym": "FTL_tabs-close-warning"
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "FTL_tabs-close-button.tooltip",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "fluent/fluent.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 10,
+                "bounds": [
+                  17,
+                  24
+                ],
+                "line": "data-l10n-attrs=\"tooltip, accesskey\"></button>",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "fluent/fluent.xhtml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 8,
+                "bounds": [
+                  57,
+                  64
+                ],
+                "line": "<label data-l10n-id=\"tabs-close-button\" data-l10n-attrs=\"tooltip\"/>",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "fluent/test.ftl",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 17,
+                "bounds": [
+                  29,
+                  36
+                ],
+                "line": ".title = { tabs-close-button.tooltip }",
+                "context": "tabs-close-warning.title",
+                "contextsym": "FTL_tabs-close-warning.title"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "fluent/test.ftl",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 20,
+                "bounds": [
+                  1,
+                  8
+                ],
+                "line": ".tooltip = Close the tab",
+                "context": "tabs-close-button",
+                "contextsym": "FTL_tabs-close-button"
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

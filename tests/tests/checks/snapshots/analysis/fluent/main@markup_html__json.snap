@@ -1,0 +1,157 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/fluent/markup_html__json
+---
+[
+  {
+    "loc": "6:33-51",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "localization fluent/missing.ftl",
+    "sym": "FTLRES_fluent/missing@2Eftl"
+  },
+  {
+    "loc": "6:33-51",
+    "target": 1,
+    "kind": "use",
+    "pretty": "fluent/missing.ftl",
+    "sym": "FTLRES_fluent/missing@2Eftl",
+    "context": ""
+  },
+  {
+    "loc": "9:24-41",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "message tabs-close-button",
+    "sym": "FTL_tabs-close-button"
+  },
+  {
+    "loc": "9:24-41",
+    "target": 1,
+    "kind": "use",
+    "pretty": "tabs-close-button",
+    "sym": "FTL_tabs-close-button",
+    "context": ""
+  },
+  {
+    "loc": "10:27-34",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "attribute tabs-close-button.tooltip",
+    "sym": "FTL_tabs-close-button.tooltip"
+  },
+  {
+    "loc": "10:27-34",
+    "target": 1,
+    "kind": "use",
+    "pretty": "tabs-close-button.tooltip",
+    "sym": "FTL_tabs-close-button.tooltip",
+    "context": ""
+  },
+  {
+    "loc": "10:36-45",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "attribute tabs-close-button.accesskey",
+    "sym": "FTL_tabs-close-button.accesskey"
+  },
+  {
+    "loc": "10:36-45",
+    "target": 1,
+    "kind": "use",
+    "pretty": "tabs-close-button.accesskey",
+    "sym": "FTL_tabs-close-button.accesskey",
+    "context": ""
+  },
+  {
+    "loc": "11:19-37",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "message tabs-close-warning",
+    "sym": "FTL_tabs-close-warning"
+  },
+  {
+    "loc": "11:19-37",
+    "target": 1,
+    "kind": "use",
+    "pretty": "tabs-close-warning",
+    "sym": "FTL_tabs-close-warning",
+    "context": ""
+  },
+  {
+    "loc": "11:57-62",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "variable tabs-close-warning$count",
+    "sym": "FTL_tabs-close-warning$count"
+  },
+  {
+    "loc": "11:57-62",
+    "target": 1,
+    "kind": "use",
+    "pretty": "tabs-close-warning$count",
+    "sym": "FTL_tabs-close-warning$count",
+    "context": ""
+  },
+  {
+    "loc": "12:19-37",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "message tabs-close-warning",
+    "sym": "FTL_tabs-close-warning"
+  },
+  {
+    "loc": "12:19-37",
+    "target": 1,
+    "kind": "use",
+    "pretty": "tabs-close-warning",
+    "sym": "FTL_tabs-close-warning",
+    "context": ""
+  },
+  {
+    "loc": "14:8-13",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "variable tabs-close-warning$count",
+    "sym": "FTL_tabs-close-warning$count"
+  },
+  {
+    "loc": "14:8-13",
+    "target": 1,
+    "kind": "use",
+    "pretty": "tabs-close-warning$count",
+    "sym": "FTL_tabs-close-warning$count",
+    "context": ""
+  },
+  {
+    "loc": "16:19-37",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "message tabs-close-warning",
+    "sym": "FTL_tabs-close-warning"
+  },
+  {
+    "loc": "16:19-37",
+    "target": 1,
+    "kind": "use",
+    "pretty": "tabs-close-warning",
+    "sym": "FTL_tabs-close-warning",
+    "context": ""
+  },
+  {
+    "loc": "19:57-69",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "message about-link",
+    "sym": "FTL_about-link"
+  },
+  {
+    "loc": "19:57-69",
+    "target": 1,
+    "kind": "use",
+    "pretty": "about-link",
+    "sym": "FTL_about-link",
+    "context": ""
+  }
+]

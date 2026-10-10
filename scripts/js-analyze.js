@@ -544,6 +544,28 @@ function atEscape(text) {
   return text.replace(/[^A-Za-z0-9_/]/g, matched => "@" + matched.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0"));
 }
 
+// Fluent localization (see tools/languages/semantic_mappings/fluent.toml for
+// its symbols): message identifiers, resource ids like "browser/foo.ftl",
+// object properties whose values are message ids (ex: `l10nId: "id"`,
+// `titleL10nId`, ASRouter's `string_id`, `"data-l10n-id"` for element
+// helpers), and literal data-l10n-id attributes in markup in JS strings.
+const FLUENT_ID_RE = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
+const FLUENT_RESOURCE_RE = /^[a-zA-Z0-9_-]+(\/[a-zA-Z0-9_.-]+)*\.ftl$/;
+const FLUENT_ID_KEY_RE = /^(l10nId|l10nID|string_id|data-l10n-id|[a-z]\w*L10nId)$/;
+const FLUENT_MARKUP_ID_RE = /(data-l10n-id\s*=\s*\\?["'])([a-zA-Z][a-zA-Z0-9_-]*)\\?["']/g;
+
+// The value of an object literal's property named `name`.
+function objectLiteralProperty(obj, name) {
+  for (let prop of obj.properties) {
+    if (prop.key &&
+        ((prop.key.type === "Identifier" && prop.key.name === name) ||
+         (prop.key.type === "Literal" && prop.key.value === name))) {
+      return prop.value;
+    }
+  }
+  return null;
+}
+
 class ASTVisitor {
   program(prog) {
     for (let stmt of prog.body) {
@@ -2530,6 +2552,112 @@ class Analyzer extends ASTVisitor {
     return true;
   }
 
+  // A use of a Fluent symbol.
+  useFluent(loc, name, kind, pretty, sym) {
+    this.source(loc, name, "use", `${kind} ${pretty}`, sym);
+    this.target(loc, name, "use", pretty, sym);
+  }
+
+  // A literal Fluent message id (a use of its message), and the variables
+  // which an object literal of its arguments sets.
+  maybeUseFluentMessage(idExpr, argsExpr) {
+    if (!idExpr || idExpr.type !== "Literal" ||
+        typeof idExpr.value !== "string" || !FLUENT_ID_RE.test(idExpr.value)) {
+      return;
+    }
+    const id = idExpr.value;
+    this.useFluent(idExpr.loc, `"${id}"`, "message", id, `FTL_${id}`);
+    if (!argsExpr || argsExpr.type !== "ObjectExpression") {
+      return;
+    }
+    for (let prop of argsExpr.properties) {
+      let name, loc;
+      if (prop.key && prop.key.type === "Identifier") {
+        name = prop.key.name;
+        loc = locstr2(prop.key.loc, name);
+      } else if (prop.key && prop.key.type === "Literal" &&
+                 typeof prop.key.value === "string") {
+        // Inside the quotes, like objectProperty's definition (which moves the
+        // key's start, so go from its end).
+        name = prop.key.value;
+        const end = prop.key.loc.end;
+        loc = `${end.line}:${end.column - 2 - name.length}-${end.column - 2}`;
+      }
+      if (name && FLUENT_ID_RE.test(name)) {
+        this.useFluent(loc, name, "variable", `${id}$${name}`, `FTL_${id}$${name}`);
+      }
+    }
+  }
+
+  // Fluent message ids (and their arguments) passed to the DOM localization
+  // APIs, ex: `document.l10n.setAttributes(elem, "id", { count })`.
+  checkL10nAPI(callee, args) {
+    if ((callee.type !== "MemberExpression" &&
+         callee.type !== "OptionalMemberExpression") ||
+        callee.computed || callee.property.type !== "Identifier") {
+      return;
+    }
+    switch (callee.property.name) {
+    case "setAttributes":
+      this.maybeUseFluentMessage(args[1], args[2]);
+      break;
+    case "formatValue":
+    case "formatValueSync":
+      this.maybeUseFluentMessage(args[0], args[1]);
+      break;
+    case "formatValues":
+    case "formatValuesSync":
+    case "formatMessages":
+    case "formatMessagesSync":
+      // (Of ids and `{ id, args }`s.)
+      if (args[0] && args[0].type === "ArrayExpression") {
+        for (let elt of args[0].elements) {
+          if (elt && elt.type === "ObjectExpression") {
+            this.maybeUseFluentMessage(objectLiteralProperty(elt, "id"),
+                                       objectLiteralProperty(elt, "args"));
+          } else {
+            this.maybeUseFluentMessage(elt);
+          }
+        }
+      }
+      break;
+    case "setAttribute":
+      if (args[0] && args[0].type === "Literal" && args[0].value === "data-l10n-id") {
+        this.maybeUseFluentMessage(args[1]);
+      }
+      break;
+    }
+  }
+
+  // The literal data-l10n-id attributes in the markup of the source text which
+  // `loc` spans (a string or a template), ex: html`<a data-l10n-id="id">`.
+  scanFluentMarkup(loc) {
+    for (let line = loc.start.line; line <= loc.end.line; line++) {
+      const text = this._lines[line - 1];
+      if (!text || !text.includes("data-l10n-id")) {
+        continue;
+      }
+      const from = line === loc.start.line ? loc.start.column - 1 : 0;
+      const to = line === loc.end.line ? loc.end.column - 1 : text.length;
+      for (let match of text.slice(from, to).matchAll(FLUENT_MARKUP_ID_RE)) {
+        const id = match[2];
+        const column = from + match.index + match[1].length;
+        this.useFluent(`${line}:${column}-${column + id.length}`, id, "message",
+                       id, `FTL_${id}`);
+      }
+    }
+  }
+
+  // A literal Fluent resource id, ex: `new Localization(["browser/foo.ftl"])`.
+  // (replace-aliases.py makes these uses of the resources' files.)
+  maybeFluentResource(expr) {
+    if (typeof expr.value !== "string" || !FLUENT_RESOURCE_RE.test(expr.value)) {
+      return;
+    }
+    this.useFluent(expr.loc, `"${expr.value}"`, "localization", expr.value,
+                   "FTLRES_" + atEscape(expr.value));
+  }
+
   // ASTVisitor methods overloads
 
   program(prog) {
@@ -2696,6 +2824,16 @@ class Analyzer extends ASTVisitor {
 
   literal(expr) {
     this.maybeLinkifyLiteral(expr);
+    this.maybeFluentResource(expr);
+    if (typeof expr.value === "string") {
+      this.scanFluentMarkup(expr.loc);
+    }
+  }
+
+  taggedTemplate(expr) {
+    // (The visitor doesn't descend into tagged templates, so this covers any
+    // in their substitutions too.)
+    this.scanFluentMarkup(expr.arguments[0].loc);
   }
 
   objectProperty(prop, objExpr) {
@@ -2730,6 +2868,13 @@ class Analyzer extends ASTVisitor {
           }
         } else {
           this.defProp(name, prop.key.loc, extra, extraPretty, prop.value);
+        }
+        // ex: `{ l10nId: "id", l10nArgs: { count } }`.
+        if (FLUENT_ID_KEY_RE.test(name)) {
+          const argsKey = name === "string_id" ? "args" :
+            name.replace(/(-id|Id|ID)$/, m => m === "-id" ? "-args" : "Args");
+          this.maybeUseFluentMessage(prop.value,
+                                     objectLiteralProperty(objExpr, argsKey));
         }
       }
     }
@@ -2819,6 +2964,7 @@ class Analyzer extends ASTVisitor {
 
   callExpressionShared(expr) {
     this.checkDefineLazyAPI(expr.callee, expr.arguments);
+    this.checkL10nAPI(expr.callee, expr.arguments);
 
     super.callExpressionShared(expr);
   }
@@ -3049,12 +3195,14 @@ function replaceEntities(text)
 // 0-based columns.  But maybe I'm wrong?  I'm doing a quick fix.  Also, we
 // don't really have XUL files anymore...
 class BaseParser {
-  constructor(filename, parser) {
+  constructor(filename, parser, text) {
     this.filename = filename;
     this.stack = [];
     this.curAttrs = {};
     this.parser = parser;
     this.eventListeners = [];
+    // The parsed text's lines, for positions within attribute values.
+    this.lines = text.split("\n");
 
     for (let prop of ["onopentag", "onclosetag", "onattribute"]) {
       parser[prop] = this[prop].bind(this);
@@ -3100,6 +3248,82 @@ class BaseParser {
         this.handleURLAttribute(tag, prop);
       }
     }
+
+    this.handleL10nAttributes(tag);
+    this.handleLocalizationLink(tag);
+  }
+
+  // The Fluent symbols which an element's data-l10n-id (a message),
+  // data-l10n-args (its variables), and data-l10n-attrs (attributes which the
+  // message may set) use.
+  handleL10nAttributes(tag) {
+    const idAttr = tag.attrs["DATA-L10N-ID"];
+    if (!idAttr || !FLUENT_ID_RE.test(idAttr.value)) {
+      return;
+    }
+    const id = idAttr.value;
+    const analyzer = new Analyzer();
+    this.useInValue(analyzer, idAttr, 0, id, "message", id, `FTL_${id}`);
+
+    const argsAttr = tag.attrs["DATA-L10N-ARGS"];
+    let args = null;
+    if (argsAttr) {
+      try {
+        args = JSON.parse(argsAttr.value);
+      } catch (e) {
+      }
+    }
+    if (args && typeof args === "object" && !Array.isArray(args)) {
+      for (let key of Object.keys(args)) {
+        const offset = argsAttr.value.indexOf(`"${key}"`);
+        if (FLUENT_ID_RE.test(key) && offset !== -1) {
+          this.useInValue(analyzer, argsAttr, offset + 1, key, "variable",
+                          `${id}$${key}`, `FTL_${id}$${key}`);
+        }
+      }
+    }
+
+    const attrsAttr = tag.attrs["DATA-L10N-ATTRS"];
+    if (attrsAttr) {
+      for (let match of attrsAttr.value.matchAll(/[^\s,]+/g)) {
+        const name = match[0];
+        if (FLUENT_ID_RE.test(name)) {
+          this.useInValue(analyzer, attrsAttr, match.index, name, "attribute",
+                          `${id}.${name}`, `FTL_${id}.${name}`);
+        }
+      }
+    }
+  }
+
+  // A localization link's href is a Fluent resource id, ex:
+  // `<link rel="localization" href="browser/foo.ftl">`.  (replace-aliases.py
+  // makes these uses of the resources' files.)
+  handleLocalizationLink(tag) {
+    const rel = tag.attrs.REL;
+    const href = tag.attrs.HREF;
+    if (tag.local.toUpperCase() !== "LINK" || !rel || !href ||
+        !rel.value.split(/\s+/).includes("localization") ||
+        !FLUENT_RESOURCE_RE.test(href.value)) {
+      return;
+    }
+    this.useInValue(new Analyzer(), href, 0, href.value, "localization",
+                    href.value, "FTLRES_" + atEscape(href.value));
+  }
+
+  // A use of `name`, `offset` characters into the value of `attr`, if it's
+  // there in the source (values have their entities replaced, so their
+  // offsets can differ from the source's).
+  useInValue(analyzer, attr, offset, name, kind, pretty, sym) {
+    const before = attr.value.slice(0, offset).split("\n");
+    const line = attr.valueLine + before.length - 1;
+    const column = (before.length === 1 ? attr.valueColumn : 0) +
+                   before[before.length - 1].length;
+    const lineText = this.lines[line];
+    if (!lineText || lineText.substr(column, name.length) !== name) {
+      return;
+    }
+    analyzer.useFluent(`${line + 1}:${column}-${column + name.length}`, name,
+                       kind, pretty, sym);
   }
 
   handleEventListener(tag, prop) {
@@ -3215,8 +3439,8 @@ class BaseParser {
 }
 
 class XMLParser extends BaseParser {
-  constructor(filename, parser) {
-    super(filename, parser);
+  constructor(filename, parser, text) {
+    super(filename, parser, text);
     this.curText = "";
     for (let prop of ["ontext", "oncdata"]) {
       parser[prop] = this[prop].bind(this);
@@ -3483,7 +3707,7 @@ function analyzeXBL(filename)
   ensureSax();
   let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true});
 
-  new XBLParser(filename, parser);
+  new XBLParser(filename, parser, text);
 
   parser.write(text);
   parser.close();
@@ -3505,8 +3729,8 @@ class XULParser extends XMLParser {
 }
 
 class HTMLParser extends BaseParser {
-  constructor(filename, parser) {
-    super(filename, parser);
+  constructor(filename, parser, text) {
+    super(filename, parser, text);
 
     this.inStyle = false;
     this.currentStyle = "";
@@ -3563,7 +3787,7 @@ function analyzeXUL(filename)
   ensureSax();
   let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true, noscript: true});
 
-  let parser2 = new XULParser(filename, parser);
+  let parser2 = new XULParser(filename, parser, text);
 
   parser.write(text);
   parser.close();
@@ -3582,7 +3806,7 @@ function analyzeHTML(filename)
   ensureSax();
   let parser = sax.parser(false, {trim: false, normalize: false, xmlns: true, position: true, noscript: false});
 
-  let parser2 = new HTMLParser(filename, parser);
+  let parser2 = new HTMLParser(filename, parser, text);
 
   parser.write(text);
   parser.close();

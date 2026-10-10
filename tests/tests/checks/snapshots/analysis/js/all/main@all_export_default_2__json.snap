@@ -32,7 +32,7 @@ input_file: inputs/analysis/js/all/all_export_default_2__json
     "source": 1,
     "syntax": "deflocal,variable",
     "pretty": "variable NAME_EXPORT_DEFAULT_2",
-    "sym": "13-0",
+    "sym": "14-0",
     "no_crossref": 1
   },
   {
@@ -55,7 +55,7 @@ input_file: inputs/analysis/js/all/all_export_default_2__json
     "source": 1,
     "syntax": "uselocal,variable",
     "pretty": "variable NAME_EXPORT_DEFAULT_2",
-    "sym": "13-0",
+    "sym": "14-0",
     "no_crossref": 1
   }
 ]
