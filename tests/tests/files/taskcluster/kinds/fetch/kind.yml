@@ -1,0 +1,5 @@
+---
+loader: taskgraph.loader.transform:loader
+
+tasks-from:
+    - toolchains.yml

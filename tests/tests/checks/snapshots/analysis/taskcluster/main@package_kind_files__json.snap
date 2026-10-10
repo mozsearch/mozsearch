@@ -1,0 +1,70 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/taskcluster/package_kind_files__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "taskcluster/kinds/package/kind.yml",
+    "sym": "FILE_taskcluster/kinds/package/kind@2Eyml"
+  },
+  {
+    "loc": "00005:6-15",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "file taskcluster/kinds/toolchain/kind.yml",
+    "sym": "FILE_taskcluster/kinds/toolchain/kind@2Eyml"
+  },
+  {
+    "loc": "00005:6-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "taskcluster/kinds/toolchain/kind.yml",
+    "sym": "FILE_taskcluster/kinds/toolchain/kind@2Eyml"
+  },
+  {
+    "loc": "00006:6-11",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "file taskcluster/kinds/fetch/kind.yml",
+    "sym": "FILE_taskcluster/kinds/fetch/kind@2Eyml"
+  },
+  {
+    "loc": "00006:6-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "taskcluster/kinds/fetch/kind.yml",
+    "sym": "FILE_taskcluster/kinds/fetch/kind@2Eyml"
+  },
+  {
+    "loc": "00018:18-55",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "file testing/mozharness/configs/builds/releng_base_linux_64_builds.py",
+    "sym": "FILE_testing/mozharness/configs/builds/releng_base_linux_64_builds@2Epy"
+  },
+  {
+    "loc": "00018:18-55",
+    "target": 1,
+    "kind": "use",
+    "pretty": "testing/mozharness/configs/builds/releng_base_linux_64_builds.py",
+    "sym": "FILE_testing/mozharness/configs/builds/releng_base_linux_64_builds@2Epy"
+  },
+  {
+    "loc": "00019:20-60",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "file testing/mozharness/scripts/fx_desktop_build.py",
+    "sym": "FILE_testing/mozharness/scripts/fx_desktop_build@2Epy"
+  },
+  {
+    "loc": "00019:20-60",
+    "target": 1,
+    "kind": "use",
+    "pretty": "testing/mozharness/scripts/fx_desktop_build.py",
+    "sym": "FILE_testing/mozharness/scripts/fx_desktop_build@2Epy"
+  }
+]

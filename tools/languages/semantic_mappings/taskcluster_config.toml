@@ -1,0 +1,16 @@
+# Taskcluster's config.yml (see semantic_analyzer.rs and
+# taskcluster_tasks.toml): `workers: aliases:` define `TCWORKER_<alias>`, for
+# each worker type an alias's regular expression matches if it's finite (ex:
+# `b-win2022(|-xxlarge)` defines `TCWORKER_b-win2022` and
+# `TCWORKER_b-win2022-xxlarge`), or else the expression itself (ex:
+# `images.*`, whose tasks' worker types don't link to it).
+grammar = "yaml"
+paths = ["**/taskcluster/config.yml"]
+
+[[data]]
+path = "workers/aliases/*"
+role = "def"
+each = "{{ value | regex_expansions }}"
+sym = "TCWORKER_{{ item }}"
+pretty = "{{ item }}"
+syntax_kind = "worker"

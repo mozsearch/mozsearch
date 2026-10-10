@@ -1,0 +1,15 @@
+---
+trust-domain: gecko
+
+workers:
+    aliases:
+        b-linux(|-large):
+            provisioner: '{trust-domain}-{level}'
+            implementation: docker-worker
+            os: linux
+            worker-type: '{alias}'
+        images.*:
+            provisioner: '{trust-domain}-{level}'
+            implementation: docker-worker
+            os: linux
+            worker-type: '{alias}'

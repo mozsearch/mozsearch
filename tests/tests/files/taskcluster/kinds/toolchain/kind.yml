@@ -1,0 +1,8 @@
+---
+loader: taskgraph.loader.transform:loader
+
+kind-dependencies:
+    - fetch
+
+tasks-from:
+    - clang.yml

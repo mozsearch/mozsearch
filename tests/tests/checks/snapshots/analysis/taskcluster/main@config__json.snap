@@ -1,0 +1,49 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/taskcluster/config__json
+---
+[
+  {
+    "loc": "00006:8-24",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "worker b-linux",
+    "sym": "TCWORKER_b-linux"
+  },
+  {
+    "loc": "00006:8-24",
+    "target": 1,
+    "kind": "def",
+    "pretty": "b-linux",
+    "sym": "TCWORKER_b-linux"
+  },
+  {
+    "loc": "00006:8-24",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "worker b-linux-large",
+    "sym": "TCWORKER_b-linux-large"
+  },
+  {
+    "loc": "00006:8-24",
+    "target": 1,
+    "kind": "def",
+    "pretty": "b-linux-large",
+    "sym": "TCWORKER_b-linux-large"
+  },
+  {
+    "loc": "00011:8-16",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "worker images.*",
+    "sym": "TCWORKER_images.*"
+  },
+  {
+    "loc": "00011:8-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "images.*",
+    "sym": "TCWORKER_images.*"
+  }
+]

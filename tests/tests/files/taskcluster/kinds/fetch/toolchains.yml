@@ -1,0 +1,7 @@
+---
+clang-19:
+    description: clang 19 source code
+    fetch:
+        type: git
+        repo: https://github.com/llvm/llvm-project
+    fetch-alias: clang

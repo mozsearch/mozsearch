@@ -1,0 +1,36 @@
+# Taskcluster kinds' kind.yml (see semantic_analyzer.rs and
+# taskcluster_tasks.toml): the tasks of `tasks:` (or the older `jobs:`) define
+# `TASK_<kind>/<name>` (the kind is the directory's name), and
+# `kind-dependencies` and `tasks-from` link to the kinds' and tasks' files.
+grammar = "yaml"
+paths = ["**/taskcluster/kinds/*/kind.yml"]
+
+[[data]]
+path = "tasks/*"
+role = "def"
+sym = "TASK_{{ dir }}/{{ value }}"
+pretty = "{{ dir }}/{{ value }}"
+syntax_kind = "task"
+
+[[data]]
+path = "jobs/*"
+role = "def"
+sym = "TASK_{{ dir }}/{{ value }}"
+pretty = "{{ dir }}/{{ value }}"
+syntax_kind = "task"
+
+[[data]]
+path = "kind-dependencies/[]"
+at = "value"
+role = "use"
+sym = "FILE_{{ path | split: '/kinds/' | first | append: '/kinds/' | append: value | append: '/kind.yml' | at_escape }}"
+pretty = "{{ path | split: '/kinds/' | first }}/kinds/{{ value }}/kind.yml"
+syntax_kind = "file"
+
+[[data]]
+path = "tasks-from/[]"
+at = "value"
+role = "use"
+sym = "FILE_{{ dir_path | append: '/' | append: value | at_escape }}"
+pretty = "{{ dir_path }}/{{ value }}"
+syntax_kind = "file"

@@ -1,0 +1,63 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/taskcluster/package_kind__json
+---
+[
+  {
+    "loc": "00009:4-15",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "task package/linux64/opt",
+    "sym": "TASK_package/linux64/opt"
+  },
+  {
+    "loc": "00009:4-15",
+    "target": 1,
+    "kind": "def",
+    "pretty": "package/linux64/opt",
+    "sym": "TASK_package/linux64/opt"
+  },
+  {
+    "loc": "00013:25-38",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "worker b-linux-large",
+    "sym": "TCWORKER_b-linux-large"
+  },
+  {
+    "loc": "00013:25-38",
+    "target": 1,
+    "kind": "use",
+    "pretty": "b-linux-large",
+    "sym": "TCWORKER_b-linux-large"
+  },
+  {
+    "loc": "00022:18-31",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "task toolchain/linux64-clang",
+    "sym": "TASK_toolchain/linux64-clang"
+  },
+  {
+    "loc": "00022:18-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "toolchain/linux64-clang",
+    "sym": "TASK_toolchain/linux64-clang"
+  },
+  {
+    "loc": "00024:18-23",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "task fetch/clang",
+    "sym": "TASK_fetch/clang"
+  },
+  {
+    "loc": "00024:18-23",
+    "target": 1,
+    "kind": "use",
+    "pretty": "fetch/clang",
+    "sym": "TASK_fetch/clang"
+  }
+]

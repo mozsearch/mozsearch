@@ -1,0 +1,16 @@
+---
+task-defaults:
+    worker-type: b-linux
+
+linux64-clang-19:
+    description: "Clang 19 toolchain build"
+    run:
+        using: toolchain-script
+        script: build-clang.sh
+        toolchain-alias:
+            by-project:
+                toolchains: linux64-clang-toolchains
+                default: linux64-clang
+    fetches:
+        fetch:
+            - clang

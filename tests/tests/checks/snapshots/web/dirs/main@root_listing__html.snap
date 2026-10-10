@@ -778,6 +778,13 @@ Spread over multiple lines.
         </tr>
 
         <tr>
+          <td class="name"><a href="/tests/source/taskcluster" class="mimetype-fixed-container mimetype-icon-folder">taskcluster</a></td>
+          <td class="description"><a href="/tests/source/taskcluster" title=""></td>
+          <td class="size"><a href="/tests/source/taskcluster"></a></td>
+          <td class="coverage"><a href="/tests/source/taskcluster" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
+        </tr>
+
+        <tr>
           <td class="name"><a href="/tests/source/template_shapes.cpp" class="mimetype-fixed-container mimetype-icon-cpp">template_shapes.cpp</a></td>
           <td class="description"><a href="/tests/source/template_shapes.cpp" title=""></td>
           <td class="size"><a href="/tests/source/template_shapes.cpp">1126</a></td>

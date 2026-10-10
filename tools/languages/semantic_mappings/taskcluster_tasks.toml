@@ -1,0 +1,144 @@
+# Taskcluster kinds' tasks, in kind.yml and `tasks-from` files (see
+# semantic_analyzer.rs, taskcluster_kind.toml, and taskcluster_tasks_from.toml):
+# - A toolchain's `toolchain-alias`es (or keyed-by ones, ex: by-project) and
+#   a fetch's `fetch-alias`es are more definitions of `TASK_<kind>/<alias>`,
+#   and `fetches`' `toolchain` and `fetch` lists use `TASK_toolchain/<name>`
+#   and `TASK_fetch/<name>`.
+# - `docker-image: {in-tree: <name>}` uses `TASK_docker-image/<name>`.
+# - `worker-type` uses `TCWORKER_<worker-type>` (see taskcluster_config.toml),
+#   except keyed-by `default`s (the default worker).
+# - Runs link to their files: mozharness' configs
+#   (testing/mozharness/configs/) and scripts (testing/, or
+#   testing/mozharness/scripts/ for bare names), and toolchain scripts
+#   (taskcluster/scripts/misc/).
+grammar = "yaml"
+paths = ["**/taskcluster/kinds/*/*.yml"]
+
+## Toolchain and fetch aliases
+
+[[data]]
+path = "**/toolchain-alias"
+at = "value"
+role = "def"
+sym = "TASK_{{ dir }}/{{ value }}"
+pretty = "{{ dir }}/{{ value }}"
+syntax_kind = "task"
+
+[[data]]
+path = "**/toolchain-alias/**/[]"
+at = "value"
+role = "def"
+sym = "TASK_{{ dir }}/{{ value }}"
+pretty = "{{ dir }}/{{ value }}"
+syntax_kind = "task"
+
+[[data]]
+path = "**/toolchain-alias/**/*"
+at = "value"
+role = "def"
+sym = "TASK_{{ dir }}/{{ value }}"
+pretty = "{{ dir }}/{{ value }}"
+syntax_kind = "task"
+
+[[data]]
+path = "**/fetch-alias"
+at = "value"
+role = "def"
+sym = "TASK_{{ dir }}/{{ value }}"
+pretty = "{{ dir }}/{{ value }}"
+syntax_kind = "task"
+
+[[data]]
+path = "**/fetch-alias/**/[]"
+at = "value"
+role = "def"
+sym = "TASK_{{ dir }}/{{ value }}"
+pretty = "{{ dir }}/{{ value }}"
+syntax_kind = "task"
+
+## Fetches and docker images
+
+[[data]]
+path = "**/fetches/**/toolchain/**/[]"
+at = "value"
+role = "use"
+sym = "TASK_toolchain/{{ value }}"
+pretty = "toolchain/{{ value }}"
+syntax_kind = "task"
+
+[[data]]
+path = "**/fetches/**/fetch/**/[]"
+at = "value"
+role = "use"
+sym = "TASK_fetch/{{ value }}"
+pretty = "fetch/{{ value }}"
+syntax_kind = "task"
+
+[[data]]
+path = "**/docker-image/in-tree"
+at = "value"
+role = "use"
+sym = "TASK_docker-image/{{ value }}"
+pretty = "docker-image/{{ value }}"
+syntax_kind = "task"
+
+[[data]]
+path = "**/docker-image/in-tree/**/*"
+at = "value"
+role = "use"
+sym = "TASK_docker-image/{{ value }}"
+pretty = "docker-image/{{ value }}"
+syntax_kind = "task"
+
+## Workers
+
+[[data]]
+path = "**/worker-type"
+at = "value"
+role = "use"
+sym = "TCWORKER_{{ value }}"
+pretty = "{{ value }}"
+syntax_kind = "worker"
+
+[[data]]
+path = "**/worker-type/**/*"
+at = "value"
+except_values = ["default"]
+role = "use"
+sym = "TCWORKER_{{ value }}"
+pretty = "{{ value }}"
+syntax_kind = "worker"
+
+## Runs' files
+
+[[data]]
+path = "**/run[using=mozharness]/config"
+at = "value"
+role = "use"
+sym = "FILE_{{ 'testing/mozharness/configs/' | append: value | at_escape }}"
+pretty = "testing/mozharness/configs/{{ value }}"
+syntax_kind = "file"
+
+[[data]]
+path = "**/run[using=mozharness]/config/**/[]"
+at = "value"
+role = "use"
+sym = "FILE_{{ 'testing/mozharness/configs/' | append: value | at_escape }}"
+pretty = "testing/mozharness/configs/{{ value }}"
+syntax_kind = "file"
+
+[[data]]
+path = "**/run[using=mozharness]/script"
+at = "value"
+role = "use"
+sym = "FILE_{% if value contains '/' %}{{ 'testing/' | append: value | at_escape }}{% else %}{{ 'testing/mozharness/scripts/' | append: value | at_escape }}{% endif %}"
+pretty = "{% if value contains '/' %}testing/{{ value }}{% else %}testing/mozharness/scripts/{{ value }}{% endif %}"
+syntax_kind = "file"
+
+[[data]]
+path = "**/run[using=toolchain-script]/script"
+at = "value"
+role = "use"
+sym = "FILE_{{ path | split: '/kinds/' | first | append: '/scripts/misc/' | append: value | at_escape }}"
+pretty = "{{ path | split: '/kinds/' | first }}/scripts/misc/{{ value }}"
+syntax_kind = "file"

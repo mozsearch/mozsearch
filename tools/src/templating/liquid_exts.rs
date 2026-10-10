@@ -287,3 +287,130 @@ impl Filter for SnakeCaseFilter {
         ))
     }
 }
+
+/// The strings which a regular expression of only literals, groups,
+/// alternations, and `?`s matches (ex: `a(|-b|-c)?` is `a`, `a-b`, and
+/// `a-c`), or None if it has other constructs or more than 1000 strings.
+pub fn regex_expansions(pattern: &str) -> Option<Vec<String>> {
+    const LIMIT: usize = 1000;
+    fn alternation(chars: &mut std::iter::Peekable<std::str::Chars>) -> Option<Vec<String>> {
+        let mut all = sequence(chars)?;
+        while chars.peek() == Some(&'|') {
+            chars.next();
+            all.extend(sequence(chars)?);
+            if all.len() > LIMIT {
+                return None;
+            }
+        }
+        Some(all)
+    }
+    fn sequence(chars: &mut std::iter::Peekable<std::str::Chars>) -> Option<Vec<String>> {
+        let mut all = vec![String::new()];
+        while let Some(&c) = chars.peek() {
+            let atom = match c {
+                '|' | ')' => break,
+                '(' => {
+                    chars.next();
+                    let group = alternation(chars)?;
+                    if chars.next() != Some(')') {
+                        return None;
+                    }
+                    group
+                }
+                '\\' => {
+                    chars.next();
+                    vec![chars.next()?.to_string()]
+                }
+                '.' | '*' | '+' | '[' | ']' | '{' | '}' | '^' | '$' | '?' => return None,
+                c => {
+                    chars.next();
+                    vec![c.to_string()]
+                }
+            };
+            let atom = if chars.peek() == Some(&'?') {
+                chars.next();
+                let mut optional = vec![String::new()];
+                optional.extend(atom);
+                optional
+            } else {
+                atom
+            };
+            all = all
+                .iter()
+                .flat_map(|prefix| {
+                    atom.iter()
+                        .map(move |suffix| format!("{}{}", prefix, suffix))
+                })
+                .collect();
+            if all.len() > LIMIT {
+                return None;
+            }
+        }
+        Some(all)
+    }
+    let mut chars = pattern.chars().peekable();
+    let all = alternation(&mut chars)?;
+    if chars.next().is_some() {
+        return None;
+    }
+    let mut unique = vec![];
+    for s in all {
+        if !unique.contains(&s) {
+            unique.push(s);
+        }
+    }
+    Some(unique)
+}
+
+#[derive(Clone, ParseFilter, FilterReflection)]
+#[filter(
+    name = "regex_expansions",
+    description = "The strings a regular expression of literals, groups, alternations, and '?'s matches, space-separated (or the input, if it has other constructs).",
+    parsed(RegexExpansionsFilter)
+)]
+pub struct RegexExpansionsFilterParser;
+
+#[derive(Debug, Default, Display_filter)]
+#[name = "regex_expansions"]
+struct RegexExpansionsFilter;
+
+impl Filter for RegexExpansionsFilter {
+    fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
+        let pattern = input.to_kstr();
+        Ok(Value::scalar(match regex_expansions(&pattern) {
+            Some(all) => all.join(" "),
+            None => pattern.to_string(),
+        }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::regex_expansions;
+
+    #[test]
+    fn test_regex_expansions() {
+        assert_eq!(
+            regex_expansions("b-linux(|-docker(|-x?large)-amd|-kvm)").unwrap(),
+            [
+                "b-linux",
+                "b-linux-docker-amd",
+                "b-linux-docker-large-amd",
+                "b-linux-docker-xlarge-amd",
+                "b-linux-kvm"
+            ]
+        );
+        assert_eq!(
+            regex_expansions("t-linux-(talos|netperf)(-1804)?").unwrap(),
+            [
+                "t-linux-talos",
+                "t-linux-talos-1804",
+                "t-linux-netperf",
+                "t-linux-netperf-1804"
+            ]
+        );
+        assert_eq!(regex_expansions("plain").unwrap(), ["plain"]);
+        assert_eq!(regex_expansions("images.*"), None);
+        assert_eq!(regex_expansions("a(b"), None);
+    }
+}

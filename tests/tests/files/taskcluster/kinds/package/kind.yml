@@ -1,0 +1,24 @@
+---
+loader: taskgraph.loader.transform:loader
+
+kind-dependencies:
+    - toolchain
+    - fetch
+
+tasks:
+    linux64/opt:
+        description: "Linux64 Opt"
+        worker-type:
+            by-platform:
+                linux.*: b-linux-large
+                default: default
+        run:
+            using: mozharness
+            config:
+                - builds/releng_base_linux_64_builds.py
+            script: "mozharness/scripts/fx_desktop_build.py"
+        fetches:
+            toolchain:
+                - linux64-clang
+            fetch:
+                - clang

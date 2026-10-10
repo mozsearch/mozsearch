@@ -1,0 +1,14 @@
+# Taskcluster kinds' `tasks-from` files (see semantic_analyzer.rs and
+# taskcluster_tasks.toml): their top-level keys (but `task-defaults` and
+# `job-defaults`) are tasks, defining `TASK_<kind>/<name>`.
+grammar = "yaml"
+paths = ["**/taskcluster/kinds/*/*.yml"]
+exclude_paths = ["**/kind.yml"]
+
+[[data]]
+path = "*"
+role = "def"
+except_keys = ["task-defaults", "job-defaults"]
+sym = "TASK_{{ dir }}/{{ value }}"
+pretty = "{{ dir }}/{{ value }}"
+syntax_kind = "task"

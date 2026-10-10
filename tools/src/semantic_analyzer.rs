@@ -25,7 +25,12 @@
 //!   scalar values of the entries the paths match.  A path's segments are a
 //!   key, `*` (any key of a map), `[]` (any item of a sequence), or `**` (any
 //!   number of levels), separated by `/` (ex: `[]/name` is each top-level
-//!   item's `name`).  Besides definitions and uses, a data rule can be for
+//!   item's `name`), and a key or `*` can require its value to be a map with
+//!   a key and scalar value (ex: `run[using=mozharness]/script`).  A rule can
+//!   leave out entries by their keys or values (`except_keys`,
+//!   `except_values`), and with `each` (a
+//!   template whose output's words are `item`s), have records for each of
+//!   several symbols.  Besides definitions and uses, a data rule can be for
 //!   keys (source records only, with the `key` syntax, and with a nesting
 //!   range for a value spanning lines), and its definitions can have
 //!   structured records with binding slots (by symbol, or by the pretty name
@@ -38,10 +43,12 @@
 //! outermost one (ex: the message whose attribute's pattern a variable is in).
 //! The scope a record names (ex: a message's own identifier) doesn't enclose
 //! it.  Data rules' templates see `value` (the key's or scalar's value),
-//! `text` (its source text, ex: with quotes), `key` (the entry's key), and
-//! `keys` (the keys from the document's root to the entry).  Besides Liquid's
-//! filters, templates have `at_escape`, `camel_case`, `pascal_case`, and
-//! `snake_case` (see `templating::liquid_exts`).
+//! `text` (its source text, ex: with quotes), `key` (the entry's key), `keys`
+//! (the keys from the document's root to the entry), and the file's `path`,
+//! `dir_path` (its directory's path), and `dir` (its directory's name).
+//! Besides Liquid's filters, templates have `at_escape`, `camel_case`,
+//! `pascal_case`, `snake_case`, and `regex_expansions` (see
+//! `templating::liquid_exts`).
 
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use include_dir::{Dir, include_dir};
@@ -56,7 +63,8 @@ use crate::file_format::analysis::{
 };
 use crate::file_format::analysis_manglings::mangle_file;
 use crate::templating::liquid_exts::{
-    AtEscapeFilterParser, CamelCaseFilterParser, PascalCaseFilterParser, SnakeCaseFilterParser,
+    AtEscapeFilterParser, CamelCaseFilterParser, PascalCaseFilterParser,
+    RegexExpansionsFilterParser, SnakeCaseFilterParser,
 };
 
 static MAPPINGS_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/languages/semantic_mappings");
@@ -140,6 +148,16 @@ pub struct DataRule {
     pub nesting: bool,
     #[serde(default)]
     pub structured: Option<StructuredRule>,
+    /// Keys of entries the rule leaves out (ex: "task-defaults"), and values
+    /// of its subjects (ex: keyed-by "default"s).
+    #[serde(default)]
+    pub except_keys: Vec<String>,
+    #[serde(default)]
+    pub except_values: Vec<String>,
+    /// A template whose output's (whitespace-separated) words each get the
+    /// rule's records, with the word as `item`.
+    #[serde(default)]
+    pub each: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -191,20 +209,41 @@ struct CompiledRule {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-enum Segment {
+enum SegmentKind {
     Key(String),
     AnyKey,
     Item,
     AnyDepth,
 }
 
+/// A data path's segment, with the key and scalar value which the value of an
+/// entry it matches must have, if any (`key[name=value]`).
+#[derive(Debug, PartialEq, Eq)]
+struct Segment {
+    kind: SegmentKind,
+    predicate: Option<(String, String)>,
+}
+
 fn parse_data_path(path: &str) -> Vec<Segment> {
     path.split('/')
-        .map(|segment| match segment {
-            "*" => Segment::AnyKey,
-            "[]" => Segment::Item,
-            "**" => Segment::AnyDepth,
-            key => Segment::Key(key.to_string()),
+        .map(|segment| {
+            let (name, predicate) = match segment.strip_suffix(']').and_then(|s| s.split_once('['))
+            {
+                Some((name, predicate)) if !predicate.is_empty() => (
+                    name,
+                    predicate
+                        .split_once('=')
+                        .map(|(key, value)| (key.to_string(), value.to_string())),
+                ),
+                _ => (segment, None),
+            };
+            let kind = match name {
+                "*" => SegmentKind::AnyKey,
+                "[]" => SegmentKind::Item,
+                "**" => SegmentKind::AnyDepth,
+                key => SegmentKind::Key(key.to_string()),
+            };
+            Segment { kind, predicate }
         })
         .collect()
 }
@@ -234,6 +273,9 @@ struct CompiledDataRule {
     kind: Option<AnalysisKind>,
     nesting: bool,
     structured: Option<CompiledStructured>,
+    except_keys: Vec<String>,
+    except_values: Vec<String>,
+    each: Option<liquid::Template>,
 }
 
 /// A mapping ready to analyze files with.
@@ -257,6 +299,7 @@ impl CompiledMapping {
             .filter(CamelCaseFilterParser)
             .filter(PascalCaseFilterParser)
             .filter(SnakeCaseFilterParser)
+            .filter(RegexExpansionsFilterParser)
             .build()
             .map_err(|e| e.to_string())?;
         let template = |source: &str| {
@@ -354,6 +397,9 @@ impl CompiledMapping {
                         kind: rule.kind,
                         nesting: rule.nesting,
                         structured,
+                        except_keys: rule.except_keys.clone(),
+                        except_values: rule.except_values.clone(),
+                        each: rule.each.as_deref().map(template).transpose()?,
                     })
                 })
                 .collect::<Result<_, String>>()?,
@@ -600,18 +646,25 @@ fn match_data_path<'d, 't>(
         return;
     };
     let is_map = matches!(data, Data::Map(_));
+    let any_depth = first.kind == SegmentKind::AnyDepth;
     for entry in data.entries() {
-        let accepted = match first {
-            Segment::Key(key) => is_map && entry.key.as_ref().is_some_and(|k| k.value == *key),
-            Segment::AnyKey => is_map && entry.key.is_some(),
-            Segment::Item => !is_map,
-            Segment::AnyDepth => true,
+        let accepted = match &first.kind {
+            SegmentKind::Key(key) => is_map && entry.key.as_ref().is_some_and(|k| k.value == *key),
+            SegmentKind::AnyKey => is_map && entry.key.is_some(),
+            SegmentKind::Item => !is_map,
+            SegmentKind::AnyDepth => true,
         };
-        if !accepted {
+        let satisfies = |(key, value): &(String, String)| {
+            entry.value.entries().iter().any(|child| {
+                child.key.as_ref().is_some_and(|k| k.value == *key)
+                    && matches!(&child.value, Data::Scalar(scalar) if scalar.value == *value)
+            })
+        };
+        if !accepted || first.predicate.as_ref().is_some_and(|p| !satisfies(p)) {
             continue;
         }
         let pushed = entry.key.as_ref().map(|key| keys.push(key.value.clone()));
-        if *first == Segment::AnyDepth {
+        if any_depth {
             // (One more level; zero levels are below.)
             match_data_path(&entry.value, path, keys, out);
         } else if rest.is_empty() {
@@ -626,7 +679,7 @@ fn match_data_path<'d, 't>(
             keys.pop();
         }
     }
-    if *first == Segment::AnyDepth {
+    if any_depth {
         match_data_path(data, rest, keys, out);
     }
 }
@@ -1015,20 +1068,31 @@ fn query_records(
     Ok(())
 }
 
-/// The records of a mapping's data rules.
+/// The records of a mapping's data rules, for the file at `path`.
 fn data_records(
     mapping: &CompiledMapping,
     data: &Data,
+    path: &str,
     source: &str,
     records: &mut Vec<Record>,
 ) -> Result<(), String> {
     let render = |template: &liquid::Template, globals: &liquid::Object| {
         template.render(globals).map_err(|e| e.to_string())
     };
+    let (dir_path, _) = path.rsplit_once('/').unwrap_or(("", path));
+    let dir = dir_path.rsplit('/').next().unwrap_or_default();
     for rule in &mapping.data {
         let mut matches = vec![];
         match_data_path(data, &rule.path, &mut vec![], &mut matches);
         for DataMatch { keys, entry } in matches {
+            let key = entry
+                .key
+                .as_ref()
+                .map(|key| key.value.clone())
+                .unwrap_or_default();
+            if rule.except_keys.contains(&key) {
+                continue;
+            }
             let subject = match rule.at {
                 DataSubject::Key => entry.key.as_ref(),
                 DataSubject::Value => match &entry.value {
@@ -1039,14 +1103,25 @@ fn data_records(
             let Some(subject) = subject else {
                 continue;
             };
-            let globals = liquid::object!({
+            if rule.except_values.contains(&subject.value) {
+                continue;
+            }
+            let mut globals = liquid::object!({
                 "value": subject.value,
                 "text": node_text(&subject.node, source),
-                "key": entry.key.as_ref().map(|key| key.value.clone()).unwrap_or_default(),
+                "key": key,
                 "keys": keys,
+                "path": path,
+                "dir_path": dir_path,
+                "dir": dir,
             });
-            let sym = render(&rule.sym, &globals)?;
-            let pretty = render(&rule.pretty, &globals)?;
+            let items: Vec<Option<String>> = match &rule.each {
+                Some(each) => render(each, &globals)?
+                    .split_whitespace()
+                    .map(|item| Some(item.to_string()))
+                    .collect(),
+                None => vec![None],
+            };
             let loc = location(&subject.node);
             // (Through the last line of the value, so that the line after it
             // ends the sticky header.)
@@ -1059,53 +1134,60 @@ fn data_records(
                 },
                 _ => SourceRange::default(),
             };
-            if let Some(structured) = &rule.structured {
-                let mut slots = vec![];
-                for binding in &structured.bindings {
-                    let mut slot = json!({
-                        "slotKind": binding.slot_kind,
-                        "slotLang": binding.slot_lang,
-                        "ownerLang": binding.owner_lang,
-                    });
-                    let (field, template) = match (&binding.sym, &binding.pretty) {
-                        (Some(sym), _) => ("sym", sym),
-                        (None, Some(pretty)) => ("pretty", pretty),
-                        (None, None) => continue,
-                    };
-                    let value = render(template, &globals)?;
-                    if value.is_empty() {
-                        continue;
-                    }
-                    slot[field] = json!(value);
-                    if let Some(impl_kind) = binding.impl_kind {
-                        slot["implKind"] = json!(impl_kind);
-                    }
-                    slots.push(slot);
+            for item in items {
+                if let Some(item) = item {
+                    globals.insert("item".into(), liquid::model::Value::scalar(item));
                 }
-                records.push(Record::Structured(
+                let sym = render(&rule.sym, &globals)?;
+                let pretty = render(&rule.pretty, &globals)?;
+                if let Some(structured) = &rule.structured {
+                    let mut slots = vec![];
+                    for binding in &structured.bindings {
+                        let mut slot = json!({
+                            "slotKind": binding.slot_kind,
+                            "slotLang": binding.slot_lang,
+                            "ownerLang": binding.owner_lang,
+                        });
+                        let (field, template) = match (&binding.sym, &binding.pretty) {
+                            (Some(sym), _) => ("sym", sym),
+                            (None, Some(pretty)) => ("pretty", pretty),
+                            (None, None) => continue,
+                        };
+                        let value = render(template, &globals)?;
+                        if value.is_empty() {
+                            continue;
+                        }
+                        slot[field] = json!(value);
+                        if let Some(impl_kind) = binding.impl_kind {
+                            slot["implKind"] = json!(impl_kind);
+                        }
+                        slots.push(slot);
+                    }
+                    records.push(Record::Structured(
+                        loc,
+                        json!({
+                            "loc": loc,
+                            "structured": 1,
+                            "pretty": pretty,
+                            "sym": sym,
+                            "kind": structured.kind,
+                            "implKind": structured.impl_kind,
+                            "bindingSlots": slots,
+                        }),
+                    ));
+                }
+                rule_records(
+                    records,
+                    rule.role,
                     loc,
-                    json!({
-                        "loc": loc,
-                        "structured": 1,
-                        "pretty": pretty,
-                        "sym": sym,
-                        "kind": structured.kind,
-                        "implKind": structured.impl_kind,
-                        "bindingSlots": slots,
-                    }),
-                ));
+                    &rule.syntax_kind,
+                    rule.kind,
+                    pretty,
+                    sym,
+                    nesting_range.clone(),
+                    (String::new(), String::new()),
+                );
             }
-            rule_records(
-                records,
-                rule.role,
-                loc,
-                &rule.syntax_kind,
-                rule.kind,
-                pretty,
-                sym,
-                nesting_range,
-                (String::new(), String::new()),
-            );
         }
     }
     Ok(())
@@ -1224,7 +1306,7 @@ pub fn analyze(
             for root in &roots {
                 query_records(mapping, *root, source, &mut records)?;
             }
-            data_records(mapping, &data, source, &mut records)?;
+            data_records(mapping, &data, path, source, &mut records)?;
         }
     }
     // (Stable, so a location's records stay in the order they're made: the
@@ -1416,6 +1498,56 @@ kind = "glean"
         );
         let source = source.replace("moz://test/1", "other");
         assert_eq!(analyze(&[&metrics], "x.yaml", &source).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn test_data_rule_options() {
+        // Predicates, `except_keys`, `each`, and the file's path.
+        let tasks = mapping(
+            "tasks",
+            r#"
+grammar = "yaml"
+paths = ["**/*.yml"]
+[[data]]
+path = "*"
+role = "def"
+except_keys = ["task-defaults"]
+sym = "T_{{ dir }}/{{ value }}"
+pretty = "{{ dir }}/{{ value }}"
+[[data]]
+path = "**/run[using=script]/script"
+at = "value"
+role = "use"
+sym = "FILE_{{ dir_path | at_escape }}/{{ value | at_escape }}"
+pretty = "{{ dir_path }}/{{ value }}"
+[[data]]
+path = "**/workers/*"
+role = "def"
+each = "{{ value | regex_expansions }}"
+sym = "W_{{ item }}"
+pretty = "{{ item }}"
+"#,
+        );
+        let source = "task-defaults:\n  x: 1\na:\n  run:\n    using: script\n    script: a.sh\nb:\n  run:\n    using: other\n    script: b.sh\n  workers:\n    w(|-big): {}\n";
+        let targets: Vec<String> = analyze(&[&tasks], "k/build/t.yml", source)
+            .unwrap()
+            .iter()
+            .filter_map(|r| match r {
+                Record::Target(t) => Some(format!("{} {}", t.loc.lineno, t.data.sym)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            targets,
+            [
+                "1 FILE_k/build/t@2Eyml",
+                "3 T_build/a",
+                "6 FILE_k/build/a@2Esh",
+                "7 T_build/b",
+                "12 W_w",
+                "12 W_w-big"
+            ]
+        );
     }
 
     #[test]

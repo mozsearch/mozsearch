@@ -1,0 +1,184 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/taskcluster/tasks__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "TASK_toolchain/linux64-clang",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "taskcluster/kinds/package/kind.yml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 22,
+                "bounds": [
+                  2,
+                  15
+                ],
+                "line": "- linux64-clang",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "taskcluster/kinds/toolchain/clang.yml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 13,
+                "bounds": [
+                  9,
+                  22
+                ],
+                "line": "default: linux64-clang",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "TASK_fetch/clang",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "taskcluster/kinds/package/kind.yml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 24,
+                "bounds": [
+                  2,
+                  7
+                ],
+                "line": "- clang",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
+            "path": "taskcluster/kinds/toolchain/clang.yml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 16,
+                "bounds": [
+                  2,
+                  7
+                ],
+                "line": "- clang",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "taskcluster/kinds/fetch/toolchains.yml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 7,
+                "bounds": [
+                  13,
+                  18
+                ],
+                "line": "fetch-alias: clang",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "TCWORKER_b-linux-large",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "taskcluster/kinds/package/kind.yml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 13,
+                "bounds": [
+                  9,
+                  22
+                ],
+                "line": "linux.*: b-linux-large",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "taskcluster/config.yml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 6,
+                "bounds": [
+                  0,
+                  16
+                ],
+                "line": "b-linux(|-large):",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "FILE_taskcluster/scripts/misc/build@2Dclang@2Esh",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "taskcluster/kinds/toolchain/clang.yml",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 9,
+                "bounds": [
+                  8,
+                  22
+                ],
+                "line": "script: build-clang.sh",
+                "context": "taskcluster/kinds/toolchain/clang.yml",
+                "contextsym": "FILE_taskcluster/kinds/toolchain/clang@2Eyml"
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}
