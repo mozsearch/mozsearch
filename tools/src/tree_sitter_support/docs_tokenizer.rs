@@ -30,7 +30,9 @@ use regex::Regex;
 
 use crate::file_format::history::syntax_files::TokenClass;
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
-use crate::tree_sitter_support::boilerplate::{FinishedTokens, RawToken, finish_tokens};
+use crate::tree_sitter_support::boilerplate::{
+    FinishedTokens, RawToken, finish_tokens, prose_words,
+};
 use crate::tree_sitter_support::config_tokenizer::escape_name;
 
 /// How much of a document's text a piece of markup is.
@@ -238,7 +240,14 @@ impl<'a> Emitter<'a> {
 
     fn push(&mut self, class: TokenClass, text: &'a str, words: bool) {
         if words {
-            for word in text.split_whitespace() {
+            // (Prose's punctuation is its own tokens; see `prose_words`.)
+            let words: Box<dyn Iterator<Item = &str>> =
+                if matches!(class, TokenClass::Text | TokenClass::Comment) {
+                    Box::new(prose_words(text))
+                } else {
+                    Box::new(text.split_whitespace())
+                };
+            for word in words {
                 self.tokens.push(RawToken {
                     context: self.context.clone(),
                     class,

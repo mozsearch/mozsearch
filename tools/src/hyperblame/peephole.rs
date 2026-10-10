@@ -771,7 +771,7 @@ mod tests {
         assert_eq!(window_text(source, "h", 0), "h ( x , 2 ) ;");
         assert_eq!(window_text(source, "1", 0), "int x = 1 ;");
         // Comment words.
-        assert_eq!(window_text(source, "words", 0), "// Some words here.");
+        assert_eq!(window_text(source, "words", 0), "// Some words here .");
     }
 
     #[test]

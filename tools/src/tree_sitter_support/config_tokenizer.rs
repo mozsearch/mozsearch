@@ -34,7 +34,9 @@
 
 use crate::file_format::history::syntax_files::TokenClass;
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
-use crate::tree_sitter_support::boilerplate::{FinishedTokens, RawToken, finish_tokens};
+use crate::tree_sitter_support::boilerplate::{
+    FinishedTokens, RawToken, finish_tokens, prose_words,
+};
 
 /// Escape a section or key name for use in a context: contexts can't contain
 /// spaces (see `syntax_files.rs`) and "::" is the context delimiter.
@@ -62,6 +64,13 @@ impl<'a> Output<'a> {
     }
 
     fn push_words(&mut self, context: &str, class: TokenClass, text: &'a str) {
+        // (Prose's punctuation is its own tokens; see `prose_words`.)
+        if matches!(class, TokenClass::Text | TokenClass::Comment) {
+            for word in prose_words(text) {
+                self.push(context, class, word);
+            }
+            return;
+        }
         for word in text.split_whitespace() {
             self.push(context, class, word);
         }
@@ -711,7 +720,8 @@ mod tests {
                 "test.html::expected t ERROR",
                 "test.html::Some%20subtest:%20with%20spaces o [",
                 "test.html::Some%20subtest:%20with%20spaces t Some",
-                "test.html::Some%20subtest:%20with%20spaces t subtest:",
+                "test.html::Some%20subtest:%20with%20spaces t subtest",
+                "test.html::Some%20subtest:%20with%20spaces t :",
                 "test.html::Some%20subtest:%20with%20spaces t with",
                 "test.html::Some%20subtest:%20with%20spaces t spaces",
                 "test.html::Some%20subtest:%20with%20spaces o ]",
@@ -720,7 +730,9 @@ mod tests {
                 "test.html::Some%20subtest:%20with%20spaces::expected t if",
                 "test.html::Some%20subtest:%20with%20spaces::expected t os",
                 "test.html::Some%20subtest:%20with%20spaces::expected t ==",
-                "test.html::Some%20subtest:%20with%20spaces::expected t \"win\":",
+                "test.html::Some%20subtest:%20with%20spaces::expected t \"",
+                "test.html::Some%20subtest:%20with%20spaces::expected t win",
+                "test.html::Some%20subtest:%20with%20spaces::expected t \":",
                 "test.html::Some%20subtest:%20with%20spaces::expected t FAIL",
                 "test.html::Some%20subtest:%20with%20spaces::expected t PASS",
                 "test.html::Another%3A%3Asubtest o [",
@@ -819,7 +831,9 @@ mod tests {
                 "package.metadata::desc o =",
                 "package.metadata::desc t multi",
                 "package.metadata::desc t line",
-                "package.metadata::desc t \"quoted\"",
+                "package.metadata::desc t \"",
+                "package.metadata::desc t quoted",
+                "package.metadata::desc t \"",
                 "package.metadata::esc i esc",
                 "package.metadata::esc o =",
                 "package.metadata::esc t a\\\"b",

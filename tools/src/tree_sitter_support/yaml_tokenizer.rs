@@ -26,7 +26,9 @@ use std::collections::HashSet;
 use crate::file_format::history::syntax_files::TokenClass;
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
 use crate::semantic_analyzer::{parse_all, preprocess_yaml};
-use crate::tree_sitter_support::boilerplate::{FinishedTokens, RawToken, finish_tokens};
+use crate::tree_sitter_support::boilerplate::{
+    FinishedTokens, RawToken, finish_tokens, prose_words,
+};
 use crate::tree_sitter_support::config_tokenizer::escape_name;
 use crate::tree_sitter_support::json_tokenizer::{IDENTITY_KEYS, context_of};
 
@@ -117,7 +119,7 @@ impl<'a> YamlTokenizer<'a> {
     }
 
     fn push_comment_words(&mut self, context: &str, text: &'a str) {
-        for word in text.split_whitespace() {
+        for word in prose_words(text) {
             self.tokens.push(RawToken {
                 context: context.to_string(),
                 class: TokenClass::Comment,
@@ -153,6 +155,13 @@ impl<'a> YamlTokenizer<'a> {
     }
 
     fn push_words(&mut self, context: &str, class: TokenClass, text: &'a str) {
+        // (Prose's punctuation is its own tokens; see `prose_words`.)
+        if matches!(class, TokenClass::Text | TokenClass::Comment) {
+            for word in prose_words(text) {
+                self.push(context, class, word);
+            }
+            return;
+        }
         for word in text.split_whitespace() {
             self.push(context, class, word);
         }
@@ -357,7 +366,8 @@ mod tests {
             tokens(source),
             vec![
                 "% c #",
-                "% c Tasks.",
+                "% c Tasks",
+                "% c .",
                 "jobs i jobs",
                 "jobs o :",
                 "jobs::build-linux i build-linux",
@@ -393,21 +403,25 @@ mod tests {
             tokens(source),
             vec![
                 "% c #",
-                "% c License.",
+                "% c License",
+                "% c .",
                 "a c #",
                 "a c About",
-                "a c a.",
+                "a c a",
+                "a c .",
                 "a o -",
                 "a::name i name",
                 "a::name o :",
                 "a::name t a",
                 "a::name c #",
-                "a::name c Trailing.",
+                "a::name c Trailing",
+                "a::name c .",
                 "a::type i type",
                 "a::type o :",
                 "a::type t bool",
                 "a c #",
-                "a c Section.",
+                "a c Section",
+                "a c .",
                 "a::value i value",
                 "a::value o :",
                 "a::value n 1",

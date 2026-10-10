@@ -110,6 +110,68 @@ pub fn finish_tokens(source: &str, mut tokens: Vec<RawToken>) -> FinishedTokens 
     }
 }
 
+/// Punctuation that can start a word of prose.
+const OPENING: &[char] = &['(', '[', '{', '"', '\'', '“', '‘', '«', '¿', '¡'];
+/// Punctuation that can end a word of prose.
+const CLOSING: &[char] = &[
+    '.', ',', ';', ':', '!', '?', ')', ']', '}', '"', '\'', '”', '’', '»', '…',
+];
+
+/// The tokens of prose (comments and text): its whitespace-delimited words,
+/// with their leading and trailing punctuation as tokens of their own (ex:
+/// "(see it)." is "(", "see", "it", and ")."), so that extending or shortening
+/// a sentence or a parenthetical doesn't change its words' tokens.
+/// Punctuation within words stays (ex: "don't", "a/b", and URLs), as do words
+/// that are only punctuation (ex: "--" and "*/") and closing brackets and
+/// quotes that match ones in the word (ex: "foo()", "Foo_(bar)", and
+/// `dim="3d"`).
+pub fn prose_words(text: &str) -> impl Iterator<Item = &str> {
+    text.split_whitespace().flat_map(prose_word_pieces)
+}
+
+fn prose_word_pieces(word: &str) -> impl Iterator<Item = &str> {
+    // Short bracketed words stay whole, ex: list items' `(a)` and `(ii)`,
+    // footnotes' `[1]`, and copyright notices' `(c)`.
+    let short_bracketed = word.len() <= 6
+        && matches!(
+            (word.chars().next(), word.chars().last()),
+            (Some('('), Some(')')) | (Some('['), Some(']'))
+        )
+        && word[1..word.len() - 1].chars().all(char::is_alphanumeric);
+    let (lead, end) = if word.chars().any(char::is_alphanumeric) && !short_bracketed {
+        let lead = word.len() - word.trim_start_matches(OPENING).len();
+        let mut end = word.len();
+        while let Some(c) = word[lead..end].chars().next_back() {
+            if !CLOSING.contains(&c) {
+                break;
+            }
+            // A closing bracket or quote that matches one in the word stays,
+            // ex: "foo()" and `dim="3d"`.
+            let core = &word[lead..end - c.len_utf8()];
+            let matched = match c {
+                ')' => core.matches('(').count() > core.matches(')').count(),
+                ']' => core.matches('[').count() > core.matches(']').count(),
+                '}' => core.matches('{').count() > core.matches('}').count(),
+                '”' => core.matches('“').count() > core.matches('”').count(),
+                '’' => core.matches('‘').count() > core.matches('’').count(),
+                '»' => core.matches('«').count() > core.matches('»').count(),
+                '"' | '\'' => core.matches(c).count() % 2 == 1,
+                _ => false,
+            };
+            if matched {
+                break;
+            }
+            end -= c.len_utf8();
+        }
+        (lead, end)
+    } else {
+        (0, word.len())
+    };
+    [&word[..lead], &word[lead..end], &word[end..]]
+        .into_iter()
+        .filter(|piece| !piece.is_empty())
+}
+
 /// A token for boilerplate detection: its text and whether it is the first
 /// token on its source line.
 #[derive(Clone, Copy, Debug)]
@@ -392,11 +454,17 @@ pub fn find_boilerplate(tokens: &[BoilerplateToken]) -> Vec<bool> {
         }
 
         // vim/vi/ex modelines through the end of the line.
+        // (The colon can be its own token; see `prose_words`.)
         if let Some(j) = line.clone().find(|&j| {
             let t = tokens[j].text;
-            ["vim:", "vi:", "ex:"]
-                .iter()
-                .any(|prefix| t.starts_with(prefix))
+            ["vim", "vi", "ex"].iter().any(|name| {
+                t.strip_prefix(name)
+                    .is_some_and(|rest| rest.starts_with(':'))
+                    || (t == *name
+                        && tokens
+                            .get(j + 1)
+                            .is_some_and(|next| next.text.starts_with(':')))
+            })
         }) {
             mark_range(&mut marked, j, line.end - 1);
         }
@@ -679,6 +747,56 @@ mod tests {
               */",
         );
         assert_eq!(rest, "/* * */");
+    }
+
+    #[test]
+    fn test_prose_words() {
+        let words = |text: &str| prose_words(text).collect::<Vec<_>>().join(" ");
+        assert_eq!(
+            words("(see it). “Quoted,” he said."),
+            "( see it ). “ Quoted ,” he said ."
+        );
+        assert_eq!(
+            words("Call foo(); or Foo_(bar)."),
+            "Call foo() ; or Foo_(bar) ."
+        );
+        assert_eq!(
+            words("don't, a/b: https://x.org/a."),
+            "don't , a/b : https://x.org/a ."
+        );
+        assert_eq!(
+            words("(c) 2016 (a) [1] -- */ ..."),
+            "(c) 2016 (a) [1] -- */ ..."
+        );
+        assert_eq!(
+            words(r#"dim="3d"; if os == "win": users' 'x'"#),
+            r#"dim="3d" ; if os == " win ": users ' ' x '"#
+        );
+    }
+
+    #[test]
+    fn test_prose_words_boilerplate() {
+        // Boilerplate still matches with punctuation as its own tokens.
+        let source = "/* This Source Code Form is subject to the terms of the Mozilla Public\n                       * License, v. 2.0. If a copy of the MPL was not distributed with this\n                       * file, You can obtain one at http://mozilla.org/MPL/2.0/. */\n\
+                      // (c) 2016 Foo Inc.\n\
+                      // vim: set ts=8 sw=2:\n";
+        let mut tokens = vec![];
+        for line in source.lines() {
+            for (i, word) in prose_words(line).enumerate() {
+                tokens.push(BoilerplateToken {
+                    text: word,
+                    line_start: i == 0,
+                });
+            }
+        }
+        let marked = find_boilerplate(&tokens);
+        let unmarked: Vec<&str> = tokens
+            .iter()
+            .zip(&marked)
+            .filter(|(_, m)| !**m)
+            .map(|(t, _)| t.text)
+            .collect();
+        assert_eq!(unmarked, Vec::<&str>::new());
     }
 
     #[test]

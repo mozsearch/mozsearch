@@ -7,7 +7,9 @@ use include_dir::{Dir, include_dir};
 
 use crate::file_format::history::syntax_files::TokenClass;
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
-use crate::tree_sitter_support::boilerplate::{FinishedTokens, RawToken, finish_tokens};
+use crate::tree_sitter_support::boilerplate::{
+    FinishedTokens, RawToken, finish_tokens, prose_words,
+};
 use crate::tree_sitter_support::config_tokenizer::{tokenize_ini, tokenize_toml};
 use crate::tree_sitter_support::docs_tokenizer::{tokenize_markdown, tokenize_rst};
 use crate::tree_sitter_support::json_tokenizer::tokenize_json;
@@ -309,7 +311,10 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   `docs_tokenizer` (with tree-sitter-md and tree-sitter-rst), with contexts
 ///   from their headings, in a shared "docs" namespace, rather than as plain
 ///   text.
-pub const TOKENIZER_VERSION: u32 = 11;
+/// - 12: Prose (comments and text) has its words' leading and trailing
+///   punctuation as tokens of their own (see `prose_words`), so that
+///   extending or shortening a sentence doesn't change its last word.
+pub const TOKENIZER_VERSION: u32 = 12;
 
 /// The node to name a container by, given the node its query captured as its
 /// name.  tree-sitter's error recovery can make that span unrecognized macros
@@ -1515,12 +1520,13 @@ fn push_leaf_tokens<'s>(
     if token.is_empty() {
         // ignore empty tokens!
     } else if in_comment || class == TokenClass::Text || token.contains('\n') {
-        // TODO: probably better to use the regex crate here to avoid a bunch of empty
-        // matches for consecutive whitespace.
-        for piece in token.split(char::is_whitespace) {
-            if piece.is_empty() {
-                continue;
-            }
+        // (Prose's punctuation is its own tokens; see `prose_words`.)
+        let pieces: Box<dyn Iterator<Item = &str>> = if in_comment || class == TokenClass::Text {
+            Box::new(prose_words(token))
+        } else {
+            Box::new(token.split_whitespace())
+        };
+        for piece in pieces {
             if let Some((offset, text)) = source_slice(piece) {
                 walked.tokens.push((
                     offset,
@@ -2569,7 +2575,7 @@ mod tests {
                  int x;"
             ),
             vec![
-                "c:/*", "c:Design", "c:notes.", "c:*/", "i:int", "i:x", "o:;"
+                "c:/*", "c:Design", "c:notes", "c:.", "c:*/", "i:int", "i:x", "o:;"
             ]
         );
         assert_eq!(
@@ -2870,7 +2876,8 @@ mod tests {
             vec![
                 "c:///",
                 "c:Doc",
-                "c:comment.",
+                "c:comment",
+                "c:.",
                 "k:fn",
                 "i:f",
                 "o:(",
@@ -3402,11 +3409,7 @@ mod tests {
                 .collect()
         };
         let js_contexts = contexts("a.js", js);
-        for expected in [
-            "The@Foo::count",
-            "(Zero.)@Foo::count",
-            "this@Foo::handleClick",
-        ] {
+        for expected in ["The@Foo::count", "Zero@Foo::count", "this@Foo::handleClick"] {
             assert!(
                 js_contexts.iter().any(|c| c == expected),
                 "{} in {:?}",
@@ -3642,7 +3645,7 @@ class Foo {
         .unwrap()
         .tokenized;
         assert!(
-            tokens.iter().any(|t| t == "second c (Number)"),
+            tokens.iter().any(|t| t == "second c Number"),
             "{:?}",
             tokens
         );

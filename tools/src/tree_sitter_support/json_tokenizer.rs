@@ -21,7 +21,9 @@ use std::collections::HashSet;
 
 use crate::file_format::history::syntax_files::TokenClass;
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
-use crate::tree_sitter_support::boilerplate::{FinishedTokens, RawToken, finish_tokens};
+use crate::tree_sitter_support::boilerplate::{
+    FinishedTokens, RawToken, finish_tokens, prose_words,
+};
 use crate::tree_sitter_support::config_tokenizer::escape_name;
 
 /// The keys whose (string or number) values identify a record, most preferred
@@ -68,6 +70,13 @@ impl<'a> JsonTokenizer<'a> {
     }
 
     fn push_words(&mut self, context: &str, class: TokenClass, text: &'a str) {
+        // (Prose's punctuation is its own tokens; see `prose_words`.)
+        if matches!(class, TokenClass::Text | TokenClass::Comment) {
+            for word in prose_words(text) {
+                self.push(context, class, word);
+            }
+            return;
+        }
         for word in text.split_whitespace() {
             self.push(context, class, word);
         }
