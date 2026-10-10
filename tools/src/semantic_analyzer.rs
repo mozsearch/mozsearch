@@ -6,9 +6,12 @@
 //! their matches into analysis records.
 //!
 //! A mapping has:
-//! - `grammar`: the grammar which parses the files (ex: "fluent", "yaml"), and
-//!   `paths`, globs of the files it applies to (ex: "**/*.ftl"), except for
-//!   `exclude_paths`;
+//! - `grammar`: the grammar which parses the files (ex: "fluent", "yaml",
+//!   "mozcpp", "rust", or "typescript", which also parses JS), and `paths`,
+//!   globs of the files it applies to (ex: "**/*.ftl"), except for
+//!   `exclude_paths`, and if `contains` has any strings, only files which
+//!   contain one of them (so that, ex, a mapping for C++'s uses of prefs only
+//!   parses the files mentioning `Preferences::`);
 //! - `when`: conditions on the document's data which must all hold for the
 //!   mapping to apply to a file (ex: Glean metrics files' `$schema`);
 //! - `scopes`: queries capturing an enclosing node as `@scope` and its name as
@@ -56,6 +59,7 @@ use serde::Deserialize;
 use serde_json::json;
 use tree_sitter::StreamingIterator;
 
+use crate::file_format::analysis::parse_location;
 use crate::file_format::analysis::{
     AnalysisKind, AnalysisSource, AnalysisTarget, BindingImplKind, BindingOwnerLang,
     BindingSlotKind, BindingSlotLang, LineRange, Location, SourceRange, SourceTag, TargetTag,
@@ -75,6 +79,8 @@ pub struct Mapping {
     pub paths: Vec<String>,
     #[serde(default)]
     pub exclude_paths: Vec<String>,
+    #[serde(default)]
+    pub contains: Vec<String>,
     #[serde(default)]
     pub when: Vec<Condition>,
     #[serde(default)]
@@ -188,6 +194,9 @@ fn grammar_language(grammar: &str) -> Result<tree_sitter::Language, String> {
     match grammar {
         "fluent" => Ok(tree_sitter_fluent::LANGUAGE.into()),
         "yaml" => Ok(tree_sitter_yaml::LANGUAGE.into()),
+        "mozcpp" => Ok(tree_sitter_mozcpp::LANGUAGE.into()),
+        "rust" => Ok(tree_sitter_rust::LANGUAGE.into()),
+        "typescript" => Ok(tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()),
         _ => Err(format!("Unknown grammar {}", grammar)),
     }
 }
@@ -284,6 +293,7 @@ pub struct CompiledMapping {
     grammar: String,
     paths: GlobSet,
     exclude_paths: GlobSet,
+    contains: Vec<String>,
     language: tree_sitter::Language,
     when: Vec<(Vec<Segment>, String)>,
     scopes: Vec<CompiledScope>,
@@ -327,6 +337,7 @@ impl CompiledMapping {
             grammar: mapping.grammar.clone(),
             paths: globs(&mapping.paths)?,
             exclude_paths: globs(&mapping.exclude_paths)?,
+            contains: mapping.contains.clone(),
             when: mapping
                 .when
                 .iter()
@@ -411,6 +422,11 @@ impl CompiledMapping {
     /// tree's root), if its `when` conditions hold for the file.
     pub fn applies_to(&self, path: &str) -> bool {
         self.paths.is_match(path) && !self.exclude_paths.is_match(path)
+    }
+
+    /// Whether the mapping applies to a file with `source` (see `contains`).
+    pub fn applies_to_source(&self, source: &str) -> bool {
+        self.contains.is_empty() || self.contains.iter().any(|s| source.contains(s.as_str()))
     }
 }
 
@@ -1193,6 +1209,75 @@ fn data_records(
     Ok(())
 }
 
+/// The analysis lines of a file which already has analysis (ex: a C++ file's
+/// from the clang plugin), with `records` added: the existing lines stay as
+/// they are, and the records which aren't already there are added (but for
+/// the file's definition, if the analysis has one).  Added targets without
+/// contexts get the context of the existing target on their line which
+/// starts nearest before them, or else first after them (ex: a C++ function's
+/// call of `Preferences::GetBool`, for the use of the pref it names).
+pub fn merge_records(existing: &str, mut records: Vec<Record>) -> Vec<String> {
+    let mut lines: Vec<String> = existing
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(str::to_string)
+        .collect();
+    let mut seen: std::collections::HashSet<String> = lines.iter().cloned().collect();
+    let mut has_file_def = false;
+    let mut contexts: std::collections::HashMap<u32, Vec<(u32, String, String)>> =
+        Default::default();
+    for line in &lines {
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        let (Some(_), Some(loc)) = (value.get("target"), value["loc"].as_str()) else {
+            continue;
+        };
+        let loc = parse_location(loc);
+        if loc.is_file_target()
+            && value["sym"]
+                .as_str()
+                .is_some_and(|s| s.starts_with("FILE_"))
+        {
+            has_file_def = true;
+        }
+        let context = value["context"].as_str().unwrap_or_default();
+        if !context.is_empty() {
+            contexts.entry(loc.lineno).or_default().push((
+                loc.col_start,
+                context.to_string(),
+                value["contextsym"].as_str().unwrap_or_default().to_string(),
+            ));
+        }
+    }
+    for record in &mut records {
+        if let Record::Target(target) = record {
+            if target.loc.is_file_target() && has_file_def {
+                continue;
+            }
+            if target.data.context.is_empty()
+                && let Some(candidates) = contexts.get(&target.loc.lineno)
+            {
+                let col = target.loc.col_start;
+                let nearest = candidates
+                    .iter()
+                    .filter(|c| c.0 <= col)
+                    .max_by_key(|c| c.0)
+                    .or_else(|| candidates.iter().min_by_key(|c| c.0));
+                if let Some((_, context, contextsym)) = nearest {
+                    target.data.context = context.clone();
+                    target.data.contextsym = contextsym.clone();
+                }
+            }
+        }
+        let json = record.to_json();
+        if seen.insert(json.clone()) {
+            lines.push(json);
+        }
+    }
+    lines
+}
+
 /// The trees of `source`: its tree, and, if `continue_after_errors` and error
 /// recovery ended the tree before the end of the text (ex: tree-sitter-yaml's,
 /// at some invalid quoted strings), the trees of the rest, each from the line
@@ -1548,6 +1633,96 @@ pretty = "{{ item }}"
                 "12 W_w-big"
             ]
         );
+    }
+
+    /// The (kind, sym) of `source`'s targets with the builtin mappings for
+    /// `path`, but for the file's definition.
+    fn builtin_targets(path: &str, source: &str) -> Vec<(String, String)> {
+        let mappings = builtin_mappings().unwrap();
+        let applying: Vec<&CompiledMapping> = mappings
+            .iter()
+            .filter(|m| m.applies_to(path) && m.applies_to_source(source))
+            .collect();
+        analyze(&applying, path, source)
+            .unwrap()
+            .iter()
+            .skip(1)
+            .filter_map(|r| match r {
+                Record::Target(t) => Some((format!("{:?}", t.data.kind), t.data.sym.clone())),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_pref_mappings() {
+        let target = |kind: &str, sym: &str| (kind.to_string(), sym.to_string());
+        // Prefs files, despite their preprocessor directives and substitutions.
+        assert_eq!(
+            builtin_targets(
+                "a/all.js",
+                "#ifdef XP_WIN\npref(\"a.b\", true);\n#endif\nsticky_pref(\"c.d-e\", @X@);\nuser_pref(\"a.b\", false);\nfoo.pref(\"no\", 1);\n"
+            ),
+            [
+                target("Def", "PREFS_a@2Eb"),
+                target("Def", "PREFS_c@2Ed@2De"),
+                target("Use", "PREFS_a@2Eb"),
+            ]
+        );
+        // C++'s Preferences calls, with literals or `_ns` ones.
+        assert_eq!(
+            builtin_targets(
+                "a/b.cpp",
+                "void f() {\n  Preferences::GetBool(\"a.b\", false);\n  mozilla::Preferences::SetCString(\"c.d\"_ns, x);\n  Preferences::RegisterCallback(Cb, \"e.f\"_ns);\n  Other::GetBool(\"no\");\n}\n"
+            ),
+            [
+                target("Use", "PREFS_a@2Eb"),
+                target("Use", "PREFS_c@2Ed"),
+                target("Use", "PREFS_e@2Ef"),
+            ]
+        );
+        assert_eq!(
+            builtin_targets(
+                "a/b.rs",
+                "fn f() -> bool { static_prefs::pref!(\"a.b\") }\n"
+            ),
+            [target("Use", "PREFS_a@2Eb")]
+        );
+        // (Files without the mappings' strings aren't theirs.)
+        let mappings = builtin_mappings().unwrap();
+        assert!(
+            !mappings
+                .iter()
+                .any(|m| m.applies_to("a/b.cpp") && m.applies_to_source("int x;"))
+        );
+    }
+
+    #[test]
+    fn test_merge_records() {
+        let existing = concat!(
+            r#"{"loc":"00001:0","target":1,"kind":"def","pretty":"a.cpp","sym":"FILE_a@2Ecpp"}"#,
+            "\n",
+            r#"{"loc":"00002:2-13","target":1,"kind":"use","pretty":"mozilla::Preferences::GetBool","sym":"_ZGetBool","context":"f","contextsym":"_Zf"}"#,
+            "\n",
+        );
+        let source = "void f() {\n  Preferences::GetBool(\"a.b\", false);\n}\n";
+        let mappings = builtin_mappings().unwrap();
+        let applying: Vec<&CompiledMapping> = mappings
+            .iter()
+            .filter(|m| m.applies_to("a.cpp") && m.applies_to_source(source))
+            .collect();
+        let records = analyze(&applying, "a.cpp", source).unwrap();
+        let merged = merge_records(existing, records);
+        // (The existing lines, and the pref's source and target, in the
+        // context of the call's.)
+        assert_eq!(merged.len(), 4, "{:?}", merged);
+        assert!(merged[3].contains(r#""sym":"PREFS_a@2Eb","context":"f","contextsym":"_Zf""#));
+        // Merging again changes nothing.
+        let again = merge_records(
+            &merged.join("\n"),
+            analyze(&applying, "a.cpp", source).unwrap(),
+        );
+        assert_eq!(again, merged);
     }
 
     #[test]

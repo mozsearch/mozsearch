@@ -1,0 +1,49 @@
+# C++'s uses of prefs by name (see semantic_analyzer.rs and
+# staticpreflist.toml): `Preferences::GetBool("name", ...)` and the like, and
+# `Preferences::RegisterCallback(callback, "name"_ns)` and the like, use
+# `PREFS_<name>`, in the contexts of the clang plugin's records on their
+# lines.  (StaticPrefs getters are uses of their C++ symbols, which bind to
+# their prefs.)
+grammar = "mozcpp"
+paths = ["**/*.cpp", "**/*.cc", "**/*.h", "**/*.hpp", "**/*.mm"]
+contains = ["Preferences::"]
+
+[[rules]]
+role = "use"
+query = """
+(call_expression
+  function: [
+    (qualified_identifier scope: (namespace_identifier) @class name: (identifier) @method)
+    (qualified_identifier
+      name: (qualified_identifier scope: (namespace_identifier) @class name: (identifier) @method))
+  ]
+  arguments: (argument_list . [
+    (string_literal (string_content) @id)
+    (user_defined_literal (string_literal (string_content) @id))
+  ])
+  (#eq? @class "Preferences")
+  (#match? @method "^((Get|Set|GetDefault)(Bool|Int|Uint|Float|CString|String|LocalizedCString|LocalizedString|Complex)|ClearUser|HasUserValue|HasDefaultValue|GetType|IsLocked|Lock|Unlock)$"))
+"""
+sym = "PREFS_{{ id | at_escape }}"
+pretty = "{{ id }}"
+syntax_kind = "pref"
+
+[[rules]]
+role = "use"
+query = """
+(call_expression
+  function: [
+    (qualified_identifier scope: (namespace_identifier) @class name: (identifier) @method)
+    (qualified_identifier
+      name: (qualified_identifier scope: (namespace_identifier) @class name: (identifier) @method))
+  ]
+  arguments: (argument_list . (_) . [
+    (string_literal (string_content) @id)
+    (user_defined_literal (string_literal (string_content) @id))
+  ])
+  (#eq? @class "Preferences")
+  (#match? @method "^(AddStrongObserver|AddWeakObserver|RemoveObserver|RegisterCallback|RegisterCallbackAndCall|UnregisterCallback)$"))
+"""
+sym = "PREFS_{{ id | at_escape }}"
+pretty = "{{ id }}"
+syntax_kind = "pref"

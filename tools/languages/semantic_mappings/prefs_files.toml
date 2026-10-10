@@ -1,0 +1,34 @@
+# Default prefs files (modules/libpref/init/all.js, browser/app/profile/
+# firefox.js, branding's firefox-branding.js, ...; see semantic_analyzer.rs and
+# staticpreflist.toml): `pref("name", value)`, `sticky_pref(...)`, and
+# `lockPref(...)` define `PREFS_<name>` (with FILE_-style escapes, like
+# StaticPrefList.yaml's prefs), and `user_pref(...)`s (ex: testing profiles'
+# user.js) use them.  (Their `#ifdef`s and `@VAR@` substitutions aren't JS,
+# but tree-sitter's error recovery keeps the calls.)
+grammar = "typescript"
+paths = ["**/*.js"]
+contains = ["pref(\""]
+
+[[rules]]
+role = "def"
+query = """
+(call_expression
+  function: (identifier) @function
+  arguments: (arguments . (string (string_fragment) @id))
+  (#match? @function "^(pref|sticky_pref|lockPref)$"))
+"""
+sym = "PREFS_{{ id | at_escape }}"
+pretty = "{{ id }}"
+syntax_kind = "pref"
+
+[[rules]]
+role = "use"
+query = """
+(call_expression
+  function: (identifier) @function
+  arguments: (arguments . (string (string_fragment) @id))
+  (#eq? @function "user_pref"))
+"""
+sym = "PREFS_{{ id | at_escape }}"
+pretty = "{{ id }}"
+syntax_kind = "pref"

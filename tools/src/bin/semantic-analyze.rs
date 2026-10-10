@@ -6,13 +6,14 @@
 //
 // Paths (relative to FILES_ROOT, one per line, ex: the repo-files list) which
 // mappings apply to get their analysis (all of those mappings' records) written
-// to ANALYSIS_ROOT/<path>.
+// to ANALYSIS_ROOT/<path>, or added to its analysis there if it has some (ex:
+// C++ files' uses of prefs; see `semantic_analyzer::merge_records`).
 
 use std::io::{BufRead, Write};
 use std::path::Path;
 use std::process::exit;
 
-use tools::semantic_analyzer::{analyze, builtin_mappings};
+use tools::semantic_analyzer::{Record, analyze, builtin_mappings, merge_records};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -29,22 +30,32 @@ fn main() {
     for line in std::io::stdin().lock().lines() {
         let path = line.unwrap();
         let path = path.trim();
-        let applying: Vec<_> = mappings.iter().filter(|m| m.applies_to(path)).collect();
-        if applying.is_empty() {
+        if !mappings.iter().any(|m| m.applies_to(path)) {
             continue;
         }
         let Ok(source) = std::fs::read_to_string(files_root.join(path)) else {
             continue;
         };
+        let applying: Vec<_> = mappings
+            .iter()
+            .filter(|m| m.applies_to(path) && m.applies_to_source(&source))
+            .collect();
+        if applying.is_empty() {
+            continue;
+        }
         match analyze(&applying, path, &source) {
             Ok(records) => {
                 let out_path = analysis_root.join(path);
+                let lines = match std::fs::read_to_string(&out_path) {
+                    Ok(existing) => merge_records(&existing, records),
+                    Err(_) => records.iter().map(Record::to_json).collect(),
+                };
                 if let Some(dir) = out_path.parent() {
                     let _ = std::fs::create_dir_all(dir);
                 }
                 let mut out = std::io::BufWriter::new(std::fs::File::create(&out_path).unwrap());
-                for record in &records {
-                    writeln!(out, "{}", record.to_json()).unwrap();
+                for line in &lines {
+                    writeln!(out, "{}", line).unwrap();
                 }
                 analyzed += 1;
             }

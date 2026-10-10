@@ -642,6 +642,13 @@ input_file: inputs/web/dirs/root_listing__html
         </tr>
 
         <tr>
+          <td class="name"><a href="/tests/source/prefs" class="mimetype-fixed-container mimetype-icon-folder">prefs</a></td>
+          <td class="description"><a href="/tests/source/prefs" title=""></td>
+          <td class="size"><a href="/tests/source/prefs"></a></td>
+          <td class="coverage"><a href="/tests/source/prefs" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
+        </tr>
+
+        <tr>
           <td class="name"><a href="/tests/source/python" class="mimetype-fixed-container mimetype-icon-folder">python</a></td>
           <td class="description"><a href="/tests/source/python" title=""></td>
           <td class="size"><a href="/tests/source/python"></a></td>

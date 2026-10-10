@@ -1,0 +1,77 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/prefs/all_js__json
+---
+[
+  {
+    "loc": "00008:6-18",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "pref test.js.pref",
+    "sym": "PREFS_test@2Ejs@2Epref"
+  },
+  {
+    "loc": "00008:6-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "test.js.pref",
+    "sym": "PREFS_test@2Ejs@2Epref"
+  },
+  {
+    "loc": "00010:8-24",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "pref test.js.platform",
+    "sym": "PREFS_test@2Ejs@2Eplatform"
+  },
+  {
+    "loc": "00010:8-24",
+    "target": 1,
+    "kind": "def",
+    "pretty": "test.js.platform",
+    "sym": "PREFS_test@2Ejs@2Eplatform"
+  },
+  {
+    "loc": "00012:8-24",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "pref test.js.platform",
+    "sym": "PREFS_test@2Ejs@2Eplatform"
+  },
+  {
+    "loc": "00012:8-24",
+    "target": 1,
+    "kind": "def",
+    "pretty": "test.js.platform",
+    "sym": "PREFS_test@2Ejs@2Eplatform"
+  },
+  {
+    "loc": "00014:13-27",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "pref test.js.sticky",
+    "sym": "PREFS_test@2Ejs@2Esticky"
+  },
+  {
+    "loc": "00014:13-27",
+    "target": 1,
+    "kind": "def",
+    "pretty": "test.js.sticky",
+    "sym": "PREFS_test@2Ejs@2Esticky"
+  },
+  {
+    "loc": "00015:10-24",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "pref test.js.locked",
+    "sym": "PREFS_test@2Ejs@2Elocked"
+  },
+  {
+    "loc": "00015:10-24",
+    "target": 1,
+    "kind": "def",
+    "pretty": "test.js.locked",
+    "sym": "PREFS_test@2Ejs@2Elocked"
+  }
+]

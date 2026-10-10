@@ -1,0 +1,55 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/prefs/prefsconsumer_cpp__json
+---
+[
+  {
+    "loc": "00021:39-51",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.js.pref",
+    "sym": "PREFS_test@2Ejs@2Epref"
+  },
+  {
+    "loc": "00021:39-51",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.js.pref",
+    "sym": "PREFS_test@2Ejs@2Epref",
+    "context": "PrefsConsumer",
+    "contextsym": "_Z13PrefsConsumerv"
+  },
+  {
+    "loc": "00022:46-54",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.int",
+    "sym": "PREFS_test@2Eint"
+  },
+  {
+    "loc": "00022:46-54",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.int",
+    "sym": "PREFS_test@2Eint",
+    "context": "PrefsConsumer",
+    "contextsym": "_Z13PrefsConsumerv"
+  },
+  {
+    "loc": "00023:39-47",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.int",
+    "sym": "PREFS_test@2Eint"
+  },
+  {
+    "loc": "00023:39-47",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.int",
+    "sym": "PREFS_test@2Eint",
+    "context": "PrefsConsumer",
+    "contextsym": "_Z13PrefsConsumerv"
+  }
+]

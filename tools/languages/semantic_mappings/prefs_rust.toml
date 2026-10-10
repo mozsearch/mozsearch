@@ -1,0 +1,19 @@
+# Rust's uses of static prefs (see semantic_analyzer.rs and
+# staticpreflist.toml): `static_prefs::pref!("name")` uses `PREFS_<name>`, in
+# the contexts of the Rust analysis' records on their lines.
+grammar = "rust"
+paths = ["**/*.rs"]
+contains = ["static_prefs::pref!"]
+
+[[rules]]
+role = "use"
+query = """
+(macro_invocation
+  macro: (scoped_identifier path: (identifier) @crate name: (identifier) @macro)
+  (token_tree . (string_literal (string_content) @id))
+  (#eq? @crate "static_prefs")
+  (#eq? @macro "pref"))
+"""
+sym = "PREFS_{{ id | at_escape }}"
+pretty = "{{ id }}"
+syntax_kind = "pref"

@@ -8,6 +8,50 @@ input_file: inputs/crossref/staticprefs/prefs__json
     {
       "symbol": "PREFS_test@2Eint",
       "crossref_info": {
+        "uses": [
+          {
+            "path": "prefs/PrefsConsumer.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 22,
+                "bounds": [
+                  44,
+                  52
+                ],
+                "line": "Preferences::RegisterCallback(PrefChanged, \"test.int\");",
+                "context": "PrefsConsumer",
+                "contextsym": "_Z13PrefsConsumerv"
+              },
+              {
+                "lno": 23,
+                "bounds": [
+                  37,
+                  45
+                ],
+                "line": "return mozilla::Preferences::GetInt(\"test.int\") + int32_t(enabled);",
+                "context": "PrefsConsumer",
+                "contextsym": "_Z13PrefsConsumerv"
+              }
+            ]
+          },
+          {
+            "path": "prefs/user.js",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 3,
+                "bounds": [
+                  11,
+                  19
+                ],
+                "line": "user_pref(\"test.int\", 20);",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
         "defs": [
           {
             "path": "staticprefs/StaticPrefList.yaml",

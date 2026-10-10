@@ -1,0 +1,35 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/prefs/user_js__json
+---
+[
+  {
+    "loc": "00002:11-23",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.js.pref",
+    "sym": "PREFS_test@2Ejs@2Epref"
+  },
+  {
+    "loc": "00002:11-23",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.js.pref",
+    "sym": "PREFS_test@2Ejs@2Epref"
+  },
+  {
+    "loc": "00003:11-19",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "pref test.int",
+    "sym": "PREFS_test@2Eint"
+  },
+  {
+    "loc": "00003:11-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "test.int",
+    "sym": "PREFS_test@2Eint"
+  }
+]
