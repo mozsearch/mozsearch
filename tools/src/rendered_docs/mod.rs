@@ -405,6 +405,40 @@ impl<'s> Writer<'s> {
         self.html.push_str("</span>");
     }
 
+    /// Prose, where "bug NNNN" links to the bug, like Firefox's Sphinx
+    /// `bzlink` extension (`docs/_addons/bzlink.py`) and source listings'
+    /// comments.  (Only text that's in the file verbatim, so that its runs
+    /// still say where they are.)
+    pub fn prose(&mut self, text: &str, real: Option<Range<usize>>) {
+        lazy_static! {
+            static ref BUG: Regex = Regex::new(r"(?i)\bbug ([1-9][0-9]*)\b").unwrap();
+        }
+        let exact = real.as_ref().is_some_and(|real| real.len() == text.len());
+        if !exact || !BUG.is_match(text) {
+            self.text(text, real);
+            return;
+        }
+        let start = real.unwrap().start;
+        let mut pos = 0;
+        for captures in BUG.captures_iter(text) {
+            let bug = captures.get(0).unwrap();
+            self.text(
+                &text[pos..bug.start()],
+                Some(start + pos..start + bug.start()),
+            );
+            write!(
+                self.html,
+                r#"<a class="rd-bug" href="https://bugzilla.mozilla.org/show_bug.cgi?id={}">"#,
+                &captures[1]
+            )
+            .unwrap();
+            self.text(bug.as_str(), Some(start + bug.start()..start + bug.end()));
+            self.html.push_str("</a>");
+            pos = bug.end();
+        }
+        self.text(&text[pos..], Some(start + pos..start + text.len()));
+    }
+
     /// Text which is the bytes `real` of the file.
     pub fn src_text(&mut self, real: Range<usize>) {
         let text = &self.src[real.clone()];

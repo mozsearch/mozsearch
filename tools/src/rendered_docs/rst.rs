@@ -458,13 +458,23 @@ impl Doc<'_, '_, '_> {
 
     /// The text of `text[range]`, as runs for each of its lines.
     fn rst_text(&mut self, text: &str, range: Range<usize>, map: &OffsetMap) {
+        self.rst_text_or_prose(text, range, map, false);
+    }
+
+    /// Like `rst_text`, for prose if `prose` (see `Writer::prose`).
+    fn rst_text_or_prose(&mut self, text: &str, range: Range<usize>, map: &OffsetMap, prose: bool) {
         let Some(slice) = text.get(range.clone()) else {
             return;
         };
         let mut pos = range.start;
         for piece in slice.split_inclusive('\n') {
             let line = piece.trim_end_matches('\n');
-            self.w.text(line, map.exact(pos..pos + line.len()));
+            let real = map.exact(pos..pos + line.len());
+            if prose {
+                self.w.prose(line, real);
+            } else {
+                self.w.text(line, real);
+            }
             self.w.push(&piece[line.len()..]);
             pos += piece.len();
         }
@@ -473,6 +483,7 @@ impl Doc<'_, '_, '_> {
     /// The inline content of `node` (up to `end`, if given).
     fn rst_inline(&mut self, node: Node, text: &str, map: &OffsetMap, end: Option<usize>) {
         let end = end.unwrap_or(node.end_byte());
+        let prose = node.kind() == "paragraph";
         let mut pos = node.start_byte();
         for child in children(node) {
             if child.start_byte() >= end || child.start_byte() < pos {
@@ -481,7 +492,7 @@ impl Doc<'_, '_, '_> {
             if !child.is_named() {
                 if child.kind() == "::" {
                     // "text::" is "text:", and "text ::" is "text".
-                    self.rst_text(text, pos..child.start_byte(), map);
+                    self.rst_text_or_prose(text, pos..child.start_byte(), map, prose);
                     let before = text[..child.start_byte()].chars().next_back();
                     if before.is_some_and(|c| !c.is_whitespace()) {
                         self.w.push(":");
@@ -490,12 +501,12 @@ impl Doc<'_, '_, '_> {
                 }
                 continue;
             }
-            self.rst_text(text, pos..child.start_byte(), map);
+            self.rst_text_or_prose(text, pos..child.start_byte(), map, prose);
             self.rst_markup(child, text, map);
             pos = child.end_byte();
         }
         if pos < end {
-            self.rst_text(text, pos..end, map);
+            self.rst_text_or_prose(text, pos..end, map, prose);
         }
     }
 

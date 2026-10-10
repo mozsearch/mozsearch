@@ -86,6 +86,8 @@ struct State {
     list_depth: usize,
     rows: usize,
     sanitizer: HtmlSanitizer,
+    /// Whether we're in a heading, whose text isn't prose.
+    heading: bool,
 }
 
 impl Doc<'_, '_, '_> {
@@ -192,6 +194,7 @@ impl Doc<'_, '_, '_> {
             Event::Start(tag) => match tag {
                 Tag::Paragraph => return self.md_paragraph(events, i, map, st),
                 Tag::Heading { level, id, .. } => {
+                    st.heading = true;
                     let title = inline_text(events, i);
                     let anchor = match id {
                         Some(id) => self.w.unique_id(id),
@@ -393,6 +396,7 @@ impl Doc<'_, '_, '_> {
                     self.w.close_block_div(opened);
                 }
                 TagEnd::Heading(level) => {
+                    st.heading = false;
                     write!(self.w.html, "</h{}>", *level as usize).unwrap();
                     st.sanitizer.close_all(self.w);
                     let opened = st.opened.pop().unwrap_or(false);
@@ -518,7 +522,12 @@ impl Doc<'_, '_, '_> {
                     None if !stripped => Some(range.clone()),
                     None => None,
                 };
-                self.w.text(t, virt.and_then(|r| map.exact(r)));
+                let real = virt.and_then(|r| map.exact(r));
+                if st.closers.is_empty() && !st.heading {
+                    self.w.prose(t, real);
+                } else {
+                    self.w.text(t, real);
+                }
             }
             Event::Code(code) => {
                 self.w.push("<code>");
@@ -935,6 +944,15 @@ pub(super) mod tests {
         let src = "Text.\n\n```{eval-rst}\n.. note::\n\n   An *rst* note.\n```\n";
         let html = with_strips(&render_test(src));
         assert!(html.contains(r#"<div class="rd-admonition rd-note"><div class="rd-block rd-admonition-title">[1]<p>Note</p></div><div class="rd-block">[2]<p><span data-l="6" data-c="3">An </span><em><span data-l="6" data-c="7">rst</span></em><span data-l="6" data-c="11"> note.</span></p></div></div>"#), "{}", html);
+    }
+
+    #[test]
+    fn test_bug_links() {
+        // Like Firefox's Sphinx `bzlink`, but not in links or headings.
+        let html = with_strips(&render_test("See bug 123 and [bug 4](x).\n\n# Bug 5\n"));
+        assert!(html.contains(r#"<span data-l="1" data-c="0">See </span><a class="rd-bug" href="https://bugzilla.mozilla.org/show_bug.cgi?id=123"><span data-l="1" data-c="4">bug 123</span></a><span data-l="1" data-c="11"> and </span>"#), "{}", html);
+        assert!(!html.contains("id=4"), "{}", html);
+        assert!(!html.contains("id=5"), "{}", html);
     }
 
     #[test]
