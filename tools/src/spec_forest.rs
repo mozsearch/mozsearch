@@ -4,8 +4,11 @@
 //! tools, which assume one repository per tree, see one coherent history of
 //! all of them (see `build-spec-forest`).
 //!
-//! - Each upstream's branch is fetched into the forest repository as
-//!   `refs/upstream/<spec>`, so the forest has all of the objects itself.
+//! - Each upstream's branch (or its default branch) is fetched into the forest
+//!   repository as `refs/upstream/<spec>`, so the forest has all of the
+//!   objects itself.  (The configuration's specs without upstreams are specs
+//!   in other specs' repositories, ex: csswg-drafts' many specs, which
+//!   spec-analyze analyzes; see `spec_analyze::SpecsConfig`.)
 //! - The forest has a commit for each upstream first-parent commit, whose root
 //!   tree's `<spec>` entry is the upstream commit's own tree (so nothing is
 //!   rewritten), with the upstream commit's author, committer, and message,
@@ -55,19 +58,22 @@ pub struct SpecConfig {
     /// The spec's directory in the forest, ex: "html".
     pub name: String,
     /// The upstream repository, ex: "https://github.com/whatwg/html.git".
-    pub url: String,
-    #[serde(default = "default_branch")]
-    pub branch: String,
-}
-
-fn default_branch() -> String {
-    "main".to_string()
+    /// (`ForestConfig::load` leaves out the specs without one.)
+    #[serde(default)]
+    pub url: Option<String>,
+    /// The upstream branch (default: the repository's default branch).
+    #[serde(default)]
+    pub branch: Option<String>,
 }
 
 impl SpecConfig {
+    fn url(&self) -> &str {
+        self.url.as_deref().unwrap_or_default()
+    }
+
     /// The web page of an upstream commit, for GitHub repositories.
     pub fn commit_url(&self, commit: Oid) -> Option<String> {
-        let repo = self.url.strip_prefix("https://github.com/")?;
+        let repo = self.url().strip_prefix("https://github.com/")?;
         let repo = repo.trim_end_matches('/').trim_end_matches(".git");
         Some(format!("https://github.com/{}/commit/{}", repo, commit))
     }
@@ -85,8 +91,9 @@ impl ForestConfig {
     pub fn load(path: &Path) -> Result<ForestConfig, String> {
         let text = std::fs::read_to_string(path)
             .map_err(|e| format!("Couldn't read {}: {}", path.display(), e))?;
-        let config: ForestConfig =
+        let mut config: ForestConfig =
             toml::from_str(&text).map_err(|e| format!("Bad {}: {}", path.display(), e))?;
+        config.specs.retain(|spec| spec.url.is_some());
         let mut names = std::collections::HashSet::new();
         for spec in &config.specs {
             let valid = !spec.name.is_empty()
@@ -127,18 +134,23 @@ pub fn parse_upstream_trailer(message: &str) -> Option<(&str, Oid)> {
     Some((name, Oid::from_str(commit).ok()?))
 }
 
-/// Fetch each spec's upstream branch into `refs/upstream/<spec>`.
+/// Fetch each spec's upstream branch (or default branch) into
+/// `refs/upstream/<spec>`.
 pub fn fetch_upstreams(forest: &Path, config: &ForestConfig) -> Result<(), String> {
     for spec in &config.specs {
-        let refspec = format!("+refs/heads/{}:{}", spec.branch, upstream_ref(&spec.name));
+        let branch = match &spec.branch {
+            Some(branch) => format!("refs/heads/{}", branch),
+            None => "HEAD".to_string(),
+        };
+        let refspec = format!("+{}:{}", branch, upstream_ref(&spec.name));
         let status = Command::new("git")
             .arg("-C")
             .arg(forest)
-            .args(["fetch", "--quiet", "--no-tags", &spec.url, &refspec])
+            .args(["fetch", "--quiet", "--no-tags", spec.url(), &refspec])
             .status()
             .map_err(|e| format!("Couldn't run git fetch: {}", e))?;
         if !status.success() {
-            return Err(format!("Couldn't fetch {} from {}", spec.name, spec.url));
+            return Err(format!("Couldn't fetch {} from {}", spec.name, spec.url()));
         }
     }
     Ok(())
@@ -437,6 +449,8 @@ mod tests {
             ids.push(id);
             parent = Some(id);
         }
+        // (Its default branch, which the forest fetches.)
+        repo.set_head("refs/heads/main").unwrap();
         (repo, ids)
     }
 
@@ -447,8 +461,8 @@ mod tests {
                 .iter()
                 .map(|name| SpecConfig {
                     name: name.to_string(),
-                    url: dir.join(name).to_str().unwrap().to_string(),
-                    branch: "main".to_string(),
+                    url: Some(dir.join(name).to_str().unwrap().to_string()),
+                    branch: None,
                 })
                 .collect(),
         }
@@ -579,11 +593,26 @@ mod tests {
     }
 
     #[test]
+    fn test_load_leaves_out_specs_in_other_repositories() {
+        let path = std::env::temp_dir().join(format!("specs-{}.toml", std::process::id()));
+        std::fs::write(
+            &path,
+            "[[spec]]\nname = \"csswg-drafts\"\nurl = \"https://github.com/w3c/csswg-drafts.git\"\n\n\
+             [[spec]]\nname = \"css-grid-2\"\npath = \"csswg-drafts/css-grid-2\"\nformat = \"bikeshed\"\n",
+        )
+        .unwrap();
+        let config = ForestConfig::load(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+        let names: Vec<&str> = config.specs.iter().map(|s| s.name.as_str()).collect();
+        assert_eq!(names, vec!["csswg-drafts"]);
+    }
+
+    #[test]
     fn test_trailer() {
         let spec = SpecConfig {
             name: "fetch".to_string(),
-            url: "https://github.com/whatwg/fetch.git".to_string(),
-            branch: "main".to_string(),
+            url: Some("https://github.com/whatwg/fetch.git".to_string()),
+            branch: Some("main".to_string()),
         };
         let commit = Oid::from_str("0123456789abcdef0123456789abcdef01234567").unwrap();
         let trailer = spec.trailer(commit);

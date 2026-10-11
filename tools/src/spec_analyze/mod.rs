@@ -88,6 +88,11 @@ pub struct SpecEntry {
     /// "https://dom.spec.whatwg.org/").
     #[serde(default)]
     pub rendered: Option<String>,
+    /// Other URLs of the rendered spec, which references to it can start
+    /// with, ex: its series' unversioned URL for the current level of a CSS
+    /// spec ("https://drafts.csswg.org/css-grid/" for css-grid-2).
+    #[serde(default)]
+    pub aliases: Vec<String>,
 }
 
 impl SpecEntry {
@@ -145,14 +150,25 @@ impl SpecsConfig {
             return None;
         }
         let page = page.trim_start_matches("http:").trim_start_matches("https:");
-        let spec = self.specs.iter().find(|spec| {
-            spec.rendered.as_deref().is_some_and(|rendered| {
-                let rendered = rendered
-                    .trim_start_matches("http:")
-                    .trim_start_matches("https:");
-                page.starts_with(rendered) || format!("{}/", page) == rendered
+        // (The longest URL that matches, since specs can be under others,
+        // ex: CSP Embedded Enforcement under CSP.)
+        let matching = |url: &str| -> Option<usize> {
+            let url = url.trim_start_matches("http:").trim_start_matches("https:");
+            (page.starts_with(url) || format!("{}/", page) == url).then_some(url.len())
+        };
+        let (spec, _) = self
+            .specs
+            .iter()
+            .filter_map(|spec| {
+                let best = spec
+                    .rendered
+                    .iter()
+                    .chain(&spec.aliases)
+                    .filter_map(|url| matching(url))
+                    .max()?;
+                Some((spec, best))
             })
-        })?;
+            .max_by_key(|&(_, len)| len)?;
         Some((spec, percent_decode(anchor)))
     }
 }
@@ -451,6 +467,20 @@ mod tests {
             name = "ecma262"
             shortname = "ecmascript"
             rendered = "https://tc39.es/ecma262/"
+            [[spec]]
+            name = "css-grid-2"
+            shortname = "css-grid"
+            rendered = "https://drafts.csswg.org/css-grid-2/"
+            aliases = ["https://drafts.csswg.org/css-grid/"]
+            [[spec]]
+            name = "css-grid-3"
+            rendered = "https://drafts.csswg.org/css-grid-3/"
+            [[spec]]
+            name = "csp"
+            rendered = "https://w3c.github.io/webappsec-csp/"
+            [[spec]]
+            name = "csp-embedded-enforcement"
+            rendered = "https://w3c.github.io/webappsec-csp/embedded/"
             "#,
         )
         .unwrap();
@@ -470,6 +500,22 @@ mod tests {
         assert_eq!(
             sym("https://tc39.es/ecma262#sec-%25array%25").as_deref(),
             Some("SPEC_ecmascript_sec@2D@25array@25")
+        );
+        assert_eq!(
+            sym("https://drafts.csswg.org/css-grid/#grid-container").as_deref(),
+            Some("SPEC_css@2Dgrid_grid@2Dcontainer")
+        );
+        assert_eq!(
+            sym("https://drafts.csswg.org/css-grid-3/#masonry").as_deref(),
+            Some("SPEC_css@2Dgrid@2D3_masonry")
+        );
+        assert_eq!(
+            sym("https://w3c.github.io/webappsec-csp/embedded/#csp-attribute").as_deref(),
+            Some("SPEC_csp@2Dembedded@2Denforcement_csp@2Dattribute")
+        );
+        assert_eq!(
+            sym("https://w3c.github.io/webappsec-csp/#policy").as_deref(),
+            Some("SPEC_csp_policy")
         );
         assert_eq!(sym("https://dom.spec.whatwg.org/"), None);
         assert_eq!(sym("https://url.spec.whatwg.org/#concept-url"), None);
