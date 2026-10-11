@@ -54,11 +54,21 @@ fn main() {
                 );
             }
             SpecFormat::Ecmarkup => {
-                let (records, stats) = ecmarkup::analyze(&source, spec.shortname(), &config);
-                write_records(analysis_root, &path, records);
+                // (With the files it imports.)
+                let read = |file: &str| std::fs::read_to_string(files_root.join(file)).ok();
+                let Some((files, stats)) =
+                    ecmarkup::analyze_with_imports(&path, &read, spec.shortname(), &config)
+                else {
+                    continue;
+                };
+                let file_count = files.len();
+                for (file, records) in files {
+                    write_records(analysis_root, &file, records);
+                }
                 println!(
-                    "{}: {} clauses, {} abstract operations, {} terms, {} productions, {} autolinks, {} xrefs, {} nonterminals ({} unresolved), in {:.2}s",
+                    "{} (and {} imported files): {} clauses, {} abstract operations, {} terms, {} productions, {} autolinks, {} xrefs, {} nonterminals ({} unresolved), in {:.2}s",
                     path,
+                    file_count - 1,
                     stats.clauses,
                     stats.operations,
                     stats.terms,
@@ -84,11 +94,21 @@ fn main() {
                         continue;
                     }
                 };
-                let (records, stats) = bikeshed::analyze(&source, &index, spec.shortname(), &config);
-                write_records(analysis_root, &path, records);
+                // (With the files it includes.)
+                let read = |file: &str| std::fs::read_to_string(files_root.join(file)).ok();
+                let Some((files, stats)) =
+                    bikeshed::analyze_with_includes(&path, &read, &index, spec.shortname(), &config)
+                else {
+                    continue;
+                };
+                let file_count = files.len();
+                for (file, records) in files {
+                    write_records(analysis_root, &file, records);
+                }
                 println!(
-                    "{}: {} dfns, {} headings, {} links ({} to specs which aren't the tree's), {} without positions, in {:.2}s",
+                    "{} (and {} included files): {} dfns, {} headings, {} links ({} to specs which aren't the tree's), {} without positions, in {:.2}s",
                     path,
+                    file_count - 1,
                     stats.dfns,
                     stats.headings,
                     stats.links,

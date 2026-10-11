@@ -12,15 +12,15 @@ bikeshed.overridePythonAttrs (old: {
     owner = "mozsearch";
     repo = "bikeshed";
     # The `mozsearch-index` branch.
-    rev = "50bec15bffcdd205314b83b5629513233cd99cd6";
-    hash = "sha256-StDFVHWi1iZalCpetj398K1BNZL3tqeEBXGRGa7iHkU=";
+    rev = "98af0480c794baedf7eb66a4882560aaf317c0a6";
+    hash = "sha256-gpdGfjx8MbYxQ+RbPG00asJ7tmHAkWhbRCHNtlwTJuc=";
   };
   # (nixpkgs' patch removes a check of the installation which Bikeshed no
   # longer has.)
   patches = [ ];
   # (Bikeshed no longer uses json-home-client, which nixpkgs marks broken.)
   dependencies = builtins.filter (dep: (dep.pname or "") != "json-home-client") old.dependencies;
-  # (Its tests build its test specs and compare their output, which `index`
-  # doesn't change; the import check remains.)
+  # (Its tests build its test specs and compare their output, which the
+  # fork's changes don't change; the import check remains.)
   doCheck = false;
 })

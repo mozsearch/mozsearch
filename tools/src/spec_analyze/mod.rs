@@ -398,6 +398,130 @@ impl Lines {
     }
 }
 
+/// A spec's source with the files it includes (ex: ecmarkup's
+/// `<emu-import>`s, Bikeshed's `<pre class=include>`s) inlined, as the spec's
+/// build tool inlines them, as one text, and where each of its spans came
+/// from.  (A file included more than once is one file, whose positions are
+/// its first inclusion's.)
+pub struct Combined {
+    pub text: String,
+    /// The files, by their paths in the tree, with their sources and lines.
+    files: Vec<(String, String, Lines)>,
+    /// (start in `text`, end in `text`, file, start in the file).
+    spans: Vec<(usize, usize, usize, usize)>,
+}
+
+/// A file's includes (given its path and source): each one's range, which the
+/// included file replaces, and the included file's path in the tree.
+pub type FindIncludes<'a> = &'a dyn Fn(&str, &str) -> Vec<(Range<usize>, String)>;
+
+/// `path`, with `..` and `.` components resolved.
+pub fn normalize_path(path: &str) -> String {
+    let mut parts: Vec<&str> = vec![];
+    for part in path.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                parts.pop();
+            }
+            part => parts.push(part),
+        }
+    }
+    parts.join("/")
+}
+
+impl Combined {
+    /// The source at `main` (a path in the tree, which `read` reads) with
+    /// its includes, if it can be read.
+    pub fn build(
+        main: &str,
+        read: &dyn Fn(&str) -> Option<String>,
+        includes: FindIncludes,
+    ) -> Option<Combined> {
+        let mut combined = Combined {
+            text: String::new(),
+            files: vec![],
+            spans: vec![],
+        };
+        combined.inline(main, read, includes, 0)?;
+        Some(combined)
+    }
+
+    fn inline(
+        &mut self,
+        path: &str,
+        read: &dyn Fn(&str) -> Option<String>,
+        includes: FindIncludes,
+        depth: u32,
+    ) -> Option<()> {
+        let file = match self.file(path) {
+            Some(file) => file,
+            None => {
+                let source = read(path)?;
+                let lines = Lines::new(&source);
+                self.files.push((path.to_string(), source, lines));
+                self.files.len() - 1
+            }
+        };
+        let source = self.files[file].1.clone();
+        let mut at = 0;
+        for (range, target) in includes(path, &source) {
+            self.copy(&source, at..range.start, file);
+            // (A missing include, or one too deep, stays as it is.)
+            if depth > 16 || self.inline(&target, read, includes, depth + 1).is_none() {
+                self.copy(&source, range.clone(), file);
+            }
+            at = range.end;
+        }
+        self.copy(&source, at..source.len(), file);
+        Some(())
+    }
+
+    fn copy(&mut self, source: &str, range: Range<usize>, file: usize) {
+        if range.is_empty() {
+            return;
+        }
+        let start = self.text.len();
+        self.text.push_str(&source[range.clone()]);
+        self.spans.push((start, self.text.len(), file, range.start));
+    }
+
+    /// The files' paths, by their numbers (the main source's first).
+    pub fn paths(&self) -> impl Iterator<Item = &str> {
+        self.files.iter().map(|(path, _, _)| path.as_str())
+    }
+
+    /// The number of the file at `path`, if it's one of them.
+    pub fn file(&self, path: &str) -> Option<usize> {
+        self.files.iter().position(|(p, _, _)| p == path)
+    }
+
+    /// Where a position in a file (a 1-based line and 1-based column in
+    /// characters, ex: Bikeshed's) is in `text`.
+    pub fn offset(&self, file: usize, line: usize, col: usize) -> Option<usize> {
+        let (_, source, lines) = self.files.get(file)?;
+        let local = lines.char_position(source, line, col)?;
+        self.spans
+            .iter()
+            .find(|&&(start, end, f, file_start)| {
+                f == file && file_start <= local && local < file_start + (end - start)
+            })
+            .map(|&(start, _, _, file_start)| start + (local - file_start))
+    }
+
+    /// The file and location of a range of `text` (up to the end of its
+    /// span, if it spans files).
+    pub fn place(&self, range: &Range<usize>) -> Option<(usize, Location)> {
+        let i = self.spans.partition_point(|&(start, _, _, _)| start <= range.start);
+        let &(start, end, file, file_start) = self.spans.get(i.checked_sub(1)?)?;
+        if range.start >= end {
+            return None;
+        }
+        let local = file_start + (range.start - start)..file_start + (range.end.min(end) - start);
+        Some((file, self.files[file].2.location(&local)))
+    }
+}
+
 /// What a record is in: its context's name and symbol.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct InContext {

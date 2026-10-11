@@ -1,5 +1,5 @@
 {
- "bikeshed-index": 1,
+ "bikeshed-index": 2,
  "spec": {
   "shortname": "example",
   "level": null,
@@ -94,6 +94,36 @@
    "noexport": false,
    "text": "poke",
    "idl": true
+  },
+  {
+   "line": 1,
+   "col": 3,
+   "file": "example-gizmos.md",
+   "id": "gizmo",
+   "type": "dfn",
+   "for": [],
+   "lt": [
+    "gizmo"
+   ],
+   "export": false,
+   "noexport": true,
+   "text": "gizmo",
+   "idl": false
+  },
+  {
+   "line": 3,
+   "col": 4,
+   "file": "example-gizmos.md",
+   "id": "wind",
+   "type": "dfn",
+   "for": [],
+   "lt": [
+    "wind"
+   ],
+   "export": false,
+   "noexport": true,
+   "text": "wind",
+   "idl": false
   }
  ],
  "links": [
@@ -222,6 +252,58 @@
    "syntax": "<{img}>",
    "text": "img",
    "idl": false
+  },
+  {
+   "line": 1,
+   "col": 28,
+   "file": "example-gizmos.md",
+   "href": "#widget",
+   "type": "dfn",
+   "for": [],
+   "lt": "widget",
+   "spec": null,
+   "syntax": "[=widget=]",
+   "text": "widget",
+   "idl": false
+  },
+  {
+   "line": 3,
+   "col": 22,
+   "file": "example-gizmos.md",
+   "href": "#gizmo",
+   "type": "dfn",
+   "for": [],
+   "lt": "gizmo",
+   "spec": null,
+   "syntax": "[=gizmo=]",
+   "text": "gizmo",
+   "idl": false
+  },
+  {
+   "line": 3,
+   "col": 33,
+   "file": "example-gizmos.md",
+   "href": "#poke",
+   "type": "dfn",
+   "for": [],
+   "lt": "poke",
+   "spec": null,
+   "syntax": "[=poke=]",
+   "text": "poke",
+   "idl": false
+  },
+  {
+   "line": 3,
+   "col": 46,
+   "file": "example-gizmos.md",
+   "href": "#widget",
+   "type": "dfn",
+   "for": [],
+   "lt": "widget",
+   "spec": null,
+   "syntax": "[=widget=]",
+   "text": "widget",
+   "idl": false
   }
  ],
  "headings": [
@@ -245,6 +327,13 @@
    "id": "gadgets",
    "level": 3,
    "text": "Gadgets"
+  },
+  {
+   "line": 37,
+   "col": 1,
+   "id": "gizmos",
+   "level": 3,
+   "text": "Gizmos"
   }
  ],
  "algorithms": [

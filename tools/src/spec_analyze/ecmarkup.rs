@@ -42,7 +42,11 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use super::markup::{Doc, NodeKind};
-use super::{InContext, Lines, SpecsConfig, spec_records, spec_structured, spec_symbol};
+use super::{
+    Combined, InContext, Lines, SpecsConfig, normalize_path, spec_records, spec_structured,
+    spec_symbol,
+};
+use crate::file_format::analysis::Location;
 use crate::semantic_analyzer::{Record, sort_records};
 
 const CLAUSES: &[&str] = &["emu-clause", "emu-annex", "emu-intro"];
@@ -469,6 +473,62 @@ struct Pending {
 /// The records of an ecmarkup source, of the spec with `shortname`, among
 /// `config`'s specs.
 pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>, Stats) {
+    let lines = Lines::new(src);
+    let (mut files, stats) =
+        analyze_placed(src, shortname, config, 1, &|range: &Range<usize>| {
+            Some((0, lines.location(range)))
+        });
+    (files.pop().unwrap_or_default(), stats)
+}
+
+lazy_static! {
+    static ref EMU_IMPORT: Regex =
+        Regex::new(r#"<emu-import\s+href=["']?([^"'\s>]+)["']?\s*(?:/>|>\s*</emu-import>)"#).unwrap();
+}
+
+/// A file's imports (`<emu-import href>`, which ecmarkup replaces with the
+/// files' contents, relative to the importing file).
+fn imports(path: &str, source: &str) -> Vec<(Range<usize>, String)> {
+    let dir = path.rsplit_once('/').map_or("", |(dir, _)| dir);
+    EMU_IMPORT
+        .captures_iter(source)
+        .map(|import| {
+            let target = normalize_path(&format!("{}/{}", dir, &import[1]));
+            (import.get(0).unwrap().range(), target)
+        })
+        .collect()
+}
+
+/// The records of an ecmarkup spec's source at `main` (a path in the tree,
+/// which `read` reads) and of the files it imports, by their paths, as
+/// ecmarkup builds the spec from them.
+pub fn analyze_with_imports(
+    main: &str,
+    read: &dyn Fn(&str) -> Option<String>,
+    shortname: &str,
+    config: &SpecsConfig,
+) -> Option<(Vec<(String, Vec<Record>)>, Stats)> {
+    let combined = Combined::build(main, read, &imports)?;
+    let (files, stats) = analyze_placed(
+        &combined.text,
+        shortname,
+        config,
+        combined.paths().count(),
+        &|range: &Range<usize>| combined.place(range),
+    );
+    let paths = combined.paths().map(str::to_string);
+    Some((paths.zip(files).collect(), stats))
+}
+
+/// The records of an ecmarkup source, for each of the `files` its text is
+/// from, by where `place` says its ranges are.
+fn analyze_placed(
+    src: &str,
+    shortname: &str,
+    config: &SpecsConfig,
+    files: usize,
+    place: &dyn Fn(&Range<usize>) -> Option<(usize, Location)>,
+) -> (Vec<Vec<Record>>, Stats) {
     let doc = Doc::parse(src);
     let n = doc.nodes.len();
     let mut stats = Stats::default();
@@ -815,7 +875,6 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
     };
 
     let mut pending: Vec<Pending> = vec![];
-    let lines = Lines::new(src);
     // (A range's start, without leading whitespace, to its line's end.)
     let trimmed = |range: Range<usize>| -> Range<usize> {
         let text = &src[range.clone()];
@@ -1189,24 +1248,29 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
         }
     }
 
-    let mut records = vec![];
+    let mut per_file: Vec<Vec<Record>> = (0..files).map(|_| vec![]).collect();
     for p in pending {
         let range = if p.range.is_empty() {
             p.range.start..p.range.start + 1
         } else {
             p.range
         };
+        let Some((file, loc)) = place(&range) else {
+            continue;
+        };
         let context = context_at(range.start);
-        let loc = lines.location(&range);
-        spec_records(&mut records, loc, p.def, p.what, &p.pretty, &p.sym, &context);
+        let records = &mut per_file[file];
+        spec_records(records, loc, p.def, p.what, &p.pretty, &p.sym, &context);
         if p.def
             && let Some((kind, rendered)) = structured.remove(&p.sym)
         {
-            spec_structured(&mut records, loc, &p.pretty, &p.sym, kind, None, rendered.as_deref());
+            spec_structured(records, loc, &p.pretty, &p.sym, kind, None, rendered.as_deref());
         }
     }
-    sort_records(&mut records);
-    (records, stats)
+    for records in &mut per_file {
+        sort_records(records);
+    }
+    (per_file, stats)
 }
 
 #[cfg(test)]
@@ -1260,6 +1324,55 @@ mod tests {
                 ("`c`".to_string(), Emd::Format),
                 ("_O_".to_string(), Emd::Format),
                 ("[[Get]]".to_string(), Emd::Field("[[Get]]".to_string())),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_imports() {
+        let files: HashMap<&str, &str> = HashMap::from([
+            (
+                "e/spec/index.html",
+                "<emu-clause id=\"sec-intro\">\n  <h1>Intro</h1>\n  <emu-import href=\"terms.html\"></emu-import>\n</emu-clause>\n<emu-import href=\"parts/use.html\"></emu-import>\n",
+            ),
+            (
+                "e/spec/terms.html",
+                "<p>A <dfn id=\"widget\">widget</dfn>.</p>\n<emu-clause id=\"sec-frob\" aoid=\"Frob\"><h1>Frob ( )</h1></emu-clause>\n",
+            ),
+            (
+                "e/spec/parts/use.html",
+                "<emu-clause id=\"sec-use\">\n  <h1>Use</h1>\n  <emu-alg>\n    1. Frob() a widget.\n  </emu-alg>\n  <emu-import href=\"../missing.html\"></emu-import>\n</emu-clause>\n",
+            ),
+        ]);
+        let read = |path: &str| files.get(path).map(|s| s.to_string());
+        let (records, _) =
+            analyze_with_imports("e/spec/index.html", &read, "e", &SpecsConfig::default()).unwrap();
+        let summaries: Vec<(String, Vec<String>)> = records
+            .iter()
+            .map(|(path, records)| (path.clone(), summary(records)))
+            .collect();
+        assert_eq!(
+            summaries,
+            vec![
+                (
+                    "e/spec/index.html".to_string(),
+                    vec!["2:6-11 def SPEC_e_sec@2Dintro | Intro".to_string()]
+                ),
+                (
+                    "e/spec/terms.html".to_string(),
+                    vec![
+                        "1:22-28 def SPEC_e_widget | Intro".to_string(),
+                        "2:42-50 def SPEC_e_sec@2Dfrob | Frob".to_string(),
+                    ]
+                ),
+                (
+                    "e/spec/parts/use.html".to_string(),
+                    vec![
+                        "2:6-9 def SPEC_e_sec@2Duse | Use".to_string(),
+                        "4:7-11 use SPEC_e_sec@2Dfrob | Use step 1".to_string(),
+                        "4:16-22 use SPEC_e_widget | Use step 1".to_string(),
+                    ]
+                ),
             ]
         );
     }

@@ -358,5 +358,30 @@ input_file: inputs/analysis/specs/bikeshed__json
     "sym": "SPEC_html_the@2Dimg@2Delement",
     "context": "Gadgets",
     "contextsym": "SPEC_examplebs_gadgets"
+  },
+  {
+    "loc": "00037:3-9",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplebs Gizmos",
+    "sym": "SPEC_examplebs_gizmos"
+  },
+  {
+    "loc": "00037:3-9",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs Gizmos",
+    "sym": "SPEC_examplebs_gizmos",
+    "context": "Gizmos",
+    "contextsym": "SPEC_examplebs_gizmos"
+  },
+  {
+    "loc": "00037:3-9",
+    "structured": 1,
+    "pretty": "examplebs Gizmos",
+    "sym": "SPEC_examplebs_gizmos",
+    "kind": "specSection",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/bs/#gizmos"
   }
 ]

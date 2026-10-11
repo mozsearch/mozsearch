@@ -33,3 +33,9 @@ interface Gadget {
 </pre>
 
 The {{Gadget/poke()}} method steps are to [=poke=] <{img}> elements.
+
+## Gizmos ## {#gizmos}
+
+<pre class=include>
+path: example-gizmos.md
+</pre>

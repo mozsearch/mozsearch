@@ -12,6 +12,9 @@
 //!
 //! Records' ranges are found in the source from Bikeshed's positions: an
 //! autolink's syntax, an element's contents, or, in IDL blocks, the name.
+//! Positions in the files the source includes (`<pre class=include>`, ex:
+//! Markdown files with sections of the spec) are in those files, which get
+//! their records.
 //! Their contexts are the spec tokenizer's (for Bikeshed, see
 //! `spec_tokenizer::bikeshed_contexts`): the algorithm they're in (named and
 //! symbolized by its first definition), with the step (from Bikeshed's
@@ -22,17 +25,22 @@ use std::ops::Range;
 use std::path::Path;
 use std::process::Command;
 
+use lazy_static::lazy_static;
+use regex::Regex;
 use serde::Deserialize;
 
 use super::markup::Doc;
 use super::{
-    ForResolver, InContext, Lines, SpecsConfig, dfn_kind, spec_records, spec_structured,
-    spec_symbol, unescape_context_name,
+    Combined, ForResolver, InContext, Lines, SpecsConfig, dfn_kind, normalize_path, spec_records,
+    spec_structured, spec_symbol, unescape_context_name,
 };
+use crate::file_format::analysis::Location;
 use crate::semantic_analyzer::{Record, sort_records};
 use crate::tree_sitter_support::spec_tokenizer::bikeshed_contexts;
 
-/// `bikeshed index --json`'s output (version 1).
+/// `bikeshed index --json`'s output (version 2), whose positions are in the
+/// source, or, with a `file`, in the file by that path (relative to the
+/// source's directory) that it includes.
 #[derive(Debug, Default, Deserialize)]
 pub struct BikeshedIndex {
     #[serde(rename = "bikeshed-index")]
@@ -51,6 +59,8 @@ pub struct BikeshedIndex {
 pub struct IndexDfn {
     pub line: usize,
     pub col: usize,
+    #[serde(default)]
+    pub file: Option<String>,
     pub id: String,
     #[serde(rename = "type", default)]
     pub dfn_type: Option<String>,
@@ -69,6 +79,8 @@ pub struct IndexDfn {
 pub struct IndexLink {
     pub line: usize,
     pub col: usize,
+    #[serde(default)]
+    pub file: Option<String>,
     pub href: String,
     #[serde(rename = "type", default)]
     pub link_type: Option<String>,
@@ -86,6 +98,8 @@ pub struct IndexLink {
 pub struct IndexHeading {
     pub line: usize,
     pub col: usize,
+    #[serde(default)]
+    pub file: Option<String>,
     pub id: String,
     #[serde(default)]
     pub text: String,
@@ -95,6 +109,8 @@ pub struct IndexHeading {
 pub struct IndexStep {
     pub line: usize,
     pub col: usize,
+    #[serde(default)]
+    pub file: Option<String>,
     pub path: String,
 }
 
@@ -127,7 +143,7 @@ pub fn run_bikeshed(source_path: &Path) -> Result<String, String> {
 
 pub fn parse_index(json: &str) -> Result<BikeshedIndex, String> {
     let index: BikeshedIndex = serde_json::from_str(json).map_err(|e| e.to_string())?;
-    if index.version != 1 {
+    if index.version != 2 {
         return Err(format!("unknown bikeshed index version {}", index.version));
     }
     Ok(index)
@@ -155,15 +171,103 @@ struct Pending {
 }
 
 /// The records of a Bikeshed source with its `index`, of the spec with
-/// `shortname`, among `config`'s specs.
+/// `shortname`, among `config`'s specs (but for the files it includes).
 pub fn analyze(
     src: &str,
     index: &BikeshedIndex,
     shortname: &str,
     config: &SpecsConfig,
 ) -> (Vec<Record>, Stats) {
-    let mut stats = Stats::default();
     let lines = Lines::new(src);
+    let locate = |file: Option<&str>, line: usize, col: usize| match file {
+        Some(_) => None,
+        None => lines.char_position(src, line, col),
+    };
+    let place = |range: &Range<usize>| Some((0, lines.location(range)));
+    let (mut files, stats) = analyze_placed(src, index, shortname, config, 1, &locate, &place);
+    (files.pop().unwrap_or_default(), stats)
+}
+
+lazy_static! {
+    static ref INCLUDE: Regex =
+        Regex::new(r#"<pre\s+class=["']?include["']?\s*>((?s:.*?))</pre>"#).unwrap();
+    static ref INCLUDE_PATH: Regex = Regex::new(r"(?m)^\s*path:\s*(\S+)").unwrap();
+}
+
+/// The records of a Bikeshed spec's source at `main` (a path in the tree,
+/// which `read` reads) with its `index`, and of the files it includes, by
+/// their paths, as Bikeshed builds the spec from them.
+pub fn analyze_with_includes(
+    main: &str,
+    read: &dyn Fn(&str) -> Option<String>,
+    index: &BikeshedIndex,
+    shortname: &str,
+    config: &SpecsConfig,
+) -> Option<(Vec<(String, Vec<Record>)>, Stats)> {
+    // (Bikeshed resolves includes' paths, even in included files, relative
+    // to the spec's source.)
+    let dir = main.rsplit_once('/').map_or("", |(dir, _)| dir);
+    let resolve = |path: &str| normalize_path(&format!("{}/{}", dir, path));
+    let includes = |_: &str, source: &str| -> Vec<(Range<usize>, String)> {
+        INCLUDE
+            .captures_iter(source)
+            .filter_map(|include| {
+                let path = INCLUDE_PATH.captures(include.get(1)?.as_str())?;
+                Some((include.get(0)?.range(), resolve(&path[1])))
+            })
+            .collect()
+    };
+    let combined = Combined::build(main, read, &includes)?;
+    let mut files: HashMap<Option<&str>, Option<usize>> = HashMap::new();
+    files.insert(None, Some(0));
+    for item_file in index_files(index) {
+        files
+            .entry(Some(item_file))
+            .or_insert_with(|| combined.file(&resolve(item_file)));
+    }
+    let locate = |file: Option<&str>, line: usize, col: usize| {
+        combined.offset((*files.get(&file)?)?, line, col)
+    };
+    let place = |range: &Range<usize>| combined.place(range);
+    let (records, stats) = analyze_placed(
+        &combined.text,
+        index,
+        shortname,
+        config,
+        combined.paths().count(),
+        &locate,
+        &place,
+    );
+    let paths = combined.paths().map(str::to_string);
+    Some((paths.zip(records).collect(), stats))
+}
+
+/// The included files the index has positions in.
+fn index_files(index: &BikeshedIndex) -> impl Iterator<Item = &str> {
+    let dfns = index.dfns.iter().map(|d| &d.file);
+    let links = index.links.iter().map(|l| &l.file);
+    let headings = index.headings.iter().map(|h| &h.file);
+    let steps = index.steps.iter().map(|s| &s.file);
+    dfns.chain(links)
+        .chain(headings)
+        .chain(steps)
+        .filter_map(|file| file.as_deref())
+}
+
+/// The records of a Bikeshed source (with the files it includes) with its
+/// `index`, for each of the `files` its text is from, by where `locate` says
+/// the index's positions are in it (given their files), and where `place`
+/// says its ranges are.
+fn analyze_placed(
+    src: &str,
+    index: &BikeshedIndex,
+    shortname: &str,
+    config: &SpecsConfig,
+    files: usize,
+    locate: &dyn Fn(Option<&str>, usize, usize) -> Option<usize>,
+    place: &dyn Fn(&Range<usize>) -> Option<(usize, Location)>,
+) -> (Vec<Vec<Record>>, Stats) {
+    let mut stats = Stats::default();
     let (items, contexts) = bikeshed_contexts(src);
     let doc = Doc::from_items(src, items);
     // Elements, by where their start tags start.
@@ -180,7 +284,6 @@ pub fn analyze(
         let end = range.start + text.trim_end().len();
         Some(start..end.max(start))
     };
-    let place = |line: usize, col: usize| lines.char_position(src, line, col);
 
     let mut pending: Vec<Pending> = vec![];
     // Definitions' and headings' (what, pretty), by id.
@@ -192,7 +295,7 @@ pub fn analyze(
     let mut structured_defs: Vec<(String, &'static str, Option<String>, String)> = vec![];
     let mut resolver = ForResolver::default();
     for dfn in &index.dfns {
-        let Some(at) = place(dfn.line, dfn.col) else {
+        let Some(at) = locate(dfn.file.as_deref(), dfn.line, dfn.col) else {
             stats.unplaced += 1;
             continue;
         };
@@ -230,7 +333,7 @@ pub fn analyze(
     }
     let mut heading_syms: HashMap<usize, String> = HashMap::new();
     for heading in &index.headings {
-        let Some(at) = place(heading.line, heading.col) else {
+        let Some(at) = locate(heading.file.as_deref(), heading.line, heading.col) else {
             stats.unplaced += 1;
             continue;
         };
@@ -248,7 +351,7 @@ pub fn analyze(
         let sym = spec_symbol(shortname, &heading.id);
         let pretty = format!("{} {}", shortname, heading.text);
         structured_defs.push((sym.clone(), "specSection", None, heading.id.clone()));
-        heading_syms.insert(lines_start(&lines, src, at), sym.clone());
+        heading_syms.insert(line_start(src, at), sym.clone());
         heading_syms.insert(at, sym.clone());
         defs.entry(&heading.id)
             .or_insert_with(|| ("section".to_string(), pretty.clone()));
@@ -261,7 +364,7 @@ pub fn analyze(
         });
     }
     for link in &index.links {
-        let Some(at) = place(link.line, link.col) else {
+        let Some(at) = locate(link.file.as_deref(), link.line, link.col) else {
             stats.unplaced += 1;
             continue;
         };
@@ -308,7 +411,10 @@ pub fn analyze(
     let mut steps: Vec<(usize, &str)> = index
         .steps
         .iter()
-        .filter_map(|step| Some((place(step.line, step.col)?, step.path.as_str())))
+        .filter_map(|step| {
+            let at = locate(step.file.as_deref(), step.line, step.col)?;
+            Some((at, step.path.as_str()))
+        })
         .collect();
     steps.sort();
     let mut sections: Vec<(usize, InContext)> = contexts
@@ -389,16 +495,19 @@ pub fn analyze(
             .or_insert((kind, parent, config.rendered_url(shortname, id)));
     }
 
-    let mut records = vec![];
+    let mut per_file: Vec<Vec<Record>> = (0..files).map(|_| vec![]).collect();
     for p in pending {
+        let Some((file, loc)) = place(&p.range) else {
+            continue;
+        };
         let context = context_at(p.range.start);
-        let loc = lines.location(&p.range);
-        spec_records(&mut records, loc, p.def, &p.what, &p.pretty, &p.sym, &context);
+        let records = &mut per_file[file];
+        spec_records(records, loc, p.def, &p.what, &p.pretty, &p.sym, &context);
         if p.def
             && let Some((kind, parent, rendered)) = structured.remove(&p.sym)
         {
             spec_structured(
-                &mut records,
+                records,
                 loc,
                 &p.pretty,
                 &p.sym,
@@ -408,8 +517,10 @@ pub fn analyze(
             );
         }
     }
-    sort_records(&mut records);
-    (records, stats)
+    for records in &mut per_file {
+        sort_records(records);
+    }
+    (per_file, stats)
 }
 
 /// Where the autolink `syntax` (as Bikeshed gives it, which may have spaces
@@ -458,9 +569,8 @@ fn match_verbatim(src: &str, at: usize, syntax: &str) -> Option<usize> {
 }
 
 /// The start of the line `at` is on.
-fn lines_start(lines: &Lines, src: &str, at: usize) -> usize {
-    let line = lines.location(&(at..at)).lineno as usize;
-    lines.char_position(src, line, 1).unwrap_or(at)
+fn line_start(src: &str, at: usize) -> usize {
+    src[..at].rfind('\n').map_or(0, |newline| newline + 1)
 }
 
 #[cfg(test)]
@@ -496,12 +606,87 @@ mod tests {
     }
 
     #[test]
+    fn test_includes() {
+        // (A spec whose sections are in Markdown files it includes, by paths
+        // relative to it even in included files, ex: scheduling-apis.  Their
+        // contexts are as in the built spec, ex: the source's reference after
+        // the include is in the included file's section.)
+        let files: HashMap<&str, &str> = HashMap::from([
+            (
+                "s/spec/index.bs",
+                "<pre class=metadata>\nTitle: S\n</pre>\n\n<pre class=include>\npath: intro.md\n</pre>\n\nSee [=gizmo=].\n",
+            ),
+            (
+                "s/spec/intro.md",
+                "Intro {#intro}\n=====\n\nA <dfn>gizmo</dfn>.\n\n<pre class=\"include\">\n<!-- (Nested.) -->\npath: parts/wind.md\n</pre>\n",
+            ),
+            (
+                "s/spec/parts/wind.md",
+                "To <dfn>wind</dfn> a [=gizmo=]:\n\n1. Turn it.\n",
+            ),
+        ]);
+        let read = |path: &str| files.get(path).map(|s| s.to_string());
+        let index = parse_index(
+            r##"{"bikeshed-index": 2,
+            "dfns": [
+              {"line": 4, "col": 3, "file": "intro.md", "id": "gizmo", "type": "dfn", "text": "gizmo"},
+              {"line": 1, "col": 4, "file": "parts/wind.md", "id": "wind", "type": "dfn", "text": "wind"}
+            ],
+            "links": [
+              {"line": 9, "col": 5, "href": "#gizmo", "type": "dfn", "lt": "gizmo", "syntax": "[=gizmo=]", "text": "gizmo"},
+              {"line": 1, "col": 22, "file": "parts/wind.md", "href": "#gizmo", "type": "dfn", "lt": "gizmo", "syntax": "[=gizmo=]", "text": "gizmo"},
+              {"line": 1, "col": 1, "file": "missing.md", "href": "#gizmo", "type": "dfn", "text": "gizmo"}
+            ],
+            "headings": [{"line": 1, "col": 1, "file": "intro.md", "id": "intro", "level": 2, "text": "Intro"}],
+            "steps": [{"line": 3, "col": 1, "file": "parts/wind.md", "path": "1"}]
+            }"##,
+        )
+        .unwrap();
+        let (records, stats) = analyze_with_includes(
+            "s/spec/index.bs",
+            &read,
+            &index,
+            "s",
+            &SpecsConfig::default(),
+        )
+        .unwrap();
+        let summaries: Vec<(String, Vec<String>)> = records
+            .iter()
+            .map(|(path, records)| (path.clone(), summary(records)))
+            .collect();
+        assert_eq!(
+            summaries,
+            vec![
+                (
+                    "s/spec/index.bs".to_string(),
+                    vec!["9:4-13 use SPEC_s_gizmo | Intro (SPEC_s_intro)".to_string()]
+                ),
+                (
+                    "s/spec/intro.md".to_string(),
+                    vec![
+                        "1:0-5 def SPEC_s_intro | Intro (SPEC_s_intro)".to_string(),
+                        "4:7-12 def SPEC_s_gizmo | Intro (SPEC_s_intro)".to_string(),
+                    ]
+                ),
+                (
+                    "s/spec/parts/wind.md".to_string(),
+                    vec![
+                        "1:8-12 def SPEC_s_wind | wind (SPEC_s_wind)".to_string(),
+                        "1:21-30 use SPEC_s_gizmo | wind (SPEC_s_wind)".to_string(),
+                    ]
+                ),
+            ]
+        );
+        assert_eq!((stats.dfns, stats.links, stats.unplaced), (2, 2, 1));
+    }
+
+    #[test]
     fn test_analysis() {
         // (A spec like tests/tests/files/specs/example.bs, and the index
         // Bikeshed gives it.)
         let src = "<pre class=metadata>\nTitle: X\n</pre>\n\nIntroduction {#intro}\n=====\n\nA <dfn>widget</dfn> has a <dfn for=widget>state</dfn>, see [[HTML]].\n\n# Widgets # {#widgets}\n\nTo <dfn>poke</dfn> a [=widget=]:\n\n1. Set its [=widget/state=].\n1. Return.\n\n<pre class=idl>\ninterface Gadget {};\n</pre>\n\nSee <a href=\"https://dom.spec.whatwg.org/#concept-node\">nodes</a> and <{img}>.\n";
         let index = parse_index(
-            r##"{"bikeshed-index": 1,
+            r##"{"bikeshed-index": 2,
             "dfns": [
               {"line": 8, "col": 3, "id": "widget", "type": "dfn", "for": [], "text": "widget", "idl": false},
               {"line": 8, "col": 27, "id": "widget-state", "type": "dfn", "for": ["widget"], "text": "state", "idl": false},

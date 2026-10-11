@@ -1,0 +1,128 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/specs/bikeshed_included__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "specs/example-gizmos.md",
+    "sym": "FILE_specs/example@2Dgizmos@2Emd"
+  },
+  {
+    "loc": "00001:7-12",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn examplebs gizmo",
+    "sym": "SPEC_examplebs_gizmo"
+  },
+  {
+    "loc": "00001:7-12",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs gizmo",
+    "sym": "SPEC_examplebs_gizmo",
+    "context": "Gizmos",
+    "contextsym": "SPEC_examplebs_gizmos"
+  },
+  {
+    "loc": "00001:7-12",
+    "structured": 1,
+    "pretty": "examplebs gizmo",
+    "sym": "SPEC_examplebs_gizmo",
+    "kind": "specDfn",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/bs/#gizmo"
+  },
+  {
+    "loc": "00001:27-37",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn examplebs widget",
+    "sym": "SPEC_examplebs_widget"
+  },
+  {
+    "loc": "00001:27-37",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplebs widget",
+    "sym": "SPEC_examplebs_widget",
+    "context": "Gizmos",
+    "contextsym": "SPEC_examplebs_gizmos"
+  },
+  {
+    "loc": "00003:8-12",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn examplebs wind",
+    "sym": "SPEC_examplebs_wind"
+  },
+  {
+    "loc": "00003:8-12",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs wind",
+    "sym": "SPEC_examplebs_wind",
+    "context": "Gizmos",
+    "contextsym": "SPEC_examplebs_gizmos"
+  },
+  {
+    "loc": "00003:8-12",
+    "structured": 1,
+    "pretty": "examplebs wind",
+    "sym": "SPEC_examplebs_wind",
+    "kind": "specDfn",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/bs/#wind"
+  },
+  {
+    "loc": "00003:21-30",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn examplebs gizmo",
+    "sym": "SPEC_examplebs_gizmo"
+  },
+  {
+    "loc": "00003:21-30",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplebs gizmo",
+    "sym": "SPEC_examplebs_gizmo",
+    "context": "Gizmos",
+    "contextsym": "SPEC_examplebs_gizmos"
+  },
+  {
+    "loc": "00003:32-40",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn examplebs poke",
+    "sym": "SPEC_examplebs_poke"
+  },
+  {
+    "loc": "00003:32-40",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplebs poke",
+    "sym": "SPEC_examplebs_poke",
+    "context": "Gizmos",
+    "contextsym": "SPEC_examplebs_gizmos"
+  },
+  {
+    "loc": "00003:45-55",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn examplebs widget",
+    "sym": "SPEC_examplebs_widget"
+  },
+  {
+    "loc": "00003:45-55",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplebs widget",
+    "sym": "SPEC_examplebs_widget",
+    "context": "Gizmos",
+    "contextsym": "SPEC_examplebs_gizmos"
+  }
+]

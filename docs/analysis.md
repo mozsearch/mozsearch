@@ -162,15 +162,16 @@ index of the field starting from 0.
  * Web specs' terms (see `tools/src/spec_analyze`, which `spec-analyze` runs on
    the specs in a tree's `specs.toml`: the HTML Standard's Wattsi source,
    ecmarkup specs like ECMA-262, and Bikeshed specs, with mozsearch's fork of
-   Bikeshed's `bikeshed index`) use `SPEC_` followed by the spec's shortname,
-   `_`, and the term's anchor in the rendered spec (its id), escaped like
-   `FILE_` symbols (but for every byte of non-ASCII characters), ex:
-   `SPEC_html_navigate` for `https://html.spec.whatwg.org/#navigate`.  So a URL
-   to a rendered spec (or to one of its `aliases`, ex: a CSS spec's unversioned
-   URL) names a symbol. Their definitions (and sections' headings) are `def`s,
-   and references to them, from the spec and other specs, are `use`s, whose
-   context is the algorithm they're in (with its step, ex: "navigate step
-   12.6") or else their section.
+   Bikeshed's `bikeshed index`, and the files they include) use `SPEC_`
+   followed by the spec's shortname, `_`, and the term's anchor in the rendered
+   spec (its id), escaped like `FILE_` symbols (but for every byte of non-ASCII
+   characters), ex: `SPEC_html_navigate` for
+   `https://html.spec.whatwg.org/#navigate`.  So a URL to a rendered spec (or
+   to one of its `aliases`, ex: a CSS spec's unversioned URL) names a symbol.
+   Their definitions (and sections' headings) are `def`s, and references to
+   them, from the spec and other specs, are `use`s, whose context is the
+   algorithm they're in (with its step, ex: "navigate step 12.6") or else their
+   section.
 
  * Firefox's privileged URLs (chrome://, resource://) temporarily use special
    symbols with `URL_` prefix followed by normalized URL.  The symbol is replaced

@@ -167,3 +167,17 @@ Widgets::Gadgets i img
 Widgets::Gadgets o }>
 Widgets::Gadgets t elements
 Widgets::Gadgets t .
+Widgets::Gizmos o ##
+Widgets::Gizmos t Gizmos
+Widgets::Gizmos o ##
+Widgets::Gizmos o {#
+Widgets::Gizmos i gizmos
+Widgets::Gizmos o }
+Widgets::Gizmos o <pre
+Widgets::Gizmos o class=
+Widgets::Gizmos i include
+Widgets::Gizmos o >
+Widgets::Gizmos t path
+Widgets::Gizmos t :
+Widgets::Gizmos t example-gizmos.md
+Widgets::Gizmos o </pre>
