@@ -506,6 +506,22 @@ fn test_drop_unchanged_files() {
     );
 }
 
+#[test]
+fn test_symdex_rows_cap() {
+    let row = |i: usize| FileStructureRow {
+        pretty: format!("key{}", i),
+        is_def: true,
+        kind: "field".to_string(),
+        pp: vec![],
+    };
+    let mut symdex: HashMap<String, HashMap<String, SymbolNotes>> = HashMap::new();
+    let rows: Vec<FileStructureRow> = (0..=MAX_SYMDEX_ROWS).map(row).collect();
+    add_symdex_records(&mut symdex, "json", &rows, Path::new("big.json"));
+    assert!(symdex.get("json").is_none_or(|symbols| symbols.is_empty()));
+    add_symdex_records(&mut symdex, "json", &rows[..2], Path::new("small.json"));
+    assert_eq!(symdex["json"].len(), 2);
+}
+
 /// Where to read the syntax repo data corresponding to `parent_idx`'s tree.
 fn parent_source(syntax_parents: &[SyntaxRepoCommit], parent_idx: usize) -> ReadFrom<'_> {
     if parent_idx == 0 {
@@ -514,6 +530,16 @@ fn parent_source(syntax_parents: &[SyntaxRepoCommit], parent_idx: usize) -> Read
         ReadFrom::Commit(&syntax_parents[parent_idx])
     }
 }
+
+/// The most structure rows a file can have and get symdex records for its
+/// symbols.  A file with more is data (ex: TC39 Temporal's polyfill's test
+/// snapshots, JSON files with up to ~600k keys), whose symdex files (one per
+/// symbol, each read and written through git-fast-import) took the syntax over
+/// an hour per revision, and whose symbols few would look up by name.  It
+/// keeps its tokens and its structure, just not symdex records.  (Firefox's
+/// largest structures are ~50k rows, ex: WebGPU CTS expectations' and
+/// perfetto.h's.)
+const MAX_SYMDEX_ROWS: usize = 100_000;
 
 /// Note the symdex records of the first parent's version of the source file at
 /// `path` (from its "files-struct" entry), so that they're filtered out of
@@ -538,6 +564,10 @@ fn note_old_records(
     let Some(namespace) = header.effective_namespace() else {
         return;
     };
+    // (It has no symdex records to filter out.)
+    if records.len() > MAX_SYMDEX_ROWS {
+        return;
+    }
     let by_lang = symdex.entry(namespace.to_string()).or_default();
     let source_path = path.to_str().unwrap();
     for record in records {
@@ -562,7 +592,7 @@ fn add_symdex_records(
     rows: &[FileStructureRow],
     path: &Path,
 ) {
-    if rows.is_empty() {
+    if rows.is_empty() || rows.len() > MAX_SYMDEX_ROWS {
         return;
     }
     let by_lang = symdex.entry(namespace.to_string()).or_default();
