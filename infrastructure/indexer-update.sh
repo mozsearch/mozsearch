@@ -24,9 +24,15 @@ sudo -i nix profile add "$(pwd)/mozsearch#indexerPackages" --accept-flake-config
 # If the package was already installed we need to explicitly upgrade as well
 sudo -i nix profile upgrade indexerPackages --accept-flake-config --print-build-logs
 
+# GitHub's raw files sometimes answer with 429 Too Many Requests, which wget
+# doesn't retry by default (ex: on 2026-10-10, two reblame instances in a row
+# failed to download WebIDL.py, which another request 5 seconds later got), so
+# downloads retry it and server errors.
+WGET_RETRY=(--tries=6 --waitretry=30 --retry-on-http-error=429,500,502,503,504)
+
 # Install SpiderMonkey.
 rm -rf target.jsshell.zip js
-wget -nv https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.v2.mozilla-central.latest.firefox.linux64-opt/artifacts/public/build/target.jsshell.zip
+wget -nv "${WGET_RETRY[@]}" https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.v2.mozilla-central.latest.firefox.linux64-opt/artifacts/public/build/target.jsshell.zip
 mkdir js
 pushd js
 unzip ../target.jsshell.zip
@@ -51,12 +57,12 @@ fi
 if [ ! -d "${PYMODULES}" ]; then
     mkdir "${PYMODULES}"
     pushd "${PYMODULES}"
-    wget "https://github.com/mozilla-firefox/firefox/raw/refs/heads/main/xpcom/idl-parser/xpidl/xpidl.py"
-    wget "https://github.com/mozilla-firefox/firefox/raw/refs/heads/main/dom/bindings/parser/WebIDL.py"
+    wget "${WGET_RETRY[@]}" "https://github.com/mozilla-firefox/firefox/raw/refs/heads/main/xpcom/idl-parser/xpidl/xpidl.py"
+    wget "${WGET_RETRY[@]}" "https://github.com/mozilla-firefox/firefox/raw/refs/heads/main/dom/bindings/parser/WebIDL.py"
     mkdir ply
     pushd ply
     for PLYFILE in __init__.py lex.py yacc.py; do
-        wget "https://github.com/mozilla-firefox/firefox/raw/refs/heads/main/third_party/python/ply/ply/${PLYFILE}"
+        wget "${WGET_RETRY[@]}" "https://github.com/mozilla-firefox/firefox/raw/refs/heads/main/third_party/python/ply/ply/${PLYFILE}"
     done
     popd
     popd
