@@ -7,12 +7,15 @@
 //! The specs are a tree's `specs.toml`'s (see `SpecsConfig`), and each is
 //! analyzed according to its format:
 //! - `wattsi`: the HTML Standard's `source`, whose cross-references we
-//!   resolve as Wattsi does (see `wattsi`).
+//!   resolve as Wattsi does (see `wattsi`);
+//! - `ecmarkup`: ECMA-262's (and TC39's other specs') `spec.html`, which we
+//!   link as ecmarkup does (see `ecmarkup`).
 //!
 //! Records' contexts are the spec's sections and algorithms (as the spec
 //! tokenizer's, see `spec_tokenizer::html_contexts`), and within an
 //! algorithm's steps, the step's number (ex: "navigate step 12.6").
 
+pub mod ecmarkup;
 pub mod markup;
 pub mod wattsi;
 
@@ -53,7 +56,8 @@ pub struct SpecEntry {
     pub path: Option<String>,
     #[serde(default)]
     pub format: Option<SpecFormat>,
-    /// The spec's source, in its directory (default: `source` for Wattsi).
+    /// The spec's source, in its directory (default: `source` for Wattsi,
+    /// and `spec.html` for ecmarkup).
     #[serde(default)]
     pub source: Option<String>,
     /// The rendered spec's URL, which its anchors are fragments of, and which
@@ -77,6 +81,7 @@ impl SpecEntry {
         let source = match (self.format?, &self.source) {
             (_, Some(source)) => source.as_str(),
             (SpecFormat::Wattsi, None) => "source",
+            (SpecFormat::Ecmarkup, None) => "spec.html",
             _ => return None,
         };
         Some(match self.dir() {

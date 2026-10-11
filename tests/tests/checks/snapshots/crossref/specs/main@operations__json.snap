@@ -1,0 +1,173 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/specs/operations__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "SPEC_ecmaexample_sec@2Dtostring",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/ecma/spec.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 22,
+                "bounds": [
+                  31,
+                  39
+                ],
+                "line": "1. If _arg_ is a value, return ToString(_arg_).",
+                "context": "ToString step 1",
+                "contextsym": "SPEC_ecmaexample_sec@2Dtostring"
+              },
+              {
+                "lno": 60,
+                "bounds": [
+                  7,
+                  38
+                ],
+                "line": "<p>See <emu-xref href=\"#sec-tostring\"></emu-xref> and <emu-xref aoid=\"ToString\"></emu-xref>.</p>",
+                "context": "Grammar",
+                "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
+              },
+              {
+                "lno": 60,
+                "bounds": [
+                  54,
+                  80
+                ],
+                "line": "<p>See <emu-xref href=\"#sec-tostring\"></emu-xref> and <emu-xref aoid=\"ToString\"></emu-xref>.</p>",
+                "context": "Grammar",
+                "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "specs/ecma/spec.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 13,
+                "bounds": [
+                  0,
+                  10
+                ],
+                "line": "ToString (",
+                "context": "ToString",
+                "contextsym": "SPEC_ecmaexample_sec@2Dtostring"
+              }
+            ]
+          }
+        ],
+        "callees": []
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "SPEC_ecmaexample_abstract@2Dfrob",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/ecma/spec.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 44,
+                "bounds": [
+                  21,
+                  25
+                ],
+                "line": "1. Perform ? _thing_.Frob().",
+                "context": "Frob2 step 1",
+                "contextsym": "SPEC_ecmaexample_sec@2Dfrob"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "specs/ecma/spec.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 37,
+                "bounds": [
+                  0,
+                  23
+                ],
+                "line": "<tr id=\"abstract-frob\"><td>Frob ( )</td><td>Frobs the thing.</td></tr>",
+                "context": "Terms",
+                "contextsym": "SPEC_ecmaexample_sec@2Dterms"
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "SPEC_ecmaexample_prod@2DOtherThing",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/ecma/spec.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 54,
+                "bounds": [
+                  8,
+                  18
+                ],
+                "line": "`thing` OtherThing?",
+                "context": "Grammar",
+                "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
+              },
+              {
+                "lno": 55,
+                "bounds": [
+                  15,
+                  25
+                ],
+                "line": "[lookahead ∉ OtherThing] `other`",
+                "context": "Grammar",
+                "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "specs/ecma/spec.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 57,
+                "bounds": [
+                  0,
+                  10
+                ],
+                "line": "OtherThing :: one of",
+                "context": "Grammar",
+                "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

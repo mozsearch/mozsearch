@@ -1,0 +1,430 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/specs/ecmarkup__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file specs/ecma/spec.html",
+    "sym": "FILE_specs/ecma/spec@2Ehtml"
+  },
+  {
+    "loc": "00008:6-11",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "clause ecmaexample Terms",
+    "sym": "SPEC_ecmaexample_sec@2Dterms"
+  },
+  {
+    "loc": "00008:6-11",
+    "target": 1,
+    "kind": "def",
+    "pretty": "ecmaexample Terms",
+    "sym": "SPEC_ecmaexample_sec@2Dterms",
+    "context": "Terms",
+    "contextsym": "SPEC_ecmaexample_sec@2Dterms"
+  },
+  {
+    "loc": "00009:41-46",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn ecmaexample value",
+    "sym": "SPEC_ecmaexample_value"
+  },
+  {
+    "loc": "00009:41-46",
+    "target": 1,
+    "kind": "def",
+    "pretty": "ecmaexample value",
+    "sym": "SPEC_ecmaexample_value",
+    "context": "Terms",
+    "contextsym": "SPEC_ecmaexample_sec@2Dterms"
+  },
+  {
+    "loc": "00009:66-72",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn ecmaexample value",
+    "sym": "SPEC_ecmaexample_value"
+  },
+  {
+    "loc": "00009:66-72",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ecmaexample value",
+    "sym": "SPEC_ecmaexample_value",
+    "context": "Terms",
+    "contextsym": "SPEC_ecmaexample_sec@2Dterms"
+  },
+  {
+    "loc": "00011:2-84",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "anchor ecmaexample ToString",
+    "sym": "SPEC_ecmaexample_sec@2Dold@2Dtostring"
+  },
+  {
+    "loc": "00011:2-84",
+    "target": 1,
+    "kind": "def",
+    "pretty": "ecmaexample ToString",
+    "sym": "SPEC_ecmaexample_sec@2Dold@2Dtostring",
+    "context": "ToString",
+    "contextsym": "SPEC_ecmaexample_sec@2Dtostring"
+  },
+  {
+    "loc": "00013:6-16",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "clause ecmaexample ToString",
+    "sym": "SPEC_ecmaexample_sec@2Dtostring"
+  },
+  {
+    "loc": "00013:6-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "ecmaexample ToString",
+    "sym": "SPEC_ecmaexample_sec@2Dtostring",
+    "context": "ToString",
+    "contextsym": "SPEC_ecmaexample_sec@2Dtostring"
+  },
+  {
+    "loc": "00014:17-22",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn ecmaexample value",
+    "sym": "SPEC_ecmaexample_value"
+  },
+  {
+    "loc": "00014:17-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ecmaexample value",
+    "sym": "SPEC_ecmaexample_value",
+    "context": "ToString",
+    "contextsym": "SPEC_ecmaexample_sec@2Dtostring"
+  },
+  {
+    "loc": "00022:23-28",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn ecmaexample value",
+    "sym": "SPEC_ecmaexample_value"
+  },
+  {
+    "loc": "00022:23-28",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ecmaexample value",
+    "sym": "SPEC_ecmaexample_value",
+    "context": "ToString step 1",
+    "contextsym": "SPEC_ecmaexample_sec@2Dtostring"
+  },
+  {
+    "loc": "00022:37-45",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "clause ecmaexample ToString",
+    "sym": "SPEC_ecmaexample_sec@2Dtostring"
+  },
+  {
+    "loc": "00022:37-45",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ecmaexample ToString",
+    "sym": "SPEC_ecmaexample_sec@2Dtostring",
+    "context": "ToString step 1",
+    "contextsym": "SPEC_ecmaexample_sec@2Dtostring"
+  },
+  {
+    "loc": "00023:6-8",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "step ecmaexample ToString step 2",
+    "sym": "SPEC_ecmaexample_step@2Dtostring@2Delse"
+  },
+  {
+    "loc": "00023:6-8",
+    "target": 1,
+    "kind": "def",
+    "pretty": "ecmaexample ToString step 2",
+    "sym": "SPEC_ecmaexample_step@2Dtostring@2Delse",
+    "context": "ToString step 2",
+    "contextsym": "SPEC_ecmaexample_sec@2Dtostring"
+  },
+  {
+    "loc": "00024:26-32",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "anchor ecmaexample #eqn-modulo",
+    "sym": "SPEC_ecmaexample_eqn@2Dmodulo"
+  },
+  {
+    "loc": "00024:26-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ecmaexample #eqn-modulo",
+    "sym": "SPEC_ecmaexample_eqn@2Dmodulo",
+    "context": "ToString step 2.a",
+    "contextsym": "SPEC_ecmaexample_sec@2Dtostring"
+  },
+  {
+    "loc": "00025:18-22",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "clause ecmaexample Call",
+    "sym": "SPEC_ecmaexample_sec@2Dcall"
+  },
+  {
+    "loc": "00025:18-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ecmaexample Call",
+    "sym": "SPEC_ecmaexample_sec@2Dcall",
+    "context": "ToString step 2.b",
+    "contextsym": "SPEC_ecmaexample_sec@2Dtostring"
+  },
+  {
+    "loc": "00025:34-39",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "production ecmaexample Thing",
+    "sym": "SPEC_ecmaexample_prod@2DThing"
+  },
+  {
+    "loc": "00025:34-39",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ecmaexample Thing",
+    "sym": "SPEC_ecmaexample_prod@2DThing",
+    "context": "ToString step 2.b",
+    "contextsym": "SPEC_ecmaexample_sec@2Dtostring"
+  },
+  {
+    "loc": "00030:8-14",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "clause ecmaexample Modulo",
+    "sym": "SPEC_ecmaexample_sec@2Dmodulo"
+  },
+  {
+    "loc": "00030:8-14",
+    "target": 1,
+    "kind": "def",
+    "pretty": "ecmaexample Modulo",
+    "sym": "SPEC_ecmaexample_sec@2Dmodulo",
+    "context": "Modulo",
+    "contextsym": "SPEC_ecmaexample_sec@2Dmodulo"
+  },
+  {
+    "loc": "00031:23-62",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "anchor ecmaexample #eqn-modulo",
+    "sym": "SPEC_ecmaexample_eqn@2Dmodulo"
+  },
+  {
+    "loc": "00031:23-62",
+    "target": 1,
+    "kind": "def",
+    "pretty": "ecmaexample #eqn-modulo",
+    "sym": "SPEC_ecmaexample_eqn@2Dmodulo",
+    "context": "Modulo",
+    "contextsym": "SPEC_ecmaexample_sec@2Dmodulo"
+  },
+  {
+    "loc": "00034:2-93",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "anchor ecmaexample Abstract Methods of Things",
+    "sym": "SPEC_ecmaexample_table@2Dmethods"
+  },
+  {
+    "loc": "00034:2-93",
+    "target": 1,
+    "kind": "def",
+    "pretty": "ecmaexample Abstract Methods of Things",
+    "sym": "SPEC_ecmaexample_table@2Dmethods",
+    "context": "Terms",
+    "contextsym": "SPEC_ecmaexample_sec@2Dterms"
+  },
+  {
+    "loc": "00037:6-29",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "anchor ecmaexample #abstract-frob",
+    "sym": "SPEC_ecmaexample_abstract@2Dfrob"
+  },
+  {
+    "loc": "00037:6-29",
+    "target": 1,
+    "kind": "def",
+    "pretty": "ecmaexample #abstract-frob",
+    "sym": "SPEC_ecmaexample_abstract@2Dfrob",
+    "context": "Terms",
+    "contextsym": "SPEC_ecmaexample_sec@2Dterms"
+  },
+  {
+    "loc": "00042:8-25",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "clause ecmaexample Frob2",
+    "sym": "SPEC_ecmaexample_sec@2Dfrob"
+  },
+  {
+    "loc": "00042:8-25",
+    "target": 1,
+    "kind": "def",
+    "pretty": "ecmaexample Frob2",
+    "sym": "SPEC_ecmaexample_sec@2Dfrob",
+    "context": "Frob2",
+    "contextsym": "SPEC_ecmaexample_sec@2Dfrob"
+  },
+  {
+    "loc": "00044:27-31",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "anchor ecmaexample #abstract-frob",
+    "sym": "SPEC_ecmaexample_abstract@2Dfrob"
+  },
+  {
+    "loc": "00044:27-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ecmaexample #abstract-frob",
+    "sym": "SPEC_ecmaexample_abstract@2Dfrob",
+    "context": "Frob2 step 1",
+    "contextsym": "SPEC_ecmaexample_sec@2Dfrob"
+  },
+  {
+    "loc": "00051:6-13",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "clause ecmaexample Grammar",
+    "sym": "SPEC_ecmaexample_sec@2Dgrammar"
+  },
+  {
+    "loc": "00051:6-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "ecmaexample Grammar",
+    "sym": "SPEC_ecmaexample_sec@2Dgrammar",
+    "context": "Grammar",
+    "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
+  },
+  {
+    "loc": "00053:4-9",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "production ecmaexample Thing",
+    "sym": "SPEC_ecmaexample_prod@2DThing"
+  },
+  {
+    "loc": "00053:4-9",
+    "target": 1,
+    "kind": "def",
+    "pretty": "ecmaexample Thing",
+    "sym": "SPEC_ecmaexample_prod@2DThing",
+    "context": "Grammar",
+    "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
+  },
+  {
+    "loc": "00054:14-24",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "production ecmaexample OtherThing",
+    "sym": "SPEC_ecmaexample_prod@2DOtherThing"
+  },
+  {
+    "loc": "00054:14-24",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ecmaexample OtherThing",
+    "sym": "SPEC_ecmaexample_prod@2DOtherThing",
+    "context": "Grammar",
+    "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
+  },
+  {
+    "loc": "00055:21-31",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "production ecmaexample OtherThing",
+    "sym": "SPEC_ecmaexample_prod@2DOtherThing"
+  },
+  {
+    "loc": "00055:21-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ecmaexample OtherThing",
+    "sym": "SPEC_ecmaexample_prod@2DOtherThing",
+    "context": "Grammar",
+    "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
+  },
+  {
+    "loc": "00057:4-14",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "production ecmaexample OtherThing",
+    "sym": "SPEC_ecmaexample_prod@2DOtherThing"
+  },
+  {
+    "loc": "00057:4-14",
+    "target": 1,
+    "kind": "def",
+    "pretty": "ecmaexample OtherThing",
+    "sym": "SPEC_ecmaexample_prod@2DOtherThing",
+    "context": "Grammar",
+    "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
+  },
+  {
+    "loc": "00060:9-40",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "clause ecmaexample ToString",
+    "sym": "SPEC_ecmaexample_sec@2Dtostring"
+  },
+  {
+    "loc": "00060:9-40",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ecmaexample ToString",
+    "sym": "SPEC_ecmaexample_sec@2Dtostring",
+    "context": "Grammar",
+    "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
+  },
+  {
+    "loc": "00060:56-82",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "clause ecmaexample ToString",
+    "sym": "SPEC_ecmaexample_sec@2Dtostring"
+  },
+  {
+    "loc": "00060:56-82",
+    "target": 1,
+    "kind": "use",
+    "pretty": "ecmaexample ToString",
+    "sym": "SPEC_ecmaexample_sec@2Dtostring",
+    "context": "Grammar",
+    "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
+  },
+  {
+    "loc": "00064:6-18",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "clause ecmaexample Call",
+    "sym": "SPEC_ecmaexample_sec@2Dcall"
+  },
+  {
+    "loc": "00064:6-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "ecmaexample Call",
+    "sym": "SPEC_ecmaexample_sec@2Dcall",
+    "context": "Call",
+    "contextsym": "SPEC_ecmaexample_sec@2Dcall"
+  }
+]

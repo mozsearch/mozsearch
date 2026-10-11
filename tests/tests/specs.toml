@@ -1,5 +1,6 @@
 # The test tree's web specs (see tools/src/spec_analyze and
-# scripts/spec-analyze.sh): its Wattsi fixture, and DOM, which it refers to.
+# scripts/spec-analyze.sh): its Wattsi and ecmarkup fixtures, and DOM, which the
+# former refers to.
 
 [[spec]]
 name = "example"
@@ -10,3 +11,9 @@ rendered = "https://example.spec.whatwg.org/"
 [[spec]]
 name = "dom"
 rendered = "https://dom.spec.whatwg.org/"
+
+[[spec]]
+name = "ecmaexample"
+path = "specs/ecma"
+format = "ecmarkup"
+rendered = "https://example.github.io/ecma/"

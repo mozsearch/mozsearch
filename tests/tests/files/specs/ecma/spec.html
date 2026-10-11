@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<!-- A small spec in ecmarkup's format, like ECMA-262's spec.html, for its
+     analysis (see tools/src/spec_analyze/ecmarkup.rs and tests/tests/specs.toml). -->
+<pre class="metadata">
+title: Example ECMAScript
+</pre>
+<emu-clause id="sec-terms">
+  <h1>Terms</h1>
+  <p>A <dfn id="value" variants="values">value</dfn> is a thing.  Values are things, and a <dfn>widget</dfn> isn't a widget.</p>
+
+  <emu-clause id="sec-tostring" type="abstract operation" oldids="sec-old-tostring">
+    <h1>
+      ToString (
+        _arg_: a value,
+      ): a String
+    </h1>
+    <dl class="header">
+      <dt>description</dt>
+      <dd>It converts _arg_ to a String.</dd>
+    </dl>
+    <emu-alg>
+      1. If _arg_ is a value, return ToString(_arg_).
+      1. [id="step-tostring-else"] Else:
+        1. Let _n_ be _x_ modulo 2.
+        1. Return Call(_arg_) of |Thing|, and not a Call.
+    </emu-alg>
+  </emu-clause>
+
+  <emu-clause id="sec-modulo">
+    <h1>Modulo</h1>
+    <p>The notation “<emu-eqn id="eqn-modulo" aoid="modulo">_x_ modulo _y_</emu-eqn>” is the remainder.</p>
+  </emu-clause>
+
+  <emu-table id="table-methods" type="abstract methods" caption="Abstract Methods of Things">
+    <table>
+      <tr><th>Method</th><th>Purpose</th></tr>
+      <tr id="abstract-frob"><td>Frob ( )</td><td>Frobs the thing.</td></tr>
+    </table>
+  </emu-table>
+
+  <emu-clause id="sec-frob" aoid="Frob2">
+    <h1>Frob2 ( _thing_ )</h1>
+    <emu-alg>
+      1. Perform ? _thing_.Frob().
+      1. Return _thing_.[[Value]].
+    </emu-alg>
+  </emu-clause>
+</emu-clause>
+
+<emu-clause id="sec-grammar">
+  <h1>Grammar</h1>
+  <emu-grammar type="definition">
+    Thing :
+      `thing` OtherThing?
+      [lookahead ∉ OtherThing] `other`
+
+    OtherThing :: one of
+      `a` `b`
+  </emu-grammar>
+  <p>See <emu-xref href="#sec-tostring"></emu-xref> and <emu-xref aoid="ToString"></emu-xref>.</p>
+</emu-clause>
+
+<emu-clause id="sec-call" aoid="Call">
+  <h1>Call ( _F_ )</h1>
+</emu-clause>

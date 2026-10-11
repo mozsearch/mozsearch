@@ -14,7 +14,7 @@ use std::process::exit;
 use std::time::Instant;
 
 use tools::semantic_analyzer::write_records;
-use tools::spec_analyze::{SpecFormat, SpecsConfig, wattsi};
+use tools::spec_analyze::{SpecFormat, SpecsConfig, ecmarkup, wattsi};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -51,7 +51,24 @@ fn main() {
                     started.elapsed().as_secs_f64()
                 );
             }
-            SpecFormat::Ecmarkup | SpecFormat::Bikeshed => {}
+            SpecFormat::Ecmarkup => {
+                let (records, stats) = ecmarkup::analyze(&source, spec.shortname(), &config);
+                write_records(analysis_root, &path, records);
+                println!(
+                    "{}: {} clauses, {} abstract operations, {} terms, {} productions, {} autolinks, {} xrefs, {} nonterminals ({} unresolved), in {:.2}s",
+                    path,
+                    stats.clauses,
+                    stats.operations,
+                    stats.terms,
+                    stats.productions,
+                    stats.autolinks,
+                    stats.xrefs,
+                    stats.nonterminals,
+                    stats.unresolved,
+                    started.elapsed().as_secs_f64()
+                );
+            }
+            SpecFormat::Bikeshed => {}
         }
     }
 }
