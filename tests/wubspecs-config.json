@@ -15,7 +15,8 @@
       "git_path": "$WORKING/wubspecs/git",
       "history_path": "$WORKING/wubspecs/history",
       "codesearch_path": "$WORKING/wubspecs/livegrep.idx",
-      "codesearch_port": 8083
+      "codesearch_port": 8083,
+      "walk_submodules": false
     }
   }
 }

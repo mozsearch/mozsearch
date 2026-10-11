@@ -905,11 +905,14 @@ def parse_files(index_root, files_root, analysis_root, cache_dir, bindings_local
         text = ''.join(lines)
         cpp_analysis_map[local_path] = read_cpp_analysis(analysis_root, local_path, bindings_local_path)
 
+        # (A file Gecko's parser can't parse, ex: in a web spec's repository,
+        # with syntax Gecko doesn't support yet, just isn't analyzed; the
+        # parser only adds a file's productions once it's parsed the file.)
         try:
             parser.parse(text, local_path)
         except WebIDL.WebIDLError as e:
-            print('WebIDL: Syntax error in IDL', fname, file=sys.stderr)
-            raise e
+            print('WebIDL: Syntax error in IDL, so not analyzing', fname, file=sys.stderr)
+            print(e, file=sys.stderr)
 
     # NOTE: Do not call parser.finish() here because we need raw identifiers and
     #       raw productions, and we don't need auto-generated items.
