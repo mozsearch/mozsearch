@@ -585,6 +585,37 @@ const SENTINEL_SOURCE: TextSource = TextSource {
     block: u32::MAX,
 };
 
+/// The runs of a text's positions which moves have consumed, for finding
+/// whether a run of positions has any in O(log n), rather than in its length.
+#[derive(Default)]
+struct ConsumedRuns {
+    /// Disjoint runs, by their starts, to their ends.
+    runs: std::collections::BTreeMap<usize, usize>,
+}
+
+impl ConsumedRuns {
+    /// Consume `range`, none of which is consumed.
+    fn consume(&mut self, range: std::ops::Range<usize>) {
+        if !range.is_empty() {
+            self.runs.insert(range.start, range.end);
+        }
+    }
+
+    /// The first consumed position at or after `p` (or `usize::MAX`), so that
+    /// a run starting at `p` is unconsumed if it ends by it.
+    fn unconsumed_from(&self, p: usize) -> usize {
+        if let Some((_, &end)) = self.runs.range(..=p).next_back()
+            && end > p
+        {
+            return p;
+        }
+        self.runs
+            .range(p + 1..)
+            .next()
+            .map_or(usize::MAX, |(&start, _)| start)
+    }
+}
+
 /// Same-block move candidates are only considered in this many positions at
 /// the start of the removed text.
 const SAME_BLOCK_SCAN_LIMIT: usize = 1_000_001;
@@ -660,7 +691,7 @@ fn infer_big_rock_moves(state: &mut InferenceState, namespace: &str, config: &In
     added_runs.sort_by_key(|&i| std::cmp::Reverse(state.blocks[i].new_len));
 
     let sa = SuffixArray::new(&text);
-    let mut consumed = vec![false; text.len()];
+    let mut consumed = ConsumedRuns::default();
 
     for block_idx in added_runs {
         let (file, new_range) = {
@@ -730,16 +761,26 @@ fn infer_big_rock_moves(state: &mut InferenceState, namespace: &str, config: &In
                 let distinctive = k >= config.cross_file_min_len
                     || rarity_prefix[i + k] - rarity_prefix[i] >= config.cross_file_min_rarity
                     || distinct_identifiers(i..i + k) >= config.cross_file_min_identifiers;
-                let is_usable = |p: usize| -> bool {
-                    p + k <= text.len()
-                        && text[p..p + k] == query[i..i + k]
-                        && !consumed[p..p + k].iter().any(|c| *c)
+                // (Whether the text at `p`, which starts with `query[i..i +
+                // k]`, can be the match.  Checking that each candidate's text
+                // matches, and that none of it is consumed, token by token,
+                // was quadratic in the matches' lengths, which in the HTML
+                // Standard's revisions which edited all of its `source` and
+                // the `index` generated from it, which repeat each other, are
+                // hundreds of thousands of tokens: a revision took 10 minutes.)
+                let is_usable_match = |p: usize| -> bool {
+                    consumed.unconsumed_from(p) >= p + k
                         && (distinctive || sources[p].file as usize == file)
+                };
+                // (For positions which aren't from the suffix array's range
+                // of matches.)
+                let is_usable = |p: usize| -> bool {
+                    p + k <= text.len() && text[p..p + k] == query[i..i + k] && is_usable_match(p)
                 };
 
                 let mut candidates: Vec<usize> = (lo..hi.min(lo + config.max_candidates))
                     .map(|r| sa.suffix(r))
-                    .filter(|&p| is_usable(p))
+                    .filter(|&p| is_usable_match(p))
                     .collect();
                 if hi - lo > config.max_candidates {
                     // Make sure we consider the positions our fitness function
@@ -763,7 +804,7 @@ fn infer_big_rock_moves(state: &mut InferenceState, namespace: &str, config: &In
                             candidates.extend(
                                 (lo..hi)
                                     .map(|r| sa.suffix(r))
-                                    .filter(|&p| p >= start && p < end && is_usable(p)),
+                                    .filter(|&p| p >= start && p < end && is_usable_match(p)),
                             );
                         }
                     }
@@ -805,9 +846,9 @@ fn infer_big_rock_moves(state: &mut InferenceState, namespace: &str, config: &In
 
             match accepted {
                 Some((p, k)) => {
+                    consumed.consume(p..p + k);
                     for j in 0..k {
                         let source = sources[p + j];
-                        consumed[p + j] = true;
                         state.record_move(
                             source.file as usize,
                             source.old_idx as usize,
@@ -1239,6 +1280,26 @@ fn finalize(mut state: InferenceState) -> Vec<FileInference> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_consumed_runs() {
+        let mut consumed = ConsumedRuns::default();
+        assert_eq!(consumed.unconsumed_from(5), usize::MAX);
+        consumed.consume(10..20);
+        consumed.consume(30..31);
+        // Before a run, the run's start; in it, the position itself; after
+        // the last, none.
+        assert_eq!(consumed.unconsumed_from(0), 10);
+        assert_eq!(consumed.unconsumed_from(10), 10);
+        assert_eq!(consumed.unconsumed_from(19), 19);
+        assert_eq!(consumed.unconsumed_from(20), 30);
+        assert_eq!(consumed.unconsumed_from(31), usize::MAX);
+        // (So a run of 10 from 0 is unconsumed, but not one of 11.)
+        assert!(consumed.unconsumed_from(0) >= 10);
+        assert!(consumed.unconsumed_from(0) < 11);
+        consumed.consume(5..5);
+        assert_eq!(consumed.unconsumed_from(0), 10);
+    }
+
     use super::*;
     use crate::file_format::history::syntax_files::format_token_line;
 
