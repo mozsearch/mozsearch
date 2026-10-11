@@ -174,9 +174,11 @@ index of the field starting from 0.
    section.  A tree's other files' citations of its specs (or of its
    `linked_trees`' specs, ex: firefox-disco's of wubspecs'; see
    `tools/src/spec_analyze/citations.rs`): URLs with anchors, wherever they
-   are, and the step comments (ex: "Step 12.6.") in their scopes, are
-   `doc-use`s, whose context is the definition they're in or about (with the
-   step, ex: "nsDocShell::InternalLoad step 12.6").
+   are, comments citing ecmarkup specs' sections by their numbers and titles
+   (ex: SpiderMonkey's "22.1.3.13 Array.prototype.join ( separator )"), and the
+   step comments (ex: "Step 12.6.") in their scopes, are `doc-use`s, whose
+   context is the definition they're in or about (with the step, ex:
+   "nsDocShell::InternalLoad step 12.6").
 
  * Firefox's privileged URLs (chrome://, resource://) temporarily use special
    symbols with `URL_` prefix followed by normalized URL.  The symbol is replaced

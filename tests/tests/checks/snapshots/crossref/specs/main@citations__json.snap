@@ -343,6 +343,151 @@ input_file: inputs/crossref/specs/citations__json
       "relation": "Queried",
       "quality": "ExplicitSymbol",
       "overloads_hit": []
+    },
+    {
+      "symbol": "SPEC_ecmaexample_sec@2Dtostring",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/ecma/spec.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 22,
+                "bounds": [
+                  31,
+                  39
+                ],
+                "line": "1. If _arg_ is a value, return ToString(_arg_).",
+                "context": "ToString step 1",
+                "contextsym": "SPEC_ecmaexample_sec@2Dtostring"
+              },
+              {
+                "lno": 60,
+                "bounds": [
+                  7,
+                  38
+                ],
+                "line": "<p>See <emu-xref href=\"#sec-tostring\"></emu-xref> and <emu-xref aoid=\"ToString\"></emu-xref>.</p>",
+                "context": "Grammar",
+                "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
+              },
+              {
+                "lno": 60,
+                "bounds": [
+                  54,
+                  80
+                ],
+                "line": "<p>See <emu-xref href=\"#sec-tostring\"></emu-xref> and <emu-xref aoid=\"ToString\"></emu-xref>.</p>",
+                "context": "Grammar",
+                "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "specs/ecma/spec.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 13,
+                "bounds": [
+                  0,
+                  10
+                ],
+                "line": "ToString (",
+                "context": "ToString",
+                "contextsym": "SPEC_ecmaexample_sec@2Dtostring"
+              }
+            ]
+          }
+        ],
+        "doc-uses": [
+          {
+            "path": "spec_citations.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 37,
+                "bounds": [
+                  3,
+                  30
+                ],
+                "line": "// 1.1.1 ToString ( argument )",
+                "context": "spec_citations::StringOfWidget",
+                "contextsym": "_ZN14spec_citations14StringOfWidgetERNS_6WidgetE"
+              },
+              {
+                "lno": 39,
+                "bounds": [
+                  3,
+                  9
+                ],
+                "line": "// Step 1.",
+                "context": "spec_citations::StringOfWidget step 1",
+                "contextsym": "_ZN14spec_citations14StringOfWidgetERNS_6WidgetE"
+              }
+            ]
+          }
+        ],
+        "callees": [
+          {
+            "jump": "specs/ecma/spec.html#24",
+            "kind": "specAbstractOp",
+            "pretty": "ecmaexample modulo",
+            "sym": "SPEC_ecmaexample_eqn@2Dmodulo"
+          },
+          {
+            "jump": "specs/ecma/spec.html#25",
+            "kind": "specGrammar",
+            "pretty": "ecmaexample Thing",
+            "sym": "SPEC_ecmaexample_prod@2DThing"
+          },
+          {
+            "jump": "specs/ecma/spec.html#25",
+            "kind": "specAbstractOp",
+            "pretty": "ecmaexample Call",
+            "sym": "SPEC_ecmaexample_sec@2Dcall"
+          },
+          {
+            "jump": "specs/ecma/spec.html#22",
+            "kind": "specAbstractOp",
+            "pretty": "ecmaexample ToString",
+            "sym": "SPEC_ecmaexample_sec@2Dtostring"
+          },
+          {
+            "jump": "specs/ecma/spec.html#14,22",
+            "kind": "specDfn",
+            "pretty": "ecmaexample value",
+            "sym": "SPEC_ecmaexample_value"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "ecmaexample ToString",
+          "sym": "SPEC_ecmaexample_sec@2Dtostring",
+          "type_pretty": null,
+          "kind": "specAbstractOp",
+          "subsystem": null,
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.github.io/ecma/#sec-tostring"
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
     }
   ],
   "unknown_symbols": []

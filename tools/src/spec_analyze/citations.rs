@@ -21,8 +21,15 @@
 //!   (see `indent_scope_end`).  A
 //!   step is in the scope of the last citing line before it whose scope it's
 //!   in, so later citations take over, and nested ones end with their scopes.
+//! - A comment citing a section of an ecmarkup spec by its number and title,
+//!   as SpiderMonkey's do (ex: "22.1.3.13 Array.prototype.join ( separator
+//!   )", after a line naming the edition, ex: "ES2025 draft rev ..."), is a
+//!   citation of the clause with that name (its abstract operation's, or else
+//!   its title, see `Titles`), whose steps are cited the same way.  (Not by
+//!   the number, which changes between editions.)
 //! - Records' contexts are the definitions their scopes are of.
 
+use std::collections::HashMap;
 use std::ops::Range;
 use std::path::Path;
 
@@ -37,10 +44,25 @@ use crate::semantic_analyzer::{Record, sort_records, source_record, target_recor
 
 lazy_static! {
     static ref URL: Regex = Regex::new(r#"https?://[^\s"'<>`\\{}|^]+"#).unwrap();
+    /// A comment's citation of a section by its number and title, ex:
+    /// "22.1.3.13 Array.prototype.join ( separator )", "ES2017 7.1.15
+    /// ToLength.", "21.4.1.1 Time Values and Time Range".
+    static ref SECTION: Regex = Regex::new(
+        r"^[ \t]*(?:/{2,}|/\*+|\*+|#+)[!<]?[ \t]*(?:ES[ \t]?\d+(?:[ \t]+Intl)?[ \t]+)?(?P<citation>\d+(?:\.\d+)+\.?[ \t]+(?P<title>[^\n]*[^\s*/]))"
+    )
+    .unwrap();
     /// A comment's step, at its start (after the comment's markers), ex:
     /// "Step 12.6.", "Steps 3.a-c", "Step 4 and 5:".
     static ref STEP: Regex = Regex::new(
         r"(?i)^[ \t]*(?:/{2,}|/\*+|\*+|#+|--|<!--)?[!<]?[ \t]*\(?(steps?[ \t]+(?P<path>\d+(?:\.(?:\d+|[a-z]{1,4}))*(?:[ \t]*(?:-|–|to|through|and|,)[ \t]*(?:\d+|[a-z]{1,4})(?:\.(?:\d+|[a-z]{1,4}))*)*))"
+    )
+    .unwrap();
+    /// A comment line that's only a section's title, with its parameters (as
+    /// the specs space them, unlike calls in code, ex: "Date.UTC(2021, 1)")
+    /// or as an accessor, ex: "Temporal.Instant ( epochNanoseconds )", "get
+    /// Temporal.ZonedDateTime.prototype.hoursInDay", as Temporal's are.
+    static ref TITLE: Regex = Regex::new(
+        r"^[ \t]*(?:/{2,}|/\*+|\*+|#+)[!<]?[ \t]*(?P<citation>(?P<title>(?:get |set )?[%A-Za-z_][\w.%\[\] @]*[ \t]+\((?:[ \t][^()\n]*)?[ \t]\)|(?:get|set) [%A-Za-z_][\w.%\[\] @]*[\w\]%]))[ \t]*\.?[ \t]*(?:\*/)?[ \t]*$"
     )
     .unwrap();
 }
@@ -93,6 +115,89 @@ pub fn analysis_defs(analysis_path: &Path) -> Vec<Def> {
     defs
 }
 
+/// The clauses of the ecmarkup specs that code cites by their sections'
+/// titles (see the module's docs), by their names, in the order of the specs
+/// to prefer them from (ex: ECMA-262's, then ECMA-402's, then proposals').
+#[derive(Default)]
+pub struct Titles {
+    /// name -> (spec's rank, its shortname, the clause's symbol and pretty name)
+    by_name: HashMap<String, Vec<(usize, String, String, String)>>,
+    specs: usize,
+    /// The shortname of the spec that comments mentioning Intl are of.
+    intl: Option<String>,
+}
+
+impl Titles {
+    /// Add a spec's clauses' names (from its biblio, see
+    /// `ecmarkup::Biblio::clause_names`), after the specs added before it.
+    pub fn add_spec<'a>(&mut self, shortname: &str, names: impl Iterator<Item = (&'a str, &'a str, &'a str)>) {
+        let rank = self.specs;
+        self.specs += 1;
+        for (name, id, pretty) in names {
+            self.by_name.entry(name.to_string()).or_default().push((
+                rank,
+                shortname.to_string(),
+                spec_symbol(shortname, id),
+                pretty.to_string(),
+            ));
+        }
+    }
+
+    /// Prefer this spec's clauses for comments mentioning Intl (ECMA-402).
+    pub fn set_intl(&mut self, shortname: &str) {
+        self.intl = Some(shortname.to_string());
+    }
+
+    /// The symbol and pretty name of the clause `name` names, of the spec the
+    /// citation is most likely of (`intl`, if it mentions Intl), if it's one
+    /// clause of that spec.
+    fn resolve(&self, name: &str, intl: bool) -> Option<(&str, &str)> {
+        let candidates = self.by_name.get(name)?;
+        let preferred = self
+            .intl
+            .as_deref()
+            .filter(|_| intl)
+            .filter(|spec| candidates.iter().any(|c| c.1 == *spec));
+        let rank = match preferred {
+            Some(spec) => candidates.iter().find(|c| c.1 == spec)?.0,
+            None => candidates.iter().map(|c| c.0).min()?,
+        };
+        let mut in_spec = candidates.iter().filter(|c| c.0 == rank);
+        let clause = in_spec.next()?;
+        // (Ex: "Evaluation", which many clauses are.)
+        if in_spec.next().is_some() {
+            return None;
+        }
+        Some((clause.2.as_str(), clause.3.as_str()))
+    }
+}
+
+/// The name a section's title cites: its abstract operation's or method's
+/// (ex: "Array.prototype.join" of "Array.prototype.join ( separator )", or
+/// "IsIntegralNumber" of "IsIntegralNumber, step 1"), or the title itself
+/// (ex: "Time Values and Time Range"), with older editions' well-known
+/// symbols as the current ones (ex: "RegExp.prototype [ %Symbol.replace% ]"
+/// for "RegExp.prototype [ @@replace ]").
+fn title_name(title: &str) -> Option<String> {
+    lazy_static! {
+        static ref WELL_KNOWN: Regex = Regex::new(r"@@([A-Za-z]+)").unwrap();
+    }
+    let title = title.trim();
+    let title = title
+        .strip_prefix("Static Semantics:")
+        .or_else(|| title.strip_prefix("Runtime Semantics:"))
+        .unwrap_or(title)
+        .trim_start();
+    let name = title.split('(').next()?;
+    let name = name.split(',').next()?;
+    let name = name.trim_end().trim_end_matches(['.', ':']);
+    // (Not ex: "Step 4." after a section's number.)
+    if name.is_empty() || name.to_lowercase().starts_with("step") {
+        return None;
+    }
+    Some(WELL_KNOWN.replace_all(name, "%Symbol.$1%").into_owned())
+}
+
 /// The analysis's counts, for reporting.
 #[derive(Debug, Default)]
 pub struct Stats {
@@ -100,6 +205,8 @@ pub struct Stats {
     pub citations: usize,
     /// Step comments in their scopes.
     pub steps: usize,
+    /// Of the citations, those of sections by their titles.
+    pub sections: usize,
 }
 
 /// A line citing a spec: its first citation's symbol and pretty name, and its
@@ -222,11 +329,44 @@ fn indent_scope_end(lines: &[&str], line: usize) -> u32 {
 
 /// The records of the citations of `config`'s specs in a file's source, whose
 /// other analysis has `defs`.
-pub fn citation_records(src: &str, defs: &[Def], config: &SpecsConfig) -> (Vec<Record>, Stats) {
+pub fn citation_records(
+    src: &str,
+    defs: &[Def],
+    config: &SpecsConfig,
+    titles: Option<&Titles>,
+) -> (Vec<Record>, Stats) {
     let mut stats = Stats::default();
     let mut records = vec![];
     let lines_index = Lines::new(src);
     let lines: Vec<&str> = src.split('\n').collect();
+
+    // The scope of the line citing a spec at `line` (1-based): the definition
+    // it precedes, or the rest of the one it's in, or its indentation's.
+    let scope = |line: u32| -> (u32, Option<Def>) {
+        let index = line as usize - 1;
+        let code = (index + 1..lines.len())
+            .find(|&l| !lines[l].trim().is_empty() && !is_comment(lines[l]))
+            .map(|l| l as u32 + 1);
+        let innermost = |at: u32| {
+            defs.iter()
+                .filter(|d| d.lines.contains(&at))
+                .min_by_key(|d| d.lines.end - d.lines.start)
+        };
+        // (Not past the end of the definition it's in, ex: a `}`.)
+        let inside = innermost(line);
+        let preceded = code
+            .filter(|&code| !lines[code as usize - 1].trim_start().starts_with(['}', ')', ']']))
+            .and_then(|code| {
+                defs.iter()
+                    .filter(|d| code <= d.line && d.line < code + 4)
+                    .filter(|d| inside.is_none_or(|i| i.lines.start <= d.line && d.lines.end <= i.lines.end))
+                    .min_by_key(|d| (d.line, std::cmp::Reverse(d.lines.end - d.lines.start)))
+            });
+        match preceded.or(inside) {
+            Some(def) => (def.lines.end - 1, Some(def.clone())),
+            None => (indent_scope_end(&lines, index), None),
+        }
+    };
 
     // The citations, and the lines citing specs.
     let mut citations: Vec<(Range<usize>, String, String)> = vec![];
@@ -252,31 +392,7 @@ pub fn citation_records(src: &str, defs: &[Def], config: &SpecsConfig) -> (Vec<R
         if citing.last().is_some_and(|c| c.line == line) {
             continue;
         }
-        // The scope: the definition it precedes, or the rest of the one it's
-        // in, or its indentation's.
-        let index = line as usize - 1;
-        let code = (index + 1..lines.len())
-            .find(|&l| !lines[l].trim().is_empty() && !is_comment(lines[l]))
-            .map(|l| l as u32 + 1);
-        let innermost = |at: u32| {
-            defs.iter()
-                .filter(|d| d.lines.contains(&at))
-                .min_by_key(|d| d.lines.end - d.lines.start)
-        };
-        // (Not past the end of the definition it's in, ex: a `}`.)
-        let inside = innermost(line);
-        let preceded = code
-            .filter(|&code| !lines[code as usize - 1].trim_start().starts_with(['}', ')', ']']))
-            .and_then(|code| {
-                defs.iter()
-                    .filter(|d| code <= d.line && d.line < code + 4)
-                    .filter(|d| inside.is_none_or(|i| i.lines.start <= d.line && d.lines.end <= i.lines.end))
-                    .min_by_key(|d| (d.line, std::cmp::Reverse(d.lines.end - d.lines.start)))
-            });
-        let (scope_end, def) = match preceded.or(inside) {
-            Some(def) => (def.lines.end - 1, Some(def.clone())),
-            None => (indent_scope_end(&lines, index), None),
-        };
+        let (scope_end, def) = scope(line);
         citing.push(Citing {
             line,
             sym,
@@ -284,6 +400,56 @@ pub fn citation_records(src: &str, defs: &[Def], config: &SpecsConfig) -> (Vec<R
             scope_end,
             def,
         });
+    }
+    // Citations of sections by their titles, on lines without URLs.
+    if let Some(titles) = titles {
+        let mut offset = 0;
+        for (index, text) in lines.iter().enumerate() {
+            let start = offset;
+            offset += text.len() + 1;
+            let line = index as u32 + 1;
+            if citing.iter().any(|c| c.line == line) {
+                continue;
+            }
+            // (A title without a number is only a citation if it's an
+            // abstract operation's, method's, or property's name, ex:
+            // "ToString", "Temporal.Instant", not ex: "type ( ... )".)
+            let section = SECTION.captures(text).or_else(|| {
+                TITLE.captures(text).filter(|title| {
+                    let title = title.name("title").map_or("", |t| t.as_str());
+                    let name = title.trim_start_matches("get ").trim_start_matches("set ");
+                    name.contains(['.', '%']) || name.starts_with(|c: char| c.is_ascii_uppercase())
+                })
+            });
+            let Some(section) = section else {
+                continue;
+            };
+            let (Some(citation), Some(title)) = (section.name("citation"), section.name("title"))
+            else {
+                continue;
+            };
+            let Some(name) = title_name(title.as_str()) else {
+                continue;
+            };
+            // (ECMA-402's, if the comment mentions Intl, ex: "ES2025 Intl
+            // draft rev ...", or the title, ex: "Intl.Locale ( tag )".)
+            let nearby = &lines[index.saturating_sub(3)..(index + 4).min(lines.len())];
+            let intl = nearby.iter().any(|l| l.contains("Intl") || l.contains("402"));
+            let Some((sym, pretty)) = titles.resolve(&name, intl) else {
+                continue;
+            };
+            stats.sections += 1;
+            let range = start + citation.start()..start + citation.end();
+            citations.push((range, sym.to_string(), pretty.to_string()));
+            let (scope_end, def) = scope(line);
+            citing.push(Citing {
+                line,
+                sym: sym.to_string(),
+                pretty: pretty.to_string(),
+                scope_end,
+                def,
+            });
+        }
     }
     let context_of = |line: u32| -> Option<&Citing> {
         citing
@@ -392,7 +558,7 @@ mod tests {
         assert_eq!(trim_url("https://a.org/#f(x)"), "https://a.org/#f(x)");
         assert_eq!(trim_url("https://a.org/#b*/"), "https://a.org/#b");
         let src = "// https://dom.spec.whatwg.org/#concept-node:~:text=node%20tree\n";
-        let (records, _) = citation_records(src, &[], &config());
+        let (records, _) = citation_records(src, &[], &config(), None);
         assert_eq!(summary(&records), vec!["1:3-63 doc-use SPEC_dom_concept@2Dnode |  ()"]);
     }
 
@@ -429,7 +595,7 @@ nsNode::Do()
             def(11, 11..12, "Other"),
             def(15, 15..19, "nsNode::Do"),
         ];
-        let (records, stats) = citation_records(src, &defs, &config());
+        let (records, stats) = citation_records(src, &defs, &config(), None);
         assert_eq!(
             summary(&records),
             vec![
@@ -457,11 +623,56 @@ nsNode::Do()
         )
         .unwrap();
         let src = "// https://example.spec.whatwg.org/multipage/#concept-widget-poke\n";
-        let (records, _) = citation_records(src, &[], &config);
+        let (records, _) = citation_records(src, &[], &config, None);
         assert_eq!(
             summary(&records),
             vec!["1:3-65 doc-use SPEC_example_concept@2Dwidget@2Dpoke |  ()"]
         );
+    }
+
+    #[test]
+    fn test_sections() {
+        let mut titles = Titles::default();
+        let names = [
+            ("Array.prototype.join", "sec-array.prototype.join", "es Array.prototype.join"),
+            ("RegExp.prototype [ %Symbol.replace% ]", "sec-regexp.prototype-%symbol.replace%", "es RegExp.prototype [ %Symbol.replace% ]"),
+            ("Evaluation", "sec-a-evaluation", "es Evaluation"),
+            ("Evaluation", "sec-b-evaluation", "es Evaluation"),
+            ("Intl.Locale", "sec-es-intl-locale", "es Intl.Locale"),
+        ];
+        titles.add_spec("es", names.into_iter());
+        titles.add_spec("intl", [("Intl.Locale", "sec-intl-locale", "intl Intl.Locale")].into_iter());
+        titles.set_intl("intl");
+        let src = "\
+// ES2020 draft rev dc1e21c454bd316810be1c0e7af0131a2d7f38e9
+// 22.1.3.13 Array.prototype.join ( separator )
+function ArrayJoin(separator) {
+    // Step 1.
+}
+
+// 22.2.5.11 RegExp.prototype [ @@replace ] ( string, replaceValue )
+// 14.5.1 Runtime Semantics: Evaluation
+// 9.4.2.3 Step 4.
+
+/**
+ * Intl.Locale ( tag [ , options ] )
+ */
+function Locale() {
+    // Step 2.
+}
+";
+        let (records, stats) = citation_records(src, &[], &config(), Some(&titles));
+        assert_eq!(
+            summary(&records),
+            vec![
+                "2:3-47 doc-use SPEC_es_sec@2Darray@2Eprototype@2Ejoin |  ()",
+                "4:7-13 doc-use SPEC_es_sec@2Darray@2Eprototype@2Ejoin | step 1 ()",
+                "7:3-68 doc-use SPEC_es_sec@2Dregexp@2Eprototype@2D@25symbol@2Ereplace@25 |  ()",
+                "12:3-36 doc-use SPEC_intl_sec@2Dintl@2Dlocale |  ()",
+                "15:7-13 doc-use SPEC_intl_sec@2Dintl@2Dlocale | step 2 ()",
+            ]
+        );
+        assert_eq!((stats.sections, stats.steps), (3, 2));
     }
 
     #[test]
@@ -478,7 +689,7 @@ Navigate(int aX)
 
 // Step 2.
 ";
-        let (records, _) = citation_records(src, &[], &config());
+        let (records, _) = citation_records(src, &[], &config(), None);
         assert_eq!(
             summary(&records),
             vec![
@@ -512,7 +723,7 @@ class C:
         # Step 2.
     # Step 3.
 ";
-        let (records, stats) = citation_records(src, &[], &config());
+        let (records, stats) = citation_records(src, &[], &config(), None);
         assert_eq!(
             summary(&records),
             vec![

@@ -171,6 +171,27 @@ pub struct Biblio {
     ids: HashMap<String, (&'static str, String)>,
 }
 
+impl Biblio {
+    pub fn shortname(&self) -> &str {
+        &self.shortname
+    }
+
+    /// The names of the clauses and operations (their abstract operations'
+    /// names, or else their titles, ex: "Array.prototype.join", "Time Values
+    /// and Time Range") with their ids and pretty names, for citations of
+    /// them by name (see `citations::Titles`).
+    pub fn clause_names(&self) -> impl Iterator<Item = (&str, &str, &str)> {
+        let prefix = format!("{} ", self.shortname);
+        self.ids.iter().filter_map(move |(id, (what, pretty))| {
+            if !matches!(*what, "clause" | "operation") {
+                return None;
+            }
+            let name = pretty.strip_prefix(prefix.as_str())?;
+            Some((name, id.as_str(), pretty.as_str()))
+        })
+    }
+}
+
 /// A namespace's definitions (ecmarkup's "biblio" environment records).
 #[derive(Default)]
 struct Namespace {

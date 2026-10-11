@@ -31,4 +31,13 @@ void Assemble(Widget& aWidget) {
   Poke(aWidget);
 }
 
+// A section of an ecmarkup spec, cited by its number and title, as
+// SpiderMonkey's comments cite ECMA-262's.
+// ES2026 draft rev 0123456789abcdef0123456789abcdef01234567
+// 1.1.1 ToString ( argument )
+int StringOfWidget(Widget& aWidget) {
+  // Step 1.
+  return aWidget.state;
+}
+
 }  // namespace spec_citations

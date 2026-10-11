@@ -64,6 +64,34 @@ input_file: inputs/crossref/specs/operations__json
             ]
           }
         ],
+        "doc-uses": [
+          {
+            "path": "spec_citations.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 37,
+                "bounds": [
+                  3,
+                  30
+                ],
+                "line": "// 1.1.1 ToString ( argument )",
+                "context": "spec_citations::StringOfWidget",
+                "contextsym": "_ZN14spec_citations14StringOfWidgetERNS_6WidgetE"
+              },
+              {
+                "lno": 39,
+                "bounds": [
+                  3,
+                  9
+                ],
+                "line": "// Step 1.",
+                "context": "spec_citations::StringOfWidget step 1",
+                "contextsym": "_ZN14spec_citations14StringOfWidgetERNS_6WidgetE"
+              }
+            ]
+          }
+        ],
         "callees": [
           {
             "jump": "specs/ecma/spec.html#24",
