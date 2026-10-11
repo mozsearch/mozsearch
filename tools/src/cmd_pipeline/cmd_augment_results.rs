@@ -165,7 +165,7 @@ impl PipelineCommand for AugmentResultsCommand {
                         if !span.context.is_empty() {
                             continue;
                         }
-                        if let Some(sym) = context_sym(&kind_group.kind, &file.file, span.key_line)
+                        if let Some(sym) = context_sym(&kind_group.kind, &file.key(), span.key_line)
                         {
                             prettys.entry(sym).or_default();
                         }
@@ -182,7 +182,7 @@ impl PipelineCommand for AugmentResultsCommand {
         for path_kind_group in &mut results.path_kind_results {
             for kind_group in &mut path_kind_group.kind_groups {
                 for file in &mut kind_group.by_file {
-                    let path = file.file;
+                    let path = file.key();
                     for span in &mut file.line_spans {
                         if !span.context.is_empty() {
                             continue;
@@ -236,7 +236,8 @@ impl PipelineCommand for AugmentResultsCommand {
         for path_kind_group in &results.path_kind_results {
             paths.extend(path_kind_group.file_names.iter().copied());
             for kind_group in &path_kind_group.kind_groups {
-                for file in &kind_group.by_file {
+                // (Not a linked tree's files, whose histories are its.)
+                for file in kind_group.by_file.iter().filter(|file| file.tree.is_none()) {
                     if file.line_spans.iter().any(|span| span.recency.is_none()) {
                         paths.insert(file.file);
                     }
@@ -257,7 +258,10 @@ impl PipelineCommand for AugmentResultsCommand {
             }
             for kind_group in &mut path_kind_group.kind_groups {
                 for file in &mut kind_group.by_file {
-                    let Some(file_recency) = file_recencies.get(&file.file) else {
+                    let Some(file_recency) = file_recencies
+                        .get(&file.file)
+                        .filter(|_| file.tree.is_none())
+                    else {
                         continue;
                     };
                     for span in &mut file.line_spans {

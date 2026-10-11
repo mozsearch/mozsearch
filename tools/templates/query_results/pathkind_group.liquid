@@ -27,6 +27,10 @@
                 Test files
             {%- when "generated" -%}
                 Generated code
+            {%- else -%}
+                {%- if pk_group.path_kind contains "tree:" -%}
+                    In {{ pk_group.path_kind | remove_first: "tree:" }}
+                {%- endif -%}
         {%- endcase -%}
     </span>{% include 'query_results/counts.liquid' file_names: pk_group.file_names.size, lines: pk_lines, files: pk_files %}</h1></summary>
     {% if pk_group.file_names != empty -%}

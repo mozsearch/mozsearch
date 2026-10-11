@@ -10,6 +10,7 @@ use super::interface::{
     FlattenedKindGroupResults, FlattenedLineSpan, FlattenedPathKindGroupResults,
     FlattenedResultsBundle, FlattenedResultsByFile, PipelineJunctionCommand, PipelineValues,
     PresentationKind, ResultFacetKind, SymbolCrossrefInfo, SymbolQuality, SymbolRelation,
+    file_key,
 };
 
 use crate::file_format::recency::Recency;
@@ -308,12 +309,16 @@ impl SearchResults {
             .place_item(vec![*relation_facet], *sym);
 
         // ### line results
+        // (By the file's key, since a linked tree's file can have the path of
+        // one of the tree's.)
+        let key = file_key(path_container.tree, path_container.path);
         let file_results = qual_kind_group
             .path_hits
-            .entry(path_container.path)
+            .entry(key)
             .or_insert_with(|| FlattenedResultsByFile {
                 file: path_container.path,
                 line_spans: vec![],
+                tree: path_container.tree,
             });
         for search_result in path_container.lines {
             // The tokens only make fulltext matches inside them redundant;
@@ -322,7 +327,7 @@ impl SearchResults {
             let (start, end) = search_result.bounds;
             let token = (start < end).then_some((start, end));
             self.path_line_tokens
-                .entry(format!("{}:{}", path_container.path, search_result.lineno))
+                .entry(format!("{}:{}", key, search_result.lineno))
                 .or_default()
                 .push(token.unwrap_or((0, u32::MAX)));
             let pp = search_result.pp_stack();
@@ -396,6 +401,7 @@ impl SearchResults {
                     .or_insert_with(|| FlattenedResultsByFile {
                         file: path,
                         line_spans: vec![],
+                        tree: None,
                     });
             for text_match in file_match.matches {
                 let path_line = format!("{}:{}", path, text_match.line_num);
@@ -784,6 +790,7 @@ mod tests {
                     line(7, (0, 0)),
                     line(7, (6, 8)),
                 ],
+                tree: None,
             },
             None,
             None,
@@ -841,6 +848,7 @@ mod tests {
                     path: ustr("a.cpp"),
                     path_kind: ustr("normal"),
                     lines,
+                    tree: None,
                 },
                 None,
                 None,

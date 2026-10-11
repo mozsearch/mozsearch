@@ -1358,6 +1358,10 @@ pub struct PathSearchResult {
     pub path: Ustr,
     pub path_kind: Ustr,
     pub lines: Vec<SearchResult>,
+    /// The tree whose file it is, if it's a linked tree's (see
+    /// `CrossrefData::add_linked`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tree: Option<Ustr>,
 }
 
 #[cfg(not(target_arch = "wasm32"))]

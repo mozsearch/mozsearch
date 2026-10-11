@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use clap::Args;
+use ustr::ustr;
 
 use super::interface::{
     PipelineCommand, PipelineValues, SymbolList, SymbolQuality, SymbolWithContext,
@@ -37,6 +38,10 @@ pub struct SearchIdentifiers {
 
     #[clap(short, long, value_parser, default_value = "1000")]
     limit: usize,
+    /// Symbols to output as they are, besides the identifiers' (ex: for the
+    /// query language's `symbol:` term).
+    #[clap(long, value_parser)]
+    add_sym: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -68,7 +73,16 @@ impl PipelineCommand for SearchIdentifiersCommand {
             }
         };
 
-        let mut symbols: Vec<SymbolWithContext> = vec![];
+        let mut symbols: Vec<SymbolWithContext> = self
+            .args
+            .add_sym
+            .iter()
+            .map(|sym| SymbolWithContext {
+                symbol: ustr(sym),
+                quality: SymbolQuality::ExplicitSymbol,
+                from_identifier: None,
+            })
+            .collect();
         for id in identifier_list {
             // Skip any identifiers that are shorter than our minimum length.
             if id.len() < self.args.min_length {

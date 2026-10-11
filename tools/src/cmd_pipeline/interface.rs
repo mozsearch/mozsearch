@@ -656,8 +656,10 @@ impl FlattenedResultsBundle {
         for path_kind_group in &mut self.path_kind_results {
             for kind_group in &mut path_kind_group.kind_groups {
                 for file in &mut kind_group.by_file {
+                    // (A linked tree's file's contexts are its symbols.)
+                    let file_tree = file.tree.unwrap_or_else(|| ustr(tree));
                     for span in &mut file.line_spans {
-                        span.inline_context(tree);
+                        span.inline_context(&file_tree);
                     }
                 }
             }
@@ -710,7 +712,8 @@ impl FlattenedResultsBundle {
         for path_kind_group in &mut self.path_kind_results {
             for kind_group in &mut path_kind_group.kind_groups {
                 for file in &mut kind_group.by_file {
-                    let href = format!("/{}/source/{}", tree, url_encode_path(&file.file));
+                    let file_tree = file.tree.as_deref().unwrap_or(tree);
+                    let href = format!("/{}/source/{}", file_tree, url_encode_path(&file.file));
                     for span in &mut file.line_spans {
                         let mut linked = String::with_capacity(span.contents.len() + 256);
                         let mut rest = span.contents.as_str();
@@ -874,16 +877,42 @@ impl FlattenedKindGroupResults {
 pub struct FlattenedResultsByFile {
     pub file: Ustr,
     pub line_spans: Vec<FlattenedLineSpan>,
+    /// The tree whose file it is, if it's a linked tree's (see
+    /// `CrossrefData::add_linked`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tree: Option<Ustr>,
+}
+
+/// The key of a file's lines (in `compute_path_line_sets`, and for
+/// `fetch_html_lines`): its path, or a linked tree's file's tree and path,
+/// separated by a NUL (see `split_file_key`).
+pub fn file_key(tree: Option<Ustr>, path: Ustr) -> Ustr {
+    match tree {
+        Some(tree) => ustr(&format!("{}\0{}", tree, path)),
+        None => path,
+    }
+}
+
+/// A file key's tree, if it's a linked tree's file, and path.
+pub fn split_file_key(key: &str) -> (Option<&str>, &str) {
+    match key.split_once('\0') {
+        Some((tree, path)) => (Some(tree), path),
+        None => (None, key),
+    }
 }
 
 impl FlattenedResultsByFile {
+    pub fn key(&self) -> Ustr {
+        file_key(self.tree, self.file)
+    }
+
     pub fn accumulate_path_line_sets(
         &self,
         path_line_sets: &mut UstrMap<HashSet<u32>>,
         before: u32,
         after: u32,
     ) {
-        let line_set = path_line_sets.entry(self.file).or_default();
+        let line_set = path_line_sets.entry(self.key()).or_default();
         for span in &self.line_spans {
             let range = span.expand_range_in_isolation(before, after);
             for line in range.0..=range.1 {
@@ -899,7 +928,7 @@ impl FlattenedResultsByFile {
         after: u32,
         pattern: Option<&regex::Regex>,
     ) {
-        if let Some(file_contents) = path_line_contents.get(&self.file) {
+        if let Some(file_contents) = path_line_contents.get(&self.key()) {
             let mut highest_line: u32 = 0;
             // Each span stops before the next starts, so a span the next one
             // starts on the same line as (ex: several results on one line) is
@@ -1527,6 +1556,7 @@ mod tests {
                 span(5, (5, 8)),
                 span(9, (9, 9)),
             ],
+            tree: None,
         };
         let mut path_line_contents = UstrMap::default();
         path_line_contents.insert(

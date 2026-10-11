@@ -29,6 +29,7 @@ use crate::file_format::config::{TreeConfig, TreeConfigPaths, git_data, load};
 use crate::file_format::crossref::CrossrefData;
 use crate::file_format::history::timeline_common::JournalVersionRef;
 use crate::file_format::identifiers::IdentMap;
+use crate::cmd_pipeline::interface::split_file_key;
 use crate::file_format::jumpref::{JumprefData, TreeJumprefs};
 use crate::file_format::per_file_info::FileLookupMap;
 use crate::file_format::recency::FileRecency;
@@ -156,7 +157,12 @@ pub struct LocalIndex {
     ident_map: Option<IdentMap>,
     // But for crossref, it's on us.
     crossref_lookup_map: Option<BisectableMmap<CrossrefData>>,
-    jumpref_lookup_map: Option<BisectableMmap<JumprefData>>,
+    /// The linked trees' crossrefs (see `TreeConfigPaths::linked_trees`), with
+    /// their prefixes, names, and index paths, whose data the tree's symbols
+    /// with those prefixes get too (see `CrossrefData::add_linked`).
+    linked_crossrefs: Vec<(String, Ustr, String, BisectableMmap<CrossrefData>)>,
+    /// The tree's jumpref, and its linked trees'.
+    jumprefs: TreeJumprefs,
     /// The files' history digests, for trees with histories (see
     /// `file_format::recency::FileRecency`).
     file_recency_lookup_map: Option<BisectableMmap<FileRecency>>,
@@ -340,12 +346,9 @@ impl AbstractServer for LocalIndex {
             self.translate_path(SearchfoxIndexRoot::CompressedAnalysis, norm_path)?;
         let analysis = read_analyses(&[analysis_path], &mut read_source);
 
-        // (With the linked trees', for their symbols' jumps.)
-        let jumprefs = TreeJumprefs::open(&self.config_paths, &self.tree_index_paths);
-
         let (raw_lines, sym_json) = format_code(
             None,
-            &jumprefs,
+            &self.jumprefs,
             select_formatting(sf_path),
             sf_path,
             source.as_str(),
@@ -362,10 +365,19 @@ impl AbstractServer for LocalIndex {
         requests: Vec<(Ustr, BTreeSet<u32>)>,
     ) -> Result<UstrMap<HashMap<u32, Row>>> {
         let mut files = Vec::with_capacity(requests.len());
-        for (path, lines) in requests {
-            let norm_path = self.normalize_and_validate_path(&path)?;
-            let gz_path = format!("{}/file/{}.gz", self.config_paths.index_path, norm_path);
-            files.push((path, gz_path, lines));
+        for (key, lines) in requests {
+            // (A linked tree's file's rows are in its index; see `file_key`.)
+            let (tree, path) = split_file_key(&key);
+            let index_path = match tree {
+                None => &self.config_paths.index_path,
+                Some(tree) => match self.linked_crossrefs.iter().find(|(_, t, _, _)| t == tree) {
+                    Some((_, _, index_path, _)) => index_path,
+                    None => continue,
+                },
+            };
+            let norm_path = self.normalize_and_validate_path(path)?;
+            let gz_path = format!("{}/file/{}.gz", index_path, norm_path);
+            files.push((key, gz_path, lines));
         }
         tokio::task::spawn_blocking(move || read_rows_of_files(files)).await?
     }
@@ -429,10 +441,21 @@ impl AbstractServer for LocalIndex {
 
     async fn crossref_lookup(&self, symbol: &str) -> Result<Option<CrossrefData>> {
         let now = Instant::now();
-        let result = match &self.crossref_lookup_map {
+        let mut result = match &self.crossref_lookup_map {
             Some(crossref) => crossref.lookup(symbol),
             None => Ok(None),
         };
+        for (prefix, tree, _, crossref) in &self.linked_crossrefs {
+            if !symbol.starts_with(prefix.as_str()) {
+                continue;
+            }
+            if let Ok(own) = &mut result
+                && let Ok(Some(linked)) = crossref.lookup(symbol)
+            {
+                own.get_or_insert_with(CrossrefData::default)
+                    .add_linked(linked, *tree);
+            }
+        }
         trace!(
             duration_us = now.elapsed().as_micros() as u64,
             "crossref_lookup: {}", symbol
@@ -449,10 +472,7 @@ impl AbstractServer for LocalIndex {
 
     async fn jumpref_lookup(&self, symbol: &str) -> Result<Option<JumprefData>> {
         let now = Instant::now();
-        let result = match &self.jumpref_lookup_map {
-            Some(jumpref) => jumpref.lookup(symbol),
-            None => Ok(None),
-        };
+        let result = self.jumprefs.lookup(symbol);
         trace!(
             duration_us = now.elapsed().as_micros() as u64,
             "jumpref_lookup: {}", symbol
@@ -657,10 +677,20 @@ fn fab_server(
 
     let crossref_lookup_map = BisectableMmap::new(&crossref_path, &crossref_extra_path);
 
-    let jumpref_path = format!("{}/jumpref", tree_config.paths.index_path);
-    let jumpref_extra_path = format!("{}/jumpref-extra", tree_config.paths.index_path);
-
-    let jumpref_lookup_map = BisectableMmap::new(&jumpref_path, &jumpref_extra_path);
+    let jumprefs = TreeJumprefs::open(&tree_config.paths, tree_index_paths);
+    let linked_crossrefs = tree_config
+        .paths
+        .linked_trees
+        .iter()
+        .filter_map(|(prefix, tree)| {
+            let index_path = tree_index_paths.get(tree)?;
+            let crossref = BisectableMmap::new(
+                &format!("{}/crossref", index_path),
+                &format!("{}/crossref-extra", index_path),
+            )?;
+            Some((prefix.clone(), ustr(tree), index_path.clone(), crossref))
+        })
+        .collect();
 
     // (Only trees with histories have these, and `BisectableMmap::new` expects
     // them.)
@@ -708,7 +738,8 @@ fn fab_server(
         tree_name: tree_name.to_string(),
         ident_map,
         crossref_lookup_map,
-        jumpref_lookup_map,
+        linked_crossrefs,
+        jumprefs,
         file_recency_lookup_map,
         file_lookup_map,
         path_kinds,

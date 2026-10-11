@@ -73,7 +73,7 @@ pub struct JumprefData {
 /// prefixes gets instead, if they have it and the tree's own has no jumps (ex:
 /// a web spec's definition, for a Gecko comment's citation of it, but not
 /// for the spec's own tree, whose linked tree only has citations).
-#[derive(Default)]
+#[derive(Clone, Debug, Default)]
 pub struct TreeJumprefs {
     pub own: Option<BisectableMmap<JumprefData>>,
     /// (prefix, tree, its jumpref)

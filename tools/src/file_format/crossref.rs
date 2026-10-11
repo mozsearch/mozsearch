@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use ustr::Ustr;
+use ustr::{Ustr, ustr};
 
 use super::{
     analysis::{AnalysisStructured, PathSearchResult},
@@ -14,6 +14,10 @@ pub struct Callee {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pretty: Option<Ustr>,
     pub sym: Ustr,
+    /// The tree whose file `jump` is in, if it's a linked tree's (see
+    /// `CrossrefData::add_linked`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tree: Option<Ustr>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -75,6 +79,53 @@ pub struct CrossrefData {
     /// Candidate scip-typescript symbols if this is a js-analyze symbol
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ts_syms: Vec<Ustr>,
+}
+
+impl CrossrefData {
+    /// Add a linked tree's data for the symbol (see
+    /// `TreeConfigPaths::linked_trees`, ex: a web spec's definitions, for a
+    /// symbol cited in Gecko): its path results, in a `tree:<tree>` path kind
+    /// with the `tree` (so they're in their own section, from that tree's
+    /// files), and its meta and callees, if this has none.
+    pub fn add_linked(&mut self, linked: CrossrefData, tree: Ustr) {
+        let path_kind = ustr(&format!("tree:{}", tree));
+        let add = |own: &mut Option<Vec<PathSearchResult>>, theirs: Option<Vec<PathSearchResult>>| {
+            let Some(theirs) = theirs else {
+                return;
+            };
+            own.get_or_insert_with(Vec::new)
+                .extend(theirs.into_iter().map(|result| PathSearchResult {
+                    path_kind,
+                    tree: Some(tree),
+                    ..result
+                }));
+        };
+        add(&mut self.uses, linked.uses);
+        add(&mut self.definitions, linked.definitions);
+        add(&mut self.assignments, linked.assignments);
+        add(&mut self.declarations, linked.declarations);
+        add(&mut self.forwards, linked.forwards);
+        add(&mut self.idl, linked.idl);
+        add(&mut self.idl_partial, linked.idl_partial);
+        add(&mut self.glean, linked.glean);
+        add(&mut self.aliases, linked.aliases);
+        add(&mut self.doc_defs, linked.doc_defs);
+        add(&mut self.doc_uses, linked.doc_uses);
+        if self.meta.is_none() {
+            self.meta = linked.meta;
+        }
+        if self.callees.is_none() {
+            self.callees = linked.callees.map(|callees| {
+                callees
+                    .into_iter()
+                    .map(|callee| Callee {
+                        tree: callee.tree.or(Some(tree)),
+                        ..callee
+                    })
+                    .collect()
+            });
+        }
+    }
 }
 
 pub trait OptionalCrossrefDataHelpers {

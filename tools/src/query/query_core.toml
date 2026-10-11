@@ -279,7 +279,6 @@ alias = "symbol"
 [term.symbol]
 [[term.symbol.group.semantic-search]]
 command = "search-identifiers"
-# TODO: implement this
 args.add-sym = "$0"
 [[term.symbol.group.semantic-search]]
 command = "crossref-lookup"

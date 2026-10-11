@@ -1804,6 +1804,7 @@ fn write_crossref_and_jumpref_thread(
                         path: *path,
                         path_kind: concise_info.path_kind,
                         lines: results.clone(),
+                        tree: None,
                     });
                 } else {
                     // NSS seems to have an issue with auto-generated files we
@@ -1839,6 +1840,7 @@ fn write_crossref_and_jumpref_thread(
                     pretty: pretty_table.get(callee_sym).copied(),
                     kind: meta.kind,
                     jump: format!("{}#{}", call_path, call_lines.iter().join(",")),
+                    tree: None,
                 };
                 callees.push(callee);
             }
