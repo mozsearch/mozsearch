@@ -83,8 +83,9 @@ if [[ $? -ne 0 ]]; then
   # schedule our shutdown, which should STOP our EC2 instance, leaving the log
   # intact.  We schedule this to happen after 10 mins to give an opportunity for
   # investigation but also shutdown in a timely fashion if no one was actively
-  # watching things.
-  sudo shutdown -h +10
+  # watching things.  (With a timer rather than `shutdown -h +10`, whose
+  # /run/nologin would refuse logins for the last 5 minutes; bug 1767477.)
+  sudo systemd-run --on-active=10min --timer-property=AccuracySec=1s /bin/systemctl poweroff
   echo "Provisioning failed, shutdown scheduled and sending email." >> ~ubuntu/provision.log
   $AWS_ROOT/send-provision-email.py "[{kind}]" "$DEST_EMAIL" "failed"
   exit 1
@@ -152,7 +153,7 @@ fi
 
 echo "Tagging complete, sending email." >> ~ubuntu/provision.log
 # failsafe shutdown, although the termination should take effect first
-sudo shutdown -h +10
+sudo systemd-run --on-active=10min --timer-property=AccuracySec=1s /bin/systemctl poweroff
 $AWS_ROOT/send-provision-email.py "[{kind}]" "$DEST_EMAIL" "succeeded"
 echo "Email sent.  Sleeping for a minute, then terminating." >> ~ubuntu/provision.log
 sleep 60

@@ -39,5 +39,9 @@ response = client.send_email(
     }
 )
 
+# Stop the instance after 5 minutes, during which we can still ssh in: `shutdown
+# -h +5` would create /run/nologin right away, refusing logins (bug 1767477),
+# so this is a timer instead (which `systemctl stop` can cancel; see
+# `systemctl list-timers`).
 if not keep:
-    os.system("sudo /sbin/shutdown -h +5")
+    os.system("sudo systemd-run --on-active=5min --timer-property=AccuracySec=1s /bin/systemctl poweroff")

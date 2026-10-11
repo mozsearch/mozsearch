@@ -156,10 +156,14 @@ FINAL
     growpart "${{ROOT_PART%p*}}" "${{ROOT_PART##*p}}" || true
     resize2fs "$ROOT_PART" || true
     # If updating fails, main.sh never runs to report the failure, so record it
-    # in the instance's status tag (see set-status.py) and stop the instance.
+    # in the instance's status tag (see set-status.py) and stop the instance
+    # after 5 minutes, during which we can still ssh in: `shutdown -h +5` would
+    # create /run/nologin right away, refusing logins (bug 1767477), so this is
+    # a timer instead (which `systemctl stop` can cancel; see `systemctl
+    # list-timers`).
     if ! sudo -i -u ubuntu {cmd_env_vars} ./update.sh "{mozsearch_repo}" "{branch}" "{config_repo}" "{config_rev}"; then
         aws ec2 create-tags --region us-west-2 --resources "$(ec2metadata --instance-id)" --tags "Key=status,Value=failed: update.sh (see ~ubuntu/update-log)" "Key=status-updated,Value=$(date -u -Iseconds)" || true
-        shutdown -h +5
+        systemd-run --on-active=5min --timer-property=AccuracySec=1s /bin/systemctl poweroff
         exit 1
     fi
     sudo -i -u ubuntu {cmd_env_vars} mozsearch/infrastructure/aws/main.sh {core_script} {max_runtime_hours} "{branch}" "{channel}" {extra_args}
