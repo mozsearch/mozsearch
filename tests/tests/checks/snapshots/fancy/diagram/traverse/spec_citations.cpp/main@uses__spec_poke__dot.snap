@@ -1,0 +1,18 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/traverse/spec_citations.cpp/uses__spec_poke__dot
+---
+digraph g {
+  node[shape=box fontname="Courier New" fontsize=10]
+  "SPEC_example_assemble"[label="example assemble"]
+  "SPEC_example_concept@2Dwidget@2Dpoke"[label="example poke"]
+  "SPEC_example_assemble" -> "SPEC_example_concept@2Dwidget@2Dpoke"
+  "_ZN14spec_citations4PokeERNS_6WidgetE"[label="spec_citations::Poke"]
+  "_ZN14spec_citations4PokeERNS_6WidgetE" -> "SPEC_example_concept@2Dwidget@2Dpoke"
+  "_ZN14spec_citations8AssembleERNS_6WidgetE"[label="spec_citations::Assemble"]
+  "_ZN14spec_citations8AssembleERNS_6WidgetE" -> "SPEC_example_assemble"
+  "S_py_spec_citations/assemble()."[label="spec_citations::assemble"]
+  "S_py_spec_citations/assemble()." -> "SPEC_example_assemble"
+  "_ZN14spec_citations8AssembleERNS_6WidgetE" -> "_ZN14spec_citations4PokeERNS_6WidgetE"
+}

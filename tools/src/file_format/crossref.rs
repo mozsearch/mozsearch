@@ -18,6 +18,11 @@ pub struct Callee {
     /// `CrossrefData::add_linked`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tree: Option<Ustr>,
+    /// Whether the symbol doesn't call this but implements it: it cites it
+    /// (doc-uses it, ex: a Gecko function citing the web spec algorithm it
+    /// implements), and it's callable.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub implements: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -684,10 +684,15 @@ fn fab_server(
         .iter()
         .filter_map(|(prefix, tree)| {
             let index_path = tree_index_paths.get(tree)?;
-            let crossref = BisectableMmap::new(
-                &format!("{}/crossref", index_path),
-                &format!("{}/crossref-extra", index_path),
-            )?;
+            // (A linked tree which isn't indexed (yet) has no data.)
+            let (inline, extra) = (
+                format!("{}/crossref", index_path),
+                format!("{}/crossref-extra", index_path),
+            );
+            if !Path::new(&inline).exists() || !Path::new(&extra).exists() {
+                return None;
+            }
+            let crossref = BisectableMmap::new(&inline, &extra)?;
             Some((prefix.clone(), ustr(tree), index_path.clone(), crossref))
         })
         .collect();

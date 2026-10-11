@@ -20,7 +20,7 @@ use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
     cmd_pipeline::symbol_graph::{EdgeDetail, EdgeKind},
     file_format::{
-        analysis::{BindingOwnerLang, BindingSlotKind, OntologySlotKind},
+        analysis::{BindingOwnerLang, BindingSlotKind, OntologySlotKind, PathSearchResult},
         ontology_mapping::{label_to_badge_info, pointer_kind_to_badge_info},
     },
 };
@@ -1210,6 +1210,10 @@ impl PipelineCommand for TraverseCommand {
                     // The jump is precomputed by the crossref process when
                     // deriving the "callees" kindmap entry.
                     edge_info.push(EdgeDetail::Jump(target.jump.clone()));
+                    // (A linked tree's callee's jump is to its files.)
+                    if let Some(tree) = target.tree {
+                        edge_info.push(EdgeDetail::Tree(tree.to_string()));
+                    }
 
                     let (target_id, target_info) = sym_node_set
                         .ensure_symbol(&target.sym, server, next_depth)
@@ -1226,10 +1230,18 @@ impl PipelineCommand for TraverseCommand {
                     if !target_info.is_callable() {
                         continue;
                     }
+                    // (A citation of a callable symbol, ex: a Gecko function's
+                    // citation of the web spec algorithm it implements, is an
+                    // implementation of it; see `Callee::implements`.)
+                    let edge_kind = if target.implements {
+                        EdgeKind::Implementation
+                    } else {
+                        EdgeKind::Default
+                    };
                     sym_edge_set.ensure_edge_in_graph(
                         sym_id.clone(),
                         target_id,
-                        EdgeKind::Default,
+                        edge_kind,
                         edge_info,
                         &mut graph,
                     );
@@ -1271,6 +1283,21 @@ impl PipelineCommand for TraverseCommand {
                     (false, Some(v)) => core::mem::take(v),
                     _ => vec![],
                 };
+                // A callable symbol's citations in the tree's files (ex: a web
+                // spec's algorithm's, by the Gecko functions implementing it)
+                // are implementations of it (see `Callee::implements`).  (But
+                // not a linked tree's, whose symbols this tree doesn't have.)
+                let implementations: Vec<PathSearchResult> = if sym_info.is_implementable() {
+                    sym_info
+                        .crossref_info
+                        .as_ref()
+                        .and_then(|ci| ci.doc_uses.as_ref())
+                        .map_or(vec![], |hits| {
+                            hits.iter().filter(|hits| hits.tree.is_none()).cloned().collect()
+                        })
+                } else {
+                    vec![]
+                };
                 // we just took the uses, but drop the callees too.
                 if !self.args.retain_all_symbol_data {
                     sym_info.reduce_memory_usage_by_dropping_non_jumpref_info();
@@ -1301,7 +1328,11 @@ impl PipelineCommand for TraverseCommand {
                 // { path, lines: [ { context, contextsym }] } eliding some
                 // of the hit fields.  We really just care about the
                 // contextsym.
-                for path_hits in uses {
+                let uses = uses
+                    .into_iter()
+                    .map(|hits| (hits, false))
+                    .chain(implementations.into_iter().map(|hits| (hits, true)));
+                for (path_hits, implements) in uses {
                     let path = path_hits.path;
                     let hits = &path_hits.lines;
                     // For now we're just going to use the path limit for this too.
@@ -1367,7 +1398,11 @@ impl PipelineCommand for TraverseCommand {
                         sym_edge_set.ensure_edge_in_graph(
                             source_id,
                             sym_id.clone(),
-                            EdgeKind::Default,
+                            if implements {
+                                EdgeKind::Implementation
+                            } else {
+                                EdgeKind::Default
+                            },
                             vec![EdgeDetail::Jump(jump)],
                             &mut graph,
                         );

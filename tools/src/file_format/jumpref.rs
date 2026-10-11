@@ -84,21 +84,23 @@ impl TreeJumprefs {
     /// The jumpref of the tree with `paths`, and of its linked trees, by
     /// their index paths, if they have them.
     pub fn open(paths: &TreeConfigPaths, tree_index_paths: &BTreeMap<String, String>) -> Self {
+        // (A tree which isn't indexed (yet), ex: the tree itself, for
+        // crossref, has no data.)
         let open = |index_path: &str| {
-            BisectableMmap::new(
-                &format!("{}/jumpref", index_path),
-                &format!("{}/jumpref-extra", index_path),
-            )
+            let (inline, extra) = (
+                format!("{}/jumpref", index_path),
+                format!("{}/jumpref-extra", index_path),
+            );
+            if !Path::new(&inline).exists() || !Path::new(&extra).exists() {
+                return None;
+            }
+            BisectableMmap::new(&inline, &extra)
         };
         let linked = paths
             .linked_trees
             .iter()
             .filter_map(|(prefix, tree)| {
                 let index_path = tree_index_paths.get(tree)?;
-                // (A linked tree which isn't indexed (yet) has no data.)
-                if !Path::new(&format!("{}/jumpref", index_path)).exists() {
-                    return None;
-                }
                 Some((prefix.clone(), ustr(tree), open(index_path)?))
             })
             .collect();
@@ -106,6 +108,18 @@ impl TreeJumprefs {
             own: open(&paths.index_path),
             linked,
         }
+    }
+
+    /// The data of the linked tree for the symbol's prefix, if it has it.
+    pub fn lookup_linked(&self, sym: &str) -> Option<JumprefData> {
+        self.linked.iter().find_map(|(prefix, tree, jumpref)| {
+            if !sym.starts_with(prefix.as_str()) {
+                return None;
+            }
+            let mut data = jumpref.lookup(sym).ok().flatten()?;
+            data.tree = Some(*tree);
+            Some(data)
+        })
     }
 
     pub fn lookup(&self, sym: &str) -> Result<Option<JumprefData>> {

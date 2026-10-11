@@ -1376,7 +1376,8 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         if (edgeExtra.jump && targSymInfo) {
           jumpMenuItems.push(new GotoMenuItem({
             html: this.fmt("Go to use of <strong>_</strong>", targSymInfo.pretty),
-            href: `/${tree}/source/${edgeExtra.jump}`,
+            // (A linked tree's edge's jump is to its files.)
+            href: `/${edgeExtra.tree || tree}/source/${edgeExtra.jump}`,
             icon: "export-alt",
             section: "jumps",
           }));

@@ -1,0 +1,1 @@
+crossref-lookup SPEC_example_concept@2Dwidget@2Dpoke | traverse --edge=uses | graph --format=raw-dot --hier=flat

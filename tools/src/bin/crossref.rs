@@ -41,7 +41,8 @@ use tools::file_format::crossref::Callee;
 use tools::file_format::crossref::CrossrefData;
 use tools::file_format::crossref::FieldInfos;
 use tools::file_format::crossref::FieldMemberUse;
-use tools::file_format::jumpref::convert_crossref_value_to_sym_info_rep;
+use tools::cmd_pipeline::symbol_graph::is_implementable;
+use tools::file_format::jumpref::{TreeJumprefs, convert_crossref_value_to_sym_info_rep};
 use tools::file_format::ontology_mapping::OntologyRunnableMode;
 use tools::file_format::ontology_mapping::{
     OntologyLabelOwningClass, OntologyMappingIngestion, OntologyPointerKind,
@@ -158,10 +159,16 @@ type StructuredItems = Vec<AnalysisStructured>;
 // functions/similar, but it's not just for those cases.  We also use it for
 // field accesses, etc.  This was formerly dubbed "consumes" in prototyping,
 // but that was even more confusing.  Another rename may be in order.
-type CalleesTable = BTreeMap<Ustr, BTreeMap<Ustr, (Ustr, BTreeSet<u32>)>>;
+//
+// The tuple's last member is whether the symbol only cites the "callee" (only
+// doc-uses it, ex: a Gecko function's comment citing a web spec's algorithm),
+// which if it's callable, the symbol implements rather than calls (see
+// `Callee::implements`).
+type CalleesTable = BTreeMap<Ustr, BTreeMap<Ustr, (Ustr, BTreeSet<u32>, bool)>>;
 
-// The output from the reader threads for CalleesTable.
-type CalleesItems = Vec<(Ustr, Ustr, Ustr, u32)>;
+// The output from the reader threads for CalleesTable: (symbol, callee, path,
+// line, whether it's a citation).
+type CalleesItems = Vec<(Ustr, Ustr, Ustr, u32, bool)>;
 
 // Uses' contexts which fill binding slots of the uses' symbols (see
 // `AnalysisTarget::slot`): (symbol, its pretty name, context symbol, slot
@@ -296,7 +303,12 @@ fn process_analysis_target(
         && !piece.contextsym.is_empty()
         && piece.slot != Some(BindingSlotKind::Recv)
     {
-        callees_items.push((piece.contextsym, piece.sym, *path, loc.lineno));
+        callees_items.push((piece.contextsym, piece.sym, *path, loc.lineno, false));
+    }
+    // (A citation of a callable symbol, ex: a web spec's algorithm, is an
+    // implementation of it; see `CalleesTable`.)
+    if piece.kind == AnalysisKind::DocUse && !piece.contextsym.is_empty() {
+        callees_items.push((piece.contextsym, piece.sym, *path, loc.lineno, true));
     }
     if let Some(slot) = piece.slot
         && !piece.contextsym.is_empty()
@@ -1066,11 +1078,12 @@ fn read_analysis_files(
             meta_table.entry(structured.sym).or_insert(structured);
         }
 
-        for (sym, callee_sym, path, lineno) in callees_items {
+        for (sym, callee_sym, path, lineno, cites) in callees_items {
             let callee_syms = callees_table.entry(sym).or_default();
-            let (from_path, callee_jump_lines) = callee_syms
+            let (from_path, callee_jump_lines, only_cites) = callee_syms
                 .entry(callee_sym)
-                .or_insert_with(|| (path, BTreeSet::new()));
+                .or_insert_with(|| (path, BTreeSet::new(), cites));
+            *only_cites &= cites;
             if *from_path == path {
                 callee_jump_lines.insert(lineno);
             }
@@ -1831,20 +1844,34 @@ fn write_crossref_and_jumpref_thread(
         }
         if let Some(callee_syms) = callees_table.get(id) {
             let mut callees = Vec::new();
-            for (callee_sym, (call_path, call_lines)) in callee_syms {
+            for (callee_sym, (call_path, call_lines, only_cites)) in callee_syms {
                 let Some(meta) = meta_table.get(callee_sym) else {
                     continue;
                 };
+                // (Citations are only of web specs' callable symbols, which
+                // the symbol implements.)
+                if *only_cites && !is_implementable(meta) {
+                    continue;
+                }
                 let callee = Callee {
                     sym: *callee_sym,
-                    pretty: pretty_table.get(callee_sym).copied(),
+                    pretty: if *only_cites {
+                        Some(meta.pretty)
+                    } else {
+                        pretty_table.get(callee_sym).copied()
+                    },
                     kind: meta.kind,
                     jump: format!("{}#{}", call_path, call_lines.iter().join(",")),
                     tree: None,
+                    implements: *only_cites,
                 };
                 callees.push(callee);
             }
-            crossref_data.callees = Some(callees);
+            // (Not for a symbol whose only "callees" were citations of
+            // symbols it doesn't implement, ex: a document's of files.)
+            if !callees.is_empty() || callee_syms.values().any(|(_, _, only_cites)| !only_cites) {
+                crossref_data.callees = Some(callees);
+            }
         }
         if let Some(fmu_syms) = field_member_use_table.get(id) {
             let mut fmus = Vec::new();
@@ -2255,6 +2282,25 @@ async fn main() {
         history.as_ref(),
         cli.thread_count,
     );
+
+    // The structured records of the symbols the tree cites which its linked
+    // trees define (see `TreeConfigPaths::linked_trees`, ex: firefox-disco's
+    // citations of wubspecs' spec algorithms), for their kinds and pretty
+    // names, so that its symbols implementing them have them as callees.
+    let linked = TreeJumprefs::open(&tree_config.paths, &cfg.tree_index_paths);
+    if !linked.linked.is_empty() {
+        let cited: UstrSet = callees_table
+            .values()
+            .flat_map(|callees| callees.iter())
+            .filter(|(sym, (_, _, only_cites))| *only_cites && !meta_table.contains_key(*sym))
+            .map(|(sym, _)| *sym)
+            .collect();
+        for sym in cited {
+            if let Some(meta) = linked.lookup_linked(&sym).and_then(|data| data.meta) {
+                meta_table.insert(sym, meta);
+            }
+        }
+    }
 
     // ## Run Ontology Processing
     println!(

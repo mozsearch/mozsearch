@@ -121,6 +121,14 @@ pub struct SymbolBadge {
     pub source_jump: Option<String>,
 }
 
+/// Whether a symbol's citations (doc-uses) implement it: a web spec's
+/// callable symbols (ex: its algorithms), which code implements, but not ex:
+/// the files documents link to (which `semantic_kind_is_callable` also takes
+/// as callable).
+pub fn is_implementable(meta: &AnalysisStructured) -> bool {
+    meta.impl_kind == "spec" && semantic_kind_is_callable(&meta.kind)
+}
+
 pub fn semantic_kind_is_callable(semantic_kind: &str) -> bool {
     match semantic_kind {
         "function" => true,
@@ -241,6 +249,11 @@ impl DerivedSymbolInfo {
             Some(sem_kind) => semantic_kind_is_callable(&sem_kind),
             _ => false,
         }
+    }
+
+    /// Whether citing the symbol implements it (see `is_implementable`).
+    pub fn is_implementable(&self) -> bool {
+        self.get_structured().is_some_and(is_implementable)
     }
 
     pub fn is_class(&self) -> bool {
@@ -450,6 +463,7 @@ impl SymbolGraphCollection {
                 match detail {
                     EdgeDetail::Jump(s) => jumps.push(s.clone()),
                     EdgeDetail::HoverClass(s) => hovers.push(s.clone()),
+                    EdgeDetail::Tree(_) => {}
                 }
             }
 
@@ -2016,6 +2030,9 @@ pub struct SvgNodeExtra {
 #[derive(Debug, Serialize)]
 pub struct SvgEdgeExtra {
     pub jump: String,
+    /// The tree whose file `jump` is in, if it's a linked tree.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tree: Option<String>,
 }
 
 impl Default for HierarchicalRenderState {
@@ -2105,8 +2122,10 @@ impl HierarchicalRenderState {
 
         let mut hover_classes = vec![];
         let mut jump = "".to_string();
+        let mut tree = None;
         for detail in edge_data {
             match detail {
+                EdgeDetail::Tree(edge_tree) => tree = Some(edge_tree.clone()),
                 EdgeDetail::Jump(jump_detail) => {
                     // If we have multiple jumps, attempt to merge them assuming they're all using
                     // the same source file and so we can just concatenate the lines.  This is
@@ -2134,9 +2153,10 @@ impl HierarchicalRenderState {
 
         if let Some(extra) = self.svg_edge_extra.get_mut(&edge_eid) {
             extra.jump = jump;
+            extra.tree = tree;
         } else {
             self.svg_edge_extra
-                .insert(edge_eid.clone(), SvgEdgeExtra { jump });
+                .insert(edge_eid.clone(), SvgEdgeExtra { jump, tree });
         }
 
         let to_extra = self.svg_node_extra.entry(to_eid).or_default();
@@ -2173,6 +2193,10 @@ pub struct SymbolGraphEdgeSet {
 pub enum EdgeDetail {
     /// Provide a source code jump.
     Jump(String),
+    /// The tree the jump is to, if it's a linked tree (see
+    /// `CrossrefData::add_linked`), ex: a call in a web spec's algorithm, from
+    /// a Gecko function implementing it.
+    Tree(String),
     /// Hover class for the target node when the source node is hovered.  This
     /// could also be applied to the edge if desired.
     HoverClass(String),
