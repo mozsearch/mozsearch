@@ -24,11 +24,22 @@ sudo -i nix profile add "$(pwd)/mozsearch#indexerPackages" --accept-flake-config
 # If the package was already installed we need to explicitly upgrade as well
 sudo -i nix profile upgrade indexerPackages --accept-flake-config --print-build-logs
 
-# GitHub's raw files sometimes answer with 429 Too Many Requests, which wget
-# doesn't retry by default (ex: on 2026-10-10, two reblame instances in a row
-# failed to download WebIDL.py, which another request 5 seconds later got), so
-# downloads retry it and server errors.
+# Downloads retry 429 Too Many Requests and server errors, which wget doesn't
+# by default.
 WGET_RETRY=(--tries=6 --waitretry=30 --retry-on-http-error=429,500,502,503,504)
+
+# Download a file of firefox-main, by its path, into the current directory:
+# from GitHub, or else from hg.mozilla.org's mirror of it, since GitHub's raw
+# files sometimes answer AWS instances with 429 Too Many Requests for minutes
+# at a time (ex: on 2026-10-10, three reblame instances in a row couldn't
+# download WebIDL.py, the last with 6 tries over half a minute).
+fetch_firefox_file() {
+    local name
+    name=$(basename "$1")
+    wget -nv --tries=3 --waitretry=10 --retry-on-http-error=429,500,502,503,504 -O "$name" \
+        "https://github.com/mozilla-firefox/firefox/raw/refs/heads/main/$1" ||
+        wget -nv "${WGET_RETRY[@]}" -O "$name" "https://hg.mozilla.org/mozilla-central/raw-file/tip/$1"
+}
 
 # Install SpiderMonkey.
 rm -rf target.jsshell.zip js
@@ -57,12 +68,12 @@ fi
 if [ ! -d "${PYMODULES}" ]; then
     mkdir "${PYMODULES}"
     pushd "${PYMODULES}"
-    wget "${WGET_RETRY[@]}" "https://github.com/mozilla-firefox/firefox/raw/refs/heads/main/xpcom/idl-parser/xpidl/xpidl.py"
-    wget "${WGET_RETRY[@]}" "https://github.com/mozilla-firefox/firefox/raw/refs/heads/main/dom/bindings/parser/WebIDL.py"
+    fetch_firefox_file xpcom/idl-parser/xpidl/xpidl.py
+    fetch_firefox_file dom/bindings/parser/WebIDL.py
     mkdir ply
     pushd ply
     for PLYFILE in __init__.py lex.py yacc.py; do
-        wget "${WGET_RETRY[@]}" "https://github.com/mozilla-firefox/firefox/raw/refs/heads/main/third_party/python/ply/ply/${PLYFILE}"
+        fetch_firefox_file "third_party/python/ply/ply/${PLYFILE}"
     done
     popd
     popd
