@@ -659,9 +659,17 @@ fn file_recency_items(
     if linkage.unlinked_total() > 0 {
         file_recency.scopes.clear();
     }
-    // (Documents' analysis is their labels and references, which don't give
-    // their lines contexts, so they're as if they had no analysis.)
-    if is_doc_path(path) {
+    // (Documents' analysis is their labels and references, and specs' sources'
+    // is their terms and references to them (`SPEC_` symbols, see
+    // `spec_analyze`), which don't give their lines contexts, so they're as if
+    // they had no analysis.)
+    let is_spec_source = analysis.iter().any(|datum| {
+        datum
+            .data
+            .iter()
+            .any(|target| target.kind == AnalysisKind::Def && target.sym.starts_with("SPEC_"))
+    });
+    if is_doc_path(path) || is_spec_source {
         file_recency.scopes.clear();
         file_recency.analyzed = false;
     }

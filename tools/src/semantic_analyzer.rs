@@ -1605,6 +1605,24 @@ fn data_records(
 /// contexts get the context of the existing target on their line which
 /// starts nearest before them, or else first after them (ex: a C++ function's
 /// call of `Preferences::GetBool`, for the use of the pref it names).
+/// Write a file's analysis records to ANALYSIS_ROOT/<path>, or add them to
+/// the analysis there (see `merge_records`).
+pub fn write_records(analysis_root: &std::path::Path, path: &str, records: Vec<Record>) {
+    use std::io::Write;
+    let out_path = analysis_root.join(path);
+    let lines = match std::fs::read_to_string(&out_path) {
+        Ok(existing) => merge_records(&existing, records),
+        Err(_) => records.iter().map(Record::to_json).collect(),
+    };
+    if let Some(dir) = out_path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let mut out = std::io::BufWriter::new(std::fs::File::create(&out_path).unwrap());
+    for line in &lines {
+        writeln!(out, "{}", line).unwrap();
+    }
+}
+
 pub fn merge_records(existing: &str, mut records: Vec<Record>) -> Vec<String> {
     let mut lines: Vec<String> = existing
         .lines()

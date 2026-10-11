@@ -58,7 +58,7 @@ use crate::tree_sitter_support::config_tokenizer::escape_name;
 
 /// A piece of a document's markup.
 #[derive(Debug, Clone, PartialEq)]
-enum Item {
+pub(crate) enum Item {
     /// A start tag (lowercased name), with its attributes' ranges (name,
     /// value without quotes).
     Start {
@@ -78,7 +78,7 @@ enum Item {
 }
 
 impl Item {
-    fn range(&self) -> &Range<usize> {
+    pub(crate) fn range(&self) -> &Range<usize> {
         match self {
             Item::Start { range, .. } | Item::End { range, .. } => range,
             Item::Comment(range) | Item::Declaration(range) | Item::Text(range) => range,
@@ -95,7 +95,7 @@ fn is_name_char(b: u8) -> bool {
 
 /// Lex HTML (or XML) into items covering all of `src`.  Markup that isn't
 /// well formed is text, as are, for Bikeshed, `<<type>>` shorthands.
-fn lex(src: &str, bikeshed: bool) -> Vec<Item> {
+pub(crate) fn lex(src: &str, bikeshed: bool) -> Vec<Item> {
     let bytes = src.as_bytes();
     let mut items = vec![];
     let mut text_start = 0;
@@ -341,7 +341,7 @@ fn context_name(words: &str) -> String {
 }
 
 /// A start tag's attribute's value, if it has the attribute.
-fn attr<'a>(src: &'a str, item: &Item, name: &str) -> Option<&'a str> {
+pub(crate) fn attr<'a>(src: &'a str, item: &Item, name: &str) -> Option<&'a str> {
     let Item::Start { attrs, .. } = item else {
         return None;
     };
@@ -414,18 +414,18 @@ const BLOCKS: &[&str] = &[
 /// A context: a section (by heading, until the next heading of the same or a
 /// higher rank) or a range (an algorithm, or an ecmarkup clause).
 #[derive(Debug)]
-struct Context {
-    start: usize,
+pub(crate) struct Context {
+    pub start: usize,
     /// For ranges, where they end.
-    end: Option<usize>,
+    pub end: Option<usize>,
     /// For sections, their headings' ranks.
-    rank: u8,
-    name: String,
-    kind: &'static str,
+    pub rank: u8,
+    pub name: String,
+    pub kind: &'static str,
 }
 
 /// The contexts of an HTML spec source.
-fn html_contexts(src: &str, items: &[Item]) -> Vec<Context> {
+pub(crate) fn html_contexts(src: &str, items: &[Item]) -> Vec<Context> {
     let mut contexts = vec![];
     let ecmarkup = items
         .iter()

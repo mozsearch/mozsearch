@@ -1,0 +1,391 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/specs/wattsi__json
+---
+[
+  {
+    "loc": "00007:22-36",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section example Infrastructure",
+    "sym": "SPEC_example_infrastructure"
+  },
+  {
+    "loc": "00007:22-36",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example Infrastructure",
+    "sym": "SPEC_example_infrastructure",
+    "context": "Infrastructure",
+    "contextsym": "SPEC_example_infrastructure"
+  },
+  {
+    "loc": "00009:32-38",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn example widget",
+    "sym": "SPEC_example_concept@2Dwidget"
+  },
+  {
+    "loc": "00009:32-38",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example widget",
+    "sym": "SPEC_example_concept@2Dwidget",
+    "context": "Infrastructure",
+    "contextsym": "SPEC_example_infrastructure"
+  },
+  {
+    "loc": "00009:84-89",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn example state",
+    "sym": "SPEC_example_concept@2Dwidget@2Dstate"
+  },
+  {
+    "loc": "00009:84-89",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example state",
+    "sym": "SPEC_example_concept@2Dwidget@2Dstate",
+    "context": "Infrastructure",
+    "contextsym": "SPEC_example_infrastructure"
+  },
+  {
+    "loc": "00011:15-22",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section example Widgets",
+    "sym": "SPEC_example_widgets"
+  },
+  {
+    "loc": "00011:15-22",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example Widgets",
+    "sym": "SPEC_example_widgets",
+    "context": "Widgets",
+    "contextsym": "SPEC_example_widgets"
+  },
+  {
+    "loc": "00013:38-42",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn example poke",
+    "sym": "SPEC_example_concept@2Dwidget@2Dpoke"
+  },
+  {
+    "loc": "00013:38-42",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example poke",
+    "sym": "SPEC_example_concept@2Dwidget@2Dpoke",
+    "context": "poke",
+    "contextsym": "SPEC_example_concept@2Dwidget@2Dpoke"
+  },
+  {
+    "loc": "00013:79-85",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn example widget",
+    "sym": "SPEC_example_concept@2Dwidget"
+  },
+  {
+    "loc": "00013:79-85",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example widget",
+    "sym": "SPEC_example_concept@2Dwidget",
+    "context": "poke",
+    "contextsym": "SPEC_example_concept@2Dwidget@2Dpoke"
+  },
+  {
+    "loc": "00017:66-71",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn example state",
+    "sym": "SPEC_example_concept@2Dwidget@2Dstate"
+  },
+  {
+    "loc": "00017:66-71",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example state",
+    "sym": "SPEC_example_concept@2Dwidget@2Dstate",
+    "context": "poke step 1",
+    "contextsym": "SPEC_example_concept@2Dwidget@2Dpoke"
+  },
+  {
+    "loc": "00022:11-17",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn example unpoke",
+    "sym": "SPEC_example_unpoke"
+  },
+  {
+    "loc": "00022:11-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example unpoke",
+    "sym": "SPEC_example_unpoke",
+    "context": "unpoke",
+    "contextsym": "SPEC_example_unpoke"
+  },
+  {
+    "loc": "00026:15-47",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section example Gadgets <gadget>",
+    "sym": "SPEC_example_gadgets"
+  },
+  {
+    "loc": "00026:15-47",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example Gadgets <gadget>",
+    "sym": "SPEC_example_gadgets",
+    "context": "Gadgets <gadget>",
+    "contextsym": "SPEC_example_gadgets"
+  },
+  {
+    "loc": "00031:32-38",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn example gadget",
+    "sym": "SPEC_example_concept@2Dgadget"
+  },
+  {
+    "loc": "00031:32-38",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example gadget",
+    "sym": "SPEC_example_concept@2Dgadget",
+    "context": "Gadgets <gadget>",
+    "contextsym": "SPEC_example_gadgets"
+  },
+  {
+    "loc": "00031:78-84",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn example widget",
+    "sym": "SPEC_example_concept@2Dwidget"
+  },
+  {
+    "loc": "00031:78-84",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example widget",
+    "sym": "SPEC_example_concept@2Dwidget",
+    "context": "Gadgets <gadget>",
+    "contextsym": "SPEC_example_gadgets"
+  },
+  {
+    "loc": "00032:61-65",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn example node",
+    "sym": "SPEC_example_node"
+  },
+  {
+    "loc": "00032:61-65",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example node",
+    "sym": "SPEC_example_node",
+    "context": "Gadgets <gadget>",
+    "contextsym": "SPEC_example_gadgets"
+  },
+  {
+    "loc": "00032:61-65",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn example node",
+    "sym": "SPEC_dom_concept@2Dnode"
+  },
+  {
+    "loc": "00032:61-65",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example node",
+    "sym": "SPEC_dom_concept@2Dnode",
+    "context": "Gadgets <gadget>",
+    "contextsym": "SPEC_example_gadgets"
+  },
+  {
+    "loc": "00032:84-87",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference example [DOM]",
+    "sym": "SPEC_example_refsDOM"
+  },
+  {
+    "loc": "00032:84-87",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example [DOM]",
+    "sym": "SPEC_example_refsDOM",
+    "context": "Gadgets <gadget>",
+    "contextsym": "SPEC_example_gadgets"
+  },
+  {
+    "loc": "00034:11-19",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn example assemble",
+    "sym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00034:11-19",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example assemble",
+    "sym": "SPEC_example_assemble",
+    "context": "assemble",
+    "contextsym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00034:56-62",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn example gadget",
+    "sym": "SPEC_example_concept@2Dgadget"
+  },
+  {
+    "loc": "00034:56-62",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example gadget",
+    "sym": "SPEC_example_concept@2Dgadget",
+    "context": "assemble",
+    "contextsym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00037:43-47",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn example node",
+    "sym": "SPEC_dom_concept@2Dnode"
+  },
+  {
+    "loc": "00037:43-47",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example node",
+    "sym": "SPEC_dom_concept@2Dnode",
+    "context": "assemble step 1",
+    "contextsym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00038:45-51",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn example widget",
+    "sym": "SPEC_example_concept@2Dwidget"
+  },
+  {
+    "loc": "00038:45-51",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example widget",
+    "sym": "SPEC_example_concept@2Dwidget",
+    "context": "assemble step 2",
+    "contextsym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00040:43-47",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn example poke",
+    "sym": "SPEC_example_concept@2Dwidget@2Dpoke"
+  },
+  {
+    "loc": "00040:43-47",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example poke",
+    "sym": "SPEC_example_concept@2Dwidget@2Dpoke",
+    "context": "assemble step 2.1",
+    "contextsym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00041:33-40",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "section example Widgets",
+    "sym": "SPEC_example_widgets"
+  },
+  {
+    "loc": "00041:33-40",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example Widgets",
+    "sym": "SPEC_example_widgets",
+    "context": "assemble step 2.2",
+    "contextsym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00041:101-106",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "anchor https://dom.spec.whatwg.org/#concept-tree",
+    "sym": "SPEC_dom_concept@2Dtree"
+  },
+  {
+    "loc": "00041:101-106",
+    "target": 1,
+    "kind": "use",
+    "pretty": "https://dom.spec.whatwg.org/#concept-tree",
+    "sym": "SPEC_dom_concept@2Dtree",
+    "context": "assemble step 2.2",
+    "contextsym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00047:18-63",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section example The doohickey section",
+    "sym": "SPEC_example_doohickeys"
+  },
+  {
+    "loc": "00047:18-63",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example The doohickey section",
+    "sym": "SPEC_example_doohickeys",
+    "context": "The doohickey section",
+    "contextsym": "SPEC_example_doohickeys"
+  },
+  {
+    "loc": "00047:40-49",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn example doohickey",
+    "sym": "SPEC_example_doohickey"
+  },
+  {
+    "loc": "00047:40-49",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example doohickey",
+    "sym": "SPEC_example_doohickey",
+    "context": "The doohickey section",
+    "contextsym": "SPEC_example_doohickeys"
+  },
+  {
+    "loc": "00049:14-23",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "section example The doohickey section",
+    "sym": "SPEC_example_doohickeys"
+  },
+  {
+    "loc": "00049:14-23",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example The doohickey section",
+    "sym": "SPEC_example_doohickeys",
+    "context": "The doohickey section",
+    "contextsym": "SPEC_example_doohickeys"
+  }
+]

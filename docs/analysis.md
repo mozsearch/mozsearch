@@ -159,6 +159,17 @@ index of the field starting from 0.
    constants (ex: `NS_XPCOM_SHUTDOWN_OBSERVER_ID`), which `semantic-analyze`
    resolves from the constants' definitions in any file.
 
+ * Web specs' terms (see `tools/src/spec_analyze`, which `spec-analyze`
+   runs on the specs in a tree's `specs.toml`) use `SPEC_` followed by the
+   spec's shortname, `_`, and the term's anchor in the rendered spec (its
+   id), escaped like `FILE_` symbols (but for every byte of non-ASCII
+   characters), ex: `SPEC_html_navigate` for
+   `https://html.spec.whatwg.org/#navigate`.  So a URL to a rendered spec names
+   a symbol.  Their definitions (and sections' headings) are `def`s, and
+   references to them, from the spec and other specs, are `use`s, whose
+   context is the algorithm they're in (with its step, ex: "navigate step
+   12.6") or else their section.
+
  * Firefox's privileged URLs (chrome://, resource://) temporarily use special
    symbols with `URL_` prefix followed by normalized URL.  The symbol is replaced
    with the corresponding file's symbol by `scripts/replace-aliases.py` script.

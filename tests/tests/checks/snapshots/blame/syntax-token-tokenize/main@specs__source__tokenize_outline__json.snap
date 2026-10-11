@@ -39,6 +39,20 @@ input_file: inputs/blame/syntax-token-tokenize/specs__source__tokenize_outline__
         "isDef": true,
         "kind": "section"
       }
+    },
+    {
+      "value": {
+        "pretty": "Infrastructure::Gadgets%20<gadget>::assemble",
+        "isDef": true,
+        "kind": "algorithm"
+      }
+    },
+    {
+      "value": {
+        "pretty": "Infrastructure::The%20doohickey%20section",
+        "isDef": true,
+        "kind": "section"
+      }
     }
   ]
 }

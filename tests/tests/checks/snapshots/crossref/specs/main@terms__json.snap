@@ -1,0 +1,155 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/specs/terms__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "SPEC_example_concept@2Dwidget",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/source",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 13,
+                "bounds": [
+                  79,
+                  85
+                ],
+                "line": "<p>To <dfn data-x=concept-widget-poke>poke</dfn> a <span data-x=concept-widget>widget</span>",
+                "context": "poke",
+                "contextsym": "SPEC_example_concept@2Dwidget@2Dpoke"
+              },
+              {
+                "lno": 31,
+                "bounds": [
+                  78,
+                  84
+                ],
+                "line": "<p>A <dfn data-x=concept-gadget>gadget</dfn> is a <span data-x=concept-widget>widget</span> with a",
+                "context": "Gadgets <gadget>",
+                "contextsym": "SPEC_example_gadgets"
+              },
+              {
+                "lno": 38,
+                "bounds": [
+                  44,
+                  50
+                ],
+                "line": "<li><p>For each <span data-x=concept-widget>widget</span> in it:",
+                "context": "assemble step 2",
+                "contextsym": "SPEC_example_assemble"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "specs/source",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 9,
+                "bounds": [
+                  32,
+                  38
+                ],
+                "line": "<p>A <dfn data-x=concept-widget>widget</dfn> has a <dfn data-x=concept-widget-state>state</dfn>.</p>",
+                "context": "Infrastructure",
+                "contextsym": "SPEC_example_infrastructure"
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "SPEC_example_doohickeys",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/source",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 49,
+                "bounds": [
+                  14,
+                  23
+                ],
+                "line": "<p>Each <span>doohickey</span> has a <code>gadget</code> (which isn't a cross-reference).",
+                "context": "The doohickey section",
+                "contextsym": "SPEC_example_doohickeys"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "specs/source",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 47,
+                "bounds": [
+                  18,
+                  63
+                ],
+                "line": "<h3 id=doohickeys>The <dfn id=doohickey>doohickey</dfn> section</h3>",
+                "context": "The doohickey section",
+                "contextsym": "SPEC_example_doohickeys"
+              }
+            ]
+          }
+        ],
+        "callees": []
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "SPEC_dom_concept@2Dnode",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/source",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 32,
+                "bounds": [
+                  61,
+                  65
+                ],
+                "line": "<dfn data-x-href=\"https://dom.spec.whatwg.org/#concept-node\">node</dfn>, as in <ref>DOM</ref>.",
+                "context": "Gadgets <gadget>",
+                "contextsym": "SPEC_example_gadgets"
+              },
+              {
+                "lno": 37,
+                "bounds": [
+                  42,
+                  46
+                ],
+                "line": "<li><p>Let <var>node</var> be a new <span>node</span>.",
+                "context": "assemble step 1",
+                "contextsym": "SPEC_example_assemble"
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

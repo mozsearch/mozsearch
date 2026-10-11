@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <!-- A small spec in the HTML Standard's Wattsi format, for the spec-html
-     tokenizer (see tools/src/tree_sitter_support/spec_tokenizer.rs). -->
+     tokenizer (see tools/src/tree_sitter_support/spec_tokenizer.rs) and its
+     analysis (see tools/src/spec_analyze/wattsi.rs and tests/tests/specs.toml). -->
 <h1>Example: The Living Standard</h1>
 
 <h2 id=infrastructure>Infrastructure</h2>
@@ -26,3 +27,23 @@
 
 <pre class=idl>[Exposed=Window]
 interface Gadget {};</pre>
+
+<p>A <dfn data-x=concept-gadget>gadget</dfn> is a <span data-x=concept-widget>widget</span> with a
+<dfn data-x-href="https://dom.spec.whatwg.org/#concept-node">node</dfn>, as in <ref>DOM</ref>.
+
+<p>To <dfn>assemble</dfn> a <span data-x=concept-gadget>gadget</span>:</p>
+
+<ol>
+ <li><p>Let <var>node</var> be a new <span>node</span>.
+ <li><p>For each <span data-x=concept-widget>widget</span> in it:
+  <ol>
+   <li><p><span data-x=concept-widget-poke>Poke</span> it.
+   <li><p>See <a href="#widgets">widgets</a> and <a href="https://dom.spec.whatwg.org/#concept-tree">trees</a>.
+  </ol>
+</ol>
+
+<p w-dev>A <dfn>developer note</dfn>, only in the developers' edition.
+
+<h3 id=doohickeys>The <dfn id=doohickey>doohickey</dfn> section</h3>
+
+<p>Each <span>doohickey</span> has a <code>gadget</code> (which isn't a cross-reference).

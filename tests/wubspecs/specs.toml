@@ -1,6 +1,12 @@
 # The specs of the "wubspecs" tree: each is a top-level directory of the
 # tree's forest repository, with the history of its upstream repository's
 # branch (see tools/src/spec_forest.rs and build-spec-forest).
+#
+# Each spec's `shortname` (if it's not its name; as browser-specs' series
+# shortnames) names its symbols (`SPEC_<shortname>_<anchor>`), its `rendered`
+# URL is where its anchors are, so that references to it from other specs (and
+# from code) name its symbols, and its `format` says how spec-analyze analyzes
+# its source (see tools/src/spec_analyze).
 
 # The forest's root .gitattributes: specs' HTML-based sources are tokenized
 # as such for history (see tools/src/tree_sitter_support/spec_tokenizer.rs),
@@ -19,47 +25,62 @@ html/index searchfox-lang=spec-html
 [[spec]]
 name = "html"
 url = "https://github.com/whatwg/html.git"
+format = "wattsi"
+rendered = "https://html.spec.whatwg.org/"
 
 [[spec]]
 name = "dom"
 url = "https://github.com/whatwg/dom.git"
+rendered = "https://dom.spec.whatwg.org/"
 
 [[spec]]
 name = "fetch"
 url = "https://github.com/whatwg/fetch.git"
+rendered = "https://fetch.spec.whatwg.org/"
 
 [[spec]]
 name = "url"
 url = "https://github.com/whatwg/url.git"
+rendered = "https://url.spec.whatwg.org/"
 
 [[spec]]
 name = "infra"
 url = "https://github.com/whatwg/infra.git"
+rendered = "https://infra.spec.whatwg.org/"
 
 [[spec]]
 name = "webidl"
 url = "https://github.com/whatwg/webidl.git"
+rendered = "https://webidl.spec.whatwg.org/"
 
 [[spec]]
 name = "streams"
 url = "https://github.com/whatwg/streams.git"
+rendered = "https://streams.spec.whatwg.org/"
 
 [[spec]]
 name = "service-workers"
 url = "https://github.com/w3c/ServiceWorker.git"
+rendered = "https://w3c.github.io/ServiceWorker/"
 
 [[spec]]
 name = "indexeddb"
 url = "https://github.com/w3c/IndexedDB.git"
+shortname = "IndexedDB"
+rendered = "https://w3c.github.io/IndexedDB/"
 
 [[spec]]
 name = "storage"
 url = "https://github.com/whatwg/storage.git"
+rendered = "https://storage.spec.whatwg.org/"
 
 [[spec]]
 name = "fs"
 url = "https://github.com/whatwg/fs.git"
+rendered = "https://fs.spec.whatwg.org/"
 
 [[spec]]
 name = "ecma262"
 url = "https://github.com/tc39/ecma262.git"
+shortname = "ecmascript"
+rendered = "https://tc39.es/ecma262/"

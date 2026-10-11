@@ -1,0 +1,12 @@
+# The test tree's web specs (see tools/src/spec_analyze and
+# scripts/spec-analyze.sh): its Wattsi fixture, and DOM, which it refers to.
+
+[[spec]]
+name = "example"
+path = "specs"
+format = "wattsi"
+rendered = "https://example.spec.whatwg.org/"
+
+[[spec]]
+name = "dom"
+rendered = "https://dom.spec.whatwg.org/"

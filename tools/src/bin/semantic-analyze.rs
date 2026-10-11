@@ -16,7 +16,7 @@
 // documentation's staged layout (see `file_format::doc_trees`), if the tree
 // has one.
 
-use std::io::{BufRead, Write};
+use std::io::BufRead;
 use std::path::Path;
 use std::process::exit;
 
@@ -25,25 +25,8 @@ use tools::rendered_docs::analysis::{TreeFiles, doc_records};
 use tools::rendered_docs::is_doc_path;
 use tools::semantic_analyzer::{
     Analysis, Record, Resolvables, UnresolvedUse, analyze_resolving, builtin_mappings,
-    file_def_record, merge_records, sort_records,
+    file_def_record, sort_records, write_records,
 };
-
-/// Write a file's analysis records to ANALYSIS_ROOT/<path>, or add them to
-/// the analysis there.
-fn write_records(analysis_root: &Path, path: &str, records: Vec<Record>) {
-    let out_path = analysis_root.join(path);
-    let lines = match std::fs::read_to_string(&out_path) {
-        Ok(existing) => merge_records(&existing, records),
-        Err(_) => records.iter().map(Record::to_json).collect(),
-    };
-    if let Some(dir) = out_path.parent() {
-        let _ = std::fs::create_dir_all(dir);
-    }
-    let mut out = std::io::BufWriter::new(std::fs::File::create(&out_path).unwrap());
-    for line in &lines {
-        writeln!(out, "{}", line).unwrap();
-    }
-}
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
