@@ -450,7 +450,18 @@ sudo -i nix profile upgrade indexerPackages
 pkill -USR1 -f '[s]cripts/build-history.py'
 ```
 
-The log then says "restarting".  With `--setenv HISTORY_PAUSE_ON_FAILURE=1`, a
+The log then says "restarting".  (The tools themselves are found on PATH for
+each chunk, so new chunks use the upgraded tools even without SIGUSR1.)  To
+also change the environment variables the tools get (ex: when the timeline's
+compute threads are busy and other CPUs are idle), write them to the file that
+build-history.py reads when it restarts, in its TMPDIR (which
+`infrastructure/aws/main.sh` sets to /index/tmp), before sending SIGUSR1:
+
+```
+echo TIMELINE_COMPUTE_THREADS=16 > /index/tmp/build-history-env-$(pgrep -f '[s]cripts/build-history.py')
+```
+
+With `--setenv HISTORY_PAUSE_ON_FAILURE=1`, a
 failure of the history tools (ex: a crash) makes build-history.py wait (its
 status says "paused") rather than failing the rebuild, so that you can fix the
 problem, upgrade, and send SIGUSR1 to carry on.

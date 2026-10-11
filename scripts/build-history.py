@@ -44,7 +44,11 @@ which resumes from the tools' notes without losing anything.  So a running
 reblame can be upgraded by updating the checkout and the tools and sending
 SIGUSR1 (see docs/aws.md).  With HISTORY_PAUSE_ON_FAILURE set, a failure (ex:
 a tool crashing) makes it wait for SIGUSR1 to restart like that (ex: after
-fixing the tool) rather than exiting.
+fixing the tool) rather than exiting.  To change environment variables when
+restarting (ex: TIMELINE_COMPUTE_THREADS, to give a running reblame's timeline
+idle CPUs), write them as NAME=VALUE lines (an empty value unsets one) to
+build-history-env-PID in the temporary directory (TMPDIR, or else /tmp)
+before sending SIGUSR1; see `Restart`.
 """
 
 import argparse
@@ -80,6 +84,19 @@ class Stopped(Exception):
     (see `Restart`)."""
 
 
+def process_start_time():
+    """When this process started (which running itself again doesn't change),
+    as a `time.time()`."""
+    with open("/proc/self/stat") as f:
+        # The fields after the command name (in parentheses, which it can
+        # contain), starting from the third, of which the 22nd is the start
+        # time in clock ticks since boot.
+        fields = f.read().rsplit(")", 1)[1].split()
+    with open("/proc/stat") as f:
+        boot = next(int(line.split()[1]) for line in f if line.startswith("btime "))
+    return boot + int(fields[19]) / os.sysconf("SC_CLK_TCK")
+
+
 class Restart:
     """Restarting this script in place on SIGUSR1; see the module docs."""
 
@@ -89,6 +106,11 @@ class Restart:
         self.stop_file = os.path.join(tempfile.gettempdir(), f"build-history-stop-{os.getpid()}")
         self._remove_stop_file()
         os.environ["HISTORY_STOP_FILE"] = self.stop_file
+        # The file of environment variables to change when restarting, which
+        # is also per process, and is read when the script starts (so that a
+        # restart of an older version of it reads it too).
+        self.env_file = os.path.join(tempfile.gettempdir(), f"build-history-env-{os.getpid()}")
+        self._apply_env_file()
         self.requested = threading.Event()
         signal.signal(signal.SIGUSR1, self._request)
 
@@ -97,6 +119,32 @@ class Restart:
             os.remove(self.stop_file)
         except FileNotFoundError:
             pass
+
+    def _apply_env_file(self):
+        """Apply and remove the environment variables file, unless it's older
+        than this process (and so was left by an earlier one with its pid)."""
+        try:
+            written = os.stat(self.env_file).st_mtime
+            with open(self.env_file) as f:
+                lines = f.read().splitlines()
+            os.remove(self.env_file)
+        except FileNotFoundError:
+            return
+        if written < process_start_time():
+            return
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            name, sep, value = line.partition("=")
+            if not sep or not name:
+                log(f"ignoring {line!r} in {self.env_file} (not NAME=VALUE)")
+            elif value:
+                log(f"setting {name}={value} (from {self.env_file})")
+                os.environ[name] = value
+            else:
+                log(f"unsetting {name} (from {self.env_file})")
+                os.environ.pop(name, None)
 
     def _request(self, signum, frame):
         if not self.requested.is_set():
