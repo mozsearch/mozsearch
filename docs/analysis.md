@@ -171,7 +171,12 @@ index of the field starting from 0.
    Their definitions (and sections' headings) are `def`s, and references to
    them, from the spec and other specs, are `use`s, whose context is the
    algorithm they're in (with its step, ex: "navigate step 12.6") or else their
-   section.
+   section.  A tree's other files' citations of its specs (or of its
+   `linked_trees`' specs, ex: firefox-disco's of wubspecs'; see
+   `tools/src/spec_analyze/citations.rs`): URLs with anchors, wherever they
+   are, and the step comments (ex: "Step 12.6.") in their scopes, are
+   `doc-use`s, whose context is the definition they're in or about (with the
+   step, ex: "nsDocShell::InternalLoad step 12.6").
 
  * Firefox's privileged URLs (chrome://, resource://) temporarily use special
    symbols with `URL_` prefix followed by normalized URL.  The symbol is replaced

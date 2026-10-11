@@ -1,0 +1,365 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/specs/citations_py__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "spec_citations.py",
+    "sym": "FILE_spec_citations@2Epy"
+  },
+  {
+    "loc": "00001:0",
+    "source": 1,
+    "syntax": "def,field",
+    "pretty": "field spec_citations::__init__",
+    "sym": "S_py_spec_citations/init:"
+  },
+  {
+    "loc": "00001:0",
+    "structured": 1,
+    "pretty": "spec_citations::__init__",
+    "sym": "S_py_spec_citations/init:",
+    "type_pretty": null,
+    "kind": "field",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "spec_citations::__init__",
+    "sym": "S_py_spec_citations/init:"
+  },
+  {
+    "loc": "00007:4-12",
+    "source": 1,
+    "syntax": "def,method",
+    "pretty": "method spec_citations::assemble",
+    "sym": "S_py_spec_citations/assemble().",
+    "nestingRange": "9:4-14:15"
+  },
+  {
+    "loc": "00007:4-12",
+    "structured": 1,
+    "pretty": "spec_citations::assemble",
+    "sym": "S_py_spec_citations/assemble().",
+    "type_pretty": null,
+    "kind": "method",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00007:4-12",
+    "target": 1,
+    "kind": "def",
+    "pretty": "spec_citations::assemble",
+    "sym": "S_py_spec_citations/assemble()."
+  },
+  {
+    "loc": "00007:13-20",
+    "source": 1,
+    "syntax": "def,arg",
+    "pretty": "arg widgets",
+    "sym": "S_py_spec_citations/assemble().(widgets)"
+  },
+  {
+    "loc": "00007:13-20",
+    "structured": 1,
+    "pretty": "widgets",
+    "sym": "S_py_spec_citations/assemble().(widgets)",
+    "type_pretty": null,
+    "kind": "arg",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00007:13-20",
+    "target": 1,
+    "kind": "def",
+    "pretty": "widgets",
+    "sym": "S_py_spec_citations/assemble().(widgets)",
+    "context": "spec_citations::assemble",
+    "contextsym": "S_py_spec_citations/assemble()."
+  },
+  {
+    "loc": "00009:4-8",
+    "source": 1,
+    "syntax": "def",
+    "pretty": " unknown",
+    "sym": "S_py_spec_citations.py/#0",
+    "no_crossref": 1
+  },
+  {
+    "loc": "00009:4-8",
+    "structured": 1,
+    "pretty": "unknown",
+    "sym": "S_py_spec_citations.py/#0",
+    "type_pretty": null,
+    "kind": "",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00010:8-14",
+    "source": 1,
+    "syntax": "def",
+    "pretty": " unknown",
+    "sym": "S_py_spec_citations.py/#1",
+    "no_crossref": 1
+  },
+  {
+    "loc": "00010:8-14",
+    "structured": 1,
+    "pretty": "unknown",
+    "sym": "S_py_spec_citations.py/#1",
+    "type_pretty": null,
+    "kind": "",
+    "subsystem": null,
+    "implKind": "external",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00010:18-25",
+    "source": 1,
+    "syntax": "use,arg",
+    "pretty": "arg widgets",
+    "sym": "S_py_spec_citations/assemble().(widgets)"
+  },
+  {
+    "loc": "00010:18-25",
+    "target": 1,
+    "kind": "use",
+    "pretty": "widgets",
+    "sym": "S_py_spec_citations/assemble().(widgets)",
+    "context": "spec_citations::assemble",
+    "contextsym": "S_py_spec_citations/assemble()."
+  },
+  {
+    "loc": "00012:8-12",
+    "source": 1,
+    "syntax": "use,method",
+    "pretty": "method spec_citations::poke",
+    "sym": "S_py_spec_citations/poke()."
+  },
+  {
+    "loc": "00012:8-12",
+    "target": 1,
+    "kind": "use",
+    "pretty": "spec_citations::poke",
+    "sym": "S_py_spec_citations/poke().",
+    "context": "spec_citations::assemble",
+    "contextsym": "S_py_spec_citations/assemble()."
+  },
+  {
+    "loc": "00012:13-19",
+    "source": 1,
+    "syntax": "use",
+    "pretty": " unknown",
+    "sym": "S_py_spec_citations.py/#1",
+    "no_crossref": 1
+  },
+  {
+    "loc": "00014:11-15",
+    "source": 1,
+    "syntax": "use",
+    "pretty": " unknown",
+    "sym": "S_py_spec_citations.py/#0",
+    "no_crossref": 1
+  },
+  {
+    "loc": "00018:4-8",
+    "source": 1,
+    "syntax": "def,method",
+    "pretty": "method spec_citations::poke",
+    "sym": "S_py_spec_citations/poke().",
+    "nestingRange": "19:4-19:8"
+  },
+  {
+    "loc": "00018:4-8",
+    "structured": 1,
+    "pretty": "spec_citations::poke",
+    "sym": "S_py_spec_citations/poke().",
+    "type_pretty": null,
+    "kind": "method",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00018:4-8",
+    "target": 1,
+    "kind": "def",
+    "pretty": "spec_citations::poke",
+    "sym": "S_py_spec_citations/poke()."
+  },
+  {
+    "loc": "00018:9-15",
+    "source": 1,
+    "syntax": "def,arg",
+    "pretty": "arg widget",
+    "sym": "S_py_spec_citations/poke().(widget)"
+  },
+  {
+    "loc": "00018:9-15",
+    "structured": 1,
+    "pretty": "widget",
+    "sym": "S_py_spec_citations/poke().(widget)",
+    "type_pretty": null,
+    "kind": "arg",
+    "subsystem": null,
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  {
+    "loc": "00018:9-15",
+    "target": 1,
+    "kind": "def",
+    "pretty": "widget",
+    "sym": "S_py_spec_citations/poke().(widget)",
+    "context": "spec_citations::poke",
+    "contextsym": "S_py_spec_citations/poke()."
+  },
+  {
+    "loc": "00006:2-43",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "spec example #assemble",
+    "sym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00006:2-43",
+    "target": 1,
+    "kind": "doc-use",
+    "pretty": "example #assemble",
+    "sym": "SPEC_example_assemble",
+    "context": "spec_citations::assemble",
+    "contextsym": "S_py_spec_citations/assemble()."
+  },
+  {
+    "loc": "00008:6-12",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "spec example #assemble",
+    "sym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00008:6-12",
+    "target": 1,
+    "kind": "doc-use",
+    "pretty": "example #assemble",
+    "sym": "SPEC_example_assemble",
+    "context": "spec_citations::assemble step 1",
+    "contextsym": "S_py_spec_citations/assemble()."
+  },
+  {
+    "loc": "00011:10-18",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "spec example #assemble",
+    "sym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00011:10-18",
+    "target": 1,
+    "kind": "doc-use",
+    "pretty": "example #assemble",
+    "sym": "SPEC_example_assemble",
+    "context": "spec_citations::assemble step 2.1",
+    "contextsym": "S_py_spec_citations/assemble()."
+  },
+  {
+    "loc": "00013:6-14",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "spec example #assemble",
+    "sym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00013:6-14",
+    "target": 1,
+    "kind": "doc-use",
+    "pretty": "example #assemble",
+    "sym": "SPEC_example_assemble",
+    "context": "spec_citations::assemble step 2.2",
+    "contextsym": "S_py_spec_citations/assemble()."
+  }
+]

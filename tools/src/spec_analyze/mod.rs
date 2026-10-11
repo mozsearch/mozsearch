@@ -26,6 +26,7 @@
 //! calls, for diagrams and traversals across specs.
 
 pub mod bikeshed;
+pub mod citations;
 pub mod ecmarkup;
 pub mod markup;
 pub mod wattsi;

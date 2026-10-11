@@ -1,0 +1,349 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/specs/citations__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "SPEC_example_concept@2Dwidget@2Dpoke",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/source",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 40,
+                "bounds": [
+                  40,
+                  44
+                ],
+                "line": "<li><p><span data-x=concept-widget-poke>Poke</span> it.",
+                "context": "assemble step 2.1",
+                "contextsym": "SPEC_example_assemble"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "specs/source",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 13,
+                "bounds": [
+                  38,
+                  42
+                ],
+                "line": "<p>To <dfn data-x=concept-widget-poke>poke</dfn> a <span data-x=concept-widget>widget</span>",
+                "context": "poke",
+                "contextsym": "SPEC_example_concept@2Dwidget@2Dpoke"
+              }
+            ]
+          }
+        ],
+        "doc-uses": [
+          {
+            "path": "spec_citations.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 11,
+                "bounds": [
+                  3,
+                  55
+                ],
+                "line": "// https://example.spec.whatwg.org/#concept-widget-poke",
+                "context": "spec_citations::Poke",
+                "contextsym": "_ZN14spec_citations4PokeERNS_6WidgetE"
+              },
+              {
+                "lno": 13,
+                "bounds": [
+                  3,
+                  9
+                ],
+                "line": "// Step 1. Set widget's state to \"poked\".",
+                "context": "spec_citations::Poke step 1",
+                "contextsym": "_ZN14spec_citations4PokeERNS_6WidgetE"
+              },
+              {
+                "lno": 15,
+                "bounds": [
+                  3,
+                  9
+                ],
+                "line": "// Step 2.",
+                "context": "spec_citations::Poke step 2",
+                "contextsym": "_ZN14spec_citations4PokeERNS_6WidgetE"
+              }
+            ]
+          }
+        ],
+        "callees": [
+          {
+            "jump": "specs/source#13",
+            "kind": "specDfn",
+            "pretty": "example widget",
+            "sym": "SPEC_example_concept@2Dwidget"
+          },
+          {
+            "jump": "specs/source#17",
+            "kind": "specDfn",
+            "pretty": "example state",
+            "sym": "SPEC_example_concept@2Dwidget@2Dstate"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "example poke",
+          "sym": "SPEC_example_concept@2Dwidget@2Dpoke",
+          "type_pretty": null,
+          "kind": "specAlgorithm",
+          "subsystem": null,
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.spec.whatwg.org/#concept-widget-poke"
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "SPEC_example_unpoke",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "specs/source",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 22,
+                "bounds": [
+                  11,
+                  17
+                ],
+                "line": "<p>To <dfn>unpoke</dfn> a widget <var>widget</var>, run these steps:</p>",
+                "context": "unpoke",
+                "contextsym": "SPEC_example_unpoke"
+              }
+            ]
+          }
+        ],
+        "doc-uses": [
+          {
+            "path": "spec_citations.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 18,
+                "bounds": [
+                  3,
+                  64
+                ],
+                "line": "// https://example.spec.whatwg.org/multipage/widgets.html#unpoke",
+                "context": "spec_citations::Unpoke",
+                "contextsym": "_ZN14spec_citations6UnpokeERNS_6WidgetE"
+              },
+              {
+                "lno": 22,
+                "bounds": [
+                  3,
+                  9
+                ],
+                "line": "// Step 1.",
+                "context": "spec_citations::Unpoke step 1",
+                "contextsym": "_ZN14spec_citations6UnpokeERNS_6WidgetE"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "example unpoke",
+          "sym": "SPEC_example_unpoke",
+          "type_pretty": null,
+          "kind": "specAlgorithm",
+          "subsystem": null,
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.spec.whatwg.org/#unpoke"
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "SPEC_example_assemble",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "specs/source",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 34,
+                "bounds": [
+                  11,
+                  19
+                ],
+                "line": "<p>To <dfn>assemble</dfn> a <span data-x=concept-gadget>gadget</span>:</p>",
+                "context": "assemble",
+                "contextsym": "SPEC_example_assemble"
+              }
+            ]
+          }
+        ],
+        "doc-uses": [
+          {
+            "path": "spec_citations.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 29,
+                "bounds": [
+                  3,
+                  44
+                ],
+                "line": "// https://example.spec.whatwg.org/#assemble",
+                "context": "spec_citations::Assemble",
+                "contextsym": "_ZN14spec_citations8AssembleERNS_6WidgetE"
+              },
+              {
+                "lno": 30,
+                "bounds": [
+                  3,
+                  11
+                ],
+                "line": "// Step 2.1.",
+                "context": "spec_citations::Assemble step 2.1",
+                "contextsym": "_ZN14spec_citations8AssembleERNS_6WidgetE"
+              }
+            ]
+          },
+          {
+            "path": "spec_citations.py",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 6,
+                "bounds": [
+                  2,
+                  43
+                ],
+                "line": "# https://example.spec.whatwg.org/#assemble",
+                "context": "spec_citations::assemble",
+                "contextsym": "S_py_spec_citations/assemble()."
+              },
+              {
+                "lno": 8,
+                "bounds": [
+                  2,
+                  8
+                ],
+                "line": "# Step 1.",
+                "context": "spec_citations::assemble step 1",
+                "contextsym": "S_py_spec_citations/assemble()."
+              },
+              {
+                "lno": 11,
+                "bounds": [
+                  2,
+                  10
+                ],
+                "line": "# Step 2.1. Poke it.",
+                "context": "spec_citations::assemble step 2.1",
+                "contextsym": "S_py_spec_citations/assemble()."
+              },
+              {
+                "lno": 13,
+                "bounds": [
+                  2,
+                  10
+                ],
+                "line": "# Step 2.2.",
+                "context": "spec_citations::assemble step 2.2",
+                "contextsym": "S_py_spec_citations/assemble()."
+              }
+            ]
+          }
+        ],
+        "callees": [
+          {
+            "jump": "specs/source#34",
+            "kind": "specDfn",
+            "pretty": "example gadget",
+            "sym": "SPEC_example_concept@2Dgadget"
+          },
+          {
+            "jump": "specs/source#38",
+            "kind": "specDfn",
+            "pretty": "example widget",
+            "sym": "SPEC_example_concept@2Dwidget"
+          },
+          {
+            "jump": "specs/source#40",
+            "kind": "specAlgorithm",
+            "pretty": "example poke",
+            "sym": "SPEC_example_concept@2Dwidget@2Dpoke"
+          },
+          {
+            "jump": "specs/source#41",
+            "kind": "specSection",
+            "pretty": "example Widgets",
+            "sym": "SPEC_example_widgets"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "example assemble",
+          "sym": "SPEC_example_assemble",
+          "type_pretty": null,
+          "kind": "specAlgorithm",
+          "subsystem": null,
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.spec.whatwg.org/#assemble"
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

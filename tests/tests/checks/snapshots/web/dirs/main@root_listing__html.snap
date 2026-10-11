@@ -778,6 +778,20 @@ Spread over multiple lines.
         </tr>
 
         <tr>
+          <td class="name"><a href="/tests/source/spec_citations.cpp" class="mimetype-fixed-container mimetype-icon-cpp">spec_citations.cpp</a></td>
+          <td class="description"><a href="/tests/source/spec_citations.cpp" title=""></td>
+          <td class="size"><a href="/tests/source/spec_citations.cpp">769</a></td>
+          <td class="coverage"><a href="/tests/source/spec_citations.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
+        </tr>
+
+        <tr>
+          <td class="name"><a href="/tests/source/spec_citations.py" class="mimetype-fixed-container mimetype-icon-py">spec_citations.py</a></td>
+          <td class="description"><a href="/tests/source/spec_citations.py" title=""></td>
+          <td class="size"><a href="/tests/source/spec_citations.py">420</a></td>
+          <td class="coverage"><a href="/tests/source/spec_citations.py" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
+        </tr>
+
+        <tr>
           <td class="name"><a href="/tests/source/specs" class="mimetype-fixed-container mimetype-icon-folder">specs</a></td>
           <td class="description"><a href="/tests/source/specs" title=""></td>
           <td class="size"><a href="/tests/source/specs"></a></td>
