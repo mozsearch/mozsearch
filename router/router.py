@@ -396,7 +396,10 @@ class SearchResults(object):
         line_hash = {}
 
         result = collections.OrderedDict()
-        for pathkind in self.path_precedences:
+        # (Then linked trees' results; see `crossrefs.lookup_linked`.)
+        linked = sorted(k for k in self.compiled if k not in self.path_precedences)
+        for pathkind in self.path_precedences + linked:
+            tree = pathkind[len('tree:'):] if pathkind.startswith('tree:') else None
             for qkind in self.compiled.get(pathkind, []):
                 paths = list(self.compiled[pathkind][qkind].keys())
                 paths.sort()
@@ -407,7 +410,7 @@ class SearchResults(object):
                     lines_out = []
                     for line in lines:
                         lno = line['lno']
-                        key = (path, lno)
+                        key = (tree, path, lno)
                         if key in line_hash:
                             continue
                         line_hash[key] = True
@@ -428,7 +431,10 @@ class SearchResults(object):
 
                     if lines_out or qkind == 'Files':
                         l = result.setdefault(pathkind, collections.OrderedDict()).setdefault(qkind, [])
-                        l.append({'path': path, 'lines': lines_out, 'path_kind': pathkind})
+                        entry = {'path': path, 'lines': lines_out, 'path_kind': pathkind}
+                        if tree:
+                            entry['tree'] = tree
+                        l.append(entry)
                     if count == self.max_count:
                         break
                 if count == self.max_count:

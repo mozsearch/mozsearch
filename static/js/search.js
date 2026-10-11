@@ -1316,8 +1316,10 @@ function populateResults(data, full, jumpToSingle) {
 
   window.scrollTo(0, 0);
 
-  function makeURL(path) {
-    return "/" + Dxr.tree + "/source/" + encodeURI(path);
+  // (A linked tree's results are in its files; see router/crossrefs.py's
+  // `lookup_linked`.)
+  function makeURL(path, tree) {
+    return "/" + (tree || Dxr.tree) + "/source/" + encodeURI(path);
   }
 
   function makeSearchUrl(q) {
@@ -1392,7 +1394,7 @@ function populateResults(data, full, jumpToSingle) {
 
       var elt = elts[i];
       pathSoFar += elt;
-      html += "<a href='" + makeURL(pathSoFar) + "'>" + elt + "</a>";
+      html += "<a href='" + makeURL(pathSoFar, fileResult.tree) + "'>" + elt + "</a>";
       pathSoFar += "/";
     }
 
@@ -1421,13 +1423,13 @@ function populateResults(data, full, jumpToSingle) {
     html += "<tr class='" + klass + "'>";
     html +=
       "<td class='left-column'><a href='" +
-      makeURL(file.path) +
+      makeURL(file.path, file.tree) +
       "#" +
       line.lno +
       "'>" +
       line.lno +
       "</a></td>";
-    html += "<td><a href='" + makeURL(file.path) + "#" + line.lno + "'>";
+    html += "<td><a href='" + makeURL(file.path, file.tree) + "#" + line.lno + "'>";
 
     html += "<code>";
     // in the context cases, we may only have an after.
@@ -1529,9 +1531,9 @@ function populateResults(data, full, jumpToSingle) {
       // If there was only a "file" response just act like we clicked on the
       // file def by using a line number of 1.
       var lno = line?.lno || 1;
-      window.location = `/${Dxr.tree}/source/${path}#${lno}`;
+      window.location = `${makeURL(path, file.tree)}#${lno}`;
     } else {
-      window.location = `/${Dxr.tree}/source/${path}`;
+      window.location = makeURL(path, file.tree);
     }
     return;
   }
@@ -1694,7 +1696,8 @@ function populateResults(data, full, jumpToSingle) {
       if (pathkind.startsWith("*")) {
         continue;
       }
-      var pathkindName = pathkindNames[pathkind];
+      var pathkindName = pathkindNames[pathkind] ||
+        (pathkind.startsWith("tree:") ? `In ${pathkind.slice("tree:".length)}` : undefined);
       if (pathkindName) {
         let pathkindCount = pathkindCounts.get(pathkind);
         if (pathkindCount) {

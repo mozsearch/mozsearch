@@ -8,6 +8,9 @@ import os.path
 from logger import log
 
 repo_data = {}
+# Each tree's `linked_trees`: the trees which also have data for its symbols
+# with the given prefixes (ex: `{"SPEC_": "wubspecs"}`), by prefix.
+linked_trees = {}
 
 def load(config):
     global repo_data
@@ -15,6 +18,7 @@ def load(config):
     for repo_name in config['trees']:
         log('Loading %s', repo_name)
         index_path = config['trees'][repo_name]['index_path']
+        linked_trees[repo_name] = config['trees'][repo_name].get('linked_trees', {})
 
         inline_mm = None
         with open(os.path.join(index_path, 'crossref')) as f:
@@ -171,6 +175,40 @@ def lookup_raw(tree_name, sym):
     result = json.loads(data)
     return without_unused_fields(result)
 
+def is_path_results(value):
+    return isinstance(value, list) and all(
+        isinstance(p, dict) and 'path' in p and 'lines' in p for p in value)
+
+def lookup_linked(tree_name, sym, result):
+    '''
+    Add the data of the trees linked to `tree_name` for `sym` (its
+    `linked_trees`, by symbol prefix, ex: firefox-disco's `SPEC_` symbols'
+    definitions in wubspecs, or wubspecs' citations in firefox-disco) to
+    `result` (or return theirs, if `result` is None): their path results, in a
+    `tree:<tree>` path kind, with their `tree` (so the search results have them
+    in their own section, linking to that tree's files), and their `meta`, if
+    `result` has none.
+    '''
+    for (prefix, other) in linked_trees.get(tree_name, {}).items():
+        if not sym.startswith(prefix) or other not in repo_data:
+            continue
+        other_result = lookup_raw(other, sym)
+        if not other_result:
+            continue
+        if result is None:
+            result = {}
+        for (k, v) in other_result.items():
+            if k == 'meta':
+                result.setdefault('meta', v)
+                continue
+            if not is_path_results(v):
+                continue
+            for pathr in v:
+                pathr['path_kind'] = 'tree:' + other
+                pathr['tree'] = other
+            result[k] = result.get(k, []) + v
+    return result
+
 def lookup_merging(tree_name, symbols):
     '''
     Split `symbols` on commas, and lookup all of the requested symbols, merging
@@ -180,7 +218,7 @@ def lookup_merging(tree_name, symbols):
 
     results = {}
     for symbol in symbols:
-        result = lookup_raw(tree_name, symbol)
+        result = lookup_linked(tree_name, symbol, lookup_raw(tree_name, symbol))
         if result is None:
             # we used to bail here, but it turns out this is actually a real
             # correctness problem when searching for XPIDL JS methods that don't
@@ -199,7 +237,7 @@ def lookup_merging(tree_name, symbols):
 
 def lookup_single_symbol(tree_name, symbol):
     '''
-    Look up a single symbol, returning its results dict if it existed or None
-    if it didn't exist.
+    Look up a single symbol (with its linked trees' data; see `lookup_linked`),
+    returning its results dict if it existed or None if it didn't exist.
     '''
-    return lookup_raw(tree_name, symbol)
+    return lookup_linked(tree_name, symbol, lookup_raw(tree_name, symbol))

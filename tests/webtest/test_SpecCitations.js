@@ -41,3 +41,23 @@ add_task(async function test_citation_in_a_linked_tree() {
     "/searchfox/source/tests/tests/files/spec_citations.cpp",
     "/tests/source/specs/source", "#13");
 });
+
+// Searching a linked tree for a spec's symbol has the tests tree's results
+// (the spec's definition and uses) in their own section, linking to its files.
+add_task(async function test_linked_search_results() {
+  await TestUtils.loadPath(
+    "/searchfox/search?q=symbol:SPEC_example_concept@2Dwidget@2Dpoke&redirect=false");
+  TestUtils.shortenSearchTimeouts();
+
+  const content = frame.contentDocument.querySelector("#content");
+  await waitForCondition(
+    () => content.textContent.includes("In tests"),
+    "The tests tree's results have their own section"
+  );
+
+  const links = [...content.querySelectorAll("a")].map(a => new URL(a.href).pathname + new URL(a.href).hash);
+  ok(links.includes("/tests/source/specs/source#13"),
+     "The linked tree's definition links to its file");
+  ok(links.some(link => link.startsWith("/searchfox/source/tests/tests/files/spec_citations.cpp#")),
+     "The tree's own citations link to its files");
+});
