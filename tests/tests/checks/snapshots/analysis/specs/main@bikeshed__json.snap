@@ -383,5 +383,55 @@ input_file: inputs/analysis/specs/bikeshed__json
     "kind": "specSection",
     "implKind": "spec",
     "rendered": "https://example.github.io/bs/#gizmos"
+  },
+  {
+    "loc": "00043:3-13",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplebs Properties",
+    "sym": "SPEC_examplebs_properties"
+  },
+  {
+    "loc": "00043:3-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs Properties",
+    "sym": "SPEC_examplebs_properties",
+    "context": "Properties",
+    "contextsym": "SPEC_examplebs_properties"
+  },
+  {
+    "loc": "00043:3-13",
+    "structured": 1,
+    "pretty": "examplebs Properties",
+    "sym": "SPEC_examplebs_properties",
+    "kind": "specSection",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/bs/#properties"
+  },
+  {
+    "loc": "00046:6-18",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "property examplebs widget-color",
+    "sym": "SPEC_examplebs_propdef@2Dwidget@2Dcolor"
+  },
+  {
+    "loc": "00046:6-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs widget-color",
+    "sym": "SPEC_examplebs_propdef@2Dwidget@2Dcolor",
+    "context": "Properties",
+    "contextsym": "SPEC_examplebs_properties"
+  },
+  {
+    "loc": "00046:6-18",
+    "structured": 1,
+    "pretty": "examplebs widget-color",
+    "sym": "SPEC_examplebs_propdef@2Dwidget@2Dcolor",
+    "kind": "cssProperty",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/bs/#propdef-widget-color"
   }
 ]

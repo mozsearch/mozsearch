@@ -46,6 +46,13 @@ input_file: inputs/blame/syntax-token-tokenize/specs__example_bs__tokenize_outli
         "isDef": true,
         "kind": "section"
       }
+    },
+    {
+      "value": {
+        "pretty": "Widgets::Properties",
+        "isDef": true,
+        "kind": "section"
+      }
     }
   ]
 }

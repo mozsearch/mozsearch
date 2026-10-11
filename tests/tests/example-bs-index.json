@@ -124,6 +124,20 @@
    "noexport": true,
    "text": "wind",
    "idl": false
+  },
+  {
+   "line": 46,
+   "col": 7,
+   "id": "propdef-widget-color",
+   "type": "property",
+   "for": [],
+   "lt": [
+    "widget-color"
+   ],
+   "export": true,
+   "noexport": false,
+   "text": "widget-color",
+   "idl": true
   }
  ],
  "links": [
@@ -304,6 +318,114 @@
    "syntax": "[=widget=]",
    "text": "widget",
    "idl": false
+  },
+  {
+   "line": 47,
+   "col": 1,
+   "href": "https://www.w3.org/TR/css-values/#value-defs",
+   "type": null,
+   "for": [],
+   "lt": null,
+   "spec": null,
+   "syntax": null,
+   "text": "Value:",
+   "idl": true
+  },
+  {
+   "line": 47,
+   "col": 9,
+   "href": "https://drafts.csswg.org/css-color-5/#typedef-color",
+   "type": "type",
+   "for": [],
+   "lt": "<color>",
+   "spec": null,
+   "syntax": "<<color>>",
+   "text": "<color>",
+   "idl": true
+  },
+  {
+   "line": 48,
+   "col": 1,
+   "href": "https://www.w3.org/TR/css-cascade/#initial-values",
+   "type": null,
+   "for": [],
+   "lt": null,
+   "spec": null,
+   "syntax": null,
+   "text": "Initial:",
+   "idl": true
+  },
+  {
+   "line": 49,
+   "col": 1,
+   "href": "https://www.w3.org/TR/css-cascade/#applies-to",
+   "type": null,
+   "for": [],
+   "lt": null,
+   "spec": null,
+   "syntax": null,
+   "text": "Applies to:",
+   "idl": true
+  },
+  {
+   "line": 49,
+   "col": 13,
+   "href": "https://www.w3.org/TR/css-pseudo/#generated-content",
+   "type": null,
+   "for": [],
+   "lt": null,
+   "spec": null,
+   "syntax": null,
+   "text": "all elements",
+   "idl": true
+  },
+  {
+   "line": 50,
+   "col": 1,
+   "href": "https://www.w3.org/TR/css-cascade/#inherited-property",
+   "type": null,
+   "for": [],
+   "lt": null,
+   "spec": null,
+   "syntax": null,
+   "text": "Inherited:",
+   "idl": true
+  },
+  {
+   "line": 51,
+   "col": 1,
+   "href": "https://www.w3.org/TR/css-values/#percentages",
+   "type": null,
+   "for": [],
+   "lt": null,
+   "spec": null,
+   "syntax": null,
+   "text": "Percentages:",
+   "idl": true
+  },
+  {
+   "line": 52,
+   "col": 1,
+   "href": "https://www.w3.org/TR/css-cascade/#computed",
+   "type": null,
+   "for": [],
+   "lt": null,
+   "spec": null,
+   "syntax": null,
+   "text": "Computed value:",
+   "idl": true
+  },
+  {
+   "line": 53,
+   "col": 1,
+   "href": "https://www.w3.org/TR/web-animations/#animation-type",
+   "type": null,
+   "for": [],
+   "lt": null,
+   "spec": null,
+   "syntax": null,
+   "text": "Animation type:",
+   "idl": true
   }
  ],
  "headings": [
@@ -334,6 +456,13 @@
    "id": "gizmos",
    "level": 3,
    "text": "Gizmos"
+  },
+  {
+   "line": 43,
+   "col": 1,
+   "id": "properties",
+   "level": 3,
+   "text": "Properties"
   }
  ],
  "algorithms": [

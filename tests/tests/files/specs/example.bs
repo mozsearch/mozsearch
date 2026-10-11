@@ -39,3 +39,16 @@ The {{Gadget/poke()}} method steps are to [=poke=] <{img}> elements.
 <pre class=include>
 path: example-gizmos.md
 </pre>
+
+## Properties ## {#properties}
+
+<pre class=propdef>
+Name: widget-color
+Value: <<color>>
+Initial: black
+Applies to: all elements
+Inherited: no
+Percentages: n/a
+Computed value: as specified
+Animation type: discrete
+</pre>
