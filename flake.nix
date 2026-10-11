@@ -70,6 +70,8 @@
         mozsearch-wasm-css-analyzer = pkgs.callPackage ./nix/mozsearch/wasm-css-analyzer.nix {
           inherit wasm-snip craneLib;
         };
+        # For spec-analyze's Bikeshed specs (`bikeshed index`).
+        mozsearch-bikeshed = pkgs.callPackage ./nix/mozsearch/bikeshed.nix {};
         mozsearch-router = pkgs.callPackage ./nix/mozsearch/router {
           inherit llvmPackages;
         };
@@ -88,6 +90,7 @@
           mozsearch-clang-plugin
           mozsearch-wasm-css-analyzer
           mozsearch-git-command
+          mozsearch-bikeshed
         ];
 
         serverPackages = with pkgs; [
@@ -95,7 +98,7 @@
       in {
         packages = {
           inherit scip-python wasm-snip;
-          inherit mozsearch-git mozsearch-tools mozsearch-clang-plugin mozsearch-wasm-css-analyzer mozsearch-router;
+          inherit mozsearch-git mozsearch-tools mozsearch-clang-plugin mozsearch-wasm-css-analyzer mozsearch-router mozsearch-bikeshed;
 
           indexerPackages = pkgs.symlinkJoin {
             name = "indexerPackages";

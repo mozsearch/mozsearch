@@ -31,52 +31,67 @@ rendered = "https://html.spec.whatwg.org/"
 [[spec]]
 name = "dom"
 url = "https://github.com/whatwg/dom.git"
+format = "bikeshed"
+source = "dom.bs"
 rendered = "https://dom.spec.whatwg.org/"
 
 [[spec]]
 name = "fetch"
 url = "https://github.com/whatwg/fetch.git"
+format = "bikeshed"
+source = "fetch.bs"
 rendered = "https://fetch.spec.whatwg.org/"
 
 [[spec]]
 name = "url"
 url = "https://github.com/whatwg/url.git"
+format = "bikeshed"
+source = "url.bs"
 rendered = "https://url.spec.whatwg.org/"
 
 [[spec]]
 name = "infra"
 url = "https://github.com/whatwg/infra.git"
+format = "bikeshed"
+source = "infra.bs"
 rendered = "https://infra.spec.whatwg.org/"
 
 [[spec]]
 name = "webidl"
 url = "https://github.com/whatwg/webidl.git"
+format = "bikeshed"
 rendered = "https://webidl.spec.whatwg.org/"
 
 [[spec]]
 name = "streams"
 url = "https://github.com/whatwg/streams.git"
+format = "bikeshed"
 rendered = "https://streams.spec.whatwg.org/"
 
 [[spec]]
 name = "service-workers"
 url = "https://github.com/w3c/ServiceWorker.git"
+format = "bikeshed"
 rendered = "https://w3c.github.io/ServiceWorker/"
 
 [[spec]]
 name = "indexeddb"
 url = "https://github.com/w3c/IndexedDB.git"
 shortname = "IndexedDB"
+format = "bikeshed"
 rendered = "https://w3c.github.io/IndexedDB/"
 
 [[spec]]
 name = "storage"
 url = "https://github.com/whatwg/storage.git"
+format = "bikeshed"
+source = "storage.bs"
 rendered = "https://storage.spec.whatwg.org/"
 
 [[spec]]
 name = "fs"
 url = "https://github.com/whatwg/fs.git"
+format = "bikeshed"
 rendered = "https://fs.spec.whatwg.org/"
 
 [[spec]]
