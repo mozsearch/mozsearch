@@ -32,6 +32,12 @@
 //!   generates, aren't in the source);
 //! - `<emu-xref>`s (by `href` or `aoid`), and links.
 //!
+//! References can also be to the definitions of the specs whose "biblios" a
+//! spec loads (`--load-biblio @tc39/ecma262-biblio` in its package.json's
+//! build scripts, as TC39 proposals and ECMA-402 do; see `Biblio`), whose
+//! terms, abstract operations, and productions it autolinks (after its own),
+//! and whose ids its `<emu-xref>`s can be to.
+//!
 //! Records' contexts are their clauses, by their abstract operations' names
 //! or titles, with the algorithm step (as rendered, ex: "ToString step 3.a").
 
@@ -103,6 +109,66 @@ struct Entry {
     /// The id its links go to.
     target: String,
     is_term: bool,
+    /// The biblio it's from (its index among the spec's), if it's not the
+    /// spec's own.
+    biblio: Option<usize>,
+}
+
+/// The ecmarkup biblios that specs load (`--load-biblio <package>`), by the
+/// rendered URLs of the specs they're of.
+const BIBLIO_PACKAGES: &[(&str, &str)] = &[
+    ("@tc39/ecma262-biblio", "https://tc39.es/ecma262/"),
+    ("@tc39/ecma402-biblio", "https://tc39.es/ecma402/"),
+];
+
+/// The rendered URLs of the specs whose biblios a spec's package.json's
+/// scripts load (ex: TC39 proposals' and ECMA-402's ECMA-262's), in
+/// `BIBLIO_PACKAGES`' order (so that the specs they're of can be analyzed
+/// first).  (ecmarkup before 14 had ECMA-262's biblio built in, which
+/// proposals using it, ex: explicit-resource-management, still link to.)
+pub fn loaded_biblios(package_json: &str) -> Vec<&'static str> {
+    let package: serde_json::Value = serde_json::from_str(package_json).unwrap_or_default();
+    let scripts: Vec<&str> = package["scripts"]
+        .as_object()
+        .map_or(vec![], |scripts| scripts.values().filter_map(|s| s.as_str()).collect());
+    let ecmarkup_major = ["devDependencies", "dependencies"]
+        .iter()
+        .find_map(|deps| package[deps]["ecmarkup"].as_str())
+        .and_then(|version| {
+            let version = version.trim_start_matches(|c: char| !c.is_ascii_digit());
+            version.split('.').next()?.parse::<u32>().ok()
+        });
+    BIBLIO_PACKAGES
+        .iter()
+        .enumerate()
+        .filter(|&(i, (package, _))| {
+            scripts.iter().any(|script| {
+                script.contains(&format!("--load-biblio {}", package))
+                    || script.contains(&format!("--load-biblio={}", package))
+            }) || (i == 0 && ecmarkup_major.is_some_and(|major| major < 14))
+        })
+        .map(|(_, &(_, url))| url)
+        .collect()
+}
+
+/// The URLs of the specs whose biblios other specs can load, in the order
+/// they load each other's (ECMA-402 loads ECMA-262's).
+pub fn biblio_urls() -> impl Iterator<Item = &'static str> {
+    BIBLIO_PACKAGES.iter().map(|&(_, url)| url)
+}
+
+/// A spec's definitions, as other specs load them (ecmarkup's "biblio",
+/// ex: `@tc39/ecma262-biblio`): its terms, abstract operations, and
+/// productions (but for those in namespaces, ex: Annex B's), and its ids,
+/// with what they are and their pretty names.
+#[derive(Default)]
+pub struct Biblio {
+    shortname: String,
+    /// (key, id), in document order.
+    terms: Vec<(String, String)>,
+    ops: Vec<(String, String)>,
+    productions: HashMap<String, String>,
+    ids: HashMap<String, (&'static str, String)>,
 }
 
 /// A namespace's definitions (ecmarkup's "biblio" environment records).
@@ -126,10 +192,23 @@ impl Autolinker {
     /// (and, for terms starting with a lowercase letter, their capitalized
     /// forms) and then abstract operations, which take precedence, nearer
     /// namespaces' first.
-    fn new(namespaces: &HashMap<String, Namespace>, ns: &str) -> Autolinker {
+    fn new(namespaces: &HashMap<String, Namespace>, ns: &str, biblios: &[&Biblio]) -> Autolinker {
         let mut words: HashMap<String, Entry> = HashMap::new();
         for is_term in [true, false] {
             let mut seen: HashSet<String> = HashSet::new();
+            let mut add = |key: &str, entry: &Entry| {
+                let mut keys = vec![key.to_string()];
+                if is_term && key.starts_with(|c: char| c.is_ascii_lowercase()) {
+                    let mut chars = key.chars();
+                    let first = chars.next().unwrap().to_ascii_uppercase();
+                    keys.push(std::iter::once(first).chain(chars).collect());
+                }
+                for key in keys {
+                    if seen.insert(key.clone()) {
+                        words.insert(key, entry.clone());
+                    }
+                }
+            };
             let mut current = Some(ns.to_string());
             while let Some(name) = current {
                 let Some(namespace) = namespaces.get(&name) else {
@@ -141,19 +220,21 @@ impl Autolinker {
                     &namespace.ops
                 };
                 for (key, entry) in entries {
-                    let mut keys = vec![key.clone()];
-                    if is_term && key.starts_with(|c: char| c.is_ascii_lowercase()) {
-                        let mut chars = key.chars();
-                        let first = chars.next().unwrap().to_ascii_uppercase();
-                        keys.push(std::iter::once(first).chain(chars).collect());
-                    }
-                    for key in keys {
-                        if seen.insert(key.clone()) {
-                            words.insert(key, entry.clone());
-                        }
-                    }
+                    add(key, entry);
                 }
                 current = namespace.parent.clone();
+            }
+            // (The biblios' definitions are in the outermost scope.)
+            for (i, biblio) in biblios.iter().enumerate() {
+                let entries = if is_term { &biblio.terms } else { &biblio.ops };
+                for (key, id) in entries {
+                    let entry = Entry {
+                        target: id.clone(),
+                        is_term,
+                        biblio: Some(i),
+                    };
+                    add(key, &entry);
+                }
             }
         }
         let mut by_first: HashMap<char, Vec<(Vec<char>, Entry)>> = HashMap::new();
@@ -425,6 +506,8 @@ pub struct Stats {
     pub xrefs: usize,
     pub unresolved: usize,
     pub nonterminals: usize,
+    /// References to the definitions of the biblios the spec loads.
+    pub biblio_references: usize,
 }
 
 struct Clause {
@@ -474,8 +557,8 @@ struct Pending {
 /// `config`'s specs.
 pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>, Stats) {
     let lines = Lines::new(src);
-    let (mut files, stats) =
-        analyze_placed(src, shortname, config, 1, &|range: &Range<usize>| {
+    let (mut files, stats, _) =
+        analyze_placed(src, shortname, config, &[], 1, &|range: &Range<usize>| {
             Some((0, lines.location(range)))
         });
     (files.pop().unwrap_or_default(), stats)
@@ -501,34 +584,39 @@ fn imports(path: &str, source: &str) -> Vec<(Range<usize>, String)> {
 
 /// The records of an ecmarkup spec's source at `main` (a path in the tree,
 /// which `read` reads) and of the files it imports, by their paths, as
-/// ecmarkup builds the spec from them.
+/// ecmarkup builds the spec from them with the `biblios` it loads, and the
+/// spec's own biblio.
 pub fn analyze_with_imports(
     main: &str,
     read: &dyn Fn(&str) -> Option<String>,
     shortname: &str,
     config: &SpecsConfig,
-) -> Option<(Vec<(String, Vec<Record>)>, Stats)> {
+    biblios: &[&Biblio],
+) -> Option<(Vec<(String, Vec<Record>)>, Stats, Biblio)> {
     let combined = Combined::build(main, read, &imports)?;
-    let (files, stats) = analyze_placed(
+    let (files, stats, biblio) = analyze_placed(
         &combined.text,
         shortname,
         config,
+        biblios,
         combined.paths().count(),
         &|range: &Range<usize>| combined.place(range),
     );
     let paths = combined.paths().map(str::to_string);
-    Some((paths.zip(files).collect(), stats))
+    Some((paths.zip(files).collect(), stats, biblio))
 }
 
-/// The records of an ecmarkup source, for each of the `files` its text is
-/// from, by where `place` says its ranges are.
+/// The records of an ecmarkup source with the `biblios` it loads, for each
+/// of the `files` its text is from, by where `place` says its ranges are,
+/// and its own biblio.
 fn analyze_placed(
     src: &str,
     shortname: &str,
     config: &SpecsConfig,
+    biblios: &[&Biblio],
     files: usize,
     place: &dyn Fn(&Range<usize>) -> Option<(usize, Location)>,
-) -> (Vec<Vec<Record>>, Stats) {
+) -> (Vec<Vec<Record>>, Stats, Biblio) {
     let doc = Doc::parse(src);
     let n = doc.nodes.len();
     let mut stats = Stats::default();
@@ -649,6 +737,7 @@ fn analyze_placed(
                     Entry {
                         target: clause.id.clone(),
                         is_term: false,
+                        biblio: None,
                     },
                 ));
             }
@@ -689,6 +778,7 @@ fn analyze_placed(
                 let entry = Entry {
                     target: id.unwrap_or_else(|| clause.id.clone()),
                     is_term: true,
+                    biblio: None,
                 };
                 let mut keys = vec![term];
                 if let Some(variants) = doc.attr(node, "variants") {
@@ -727,6 +817,7 @@ fn analyze_placed(
                             Entry {
                                 target,
                                 is_term: false,
+                                biblio: None,
                             },
                         ));
                     }
@@ -773,6 +864,7 @@ fn analyze_placed(
                                 Entry {
                                     target,
                                     is_term: false,
+                                    biblio: None,
                                 },
                             ));
                         }
@@ -815,16 +907,22 @@ fn analyze_placed(
         defs.insert(id.clone(), ("production", format!("{} {}", shortname, name)));
         production_defs.push((range.clone(), id));
     }
-    let production = |ns: &str, name: &str| -> Option<String> {
+    // (A production's anchor, and the biblio it's from, if it's not ours.)
+    let production = |ns: &str, name: &str| -> Option<(Option<usize>, String)> {
         let mut current = Some(ns.to_string());
         while let Some(ns) = current {
-            let namespace = namespaces.get(&ns)?;
+            let Some(namespace) = namespaces.get(&ns) else {
+                break;
+            };
             if let Some(id) = namespace.productions.get(name) {
-                return Some(id.clone());
+                return Some((None, id.clone()));
             }
             current = namespace.parent.clone();
         }
-        None
+        biblios
+            .iter()
+            .enumerate()
+            .find_map(|(i, biblio)| Some((Some(i), biblio.productions.get(name)?.clone())))
     };
     let mut ids: HashSet<String> = HashSet::new();
     for node in 1..n {
@@ -885,6 +983,23 @@ fn analyze_placed(
         defs.get(id).map_or(("anchor", format!("{} #{}", shortname, id)), |(what, pretty)| {
             (*what, pretty.clone())
         })
+    };
+    // A reference's symbol, what it is, and its pretty name, given its
+    // anchor and the biblio it's from, if it's not ours.
+    let referent = |biblio: Option<usize>, id: &str| -> (String, &'static str, String) {
+        match biblio {
+            None => {
+                let (what, pretty) = pretty_of(id);
+                (spec_symbol(shortname, id), what, pretty)
+            }
+            Some(i) => {
+                let biblio = biblios[i];
+                let (what, pretty) = biblio.ids.get(id).cloned().unwrap_or_else(|| {
+                    ("anchor", format!("{} #{}", biblio.shortname, id))
+                });
+                (spec_symbol(&biblio.shortname, id), what, pretty)
+            }
+        }
     };
 
     // Definitions.
@@ -1005,7 +1120,7 @@ fn analyze_placed(
         let ns = namespace_of(node);
         let autolinker = autolinkers
             .entry(ns.clone())
-            .or_insert_with(|| Autolinker::new(&namespaces, &ns));
+            .or_insert_with(|| Autolinker::new(&namespaces, &ns, biblios));
         let chars: Vec<(usize, char)> = text.char_indices().collect();
         let char_text: Vec<char> = chars.iter().map(|&(_, c)| c).collect();
         let byte = |i: usize| -> usize {
@@ -1039,12 +1154,13 @@ fn analyze_placed(
             if let Emd::NonTerminal(name) = kind {
                 stats.nonterminals += 1;
                 match production(&ns, &name) {
-                    Some(id) => {
-                        let (what, pretty) = pretty_of(&id);
+                    Some((biblio, id)) => {
+                        stats.biblio_references += biblio.is_some() as usize;
+                        let (sym, what, pretty) = referent(biblio, &id);
                         pending.push(Pending {
                             range: byte(span.start + 1)..byte(span.start + 1 + name.chars().count()),
                             def: false,
-                            sym: spec_symbol(shortname, &id),
+                            sym,
                             what,
                             pretty,
                         });
@@ -1074,15 +1190,19 @@ fn analyze_placed(
         segments.push(at..char_text.len());
         for segment in segments {
             for (link, entry) in autolinker.links(&char_text[segment.clone()]) {
-                if !in_alg[node] && current_id.as_deref() == Some(entry.target.as_str()) {
+                if !in_alg[node]
+                    && entry.biblio.is_none()
+                    && current_id.as_deref() == Some(entry.target.as_str())
+                {
                     continue;
                 }
                 stats.autolinks += 1;
-                let (what, pretty) = pretty_of(&entry.target);
+                stats.biblio_references += entry.biblio.is_some() as usize;
+                let (sym, what, pretty) = referent(entry.biblio, &entry.target);
                 pending.push(Pending {
                     range: byte(segment.start + link.start)..byte(segment.start + link.end),
                     def: false,
-                    sym: spec_symbol(shortname, &entry.target),
+                    sym,
                     what,
                     pretty,
                 });
@@ -1120,12 +1240,13 @@ fn analyze_placed(
             {
                 continue;
             }
-            if let Some(id) = production(&ns, m.as_str()) {
-                let (what, pretty) = pretty_of(&id);
+            if let Some((biblio, id)) = production(&ns, m.as_str()) {
+                stats.biblio_references += biblio.is_some() as usize;
+                let (sym, what, pretty) = referent(biblio, &id);
                 pending.push(Pending {
                     range,
                     def: false,
-                    sym: spec_symbol(shortname, &id),
+                    sym,
                     what,
                     pretty,
                 });
@@ -1140,49 +1261,62 @@ fn analyze_placed(
                     continue;
                 };
                 stats.nonterminals += 1;
-                let Some(id) = production(&namespace_of(node), &name) else {
+                let Some((biblio, id)) = production(&namespace_of(node), &name) else {
                     stats.unresolved += 1;
                     continue;
                 };
-                let (what, pretty) = pretty_of(&id);
+                stats.biblio_references += biblio.is_some() as usize;
+                let (sym, what, pretty) = referent(biblio, &id);
                 pending.push(Pending {
                     range: doc.items[doc.nodes[node].item].range().clone(),
                     def: false,
-                    sym: spec_symbol(shortname, &id),
+                    sym,
                     what,
                     pretty,
                 });
             }
             Some("emu-xref") => {
                 stats.xrefs += 1;
+                // (Ours, or else the biblios'.)
                 let target = if let Some(href) = doc.attr(node, "href") {
-                    href.strip_prefix('#')
-                        .filter(|id| ids.contains(*id))
-                        .map(str::to_string)
+                    href.strip_prefix('#').and_then(|id| {
+                        if ids.contains(id) {
+                            return Some((None, id.to_string()));
+                        }
+                        let i = biblios.iter().position(|b| b.ids.contains_key(id))?;
+                        Some((Some(i), id.to_string()))
+                    })
                 } else if let Some(aoid) = doc.attr(node, "aoid") {
                     namespaces[""]
                         .ops
                         .iter()
                         .find(|(key, _)| *key == aoid)
-                        .map(|(_, entry)| entry.target.clone())
+                        .map(|(_, entry)| (None, entry.target.clone()))
+                        .or_else(|| {
+                            biblios.iter().enumerate().find_map(|(i, biblio)| {
+                                let (_, id) = biblio.ops.iter().find(|(key, _)| *key == aoid)?;
+                                Some((Some(i), id.clone()))
+                            })
+                        })
                 } else {
                     None
                 };
-                let Some(target) = target else {
+                let Some((biblio, target)) = target else {
                     stats.unresolved += 1;
                     continue;
                 };
+                stats.biblio_references += biblio.is_some() as usize;
                 let range = doc.content_range(node);
                 let range = if src[range.clone()].trim().is_empty() {
                     doc.items[doc.nodes[node].item].range().clone()
                 } else {
                     range
                 };
-                let (what, pretty) = pretty_of(&target);
+                let (sym, what, pretty) = referent(biblio, &target);
                 pending.push(Pending {
                     range,
                     def: false,
-                    sym: spec_symbol(shortname, &target),
+                    sym,
                     what,
                     pretty,
                 });
@@ -1270,7 +1404,27 @@ fn analyze_placed(
     for records in &mut per_file {
         sort_records(records);
     }
-    (per_file, stats)
+
+    // Our biblio: the root namespace's definitions, and our ids.
+    let root = &namespaces[""];
+    let own = |entries: &Vec<(String, Entry)>| -> Vec<(String, String)> {
+        entries
+            .iter()
+            .filter(|(_, entry)| entry.biblio.is_none())
+            .map(|(key, entry)| (key.clone(), entry.target.clone()))
+            .collect()
+    };
+    let biblio = Biblio {
+        shortname: shortname.to_string(),
+        terms: own(&root.terms),
+        ops: own(&root.ops),
+        productions: root.productions.clone(),
+        ids: ids
+            .iter()
+            .map(|id| (id.clone(), pretty_of(id)))
+            .collect(),
+    };
+    (per_file, stats, biblio)
 }
 
 #[cfg(test)]
@@ -1329,6 +1483,67 @@ mod tests {
     }
 
     #[test]
+    fn test_biblios() {
+        // (A proposal that loads ECMA-262's biblio, which its references link
+        // to, after its own definitions.)
+        let es = r##"<emu-clause id="sec-terms">
+  <h1>Terms</h1>
+  <p>A <dfn id="realm">realm</dfn> is a place.</p>
+  <emu-grammar type="definition">
+    Statement : `;`
+  </emu-grammar>
+</emu-clause>
+<emu-clause id="sec-tostring" type="abstract operation">
+  <h1>ToString ( _argument_ )</h1>
+  <dl class="header"></dl>
+</emu-clause>
+<emu-clause id="sec-frob" aoid="Frob"><h1>Frob ( )</h1></emu-clause>
+"##;
+        let proposal = r##"<emu-clause id="sec-frob" aoid="Frob">
+  <h1>Frob ( )</h1>
+  <emu-alg>
+    1. Let _s_ be ToString(the realm).
+    1. Return Frob() of |Statement|.
+  </emu-alg>
+  <p>See <emu-xref href="#sec-tostring"></emu-xref>.</p>
+</emu-clause>
+"##;
+        let config = SpecsConfig::default();
+        let read = |path: &str| match path {
+            "es/spec.html" => Some(es.to_string()),
+            "p/spec.emu" => Some(proposal.to_string()),
+            _ => None,
+        };
+        let (_, _, es_biblio) =
+            analyze_with_imports("es/spec.html", &read, "es", &config, &[]).unwrap();
+        let (files, stats, _) =
+            analyze_with_imports("p/spec.emu", &read, "p", &config, &[&es_biblio]).unwrap();
+        assert_eq!(
+            summary(&files[0].1),
+            vec![
+                "2:6-14 def SPEC_p_sec@2Dfrob | Frob",
+                "4:18-26 use SPEC_es_sec@2Dtostring | Frob step 1",
+                "4:31-36 use SPEC_es_realm | Frob step 1",
+                "5:14-18 use SPEC_p_sec@2Dfrob | Frob step 2",
+                "5:25-34 use SPEC_es_prod@2DStatement | Frob step 2",
+                "7:9-40 use SPEC_es_sec@2Dtostring | Frob",
+            ]
+        );
+        assert_eq!((stats.biblio_references, stats.unresolved), (4, 0));
+        let package = r#"{"scripts": {"build": "ecmarkup --load-biblio @tc39/ecma262-biblio --load-biblio @tc39/ecma402-biblio spec.emu out.html"}}"#;
+        assert_eq!(
+            loaded_biblios(package),
+            vec!["https://tc39.es/ecma262/", "https://tc39.es/ecma402/"]
+        );
+        // (ecmarkup before 14 had ECMA-262's built in.)
+        assert_eq!(
+            loaded_biblios(r#"{"devDependencies": {"ecmarkup": "^12.1.0"}}"#),
+            vec!["https://tc39.es/ecma262/"]
+        );
+        assert!(loaded_biblios(r#"{"devDependencies": {"ecmarkup": "^20.0.0"}}"#).is_empty());
+    }
+
+    #[test]
     fn test_imports() {
         let files: HashMap<&str, &str> = HashMap::from([
             (
@@ -1345,8 +1560,9 @@ mod tests {
             ),
         ]);
         let read = |path: &str| files.get(path).map(|s| s.to_string());
-        let (records, _) =
-            analyze_with_imports("e/spec/index.html", &read, "e", &SpecsConfig::default()).unwrap();
+        let (records, _, _) =
+            analyze_with_imports("e/spec/index.html", &read, "e", &SpecsConfig::default(), &[])
+                .unwrap();
         let summaries: Vec<(String, Vec<String>)> = records
             .iter()
             .map(|(path, records)| (path.clone(), summary(records)))

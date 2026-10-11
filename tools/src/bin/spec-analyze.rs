@@ -9,8 +9,12 @@
 // written to ANALYSIS_ROOT/<path>, or added to its analysis there if it has
 // some (see `semantic_analyzer::merge_records`).  Bikeshed specs are analyzed
 // with `bikeshed index --json` (mozsearch's fork's), from the PATH or
-// $BIKESHED, unless they have an index configured.
+// $BIKESHED, unless they have an index configured.  ecmarkup specs are
+// analyzed with the biblios their package.json's scripts load (see
+// `ecmarkup::Biblio`), so the specs those are of (ECMA-262, and ECMA-402,
+// which loads ECMA-262's) are analyzed first.
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::process::exit;
 use std::time::Instant;
@@ -29,7 +33,19 @@ fn main() {
         eprintln!("spec-analyze: {}", e);
         exit(1);
     });
-    for spec in &config.specs {
+    // (The specs whose biblios others load first, in the order they load
+    // each other's.)
+    let biblio_rank = |spec: &tools::spec_analyze::SpecEntry| {
+        let rendered = spec.rendered.as_deref().unwrap_or_default();
+        ecmarkup::biblio_urls()
+            .position(|url| url == rendered)
+            .unwrap_or(usize::MAX)
+    };
+    let mut specs: Vec<_> = config.specs.iter().collect();
+    specs.sort_by_key(|spec| biblio_rank(spec));
+    // The biblios of the specs whose biblios others load, by their URLs.
+    let mut biblios: HashMap<&str, ecmarkup::Biblio> = HashMap::new();
+    for spec in specs {
         let (Some(format), Some(path)) = (spec.format, spec.source_path()) else {
             continue;
         };
@@ -54,21 +70,41 @@ fn main() {
                 );
             }
             SpecFormat::Ecmarkup => {
-                // (With the files it imports.)
+                // (With the files it imports, and the biblios its
+                // package.json, in its directory or a parent, loads.)
                 let read = |file: &str| std::fs::read_to_string(files_root.join(file)).ok();
-                let Some((files, stats)) =
-                    ecmarkup::analyze_with_imports(&path, &read, spec.shortname(), &config)
-                else {
+                let package_json = Path::new(&path)
+                    .ancestors()
+                    .skip(1)
+                    .filter(|dir| !dir.as_os_str().is_empty())
+                    .find_map(|dir| read(&dir.join("package.json").to_string_lossy()))
+                    .unwrap_or_default();
+                let loaded: Vec<&ecmarkup::Biblio> = ecmarkup::loaded_biblios(&package_json)
+                    .into_iter()
+                    .filter_map(|url| biblios.get(url))
+                    .collect();
+                let Some((files, stats, biblio)) = ecmarkup::analyze_with_imports(
+                    &path,
+                    &read,
+                    spec.shortname(),
+                    &config,
+                    &loaded,
+                ) else {
                     continue;
                 };
+                let loaded_count = loaded.len();
+                if let Some(url) = ecmarkup::biblio_urls().find(|url| spec.rendered.as_deref() == Some(*url)) {
+                    biblios.insert(url, biblio);
+                }
                 let file_count = files.len();
                 for (file, records) in files {
                     write_records(analysis_root, &file, records);
                 }
                 println!(
-                    "{} (and {} imported files): {} clauses, {} abstract operations, {} terms, {} productions, {} autolinks, {} xrefs, {} nonterminals ({} unresolved), in {:.2}s",
+                    "{} (and {} imported files, with {} biblios): {} clauses, {} abstract operations, {} terms, {} productions, {} autolinks, {} xrefs, {} nonterminals ({} unresolved), {} references to the biblios, in {:.2}s",
                     path,
                     file_count - 1,
+                    loaded_count,
                     stats.clauses,
                     stats.operations,
                     stats.terms,
@@ -77,6 +113,7 @@ fn main() {
                     stats.xrefs,
                     stats.nonterminals,
                     stats.unresolved,
+                    stats.biblio_references,
                     started.elapsed().as_secs_f64()
                 );
             }
