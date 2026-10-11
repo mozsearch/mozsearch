@@ -1,10 +1,16 @@
+use std::collections::BTreeMap;
+use std::path::Path;
+
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
-use ustr::Ustr;
+use ustr::{Ustr, ustr};
 
+use crate::abstract_server::Result;
 use crate::utils::OverflowingVec;
 
 use super::analysis::{AnalysisStructured, BindingSlotKind, BindingSlotLang, PathSearchResult};
+use super::bisectable_mmap::BisectableMmap;
+use super::config::TreeConfigPaths;
 use super::crossref::CrossrefData;
 use super::recency::{Recency, RecencyFrom};
 
@@ -56,6 +62,71 @@ pub struct JumprefData {
     pub recency: Option<Recency>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub recency_from: Option<RecencyFrom>,
+    /// The tree whose data this is, if it's another tree's, whose files the
+    /// jumps are to (see `TreeJumprefs`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tree: Option<Ustr>,
+}
+
+/// A tree's jumpref, with its linked trees' (see
+/// `TreeConfigPaths::linked_trees`), whose data a symbol with one of their
+/// prefixes gets instead, if they have it and the tree's own has no jumps (ex:
+/// a web spec's definition, for a Gecko comment's citation of it, but not
+/// for the spec's own tree, whose linked tree only has citations).
+#[derive(Default)]
+pub struct TreeJumprefs {
+    pub own: Option<BisectableMmap<JumprefData>>,
+    /// (prefix, tree, its jumpref)
+    pub linked: Vec<(String, Ustr, BisectableMmap<JumprefData>)>,
+}
+
+impl TreeJumprefs {
+    /// The jumpref of the tree with `paths`, and of its linked trees, by
+    /// their index paths, if they have them.
+    pub fn open(paths: &TreeConfigPaths, tree_index_paths: &BTreeMap<String, String>) -> Self {
+        let open = |index_path: &str| {
+            BisectableMmap::new(
+                &format!("{}/jumpref", index_path),
+                &format!("{}/jumpref-extra", index_path),
+            )
+        };
+        let linked = paths
+            .linked_trees
+            .iter()
+            .filter_map(|(prefix, tree)| {
+                let index_path = tree_index_paths.get(tree)?;
+                // (A linked tree which isn't indexed (yet) has no data.)
+                if !Path::new(&format!("{}/jumpref", index_path)).exists() {
+                    return None;
+                }
+                Some((prefix.clone(), ustr(tree), open(index_path)?))
+            })
+            .collect();
+        TreeJumprefs {
+            own: open(&paths.index_path),
+            linked,
+        }
+    }
+
+    pub fn lookup(&self, sym: &str) -> Result<Option<JumprefData>> {
+        let own = match &self.own {
+            Some(own) => own.lookup(sym)?,
+            None => None,
+        };
+        if own.as_ref().is_some_and(|data| !data.jumps.is_empty()) {
+            return Ok(own);
+        }
+        for (prefix, tree, jumpref) in &self.linked {
+            if sym.starts_with(prefix.as_str())
+                && let Ok(Some(mut data)) = jumpref.lookup(sym)
+                && !data.jumps.is_empty()
+            {
+                data.tree = Some(*tree);
+                return Ok(Some(data));
+            }
+        }
+        Ok(own)
+    }
 }
 
 /// Transform a crossref data that will be written into crossref into the
@@ -85,6 +156,7 @@ pub fn convert_crossref_value_to_sym_info_rep(
             ts_syms: Default::default(),
             recency: None,
             recency_from: None,
+            tree: None,
         };
     };
 
@@ -121,6 +193,7 @@ pub fn convert_crossref_value_to_sym_info_rep(
         ts_syms: cross_val.ts_syms.into(),
         recency: cross_val.recency,
         recency_from: cross_val.recency_from,
+        tree: None,
     }
 }
 

@@ -15,7 +15,8 @@
       "IMPORT": {
         "file": "$MOZSEARCH_PATH/tests/searchfox-config.json",
         "tree_name": "searchfox"
-      }
+      },
+      "linked_trees": { "SPEC_": "tests" }
     },
     "searchfox-line-blame": {
       "IMPORT": {

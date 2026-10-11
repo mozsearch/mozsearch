@@ -1546,10 +1546,13 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           if (!jumpref.jumps) {
             return;
           }
+          // (A linked tree's symbol's jumps are to its files, ex: a web spec's
+          // definition, from a Gecko comment citing it.)
+          const jumpTree = jumpref.tree || tree;
           if (jumpref.jumps.idl && jumpref.jumps.idl !== sourceLineClicked) {
             jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to IDL definition of <strong>_</strong>", pretty),
-              href: `/${tree}/source/${jumpref.jumps.idl}`,
+              href: `/${jumpTree}/source/${jumpref.jumps.idl}`,
               icon: "export-alt",
               section: "jumps",
               confidence,
@@ -1558,7 +1561,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           if (jumpref.jumps.glean && jumpref.jumps.glean !== sourceLineClicked) {
             jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to Glean definition of <strong>_</strong>", pretty),
-              href: `/${tree}/source/${jumpref.jumps.glean}`,
+              href: `/${jumpTree}/source/${jumpref.jumps.glean}`,
               icon: "export-alt",
               section: "jumps",
               confidence,
@@ -1568,7 +1571,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           if (jumpref.jumps.def && jumpref.jumps.def !== sourceLineClicked) {
             jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to definition of <strong>_</strong>", pretty),
-              href: `/${tree}/source/${jumpref.jumps.def}`,
+              href: `/${jumpTree}/source/${jumpref.jumps.def}`,
               icon: "export-alt",
               section: "jumps",
               confidence,
@@ -1578,7 +1581,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           if (jumpref.jumps.decl && jumpref.jumps.decl !== sourceLineClicked) {
             jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to declaration of <strong>_</strong>", pretty),
-              href: `/${tree}/source/${jumpref.jumps.decl}`,
+              href: `/${jumpTree}/source/${jumpref.jumps.decl}`,
               icon: "export",
               section: "jumps",
               confidence,
@@ -1591,7 +1594,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             const isDoc = /\.(md|markdown|rst)#/.test(jumpref.jumps.doc);
             jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to documentation of <strong>_</strong>", pretty),
-              href: `/${tree}/${isDoc ? "rendered" : "source"}/${jumpref.jumps.doc}`,
+              href: `/${jumpTree}/${isDoc ? "rendered" : "source"}/${jumpref.jumps.doc}`,
               icon: "export-alt",
               section: "jumps",
               confidence,
@@ -1634,7 +1637,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           if (jumpref.jumps?.def && jumpref.jumps.def !== sourceLineClicked) {
             menu.push(new GotoMenuItem({
               html: this.fmt("Go to definition of <strong>_</strong>", pretty),
-              href: `/${tree}/source/${jumpref.jumps.def}`,
+              href: `/${jumpref.tree || tree}/source/${jumpref.jumps.def}`,
               icon: "export-alt",
               section: "jumps",
               confidence,

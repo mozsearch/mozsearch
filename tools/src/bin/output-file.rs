@@ -29,7 +29,7 @@ extern crate tools;
 use crate::languages::FormatAs;
 use tools::doc_trees_handler::find_doc_url;
 use tools::file_format::analysis::{read_analysis, read_source};
-use tools::file_format::bisectable_mmap::BisectableMmap;
+use tools::file_format::jumpref::TreeJumprefs;
 use tools::format::{
     create_markdown_panel_section, format_file_data, hyperblame_files, rendered_url,
 };
@@ -101,11 +101,10 @@ fn main() {
     )
     .unwrap();
 
-    let jumpref_path = format!("{}/jumpref", tree_config.paths.index_path);
-    let jumpref_extra_path = format!("{}/jumpref-extra", tree_config.paths.index_path);
-
     let pre_jumpref = Instant::now();
-    let jumpref_lookup_map = BisectableMmap::new(&jumpref_path, &jumpref_extra_path);
+    // (With the linked trees', which were indexed first, for their symbols'
+    // jumps, ex: firefox-disco's citations' of wubspecs' definitions.)
+    let jumprefs = TreeJumprefs::open(&tree_config.paths, &cfg.tree_index_paths);
 
     writeln!(
         stdout,
@@ -591,7 +590,7 @@ fn main() {
             coverage_commit.as_ref(),
             &path,
             input,
-            &jumpref_lookup_map,
+            &jumprefs,
             &analysis,
             &mut writer,
         ) {

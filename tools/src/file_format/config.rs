@@ -128,6 +128,15 @@ pub struct TreeConfigPaths {
     /// that the build script will handle downloading or generating the indexes.
     #[serde(default)]
     pub scip_subtrees: BTreeMap<String, ScipSubtreeConfig>,
+    /// Other trees (on the same server, and indexed earlier in the same
+    /// indexer run) which also have data for the symbols with given prefixes,
+    /// by the prefixes, ex: `{"SPEC_": "wubspecs"}` for firefox-disco, whose
+    /// citations of web specs are uses of the wubspecs tree's specs' symbols.
+    /// Pages' jumps for those symbols are to the linked tree's definitions
+    /// (see `jumpref::TreeJumprefs`), and spec-analyze resolves the tree's
+    /// citations with the linked tree's `specs.toml` (for `SPEC_`).
+    #[serde(default)]
+    pub linked_trees: BTreeMap<String, String>,
 }
 
 impl TreeConfigPaths {
@@ -433,6 +442,9 @@ pub struct Config {
     // FIXME: Move these to TreeConfig.
     pub url_map_path: Option<String>,
     pub doc_trees_path: Option<String>,
+    /// Every configured tree's index path, even when `load` loads only one
+    /// tree (for its `linked_trees`).
+    pub tree_index_paths: BTreeMap<String, String>,
 }
 
 impl Config {
@@ -713,6 +725,11 @@ pub fn load(
     reader.read_to_string(&mut input).unwrap();
     let config: ConfigJson = serde_json::from_str(&input).unwrap();
 
+    let tree_index_paths = config
+        .trees
+        .iter()
+        .map(|(name, paths)| (name.clone(), paths.index_path.clone()))
+        .collect();
     let mut trees = BTreeMap::new();
     for (tree_name, paths) in config.trees {
         if let Some(only_tree_name) = only_tree
@@ -731,6 +748,7 @@ pub fn load(
         config_repo_path: config.config_repo,
         url_map_path,
         doc_trees_path,
+        tree_index_paths,
     }
 }
 

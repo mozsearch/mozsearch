@@ -19,7 +19,7 @@ use crate::file_format::code_coverage_report;
 use crate::file_format::coverage::InterpolatedCoverage;
 use crate::file_format::doc_trees::{DocTrees, read_doc_trees};
 use crate::file_format::jumpref::{
-    JumprefData, JumprefTraversals, determine_desired_extra_syms_from_jumpref,
+    JumprefData, JumprefTraversals, TreeJumprefs, determine_desired_extra_syms_from_jumpref,
     extra_syms_next_step_lookups,
 };
 use crate::file_format::per_file_info::{PathFacetMap, path_facet_map};
@@ -161,7 +161,7 @@ fn split_strings_at_records(
 /// for generating line numbers and any blame information.
 pub fn format_code(
     cfg: Option<&Config>,
-    jumpref_lookup: &Option<BisectableMmap<JumprefData>>,
+    jumpref_lookup: &TreeJumprefs,
     format: FormatAs,
     path: &str,
     input: &str,
@@ -221,12 +221,10 @@ pub fn format_code(
     let mut jumpref_traversed: UstrMap<JumprefTraversals> = UstrMap::default();
 
     // Stuff the file's own info in the symbol info map.
-    if let Some(lookup) = jumpref_lookup {
-        let file_sym = make_file_sym_from_path(path);
-        if let Ok(jumpref) = lookup.lookup(&file_sym) {
-            generated_sym_info.insert(ustr(&file_sym), jumpref);
-            jumpref_traversed.insert(ustr(&file_sym), JumprefTraversals::empty());
-        }
+    let file_sym = make_file_sym_from_path(path);
+    if let Ok(jumpref) = jumpref_lookup.lookup(&file_sym) {
+        generated_sym_info.insert(ustr(&file_sym), jumpref);
+        jumpref_traversed.insert(ustr(&file_sym), JumprefTraversals::empty());
     }
 
     let mut last_pos = 0;
@@ -339,8 +337,7 @@ pub fn format_code(
                         // See bug 2047542 to either use or remove that data.
 
                         if !a.no_crossref
-                            && let Some(lookup) = jumpref_lookup
-                            && let Ok(jumpref) = lookup.lookup(sym)
+                            && let Ok(jumpref) = jumpref_lookup.lookup(sym)
                         {
                             // See if there are any binding slot symbols that we should also
                             // include.  This allows us to do things like, when presenting a
@@ -377,7 +374,8 @@ pub fn format_code(
                                             extra_syms.push((next_sym, next_traversals));
                                         }
                                     }
-                                } else if let Ok(extra_jumpref) = lookup.lookup(&extra_sym) {
+                                } else if let Ok(extra_jumpref) = jumpref_lookup.lookup(&extra_sym)
+                                {
                                     // If there is a next step, process the info for what to contribute
                                     // to extra_syms before we consume the value by storing it.
                                     if !next_step.is_empty() {
@@ -737,7 +735,7 @@ pub fn format_file_data(
     coverage_commit: Option<&git2::Commit>,
     path: &str,
     data: String,
-    jumpref_lookup: &Option<BisectableMmap<JumprefData>>,
+    jumpref_lookup: &TreeJumprefs,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
     writer: &mut dyn Write,
 ) -> Result<FormattedFile, &'static str> {
@@ -2441,7 +2439,7 @@ fn format_blob(
         coverage_commit.as_ref(),
         path,
         data,
-        &None,
+        &TreeJumprefs::default(),
         &analysis,
         writer,
     )?;
@@ -2857,7 +2855,7 @@ fn write_diff_rows(
     let format = languages::select_formatting(path);
     let analysis = Vec::new();
     let slug = format_to_slug_attribute(&format);
-    let (formatted_lines, _) = format_code(Some(cfg), &None, format, path, new_lines, &analysis);
+    let (formatted_lines, _) = format_code(Some(cfg), &TreeJumprefs::default(), format, path, new_lines, &analysis);
 
     let f = F::Seq(vec![F::T(format!(
         "<div id=\"file\" class=\"file\" role=\"table\"{}>",
@@ -3544,7 +3542,7 @@ fn interdiff_excerpts<'f>(
         return Ok((String::new(), 0));
     }
     let max_rows = max_rows.min(MAX_EXCERPT_ROWS);
-    let (formatted_lines, _) = format_code(Some(cfg), &None, format, path, &new_lines, &[]);
+    let (formatted_lines, _) = format_code(Some(cfg), &TreeJumprefs::default(), format, path, &new_lines, &[]);
 
     /// A row of the excerpts (a row of B's diff, or one of A's lines), with
     /// its context and the context of its first difference.

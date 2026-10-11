@@ -29,7 +29,7 @@ use crate::file_format::config::{TreeConfig, TreeConfigPaths, git_data, load};
 use crate::file_format::crossref::CrossrefData;
 use crate::file_format::history::timeline_common::JournalVersionRef;
 use crate::file_format::identifiers::IdentMap;
-use crate::file_format::jumpref::JumprefData;
+use crate::file_format::jumpref::{JumprefData, TreeJumprefs};
 use crate::file_format::per_file_info::FileLookupMap;
 use crate::file_format::recency::FileRecency;
 use crate::file_format::repo_data_ingestion::RepoIngestionConfig;
@@ -148,6 +148,8 @@ pub struct LocalIndex {
     // already done in `build-blame.rs` for its compute threads and that's
     // likely the model we should use.
     config_paths: TreeConfigPaths,
+    /// Every configured tree's index path, for the tree's `linked_trees`.
+    tree_index_paths: BTreeMap<String, String>,
     config_repo_path: String,
     tree_name: String,
     // Note: IdentMap internally handles the identifiers db not existing
@@ -338,14 +340,12 @@ impl AbstractServer for LocalIndex {
             self.translate_path(SearchfoxIndexRoot::CompressedAnalysis, norm_path)?;
         let analysis = read_analyses(&[analysis_path], &mut read_source);
 
-        let jumpref_path = format!("{}/jumpref", self.config_paths.index_path);
-        let jumpref_extra_path = format!("{}/jumpref-extra", self.config_paths.index_path);
-
-        let jumpref_lookup_map = BisectableMmap::new(&jumpref_path, &jumpref_extra_path);
+        // (With the linked trees', for their symbols' jumps.)
+        let jumprefs = TreeJumprefs::open(&self.config_paths, &self.tree_index_paths);
 
         let (raw_lines, sym_json) = format_code(
             None,
-            &jumpref_lookup_map,
+            &jumprefs,
             select_formatting(sf_path),
             sf_path,
             source.as_str(),
@@ -636,6 +636,7 @@ fn fab_server(
     tree_config: TreeConfig,
     tree_name: &str,
     config_repo_path: &str,
+    tree_index_paths: &BTreeMap<String, String>,
     per_file_info_toml: Option<String>,
 ) -> Result<Box<dyn AbstractServer + Send + Sync>> {
     let path_kinds = per_file_info_toml
@@ -702,6 +703,7 @@ fn fab_server(
     Ok(Box::new(LocalIndex {
         // We don't need the blame and hg maps (yet)
         config_paths: tree_config.paths,
+        tree_index_paths: tree_index_paths.clone(),
         config_repo_path: config_repo_path.to_string(),
         tree_name: tree_name.to_string(),
         ident_map,
@@ -736,6 +738,7 @@ pub fn make_local_server(
         tree_config,
         tree_name,
         &config.config_repo_path,
+        &config.tree_index_paths,
         per_file_info_toml,
     )
 }
@@ -754,6 +757,7 @@ pub fn make_all_local_servers(
             tree_config,
             &tree_name,
             &config.config_repo_path,
+            &config.tree_index_paths,
             per_file_info_toml.clone(),
         )?;
         servers.insert(tree_name, server);
