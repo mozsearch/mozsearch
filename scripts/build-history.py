@@ -34,7 +34,9 @@ BLAME_REF (as for the tools; HEAD if unset), and rev-summaries/.  Arguments
 after HISTORY_ROOT are passed to build-syntax-token-tree (ex: the history
 configuration directory and old revision options).  Other environment
 variables (ex: CINNABAR, NOTES_REF) are passed to the tools, except that
-COMMIT_LIMIT limits how many revisions each tool processes in total.
+COMMIT_LIMIT limits how many revisions each tool processes in total, and the
+tools get glibc malloc's transparent huge pages unless GLIBC_TUNABLES is set
+(see TOOLS_GLIBC_TUNABLES).
 
 Sending this process SIGUSR1 restarts it in place (as the same process, so
 whatever is waiting for it keeps waiting): the tools stop after the revision
@@ -633,13 +635,28 @@ def terminate_running():
             proc.terminate()
 
 
+# The tools' glibc tunables, unless GLIBC_TUNABLES is set: transparent huge
+# pages for malloc's memory.  glibc maps big allocations afresh each time, and
+# the kernel then faults them in a page at a time, which with the HTML
+# Standard's ~90 MiB token files, rebuilt from their deltas several times per
+# revision, was 62% of the wubspecs reblame's timeline's time, with its 16
+# compute threads taking turns on the process's memory map lock.  With huge
+# pages, its timeline went from 42-54 revisions a minute to 65-72.  On 4,000
+# recent revisions of the 2-year firefox history, the timeline went from
+# 1,026-1,030 a minute to 1,053-1,096 and the syntax from 403 to 407, with the
+# same output and within 2% of the memory.
+TOOLS_GLIBC_TUNABLES = "glibc.malloc.hugetlb=1"
+
+
 def run_tool(command, limit, progress, during=lambda: None, env=None):
     """Run a tool with COMMIT_LIMIT (and `env`), passing its log through, and
     calling `during` every minute while it runs.  Returns whether it ended
     early with revisions left (see ENDED_EARLY_EXIT_CODE)."""
+    tool_env = dict(os.environ, **(env or {}), COMMIT_LIMIT=str(limit))
+    tool_env.setdefault("GLIBC_TUNABLES", TOOLS_GLIBC_TUNABLES)
     proc = subprocess.Popen(
         command,
-        env=dict(os.environ, **(env or {}), COMMIT_LIMIT=str(limit)),
+        env=tool_env,
         stderr=subprocess.PIPE,
     )
     with RUNNING_LOCK:
