@@ -446,6 +446,25 @@ nsNode::Do()
     }
 
     #[test]
+    fn test_example_spec_citation() {
+        // (Its citation of the example spec's poke algorithm is also the
+        // webtest's searchfox tree's implementation of it, in the tree's
+        // diagrams with the linked tests tree's; see
+        // tests/webtest/test_SpecCitations.js.)
+        // https://example.spec.whatwg.org/#concept-widget-poke
+        let config: SpecsConfig = toml::from_str(
+            "[[spec]]\nname = \"example\"\nrendered = \"https://example.spec.whatwg.org/\"\n",
+        )
+        .unwrap();
+        let src = "// https://example.spec.whatwg.org/multipage/#concept-widget-poke\n";
+        let (records, _) = citation_records(src, &[], &config);
+        assert_eq!(
+            summary(&records),
+            vec!["1:3-65 doc-use SPEC_example_concept@2Dwidget@2Dpoke |  ()"]
+        );
+    }
+
+    #[test]
     fn test_signatures_without_nesting_ranges() {
         // (A return type and a signature on their own lines, before the
         // body's `{`, as in Gecko.)

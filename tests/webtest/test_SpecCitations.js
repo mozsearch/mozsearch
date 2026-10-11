@@ -80,3 +80,25 @@ add_task(async function test_linked_query_results() {
   ok(links.includes("/tests/source/specs/source#13"),
      "The linked tree's definition's line links to its line");
 });
+
+// The calls-to diagram of the example spec's poke algorithm in the searchfox
+// tree has its implementations: the tree's own (citations.rs's test citing
+// it), and the linked tests tree's (spec_citations.cpp's Poke), whose
+// symbol's data is that tree's, with its jumps to its files.
+add_task(async function test_linked_implementations_diagram() {
+  await TestUtils.loadPath(
+    "/searchfox/query/default?q=calls-to-sym:SPEC_example_concept@2Dwidget@2Dpoke%20depth:2");
+
+  const content = frame.contentDocument.body;
+  await waitForCondition(
+    () => content.querySelector("svg") && content.textContent.includes("test_example_spec_citation"),
+    "The diagram has the tree's implementation"
+  );
+  ok(content.textContent.includes("spec_citations::Poke"),
+     "The diagram has the linked tree's implementation");
+
+  const symInfo = frame.contentWindow.SYM_INFO;
+  const linkedSym = "_ZN14spec_citations4PokeERNS_6WidgetE";
+  ok(symInfo[linkedSym], "The linked tree's implementation has symbol info");
+  is(symInfo[linkedSym]?.tree, "tests", "Its jumps are to the linked tree's files");
+});

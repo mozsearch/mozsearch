@@ -463,6 +463,19 @@ impl AbstractServer for LocalIndex {
         result
     }
 
+    async fn linked_crossref_lookup(&self, tree: &str, symbol: &str) -> Result<Option<CrossrefData>> {
+        let Some((_, tree, _, crossref)) =
+            self.linked_crossrefs.iter().find(|(_, t, _, _)| t == tree)
+        else {
+            return Ok(None);
+        };
+        let mut data = crossref.lookup(symbol)?;
+        if let Some(data) = &mut data {
+            data.tag_tree(*tree);
+        }
+        Ok(data)
+    }
+
     async fn file_recency_lookup(&self, path: &str) -> Result<Option<FileRecency>> {
         match &self.file_recency_lookup_map {
             Some(file_recency) => file_recency.lookup(path),

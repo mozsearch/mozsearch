@@ -2479,6 +2479,30 @@ impl SymbolGraphNodeSet {
         Ok(self.add_symbol(DerivedSymbolInfo::new(*sym, info, depth)))
     }
 
+    /// `ensure_symbol`, for a symbol from the linked tree `tree`'s data (ex:
+    /// a hit's context, in a linked tree's results, or a linked tree's
+    /// callee), whose data is that tree's (tagged with it; see
+    /// `AbstractServer::linked_crossref_lookup`) unless the tree has its own
+    /// (ex: a web spec's symbol, whose linked data the tree has too).
+    pub async fn ensure_symbol_from<'a>(
+        &'a mut self,
+        sym: &'a Ustr,
+        tree: Option<Ustr>,
+        server: &'a (dyn AbstractServer + Send + Sync),
+        depth: u32,
+    ) -> Result<(SymbolGraphNodeId, &'a mut DerivedSymbolInfo)> {
+        let Some(tree) = tree.filter(|_| !self.symbol_to_index_map.contains_key(sym)) else {
+            return self.ensure_symbol(sym, server, depth).await;
+        };
+        let own = server.crossref_lookup(sym).await?;
+        let info = if own.as_ref().is_some_and(|data| data.meta.is_some()) {
+            own
+        } else {
+            server.linked_crossref_lookup(&tree, sym).await?
+        };
+        Ok(self.add_symbol(DerivedSymbolInfo::new(*sym, info, depth)))
+    }
+
     /// Destructively return a sorted Object mapping from symbol identifiers to
     /// their jumpref info.  We sort the symbols for stability for testing
     /// purposes and for human readability reasons.  The destruction is that

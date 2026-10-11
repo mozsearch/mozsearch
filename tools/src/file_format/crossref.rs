@@ -92,18 +92,13 @@ impl CrossrefData {
     /// symbol cited in Gecko): its path results, in a `tree:<tree>` path kind
     /// with the `tree` (so they're in their own section, from that tree's
     /// files), and its meta and callees, if this has none.
-    pub fn add_linked(&mut self, linked: CrossrefData, tree: Ustr) {
-        let path_kind = ustr(&format!("tree:{}", tree));
+    pub fn add_linked(&mut self, mut linked: CrossrefData, tree: Ustr) {
+        linked.tag_tree(tree);
         let add = |own: &mut Option<Vec<PathSearchResult>>, theirs: Option<Vec<PathSearchResult>>| {
             let Some(theirs) = theirs else {
                 return;
             };
-            own.get_or_insert_with(Vec::new)
-                .extend(theirs.into_iter().map(|result| PathSearchResult {
-                    path_kind,
-                    tree: Some(tree),
-                    ..result
-                }));
+            own.get_or_insert_with(Vec::new).extend(theirs);
         };
         add(&mut self.uses, linked.uses);
         add(&mut self.definitions, linked.definitions);
@@ -120,15 +115,37 @@ impl CrossrefData {
             self.meta = linked.meta;
         }
         if self.callees.is_none() {
-            self.callees = linked.callees.map(|callees| {
-                callees
-                    .into_iter()
-                    .map(|callee| Callee {
-                        tree: callee.tree.or(Some(tree)),
-                        ..callee
-                    })
-                    .collect()
-            });
+            self.callees = linked.callees;
+        }
+    }
+
+    /// Tag a linked tree's data for a symbol with the tree: its path results,
+    /// in a `tree:<tree>` path kind with the `tree`, and its callees.
+    pub fn tag_tree(&mut self, tree: Ustr) {
+        let path_kind = ustr(&format!("tree:{}", tree));
+        for results in [
+            &mut self.uses,
+            &mut self.definitions,
+            &mut self.assignments,
+            &mut self.declarations,
+            &mut self.forwards,
+            &mut self.idl,
+            &mut self.idl_partial,
+            &mut self.glean,
+            &mut self.aliases,
+            &mut self.doc_defs,
+            &mut self.doc_uses,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            for result in results.iter_mut() {
+                result.path_kind = path_kind;
+                result.tree = Some(tree);
+            }
+        }
+        for callee in self.callees.iter_mut().flatten() {
+            callee.tree = callee.tree.or(Some(tree));
         }
     }
 }

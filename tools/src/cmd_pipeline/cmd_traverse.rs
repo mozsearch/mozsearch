@@ -1215,8 +1215,9 @@ impl PipelineCommand for TraverseCommand {
                         edge_info.push(EdgeDetail::Tree(tree.to_string()));
                     }
 
+                    // (A linked tree's callee is its symbol.)
                     let (target_id, target_info) = sym_node_set
-                        .ensure_symbol(&target.sym, server, next_depth)
+                        .ensure_symbol_from(&target.sym, target.tree, server, next_depth)
                         .await?;
 
                     let target_pretty = match target_info.get_structured().map(|meta| meta.pretty) {
@@ -1283,18 +1284,15 @@ impl PipelineCommand for TraverseCommand {
                     (false, Some(v)) => core::mem::take(v),
                     _ => vec![],
                 };
-                // A callable symbol's citations in the tree's files (ex: a web
-                // spec's algorithm's, by the Gecko functions implementing it)
-                // are implementations of it (see `Callee::implements`).  (But
-                // not a linked tree's, whose symbols this tree doesn't have.)
+                // A callable symbol's citations (ex: a web spec's algorithm's,
+                // by the Gecko functions implementing it, in a linked tree)
+                // are implementations of it (see `Callee::implements`).
                 let implementations: Vec<PathSearchResult> = if sym_info.is_implementable() {
                     sym_info
                         .crossref_info
                         .as_ref()
-                        .and_then(|ci| ci.doc_uses.as_ref())
-                        .map_or(vec![], |hits| {
-                            hits.iter().filter(|hits| hits.tree.is_none()).cloned().collect()
-                        })
+                        .and_then(|ci| ci.doc_uses.clone())
+                        .unwrap_or_default()
                 } else {
                     vec![]
                 };
@@ -1334,6 +1332,8 @@ impl PipelineCommand for TraverseCommand {
                     .chain(implementations.into_iter().map(|hits| (hits, true)));
                 for (path_hits, implements) in uses {
                     let path = path_hits.path;
+                    // (A linked tree's hits' contexts are its symbols.)
+                    let hit_tree = path_hits.tree;
                     let hits = &path_hits.lines;
                     // For now we're just going to use the path limit for this too.
                     //
@@ -1376,7 +1376,7 @@ impl PipelineCommand for TraverseCommand {
                         let source_sym = source.contextsym;
 
                         let (source_id, source_info) = sym_node_set
-                            .ensure_symbol(&source_sym, server, next_depth)
+                            .ensure_symbol_from(&source_sym, hit_tree, server, next_depth)
                             .await?;
 
                         let source_pretty =
@@ -1395,6 +1395,10 @@ impl PipelineCommand for TraverseCommand {
                         // and traversed this edge because we want to merge in edge detail
                         // information.
                         let jump = format!("{}#{}", path, source.lineno);
+                        let mut details = vec![EdgeDetail::Jump(jump)];
+                        if let Some(tree) = hit_tree {
+                            details.push(EdgeDetail::Tree(tree.to_string()));
+                        }
                         sym_edge_set.ensure_edge_in_graph(
                             source_id,
                             sym_id.clone(),
@@ -1403,7 +1407,7 @@ impl PipelineCommand for TraverseCommand {
                             } else {
                                 EdgeKind::Default
                             },
-                            vec![EdgeDetail::Jump(jump)],
+                            details,
                             &mut graph,
                         );
                         if !use_considered.insert(source_info.symbol) {

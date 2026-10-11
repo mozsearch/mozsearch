@@ -198,6 +198,20 @@ pub fn convert_crossref_value_to_sym_info_rep(
         .or(fallback_pretty)
         .unwrap_or(*sym);
 
+    // (The jumps are to a linked tree's files if the definitions are its,
+    // ex: a web spec's, for a Gecko comment citing it; see
+    // `CrossrefData::add_linked`.)
+    let tree = [
+        &cross_val.definitions,
+        &cross_val.declarations,
+        &cross_val.idl,
+        &cross_val.glean,
+        &cross_val.doc_defs,
+    ]
+    .into_iter()
+    .find_map(|hits| hits.as_ref()?.first().map(|hit| hit.tree))
+    .flatten();
+
     JumprefData {
         sym: *sym,
         pretty,
@@ -207,7 +221,7 @@ pub fn convert_crossref_value_to_sym_info_rep(
         ts_syms: cross_val.ts_syms.into(),
         recency: cross_val.recency,
         recency_from: cross_val.recency_from,
-        tree: None,
+        tree,
     }
 }
 

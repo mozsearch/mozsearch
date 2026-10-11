@@ -412,6 +412,19 @@ pub trait AbstractServer {
     /// symbol.
     async fn crossref_lookup(&self, symbol: &str) -> Result<Option<CrossrefData>>;
 
+    /// Retrieve a linked tree's crossref data for a symbol of that tree's
+    /// (see `TreeConfigPaths::linked_trees`), ex: a Gecko function in
+    /// firefox-disco implementing an algorithm of wubspecs', for wubspecs,
+    /// with its path results and callees tagged with the tree (see
+    /// `CrossrefData::tag_tree`).  (Trees without linked trees have none.)
+    async fn linked_crossref_lookup(
+        &self,
+        _tree: &str,
+        _symbol: &str,
+    ) -> Result<Option<CrossrefData>> {
+        Ok(None)
+    }
+
     /// Retrieve the JSON contents of the jumpref database for the given
     /// symbol.
     async fn jumpref_lookup(&self, symbol: &str) -> Result<Option<JumprefData>>;
