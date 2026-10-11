@@ -29,7 +29,10 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use super::markup::{Doc, NodeKind};
-use super::{InContext, Lines, SpecsConfig, spec_records, spec_symbol};
+use super::{
+    InContext, Lines, SpecsConfig, spec_records, spec_symbol,
+    unescape_context_name as context_name,
+};
 use crate::semantic_analyzer::{Record, sort_records};
 use crate::tree_sitter_support::spec_tokenizer::html_contexts;
 
@@ -270,14 +273,6 @@ fn words(doc: &Doc, node: usize) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
-}
-
-/// A context name from `spec_tokenizer`, without its escapes.
-fn context_name(name: &str) -> String {
-    name.replace("%20", " ")
-        .replace("%09", "\t")
-        .replace("%3A%3A", "::")
-        .replace("%25", "%")
 }
 
 /// The records of a Wattsi source, of the spec with `shortname`, among

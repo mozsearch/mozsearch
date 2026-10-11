@@ -9,18 +9,22 @@
 //! - `wattsi`: the HTML Standard's `source`, whose cross-references we
 //!   resolve as Wattsi does (see `wattsi`);
 //! - `ecmarkup`: ECMA-262's (and TC39's other specs') `spec.html`, which we
-//!   link as ecmarkup does (see `ecmarkup`).
+//!   link as ecmarkup does (see `ecmarkup`);
+//! - `bikeshed`: Bikeshed's `.bs` sources, whose definitions and references
+//!   Bikeshed itself finds, with their positions (`bikeshed index`, see
+//!   `bikeshed`).
 //!
 //! Records' contexts are the spec's sections and algorithms (as the spec
 //! tokenizer's, see `spec_tokenizer::html_contexts`), and within an
 //! algorithm's steps, the step's number (ex: "navigate step 12.6").
 
+pub mod bikeshed;
 pub mod ecmarkup;
 pub mod markup;
 pub mod wattsi;
 
 use std::ops::Range;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
@@ -33,6 +37,10 @@ use crate::semantic_analyzer::{Record, source_record, target_record};
 pub struct SpecsConfig {
     #[serde(default, rename = "spec")]
     pub specs: Vec<SpecEntry>,
+    /// The directory of the `specs.toml`, which specs' `index`es are
+    /// relative to.
+    #[serde(skip)]
+    pub dir: PathBuf,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
@@ -57,9 +65,14 @@ pub struct SpecEntry {
     #[serde(default)]
     pub format: Option<SpecFormat>,
     /// The spec's source, in its directory (default: `source` for Wattsi,
-    /// and `spec.html` for ecmarkup).
+    /// `spec.html` for ecmarkup, and `index.bs` for Bikeshed).
     #[serde(default)]
     pub source: Option<String>,
+    /// For Bikeshed, the spec's index (`bikeshed index --json`'s output) to
+    /// use rather than running Bikeshed, relative to the `specs.toml` (ex:
+    /// for the test tree, which doesn't have Bikeshed).
+    #[serde(default)]
+    pub index: Option<String>,
     /// The rendered spec's URL, which its anchors are fragments of, and which
     /// other specs' references to it start with (ex:
     /// "https://dom.spec.whatwg.org/").
@@ -82,7 +95,7 @@ impl SpecEntry {
             (_, Some(source)) => source.as_str(),
             (SpecFormat::Wattsi, None) => "source",
             (SpecFormat::Ecmarkup, None) => "spec.html",
-            _ => return None,
+            (SpecFormat::Bikeshed, None) => "index.bs",
         };
         Some(match self.dir() {
             "" => source.to_string(),
@@ -94,12 +107,22 @@ impl SpecEntry {
 impl SpecsConfig {
     pub fn load(path: &Path) -> Result<SpecsConfig, String> {
         let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {}", path.display(), e))?;
-        toml::from_str(&text).map_err(|e| format!("{}: {}", path.display(), e))
+        let mut config: SpecsConfig =
+            toml::from_str(&text).map_err(|e| format!("{}: {}", path.display(), e))?;
+        config.dir = path.parent().map(Path::to_path_buf).unwrap_or_default();
+        Ok(config)
     }
 
     /// The symbol a URL to one of the specs names, if it's to one of them
     /// (with a fragment).
     pub fn url_symbol(&self, url: &str) -> Option<String> {
+        let (spec, anchor) = self.url_spec(url)?;
+        Some(spec_symbol(spec.shortname(), &anchor))
+    }
+
+    /// The spec a URL is to, and its anchor, if it's to one of them (with a
+    /// fragment).
+    pub fn url_spec(&self, url: &str) -> Option<(&SpecEntry, String)> {
         let (page, anchor) = url.split_once('#')?;
         if anchor.is_empty() {
             return None;
@@ -113,7 +136,7 @@ impl SpecsConfig {
                 page.starts_with(rendered) || format!("{}/", page) == rendered
             })
         })?;
-        Some(spec_symbol(spec.shortname(), &percent_decode(anchor)))
+        Some((spec, percent_decode(anchor)))
     }
 }
 
@@ -166,6 +189,15 @@ fn escape_into(text: &str, out: &mut String) {
     }
 }
 
+/// A context name from `spec_tokenizer`, without its escapes (see
+/// `config_tokenizer::escape_name`).
+pub(crate) fn unescape_context_name(name: &str) -> String {
+    name.replace("%20", " ")
+        .replace("%09", "\t")
+        .replace("%3A%3A", "::")
+        .replace("%25", "%")
+}
+
 /// The start of each line of a source, for records' locations.
 pub struct Lines {
     starts: Vec<usize>,
@@ -173,6 +205,19 @@ pub struct Lines {
 }
 
 impl Lines {
+    /// The byte offset of a 1-based line and 1-based column in characters
+    /// (ex: Bikeshed's positions), if `src` has it.
+    pub fn char_position(&self, src: &str, line: usize, col: usize) -> Option<usize> {
+        let start = *self.starts.get(line.checked_sub(1)?)?;
+        let end = self.starts.get(line).map_or(self.len, |&next| next);
+        let text = &src[start..end];
+        let col = col.checked_sub(1)?;
+        text.char_indices()
+            .nth(col)
+            .map(|(at, _)| start + at)
+            .or_else(|| (col == text.chars().count()).then_some(end))
+    }
+
     pub fn new(src: &str) -> Lines {
         let mut starts = vec![0];
         starts.extend(src.match_indices('\n').map(|(i, _)| i + 1));

@@ -113,7 +113,12 @@ pub struct Doc<'a> {
 
 impl<'a> Doc<'a> {
     pub fn parse(src: &'a str) -> Doc<'a> {
-        let items = lex(src, false);
+        Doc::from_items(src, lex(src, false))
+    }
+
+    /// The tree of `items`, `src`'s markup (ex: a Bikeshed source's, see
+    /// `spec_tokenizer::bikeshed_contexts`).
+    pub(crate) fn from_items(src: &'a str, items: Vec<Item>) -> Doc<'a> {
         let mut nodes = vec![Node {
             kind: NodeKind::Root,
             parent: None,
@@ -143,7 +148,7 @@ impl<'a> Doc<'a> {
         };
         for (index, item) in items.iter().enumerate() {
             match item {
-                Item::Start { name, range, .. } => {
+                Item::Start { name, range, attrs } => {
                     // Implied ends: ex: an open `<li>` (and whatever's open in
                     // it, like a `<p>`) for a new one, and an open `<p>`.
                     let ends_p: &[&str] = if ENDS_P.contains(&name.as_str()) {
@@ -178,7 +183,11 @@ impl<'a> Doc<'a> {
                         range: range.clone(),
                     });
                     nodes[parent].children.push(node);
-                    let self_closing = src[range.clone()].ends_with("/>");
+                    // (But in `<a for=/>`, the slash is the attribute's value.)
+                    let self_closing = src[range.clone()].ends_with("/>")
+                        && !attrs.last().is_some_and(|(_, value)| {
+                            value.as_ref().is_some_and(|value| value.end == range.end - 1)
+                        });
                     if !VOID.contains(&name.as_str()) && !self_closing {
                         open.push(node);
                     }
@@ -433,6 +442,9 @@ mod tests {
             shape(&doc, 0),
             r#"root(dl(dt("T") dd("D") dt("U")) br() img() "z" x() "y")"#
         );
+        // (Bikeshed's `for=/` isn't a self-closing tag.)
+        let doc = Doc::parse("<a for=/>node</a> and <a for='/'/>");
+        assert_eq!(shape(&doc, 0), r#"root(a("node") "and" a())"#);
         // (A stray end tag is ignored.)
         let doc = Doc::parse("<div>a</span>b</div>");
         assert_eq!(shape(&doc, 0), r#"root(div("a" "b"))"#);

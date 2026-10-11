@@ -7,14 +7,16 @@
 // SPECS_TOML lists the specs (`[[spec]]`s, see `spec_analyze::SpecsConfig`),
 // and each spec whose format we analyze gets the analysis of its source
 // written to ANALYSIS_ROOT/<path>, or added to its analysis there if it has
-// some (see `semantic_analyzer::merge_records`).
+// some (see `semantic_analyzer::merge_records`).  Bikeshed specs are analyzed
+// with `bikeshed index --json` (mozsearch's fork's), from the PATH or
+// $BIKESHED, unless they have an index configured.
 
 use std::path::Path;
 use std::process::exit;
 use std::time::Instant;
 
 use tools::semantic_analyzer::write_records;
-use tools::spec_analyze::{SpecFormat, SpecsConfig, ecmarkup, wattsi};
+use tools::spec_analyze::{SpecFormat, SpecsConfig, bikeshed, ecmarkup, wattsi};
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -68,7 +70,33 @@ fn main() {
                     started.elapsed().as_secs_f64()
                 );
             }
-            SpecFormat::Bikeshed => {}
+            SpecFormat::Bikeshed => {
+                // (Bikeshed's index of the spec, unless it's configured.)
+                let json = match &spec.index {
+                    Some(index) => std::fs::read_to_string(config.dir.join(index))
+                        .map_err(|e| format!("{}: {}", index, e)),
+                    None => bikeshed::run_bikeshed(&files_root.join(&path)),
+                };
+                let index = match json.and_then(|json| bikeshed::parse_index(&json)) {
+                    Ok(index) => index,
+                    Err(e) => {
+                        eprintln!("spec-analyze: {}: {}", path, e);
+                        continue;
+                    }
+                };
+                let (records, stats) = bikeshed::analyze(&source, &index, spec.shortname(), &config);
+                write_records(analysis_root, &path, records);
+                println!(
+                    "{}: {} dfns, {} headings, {} links ({} to specs which aren't the tree's), {} without positions, in {:.2}s",
+                    path,
+                    stats.dfns,
+                    stats.headings,
+                    stats.links,
+                    stats.external,
+                    stats.unplaced,
+                    started.elapsed().as_secs_f64()
+                );
+            }
         }
     }
 }

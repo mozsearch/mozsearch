@@ -1,0 +1,279 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/specs/bikeshed__json
+---
+[
+  {
+    "loc": "00008:0-12",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplebs Introduction",
+    "sym": "SPEC_examplebs_intro"
+  },
+  {
+    "loc": "00008:0-12",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs Introduction",
+    "sym": "SPEC_examplebs_intro",
+    "context": "Introduction",
+    "contextsym": "SPEC_examplebs_intro"
+  },
+  {
+    "loc": "00011:7-13",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn examplebs widget",
+    "sym": "SPEC_examplebs_widget"
+  },
+  {
+    "loc": "00011:7-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs widget",
+    "sym": "SPEC_examplebs_widget",
+    "context": "Introduction",
+    "contextsym": "SPEC_examplebs_intro"
+  },
+  {
+    "loc": "00011:42-47",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn examplebs widget/state",
+    "sym": "SPEC_examplebs_widget@2Dstate"
+  },
+  {
+    "loc": "00011:42-47",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs widget/state",
+    "sym": "SPEC_examplebs_widget@2Dstate",
+    "context": "Introduction",
+    "contextsym": "SPEC_examplebs_intro"
+  },
+  {
+    "loc": "00011:61-69",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "biblio examplebs HTML",
+    "sym": "SPEC_examplebs_biblio@2Dhtml"
+  },
+  {
+    "loc": "00011:61-69",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplebs HTML",
+    "sym": "SPEC_examplebs_biblio@2Dhtml",
+    "context": "Introduction",
+    "contextsym": "SPEC_examplebs_intro"
+  },
+  {
+    "loc": "00013:2-9",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplebs Widgets",
+    "sym": "SPEC_examplebs_widgets"
+  },
+  {
+    "loc": "00013:2-9",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs Widgets",
+    "sym": "SPEC_examplebs_widgets",
+    "context": "Widgets",
+    "contextsym": "SPEC_examplebs_widgets"
+  },
+  {
+    "loc": "00015:8-12",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn examplebs poke",
+    "sym": "SPEC_examplebs_poke"
+  },
+  {
+    "loc": "00015:8-12",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs poke",
+    "sym": "SPEC_examplebs_poke",
+    "context": "poke",
+    "contextsym": "SPEC_examplebs_poke"
+  },
+  {
+    "loc": "00015:21-31",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn examplebs widget",
+    "sym": "SPEC_examplebs_widget"
+  },
+  {
+    "loc": "00015:21-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplebs widget",
+    "sym": "SPEC_examplebs_widget",
+    "context": "poke",
+    "contextsym": "SPEC_examplebs_poke"
+  },
+  {
+    "loc": "00017:18-34",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn examplebs widget/state",
+    "sym": "SPEC_examplebs_widget@2Dstate"
+  },
+  {
+    "loc": "00017:18-34",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplebs widget/state",
+    "sym": "SPEC_examplebs_widget@2Dstate",
+    "context": "poke step 1",
+    "contextsym": "SPEC_examplebs_poke"
+  },
+  {
+    "loc": "00021:8-14",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn examplebs unpoke",
+    "sym": "SPEC_examplebs_unpoke"
+  },
+  {
+    "loc": "00021:8-14",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs unpoke",
+    "sym": "SPEC_examplebs_unpoke",
+    "context": "unpoke",
+    "contextsym": "SPEC_examplebs_unpoke"
+  },
+  {
+    "loc": "00021:23-33",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn examplebs widget",
+    "sym": "SPEC_examplebs_widget"
+  },
+  {
+    "loc": "00021:23-33",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplebs widget",
+    "sym": "SPEC_examplebs_widget",
+    "context": "unpoke",
+    "contextsym": "SPEC_examplebs_unpoke"
+  },
+  {
+    "loc": "00023:18-40",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn examplebs widget/state",
+    "sym": "SPEC_examplebs_widget@2Dstate"
+  },
+  {
+    "loc": "00023:18-40",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplebs widget/state",
+    "sym": "SPEC_examplebs_widget@2Dstate",
+    "context": "unpoke step 1",
+    "contextsym": "SPEC_examplebs_unpoke"
+  },
+  {
+    "loc": "00026:3-10",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplebs Gadgets",
+    "sym": "SPEC_examplebs_gadgets"
+  },
+  {
+    "loc": "00026:3-10",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs Gadgets",
+    "sym": "SPEC_examplebs_gadgets",
+    "context": "Gadgets",
+    "contextsym": "SPEC_examplebs_gadgets"
+  },
+  {
+    "loc": "00030:10-16",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "interface examplebs Gadget",
+    "sym": "SPEC_examplebs_gadget"
+  },
+  {
+    "loc": "00030:10-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs Gadget",
+    "sym": "SPEC_examplebs_gadget",
+    "context": "Gadgets",
+    "contextsym": "SPEC_examplebs_gadgets"
+  },
+  {
+    "loc": "00031:12-16",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "method examplebs Gadget/poke",
+    "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke"
+  },
+  {
+    "loc": "00031:12-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs Gadget/poke",
+    "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke",
+    "context": "Gadgets",
+    "contextsym": "SPEC_examplebs_gadgets"
+  },
+  {
+    "loc": "00035:4-21",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "method examplebs Gadget/poke",
+    "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke"
+  },
+  {
+    "loc": "00035:4-21",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplebs Gadget/poke",
+    "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke",
+    "context": "Gadgets",
+    "contextsym": "SPEC_examplebs_gadgets"
+  },
+  {
+    "loc": "00035:42-50",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn examplebs poke",
+    "sym": "SPEC_examplebs_poke"
+  },
+  {
+    "loc": "00035:42-50",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplebs poke",
+    "sym": "SPEC_examplebs_poke",
+    "context": "Gadgets",
+    "contextsym": "SPEC_examplebs_gadgets"
+  },
+  {
+    "loc": "00035:51-58",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "element html img",
+    "sym": "SPEC_html_the@2Dimg@2Delement"
+  },
+  {
+    "loc": "00035:51-58",
+    "target": 1,
+    "kind": "use",
+    "pretty": "html img",
+    "sym": "SPEC_html_the@2Dimg@2Delement",
+    "context": "Gadgets",
+    "contextsym": "SPEC_examplebs_gadgets"
+  }
+]

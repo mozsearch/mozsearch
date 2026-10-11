@@ -1,0 +1,275 @@
+{
+ "bikeshed-index": 1,
+ "spec": {
+  "shortname": "example",
+  "level": null,
+  "title": "Example",
+  "url": null
+ },
+ "dfns": [
+  {
+   "line": 11,
+   "col": 3,
+   "id": "widget",
+   "type": "dfn",
+   "for": [],
+   "lt": [
+    "widget"
+   ],
+   "export": false,
+   "noexport": true,
+   "text": "widget",
+   "idl": false
+  },
+  {
+   "line": 11,
+   "col": 27,
+   "id": "widget-state",
+   "type": "dfn",
+   "for": [
+    "widget"
+   ],
+   "lt": [
+    "state"
+   ],
+   "export": false,
+   "noexport": true,
+   "text": "state",
+   "idl": false
+  },
+  {
+   "line": 15,
+   "col": 4,
+   "id": "poke",
+   "type": "dfn",
+   "for": [],
+   "lt": [
+    "poke"
+   ],
+   "export": false,
+   "noexport": true,
+   "text": "poke",
+   "idl": false
+  },
+  {
+   "line": 21,
+   "col": 4,
+   "id": "unpoke",
+   "type": "dfn",
+   "for": [],
+   "lt": [
+    "unpoke"
+   ],
+   "export": false,
+   "noexport": true,
+   "text": "unpoke",
+   "idl": false
+  },
+  {
+   "line": 30,
+   "col": 11,
+   "id": "gadget",
+   "type": "interface",
+   "for": [],
+   "lt": [
+    "Gadget"
+   ],
+   "export": true,
+   "noexport": false,
+   "text": "Gadget",
+   "idl": true
+  },
+  {
+   "line": 31,
+   "col": 13,
+   "id": "dom-gadget-poke",
+   "type": "method",
+   "for": [
+    "Gadget"
+   ],
+   "lt": [
+    "poke()"
+   ],
+   "export": true,
+   "noexport": false,
+   "text": "poke",
+   "idl": true
+  }
+ ],
+ "links": [
+  {
+   "line": 11,
+   "col": 62,
+   "href": "#biblio-html",
+   "type": "biblio",
+   "for": [],
+   "lt": "HTML",
+   "spec": null,
+   "syntax": "[[HTML]]",
+   "text": "[HTML]",
+   "idl": false
+  },
+  {
+   "line": 15,
+   "col": 22,
+   "href": "#widget",
+   "type": "dfn",
+   "for": [],
+   "lt": "widget",
+   "spec": null,
+   "syntax": "[=widget=]",
+   "text": "widget",
+   "idl": false
+  },
+  {
+   "line": 17,
+   "col": 19,
+   "href": "#widget-state",
+   "type": "dfn",
+   "for": [
+    "widget"
+   ],
+   "lt": "state",
+   "spec": null,
+   "syntax": "[=widget/state=]",
+   "text": "state",
+   "idl": false
+  },
+  {
+   "line": 21,
+   "col": 24,
+   "href": "#widget",
+   "type": "dfn",
+   "for": [],
+   "lt": "widget",
+   "spec": null,
+   "syntax": "[=widget=]",
+   "text": "widget",
+   "idl": false
+  },
+  {
+   "line": 23,
+   "col": 19,
+   "href": "#widget-state",
+   "type": "dfn",
+   "for": [
+    "widget"
+   ],
+   "lt": "state",
+   "spec": null,
+   "syntax": "[=widget/state=]",
+   "text": "state",
+   "idl": false
+  },
+  {
+   "line": 29,
+   "col": 2,
+   "href": "https://webidl.spec.whatwg.org/#Exposed",
+   "type": "extended-attribute",
+   "for": [],
+   "lt": "Exposed",
+   "spec": null,
+   "syntax": null,
+   "text": "Exposed",
+   "idl": true
+  },
+  {
+   "line": 31,
+   "col": 3,
+   "href": "https://webidl.spec.whatwg.org/#idl-undefined",
+   "type": "interface",
+   "for": [],
+   "lt": "undefined",
+   "spec": null,
+   "syntax": null,
+   "text": "undefined",
+   "idl": true
+  },
+  {
+   "line": 35,
+   "col": 5,
+   "href": "#dom-gadget-poke",
+   "type": "idl",
+   "for": [
+    "Gadget"
+   ],
+   "lt": "poke()",
+   "spec": null,
+   "syntax": "{{Gadget/poke()}}",
+   "text": "poke()",
+   "idl": false
+  },
+  {
+   "line": 35,
+   "col": 43,
+   "href": "#poke",
+   "type": "dfn",
+   "for": [],
+   "lt": "poke",
+   "spec": null,
+   "syntax": "[=poke=]",
+   "text": "poke",
+   "idl": false
+  },
+  {
+   "line": 35,
+   "col": 52,
+   "href": "https://html.spec.whatwg.org/multipage/embedded-content.html#the-img-element",
+   "type": "element",
+   "for": [],
+   "lt": "img",
+   "spec": null,
+   "syntax": "<{img}>",
+   "text": "img",
+   "idl": false
+  }
+ ],
+ "headings": [
+  {
+   "line": 8,
+   "col": 1,
+   "id": "intro",
+   "level": 2,
+   "text": "Introduction"
+  },
+  {
+   "line": 13,
+   "col": 1,
+   "id": "widgets",
+   "level": 2,
+   "text": "Widgets"
+  },
+  {
+   "line": 26,
+   "col": 1,
+   "id": "gadgets",
+   "level": 3,
+   "text": "Gadgets"
+  }
+ ],
+ "algorithms": [
+  {
+   "line": 20,
+   "col": 1,
+   "name": "unpoke",
+   "for": null
+  }
+ ],
+ "steps": [
+  {
+   "line": 17,
+   "col": 1,
+   "path": "1"
+  },
+  {
+   "line": 18,
+   "col": 1,
+   "path": "2"
+  },
+  {
+   "line": 23,
+   "col": 1,
+   "path": "1"
+  }
+ ]
+}

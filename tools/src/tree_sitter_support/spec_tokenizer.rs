@@ -836,10 +836,16 @@ pub fn tokenize_spec_html(source: &str) -> (FinishedTokens, Vec<FileStructureRow
 }
 
 /// Tokenize a Bikeshed source (see the module's documentation).
-pub fn tokenize_bikeshed(source: &str) -> (FinishedTokens, Vec<FileStructureRow>) {
+/// A Bikeshed source's markup and contexts (both HTML's and Markdown's).
+pub(crate) fn bikeshed_contexts(source: &str) -> (Vec<Item>, Vec<Context>) {
     let items = lex(source, true);
     let mut contexts = html_contexts(source, &items);
     contexts.extend(markdown_contexts(source, &items));
+    (items, contexts)
+}
+
+pub fn tokenize_bikeshed(source: &str) -> (FinishedTokens, Vec<FileStructureRow>) {
+    let (items, contexts) = bikeshed_contexts(source);
     let mut out = Emitter::new(source, contexts);
     out.markup = markdown_markup(source, &items);
     emit_items(&mut out, &items, true);

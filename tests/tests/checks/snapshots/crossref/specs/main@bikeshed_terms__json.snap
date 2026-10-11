@@ -1,0 +1,144 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/specs/bikeshed_terms__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "SPEC_examplebs_widget",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/example.bs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 15,
+                "bounds": [
+                  21,
+                  31
+                ],
+                "line": "To <dfn>poke</dfn> a [=widget=] |widget|, run these steps:",
+                "context": "poke",
+                "contextsym": "SPEC_examplebs_poke"
+              },
+              {
+                "lno": 21,
+                "bounds": [
+                  23,
+                  33
+                ],
+                "line": "To <dfn>unpoke</dfn> a [=widget=] |widget|:",
+                "context": "unpoke",
+                "contextsym": "SPEC_examplebs_unpoke"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "specs/example.bs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 11,
+                "bounds": [
+                  7,
+                  13
+                ],
+                "line": "A <dfn>widget</dfn> has a <dfn for=widget>state</dfn>, which [[HTML]] doesn't define.",
+                "context": "Introduction",
+                "contextsym": "SPEC_examplebs_intro"
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "SPEC_examplebs_widget@2Dstate",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/example.bs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 17,
+                "bounds": [
+                  18,
+                  34
+                ],
+                "line": "1. Set |widget|'s [=widget/state=] to \"poked\".",
+                "context": "poke step 1",
+                "contextsym": "SPEC_examplebs_poke"
+              },
+              {
+                "lno": 23,
+                "bounds": [
+                  18,
+                  40
+                ],
+                "line": "1. Set |widget|'s [=widget/state|state=] to \"idle\".",
+                "context": "unpoke step 1",
+                "contextsym": "SPEC_examplebs_unpoke"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "specs/example.bs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 11,
+                "bounds": [
+                  42,
+                  47
+                ],
+                "line": "A <dfn>widget</dfn> has a <dfn for=widget>state</dfn>, which [[HTML]] doesn't define.",
+                "context": "Introduction",
+                "contextsym": "SPEC_examplebs_intro"
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "SPEC_html_the@2Dimg@2Delement",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/example.bs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 35,
+                "bounds": [
+                  51,
+                  58
+                ],
+                "line": "The {{Gadget/poke()}} method steps are to [=poke=] <{img}> elements.",
+                "context": "Gadgets",
+                "contextsym": "SPEC_examplebs_gadgets"
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}
