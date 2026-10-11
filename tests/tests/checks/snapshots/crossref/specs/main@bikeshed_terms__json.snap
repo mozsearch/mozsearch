@@ -53,7 +53,28 @@ input_file: inputs/crossref/specs/bikeshed_terms__json
               }
             ]
           }
-        ]
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "examplebs widget",
+          "sym": "SPEC_examplebs_widget",
+          "type_pretty": null,
+          "kind": "specDfn",
+          "subsystem": null,
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.github.io/bs/#widget"
+        }
       },
       "relation": "Queried",
       "quality": "ExplicitSymbol",
@@ -107,7 +128,29 @@ input_file: inputs/crossref/specs/bikeshed_terms__json
               }
             ]
           }
-        ]
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "examplebs widget/state",
+          "sym": "SPEC_examplebs_widget@2Dstate",
+          "type_pretty": null,
+          "kind": "specDfn",
+          "subsystem": null,
+          "parentsym": "SPEC_examplebs_widget",
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.github.io/bs/#widget-state"
+        }
       },
       "relation": "Queried",
       "quality": "ExplicitSymbol",

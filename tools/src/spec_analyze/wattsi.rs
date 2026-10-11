@@ -30,8 +30,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use super::markup::{Doc, NodeKind};
 use super::{
-    InContext, Lines, SpecsConfig, spec_records, spec_symbol,
-    unescape_context_name as context_name,
+    ForResolver, InContext, Lines, SpecsConfig, dfn_kind, spec_records, spec_structured,
+    spec_symbol, unescape_context_name as context_name,
 };
 use crate::semantic_analyzer::{Record, sort_records};
 use crate::tree_sitter_support::spec_tokenizer::html_contexts;
@@ -135,6 +135,9 @@ struct Wattsi<'a, 'd> {
     subdfns: HashMap<String, usize>,
     /// The cross-references, and their topics, in document order.
     xrefs: Vec<(usize, String)>,
+    /// The first `<dfn>` in each heading which has one, which the heading
+    /// defines (ex: "The <dfn element>a</dfn> element").
+    heading_dfns: HashMap<usize, usize>,
 }
 
 fn is_heading(name: &str) -> bool {
@@ -220,6 +223,7 @@ impl<'a, 'd> Wattsi<'a, 'd> {
                     // (A `<dfn>` in a heading keeps an id it has, as an anchor,
                     // but references to its topic are to the heading.)
                     if let Some(heading) = self.heading_of(node) {
+                        self.heading_dfns.entry(heading).or_insert(node);
                         if let Some(id) = explicit {
                             self.node_ids.insert(node, id);
                         }
@@ -260,11 +264,83 @@ impl<'a, 'd> Wattsi<'a, 'd> {
 
 /// A definition: its symbol, what it is, and its pretty name.
 struct Def {
+    id: String,
     sym: String,
     what: &'static str,
     pretty: String,
     /// For a `<dfn>` deferring to another spec's term, that term's symbol.
     defers_to: Option<String>,
+    /// Its structured record's kind, and what it's for.
+    kind: &'static str,
+    fors: Vec<String>,
+}
+
+/// Wattsi's dfn types (wattsi.pas's `kDFNTypes`), which are attributes of
+/// `<dfn>`s (ex: `<dfn element-attr>`), or their `data-dfn-type`.
+const DFN_TYPES: &[&str] = &[
+    "abstract-op",
+    "property",
+    "value",
+    "at-rule",
+    "descriptor",
+    "type",
+    "function",
+    "selector",
+    "element",
+    "element-attr",
+    "attr-value",
+    "element-state",
+    "event",
+    "interface",
+    "namespace",
+    "extended-attribute",
+    "constructor",
+    "method",
+    "argument",
+    "attribute",
+    "callback",
+    "dictionary",
+    "dict-member",
+    "enum",
+    "enum-value",
+    "exception",
+    "const",
+    "typedef",
+    "stringifier",
+    "serializer",
+    "iterator",
+    "maplike",
+    "setlike",
+    "grammar",
+    "scheme",
+    "state",
+    "mode",
+    "context",
+    "facet",
+    "http-header",
+    "dfn",
+];
+
+/// What a `<dfn>` is for (`data-dfn-for` or `for`, comma-separated).
+fn dfn_fors(doc: &Doc, node: usize) -> Vec<String> {
+    doc.attr(node, "data-dfn-for")
+        .or(doc.attr(node, "for"))
+        .unwrap_or_default()
+        .split(',')
+        .map(|f| f.trim().to_string())
+        .filter(|f| !f.is_empty())
+        .collect()
+}
+
+fn dfn_type(doc: &Doc, node: usize) -> String {
+    doc.attr(node, "data-dfn-type")
+        .or_else(|| {
+            DFN_TYPES
+                .iter()
+                .find(|t| doc.has_attr(node, t))
+                .map(|t| t.to_string())
+        })
+        .unwrap_or_else(|| "dfn".to_string())
 }
 
 /// The text of an element, with whitespace collapsed.
@@ -300,6 +376,7 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
         dfns: HashMap::new(),
         subdfns: HashMap::new(),
         xrefs: vec![],
+        heading_dfns: HashMap::new(),
     };
     wattsi.scan();
 
@@ -310,26 +387,43 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
         let sym = spec_symbol(shortname, id);
         let def = if is_heading(name) {
             stats.headings += 1;
+            // (A heading with a typed `<dfn>` defines what it is.)
+            let heading_dfn = wattsi.heading_dfns.get(&node).copied();
+            let kind = heading_dfn
+                .map(|dfn| dfn_kind(&dfn_type(&doc, dfn)))
+                .filter(|kind| *kind != "specDfn")
+                .unwrap_or("specSection");
             Def {
+                id: id.clone(),
                 sym,
                 what: "section",
                 pretty: format!("{} {}", shortname, words(&doc, node)),
                 defers_to: None,
+                kind,
+                fors: heading_dfn.map_or(vec![], |dfn| dfn_fors(&doc, dfn)),
             }
         } else {
             stats.dfns += 1;
             let text = words(&doc, node);
-            let pretty = match doc.attr(node, "data-dfn-for").or(doc.attr(node, "for")) {
-                Some(dfn_for) if !dfn_for.is_empty() => format!("{} {}/{}", shortname, dfn_for, text),
-                _ => format!("{} {}", shortname, text),
+            let dfn_for = dfn_fors(&doc, node).join(",");
+            let pretty = match dfn_for.as_str() {
+                "" => format!("{} {}", shortname, text),
+                dfn_for => format!("{} {}/{}", shortname, dfn_for, text),
             };
             Def {
+                id: id.clone(),
                 sym,
                 what: "dfn",
                 pretty,
                 defers_to: doc
                     .attr(node, "data-x-href")
                     .and_then(|url| config.url_symbol(&url)),
+                kind: if doc.is(node, "dfn") {
+                    dfn_kind(&dfn_type(&doc, node))
+                } else {
+                    "specDfn"
+                },
+                fors: dfn_fors(&doc, node),
             }
         };
         defs.insert(node, def);
@@ -543,6 +637,41 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
             .map_or_else(InContext::default, |i| sections[i].1.clone())
     };
 
+    // Structured records: definitions' kinds (algorithms' are callable),
+    // parents, and anchors' URLs.
+    let algorithm_syms: std::collections::HashSet<&str> = algorithms
+        .iter()
+        .map(|(_, _, context)| context.sym.as_str())
+        .filter(|sym| !sym.is_empty())
+        .collect();
+    let mut resolver = ForResolver::default();
+    for (&node, def) in &defs {
+        if def.what == "dfn" {
+            resolver.add(&def.sym, def.kind, &[words(&doc, node)], &def.fors);
+        } else if let Some(&dfn) = wattsi.heading_dfns.get(&node) {
+            resolver.add(&def.sym, def.kind, &[words(&doc, dfn)], &def.fors);
+        }
+    }
+    let mut structured: HashMap<String, (&'static str, Option<String>, Option<String>)> =
+        HashMap::new();
+    for def in defs.values() {
+        let kind = if def.kind == "specDfn" && algorithm_syms.contains(def.sym.as_str()) {
+            "specAlgorithm"
+        } else {
+            def.kind
+        };
+        let parent = def
+            .fors
+            .first()
+            .and_then(|f| resolver.parent(f, kind))
+            .filter(|parent| *parent != def.sym)
+            .map(str::to_string);
+        structured.insert(
+            def.sym.clone(),
+            (kind, parent, config.rendered_url(shortname, &def.id)),
+        );
+    }
+
     let lines = Lines::new(src);
     let mut records = vec![];
     for p in pending {
@@ -553,15 +682,21 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
             range
         };
         let context = context_at(p.node);
-        spec_records(
-            &mut records,
-            lines.location(&range),
-            p.def,
-            p.what,
-            &p.pretty,
-            &p.sym,
-            &context,
-        );
+        let loc = lines.location(&range);
+        spec_records(&mut records, loc, p.def, p.what, &p.pretty, &p.sym, &context);
+        if p.def
+            && let Some((kind, parent, rendered)) = structured.get(&p.sym)
+        {
+            spec_structured(
+                &mut records,
+                loc,
+                &p.pretty,
+                &p.sym,
+                kind,
+                parent.as_deref(),
+                rendered.as_deref(),
+            );
+        }
     }
     sort_records(&mut records);
     (records, stats)
@@ -709,6 +844,54 @@ mod tests {
                 "2:56-57 def SPEC_t_x",
                 "3:16-21 def SPEC_t_gizmo@2Ddev",
                 "3:39-44 use SPEC_t_gizmo@2Ddev",
+            ]
+        );
+    }
+
+    /// The structured records as "sym kind parentsym rendered".
+    fn structured(records: &[Record]) -> Vec<String> {
+        records
+            .iter()
+            .filter_map(|record| match record {
+                Record::Structured(_, value) => Some(format!(
+                    "{} {} {} {}",
+                    value["sym"].as_str().unwrap(),
+                    value["kind"].as_str().unwrap(),
+                    value["parentsym"].as_str().unwrap_or("-"),
+                    value["rendered"].as_str().unwrap_or("-"),
+                )),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_structured() {
+        let src = r##"<h2>IDL</h2>
+<p>The <dfn interface>Gadget</dfn> interface has a <dfn method for="Gadget">poke()</dfn> method and a <dfn attribute for=Gadget>state</dfn>.
+<p>To <dfn>frob</dfn> a gadget:</p>
+<ol><li>Return.</ol>
+<p>A <dfn element>gizmo</dfn> has a <dfn element-attr for=gizmo>size</dfn>.
+<h3>The <dfn element>gear</dfn> element</h3>
+<p>It has a <dfn element-attr for=gear>teeth</dfn> attribute.
+"##;
+        let config: SpecsConfig =
+            toml::from_str("[[spec]]\nname = \"t\"\nrendered = \"https://t.example/\"\n").unwrap();
+        let (records, _) = analyze(src, "t", &config);
+        assert_eq!(
+            structured(&records),
+            vec![
+                "SPEC_t_idl specSection - https://t.example/#idl",
+                "SPEC_t_gadget class - https://t.example/#gadget",
+                "SPEC_t_poke@28@29 method SPEC_t_gadget https://t.example/#poke()",
+                "SPEC_t_state field SPEC_t_gadget https://t.example/#state",
+                // (An algorithm's dfn is callable.)
+                "SPEC_t_frob specAlgorithm - https://t.example/#frob",
+                "SPEC_t_gizmo element - https://t.example/#gizmo",
+                "SPEC_t_size elementAttr SPEC_t_gizmo https://t.example/#size",
+                // (The heading defines the element.)
+                "SPEC_t_the@2Dgear@2Delement element - https://t.example/#the-gear-element",
+                "SPEC_t_teeth elementAttr SPEC_t_the@2Dgear@2Delement https://t.example/#teeth",
             ]
         );
     }

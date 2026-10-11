@@ -139,6 +139,9 @@ pub fn semantic_kind_is_callable(semantic_kind: &str) -> bool {
         // call them, and they call their receivers (see
         // `BindingOwnerLang::Event`).
         "event" => true,
+        // Web specs' algorithms (see `spec_analyze`), whose steps' references
+        // to other algorithms are calls.
+        "specAlgorithm" | "specAbstractOp" => true,
         _ => false,
     }
 }

@@ -63,7 +63,28 @@ input_file: inputs/crossref/specs/terms__json
               }
             ]
           }
-        ]
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "example widget",
+          "sym": "SPEC_example_concept@2Dwidget",
+          "type_pretty": null,
+          "kind": "specDfn",
+          "subsystem": null,
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.spec.whatwg.org/#concept-widget"
+        }
       },
       "relation": "Queried",
       "quality": "ExplicitSymbol",
@@ -108,7 +129,35 @@ input_file: inputs/crossref/specs/terms__json
             ]
           }
         ],
-        "callees": []
+        "callees": [
+          {
+            "jump": "specs/source#49",
+            "kind": "specSection",
+            "pretty": "example The doohickey section",
+            "sym": "SPEC_example_doohickeys"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "example The doohickey section",
+          "sym": "SPEC_example_doohickeys",
+          "type_pretty": null,
+          "kind": "specSection",
+          "subsystem": null,
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.spec.whatwg.org/#doohickeys"
+        }
       },
       "relation": "Queried",
       "quality": "ExplicitSymbol",

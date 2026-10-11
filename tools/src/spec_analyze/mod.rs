@@ -17,6 +17,13 @@
 //! Records' contexts are the spec's sections and algorithms (as the spec
 //! tokenizer's, see `spec_tokenizer::html_contexts`), and within an
 //! algorithm's steps, the step's number (ex: "navigate step 12.6").
+//!
+//! Definitions also get structured records (see `spec_structured`), with
+//! kinds from their types (see `dfn_kind`), their parents (by what they're
+//! `for`, see `ForResolver`), and their anchors' URLs in the rendered spec.
+//! Algorithms' kinds are callable (`specAlgorithm`, and `specAbstractOp` for
+//! ecmarkup's abstract operations), so the references in their steps are
+//! calls, for diagrams and traversals across specs.
 
 pub mod bikeshed;
 pub mod ecmarkup;
@@ -26,7 +33,10 @@ pub mod wattsi;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
+use std::collections::HashMap;
+
 use serde::Deserialize;
+use serde_json::json;
 
 use crate::file_format::analysis::{AnalysisKind, Location, SourceRange};
 use crate::semantic_analyzer::{Record, source_record, target_record};
@@ -113,6 +123,13 @@ impl SpecsConfig {
         Ok(config)
     }
 
+    /// The URL of an anchor in the rendered spec with `shortname`, if it's
+    /// configured.
+    pub fn rendered_url(&self, shortname: &str, anchor: &str) -> Option<String> {
+        let spec = self.specs.iter().find(|spec| spec.shortname() == shortname)?;
+        Some(format!("{}#{}", spec.rendered.as_deref()?, anchor))
+    }
+
     /// The symbol a URL to one of the specs names, if it's to one of them
     /// (with a fragment).
     pub fn url_symbol(&self, url: &str) -> Option<String> {
@@ -196,6 +213,131 @@ pub(crate) fn unescape_context_name(name: &str) -> String {
         .replace("%09", "\t")
         .replace("%3A%3A", "::")
         .replace("%25", "%")
+}
+
+/// The structured record kind of a definition of a type (Bikeshed's and
+/// Wattsi's dfn types, ex: "interface"): for IDL, the kinds of Gecko's WebIDL
+/// (see scripts/webidl-analyze.py), so that specs' interfaces are classes and
+/// their operations methods, and otherwise spec kinds (see docs/analysis.md).
+pub fn dfn_kind(dfn_type: &str) -> &'static str {
+    match dfn_type {
+        "interface" | "namespace" | "dictionary" | "exception" => "class",
+        "method" | "constructor" | "stringifier" | "serializer" | "iterator" => "method",
+        "attribute" | "dict-member" => "field",
+        "const" => "const",
+        "enum" => "enum",
+        "enum-value" => "enumConstant",
+        "typedef" => "typedef",
+        "callback" => "callback",
+        "argument" => "parameter",
+        "event" => "event",
+        "abstract-op" => "specAbstractOp",
+        "element" => "element",
+        "element-attr" => "elementAttr",
+        "attr-value" => "elementAttrValue",
+        "element-state" => "elementState",
+        "property" => "cssProperty",
+        "descriptor" => "cssDescriptor",
+        "value" => "cssValue",
+        "type" => "cssType",
+        "at-rule" => "cssAtRule",
+        "function" => "cssFunction",
+        "selector" => "cssSelector",
+        "grammar" => "specGrammar",
+        "scheme" => "urlScheme",
+        "http-header" => "httpHeader",
+        "permission" => "permission",
+        "cddl-module" => "cddlModule",
+        "cddl-type" => "cddlType",
+        "cddl-key" => "cddlKey",
+        "cddl-parameter" => "cddlParameter",
+        "cddl-value" => "cddlValue",
+        _ => "specDfn",
+    }
+}
+
+/// The kinds of the parents of definitions of a kind (what they're `for`),
+/// in order of preference, if they're particular (else any).
+fn parent_kinds(kind: &str) -> &'static [&'static str] {
+    match kind {
+        "method" | "field" | "const" => &["class"],
+        "enumConstant" => &["enum"],
+        "parameter" => &["method", "callback"],
+        "elementAttr" | "elementState" => &["element"],
+        "elementAttrValue" => &["elementAttr"],
+        "cssDescriptor" => &["cssAtRule"],
+        "specDfn" | "specAlgorithm" | "specAbstractOp" => &["specDfn", "specAlgorithm"],
+        _ => &[],
+    }
+}
+
+/// A spec's definitions by their linking texts (and `for/text`), for finding
+/// the parents of definitions by what they're `for` (ex: an IDL method's
+/// interface, an attribute value's attribute, or a concept's concept).
+#[derive(Default)]
+pub struct ForResolver {
+    /// (symbol, kind), by linking text.
+    by_text: HashMap<String, Vec<(String, &'static str)>>,
+}
+
+impl ForResolver {
+    /// Add a definition, with its linking texts, and what it's for.
+    pub fn add(&mut self, sym: &str, kind: &'static str, texts: &[String], fors: &[String]) {
+        for text in texts {
+            let mut keys = vec![text.clone()];
+            keys.extend(fors.iter().map(|f| format!("{}/{}", f, text)));
+            for key in keys {
+                let entry = self.by_text.entry(key).or_default();
+                if !entry.iter().any(|(s, _)| s == sym) {
+                    entry.push((sym.to_string(), kind));
+                }
+            }
+        }
+    }
+
+    /// The symbol of the parent of a definition of `kind` which is for
+    /// `dfn_for`, if there's one.
+    pub fn parent(&self, dfn_for: &str, kind: &str) -> Option<&str> {
+        let candidates = self
+            .by_text
+            .get(dfn_for)
+            .or_else(|| self.by_text.get(&dfn_for.to_lowercase()))?;
+        let preferred = parent_kinds(kind);
+        preferred
+            .iter()
+            .find_map(|want| candidates.iter().find(|(_, k)| k == want))
+            .or_else(|| preferred.is_empty().then(|| candidates.first()).flatten())
+            .map(|(sym, _)| sym.as_str())
+    }
+}
+
+/// A definition's structured record: its kind, pretty name, parent, and
+/// anchor's URL in the rendered spec (`rendered`), with the `spec` implKind.
+#[allow(clippy::too_many_arguments)]
+pub fn spec_structured(
+    records: &mut Vec<Record>,
+    loc: Location,
+    pretty: &str,
+    sym: &str,
+    kind: &str,
+    parentsym: Option<&str>,
+    rendered: Option<&str>,
+) {
+    let mut value = json!({
+        "loc": loc,
+        "structured": 1,
+        "pretty": pretty,
+        "sym": sym,
+        "kind": kind,
+        "implKind": "spec",
+    });
+    if let Some(parentsym) = parentsym {
+        value["parentsym"] = json!(parentsym);
+    }
+    if let Some(rendered) = rendered {
+        value["rendered"] = json!(rendered);
+    }
+    records.push(Record::Structured(loc, value));
 }
 
 /// The start of each line of a source, for records' locations.

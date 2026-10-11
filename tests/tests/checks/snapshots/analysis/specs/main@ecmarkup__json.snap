@@ -28,6 +28,15 @@ input_file: inputs/analysis/specs/ecmarkup__json
     "contextsym": "SPEC_ecmaexample_sec@2Dterms"
   },
   {
+    "loc": "00008:6-11",
+    "structured": 1,
+    "pretty": "ecmaexample Terms",
+    "sym": "SPEC_ecmaexample_sec@2Dterms",
+    "kind": "specSection",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/ecma/#sec-terms"
+  },
+  {
     "loc": "00009:41-46",
     "source": 1,
     "syntax": "def",
@@ -42,6 +51,15 @@ input_file: inputs/analysis/specs/ecmarkup__json
     "sym": "SPEC_ecmaexample_value",
     "context": "Terms",
     "contextsym": "SPEC_ecmaexample_sec@2Dterms"
+  },
+  {
+    "loc": "00009:41-46",
+    "structured": 1,
+    "pretty": "ecmaexample value",
+    "sym": "SPEC_ecmaexample_value",
+    "kind": "specDfn",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/ecma/#value"
   },
   {
     "loc": "00009:66-72",
@@ -90,6 +108,15 @@ input_file: inputs/analysis/specs/ecmarkup__json
     "sym": "SPEC_ecmaexample_sec@2Dtostring",
     "context": "ToString",
     "contextsym": "SPEC_ecmaexample_sec@2Dtostring"
+  },
+  {
+    "loc": "00013:6-16",
+    "structured": 1,
+    "pretty": "ecmaexample ToString",
+    "sym": "SPEC_ecmaexample_sec@2Dtostring",
+    "kind": "specAbstractOp",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/ecma/#sec-tostring"
   },
   {
     "loc": "00014:17-22",
@@ -159,14 +186,14 @@ input_file: inputs/analysis/specs/ecmarkup__json
     "loc": "00024:26-32",
     "source": 1,
     "syntax": "use",
-    "pretty": "anchor ecmaexample #eqn-modulo",
+    "pretty": "operation ecmaexample modulo",
     "sym": "SPEC_ecmaexample_eqn@2Dmodulo"
   },
   {
     "loc": "00024:26-32",
     "target": 1,
     "kind": "use",
-    "pretty": "ecmaexample #eqn-modulo",
+    "pretty": "ecmaexample modulo",
     "sym": "SPEC_ecmaexample_eqn@2Dmodulo",
     "context": "ToString step 2.a",
     "contextsym": "SPEC_ecmaexample_sec@2Dtostring"
@@ -220,20 +247,38 @@ input_file: inputs/analysis/specs/ecmarkup__json
     "contextsym": "SPEC_ecmaexample_sec@2Dmodulo"
   },
   {
-    "loc": "00031:23-62",
+    "loc": "00030:8-14",
+    "structured": 1,
+    "pretty": "ecmaexample Modulo",
+    "sym": "SPEC_ecmaexample_sec@2Dmodulo",
+    "kind": "specSection",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/ecma/#sec-modulo"
+  },
+  {
+    "loc": "00031:62-76",
     "source": 1,
     "syntax": "def",
-    "pretty": "anchor ecmaexample #eqn-modulo",
+    "pretty": "operation ecmaexample modulo",
     "sym": "SPEC_ecmaexample_eqn@2Dmodulo"
   },
   {
-    "loc": "00031:23-62",
+    "loc": "00031:62-76",
     "target": 1,
     "kind": "def",
-    "pretty": "ecmaexample #eqn-modulo",
+    "pretty": "ecmaexample modulo",
     "sym": "SPEC_ecmaexample_eqn@2Dmodulo",
     "context": "Modulo",
     "contextsym": "SPEC_ecmaexample_sec@2Dmodulo"
+  },
+  {
+    "loc": "00031:62-76",
+    "structured": 1,
+    "pretty": "ecmaexample modulo",
+    "sym": "SPEC_ecmaexample_eqn@2Dmodulo",
+    "kind": "specAbstractOp",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/ecma/#eqn-modulo"
   },
   {
     "loc": "00034:2-93",
@@ -252,20 +297,29 @@ input_file: inputs/analysis/specs/ecmarkup__json
     "contextsym": "SPEC_ecmaexample_sec@2Dterms"
   },
   {
-    "loc": "00037:6-29",
+    "loc": "00037:29-71",
     "source": 1,
     "syntax": "def",
-    "pretty": "anchor ecmaexample #abstract-frob",
+    "pretty": "operation ecmaexample Frob",
     "sym": "SPEC_ecmaexample_abstract@2Dfrob"
   },
   {
-    "loc": "00037:6-29",
+    "loc": "00037:29-71",
     "target": 1,
     "kind": "def",
-    "pretty": "ecmaexample #abstract-frob",
+    "pretty": "ecmaexample Frob",
     "sym": "SPEC_ecmaexample_abstract@2Dfrob",
     "context": "Terms",
     "contextsym": "SPEC_ecmaexample_sec@2Dterms"
+  },
+  {
+    "loc": "00037:29-71",
+    "structured": 1,
+    "pretty": "ecmaexample Frob",
+    "sym": "SPEC_ecmaexample_abstract@2Dfrob",
+    "kind": "specAbstractOp",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/ecma/#abstract-frob"
   },
   {
     "loc": "00042:8-25",
@@ -284,17 +338,26 @@ input_file: inputs/analysis/specs/ecmarkup__json
     "contextsym": "SPEC_ecmaexample_sec@2Dfrob"
   },
   {
+    "loc": "00042:8-25",
+    "structured": 1,
+    "pretty": "ecmaexample Frob2",
+    "sym": "SPEC_ecmaexample_sec@2Dfrob",
+    "kind": "specAbstractOp",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/ecma/#sec-frob"
+  },
+  {
     "loc": "00044:27-31",
     "source": 1,
     "syntax": "use",
-    "pretty": "anchor ecmaexample #abstract-frob",
+    "pretty": "operation ecmaexample Frob",
     "sym": "SPEC_ecmaexample_abstract@2Dfrob"
   },
   {
     "loc": "00044:27-31",
     "target": 1,
     "kind": "use",
-    "pretty": "ecmaexample #abstract-frob",
+    "pretty": "ecmaexample Frob",
     "sym": "SPEC_ecmaexample_abstract@2Dfrob",
     "context": "Frob2 step 1",
     "contextsym": "SPEC_ecmaexample_sec@2Dfrob"
@@ -316,6 +379,15 @@ input_file: inputs/analysis/specs/ecmarkup__json
     "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
   },
   {
+    "loc": "00051:6-13",
+    "structured": 1,
+    "pretty": "ecmaexample Grammar",
+    "sym": "SPEC_ecmaexample_sec@2Dgrammar",
+    "kind": "specSection",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/ecma/#sec-grammar"
+  },
+  {
     "loc": "00053:4-9",
     "source": 1,
     "syntax": "def",
@@ -332,6 +404,15 @@ input_file: inputs/analysis/specs/ecmarkup__json
     "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
   },
   {
+    "loc": "00053:4-9",
+    "structured": 1,
+    "pretty": "ecmaexample Thing",
+    "sym": "SPEC_ecmaexample_prod@2DThing",
+    "kind": "specGrammar",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/ecma/#prod-Thing"
+  },
+  {
     "loc": "00054:14-24",
     "source": 1,
     "syntax": "use",
@@ -378,6 +459,15 @@ input_file: inputs/analysis/specs/ecmarkup__json
     "sym": "SPEC_ecmaexample_prod@2DOtherThing",
     "context": "Grammar",
     "contextsym": "SPEC_ecmaexample_sec@2Dgrammar"
+  },
+  {
+    "loc": "00057:4-14",
+    "structured": 1,
+    "pretty": "ecmaexample OtherThing",
+    "sym": "SPEC_ecmaexample_prod@2DOtherThing",
+    "kind": "specGrammar",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/ecma/#prod-OtherThing"
   },
   {
     "loc": "00060:9-40",
@@ -426,5 +516,14 @@ input_file: inputs/analysis/specs/ecmarkup__json
     "sym": "SPEC_ecmaexample_sec@2Dcall",
     "context": "Call",
     "contextsym": "SPEC_ecmaexample_sec@2Dcall"
+  },
+  {
+    "loc": "00064:6-18",
+    "structured": 1,
+    "pretty": "ecmaexample Call",
+    "sym": "SPEC_ecmaexample_sec@2Dcall",
+    "kind": "specAbstractOp",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/ecma/#sec-call"
   }
 ]

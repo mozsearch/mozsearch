@@ -21,6 +21,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "contextsym": "SPEC_example_infrastructure"
   },
   {
+    "loc": "00007:22-36",
+    "structured": 1,
+    "pretty": "example Infrastructure",
+    "sym": "SPEC_example_infrastructure",
+    "kind": "specSection",
+    "implKind": "spec",
+    "rendered": "https://example.spec.whatwg.org/#infrastructure"
+  },
+  {
     "loc": "00009:32-38",
     "source": 1,
     "syntax": "def",
@@ -35,6 +44,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "sym": "SPEC_example_concept@2Dwidget",
     "context": "Infrastructure",
     "contextsym": "SPEC_example_infrastructure"
+  },
+  {
+    "loc": "00009:32-38",
+    "structured": 1,
+    "pretty": "example widget",
+    "sym": "SPEC_example_concept@2Dwidget",
+    "kind": "specDfn",
+    "implKind": "spec",
+    "rendered": "https://example.spec.whatwg.org/#concept-widget"
   },
   {
     "loc": "00009:84-89",
@@ -53,6 +71,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "contextsym": "SPEC_example_infrastructure"
   },
   {
+    "loc": "00009:84-89",
+    "structured": 1,
+    "pretty": "example state",
+    "sym": "SPEC_example_concept@2Dwidget@2Dstate",
+    "kind": "specDfn",
+    "implKind": "spec",
+    "rendered": "https://example.spec.whatwg.org/#concept-widget-state"
+  },
+  {
     "loc": "00011:15-22",
     "source": 1,
     "syntax": "def",
@@ -69,6 +96,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "contextsym": "SPEC_example_widgets"
   },
   {
+    "loc": "00011:15-22",
+    "structured": 1,
+    "pretty": "example Widgets",
+    "sym": "SPEC_example_widgets",
+    "kind": "specSection",
+    "implKind": "spec",
+    "rendered": "https://example.spec.whatwg.org/#widgets"
+  },
+  {
     "loc": "00013:38-42",
     "source": 1,
     "syntax": "def",
@@ -83,6 +119,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "sym": "SPEC_example_concept@2Dwidget@2Dpoke",
     "context": "poke",
     "contextsym": "SPEC_example_concept@2Dwidget@2Dpoke"
+  },
+  {
+    "loc": "00013:38-42",
+    "structured": 1,
+    "pretty": "example poke",
+    "sym": "SPEC_example_concept@2Dwidget@2Dpoke",
+    "kind": "specAlgorithm",
+    "implKind": "spec",
+    "rendered": "https://example.spec.whatwg.org/#concept-widget-poke"
   },
   {
     "loc": "00013:79-85",
@@ -133,6 +178,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "contextsym": "SPEC_example_unpoke"
   },
   {
+    "loc": "00022:11-17",
+    "structured": 1,
+    "pretty": "example unpoke",
+    "sym": "SPEC_example_unpoke",
+    "kind": "specAlgorithm",
+    "implKind": "spec",
+    "rendered": "https://example.spec.whatwg.org/#unpoke"
+  },
+  {
     "loc": "00026:15-47",
     "source": 1,
     "syntax": "def",
@@ -149,6 +203,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "contextsym": "SPEC_example_gadgets"
   },
   {
+    "loc": "00026:15-47",
+    "structured": 1,
+    "pretty": "example Gadgets <gadget>",
+    "sym": "SPEC_example_gadgets",
+    "kind": "specSection",
+    "implKind": "spec",
+    "rendered": "https://example.spec.whatwg.org/#gadgets"
+  },
+  {
     "loc": "00031:32-38",
     "source": 1,
     "syntax": "def",
@@ -163,6 +226,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "sym": "SPEC_example_concept@2Dgadget",
     "context": "Gadgets <gadget>",
     "contextsym": "SPEC_example_gadgets"
+  },
+  {
+    "loc": "00031:32-38",
+    "structured": 1,
+    "pretty": "example gadget",
+    "sym": "SPEC_example_concept@2Dgadget",
+    "kind": "specDfn",
+    "implKind": "spec",
+    "rendered": "https://example.spec.whatwg.org/#concept-gadget"
   },
   {
     "loc": "00031:78-84",
@@ -195,6 +267,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "sym": "SPEC_example_node",
     "context": "Gadgets <gadget>",
     "contextsym": "SPEC_example_gadgets"
+  },
+  {
+    "loc": "00032:61-65",
+    "structured": 1,
+    "pretty": "example node",
+    "sym": "SPEC_example_node",
+    "kind": "specDfn",
+    "implKind": "spec",
+    "rendered": "https://example.spec.whatwg.org/#node"
   },
   {
     "loc": "00032:61-65",
@@ -243,6 +324,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "sym": "SPEC_example_assemble",
     "context": "assemble",
     "contextsym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00034:11-19",
+    "structured": 1,
+    "pretty": "example assemble",
+    "sym": "SPEC_example_assemble",
+    "kind": "specAlgorithm",
+    "implKind": "spec",
+    "rendered": "https://example.spec.whatwg.org/#assemble"
   },
   {
     "loc": "00034:56-62",
@@ -357,6 +447,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "contextsym": "SPEC_example_doohickeys"
   },
   {
+    "loc": "00047:18-63",
+    "structured": 1,
+    "pretty": "example The doohickey section",
+    "sym": "SPEC_example_doohickeys",
+    "kind": "specSection",
+    "implKind": "spec",
+    "rendered": "https://example.spec.whatwg.org/#doohickeys"
+  },
+  {
     "loc": "00047:40-49",
     "source": 1,
     "syntax": "def",
@@ -371,6 +470,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "sym": "SPEC_example_doohickey",
     "context": "The doohickey section",
     "contextsym": "SPEC_example_doohickeys"
+  },
+  {
+    "loc": "00047:40-49",
+    "structured": 1,
+    "pretty": "example doohickey",
+    "sym": "SPEC_example_doohickey",
+    "kind": "specDfn",
+    "implKind": "spec",
+    "rendered": "https://example.spec.whatwg.org/#doohickey"
   },
   {
     "loc": "00049:14-23",

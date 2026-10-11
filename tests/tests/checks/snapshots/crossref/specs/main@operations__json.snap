@@ -64,7 +64,59 @@ input_file: inputs/crossref/specs/operations__json
             ]
           }
         ],
-        "callees": []
+        "callees": [
+          {
+            "jump": "specs/ecma/spec.html#24",
+            "kind": "specAbstractOp",
+            "pretty": "ecmaexample modulo",
+            "sym": "SPEC_ecmaexample_eqn@2Dmodulo"
+          },
+          {
+            "jump": "specs/ecma/spec.html#25",
+            "kind": "specGrammar",
+            "pretty": "ecmaexample Thing",
+            "sym": "SPEC_ecmaexample_prod@2DThing"
+          },
+          {
+            "jump": "specs/ecma/spec.html#25",
+            "kind": "specAbstractOp",
+            "pretty": "ecmaexample Call",
+            "sym": "SPEC_ecmaexample_sec@2Dcall"
+          },
+          {
+            "jump": "specs/ecma/spec.html#22",
+            "kind": "specAbstractOp",
+            "pretty": "ecmaexample ToString",
+            "sym": "SPEC_ecmaexample_sec@2Dtostring"
+          },
+          {
+            "jump": "specs/ecma/spec.html#14,22",
+            "kind": "specDfn",
+            "pretty": "ecmaexample value",
+            "sym": "SPEC_ecmaexample_value"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "ecmaexample ToString",
+          "sym": "SPEC_ecmaexample_sec@2Dtostring",
+          "type_pretty": null,
+          "kind": "specAbstractOp",
+          "subsystem": null,
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.github.io/ecma/#sec-tostring"
+        }
       },
       "relation": "Queried",
       "quality": "ExplicitSymbol",
@@ -99,8 +151,8 @@ input_file: inputs/crossref/specs/operations__json
               {
                 "lno": 37,
                 "bounds": [
-                  0,
-                  23
+                  23,
+                  65
                 ],
                 "line": "<tr id=\"abstract-frob\"><td>Frob ( )</td><td>Frobs the thing.</td></tr>",
                 "context": "Terms",
@@ -108,7 +160,28 @@ input_file: inputs/crossref/specs/operations__json
               }
             ]
           }
-        ]
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "ecmaexample Frob",
+          "sym": "SPEC_ecmaexample_abstract@2Dfrob",
+          "type_pretty": null,
+          "kind": "specAbstractOp",
+          "subsystem": null,
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.github.io/ecma/#abstract-frob"
+        }
       },
       "relation": "Queried",
       "quality": "ExplicitSymbol",
@@ -162,7 +235,28 @@ input_file: inputs/crossref/specs/operations__json
               }
             ]
           }
-        ]
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "ecmaexample OtherThing",
+          "sym": "SPEC_ecmaexample_prod@2DOtherThing",
+          "type_pretty": null,
+          "kind": "specGrammar",
+          "subsystem": null,
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.github.io/ecma/#prod-OtherThing"
+        }
       },
       "relation": "Queried",
       "quality": "ExplicitSymbol",

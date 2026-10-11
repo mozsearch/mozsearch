@@ -21,6 +21,15 @@ input_file: inputs/analysis/specs/bikeshed__json
     "contextsym": "SPEC_examplebs_intro"
   },
   {
+    "loc": "00008:0-12",
+    "structured": 1,
+    "pretty": "examplebs Introduction",
+    "sym": "SPEC_examplebs_intro",
+    "kind": "specSection",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/bs/#intro"
+  },
+  {
     "loc": "00011:7-13",
     "source": 1,
     "syntax": "def",
@@ -37,6 +46,15 @@ input_file: inputs/analysis/specs/bikeshed__json
     "contextsym": "SPEC_examplebs_intro"
   },
   {
+    "loc": "00011:7-13",
+    "structured": 1,
+    "pretty": "examplebs widget",
+    "sym": "SPEC_examplebs_widget",
+    "kind": "specDfn",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/bs/#widget"
+  },
+  {
     "loc": "00011:42-47",
     "source": 1,
     "syntax": "def",
@@ -51,6 +69,16 @@ input_file: inputs/analysis/specs/bikeshed__json
     "sym": "SPEC_examplebs_widget@2Dstate",
     "context": "Introduction",
     "contextsym": "SPEC_examplebs_intro"
+  },
+  {
+    "loc": "00011:42-47",
+    "structured": 1,
+    "pretty": "examplebs widget/state",
+    "sym": "SPEC_examplebs_widget@2Dstate",
+    "kind": "specDfn",
+    "implKind": "spec",
+    "parentsym": "SPEC_examplebs_widget",
+    "rendered": "https://example.github.io/bs/#widget-state"
   },
   {
     "loc": "00011:61-69",
@@ -85,6 +113,15 @@ input_file: inputs/analysis/specs/bikeshed__json
     "contextsym": "SPEC_examplebs_widgets"
   },
   {
+    "loc": "00013:2-9",
+    "structured": 1,
+    "pretty": "examplebs Widgets",
+    "sym": "SPEC_examplebs_widgets",
+    "kind": "specSection",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/bs/#widgets"
+  },
+  {
     "loc": "00015:8-12",
     "source": 1,
     "syntax": "def",
@@ -99,6 +136,15 @@ input_file: inputs/analysis/specs/bikeshed__json
     "sym": "SPEC_examplebs_poke",
     "context": "poke",
     "contextsym": "SPEC_examplebs_poke"
+  },
+  {
+    "loc": "00015:8-12",
+    "structured": 1,
+    "pretty": "examplebs poke",
+    "sym": "SPEC_examplebs_poke",
+    "kind": "specAlgorithm",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/bs/#poke"
   },
   {
     "loc": "00015:21-31",
@@ -149,6 +195,15 @@ input_file: inputs/analysis/specs/bikeshed__json
     "contextsym": "SPEC_examplebs_unpoke"
   },
   {
+    "loc": "00021:8-14",
+    "structured": 1,
+    "pretty": "examplebs unpoke",
+    "sym": "SPEC_examplebs_unpoke",
+    "kind": "specAlgorithm",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/bs/#unpoke"
+  },
+  {
     "loc": "00021:23-33",
     "source": 1,
     "syntax": "use",
@@ -197,6 +252,15 @@ input_file: inputs/analysis/specs/bikeshed__json
     "contextsym": "SPEC_examplebs_gadgets"
   },
   {
+    "loc": "00026:3-10",
+    "structured": 1,
+    "pretty": "examplebs Gadgets",
+    "sym": "SPEC_examplebs_gadgets",
+    "kind": "specSection",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/bs/#gadgets"
+  },
+  {
     "loc": "00030:10-16",
     "source": 1,
     "syntax": "def",
@@ -213,6 +277,15 @@ input_file: inputs/analysis/specs/bikeshed__json
     "contextsym": "SPEC_examplebs_gadgets"
   },
   {
+    "loc": "00030:10-16",
+    "structured": 1,
+    "pretty": "examplebs Gadget",
+    "sym": "SPEC_examplebs_gadget",
+    "kind": "class",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/bs/#gadget"
+  },
+  {
     "loc": "00031:12-16",
     "source": 1,
     "syntax": "def",
@@ -227,6 +300,16 @@ input_file: inputs/analysis/specs/bikeshed__json
     "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke",
     "context": "Gadgets",
     "contextsym": "SPEC_examplebs_gadgets"
+  },
+  {
+    "loc": "00031:12-16",
+    "structured": 1,
+    "pretty": "examplebs Gadget/poke",
+    "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke",
+    "kind": "method",
+    "implKind": "spec",
+    "parentsym": "SPEC_examplebs_gadget",
+    "rendered": "https://example.github.io/bs/#dom-gadget-poke"
   },
   {
     "loc": "00035:4-21",

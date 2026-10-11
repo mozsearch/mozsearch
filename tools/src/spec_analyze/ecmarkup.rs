@@ -42,7 +42,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use super::markup::{Doc, NodeKind};
-use super::{InContext, Lines, SpecsConfig, spec_records, spec_symbol};
+use super::{InContext, Lines, SpecsConfig, spec_records, spec_structured, spec_symbol};
 use crate::semantic_analyzer::{Record, sort_records};
 
 const CLAUSES: &[&str] = &["emu-clause", "emu-annex", "emu-intro"];
@@ -598,6 +598,9 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
     // Internal methods (ex: `[[GetOwnProperty]]`), and their anchors, which
     // only invocations (`_O_.[[GetOwnProperty]](...)`) link to.
     let mut internal_methods: HashMap<String, String> = HashMap::new();
+    // The structured kinds of operations' anchors other than clauses
+    // (equations' and tables of methods' rows).
+    let mut op_kinds: Vec<(String, &'static str)> = vec![];
     let mut grammars: Vec<(usize, bool)> = vec![];
     let mut algorithms: Vec<(usize, Steps)> = vec![];
     for node in 1..n {
@@ -653,6 +656,10 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
                     .or_else(|| clause_of[node].map(|c| clauses[&c].id.clone()));
                 if let Some(target) = target {
                     stats.operations += 1;
+                    if doc.has_attr(node, "id") {
+                        op_kinds.push((target.clone(), "specAbstractOp"));
+                        defs.insert(target.clone(), ("operation", format!("{} {}", shortname, aoid)));
+                    }
                     let ns = namespaces.get_mut("").unwrap();
                     if !ns.ops.iter().any(|(key, _)| *key == aoid) {
                         ns.ops.push((
@@ -689,6 +696,13 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
                     };
                     let target = doc.attr(row, "id").unwrap_or_else(|| table_id.clone());
                     stats.operations += 1;
+                    if doc.has_attr(row, "id") {
+                        op_kinds.push((
+                            target.clone(),
+                            if internal { "method" } else { "specAbstractOp" },
+                        ));
+                        defs.insert(target.clone(), ("operation", format!("{} {}", shortname, name)));
+                    }
                     if internal {
                         internal_methods.entry(name).or_insert(target);
                     } else {
@@ -1141,6 +1155,40 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
         }
     }
 
+    // Structured records: clauses are abstract operations, algorithms (ex:
+    // built-in functions), or sections; terms are dfns, and productions
+    // grammar.
+    let mut structured: HashMap<String, (&'static str, Option<String>)> = HashMap::new();
+    let mut add_structured = |id: &str, kind: &'static str| {
+        structured
+            .entry(spec_symbol(shortname, id))
+            .or_insert_with(|| (kind, config.rendered_url(shortname, id)));
+    };
+    for clause in clauses.values() {
+        let kind = if clause.aoid.is_some() {
+            "specAbstractOp"
+        } else if doc.nodes[clause.node]
+            .children
+            .iter()
+            .any(|&child| doc.is(child, "emu-alg"))
+        {
+            "specAlgorithm"
+        } else {
+            "specSection"
+        };
+        add_structured(&clause.id, kind);
+    }
+    for (id, kind) in &op_kinds {
+        add_structured(id, kind);
+    }
+    for (id, (what, _)) in &defs {
+        match *what {
+            "dfn" => add_structured(id, "specDfn"),
+            "production" => add_structured(id, "specGrammar"),
+            _ => {}
+        }
+    }
+
     let mut records = vec![];
     for p in pending {
         let range = if p.range.is_empty() {
@@ -1149,15 +1197,13 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
             p.range
         };
         let context = context_at(range.start);
-        spec_records(
-            &mut records,
-            lines.location(&range),
-            p.def,
-            p.what,
-            &p.pretty,
-            &p.sym,
-            &context,
-        );
+        let loc = lines.location(&range);
+        spec_records(&mut records, loc, p.def, p.what, &p.pretty, &p.sym, &context);
+        if p.def
+            && let Some((kind, rendered)) = structured.remove(&p.sym)
+        {
+            spec_structured(&mut records, loc, &p.pretty, &p.sym, kind, None, rendered.as_deref());
+        }
     }
     sort_records(&mut records);
     (records, stats)
@@ -1319,6 +1365,29 @@ mod tests {
         assert_eq!(
             (stats.clauses, stats.operations, stats.terms, stats.productions, stats.unresolved),
             (3, 2, 2, 2, 1)
+        );
+        let structured: Vec<String> = records
+            .iter()
+            .filter_map(|record| match record {
+                Record::Structured(loc, value) => Some(format!(
+                    "{} {} {}",
+                    loc.lineno,
+                    value["sym"].as_str().unwrap(),
+                    value["kind"].as_str().unwrap()
+                )),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            structured,
+            vec![
+                "2 SPEC_es_sec@2Dterms specSection",
+                "3 SPEC_es_value specDfn",
+                "6 SPEC_es_sec@2Dtostring specAbstractOp",
+                "20 SPEC_es_prod@2DThing specGrammar",
+                "22 SPEC_es_prod@2DOtherThing specGrammar",
+                "27 SPEC_es_sec@2Dcall specAbstractOp",
+            ]
         );
     }
 }

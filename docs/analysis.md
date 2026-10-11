@@ -347,6 +347,26 @@ Raw record info.  These are attributes that will be found in the analysis files.
     C++ indexer, but we probably want to start to; currently adding this for
     tree-sitter based tokenization where it's potentially useful to be able to
     refer to namespaces.
+  - Web specs' definitions (`implKind` `spec`, see `tools/src/spec_analyze`)
+    use the kinds above for IDL (as Gecko's WebIDL does: interfaces and
+    dictionaries are `class`es, operations `method`s, attributes and
+    dictionary members `field`s, and `const`, `enum`, `enumConstant`,
+    `typedef`, `callback`, `parameter`, and `event`), and otherwise:
+    - `specAlgorithm`: An algorithm (by its first definition, ex: "To
+      <dfn>navigate</dfn> ...", or an ecmarkup clause with steps, ex: a
+      built-in function).  It's callable, so the references in its steps are
+      calls, for diagrams and traversals.
+    - `specAbstractOp`: An abstract operation (ecmarkup's, and Bikeshed's
+      `abstract-op` definitions).  Callable, like `specAlgorithm`.
+    - `specDfn`: A term.
+    - `specSection`: A section (by its heading).
+    - `specGrammar`: A grammar production (or Bikeshed's `grammar`).
+    - `element`, `elementAttr`, `elementAttrValue`, `elementState`: HTML
+      elements, their attributes, and the attributes' values and states.
+    - `cssProperty`, `cssDescriptor`, `cssValue`, `cssType`, `cssAtRule`,
+      `cssFunction`, `cssSelector`: CSS's (as Bikeshed's dfn types).
+    - `httpHeader`, `urlScheme`, `permission`, and `cddlModule`, `cddlType`,
+      `cddlKey`, `cddlParameter`, `cddlValue`.
 - `parentsym`: For methods and fields, the symbol of the record to which they
   belong.  The current intent is that this is not populated for namespace
   purposes.  (That is, for a class "Bar" in namespace "foo" with pretty name
@@ -367,6 +387,10 @@ Raw record info.  These are attributes that will be found in the analysis files.
     and the like.
   - `impl`: By default, most things will be "impl".  But when WebIDL/etc. are
     involved this will be the actual implementation.
+  - `spec`: A web spec's definition (see `tools/src/spec_analyze`), which
+    implementations implement (and may not match).
+- `rendered`: For web specs' definitions, the URL of their anchor in the
+  rendered spec, ex: `https://dom.spec.whatwg.org/#concept-node`.
 - `sizeBytes`: Size in bytes.  Not present for method/function.
 - `alignmentBytes`: Alignment in bytes.  Not present for method/function.
 - `ownVFPtrBytes`: The size of virtual function pointer in bytes.  Not present for method/function.

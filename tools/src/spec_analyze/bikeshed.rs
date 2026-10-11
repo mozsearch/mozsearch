@@ -26,7 +26,8 @@ use serde::Deserialize;
 
 use super::markup::Doc;
 use super::{
-    InContext, Lines, SpecsConfig, spec_records, spec_symbol, unescape_context_name,
+    ForResolver, InContext, Lines, SpecsConfig, dfn_kind, spec_records, spec_structured,
+    spec_symbol, unescape_context_name,
 };
 use crate::semantic_analyzer::{Record, sort_records};
 use crate::tree_sitter_support::spec_tokenizer::bikeshed_contexts;
@@ -55,6 +56,9 @@ pub struct IndexDfn {
     pub dfn_type: Option<String>,
     #[serde(rename = "for", default)]
     pub dfn_for: Vec<String>,
+    /// Its linking texts.
+    #[serde(default)]
+    pub lt: Vec<String>,
     #[serde(default)]
     pub text: String,
     #[serde(default)]
@@ -183,6 +187,10 @@ pub fn analyze(
     let mut defs: HashMap<&str, (String, String)> = HashMap::new();
     // Definitions' positions, for algorithms' symbols.
     let mut dfn_starts: Vec<(usize, String)> = vec![];
+    // Definitions' (symbol, kind, what they're for, id), for their structured
+    // records, and their parents by what they're for.
+    let mut structured_defs: Vec<(String, &'static str, Option<String>, String)> = vec![];
+    let mut resolver = ForResolver::default();
     for dfn in &index.dfns {
         let Some(at) = place(dfn.line, dfn.col) else {
             stats.unplaced += 1;
@@ -203,6 +211,14 @@ pub fn analyze(
         if !dfn.idl {
             dfn_starts.push((at, sym.clone()));
         }
+        let kind = dfn_kind(dfn.dfn_type.as_deref().unwrap_or("dfn"));
+        let texts = if dfn.lt.is_empty() {
+            vec![dfn.text.clone()]
+        } else {
+            dfn.lt.clone()
+        };
+        resolver.add(&sym, kind, &texts, &dfn.dfn_for);
+        structured_defs.push((sym.clone(), kind, dfn.dfn_for.first().cloned(), dfn.id.clone()));
         defs.insert(&dfn.id, (what.clone(), pretty.clone()));
         pending.push(Pending {
             range,
@@ -231,6 +247,7 @@ pub fn analyze(
         });
         let sym = spec_symbol(shortname, &heading.id);
         let pretty = format!("{} {}", shortname, heading.text);
+        structured_defs.push((sym.clone(), "specSection", None, heading.id.clone()));
         heading_syms.insert(lines_start(&lines, src, at), sym.clone());
         heading_syms.insert(at, sym.clone());
         defs.entry(&heading.id)
@@ -347,18 +364,49 @@ pub fn analyze(
             .map_or_else(InContext::default, |i| sections[i].1.clone())
     };
 
+    // Structured records: definitions' kinds (algorithms' are callable),
+    // parents, and anchors' URLs.
+    let algorithm_syms: std::collections::HashSet<&str> = algorithms
+        .iter()
+        .map(|(_, context)| context.sym.as_str())
+        .filter(|sym| !sym.is_empty())
+        .collect();
+    let mut structured: HashMap<String, (&'static str, Option<String>, Option<String>)> =
+        HashMap::new();
+    for (sym, kind, dfn_for, id) in &structured_defs {
+        let kind = if *kind == "specDfn" && algorithm_syms.contains(sym.as_str()) {
+            "specAlgorithm"
+        } else {
+            kind
+        };
+        let parent = dfn_for
+            .as_deref()
+            .and_then(|f| resolver.parent(f, kind))
+            .filter(|parent| parent != sym)
+            .map(str::to_string);
+        structured
+            .entry(sym.clone())
+            .or_insert((kind, parent, config.rendered_url(shortname, id)));
+    }
+
     let mut records = vec![];
     for p in pending {
         let context = context_at(p.range.start);
-        spec_records(
-            &mut records,
-            lines.location(&p.range),
-            p.def,
-            &p.what,
-            &p.pretty,
-            &p.sym,
-            &context,
-        );
+        let loc = lines.location(&p.range);
+        spec_records(&mut records, loc, p.def, &p.what, &p.pretty, &p.sym, &context);
+        if p.def
+            && let Some((kind, parent, rendered)) = structured.remove(&p.sym)
+        {
+            spec_structured(
+                &mut records,
+                loc,
+                &p.pretty,
+                &p.sym,
+                kind,
+                parent.as_deref(),
+                rendered.as_deref(),
+            );
+        }
     }
     sort_records(&mut records);
     (records, stats)
@@ -497,5 +545,28 @@ mod tests {
             ]
         );
         assert_eq!((stats.dfns, stats.headings, stats.links, stats.external), (4, 2, 4, 1));
+        let structured: Vec<String> = records
+            .iter()
+            .filter_map(|record| match record {
+                Record::Structured(_, value) => Some(format!(
+                    "{} {} {}",
+                    value["sym"].as_str().unwrap(),
+                    value["kind"].as_str().unwrap(),
+                    value["parentsym"].as_str().unwrap_or("-"),
+                )),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            structured,
+            vec![
+                "SPEC_x_intro specSection -",
+                "SPEC_x_widget specDfn -",
+                "SPEC_x_widget@2Dstate specDfn SPEC_x_widget",
+                "SPEC_x_widgets specSection -",
+                "SPEC_x_poke specAlgorithm -",
+                "SPEC_x_gadget class -",
+            ]
+        );
     }
 }
