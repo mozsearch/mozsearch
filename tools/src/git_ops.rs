@@ -35,14 +35,25 @@ pub fn fast_import_git() -> std::process::Command {
 /// time in the kernel), and about the same with 7 as with 15.
 const MAX_HISTORY_COMPUTE_THREADS: usize = 15;
 
-/// How many compute threads the history tools use: COMPUTE_THREADS if set, or
-/// one fewer than the CPUs (leaving one for the main thread), up to
-/// `MAX_HISTORY_COMPUTE_THREADS`.
-pub fn history_compute_threads() -> usize {
-    std::env::var("COMPUTE_THREADS")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or_else(|| (num_cpus::get() - 1).min(MAX_HISTORY_COMPUTE_THREADS))
+/// How many compute threads a history tool uses: its own variable if set (ex:
+/// SYNTAX_COMPUTE_THREADS), or else COMPUTE_THREADS if set, or else one fewer
+/// than the CPUs (leaving one for the main thread), up to
+/// `MAX_HISTORY_COMPUTE_THREADS`.  (Ex: the wubspecs tree limits only
+/// build-syntax-token-tree's threads, since each keeps 10 revisions in flight,
+/// which for the HTML Standard's early revisions take ~0.8 GB each, while
+/// build-timeline-tree's are what its history's speed is limited by.)
+pub fn history_compute_threads(tool_var: &str) -> usize {
+    compute_threads(
+        std::env::var(tool_var).ok().as_deref(),
+        std::env::var("COMPUTE_THREADS").ok().as_deref(),
+        num_cpus::get(),
+    )
+}
+
+fn compute_threads(tool: Option<&str>, common: Option<&str>, cpus: usize) -> usize {
+    tool.and_then(|v| v.parse().ok())
+        .or_else(|| common.and_then(|v| v.parse().ok()))
+        .unwrap_or_else(|| cpus.saturating_sub(1).min(MAX_HISTORY_COMPUTE_THREADS))
         .max(1)
 }
 
@@ -252,5 +263,23 @@ pub fn coverage_history(
         None
     } else {
         Some(history)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::compute_threads;
+
+    #[test]
+    fn test_compute_threads() {
+        // A tool's own variable, then COMPUTE_THREADS, then the CPUs (but
+        // one, up to 15).
+        assert_eq!(compute_threads(Some("4"), Some("8"), 32), 4);
+        assert_eq!(compute_threads(None, Some("8"), 32), 8);
+        assert_eq!(compute_threads(Some("bad"), Some("8"), 32), 8);
+        assert_eq!(compute_threads(None, None, 32), 15);
+        assert_eq!(compute_threads(None, None, 4), 3);
+        assert_eq!(compute_threads(None, None, 1), 1);
+        assert_eq!(compute_threads(Some("0"), None, 32), 1);
     }
 }

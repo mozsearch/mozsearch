@@ -1685,7 +1685,7 @@ fn main() {
     }
     let rev_count = revs_to_process.len();
 
-    let num_threads = history_compute_threads();
+    let num_threads = history_compute_threads("SYNTAX_COMPUTE_THREADS");
     const COMPUTE_BUFFER_SIZE: usize = 10;
 
     info!("Starting {} compute threads...", num_threads);

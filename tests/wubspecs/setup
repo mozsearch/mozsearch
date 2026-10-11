@@ -20,10 +20,12 @@ echo "Performing setup::build-history step for $TREE_NAME : $(date +"%Y-%m-%dT%H
 # CLEAN_HISTORY=1 to regenerate it).  It's built in chunks, with the history
 # repos repacked between them (see build-history.py), since the HTML
 # Standard's early revisions each rewrote several files of 2-8 MB, which git
-# fast-import's packs barely compress.  And with 4 compute threads rather
-# than 15, since build-syntax-token-tree keeps 10 revisions in flight per
-# thread, and those revisions' tokens take ~0.8 GB each, so 15 threads took
-# 77 GB.  (The config repo's wubspecs tree is this one, for AWS.)
+# fast-import's packs barely compress.  And with 4 compute threads for
+# build-syntax-token-tree rather than 15, since it keeps 10 revisions in
+# flight per thread, and those revisions' tokens take ~0.8 GB each, so 15
+# threads took 77 GB.  (build-timeline-tree's, which the history's speed is
+# limited by, are as usual.  The config repo's wubspecs tree is this one, for
+# AWS.)
 if [ -n "${CLEAN_HISTORY:-}" ]; then
   rm -rf "$HISTORY_ROOT"
 fi
@@ -34,7 +36,7 @@ for repo in syntax timeline; do
     git init $HISTORY_ROOT/$repo
   fi
 done
-COMPUTE_THREADS=${COMPUTE_THREADS:-4} \
+SYNTAX_COMPUTE_THREADS=${SYNTAX_COMPUTE_THREADS:-4} \
   $MOZSEARCH_PATH/scripts/build-history.py --chunk-size ${HISTORY_CHUNK_SIZE:-500} \
   $GIT_ROOT $HISTORY_ROOT
 

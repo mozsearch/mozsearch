@@ -2541,7 +2541,7 @@ fn merge_journals(
     journals: &[MergeJournal],
     keep_from: Option<i32>,
 ) {
-    let num_threads = history_compute_threads().min(journals.len());
+    let num_threads = history_compute_threads("TIMELINE_COMPUTE_THREADS").min(journals.len());
     if journals.len() < MIN_JOURNALS_FOR_THREADS || num_threads < 2 {
         for journal in journals {
             journal.write(
@@ -3553,7 +3553,7 @@ fn main() {
         use_cinnabar,
     ));
 
-    let num_threads = history_compute_threads();
+    let num_threads = history_compute_threads("TIMELINE_COMPUTE_THREADS");
     const COMPUTE_BUFFER_SIZE: usize = 10;
 
     info!("Starting {} compute threads...", num_threads);
