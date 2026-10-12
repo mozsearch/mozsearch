@@ -142,9 +142,21 @@ add_task(async function test_RenderedBikeshed() {
   ok(!frame.contentDocument.querySelector("#panel-permalink"),
      "Only the latest version has a rendered view");
 
+  ok(doc().querySelector("dfn#gizmo"), "Included files' content is in the spec");
+  is(doc().querySelector(".sp-imported a")?.getAttribute("href"),
+     "/tests/rendered/specs/example-gizmos.md", "and links to their own views");
+
   await TestUtils.loadPath("/tests/source/specs/example.bs");
   is(frame.contentDocument.querySelector("#panel-rendered-view")?.getAttribute("href"), SPEC,
      "The source listing links to the rendered view");
+
+  // An included file's view (even of Markdown) is its part of the spec.
+  await TestUtils.loadPath("/tests/rendered/specs/example-gizmos.md");
+  ok(doc().querySelector("dfn#gizmo"), "An included file's view has its content");
+  ok(!doc().querySelector("h2#widgets"), "and only its");
+  is(doc().querySelector('a[href$="#widget"]')?.getAttribute("href"), `${SPEC}#widget`,
+     "Its references to the spec's other definitions link to them there");
+  ok(doc().querySelector('span[data-l="3"]'), "Its text says where it is in its file");
 });
 
 add_task(async function test_AlgorithmView() {

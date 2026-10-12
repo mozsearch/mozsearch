@@ -85,13 +85,13 @@ fn main() {
 
     let tree_config = cfg.trees.get(tree_name).unwrap();
     let tree_specs = tree_specs(tree_name, tree_config);
-    // (The files the tree's ecmarkup specs import, which have rendered views
-    // as their parts of the specs.)
+    // (The files the tree's ecmarkup specs import and its Bikeshed specs
+    // include, which have rendered views as their parts of the specs.)
     let imported_spec_files = tree_specs
         .as_deref()
         .map_or_else(Default::default, |specs| {
             let files_path = Path::new(&tree_config.paths.files_path);
-            imported_spec_files(specs, &|file: &str| {
+            imported_spec_files(tree_config, specs, &|file: &str| {
                 std::fs::read_to_string(files_path.join(file)).ok()
             })
         });
@@ -507,12 +507,19 @@ fn main() {
 
         match Path::new(path.as_str()).extension().and_then(OsStr::to_str) {
             Some("md") | Some("rst") => {
+                // (A file a Bikeshed spec includes is rendered as its part.)
+                let included = imported_spec_files.contains(path.as_str());
                 tools_items.push(PanelItem {
                     label: PanelItemLabel::Plaintext("Rendered view".to_owned()),
-                    tooltip: "Show the rendered document, with the blame of its blocks".to_owned(),
+                    tooltip: if included {
+                        "Show the rendered spec, with the blame of its blocks"
+                    } else {
+                        "Show the rendered document, with the blame of its blocks"
+                    }
+                    .to_owned(),
                     id: "panel-rendered-view",
                     link: rendered_url(tree_name, None, &path),
-                    update_link_lineno: "",
+                    update_link_lineno: if included { "#{}" } else { "" },
                     accel_key: None,
                     copyable: true,
                 });

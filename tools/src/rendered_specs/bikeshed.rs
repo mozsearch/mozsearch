@@ -12,16 +12,21 @@
 //!   `HtmlRenderer`), and its links to the tree's specs go to their rendered
 //!   views.
 //!
-//! Only the latest revision has a rendered view (the index's output), and the
-//! content of the files a spec includes doesn't have blame.  Not rendered:
+//! Only the latest revision has a rendered view (the index's output).  The
+//! files a spec includes (`<pre class=include>`, whose elements' positions
+//! are `bs-pos="<file>:<line>"`) have their own views, of their parts of the
+//! output, with their blame (`render_file`); in the spec's view, their
+//! content doesn't have blame.  Not rendered:
 //! Bikeshed's scripts (ex: its definitions' panels) and its SVG (ex: railroad
 //! diagrams).
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::ops::Range;
 
 use super::{Hooks, HtmlRenderer, Page, RenderedSpec, Role, SpecLinks, fragment, link_url, role};
+use crate::rendered_docs::escape;
 use crate::spec_analyze::markup::{Doc, NodeKind, decode_html};
 use crate::spec_analyze::wattsi::step_path;
 use crate::spec_analyze::{SpecEntry, SpecsConfig, spec_symbol};
@@ -46,6 +51,9 @@ struct Bikeshed<'r> {
     /// Algorithms' first `<dfn>`s, and the URLs of their views beside the
     /// code citing them.
     algorithm_dfns: HashMap<usize, String>,
+    /// The first elements with the content of the files the spec includes,
+    /// and the files' paths in the tree (for links to their views).
+    includes: HashMap<usize, String>,
 }
 
 impl Bikeshed<'_> {
@@ -122,6 +130,15 @@ impl Hooks for Bikeshed<'_> {
             self.text(out, node);
             return true;
         }
+        if let Some(file) = self.includes.get(&node) {
+            write!(
+                out.w.html,
+                r#"<div class="sp-imported">From <a href="{}">{}</a>:</div>"#,
+                escape(&self.links.rendered_url(file)),
+                escape(file)
+            )
+            .unwrap();
+        }
         if let Some(url) = self.algorithm_dfns.get(&node) {
             let tag = out.start_tag(self, node, "dfn");
             out.children(self, node);
@@ -137,10 +154,88 @@ impl Hooks for Bikeshed<'_> {
     }
 }
 
-/// The blocks of Bikeshed's output with positions in the spec's source (but
-/// not in files it includes), as the bytes of the source from their line to
-/// the next block's.
-fn blocks(doc: &Doc, source: &str) -> HashMap<usize, Range<usize>> {
+/// A `bs-pos`'s file (relative to the spec's source, for a file it includes)
+/// and line.
+fn position(pos: &str) -> Option<(Option<&str>, usize)> {
+    match pos.rsplit_once(':') {
+        Some((file, line)) if !file.is_empty() => Some((Some(file), line.parse().ok()?)),
+        _ => Some((None, pos.parse().ok()?)),
+    }
+}
+
+/// The files (relative to the spec's source) whose content Bikeshed's output
+/// has, but the source's, in order (but those which are only styles or
+/// scripts, ex: a stylesheet included in a `<style>`).
+pub fn included_files(output: &str) -> Vec<String> {
+    let mut files: Vec<String> = vec![];
+    for (at, _) in output.match_indices(" bs-pos=\"") {
+        let rest = &output[at + 9..];
+        let Some(pos) = rest.split('"').next() else {
+            continue;
+        };
+        let tag = output[..at]
+            .rfind('<')
+            .map(|start| &output[start + 1..at])
+            .and_then(|tag| tag.split_whitespace().next())
+            .unwrap_or("");
+        if matches!(tag, "style" | "script" | "link" | "meta") {
+            continue;
+        }
+        if let Some((Some(file), _)) = position(pos)
+            && !files.iter().any(|f| f == file)
+        {
+            files.push(file.to_string());
+        }
+    }
+    files
+}
+
+/// Where the content of a file a spec includes (relative to its source) is
+/// in Bikeshed's output: its first element and the bytes of the elements.
+fn included_region(doc: &Doc, file: &str) -> Option<(usize, Range<usize>)> {
+    // (The elements with the file's content where it's included: the
+    // most of them which are siblings (Bikeshed copies some elsewhere, ex:
+    // into its indexes), from the first of them up to another position (a
+    // file can be included more than once, ex: filter-effects'
+    // templates).)
+    let of_file = |node: usize| {
+        doc.raw_attr(node, "bs-pos")
+            .and_then(position)
+            .is_some_and(|(f, _)| f == Some(file))
+    };
+    let mut by_parent: Vec<(usize, Vec<usize>)> = vec![];
+    for node in 1..doc.nodes.len() {
+        let parent = doc.nodes[node].parent.unwrap_or(0);
+        if !of_file(node) || of_file(parent) {
+            continue;
+        }
+        match by_parent.iter_mut().find(|(p, _)| *p == parent) {
+            Some((_, nodes)) => nodes.push(node),
+            None => by_parent.push((parent, vec![node])),
+        }
+    }
+    let (parent, nodes) = by_parent
+        .iter()
+        .rev()
+        .max_by_key(|(_, nodes)| nodes.len())?;
+    let first = nodes[0];
+    let siblings = &doc.nodes[*parent].children;
+    let at = siblings.iter().position(|&s| s == first)?;
+    let mut end = doc.nodes[first].range.end;
+    for &sibling in &siblings[at + 1..] {
+        match doc.raw_attr(sibling, "bs-pos").and_then(position) {
+            Some((f, _)) if f == Some(file) => end = doc.nodes[sibling].range.end,
+            Some(_) => break,
+            None => {}
+        }
+    }
+    Some((first, doc.nodes[first].range.start..end))
+}
+
+/// The blocks of Bikeshed's output with positions in the spec's source (or
+/// with `file`, in a file it includes), as the bytes of the source (or the
+/// file) from their line to the next block's.
+fn blocks(doc: &Doc, source: &str, file: Option<&str>) -> HashMap<usize, Range<usize>> {
     let mut line_starts = vec![0];
     line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
     let mut lines: Vec<(usize, usize)> = vec![];
@@ -156,7 +251,9 @@ fn blocks(doc: &Doc, source: &str) -> HashMap<usize, Range<usize>> {
         }
         let Some(line) = doc
             .raw_attr(node, "bs-pos")
-            .and_then(|pos| pos.parse::<usize>().ok())
+            .and_then(position)
+            .filter(|&(f, _)| f == file)
+            .map(|(_, line)| line)
             .filter(|&line| line >= 1 && line <= line_starts.len())
         else {
             continue;
@@ -240,7 +337,51 @@ pub fn render(
     config: &SpecsConfig,
     links: &dyn SpecLinks,
 ) -> Option<RenderedSpec> {
-    render_part(output, source, path, spec, config, links, None)
+    render_part(output, source, path, spec, config, links, Part::All)
+}
+
+/// Render the part of Bikeshed's output for the spec `spec`, whose source is
+/// at `path`, that has the content of a file it includes, at `file` in the
+/// tree (whose text is `file_source`), with its links to the spec's ids to
+/// the spec's view.
+pub fn render_file(
+    output: &str,
+    file_source: &str,
+    path: &str,
+    file: &str,
+    spec: &SpecEntry,
+    config: &SpecsConfig,
+    links: &dyn SpecLinks,
+) -> Option<RenderedSpec> {
+    let dir = std::path::Path::new(path)
+        .parent()
+        .and_then(|dir| dir.to_str())
+        .unwrap_or("");
+    let relative = match dir {
+        "" => file,
+        dir => file.strip_prefix(dir)?.strip_prefix('/')?,
+    };
+    let mut rendered = render_part(
+        output,
+        file_source,
+        path,
+        spec,
+        config,
+        links,
+        Part::File(relative),
+    )?;
+    rendered.file = Some(file.to_string());
+    Some(rendered)
+}
+
+/// What part of Bikeshed's output to render.
+#[derive(Clone, Copy)]
+enum Part<'a> {
+    All,
+    /// The algorithm which defines the symbol.
+    Algorithm(&'a str),
+    /// The content of the file the spec includes (relative to its source).
+    File(&'a str),
 }
 
 /// Render the algorithm in Bikeshed's `output` which defines `sym` (see
@@ -255,7 +396,15 @@ pub fn render_algorithm(
     links: &dyn SpecLinks,
     sym: &str,
 ) -> Option<RenderedSpec> {
-    render_part(output, source, path, spec, config, links, Some(sym))
+    render_part(
+        output,
+        source,
+        path,
+        spec,
+        config,
+        links,
+        Part::Algorithm(sym),
+    )
 }
 
 fn render_part(
@@ -265,7 +414,7 @@ fn render_part(
     spec: &SpecEntry,
     config: &SpecsConfig,
     links: &dyn SpecLinks,
-    algorithm: Option<&str>,
+    part: Part,
 ) -> Option<RenderedSpec> {
     let doc = Doc::parse(output);
     let title = (1..doc.nodes.len())
@@ -282,13 +431,40 @@ fn render_part(
         doc.attr(node, "id")
             .map(|id| spec_symbol(spec.shortname(), &id))
     };
-    let blocks = blocks(&doc, source);
+    let file = match part {
+        Part::File(file) => Some(file),
+        _ => None,
+    };
+    let blocks = blocks(&doc, source, file);
+    // (In the spec's view, where each included file's content starts.)
+    let dir = std::path::Path::new(path)
+        .parent()
+        .and_then(|dir| dir.to_str())
+        .unwrap_or("");
+    let mut includes: HashMap<usize, String> = HashMap::new();
+    if matches!(part, Part::All) {
+        let mut seen: Vec<&str> = vec![];
+        for node in 1..doc.nodes.len() {
+            let Some((Some(included), _)) = doc.raw_attr(node, "bs-pos").and_then(position) else {
+                continue;
+            };
+            if !seen.contains(&included) {
+                seen.push(included);
+                let file = match dir {
+                    "" => included.to_string(),
+                    dir => format!("{}/{}", dir, included),
+                };
+                includes.insert(node, file);
+            }
+        }
+    }
     let mut line_starts = vec![0];
     line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
     // The bytes of the output to render, and for an algorithm, its steps.
-    let (range, steps) = match algorithm {
-        None => (0..output.len(), vec![]),
-        Some(sym) => {
+    let (range, steps) = match part {
+        Part::All => (0..output.len(), vec![]),
+        Part::File(file) => (included_region(&doc, file)?.1, vec![]),
+        Part::Algorithm(sym) => {
             let (range, _) = algorithms
                 .iter()
                 .filter(|(_, dfn)| symbol_of(*dfn).as_deref() == Some(sym))
@@ -316,16 +492,34 @@ fn render_part(
         spec,
         config,
         links,
-        base: algorithm.map(|_| links.rendered_url(path)),
+        base: (!matches!(part, Part::All)).then(|| links.rendered_url(path)),
         algorithm_dfns: algorithms
             .iter()
             .filter_map(|&(_, dfn)| Some((dfn, links.algorithm_url(&symbol_of(dfn)?)?)))
             .collect(),
+        includes,
     };
     let map = |_: &Range<usize>| None;
     let mut out = HtmlRenderer::for_file(&doc, range, source, &map);
+    if file.is_some() {
+        // (An included file's view is a part of the spec.)
+        write!(
+            out.w.html,
+            r#"<div class="sp-imported">Part of <a href="{}">{}</a>, included by <a href="{}">{}</a>.</div>"#,
+            escape(&links.rendered_url(path)),
+            escape(&title),
+            escape(&links.rendered_url(path)),
+            escape(path)
+        )
+        .unwrap();
+    }
     out.children(&hooks, 0);
     let mut rendered = out.w.finish();
+    // (A file's view is titled by the file, in the spec.)
+    let title = match file {
+        Some(file) => format!("{} ({})", file, title),
+        None => title,
+    };
     rendered.title = Some(title.clone());
     Some(RenderedSpec {
         rendered,
@@ -406,6 +600,13 @@ mod tests {
         assert!(r.html.contains(r#"<span data-l="5" data-c="0">A</span> <dfn id="widget"><span data-l="5" data-c="7">widget</span></dfn>"#), "{}", r.html);
         assert!(r.html.contains(r##"<a href="#widget"><span data-l="6" data-c="2">widget</span></a> <span data-l="6" data-c="11">thing.</span>"##), "{}", r.html);
         assert!(r.html.contains("<p>Included.</p>"), "{}", r.html);
+        // (Which links to its file's view.)
+        assert!(
+            r.html
+                .contains(r#"From <a href="/t/rendered/example/other.md">example/other.md</a>"#),
+            "{}",
+            r.html
+        );
         assert!(
             r.html.contains(r#"<span class="sp-secno">1. </span>"#),
             "{}",
@@ -420,6 +621,46 @@ mod tests {
         );
         assert!(
             !r.html.contains("panels()") && !r.html.contains("<style"),
+            "{}",
+            r.html
+        );
+
+        // The included file's view: its part, with its blocks.
+        assert_eq!(included_files(output), vec!["other.md"]);
+        let file_source = "Other\n\nIncluded.\n";
+        let view = render_file(
+            output,
+            file_source,
+            "example/index.bs",
+            "example/other.md",
+            &config.specs[0],
+            &config,
+            &TestLinks,
+        )
+        .unwrap();
+        let r = &view.rendered;
+        assert_eq!(view.file.as_deref(), Some("example/other.md"));
+        assert_eq!(r.title.as_deref(), Some("other.md (Example)"));
+        assert!(
+            !r.html.contains("Widgets") && !r.html.contains("Generated"),
+            "{}",
+            r.html
+        );
+        assert!(
+            r.html
+                .contains(r#"<span data-l="3" data-c="0">Included.</span>"#),
+            "{}",
+            r.html
+        );
+        let ranges: Vec<&str> = r
+            .blocks
+            .iter()
+            .map(|b| &file_source[b.range.clone()])
+            .collect();
+        assert_eq!(ranges, vec!["Included."]);
+        assert!(
+            r.html
+                .contains(r#"Part of <a href="/t/rendered/example/index.bs">Example</a>"#),
             "{}",
             r.html
         );

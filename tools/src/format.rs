@@ -1373,19 +1373,66 @@ fn bikeshed_rendering_path(tree_config: &TreeConfig, path: &str) -> std::path::P
 }
 
 /// The files which a tree's ecmarkup specs import (and which those import),
-/// which have rendered views as parts of their specs, reading their sources
-/// with `read`.
+/// and which its Bikeshed specs include (by the index's renderings), which
+/// have rendered views as parts of their specs, reading their sources with
+/// `read`.
 pub fn imported_spec_files(
+    tree_config: &TreeConfig,
     specs: &SpecsConfig,
     read: &dyn Fn(&str) -> Option<String>,
 ) -> HashSet<String> {
-    specs
+    let mut files: HashSet<String> = specs
         .specs
         .iter()
         .filter(|spec| spec.format == Some(crate::spec_analyze::SpecFormat::Ecmarkup))
         .filter_map(|spec| spec.source_path())
         .flat_map(|source| rendered_specs::ecmarkup::imported_files(&source, read))
-        .collect()
+        .collect();
+    for spec in &specs.specs {
+        if spec.format != Some(crate::spec_analyze::SpecFormat::Bikeshed) {
+            continue;
+        }
+        let Some(source) = spec.source_path() else {
+            continue;
+        };
+        let Ok(output) = std::fs::read_to_string(bikeshed_rendering_path(tree_config, &source))
+        else {
+            continue;
+        };
+        let dir = Path::new(&source).parent().unwrap_or(Path::new(""));
+        for file in rendered_specs::bikeshed::included_files(&output) {
+            files.insert(dir.join(file).to_string_lossy().into_owned());
+        }
+    }
+    files
+}
+
+/// The Bikeshed spec which includes the file at `path` (by the index's
+/// rendering of it), with its source's path.
+fn bikeshed_including_spec<'a>(
+    tree_config: &TreeConfig,
+    specs: &'a SpecsConfig,
+    path: &str,
+) -> Option<(&'a SpecEntry, String)> {
+    specs.specs.iter().find_map(|spec| {
+        if spec.format != Some(crate::spec_analyze::SpecFormat::Bikeshed) {
+            return None;
+        }
+        let source = spec.source_path()?;
+        let dir = Path::new(&source).parent()?.to_str()?;
+        let relative = match dir {
+            "" => path,
+            dir => path.strip_prefix(dir)?.strip_prefix('/')?,
+        };
+        if path == source {
+            return None;
+        }
+        // (Its elements with the file's content have its `bs-pos`s.)
+        let output = std::fs::read_to_string(bikeshed_rendering_path(tree_config, &source)).ok()?;
+        output
+            .contains(&format!(" bs-pos=\"{}:", relative))
+            .then_some((spec, source))
+    })
 }
 
 /// How a rendered spec links to the tree's other specs' rendered views, at
@@ -2156,23 +2203,32 @@ pub fn format_rendered(
     let path = path.trim_end_matches('/');
     let specs = tree_specs(tree_name, tree_config);
     let spec_view = specs.as_deref().and_then(|specs| spec_view(specs, path));
-    // (A file an ecmarkup spec imports is rendered as its part of the spec,
-    // whose main source is `main`.)
+    // (A file an ecmarkup spec imports, or a Bikeshed spec includes (at the
+    // tip), is rendered as its part of the spec, whose main source is `main`.)
     let read = |file: &str| read_commit_file(&git.repo, &commit, file);
     let (path, spec, page, main) = match spec_view {
         Some((spec, source, SpecView::Page(page))) => (source, Some(spec), page, None),
         Some(_) => return Err("Not a page of the spec"),
-        None if has_rendered_view(path) => (path.to_string(), None, None, None),
-        None => match specs
-            .as_deref()
-            .and_then(|specs| rendered_specs::ecmarkup::importing_spec(specs, path, &read))
-        {
+        // (A file a Bikeshed spec includes is its part even if it's a
+        // document, ex: Markdown.)
+        None => match specs.as_deref().and_then(|specs| {
+            rev.is_none()
+                .then(|| bikeshed_including_spec(tree_config, specs, path))
+                .flatten()
+        }) {
             Some((spec, main)) => (path.to_string(), Some(spec), None, Some(main)),
-            None => {
-                return Err(
-                    "Only documents (Markdown and reStructuredText) and specs' sources have rendered views",
-                );
-            }
+            None if has_rendered_view(path) => (path.to_string(), None, None, None),
+            None => match specs
+                .as_deref()
+                .and_then(|specs| rendered_specs::ecmarkup::importing_spec(specs, path, &read))
+            {
+                Some((spec, main)) => (path.to_string(), Some(spec), None, Some(main)),
+                None => {
+                    return Err(
+                        "Only documents (Markdown and reStructuredText) and specs' sources have rendered views",
+                    );
+                }
+            },
         },
     };
     let path = path.as_str();
@@ -2235,6 +2291,19 @@ pub fn format_rendered(
         };
         let specs = specs.as_deref().unwrap();
         let rendered_spec = match &main {
+            Some(main) if spec.format == Some(crate::spec_analyze::SpecFormat::Bikeshed) => {
+                let output = std::fs::read_to_string(bikeshed_rendering_path(tree_config, main))
+                    .map_err(|_| "The index has no rendering of the Bikeshed spec")?;
+                rendered_specs::bikeshed::render_file(
+                    &output,
+                    &source,
+                    main,
+                    path,
+                    spec,
+                    specs,
+                    &spec_links,
+                )
+            }
             Some(main) => {
                 rendered_specs::ecmarkup::render_file(main, spec, specs, &spec_links, &read, path)
             }
