@@ -206,11 +206,12 @@ fn main() {
                     spec_files.insert(file);
                 }
                 println!(
-                    "{} (and {} included files): {} dfns, {} headings, {} links ({} to specs which aren't the tree's), {} without positions, in {:.2}s",
+                    "{} (and {} included files): {} dfns, {} headings, {} anchors, {} links ({} to specs which aren't the tree's), {} without positions, in {:.2}s",
                     path,
                     file_count - 1,
                     stats.dfns,
                     stats.headings,
+                    stats.anchors,
                     stats.links,
                     stats.external,
                     stats.unplaced,

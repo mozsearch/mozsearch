@@ -8,7 +8,12 @@
 //!   headings;
 //! - links (autolinks like `[=tree=]` and `{{Node}}`, and `<a>`s) are uses of
 //!   the ids they link to, or of the other specs' terms they link to, if
-//!   they're to one of the tree's specs (see `SpecsConfig::url_symbol`).
+//!   they're to one of the tree's specs (see `SpecsConfig::url_symbol`);
+//! - links' ids (ex: "ref-for-concept-tree①", which Bikeshed gives autolinks,
+//!   and dfn panels' "Referenced in" link to), and the ids definitions and
+//!   headings keep from before (`oldids`, ex: CSS specs' for terms they
+//!   moved to other specs), which Gecko cites, are anchors, but only as
+//!   definitions' targets, to not give their tokens more symbols.
 //!
 //! Records' ranges are found in the source from Bikeshed's positions: an
 //! autolink's syntax, an element's contents, or, in IDL blocks, the name.
@@ -34,13 +39,13 @@ use super::{
     Combined, ForResolver, InContext, Lines, SpecsConfig, dfn_kind, normalize_path, spec_records,
     spec_structured, spec_symbol, unescape_context_name,
 };
-use crate::file_format::analysis::Location;
-use crate::semantic_analyzer::{Record, sort_records};
+use crate::file_format::analysis::{AnalysisKind, Location};
+use crate::semantic_analyzer::{Record, sort_records, target_record};
 use crate::tree_sitter_support::spec_tokenizer::bikeshed_contexts;
 
-/// `bikeshed index --json`'s output (version 2), whose positions are in the
-/// source, or, with a `file`, in the file by that path (relative to the
-/// source's directory) that it includes.
+/// `bikeshed index --json`'s output (version 3, or 2, without `oldids` and
+/// links' `id`s), whose positions are in the source, or, with a `file`, in the
+/// file by that path (relative to the source's directory) that it includes.
 #[derive(Debug, Default, Deserialize)]
 pub struct BikeshedIndex {
     #[serde(rename = "bikeshed-index")]
@@ -62,6 +67,8 @@ pub struct IndexDfn {
     #[serde(default)]
     pub file: Option<String>,
     pub id: String,
+    #[serde(default)]
+    pub oldids: Vec<String>,
     #[serde(rename = "type", default)]
     pub dfn_type: Option<String>,
     #[serde(rename = "for", default)]
@@ -81,6 +88,8 @@ pub struct IndexLink {
     pub col: usize,
     #[serde(default)]
     pub file: Option<String>,
+    #[serde(default)]
+    pub id: Option<String>,
     pub href: String,
     #[serde(rename = "type", default)]
     pub link_type: Option<String>,
@@ -101,6 +110,8 @@ pub struct IndexHeading {
     #[serde(default)]
     pub file: Option<String>,
     pub id: String,
+    #[serde(default)]
+    pub oldids: Vec<String>,
     #[serde(default)]
     pub text: String,
 }
@@ -143,7 +154,7 @@ pub fn run_bikeshed(source_path: &Path) -> Result<String, String> {
 
 pub fn parse_index(json: &str) -> Result<BikeshedIndex, String> {
     let index: BikeshedIndex = serde_json::from_str(json).map_err(|e| e.to_string())?;
-    if index.version != 2 {
+    if !matches!(index.version, 2 | 3) {
         return Err(format!("unknown bikeshed index version {}", index.version));
     }
     Ok(index)
@@ -155,6 +166,8 @@ pub struct Stats {
     pub dfns: usize,
     pub headings: usize,
     pub links: usize,
+    /// Links' ids, and definitions' and headings' old ids.
+    pub anchors: usize,
     /// Links to other specs which aren't the tree's.
     pub external: usize,
     /// Definitions and links whose positions aren't in the source.
@@ -168,6 +181,19 @@ struct Pending {
     sym: String,
     what: String,
     pretty: String,
+}
+
+impl Pending {
+    /// An anchor's definition, which only gets a target record (see `anchors`).
+    fn anchor(range: Range<usize>, shortname: &str, id: &str) -> Pending {
+        Pending {
+            range,
+            def: true,
+            sym: spec_symbol(shortname, id),
+            what: String::new(),
+            pretty: format!("{} #{}", shortname, id),
+        }
+    }
 }
 
 /// The records of a Bikeshed source with its `index`, of the spec with
@@ -286,6 +312,8 @@ fn analyze_placed(
     };
 
     let mut pending: Vec<Pending> = vec![];
+    // Links' ids and old ids, which only get target records.
+    let mut anchors: Vec<Pending> = vec![];
     // Definitions' and headings' (what, pretty), by id.
     let mut defs: HashMap<&str, (String, String)> = HashMap::new();
     // Definitions' positions, for algorithms' symbols.
@@ -328,6 +356,9 @@ fn analyze_placed(
             dfn.id.clone(),
         ));
         defs.insert(&dfn.id, (what.clone(), pretty.clone()));
+        for old in &dfn.oldids {
+            anchors.push(Pending::anchor(range.clone(), shortname, old));
+        }
         pending.push(Pending {
             range,
             def: true,
@@ -360,6 +391,9 @@ fn analyze_placed(
         heading_syms.insert(at, sym.clone());
         defs.entry(&heading.id)
             .or_insert_with(|| ("section".to_string(), pretty.clone()));
+        for old in &heading.oldids {
+            anchors.push(Pending::anchor(range.clone(), shortname, old));
+        }
         pending.push(Pending {
             range,
             def: true,
@@ -373,6 +407,19 @@ fn analyze_placed(
             stats.unplaced += 1;
             continue;
         };
+        let range = match link
+            .syntax
+            .as_deref()
+            .and_then(|syntax| match_syntax(src, at, syntax))
+        {
+            Some(end) => at..end,
+            _ if link.idl && src[at..].starts_with(&link.text) => at..at + link.text.len(),
+            _ => contents(at).unwrap_or(at..at + 1),
+        };
+        // (Whatever it links to.)
+        if let Some(id) = &link.id {
+            anchors.push(Pending::anchor(range.clone(), shortname, id));
+        }
         let label = link.lt.clone().unwrap_or_else(|| link.text.clone());
         let link_type = link
             .link_type
@@ -400,15 +447,6 @@ fn analyze_placed(
             },
         };
         stats.links += 1;
-        let range = match link
-            .syntax
-            .as_deref()
-            .and_then(|syntax| match_syntax(src, at, syntax))
-        {
-            Some(end) => at..end,
-            _ if link.idl && src[at..].starts_with(&link.text) => at..at + link.text.len(),
-            _ => contents(at).unwrap_or(at..at + 1),
-        };
         pending.push(Pending {
             range,
             def: false,
@@ -508,6 +546,21 @@ fn analyze_placed(
     }
 
     let mut per_file: Vec<Vec<Record>> = (0..files).map(|_| vec![]).collect();
+    stats.anchors = anchors.len();
+    for p in anchors {
+        let Some((file, loc)) = place(&p.range) else {
+            continue;
+        };
+        let context = context_at(p.range.start);
+        per_file[file].push(target_record(
+            loc,
+            AnalysisKind::Def,
+            p.pretty,
+            p.sym,
+            context.name,
+            context.sym,
+        ));
+    }
     for p in pending {
         let Some((file, loc)) = place(&p.range) else {
             continue;
@@ -775,5 +828,53 @@ mod tests {
                 "SPEC_x_gadget class -",
             ]
         );
+    }
+
+    #[test]
+    fn test_anchors() {
+        // (Links' ids, whatever they link to, and old ids, which Bikeshed gives
+        // empty spans in their definitions and headings.)
+        let src = "<pre class=metadata>\nTitle: X\n</pre>\n\nWidgets {#widgets}\n=====\n\nA <dfn>widget</dfn>, a [=widget=], a [=widget=], and <a href=\"https://example.org/#x\">x</a>.\n";
+        let index = parse_index(
+            r##"{"bikeshed-index": 3,
+            "dfns": [{"line": 8, "col": 3, "id": "widget", "oldids": ["old-widget"], "type": "dfn", "for": [], "text": "widget", "idl": false}],
+            "links": [
+              {"line": 8, "col": 24, "id": "ref-for-widget", "href": "#widget", "type": "dfn", "lt": "widget", "syntax": "[=widget=]", "text": "widget", "idl": false},
+              {"line": 8, "col": 38, "id": "ref-for-widget①", "href": "#widget", "type": "dfn", "lt": "widget", "syntax": "[=widget=]", "text": "widget", "idl": false},
+              {"line": 8, "col": 54, "id": "ref-for-x", "href": "https://example.org/#x", "type": null, "lt": null, "syntax": null, "text": "x", "idl": false}
+            ],
+            "headings": [{"line": 5, "col": 1, "id": "widgets", "oldids": ["gizmos"], "level": 2, "text": "Widgets"}],
+            "algorithms": [],
+            "steps": []
+            }"##,
+        )
+        .unwrap();
+        let (records, stats) = analyze(src, &index, "x", &SpecsConfig::default());
+        assert_eq!(
+            summary(&records),
+            vec![
+                "5:0-7 def SPEC_x_gizmos | Widgets (SPEC_x_widgets)",
+                "5:0-7 def SPEC_x_widgets | Widgets (SPEC_x_widgets)",
+                "8:7-13 def SPEC_x_old@2Dwidget | Widgets (SPEC_x_widgets)",
+                "8:7-13 def SPEC_x_widget | Widgets (SPEC_x_widgets)",
+                "8:23-33 def SPEC_x_ref@2Dfor@2Dwidget | Widgets (SPEC_x_widgets)",
+                "8:23-33 use SPEC_x_widget | Widgets (SPEC_x_widgets)",
+                "8:37-47 def SPEC_x_ref@2Dfor@2Dwidget@E2@91@A0 | Widgets (SPEC_x_widgets)",
+                "8:37-47 use SPEC_x_widget | Widgets (SPEC_x_widgets)",
+                "8:86-87 def SPEC_x_ref@2Dfor@2Dx | Widgets (SPEC_x_widgets)",
+            ]
+        );
+        // (Only target records, for their tokens' symbols' sake.)
+        assert!(records.iter().all(|record| {
+            match record {
+                Record::Source(s) => s
+                    .data
+                    .sym
+                    .iter()
+                    .all(|sym| !sym.contains("old") && !sym.contains("ref@2Dfor")),
+                _ => true,
+            }
+        }));
+        assert_eq!((stats.anchors, stats.links, stats.external), (5, 2, 1));
     }
 }

@@ -148,6 +148,15 @@ input_file: inputs/analysis/specs/bikeshed__json
   },
   {
     "loc": "00015:21-31",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs #ref-for-widget",
+    "sym": "SPEC_examplebs_ref@2Dfor@2Dwidget",
+    "context": "poke",
+    "contextsym": "SPEC_examplebs_poke"
+  },
+  {
+    "loc": "00015:21-31",
     "source": 1,
     "syntax": "use",
     "pretty": "dfn examplebs widget",
@@ -160,6 +169,15 @@ input_file: inputs/analysis/specs/bikeshed__json
     "pretty": "examplebs widget",
     "sym": "SPEC_examplebs_widget",
     "context": "poke",
+    "contextsym": "SPEC_examplebs_poke"
+  },
+  {
+    "loc": "00017:18-34",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs #ref-for-widget-state",
+    "sym": "SPEC_examplebs_ref@2Dfor@2Dwidget@2Dstate",
+    "context": "poke step 1",
     "contextsym": "SPEC_examplebs_poke"
   },
   {
@@ -205,6 +223,15 @@ input_file: inputs/analysis/specs/bikeshed__json
   },
   {
     "loc": "00021:23-33",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs #ref-for-widget①",
+    "sym": "SPEC_examplebs_ref@2Dfor@2Dwidget@E2@91@A0",
+    "context": "unpoke",
+    "contextsym": "SPEC_examplebs_unpoke"
+  },
+  {
+    "loc": "00021:23-33",
     "source": 1,
     "syntax": "use",
     "pretty": "dfn examplebs widget",
@@ -217,6 +244,15 @@ input_file: inputs/analysis/specs/bikeshed__json
     "pretty": "examplebs widget",
     "sym": "SPEC_examplebs_widget",
     "context": "unpoke",
+    "contextsym": "SPEC_examplebs_unpoke"
+  },
+  {
+    "loc": "00023:18-40",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs #ref-for-widget-state①",
+    "sym": "SPEC_examplebs_ref@2Dfor@2Dwidget@2Dstate@E2@91@A0",
+    "context": "unpoke step 1",
     "contextsym": "SPEC_examplebs_unpoke"
   },
   {
@@ -261,6 +297,15 @@ input_file: inputs/analysis/specs/bikeshed__json
     "rendered": "https://example.github.io/bs/#gadgets"
   },
   {
+    "loc": "00029:1-8",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs #ref-for-Exposed",
+    "sym": "SPEC_examplebs_ref@2Dfor@2DExposed",
+    "context": "Gadgets",
+    "contextsym": "SPEC_examplebs_gadgets"
+  },
+  {
     "loc": "00030:10-16",
     "source": 1,
     "syntax": "def",
@@ -284,6 +329,15 @@ input_file: inputs/analysis/specs/bikeshed__json
     "kind": "class",
     "implKind": "spec",
     "rendered": "https://example.github.io/bs/#gadget"
+  },
+  {
+    "loc": "00031:2-11",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs #ref-for-idl-undefined",
+    "sym": "SPEC_examplebs_ref@2Dfor@2Didl@2Dundefined",
+    "context": "Gadgets",
+    "contextsym": "SPEC_examplebs_gadgets"
   },
   {
     "loc": "00031:12-16",
@@ -313,6 +367,15 @@ input_file: inputs/analysis/specs/bikeshed__json
   },
   {
     "loc": "00035:4-21",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs #ref-for-dom-gadget-poke",
+    "sym": "SPEC_examplebs_ref@2Dfor@2Ddom@2Dgadget@2Dpoke",
+    "context": "Gadgets",
+    "contextsym": "SPEC_examplebs_gadgets"
+  },
+  {
+    "loc": "00035:4-21",
     "source": 1,
     "syntax": "use",
     "pretty": "method examplebs Gadget/poke",
@@ -329,6 +392,15 @@ input_file: inputs/analysis/specs/bikeshed__json
   },
   {
     "loc": "00035:42-50",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs #ref-for-poke",
+    "sym": "SPEC_examplebs_ref@2Dfor@2Dpoke",
+    "context": "Gadgets",
+    "contextsym": "SPEC_examplebs_gadgets"
+  },
+  {
+    "loc": "00035:42-50",
     "source": 1,
     "syntax": "use",
     "pretty": "dfn examplebs poke",
@@ -340,6 +412,15 @@ input_file: inputs/analysis/specs/bikeshed__json
     "kind": "use",
     "pretty": "examplebs poke",
     "sym": "SPEC_examplebs_poke",
+    "context": "Gadgets",
+    "contextsym": "SPEC_examplebs_gadgets"
+  },
+  {
+    "loc": "00035:51-58",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs #ref-for-the-img-element",
+    "sym": "SPEC_examplebs_ref@2Dfor@2Dthe@2Dimg@2Delement",
     "context": "Gadgets",
     "contextsym": "SPEC_examplebs_gadgets"
   },
@@ -433,5 +514,14 @@ input_file: inputs/analysis/specs/bikeshed__json
     "kind": "cssProperty",
     "implKind": "spec",
     "rendered": "https://example.github.io/bs/#propdef-widget-color"
+  },
+  {
+    "loc": "00047:8-15",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs #ref-for-typedef-color",
+    "sym": "SPEC_examplebs_ref@2Dfor@2Dtypedef@2Dcolor",
+    "context": "Properties",
+    "contextsym": "SPEC_examplebs_properties"
   }
 ]

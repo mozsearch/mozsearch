@@ -38,6 +38,15 @@ input_file: inputs/analysis/specs/bikeshed_included__json
   },
   {
     "loc": "00001:27-37",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs #ref-for-widget②",
+    "sym": "SPEC_examplebs_ref@2Dfor@2Dwidget@E2@91@A1",
+    "context": "Gizmos",
+    "contextsym": "SPEC_examplebs_gizmos"
+  },
+  {
+    "loc": "00001:27-37",
     "source": 1,
     "syntax": "use",
     "pretty": "dfn examplebs widget",
@@ -79,6 +88,15 @@ input_file: inputs/analysis/specs/bikeshed_included__json
   },
   {
     "loc": "00003:21-30",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs #ref-for-gizmo",
+    "sym": "SPEC_examplebs_ref@2Dfor@2Dgizmo",
+    "context": "Gizmos",
+    "contextsym": "SPEC_examplebs_gizmos"
+  },
+  {
+    "loc": "00003:21-30",
     "source": 1,
     "syntax": "use",
     "pretty": "dfn examplebs gizmo",
@@ -95,6 +113,15 @@ input_file: inputs/analysis/specs/bikeshed_included__json
   },
   {
     "loc": "00003:32-40",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs #ref-for-poke①",
+    "sym": "SPEC_examplebs_ref@2Dfor@2Dpoke@E2@91@A0",
+    "context": "Gizmos",
+    "contextsym": "SPEC_examplebs_gizmos"
+  },
+  {
+    "loc": "00003:32-40",
     "source": 1,
     "syntax": "use",
     "pretty": "dfn examplebs poke",
@@ -106,6 +133,15 @@ input_file: inputs/analysis/specs/bikeshed_included__json
     "kind": "use",
     "pretty": "examplebs poke",
     "sym": "SPEC_examplebs_poke",
+    "context": "Gizmos",
+    "contextsym": "SPEC_examplebs_gizmos"
+  },
+  {
+    "loc": "00003:45-55",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplebs #ref-for-widget③",
+    "sym": "SPEC_examplebs_ref@2Dfor@2Dwidget@E2@91@A2",
     "context": "Gizmos",
     "contextsym": "SPEC_examplebs_gizmos"
   },

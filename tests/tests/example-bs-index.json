@@ -1,5 +1,5 @@
 {
- "bikeshed-index": 2,
+ "bikeshed-index": 3,
  "spec": {
   "shortname": "example",
   "level": null,
@@ -11,6 +11,7 @@
    "line": 11,
    "col": 3,
    "id": "widget",
+   "oldids": [],
    "type": "dfn",
    "for": [],
    "lt": [
@@ -25,6 +26,7 @@
    "line": 11,
    "col": 27,
    "id": "widget-state",
+   "oldids": [],
    "type": "dfn",
    "for": [
     "widget"
@@ -41,6 +43,7 @@
    "line": 15,
    "col": 4,
    "id": "poke",
+   "oldids": [],
    "type": "dfn",
    "for": [],
    "lt": [
@@ -55,6 +58,7 @@
    "line": 21,
    "col": 4,
    "id": "unpoke",
+   "oldids": [],
    "type": "dfn",
    "for": [],
    "lt": [
@@ -69,6 +73,7 @@
    "line": 30,
    "col": 11,
    "id": "gadget",
+   "oldids": [],
    "type": "interface",
    "for": [],
    "lt": [
@@ -83,6 +88,7 @@
    "line": 31,
    "col": 13,
    "id": "dom-gadget-poke",
+   "oldids": [],
    "type": "method",
    "for": [
     "Gadget"
@@ -100,6 +106,7 @@
    "col": 3,
    "file": "example-gizmos.md",
    "id": "gizmo",
+   "oldids": [],
    "type": "dfn",
    "for": [],
    "lt": [
@@ -115,6 +122,7 @@
    "col": 4,
    "file": "example-gizmos.md",
    "id": "wind",
+   "oldids": [],
    "type": "dfn",
    "for": [],
    "lt": [
@@ -129,6 +137,7 @@
    "line": 46,
    "col": 7,
    "id": "propdef-widget-color",
+   "oldids": [],
    "type": "property",
    "for": [],
    "lt": [
@@ -144,6 +153,7 @@
   {
    "line": 11,
    "col": 62,
+   "id": null,
    "href": "#biblio-html",
    "type": "biblio",
    "for": [],
@@ -156,6 +166,7 @@
   {
    "line": 15,
    "col": 22,
+   "id": "ref-for-widget",
    "href": "#widget",
    "type": "dfn",
    "for": [],
@@ -168,6 +179,7 @@
   {
    "line": 17,
    "col": 19,
+   "id": "ref-for-widget-state",
    "href": "#widget-state",
    "type": "dfn",
    "for": [
@@ -182,6 +194,7 @@
   {
    "line": 21,
    "col": 24,
+   "id": "ref-for-widget①",
    "href": "#widget",
    "type": "dfn",
    "for": [],
@@ -194,6 +207,7 @@
   {
    "line": 23,
    "col": 19,
+   "id": "ref-for-widget-state①",
    "href": "#widget-state",
    "type": "dfn",
    "for": [
@@ -208,6 +222,7 @@
   {
    "line": 29,
    "col": 2,
+   "id": "ref-for-Exposed",
    "href": "https://webidl.spec.whatwg.org/#Exposed",
    "type": "extended-attribute",
    "for": [],
@@ -220,6 +235,7 @@
   {
    "line": 31,
    "col": 3,
+   "id": "ref-for-idl-undefined",
    "href": "https://webidl.spec.whatwg.org/#idl-undefined",
    "type": "interface",
    "for": [],
@@ -232,6 +248,7 @@
   {
    "line": 35,
    "col": 5,
+   "id": "ref-for-dom-gadget-poke",
    "href": "#dom-gadget-poke",
    "type": "idl",
    "for": [
@@ -246,6 +263,7 @@
   {
    "line": 35,
    "col": 43,
+   "id": "ref-for-poke",
    "href": "#poke",
    "type": "dfn",
    "for": [],
@@ -258,6 +276,7 @@
   {
    "line": 35,
    "col": 52,
+   "id": "ref-for-the-img-element",
    "href": "https://html.spec.whatwg.org/multipage/embedded-content.html#the-img-element",
    "type": "element",
    "for": [],
@@ -271,6 +290,7 @@
    "line": 1,
    "col": 28,
    "file": "example-gizmos.md",
+   "id": "ref-for-widget②",
    "href": "#widget",
    "type": "dfn",
    "for": [],
@@ -284,6 +304,7 @@
    "line": 3,
    "col": 22,
    "file": "example-gizmos.md",
+   "id": "ref-for-gizmo",
    "href": "#gizmo",
    "type": "dfn",
    "for": [],
@@ -297,6 +318,7 @@
    "line": 3,
    "col": 33,
    "file": "example-gizmos.md",
+   "id": "ref-for-poke①",
    "href": "#poke",
    "type": "dfn",
    "for": [],
@@ -310,6 +332,7 @@
    "line": 3,
    "col": 46,
    "file": "example-gizmos.md",
+   "id": "ref-for-widget③",
    "href": "#widget",
    "type": "dfn",
    "for": [],
@@ -322,6 +345,7 @@
   {
    "line": 47,
    "col": 1,
+   "id": null,
    "href": "https://www.w3.org/TR/css-values/#value-defs",
    "type": null,
    "for": [],
@@ -334,6 +358,7 @@
   {
    "line": 47,
    "col": 9,
+   "id": "ref-for-typedef-color",
    "href": "https://drafts.csswg.org/css-color-5/#typedef-color",
    "type": "type",
    "for": [],
@@ -346,6 +371,7 @@
   {
    "line": 48,
    "col": 1,
+   "id": null,
    "href": "https://www.w3.org/TR/css-cascade/#initial-values",
    "type": null,
    "for": [],
@@ -358,6 +384,7 @@
   {
    "line": 49,
    "col": 1,
+   "id": null,
    "href": "https://www.w3.org/TR/css-cascade/#applies-to",
    "type": null,
    "for": [],
@@ -370,6 +397,7 @@
   {
    "line": 49,
    "col": 13,
+   "id": null,
    "href": "https://www.w3.org/TR/css-pseudo/#generated-content",
    "type": null,
    "for": [],
@@ -382,6 +410,7 @@
   {
    "line": 50,
    "col": 1,
+   "id": null,
    "href": "https://www.w3.org/TR/css-cascade/#inherited-property",
    "type": null,
    "for": [],
@@ -394,6 +423,7 @@
   {
    "line": 51,
    "col": 1,
+   "id": null,
    "href": "https://www.w3.org/TR/css-values/#percentages",
    "type": null,
    "for": [],
@@ -406,6 +436,7 @@
   {
    "line": 52,
    "col": 1,
+   "id": null,
    "href": "https://www.w3.org/TR/css-cascade/#computed",
    "type": null,
    "for": [],
@@ -418,6 +449,7 @@
   {
    "line": 53,
    "col": 1,
+   "id": null,
    "href": "https://www.w3.org/TR/web-animations/#animation-type",
    "type": null,
    "for": [],
@@ -433,6 +465,7 @@
    "line": 8,
    "col": 1,
    "id": "intro",
+   "oldids": [],
    "level": 2,
    "text": "Introduction"
   },
@@ -440,6 +473,7 @@
    "line": 13,
    "col": 1,
    "id": "widgets",
+   "oldids": [],
    "level": 2,
    "text": "Widgets"
   },
@@ -447,6 +481,7 @@
    "line": 26,
    "col": 1,
    "id": "gadgets",
+   "oldids": [],
    "level": 3,
    "text": "Gadgets"
   },
@@ -454,6 +489,7 @@
    "line": 37,
    "col": 1,
    "id": "gizmos",
+   "oldids": [],
    "level": 3,
    "text": "Gizmos"
   },
@@ -461,6 +497,7 @@
    "line": 43,
    "col": 1,
    "id": "properties",
+   "oldids": [],
    "level": 3,
    "text": "Properties"
   }

@@ -170,7 +170,9 @@ index of the field starting from 0.
    to one of its `aliases`, ex: a CSS spec's unversioned URL) names a symbol.
    Their definitions (and sections' headings, and other elements' ids, ex: the
    ids Wattsi gives the HTML Standard's cross-references, like
-   `the-input-element:activation-behaviour`) are `def`s, and references to
+   `the-input-element:activation-behaviour`, and Bikeshed gives links, like
+   `ref-for-transfer-steps①`, and the ids specs keep from before, their
+   `oldids`) are `def`s, and references to
    them, from the spec and other specs, are `use`s, whose context is the
    algorithm they're in (with its step, ex: "navigate step 12.6") or else their
    section.  A tree's other files' citations of its specs (or of its
