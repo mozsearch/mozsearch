@@ -1130,6 +1130,7 @@ class ContextSubMenu extends ContextMenuOrSubMenu {
 // structured records, see `DocLink` in tools/src/file_format/analysis.rs).
 const DOC_SITE_NAMES = {
   mdn: "MDN",
+  android: "Android",
 };
 
 var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {

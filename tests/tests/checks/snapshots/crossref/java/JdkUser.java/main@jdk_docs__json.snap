@@ -1,0 +1,168 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/java/JdkUser.java/jdk_docs__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "S_jvm_java/lang/Integer#MAX_VALUE.",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "src/main/java/sample/JdkUser.java",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 11,
+                "bounds": [
+                  15,
+                  24
+                ],
+                "line": "return Integer.MAX_VALUE;",
+                "context": "sample::JdkUser::largest",
+                "contextsym": "S_jvm_sample/JdkUser#largest()."
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "java::lang::Integer::MAX_VALUE",
+          "sym": "S_jvm_java/lang/Integer#MAX_VALUE.",
+          "type_pretty": null,
+          "kind": "field",
+          "subsystem": null,
+          "parentsym": "S_jvm_java/lang/Integer#",
+          "implKind": "external",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "docs": [
+            {
+              "site": "android",
+              "url": "https://developer.android.com/reference/java/lang/Integer#MAX_VALUE"
+            }
+          ]
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "S_jvm_java/util/Map#Entry#",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "src/main/java/sample/JdkUser.java",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 14,
+                "bounds": [
+                  27,
+                  32
+                ],
+                "line": "public String describe(Map.Entry<String, String> entry) {",
+                "context": "sample::JdkUser::describe",
+                "contextsym": "S_jvm_sample/JdkUser#describe()."
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "java::util::Map::Entry",
+          "sym": "S_jvm_java/util/Map#Entry#",
+          "type_pretty": null,
+          "kind": "class",
+          "subsystem": null,
+          "parentsym": "S_jvm_java/util/Map#",
+          "implKind": "external",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "docs": [
+            {
+              "site": "android",
+              "url": "https://developer.android.com/reference/java/util/Map.Entry"
+            }
+          ]
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "S_jvm_java/util/",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "src/main/java/sample/JdkUser.java",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 3,
+                "bounds": [
+                  12,
+                  16
+                ],
+                "line": "import java.util.Map;",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "java::util",
+          "sym": "S_jvm_java/util/",
+          "type_pretty": null,
+          "kind": "",
+          "subsystem": null,
+          "implKind": "external",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "docs": [
+            {
+              "site": "android",
+              "url": "https://developer.android.com/reference/java/util/package-summary"
+            }
+          ]
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

@@ -81,6 +81,8 @@ pub mod history_stop;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod hyperblame;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod jvm_docs;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod languages;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod links;

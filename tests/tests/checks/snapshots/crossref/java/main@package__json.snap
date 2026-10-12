@@ -26,6 +26,22 @@ input_file: inputs/crossref/java/package__json
             ]
           },
           {
+            "path": "src/main/java/sample/JdkUser.java",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 1,
+                "bounds": [
+                  8,
+                  14
+                ],
+                "line": "package sample;",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
             "path": "src/main/java/sample/Jni.java",
             "path_kind": "normal",
             "lines": [

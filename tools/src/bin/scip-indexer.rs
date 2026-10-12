@@ -18,12 +18,13 @@ use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use tools::file_format::analysis::{
     AnalysisKind, AnalysisSource, AnalysisStructured, AnalysisTarget, BindingOwnerLang,
-    BindingSlotLang, BindingSlotProps, LineRange, Location, SourceRange, SourceTag,
+    BindingSlotLang, BindingSlotProps, DocLink, LineRange, Location, SourceRange, SourceTag,
     StructuredBindingSlotInfo, StructuredFieldInfo, StructuredMethodInfo, StructuredOverrideInfo,
     StructuredSuperInfo, StructuredTag, TargetTag, WithLocation,
 };
 use tools::file_format::analysis_manglings::mangle_file;
 use tools::file_format::config;
+use tools::jvm_docs::{Piece, jvm_docs};
 use ustr::{Ustr, UstrMap, UstrSet, ustr};
 
 use tree_sitter::StreamingIterator as _;
@@ -463,6 +464,28 @@ struct SymbolAnalysis {
     norm_sym: Ustr,
     parent_sym: Option<Ustr>,
     contributes_to_parent: bool,
+}
+
+/// The documentation of an external symbol (one the index uses but doesn't
+/// define), by its descriptors: for JVM symbols, Android's reference (of the
+/// platform, and the Java APIs it provides) and AndroidX's (see
+/// `tools::jvm_docs`).
+fn external_docs(lang: &ScipLang, symbol: &scip::types::Symbol) -> Vec<DocLink> {
+    if !matches!(lang, ScipLang::Jvm) {
+        return vec![];
+    }
+    let mut pieces = vec![];
+    for descriptor in &symbol.descriptors {
+        let name = descriptor.name.as_str();
+        pieces.push(match descriptor.suffix.enum_value() {
+            Ok(Suffix::Package | Suffix::Namespace) => Piece::Package(name),
+            Ok(Suffix::Type) => Piece::Type(name),
+            Ok(Suffix::Term) => Piece::Term(name),
+            Ok(Suffix::Method) => Piece::Method(name),
+            _ => return vec![],
+        });
+    }
+    jvm_docs(&pieces)
 }
 
 fn symbol_name(lang_name: &str, subtree_name: Option<&str>, scip_symbol: &str) -> Ustr {
@@ -1243,7 +1266,7 @@ fn analyze_using_scip(
                         overridden_by_syms: vec![],
                         variants: vec![],
                         supplement: false,
-                        docs: vec![],
+                        docs: external_docs(&lang, &symbol),
                         extra: Map::default(),
 
                         can_gc: None,
@@ -1424,7 +1447,9 @@ fn analyze_using_scip(
     }
 
     // ## Create fake structured records for any remaining unknown scip symbols
-    for symbol_info in possible_unknown_scip_symbols.into_values() {
+    for (scip_sym, symbol_info) in possible_unknown_scip_symbols {
+        let docs = scip::symbol::parse_symbol(&scip_sym)
+            .map_or(vec![], |symbol| external_docs(&lang, &symbol));
         let fake = AnalysisStructured {
             structured: StructuredTag::Structured,
             pretty: symbol_info.pretty,
@@ -1453,7 +1478,7 @@ fn analyze_using_scip(
             overridden_by_syms: vec![],
             variants: vec![],
             supplement: false,
-            docs: vec![],
+            docs,
             extra: Map::default(),
 
             can_gc: None,
