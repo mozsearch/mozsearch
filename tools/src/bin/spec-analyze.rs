@@ -303,22 +303,42 @@ fn main() {
             is_respec
         })
         .collect();
-    for (spec, _, source, scripts) in &respec_specs {
-        terms.add(
-            spec,
-            &respec::exports(source, scripts, spec.shortname(), &config),
-        );
-    }
-    for (spec, path, source, scripts) in respec_specs {
-        let started = Instant::now();
-        let (records, stats) =
-            respec::analyze(&source, &scripts, spec.shortname(), &config, &terms);
-        add_defined(&records);
-        write_records(analysis_root, &path, records);
-        spec_files.insert(path.clone());
-        println!(
-            "{}: {} sections, {} dfns, {} IDL definitions without dfns, {} references ({} unresolved), {} to other specs' terms (with IDL's), {} to other specs' anchors, in {:.2}s",
+    // (With the files they include.)
+    let read = |file: &str| std::fs::read_to_string(files_root.join(file)).ok();
+    for (spec, path, _, scripts) in &respec_specs {
+        if let Some((_, _, exports)) = respec::analyze_with_includes(
             path,
+            &read,
+            scripts,
+            spec.shortname(),
+            &config,
+            &xref::Terms::default(),
+        ) {
+            terms.add(spec, &exports);
+        }
+    }
+    for (spec, path, _, scripts) in respec_specs {
+        let started = Instant::now();
+        let Some((files, stats, _)) = respec::analyze_with_includes(
+            &path,
+            &read,
+            &scripts,
+            spec.shortname(),
+            &config,
+            &terms,
+        ) else {
+            continue;
+        };
+        let file_count = files.len();
+        for (file, records) in files {
+            add_defined(&records);
+            write_records(analysis_root, &file, records);
+            spec_files.insert(file);
+        }
+        println!(
+            "{} (and {} included files): {} sections, {} dfns, {} IDL definitions without dfns, {} references ({} unresolved), {} to other specs' terms (with IDL's), {} to other specs' anchors, in {:.2}s",
+            path,
+            file_count - 1,
             stats.sections,
             stats.dfns,
             stats.idl,

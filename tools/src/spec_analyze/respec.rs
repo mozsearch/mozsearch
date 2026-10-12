@@ -43,9 +43,10 @@ use super::wattsi::step_path;
 use super::webidl_defs::{IdlDef, IdlReference, idl_defs, idl_references};
 use super::xref::{Export, Query, Terms};
 use super::{
-    ForResolver, InContext, Lines, SpecsConfig, dfn_kind, spec_records, spec_structured,
-    spec_symbol, unescape_context_name as context_name,
+    Combined, ForResolver, InContext, Lines, SpecsConfig, dfn_kind, normalize_path, spec_records,
+    spec_structured, spec_symbol, unescape_context_name as context_name,
 };
+use crate::file_format::analysis::Location;
 use crate::semantic_analyzer::{Record, sort_records};
 use crate::tree_sitter_support::spec_tokenizer::html_contexts;
 
@@ -557,24 +558,95 @@ pub fn analyze(
     config: &SpecsConfig,
     terms: &Terms,
 ) -> (Vec<Record>, Stats) {
-    let (records, stats, _) = analyze_with_exports(src, scripts, shortname, config, terms);
-    (records, stats)
+    let lines = Lines::new(src);
+    let place = |range: &Range<usize>| Some((0, lines.location(range)));
+    let (mut records, stats, _) = analyze_placed(src, scripts, shortname, config, terms, 1, &place);
+    (records.pop().unwrap_or_default(), stats)
 }
 
 /// A ReSpec source's exported definitions, for other specs' references (see
 /// `xref`): IDL's, typed ones, and `export`ed ones, but `noexport`ed ones,
 /// and those in informative sections.
 pub fn exports(src: &str, scripts: &str, shortname: &str, config: &SpecsConfig) -> Vec<Export> {
-    analyze_with_exports(src, scripts, shortname, config, &Terms::default()).2
+    let lines = Lines::new(src);
+    let place = |range: &Range<usize>| Some((0, lines.location(range)));
+    analyze_placed(
+        src,
+        scripts,
+        shortname,
+        config,
+        &Terms::default(),
+        1,
+        &place,
+    )
+    .2
 }
 
-fn analyze_with_exports(
+/// The records of a ReSpec source at `main` (a path in the tree, which `read`
+/// reads), with the files it includes (`data-include`s of HTML, relative to
+/// it, which ReSpec puts in the elements, but text and Markdown ones, ex:
+/// examples), for each of the files, and its exports (see `exports`).
+#[allow(clippy::type_complexity)]
+pub fn analyze_with_includes(
+    main: &str,
+    read: &dyn Fn(&str) -> Option<String>,
+    scripts: &str,
+    shortname: &str,
+    config: &SpecsConfig,
+    terms: &Terms,
+) -> Option<(Vec<(String, Vec<Record>)>, Stats, Vec<Export>)> {
+    let dir = main.rsplit_once('/').map_or("", |(dir, _)| dir);
+    let includes = |_: &str, source: &str| -> Vec<(Range<usize>, String)> {
+        let doc = Doc::parse(source);
+        let mut includes: Vec<(Range<usize>, String)> = (1..doc.nodes.len())
+            .filter(|&node| !doc.ancestors(node).any(|a| doc.has_attr(a, "data-include")))
+            .filter_map(|node| {
+                let target = doc.attr(node, "data-include")?;
+                let format = doc.attr(node, "data-include-format").unwrap_or_default();
+                if !(format.is_empty() || format == "html")
+                    || target.contains("://")
+                    || target.starts_with('/')
+                {
+                    return None;
+                }
+                Some((
+                    doc.content_range(node),
+                    normalize_path(&format!("{}/{}", dir, target)),
+                ))
+            })
+            .collect();
+        includes.sort_by_key(|(range, _)| range.start);
+        includes
+    };
+    let combined = Combined::build(main, read, &includes)?;
+    let files = combined.paths().count();
+    let place = |range: &Range<usize>| combined.place(range);
+    let (records, stats, exports) = analyze_placed(
+        &combined.text,
+        scripts,
+        shortname,
+        config,
+        terms,
+        files,
+        &place,
+    );
+    let paths = combined.paths().map(str::to_string);
+    Some((paths.zip(records).collect(), stats, exports))
+}
+
+/// The records of a ReSpec source's text (with what it includes), for each
+/// of the `files` it's from, by where `place` says its ranges are, and its
+/// exports.
+#[allow(clippy::type_complexity)]
+fn analyze_placed(
     src: &str,
     scripts: &str,
     shortname: &str,
     config: &SpecsConfig,
     terms: &Terms,
-) -> (Vec<Record>, Stats, Vec<Export>) {
+    files: usize,
+    place: &dyn Fn(&Range<usize>) -> Option<(usize, Location)>,
+) -> (Vec<Vec<Record>>, Stats, Vec<Export>) {
     let doc = Doc::parse(src);
     let n = doc.nodes.len();
     let respec = Config::of(&format!("{}\n{}", src, scripts));
@@ -1703,30 +1775,24 @@ fn analyze_with_exports(
         structured.insert(sym, (kind, parent, config.rendered_url(shortname, id)));
     }
 
-    let lines = Lines::new(src);
-    let mut records = vec![];
+    let mut file_records: Vec<Vec<Record>> = (0..files).map(|_| vec![]).collect();
     for p in pending {
         let range = if p.range.is_empty() {
             p.range.start..p.range.start + 1
         } else {
             p.range
         };
-        let loc = lines.location(&range);
+        let Some((file, loc)) = place(&range) else {
+            continue;
+        };
+        let records = &mut file_records[file];
         let context = context_at(range.start);
-        spec_records(
-            &mut records,
-            loc,
-            p.def,
-            p.what,
-            &p.pretty,
-            &p.sym,
-            &context,
-        );
+        spec_records(records, loc, p.def, p.what, &p.pretty, &p.sym, &context);
         if p.def
             && let Some((kind, parent, rendered)) = structured.remove(&p.sym)
         {
             spec_structured(
-                &mut records,
+                records,
                 loc,
                 &p.pretty,
                 &p.sym,
@@ -1736,7 +1802,9 @@ fn analyze_with_exports(
             );
         }
     }
-    sort_records(&mut records);
+    for records in &mut file_records {
+        sort_records(records);
+    }
 
     // Exports (core/dfn's, core/webidl's, and core/dfn-contract's): IDL's,
     // typed ones, and `export`ed ones, but `noexport`ed ones (and those in
@@ -1772,7 +1840,7 @@ fn analyze_with_exports(
             })
         })
         .collect();
-    (records, stats, exports)
+    (file_records, stats, exports)
 }
 
 /// A text without a possessive suffix (ex: "gizmo" for "gizmo's").
@@ -2421,6 +2489,78 @@ var respecConfig = { shortName: "example-respec", specStatus: "ED" };
             "#,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn test_includes() {
+        let read = |file: &str| -> Option<String> {
+            Some(
+                match file {
+                    "spec/index.html" => {
+                        "<body><section><h2>Intro</h2><p>A <dfn>gizmo</dfn>.</p></section>\n<section data-include=\"parts/more.html\"></section>\n<pre data-include=\"example.html\" data-include-format=\"text\"></pre>\n<p>See [=widget=].</p></body>\n"
+                    }
+                    "spec/parts/more.html" => "<h2>More</h2>\n<p>A <dfn>widget</dfn> of a [=gizmo=].</p>\n",
+                    "spec/example.html" => "<dfn>example</dfn>",
+                    _ => return None,
+                }
+                .to_string(),
+            )
+        };
+        let (files, _, _) = analyze_with_includes(
+            "spec/index.html",
+            &read,
+            "",
+            "example-respec",
+            &config(),
+            &Terms::default(),
+        )
+        .unwrap();
+        let summary: Vec<(String, Vec<String>)> = files
+            .iter()
+            .map(|(file, records)| {
+                let targets = records
+                    .iter()
+                    .filter_map(|record| match record {
+                        Record::Target(t) => Some(format!(
+                            "{}:{} {} {}",
+                            t.loc.lineno,
+                            t.loc.col_start,
+                            t.data.kind.to_ustr(),
+                            super::super::spec_anchor("example-respec", &t.data.sym)
+                                .unwrap_or_default()
+                        )),
+                        _ => None,
+                    })
+                    .collect();
+                (file.clone(), targets)
+            })
+            .collect();
+        // (The HTML include's content is the included file's, with its
+        // positions there, and its section is the including element; the
+        // text one's isn't analyzed.)
+        assert_eq!(
+            summary,
+            vec![
+                (
+                    "spec/index.html".to_string(),
+                    vec![
+                        "1:6 def intro".to_string(),
+                        "1:19 def x1-intro".to_string(),
+                        "1:39 def dfn-gizmo".to_string(),
+                        "2:0 def more".to_string(),
+                        "4:7 use dfn-widget".to_string(),
+                    ]
+                ),
+                (
+                    "spec/parts/more.html".to_string(),
+                    vec![
+                        "1:4 def x2-more".to_string(),
+                        "2:10 def dfn-widget".to_string(),
+                        "2:28 use dfn-gizmo".to_string(),
+                    ]
+                ),
+            ]
+        );
     }
 
     #[test]
