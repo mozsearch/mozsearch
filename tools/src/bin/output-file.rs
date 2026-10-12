@@ -551,7 +551,7 @@ fn main() {
                 // view can be split into pages, where the line is.)
                 let imported = imported_spec_files.contains(path.as_str());
                 if let Some(specs) = &tree_specs
-                    && (has_rendered_spec_view(specs, &path) || imported)
+                    && (has_rendered_spec_view(tree_config, specs, &path) || imported)
                 {
                     tools_items.push(PanelItem {
                         label: PanelItemLabel::Plaintext("Rendered view".to_owned()),

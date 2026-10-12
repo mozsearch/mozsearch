@@ -77,6 +77,8 @@ fn implied_ends(name: &str) -> &'static [&'static str] {
         "td" | "th" => &["td", "th"],
         "thead" | "tbody" | "tfoot" => &["thead", "tbody", "tfoot", "tr", "td", "th"],
         "option" => &["option"],
+        // (Ex: Bikeshed's output, which leaves out `</head>`.)
+        "body" => &["head"],
         _ => &[],
     }
 }
@@ -512,6 +514,12 @@ mod tests {
         // (A stray end tag is ignored.)
         let doc = Doc::parse("<div>a</span>b</div>");
         assert_eq!(shape(&doc, 0), r#"root(div("a" "b"))"#);
+        // (A `<body>` ends the `<head>`.)
+        let doc = Doc::parse("<html><head><title>T</title><body><p>A");
+        assert_eq!(
+            shape(&doc, 0),
+            r#"root(html(head(title("T")) body(p("A"))))"#
+        );
         // (Cells end cells, and rows rows, but not outside their tables.)
         let doc =
             Doc::parse("<table><tr><td>A<td>B<table><tr><td>C<tr><td>D</table><tr><td>E</table>");

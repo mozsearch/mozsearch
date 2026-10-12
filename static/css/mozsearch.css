@@ -1832,20 +1832,23 @@ span[data-symbols].selected {
   margin-right: 0.25em;
   opacity: 0.7;
 }
-.rendered-spec :is(.sp-note, .sp-example, .sp-warning, .sp-XXX, .sp-domintro) {
+.rendered-spec :is(.sp-note, .sp-example, .sp-warning, .sp-XXX, .sp-domintro, .sp-issue, .sp-advisement) {
   margin: 0.75em 0;
   padding: 0.1em 0.75em;
   border-left: 4px solid var(--sp-box-color, #4e79a7);
   background-color: color-mix(in srgb, var(--sp-box-color, #4e79a7) 8%, transparent);
 }
-.rendered-spec p:is(.sp-note, .sp-example, .sp-warning, .sp-XXX) {
+.rendered-spec p:is(.sp-note, .sp-example, .sp-warning, .sp-XXX, .sp-issue, .sp-advisement) {
   padding: 0.4em 0.75em;
 }
 .rendered-spec .sp-example {
   --sp-box-color: #59a14f;
 }
-.rendered-spec :is(.sp-warning, .sp-XXX) {
+.rendered-spec :is(.sp-warning, .sp-XXX, .sp-issue) {
   --sp-box-color: #e15759;
+}
+.rendered-spec .sp-advisement {
+  --sp-box-color: #e8a33d;
 }
 .rendered-spec .sp-domintro {
   --sp-box-color: #b07aa1;

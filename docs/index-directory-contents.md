@@ -63,6 +63,10 @@ Directories:
   detailed per-file information in a JSON file that's too large to put in the
   single aggregate `concise-per-file-info.json` file or not useful for summary
   purposes.
+- `rendered-specs`: For a tree with Bikeshed specs, Bikeshed's renderings of
+  their sources, as `<path>.html` (`bikeshed index --html`'s, from mozsearch's
+  fork), written by `spec-analyze` (see `spec-analyze.sh`), which their
+  rendered views are of (see `tools/src/rendered_specs/bikeshed.rs`).
 - `templates`: Holds `search.html` produced by `cmd_batch_render.rs` with
   `search_template.liquid` so that `router.py` can inline the JSON search
   results from a query.

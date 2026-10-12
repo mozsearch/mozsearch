@@ -18,14 +18,16 @@ path = "specs/ecma"
 format = "ecmarkup"
 rendered = "https://example.github.io/ecma/"
 
-# (Its index is `bikeshed index --json example.bs`'s, from mozsearch's fork of
-# Bikeshed, which the test tree doesn't have.)
+# (Its index and its rendering are `bikeshed index --html example-bs-output.html
+# example.bs example-bs-index.json`'s, from mozsearch's fork of Bikeshed, which
+# the test tree doesn't have.)
 [[spec]]
 name = "examplebs"
 path = "specs"
 format = "bikeshed"
 source = "example.bs"
 index = "example-bs-index.json"
+output = "example-bs-output.html"
 rendered = "https://example.github.io/bs/"
 
 [[spec]]

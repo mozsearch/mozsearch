@@ -125,15 +125,21 @@ pub struct IndexStep {
     pub path: String,
 }
 
-/// Run `bikeshed index --json` (or `$BIKESHED index --json`) on the source.
-pub fn run_bikeshed(source_path: &Path) -> Result<String, String> {
+/// Run `bikeshed index --json` (or `$BIKESHED index --json`) on the source,
+/// also writing its rendering to `html`, if given (`--html`, see
+/// `rendered_specs::bikeshed`).
+pub fn run_bikeshed(source_path: &Path, html: Option<&Path>) -> Result<String, String> {
     let bikeshed = std::env::var("BIKESHED").unwrap_or_else(|_| "bikeshed".to_string());
     let dir = source_path.parent().unwrap_or(Path::new("."));
     let name = source_path
         .file_name()
         .ok_or_else(|| format!("{}: not a file", source_path.display()))?;
-    let output = Command::new(&bikeshed)
-        .args(["--silent", "index", "--json"])
+    let mut command = Command::new(&bikeshed);
+    command.args(["--silent", "index", "--json"]);
+    if let Some(html) = html {
+        command.arg("--html").arg(html);
+    }
+    let output = command
         .arg(name)
         .current_dir(dir)
         .output()

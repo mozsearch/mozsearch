@@ -23,7 +23,10 @@ TREE_NAME=$3
 # wubspecs') gets its files' citations of that tree's specs.
 SPECS_TOML=$CONFIG_REPO/$TREE_NAME/specs.toml
 if [ -f "$SPECS_TOML" ]; then
-    spec-analyze $FILES_ROOT $INDEX_ROOT/analysis $SPECS_TOML $INDEX_ROOT/repo-files
+    # (Bikeshed's renderings of its specs go in rendered-specs/, for their
+    # rendered views; see tools/src/rendered_specs/bikeshed.rs.)
+    spec-analyze --rendered-specs $INDEX_ROOT/rendered-specs \
+        $FILES_ROOT $INDEX_ROOT/analysis $SPECS_TOML $INDEX_ROOT/repo-files
     # (The index's copy is for the rendered views of the specs' sources, see
     # tools/src/rendered_specs, which the web server makes from it, and the
     # source listings' links to them.)

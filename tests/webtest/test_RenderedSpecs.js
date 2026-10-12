@@ -121,3 +121,28 @@ add_task(async function test_RenderedEcmarkup() {
      "/tests/rendered/specs/ecma/imported.html",
      "The imported file's source listing links to its rendered view");
 });
+
+add_task(async function test_RenderedBikeshed() {
+  // The test tree's Bikeshed spec (tests/tests/files/specs/example.bs), whose
+  // rendering is Bikeshed's (tests/tests/example-bs-output.html, which
+  // spec-analyze puts in the index).
+  const SPEC = "/tests/rendered/specs/example.bs";
+  await TestUtils.loadPath(SPEC);
+
+  ok(doc().classList.contains("rendered-spec"), "The page is a rendered spec");
+  is(doc().querySelector("h2#widgets .sp-secno")?.textContent.trim(), "2.",
+     "Headings have Bikeshed's numbers");
+  ok(doc().querySelector("dfn#poke"), "Definitions have Bikeshed's ids");
+  ok(!doc().querySelector("script, style"), "Bikeshed's scripts and styles aren't in it");
+  const mark = [...doc().querySelectorAll("[data-rd-lines]")]
+    .find(mark => mark.parentElement.textContent.includes("To poke"));
+  is(mark?.dataset.rdLines, "15-15", "Blocks are of their lines in the source");
+  ok(doc().querySelector('span[data-l="15"][data-c="0"]'),
+     "Text that's verbatim in the source says where it is");
+  ok(!frame.contentDocument.querySelector("#panel-permalink"),
+     "Only the latest version has a rendered view");
+
+  await TestUtils.loadPath("/tests/source/specs/example.bs");
+  is(frame.contentDocument.querySelector("#panel-rendered-view")?.getAttribute("href"), SPEC,
+     "The source listing links to the rendered view");
+});

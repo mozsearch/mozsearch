@@ -2,7 +2,7 @@
 // references to them (see `tools::spec_analyze`).
 //
 // Usage:
-//   spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]
+//   spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]
 //
 // SPECS_TOML lists the specs (`[[spec]]`s, see `spec_analyze::SpecsConfig`),
 // and each spec whose format we analyze gets the analysis of its source
@@ -41,17 +41,19 @@ fn main() {
     let mut citations_only = false;
     let mut spec_files_root: Option<String> = None;
     let mut spec_index_root: Option<String> = None;
+    let mut rendered_root: Option<String> = None;
     while args.len() > 1 && args[1].starts_with("--") {
         match args.remove(1).as_str() {
             "--citations-only" => citations_only = true,
             "--spec-files" if args.len() > 1 => spec_files_root = Some(args.remove(1)),
             "--spec-index" if args.len() > 1 => spec_index_root = Some(args.remove(1)),
+            "--rendered-specs" if args.len() > 1 => rendered_root = Some(args.remove(1)),
             _ => args.clear(),
         }
     }
     if args.len() != 4 && args.len() != 5 {
         eprintln!(
-            "Usage: spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]"
+            "Usage: spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]"
         );
         exit(1);
     }
@@ -202,11 +204,28 @@ fn main() {
                 );
             }
             SpecFormat::Bikeshed => {
-                // (Bikeshed's index of the spec, unless it's configured.)
+                // (Bikeshed's index of the spec, unless it's configured, and
+                // with --rendered-specs, its rendering, as
+                // `RENDERED_ROOT/<path>.html`, for its rendered view.)
+                let html = rendered_root.as_ref().and_then(|root| {
+                    // (Absolute, since Bikeshed runs in the source's
+                    // directory.)
+                    let html =
+                        std::path::absolute(Path::new(root).join(format!("{}.html", path))).ok()?;
+                    std::fs::create_dir_all(html.parent()?).ok()?;
+                    Some(html)
+                });
                 let json = match &spec.index {
-                    Some(index) => std::fs::read_to_string(config.dir.join(index))
-                        .map_err(|e| format!("{}: {}", index, e)),
-                    None => bikeshed::run_bikeshed(&files_root.join(&path)),
+                    Some(index) => {
+                        if let (Some(output), Some(html)) = (&spec.output, &html)
+                            && let Err(e) = std::fs::copy(config.dir.join(output), html)
+                        {
+                            eprintln!("spec-analyze: {}: {}", output, e);
+                        }
+                        std::fs::read_to_string(config.dir.join(index))
+                            .map_err(|e| format!("{}: {}", index, e))
+                    }
+                    None => bikeshed::run_bikeshed(&files_root.join(&path), html.as_deref()),
                 };
                 let index = match json.and_then(|json| bikeshed::parse_index(&json)) {
                     Ok(index) => index,

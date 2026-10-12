@@ -12,6 +12,7 @@
 //! (classes are prefixed with `sp-`, so that they can't be the page's), and
 //! links to the tree's other specs go to their rendered views.
 
+pub mod bikeshed;
 pub mod ecmarkup;
 pub mod wattsi;
 
@@ -31,7 +32,10 @@ pub trait SpecLinks {
 
 /// Whether specs of a format have rendered views.
 pub fn has_rendered_view(format: SpecFormat) -> bool {
-    matches!(format, SpecFormat::Wattsi | SpecFormat::Ecmarkup)
+    matches!(
+        format,
+        SpecFormat::Wattsi | SpecFormat::Ecmarkup | SpecFormat::Bikeshed
+    )
 }
 
 /// Whether specs of a format can be split into pages (ex: the HTML Standard,
@@ -398,6 +402,13 @@ pub trait Hooks {
     fn is_inline_content(&self, _node: usize) -> bool {
         false
     }
+    /// The bytes of the file that a node's block is of (or, for a run of
+    /// inline content, its parent's), if not where the source's range is in
+    /// it (ex: Bikeshed's output's, by its elements' `bs-pos`): `Some(None)`
+    /// if it has no block.
+    fn block_range(&self, _node: usize) -> Option<Option<Range<usize>>> {
+        None
+    }
 }
 
 /// Where ranges of a source are in the file that a rendering is for, if
@@ -460,6 +471,21 @@ impl<'s, 'd> HtmlRenderer<'s, 'd> {
         match self.file_range(&range) {
             Some(range) => self.w.open_block_div(range, class),
             None => false,
+        }
+    }
+
+    /// `open_block`, for a node's block (see `Hooks::block_range`).
+    pub fn open_node_block(
+        &mut self,
+        hooks: &dyn Hooks,
+        node: usize,
+        range: Range<usize>,
+        class: &str,
+    ) -> bool {
+        match hooks.block_range(node) {
+            Some(Some(range)) => self.w.open_block_div(range, class),
+            Some(None) => false,
+            None => self.open_block(range, class),
         }
     }
 
@@ -550,7 +576,7 @@ impl<'s, 'd> HtmlRenderer<'s, 'd> {
             if let (Some(first), Some(last)) = (first, last) {
                 let range =
                     self.doc.nodes[kids[first]].range.start..self.doc.nodes[kids[last]].range.end;
-                let opened = self.open_block(range, "");
+                let opened = self.open_node_block(hooks, node, range, "");
                 for &kid in &kids[first..=last] {
                     if self.in_range(hooks, kid) && !hooks.hidden(kid) {
                         self.node(hooks, kid);
@@ -604,7 +630,7 @@ impl<'s, 'd> HtmlRenderer<'s, 'd> {
                 self.end_tag(tag);
             }
             Role::Leaf => {
-                let opened = self.open_block(range, "");
+                let opened = self.open_node_block(hooks, node, range, "");
                 let tag = self.start_tag(hooks, node, &name);
                 self.children(hooks, node);
                 self.end_tag(tag);
@@ -612,14 +638,18 @@ impl<'s, 'd> HtmlRenderer<'s, 'd> {
             }
             Role::InnerLeaf => {
                 let tag = self.start_tag(hooks, node, &name);
-                let opened = self.open_block(range, "");
+                let opened = self.open_node_block(hooks, node, range, "");
                 self.children(hooks, node);
                 self.w.close_block_div(opened);
                 self.end_tag(tag);
             }
             Role::Row => {
                 let tag = self.start_tag(hooks, node, &name);
-                let opened = self.start_block(range);
+                let opened = match hooks.block_range(node) {
+                    Some(Some(range)) if !self.w.in_block() => self.w.start_block(range, false),
+                    Some(_) => false,
+                    None => self.start_block(range),
+                };
                 for kid in self.doc.nodes[node].children.clone() {
                     if hooks.hidden(kid) {
                         continue;

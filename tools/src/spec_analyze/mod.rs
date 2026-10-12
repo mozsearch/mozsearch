@@ -84,6 +84,11 @@ pub struct SpecEntry {
     /// for the test tree, which doesn't have Bikeshed).
     #[serde(default)]
     pub index: Option<String>,
+    /// For Bikeshed, with an `index`, the spec's rendering (`bikeshed index
+    /// --html`'s output, see `rendered_specs::bikeshed`), relative to the
+    /// `specs.toml`.
+    #[serde(default)]
+    pub output: Option<String>,
     /// The rendered spec's URL, which its anchors are fragments of, and which
     /// other specs' references to it start with (ex:
     /// "https://dom.spec.whatwg.org/").

@@ -1356,9 +1356,19 @@ fn spec_view<'a>(specs: &'a SpecsConfig, path: &str) -> Option<(&'a SpecEntry, S
 }
 
 /// Whether the file at `path` of a tree with `specs` is a spec's source
-/// with a rendered view.
-pub fn has_rendered_spec_view(specs: &SpecsConfig, path: &str) -> bool {
-    spec_view(specs, path).is_some_and(|(_, _, view)| view == SpecView::Page(None))
+/// with a rendered view (for Bikeshed's, if the index has its rendering).
+pub fn has_rendered_spec_view(tree_config: &TreeConfig, specs: &SpecsConfig, path: &str) -> bool {
+    spec_view(specs, path).is_some_and(|(spec, _, view)| {
+        view == SpecView::Page(None)
+            && (spec.format != Some(crate::spec_analyze::SpecFormat::Bikeshed)
+                || bikeshed_rendering_path(tree_config, path).exists())
+    })
+}
+
+/// Where the index has Bikeshed's rendering of the spec whose source is at
+/// `path` (see scripts/spec-analyze.sh).
+fn bikeshed_rendering_path(tree_config: &TreeConfig, path: &str) -> std::path::PathBuf {
+    Path::new(&tree_config.paths.index_path).join(format!("rendered-specs/{}.html", path))
 }
 
 /// The files which a tree's ecmarkup specs import (and which those import),
@@ -1447,7 +1457,9 @@ pub fn rendered_redirect(
         SpecView::Anchor(anchor) => {
             match rendered_specs::anchor_page(spec, &source, &source_path, &specs, &read, &anchor) {
                 Some(page) => (page.name, rendered_specs::fragment(&anchor)),
-                None => (None, String::new()),
+                // (A paged spec's first page would send it back here.)
+                None if spec.format.is_some_and(rendered_specs::is_paged) => (None, String::new()),
+                None => (None, rendered_specs::fragment(&anchor)),
             }
         }
         SpecView::Line(line) => {
@@ -1732,6 +1744,15 @@ pub fn format_rendered(
             Some(main) => {
                 rendered_specs::ecmarkup::render_file(main, spec, specs, &spec_links, &read, path)
             }
+            // (Bikeshed's rendering is the index's, of the latest revision.)
+            None if spec.format == Some(crate::spec_analyze::SpecFormat::Bikeshed) => {
+                if rev.is_some() {
+                    return Err("Only the latest version of a Bikeshed spec has a rendered view");
+                }
+                let output = std::fs::read_to_string(bikeshed_rendering_path(tree_config, path))
+                    .map_err(|_| "The index has no rendering of the Bikeshed spec")?;
+                rendered_specs::bikeshed::render(&output, &source, path, spec, specs, &spec_links)
+            }
             None => rendered_specs::render(
                 spec,
                 &source,
@@ -1814,6 +1835,9 @@ pub fn format_rendered(
             accel_key: None,
             copyable: true,
         }),
+        None if spec
+            .is_some_and(|spec| spec.format == Some(crate::spec_analyze::SpecFormat::Bikeshed)) => {
+        }
         None => vcs_items.push(PanelItem {
             label: PanelItemLabel::Plaintext("Permalink".to_owned()),
             tooltip: "Create a revision-specific link of the rendered view".to_owned(),
