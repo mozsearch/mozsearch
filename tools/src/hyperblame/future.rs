@@ -18,8 +18,10 @@
 //! than walking revisions, but a token can change many times, so we limit how
 //! many changes we follow.
 
-use std::collections::HashSet;
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::rc::Rc;
 
 use git2::{Oid, Repository};
 use serde::Serialize;
@@ -27,7 +29,6 @@ use serde::Serialize;
 use super::journals::{JournalKind, JournalReader};
 use super::token_blame::TreeHistory;
 use crate::file_format::history::rev_summaries::{RevSummaryRecord, rev_summary_path};
-use crate::file_format::history::syntax_files::token_file_lines;
 use crate::file_format::history::timeline_annotated::{
     HyperLineData, HyperTokenRef, PATH_UNCHANGED,
 };
@@ -116,51 +117,132 @@ fn in_set(set: &TokenRefSet, path: &str, identity: &HyperTokenRef) -> bool {
         .is_some_and(|linenos| linenos.0.contains(&identity.lineno))
 }
 
-struct Follower<'a> {
+/// How many annotated files a `Follower` keeps (each can be large, ex: ~110 MB
+/// for the HTML Standard's `source`).
+const ANNOTATED_CACHE_SIZE: usize = 2;
+
+/// Follows tokens of a history into the future (see `follow`), sharing what
+/// it reads between them: the future journals (expanding the head's for a
+/// file reads most of the file's history, ex: ~60s for the HTML Standard's
+/// `source`, so following its tokens one at a time would take a minute each)
+/// and the last annotated files.
+pub struct Follower<'a> {
     tree_history: &'a TreeHistory,
     timeline: &'a Repository,
     history_path: &'a str,
-    head: git2::Oid,
+    head: Oid,
+    reader: RefCell<JournalReader<'a>>,
+    /// The detail records of the head's future journal, by path, newest
+    /// first.
+    head_records: RefCell<HashMap<String, Rc<Vec<FutureRecord>>>>,
+    /// The source revisions of the detail records of a version of a future
+    /// journal, by its path and timeline revision.
+    since_revs: RefCell<HashMap<(String, Oid), Rc<HashSet<String>>>>,
+    /// The annotated files read last, by timeline revision and path, newest
+    /// last.
+    annotated: RefCell<Vec<((Oid, String), Rc<String>)>>,
 }
 
-impl Follower<'_> {
+impl<'a> Follower<'a> {
+    pub fn new(tree_history: &'a TreeHistory) -> Result<Follower<'a>, String> {
+        let timeline = &*tree_history.timeline;
+        let head = tree_history
+            .head_timeline_commit()
+            .ok_or("The history is empty")?
+            .id();
+        Ok(Follower {
+            tree_history,
+            timeline,
+            history_path: &tree_history.path,
+            head,
+            reader: RefCell::new(JournalReader::new(timeline)),
+            head_records: RefCell::default(),
+            since_revs: RefCell::default(),
+            annotated: RefCell::default(),
+        })
+    }
+
     fn timeline_rev(&self, source_rev: &str) -> Option<Oid> {
         let oid = Oid::from_str(source_rev).ok()?;
         Some(self.tree_history.timeline_commit(oid)?.id())
     }
 
-    fn annotated(&self, timeline_rev: Oid, path: &str) -> Option<String> {
+    fn annotated(&self, timeline_rev: Oid, path: &str) -> Option<Rc<String>> {
+        let key = (timeline_rev, path.to_string());
+        let mut cache = self.annotated.borrow_mut();
+        if let Some(at) = cache.iter().position(|(k, _)| *k == key) {
+            let entry = cache.remove(at);
+            let text = entry.1.clone();
+            cache.push(entry);
+            return Some(text);
+        }
         let commit = self.timeline.find_commit(timeline_rev).ok()?;
         let tree = commit.tree().ok()?;
         let entry = tree
             .get_path(std::path::Path::new(&format!("annotated/{}", path)))
             .ok()?;
         let blob = self.timeline.find_blob(entry.id()).ok()?;
-        Some(String::from_utf8_lossy(blob.content()).into_owned())
+        let text = Rc::new(String::from_utf8_lossy(blob.content()).into_owned());
+        if cache.len() >= ANNOTATED_CACHE_SIZE {
+            cache.remove(0);
+        }
+        cache.push((key, text.clone()));
+        Some(text)
     }
 
-    /// The detail records of the future journal for `path` for the revisions
-    /// after `since` (a timeline revision), oldest first.
-    fn records_after(&self, path: &str, since: Oid) -> Result<Vec<FutureRecord>, String> {
-        let mut reader = JournalReader::new(self.timeline);
-        let version = |timeline_rev: Oid| JournalVersionRef {
+    fn version(path: &str, timeline_rev: Oid) -> JournalVersionRef {
+        JournalVersionRef {
             timeline_rev: timeline_rev.to_string(),
             path: JournalKind::Future.journal_path(path),
+        }
+    }
+
+    /// The detail records of the future journal for `path` (newest first),
+    /// and the source revisions of those of its version as of `since` (a
+    /// timeline revision): the records after `since` are the others.
+    #[allow(clippy::type_complexity)]
+    fn records_since(
+        &self,
+        path: &str,
+        since: Oid,
+    ) -> Result<(Rc<Vec<FutureRecord>>, Rc<HashSet<String>>), String> {
+        let head_records = match self.head_records.borrow().get(path) {
+            Some(records) => Some(records.clone()),
+            None => None,
         };
-        let head_records = reader.records::<FutureRecord>(&version(self.head))?;
-        let head_records = reader.expand(head_records)?;
-        let since_records = reader.records::<FutureRecord>(&version(since))?;
-        let since_revs: HashSet<String> = reader
-            .expand(since_records)?
-            .iter()
-            .filter_map(detail_rev)
-            .collect();
-        let mut after: Vec<FutureRecord> = head_records
-            .into_iter()
-            .filter(|record| detail_rev(record).is_some_and(|rev| !since_revs.contains(&rev)))
-            .collect();
-        after.reverse();
-        Ok(after)
+        let head_records = match head_records {
+            Some(records) => records,
+            None => {
+                let mut reader = self.reader.borrow_mut();
+                let records = reader.records::<FutureRecord>(&Self::version(path, self.head))?;
+                let records = Rc::new(reader.expand(records)?);
+                self.head_records
+                    .borrow_mut()
+                    .insert(path.to_string(), records.clone());
+                records
+            }
+        };
+        let key = (path.to_string(), since);
+        let since_revs = match self.since_revs.borrow().get(&key) {
+            Some(revs) => Some(revs.clone()),
+            None => None,
+        };
+        let since_revs = match since_revs {
+            Some(revs) => revs,
+            None => {
+                let mut reader = self.reader.borrow_mut();
+                let records = reader.records::<FutureRecord>(&Self::version(path, since))?;
+                let revs: HashSet<String> = reader
+                    .expand(records)?
+                    .iter()
+                    .filter_map(detail_rev)
+                    .collect();
+                let revs = Rc::new(revs);
+                self.since_revs.borrow_mut().insert(key, revs.clone());
+                revs
+            }
+        };
+        Ok((head_records, since_revs))
     }
 
     fn changed_paths(&self, source_rev: &str) -> Vec<String> {
@@ -183,158 +265,158 @@ fn detail_rev(record: &FutureRecord) -> Option<String> {
 }
 
 /// Follow the token with the (1-based) index `token` in the file at `path` in
-/// revision `rev` into the future.
+/// revision `rev` into the future.  (To follow several tokens, use one
+/// `Follower`.)
 pub fn follow(
     tree_history: &TreeHistory,
     rev: Oid,
     path: &str,
     token: u32,
 ) -> Result<Future, String> {
-    let timeline = &*tree_history.timeline;
-    let history_path = &tree_history.path;
-    let head = tree_history
-        .head_timeline_commit()
-        .ok_or("The history is empty")?
-        .id();
-    let follower = Follower {
-        tree_history,
-        timeline,
-        history_path,
-        head,
-    };
-    let lost = |changes| Future {
-        outcome: "lost",
-        path: None,
-        token: None,
-        rev: None,
-        changes,
-    };
+    Follower::new(tree_history)?.follow(rev, path, token)
+}
 
-    let mut since = follower
-        .timeline_rev(&rev.to_string())
-        .ok_or("The history doesn't have the revision")?;
-    let annotated = follower
-        .annotated(since, path)
-        .ok_or("The history doesn't have the file")?;
-    let line = token_file_lines(&annotated)
-        .get(token as usize)
-        .copied()
-        .ok_or("No such token")?;
-    let mut data: HyperLineData =
-        serde_json::from_str(line).map_err(|e| format!("bad annotated line: {}", e))?;
-    data.introduced.resolve_path(path);
-    let mut identity = data.introduced.into_owned();
-    let mut path = path.to_string();
-    let mut changes = vec![];
+impl Follower<'_> {
+    /// Follow a token into the future, as `follow` does.
+    pub fn follow(&self, rev: Oid, path: &str, token: u32) -> Result<Future, String> {
+        let lost = |changes| Future {
+            outcome: "lost",
+            path: None,
+            token: None,
+            rev: None,
+            changes,
+        };
 
-    'follow: while changes.len() < MAX_CHANGES {
-        for record in follower.records_after(&path, since)? {
-            let FutureRecord::Detail(detail) = record else {
-                continue;
-            };
-            let change_rev = detail.desc.source_rev.clone();
-            let Some(change_timeline_rev) = follower.timeline_rev(&change_rev) else {
-                return Ok(lost(changes));
-            };
-            if in_set(&detail.extinguished_tokens, &path, &identity) {
-                return Ok(Future {
-                    outcome: "removed",
-                    path: Some(path),
-                    token: None,
-                    rev: Some(change_rev),
-                    changes,
-                });
-            }
-            if in_set(&detail.evolved_tokens, &path, &identity) {
-                // The token which evolved from it may be in another file too,
-                // but it's usually this one.
-                let Some(annotated) = follower.annotated(change_timeline_rev, &path) else {
-                    return Ok(lost(changes));
+        let mut since = self
+            .timeline_rev(&rev.to_string())
+            .ok_or("The history doesn't have the revision")?;
+        let annotated = self
+            .annotated(since, path)
+            .ok_or("The history doesn't have the file")?;
+        let line = annotated
+            .split('\n')
+            .nth(token as usize)
+            .ok_or("No such token")?;
+        let mut data: HyperLineData =
+            serde_json::from_str(line).map_err(|e| format!("bad annotated line: {}", e))?;
+        data.introduced.resolve_path(path);
+        let mut identity = data.introduced.into_owned();
+        let mut path = path.to_string();
+        let mut changes = vec![];
+
+        'follow: while changes.len() < MAX_CHANGES {
+            let (records, since_revs) = self.records_since(&path, since)?;
+            for record in records.iter().rev() {
+                let FutureRecord::Detail(detail) = record else {
+                    continue;
                 };
-                let Some(index) = find_token(&annotated, &path, &identity, true) else {
-                    return Ok(lost(changes));
-                };
-                identity = HyperTokenRef {
-                    source_rev: change_rev.clone().into(),
-                    path: path.clone().into(),
-                    lineno: index as u32 + 1,
-                };
-                changes.push(Change {
-                    rev: change_rev,
-                    kind: "evolved",
-                    path: path.clone(),
-                    token: index as u32 + 1,
-                });
-                since = change_timeline_rev;
-                continue 'follow;
-            }
-            if in_set(&detail.moved_out_tokens, &path, &identity) {
-                for candidate in follower.changed_paths(&change_rev) {
-                    if candidate == path {
-                        continue;
-                    }
-                    let Some(annotated) = follower.annotated(change_timeline_rev, &candidate)
-                    else {
-                        continue;
-                    };
-                    if let Some(index) = find_token(&annotated, &candidate, &identity, false) {
-                        changes.push(Change {
-                            rev: change_rev,
-                            kind: "moved",
-                            path: candidate.clone(),
-                            token: index as u32 + 1,
-                        });
-                        path = candidate;
-                        since = change_timeline_rev;
-                        continue 'follow;
-                    }
+                if since_revs.contains(&detail.desc.source_rev) {
+                    continue;
                 }
-                return Ok(lost(changes));
-            }
-            if let Some(moved_to) = &detail.file_changes.file_moved_to {
-                let Some(annotated) = follower.annotated(change_timeline_rev, moved_to) else {
+                let change_rev = detail.desc.source_rev.clone();
+                let Some(change_timeline_rev) = self.timeline_rev(&change_rev) else {
                     return Ok(lost(changes));
                 };
-                let Some(index) = find_token(&annotated, moved_to, &identity, false) else {
+                if in_set(&detail.extinguished_tokens, &path, &identity) {
+                    return Ok(Future {
+                        outcome: "removed",
+                        path: Some(path),
+                        token: None,
+                        rev: Some(change_rev),
+                        changes,
+                    });
+                }
+                if in_set(&detail.evolved_tokens, &path, &identity) {
+                    // The token which evolved from it may be in another file too,
+                    // but it's usually this one.
+                    let Some(annotated) = self.annotated(change_timeline_rev, &path) else {
+                        return Ok(lost(changes));
+                    };
+                    let Some(index) = find_token(&annotated, &path, &identity, true) else {
+                        return Ok(lost(changes));
+                    };
+                    identity = HyperTokenRef {
+                        source_rev: change_rev.clone().into(),
+                        path: path.clone().into(),
+                        lineno: index as u32 + 1,
+                    };
+                    changes.push(Change {
+                        rev: change_rev,
+                        kind: "evolved",
+                        path: path.clone(),
+                        token: index as u32 + 1,
+                    });
+                    since = change_timeline_rev;
+                    continue 'follow;
+                }
+                if in_set(&detail.moved_out_tokens, &path, &identity) {
+                    for candidate in self.changed_paths(&change_rev) {
+                        if candidate == path {
+                            continue;
+                        }
+                        let Some(annotated) = self.annotated(change_timeline_rev, &candidate)
+                        else {
+                            continue;
+                        };
+                        if let Some(index) = find_token(&annotated, &candidate, &identity, false) {
+                            changes.push(Change {
+                                rev: change_rev,
+                                kind: "moved",
+                                path: candidate.clone(),
+                                token: index as u32 + 1,
+                            });
+                            path = candidate;
+                            since = change_timeline_rev;
+                            continue 'follow;
+                        }
+                    }
                     return Ok(lost(changes));
-                };
-                changes.push(Change {
-                    rev: change_rev,
-                    kind: "renamed",
-                    path: moved_to.clone(),
-                    token: index as u32 + 1,
-                });
-                path = moved_to.clone();
-                since = change_timeline_rev;
-                continue 'follow;
+                }
+                if let Some(moved_to) = &detail.file_changes.file_moved_to {
+                    let Some(annotated) = self.annotated(change_timeline_rev, moved_to) else {
+                        return Ok(lost(changes));
+                    };
+                    let Some(index) = find_token(&annotated, moved_to, &identity, false) else {
+                        return Ok(lost(changes));
+                    };
+                    changes.push(Change {
+                        rev: change_rev,
+                        kind: "renamed",
+                        path: moved_to.clone(),
+                        token: index as u32 + 1,
+                    });
+                    path = moved_to.clone();
+                    since = change_timeline_rev;
+                    continue 'follow;
+                }
+                if detail.file_changes.file_deleted {
+                    return Ok(Future {
+                        outcome: "deleted",
+                        path: Some(path),
+                        token: None,
+                        rev: Some(change_rev),
+                        changes,
+                    });
+                }
             }
-            if detail.file_changes.file_deleted {
-                return Ok(Future {
-                    outcome: "deleted",
-                    path: Some(path),
-                    token: None,
-                    rev: Some(change_rev),
-                    changes,
-                });
-            }
-        }
 
-        // Nothing changed the token since, so it's in the head revision.
-        let found = follower
-            .annotated(head, &path)
-            .and_then(|annotated| find_token(&annotated, &path, &identity, false));
-        return Ok(match found {
-            Some(index) => Future {
-                outcome: "now",
-                path: Some(path),
-                token: Some(index as u32 + 1),
-                rev: None,
-                changes,
-            },
-            None => lost(changes),
-        });
+            // Nothing changed the token since, so it's in the head revision.
+            let found = self
+                .annotated(self.head, &path)
+                .and_then(|annotated| find_token(&annotated, &path, &identity, false));
+            return Ok(match found {
+                Some(index) => Future {
+                    outcome: "now",
+                    path: Some(path),
+                    token: Some(index as u32 + 1),
+                    rev: None,
+                    changes,
+                },
+                None => lost(changes),
+            });
+        }
+        Ok(lost(changes))
     }
-    Ok(lost(changes))
 }
 
 #[cfg(test)]
