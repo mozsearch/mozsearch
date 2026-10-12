@@ -163,7 +163,9 @@ index of the field starting from 0.
    the specs in a tree's `specs.toml`: the HTML Standard's Wattsi source,
    ecmarkup specs like ECMA-262, Bikeshed specs, with mozsearch's fork of
    Bikeshed's `bikeshed index`, and the files they include, and ReSpec specs
-   like W3C's WebRTC, with the ids ReSpec gives them in the browser) use `SPEC_`
+   like W3C's WebRTC, with the ids ReSpec gives them in the browser, and their
+   references to other specs' terms found among the tree's specs' exported
+   definitions, as ReSpec's xref service finds them) use `SPEC_`
    followed by the spec's shortname, `_`, and the term's anchor in the rendered
    spec (its id), escaped like `FILE_` symbols (but for every byte of non-ASCII
    characters), ex: `SPEC_html_navigate` for

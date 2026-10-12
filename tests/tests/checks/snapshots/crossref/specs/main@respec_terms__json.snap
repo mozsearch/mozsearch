@@ -250,6 +250,71 @@ input_file: inputs/crossref/specs/respec_terms__json
       "relation": "Queried",
       "quality": "ExplicitSymbol",
       "overloads_hit": []
+    },
+    {
+      "symbol": "SPEC_examplebs_gadget",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/respec/index.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 54,
+                "bounds": [
+                  37,
+                  47
+                ],
+                "line": "<p data-cite=\"examplebs\">It's like a {{Gadget}}'s {{Gadget/poke()}}.</p>",
+                "context": "Poking",
+                "contextsym": "SPEC_examplerespec_poking"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "specs/example.bs",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 30,
+                "bounds": [
+                  10,
+                  16
+                ],
+                "line": "interface Gadget {",
+                "context": "Gadgets",
+                "contextsym": "SPEC_examplebs_gadgets"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "examplebs Gadget",
+          "sym": "SPEC_examplebs_gadget",
+          "type_pretty": null,
+          "kind": "class",
+          "subsystem": null,
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.github.io/bs/#gadget"
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
     }
   ],
   "unknown_symbols": []

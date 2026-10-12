@@ -40,6 +40,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use super::markup::{Doc, NodeKind};
+use super::xref::Export;
 use super::{
     ForResolver, InContext, Lines, SpecsConfig, dfn_kind, spec_records, spec_structured,
     spec_symbol, unescape_context_name as context_name,
@@ -401,6 +402,41 @@ pub struct Resolved<'a> {
     /// many didn't resolve.
     pub references: usize,
     pub unresolved: usize,
+}
+
+/// A Wattsi source's exported definitions (`<dfn export>`s, and typed ones,
+/// ex: IDL's, but `<dfn noexport>`s), for other specs' references (see
+/// `xref`).
+pub fn exports(src: &str) -> Vec<Export> {
+    let resolved = resolve(src);
+    let doc = &resolved.doc;
+    let mut exports: Vec<(usize, Export)> = resolved
+        .node_ids
+        .iter()
+        .filter(|&(&node, _)| doc.is(node, "dfn") && !resolved.excluded[node])
+        .filter_map(|(&node, id)| {
+            let dfn_type = dfn_type(doc, node);
+            let exported = doc.has_attr(node, "export")
+                || (dfn_type != "dfn" && !doc.has_attr(node, "noexport"));
+            exported.then(|| {
+                let texts = match doc.attr(node, "data-lt") {
+                    Some(lt) => lt.split('|').map(|t| t.trim().to_string()).collect(),
+                    None => vec![words(doc, node)],
+                };
+                (
+                    node,
+                    Export {
+                        texts,
+                        dfn_type,
+                        fors: dfn_fors(doc, node),
+                        anchor: id.clone(),
+                    },
+                )
+            })
+        })
+        .collect();
+    exports.sort_by_key(|(node, _)| *node);
+    exports.into_iter().map(|(_, export)| export).collect()
 }
 
 /// Resolve a Wattsi source's definitions and cross-references.

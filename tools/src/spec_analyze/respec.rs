@@ -40,7 +40,8 @@ use regex::Regex;
 
 use super::markup::{Doc, NodeKind, decode_html};
 use super::wattsi::step_path;
-use super::webidl_defs::{IdlDef, idl_defs, idl_references};
+use super::webidl_defs::{IdlDef, IdlReference, idl_defs, idl_references};
+use super::xref::{Export, Query, Terms};
 use super::{
     ForResolver, InContext, Lines, SpecsConfig, dfn_kind, spec_records, spec_structured,
     spec_symbol, unescape_context_name as context_name,
@@ -57,6 +58,8 @@ pub struct Stats {
     pub references: usize,
     pub unresolved: usize,
     pub external: usize,
+    /// References to other specs' terms (see `xref`).
+    pub xrefs: usize,
 }
 
 /// ReSpec's `toId`: `text` lowercased, without diacritics, with each run of
@@ -168,6 +171,8 @@ fn idl_text(text: &str) -> String {
 }
 
 lazy_static! {
+    /// An enum value's `Enum["value"]`, for its enum.
+    static ref ENUM_FOR: Regex = Regex::new(r#"^(\w+)\[""#).unwrap();
     /// ReSpec's inline shorthands: `[[[#id]]]` (and `[[[SPEC]]]`),
     /// `[=for/term|text=]`, `{{Name/member}}`, `[[SPEC]]` (and `[[!SPEC]]`,
     /// `[[SPEC|text]]`), `[^element^]`.
@@ -224,6 +229,8 @@ struct Dfn {
     id: Option<String>,
     /// Whether an IDL definition defines it.
     idl: bool,
+    /// The linking texts other specs' references find it by (see `xref`).
+    exported_texts: Vec<String>,
 }
 
 impl Dfn {
@@ -463,6 +470,9 @@ struct Config {
     short_name: Option<String>,
     no_toc: bool,
     max_toc_level: usize,
+    /// The specs other specs' terms are found in (`xref`'s, lowercased; all
+    /// the tree's, if it's empty), if references find them.
+    xref: Option<Vec<String>>,
 }
 
 impl Config {
@@ -472,7 +482,31 @@ impl Config {
                 Regex::new(r#"\bshortName\s*:\s*["']([^"']+)["']"#).unwrap();
             static ref NO_TOC: Regex = Regex::new(r"\bnoTOC\s*:\s*true").unwrap();
             static ref MAX_TOC_LEVEL: Regex = Regex::new(r"\bmaxTocLevel\s*:\s*(\d+)").unwrap();
+            static ref XREF: Regex =
+                Regex::new(r#"\bxref\s*:\s*(\[[^\]]*\]|"[^"]*"|'[^']*'|true|false|\{[^}]*\})"#)
+                    .unwrap();
+            static ref QUOTED: Regex = Regex::new(r#"["']([^"']+)["']"#).unwrap();
         }
+        // (`xref: true` (the default), `false`, a profile, specs, or an
+        // object with a profile and specs.)
+        let xref = match XREF.captures(src).map(|c| c[1].to_string()).as_deref() {
+            Some("false") => None,
+            None | Some("true") => Some(vec![]),
+            Some(value) => Some(
+                QUOTED
+                    .captures_iter(value)
+                    .map(|c| c[1].to_lowercase())
+                    .filter(|v| !v.contains([':', '/']))
+                    .flat_map(|v| match v.as_str() {
+                        "web-platform" => ["html", "infra", "url", "webidl", "dom", "fetch"]
+                            .iter()
+                            .map(|s| s.to_string())
+                            .collect(),
+                        _ => vec![v],
+                    })
+                    .collect(),
+            ),
+        };
         Config {
             short_name: SHORT_NAME.captures(src).map(|c| c[1].to_string()),
             no_toc: NO_TOC.is_match(src),
@@ -481,16 +515,55 @@ impl Config {
                 .and_then(|c| c[1].parse().ok())
                 .filter(|&n| n > 0)
                 .unwrap_or(usize::MAX),
+            xref,
         }
     }
 }
 
+/// The local scripts a ReSpec source loads (their `src`s, relative to it),
+/// which may have its `respecConfig` (ex: WebRTC's `webrtc.js`), but local
+/// copies of ReSpec (ex: `respec-w3c-common.js`).
+pub fn local_scripts(src: &str) -> Vec<String> {
+    let doc = Doc::parse(src);
+    (1..doc.nodes.len())
+        .filter(|&node| doc.is(node, "script"))
+        .filter_map(|node| doc.attr(node, "src"))
+        .filter(|s| !s.contains("://") && !s.starts_with("//") && !s.starts_with('/'))
+        .filter(|s| !s.rsplit('/').next().unwrap_or(s).starts_with("respec"))
+        .collect()
+}
+
 /// The records of a ReSpec source, of the spec with `shortname`, among
-/// `config`'s specs.
-pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>, Stats) {
+/// `config`'s specs, whose exported definitions are `terms` (see `xref`),
+/// with the text of the local scripts it loads (see `local_scripts`).
+pub fn analyze(
+    src: &str,
+    scripts: &str,
+    shortname: &str,
+    config: &SpecsConfig,
+    terms: &Terms,
+) -> (Vec<Record>, Stats) {
+    let (records, stats, _) = analyze_with_exports(src, scripts, shortname, config, terms);
+    (records, stats)
+}
+
+/// A ReSpec source's exported definitions, for other specs' references (see
+/// `xref`): IDL's, typed ones, and `export`ed ones, but `noexport`ed ones,
+/// and those in informative sections.
+pub fn exports(src: &str, scripts: &str, shortname: &str, config: &SpecsConfig) -> Vec<Export> {
+    analyze_with_exports(src, scripts, shortname, config, &Terms::default()).2
+}
+
+fn analyze_with_exports(
+    src: &str,
+    scripts: &str,
+    shortname: &str,
+    config: &SpecsConfig,
+    terms: &Terms,
+) -> (Vec<Record>, Stats, Vec<Export>) {
     let doc = Doc::parse(src);
     let n = doc.nodes.len();
-    let respec = Config::of(src);
+    let respec = Config::of(&format!("{}\n{}", src, scripts));
     let mut stats = Stats::default();
 
     // What's left out: scripts, styles, and the head.
@@ -530,6 +603,17 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
         }
         let names = dfn_titles(&doc, node);
         let title = names.first().cloned().unwrap_or_default();
+        let local: Vec<String> = doc
+            .attr(node, "data-local-lt")
+            .unwrap_or_default()
+            .split('|')
+            .map(norm)
+            .collect();
+        let exported_texts: Vec<String> = names
+            .iter()
+            .filter(|n| !local.contains(n))
+            .cloned()
+            .collect();
         let closest = std::iter::once(node)
             .chain(doc.ancestors(node))
             .find(|&a| doc.has_attr(a, "data-dfn-for"));
@@ -580,6 +664,7 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
             dfn_type: own_type.or(derived),
             id: doc.attr(node, "id"),
             idl: false,
+            exported_texts,
         });
         titles.register(index, &names);
         stats.dfns += 1;
@@ -592,8 +677,10 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
     // (What `{{Name/member}}`s link to: (parent, name) -> definition.)
     let mut idl_targets: HashMap<(String, String), usize> = HashMap::new();
     let mut overloads: HashMap<String, usize> = HashMap::new();
-    // (Their references to definitions by name, ex: arguments' types.)
-    let mut idl_type_refs: Vec<(Range<usize>, String)> = vec![];
+    // (Their references, ex: arguments' types, by their blocks, and partial
+    // definitions' names, which are references to other specs'.)
+    let mut idl_type_refs: Vec<(usize, Range<usize>, String, IdlReference)> = vec![];
+    let mut idl_partials: Vec<(usize, Range<usize>, String, &'static str)> = vec![];
     for node in shown() {
         if !doc.is(node, "pre")
             || !(has_class(&doc, node, "idl") || has_class(&doc, node, "webidl"))
@@ -602,8 +689,13 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
         }
         let content = doc.content_range(node);
         let text = idl_text(&src[content.clone()]);
-        for (range, name) in idl_references(&text) {
-            idl_type_refs.push((content.start + range.start..content.start + range.end, name));
+        for (range, name, kind) in idl_references(&text) {
+            idl_type_refs.push((
+                node,
+                content.start + range.start..content.start + range.end,
+                name,
+                kind,
+            ));
         }
         for def in idl_defs(&text) {
             let range = content.start + def.range.start..content.start + def.range.end;
@@ -632,6 +724,9 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
                     let default_json = def.idl_type == "operation"
                         && def.name == "toJSON"
                         && src[member_start..range.start].contains("Default");
+                    if def.partial {
+                        idl_partials.push((node, range.clone(), def.name.clone(), def.dfn_type()));
+                    }
                     if default_json || def.partial {
                         continue;
                     }
@@ -646,6 +741,7 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
                         dfn_type: Some(def.dfn_type().to_string()),
                         id: None,
                         idl: true,
+                        exported_texts: vec![],
                     });
                     titles.register(index, std::slice::from_ref(&name));
                     stats.idl += 1;
@@ -679,6 +775,14 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
                 vec![parent.clone()]
             };
             d.closest_for = Some(parent.clone());
+            let exported = match def.idl_type {
+                "constructor" | "operation" => format!("{}()", name),
+                "enum-value" if def.name.is_empty() => String::new(),
+                _ => name.clone(),
+            };
+            if !exported.is_empty() && !d.exported_texts.contains(&exported) {
+                d.exported_texts.push(exported);
+            }
             let qualified = format!("{}.{}", parent, name);
             let other_names: Vec<String> = match def.idl_type {
                 "attribute" => vec![qualified, name.clone()],
@@ -951,6 +1055,138 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
             .chain(doc.ancestors(node))
             .find_map(|a| doc.attr(a, "data-link-for"))
     };
+    // Other specs' terms (core/xref): the specs each section cites
+    // (`[[SPEC]]`s, lowercased), and the specs a reference's context cites,
+    // in order: its own `data-cite`'s, or else its ancestors' (the body's
+    // with the config's `xref` specs), each with their unversioned names
+    // after them, then its section's.
+    let mut section_cites: HashMap<usize, Vec<String>> = HashMap::new();
+    for node in shown() {
+        if doc.nodes[node].kind != NodeKind::Text {
+            continue;
+        }
+        for captures in SHORTHAND.captures_iter(&src[doc.nodes[node].range.clone()]) {
+            if let Some(spec) = captures.get(4) {
+                for a in doc.ancestors(node).filter(|&a| doc.is(a, "section")) {
+                    let cites = section_cites.entry(a).or_default();
+                    let spec = spec.as_str().to_lowercase();
+                    if !cites.contains(&spec) {
+                        cites.push(spec);
+                    }
+                }
+            }
+        }
+    }
+    // (core/webidl adds WebIDL to the specs its blocks' closest elements with
+    // `data-cite`s, or else the body, cite.)
+    let webidl_cited: HashSet<usize> = shown()
+        .filter(|&node| {
+            doc.is(node, "pre") && (has_class(&doc, node, "idl") || has_class(&doc, node, "webidl"))
+        })
+        .map(|node| {
+            std::iter::once(node)
+                .chain(doc.ancestors(node))
+                .find(|&a| doc.has_attr(a, "data-cite"))
+                .unwrap_or(body)
+        })
+        .collect();
+    // (For a reference which is `node` itself (an `<a>` or `<dfn>`), or else
+    // in it (a shorthand, or an IDL block's).)
+    let xref_specs = |node: usize, element: bool| -> Vec<Vec<String>> {
+        lazy_static! {
+            static ref VERSION: Regex = Regex::new(r"-\d+$").unwrap();
+        }
+        let config_specs = respec.xref.clone().unwrap_or_default();
+        let mut levels: Vec<Vec<String>> = vec![];
+        let mut push = |cites: Vec<String>| {
+            if cites.is_empty() {
+                return;
+            }
+            let unversioned: Vec<String> = cites
+                .iter()
+                .map(|c| VERSION.replace(c, "").into_owned())
+                .filter(|c| !cites.contains(c))
+                .collect();
+            levels.push(cites);
+            levels.push(unversioned);
+        };
+        let cites_of = |a: usize| -> Vec<String> {
+            let mut cites: Vec<String> = doc
+                .attr(a, "data-cite")
+                .unwrap_or_default()
+                .to_lowercase()
+                .replace(['!', '?'], "")
+                .split_whitespace()
+                .filter(|c| !c.contains('#'))
+                .map(str::to_string)
+                .collect();
+            if a == body {
+                cites.extend(config_specs.iter().cloned());
+            }
+            if webidl_cited.contains(&a) && !cites.iter().any(|c| c == "webidl") {
+                cites.push("webidl".to_string());
+            }
+            cites
+        };
+        let own = if element { cites_of(node) } else { vec![] };
+        if !own.is_empty() && node != body {
+            push(own);
+        } else {
+            for a in std::iter::once(node).chain(doc.ancestors(node)) {
+                push(cites_of(a));
+            }
+            if body == 0 {
+                let mut cites = config_specs.clone();
+                if webidl_cited.contains(&0) {
+                    cites.push("webidl".to_string());
+                }
+                push(cites);
+            }
+            if let Some(section) = std::iter::once(node)
+                .chain(doc.ancestors(node))
+                .find(|&a| doc.is(a, "section"))
+            {
+                push(section_cites.get(&section).cloned().unwrap_or_default());
+            }
+        }
+        // (Each spec in its first level.)
+        let mut seen: HashSet<String> = HashSet::new();
+        levels
+            .into_iter()
+            .map(|level| {
+                let mut level: Vec<String> = level
+                    .into_iter()
+                    .filter(|s| seen.insert(s.clone()))
+                    .collect();
+                level.sort();
+                level
+            })
+            .filter(|level| !level.is_empty())
+            .collect()
+    };
+    // (A term of another spec's, as `<spec> <for>/<term>`.)
+    let xref_find =
+        |node: usize, element: bool, term: &str, types: &[&str], dfn_for: Option<&str>| {
+            if respec.xref.is_none() || terms.is_empty() || term.is_empty() {
+                return None;
+            }
+            let specs = xref_specs(node, element);
+            let found = terms.find(
+                &Query {
+                    term,
+                    types,
+                    specs: &specs,
+                    dfn_for,
+                },
+                shortname,
+            )?;
+            let pretty = match dfn_for {
+                Some(f) if !f.is_empty() => format!("{} {}/{}", found.shortname, f, term),
+                _ => format!("{} {}", found.shortname, term),
+            };
+            Some((spec_symbol(&found.shortname, &found.anchor), pretty))
+        };
+    let mut xrefs = 0;
     // Shorthands, in text outside of `<pre>`s, `<svg>`s, and links.
     for node in shown() {
         if doc.nodes[node].kind != NodeKind::Text {
@@ -986,20 +1222,44 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
                     Some((lt, shown)) => vec![norm(lt), norm(shown)],
                     None => vec![norm(&content)],
                 };
-                let link_for = f.or_else(|| closest_link_for(parent));
+                let link_for = f.clone().or_else(|| closest_link_for(parent));
                 find_matching(&t2d, &names, link_for.as_deref(), Some("dfn|abstract-op"))
                     .and_then(dfn_target)
+                    .or_else(|| {
+                        // (Its linking text, or else its text without a
+                        // possessive suffix.)
+                        let term = match content.split_once('|') {
+                            Some((lt, _)) => norm(lt),
+                            None => strip_possessive(&norm(&content)),
+                        };
+                        let found = xref_find(
+                            parent,
+                            false,
+                            &term.to_lowercase(),
+                            &["_CONCEPT_"],
+                            f.as_deref(),
+                        );
+                        xrefs += found.is_some() as usize;
+                        found
+                    })
             } else if let Some(idl_ref) = captures.get(3) {
                 if in_dfn || idl_ref.as_str().starts_with('\\') {
                     continue;
                 }
                 stats.references += 1;
-                let idl_ref = decode_html(idl_ref.as_str());
-                let (f, name) = match idl_ref.rsplit_once('/') {
-                    Some((f, name)) => (norm(f), name.trim().to_string()),
-                    None => (String::new(), idl_ref.trim().to_string()),
-                };
-                idl_link(&t2d, &idl_targets, &f, &name).and_then(dfn_target)
+                let (f, name) = split_idl(&decode_html(idl_ref.as_str()));
+                idl_link(&t2d, &idl_targets, &f, &name)
+                    .and_then(dfn_target)
+                    .or_else(|| {
+                        let (term, types) = idl_query(&f, &name)?;
+                        let enum_for = ENUM_FOR.captures(&name).map(|c| c[1].to_string());
+                        let dfn_for = enum_for
+                            .as_deref()
+                            .or((!f.is_empty()).then_some(f.as_str()));
+                        let found = xref_find(parent, false, &term, &types, dfn_for);
+                        xrefs += found.is_some() as usize;
+                        found
+                    })
             } else if let Some(spec) = captures.get(4) {
                 if respec
                     .short_name
@@ -1010,6 +1270,30 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
                 }
                 stats.references += 1;
                 Some(local(&format!("bib-{}", to_id(spec.as_str()))))
+            } else if let Some(element) = captures.get(5) {
+                // (`[^element^]`, `[^element/attribute^]`,
+                // `[^element/attribute/value^]`, `[^/global-attribute^]`.)
+                stats.references += 1;
+                let value = decode_html(element.as_str());
+                let value = value.trim();
+                let parts: Vec<&str> = value
+                    .splitn(3, '/')
+                    .map(str::trim)
+                    .filter(|p| !p.is_empty())
+                    .collect();
+                let (types, dfn_for, term): (&[&str], Option<String>, &str) =
+                    match (value.starts_with('/'), &parts[..]) {
+                        (true, [attr, ..]) => (&["element-attr"], None, attr),
+                        (false, [el, attr, val]) => {
+                            (&["attr-value"], Some(format!("{}/{}", el, attr)), val)
+                        }
+                        (false, [el, attr]) => (&["element-attr"], Some(el.to_string()), attr),
+                        (false, [el]) => (&["element"], None, el),
+                        _ => (&[], None, ""),
+                    };
+                let found = xref_find(parent, false, term, types, dfn_for.as_deref());
+                xrefs += found.is_some() as usize;
+                found
             } else {
                 stats.references += 1;
                 None
@@ -1052,7 +1336,18 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
                         None => None,
                     }
                 }
-                None => None,
+                // (`SPEC`: the term in that spec.)
+                None => {
+                    let found = xref_find(
+                        node,
+                        true,
+                        &xref_term(&doc, node),
+                        &xref_types(&doc, node),
+                        xref_for(&doc, node).as_deref(),
+                    );
+                    xrefs += found.is_some() as usize;
+                    found
+                }
             }
         } else if let Some(href) = doc.attr(node, "href") {
             match href.strip_prefix('#') {
@@ -1069,7 +1364,18 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
                 closest_link_for(node).as_deref(),
                 link_type.as_deref(),
             )
-            .and_then(dfn_target);
+            .and_then(dfn_target)
+            .or_else(|| {
+                let found = xref_find(
+                    node,
+                    true,
+                    &xref_term(&doc, node),
+                    &xref_types(&doc, node),
+                    xref_for(&doc, node).as_deref(),
+                );
+                xrefs += found.is_some() as usize;
+                found
+            });
             if found.is_none() {
                 stats.unresolved += 1;
             }
@@ -1097,31 +1403,122 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
             what: if d.node.is_some() { "dfn" } else { "idl" },
             pretty: d.pretty(shortname),
         });
-        // (A `<dfn data-cite>` defers to the other spec's term.)
+        // (A `<dfn data-cite>` defers to the other spec's term, by its
+        // anchor, or else as ReSpec finds it in the spec.)
         if let Some(node) = d.node
-            && let Some(cite) = doc.attr(node, "data-cite")
-            && let Some((spec, anchor)) = cite.trim_start_matches('!').split_once('#')
-            && let Some(sym) = external(spec, anchor)
+            && let Some(cite) = doc.attr(node, "data-cite").filter(|c| !c.is_empty())
         {
-            pending.push(Pending {
-                range: d.range.clone(),
-                def: false,
-                sym,
-                what: "dfn",
-                pretty: d.pretty(shortname),
-            });
+            let sym = match cite.trim_start_matches(['!', '?']).split_once('#') {
+                Some((spec, anchor)) => external(spec, anchor),
+                None => {
+                    let found = xref_find(
+                        node,
+                        true,
+                        &xref_term(&doc, node),
+                        &xref_types(&doc, node),
+                        xref_for(&doc, node).as_deref(),
+                    );
+                    xrefs += found.is_some() as usize;
+                    found.map(|(sym, _)| sym)
+                }
+            };
+            if let Some(sym) = sym {
+                pending.push(Pending {
+                    range: d.range.clone(),
+                    def: false,
+                    sym,
+                    what: "dfn",
+                    pretty: d.pretty(shortname),
+                });
+            }
         }
     }
+
     // (IDL names a `<dfn>` defines are references to it, and so are names of
     // definitions in IDL blocks, ex: types.)
-    let type_links = idl_type_refs.iter().filter_map(|(range, name)| {
-        Some((
-            range.clone(),
-            *idl_targets.get(&(String::new(), name.clone()))?,
-        ))
+    let type_links = idl_type_refs.iter().filter_map(|(_, range, name, kind)| {
+        let target = (*kind == IdlReference::Name)
+            .then(|| idl_targets.get(&(String::new(), name.clone())))
+            .flatten()?;
+        Some((range.clone(), *target))
     });
     let idl_links: Vec<(Range<usize>, usize)> =
         idl_links.iter().cloned().chain(type_links).collect();
+    // (And to other specs': their names, built-in types, generic types, and
+    // extended attributes, with WebIDL among their blocks' cited specs, and
+    // partial definitions' names.)
+    let idl_xref = |block: usize, term: &str, types: &[&str], own_cite: Option<&str>| {
+        if respec.xref.is_none() || terms.is_empty() {
+            return None;
+        }
+        let specs = match own_cite {
+            Some(cite) => vec![vec![cite.to_string()]],
+            None => {
+                let mut specs = xref_specs(block, false);
+                match specs.first_mut() {
+                    Some(first) if !first.iter().any(|s| s == "webidl") => {
+                        first.push("webidl".to_string());
+                        first.sort();
+                    }
+                    Some(_) => {}
+                    None => specs.push(vec!["webidl".to_string()]),
+                }
+                specs
+            }
+        };
+        let found = terms.find(
+            &Query {
+                term,
+                types,
+                specs: &specs,
+                dfn_for: None,
+            },
+            shortname,
+        )?;
+        Some((
+            spec_symbol(&found.shortname, &found.anchor),
+            format!("{} {}", found.shortname, term),
+        ))
+    };
+    for (block, range, name, kind) in &idl_type_refs {
+        let (types, own_cite): (&[&str], Option<&str>) = match kind {
+            IdlReference::Name => {
+                if idl_targets.contains_key(&(String::new(), name.clone())) {
+                    continue;
+                }
+                (&["_IDL_"], None)
+            }
+            IdlReference::Builtin if name == "object" => (&["interface"], Some("webidl")),
+            IdlReference::Builtin => (&["_IDL_"], None),
+            IdlReference::Generic if name.starts_with(char::is_uppercase) => {
+                (&["interface"], Some("webidl"))
+            }
+            IdlReference::Generic => (&["dfn"], Some("webidl")),
+            IdlReference::ExtendedAttribute => (&["extended-attribute"], None),
+        };
+        if let Some((sym, pretty)) = idl_xref(*block, name, types, own_cite) {
+            xrefs += 1;
+            pending.push(Pending {
+                range: range.clone(),
+                def: false,
+                sym,
+                what: "idl",
+                pretty,
+            });
+        }
+    }
+    for (block, range, name, dfn_type) in &idl_partials {
+        if let Some((sym, pretty)) = idl_xref(*block, name, &[dfn_type], None) {
+            xrefs += 1;
+            pending.push(Pending {
+                range: range.clone(),
+                def: false,
+                sym,
+                what: "idl",
+                pretty,
+            });
+        }
+    }
     for (range, dfn) in &idl_links {
         if let Some((sym, pretty)) = dfn_target(*dfn) {
             pending.push(Pending {
@@ -1159,6 +1556,7 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
             pretty,
         });
     }
+    stats.xrefs = xrefs;
     for (node, id, pretty) in &heading_ids {
         pending.push(Pending {
             range: doc.content_range(*node),
@@ -1325,7 +1723,172 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
         }
     }
     sort_records(&mut records);
-    (records, stats)
+
+    // Exports (core/dfn's, core/webidl's, and core/dfn-contract's): IDL's,
+    // typed ones, and `export`ed ones, but `noexport`ed ones (and those in
+    // informative sections, unless they're `export`ed), and those which
+    // defer to other specs' (`data-cite`).
+    let exports = dfns
+        .iter()
+        .filter_map(|d| {
+            let id = d.id.clone()?;
+            let flagged = |attr: &str, class: &str| {
+                d.node
+                    .is_some_and(|node| doc.has_attr(node, attr) || has_class(&doc, node, class))
+            };
+            let export = flagged("data-export", "export");
+            let informative = d.node.is_some_and(|node| {
+                doc.ancestors(node)
+                    .find(|&a| {
+                        doc.is(a, "section")
+                            && (has_class(&doc, a, "informative")
+                                || has_class(&doc, a, "normative"))
+                    })
+                    .is_some_and(|a| has_class(&doc, a, "informative"))
+            });
+            let noexport = flagged("data-noexport", "no-export") || (informative && !export);
+            let cited = d.node.is_some_and(|node| doc.has_attr(node, "data-cite"));
+            let dfn_type = d.dfn_type.clone().unwrap_or_else(|| "dfn".to_string());
+            let exported = !noexport && (export || d.idl || (dfn_type != "dfn" && !cited));
+            (exported && !d.exported_texts.is_empty()).then(|| Export {
+                texts: d.exported_texts.clone(),
+                dfn_type,
+                fors: d.fors.clone(),
+                anchor: id,
+            })
+        })
+        .collect();
+    (records, stats, exports)
+}
+
+/// A text without a possessive suffix (ex: "gizmo" for "gizmo's").
+fn strip_possessive(text: &str) -> String {
+    text.strip_suffix("'s")
+        .or_else(|| text.strip_suffix("\u{2019}s"))
+        .filter(|t| !t.is_empty())
+        .unwrap_or(text)
+        .to_string()
+}
+
+/// An `<a>`'s (or `<dfn>`'s) term for finding other specs' terms
+/// (core/xref's `getTermFromElement`): its first linking text, or else its
+/// text without a possessive suffix, lowercased unless it's IDL.
+fn xref_term(doc: &Doc, node: usize) -> String {
+    let idl = doc.has_attr(node, "data-xref-type");
+    let term = match doc.attr(node, "data-lt").filter(|lt| !lt.is_empty()) {
+        Some(lt) => norm(lt.split('|').next().unwrap_or("")),
+        None => strip_possessive(&norm(&shown_content(doc, node))),
+    };
+    let term = if term == "the-empty-string" {
+        String::new()
+    } else {
+        term
+    };
+    if idl { term } else { term.to_lowercase() }
+}
+
+/// Its types: its `data-xref-type`'s, or concepts'.
+fn xref_types(doc: &Doc, node: usize) -> Vec<&'static str> {
+    match doc.attr(node, "data-xref-type") {
+        Some(types) => types
+            .split('|')
+            .filter_map(|t| {
+                super::xref::IDL_TYPES
+                    .iter()
+                    .chain(super::xref::CONCEPT_TYPES)
+                    .chain(&["_IDL_", "_CONCEPT_"])
+                    .find(|known| **known == t.trim())
+                    .copied()
+            })
+            .collect(),
+        None => vec!["_CONCEPT_"],
+    }
+}
+
+/// What it's for: its `data-xref-for`.
+fn xref_for(doc: &Doc, node: usize) -> Option<String> {
+    doc.attr(node, "data-xref-for").map(|f| norm(&f))
+}
+
+/// A `{{...}}`'s parts, as core/inline-idl-parser splits them: what it's
+/// for, and its name (ex: ("Gizmo", "poke()") for `{{Gizmo/poke()}}` or
+/// `{{Gizmo.poke()}}`).
+fn split_idl(text: &str) -> (String, String) {
+    lazy_static! {
+        static ref METHOD: Regex = Regex::new(r"\.?(\w+\(.*\)$)").unwrap();
+    }
+    let text = text.trim();
+    if text.contains("[[") {
+        return match text.split_once('/') {
+            Some((f, name)) => (norm(f), name.trim().to_string()),
+            None => (String::new(), text.to_string()),
+        };
+    }
+    let (for_part, child) = match METHOD.find(text) {
+        Some(m) => (
+            &text[..m.start()],
+            Some(text[m.start()..].trim_start_matches('.')),
+        ),
+        None => (text, None),
+    };
+    let mut tokens: Vec<&str> = for_part
+        .split(['.', '/'])
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .collect();
+    tokens.extend(child);
+    match tokens.split_last() {
+        Some((name, [])) => (String::new(), name.to_string()),
+        Some((name, fors)) => (fors.last().unwrap().to_string(), name.to_string()),
+        None => (String::new(), String::new()),
+    }
+}
+
+/// The term and types of a `{{for/name}}` for finding other specs' terms
+/// (core/inline-idl-parser's): an interface's (or other definition's), an
+/// attribute's (or dictionary member's or constant's), a method's (with its
+/// arguments), an enum value's (`{{Enum/"value"}}`, `{{Enum["value"]}}`),
+/// an exception's (`{{"AbortError"}}`), or a primitive type's, but not an
+/// internal slot's.
+fn idl_query(f: &str, name: &str) -> Option<(String, Vec<&'static str>)> {
+    lazy_static! {
+        static ref ENUM: Regex = Regex::new(r#"^(\w+)\["([\w\- ]*)"\]$"#).unwrap();
+        static ref PRIMITIVE: Regex = Regex::new(r"^[a-z]+(\s+[a-z]+)+\??$").unwrap();
+    }
+    let name = name.trim();
+    if name.starts_with("[[") {
+        return None;
+    }
+    if let Some(value) = name.strip_prefix('"').and_then(|n| n.strip_suffix('"')) {
+        return Some(if f.is_empty() {
+            (value.to_string(), vec!["exception"])
+        } else {
+            (value.to_string(), vec!["enum-value"])
+        });
+    }
+    if let Some(captures) = ENUM.captures(name) {
+        return Some((captures[2].to_string(), vec!["enum-value"]));
+    }
+    if PRIMITIVE.is_match(name) {
+        return Some((name.trim_end_matches('?').to_string(), vec!["interface"]));
+    }
+    if let Some((method, args)) = name.split_once('(') {
+        let args: Vec<&str> = args
+            .trim_end_matches(')')
+            .split(',')
+            .map(str::trim)
+            .filter(|a| !a.is_empty())
+            .collect();
+        return Some((
+            format!("{}({})", method.trim(), args.join(", ")),
+            vec!["method"],
+        ));
+    }
+    Some(if f.is_empty() {
+        (name.trim_end_matches('?').to_string(), vec!["_IDL_"])
+    } else {
+        (name.to_string(), vec!["attribute", "dict-member", "const"])
+    })
 }
 
 /// The `<dfn>` an IDL definition with `name` (with its overload's suffix)
@@ -1403,8 +1966,9 @@ fn idl_link(
     if let Some(&d) = idl_targets.get(&(f.to_string(), bare.clone())) {
         return Some(d);
     }
+    // (A method's by `name()`, as its `<dfn>` is registered.)
     let names = if name.contains('(') {
-        vec![format!("{}()", bare), bare]
+        vec![format!("{}()", bare)]
     } else {
         vec![name]
     };
@@ -1745,7 +2309,7 @@ fn appendix_number(mut num: usize) -> String {
 /// The ids a ReSpec source's elements get (definitions, sections, headings,
 /// IDL definitions), for checking them against the rendered spec's.
 pub fn ids(src: &str, shortname: &str, config: &SpecsConfig) -> HashSet<String> {
-    let (records, _) = analyze(src, shortname, config);
+    let (records, _) = analyze(src, "", shortname, config, &Terms::default());
     records
         .iter()
         .filter_map(|record| match record {
@@ -1816,6 +2380,7 @@ var respecConfig = { shortName: "example-respec", specStatus: "ED" };
 <section>
   <h2>Poking</h2>
   <p>To <dfn>poke</dfn> a [=gizmo=], call {{Gizmo/poke()}}.</p>
+  <p data-cite="examplebs">It's like a {{Gadget}}'s {{Gadget/poke()}}.</p>
 </section>
 <section id="conformance"></section>
 <section class="appendix">
@@ -1910,7 +2475,7 @@ var respecConfig = { shortName: "example-respec", specStatus: "ED" };
     #[test]
     fn test_references() {
         let src = fixture();
-        let (records, stats) = analyze(&src, "example-respec", &config());
+        let (records, stats) = analyze(&src, "", "example-respec", &config(), &Terms::default());
         let lines: Vec<&str> = src.lines().collect();
         let uses: Vec<String> = records
             .iter()
@@ -1951,6 +2516,148 @@ var respecConfig = { shortName: "example-respec", specStatus: "ED" };
                 "{{Gizmo/poke()}} dom-gizmo-poke",
             ]
         );
-        assert_eq!((stats.dfns, stats.idl, stats.unresolved), (8, 7, 0));
+        // (Without the other specs' terms, its references to them don't
+        // resolve; see `test_xrefs`.)
+        assert_eq!((stats.dfns, stats.idl, stats.unresolved), (8, 7, 2));
+    }
+
+    fn export(text: &str, dfn_type: &str, fors: &[&str], anchor: &str) -> Export {
+        Export {
+            texts: vec![text.to_string()],
+            dfn_type: dfn_type.to_string(),
+            fors: fors.iter().map(|f| f.to_string()).collect(),
+            anchor: anchor.to_string(),
+        }
+    }
+
+    #[test]
+    fn test_xrefs() {
+        let config: SpecsConfig = toml::from_str(
+            r#"
+            [[spec]]
+            name = "dom"
+            [[spec]]
+            name = "html"
+            [[spec]]
+            name = "webidl"
+            [[spec]]
+            name = "examplebs"
+            "#,
+        )
+        .unwrap();
+        let mut terms = Terms::default();
+        let specs: HashMap<&str, &crate::spec_analyze::SpecEntry> =
+            config.specs.iter().map(|s| (s.name.as_str(), s)).collect();
+        terms.add(
+            specs["dom"],
+            &[
+                export("tree", "dfn", &[], "concept-tree"),
+                export("Node", "interface", &[], "interface-node"),
+                export("EventTarget", "interface", &[], "eventtarget"),
+            ],
+        );
+        terms.add(
+            specs["html"],
+            &[
+                export("iframe", "element", &[], "the-iframe-element"),
+                export("allow", "element-attr", &["iframe"], "attr-iframe-allow"),
+                export("in parallel", "dfn", &[], "in-parallel"),
+            ],
+        );
+        terms.add(
+            specs["webidl"],
+            &[
+                export("DOMString", "interface", &[], "idl-DOMString"),
+                export("unsigned long", "interface", &[], "idl-unsigned-long"),
+                export("Promise", "interface", &[], "idl-promise"),
+                export("Exposed", "extended-attribute", &[], "Exposed"),
+                export("AbortError", "exception", &[], "aborterror"),
+            ],
+        );
+        terms.add(
+            specs["examplebs"],
+            &[
+                export("Gadget", "interface", &[], "gadget"),
+                export("poke()", "method", &["Gadget"], "dom-gadget-poke"),
+            ],
+        );
+        let uses = |src: &str| -> Vec<String> {
+            let (records, _) = analyze(src, "", "example-respec", &config, &terms);
+            let lines: Vec<&str> = src.lines().collect();
+            records
+                .iter()
+                .filter_map(|record| match record {
+                    Record::Target(t)
+                        if t.data.kind.to_ustr() == "use"
+                            && !t.data.sym.starts_with("SPEC_example@2Drespec_") =>
+                    {
+                        let line = lines[t.loc.lineno as usize - 1];
+                        let text = &line[t.loc.col_start as usize..t.loc.col_end as usize];
+                        Some(format!("{} {}", text, t.data.sym))
+                    }
+                    _ => None,
+                })
+                .collect()
+        };
+        let src = r#"<html><head><script>var respecConfig = { xref: "web-platform" };</script></head><body>
+<section><h2>Uses</h2>
+<p>A [=tree=]'s {{Node}}, an [^iframe^]'s [^iframe/allow^], <a>in parallel</a>, {{"AbortError"}}.</p>
+<pre class="idl">
+[Exposed=Window]
+interface Thing : EventTarget {
+  Promise&lt;undefined&gt; run(DOMString s, unsigned long n);
+};
+</pre>
+<p data-cite="examplebs">Unlike a {{Gadget}}'s {{Gadget/poke()}}, a [=tree=] isn't its spec's.</p>
+</section></body></html>
+"#;
+        assert_eq!(
+            uses(src),
+            [
+                "[=tree=] SPEC_dom_concept@2Dtree",
+                "{{Node}} SPEC_dom_interface@2Dnode",
+                "[^iframe^] SPEC_html_the@2Diframe@2Delement",
+                "[^iframe/allow^] SPEC_html_attr@2Diframe@2Dallow",
+                "in parallel SPEC_html_in@2Dparallel",
+                "{{\"AbortError\"}} SPEC_webidl_aborterror",
+                // (The IDL block's references, with WebIDL among its cited
+                // specs.)
+                "Exposed SPEC_webidl_Exposed",
+                "EventTarget SPEC_dom_eventtarget",
+                "Promise SPEC_webidl_idl@2Dpromise",
+                "DOMString SPEC_webidl_idl@2DDOMString",
+                "unsigned long SPEC_webidl_idl@2Dunsigned@2Dlong",
+                // (The paragraph's cited spec first, then the body's.)
+                "{{Gadget}} SPEC_examplebs_gadget",
+                "{{Gadget/poke()}} SPEC_examplebs_dom@2Dgadget@2Dpoke",
+                "[=tree=] SPEC_dom_concept@2Dtree",
+            ]
+        );
+        // (The specs a context cites are the only ones searched: here, the
+        // body cites only WebIDL, for the IDL block.)
+        let without_profile = src.replace(r#"{ xref: "web-platform" }"#, "{}");
+        assert_eq!(
+            uses(&without_profile)
+                .iter()
+                .filter(|u| u.contains("tree"))
+                .count(),
+            0
+        );
+        // (And none with `xref: false`.)
+        let off = src.replace(r#""web-platform""#, "false");
+        assert!(uses(&off).is_empty());
+        // (The test tree's fixture's: its IDL block's, its `data-cite`d
+        // anchor, and the Bikeshed fixture's terms.)
+        assert_eq!(
+            uses(FIXTURE),
+            [
+                "Exposed SPEC_webidl_Exposed",
+                "DOMString SPEC_webidl_idl@2DDOMString",
+                "DOMString SPEC_webidl_idl@2DDOMString",
+                "node SPEC_dom_concept@2Dnode",
+                "{{Gadget}} SPEC_examplebs_gadget",
+                "{{Gadget/poke()}} SPEC_examplebs_dom@2Dgadget@2Dpoke",
+            ]
+        );
     }
 }

@@ -72,11 +72,25 @@ pub fn idl_defs(text: &str) -> Vec<IdlDef> {
     defs
 }
 
-/// The references in `text`, a block of WebIDL, to definitions by their
-/// names (ex: `GizmoOptions` in `optional GizmoOptions options`, and the
-/// interfaces of inheritances and `includes` statements): their bytes and
-/// the names, in order.
-pub fn idl_references(text: &str) -> Vec<(Range<usize>, String)> {
+/// What a reference in a block of WebIDL is to, as webidl2's writer (which
+/// ReSpec uses) makes them links.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum IdlReference {
+    /// A definition, by its name (ex: `GizmoOptions` in `optional
+    /// GizmoOptions options`, and inheritances' and `includes` statements').
+    Name,
+    /// A built-in type (ex: `DOMString`, `unsigned long`).
+    Builtin,
+    /// A generic type's keyword (ex: `Promise`, `sequence`).
+    Generic,
+    /// An extended attribute's name (ex: `Exposed`).
+    ExtendedAttribute,
+}
+
+/// The references in `text`, a block of WebIDL: their bytes, names (a
+/// built-in type's with its whitespace collapsed), and what they're to, in
+/// order.
+pub fn idl_references(text: &str) -> Vec<(Range<usize>, String, IdlReference)> {
     let mut parser = Parser::new();
     let language: tree_sitter::Language = tree_sitter_webidl::LANGUAGE.into();
     if parser.set_language(&language).is_err() {
@@ -88,16 +102,38 @@ pub fn idl_references(text: &str) -> Vec<(Range<usize>, String)> {
     let mut references = vec![];
     let mut stack = vec![tree.root_node()];
     while let Some(node) = stack.pop() {
-        if node.kind() == "identifier"
-            && node
-                .parent()
-                .is_some_and(|p| matches!(p.kind(), "type_base" | "inheritance" | "includes"))
-        {
+        let parent = node.parent().map(|p| p.kind());
+        let kind = match (node.kind(), parent) {
+            ("identifier", Some("type_base" | "inheritance" | "includes")) => {
+                Some(IdlReference::Name)
+            }
+            ("primitive_type" | "string_type", _) => Some(IdlReference::Builtin),
+            (
+                "Promise" | "sequence" | "record" | "FrozenArray" | "ObservableArray",
+                Some("type_base"),
+            ) if !node.is_named() => Some(IdlReference::Generic),
+            ("identifier", Some("extended_attribute")) if node.prev_sibling().is_none() => {
+                Some(IdlReference::ExtendedAttribute)
+            }
+            _ => None,
+        };
+        if let Some(kind) = kind {
             let range = node.byte_range();
-            references.push((range.clone(), unescape(&text[range]).to_string()));
+            let name = match kind {
+                IdlReference::Builtin => text[range.clone()]
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                _ => unescape(&text[range.clone()]).to_string(),
+            };
+            references.push((range, name, kind));
+            // (A built-in type's keywords aren't references themselves.)
+            if kind == IdlReference::Builtin {
+                continue;
+            }
         }
         let mut cursor = node.walk();
-        let children: Vec<Node> = node.named_children(&mut cursor).collect();
+        let children: Vec<Node> = node.children(&mut cursor).collect();
         stack.extend(children.into_iter().rev());
     }
     references
@@ -286,15 +322,25 @@ callback GadgetCallback = undefined (Gadget gadget);
         assert_eq!(defs, expected);
         let references: Vec<String> = idl_references(text)
             .into_iter()
-            .map(|(range, name)| format!("{} {}", &text[range], name))
+            .map(|(range, name, kind)| format!("{} {} {:?}", &text[range], name, kind))
             .collect();
         assert_eq!(
             references,
             [
-                "EventTarget EventTarget",
-                "GadgetOptions GadgetOptions",
-                "Gadget Gadget",
-                "Gadget Gadget",
+                "Exposed Exposed ExtendedAttribute",
+                "EventTarget EventTarget Name",
+                "DOMString DOMString Builtin",
+                "DOMString DOMString Builtin",
+                "Promise Promise Generic",
+                "undefined undefined Builtin",
+                "GadgetOptions GadgetOptions Name",
+                "DOMString DOMString Builtin",
+                "unsigned long unsigned long Builtin",
+                "unsigned short unsigned short Builtin",
+                "boolean boolean Builtin",
+                "Gadget Gadget Name",
+                "undefined undefined Builtin",
+                "Gadget Gadget Name",
             ]
         );
     }

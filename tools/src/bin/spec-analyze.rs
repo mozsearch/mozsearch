@@ -34,7 +34,9 @@ use std::time::Instant;
 
 use tools::semantic_analyzer::{file_def_record, write_records};
 use tools::spec_analyze::citations::Defined;
-use tools::spec_analyze::{SpecFormat, SpecsConfig, bikeshed, citations, ecmarkup, respec, wattsi};
+use tools::spec_analyze::{
+    SpecEntry, SpecFormat, SpecsConfig, bikeshed, citations, ecmarkup, respec, wattsi, xref,
+};
 
 fn main() {
     let mut args: Vec<String> = std::env::args().collect();
@@ -123,6 +125,11 @@ fn main() {
             add_titles(spec, &biblio);
         }
     }
+    // The specs' exported definitions, which ReSpec specs' references to
+    // other specs' terms are to (see `xref`); so ReSpec specs are analyzed
+    // last.
+    let mut terms = xref::Terms::default();
+    let mut respec_specs: Vec<(&SpecEntry, String, String)> = vec![];
     for spec in specs.into_iter().filter(|_| !citations_only) {
         let (Some(format), Some(path)) = (spec.format, spec.source_path()) else {
             continue;
@@ -135,6 +142,7 @@ fn main() {
         match format {
             SpecFormat::Wattsi => {
                 let (records, stats) = wattsi::analyze(&source, spec.shortname(), &config);
+                terms.add(spec, &wattsi::exports(&source));
                 add_defined(&records);
                 write_records(analysis_root, &path, records);
                 spec_files.insert(path.clone());
@@ -203,23 +211,7 @@ fn main() {
                     started.elapsed().as_secs_f64()
                 );
             }
-            SpecFormat::Respec => {
-                let (records, stats) = respec::analyze(&source, spec.shortname(), &config);
-                add_defined(&records);
-                write_records(analysis_root, &path, records);
-                spec_files.insert(path.clone());
-                println!(
-                    "{}: {} sections, {} dfns, {} IDL definitions without dfns, {} references ({} unresolved), {} to other specs' anchors, in {:.2}s",
-                    path,
-                    stats.sections,
-                    stats.dfns,
-                    stats.idl,
-                    stats.references,
-                    stats.unresolved,
-                    stats.external,
-                    started.elapsed().as_secs_f64()
-                );
-            }
+            SpecFormat::Respec => respec_specs.push((spec, path, source)),
             SpecFormat::Bikeshed => {
                 // (Bikeshed's index of the spec, unless it's configured, and
                 // with --rendered-specs, its rendering, as
@@ -251,6 +243,7 @@ fn main() {
                         continue;
                     }
                 };
+                terms.add(spec, &bikeshed::exports(&index));
                 // (With the files it includes.)
                 let read = |file: &str| std::fs::read_to_string(files_root.join(file)).ok();
                 let Some((files, stats)) = bikeshed::analyze_with_includes(
@@ -282,6 +275,49 @@ fn main() {
                 );
             }
         }
+    }
+    // (With the local scripts they load, for their configs.)
+    let scripts = |path: &str, source: &str| -> String {
+        let dir = Path::new(path).parent().unwrap_or(Path::new(""));
+        respec::local_scripts(source)
+            .iter()
+            .filter_map(|script| std::fs::read_to_string(files_root.join(dir).join(script)).ok())
+            .filter(|text| text.contains("respecConfig"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    let respec_specs: Vec<_> = respec_specs
+        .into_iter()
+        .map(|(spec, path, source)| {
+            let scripts = scripts(&path, &source);
+            (spec, path, source, scripts)
+        })
+        .collect();
+    for (spec, _, source, scripts) in &respec_specs {
+        terms.add(
+            spec,
+            &respec::exports(source, scripts, spec.shortname(), &config),
+        );
+    }
+    for (spec, path, source, scripts) in respec_specs {
+        let started = Instant::now();
+        let (records, stats) =
+            respec::analyze(&source, &scripts, spec.shortname(), &config, &terms);
+        add_defined(&records);
+        write_records(analysis_root, &path, records);
+        spec_files.insert(path.clone());
+        println!(
+            "{}: {} sections, {} dfns, {} IDL definitions without dfns, {} references ({} unresolved), {} to other specs' terms (with IDL's), {} to other specs' anchors, in {:.2}s",
+            path,
+            stats.sections,
+            stats.dfns,
+            stats.idl,
+            stats.references,
+            stats.unresolved,
+            stats.xrefs,
+            stats.external,
+            started.elapsed().as_secs_f64()
+        );
     }
 
     // Citations of the specs, in the tree's other files.

@@ -35,6 +35,7 @@ use regex::Regex;
 use serde::Deserialize;
 
 use super::markup::Doc;
+use super::xref::Export;
 use super::{
     Combined, ForResolver, InContext, Lines, SpecsConfig, dfn_kind, normalize_path, spec_records,
     spec_structured, spec_symbol, unescape_context_name,
@@ -80,6 +81,32 @@ pub struct IndexDfn {
     pub text: String,
     #[serde(default)]
     pub idl: bool,
+    /// Whether it's exported (for other specs to link to), or explicitly
+    /// not.
+    #[serde(default)]
+    pub export: bool,
+    #[serde(default)]
+    pub noexport: bool,
+}
+
+/// A Bikeshed index's exported definitions, for other specs' references (see
+/// `xref`).
+pub fn exports(index: &BikeshedIndex) -> Vec<Export> {
+    index
+        .dfns
+        .iter()
+        .filter(|dfn| dfn.export && !dfn.noexport)
+        .map(|dfn| Export {
+            texts: if dfn.lt.is_empty() {
+                vec![dfn.text.clone()]
+            } else {
+                dfn.lt.clone()
+            },
+            dfn_type: dfn.dfn_type.clone().unwrap_or_else(|| "dfn".to_string()),
+            fors: dfn.dfn_for.clone(),
+            anchor: dfn.id.clone(),
+        })
+        .collect()
 }
 
 #[derive(Debug, Deserialize)]

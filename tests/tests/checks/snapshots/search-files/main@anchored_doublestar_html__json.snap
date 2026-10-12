@@ -151,7 +151,7 @@ input_file: inputs/search-files/anchored_doublestar_html__json
       "concise": {
         "path_kind": "normal",
         "is_dir": false,
-        "file_size": 1954,
+        "file_size": 2029,
         "bugzilla_component": null,
         "subsystem": null,
         "tags": [],

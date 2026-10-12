@@ -931,14 +931,46 @@ input_file: inputs/analysis/specs/respec__json
     "contextsym": "SPEC_examplerespec_poking"
   },
   {
-    "loc": "00055:0-26",
+    "loc": "00054:39-49",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference examplebs Gadget",
+    "sym": "SPEC_examplebs_gadget"
+  },
+  {
+    "loc": "00054:39-49",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplebs Gadget",
+    "sym": "SPEC_examplebs_gadget",
+    "context": "Poking",
+    "contextsym": "SPEC_examplerespec_poking"
+  },
+  {
+    "loc": "00054:52-69",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference examplebs Gadget/poke()",
+    "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke"
+  },
+  {
+    "loc": "00054:52-69",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplebs Gadget/poke()",
+    "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke",
+    "context": "Poking",
+    "contextsym": "SPEC_examplerespec_poking"
+  },
+  {
+    "loc": "00056:0-26",
     "source": 1,
     "syntax": "def",
     "pretty": "section examplerespec Conformance",
     "sym": "SPEC_examplerespec_conformance"
   },
   {
-    "loc": "00055:0-26",
+    "loc": "00056:0-26",
     "target": 1,
     "kind": "def",
     "pretty": "examplerespec Conformance",
@@ -947,14 +979,14 @@ input_file: inputs/analysis/specs/respec__json
     "contextsym": "SPEC_examplerespec_poking"
   },
   {
-    "loc": "00056:0-26",
+    "loc": "00057:0-26",
     "source": 1,
     "syntax": "def",
     "pretty": "section examplerespec Acknowledgements",
     "sym": "SPEC_examplerespec_acknowledgements"
   },
   {
-    "loc": "00056:0-26",
+    "loc": "00057:0-26",
     "target": 1,
     "kind": "def",
     "pretty": "examplerespec Acknowledgements",
@@ -963,14 +995,14 @@ input_file: inputs/analysis/specs/respec__json
     "contextsym": "SPEC_examplerespec_poking"
   },
   {
-    "loc": "00057:6-22",
+    "loc": "00058:6-22",
     "source": 1,
     "syntax": "def",
     "pretty": "section examplerespec Acknowledgements",
     "sym": "SPEC_examplerespec_a@2Dacknowledgements"
   },
   {
-    "loc": "00057:6-22",
+    "loc": "00058:6-22",
     "target": 1,
     "kind": "def",
     "pretty": "examplerespec Acknowledgements",

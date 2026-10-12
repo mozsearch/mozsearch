@@ -34,6 +34,7 @@ pub mod markup;
 pub mod respec;
 pub mod wattsi;
 pub mod webidl_defs;
+pub mod xref;
 
 use std::ops::Range;
 use std::path::{Path, PathBuf};
