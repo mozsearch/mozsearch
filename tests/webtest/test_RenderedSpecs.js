@@ -159,6 +159,21 @@ add_task(async function test_RenderedBikeshed() {
   ok(doc().querySelector('span[data-l="3"]'), "Its text says where it is in its file");
 });
 
+add_task(async function test_ObsoleteSpec() {
+  // The test tree's ReSpec spec is obsolete, superseded by its Bikeshed spec
+  // (see tests/tests/specs.toml).
+  await TestUtils.loadPath("/tests/source/specs/respec/index.html");
+  const box = frame.contentDocument.querySelector(".info-box-obsolete-spec");
+  ok(box?.textContent.includes("examplerespec is obsolete"),
+     "An obsolete spec's source listing has an info box saying so");
+  is(box?.querySelector("a")?.getAttribute("href"), "/tests/rendered/specs/example.bs",
+     "which links to its successor's rendered view");
+
+  await TestUtils.loadPath("/tests/source/specs/example.bs");
+  ok(!frame.contentDocument.querySelector(".info-box-obsolete-spec"),
+     "Other specs' source listings don't");
+});
+
 add_task(async function test_AlgorithmView() {
   // The example spec's "poke" algorithm beside the code citing it and its
   // steps (tests/tests/files/spec_citations.cpp).

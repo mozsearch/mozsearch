@@ -13,8 +13,6 @@ use std::io::Write;
 use std::path::Path;
 use std::time::Instant;
 
-use lazy_static::lazy_static;
-use regex::Regex;
 use tools::file_format::config;
 use tools::file_format::per_file_info::FileLookupMap;
 use tools::file_format::per_file_info::read_detailed_file_info;
@@ -32,9 +30,10 @@ use tools::file_format::analysis::{read_analysis, read_source};
 use tools::file_format::jumpref::TreeJumprefs;
 use tools::format::{
     create_markdown_panel_section, format_file_data, has_rendered_spec_view, hyperblame_files,
-    imported_spec_files, rendered_url, tree_specs,
+    imported_spec_files, rendered_url, spec_globals, tree_specs,
 };
 use tools::languages;
+use tools::templating::info_boxes::InfoBoxes;
 use tools::url_encode_path::url_encode_path;
 
 use tools::output::{PanelItem, PanelSection};
@@ -97,10 +96,7 @@ fn main() {
         });
 
     let pre_templates = Instant::now();
-    let source_file_info_boxes_liquid_str = cfg
-        .read_tree_config_file_with_default("source_file_info_boxes.liquid")
-        .unwrap();
-    let source_file_info_boxes_template = build_and_parse(&source_file_info_boxes_liquid_str);
+    let info_boxes = InfoBoxes::load(&cfg);
     let source_file_other_tools_panel_liquid_str = cfg
         .read_tree_config_file_with_default("source_file_other_tools_panels.liquid")
         .unwrap();
@@ -508,7 +504,7 @@ fn main() {
         match Path::new(path.as_str()).extension().and_then(OsStr::to_str) {
             Some("md") | Some("rst") => {
                 // (A file a Bikeshed spec includes is rendered as its part.)
-                let included = imported_spec_files.contains(path.as_str());
+                let included = imported_spec_files.contains_key(path.as_str());
                 tools_items.push(PanelItem {
                     label: PanelItemLabel::Plaintext("Rendered view".to_owned()),
                     tooltip: if included {
@@ -556,7 +552,7 @@ fn main() {
             _ => {
                 // (A spec's source, ex: the HTML Standard's, whose rendered
                 // view can be split into pages, where the line is.)
-                let imported = imported_spec_files.contains(path.as_str());
+                let imported = imported_spec_files.contains_key(path.as_str());
                 if let Some(specs) = &tree_specs
                     && (has_rendered_spec_view(tree_config, specs, &path) || imported)
                 {
@@ -574,7 +570,7 @@ fn main() {
             }
         }
 
-        let liquid_globals = liquid::object!({
+        let mut liquid_globals = liquid::object!({
             "tree": tree_name,
             "path": &path,
             // Propagate config settings that aren't absolute paths.  We do some
@@ -588,20 +584,24 @@ fn main() {
             "detailed": &detailed_info,
         });
 
-        lazy_static! {
-            static ref RE_WHITESPACE_CLEANUP: Regex = Regex::new(r#"(\n *)+\n"#).unwrap();
+        // (A spec's source, or a file it imports or includes, has the spec's
+        // info, ex: for an obsolete spec's info box.)
+        if let Some(specs) = &tree_specs {
+            let spec = specs.specs.iter().find(|spec| {
+                spec.source_path().as_deref() == Some(path.as_str())
+                    || imported_spec_files.get(path.as_str()) == Some(&spec.name)
+            });
+            if let Some(spec) = spec {
+                liquid_globals.insert(
+                    "spec".into(),
+                    spec_globals(tree_name, tree_config, specs, spec),
+                );
+            }
         }
-
-        let mut source_file_info_boxes = source_file_info_boxes_template
-            .render(&liquid_globals)
-            .unwrap();
-        // It's really difficult to get whitespace right in the templates right now.
-        // While it probably makes sense to just pass what we get from this through
-        // a formatter in general, for now let's at least just use this exciting
-        // regex to clean things up.
-        source_file_info_boxes = RE_WHITESPACE_CLEANUP
-            .replace_all(&source_file_info_boxes, "\n")
-            .to_string();
+        liquid_globals
+            .entry("spec")
+            .or_insert(liquid::model::Value::Nil);
+        let source_file_info_boxes = info_boxes.render(&liquid_globals);
         let source_file_other_tools_panels = source_file_other_tools_panel_template
             .render(&liquid_globals)
             .unwrap()

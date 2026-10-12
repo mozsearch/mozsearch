@@ -1375,19 +1375,24 @@ fn bikeshed_rendering_path(tree_config: &TreeConfig, path: &str) -> std::path::P
 /// The files which a tree's ecmarkup specs import (and which those import),
 /// and which its Bikeshed specs include (by the index's renderings), which
 /// have rendered views as parts of their specs, reading their sources with
-/// `read`.
+/// `read`, with their specs' names.
 pub fn imported_spec_files(
     tree_config: &TreeConfig,
     specs: &SpecsConfig,
     read: &dyn Fn(&str) -> Option<String>,
-) -> HashSet<String> {
-    let mut files: HashSet<String> = specs
-        .specs
-        .iter()
-        .filter(|spec| spec.format == Some(crate::spec_analyze::SpecFormat::Ecmarkup))
-        .filter_map(|spec| spec.source_path())
-        .flat_map(|source| rendered_specs::ecmarkup::imported_files(&source, read))
-        .collect();
+) -> HashMap<String, String> {
+    let mut files: HashMap<String, String> = HashMap::new();
+    for spec in &specs.specs {
+        if spec.format != Some(crate::spec_analyze::SpecFormat::Ecmarkup) {
+            continue;
+        }
+        let Some(source) = spec.source_path() else {
+            continue;
+        };
+        for file in rendered_specs::ecmarkup::imported_files(&source, read) {
+            files.entry(file).or_insert_with(|| spec.name.clone());
+        }
+    }
     for spec in &specs.specs {
         if spec.format != Some(crate::spec_analyze::SpecFormat::Bikeshed) {
             continue;
@@ -1401,10 +1406,50 @@ pub fn imported_spec_files(
         };
         let dir = Path::new(&source).parent().unwrap_or(Path::new(""));
         for file in rendered_specs::bikeshed::included_files(&output) {
-            files.insert(dir.join(file).to_string_lossy().into_owned());
+            files
+                .entry(dir.join(file).to_string_lossy().into_owned())
+                .or_insert_with(|| spec.name.clone());
         }
     }
     files
+}
+
+/// The `spec` global of info boxes (see `templating::info_boxes`), of a spec
+/// of the tree's: its name, shortname, and URL, and the specs which
+/// superseded it (its `successors`, if it's obsolete), by their names and
+/// their rendered views' URLs (or else their own).
+pub fn spec_globals(
+    tree_name: &str,
+    tree_config: &TreeConfig,
+    specs: &SpecsConfig,
+    spec: &SpecEntry,
+) -> liquid::model::Value {
+    let successors: Vec<serde_json::Value> = spec
+        .successors
+        .iter()
+        .map(|name| {
+            let successor = specs
+                .specs
+                .iter()
+                .find(|s| s.name == *name || s.shortname() == name);
+            let view = successor.and_then(|s| {
+                let source = s.source_path()?;
+                has_rendered_spec_view(tree_config, specs, &source)
+                    .then(|| rendered_url(tree_name, None, &source))
+            });
+            let url = view
+                .or_else(|| successor.and_then(|s| s.rendered.clone()))
+                .unwrap_or_default();
+            json!({ "name": name, "url": url })
+        })
+        .collect();
+    liquid::model::to_value(&json!({
+        "name": spec.name,
+        "shortname": spec.shortname(),
+        "rendered": spec.rendered.clone().unwrap_or_default(),
+        "successors": successors,
+    }))
+    .unwrap_or_default()
 }
 
 /// The Bikeshed spec which includes the file at `path` (by the index's
@@ -2449,6 +2494,35 @@ pub fn format_rendered(
     output::generate_header(&opt, writer)?;
     output::generate_breadcrumbs(&opt, writer, path, &[], false)?;
     output::generate_panel(&opt, writer, &panel, false)?;
+
+    // Info boxes, ex: an obsolete spec's (see `templating::info_boxes`).
+    let mut globals = liquid::object!({
+        "tree": tree_name,
+        "path": path,
+        "config": {
+            "github_repo_url": tree_config.paths.github_repo.as_deref().unwrap_or(""),
+            "hg_repo_url": tree_config.paths.hg_root.as_deref().unwrap_or(""),
+            "wpt_root": tree_config.paths.wpt_root.as_deref().unwrap_or(""),
+        },
+        "concise": { "info": {} },
+        "detailed": {},
+    });
+    globals.insert(
+        "spec".into(),
+        match (spec, specs.as_deref()) {
+            (Some(spec), Some(specs)) => spec_globals(tree_name, tree_config, specs, spec),
+            _ => liquid::model::Value::Nil,
+        },
+    );
+    let info_boxes = crate::templating::info_boxes::InfoBoxes::cached(cfg).render(&globals);
+    if !info_boxes.trim().is_empty() {
+        writeln!(
+            writer,
+            r#"<section class="info-boxes" id="info-boxes-container">{}</section>"#,
+            info_boxes
+        )
+        .unwrap();
+    }
 
     writeln!(
         writer,

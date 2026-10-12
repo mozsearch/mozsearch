@@ -30,11 +30,14 @@ index = "example-bs-index.json"
 output = "example-bs-output.html"
 rendered = "https://example.github.io/bs/"
 
+# (Obsolete, superseded by the Bikeshed spec, for its info box; see
+# config_defaults/info_boxes/obsolete_spec.liquid.)
 [[spec]]
 name = "examplerespec"
 path = "specs/respec"
 format = "respec"
 rendered = "https://example.github.io/respec/"
+successors = ["examplebs"]
 
 [[spec]]
 name = "html"

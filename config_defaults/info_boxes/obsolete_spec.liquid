@@ -1,0 +1,22 @@
+{%- comment %}A spec which other specs superseded (its `successors` in the tree's
+specs.toml, from browser-specs' `obsoletedBy`), on its rendered views and
+the source listings of its files.  See tools/src/templating/info_boxes.rs.{% endcomment -%}
+{%- if spec -%}{%- if spec.successors != empty -%}
+  <section class="info-box info-box-warning info-box-obsolete-spec">
+    <h4>Obsolete Spec</h4>
+    <div>
+      <ul>
+        <li>{{ spec.name | escape }} is obsolete: it has been superseded by
+          {%- for successor in spec.successors %}
+            {%- unless forloop.first %}{% if forloop.last %} and{% else %},{% endif %}{% endunless %}
+            {% if successor.url != empty -%}
+              <a href="{{ successor.url | escape }}">{{ successor.name | escape }}</a>
+            {%- else -%}
+              {{ successor.name | escape }}
+            {%- endif -%}
+          {%- endfor -%}
+          , so references to it should be to {% if spec.successors.size > 1 %}those{% else %}that{% endif %} instead.</li>
+      </ul>
+    </div>
+  </section>
+{%- endif -%}{%- endif -%}
