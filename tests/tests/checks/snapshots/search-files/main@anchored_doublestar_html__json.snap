@@ -119,11 +119,25 @@ input_file: inputs/search-files/anchored_doublestar_html__json
       }
     },
     {
+      "path": "specs/ecma/imported.html",
+      "concise": {
+        "path_kind": "normal",
+        "is_dir": false,
+        "file_size": 352,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": null,
+        "info": {},
+        "coverage": null
+      }
+    },
+    {
       "path": "specs/ecma/spec.html",
       "concise": {
         "path_kind": "normal",
         "is_dir": false,
-        "file_size": 1966,
+        "file_size": 2014,
         "bugzilla_component": null,
         "subsystem": null,
         "tags": [],

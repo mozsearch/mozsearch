@@ -349,6 +349,22 @@ input_file: inputs/crossref/specs/citations__json
       "crossref_info": {
         "uses": [
           {
+            "path": "specs/ecma/imported.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 7,
+                "bounds": [
+                  14,
+                  22
+                ],
+                "line": "1. Let _s_ be ToString(_arg_).",
+                "context": "Imported Things step 1",
+                "contextsym": "SPEC_ecmaexample_sec@2Dimported"
+              }
+            ]
+          },
+          {
             "path": "specs/ecma/spec.html",
             "path_kind": "normal",
             "lines": [

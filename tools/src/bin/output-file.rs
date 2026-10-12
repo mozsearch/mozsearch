@@ -32,7 +32,7 @@ use tools::file_format::analysis::{read_analysis, read_source};
 use tools::file_format::jumpref::TreeJumprefs;
 use tools::format::{
     create_markdown_panel_section, format_file_data, has_rendered_spec_view, hyperblame_files,
-    rendered_url, tree_specs,
+    imported_spec_files, rendered_url, tree_specs,
 };
 use tools::languages;
 use tools::url_encode_path::url_encode_path;
@@ -85,6 +85,16 @@ fn main() {
 
     let tree_config = cfg.trees.get(tree_name).unwrap();
     let tree_specs = tree_specs(tree_name, tree_config);
+    // (The files the tree's ecmarkup specs import, which have rendered views
+    // as their parts of the specs.)
+    let imported_spec_files = tree_specs
+        .as_deref()
+        .map_or_else(Default::default, |specs| {
+            let files_path = Path::new(&tree_config.paths.files_path);
+            imported_spec_files(specs, &|file: &str| {
+                std::fs::read_to_string(files_path.join(file)).ok()
+            })
+        });
 
     let pre_templates = Instant::now();
     let source_file_info_boxes_liquid_str = cfg
@@ -539,15 +549,17 @@ fn main() {
             _ => {
                 // (A spec's source, ex: the HTML Standard's, whose rendered
                 // view can be split into pages, where the line is.)
+                let imported = imported_spec_files.contains(path.as_str());
                 if let Some(specs) = &tree_specs
-                    && has_rendered_spec_view(specs, &path)
+                    && (has_rendered_spec_view(specs, &path) || imported)
                 {
                     tools_items.push(PanelItem {
                         label: PanelItemLabel::Plaintext("Rendered view".to_owned()),
                         tooltip: "Show the rendered spec, with the blame of its blocks".to_owned(),
                         id: "panel-rendered-view",
                         link: rendered_url(tree_name, None, &path),
-                        update_link_lineno: "/line/{}",
+                        // (An imported file's view is one page.)
+                        update_link_lineno: if imported { "#{}" } else { "/line/{}" },
                         accel_key: None,
                         copyable: true,
                     });

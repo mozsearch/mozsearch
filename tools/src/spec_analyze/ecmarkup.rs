@@ -55,7 +55,7 @@ use super::{
 use crate::file_format::analysis::Location;
 use crate::semantic_analyzer::{Record, sort_records};
 
-const CLAUSES: &[&str] = &["emu-clause", "emu-annex", "emu-intro"];
+pub(crate) const CLAUSES: &[&str] = &["emu-clause", "emu-annex", "emu-intro"];
 
 /// The kinds of clauses whose structured headers name abstract operations.
 const AOID_TYPES: &[&str] = &[
@@ -174,6 +174,17 @@ pub struct Biblio {
 impl Biblio {
     pub fn shortname(&self) -> &str {
         &self.shortname
+    }
+
+    /// The name of what an id is the anchor of (ex: "ToString", for
+    /// `sec-tostring`), if it's a definition's.
+    pub fn pretty(&self, id: &str) -> Option<&str> {
+        let (what, pretty) = self.ids.get(id)?;
+        (*what != "anchor").then(|| {
+            pretty
+                .strip_prefix(self.shortname.as_str())
+                .map_or(pretty.as_str(), str::trim_start)
+        })
     }
 
     /// The names of the clauses and operations (their abstract operations'
@@ -400,12 +411,12 @@ fn step_label(depth: usize, n: usize) -> String {
 /// unordered item at the top), and its id, if it has one, and the bytes of
 /// their markers and attributes, which aren't text.
 #[derive(Default)]
-struct Steps {
-    starts: Vec<(usize, String, Option<String>)>,
-    markup: Vec<Range<usize>>,
+pub(crate) struct Steps {
+    pub starts: Vec<(usize, String, Option<String>)>,
+    pub markup: Vec<Range<usize>>,
 }
 
-fn algorithm_steps(src: &str, content: Range<usize>) -> Steps {
+pub(crate) fn algorithm_steps(src: &str, content: Range<usize>) -> Steps {
     let body = &src[content.clone()];
     let mut steps = Steps::default();
     // The open lists: (indentation, ordered, count).
@@ -449,7 +460,7 @@ impl Steps {
 
 /// An ecmarkdown inline format.
 #[derive(Debug, PartialEq)]
-enum Emd {
+pub(crate) enum Emd {
     /// A variable `_x_`, value `*x*`, constant `~x~`, or code `` `x` ``.
     Format,
     /// `|Name|` (or ex: `|Name_opt|` or `|Name[?Yield]|`), by its name.
@@ -460,7 +471,7 @@ enum Emd {
 
 /// The spans of ecmarkdown's inline formats in `text`, which aren't
 /// autolinked, as char ranges.
-fn emd_spans(text: &[char]) -> Vec<(Range<usize>, Emd)> {
+pub(crate) fn emd_spans(text: &[char]) -> Vec<(Range<usize>, Emd)> {
     let mut out = vec![];
     let mut i = 0;
     while i < text.len() {
@@ -542,7 +553,7 @@ struct Clause {
 }
 
 /// A clause's `<h1>`, if it has one.
-fn clause_h1(doc: &Doc, node: usize) -> Option<usize> {
+pub(crate) fn clause_h1(doc: &Doc, node: usize) -> Option<usize> {
     doc.nodes[node]
         .children
         .iter()
@@ -572,13 +583,28 @@ struct Pending {
     sym: String,
     what: &'static str,
     pretty: String,
+    /// For a reference, its anchor, and the biblio it's from, if it's not
+    /// ours.
+    link: Option<(Option<usize>, String)>,
+}
+
+/// A reference in an ecmarkup source (see `resolve_with_imports`): its range,
+/// and its target, an anchor of the spec, or of the spec (by its shortname)
+/// whose biblio it's from.  Or, if `def`, the anchor of a definition which
+/// isn't an element's id: a production's left-hand side.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Reference {
+    pub range: Range<usize>,
+    pub spec: Option<String>,
+    pub anchor: String,
+    pub def: bool,
 }
 
 /// The records of an ecmarkup source, of the spec with `shortname`, among
 /// `config`'s specs.
 pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>, Stats) {
     let lines = Lines::new(src);
-    let (mut files, stats, _) =
+    let (mut files, stats, _, _) =
         analyze_placed(src, shortname, config, &[], 1, &|range: &Range<usize>| {
             Some((0, lines.location(range)))
         });
@@ -593,7 +619,7 @@ lazy_static! {
 
 /// A file's imports (`<emu-import href>`, which ecmarkup replaces with the
 /// files' contents, relative to the importing file).
-fn imports(path: &str, source: &str) -> Vec<(Range<usize>, String)> {
+pub(crate) fn imports(path: &str, source: &str) -> Vec<(Range<usize>, String)> {
     let dir = path.rsplit_once('/').map_or("", |(dir, _)| dir);
     EMU_IMPORT
         .captures_iter(source)
@@ -616,7 +642,7 @@ pub fn analyze_with_imports(
     biblios: &[&Biblio],
 ) -> Option<(Vec<(String, Vec<Record>)>, Stats, Biblio)> {
     let combined = Combined::build(main, read, &imports)?;
-    let (files, stats, biblio) = analyze_placed(
+    let (files, stats, biblio, _) = analyze_placed(
         &combined.text,
         shortname,
         config,
@@ -628,9 +654,32 @@ pub fn analyze_with_imports(
     Some((paths.zip(files).collect(), stats, biblio))
 }
 
+/// An ecmarkup spec's source at `main` with the files it imports (see
+/// `Combined`), as ecmarkup builds the spec from them with the `biblios` it
+/// loads, and its references, as ranges of the combined text, for its
+/// rendering (see `rendered_specs::ecmarkup`).
+pub fn resolve_with_imports(
+    main: &str,
+    read: &dyn Fn(&str) -> Option<String>,
+    shortname: &str,
+    config: &SpecsConfig,
+    biblios: &[&Biblio],
+) -> Option<(Combined, Vec<Reference>)> {
+    let combined = Combined::build(main, read, &imports)?;
+    let (_, _, _, references) = analyze_placed(
+        &combined.text,
+        shortname,
+        config,
+        biblios,
+        combined.paths().count(),
+        &|range: &Range<usize>| combined.place(range),
+    );
+    Some((combined, references))
+}
+
 /// The records of an ecmarkup source with the `biblios` it loads, for each
 /// of the `files` its text is from, by where `place` says its ranges are,
-/// and its own biblio.
+/// its own biblio, and its references.
 fn analyze_placed(
     src: &str,
     shortname: &str,
@@ -638,7 +687,7 @@ fn analyze_placed(
     biblios: &[&Biblio],
     files: usize,
     place: &dyn Fn(&Range<usize>) -> Option<(usize, Location)>,
-) -> (Vec<Vec<Record>>, Stats, Biblio) {
+) -> (Vec<Vec<Record>>, Stats, Biblio, Vec<Reference>) {
     let doc = Doc::parse(src);
     let n = doc.nodes.len();
     let mut stats = Stats::default();
@@ -1050,6 +1099,7 @@ fn analyze_placed(
             sym: spec_symbol(shortname, &clause.id),
             what,
             pretty,
+            link: None,
         });
     }
     for (node, old) in &old_ids {
@@ -1062,6 +1112,7 @@ fn analyze_placed(
             sym: spec_symbol(shortname, old),
             what: "anchor",
             pretty,
+            link: None,
         });
     }
     for node in 1..n {
@@ -1093,6 +1144,7 @@ fn analyze_placed(
             sym: spec_symbol(shortname, &id),
             what,
             pretty,
+            link: None,
         });
     }
     for (range, id) in &production_defs {
@@ -1103,6 +1155,7 @@ fn analyze_placed(
             sym: spec_symbol(shortname, id),
             what,
             pretty,
+            link: None,
         });
     }
     for (node, steps) in &algorithms {
@@ -1115,6 +1168,7 @@ fn analyze_placed(
                     sym: spec_symbol(shortname, id),
                     what: "step",
                     pretty: format!("{} {} step {}", shortname, clause_name, path),
+                    link: None,
                 });
             }
         }
@@ -1184,6 +1238,7 @@ fn analyze_placed(
                     sym: spec_symbol(shortname, target),
                     what,
                     pretty,
+                    link: Some((None, target.clone())),
                 });
             }
             if let Emd::NonTerminal(name) = kind {
@@ -1199,6 +1254,7 @@ fn analyze_placed(
                             sym,
                             what,
                             pretty,
+                            link: Some((biblio, id.clone())),
                         });
                     }
                     None => stats.unresolved += 1,
@@ -1241,6 +1297,7 @@ fn analyze_placed(
                     sym,
                     what,
                     pretty,
+                    link: Some((entry.biblio, entry.target.clone())),
                 });
             }
         }
@@ -1287,6 +1344,7 @@ fn analyze_placed(
                     sym,
                     what,
                     pretty,
+                    link: Some((biblio, id.clone())),
                 });
             }
         }
@@ -1311,6 +1369,7 @@ fn analyze_placed(
                     sym,
                     what,
                     pretty,
+                    link: Some((biblio, id.clone())),
                 });
             }
             Some("emu-xref") => {
@@ -1357,12 +1416,17 @@ fn analyze_placed(
                     sym,
                     what,
                     pretty,
+                    link: Some((biblio, target.clone())),
                 });
             }
             Some("a") => {
                 let Some(href) = doc.attr(node, "href") else {
                     continue;
                 };
+                let link = href
+                    .strip_prefix('#')
+                    .filter(|id| ids.contains(*id))
+                    .map(|id| (None, id.to_string()));
                 let (sym, what, pretty) = match href.strip_prefix('#') {
                     Some(id) if ids.contains(id) => {
                         let (what, pretty) = pretty_of(id);
@@ -1380,6 +1444,7 @@ fn analyze_placed(
                     sym,
                     what,
                     pretty,
+                    link,
                 });
             }
             _ => {}
@@ -1421,7 +1486,16 @@ fn analyze_placed(
     }
 
     let mut per_file: Vec<Vec<Record>> = (0..files).map(|_| vec![]).collect();
+    let mut references = vec![];
     for p in pending {
+        if let Some((biblio, anchor)) = &p.link {
+            references.push(Reference {
+                range: p.range.clone(),
+                spec: biblio.map(|i| biblios[i].shortname.clone()),
+                anchor: anchor.clone(),
+                def: false,
+            });
+        }
         let range = if p.range.is_empty() {
             p.range.start..p.range.start + 1
         } else {
@@ -1467,7 +1541,14 @@ fn analyze_placed(
         productions: root.productions.clone(),
         ids: ids.iter().map(|id| (id.clone(), pretty_of(id))).collect(),
     };
-    (per_file, stats, biblio)
+    references.extend(production_defs.iter().map(|(range, id)| Reference {
+        range: range.clone(),
+        spec: None,
+        anchor: id.clone(),
+        def: true,
+    }));
+    references.sort_by_key(|r| (r.range.start, std::cmp::Reverse(r.range.end)));
+    (per_file, stats, biblio, references)
 }
 
 #[cfg(test)]

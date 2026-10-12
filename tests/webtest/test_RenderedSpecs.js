@@ -87,3 +87,37 @@ add_task(async function test_RenderedSpecLinks() {
   is(rendered.getAttribute("href"), `${BASE}/line/34`,
      "The link is to the selected line's page");
 });
+
+add_task(async function test_RenderedEcmarkup() {
+  // The test tree's ecmarkup spec (tests/tests/files/specs/ecma/spec.html),
+  // which imports a file.
+  const SPEC = "/tests/rendered/specs/ecma/spec.html";
+  await TestUtils.loadPath(SPEC);
+
+  ok(doc().classList.contains("rendered-spec"), "The page is a rendered spec");
+  is(doc().querySelector("#sec-tostring h3 .sp-secno")?.textContent, "1.1",
+     "Clauses have their numbers");
+  ok(doc().querySelector("li#step-tostring-else"), "Algorithms' steps have their ids");
+  ok(doc().querySelector("#sec-tostring .sp-emu-alg var"), "ecmarkdown's variables are formatted");
+  is(doc().querySelector('#sec-terms p a[href="#value"]')?.textContent, "Values",
+     "Terms are autolinked");
+  ok(doc().querySelector("#prod-Thing"), "Productions have their anchors");
+  is([...doc().querySelectorAll("#sec-grammar p a")].map(a => a.textContent).join(),
+     "1.1,ToString", "Empty cross-references have their targets' numbers or names");
+  ok(doc().querySelector("#sec-imported"), "Imported files' content is in the spec");
+  is(doc().querySelector(".sp-imported a")?.getAttribute("href"),
+     "/tests/rendered/specs/ecma/imported.html", "and links to their own views");
+
+  // An imported file's view is its part of the spec.
+  await TestUtils.loadPath("/tests/rendered/specs/ecma/imported.html");
+  is(doc().querySelector("#sec-imported h2 .sp-secno")?.textContent, "4",
+     "An imported file's clauses have their numbers in the spec");
+  is(doc().querySelector('a[href$="#sec-tostring"]')?.getAttribute("href"), `${SPEC}#sec-tostring`,
+     "Its references to the spec's other definitions link to them there");
+  ok(doc().querySelector('span[data-l="5"]'), "Its text says where it is in its file");
+
+  await TestUtils.loadPath("/tests/source/specs/ecma/imported.html");
+  is(frame.contentDocument.querySelector("#panel-rendered-view")?.getAttribute("href"),
+     "/tests/rendered/specs/ecma/imported.html",
+     "The imported file's source listing links to its rendered view");
+});

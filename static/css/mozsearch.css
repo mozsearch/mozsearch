@@ -1882,6 +1882,70 @@ span[data-symbols].selected {
 .rendered-spec .sp-tracking-vector {
   text-decoration: none;
 }
+/* ecmarkup's elements: algorithms' steps are numbered 1, a, i, 1, ... by
+   their depth, like ecmarkup's. */
+.rendered-spec .sp-emu-alg ol {
+  list-style-type: decimal;
+}
+.rendered-spec .sp-emu-alg ol ol {
+  list-style-type: lower-alpha;
+}
+.rendered-spec .sp-emu-alg ol ol ol {
+  list-style-type: lower-roman;
+}
+.rendered-spec .sp-emu-alg ol ol ol ol {
+  list-style-type: decimal;
+}
+.rendered-spec .sp-emu-alg ol ol ol ol ol {
+  list-style-type: lower-alpha;
+}
+.rendered-spec .sp-emu-alg ol ol ol ol ol ol {
+  list-style-type: lower-roman;
+}
+.rendered-spec .sp-emu-val {
+  font-weight: bold;
+}
+.rendered-spec .sp-emu-const {
+  font-variant: small-caps;
+}
+.rendered-spec .sp-emu-nt {
+  font-style: italic;
+}
+.rendered-spec .sp-emu-grammar {
+  margin: 0.75em 0;
+  white-space: pre-wrap;
+  font-family: monospace;
+}
+.rendered-spec :is(.sp-emu-note, .sp-emu-example) {
+  margin: 0.75em 0;
+  padding: 0.1em 0.75em;
+  border-left: 4px solid var(--sp-box-color, #4e79a7);
+  background-color: color-mix(in srgb, var(--sp-box-color, #4e79a7) 8%, transparent);
+}
+.rendered-spec .sp-emu-example {
+  --sp-box-color: #59a14f;
+}
+.rendered-spec .sp-emu-note::before {
+  content: "Note";
+  font-weight: bold;
+}
+.rendered-spec .sp-emu-example::before {
+  content: "Example";
+  font-weight: bold;
+}
+.rendered-spec .sp-caption {
+  font-weight: bold;
+  margin: 0.5em 0;
+}
+.rendered-spec dl.sp-header dt {
+  font-style: italic;
+}
+/* Where an imported file's content starts, and an imported file's view. */
+.rendered-spec .sp-imported {
+  margin: 0.5em 0;
+  font-style: italic;
+  opacity: 0.8;
+}
 .sp-pages {
   display: flex;
   gap: 1.5em;

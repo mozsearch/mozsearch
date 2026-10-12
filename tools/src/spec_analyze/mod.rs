@@ -450,6 +450,9 @@ pub struct Combined {
     files: Vec<(String, String, Lines)>,
     /// (start in `text`, end in `text`, file, start in the file).
     spans: Vec<(usize, usize, usize, usize)>,
+    /// Where each inclusion of a file is in `text` (with the files it
+    /// includes), in order.
+    regions: Vec<(usize, Range<usize>)>,
 }
 
 /// A file's includes (given its path and source): each one's range, which the
@@ -483,6 +486,7 @@ impl Combined {
             text: String::new(),
             files: vec![],
             spans: vec![],
+            regions: vec![],
         };
         combined.inline(main, read, includes, 0)?;
         Some(combined)
@@ -505,6 +509,7 @@ impl Combined {
             }
         };
         let source = self.files[file].1.clone();
+        let region_start = self.text.len();
         let mut at = 0;
         for (range, target) in includes(path, &source) {
             self.copy(&source, at..range.start, file);
@@ -515,7 +520,23 @@ impl Combined {
             at = range.end;
         }
         self.copy(&source, at..source.len(), file);
+        self.regions.push((file, region_start..self.text.len()));
         Some(())
+    }
+
+    /// Where a file's first inclusion is in `text` (with the files it
+    /// includes).
+    pub fn region(&self, file: usize) -> Option<Range<usize>> {
+        self.regions
+            .iter()
+            .filter(|(f, _)| *f == file)
+            .min_by_key(|(_, range)| range.start)
+            .map(|(_, range)| range.clone())
+    }
+
+    /// The regions of the files' inclusions in `text` (see `region`).
+    pub fn regions(&self) -> &[(usize, Range<usize>)] {
+        &self.regions
     }
 
     fn copy(&mut self, source: &str, range: Range<usize>, file: usize) {
@@ -548,6 +569,49 @@ impl Combined {
                 f == file && file_start <= local && local < file_start + (end - start)
             })
             .map(|&(start, _, _, file_start)| start + (local - file_start))
+    }
+
+    /// A file's source, by its number.
+    pub fn source(&self, file: usize) -> &str {
+        &self.files[file].1
+    }
+
+    /// Where a range of `text` is in a file, if it's all in one span of it.
+    pub fn file_range(&self, file: usize, range: &Range<usize>) -> Option<Range<usize>> {
+        let i = self
+            .spans
+            .partition_point(|&(start, _, _, _)| start <= range.start);
+        let &(start, end, f, file_start) = self.spans.get(i.checked_sub(1)?)?;
+        (f == file && range.end <= end)
+            .then(|| file_start + (range.start - start)..file_start + (range.end - start))
+    }
+
+    /// The bytes of a file that a range of `text` has, from the first to the
+    /// last (ex: a page's of the main file), if it has any.
+    pub fn file_bounds(&self, file: usize, range: &Range<usize>) -> Option<Range<usize>> {
+        let mut bounds: Option<Range<usize>> = None;
+        for &(start, end, f, file_start) in &self.spans {
+            if f != file || end <= range.start || start >= range.end {
+                continue;
+            }
+            let local = file_start + (range.start.max(start) - start)
+                ..file_start + (range.end.min(end) - start);
+            bounds = Some(match bounds {
+                Some(b) => b.start.min(local.start)..b.end.max(local.end),
+                None => local,
+            });
+        }
+        bounds
+    }
+
+    /// Where a byte of a file is in `text`, if it's there.
+    pub fn text_offset(&self, file: usize, offset: usize) -> Option<usize> {
+        self.spans
+            .iter()
+            .find(|&&(start, end, f, file_start)| {
+                f == file && file_start <= offset && offset < file_start + (end - start)
+            })
+            .map(|&(start, _, _, file_start)| start + (offset - file_start))
     }
 
     /// The file and location of a range of `text` (up to the end of its

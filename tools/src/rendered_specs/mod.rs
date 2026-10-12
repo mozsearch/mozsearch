@@ -12,14 +12,15 @@
 //! (classes are prefixed with `sp-`, so that they can't be the page's), and
 //! links to the tree's other specs go to their rendered views.
 
+pub mod ecmarkup;
 pub mod wattsi;
 
 use std::fmt::Write as _;
 use std::ops::Range;
 
-use crate::rendered_docs::{Writer, escape};
+use crate::rendered_docs::{Rendered, Writer, escape};
 use crate::spec_analyze::markup::{Doc, NodeKind, text_pieces};
-use crate::spec_analyze::{SpecFormat, SpecsConfig};
+use crate::spec_analyze::{SpecEntry, SpecFormat, SpecsConfig};
 
 /// How a rendered spec links to the rendered views of the tree's specs.
 pub trait SpecLinks {
@@ -30,14 +31,65 @@ pub trait SpecLinks {
 
 /// Whether specs of a format have rendered views.
 pub fn has_rendered_view(format: SpecFormat) -> bool {
-    matches!(format, SpecFormat::Wattsi)
+    matches!(format, SpecFormat::Wattsi | SpecFormat::Ecmarkup)
 }
 
 /// Whether specs of a format can be split into pages (ex: the HTML Standard,
 /// like its multipage edition), so that links to their anchors go through
 /// `anchor_url`, which finds the anchor's page.
 pub fn is_paged(format: SpecFormat) -> bool {
-    matches!(format, SpecFormat::Wattsi)
+    matches!(format, SpecFormat::Wattsi | SpecFormat::Ecmarkup)
+}
+
+/// Render the page named `page` (or the first) of the source `src` of
+/// `spec`, at `path` in the tree, among `config`'s specs, reading other files
+/// of the tree (ex: ecmarkup's imports) with `read`, if it has the page.
+pub fn render(
+    spec: &SpecEntry,
+    src: &str,
+    path: &str,
+    config: &SpecsConfig,
+    links: &dyn SpecLinks,
+    read: &dyn Fn(&str) -> Option<String>,
+    page: Option<&str>,
+) -> Option<RenderedSpec> {
+    match spec.format? {
+        SpecFormat::Wattsi => wattsi::render(src, path, spec, config, links, page),
+        SpecFormat::Ecmarkup => ecmarkup::render(path, spec, config, links, read, page),
+        SpecFormat::Bikeshed => None,
+    }
+}
+
+/// The page of a spec's source with an anchor, if it has the anchor.
+pub fn anchor_page(
+    spec: &SpecEntry,
+    src: &str,
+    path: &str,
+    config: &SpecsConfig,
+    read: &dyn Fn(&str) -> Option<String>,
+    anchor: &str,
+) -> Option<Page> {
+    match spec.format? {
+        SpecFormat::Wattsi => wattsi::anchor_page(src, anchor),
+        SpecFormat::Ecmarkup => ecmarkup::anchor_page(path, spec, config, read, anchor),
+        SpecFormat::Bikeshed => None,
+    }
+}
+
+/// The page of a spec's source with its byte `offset`.
+pub fn offset_page(
+    spec: &SpecEntry,
+    src: &str,
+    path: &str,
+    config: &SpecsConfig,
+    read: &dyn Fn(&str) -> Option<String>,
+    offset: usize,
+) -> Option<Page> {
+    match spec.format? {
+        SpecFormat::Wattsi => wattsi::offset_page(src, offset),
+        SpecFormat::Ecmarkup => ecmarkup::offset_page(path, spec, config, read, offset),
+        SpecFormat::Bikeshed => None,
+    }
 }
 
 /// The URL of a page (by its name, or the first, `None`) of the rendered view
@@ -104,6 +156,68 @@ pub fn link_url(
     Some(absolute.to_string())
 }
 
+/// A page of a rendered source.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Page {
+    /// Its name, as in `page_url` (none for the first page).
+    pub name: Option<String>,
+    pub title: String,
+    /// The byte of the source where it starts.
+    pub start: usize,
+}
+
+/// A page of a rendered spec source.
+pub struct RenderedSpec {
+    pub rendered: Rendered,
+    /// The pages of the source (one, if it's not split).
+    pub pages: Vec<Page>,
+    /// The index of the page rendered.
+    pub page: usize,
+    /// The bytes of the source that the page covers.
+    pub range: Range<usize>,
+}
+
+impl Page {
+    /// The index of the page with the byte `offset` of the source.
+    pub fn index_of(pages: &[Page], offset: usize) -> usize {
+        pages
+            .partition_point(|page| page.start <= offset)
+            .saturating_sub(1)
+    }
+}
+
+/// A table of contents, of its entries' (1-based) levels, numbers, links,
+/// and titles.
+pub fn write_toc(out: &mut HtmlRenderer, entries: &[(usize, Option<String>, String, String)]) {
+    let mut depth = 0;
+    out.w.push(r#"<nav class="sp-toc-nav">"#);
+    for (level, number, href, text) in entries {
+        let level = *level;
+        if level > depth {
+            for _ in depth..level {
+                out.w.push(r#"<ol class="sp-toc">"#);
+                out.w.push("<li>");
+            }
+        } else {
+            for _ in level..depth {
+                out.w.push("</li></ol>");
+            }
+            out.w.push("</li><li>");
+        }
+        depth = level;
+        write!(out.w.html, r#"<a href="{}">"#, escape(href)).unwrap();
+        if let Some(number) = number {
+            write!(out.w.html, r#"<span class="sp-secno">{}</span> "#, number).unwrap();
+        }
+        out.w.escaped(text);
+        out.w.push("</a>");
+    }
+    for _ in 0..depth {
+        out.w.push("</li></ol>");
+    }
+    out.w.push("</nav>");
+}
+
 /// What an element is, for rendering.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Role {
@@ -133,6 +247,11 @@ pub fn role(name: &str) -> Role {
         | "optgroup" | "datalist" | "output" | "progress" | "meter" | "slot" | "frame"
         | "frameset" | "param" | "source" | "track" | "area" | "map" | "picture" => Role::Omit,
         "html" | "body" => Role::Transparent,
+        // (ecmarkup's; see `ecmarkup`.)
+        "emu-biblio" | "emu-import" => Role::Omit,
+        "emu-clause" | "emu-annex" | "emu-intro" | "emu-note" | "emu-example" | "emu-table"
+        | "emu-figure" => Role::Container,
+        "emu-alg" | "emu-grammar" | "emu-production" => Role::Leaf,
         "div" | "section" | "article" | "aside" | "nav" | "header" | "footer" | "main" | "ol"
         | "ul" | "dl" | "li" | "dd" | "blockquote" | "figure" | "details" | "table" | "thead"
         | "tbody" | "tfoot" | "colgroup" | "fieldset" | "hgroup" | "center" | "menu" | "search"
@@ -220,7 +339,7 @@ pub fn output_tag(name: &str) -> Option<&'static str> {
     }
     match role(name) {
         Role::Container | Role::Leaf | Role::InnerLeaf => Some("div"),
-        Role::Inline if name == "label" => Some("span"),
+        Role::Inline if name == "label" || name.starts_with("emu-") => Some("span"),
         _ => None,
     }
 }
@@ -281,14 +400,22 @@ pub trait Hooks {
     }
 }
 
+/// Where ranges of a source are in the file that a rendering is for, if
+/// they're in it (ex: of an ecmarkup spec's source with its imports, in its
+/// main file).
+pub type FileMap<'d> = &'d dyn Fn(&Range<usize>) -> Option<Range<usize>>;
+
 /// Renders an HTML-based spec source's tree (or the part of it in `range`,
 /// ex: a page's).
 pub struct HtmlRenderer<'s, 'd> {
     pub w: Writer<'s>,
-    pub doc: &'d Doc<'s>,
+    pub doc: &'d Doc<'d>,
     pub range: Range<usize>,
     /// How deep we are in links, whose cross-references don't link.
     pub in_link: usize,
+    /// Where the source's ranges are in the file the rendering is for, if
+    /// it's not the source (only blocks and text in it say where they are).
+    map: Option<FileMap<'d>>,
 }
 
 impl<'s, 'd> HtmlRenderer<'s, 'd> {
@@ -298,6 +425,51 @@ impl<'s, 'd> HtmlRenderer<'s, 'd> {
             doc,
             range,
             in_link: 0,
+            map: None,
+        }
+    }
+
+    /// A renderer for the file `file`, where `map` says the source's ranges
+    /// are.
+    pub fn for_file(
+        doc: &'d Doc<'d>,
+        range: Range<usize>,
+        file: &'s str,
+        map: FileMap<'d>,
+    ) -> HtmlRenderer<'s, 'd> {
+        HtmlRenderer {
+            w: Writer::new(file),
+            doc,
+            range,
+            in_link: 0,
+            map: Some(map),
+        }
+    }
+
+    /// Where a range of the source is in the file, if it's in it.
+    pub fn file_range(&self, range: &Range<usize>) -> Option<Range<usize>> {
+        match self.map {
+            Some(map) => map(range),
+            None => Some(range.clone()),
+        }
+    }
+
+    /// `<div class="rd-block ...">` and the strip, for the range of the
+    /// source, if a block can start here and the range is in the file.
+    pub fn open_block(&mut self, range: Range<usize>, class: &str) -> bool {
+        match self.file_range(&range) {
+            Some(range) => self.w.open_block_div(range, class),
+            None => false,
+        }
+    }
+
+    /// Start a block whose strip goes wherever `w.place_strip` is next
+    /// called (ex: a table row's), if one can start here and the range is in
+    /// the file.
+    pub fn start_block(&mut self, range: Range<usize>) -> bool {
+        match self.file_range(&range) {
+            Some(range) if !self.w.in_block() => self.w.start_block(range, false),
+            _ => false,
         }
     }
 
@@ -378,7 +550,7 @@ impl<'s, 'd> HtmlRenderer<'s, 'd> {
             if let (Some(first), Some(last)) = (first, last) {
                 let range =
                     self.doc.nodes[kids[first]].range.start..self.doc.nodes[kids[last]].range.end;
-                let opened = self.w.open_block_div(range, "");
+                let opened = self.open_block(range, "");
                 for &kid in &kids[first..=last] {
                     if self.in_range(hooks, kid) && !hooks.hidden(kid) {
                         self.node(hooks, kid);
@@ -414,7 +586,8 @@ impl<'s, 'd> HtmlRenderer<'s, 'd> {
             return;
         }
         for (piece, text) in text_pieces(self.doc.src, range) {
-            self.w.text(&text, Some(piece));
+            let real = self.file_range(&piece);
+            self.w.text(&text, real);
         }
     }
 
@@ -431,7 +604,7 @@ impl<'s, 'd> HtmlRenderer<'s, 'd> {
                 self.end_tag(tag);
             }
             Role::Leaf => {
-                let opened = self.w.open_block_div(range, "");
+                let opened = self.open_block(range, "");
                 let tag = self.start_tag(hooks, node, &name);
                 self.children(hooks, node);
                 self.end_tag(tag);
@@ -439,14 +612,14 @@ impl<'s, 'd> HtmlRenderer<'s, 'd> {
             }
             Role::InnerLeaf => {
                 let tag = self.start_tag(hooks, node, &name);
-                let opened = self.w.open_block_div(range, "");
+                let opened = self.open_block(range, "");
                 self.children(hooks, node);
                 self.w.close_block_div(opened);
                 self.end_tag(tag);
             }
             Role::Row => {
                 let tag = self.start_tag(hooks, node, &name);
-                let opened = self.w.start_block(range, false);
+                let opened = self.start_block(range);
                 for kid in self.doc.nodes[node].children.clone() {
                     if hooks.hidden(kid) {
                         continue;

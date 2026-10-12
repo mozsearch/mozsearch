@@ -1361,6 +1361,22 @@ pub fn has_rendered_spec_view(specs: &SpecsConfig, path: &str) -> bool {
     spec_view(specs, path).is_some_and(|(_, _, view)| view == SpecView::Page(None))
 }
 
+/// The files which a tree's ecmarkup specs import (and which those import),
+/// which have rendered views as parts of their specs, reading their sources
+/// with `read`.
+pub fn imported_spec_files(
+    specs: &SpecsConfig,
+    read: &dyn Fn(&str) -> Option<String>,
+) -> HashSet<String> {
+    specs
+        .specs
+        .iter()
+        .filter(|spec| spec.format == Some(crate::spec_analyze::SpecFormat::Ecmarkup))
+        .filter_map(|spec| spec.source_path())
+        .flat_map(|source| rendered_specs::ecmarkup::imported_files(&source, read))
+        .collect()
+}
+
 /// How a rendered spec links to the tree's other specs' rendered views, at
 /// the tip or at the revision.
 struct RenderedSpecLinks<'a> {
@@ -1372,6 +1388,13 @@ impl SpecLinks for RenderedSpecLinks<'_> {
     fn rendered_url(&self, path: &str) -> String {
         rendered_url(self.tree_name, self.rev, path)
     }
+}
+
+/// A file of a commit, as text (ex: an ecmarkup spec's imports).
+fn read_commit_file(repo: &Repository, commit: &git2::Commit, path: &str) -> Option<String> {
+    let entry = commit.tree().ok()?.get_path(Path::new(path)).ok()?;
+    let blob = repo.find_blob(entry.id()).ok()?;
+    Some(String::from_utf8_lossy(blob.content()).into_owned())
 }
 
 /// The commit of a rendered view: the revision's, or the tip's.
@@ -1404,7 +1427,7 @@ pub fn rendered_redirect(
 ) -> Option<String> {
     let tree_config = cfg.trees.get(tree_name)?;
     let specs = tree_specs(tree_name, tree_config)?;
-    let (_, source_path, view) = spec_view(&specs, path.trim_end_matches('/'))?;
+    let (spec, source_path, view) = spec_view(&specs, path.trim_end_matches('/'))?;
     if matches!(view, SpecView::Page(_)) {
         return None;
     }
@@ -1418,12 +1441,15 @@ pub fn rendered_redirect(
     .ok()?;
     let object = repo.find_object(oid, Some(git2::ObjectType::Blob)).ok()?;
     let source = git_ops::read_blob_object(&object);
+    let read = |file: &str| read_commit_file(&git.repo, &commit, file);
     let base = rendered_url(tree_name, rev, &source_path);
     let (page, hash) = match view {
-        SpecView::Anchor(anchor) => match rendered_specs::wattsi::anchor_page(&source, &anchor) {
-            Some(page) => (page.name, rendered_specs::fragment(&anchor)),
-            None => (None, String::new()),
-        },
+        SpecView::Anchor(anchor) => {
+            match rendered_specs::anchor_page(spec, &source, &source_path, &specs, &read, &anchor) {
+                Some(page) => (page.name, rendered_specs::fragment(&anchor)),
+                None => (None, String::new()),
+            }
+        }
         SpecView::Line(line) => {
             let offset = match line {
                 0 | 1 => 0,
@@ -1432,7 +1458,8 @@ pub fn rendered_redirect(
                     .nth(line - 2)
                     .map_or(source.len(), |(i, _)| i + 1),
             };
-            let page = rendered_specs::wattsi::offset_page(&source, offset);
+            let page =
+                rendered_specs::offset_page(spec, &source, &source_path, &specs, &read, offset);
             (page.and_then(|page| page.name), format!("#{}", line))
         }
         SpecView::Page(_) => return None,
@@ -1631,15 +1658,24 @@ pub fn format_rendered(
     let path = path.trim_end_matches('/');
     let specs = tree_specs(tree_name, tree_config);
     let spec_view = specs.as_deref().and_then(|specs| spec_view(specs, path));
-    let (path, spec, page) = match spec_view {
-        Some((spec, source, SpecView::Page(page))) => (source, Some(spec), page),
+    // (A file an ecmarkup spec imports is rendered as its part of the spec,
+    // whose main source is `main`.)
+    let read = |file: &str| read_commit_file(&git.repo, &commit, file);
+    let (path, spec, page, main) = match spec_view {
+        Some((spec, source, SpecView::Page(page))) => (source, Some(spec), page, None),
         Some(_) => return Err("Not a page of the spec"),
-        None if has_rendered_view(path) => (path.to_string(), None, None),
-        None => {
-            return Err(
-                "Only documents (Markdown and reStructuredText) and specs' sources have rendered views",
-            );
-        }
+        None if has_rendered_view(path) => (path.to_string(), None, None, None),
+        None => match specs
+            .as_deref()
+            .and_then(|specs| rendered_specs::ecmarkup::importing_spec(specs, path, &read))
+        {
+            Some((spec, main)) => (path.to_string(), Some(spec), None, Some(main)),
+            None => {
+                return Err(
+                    "Only documents (Markdown and reStructuredText) and specs' sources have rendered views",
+                );
+            }
+        },
     };
     let path = path.as_str();
     let source = {
@@ -1691,14 +1727,21 @@ pub fn format_rendered(
             tree_name,
             rev: page_rev.as_deref(),
         };
-        let rendered_spec = rendered_specs::wattsi::render(
-            &source,
-            path,
-            spec,
-            specs.as_deref().unwrap(),
-            &spec_links,
-            page.as_deref(),
-        )
+        let specs = specs.as_deref().unwrap();
+        let rendered_spec = match &main {
+            Some(main) => {
+                rendered_specs::ecmarkup::render_file(main, spec, specs, &spec_links, &read, path)
+            }
+            None => rendered_specs::render(
+                spec,
+                &source,
+                path,
+                specs,
+                &spec_links,
+                &read,
+                page.as_deref(),
+            ),
+        }
         .ok_or("No such page")?;
         spec_page = Some((rendered_spec.pages, rendered_spec.page, rendered_spec.range));
         rendered_spec.rendered

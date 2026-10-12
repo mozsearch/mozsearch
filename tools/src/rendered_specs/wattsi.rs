@@ -21,34 +21,14 @@
 
 use std::collections::HashMap;
 use std::fmt::Write as _;
-use std::ops::Range;
 
-use super::{Hooks, HtmlRenderer, SpecLinks, fragment, link_url, page_url};
-use crate::rendered_docs::{Rendered, escape};
+use super::{
+    Hooks, HtmlRenderer, Page, RenderedSpec, SpecLinks, fragment, link_url, page_url, write_toc,
+};
+use crate::rendered_docs::escape;
 use crate::spec_analyze::markup::NodeKind;
 use crate::spec_analyze::wattsi::{Resolved, resolve};
 use crate::spec_analyze::{SpecEntry, SpecsConfig};
-
-/// A page of a rendered source.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Page {
-    /// Its name, as in `page_url` (none for the first page).
-    pub name: Option<String>,
-    pub title: String,
-    /// The byte of the source where it starts.
-    pub start: usize,
-}
-
-/// A page of a rendered spec source.
-pub struct RenderedSpec {
-    pub rendered: Rendered,
-    /// The pages of the source (one, if it's not split).
-    pub pages: Vec<Page>,
-    /// The index of the page rendered.
-    pub page: usize,
-    /// The bytes of the source that the page covers.
-    pub range: Range<usize>,
-}
 
 /// A heading's entry in the table of contents.
 struct TocEntry {
@@ -120,37 +100,18 @@ impl Wattsi<'_, '_> {
     }
 
     fn toc(&self, out: &mut HtmlRenderer) {
-        let mut depth = 0;
-        out.w.push(r#"<nav class="sp-toc-nav">"#);
-        for entry in &self.toc {
-            let level = entry.level;
-            if level > depth {
-                for _ in depth..level {
-                    out.w.push(r#"<ol class="sp-toc">"#);
-                    out.w.push("<li>");
-                }
-            } else {
-                for _ in level..depth {
-                    out.w.push("</li></ol>");
-                }
-                out.w.push("</li><li>");
-            }
-            depth = level;
-            let href = self
-                .ids
-                .get(&entry.node)
-                .map_or_else(String::new, |id| self.local_href(id));
-            write!(out.w.html, r#"<a href="{}">"#, escape(&href)).unwrap();
-            if let Some(number) = &entry.number {
-                write!(out.w.html, r#"<span class="sp-secno">{}</span> "#, number).unwrap();
-            }
-            out.w.escaped(&entry.text);
-            out.w.push("</a>");
-        }
-        for _ in 0..depth {
-            out.w.push("</li></ol>");
-        }
-        out.w.push("</nav>");
+        let entries: Vec<(usize, Option<String>, String, String)> = self
+            .toc
+            .iter()
+            .map(|entry| {
+                let href = self
+                    .ids
+                    .get(&entry.node)
+                    .map_or_else(String::new, |id| self.local_href(id));
+                (entry.level, entry.number.clone(), href, entry.text.clone())
+            })
+            .collect();
+        write_toc(out, &entries);
     }
 }
 
@@ -196,7 +157,7 @@ impl Hooks for Wattsi<'_, '_> {
             NodeKind::Comment => {
                 match self.comment(node) {
                     "<!--toc-->" => {
-                        let opened = out.w.open_block_div(doc.nodes[node].range.clone(), "");
+                        let opened = out.open_block(doc.nodes[node].range.clone(), "");
                         out.w
                             .push(r#"<h2 class="sp-no-num">Table of contents</h2>"#);
                         out.w.close_block_div(opened);
@@ -224,7 +185,7 @@ impl Hooks for Wattsi<'_, '_> {
             }
             NodeKind::Element(name) if is_heading(name) || name == "h1" => {
                 let range = doc.nodes[node].range.clone();
-                let opened = out.w.open_block_div(range, "");
+                let opened = out.open_block(range, "");
                 let tag = out.start_tag(self, node, name);
                 if let Some(number) = self.numbers.get(&node) {
                     write!(out.w.html, r#"<span class="sp-secno">{}</span> "#, number).unwrap();
@@ -265,7 +226,7 @@ impl Hooks for Wattsi<'_, '_> {
             NodeKind::Element(name) if name == "svg" => {
                 // (An inline diagram, described by its label.)
                 let label = doc.attr(node, "aria-label").unwrap_or_default();
-                let opened = out.w.open_block_div(doc.nodes[node].range.clone(), "");
+                let opened = out.open_block(doc.nodes[node].range.clone(), "");
                 out.w.push(r#"<p class="sp-diagram">Diagram: "#);
                 out.w.escaped(&label);
                 out.w.push("</p>");
@@ -489,6 +450,7 @@ pub fn render(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rendered_docs::Rendered;
 
     struct TestLinks;
 
