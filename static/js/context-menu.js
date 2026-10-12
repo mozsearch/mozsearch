@@ -1126,6 +1126,12 @@ class ContextSubMenu extends ContextMenuOrSubMenu {
   }
 }
 
+// The names of the sites of symbols' documentation links (`docs` in their
+// structured records, see `DocLink` in tools/src/file_format/analysis.rs).
+const DOC_SITE_NAMES = {
+  mdn: "MDN",
+};
+
 var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
   constructor() {
     super();
@@ -1148,6 +1154,10 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
   }
 
   fmtLang(lang) {
+      // (A binding slot's spec definition, see BindingSlotLang::Spec.)
+      if (lang === "spec") {
+        return lang;
+      }
       lang = lang.toUpperCase();
       if (lang === "CPP") {
         lang = "C++";
@@ -1522,6 +1532,9 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         }
       });
 
+      // (Documentation links, once each, since a symbol and its binding slots,
+      // ex: a WebIDL method and its spec's definition, can have the same.)
+      const docsShown = new Set();
       for (const [sym, confidence, symInfo] of filteredSymTuples) {
         let diagrammableSyms = [];
         // We need structured data to do diagramming; no structured data means
@@ -1544,6 +1557,22 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
 
         // Define a helper we can also use for the binding slots below.
         const jumpify = (jumpref, pretty) => {
+          // The symbol's documentation on other sites (ex: MDN's page for a
+          // WebIDL method), from BCD; see tools/src/spec_analyze/bcd.rs.
+          for (const doc of jumpref.meta?.docs || []) {
+            if (docsShown.has(doc.url)) {
+              continue;
+            }
+            docsShown.add(doc.url);
+            jumpMenuItems.push(new MenuItem({
+              html: this.fmt("_ documentation", DOC_SITE_NAMES[doc.site] || doc.site) +
+                this.fmt(" for <strong>_</strong>", pretty),
+              href: doc.url,
+              icon: "docs",
+              section: "jumps",
+              classNames: ["contextmenu-docs"],
+            }));
+          }
           // A citation of an anchor its spec no longer has (so it has no
           // jumps): what removed it, and what it may be now, from the spec's
           // history (in the specs' tree; see tools/src/spec_analyze/stale.rs).

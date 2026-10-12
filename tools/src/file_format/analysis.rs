@@ -269,6 +269,17 @@ where
     pub fields: Vec<StructuredFieldInfo<StrT>>,
 }
 
+/// A symbol's documentation on another site (see `AnalysisStructured::docs`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct DocLink<StrT = Ustr>
+where
+    StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
+{
+    /// The site, ex: "mdn".
+    pub site: StrT,
+    pub url: StrT,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StructuredSuperInfo<StrT = Ustr>
 where
@@ -421,6 +432,11 @@ pub enum BindingSlotLang {
     JS,
     Rust,
     Jvm,
+    /// The web spec's definition which an IDL symbol reflects (in the tree's
+    /// linked spec tree, see `linked_trees`), ex: the DOM Standard's
+    /// `appendChild()` for Gecko's `Node.appendChild`, from a supplement
+    /// record (see `AnalysisStructured::supplement`).
+    Spec,
 }
 
 #[derive(
@@ -659,6 +675,19 @@ where
 
     #[serde(default)]
     pub variants: Vec<AnalysisStructured<StrT>>,
+
+    /// Whether this is a supplement to the symbol's structured record
+    /// (another analyzer's, ex: webidl-analyze's), from an analyzer which
+    /// doesn't own the symbol but knows more about it (ex: spec-analyze, which
+    /// knows its spec's definition and documentation, from BCD): crossref adds
+    /// its binding slots (as it does any record's) and `docs` to the symbol's
+    /// meta, but never makes it the meta itself.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub supplement: bool,
+    /// The symbol's documentation on other sites (ex: MDN's page for a WebIDL
+    /// method), only where we know it's there.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub docs: Vec<DocLink<StrT>>,
 
     #[serde(flatten)]
     pub extra: Map<String, Value>,

@@ -971,6 +971,8 @@ fn analyze_using_scip(
                     subclass_syms: vec![],
                     overridden_by_syms: vec![],
                     variants: vec![],
+                    supplement: false,
+                    docs: vec![],
                     extra: Map::default(),
 
                     can_gc: None,
@@ -1240,6 +1242,8 @@ fn analyze_using_scip(
                         subclass_syms: vec![],
                         overridden_by_syms: vec![],
                         variants: vec![],
+                        supplement: false,
+                        docs: vec![],
                         extra: Map::default(),
 
                         can_gc: None,
@@ -1448,6 +1452,8 @@ fn analyze_using_scip(
             subclass_syms: vec![],
             overridden_by_syms: vec![],
             variants: vec![],
+            supplement: false,
+            docs: vec![],
             extra: Map::default(),
 
             can_gc: None,

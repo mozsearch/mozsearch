@@ -33,7 +33,7 @@ use tools::file_format::analysis::{
     StructuredBindingSlotInfo, WithLocation, collect_file_syms_from_target, read_analysis,
     read_structured, read_target,
 };
-use tools::file_format::analysis::{BindingOwnerLang, BindingSlotKind};
+use tools::file_format::analysis::{BindingOwnerLang, BindingSlotKind, DocLink};
 use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::analysis_manglings::split_pretty;
 use tools::file_format::config;
@@ -217,6 +217,8 @@ fn event_structured(sym: Ustr, pretty: Ustr) -> AnalysisStructured {
         subclass_syms: vec![],
         overridden_by_syms: vec![],
         variants: vec![],
+        supplement: false,
+        docs: vec![],
         extra: Map::default(),
         can_gc: None,
         gc_path: None,
@@ -473,6 +475,8 @@ fn make_subsystem(
             subclass_syms: vec![],
             overridden_by_syms: vec![],
             variants: vec![],
+            supplement: false,
+            docs: vec![],
             extra: Map::default(),
 
             can_gc: None,
@@ -754,7 +758,7 @@ fn read_analysis_files_thread(
                 // this is the SCIP external structured record case mentioned
                 // above and we need to insert the pretty and id mappings
                 // since there won't be a target record for the definition.
-                if datum.loc.lineno == 0 {
+                if datum.loc.lineno == 0 && !piece.supplement {
                     pretty_items.push((piece.sym, piece.pretty));
                     // TODO: extract out the logic from process_analysis_target
                     // so we can generate all the suffix variations here.  But
@@ -981,6 +985,9 @@ fn read_analysis_files(
     let mut pretty_table = PrettyTable::new();
     let mut id_table = IdTable::default();
     let mut meta_table = MetaTable::new();
+    // (Supplements' documentation, for the symbols' metas once they're all in;
+    // see `AnalysisStructured::supplement`.)
+    let mut supplement_docs: Vec<(Ustr, Vec<DocLink>)> = vec![];
     let mut callees_table = CalleesTable::new();
     // A symbol's digest is the sum of its definitions' (in their files), or
     // of its declarations' if it has none.
@@ -1073,6 +1080,13 @@ fn read_analysis_files(
         }
 
         for structured in structured_items {
+            // A supplement (see `AnalysisStructured::supplement`) is never the
+            // meta, but adds its documentation to it (its binding slots were
+            // taken, as every record's are).
+            if structured.supplement {
+                supplement_docs.push((structured.sym, structured.docs));
+                continue;
+            }
             // Producers just put the item without modifying the item, and thus
             // we don't have to merge the structured record.
             meta_table.entry(structured.sym).or_insert(structured);
@@ -1131,6 +1145,15 @@ fn read_analysis_files(
             }
         }
     }
+    for (sym, docs) in supplement_docs {
+        if let Some(meta) = meta_table.get_mut(&sym) {
+            for doc in docs {
+                if !meta.docs.contains(&doc) {
+                    meta.docs.push(doc);
+                }
+            }
+        }
+    }
     resolve_pretty_slots(pretty_slots, &meta_table, &mut xref_link_slots);
 
     for ((owner_sym, slotted_sym), (props, subsystem)) in xref_link_slots {
@@ -1143,6 +1166,11 @@ fn read_analysis_files(
             if owner.subsystem.is_none() {
                 owner.subsystem = subsystem;
             }
+        }
+        // (A spec's definition isn't its IDL's slot, even in the same tree, ex:
+        // a spec tree's own WebIDL files', but what it reflects.)
+        if props.slot_lang == BindingSlotLang::Spec {
+            continue;
         }
         if let Some(slotted) = meta_table.get_mut(&slotted_sym) {
             slotted.slot_owner = Some(StructuredBindingSlotInfo {
