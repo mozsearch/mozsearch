@@ -477,8 +477,8 @@ impl SearchResults {
                 };
                 let mut path_pieces: Vec<Ustr> =
                     path_sans_filename.split_inclusive('/').map(ustr).collect();
-                // drop the filename portion.
-                path_pieces.truncate(path_pieces.len() - 1);
+                // drop the filename portion.  (A file at the top has no pieces.)
+                path_pieces.truncate(path_pieces.len().saturating_sub(1));
                 qual_kind_group
                     .path_facet
                     .place_item(path_pieces, path_sans_filename);
