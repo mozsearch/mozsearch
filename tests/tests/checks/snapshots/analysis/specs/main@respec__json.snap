@@ -1,0 +1,981 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/specs/respec__json
+---
+[
+  {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "file specs/respec/index.html",
+    "sym": "FILE_specs/respec/index@2Ehtml"
+  },
+  {
+    "loc": "8:4-16",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property respecConfig",
+    "sym": "#respecConfig"
+  },
+  {
+    "loc": "8:4-16",
+    "target": 1,
+    "kind": "def",
+    "pretty": "respecConfig",
+    "sym": "#respecConfig",
+    "context": ""
+  },
+  {
+    "loc": "8:21-30",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property shortName",
+    "sym": "#shortName"
+  },
+  {
+    "loc": "8:21-30",
+    "target": 1,
+    "kind": "def",
+    "pretty": "shortName",
+    "sym": "#shortName",
+    "context": "respecConfig"
+  },
+  {
+    "loc": "8:21-30",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property respecConfig.shortName",
+    "sym": "respecConfig#shortName"
+  },
+  {
+    "loc": "8:21-30",
+    "target": 1,
+    "kind": "def",
+    "pretty": "respecConfig.shortName",
+    "sym": "respecConfig#shortName",
+    "context": "respecConfig"
+  },
+  {
+    "loc": "8:50-60",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property specStatus",
+    "sym": "#specStatus"
+  },
+  {
+    "loc": "8:50-60",
+    "target": 1,
+    "kind": "def",
+    "pretty": "specStatus",
+    "sym": "#specStatus",
+    "context": "respecConfig"
+  },
+  {
+    "loc": "8:50-60",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property respecConfig.specStatus",
+    "sym": "respecConfig#specStatus"
+  },
+  {
+    "loc": "8:50-60",
+    "target": 1,
+    "kind": "def",
+    "pretty": "respecConfig.specStatus",
+    "sym": "respecConfig#specStatus",
+    "context": "respecConfig"
+  },
+  {
+    "loc": "00014:0-23",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplerespec Abstract",
+    "sym": "SPEC_examplerespec_abstract"
+  },
+  {
+    "loc": "00014:0-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Abstract",
+    "sym": "SPEC_examplerespec_abstract",
+    "context": "An example"
+  },
+  {
+    "loc": "00015:0-19",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplerespec Status of This Document",
+    "sym": "SPEC_examplerespec_sotd"
+  },
+  {
+    "loc": "00015:0-19",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Status of This Document",
+    "sym": "SPEC_examplerespec_sotd",
+    "context": "An example"
+  },
+  {
+    "loc": "00016:0-29",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplerespec Introduction",
+    "sym": "SPEC_examplerespec_introduction"
+  },
+  {
+    "loc": "00016:0-29",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Introduction",
+    "sym": "SPEC_examplerespec_introduction",
+    "context": "An example"
+  },
+  {
+    "loc": "00017:6-18",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplerespec Introduction",
+    "sym": "SPEC_examplerespec_x1@2Dintroduction"
+  },
+  {
+    "loc": "00017:6-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Introduction",
+    "sym": "SPEC_examplerespec_x1@2Dintroduction",
+    "context": "Introduction",
+    "contextsym": "SPEC_examplerespec_introduction"
+  },
+  {
+    "loc": "00018:12-17",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn examplerespec gizmo",
+    "sym": "SPEC_examplerespec_dfn@2Dgizmo"
+  },
+  {
+    "loc": "00018:12-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec gizmo",
+    "sym": "SPEC_examplerespec_dfn@2Dgizmo",
+    "context": "Introduction",
+    "contextsym": "SPEC_examplerespec_introduction"
+  },
+  {
+    "loc": "00018:12-17",
+    "structured": 1,
+    "pretty": "examplerespec gizmo",
+    "sym": "SPEC_examplerespec_dfn@2Dgizmo",
+    "kind": "specDfn",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/respec/#dfn-gizmo"
+  },
+  {
+    "loc": "00018:56-61",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn examplerespec gizmo/state",
+    "sym": "SPEC_examplerespec_dfn@2Dstate"
+  },
+  {
+    "loc": "00018:56-61",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec gizmo/state",
+    "sym": "SPEC_examplerespec_dfn@2Dstate",
+    "context": "Introduction",
+    "contextsym": "SPEC_examplerespec_introduction"
+  },
+  {
+    "loc": "00018:56-61",
+    "structured": 1,
+    "pretty": "examplerespec gizmo/state",
+    "sym": "SPEC_examplerespec_dfn@2Dstate",
+    "kind": "specDfn",
+    "implKind": "spec",
+    "parentsym": "SPEC_examplerespec_dfn@2Dgizmo",
+    "rendered": "https://example.github.io/respec/#dfn-state"
+  },
+  {
+    "loc": "00018:73-80",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference examplerespec #bib-dom",
+    "sym": "SPEC_examplerespec_bib@2Ddom"
+  },
+  {
+    "loc": "00018:73-80",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec #bib-dom",
+    "sym": "SPEC_examplerespec_bib@2Ddom",
+    "context": "Introduction",
+    "contextsym": "SPEC_examplerespec_introduction"
+  },
+  {
+    "loc": "00019:24-43",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn examplerespec GSM",
+    "sym": "SPEC_examplerespec_dfn@2Dgsm"
+  },
+  {
+    "loc": "00019:24-43",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec GSM",
+    "sym": "SPEC_examplerespec_dfn@2Dgsm",
+    "context": "Introduction",
+    "contextsym": "SPEC_examplerespec_introduction"
+  },
+  {
+    "loc": "00019:24-43",
+    "structured": 1,
+    "pretty": "examplerespec GSM",
+    "sym": "SPEC_examplerespec_dfn@2Dgsm",
+    "kind": "specDfn",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/respec/#dfn-gsm"
+  },
+  {
+    "loc": "00020:6-11",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplerespec Goals",
+    "sym": "SPEC_examplerespec_goals"
+  },
+  {
+    "loc": "00020:6-11",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Goals",
+    "sym": "SPEC_examplerespec_goals",
+    "context": "Goals",
+    "contextsym": "SPEC_examplerespec_goals"
+  },
+  {
+    "loc": "00020:6-11",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplerespec Goals",
+    "sym": "SPEC_examplerespec_x1@2D1@2Dgoals"
+  },
+  {
+    "loc": "00020:6-11",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Goals",
+    "sym": "SPEC_examplerespec_x1@2D1@2Dgoals",
+    "context": "Goals",
+    "contextsym": "SPEC_examplerespec_goals"
+  },
+  {
+    "loc": "00021:12-22",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference examplerespec gizmo",
+    "sym": "SPEC_examplerespec_dfn@2Dgizmo"
+  },
+  {
+    "loc": "00021:12-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec gizmo",
+    "sym": "SPEC_examplerespec_dfn@2Dgizmo",
+    "context": "Goals",
+    "contextsym": "SPEC_examplerespec_goals"
+  },
+  {
+    "loc": "00023:0-30",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplerespec The Gizmo interface",
+    "sym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00023:0-30",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec The Gizmo interface",
+    "sym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface",
+    "context": "Goals",
+    "contextsym": "SPEC_examplerespec_goals"
+  },
+  {
+    "loc": "00024:6-38",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplerespec The Gizmo interface",
+    "sym": "SPEC_examplerespec_x2@2Dthe@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00024:6-38",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec The Gizmo interface",
+    "sym": "SPEC_examplerespec_x2@2Dthe@2Dgizmo@2Dinterface",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00027:12-17",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "idl examplerespec Gizmo",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo"
+  },
+  {
+    "loc": "00027:12-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec Gizmo",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00028:4-15",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "idl examplerespec Gizmo/constructor()",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dconstructor"
+  },
+  {
+    "loc": "00028:4-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec Gizmo/constructor()",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dconstructor",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00029:33-37",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "idl examplerespec Gizmo/name",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dname"
+  },
+  {
+    "loc": "00029:33-37",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec Gizmo/name",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dname",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00030:14-18",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "idl examplerespec Gizmo/poke()",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
+  },
+  {
+    "loc": "00030:14-18",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec Gizmo/poke()",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00030:28-40",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "idl examplerespec GizmoOptions",
+    "sym": "SPEC_examplerespec_dom@2Dgizmooptions"
+  },
+  {
+    "loc": "00030:28-40",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec GizmoOptions",
+    "sym": "SPEC_examplerespec_dom@2Dgizmooptions",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00031:14-18",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "idl examplerespec Gizmo/poke",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke@21overload@2D1"
+  },
+  {
+    "loc": "00031:14-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Gizmo/poke",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke@21overload@2D1",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00031:14-18",
+    "structured": 1,
+    "pretty": "examplerespec Gizmo/poke",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke@21overload@2D1",
+    "kind": "method",
+    "implKind": "spec",
+    "parentsym": "SPEC_examplerespec_dom@2Dgizmo",
+    "rendered": "https://example.github.io/respec/#dom-gizmo-poke!overload-1"
+  },
+  {
+    "loc": "00033:13-25",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "idl examplerespec GizmoOptions",
+    "sym": "SPEC_examplerespec_dom@2Dgizmooptions"
+  },
+  {
+    "loc": "00033:13-25",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec GizmoOptions",
+    "sym": "SPEC_examplerespec_dom@2Dgizmooptions",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00033:13-25",
+    "structured": 1,
+    "pretty": "examplerespec GizmoOptions",
+    "sym": "SPEC_examplerespec_dom@2Dgizmooptions",
+    "kind": "class",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/respec/#dom-gizmooptions"
+  },
+  {
+    "loc": "00034:12-17",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "idl examplerespec GizmoOptions/force",
+    "sym": "SPEC_examplerespec_dom@2Dgizmooptions@2Dforce"
+  },
+  {
+    "loc": "00034:12-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec GizmoOptions/force",
+    "sym": "SPEC_examplerespec_dom@2Dgizmooptions@2Dforce",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00034:12-17",
+    "structured": 1,
+    "pretty": "examplerespec GizmoOptions/force",
+    "sym": "SPEC_examplerespec_dom@2Dgizmooptions@2Dforce",
+    "kind": "field",
+    "implKind": "spec",
+    "parentsym": "SPEC_examplerespec_dom@2Dgizmooptions",
+    "rendered": "https://example.github.io/respec/#dom-gizmooptions-force"
+  },
+  {
+    "loc": "00036:7-17",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "idl examplerespec GizmoState",
+    "sym": "SPEC_examplerespec_dom@2Dgizmostate"
+  },
+  {
+    "loc": "00036:7-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec GizmoState",
+    "sym": "SPEC_examplerespec_dom@2Dgizmostate",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00036:7-17",
+    "structured": 1,
+    "pretty": "examplerespec GizmoState",
+    "sym": "SPEC_examplerespec_dom@2Dgizmostate",
+    "kind": "enum",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/respec/#dom-gizmostate"
+  },
+  {
+    "loc": "00036:20-22",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "idl examplerespec GizmoState/",
+    "sym": "SPEC_examplerespec_dom@2Dgizmostate@2Dthe@2Dempty@2Dstring"
+  },
+  {
+    "loc": "00036:20-22",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec GizmoState/",
+    "sym": "SPEC_examplerespec_dom@2Dgizmostate@2Dthe@2Dempty@2Dstring",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00036:20-22",
+    "structured": 1,
+    "pretty": "examplerespec GizmoState/",
+    "sym": "SPEC_examplerespec_dom@2Dgizmostate@2Dthe@2Dempty@2Dstring",
+    "kind": "enumConstant",
+    "implKind": "spec",
+    "parentsym": "SPEC_examplerespec_dom@2Dgizmostate",
+    "rendered": "https://example.github.io/respec/#dom-gizmostate-the-empty-string"
+  },
+  {
+    "loc": "00036:25-30",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "idl examplerespec GizmoState/poked",
+    "sym": "SPEC_examplerespec_dom@2Dgizmostate@2Dpoked"
+  },
+  {
+    "loc": "00036:25-30",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec GizmoState/poked",
+    "sym": "SPEC_examplerespec_dom@2Dgizmostate@2Dpoked",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00036:25-30",
+    "structured": 1,
+    "pretty": "examplerespec GizmoState/poked",
+    "sym": "SPEC_examplerespec_dom@2Dgizmostate@2Dpoked",
+    "kind": "enumConstant",
+    "implKind": "spec",
+    "parentsym": "SPEC_examplerespec_dom@2Dgizmostate",
+    "rendered": "https://example.github.io/respec/#dom-gizmostate-poked"
+  },
+  {
+    "loc": "00038:23-28",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "idl examplerespec Gizmo",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo"
+  },
+  {
+    "loc": "00038:23-28",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec Gizmo",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00038:29-34",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "idl examplerespec Navigator/gizmo",
+    "sym": "SPEC_examplerespec_dom@2Dnavigator@2Dgizmo"
+  },
+  {
+    "loc": "00038:29-34",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Navigator/gizmo",
+    "sym": "SPEC_examplerespec_dom@2Dnavigator@2Dgizmo",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00038:29-34",
+    "structured": 1,
+    "pretty": "examplerespec Navigator/gizmo",
+    "sym": "SPEC_examplerespec_dom@2Dnavigator@2Dgizmo",
+    "kind": "field",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/respec/#dom-navigator-gizmo"
+  },
+  {
+    "loc": "00041:14-19",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn examplerespec Gizmo",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo"
+  },
+  {
+    "loc": "00041:14-19",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Gizmo",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00041:14-19",
+    "structured": 1,
+    "pretty": "examplerespec Gizmo",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo",
+    "kind": "class",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/respec/#dom-gizmo"
+  },
+  {
+    "loc": "00041:43-56",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn examplerespec Gizmo/constructor()",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dconstructor"
+  },
+  {
+    "loc": "00041:43-56",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Gizmo/constructor()",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dconstructor",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00041:43-56",
+    "structured": 1,
+    "pretty": "examplerespec Gizmo/constructor()",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dconstructor",
+    "kind": "method",
+    "implKind": "spec",
+    "parentsym": "SPEC_examplerespec_dom@2Dgizmo",
+    "rendered": "https://example.github.io/respec/#dom-gizmo-constructor"
+  },
+  {
+    "loc": "00042:15-21",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn examplerespec Gizmo/name",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dname"
+  },
+  {
+    "loc": "00042:15-21",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Gizmo/name",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dname",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00042:15-21",
+    "structured": 1,
+    "pretty": "examplerespec Gizmo/name",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dname",
+    "kind": "field",
+    "implKind": "spec",
+    "parentsym": "SPEC_examplerespec_dom@2Dgizmo",
+    "rendered": "https://example.github.io/respec/#dom-gizmo-name"
+  },
+  {
+    "loc": "00042:45-60",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference examplerespec gizmo/state",
+    "sym": "SPEC_examplerespec_dfn@2Dstate"
+  },
+  {
+    "loc": "00042:45-60",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec gizmo/state",
+    "sym": "SPEC_examplerespec_dfn@2Dstate",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00043:2-11",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference examplerespec gizmo",
+    "sym": "SPEC_examplerespec_dfn@2Dgizmo"
+  },
+  {
+    "loc": "00043:2-11",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec gizmo",
+    "sym": "SPEC_examplerespec_dfn@2Dgizmo",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00044:14-20",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn examplerespec Gizmo/poke()",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
+  },
+  {
+    "loc": "00044:14-20",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Gizmo/poke()",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00044:14-20",
+    "structured": 1,
+    "pretty": "examplerespec Gizmo/poke()",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke",
+    "kind": "method",
+    "implKind": "spec",
+    "parentsym": "SPEC_examplerespec_dom@2Dgizmo",
+    "rendered": "https://example.github.io/respec/#dom-gizmo-poke"
+  },
+  {
+    "loc": "00046:29-45",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference examplerespec GizmoOptions",
+    "sym": "SPEC_examplerespec_dom@2Dgizmooptions"
+  },
+  {
+    "loc": "00046:29-45",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec GizmoOptions",
+    "sym": "SPEC_examplerespec_dom@2Dgizmooptions",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00047:21-43",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference examplerespec GizmoOptions/force",
+    "sym": "SPEC_examplerespec_dom@2Dgizmooptions@2Dforce"
+  },
+  {
+    "loc": "00047:21-43",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec GizmoOptions/force",
+    "sym": "SPEC_examplerespec_dom@2Dgizmooptions@2Dforce",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00047:48-52",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference examplerespec poke",
+    "sym": "SPEC_examplerespec_dfn@2Dpoke"
+  },
+  {
+    "loc": "00047:48-52",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec poke",
+    "sym": "SPEC_examplerespec_dfn@2Dpoke",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00047:86-92",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference examplerespec gizmo",
+    "sym": "SPEC_examplerespec_dfn@2Dgizmo"
+  },
+  {
+    "loc": "00047:86-92",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec gizmo",
+    "sym": "SPEC_examplerespec_dfn@2Dgizmo",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00048:48-52",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference DOM#concept-node",
+    "sym": "SPEC_dom_concept@2Dnode"
+  },
+  {
+    "loc": "00048:48-52",
+    "target": 1,
+    "kind": "use",
+    "pretty": "DOM#concept-node",
+    "sym": "SPEC_dom_concept@2Dnode",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00048:59-73",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference examplerespec Gizmo/name",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dname"
+  },
+  {
+    "loc": "00048:59-73",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec Gizmo/name",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dname",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00048:83-100",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference examplerespec GizmoState/",
+    "sym": "SPEC_examplerespec_dom@2Dgizmostate@2Dthe@2Dempty@2Dstring"
+  },
+  {
+    "loc": "00048:83-100",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec GizmoState/",
+    "sym": "SPEC_examplerespec_dom@2Dgizmostate@2Dthe@2Dempty@2Dstring",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00051:0-9",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplerespec Poking",
+    "sym": "SPEC_examplerespec_poking"
+  },
+  {
+    "loc": "00051:0-9",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Poking",
+    "sym": "SPEC_examplerespec_poking",
+    "context": "The Gizmo interface",
+    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+  },
+  {
+    "loc": "00052:6-12",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplerespec Poking",
+    "sym": "SPEC_examplerespec_x3@2Dpoking"
+  },
+  {
+    "loc": "00052:6-12",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Poking",
+    "sym": "SPEC_examplerespec_x3@2Dpoking",
+    "context": "Poking",
+    "contextsym": "SPEC_examplerespec_poking"
+  },
+  {
+    "loc": "00053:13-17",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "dfn examplerespec poke",
+    "sym": "SPEC_examplerespec_dfn@2Dpoke"
+  },
+  {
+    "loc": "00053:13-17",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec poke",
+    "sym": "SPEC_examplerespec_dfn@2Dpoke",
+    "context": "Poking",
+    "contextsym": "SPEC_examplerespec_poking"
+  },
+  {
+    "loc": "00053:13-17",
+    "structured": 1,
+    "pretty": "examplerespec poke",
+    "sym": "SPEC_examplerespec_dfn@2Dpoke",
+    "kind": "specDfn",
+    "implKind": "spec",
+    "rendered": "https://example.github.io/respec/#dfn-poke"
+  },
+  {
+    "loc": "00053:26-35",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference examplerespec gizmo",
+    "sym": "SPEC_examplerespec_dfn@2Dgizmo"
+  },
+  {
+    "loc": "00053:26-35",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec gizmo",
+    "sym": "SPEC_examplerespec_dfn@2Dgizmo",
+    "context": "Poking",
+    "contextsym": "SPEC_examplerespec_poking"
+  },
+  {
+    "loc": "00053:42-58",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference examplerespec Gizmo/poke()",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
+  },
+  {
+    "loc": "00053:42-58",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec Gizmo/poke()",
+    "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke",
+    "context": "Poking",
+    "contextsym": "SPEC_examplerespec_poking"
+  },
+  {
+    "loc": "00055:0-26",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplerespec Conformance",
+    "sym": "SPEC_examplerespec_conformance"
+  },
+  {
+    "loc": "00055:0-26",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Conformance",
+    "sym": "SPEC_examplerespec_conformance",
+    "context": "Poking",
+    "contextsym": "SPEC_examplerespec_poking"
+  },
+  {
+    "loc": "00056:0-26",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplerespec Acknowledgements",
+    "sym": "SPEC_examplerespec_acknowledgements"
+  },
+  {
+    "loc": "00056:0-26",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Acknowledgements",
+    "sym": "SPEC_examplerespec_acknowledgements",
+    "context": "Poking",
+    "contextsym": "SPEC_examplerespec_poking"
+  },
+  {
+    "loc": "00057:6-22",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section examplerespec Acknowledgements",
+    "sym": "SPEC_examplerespec_a@2Dacknowledgements"
+  },
+  {
+    "loc": "00057:6-22",
+    "target": 1,
+    "kind": "def",
+    "pretty": "examplerespec Acknowledgements",
+    "sym": "SPEC_examplerespec_a@2Dacknowledgements",
+    "context": "Acknowledgements",
+    "contextsym": "SPEC_examplerespec_acknowledgements"
+  }
+]

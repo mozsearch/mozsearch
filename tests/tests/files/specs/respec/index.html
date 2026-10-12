@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!-- A small spec in ReSpec's format, for its analysis (see
+     tools/src/spec_analyze/respec.rs and tests/tests/specs.toml). -->
+<title>Example ReSpec</title>
+<script class="remove">
+var respecConfig = { shortName: "example-respec", specStatus: "ED" };
+</script>
+</head>
+<body>
+<h1 id="title">Example ReSpec</h1>
+<h2 id="subtitle">An example</h2>
+<section id="abstract"><p>A small spec.</p></section>
+<section id="sotd"><p>Its status.</p></section>
+<section class="informative">
+  <h2>Introduction</h2>
+  <p>A <dfn>gizmo</dfn> has a <dfn data-dfn-for="gizmo">state</dfn>, see [[DOM]].</p>
+  <p>Its <dfn data-abbr>gizmo state machine</dfn> pokes it.</p>
+  <h3>Goals</h3>
+  <p>Poking [=gizmos=].</p>
+</section>
+<section data-dfn-for="Gizmo">
+  <h2>The <code>Gizmo</code> interface</h2>
+  <pre class="idl">
+  [Exposed=Window]
+  interface Gizmo {
+    constructor(DOMString name);
+    readonly attribute DOMString name;
+    undefined poke(optional GizmoOptions options = {});
+    undefined poke(long times);
+  };
+  dictionary GizmoOptions {
+    boolean force = false;
+  };
+  enum GizmoState { "", "poked" };
+  partial interface Navigator {
+    readonly attribute Gizmo gizmo;
+  };
+  </pre>
+  <p>The <dfn>Gizmo</dfn> interface's <dfn>constructor()</dfn> steps are to
+  set its <dfn>`name`</dfn> attribute to the [=gizmo/state=] of the
+  [=gizmo=].</p>
+  <p>The <dfn>poke()</dfn> method steps are:</p>
+  <ol>
+    <li>Let |options| be the {{GizmoOptions}}.</li>
+    <li>If |options|.{{GizmoOptions/force}}, <a>poke</a> it; see <a href="#dfn-gizmo">gizmos</a>.</li>
+    <li>Set the <a data-cite="DOM#concept-node">node</a>'s {{Gizmo/name}}, and its {{GizmoState/""}}.</li>
+  </ol>
+</section>
+<section>
+  <h2>Poking</h2>
+  <p>To <dfn>poke</dfn> a [=gizmo=], call {{Gizmo/poke()}}.</p>
+</section>
+<section id="conformance"></section>
+<section class="appendix">
+  <h2>Acknowledgements</h2>
+  <p>Thanks.</p>
+</section>
+</body>
+</html>

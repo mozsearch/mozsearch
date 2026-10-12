@@ -34,7 +34,7 @@ use std::time::Instant;
 
 use tools::semantic_analyzer::{file_def_record, write_records};
 use tools::spec_analyze::citations::Defined;
-use tools::spec_analyze::{SpecFormat, SpecsConfig, bikeshed, citations, ecmarkup, wattsi};
+use tools::spec_analyze::{SpecFormat, SpecsConfig, bikeshed, citations, ecmarkup, respec, wattsi};
 
 fn main() {
     let mut args: Vec<String> = std::env::args().collect();
@@ -200,6 +200,23 @@ fn main() {
                     stats.nonterminals,
                     stats.unresolved,
                     stats.biblio_references,
+                    started.elapsed().as_secs_f64()
+                );
+            }
+            SpecFormat::Respec => {
+                let (records, stats) = respec::analyze(&source, spec.shortname(), &config);
+                add_defined(&records);
+                write_records(analysis_root, &path, records);
+                spec_files.insert(path.clone());
+                println!(
+                    "{}: {} sections, {} dfns, {} IDL definitions without dfns, {} references ({} unresolved), {} to other specs' anchors, in {:.2}s",
+                    path,
+                    stats.sections,
+                    stats.dfns,
+                    stats.idl,
+                    stats.references,
+                    stats.unresolved,
+                    stats.external,
                     started.elapsed().as_secs_f64()
                 );
             }

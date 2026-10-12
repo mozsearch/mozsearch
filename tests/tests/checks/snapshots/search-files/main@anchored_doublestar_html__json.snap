@@ -147,6 +147,20 @@ input_file: inputs/search-files/anchored_doublestar_html__json
       }
     },
     {
+      "path": "specs/respec/index.html",
+      "concise": {
+        "path_kind": "normal",
+        "is_dir": false,
+        "file_size": 1954,
+        "bugzilla_component": null,
+        "subsystem": null,
+        "tags": [],
+        "description": "Example ReSpec",
+        "info": {},
+        "coverage": null
+      }
+    },
+    {
       "path": "test_DOMWindowCreated_chromeonly.html",
       "concise": {
         "path_kind": "normal",

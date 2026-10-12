@@ -186,6 +186,22 @@ input_file: inputs/crossref/specs/terms__json
       "crossref_info": {
         "uses": [
           {
+            "path": "specs/respec/index.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 48,
+                "bounds": [
+                  44,
+                  48
+                ],
+                "line": "<li>Set the <a data-cite=\"DOM#concept-node\">node</a>'s {{Gizmo/name}}, and its {{GizmoState/\"\"}}.</l",
+                "context": "The Gizmo interface",
+                "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+              }
+            ]
+          },
+          {
             "path": "specs/source",
             "path_kind": "normal",
             "lines": [

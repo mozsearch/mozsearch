@@ -1,6 +1,6 @@
 # The test tree's web specs (see tools/src/spec_analyze and
-# scripts/spec-analyze.sh): its Wattsi, ecmarkup and Bikeshed fixtures, and DOM
-# and HTML, which they refer to.
+# scripts/spec-analyze.sh): its Wattsi, ecmarkup, Bikeshed and ReSpec fixtures,
+# and DOM and HTML, which they refer to.
 
 [[spec]]
 name = "example"
@@ -29,6 +29,12 @@ source = "example.bs"
 index = "example-bs-index.json"
 output = "example-bs-output.html"
 rendered = "https://example.github.io/bs/"
+
+[[spec]]
+name = "examplerespec"
+path = "specs/respec"
+format = "respec"
+rendered = "https://example.github.io/respec/"
 
 [[spec]]
 name = "html"

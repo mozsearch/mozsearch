@@ -75,7 +75,7 @@ pub fn render(
     match spec.format? {
         SpecFormat::Wattsi => wattsi::render(src, path, spec, config, links, page),
         SpecFormat::Ecmarkup => ecmarkup::render(path, spec, config, links, read, page),
-        SpecFormat::Bikeshed => None,
+        SpecFormat::Bikeshed | SpecFormat::Respec => None,
     }
 }
 
@@ -100,6 +100,7 @@ pub fn render_algorithm(
         SpecFormat::Bikeshed => {
             bikeshed::render_algorithm(output?, src, path, spec, config, links, sym)
         }
+        SpecFormat::Respec => None,
     }
 }
 
@@ -115,7 +116,7 @@ pub fn anchor_page(
     match spec.format? {
         SpecFormat::Wattsi => wattsi::anchor_page(src, anchor),
         SpecFormat::Ecmarkup => ecmarkup::anchor_page(path, spec, config, read, anchor),
-        SpecFormat::Bikeshed => None,
+        SpecFormat::Bikeshed | SpecFormat::Respec => None,
     }
 }
 
@@ -131,7 +132,7 @@ pub fn offset_page(
     match spec.format? {
         SpecFormat::Wattsi => wattsi::offset_page(src, offset),
         SpecFormat::Ecmarkup => ecmarkup::offset_page(path, spec, config, read, offset),
-        SpecFormat::Bikeshed => None,
+        SpecFormat::Bikeshed | SpecFormat::Respec => None,
     }
 }
 

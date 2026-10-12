@@ -161,8 +161,9 @@ index of the field starting from 0.
 
  * Web specs' terms (see `tools/src/spec_analyze`, which `spec-analyze` runs on
    the specs in a tree's `specs.toml`: the HTML Standard's Wattsi source,
-   ecmarkup specs like ECMA-262, and Bikeshed specs, with mozsearch's fork of
-   Bikeshed's `bikeshed index`, and the files they include) use `SPEC_`
+   ecmarkup specs like ECMA-262, Bikeshed specs, with mozsearch's fork of
+   Bikeshed's `bikeshed index`, and the files they include, and ReSpec specs
+   like W3C's WebRTC, with the ids ReSpec gives them in the browser) use `SPEC_`
    followed by the spec's shortname, `_`, and the term's anchor in the rendered
    spec (its id), escaped like `FILE_` symbols (but for every byte of non-ASCII
    characters), ex: `SPEC_html_navigate` for

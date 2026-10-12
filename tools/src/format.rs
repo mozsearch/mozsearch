@@ -2390,6 +2390,7 @@ pub fn format_rendered(
             Some(crate::spec_analyze::SpecFormat::Wattsi) => "Wattsi",
             Some(crate::spec_analyze::SpecFormat::Ecmarkup) => "ecmarkup",
             Some(crate::spec_analyze::SpecFormat::Bikeshed) => "Bikeshed",
+            Some(crate::spec_analyze::SpecFormat::Respec) => "ReSpec",
             None => "Sphinx",
         },
         if token_blame.is_some() {

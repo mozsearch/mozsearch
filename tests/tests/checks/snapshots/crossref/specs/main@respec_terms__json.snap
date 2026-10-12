@@ -1,0 +1,256 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/specs/respec_terms__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/respec/index.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 30,
+                "bounds": [
+                  10,
+                  14
+                ],
+                "line": "undefined poke(optional GizmoOptions options = {});",
+                "context": "The Gizmo interface",
+                "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+              },
+              {
+                "lno": 53,
+                "bounds": [
+                  40,
+                  56
+                ],
+                "line": "<p>To <dfn>poke</dfn> a [=gizmo=], call {{Gizmo/poke()}}.</p>",
+                "context": "Poking",
+                "contextsym": "SPEC_examplerespec_poking"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "specs/respec/index.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 44,
+                "bounds": [
+                  12,
+                  18
+                ],
+                "line": "<p>The <dfn>poke()</dfn> method steps are:</p>",
+                "context": "The Gizmo interface",
+                "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "examplerespec Gizmo/poke()",
+          "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke",
+          "type_pretty": null,
+          "kind": "method",
+          "subsystem": null,
+          "parentsym": "SPEC_examplerespec_dom@2Dgizmo",
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.github.io/respec/#dom-gizmo-poke"
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "SPEC_examplerespec_dfn@2Dgizmo",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/respec/index.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 21,
+                "bounds": [
+                  10,
+                  20
+                ],
+                "line": "<p>Poking [=gizmos=].</p>",
+                "context": "Goals",
+                "contextsym": "SPEC_examplerespec_goals"
+              },
+              {
+                "lno": 43,
+                "bounds": [
+                  0,
+                  9
+                ],
+                "line": "[=gizmo=].</p>",
+                "context": "The Gizmo interface",
+                "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+              },
+              {
+                "lno": 47,
+                "bounds": [
+                  82,
+                  88
+                ],
+                "line": "<li>If |options|.{{GizmoOptions/force}}, <a>poke</a> it; see <a href=\"#dfn-gizmo\">gizmos</a>.</li>",
+                "context": "The Gizmo interface",
+                "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+              },
+              {
+                "lno": 53,
+                "bounds": [
+                  24,
+                  33
+                ],
+                "line": "<p>To <dfn>poke</dfn> a [=gizmo=], call {{Gizmo/poke()}}.</p>",
+                "context": "Poking",
+                "contextsym": "SPEC_examplerespec_poking"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "specs/respec/index.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 18,
+                "bounds": [
+                  10,
+                  15
+                ],
+                "line": "<p>A <dfn>gizmo</dfn> has a <dfn data-dfn-for=\"gizmo\">state</dfn>, see [[DOM]].</p>",
+                "context": "Introduction",
+                "contextsym": "SPEC_examplerespec_introduction"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "examplerespec gizmo",
+          "sym": "SPEC_examplerespec_dfn@2Dgizmo",
+          "type_pretty": null,
+          "kind": "specDfn",
+          "subsystem": null,
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.github.io/respec/#dfn-gizmo"
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    },
+    {
+      "symbol": "SPEC_examplerespec_dom@2Dgizmooptions",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/respec/index.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 30,
+                "bounds": [
+                  24,
+                  36
+                ],
+                "line": "undefined poke(optional GizmoOptions options = {});",
+                "context": "The Gizmo interface",
+                "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+              },
+              {
+                "lno": 46,
+                "bounds": [
+                  25,
+                  41
+                ],
+                "line": "<li>Let |options| be the {{GizmoOptions}}.</li>",
+                "context": "The Gizmo interface",
+                "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "specs/respec/index.html",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 33,
+                "bounds": [
+                  11,
+                  23
+                ],
+                "line": "dictionary GizmoOptions {",
+                "context": "The Gizmo interface",
+                "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "examplerespec GizmoOptions",
+          "sym": "SPEC_examplerespec_dom@2Dgizmooptions",
+          "type_pretty": null,
+          "kind": "class",
+          "subsystem": null,
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.github.io/respec/#dom-gizmooptions"
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

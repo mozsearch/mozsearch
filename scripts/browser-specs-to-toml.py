@@ -3,12 +3,13 @@
 tools/src/spec_forest.rs and tools/src/spec_analyze) from browser-specs' index
 (https://github.com/w3c/browser-specs) and a file of overrides.
 
-Usage: browser-specs-to-toml.py OVERRIDES.toml OUTPUT.toml [--index INDEX.json]
+Usage: browser-specs-to-toml.py OVERRIDES.toml OUTPUT.toml [--index INDEX.json] [--respec]
 
 The specs are browser-specs' whose URLs are on the hosts in HOSTS, in the
 formats spec-analyze analyzes (see `spec_format`): Bikeshed (`.bs` and
 `.src.html` sources), ecmarkup (tc39.es's specs), and Wattsi (the HTML
-Standard).  Each upstream repository is a `[[spec]]` with a `url` (a
+Standard), and with `--respec`, ReSpec (other `.html` sources, ex: W3C's
+WebRTC).  Each upstream repository is a `[[spec]]` with a `url` (a
 directory of the forest, named by OVERRIDES' `directories`, else the
 repository's name, lowercased), and a repository with several specs (ex:
 csswg-drafts) has a `[[spec]]` without a `url` for each, by its shortname,
@@ -42,9 +43,17 @@ HOSTS = re.compile(
     r"|wicg\.github\.io|tc39\.es)/"
 )
 
+# Whether to include ReSpec specs (`--respec`).
+RESPEC = False
+
 # Each format's default source, which specs.toml leaves out (see
 # `SpecEntry::source_path`).
-DEFAULT_SOURCES = {"wattsi": "source", "ecmarkup": "spec.html", "bikeshed": "index.bs"}
+DEFAULT_SOURCES = {
+    "wattsi": "source",
+    "ecmarkup": "spec.html",
+    "bikeshed": "index.bs",
+    "respec": "index.html",
+}
 
 
 def spec_url(spec):
@@ -60,7 +69,10 @@ def spec_format(spec):
         return "wattsi"
     if source.endswith((".bs", ".src.html")):
         return "bikeshed"
-    # (ReSpec specs, for now.)
+    # (Other HTML sources are ReSpec's, which are only included with --respec,
+    # for now; see tools/src/spec_analyze/respec.rs.)
+    if source.endswith(".html") and RESPEC:
+        return "respec"
     return None
 
 
@@ -87,7 +99,10 @@ def main():
     parser.add_argument("overrides")
     parser.add_argument("output")
     parser.add_argument("--index", default=INDEX_URL, help="browser-specs' index.json (a path or URL)")
+    parser.add_argument("--respec", action="store_true", help="Include ReSpec specs (format respec)")
     args = parser.parse_args()
+    global RESPEC
+    RESPEC = args.respec
 
     with open(args.overrides, "rb") as f:
         overrides = tomllib.load(f)

@@ -12,7 +12,9 @@
 //!   link as ecmarkup does (see `ecmarkup`);
 //! - `bikeshed`: Bikeshed's `.bs` sources, whose definitions and references
 //!   Bikeshed itself finds, with their positions (`bikeshed index`, see
-//!   `bikeshed`).
+//!   `bikeshed`);
+//! - `respec`: ReSpec's `index.html`s (ex: W3C's WebRTC), whose ids we give
+//!   as ReSpec does in the browser (see `respec`).
 //!
 //! Records' contexts are the spec's sections and algorithms (as the spec
 //! tokenizer's, see `spec_tokenizer::html_contexts`), and within an
@@ -29,7 +31,9 @@ pub mod bikeshed;
 pub mod citations;
 pub mod ecmarkup;
 pub mod markup;
+pub mod respec;
 pub mod wattsi;
+pub mod webidl_defs;
 
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -60,6 +64,7 @@ pub enum SpecFormat {
     Wattsi,
     Ecmarkup,
     Bikeshed,
+    Respec,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -76,7 +81,8 @@ pub struct SpecEntry {
     #[serde(default)]
     pub format: Option<SpecFormat>,
     /// The spec's source, in its directory (default: `source` for Wattsi,
-    /// `spec.html` for ecmarkup, and `index.bs` for Bikeshed).
+    /// `spec.html` for ecmarkup, `index.bs` for Bikeshed, and `index.html`
+    /// for ReSpec).
     #[serde(default)]
     pub source: Option<String>,
     /// For Bikeshed, the spec's index (`bikeshed index --json`'s output) to
@@ -131,6 +137,7 @@ impl SpecEntry {
             (SpecFormat::Wattsi, None) => "source",
             (SpecFormat::Ecmarkup, None) => "spec.html",
             (SpecFormat::Bikeshed, None) => "index.bs",
+            (SpecFormat::Respec, None) => "index.html",
         };
         Some(match self.dir() {
             "" => source.to_string(),
