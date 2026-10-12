@@ -79,6 +79,14 @@ esac
 # EBS as we complete.  However, on the web-server we will be mounting /index-ebs
 # at /index to provide consistency of absolute paths because we use git-worktree.
 $MOZSEARCH_PATH/infrastructure/indexer-run.sh $CONFIG_REPO_PATH /index /index-ebs
+case "$CHANNEL" in
+release* )
+    # And what indexing updated which the next indexing reuses (ex: caches).
+    $MOZSEARCH_PATH/infrastructure/indexer-upload.sh $CONFIG_REPO_PATH /index upload-after-index
+    ;;
+* )
+    ;;
+esac
 
 date
 echo "Indexing complete"
