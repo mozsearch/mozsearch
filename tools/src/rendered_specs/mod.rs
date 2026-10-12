@@ -28,6 +28,21 @@ pub trait SpecLinks {
     /// The URL of the rendered view of the source at `path` (without a
     /// page; see `page_url`).
     fn rendered_url(&self, path: &str) -> String;
+    /// The URL of the view of the algorithm `sym` defines beside the code
+    /// citing its steps (see `format::format_algorithm`), if there's one.
+    fn algorithm_url(&self, _sym: &str) -> Option<String> {
+        None
+    }
+}
+
+/// A link to the view of an algorithm beside the code citing it.
+pub fn algorithm_link(out: &mut HtmlRenderer, url: &str) {
+    write!(
+        out.w.html,
+        r#"<a class="sp-algorithm-link" href="{}" title="Show the algorithm beside the code citing its steps">⇄</a>"#,
+        escape(url)
+    )
+    .unwrap();
 }
 
 /// Whether specs of a format have rendered views.
@@ -61,6 +76,30 @@ pub fn render(
         SpecFormat::Wattsi => wattsi::render(src, path, spec, config, links, page),
         SpecFormat::Ecmarkup => ecmarkup::render(path, spec, config, links, read, page),
         SpecFormat::Bikeshed => None,
+    }
+}
+
+/// Render the algorithm which defines `sym` in the source `src` of `spec`
+/// (see `render`), beside the code citing its steps (see
+/// `format::format_algorithm`), given Bikeshed's `output`, for a Bikeshed
+/// spec.
+#[allow(clippy::too_many_arguments)]
+pub fn render_algorithm(
+    spec: &SpecEntry,
+    src: &str,
+    path: &str,
+    config: &SpecsConfig,
+    links: &dyn SpecLinks,
+    read: &dyn Fn(&str) -> Option<String>,
+    output: Option<&str>,
+    sym: &str,
+) -> Option<RenderedSpec> {
+    match spec.format? {
+        SpecFormat::Wattsi => wattsi::render_algorithm(src, path, spec, config, links, sym),
+        SpecFormat::Ecmarkup => ecmarkup::render_algorithm(path, spec, config, links, read, sym),
+        SpecFormat::Bikeshed => {
+            bikeshed::render_algorithm(output?, src, path, spec, config, links, sym)
+        }
     }
 }
 
@@ -179,6 +218,12 @@ pub struct RenderedSpec {
     pub page: usize,
     /// The bytes of the source that the page covers.
     pub range: Range<usize>,
+    /// For an algorithm, its steps' numbers (ex: "12.6", or ecmarkup's
+    /// "3.a"), and where they start in the file.
+    pub steps: Vec<(String, usize)>,
+    /// The file whose bytes the blocks and `range` are, if it's not the
+    /// source (ex: for an ecmarkup algorithm, the file it imports with it).
+    pub file: Option<String>,
 }
 
 impl Page {

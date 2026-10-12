@@ -258,6 +258,35 @@ pub fn spec_symbol(shortname: &str, anchor: &str) -> String {
     out
 }
 
+/// The anchor of a symbol of the spec with `shortname` (see `spec_symbol`),
+/// if it's one of the spec's.
+pub fn spec_anchor(shortname: &str, sym: &str) -> Option<String> {
+    let mut prefix = String::from("SPEC_");
+    escape_into(shortname, &mut prefix);
+    prefix.push('_');
+    let escaped = sym.strip_prefix(&prefix)?;
+    let bytes = escaped.as_bytes();
+    let mut out = vec![];
+    let mut i = 0;
+    while i < bytes.len() {
+        let hex = (bytes[i] == b'@')
+            .then(|| escaped.get(i + 1..i + 3))
+            .flatten()
+            .and_then(|hex| u8::from_str_radix(hex, 16).ok());
+        match hex {
+            Some(byte) => {
+                out.push(byte);
+                i += 3;
+            }
+            None => {
+                out.push(bytes[i]);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8(out).ok()
+}
+
 fn escape_into(text: &str, out: &mut String) {
     for &b in text.as_bytes() {
         if b.is_ascii_alphanumeric() || b == b'_' || b == b'/' {
@@ -687,6 +716,17 @@ mod tests {
             "SPEC_service@2Dworkers_dfn@2Djob@27s@20queue"
         );
         assert_eq!(spec_symbol("html", "é"), "SPEC_html_@C3@A9");
+        for (shortname, anchor) in [
+            ("html", "navigate"),
+            ("service-workers", "dfn-job's queue"),
+            ("html", "é"),
+        ] {
+            assert_eq!(
+                spec_anchor(shortname, &spec_symbol(shortname, anchor)).as_deref(),
+                Some(anchor)
+            );
+        }
+        assert_eq!(spec_anchor("dom", "SPEC_html_navigate"), None);
     }
 
     #[test]

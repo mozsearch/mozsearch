@@ -1949,6 +1949,60 @@ span[data-symbols].selected {
   font-style: italic;
   opacity: 0.8;
 }
+/* An algorithm beside the code citing it and its steps (`/algorithm/`
+   pages; see `format::format_algorithm`), whose citations the page's script
+   places next to their steps. */
+.rendered-spec .sp-algorithm-link {
+  margin-left: 0.25em;
+  font-size: 0.85em;
+  text-decoration: none;
+}
+.sp-algorithm-view {
+  display: flex;
+  gap: 1.5em;
+  align-items: flex-start;
+}
+.sp-algorithm-view > .rendered-doc {
+  flex: 1 1 55%;
+  min-width: 0;
+}
+.sp-citations {
+  position: relative;
+  flex: 1 1 45%;
+  min-width: 0;
+  margin-top: 0.5rem;
+  margin-right: 1em;
+}
+.sp-citation {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-left: 3px solid var(--link-color);
+  padding: 0.2em 0.5em;
+  background-color: var(--page-background);
+  font-size: 13px;
+}
+.sp-citation-head {
+  margin-bottom: 0.2em;
+}
+.sp-citation-fn {
+  font-weight: bold;
+}
+.sp-citation-step {
+  opacity: 0.75;
+}
+.sp-citation-unknown {
+  color: #e15759;
+}
+.sp-citation-code {
+  margin: 0;
+  overflow-x: auto;
+  font-size: 12px;
+}
+.sp-citations-none {
+  font-style: italic;
+  opacity: 0.75;
+}
 .sp-pages {
   display: flex;
   gap: 1.5em;

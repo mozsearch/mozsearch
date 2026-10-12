@@ -146,3 +146,35 @@ add_task(async function test_RenderedBikeshed() {
   is(frame.contentDocument.querySelector("#panel-rendered-view")?.getAttribute("href"), SPEC,
      "The source listing links to the rendered view");
 });
+
+add_task(async function test_AlgorithmView() {
+  // The example spec's "poke" algorithm beside the code citing it and its
+  // steps (tests/tests/files/spec_citations.cpp).
+  const PATH = "/tests/algorithm/SPEC_example_concept@2Dwidget@2Dpoke";
+  await TestUtils.loadPath(PATH);
+
+  ok(doc().classList.contains("sp-algorithm"), "The page is an algorithm's view");
+  ok(doc().textContent.includes("To poke"), "The algorithm is on the left");
+  ok(!doc().querySelector("#infrastructure"), "and only it");
+  const cards = [...frame.contentDocument.querySelectorAll(".sp-citation")];
+  is(cards.map(card => card.dataset.step).join(), ",1,2",
+     "The code citing the algorithm, and its steps, is on the right, in order");
+  const step1 = cards[1];
+  ok(step1.querySelector('a[href="/tests/source/spec_citations.cpp#13"]'),
+     "A citation links to its line");
+  ok(step1.textContent.includes("aWidget.state = 1;"), "and has its code, up to the next step's");
+  ok(!step1.textContent.includes("Step 2"), "but not the next step's");
+  // (Each citation is next to its step's block, or after the citation before
+  // it, if that's further down.)
+  const block = [...doc().querySelectorAll("li .rd-block")]
+    .find(block => block.textContent.includes("Set widget"));
+  const expected = Math.max(block.getBoundingClientRect().top,
+                            cards[0].getBoundingClientRect().bottom + 6);
+  ok(Math.abs(step1.getBoundingClientRect().top - expected) < 2,
+     "A step's citations are next to it, or after the ones before it");
+
+  // The rendered spec links to the view from the algorithm's definition.
+  await TestUtils.loadPath("/tests/rendered/specs/source");
+  is(doc().querySelector("dfn#concept-widget-poke + a.sp-algorithm-link")?.getAttribute("href"),
+     PATH, "The rendered spec's algorithms link to their views");
+});

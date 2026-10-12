@@ -281,6 +281,24 @@ fn handle(
             }
         }
 
+        // The view of a spec's algorithm beside the code citing it and its
+        // steps, as `/{tree}/algorithm/{sym}` (in the spec's tree, which a
+        // linked tree's redirects to); see `format::format_algorithm`.
+        "algorithm" => {
+            if path.len() < 3 {
+                return WebResponse::not_found();
+            }
+            let sym = path[2..].join("/");
+            if let Some(url) = format::algorithm_redirect(cfg, tree_name, &sym) {
+                return WebResponse::redirect(url);
+            }
+            let mut writer = Vec::new();
+            match format::format_algorithm(cfg, tree_name, &sym, &mut writer) {
+                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                Err(err) => WebResponse::internal_error(err.to_owned()),
+            }
+        }
+
         "hgrev" => {
             if path.len() < 3 {
                 return WebResponse::not_found();

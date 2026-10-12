@@ -43,7 +43,7 @@ use crate::spec_analyze::ecmarkup::{
     emd_spans, loaded_biblios, resolve_with_imports,
 };
 use crate::spec_analyze::markup::{Doc, NodeKind};
-use crate::spec_analyze::{SpecEntry, SpecFormat, SpecsConfig};
+use crate::spec_analyze::{SpecEntry, SpecFormat, SpecsConfig, spec_symbol};
 
 /// Elements whose text isn't ecmarkdown.
 const NO_EMD: &[&str] = &[
@@ -202,6 +202,9 @@ struct Ecmarkup<'r> {
     imports: HashMap<usize, String>,
     /// The URL of the rendered source (the main file's).
     base: String,
+    /// The URLs of the views of the clauses with algorithms beside the code
+    /// citing them.
+    algorithm_urls: HashMap<usize, String>,
     spec: &'r SpecEntry,
     config: &'r SpecsConfig,
     links: &'r dyn SpecLinks,
@@ -527,6 +530,9 @@ impl Hooks for Ecmarkup<'_> {
                 write!(out.w.html, r#"<span class="sp-secno">{}</span> "#, number).unwrap();
             }
             out.children(self, node);
+            if let Some(url) = self.algorithm_urls.get(&self.headings[&node]) {
+                super::algorithm_link(out, url);
+            }
             write!(out.w.html, "</h{}>", level).unwrap();
             out.w.close_block_div(opened);
             return true;
@@ -801,6 +807,22 @@ enum View<'a> {
     Page(Option<&'a str>),
     /// An imported file, by its path.
     File(&'a str),
+    /// The clause of an algorithm (or abstract operation), by its symbol.
+    Algorithm(&'a str),
+}
+
+/// Render the clause whose symbol is `sym` (ex: an abstract operation's),
+/// with its algorithm's steps' numbers and where they start, for its view
+/// beside the code citing them (see `format::format_algorithm`).
+pub fn render_algorithm(
+    path: &str,
+    spec: &SpecEntry,
+    config: &SpecsConfig,
+    links: &dyn SpecLinks,
+    read: &dyn Fn(&str) -> Option<String>,
+    sym: &str,
+) -> Option<RenderedSpec> {
+    render_view(path, spec, config, links, read, View::Algorithm(sym))
 }
 
 fn render_view(
@@ -818,6 +840,7 @@ fn render_view(
     let clauses = clauses(&doc);
     let pages = pages(&doc, &clauses, resolved.multipage);
     // The page, the file, and the bytes of the source they have.
+    let mut algorithm = None;
     let (page, file, range) = match view {
         View::Page(name) => {
             let page = match name {
@@ -831,6 +854,18 @@ fn render_view(
         View::File(file) => {
             let file = combined.file(file).filter(|&file| file > 0)?;
             (None, file, combined.region(file)?)
+        }
+        View::Algorithm(sym) => {
+            let (&node, _) = clauses.iter().find(|(_, clause)| {
+                clause
+                    .id
+                    .as_deref()
+                    .is_some_and(|id| spec_symbol(spec.shortname(), id) == sym)
+            })?;
+            let range = doc.nodes[node].range.clone();
+            let (file, _) = combined.place(&range)?;
+            algorithm = Some(node);
+            (None, file, range)
         }
     };
 
@@ -930,12 +965,28 @@ fn render_view(
         view: range.clone(),
         imports,
         base: links.rendered_url(path),
+        algorithm_urls: HashMap::new(),
         spec,
         config,
         links,
         biblios: &biblios,
     };
 
+    let mut hooks = hooks;
+    hooks.algorithm_urls = hooks
+        .clauses
+        .iter()
+        .filter(|&(&node, _)| {
+            doc.nodes[node]
+                .children
+                .iter()
+                .any(|&child| doc.is(child, "emu-alg"))
+        })
+        .filter_map(|(&node, clause)| {
+            let url = links.algorithm_url(&spec_symbol(spec.shortname(), clause.id.as_deref()?))?;
+            Some((node, url))
+        })
+        .collect();
     let map = |range: &Range<usize>| combined.file_range(file, range);
     let mut out = HtmlRenderer::for_file(&doc, range.clone(), combined.source(file), &map);
     if page == Some(0) {
@@ -964,7 +1015,7 @@ fn render_view(
             .push(r#"<h2 class="sp-no-num">Table of contents</h2>"#);
         write_toc(&mut out, &entries);
     }
-    if page.is_none() {
+    if page.is_none() && algorithm.is_none() {
         // (An imported file's view is a part of the spec.)
         write!(
             out.w.html,
@@ -978,6 +1029,36 @@ fn render_view(
     }
     out.children(&hooks, 0);
     let mut rendered = out.w.finish();
+    if let Some(clause) = algorithm {
+        // (The steps of its algorithms, but not its clauses'.)
+        let mut steps = vec![];
+        for node in 1..n {
+            let in_clause =
+                doc.ancestors(node).find(|a| hooks.clauses.contains_key(a)) == Some(clause);
+            if !doc.is(node, "emu-alg") || !in_clause {
+                continue;
+            }
+            for (start, path, _) in algorithm_steps(&combined.text, doc.content_range(node)).starts
+            {
+                if let Some(at) = combined.file_range(file, &(start..start + 1)) {
+                    steps.push((path, at.start));
+                }
+            }
+        }
+        let clause = &hooks.clauses[&clause];
+        rendered.title = Some(match &clause.number {
+            Some(number) => format!("{} {} - {}", number, clause.title, pages[0].title),
+            None => format!("{} - {}", clause.title, pages[0].title),
+        });
+        return Some(RenderedSpec {
+            rendered,
+            page: Page::index_of(&pages, range.start),
+            pages,
+            range: combined.file_bounds(file, &range).unwrap_or(0..0),
+            steps,
+            file: (file > 0).then(|| paths[file].to_string()),
+        });
+    }
     Some(match page {
         Some(page) => {
             rendered.title = Some(match page {
@@ -991,6 +1072,8 @@ fn render_view(
                 pages,
                 page,
                 range: file_range,
+                steps: vec![],
+                file: None,
             }
         }
         None => {
@@ -1015,6 +1098,8 @@ fn render_view(
                 }],
                 page: 0,
                 range: 0..combined.source(file).len(),
+                steps: vec![],
+                file: None,
             }
         }
     })
@@ -1183,6 +1268,36 @@ title: Example
             &html[more..grammar]
         );
         assert_eq!(rendered.range, 0..SPEC.len());
+    }
+
+    #[test]
+    fn test_algorithm() {
+        let config = config();
+        let spec = &config.specs[0];
+        let read = read("{}");
+        let view = render_algorithm(
+            "es/spec.html",
+            spec,
+            &config,
+            &TestLinks,
+            &read,
+            "SPEC_ecmascript_sec@2Dtostring",
+        )
+        .unwrap();
+        let html = plain(&view.rendered.html);
+        assert!(html.contains("ToString ( <var>arg</var>"), "{}", html);
+        assert!(!html.contains("Values</h2>"), "{}", html);
+        let steps: Vec<(&str, &str)> = view
+            .steps
+            .iter()
+            .map(|(path, at)| (path.as_str(), &SPEC[*at..*at + 2]))
+            .collect();
+        assert_eq!(steps, vec![("1", "1."), ("1.a", "1."), ("2", "1.")]);
+        assert_eq!(view.file, None);
+        assert_eq!(
+            view.rendered.title.as_deref(),
+            Some("1.1 ToString ( arg ) - Example")
+        );
     }
 
     #[test]

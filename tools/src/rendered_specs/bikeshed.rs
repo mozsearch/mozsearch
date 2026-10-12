@@ -23,7 +23,8 @@ use std::ops::Range;
 
 use super::{Hooks, HtmlRenderer, Page, RenderedSpec, Role, SpecLinks, fragment, link_url, role};
 use crate::spec_analyze::markup::{Doc, NodeKind, decode_html};
-use crate::spec_analyze::{SpecEntry, SpecsConfig};
+use crate::spec_analyze::wattsi::step_path;
+use crate::spec_analyze::{SpecEntry, SpecsConfig, spec_symbol};
 
 /// How many lines a block can have at most, if the next block is far away
 /// (ex: the last in a section, before generated content).
@@ -39,6 +40,12 @@ struct Bikeshed<'r> {
     spec: &'r SpecEntry,
     config: &'r SpecsConfig,
     links: &'r dyn SpecLinks,
+    /// For a view of a part of the spec (an algorithm's), the URL of its
+    /// rendered view, which its links to its ids are to.
+    base: Option<String>,
+    /// Algorithms' first `<dfn>`s, and the URLs of their views beside the
+    /// code citing them.
+    algorithm_dfns: HashMap<usize, String>,
 }
 
 impl Bikeshed<'_> {
@@ -95,7 +102,11 @@ impl Hooks for Bikeshed<'_> {
 
     fn href(&self, href: &str) -> Option<String> {
         if let Some(id) = href.strip_prefix('#') {
-            return Some(fragment(&decode_html(id)));
+            let fragment = fragment(&decode_html(id));
+            return Some(match &self.base {
+                Some(base) => format!("{}{}", base, fragment),
+                None => fragment,
+            });
         }
         link_url(href, self.spec.rendered.as_deref(), self.config, self.links)
     }
@@ -109,6 +120,13 @@ impl Hooks for Bikeshed<'_> {
     fn special(&self, out: &mut HtmlRenderer, node: usize) -> bool {
         if self.doc.nodes[node].kind == NodeKind::Text {
             self.text(out, node);
+            return true;
+        }
+        if let Some(url) = self.algorithm_dfns.get(&node) {
+            let tag = out.start_tag(self, node, "dfn");
+            out.children(self, node);
+            out.end_tag(tag);
+            super::algorithm_link(out, url);
             return true;
         }
         false
@@ -165,6 +183,53 @@ fn blocks(doc: &Doc, source: &str) -> HashMap<usize, Range<usize>> {
         .collect()
 }
 
+/// The algorithms of Bikeshed's output: elements with `data-algorithm`
+/// (ex: `<div algorithm>`'s), and else paragraphs starting "To <dfn>" with
+/// the lists after them, as their nodes' bytes, and their first `<dfn>`s.
+fn algorithms(doc: &Doc) -> Vec<(Range<usize>, usize)> {
+    let mut algorithms = vec![];
+    for node in 1..doc.nodes.len() {
+        let range = doc.nodes[node].range.clone();
+        let algorithm = if doc.has_attr(node, "data-algorithm") {
+            Some(range.clone())
+        } else if doc.is(node, "p")
+            && doc.text_content(node).trim_start().starts_with("To ")
+            && !doc
+                .ancestors(node)
+                .any(|a| doc.has_attr(a, "data-algorithm"))
+        {
+            // (With the lists after it.)
+            let parent = doc.nodes[node].parent.unwrap_or(0);
+            let siblings = &doc.nodes[parent].children;
+            let at = siblings.iter().position(|&s| s == node).unwrap_or(0);
+            let mut end = None;
+            for &sibling in &siblings[at + 1..] {
+                match &doc.nodes[sibling].kind {
+                    NodeKind::Text
+                        if doc.src[doc.nodes[sibling].range.clone()].trim().is_empty() => {}
+                    NodeKind::Element(name) if name == "ol" => {
+                        end = Some(doc.nodes[sibling].range.end)
+                    }
+                    _ => break,
+                }
+            }
+            end.map(|end| range.start..end)
+        } else {
+            None
+        };
+        let Some(algorithm) = algorithm else {
+            continue;
+        };
+        let dfn = (node..doc.nodes.len())
+            .take_while(|&n| doc.nodes[n].range.start < algorithm.end)
+            .find(|&n| doc.is(n, "dfn") && doc.has_attr(n, "id"));
+        if let Some(dfn) = dfn {
+            algorithms.push((algorithm, dfn));
+        }
+    }
+    algorithms
+}
+
 /// Render Bikeshed's `output` for the spec `spec`, whose source `source` is
 /// at `path` in the tree, among `config`'s specs.
 pub fn render(
@@ -174,6 +239,33 @@ pub fn render(
     spec: &SpecEntry,
     config: &SpecsConfig,
     links: &dyn SpecLinks,
+) -> Option<RenderedSpec> {
+    render_part(output, source, path, spec, config, links, None)
+}
+
+/// Render the algorithm in Bikeshed's `output` which defines `sym` (see
+/// `render`), with its steps' numbers and where they start, for its view
+/// beside the code citing them (see `format::format_algorithm`).
+pub fn render_algorithm(
+    output: &str,
+    source: &str,
+    path: &str,
+    spec: &SpecEntry,
+    config: &SpecsConfig,
+    links: &dyn SpecLinks,
+    sym: &str,
+) -> Option<RenderedSpec> {
+    render_part(output, source, path, spec, config, links, Some(sym))
+}
+
+fn render_part(
+    output: &str,
+    source: &str,
+    path: &str,
+    spec: &SpecEntry,
+    config: &SpecsConfig,
+    links: &dyn SpecLinks,
+    algorithm: Option<&str>,
 ) -> Option<RenderedSpec> {
     let doc = Doc::parse(output);
     let title = (1..doc.nodes.len())
@@ -185,17 +277,53 @@ pub fn render(
                 .join(" ")
         })
         .unwrap_or_else(|| path.to_string());
+    let algorithms = algorithms(&doc);
+    let symbol_of = |node: usize| {
+        doc.attr(node, "id")
+            .map(|id| spec_symbol(spec.shortname(), &id))
+    };
+    let blocks = blocks(&doc, source);
+    let mut line_starts = vec![0];
+    line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
+    // The bytes of the output to render, and for an algorithm, its steps.
+    let (range, steps) = match algorithm {
+        None => (0..output.len(), vec![]),
+        Some(sym) => {
+            let (range, _) = algorithms
+                .iter()
+                .filter(|(_, dfn)| symbol_of(*dfn).as_deref() == Some(sym))
+                .min_by_key(|(range, _)| range.len())?;
+            let steps: Vec<(String, usize)> = (1..doc.nodes.len())
+                .filter(|&node| {
+                    doc.is(node, "li")
+                        && doc.nodes[node].parent.is_some_and(|p| doc.is(p, "ol"))
+                        && range.contains(&doc.nodes[node].range.start)
+                })
+                .filter_map(|node| {
+                    let line: usize = doc.raw_attr(node, "bs-pos")?.parse().ok()?;
+                    let at = *line_starts.get(line.checked_sub(1)?)?;
+                    Some((step_path(&doc, node, range.start), at))
+                })
+                .collect();
+            (range.clone(), steps)
+        }
+    };
     let hooks = Bikeshed {
         doc: &doc,
         source,
-        blocks: blocks(&doc, source),
+        blocks,
         cursors: RefCell::new(HashMap::new()),
         spec,
         config,
         links,
+        base: algorithm.map(|_| links.rendered_url(path)),
+        algorithm_dfns: algorithms
+            .iter()
+            .filter_map(|&(_, dfn)| Some((dfn, links.algorithm_url(&symbol_of(dfn)?)?)))
+            .collect(),
     };
     let map = |_: &Range<usize>| None;
-    let mut out = HtmlRenderer::for_file(&doc, 0..output.len(), source, &map);
+    let mut out = HtmlRenderer::for_file(&doc, range, source, &map);
     out.children(&hooks, 0);
     let mut rendered = out.w.finish();
     rendered.title = Some(title.clone());
@@ -208,6 +336,8 @@ pub fn render(
         }],
         page: 0,
         range: 0..source.len(),
+        steps,
+        file: None,
     })
 }
 
@@ -293,5 +423,42 @@ mod tests {
             "{}",
             r.html
         );
+    }
+
+    #[test]
+    fn test_algorithm() {
+        let source = "To poke:\n\n1. One\n2. Two\n\nAfter.\n";
+        let output = r###"<html><head><title>Example</title></head><body>
+<div bs-pos="1" data-algorithm="poke"><p bs-pos="1">To <dfn id="poke">poke</dfn>, see <a href="#poke">it</a>:</p>
+<ol bs-pos="3"><li bs-pos="3">One<li bs-pos="4">Two</ol></div>
+<p bs-pos="6">After.</p></body></html>"###;
+        let config: SpecsConfig = toml::from_str(
+            "[[spec]]\nname = \"example\"\nformat = \"bikeshed\"\nrendered = \"https://example.org/\"\n",
+        )
+        .unwrap();
+        let view = render_algorithm(
+            output,
+            source,
+            "example/index.bs",
+            &config.specs[0],
+            &config,
+            &TestLinks,
+            "SPEC_example_poke",
+        )
+        .unwrap();
+        let html = &view.rendered.html;
+        assert!(!html.contains("After"), "{}", html);
+        // (Its links to its ids are to the spec's rendered view.)
+        assert!(
+            html.contains(r##"href="/t/rendered/example/index.bs#poke""##),
+            "{}",
+            html
+        );
+        let steps: Vec<(&str, &str)> = view
+            .steps
+            .iter()
+            .map(|(path, at)| (path.as_str(), &source[*at..*at + 2]))
+            .collect();
+        assert_eq!(steps, vec![("1", "1."), ("2", "2.")]);
     }
 }

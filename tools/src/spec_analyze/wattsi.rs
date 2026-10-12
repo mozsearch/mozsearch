@@ -849,7 +849,7 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
 /// The number of the algorithm step (starting at `algorithm_start`) which
 /// `node` is in, ex: "12.6", or "" if it's not in a step: its `<li>`s' numbers
 /// in their `<ol>`s (with their `start`s and `value`s), outermost first.
-fn step_path(doc: &Doc, node: usize, algorithm_start: usize) -> String {
+pub(crate) fn step_path(doc: &Doc, node: usize, algorithm_start: usize) -> String {
     let mut numbers = vec![];
     let mut at = Some(node);
     while let Some(n) = at {

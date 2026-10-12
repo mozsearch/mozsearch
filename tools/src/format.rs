@@ -17,6 +17,7 @@ use crate::file_format::bisectable_mmap::BisectableMmap;
 use crate::file_format::chunked_gzip::LINES_PER_CHUNK;
 use crate::file_format::code_coverage_report;
 use crate::file_format::coverage::InterpolatedCoverage;
+use crate::file_format::crossref::CrossrefData;
 use crate::file_format::doc_trees::{DocTrees, read_doc_trees};
 use crate::file_format::jumpref::{
     JumprefData, JumprefTraversals, TreeJumprefs, determine_desired_extra_syms_from_jumpref,
@@ -1398,6 +1399,418 @@ impl SpecLinks for RenderedSpecLinks<'_> {
     fn rendered_url(&self, path: &str) -> String {
         rendered_url(self.tree_name, self.rev, path)
     }
+
+    fn algorithm_url(&self, sym: &str) -> Option<String> {
+        // (Of the latest revision, whose citations the trees have.)
+        Some(algorithm_url(self.tree_name, sym))
+    }
+}
+
+/// The URL of the view of the algorithm that `sym` defines, beside the code
+/// citing its steps (see `format_algorithm`).
+pub fn algorithm_url(tree_name: &str, sym: &str) -> String {
+    // (Symbols' characters are all a URL path's, see `spec_symbol`.)
+    format!("/{}/algorithm/{}", tree_name, sym)
+}
+
+/// Where the tree defines `sym`: the path and line of its definition.
+fn tree_definition(tree_name: &str, tree_config: &TreeConfig, sym: &str) -> Option<(String, u32)> {
+    let jumprefs = tree_jumprefs(tree_name, tree_config)?;
+    let def = jumprefs.lookup(sym).ok()??.jumps.definition?;
+    let (path, line) = def.rsplit_once('#')?;
+    Some((path.to_string(), line.parse().ok()?))
+}
+
+/// Where the view of an algorithm (see `format_algorithm`) is if the tree
+/// doesn't define it but a linked tree does (ex: from firefox-disco, for a
+/// `SPEC_` symbol, wubspecs').
+pub fn algorithm_redirect(cfg: &Config, tree_name: &str, sym: &str) -> Option<String> {
+    let tree_config = cfg.trees.get(tree_name)?;
+    if tree_definition(tree_name, tree_config, sym).is_some() {
+        return None;
+    }
+    let (_, linked) = tree_config
+        .paths
+        .linked_trees
+        .iter()
+        .find(|(prefix, _)| sym.starts_with(prefix.as_str()))?;
+    Some(algorithm_url(linked, sym))
+}
+
+/// A citation of a spec's algorithm, or one of its steps, in a tree's file:
+/// the tree, the path, the (1-based) line, the function it's in, the step,
+/// and the lines from it, up to the next step's.
+struct Citation {
+    tree: String,
+    path: String,
+    line: u32,
+    function: String,
+    step: Option<String>,
+    excerpt: Vec<String>,
+}
+
+/// How many lines a citation's excerpt has at most.
+const CITATION_EXCERPT_LINES: usize = 8;
+
+/// The citations of `sym` (its doc-uses, see `spec_analyze::citations`) in
+/// the tree and in its linked trees for its prefix, with their excerpts from
+/// the trees' latest revisions.
+fn algorithm_citations(
+    cfg: &Config,
+    tree_name: &str,
+    tree_config: &TreeConfig,
+    sym: &str,
+) -> Vec<Citation> {
+    lazy_static! {
+        static ref STEP_COMMENT: regex::Regex = regex::Regex::new(r"(?i)\bsteps?\s+[0-9]").unwrap();
+    }
+    let mut trees = vec![tree_name.to_string()];
+    trees.extend(
+        tree_config
+            .paths
+            .linked_trees
+            .iter()
+            .filter(|(prefix, _)| sym.starts_with(prefix.as_str()))
+            .map(|(_, tree)| tree.clone()),
+    );
+    let mut citations = vec![];
+    for tree in trees {
+        let Some(index_path) = cfg.tree_index_paths.get(&tree) else {
+            continue;
+        };
+        let (inline, extra) = (
+            format!("{}/crossref", index_path),
+            format!("{}/crossref-extra", index_path),
+        );
+        if !Path::new(&inline).exists() || !Path::new(&extra).exists() {
+            continue;
+        }
+        let Some(crossref) = BisectableMmap::<CrossrefData>::new(&inline, &extra) else {
+            continue;
+        };
+        let Ok(Some(data)) = crossref.lookup(sym) else {
+            continue;
+        };
+        let git = cfg.trees.get(&tree).and_then(|t| t.get_git().ok());
+        let head = git.and_then(|git| git.repo.head().ok()?.peel_to_commit().ok());
+        for result in data.doc_uses.unwrap_or_default() {
+            let lines: Vec<String> = match (git, &head) {
+                (Some(git), Some(head)) => read_commit_file(&git.repo, head, &result.path)
+                    .map_or(vec![], |text| text.lines().map(str::to_string).collect()),
+                _ => vec![],
+            };
+            for hit in result.lines {
+                let (function, step) = match hit.context.rsplit_once(" step ") {
+                    Some((function, step)) => (function.to_string(), Some(step.to_string())),
+                    None => (hit.context.to_string(), None),
+                };
+                let first = hit.lineno as usize - 1;
+                let excerpt: Vec<String> = lines
+                    .iter()
+                    .enumerate()
+                    .skip(first)
+                    .take(CITATION_EXCERPT_LINES)
+                    .take_while(|(i, line)| *i == first || !STEP_COMMENT.is_match(line))
+                    .map(|(_, line)| line.clone())
+                    .collect();
+                citations.push(Citation {
+                    tree: tree.clone(),
+                    path: result.path.to_string(),
+                    line: hit.lineno,
+                    function,
+                    step,
+                    excerpt: if excerpt.is_empty() {
+                        vec![hit.line.clone()]
+                    } else {
+                        excerpt
+                    },
+                });
+            }
+        }
+    }
+    citations
+}
+
+/// The view of the algorithm that `sym` defines in one of the tree's specs
+/// (`/{tree}/algorithm/{sym}`), beside the code citing it and its steps in the
+/// tree and its linked trees (ex: Gecko's, in firefox-disco, for wubspecs'
+/// specs): the algorithm's rendering (see `rendered_specs::render_algorithm`),
+/// with the blame of its blocks, and the citations' excerpts, placed by the
+/// page's script next to their steps' blocks.
+pub fn format_algorithm(
+    cfg: &Config,
+    tree_name: &str,
+    sym: &str,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let specs = tree_specs(tree_name, tree_config).ok_or("The tree has no specs")?;
+    let (def_path, def_line) =
+        tree_definition(tree_name, tree_config, sym).ok_or("No definition of the symbol")?;
+    let git = tree_config.get_git()?;
+    let commit = rendered_commit(git, None)?;
+    let read = |file: &str| read_commit_file(&git.repo, &commit, file);
+    // (The spec whose source, or a file it imports, has the definition.)
+    let (spec, source_path) = match spec_view(&specs, &def_path) {
+        Some((spec, source, SpecView::Page(None))) => (spec, source),
+        _ => rendered_specs::ecmarkup::importing_spec(&specs, &def_path, &read)
+            .ok_or("The symbol isn't a spec's")?,
+    };
+    let source = read(&source_path).ok_or("No source")?;
+    let output = (spec.format == Some(crate::spec_analyze::SpecFormat::Bikeshed))
+        .then(|| std::fs::read_to_string(bikeshed_rendering_path(tree_config, &source_path)).ok())
+        .flatten();
+    let spec_links = RenderedSpecLinks {
+        tree_name,
+        rev: None,
+    };
+    let view = rendered_specs::render_algorithm(
+        spec,
+        &source,
+        &source_path,
+        &specs,
+        &spec_links,
+        &read,
+        output.as_deref(),
+        sym,
+    )
+    .ok_or("The symbol isn't an algorithm's")?;
+    // (The blocks are of the file with the algorithm.)
+    let file = view.file.clone().unwrap_or_else(|| source_path.clone());
+    let file_source = if file == source_path {
+        source.clone()
+    } else {
+        read(&file).ok_or("No file")?
+    };
+
+    let mut token_blame = page_token_blame(git, &commit, &file, &file_source);
+    if let Some(page) = &mut token_blame {
+        set_token_blame_urls(page, tree_name, &commit, &file, BreadcrumbsLinksTo::Latest);
+    }
+    let strips = match &token_blame {
+        Some(page) => rendered_strips(&view.rendered, &file_source, page, &view.range),
+        None => rendered_line_markers(&view.rendered, &file_source, &view.range),
+    };
+    // The steps' (1-based) lines.
+    let mut steps: BTreeMap<String, usize> = BTreeMap::new();
+    for (path, at) in &view.steps {
+        let line = file_source[..(*at).min(file_source.len())]
+            .matches('\n')
+            .count()
+            + 1;
+        steps.entry(path.clone()).or_insert(line);
+    }
+    let mut citations = algorithm_citations(cfg, tree_name, tree_config, sym);
+    // (Those of the algorithm first, then by their steps' lines.)
+    citations.sort_by_key(|c| {
+        (
+            c.step
+                .as_ref()
+                .map_or(0, |step| steps.get(step).copied().unwrap_or(usize::MAX)),
+            c.tree.clone(),
+            c.path.clone(),
+            c.line,
+        )
+    });
+
+    let name = tree_jumprefs(tree_name, tree_config)
+        .and_then(|jumprefs| jumprefs.lookup(sym).ok()?)
+        .map_or_else(|| sym.to_string(), |jumpref| jumpref.pretty.to_string());
+    let title = format!("{} - mozsearch", rendered_docs::escape(&name));
+    let opt = Options {
+        title: &title,
+        tree_name,
+        include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
+        revision: None,
+        breadcrumbs_links_to: BreadcrumbsLinksTo::Latest,
+        extra_content_classes: "rendered-page",
+    };
+    let base = rendered_url(tree_name, None, &source_path);
+    let rendered_link = match crate::spec_analyze::spec_anchor(spec.shortname(), sym) {
+        Some(anchor) if spec.format.is_some_and(rendered_specs::is_paged) => {
+            rendered_specs::anchor_url(&base, &anchor)
+        }
+        Some(anchor) => format!("{}{}", base, rendered_specs::fragment(&anchor)),
+        None => base.clone(),
+    };
+    let panel = vec![PanelSection {
+        name: "Revision control".to_owned(),
+        items: vec![
+            PanelItem {
+                label: PanelItemLabel::Plaintext("Rendered view".to_owned()),
+                tooltip: "Open the algorithm in the rendered spec".to_owned(),
+                id: "panel-rendered-view",
+                link: rendered_link,
+                update_link_lineno: "",
+                accel_key: None,
+                copyable: true,
+            },
+            PanelItem {
+                label: PanelItemLabel::Plaintext("Source listing".to_owned()),
+                tooltip: "Open the algorithm's definition in the source listing".to_owned(),
+                id: "panel-source-listing",
+                link: format!(
+                    "/{}/source/{}#{}",
+                    tree_name,
+                    url_encode_path(&def_path),
+                    def_line
+                ),
+                update_link_lineno: "",
+                accel_key: None,
+                copyable: true,
+            },
+        ],
+        raw_items: vec![],
+    }];
+
+    output::generate_header(&opt, writer)?;
+    output::generate_breadcrumbs(&opt, writer, &file, &[], false)?;
+    output::generate_panel(&opt, writer, &panel, false)?;
+    let citing_trees: BTreeSet<&str> = citations.iter().map(|c| c.tree.as_str()).collect();
+    writeln!(
+        writer,
+        r#"<div class="rd-notice">{} beside the code citing it and its steps{}.{}</div>"#,
+        rendered_docs::escape(&name),
+        match citing_trees.len() {
+            0 => " (none does)".to_string(),
+            _ => format!(
+                ", in {}",
+                citing_trees
+                    .iter()
+                    .copied()
+                    .collect::<Vec<_>>()
+                    .join(" and ")
+            ),
+        },
+        if token_blame.is_some() {
+            " Hover over the bar to the left of a block to see what last changed its text."
+        } else {
+            ""
+        }
+    )
+    .unwrap();
+    write!(
+        writer,
+        r#"<div class="sp-algorithm-view"><article id="rendered-doc" class="rendered-doc rendered-spec sp-algorithm">"#
+    )
+    .unwrap();
+    let mut pos = 0;
+    let html = &view.rendered.html;
+    for (block, strip) in view.rendered.blocks.iter().zip(&strips) {
+        let at = block.strip_at.clamp(pos, html.len());
+        writer.write_all(&html.as_bytes()[pos..at]).unwrap();
+        writer.write_all(strip.as_bytes()).unwrap();
+        pos = at;
+    }
+    writer.write_all(&html.as_bytes()[pos..]).unwrap();
+    writeln!(
+        writer,
+        r#"</article><aside id="sp-citations" class="sp-citations">"#
+    )
+    .unwrap();
+    for citation in &citations {
+        let step = citation.step.as_deref().unwrap_or("");
+        let known = citation.step.is_none() || steps.contains_key(step);
+        write!(
+            writer,
+            r#"<div class="sp-citation" data-step="{}"><div class="sp-citation-head"><a href="/{}/source/{}#{}">{}{}:{}</a> <span class="sp-citation-fn">{}</span>{}</div><pre class="sp-citation-code">"#,
+            rendered_docs::escape(step),
+            rendered_docs::escape(&citation.tree),
+            url_encode_path(&citation.path),
+            citation.line,
+            if citation.tree == tree_name {
+                String::new()
+            } else {
+                format!("{}: ", rendered_docs::escape(&citation.tree))
+            },
+            rendered_docs::escape(&citation.path),
+            citation.line,
+            rendered_docs::escape(&citation.function),
+            match (&citation.step, known) {
+                (Some(step), true) => format!(
+                    r#" <span class="sp-citation-step">step {}</span>"#,
+                    rendered_docs::escape(step)
+                ),
+                (Some(step), false) => format!(
+                    r#" <span class="sp-citation-step sp-citation-unknown" title="The spec's algorithm has no such step now">step {}?</span>"#,
+                    rendered_docs::escape(step)
+                ),
+                (None, _) => String::new(),
+            }
+        )
+        .unwrap();
+        // (Without their common indentation.)
+        let indent = citation
+            .excerpt
+            .iter()
+            .filter(|line| !line.trim().is_empty())
+            .map(|line| line.len() - line.trim_start().len())
+            .min()
+            .unwrap_or(0);
+        for line in &citation.excerpt {
+            writeln!(
+                writer,
+                "{}",
+                rendered_docs::escape(line.get(indent..).unwrap_or(line.trim_start()))
+            )
+            .unwrap();
+        }
+        writeln!(writer, "</pre></div>").unwrap();
+    }
+    if citations.is_empty() {
+        writeln!(
+            writer,
+            r#"<div class="sp-citations-none">No code cites this algorithm.</div>"#
+        )
+        .unwrap();
+    }
+    writeln!(writer, "</aside></div>").unwrap();
+    // Each citation goes next to its step's block (or after the ones before
+    // it), and the ones of the algorithm at the top.
+    writeln!(
+        writer,
+        r#"<script>(() => {{
+  const steps = {};
+  const doc = document.getElementById("rendered-doc");
+  const aside = document.getElementById("sp-citations");
+  const blockOfLine = line => {{
+    for (const mark of doc.querySelectorAll("[data-rd-lines]")) {{
+      const [first, last] = mark.dataset.rdLines.split("-").map(Number);
+      if (first <= line && line <= last) {{
+        return mark.closest("tr") || mark.parentElement;
+      }}
+    }}
+    return null;
+  }};
+  const place = () => {{
+    const top = aside.getBoundingClientRect().top;
+    let bottom = 0;
+    for (const card of aside.querySelectorAll(".sp-citation")) {{
+      const line = steps[card.dataset.step];
+      const block = line && blockOfLine(line);
+      const want = block ? block.getBoundingClientRect().top - top : bottom;
+      const at = Math.max(want, bottom);
+      card.style.top = `${{at}}px`;
+      bottom = at + card.offsetHeight + 6;
+    }}
+    aside.style.minHeight = `${{bottom}}px`;
+  }};
+  place();
+  new ResizeObserver(place).observe(doc);
+}})();</script>"#,
+        serde_json::to_string(&steps).unwrap().replace("</", "<\\/")
+    )
+    .unwrap();
+    if let Some(page) = &token_blame {
+        let info_json = to_string(&page.info).unwrap();
+        writeln!(
+            writer,
+            "<script>var BLAME_INFO = {};</script>",
+            info_json.replace("</", "<\\/")
+        )
+        .unwrap();
+    }
+    output::generate_footer(&opt, tree_name, &file, writer)
 }
 
 /// A file of a commit, as text (ex: an ecmarkup spec's imports).

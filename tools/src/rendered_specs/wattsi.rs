@@ -27,8 +27,10 @@ use super::{
 };
 use crate::rendered_docs::escape;
 use crate::spec_analyze::markup::NodeKind;
-use crate::spec_analyze::wattsi::{Resolved, resolve};
-use crate::spec_analyze::{SpecEntry, SpecsConfig};
+use crate::spec_analyze::wattsi::{Resolved, resolve, step_path};
+use crate::spec_analyze::{SpecEntry, SpecsConfig, spec_symbol};
+use crate::tree_sitter_support::spec_tokenizer::html_contexts;
+use std::ops::Range;
 
 /// A heading's entry in the table of contents.
 struct TocEntry {
@@ -72,6 +74,8 @@ struct Wattsi<'r, 's> {
     page: usize,
     /// The URL of the rendered source.
     base: String,
+    /// Algorithms' first `<dfn>`s, and the URLs of their views.
+    algorithm_dfns: HashMap<usize, String>,
     spec: &'r SpecEntry,
     config: &'r SpecsConfig,
     links: &'r dyn SpecLinks,
@@ -89,7 +93,8 @@ impl Wattsi<'_, '_> {
         page_url(&self.base, self.pages[page].name.as_deref())
     }
 
-    /// A link to an id of the source, on its page.
+    /// A link to an id of the source, on its page (or with the view on none
+    /// of them, an algorithm's, always to its page).
     fn local_href(&self, id: &str) -> String {
         match self.id_pages.get(id) {
             Some(&page) if page != self.page => {
@@ -221,6 +226,9 @@ impl Hooks for Wattsi<'_, '_> {
                     out.w.push("</a>");
                 }
                 out.end_tag(tag);
+                if let Some(url) = self.algorithm_dfns.get(&node) {
+                    super::algorithm_link(out, url);
+                }
                 true
             }
             NodeKind::Element(name) if name == "svg" => {
@@ -319,12 +327,103 @@ pub fn render(
     links: &dyn SpecLinks,
     page: Option<&str>,
 ) -> Option<RenderedSpec> {
+    render_target(src, path, spec, config, links, Target::Page(page))
+}
+
+/// Render the algorithm which defines `sym` (the innermost which has its
+/// `<dfn>`, ex: "To <dfn>navigate</dfn> ...:" and its steps), with its steps'
+/// numbers and where they start, for its view beside the code citing them
+/// (see `format::format_algorithm`).
+pub fn render_algorithm(
+    src: &str,
+    path: &str,
+    spec: &SpecEntry,
+    config: &SpecsConfig,
+    links: &dyn SpecLinks,
+    sym: &str,
+) -> Option<RenderedSpec> {
+    render_target(src, path, spec, config, links, Target::Algorithm(sym))
+}
+
+/// What to render of a source.
+enum Target<'a> {
+    /// A page, by its name, or the first.
+    Page(Option<&'a str>),
+    /// An algorithm, by its definition's symbol.
+    Algorithm(&'a str),
+}
+
+/// The algorithms of a resolved source: their bytes, and their first
+/// `<dfn>`s' nodes.
+fn algorithms(resolved: &Resolved, src: &str) -> Vec<(Range<usize>, Option<usize>)> {
+    let doc = &resolved.doc;
+    let mut dfns: Vec<(usize, usize)> = resolved
+        .node_ids
+        .keys()
+        .filter(|&&node| doc.is(node, "dfn"))
+        .map(|&node| (doc.nodes[node].range.start, node))
+        .collect();
+    dfns.sort_unstable();
+    html_contexts(src, &doc.items)
+        .into_iter()
+        .filter_map(|context| {
+            let range = context.start..context.end?;
+            let first = dfns.partition_point(|&(start, _)| start < range.start);
+            let dfn = dfns
+                .get(first)
+                .filter(|&&(start, _)| start < range.end)
+                .map(|&(_, node)| node);
+            Some((range, dfn))
+        })
+        .collect()
+}
+
+fn render_target(
+    src: &str,
+    path: &str,
+    spec: &SpecEntry,
+    config: &SpecsConfig,
+    links: &dyn SpecLinks,
+    target: Target,
+) -> Option<RenderedSpec> {
     let resolved = resolve(src);
     let doc = &resolved.doc;
     let pages = pages(&resolved);
-    let page = match page {
-        Some(name) => pages.iter().position(|p| p.name.as_deref() == Some(name))?,
-        None => 0,
+    let algorithms = algorithms(&resolved, src);
+    // The page, or else the algorithm's bytes and its steps.
+    let (page, algorithm) = match target {
+        Target::Page(name) => (
+            match name {
+                Some(name) => pages.iter().position(|p| p.name.as_deref() == Some(name))?,
+                None => 0,
+            },
+            None,
+        ),
+        Target::Algorithm(sym) => {
+            let dfn = resolved.node_ids.iter().find_map(|(&node, id)| {
+                (doc.is(node, "dfn") && spec_symbol(spec.shortname(), id) == sym).then_some(node)
+            })?;
+            let at = doc.nodes[dfn].range.start;
+            let (range, _) = algorithms
+                .iter()
+                .filter(|(range, _)| range.contains(&at))
+                .min_by_key(|(range, _)| range.len())?;
+            let steps: Vec<(String, usize)> = (1..doc.nodes.len())
+                .filter(|&node| {
+                    let start = doc.nodes[node].range.start;
+                    doc.is(node, "li")
+                        && doc.nodes[node].parent.is_some_and(|p| doc.is(p, "ol"))
+                        && range.contains(&start)
+                        && !resolved.excluded[node]
+                })
+                .map(|node| {
+                    let start = doc.nodes[node].range.start;
+                    (step_path(doc, node, range.start), start)
+                })
+                .collect();
+            // (No page is the view's, so links to ids are to their pages.)
+            (usize::MAX, Some((range.clone(), steps)))
+        }
     };
     let paged = pages.len() > 1;
 
@@ -368,6 +467,7 @@ pub fn render(
         pages: pages.clone(),
         page,
         base: links.rendered_url(path),
+        algorithm_dfns: HashMap::new(),
         spec,
         config,
         links,
@@ -431,19 +531,45 @@ pub fn render(
         }
     }
 
-    let range = pages[page].start..pages.get(page + 1).map_or(src.len(), |next| next.start);
+    // Algorithms' definitions link to their views beside the code citing
+    // them.
+    wattsi.algorithm_dfns = algorithms
+        .iter()
+        .filter_map(|(_, dfn)| {
+            let dfn = (*dfn)?;
+            let url = links
+                .algorithm_url(&spec_symbol(spec.shortname(), resolved.node_ids.get(&dfn)?))?;
+            Some((dfn, url))
+        })
+        .collect();
+
+    let (range, steps) = match algorithm {
+        Some((range, steps)) => (range, steps),
+        None => (
+            pages[page].start..pages.get(page + 1).map_or(src.len(), |next| next.start),
+            vec![],
+        ),
+    };
     let mut out = HtmlRenderer::new(doc, range.clone());
     out.children(&wattsi, 0);
     let mut rendered = out.w.finish();
     rendered.title = Some(match page {
         0 => pages[0].title.clone(),
+        usize::MAX => pages[0].title.clone(),
         _ => format!("{} - {}", pages[page].title, pages[0].title),
     });
+    let page = if page == usize::MAX {
+        Page::index_of(&pages, range.start)
+    } else {
+        page
+    };
     Some(RenderedSpec {
         rendered,
         pages,
         page,
         range,
+        steps,
+        file: None,
     })
 }
 
@@ -528,6 +654,59 @@ mod tests {
         );
         assert_eq!(rendered.rendered.title.as_deref(), Some("Example"));
         assert_eq!(rendered.pages.len(), 1);
+    }
+
+    #[test]
+    fn test_algorithm() {
+        let src = r##"<title>Example</title>
+<h2 split-filename=widgets>Widgets</h2>
+<p>A <dfn>widget</dfn>.
+<h2 split-filename=poking>Poking</h2>
+<p>To <dfn>poke</dfn> a <span>widget</span>:</p>
+<ol>
+ <li><p>Do this.
+ <li><p>Then:
+  <ol><li>That.</ol>
+</ol>
+<p>After.
+"##;
+        let config = config();
+        let view = render_algorithm(
+            src,
+            "source",
+            &config.specs[0],
+            &config,
+            &TestLinks,
+            "SPEC_example_poke",
+        )
+        .unwrap();
+        let html = marked(&view.rendered);
+        assert!(html.contains("To </span><dfn"), "{}", html);
+        assert!(!html.contains("After"), "{}", html);
+        // (Its links to ids are to their pages.)
+        assert!(
+            html.contains(r#"href="/t/rendered/source/widgets.html#widget""#),
+            "{}",
+            html
+        );
+        let steps: Vec<(&str, &str)> = view
+            .steps
+            .iter()
+            .map(|(path, at)| (path.as_str(), &src[*at..*at + 4]))
+            .collect();
+        assert_eq!(steps, vec![("1", "<li>"), ("2", "<li>"), ("2.1", "<li>")]);
+        assert_eq!(view.pages[view.page].name.as_deref(), Some("poking"));
+        assert!(
+            render_algorithm(
+                src,
+                "source",
+                &config.specs[0],
+                &config,
+                &TestLinks,
+                "SPEC_example_nope"
+            )
+            .is_none()
+        );
     }
 
     #[test]
