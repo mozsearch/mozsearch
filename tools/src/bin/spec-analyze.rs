@@ -292,6 +292,16 @@ fn main() {
             let scripts = scripts(&path, &source);
             (spec, path, source, scripts)
         })
+        .filter(|(spec, path, source, scripts)| {
+            let is_respec = respec::is_respec(source, scripts);
+            if !is_respec {
+                eprintln!(
+                    "spec-analyze: {}: {} isn't a ReSpec source",
+                    spec.name, path
+                );
+            }
+            is_respec
+        })
         .collect();
     for (spec, _, source, scripts) in &respec_specs {
         terms.add(

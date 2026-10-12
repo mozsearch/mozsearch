@@ -533,6 +533,20 @@ pub fn local_scripts(src: &str) -> Vec<String> {
         .collect()
 }
 
+/// Whether a source (with the text of the local scripts it loads) is
+/// ReSpec's: it has a `respecConfig`, or loads ReSpec.  (Specs' other `.html`
+/// sources, ex: css-color-3's `Overview.html`, aren't.)
+pub fn is_respec(src: &str, scripts: &str) -> bool {
+    if src.contains("respecConfig") || scripts.contains("respecConfig") {
+        return true;
+    }
+    let doc = Doc::parse(src);
+    (1..doc.nodes.len())
+        .filter(|&node| doc.is(node, "script"))
+        .filter_map(|node| doc.attr(node, "src"))
+        .any(|src| src.rsplit('/').next().unwrap_or(&src).starts_with("respec"))
+}
+
 /// The records of a ReSpec source, of the spec with `shortname`, among
 /// `config`'s specs, whose exported definitions are `terms` (see `xref`),
 /// with the text of the local scripts it loads (see `local_scripts`).
@@ -2407,6 +2421,23 @@ var respecConfig = { shortName: "example-respec", specStatus: "ED" };
             "#,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn test_is_respec() {
+        assert!(is_respec(FIXTURE, ""));
+        assert!(is_respec(
+            r#"<script src="https://www.w3.org/Tools/respec/respec-w3c" class="remove"></script>"#,
+            ""
+        ));
+        assert!(is_respec(
+            r#"<script src="config.js"></script>"#,
+            "var respecConfig = {};"
+        ));
+        assert!(!is_respec(
+            "<html><body><h1>CSS Color</h1></body></html>",
+            ""
+        ));
     }
 
     #[test]
