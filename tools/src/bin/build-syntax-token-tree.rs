@@ -18,6 +18,11 @@
 // covers processed revisions that aren't reachable from the branch; see
 // `source_mapping` for details, including the `NOTES_REF` and
 // `READ_NOTES_REFS` environment variables.
+//
+// We read what the commit being written has (ex: its first parent's symdex
+// files) from what we wrote and read, or from a commit on disk, rather than
+// through git fast-import where we can (see `ActiveCache`);
+// `SYNTAX_CACHE_CHECK=1` checks those against git fast-import's answers.
 
 extern crate env_logger;
 extern crate git2;
@@ -26,12 +31,13 @@ extern crate log;
 extern crate num_cpus;
 extern crate tools;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::env;
 use std::fmt;
-use std::io::{BufRead, BufReader, BufWriter, Read, Write};
+use std::io::{BufRead, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Stdio};
+use std::process::{Child, ExitStatus, Stdio};
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread;
@@ -41,13 +47,14 @@ use git2::{ObjectType, Oid, Repository, Sort, TreeWalkMode, TreeWalkResult};
 use tools::cinnabar::{
     CinnabarBatch, OldRevisions, old_revision_notes_writer, parse_oldrevs, write_old_revision_notes,
 };
+use tools::fast_import::{FastImportInput, FastImportOutput};
 use tools::file_format::config::{HistorySyntaxCommitMeta, index_blame, syntax_commit_to_meta};
 use tools::file_format::history::io_helpers::{
     read_record_file_contents, record_file_contents_to_string,
 };
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use tools::file_format::history::syntax_symdex::{SymdexHeader, SymdexRecord};
-use tools::git_notes::NotesReader;
+use tools::git_notes::{NotesReader, NotesWriter};
 use tools::git_ops::{fast_import_git, history_compute_threads};
 use tools::history_stop::{STOPPED_EXIT_CODE, stop_requested};
 use tools::hyperblame::history_config::{
@@ -86,6 +93,426 @@ struct Cli {
     /// the old cinnabar repository; see build-blame's option of the same name.
     #[clap(long, value_parser)]
     old_revision_map: Option<String>,
+}
+
+/// git fast-import writing the syntax repo, through threads which write what we
+/// give it and read its answers (see `tools::fast_import`), so that it takes in
+/// what we wrote while we go on, and the marks of the commits whose ids we've
+/// asked for.  (Writing to its pipe ourselves, and waiting for each commit's
+/// id, the main thread and git fast-import took turns: both were busy only a
+/// fifth of the time.)
+struct SyntaxImport {
+    child: Child,
+    input: FastImportInput,
+    output: FastImportOutput,
+    /// The marks we've asked for the commit ids of (see `request_mark`) whose
+    /// answers we haven't read yet, in order.
+    unread_marks: VecDeque<usize>,
+    /// The hex ids of the commits this run wrote whose answers we've read.
+    mark_revs: HashMap<usize, String>,
+    /// What we know of the commit being written's paths without asking git
+    /// fast-import.
+    cache: ActiveCache,
+    /// The syntax repo on disk, for reading `cache.base`'s paths.
+    disk: Repository,
+    /// Whether to check what the cache gives against git fast-import's answers
+    /// (`SYNTAX_CACHE_CHECK=1`).
+    check_cache: bool,
+}
+
+impl SyntaxImport {
+    fn start(git_repo: &Repository) -> Self {
+        let mut child = start_fast_import(git_repo);
+        let input = FastImportInput::new(child.stdin.take().unwrap());
+        let output = FastImportOutput::new(child.stdout.take().unwrap());
+        SyntaxImport {
+            child,
+            input,
+            output,
+            unread_marks: VecDeque::new(),
+            mark_revs: HashMap::new(),
+            cache: ActiveCache::default(),
+            disk: Repository::open(git_repo.path()).unwrap(),
+            check_cache: env::var("SYNTAX_CACHE_CHECK").is_ok_and(|v| v == "1"),
+        }
+    }
+
+    /// Start writing a commit whose first parent is `parent` (None for a
+    /// root): what the cache knows of the paths carries over if that's the
+    /// commit we just wrote, and otherwise it starts over from `parent`, which
+    /// is on disk once we checkpoint if we wrote it.
+    fn start_commit(&mut self, parent: Option<SyntaxRepoCommit>) {
+        if self.cache.parent == parent && parent.is_some() {
+            return;
+        }
+        let base = match parent {
+            Some(SyntaxRepoCommit::Commit(oid)) => Some(oid),
+            Some(SyntaxRepoCommit::Mark(mark)) => self.checkpoint(mark),
+            None => None,
+        };
+        self.cache.rebase(parent, base, &self.disk);
+    }
+
+    /// Checkpoint, so that the commit with `mark` (which was requested) is on
+    /// disk, and give its id.
+    fn checkpoint(&mut self, mark: usize) -> Option<Oid> {
+        writeln!(self.input, "checkpoint").unwrap();
+        self.cache.checkpoints += 1;
+        // (Asking for the commit's id again, whose answer comes once git
+        // fast-import has done the checkpoint, unlike the answer to the
+        // request when the commit was written.)
+        self.request_mark(mark);
+        self.output();
+        let rev = self.mark_rev(mark, true)?;
+        Oid::from_str(&rev).ok()
+    }
+
+    /// Finish writing the commit with `mark` (whose id has been requested).
+    fn finish_commit(&mut self, mark: usize) {
+        self.cache.finish_commit(SyntaxRepoCommit::Mark(mark));
+        if self.cache.bytes > CACHE_BYTES {
+            // (Starting over from the commit we just wrote, on disk.)
+            let base = self.checkpoint(mark);
+            self.cache.clears += 1;
+            self.cache
+                .rebase(Some(SyntaxRepoCommit::Mark(mark)), base, &self.disk);
+        }
+    }
+
+    /// Write `contents` to `path` in the commit being written, with `mode`.
+    fn write_inline(&mut self, mode: i32, path: &Path, contents: &[u8]) {
+        writeln!(self.input, "M {:06o} inline {}", mode, sanitize(path)).unwrap();
+        writeln!(self.input, "data {}", contents.len()).unwrap();
+        self.input.write_all(contents).unwrap();
+        // (We skip the optional trailing LF character, since in practice it
+        // wasn't useful for debugging, and the blobs we write always have
+        // one anyway.)
+        let change = if is_read_back(path) {
+            Change::Write(contents.into())
+        } else {
+            Change::Unknown
+        };
+        self.cache.change(path, change);
+    }
+
+    /// Write the object `oid` to `path` in the commit being written, with
+    /// `mode` (a tree, for a directory).
+    fn write_existing(&mut self, mode: i32, oid: &str, path: &Path) {
+        writeln!(self.input, "M {:06o} {} {}", mode, oid, sanitize(path)).unwrap();
+        let change = if mode == 0o040000 {
+            Change::UnknownTree
+        } else {
+            Change::Unknown
+        };
+        self.cache.change(path, change);
+    }
+
+    /// Delete `path` from the commit being written: a file, or if `tree`, a
+    /// directory (or whatever it is).
+    fn delete(&mut self, path: &Path, tree: bool) {
+        writeln!(self.input, "D {}", sanitize(path)).unwrap();
+        let change = if tree {
+            Change::DeleteTree
+        } else {
+            Change::Delete
+        };
+        self.cache.change(path, change);
+    }
+
+    /// git fast-import's output, for reading its answers to the requests we've
+    /// written, which this sends on to it first, after any answers to
+    /// `request_mark` before them.
+    fn output(&mut self) -> &mut FastImportOutput {
+        self.input.flush().unwrap();
+        while let Some(mark) = self.unread_marks.pop_front() {
+            let mut line = String::new();
+            self.output.read_line(&mut line).unwrap();
+            self.mark_revs.insert(mark, line.trim().to_string());
+        }
+        &mut self.output
+    }
+
+    /// Ask for the id of the commit with `mark`, which must have been
+    /// terminated, without waiting for git fast-import to write it, which it
+    /// does only once it has processed everything before.
+    fn request_mark(&mut self, mark: usize) {
+        writeln!(self.input, "get-mark :{}", mark).unwrap();
+        // (So that it can answer while we go on.)
+        self.input.flush().unwrap();
+        self.unread_marks.push_back(mark);
+    }
+
+    /// The hex id of the commit with `mark`, which must have been requested,
+    /// if we have it without waiting for git fast-import (unless `wait`).
+    fn mark_rev(&mut self, mark: usize, wait: bool) -> Option<String> {
+        if !self.mark_revs.contains_key(&mark) {
+            if wait {
+                self.output();
+            } else {
+                self.output.take_available();
+                while !self.unread_marks.is_empty() && self.output.has_line() {
+                    let mut line = String::new();
+                    self.output.read_line(&mut line).unwrap();
+                    let answered = self.unread_marks.pop_front().unwrap();
+                    self.mark_revs.insert(answered, line.trim().to_string());
+                }
+            }
+        }
+        self.mark_revs.get(&mark).cloned()
+    }
+
+    /// Close git fast-import's input once it has everything we wrote, and wait
+    /// for it to exit.
+    fn finish(&mut self) -> ExitStatus {
+        self.input.finish().unwrap();
+        self.child.wait().unwrap()
+    }
+}
+
+/// The most bytes of contents `ActiveCache` keeps before starting over.
+const CACHE_BYTES: usize = 4 << 30;
+
+/// Whether we read `path` back from the commit being written (its
+/// "files-struct" entries and symdex files, but not its "files" entries),
+/// so that the cache should keep its contents.
+fn is_read_back(path: &Path) -> bool {
+    path.starts_with("files-struct") || path.starts_with("symdex")
+}
+
+/// A change to the commit being written.
+#[derive(Clone)]
+enum Change {
+    /// A blob with these contents was written to the path.
+    Write(Rc<[u8]>),
+    /// An existing blob was written to the path.
+    Unknown,
+    /// An existing tree was written to the path, replacing what was under it.
+    UnknownTree,
+    /// The file at the path was deleted.
+    Delete,
+    /// The path, and anything under it, was deleted.
+    DeleteTree,
+}
+
+impl Change {
+    fn is_tree(&self) -> bool {
+        matches!(self, Change::UnknownTree | Change::DeleteTree)
+    }
+}
+
+/// What a path of the commit being written has, as far as `ActiveCache` knows.
+enum Known {
+    /// These contents, or nothing.
+    Contents(Option<Rc<[u8]>>),
+    Unknown,
+}
+
+/// A path's bytes, which `ActiveCache` keys paths by: our paths are joined
+/// with "/" (and have no "." or ".." components), so comparing bytes is
+/// comparing paths, and a directory's descendants are the keys between "dir/"
+/// and "dir0" ("/" + 1), which comparing `Path`s' components took most of the
+/// main thread's time doing.
+type PathKey = Box<[u8]>;
+
+fn path_key(path: &Path) -> &[u8] {
+    use std::os::unix::ffi::OsStrExt;
+    path.as_os_str().as_bytes()
+}
+
+/// The path itself and its ancestor directories, innermost first.
+fn ancestor_keys(key: &[u8]) -> impl Iterator<Item = &[u8]> {
+    std::iter::once(key).chain(
+        key.iter()
+            .enumerate()
+            .rev()
+            .filter(|&(_, &b)| b == b'/')
+            .map(move |(i, _)| &key[..i]),
+    )
+}
+
+/// What we know of the paths of the commit being written without asking git
+/// fast-import, which answers each read only after it has processed everything
+/// we sent before it, making us and it take turns.  (Reading each changed
+/// file's "files-struct" entry, and each changed symbol's symdex file, through
+/// it, the main thread spent over a quarter of its time waiting on it.)  That's
+/// the first parent's paths which we read or wrote, carried over from each
+/// commit to its child when that's the next commit we write, as it almost
+/// always is, and the commit's changes; and for the paths not changed since
+/// it, `base`, a commit on disk which the first parent descends from through
+/// commits we wrote, whose versions of them the first parent has.
+#[derive(Default)]
+struct ActiveCache {
+    /// The commit being written's first parent, which `entries` are of.
+    parent: Option<SyntaxRepoCommit>,
+    /// Paths' contents (None if missing) in `parent`.
+    entries: BTreeMap<PathKey, Option<Rc<[u8]>>>,
+    /// The bytes of contents in `entries`.
+    bytes: usize,
+    /// The commit's changes, in order, and the latest change of each path and
+    /// of each tree (by their indexes).
+    changes: Vec<(PathKey, Change)>,
+    path_changes: HashMap<PathKey, usize>,
+    tree_changes: HashMap<PathKey, usize>,
+    /// The commit on disk, and its tree, whose versions `parent` has of the
+    /// paths which neither `changed` nor `changed_trees` (with their
+    /// ancestors) have.
+    base: Option<Oid>,
+    base_tree: Option<Oid>,
+    changed: HashSet<PathKey>,
+    changed_trees: HashSet<PathKey>,
+    hits: usize,
+    disk_reads: usize,
+    fast_import_reads: usize,
+    checkpoints: usize,
+    clears: usize,
+}
+
+impl ActiveCache {
+    /// Start over from `parent`, whose paths are `base`'s.
+    fn rebase(&mut self, parent: Option<SyntaxRepoCommit>, base: Option<Oid>, disk: &Repository) {
+        self.parent = parent;
+        self.entries.clear();
+        self.bytes = 0;
+        self.base = base;
+        self.base_tree = base.and_then(|oid| Some(disk.find_commit(oid).ok()?.tree_id()));
+        self.changed.clear();
+        self.changed_trees.clear();
+    }
+
+    fn change(&mut self, path: &Path, change: Change) {
+        let index = self.changes.len();
+        let key: PathKey = path_key(path).into();
+        if change.is_tree() {
+            self.tree_changes.insert(key.clone(), index);
+        } else {
+            self.path_changes.insert(key.clone(), index);
+        }
+        self.changes.push((key, change));
+    }
+
+    /// The latest change of `path` in the commit being written, if any.
+    fn latest_change(&self, path: &Path) -> Option<&Change> {
+        let key = path_key(path);
+        let exact = self.path_changes.get(key).copied();
+        let tree = if self.tree_changes.is_empty() {
+            None
+        } else {
+            ancestor_keys(key)
+                .filter_map(|a| self.tree_changes.get(a).copied())
+                .max()
+        };
+        let latest = exact.max(tree)?;
+        Some(&self.changes[latest].1)
+    }
+
+    /// Whether `path` may differ from `base`'s version in `parent`.
+    fn changed_since_base(&self, key: &[u8]) -> bool {
+        self.changed.contains(key)
+            || (!self.changed_trees.is_empty()
+                && ancestor_keys(key).any(|a| self.changed_trees.contains(a)))
+    }
+
+    /// What `path` has in the commit being written, as far as we know.
+    fn known(&mut self, path: &Path, disk: &Repository) -> Known {
+        match self.latest_change(path) {
+            Some(Change::Write(contents)) => return Known::Contents(Some(contents.clone())),
+            Some(Change::Delete | Change::DeleteTree) => return Known::Contents(None),
+            Some(Change::Unknown | Change::UnknownTree) => return Known::Unknown,
+            None => {}
+        }
+        let key = path_key(path);
+        if let Some(contents) = self.entries.get(key) {
+            self.hits += 1;
+            return Known::Contents(contents.clone());
+        }
+        if let Some(tree) = self.base_tree
+            && !self.changed_since_base(key)
+            && let Some(contents) = read_tree_path(disk, tree, path)
+        {
+            self.disk_reads += 1;
+            self.remember(path, contents.clone());
+            return Known::Contents(contents);
+        }
+        Known::Unknown
+    }
+
+    /// Remember `contents` as the parent's version of `path`, which the
+    /// commit being written hasn't changed.
+    fn remember(&mut self, path: &Path, contents: Option<Rc<[u8]>>) {
+        self.remember_key(path_key(path).into(), contents);
+    }
+
+    fn remember_key(&mut self, key: PathKey, contents: Option<Rc<[u8]>>) {
+        self.bytes += contents.as_ref().map_or(0, |c| c.len());
+        if let Some(Some(old)) = self.entries.insert(key, contents) {
+            self.bytes -= old.len();
+        }
+    }
+
+    fn forget(&mut self, key: &[u8]) {
+        if let Some(Some(old)) = self.entries.remove(key) {
+            self.bytes -= old.len();
+        }
+    }
+
+    /// The commit being written, `commit`, is finished: it's the parent of the
+    /// next one, if that's the next one we write.
+    fn finish_commit(&mut self, commit: SyntaxRepoCommit) {
+        for (key, change) in std::mem::take(&mut self.changes) {
+            match change {
+                Change::Write(contents) => {
+                    self.changed.insert(key.clone());
+                    self.remember_key(key, Some(contents));
+                }
+                Change::Delete => {
+                    self.changed.insert(key.clone());
+                    self.remember_key(key, None);
+                }
+                Change::Unknown => {
+                    self.forget(&key);
+                    self.changed.insert(key);
+                }
+                Change::UnknownTree | Change::DeleteTree => {
+                    // (The path, and the keys from "path/" to "path0".)
+                    self.forget(&key);
+                    let mut start = key.to_vec();
+                    start.push(b'/');
+                    let mut end = key.to_vec();
+                    end.push(b'0');
+                    let under: Vec<PathKey> = self
+                        .entries
+                        .range::<[u8], _>((
+                            std::ops::Bound::Included(&start[..]),
+                            std::ops::Bound::Excluded(&end[..]),
+                        ))
+                        .map(|(k, _)| k.clone())
+                        .collect();
+                    for k in under {
+                        self.forget(&k);
+                    }
+                    self.changed_trees.insert(key);
+                }
+            }
+        }
+        self.path_changes.clear();
+        self.tree_changes.clear();
+        self.parent = Some(commit);
+    }
+}
+
+/// The contents of the blob at `path` in the tree `tree` on disk (None if
+/// there's none), unless we can't tell (ex: it's a directory).
+fn read_tree_path(disk: &Repository, tree: Oid, path: &Path) -> Option<Option<Rc<[u8]>>> {
+    let tree = disk.find_tree(tree).ok()?;
+    match tree.get_path(path) {
+        Ok(entry) if entry.kind() == Some(ObjectType::Blob) => {
+            let blob = disk.find_blob(entry.id()).ok()?;
+            Some(Some(blob.content().into()))
+        }
+        Ok(_) => None,
+        Err(e) if e.code() == git2::ErrorCode::NotFound => Some(None),
+        Err(_) => None,
+    }
 }
 
 /// Starts the git-fast-import subcommand, to which data
@@ -130,7 +557,7 @@ fn start_fast_import(git_repo: &Repository) -> Child {
 /// can refer to a specific commit that is either pre-existing in the
 /// blame repo (and for which we have an oid) or that was written
 /// earlier in the stream (and has a mark).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum SyntaxRepoCommit {
     Commit(git2::Oid),
     Mark(usize),
@@ -144,16 +571,6 @@ impl fmt::Display for SyntaxRepoCommit {
             Self::Mark(id) => write!(f, ":{}", id),
         }
     }
-}
-
-/// Retrieve the commit oid for a mark via the `get-mark` command.  The commit
-/// that defined the mark must have been terminated.
-fn read_mark_oid(import_helper: &mut Child, mark: usize) -> String {
-    writeln!(import_helper.stdin.as_mut().unwrap(), "get-mark :{}", mark).unwrap();
-    let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
-    let mut result = String::new();
-    reader.read_line(&mut result).unwrap();
-    result.trim().to_string()
 }
 
 /// Where to read syntax repo data from.  Reading from the commit being written
@@ -192,14 +609,14 @@ fn test_quote_path() {
 /// commit. Returns None if there is no such object.
 /// Documentation for the fast-import command used is at
 /// https://git-scm.com/docs/git-fast-import#Documentation/git-fast-import.txt-Readingfromanamedtree
-fn read_path_oid(import_helper: &mut Child, from: ReadFrom, path: &Path) -> Option<String> {
-    let stdin = import_helper.stdin.as_mut().unwrap();
+fn read_path_oid(import_helper: &mut SyntaxImport, from: ReadFrom, path: &Path) -> Option<String> {
+    let stdin = &mut import_helper.input;
     match from {
         ReadFrom::Active => writeln!(stdin, "ls {}", quote_path(path)),
         ReadFrom::Commit(commit) => writeln!(stdin, "ls {} {}", commit, sanitize(path)),
     }
     .unwrap();
-    let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
+    let reader = import_helper.output();
     let mut result = String::new();
     reader.read_line(&mut result).unwrap();
     // result will be of format
@@ -221,10 +638,48 @@ fn read_path_oid(import_helper: &mut Child, from: ReadFrom, path: &Path) -> Opti
 /// given commit. Returns None if there is no such object.
 /// Documentation for the fast-import command used is at
 /// https://git-scm.com/docs/git-fast-import#_cat_blob
-fn read_path_blob(import_helper: &mut Child, from: ReadFrom, path: &Path) -> Option<Vec<u8>> {
+fn read_path_blob(
+    import_helper: &mut SyntaxImport,
+    from: ReadFrom,
+    path: &Path,
+) -> Option<Vec<u8>> {
+    let ReadFrom::Active = from else {
+        return read_fast_import_blob(import_helper, from, path);
+    };
+    let known = import_helper.cache.known(path, &import_helper.disk);
+    if let Known::Contents(contents) = known {
+        let contents = contents.map(|c| c.to_vec());
+        if import_helper.check_cache {
+            assert_eq!(
+                read_fast_import_blob(import_helper, from, path),
+                contents,
+                "the cache's {}",
+                path.display()
+            );
+        }
+        return contents;
+    }
+    import_helper.cache.fast_import_reads += 1;
+    let contents = read_fast_import_blob(import_helper, from, path);
+    // (The parent's version, if the commit being written hasn't changed it.)
+    if import_helper.cache.latest_change(path).is_none() {
+        import_helper
+            .cache
+            .remember(path, contents.as_deref().map(Rc::from));
+    }
+    contents
+}
+
+/// Read the contents of the object at `path` in `from` through git
+/// fast-import.
+fn read_fast_import_blob(
+    import_helper: &mut SyntaxImport,
+    from: ReadFrom,
+    path: &Path,
+) -> Option<Vec<u8>> {
     let oid = read_path_oid(import_helper, from, path)?;
-    writeln!(import_helper.stdin.as_mut().unwrap(), "cat-blob {}", oid).unwrap();
-    let mut reader = BufReader::new(import_helper.stdout.as_mut().unwrap());
+    writeln!(import_helper.input, "cat-blob {}", oid).unwrap();
+    let reader = import_helper.output();
     let mut description = String::new();
     reader.read_line(&mut description).unwrap();
     // description will be of the format:
@@ -548,7 +1003,7 @@ const MAX_SYMDEX_ROWS: usize = 100_000;
 /// records.  This reads from the commit being written, which gives the first
 /// parent's version as long as the entry hasn't been modified yet.
 fn note_old_records(
-    import_helper: &mut Child,
+    import_helper: &mut SyntaxImport,
     symdex: &mut HashMap<String, HashMap<String, SymbolNotes>>,
     path: &Path,
 ) {
@@ -627,7 +1082,7 @@ fn add_symdex_records(
 /// before the entry is written, while reading from the commit being written
 /// gives the first parent's versions.
 fn note_propagated_records(
-    import_helper: &mut Child,
+    import_helper: &mut SyntaxImport,
     symdex: &mut HashMap<String, HashMap<String, SymbolNotes>>,
     git_repo: &git2::Repository,
     first_entry: Option<&git2::TreeEntry>,
@@ -638,7 +1093,7 @@ fn note_propagated_records(
     // The other parent's version of a file: the first parent's records go,
     // and its come.
     fn propagate_file(
-        import_helper: &mut Child,
+        import_helper: &mut SyntaxImport,
         symdex: &mut HashMap<String, HashMap<String, SymbolNotes>>,
         from: ReadFrom,
         file: &Path,
@@ -702,7 +1157,7 @@ fn note_propagated_records(
 /// must happen before the derived entries are deleted from the commit being
 /// written.
 fn note_removed_records(
-    import_helper: &mut Child,
+    import_helper: &mut SyntaxImport,
     symdex: &mut HashMap<String, HashMap<String, SymbolNotes>>,
     git_repo: &git2::Repository,
     entry: &git2::TreeEntry,
@@ -732,10 +1187,16 @@ fn note_removed_records(
     }
 }
 
-fn delete_syntax_path(import_helper: &mut Child, tokenize_path: &Path, struct_path: &Path) {
-    let stdin = import_helper.stdin.as_mut().unwrap();
-    writeln!(stdin, "D {}", sanitize(tokenize_path)).unwrap();
-    writeln!(stdin, "D {}", sanitize(struct_path)).unwrap();
+/// Delete the derived entries of a source entry, which `blob` says is a file
+/// (or else a directory, or whatever it is).
+fn delete_syntax_path(
+    import_helper: &mut SyntaxImport,
+    tokenize_path: &Path,
+    struct_path: &Path,
+    blob: bool,
+) {
+    import_helper.delete(tokenize_path, !blob);
+    import_helper.delete(struct_path, !blob);
 }
 
 /// Update the "files" and "files-struct" subtrees of the commit being written,
@@ -754,7 +1215,7 @@ fn process_source_tree_changes(
     commit: &git2::Commit,
     tree_at_path: &git2::Tree,
     parent_trees: &[Option<git2::Tree>],
-    import_helper: &mut Child,
+    import_helper: &mut SyntaxImport,
     syntax_parents: &[SyntaxRepoCommit],
     mut path: PathBuf,
 ) -> Result<(), git2::Error> {
@@ -774,6 +1235,7 @@ fn process_source_tree_changes(
                     import_helper,
                     &files_root.join(&path),
                     &files_struct_root.join(&path),
+                    parent_entry.kind() == Some(ObjectType::Blob),
                 );
                 path.pop();
             }
@@ -838,22 +1300,18 @@ fn process_source_tree_changes(
                 match read_path_oid(import_helper, from, &tokenize_path) {
                     Some(oid) => {
                         let struct_oid = read_path_oid(import_helper, from, &struct_path).unwrap();
-                        let stdin = import_helper.stdin.as_mut().unwrap();
                         let mode = entry.filemode();
-                        writeln!(stdin, "M {:06o} {} {}", mode, oid, sanitize(&tokenize_path))
-                            .unwrap();
-                        writeln!(
-                            stdin,
-                            "M {:06o} {} {}",
-                            mode,
-                            struct_oid,
-                            sanitize(&struct_path)
-                        )
-                        .unwrap();
+                        import_helper.write_existing(mode, &oid, &tokenize_path);
+                        import_helper.write_existing(mode, &struct_oid, &struct_path);
                     }
                     // That parent has no history for the entry, so neither
                     // do we.
-                    None => delete_syntax_path(import_helper, &tokenize_path, &struct_path),
+                    None => delete_syntax_path(
+                        import_helper,
+                        &tokenize_path,
+                        &struct_path,
+                        entry.kind() == Some(ObjectType::Blob),
+                    ),
                 }
                 path.pop();
                 continue 'outer;
@@ -868,7 +1326,12 @@ fn process_source_tree_changes(
             && first_kind != entry.kind()
         {
             note_removed_records(import_helper, symdex, git_repo, first_entry, &path);
-            delete_syntax_path(import_helper, &tokenize_path, &struct_path);
+            delete_syntax_path(
+                import_helper,
+                &tokenize_path,
+                &struct_path,
+                first_kind == Some(ObjectType::Blob),
+            );
         }
 
         match entry.kind() {
@@ -886,7 +1349,6 @@ fn process_source_tree_changes(
                     lang_source,
                 }) = syntax_data.hypertokenized_files.get(&path)
                 {
-                    let import_stream = import_helper.stdin.as_mut().unwrap();
                     info!(
                         "  Writing out {} and {} (tokens: {} structure: {})",
                         tokenize_path.display(),
@@ -897,19 +1359,11 @@ fn process_source_tree_changes(
 
                     // ## Write the tokenized file contents
                     let tokenized_text = hypertokenized.tokenized.join("\n");
-                    let tokenized_bytes = tokenized_text.as_bytes();
-                    writeln!(
-                        import_stream,
-                        "M {:06o} inline {}",
+                    import_helper.write_inline(
                         entry.filemode(),
-                        sanitize(&tokenize_path)
-                    )
-                    .unwrap();
-                    writeln!(import_stream, "data {}", tokenized_bytes.len()).unwrap();
-                    import_stream.write_all(tokenized_bytes).unwrap();
-                    // We skip the optional trailing LF character here since in practice it
-                    // wasn't particularly useful for debugging. Also the blame blobs we write
-                    // here always have a trailing LF anyway.
+                        &tokenize_path,
+                        tokenized_text.as_bytes(),
+                    );
 
                     // ## Write the files-struct contents
                     let struct_text = record_file_contents_to_string(
@@ -921,18 +1375,11 @@ fn process_source_tree_changes(
                         },
                         &hypertokenized.structure,
                     );
-                    let struct_bytes = struct_text.as_bytes();
-
-                    writeln!(
-                        import_stream,
-                        "M {:06o} inline {}",
+                    import_helper.write_inline(
                         entry.filemode(),
-                        sanitize(&struct_path)
-                    )
-                    .unwrap();
-                    writeln!(import_stream, "data {}", struct_bytes.len()).unwrap();
-                    import_stream.write_all(struct_bytes).unwrap();
-                    // (skipping trailing LF again)
+                        &struct_path,
+                        struct_text.as_bytes(),
+                    );
 
                     // ## Accumulate the symdex data.
                     add_symdex_records(
@@ -949,8 +1396,9 @@ fn process_source_tree_changes(
                         );
                     }
                     // Any derived entries from the first parent are stale.
+                    // (Of a file, since a directory's were deleted above.)
                     if first_entry.is_some() {
-                        delete_syntax_path(import_helper, &tokenize_path, &struct_path);
+                        delete_syntax_path(import_helper, &tokenize_path, &struct_path, true);
                     }
                 }
             }
@@ -1129,7 +1577,7 @@ fn test_symdex_path_for_pretty() {
 /// explicitly notice the deletions.)
 fn process_symdex_tree(
     symdex: HashMap<String, HashMap<String, SymbolNotes>>,
-    import_helper: &mut Child,
+    import_helper: &mut SyntaxImport,
     syntax_parents: &[SyntaxRepoCommit],
 ) -> Result<(), git2::Error> {
     info!("Processing symdex tree.");
@@ -1176,12 +1624,7 @@ fn process_symdex_tree(
             // Delete the file if we no longer have any records for the file.
             if records.is_empty() {
                 info!("  Deleting moot symdex file {}", sym_path.display());
-                writeln!(
-                    import_helper.stdin.as_mut().unwrap(),
-                    "D {}",
-                    sanitize(&sym_path)
-                )
-                .unwrap();
+                import_helper.delete(&sym_path, false);
             } else {
                 let symdex_text = record_file_contents_to_string(&header, &records);
                 let symdex_bytes = symdex_text.as_bytes();
@@ -1191,18 +1634,41 @@ fn process_symdex_tree(
                     sym_path.display(),
                     records.len()
                 );
-                let import_stream = import_helper.stdin.as_mut().unwrap();
-
-                writeln!(import_stream, "M 100644 inline {}", sanitize(&sym_path)).unwrap();
-                writeln!(import_stream, "data {}", symdex_bytes.len()).unwrap();
-                import_stream.write_all(symdex_bytes).unwrap();
-                // (skipping trailing LF again)
+                import_helper.write_inline(0o100644, &sym_path, symdex_bytes);
             }
         }
     }
     info!("Done processing symdex.");
 
     Ok(())
+}
+
+/// A processed revision whose syntax commit's id we don't have yet: the
+/// revision, its syntax commit's mark, its committer time, and whether a batch
+/// of notes ends with its note.
+type UnnotedRevision = (Oid, usize, i64, bool);
+
+/// Note the revisions whose syntax commits' ids we have (or all of them, if
+/// `wait`), in order, writing each batch of notes once it's complete, so that
+/// the batches are each NOTES_BATCH_SIZE revisions, as they were when we
+/// waited for each revision's id.
+fn note_revisions(
+    import_helper: &mut SyntaxImport,
+    notes: &mut NotesWriter,
+    unnoted: &mut VecDeque<UnnotedRevision>,
+    wait: bool,
+) {
+    while let Some(&(rev, mark, time, ends_batch)) = unnoted.front() {
+        let Some(syntax_rev) = import_helper.mark_rev(mark, wait) else {
+            break;
+        };
+        unnoted.pop_front();
+        import_helper.mark_revs.remove(&mark);
+        notes.add(rev, &syntax_rev, time);
+        if ends_batch {
+            notes.flush(&mut import_helper.input).unwrap();
+        }
+    }
 }
 
 struct SyntaxTreeData {
@@ -1741,7 +2207,7 @@ fn main() {
     // if we ran out of requests because there were so few.
     assert!((compute_index % num_threads == 0) || compute_index == rev_count);
 
-    let mut import_helper = start_fast_import(&blame_repo);
+    let mut import_helper = SyntaxImport::start(&blame_repo);
     let mut notes = notes_writer(&blame_repo, &notes_refs);
     if !seed_old_to_new.is_empty() {
         let num_old_notes = write_old_revision_notes(
@@ -1749,7 +2215,7 @@ fn main() {
             &mut old_notes,
             &seed_old_to_new,
             head_time,
-            &mut BufWriter::new(import_helper.stdin.as_mut().unwrap()),
+            &mut import_helper.input,
         )
         .unwrap();
         info!(
@@ -1764,6 +2230,10 @@ fn main() {
     // Tracks completion count and serves as the basis for the mark <idnum>
     // assigned to each commit.
     let mut rev_done = 0;
+    // The revisions processed whose syntax commits' ids we haven't had yet,
+    // for their notes, in order, and how many since the last batch of notes.
+    let mut unnoted: VecDeque<UnnotedRevision> = VecDeque::new();
+    let mut since_batch = 0;
 
     let mut stopped = false;
     for git_oid in revs_to_process.iter() {
@@ -1806,13 +2276,14 @@ fn main() {
             .collect::<Vec<_>>();
         let blame_parents = parents.iter().map(|pid| blame_map[pid]).collect::<Vec<_>>();
 
+        import_helper.start_commit(blame_parents.first().copied());
         // Scope the import_helper borrow
         {
             // Here we write out the metadata for a new commit to the blame repo.
             // For details on the data format, refer to the documentation at
             // https://git-scm.com/docs/git-fast-import#_commit
             // https://git-scm.com/docs/git-fast-import#_mark
-            let mut import_stream = BufWriter::new(import_helper.stdin.as_mut().unwrap());
+            let import_stream = &mut import_helper.input;
             writeln!(import_stream, "commit {}", blame_ref).unwrap();
             writeln!(import_stream, "mark :{}", rev_done).unwrap();
             blame_map.insert(*git_oid, SyntaxRepoCommit::Mark(rev_done));
@@ -1909,33 +2380,46 @@ fn main() {
 
         process_symdex_tree(symdex, &mut import_helper, &blame_parents).unwrap();
 
-        // Terminate the commit so we can get its oid for the notes.
-        writeln!(import_helper.stdin.as_mut().unwrap()).unwrap();
-        let syntax_rev = read_mark_oid(&mut import_helper, rev_done);
-        notes.add(*git_oid, &syntax_rev, commit.committer().when().seconds());
-        if notes.num_pending() >= NOTES_BATCH_SIZE {
+        // Terminate the commit, and ask for its id, for its note, without
+        // waiting for git fast-import to get to it.  Its note, and each batch
+        // of notes, are written once we have the ids (see `note_revisions`).
+        writeln!(&mut import_helper.input).unwrap();
+        import_helper.request_mark(rev_done);
+        import_helper.finish_commit(rev_done);
+        since_batch += 1;
+        let ends_batch = since_batch >= NOTES_BATCH_SIZE;
+        unnoted.push_back((
+            *git_oid,
+            rev_done,
+            commit.committer().when().seconds(),
+            ends_batch,
+        ));
+        if ends_batch {
+            since_batch = 0;
             // The old revision notes go first so that a crash can't leave a
             // revision recorded as processed without its old revision notes.
-            old_notes
-                .flush(import_helper.stdin.as_mut().unwrap())
-                .unwrap();
-            notes.flush(import_helper.stdin.as_mut().unwrap()).unwrap();
+            old_notes.flush(&mut import_helper.input).unwrap();
         }
+        note_revisions(&mut import_helper, &mut notes, &mut unnoted, false);
 
         if rev_done % 100000 == 0 {
             info!("Completed 100,000 commits, issuing checkpoint...");
-            writeln!(import_helper.stdin.as_mut().unwrap(), "checkpoint").unwrap();
+            writeln!(&mut import_helper.input, "checkpoint").unwrap();
         }
     }
 
-    old_notes
-        .flush(import_helper.stdin.as_mut().unwrap())
-        .unwrap();
-    notes.flush(import_helper.stdin.as_mut().unwrap()).unwrap();
+    note_revisions(&mut import_helper, &mut notes, &mut unnoted, true);
+    old_notes.flush(&mut import_helper.input).unwrap();
+    notes.flush(&mut import_helper.input).unwrap();
     drop(hg_helper);
 
+    let cache = &import_helper.cache;
+    info!(
+        "Reads from the commits written: {} from what we wrote and read, {} from disk, {} through git fast-import; {} checkpoints, {} clears",
+        cache.hits, cache.disk_reads, cache.fast_import_reads, cache.checkpoints, cache.clears
+    );
     info!("Shutting down fast-import...");
-    let exitcode = import_helper.wait().unwrap();
+    let exitcode = import_helper.finish();
     if exitcode.success() {
         info!("Done!");
     } else {

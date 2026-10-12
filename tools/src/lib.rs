@@ -63,6 +63,8 @@ pub mod diagnostics;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod doc_trees_handler;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod fast_import;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod file_utils;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod format;
