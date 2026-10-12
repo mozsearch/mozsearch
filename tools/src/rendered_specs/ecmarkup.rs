@@ -28,7 +28,9 @@
 
 use std::collections::HashMap;
 use std::fmt::Write as _;
+use std::hash::{Hash, Hasher};
 use std::ops::Range;
+use std::sync::{Arc, LazyLock, Mutex};
 
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -38,9 +40,10 @@ use super::{
     is_paged, link_url, page_url, write_toc,
 };
 use crate::rendered_docs::escape;
+use crate::spec_analyze::Combined;
 use crate::spec_analyze::ecmarkup::{
     Biblio, CLAUSES, Emd, Reference, algorithm_steps, analyze_with_imports, biblio_urls, clause_h1,
-    emd_spans, loaded_biblios, resolve_with_imports,
+    emd_spans, imports, loaded_biblios, resolve_with_imports,
 };
 use crate::spec_analyze::markup::{Doc, NodeKind};
 use crate::spec_analyze::{SpecEntry, SpecFormat, SpecsConfig, spec_symbol};
@@ -605,6 +608,11 @@ impl Hooks for Ecmarkup<'_> {
     }
 }
 
+/// The biblios made last, by the URLs of their specs and their texts' hashes
+/// (see `load_biblios`).
+static BIBLIOS: LazyLock<Mutex<Vec<((String, u64), Arc<Biblio>)>>> =
+    LazyLock::new(|| Mutex::new(vec![]));
+
 /// The biblios that an ecmarkup spec's package.json loads, made from the
 /// tree's specs they're of, read with `read` (ex: ECMA-262's, for ECMA-402
 /// and proposals).
@@ -612,9 +620,10 @@ pub fn load_biblios(
     config: &SpecsConfig,
     read: &dyn Fn(&str) -> Option<String>,
     package_json: &str,
-) -> Vec<Biblio> {
+) -> Vec<Arc<Biblio>> {
     let wanted = loaded_biblios(package_json);
-    let mut made: Vec<(&str, Biblio)> = vec![];
+    // (url, the cache's key's hash, biblio)
+    let mut made: Vec<(&str, u64, Arc<Biblio>)> = vec![];
     for url in biblio_urls() {
         // (Each loads the ones before it, as ECMA-402 loads ECMA-262's.)
         if !wanted.contains(&url) && !made.is_empty() {
@@ -628,16 +637,45 @@ pub fn load_biblios(
         let Some(path) = spec.source_path() else {
             continue;
         };
-        let loaded: Vec<&Biblio> = made.iter().map(|(_, biblio)| biblio).collect();
-        if let Some((_, _, biblio)) =
-            analyze_with_imports(&path, read, spec.shortname(), config, &loaded)
-        {
-            made.push((url, biblio));
+        // (A spec's biblio is cached by its text, with its imports, and the
+        // biblios it loads.)
+        let Some(combined) = Combined::build(&path, read, &imports) else {
+            continue;
+        };
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        combined.text.hash(&mut hasher);
+        for (_, hash, _) in &made {
+            hash.hash(&mut hasher);
         }
+        let key = (url.to_string(), hasher.finish());
+        let cached = BIBLIOS
+            .lock()
+            .unwrap()
+            .iter()
+            .find(|(k, _)| *k == key)
+            .map(|(_, biblio)| biblio.clone());
+        let hash = key.1;
+        let biblio = match cached {
+            Some(biblio) => biblio,
+            None => {
+                let loaded: Vec<&Biblio> = made.iter().map(|(_, _, biblio)| &**biblio).collect();
+                let Some((_, _, biblio)) =
+                    analyze_with_imports(&path, read, spec.shortname(), config, &loaded)
+                else {
+                    continue;
+                };
+                let biblio = Arc::new(biblio);
+                let mut cache = BIBLIOS.lock().unwrap();
+                cache.retain(|(k, _)| k.0 != key.0);
+                cache.push((key, biblio.clone()));
+                biblio
+            }
+        };
+        made.push((url, hash, biblio));
     }
     made.into_iter()
-        .filter(|(url, _)| wanted.contains(url))
-        .map(|(_, biblio)| biblio)
+        .filter(|(url, _, _)| wanted.contains(url))
+        .map(|(_, _, biblio)| biblio)
         .collect()
 }
 
@@ -705,7 +743,7 @@ struct Resolved {
     combined: crate::spec_analyze::Combined,
     references: Vec<Reference>,
     multipage: bool,
-    biblios: Vec<Biblio>,
+    biblios: Vec<Arc<Biblio>>,
 }
 
 fn resolve(
@@ -716,7 +754,7 @@ fn resolve(
 ) -> Option<Resolved> {
     let package = package_json(path, read);
     let biblios = load_biblios(config, read, &package);
-    let loaded: Vec<&Biblio> = biblios.iter().collect();
+    let loaded: Vec<&Biblio> = biblios.iter().map(|biblio| &**biblio).collect();
     let (combined, references) =
         resolve_with_imports(path, read, spec.shortname(), config, &loaded)?;
     let multipage = package.contains("--multipage");
@@ -950,7 +988,7 @@ fn render_view(
             imports.insert(first, paths[*imported].to_string());
         }
     }
-    let biblios: Vec<&Biblio> = resolved.biblios.iter().collect();
+    let biblios: Vec<&Biblio> = resolved.biblios.iter().map(|biblio| &**biblio).collect();
     let hooks = Ecmarkup {
         doc: &doc,
         references: &resolved.references,
