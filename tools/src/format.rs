@@ -52,7 +52,8 @@ use crate::tokenize;
 use crate::utils::OwnedOrBorrowed;
 
 use crate::file_format::analysis::{
-    AnalysisSource, ExpansionInfo, WithLocation, collect_file_syms_from_source,
+    AnalysisSource, BindingImplKind, BindingSlotLang, ExpansionInfo, WithLocation,
+    collect_file_syms_from_source,
 };
 use crate::file_format::config::{Config, GitData, TreeConfig};
 use crate::file_format::history::syntax_files::{split_token_line, token_file_lines};
@@ -1599,6 +1600,13 @@ struct Citation {
     /// If its step's text changed after it was written (by the trees'
     /// histories): when, and the spec's commit that changed it.
     drift: Option<(i64, String)>,
+    /// What it is, if not a citation, ex: the C++ implementation of a WebIDL
+    /// member reflecting the spec's definition.
+    note: Option<String>,
+    /// Where it goes among the algorithm's citations (of the same step): its
+    /// own path and line, or for an implementation, its WebIDL member's, after
+    /// it.
+    order: (String, u32, u8),
 }
 
 /// The newest change to a page's lines (0-based) by its token blame: its
@@ -1618,7 +1626,9 @@ const CITATION_EXCERPT_LINES: usize = 8;
 
 /// The citations of `sym` (its doc-uses, see `spec_analyze::citations`) in
 /// the tree and in its linked trees for its prefix, with their excerpts from
-/// the trees' latest revisions.
+/// the trees' latest revisions.  A WebIDL member reflecting the spec's
+/// definition (its doc-use, see `spec_analyze::bcd`) is followed by its C++
+/// implementations (by its `impl` binding slots), up to their ends.
 fn algorithm_citations(
     cfg: &Config,
     tree_name: &str,
@@ -1677,23 +1687,120 @@ fn algorithm_citations(
                     .take_while(|(i, line)| *i == first || !STEP_COMMENT.is_match(line))
                     .map(|(_, line)| line.clone())
                     .collect();
+                let webidl = hit.contextsym.starts_with("WEBIDL_");
                 citations.push(Citation {
                     tree: tree.clone(),
                     path: result.path.to_string(),
                     line: hit.lineno,
                     function,
                     step,
-                    excerpt: if excerpt.is_empty() {
+                    // (A WebIDL member's is its line.)
+                    excerpt: if excerpt.is_empty() || webidl {
                         vec![hit.line.clone()]
                     } else {
                         excerpt
                     },
                     drift: None,
+                    note: webidl.then(|| "WebIDL".to_string()),
+                    order: (result.path.to_string(), hit.lineno, 0),
                 });
+                if webidl {
+                    citations.extend(webidl_implementations(
+                        &crossref,
+                        &tree,
+                        git,
+                        head.as_ref(),
+                        &hit.contextsym,
+                        &hit.context,
+                        (result.path.to_string(), hit.lineno, 1),
+                    ));
+                }
             }
         }
     }
     citations
+}
+
+/// The C++ implementations of a WebIDL member (`webidl`, by its `impl` binding
+/// slots, in the tree with `crossref` and `git`), as citations: from their
+/// definitions' lines up to their ends (a line closing a block at their
+/// indentation), at most twice as many lines as citations'.
+fn webidl_implementations(
+    crossref: &BisectableMmap<CrossrefData>,
+    tree: &str,
+    git: Option<&GitData>,
+    head: Option<&git2::Commit>,
+    webidl: &str,
+    webidl_pretty: &str,
+    order: (String, u32, u8),
+) -> Vec<Citation> {
+    let Ok(Some(data)) = crossref.lookup(webidl) else {
+        return vec![];
+    };
+    let Some(meta) = data.meta else {
+        return vec![];
+    };
+    let mut implementations = vec![];
+    for slot in &meta.binding_slots {
+        if slot.props.impl_kind != Some(BindingImplKind::Impl)
+            || slot.props.slot_lang != BindingSlotLang::Cpp
+        {
+            continue;
+        }
+        let Ok(Some(implementation)) = crossref.lookup(&slot.sym) else {
+            continue;
+        };
+        let Some(definition) = implementation
+            .definitions
+            .as_ref()
+            .and_then(|defs| defs.first())
+            .and_then(|def| Some((def.path, def.lines.first()?.lineno)))
+        else {
+            continue;
+        };
+        let lines: Vec<String> = match (git, head) {
+            (Some(git), Some(head)) => read_commit_file(&git.repo, head, &definition.0)
+                .map_or(vec![], |text| text.lines().map(str::to_string).collect()),
+            _ => vec![],
+        };
+        let first = definition.1 as usize - 1;
+        let Some(start) = lines.get(first) else {
+            continue;
+        };
+        let indent = start.len() - start.trim_start().len();
+        let mut excerpt = vec![];
+        for line in lines.iter().skip(first).take(CITATION_EXCERPT_LINES * 2) {
+            excerpt.push(line.clone());
+            let trimmed = line.trim_start();
+            if excerpt.len() > 1 && trimmed.starts_with('}') && line.len() - trimmed.len() <= indent
+            {
+                break;
+            }
+            // (A one-line definition, ex: `void Method() {}`.)
+            if excerpt.len() == 1 && trimmed.ends_with('}') && trimmed.contains('{') {
+                break;
+            }
+        }
+        let pretty = implementation
+            .meta
+            .as_ref()
+            .map_or_else(|| slot.sym.to_string(), |meta| meta.pretty.to_string());
+        implementations.push(Citation {
+            tree: tree.to_string(),
+            path: definition.0.to_string(),
+            line: definition.1,
+            function: pretty,
+            step: None,
+            excerpt,
+            drift: None,
+            note: Some(format!(
+                "C++ implementation of the WebIDL {}",
+                webidl_pretty
+            )),
+            order: order.clone(),
+        });
+    }
+    implementations
 }
 
 /// The view of the algorithm that `sym` defines in one of the tree's specs
@@ -1820,8 +1927,7 @@ pub fn format_algorithm(
                 .as_ref()
                 .map_or(0, |step| steps.get(step).copied().unwrap_or(usize::MAX)),
             c.tree.clone(),
-            c.path.clone(),
-            c.line,
+            c.order.clone(),
         )
     });
 
@@ -1925,7 +2031,7 @@ pub fn format_algorithm(
         let known = citation.step.is_none() || steps.contains_key(step);
         write!(
             writer,
-            r#"<div class="sp-citation" data-step="{}"><div class="sp-citation-head"><a href="/{}/source/{}#{}">{}{}:{}</a> <span class="sp-citation-fn">{}</span>{}</div><pre class="sp-citation-code">"#,
+            r#"<div class="sp-citation" data-step="{}"><div class="sp-citation-head"><a href="/{}/source/{}#{}">{}{}:{}</a> <span class="sp-citation-fn">{}</span>{}{}</div><pre class="sp-citation-code">"#,
             rendered_docs::escape(step),
             rendered_docs::escape(&citation.tree),
             url_encode_path(&citation.path),
@@ -1938,6 +2044,10 @@ pub fn format_algorithm(
             rendered_docs::escape(&citation.path),
             citation.line,
             rendered_docs::escape(&citation.function),
+            citation.note.as_deref().map_or_else(String::new, |note| format!(
+                r#" <span class="sp-citation-note">{}</span>"#,
+                rendered_docs::escape(note)
+            )),
             match (&citation.step, known) {
                 (Some(step), true) => format!(
                     r#" <span class="sp-citation-step">step {}</span>{}"#,

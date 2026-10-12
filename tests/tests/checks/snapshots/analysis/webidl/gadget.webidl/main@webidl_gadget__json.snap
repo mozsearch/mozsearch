@@ -93,6 +93,15 @@ input_file: inputs/analysis/webidl/gadget.webidl/webidl_gadget__json
   },
   {
     "loc": "00004:10-16",
+    "target": 1,
+    "kind": "doc-use",
+    "pretty": "examplebs #gadget",
+    "sym": "SPEC_examplebs_gadget",
+    "context": "Gadget",
+    "contextsym": "WEBIDL_Gadget"
+  },
+  {
+    "loc": "00004:10-16",
     "structured": 1,
     "supplement": true,
     "sym": "WEBIDL_Gadget",
@@ -110,6 +119,15 @@ input_file: inputs/analysis/webidl/gadget.webidl/webidl_gadget__json
         "url": "https://developer.mozilla.org/docs/Web/API/Gadget"
       }
     ]
+  },
+  {
+    "loc": "00005:7-11",
+    "target": 1,
+    "kind": "doc-use",
+    "pretty": "examplebs #dom-gadget-poke",
+    "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke",
+    "context": "Gadget::poke",
+    "contextsym": "WEBIDL_Gadget_poke"
   },
   {
     "loc": "00005:7-11",

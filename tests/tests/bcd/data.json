@@ -20,6 +20,13 @@
           "spec_url": "https://example.github.io/bs/#dom-gadget-missing"
         }
       }
+    },
+    "BindingTest": {
+      "method1": {
+        "__compat": {
+          "spec_url": "https://example.github.io/bs/#dom-gadget-poke"
+        }
+      }
     }
   },
   "css": {

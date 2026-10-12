@@ -7,7 +7,8 @@
 //!   `WEBIDL_<interface>_<member>`, by their interfaces' and members' names,
 //!   with a mixin's members by the interfaces including it, which BCD lists
 //!   them under) the definitions in the specs which they reflect, as `spec`
-//!   binding slots, and their MDN pages, as `docs`.
+//!   binding slots (and doc-uses of them, in the WebIDL symbols), and their
+//!   MDN pages, as `docs`.
 //! - The tree's specs' definitions (a spec tree's) their MDN pages.
 //!
 //! Only as BCD says, never by matching names with the specs' definitions, and
@@ -22,8 +23,8 @@ use serde_json::{Value, json};
 
 use super::SpecsConfig;
 use super::spec_symbol;
-use crate::file_format::analysis::{Location, read_analysis, read_structured};
-use crate::semantic_analyzer::Record;
+use crate::file_format::analysis::{AnalysisKind, Location, read_analysis, read_structured};
+use crate::semantic_analyzer::{Record, target_record};
 
 lazy_static! {
     /// A WebIDL `includes` statement: the interface, and the mixin.
@@ -210,6 +211,23 @@ pub fn webidl_supplements(
                 stats.mdn += usize::from(!mdn.is_empty());
                 if spec.is_none() && mdn.is_empty() {
                     continue;
+                }
+                // (And it's a doc-use of the spec's definition, in the WebIDL
+                // symbol, ex: for the definition's steps' view's code citing
+                // it, and calls diagrams, where it implements the definition.)
+                if let Some(spec_sym) = &spec {
+                    let pretty = config.symbol_spec(spec_sym).map_or_else(
+                        || spec_sym.clone(),
+                        |(spec, anchor)| format!("{} #{}", spec.shortname(), anchor),
+                    );
+                    records.push(target_record(
+                        structured.loc,
+                        AnalysisKind::DocUse,
+                        pretty,
+                        spec_sym.clone(),
+                        data.pretty.to_string(),
+                        data.sym.to_string(),
+                    ));
                 }
                 records.push(supplement(
                     structured.loc,

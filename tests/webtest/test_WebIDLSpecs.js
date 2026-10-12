@@ -47,3 +47,20 @@ add_task(async function test_webidl_method_steps() {
   ok(frame.contentDocument.body.textContent.includes("method steps are to"),
      "which shows the method's steps");
 });
+
+// The steps' view has the WebIDL members reflecting the spec's definition (as
+// BCD says: the test BCD data says BindingTest.method1 does, for its C++
+// implementation in the test tree), each followed by its C++ implementations.
+add_task(async function test_webidl_implementations() {
+  await TestUtils.loadPath("/tests/algorithm/SPEC_examplebs_dom@2Dgadget@2Dpoke");
+  const cards = [...frame.contentDocument.querySelectorAll(".sp-citation")];
+  const webidl = cards.find(c => c.querySelector(".sp-citation-fn")?.textContent === "BindingTest::method1");
+  is(webidl?.querySelector(".sp-citation-note")?.textContent, "WebIDL",
+     "The WebIDL member reflecting the definition is beside its steps");
+  const impl = cards[cards.indexOf(webidl) + 1];
+  is(impl?.querySelector(".sp-citation-note")?.textContent,
+     "C++ implementation of the WebIDL BindingTest::method1",
+     "followed by its C++ implementation");
+  ok(impl?.querySelector(".sp-citation-code")?.textContent.includes("Method1"),
+     "with its code");
+});

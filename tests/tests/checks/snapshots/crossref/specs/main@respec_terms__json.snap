@@ -290,6 +290,24 @@ input_file: inputs/crossref/specs/respec_terms__json
             ]
           }
         ],
+        "doc-uses": [
+          {
+            "path": "webidl/gadget.webidl",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 4,
+                "bounds": [
+                  10,
+                  16
+                ],
+                "line": "interface Gadget {",
+                "context": "Gadget",
+                "contextsym": "WEBIDL_Gadget"
+              }
+            ]
+          }
+        ],
         "meta": {
           "structured": 1,
           "pretty": "examplebs Gadget",
