@@ -18,9 +18,11 @@ by its repository's and its shortnames).  A spec's symbols are by its series'
 shortname if it's its series' current specification (with the series'
 unversioned URL as an alias, ex: "https://drafts.csswg.org/css-grid/" for
 css-grid-2), else by its own (ex: css-grid-3, whose `series` is css-grid).
-Its `successors` are the specs browser-specs says obsolete it (ex: html for
-sanitizer-api), which are configured.  (Citations of anchors a spec doesn't
-define are of its series' or successors', if they define them.)
+Its and its series' published versions' URLs (ex:
+"https://www.w3.org/TR/filter-effects-1/", which code cites too) are aliases
+too.  Its `successors` are the specs browser-specs says obsolete it (ex: html
+for sanitizer-api), which are configured.  (Citations of anchors a spec
+doesn't define are of its series' or successors', if they define them.)
 
 OVERRIDES has the forest's root `.gitattributes` (`attributes`), the
 `directories` of repositories by their URLs, and repositories and specs to
@@ -167,10 +169,20 @@ def main():
         fmt = spec_format(spec)
         source = spec["nightly"].get("sourcePath")
         rendered = rendered_url(spec_url(spec))
-        aliases = []
+        # (Its series' unversioned URL, and its and its series' published
+        # versions' (ex: "https://www.w3.org/TR/filter-effects-1/", which
+        # code cites too), whose anchors are mostly the same.)
+        candidates = []
         if current and series.get("nightlyUrl"):
-            alias = rendered_url(series["nightlyUrl"])
-            if alias != rendered:
+            candidates.append(series["nightlyUrl"])
+        if (spec.get("release") or {}).get("url"):
+            candidates.append(spec["release"]["url"])
+        if current and series.get("releaseUrl"):
+            candidates.append(series["releaseUrl"])
+        aliases = []
+        for candidate in candidates:
+            alias = rendered_url(candidate)
+            if alias != rendered and alias not in aliases:
                 aliases.append(alias)
         lines = ["[[spec]]", f"name = {toml_string(name)}"]
         if url:
