@@ -207,9 +207,16 @@ impl<'a> Doc<'a> {
                     }
                 }
                 Item::End { name, range } => {
-                    let depth = open
-                        .iter()
-                        .rposition(|&node| name_of(&nodes, node).as_deref() == Some(name.as_str()));
+                    // (A heading's end tag ends the innermost open heading,
+                    // of whatever level, as browsers parse it: ex: `<h3>A</h2>`.)
+                    let is_heading = |n: &str| matches!(n, "h1" | "h2" | "h3" | "h4" | "h5" | "h6");
+                    let depth = open.iter().rposition(|&node| {
+                        let open_name = name_of(&nodes, node);
+                        match open_name.as_deref() {
+                            Some(open_name) if is_heading(name) => is_heading(open_name),
+                            open_name => open_name == Some(name.as_str()),
+                        }
+                    });
                     if let Some(depth) = depth.filter(|&depth| depth > 0) {
                         let node = open[depth];
                         close_to(&mut nodes, &mut open, depth);
@@ -514,6 +521,9 @@ mod tests {
         // (A stray end tag is ignored.)
         let doc = Doc::parse("<div>a</span>b</div>");
         assert_eq!(shape(&doc, 0), r#"root(div("a" "b"))"#);
+        // (A heading's end tag ends the open heading, whatever its level.)
+        let doc = Doc::parse("<section><h3>A</h2><p>B</section>");
+        assert_eq!(shape(&doc, 0), r#"root(section(h3("A") p("B")))"#);
         // (A `<body>` ends the `<head>`.)
         let doc = Doc::parse("<html><head><title>T</title><body><p>A");
         assert_eq!(
