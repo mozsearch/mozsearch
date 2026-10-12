@@ -94,7 +94,8 @@ impl CrossrefData {
     /// files), and its meta and callees, if this has none.
     pub fn add_linked(&mut self, mut linked: CrossrefData, tree: Ustr) {
         linked.tag_tree(tree);
-        let add = |own: &mut Option<Vec<PathSearchResult>>, theirs: Option<Vec<PathSearchResult>>| {
+        let add = |own: &mut Option<Vec<PathSearchResult>>,
+                   theirs: Option<Vec<PathSearchResult>>| {
             let Some(theirs) = theirs else {
                 return;
             };

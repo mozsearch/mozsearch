@@ -379,9 +379,8 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
     let mut ids = Ids::default();
     for node in 1..doc.nodes.len() {
         let parent = doc.nodes[node].parent.unwrap_or(0);
-        excluded[node] = excluded[parent]
-            || doc.has_attr(node, "w-nohtml")
-            || doc.has_attr(node, "w-dev");
+        excluded[node] =
+            excluded[parent] || doc.has_attr(node, "w-nohtml") || doc.has_attr(node, "w-dev");
         if !excluded[node]
             && let Some(id) = doc.attr(node, "id")
         {
@@ -742,7 +741,15 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
     for p in pending {
         let context = context_at(p.node);
         let loc = location(p.node);
-        spec_records(&mut records, loc, p.def, p.what, &p.pretty, &p.sym, &context);
+        spec_records(
+            &mut records,
+            loc,
+            p.def,
+            p.what,
+            &p.pretty,
+            &p.sym,
+            &context,
+        );
         if p.def
             && let Some((kind, parent, rendered)) = structured.get(&p.sym)
         {
@@ -806,9 +813,15 @@ mod tests {
 
     #[test]
     fn test_munging() {
-        assert_eq!(munge_topic("The  #Document\n object "), "the document object");
+        assert_eq!(
+            munge_topic("The  #Document\n object "),
+            "the document object"
+        );
         assert_eq!(munge_topic(" leading"), " leading");
-        assert_eq!(munge_id("the document's <base> [URL]?"), "the-document's-base-url");
+        assert_eq!(
+            munge_id("the document's <base> [URL]?"),
+            "the-document's-base-url"
+        );
         assert_eq!(munge_id("  a%b  "), "a-b");
         assert_eq!(munge_id("Ünicode"), "Ünicode");
     }

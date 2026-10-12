@@ -321,7 +321,12 @@ fn analyze_placed(
             dfn.lt.clone()
         };
         resolver.add(&sym, kind, &texts, &dfn.dfn_for);
-        structured_defs.push((sym.clone(), kind, dfn.dfn_for.first().cloned(), dfn.id.clone()));
+        structured_defs.push((
+            sym.clone(),
+            kind,
+            dfn.dfn_for.first().cloned(),
+            dfn.id.clone(),
+        ));
         defs.insert(&dfn.id, (what.clone(), pretty.clone()));
         pending.push(Pending {
             range,
@@ -369,7 +374,10 @@ fn analyze_placed(
             continue;
         };
         let label = link.lt.clone().unwrap_or_else(|| link.text.clone());
-        let link_type = link.link_type.clone().unwrap_or_else(|| "anchor".to_string());
+        let link_type = link
+            .link_type
+            .clone()
+            .unwrap_or_else(|| "anchor".to_string());
         let (sym, what, pretty) = match link.href.strip_prefix('#') {
             Some(id) => match defs.get(id) {
                 Some((what, pretty)) => (spec_symbol(shortname, id), what.clone(), pretty.clone()),
@@ -392,7 +400,11 @@ fn analyze_placed(
             },
         };
         stats.links += 1;
-        let range = match link.syntax.as_deref().and_then(|syntax| match_syntax(src, at, syntax)) {
+        let range = match link
+            .syntax
+            .as_deref()
+            .and_then(|syntax| match_syntax(src, at, syntax))
+        {
             Some(end) => at..end,
             _ if link.idl && src[at..].starts_with(&link.text) => at..at + link.text.len(),
             _ => contents(at).unwrap_or(at..at + 1),
@@ -538,7 +550,11 @@ fn match_delimiters(src: &str, at: usize, syntax: &str) -> Option<usize> {
         return None;
     }
     let open_len = if chars[1].is_alphanumeric() { 1 } else { 2 };
-    let close_len = if chars[chars.len() - 2].is_alphanumeric() { 1 } else { 2 };
+    let close_len = if chars[chars.len() - 2].is_alphanumeric() {
+        1
+    } else {
+        2
+    };
     let open: String = chars[..open_len].iter().collect();
     let close: String = chars[chars.len() - close_len..].iter().collect();
     let rest = src[at..].strip_prefix(open.as_str())?;
@@ -599,7 +615,10 @@ mod tests {
     #[test]
     fn test_match_syntax() {
         let src = "See [=validate and\n  extract|validating=] it.";
-        assert_eq!(match_syntax(src, 4, "[=validate and extract|validating=]"), Some(41));
+        assert_eq!(
+            match_syntax(src, 4, "[=validate and extract|validating=]"),
+            Some(41)
+        );
         // (Bikeshed leaves out a link's own text.)
         assert_eq!(match_syntax(src, 4, "[=validate and extract=]"), Some(41));
         assert_eq!(match_syntax(src, 4, "{{validate}}"), None);
@@ -729,7 +748,10 @@ mod tests {
                 "21:56-61 use SPEC_dom_concept@2Dnode | Widgets (SPEC_x_widgets)",
             ]
         );
-        assert_eq!((stats.dfns, stats.headings, stats.links, stats.external), (4, 2, 4, 1));
+        assert_eq!(
+            (stats.dfns, stats.headings, stats.links, stats.external),
+            (4, 2, 4, 1)
+        );
         let structured: Vec<String> = records
             .iter()
             .filter_map(|record| match record {

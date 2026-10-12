@@ -20,6 +20,7 @@ use itertools::Itertools;
 use serde::Serialize;
 use serde_json::Map;
 extern crate tools;
+use tools::cmd_pipeline::symbol_graph::is_implementable;
 use tools::file_format::analysis::AnalysisStructured;
 use tools::file_format::analysis::BindingSlotLang;
 use tools::file_format::analysis::OntologySlotInfo;
@@ -41,7 +42,6 @@ use tools::file_format::crossref::Callee;
 use tools::file_format::crossref::CrossrefData;
 use tools::file_format::crossref::FieldInfos;
 use tools::file_format::crossref::FieldMemberUse;
-use tools::cmd_pipeline::symbol_graph::is_implementable;
 use tools::file_format::jumpref::{TreeJumprefs, convert_crossref_value_to_sym_info_rep};
 use tools::file_format::ontology_mapping::OntologyRunnableMode;
 use tools::file_format::ontology_mapping::{

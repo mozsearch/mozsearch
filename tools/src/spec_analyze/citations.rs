@@ -37,9 +37,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use super::{Lines, SpecsConfig, spec_symbol};
-use crate::file_format::analysis::{
-    AnalysisKind, read_analysis, read_source, read_target,
-};
+use crate::file_format::analysis::{AnalysisKind, read_analysis, read_source, read_target};
 use crate::semantic_analyzer::{Record, sort_records, source_record, target_record};
 
 lazy_static! {
@@ -132,7 +130,11 @@ pub struct Titles {
 impl Titles {
     /// Add a spec's clauses' names (from its biblio, see
     /// `ecmarkup::Biblio::clause_names`), after the specs added before it.
-    pub fn add_spec<'a>(&mut self, shortname: &str, names: impl Iterator<Item = (&'a str, &'a str, &'a str)>) {
+    pub fn add_spec<'a>(
+        &mut self,
+        shortname: &str,
+        names: impl Iterator<Item = (&'a str, &'a str, &'a str)>,
+    ) {
         let rank = self.specs;
         self.specs += 1;
         for (name, id, pretty) in names {
@@ -261,7 +263,9 @@ fn trim_url(url: &str) -> &str {
         };
         let trimmed = match trimmed.strip_suffix([')', ']']) {
             // (Unless it's the URL's own, ex: an anchor's `(` ... `)`.)
-            Some(inner) if inner.matches(['(', '[']).count() <= inner.matches([')', ']']).count() => {
+            Some(inner)
+                if inner.matches(['(', '[']).count() <= inner.matches([')', ']']).count() =>
+            {
                 inner
             }
             _ => trimmed,
@@ -362,11 +366,17 @@ pub fn citation_records(
         // (Not past the end of the definition it's in, ex: a `}`.)
         let inside = innermost(line);
         let preceded = code
-            .filter(|&code| !lines[code as usize - 1].trim_start().starts_with(['}', ')', ']']))
+            .filter(|&code| {
+                !lines[code as usize - 1]
+                    .trim_start()
+                    .starts_with(['}', ')', ']'])
+            })
             .and_then(|code| {
                 defs.iter()
                     .filter(|d| code <= d.line && d.line < code + 4)
-                    .filter(|d| inside.is_none_or(|i| i.lines.start <= d.line && d.lines.end <= i.lines.end))
+                    .filter(|d| {
+                        inside.is_none_or(|i| i.lines.start <= d.line && d.lines.end <= i.lines.end)
+                    })
                     .min_by_key(|d| (d.line, std::cmp::Reverse(d.lines.end - d.lines.start)))
             });
         match preceded.or(inside) {
@@ -441,7 +451,9 @@ pub fn citation_records(
             // (ECMA-402's, if the comment mentions Intl, ex: "ES2025 Intl
             // draft rev ...", or the title, ex: "Intl.Locale ( tag )".)
             let nearby = &lines[index.saturating_sub(3)..(index + 4).min(lines.len())];
-            let intl = nearby.iter().any(|l| l.contains("Intl") || l.contains("402"));
+            let intl = nearby
+                .iter()
+                .any(|l| l.contains("Intl") || l.contains("402"));
             let Some((sym, pretty)) = titles.resolve(&name, intl) else {
                 continue;
             };
@@ -569,7 +581,10 @@ mod tests {
         assert_eq!(trim_url("https://a.org/#b's-c"), "https://a.org/#b's-c");
         let src = "// https://dom.spec.whatwg.org/#concept-node:~:text=node%20tree\n";
         let (records, _) = citation_records(src, &[], &config(), None);
-        assert_eq!(summary(&records), vec!["1:3-63 doc-use SPEC_dom_concept@2Dnode |  ()"]);
+        assert_eq!(
+            summary(&records),
+            vec!["1:3-63 doc-use SPEC_dom_concept@2Dnode |  ()"]
+        );
         // (An anchor's `'`s, but not a string's.)
         let src = "// <https://dom.spec.whatwg.org/#concept-node's-x>\nx('https://dom.spec.whatwg.org/#y');\n";
         let (records, _) = citation_records(src, &[], &config(), None);
@@ -654,14 +669,25 @@ nsNode::Do()
     fn test_sections() {
         let mut titles = Titles::default();
         let names = [
-            ("Array.prototype.join", "sec-array.prototype.join", "es Array.prototype.join"),
-            ("RegExp.prototype [ %Symbol.replace% ]", "sec-regexp.prototype-%symbol.replace%", "es RegExp.prototype [ %Symbol.replace% ]"),
+            (
+                "Array.prototype.join",
+                "sec-array.prototype.join",
+                "es Array.prototype.join",
+            ),
+            (
+                "RegExp.prototype [ %Symbol.replace% ]",
+                "sec-regexp.prototype-%symbol.replace%",
+                "es RegExp.prototype [ %Symbol.replace% ]",
+            ),
             ("Evaluation", "sec-a-evaluation", "es Evaluation"),
             ("Evaluation", "sec-b-evaluation", "es Evaluation"),
             ("Intl.Locale", "sec-es-intl-locale", "es Intl.Locale"),
         ];
         titles.add_spec("es", names.into_iter());
-        titles.add_spec("intl", [("Intl.Locale", "sec-intl-locale", "intl Intl.Locale")].into_iter());
+        titles.add_spec(
+            "intl",
+            [("Intl.Locale", "sec-intl-locale", "intl Intl.Locale")].into_iter(),
+        );
         titles.set_intl("intl");
         let src = "\
 // ES2020 draft rev dc1e21c454bd316810be1c0e7af0131a2d7f38e9

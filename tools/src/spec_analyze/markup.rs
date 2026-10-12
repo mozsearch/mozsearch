@@ -63,7 +63,8 @@ const ENDS_P: &[&str] = &[
 /// Elements which an implied end can't reach past, ex: an `<li>` doesn't end
 /// an `<li>` outside of the list it's in.
 const SCOPES: &[&str] = &[
-    "ol", "ul", "dl", "table", "td", "th", "caption", "button", "object", "template", "html", "body",
+    "ol", "ul", "dl", "table", "td", "th", "caption", "button", "object", "template", "html",
+    "body",
 ];
 
 /// The open elements (by name) which a start tag ends, if they're open in its
@@ -186,7 +187,9 @@ impl<'a> Doc<'a> {
                     // (But in `<a for=/>`, the slash is the attribute's value.)
                     let self_closing = src[range.clone()].ends_with("/>")
                         && !attrs.last().is_some_and(|(_, value)| {
-                            value.as_ref().is_some_and(|value| value.end == range.end - 1)
+                            value
+                                .as_ref()
+                                .is_some_and(|value| value.end == range.end - 1)
                         });
                     if !VOID.contains(&name.as_str()) && !self_closing {
                         open.push(node);

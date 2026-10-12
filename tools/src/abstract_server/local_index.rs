@@ -21,6 +21,7 @@ use super::server_interface::{
 use super::{CommitInfo, TextMatches, TextMatchesByFile, TreeInfo};
 
 use crate::blame;
+use crate::cmd_pipeline::interface::split_file_key;
 use crate::file_format::analysis::{read_analyses, read_source};
 use crate::file_format::bisectable_mmap::BisectableMmap;
 use crate::file_format::chunked_gzip::{self, Row};
@@ -29,7 +30,6 @@ use crate::file_format::config::{TreeConfig, TreeConfigPaths, git_data, load};
 use crate::file_format::crossref::CrossrefData;
 use crate::file_format::history::timeline_common::JournalVersionRef;
 use crate::file_format::identifiers::IdentMap;
-use crate::cmd_pipeline::interface::split_file_key;
 use crate::file_format::jumpref::{JumprefData, TreeJumprefs};
 use crate::file_format::per_file_info::FileLookupMap;
 use crate::file_format::recency::FileRecency;
@@ -463,7 +463,11 @@ impl AbstractServer for LocalIndex {
         result
     }
 
-    async fn linked_crossref_lookup(&self, tree: &str, symbol: &str) -> Result<Option<CrossrefData>> {
+    async fn linked_crossref_lookup(
+        &self,
+        tree: &str,
+        symbol: &str,
+    ) -> Result<Option<CrossrefData>> {
         let Some((_, tree, _, crossref)) =
             self.linked_crossrefs.iter().find(|(_, t, _, _)| t == tree)
         else {

@@ -9,8 +9,7 @@ use super::facets::MaybeFacetRoot;
 use super::interface::{
     FlattenedKindGroupResults, FlattenedLineSpan, FlattenedPathKindGroupResults,
     FlattenedResultsBundle, FlattenedResultsByFile, PipelineJunctionCommand, PipelineValues,
-    PresentationKind, ResultFacetKind, SymbolCrossrefInfo, SymbolQuality, SymbolRelation,
-    file_key,
+    PresentationKind, ResultFacetKind, SymbolCrossrefInfo, SymbolQuality, SymbolRelation, file_key,
 };
 
 use crate::file_format::recency::Recency;
@@ -312,14 +311,15 @@ impl SearchResults {
         // (By the file's key, since a linked tree's file can have the path of
         // one of the tree's.)
         let key = file_key(path_container.tree, path_container.path);
-        let file_results = qual_kind_group
-            .path_hits
-            .entry(key)
-            .or_insert_with(|| FlattenedResultsByFile {
-                file: path_container.path,
-                line_spans: vec![],
-                tree: path_container.tree,
-            });
+        let file_results =
+            qual_kind_group
+                .path_hits
+                .entry(key)
+                .or_insert_with(|| FlattenedResultsByFile {
+                    file: path_container.path,
+                    line_spans: vec![],
+                    tree: path_container.tree,
+                });
         for search_result in path_container.lines {
             // The tokens only make fulltext matches inside them redundant;
             // semantic results don't suppress each other (results on the same

@@ -122,7 +122,8 @@ impl SpecEntry {
 
 impl SpecsConfig {
     pub fn load(path: &Path) -> Result<SpecsConfig, String> {
-        let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {}", path.display(), e))?;
+        let text =
+            std::fs::read_to_string(path).map_err(|e| format!("{}: {}", path.display(), e))?;
         let mut config: SpecsConfig =
             toml::from_str(&text).map_err(|e| format!("{}: {}", path.display(), e))?;
         config.dir = path.parent().map(Path::to_path_buf).unwrap_or_default();
@@ -132,7 +133,10 @@ impl SpecsConfig {
     /// The URL of an anchor in the rendered spec with `shortname`, if it's
     /// configured.
     pub fn rendered_url(&self, shortname: &str, anchor: &str) -> Option<String> {
-        let spec = self.specs.iter().find(|spec| spec.shortname() == shortname)?;
+        let spec = self
+            .specs
+            .iter()
+            .find(|spec| spec.shortname() == shortname)?;
         Some(format!("{}#{}", spec.rendered.as_deref()?, anchor))
     }
 
@@ -150,7 +154,9 @@ impl SpecsConfig {
         if anchor.is_empty() {
             return None;
         }
-        let page = page.trim_start_matches("http:").trim_start_matches("https:");
+        let page = page
+            .trim_start_matches("http:")
+            .trim_start_matches("https:");
         // (The longest URL that matches, since specs can be under others,
         // ex: CSP Embedded Enforcement under CSP.)
         let matching = |url: &str| -> Option<usize> {
@@ -513,7 +519,9 @@ impl Combined {
     /// The file and location of a range of `text` (up to the end of its
     /// span, if it spans files).
     pub fn place(&self, range: &Range<usize>) -> Option<(usize, Location)> {
-        let i = self.spans.partition_point(|&(start, _, _, _)| start <= range.start);
+        let i = self
+            .spans
+            .partition_point(|&(start, _, _, _)| start <= range.start);
         let &(start, end, file, file_start) = self.spans.get(i.checked_sub(1)?)?;
         if range.start >= end {
             return None;

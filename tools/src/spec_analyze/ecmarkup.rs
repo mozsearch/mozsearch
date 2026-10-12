@@ -128,9 +128,9 @@ const BIBLIO_PACKAGES: &[(&str, &str)] = &[
 /// proposals using it, ex: explicit-resource-management, still link to.)
 pub fn loaded_biblios(package_json: &str) -> Vec<&'static str> {
     let package: serde_json::Value = serde_json::from_str(package_json).unwrap_or_default();
-    let scripts: Vec<&str> = package["scripts"]
-        .as_object()
-        .map_or(vec![], |scripts| scripts.values().filter_map(|s| s.as_str()).collect());
+    let scripts: Vec<&str> = package["scripts"].as_object().map_or(vec![], |scripts| {
+        scripts.values().filter_map(|s| s.as_str()).collect()
+    });
     let ecmarkup_major = ["devDependencies", "dependencies"]
         .iter()
         .find_map(|deps| package[deps]["ecmarkup"].as_str())
@@ -434,9 +434,7 @@ fn algorithm_steps(src: &str, content: Range<usize>) -> Steps {
             .and_then(|attrs| ID_ATTR.captures(attrs.as_str()))
             .map(|c| c[1].to_string());
         let marker_start = content.start + whole.start() + indent;
-        steps
-            .starts
-            .push((marker_start, path.join("."), id));
+        steps.starts.push((marker_start, path.join("."), id));
         steps.markup.push(marker_start..content.start + whole.end());
     }
     steps
@@ -479,7 +477,9 @@ fn emd_spans(text: &[char]) -> Vec<(Range<usize>, Emd)> {
         }
         let opens = matches!(c, '_' | '*' | '~' | '`' | '|')
             && (i == 0 || !text[i - 1].is_alphanumeric())
-            && text.get(i + 1).is_some_and(|n| !n.is_whitespace() && *n != c);
+            && text
+                .get(i + 1)
+                .is_some_and(|n| !n.is_whitespace() && *n != c);
         if !opens {
             i += 1;
             continue;
@@ -587,7 +587,8 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
 
 lazy_static! {
     static ref EMU_IMPORT: Regex =
-        Regex::new(r#"<emu-import\s+href=["']?([^"'\s>]+)["']?\s*(?:/>|>\s*</emu-import>)"#).unwrap();
+        Regex::new(r#"<emu-import\s+href=["']?([^"'\s>]+)["']?\s*(?:/>|>\s*</emu-import>)"#)
+            .unwrap();
 }
 
 /// A file's imports (`<emu-import href>`, which ecmarkup replaces with the
@@ -709,7 +710,9 @@ fn analyze_placed(
             siblings[at + 1..]
                 .iter()
                 .find(|&&c| doc.name(c).is_some())
-                .is_some_and(|&c| doc.is(c, "dl") && doc.attr(c, "class").as_deref() == Some("header"))
+                .is_some_and(|&c| {
+                    doc.is(c, "dl") && doc.attr(c, "class").as_deref() == Some("header")
+                })
         });
         if structured {
             structured_h1s.extend(h1);
@@ -829,7 +832,10 @@ fn analyze_placed(
                     stats.operations += 1;
                     if doc.has_attr(node, "id") {
                         op_kinds.push((target.clone(), "specAbstractOp"));
-                        defs.insert(target.clone(), ("operation", format!("{} {}", shortname, aoid)));
+                        defs.insert(
+                            target.clone(),
+                            ("operation", format!("{} {}", shortname, aoid)),
+                        );
                     }
                     let ns = namespaces.get_mut("").unwrap();
                     if !ns.ops.iter().any(|(key, _)| *key == aoid) {
@@ -873,7 +879,10 @@ fn analyze_placed(
                             target.clone(),
                             if internal { "method" } else { "specAbstractOp" },
                         ));
-                        defs.insert(target.clone(), ("operation", format!("{} {}", shortname, name)));
+                        defs.insert(
+                            target.clone(),
+                            ("operation", format!("{} {}", shortname, name)),
+                        );
                     }
                     if internal {
                         internal_methods.entry(name).or_insert(target);
@@ -925,7 +934,10 @@ fn analyze_placed(
             .unwrap()
             .productions
             .insert(name.clone(), id.clone());
-        defs.insert(id.clone(), ("production", format!("{} {}", shortname, name)));
+        defs.insert(
+            id.clone(),
+            ("production", format!("{} {}", shortname, name)),
+        );
         production_defs.push((range.clone(), id));
     }
     // (A production's anchor, and the biblio it's from, if it's not ours.)
@@ -1001,9 +1013,10 @@ fn analyze_placed(
         start..range.end.max(start)
     };
     let pretty_of = |id: &str| -> (&'static str, String) {
-        defs.get(id).map_or(("anchor", format!("{} #{}", shortname, id)), |(what, pretty)| {
-            (*what, pretty.clone())
-        })
+        defs.get(id).map_or(
+            ("anchor", format!("{} #{}", shortname, id)),
+            |(what, pretty)| (*what, pretty.clone()),
+        )
     };
     // A reference's symbol, what it is, and its pretty name, given its
     // anchor and the biblio it's from, if it's not ours.
@@ -1015,9 +1028,11 @@ fn analyze_placed(
             }
             Some(i) => {
                 let biblio = biblios[i];
-                let (what, pretty) = biblio.ids.get(id).cloned().unwrap_or_else(|| {
-                    ("anchor", format!("{} #{}", biblio.shortname, id))
-                });
+                let (what, pretty) = biblio
+                    .ids
+                    .get(id)
+                    .cloned()
+                    .unwrap_or_else(|| ("anchor", format!("{} #{}", biblio.shortname, id)));
                 (spec_symbol(&biblio.shortname, id), what, pretty)
             }
         }
@@ -1144,9 +1159,8 @@ fn analyze_placed(
             .or_insert_with(|| Autolinker::new(&namespaces, &ns, biblios));
         let chars: Vec<(usize, char)> = text.char_indices().collect();
         let char_text: Vec<char> = chars.iter().map(|&(_, c)| c).collect();
-        let byte = |i: usize| -> usize {
-            range.start + chars.get(i).map_or(text.len(), |&(b, _)| b)
-        };
+        let byte =
+            |i: usize| -> usize { range.start + chars.get(i).map_or(text.len(), |&(b, _)| b) };
         // The text's spans which aren't text: ecmarkdown's formats, and
         // algorithms' step markers.
         let mut skip: Vec<Range<usize>> = vec![];
@@ -1179,7 +1193,8 @@ fn analyze_placed(
                         stats.biblio_references += biblio.is_some() as usize;
                         let (sym, what, pretty) = referent(biblio, &id);
                         pending.push(Pending {
-                            range: byte(span.start + 1)..byte(span.start + 1 + name.chars().count()),
+                            range: byte(span.start + 1)
+                                ..byte(span.start + 1 + name.chars().count()),
                             def: false,
                             sym,
                             what,
@@ -1255,7 +1270,9 @@ fn analyze_placed(
         }
         for m in NAME.find_iter(body) {
             let range = content.start + m.start()..content.start + m.end();
-            if excluded.iter().any(|e| e.start <= m.start() && m.start() < e.end)
+            if excluded
+                .iter()
+                .any(|e| e.start <= m.start() && m.start() < e.end)
                 || lhs_defs.values().any(|def| *def == range)
                 || (m.start() > 0 && body[..m.start()].ends_with(|c: char| is_word(c)))
             {
@@ -1419,7 +1436,15 @@ fn analyze_placed(
         if p.def
             && let Some((kind, rendered)) = structured.remove(&p.sym)
         {
-            spec_structured(records, loc, &p.pretty, &p.sym, kind, None, rendered.as_deref());
+            spec_structured(
+                records,
+                loc,
+                &p.pretty,
+                &p.sym,
+                kind,
+                None,
+                rendered.as_deref(),
+            );
         }
     }
     for records in &mut per_file {
@@ -1440,10 +1465,7 @@ fn analyze_placed(
         terms: own(&root.terms),
         ops: own(&root.ops),
         productions: root.productions.clone(),
-        ids: ids
-            .iter()
-            .map(|id| (id.clone(), pretty_of(id)))
-            .collect(),
+        ids: ids.iter().map(|id| (id.clone(), pretty_of(id))).collect(),
     };
     (per_file, stats, biblio)
 }
@@ -1581,9 +1603,14 @@ mod tests {
             ),
         ]);
         let read = |path: &str| files.get(path).map(|s| s.to_string());
-        let (records, _, _) =
-            analyze_with_imports("e/spec/index.html", &read, "e", &SpecsConfig::default(), &[])
-                .unwrap();
+        let (records, _, _) = analyze_with_imports(
+            "e/spec/index.html",
+            &read,
+            "e",
+            &SpecsConfig::default(),
+            &[],
+        )
+        .unwrap();
         let summaries: Vec<(String, Vec<String>)> = records
             .iter()
             .map(|(path, records)| (path.clone(), summary(records)))
@@ -1713,7 +1740,13 @@ mod tests {
             ]
         );
         assert_eq!(
-            (stats.clauses, stats.operations, stats.terms, stats.productions, stats.unresolved),
+            (
+                stats.clauses,
+                stats.operations,
+                stats.terms,
+                stats.productions,
+                stats.unresolved
+            ),
             (3, 2, 2, 2, 1)
         );
         let structured: Vec<String> = records

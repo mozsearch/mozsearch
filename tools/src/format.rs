@@ -2855,7 +2855,14 @@ fn write_diff_rows(
     let format = languages::select_formatting(path);
     let analysis = Vec::new();
     let slug = format_to_slug_attribute(&format);
-    let (formatted_lines, _) = format_code(Some(cfg), &TreeJumprefs::default(), format, path, new_lines, &analysis);
+    let (formatted_lines, _) = format_code(
+        Some(cfg),
+        &TreeJumprefs::default(),
+        format,
+        path,
+        new_lines,
+        &analysis,
+    );
 
     let f = F::Seq(vec![F::T(format!(
         "<div id=\"file\" class=\"file\" role=\"table\"{}>",
@@ -3542,7 +3549,14 @@ fn interdiff_excerpts<'f>(
         return Ok((String::new(), 0));
     }
     let max_rows = max_rows.min(MAX_EXCERPT_ROWS);
-    let (formatted_lines, _) = format_code(Some(cfg), &TreeJumprefs::default(), format, path, &new_lines, &[]);
+    let (formatted_lines, _) = format_code(
+        Some(cfg),
+        &TreeJumprefs::default(),
+        format,
+        path,
+        &new_lines,
+        &[],
+    );
 
     /// A row of the excerpts (a row of B's diff, or one of A's lines), with
     /// its context and the context of its first difference.

@@ -80,7 +80,10 @@ fn main() {
     // (Only their titles, from the linked tree's files, with --citations-only.)
     if let Some(root) = spec_files_root.as_deref().filter(|_| citations_only) {
         let root = Path::new(root);
-        for spec in specs.iter().filter(|spec| spec.format == Some(SpecFormat::Ecmarkup)) {
+        for spec in specs
+            .iter()
+            .filter(|spec| spec.format == Some(SpecFormat::Ecmarkup))
+        {
             let Some(path) = spec.source_path() else {
                 continue;
             };
@@ -145,7 +148,9 @@ fn main() {
                 };
                 let loaded_count = loaded.len();
                 add_titles(spec, &biblio);
-                if let Some(url) = ecmarkup::biblio_urls().find(|url| spec.rendered.as_deref() == Some(*url)) {
+                if let Some(url) =
+                    ecmarkup::biblio_urls().find(|url| spec.rendered.as_deref() == Some(*url))
+                {
                     biblios.insert(url, biblio);
                 }
                 let file_count = files.len();
@@ -186,9 +191,13 @@ fn main() {
                 };
                 // (With the files it includes.)
                 let read = |file: &str| std::fs::read_to_string(files_root.join(file)).ok();
-                let Some((files, stats)) =
-                    bikeshed::analyze_with_includes(&path, &read, &index, spec.shortname(), &config)
-                else {
+                let Some((files, stats)) = bikeshed::analyze_with_includes(
+                    &path,
+                    &read,
+                    &index,
+                    spec.shortname(),
+                    &config,
+                ) else {
                     continue;
                 };
                 let file_count = files.len();
