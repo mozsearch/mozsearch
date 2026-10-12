@@ -1,0 +1,46 @@
+Subject: fast-import: let objects not be looked up in the repo's packs
+
+git fast-import looks each new object up in the repo's packs (other than
+the ones it wrote, see git-fast-import-skip-own-packs.patch), so as not to
+store objects the repo has.  For mozsearch's history repos, which are
+repacked in the background while their writer runs in chunks, there are
+dozens of packs from earlier chunks waiting to be combined, and the objects
+it stores are nearly all new (journals rewritten with each change), so
+looking them up was 20% of its time, and nearly always found nothing.
+
+fastimport.lookupPacks=false skips looking them up, so an object the repo
+has is stored again, which a repack drops.  Objects' ids, so the trees and
+commits it writes, don't change.
+
+---
+--- a/builtin/fast-import.c
++++ b/builtin/fast-import.c
+@@ -168,6 +168,11 @@
+ static unsigned long max_depth = 50;
+ static off_t max_packsize;
+ static int unpack_limit = 100;
++/*
++ * Whether to look objects up in the repo's packs before storing them
++ * (fastimport.lookupPacks), to not store objects it has.
++ */
++static int lookup_packs = 1;
+ static int force_update;
+ 
+ /* Stats and misc. counters */
+@@ -998,6 +1003,8 @@
+ {
+ 	struct packfile_list_entry *packs;
+ 
++	if (!lookup_packs)
++		return 0;
+ 	for (packs = packfile_store_get_packs(files->packed); packs; packs = packs->next)
+ 		if (!packs->pack->written_by_fast_import &&
+ 		    find_pack_entry_one(oid, packs->pack))
+@@ -3944,6 +3951,7 @@
+ 		unpack_limit = limit;
+ 	else if (!repo_config_get_int(the_repository, "transfer.unpacklimit", &limit))
+ 		unpack_limit = limit;
++	repo_config_get_bool(the_repository, "fastimport.lookuppacks", &lookup_packs);
+ 
+ 	repo_config(the_repository, git_default_config, NULL);
+ }

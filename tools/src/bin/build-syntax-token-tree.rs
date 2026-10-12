@@ -540,6 +540,10 @@ fn start_fast_import(git_repo: &Repository) -> Child {
         // build-timeline-tree.
         .arg("-c")
         .arg("core.bigFileThreshold=1k")
+        // Objects aren't looked up in the repo's packs before they're stored;
+        // see build-timeline-tree.
+        .arg("-c")
+        .arg("fastimport.lookupPacks=false")
         .arg("fast-import")
         .arg("--force")
         .arg("--quiet")

@@ -536,6 +536,14 @@ fn start_fast_import(git_repo: &Repository) -> FastImport {
         // and what it wrote twice as big until it's repacked.
         .arg("-c")
         .arg("core.bigFileThreshold=1k")
+        // Objects aren't looked up in the repo's packs (from earlier chunks,
+        // dozens of which can be waiting for the background repacks) before
+        // they're stored, since they're nearly all new: looking took 20% of
+        // git fast-import's time in the 10-year firefox reblame.  (An object
+        // the repo has gets stored again, which a repack drops; see
+        // nix/mozsearch/git-fast-import-lookup-packs.patch.)
+        .arg("-c")
+        .arg("fastimport.lookupPacks=false")
         .arg("fast-import")
         .arg("--force")
         .arg("--quiet")
