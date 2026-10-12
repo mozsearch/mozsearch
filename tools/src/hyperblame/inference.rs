@@ -585,34 +585,65 @@ const SENTINEL_SOURCE: TextSource = TextSource {
     block: u32::MAX,
 };
 
-/// The runs of a text's positions which moves have consumed, for finding
-/// whether a run of positions has any in O(log n), rather than in its length.
-#[derive(Default)]
+/// The positions of a text which moves have consumed, for finding whether a
+/// run of positions has any without looking at each: a bitset of the
+/// positions, with summaries (each bit of which says whether a word of the
+/// level below has any bits set), so that finding the next consumed position
+/// takes a few word operations.  (Runs in a BTreeMap took two searches of it,
+/// which, done for each candidate position of each length of match tried,
+/// were most of the time of some revisions with big moves.)
 struct ConsumedRuns {
-    /// Disjoint runs, by their starts, to their ends.
-    runs: std::collections::BTreeMap<usize, usize>,
+    /// The positions' bits, then the summaries of those, and of those.
+    levels: [Vec<u64>; 3],
 }
 
 impl ConsumedRuns {
+    /// For a text of `len` positions.
+    fn new(len: usize) -> Self {
+        let words = len.div_ceil(64).max(1);
+        let summaries = words.div_ceil(64);
+        ConsumedRuns {
+            levels: [
+                vec![0; words],
+                vec![0; summaries],
+                vec![0; summaries.div_ceil(64)],
+            ],
+        }
+    }
+
     /// Consume `range`, none of which is consumed.
     fn consume(&mut self, range: std::ops::Range<usize>) {
-        if !range.is_empty() {
-            self.runs.insert(range.start, range.end);
+        for p in range {
+            let mut bit = p;
+            for level in &mut self.levels {
+                level[bit / 64] |= 1 << (bit % 64);
+                bit /= 64;
+            }
         }
     }
 
     /// The first consumed position at or after `p` (or `usize::MAX`), so that
     /// a run starting at `p` is unconsumed if it ends by it.
     fn unconsumed_from(&self, p: usize) -> usize {
-        if let Some((_, &end)) = self.runs.range(..=p).next_back()
-            && end > p
-        {
-            return p;
+        self.first_set(0, p).unwrap_or(usize::MAX)
+    }
+
+    /// The first set bit at or after `bit` in `level`.
+    fn first_set(&self, level: usize, bit: usize) -> Option<usize> {
+        let words = &self.levels[level];
+        let word = bit / 64;
+        let rest = words.get(word)? & (!0u64 << (bit % 64));
+        if rest != 0 {
+            return Some(word * 64 + rest.trailing_zeros() as usize);
         }
-        self.runs
-            .range(p + 1..)
-            .next()
-            .map_or(usize::MAX, |(&start, _)| start)
+        // (The next word with any set, from the level above, or for the top
+        // level, which is a few words, by looking.)
+        let next = if level + 1 < self.levels.len() {
+            self.first_set(level + 1, word + 1)?
+        } else {
+            (word + 1..words.len()).find(|&w| words[w] != 0)?
+        };
+        Some(next * 64 + words[next].trailing_zeros() as usize)
     }
 }
 
@@ -691,7 +722,7 @@ fn infer_big_rock_moves(state: &mut InferenceState, namespace: &str, config: &In
     added_runs.sort_by_key(|&i| std::cmp::Reverse(state.blocks[i].new_len));
 
     let sa = SuffixArray::new(&text);
-    let mut consumed = ConsumedRuns::default();
+    let mut consumed = ConsumedRuns::new(text.len());
 
     for block_idx in added_runs {
         let (file, new_range) = {
@@ -1282,7 +1313,7 @@ fn finalize(mut state: InferenceState) -> Vec<FileInference> {
 mod tests {
     #[test]
     fn test_consumed_runs() {
-        let mut consumed = ConsumedRuns::default();
+        let mut consumed = ConsumedRuns::new(100);
         assert_eq!(consumed.unconsumed_from(5), usize::MAX);
         consumed.consume(10..20);
         consumed.consume(30..31);
@@ -1298,6 +1329,46 @@ mod tests {
         assert!(consumed.unconsumed_from(0) < 11);
         consumed.consume(5..5);
         assert_eq!(consumed.unconsumed_from(0), 10);
+    }
+
+    #[test]
+    fn test_consumed_runs_like_btreemap() {
+        // (Against runs in a BTreeMap, as before, over a text big enough
+        // for every level, with runs sparse enough that finding the next one
+        // skips whole summary words.)
+        let len = 1_000_000;
+        let mut consumed = ConsumedRuns::new(len);
+        let mut runs: std::collections::BTreeMap<usize, usize> = Default::default();
+        let reference = |runs: &std::collections::BTreeMap<usize, usize>, p: usize| {
+            if let Some((_, &end)) = runs.range(..=p).next_back()
+                && end > p
+            {
+                return p;
+            }
+            runs.range(p + 1..)
+                .next()
+                .map_or(usize::MAX, |(&start, _)| start)
+        };
+        let mut seed: u64 = 1;
+        let mut random = |n: usize| {
+            seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (seed >> 33) as usize % n
+        };
+        for round in 0..300 {
+            let start = random(len);
+            let end = (start + 1 + random(if round % 3 == 0 { 5000 } else { 50 })).min(len);
+            if consumed.unconsumed_from(start) >= end {
+                consumed.consume(start..end);
+                runs.insert(start, end);
+            }
+            for _ in 0..200 {
+                let p = random(len);
+                assert_eq!(consumed.unconsumed_from(p), reference(&runs, p), "at {}", p);
+            }
+        }
+        assert_eq!(consumed.unconsumed_from(len - 1), reference(&runs, len - 1));
     }
 
     use super::*;
