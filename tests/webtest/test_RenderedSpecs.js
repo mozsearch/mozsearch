@@ -249,3 +249,33 @@ add_task(async function test_AlgorithmViewCalls() {
   const down = frame.contentDocument.querySelector("#sp-algorithm-0 a.sp-called-link");
   is(down?.getAttribute("href"), "#sp-algorithm-1", "The call links to it");
 });
+
+add_task(async function test_AlgorithmMap() {
+  // The view's map of its sections' algorithms and their calls, which stays at
+  // the top, with the node of the section one has scrolled to highlighted, and
+  // whose nodes scroll to their sections.
+  await TestUtils.loadPath("/tests/algorithm/SPEC_examplebs_dom@2Dgadget@2Dpoke");
+  const doc = frame.contentDocument;
+  const map = doc.querySelector("#sp-algorithm-map");
+  ok(map, "The view has a map");
+  is(map?.querySelectorAll("g.node").length, 2, "of its sections' algorithms");
+  is(map?.querySelector("#sp-map-1 text")?.textContent, "poke",
+     "by their names, without their spec's shortname");
+  is(map?.querySelectorAll("g.edge").length, 1, "and the call between them");
+  ok(!map?.querySelector("[data-symbols]"), "whose nodes aren't symbols");
+  const node = n => doc.querySelector(`#sp-map-${n}`);
+  ok(node(0)?.classList.contains("sp-map-current"),
+     "The first section's node is highlighted");
+
+  // (Room to scroll the second section up to the map.)
+  doc.body.style.paddingBottom = "200vh";
+  node(1)?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  await waitForCondition(() => node(1)?.classList.contains("sp-map-current"),
+                         "Clicking a node highlights it");
+  const section = doc.querySelector("#sp-algorithm-1").getBoundingClientRect();
+  const bottom = map.getBoundingClientRect().bottom;
+  ok(section.top >= bottom - 1 && section.top < bottom + 20,
+     "and scrolls to its section, just below the map");
+  ok(!node(0)?.classList.contains("sp-map-current"),
+     "The first section's node isn't highlighted then");
+});

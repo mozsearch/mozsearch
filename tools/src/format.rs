@@ -1809,6 +1809,8 @@ fn webidl_implementations(
 struct AlgorithmSection {
     sym: String,
     name: String,
+    /// Its spec's shortname.
+    shortname: String,
     /// Its anchor in its spec.
     anchor: Option<String>,
     def_path: String,
@@ -1969,6 +1971,7 @@ fn algorithm_section(
     Ok(AlgorithmSection {
         sym: sym.to_string(),
         name,
+        shortname: spec.shortname().to_string(),
         anchor,
         def_path,
         def_line,
@@ -2057,7 +2060,8 @@ pub fn format_algorithm(
     let commit = rendered_commit(git, None)?;
     let main = algorithm_section(cfg, tree_name, tree_config, &specs, git, &commit, sym, true)?;
     let mut sections = vec![main];
-    for called in called_algorithms(tree_config, sym) {
+    let called = called_algorithms(tree_config, sym);
+    for called in &called {
         if let Ok(section) = algorithm_section(
             cfg,
             tree_name,
@@ -2065,12 +2069,32 @@ pub fn format_algorithm(
             &specs,
             git,
             &commit,
-            &called,
+            called,
             false,
         ) {
             sections.push(section);
         }
     }
+    // The calls among the sections' algorithms, for the map.
+    let numbers: HashMap<&str, usize> = sections
+        .iter()
+        .enumerate()
+        .map(|(n, section)| (section.sym.as_str(), n))
+        .collect();
+    let mut calls = vec![];
+    for (n, section) in sections.iter().enumerate() {
+        let callees = match n {
+            0 => called.clone(),
+            _ => called_algorithms(tree_config, &section.sym),
+        };
+        for callee in callees {
+            match numbers.get(callee.as_str()) {
+                Some(&m) if m != n => calls.push((n, m)),
+                _ => {}
+            }
+        }
+    }
+    let map = algorithm_map(&sections, &calls);
     let main = &sections[0];
 
     let title = format!("{} - mozsearch", rendered_docs::escape(&main.name));
@@ -2146,13 +2170,24 @@ pub fn format_algorithm(
         }
     )
     .unwrap();
+    if let Some(map) = &map {
+        writeln!(
+            writer,
+            r#"<details id="sp-algorithm-map" class="sp-algorithm-map" open><summary>Map of the page's algorithms and their calls</summary>{}</details>"#,
+            map
+        )
+        .unwrap();
+    }
     for (n, section) in sections.iter().enumerate() {
         write_algorithm_section(writer, tree_name, n, section);
     }
     // Each citation goes next to its step's block (or after the ones before
     // it), and the ones of the algorithm at the top, in each section; and the
     // links to the algorithms the sections after the first are of get "↓"s
-    // to their sections.
+    // to their sections.  The map's node of the section one has scrolled to
+    // (the last one starting above the map's bottom) is the current one, and
+    // a node's click scrolls to its section (whose top, like the anchors',
+    // stays below the map, by its height in "--sp-map-height").
     let page_sections: Vec<serde_json::Value> = sections
         .iter()
         .enumerate()
@@ -2212,6 +2247,45 @@ pub fn format_algorithm(
       link.after(down);
     }}
   }});
+  const map = document.getElementById("sp-algorithm-map");
+  if (map) {{
+    const nodes = [...map.querySelectorAll("g.node[id^='sp-map-']")];
+    const sectionOf = node => document.getElementById(`sp-algorithm-${{node.id.slice("sp-map-".length)}}`);
+    const keepHeight = () => {{
+      document.documentElement.style.setProperty("--sp-map-height", `${{map.offsetHeight}}px`);
+    }};
+    keepHeight();
+    new ResizeObserver(keepHeight).observe(map);
+    const showCurrent = () => {{
+      const bottom = map.getBoundingClientRect().bottom + 1;
+      let current = nodes[0];
+      for (const node of nodes) {{
+        if (sectionOf(node)?.getBoundingClientRect().top <= bottom) {{
+          current = node;
+        }}
+      }}
+      for (const node of nodes) {{
+        node.classList.toggle("sp-map-current", node === current);
+      }}
+    }};
+    let pending = false;
+    document.addEventListener("scroll", () => {{
+      if (!pending) {{
+        pending = true;
+        requestAnimationFrame(() => {{
+          pending = false;
+          showCurrent();
+        }});
+      }}
+    }}, {{ passive: true }});
+    showCurrent();
+    for (const node of nodes) {{
+      node.addEventListener("click", () => {{
+        keepHeight();
+        sectionOf(node)?.scrollIntoView();
+      }});
+    }}
+  }}
 }})();</script>"##,
         serde_json::to_string(&page_sections)
             .unwrap()
@@ -2228,6 +2302,57 @@ pub fn format_algorithm(
         .unwrap();
     }
     output::generate_footer(&opt, tree_name, &main.file, writer)
+}
+
+/// The map of an algorithm's view (see `format_algorithm`), if it has more
+/// than one section: a diagram of the sections' algorithms and the `calls`
+/// among them (of their numbers), rendered like the query pages' diagrams (see
+/// the "graph" command), but whose nodes are the sections' (`sp-map-{n}`) and
+/// not symbols, so that the page's script can make them its sections' map;
+/// their labels are their names, but the main algorithm's spec's shortname.
+fn algorithm_map(sections: &[AlgorithmSection], calls: &[(usize, usize)]) -> Option<String> {
+    use dot_generator::*;
+    use dot_structures::*;
+    use graphviz_rust::cmd::{CommandArg, Format, Layout};
+    use graphviz_rust::printer::PrinterContext;
+
+    if sections.len() < 2 {
+        return None;
+    }
+    let mut graph = graph!(
+        di id!("g");
+        node!("graph"; attr!("ranksep", "0.25"), attr!("nodesep", "0.2")),
+        node!("node"; attr!("shape","box"), attr!("fontname", esc "Courier New"), attr!("fontsize", "10"))
+    );
+    // (Not symbols' ids, which would make the nodes' "data-symbols".)
+    let id = |n: usize| NodeId(Id::Plain(format!("SYN_MAP_{}", n)), None);
+    let prefix = format!("{} ", sections[0].shortname);
+    for (n, section) in sections.iter().enumerate() {
+        let label = section.name.strip_prefix(&prefix).unwrap_or(&section.name);
+        let label = label.replace('\\', "\\\\").replace('"', "\\\"");
+        graph.add_stmt(stmt!(Node::new(
+            id(n),
+            vec![
+                attr!("label", esc label),
+                attr!("id", esc format!("sp-map-{}", n)),
+            ]
+        )));
+    }
+    for &(from, to) in calls {
+        graph.add_stmt(stmt!(edge!(id(from) => id(to))));
+    }
+    let svg = graphviz_rust::exec(
+        graph,
+        &mut PrinterContext::default(),
+        vec![
+            CommandArg::Format(Format::Svg),
+            CommandArg::Layout(Layout::Dot),
+        ],
+    )
+    .ok()?;
+    let svg = crate::cmd_pipeline::transform_svg(std::str::from_utf8(&svg).ok()?);
+    // (Without its XML prolog and doctype.)
+    Some(svg[svg.find("<svg")?..].to_string())
 }
 
 /// An algorithm's section of its view (the `n`th): its heading (but the

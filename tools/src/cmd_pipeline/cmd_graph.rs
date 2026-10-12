@@ -212,7 +212,7 @@ pub struct GraphCommand {
 ///
 /// TODO: As proposed above, potentially move towards allocating identifiers
 /// with a lookup map.
-fn transform_svg(svg: &str) -> String {
+pub(crate) fn transform_svg(svg: &str) -> String {
     lazy_static! {
         static ref RE_TITLE: Regex = Regex::new(">\n<title>([^<]+)</title>").unwrap();
         static ref RE_XLINK: Regex =
