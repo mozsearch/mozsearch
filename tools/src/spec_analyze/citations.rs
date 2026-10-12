@@ -43,7 +43,9 @@ use crate::file_format::analysis::{
 use crate::semantic_analyzer::{Record, sort_records, source_record, target_record};
 
 lazy_static! {
-    static ref URL: Regex = Regex::new(r#"https?://[^\s"'<>`\\{}|^]+"#).unwrap();
+    /// A URL, with `'`s before letters, as anchors have (ex: WHATWG specs'
+    /// "#get-an-element's-target"), but not a string's closing `'`.
+    static ref URL: Regex = Regex::new(r#"https?://(?:[^\s"'<>`\\{}|^]|'[A-Za-z])+"#).unwrap();
     /// A comment's citation of a section by its number and title, ex:
     /// "22.1.3.13 Array.prototype.join ( separator )", "ES2017 7.1.15
     /// ToLength.", "21.4.1.1 Time Values and Time Range".
@@ -245,13 +247,18 @@ fn indent(line: &str) -> usize {
 }
 
 /// A URL's end, without trailing punctuation that's the text's (ex: a
-/// sentence's period, a parenthetical's or a block comment's end).
+/// sentence's period, a parenthetical's or a block comment's end, or a
+/// possessive's `'s`, unlike an anchor's `'`s, which are within it).
 fn trim_url(url: &str) -> &str {
     let mut url = url;
     loop {
         let trimmed = url
             .trim_end_matches(['.', ',', ';', ':', '!', '?', '*', '\'', '"'])
             .trim_end_matches("*/");
+        let trimmed = match trimmed.rfind('\'') {
+            Some(i) if trimmed[i + 1..].bytes().all(|b| b.is_ascii_alphabetic()) => &trimmed[..i],
+            _ => trimmed,
+        };
         let trimmed = match trimmed.strip_suffix([')', ']']) {
             // (Unless it's the URL's own, ex: an anchor's `(` ... `)`.)
             Some(inner) if inner.matches(['(', '[']).count() <= inner.matches([')', ']']).count() => {
@@ -557,9 +564,22 @@ mod tests {
         assert_eq!(trim_url("https://a.org/#b)."), "https://a.org/#b");
         assert_eq!(trim_url("https://a.org/#f(x)"), "https://a.org/#f(x)");
         assert_eq!(trim_url("https://a.org/#b*/"), "https://a.org/#b");
+        assert_eq!(trim_url("https://a.org/#b's"), "https://a.org/#b");
+        assert_eq!(trim_url("https://a.org/#b)'s"), "https://a.org/#b");
+        assert_eq!(trim_url("https://a.org/#b's-c"), "https://a.org/#b's-c");
         let src = "// https://dom.spec.whatwg.org/#concept-node:~:text=node%20tree\n";
         let (records, _) = citation_records(src, &[], &config(), None);
         assert_eq!(summary(&records), vec!["1:3-63 doc-use SPEC_dom_concept@2Dnode |  ()"]);
+        // (An anchor's `'`s, but not a string's.)
+        let src = "// <https://dom.spec.whatwg.org/#concept-node's-x>\nx('https://dom.spec.whatwg.org/#y');\n";
+        let (records, _) = citation_records(src, &[], &config(), None);
+        assert_eq!(
+            summary(&records),
+            vec![
+                "1:4-49 doc-use SPEC_dom_concept@2Dnode@27s@2Dx |  ()",
+                "2:3-33 doc-use SPEC_dom_y |  ()",
+            ]
+        );
     }
 
     #[test]
