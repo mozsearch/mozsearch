@@ -1803,29 +1803,48 @@ fn webidl_implementations(
     implementations
 }
 
-/// The view of the algorithm that `sym` defines in one of the tree's specs
-/// (`/{tree}/algorithm/{sym}`), beside the code citing it and its steps in the
-/// tree and its linked trees (ex: Gecko's, in firefox-disco, for wubspecs'
-/// specs): the algorithm's rendering (see `rendered_specs::render_algorithm`),
-/// with the blame of its blocks, and the citations' excerpts, placed by the
-/// page's script next to their steps' blocks.
-pub fn format_algorithm(
+/// An algorithm's section of its view (see `format_algorithm`): its rendering
+/// with its blocks' blame (or line markers), its steps' (1-based) lines, and
+/// the citations of it and its steps.
+struct AlgorithmSection {
+    sym: String,
+    name: String,
+    /// Its anchor in its spec.
+    anchor: Option<String>,
+    def_path: String,
+    def_line: u32,
+    source_path: String,
+    /// The file with the algorithm (its spec's source, or a file it imports).
+    file: String,
+    rendered_link: String,
+    view: rendered_specs::RenderedSpec,
+    strips: Vec<String>,
+    steps: BTreeMap<String, usize>,
+    citations: Vec<Citation>,
+    token_blame: Option<std::sync::Arc<PageBlame>>,
+}
+
+/// The section of the algorithm `sym` defines in one of the tree's specs, with
+/// its blocks' blame and its citations' drift if `blame` (only the view's
+/// first section's, since the page's blame data is of one file).
+#[allow(clippy::too_many_arguments)]
+fn algorithm_section(
     cfg: &Config,
     tree_name: &str,
+    tree_config: &TreeConfig,
+    specs: &SpecsConfig,
+    git: &GitData,
+    commit: &git2::Commit,
     sym: &str,
-    writer: &mut dyn Write,
-) -> Result<(), &'static str> {
-    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
-    let specs = tree_specs(tree_name, tree_config).ok_or("The tree has no specs")?;
+    blame: bool,
+) -> Result<AlgorithmSection, &'static str> {
     let (def_path, def_line) =
         tree_definition(tree_name, tree_config, sym).ok_or("No definition of the symbol")?;
-    let git = tree_config.get_git()?;
-    let commit = rendered_commit(git, None)?;
-    let read = |file: &str| read_commit_file(&git.repo, &commit, file);
+    let read = |file: &str| read_commit_file(&git.repo, commit, file);
     // (The spec whose source, or a file it imports, has the definition.)
-    let (spec, source_path) = match spec_view(&specs, &def_path) {
+    let (spec, source_path) = match spec_view(specs, &def_path) {
         Some((spec, source, SpecView::Page(None))) => (spec, source),
-        _ => rendered_specs::ecmarkup::importing_spec(&specs, &def_path, &read)
+        _ => rendered_specs::ecmarkup::importing_spec(specs, &def_path, &read)
             .ok_or("The symbol isn't a spec's")?,
     };
     let source = read(&source_path).ok_or("No source")?;
@@ -1840,7 +1859,7 @@ pub fn format_algorithm(
         spec,
         &source,
         &source_path,
-        &specs,
+        specs,
         &spec_links,
         &read,
         output.as_deref(),
@@ -1855,14 +1874,18 @@ pub fn format_algorithm(
         read(&file).ok_or("No file")?
     };
 
-    let token_blame = spec_page_token_blame(
-        tree_name,
-        git,
-        &commit,
-        &file,
-        &file_source,
-        BreadcrumbsLinksTo::Latest,
-    );
+    let token_blame = blame
+        .then(|| {
+            spec_page_token_blame(
+                tree_name,
+                git,
+                commit,
+                &file,
+                &file_source,
+                BreadcrumbsLinksTo::Latest,
+            )
+        })
+        .flatten();
     let strips = match &token_blame {
         Some(page) => rendered_strips(&view.rendered, &file_source, page, &view.range),
         None => rendered_line_markers(&view.rendered, &file_source, &view.range),
@@ -1934,7 +1957,123 @@ pub fn format_algorithm(
     let name = tree_jumprefs(tree_name, tree_config)
         .and_then(|jumprefs| jumprefs.lookup(sym).ok()?)
         .map_or_else(|| sym.to_string(), |jumpref| jumpref.pretty.to_string());
-    let title = format!("{} - mozsearch", rendered_docs::escape(&name));
+    let anchor = crate::spec_analyze::spec_anchor(spec.shortname(), sym);
+    let base = rendered_url(tree_name, None, &source_path);
+    let rendered_link = match &anchor {
+        Some(anchor) if spec.format.is_some_and(rendered_specs::is_paged) => {
+            rendered_specs::anchor_url(&base, anchor)
+        }
+        Some(anchor) => format!("{}{}", base, rendered_specs::fragment(anchor)),
+        None => base.clone(),
+    };
+    Ok(AlgorithmSection {
+        sym: sym.to_string(),
+        name,
+        anchor,
+        def_path,
+        def_line,
+        source_path,
+        file,
+        rendered_link,
+        view,
+        strips,
+        steps,
+        citations,
+        token_blame,
+    })
+}
+
+/// The most algorithms an algorithm's view shows which it calls.
+const MAX_CALLED_ALGORITHMS: usize = 8;
+
+/// The algorithms (of the tree's specs) which the algorithm `sym` calls (its
+/// callees in the tree's crossref which are algorithms, abstract operations,
+/// or IDL members with steps), in the order of their first calls, up to
+/// `MAX_CALLED_ALGORITHMS`.
+fn called_algorithms(tree_config: &TreeConfig, sym: &str) -> Vec<String> {
+    let index_path = &tree_config.paths.index_path;
+    let (inline, extra) = (
+        format!("{}/crossref", index_path),
+        format!("{}/crossref-extra", index_path),
+    );
+    let Some(crossref) = BisectableMmap::<CrossrefData>::new(&inline, &extra) else {
+        return vec![];
+    };
+    let Ok(Some(data)) = crossref.lookup(sym) else {
+        return vec![];
+    };
+    let is_algorithm = |callee: &str| {
+        let Ok(Some(data)) = crossref.lookup(callee) else {
+            return false;
+        };
+        data.meta.is_some_and(|meta| {
+            &*meta.impl_kind == "spec"
+                && (matches!(&*meta.kind, "specAlgorithm" | "specAbstractOp")
+                    || meta.extra.get("algorithm").and_then(|a| a.as_bool()) == Some(true))
+        })
+    };
+    let mut called: Vec<(u32, String)> = data
+        .callees
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|callee| !callee.implements && callee.tree.is_none() && &*callee.sym != sym)
+        .map(|callee| {
+            // (Its first call's line, of "path#lines".)
+            let first = callee
+                .jump
+                .rsplit_once('#')
+                .and_then(|(_, lines)| lines.split(',').filter_map(|l| l.parse().ok()).min())
+                .unwrap_or(u32::MAX);
+            (first, callee.sym.to_string())
+        })
+        .collect();
+    called.sort();
+    called.dedup_by(|a, b| a.1 == b.1);
+    called
+        .into_iter()
+        .map(|(_, sym)| sym)
+        .filter(|sym| is_algorithm(sym))
+        .take(MAX_CALLED_ALGORITHMS)
+        .collect()
+}
+
+/// The view of the algorithm that `sym` defines in one of the tree's specs
+/// (`/{tree}/algorithm/{sym}`), beside the code citing it and its steps in the
+/// tree and its linked trees (ex: Gecko's, in firefox-disco, for wubspecs'
+/// specs): the algorithm's rendering (see `rendered_specs::render_algorithm`),
+/// with the blame of its blocks, and the citations' excerpts, placed by the
+/// page's script next to their steps' blocks.  Then the algorithms it calls
+/// (see `called_algorithms`), each beside the code citing it, so that one can
+/// follow its calls (from its call sites' "↓"s), without blame.
+pub fn format_algorithm(
+    cfg: &Config,
+    tree_name: &str,
+    sym: &str,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let specs = tree_specs(tree_name, tree_config).ok_or("The tree has no specs")?;
+    let git = tree_config.get_git()?;
+    let commit = rendered_commit(git, None)?;
+    let main = algorithm_section(cfg, tree_name, tree_config, &specs, git, &commit, sym, true)?;
+    let mut sections = vec![main];
+    for called in called_algorithms(tree_config, sym) {
+        if let Ok(section) = algorithm_section(
+            cfg,
+            tree_name,
+            tree_config,
+            &specs,
+            git,
+            &commit,
+            &called,
+            false,
+        ) {
+            sections.push(section);
+        }
+    }
+    let main = &sections[0];
+
+    let title = format!("{} - mozsearch", rendered_docs::escape(&main.name));
     let opt = Options {
         title: &title,
         tree_name,
@@ -1943,14 +2082,6 @@ pub fn format_algorithm(
         breadcrumbs_links_to: BreadcrumbsLinksTo::Latest,
         extra_content_classes: "rendered-page",
     };
-    let base = rendered_url(tree_name, None, &source_path);
-    let rendered_link = match crate::spec_analyze::spec_anchor(spec.shortname(), sym) {
-        Some(anchor) if spec.format.is_some_and(rendered_specs::is_paged) => {
-            rendered_specs::anchor_url(&base, &anchor)
-        }
-        Some(anchor) => format!("{}{}", base, rendered_specs::fragment(&anchor)),
-        None => base.clone(),
-    };
     let panel = vec![PanelSection {
         name: "Revision control".to_owned(),
         items: vec![
@@ -1958,7 +2089,7 @@ pub fn format_algorithm(
                 label: PanelItemLabel::Plaintext("Rendered view".to_owned()),
                 tooltip: "Open the algorithm in the rendered spec".to_owned(),
                 id: "panel-rendered-view",
-                link: rendered_link,
+                link: main.rendered_link.clone(),
                 update_link_lineno: "",
                 accel_key: None,
                 copyable: true,
@@ -1970,8 +2101,8 @@ pub fn format_algorithm(
                 link: format!(
                     "/{}/source/{}#{}",
                     tree_name,
-                    url_encode_path(&def_path),
-                    def_line
+                    url_encode_path(&main.def_path),
+                    main.def_line
                 ),
                 update_link_lineno: "",
                 accel_key: None,
@@ -1982,13 +2113,13 @@ pub fn format_algorithm(
     }];
 
     output::generate_header(&opt, writer)?;
-    output::generate_breadcrumbs(&opt, writer, &file, &[], false)?;
+    output::generate_breadcrumbs(&opt, writer, &main.file, &[], false)?;
     output::generate_panel(&opt, writer, &panel, false)?;
-    let citing_trees: BTreeSet<&str> = citations.iter().map(|c| c.tree.as_str()).collect();
+    let citing_trees: BTreeSet<&str> = main.citations.iter().map(|c| c.tree.as_str()).collect();
     writeln!(
         writer,
-        r#"<div class="rd-notice">{} beside the code citing it and its steps{}.{}</div>"#,
-        rendered_docs::escape(&name),
+        r#"<div class="rd-notice">{} beside the code citing it and its steps{}.{}{}</div>"#,
+        rendered_docs::escape(&main.name),
         match citing_trees.len() {
             0 => " (none does)".to_string(),
             _ => format!(
@@ -2000,21 +2131,145 @@ pub fn format_algorithm(
                     .join(" and ")
             ),
         },
-        if token_blame.is_some() {
+        if main.token_blame.is_some() {
             " Hover over the bar to the left of a block to see what last changed its text."
         } else {
             ""
+        },
+        match sections.len() {
+            1 => String::new(),
+            2 => " Below, the algorithm it calls, beside the code citing it.".to_string(),
+            n => format!(
+                " Below, the {} algorithms it calls, each beside the code citing it.",
+                n - 1
+            ),
         }
     )
     .unwrap();
+    for (n, section) in sections.iter().enumerate() {
+        write_algorithm_section(writer, tree_name, n, section);
+    }
+    // Each citation goes next to its step's block (or after the ones before
+    // it), and the ones of the algorithm at the top, in each section; and the
+    // links to the algorithms the sections after the first are of get "↓"s
+    // to their sections.
+    let page_sections: Vec<serde_json::Value> = sections
+        .iter()
+        .enumerate()
+        .map(|(n, section)| {
+            json!({
+                "steps": section.steps,
+                "anchor": if n == 0 { None } else { section.anchor.clone() },
+            })
+        })
+        .collect();
+    writeln!(
+        writer,
+        r##"<script>(() => {{
+  const sections = {};
+  const blockOfLine = (doc, line) => {{
+    for (const mark of doc.querySelectorAll("[data-rd-lines]")) {{
+      const [first, last] = mark.dataset.rdLines.split("-").map(Number);
+      if (first <= line && line <= last) {{
+        return mark.closest("tr") || mark.parentElement;
+      }}
+    }}
+    return null;
+  }};
+  sections.forEach(({{ steps }}, n) => {{
+    const doc = document.getElementById(n ? `rendered-doc-${{n}}` : "rendered-doc");
+    const aside = document.getElementById(n ? `sp-citations-${{n}}` : "sp-citations");
+    const place = () => {{
+      const top = aside.getBoundingClientRect().top;
+      let bottom = 0;
+      for (const card of aside.querySelectorAll(".sp-citation")) {{
+        const line = steps[card.dataset.step];
+        const block = line && blockOfLine(doc, line);
+        const want = block ? block.getBoundingClientRect().top - top : bottom;
+        const at = Math.max(want, bottom);
+        card.style.top = `${{at}}px`;
+        bottom = at + card.offsetHeight + 6;
+      }}
+      aside.style.minHeight = `${{bottom}}px`;
+    }};
+    place();
+    new ResizeObserver(place).observe(doc);
+  }});
+  sections.forEach(({{ anchor }}, n) => {{
+    if (!anchor) {{
+      return;
+    }}
+    for (const link of document.querySelectorAll(".sp-algorithm a[href*='#']")) {{
+      const hash = link.getAttribute("href").split("#").pop();
+      if (decodeURIComponent(hash) !== anchor || link.closest(`#sp-algorithm-${{n}}`)) {{
+        continue;
+      }}
+      const down = document.createElement("a");
+      down.className = "sp-called-link";
+      down.href = `#sp-algorithm-${{n}}`;
+      down.title = "Go to this algorithm's section below";
+      down.textContent = "↓";
+      link.after(down);
+    }}
+  }});
+}})();</script>"##,
+        serde_json::to_string(&page_sections)
+            .unwrap()
+            .replace("</", "<\\/")
+    )
+    .unwrap();
+    if let Some(page) = &main.token_blame {
+        let info_json = to_string(&page.info).unwrap();
+        writeln!(
+            writer,
+            "<script>var BLAME_INFO = {};</script>",
+            info_json.replace("</", "<\\/")
+        )
+        .unwrap();
+    }
+    output::generate_footer(&opt, tree_name, &main.file, writer)
+}
+
+/// An algorithm's section of its view (the `n`th): its heading (but the
+/// first's), its rendering with its strips, and its citations.
+fn write_algorithm_section(
+    writer: &mut dyn Write,
+    tree_name: &str,
+    n: usize,
+    section: &AlgorithmSection,
+) {
+    let suffix = if n == 0 {
+        String::new()
+    } else {
+        format!("-{}", n)
+    };
     write!(
         writer,
-        r#"<div class="sp-algorithm-view"><article id="rendered-doc" class="rendered-doc rendered-spec sp-algorithm">"#
+        r#"<section class="sp-algorithm-section" id="sp-algorithm-{}">"#,
+        n
+    )
+    .unwrap();
+    if n > 0 {
+        writeln!(
+            writer,
+            r#"<h2 class="sp-called-heading">{} <a class="sp-called-view" href="/{}/algorithm/{}" title="Show it beside the code citing it, and the algorithms it calls">⇄</a> <a class="sp-called-rendered" href="{}">{}</a></h2>"#,
+            rendered_docs::escape(&section.name),
+            tree_name,
+            url_encode_path(&section.sym),
+            rendered_docs::escape(&section.rendered_link),
+            rendered_docs::escape(&section.source_path),
+        )
+        .unwrap();
+    }
+    write!(
+        writer,
+        r#"<div class="sp-algorithm-view"><article id="rendered-doc{}" class="rendered-doc rendered-spec sp-algorithm">"#,
+        suffix
     )
     .unwrap();
     let mut pos = 0;
-    let html = &view.rendered.html;
-    for (block, strip) in view.rendered.blocks.iter().zip(&strips) {
+    let html = &section.view.rendered.html;
+    for (block, strip) in section.view.rendered.blocks.iter().zip(&section.strips) {
         let at = block.strip_at.clamp(pos, html.len());
         writer.write_all(&html.as_bytes()[pos..at]).unwrap();
         writer.write_all(strip.as_bytes()).unwrap();
@@ -2023,12 +2278,13 @@ pub fn format_algorithm(
     writer.write_all(&html.as_bytes()[pos..]).unwrap();
     writeln!(
         writer,
-        r#"</article><aside id="sp-citations" class="sp-citations">"#
+        r#"</article><aside id="sp-citations{}" class="sp-citations">"#,
+        suffix
     )
     .unwrap();
-    for citation in &citations {
+    for citation in &section.citations {
         let step = citation.step.as_deref().unwrap_or("");
-        let known = citation.step.is_none() || steps.contains_key(step);
+        let known = citation.step.is_none() || section.steps.contains_key(step);
         write!(
             writer,
             r#"<div class="sp-citation" data-step="{}"><div class="sp-citation-head"><a href="/{}/source/{}#{}">{}{}:{}</a> <span class="sp-citation-fn">{}</span>{}{}</div><pre class="sp-citation-code">"#,
@@ -2089,60 +2345,14 @@ pub fn format_algorithm(
         }
         writeln!(writer, "</pre></div>").unwrap();
     }
-    if citations.is_empty() {
+    if section.citations.is_empty() {
         writeln!(
             writer,
             r#"<div class="sp-citations-none">No code cites this algorithm.</div>"#
         )
         .unwrap();
     }
-    writeln!(writer, "</aside></div>").unwrap();
-    // Each citation goes next to its step's block (or after the ones before
-    // it), and the ones of the algorithm at the top.
-    writeln!(
-        writer,
-        r#"<script>(() => {{
-  const steps = {};
-  const doc = document.getElementById("rendered-doc");
-  const aside = document.getElementById("sp-citations");
-  const blockOfLine = line => {{
-    for (const mark of doc.querySelectorAll("[data-rd-lines]")) {{
-      const [first, last] = mark.dataset.rdLines.split("-").map(Number);
-      if (first <= line && line <= last) {{
-        return mark.closest("tr") || mark.parentElement;
-      }}
-    }}
-    return null;
-  }};
-  const place = () => {{
-    const top = aside.getBoundingClientRect().top;
-    let bottom = 0;
-    for (const card of aside.querySelectorAll(".sp-citation")) {{
-      const line = steps[card.dataset.step];
-      const block = line && blockOfLine(line);
-      const want = block ? block.getBoundingClientRect().top - top : bottom;
-      const at = Math.max(want, bottom);
-      card.style.top = `${{at}}px`;
-      bottom = at + card.offsetHeight + 6;
-    }}
-    aside.style.minHeight = `${{bottom}}px`;
-  }};
-  place();
-  new ResizeObserver(place).observe(doc);
-}})();</script>"#,
-        serde_json::to_string(&steps).unwrap().replace("</", "<\\/")
-    )
-    .unwrap();
-    if let Some(page) = &token_blame {
-        let info_json = to_string(&page.info).unwrap();
-        writeln!(
-            writer,
-            "<script>var BLAME_INFO = {};</script>",
-            info_json.replace("</", "<\\/")
-        )
-        .unwrap();
-    }
-    output::generate_footer(&opt, tree_name, &file, writer)
+    writeln!(writer, "</aside></div></section>").unwrap();
 }
 
 /// A file of a commit, as text (ex: an ecmarkup spec's imports).

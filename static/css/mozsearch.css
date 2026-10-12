@@ -1997,6 +1997,28 @@ span[data-symbols].selected {
 .sp-citation-step {
   opacity: 0.75;
 }
+/* The algorithms an algorithm's view shows which it calls (see
+   format_algorithm), and the links to their sections from their call sites. */
+.sp-algorithm-section + .sp-algorithm-section {
+  margin-top: 2em;
+  border-top: 1px solid var(--page-border-color);
+}
+.sp-called-heading {
+  font-size: 1.1em;
+}
+/* (Like .rd-notice's.) */
+h2.sp-called-heading {
+  padding: 0 2rem 0 36px;
+}
+.sp-called-heading a {
+  font-weight: normal;
+  font-size: 0.9em;
+}
+.sp-called-link {
+  margin-inline-start: 0.15em;
+  text-decoration: none;
+  opacity: 0.6;
+}
 /* What a card is if not a citation, ex: a WebIDL member reflecting the
    spec's definition, or its C++ implementation (see format_algorithm). */
 .sp-citation-note {

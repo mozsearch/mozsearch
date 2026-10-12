@@ -232,3 +232,20 @@ add_task(async function test_AlgorithmView() {
   is(doc().querySelector("dfn#concept-widget-poke + a.sp-algorithm-link")?.getAttribute("href"),
      PATH, "The rendered spec's algorithms link to their views");
 });
+
+add_task(async function test_AlgorithmViewCalls() {
+  // The Bikeshed spec's Gadget.poke() method steps call its "poke" algorithm,
+  // which the view shows below them, beside the code citing it, linked from
+  // the call.
+  await TestUtils.loadPath("/tests/algorithm/SPEC_examplebs_dom@2Dgadget@2Dpoke");
+  const called = frame.contentDocument.querySelector("#sp-algorithm-1");
+  ok(called?.querySelector(".sp-called-heading")?.textContent.includes("poke"),
+     "The algorithm the steps call is below them");
+  ok(called?.querySelector(".sp-algorithm")?.textContent.includes("Set widget"),
+     "with its steps");
+  ok(called?.querySelector(".sp-citations"), "beside the code citing it");
+  is(called?.querySelector(".sp-called-view")?.getAttribute("href"),
+     "/tests/algorithm/SPEC_examplebs_poke", "and a link to its own view");
+  const down = frame.contentDocument.querySelector("#sp-algorithm-0 a.sp-called-link");
+  is(down?.getAttribute("href"), "#sp-algorithm-1", "The call links to it");
+});
