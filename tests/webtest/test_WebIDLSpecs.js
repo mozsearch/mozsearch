@@ -34,3 +34,16 @@ add_task(async function test_spec_definition_mdn() {
   is(mdn?.getAttribute("href"), "https://developer.mozilla.org/docs/Web/CSS/widget-state",
      "A spec's definition links to its MDN page");
 });
+
+// A WebIDL method's spec definition's steps (ex: "The {{Gadget/poke()}}
+// method steps are to ...", see `spec_tokenizer::idl_steps`) are an
+// algorithm, which its context menu shows beside the code citing it.
+add_task(async function test_webidl_method_steps() {
+  const links = await menuLinks("/tests/source/webidl/gadget.webidl", "WEBIDL_Gadget_poke");
+  const beside = links.find(a => a.textContent.includes("beside the code citing it"));
+  is(beside?.getAttribute("href"), "/tests/algorithm/SPEC_examplebs_dom@2Dgadget@2Dpoke",
+     "The WebIDL method's spec steps can be shown beside the code citing them");
+  await TestUtils.loadPath("/tests/algorithm/SPEC_examplebs_dom@2Dgadget@2Dpoke");
+  ok(frame.contentDocument.body.textContent.includes("method steps are to"),
+     "which shows the method's steps");
+});

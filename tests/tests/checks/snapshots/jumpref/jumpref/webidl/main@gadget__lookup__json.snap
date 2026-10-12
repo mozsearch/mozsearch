@@ -149,6 +149,7 @@ input_file: inputs/jumpref/jumpref/webidl/gadget__lookup__json
               "url": "https://developer.mozilla.org/docs/Web/API/Gadget/poke"
             }
           ],
+          "algorithm": true,
           "rendered": "https://example.github.io/bs/#dom-gadget-poke"
         },
         "jumps": {

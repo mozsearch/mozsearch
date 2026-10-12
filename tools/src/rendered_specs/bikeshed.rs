@@ -30,6 +30,7 @@ use crate::rendered_docs::escape;
 use crate::spec_analyze::markup::{Doc, NodeKind, decode_html};
 use crate::spec_analyze::wattsi::step_path;
 use crate::spec_analyze::{SpecEntry, SpecsConfig, spec_symbol};
+use crate::tree_sitter_support::spec_tokenizer::{idl_steps_lead_end, opens_idl_steps};
 
 /// How many lines a block can have at most, if the next block is far away
 /// (ex: the last in a section, before generated content).
@@ -282,50 +283,96 @@ fn blocks(doc: &Doc, source: &str, file: Option<&str>) -> HashMap<usize, Range<u
 
 /// The algorithms of Bikeshed's output: elements with `data-algorithm`
 /// (ex: `<div algorithm>`'s), and else paragraphs starting "To <dfn>" with
-/// the lists after them, as their nodes' bytes, and their first `<dfn>`s.
-fn algorithms(doc: &Doc) -> Vec<(Range<usize>, usize)> {
+/// the lists after them, named by their first `<dfn>`s, and IDL members'
+/// steps (ex: "The <dfn>appendChild(node)</dfn> method steps are to ...", as
+/// spec-analyze has them, see `spec_tokenizer::idl_steps`), named by each
+/// member their leads define or link to: their nodes' bytes, and their names'
+/// nodes and ids.
+fn algorithms(doc: &Doc) -> Vec<(Range<usize>, usize, String)> {
     let mut algorithms = vec![];
+    // The lists after a paragraph (its siblings, but whitespace).
+    let with_lists = |node: usize| -> Option<usize> {
+        let parent = doc.nodes[node].parent.unwrap_or(0);
+        let siblings = &doc.nodes[parent].children;
+        let at = siblings.iter().position(|&s| s == node).unwrap_or(0);
+        let mut end = None;
+        for &sibling in &siblings[at + 1..] {
+            match &doc.nodes[sibling].kind {
+                NodeKind::Text if doc.src[doc.nodes[sibling].range.clone()].trim().is_empty() => {}
+                NodeKind::Element(name) if name == "ol" => end = Some(doc.nodes[sibling].range.end),
+                _ => break,
+            }
+        }
+        end
+    };
+    let in_algorithm = |node: usize| {
+        doc.ancestors(node)
+            .any(|a| doc.has_attr(a, "data-algorithm"))
+    };
     for node in 1..doc.nodes.len() {
         let range = doc.nodes[node].range.clone();
-        let algorithm = if doc.has_attr(node, "data-algorithm") {
-            Some(range.clone())
-        } else if doc.is(node, "p")
-            && doc.text_content(node).trim_start().starts_with("To ")
-            && !doc
-                .ancestors(node)
-                .any(|a| doc.has_attr(a, "data-algorithm"))
+        if doc.has_attr(node, "data-algorithm")
+            || (doc.is(node, "p")
+                && doc.text_content(node).trim_start().starts_with("To ")
+                && !in_algorithm(node))
         {
-            // (With the lists after it.)
-            let parent = doc.nodes[node].parent.unwrap_or(0);
-            let siblings = &doc.nodes[parent].children;
-            let at = siblings.iter().position(|&s| s == node).unwrap_or(0);
-            let mut end = None;
-            for &sibling in &siblings[at + 1..] {
-                match &doc.nodes[sibling].kind {
-                    NodeKind::Text
-                        if doc.src[doc.nodes[sibling].range.clone()].trim().is_empty() => {}
-                    NodeKind::Element(name) if name == "ol" => {
-                        end = Some(doc.nodes[sibling].range.end)
-                    }
-                    _ => break,
+            let algorithm = if doc.is(node, "p") {
+                let Some(end) = with_lists(node) else {
+                    continue;
+                };
+                range.start..end
+            } else {
+                range
+            };
+            let dfn = (node..doc.nodes.len())
+                .take_while(|&n| doc.nodes[n].range.start < algorithm.end)
+                .find(|&n| doc.is(n, "dfn") && doc.has_attr(n, "id"));
+            if let Some(dfn) = dfn
+                && let Some(id) = doc.attr(dfn, "id")
+            {
+                algorithms.push((algorithm, dfn, id));
+            }
+        } else if doc.is(node, "p")
+            && !in_algorithm(node)
+            && let Some(listed) = opens_idl_steps(&doc.text_content(node))
+        {
+            let end = if listed { with_lists(node) } else { None };
+            let algorithm = range.start..end.unwrap_or(range.end);
+            let lead_end = range.start + idl_steps_lead_end(&doc.src[range.clone()]);
+            for n in
+                (node + 1..doc.nodes.len()).take_while(|&n| doc.nodes[n].range.start < lead_end)
+            {
+                let id = if doc.is(n, "dfn") {
+                    doc.attr(n, "id")
+                } else if doc.is(n, "a")
+                    && doc
+                        .attr(n, "data-link-type")
+                        .is_some_and(|t| IDL_MEMBER_LINK_TYPES.contains(&t.as_str()))
+                {
+                    doc.attr(n, "href")
+                        .and_then(|href| href.strip_prefix('#').map(str::to_string))
+                } else {
+                    None
+                };
+                if let Some(id) = id {
+                    algorithms.push((algorithm.clone(), n, id));
                 }
             }
-            end.map(|end| range.start..end)
-        } else {
-            None
-        };
-        let Some(algorithm) = algorithm else {
-            continue;
-        };
-        let dfn = (node..doc.nodes.len())
-            .take_while(|&n| doc.nodes[n].range.start < algorithm.end)
-            .find(|&n| doc.is(n, "dfn") && doc.has_attr(n, "id"));
-        if let Some(dfn) = dfn {
-            algorithms.push((algorithm, dfn));
         }
     }
     algorithms
 }
+
+/// The types of Bikeshed's links to IDL members, which name the members whose
+/// steps a paragraph opens.
+const IDL_MEMBER_LINK_TYPES: &[&str] = &[
+    "method",
+    "constructor",
+    "attribute",
+    "idl",
+    "stringifier",
+    "iterator",
+];
 
 /// Render Bikeshed's `output` for the spec `spec`, whose source `source` is
 /// at `path` in the tree, among `config`'s specs.
@@ -427,10 +474,6 @@ fn render_part(
         })
         .unwrap_or_else(|| path.to_string());
     let algorithms = algorithms(&doc);
-    let symbol_of = |node: usize| {
-        doc.attr(node, "id")
-            .map(|id| spec_symbol(spec.shortname(), &id))
-    };
     let file = match part {
         Part::File(file) => Some(file),
         _ => None,
@@ -465,10 +508,10 @@ fn render_part(
         Part::All => (0..output.len(), vec![]),
         Part::File(file) => (included_region(&doc, file)?.1, vec![]),
         Part::Algorithm(sym) => {
-            let (range, _) = algorithms
+            let (range, _, _) = algorithms
                 .iter()
-                .filter(|(_, dfn)| symbol_of(*dfn).as_deref() == Some(sym))
-                .min_by_key(|(range, _)| range.len())?;
+                .filter(|(_, _, id)| spec_symbol(spec.shortname(), id) == sym)
+                .min_by_key(|(range, _, _)| range.len())?;
             let steps: Vec<(String, usize)> = (1..doc.nodes.len())
                 .filter(|&node| {
                     doc.is(node, "li")
@@ -495,7 +538,10 @@ fn render_part(
         base: (!matches!(part, Part::All)).then(|| links.rendered_url(path)),
         algorithm_dfns: algorithms
             .iter()
-            .filter_map(|&(_, dfn)| Some((dfn, links.algorithm_url(&symbol_of(dfn)?)?)))
+            .filter_map(|(_, node, id)| {
+                let url = links.algorithm_url(&spec_symbol(spec.shortname(), id))?;
+                Some((*node, url))
+            })
             .collect(),
         includes,
     };

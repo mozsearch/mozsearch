@@ -1646,11 +1646,13 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             }));
           }
 
-          // A web spec's algorithm (or abstract operation), beside the code
-          // citing it and its steps (in the tree of its definition; see
-          // `format::format_algorithm`).
+          // A web spec's algorithm (or abstract operation, or IDL member with
+          // steps, ex: a method's, which a Gecko WebIDL method's spec slot
+          // leads to), beside the code citing it and its steps (in the tree
+          // of its definition; see `format::format_algorithm`).
           if (jumpref.jumps.def && jumpref.meta?.implKind === "spec" &&
-              ["specAlgorithm", "specAbstractOp"].includes(jumpref.meta.kind)) {
+              (["specAlgorithm", "specAbstractOp"].includes(jumpref.meta.kind) ||
+               jumpref.meta.algorithm)) {
             jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Show <strong>_</strong> beside the code citing it", pretty),
               href: `/${jumpTree}/algorithm/${jumpref.sym}`,

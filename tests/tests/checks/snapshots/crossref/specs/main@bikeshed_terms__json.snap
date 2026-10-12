@@ -197,8 +197,8 @@ input_file: inputs/crossref/specs/bikeshed_terms__json
                   58
                 ],
                 "line": "The {{Gadget/poke()}} method steps are to [=poke=] <{img}> elements.",
-                "context": "Gadgets",
-                "contextsym": "SPEC_examplebs_gadgets"
+                "context": "poke",
+                "contextsym": "SPEC_examplebs_dom@2Dgadget@2Dpoke"
               }
             ]
           }

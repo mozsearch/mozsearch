@@ -835,6 +835,134 @@ pub fn tokenize_spec_html(source: &str) -> (FinishedTokens, Vec<FileStructureRow
     out.finish()
 }
 
+lazy_static! {
+    /// The opening of an IDL member's steps (its paragraph's text, without
+    /// markup): "The X method steps are to ...", "The X constructor steps
+    /// are:", "The X getter steps are ...", "When the X method is invoked, ...
+    /// steps:", "The X method must ...", "The X and Y constructors, when
+    /// invoked, must ...", "The X static method on {{Y}} must ...".
+    static ref IDL_STEPS: Regex = Regex::new(concat!(
+        r"^(?:The\s+(?:new\s+)?\S.{0,300}?\s(?:static\s+)?(?:methods?|constructors?|getters?",
+        r"|setters?)\b[^.:]{0,80}?\b(?:steps\s+are|must)\b",
+        r"|When\s+the\s+\S.{0,200}?\s(?:method|constructor|operation)\s+is\s+(?:invoked|called)\b)",
+    ))
+    .unwrap();
+    /// Where an IDL member's steps' opening's lead, which names the member,
+    /// ends, in the source.
+    static ref IDL_STEPS_LEAD_END: Regex =
+        Regex::new(r"\b(?:steps\s+are|must|is\s+(?:invoked|called))\b").unwrap();
+    /// Markup, for a paragraph's text.
+    static ref TAG: Regex = Regex::new(r"<[^>]*>").unwrap();
+}
+
+/// Whether a paragraph's text (with or without markup) opens an IDL member's
+/// steps (see `IDL_STEPS`), and if so, whether its steps are a list after it
+/// (it ends with ":").
+pub(crate) fn opens_idl_steps(text: &str) -> Option<bool> {
+    let text = TAG.replace_all(text, "");
+    let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    IDL_STEPS.is_match(&text).then(|| text.ends_with(':'))
+}
+
+/// Where the lead of an IDL member's steps' opening `text` (the part naming
+/// the member) ends in it.
+pub(crate) fn idl_steps_lead_end(text: &str) -> usize {
+    IDL_STEPS_LEAD_END
+        .find(text)
+        .map_or(text.len(), |m| m.start())
+}
+
+/// IDL members' steps in a Bikeshed source, which aren't algorithms as the
+/// contexts have them ("To <dfn>X</dfn>:" paragraphs, `<div algorithm>`s), so
+/// they're spec-analyze's own (see `spec_analyze::bikeshed`), without changing
+/// the history's contexts: a paragraph (`<p>`, or Markdown) opening as
+/// `IDL_STEPS`, with the list of steps after it if it ends with ":".  Each is
+/// its range, and where its lead ends (the part naming the member, by its
+/// definition or a link to it).
+pub(crate) fn idl_steps(src: &str, items: &[Item]) -> Vec<(Range<usize>, usize)> {
+    let opens = opens_idl_steps;
+    let lead_end = |range: &Range<usize>| range.start + idl_steps_lead_end(&src[range.clone()]);
+    let mut steps = vec![];
+    // `<p>` paragraphs, and an `<ol>` after them.
+    for (i, item) in items.iter().enumerate() {
+        if !is_start(item, "p") {
+            continue;
+        }
+        let Some(para_end) = (i + 1..items.len()).find(|&j| {
+            is_end(&items[j], "p")
+                || matches!(&items[j], Item::Start { name, .. } if BLOCKS.contains(&name.as_str()))
+        }) else {
+            continue;
+        };
+        let text = item.range().end..items[para_end].range().start;
+        let Some(listed) = opens(&src[text.clone()]) else {
+            continue;
+        };
+        let mut end = if is_end(&items[para_end], "p") {
+            items[para_end].range().end
+        } else {
+            text.end
+        };
+        if listed
+            && let Some(ol) = (para_end..items.len()).find(|&j| {
+                !matches!(&items[j], Item::Text(t) if src[t.clone()].trim().is_empty())
+                    && !is_end(&items[j], "p")
+            })
+            && is_start(&items[ol], "ol")
+            && let Some(ol_end) = matching_end(items, ol, "ol")
+        {
+            end = items[ol_end].range().end;
+        }
+        steps.push((item.range().start..end, lead_end(&text)));
+    }
+    // Markdown paragraphs (to a blank line), and a list after them.
+    let literal = literal_ranges(items);
+    let mut lines: Vec<(usize, &str)> = vec![];
+    let mut pos = 0;
+    for line in src.split_inclusive('\n') {
+        lines.push((pos, line.trim_end_matches(['\n', '\r'])));
+        pos += line.len();
+    }
+    let line_start = |i: usize| lines.get(i).map_or(src.len(), |(at, _)| *at);
+    let mut i = 0;
+    while i < lines.len() {
+        let (start, line) = lines[i];
+        let opening = line.starts_with("The ") || line.starts_with("When the ");
+        if !opening || literal.iter().any(|r| r.contains(&start)) {
+            i += 1;
+            continue;
+        }
+        let para_end = (i..lines.len())
+            .find(|&j| lines[j].1.trim().is_empty())
+            .unwrap_or(lines.len());
+        let text = start..line_start(para_end);
+        let Some(listed) = opens(&src[text.clone()]) else {
+            i += 1;
+            continue;
+        };
+        let mut end = text.end;
+        let first_step = (para_end..lines.len()).find(|&j| !lines[j].1.trim().is_empty());
+        if listed
+            && let Some(first_step) = first_step
+            && MD_LIST_ITEM.is_match(lines[first_step].1)
+        {
+            let end_line = (first_step + 1..lines.len())
+                .find(|&j| {
+                    let line = lines[j].1;
+                    !line.trim().is_empty()
+                        && !line.starts_with([' ', '\t'])
+                        && !MD_LIST_ITEM.is_match(line)
+                })
+                .unwrap_or(lines.len());
+            end = line_start(end_line);
+        }
+        steps.push((start..end, lead_end(&text)));
+        i = para_end.max(i + 1);
+    }
+    steps.sort_by_key(|(range, _)| range.start);
+    steps
+}
+
 /// Tokenize a Bikeshed source (see the module's documentation).
 /// A Bikeshed source's markup and contexts (both HTML's and Markdown's).
 pub(crate) fn bikeshed_contexts(source: &str) -> (Vec<Item>, Vec<Context>) {
@@ -1059,6 +1187,60 @@ fn markdown_contexts(src: &str, items: &[Item]) -> Vec<Context> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_idl_steps() {
+        let src = "\
+<p>The <dfn method for=Event><code>stopPropagation()</code></dfn> method steps are to set
+<a>this</a>'s <a>stop propagation flag</a>.
+
+<p>The <dfn method for=Node><code>compareDocumentPosition(<var>other</var>)</code></dfn> method steps
+are:
+
+<ol>
+ <li><p>If <a>this</a> is <var>other</var>, then return zero.
+</ol>
+
+<p>To <dfn>poke</dfn> a widget:
+
+The {{Gadget/poke()}} method steps are to [=poke=] <{img}> elements.
+
+The <dfn method for=X>frob()</dfn> method steps are:
+
+1. Frob.
+2. Return.
+
+The <dfn>a()</dfn> and <dfn>b()</dfn> methods steps are to return.
+
+The <dfn constructor>X(a)</dfn> and <dfn constructor>Y(a)</dfn> constructors, when invoked, must run the
+following steps:
+
+1. Run.
+
+Not steps.
+";
+        let items = lex(src, true);
+        let steps: Vec<(String, String)> = idl_steps(src, &items)
+            .into_iter()
+            .map(|(range, lead_end)| {
+                (
+                    src[range.start..lead_end].to_string(),
+                    src[range].trim_end().to_string(),
+                )
+            })
+            .collect();
+        for (lead, text) in &steps {
+            eprintln!("LEAD {:?}\nTEXT {:?}", lead, text);
+        }
+        assert_eq!(steps.len(), 6);
+        assert!(steps[0].1.ends_with("flag</a>."));
+        assert!(steps[1].1.ends_with("</ol>"));
+        assert_eq!(steps[2].0, "The {{Gadget/poke()}} method ");
+        assert!(steps[3].1.ends_with("2. Return."));
+        assert!(steps[4].0.ends_with("methods "));
+        assert!(steps[5].0.ends_with("when invoked, "));
+        assert!(steps[5].1.ends_with("1. Run."));
+    }
 
     /// The tokens as (context, class letter, text).
     fn tokens(source: &str) -> Vec<(String, char, String)> {

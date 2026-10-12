@@ -876,6 +876,14 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
                 parent.as_deref(),
                 rendered.as_deref(),
             );
+            // (An IDL member with steps keeps its kind, but they're an
+            // algorithm, ex: for showing them beside the code citing it.)
+            if *kind != "specAlgorithm"
+                && algorithm_syms.contains(p.sym.as_str())
+                && let Some(Record::Structured(_, value)) = records.last_mut()
+            {
+                value["algorithm"] = serde_json::Value::Bool(true);
+            }
         }
     }
     sort_records(&mut records);

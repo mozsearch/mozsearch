@@ -42,7 +42,7 @@ use super::{
 };
 use crate::file_format::analysis::{AnalysisKind, Location};
 use crate::semantic_analyzer::{Record, sort_records, target_record};
-use crate::tree_sitter_support::spec_tokenizer::bikeshed_contexts;
+use crate::tree_sitter_support::spec_tokenizer::{bikeshed_contexts, idl_steps};
 
 /// `bikeshed index --json`'s output (version 3, or 2, without `oldids` and
 /// links' `id`s), whose positions are in the source, or, with a `file`, in the
@@ -301,6 +301,18 @@ pub fn analyze_with_includes(
     Some((paths.zip(records).collect(), stats))
 }
 
+/// The types of links to IDL members (their definitions' types, for the
+/// spec's own), which name the members whose steps a paragraph opens (see
+/// `spec_tokenizer::idl_steps`).
+const IDL_MEMBER_TYPES: &[&str] = &[
+    "method",
+    "constructor",
+    "attribute",
+    "idl",
+    "stringifier",
+    "iterator",
+];
+
 /// The included files the index has positions in.
 fn index_files(index: &BikeshedIndex) -> impl Iterator<Item = &str> {
     let dfns = index.dfns.iter().map(|d| &d.file);
@@ -328,6 +340,7 @@ fn analyze_placed(
 ) -> (Vec<Vec<Record>>, Stats) {
     let mut stats = Stats::default();
     let (items, contexts) = bikeshed_contexts(src);
+    let idl_steps = idl_steps(src, &items);
     let doc = Doc::from_items(src, items);
     // Elements, by where their start tags start.
     let elements: HashMap<usize, usize> = (1..doc.nodes.len())
@@ -532,6 +545,39 @@ fn analyze_placed(
             ))
         })
         .collect();
+    // IDL members' steps (ex: "The <dfn method>appendChild(node)</dfn> method
+    // steps are to ...", "The {{Gadget/poke()}} method steps are:"), as
+    // algorithms of the spec's members they name (by their definitions, or
+    // links to them), which the contexts don't have (see
+    // `spec_tokenizer::idl_steps`).
+    // (Steps several members share, ex: "The <dfn>setAttributeNode(attr)</dfn>
+    // and <dfn>setAttributeNodeNS(attr)</dfn> methods steps are ...", are
+    // each's, and references in them are in the first's.)
+    let own = spec_symbol(shortname, "");
+    let mut shared_steps: Vec<String> = vec![];
+    for (range, lead_end) in &idl_steps {
+        let mut named = pending
+            .iter()
+            .filter(|p| range.start <= p.range.start && p.range.start < *lead_end)
+            .filter(|p| p.def || IDL_MEMBER_TYPES.contains(&p.what.as_str()))
+            .filter(|p| p.sym.starts_with(&own));
+        let Some(first) = named.next() else {
+            continue;
+        };
+        shared_steps.extend(named.map(|p| p.sym.clone()));
+        let member = first
+            .pretty
+            .split_once(' ')
+            .map_or(first.pretty.as_str(), |(_, member)| member);
+        let member = member.rsplit('/').next().unwrap_or(member);
+        algorithms.push((
+            range.clone(),
+            InContext {
+                name: member.to_string(),
+                sym: first.sym.clone(),
+            },
+        ));
+    }
     algorithms.sort_by_key(|(range, _)| (range.start, std::cmp::Reverse(range.end)));
     let context_at = |pos: usize| -> InContext {
         if let Some((range, context)) = algorithms
@@ -558,6 +604,7 @@ fn analyze_placed(
     let algorithm_syms: std::collections::HashSet<&str> = algorithms
         .iter()
         .map(|(_, context)| context.sym.as_str())
+        .chain(shared_steps.iter().map(String::as_str))
         .filter(|sym| !sym.is_empty())
         .collect();
     let mut structured: HashMap<String, (&'static str, Option<String>, Option<String>)> =
@@ -613,6 +660,14 @@ fn analyze_placed(
                 parent.as_deref(),
                 rendered.as_deref(),
             );
+            // (An IDL member with steps keeps its kind, but they're an
+            // algorithm, ex: for showing them beside the code citing it.)
+            if kind != "specAlgorithm"
+                && algorithm_syms.contains(p.sym.as_str())
+                && let Some(Record::Structured(_, value)) = records.last_mut()
+            {
+                value["algorithm"] = serde_json::Value::Bool(true);
+            }
         }
     }
     for records in &mut per_file {

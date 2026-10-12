@@ -363,7 +363,8 @@ input_file: inputs/analysis/specs/bikeshed__json
     "kind": "method",
     "implKind": "spec",
     "parentsym": "SPEC_examplebs_gadget",
-    "rendered": "https://example.github.io/bs/#dom-gadget-poke"
+    "rendered": "https://example.github.io/bs/#dom-gadget-poke",
+    "algorithm": true
   },
   {
     "loc": "00035:4-21",
@@ -371,8 +372,8 @@ input_file: inputs/analysis/specs/bikeshed__json
     "kind": "def",
     "pretty": "examplebs #ref-for-dom-gadget-poke",
     "sym": "SPEC_examplebs_ref@2Dfor@2Ddom@2Dgadget@2Dpoke",
-    "context": "Gadgets",
-    "contextsym": "SPEC_examplebs_gadgets"
+    "context": "poke",
+    "contextsym": "SPEC_examplebs_dom@2Dgadget@2Dpoke"
   },
   {
     "loc": "00035:4-21",
@@ -387,8 +388,8 @@ input_file: inputs/analysis/specs/bikeshed__json
     "kind": "use",
     "pretty": "examplebs Gadget/poke",
     "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke",
-    "context": "Gadgets",
-    "contextsym": "SPEC_examplebs_gadgets"
+    "context": "poke",
+    "contextsym": "SPEC_examplebs_dom@2Dgadget@2Dpoke"
   },
   {
     "loc": "00035:42-50",
@@ -396,8 +397,8 @@ input_file: inputs/analysis/specs/bikeshed__json
     "kind": "def",
     "pretty": "examplebs #ref-for-poke",
     "sym": "SPEC_examplebs_ref@2Dfor@2Dpoke",
-    "context": "Gadgets",
-    "contextsym": "SPEC_examplebs_gadgets"
+    "context": "poke",
+    "contextsym": "SPEC_examplebs_dom@2Dgadget@2Dpoke"
   },
   {
     "loc": "00035:42-50",
@@ -412,8 +413,8 @@ input_file: inputs/analysis/specs/bikeshed__json
     "kind": "use",
     "pretty": "examplebs poke",
     "sym": "SPEC_examplebs_poke",
-    "context": "Gadgets",
-    "contextsym": "SPEC_examplebs_gadgets"
+    "context": "poke",
+    "contextsym": "SPEC_examplebs_dom@2Dgadget@2Dpoke"
   },
   {
     "loc": "00035:51-58",
@@ -421,8 +422,8 @@ input_file: inputs/analysis/specs/bikeshed__json
     "kind": "def",
     "pretty": "examplebs #ref-for-the-img-element",
     "sym": "SPEC_examplebs_ref@2Dfor@2Dthe@2Dimg@2Delement",
-    "context": "Gadgets",
-    "contextsym": "SPEC_examplebs_gadgets"
+    "context": "poke",
+    "contextsym": "SPEC_examplebs_dom@2Dgadget@2Dpoke"
   },
   {
     "loc": "00035:51-58",
@@ -437,8 +438,8 @@ input_file: inputs/analysis/specs/bikeshed__json
     "kind": "use",
     "pretty": "html img",
     "sym": "SPEC_html_the@2Dimg@2Delement",
-    "context": "Gadgets",
-    "contextsym": "SPEC_examplebs_gadgets"
+    "context": "poke",
+    "contextsym": "SPEC_examplebs_dom@2Dgadget@2Dpoke"
   },
   {
     "loc": "00037:3-9",
