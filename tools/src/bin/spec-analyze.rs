@@ -109,10 +109,11 @@ fn main() {
                 write_records(analysis_root, &path, records);
                 spec_files.insert(path.clone());
                 println!(
-                    "{}: {} headings, {} dfns, {} cross-references ({} unresolved), {} links, in {:.2}s",
+                    "{}: {} headings, {} dfns, {} anchors, {} cross-references ({} unresolved), {} links, in {:.2}s",
                     path,
                     stats.headings,
                     stats.dfns,
+                    stats.anchors,
                     stats.references,
                     stats.unresolved,
                     stats.links,

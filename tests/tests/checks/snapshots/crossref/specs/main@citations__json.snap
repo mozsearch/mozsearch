@@ -488,6 +488,50 @@ input_file: inputs/crossref/specs/citations__json
       "relation": "Queried",
       "quality": "ExplicitSymbol",
       "overloads_hit": []
+    },
+    {
+      "symbol": "SPEC_example_gadgets@3Aconcept@2Dwidget@2D2",
+      "crossref_info": {
+        "defs": [
+          {
+            "path": "specs/source",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 38,
+                "bounds": [
+                  44,
+                  50
+                ],
+                "line": "<li><p>For each <span data-x=concept-widget>widget</span> in it:",
+                "context": "assemble step 2",
+                "contextsym": "SPEC_example_assemble"
+              }
+            ]
+          }
+        ],
+        "doc-uses": [
+          {
+            "path": "spec_citations.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 45,
+                "bounds": [
+                  3,
+                  60
+                ],
+                "line": "// https://example.spec.whatwg.org/#gadgets:concept-widget-2",
+                "context": "spec_citations::CountWidgets",
+                "contextsym": "_ZN14spec_citations12CountWidgetsEPNS_6WidgetEi"
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
     }
   ],
   "unknown_symbols": []

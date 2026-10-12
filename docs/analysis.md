@@ -168,7 +168,9 @@ index of the field starting from 0.
    characters), ex: `SPEC_html_navigate` for
    `https://html.spec.whatwg.org/#navigate`.  So a URL to a rendered spec (or
    to one of its `aliases`, ex: a CSS spec's unversioned URL) names a symbol.
-   Their definitions (and sections' headings) are `def`s, and references to
+   Their definitions (and sections' headings, and other elements' ids, ex: the
+   ids Wattsi gives the HTML Standard's cross-references, like
+   `the-input-element:activation-behaviour`) are `def`s, and references to
    them, from the spec and other specs, are `use`s, whose context is the
    algorithm they're in (with its step, ex: "navigate step 12.6") or else their
    section.  A tree's other files' citations of its specs (or of its

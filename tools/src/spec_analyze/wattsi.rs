@@ -18,6 +18,17 @@
 //!   `subdfn`'s), unless they're in a link (or a cross-reference which
 //!   resolved, which becomes one).  `<!--INSERT TRACKING-->` notes become
 //!   references to "tracking vector".
+//! - Cross-references which resolved get ids, unless they have one, of the
+//!   last heading's id and their target's, joined by `:` (ex:
+//!   `the-input-element:activation-behaviour`), after the other ids, in
+//!   document order ("Insert cross-references").  Gecko cites those, so
+//!   they're anchors, but only as definitions' targets, to not give every
+//!   cross-reference's token a second symbol.  Other elements' ids (ex: old
+//!   ones kept for links to them) are anchors too.  (html-build inserts
+//!   cross-references before Wattsi runs, ex: elements' "Tag omission in
+//!   text/html" entries, which take ids too, so later cross-references to
+//!   the same targets in their sections can have other numbers than in
+//!   Wattsi's output.)
 //!
 //! A `<dfn>` with `data-x-href` defers to another spec's term (ex: DOM's
 //! "node"), which references to it link to, so they're uses of that term's
@@ -33,7 +44,8 @@ use super::{
     ForResolver, InContext, Lines, SpecsConfig, dfn_kind, spec_records, spec_structured,
     spec_symbol, unescape_context_name as context_name,
 };
-use crate::semantic_analyzer::{Record, sort_records};
+use crate::file_format::analysis::AnalysisKind;
+use crate::semantic_analyzer::{Record, sort_records, target_record};
 use crate::tree_sitter_support::spec_tokenizer::html_contexts;
 
 /// "MungeStringToTopic": lowercase ASCII letters, drop `#`s, and collapse
@@ -120,6 +132,7 @@ enum Target {
 pub struct Stats {
     pub headings: usize,
     pub dfns: usize,
+    pub anchors: usize,
     pub references: usize,
     pub unresolved: usize,
     pub links: usize,
@@ -189,12 +202,19 @@ impl<'a, 'd> Wattsi<'a, 'd> {
     fn scan(&mut self) {
         let doc = self.doc;
         for node in 1..doc.nodes.len() {
-            let Some(name) = doc.name(node) else {
-                continue;
-            };
             if self.excluded[node] {
                 continue;
             }
+            // (Wattsi makes it a `<span data-x="tracking vector">`.)
+            if doc.nodes[node].kind == NodeKind::Comment
+                && doc.src[doc.nodes[node].range.clone()] == *"<!--INSERT TRACKING-->"
+            {
+                self.xrefs.push((node, "tracking vector".to_string()));
+                continue;
+            }
+            let Some(name) = doc.name(node) else {
+                continue;
+            };
             match name {
                 heading if is_heading(heading) => {
                     let id = match doc.attr(node, "id") {
@@ -463,7 +483,16 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
         }
     }
     // Cross-references, in document order, so that one in another which
-    // resolved (and so became a link) is skipped.
+    // resolved (and so became a link) is skipped, and those which resolved
+    // get their ids in order.
+    let mut headings: Vec<usize> = wattsi
+        .node_ids
+        .keys()
+        .copied()
+        .filter(|&node| doc.name(node).is_some_and(is_heading))
+        .collect();
+    headings.sort_unstable();
+    let mut anchors: Vec<(usize, String, String)> = vec![];
     let mut linked: HashSet<usize> = HashSet::new();
     for (node, topic) in &wattsi.xrefs {
         let node = *node;
@@ -490,28 +519,44 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
             what: def.what,
             pretty: def.pretty.clone(),
         });
-    }
-    // Links, bibliography references, and tracking vector notes (which are
-    // references to "tracking vector").
-    for node in 1..doc.nodes.len() {
-        if wattsi.excluded[node] {
+        // (One with an id keeps it: a `subdfn`'s, which it defines, or
+        // another, which is an anchor below.)
+        if doc.has_attr(node, "id") || wattsi.node_ids.contains_key(&node) {
             continue;
         }
-        if doc.nodes[node].kind == NodeKind::Comment
-            && doc.src[doc.nodes[node].range.clone()] == *"<!--INSERT TRACKING-->"
-        {
-            if let Some(def) = wattsi
-                .resolve(node, "tracking vector")
-                .and_then(|target| defs.get(&target))
-            {
-                pending.push(Pending {
-                    node,
-                    def: false,
-                    sym: def.sym.clone(),
-                    what: def.what,
-                    pretty: def.pretty.clone(),
-                });
-            }
+        let heading_id = headings
+            .partition_point(|&heading| heading < node)
+            .checked_sub(1)
+            .map_or("", |i| wattsi.node_ids[&headings[i]].as_str());
+        let id = wattsi.ids.generate(&format!("{}:{}", heading_id, def.id));
+        stats.anchors += 1;
+        anchors.push((
+            node,
+            spec_symbol(shortname, &id),
+            format!("{} #{}", shortname, id),
+        ));
+    }
+    // Other elements' ids, ex: old ones kept for links to them
+    // (`<span id="history-traversal"></span>`), are anchors.
+    for node in 1..doc.nodes.len() {
+        if wattsi.excluded[node] || defs.contains_key(&node) {
+            continue;
+        }
+        let Some(id) = doc.attr(node, "id") else {
+            continue;
+        };
+        stats.anchors += 1;
+        pending.push(Pending {
+            node,
+            def: true,
+            sym: spec_symbol(shortname, &id),
+            what: "anchor",
+            pretty: format!("{} #{}", shortname, id),
+        });
+    }
+    // Links and bibliography references.
+    for node in 1..doc.nodes.len() {
+        if wattsi.excluded[node] {
             continue;
         }
         match doc.name(node) {
@@ -673,16 +718,30 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
     }
 
     let lines = Lines::new(src);
-    let mut records = vec![];
-    for p in pending {
-        let range = doc.content_range(p.node);
+    let location = |node: usize| {
+        let range = doc.content_range(node);
         let range = if range.is_empty() {
-            doc.items[doc.nodes[p.node].item].range().clone()
+            doc.items[doc.nodes[node].item].range().clone()
         } else {
             range
         };
+        lines.location(&range)
+    };
+    let mut records = vec![];
+    for (node, sym, pretty) in anchors {
+        let context = context_at(node);
+        records.push(target_record(
+            location(node),
+            AnalysisKind::Def,
+            pretty,
+            sym,
+            context.name,
+            context.sym,
+        ));
+    }
+    for p in pending {
         let context = context_at(p.node);
-        let loc = lines.location(&range);
+        let loc = location(p.node);
         spec_records(&mut records, loc, p.def, p.what, &p.pretty, &p.sym, &context);
         if p.def
             && let Some((kind, parent, rendered)) = structured.get(&p.sym)
@@ -803,19 +862,27 @@ mod tests {
                 "2:10-16 def SPEC_test_widget Intro (SPEC_test_intro)",
                 "2:55-61 def SPEC_test_concept@2Dgadget Intro (SPEC_test_intro)",
                 "2:86-92 def SPEC_test_w2 Intro (SPEC_test_intro)",
-                // (The `<code>`'s `<span>` is in a link, and the `<a>`'s too.)
+                // (The `<code>`'s `<span>` is in a link, and the `<a>`'s too,
+                // so they don't get ids.)
+                "3:11-17 def SPEC_test_intro@3Awidget Intro (SPEC_test_intro)",
                 "3:11-17 use SPEC_test_widget Intro (SPEC_test_intro)",
+                "3:56-63 def SPEC_test_intro@3Aconcept@2Dgadget Intro (SPEC_test_intro)",
                 "3:56-63 use SPEC_test_concept@2Dgadget Intro (SPEC_test_intro)",
+                "3:78-97 def SPEC_test_intro@3Awidget@2D2 Intro (SPEC_test_intro)",
                 "3:78-97 use SPEC_test_widget Intro (SPEC_test_intro)",
                 "3:120-139 use SPEC_test_w2 Intro (SPEC_test_intro)",
                 "4:4-36 def SPEC_test_the@2Ddoohickey@2Dsection The doohickey section (SPEC_test_the@2Ddoohickey@2Dsection)",
+                "5:13-22 def SPEC_test_the@2Ddoohickey@2Dsection@3Athe@2Ddoohickey@2Dsection The doohickey section (SPEC_test_the@2Ddoohickey@2Dsection)",
                 "5:13-22 use SPEC_test_the@2Ddoohickey@2Dsection The doohickey section (SPEC_test_the@2Ddoohickey@2Dsection)",
+                "5:50-52 def SPEC_test_the@2Ddoohickey@2Dsection@3Awidget The doohickey section (SPEC_test_the@2Ddoohickey@2Dsection)",
                 "5:50-52 use SPEC_test_widget The doohickey section (SPEC_test_the@2Ddoohickey@2Dsection)",
                 "5:114-119 use SPEC_dom_concept@2Dnode The doohickey section (SPEC_test_the@2Ddoohickey@2Dsection)",
                 // (The `w-dev` one doesn't take the id.)
                 "7:10-18 def SPEC_test_dev@2Donly The doohickey section (SPEC_test_the@2Ddoohickey@2Dsection)",
                 "7:98-102 def SPEC_test_tree The doohickey section (SPEC_test_the@2Ddoohickey@2Dsection)",
                 "7:98-102 use SPEC_dom_concept@2Dtree The doohickey section (SPEC_test_the@2Ddoohickey@2Dsection)",
+                // (Its id is the deferring `<dfn>`'s.)
+                "7:116-120 def SPEC_test_the@2Ddoohickey@2Dsection@3Atree The doohickey section (SPEC_test_the@2Ddoohickey@2Dsection)",
                 "7:116-120 use SPEC_dom_concept@2Dtree The doohickey section (SPEC_test_the@2Ddoohickey@2Dsection)",
             ]
         );
@@ -843,9 +910,47 @@ mod tests {
                 "2:30-36 def SPEC_t_widget@2D3",
                 "2:56-57 def SPEC_t_x",
                 "3:16-21 def SPEC_t_gizmo@2Ddev",
+                "3:39-44 def SPEC_t_widget@3Agizmo@2Ddev",
                 "3:39-44 use SPEC_t_gizmo@2Ddev",
             ]
         );
+    }
+
+    #[test]
+    fn test_anchors() {
+        // Cross-references which resolved, but for ones with ids, get ids of
+        // the last heading's and their targets', in order, and elements' ids
+        // are anchors.
+        let src = r##"<h2>Widgets</h2>
+<p>A <dfn>widget</dfn>: <span>widget</span>, <span>widget</span>, <span id=w>widget</span>.
+<h3><span id=old-gadgets></span>Gadgets</h3>
+<p><span>widget</span>, <span>gadget</span>, <a href="#widgets:widget-2">this</a>.
+"##;
+        let (records, stats) = analyze(src, "t", &SpecsConfig::default());
+        let syms: Vec<String> = summary(&records)
+            .into_iter()
+            .map(|s| s.split(' ').take(3).collect::<Vec<_>>().join(" "))
+            .collect();
+        assert_eq!(
+            syms,
+            vec![
+                "1:4-11 def SPEC_t_widgets",
+                "2:10-16 def SPEC_t_widget",
+                "2:30-36 def SPEC_t_widgets@3Awidget",
+                "2:30-36 use SPEC_t_widget",
+                "2:51-57 def SPEC_t_widgets@3Awidget@2D2",
+                "2:51-57 use SPEC_t_widget",
+                "2:77-83 use SPEC_t_widget",
+                "2:77-83 def SPEC_t_w",
+                "3:4-39 def SPEC_t_gadgets",
+                // (An empty element's is its start tag's.)
+                "3:4-25 def SPEC_t_old@2Dgadgets",
+                "4:9-15 def SPEC_t_gadgets@3Awidget",
+                "4:9-15 use SPEC_t_widget",
+                "4:73-77 use SPEC_t_widgets@3Awidget@2D2",
+            ]
+        );
+        assert_eq!(stats.anchors, 5);
     }
 
     /// The structured records as "sym kind parentsym rendered".
@@ -908,8 +1013,10 @@ mod tests {
 <p>Not a step: <span>poke</span>.
 "#;
         let (records, _) = analyze(src, "t", &SpecsConfig::default());
+        // (Not the cross-references' anchors'.)
         let contexts: Vec<String> = summary(&records)
             .into_iter()
+            .filter(|s| !s.contains("@3A"))
             .map(|s| s.splitn(4, ' ').nth(3).unwrap().to_string())
             .collect();
         assert_eq!(

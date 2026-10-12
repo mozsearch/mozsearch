@@ -4,10 +4,14 @@
 // specs' definitions: in the tests tree, whose specs they are, and in the
 // searchfox tree, whose `SPEC_` symbols are the tests tree's (its
 // `linked_trees`), in the tests tree's files.
-async function checkCitation(path, defPath, defHash) {
+async function checkCitation(path, defPath, defHash, {
+  line = 11,
+  sym = "SPEC_example_concept@2Dwidget@2Dpoke",
+  pretty = "example poke",
+} = {}) {
   await TestUtils.loadPath(path);
 
-  const selector = `#line-11 span[data-symbols="SPEC_example_concept@2Dwidget@2Dpoke"]`;
+  const selector = `#line-${line} span[data-symbols="${sym}"]`;
   const span = frame.contentDocument.querySelector(selector);
   ok(span, "The citation is a symbol");
 
@@ -17,7 +21,7 @@ async function checkCitation(path, defPath, defHash) {
   await waitForShown(menu, "Context menu is shown for the citation");
 
   const links = [...menu.querySelectorAll("a")];
-  const gotoDef = links.find(a => a.textContent.includes("Go to definition of example poke"));
+  const gotoDef = links.find(a => a.textContent.includes(`Go to definition of ${pretty}`));
   ok(gotoDef, "A menu item to jump to the spec's definition exists");
 
   const loadPromise = TestUtils.waitForLoad();
@@ -40,6 +44,18 @@ add_task(async function test_citation_in_a_linked_tree() {
   await checkCitation(
     "/searchfox/source/tests/tests/files/spec_citations.cpp",
     "/tests/source/specs/source", "#13");
+});
+
+// A citation of the id Wattsi generates for a cross-reference goes to the
+// cross-reference.
+add_task(async function test_cross_reference_citation() {
+  await checkCitation(
+    "/searchfox/source/tests/tests/files/spec_citations.cpp",
+    "/tests/source/specs/source", "#38", {
+      line: 45,
+      sym: "SPEC_example_gadgets@3Aconcept@2Dwidget@2D2",
+      pretty: "example #gadgets:concept-widget-2",
+    });
 });
 
 // Searching a linked tree for a spec's symbol has the tests tree's results

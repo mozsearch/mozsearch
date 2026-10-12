@@ -131,6 +131,15 @@ input_file: inputs/analysis/specs/wattsi__json
   },
   {
     "loc": "00013:79-85",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example #widgets:concept-widget",
+    "sym": "SPEC_example_widgets@3Aconcept@2Dwidget",
+    "context": "poke",
+    "contextsym": "SPEC_example_concept@2Dwidget@2Dpoke"
+  },
+  {
+    "loc": "00013:79-85",
     "source": 1,
     "syntax": "use",
     "pretty": "dfn example widget",
@@ -143,6 +152,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "pretty": "example widget",
     "sym": "SPEC_example_concept@2Dwidget",
     "context": "poke",
+    "contextsym": "SPEC_example_concept@2Dwidget@2Dpoke"
+  },
+  {
+    "loc": "00017:66-71",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example #widgets:concept-widget-state",
+    "sym": "SPEC_example_widgets@3Aconcept@2Dwidget@2Dstate",
+    "context": "poke step 1",
     "contextsym": "SPEC_example_concept@2Dwidget@2Dpoke"
   },
   {
@@ -235,6 +253,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "kind": "specDfn",
     "implKind": "spec",
     "rendered": "https://example.spec.whatwg.org/#concept-gadget"
+  },
+  {
+    "loc": "00031:78-84",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example #gadgets:concept-widget",
+    "sym": "SPEC_example_gadgets@3Aconcept@2Dwidget",
+    "context": "Gadgets <gadget>",
+    "contextsym": "SPEC_example_gadgets"
   },
   {
     "loc": "00031:78-84",
@@ -336,6 +363,15 @@ input_file: inputs/analysis/specs/wattsi__json
   },
   {
     "loc": "00034:56-62",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example #gadgets:concept-gadget",
+    "sym": "SPEC_example_gadgets@3Aconcept@2Dgadget",
+    "context": "assemble",
+    "contextsym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00034:56-62",
     "source": 1,
     "syntax": "use",
     "pretty": "dfn example gadget",
@@ -348,6 +384,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "pretty": "example gadget",
     "sym": "SPEC_example_concept@2Dgadget",
     "context": "assemble",
+    "contextsym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00037:43-47",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example #gadgets:node",
+    "sym": "SPEC_example_gadgets@3Anode",
+    "context": "assemble step 1",
     "contextsym": "SPEC_example_assemble"
   },
   {
@@ -368,6 +413,15 @@ input_file: inputs/analysis/specs/wattsi__json
   },
   {
     "loc": "00038:45-51",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example #gadgets:concept-widget-2",
+    "sym": "SPEC_example_gadgets@3Aconcept@2Dwidget@2D2",
+    "context": "assemble step 2",
+    "contextsym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00038:45-51",
     "source": 1,
     "syntax": "use",
     "pretty": "dfn example widget",
@@ -380,6 +434,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "pretty": "example widget",
     "sym": "SPEC_example_concept@2Dwidget",
     "context": "assemble step 2",
+    "contextsym": "SPEC_example_assemble"
+  },
+  {
+    "loc": "00040:43-47",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example #gadgets:concept-widget-poke",
+    "sym": "SPEC_example_gadgets@3Aconcept@2Dwidget@2Dpoke",
+    "context": "assemble step 2.1",
     "contextsym": "SPEC_example_assemble"
   },
   {
@@ -479,6 +542,15 @@ input_file: inputs/analysis/specs/wattsi__json
     "kind": "specDfn",
     "implKind": "spec",
     "rendered": "https://example.spec.whatwg.org/#doohickey"
+  },
+  {
+    "loc": "00049:14-23",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example #doohickeys:doohickeys",
+    "sym": "SPEC_example_doohickeys@3Adoohickeys",
+    "context": "The doohickey section",
+    "contextsym": "SPEC_example_doohickeys"
   },
   {
     "loc": "00049:14-23",

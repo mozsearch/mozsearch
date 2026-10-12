@@ -40,4 +40,11 @@ int StringOfWidget(Widget& aWidget) {
   return aWidget.state;
 }
 
+// The id Wattsi generates for a cross-reference, of its section's heading's
+// and its target's, as Gecko cites the HTML Standard's.
+// https://example.spec.whatwg.org/#gadgets:concept-widget-2
+int CountWidgets(Widget* aWidgets, int aCount) {
+  return aCount;
+}
+
 }  // namespace spec_citations
