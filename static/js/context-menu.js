@@ -1579,6 +1579,20 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             }));
           }
 
+          // A citation of a web spec by an outdated URL (a moved or obsolete
+          // spec's; see tools/src/spec_analyze/citations.rs) isn't an
+          // up-to-date reference: say so, with the definition's current URL.
+          if (symbolToken.classList.contains("syn_outdated") &&
+              jumpref.meta?.implKind === "spec" && jumpref.meta.rendered) {
+            jumpMenuItems.push(new MenuItem({
+              html: this.fmt("This cites an outdated URL: <strong>_</strong>'s current one", pretty),
+              href: jumpref.meta.rendered,
+              icon: "help-circled",
+              section: "jumps",
+              classNames: ["contextmenu-outdated-citation"],
+            }));
+          }
+
           // A web spec's algorithm (or abstract operation), beside the code
           // citing it and its steps (in the tree of its definition; see
           // `format::format_algorithm`).

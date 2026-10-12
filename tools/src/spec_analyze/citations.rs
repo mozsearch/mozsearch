@@ -223,6 +223,8 @@ pub struct Stats {
     /// Of the citations, those of anchors their specs don't define, of
     /// another spec's (see `SpecsConfig::fallbacks`).
     pub fallbacks: usize,
+    /// Of the citations, those by outdated URLs (see `SpecEntry::old_urls`).
+    pub outdated: usize,
 }
 
 /// The symbols the specs define, for citations of anchors their specs don't
@@ -454,15 +456,16 @@ pub fn citation_records(
         }
     };
 
-    // The citations, and the lines citing specs.
-    let mut citations: Vec<(Range<usize>, String, String)> = vec![];
+    // The citations (and whether they're by outdated URLs), and the lines
+    // citing specs.
+    let mut citations: Vec<(Range<usize>, String, String, bool)> = vec![];
     let mut citing: Vec<Citing> = vec![];
     for m in URL.find_iter(src) {
         let url = trim_url(m.as_str());
         if !url.contains('#') {
             continue;
         }
-        let Some((spec, anchor)) = config.url_spec(url) else {
+        let Some((spec, anchor, outdated)) = config.url_citation(url) else {
             continue;
         };
         // (Without a text fragment's directive, ex: `#x:~:text=y`.)
@@ -485,7 +488,7 @@ pub fn citation_records(
         let pretty = format!("{} #{}", shortname, anchor);
         let range = m.start()..m.start() + url.len();
         let line = lines_index.location(&range).lineno;
-        citations.push((range, sym.clone(), pretty.clone()));
+        citations.push((range, sym.clone(), pretty.clone(), outdated));
         if citing.last().is_some_and(|c| c.line == line) {
             continue;
         }
@@ -539,7 +542,7 @@ pub fn citation_records(
             };
             stats.sections += 1;
             let range = start + citation.start()..start + citation.end();
-            citations.push((range, sym.to_string(), pretty.to_string()));
+            citations.push((range, sym.to_string(), pretty.to_string(), false));
             let (scope_end, def) = scope(line);
             citing.push(Citing {
                 line,
@@ -556,17 +559,29 @@ pub fn citation_records(
             .filter(|c| c.line <= line && line <= c.scope_end)
             .max_by_key(|c| c.line)
     };
-    for (range, sym, pretty) in citations {
+    for (range, sym, pretty, outdated) in citations {
         stats.citations += 1;
+        stats.outdated += usize::from(outdated);
         let loc = lines_index.location(&range);
         let def = context_of(loc.lineno).and_then(|c| c.def.as_ref());
-        records.push(source_record(
+        // (A citation by an outdated URL says so, in its pretty names, and in
+        // its source record's syntax, which its code's view marks.)
+        let pretty = if outdated {
+            format!("{} (by an outdated URL)", pretty)
+        } else {
+            pretty
+        };
+        let mut source = source_record(
             loc,
             "use",
             format!("spec {}", pretty),
             sym.clone(),
             Default::default(),
-        ));
+        );
+        if outdated && let Record::Source(source) = &mut source {
+            source.data.syntax.push("outdated".into());
+        }
+        records.push(source);
         records.push(target_record(
             loc,
             AnalysisKind::DocUse,
@@ -675,6 +690,45 @@ mod tests {
                 "2:3-33 doc-use SPEC_dom_y |  ()",
             ]
         );
+    }
+
+    #[test]
+    fn test_outdated_urls() {
+        let config: SpecsConfig = toml::from_str(
+            r#"
+            [[spec]]
+            name = "html"
+            rendered = "https://html.spec.whatwg.org/"
+            old_urls = ["https://dev.w3.org/html5/spec/"]
+            "#,
+        )
+        .unwrap();
+        let src = "\
+// http://dev.w3.org/html5/spec/Overview.html#navigate
+// https://html.spec.whatwg.org/#navigate
+";
+        let (records, stats) = citation_records(src, &[], &config, None, None);
+        // (Both are the HTML Standard's, but the old URL's says so.)
+        let sources: Vec<String> = records
+            .iter()
+            .filter_map(|record| match record {
+                Record::Source(s) => Some(format!(
+                    "{} {} {}",
+                    s.loc.lineno,
+                    s.data.syntax.join(","),
+                    s.data.pretty
+                )),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            sources,
+            vec![
+                "1 use,outdated spec html #navigate (by an outdated URL)",
+                "2 use spec html #navigate",
+            ]
+        );
+        assert_eq!((stats.citations, stats.outdated), (2, 1));
     }
 
     #[test]

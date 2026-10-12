@@ -454,10 +454,18 @@ pub fn format_code(
 
         let get_style = |token: &tokenize::Token,
                          datum: &mut dyn Iterator<Item = &AnalysisSource>| {
-            match token.kind {
+            let datum: Vec<&AnalysisSource> = datum.collect();
+            // (A citation by an outdated URL of a spec, ex: an obsolete spec's
+            // or an old host's, says so; see `spec_analyze::citations`.)
+            let outdated = datum.iter().any(|a| {
+                a.syntax
+                    .iter()
+                    .any(|s| AsRef::<str>::as_ref(s) == "outdated")
+            });
+            let style = match token.kind {
                 tokenize::TokenKind::Identifier(ref maybe_style) => {
                     let mut has_datum = false;
-                    let classes = datum.flat_map(|a| {
+                    let classes = datum.iter().flat_map(|a| {
                         has_datum = true;
                         a.syntax.iter().flat_map(|s| match s.as_ref() {
                             "type" => vec!["syn_type"],
@@ -486,6 +494,14 @@ pub fn format_code(
                 tokenize::TokenKind::EndTagName => "class=\"syn_tag\" ".to_owned(),
                 tokenize::TokenKind::RegularExpressionLiteral => "class=\"syn_regex\" ".to_owned(),
                 _ => "".to_owned(),
+            };
+            if !outdated {
+                return style;
+            }
+            let title = r#"title="This cites an outdated URL: a moved or obsolete spec's" "#;
+            match style.strip_prefix("class=\"") {
+                Some(rest) => format!("class=\"syn_outdated {}{}", rest, title),
+                None => format!("class=\"syn_outdated\" {}{}", title, style),
             }
         };
 

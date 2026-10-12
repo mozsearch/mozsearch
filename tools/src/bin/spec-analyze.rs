@@ -359,7 +359,8 @@ fn main() {
         exit(1);
     });
     let started = Instant::now();
-    let (mut files, mut cited, mut steps, mut sections, mut fallbacks) = (0, 0, 0, 0, 0);
+    let (mut files, mut cited, mut steps, mut sections, mut fallbacks, mut outdated) =
+        (0, 0, 0, 0, 0, 0);
     for path in paths.lines().map(str::trim).filter(|p| !p.is_empty()) {
         if spec_files.contains(path) {
             continue;
@@ -389,12 +390,14 @@ fn main() {
         steps += stats.steps;
         sections += stats.sections;
         fallbacks += stats.fallbacks;
+        outdated += stats.outdated;
     }
     println!(
-        "Citations: {} of the specs ({} of sections by their titles, {} of anchors their specs don't define, of their series' or successors') and {} of their steps, in {} files, in {:.2}s",
+        "Citations: {} of the specs ({} of sections by their titles, {} of anchors their specs don't define, of their series' or successors', {} by outdated URLs) and {} of their steps, in {} files, in {:.2}s",
         cited,
         sections,
         fallbacks,
+        outdated,
         steps,
         files,
         started.elapsed().as_secs_f64()

@@ -25,8 +25,13 @@ for sanitizer-api), which are configured.  (Citations of anchors a spec
 doesn't define are of its series' or successors', if they define them.)
 
 OVERRIDES has the forest's root `.gitattributes` (`attributes`), the
-`directories` of repositories by their URLs, and repositories and specs to
-leave out (`exclude`, by URL or shortname).
+`directories` of repositories by their URLs, repositories and specs to leave
+out (`exclude`, by URL or shortname), and specs' `old_urls` (by their names):
+outdated URLs which code still cites for their anchors, ex: an old host's
+("https://drafts.fxtf.org/filter-effects-1/"), or an obsolete spec's which they
+superseded (the W3C's HTML5 drafts' for the HTML Standard), whose citations
+are of their anchors but say they're by outdated URLs (see
+tools/src/spec_analyze/citations.rs).
 """
 
 import argparse
@@ -115,6 +120,7 @@ def main():
         with open(args.index) as f:
             index = json.load(f)
     directories = overrides.get("directories", {})
+    old_urls = overrides.get("old_urls", {})
     excluded = set(overrides.get("exclude", []))
 
     # The specs we analyze, by their repositories.
@@ -197,6 +203,8 @@ def main():
         lines.append(f"rendered = {toml_string(rendered)}")
         if aliases:
             lines.append(f"aliases = [{', '.join(toml_string(a) for a in aliases)}]")
+        if old_urls.get(name):
+            lines.append(f"old_urls = [{', '.join(toml_string(u) for u in old_urls[name])}]")
         if series.get("shortname", shortname) != shortname:
             lines.append(f"series = {toml_string(series['shortname'])}")
         successors = [shortnames[s] for s in spec.get("obsoletedBy") or [] if s in shortnames]
@@ -227,6 +235,10 @@ def main():
             if spec_name in dirs or spec_name in names:
                 spec_name = f"{name}-{spec_name}"
             add_spec(spec, spec_name, name)
+
+    unknown = sorted(set(old_urls) - names)
+    if unknown:
+        sys.exit(f"old_urls of specs which aren't configured: {', '.join(unknown)}")
 
     with open(args.output, "w") as f:
         f.write("\n".join(out))

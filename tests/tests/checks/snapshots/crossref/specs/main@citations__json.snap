@@ -622,6 +622,16 @@ input_file: inputs/crossref/specs/citations__json
                 "line": "// https://example.spec.whatwg.org/2/#concept-widget",
                 "context": "spec_citations::IsPoked",
                 "contextsym": "_ZN14spec_citations7IsPokedERKNS_6WidgetE"
+              },
+              {
+                "lno": 59,
+                "bounds": [
+                  3,
+                  62
+                ],
+                "line": "// http://old.example.org/widgets/Overview.html#concept-widget",
+                "context": "spec_citations::IsWidget",
+                "contextsym": "_ZN14spec_citations8IsWidgetERKNS_6WidgetE"
               }
             ]
           }

@@ -116,6 +116,15 @@ pub struct SpecEntry {
     /// sanitizer-api), as the browser-specs index's `obsoletedBy`.
     #[serde(default)]
     pub successors: Vec<String>,
+    /// Outdated URLs which code still cites for the spec's anchors: its own
+    /// old ones (ex: "https://drafts.fxtf.org/filter-effects-1/", an old host's)
+    /// or those of the obsolete specs it superseded (ex: the W3C's HTML5
+    /// drafts' for the HTML Standard), which a tree's config gives (see
+    /// scripts/browser-specs-to-toml.py's overrides).  Citations by them are of
+    /// the spec's anchors, but say that they're by outdated URLs (see
+    /// `citations`), rather than seeming to be up-to-date references.
+    #[serde(default)]
+    pub old_urls: Vec<String>,
 }
 
 impl SpecEntry {
@@ -197,6 +206,17 @@ impl SpecsConfig {
     /// The spec a URL is to, and its anchor, if it's to one of them (with a
     /// fragment).
     pub fn url_spec(&self, url: &str) -> Option<(&SpecEntry, String)> {
+        self.url_target(url, false)
+            .map(|(spec, anchor, _)| (spec, anchor))
+    }
+
+    /// The spec a citation's URL is to, and its anchor, as `url_spec`, but
+    /// also by the specs' `old_urls`, and whether it's by one of those.
+    pub fn url_citation(&self, url: &str) -> Option<(&SpecEntry, String, bool)> {
+        self.url_target(url, true)
+    }
+
+    fn url_target(&self, url: &str, old: bool) -> Option<(&SpecEntry, String, bool)> {
         let (page, anchor) = url.split_once('#')?;
         if anchor.is_empty() {
             return None;
@@ -210,20 +230,31 @@ impl SpecsConfig {
             let url = url.trim_start_matches("http:").trim_start_matches("https:");
             (page.starts_with(url) || format!("{}/", page) == url).then_some(url.len())
         };
-        let (spec, _) = self
+        // (The longest match, and whether it's an old URL; a current one wins
+        // a tie.)
+        let (spec, (_, outdated)) = self
             .specs
             .iter()
             .filter_map(|spec| {
-                let best = spec
+                let current = spec
                     .rendered
                     .iter()
                     .chain(&spec.aliases)
                     .filter_map(|url| matching(url))
-                    .max()?;
+                    .map(|len| (len, false));
+                let outdated = spec
+                    .old_urls
+                    .iter()
+                    .filter(|_| old)
+                    .filter_map(|url| matching(url))
+                    .map(|len| (len, true));
+                let best = current
+                    .chain(outdated)
+                    .max_by_key(|&(len, outdated)| (len, !outdated))?;
                 Some((spec, best))
             })
-            .max_by_key(|&(_, len)| len)?;
-        Some((spec, percent_decode(anchor)))
+            .max_by_key(|&(_, (len, outdated))| (len, !outdated))?;
+        Some((spec, percent_decode(anchor), outdated))
     }
 }
 
@@ -744,6 +775,7 @@ mod tests {
             [[spec]]
             name = "html"
             rendered = "https://html.spec.whatwg.org/"
+            old_urls = ["https://dev.w3.org/html5/spec/"]
             [[spec]]
             name = "dom"
             rendered = "https://dom.spec.whatwg.org/"
@@ -803,6 +835,21 @@ mod tests {
         );
         assert_eq!(sym("https://dom.spec.whatwg.org/"), None);
         assert_eq!(sym("https://url.spec.whatwg.org/#concept-url"), None);
+        // (Old URLs are only citations', which say they're outdated.)
+        assert_eq!(sym("http://dev.w3.org/html5/spec/#navigate"), None);
+        let citation = |url| {
+            config
+                .url_citation(url)
+                .map(|(spec, anchor, outdated)| (spec.shortname().to_string(), anchor, outdated))
+        };
+        assert_eq!(
+            citation("http://dev.w3.org/html5/spec/Overview.html#navigate"),
+            Some(("html".to_string(), "navigate".to_string(), true))
+        );
+        assert_eq!(
+            citation("https://html.spec.whatwg.org/#navigate"),
+            Some(("html".to_string(), "navigate".to_string(), false))
+        );
     }
 
     #[test]

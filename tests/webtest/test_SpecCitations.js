@@ -46,6 +46,27 @@ add_task(async function test_citation_in_a_linked_tree() {
     "/tests/source/specs/source", "#13");
 });
 
+// A citation by an outdated URL (one of the spec's `old_urls`) goes to the
+// definition too, but is marked, and its menu says it's outdated, with the
+// definition's current URL.
+add_task(async function test_outdated_citation() {
+  await TestUtils.loadPath("/tests/source/spec_citations.cpp");
+  const span = frame.contentDocument.querySelector(
+    `#line-59 span[data-symbols="SPEC_example_concept@2Dwidget"]`);
+  ok(span?.classList.contains("syn_outdated"),
+     "The citation is marked as by an outdated URL");
+
+  TestUtils.click(span);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the citation");
+  const links = [...menu.querySelectorAll("a")];
+  ok(links.find(a => a.textContent.includes("Go to definition of")),
+     "It goes to the definition");
+  const note = links.find(a => a.textContent.includes("This cites an outdated URL"));
+  is(note?.getAttribute("href"), "https://example.spec.whatwg.org/#concept-widget",
+     "and says it's outdated, with its current URL");
+});
+
 // A citation of the id Wattsi generates for a cross-reference goes to the
 // cross-reference.
 add_task(async function test_cross_reference_citation() {

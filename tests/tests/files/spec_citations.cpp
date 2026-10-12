@@ -54,4 +54,11 @@ bool IsPoked(const Widget& aWidget) {
   return aWidget.state == 1;
 }
 
+// A citation by an outdated URL of the example spec (one of its `old_urls`
+// in tests/tests/specs.toml), which says so.
+// http://old.example.org/widgets/Overview.html#concept-widget
+bool IsWidget(const Widget& aWidget) {
+  return true;
+}
+
 }  // namespace spec_citations
