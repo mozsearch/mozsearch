@@ -309,6 +309,12 @@ input_file: inputs/crossref/specs/respec_terms__json
           "overrides": [],
           "props": [],
           "variants": [],
+          "docs": [
+            {
+              "site": "mdn",
+              "url": "https://developer.mozilla.org/docs/Web/API/Gadget"
+            }
+          ],
           "rendered": "https://example.github.io/bs/#gadget"
         }
       },

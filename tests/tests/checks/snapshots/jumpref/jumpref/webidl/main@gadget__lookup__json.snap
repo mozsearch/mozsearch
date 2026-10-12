@@ -1,0 +1,196 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(jvl).unwrap()"
+input_file: inputs/jumpref/jumpref/webidl/gadget__lookup__json
+---
+{
+  "values": [
+    {
+      "value": {
+        "sym": "WEBIDL_Gadget",
+        "pretty": "Gadget",
+        "meta": {
+          "structured": 1,
+          "pretty": "Gadget",
+          "sym": "WEBIDL_Gadget",
+          "type_pretty": null,
+          "kind": "class",
+          "subsystem": null,
+          "implKind": "idl",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "interface",
+              "slotLang": "js",
+              "implKind": null,
+              "ownerLang": "idl",
+              "sym": "#Gadget"
+            },
+            {
+              "slotKind": "class",
+              "slotLang": "cpp",
+              "implKind": null,
+              "ownerLang": "idl",
+              "sym": "NS_mozilla::dom::Gadget_Binding"
+            },
+            {
+              "slotKind": "interface",
+              "slotLang": "spec",
+              "implKind": null,
+              "ownerLang": "idl",
+              "sym": "SPEC_examplebs_gadget"
+            }
+          ],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [
+            {
+              "pretty": "Gadget::poke",
+              "sym": "WEBIDL_Gadget_poke",
+              "props": [],
+              "args": []
+            }
+          ],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "docs": [
+            {
+              "site": "mdn",
+              "url": "https://developer.mozilla.org/docs/Web/API/Gadget"
+            }
+          ]
+        },
+        "jumps": {
+          "idl": "webidl/gadget.webidl#4"
+        }
+      }
+    },
+    {
+      "value": {
+        "sym": "WEBIDL_Gadget_poke",
+        "pretty": "Gadget::poke",
+        "meta": {
+          "structured": 1,
+          "pretty": "Gadget::poke",
+          "sym": "WEBIDL_Gadget_poke",
+          "type_pretty": null,
+          "kind": "method",
+          "subsystem": null,
+          "implKind": "idl",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "method",
+              "slotLang": "js",
+              "implKind": null,
+              "ownerLang": "idl",
+              "sym": "#poke"
+            },
+            {
+              "slotKind": "method",
+              "slotLang": "spec",
+              "implKind": null,
+              "ownerLang": "idl",
+              "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke"
+            }
+          ],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "docs": [
+            {
+              "site": "mdn",
+              "url": "https://developer.mozilla.org/docs/Web/API/Gadget/poke"
+            }
+          ]
+        },
+        "jumps": {
+          "idl": "webidl/gadget.webidl#5"
+        }
+      }
+    },
+    {
+      "value": {
+        "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke",
+        "pretty": "examplebs Gadget/poke",
+        "meta": {
+          "structured": 1,
+          "pretty": "examplebs Gadget/poke",
+          "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke",
+          "type_pretty": null,
+          "kind": "method",
+          "subsystem": null,
+          "parentsym": "SPEC_examplebs_gadget",
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "docs": [
+            {
+              "site": "mdn",
+              "url": "https://developer.mozilla.org/docs/Web/API/Gadget/poke"
+            }
+          ],
+          "rendered": "https://example.github.io/bs/#dom-gadget-poke"
+        },
+        "jumps": {
+          "def": "specs/example.bs#31"
+        }
+      }
+    },
+    {
+      "value": {
+        "sym": "SPEC_example_concept@2Dwidget@2Dstate",
+        "pretty": "example state",
+        "meta": {
+          "structured": 1,
+          "pretty": "example state",
+          "sym": "SPEC_example_concept@2Dwidget@2Dstate",
+          "type_pretty": null,
+          "kind": "specDfn",
+          "subsystem": null,
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "docs": [
+            {
+              "site": "mdn",
+              "url": "https://developer.mozilla.org/docs/Web/CSS/widget-state"
+            }
+          ],
+          "rendered": "https://example.spec.whatwg.org/#concept-widget-state"
+        },
+        "jumps": {
+          "def": "specs/source#9"
+        }
+      }
+    }
+  ]
+}

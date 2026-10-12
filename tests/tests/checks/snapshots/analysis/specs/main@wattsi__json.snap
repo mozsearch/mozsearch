@@ -567,5 +567,17 @@ input_file: inputs/analysis/specs/wattsi__json
     "sym": "SPEC_example_doohickeys",
     "context": "The doohickey section",
     "contextsym": "SPEC_example_doohickeys"
+  },
+  {
+    "loc": "00009:84-89",
+    "structured": 1,
+    "supplement": true,
+    "sym": "SPEC_example_concept@2Dwidget@2Dstate",
+    "docs": [
+      {
+        "site": "mdn",
+        "url": "https://developer.mozilla.org/docs/Web/CSS/widget-state"
+      }
+    ]
   }
 ]

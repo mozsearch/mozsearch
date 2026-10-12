@@ -229,10 +229,17 @@ pub struct Stats {
 
 /// The symbols the specs define, for citations of anchors their specs don't
 /// define: those of their analysis (in their own tree), or of their tree's
-/// crossref (in a tree citing its linked tree's specs).
+/// crossref (in a tree citing its linked tree's specs).  Also which have
+/// structured records (metas), unlike ex: links' ids (see `has_meta`).
 pub enum Defined {
-    Symbols(HashSet<String>),
-    Crossref(BisectableMmap<CrossrefData>, RefCell<HashMap<String, bool>>),
+    /// The defined symbols, and those with structured records.
+    Symbols(HashSet<String>, HashSet<String>),
+    /// The crossref, and whether the symbols looked up so far are defined and
+    /// have metas.
+    Crossref(
+        BisectableMmap<CrossrefData>,
+        RefCell<HashMap<String, (bool, bool)>>,
+    ),
 }
 
 impl Defined {
@@ -252,33 +259,54 @@ impl Defined {
 
     /// Add a spec's analysis's definitions.
     pub fn add(&mut self, records: &[Record]) {
-        let Defined::Symbols(symbols) = self else {
+        let Defined::Symbols(symbols, structured) = self else {
             return;
         };
         for record in records {
-            if let Record::Target(target) = record
-                && target.data.kind == AnalysisKind::Def
-            {
-                symbols.insert(target.data.sym.to_string());
+            match record {
+                Record::Target(target) if target.data.kind == AnalysisKind::Def => {
+                    symbols.insert(target.data.sym.to_string());
+                }
+                Record::Structured(_, value) => {
+                    if let Some(sym) = value["sym"].as_str() {
+                        structured.insert(sym.to_string());
+                    }
+                }
+                _ => {}
             }
         }
     }
 
-    pub fn contains(&self, sym: &str) -> bool {
+    /// Whether the symbol is defined, and whether it has a meta.
+    fn lookup(&self, sym: &str) -> (bool, bool) {
         match self {
-            Defined::Symbols(symbols) => symbols.contains(sym),
+            Defined::Symbols(symbols, structured) => {
+                (symbols.contains(sym), structured.contains(sym))
+            }
             Defined::Crossref(crossref, known) => *known
                 .borrow_mut()
                 .entry(sym.to_string())
                 .or_insert_with(|| {
-                    crossref
-                        .lookup(sym)
-                        .ok()
-                        .flatten()
+                    let data = crossref.lookup(sym).ok().flatten();
+                    let has_meta = data.as_ref().is_some_and(|data| data.meta.is_some());
+                    let defined = data
                         .and_then(|data| data.definitions)
-                        .is_some_and(|definitions| !definitions.is_empty())
+                        .is_some_and(|definitions| !definitions.is_empty());
+                    (defined, has_meta)
                 }),
         }
+    }
+
+    pub fn contains(&self, sym: &str) -> bool {
+        self.lookup(sym).0
+    }
+
+    /// Whether the symbol is defined with a structured record (a meta), as
+    /// dfns, headings, and IDL definitions are, but not ex: Bikeshed's links'
+    /// ids, which are anchors too.
+    pub fn has_meta(&self, sym: &str) -> bool {
+        let (defined, has_meta) = self.lookup(sym);
+        defined && has_meta
     }
 }
 
@@ -878,6 +906,7 @@ void Gone() {
             .into_iter()
             .map(str::to_string)
             .collect(),
+            HashSet::new(),
         );
         let src = "\
 // https://drafts.csswg.org/css-sizing-4/#stretch

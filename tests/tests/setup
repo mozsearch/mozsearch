@@ -95,3 +95,11 @@ ln -s -f $CONFIG_REPO/tests/metadata/test2.chrome-map.json $INDEX_ROOT
 ln -s -f $CONFIG_REPO/tests/metadata/doc-trees.json $INDEX_ROOT
 ln -s -f $CONFIG_REPO/tests/metadata/gcFunctions.txt $INDEX_ROOT
 ln -s -f $CONFIG_REPO/tests/metadata/allFunctions.txt $INDEX_ROOT
+
+echo "Performing setup::bcd step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
+# A little of MDN's browser-compat-data, where a config repo's setup would
+# download it, for the specs' definitions' MDN pages, and the WebIDL symbols'
+# spec definitions and MDN pages (see tools/src/spec_analyze/bcd.rs).
+mkdir -p $INDEX_ROOT/bcd
+cp $CONFIG_REPO/tests/bcd/data.json $INDEX_ROOT/bcd/data.json

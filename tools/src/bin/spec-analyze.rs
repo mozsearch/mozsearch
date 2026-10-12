@@ -2,7 +2,7 @@
 // references to them (see `tools::spec_analyze`).
 //
 // Usage:
-//   spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] [--stale-anchors SPEC_TREE SPEC_GIT SPEC_HISTORY CITED] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]
+//   spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] [--bcd BCD_JSON] [--stale-anchors SPEC_TREE SPEC_GIT SPEC_HISTORY CITED] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]
 //
 // SPECS_TOML lists the specs (`[[spec]]`s, see `spec_analyze::SpecsConfig`),
 // and each spec whose format we analyze gets the analysis of its source
@@ -34,17 +34,25 @@
 // is SPEC_INDEX_ROOT) has them, and the stale anchors the tree cites are
 // written to CITED, for the history's next update to look up (see
 // `spec_analyze::stale` and the stale-anchors tool).
+//
+// With --bcd, MDN's browser-compat-data (BCD_JSON, its data.json) gives the
+// specs' definitions (unless --citations-only) their MDN pages, and the
+// symbols of the tree's WebIDL files (in CITING_PATHS) the specs' definitions
+// which they reflect and their MDN pages, in supplement records (see
+// `spec_analyze::bcd`).
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::process::exit;
 use std::time::Instant;
 
+use tools::file_format::analysis::{AnalysisKind, Location};
 use tools::semantic_analyzer::Record;
 use tools::semantic_analyzer::{file_def_record, write_records};
 use tools::spec_analyze::citations::Defined;
 use tools::spec_analyze::{
-    SpecEntry, SpecFormat, SpecsConfig, bikeshed, citations, ecmarkup, respec, stale, wattsi, xref,
+    SpecEntry, SpecFormat, SpecsConfig, bcd, bikeshed, citations, ecmarkup, respec, stale, wattsi,
+    xref,
 };
 
 fn main() {
@@ -53,6 +61,7 @@ fn main() {
     let mut spec_files_root: Option<String> = None;
     let mut spec_index_root: Option<String> = None;
     let mut rendered_root: Option<String> = None;
+    let mut bcd_path: Option<String> = None;
     // (The specs' tree's name, repo, and history, and where the stale anchors
     // cited go.)
     let mut stale_anchors: Option<(String, String, String, String)> = None;
@@ -62,6 +71,7 @@ fn main() {
             "--spec-files" if args.len() > 1 => spec_files_root = Some(args.remove(1)),
             "--spec-index" if args.len() > 1 => spec_index_root = Some(args.remove(1)),
             "--rendered-specs" if args.len() > 1 => rendered_root = Some(args.remove(1)),
+            "--bcd" if args.len() > 1 => bcd_path = Some(args.remove(1)),
             "--stale-anchors" if args.len() > 4 => {
                 let mut values = args.drain(1..5);
                 stale_anchors = Some((
@@ -76,7 +86,7 @@ fn main() {
     }
     if args.len() != 4 && args.len() != 5 {
         eprintln!(
-            "Usage: spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] [--stale-anchors SPEC_TREE SPEC_GIT SPEC_HISTORY CITED] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]"
+            "Usage: spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] [--bcd BCD_JSON] [--stale-anchors SPEC_TREE SPEC_GIT SPEC_HISTORY CITED] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]"
         );
         exit(1);
     }
@@ -98,11 +108,22 @@ fn main() {
             defined
         })
     } else {
-        Some(Defined::Symbols(HashSet::new()))
+        Some(Defined::Symbols(HashSet::new(), HashSet::new()))
     };
-    let mut add_defined = |records: &[tools::semantic_analyzer::Record]| {
+    // (And where, for the BCD's supplements of their definitions.)
+    let mut definitions: HashMap<String, (String, Location)> = HashMap::new();
+    let mut add_defined = |file: &str, records: &[Record]| {
         if let Some(defined) = defined.as_mut() {
             defined.add(records);
+        }
+        for record in records {
+            if let Record::Target(target) = record
+                && target.data.kind == AnalysisKind::Def
+            {
+                definitions
+                    .entry(target.data.sym.clone())
+                    .or_insert((file.to_string(), target.loc));
+            }
         }
     };
     // (The specs whose biblios others load first, in the order they load
@@ -164,7 +185,7 @@ fn main() {
             SpecFormat::Wattsi => {
                 let (records, stats) = wattsi::analyze(&source, spec.shortname(), &config);
                 terms.add(spec, &wattsi::exports(&source));
-                add_defined(&records);
+                add_defined(&path, &records);
                 write_records(analysis_root, &path, records);
                 spec_files.insert(path.clone());
                 println!(
@@ -211,7 +232,7 @@ fn main() {
                 }
                 let file_count = files.len();
                 for (file, records) in files {
-                    add_defined(&records);
+                    add_defined(&file, &records);
                     write_records(analysis_root, &file, records);
                     spec_files.insert(file);
                 }
@@ -278,7 +299,7 @@ fn main() {
                 };
                 let file_count = files.len();
                 for (file, records) in files {
-                    add_defined(&records);
+                    add_defined(&file, &records);
                     write_records(analysis_root, &file, records);
                     spec_files.insert(file);
                 }
@@ -352,7 +373,7 @@ fn main() {
         };
         let file_count = files.len();
         for (file, records) in files {
-            add_defined(&records);
+            add_defined(&file, &records);
             write_records(analysis_root, &file, records);
             spec_files.insert(file);
         }
@@ -368,6 +389,28 @@ fn main() {
             stats.xrefs,
             stats.external,
             started.elapsed().as_secs_f64()
+        );
+    }
+
+    // The BCD's MDN pages of the specs' definitions, and later the tree's
+    // WebIDL symbols' spec definitions and pages (see `spec_analyze::bcd`).
+    let bcd = bcd_path.as_deref().and_then(|path| {
+        bcd::Bcd::load(Path::new(path))
+            .map_err(|e| eprintln!("spec-analyze: BCD: {}", e))
+            .ok()
+    });
+    if let Some(bcd) = &bcd
+        && !citations_only
+    {
+        let has_meta = |sym: &str| defined.as_ref().is_some_and(|d| d.has_meta(sym));
+        let (files, count) = bcd::spec_supplements(bcd, &config, &definitions, &has_meta);
+        for (file, records) in files {
+            write_records(analysis_root, &file, records);
+        }
+        println!(
+            "BCD ({} features): MDN pages of {} of the specs' definitions",
+            bcd.features.len(),
+            count
         );
     }
 
@@ -468,6 +511,31 @@ fn main() {
     }
     for (path, records) in citing {
         write_records(analysis_root, &path, records);
+    }
+    if let Some(bcd) = &bcd {
+        let webidl: Vec<(String, String)> = paths
+            .lines()
+            .map(str::trim)
+            .filter(|path| path.ends_with(".webidl"))
+            .filter_map(|path| {
+                let source = std::fs::read_to_string(files_root.join(path)).ok()?;
+                Some((path.to_string(), source))
+            })
+            .collect();
+        let is_defined = |sym: &str| defined.as_ref().is_some_and(|d| d.has_meta(sym));
+        let (files, stats) =
+            bcd::webidl_supplements(bcd, &webidl, analysis_root, &config, &is_defined);
+        for (path, records) in files {
+            write_records(analysis_root, &path, records);
+        }
+        println!(
+            "BCD: {} WebIDL symbols in {} files, {} in BCD, {} with their spec definitions, {} with MDN pages",
+            stats.symbols,
+            webidl.len(),
+            stats.in_bcd,
+            stats.spec,
+            stats.mdn
+        );
     }
     println!(
         "Citations: {} of the specs ({} of sections by their titles, {} of anchors their specs don't define, of their series' or successors', {} by outdated URLs) and {} of their steps, in {} files, in {:.2}s",

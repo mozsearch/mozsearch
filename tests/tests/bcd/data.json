@@ -1,0 +1,35 @@
+{
+  "__meta": {
+    "version": "0.0.0-test",
+    "timestamp": "2026-10-12T00:00:00.000Z"
+  },
+  "api": {
+    "Gadget": {
+      "__compat": {
+        "mdn_url": "https://developer.mozilla.org/docs/Web/API/Gadget",
+        "spec_url": "https://example.github.io/bs/#gadget"
+      },
+      "poke": {
+        "__compat": {
+          "mdn_url": "https://developer.mozilla.org/docs/Web/API/Gadget/poke",
+          "spec_url": "https://example.github.io/bs/#dom-gadget-poke"
+        }
+      },
+      "missing": {
+        "__compat": {
+          "spec_url": "https://example.github.io/bs/#dom-gadget-missing"
+        }
+      }
+    }
+  },
+  "css": {
+    "properties": {
+      "widget-state": {
+        "__compat": {
+          "mdn_url": "https://developer.mozilla.org/docs/Web/CSS/widget-state",
+          "spec_url": "https://example.spec.whatwg.org/#concept-widget-state"
+        }
+      }
+    }
+  }
+}

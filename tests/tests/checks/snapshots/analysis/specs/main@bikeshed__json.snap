@@ -523,5 +523,29 @@ input_file: inputs/analysis/specs/bikeshed__json
     "sym": "SPEC_examplebs_ref@2Dfor@2Dtypedef@2Dcolor",
     "context": "Properties",
     "contextsym": "SPEC_examplebs_properties"
+  },
+  {
+    "loc": "00030:10-16",
+    "structured": 1,
+    "supplement": true,
+    "sym": "SPEC_examplebs_gadget",
+    "docs": [
+      {
+        "site": "mdn",
+        "url": "https://developer.mozilla.org/docs/Web/API/Gadget"
+      }
+    ]
+  },
+  {
+    "loc": "00031:12-16",
+    "structured": 1,
+    "supplement": true,
+    "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke",
+    "docs": [
+      {
+        "site": "mdn",
+        "url": "https://developer.mozilla.org/docs/Web/API/Gadget/poke"
+      }
+    ]
   }
 ]

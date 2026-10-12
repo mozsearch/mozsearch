@@ -29,6 +29,16 @@ TREE_NAME=$3
 # config repo's upload-after-index scripts upload it, and wubspecs'
 # update-history.sh downloads them); see tools/src/spec_analyze/stale.rs.
 STALE_CITED=$INDEX_ROOT/stale-anchors-cited.json
+#
+# MDN's browser-compat-data, if the tree's setup put it in bcd/data.json (ex:
+# the config repo's shared/fetch-bcd.sh), gives the symbols of the tree's
+# WebIDL files the specs' definitions which they reflect and their MDN pages,
+# and a spec tree's definitions their MDN pages (see
+# tools/src/spec_analyze/bcd.rs).
+BCD_ARGS=()
+if [ -f "$INDEX_ROOT/bcd/data.json" ]; then
+    BCD_ARGS=(--bcd "$INDEX_ROOT/bcd/data.json")
+fi
 SPECS_TOML=$CONFIG_REPO/$TREE_NAME/specs.toml
 if [ -f "$SPECS_TOML" ]; then
     STALE_ANCHORS=()
@@ -37,7 +47,7 @@ if [ -f "$SPECS_TOML" ]; then
     fi
     # (Bikeshed's renderings of its specs go in rendered-specs/, for their
     # rendered views; see tools/src/rendered_specs/bikeshed.rs.)
-    spec-analyze --rendered-specs $INDEX_ROOT/rendered-specs "${STALE_ANCHORS[@]}" \
+    spec-analyze --rendered-specs $INDEX_ROOT/rendered-specs "${STALE_ANCHORS[@]}" "${BCD_ARGS[@]}" \
         $FILES_ROOT $INDEX_ROOT/analysis $SPECS_TOML $INDEX_ROOT/repo-files
     # (The index's copy is for the rendered views of the specs' sources, see
     # tools/src/rendered_specs, which the web server makes from it, and the
@@ -61,7 +71,7 @@ if [ -n "$LINKED_TREE" ] && [ -f "$CONFIG_REPO/$LINKED_TREE/specs.toml" ]; then
         STALE_ANCHORS=(--stale-anchors "$LINKED_TREE" "$SPEC_GIT" "$SPEC_HISTORY" "$STALE_CITED")
     fi
     spec-analyze --citations-only ${SPEC_FILES:+--spec-files "$SPEC_FILES"} \
-        ${SPEC_INDEX:+--spec-index "$SPEC_INDEX"} "${STALE_ANCHORS[@]}" \
+        ${SPEC_INDEX:+--spec-index "$SPEC_INDEX"} "${STALE_ANCHORS[@]}" "${BCD_ARGS[@]}" \
         $FILES_ROOT $INDEX_ROOT/analysis \
         "$CONFIG_REPO/$LINKED_TREE/specs.toml" $INDEX_ROOT/repo-files
 fi

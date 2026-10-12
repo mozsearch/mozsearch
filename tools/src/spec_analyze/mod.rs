@@ -27,6 +27,7 @@
 //! ecmarkup's abstract operations), so the references in their steps are
 //! calls, for diagrams and traversals across specs.
 
+pub mod bcd;
 pub mod bikeshed;
 pub mod citations;
 pub mod ecmarkup;

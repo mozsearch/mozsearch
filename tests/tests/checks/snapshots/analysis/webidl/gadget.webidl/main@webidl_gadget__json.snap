@@ -1,0 +1,134 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/webidl/gadget.webidl/webidl_gadget__json
+---
+[
+  {
+    "loc": "4:10-16",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL class Gadget",
+    "sym": "WEBIDL_Gadget"
+  },
+  {
+    "loc": "4:10-16",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "Gadget",
+    "sym": "WEBIDL_Gadget"
+  },
+  {
+    "loc": "5:7-11",
+    "source": 1,
+    "syntax": "idl",
+    "pretty": "IDL method Gadget::poke",
+    "sym": "WEBIDL_Gadget_poke"
+  },
+  {
+    "loc": "5:7-11",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "Gadget::poke",
+    "sym": "WEBIDL_Gadget_poke"
+  },
+  {
+    "loc": "5:7-11",
+    "structured": 1,
+    "pretty": "Gadget::poke",
+    "sym": "WEBIDL_Gadget_poke",
+    "kind": "method",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "method",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#poke"
+      }
+    ]
+  },
+  {
+    "loc": "5:2-6",
+    "source": 1,
+    "syntax": "type",
+    "pretty": "IDL type void",
+    "sym": "WEBIDL_void"
+  },
+  {
+    "loc": "5:2-6",
+    "target": 1,
+    "kind": "use",
+    "pretty": "void",
+    "sym": "WEBIDL_void"
+  },
+  {
+    "loc": "4:10-16",
+    "structured": 1,
+    "pretty": "Gadget",
+    "sym": "WEBIDL_Gadget",
+    "kind": "class",
+    "implKind": "idl",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "NS_mozilla::dom::Gadget_Binding"
+      },
+      {
+        "slotKind": "interface",
+        "slotLang": "js",
+        "ownerLang": "idl",
+        "sym": "#Gadget"
+      }
+    ],
+    "methods": [
+      {
+        "pretty": "Gadget::poke",
+        "sym": "WEBIDL_Gadget_poke",
+        "props": []
+      }
+    ]
+  },
+  {
+    "loc": "00004:10-16",
+    "structured": 1,
+    "supplement": true,
+    "sym": "WEBIDL_Gadget",
+    "bindingSlots": [
+      {
+        "slotKind": "interface",
+        "slotLang": "spec",
+        "ownerLang": "idl",
+        "sym": "SPEC_examplebs_gadget"
+      }
+    ],
+    "docs": [
+      {
+        "site": "mdn",
+        "url": "https://developer.mozilla.org/docs/Web/API/Gadget"
+      }
+    ]
+  },
+  {
+    "loc": "00005:7-11",
+    "structured": 1,
+    "supplement": true,
+    "sym": "WEBIDL_Gadget_poke",
+    "bindingSlots": [
+      {
+        "slotKind": "method",
+        "slotLang": "spec",
+        "ownerLang": "idl",
+        "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke"
+      }
+    ],
+    "docs": [
+      {
+        "site": "mdn",
+        "url": "https://developer.mozilla.org/docs/Web/API/Gadget/poke"
+      }
+    ]
+  }
+]
