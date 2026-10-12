@@ -32,6 +32,7 @@ pub mod citations;
 pub mod ecmarkup;
 pub mod markup;
 pub mod respec;
+pub mod stale;
 pub mod wattsi;
 pub mod webidl_defs;
 pub mod xref;
@@ -174,6 +175,16 @@ impl SpecsConfig {
             .iter()
             .find(|spec| spec.shortname() == shortname)?;
         Some(format!("{}#{}", spec.rendered.as_deref()?, anchor))
+    }
+
+    /// The spec and anchor of one of the specs' `SPEC_` symbols (of the spec
+    /// with the longest shortname whose symbols' prefix it has, since
+    /// shortnames' underscores aren't escaped).
+    pub fn symbol_spec(&self, sym: &str) -> Option<(&SpecEntry, String)> {
+        self.specs
+            .iter()
+            .filter_map(|spec| Some((spec, spec_anchor(spec.shortname(), sym)?)))
+            .max_by_key(|(spec, _)| spec.shortname().len())
     }
 
     /// The specs (by their shortnames) whose anchors a citation of an anchor
@@ -509,6 +520,13 @@ impl Lines {
             col_start: (range.start - self.starts[line]) as u32,
             col_end: (range.end.min(line_end).max(range.start) - self.starts[line]) as u32,
         }
+    }
+
+    /// The byte range of a location (on one line, at least one byte).
+    pub fn range(&self, loc: &Location) -> Option<Range<usize>> {
+        let start = *self.starts.get((loc.lineno as usize).checked_sub(1)?)?;
+        let end = start + loc.col_end.max(loc.col_start + 1) as usize;
+        Some(start + loc.col_start as usize..end.min(self.len))
     }
 }
 

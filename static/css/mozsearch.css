@@ -45,6 +45,7 @@ table {
   --info-box-info-background: #eeffee;
 
   --outdated-citation-color: #b07800;
+  --stale-citation-color: #c4321b;
 
   --table-header-color: #555;
   --table-header-background: #f5f5f5;
@@ -251,6 +252,7 @@ table {
     --info-box-info-background: #0a3722;
 
     --outdated-citation-color: #d29922;
+    --stale-citation-color: #f47067;
 
     --table-header-color: var(--page-foreground);
     --table-header-background: rgb(43, 42, 51);
@@ -2835,6 +2837,14 @@ input::placeholder {
    reference. */
 .syn_outdated {
   text-decoration: underline wavy var(--outdated-citation-color);
+  text-decoration-skip-ink: none;
+}
+
+/* A citation of an anchor its spec no longer has (see
+   tools/src/spec_analyze/stale.rs), whose context menu says what removed it,
+   and what it may be now. */
+.syn_stale {
+  text-decoration: underline wavy var(--stale-citation-color);
   text-decoration-skip-ink: none;
 }
 

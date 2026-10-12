@@ -634,6 +634,69 @@ pub fn citation_records(
     (records, stats)
 }
 
+/// Mark a file's citations (and their steps) of stale anchors, ones their
+/// specs no longer define but once did (by their symbols, see `stale`, in the
+/// specs' `tree`): their source records' syntax has "stale", which their code's
+/// view marks, their pretty names say so, and each such symbol gets a
+/// structured record with its `stale` info (the tree, the revision which
+/// removed it, and the definitions it may be now), which crossref makes its
+/// meta, for the context menu.  Returns how many citations and steps it
+/// marked.
+pub fn mark_stale(
+    records: &mut Vec<Record>,
+    stale: &HashMap<String, super::stale::Stale>,
+    tree: &str,
+) -> usize {
+    const NO_LONGER: &str = " (no longer in the spec)";
+    let mut marked = 0;
+    // (Each symbol's first citation's location, and pretty name.)
+    let mut cited: Vec<(String, crate::file_format::analysis::Location, String)> = vec![];
+    for record in records.iter_mut() {
+        match record {
+            Record::Source(source) => {
+                let Some(sym) = source
+                    .data
+                    .sym
+                    .first()
+                    .filter(|sym| stale.contains_key(*sym))
+                else {
+                    continue;
+                };
+                if !cited.iter().any(|(s, _, _)| s == sym) {
+                    let pretty = source.data.pretty.trim_start_matches("spec ");
+                    let pretty = pretty.trim_end_matches(" (by an outdated URL)").to_string();
+                    cited.push((sym.clone(), source.loc, pretty));
+                }
+                source.data.syntax.push("stale".into());
+                source.data.pretty.push_str(NO_LONGER);
+                marked += 1;
+            }
+            Record::Target(target) if stale.contains_key(&target.data.sym) => {
+                target.data.pretty.push_str(NO_LONGER);
+            }
+            _ => {}
+        }
+    }
+    for (sym, loc, pretty) in cited {
+        let info = &stale[&sym];
+        let value = serde_json::json!({
+            "loc": loc,
+            "structured": 1,
+            "pretty": pretty,
+            "sym": sym,
+            "implKind": "spec",
+            "stale": {
+                "tree": tree,
+                "removed": info.removed,
+                "suggestions": info.suggestions,
+            },
+        });
+        records.push(Record::Structured(loc, value));
+    }
+    sort_records(records);
+    marked
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -729,6 +792,59 @@ mod tests {
             ]
         );
         assert_eq!((stats.citations, stats.outdated), (2, 1));
+    }
+
+    #[test]
+    fn test_mark_stale() {
+        let src = "\
+// https://html.spec.whatwg.org/#gone
+void Gone() {
+  // Step 1. Do it.
+}
+// https://html.spec.whatwg.org/#navigate
+";
+        let (mut records, _) = citation_records(src, &[], &config(), None, None);
+        let stale = HashMap::from([(
+            "SPEC_html_gone".to_string(),
+            super::super::stale::Stale {
+                removed: "abc".to_string(),
+                suggestions: vec![super::super::stale::Suggestion {
+                    sym: "SPEC_html_went".to_string(),
+                    pretty: "html went".to_string(),
+                    jump: "html/source#3".to_string(),
+                }],
+            },
+        )]);
+        // (The citation and its step, not the other citation.)
+        assert_eq!(mark_stale(&mut records, &stale, "wubspecs"), 2);
+        let lines: Vec<String> = records
+            .iter()
+            .map(|record| match record {
+                Record::Source(s) => format!(
+                    "{} source {} {}",
+                    s.loc.lineno,
+                    s.data.syntax.join(","),
+                    s.data.pretty
+                ),
+                Record::Target(t) => format!("{} target {}", t.loc.lineno, t.data.pretty),
+                Record::Structured(loc, value) => format!(
+                    "{} structured {} {} {}",
+                    loc.lineno, value["sym"], value["pretty"], value["stale"]
+                ),
+            })
+            .collect();
+        assert_eq!(
+            lines,
+            vec![
+                "1 source use,stale spec html #gone (no longer in the spec)",
+                "1 target html #gone (no longer in the spec)",
+                "1 structured \"SPEC_html_gone\" \"html #gone\" {\"tree\":\"wubspecs\",\"removed\":\"abc\",\"suggestions\":[{\"sym\":\"SPEC_html_went\",\"pretty\":\"html went\",\"jump\":\"html/source#3\"}]}",
+                "3 source use,stale spec html #gone (no longer in the spec)",
+                "3 target html #gone (no longer in the spec)",
+                "5 source use spec html #navigate",
+                "5 target html #navigate",
+            ]
+        );
     }
 
     #[test]

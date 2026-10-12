@@ -2,7 +2,7 @@
 // references to them (see `tools::spec_analyze`).
 //
 // Usage:
-//   spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]
+//   spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] [--stale-anchors SPEC_TREE SPEC_GIT SPEC_HISTORY CITED] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]
 //
 // SPECS_TOML lists the specs (`[[spec]]`s, see `spec_analyze::SpecsConfig`),
 // and each spec whose format we analyze gets the analysis of its source
@@ -26,16 +26,25 @@
 // SPEC_INDEX_ROOT's crossref (that tree's index), if it's given, for
 // citations of anchors their specs don't define (see
 // `SpecsConfig::fallbacks`).
+//
+// With --stale-anchors, citations of anchors their specs no longer define but
+// once did are marked so, with the revision which removed them and what they
+// may be now, as the cache in the history (SPEC_HISTORY) of the specs' tree
+// (SPEC_TREE, whose repo is SPEC_GIT: this tree, or the linked tree whose index
+// is SPEC_INDEX_ROOT) has them, and the stale anchors the tree cites are
+// written to CITED, for the history's next update to look up (see
+// `spec_analyze::stale` and the stale-anchors tool).
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::process::exit;
 use std::time::Instant;
 
+use tools::semantic_analyzer::Record;
 use tools::semantic_analyzer::{file_def_record, write_records};
 use tools::spec_analyze::citations::Defined;
 use tools::spec_analyze::{
-    SpecEntry, SpecFormat, SpecsConfig, bikeshed, citations, ecmarkup, respec, wattsi, xref,
+    SpecEntry, SpecFormat, SpecsConfig, bikeshed, citations, ecmarkup, respec, stale, wattsi, xref,
 };
 
 fn main() {
@@ -44,18 +53,30 @@ fn main() {
     let mut spec_files_root: Option<String> = None;
     let mut spec_index_root: Option<String> = None;
     let mut rendered_root: Option<String> = None;
+    // (The specs' tree's name, repo, and history, and where the stale anchors
+    // cited go.)
+    let mut stale_anchors: Option<(String, String, String, String)> = None;
     while args.len() > 1 && args[1].starts_with("--") {
         match args.remove(1).as_str() {
             "--citations-only" => citations_only = true,
             "--spec-files" if args.len() > 1 => spec_files_root = Some(args.remove(1)),
             "--spec-index" if args.len() > 1 => spec_index_root = Some(args.remove(1)),
             "--rendered-specs" if args.len() > 1 => rendered_root = Some(args.remove(1)),
+            "--stale-anchors" if args.len() > 4 => {
+                let mut values = args.drain(1..5);
+                stale_anchors = Some((
+                    values.next().unwrap(),
+                    values.next().unwrap(),
+                    values.next().unwrap(),
+                    values.next().unwrap(),
+                ));
+            }
             _ => args.clear(),
         }
     }
     if args.len() != 4 && args.len() != 5 {
         eprintln!(
-            "Usage: spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]"
+            "Usage: spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] [--stale-anchors SPEC_TREE SPEC_GIT SPEC_HISTORY CITED] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]"
         );
         exit(1);
     }
@@ -361,6 +382,8 @@ fn main() {
     let started = Instant::now();
     let (mut files, mut cited, mut steps, mut sections, mut fallbacks, mut outdated) =
         (0, 0, 0, 0, 0, 0);
+    // (Written once the citations of stale anchors are known.)
+    let mut citing: Vec<(String, Vec<Record>)> = vec![];
     for path in paths.lines().map(str::trim).filter(|p| !p.is_empty()) {
         if spec_files.contains(path) {
             continue;
@@ -384,13 +407,67 @@ fn main() {
         if !analysis_path.exists() {
             records.insert(0, file_def_record(path));
         }
-        write_records(analysis_root, path, records);
+        citing.push((path.to_string(), records));
         files += 1;
         cited += stats.citations;
         steps += stats.steps;
         sections += stats.sections;
         fallbacks += stats.fallbacks;
         outdated += stats.outdated;
+    }
+
+    // Citations of anchors their specs no longer define (but once did).
+    if let (Some((tree, git, history, cited_path)), Some(defined)) =
+        (&stale_anchors, defined.as_ref())
+    {
+        let started = Instant::now();
+        let mut cited: Vec<String> = vec![];
+        let mut seen: HashSet<&str> = HashSet::new();
+        for (_, records) in &citing {
+            for record in records {
+                let Record::Target(target) = record else {
+                    continue;
+                };
+                let sym = target.data.sym.as_str();
+                if seen.insert(sym) && !defined.contains(sym) && config.symbol_spec(sym).is_some() {
+                    cited.push(sym.to_string());
+                }
+            }
+        }
+        if let Err(e) = stale::write_cited(Path::new(cited_path), &cited) {
+            eprintln!("spec-analyze: {}: {}", cited_path, e);
+        }
+        // (The tip's analysis: this tree's, or the linked tree's index's.)
+        let analysis = match (citations_only, &spec_index_root) {
+            (true, Some(root)) => Path::new(root).join("analysis"),
+            _ => analysis_root.to_path_buf(),
+        };
+        let spec_tree = stale::SpecTree {
+            name: tree,
+            git: Path::new(git),
+            history: Path::new(history),
+            analysis: &analysis,
+        };
+        match stale::stale_anchors(&cited, &spec_tree, &|sym| defined.contains(sym)) {
+            Ok((found, suggested)) => {
+                let marked: usize = citing
+                    .iter_mut()
+                    .map(|(_, records)| citations::mark_stale(records, &found, tree))
+                    .sum();
+                println!(
+                    "Stale anchors: {} cited, {} defined in their specs' histories ({} with suggestions), {} citations and steps marked, in {:.2}s",
+                    cited.len(),
+                    found.len(),
+                    suggested,
+                    marked,
+                    started.elapsed().as_secs_f64()
+                );
+            }
+            Err(e) => eprintln!("spec-analyze: stale anchors: {}", e),
+        }
+    }
+    for (path, records) in citing {
+        write_records(analysis_root, &path, records);
     }
     println!(
         "Citations: {} of the specs ({} of sections by their titles, {} of anchors their specs don't define, of their series' or successors', {} by outdated URLs) and {} of their steps, in {} files, in {:.2}s",

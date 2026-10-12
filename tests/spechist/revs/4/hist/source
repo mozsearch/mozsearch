@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<!-- The History spec, in the HTML Standard's Wattsi format, whose history renames and
+     removes definitions (see tests/spechist/setup). -->
+<h1>History: The Living Standard</h1>
+
+<h2 id=widgets>Widgets</h2>
+
+<p>A <dfn data-x=concept-widget-frobbing>widget frobbing</dfn> spins a widget.</p>
+
+<p>To <dfn data-x=concept-widget-poke>poke</dfn> a widget, tap it.</p>
+
+<p>A widget can also wobble.</p>
+
+<h2 id=gadgets>Gadgets</h2>
+
+<p>Gadgets are quiet.</p>

@@ -1,0 +1,8 @@
+# The spechist tree's spec (see tests/spechist/setup), whose history renames
+# and removes definitions which cite.cpp cites, for the stale-anchor
+# suggestions (see tools/src/spec_analyze/stale.rs).
+
+[[spec]]
+name = "hist"
+format = "wattsi"
+rendered = "https://hist.example.org/"

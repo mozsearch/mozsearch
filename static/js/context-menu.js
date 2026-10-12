@@ -1544,6 +1544,29 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
 
         // Define a helper we can also use for the binding slots below.
         const jumpify = (jumpref, pretty) => {
+          // A citation of an anchor its spec no longer has (so it has no
+          // jumps): what removed it, and what it may be now, from the spec's
+          // history (in the specs' tree; see tools/src/spec_analyze/stale.rs).
+          const stale = jumpref.meta?.stale;
+          if (stale) {
+            jumpMenuItems.push(new MenuItem({
+              html: this.fmt("<strong>_</strong> is no longer in its spec", pretty) +
+                this.fmt(": removed by _", stale.removed.slice(0, 12)),
+              href: `/${stale.tree}/commit/${stale.removed}`,
+              icon: "help-circled",
+              section: "jumps",
+              classNames: ["contextmenu-stale-citation"],
+            }));
+            for (const suggestion of stale.suggestions || []) {
+              jumpMenuItems.push(new MenuItem({
+                html: this.fmt("Maybe it's now <strong>_</strong>", suggestion.pretty),
+                href: `/${stale.tree}/source/${suggestion.jump}`,
+                icon: "export-alt",
+                section: "jumps",
+                classNames: ["contextmenu-stale-suggestion"],
+              }));
+            }
+          }
           if (!jumpref.jumps) {
             return;
           }

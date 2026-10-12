@@ -21,11 +21,23 @@ TREE_NAME=$3
 # (see tools/src/spec_analyze/citations.rs).  A tree whose `SPEC_` symbols
 # are another tree's (its `linked_trees`, ex: firefox-disco's, which are
 # wubspecs') gets its files' citations of that tree's specs.
+#
+# Citations of anchors the specs no longer define (but once did) are marked as
+# the history of the specs' tree, if it has one, has them (its cache, which
+# the stale-anchors tool updates with the history), and those cited go in
+# stale-anchors-cited.json, for the next history update to look up (ex: the
+# config repo's upload-after-index scripts upload it, and wubspecs'
+# update-history.sh downloads them); see tools/src/spec_analyze/stale.rs.
+STALE_CITED=$INDEX_ROOT/stale-anchors-cited.json
 SPECS_TOML=$CONFIG_REPO/$TREE_NAME/specs.toml
 if [ -f "$SPECS_TOML" ]; then
+    STALE_ANCHORS=()
+    if [ -n "${HISTORY_ROOT:-}" ] && [ -d "$HISTORY_ROOT/timeline" ]; then
+        STALE_ANCHORS=(--stale-anchors "$TREE_NAME" "$GIT_ROOT" "$HISTORY_ROOT" "$STALE_CITED")
+    fi
     # (Bikeshed's renderings of its specs go in rendered-specs/, for their
     # rendered views; see tools/src/rendered_specs/bikeshed.rs.)
-    spec-analyze --rendered-specs $INDEX_ROOT/rendered-specs \
+    spec-analyze --rendered-specs $INDEX_ROOT/rendered-specs "${STALE_ANCHORS[@]}" \
         $FILES_ROOT $INDEX_ROOT/analysis $SPECS_TOML $INDEX_ROOT/repo-files
     # (The index's copy is for the rendered views of the specs' sources, see
     # tools/src/rendered_specs, which the web server makes from it, and the
@@ -42,8 +54,14 @@ if [ -n "$LINKED_TREE" ] && [ -f "$CONFIG_REPO/$LINKED_TREE/specs.toml" ]; then
     # don't define can be of another spec's.)
     SPEC_FILES=$(jq -r --arg tree "$LINKED_TREE" '.trees[$tree].files_path // empty' "$CONFIG_FILE")
     SPEC_INDEX=$(jq -r --arg tree "$LINKED_TREE" '.trees[$tree].index_path // empty' "$CONFIG_FILE")
+    SPEC_GIT=$(jq -r --arg tree "$LINKED_TREE" '.trees[$tree].git_path // empty' "$CONFIG_FILE")
+    SPEC_HISTORY=$(jq -r --arg tree "$LINKED_TREE" '.trees[$tree].history_path // empty' "$CONFIG_FILE")
+    STALE_ANCHORS=()
+    if [ -n "$SPEC_INDEX" ] && [ -n "$SPEC_GIT" ] && [ -n "$SPEC_HISTORY" ] && [ -d "$SPEC_HISTORY/timeline" ]; then
+        STALE_ANCHORS=(--stale-anchors "$LINKED_TREE" "$SPEC_GIT" "$SPEC_HISTORY" "$STALE_CITED")
+    fi
     spec-analyze --citations-only ${SPEC_FILES:+--spec-files "$SPEC_FILES"} \
-        ${SPEC_INDEX:+--spec-index "$SPEC_INDEX"} \
+        ${SPEC_INDEX:+--spec-index "$SPEC_INDEX"} "${STALE_ANCHORS[@]}" \
         $FILES_ROOT $INDEX_ROOT/analysis \
         "$CONFIG_REPO/$LINKED_TREE/specs.toml" $INDEX_ROOT/repo-files
 fi

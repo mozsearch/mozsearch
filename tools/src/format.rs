@@ -455,13 +455,24 @@ pub fn format_code(
         let get_style = |token: &tokenize::Token,
                          datum: &mut dyn Iterator<Item = &AnalysisSource>| {
             let datum: Vec<&AnalysisSource> = datum.collect();
-            // (A citation by an outdated URL of a spec, ex: an obsolete spec's
-            // or an old host's, says so; see `spec_analyze::citations`.)
-            let outdated = datum.iter().any(|a| {
-                a.syntax
+            // (A citation of a spec by an outdated URL, ex: an obsolete spec's
+            // or an old host's, or of an anchor its spec no longer has, says
+            // so; see `spec_analyze::citations`.)
+            let has_syntax = |syntax: &str| {
+                datum
                     .iter()
-                    .any(|s| AsRef::<str>::as_ref(s) == "outdated")
-            });
+                    .any(|a| a.syntax.iter().any(|s| AsRef::<str>::as_ref(s) == syntax))
+            };
+            let mut marks = vec![];
+            if has_syntax("outdated") {
+                marks.push((
+                    "syn_outdated",
+                    "This cites an outdated URL: a moved or obsolete spec's",
+                ));
+            }
+            if has_syntax("stale") {
+                marks.push(("syn_stale", "This cites an anchor its spec no longer has"));
+            }
             let style = match token.kind {
                 tokenize::TokenKind::Identifier(ref maybe_style) => {
                     let mut has_datum = false;
@@ -495,13 +506,17 @@ pub fn format_code(
                 tokenize::TokenKind::RegularExpressionLiteral => "class=\"syn_regex\" ".to_owned(),
                 _ => "".to_owned(),
             };
-            if !outdated {
+            if marks.is_empty() {
                 return style;
             }
-            let title = r#"title="This cites an outdated URL: a moved or obsolete spec's" "#;
+            let classes = marks.iter().map(|(class, _)| *class).join(" ");
+            let title = format!(
+                "title=\"{}\" ",
+                marks.iter().map(|(_, title)| *title).join("; ")
+            );
             match style.strip_prefix("class=\"") {
-                Some(rest) => format!("class=\"syn_outdated {}{}", rest, title),
-                None => format!("class=\"syn_outdated\" {}{}", title, style),
+                Some(rest) => format!("class=\"{} {}{}", classes, rest, title),
+                None => format!("class=\"{}\" {}{}", classes, title, style),
             }
         };
 
