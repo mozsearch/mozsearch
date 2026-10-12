@@ -1599,10 +1599,14 @@ pub fn format_algorithm(
         read(&file).ok_or("No file")?
     };
 
-    let mut token_blame = page_token_blame(git, &commit, &file, &file_source);
-    if let Some(page) = &mut token_blame {
-        set_token_blame_urls(page, tree_name, &commit, &file, BreadcrumbsLinksTo::Latest);
-    }
+    let token_blame = spec_page_token_blame(
+        tree_name,
+        git,
+        &commit,
+        &file,
+        &file_source,
+        BreadcrumbsLinksTo::Latest,
+    );
     let strips = match &token_blame {
         Some(page) => rendered_strips(&view.rendered, &file_source, page, &view.range),
         None => rendered_line_markers(&view.rendered, &file_source, &view.range),
@@ -2190,9 +2194,17 @@ pub fn format_rendered(
     let commit_id = commit.id().to_string();
     let page_rev = rev.map(|_| commit_id.clone());
 
-    let mut token_blame = page_token_blame(git, &commit, path, &source);
-    if let Some(page) = &mut token_blame {
-        set_token_blame_urls(page, tree_name, &commit, path, links_to);
+    // (A spec's pages are each of the whole source's blame, which is cached;
+    // see `spec_page_token_blame`.)
+    let token_blame = if spec.is_some() {
+        spec_page_token_blame(tree_name, git, &commit, path, &source, links_to)
+    } else {
+        page_token_blame(git, &commit, path, &source).map(|mut page| {
+            set_token_blame_urls(&mut page, tree_name, &commit, path, links_to);
+            std::sync::Arc::new(page)
+        })
+    };
+    if let Some(page) = &token_blame {
         // The page will request its hyperblame data right away; see
         // `hyperblame_file`.  (The tip's are static files.)
         if rev.is_some() {
@@ -2686,6 +2698,54 @@ fn revision_token_blame(
 
 /// The token-centric blame of the file at `path` in `commit` whose contents are
 /// `source`, if the tree's history has it.  See `hyperblame::token_blame`.
+/// How many spec sources' token blame `spec_page_token_blame` keeps.
+const SPEC_BLAME_ENTRIES: usize = 2;
+
+/// (tree, revision, path, whether the page is the tip's), and the blame.
+type SpecBlameEntry = (
+    (String, Oid, String, bool),
+    Option<std::sync::Arc<PageBlame>>,
+);
+
+lazy_static! {
+    /// The token blame of the spec sources whose rendered views (or
+    /// algorithms' views) were shown last, newest first.
+    static ref SPEC_BLAME: std::sync::Mutex<Vec<SpecBlameEntry>> =
+        std::sync::Mutex::new(Vec::new());
+}
+
+/// `page_token_blame` of a spec's source, with its URLs for the tip's page
+/// or a revision's (see `set_token_blame_urls`), cached: a spec's pages (ex:
+/// the HTML Standard's 61) are each of the whole source's blame, which takes
+/// over 2s for the HTML Standard's.
+fn spec_page_token_blame(
+    tree_name: &str,
+    git: &GitData,
+    commit: &git2::Commit,
+    path: &str,
+    source: &str,
+    links_to: BreadcrumbsLinksTo,
+) -> Option<std::sync::Arc<PageBlame>> {
+    let key = (
+        tree_name.to_string(),
+        commit.id(),
+        path.to_string(),
+        matches!(links_to, BreadcrumbsLinksTo::Latest),
+    );
+    if let Some((_, page)) = SPEC_BLAME.lock().unwrap().iter().find(|(k, _)| *k == key) {
+        return page.clone();
+    }
+    let page = page_token_blame(git, commit, path, source).map(|mut page| {
+        set_token_blame_urls(&mut page, tree_name, commit, path, links_to);
+        std::sync::Arc::new(page)
+    });
+    let mut cache = SPEC_BLAME.lock().unwrap();
+    cache.retain(|(k, _)| *k != key);
+    cache.insert(0, (key, page.clone()));
+    cache.truncate(SPEC_BLAME_ENTRIES);
+    page
+}
+
 fn page_token_blame(
     git: &GitData,
     commit: &git2::Commit,
