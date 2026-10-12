@@ -154,6 +154,7 @@ use tools::hyperblame::inference::{
     FileChangeInput, FileChangeKind, FileInference, InferenceConfig, PairingSupport, RemovedFate,
     TokenOrigin, diff_token_lines, infer_revision,
 };
+use tools::hyperblame::renames;
 use tools::hyperblame::segments::{self, SPLIT_BYTES};
 use tools::hyperblame::stats::compute_revision_stats;
 use tools::source_mapping::{
@@ -1284,7 +1285,15 @@ fn diff_files_trees<'r>(
 ) -> Result<git2::Diff<'r>, git2::Error> {
     let mut diff = repo.diff_tree_to_tree(old, new, None)?;
     if find_similar {
-        diff.find_similar(Some(
+        // (libgit2's, with its comparisons of files on threads for big diffs,
+        // which are otherwise minutes of one thread's time; the machine's
+        // other cores are mostly idle meanwhile.)
+        let threads = thread::available_parallelism()
+            .map_or(1, |n| n.get())
+            .min(32);
+        renames::find_similar(
+            repo,
+            &mut diff,
             DiffFindOptions::new()
                 .copies(true)
                 .copy_threshold(30)
@@ -1293,7 +1302,8 @@ fn diff_files_trees<'r>(
                 .rename_limit(1000000)
                 .break_rewrites(true)
                 .break_rewrites_for_renames_only(true),
-        ))?;
+            threads,
+        )?;
     }
     Ok(diff)
 }

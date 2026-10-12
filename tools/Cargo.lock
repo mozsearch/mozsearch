@@ -4259,6 +4259,7 @@ dependencies = [
  "json-structural-diff",
  "lazy_static",
  "lexical-sort",
+ "libgit2-sys",
  "linkify",
  "liquid",
  "liquid-core",
