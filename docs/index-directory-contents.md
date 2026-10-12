@@ -191,6 +191,10 @@ Files:
   As with `objdir-dirs`, this needs to exist because of the split between source
   files and generated files.
 - `repo-files`: File variant of `repo-dirs`, see above for more info.
+- `specs.toml`: For a tree with web specs (see `tools/src/spec_analyze`), a
+  copy of its config's `specs.toml`, made by `spec-analyze.sh`, which the web
+  server reads for the specs' rendered views (see `tools/src/rendered_specs`),
+  and `output-file` for source listings' links to them.
 - `target.json`: Downloaded by `resolve-gecko-revs.sh` as part of the process
   of identifying the most recent successful searchfox indexing jobs run on
   taskcluster for the given channel/tree.  Taskclusters' routes mechanism means

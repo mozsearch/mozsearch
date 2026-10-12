@@ -1,0 +1,89 @@
+"use strict";
+
+// The rendered view of the test tree's Wattsi spec (see
+// tests/tests/files/specs/source and tools/src/rendered_specs), which is in
+// two pages, the second starting at its heading with a `split-filename`, like
+// the multipage HTML Standard's.
+const BASE = "/tests/rendered/specs/source";
+
+function doc() {
+  return frame.contentDocument.querySelector("#rendered-doc");
+}
+
+add_task(async function test_RenderedSpec() {
+  await TestUtils.loadPath(BASE);
+
+  ok(doc().classList.contains("rendered-spec"), "The page is a rendered spec");
+  is(doc().querySelector("h2#infrastructure .sp-secno")?.textContent, "1",
+     "Headings have their section numbers");
+  ok(doc().querySelector("dfn#concept-widget"), "Definitions have their ids");
+  const xref = doc().querySelector('a[href="#concept-widget"]');
+  is(xref?.id, "widgets:concept-widget",
+     "Cross-references link to their definitions, with Wattsi's ids");
+  ok(doc().querySelector('span[data-l="9"][data-c="32"]'),
+     "Text says where it is in the source");
+  ok(!doc().textContent.includes("developer note"),
+     "The developers' edition's content isn't in it");
+
+  // The table of contents links to the sections on their pages.
+  const toc = [...doc().querySelectorAll(".sp-toc a")].map(a => a.getAttribute("href"));
+  ok(toc.includes("#widgets"), "The table of contents links to the page's sections");
+  ok(toc.includes(`${BASE}/gadgets.html#gadgets`),
+     "The table of contents links to the other page's sections");
+  ok(!doc().querySelector("h3#gadgets"), "The other page's sections aren't on the page");
+
+  const next = frame.contentDocument.querySelector(".sp-pages .sp-next");
+  is(next?.getAttribute("href"), `${BASE}/gadgets.html`, "The page links to the next one");
+  ok(next?.textContent.startsWith("Gadgets"), "The link has the next page's title");
+});
+
+add_task(async function test_RenderedSpecPage() {
+  await TestUtils.loadPath(`${BASE}/gadgets.html`);
+
+  ok(doc().querySelector("h3#gadgets"), "The page starts at its heading");
+  ok(!doc().querySelector("h2#infrastructure"), "The first page's sections aren't on the page");
+  is(doc().querySelector('[id="gadgets:concept-widget"]')?.getAttribute("href"),
+     `${BASE}#concept-widget`,
+     "Cross-references to the other page's definitions link to them there");
+  is(doc().querySelector("dfn#node a")?.getAttribute("href"),
+     "https://dom.spec.whatwg.org/#concept-node",
+     "A definition deferring to another spec's term links to it");
+  ok(doc().querySelector("pre.sp-idl"), "Classes are kept, prefixed");
+
+  const prev = frame.contentDocument.querySelector(".sp-pages .sp-prev");
+  is(prev?.getAttribute("href"), BASE, "The page links to the one before it");
+  is(frame.contentDocument.querySelector("#panel-source-listing").getAttribute("href"),
+     "/tests/source/specs/source#26",
+     "The panel links to the page's first line in the source listing");
+});
+
+add_task(async function test_RenderedSpecLinks() {
+  // Anchors and lines go to their pages.
+  await TestUtils.loadPath(`${BASE}/anchor/assemble`);
+  is(frame.contentWindow.location.pathname, `${BASE}/gadgets.html`,
+     "An anchor's link goes to its page");
+  is(frame.contentWindow.location.hash, "#assemble", "with the anchor");
+
+  await TestUtils.loadPath(`${BASE}/line/34`);
+  is(frame.contentWindow.location.pathname, `${BASE}/gadgets.html`,
+     "A line's link goes to its page");
+  is(frame.contentWindow.location.hash, "#34", "with the line");
+
+  await TestUtils.loadPath(`${BASE}/line/13`);
+  is(frame.contentWindow.location.pathname, BASE, "A line on the first page goes to it");
+
+  // Links to the first page with another page's anchor go there.
+  await TestUtils.loadPath(`${BASE}#concept-gadget`);
+  await waitForCondition(
+    () => frame.contentWindow.location.pathname == `${BASE}/gadgets.html` &&
+      frame.contentDocument.readyState == "complete",
+    "A link to another page's anchor goes to its page");
+  is(frame.contentWindow.location.hash, "#concept-gadget", "with the anchor");
+
+  // The source listing links to the rendered view, at the selected line.
+  await TestUtils.loadPath("/tests/source/specs/source#34");
+  const rendered = frame.contentDocument.querySelector("#panel-rendered-view");
+  ok(rendered, "The source listing links to the rendered view");
+  is(rendered.getAttribute("href"), `${BASE}/line/34`,
+     "The link is to the selected line's page");
+});

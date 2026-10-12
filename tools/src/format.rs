@@ -41,6 +41,8 @@ use crate::languages;
 use crate::languages::FormatAs;
 use crate::links;
 use crate::rendered_docs::{self, Rendered};
+use crate::rendered_specs::{self, SpecLinks};
+use crate::spec_analyze::{SpecEntry, SpecsConfig};
 use crate::templating::builder::{
     build_and_parse_coverage_history, build_and_parse_dir_listing, build_and_parse_explore,
     build_and_parse_interdiff_files,
@@ -1287,6 +1289,161 @@ fn tree_doc_trees(tree_name: &str, tree_config: &TreeConfig) -> Option<std::sync
         .clone()
 }
 
+lazy_static! {
+    /// Each tree's specs (its index's copy of its config's `specs.toml`; see
+    /// scripts/spec-analyze.sh), if it has them, for their rendered views.
+    static ref TREE_SPECS: std::sync::Mutex<HashMap<String, Option<std::sync::Arc<SpecsConfig>>>> =
+        std::sync::Mutex::new(HashMap::new());
+}
+
+/// The tree's specs, if it has them (see `TREE_SPECS`).
+pub fn tree_specs(
+    tree_name: &str,
+    tree_config: &TreeConfig,
+) -> Option<std::sync::Arc<SpecsConfig>> {
+    let mut cache = TREE_SPECS.lock().unwrap();
+    cache
+        .entry(tree_name.to_string())
+        .or_insert_with(|| {
+            let path = format!("{}/specs.toml", tree_config.paths.index_path);
+            SpecsConfig::load(Path::new(&path))
+                .ok()
+                .map(std::sync::Arc::new)
+        })
+        .clone()
+}
+
+/// What a rendered view's path under a spec's source is of (see
+/// `spec_view`).
+#[derive(Debug, PartialEq)]
+enum SpecView {
+    /// A page (`/{page}.html`), or the first.
+    Page(Option<String>),
+    /// The page with an anchor (`/anchor/{anchor}`).
+    Anchor(String),
+    /// The page with a (1-based) line (`/line/{line}`, as source listings'
+    /// links to the rendered view say, with whatever the line selection
+    /// says after its first line).
+    Line(usize),
+}
+
+/// The spec whose source (which has a rendered view) a rendered view's
+/// path is under, with the source's path and what the path is of.
+fn spec_view<'a>(specs: &'a SpecsConfig, path: &str) -> Option<(&'a SpecEntry, String, SpecView)> {
+    specs.specs.iter().find_map(|spec| {
+        let format = spec.format?;
+        if !rendered_specs::has_rendered_view(format) {
+            return None;
+        }
+        let source = spec.source_path()?;
+        if path == source {
+            return Some((spec, source, SpecView::Page(None)));
+        }
+        let rest = path.strip_prefix(&source)?.strip_prefix('/')?;
+        let view = if let Some(anchor) = rest.strip_prefix("anchor/") {
+            SpecView::Anchor(anchor.to_string())
+        } else if let Some(line) = rest
+            .strip_prefix("line/")
+            .or((rest == "line").then_some(""))
+        {
+            let digits: String = line.chars().take_while(char::is_ascii_digit).collect();
+            SpecView::Line(digits.parse().unwrap_or(1))
+        } else {
+            SpecView::Page(Some(rest.strip_suffix(".html")?.to_string()))
+        };
+        Some((spec, source, view))
+    })
+}
+
+/// Whether the file at `path` of a tree with `specs` is a spec's source
+/// with a rendered view.
+pub fn has_rendered_spec_view(specs: &SpecsConfig, path: &str) -> bool {
+    spec_view(specs, path).is_some_and(|(_, _, view)| view == SpecView::Page(None))
+}
+
+/// How a rendered spec links to the tree's other specs' rendered views, at
+/// the tip or at the revision.
+struct RenderedSpecLinks<'a> {
+    tree_name: &'a str,
+    rev: Option<&'a str>,
+}
+
+impl SpecLinks for RenderedSpecLinks<'_> {
+    fn rendered_url(&self, path: &str) -> String {
+        rendered_url(self.tree_name, self.rev, path)
+    }
+}
+
+/// The commit of a rendered view: the revision's, or the tip's.
+fn rendered_commit<'a>(
+    git: &'a GitData,
+    rev: Option<&str>,
+) -> Result<git2::Commit<'a>, &'static str> {
+    match rev {
+        Some(rev) => git
+            .repo
+            .revparse_single(rev)
+            .and_then(|object| object.peel_to_commit())
+            .map_err(|_| "Bad revision"),
+        None => git
+            .repo
+            .head()
+            .and_then(|head| head.peel_to_commit())
+            .map_err(|_| "No revision"),
+    }
+}
+
+/// Where a rendered view's path redirects to, if it's to a spec's anchor or
+/// line, which are on one of its pages: the page, with the anchor or line as
+/// its fragment (or the first page, if the source doesn't have the anchor).
+pub fn rendered_redirect(
+    cfg: &Config,
+    tree_name: &str,
+    rev: Option<&str>,
+    path: &str,
+) -> Option<String> {
+    let tree_config = cfg.trees.get(tree_name)?;
+    let specs = tree_specs(tree_name, tree_config)?;
+    let (_, source_path, view) = spec_view(&specs, path.trim_end_matches('/'))?;
+    if matches!(view, SpecView::Page(_)) {
+        return None;
+    }
+    let git = tree_config.get_git().ok()?;
+    let commit = rendered_commit(git, rev).ok()?;
+    let (repo, oid) = get_object_at(
+        OwnedOrBorrowed::Borrowed(&git.repo),
+        commit.id(),
+        Path::new(&source_path),
+    )
+    .ok()?;
+    let object = repo.find_object(oid, Some(git2::ObjectType::Blob)).ok()?;
+    let source = git_ops::read_blob_object(&object);
+    let base = rendered_url(tree_name, rev, &source_path);
+    let (page, hash) = match view {
+        SpecView::Anchor(anchor) => match rendered_specs::wattsi::anchor_page(&source, &anchor) {
+            Some(page) => (page.name, rendered_specs::fragment(&anchor)),
+            None => (None, String::new()),
+        },
+        SpecView::Line(line) => {
+            let offset = match line {
+                0 | 1 => 0,
+                _ => source
+                    .match_indices('\n')
+                    .nth(line - 2)
+                    .map_or(source.len(), |(i, _)| i + 1),
+            };
+            let page = rendered_specs::wattsi::offset_page(&source, offset);
+            (page.and_then(|page| page.name), format!("#{}", line))
+        }
+        SpecView::Page(_) => return None,
+    };
+    Some(format!(
+        "{}{}",
+        rendered_specs::page_url(&base, page.as_deref()),
+        hash
+    ))
+}
+
 /// How a rendered document links to the tree's other files, at the tip or at
 /// a revision.
 struct DocLinks<'a> {
@@ -1372,12 +1529,21 @@ impl rendered_docs::Links for DocLinks<'_> {
 /// The blame strips of a rendered document's blocks, which merge the strips
 /// of their lines (see `rendered_docs::block_lines`), with the same classes
 /// and data attributes as source listings' strips, plus the block's index
-/// (`data-rd-block`) and (1-based) lines (`data-rd-lines`).
-fn rendered_strips(rendered: &Rendered, source: &str, page: &PageBlame) -> Vec<String> {
+/// (`data-rd-block`) and (1-based) lines (`data-rd-lines`).  Only the lines
+/// of the bytes `range` of the source count (ex: a page's).
+fn rendered_strips(
+    rendered: &Rendered,
+    source: &str,
+    page: &PageBlame,
+    range: &Range<usize>,
+) -> Vec<String> {
     let mut line_starts = vec![0];
     line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
     let line_of = |offset: usize| line_starts.partition_point(|&start| start <= offset) - 1;
-    let has_tokens = |line: usize| page.info.token_counts.get(line).is_some_and(|&n| n > 0);
+    let lines = line_of(range.start)..=line_of(range.end.saturating_sub(1).max(range.start));
+    let has_tokens = |line: usize| {
+        lines.contains(&line) && page.info.token_counts.get(line).is_some_and(|&n| n > 0)
+    };
     let ranges =
         rendered_docs::block_lines(&rendered.blocks, line_of, page.lines.len(), has_tokens);
     let mut strips: Vec<StripLine> = ranges
@@ -1420,13 +1586,17 @@ fn rendered_strips(rendered: &Rendered, source: &str, page: &PageBlame) -> Vec<S
 }
 
 /// For a rendered document without blame, markers of its blocks' lines, like
-/// their strips' `data-rd-lines`, for links to its lines.
-fn rendered_line_markers(rendered: &Rendered, source: &str) -> Vec<String> {
+/// their strips' `data-rd-lines`, for links to its lines.  Only the lines of
+/// the bytes `range` of the source count (ex: a page's).
+fn rendered_line_markers(rendered: &Rendered, source: &str, range: &Range<usize>) -> Vec<String> {
     let lines: Vec<&str> = source.lines().collect();
     let mut line_starts = vec![0];
     line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
     let line_of = |offset: usize| line_starts.partition_point(|&start| start <= offset) - 1;
-    let has_text = |line: usize| lines.get(line).is_some_and(|line| !line.trim().is_empty());
+    let in_range = line_of(range.start)..=line_of(range.end.saturating_sub(1).max(range.start));
+    let has_text = |line: usize| {
+        in_range.contains(&line) && lines.get(line).is_some_and(|line| !line.trim().is_empty())
+    };
     rendered_docs::block_lines(&rendered.blocks, line_of, lines.len(), has_text)
         .iter()
         .map(|range| match range {
@@ -1440,10 +1610,14 @@ fn rendered_line_markers(rendered: &Rendered, source: &str) -> Vec<String> {
         .collect()
 }
 
-/// The rendered view of a document (Markdown or reStructuredText) at `path`,
-/// at the tip (`/{tree}/rendered/{path}`) or at the revision `rev`
+/// The rendered view of a document (Markdown or reStructuredText) or of a
+/// spec's source (see `rendered_specs`) at `path`, at the tip
+/// (`/{tree}/rendered/{path}`) or at the revision `rev`
 /// (`/{tree}/rev-rendered/{rev}/{path}`), with a blame strip for each of its
-/// blocks if the tree's history has the file.  See `rendered_docs`.
+/// blocks if the tree's history has the file.  A spec's source can be split
+/// into pages, `/{tree}/rendered/{path}/{page}.html` (and see
+/// `rendered_redirect` for links to its anchors and lines).  See
+/// `rendered_docs`.
 pub fn format_rendered(
     cfg: &Config,
     tree_name: &str,
@@ -1453,22 +1627,21 @@ pub fn format_rendered(
 ) -> Result<(), &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
-    let commit = match rev {
-        Some(rev) => git
-            .repo
-            .revparse_single(rev)
-            .and_then(|object| object.peel_to_commit())
-            .map_err(|_| "Bad revision")?,
-        None => git
-            .repo
-            .head()
-            .and_then(|head| head.peel_to_commit())
-            .map_err(|_| "No revision")?,
-    };
+    let commit = rendered_commit(git, rev)?;
     let path = path.trim_end_matches('/');
-    if !has_rendered_view(path) {
-        return Err("Only documents (Markdown and reStructuredText) have rendered views");
-    }
+    let specs = tree_specs(tree_name, tree_config);
+    let spec_view = specs.as_deref().and_then(|specs| spec_view(specs, path));
+    let (path, spec, page) = match spec_view {
+        Some((spec, source, SpecView::Page(page))) => (source, Some(spec), page),
+        Some(_) => return Err("Not a page of the spec"),
+        None if has_rendered_view(path) => (path.to_string(), None, None),
+        None => {
+            return Err(
+                "Only documents (Markdown and reStructuredText) and specs' sources have rendered views",
+            );
+        }
+    };
+    let path = path.as_str();
     let source = {
         let (repo, oid) = get_object_at(
             OwnedOrBorrowed::Borrowed(&git.repo),
@@ -1510,15 +1683,45 @@ pub fn format_rendered(
         doc_trees: doc_trees.clone(),
         jumprefs: tree_jumprefs(tree_name, tree_config),
     };
-    let rendered = if path.ends_with(".rst") {
+    // A spec's page (its index, the pages, the page, and the bytes of the
+    // source it covers).
+    let mut spec_page = None;
+    let rendered = if let Some(spec) = spec {
+        let spec_links = RenderedSpecLinks {
+            tree_name,
+            rev: page_rev.as_deref(),
+        };
+        let rendered_spec = rendered_specs::wattsi::render(
+            &source,
+            path,
+            spec,
+            specs.as_deref().unwrap(),
+            &spec_links,
+            page.as_deref(),
+        )
+        .ok_or("No such page")?;
+        spec_page = Some((rendered_spec.pages, rendered_spec.page, rendered_spec.range));
+        rendered_spec.rendered
+    } else if path.ends_with(".rst") {
         rendered_docs::rst::render(&source, path, &links)
     } else {
         rendered_docs::markdown::render(&source, path, &links)
     };
+    let range = spec_page
+        .as_ref()
+        .map_or(0..source.len(), |(_, _, range)| range.clone());
     let strips = match &token_blame {
-        Some(page) => rendered_strips(&rendered, &source, page),
-        None => rendered_line_markers(&rendered, &source),
+        Some(page) => rendered_strips(&rendered, &source, page, &range),
+        None => rendered_line_markers(&rendered, &source, &range),
     };
+    // The URL of the page at a revision (or the tip).
+    let page_name = spec_page
+        .as_ref()
+        .and_then(|(pages, page, _)| pages[*page].name.clone());
+    let view_url = |rev: Option<&str>| {
+        rendered_specs::page_url(&rendered_url(tree_name, rev, path), page_name.as_deref())
+    };
+    let first_line = source[..range.start].matches('\n').count() + 1;
 
     let filename = Path::new(path)
         .file_name()
@@ -1549,7 +1752,11 @@ pub fn format_rendered(
         label: PanelItemLabel::Plaintext("Source listing".to_owned()),
         tooltip: "Open the source listing of the document".to_owned(),
         id: "panel-source-listing",
-        link: source_url.clone(),
+        link: if first_line > 1 {
+            format!("{}#{}", source_url, first_line)
+        } else {
+            source_url.clone()
+        },
         update_link_lineno: "",
         accel_key: None,
         copyable: true,
@@ -1559,7 +1766,7 @@ pub fn format_rendered(
             label: PanelItemLabel::Plaintext("Go to latest version".to_owned()),
             tooltip: "Open the rendered view of the latest version of the document".to_owned(),
             id: "panel-vcs-latest",
-            link: rendered_url(tree_name, None, path),
+            link: view_url(None),
             update_link_lineno: "",
             accel_key: None,
             copyable: true,
@@ -1568,7 +1775,7 @@ pub fn format_rendered(
             label: PanelItemLabel::Plaintext("Permalink".to_owned()),
             tooltip: "Create a revision-specific link of the rendered view".to_owned(),
             id: "panel-permalink",
-            link: rendered_url(tree_name, Some(&commit_id), path),
+            link: view_url(Some(&commit_id)),
             update_link_lineno: "",
             accel_key: Some('Y'),
             copyable: true,
@@ -1615,9 +1822,15 @@ pub fn format_rendered(
 
     writeln!(
         writer,
-        r#"<div class="rd-notice">Searchfox's rendering of <a href="{}">{}</a>, which Sphinx may render differently.{}</div>"#,
+        r#"<div class="rd-notice">Searchfox's rendering of <a href="{}">{}</a>, which {} may render differently.{}</div>"#,
         rendered_docs::escape(&source_url),
         rendered_docs::escape(&encoded_path),
+        match spec.and_then(|spec| spec.format) {
+            Some(crate::spec_analyze::SpecFormat::Wattsi) => "Wattsi",
+            Some(crate::spec_analyze::SpecFormat::Ecmarkup) => "ecmarkup",
+            Some(crate::spec_analyze::SpecFormat::Bikeshed) => "Bikeshed",
+            None => "Sphinx",
+        },
         if token_blame.is_some() {
             " Hover over the bar to the left of a block to see what last changed its text."
         } else {
@@ -1625,9 +1838,49 @@ pub fn format_rendered(
         }
     )
     .unwrap();
+    // A spec's pages link to the ones before and after them, and the first.
+    let page_nav = spec_page
+        .as_ref()
+        .filter(|(pages, _, _)| pages.len() > 1)
+        .map(|(pages, page, _)| {
+            let base = rendered_url(tree_name, page_rev.as_deref(), path);
+            let link = |i: usize, class: &str, text: &str| {
+                format!(
+                    r#"<a class="{}" href="{}">{}</a>"#,
+                    class,
+                    rendered_docs::escape(&rendered_specs::page_url(
+                        &base,
+                        pages[i].name.as_deref()
+                    )),
+                    rendered_docs::escape(text)
+                )
+            };
+            let mut nav = String::from(r#"<nav class="sp-pages">"#);
+            if *page > 0 {
+                nav.push_str(&link(
+                    *page - 1,
+                    "sp-prev",
+                    &format!("← {}", pages[*page - 1].title),
+                ));
+                nav.push_str(&link(0, "sp-index", "Table of contents"));
+            }
+            if *page + 1 < pages.len() {
+                nav.push_str(&link(
+                    *page + 1,
+                    "sp-next",
+                    &format!("{} →", pages[*page + 1].title),
+                ));
+            }
+            nav.push_str("</nav>");
+            nav
+        });
+    if let Some(nav) = &page_nav {
+        writeln!(writer, "{}", nav).unwrap();
+    }
     write!(
         writer,
-        r#"<article id="rendered-doc" class="rendered-doc">"#
+        r#"<article id="rendered-doc" class="rendered-doc{}">"#,
+        if spec.is_some() { " rendered-spec" } else { "" }
     )
     .unwrap();
     let mut pos = 0;
@@ -1641,6 +1894,22 @@ pub fn format_rendered(
     }
     writer.write_all(&rendered.html.as_bytes()[pos..]).unwrap();
     writeln!(writer, "</article>").unwrap();
+    if let Some(nav) = &page_nav {
+        writeln!(writer, "{}", nav).unwrap();
+        // Links to anchors that aren't on the page (ex: to the first page,
+        // from outside) go to their pages.
+        writeln!(
+            writer,
+            r#"<script>(() => {{ const id = decodeURIComponent(location.hash.slice(1)); if (id && !/^\d+$/.test(id) && !document.getElementById(id)) {{ location.replace({} + encodeURIComponent(id)); }} }})();</script>"#,
+            serde_json::to_string(&format!(
+                "{}/anchor/",
+                rendered_url(tree_name, page_rev.as_deref(), path)
+            ))
+            .unwrap()
+            .replace("</", "<\\/")
+        )
+        .unwrap();
+    }
 
     if let Some(page) = &token_blame {
         let info_json = to_string(&page.info).unwrap();

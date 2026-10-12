@@ -371,9 +371,40 @@ fn words(doc: &Doc, node: usize) -> String {
         .join(" ")
 }
 
-/// The records of a Wattsi source, of the spec with `shortname`, among
-/// `config`'s specs.
-pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>, Stats) {
+/// A cross-reference which resolved (and isn't in a link).
+pub struct Xref {
+    pub node: usize,
+    /// The element which defines its topic.
+    pub target: usize,
+    /// The id Wattsi gives it, if it doesn't have one.
+    pub generated_id: Option<String>,
+}
+
+/// A Wattsi source as Wattsi resolves it for html.spec.whatwg.org: what's in
+/// that edition, the ids elements get, and what the cross-references link to,
+/// for its analysis (see `analyze`) and its rendering (see
+/// `rendered_specs::wattsi`).
+pub struct Resolved<'a> {
+    pub doc: Doc<'a>,
+    /// Whether each node is left out of the edition.
+    pub excluded: Vec<bool>,
+    /// The ids of headings, `<dfn>`s, and `subdfn`s, given or generated.
+    pub node_ids: HashMap<usize, String>,
+    /// The first `<dfn>` in each heading which has one, which the heading
+    /// defines.
+    pub heading_dfns: HashMap<usize, usize>,
+    /// The cross-references which resolved, in document order.
+    pub xrefs: Vec<Xref>,
+    /// Every id of the document, given or generated.
+    pub ids: HashSet<String>,
+    /// How many cross-references there are (but for ones in links), and how
+    /// many didn't resolve.
+    pub references: usize,
+    pub unresolved: usize,
+}
+
+/// Resolve a Wattsi source's definitions and cross-references.
+pub fn resolve(src: &str) -> Resolved<'_> {
     let doc = Doc::parse(src);
     let mut excluded = vec![false; doc.nodes.len()];
     let mut ids = Ids::default();
@@ -399,32 +430,112 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
     };
     wattsi.scan();
 
-    let mut stats = Stats::default();
+    // Cross-references, in document order, so that one in another which
+    // resolved (and so became a link) is skipped, and those which resolved
+    // get their ids in order.
+    let mut headings: Vec<usize> = wattsi
+        .node_ids
+        .keys()
+        .copied()
+        .filter(|&node| doc.name(node).is_some_and(is_heading))
+        .collect();
+    headings.sort_unstable();
+    let mut xrefs = vec![];
+    let (mut references, mut unresolved) = (0, 0);
+    let mut linked: HashSet<usize> = HashSet::new();
+    for (node, topic) in std::mem::take(&mut wattsi.xrefs) {
+        if doc
+            .ancestors(node)
+            .any(|n| doc.is(n, "a") || linked.contains(&n))
+        {
+            continue;
+        }
+        references += 1;
+        let Some(target) = wattsi.resolve(node, &topic) else {
+            unresolved += 1;
+            continue;
+        };
+        let Some(target_id) = wattsi.node_ids.get(&target).cloned() else {
+            unresolved += 1;
+            continue;
+        };
+        linked.insert(node);
+        // (One with an id keeps it: a `subdfn`'s, which it defines, or
+        // another, which is an anchor.)
+        let generated_id = if doc.has_attr(node, "id") || wattsi.node_ids.contains_key(&node) {
+            None
+        } else {
+            let heading_id = headings
+                .partition_point(|&heading| heading < node)
+                .checked_sub(1)
+                .map_or("", |i| wattsi.node_ids[&headings[i]].as_str());
+            Some(
+                wattsi
+                    .ids
+                    .generate(&format!("{}:{}", heading_id, target_id)),
+            )
+        };
+        xrefs.push(Xref {
+            node,
+            target,
+            generated_id,
+        });
+    }
+    let Wattsi {
+        excluded,
+        ids,
+        node_ids,
+        heading_dfns,
+        ..
+    } = wattsi;
+    Resolved {
+        doc,
+        excluded,
+        node_ids,
+        heading_dfns,
+        xrefs,
+        ids: ids.taken,
+        references,
+        unresolved,
+    }
+}
+
+/// The records of a Wattsi source, of the spec with `shortname`, among
+/// `config`'s specs.
+pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>, Stats) {
+    let resolved = resolve(src);
+    let doc = &resolved.doc;
+
+    let mut stats = Stats {
+        references: resolved.references,
+        unresolved: resolved.unresolved,
+        ..Stats::default()
+    };
     let mut defs: BTreeMap<usize, Def> = BTreeMap::new();
-    for (&node, id) in &wattsi.node_ids {
+    for (&node, id) in &resolved.node_ids {
         let name = doc.name(node).unwrap_or("");
         let sym = spec_symbol(shortname, id);
         let def = if is_heading(name) {
             stats.headings += 1;
             // (A heading with a typed `<dfn>` defines what it is.)
-            let heading_dfn = wattsi.heading_dfns.get(&node).copied();
+            let heading_dfn = resolved.heading_dfns.get(&node).copied();
             let kind = heading_dfn
-                .map(|dfn| dfn_kind(&dfn_type(&doc, dfn)))
+                .map(|dfn| dfn_kind(&dfn_type(doc, dfn)))
                 .filter(|kind| *kind != "specDfn")
                 .unwrap_or("specSection");
             Def {
                 id: id.clone(),
                 sym,
                 what: "section",
-                pretty: format!("{} {}", shortname, words(&doc, node)),
+                pretty: format!("{} {}", shortname, words(doc, node)),
                 defers_to: None,
                 kind,
-                fors: heading_dfn.map_or(vec![], |dfn| dfn_fors(&doc, dfn)),
+                fors: heading_dfn.map_or(vec![], |dfn| dfn_fors(doc, dfn)),
             }
         } else {
             stats.dfns += 1;
-            let text = words(&doc, node);
-            let dfn_for = dfn_fors(&doc, node).join(",");
+            let text = words(doc, node);
+            let dfn_for = dfn_fors(doc, node).join(",");
             let pretty = match dfn_for.as_str() {
                 "" => format!("{} {}", shortname, text),
                 dfn_for => format!("{} {}/{}", shortname, dfn_for, text),
@@ -438,16 +549,16 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
                     .attr(node, "data-x-href")
                     .and_then(|url| config.url_symbol(&url)),
                 kind: if doc.is(node, "dfn") {
-                    dfn_kind(&dfn_type(&doc, node))
+                    dfn_kind(&dfn_type(doc, node))
                 } else {
                     "specDfn"
                 },
-                fors: dfn_fors(&doc, node),
+                fors: dfn_fors(doc, node),
             }
         };
         defs.insert(node, def);
     }
-    let by_id: HashMap<&str, usize> = wattsi
+    let by_id: HashMap<&str, usize> = resolved
         .node_ids
         .iter()
         .map(|(&node, id)| (id.as_str(), node))
@@ -481,64 +592,31 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
             });
         }
     }
-    // Cross-references, in document order, so that one in another which
-    // resolved (and so became a link) is skipped, and those which resolved
-    // get their ids in order.
-    let mut headings: Vec<usize> = wattsi
-        .node_ids
-        .keys()
-        .copied()
-        .filter(|&node| doc.name(node).is_some_and(is_heading))
-        .collect();
-    headings.sort_unstable();
+    // Cross-references which resolved, and the anchors of the ids Wattsi
+    // generates for them.
     let mut anchors: Vec<(usize, String, String)> = vec![];
-    let mut linked: HashSet<usize> = HashSet::new();
-    for (node, topic) in &wattsi.xrefs {
-        let node = *node;
-        if doc
-            .ancestors(node)
-            .any(|n| doc.is(n, "a") || linked.contains(&n))
-        {
-            continue;
-        }
-        stats.references += 1;
-        let Some(target) = wattsi.resolve(node, topic) else {
-            stats.unresolved += 1;
-            continue;
-        };
-        let Some(def) = defs.get(&target) else {
-            stats.unresolved += 1;
-            continue;
-        };
-        linked.insert(node);
+    for xref in &resolved.xrefs {
+        let def = &defs[&xref.target];
         pending.push(Pending {
-            node,
+            node: xref.node,
             def: false,
             sym: def.defers_to.clone().unwrap_or_else(|| def.sym.clone()),
             what: def.what,
             pretty: def.pretty.clone(),
         });
-        // (One with an id keeps it: a `subdfn`'s, which it defines, or
-        // another, which is an anchor below.)
-        if doc.has_attr(node, "id") || wattsi.node_ids.contains_key(&node) {
-            continue;
+        if let Some(id) = &xref.generated_id {
+            stats.anchors += 1;
+            anchors.push((
+                xref.node,
+                spec_symbol(shortname, id),
+                format!("{} #{}", shortname, id),
+            ));
         }
-        let heading_id = headings
-            .partition_point(|&heading| heading < node)
-            .checked_sub(1)
-            .map_or("", |i| wattsi.node_ids[&headings[i]].as_str());
-        let id = wattsi.ids.generate(&format!("{}:{}", heading_id, def.id));
-        stats.anchors += 1;
-        anchors.push((
-            node,
-            spec_symbol(shortname, &id),
-            format!("{} #{}", shortname, id),
-        ));
     }
     // Other elements' ids, ex: old ones kept for links to them
     // (`<span id="history-traversal"></span>`), are anchors.
     for node in 1..doc.nodes.len() {
-        if wattsi.excluded[node] || defs.contains_key(&node) {
+        if resolved.excluded[node] || defs.contains_key(&node) {
             continue;
         }
         let Some(id) = doc.attr(node, "id") else {
@@ -555,7 +633,7 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
     }
     // Links and bibliography references.
     for node in 1..doc.nodes.len() {
-        if wattsi.excluded[node] {
+        if resolved.excluded[node] {
             continue;
         }
         match doc.name(node) {
@@ -566,7 +644,7 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
                 let (sym, what, pretty) = if let Some(id) = href.strip_prefix('#') {
                     match by_id.get(id).and_then(|n| defs.get(n)) {
                         Some(def) => (def.sym.clone(), def.what, def.pretty.clone()),
-                        None if wattsi.ids.taken.contains(id) => (
+                        None if resolved.ids.contains(id) => (
                             spec_symbol(shortname, id),
                             "anchor",
                             format!("{} #{}", shortname, id),
@@ -665,7 +743,7 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
             i -= 1;
             let (start, end, context) = &algorithms[i];
             if *end > pos {
-                let path = step_path(&doc, node, *start);
+                let path = step_path(doc, node, *start);
                 return if path.is_empty() {
                     context.clone()
                 } else {
@@ -691,9 +769,9 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
     let mut resolver = ForResolver::default();
     for (&node, def) in &defs {
         if def.what == "dfn" {
-            resolver.add(&def.sym, def.kind, &[words(&doc, node)], &def.fors);
-        } else if let Some(&dfn) = wattsi.heading_dfns.get(&node) {
-            resolver.add(&def.sym, def.kind, &[words(&doc, dfn)], &def.fors);
+            resolver.add(&def.sym, def.kind, &[words(doc, node)], &def.fors);
+        } else if let Some(&dfn) = resolved.heading_dfns.get(&node) {
+            resolver.add(&def.sym, def.kind, &[words(doc, dfn)], &def.fors);
         }
     }
     let mut structured: HashMap<String, (&'static str, Option<String>, Option<String>)> =

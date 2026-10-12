@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<!-- A small spec in the HTML Standard's Wattsi format, for the spec-html
-     tokenizer (see tools/src/tree_sitter_support/spec_tokenizer.rs) and its
-     analysis (see tools/src/spec_analyze/wattsi.rs and tests/tests/specs.toml). -->
+<!-- A small spec in the HTML Standard's Wattsi format, for the spec-html tokenizer (see
+     tools/src/tree_sitter_support/spec_tokenizer.rs), its analysis (see tools/src/spec_analyze/wattsi.rs
+     and tests/tests/specs.toml), and its rendered view, in two pages (see tools/src/rendered_specs). -->
 <h1>Example: The Living Standard</h1>
-
+<!--toc-->
 <h2 id=infrastructure>Infrastructure</h2>
 
 <p>A <dfn data-x=concept-widget>widget</dfn> has a <dfn data-x=concept-widget-state>state</dfn>.</p>
@@ -23,7 +23,7 @@
 <ol><li><p>Set <var>widget</var>'s state to "idle".</p></li></ol>
 </div>
 
-<h3 id=gadgets>Gadgets <code>&lt;gadget></code></h3>
+<h3 id=gadgets split-filename=gadgets>Gadgets <code>&lt;gadget></code></h3>
 
 <pre class=idl>[Exposed=Window]
 interface Gadget {};</pre>

@@ -23,8 +23,7 @@ input_file: inputs/blame/syntax-token-tokenize/specs__source__tokenize__file
 % c (
 % c see
 % c tools/src/tree_sitter_support/spec_tokenizer.rs
-% c )
-% c and
+% c ),
 % c its
 % c analysis
 % c (
@@ -32,6 +31,18 @@ input_file: inputs/blame/syntax-token-tokenize/specs__source__tokenize__file
 % c tools/src/spec_analyze/wattsi.rs
 % c and
 % c tests/tests/specs.toml
+% c ),
+% c and
+% c its
+% c rendered
+% c view
+% c ,
+% c in
+% c two
+% c pages
+% c (
+% c see
+% c tools/src/rendered_specs
 % c ).
 % o -->
 % o <h1
@@ -42,6 +53,9 @@ input_file: inputs/blame/syntax-token-tokenize/specs__source__tokenize__file
 % t Living
 % t Standard
 % o </h1>
+% o <!--
+% c toc
+% o -->
 Infrastructure o <h2
 Infrastructure o id=
 Infrastructure i infrastructure
@@ -175,6 +189,8 @@ Infrastructure::Widgets::unpoke o </ol>
 Infrastructure::Widgets::unpoke o </div>
 Infrastructure::Gadgets%20<gadget> o <h3
 Infrastructure::Gadgets%20<gadget> o id=
+Infrastructure::Gadgets%20<gadget> i gadgets
+Infrastructure::Gadgets%20<gadget> o split-filename=
 Infrastructure::Gadgets%20<gadget> i gadgets
 Infrastructure::Gadgets%20<gadget> o >
 Infrastructure::Gadgets%20<gadget> t Gadgets

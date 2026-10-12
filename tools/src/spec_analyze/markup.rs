@@ -158,17 +158,26 @@ impl<'a> Doc<'a> {
                         &[]
                     };
                     for ends in [implied_ends(name), ends_p] {
-                        let depth = open
-                            .iter()
-                            .enumerate()
-                            .rev()
-                            .take_while(|&(_, &node)| {
-                                !name_of(&nodes, node).is_some_and(|n| SCOPES.contains(&n.as_str()))
-                            })
-                            .find(|&(_, &node)| {
-                                name_of(&nodes, node).is_some_and(|n| ends.contains(&n.as_str()))
-                            })
-                            .map(|(depth, _)| depth);
+                        // (The elements it ends aren't the scope's edge, ex: a
+                        // `<td>` ends an open `<td>`.  A table's part ends the
+                        // outermost of them in the scope, ex: a `<tr>` the
+                        // open `<tr>`, with the `<td>` open in it.)
+                        let outermost = ends.contains(&"td");
+                        let mut found = None;
+                        for (depth, &node) in open.iter().enumerate().rev() {
+                            let Some(open_name) = name_of(&nodes, node) else {
+                                break;
+                            };
+                            if ends.contains(&open_name.as_str()) {
+                                found = Some(depth);
+                                if !outermost {
+                                    break;
+                                }
+                            } else if SCOPES.contains(&open_name.as_str()) {
+                                break;
+                            }
+                        }
+                        let depth = found;
                         if let Some(depth) = depth {
                             close_to(&mut nodes, &mut open, depth);
                         }
@@ -253,6 +262,27 @@ impl<'a> Doc<'a> {
 
     pub fn has_attr(&self, node: usize, name: &str) -> bool {
         self.raw_attr(node, name).is_some()
+    }
+
+    /// The element's attributes, as their names (as written) and their
+    /// values (with their character references decoded), in order.
+    pub fn attrs(&self, node: usize) -> Vec<(&'a str, Option<String>)> {
+        let Item::Start { attrs, .. } = &self.items[self.nodes[node].item] else {
+            return vec![];
+        };
+        attrs
+            .iter()
+            .map(|(name, value)| {
+                let name = self.src[name.clone()]
+                    .trim_end()
+                    .trim_end_matches('=')
+                    .trim_end();
+                (
+                    name,
+                    value.as_ref().map(|v| decode_html(&self.src[v.clone()])),
+                )
+            })
+            .collect()
     }
 
     /// The element's attribute's value, with its character references
@@ -380,6 +410,37 @@ const NAMED_REFS: &[(&str, char)] = &[
     ("uuml", 'ü'),
 ];
 
+/// The pieces of `src[range]` (ex: a text node's), split at its character
+/// references, as their ranges and their decoded text: verbatim text, and
+/// each character reference.
+pub fn text_pieces(src: &str, range: std::ops::Range<usize>) -> Vec<(Range<usize>, String)> {
+    let text = &src[range.clone()];
+    if !text.contains('&') {
+        return vec![(range, text.to_string())];
+    }
+    let mut pieces = vec![];
+    let mut pos = 0;
+    for m in CHAR_REF.find_iter(text) {
+        let decoded = decode_html(m.as_str());
+        // (A reference we don't know stays verbatim text.)
+        if decoded == m.as_str() {
+            continue;
+        }
+        if pos < m.start() {
+            pieces.push((
+                range.start + pos..range.start + m.start(),
+                text[pos..m.start()].to_string(),
+            ));
+        }
+        pieces.push((range.start + m.start()..range.start + m.end(), decoded));
+        pos = m.end();
+    }
+    if pos < text.len() {
+        pieces.push((range.start + pos..range.end, text[pos..].to_string()));
+    }
+    pieces
+}
+
 /// `text` with its character references decoded, as an HTML parser would
 /// (but for the named ones specs don't use).
 pub fn decode_html(text: &str) -> String {
@@ -451,6 +512,13 @@ mod tests {
         // (A stray end tag is ignored.)
         let doc = Doc::parse("<div>a</span>b</div>");
         assert_eq!(shape(&doc, 0), r#"root(div("a" "b"))"#);
+        // (Cells end cells, and rows rows, but not outside their tables.)
+        let doc =
+            Doc::parse("<table><tr><td>A<td>B<table><tr><td>C<tr><td>D</table><tr><td>E</table>");
+        assert_eq!(
+            shape(&doc, 0),
+            r#"root(table(tr(td("A") td("B" table(tr(td("C")) tr(td("D"))))) tr(td("E"))))"#
+        );
     }
 
     #[test]

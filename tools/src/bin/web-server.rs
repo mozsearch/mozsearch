@@ -269,6 +269,11 @@ fn handle(
                 ));
             }
 
+            // (Links to specs' anchors and lines go to the pages with them.)
+            if let Some(url) = format::rendered_redirect(cfg, tree_name, rev, &file_path) {
+                return WebResponse::redirect(url);
+            }
+
             let mut writer = Vec::new();
             match format::format_rendered(cfg, tree_name, rev, &file_path, &mut writer) {
                 Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),

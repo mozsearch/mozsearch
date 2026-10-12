@@ -31,7 +31,8 @@ use tools::doc_trees_handler::find_doc_url;
 use tools::file_format::analysis::{read_analysis, read_source};
 use tools::file_format::jumpref::TreeJumprefs;
 use tools::format::{
-    create_markdown_panel_section, format_file_data, hyperblame_files, rendered_url,
+    create_markdown_panel_section, format_file_data, has_rendered_spec_view, hyperblame_files,
+    rendered_url, tree_specs,
 };
 use tools::languages;
 use tools::url_encode_path::url_encode_path;
@@ -83,6 +84,7 @@ fn main() {
     .unwrap();
 
     let tree_config = cfg.trees.get(tree_name).unwrap();
+    let tree_specs = tree_specs(tree_name, tree_config);
 
     let pre_templates = Instant::now();
     let source_file_info_boxes_liquid_str = cfg
@@ -534,7 +536,23 @@ fn main() {
                     });
                 }
             }
-            _ => {}
+            _ => {
+                // (A spec's source, ex: the HTML Standard's, whose rendered
+                // view can be split into pages, where the line is.)
+                if let Some(specs) = &tree_specs
+                    && has_rendered_spec_view(specs, &path)
+                {
+                    tools_items.push(PanelItem {
+                        label: PanelItemLabel::Plaintext("Rendered view".to_owned()),
+                        tooltip: "Show the rendered spec, with the blame of its blocks".to_owned(),
+                        id: "panel-rendered-view",
+                        link: rendered_url(tree_name, None, &path),
+                        update_link_lineno: "/line/{}",
+                        accel_key: None,
+                        copyable: true,
+                    });
+                }
+            }
         }
 
         let liquid_globals = liquid::object!({

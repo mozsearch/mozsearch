@@ -205,14 +205,14 @@ input_file: inputs/analysis/specs/wattsi__json
     "rendered": "https://example.spec.whatwg.org/#unpoke"
   },
   {
-    "loc": "00026:15-47",
+    "loc": "00026:38-70",
     "source": 1,
     "syntax": "def",
     "pretty": "section example Gadgets <gadget>",
     "sym": "SPEC_example_gadgets"
   },
   {
-    "loc": "00026:15-47",
+    "loc": "00026:38-70",
     "target": 1,
     "kind": "def",
     "pretty": "example Gadgets <gadget>",
@@ -221,7 +221,7 @@ input_file: inputs/analysis/specs/wattsi__json
     "contextsym": "SPEC_example_gadgets"
   },
   {
-    "loc": "00026:15-47",
+    "loc": "00026:38-70",
     "structured": 1,
     "pretty": "example Gadgets <gadget>",
     "sym": "SPEC_example_gadgets",

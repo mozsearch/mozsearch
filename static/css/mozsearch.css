@@ -1814,6 +1814,83 @@ span[data-symbols].selected {
   font-style: italic;
   opacity: 0.75;
 }
+/* Rendered specs' sources (see `rendered_specs`), whose classes are the
+   source's, prefixed with `sp-`.  Like the specs' own styles, but plainer. */
+.rendered-spec dfn {
+  font-style: normal;
+  font-weight: bold;
+}
+.rendered-spec dfn a {
+  color: inherit;
+  text-decoration: underline dotted var(--page-subtle-foreground);
+}
+.rendered-spec var {
+  font-style: italic;
+  color: var(--syntax-type-color);
+}
+.rendered-spec .sp-secno {
+  margin-right: 0.25em;
+  opacity: 0.7;
+}
+.rendered-spec :is(.sp-note, .sp-example, .sp-warning, .sp-XXX, .sp-domintro) {
+  margin: 0.75em 0;
+  padding: 0.1em 0.75em;
+  border-left: 4px solid var(--sp-box-color, #4e79a7);
+  background-color: color-mix(in srgb, var(--sp-box-color, #4e79a7) 8%, transparent);
+}
+.rendered-spec p:is(.sp-note, .sp-example, .sp-warning, .sp-XXX) {
+  padding: 0.4em 0.75em;
+}
+.rendered-spec .sp-example {
+  --sp-box-color: #59a14f;
+}
+.rendered-spec :is(.sp-warning, .sp-XXX) {
+  --sp-box-color: #e15759;
+}
+.rendered-spec .sp-domintro {
+  --sp-box-color: #b07aa1;
+}
+.rendered-spec .sp-note > .rd-block:first-child:not(:has(> p))::before,
+.rendered-spec .sp-note > .rd-block:first-child > p::before,
+.rendered-spec p.sp-note::before {
+  content: "Note: ";
+  font-weight: bold;
+}
+.rendered-spec pre {
+  white-space: pre-wrap;
+}
+.rendered-spec table {
+  border-collapse: collapse;
+  margin: 0.75em 0;
+}
+.rendered-spec table :is(td, th) {
+  border: 1px solid var(--page-subtle-foreground);
+  padding: 0.2em 0.5em;
+  vertical-align: top;
+}
+.rendered-spec .sp-toc {
+  list-style: none;
+  padding-left: 1.5em;
+}
+.rendered-spec .sp-toc-nav > .sp-toc {
+  padding-left: 0;
+}
+.rendered-spec .sp-diagram {
+  font-style: italic;
+  opacity: 0.85;
+}
+.rendered-spec .sp-tracking-vector {
+  text-decoration: none;
+}
+.sp-pages {
+  display: flex;
+  gap: 1.5em;
+  max-width: 62rem;
+  padding: 0.25em 2rem 0.25em 36px;
+}
+.sp-pages .sp-next {
+  margin-left: auto;
+}
 .blame-popup .hb-hidden-note {
   font-style: italic;
   opacity: 0.8;

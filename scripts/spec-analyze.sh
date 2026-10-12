@@ -24,6 +24,10 @@ TREE_NAME=$3
 SPECS_TOML=$CONFIG_REPO/$TREE_NAME/specs.toml
 if [ -f "$SPECS_TOML" ]; then
     spec-analyze $FILES_ROOT $INDEX_ROOT/analysis $SPECS_TOML $INDEX_ROOT/repo-files
+    # (The index's copy is for the rendered views of the specs' sources, see
+    # tools/src/rendered_specs, which the web server makes from it, and the
+    # source listings' links to them.)
+    cp "$SPECS_TOML" $INDEX_ROOT/specs.toml
     exit 0
 fi
 
