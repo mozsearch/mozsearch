@@ -1994,6 +1994,14 @@ span[data-symbols].selected {
 .sp-citation-unknown {
   color: #e15759;
 }
+.sp-drift {
+  margin-left: 0.25em;
+  padding: 0 0.3em;
+  border-radius: 3px;
+  background-color: color-mix(in srgb, #e8a33d 25%, transparent);
+  font-size: 0.9em;
+  text-decoration: none;
+}
 .sp-citation-code {
   margin: 0;
   overflow-x: auto;

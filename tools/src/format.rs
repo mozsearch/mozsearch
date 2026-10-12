@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::env;
 use std::fmt::Write as _;
 use std::io::Write;
-use std::ops::{Deref, Range};
+use std::ops::{Deref, Range, RangeInclusive};
 use std::path::Path;
 use std::process::Command;
 use std::rc::Rc;
@@ -1447,6 +1447,21 @@ struct Citation {
     function: String,
     step: Option<String>,
     excerpt: Vec<String>,
+    /// If its step's text changed after it was written (by the trees'
+    /// histories): when, and the spec's commit that changed it.
+    drift: Option<(i64, String)>,
+}
+
+/// The newest change to a page's lines (0-based) by its token blame: its
+/// time and revision.
+fn newest_change(page: &PageBlame, lines: RangeInclusive<usize>) -> Option<(i64, String)> {
+    let strip = page.merge_lines(lines);
+    strip
+        .entries
+        .iter()
+        .map(|entry| &page.info.commits[entry.commit])
+        .max_by_key(|(_, time, _)| *time)
+        .map(|(rev, time, _)| (*time, rev.clone()))
 }
 
 /// How many lines a citation's excerpt has at most.
@@ -1524,6 +1539,7 @@ fn algorithm_citations(
                     } else {
                         excerpt
                     },
+                    drift: None,
                 });
             }
         }
@@ -1601,6 +1617,49 @@ pub fn format_algorithm(
         steps.entry(path.clone()).or_insert(line);
     }
     let mut citations = algorithm_citations(cfg, tree_name, tree_config, sym);
+    // Drift: a citation of a step whose text changed (by the spec's history)
+    // after the comment citing it last did (by the citing tree's), ex: after
+    // Gecko implemented it.  A step's lines are up to the next step's.
+    if let Some(spec_page) = &token_blame {
+        let last_line = file_source[..view.range.end.min(file_source.len())]
+            .matches('\n')
+            .count();
+        let mut starts: Vec<usize> = steps.values().map(|&line| line - 1).collect();
+        starts.sort_unstable();
+        let step_lines = |step: &str| -> Option<RangeInclusive<usize>> {
+            let first = steps.get(step)? - 1;
+            let next = starts
+                .get(starts.partition_point(|&start| start <= first))
+                .copied()
+                .unwrap_or(last_line + 1);
+            Some(first..=next.saturating_sub(1).max(first))
+        };
+        // (The citing files' blame, once each.)
+        let mut citing_pages: HashMap<(String, String), Option<PageBlame>> = HashMap::new();
+        for citation in citations.iter_mut() {
+            let Some(lines) = citation.step.as_deref().and_then(step_lines) else {
+                continue;
+            };
+            let Some(changed) = newest_change(spec_page, lines) else {
+                continue;
+            };
+            let page = citing_pages
+                .entry((citation.tree.clone(), citation.path.clone()))
+                .or_insert_with(|| {
+                    let git = cfg.trees.get(&citation.tree)?.get_git().ok()?;
+                    let head = git.repo.head().ok()?.peel_to_commit().ok()?;
+                    let source = read_commit_file(&git.repo, &head, &citation.path)?;
+                    page_token_blame(git, &head, &citation.path, &source)
+                });
+            let line = citation.line as usize - 1;
+            let written = page
+                .as_ref()
+                .and_then(|page| newest_change(page, line..=line));
+            if written.is_some_and(|(time, _)| changed.0 > time) {
+                citation.drift = Some(changed);
+            }
+        }
+    }
     // (Those of the algorithm first, then by their steps' lines.)
     citations.sort_by_key(|c| {
         (
@@ -1728,8 +1787,18 @@ pub fn format_algorithm(
             rendered_docs::escape(&citation.function),
             match (&citation.step, known) {
                 (Some(step), true) => format!(
-                    r#" <span class="sp-citation-step">step {}</span>"#,
-                    rendered_docs::escape(step)
+                    r#" <span class="sp-citation-step">step {}</span>{}"#,
+                    rendered_docs::escape(step),
+                    match &citation.drift {
+                        Some((time, rev)) => format!(
+                            r#" <a class="sp-drift" href="/{}/commit/{}" title="The spec changed this step's text on {}, after this comment was written">changed since</a>"#,
+                            tree_name,
+                            rev,
+                            chrono::DateTime::from_timestamp(*time, 0)
+                                .map_or_else(String::new, |date| date.format("%Y-%m-%d").to_string())
+                        ),
+                        None => String::new(),
+                    }
                 ),
                 (Some(step), false) => format!(
                     r#" <span class="sp-citation-step sp-citation-unknown" title="The spec's algorithm has no such step now">step {}?</span>"#,
