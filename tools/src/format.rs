@@ -1430,6 +1430,32 @@ pub fn imported_spec_files(
     files
 }
 
+/// The targets of a ReSpec spec's references (at `path`), by where they are in
+/// its source (lines and byte columns), from the index's analysis of it, which
+/// has those of references to other specs' terms (see
+/// `rendered_specs::respec`).
+fn respec_index_targets(tree_config: &TreeConfig, path: &str) -> Vec<(u32, u32, u32, String)> {
+    // (Compressed, or not; see `read_analyses`.)
+    let analysis = format!("{}/analysis/{}.gz", tree_config.paths.index_path, path);
+    if !Path::new(&analysis).exists() && !Path::new(&analysis[..analysis.len() - 3]).exists() {
+        return vec![];
+    }
+    crate::file_format::analysis::read_analysis(
+        &analysis,
+        &mut crate::file_format::analysis::read_target,
+    )
+    .into_iter()
+    .flat_map(|target| {
+        let loc = target.loc;
+        target
+            .data
+            .into_iter()
+            .filter(|data| data.kind == crate::file_format::analysis::AnalysisKind::Use)
+            .map(move |data| (loc.lineno, loc.col_start, loc.col_end, data.sym.to_string()))
+    })
+    .collect()
+}
+
 /// The `spec` global of info boxes (see `templating::info_boxes`), of a spec
 /// of the tree's: its name, shortname, and URL, and the specs which
 /// superseded it (its `successors`, if it's obsolete), by their names and
@@ -2367,6 +2393,24 @@ pub fn format_rendered(
             }
             Some(main) => {
                 rendered_specs::ecmarkup::render_file(main, spec, specs, &spec_links, &read, path)
+            }
+            // (A ReSpec spec's references to other specs' terms link by the
+            // index's analysis, at the tip.)
+            None if spec.format == Some(crate::spec_analyze::SpecFormat::Respec) => {
+                let targets = if rev.is_none() {
+                    respec_index_targets(tree_config, path)
+                } else {
+                    vec![]
+                };
+                rendered_specs::respec::render(
+                    path,
+                    spec,
+                    specs,
+                    &spec_links,
+                    &read,
+                    &crate::spec_analyze::xref::Terms::default(),
+                    &targets,
+                )
             }
             // (Bikeshed's rendering is the index's, of the latest revision.)
             None if spec.format == Some(crate::spec_analyze::SpecFormat::Bikeshed) => {

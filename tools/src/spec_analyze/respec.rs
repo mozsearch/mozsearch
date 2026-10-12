@@ -63,6 +63,47 @@ pub struct Stats {
     pub xrefs: usize,
 }
 
+/// What a ReSpec source's rendered view needs (see `rendered_specs::respec`),
+/// by where it is in the analyzed text (with what the source includes): its
+/// elements' ids, its sections' numbers and the headings ReSpec generates,
+/// its table of contents, and its references' targets.
+#[derive(Debug, Default)]
+pub struct Rendering {
+    /// Elements' ids (definitions', sections', headings'), by their nodes.
+    pub ids: HashMap<usize, String>,
+    /// The ids of the sections which ReSpec makes from headings, by the
+    /// headings' nodes (which an anchor before them has).
+    pub section_ids: HashMap<usize, String>,
+    /// Headings' numbers (ex: "2.1", "A."), by their nodes.
+    pub numbers: HashMap<usize, String>,
+    /// The headings ReSpec generates for sections (ex: the conformance
+    /// section's), by the sections' nodes.
+    pub generated: HashMap<usize, GeneratedHeading>,
+    /// The table of contents: its entries' levels, numbers, ids, and text.
+    pub toc: Vec<(usize, Option<String>, String, String)>,
+    /// References' targets, symbols, by their bytes (shorthands', links',
+    /// and IDL blocks' names').
+    pub targets: Vec<(Range<usize>, String)>,
+    /// The definitions ReSpec makes in IDL blocks, by their bytes.
+    pub idl_dfns: Vec<(Range<usize>, String)>,
+    /// The specs which `[[SPEC]]`s cite, and their references' ids.
+    pub cited: Vec<(String, String)>,
+    /// The headings of the references section ReSpec generates, and of its
+    /// normative references (whose sections' ids are "references" and
+    /// "normative-references").
+    pub references: Option<GeneratedHeading>,
+    pub normative_references: Option<GeneratedHeading>,
+}
+
+/// A heading which ReSpec generates for a section.
+#[derive(Clone, Debug, Default)]
+pub struct GeneratedHeading {
+    pub text: String,
+    pub number: Option<String>,
+    pub level: usize,
+    pub id: Option<String>,
+}
+
 /// ReSpec's `toId`: `text` lowercased, without diacritics, with each run of
 /// non-word characters a dash, and none at the ends.
 fn to_id(text: &str) -> String {
@@ -177,7 +218,7 @@ lazy_static! {
     /// ReSpec's inline shorthands: `[[[#id]]]` (and `[[[SPEC]]]`),
     /// `[=for/term|text=]`, `{{Name/member}}`, `[[SPEC]]` (and `[[!SPEC]]`,
     /// `[[SPEC|text]]`), `[^element^]`.
-    static ref SHORTHAND: Regex = Regex::new(
+    pub(crate) static ref SHORTHAND: Regex = Regex::new(
         r#"\[\[\[([^\]]+)\]\]\]|\[=([^=\]]+)=\]|\{\{\s*([^}]+?)\s*\}\}|\[\[[!?]?([A-Za-z0-9._-]+)(?:\|[^\]]*)?\]\]|\[\^([^^\]]+)\^\]"#
     )
     .unwrap();
@@ -433,7 +474,7 @@ fn has_class(doc: &Doc, node: usize, class: &str) -> bool {
 
 /// Text as ReSpec shows it, with its inline shorthands as their text (ex:
 /// "member" for `{{Name/member}}`), and its backticks' code without them.
-fn shown_text(text: &str) -> String {
+pub(crate) fn shown_text(text: &str) -> String {
     lazy_static! {
         static ref CODE: Regex = Regex::new(r"`([^`]+)`").unwrap();
     }
@@ -560,7 +601,8 @@ pub fn analyze(
 ) -> (Vec<Record>, Stats) {
     let lines = Lines::new(src);
     let place = |range: &Range<usize>| Some((0, lines.location(range)));
-    let (mut records, stats, _) = analyze_placed(src, scripts, shortname, config, terms, 1, &place);
+    let (mut records, stats, _, _) =
+        analyze_placed(src, scripts, shortname, config, terms, 1, &place);
     (records.pop().unwrap_or_default(), stats)
 }
 
@@ -595,6 +637,50 @@ pub fn analyze_with_includes(
     config: &SpecsConfig,
     terms: &Terms,
 ) -> Option<(Vec<(String, Vec<Record>)>, Stats, Vec<Export>)> {
+    let combined = combined(main, read)?;
+    let files = combined.paths().count();
+    let place = |range: &Range<usize>| combined.place(range);
+    let (records, stats, exports, _) = analyze_placed(
+        &combined.text,
+        scripts,
+        shortname,
+        config,
+        terms,
+        files,
+        &place,
+    );
+    let paths = combined.paths().map(str::to_string);
+    Some((paths.zip(records).collect(), stats, exports))
+}
+
+/// What the rendered view of a ReSpec source at `main` (with what it
+/// includes) needs (see `Rendering`), with the source and its includes.
+pub fn rendering(
+    main: &str,
+    read: &dyn Fn(&str) -> Option<String>,
+    scripts: &str,
+    shortname: &str,
+    config: &SpecsConfig,
+    terms: &Terms,
+) -> Option<(Combined, Rendering)> {
+    let combined = combined(main, read)?;
+    let files = combined.paths().count();
+    let place = |range: &Range<usize>| combined.place(range);
+    let (_, _, _, rendering) = analyze_placed(
+        &combined.text,
+        scripts,
+        shortname,
+        config,
+        terms,
+        files,
+        &place,
+    );
+    Some((combined, rendering))
+}
+
+/// A ReSpec source at `main` with its HTML includes inlined (see
+/// `analyze_with_includes`).
+pub fn combined(main: &str, read: &dyn Fn(&str) -> Option<String>) -> Option<Combined> {
     let dir = main.rsplit_once('/').map_or("", |(dir, _)| dir);
     let includes = |_: &str, source: &str| -> Vec<(Range<usize>, String)> {
         let doc = Doc::parse(source);
@@ -618,20 +704,7 @@ pub fn analyze_with_includes(
         includes.sort_by_key(|(range, _)| range.start);
         includes
     };
-    let combined = Combined::build(main, read, &includes)?;
-    let files = combined.paths().count();
-    let place = |range: &Range<usize>| combined.place(range);
-    let (records, stats, exports) = analyze_placed(
-        &combined.text,
-        scripts,
-        shortname,
-        config,
-        terms,
-        files,
-        &place,
-    );
-    let paths = combined.paths().map(str::to_string);
-    Some((paths.zip(records).collect(), stats, exports))
+    Combined::build(main, read, &includes)
 }
 
 /// The records of a ReSpec source's text (with what it includes), for each
@@ -646,8 +719,9 @@ fn analyze_placed(
     terms: &Terms,
     files: usize,
     place: &dyn Fn(&Range<usize>) -> Option<(usize, Location)>,
-) -> (Vec<Vec<Record>>, Stats, Vec<Export>) {
+) -> (Vec<Vec<Record>>, Stats, Vec<Export>, Rendering) {
     let doc = Doc::parse(src);
+    let mut rendering = Rendering::default();
     let n = doc.nodes.len();
     let respec = Config::of(&format!("{}\n{}", src, scripts));
     let mut stats = Stats::default();
@@ -971,8 +1045,11 @@ fn analyze_placed(
             .map(|&c| Item::Node(c))
             .collect();
         if cited {
+            // (With their ids, as core/render-biblio gives them.)
             let normative = builder.generated("Normative references", 3, usize::MAX, vec![]);
+            builder.sections[normative].id = Some("normative-references".to_string());
             let references = builder.generated("References", 1, usize::MAX, vec![normative]);
+            builder.sections[references].id = Some("references".to_string());
             builder.sections[references].appendix = true;
             items.push(Item::Section(references));
         }
@@ -987,6 +1064,7 @@ fn analyze_placed(
         if !tree.is_empty() {
             taken.insert("table-of-contents".to_string());
         }
+        toc_entries(&doc, &sections, &tree, 1, &mut rendering.toc);
     }
 
     // Headings' ids (core/id-headers): those of the sections (but the
@@ -1032,6 +1110,8 @@ fn analyze_placed(
     }
     headings.sort();
     let mut heading_ids: Vec<(usize, String, String)> = vec![];
+    // (The generated headings' ids, by their sections.)
+    let mut generated_ids: HashMap<usize, String> = HashMap::new();
     for (_, _, section, node) in headings {
         let text = match (section, node) {
             (Some(s), _) => {
@@ -1064,7 +1144,10 @@ fn analyze_placed(
             (None, None) => continue,
         };
         let Some(node) = node else {
-            add_id(&mut taken, "", &text);
+            let id = add_id(&mut taken, "", &text);
+            if let Some(s) = section {
+                generated_ids.insert(s, id);
+            }
             continue;
         };
         if hidden[node] {
@@ -1653,6 +1736,88 @@ fn analyze_placed(
         });
     }
 
+    // What the rendered view needs (see `Rendering`).
+    for d in &dfns {
+        match (d.node, &d.id) {
+            (Some(node), Some(id)) => {
+                rendering.ids.insert(node, id.clone());
+            }
+            (None, Some(id)) => rendering.idl_dfns.push((d.range.clone(), id.clone())),
+            _ => {}
+        }
+    }
+    for (index, section) in sections.iter().enumerate() {
+        match (&section.heading, section.element) {
+            (Some(Heading::Node(h)), element) => {
+                if let Some(number) = &section.secno {
+                    rendering.numbers.insert(*h, number.clone());
+                }
+                match (element, &section.id) {
+                    (Some(e), Some(id)) => {
+                        rendering.ids.insert(e, id.clone());
+                    }
+                    (None, Some(id)) => {
+                        rendering.section_ids.insert(*h, id.clone());
+                    }
+                    _ => {}
+                }
+            }
+            (Some(Heading::Generated(text, level)), None) => {
+                let heading = GeneratedHeading {
+                    text: text.clone(),
+                    number: section.secno.clone(),
+                    level: *level,
+                    id: generated_ids.get(&index).cloned(),
+                };
+                match section.id.as_deref() {
+                    Some("references") => rendering.references = Some(heading),
+                    Some("normative-references") => rendering.normative_references = Some(heading),
+                    _ => {}
+                }
+            }
+            (Some(Heading::Generated(text, level)), Some(e)) => {
+                if let Some(id) = &section.id {
+                    rendering.ids.insert(e, id.clone());
+                }
+                rendering.generated.insert(
+                    e,
+                    GeneratedHeading {
+                        text: text.clone(),
+                        number: section.secno.clone(),
+                        level: *level,
+                        id: generated_ids.get(&index).cloned(),
+                    },
+                );
+            }
+            _ => {}
+        }
+    }
+    for (node, id, _) in &heading_ids {
+        rendering.ids.insert(*node, id.clone());
+    }
+    for p in &pending {
+        if !p.def && p.what != "dfn" {
+            rendering.targets.push((p.range.clone(), p.sym.clone()));
+        }
+    }
+    rendering
+        .targets
+        .sort_by_key(|(range, _)| (range.start, range.end));
+    for node in shown() {
+        if doc.nodes[node].kind != NodeKind::Text {
+            continue;
+        }
+        for captures in SHORTHAND.captures_iter(&src[doc.nodes[node].range.clone()]) {
+            if let Some(spec) = captures.get(4) {
+                let id = format!("bib-{}", to_id(spec.as_str()));
+                if !rendering.cited.iter().any(|(_, i)| *i == id) {
+                    rendering.cited.push((spec.as_str().to_string(), id));
+                }
+            }
+        }
+    }
+    rendering.cited.sort_by_key(|(spec, _)| spec.to_lowercase());
+
     // Contexts: the innermost algorithm (by its first dfn) with the step, or
     // the section.
     let contexts = html_contexts(src, &doc.items);
@@ -1840,7 +2005,34 @@ fn analyze_placed(
             })
         })
         .collect();
-    (file_records, stats, exports)
+    (file_records, stats, exports, rendering)
+}
+
+/// The table of contents' entries of sections (see `section_tree`), at
+/// `level`: their levels, numbers, ids, and headings' text.
+fn toc_entries(
+    doc: &Doc,
+    sections: &[Section],
+    list: &[usize],
+    level: usize,
+    out: &mut Vec<(usize, Option<String>, String, String)>,
+) {
+    for &s in list {
+        let section = &sections[s];
+        let text = match &section.heading {
+            Some(Heading::Node(h)) => norm(&shown_text(&doc.text_content(*h))),
+            Some(Heading::Generated(text, _)) => text.clone(),
+            None => continue,
+        };
+        // (But introductory ones, ex: the abstract.)
+        if section.intro {
+            continue;
+        }
+        if let Some(id) = &section.id {
+            out.push((level, section.secno.clone(), id.clone(), text));
+        }
+        toc_entries(doc, sections, &section.subs, level + 1, out);
+    }
 }
 
 /// A text without a possessive suffix (ex: "gizmo" for "gizmo's").
@@ -2255,7 +2447,9 @@ impl Builder<'_, '_> {
         if id.as_deref() == Some("index") {
             let end = doc.nodes[node].range.end;
             let here = self.generated("Terms defined by this specification", 3, end, vec![]);
+            self.sections[here].id = Some("index-defined-here".to_string());
             let elsewhere = self.generated("Terms defined by reference", 3, end, vec![]);
+            self.sections[elsewhere].id = Some("index-defined-elsewhere".to_string());
             items.push(Item::Section(here));
             items.push(Item::Section(elsewhere));
         }

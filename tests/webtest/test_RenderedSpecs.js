@@ -159,6 +159,33 @@ add_task(async function test_RenderedBikeshed() {
   ok(doc().querySelector('span[data-l="3"]'), "Its text says where it is in its file");
 });
 
+add_task(async function test_RenderedRespec() {
+  // The test tree's ReSpec spec (tests/tests/files/specs/respec/index.html),
+  // rendered as ReSpec renders it, offline.
+  const SPEC = "/tests/rendered/specs/respec/index.html";
+  await TestUtils.loadPath(SPEC);
+
+  ok(doc().classList.contains("rendered-spec"), "The page is a rendered spec");
+  is(doc().querySelector("h2#x1-introduction .sp-secno")?.textContent, "1.",
+     "Headings have ReSpec's numbers and ids");
+  ok(doc().querySelector("#conformance h2#x4-conformance"),
+     "and so do the headings ReSpec generates");
+  ok(doc().querySelector("dfn#dfn-gizmo"), "Definitions have ReSpec's ids");
+  ok(doc().querySelector("pre dfn#dom-gizmooptions"), "and so do IDL blocks'");
+  is(doc().querySelector('code a[href="#dom-gizmo-poke"]')?.textContent, "poke()",
+     "Shorthands are shown as ReSpec shows them, linked");
+  ok(doc().querySelector("dt#bib-dom"), "Cited specs are in the references");
+  is(doc().querySelector('a[href="/tests/rendered/specs/example.bs#gadget"]')?.textContent, "Gadget",
+     "References to other specs' terms link to them (by the index's analysis)");
+  ok(doc().querySelector('span[data-l="19"]'), "Text says where it is in the source");
+  ok(frame.contentDocument.querySelector(".info-box-obsolete-spec"),
+     "The obsolete spec's view says it's obsolete");
+
+  await TestUtils.loadPath("/tests/source/specs/respec/index.html");
+  is(frame.contentDocument.querySelector("#panel-rendered-view")?.getAttribute("href"), SPEC,
+     "The source listing links to the rendered view");
+});
+
 add_task(async function test_ObsoleteSpec() {
   // The test tree's ReSpec spec is obsolete, superseded by its Bikeshed spec
   // (see tests/tests/specs.toml).

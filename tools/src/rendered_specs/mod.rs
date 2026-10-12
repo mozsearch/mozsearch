@@ -4,8 +4,9 @@
 //! blame strip, and each run of text that's in the source verbatim says where
 //! it is, for the blame popup.
 //!
-//! HTML-based sources (the HTML Standard's Wattsi `source`, see `wattsi`) are
-//! rendered from our own parse (see `spec_analyze::markup`), with the links
+//! HTML-based sources (the HTML Standard's Wattsi `source`, see `wattsi`; and
+//! ReSpec specs' `index.html`s, see `respec`) are rendered from our own parse
+//! (see `spec_analyze::markup`), with the links
 //! our analysis resolves (see `spec_analyze`), rather than from their build
 //! tools' output, which doesn't say where anything came from.  Only elements
 //! and attributes which can't do anything but present the spec are kept
@@ -14,6 +15,7 @@
 
 pub mod bikeshed;
 pub mod ecmarkup;
+pub mod respec;
 pub mod wattsi;
 
 use std::fmt::Write as _;
@@ -49,7 +51,7 @@ pub fn algorithm_link(out: &mut HtmlRenderer, url: &str) {
 pub fn has_rendered_view(format: SpecFormat) -> bool {
     matches!(
         format,
-        SpecFormat::Wattsi | SpecFormat::Ecmarkup | SpecFormat::Bikeshed
+        SpecFormat::Wattsi | SpecFormat::Ecmarkup | SpecFormat::Bikeshed | SpecFormat::Respec
     )
 }
 
@@ -75,7 +77,16 @@ pub fn render(
     match spec.format? {
         SpecFormat::Wattsi => wattsi::render(src, path, spec, config, links, page),
         SpecFormat::Ecmarkup => ecmarkup::render(path, spec, config, links, read, page),
-        SpecFormat::Bikeshed | SpecFormat::Respec => None,
+        SpecFormat::Respec => respec::render(
+            path,
+            spec,
+            config,
+            links,
+            read,
+            &crate::spec_analyze::xref::Terms::default(),
+            &[],
+        ),
+        SpecFormat::Bikeshed => None,
     }
 }
 
