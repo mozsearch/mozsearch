@@ -532,6 +532,109 @@ input_file: inputs/crossref/specs/citations__json
       "relation": "Queried",
       "quality": "ExplicitSymbol",
       "overloads_hit": []
+    },
+    {
+      "symbol": "SPEC_example_concept@2Dwidget",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "specs/source",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 13,
+                "bounds": [
+                  79,
+                  85
+                ],
+                "line": "<p>To <dfn data-x=concept-widget-poke>poke</dfn> a <span data-x=concept-widget>widget</span>",
+                "context": "poke",
+                "contextsym": "SPEC_example_concept@2Dwidget@2Dpoke"
+              },
+              {
+                "lno": 31,
+                "bounds": [
+                  78,
+                  84
+                ],
+                "line": "<p>A <dfn data-x=concept-gadget>gadget</dfn> is a <span data-x=concept-widget>widget</span> with a",
+                "context": "Gadgets <gadget>",
+                "contextsym": "SPEC_example_gadgets"
+              },
+              {
+                "lno": 38,
+                "bounds": [
+                  44,
+                  50
+                ],
+                "line": "<li><p>For each <span data-x=concept-widget>widget</span> in it:",
+                "context": "assemble step 2",
+                "contextsym": "SPEC_example_assemble"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "specs/source",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 9,
+                "bounds": [
+                  32,
+                  38
+                ],
+                "line": "<p>A <dfn data-x=concept-widget>widget</dfn> has a <dfn data-x=concept-widget-state>state</dfn>.</p>",
+                "context": "Infrastructure",
+                "contextsym": "SPEC_example_infrastructure"
+              }
+            ]
+          }
+        ],
+        "doc-uses": [
+          {
+            "path": "spec_citations.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 52,
+                "bounds": [
+                  3,
+                  52
+                ],
+                "line": "// https://example.spec.whatwg.org/2/#concept-widget",
+                "context": "spec_citations::IsPoked",
+                "contextsym": "_ZN14spec_citations7IsPokedERKNS_6WidgetE"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "example widget",
+          "sym": "SPEC_example_concept@2Dwidget",
+          "type_pretty": null,
+          "kind": "specDfn",
+          "subsystem": null,
+          "implKind": "spec",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "rendered": "https://example.spec.whatwg.org/#concept-widget"
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
     }
   ],
   "unknown_symbols": []

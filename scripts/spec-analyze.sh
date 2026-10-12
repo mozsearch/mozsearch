@@ -30,9 +30,13 @@ fi
 LINKED_TREE=$(jq -r --arg tree "$TREE_NAME" '.trees[$tree].linked_trees.SPEC_ // empty' "$CONFIG_FILE")
 if [ -n "$LINKED_TREE" ] && [ -f "$CONFIG_REPO/$LINKED_TREE/specs.toml" ]; then
     # (With the linked tree's files, which were indexed first, for its ecmarkup
-    # specs' clauses' titles, which comments cite sections by.)
+    # specs' clauses' titles, which comments cite sections by, and its index,
+    # for the anchors its specs define, which citations of anchors their specs
+    # don't define can be of another spec's.)
     SPEC_FILES=$(jq -r --arg tree "$LINKED_TREE" '.trees[$tree].files_path // empty' "$CONFIG_FILE")
+    SPEC_INDEX=$(jq -r --arg tree "$LINKED_TREE" '.trees[$tree].index_path // empty' "$CONFIG_FILE")
     spec-analyze --citations-only ${SPEC_FILES:+--spec-files "$SPEC_FILES"} \
+        ${SPEC_INDEX:+--spec-index "$SPEC_INDEX"} \
         $FILES_ROOT $INDEX_ROOT/analysis \
         "$CONFIG_REPO/$LINKED_TREE/specs.toml" $INDEX_ROOT/repo-files
 fi

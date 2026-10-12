@@ -47,4 +47,11 @@ int CountWidgets(Widget* aWidgets, int aCount) {
   return aCount;
 }
 
+// A later level of the example spec (example-2, in its series), which doesn't
+// define the term, so the citation is of the example spec's.
+// https://example.spec.whatwg.org/2/#concept-widget
+bool IsPoked(const Widget& aWidget) {
+  return aWidget.state == 1;
+}
+
 }  // namespace spec_citations

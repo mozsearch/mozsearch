@@ -58,6 +58,19 @@ add_task(async function test_cross_reference_citation() {
     });
 });
 
+// A citation of an anchor its spec (example-2) doesn't define, which another
+// spec of its series (the example spec) does, is of that spec's, in a linked
+// tree too, by the linked tree's crossref.
+add_task(async function test_series_fallback_citation() {
+  await checkCitation(
+    "/searchfox/source/tests/tests/files/spec_citations.cpp",
+    "/tests/source/specs/source", "#9", {
+      line: 52,
+      sym: "SPEC_example_concept@2Dwidget",
+      pretty: "example widget",
+    });
+});
+
 // Searching a linked tree for a spec's symbol has the tests tree's results
 // (the spec's definition and uses) in their own section, linking to its files.
 add_task(async function test_linked_search_results() {

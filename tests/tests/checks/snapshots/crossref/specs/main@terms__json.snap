@@ -64,6 +64,24 @@ input_file: inputs/crossref/specs/terms__json
             ]
           }
         ],
+        "doc-uses": [
+          {
+            "path": "spec_citations.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 52,
+                "bounds": [
+                  3,
+                  52
+                ],
+                "line": "// https://example.spec.whatwg.org/2/#concept-widget",
+                "context": "spec_citations::IsPoked",
+                "contextsym": "_ZN14spec_citations7IsPokedERKNS_6WidgetE"
+              }
+            ]
+          }
+        ],
         "meta": {
           "structured": 1,
           "pretty": "example widget",

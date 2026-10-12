@@ -182,7 +182,11 @@ index of the field starting from 0.
    (ex: SpiderMonkey's "22.1.3.13 Array.prototype.join ( separator )"), and the
    step comments (ex: "Step 12.6.") in their scopes, are `doc-use`s, whose
    context is the definition they're in or about (with the step, ex:
-   "nsDocShell::InternalLoad step 12.6").
+   "nsDocShell::InternalLoad step 12.6").  A URL to an anchor its spec doesn't
+   define names another spec's symbol if another spec of its `series` defines
+   it, or else one of its `successors` (ex: css-sizing-4's
+   `#valdef-width-stretch`, css-sizing's, or sanitizer-api's anchors, the HTML
+   Standard's, which has its content now).
 
  * Firefox's privileged URLs (chrome://, resource://) temporarily use special
    symbols with `URL_` prefix followed by normalized URL.  The symbol is replaced

@@ -31,3 +31,11 @@ rendered = "https://example.github.io/bs/"
 [[spec]]
 name = "html"
 rendered = "https://html.spec.whatwg.org/"
+
+# (A later level of the example spec, in its series, which defines none of its
+# terms, so that citations of them are of the example spec's; see
+# tools/src/spec_analyze/citations.rs.)
+[[spec]]
+name = "example-2"
+series = "example"
+rendered = "https://example.spec.whatwg.org/2/"

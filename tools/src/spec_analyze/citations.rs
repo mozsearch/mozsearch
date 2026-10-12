@@ -27,9 +27,16 @@
 //!   citation of the clause with that name (its abstract operation's, or else
 //!   its title, see `Titles`), whose steps are cited the same way.  (Not by
 //!   the number, which changes between editions.)
+//! - A URL to an anchor its spec doesn't define, which another spec of its
+//!   series does, or else one of its successors (see
+//!   `SpecsConfig::fallbacks`), is a citation of that spec's (ex:
+//!   css-sizing-4's `#valdef-width-stretch`, which css-sizing defines, or
+//!   sanitizer-api's, whose content is the HTML Standard's now), if the
+//!   specs' definitions are known (see `Defined`).
 //! - Records' contexts are the definitions their scopes are of.
 
-use std::collections::HashMap;
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::path::Path;
 
@@ -38,6 +45,8 @@ use regex::Regex;
 
 use super::{Lines, SpecsConfig, spec_symbol};
 use crate::file_format::analysis::{AnalysisKind, read_analysis, read_source, read_target};
+use crate::file_format::bisectable_mmap::BisectableMmap;
+use crate::file_format::crossref::CrossrefData;
 use crate::semantic_analyzer::{Record, sort_records, source_record, target_record};
 
 lazy_static! {
@@ -211,6 +220,64 @@ pub struct Stats {
     pub steps: usize,
     /// Of the citations, those of sections by their titles.
     pub sections: usize,
+    /// Of the citations, those of anchors their specs don't define, of
+    /// another spec's (see `SpecsConfig::fallbacks`).
+    pub fallbacks: usize,
+}
+
+/// The symbols the specs define, for citations of anchors their specs don't
+/// define: those of their analysis (in their own tree), or of their tree's
+/// crossref (in a tree citing its linked tree's specs).
+pub enum Defined {
+    Symbols(HashSet<String>),
+    Crossref(BisectableMmap<CrossrefData>, RefCell<HashMap<String, bool>>),
+}
+
+impl Defined {
+    /// The crossref of the tree with the index at `index_path`, if it has
+    /// one.
+    pub fn crossref(index_path: &Path) -> Option<Defined> {
+        let (inline, extra) = (
+            index_path.join("crossref"),
+            index_path.join("crossref-extra"),
+        );
+        if !inline.exists() || !extra.exists() {
+            return None;
+        }
+        let crossref = BisectableMmap::new(inline.to_str()?, extra.to_str()?)?;
+        Some(Defined::Crossref(crossref, RefCell::default()))
+    }
+
+    /// Add a spec's analysis's definitions.
+    pub fn add(&mut self, records: &[Record]) {
+        let Defined::Symbols(symbols) = self else {
+            return;
+        };
+        for record in records {
+            if let Record::Target(target) = record
+                && target.data.kind == AnalysisKind::Def
+            {
+                symbols.insert(target.data.sym.to_string());
+            }
+        }
+    }
+
+    pub fn contains(&self, sym: &str) -> bool {
+        match self {
+            Defined::Symbols(symbols) => symbols.contains(sym),
+            Defined::Crossref(crossref, known) => *known
+                .borrow_mut()
+                .entry(sym.to_string())
+                .or_insert_with(|| {
+                    crossref
+                        .lookup(sym)
+                        .ok()
+                        .flatten()
+                        .and_then(|data| data.definitions)
+                        .is_some_and(|definitions| !definitions.is_empty())
+                }),
+        }
+    }
 }
 
 /// A line citing a spec: its first citation's symbol and pretty name, and its
@@ -339,12 +406,14 @@ fn indent_scope_end(lines: &[&str], line: usize) -> u32 {
 }
 
 /// The records of the citations of `config`'s specs in a file's source, whose
-/// other analysis has `defs`.
+/// other analysis has `defs`, given the symbols the specs define, if they're
+/// known.
 pub fn citation_records(
     src: &str,
     defs: &[Def],
     config: &SpecsConfig,
     titles: Option<&Titles>,
+    defined: Option<&Defined>,
 ) -> (Vec<Record>, Stats) {
     let mut stats = Stats::default();
     let mut records = vec![];
@@ -401,8 +470,19 @@ pub fn citation_records(
         if anchor.is_empty() {
             continue;
         }
-        let sym = spec_symbol(spec.shortname(), &anchor);
-        let pretty = format!("{} #{}", spec.shortname(), anchor);
+        let shortname = match defined {
+            Some(defined) if !defined.contains(&spec_symbol(spec.shortname(), &anchor)) => {
+                let fallback = config
+                    .fallbacks(spec)
+                    .into_iter()
+                    .find(|shortname| defined.contains(&spec_symbol(shortname, &anchor)));
+                stats.fallbacks += usize::from(fallback.is_some());
+                fallback.unwrap_or(spec.shortname())
+            }
+            _ => spec.shortname(),
+        };
+        let sym = spec_symbol(shortname, &anchor);
+        let pretty = format!("{} #{}", shortname, anchor);
         let range = m.start()..m.start() + url.len();
         let line = lines_index.location(&range).lineno;
         citations.push((range, sym.clone(), pretty.clone()));
@@ -580,14 +660,14 @@ mod tests {
         assert_eq!(trim_url("https://a.org/#b)'s"), "https://a.org/#b");
         assert_eq!(trim_url("https://a.org/#b's-c"), "https://a.org/#b's-c");
         let src = "// https://dom.spec.whatwg.org/#concept-node:~:text=node%20tree\n";
-        let (records, _) = citation_records(src, &[], &config(), None);
+        let (records, _) = citation_records(src, &[], &config(), None, None);
         assert_eq!(
             summary(&records),
             vec!["1:3-63 doc-use SPEC_dom_concept@2Dnode |  ()"]
         );
         // (An anchor's `'`s, but not a string's.)
         let src = "// <https://dom.spec.whatwg.org/#concept-node's-x>\nx('https://dom.spec.whatwg.org/#y');\n";
-        let (records, _) = citation_records(src, &[], &config(), None);
+        let (records, _) = citation_records(src, &[], &config(), None, None);
         assert_eq!(
             summary(&records),
             vec![
@@ -595,6 +675,60 @@ mod tests {
                 "2:3-33 doc-use SPEC_dom_y |  ()",
             ]
         );
+    }
+
+    #[test]
+    fn test_fallbacks() {
+        let config: SpecsConfig = toml::from_str(
+            r#"
+            [[spec]]
+            name = "css-sizing-4"
+            series = "css-sizing"
+            rendered = "https://drafts.csswg.org/css-sizing-4/"
+            [[spec]]
+            name = "css-sizing-3"
+            shortname = "css-sizing"
+            rendered = "https://drafts.csswg.org/css-sizing-3/"
+            [[spec]]
+            name = "sanitizer-api"
+            successors = ["html"]
+            rendered = "https://wicg.github.io/sanitizer-api/"
+            [[spec]]
+            name = "html"
+            rendered = "https://html.spec.whatwg.org/"
+            "#,
+        )
+        .unwrap();
+        let defined = Defined::Symbols(
+            [
+                "SPEC_css@2Dsizing_stretch",
+                "SPEC_css@2Dsizing@2D4_own",
+                "SPEC_html_sanitize",
+            ]
+            .into_iter()
+            .map(str::to_string)
+            .collect(),
+        );
+        let src = "\
+// https://drafts.csswg.org/css-sizing-4/#stretch
+// https://drafts.csswg.org/css-sizing-4/#own
+// https://wicg.github.io/sanitizer-api/#sanitize
+// https://drafts.csswg.org/css-sizing-4/#missing
+";
+        let (records, stats) = citation_records(src, &[], &config, None, Some(&defined));
+        assert_eq!(
+            summary(&records),
+            vec![
+                // (Its series' current specification's.)
+                "1:3-49 doc-use SPEC_css@2Dsizing_stretch |  ()",
+                "2:3-45 doc-use SPEC_css@2Dsizing@2D4_own |  ()",
+                // (Its successor's.)
+                "3:3-49 doc-use SPEC_html_sanitize |  ()",
+                // (No other spec defines it either.)
+                "4:3-49 doc-use SPEC_css@2Dsizing@2D4_missing |  ()",
+            ]
+        );
+        assert_eq!((stats.citations, stats.fallbacks), (4, 2));
     }
 
     #[test]
@@ -630,7 +764,7 @@ nsNode::Do()
             def(11, 11..12, "Other"),
             def(15, 15..19, "nsNode::Do"),
         ];
-        let (records, stats) = citation_records(src, &defs, &config(), None);
+        let (records, stats) = citation_records(src, &defs, &config(), None, None);
         assert_eq!(
             summary(&records),
             vec![
@@ -658,7 +792,7 @@ nsNode::Do()
         )
         .unwrap();
         let src = "// https://example.spec.whatwg.org/multipage/#concept-widget-poke\n";
-        let (records, _) = citation_records(src, &[], &config, None);
+        let (records, _) = citation_records(src, &[], &config, None, None);
         assert_eq!(
             summary(&records),
             vec!["1:3-65 doc-use SPEC_example_concept@2Dwidget@2Dpoke |  ()"]
@@ -707,7 +841,7 @@ function Locale() {
     // Step 2.
 }
 ";
-        let (records, stats) = citation_records(src, &[], &config(), Some(&titles));
+        let (records, stats) = citation_records(src, &[], &config(), Some(&titles), None);
         assert_eq!(
             summary(&records),
             vec![
@@ -735,7 +869,7 @@ Navigate(int aX)
 
 // Step 2.
 ";
-        let (records, _) = citation_records(src, &[], &config(), None);
+        let (records, _) = citation_records(src, &[], &config(), None, None);
         assert_eq!(
             summary(&records),
             vec![
@@ -769,7 +903,7 @@ class C:
         # Step 2.
     # Step 3.
 ";
-        let (records, stats) = citation_records(src, &[], &config(), None);
+        let (records, stats) = citation_records(src, &[], &config(), None, None);
         assert_eq!(
             summary(&records),
             vec![

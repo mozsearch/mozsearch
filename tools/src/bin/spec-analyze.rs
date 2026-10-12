@@ -2,7 +2,7 @@
 // references to them (see `tools::spec_analyze`).
 //
 // Usage:
-//   spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]
+//   spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]
 //
 // SPECS_TOML lists the specs (`[[spec]]`s, see `spec_analyze::SpecsConfig`),
 // and each spec whose format we analyze gets the analysis of its source
@@ -22,7 +22,10 @@
 // another tree's (ex: firefox-disco's citations of wubspecs' specs), but its
 // ecmarkup specs are if they're in SPEC_FILES_ROOT (that tree's files), for
 // their clauses' names, which comments can cite their sections by (see
-// `citations::Titles`).
+// `citations::Titles`), and the specs' definitions are those of
+// SPEC_INDEX_ROOT's crossref (that tree's index), if it's given, for
+// citations of anchors their specs don't define (see
+// `SpecsConfig::fallbacks`).
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -30,22 +33,25 @@ use std::process::exit;
 use std::time::Instant;
 
 use tools::semantic_analyzer::{file_def_record, write_records};
+use tools::spec_analyze::citations::Defined;
 use tools::spec_analyze::{SpecFormat, SpecsConfig, bikeshed, citations, ecmarkup, wattsi};
 
 fn main() {
     let mut args: Vec<String> = std::env::args().collect();
     let mut citations_only = false;
     let mut spec_files_root: Option<String> = None;
+    let mut spec_index_root: Option<String> = None;
     while args.len() > 1 && args[1].starts_with("--") {
         match args.remove(1).as_str() {
             "--citations-only" => citations_only = true,
             "--spec-files" if args.len() > 1 => spec_files_root = Some(args.remove(1)),
+            "--spec-index" if args.len() > 1 => spec_index_root = Some(args.remove(1)),
             _ => args.clear(),
         }
     }
     if args.len() != 4 && args.len() != 5 {
         eprintln!(
-            "Usage: spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]"
+            "Usage: spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]"
         );
         exit(1);
     }
@@ -56,6 +62,24 @@ fn main() {
     });
     // The files the specs' analysis wrote, which aren't cited from.
     let mut spec_files: HashSet<String> = HashSet::new();
+    // The symbols the specs define: their analysis's, or with
+    // --citations-only, their tree's crossref's.
+    let mut defined = if citations_only {
+        spec_index_root.as_deref().and_then(|root| {
+            let defined = Defined::crossref(Path::new(root));
+            if defined.is_none() {
+                eprintln!("spec-analyze: {}: no crossref", root);
+            }
+            defined
+        })
+    } else {
+        Some(Defined::Symbols(HashSet::new()))
+    };
+    let mut add_defined = |records: &[tools::semantic_analyzer::Record]| {
+        if let Some(defined) = defined.as_mut() {
+            defined.add(records);
+        }
+    };
     // (The specs whose biblios others load first, in the order they load
     // each other's.)
     let biblio_rank = |spec: &tools::spec_analyze::SpecEntry| {
@@ -109,6 +133,7 @@ fn main() {
         match format {
             SpecFormat::Wattsi => {
                 let (records, stats) = wattsi::analyze(&source, spec.shortname(), &config);
+                add_defined(&records);
                 write_records(analysis_root, &path, records);
                 spec_files.insert(path.clone());
                 println!(
@@ -155,6 +180,7 @@ fn main() {
                 }
                 let file_count = files.len();
                 for (file, records) in files {
+                    add_defined(&records);
                     write_records(analysis_root, &file, records);
                     spec_files.insert(file);
                 }
@@ -202,6 +228,7 @@ fn main() {
                 };
                 let file_count = files.len();
                 for (file, records) in files {
+                    add_defined(&records);
                     write_records(analysis_root, &file, records);
                     spec_files.insert(file);
                 }
@@ -230,7 +257,7 @@ fn main() {
         exit(1);
     });
     let started = Instant::now();
-    let (mut files, mut cited, mut steps, mut sections) = (0, 0, 0, 0);
+    let (mut files, mut cited, mut steps, mut sections, mut fallbacks) = (0, 0, 0, 0, 0);
     for path in paths.lines().map(str::trim).filter(|p| !p.is_empty()) {
         if spec_files.contains(path) {
             continue;
@@ -245,7 +272,7 @@ fn main() {
         let analysis_path = analysis_root.join(path);
         let defs = citations::analysis_defs(&analysis_path);
         let (mut records, stats) =
-            citations::citation_records(&source, &defs, &config, Some(&titles));
+            citations::citation_records(&source, &defs, &config, Some(&titles), defined.as_ref());
         if records.is_empty() {
             continue;
         }
@@ -259,11 +286,13 @@ fn main() {
         cited += stats.citations;
         steps += stats.steps;
         sections += stats.sections;
+        fallbacks += stats.fallbacks;
     }
     println!(
-        "Citations: {} of the specs ({} of sections by their titles) and {} of their steps, in {} files, in {:.2}s",
+        "Citations: {} of the specs ({} of sections by their titles, {} of anchors their specs don't define, of their series' or successors') and {} of their steps, in {} files, in {:.2}s",
         cited,
         sections,
+        fallbacks,
         steps,
         files,
         started.elapsed().as_secs_f64()

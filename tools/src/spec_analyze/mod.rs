@@ -94,11 +94,25 @@ pub struct SpecEntry {
     /// spec ("https://drafts.csswg.org/css-grid/" for css-grid-2).
     #[serde(default)]
     pub aliases: Vec<String>,
+    /// The shortname of the spec's series, if it's not its shortname (ex:
+    /// "css-sizing" for css-sizing-4, whose series' current specification,
+    /// css-sizing-3, has the series' shortname), as in the browser-specs
+    /// index.
+    #[serde(default)]
+    pub series: Option<String>,
+    /// The shortnames of the specs which have its content now (ex: "html" for
+    /// sanitizer-api), as the browser-specs index's `obsoletedBy`.
+    #[serde(default)]
+    pub successors: Vec<String>,
 }
 
 impl SpecEntry {
     pub fn shortname(&self) -> &str {
         self.shortname.as_deref().unwrap_or(&self.name)
+    }
+
+    pub fn series(&self) -> &str {
+        self.series.as_deref().unwrap_or(self.shortname())
     }
 
     pub fn dir(&self) -> &str {
@@ -138,6 +152,26 @@ impl SpecsConfig {
             .iter()
             .find(|spec| spec.shortname() == shortname)?;
         Some(format!("{}#{}", spec.rendered.as_deref()?, anchor))
+    }
+
+    /// The specs (by their shortnames) whose anchors a citation of an anchor
+    /// `spec` doesn't define is of, if one of them defines it, in order (see
+    /// `citations::citation_records`): the other specs of its series, its
+    /// series' current specification first (ex: css-sizing for css-sizing-4,
+    /// and then css-sizing-4 for css-sizing), and then its successors.
+    pub fn fallbacks<'a>(&'a self, spec: &'a SpecEntry) -> Vec<&'a str> {
+        let series = spec.series();
+        let mut fallbacks: Vec<&str> = self
+            .specs
+            .iter()
+            .filter(|other| other.series() == series && other.shortname() != spec.shortname())
+            .map(SpecEntry::shortname)
+            .collect();
+        fallbacks.sort_by_key(|shortname| *shortname != series);
+        fallbacks.extend(spec.successors.iter().map(String::as_str));
+        let mut seen = std::collections::HashSet::new();
+        fallbacks.retain(|shortname| seen.insert(*shortname));
+        fallbacks
     }
 
     /// The symbol a URL to one of the specs names, if it's to one of them
@@ -652,5 +686,43 @@ mod tests {
         );
         assert_eq!(sym("https://dom.spec.whatwg.org/"), None);
         assert_eq!(sym("https://url.spec.whatwg.org/#concept-url"), None);
+    }
+
+    #[test]
+    fn test_fallbacks() {
+        let config: SpecsConfig = toml::from_str(
+            r#"
+            [[spec]]
+            name = "css-sizing-4"
+            series = "css-sizing"
+            [[spec]]
+            name = "css-sizing-3"
+            shortname = "css-sizing"
+            [[spec]]
+            name = "css-sizing-5"
+            series = "css-sizing"
+            [[spec]]
+            name = "sanitizer-api"
+            successors = ["html"]
+            [[spec]]
+            name = "html"
+            "#,
+        )
+        .unwrap();
+        let fallbacks = |name: &str| {
+            let spec = config.specs.iter().find(|s| s.name == name).unwrap();
+            config.fallbacks(spec)
+        };
+        // (The series' current specification first.)
+        assert_eq!(
+            fallbacks("css-sizing-4"),
+            vec!["css-sizing", "css-sizing-5"]
+        );
+        assert_eq!(
+            fallbacks("css-sizing-3"),
+            vec!["css-sizing-4", "css-sizing-5"]
+        );
+        assert_eq!(fallbacks("sanitizer-api"), vec!["html"]);
+        assert_eq!(fallbacks("html"), Vec::<&str>::new());
     }
 }
