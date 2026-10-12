@@ -1579,6 +1579,20 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             }));
           }
 
+          // A web spec's algorithm (or abstract operation), beside the code
+          // citing it and its steps (in the tree of its definition; see
+          // `format::format_algorithm`).
+          if (jumpref.jumps.def && jumpref.meta?.implKind === "spec" &&
+              ["specAlgorithm", "specAbstractOp"].includes(jumpref.meta.kind)) {
+            jumpMenuItems.push(new GotoMenuItem({
+              html: this.fmt("Show <strong>_</strong> beside the code citing it", pretty),
+              href: `/${jumpTree}/algorithm/${jumpref.sym}`,
+              icon: "export-alt",
+              section: "jumps",
+              confidence,
+            }));
+          }
+
           if (jumpref.jumps.decl && jumpref.jumps.decl !== sourceLineClicked) {
             jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to declaration of <strong>_</strong>", pretty),

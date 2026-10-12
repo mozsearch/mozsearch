@@ -71,6 +71,22 @@ add_task(async function test_series_fallback_citation() {
     });
 });
 
+// A citation of an algorithm can show the algorithm beside the code citing it
+// (see test_RenderedSpecs.js), in its spec's tree.
+add_task(async function test_citation_algorithm_view() {
+  await TestUtils.loadPath("/searchfox/source/tests/tests/files/spec_citations.cpp");
+  const span = frame.contentDocument.querySelector(
+    '#line-11 span[data-symbols="SPEC_example_concept@2Dwidget@2Dpoke"]');
+  TestUtils.click(span);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the citation");
+  const item = [...menu.querySelectorAll("a")]
+    .find(a => a.textContent.includes("example poke beside the code citing it"));
+  is(item?.getAttribute("href"), "/tests/algorithm/SPEC_example_concept@2Dwidget@2Dpoke",
+     "The menu shows the algorithm beside the code citing it, in its spec's tree");
+  frame.contentWindow.ContextMenu.hide();
+});
+
 // Searching a linked tree for a spec's symbol has the tests tree's results
 // (the spec's definition and uses) in their own section, linking to its files.
 add_task(async function test_linked_search_results() {
