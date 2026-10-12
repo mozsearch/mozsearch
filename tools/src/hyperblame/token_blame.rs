@@ -21,7 +21,7 @@ use git2::{Commit, Oid, Repository};
 
 use crate::cinnabar::OldRevisionMap;
 use crate::file_format::config::{ThreadLocalRepository, timeline_commit_to_meta};
-use crate::file_format::history::syntax_files::{split_token_line, token_file_lines};
+use crate::file_format::history::syntax_files::{TokenClass, split_token_line, token_file_lines};
 use crate::file_format::history::syntax_files_struct::FileStructureHeader;
 use crate::file_format::history::timeline_annotated::{HyperLineData, RemovalMarker};
 use crate::source_mapping::{NotesRefs, SourceMapping, default_notes_ref};
@@ -102,9 +102,39 @@ impl TreeHistory {
         path: &str,
     ) -> Result<Option<FileHistory>, TokenBlameError> {
         let meta = timeline_commit_to_meta(timeline_commit);
-        let syntax_tree = self.syntax.find_commit(meta.syntax_rev)?.tree()?;
         let timeline_tree = timeline_commit.tree()?;
+        let Some((lang, syntax)) = self.lang_and_syntax(timeline_commit, path)? else {
+            return Ok(None);
+        };
+        let annotated = read_path(
+            &self.timeline,
+            &timeline_tree,
+            &format!("annotated/{}", path),
+        )?;
+        match annotated {
+            Some(annotated) => Ok(Some(FileHistory {
+                path: path.to_string(),
+                source_rev: meta.source_rev,
+                lang,
+                syntax,
+                annotated,
+            })),
+            None => Err(TokenBlameError::BadHistory(format!(
+                "files-struct/{} without its annotated file",
+                path
+            ))),
+        }
+    }
 
+    /// The language `path` was tokenized as and its tokens' "files/PATH" lines
+    /// as of `timeline_commit`, or None if the history doesn't have the file.
+    fn lang_and_syntax(
+        &self,
+        timeline_commit: &Commit,
+        path: &str,
+    ) -> Result<Option<(String, String)>, TokenBlameError> {
+        let meta = timeline_commit_to_meta(timeline_commit);
+        let syntax_tree = self.syntax.find_commit(meta.syntax_rev)?.tree()?;
         let Some(files_struct) = read_path(
             &self.syntax,
             &syntax_tree,
@@ -119,26 +149,51 @@ impl TreeHistory {
         let lang = header
             .lang
             .ok_or_else(|| TokenBlameError::BadHistory("files-struct has no lang".to_string()))?;
-
-        let syntax = read_path(&self.syntax, &syntax_tree, &format!("files/{}", path))?;
-        let annotated = read_path(
-            &self.timeline,
-            &timeline_tree,
-            &format!("annotated/{}", path),
-        )?;
-        match (syntax, annotated) {
-            (Some(syntax), Some(annotated)) => Ok(Some(FileHistory {
-                path: path.to_string(),
-                source_rev: meta.source_rev,
-                lang,
-                syntax,
-                annotated,
-            })),
-            _ => Err(TokenBlameError::BadHistory(format!(
-                "files-struct/{} without its files or annotated file",
+        match read_path(&self.syntax, &syntax_tree, &format!("files/{}", path))? {
+            Some(syntax) => Ok(Some((lang, syntax))),
+            None => Err(TokenBlameError::BadHistory(format!(
+                "files-struct/{} without its files",
                 path
             ))),
         }
+    }
+
+    /// The byte ranges and classes of the tokens of `source`, which must be
+    /// the contents of `path` in the revision `timeline_commit` describes, in
+    /// the history's order (token N is the Nth), checked against the history's
+    /// tokens as `blame_tokens` checks them, or None if the history doesn't
+    /// have the file.  (Without reading the annotated file, which can be large,
+    /// ex: ~110 MB for the HTML Standard's `source`.)
+    pub fn token_ranges(
+        &self,
+        timeline_commit: &Commit,
+        path: &str,
+        source: &str,
+    ) -> Result<Option<Vec<(Range<usize>, TokenClass)>>, TokenBlameError> {
+        let Some((lang, syntax)) = self.lang_and_syntax(timeline_commit, path)? else {
+            return Ok(None);
+        };
+        let profile =
+            profile_for_lang(&lang).ok_or_else(|| TokenBlameError::UnknownLang(lang.clone()))?;
+        let tokenized =
+            hypertokenize_with_profile(profile, source).map_err(TokenBlameError::Tokenize)?;
+        let syntax_lines = token_file_lines(&syntax);
+        if syntax_lines.len() != tokenized.tokenized.len() {
+            return Err(TokenBlameError::TokenMismatch(
+                syntax_lines.len().min(tokenized.tokenized.len()),
+            ));
+        }
+        let mut ranges = Vec::with_capacity(syntax_lines.len());
+        for (index, (ours, theirs)) in tokenized.tokenized.iter().zip(syntax_lines).enumerate() {
+            let (ours, theirs) = (split_token_line(ours), split_token_line(theirs));
+            if ours.token != theirs.token {
+                return Err(TokenBlameError::TokenMismatch(index));
+            }
+            let start =
+                tokenized.offsets[index].ok_or(TokenBlameError::TokenMismatch(index))? as usize;
+            ranges.push((start..start + ours.token.len(), theirs.effective_class()));
+        }
+        Ok(Some(ranges))
     }
 }
 
