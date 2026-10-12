@@ -2160,11 +2160,17 @@ fn write_deferred_journals(import_helper: &mut FastImport, parent: &TimelineRepo
 struct MergeParents<'r> {
     repo: &'r Repository,
     trees: Vec<git2::Tree<'r>>,
+    /// The tree of a two-parent merge's merge base, if it has one, for the
+    /// journals only the first parent changed (see `union_journal`), and its
+    /// commit's oid (for the threads' own `MergeParents`).
+    base: Option<git2::Tree<'r>>,
+    base_oid: Option<Oid>,
 }
 
 impl<'r> MergeParents<'r> {
-    /// The parents with the given hex ids.
-    fn new(repo: &'r Repository, parent_revs: &[String]) -> Self {
+    /// The parents with the given hex ids, and their merge base, if known
+    /// (see `merge_base`).
+    fn new(repo: &'r Repository, parent_revs: &[String], base: Option<Oid>) -> Self {
         let trees = parent_revs
             .iter()
             .map(|rev| {
@@ -2173,7 +2179,24 @@ impl<'r> MergeParents<'r> {
                     .unwrap()
             })
             .collect();
-        MergeParents { repo, trees }
+        let base_oid = base;
+        let base = base.and_then(|oid| repo.find_commit(oid).and_then(|c| c.tree()).ok());
+        MergeParents {
+            repo,
+            trees,
+            base,
+            base_oid,
+        }
+    }
+
+    /// The merge base of a two-parent merge's parents (with the given hex
+    /// ids), if they have one.
+    fn merge_base(repo: &Repository, parent_revs: &[String]) -> Option<Oid> {
+        let [first, second] = parent_revs else {
+            return None;
+        };
+        repo.merge_base(Oid::from_str(first).ok()?, Oid::from_str(second).ok()?)
+            .ok()
     }
 
     /// The oid of the object at the given path in the `i`th parent, if any.
@@ -2243,7 +2266,8 @@ fn checkpoint(import_helper: &mut FastImport, mark: usize) {
 }
 
 /// The union of the journal at `path` across all parents (whose hex ids are
-/// `parent_revs`), if the parents' versions differ.
+/// `parent_revs`), if the parents' versions differ: the files to write (the
+/// journal and its segments) which differ from the first parent's.
 fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
     parents: &MergeParents,
     parent_revs: &[String],
@@ -2261,6 +2285,33 @@ fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
         // The tree already has the first parent's version.
         return vec![];
     }
+    // A journal which only the first parent changed since the merge base is
+    // the first parent's: the second parent's version is the base's, whose
+    // records the first parent's history has, so the second parent adds
+    // nothing (ex: hg's merges of closed branches into default, bookkeeping
+    // which differs from its old branch heads in ~130k files).  The union
+    // would only bring back the base's records which the first parent
+    // dropped, ex: of a file it deleted and added again, whose history
+    // started over.
+    let base_oids = parents.base.as_ref().map(|base| {
+        let oid = |path: &Path| base.get_path(path).ok().map(|entry| entry.id());
+        (oid(path), oid(&dir))
+    });
+    if base_oids.is_some_and(|base| oids[1..].iter().all(|oid| *oid == base)) {
+        return vec![];
+    }
+    union_journal_texts::<H, R>(parents, parent_revs, path, &oids, keep_from)
+}
+
+/// `union_journal`'s union, of the parents' versions (whose ids at the
+/// journal's path and its segments' directory are `oids`).
+fn union_journal_texts<H: DeserializeOwned + Default + Serialize, R: Summarize>(
+    parents: &MergeParents,
+    parent_revs: &[String],
+    path: &Path,
+    oids: &[(Option<Oid>, Option<Oid>)],
+    keep_from: Option<i32>,
+) -> Vec<(PathBuf, String)> {
     let segmented = oids.iter().any(|(_, dir)| dir.is_some());
     let blobs: Vec<(JournalVersionRef, Vec<u8>)> = (0..parent_revs.len())
         .zip(parent_revs)
@@ -2396,6 +2447,7 @@ fn merge_journals(
         return;
     }
     let repo_path = parents.repo.path();
+    let base = parents.base_oid;
     let (job_tx, job_rx) = channel::<usize>();
     let job_rx = Mutex::new(job_rx);
     let (result_tx, result_rx) = channel::<(usize, Vec<(PathBuf, String)>)>();
@@ -2405,7 +2457,7 @@ fn merge_journals(
             let result_tx = result_tx.clone();
             scope.spawn(move || {
                 let repo = Repository::open(repo_path).unwrap();
-                let parents = MergeParents::new(&repo, parent_revs);
+                let parents = MergeParents::new(&repo, parent_revs, base);
                 loop {
                     let Ok(idx) = job_rx.lock().unwrap().recv() else {
                         break;
@@ -3601,11 +3653,12 @@ fn main() {
                     .iter()
                     .map(|parent| import_helper.commit_rev(parent))
                     .collect();
+                let base = MergeParents::merge_base(&timeline_repo, &parent_revs);
                 process_merge_revision(
                     &mut import_helper,
                     &data,
                     merge,
-                    &MergeParents::new(&timeline_repo, &parent_revs),
+                    &MergeParents::new(&timeline_repo, &parent_revs, base),
                     &parent_revs,
                 );
                 BTreeMap::new()

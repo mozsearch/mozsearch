@@ -23,8 +23,10 @@
 //!
 //! ## Merges
 //!
-//! Merges union their parents' versions of a journal (`merge_journal_versions`),
-//! and the parents may have summarized the same week independently.  Summaries
+//! Merges union their parents' versions of a journal (`merge_journal_versions`;
+//! but a journal which only the first parent changed since the merge base is
+//! the first parent's, see build-timeline-tree's `union_journal`), and the
+//! parents may have summarized the same week independently.  Summaries
 //! with the same source revisions are deduplicated, and overlapping ones are
 //! expanded and summarized again with their preds as preds (unless one of them
 //! covers the others, which is kept).
