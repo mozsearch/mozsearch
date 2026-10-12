@@ -1,0 +1,78 @@
+Subject: fast-import: don't look up new objects in the packs it wrote
+
+git fast-import looks each object it stores up in its object table, and
+then in every pack, to skip storing objects the repo has.  The packs
+include those it wrote itself, one for each checkpoint (and kept until it
+exits), whose objects are all in its object table already, so for a new
+object, looking it up in them only takes time.  For mozsearch's history
+repos, whose writer checkpoints up to 150 times per run, finding objects in
+packs was 17% of git fast-import's time, nearly all of it in its own packs
+(59 of the 63 at one point).
+
+Mark the packs it writes, and only look objects up in the others.
+
+---
+--- a/packfile.h
++++ b/packfile.h
+@@ -33,7 +33,8 @@
+ 		 do_not_close:1,
+ 		 pack_promisor:1,
+ 		 multi_pack_index:1,
+-		 is_cruft:1;
++		 is_cruft:1,
++		 written_by_fast_import:1;
+ 	unsigned char hash[GIT_MAX_RAWSZ];
+ 	struct revindex_entry *revindex;
+ 	const uint32_t *revindex_data;
+--- a/builtin/fast-import.c
++++ b/builtin/fast-import.c
+@@ -943,6 +943,7 @@
+ 		new_p = packfile_store_load_pack(files->packed, idx_name, 1);
+ 		if (!new_p)
+ 			die(_("core Git rejected index %s"), idx_name);
++		new_p->written_by_fast_import = 1;
+ 		all_packs[pack_id] = new_p;
+ 		free(idx_name);
+ 
+@@ -987,6 +988,23 @@
+ 	start_packfile();
+ }
+ 
++/*
++ * Whether a pack which this process didn't write has the object: the objects
++ * in the packs it wrote are in its object table, which insert_object() has
++ * looked the object up in, so looking it up in those packs too (one more for
++ * each checkpoint) would only slow down storing each new object.
++ */
++static int in_other_pack(struct odb_source_files *files, const struct object_id *oid)
++{
++	struct packfile_list_entry *packs;
++
++	for (packs = packfile_store_get_packs(files->packed); packs; packs = packs->next)
++		if (!packs->pack->written_by_fast_import &&
++		    find_pack_entry_one(oid, packs->pack))
++			return 1;
++	return 0;
++}
++
+ static int store_object(
+ 	enum object_type type,
+ 	struct strbuf *dat,
+@@ -1024,7 +1042,7 @@
+ 	for (source = the_repository->objects->sources; source; source = source->next) {
+ 		struct odb_source_files *files = odb_source_files_downcast(source);
+ 
+-		if (!packfile_list_find_oid(packfile_store_get_packs(files->packed), &oid))
++		if (!in_other_pack(files, &oid))
+ 			continue;
+ 		e->type = type;
+ 		e->pack_id = MAX_PACK_ID;
+@@ -1232,7 +1250,7 @@
+ 	for (source = the_repository->objects->sources; source; source = source->next) {
+ 		struct odb_source_files *files = odb_source_files_downcast(source);
+ 
+-		if (!packfile_list_find_oid(packfile_store_get_packs(files->packed), &oid))
++		if (!in_other_pack(files, &oid))
+ 			continue;
+ 		e->type = OBJ_BLOB;
+ 		e->pack_id = MAX_PACK_ID;

@@ -1,5 +1,6 @@
 # git, with fixes for git fast-import's scaling to repos with millions of
-# distinct file names and for its hashing of packs (see the patches), for the
+# distinct file names, for its hashing of packs, and for its looking objects
+# up in the packs it wrote (see the patches), for the
 # tools which write repos with git fast-import (ex: the history tools).  The
 # tools find it via MOZSEARCH_GIT; see `fast_import_git` in
 # tools/src/git_ops.rs.  Scripts working on those repos run it as
@@ -16,6 +17,7 @@ gitMinimal.overrideAttrs (old: {
     ++ [
       ./git-fast-import-grow-atom-table.patch
       ./git-fast-import-hash-packs-once.patch
+      ./git-fast-import-skip-own-packs.patch
     ];
   # OpenSSL's SHA-1 (which uses the CPU's SHA instructions) rather than git's
   # collision-detecting one, which was ~15% of git fast-import's time for
