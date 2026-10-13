@@ -55,7 +55,7 @@ use crate::file_format::analysis::{
     AnalysisSource, BindingImplKind, BindingSlotLang, ExpansionInfo, WithLocation,
     collect_file_syms_from_source,
 };
-use crate::file_format::config::{Config, GitData, TreeConfig};
+use crate::file_format::config::{self, Config, GitData, SearchEndpoint, TreeConfig};
 use crate::file_format::history::syntax_files::{split_token_line, token_file_lines};
 use crate::output::{
     self, BreadcrumbsLinksTo, F, Options, PanelItem, PanelItemLabel, PanelSection, RevisionData,
@@ -2677,11 +2677,7 @@ impl rendered_docs::Links for DocLinks<'_> {
     }
 
     fn search_url(&self, query: &str) -> String {
-        format!(
-            "/{}/search?q={}",
-            self.tree_name,
-            urlencoding::encode(query)
-        )
+        config::search_link(self.tree_name, query, true)
     }
 
     fn tree_name(&self) -> &str {
@@ -3903,6 +3899,8 @@ fn format_tree(
         "coverage": coverage,
         "coverage_history": coverage_history,
         "panel": panel,
+        "search_url": config::search_url(tree_name),
+        "query_search": config::search_endpoint(tree_name) == SearchEndpoint::Query,
     });
 
     let template = build_and_parse_dir_listing();

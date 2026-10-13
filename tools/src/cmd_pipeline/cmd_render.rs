@@ -6,6 +6,7 @@ use crate::{
     abstract_server::{
         AbstractServer, ErrorDetails, ErrorLayer, Result, SearchfoxIndexRoot, ServerError,
     },
+    file_format::config::{self, SearchEndpoint},
     file_utils::write_file_ensuring_parent_dir,
     templating::builder::{
         build_and_parse_help_index, build_and_parse_search_template, build_and_parse_settings,
@@ -48,6 +49,8 @@ impl PipelineCommand for RenderCommand {
                     "tree": tree_info.name,
                     // the header always needs this
                     "query": "",
+                    "search_url": config::search_url(&tree_info.name),
+                    "query_search": config::search_endpoint(&tree_info.name) == SearchEndpoint::Query,
                 });
                 let rendered = match template.render(&liquid_globals) {
                     Ok(r) => r,
@@ -74,6 +77,8 @@ impl PipelineCommand for RenderCommand {
                     "tree": tree_info.name,
                     // the header always needs this
                     "query": "",
+                    "search_url": config::search_url(&tree_info.name),
+                    "query_search": config::search_endpoint(&tree_info.name) == SearchEndpoint::Query,
                     "content": content,
                 });
                 let rendered = match template.render(&liquid_globals) {
@@ -97,6 +102,8 @@ impl PipelineCommand for RenderCommand {
                     "tree": tree_info.name,
                     // the header always needs this
                     "query": "",
+                    "search_url": config::search_url(&tree_info.name),
+                    "query_search": config::search_endpoint(&tree_info.name) == SearchEndpoint::Query,
                 });
                 let rendered = match template.render(&liquid_globals) {
                     Ok(r) => r,

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
+
+# The tree's C++, compiled with the indexer for one platform (and merged, like
+# trees with several platforms' analyses; see tests/tests/build-c.sh).
+
+echo "Performing build::build-c step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
+mkdir -p $OBJDIR
+$MOZSEARCH_PATH/scripts/indexer-setup.py > $INDEX_ROOT/config
+source $INDEX_ROOT/config
+
+cd $FILES_ROOT
+for SRC_FILE in $(git ls-files '*.cpp'); do
+    mkdir -p $(dirname $OBJDIR/$SRC_FILE)
+    MOZSEARCH_PLATFORM=linux64 $CXX $SRC_FILE -std=c++17 -I . -c -o $OBJDIR/${SRC_FILE%.cpp}.o -Wall
+done
+mv $INDEX_ROOT/analysis $INDEX_ROOT/analysis-linux64
+mkdir -p $INDEX_ROOT/analysis
+pushd $INDEX_ROOT/analysis-linux64
+find . -type f | sed 's#^\./##' | while read -r FILE; do
+    mkdir -p $(dirname $INDEX_ROOT/analysis/$FILE)
+    merge-analyses $FILE > $INDEX_ROOT/analysis/$FILE
+done
+popd
+rm -rf $INDEX_ROOT/analysis-linux64

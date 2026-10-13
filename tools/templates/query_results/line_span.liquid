@@ -15,7 +15,11 @@
 {{ line_span.contents }}
 {%- if line_span.context != empty -%}
 {%- if line_span.contextsym != empty -%}
+{%- if tree == search_tree and query_search -%}
+<span class="result-context">// found in <code><a href="{{ search_url }}?q=symbol:{{ line_span.contextsym | url_encode }}">{{ line_span.context | escape }}</a></code></span>
+{%- else -%}
 <span class="result-context">// found in <code><a href="/{{tree}}/search?q=symbol:{{ line_span.contextsym | url_encode }}&amp;redirect=false">{{ line_span.context | escape }}</a></code></span>
+{%- endif -%}
 {%- else -%}
 <span class="result-context">// found in <code>{{ line_span.context | escape }}</code></span>
 {%- endif -%}

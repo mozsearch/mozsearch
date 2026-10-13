@@ -15,6 +15,7 @@ pub use crate::abstract_server::{AbstractServer, Result};
 use crate::{
     abstract_server::{FileMatches, TextMatches, TextPattern},
     file_format::{
+        config,
         crossref::CrossrefData,
         jumpref::{JumprefData, convert_crossref_value_to_sym_info_rep},
         recency::Recency,
@@ -1072,9 +1073,12 @@ impl FlattenedLineSpan {
                 context
             } else {
                 format!(
-                    r#"<a href="/{}/search?q=symbol:{}&amp;redirect=false">{}</a>"#,
-                    tree,
-                    urlencoding::encode(&self.contextsym),
+                    r#"<a href="{}">{}</a>"#,
+                    escape(&config::search_link(
+                        tree,
+                        &format!("symbol:{}", self.contextsym),
+                        false
+                    )),
                     context
                 )
             };

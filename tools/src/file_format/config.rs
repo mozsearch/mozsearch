@@ -4,6 +4,7 @@ use std::io::BufReader;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::str;
+use std::sync::{LazyLock, RwLock};
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -15,6 +16,56 @@ use crate::cinnabar::OldRevisionMap;
 use crate::hyperblame::token_blame::TreeHistory;
 use crate::source_mapping::{NotesRefs, SourceMapping, default_notes_ref};
 use crate::url_encode_path::url_encode_path;
+
+/// Where a tree's pages send searches (see `TreeConfigPaths::search_endpoint`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SearchEndpoint {
+    /// router.py's `/{tree}/search`, whose search box has a path filter and
+    /// case and regexp options, and shows results as you type.
+    #[default]
+    Search,
+    /// The pipeline-server's `/{tree}/query/default`, whose search box is a
+    /// single field submitted with Enter: many of its terms (ex: `calls-to:`)
+    /// only make sense once typed in full.
+    Query,
+}
+
+/// The trees' search endpoints, by name, as of the last `load`: pages' search
+/// boxes and links are generated in many places which only have the tree's
+/// name (see `search_url`).
+static SEARCH_ENDPOINTS: LazyLock<RwLock<HashMap<String, SearchEndpoint>>> =
+    LazyLock::new(Default::default);
+
+/// Where the tree's pages send searches (see `SearchEndpoint`).
+pub fn search_endpoint(tree_name: &str) -> SearchEndpoint {
+    SEARCH_ENDPOINTS
+        .read()
+        .unwrap()
+        .get(tree_name)
+        .copied()
+        .unwrap_or_default()
+}
+
+/// The URL the tree's search box sends its searches to (with `q`).
+pub fn search_url(tree_name: &str) -> String {
+    match search_endpoint(tree_name) {
+        SearchEndpoint::Search => format!("/{}/search", tree_name),
+        SearchEndpoint::Query => format!("/{}/query/default", tree_name),
+    }
+}
+
+/// A link from the tree's pages to the search for `q`.  (router.py's
+/// `/search` goes to a search's only result unless `redirect_single`.)
+pub fn search_link(tree_name: &str, q: &str, redirect_single: bool) -> String {
+    // (Colons, as in `symbol:`, are fine in query strings.)
+    let q = urlencoding::encode(q).replace("%3A", ":");
+    let url = format!("{}?q={}", search_url(tree_name), q);
+    match search_endpoint(tree_name) {
+        SearchEndpoint::Search if !redirect_single => url + "&redirect=false",
+        _ => url,
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -137,6 +188,11 @@ pub struct TreeConfigPaths {
     /// citations with the linked tree's `specs.toml` (for `SPEC_`).
     #[serde(default)]
     pub linked_trees: BTreeMap<String, String>,
+    /// Where the tree's pages send searches: router.py's `/search` (the
+    /// default), or the pipeline-server's `/query/default` (`"query"`); see
+    /// `SearchEndpoint` and `search_url`.
+    #[serde(default)]
+    pub search_endpoint: SearchEndpoint,
 }
 
 impl TreeConfigPaths {
@@ -724,6 +780,13 @@ pub fn load(
     let mut input = String::new();
     reader.read_to_string(&mut input).unwrap();
     let config: ConfigJson = serde_json::from_str(&input).unwrap();
+
+    SEARCH_ENDPOINTS.write().unwrap().extend(
+        config
+            .trees
+            .iter()
+            .map(|(name, paths)| (name.clone(), paths.search_endpoint)),
+    );
 
     let tree_index_paths = config
         .trees

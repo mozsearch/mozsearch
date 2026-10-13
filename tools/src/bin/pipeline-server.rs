@@ -23,6 +23,7 @@ use tools::{
         facets::{FacetFile, PathKinds, PpFacet, file_facets, last_changed_facet},
         interface::FlattenedResultsBundle,
     },
+    file_format::config::{self, SearchEndpoint},
     file_format::jumpref::{
         JumprefData, JumprefTraversals, determine_desired_extra_syms_from_jumpref,
         extra_syms_next_step_lookups,
@@ -348,6 +349,10 @@ async fn handle_query(
             "query": query.clone(),
             "preset": preset.clone(),
             "tree": tree.clone(),
+            // (The page's tree's, for its own results; see line_span.liquid.)
+            "search_tree": tree.clone(),
+            "search_url": config::search_url(&tree),
+            "query_search": config::search_endpoint(&tree) == SearchEndpoint::Query,
             "logs": logs,
             "debug": maybe_log,
             "SYM_INFO_STR": sym_info_str,

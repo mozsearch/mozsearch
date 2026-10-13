@@ -6,6 +6,7 @@ use std::{borrow::Cow, io::Write};
 use chrono::{DateTime, FixedOffset, Local};
 use serde::Serialize;
 
+use crate::file_format::config::{self, SearchEndpoint};
 use crate::url_encode_path::url_encode_path;
 
 /// Selects where breadcrumbs links should point to
@@ -166,7 +167,11 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
     ];
     head_seq.extend(css_tags);
 
-    let fieldset = vec![
+    // Trees searching with the pipeline-server's /query/ have a single field,
+    // submitted with Enter (see `config::SearchEndpoint`).
+    let query_search = config::search_endpoint(opt.tree_name) == SearchEndpoint::Query;
+
+    let mut fieldset = vec![
         F::S(r#"<div id="query-section">"#),
         F::Indent(vec![
             F::S(r#"<label for="query" class="query_label visually-hidden">Find</label>"#),
@@ -183,6 +188,8 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
             F::S(r#"<section id="spinner"></section>"#),
         ]),
         F::S("</div>"),
+    ];
+    let search_options = vec![
         F::S(r#"<div id="option-section" class="v-flex-container">"#),
         F::Indent(vec![
             F::S(r#"<label for="case">"#),
@@ -212,6 +219,9 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
         ]),
         F::S("</div>"),
     ];
+    if !query_search {
+        fieldset.extend(search_options);
+    }
 
     let revision = match opt.revision {
         Some(RevisionData { rev, desc, date }) => {
@@ -232,14 +242,21 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
         None => vec![],
     };
 
+    let submit = if query_search {
+        F::S(r#"<input type="submit" value="Search" class="visually-hidden" />"#)
+    } else {
+        F::Seq(vec![
+            F::S(
+                "<!-- disabled to avoid enter-submits behavior that conflicts with JS search logic -->",
+            ),
+            F::S(r#"<input type="submit" value="Search" disabled class="visually-hidden" />"#),
+        ])
+    };
     let form = vec![
         F::S("<fieldset>"),
         F::Indent(fieldset),
         F::S("</fieldset>"),
-        F::S(
-            "<!-- disabled to avoid enter-submits behavior that conflicts with JS search logic -->",
-        ),
-        F::S(r#"<input type="submit" value="Search" disabled class="visually-hidden" />"#),
+        submit,
         F::S(r#"<div id="revision">"#),
         F::Indent(revision),
         F::S("</div>"),
@@ -262,8 +279,8 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
         F::Indent(vec![
             F::S(r#"<div id="fixed-header">"#),
             F::T(format!(
-                r#"<form method="get" action="/{}/search" class="search-box" id="search-box">"#,
-                opt.tree_name
+                r#"<form method="get" action="{}" class="search-box" id="search-box">"#,
+                config::search_url(opt.tree_name)
             )),
             F::Indent(form),
             F::S("</form>"),
@@ -331,8 +348,10 @@ pub fn generate_footer(
             F::Indent(vec![F::S("</div>")]),
             date,
             F::T(format!(
-                r#"<span id="data" data-root="/" data-search="/{}/search" data-tree="{}" data-path="{}"></span>"#,
-                tree_name, tree_name, path
+                r#"<span id="data" data-root="/" data-search="{}" data-tree="{}" data-path="{}"></span>"#,
+                config::search_url(tree_name),
+                tree_name,
+                path
             )),
             F::S(r#"<script src="/tree-list.js"></script>"#),
             F::Seq(script_tags),

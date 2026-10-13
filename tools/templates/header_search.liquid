@@ -20,7 +20,7 @@
 
 <body>
 <div id="fixed-header">
-  <form method="get" action="/{{tree}}/search" class="search-box" id="search-box">
+  <form method="get" action="{{ search_url }}" class="search-box" id="search-box">
     <fieldset>
       <div id="query-section">
         <label for="query" class="query_label visually-hidden">Find</label>
@@ -31,6 +31,7 @@
         </div>
         <section id="spinner"></section>
       </div>
+      {%- unless query_search %}
       <div id="option-section" class="v-flex-container">
         <label for="case">
           <input type="checkbox" name="case" id="case" class="option-checkbox" value="true" accesskey="c" /><span class="access-key">C</span>ase-sensitive
@@ -47,12 +48,19 @@
           </div>
         </div>
       </div>
+      {%- endunless %}
     </fieldset>
+    {%- if query_search %}
+    <!-- Trees searching with the pipeline-server's /query/ have a single
+         field, submitted with Enter. -->
+    <input type="submit" value="Search" class="visually-hidden" />
+    {%- else %}
     <!-- We're marking this disabled in order to avoid the user pressing enter
          triggering the default submit behavior and conflicting with our dynamic
          logic. -->
     <input type="submit" value="Search" disabled class="visually-hidden" />
-    <span id="data" data-root="/" data-search="/{{tree}}/search" data-tree="{{tree}}"></span>
+    {%- endif %}
+    <span id="data" data-root="/" data-search="{{ search_url }}" data-tree="{{tree}}"></span>
     {%- if rev_box %}
       <div id="revision">
         {%- assign human_date = rev_box.date | date: "%F" -%}

@@ -2,6 +2,22 @@ function atUnescape(text) {
   return text.replace(/@([0-9A-F][0-9A-F])/g, (_, s) => String.fromCharCode(parseInt(s, 16)));
 }
 
+// The URL of the search for `encodedQuery` (a URL-encoded `q`) on `tree`.
+// Pages search with router.py's /search, whose links here shouldn't go to a
+// search's only result, or, on trees searching with the pipeline-server's
+// /query/default (the #data element's data-search; see `config::search_url`),
+// there, in the context of the try push whose pages these are, if any
+// (data-search-rev).
+function searchUrl(tree, encodedQuery) {
+  const data = document.getElementById("data");
+  const search = data?.getAttribute("data-search");
+  if (data?.getAttribute("data-tree") == tree && search?.endsWith("/query/default")) {
+    const rev = data.getAttribute("data-search-rev");
+    return `${search}?q=${encodedQuery}${rev ? `&rev=${encodeURIComponent(rev)}` : ""}`;
+  }
+  return `/${tree}/search?q=${encodedQuery}&redirect=false`;
+}
+
 class ContextMenuBase {
   constructor() {
     this.menu = null;
@@ -412,7 +428,7 @@ class SearchMenuItem extends MenuItem {
 
   updateHref() {
     const syms = encodeURIComponent(this.syms.join(","));
-    this.href = `/${this.tree}/search?q=symbol:${syms}&redirect=false`;
+    this.href = searchUrl(this.tree, `symbol:${syms}`);
   }
 
   toKey() {
@@ -1757,7 +1773,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
               if (overriddenBy.length > MAX_OVERRIDEN_BY_LINKS) {
                 submenuItems.push(new MenuItem({
                   html: `Show all (${MAX_OVERRIDEN_BY_LINKS} out of ${overriddenBy.length} listed below)`,
-                  href: `/${tree}/search?q=symbol:${sym}&redirect=false`,
+                  href: searchUrl(tree, `symbol:${encodeURIComponent(sym)}`),
                   section: "symbol-searches",
                   icon: "search",
                 }));
@@ -2260,7 +2276,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         // A word was clicked on.
         textSearchMenuItems.push(new MenuItem({
           html: this.fmt("Search for the substring <strong>_</strong>", word),
-          href: `/${tree}/search?q=${encodeURIComponent(word)}&redirect=false`,
+          href: searchUrl(tree, encodeURIComponent(word)),
           icon: "font",
           section: "text-searches",
         }));

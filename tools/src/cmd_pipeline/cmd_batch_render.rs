@@ -6,6 +6,7 @@ use crate::{
     abstract_server::{
         AbstractServer, ErrorDetails, ErrorLayer, Result, SearchfoxIndexRoot, ServerError,
     },
+    file_format::config::{self, SearchEndpoint},
     file_utils::write_file_ensuring_parent_dir,
     format::add_coverage_panel_item,
     templating::builder::build_and_parse_dir_listing,
@@ -65,6 +66,8 @@ impl PipelineCommand for BatchRenderCommand {
                             "tree": tree_info.name,
                             // the header always needs this
                             "query": "",
+                            "search_url": config::search_url(&tree_info.name),
+                            "query_search": config::search_endpoint(&tree_info.name) == SearchEndpoint::Query,
                             "path": item.name,
                             "files": fm.file_matches,
                             "panel": panel,
