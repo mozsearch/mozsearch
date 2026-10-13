@@ -250,6 +250,25 @@ add_task(async function test_AlgorithmViewCalls() {
   is(down?.getAttribute("href"), "#sp-algorithm-1", "The call links to it");
 });
 
+add_task(async function test_AlgorithmInlineCall() {
+  // A call can show the algorithm it calls in place, after the calling block.
+  await TestUtils.loadPath("/tests/algorithm/SPEC_examplebs_dom@2Dgadget@2Dpoke");
+  const doc = frame.contentDocument;
+  const toggle = doc.querySelector("#sp-algorithm-0 .sp-inline-toggle");
+  ok(toggle, "The call can show its algorithm's steps in place");
+  toggle?.click();
+  const shown = doc.querySelector("#sp-algorithm-0 .sp-inline-called");
+  ok(shown?.textContent.includes("Set widget"), "which it does");
+  ok(shown?.previousElementSibling?.contains(toggle), "after the calling block");
+  is(shown?.querySelector(".sp-inline-head a")?.getAttribute("href"), "#sp-algorithm-1",
+     "with a link to its section");
+  is(shown?.querySelectorAll("[id], [data-rd-lines], .blame-strip").length, 0,
+     "without its section's ids or line markers");
+  is(toggle?.getAttribute("aria-expanded"), "true", "The toggle says it's shown");
+  toggle?.click();
+  ok(!doc.querySelector("#sp-algorithm-0 .sp-inline-called"), "and hides it again");
+});
+
 add_task(async function test_AlgorithmMap() {
   // The view's map of its sections' algorithms and their calls, which stays at
   // the top, with the node of the section one has scrolled to highlighted, and

@@ -2184,7 +2184,9 @@ pub fn format_algorithm(
     // Each citation goes next to its step's block (or after the ones before
     // it), and the ones of the algorithm at the top, in each section; and the
     // links to the algorithms the sections after the first are of get "↓"s
-    // to their sections.  The map's node of the section one has scrolled to
+    // to their sections, and "▸"s showing their steps in place, after the
+    // calling blocks (copies of their sections' renderings, without their
+    // ids and line markers, whose calls can show theirs).  The map's node of the section one has scrolled to
     // (the last one starting above the map's bottom) is the current one, and
     // a node's click scrolls to its section (whose top, like the anchors',
     // stays below the map, by its height in "--sp-map-height").
@@ -2195,6 +2197,7 @@ pub fn format_algorithm(
             json!({
                 "steps": section.steps,
                 "anchor": if n == 0 { None } else { section.anchor.clone() },
+                "name": section.name,
             })
         })
         .collect();
@@ -2244,8 +2247,61 @@ pub fn format_algorithm(
       down.href = `#sp-algorithm-${{n}}`;
       down.title = "Go to this algorithm's section below";
       down.textContent = "↓";
-      link.after(down);
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "sp-inline-toggle";
+      toggle.dataset.section = n;
+      toggle.title = "Show this algorithm's steps here";
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.textContent = "▸";
+      link.after(down, toggle);
     }}
+  }});
+  const shown = new WeakMap();
+  document.addEventListener("click", event => {{
+    const toggle = event.target.closest(".sp-inline-toggle");
+    if (!toggle) {{
+      return;
+    }}
+    if (shown.has(toggle)) {{
+      shown.get(toggle).remove();
+      shown.delete(toggle);
+      toggle.textContent = "▸";
+      toggle.setAttribute("aria-expanded", "false");
+      return;
+    }}
+    const n = Number(toggle.dataset.section);
+    const called = document.createElement("div");
+    called.className = "sp-inline-called";
+    const head = document.createElement("div");
+    head.className = "sp-inline-head";
+    const go = document.createElement("a");
+    go.href = `#sp-algorithm-${{n}}`;
+    go.textContent = "↓ beside the code citing it";
+    head.append(`${{sections[n].name}} `, go);
+    called.append(head);
+    for (const child of document.getElementById(`rendered-doc-${{n}}`).children) {{
+      called.append(child.cloneNode(true));
+    }}
+    for (const elt of called.querySelectorAll(".blame-strip, [data-rd-lines], .sp-inline-called")) {{
+      elt.remove();
+    }}
+    for (const elt of called.querySelectorAll("[id]")) {{
+      elt.removeAttribute("id");
+    }}
+    for (const copy of called.querySelectorAll(".sp-inline-toggle")) {{
+      copy.textContent = "▸";
+      copy.setAttribute("aria-expanded", "false");
+    }}
+    // (After the calling block, and the calls' already shown after it.)
+    let at = toggle.closest(".rd-block") || toggle.parentElement;
+    while (at.nextElementSibling?.classList.contains("sp-inline-called")) {{
+      at = at.nextElementSibling;
+    }}
+    at.after(called);
+    shown.set(toggle, called);
+    toggle.textContent = "▾";
+    toggle.setAttribute("aria-expanded", "true");
   }});
   const map = document.getElementById("sp-algorithm-map");
   if (map) {{

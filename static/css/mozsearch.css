@@ -2058,6 +2058,31 @@ h2.sp-called-heading {
   text-decoration: none;
   opacity: 0.6;
 }
+/* A call's algorithm's steps shown in place (see format_algorithm). */
+.sp-inline-toggle {
+  margin-inline-start: 0.1em;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--link-color);
+  font: inherit;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.sp-inline-called {
+  margin: 0.4em 0 0.6em;
+  padding: 0.1em 0 0.1em 0.8em;
+  border-left: 3px solid var(--page-border-color);
+}
+.sp-inline-head {
+  font-size: 0.85em;
+  font-weight: bold;
+  opacity: 0.8;
+}
+.sp-inline-head a {
+  margin-inline-start: 0.3em;
+  font-weight: normal;
+}
 /* What a card is if not a citation, ex: a WebIDL member reflecting the
    spec's definition, or its C++ implementation (see format_algorithm). */
 .sp-citation-note {
