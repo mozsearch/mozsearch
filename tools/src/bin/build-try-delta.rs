@@ -14,7 +14,8 @@
 //! results in those files, and a jumpref from its patched data.
 //!
 //! Usage: build-try-delta CONFIG TREE PUSH HEAD TIP_ANALYSIS
-//!          [--incomplete FILE] [--objdir DIR] [--threads N]
+//!          [--incomplete FILE] [--objdir DIR [--changed-generated FILE]]
+//!          [--threads N]
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Read, Write};
@@ -53,6 +54,12 @@ struct Cli {
     /// The objdir of the push's compilation, for generated files' sources.
     #[clap(long)]
     objdir: Option<String>,
+    /// A file listing the generated files (`__GENERATED__/...`) whose
+    /// contents the push changes (relative to the base's build, not
+    /// necessarily the tree's copies, which may differ trivially, ex: in
+    /// paths in comments), whose versions in `--objdir` the delta keeps.
+    #[clap(long)]
+    changed_generated: Option<String>,
     #[clap(long, default_value_t = 4)]
     threads: usize,
 }
@@ -199,6 +206,27 @@ fn main() {
     let tip_root = Path::new(&cli.tip_analysis);
     let mut written = vec![];
     walk(tip_root, tip_root, &mut written);
+
+    // The generated files the push changes (which git doesn't know), with its
+    // versions of them (see `TryDelta::generated_source`).
+    if let (Some(list), Some(objdir)) = (&cli.changed_generated, &cli.objdir) {
+        for path in fs::read_to_string(list).unwrap().lines() {
+            let Some(rel) = path.strip_prefix("__GENERATED__/") else {
+                continue;
+            };
+            let Ok(tip) = fs::read(Path::new(objdir).join(rel)) else {
+                continue;
+            };
+            let dest = out.join("objdir").join(rel);
+            fs::create_dir_all(dest.parent().unwrap()).unwrap();
+            fs::write(&dest, &tip).unwrap();
+            let in_base = Path::new(&paths.objdir_path).join(rel).exists();
+            changed.insert(
+                path.to_string(),
+                if in_base { FileChange::Modified } else { FileChange::Added },
+            );
+        }
+    }
     let base_analysis = Path::new(&paths.index_path).join("analysis");
     let mut analyzed: BTreeMap<String, AnalyzedFile> = BTreeMap::new();
     let (mut base_list, mut tip_list) = (vec![], vec![]);

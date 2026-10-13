@@ -12,6 +12,8 @@
 //!   `BisectableMmap`).
 //! - `jumpref` and `jumpref-extra`: those symbols' jumprefs, with the patches.
 //! - `identifiers`: the identifiers it adds, like the tree's `identifiers`.
+//! - `objdir/{path}`: its versions of the generated files it changes
+//!   (`__GENERATED__/{path}`), which git doesn't have.
 //!
 //! Queries with `rev={head}` (see pipeline-server) use it through
 //! `abstract_server::TryOverlay`, and so do the head's `/rev/` pages.
@@ -140,6 +142,14 @@ impl TryDelta {
             .analyzed
             .contains_key(path)
             .then(|| self.dir.join("analysis").join(format!("{}.gz", path)))
+    }
+
+    /// The push's version of a generated file it changes
+    /// (`__GENERATED__/...`).
+    pub fn generated_source(&self, path: &str) -> Option<PathBuf> {
+        let rel = path.strip_prefix("__GENERATED__/")?;
+        self.change(path)?;
+        Some(self.dir.join("objdir").join(rel)).filter(|file| file.exists())
     }
 
     /// How the push changes the file, if it does.

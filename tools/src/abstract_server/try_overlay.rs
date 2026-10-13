@@ -82,6 +82,14 @@ impl TryOverlay {
 
     /// The file's contents at the head.
     fn head_source(&self, path: &str) -> Result<String> {
+        if let Some(file) = self.delta.generated_source(path) {
+            return std::fs::read_to_string(&file).map_err(|err| {
+                ServerError::StickyProblem(ErrorDetails {
+                    layer: ErrorLayer::DataLayer,
+                    message: format!("{}: {}", file.display(), err),
+                })
+            });
+        }
         let repo = self.repo()?;
         let blob = repo
             .revparse_single(&self.delta.meta.head)
