@@ -98,30 +98,33 @@ pub fn imported_head(cfg: &Config, tree_name: &str, rev: &str) -> Option<Oid> {
     Some(head)
 }
 
-/// The commits of the imported try push `rev`, oldest first: those the import
-/// listed (see import-try-push.sh), or else its head.
-pub fn push_commits(cfg: &Config, tree_name: &str, rev: &str) -> Vec<Oid> {
+/// The stack of the imported try push `rev`, oldest first, which the import
+/// listed (see import-try-push.sh), or else its head; and the number of its
+/// commits which only select try's tasks, which aren't listed.
+pub fn push_commits(cfg: &Config, tree_name: &str, rev: &str) -> (Vec<Oid>, usize) {
     let Some(head) = imported_head(cfg, tree_name, rev) else {
-        return vec![];
+        return (vec![], 0);
     };
-    let listed: Vec<Oid> = cfg.trees[tree_name]
+    let list = cfg.trees[tree_name]
         .paths
         .history_path
         .as_ref()
         .and_then(|history| {
             fs::read_to_string(Path::new(history).join("try-pushes").join(rev)).ok()
         })
-        .map(|list| {
-            list.split_whitespace()
-                .filter_map(|rev| Oid::from_str(rev).ok())
-                .collect()
-        })
         .unwrap_or_default();
-    if listed.is_empty() {
-        vec![head]
-    } else {
-        listed
+    let mut stack = vec![];
+    let mut task_selections = 0;
+    for line in list.lines().map(str::trim) {
+        match line.strip_prefix('-') {
+            Some(_) => task_selections += 1,
+            None => stack.extend(Oid::from_str(line).ok()),
+        }
     }
+    if stack.is_empty() && task_selections == 0 {
+        stack.push(head);
+    }
+    (stack, task_selections)
 }
 
 /// What's become of an import, for the try pages and their polling.

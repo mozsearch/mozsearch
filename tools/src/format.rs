@@ -6443,7 +6443,7 @@ pub fn stack_strip_json(
     let commits: Vec<Oid> = match stack.split('/').collect::<Vec<_>>().as_slice() {
         ["try", push] => {
             let push = crate::try_import::normalize_rev(push).ok_or("Not a try push's revision")?;
-            crate::try_import::push_commits(cfg, tree_name, &push)
+            crate::try_import::push_commits(cfg, tree_name, &push).0
         }
         ["explore", kind, keys] => explore_refs(cfg, tree_name, kind, keys)?
             .refs
@@ -6600,7 +6600,8 @@ pub fn format_try(
         ImportStatus::Imported { .. } => {
             let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
             let git = tree_config.get_git()?;
-            let mut refs: Vec<CommitRef> = push_commits(cfg, tree_name, &rev)
+            let (stack, task_selections) = push_commits(cfg, tree_name, &rev);
+            let mut refs: Vec<CommitRef> = stack
                 .into_iter()
                 .filter_map(|oid| git.repo.find_commit(oid).ok())
                 .map(|commit| crate::commit_index::commit_ref(&commit))
@@ -6616,11 +6617,16 @@ pub fn format_try(
                 truncated,
                 other_branches: vec![],
                 explore_url: format!("try/{}", rev),
-                note: Some(
-                    "Imported into this tree's history, for its commits' blame and what they \
-                     changed, but not indexed, so its revisions have no jumps or references."
-                        .to_string(),
-                ),
+                note: Some(format!(
+                    "Its stack (its commits since it diverged from the trunk{}), imported into \
+                     this tree's history, for its commits' blame and what they changed, but not \
+                     indexed, so its revisions have no jumps or references.",
+                    match task_selections {
+                        0 => String::new(),
+                        1 => ", but the one selecting try's tasks".to_string(),
+                        n => format!(", but the {} selecting try's tasks", n),
+                    }
+                )),
                 scopes: vec![],
                 changes: None,
                 stack_links: true,

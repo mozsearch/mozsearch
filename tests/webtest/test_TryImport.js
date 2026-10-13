@@ -3,7 +3,8 @@
 // The spechist tree imports try pushes (see tools/src/try_import.rs), whose
 // hook makes them from tests/spechist/try/ (see tests/spechist/import-try):
 // abcdef012345 is a push of two commits on top of the tree's head, the first
-// changing cite.cpp, for D5678.
+// changing cite.cpp, for D5678, and the second selecting try's tasks (only
+// adding try_task_config.json).
 
 const PUSH = "abcdef012345";
 
@@ -30,8 +31,10 @@ add_task(async function test_TryImport() {
   is(doc().querySelector(".explore-page h2")?.textContent, `Try push ${PUSH}`,
      "titled by the push");
   const commits = [...doc().querySelectorAll(".explore-commit-list .explore-commit")];
-  is(commits.length, 2, "with the push's commits");
+  is(commits.length, 1, "with the push's stack");
   ok(commits[0].textContent.includes("Make Frob frob twice"), "oldest first");
+  ok(doc().querySelector(".explore-note")?.textContent.includes("but the one selecting try's tasks"),
+     "but not the commit selecting try's tasks");
   ok(doc().querySelector('.explore-file a[href*="cite.cpp"]'),
      "and the files they changed");
   is((await statusOf(PUSH)).state, "imported", "Its status says it's imported");

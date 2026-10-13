@@ -17,10 +17,14 @@ set -o pipefail # Check all commands in a pipeline
 #   when it's based on a newer revision than the tree's, up to MAX_REVISIONS).
 # - The commit index's `try` branch accumulates the pushes' commits, reading
 #   through to the branch's index (see tools/src/commit_index.rs).
-# - The push's own commits, oldest first, are written to
-#   HISTORY_ROOT/try-pushes/NAME, for its page: the hook's PUSH_REVS (ex: from
-#   the try repository's pushlog), or else those the branch doesn't have (which
-#   includes its base's newer revisions).
+# - The push's stack, its commits since it diverged from the trunk, oldest
+#   first, is written to HISTORY_ROOT/try-pushes/NAME, for its page: the hook's
+#   PUSH_REVS (ex: the try repository's draft ancestors of the head, which
+#   include the stack's commits earlier pushes had), or else the commits the
+#   branch doesn't have (which include its base's newer revisions, if any).
+#   Commits which only select try's tasks (only changing try_task_config.json,
+#   ex: "Tasks automatically selected.") are listed as "-REV", which the page
+#   leaves out.
 # - Last, `refs/try/NAME` is set to the head in the source repo, so that its
 #   existence means the push is imported (ex: NAME is its hg revision).
 #
@@ -76,10 +80,17 @@ build-commit-index "$SOURCE_GIT" "$HISTORY_ROOT/commit-index" "refs/heads/$TRY_B
 
 mkdir -p "$HISTORY_ROOT/try-pushes"
 if [[ -n "${PUSH_REVS:-}" ]]; then
-    tr ' ' '\n' <<< "$PUSH_REVS" | grep . > "$HISTORY_ROOT/try-pushes/$NAME"
+    STACK=$(tr ' ' '\n' <<< "$PUSH_REVS" | grep .)
 else
-    git -C "$SOURCE_GIT" rev-list --reverse "$HEAD_REV" --not "$SOURCE_REF" > "$HISTORY_ROOT/try-pushes/$NAME"
+    STACK=$(git -C "$SOURCE_GIT" rev-list --reverse "$HEAD_REV" --not "$SOURCE_REF")
 fi
+for COMMIT in $STACK; do
+    if [[ "$(git -C "$SOURCE_GIT" diff-tree --no-commit-id --name-only -r "$COMMIT")" == "try_task_config.json" ]]; then
+        echo "-$COMMIT"
+    else
+        echo "$COMMIT"
+    fi
+done > "$HISTORY_ROOT/try-pushes/$NAME"
 
 git -C "$SOURCE_GIT" update-ref "refs/try/$NAME" "$HEAD_REV"
 echo "Imported $NAME as $HEAD_REV."
