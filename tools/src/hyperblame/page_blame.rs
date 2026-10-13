@@ -295,9 +295,14 @@ fn page_blame_with_chunk_tokens(
             let last_lineno = last_linenos
                 .insert((commit, path), introduced.lineno)
                 .unwrap_or(0);
+            // (A token which overlaps the one before it, which the tokenizer
+            // can make of source it misreads, ex: spec-html's tag names with
+            // non-ASCII whitespace in them, only gets the rest of itself.)
+            let start = token.range.start.max(prev_end);
+            let end = token.range.end.max(start);
             let mut desc = vec![
-                utf16_len(&source[prev_end..token.range.start]) as i64,
-                utf16_len(&source[token.range.clone()]) as i64,
+                utf16_len(&source[prev_end..start]) as i64,
+                utf16_len(&source[start..end]) as i64,
                 commit as i64,
                 introduced.lineno as i64 - last_lineno as i64,
             ];
@@ -305,7 +310,7 @@ fn page_blame_with_chunk_tokens(
                 desc.push(path as i64);
             }
             chunk_line.push(desc);
-            prev_end = token.range.end;
+            prev_end = end;
 
             if let Some(predecessor) = &token.data.predecessor {
                 let token_index = (line_blame.tokens.start + offset + 1) as u32;
@@ -562,6 +567,52 @@ impl StripLine {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_overlapping_tokens() {
+        use crate::file_format::history::timeline_annotated::HyperLineData;
+        use crate::hyperblame::token_blame::{FileHistory, blame_tokens};
+        use crate::tree_sitter_support::cst_tokenizer::{
+            hypertokenize_with_profile, profile_for_lang,
+        };
+
+        // spec-html makes a token of the tag name up to the attribute's value
+        // when the tag name and the attribute are separated by an ideographic
+        // space, and another of the value, which overlap (ex: the WCAG
+        // technique ARIA27.html's), so the second only gets the rest of it.
+        let source = "<p>is <a\u{3000}href=\"https://x\">x</a></p>\n";
+        let tokenized =
+            hypertokenize_with_profile(profile_for_lang("spec-html").unwrap(), source).unwrap();
+        let mut annotated = vec![HyperLineData::new_introduced("0", 0).serialize()];
+        for i in 0..tokenized.tokenized.len() {
+            annotated.push(HyperLineData::new_introduced("1", i as u32 + 1).serialize());
+        }
+        let history = FileHistory {
+            path: "a.html".to_string(),
+            source_rev: git2::Oid::ZERO_SHA1,
+            lang: "spec-html".to_string(),
+            syntax: tokenized.tokenized.join("\n"),
+            annotated: annotated.join("\n"),
+        };
+        let blame = blame_tokens(source, &history).unwrap();
+        let ranges: Vec<_> = blame.tokens.iter().map(|t| t.range.clone()).collect();
+        assert!(
+            ranges.windows(2).any(|w| w[1].start < w[0].end),
+            "{:?}",
+            ranges
+        );
+        let meta = |rev: &str| CommitMeta {
+            time: rev.parse().unwrap(),
+            author: String::new(),
+        };
+        let page = page_blame(&blame, source, "a.html", meta);
+        // The line's gaps and lengths cover it up to its last token's end
+        // (in UTF-16 code units, the ideographic space being 1).
+        let line = &page.chunks[0].lines[0];
+        let covered: i64 = line.iter().map(|token| token[0] + token[1]).sum();
+        let last_end = ranges.iter().map(|r| r.end).max().unwrap();
+        assert_eq!(covered as usize, utf16_len(&source[..last_end]));
+    }
 
     #[test]
     fn test_chunks() {
