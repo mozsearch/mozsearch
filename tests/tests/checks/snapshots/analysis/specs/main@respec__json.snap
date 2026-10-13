@@ -607,8 +607,8 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "def",
     "pretty": "examplerespec Gizmo",
     "sym": "SPEC_examplerespec_dom@2Dgizmo",
-    "context": "The Gizmo interface",
-    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+    "context": "constructor()",
+    "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dconstructor"
   },
   {
     "loc": "00041:14-19",
@@ -632,8 +632,8 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "def",
     "pretty": "examplerespec Gizmo/constructor()",
     "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dconstructor",
-    "context": "The Gizmo interface",
-    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+    "context": "constructor()",
+    "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dconstructor"
   },
   {
     "loc": "00041:43-56",
@@ -643,7 +643,8 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "method",
     "implKind": "spec",
     "parentsym": "SPEC_examplerespec_dom@2Dgizmo",
-    "rendered": "https://example.github.io/respec/#dom-gizmo-constructor"
+    "rendered": "https://example.github.io/respec/#dom-gizmo-constructor",
+    "algorithm": true
   },
   {
     "loc": "00042:15-21",
@@ -658,8 +659,8 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "def",
     "pretty": "examplerespec Gizmo/name",
     "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dname",
-    "context": "The Gizmo interface",
-    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+    "context": "constructor()",
+    "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dconstructor"
   },
   {
     "loc": "00042:15-21",
@@ -684,8 +685,8 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "use",
     "pretty": "examplerespec gizmo/state",
     "sym": "SPEC_examplerespec_dfn@2Dstate",
-    "context": "The Gizmo interface",
-    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+    "context": "constructor()",
+    "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dconstructor"
   },
   {
     "loc": "00043:2-11",
@@ -700,8 +701,8 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "use",
     "pretty": "examplerespec gizmo",
     "sym": "SPEC_examplerespec_dfn@2Dgizmo",
-    "context": "The Gizmo interface",
-    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+    "context": "constructor()",
+    "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dconstructor"
   },
   {
     "loc": "00044:14-20",
@@ -716,8 +717,8 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "def",
     "pretty": "examplerespec Gizmo/poke()",
     "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke",
-    "context": "The Gizmo interface",
-    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+    "context": "poke()",
+    "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
   },
   {
     "loc": "00044:14-20",
@@ -727,7 +728,8 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "method",
     "implKind": "spec",
     "parentsym": "SPEC_examplerespec_dom@2Dgizmo",
-    "rendered": "https://example.github.io/respec/#dom-gizmo-poke"
+    "rendered": "https://example.github.io/respec/#dom-gizmo-poke",
+    "algorithm": true
   },
   {
     "loc": "00046:29-45",
@@ -742,8 +744,8 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "use",
     "pretty": "examplerespec GizmoOptions",
     "sym": "SPEC_examplerespec_dom@2Dgizmooptions",
-    "context": "The Gizmo interface",
-    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+    "context": "poke() step 1",
+    "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
   },
   {
     "loc": "00047:21-43",
@@ -758,8 +760,8 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "use",
     "pretty": "examplerespec GizmoOptions/force",
     "sym": "SPEC_examplerespec_dom@2Dgizmooptions@2Dforce",
-    "context": "The Gizmo interface",
-    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+    "context": "poke() step 2",
+    "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
   },
   {
     "loc": "00047:48-52",
@@ -774,8 +776,8 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "use",
     "pretty": "examplerespec poke",
     "sym": "SPEC_examplerespec_dfn@2Dpoke",
-    "context": "The Gizmo interface",
-    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+    "context": "poke() step 2",
+    "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
   },
   {
     "loc": "00047:86-92",
@@ -790,8 +792,8 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "use",
     "pretty": "examplerespec gizmo",
     "sym": "SPEC_examplerespec_dfn@2Dgizmo",
-    "context": "The Gizmo interface",
-    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+    "context": "poke() step 2",
+    "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
   },
   {
     "loc": "00048:48-52",
@@ -806,8 +808,8 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "use",
     "pretty": "DOM#concept-node",
     "sym": "SPEC_dom_concept@2Dnode",
-    "context": "The Gizmo interface",
-    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+    "context": "poke() step 3",
+    "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
   },
   {
     "loc": "00048:59-73",
@@ -822,8 +824,8 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "use",
     "pretty": "examplerespec Gizmo/name",
     "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dname",
-    "context": "The Gizmo interface",
-    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+    "context": "poke() step 3",
+    "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
   },
   {
     "loc": "00048:83-100",
@@ -838,8 +840,8 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "use",
     "pretty": "examplerespec GizmoState/",
     "sym": "SPEC_examplerespec_dom@2Dgizmostate@2Dthe@2Dempty@2Dstring",
-    "context": "The Gizmo interface",
-    "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+    "context": "poke() step 3",
+    "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
   },
   {
     "loc": "00051:0-9",
@@ -886,15 +888,15 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "def",
     "pretty": "examplerespec poke",
     "sym": "SPEC_examplerespec_dfn@2Dpoke",
-    "context": "Poking",
-    "contextsym": "SPEC_examplerespec_poking"
+    "context": "poke",
+    "contextsym": "SPEC_examplerespec_dfn@2Dpoke"
   },
   {
     "loc": "00053:13-17",
     "structured": 1,
     "pretty": "examplerespec poke",
     "sym": "SPEC_examplerespec_dfn@2Dpoke",
-    "kind": "specDfn",
+    "kind": "specAlgorithm",
     "implKind": "spec",
     "rendered": "https://example.github.io/respec/#dfn-poke"
   },
@@ -911,34 +913,50 @@ input_file: inputs/analysis/specs/respec__json
     "kind": "use",
     "pretty": "examplerespec gizmo",
     "sym": "SPEC_examplerespec_dfn@2Dgizmo",
-    "context": "Poking",
-    "contextsym": "SPEC_examplerespec_poking"
+    "context": "poke",
+    "contextsym": "SPEC_examplerespec_dfn@2Dpoke"
   },
   {
-    "loc": "00053:42-58",
+    "loc": "00055:16-31",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "reference examplerespec gizmo/state",
+    "sym": "SPEC_examplerespec_dfn@2Dstate"
+  },
+  {
+    "loc": "00055:16-31",
+    "target": 1,
+    "kind": "use",
+    "pretty": "examplerespec gizmo/state",
+    "sym": "SPEC_examplerespec_dfn@2Dstate",
+    "context": "poke step 1",
+    "contextsym": "SPEC_examplerespec_dfn@2Dpoke"
+  },
+  {
+    "loc": "00055:42-58",
     "source": 1,
     "syntax": "use",
     "pretty": "reference examplerespec Gizmo/poke()",
     "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
   },
   {
-    "loc": "00053:42-58",
+    "loc": "00055:42-58",
     "target": 1,
     "kind": "use",
     "pretty": "examplerespec Gizmo/poke()",
     "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke",
-    "context": "Poking",
-    "contextsym": "SPEC_examplerespec_poking"
+    "context": "poke step 1",
+    "contextsym": "SPEC_examplerespec_dfn@2Dpoke"
   },
   {
-    "loc": "00054:39-49",
+    "loc": "00057:39-49",
     "source": 1,
     "syntax": "use",
     "pretty": "reference examplebs Gadget",
     "sym": "SPEC_examplebs_gadget"
   },
   {
-    "loc": "00054:39-49",
+    "loc": "00057:39-49",
     "target": 1,
     "kind": "use",
     "pretty": "examplebs Gadget",
@@ -947,14 +965,14 @@ input_file: inputs/analysis/specs/respec__json
     "contextsym": "SPEC_examplerespec_poking"
   },
   {
-    "loc": "00054:52-69",
+    "loc": "00057:52-69",
     "source": 1,
     "syntax": "use",
     "pretty": "reference examplebs Gadget/poke()",
     "sym": "SPEC_examplebs_dom@2Dgadget@2Dpoke"
   },
   {
-    "loc": "00054:52-69",
+    "loc": "00057:52-69",
     "target": 1,
     "kind": "use",
     "pretty": "examplebs Gadget/poke()",
@@ -963,14 +981,14 @@ input_file: inputs/analysis/specs/respec__json
     "contextsym": "SPEC_examplerespec_poking"
   },
   {
-    "loc": "00056:0-26",
+    "loc": "00059:0-26",
     "source": 1,
     "syntax": "def",
     "pretty": "section examplerespec Conformance",
     "sym": "SPEC_examplerespec_conformance"
   },
   {
-    "loc": "00056:0-26",
+    "loc": "00059:0-26",
     "target": 1,
     "kind": "def",
     "pretty": "examplerespec Conformance",
@@ -979,14 +997,14 @@ input_file: inputs/analysis/specs/respec__json
     "contextsym": "SPEC_examplerespec_poking"
   },
   {
-    "loc": "00057:0-26",
+    "loc": "00060:0-26",
     "source": 1,
     "syntax": "def",
     "pretty": "section examplerespec Acknowledgements",
     "sym": "SPEC_examplerespec_acknowledgements"
   },
   {
-    "loc": "00057:0-26",
+    "loc": "00060:0-26",
     "target": 1,
     "kind": "def",
     "pretty": "examplerespec Acknowledgements",
@@ -995,14 +1013,14 @@ input_file: inputs/analysis/specs/respec__json
     "contextsym": "SPEC_examplerespec_poking"
   },
   {
-    "loc": "00058:6-22",
+    "loc": "00061:6-22",
     "source": 1,
     "syntax": "def",
     "pretty": "section examplerespec Acknowledgements",
     "sym": "SPEC_examplerespec_a@2Dacknowledgements"
   },
   {
-    "loc": "00058:6-22",
+    "loc": "00061:6-22",
     "target": 1,
     "kind": "def",
     "pretty": "examplerespec Acknowledgements",

@@ -111,7 +111,16 @@ pub fn render_algorithm(
         SpecFormat::Bikeshed => {
             bikeshed::render_algorithm(output?, src, path, spec, config, links, sym)
         }
-        SpecFormat::Respec => None,
+        SpecFormat::Respec => respec::render_algorithm(
+            path,
+            spec,
+            config,
+            links,
+            read,
+            &crate::spec_analyze::xref::Terms::default(),
+            &[],
+            sym,
+        ),
     }
 }
 

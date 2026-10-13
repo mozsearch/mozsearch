@@ -48,7 +48,7 @@ use super::{
 };
 use crate::file_format::analysis::Location;
 use crate::semantic_analyzer::{Record, sort_records};
-use crate::tree_sitter_support::spec_tokenizer::html_contexts;
+use crate::tree_sitter_support::spec_tokenizer::{html_contexts, idl_steps};
 
 /// The analysis's counts, for reporting.
 #[derive(Debug, Default)]
@@ -86,6 +86,11 @@ pub struct Rendering {
     pub targets: Vec<(Range<usize>, String)>,
     /// The definitions ReSpec makes in IDL blocks, by their bytes.
     pub idl_dfns: Vec<(Range<usize>, String)>,
+    /// The algorithms (see `analyze_placed`'s contexts) of the spec's
+    /// definitions: their bytes and symbols.
+    pub algorithms: Vec<(Range<usize>, String)>,
+    /// The `<dfn>`s naming algorithms, and their symbols.
+    pub algorithm_dfns: HashMap<usize, String>,
     /// The specs which `[[SPEC]]`s cite, and their references' ids.
     pub cited: Vec<(String, String)>,
     /// The headings of the references section ReSpec generates, and of its
@@ -224,6 +229,8 @@ lazy_static! {
     .unwrap();
     /// An internal slot's name, ex: `[[state]]` or `[[run]](arg)`.
     static ref SLOT: Regex = Regex::new(r"^\[\[[^\]]+\]\](\(.*\))?$").unwrap();
+    /// Markup, for text's.
+    static ref TAG: Regex = Regex::new(r"<[^>]*>").unwrap();
 }
 
 /// The dfn types ReSpec takes from `<dfn>`s' classes.
@@ -470,6 +477,126 @@ fn heading_level(doc: &Doc, node: usize) -> Option<usize> {
 fn has_class(doc: &Doc, node: usize, class: &str) -> bool {
     doc.attr(node, "class")
         .is_some_and(|c| c.split_whitespace().any(|c| c == class))
+}
+
+/// The steps among an element's children `kids` from the `from`th, up to a
+/// section or heading: the first `<ol>` after text saying it's steps (ex:
+/// "When this method is invoked, the user agent MUST run the following
+/// steps:", or "We define the X algorithm as follows:", but not ex: "Its
+/// value is one of:", unless `colon`, ex: execCommand's "Action:"), or with a
+/// class saying
+/// so (ReSpec's `class="algorithm"`, or ex: Media Source's
+/// "method-algorithm").  Their bytes, from the paragraph before them, if
+/// it's one.
+fn steps_among(
+    doc: &Doc,
+    parent: usize,
+    kids: &[usize],
+    from: usize,
+    colon: bool,
+) -> Option<Range<usize>> {
+    for i in from..kids.len() {
+        let ol = kids[i];
+        if doc.is(ol, "section") || heading_level(doc, ol).is_some() {
+            return None;
+        }
+        if !doc.is(ol, "ol") {
+            continue;
+        }
+        let before = i.checked_sub(1).map(|j| kids[j]);
+        let paragraph = before.filter(|&p| doc.is(p, "p"));
+        // (The text before it: the paragraph's, or else the parent's.)
+        let lead = match paragraph {
+            Some(p) => doc.text_content(p),
+            None => {
+                let start =
+                    before.map_or(doc.content_range(parent).start, |b| doc.nodes[b].range.end);
+                TAG.replace_all(&doc.src[start..doc.nodes[ol].range.start], "")
+                    .into_owned()
+            }
+        };
+        let classed = doc
+            .attr(ol, "class")
+            .is_some_and(|class| class.split_whitespace().any(|c| c.contains("algorithm")));
+        if classed
+            || lead.contains("steps")
+            || lead.contains("algorithm")
+            || (colon && lead.trim_end().ends_with(':'))
+        {
+            let start = paragraph.map_or(doc.nodes[ol].range.start, |p| doc.nodes[p].range.start);
+            return Some(start..doc.nodes[ol].range.end);
+        }
+    }
+    None
+}
+
+/// The algorithms which the spec defines the ways older W3C specs do (ex:
+/// WebRTC's, EME's, Media Source's), which the contexts don't have, and
+/// their `<dfn>`s' nodes, and whether they must be IDL members':
+/// - IDL members' steps in `<dl>`s (ex: `<dl class="methods">`): a `<dt>`
+///   with the member's `<dfn>`, and in the `<dd>` after it, its steps (see
+///   `steps_among`).
+/// - Sections whose headings are `<dfn>`s (ex: "<h4><dfn>Update Key
+///   Statuses</dfn></h4>", whose steps can be after just a colon), or IDL
+///   members' and more (ex: "<h3><dfn>removeSourceBuffer()</dfn>
+///   method</h3>"), with their steps after them (up to the next heading):
+///   from the heading.
+fn older_algorithms(doc: &Doc, hidden: &[bool]) -> Vec<(Range<usize>, usize, bool)> {
+    let elements = |node: usize| -> Vec<usize> {
+        doc.nodes[node]
+            .children
+            .iter()
+            .copied()
+            .filter(|&kid| matches!(doc.nodes[kid].kind, NodeKind::Element(_)))
+            .collect()
+    };
+    let dfn_in = |node: usize| {
+        let end = doc.nodes[node].range.end;
+        (node + 1..doc.nodes.len())
+            .take_while(|&n| doc.nodes[n].range.start < end)
+            .find(|&n| doc.is(n, "dfn"))
+    };
+    let mut algorithms = vec![];
+    for node in (1..doc.nodes.len()).filter(|&node| !hidden[node]) {
+        let is_heading = heading_level(doc, node).is_some();
+        if !is_heading && !doc.is(node, "dt") {
+            continue;
+        }
+        let Some(dfn) = dfn_in(node) else {
+            continue;
+        };
+        let words = |n: usize| {
+            doc.text_content(n)
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+        };
+        let only_dfn = is_heading && words(node) == words(dfn);
+        let Some(parent) = doc.nodes[node].parent else {
+            continue;
+        };
+        if is_heading && !doc.is(parent, "section") {
+            continue;
+        }
+        let siblings = elements(parent);
+        let Some(i) = siblings.iter().position(|&n| n == node) else {
+            continue;
+        };
+        let steps = if is_heading {
+            steps_among(doc, parent, &siblings, i + 1, only_dfn)
+                .map(|steps| doc.nodes[node].range.start..steps.end)
+        } else {
+            siblings
+                .get(i + 1)
+                .copied()
+                .filter(|&dd| doc.is(dd, "dd"))
+                .and_then(|dd| steps_among(doc, dd, &elements(dd), 0, false))
+        };
+        if let Some(range) = steps {
+            algorithms.push((range, dfn, !only_dfn));
+        }
+    }
+    algorithms
 }
 
 /// Text as ReSpec shows it, with its inline shorthands as their text (ex:
@@ -1845,37 +1972,110 @@ fn analyze_placed(
         })
         .collect();
     section_contexts.sort_by_key(|(start, _)| *start);
-    let dfn_at: Vec<(usize, String)> = {
-        let mut v: Vec<(usize, String)> = dfns
+    let dfn_at: Vec<(usize, String, usize)> = {
+        let mut v: Vec<(usize, String, usize)> = dfns
             .iter()
             .filter_map(|d| {
                 let node = d.node?;
                 Some((
                     doc.nodes[node].range.start,
                     spec_symbol(shortname, d.id.as_deref()?),
+                    node,
                 ))
             })
             .collect();
         v.sort();
         v
     };
-    let algorithms: Vec<(Range<usize>, InContext)> = contexts
+    let mut algorithms: Vec<(Range<usize>, InContext)> = vec![];
+    for c in &contexts {
+        let Some(end) = c.end else {
+            continue;
+        };
+        let range = c.start..end;
+        let first = dfn_at.partition_point(|(start, _, _)| *start < range.start);
+        let dfn = dfn_at.get(first).filter(|(start, _, _)| *start < range.end);
+        if let Some((_, sym, node)) = dfn {
+            rendering.algorithm_dfns.insert(*node, sym.clone());
+        }
+        algorithms.push((
+            range,
+            InContext {
+                name: context_name(&c.name),
+                sym: dfn.map_or_else(String::new, |(_, sym, _)| sym.clone()),
+            },
+        ));
+    }
+    // IDL members' steps (ex: "The <dfn>poke()</dfn> method steps are:"), as
+    // algorithms of the spec's members their leads name, by their definitions
+    // or references to them, which the contexts don't have (see
+    // `spec_tokenizer::idl_steps`, and Bikeshed's); steps several members
+    // share are each's, and references in them are in the first's.
+    let members: HashSet<String> = dfns
         .iter()
-        .filter_map(|c| {
-            let range = c.start..c.end?;
-            let first = dfn_at.partition_point(|(start, _)| *start < range.start);
-            let sym = dfn_at
-                .get(first)
-                .filter(|(start, _)| *start < range.end)
-                .map_or_else(String::new, |(_, sym)| sym.clone());
-            Some((
-                range,
-                InContext {
-                    name: context_name(&c.name),
-                    sym,
-                },
-            ))
+        .filter(|d| {
+            d.dfn_type
+                .as_deref()
+                .is_some_and(|t| super::bikeshed::IDL_MEMBER_TYPES.contains(&t))
         })
+        .filter_map(|d| Some(spec_symbol(shortname, d.id.as_deref()?)))
+        .collect();
+    let mut shared_steps: Vec<String> = vec![];
+    for (range, lead_end) in idl_steps(src, &doc.items) {
+        let mut named = pending
+            .iter()
+            .filter(|p| range.start <= p.range.start && p.range.start < lead_end)
+            .filter(|p| members.contains(&p.sym));
+        let Some(first) = named.next() else {
+            continue;
+        };
+        shared_steps.extend(named.map(|p| p.sym.clone()));
+        if first.def
+            && let Some((_, _, node)) = dfn_at.iter().find(|(_, sym, node)| {
+                *sym == first.sym && doc.nodes[*node].range.contains(&first.range.start)
+            })
+        {
+            rendering.algorithm_dfns.insert(*node, first.sym.clone());
+        }
+        let member = first
+            .pretty
+            .split_once(' ')
+            .map_or(first.pretty.as_str(), |(_, member)| member);
+        let member = member.rsplit('/').next().unwrap_or(member);
+        algorithms.push((
+            range,
+            InContext {
+                name: member.to_string(),
+                sym: first.sym.clone(),
+            },
+        ));
+    }
+    // (And the algorithms older specs define otherwise, see
+    // `older_algorithms`: IDL members' steps in `<dl>`s, and sections.)
+    for (range, node, of_member) in older_algorithms(&doc, &hidden) {
+        let Some((_, sym, _)) = dfn_at.iter().find(|(_, _, n)| *n == node) else {
+            continue;
+        };
+        if (of_member && !members.contains(sym)) || algorithms.iter().any(|(r, _)| *r == range) {
+            continue;
+        }
+        rendering.algorithm_dfns.insert(node, sym.clone());
+        let name = dfns
+            .iter()
+            .find(|d| d.node == Some(node))
+            .map_or_else(String::new, |d| d.title.clone());
+        algorithms.push((
+            range,
+            InContext {
+                name,
+                sym: sym.clone(),
+            },
+        ));
+    }
+    rendering.algorithms = algorithms
+        .iter()
+        .filter(|(_, context)| !context.sym.is_empty())
+        .map(|(range, context)| (range.clone(), context.sym.clone()))
         .collect();
     let li_starts: Vec<(usize, usize)> = (1..n)
         .filter(|&node| doc.is(node, "li"))
@@ -1923,6 +2123,14 @@ fn analyze_placed(
             &d.fors,
         );
     }
+    // (Algorithms' kinds are callable; IDL members with steps keep theirs,
+    // but say they're algorithms.)
+    let algorithm_syms: HashSet<&str> = algorithms
+        .iter()
+        .map(|(_, context)| context.sym.as_str())
+        .chain(shared_steps.iter().map(String::as_str))
+        .filter(|sym| !sym.is_empty())
+        .collect();
     let mut structured: HashMap<String, (&'static str, Option<String>, Option<String>)> =
         HashMap::new();
     for d in &dfns {
@@ -1930,7 +2138,10 @@ fn analyze_placed(
             continue;
         };
         let sym = spec_symbol(shortname, id);
-        let kind = dfn_kind(d.dfn_type.as_deref().unwrap_or("dfn"));
+        let kind = match dfn_kind(d.dfn_type.as_deref().unwrap_or("dfn")) {
+            "specDfn" if algorithm_syms.contains(sym.as_str()) => "specAlgorithm",
+            kind => kind,
+        };
         let parent = d
             .fors
             .first()
@@ -1965,6 +2176,12 @@ fn analyze_placed(
                 parent.as_deref(),
                 rendered.as_deref(),
             );
+            if kind != "specAlgorithm"
+                && algorithm_syms.contains(p.sym.as_str())
+                && let Some(Record::Structured(_, value)) = records.last_mut()
+            {
+                value["algorithm"] = serde_json::Value::Bool(true);
+            }
         }
     }
     for records in &mut file_records {
@@ -2884,6 +3101,136 @@ var respecConfig = { shortName: "example-respec", specStatus: "ED" };
         // (Without the other specs' terms, its references to them don't
         // resolve; see `test_xrefs`.)
         assert_eq!((stats.dfns, stats.idl, stats.unresolved), (8, 7, 2));
+    }
+
+    #[test]
+    fn test_algorithms() {
+        // IDL members' steps are algorithms of the members their leads name
+        // (the constructor's, not the interface's), whose kinds they keep.
+        let src = fixture();
+        let (records, _) = analyze(&src, "", "example-respec", &config(), &Terms::default());
+        let sym = |anchor: &str| spec_symbol("example-respec", anchor);
+        let algorithms: Vec<(String, String)> = records
+            .iter()
+            .filter_map(|record| match record {
+                Record::Structured(_, value) if value["algorithm"] == true => Some((
+                    value["sym"].as_str()?.to_string(),
+                    value["kind"].as_str()?.to_string(),
+                )),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            algorithms,
+            [
+                (sym("dom-gizmo-constructor"), "method".to_string()),
+                (sym("dom-gizmo-poke"), "method".to_string()),
+            ]
+        );
+        // References in their steps are in their contexts.
+        let context = records.iter().find_map(|record| match record {
+            Record::Target(t)
+                if t.data.kind.to_ustr() == "use" && *t.data.sym == sym("dfn-poke") =>
+            {
+                Some((t.data.context.to_string(), t.data.contextsym.to_string()))
+            }
+            _ => None,
+        });
+        assert_eq!(
+            context,
+            Some(("poke() step 2".to_string(), sym("dom-gizmo-poke")))
+        );
+    }
+
+    #[test]
+    fn test_older_algorithms() {
+        // IDL members' steps in `<dl>`s, after headings naming them, and
+        // sections whose headings are definitions, with their steps.
+        let src = r#"<!DOCTYPE html>
+<html><head><title>Gizmos</title>
+<script class="remove">var respecConfig = { shortName: "gizmos" };</script></head>
+<body>
+<section data-dfn-for="Gizmo">
+  <h2>The Gizmo interface</h2>
+  <pre class="idl">
+interface Gizmo {
+  undefined poke();
+  undefined prod();
+  readonly attribute DOMString name;
+};
+  </pre>
+  <dl class="methods">
+    <dt><dfn>poke()</dfn></dt>
+    <dd>
+      <p>Pokes the gizmo.</p>
+      <p>When this method is invoked, the user agent MUST run the following steps:</p>
+      <ol><li>[=Prod=] it.</li></ol>
+    </dd>
+  </dl>
+  <h3><dfn>prod()</dfn> method</h3>
+  <ol class="method-algorithm"><li>Prod.</li></ol>
+  <dl class="attributes">
+    <dt><dfn>name</dfn></dt>
+    <dd>Its name, one of:<ol><li>"a"</li></ol></dd>
+  </dl>
+</section>
+<section>
+  <h3><dfn>Prod</dfn></h3>
+  <p>The following steps are run:</p>
+  <ol><li>Prod it.</li></ol>
+</section>
+<section>
+  <h3>A <dfn>widget</dfn></h3>
+  <p>Its parts:</p>
+  <ol><li>A part.</li></ol>
+</section>
+</body></html>
+"#;
+        let config: SpecsConfig = toml::from_str(
+            r#"
+            [[spec]]
+            name = "gizmos"
+            rendered = "https://example.org/gizmos/"
+            "#,
+        )
+        .unwrap();
+        let (records, _) = analyze(src, "", "gizmos", &config, &Terms::default());
+        let sym = |anchor: &str| spec_symbol("gizmos", anchor);
+        let algorithms: Vec<(String, String)> = records
+            .iter()
+            .filter_map(|record| match record {
+                Record::Structured(_, value)
+                    if value["algorithm"] == true || value["kind"] == "specAlgorithm" =>
+                {
+                    Some((
+                        value["sym"].as_str()?.to_string(),
+                        value["kind"].as_str()?.to_string(),
+                    ))
+                }
+                _ => None,
+            })
+            .collect();
+        // (The attribute's list isn't steps, nor is the widget's.)
+        assert_eq!(
+            algorithms,
+            [
+                (sym("dom-gizmo-poke"), "method".to_string()),
+                (sym("dom-gizmo-prod"), "method".to_string()),
+                (sym("dfn-prod"), "specAlgorithm".to_string()),
+            ]
+        );
+        let context = records.iter().find_map(|record| match record {
+            Record::Target(t)
+                if t.data.kind.to_ustr() == "use" && *t.data.sym == sym("dfn-prod") =>
+            {
+                Some((t.data.context.to_string(), t.data.contextsym.to_string()))
+            }
+            _ => None,
+        });
+        assert_eq!(
+            context,
+            Some(("poke() step 1".to_string(), sym("dom-gizmo-poke")))
+        );
     }
 
     fn export(text: &str, dfn_type: &str, fors: &[&str], anchor: &str) -> Export {

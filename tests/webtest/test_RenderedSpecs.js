@@ -186,6 +186,28 @@ add_task(async function test_RenderedRespec() {
      "The source listing links to the rendered view");
 });
 
+add_task(async function test_RespecAlgorithmView() {
+  // The ReSpec spec's algorithms, and its IDL members' steps, have views
+  // beside the code citing them too.
+  await TestUtils.loadPath("/tests/rendered/specs/respec/index.html");
+  is(doc().querySelector("dfn#dom-gizmo-poke + a.sp-algorithm-link")?.getAttribute("href"),
+     "/tests/algorithm/SPEC_examplerespec_dom@2Dgizmo@2Dpoke",
+     "The rendered spec's IDL members' steps link to their views");
+
+  await TestUtils.loadPath("/tests/algorithm/SPEC_examplerespec_dom@2Dgizmo@2Dpoke");
+  const steps = frame.contentDocument.querySelector("#rendered-doc");
+  ok(steps?.textContent.includes("method steps are"), "The view has the member's steps");
+  ok(!steps?.textContent.includes("Acknowledgements"), "and only them");
+  is(steps?.querySelector('a[href$="#dfn-gizmo"]')?.getAttribute("href"),
+     "/tests/rendered/specs/respec/index.html#dfn-gizmo",
+     "whose links to the spec's anchors are to its rendered view");
+  ok(frame.contentDocument.querySelector("#sp-algorithm-1 .sp-called-heading")
+       ?.textContent.includes("poke"),
+     "The algorithm the steps call is below them");
+  is(frame.contentDocument.querySelectorAll("#sp-algorithm-map g.edge").length, 2,
+     "and the map has their calls of each other");
+});
+
 add_task(async function test_ObsoleteSpec() {
   // The test tree's ReSpec spec is obsolete, superseded by its Bikeshed spec
   // (see tests/tests/specs.toml).

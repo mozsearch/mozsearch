@@ -1857,16 +1857,30 @@ fn algorithm_section(
         tree_name,
         rev: None,
     };
-    let view = rendered_specs::render_algorithm(
-        spec,
-        &source,
-        &source_path,
-        specs,
-        &spec_links,
-        &read,
-        output.as_deref(),
-        sym,
-    )
+    // (A ReSpec spec's references to other specs' terms link by the index's
+    // analysis, like its rendered view's.)
+    let view = match spec.format {
+        Some(crate::spec_analyze::SpecFormat::Respec) => rendered_specs::respec::render_algorithm(
+            &source_path,
+            spec,
+            specs,
+            &spec_links,
+            &read,
+            &crate::spec_analyze::xref::Terms::default(),
+            &respec_index_targets(tree_config, &source_path),
+            sym,
+        ),
+        _ => rendered_specs::render_algorithm(
+            spec,
+            &source,
+            &source_path,
+            specs,
+            &spec_links,
+            &read,
+            output.as_deref(),
+            sym,
+        ),
+    }
     .ok_or("The symbol isn't an algorithm's")?;
     // (The blocks are of the file with the algorithm.)
     let file = view.file.clone().unwrap_or_else(|| source_path.clone());

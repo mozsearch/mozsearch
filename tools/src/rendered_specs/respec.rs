@@ -55,6 +55,15 @@ struct Respec<'r> {
     /// Where the table of contents goes: after the status of the document
     /// (or else the abstract), if there's one.
     toc_after: Option<usize>,
+    /// Whether it's the whole spec (with its table of contents and
+    /// references), and not an algorithm.
+    whole: bool,
+    /// For an algorithm's view, the spec's rendered view's URL, which links
+    /// to its anchors are to.
+    base: Option<String>,
+    /// The URLs of the views of the algorithms `<dfn>`s name (see
+    /// `SpecLinks::algorithm_url`).
+    algorithm_dfns: HashMap<usize, String>,
     spec: &'r SpecEntry,
     config: &'r SpecsConfig,
     links: &'r dyn SpecLinks,
@@ -70,10 +79,19 @@ impl Respec<'_> {
             .iter()
             .find_map(|spec| Some((spec, spec_anchor(spec.shortname(), sym)?)))?;
         if spec.shortname() == self.spec.shortname() {
-            return Some(fragment(&anchor));
+            return Some(self.fragment_url(&anchor));
         }
         let url = format!("{}{}", spec.rendered.as_deref()?, fragment(&anchor));
         link_url(&url, None, self.config, self.links)
+    }
+
+    /// The URL of an anchor of the spec: its fragment, or in an algorithm's
+    /// view, the rendered view's.
+    fn fragment_url(&self, anchor: &str) -> String {
+        match &self.base {
+            Some(base) => format!("{}{}", base, fragment(anchor)),
+            None => fragment(anchor),
+        }
     }
 
     fn target(&self, range: &Range<usize>) -> Option<&str> {
@@ -233,7 +251,7 @@ impl Hooks for Respec<'_> {
 
     fn href(&self, href: &str) -> Option<String> {
         if let Some(id) = href.strip_prefix('#') {
-            return Some(fragment(&decode_html(id)));
+            return Some(self.fragment_url(&decode_html(id)));
         }
         link_url(href, self.spec.rendered.as_deref(), self.config, self.links)
     }
@@ -254,6 +272,13 @@ impl Hooks for Respec<'_> {
             NodeKind::Element(name) => name.as_str(),
             _ => return false,
         };
+        if let Some(url) = self.algorithm_dfns.get(&node) {
+            let tag = out.start_tag(self, node, name);
+            out.children(self, node);
+            out.end_tag(tag);
+            super::algorithm_link(out, url);
+            return true;
+        }
         match name {
             // (Links without `href`s, to what they're to.)
             "a" if !doc.has_attr(node, "href") => {
@@ -305,7 +330,10 @@ impl Hooks for Respec<'_> {
             }
             "section" => {
                 let tag = out.start_tag(self, node, name);
-                if let Some(heading) = self.rendering.generated.get(&node) {
+                // (Not an algorithm's sections'.)
+                if let Some(heading) = self.rendering.generated.get(&node)
+                    && out.range.contains(&doc.nodes[node].range.start)
+                {
                     self.generated_heading(out, heading);
                 }
                 out.children(self, node);
@@ -315,7 +343,7 @@ impl Hooks for Respec<'_> {
                 }
                 true
             }
-            "body" => {
+            "body" if self.whole => {
                 if self.toc_after.is_none() {
                     self.toc(out);
                 }
@@ -421,6 +449,47 @@ pub fn render(
     terms: &Terms,
     index_targets: &[(u32, u32, u32, String)],
 ) -> Option<RenderedSpec> {
+    render_part(path, spec, config, links, read, terms, index_targets, None)
+}
+
+/// Render the algorithm of the ReSpec spec `spec` which defines `sym` (see
+/// `render`; ex: "To <dfn>poke</dfn> a gizmo:" and its steps, or an IDL
+/// member's steps), with its steps' numbers and where they start in its file,
+/// for its view beside the code citing them (see `format::format_algorithm`).
+#[allow(clippy::too_many_arguments)]
+pub fn render_algorithm(
+    path: &str,
+    spec: &SpecEntry,
+    config: &SpecsConfig,
+    links: &dyn SpecLinks,
+    read: &dyn Fn(&str) -> Option<String>,
+    terms: &Terms,
+    index_targets: &[(u32, u32, u32, String)],
+    sym: &str,
+) -> Option<RenderedSpec> {
+    render_part(
+        path,
+        spec,
+        config,
+        links,
+        read,
+        terms,
+        index_targets,
+        Some(sym),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_part(
+    path: &str,
+    spec: &SpecEntry,
+    config: &SpecsConfig,
+    links: &dyn SpecLinks,
+    read: &dyn Fn(&str) -> Option<String>,
+    terms: &Terms,
+    index_targets: &[(u32, u32, u32, String)],
+    algorithm: Option<&str>,
+) -> Option<RenderedSpec> {
     let source = read(path)?;
     let dir = path.rsplit_once('/').map_or("", |(dir, _)| dir);
     let scripts: String = local_scripts(&source)
@@ -459,6 +528,37 @@ pub fn render(
     let section_with_id = |id: &str| {
         (1..n).find(|&node| doc.is(node, "section") && doc.attr(node, "id").as_deref() == Some(id))
     };
+    // For an algorithm, its bytes (the innermost's which define the
+    // symbol), its file, and its steps, by where they start in it.
+    let mut file = 0;
+    let mut range = 0..combined.text.len();
+    let mut steps: Vec<(String, usize)> = vec![];
+    if let Some(sym) = algorithm {
+        range = rendering
+            .algorithms
+            .iter()
+            .filter(|(_, s)| s == sym)
+            .map(|(range, _)| range.clone())
+            .min_by_key(|range| range.len())?;
+        file = combined.place(&range)?.0;
+        steps = (1..n)
+            .filter(|&node| {
+                doc.is(node, "li")
+                    && doc.nodes[node].parent.is_some_and(|p| doc.is(p, "ol"))
+                    && range.contains(&doc.nodes[node].range.start)
+                    && !hidden[node]
+            })
+            .filter_map(|node| {
+                let start = doc.nodes[node].range.start;
+                let at = combined.file_range(file, &(start..start))?.start;
+                Some((
+                    crate::spec_analyze::wattsi::step_path(&doc, node, range.start),
+                    at,
+                ))
+            })
+            .collect();
+    }
+    let whole = algorithm.is_none();
     let mut hooks = Respec {
         doc: &doc,
         rendering: &rendering,
@@ -469,7 +569,16 @@ pub fn render(
             .iter()
             .map(|(range, id)| (range.start, (range.end, id.clone())))
             .collect(),
-        toc_after: section_with_id("sotd").or_else(|| section_with_id("abstract")),
+        toc_after: section_with_id("sotd")
+            .or_else(|| section_with_id("abstract"))
+            .filter(|_| whole),
+        whole,
+        base: (!whole).then(|| links.rendered_url(path)),
+        algorithm_dfns: rendering
+            .algorithm_dfns
+            .iter()
+            .filter_map(|(&node, sym)| Some((node, links.algorithm_url(sym)?)))
+            .collect(),
         spec,
         config,
         links,
@@ -496,8 +605,10 @@ pub fn render(
             hooks.targets.insert(key, url);
         }
     }
-    let map = |range: &Range<usize>| combined.file_range(0, range);
-    let mut out = HtmlRenderer::for_file(&doc, 0..combined.text.len(), &source, &map);
+    // (An algorithm's blocks are of its file's lines.)
+    let file_source = combined.source(file);
+    let map = |range: &Range<usize>| combined.file_range(file, range);
+    let mut out = HtmlRenderer::for_file(&doc, range.clone(), file_source, &map);
     out.children(&hooks, 0);
     let mut rendered = out.w.finish();
     rendered.title = Some(title.clone());
@@ -509,9 +620,11 @@ pub fn render(
             start: 0,
         }],
         page: 0,
-        range: 0..source.len(),
-        steps: vec![],
-        file: None,
+        range: combined
+            .file_bounds(file, &range)
+            .unwrap_or(0..file_source.len()),
+        steps,
+        file: (file != 0).then(|| combined.paths().nth(file).unwrap_or(path).to_string()),
     })
 }
 
@@ -524,6 +637,10 @@ mod tests {
     impl SpecLinks for TestLinks {
         fn rendered_url(&self, path: &str) -> String {
             format!("/t/rendered/{}", path)
+        }
+
+        fn algorithm_url(&self, sym: &str) -> Option<String> {
+            Some(format!("/t/algorithm/{}", sym))
         }
     }
 
@@ -610,5 +727,101 @@ dictionary GizmoOptions {};
         assert!(!html.contains("respecConfig"), "{}", html);
         // Blocks are of the source's lines.
         assert!(!r.blocks.is_empty());
+    }
+
+    #[test]
+    fn test_render_algorithm() {
+        let source = r#"<!DOCTYPE html>
+<html><head><title>Gizmos</title>
+<script class="remove">var respecConfig = { shortName: "gizmos" };</script></head>
+<body>
+<section data-dfn-for="Gizmo">
+  <h2>The Gizmo interface</h2>
+  <pre class="idl">
+interface Gizmo {
+  undefined poke();
+};
+  </pre>
+  <p>The <dfn>poke()</dfn> method steps are:</p>
+  <ol>
+    <li>Let |gizmo| be the gizmo.</li>
+    <li><a>Poke</a> |gizmo|.
+      <ol><li>Really.</li></ol></li>
+  </ol>
+</section>
+<section>
+  <h2>Poking</h2>
+  <p>To <dfn>poke</dfn> a gizmo:</p>
+  <ol><li>Poke it.</li></ol>
+</section>
+<section id="conformance"></section>
+</body></html>
+"#;
+        let config: SpecsConfig = toml::from_str(
+            r#"
+            [[spec]]
+            name = "gizmos"
+            path = "gizmos"
+            format = "respec"
+            rendered = "https://example.org/gizmos/"
+            "#,
+        )
+        .unwrap();
+        let read = |file: &str| (file == "gizmos/index.html").then(|| source.to_string());
+        let render = |sym: &str| {
+            render_algorithm(
+                "gizmos/index.html",
+                &config.specs[0],
+                &config,
+                &TestLinks,
+                &read,
+                &Terms::default(),
+                &[],
+                sym,
+            )
+        };
+        let html = |rendered: &RenderedSpec| {
+            Regex::new(r#"<span data-l="\d+" data-c="\d+"[^>]*>([^<]*)</span>"#)
+                .unwrap()
+                .replace_all(&rendered.rendered.html, "$1")
+                .into_owned()
+        };
+        let line = |at: usize| source[..at].matches('\n').count() + 1;
+
+        // An IDL member's steps, only them, with their steps' lines.
+        let method = render("SPEC_gizmos_dom@2Dgizmo@2Dpoke").unwrap();
+        let h = html(&method);
+        assert!(h.contains("method steps are:"), "{}", h);
+        assert!(
+            !h.contains("Poking") && !h.contains("Table of contents"),
+            "{}",
+            h
+        );
+        let steps: Vec<(&str, usize)> = method
+            .steps
+            .iter()
+            .map(|(path, at)| (path.as_str(), line(*at)))
+            .collect();
+        assert_eq!(steps, vec![("1", 14), ("2", 15), ("2.1", 16)]);
+        // Its name links to its view, and links to the spec's anchors are to
+        // its rendered view.
+        assert!(
+            h.contains(r#"poke()</dfn><a class="sp-algorithm-link" href="/t/algorithm/SPEC_gizmos_dom@2Dgizmo@2Dpoke""#),
+            "{}",
+            h
+        );
+        assert!(
+            h.contains(r##"<a href="/t/rendered/gizmos/index.html#dfn-poke">Poke</a>"##),
+            "{}",
+            h
+        );
+
+        // An algorithm.
+        let algorithm = render("SPEC_gizmos_dfn@2Dpoke").unwrap();
+        let h = html(&algorithm);
+        assert!(h.contains("To ") && h.contains("Poke it."), "{}", h);
+        assert!(!h.contains("method steps"), "{}", h);
+        assert_eq!(algorithm.steps.len(), 1);
+        assert!(render("SPEC_gizmos_dom@2Dgizmo").is_none());
     }
 }

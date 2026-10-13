@@ -24,14 +24,14 @@ input_file: inputs/crossref/specs/respec_terms__json
                 "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
               },
               {
-                "lno": 53,
+                "lno": 55,
                 "bounds": [
-                  40,
-                  56
+                  38,
+                  54
                 ],
-                "line": "<p>To <dfn>poke</dfn> a [=gizmo=], call {{Gizmo/poke()}}.</p>",
-                "context": "Poking",
-                "contextsym": "SPEC_examplerespec_poking"
+                "line": "<li>Set its [=gizmo/state=], and call {{Gizmo/poke()}}.</li>",
+                "context": "poke step 1",
+                "contextsym": "SPEC_examplerespec_dfn@2Dpoke"
               }
             ]
           }
@@ -48,10 +48,48 @@ input_file: inputs/crossref/specs/respec_terms__json
                   18
                 ],
                 "line": "<p>The <dfn>poke()</dfn> method steps are:</p>",
-                "context": "The Gizmo interface",
-                "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+                "context": "poke()",
+                "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
               }
             ]
+          }
+        ],
+        "callees": [
+          {
+            "jump": "specs/respec/index.html#47",
+            "kind": "specDfn",
+            "pretty": "examplerespec gizmo",
+            "sym": "SPEC_examplerespec_dfn@2Dgizmo"
+          },
+          {
+            "jump": "specs/respec/index.html#47",
+            "kind": "specAlgorithm",
+            "pretty": "examplerespec poke",
+            "sym": "SPEC_examplerespec_dfn@2Dpoke"
+          },
+          {
+            "jump": "specs/respec/index.html#48",
+            "kind": "field",
+            "pretty": "examplerespec Gizmo/name",
+            "sym": "SPEC_examplerespec_dom@2Dgizmo@2Dname"
+          },
+          {
+            "jump": "specs/respec/index.html#46",
+            "kind": "class",
+            "pretty": "examplerespec GizmoOptions",
+            "sym": "SPEC_examplerespec_dom@2Dgizmooptions"
+          },
+          {
+            "jump": "specs/respec/index.html#47",
+            "kind": "field",
+            "pretty": "examplerespec GizmoOptions/force",
+            "sym": "SPEC_examplerespec_dom@2Dgizmooptions@2Dforce"
+          },
+          {
+            "jump": "specs/respec/index.html#48",
+            "kind": "enumConstant",
+            "pretty": "examplerespec GizmoState/",
+            "sym": "SPEC_examplerespec_dom@2Dgizmostate@2Dthe@2Dempty@2Dstring"
           }
         ],
         "meta": {
@@ -74,6 +112,7 @@ input_file: inputs/crossref/specs/respec_terms__json
           "overrides": [],
           "props": [],
           "variants": [],
+          "algorithm": true,
           "rendered": "https://example.github.io/respec/#dom-gizmo-poke"
         }
       },
@@ -106,8 +145,8 @@ input_file: inputs/crossref/specs/respec_terms__json
                   9
                 ],
                 "line": "[=gizmo=].</p>",
-                "context": "The Gizmo interface",
-                "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+                "context": "constructor()",
+                "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dconstructor"
               },
               {
                 "lno": 47,
@@ -116,8 +155,8 @@ input_file: inputs/crossref/specs/respec_terms__json
                   88
                 ],
                 "line": "<li>If |options|.{{GizmoOptions/force}}, <a>poke</a> it; see <a href=\"#dfn-gizmo\">gizmos</a>.</li>",
-                "context": "The Gizmo interface",
-                "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+                "context": "poke() step 2",
+                "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
               },
               {
                 "lno": 53,
@@ -125,9 +164,9 @@ input_file: inputs/crossref/specs/respec_terms__json
                   24,
                   33
                 ],
-                "line": "<p>To <dfn>poke</dfn> a [=gizmo=], call {{Gizmo/poke()}}.</p>",
-                "context": "Poking",
-                "contextsym": "SPEC_examplerespec_poking"
+                "line": "<p>To <dfn>poke</dfn> a [=gizmo=]:</p>",
+                "context": "poke",
+                "contextsym": "SPEC_examplerespec_dfn@2Dpoke"
               }
             ]
           }
@@ -201,8 +240,8 @@ input_file: inputs/crossref/specs/respec_terms__json
                   41
                 ],
                 "line": "<li>Let |options| be the {{GizmoOptions}}.</li>",
-                "context": "The Gizmo interface",
-                "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+                "context": "poke() step 1",
+                "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
               }
             ]
           }
@@ -260,7 +299,7 @@ input_file: inputs/crossref/specs/respec_terms__json
             "path_kind": "normal",
             "lines": [
               {
-                "lno": 54,
+                "lno": 57,
                 "bounds": [
                   37,
                   47

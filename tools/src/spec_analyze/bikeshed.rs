@@ -304,7 +304,7 @@ pub fn analyze_with_includes(
 /// The types of links to IDL members (their definitions' types, for the
 /// spec's own), which name the members whose steps a paragraph opens (see
 /// `spec_tokenizer::idl_steps`).
-const IDL_MEMBER_TYPES: &[&str] = &[
+pub(crate) const IDL_MEMBER_TYPES: &[&str] = &[
     "method",
     "constructor",
     "attribute",

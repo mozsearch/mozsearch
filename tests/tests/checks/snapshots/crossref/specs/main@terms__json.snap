@@ -206,8 +206,8 @@ input_file: inputs/crossref/specs/terms__json
                   48
                 ],
                 "line": "<li>Set the <a data-cite=\"DOM#concept-node\">node</a>'s {{Gizmo/name}}, and its {{GizmoState/\"\"}}.</l",
-                "context": "The Gizmo interface",
-                "contextsym": "SPEC_examplerespec_the@2Dgizmo@2Dinterface"
+                "context": "poke() step 3",
+                "contextsym": "SPEC_examplerespec_dom@2Dgizmo@2Dpoke"
               }
             ]
           },
