@@ -32,6 +32,11 @@
 //! from the notes (which don't keep them alive); a server just accumulates
 //! revisions until it's replaced by a fresh one.
 //!
+//! The web server imports try pushes this way into the history of the trees
+//! which can (see `try_import`), on the `TRY_BRANCH` branch with its default
+//! notes ref, reading through to the importing tree's branch's notes, and the
+//! trees' views read through to the try notes (see `TreeHistory`).
+//!
 //! ## Writing
 //!
 //! Notes are written in batches of `NOTES_BATCH_SIZE` revisions, and only for
@@ -57,6 +62,11 @@ use git2::{Oid, Repository};
 use crate::git_notes::{NotesReader, NotesWriter, notes_ref_for_branch};
 
 pub const NOTES_REF_PREFIX: &str = "refs/notes/mozsearch-source-mapping-";
+
+/// The branch of the history repos (and of the source repo, for the tools'
+/// `BLAME_REF`) which the web server's try imports process (see `try_import`),
+/// whose notes ref, `refs/notes/mozsearch-source-mapping-try`, accumulates them.
+pub const TRY_BRANCH: &str = "try";
 
 /// How many revisions we process between writing notes commits.
 pub const NOTES_BATCH_SIZE: usize = 100;

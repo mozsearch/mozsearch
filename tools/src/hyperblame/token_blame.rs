@@ -16,6 +16,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::ops::Range;
 use std::path::Path;
+use std::sync::Mutex;
 
 use git2::{Commit, Oid, Repository};
 
@@ -24,7 +25,7 @@ use crate::file_format::config::{ThreadLocalRepository, timeline_commit_to_meta}
 use crate::file_format::history::syntax_files::{TokenClass, split_token_line, token_file_lines};
 use crate::file_format::history::syntax_files_struct::FileStructureHeader;
 use crate::file_format::history::timeline_annotated::{HyperLineData, RemovalMarker};
-use crate::source_mapping::{NotesRefs, SourceMapping, default_notes_ref};
+use crate::source_mapping::{NotesRefs, SourceMapping, TRY_BRANCH, default_notes_ref};
 use crate::tree_sitter_support::cst_tokenizer::{hypertokenize_with_profile, profile_for_lang};
 
 /// A tree's history repos (see `TreeConfigPaths::history_path`) for its branch.
@@ -35,6 +36,11 @@ pub struct TreeHistory {
     pub timeline: ThreadLocalRepository,
     branch_ref: String,
     mapping: SourceMapping,
+    /// The notes of the try pushes imported into the history (see
+    /// `source_mapping::TRY_BRANCH`), which revisions the branch's notes don't
+    /// have are looked up in: their notes ref's commit when last read, and
+    /// those notes, read again when the ref moves (ex: after an import).
+    try_mapping: Mutex<Option<(Oid, SourceMapping)>>,
     /// The syntax repo's old revision notes (see `tools::cinnabar`), which
     /// build-syntax-token-tree writes as build-blame does in the blame repo.
     old_revisions: OldRevisionMap,
@@ -60,14 +66,35 @@ impl TreeHistory {
             timeline: timeline.into(),
             branch_ref,
             mapping,
+            try_mapping: Mutex::new(None),
             old_revisions,
         })
     }
 
-    /// The timeline commit derived from `source_rev`, if the history has it.
+    /// The timeline commit derived from `source_rev`, if the history has it,
+    /// on its branch or from an imported try push.
     pub fn timeline_commit(&self, source_rev: Oid) -> Option<Commit<'_>> {
-        let timeline_rev = self.mapping.lookup(&self.timeline, source_rev)?;
+        let timeline_rev = self
+            .mapping
+            .lookup(&self.timeline, source_rev)
+            .or_else(|| self.try_lookup(source_rev))?;
         self.timeline.find_commit(timeline_rev).ok()
+    }
+
+    /// The timeline commit id derived from `source_rev` by a try import, if
+    /// there's one (see `try_mapping`).
+    fn try_lookup(&self, source_rev: Oid) -> Option<Oid> {
+        let try_ref = default_notes_ref(&self.timeline, &format!("refs/heads/{}", TRY_BRANCH));
+        let tip = self.timeline.refname_to_id(&try_ref).ok()?;
+        let mut cached = self.try_mapping.lock().unwrap();
+        if cached.as_ref().is_none_or(|(read, _)| *read != tip) {
+            let notes = NotesRefs {
+                write: try_ref,
+                read: vec![],
+            };
+            *cached = Some((tip, SourceMapping::open(&self.timeline, &notes)));
+        }
+        cached.as_ref()?.1.lookup(&self.timeline, source_rev)
     }
 
     /// The hg revision of `source_rev`, if the history has it and knows it.
@@ -434,6 +461,43 @@ mod tests {
     use super::*;
     use crate::file_format::history::timeline_annotated::HyperTokenRef;
     use crate::tree_sitter_support::cst_tokenizer::hypertokenize_source_file;
+
+    #[test]
+    fn test_try_lookup() {
+        use crate::git_notes::test_support::write_notes;
+
+        // A history whose branch has one revision, and whose try notes get a
+        // push after it's opened, which its lookups then find.
+        let dir = std::env::temp_dir().join(format!("tree-history-try-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let syntax = Repository::init(dir.join("syntax")).unwrap();
+        let timeline = Repository::init(dir.join("timeline")).unwrap();
+        drop(syntax);
+        let commit = |message: &str| {
+            let sig = git2::Signature::new("t", "t@example.com", &git2::Time::new(0, 0)).unwrap();
+            let tree = timeline.find_tree(timeline.treebuilder(None).unwrap().write().unwrap());
+            timeline
+                .commit(None, &sig, &sig, message, &tree.unwrap(), &[])
+                .unwrap()
+        };
+        let (main_commit, try_commit) = (commit("main"), commit("try"));
+        let source = |n: u8| Oid::from_bytes(&[n; 20]).unwrap();
+        let notes_ref =
+            |branch: &str| default_notes_ref(&timeline, &format!("refs/heads/{}", branch));
+        write_notes(&timeline, &notes_ref("main"), &[(source(1), main_commit)]);
+        let history = TreeHistory::open(dir.to_str().unwrap(), Some("main")).unwrap();
+        let found = |n: u8| history.timeline_commit(source(n)).map(|c| c.id());
+        assert_eq!(found(1), Some(main_commit));
+        assert_eq!(found(2), None);
+        write_notes(
+            &timeline,
+            &notes_ref(TRY_BRANCH),
+            &[(source(2), try_commit)],
+        );
+        assert_eq!(found(2), Some(try_commit));
+        assert_eq!(found(3), None);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn test_line_starts() {
