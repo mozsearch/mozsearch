@@ -3384,6 +3384,12 @@ fn set_token_blame_urls(
         url_encode_path(path)
     );
     page.info.peephole_url = Some(format!("{}/peephole", rev_url));
+    page.info.history_url = Some(format!(
+        "/{}/history/{}/{}",
+        tree_name,
+        commit.id(),
+        url_encode_path(path)
+    ));
     page.info.data_url = Some(match links_to {
         BreadcrumbsLinksTo::Latest => {
             format!("/{}/hyperblame/{}", tree_name, url_encode_path(path))
@@ -6125,6 +6131,9 @@ pub fn format_explore(
         other_branches,
         explore_url: format!("explore/{}/{}", kind, keys.join(",")),
         note: None,
+        scopes: vec![],
+        changes: None,
+        stack_links: true,
     };
     write_explore(cfg, tree_name, &refs, &title, extras, writer)
 }
@@ -6198,6 +6207,224 @@ fn explore_refs(
     })
 }
 
+/// The most commits a history page (see `format_history`) shows.
+const MAX_HISTORY_COMMITS: usize = 100;
+
+/// The most commits a history page looks at for changes to its scope (ex: of a
+/// method a busy file's weeks of commits rarely changed; see `format_history`).
+const MAX_HISTORY_CANDIDATES: usize = 1000;
+
+/// Whether a history context (see `syntax_files`) is `scope` or nested in it,
+/// "" being the whole file.
+fn in_scope(context: &str, scope: &str) -> bool {
+    scope.is_empty()
+        || context == scope
+        || context
+            .strip_prefix(scope)
+            .is_some_and(|rest| rest.starts_with("::"))
+}
+
+/// The history of a scope of the file at `path` (`/{tree}/history/{rev}/{path}`),
+/// as of `rev`: the file, or one of its classes, methods or other contexts of
+/// the history's (`?scope=Foo::Bar`, or `?token=N`, the context of its Nth
+/// token), as the explore page (see `write_explore`) of the newest commits
+/// which changed it (up to `MAX_HISTORY_COMMITS`), oldest first, with the
+/// scope's changes, and links to its broader scopes (ex: the class of a
+/// method).
+///
+/// The commits come from the file's files-delta journal (whose records follow
+/// it through renames), newest first: its detail records' revisions, and the
+/// revisions of its weekly summaries (see `consolidation`) which changed the
+/// scope (whose own changes the summaries don't keep), which their
+/// rev-summaries then say (see `explore::commit_changes`), and which also say
+/// the file's earlier paths (see `explore::commit_moves`).
+pub fn format_history(
+    cfg: &Config,
+    tree_name: &str,
+    rev: &str,
+    path: &str,
+    query: &str,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    use crate::file_format::history::syntax_files::{split_token_line, token_file_lines};
+    use crate::file_format::history::timeline_common::JournalVersionRef;
+    use crate::file_format::history::timeline_files_delta::FileDeltaRecord;
+    use crate::hyperblame::journals::{JournalKind, JournalReader};
+
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let history = git.history.as_ref().ok_or("This tree has no history")?;
+    let commit = git
+        .repo
+        .revparse_single(rev)
+        .and_then(|object| object.peel_to_commit())
+        .map_err(|_| "Bad revision")?;
+    let timeline_commit = history
+        .timeline_commit(commit.id())
+        .ok_or("The history doesn't have the revision")?;
+
+    let params: HashMap<String, String> = url::form_urlencoded::parse(query.as_bytes())
+        .into_owned()
+        .collect();
+    let token = params
+        .get("token")
+        .and_then(|token| token.parse::<usize>().ok());
+    let scope = match (params.get("scope"), token) {
+        (Some(scope), _) => scope.clone(),
+        (None, Some(token)) => {
+            let file = history
+                .file_history(&timeline_commit, path)
+                .ok()
+                .flatten()
+                .ok_or("The history doesn't have the file")?;
+            let lines = token_file_lines(&file.syntax);
+            let line = token
+                .checked_sub(1)
+                .and_then(|index| lines.get(index))
+                .ok_or("No such token")?;
+            split_token_line(line).context.to_string()
+        }
+        (None, None) => String::new(),
+    };
+    let scope = if scope == "%" { String::new() } else { scope };
+
+    let records: Vec<FileDeltaRecord> = JournalReader::new(&history.timeline)
+        .records(&JournalVersionRef {
+            timeline_rev: timeline_commit.id().to_string(),
+            path: JournalKind::FilesDelta.journal_path(path),
+        })
+        .map_err(|_| "The history's journal of the file is broken")?;
+    // The revisions which may have changed the scope, newest first.
+    let mut candidates: Vec<&str> = vec![];
+    let mut seen = HashSet::new();
+    for record in &records {
+        let (revs, group) = match record {
+            FileDeltaRecord::Detail(detail) => (
+                vec![detail.desc.source_rev.as_str()],
+                &detail.delta.symbol_group,
+            ),
+            FileDeltaRecord::Summary(summary) => (
+                summary
+                    .desc
+                    .source_revs
+                    .iter()
+                    .map(String::as_str)
+                    .collect(),
+                &summary.symbol_group,
+            ),
+        };
+        let touched = group.symbol_deltas.iter().any(|(context, delta)| {
+            let totals = &delta.token_totals;
+            in_scope(context, &scope) && totals.added + totals.removed > 0
+        });
+        if touched {
+            candidates.extend(revs.into_iter().filter(|rev| seen.insert(*rev)));
+        }
+    }
+
+    // Their changes to the scope, in the file's paths at the time.
+    let mut paths: HashSet<String> = HashSet::from([path.to_string()]);
+    let mut kept: Vec<(CommitRef, explore::CommitChanges)> = vec![];
+    let mut more = false;
+    let searched_all = candidates.len() <= MAX_HISTORY_CANDIDATES;
+    candidates.truncate(MAX_HISTORY_CANDIDATES);
+    for candidate in candidates {
+        let mut scoped: BTreeMap<String, u32> = BTreeMap::new();
+        for (changed, symbols) in commit_changes(Some(history), &git.repo, candidate) {
+            if !paths.contains(&changed) {
+                continue;
+            }
+            for (context, tokens) in symbols {
+                if tokens > 0 && in_scope(&context, &scope) {
+                    *scoped.entry(context).or_default() += tokens;
+                }
+            }
+        }
+        for (to, from) in explore::commit_moves(history, candidate) {
+            if paths.contains(&to) {
+                paths.insert(from);
+            }
+        }
+        if scoped.is_empty() {
+            continue;
+        }
+        if kept.len() == MAX_HISTORY_COMMITS {
+            more = true;
+            break;
+        }
+        let Some(found) = Oid::from_str(candidate)
+            .ok()
+            .and_then(|oid| git.repo.find_commit(oid).ok())
+        else {
+            continue;
+        };
+        kept.push((
+            crate::commit_index::commit_ref(&found),
+            BTreeMap::from([(path.to_string(), scoped)]),
+        ));
+    }
+    kept.reverse();
+    let (refs, changes): (Vec<CommitRef>, Vec<explore::CommitChanges>) = kept.into_iter().unzip();
+
+    // The scope and the broader ones (the file, then each enclosing context).
+    let url = |scope: Option<&str>| {
+        let base = format!(
+            "/{}/history/{}/{}",
+            tree_name,
+            commit.id(),
+            url_encode_path(path)
+        );
+        match scope {
+            Some(scope) => format!("{}?scope={}", base, urlencoding::encode(scope)),
+            None => base,
+        }
+    };
+    let mut scopes = vec![json!({"label": path, "url": url(None)})];
+    if !scope.is_empty() {
+        let segments: Vec<&str> = scope.split("::").collect();
+        for n in 1..=segments.len() {
+            scopes.push(json!({
+                "label": segments[n - 1],
+                "url": url(Some(&segments[..n].join("::"))),
+            }));
+        }
+    }
+    if let Some(last) = scopes.last_mut() {
+        last["url"] = serde_json::Value::Null;
+    }
+    let title = if scope.is_empty() {
+        format!("History of {}", path)
+    } else {
+        format!("History of {}", scope)
+    };
+    let at = &commit.id().to_string()[..12];
+    let note = if more {
+        format!(
+            "The newest {} commits which changed it, as of {}, oldest first.",
+            MAX_HISTORY_COMMITS, at
+        )
+    } else if !searched_all {
+        format!(
+            "The commits which changed it among the newest {} commits which changed the \
+             file, as of {}, oldest first.",
+            MAX_HISTORY_CANDIDATES, at
+        )
+    } else {
+        format!("The commits which changed it, as of {}, oldest first.", at)
+    };
+    let extras = ExploreExtras {
+        missing: vec![],
+        truncated: false,
+        other_branches: vec![],
+        explore_url: String::new(),
+        note: Some(note),
+        scopes,
+        changes: Some(changes),
+        stack_links: false,
+    };
+    write_explore(cfg, tree_name, &refs, &title, extras, writer)
+}
+
 /// The patch stack strip (see `hyperblame::stack_strip`) of the file at `path`
 /// in `rev` for the stack of commits of an explore page or a try push's page,
 /// `stack` being the page's URL in the tree (ex: "explore/bug/123" or
@@ -6258,6 +6485,15 @@ struct ExploreExtras {
     explore_url: String,
     /// A note under its title (ex: a try push's).
     note: Option<String>,
+    /// For a history page (see `format_history`), the scopes it can show,
+    /// broadest first, as `{label, url}` (the shown one without a URL).
+    scopes: Vec<serde_json::Value>,
+    /// What the commits changed, if not all of it (ex: a history page's
+    /// scope's), by commit.
+    changes: Option<Vec<explore::CommitChanges>>,
+    /// Whether its files link to their views with its stack strip (see
+    /// `stack_strip_json`).
+    stack_links: bool,
 }
 
 /// An explore page (see `format_explore`), of the commits `refs`, oldest
@@ -6278,10 +6514,13 @@ fn write_explore(
         .enumerate()
         .map(|(i, commit_ref)| explore_commit(tree_config, git, i + 1, commit_ref))
         .collect();
-    let changes: Vec<_> = refs
-        .iter()
-        .map(|commit_ref| commit_changes(history, &git.repo, &commit_ref.rev))
-        .collect();
+    let changes: Vec<_> = match extras.changes {
+        Some(changes) => changes,
+        None => refs
+            .iter()
+            .map(|commit_ref| commit_changes(history, &git.repo, &commit_ref.rev))
+            .collect(),
+    };
     for (backout, backed_out, reland) in explore::relands(history, refs, &changes) {
         let revs = |indices: &[usize]| indices.iter().map(|&i| refs[i].rev.as_str()).join(",");
         commits[backout].interdiff = Some(format!(
@@ -6297,13 +6536,11 @@ fn write_explore(
         refs,
         &changes,
         |path, rev| {
-            format!(
-                "/{}/rev/{}/{}?stack={}",
-                tree_name,
-                rev,
-                url_encode_path(path),
-                extras.explore_url
-            )
+            let url = format!("/{}/rev/{}/{}", tree_name, rev, url_encode_path(path));
+            match extras.stack_links {
+                true => format!("{}?stack={}", url, extras.explore_url),
+                false => url,
+            }
         },
         |_, _| false,
     );
@@ -6332,6 +6569,7 @@ fn write_explore(
         "other_branches": extras.other_branches,
         "explore_url": extras.explore_url,
         "note": extras.note,
+        "scopes": extras.scopes,
     }))
     .map_err(|_| "Template problems")?;
     build_and_parse_explore()
@@ -6383,6 +6621,9 @@ pub fn format_try(
                      changed, but not indexed, so its revisions have no jumps or references."
                         .to_string(),
                 ),
+                scopes: vec![],
+                changes: None,
+                stack_links: true,
             };
             return write_explore(
                 cfg,

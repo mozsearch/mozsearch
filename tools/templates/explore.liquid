@@ -12,6 +12,9 @@
 {%- endcomment -%}
 <div class="explore-page" data-slot="{{ slot }}">
   <h2>{{ title | escape }}</h2>
+  {%- if scopes.size > 0 %}
+  <p class="explore-scopes">{% for scope in scopes %}{% if scope.url %}<a href="{{ scope.url | escape }}">{{ scope.label | escape }}</a>{% else %}<strong>{{ scope.label | escape }}</strong>{% endif %}{% unless forloop.last %} › {% endunless %}{% endfor %}</p>
+  {%- endif %}
   {%- if note %}
   <p class="explore-note">{{ note | escape }}</p>
   {%- endif %}

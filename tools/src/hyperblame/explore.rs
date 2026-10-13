@@ -83,6 +83,25 @@ pub fn order_commits(repo: &Repository, refs: &mut Vec<CommitRef>) {
 /// tokens it changed in each symbol (if we know).
 pub type CommitChanges = BTreeMap<String, BTreeMap<String, u32>>;
 
+/// The files the commit `rev` renamed or copied, as `(path, from)`, by its
+/// rev-summary.
+pub fn commit_moves(history: &TreeHistory, rev: &str) -> Vec<(String, String)> {
+    let path = Path::new(&history.path)
+        .join("rev-summaries")
+        .join(rev_summary_path(rev));
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<RevSummaryRecord>(&text).ok())
+        .map(|summary| {
+            summary
+                .file_deltas
+                .into_iter()
+                .filter_map(|(path, file)| Some((path, file.delta.moved_from?)))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 /// What the commit `rev` changed.
 pub fn commit_changes(
     history: Option<&TreeHistory>,

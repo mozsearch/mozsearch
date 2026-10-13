@@ -1438,6 +1438,17 @@ var TokenBlamePopup = new (class TokenBlamePopup {
         }));
       }
     }
+    // (The history page of the context the token is in, ex: its method, with
+    // links to broader ones; see `format::format_history`.)
+    if (this.info.historyUrl) {
+      items.push(new MenuItem({
+        html: "Show the history of this token's method, class, or file",
+        href: `${this.info.historyUrl}?token=${token.index}`,
+        preaction: () => ContextMenu.hide(),
+        icon: "export-alt",
+        section: "hyperblame",
+      }));
+    }
     // (The page's `#tokens=` hash is for the file in the page's revision, and
     // rendered documents don't have lines to select.)
     if (this.data === HyperblameContexts.contexts[0] && !this.current.isBlock) {

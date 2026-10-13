@@ -34,6 +34,8 @@ use tools::url_encode_path::url_decode_path;
 
 struct WebRequest<'a> {
     path: &'a str,
+    /// The query string (ex: a history page's `scope=...`), or "".
+    query: &'a str,
     /// Whether it's a POST (only `/{tree}/try/{rev}`'s are allowed).
     post: bool,
 }
@@ -545,6 +547,26 @@ fn handle(
             }
         }
 
+        // A scope's history; see `format::format_history`.
+        "history" => {
+            if path.len() < 4 {
+                return WebResponse::not_found();
+            }
+            let file_path = path[3..].join("/");
+            let mut writer = Vec::new();
+            match format::format_history(
+                cfg,
+                tree_name,
+                path[2],
+                &file_path,
+                req.query,
+                &mut writer,
+            ) {
+                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                Err(err) => WebResponse::internal_error(err.to_owned()),
+            }
+        }
+
         "try-status" => {
             if path.len() != 3 {
                 return WebResponse::not_found();
@@ -673,7 +695,8 @@ async fn main() {
                     let ident_map = ident_map.clone();
                     match tokio::task::spawn_blocking(move || {
                         let path = req.uri().path();
-                        handle(&cfg, &ident_map, WebRequest { path, post })
+                        let query = req.uri().query().unwrap_or("");
+                        handle(&cfg, &ident_map, WebRequest { path, query, post })
                     })
                     .await
                     {
