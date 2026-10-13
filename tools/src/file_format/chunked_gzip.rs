@@ -281,6 +281,12 @@ impl<W: Write> LineChunkedGzipWriter<W> {
         }
     }
 
+    /// Forget what's been written (ex: a page whose formatting panicked
+    /// partway).
+    pub fn clear(&mut self) {
+        self.contents.clear();
+    }
+
     pub fn finish(mut self) -> io::Result<W> {
         let mut out = self.out.take().unwrap();
         write_line_chunked_gzip(&self.contents, &mut out)?;

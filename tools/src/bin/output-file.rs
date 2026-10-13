@@ -616,67 +616,103 @@ fn main() {
             });
         }
 
-        match format_file_data(
-            &cfg,
-            tree_name,
-            panel,
-            source_file_info_boxes,
-            &head_commit,
-            BreadcrumbsLinksTo::Latest,
-            &blame_commit,
-            coverage_commit.as_ref(),
-            &path,
-            input,
-            &jumprefs,
-            &analysis,
-            &mut writer,
-        ) {
-            Ok(formatted) => {
-                let perf_info = formatted.perf;
-                writeln!(
-                    stdout,
-                    "  Format code duration: {}us",
-                    perf_info.format_code_duration_us
-                )
-                .unwrap();
-                writeln!(
-                    stdout,
-                    "  Blame lines duration: {}us",
-                    perf_info.blame_lines_duration_us
-                )
-                .unwrap();
-                writeln!(
-                    stdout,
-                    "  Commit info duration: {}us",
-                    perf_info.commit_info_duration_us
-                )
-                .unwrap();
-                writeln!(
-                    stdout,
-                    "  Format mixing duration: {}us",
-                    perf_info.format_mixing_duration_us
-                )
-                .unwrap();
-
-                if let (Some(page), Some(git)) = (&formatted.token_blame, &tree_config.git) {
-                    let pre_hyperblame = Instant::now();
-                    write_hyperblame_files(
-                        &format!("{}/hyperblame/{}", tree_config.paths.index_path, path),
-                        hyperblame_files(tree_config, git, page),
-                    );
+        // A panic formatting the file (ex: on source a tokenizer misreads)
+        // only loses its page, which says so, rather than the tree's output,
+        // since output.sh's parallel stops every job at the first which fails.
+        // (The panic's message and backtrace go to stderr, as usual.)
+        let formatted = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            match format_file_data(
+                &cfg,
+                tree_name,
+                panel,
+                source_file_info_boxes,
+                &head_commit,
+                BreadcrumbsLinksTo::Latest,
+                &blame_commit,
+                coverage_commit.as_ref(),
+                &path,
+                input,
+                &jumprefs,
+                &analysis,
+                &mut writer,
+            ) {
+                Ok(formatted) => {
+                    let perf_info = formatted.perf;
                     writeln!(
                         stdout,
-                        "  Hyperblame files duration: {}us",
-                        pre_hyperblame.elapsed().as_micros() as u64
+                        "  Format code duration: {}us",
+                        perf_info.format_code_duration_us
                     )
                     .unwrap();
+                    writeln!(
+                        stdout,
+                        "  Blame lines duration: {}us",
+                        perf_info.blame_lines_duration_us
+                    )
+                    .unwrap();
+                    writeln!(
+                        stdout,
+                        "  Commit info duration: {}us",
+                        perf_info.commit_info_duration_us
+                    )
+                    .unwrap();
+                    writeln!(
+                        stdout,
+                        "  Format mixing duration: {}us",
+                        perf_info.format_mixing_duration_us
+                    )
+                    .unwrap();
+
+                    if let (Some(page), Some(git)) = (&formatted.token_blame, &tree_config.git) {
+                        let pre_hyperblame = Instant::now();
+                        write_hyperblame_files(
+                            &format!("{}/hyperblame/{}", tree_config.paths.index_path, path),
+                            hyperblame_files(tree_config, git, page),
+                        );
+                        writeln!(
+                            stdout,
+                            "  Hyperblame files duration: {}us",
+                            pre_hyperblame.elapsed().as_micros() as u64
+                        )
+                        .unwrap();
+                    }
+                }
+                Err(err) => {
+                    // Make sure our output log file indicates what happened.
+                    writeln!(stdout, "  warning: format_file_data failed: {}", err).unwrap();
+                    // Also embed the error into the output file
+                    writeln!(writer, "<h3>format_file_data failed: {}</h3>", err).unwrap();
                 }
             }
-            Err(err) => {
-                // Make sure our output log file indicates what happened.
-                writeln!(stdout, "  warning: format_file_data failed: {}", err).unwrap();
-                // Also embed the error into the output file
-                writeln!(writer, "<h3>format_file_data failed: {}</h3>", err).unwrap();
+        }));
+        if let Err(panic) = formatted {
+            let message = panic
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .or_else(|| panic.downcast_ref::<&str>().copied())
+                .unwrap_or("(no message)");
+            writeln!(
+                stdout,
+                "  warning: formatting the file panicked: {}",
+                message
+            )
+            .unwrap();
+            writer.clear();
+            writeln!(
+                writer,
+                "<h3>Searchfox failed to render this file: {}</h3>",
+                tools::rendered_docs::escape(message)
+            )
+            .unwrap();
+            // (For finding which files did, besides the logs.)
+            let diags = format!("{}/diags/output", tree_config.paths.index_path);
+            let _ = std::fs::create_dir_all(&diags);
+            if let Ok(mut panicked) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(format!("{}/panicked.tsv", diags))
+            {
+                let _ = writeln!(panicked, "{}\t{}", path, message.replace(['\t', '\n'], " "));
             }
         }
 
