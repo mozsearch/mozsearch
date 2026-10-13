@@ -80,6 +80,9 @@
           livegrep
           mozsearch-tools
           mozsearch-router
+          # (For build-history.py, which the web server runs for try imports;
+          # see tools/src/try_import.rs.)
+          mozsearch-git-command
         ];
 
         indexerPackages = with pkgs; [
@@ -89,7 +92,6 @@
           scip-typescript.packages.${system}.default
           mozsearch-clang-plugin
           mozsearch-wasm-css-analyzer
-          mozsearch-git-command
           mozsearch-bikeshed
         ];
 

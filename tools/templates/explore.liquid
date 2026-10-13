@@ -12,6 +12,9 @@
 {%- endcomment -%}
 <div class="explore-page" data-slot="{{ slot }}">
   <h2>{{ title | escape }}</h2>
+  {%- if note %}
+  <p class="explore-note">{{ note | escape }}</p>
+  {%- endif %}
   {%- if missing.size > 0 %}
   <p class="explore-note">No commits {% if other_branches.size > 0 %}on this branch {% endif %}mention {{ missing | join: ", " | escape }}.</p>
   {%- endif %}

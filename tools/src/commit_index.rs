@@ -92,6 +92,25 @@ pub struct CommitRef {
     pub backout: bool,
 }
 
+/// A commit's ref, as the index has it (its date in UTC, and whether it's a
+/// backout by its summary line), for commits which aren't from the index (ex:
+/// a try push's; see `try_import`).
+pub fn commit_ref(commit: &git2::Commit) -> CommitRef {
+    let message = String::from_utf8_lossy(commit.message_bytes());
+    CommitRef {
+        rev: commit.id().to_string(),
+        iso_date: iso_date(commit),
+        backout: is_backout(&message),
+    }
+}
+
+/// A commit's date as the index has it, in UTC.
+fn iso_date(commit: &git2::Commit) -> String {
+    chrono::DateTime::from_timestamp(commit.time().seconds(), 0)
+        .map(|date| date.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+        .unwrap_or_default()
+}
+
 /// The bug numbers a commit message's summary line mentions, like
 /// `links::linkify_bug_numbers`.
 pub fn message_bugs(message: &str) -> Vec<String> {
@@ -228,9 +247,7 @@ fn update_with(
         let oid = oid.map_err(|e| e.to_string())?;
         let commit = repo.find_commit(oid).map_err(|e| e.to_string())?;
         let message = String::from_utf8_lossy(commit.message_bytes());
-        let date = chrono::DateTime::from_timestamp(commit.time().seconds(), 0)
-            .map(|date| date.format("%Y-%m-%dT%H:%M:%SZ").to_string())
-            .unwrap_or_default();
+        let date = iso_date(&commit);
         let flags = if is_backout(&message) { "b" } else { "-" };
         for bug in message_bugs(&message) {
             by_bug.push(format!("{}\t{}\t{}\t{}", bug, oid, date, flags));

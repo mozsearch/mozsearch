@@ -60,8 +60,13 @@ binary_types = {
 
 binary_types_str = " ".join((mime + " " + exts + ";") for (exts, mime) in binary_types.items())
 
-def location(route, directives):
+def location(route, directives, cache=True):
+    """A location, whose proxied responses are cached unless `cache` is False
+    (ex: for what changes, like a try import's status), in which case browsers
+    get the server's caching headers too, rather than `expires`'s."""
     print(f'  location {route} {{')
+    if not cache:
+        print('    expires off;')
 
     # Use HSTS in release - ELB sets http_x_forwarded_proto, so this
     # won't match in dev builds.  This needs to be included in all
@@ -72,7 +77,7 @@ def location(route, directives):
 
     for directive in directives:
         print(f'    {directive}')
-        if nginx_cache_dir and 'proxy_pass' in directive:
+        if nginx_cache_dir and cache and 'proxy_pass' in directive:
             print('    proxy_cache sfox;')
             print('    add_header X-Cache-Status $upstream_cache_status;')
     print('  }')
@@ -438,6 +443,11 @@ for repo in config['trees']:
     location(f'/{repo}/hgrev', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/oldrev', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/complete', ['proxy_pass http://127.0.0.1:8001;'])
+    # A try push's page, which also takes POSTs asking for its import, and its
+    # import's status, which change until it's imported (see the tools'
+    # `try_import`).
+    location(f'/{repo}/try', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
+    location(f'/{repo}/try-status', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
     location(f'/{repo}/commit-info', ['proxy_pass http://127.0.0.1:8001;'])
 
     # Handled by Rust `pipeline-server.rs`

@@ -1,0 +1,66 @@
+{%- comment -%}
+  A try push's page before the tree has imported it (see `format::format_try`
+  and `try_import`): its import's status, a button asking for it (which POSTs
+  to the page), and while it waits or runs, polling its status (see
+  `format::format_try_status`) until it's done, when the page reloads as the
+  push's explore page.
+{%- endcomment -%}
+<div class="try-import" data-status-url="/{{ tree }}/try-status/{{ rev }}">
+  <h2>Try push {{ rev }}</h2>
+  {%- if notice %}
+  <p class="try-import-notice">{{ notice | escape }}</p>
+  {%- endif %}
+  <p class="try-import-status">
+  {%- case status.state -%}
+  {%- when "notImported" -%}
+    This tree hasn't imported the try push into its history.
+  {%- when "queued" -%}
+    Waiting to be imported{% if status.ahead > 0 %}, after {{ status.ahead }} other{% if status.ahead != 1 %}s{% endif %}{% endif %}.
+  {%- when "running" -%}
+    Importing ({{ status.seconds }}s so far): <code>{{ status.step | escape }}</code>
+  {%- when "failed" -%}
+    Importing it failed {{ status.seconds }}s ago{% unless status.retry %}; it can be tried again in a few minutes{% endunless %}:
+  {%- endcase -%}
+  </p>
+  {%- if status.state == "failed" %}
+  <pre class="try-import-error">{{ status.message | escape }}</pre>
+  {%- endif %}
+  {%- if status.state == "notImported" or status.retry %}
+  <form method="post" action="/{{ tree }}/try/{{ rev }}">
+    <button type="submit" class="try-import-button">Import it</button>
+  </form>
+  <p class="try-import-note">Importing it processes its commits into this tree's history, for their blame and what they changed, which takes from seconds to minutes.  It isn't indexed, so its revisions have no jumps or references.</p>
+  {%- endif %}
+</div>
+{%- if status.state == "queued" or status.state == "running" %}
+<script>
+  (() => {
+    const root = document.querySelector(".try-import");
+    const line = root.querySelector(".try-import-status");
+    const poll = async () => {
+      let status;
+      try {
+        status = await (await fetch(root.dataset.statusUrl)).json();
+      } catch (e) {
+        setTimeout(poll, 5000);
+        return;
+      }
+      if (status.state == "queued") {
+        line.textContent = status.ahead > 0
+          ? `Waiting to be imported, after ${status.ahead} other${status.ahead == 1 ? "" : "s"}.`
+          : "Waiting to be imported.";
+      } else if (status.state == "running") {
+        line.textContent = `Importing (${status.seconds}s so far): `;
+        const step = document.createElement("code");
+        step.textContent = status.step;
+        line.append(step);
+      } else {
+        location.reload();
+        return;
+      }
+      setTimeout(poll, 2000);
+    };
+    setTimeout(poll, 2000);
+  })();
+</script>
+{%- endif %}

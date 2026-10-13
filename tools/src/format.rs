@@ -6141,6 +6141,48 @@ pub fn format_explore(
         }));
     }
 
+    let title = match kind {
+        "bug" if keys.len() == 1 => format!("Bug {}", keys[0]),
+        "bug" => format!("Bugs {}", keys.join(", ")),
+        _ => keys.join(", "),
+    };
+    let extras = ExploreExtras {
+        missing,
+        truncated,
+        other_branches,
+        explore_url: format!("explore/{}/{}", kind, keys.join(",")),
+        note: None,
+    };
+    write_explore(cfg, tree_name, &refs, &title, extras, writer)
+}
+
+/// What an explore page has besides its commits (see `write_explore`).
+struct ExploreExtras {
+    /// The keys no commit mentions.
+    missing: Vec<String>,
+    /// Whether there were more commits than it shows.
+    truncated: bool,
+    /// The keys' commits on other branches (see `format_explore`).
+    other_branches: Vec<serde_json::Value>,
+    /// Its URL in the tree, for the other branches' trees' explore pages.
+    explore_url: String,
+    /// A note under its title (ex: a try push's).
+    note: Option<String>,
+}
+
+/// An explore page (see `format_explore`), of the commits `refs`, oldest
+/// first: the commits, and the files, classes and methods they changed.
+fn write_explore(
+    cfg: &Config,
+    tree_name: &str,
+    refs: &[CommitRef],
+    title: &str,
+    extras: ExploreExtras,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let history = git.history.as_ref();
     let mut commits: Vec<ExploreCommit> = refs
         .iter()
         .enumerate()
@@ -6150,7 +6192,7 @@ pub fn format_explore(
         .iter()
         .map(|commit_ref| commit_changes(history, &git.repo, &commit_ref.rev))
         .collect();
-    for (backout, backed_out, reland) in explore::relands(history, &refs, &changes) {
+    for (backout, backed_out, reland) in explore::relands(history, refs, &changes) {
         let revs = |indices: &[usize]| indices.iter().map(|&i| refs[i].rev.as_str()).join(",");
         commits[backout].interdiff = Some(format!(
             "/{}/interdiff/{}/{}",
@@ -6160,18 +6202,13 @@ pub fn format_explore(
         ));
     }
     let files = blot_files(
-        &refs,
+        refs,
         &changes,
         |path, rev| format!("/{}/rev/{}/{}", tree_name, rev, url_encode_path(path)),
         |_, _| false,
     );
     let (facets, file_groups) = explore_facets(cfg, tree_name, files);
 
-    let title = match kind {
-        "bug" if keys.len() == 1 => format!("Bug {}", keys[0]),
-        "bug" => format!("Bugs {}", keys.join(", ")),
-        _ => keys.join(", "),
-    };
     let page_title = format!("{} - mozsearch", title);
     let opt = Options {
         title: &page_title,
@@ -6190,10 +6227,11 @@ pub fn format_explore(
         "facets": facets,
         "file_groups": file_groups,
         "slot": explore::slot_width(commits.len()),
-        "missing": missing,
-        "truncated": truncated,
-        "other_branches": other_branches,
-        "explore_url": format!("explore/{}/{}", kind, keys.join(",")),
+        "missing": extras.missing,
+        "truncated": extras.truncated,
+        "other_branches": extras.other_branches,
+        "explore_url": extras.explore_url,
+        "note": extras.note,
     }))
     .map_err(|_| "Template problems")?;
     build_and_parse_explore()
@@ -6201,6 +6239,102 @@ pub fn format_explore(
         .map_err(|_| "Template problems")?;
     output::generate_footer(&opt, tree_name, "", writer).unwrap();
     Ok(())
+}
+
+/// The page of a try push (`/{tree}/try/{rev}`; see `try_import`): once the
+/// tree has imported it, the explore page of its commits, and before, its
+/// import's status (with `notice`, ex: why it couldn't be asked for), and a
+/// button asking for it (see `request_try_import`), and while it waits or
+/// runs, polling its status (see `format_try_status`).
+pub fn format_try(
+    cfg: &Config,
+    tree_name: &str,
+    rev: &str,
+    notice: Option<&str>,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    use crate::try_import::{IMPORTS, ImportStatus, normalize_rev, push_commits};
+
+    let rev = normalize_rev(rev).ok_or("Not a try push's revision")?;
+    let status = IMPORTS.status(cfg, tree_name, &rev);
+    match status {
+        ImportStatus::Unavailable => return Err("This tree can't import try pushes"),
+        ImportStatus::Imported { .. } => {
+            let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+            let git = tree_config.get_git()?;
+            let mut refs: Vec<CommitRef> = push_commits(cfg, tree_name, &rev)
+                .into_iter()
+                .filter_map(|oid| git.repo.find_commit(oid).ok())
+                .map(|commit| crate::commit_index::commit_ref(&commit))
+                .collect();
+            let truncated = refs.len() > explore::MAX_COMMITS;
+            refs.truncate(explore::MAX_COMMITS);
+            explore::mark_history_backouts(
+                git.history.as_ref().map(|h| Path::new(&h.path)),
+                &mut refs,
+            );
+            let extras = ExploreExtras {
+                missing: vec![],
+                truncated,
+                other_branches: vec![],
+                explore_url: format!("try/{}", rev),
+                note: Some(
+                    "Imported into this tree's history, for its commits' blame and what they \
+                     changed, but not indexed, so its revisions have no jumps or references."
+                        .to_string(),
+                ),
+            };
+            return write_explore(
+                cfg,
+                tree_name,
+                &refs,
+                &format!("Try push {}", rev),
+                extras,
+                writer,
+            );
+        }
+        _ => {}
+    }
+
+    let title = format!("Try push {} - mozsearch", rev);
+    let opt = Options {
+        title: &title,
+        tree_name,
+        include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
+        revision: None,
+        breadcrumbs_links_to: BreadcrumbsLinksTo::Latest,
+        extra_content_classes: "try-import-page",
+    };
+    output::generate_header(&opt, writer)?;
+    output::generate_panel(&opt, writer, &[], true)?;
+    let globals = liquid::to_object(&json!({
+        "tree": tree_name,
+        "rev": rev,
+        "status": status,
+        "notice": notice,
+    }))
+    .map_err(|_| "Template problems")?;
+    crate::templating::builder::build_and_parse_try_import()
+        .render_to(writer, &globals)
+        .map_err(|_| "Template problems")?;
+    output::generate_footer(&opt, tree_name, "", writer).unwrap();
+    Ok(())
+}
+
+/// The status of the import of a try push into the tree (see `try_import`),
+/// as JSON (`/{tree}/try-status/{rev}`), for its page's polling.
+pub fn format_try_status(cfg: &Config, tree_name: &str, rev: &str) -> Result<String, &'static str> {
+    let rev = crate::try_import::normalize_rev(rev).ok_or("Not a try push's revision")?;
+    let status = crate::try_import::IMPORTS.status(cfg, tree_name, &rev);
+    serde_json::to_string(&status).map_err(|_| "Status problems")
+}
+
+/// Ask for a try push to be imported into the tree (see `try_import`).
+pub fn request_try_import(cfg: &Config, tree_name: &str, rev: &str) -> Result<(), &'static str> {
+    let rev = crate::try_import::normalize_rev(rev).ok_or("Not a try push's revision")?;
+    crate::try_import::IMPORTS
+        .request(cfg, tree_name, &rev)
+        .map(|_| ())
 }
 
 pub fn format_commit(

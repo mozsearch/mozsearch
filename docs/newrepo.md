@@ -98,7 +98,9 @@ A few things to note:
 * A tree whose files cite another tree's symbols can name that tree for their prefix in `linked_trees`, ex: `"linked_trees": { "SPEC_": "wubspecs" }` for a tree citing the web specs of a `wubspecs` tree (its config directory's `specs.toml`), which must be on the same server and earlier in the file (so that it's indexed first).  The tree's citations of the specs are then analyzed (see `tools/src/spec_analyze/citations.rs`), and its pages' jumps for those symbols go to the linked tree's definitions.  If the linked tree has a `history_path`, citations of anchors its specs no longer define are marked with what its history says about them (see `tools/src/spec_analyze/stale.rs`): the `stale-anchors` tool looks them up when the history is updated, in the anchors the citing trees' last indexing found (`stale-anchors-cited.json` in their index directories, which their `upload-after-index` scripts can upload).
 
 You also need to create a folder for your repo, with the `setup`, `build`, `upload`, and `find-repo-files` scripts (and
-optionally `upload-after-index`, which runs after the indexing on release channels, where `upload` runs after the setup). You can
+optionally `upload-after-index`, which runs after the indexing on release channels, where `upload` runs after the setup, and
+`import-try`, with which a tree with a `history_path` lets the web server import try pushes into its history for
+reviewing them at `/{tree}/try/{rev}`; see `tools/src/try_import.rs` and `tests/spechist/import-try`). You can
 look at the existing folders for other repos for inspiration. Copy-pasting from something like the `glean` repo will probably
 be a good start, although the `build` step may need to be modified depending on whether or not your repo is buildable and
 produces useful artifacts on the searchfox indexing instance.

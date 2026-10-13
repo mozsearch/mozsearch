@@ -34,6 +34,8 @@ use tools::url_encode_path::url_decode_path;
 
 struct WebRequest<'a> {
     path: &'a str,
+    /// Whether it's a POST (only `/{tree}/try/{rev}`'s are allowed).
+    post: bool,
 }
 
 struct WebResponse {
@@ -41,6 +43,8 @@ struct WebResponse {
     content_type: String,
     redirect_location: Option<String>,
     output: String,
+    /// Whether it mustn't be cached (ex: the status of a try import).
+    no_store: bool,
 }
 
 impl Default for WebResponse {
@@ -50,6 +54,7 @@ impl Default for WebResponse {
             content_type: "text/plain".to_owned(),
             redirect_location: None,
             output: String::new(),
+            no_store: false,
         }
     }
 }
@@ -92,6 +97,22 @@ impl WebResponse {
             status: StatusCode::MOVED_PERMANENTLY,
             redirect_location: Some(url),
             ..WebResponse::default()
+        }
+    }
+
+    /// Where to go after a POST.
+    fn see_other(url: String) -> WebResponse {
+        WebResponse {
+            status: StatusCode::SEE_OTHER,
+            redirect_location: Some(url),
+            ..WebResponse::default()
+        }
+    }
+
+    fn uncached(self) -> WebResponse {
+        WebResponse {
+            no_store: true,
+            ..self
         }
     }
 }
@@ -482,6 +503,40 @@ fn handle(
             }
         }
 
+        // A try push's page, or (POST) asking for its import, and its import's
+        // status; see `tools::try_import`.
+        "try" => {
+            if path.len() != 3 {
+                return WebResponse::not_found();
+            }
+            let rev = path[2];
+            let mut notice = None;
+            if req.post {
+                match format::request_try_import(cfg, tree_name, rev) {
+                    Ok(()) => {
+                        return WebResponse::see_other(format!("/{}/try/{}", tree_name, rev))
+                            .uncached();
+                    }
+                    Err(err) => notice = Some(err),
+                }
+            }
+            let mut writer = Vec::new();
+            match format::format_try(cfg, tree_name, rev, notice, &mut writer) {
+                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()).uncached(),
+                Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
+            }
+        }
+
+        "try-status" => {
+            if path.len() != 3 {
+                return WebResponse::not_found();
+            }
+            match format::format_try_status(cfg, tree_name, path[2]) {
+                Ok(json) => WebResponse::json(json).uncached(),
+                Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
+            }
+        }
+
         "complete" => {
             if let Some(ids) = ident_map.get(&tree_name.to_string()) {
                 let json = ids.lookup_json(path[2], false, false, 6);
@@ -548,6 +603,13 @@ async fn main() {
         });
     }
 
+    // Try pushes' imports, one at a time, as they're asked for; see
+    // `tools::try_import`.
+    {
+        let cfg = cfg.clone();
+        std::thread::spawn(move || tools::try_import::IMPORTS.run(&cfg));
+    }
+
     // Limit ourselves to processing 4 requests at the same time.
     static SEMAPHORE: Semaphore = Semaphore::const_new(4);
     // Peephole histories and futures (see `format::peephole_json` and
@@ -567,7 +629,10 @@ async fn main() {
         let ident_map = ident_map.clone();
         tokio::spawn(async move {
             let handler = async |req: http::Request<_>| {
-                if req.method() != Method::GET {
+                // (Only a try push's page takes POSTs, to import it.)
+                let post = req.method() == Method::POST
+                    && req.uri().path().split('/').nth(2) == Some("try");
+                if req.method() != Method::GET && !post {
                     return http::Response::builder()
                         .status(StatusCode::METHOD_NOT_ALLOWED)
                         .body("Invalid method".to_string());
@@ -590,7 +655,7 @@ async fn main() {
                     let ident_map = ident_map.clone();
                     match tokio::task::spawn_blocking(move || {
                         let path = req.uri().path();
-                        handle(&cfg, &ident_map, WebRequest { path })
+                        handle(&cfg, &ident_map, WebRequest { path, post })
                     })
                     .await
                     {
@@ -617,6 +682,9 @@ async fn main() {
 
                 if let Some(loc) = response.redirect_location {
                     builder = builder.header(header::LOCATION, loc);
+                }
+                if response.no_store {
+                    builder = builder.header(header::CACHE_CONTROL, "no-store");
                 }
 
                 builder.body(response.output)
