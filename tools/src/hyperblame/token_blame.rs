@@ -120,6 +120,16 @@ impl TreeHistory {
         self.timeline.find_commit(timeline_rev).ok()
     }
 
+    /// The `annotated/PATH` file of `path` in the history of `source_rev` (see
+    /// `timeline_annotated`), if the history has the revision and the file.
+    pub fn annotated(&self, source_rev: Oid, path: &str) -> Option<String> {
+        let timeline_commit = self.timeline_commit(source_rev)?;
+        let tree = timeline_commit.tree().ok()?;
+        read_path(&self.timeline, &tree, &format!("annotated/{}", path))
+            .ok()
+            .flatten()
+    }
+
     /// The history representation of `path` as of `timeline_commit`, or None
     /// if the history doesn't have the file (ex: binary files, or files the
     /// history configuration excludes).

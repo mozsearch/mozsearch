@@ -442,8 +442,17 @@ fn handle(
         }
 
         // `/{tree}/explore/bug/{bugs}` and `/{tree}/explore/phab/{revs}`; see
-        // `format::format_explore`.
+        // `format::format_explore`.  And their files' patch stack strips, as
+        // `.../stack-strip/{rev}/{path}`; see `format::stack_strip_json`.
         "explore" => {
+            if path.len() >= 7 && path[4] == "stack-strip" {
+                let stack = path[1..4].join("/");
+                let file_path = path[6..].join("/");
+                return match format::stack_strip_json(cfg, tree_name, &stack, path[5], &file_path) {
+                    Ok(json) => WebResponse::json(json),
+                    Err(err) => WebResponse::internal_error(err.to_owned()),
+                };
+            }
             if path.len() != 4 {
                 return WebResponse::not_found();
             }
@@ -504,8 +513,17 @@ fn handle(
         }
 
         // A try push's page, or (POST) asking for its import, and its import's
-        // status; see `tools::try_import`.
+        // status; see `tools::try_import`.  And its files' patch stack strips,
+        // as `.../stack-strip/{rev}/{path}`; see `format::stack_strip_json`.
         "try" => {
+            if path.len() >= 6 && path[3] == "stack-strip" {
+                let stack = path[1..3].join("/");
+                let file_path = path[5..].join("/");
+                return match format::stack_strip_json(cfg, tree_name, &stack, path[4], &file_path) {
+                    Ok(json) => WebResponse::json(json).uncached(),
+                    Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
+                };
+            }
             if path.len() != 3 {
                 return WebResponse::not_found();
             }

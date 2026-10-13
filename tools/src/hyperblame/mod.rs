@@ -17,6 +17,7 @@ pub mod peephole;
 pub mod recency;
 pub mod renames;
 pub mod segments;
+pub mod stack_strip;
 pub mod stats;
 pub mod suffix_array;
 pub mod token_blame;

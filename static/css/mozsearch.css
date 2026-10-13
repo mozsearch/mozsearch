@@ -1374,6 +1374,43 @@ span[data-symbols].selected {
     }
   }
 }
+/* The patch stack strip (see stack-strip.js): a slot per commit of a stack
+   beside each line's blame strip, whose width every line's blame cell keeps. */
+.stack-strips .source-line-with-number > [role="cell"] {
+  position: relative;
+}
+.stack-strips .source-line-with-number .blame-strip {
+  margin-right: calc(var(--stack-slots) * var(--stack-slot) + 2px);
+}
+.stack-strip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 21px;
+}
+.stack-slot {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: calc(var(--stack-slot) - 1px);
+  background-color: var(--link-color);
+  opacity: 0.65;
+}
+/* Where a commit removed tokens. */
+.stack-slot.stack-scar {
+  top: auto;
+  height: 3px;
+  background-color: #e15759;
+}
+.stack-slot.stack-hot {
+  opacity: 1;
+  box-shadow: 0 0 0 1px var(--link-color);
+}
+.stack-strip-note {
+  padding: 0.2rem 1rem;
+  font-style: italic;
+  opacity: 0.8;
+}
 /* blame zebra stripes: we alternate colors whenever the revision a line is from
    changes between lines. */
 .c1 {

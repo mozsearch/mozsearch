@@ -6065,41 +6065,14 @@ pub fn format_explore(
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
     let history = git.history.as_ref();
-    let branch = tree_config.paths.git_branch.as_deref().unwrap_or("HEAD");
-    let index = history
-        .and_then(|history| {
-            CommitIndex::open_branch(&Path::new(&history.path).join("commit-index"), branch)
-        })
-        .ok_or("This tree has no commit index")?;
-
-    let keys: Vec<String> = keys
-        .split(',')
-        .map(str::trim)
-        .filter(|key| !key.is_empty())
-        .take(MAX_EXPLORE_KEYS)
-        .map(|key| match kind {
-            // Accept "D123" or "123" for Phabricator revisions.
-            "phab" => format!("D{}", key.trim_start_matches(['D', 'd'])),
-            _ => key.to_string(),
-        })
-        .collect();
-    let mut refs: Vec<CommitRef> = vec![];
-    let mut missing = vec![];
-    for key in &keys {
-        let found = match kind {
-            "bug" => index.bug_commits(key),
-            "phab" => index.phab_commits(key),
-            _ => return Err("Unknown kind of exploration"),
-        };
-        if found.is_empty() {
-            missing.push(key.clone());
-        }
-        refs.extend(found);
-    }
-    let own_revs: HashSet<String> = refs.iter().map(|r| r.rev.clone()).collect();
-    explore::order_commits(&git.repo, &mut refs);
-    let truncated = refs.len() > explore::MAX_COMMITS;
-    refs.truncate(explore::MAX_COMMITS);
+    let ExploreRefs {
+        index,
+        keys,
+        mut refs,
+        own_revs,
+        missing,
+        truncated,
+    } = explore_refs(cfg, tree_name, kind, keys)?;
     explore::mark_history_backouts(history.map(|h| Path::new(&h.path)), &mut refs);
 
     // The commits for the keys on other branches (ex: uplifts to beta, or
@@ -6156,6 +6129,123 @@ pub fn format_explore(
     write_explore(cfg, tree_name, &refs, &title, extras, writer)
 }
 
+/// The commits of an explore page (see `format_explore`): its keys (with
+/// Phabricator revisions as "DNNN"), the commits mentioning them in the tree's
+/// commit index, oldest first, up to `explore::MAX_COMMITS`, and the keys no
+/// commit mentions.
+struct ExploreRefs {
+    index: CommitIndex,
+    keys: Vec<String>,
+    refs: Vec<CommitRef>,
+    /// The revisions of all of the commits, including those past the limit.
+    own_revs: HashSet<String>,
+    missing: Vec<String>,
+    /// Whether there were more commits than `refs` has.
+    truncated: bool,
+}
+
+fn explore_refs(
+    cfg: &Config,
+    tree_name: &str,
+    kind: &str,
+    keys: &str,
+) -> Result<ExploreRefs, &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let history = git.history.as_ref();
+    let branch = tree_config.paths.git_branch.as_deref().unwrap_or("HEAD");
+    let index = history
+        .and_then(|history| {
+            CommitIndex::open_branch(&Path::new(&history.path).join("commit-index"), branch)
+        })
+        .ok_or("This tree has no commit index")?;
+
+    let keys: Vec<String> = keys
+        .split(',')
+        .map(str::trim)
+        .filter(|key| !key.is_empty())
+        .take(MAX_EXPLORE_KEYS)
+        .map(|key| match kind {
+            // Accept "D123" or "123" for Phabricator revisions.
+            "phab" => format!("D{}", key.trim_start_matches(['D', 'd'])),
+            _ => key.to_string(),
+        })
+        .collect();
+    let mut refs: Vec<CommitRef> = vec![];
+    let mut missing = vec![];
+    for key in &keys {
+        let found = match kind {
+            "bug" => index.bug_commits(key),
+            "phab" => index.phab_commits(key),
+            _ => return Err("Unknown kind of exploration"),
+        };
+        if found.is_empty() {
+            missing.push(key.clone());
+        }
+        refs.extend(found);
+    }
+    let own_revs: HashSet<String> = refs.iter().map(|r| r.rev.clone()).collect();
+    explore::order_commits(&git.repo, &mut refs);
+    let truncated = refs.len() > explore::MAX_COMMITS;
+    refs.truncate(explore::MAX_COMMITS);
+    Ok(ExploreRefs {
+        index,
+        keys,
+        refs,
+        own_revs,
+        missing,
+        truncated,
+    })
+}
+
+/// The patch stack strip (see `hyperblame::stack_strip`) of the file at `path`
+/// in `rev` for the stack of commits of an explore page or a try push's page,
+/// `stack` being the page's URL in the tree (ex: "explore/bug/123" or
+/// "try/abcdef012345", which its files' links pass to their views), as JSON
+/// for the views' script (`/{tree}/{stack}/stack-strip/{rev}/{path}`).
+pub fn stack_strip_json(
+    cfg: &Config,
+    tree_name: &str,
+    stack: &str,
+    rev: &str,
+    path: &str,
+) -> Result<String, &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let history = git.history.as_ref().ok_or("This tree has no history")?;
+    let commits: Vec<Oid> = match stack.split('/').collect::<Vec<_>>().as_slice() {
+        ["try", push] => {
+            let push = crate::try_import::normalize_rev(push).ok_or("Not a try push's revision")?;
+            crate::try_import::push_commits(cfg, tree_name, &push)
+        }
+        ["explore", kind, keys] => explore_refs(cfg, tree_name, kind, keys)?
+            .refs
+            .iter()
+            .filter_map(|commit_ref| Oid::from_str(&commit_ref.rev).ok())
+            .collect(),
+        _ => return Err("Unknown stack"),
+    };
+    let commit = git
+        .repo
+        .revparse_single(rev)
+        .and_then(|object| object.peel_to_commit())
+        .map_err(|_| "Bad revision")?;
+    let source = read_commit_file(&git.repo, &commit, path).ok_or("No such file")?;
+    let strip = crate::hyperblame::stack_strip::stack_strip(
+        history,
+        &git.repo,
+        &commits,
+        commit.id(),
+        path,
+        &source,
+    )
+    .map_err(|e| {
+        log::warn!("No stack strip for {} in {}: {}", path, rev, e);
+        "No stack strip for the file"
+    })?;
+    serde_json::to_string(&strip).map_err(|_| "Stack strip problems")
+}
+
 /// What an explore page has besides its commits (see `write_explore`).
 struct ExploreExtras {
     /// The keys no commit mentions.
@@ -6201,10 +6291,20 @@ fn write_explore(
             revs(&reland)
         ));
     }
+    // (Files link to their views with the page's stack strip; see
+    // `stack_strip_json`.)
     let files = blot_files(
         refs,
         &changes,
-        |path, rev| format!("/{}/rev/{}/{}", tree_name, rev, url_encode_path(path)),
+        |path, rev| {
+            format!(
+                "/{}/rev/{}/{}?stack={}",
+                tree_name,
+                rev,
+                url_encode_path(path),
+                extras.explore_url
+            )
+        },
         |_, _| false,
     );
     let (facets, file_groups) = explore_facets(cfg, tree_name, files);
