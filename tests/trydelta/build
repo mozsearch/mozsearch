@@ -20,10 +20,11 @@ for SRC_FILE in $(git ls-files '*.cpp'); do
 done
 mv $INDEX_ROOT/analysis $INDEX_ROOT/analysis-linux64
 mkdir -p $INDEX_ROOT/analysis
-pushd $INDEX_ROOT/analysis-linux64
-find . -type f | sed 's#^\./##' | while read -r FILE; do
-    mkdir -p $(dirname $INDEX_ROOT/analysis/$FILE)
-    merge-analyses $FILE > $INDEX_ROOT/analysis/$FILE
+# (merge-analyses takes the platform from the analysis-PLATFORM directory.)
+pushd $INDEX_ROOT
+(cd analysis-linux64 && find . -type f | sed 's#^\./##') | while read -r FILE; do
+    mkdir -p $(dirname analysis/$FILE)
+    merge-analyses analysis-linux64/$FILE > analysis/$FILE
 done
 popd
 rm -rf $INDEX_ROOT/analysis-linux64

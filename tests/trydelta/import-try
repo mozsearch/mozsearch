@@ -65,10 +65,11 @@ for SRC_FILE in $(find . -name '*.cpp' | sed 's#^\./##'); do
 done
 popd
 # (Merged, like the tree's; see build.)
-pushd "$WORK/analysis"
-find . -type f | sed 's#^\./##' | while read -r FILE; do
-    mkdir -p "$(dirname "$WORK/tip-analysis/$FILE")"
-    merge-analyses "$FILE" > "$WORK/tip-analysis/$FILE"
+mv "$WORK/analysis" "$WORK/analysis-linux64"
+pushd "$WORK"
+(cd analysis-linux64 && find . -type f | sed 's#^\./##') | while read -r FILE; do
+    mkdir -p "$(dirname "tip-analysis/$FILE")"
+    merge-analyses "analysis-linux64/$FILE" > "tip-analysis/$FILE"
 done
 popd
 

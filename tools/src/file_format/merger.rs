@@ -1,6 +1,5 @@
 use itertools::Itertools;
 use std::collections::BTreeMap;
-use std::collections::HashMap;
 use std::collections::HashSet;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;
@@ -35,7 +34,7 @@ pub struct HashedStructured {
 /// eliminate the standalone merge-analyses.rs binary.  But there's no urgency.
 pub fn merge_files<W: std::io::Write>(filenames: &[String], platforms: &[String], mut writer: W) {
     let mut unique_targets = HashSet::new();
-    // Maps from symbol name to a HashMap<u64 hash, HashedStructured>
+    // Maps from symbol name to a BTreeMap<u64 hash, HashedStructured>
     let mut structured_syms = BTreeMap::new();
 
     let src_data = read_analyses(
@@ -95,9 +94,14 @@ pub fn merge_files<W: std::io::Write>(filenames: &[String], platforms: &[String]
                         // not currently hashable due to https://github.com/serde-rs/json/issues/747
                         // and in reality we just want to hash the JSON string, but it's already
                         // been parsed into a Value, which is why we're not using the string.
+                        //
+                        // (By hash, in order, so that the output doesn't depend on a HashMap's
+                        // random order when variants tie: ex: a local variable's and a
+                        // parameter's records with the same location-derived symbol, from one
+                        // platform.)
                         let variants = structured_syms
                             .entry(structured.sym)
-                            .or_insert(HashMap::new());
+                            .or_insert(BTreeMap::new());
                         let json_str = to_string(&structured).unwrap();
                         let mut hasher = DefaultHasher::new();
                         json_str.hash(&mut hasher);
@@ -160,7 +164,7 @@ pub fn merge_files<W: std::io::Write>(filenames: &[String], platforms: &[String]
     for (_id, mut hmap) in structured_syms {
         if hmap.len() == 1 {
             // There was only one variant of the structured info, so we can just use it as-is.
-            let (_hash, hs) = hmap.drain().next().unwrap();
+            let (_hash, hs) = hmap.pop_first().unwrap();
             writeln!(
                 writer,
                 "{}",
