@@ -650,7 +650,9 @@ impl FlattenedResultsBundle {
     /// contents are HTML rows (see `ingest_html_lines`) at the end of its key
     /// line's code, like `/search/`, rather than under the rows, and clear its
     /// context and conditionals.
-    pub fn inline_contexts(&mut self, tree: &str) {
+    /// (`rev` is the try push whose context the results are in, if any; see
+    /// pipeline-server.)
+    pub fn inline_contexts(&mut self, tree: &str, rev: Option<&str>) {
         if self.content_type != "text/html" {
             return;
         }
@@ -659,8 +661,9 @@ impl FlattenedResultsBundle {
                 for file in &mut kind_group.by_file {
                     // (A linked tree's file's contexts are its symbols.)
                     let file_tree = file.tree.unwrap_or_else(|| ustr(tree));
+                    let file_rev = rev.filter(|_| file.tree.is_none());
                     for span in &mut file.line_spans {
-                        span.inline_context(&file_tree);
+                        span.inline_context(&file_tree, file_rev);
                     }
                 }
             }
@@ -704,8 +707,10 @@ impl FlattenedResultsBundle {
     /// For HTML pages of the results, make the line numbers of the rows (see
     /// `ingest_html_lines`) links to their lines in the files, like
     /// `/search/`'s, rather than the source listings' line numbers (which
-    /// code-highlighter.js would select, as if the page were the file).
-    pub fn link_line_numbers(&mut self, tree: &str) {
+    /// code-highlighter.js would select, as if the page were the file).  In a
+    /// try push's context (`rev`, the head of its rebased stack), they're the
+    /// head's lines.
+    pub fn link_line_numbers(&mut self, tree: &str, rev: Option<&str>) {
         if self.content_type != "text/html" {
             return;
         }
@@ -714,7 +719,12 @@ impl FlattenedResultsBundle {
             for kind_group in &mut path_kind_group.kind_groups {
                 for file in &mut kind_group.by_file {
                     let file_tree = file.tree.as_deref().unwrap_or(tree);
-                    let href = format!("/{}/source/{}", file_tree, url_encode_path(&file.file));
+                    let href = match rev.filter(|_| file.tree.is_none()) {
+                        Some(rev) => {
+                            format!("/{}/rev/{}/{}", file_tree, rev, url_encode_path(&file.file))
+                        }
+                        None => format!("/{}/source/{}", file_tree, url_encode_path(&file.file)),
+                    };
                     for span in &mut file.line_spans {
                         let mut linked = String::with_capacity(span.contents.len() + 256);
                         let mut rest = span.contents.as_str();
@@ -1045,7 +1055,7 @@ impl FlattenedLineSpan {
     /// See `FlattenedResultsBundle::inline_contexts`.  The key line's row looks
     /// like `<div role="row" id="line-N" ...>...<code role="cell"
     /// class="source-line">TEXT\n</code>\n</div>`.
-    fn inline_context(&mut self, tree: &str) {
+    fn inline_context(&mut self, tree: &str, rev: Option<&str>) {
         let pp = self.pp.as_deref().unwrap_or_default();
         if self.context.is_empty() && pp.is_empty() {
             return;
@@ -1072,15 +1082,17 @@ impl FlattenedLineSpan {
             let inside = if self.contextsym.is_empty() {
                 context
             } else {
-                format!(
-                    r#"<a href="{}">{}</a>"#,
-                    escape(&config::search_link(
+                // (Queries in a try push's context are /query/'s.)
+                let link = match rev {
+                    Some(rev) => format!(
+                        "/{}/query/default?q=symbol:{}&rev={}",
                         tree,
-                        &format!("symbol:{}", self.contextsym),
-                        false
-                    )),
-                    context
-                )
+                        urlencoding::encode(&self.contextsym),
+                        rev
+                    ),
+                    None => config::search_link(tree, &format!("symbol:{}", self.contextsym), false),
+                };
+                format!(r#"<a href="{}">{}</a>"#, escape(&link), context)
             };
             annotation.push_str(&format!(" found in <code>{}</code>", inside));
         }
@@ -1475,7 +1487,7 @@ mod tests {
             pp: None,
             facets: None,
         };
-        span.inline_context("tests");
+        span.inline_context("tests", None);
         // On the key line, before its newline, with an escaped context and
         // an encoded symbol.
         assert!(span.contents.contains(
@@ -1498,7 +1510,7 @@ mod tests {
             pp: None,
             facets: None,
         };
-        span.inline_context("tests");
+        span.inline_context("tests", None);
         assert_eq!(span.contents, row(8, "text"));
 
         // The conditionals, with or without a context, escaped, and cut if
@@ -1519,7 +1531,7 @@ mod tests {
             ]),
             facets: None,
         };
-        span.inline_context("tests");
+        span.inline_context("tests", None);
         assert!(span.contents.contains(
             "f(); <span class=\"result-context\">// found in <code>g</code> <span class=\"result-pp\" title=\"#if defined(XP_WIN) &amp;&amp; (A &lt; 2 || B)\">#if <code>defined(XP_WIN) &amp;&amp; (A &lt; 2 || B)</code></span></span>\n</code>"
         ));
@@ -1527,7 +1539,7 @@ mod tests {
         let long = "A".repeat(150);
         span.contents = row(8, "f();");
         span.pp = Some(vec![long.clone()]);
-        span.inline_context("tests");
+        span.inline_context("tests", None);
         assert!(span.contents.contains(&format!(
             "f(); <span class=\"result-context\">// <span class=\"result-pp\" title=\"#if {}\">#if <code>{}…</code></span></span>",
             long,

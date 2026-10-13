@@ -15,7 +15,9 @@
 {{ line_span.contents }}
 {%- if line_span.context != empty -%}
 {%- if line_span.contextsym != empty -%}
-{%- if tree == search_tree and query_search -%}
+{%- if tree == search_tree and search_rev != empty -%}
+<span class="result-context">// found in <code><a href="/{{tree}}/query/default?q=symbol:{{ line_span.contextsym | url_encode }}&amp;rev={{ search_rev | escape }}">{{ line_span.context | escape }}</a></code></span>
+{%- elsif tree == search_tree and query_search -%}
 <span class="result-context">// found in <code><a href="{{ search_url }}?q=symbol:{{ line_span.contextsym | url_encode }}">{{ line_span.context | escape }}</a></code></span>
 {%- else -%}
 <span class="result-context">// found in <code><a href="/{{tree}}/search?q=symbol:{{ line_span.contextsym | url_encode }}&amp;redirect=false">{{ line_span.context | escape }}</a></code></span>

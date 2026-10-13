@@ -18,6 +18,9 @@
   {%- if note %}
   <p class="explore-note">{{ note | escape }}</p>
   {%- endif %}
+  {%- if semantic_head %}
+  <p class="explore-note explore-semantic-head">Its stack rebased onto the indexed revision has semantic analysis: <a href="/{{tree}}/rev/{{ semantic_head | escape }}/">browse it</a>, with jumps and references, where searches (like this page's) are of the push.</p>
+  {%- endif %}
   {%- if missing.size > 0 %}
   <p class="explore-note">No commits {% if other_branches.size > 0 %}on this branch {% endif %}mention {{ missing | join: ", " | escape }}.</p>
   {%- endif %}

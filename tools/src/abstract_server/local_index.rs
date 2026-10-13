@@ -39,6 +39,10 @@ use crate::git_ops::{RevisionCoverage, coverage_history, coverage_summary, git_t
 use crate::hyperblame::journals::{JournalKind, JournalReader};
 use crate::languages::select_formatting;
 use crate::source_mapping::{NotesRefs, SourceMapping, default_notes_ref};
+use crate::try_delta::TryDelta;
+
+use super::TryOverlay;
+use std::sync::Arc;
 
 pub mod livegrep {
     // Compilation gets upset about IndexSpec, CloneOptions, PathSpec, and
@@ -621,6 +625,16 @@ impl AbstractServer for LocalIndex {
             timed_out: exit_reason == search_stats::ExitReason::Timeout,
             pattern: None,
         })
+    }
+
+    fn try_overlay(&self, head: &str) -> Option<Box<dyn AbstractServer + Send + Sync>> {
+        let delta = TryDelta::open(&self.config_paths.index_path, head)?;
+        Some(Box::new(TryOverlay::new(
+            self.clonify(),
+            Arc::new(delta),
+            self.config_paths.git_path.clone(),
+            self.jumprefs.clone(),
+        )))
     }
 
     async fn perform_query(&self, _q: &str) -> Result<Value> {

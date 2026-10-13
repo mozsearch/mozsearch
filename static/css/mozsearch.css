@@ -2198,6 +2198,12 @@ h2.sp-called-heading {
 .explore-note {
   opacity: 0.8;
 }
+/* A query in a try push's context (see query_results.liquid). */
+.query-try-context {
+  margin: 0.5em 1rem;
+  padding: 0.3em 0.6em;
+  border-left: 3px solid var(--link-color);
+}
 .explore-commit-list ol {
   margin: 0.3em 0;
   padding-left: 3em;

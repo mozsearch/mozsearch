@@ -78,6 +78,9 @@ pub struct TreeJumprefs {
     pub own: Option<BisectableMmap<JumprefData>>,
     /// (prefix, tree, its jumpref)
     pub linked: Vec<(String, Ustr, BisectableMmap<JumprefData>)>,
+    /// A try push's jumprefs for the symbols it changes (see
+    /// `try_delta::TryDelta`), which replace the tree's own.
+    pub delta: Option<BisectableMmap<JumprefData>>,
 }
 
 impl TreeJumprefs {
@@ -107,6 +110,7 @@ impl TreeJumprefs {
         TreeJumprefs {
             own: open(&paths.index_path),
             linked,
+            delta: None,
         }
     }
 
@@ -123,9 +127,14 @@ impl TreeJumprefs {
     }
 
     pub fn lookup(&self, sym: &str) -> Result<Option<JumprefData>> {
-        let own = match &self.own {
-            Some(own) => own.lookup(sym)?,
+        let delta = match &self.delta {
+            Some(delta) => delta.lookup(sym)?,
             None => None,
+        };
+        let own = match (delta, &self.own) {
+            (Some(delta), _) => Some(delta),
+            (None, Some(own)) => own.lookup(sym)?,
+            (None, None) => None,
         };
         if own.as_ref().is_some_and(|data| !data.jumps.is_empty()) {
             return Ok(own);

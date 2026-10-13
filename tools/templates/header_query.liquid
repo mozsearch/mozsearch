@@ -33,6 +33,10 @@
   <!-- We currently depend on the default submit behavior for Query so we do
         not mark this disabled like we do for "search" -->
   <input type="submit" value="Search" class="visually-hidden" />
+  {%- if search_rev != empty %}
+  <!-- (Searching again stays in the try push's context.) -->
+  <input type="hidden" name="rev" value="{{ search_rev | escape }}" />
+  {%- endif %}
   </form>
-  <span id="data" data-root="/" data-search="/{{tree}}/query/default" data-tree="{{tree}}"></span>
+  <span id="data" data-root="/" data-search="/{{tree}}/query/default" data-tree="{{tree}}"{% if search_rev != empty %} data-search-rev="{{ search_rev | escape }}"{% endif %}></span>
 </div>

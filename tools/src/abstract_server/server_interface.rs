@@ -497,6 +497,19 @@ pub trait AbstractServer {
 
     async fn perform_query(&self, q: &str) -> Result<Value>;
 
+    /// The tree as a try push changes it (see `try_delta`), for the head of
+    /// its stack rebased onto the indexed revision, if the tree has its
+    /// semantic delta: for queries in the push's context (see
+    /// pipeline-server's `rev`).
+    fn try_overlay(&self, _head: &str) -> Option<Box<dyn AbstractServer + Send + Sync>> {
+        None
+    }
+
+    /// The try push this is the tree as changed by, if it's a `try_overlay`.
+    fn try_delta_meta(&self) -> Option<crate::try_delta::TryDeltaMeta> {
+        None
+    }
+
     /// Fetch the records of a token-centric history timeline journal (see
     /// `hyperblame::journals`) as JSON values, newest to oldest.  `target` is a
     /// tree-relative path for future and files-delta journals, and a token for

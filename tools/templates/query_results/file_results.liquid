@@ -8,7 +8,10 @@
     {%- unless line_span contains "repeated" -%}{%- assign shown_spans = shown_spans | plus: 1 -%}{%- endunless -%}
 {%- endfor -%}
 <details open{% if shown_spans == 0 %} class="query-repeated"{% endif %}{% if facet_data %} data-path="{{ file_results.file | escape }}" data-facets="{{ facet_data.facets | escape }}" data-groups="{{ facet_data.groups | escape }}"{% endif %}>
-    <summary>{% include 'path.liquid' path: file_results.file, tree: file_tree %}</summary>
+    {%- comment %} (In a try push's context, its head's files; see pipeline-server.) {% endcomment -%}
+    {%- assign file_rev = "" -%}
+    {%- if file_tree == tree %}{% assign file_rev = search_rev %}{% endif %}
+    <summary>{% include 'path.liquid' path: file_results.file, tree: file_tree, path_rev: file_rev %}</summary>
     {% for line_span in file_results.line_spans -%}
     {%- include 'query_results/line_span.liquid' line_span: line_span, forloop: forloop, tree: file_tree -%}
     {%- endfor %}

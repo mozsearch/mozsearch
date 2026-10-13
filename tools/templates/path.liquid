@@ -5,5 +5,9 @@
     <span class="path-separator">/</span>
     {%- endunless -%}
     {%- assign path_so_far = path_segments | slice: 0, forloop.index | join: "/" -%}
+    {%- if path_rev and path_rev != empty %}
+    <a href="/{{tree}}/rev/{{path_rev}}/{{path_so_far}}">{{ segment }}</a>
+    {%- else %}
     <a href="/{{tree}}/source/{{path_so_far}}">{{ segment }}</a>
+    {%- endif %}
 {%- endfor -%}</h3>

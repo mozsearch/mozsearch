@@ -3,7 +3,7 @@ use std::env;
 use std::fmt::Write as _;
 use std::io::Write;
 use std::ops::{Deref, Range, RangeInclusive};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::rc::Rc;
 use std::time::Instant;
@@ -759,6 +759,71 @@ pub struct FormattedFile {
 /// generate the tip of whatever branch it's on with semantic analysis data, and `format_path` to
 /// dynamically generate the contents of a file without semantic analysis data.
 #[allow(clippy::too_many_arguments)]
+/// The rows of a file's source listing, as `format_file_data` writes them but
+/// without coverage or blame, and its SYM_INFO, for files whose listing isn't
+/// rendered (ex: the files a try push changes; see
+/// `abstract_server::TryOverlay`), so that their lines can be excerpted for
+/// results like other files' (see `chunked_gzip::extract_rows`).
+pub fn source_rows_html(
+    jumprefs: &TreeJumprefs,
+    path: &str,
+    source: &str,
+    analysis: &[WithLocation<Vec<AnalysisSource>>],
+) -> (String, String) {
+    let format = languages::select_formatting(path);
+    if let FormatAs::Binary = format {
+        return (String::new(), "{}".to_string());
+    }
+    let (lines, sym_json) = format_code(None, jumprefs, format, path, source, analysis);
+    let mut html = String::new();
+    let mut nest_depth = 0;
+    let mut nest_syms: Vec<Ustr> = vec![];
+    for (i, line) in lines.iter().enumerate() {
+        let lineno = i + 1;
+        if let Some(nest_sym) = &line.sym_starts_nest {
+            html.push_str(&format!(
+                r#"<div class="nesting-container nesting-depth-{}" data-nesting-sym="{}">"#,
+                nest_depth,
+                nest_sym.replace('"', "&quot;")
+            ));
+            nest_depth += 1;
+            nest_syms.push(*nest_sym);
+        }
+        let nesting = if lineno > 1 && (lineno as u32 - 1).is_multiple_of(LINES_PER_CHUNK) {
+            let syms: Vec<&str> = nest_syms.iter().map(|sym| sym.as_str()).collect();
+            format!(
+                " data-nesting=\"{}\"",
+                syms.join(",").replace('"', "&quot;")
+            )
+        } else {
+            String::new()
+        };
+        html.push_str(&format!(
+            "<div role=\"row\" id=\"line-{}\" class=\"source-line-with-number{}\"{}>\n\
+             <div role=\"cell\"><div role=\"button\" aria-expanded=\"false\" class=\"cov-strip cov-no-data\" aria-label=\"uncovered\"></div></div>\n\
+             <div role=\"cell\"><div class=\"blame-strip\"></div></div>\n\
+             <div role=\"cell\" class=\"line-number\" data-line-number=\"{}\"></div>\n\
+             <code role=\"cell\" class=\"source-line\">{}\n</code>\n\
+             </div>\n",
+            lineno,
+            if line.sym_starts_nest.is_some() {
+                " nesting-sticky-line"
+            } else {
+                ""
+            },
+            nesting,
+            lineno,
+            line.line
+        ));
+        for _ in 0..line.pop_nest_count {
+            nest_depth -= 1;
+            nest_syms.pop();
+            html.push_str("</div>");
+        }
+    }
+    (html, sym_json)
+}
+
 pub fn format_file_data(
     cfg: &Config,
     tree_name: &str,
@@ -851,6 +916,17 @@ pub fn format_file_data(
     let filename = path_wrapper.file_name().unwrap().to_str().unwrap();
 
     let title = format!("{} - mozsearch", filename);
+    // The head of a try push's stack rebased onto the indexed revision has
+    // the push's semantic delta (see `try_delta`), and its pages' searches
+    // are of the push.
+    let search_rev = revision_owned
+        .as_ref()
+        .map(|(rev, _, _)| rev.as_str())
+        .filter(|rev| {
+            crate::try_delta::delta_dir(&tree_config.paths.index_path, rev)
+                .join("meta.json")
+                .exists()
+        });
     let opt = Options {
         title: &title,
         tree_name,
@@ -858,6 +934,7 @@ pub fn format_file_data(
         revision,
         breadcrumbs_links_to,
         extra_content_classes: "source-listing not-diff",
+        search_rev,
     };
 
     output::generate_header(&opt, writer)?;
@@ -2119,6 +2196,7 @@ pub fn format_algorithm(
         revision: None,
         breadcrumbs_links_to: BreadcrumbsLinksTo::Latest,
         extra_content_classes: "rendered-page",
+        search_rev: None,
     };
     let panel = vec![PanelSection {
         name: "Revision control".to_owned(),
@@ -3002,6 +3080,7 @@ pub fn format_rendered(
         revision,
         breadcrumbs_links_to: links_to,
         extra_content_classes: "rendered-page",
+        search_rev: None,
     };
 
     let source_url = rendered_docs::Links::source_url(&links, path);
@@ -3788,7 +3867,16 @@ pub fn format_path(
                 .into_tree()
                 .expect("Should really be a tree, we just checked the object kind.");
 
-            format_tree(tree_name, rev, path, writer, git, commit, &repo, tree)
+            // (A try push's rebased head's searches are of the push; see
+            // `try_delta`.)
+            let search_rev = Some(commit.id().to_string()).filter(|head| {
+                crate::try_delta::delta_dir(&tree_config.paths.index_path, head)
+                    .join("meta.json")
+                    .exists()
+            });
+            format_tree(
+                tree_name, rev, path, writer, git, commit, &repo, tree, search_rev,
+            )
         }
         _ => Err("Invalid path"),
     }
@@ -3803,6 +3891,7 @@ fn format_tree(
     commit: git2::Commit<'_>,
     repo: &Repository,
     tree: Tree<'_>,
+    search_rev: Option<String>,
 ) -> Result<(), &'static str> {
     let desc_html = blame::commit_header(&commit)?;
 
@@ -3899,8 +3988,13 @@ fn format_tree(
         "coverage": coverage,
         "coverage_history": coverage_history,
         "panel": panel,
-        "search_url": config::search_url(tree_name),
-        "query_search": config::search_endpoint(tree_name) == SearchEndpoint::Query,
+        "search_url": match &search_rev {
+            Some(_) => format!("/{}/query/default", tree_name),
+            None => config::search_url(tree_name),
+        },
+        "query_search": search_rev.is_some()
+            || config::search_endpoint(tree_name) == SearchEndpoint::Query,
+        "search_rev": search_rev,
     });
 
     let template = build_and_parse_dir_listing();
@@ -3939,7 +4033,38 @@ fn format_blob(
             .and_then(|object| object.peel_to_commit().ok())
     });
 
-    let analysis = Vec::new();
+    // The head of a try push's rebased stack has the push's analysis and
+    // jumprefs (see `try_delta`): its analysis of the files whose analysis it
+    // changes, and the base's of the files it doesn't change.
+    let delta = crate::try_delta::TryDelta::open(
+        &tree_config.paths.index_path,
+        &commit.id().to_string(),
+    );
+    let (analysis, jumprefs) = match &delta {
+        Some(delta) => {
+            let file = match delta.analysis_file(path) {
+                Some(file) => Some(file),
+                None if delta.change(path).is_none() => Some(PathBuf::from(format!(
+                    "{}/analysis/{}.gz",
+                    tree_config.paths.index_path, path
+                ))),
+                None => None,
+            };
+            let analysis = file
+                .filter(|file| file.exists() || file.with_extension("").exists())
+                .map(|file| {
+                    crate::file_format::analysis::read_analysis(
+                        &file.to_string_lossy(),
+                        &mut crate::file_format::analysis::read_source,
+                    )
+                })
+                .unwrap_or_default();
+            let mut jumprefs = TreeJumprefs::open(&tree_config.paths, &cfg.tree_index_paths);
+            jumprefs.delta = delta.jumprefs();
+            (analysis, jumprefs)
+        }
+        None => (Vec::new(), TreeJumprefs::default()),
+    };
 
     let hg_rev = tree_config
         .git
@@ -4055,7 +4180,7 @@ fn format_blob(
         coverage_commit.as_ref(),
         path,
         data,
-        &TreeJumprefs::default(),
+        &jumprefs,
         &analysis,
         writer,
     )?;
@@ -4229,6 +4354,7 @@ pub fn format_diff(
         }),
         breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
         extra_content_classes: "source-listing diff",
+        search_rev: None,
     };
 
     output::generate_header(&opt, writer)?;
@@ -5578,6 +5704,7 @@ pub fn format_interdiff(
         }),
         breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
         extra_content_classes: "source-listing diff interdiff",
+        search_rev: None,
     };
     output::generate_header(&opt, writer)?;
     let file_syms = vec![make_file_sym_from_path(path)];
@@ -5785,6 +5912,7 @@ pub fn format_interdiff_files(
         revision: None,
         breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
         extra_content_classes: "explore interdiff-files",
+        search_rev: None,
     };
     output::generate_header(&opt, writer)?;
     output::generate_panel(&opt, writer, &[], true)?;
@@ -6132,6 +6260,7 @@ pub fn format_explore(
         scopes: vec![],
         changes: None,
         stack_links: true,
+        semantic_head: None,
     };
     write_explore(cfg, tree_name, &refs, &title, extras, writer)
 }
@@ -6419,6 +6548,7 @@ pub fn format_history(
         scopes,
         changes: Some(changes),
         stack_links: false,
+        semantic_head: None,
     };
     write_explore(cfg, tree_name, &refs, &title, extras, writer)
 }
@@ -6492,6 +6622,10 @@ struct ExploreExtras {
     /// Whether its files link to their views with its stack strip (see
     /// `stack_strip_json`).
     stack_links: bool,
+    /// For a try push with a semantic delta (see `try_delta`), the head of
+    /// its stack rebased onto the indexed revision, whose pages have the
+    /// push's analysis, and whose searches (and the page's) are of the push.
+    semantic_head: Option<String>,
 }
 
 /// An explore page (see `format_explore`), of the commits `refs`, oldest
@@ -6552,6 +6686,7 @@ fn write_explore(
         revision: None,
         breadcrumbs_links_to: BreadcrumbsLinksTo::Latest,
         extra_content_classes: "explore",
+        search_rev: extras.semantic_head.as_deref(),
     };
     output::generate_header(&opt, writer)?;
     output::generate_panel(&opt, writer, &[], true)?;
@@ -6568,6 +6703,7 @@ fn write_explore(
         "explore_url": extras.explore_url,
         "note": extras.note,
         "scopes": extras.scopes,
+        "semantic_head": extras.semantic_head,
     }))
     .map_err(|_| "Template problems")?;
     build_and_parse_explore()
@@ -6610,6 +6746,18 @@ pub fn format_try(
                 git.history.as_ref().map(|h| Path::new(&h.path)),
                 &mut refs,
             );
+            // The head of its stack rebased onto the indexed revision, if
+            // that has a semantic delta (see `try_delta`).
+            let semantic_head = git
+                .repo
+                .refname_to_id(&format!("refs/try-rebased/{}", rev))
+                .ok()
+                .map(|oid| oid.to_string())
+                .filter(|head| {
+                    crate::try_delta::delta_dir(&tree_config.paths.index_path, head)
+                        .join("meta.json")
+                        .exists()
+                });
             let extras = ExploreExtras {
                 missing: vec![],
                 truncated,
@@ -6617,17 +6765,21 @@ pub fn format_try(
                 explore_url: format!("try/{}", rev),
                 note: Some(format!(
                     "Its stack (its commits since it diverged from the trunk{}), imported into \
-                     this tree's history, for its commits' blame and what they changed, but not \
-                     indexed, so its revisions have no jumps or references.",
+                     this tree's history, for its commits' blame and what they changed{}.",
                     match task_selections {
                         0 => String::new(),
                         1 => ", but the one selecting try's tasks".to_string(),
                         n => format!(", but the {} selecting try's tasks", n),
+                    },
+                    match semantic_head {
+                        Some(_) => "",
+                        None => ", but not indexed, so its revisions have no jumps or references",
                     }
                 )),
                 scopes: vec![],
                 changes: None,
                 stack_links: true,
+                semantic_head,
             };
             return write_explore(
                 cfg,
@@ -6649,6 +6801,7 @@ pub fn format_try(
         revision: None,
         breadcrumbs_links_to: BreadcrumbsLinksTo::Latest,
         extra_content_classes: "try-import-page",
+        search_rev: None,
     };
     output::generate_header(&opt, writer)?;
     output::generate_panel(&opt, writer, &[], true)?;
@@ -6707,6 +6860,7 @@ pub fn format_commit(
         }),
         breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
         extra_content_classes: "commit",
+        search_rev: None,
     };
 
     output::generate_header(&opt, writer)?;

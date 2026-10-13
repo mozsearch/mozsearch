@@ -60,7 +60,11 @@
          logic. -->
     <input type="submit" value="Search" disabled class="visually-hidden" />
     {%- endif %}
-    <span id="data" data-root="/" data-search="{{ search_url }}" data-tree="{{tree}}"></span>
+    {%- if search_rev %}
+    <!-- (A try push's rebased head's searches are of the push.) -->
+    <input type="hidden" name="rev" value="{{ search_rev | escape }}" />
+    {%- endif %}
+    <span id="data" data-root="/" data-search="{{ search_url }}" data-tree="{{tree}}"{% if search_rev %} data-search-rev="{{ search_rev | escape }}"{% endif %}></span>
     {%- if rev_box %}
       <div id="revision">
         {%- assign human_date = rev_box.date | date: "%F" -%}

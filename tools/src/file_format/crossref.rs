@@ -151,6 +151,82 @@ impl CrossrefData {
     }
 }
 
+/// What a try push changes about a symbol's crossref data (see `try_delta`):
+/// its results in the files whose analysis the push changes, which replace the
+/// base's results in those files, and, if one of those files has the symbol's
+/// structured record (or had), what comes from that.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct CrossrefPatch {
+    /// The files whose results the push replaces, in every kind of result.
+    pub paths: Vec<Ustr>,
+    /// The push's results in those files, and with `defined`, the symbol's
+    /// structured information, callees, and fields' member uses.
+    pub data: CrossrefData,
+    /// Whether one of the files has (or had) the symbol's structured record,
+    /// so that `data`'s `meta`, `callees`, `field_member_uses`, and `idl_syms`
+    /// replace the base's.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub defined: bool,
+}
+
+impl CrossrefPatch {
+    /// The symbol's data with the push's changes (`None` if the push leaves
+    /// it none).  The tree's own results are by path, as crossref writes them;
+    /// a linked tree's (see `CrossrefData::add_linked`) stay after them.
+    pub fn apply(&self, base: Option<CrossrefData>) -> Option<CrossrefData> {
+        let mut merged = base.unwrap_or_default();
+        let paths: std::collections::HashSet<Ustr> = self.paths.iter().copied().collect();
+        let patch = |own: &mut Option<Vec<PathSearchResult>>,
+                     theirs: &Option<Vec<PathSearchResult>>| {
+            let (mut results, linked): (Vec<_>, Vec<_>) = own
+                .take()
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|result| result.tree.is_some() || !paths.contains(&result.path))
+                .partition(|result| result.tree.is_none());
+            results.extend(theirs.iter().flatten().cloned());
+            results.sort_by(|a, b| a.path.as_str().cmp(b.path.as_str()));
+            results.extend(linked);
+            *own = (!results.is_empty()).then_some(results);
+        };
+        patch(&mut merged.uses, &self.data.uses);
+        patch(&mut merged.definitions, &self.data.definitions);
+        patch(&mut merged.assignments, &self.data.assignments);
+        patch(&mut merged.declarations, &self.data.declarations);
+        patch(&mut merged.forwards, &self.data.forwards);
+        patch(&mut merged.idl, &self.data.idl);
+        patch(&mut merged.idl_partial, &self.data.idl_partial);
+        patch(&mut merged.glean, &self.data.glean);
+        patch(&mut merged.aliases, &self.data.aliases);
+        patch(&mut merged.doc_defs, &self.data.doc_defs);
+        patch(&mut merged.doc_uses, &self.data.doc_uses);
+        if self.defined {
+            merged.meta = self.data.meta.clone();
+            merged.callees = self.data.callees.clone();
+            merged.field_member_uses = self.data.field_member_uses.clone();
+            merged.idl_syms = self.data.idl_syms.clone();
+        }
+        let empty = [
+            &merged.uses,
+            &merged.definitions,
+            &merged.assignments,
+            &merged.declarations,
+            &merged.forwards,
+            &merged.idl,
+            &merged.idl_partial,
+            &merged.glean,
+            &merged.aliases,
+            &merged.doc_defs,
+            &merged.doc_uses,
+        ]
+        .iter()
+        .all(|results| results.is_none())
+            && merged.meta.is_none()
+            && merged.callees.is_none();
+        (!empty).then_some(merged)
+    }
+}
+
 pub trait OptionalCrossrefDataHelpers {
     fn structured(&self) -> Option<&AnalysisStructured>;
 }

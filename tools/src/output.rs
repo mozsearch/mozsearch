@@ -35,6 +35,19 @@ pub struct Options<'a> {
     /// source listings where we have particular styling needs for "position: sticky" but want
     /// every other display to have normal padding.
     pub extra_content_classes: &'a str,
+    /// The try push whose context the page's searches are in, if any: the
+    /// head of its stack rebased onto the indexed revision, whose semantic
+    /// delta queries use (see `try_delta`).
+    pub search_rev: Option<&'a str>,
+}
+
+/// Where the page's searches go: the tree's search endpoint, or in a try
+/// push's context, its /query/.
+fn search_url(opt: &Options) -> String {
+    match opt.search_rev {
+        Some(_) => format!("/{}/query/default", opt.tree_name),
+        None => config::search_url(opt.tree_name),
+    }
 }
 
 pub fn file_url(opt: &Options, path: &str) -> String {
@@ -168,8 +181,10 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
     head_seq.extend(css_tags);
 
     // Trees searching with the pipeline-server's /query/ have a single field,
-    // submitted with Enter (see `config::SearchEndpoint`).
-    let query_search = config::search_endpoint(opt.tree_name) == SearchEndpoint::Query;
+    // submitted with Enter (see `config::SearchEndpoint`), and so do pages in
+    // a try push's context, whose searches are queries of the push.
+    let query_search = opt.search_rev.is_some()
+        || config::search_endpoint(opt.tree_name) == SearchEndpoint::Query;
 
     let mut fieldset = vec![
         F::S(r#"<div id="query-section">"#),
@@ -252,11 +267,16 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
             F::S(r#"<input type="submit" value="Search" disabled class="visually-hidden" />"#),
         ])
     };
+    let rev_input = match opt.search_rev {
+        Some(rev) => F::T(format!(r#"<input type="hidden" name="rev" value="{}" />"#, rev)),
+        None => F::Seq(vec![]),
+    };
     let form = vec![
         F::S("<fieldset>"),
         F::Indent(fieldset),
         F::S("</fieldset>"),
         submit,
+        rev_input,
         F::S(r#"<div id="revision">"#),
         F::Indent(revision),
         F::S("</div>"),
@@ -280,7 +300,7 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
             F::S(r#"<div id="fixed-header">"#),
             F::T(format!(
                 r#"<form method="get" action="{}" class="search-box" id="search-box">"#,
-                config::search_url(opt.tree_name)
+                search_url(opt)
             )),
             F::Indent(form),
             F::S("</form>"),
@@ -348,10 +368,14 @@ pub fn generate_footer(
             F::Indent(vec![F::S("</div>")]),
             date,
             F::T(format!(
-                r#"<span id="data" data-root="/" data-search="{}" data-tree="{}" data-path="{}"></span>"#,
-                config::search_url(tree_name),
+                r#"<span id="data" data-root="/" data-search="{}" data-tree="{}" data-path="{}"{}></span>"#,
+                search_url(opt),
                 tree_name,
-                path
+                path,
+                match opt.search_rev {
+                    Some(rev) => format!(r#" data-search-rev="{}""#, rev),
+                    None => String::new(),
+                }
             )),
             F::S(r#"<script src="/tree-list.js"></script>"#),
             F::Seq(script_tags),

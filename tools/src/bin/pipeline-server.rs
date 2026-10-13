@@ -273,6 +273,25 @@ async fn handle_query(
         }
     };
 
+    // A query in a try push's context, `rev` being the head of its stack
+    // rebased onto the indexed revision, is of the tree as the push changes
+    // it (see `try_delta`).
+    let rev = params.get("rev").filter(|rev| !rev.is_empty());
+    let server: Box<dyn AbstractServer + Send + Sync> = match rev {
+        Some(rev) => match server.try_overlay(rev) {
+            Some(overlay) => overlay,
+            None => {
+                return Ok((
+                    StatusCode::NOT_FOUND,
+                    format!("No semantic analysis of a try push for {}", rev),
+                )
+                    .into_response());
+            }
+        },
+        None => server.clonify(),
+    };
+    let try_meta = server.try_delta_meta();
+
     let graph = {
         let _log_entered = logged_span
             .as_ref()
@@ -330,8 +349,8 @@ async fn handle_query(
             _ => Value::Null,
         };
         if let PipelineValues::FlattenedResultsBundle(results) = &mut result {
-            results.inline_contexts(&tree);
-            results.link_line_numbers(&tree);
+            results.inline_contexts(&tree, rev.map(String::as_str));
+            results.link_line_numbers(&tree, rev.map(String::as_str));
             results.add_recency_cells();
         }
 
@@ -353,6 +372,10 @@ async fn handle_query(
             "search_tree": tree.clone(),
             "search_url": config::search_url(&tree),
             "query_search": config::search_endpoint(&tree) == SearchEndpoint::Query,
+            // The try push whose context the query is in, if any.
+            "search_rev": rev.cloned().unwrap_or_default(),
+            "try_push": try_meta.as_ref().map(|meta| meta.push.clone()).unwrap_or_default(),
+            "try_base": try_meta.as_ref().map(|meta| meta.base.clone()).unwrap_or_default(),
             "logs": logs,
             "debug": maybe_log,
             "SYM_INFO_STR": sym_info_str,
