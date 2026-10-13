@@ -4,7 +4,8 @@
 // tests/trydelta/import-try and tools/src/try_delta.rs): 0123456789ab changes
 // Widget::Frob's signature (which user.cpp's call and gadget.h's then use,
 // though they don't change), adds Widget::Wobble, and adds wobbler.cpp, which
-// calls it.
+// calls it.  It also renames hello.js's greetPerson, which its analysis (only
+// of the tree's C++) doesn't cover.
 
 const PUSH = "0123456789ab";
 const NEW_FROB = "_ZN8trydelta6Widget4FrobEib";
@@ -78,4 +79,19 @@ add_task(async function test_TryDeltaQueries() {
   ok(!doc().querySelector('a[href$="/user.cpp"]'), "and the symbols it replaces have none");
   await TestUtils.loadPath(`/trydelta/query/default?q=symbol:${OLD_FROB}`);
   ok(doc().querySelector('a[href$="/user.cpp"]'), "unlike in the indexed revision");
+});
+
+add_task(async function test_TryDeltaUnanalyzedFiles() {
+  const head = await importPush();
+
+  await TestUtils.loadPath("/trydelta/query/default?q=greetPerson");
+  ok(doc().querySelector('a[href$="/hello.js"]'),
+     "The indexed revision has the symbols of a file the push changes");
+  await TestUtils.loadPath(`/trydelta/query/default?q=greetPerson&rev=${head}`);
+  ok(!doc().querySelector('a[href$="/hello.js"]'),
+     "but in the push's context, when its analysis doesn't cover the file, the file has none");
+  await TestUtils.loadPath(`/trydelta/rev/${head}/hello.js`);
+  ok(doc().querySelector("#line-2"), "The file's page at the head shows it");
+  ok(!doc().querySelector(".source-line span[data-symbols]"),
+     "without the indexed revision's symbols, at its lines");
 });

@@ -75,6 +75,25 @@ pub fn hook(cfg: &Config, tree_name: &str) -> Option<PathBuf> {
     executable.then_some(hook)
 }
 
+/// The tree which imports try pushes for `tree_name`, if not itself: one
+/// sharing its history which has a hook while it doesn't (ex: firefox-try,
+/// firefox-disco's sibling with only the platform pushes are compiled for),
+/// to which its pages for try pushes send people.
+pub fn importing_tree(cfg: &Config, tree_name: &str) -> Option<String> {
+    if hook(cfg, tree_name).is_some() {
+        return None;
+    }
+    let history = cfg.trees.get(tree_name)?.paths.history_path.as_ref()?;
+    cfg.trees
+        .iter()
+        .find(|(name, tree)| {
+            name.as_str() != tree_name
+                && tree.paths.history_path.as_ref() == Some(history)
+                && hook(cfg, name).is_some()
+        })
+        .map(|(name, _)| name.clone())
+}
+
 /// A try push's revision, as the hook takes it: an abbreviated or full
 /// revision (12 to 40 hex digits, lowercased), if it's one.
 pub fn normalize_rev(rev: &str) -> Option<String> {
@@ -379,6 +398,50 @@ mod tests {
         assert_eq!(normalize_rev(&"a".repeat(41)), None);
         assert_eq!(normalize_rev("abcdef01234g"), None);
         assert_eq!(normalize_rev("../../etc/pw"), None);
+    }
+
+    #[test]
+    fn test_importing_tree() {
+        use std::os::unix::fs::PermissionsExt;
+        // Trees a and b share a history, which b imports try pushes into (it
+        // has a hook), and c has another, with no hook.
+        let root = std::env::temp_dir().join(format!("try-import-trees-{}", std::process::id()));
+        let repo = root.join("config");
+        fs::create_dir_all(repo.join("b")).unwrap();
+        let hook = repo.join("b").join("import-try");
+        fs::write(&hook, "#!/bin/sh\n").unwrap();
+        fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
+        let tree = |name: &str, history: &str| {
+            serde_json::json!({
+                "priority": 1, "on_error": "halt", "cache": "nothing",
+                "index_path": root.join(name).to_string_lossy(),
+                "files_path": "/files", "objdir_path": "/objdir",
+                "codesearch_path": "/livegrep.idx", "codesearch_port": 8081,
+                "history_path": root.join(history).to_string_lossy(),
+            })
+        };
+        let config = serde_json::json!({
+            "mozsearch_path": "/mozsearch",
+            "config_repo": repo.to_string_lossy(),
+            "trees": {
+                "a": tree("a", "shared-history"),
+                "b": tree("b", "shared-history"),
+                "c": tree("c", "c-history"),
+            },
+        });
+        let config_path = root.join("config.json");
+        fs::write(&config_path, config.to_string()).unwrap();
+        let cfg = crate::file_format::config::load(
+            config_path.to_str().unwrap(),
+            false,
+            None,
+            None,
+            None,
+        );
+        assert_eq!(importing_tree(&cfg, "a"), Some("b".to_string()));
+        assert_eq!(importing_tree(&cfg, "b"), None);
+        assert_eq!(importing_tree(&cfg, "c"), None);
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

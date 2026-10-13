@@ -112,6 +112,10 @@ impl TryOverlay {
     fn head_sources(&self, path: &str) -> Vec<WithLocation<Vec<AnalysisSource>>> {
         let file = match self.delta.analysis_file(path) {
             Some(file) => file.to_string_lossy().into_owned(),
+            // (The push changes the file, and its analysis doesn't have it,
+            // ex: Rust, or C++ the platform doesn't build: none, rather than
+            // the base's, at its lines.)
+            None if self.delta.change(path).is_some() => return vec![],
             None => match self
                 .base
                 .translate_path(SearchfoxIndexRoot::CompressedAnalysis, path)
@@ -193,10 +197,11 @@ impl AbstractServer for TryOverlay {
 
     async fn fetch_raw_analysis<'a>(&self, sf_path: &str) -> Result<BoxStream<'a, Value>> {
         let path = sf_path.strip_prefix('/').unwrap_or(sf_path);
-        if self.delta.change(path) == Some(FileChange::Removed) {
-            return Ok(Box::pin(tokio_stream::iter(vec![])));
-        }
         let Some(file) = self.delta.analysis_file(path) else {
+            // (Like `head_sources`.)
+            if self.delta.change(path).is_some() {
+                return Ok(Box::pin(tokio_stream::iter(vec![])));
+            }
             return self.base.fetch_raw_analysis(sf_path).await;
         };
         let values = read_analysis(&file.to_string_lossy(), &mut |value, _, _| Some(value))

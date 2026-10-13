@@ -106,7 +106,9 @@ reviewing them at `/{tree}/try/{rev}`; see `tools/src/try_import.rs` and `tests/
 `scripts/rebase-try-push.sh`, compile what it changes with the indexer, and build its semantic delta from that
 analysis with `build-try-delta` (see `tools/src/try_delta.rs` and `tests/trydelta/import-try`).  The rebased
 stack's head then has the push's jumps and references, and searches from its pages (with `rev=HEAD` on
-`/query/`) are of the tree as the push changes it. You can
+`/query/`) are of the tree as the push changes it.  A tree without `import-try` which shares its `history_path` with one that
+has it sends its `/try/` pages to that tree (ex: firefox-disco's to firefox-try, which indexes only the platform
+pushes are compiled for, so that their analysis replaces the tree's exactly). You can
 look at the existing folders for other repos for inspiration. Copy-pasting from something like the `glean` repo will probably
 be a good start, although the `build` step may need to be modified depending on whether or not your repo is buildable and
 produces useful artifacts on the searchfox indexing instance.

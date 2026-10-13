@@ -234,9 +234,13 @@ fn main() {
         }
         analyzed.insert(path.clone(), AnalyzedFile { complete });
     }
-    // (The files the push removes lose their results.)
+    // (The files the push removes lose their results, and so do those it
+    // changes which its analysis doesn't have, ex: Rust, or C++ the platform
+    // doesn't build, rather than keeping the base's, at its lines.)
+    let tip_set: BTreeSet<&String> = tip_list.iter().collect();
     for (path, change) in &changed {
-        if *change == FileChange::Removed
+        if *change != FileChange::Added
+            && !tip_set.contains(path)
             && let Some(base) = read_records(&base_analysis.join(path))
         {
             write_lines(&scratch.join("base/analysis").join(path), &base);

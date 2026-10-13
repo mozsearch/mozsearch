@@ -198,6 +198,15 @@ fn handle(
 
     println!("DBG {:?} {} {}", path, tree_name, kind);
 
+    // A tree's try pushes' pages are the tree's that imports them, if it
+    // doesn't (see `try_import::importing_tree`).
+    if matches!(&kind[..], "try" | "try-status")
+        && let Some(other) = tools::try_import::importing_tree(cfg, tree_name)
+    {
+        return WebResponse::see_other(format!("/{}/{}/{}", other, kind, path[2..].join("/")))
+            .uncached();
+    }
+
     match &kind[..] {
         "diagnostics" => match serde_json::to_string(&diagnostics_from_config(cfg, tree_name)) {
             Ok(s) => WebResponse::json(s),
