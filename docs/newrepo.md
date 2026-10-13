@@ -101,7 +101,12 @@ A few things to note:
 You also need to create a folder for your repo, with the `setup`, `build`, `upload`, and `find-repo-files` scripts (and
 optionally `upload-after-index`, which runs after the indexing on release channels, where `upload` runs after the setup, and
 `import-try`, with which a tree with a `history_path` lets the web server import try pushes into its history for
-reviewing them at `/{tree}/try/{rev}`; see `tools/src/try_import.rs` and `tests/spechist/import-try`). You can
+reviewing them at `/{tree}/try/{rev}`; see `tools/src/try_import.rs` and `tests/spechist/import-try`).  An
+`import-try` script can also give a push semantic analysis: rebase its stack onto the indexed revision with
+`scripts/rebase-try-push.sh`, compile what it changes with the indexer, and build its semantic delta from that
+analysis with `build-try-delta` (see `tools/src/try_delta.rs` and `tests/trydelta/import-try`).  The rebased
+stack's head then has the push's jumps and references, and searches from its pages (with `rev=HEAD` on
+`/query/`) are of the tree as the push changes it. You can
 look at the existing folders for other repos for inspiration. Copy-pasting from something like the `glean` repo will probably
 be a good start, although the `build` step may need to be modified depending on whether or not your repo is buildable and
 produces useful artifacts on the searchfox indexing instance.

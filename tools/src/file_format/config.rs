@@ -501,6 +501,9 @@ pub struct Config {
     /// Every configured tree's index path, even when `load` loads only one
     /// tree (for its `linked_trees`).
     pub tree_index_paths: BTreeMap<String, String>,
+    /// The config file it was loaded from (ex: for the trees' hooks; see
+    /// `try_import`).
+    pub config_file: String,
 }
 
 impl Config {
@@ -812,6 +815,7 @@ pub fn load(
         url_map_path,
         doc_trees_path,
         tree_index_paths,
+        config_file: config_path.to_string(),
     }
 }
 

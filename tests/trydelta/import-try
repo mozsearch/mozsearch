@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
+
+# The trydelta tree's try imports (see tools/src/try_import.rs), with semantic
+# analysis (see tools/src/try_delta.rs): like spechist's, a push is one of
+# try/'s, try/NAME/N being the files its Nth commit changes and
+# try/NAME/N.message its message, committed on top of the tree's head (with
+# forged authors and dates, for stable SHAs), and imported like any tree's
+# push.  Then its stack rebased onto the indexed revision (here, its head) is
+# compiled with the indexer (all of the tree's C++, since it's small; see
+# build), and its semantic delta built from that analysis.
+
+NAME=$1
+PUSH="$CONFIG_REPO/$TREE_NAME/try/$NAME"
+if [ ! -d "$PUSH" ]; then
+    echo "ERROR: there's no try push $NAME."
+    exit 1
+fi
+
+export GIT_DIR="$GIT_ROOT/.git"
+export GIT_AUTHOR_NAME="Searchfox"
+export GIT_AUTHOR_EMAIL="searchfox@localhost"
+export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+# (Without touching the tree's checkout.)
+export GIT_INDEX_FILE=$(mktemp)
+HEAD_REV=$(git rev-parse HEAD)
+git read-tree "$HEAD_REV"
+REVS=()
+N=1
+while [ -f "$PUSH/$N.message" ]; do
+    if [ -d "$PUSH/$N" ]; then
+        (cd "$PUSH/$N" && find . -type f | sed 's#^\./##') | while read -r FILE; do
+            git update-index --add --cacheinfo 100644 "$(git hash-object -w "$PUSH/$N/$FILE")" "$FILE"
+        done
+    fi
+    export GIT_AUTHOR_DATE="2025-05-0${N}T12:00+0100"
+    export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"
+    HEAD_REV=$(git commit-tree "$(git write-tree)" -p "$HEAD_REV" -F "$PUSH/$N.message")
+    REVS+=("$HEAD_REV")
+    N=$((N + 1))
+done
+rm -f "$GIT_INDEX_FILE"
+unset GIT_DIR GIT_INDEX_FILE
+
+PUSH_REVS="${REVS[*]}" "$MOZSEARCH_PATH/scripts/import-try-push.sh" \
+    "$GIT_ROOT" "$HISTORY_ROOT" "$GIT_BRANCH" "$NAME" "$HEAD_REV" "$MAX_REVISIONS"
+
+echo "Performing import-try::semantic-analysis step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
+REBASED=$("$MOZSEARCH_PATH/scripts/rebase-try-push.sh" "$GIT_ROOT" "$NAME" "$HEAD_REV")
+WORK=$(mktemp -d)
+mkdir -p "$WORK/files" "$WORK/objdir" "$WORK/tip-analysis"
+git -C "$GIT_ROOT" archive "$REBASED" | tar -x -C "$WORK/files"
+INDEX_ROOT=$WORK FILES_ROOT=$WORK/files OBJDIR=$WORK/objdir \
+    "$MOZSEARCH_PATH/scripts/indexer-setup.py" > "$WORK/config"
+source "$WORK/config"
+pushd "$WORK/files"
+for SRC_FILE in $(find . -name '*.cpp' | sed 's#^\./##'); do
+    mkdir -p "$(dirname "$WORK/objdir/$SRC_FILE")"
+    MOZSEARCH_PLATFORM=linux64 $CXX "$SRC_FILE" -std=c++17 -I . -c -o "$WORK/objdir/${SRC_FILE%.cpp}.o" -Wall
+done
+popd
+# (Merged, like the tree's; see build.)
+pushd "$WORK/analysis"
+find . -type f | sed 's#^\./##' | while read -r FILE; do
+    mkdir -p "$(dirname "$WORK/tip-analysis/$FILE")"
+    merge-analyses "$FILE" > "$WORK/tip-analysis/$FILE"
+done
+popd
+
+build-try-delta "$CONFIG_FILE" "$TREE_NAME" "$NAME" "$REBASED" "$WORK/tip-analysis"
+rm -rf "$WORK"

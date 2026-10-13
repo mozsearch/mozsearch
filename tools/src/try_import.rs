@@ -304,6 +304,11 @@ impl TryImports {
                 tree_config.paths.git_branch.as_deref().unwrap_or("HEAD"),
             )
             .env("MAX_REVISIONS", MAX_REVISIONS.to_string())
+            // (For the semantic analysis of the push; see `try_delta`.)
+            .env("CONFIG_FILE", &cfg.config_file)
+            .env("INDEX_ROOT", &tree_config.paths.index_path)
+            .env("FILES_ROOT", &tree_config.paths.files_path)
+            .env("OBJDIR", &tree_config.paths.objdir_path)
             .stdin(Stdio::null())
             .stdout(log.try_clone().map_err(|e| e.to_string())?)
             .stderr(log)

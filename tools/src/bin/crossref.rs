@@ -48,7 +48,9 @@ use tools::file_format::ontology_mapping::{
     OntologyLabelOwningClass, OntologyMappingIngestion, OntologyPointerKind,
 };
 use tools::file_format::recency::{FileRecency, Recency, RecencyFrom};
-use tools::file_format::repo_data_ingestion::RepoIngestion;
+use tools::file_format::repo_data_ingestion::{
+    ConcisePerFileInfo, RepoIngestion, heuristic_path_kind,
+};
 use tools::hyperblame::recency::{CONTEXT_KINDS, FileLinkage, HistoryDigests, link_definitions};
 use tools::logging::LoggedSpan;
 use tools::logging::init_logging;
@@ -86,6 +88,57 @@ struct CrossrefCli {
 
     #[clap(value_parser)]
     thread_count: usize,
+
+    /// Cross-reference only the listed analysis files, for a try push's
+    /// semantic delta (see `bin/build-try-delta.rs`): with the per-file
+    /// information of the tree's index at this path (rather than ingesting
+    /// the whole tree), without history digests, writing only the crossref,
+    /// jumpref, and identifiers files, into `--index-path`.
+    #[clap(long)]
+    subset_of: Option<String>,
+
+    /// Instead of the config's index path (with the analysis files in its
+    /// `analysis/`).
+    #[clap(long)]
+    index_path: Option<String>,
+
+    /// Instead of the config's files path (ex: a try push's versions of the
+    /// files, for `--subset-of`).
+    #[clap(long)]
+    files_path: Option<String>,
+
+    /// Instead of the config's objdir path.
+    #[clap(long)]
+    objdir_path: Option<String>,
+}
+
+/// The repo ingestion of a subset of the tree's files (see
+/// `CrossrefCli::subset_of`): the per-file information of the tree's index at
+/// `base_index`, and for files it doesn't have (ex: a try push's new files),
+/// their heuristic path kinds.
+fn subset_ingestion(cfg: &Config, base_index: &str, paths: &[Ustr]) -> RepoIngestion {
+    let per_file_info_toml_str = cfg
+        .read_tree_config_file_with_default("per-file-info.toml")
+        .unwrap();
+    let mut ingestion = RepoIngestion::new(&per_file_info_toml_str)
+        .expect("Your per-file-info.toml file has issues");
+    let concise_path = format!("{}/concise-per-file-info.json", base_index);
+    let concise: BTreeMap<Ustr, ConcisePerFileInfo<Ustr>> =
+        serde_json::from_reader(BufReader::new(File::open(&concise_path).unwrap())).unwrap();
+    let wanted: UstrSet = paths.iter().copied().collect();
+    ingestion
+        .state
+        .concise_per_file
+        .extend(concise.into_iter().filter(|(path, _)| wanted.contains(path)));
+    for path in paths {
+        if !ingestion.state.concise_per_file.contains_key(path) {
+            let path_kind = heuristic_path_kind(&ingestion.config.pathkind, path);
+            ingestion
+                .state
+                .with_file_info(path, false, |info, _| info.path_kind = path_kind);
+        }
+    }
+    ingestion
 }
 
 // Nested table hierarchy keyed by: [symbol, kind, path] with Vec<SearchResult>
@@ -2177,6 +2230,78 @@ fn write_identifiers(tree_config: &TreeConfig, id_table: IdTable) {
     }
 }
 
+/// Cross-reference a subset of the tree's files (see `CrossrefCli::subset_of`),
+/// as `main` does the whole tree, but without history digests (and so without
+/// file recency), and writing only the crossref, jumpref, and identifiers
+/// files.
+async fn crossref_subset(cli: &CrossrefCli, cfg: &Config, tree_config: &TreeConfig, base_index: &str) {
+    let tree_name = &cli.tree_name;
+    let analysis_relative_paths: Vec<Ustr> =
+        BufReader::new(File::open(&cli.analysis_files_list_path).unwrap())
+            .lines()
+            .map(|x| ustr(&x.unwrap()))
+            .collect();
+    let ingestion = subset_ingestion(cfg, base_index, &analysis_relative_paths);
+    let ontology = load_ontology(cfg);
+    let AnalysisData {
+        search_result_table,
+        pretty_table,
+        id_table,
+        mut meta_table,
+        callees_table,
+        recency_table,
+        ..
+    } = read_analysis_files(
+        analysis_relative_paths,
+        tree_name,
+        tree_config,
+        &ingestion,
+        None,
+        cli.thread_count,
+    );
+
+    // (Like `main`'s.)
+    let linked = TreeJumprefs::open(&tree_config.paths, &cfg.tree_index_paths);
+    if !linked.linked.is_empty() {
+        let cited: UstrSet = callees_table
+            .values()
+            .flat_map(|callees| callees.iter())
+            .filter(|(sym, (_, _, only_cites))| *only_cites && !meta_table.contains_key(*sym))
+            .map(|(sym, _)| *sym)
+            .collect();
+        for sym in cited {
+            if let Some(meta) = linked.lookup_linked(&sym).and_then(|data| data.meta) {
+                meta_table.insert(sym, meta);
+            }
+        }
+    }
+
+    let field_owning_class_rules = read_field_owning_class_rules(&ontology);
+    let field_member_use_table = process_class_fields(
+        &ontology,
+        &id_table,
+        &mut meta_table,
+        field_owning_class_rules,
+    );
+    process_ontology_rules(&ontology, &search_result_table, &id_table, &mut meta_table);
+    let (js_idl_table, js_ts_table) = create_js_tables(&meta_table);
+    write_crossref_and_jumpref(
+        tree_name,
+        &tree_config.paths.index_path,
+        search_result_table,
+        &ingestion,
+        pretty_table,
+        meta_table,
+        callees_table,
+        field_member_use_table,
+        js_idl_table,
+        js_ts_table,
+        recency_table,
+        cli.thread_count,
+    );
+    write_identifiers(tree_config, id_table);
+}
+
 /// Process all analysis files, deriving the `crossref`, `jumpref`, and `identifiers` output files.
 /// See https://github.com/mozsearch/mozsearch/blob/master/docs/crossref.md for high-level
 /// documentation on how this works (locally, `docs/crossref.md`).
@@ -2218,9 +2343,25 @@ async fn main() {
         tree_name,
         Local::now().format("%Y-%m-%dT%H:%M:%S%z")
     );
-    let cfg = config::load(&cli.config_file, false, Some(tree_name), None, None);
+    let mut cfg = config::load(&cli.config_file, false, Some(tree_name), None, None);
+    if let Some(tree_config) = cfg.trees.get_mut(tree_name) {
+        if let Some(index_path) = &cli.index_path {
+            tree_config.paths.index_path = index_path.clone();
+        }
+        if let Some(files_path) = &cli.files_path {
+            tree_config.paths.files_path = files_path.clone();
+        }
+        if let Some(objdir_path) = &cli.objdir_path {
+            tree_config.paths.objdir_path = objdir_path.clone();
+        }
+    }
 
     let tree_config = cfg.trees.get(tree_name).unwrap();
+
+    if let Some(base_index) = &cli.subset_of {
+        crossref_subset(&cli, &cfg, tree_config, base_index).await;
+        return;
+    }
 
     println!(
         "Performing crossref::load-files-and-dirs step for {} : {}",

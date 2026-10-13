@@ -225,3 +225,42 @@ impl<'de, T: Deserialize<'de>> BisectableMmap<T> {
         )?)
     }
 }
+
+/// The size of the inline line (`:` + JSON + newline) from which crossref
+/// stores values in the extra file instead.
+const EXTERNAL_STORAGE_THRESHOLD: usize = 1024 * 3;
+
+/// Write `entries`, sorted by id, as the inline and extra files of a
+/// bisectable map (see `BisectableMmap::new`), as crossref writes its: an
+/// `!ID` line, and then the value as a `:JSON` line, or, for big values, an
+/// `@OFFSET LENGTH` line (in hex) pointing at the `:JSON` line in the extra
+/// file (after its own `!ID` line).
+pub fn write_bisectable<T: serde::Serialize>(
+    inline_path: &str,
+    extra_path: &str,
+    entries: impl IntoIterator<Item = (String, T)>,
+) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut entries: Vec<(String, T)> = entries.into_iter().collect();
+    entries.sort_by(|a, b| a.0.as_bytes().cmp(b.0.as_bytes()));
+    let mut inline = std::io::BufWriter::new(File::create(inline_path)?);
+    let mut extra = std::io::BufWriter::new(File::create(extra_path)?);
+    let mut extra_offset = 0;
+    for (id, value) in entries {
+        let id_line = format!("!{}\n", id);
+        let value_line = format!(":{}\n", serde_json::to_string(&value)?);
+        inline.write_all(id_line.as_bytes())?;
+        if value_line.len() >= EXTERNAL_STORAGE_THRESHOLD {
+            extra.write_all(id_line.as_bytes())?;
+            extra_offset += id_line.len();
+            // (After the ":", with the newline.)
+            write!(inline, "@{:x} {:x}\n", extra_offset + 1, value_line.len() - 1)?;
+            extra.write_all(value_line.as_bytes())?;
+            extra_offset += value_line.len();
+        } else {
+            inline.write_all(value_line.as_bytes())?;
+        }
+    }
+    inline.flush()?;
+    extra.flush()
+}

@@ -136,6 +136,7 @@ mod tests {
             url_map_path: None,
             doc_trees_path: None,
             tree_index_paths: Default::default(),
+            config_file: String::new(),
         };
         let boxes = InfoBoxes::load(&cfg);
         assert_eq!(boxes.names().collect::<Vec<_>>(), vec!["a", "b", "d", "e"]);
