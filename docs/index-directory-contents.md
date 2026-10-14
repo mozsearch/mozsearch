@@ -180,6 +180,12 @@ Files:
 - `macosx64-aarch64.*`: A bunch of per-platform files downloaded by
   `fetch-tc-artifacts.sh` that we retain for debugging
   `process-gecko-analysis.sh`.
+- `mozbuild-bug-components.json`: Each file's Bugzilla component by the tree's
+  moz.build files' `Files` rules, with the moz.build line giving it (derived
+  like `mach file-info bugzilla-automation`, which produces
+  `bugzilla-components.json`, for the "File a bug" panel item's link to its
+  rule).  Produced by `metadata-analyze.rs` and ingested into
+  `detailed-per-file-info` by `crossref.rs` (see `per-file-info.toml`).
 - `objdir-dirs`: A list of the directories found under `objdir/` for scripting
   and indexing purposes using in a bunch of places.  This is necessary because
   source files are exposed via the UI at `/PATH` and come from `gecko-dev/PATH`
@@ -189,6 +195,12 @@ Files:
 - `objdir-files`: File variant of `objdir-dirs`, see above for more info.
 - `other-resource-files`: A list of all resource files which can be referred with
   the `chrome://` and `resource://` URLs.
+- `review-context-rules.json`: The rules of the tree's `review-context.toml`
+  (review guidance for its patches; see Firefox's
+  docs/ai-agent-tools/code-review-context.md) applying to each file, with
+  their lines, for the "Review skill" panel items.  Produced by
+  `metadata-analyze.rs` and ingested into `detailed-per-file-info` by
+  `crossref.rs`.
 - `repo-dirs`: A list of the directories that correspond to source files tracked
   by revision control produced by `find-repo-files.py` which actually runs
   `git ls-files` so if you don't check your files into git they won't show up.
@@ -209,6 +221,13 @@ Files:
 - `test-info-all-tests.json`: Downloaded by `fetch-tc-artifacts.sh` and
   integrated into per-file information by `derive-per-file-info.rs` when invoked
   by `crossref.sh`.
+- `test-manifest-entries.json`: Each test's entries in the test manifests the
+  tree's moz.build files declare (and those they include): the manifests'
+  sections listing it, and the skip-if/run-if/fail-if conditions applying to
+  it (from its section, the manifest's `[DEFAULT]`, and an including
+  manifest's `include:` section), with their lines and comments, for the test
+  info box.  Produced by `metadata-analyze.rs` and ingested into
+  `detailed-per-file-info` by `crossref.rs`.
 - `win64.*`: A bunch of per-platform files downloaded by
   `fetch-tc-artifacts.sh` that we retain for debugging
   `process-gecko-analysis.sh`.
