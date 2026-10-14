@@ -107,6 +107,19 @@ if [[ $LOCAL_NVME_DEV ]]; then
     date
 fi
 
+# Swap on the instance's SSD, so that briefly needing more memory than the
+# instance has (ex: the pipeline-server's growth, which web-server-run.sh
+# allows for, or a try push's build) slows it down rather than having the OOM
+# killer kill a server: SWAP_GIB GiB, 16 by default.  (Not on the EBS index
+# volume of an instance without an SSD.)
+if [[ $LOCAL_NVME_DEV ]]; then
+    SWAP_FILE=/index/swapfile
+    sudo fallocate -l "${SWAP_GIB:-16}G" $SWAP_FILE
+    sudo chmod 600 $SWAP_FILE
+    sudo mkswap $SWAP_FILE
+    sudo swapon $SWAP_FILE
+fi
+
 # Create a writable directory for nginx caching purposes on the indexer's EBS
 # store.  We choose this spot because:
 # - It has more free space than our instance's root FS (~3.2G of 7.7G avail.)

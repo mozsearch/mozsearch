@@ -59,10 +59,13 @@ nohup \
     < /dev/null &
 
 # Let's try and stop the pipeline-server from causing problems by setting a ulimit
-# on virtual memory usage.  We use du to figure out the total sizes of all of
-# the files we will mmap, specifically: identifiers, crossref/crossref-extra,
-# and jumpref/jumpref-extra.  We then add an allowance for other libraries and
-# fundamental mapping, plus an allowance for runtime memory usage.
+# on virtual memory usage: the worry is a user's unexpectedly expensive dynamic
+# query (ex: a huge diagram) growing it until the OOM killer kills other
+# processes (the web-server, livegrep, nginx, a try push's build).  It's the
+# sizes of the files it mmaps (identifiers, crossref/crossref-extra, and
+# jumpref/jumpref-extra), which are file-backed, so they don't need memory of
+# their own, plus allowances for other libraries and fundamental mapping, its
+# malloc arenas, and its runtime memory usage.
 #
 # Resulting units are KiB in all cases, which is also what ulimit takes.
 MAPPED_FILES_USAGE_K=$(du -c $WORKING/*/identifiers $WORKING/*/crossref* $WORKING/*/jumpref* | cut -f1 | tail -1)
@@ -70,24 +73,35 @@ MAPPED_FILES_USAGE_K=$(du -c $WORKING/*/identifiers $WORKING/*/crossref* $WORKIN
 # 390M.  When writing this on the spare config1 I'm seeing 13.5G VM with 668M
 # resident with the MAPPED_FILES_USAGE_K above reporting ~12.7G which gives 800M
 STEADY_STATE_ASSUMED_K=$((800 * 1024))
-# Allowed growth.  When first adding the ulimit, we allowed 10.3G of VM usage
-# which paired with a 10.7G of resident usage.  I'm going to round this down to
-# 10G since we already grew the steady state above.
-ALLOWED_GROWTH_K=$((10 * 1024 * 1024))
+# glibc gives threads their own malloc arenas, each reserving 64 MiB of address
+# space, up to 8 per core, and the pipeline-server has a thread per core (and
+# more for blocking work), so the arenas alone reserve GBs on many-core
+# machines (ex: ~4G with 64 cores, peaking at ~11G as it starts), which the
+# rest doesn't allow for: then its index's mmaps fail, and it serves without
+# them (ex: a tree's own crossref data, but its linked trees').  So allow two
+# arenas per core.
+ARENAS_K=$(($(nproc) * 2 * 64 * 1024))
+# Allowed growth.  When first adding the ulimit, on 32G machines without swap,
+# we allowed 10.3G of VM usage which paired with a 10.7G of resident usage,
+# rounded down to 10G since we already grew the steady state above, to bound
+# how much memory it could take from the rest.  Machines now have more memory
+# (ex: config8's 128G) and swap (see web-serve.sh), so it's a quarter of the
+# machine's memory and half of its swap, if that's more: it can grow into swap,
+# slowly, rather than failing queries, while most of the memory stays the other
+# processes'.
+MEM_TOTAL_K=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
+SWAP_TOTAL_K=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)
+ALLOWED_GROWTH_K=$(($MEM_TOTAL_K / 4 + $SWAP_TOTAL_K / 2))
+if [[ $ALLOWED_GROWTH_K -lt $((10 * 1024 * 1024)) ]]; then
+    ALLOWED_GROWTH_K=$((10 * 1024 * 1024))
+fi
 
 # I've also just manually confirmed that this works as expected for config4
 # where our sum below ends up at ~48G and the pipeline-server VM ends up at
 # ~38G, although that's after doing some brief diagram testing to RES is also
 # 1410M, but it works out okay.
-# glibc gives threads their own malloc arenas, each reserving 64 MiB of address
-# space, up to 8 per core, and the pipeline-server has a thread per core (and
-# more for blocking work), so the arenas alone reserve GBs on many-core
-# machines (ex: ~4G with 64 cores, peaking at ~11G as it starts), which the
-# above doesn't allow for: then its index's mmaps fail, and it serves without
-# them (ex: a tree's own crossref data, but its linked trees').  So allow two
-# arenas per core.
-ARENAS_K=$(($(nproc) * 2 * 64 * 1024))
-PIPELINE_SERVER_VM_LIMIT_K=$(($MAPPED_FILES_USAGE_K + $STEADY_STATE_ASSUMED_K + $ALLOWED_GROWTH_K + $ARENAS_K))
+PIPELINE_SERVER_VM_LIMIT_K=$(($MAPPED_FILES_USAGE_K + $STEADY_STATE_ASSUMED_K + $ARENAS_K + $ALLOWED_GROWTH_K))
+echo "pipeline-server address space limit: $(($PIPELINE_SERVER_VM_LIMIT_K / 1024 / 1024))G (growth $(($ALLOWED_GROWTH_K / 1024 / 1024))G, with ${MEM_TOTAL_K}K of memory and ${SWAP_TOTAL_K}K of swap)"
 
 # ulimit -v units are kilobytes
 ulimit -v $PIPELINE_SERVER_VM_LIMIT_K
