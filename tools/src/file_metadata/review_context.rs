@@ -276,17 +276,43 @@ impl ReviewRules {
         Truth::False
     }
 
-    /// Whether the file satisfies one of the rule's file predicates that
-    /// count toward it holding.
-    fn touches(&self, pred: &Value, path: &str) -> bool {
+    /// The rule's file predicates that count toward it holding which the
+    /// file satisfies.
+    fn touching<'a>(&'a self, pred: &'a Value, path: &str, out: &mut Vec<&'a Value>) {
         if let Some(p) = pred.get("any_file").or_else(|| pred.get("all_files")) {
-            return self.file_matches(p, path);
+            if self.file_matches(p, path) {
+                out.push(self.resolve(p, "files"));
+            }
+            return;
         }
-        ["all", "any"].iter().any(|key| {
-            pred.get(*key)
-                .and_then(Value::as_array)
-                .is_some_and(|a| a.iter().any(|p| self.touches(p, path)))
-        })
+        for key in ["all", "any"] {
+            for p in pred.get(key).and_then(Value::as_array).into_iter().flatten() {
+                self.touching(p, path, out);
+            }
+        }
+    }
+
+    /// Whether a file predicate takes in every C or C++ file of its
+    /// extensions anywhere in the tree (it has no `include`, or only ones
+    /// constraining files' names, like `**/*.cpp`), which isn't guidance for
+    /// a particular C or C++ file (ex: the WebIDL rule's .cpp/.h half, though
+    /// its .webidl half is fine for .webidl files).
+    fn is_catch_all_for(pred: &Value, path: &str) -> bool {
+        const C_FAMILY: &[&str] = &[".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx", ".mm"];
+        if !C_FAMILY.iter().any(|ext| path.ends_with(ext)) {
+            return false;
+        }
+        pred.get("include")
+            .and_then(Value::as_array)
+            .is_none_or(|includes| {
+                includes.iter().filter_map(Value::as_str).all(|glob| {
+                    let mut rest = glob;
+                    while let Some(r) = rest.strip_prefix("**/").or_else(|| rest.strip_prefix("*/")) {
+                        rest = r;
+                    }
+                    !rest.contains('/')
+                })
+            })
     }
 
     /// The rules applying to a file (with its Bugzilla component as
@@ -295,10 +321,23 @@ impl ReviewRules {
         self.rules
             .iter()
             .enumerate()
-            .filter_map(|(i, rule)| match self.holds(&rule.when, path, component) {
-                Truth::True => Some((i, Applies::Fully)),
-                Truth::Partial if self.touches(&rule.when, path) => Some((i, Applies::Partially)),
-                _ => None,
+            .filter_map(|(i, rule)| {
+                let truth = self.holds(&rule.when, path, component);
+                if truth == Truth::False {
+                    return None;
+                }
+                let mut touching = vec![];
+                self.touching(&rule.when, path, &mut touching);
+                // (Only by catch-all predicates is no match; nor a partial
+                // one by no file predicate.)
+                if !touching.is_empty() && touching.iter().all(|p| Self::is_catch_all_for(p, path)) {
+                    return None;
+                }
+                match truth {
+                    Truth::True => Some((i, Applies::Fully)),
+                    Truth::Partial if !touching.is_empty() => Some((i, Applies::Partially)),
+                    _ => None,
+                }
             })
             .collect()
     }
@@ -340,6 +379,16 @@ load = [{ type = "fetch_revision", revision = "D12345" }]
 name = "Docs only"
 when = { all_files = { ext = [".md"] } }
 load = []
+
+[[rules]]
+name = "All C++"
+when = { any_file = { include = ["**/*.cpp"], exclude = ["third_party/**"] } }
+load = []
+
+[[rules]]
+name = "JS engine"
+when = { any_file = { include = ["js/**"], ext = [".cpp", ".h"] } }
+load = []
 "#;
 
     #[test]
@@ -348,7 +397,14 @@ load = []
         let names: Vec<(&str, usize)> = rules.rules.iter().map(|r| (r.name.as_str(), r.line)).collect();
         assert_eq!(
             names,
-            vec![("Frontend", 8), ("WebIDL", 16), ("Media", 24), ("Docs only", 29)]
+            vec![
+                ("Frontend", 8),
+                ("WebIDL", 16),
+                ("Media", 24),
+                ("Docs only", 29),
+                ("All C++", 34),
+                ("JS engine", 39),
+            ]
         );
         assert_eq!(rules.rules[1].loads[0].repo.as_deref(), Some("mozilla/other"));
         assert_eq!(rules.rules[2].loads[0].revision.as_deref(), Some("D12345"));
@@ -362,12 +418,16 @@ load = []
         };
         assert_eq!(applying("browser/base/x.js", None), vec![("Frontend", Applies::Fully)]);
         assert_eq!(applying("browser/base/test/x.js", None), vec![]);
-        assert_eq!(applying("dom/base/Element.cpp", None), vec![("WebIDL", Applies::Partially)]);
+        // (Rules taking in every C++ file, like the WebIDL rule's C++ half, or
+        // "All C++", don't apply to C++ files, but their other halves do.)
+        assert_eq!(applying("dom/base/Element.cpp", None), vec![]);
         assert_eq!(
-            applying("dom/media/AudioNode.cpp", None),
-            vec![("WebIDL", Applies::Partially), ("Media", Applies::Fully)]
+            applying("dom/webidl/Element.webidl", None),
+            vec![("WebIDL", Applies::Partially)]
         );
-        assert_eq!(applying("dom/media/test/x.cpp", None), vec![("WebIDL", Applies::Partially)]);
+        assert_eq!(applying("dom/media/AudioNode.cpp", None), vec![("Media", Applies::Fully)]);
+        assert_eq!(applying("dom/media/test/x.cpp", None), vec![]);
+        assert_eq!(applying("js/src/jsapi.cpp", None), vec![("JS engine", Applies::Fully)]);
         assert_eq!(
             applying("dom/media/x.js", Some("Core::Audio/Video")),
             vec![("Media", Applies::Fully)]
