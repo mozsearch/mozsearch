@@ -109,7 +109,8 @@ analysis with `build-try-delta` (see `tools/src/try_delta.rs` and `tests/trydelt
 stack's head then has the push's jumps and references (and citations of web specs, if the tree's `SPEC_` symbols
 are a linked tree's), and searches from its pages (with `rev=HEAD` on `/query/`) are of the tree as the push
 changes it, as are the views of the spec algorithms it cites beside the code citing them
-(`/{tree}/rev-algorithm/{head}/{sym}`, see `format::format_try_algorithm`).  A tree without `import-try` which shares its `history_path` with one that
+(`/{tree}/rev-algorithm/{head}/{sym}`, see `format::format_try_algorithm`), and its canvas of the functions it adds
+or changes and their calls (`/{tree}/rev-canvas/{head}`, see `tools/src/patch_canvas.rs`).  A tree without `import-try` which shares its `history_path` with one that
 has it sends its `/try/` pages to that tree (ex: firefox-disco's to firefox-try, which indexes only the platform
 pushes are compiled for, so that their analysis replaces the tree's exactly). You can
 look at the existing folders for other repos for inspiration. Copy-pasting from something like the `glean` repo will probably

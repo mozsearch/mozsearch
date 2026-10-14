@@ -2153,7 +2153,8 @@ h2.sp-called-heading {
 .sp-citation-rows .source-line-with-number {
   padding: 0;
 }
-.sp-citation-lineno {
+.sp-citation-lineno,
+.rc-lineno {
   flex-shrink: 0;
   min-width: 4ch;
   padding-right: 0.75ch;
@@ -2162,7 +2163,8 @@ h2.sp-called-heading {
   text-decoration: none;
   user-select: none;
 }
-.sp-citation-lineno::before {
+.sp-citation-lineno::before,
+.rc-lineno::before {
   content: attr(data-line-number);
 }
 /* A try push's view of an algorithm (see format::format_try_algorithm): the
@@ -3532,6 +3534,116 @@ html.for-interactive-graph .query-result {
 }
 .interactive-graph-button-fit {
   border-radius: 0 0 4px 4px;
+}
+
+/* A try push's canvas (see format::format_try_canvas and rev-canvas.js): the
+   cards of the functions it adds or changes, and of those calling them or
+   called by them (the context), with the lines it adds or changes marked, and
+   on hovering over a call, the lines making it. */
+.rc-header {
+  padding: 0 2rem 0 36px;
+}
+.rc-title {
+  margin: 0.4em 0 0.2em;
+  font-size: 1.1em;
+}
+.rc-note,
+.rc-other-files {
+  margin: 0.2em 0;
+  opacity: 0.8;
+}
+.rc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em;
+  margin: 0.3em 0;
+}
+.rc-status {
+  opacity: 0.7;
+  font-size: 0.9em;
+}
+.interactive-graph-block.rc-card {
+  max-width: 100ch;
+  overflow: hidden;
+  cursor: default;
+  background-color: var(--page-background);
+  border-width: 1px 1px 1px 5px;
+  border-radius: 6px;
+  font-family: sans-serif;
+}
+.rc-status-added {
+  border-left-color: #2f9e44;
+}
+.rc-status-changed {
+  border-left-color: #e8a33d;
+}
+.rc-status-context {
+  border-style: dashed;
+  border-left-color: var(--page-border-color);
+  opacity: 0.85;
+}
+.rc-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  padding: 0.25em 0.4em;
+  white-space: nowrap;
+}
+.rc-card-head button {
+  padding: 0 0.2em;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.rc-hide {
+  margin-left: auto;
+}
+.rc-badge {
+  padding: 0 0.3em;
+  border-radius: 3px;
+  font-size: 0.8em;
+  background-color: color-mix(in srgb, var(--page-border-color) 60%, transparent);
+}
+.rc-status-added .rc-badge {
+  background-color: color-mix(in srgb, #2f9e44 25%, transparent);
+}
+.rc-status-changed .rc-badge {
+  background-color: color-mix(in srgb, #e8a33d 25%, transparent);
+}
+.rc-name {
+  font-family: monospace;
+  font-weight: bold;
+}
+.rc-where {
+  font-size: 0.85em;
+  text-decoration: none;
+}
+.rc-rows {
+  border-top: 1px solid var(--page-border-color);
+  font-family: monospace;
+  font-size: 12px;
+}
+.rc-rows .source-line-with-number {
+  padding: 0 0.4em 0 0;
+}
+.rc-changed-line {
+  background-color: var(--diff-plus-line-background);
+}
+.rc-call-line {
+  background-color: var(--line-highlight-background);
+  outline: 1px solid #e8a33d;
+}
+g.rc-call-hovered .interactive-graph-edge {
+  stroke-width: 3px;
+}
+.rc-more {
+  display: block;
+  padding: 0.1em 0.4em 0.2em;
+  font-size: 0.85em;
 }
 
 /* Field Layout */

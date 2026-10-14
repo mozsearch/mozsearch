@@ -47,6 +47,9 @@ struct WebResponse {
     output: String,
     /// Whether it mustn't be cached (ex: the status of a try import).
     no_store: bool,
+    /// Whether other sites' pages may read it (ex: a try push's canvas's
+    /// model, for a service keeping notes on it).
+    shared: bool,
 }
 
 impl Default for WebResponse {
@@ -57,6 +60,7 @@ impl Default for WebResponse {
             redirect_location: None,
             output: String::new(),
             no_store: false,
+            shared: false,
         }
     }
 }
@@ -114,6 +118,13 @@ impl WebResponse {
     fn uncached(self) -> WebResponse {
         WebResponse {
             no_store: true,
+            ..self
+        }
+    }
+
+    fn shared(self) -> WebResponse {
+        WebResponse {
+            shared: true,
             ..self
         }
     }
@@ -330,6 +341,28 @@ fn handle(
                 Err(err) => WebResponse::internal_error(err.to_owned()),
             }
         }
+
+        // A try push's canvas: the functions it adds or changes and the calls
+        // among them, at the head of its rebased stack, as
+        // `/{tree}/rev-canvas/{head}`, and its model, as
+        // `/{tree}/rev-canvas/{head}/canvas.json`, which other sites' pages
+        // can read (ex: a service keeping notes on it); see
+        // `format::format_try_canvas`.
+        "rev-canvas" => match path.len() {
+            3 => {
+                let mut writer = Vec::new();
+                match format::format_try_canvas(cfg, tree_name, path[2], &mut writer) {
+                    Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                    Err(err) => WebResponse::internal_error(err.to_owned()),
+                }
+            }
+            4 if path[3] == "canvas.json" => match format::try_canvas_json(cfg, tree_name, path[2])
+            {
+                Ok(json) => WebResponse::json(json).shared(),
+                Err(err) => WebResponse::internal_error(err.to_owned()),
+            },
+            _ => WebResponse::not_found(),
+        },
 
         // The view of a spec's algorithm in a try push's context, beside the
         // code citing it at the head of the push's rebased stack, as
@@ -763,6 +796,9 @@ async fn main() {
                 }
                 if response.no_store {
                     builder = builder.header(header::CACHE_CONTROL, "no-store");
+                }
+                if response.shared {
+                    builder = builder.header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
                 }
 
                 builder.body(response.output)

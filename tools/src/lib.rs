@@ -42,6 +42,8 @@ pub mod abstract_server;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod cmd_pipeline;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod patch_canvas;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod query;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod rendered_docs;

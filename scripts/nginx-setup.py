@@ -440,6 +440,7 @@ for repo in config['trees']:
     location(f'/{repo}/rev-rendered', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/algorithm', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/rev-algorithm', ['proxy_pass http://127.0.0.1:8001;'])
+    location(f'/{repo}/rev-canvas', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/explore', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/history', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/hgrev', ['proxy_pass http://127.0.0.1:8001;'])

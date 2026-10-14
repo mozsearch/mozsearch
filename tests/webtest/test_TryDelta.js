@@ -165,3 +165,68 @@ add_task(async function test_TryDeltaCitations() {
      "and search in the push's context");
   frame.contentWindow.ContextMenu.hide();
 });
+
+// A try push's canvas (see tools/src/patch_canvas.rs and rev-canvas.js): the
+// functions it adds or changes as cards of their code, connected by their
+// calls, and those calling them or called by them, whose arrangement is the
+// user's, kept in the browser and exported as JSON.
+add_task(async function test_TryCanvas() {
+  const head = await importPush();
+  const canvas = doc().querySelector(".explore-semantic-head a.explore-canvas")?.getAttribute("href");
+  is(canvas, `/trydelta/rev-canvas/${head}`, "The push's page links to its canvas");
+
+  await TestUtils.loadPath(canvas);
+  await waitForCondition(() => doc().documentElement.dataset.canvasReady, "The canvas is laid out");
+  const card = name => [...doc().querySelectorAll(".rc-card")]
+    .find(c => c.querySelector(".rc-name")?.textContent == name);
+  const status = name => card(name)?.querySelector(".rc-badge")?.textContent;
+  is(status("trydelta::Widget::Wobble"), "added", "A function it adds is a card");
+  is(status("trydelta::WobbleTwice"), "added", "as are those of a file it adds");
+  is(status("trydelta::Widget::Frob"), "changed", "and those it changes, even their signatures");
+  is(status("trydelta::UseWidget"), "context", "and the functions calling them");
+  ok(!card("trydelta::Widget::Shrink"), "but not the ones it doesn't change");
+  const changed = card("trydelta::Unpoke").querySelectorAll(".rc-changed-line");
+  is([...changed].map(row => row.querySelector(".rc-lineno").dataset.lineNumber).join(), "7,9",
+     "A card's code marks the lines the push adds or changes");
+  ok(card("trydelta::Unpoke").querySelector(".rc-lineno")?.getAttribute("href")
+       .startsWith(`/trydelta/rev/${head}/unpoke.cpp#`), "which link to its head's lines");
+  is(doc().querySelectorAll("#interactive-graph-container g.edge").length, 5,
+     "The cards are connected by the calls among them");
+  ok(doc().querySelector(".interactive-graph-buttons"), "and can be zoomed");
+
+  // (The calls' lines are marked when hovering over them.)
+  const edge = doc().querySelector(
+    '#interactive-graph-container g.edge[data-symbols="_ZN8trydelta11WobbleTwiceERNS_6WidgetE->_ZN8trydelta6Widget6WobbleEv"]');
+  edge.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+  is([...card("trydelta::WobbleTwice").querySelectorAll(".rc-call-line")]
+       .map(row => row.querySelector(".rc-lineno").dataset.lineNumber).join(), "6,7",
+     "Hovering over a call marks the lines making it");
+  edge.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+
+  // (Its arrangement is the user's.)
+  doc().querySelector(".rc-context-toggle").click();
+  ok(!card("trydelta::UseWidget"), "The context can be hidden");
+  card("trydelta::Widget::Wobble").querySelector(".rc-hide").click();
+  ok(!card("trydelta::Widget::Wobble"), "and so can a card");
+  card("trydelta::Unpoke").querySelector(".rc-collapse").click();
+  ok(!card("trydelta::Unpoke").querySelector(".rc-rows"), "which can also show only its name");
+  const exported = frame.contentWindow.RevCanvas.exported();
+  is(exported.head, head, "The arrangement exports as JSON, of the push");
+  ok(exported.model.endsWith(`/trydelta/rev-canvas/${head}/canvas.json`), "with its model's URL");
+  is(JSON.stringify(exported.state.hidden), JSON.stringify(["_ZN8trydelta6Widget6WobbleEv"]),
+     "and its hidden cards");
+  is(exported.state.context, false, "and its other choices");
+
+  await waitForCondition(() => doc().querySelector(".rc-status")?.textContent,
+                         "It's kept in this browser");
+  await TestUtils.loadPath(canvas);
+  await waitForCondition(() => doc().documentElement.dataset.canvasReady, "The canvas is laid out again");
+  ok(!card("trydelta::Widget::Wobble") && !card("trydelta::UseWidget"), "as it was arranged");
+  doc().querySelector(".rc-toolbar button[title='Forget this arrangement']").click();
+  ok(card("trydelta::Widget::Wobble") && card("trydelta::UseWidget"), "until it's reset");
+
+  const response = await fetch(`/trydelta/rev-canvas/${head}/canvas.json`);
+  is(response.headers.get("Access-Control-Allow-Origin"), "*",
+     "Its model is JSON which other sites can read");
+  is((await response.json()).nodes.length, 7, "with its cards");
+});

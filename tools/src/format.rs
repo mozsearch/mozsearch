@@ -2224,6 +2224,73 @@ struct TryAlgorithmView {
     versus: Option<std::sync::Arc<crate::try_delta::TryDelta>>,
 }
 
+/// The model of a try push's canvas (see `patch_canvas`), as JSON
+/// (`/{tree}/rev-canvas/{head}/canvas.json`).
+pub fn try_canvas_json(cfg: &Config, tree_name: &str, head: &str) -> Result<String, &'static str> {
+    let model = crate::patch_canvas::build_canvas(cfg, tree_name, head)?;
+    serde_json::to_string(&model).map_err(|_| "Canvas problems")
+}
+
+/// A try push's canvas (`/{tree}/rev-canvas/{head}`; see `patch_canvas`): its
+/// model, which static/js/rev-canvas.js lays out with graph.js as cards of the
+/// functions' code connected by their calls, beside the push's summary and its
+/// links, with the head's searches (its pages', and its code's context
+/// menus') in the push's context.
+pub fn format_try_canvas(
+    cfg: &Config,
+    tree_name: &str,
+    head: &str,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let model = crate::patch_canvas::build_canvas(cfg, tree_name, head)?;
+    let title = format!("Canvas of try push {} - mozsearch", model.push);
+    let opt = Options {
+        title: &title,
+        tree_name,
+        include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
+        revision: None,
+        breadcrumbs_links_to: BreadcrumbsLinksTo::Latest,
+        extra_content_classes: "rev-canvas",
+        search_rev: Some(&model.head),
+    };
+    output::generate_header(&opt, writer)?;
+    writeln!(
+        writer,
+        r#"<div class="rc-header"><h2 class="rc-title">Try push <a href="/{}/try/{}">{}</a>: {}</h2><p class="rc-note">The functions it adds or changes, at <a href="/{}/rev/{}/">the head of its stack rebased onto the indexed revision</a>, and the calls among them and with the functions calling them or called by them.  Its arrangement here is yours, kept in this browser.</p><div id="rc-toolbar" class="rc-toolbar"></div></div>"#,
+        tree_name,
+        rendered_docs::escape(&model.push),
+        rendered_docs::escape(&model.push),
+        rendered_docs::escape(&model.summary),
+        tree_name,
+        model.head,
+    )
+    .unwrap();
+    writeln!(
+        writer,
+        r#"<div id="interactive-graph-base"><div id="interactive-graph-viewport"><div id="interactive-graph-container"></div></div></div>"#
+    )
+    .unwrap();
+    let sym_info = to_string(&model.sym_info).unwrap();
+    let mut page_model = serde_json::to_value(&model).map_err(|_| "Canvas problems")?;
+    if let Some(object) = page_model.as_object_mut() {
+        object.remove("sym_info");
+    }
+    writeln!(
+        writer,
+        "<script>var SYM_INFO = {};\nvar CANVAS = {};</script>",
+        sym_info.replace("</", "<\\/"),
+        page_model.to_string().replace("</", "<\\/")
+    )
+    .unwrap();
+    writeln!(
+        writer,
+        r#"<script src="/{}/static/js/graph.js"></script><script src="/{}/static/js/rev-canvas.js"></script>"#,
+        tree_name, tree_name
+    )
+    .unwrap();
+    output::generate_footer(&opt, tree_name, "", writer)
+}
+
 /// The view of an algorithm (see `format_algorithm`) in a try push's context
 /// (`/{tree}/rev-algorithm/{head}/{sym}`, ex: firefox-try's, for a `SPEC_`
 /// symbol, whose specs are its linked tree's): its steps between the code
@@ -2800,6 +2867,132 @@ fn excerpt_indent(excerpt: &[String]) -> usize {
         .unwrap_or(0)
 }
 
+/// The rows (see `chunked_gzip`) of the lines `lines` of the tree's file at
+/// `path` in its source listing, or with `delta`, at the try push's head:
+/// rendered from the push's analysis (with `jumprefs`, which should have the
+/// push's) if it changes the file's source or analysis, as the head's listings
+/// are (see `abstract_server::TryOverlay`).
+pub(crate) fn file_rows(
+    cfg: &Config,
+    tree: &str,
+    delta: Option<&crate::try_delta::TryDelta>,
+    jumprefs: &TreeJumprefs,
+    path: &str,
+    lines: &BTreeSet<u32>,
+) -> Option<HashMap<u32, crate::file_format::chunked_gzip::Row>> {
+    use crate::file_format::analysis::{read_analysis, read_source};
+    use crate::file_format::chunked_gzip::{extract_rows, read_rows};
+    use crate::try_delta::FileChange;
+
+    let index_path = cfg.tree_index_paths.get(tree)?;
+    let rendered_by = delta.filter(|delta| {
+        matches!(
+            delta.change(path),
+            Some(FileChange::Added | FileChange::Modified)
+        ) || delta.meta.analyzed.contains_key(path)
+    });
+    if let Some(delta) = rendered_by {
+        let source = match delta.generated_source(path) {
+            Some(file) => std::fs::read_to_string(file).ok(),
+            None => cfg
+                .trees
+                .get(tree)
+                .and_then(|tree_config| tree_config.get_git().ok())
+                .and_then(|git| {
+                    let head = git
+                        .repo
+                        .revparse_single(&delta.meta.head)
+                        .ok()?
+                        .peel_to_commit()
+                        .ok()?;
+                    read_commit_file(&git.repo, &head, path)
+                }),
+        }?;
+        // (A file it changes which its analysis doesn't have has none.)
+        let analysis = delta
+            .analysis_file(path)
+            .filter(|file| file.exists())
+            .map(|file| read_analysis(&file.to_string_lossy(), &mut read_source))
+            .unwrap_or_default();
+        let (html, _) = source_rows_html(jumprefs, path, &source, &analysis);
+        return Some(extract_rows(&html, lines));
+    }
+    let gz = format!("{}/file/{}.gz", index_path, path);
+    read_rows(Path::new(&gz), lines).ok()
+}
+
+/// A row of a source listing (see `chunked_gzip::ROW_START`) as an excerpt on
+/// another page, like `/query/`'s results' (see `excerpt_row`): without its id,
+/// and the `indent` leading blanks of its code, with a link to its line (`link`,
+/// with the line as its fragment) as its line number (with the class
+/// `lineno_class`, not `.line-number`, which code-highlighter.js would select
+/// in the page), and with `row_class`, if any, added to its classes.
+pub(crate) fn excerpt_row_html(
+    row: &str,
+    line: u32,
+    link: &str,
+    lineno_class: &str,
+    indent: usize,
+    row_class: Option<&str>,
+) -> String {
+    const CODE: &str = r#"<code role="cell" class="source-line">"#;
+    let mut row = crate::cmd_pipeline::excerpt_row(row)
+        .replacen(&format!(r#" id="line-{}""#, line), "", 1)
+        .replacen(
+            &format!(
+                r#"<div role="cell" class="line-number" data-line-number="{}"></div>"#,
+                line
+            ),
+            &format!(
+                r#"<a role="cell" class="{}" href="{}#{}" data-line-number="{}"></a>"#,
+                lineno_class, link, line, line
+            ),
+            1,
+        );
+    if let Some(class) = row_class {
+        row = row.replacen(
+            r#"class="source-line-with-number"#,
+            &format!(r#"class="source-line-with-number {}"#, class),
+            1,
+        );
+    }
+    match row.find(CODE) {
+        Some(at) => {
+            let code = at + CODE.len();
+            let blank = row[code..]
+                .bytes()
+                .take(indent)
+                .take_while(|b| *b == b' ' || *b == b'\t')
+                .count();
+            format!("{}{}", &row[..code], &row[code + blank..])
+        }
+        None => row,
+    }
+}
+
+/// Add the SYM_INFO (see `format_code`) of the symbols in rows' `html` (their
+/// `data-symbols`) to `sym_info`, by `jumprefs` (see `add_sym_info`).
+pub(crate) fn add_rows_sym_info(
+    jumprefs: &TreeJumprefs,
+    html: &str,
+    sym_info: &mut BTreeMap<Ustr, Option<JumprefData>>,
+    traversed: &mut UstrMap<JumprefTraversals>,
+) {
+    const DATA_SYMBOLS: &str = "data-symbols=\"";
+    let mut rest = html;
+    while let Some(start) = rest.find(DATA_SYMBOLS) {
+        rest = &rest[start + DATA_SYMBOLS.len()..];
+        let end = rest.find('"').unwrap_or(rest.len());
+        for sym in rest[..end].split(',').filter(|sym| !sym.is_empty()) {
+            let sym = ustr(sym);
+            if !sym_info.contains_key(&sym) {
+                jumprefs.add_sym_info(sym, sym_info, traversed);
+            }
+        }
+        rest = &rest[end..];
+    }
+}
+
 /// The sections' citations' excerpts in their view's `column`, of the code
 /// `citing` their algorithms, as their lines' rows in their trees' source
 /// listings (see `chunked_gzip`), if the trees have them, like `/query/`'s
@@ -2818,12 +3011,8 @@ fn citation_rows(
     column: usize,
     citing: &Citing,
 ) -> String {
-    use crate::file_format::analysis::{read_analysis, read_source};
-    use crate::file_format::chunked_gzip::{Row, extract_rows, read_rows};
-    use crate::try_delta::FileChange;
+    use crate::file_format::chunked_gzip::Row;
 
-    const CODE: &str = r#"<code role="cell" class="source-line">"#;
-    const DATA_SYMBOLS: &str = "data-symbols=\"";
     let delta = citing.delta();
     // Each tree's jumprefs (a try push's with its delta's).
     let mut tree_jumprefs: HashMap<String, TreeJumprefs> = HashMap::new();
@@ -2852,47 +3041,8 @@ fn citation_rows(
     }
     let mut rows: HashMap<(String, String), HashMap<u32, Row>> = HashMap::new();
     for ((tree, path), lines) in lines {
-        let Some(index_path) = cfg.tree_index_paths.get(&tree) else {
-            continue;
-        };
-        let rendered_by = delta.filter(|delta| {
-            matches!(
-                delta.change(&path),
-                Some(FileChange::Added | FileChange::Modified)
-            ) || delta.meta.analyzed.contains_key(&path)
-        });
-        if let Some(delta) = rendered_by {
-            let source = match delta.generated_source(&path) {
-                Some(file) => std::fs::read_to_string(file).ok(),
-                None => cfg
-                    .trees
-                    .get(&tree)
-                    .and_then(|tree_config| tree_config.get_git().ok())
-                    .and_then(|git| {
-                        let head = git
-                            .repo
-                            .revparse_single(&delta.meta.head)
-                            .ok()?
-                            .peel_to_commit()
-                            .ok()?;
-                        read_commit_file(&git.repo, &head, &path)
-                    }),
-            };
-            let Some(source) = source else {
-                continue;
-            };
-            // (A file it changes which its analysis doesn't have has none.)
-            let analysis = delta
-                .analysis_file(&path)
-                .filter(|file| file.exists())
-                .map(|file| read_analysis(&file.to_string_lossy(), &mut read_source))
-                .unwrap_or_default();
-            let (html, _) = source_rows_html(&jumprefs_of(&tree), &path, &source, &analysis);
-            rows.insert((tree, path), extract_rows(&html, &lines));
-            continue;
-        }
-        let gz = format!("{}/file/{}.gz", index_path, path);
-        if let Ok(file_rows) = read_rows(Path::new(&gz), &lines) {
+        let jumprefs = jumprefs_of(&tree);
+        if let Some(file_rows) = file_rows(cfg, &tree, delta, &jumprefs, &path, &lines) {
             rows.insert((tree, path), file_rows);
         }
     }
@@ -2919,34 +3069,14 @@ fn citation_rows(
                 html.clear();
                 break;
             };
-            let row = crate::cmd_pipeline::excerpt_row(&row.html)
-                .replacen(&format!(r#" id="line-{}""#, line), "", 1)
-                .replacen(
-                    &format!(
-                        r#"<div role="cell" class="line-number" data-line-number="{}"></div>"#,
-                        line
-                    ),
-                    &format!(
-                        r#"<a role="cell" class="sp-citation-lineno" href="{}#{}" data-line-number="{}"></a>"#,
-                        citation_url(citation),
-                        line,
-                        line
-                    ),
-                    1,
-                );
-            match row.find(CODE) {
-                Some(at) => {
-                    let code = at + CODE.len();
-                    let blank = row[code..]
-                        .bytes()
-                        .take(indent)
-                        .take_while(|b| *b == b' ' || *b == b'\t')
-                        .count();
-                    html.push_str(&row[..code]);
-                    html.push_str(&row[code + blank..]);
-                }
-                None => html.push_str(&row),
-            }
+            html.push_str(&excerpt_row_html(
+                &row.html,
+                line,
+                &citation_url(citation),
+                "sp-citation-lineno",
+                indent,
+                None,
+            ));
         }
         if html.is_empty() {
             continue;
@@ -2960,18 +3090,7 @@ fn citation_rows(
                     UstrMap::default(),
                 )
             });
-        let mut rest = html.as_str();
-        while let Some(start) = rest.find(DATA_SYMBOLS) {
-            rest = &rest[start + DATA_SYMBOLS.len()..];
-            let end = rest.find('"').unwrap_or(rest.len());
-            for sym in rest[..end].split(',').filter(|sym| !sym.is_empty()) {
-                let sym = ustr(sym);
-                if !sym_info.contains_key(&sym) {
-                    jumprefs.add_sym_info(sym, sym_info, traversed);
-                }
-            }
-            rest = &rest[end..];
-        }
+        add_rows_sym_info(jumprefs, &html, sym_info, traversed);
         citation.rows = Some(format!(
             r#"<div class="file sp-citation-rows" role="table" data-tree="{}" data-search="{}"{}>{}</div>"#,
             rendered_docs::escape(&citation.tree),

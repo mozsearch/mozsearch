@@ -390,11 +390,18 @@ class GridLayout {
 }
 
 // Construct a graph for the given input data.
+// The graph of `input` (its `nodes` and `edges`) in `container`, panned and
+// zoomed in `viewport`.  A node is a symbol, whose block shows its pretty
+// identifier (by SYM_INFO), or an object with its `sym` and `pretty`, and other
+// data for `options.renderBlock(block, node)`, which then fills its block's
+// DOM node (ex: a try push's canvas's cards of code; see rev-canvas.js), and
+// `setInput` lays out another input in the same viewport.
 class Graph {
-  constructor(viewport, container, input, sources, targets, extraList) {
+  constructor(viewport, container, input, sources, targets, extraList, options = {}) {
     this.viewport = viewport;
     this.graphContainer = container;
     this.extraList = extraList;
+    this.options = options;
 
     const viewportRect = this.viewport.getBoundingClientRect();
     this.viewportSize = {
@@ -459,6 +466,14 @@ class Graph {
     // Re-populate interaction data
     this.extraList.length = 0;
     this.populateExtra(this.extraList);
+  }
+
+  // Lay out another input, keeping the pan and zoom.
+  setInput(input, sources = [], targets = []) {
+    this.blocks = [];
+    this.edges = [];
+    this.createBlocksAndEdges(input, sources, targets);
+    this.render();
   }
 
   resetBlockAndEdgeState() {
@@ -604,8 +619,9 @@ class Graph {
     }
 
     let nextBlockId = 0;
-    for (const sym of input.nodes) {
-      const pretty = SYM_INFO[sym].pretty;
+    for (const inputNode of input.nodes) {
+      const sym = typeof inputNode === "string" ? inputNode : inputNode.sym;
+      const pretty = typeof inputNode === "string" ? SYM_INFO[sym].pretty : inputNode.pretty;
       if (prettyToBlock.has(pretty)) {
         const block = prettyToBlock.get(pretty);
         block.syms.push(sym);
@@ -637,6 +653,7 @@ class Graph {
         loopback: null,
 
         contents,
+        data: typeof inputNode === "string" ? null : inputNode,
 
         depth: -1,
         breadth: -1,
@@ -897,25 +914,29 @@ class Graph {
       if (block.isTarget) {
         node.classList.add("interactive-graph-block-target");
       }
-      for (const line of block.contents) {
-        if (line.scope) {
-          const box = document.createElement("div");
-          box.classList.add("interactive-graph-block-scope");
-          box.append(line.scope);
-          node.append(box);
-        }
-        if (line.text) {
-          const box = document.createElement("div");
-          box.classList.add("interactive-graph-block-text");
-          box.append(line.text);
-          node.append(box);
+      if (this.options.renderBlock) {
+        this.options.renderBlock(block, node);
+      } else {
+        for (const line of block.contents) {
+          if (line.scope) {
+            const box = document.createElement("div");
+            box.classList.add("interactive-graph-block-scope");
+            box.append(line.scope);
+            node.append(box);
+          }
+          if (line.text) {
+            const box = document.createElement("div");
+            box.classList.add("interactive-graph-block-text");
+            box.append(line.text);
+            node.append(box);
+          }
         }
       }
       this.graphContainer.append(node);
 
-      const rect = node.getBoundingClientRect();
-      block.width = rect.width;
-      block.height = rect.height;
+      // (Its own size, not its zoomed one.)
+      block.width = node.offsetWidth;
+      block.height = node.offsetHeight;
 
       block.node = node;
       this.layout.addBlock(block.breadth, block.depth, block);
@@ -1640,6 +1661,10 @@ class Graph {
 var GRAPH_EXTRA = [];
 
 window.addEventListener("load", () => {
+  // (Pages with other graphs make their own, ex: rev-canvas.js.)
+  if (typeof GRAPH_INPUT === "undefined") {
+    return;
+  }
   // Make the page fit the content area, so that no scrollbar is shown.
   document.documentElement.classList.add("for-interactive-graph");
 
