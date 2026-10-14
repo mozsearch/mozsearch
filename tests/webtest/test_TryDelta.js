@@ -193,6 +193,8 @@ add_task(async function test_TryCanvas() {
   is(doc().querySelectorAll("#interactive-graph-container g.edge").length, 5,
      "The cards are connected by the calls among them");
   ok(doc().querySelector(".interactive-graph-buttons"), "and can be zoomed");
+  is(doc().querySelectorAll(".rc-legend .rc-legend-item").length, 5,
+     "A legend says what the cards' edges and the lines' backgrounds mean");
 
   // (The calls' lines are marked when hovering over them.)
   const edge = doc().querySelector(

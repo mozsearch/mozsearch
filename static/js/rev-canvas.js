@@ -237,6 +237,26 @@ var RevCanvas = new (class RevCanvas {
     toolbar.append(label, this.showHidden, collapseAll, expandAll, exportButton, importButton,
                    importInput, reset, this.status);
 
+    // What the cards' edges and the lines' backgrounds mean (with samples of
+    // them, styled like them).
+    const legend = document.createElement("p");
+    legend.className = "rc-legend";
+    for (const [sample, text] of [
+      ["rc-legend-added", "a function it adds"],
+      ["rc-legend-changed", "a function it changes"],
+      ["rc-legend-context", "a function it doesn't change, calling or called by those"],
+      ["rc-changed-line", "a line it adds or changes"],
+      ["rc-call-line", "the lines making a call, while hovering over its arrow"],
+    ]) {
+      const item = document.createElement("span");
+      item.className = "rc-legend-item";
+      const swatch = document.createElement("span");
+      swatch.className = `rc-legend-sample ${sample}`;
+      item.append(swatch, ` ${text}`);
+      legend.append(item);
+    }
+    toolbar.after(legend);
+
     if (this.model.other_files.length) {
       const others = document.createElement("p");
       others.className = "rc-other-files";
@@ -247,7 +267,7 @@ var RevCanvas = new (class RevCanvas {
         a.textContent = file.path;
         others.append(...(i ? [", "] : []), a, ` (${file.change}, ${file.note})`);
       });
-      toolbar.after(others);
+      legend.after(others);
     }
   }
 

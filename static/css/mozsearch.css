@@ -3563,6 +3563,32 @@ html.for-interactive-graph .query-result {
   opacity: 0.7;
   font-size: 0.9em;
 }
+.rc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2em 1.2em;
+  margin: 0.2em 0;
+  font-size: 0.9em;
+  opacity: 0.85;
+}
+.rc-legend-sample {
+  display: inline-block;
+  width: 1.6em;
+  height: 0.9em;
+  vertical-align: middle;
+  box-sizing: border-box;
+  border: 1px solid var(--page-border-color);
+  border-radius: 2px;
+}
+.rc-legend-added {
+  border-left: 5px solid #2f9e44;
+}
+.rc-legend-changed {
+  border-left: 5px solid #e8a33d;
+}
+.rc-legend-context {
+  border-style: dashed;
+}
 .interactive-graph-block.rc-card {
   max-width: 100ch;
   overflow: hidden;
