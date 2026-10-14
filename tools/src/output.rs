@@ -429,6 +429,24 @@ pub struct PanelItem {
     pub update_link_lineno: &'static str,
     pub accel_key: Option<char>,
     pub copyable: bool,
+    pub extras: PanelItemExtras,
+}
+
+/// A panel item's optional parts.
+#[derive(Default, Serialize)]
+pub struct PanelItemExtras {
+    /// What its copy button copies, if not its link (ex: a file's path).
+    pub copy_text: Option<String>,
+    /// A link beside it (ex: to the rule giving it its value).
+    pub link: Option<PanelItemLink>,
+}
+
+/// A link beside a panel item.
+#[derive(Serialize)]
+pub struct PanelItemLink {
+    pub label: String,
+    pub tooltip: String,
+    pub link: String,
 }
 
 #[derive(Serialize)]
@@ -436,6 +454,14 @@ pub struct PanelSection {
     pub name: String,
     pub items: Vec<PanelItem>,
     pub raw_items: Vec<String>,
+}
+
+/// Text escaped for an HTML attribute's value (or text).
+fn escape_attr(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
 }
 
 static COPY_ICONS: &str =
@@ -477,9 +503,14 @@ pub fn generate_panel(
                     let is_link = !item.link.is_empty();
                     let copy = if item.copyable {
                         if is_link {
+                            let copy_text = item
+                                .extras
+                                .copy_text
+                                .as_ref()
+                                .map_or(String::new(), |text| format!(r#" data-copy="{}""#, escape_attr(text)));
                             format!(
-                                r#"<button class="copy" title="Copy to clipboard">{}</button>"#,
-                                COPY_ICONS
+                                r#"<button class="copy" title="Copy to clipboard"{}>{}</button>"#,
+                                copy_text, COPY_ICONS
                             )
                         } else {
                             format!(r#"<span class="icon copy indicator">{}</span>"#, COPY_ICONS)
@@ -498,10 +529,23 @@ pub fn generate_panel(
                     } else {
                         String::new()
                     };
+                    // (A link beside it, not in it: links don't nest.)
+                    let extra = item.extras.link.as_ref().map_or(String::new(), |extra| {
+                        format!(
+                            r#"<a class="item-extra" href="{}" title="{}">{}</a>"#,
+                            escape_attr(&extra.link),
+                            escape_attr(&extra.tooltip),
+                            escape_attr(&extra.label)
+                        )
+                    });
                     F::Seq(vec![
-                        F::S("<li>"),
+                        F::S(if extra.is_empty() {
+                            "<li>"
+                        } else {
+                            r#"<li class="with-extra">"#
+                        }),
                         F::T(format!(
-                            r#"<{}{}{}{} title="{}" class="icon item"{}>{}{}{}</{}>"#,
+                            r#"<{}{}{}{} title="{}" class="icon item"{}>{}{}{}</{}>{}"#,
                             tag,
                             id_attr,
                             href,
@@ -511,7 +555,8 @@ pub fn generate_panel(
                             item.label,
                             accel,
                             copy,
-                            tag
+                            tag,
+                            extra
                         )),
                         F::S("</li>"),
                     ])

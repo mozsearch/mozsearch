@@ -1,0 +1,50 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/web/files/nav-panel/mozbuild_header_h__navpanel__html
+---
+<div class="panel" id="panel">
+  <button id="panel-toggle">
+    <span class="navpanel-toggle-icon icon-down-dir expanded" aria-hidden="false"></span>
+    Navigation
+    <span class="navpanel-other-icons">
+    <a id="open-help" title="Open help page" href="https://firefox-source-docs.mozilla.org/contributing/searchfox.html" target="_blank"><span class="navpanel-icon icon-help-circled" aria-hidden="false"></span></a><a id="show-settings" title="Go to settings page" href="/tests/pages/settings.html"><span class="navpanel-icon icon-cog expanded" aria-hidden="false"></span></a>
+    </span>
+  </button>
+  <section id="panel-content" aria-expanded="true" aria-hidden="false">
+  <label class="panel-accel"><input type="checkbox" id="panel-accel-enable" checked="checked">Enable keyboard shortcuts</label>
+  <h4>Source code</h4>
+  <ul>
+  <li>
+  <a id="panel-file-bug" href="https://bugzilla.mozilla.org/enter_bug.cgi?product=Core&component=Simple" title="Open the new bug form for the Core :: Simple component in bugzilla" class="icon item">File a bug in Core :: Simple<button class="copy" title="Copy to clipboard"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a>
+  </li>
+  <li class="with-extra">
+  <a href="/tests/rendered/docs/md_test/index.md" title="How to review the build fixtures' C++." class="icon item">Review skill: Build fixtures<button class="copy" title="Copy to clipboard" data-copy="docs/md_test/index.md"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a><a class="item-extra" href="/tests/source/review-context.toml#6" title="Go to the rule, in review-context.toml on line 6">rule</a>
+  </li>
+  </ul>
+  <h4>Revision control</h4>
+  <ul>
+  <li>
+  <a id="panel-permalink" href="/tests/rev/REV/mozbuild/header.h" data-accel="Y" title="Create a revision-specific link of the current file" class="icon item" data-update-link="#{}" data-link="/tests/rev/REV/mozbuild/header.h">Permalink <span class="accel">Y</span><button class="copy" title="Copy to clipboard"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a>
+  </li>
+  <li>
+  <a id="panel-remove-permalink" href="/tests/source/mozbuild/header.h" title="Create a revision-agnostic link of the current file" class="icon item" data-update-link="#{}" data-link="/tests/source/mozbuild/header.h">Remove the Permalink</a>
+  </li>
+  <li>
+  <a id="panel-blame" href="javascript:alert('Hover over the gray bar on the left to see blame information.')" title="Hover over the gray bar on the left to see blame information" class="icon item">Blame</a>
+  </li>
+  </ul>
+  <h4>Copy as Markdown</h4>
+  <ul>
+  <li>
+  <button id="panel-copy-filename-link" data-accel="F" title="Copy a Markdown link to clipboard, with the filename" class="icon item">Filename Link <span class="accel">F</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
+  </li>
+  <li>
+  <button id="panel-copy-symbol-link" data-accel="S" title="Copy a Markdown link to clipboard, with the selected symbol" class="icon item">Symbol Link <span class="accel">S</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
+  </li>
+  <li>
+  <button id="panel-copy-code-block" data-accel="C" title="Copy a Markdown code block of the selected code to clipboard" class="icon item">Code Block <span class="accel">C</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
+  </li>
+  </ul>
+  </section>
+</div>

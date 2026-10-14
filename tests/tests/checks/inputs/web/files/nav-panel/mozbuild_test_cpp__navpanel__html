@@ -1,0 +1,1 @@
+cat-html mozbuild/test.cpp --select "#panel" | normalize-unstable-data

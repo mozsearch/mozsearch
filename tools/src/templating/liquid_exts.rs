@@ -153,6 +153,29 @@ impl Filter for EnsureBugUrlFilter {
     }
 }
 
+#[derive(Clone, ParseFilter, FilterReflection)]
+#[filter(
+    name = "linkify",
+    description = "Escape text for HTML, with its URLs and bug numbers as links (like comments' in source listings)",
+    parsed(LinkifyFilter)
+)]
+pub struct LinkifyFilterParser;
+
+#[derive(Debug, Default, Display_filter)]
+#[name = "linkify"]
+struct LinkifyFilter;
+
+impl Filter for LinkifyFilter {
+    fn evaluate(&self, input: &dyn ValueView, _runtime: &dyn Runtime) -> Result<Value> {
+        let escaped = input
+            .to_kstr()
+            .replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;");
+        Ok(Value::scalar(crate::links::linkify_comment(None, escaped)))
+    }
+}
+
 #[derive(Debug, FilterParameters)]
 struct StripPrefixArgs {
     #[parameter(description = "The prefix to remove if it exists.", arg_type = "str")]

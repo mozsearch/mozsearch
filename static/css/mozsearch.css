@@ -1130,6 +1130,30 @@ tr.after-context-line + tr.before-context-line {
   width: 100%;
   cursor: pointer;
 }
+/* An item with a link beside it, ex: "File a bug in ..." with its moz.build
+   rule (see output.rs's generate_panel). */
+.panel li.with-extra {
+  display: flex;
+  align-items: center;
+}
+.panel li.with-extra .item {
+  flex: 1;
+  min-width: 0;
+}
+.panel .item-extra {
+  font-size: 10px;
+  border-radius: 2px;
+  padding: 1px 4px;
+  margin: 0 6px 0 0;
+  border: 1px solid var(--page-border-color);
+  background-color: var(--button-background);
+  color: var(--button-color);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.panel .item-extra:hover {
+  background-color: var(--button-hover-background);
+}
 .panel section button.item {
   font: unset;
   appearance: unset;
@@ -1210,6 +1234,13 @@ tr.after-context-line + tr.before-context-line {
   padding: 5px;
   margin: -5px;
 }
+/* A test's condition's place, if not its section, and the comment after it
+   on its line (see info_boxes/test.liquid). */
+.info-box .test-condition-from,
+.info-box .test-condition-comment {
+  color: var(--page-subtle-foreground);
+}
+
 
 .no-results {
   clear: both;

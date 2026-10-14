@@ -36,7 +36,7 @@ use tools::languages;
 use tools::templating::info_boxes::InfoBoxes;
 use tools::url_encode_path::url_encode_path;
 
-use tools::output::{PanelItem, PanelSection};
+use tools::output::{PanelItem, PanelItemExtras, PanelItemLink, PanelSection};
 
 extern crate flate2;
 use flate2::Compression;
@@ -54,6 +54,53 @@ fn write_hyperblame_files(dir: &str, files: Vec<(String, String)>) {
         let mut writer = GzEncoder::new(BufWriter::new(file), Compression::default());
         writer.write_all(contents.as_bytes()).unwrap();
         writer.finish().unwrap();
+    }
+}
+
+/// A review-context.toml rule's load's link (see `metadata-analyze`), what
+/// its panel item's copy button copies (a file's path, else the link), and
+/// its name: a file of the tree's (its rendered view, for a document), of
+/// another GitHub repository's, or another revision's diff.
+fn review_load_link(tree_name: &str, load: &serde_json::Value) -> Option<(String, String, String)> {
+    match load["type"].as_str().unwrap_or("file") {
+        "file" => {
+            let path = load["path"].as_str()?;
+            match load["repo"].as_str() {
+                Some(repo) => {
+                    let url = format!(
+                        "https://github.com/{}/blob/{}/{}",
+                        repo,
+                        load["branch"].as_str().unwrap_or("main"),
+                        path
+                    );
+                    Some((url.clone(), url, format!("{} {}", repo, path)))
+                }
+                None => {
+                    let is_doc = [".md", ".markdown", ".rst"].iter().any(|ext| path.ends_with(ext));
+                    let view = if is_doc { "rendered" } else { "source" };
+                    Some((
+                        format!("/{}/{}/{}", tree_name, view, url_encode_path(path)),
+                        path.to_string(),
+                        path.to_string(),
+                    ))
+                }
+            }
+        }
+        "fetch_revision" => {
+            let (url, name) = match (load["revision"].as_str(), load["repo"].as_str(), load["hash"].as_str()) {
+                (Some(revision), _, _) => (
+                    format!("https://phabricator.services.mozilla.com/{}", revision),
+                    revision.to_string(),
+                ),
+                (None, Some(repo), Some(hash)) => (
+                    format!("https://github.com/{}/commit/{}", repo, hash),
+                    format!("{} {}", repo, hash),
+                ),
+                _ => return None,
+            };
+            Some((url.clone(), url, name))
+        }
+        _ => None,
     }
 }
 
@@ -343,12 +390,27 @@ fn main() {
                 update_link_lineno: "",
                 accel_key: None,
                 copyable: false,
+                extras: Default::default(),
             });
         };
 
         if !path.contains("__GENERATED__")
             && let Some((product, component)) = concise_info.bugzilla_component
         {
+            // (The moz.build rule giving it the component, if ours agrees.)
+            let rule = &detailed_info.info["bugzilla_rule"];
+            let rule_link = (rule["product"].as_str() == Some(product.as_str())
+                && rule["component"].as_str() == Some(component.as_str()))
+            .then(|| rule["path"].as_str().zip(rule["line"].as_u64()))
+            .flatten()
+            .map(|(rule_path, line)| PanelItemLink {
+                label: "moz.build".to_string(),
+                tooltip: format!(
+                    "Go to the rule giving this file its component, in {} on line {}",
+                    rule_path, line
+                ),
+                link: format!("/{}/source/{}#{}", tree_name, url_encode_path(rule_path), line),
+            });
             source_panel_items.push(PanelItem {
                 label: PanelItemLabel::Plaintext(format!(
                     "File a bug in {} :: {}",
@@ -367,7 +429,63 @@ fn main() {
                 update_link_lineno: "",
                 accel_key: None,
                 copyable: true,
+                extras: PanelItemExtras {
+                    copy_text: None,
+                    link: rule_link,
+                },
             });
+        }
+
+        // The review guidance (see review-context.toml) for patches changing
+        // the file, by the rules' loads, with links to the rules.
+        for rule in detailed_info.info["review_rules"].as_array().into_iter().flatten() {
+            let (Some(name), Some(rules_path), Some(line)) = (
+                rule["name"].as_str(),
+                rule["path"].as_str(),
+                rule["line"].as_u64(),
+            ) else {
+                continue;
+            };
+            let partial = rule["applies"].as_str() == Some("partially");
+            let loads: Vec<&serde_json::Value> =
+                rule["loads"].as_array().into_iter().flatten().collect();
+            for load in &loads {
+                let Some((link, copy_text, what)) = review_load_link(&tree_name, load) else {
+                    continue;
+                };
+                let mut label = format!("Review skill: {}", name);
+                if loads.len() > 1 {
+                    label = format!("{} ({})", label, what);
+                }
+                if partial {
+                    label = format!("{}, with other changes", label);
+                }
+                source_panel_items.push(PanelItem {
+                    label: PanelItemLabel::Plaintext(label),
+                    tooltip: format!(
+                        "{}{}",
+                        rule["description"].as_str().unwrap_or(name),
+                        if partial {
+                            " (for patches changing this file and others the rule needs)"
+                        } else {
+                            ""
+                        }
+                    ),
+                    id: "",
+                    link,
+                    update_link_lineno: "",
+                    accel_key: None,
+                    copyable: true,
+                    extras: PanelItemExtras {
+                        copy_text: Some(copy_text),
+                        link: Some(PanelItemLink {
+                            label: "rule".to_string(),
+                            tooltip: format!("Go to the rule, in {} on line {}", rules_path, line),
+                            link: format!("/{}/source/{}#{}", tree_name, rules_path, line),
+                        }),
+                    },
+                });
+            }
         }
 
         if !source_panel_items.is_empty() {
@@ -391,6 +509,7 @@ fn main() {
                     update_link_lineno: "#{}",
                     accel_key: Some('Y'),
                     copyable: true,
+                    extras: Default::default(),
                 });
                 vcs_panel_items.push(PanelItem {
                     label: PanelItemLabel::Plaintext("Remove the Permalink".to_owned()),
@@ -400,6 +519,7 @@ fn main() {
                     update_link_lineno: "#{}",
                     accel_key: None,
                     copyable: false,
+                    extras: Default::default(),
                 });
 
                 let gh_log_link = tree_config.paths.github_repo.as_ref().map(|gh_root| {
@@ -424,6 +544,7 @@ fn main() {
                         update_link_lineno: "",
                         accel_key: hg_log_link.is_none().then_some('L'),
                         copyable: true,
+                        extras: Default::default(),
                     });
                 }
                 if let Some(link) = hg_log_link {
@@ -435,6 +556,7 @@ fn main() {
                         update_link_lineno: "",
                         accel_key: Some('L'),
                         copyable: true,
+                        extras: Default::default(),
                     });
                 }
 
@@ -447,6 +569,7 @@ fn main() {
                         update_link_lineno: "",
                         accel_key: Some('R'),
                         copyable: true,
+                        extras: Default::default(),
                     });
                 }
 
@@ -459,6 +582,7 @@ fn main() {
                         update_link_lineno: "",
                         accel_key: None,
                         copyable: false,
+                        extras: Default::default(),
                     });
                 }
                 panel.push(PanelSection {
@@ -476,6 +600,7 @@ fn main() {
                     update_link_lineno: "",
                     accel_key: Some('R'),
                     copyable: true,
+                    extras: Default::default(),
                 });
 
                 panel.push(PanelSection {
@@ -498,6 +623,7 @@ fn main() {
                 update_link_lineno: "#l{}",
                 accel_key: None,
                 copyable: false,
+                extras: Default::default(),
             });
         }
 
@@ -518,6 +644,7 @@ fn main() {
                     update_link_lineno: if included { "#{}" } else { "" },
                     accel_key: None,
                     copyable: true,
+                    extras: Default::default(),
                 });
 
                 if let Some(url) = find_doc_url(&cfg, path.as_str()) {
@@ -529,6 +656,7 @@ fn main() {
                         update_link_lineno: "",
                         accel_key: None,
                         copyable: false,
+                        extras: Default::default(),
                     });
                 }
 
@@ -546,6 +674,7 @@ fn main() {
                         update_link_lineno: "",
                         accel_key: None,
                         copyable: false,
+                        extras: Default::default(),
                     });
                 }
             }
@@ -565,6 +694,7 @@ fn main() {
                         update_link_lineno: if imported { "#{}" } else { "/line/{}" },
                         accel_key: None,
                         copyable: true,
+                        extras: Default::default(),
                     });
                 }
             }

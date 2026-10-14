@@ -2496,6 +2496,7 @@ fn write_algorithm_view(
                 update_link_lineno: "",
                 accel_key: None,
                 copyable: true,
+                extras: Default::default(),
             },
             PanelItem {
                 label: PanelItemLabel::Plaintext("Source listing".to_owned()),
@@ -2510,6 +2511,7 @@ fn write_algorithm_view(
                 update_link_lineno: "",
                 accel_key: None,
                 copyable: true,
+                extras: Default::default(),
             },
         ],
         raw_items: vec![],
@@ -3772,6 +3774,7 @@ pub fn format_rendered(
         update_link_lineno: "",
         accel_key: None,
         copyable: true,
+        extras: Default::default(),
     }];
     match rev {
         Some(_) => vcs_items.push(PanelItem {
@@ -3782,6 +3785,7 @@ pub fn format_rendered(
             update_link_lineno: "",
             accel_key: None,
             copyable: true,
+            extras: Default::default(),
         }),
         None if spec
             .is_some_and(|spec| spec.format == Some(crate::spec_analyze::SpecFormat::Bikeshed)) => {
@@ -3794,6 +3798,7 @@ pub fn format_rendered(
             update_link_lineno: "",
             accel_key: Some('Y'),
             copyable: true,
+            extras: Default::default(),
         }),
     }
     if let Some(link) = rendered_docs::Links::raw_url(&links, path) {
@@ -3805,6 +3810,7 @@ pub fn format_rendered(
             update_link_lineno: "",
             accel_key: Some('R'),
             copyable: true,
+            extras: Default::default(),
         });
     }
     let mut panel = vec![PanelSection {
@@ -3826,6 +3832,7 @@ pub fn format_rendered(
                 update_link_lineno: "",
                 accel_key: None,
                 copyable: false,
+                extras: Default::default(),
             }],
             raw_items: vec![],
         });
@@ -4307,6 +4314,7 @@ pub fn add_coverage_panel_item(
         update_link_lineno: "",
         accel_key: None,
         copyable: false,
+        extras: Default::default(),
     };
 
     const SECTION_NAME: &str = "Revision control";
@@ -4623,6 +4631,7 @@ fn format_tree(
             update_link_lineno: "",
             accel_key: None,
             copyable: true,
+            extras: Default::default(),
         }],
         raw_items: vec![],
     }];
@@ -4757,6 +4766,7 @@ fn format_blob(
         update_link_lineno: "#{}",
         accel_key: None,
         copyable: true,
+        extras: Default::default(),
     });
 
     let gh_log_link = tree_config
@@ -4778,6 +4788,7 @@ fn format_blob(
             update_link_lineno: "",
             accel_key: hg_log_link.is_none().then_some('L'),
             copyable: true,
+            extras: Default::default(),
         });
     }
     if let Some(link) = hg_log_link {
@@ -4789,6 +4800,7 @@ fn format_blob(
             update_link_lineno: "",
             accel_key: Some('L'),
             copyable: true,
+            extras: Default::default(),
         });
     }
 
@@ -4805,6 +4817,7 @@ fn format_blob(
             update_link_lineno: "",
             accel_key: Some('R'),
             copyable: true,
+            extras: Default::default(),
         });
     }
 
@@ -4819,6 +4832,7 @@ fn format_blob(
             update_link_lineno: "",
             accel_key: None,
             copyable: false,
+            extras: Default::default(),
         });
     }
     if has_rendered_view(path) {
@@ -4830,6 +4844,7 @@ fn format_blob(
             update_link_lineno: "",
             accel_key: None,
             copyable: true,
+            extras: Default::default(),
         });
     }
     let panel = vec![
@@ -4878,6 +4893,7 @@ pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
         update_link_lineno: "",
         accel_key: Some('F'),
         copyable: true,
+        extras: Default::default(),
     });
     if add_symbol_link {
         markdown_panel_items.push(PanelItem {
@@ -4888,6 +4904,7 @@ pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
             update_link_lineno: "",
             accel_key: Some('S'),
             copyable: true,
+            extras: Default::default(),
         });
     }
     markdown_panel_items.push(PanelItem {
@@ -4898,6 +4915,7 @@ pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
         update_link_lineno: "",
         accel_key: Some('C'),
         copyable: true,
+        extras: Default::default(),
     });
     PanelSection {
         name: "Copy as Markdown".to_owned(),
@@ -5049,6 +5067,7 @@ pub fn format_diff(
             update_link_lineno: "",
             accel_key: None,
             copyable: true,
+            extras: Default::default(),
         },
         PanelItem {
             label: PanelItemLabel::Plaintext("Show file without diff".to_owned()),
@@ -5058,6 +5077,7 @@ pub fn format_diff(
             update_link_lineno: "#{}",
             accel_key: None,
             copyable: true,
+            extras: Default::default(),
         },
         PanelItem {
             label: PanelItemLabel::Plaintext("Go to latest version".to_owned()),
@@ -5067,6 +5087,7 @@ pub fn format_diff(
             update_link_lineno: "#{}",
             accel_key: None,
             copyable: false,
+            extras: Default::default(),
         },
     ];
 
@@ -5092,6 +5113,7 @@ pub fn format_diff(
             update_link_lineno: "",
             accel_key: hg_log_link.is_none().then_some('L'),
             copyable: true,
+            extras: Default::default(),
         });
     }
     if let Some(link) = hg_log_link {
@@ -5103,6 +5125,7 @@ pub fn format_diff(
             update_link_lineno: "",
             accel_key: Some('L'),
             copyable: true,
+            extras: Default::default(),
         });
     }
 
@@ -6399,6 +6422,7 @@ pub fn format_interdiff(
                 update_link_lineno: "",
                 accel_key: None,
                 copyable: true,
+                extras: Default::default(),
             },
             PanelItem {
                 label: PanelItemLabel::Plaintext("All files".to_owned()),
@@ -6408,6 +6432,7 @@ pub fn format_interdiff(
                 update_link_lineno: "",
                 accel_key: None,
                 copyable: true,
+                extras: Default::default(),
             },
             PanelItem {
                 label: PanelItemLabel::Plaintext("Show B's version".to_owned()),
@@ -6417,6 +6442,7 @@ pub fn format_interdiff(
                 update_link_lineno: "#{}",
                 accel_key: None,
                 copyable: true,
+                extras: Default::default(),
             },
         ],
         raw_items: vec![],

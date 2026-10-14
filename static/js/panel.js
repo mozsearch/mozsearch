@@ -73,7 +73,8 @@ var Panel = new (class Panel {
           return;
         }
 
-        this.copyText(copy, copy.parentNode.href);
+        // (Its text, if not its item's link, ex: a review skill's path.)
+        this.copyText(copy, copy.dataset.copy ?? copy.parentNode.href);
       });
     }
 
