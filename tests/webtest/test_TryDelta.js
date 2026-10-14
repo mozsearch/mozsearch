@@ -5,13 +5,15 @@
 // Widget::Frob's signature (which user.cpp's call and gadget.h's then use,
 // though they don't change), adds Widget::Wobble, and adds wobbler.cpp, which
 // calls it.  It also renames hello.js's greetPerson, which its analysis (only
-// of the tree's C++) doesn't cover, and changes poke.cpp's implementation of
-// the tests tree's example spec's poke algorithm (the tree's `SPEC_` symbols
-// are the tests tree's), whose steps it cites.
+// of the tree's C++) doesn't cover, and changes unpoke.cpp's implementation
+// of the tests tree's example spec's unpoke algorithm (the tree's `SPEC_`
+// symbols are the tests tree's), whose step it cites.  (Not the poke
+// algorithm, whose citations in the searchfox tree, which has this file too,
+// test_SpecCitations.js's diagram has as many of as it shows.)
 
 const PUSH = "0123456789ab";
 const NEW_FROB = "_ZN8trydelta6Widget4FrobEib";
-const POKE = "SPEC_example_concept@2Dwidget@2Dpoke";
+const UNPOKE = "SPEC_example_unpoke";
 const OLD_FROB = "_ZN8trydelta6Widget4FrobEi";
 
 function doc() {
@@ -110,48 +112,49 @@ add_task(async function test_TryDeltaUnanalyzedFiles() {
 add_task(async function test_TryDeltaCitations() {
   const head = await importPush();
 
-  await TestUtils.loadPath(`/trydelta/query/default?q=symbol:${POKE}&rev=${head}`);
-  ok(doc().querySelector(`a.query-line-number[href="/trydelta/rev/${head}/poke.cpp#9"]`),
+  await TestUtils.loadPath(`/trydelta/query/default?q=symbol:${UNPOKE}&rev=${head}`);
+  ok(doc().querySelector(`a.query-line-number[href="/trydelta/rev/${head}/unpoke.cpp#8"]`),
      "The push's citations of a spec's steps are its analysis's");
-  await TestUtils.loadPath(`/trydelta/query/default?q=symbol:${POKE}`);
-  ok(doc().querySelector('a[href$="/poke.cpp#7"]') && !doc().querySelector('a[href$="/poke.cpp#9"]'),
-     "unlike the indexed revision's, which don't have them");
+  await TestUtils.loadPath(`/trydelta/query/default?q=symbol:${UNPOKE}`);
+  ok(doc().querySelector('a[href$="/unpoke.cpp#7"]') && !doc().querySelector('a[href$="/unpoke.cpp#8"]'),
+     "unlike the indexed revision's, at its lines");
 
-  await TestUtils.loadPath(`/trydelta/rev/${head}/poke.cpp`);
-  const citation = doc().querySelector(`#line-5 span[data-symbols="${POKE}"]`);
+  await TestUtils.loadPath(`/trydelta/rev/${head}/unpoke.cpp`);
+  const citation = doc().querySelector(`#line-5 span[data-symbols="${UNPOKE}"]`);
   TestUtils.click(citation);
-  const menu = doc().querySelector("#context-menu");
+  let menu = doc().querySelector("#context-menu");
   await waitForShown(menu, "Context menu is shown for the head's citation");
   const beside = [...menu.querySelectorAll("a")]
     .find(a => a.textContent.includes("beside the code citing it"));
-  const VIEW = `/trydelta/rev-algorithm/${head}/${POKE}`;
+  const VIEW = `/trydelta/rev-algorithm/${head}/${UNPOKE}`;
   is(beside?.getAttribute("href"), VIEW,
      "which shows the algorithm beside the code citing it at the push's head");
   frame.contentWindow.ContextMenu.hide();
 
   await TestUtils.loadPath(VIEW);
-  ok(doc().querySelector("#rendered-doc")?.textContent.includes("To poke"),
+  ok(doc().querySelector("#rendered-doc")?.textContent.includes("To unpoke"),
      "The view has the algorithm's steps");
   const [left, right] = [...doc().querySelectorAll("#sp-algorithm-0 .sp-citations")];
   const steps = doc().querySelector("#rendered-doc").getBoundingClientRect();
   ok(left.getBoundingClientRect().right <= steps.left &&
      steps.right <= right.getBoundingClientRect().left,
      "between the code citing it at the push's head and the code it's compared with");
-  const step2 = [...left.querySelectorAll(".sp-citation")]
-    .find(card => card.dataset.step == "2");
-  ok(step2?.querySelector(`a[href="/trydelta/rev/${head}/poke.cpp#9"]`),
+  const step1 = [...left.querySelectorAll(".sp-citation")]
+    .find(card => card.dataset.step == "1");
+  ok(step1?.querySelector(`a[href="/trydelta/rev/${head}/unpoke.cpp#8"]`),
      "The push's citations link to its head's lines");
-  ok(step2?.classList.contains("sp-citation-changed"), "and are marked as changed by it");
-  ok([...left.querySelectorAll(".sp-citation-rows")]
-       .some(rows => rows.textContent.includes("aWidget.Frob(1, true);")),
+  ok(step1?.classList.contains("sp-citation-changed"), "and are marked as changed by it");
+  ok(step1?.querySelector(".sp-citation-rows")?.textContent
+       .includes("aWidget.Frob(-aWidget.Size(), false);"),
      "with the push's code");
-  ok(right.querySelector('a[href="/tests/source/spec_citations.cpp#13"]'),
+  ok(right.querySelector('a[href^="/tests/source/spec_citations.cpp#"]'),
      "The code it's compared with is the spec tree's view's");
 
   // (The push's code's symbols' menus are of the push's head.)
   const frob = [...left.querySelectorAll(".sp-citation-rows span[data-symbols]")]
     .find(span => span.textContent == "Frob");
   TestUtils.click(frob);
+  menu = doc().querySelector("#context-menu");
   await waitForShown(menu, "The push's code's symbols have context menus");
   const links = [...menu.querySelectorAll("a")];
   ok(links.find(a => a.textContent.includes("Go to definition"))
