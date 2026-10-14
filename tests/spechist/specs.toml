@@ -6,3 +6,17 @@
 name = "hist"
 format = "wattsi"
 rendered = "https://hist.example.org/"
+
+# The second and third specs (tests/spechist/revs/6): the second's jiggle
+# algorithm calls the third's wiggle algorithm, in another file, for an
+# algorithm's view's sections' blame.
+
+[[spec]]
+name = "hist2"
+format = "wattsi"
+rendered = "https://hist2.example.org/"
+
+[[spec]]
+name = "hist3"
+format = "wattsi"
+rendered = "https://hist3.example.org/"

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<!-- The second History spec, whose jiggle algorithm calls the third's wiggle
+     algorithm, for an algorithm's view whose sections are of different files
+     (see test_RenderedSpecs.js). -->
+<h1>History 2: Jiggling</h1>
+
+<h2 id=dependencies>Dependencies</h2>
+
+<p>The <dfn data-x-href="https://hist3.example.org/#concept-widget-wiggle">wiggle</dfn>
+algorithm is defined in History 3.</p>
+
+<h2 id=jiggling>Jiggling</h2>
+
+<p>To <dfn data-x=concept-widget-jiggle>jiggle</dfn> a widget <var>widget</var>, run these
+steps:</p>
+
+<ol>
+ <li><p><span data-x="wiggle">Wiggle</span> <var>widget</var>.</p></li>
+ <li><p>Return.</p></li>
+</ol>

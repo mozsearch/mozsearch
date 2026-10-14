@@ -18,6 +18,7 @@ MESSAGES=(
     "Remove the gadget hum"
     "Let widgets wobble"
     "Add notes whose tokens overlap"
+    "Add the jiggling and wiggling specs"
 )
 rm -rf "$GIT_ROOT"
 mkdir -p "$GIT_ROOT"
@@ -27,7 +28,7 @@ export GIT_AUTHOR_EMAIL="searchfox@localhost"
 export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
 export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
 git init -b main
-for REV in 1 2 3 4 5; do
+for REV in 1 2 3 4 5 6; do
     cp -r "$CONFIG_REPO/$TREE_NAME/revs/$REV/." .
     git add -A
     export GIT_AUTHOR_DATE="2025-02-0${REV}T12:00+0100"

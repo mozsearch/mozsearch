@@ -597,10 +597,14 @@ var BlamePopup = new (class BlamePopup {
 var BlameColorizer = new (class BlameColorizer {
   constructor() {
     this.style = null;
-    // A diff has a blame for each version of the file (see `HyperblameContexts`
-    // in hyperblame.js, which loads after this), whose strips say which.
-    this.isDiff = typeof BLAME_INFOS !== "undefined";
-    this.infos = this.isDiff ? BLAME_INFOS : typeof BLAME_INFO !== "undefined" ? [BLAME_INFO] : [];
+    // A diff has a blame for each version of the file, and a page of several
+    // rendered documents' sections one for each of their files (see
+    // `HyperblameContexts` in hyperblame.js, which loads after this), whose
+    // strips say which.
+    this.isDiff = typeof BLAME_INFOS !== "undefined" || typeof RENDERED_BLAME_INFOS !== "undefined";
+    this.infos = typeof BLAME_INFOS !== "undefined" ? BLAME_INFOS
+      : typeof RENDERED_BLAME_INFOS !== "undefined" ? RENDERED_BLAME_INFOS
+      : typeof BLAME_INFO !== "undefined" ? [BLAME_INFO] : [];
     if (this.infos.length) {
       this.apply(Settings.blame.colorMode);
     }

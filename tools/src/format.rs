@@ -1957,9 +1957,9 @@ struct AlgorithmSection {
 }
 
 /// The section of the algorithm `sym` defines in one of the tree's specs, with
-/// its blocks' blame and its citations' drift if `blame` (only the view's
-/// first section's, since the page's blame data is of one file), and a column
-/// of citations for each of `citing`.
+/// its blocks' blame (of the file with it, which the page's other sections may
+/// share; see `write_algorithm_view`) and its citations' drift, and a column of
+/// citations for each of `citing`.
 #[allow(clippy::too_many_arguments)]
 fn algorithm_section(
     cfg: &Config,
@@ -1969,7 +1969,6 @@ fn algorithm_section(
     git: &GitData,
     commit: &git2::Commit,
     sym: &str,
-    blame: bool,
     citing: &[Citing],
 ) -> Result<AlgorithmSection, &'static str> {
     let (def_path, def_line) =
@@ -2022,18 +2021,14 @@ fn algorithm_section(
         read(&file).ok_or("No file")?
     };
 
-    let token_blame = blame
-        .then(|| {
-            spec_page_token_blame(
-                tree_name,
-                git,
-                commit,
-                &file,
-                &file_source,
-                BreadcrumbsLinksTo::Latest,
-            )
-        })
-        .flatten();
+    let token_blame = spec_page_token_blame(
+        tree_name,
+        git,
+        commit,
+        &file,
+        &file_source,
+        BreadcrumbsLinksTo::Latest,
+    );
     let strips = match &token_blame {
         Some(page) => rendered_strips(&view.rendered, &file_source, page, &view.range),
         None => rendered_line_markers(&view.rendered, &file_source, &view.range),
@@ -2409,7 +2404,6 @@ fn write_algorithm_view(
         git,
         &commit,
         sym,
-        true,
         &citing,
     )?;
     let mut sections = vec![main];
@@ -2423,7 +2417,6 @@ fn write_algorithm_view(
             git,
             &commit,
             called,
-            false,
             &citing,
         ) {
             sections.push(section);
@@ -2449,6 +2442,32 @@ fn write_algorithm_view(
         }
     }
     let map = algorithm_map(&sections, &calls);
+    // The sections' blames, once for each file (their index in the page's
+    // `RENDERED_BLAME_INFOS`, which the sections' strips say with
+    // `data-hb-ctx`; see `HyperblameContexts` in hyperblame.js).
+    let mut blame_files: Vec<(String, std::sync::Arc<PageBlame>)> = vec![];
+    for section in &mut sections {
+        let Some(page) = &section.token_blame else {
+            continue;
+        };
+        let ctx = match blame_files
+            .iter()
+            .position(|(file, _)| *file == section.file)
+        {
+            Some(ctx) => ctx,
+            None => {
+                blame_files.push((section.file.clone(), page.clone()));
+                blame_files.len() - 1
+            }
+        };
+        for strip in &mut section.strips {
+            *strip = strip.replacen(
+                r#"<div class="blame-strip"#,
+                &format!(r#"<div data-hb-ctx="{}" class="blame-strip"#, ctx),
+                1,
+            );
+        }
+    }
     let sym_infos: Vec<String> = citing
         .iter()
         .enumerate()
@@ -2553,7 +2572,7 @@ fn write_algorithm_view(
         r#"<div class="rd-notice">{} beside the code citing it and its steps{}.{}{}</div>"#,
         rendered_docs::escape(&main.name),
         columns_notice,
-        if main.token_blame.is_some() {
+        if !blame_files.is_empty() {
             " Hover over the bar to the left of a block to see what last changed its text."
         } else {
             ""
@@ -2794,12 +2813,13 @@ fn write_algorithm_view(
         )
         .unwrap();
     }
-    if let Some(page) = &main.token_blame {
-        let info_json = to_string(&page.info).unwrap();
+    if !blame_files.is_empty() {
+        let infos: Vec<&crate::hyperblame::page_blame::BlameInfo> =
+            blame_files.iter().map(|(_, page)| &page.info).collect();
         writeln!(
             writer,
-            "<script>var BLAME_INFO = {};</script>",
-            info_json.replace("</", "<\\/")
+            "<script>var RENDERED_BLAME_INFOS = {};</script>",
+            to_string(&infos).unwrap().replace("</", "<\\/")
         )
         .unwrap();
     }

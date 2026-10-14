@@ -340,3 +340,32 @@ add_task(async function test_AlgorithmMap() {
   ok(!node(0)?.classList.contains("sp-map-current"),
      "The first section's node isn't highlighted then");
 });
+
+// An algorithm's view's sections have their files' blame: the spechist tree's
+// History 2 jiggle algorithm calls History 3's wiggle algorithm, of another
+// file (see tests/spechist/revs/6), whose section's blocks have that file's
+// blame.
+add_task(async function test_AlgorithmViewSectionsBlame() {
+  await TestUtils.loadPath("/spechist/algorithm/SPEC_hist2_concept@2Dwidget@2Djiggle");
+  const doc = frame.contentDocument;
+  is(frame.contentWindow.RENDERED_BLAME_INFOS?.length, 2,
+     "The view has the blame of both of its sections' files");
+  const called = doc.querySelector("#sp-algorithm-1");
+  ok(called?.textContent.includes("Tilt"), "The algorithm it calls is below it");
+  ok(doc.querySelector('#sp-algorithm-0 .blame-strip[data-hb-ctx="0"]'),
+     "Its blocks have strips of its file's blame");
+  const strip = called?.querySelector('.blame-strip[data-hb-ctx="1"]');
+  ok(strip, "and the algorithm it calls has its own file's");
+
+  const popup = doc.querySelector("#blame-popup");
+  frame.contentWindow.BlamePopup.triggerElement = null;
+  TestUtils.dispatchMouseEvent("mouseenter", strip, { bubbles: true });
+  await waitForCondition(
+    () => popup.style.display != "none" &&
+      frame.contentWindow.BlamePopup.popupOwner == strip &&
+      popup.querySelector(".rd-replica"),
+    "Its blocks' popups are shown");
+  await waitForCondition(
+    () => popup.textContent.includes("Add the jiggling and wiggling specs"),
+    "with the commits of its file's history");
+});

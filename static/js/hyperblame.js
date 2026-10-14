@@ -182,12 +182,18 @@ class HyperblameData {
  * in each of the commit's parents (`BLAME_INFOS`, with null for those which
  * don't have the file or its blame).  A diff's strips name their blame (its
  * index in `BLAME_INFOS`) and line in that file with `data-hb-ctx` and
- * `data-hb-line`; see `format_diff` in `format.rs`.
+ * `data-hb-line`; see `format_diff` in `format.rs`.  A page of several
+ * rendered documents' sections (ex: an algorithm's view, with the algorithms
+ * it calls, from other files) has their files' blames
+ * (`RENDERED_BLAME_INFOS`), which their blocks' strips name with
+ * `data-hb-ctx`; see `write_algorithm_view` in `format.rs`.
  */
 var HyperblameContexts = new (class HyperblameContexts {
   constructor() {
     const isDiff = typeof BLAME_INFOS !== "undefined";
-    const infos = isDiff ? BLAME_INFOS : typeof BLAME_INFO !== "undefined" ? [BLAME_INFO] : [];
+    const infos = isDiff ? BLAME_INFOS
+      : typeof RENDERED_BLAME_INFOS !== "undefined" ? RENDERED_BLAME_INFOS
+      : typeof BLAME_INFO !== "undefined" ? [BLAME_INFO] : [];
     const rows = infos.map(() => new Map());
     if (isDiff) {
       for (const strip of document.querySelectorAll(".blame-strip[data-hb-ctx]")) {
@@ -203,12 +209,12 @@ var HyperblameContexts = new (class HyperblameContexts {
    * in that blame's file.
    */
   forStrip(elt) {
-    if (elt.dataset.hbCtx !== undefined) {
-      return { data: this.contexts[elt.dataset.hbCtx], lineno: parseInt(elt.dataset.hbLine, 10) };
-    }
     // A block of a rendered document, whose first line it is.
     if (RenderedBlocks.isBlockStrip(elt)) {
-      return { data: this.contexts[0], lineno: RenderedBlocks.lines(elt)[0] ?? 1 };
+      return { data: this.contexts[elt.dataset.hbCtx ?? 0], lineno: RenderedBlocks.lines(elt)[0] ?? 1 };
+    }
+    if (elt.dataset.hbCtx !== undefined) {
+      return { data: this.contexts[elt.dataset.hbCtx], lineno: parseInt(elt.dataset.hbLine, 10) };
     }
     const lineElt = elt.closest(".source-line-with-number");
     return { data: this.contexts[0], lineno: parseInt(lineElt.id.substring("line-".length), 10) };
@@ -224,7 +230,10 @@ var HyperblameContexts = new (class HyperblameContexts {
  * the browser wrapped the block: the block's runs of text from the file
  * (`span[data-l]`, with their line and UTF-16 column in the file, and
  * `data-n` with their length in the file if it's not their text's) say where
- * the tokens of the hyperblame data are.
+ * the tokens of the hyperblame data are.  A page can have several documents
+ * (`#rendered-doc` and `#rendered-doc-N`, ex: an algorithm's view's sections),
+ * each with its blame (see `HyperblameContexts`), whose line hashes are the
+ * first's.
  */
 var RenderedBlocks = new (class RenderedBlocks {
   constructor() {
@@ -241,15 +250,26 @@ var RenderedBlocks = new (class RenderedBlocks {
     this.showLineHash();
     window.addEventListener("hashchange", () => this.showLineHash());
 
-    const strips = [...this.root.querySelectorAll(".blame-strip")];
-    this.placeStrips(strips);
-    let width = this.root.clientWidth;
+    const roots = [this.root, ...document.querySelectorAll("[id^='rendered-doc-'].rendered-doc")];
+    for (const root of roots) {
+      this.watch(root);
+    }
+  }
+
+  /**
+   * Place a document's strips, and show their blocks' popups (and load their
+   * hyperblame data as they near the viewport).
+   */
+  watch(root) {
+    const strips = [...root.querySelectorAll(".blame-strip")];
+    this.placeStrips(root, strips);
+    let width = root.clientWidth;
     new ResizeObserver(() => {
-      if (this.root.clientWidth != width) {
-        width = this.root.clientWidth;
-        this.placeStrips(strips);
+      if (root.clientWidth != width) {
+        width = root.clientWidth;
+        this.placeStrips(root, strips);
       }
-    }).observe(this.root);
+    }).observe(root);
 
     for (const strip of strips) {
       strip.addEventListener("mouseenter", event => {
@@ -265,8 +285,9 @@ var RenderedBlocks = new (class RenderedBlocks {
       strip.addEventListener("touchmove", touched, { passive: true });
     }
 
-    // Load the hyperblame data for blocks as they near the viewport.
-    const data = HyperblameContexts.contexts[0];
+    // Load the hyperblame data for blocks as they near the viewport.  (Not by
+    // `HyperblameContexts.forStrip`, which needs this object.)
+    const data = HyperblameContexts.contexts[strips[0]?.dataset.hbCtx ?? 0];
     if (data?.available && data.info.chunks.length > 1) {
       const observer = new IntersectionObserver(entries => {
         for (const entry of entries) {
@@ -346,15 +367,16 @@ var RenderedBlocks = new (class RenderedBlocks {
   }
 
   previousStrip(strip) {
-    return this.root.querySelector(`.blame-strip[data-rd-block="${parseInt(strip.dataset.rdBlock, 10) - 1}"]`);
+    return strip.closest(".rendered-doc").querySelector(
+      `.blame-strip[data-rd-block="${parseInt(strip.dataset.rdBlock, 10) - 1}"]`);
   }
 
   /**
    * Move the strips into the gutter at the document's left edge, wherever
    * their blocks are.
    */
-  placeStrips(strips) {
-    const gutter = this.root.getBoundingClientRect().left + 8;
+  placeStrips(root, strips) {
+    const gutter = root.getBoundingClientRect().left + 8;
     const lefts = strips.map(strip => {
       const parent = strip.offsetParent;
       return parent ? gutter - parent.getBoundingClientRect().left - parent.clientLeft : null;

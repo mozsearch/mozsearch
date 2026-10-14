@@ -482,8 +482,11 @@ var Panel = new (class Panel {
   addLensesSection() {
     const items = [];
 
-    // (Diffs have `BLAME_INFOS`; see `HyperblameContexts` in hyperblame.js.)
-    if (typeof BLAME_INFO !== "undefined" || typeof BLAME_INFOS !== "undefined") {
+    // (Diffs have `BLAME_INFOS`, and pages of several rendered documents'
+    // sections `RENDERED_BLAME_INFOS`; see `HyperblameContexts` in
+    // hyperblame.js.)
+    if (typeof BLAME_INFO !== "undefined" || typeof BLAME_INFOS !== "undefined" ||
+        typeof RENDERED_BLAME_INFOS !== "undefined") {
       const li = document.createElement("li");
       li.classList.add("lens");
       const label = document.createElement("label");

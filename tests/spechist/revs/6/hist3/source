@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<!-- The third History spec, whose wiggle algorithm the second's jiggle
+     algorithm calls. -->
+<h1>History 3: Wiggling</h1>
+
+<h2 id=wiggling>Wiggling</h2>
+
+<p>To <dfn data-x=concept-widget-wiggle>wiggle</dfn> a widget <var>widget</var>, run these
+steps:</p>
+
+<ol>
+ <li><p>Tilt <var>widget</var> left.</p></li>
+ <li><p>Tilt <var>widget</var> right.</p></li>
+</ol>
