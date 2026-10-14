@@ -171,6 +171,7 @@ var Panel = new (class Panel {
     this.maybeAutoCollapse();
 
     if (Settings.fancyBar.enabled) {
+      this.setupFancyBar();
       this.addSymbolSection();
       this.addOpenInEditorAction();
     }
@@ -261,6 +262,76 @@ var Panel = new (class Panel {
     this.content.setAttribute("aria-hidden", hidden);
     this.content.setAttribute("aria-expanded", !hidden);
     this.icon.classList.toggle("expanded");
+    this.updateFancyBarOpen();
+  }
+
+  /**
+   * The fancy bar: the panel docked as a sidebar on the right, below the
+   * header, whose width, which the page leaves to it while it's expanded,
+   * can be changed by dragging its left edge (or with the arrow keys there),
+   * and is kept for later pages.
+   */
+  setupFancyBar() {
+    const root = document.documentElement;
+    root.classList.add("fancy-bar");
+    const stored = parseInt(localStorage.getItem("fancy-bar-width"), 10);
+    if (stored > 0) {
+      root.style.setProperty("--fancy-bar-width", `${stored}px`);
+    }
+
+    const resizer = document.createElement("div");
+    resizer.className = "fancy-bar-resizer";
+    resizer.setAttribute("role", "separator");
+    resizer.setAttribute("aria-orientation", "vertical");
+    resizer.setAttribute("aria-label", "Resize the navigation panel");
+    resizer.tabIndex = 0;
+    document.body.append(resizer);
+    this.fancyBarResizer = resizer;
+
+    const setWidth = width => {
+      const clamped = Math.round(Math.max(200, Math.min(width, window.innerWidth * 0.6)));
+      root.style.setProperty("--fancy-bar-width", `${clamped}px`);
+      return clamped;
+    };
+    const save = () => {
+      localStorage.setItem("fancy-bar-width", String(Math.round(this.panel.getBoundingClientRect().width)));
+    };
+    resizer.addEventListener("pointerdown", event => {
+      event.preventDefault();
+      resizer.setPointerCapture(event.pointerId);
+      root.classList.add("fancy-bar-resizing");
+    });
+    resizer.addEventListener("pointermove", event => {
+      if (resizer.hasPointerCapture(event.pointerId)) {
+        setWidth(window.innerWidth - event.clientX);
+      }
+    });
+    const stop = event => {
+      if (resizer.hasPointerCapture(event.pointerId)) {
+        resizer.releasePointerCapture(event.pointerId);
+        root.classList.remove("fancy-bar-resizing");
+        save();
+      }
+    };
+    resizer.addEventListener("pointerup", stop);
+    resizer.addEventListener("pointercancel", stop);
+    resizer.addEventListener("keydown", event => {
+      const step = { ArrowLeft: 20, ArrowRight: -20 }[event.key];
+      if (step) {
+        event.preventDefault();
+        setWidth(this.panel.getBoundingClientRect().width + step);
+        save();
+      }
+    });
+
+    this.updateFancyBarOpen();
+  }
+
+  updateFancyBarOpen() {
+    document.documentElement.classList.toggle(
+      "fancy-bar-open",
+      document.documentElement.classList.contains("fancy-bar") && this.isExpanded()
+    );
   }
 
   isExpanded() {

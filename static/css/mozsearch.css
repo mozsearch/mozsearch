@@ -1070,6 +1070,44 @@ tr.after-context-line + tr.before-context-line {
   max-height: calc(100% - 150px);
   z-index: 202;
 }
+/* The fancy bar: the panel docked as a resizable sidebar (see panel.js's
+   setupFancyBar), whose width the page leaves to it while it's expanded. */
+html.fancy-bar .panel {
+  right: 0;
+  max-height: none;
+  border-width: 1px 0 0 1px;
+}
+html.fancy-bar-open .panel {
+  bottom: 0;
+  width: var(--fancy-bar-width, 22rem);
+  box-sizing: border-box;
+}
+html.fancy-bar-open #scrolling {
+  margin-right: var(--fancy-bar-width, 22rem);
+}
+.fancy-bar-resizer {
+  display: none;
+}
+html.fancy-bar-open .fancy-bar-resizer {
+  display: block;
+  position: fixed;
+  top: var(--header-height);
+  bottom: 0;
+  right: calc(var(--fancy-bar-width, 22rem) - 3px);
+  width: 6px;
+  cursor: col-resize;
+  z-index: 203;
+}
+.fancy-bar-resizer:hover,
+.fancy-bar-resizer:focus-visible,
+html.fancy-bar-resizing .fancy-bar-resizer {
+  background-color: var(--page-border-color);
+  outline: none;
+}
+html.fancy-bar-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
 #panel-toggle {
   display: inline-block;
   background-color: var(--panel-header-background);
