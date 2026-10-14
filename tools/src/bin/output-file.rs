@@ -30,7 +30,7 @@ use tools::file_format::analysis::{read_analysis, read_source};
 use tools::file_format::jumpref::TreeJumprefs;
 use tools::format::{
     create_markdown_panel_section, format_file_data, has_rendered_spec_view, hyperblame_files,
-    imported_spec_files, rendered_url, spec_globals, tree_specs,
+    imported_spec_files, rendered_url, spec_globals, tests_firefox_dev_panel_item, tree_specs,
 };
 use tools::languages;
 use tools::templating::info_boxes::InfoBoxes;
@@ -625,6 +625,10 @@ fn main() {
                 copyable: false,
                 extras: Default::default(),
             });
+        }
+
+        if concise_info.info.get("test_results").is_some() {
+            tools_items.push(tests_firefox_dev_panel_item(&path, false));
         }
 
         match Path::new(path.as_str()).extension().and_then(OsStr::to_str) {

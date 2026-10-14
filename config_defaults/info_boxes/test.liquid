@@ -19,7 +19,7 @@ values, if any, are copied first.){% endcomment -%}
   {%- if concise.info.test contains "run_if" -%}{%- assign test_run_if = concise.info.test.run_if -%}{%- endif -%}
   {%- if concise.info.test contains "fail_if" -%}{%- assign test_fail_if = concise.info.test.fail_if -%}{%- endif -%}
 {%- endif -%}
-{% if concise.info contains "test" or detailed.info contains "test_manifests" -%}
+{% if concise.info contains "test" or concise.info contains "test_results" or detailed.info contains "test_manifests" -%}
   {%- assign test_heading = "Test Info:" -%}
   {%- assign test_severity = "info" -%}
   {%- if test_failure_count > 0 -%}
@@ -43,6 +43,19 @@ values, if any, are copied first.){% endcomment -%}
       {%- assign test_severity = "warning" -%}
     {%- endif -%}
   {%- endif -%}
+  {%- if concise.info contains "test_results" -%}
+    {%- assign results = concise.info.test_results -%}
+    {%- if results.issues > 0 -%}
+      {%- if test_severity == "info" -%}
+        {%- assign test_heading = "Test Info: Warnings" -%}
+        {%- assign test_severity = "warning" -%}
+      {%- endif -%}
+      {%- if results.pass_rate < 90 -%}
+        {%- assign test_heading = "Test Info: Errors" -%}
+        {%- assign test_severity = "error" -%}
+      {%- endif -%}
+    {%- endif -%}
+  {%- endif -%}
   {%- if concise.bugzilla_component == empty -%}
     {%- assign bugzillaString = "" %}
   {%- else -%}
@@ -57,6 +70,11 @@ values, if any, are copied first.){% endcomment -%}
     <h4>{{ test_heading }}</h4>
     <div>
       <ul>
+{%- if concise.info contains "test_results" and detailed.info contains "test_results" %}
+        <li>
+  {%- include 'test_results/test_panel.liquid' results: results, details: detailed.info.test_results, path: path %}
+        </li>
+{%- endif %}
 {%- if detailed.info contains "test_manifests" %}
   {%- comment %}Each manifest listing the test, at its section, with the
   conditions applying to it, each at its line.{% endcomment -%}

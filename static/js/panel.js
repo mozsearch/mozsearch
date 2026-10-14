@@ -240,6 +240,9 @@ var Panel = new (class Panel {
         case "c":
         case "C":
           return this.findAccel('C');
+        case "t":
+        case "T":
+          return this.findAccel('T');
       }
     })();
 

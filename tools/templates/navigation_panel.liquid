@@ -41,6 +41,10 @@
                %} data-update-link="{{item.update_link_lineno | escape}}" data-link="{{item.link | escape}}}"{%
                endif
                %}>{%- if item.label.plaintext -%}{{ item.label.plaintext | escape }}{%- else -%}{{ item.label.html }}{%- endif -%}{%
+        if item.accel_key
+        %} <span class="accel">{{ item.accel_key | escape }}</span>{%
+        endif
+        %}{%
         if item.copyable
         %}<button class="copy" title="Copy to clipboard"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button>{%
         endif

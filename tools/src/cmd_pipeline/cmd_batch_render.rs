@@ -1,5 +1,8 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use clap::Args;
+use ustr::Ustr;
 
 use super::interface::{PipelineCommand, PipelineValues};
 use crate::{
@@ -8,7 +11,8 @@ use crate::{
     },
     file_format::config::{self, SearchEndpoint},
     file_utils::write_file_ensuring_parent_dir,
-    format::add_coverage_panel_item,
+    format::{add_coverage_panel_item, tests_firefox_dev_panel_item},
+    output::PanelSection,
     templating::builder::build_and_parse_dir_listing,
 };
 
@@ -52,6 +56,18 @@ impl PipelineCommand for BatchRenderCommand {
                 let template = build_and_parse_dir_listing();
                 let tree_info = server.tree_info()?;
                 let commit_info = server.commit_info()?;
+                // Each directory's own per-file info is in the group of its
+                // parent directory.
+                let mut dir_infos = HashMap::new();
+                for item in &batch_groups.groups {
+                    if let PipelineValues::FileMatches(fm) = &item.value {
+                        for file in &fm.file_matches {
+                            if file.concise.is_dir {
+                                dir_infos.insert(file.path, file.concise.clone());
+                            }
+                        }
+                    }
+                }
                 for item in batch_groups.groups {
                     if let PipelineValues::FileMatches(fm) = item.value {
                         let coverage_history = server.coverage_history(&item.name).await?;
@@ -60,6 +76,15 @@ impl PipelineCommand for BatchRenderCommand {
                         if coverage_history.is_some() {
                             let coverage_summary = server.coverage_summary(&item.name).await?;
                             add_coverage_panel_item(&mut panel, coverage_summary.as_ref());
+                        }
+
+                        let dir_concise = dir_infos.get(&Ustr::from(&item.name));
+                        if dir_concise.is_some_and(|info| info.info.get("test_results").is_some()) {
+                            panel.push(PanelSection {
+                                name: "Other Tools".to_owned(),
+                                items: vec![tests_firefox_dev_panel_item(&item.name, true)],
+                                raw_items: vec![],
+                            });
                         }
 
                         let mut liquid_globals = liquid::object!({
@@ -72,6 +97,7 @@ impl PipelineCommand for BatchRenderCommand {
                             "files": fm.file_matches,
                             "panel": panel,
                             "coverage_history": coverage_history,
+                            "dir_concise": dir_concise,
                         });
                         if let Some(info) = &commit_info {
                             let date = info.date.format("%F %T %z").to_string();

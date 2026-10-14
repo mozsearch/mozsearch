@@ -1,0 +1,54 @@
+{%- comment -%}
+Stacked bar chart of CI test results per day, as a static SVG.
+
+Parameters:
+- results: The "test_results" concise per-file info, for the period.
+- values: Dict of arrays of values per day to plot.
+- series: Comma-separated keys of `values` to stack, from the bottom.
+- max: The maximum stacked value, which gets the full chart height.
+- unit: Appended to values in tooltips, e.g. "%".
+- counts: Dict of arrays of counts per day for tooltips (with the same keys
+  as `values` plus "runs"), or false.
+- height: Height of the plot in pixels.
+- day_url: URL to link each day to, followed by its date and "&to=" and its
+  date again, to select the day on tests.firefox.dev.
+{%- endcomment -%}
+{%- assign series_names = series | split: "," -%}
+{%- assign bar_width = 10 -%}
+{%- assign bar_pitch = 13 -%}
+{%- assign last_day = results.days | minus: 1 -%}
+{%- assign width = results.days | times: bar_pitch -%}
+{%- assign start = results.start_date | append: " 00:00:00 +0000" | date: "%s" -%}
+{%- assign scale = height | times: 1.0 | divided_by: max -%}
+<svg class="test-results-chart" width="{{ width }}" height="{{ height }}" viewBox="0 0 {{ width }} {{ height }}" role="img">
+{%- for day in (0..last_day) -%}
+  {%- assign x = day | times: bar_pitch -%}
+  {%- comment -%} The date filter needs a string to parse a timestamp. {%- endcomment -%}
+  {%- assign date = day | times: 86400 | plus: start | append: "" | date: "%F" -%}
+  {%- capture tooltip -%}
+    {{ date }}
+    {%- for name in series_names -%}
+      {%- assign value = values[name][day] -%}
+      {%- if value > 0 %}
+{{ value | thousands }}{{ unit }} {{ name }}{% if counts %} ({{ counts[name][day] | thousands }}){% endif %}
+      {%- endif -%}
+    {%- endfor -%}
+    {%- if counts %}
+{{ counts.runs[day] | thousands }} runs
+    {%- endif -%}
+  {%- endcapture %}
+  <a href="{{ day_url }}{{ date }}&amp;to={{ date }}"><g><title>{{ tooltip | escape }}</title><rect class="test-results-hit" x="{{ x }}" y="0" width="{{ bar_pitch }}" height="{{ height }}"/>
+  {%- assign bottom = height -%}
+  {%- for name in series_names -%}
+    {%- assign value = values[name][day] -%}
+    {%- if value > 0 -%}
+      {%- assign bar_height = value | times: scale | at_least: 1 | round: 1 -%}
+      {%- assign y = bottom | minus: bar_height | round: 1 %}
+    <rect class="test-results-{{ name }}" x="{{ x }}" y="{{ y }}" width="{{ bar_width }}" height="{{ bar_height }}" rx="1.5"/>
+      {%- comment -%} Leave a 1px gap between stacked segments. {%- endcomment -%}
+      {%- assign bottom = y | minus: 1 -%}
+    {%- endif -%}
+  {%- endfor %}
+  </g></a>
+{%- endfor %}
+</svg>
