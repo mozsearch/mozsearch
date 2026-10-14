@@ -55,7 +55,10 @@
       "history_path": "$WORKING/trydelta/history",
       "codesearch_path": "$WORKING/trydelta/livegrep.idx",
       "codesearch_port": 8085,
-      "search_endpoint": "query"
+      "search_endpoint": "query",
+      "linked_trees": {
+        "SPEC_": "tests"
+      }
     }
   },
 

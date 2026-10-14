@@ -5,10 +5,13 @@
 // Widget::Frob's signature (which user.cpp's call and gadget.h's then use,
 // though they don't change), adds Widget::Wobble, and adds wobbler.cpp, which
 // calls it.  It also renames hello.js's greetPerson, which its analysis (only
-// of the tree's C++) doesn't cover.
+// of the tree's C++) doesn't cover, and changes poke.cpp's implementation of
+// the tests tree's example spec's poke algorithm (the tree's `SPEC_` symbols
+// are the tests tree's), whose steps it cites.
 
 const PUSH = "0123456789ab";
 const NEW_FROB = "_ZN8trydelta6Widget4FrobEib";
+const POKE = "SPEC_example_concept@2Dwidget@2Dpoke";
 const OLD_FROB = "_ZN8trydelta6Widget4FrobEi";
 
 function doc() {
@@ -94,4 +97,17 @@ add_task(async function test_TryDeltaUnanalyzedFiles() {
   ok(doc().querySelector("#line-2"), "The file's page at the head shows it");
   ok(!doc().querySelector(".source-line span[data-symbols]"),
      "without the indexed revision's symbols, at its lines");
+});
+
+// The push's citations of web specs are its analysis's too, as the indexed
+// revision's are, so that its pages' citations have the push's lines.
+add_task(async function test_TryDeltaCitations() {
+  const head = await importPush();
+
+  await TestUtils.loadPath(`/trydelta/query/default?q=symbol:${POKE}&rev=${head}`);
+  ok(doc().querySelector(`a.query-line-number[href="/trydelta/rev/${head}/poke.cpp#9"]`),
+     "The push's citations of a spec's steps are its analysis's");
+  await TestUtils.loadPath(`/trydelta/query/default?q=symbol:${POKE}`);
+  ok(doc().querySelector('a[href$="/poke.cpp#7"]') && !doc().querySelector('a[href$="/poke.cpp#9"]'),
+     "unlike the indexed revision's, which don't have them");
 });

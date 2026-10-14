@@ -6,7 +6,8 @@
 //!
 //! The delta has the analysis of the files whose records the push changes:
 //! the files it changes, and the others whose records differ from the base's
-//! (ex: a caller of a method whose signature it changes).  Files that not
+//! (ex: a caller of a method whose signature it changes), with their
+//! citations of web specs, as indexing's (see `cite_specs`).  Files that not
 //! every translation unit including them was compiled for (`--incomplete`)
 //! keep the base's records too.  Their crossref data is from crossref's
 //! subset mode, for the files' base records and for their records in the
@@ -76,7 +77,12 @@ fn read_records(path: &Path) -> Option<Vec<String>> {
     } else {
         fs::read_to_string(path).ok()?
     };
-    Some(text.lines().filter(|line| !line.is_empty()).map(String::from).collect())
+    Some(
+        text.lines()
+            .filter(|line| !line.is_empty())
+            .map(String::from)
+            .collect(),
+    )
 }
 
 fn write_lines(path: &Path, lines: &[String]) {
@@ -147,13 +153,120 @@ fn result_paths(data: &CrossrefData) -> BTreeSet<Ustr> {
     .collect()
 }
 
+/// The records of the files with web spec citations (see
+/// `spec_analyze::citations`) at the head, of those of `paths` the push
+/// analyzes or changes, by path: their records in `tip_root` (if any), with
+/// the citations, if the tree's `SPEC_` symbols are a linked tree's.  As
+/// indexing adds them to the files' analysis after the compilers' (see
+/// scripts/spec-analyze.sh), so that the files' records are the base's if
+/// the push doesn't change them, and the push's files have their citations.
+fn cite_specs<'a>(
+    cli: &Cli,
+    tree_config: &config::TreeConfig,
+    repo: &Repository,
+    head: &git2::Tree,
+    tip_root: &Path,
+    paths: impl Iterator<Item = &'a String>,
+    scratch: &Path,
+) -> BTreeMap<String, Vec<String>> {
+    let mut cited = BTreeMap::new();
+    let Some(spec_tree) = tree_config.paths.linked_trees.get("SPEC_") else {
+        return cited;
+    };
+    let spec_cfg = config::load(&cli.config_file, false, Some(spec_tree), None, None);
+    let Some(spec_paths) = spec_cfg.trees.get(spec_tree).map(|tree| &tree.paths) else {
+        return cited;
+    };
+    let specs_toml = Path::new(&spec_paths.index_path).join("specs.toml");
+    if !specs_toml.exists() {
+        return cited;
+    }
+
+    // (The files with URLs; spec-analyze skips the others.)
+    let (files, analysis) = (scratch.join("cite-files"), scratch.join("cite-analysis"));
+    let mut citing = vec![];
+    for path in paths {
+        if path.starts_with("__GENERATED__/") {
+            continue;
+        }
+        let Some(blob) = head
+            .get_path(Path::new(path))
+            .ok()
+            .and_then(|entry| entry.to_object(repo).ok())
+            .and_then(|object| object.peel_to_blob().ok())
+        else {
+            continue;
+        };
+        if !std::str::from_utf8(blob.content()).is_ok_and(|text| text.contains("://")) {
+            continue;
+        }
+        let file = files.join(path);
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, blob.content()).unwrap();
+        if let Some(records) = read_records(&tip_root.join(path)) {
+            write_lines(&analysis.join(path), &records);
+        }
+        citing.push(path.clone());
+    }
+    if citing.is_empty() {
+        return cited;
+    }
+    let list = scratch.join("cite.lst");
+    fs::write(
+        &list,
+        citing
+            .iter()
+            .map(|p| format!("{}\n", p))
+            .collect::<String>(),
+    )
+    .unwrap();
+    fs::create_dir_all(&analysis).unwrap();
+
+    // (Like spec-analyze.sh's, for a tree whose `SPEC_` symbols are a linked
+    // tree's.)
+    let mut command = Command::new("spec-analyze");
+    command
+        .arg("--citations-only")
+        .arg("--spec-files")
+        .arg(&spec_paths.files_path)
+        .arg("--spec-index")
+        .arg(&spec_paths.index_path);
+    if let (Some(git), Some(history)) = (&spec_paths.git_path, &spec_paths.history_path)
+        && Path::new(history).join("timeline").is_dir()
+    {
+        command
+            .arg("--stale-anchors")
+            .arg(spec_tree)
+            .arg(git)
+            .arg(history)
+            .arg(scratch.join("stale-anchors-cited.json"));
+    }
+    let status = command
+        .arg(&files)
+        .arg(&analysis)
+        .arg(&specs_toml)
+        .arg(&list)
+        .status()
+        .expect("Couldn't run spec-analyze");
+    assert!(
+        status.success(),
+        "spec-analyze of the push's citations failed"
+    );
+    for path in citing {
+        if let Some(records) = read_records(&analysis.join(&path)) {
+            cited.insert(path, records);
+        }
+    }
+    cited
+}
+
 fn main() {
     let cli = Cli::parse();
     let cfg = config::load(&cli.config_file, false, Some(&cli.tree_name), None, None);
     let tree_config = cfg.trees.get(&cli.tree_name).expect("No such tree");
     let paths = &tree_config.paths;
-    let repo = Repository::open(paths.git_path.as_deref().expect("The tree has no git repo"))
-        .unwrap();
+    let repo =
+        Repository::open(paths.git_path.as_deref().expect("The tree has no git repo")).unwrap();
 
     // ## What the push changes, relative to the indexed revision.
     let base_commit = repo.head().unwrap().peel_to_commit().unwrap();
@@ -170,8 +283,14 @@ fn main() {
         .unwrap();
     let mut changed: BTreeMap<String, FileChange> = BTreeMap::new();
     for delta in diff.deltas() {
-        let old = delta.old_file().path().map(|p| p.to_string_lossy().into_owned());
-        let new = delta.new_file().path().map(|p| p.to_string_lossy().into_owned());
+        let old = delta
+            .old_file()
+            .path()
+            .map(|p| p.to_string_lossy().into_owned());
+        let new = delta
+            .new_file()
+            .path()
+            .map(|p| p.to_string_lossy().into_owned());
         match delta.status() {
             Delta::Added => {
                 changed.insert(new.unwrap(), FileChange::Added);
@@ -223,15 +342,47 @@ fn main() {
             let in_base = Path::new(&paths.objdir_path).join(rel).exists();
             changed.insert(
                 path.to_string(),
-                if in_base { FileChange::Modified } else { FileChange::Added },
+                if in_base {
+                    FileChange::Modified
+                } else {
+                    FileChange::Added
+                },
             );
         }
     }
+    // Their citations of web specs, and those of the files it changes which
+    // its compilation doesn't analyze (ex: JS), which have just those.
+    let head_tree = head_commit.tree().unwrap();
+    let mut candidates: BTreeSet<&String> = written.iter().collect();
+    candidates.extend(
+        changed
+            .iter()
+            .filter(|(_, change)| **change != FileChange::Removed)
+            .map(|(path, _)| path),
+    );
+    let cited = cite_specs(
+        &cli,
+        tree_config,
+        &repo,
+        &head_tree,
+        tip_root,
+        candidates.into_iter(),
+        &scratch,
+    );
+    for path in cited.keys() {
+        if !written.contains(path) {
+            written.push(path.clone());
+        }
+    }
+
     let base_analysis = Path::new(&paths.index_path).join("analysis");
     let mut analyzed: BTreeMap<String, AnalyzedFile> = BTreeMap::new();
     let (mut base_list, mut tip_list) = (vec![], vec![]);
     for path in &written {
-        let tip = read_records(&tip_root.join(path)).unwrap_or_default();
+        let tip = match cited.get(path) {
+            Some(records) => records.clone(),
+            None => read_records(&tip_root.join(path)).unwrap_or_default(),
+        };
         let base = read_records(&base_analysis.join(path));
         let change = changed.get(path).copied();
         let complete = !incomplete.contains(path);
@@ -243,7 +394,12 @@ fn main() {
         // (Incomplete files keep the base's records too; see `AnalyzedFile`.)
         let mut records: Vec<String> = tip.clone();
         if !complete {
-            records.extend(base.iter().flatten().filter(|line| !tip_set.contains(line)).cloned());
+            records.extend(
+                base.iter()
+                    .flatten()
+                    .filter(|line| !tip_set.contains(line))
+                    .cloned(),
+            );
         }
         records.sort();
         records.dedup();
@@ -284,7 +440,10 @@ fn main() {
             Some(rel) => (
                 &tip_objdir,
                 rel,
-                cli.objdir.as_deref().unwrap_or(&paths.objdir_path).to_string(),
+                cli.objdir
+                    .as_deref()
+                    .unwrap_or(&paths.objdir_path)
+                    .to_string(),
             ),
             None => (&tip_files, path.as_str(), paths.files_path.clone()),
         };
@@ -310,8 +469,11 @@ fn main() {
         let dir = scratch.join(side);
         fs::create_dir_all(&dir).unwrap();
         let list_path = scratch.join(format!("{}.lst", side));
-        fs::write(&list_path, list.iter().map(|p| format!("{}\n", p)).collect::<String>())
-            .unwrap();
+        fs::write(
+            &list_path,
+            list.iter().map(|p| format!("{}\n", p)).collect::<String>(),
+        )
+        .unwrap();
         let status = Command::new("crossref")
             .args([&cli.config_file, &cli.tree_name])
             .arg(&list_path)
@@ -371,7 +533,9 @@ fn main() {
             data: tip.unwrap_or_default(),
             defined,
         };
-        let tree_data = tree_crossref.as_ref().and_then(|map| map.lookup(&sym).ok().flatten());
+        let tree_data = tree_crossref
+            .as_ref()
+            .and_then(|map| map.lookup(&sym).ok().flatten());
         let merged = patch.apply(tree_data);
         let fallback_pretty = tip_jumprefs
             .get(&sym)
@@ -388,7 +552,11 @@ fn main() {
         ));
         patches.push((sym, patch));
     }
-    println!("{} files' analysis, {} symbols' crossref data", analyzed.len(), patches.len());
+    println!(
+        "{} files' analysis, {} symbols' crossref data",
+        analyzed.len(),
+        patches.len()
+    );
     write_bisectable(
         out.join("crossref").to_str().unwrap(),
         out.join("crossref-extra").to_str().unwrap(),
