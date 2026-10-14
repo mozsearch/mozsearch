@@ -251,7 +251,13 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
                     iso_date,
                     human_date,
                 )),
-                F::T(format!(r#"<span id="rev-desc">{}</span>"#, desc)),
+                // (The description is one line, cut short if need be, with
+                // all of it in its tooltip.)
+                F::T(format!(
+                    r#"<span id="rev-desc" title="{}">{}</span>"#,
+                    escape_attr(&strip_tags(&desc)),
+                    desc
+                )),
             ]
         }
         None => vec![],
@@ -454,6 +460,19 @@ pub struct PanelSection {
     pub name: String,
     pub items: Vec<PanelItem>,
     pub raw_items: Vec<String>,
+}
+
+/// HTML's text, without its tags (but its entities).
+fn strip_tags(html: &str) -> String {
+    lazy_static! {
+        static ref TAG: regex::Regex = regex::Regex::new(r"<[^>]*>").unwrap();
+    }
+    TAG.replace_all(html, "")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&amp;", "&")
 }
 
 /// Text escaped for an HTML attribute's value (or text).

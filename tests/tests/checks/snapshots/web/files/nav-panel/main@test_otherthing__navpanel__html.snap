@@ -1,0 +1,66 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/web/files/nav-panel/test_otherthing__navpanel__html
+---
+<section id="panel-content" aria-expanded="true" aria-hidden="false">
+  <h4>Source code</h4>
+  <ul>
+  <li class="with-extra">
+  <a href="/tests/source/tests/head.js" title="Changes to tests go with their manifests' changes. (for patches changing this file and others the rule needs)" class="icon item">Review skill: Tests and their manifests (tests/head.js), with other changes<button class="copy" title="Copy to clipboard" data-copy="tests/head.js"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a><a class="item-extra" href="/tests/source/review-context.toml#14" title="Go to the rule, in review-context.toml on line 14">rule</a>
+  </li>
+  <li class="with-extra">
+  <a href="https://github.com/mozilla/other-repo/blob/main/docs/guide.md" title="Changes to tests go with their manifests' changes. (for patches changing this file and others the rule needs)" class="icon item">Review skill: Tests and their manifests (mozilla/other-repo docs/guide.md), with other changes<button class="copy" title="Copy to clipboard" data-copy="https://github.com/mozilla/other-repo/blob/main/docs/guide.md"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a><a class="item-extra" href="/tests/source/review-context.toml#14" title="Go to the rule, in review-context.toml on line 14">rule</a>
+  </li>
+  <li class="with-extra">
+  <a href="https://phabricator.services.mozilla.com/D12345" title="Changes to tests go with their manifests' changes. (for patches changing this file and others the rule needs)" class="icon item">Review skill: Tests and their manifests (D12345), with other changes<button class="copy" title="Copy to clipboard" data-copy="https://phabricator.services.mozilla.com/D12345"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a><a class="item-extra" href="/tests/source/review-context.toml#14" title="Go to the rule, in review-context.toml on line 14">rule</a>
+  </li>
+  </ul>
+  <h4 id="panel-tests">Tests</h4>
+<div class="panel-tests">
+  <ul>
+    <li>Manifest: <a href="/tests/source/tests/mochitest.toml">tests/mochitest.toml</a> includes <a href="/tests/source/tests/mochitest-common.toml#3" class="test-manifest-section">tests/mochitest-common.toml</a>
+      <ul>
+        <li>Skipped if any of:
+          <ul>
+            <li><a href="/tests/source/tests/mochitest.toml#27" class="test-skip-info">verify</a> <span class="test-condition-from">(where tests/mochitest.toml includes it)</span></li>
+            <li><a href="/tests/source/tests/mochitest-common.toml#7" class="test-skip-info">os == &#39;android&#39;</a> <span class="test-condition-comment"><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1234">Bug 1234</a> - a fixture's comment</span></li>
+            <li><a href="/tests/source/tests/mochitest-common.toml#8" class="test-skip-info">asan</a></li>
+          </ul>
+        </li>
+        <li>Runs only if:
+          <ul>
+            <li><a href="/tests/source/tests/mochitest-common.toml#4" class="test-skip-info">os = &#39;mac&#39;</a></li>
+          </ul>
+        </li>
+        <li>Expected to fail if:
+          <ul>
+            <li><a href="/tests/source/tests/mochitest-common.toml#5" class="test-skip-info">debug</a></li>
+          </ul>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</div>
+  <h4>Revision control</h4>
+  <ul>
+  <li>
+  <a id="panel-permalink" href="/tests/rev/REV/tests/test_otherthing.html" data-accel="Y" title="Create a revision-specific link of the current file" class="icon item" data-update-link="#{}" data-link="/tests/rev/REV/tests/test_otherthing.html">Permalink <span class="accel">Y</span><button class="copy" title="Copy to clipboard"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a>
+  </li>
+  <li>
+  <a id="panel-remove-permalink" href="/tests/source/tests/test_otherthing.html" title="Create a revision-agnostic link of the current file" class="icon item" data-update-link="#{}" data-link="/tests/source/tests/test_otherthing.html">Remove the Permalink</a>
+  </li>
+  </ul>
+  <h4>Copy as Markdown</h4>
+  <ul>
+  <li>
+  <button id="panel-copy-filename-link" data-accel="F" title="Copy a Markdown link to clipboard, with the filename" class="icon item">Filename Link <span class="accel">F</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
+  </li>
+  <li>
+  <button id="panel-copy-symbol-link" data-accel="S" title="Copy a Markdown link to clipboard, with the selected symbol" class="icon item">Symbol Link <span class="accel">S</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
+  </li>
+  <li>
+  <button id="panel-copy-code-block" data-accel="C" title="Copy a Markdown code block of the selected code to clipboard" class="icon item">Code Block <span class="accel">C</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
+  </li>
+  </ul>
+  </section>

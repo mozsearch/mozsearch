@@ -1291,7 +1291,8 @@ html.fancy-bar-resizing {
   margin: 0;
 }
 .info-box-fact + .info-box-fact::before {
-  content: "· ";
+  content: "·";
+  margin: 0 0.4em;
   color: var(--page-subtle-foreground);
 }
 .info-box-details {
@@ -3187,6 +3188,11 @@ input::placeholder {
 }
 #revision {
   padding-top: 0;
+  /* (One line, however long the commit's description; its tooltip has all
+     of it.) */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 :root.old-rev #revision {
   padding-top: var(--revision-padding-top);

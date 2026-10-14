@@ -69,7 +69,7 @@
       <div id="revision">
         {%- assign human_date = rev_box.date | date: "%F" -%}
         <span id="rev-id">Showing <a href="/{{tree}}/commit/{{rev_box.long | escape}}">{{rev_box.short | escape}}</a> from <time datetime="{{ rev_box.date }}">{{ human_date }}</time>:</span>
-        <span id="rev-desc">{{rev_box.desc_html}}</span>
+        <span id="rev-desc" title="{{ rev_box.desc_html | strip_html | escape }}">{{rev_box.desc_html}}</span>
       </div>
     {%- endif %}
   </form>

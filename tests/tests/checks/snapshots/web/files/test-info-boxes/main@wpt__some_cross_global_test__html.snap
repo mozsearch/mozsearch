@@ -1,21 +1,14 @@
 ---
 source: src/bin/test-index.rs
 expression: "&fb.contents"
+input_file: inputs/web/files/test-info-boxes/wpt__some_cross_global_test__html
 ---
 <section class="info-boxes" id="info-boxes-container">
-  <section class="info-box info-box-warning">
+  
+  <section class="info-box info-box-warning info-box-concise">
     <h4>Test Info: Warnings</h4>
-    <div>
-      <ul>
-        <li>This test has a <a href="/tests/source/testing/web-platform/meta/complex-tests/some_cross_global_test.any.js.ini">WPT meta file</a> that expects 1 subtest issues.</li>
-        <li>This WPT test may be referenced by the following <a href="https://firefox-source-docs.mozilla.org/web-platform/index.html#running-tests">Test IDs</a>:
-            <ul>
-                <li>/complex-tests/some_cross_global_test.any.html - <a href="https://wpt.fyi/results/complex-tests/some_cross_global_test.any.html">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/?bugComponent=core::dom: service workers#/complex-tests/some_cross_global_test.any.html">Interop Dashboard</a></li>
-                <li>/complex-tests/some_cross_global_test.any.serviceworker.html - <a href="https://wpt.fyi/results/complex-tests/some_cross_global_test.any.serviceworker.html">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/?bugComponent=core::dom: service workers#/complex-tests/some_cross_global_test.any.serviceworker.html">Interop Dashboard</a></li>
-                <li>/complex-tests/some_cross_global_test.any.sharedworker.html - <a href="https://wpt.fyi/results/complex-tests/some_cross_global_test.any.sharedworker.html">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/?bugComponent=core::dom: service workers#/complex-tests/some_cross_global_test.any.sharedworker.html">Interop Dashboard</a></li>
-                <li>/complex-tests/some_cross_global_test.any.worker.html - <a href="https://wpt.fyi/results/complex-tests/some_cross_global_test.any.worker.html">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/?bugComponent=core::dom: service workers#/complex-tests/some_cross_global_test.any.worker.html">Interop Dashboard</a></li></ul>
-        </li>
-      </ul>
-    </div>
+    <span class="info-box-facts"><span class="info-box-fact">1 subtest issue expected</span>
+    </span>
+    <button type="button" class="info-box-details" data-panel-section="panel-tests">Details</button>
   </section>
 </section>

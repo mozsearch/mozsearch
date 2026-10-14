@@ -12,7 +12,6 @@ input_file: inputs/web/files/nav-panel/mozbuild_test_cpp__navpanel__html
     </span>
   </button>
   <section id="panel-content" aria-expanded="true" aria-hidden="false">
-  <label class="panel-accel"><input type="checkbox" id="panel-accel-enable" checked="checked">Enable keyboard shortcuts</label>
   <h4>Source code</h4>
   <ul>
   <li class="with-extra">
@@ -29,9 +28,6 @@ input_file: inputs/web/files/nav-panel/mozbuild_test_cpp__navpanel__html
   </li>
   <li>
   <a id="panel-remove-permalink" href="/tests/source/mozbuild/test.cpp" title="Create a revision-agnostic link of the current file" class="icon item" data-update-link="#{}" data-link="/tests/source/mozbuild/test.cpp">Remove the Permalink</a>
-  </li>
-  <li>
-  <a id="panel-blame" href="javascript:alert('Hover over the gray bar on the left to see blame information.')" title="Hover over the gray bar on the left to see blame information" class="icon item">Blame</a>
   </li>
   </ul>
   <h4>Copy as Markdown</h4>

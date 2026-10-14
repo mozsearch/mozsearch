@@ -21,7 +21,10 @@ guards.){% endcomment -%}
   {%- if concise.info.test contains "skip_if" and concise.info.test.skip_if != empty -%}{%- assign skip_conditions = 1 -%}{%- endif -%}
   {%- if concise.info.test contains "run_if" and concise.info.test.run_if != empty -%}{%- assign run_conditions = 1 -%}{%- endif -%}
   {%- if concise.info.test contains "fail_if" and concise.info.test.fail_if != empty -%}{%- assign fail_conditions = 1 -%}{%- endif -%}
-  {%- if concise.info.test contains "manifest" -%}{%- assign manifest_count = concise.info.test.manifest.size -%}{%- endif -%}
+  {%- comment %}(A WPT's is its directory, which isn't worth counting.){% endcomment -%}
+  {%- unless concise.info contains "wpt" -%}
+    {%- if concise.info.test contains "manifest" -%}{%- assign manifest_count = concise.info.test.manifest.size -%}{%- endif -%}
+  {%- endunless -%}
 {%- endif -%}
 {%- assign failure_count = 0 -%}
 {%- if concise.info contains "test" and concise.info.test contains "failure_count" -%}

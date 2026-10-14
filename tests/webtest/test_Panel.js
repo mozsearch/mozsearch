@@ -5,22 +5,22 @@ add_task(async function test_PanelOnLoad() {
     {
       path: "/",
       expanded: false,
-      itemCount: 1,
+      itemCount: 0,
     },
     {
       path: "/tests/pages/settings.html",
       expanded: false,
-      itemCount: 1,
+      itemCount: 0,
     },
     {
       path: "/tests/source/",
       expanded: false,
-      itemCount: 3,
+      itemCount: 2,
     },
     {
       path: "/tests/source/webtest",
       expanded: false,
-      itemCount: 1,
+      itemCount: 0,
     },
     {
       path: "/tests/source/.gitignore",
@@ -35,7 +35,7 @@ add_task(async function test_PanelOnLoad() {
     {
       path: "/tests/search?q=webtest&path=&case=false&regexp=false",
       expanded: false,
-      itemCount: 1,
+      itemCount: 0,
     },
     {
       path: "/tests/query/default?q=webtest",
@@ -51,7 +51,7 @@ add_task(async function test_PanelOnLoad() {
     {
       path: "/searchfox/commit/4e266f75295afe5f94d14eb9b72445c830c095ef",
       expanded: false,
-      itemCount: 1,
+      itemCount: 0,
     },
     {
       path: "/searchfox/rev/e6ff7d3798a68e41c1166524be276fac4a8dfeb2/.gitignore",
@@ -77,9 +77,9 @@ add_task(async function test_PanelOnLoad() {
 
     if (itemCount !== null) {
       is(content.children.length, itemCount,
-         `Navigation panel has keyboard shortcut checkbox and maybe coverage on ${path}`);
+         `Navigation panel has its items (or none) on ${path}`);
     } else {
-      is(content.children.length > 1, true,
+      is(content.children.length > 0, true,
          `Navigation panel has multiple items on ${path}`);
     }
   }
@@ -137,8 +137,8 @@ add_task(async function test_PanelAfterSearch() {
     const panelContent = frame.contentDocument.querySelector("#panel-content");
     is(panelContent.getAttribute("aria-expanded"), "false",
        `Navigation panel is collapsed on the search result from ${path}`);
-    is(panelContent.children.length, 1,
-       `Navigation panel has only keyboard shortcut checkbox on the search result from ${path}`);
+    is(panelContent.children.length, 0,
+       `Navigation panel is empty on the search result from ${path}`);
   }
 });
 

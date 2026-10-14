@@ -4,15 +4,11 @@ expression: "&fb.contents"
 input_file: inputs/web/files/test-info-boxes/test_many_manifest_permutations__html
 ---
 <section class="info-boxes" id="info-boxes-container">
-  <section class="info-box info-box-warning">
+  
+  <section class="info-box info-box-warning info-box-concise">
     <h4>Test Info: Warnings</h4>
-    <div>
-      <ul>
-        <li>This test runs only with pattern: <span class="test-skip-info">os = 'mac'</span></li>
-        <li>This test is know to fail with pattern: <span class="test-skip-info">debug</span></li>
-        <li>Manifest: <a href="/tests/source/mochitest.ini">mochitest.ini</a> includes <a href="/tests/source/mochitest-common.ini">mochitest-common.ini</a></li>
-        <li>Manifest: <a href="/tests/source/mochitest-alt-pref.ini">mochitest-alt-pref.ini</a> includes <a href="/tests/source/mochitest-common.ini">mochitest-common.ini</a></li>
-      </ul>
-    </div>
+    <span class="info-box-facts"><span class="info-box-fact">runs only given 1 condition</span><span class="info-box-fact">expected to fail given 1 condition</span><span class="info-box-fact">in 2 manifests</span>
+    </span>
+    <button type="button" class="info-box-details" data-panel-section="panel-tests">Details</button>
   </section>
 </section>

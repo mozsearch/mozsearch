@@ -4,32 +4,11 @@ expression: "&fb.contents"
 input_file: inputs/web/files/test-info-boxes/test_otherthing__html
 ---
 <section class="info-boxes" id="info-boxes-container">
-  <section class="info-box info-box-warning">
+  
+  <section class="info-box info-box-warning info-box-concise">
     <h4>Test Info: Warnings</h4>
-    <div>
-      <ul>
-        <li>Manifest: <a href="/tests/source/tests/mochitest.toml">tests/mochitest.toml</a> includes <a href="/tests/source/tests/mochitest-common.toml#3" class="test-manifest-section">tests/mochitest-common.toml</a>
-          <ul>
-            <li>Skipped if any of:
-              <ul>
-                <li><a href="/tests/source/tests/mochitest.toml#27" class="test-skip-info">verify</a> <span class="test-condition-from">(where tests/mochitest.toml includes it)</span></li>
-                <li><a href="/tests/source/tests/mochitest-common.toml#7" class="test-skip-info">os == &#39;android&#39;</a> <span class="test-condition-comment"><a href="https://bugzilla.mozilla.org/show_bug.cgi?id=1234">Bug 1234</a> - a fixture's comment</span></li>
-                <li><a href="/tests/source/tests/mochitest-common.toml#8" class="test-skip-info">asan</a></li>
-              </ul>
-            </li>
-            <li>Runs only if:
-              <ul>
-                <li><a href="/tests/source/tests/mochitest-common.toml#4" class="test-skip-info">os = &#39;mac&#39;</a></li>
-              </ul>
-            </li>
-            <li>Expected to fail if:
-              <ul>
-                <li><a href="/tests/source/tests/mochitest-common.toml#5" class="test-skip-info">debug</a></li>
-              </ul>
-            </li>
-          </ul>
-        </li>
-      </ul>
-    </div>
+    <span class="info-box-facts"><span class="info-box-fact">skipped given 3 conditions</span><span class="info-box-fact">runs only given 1 condition</span><span class="info-box-fact">expected to fail given 1 condition</span><span class="info-box-fact">in 1 manifest</span>
+    </span>
+    <button type="button" class="info-box-details" data-panel-section="panel-tests">Details</button>
   </section>
 </section>

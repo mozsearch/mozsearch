@@ -1,15 +1,14 @@
 ---
 source: src/bin/test-index.rs
 expression: "&fb.contents"
+input_file: inputs/web/files/test-info-boxes/text_custom_element_base_xul__infobox__html
 ---
 <section class="info-boxes" id="info-boxes-container">
-  <section class="info-box info-box-warning">
+  
+  <section class="info-box info-box-warning info-box-concise">
     <h4>Test Info: Warnings</h4>
-    <div>
-      <ul>
-        <li>This test gets skipped with pattern: <span class="test-skip-info">toolkit == 'android' OR verify OR apple_silicon</span></li>
-        <li>Manifest: <a href="/tests/source/mochitest.ini">mochitest.ini</a></li>
-      </ul>
-    </div>
+    <span class="info-box-facts"><span class="info-box-fact">skipped given 1 condition</span><span class="info-box-fact">in 1 manifest</span>
+    </span>
+    <button type="button" class="info-box-details" data-panel-section="panel-tests">Details</button>
   </section>
 </section>
