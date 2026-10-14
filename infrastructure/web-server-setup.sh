@@ -24,6 +24,25 @@ CONFIG_FILE="$SERVER_ROOT/config.json"
 
 $MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $CONFIG_INPUT $WORKING $SERVER_ROOT
 
+# ### The trees' own web server setup
+#
+# A tree can set up what its web server needs besides its index with a
+# `web-server-setup` script in its config repo directory (ex: firefox-try's,
+# which installs the sandbox its semantic analysis of try pushes builds them
+# in), which runs here with the tree's variables (see load-vars.sh), like its
+# indexing's `setup` and `build` scripts.  A failure only skips what it was
+# for, not the web server.
+for TREE_NAME in $(jq -r ".trees|keys_unsorted|.[]" ${CONFIG_FILE})
+do
+    if [ -x "$CONFIG_REPO/$TREE_NAME/web-server-setup" ]; then
+        (
+            . $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
+            export CONFIG_REPO MOZSEARCH_PATH
+            "$CONFIG_REPO/$TREE_NAME/web-server-setup"
+        ) || echo "WARNING: $TREE_NAME's web-server-setup failed."
+    fi
+done
+
 # ### Create the docroot
 #
 # There is some awkwardness here where we create hierarchies centered on the
