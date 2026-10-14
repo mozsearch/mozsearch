@@ -527,6 +527,17 @@ fn render_part(
             (range.clone(), steps)
         }
     };
+    // The bytes of the source that it covers: an algorithm's blocks', so that
+    // its blame doesn't take in the lines before and after it.
+    let source_range = match part {
+        Part::Algorithm(_) => blocks
+            .iter()
+            .filter(|(node, _)| range.contains(&doc.nodes[**node].range.start))
+            .map(|(_, block)| block.clone())
+            .reduce(|a, b| a.start.min(b.start)..a.end.max(b.end))
+            .unwrap_or(0..0),
+        _ => 0..source.len(),
+    };
     let hooks = Bikeshed {
         doc: &doc,
         source,
@@ -575,7 +586,7 @@ fn render_part(
             start: 0,
         }],
         page: 0,
-        range: 0..source.len(),
+        range: source_range,
         steps,
         file: None,
     })
@@ -747,5 +758,7 @@ mod tests {
             .map(|(path, at)| (path.as_str(), &source[*at..*at + 2]))
             .collect();
         assert_eq!(steps, vec![("1", "1."), ("2", "2.")]);
+        // (Its bytes of the source are its own, not the file's.)
+        assert_eq!(&source[view.range.clone()], "To poke:\n\n1. One\n2. Two");
     }
 }
