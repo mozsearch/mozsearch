@@ -885,6 +885,13 @@ tr.after-context-line + tr.before-context-line {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* (A link's items, with its URL, which can be long; see tryShowOnClick.) */
+.context-menu .contextmenu-url {
+  max-width: 600px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .context-menu code {
   white-space: nowrap;
 }

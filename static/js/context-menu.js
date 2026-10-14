@@ -1297,6 +1297,22 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       return;
     }
 
+    // A link in a source listing (ex: a URL or a bug number in a comment, see
+    // `links::linkify_comment`) shows the menu too, instead of leaving the
+    // page, with an item to follow it, unless the click is for the link itself
+    // (ex: with Ctrl, to open it in a new tab).
+    const clickedLink = event.target.closest("a[href]");
+    const sourceLink =
+      clickedLink && event.target.closest("code.source-line")?.contains(clickedLink)
+        ? clickedLink
+        : null;
+    if (sourceLink) {
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+        return;
+      }
+      event.preventDefault();
+    }
+
     // (Another tree's code on the page, or another revision's, is in an
     // element saying whose it is, and how to search it, ex: an algorithm's
     // view's excerpts of the code citing it; see `format::citation_rows`.  And
@@ -2294,14 +2310,15 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
     }
 
     if (!suppressSubstring) {
-      let word = getTargetWord();
-      if (word) {
-        // A word was clicked on.
+      // A word was clicked on, or a link, whose searches are for it instead.
+      const words = sourceLink ? linkSearchTexts(sourceLink) : [getTargetWord()];
+      for (const word of words.filter(Boolean)) {
         textSearchMenuItems.push(new MenuItem({
           html: this.fmt("Search for the substring <strong>_</strong>", word),
           href: searchUrl(tree, encodeURIComponent(word)),
           icon: "font",
           section: "text-searches",
+          classNames: sourceLink ? ["contextmenu-url"] : undefined,
         }));
       }
     }
@@ -2391,6 +2408,20 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       ...overloadMenuItems,
     ];
 
+    // A link's first item follows it, unless another item already goes to
+    // the same URL.
+    if (sourceLink && !menuItems.some(item =>
+      item.href && new URL(item.href, document.baseURI).href === sourceLink.href)) {
+      menuItems.unshift(new MenuItem({
+        html: this.fmt("Follow link to <strong>_</strong>", sourceLink.getAttribute("href")),
+        href: sourceLink.href,
+        icon: "export-alt",
+        section: "link",
+        classNames: ["contextmenu-url", "contextmenu-follow-link"],
+        attrs: { title: sourceLink.href },
+      }));
+    }
+
     if (!menuItems.length) {
       return;
     }
@@ -2398,7 +2429,14 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
     this.closeSubMenu();
     this.populateMenu(this.menu, menuItems);
 
-    this.positionMenuAt(event.clientX, event.clientX, event.clientY, event.clientY);
+    // (A link activated by the keyboard has no position: the menu goes below
+    // it.)
+    if (sourceLink && event.detail === 0 && !event.clientX && !event.clientY) {
+      const rect = sourceLink.getBoundingClientRect();
+      this.positionMenuAt(rect.left, rect.left, rect.bottom, rect.top);
+    } else {
+      this.positionMenuAt(event.clientX, event.clientX, event.clientY, event.clientY);
+    }
   }
 
   /**
@@ -2655,6 +2693,26 @@ var Hover = new (class Hover {
     this.sticky = true;
   }
 })();
+
+/**
+ * The texts to search for for a link in a source listing: its text (ex: a
+ * URL, as in the source), and a URL's without its query and fragment, if it
+ * has them (ex: a spec's URL, for all its citations), or for a bug's link (see
+ * `links::linkify_bug_numbers`), the bug's number.
+ */
+function linkSearchTexts(link) {
+  const bug = link.href.match(/^https:\/\/bugzilla\.mozilla\.org\/show_bug\.cgi\?id=(\d+)$/);
+  if (bug) {
+    return [bug[1]];
+  }
+  const text = link.textContent.trim();
+  const texts = [text];
+  const base = text.replace(/[?#].*$/s, "");
+  if (base !== text && /^[a-z][a-z0-9+.-]*:\/\/[^/]/i.test(base)) {
+    texts.push(base);
+  }
+  return texts;
+}
 
 function getTargetWord() {
   let selection = window.getSelection();
