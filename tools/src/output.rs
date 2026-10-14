@@ -607,9 +607,6 @@ pub fn generate_panel(
                     ""
                 }
             )),
-            F::S(
-                r#"<label class="panel-accel"><input type="checkbox" id="panel-accel-enable" checked="checked">Enable keyboard shortcuts</label>"#,
-            ),
             F::Seq(sections),
             F::S("</section>"),
         ]),

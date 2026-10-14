@@ -168,12 +168,11 @@ add_task(async function test_CopyAsMarkdown() {
      "```",
      "Code block with multiple lines are copied with dedent");
 
-  // Disable accel
+  // Disable accel (the settings page's setting).
 
-  const accelCheckbox = frame.contentDocument.querySelector("#panel-accel-enable");
-  TestUtils.clickCheckbox(accelCheckbox);
+  frame.contentWindow.localStorage.setItem("accel-enable", "0");
   registerCleanupFunction(() => {
-    TestUtils.clickCheckbox(accelCheckbox);
+    frame.contentWindow.localStorage.removeItem("accel-enable");
   });
 
   clipboard.value = "*unmodified*";

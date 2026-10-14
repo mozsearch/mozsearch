@@ -575,18 +575,6 @@ fn main() {
                     });
                 }
 
-                if tree_config.paths.has_blame() {
-                    vcs_panel_items.push(PanelItem {
-                        label: PanelItemLabel::Plaintext("Blame".to_owned()),
-                        tooltip: "Hover over the gray bar on the left to see blame information".to_owned(),
-                        id: "panel-blame",
-                        link: "javascript:alert('Hover over the gray bar on the left to see blame information.')".to_owned(),
-                        update_link_lineno: "",
-                        accel_key: None,
-                        copyable: false,
-                        extras: Default::default(),
-                    });
-                }
                 panel.push(PanelSection {
                     name: "Revision control".to_owned(),
                     items: vcs_panel_items,
@@ -616,18 +604,6 @@ fn main() {
         panel.push(create_markdown_panel_section(true));
 
         let mut tools_items = vec![];
-        if let Some(ref hg_root) = tree_config.paths.hg_root {
-            tools_items.push(PanelItem {
-                label: PanelItemLabel::Plaintext("HG Web".to_owned()),
-                tooltip: "Open the current file in HG Web".to_owned(),
-                id: "panel-hgweb",
-                link: format!("{}/file/default/{}", hg_root, encoded_path),
-                update_link_lineno: "#l{}",
-                accel_key: None,
-                copyable: false,
-                extras: Default::default(),
-            });
-        }
 
         if concise_info.info.get("test_results").is_some() {
             tools_items.push(tests_firefox_dev_panel_item(&path, false));

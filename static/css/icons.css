@@ -52,12 +52,6 @@
   background-color: transparent;
 }
 
-.panel label.panel-accel {
-  display: block;
-  width: 240px;
-  padding: 0 0.5rem;
-}
-
 .panel .accel,
 .panel .copy {
   font-size: 10px;

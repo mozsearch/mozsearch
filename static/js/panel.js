@@ -57,7 +57,8 @@ var Panel = new (class Panel {
     this.settingsButton.addEventListener("click", (evt) => { evt.stopPropagation(); });
 
     this.toggleButton.addEventListener("click", () => this.toggle());
-    this.accelEnabledCheckbox.addEventListener("change", () => {
+    // (The keyboard shortcuts' setting is on the settings page.)
+    this.accelEnabledCheckbox?.addEventListener("change", event => {
       localStorage.setItem("accel-enable", event.target.checked ? "1" : "0");
       this.updateAccelerators();
     });
@@ -184,14 +185,13 @@ var Panel = new (class Panel {
   }
 
   get acceleratorsEnabled() {
-    return this.accelEnabledCheckbox.checked;
+    return !("accel-enable" in localStorage) || localStorage.getItem("accel-enable") == "1";
   }
 
   initFromLocalStorage() {
-    let acceleratorsEnabled =
-      !("accel-enable" in localStorage) ||
-      localStorage.getItem("accel-enable") == "1";
-    this.accelEnabledCheckbox.checked = acceleratorsEnabled;
+    if (this.accelEnabledCheckbox) {
+      this.accelEnabledCheckbox.checked = this.acceleratorsEnabled;
+    }
     this.updateAccelerators();
   }
 
@@ -824,11 +824,6 @@ var Panel = new (class Panel {
   prepareForSearch() {
     // Remove any item not shared between search and other contexts.
     for (const node of [...this.content.childNodes]) {
-      if (node instanceof HTMLElement) {
-        if (node.classList.contains("panel-accel")) {
-          continue;
-        }
-      }
       this.content.removeChild(node);
     }
 
