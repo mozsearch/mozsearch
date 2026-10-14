@@ -13,19 +13,17 @@ function panelItem(label) {
 add_task(async function test_BugComponentRule() {
   await TestUtils.loadPath("/tests/source/mozbuild/test.cpp");
   const fileBug = panelItem("File a bug in Core :: Build Fixtures");
-  ok(fileBug, "The file's component is from bugzilla-components.json");
+  ok(fileBug, "The file's component is its moz.build rule's");
   const rule = fileBug.parentNode.querySelector(".item-extra");
   is(rule?.textContent, "moz.build", "Beside it is a link to its moz.build rule");
   is(rule?.getAttribute("href"), "/tests/source/mozbuild/moz.build#51",
      "at the line giving the component");
 
-  // (A moz.build rule which doesn't agree with bugzilla-components.json
-  // isn't linked.)
-  await TestUtils.loadPath("/tests/source/mozbuild/header.h");
-  const other = panelItem("File a bug in Core :: Simple");
-  ok(other, "The file's component is bugzilla-components.json's");
-  ok(!other.parentNode.querySelector(".item-extra"),
-     "and its moz.build rule, which says otherwise, isn't linked");
+  // (A later rule, for some of the directory's files, wins.)
+  await TestUtils.loadPath("/tests/source/mozbuild/generator.py");
+  const python = panelItem("File a bug in Core :: Python Fixtures");
+  is(python?.parentNode.querySelector(".item-extra")?.getAttribute("href"),
+     "/tests/source/mozbuild/moz.build#54", "The last matching rule gives it");
 });
 
 add_task(async function test_ReviewSkills() {

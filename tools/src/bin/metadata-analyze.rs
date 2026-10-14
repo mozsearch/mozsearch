@@ -9,7 +9,8 @@
 // INDEX_ROOT, each only if the tree has its rules:
 // - mozbuild-bug-components.json: each file's Bugzilla component by its
 //   moz.build files' `Files` rules, with the moz.build line giving it, as
-//   {"rules": {"N": {"product", "component", "path", "line"}}, "paths": {..}}
+//   {"rules": {"N": {"product", "component", "bug_component" (both), "path",
+//   "line"}}, "paths": {..}}
 //   where "paths" nests directories as objects with files' values the rules'
 //   numbers (like bugzilla-components.json's).
 // - review-context-rules.json: the `review-context.toml` rules applying to
@@ -149,6 +150,7 @@ fn main() {
                     json!({
                         "product": component.0,
                         "component": component.1,
+                        "bug_component": [component.0, component.1],
                         "path": origin.path,
                         "line": origin.line,
                     }),

@@ -103,9 +103,10 @@ Files:
 - `android-armv7.*`: A bunch of per-platform files downloaded by
   `fetch-tc-artifacts.sh` that we retain for debugging
   `process-gecko-analysis.sh`.
-- `bugzilla-components.json`: Downloaded by `fetch-tc-artifacts.sh` and
-  integrated into per-file information by `derive-per-file-info.rs` when invoked
-  by `crossref.sh`.
+- `bugzilla-components.json`: Formerly downloaded by `fetch-tc-artifacts.sh`
+  (Taskcluster's `source-bugzilla-info` artifact); files' components now come
+  from `mozbuild-bug-components.json`.  `metadata-analyze` still compares its
+  components with it, if it's there.
 - `*.chrome-map.json`: The source of `aliases/url-map.json`.  Used by
   `process-chrome-map.py`.
 - `crossref`: The big database produced by `crossref.rs` that has all the
@@ -182,10 +183,11 @@ Files:
   `process-gecko-analysis.sh`.
 - `mozbuild-bug-components.json`: Each file's Bugzilla component by the tree's
   moz.build files' `Files` rules, with the moz.build line giving it (derived
-  like `mach file-info bugzilla-automation`, which produces
-  `bugzilla-components.json`, for the "File a bug" panel item's link to its
-  rule).  Produced by `metadata-analyze.rs` and ingested into
-  `detailed-per-file-info` by `crossref.rs` (see `per-file-info.toml`).
+  like `mach file-info bugzilla-automation`, which produced the
+  `bugzilla-components.json` artifact, with which it agreed for every file),
+  for the concise info's component and subsystem and the "File a bug" panel
+  item's link to its rule.  Produced by `metadata-analyze.rs` and ingested by
+  `crossref.rs` (see `per-file-info.toml`).
 - `objdir-dirs`: A list of the directories found under `objdir/` for scripting
   and indexing purposes using in a bunch of places.  This is necessary because
   source files are exposed via the UI at `/PATH` and come from `gecko-dev/PATH`

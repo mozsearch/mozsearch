@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&fb.contents"
+input_file: inputs/web/files/nav-panel/wpt__test_ima_weird_meta_wpt__navpanel__html
 ---
 <div class="panel" id="panel">
   <button id="panel-toggle">
@@ -14,8 +15,8 @@ expression: "&fb.contents"
   <label class="panel-accel"><input type="checkbox" id="panel-accel-enable" checked="checked">Enable keyboard shortcuts</label>
   <h4>Source code</h4>
   <ul>
-  <li>
-  <a id="panel-file-bug" href="https://bugzilla.mozilla.org/enter_bug.cgi?product=Core&component=DOM: Service Workers" title="Open the new bug form for the Core :: DOM: Service Workers component in bugzilla" class="icon item">File a bug in Core :: DOM: Service Workers<button class="copy" title="Copy to clipboard"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a>
+  <li class="with-extra">
+  <a id="panel-file-bug" href="https://bugzilla.mozilla.org/enter_bug.cgi?product=Core&component=DOM: Service Workers" title="Open the new bug form for the Core :: DOM: Service Workers component in bugzilla" class="icon item">File a bug in Core :: DOM: Service Workers<button class="copy" title="Copy to clipboard"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></button></a><a class="item-extra" href="/tests/source/moz.build#32" title="Go to the rule giving this file its component, in moz.build on line 32">moz.build</a>
   </li>
   </ul>
   <h4>Revision control</h4>

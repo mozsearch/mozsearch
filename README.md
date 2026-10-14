@@ -306,10 +306,9 @@ steps in the next section.
 
 * Make your changes to the build/clang-plugin/mozsearch-plugin/ folder
   in firefox-main, and push them to try. Ensure that your try push has
-  all the searchfox jobs as well as the bugzilla-components job. The following
-  try syntax will accomplish this:
+  all the searchfox jobs. The following try syntax will accomplish this:
 ```
-./mach try fuzzy --full -q "'searchfox" -q "'bugzilla-component"
+./mach try fuzzy --full -q "'searchfox"
 ```
 * Record the full hg revision hash (40 characters) of the try push.
 

@@ -397,7 +397,9 @@ fn main() {
         if !path.contains("__GENERATED__")
             && let Some((product, component)) = concise_info.bugzilla_component
         {
-            // (The moz.build rule giving it the component, if ours agrees.)
+            // (The moz.build rule giving it the component, which is where the
+            // component comes from, unless a config's per-file-info.toml has
+            // it from elsewhere.)
             let rule = &detailed_info.info["bugzilla_rule"];
             let rule_link = (rule["product"].as_str() == Some(product.as_str())
                 && rule["component"].as_str() == Some(component.as_str()))

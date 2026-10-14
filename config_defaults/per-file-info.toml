@@ -98,28 +98,6 @@ source = [
 format = "file-glob-list"
 apply_tag = "data-review-required"
 
-# ### bugzilla-components.json
-#
-# Paths are stored via recursive nesting.
-#
-# - "components": A dictionary mapping from stringified numeric values to list
-#   tuples of the form [product, component].
-# - "paths": A tree where internal nodes are dictionaries corresponding to
-#   directories.  Each key is a filename and each value is either another
-#   directory dictionary or a non-stringified number corresponding to an entry
-#   in the `components` top-level dictionary.
-[jsonfile."bugzilla-components.json"]
-source = [{ root = "index", file = "bugzilla-components.json" }]
-
-[jsonfile."bugzilla-components.json".ingestion]
-root = "/paths"
-nesting = "hierarchical-dict-dirs-are-dicts-files-are-values"
-value_lookup = "/components"
-
-[jsonfile."bugzilla-components.json".concise]
-bugzilla_component.pointer = ""
-subsystem.liquid = '{{ value[0] }}/{{ value[1] | replace: "&", "" | replace: ":", "/" | compact_pathlike }}'
-
 # ### test-info-all-tests.json
 #
 # Paths are flat, with only a single level of clustering by bugzilla
@@ -164,10 +142,13 @@ manifest.pointer = "/manifest"
 #
 # Files' metadata from the rules the tree declares it by, with the rules'
 # lines, into the detailed info:
-# - mozbuild-bug-components.json: like bugzilla-components.json, nested by
-#   directories, whose files' values are numbers of its "rules": the moz.build
-#   `Files` rule giving the file its Bugzilla component, {"product",
-#   "component", "path" (the moz.build file), "line"}.
+# - mozbuild-bug-components.json: nested by directories (directories are
+#   objects, files' values are numbers of its "rules"), the moz.build `Files`
+#   rule giving the file its Bugzilla component (as mozbuild's `mach file-info`
+#   does, which made the Taskcluster artifact bugzilla-components.json we used
+#   to download), {"product", "component", "bug_component" (both), "path" (the
+#   moz.build file), "line"}, also for the concise info's component and
+#   subsystem.
 # - review-context-rules.json: nested the same way, numbers of its "sets" of
 #   the review-context.toml rules applying to the file, [{"name",
 #   "description", "path", "line", "applies" ("fully", or "partially" if the
@@ -183,6 +164,10 @@ source = [{ root = "index", file = "mozbuild-bug-components.json" }]
 root = "/paths"
 nesting = "hierarchical-dict-dirs-are-dicts-files-are-values"
 value_lookup = "/rules"
+
+[jsonfile."mozbuild-bug-components.json".concise]
+bugzilla_component.pointer = "/bug_component"
+subsystem.liquid = '{{ value.product }}/{{ value.component | replace: "&", "" | replace: ":", "/" | compact_pathlike }}'
 
 [jsonfile."mozbuild-bug-components.json".detailed.info]
 bugzilla_rule.pointer = ""

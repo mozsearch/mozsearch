@@ -1,0 +1,35 @@
+# The Bugzilla components of some of the tests tree's files, each a distinct
+# case (see tools/src/file_metadata/mozbuild.rs), which their "File a bug"
+# panel items and search results' subsystems show.
+
+with Files("README.md"):
+    BUG_COMPONENT = ("Data", "Text Files: Markdown")
+
+with Files("atom_list.h", "atom_magic.h"):
+    BUG_COMPONENT = ("Atoms", "General")
+
+with Files("big_header.h", "big_cpp.cpp"):
+    BUG_COMPONENT = ("Core", "Big")
+
+with Files("circle.svg", "tiger.svg"):
+    BUG_COMPONENT = ("Data", "Images: SVG")
+
+with Files("overs.cpp", "simple.cpp", "simple.rs", "using.cpp", "test_rust_dependency/src/lib.rs"):
+    BUG_COMPONENT = ("Core", "Simple")
+
+with Files(
+    "templates1.cpp",
+    "templates2.cpp",
+    "templates3.cpp",
+    "templates4.cpp",
+    "templates5.cpp",
+    "templates5.h",
+    "templates_nsTArray.cpp",
+):
+    BUG_COMPONENT = ("Core", "Templates")
+
+with Files("testing/web-platform/tests/complex-tests/some_cross_global_test.any.js", "testing/web-platform/tests/fake-standard/*_wpt.js"):
+    BUG_COMPONENT = ("Core", "DOM: Service Workers")
+
+with Files("xpidl_cpp_consumer.cpp"):
+    BUG_COMPONENT = ("Core", "XPCOM")
