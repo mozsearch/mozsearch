@@ -144,6 +144,7 @@ fn main() {
 
     let pre_templates = Instant::now();
     let info_boxes = InfoBoxes::load(&cfg);
+    let panel_section_templates = InfoBoxes::load_dir(&cfg, "panel_sections");
     let source_file_other_tools_panel_liquid_str = cfg
         .read_tree_config_file_with_default("source_file_other_tools_panels.liquid")
         .unwrap();
@@ -714,6 +715,25 @@ fn main() {
             .entry("spec")
             .or_insert(liquid::model::Value::Nil);
         let source_file_info_boxes = info_boxes.render(&liquid_globals);
+        // (The templates' panel sections, after the "Source code" one.)
+        let at = panel
+            .iter()
+            .position(|section| section.name == "Source code")
+            .map_or(0, |i| i + 1);
+        for (i, html) in panel_section_templates
+            .render_each(&liquid_globals)
+            .into_iter()
+            .enumerate()
+        {
+            panel.insert(
+                at + i,
+                PanelSection {
+                    name: String::new(),
+                    items: vec![],
+                    raw_items: vec![html],
+                },
+            );
+        }
         let source_file_other_tools_panels = source_file_other_tools_panel_template
             .render(&liquid_globals)
             .unwrap()

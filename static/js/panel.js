@@ -66,6 +66,20 @@ var Panel = new (class Panel {
       this.maybeHandleAccelerator(event)
     );
 
+    // An info box's "Details" button shows its panel section (ex: a test's,
+    // see info_boxes/test.liquid), opening the panel if it's collapsed.
+    for (const button of document.querySelectorAll("button.info-box-details")) {
+      button.addEventListener("click", () => {
+        if (!this.isExpanded()) {
+          this.toggle();
+        }
+        const section = document.getElementById(button.dataset.panelSection);
+        section?.scrollIntoView({ block: "start", behavior: "smooth" });
+        section?.classList.add("panel-section-flash");
+        setTimeout(() => section?.classList.remove("panel-section-flash"), 1000);
+      });
+    }
+
     for (let copy of this.panel.querySelectorAll("button.copy")) {
       copy.addEventListener("click", e => {
         e.preventDefault();

@@ -569,6 +569,12 @@ pub fn generate_panel(
                 .map(|raw_item| F::T(raw_item.to_string()))
                 .collect::<Vec<_>>();
 
+            // (A section without a name is its raw items, its heading too; ex:
+            // one from a template, see `InfoBoxes::load_dir`.)
+            if section.name.is_empty() && section.items.is_empty() {
+                return F::Seq(raw_items);
+            }
+
             F::Seq(vec![
                 F::T(format!("<h4>{}</h4>", section.name)),
                 F::S("<ul>"),

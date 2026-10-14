@@ -56,11 +56,29 @@ add_task(async function test_ReviewSkills() {
 
 add_task(async function test_TestManifestConditions() {
   await TestUtils.loadPath("/tests/source/tests/test_otherthing.html");
-  const box = frame.contentDocument.querySelector("section.info-boxes");
-  const section = box.querySelector("a.test-manifest-section");
+
+  // The info box summarizes the test's conditions...
+  const box = frame.contentDocument.querySelector("section.info-box-concise");
+  is(JSON.stringify([...box.querySelectorAll(".info-box-fact")].map(f => f.textContent)),
+     JSON.stringify([
+       "skipped given 3 conditions",
+       "runs only given 1 condition",
+       "expected to fail given 1 condition",
+       "in 1 manifest",
+     ]), "The info box counts the test's conditions");
+
+  // ...whose details are in the navigation panel, which its button shows.
+  const panelSection = frame.contentDocument.querySelector("#panel-tests");
+  ok(panelSection, "The panel has the test's section");
+  TestUtils.click(box.querySelector("button.info-box-details"));
+  ok(frame.contentDocument.querySelector("#panel-content").style.display != "none",
+     "The details button shows the panel");
+
+  const details = frame.contentDocument.querySelector(".panel-tests");
+  const section = details.querySelector("a.test-manifest-section");
   is(section?.getAttribute("href"), "/tests/source/tests/mochitest-common.toml#3",
      "The manifest goes to the test's section");
-  const conditions = [...box.querySelectorAll("a.test-skip-info")]
+  const conditions = [...details.querySelectorAll("a.test-skip-info")]
     .map(a => [a.textContent, a.getAttribute("href")]);
   is(JSON.stringify(conditions), JSON.stringify([
     ["verify", "/tests/source/tests/mochitest.toml#27"],
@@ -69,7 +87,12 @@ add_task(async function test_TestManifestConditions() {
     ["os = 'mac'", "/tests/source/tests/mochitest-common.toml#4"],
     ["debug", "/tests/source/tests/mochitest-common.toml#5"],
   ]), "Each condition goes to its line, the including manifest's too");
-  const comment = box.querySelector(".test-condition-comment a");
+  const comment = details.querySelector(".test-condition-comment a");
   is(comment?.getAttribute("href"), "https://bugzilla.mozilla.org/show_bug.cgi?id=1234",
      "A condition's comment's bug is a link");
+
+  // (A test with only some kinds of conditions.)
+  await TestUtils.loadPath("/tests/source/tests/test_something.html");
+  is(frame.contentDocument.querySelector(".panel-tests a.test-skip-info")?.getAttribute("href"),
+     "/tests/source/tests/mochitest.toml#12", "Its condition goes to its line");
 });

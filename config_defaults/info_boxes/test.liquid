@@ -1,47 +1,48 @@
-{%- comment %}A test's manifests and conditions are those metadata-analyze found
-in its manifests (detailed.info.test_manifests, with their lines), or else
-test-info-all-tests.json's (concise.info.test).{% endcomment -%}
-{%- assign has_manifest_conditions = false -%}
+{%- comment %}A test's info box: one line saying whether the code may be less
+tested than it looks (a warning) or untested (an error), with a few counts,
+and a button to its details in the navigation panel (panel_sections/
+tests.liquid).  The counts are its CI results' (tests.firefox.dev's), the
+conditions applying to it in its manifests (metadata-analyze's
+detailed.info.test_manifests, or else test-info-all-tests.json's), its failures,
+and a WPT's meta file's.  (Liquid fails on missing keys, hence the contains
+guards.){% endcomment -%}
+{%- assign skip_conditions = 0 -%}
+{%- assign run_conditions = 0 -%}
+{%- assign fail_conditions = 0 -%}
+{%- assign manifest_count = 0 -%}
 {%- if detailed.info contains "test_manifests" -%}
   {%- for entry in detailed.info.test_manifests -%}
-    {%- if entry.conditions != empty -%}{%- assign has_manifest_conditions = true -%}{%- endif -%}
+    {%- assign manifest_count = manifest_count | plus: 1 -%}
+    {%- if entry.conditions contains "skip-if" -%}{%- assign skip_conditions = skip_conditions | plus: entry.conditions["skip-if"].size -%}{%- endif -%}
+    {%- if entry.conditions contains "run-if" -%}{%- assign run_conditions = run_conditions | plus: entry.conditions["run-if"].size -%}{%- endif -%}
+    {%- if entry.conditions contains "fail-if" -%}{%- assign fail_conditions = fail_conditions | plus: entry.conditions["fail-if"].size -%}{%- endif -%}
   {%- endfor -%}
+{%- elsif concise.info contains "test" -%}
+  {%- if concise.info.test contains "skip_if" and concise.info.test.skip_if != empty -%}{%- assign skip_conditions = 1 -%}{%- endif -%}
+  {%- if concise.info.test contains "run_if" and concise.info.test.run_if != empty -%}{%- assign run_conditions = 1 -%}{%- endif -%}
+  {%- if concise.info.test contains "fail_if" and concise.info.test.fail_if != empty -%}{%- assign fail_conditions = 1 -%}{%- endif -%}
+  {%- if concise.info.test contains "manifest" -%}{%- assign manifest_count = concise.info.test.manifest.size -%}{%- endif -%}
 {%- endif -%}
-{%- comment %}(Liquid fails on missing keys, so test-info-all-tests.json's
-values, if any, are copied first.){% endcomment -%}
-{%- assign test_failure_count = 0 -%}
-{%- assign test_skip_if = "" -%}
-{%- assign test_run_if = "" -%}
-{%- assign test_fail_if = "" -%}
-{%- if concise.info contains "test" -%}
-  {%- if concise.info.test contains "failure_count" -%}{%- assign test_failure_count = concise.info.test.failure_count -%}{%- endif -%}
-  {%- if concise.info.test contains "skip_if" -%}{%- assign test_skip_if = concise.info.test.skip_if -%}{%- endif -%}
-  {%- if concise.info.test contains "run_if" -%}{%- assign test_run_if = concise.info.test.run_if -%}{%- endif -%}
-  {%- if concise.info.test contains "fail_if" -%}{%- assign test_fail_if = concise.info.test.fail_if -%}{%- endif -%}
+{%- assign failure_count = 0 -%}
+{%- if concise.info contains "test" and concise.info.test contains "failure_count" -%}
+  {%- assign failure_count = concise.info.test.failure_count -%}
 {%- endif -%}
-{% if concise.info contains "test" or concise.info contains "test_results" or detailed.info contains "test_manifests" -%}
-  {%- assign test_heading = "Test Info:" -%}
+{%- assign wpt_disabling = 0 -%}
+{%- assign wpt_subtests = 0 -%}
+{%- if concise.info contains "wpt" -%}
+  {%- if concise.info.wpt contains "disabling_conditions" -%}{%- assign wpt_disabling = concise.info.wpt.disabling_conditions.size -%}{%- endif -%}
+  {%- if concise.info.wpt contains "disabled_subtests_count" -%}{%- assign wpt_subtests = concise.info.wpt.disabled_subtests_count -%}{%- endif -%}
+{%- endif -%}
+{%- if concise.info contains "test" or concise.info contains "test_results" or concise.info contains "wpt" or detailed.info contains "test_manifests" -%}
+  {%- assign test_heading = "Test Info" -%}
   {%- assign test_severity = "info" -%}
-  {%- if test_failure_count > 0 -%}
+  {%- if skip_conditions > 0 or run_conditions > 0 or fail_conditions > 0 or wpt_disabling > 0 or wpt_subtests > 0 -%}
+    {%- assign test_heading = "Test Info: Warnings" -%}
+    {%- assign test_severity = "warning" -%}
+  {%- endif -%}
+  {%- if failure_count > 0 -%}
     {%- assign test_heading = "Test Info: Errors" -%}
     {%- assign test_severity = "error" -%}
-  {%- elsif has_manifest_conditions -%}
-    {%- assign test_heading = "Test Info: Warnings" -%}
-    {%- assign test_severity = "warning" -%}
-  {%- elsif test_skip_if != empty -%}
-    {%- assign test_heading = "Test Info: Warnings" -%}
-    {%- assign test_severity = "warning" -%}
-  {%- elsif test_run_if != empty -%}
-    {%- assign test_heading = "Test Info: Warnings" -%}
-    {%- assign test_severity = "warning" -%}
-  {%- elsif test_fail_if != empty -%}
-    {%- assign test_heading = "Test Info: Warnings" -%}
-    {%- assign test_severity = "warning" -%}
-  {%- elsif concise.info contains "wpt" -%}
-    {%- if concise.info.wpt contains "disabling_conditions" or concise.info.wpt contains "disabled_subtests_count" -%}
-      {%- assign test_heading = "Test Info: Warnings" -%}
-      {%- assign test_severity = "warning" -%}
-    {%- endif -%}
   {%- endif -%}
   {%- if concise.info contains "test_results" -%}
     {%- assign results = concise.info.test_results -%}
@@ -55,110 +56,41 @@ values, if any, are copied first.){% endcomment -%}
         {%- assign test_severity = "error" -%}
       {%- endif -%}
     {%- endif -%}
-  {%- endif -%}
-  {%- if concise.bugzilla_component == empty -%}
-    {%- assign bugzillaString = "" %}
-  {%- else -%}
-    {%- assign bugzillaString = concise.bugzilla_component | join: "::" %}
-{%- endif -%}
-{%- capture double_newline %}
-
-{% endcapture -%}
-{%- capture newline %}
-{% endcapture -%}
-  <section class="info-box info-box-{{test_severity}}">
+  {%- endif %}
+  <section class="info-box info-box-{{ test_severity }} info-box-concise">
     <h4>{{ test_heading }}</h4>
-    <div>
-      <ul>
-{%- if concise.info contains "test_results" and detailed.info contains "test_results" %}
-        <li>
-  {%- include 'test_results/test_panel.liquid' results: results, details: detailed.info.test_results, path: path %}
-        </li>
-{%- endif %}
-{%- if detailed.info contains "test_manifests" %}
-  {%- comment %}Each manifest listing the test, at its section, with the
-  conditions applying to it, each at its line.{% endcomment -%}
-  {%- assign condition_keys = "skip-if|Skipped if any of:,run-if|Runs only if:,fail-if|Expected to fail if:" | split: "," -%}
-  {%- for entry in detailed.info.test_manifests %}
-        <li>Manifest: {% if entry contains "ancestor" %}<a href="/{{ tree }}/source/{{ entry.ancestor }}">{{ entry.ancestor }}</a> includes {% endif -%}
-          <a href="/{{ tree }}/source/{{ entry.manifest }}#{{ entry.line }}" class="test-manifest-section">{{ entry.manifest }}</a>
-    {%- if entry.conditions != empty %}
-          <ul>
-      {%- for key_label in condition_keys -%}
-        {%- assign key_parts = key_label | split: "|" -%}
-        {%- assign conditions = entry.conditions[key_parts[0]] -%}
-        {%- if conditions %}
-            <li>{{ key_parts[1] }}
-              <ul>
-          {%- for condition in conditions %}
-                <li><a href="/{{ tree }}/source/{{ condition.manifest }}#{{ condition.line }}" class="test-skip-info">{{ condition.text | escape }}</a>
-            {%- case condition.from -%}
-              {%- when "default" %} <span class="test-condition-from">(the manifest's default)</span>
-              {%- when "include" %} <span class="test-condition-from">(where {{ condition.manifest }} includes it)</span>
-              {%- when "ancestor-default" %} <span class="test-condition-from">({{ condition.manifest }}'s default)</span>
-            {%- endcase -%}
-            {%- if condition.comment %} <span class="test-condition-comment">{{ condition.comment | linkify }}</span>{% endif -%}
-                </li>
-          {%- endfor %}
-              </ul>
-            </li>
-        {%- endif -%}
-      {%- endfor %}
-          </ul>
-    {%- endif %}
-        </li>
-  {%- endfor -%}
-{%- else -%}
-{% if test_skip_if != empty %}
-        <li>This test gets skipped with pattern: <span class="test-skip-info">{{ test_skip_if | replace: double_newline, newline | replace: newline, " OR " }}</span></li>
-{%- endif -%}
-{% if test_run_if != empty %}
-        <li>This test runs only with pattern: <span class="test-skip-info">{{ test_run_if | replace: double_newline, newline | replace: newline, " OR " }}</span></li>
-{%- endif -%}
-{% if test_fail_if != empty %}
-        <li>This test is know to fail with pattern: <span class="test-skip-info">{{ test_fail_if | replace: double_newline, newline | replace: newline, " OR " }}</span></li>
-{%- endif -%}
-{%- endif -%}
-{%- if test_failure_count > 0 %}
-        <li>This test failed {{ test_failure_count }} times in the preceding 30 days. <a href="https://bugzilla.mozilla.org/buglist.cgi?quicksearch={{ path }}">quicksearch this test</a></li>
-{% endif -%}
-{%- if concise.info contains "wpt" -%}
-  {%- capture wpt_meta_url -%}/{{ tree }}/source/{{ path | replace_first: "/tests/", "/meta/" }}.ini{%- endcapture -%}
-  {%- if concise.info.wpt contains "disabling_conditions" -%}
-                {%- assign linked_meta = true %}
-        <li>This test has a <a href="{{ wpt_meta_url }}">WPT meta file</a> that disables it given conditions:
-            <ul>{%- for cond_bug in concise.info.wpt.disabling_conditions %}
-                <li><span class="test-skip-info">{{ cond_bug[0] | strip }}</span>&nbsp; : <a href="{{ cond_bug[1] | ensure_bug_url }}">{{ cond_bug[1] }}</a></li>
-                {%- endfor -%}
-            </ul>
-        </li>
+    <span class="info-box-facts">
+  {%- if concise.info contains "test_results" -%}
+      <span class="info-box-fact">{{ results.runs | thousands }} runs in {{ results.days }} days</span>
+    {%- if results.issues > 0 -%}
+      <span class="info-box-fact">{{ results.issues | thousands }} with failures, timeouts or crashes ({{ results.pass_rate }}% passed)</span>
+    {%- endif -%}
+    {%- if results.skips > 0 -%}
+      <span class="info-box-fact">{{ results.skips | thousands }} skipped</span>
+    {%- endif -%}
   {%- endif -%}
-  {%- if concise.info.wpt contains "disabled_subtests_count" %}
-        <li>This test has a <a href="{{ wpt_meta_url }}">WPT meta file</a> that expects {{ concise.info.wpt.disabled_subtests_count }} subtest issues.</li>
-  {% endif -%}
-  {%- if concise.info.wpt contains "test_ids" %}
-        <li>This WPT test may be referenced by the following <a href="https://firefox-source-docs.mozilla.org/web-platform/index.html#running-tests">Test IDs</a>:
-            <ul>{%- for test_id in concise.info.wpt.test_ids %}
-                <li>/{{ test_id }} - <a href="https://wpt.fyi/results/{{ test_id }}">WPT Dashboard</a> <a href="https://jgraham.github.io/wptdash/?bugComponent={{ bugzillaString | downcase }}#/{{ test_id }}">Interop Dashboard</a></li>
-                {%- endfor -%}
-            </ul>
-        </li>
+  {%- if skip_conditions > 0 -%}
+      <span class="info-box-fact">skipped given {{ skip_conditions }} condition{% if skip_conditions != 1 %}s{% endif %}</span>
   {%- endif -%}
-{% elsif detailed.info contains "test_manifests" %}
-{% else %}
-  {%- comment %}WPTs do have a normalized manifest for infrastructure
-  purposes but it's not useful to show the user because it's just the
-  (implicit) directory.{% endcomment -%}
-  {%- if concise.info.test contains "manifest" and concise.info.test.manifest != empty %}
-    {%- for aggr_manifest in concise.info.test.manifest -%}
-              {%- assign manifests = aggr_manifest | split: ":" %}
-        <li>Manifest: {% for manifest in manifests -%}
-              {%- unless forloop.first %} includes {% endunless -%}<a href="/{{ tree }}/source/{{ manifest }}">{{ manifest }}</a>
-            {%- endfor -%}</li>
-    {%- endfor -%}
+  {%- if run_conditions > 0 -%}
+      <span class="info-box-fact">runs only given {{ run_conditions }} condition{% if run_conditions != 1 %}s{% endif %}</span>
   {%- endif -%}
-{%- endif %}
-      </ul>
-    </div>
+  {%- if fail_conditions > 0 -%}
+      <span class="info-box-fact">expected to fail given {{ fail_conditions }} condition{% if fail_conditions != 1 %}s{% endif %}</span>
+  {%- endif -%}
+  {%- if failure_count > 0 -%}
+      <span class="info-box-fact">failed {{ failure_count }} times in 30 days</span>
+  {%- endif -%}
+  {%- if wpt_disabling > 0 -%}
+      <span class="info-box-fact">disabled given {{ wpt_disabling }} condition{% if wpt_disabling != 1 %}s{% endif %}</span>
+  {%- endif -%}
+  {%- if wpt_subtests > 0 -%}
+      <span class="info-box-fact">{{ wpt_subtests }} subtest issue{% if wpt_subtests != 1 %}s{% endif %} expected</span>
+  {%- endif -%}
+  {%- if manifest_count > 0 -%}
+      <span class="info-box-fact">in {{ manifest_count }} manifest{% if manifest_count != 1 %}s{% endif %}</span>
+  {%- endif %}
+    </span>
+    <button type="button" class="info-box-details" data-panel-section="panel-tests">Details</button>
   </section>
 {%- endif -%}

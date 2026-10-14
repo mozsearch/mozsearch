@@ -8,6 +8,11 @@
 //! `format::format_rendered`'s): `tree`, `path`, `config`, `concise` and
 //! `detailed` (the file's per-file info, for source listings), and `spec`
 //! (the spec whose file it is, if it's one's; see `format::spec_globals`).
+//!
+//! Source listings' navigation panel sections from templates (ex: a test's
+//! manifests and CI results, which its info box summarizes) are loaded the
+//! same way, from `panel_sections/` (see `load_dir`), each rendering its whole
+//! section (its heading too).
 
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, LazyLock, Mutex};
@@ -28,9 +33,15 @@ pub struct InfoBoxes {
 impl InfoBoxes {
     /// The info boxes of `cfg`'s config repo (see the module docs).
     pub fn load(cfg: &Config) -> InfoBoxes {
+        Self::load_dir(cfg, "info_boxes")
+    }
+
+    /// The templates of `dir` (ex: "panel_sections"), mozsearch's and the
+    /// config repo's, the same way as info boxes'.
+    pub fn load_dir(cfg: &Config, dir: &str) -> InfoBoxes {
         let dirs = [
-            format!("{}/config_defaults/info_boxes", cfg.mozsearch_path),
-            format!("{}/info_boxes", cfg.config_repo_path),
+            format!("{}/config_defaults/{}", cfg.mozsearch_path, dir),
+            format!("{}/{}", cfg.config_repo_path, dir),
         ];
         let mut sources: BTreeMap<String, String> = BTreeMap::new();
         for dir in dirs {
@@ -105,6 +116,25 @@ impl InfoBoxes {
         RE_WHITESPACE_CLEANUP
             .replace_all(&rendered, "\n")
             .to_string()
+    }
+
+    /// Each template's rendering with `globals`, in order, but those which
+    /// render nothing (or fail to, which are logged).
+    pub fn render_each(&self, globals: &liquid::Object) -> Vec<String> {
+        lazy_static! {
+            static ref RE_WHITESPACE_CLEANUP: Regex = Regex::new(r#"(\n *)+\n"#).unwrap();
+        }
+        self.templates
+            .iter()
+            .filter_map(|(name, template)| {
+                let rendered = template.render(globals).unwrap_or_else(|e| {
+                    error!("{} failed to render: {}", name, e);
+                    String::new()
+                });
+                let rendered = RE_WHITESPACE_CLEANUP.replace_all(rendered.trim(), "\n").to_string();
+                (!rendered.is_empty()).then_some(rendered)
+            })
+            .collect()
     }
 }
 

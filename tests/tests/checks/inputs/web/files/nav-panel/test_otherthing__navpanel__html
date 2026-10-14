@@ -1,0 +1,1 @@
+cat-html tests/test_otherthing.html --select "#panel-content" | normalize-unstable-data

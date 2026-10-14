@@ -1277,6 +1277,53 @@ html.fancy-bar-resizing {
   padding-inline-start: 20px;
   margin: 0;
 }
+/* A concise info box: its heading, facts and a button to its details in the
+   navigation panel, on a line (see info_boxes/test.liquid). */
+.info-box-concise {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  padding: 0.4rem 0.8rem;
+  font-size: 100%;
+}
+.info-box-concise h4 {
+  margin: 0;
+}
+.info-box-fact + .info-box-fact::before {
+  content: "· ";
+  color: var(--page-subtle-foreground);
+}
+.info-box-details {
+  margin-inline-start: auto;
+  font: inherit;
+  cursor: pointer;
+}
+/* A test's details in the navigation panel (see panel_sections/tests.liquid). */
+.panel-tests {
+  padding: 0 0.5rem 0.5rem;
+  font-size: 90%;
+}
+.panel h4.panel-section-flash {
+  background-color: var(--info-box-warning-background);
+  transition: background-color 0.5s;
+}
+.panel-tests ul {
+  padding-inline-start: 1rem;
+  margin: 0;
+}
+.panel-tests > ul {
+  padding-inline-start: 0;
+  list-style: none;
+}
+.panel-tests a {
+  color: unset;
+  text-decoration: underline;
+}
+.panel-tests a.test-results-tiles {
+  text-decoration: none;
+}
+.panel-tests .test-skip-info,
 .info-box .test-skip-info {
   font-family: monospace;
   background-color: var(--info-box-test-skip-info-background);
@@ -1285,6 +1332,8 @@ html.fancy-bar-resizing {
 }
 /* A test's condition's place, if not its section, and the comment after it
    on its line (see info_boxes/test.liquid). */
+.panel-tests .test-condition-from,
+.panel-tests .test-condition-comment,
 .info-box .test-condition-from,
 .info-box .test-condition-comment {
   color: var(--page-subtle-foreground);
