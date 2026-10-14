@@ -83,15 +83,18 @@ pub fn order_commits(repo: &Repository, refs: &mut Vec<CommitRef>) {
 /// tokens it changed in each symbol (if we know).
 pub type CommitChanges = BTreeMap<String, BTreeMap<String, u32>>;
 
-/// The files the commit `rev` renamed or copied, as `(path, from)`, by its
-/// rev-summary.
-pub fn commit_moves(history: &TreeHistory, rev: &str) -> Vec<(String, String)> {
+/// The rev-summary of the commit `rev`, if the history has it.
+fn rev_summary(history: &TreeHistory, rev: &str) -> Option<RevSummaryRecord> {
     let path = Path::new(&history.path)
         .join("rev-summaries")
         .join(rev_summary_path(rev));
-    fs::read_to_string(path)
-        .ok()
-        .and_then(|text| serde_json::from_str::<RevSummaryRecord>(&text).ok())
+    serde_json::from_str(&fs::read_to_string(path).ok()?).ok()
+}
+
+/// The files the commit `rev` renamed or copied, as `(path, from)`, by its
+/// rev-summary.
+pub fn commit_moves(history: &TreeHistory, rev: &str) -> Vec<(String, String)> {
+    rev_summary(history, rev)
         .map(|summary| {
             summary
                 .file_deltas
@@ -102,6 +105,43 @@ pub fn commit_moves(history: &TreeHistory, rev: &str) -> Vec<(String, String)> {
         .unwrap_or_default()
 }
 
+/// A symbol which a commit moved to another file, maybe renaming it (see
+/// `SymbolSyntaxDelta::evolved_from_path`): its file's path and its pretty
+/// identifier in the commit's parent, and in the commit, and how many of its
+/// tokens the commit moved, added, or evolved there.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SymbolMove {
+    pub from_path: String,
+    pub from: String,
+    pub to_path: String,
+    pub to: String,
+    pub tokens: u32,
+}
+
+/// The symbols the commit `rev` moved to other files, by its rev-summary.
+pub fn commit_symbol_moves(history: &TreeHistory, rev: &str) -> Vec<SymbolMove> {
+    let Some(summary) = rev_summary(history, rev) else {
+        return vec![];
+    };
+    let mut moves = vec![];
+    for (path, file) in summary.file_deltas {
+        for (pretty, delta) in file.delta.symbol_group.symbol_deltas {
+            let totals = &delta.token_totals;
+            let tokens = totals.moved + totals.added + totals.evolved_from;
+            if let (Some(from_path), Some(from)) = (delta.evolved_from_path, delta.evolved_from) {
+                moves.push(SymbolMove {
+                    from_path,
+                    from,
+                    to_path: path.clone(),
+                    to: pretty,
+                    tokens,
+                });
+            }
+        }
+    }
+    moves
+}
+
 /// What the commit `rev` changed.
 pub fn commit_changes(
     history: Option<&TreeHistory>,
@@ -109,12 +149,7 @@ pub fn commit_changes(
     rev: &str,
 ) -> CommitChanges {
     if let Some(history) = history {
-        let path = Path::new(&history.path)
-            .join("rev-summaries")
-            .join(rev_summary_path(rev));
-        let summary = fs::read_to_string(path)
-            .ok()
-            .and_then(|text| serde_json::from_str::<RevSummaryRecord>(&text).ok());
+        let summary = rev_summary(history, rev);
         if let Some(summary) = summary
             && !summary.file_deltas.is_empty()
         {
@@ -318,6 +353,98 @@ pub struct ExploreSymbol {
     /// For interdiffs (see `format::format_interdiff_files`), whether the
     /// patches' changes to the symbol are the same, which fades it.
     pub same: bool,
+    /// Its moves to or from other files in the commits (see `annotate_moves`).
+    pub moves: Vec<ExploreMove>,
+}
+
+/// A symbol's move to or from another file in one of a page's commits (see
+/// `annotate_moves`): a short label (the arrow and the other file's name), a
+/// title saying which file, under which name, and in which commit, and a link
+/// to the other file.
+#[derive(Debug, Serialize)]
+pub struct ExploreMove {
+    pub label: String,
+    pub title: String,
+    pub link: String,
+}
+
+/// Note the page's commits' moves of the files' symbols to and from other
+/// files (`moves`, with the indices of their commits), on the symbols in both
+/// files: "↤ old.rs" on the moved symbol, linking to the file it was in, as of
+/// the commit's parent, and "↦ new.rs" on its old self, linking to its new
+/// file, as of the commit (by `link(path, commit, before)`).
+pub fn annotate_moves(
+    files: &mut [ExploreFile],
+    moves: &[(usize, SymbolMove)],
+    link: impl Fn(&str, usize, bool) -> String,
+) {
+    let file_name = |path: &str| path.rsplit('/').next().unwrap_or(path).to_string();
+    for (commit, m) in moves {
+        let renamed = |name: &str| {
+            if m.from == m.to {
+                String::new()
+            } else {
+                format!(" (as {})", name)
+            }
+        };
+        let sides = [
+            (
+                &m.to_path,
+                &m.to,
+                ExploreMove {
+                    label: format!("↤ {}", file_name(&m.from_path)),
+                    title: format!(
+                        "Moved from {}{} in commit {}",
+                        m.from_path,
+                        renamed(&m.from),
+                        commit + 1
+                    ),
+                    link: link(&m.from_path, *commit, true),
+                },
+            ),
+            (
+                &m.from_path,
+                &m.from,
+                ExploreMove {
+                    label: format!("↦ {}", file_name(&m.to_path)),
+                    title: format!(
+                        "Moved to {}{} in commit {}",
+                        m.to_path,
+                        renamed(&m.to),
+                        commit + 1
+                    ),
+                    link: link(&m.to_path, *commit, false),
+                },
+            ),
+        ];
+        for (path, pretty, note) in sides {
+            let symbol = files
+                .iter_mut()
+                .filter(|file| &file.path == path)
+                .find_map(|file| find_symbol(&mut file.symbols, pretty));
+            if let Some(symbol) = symbol
+                && !symbol.moves.iter().any(|other| other.title == note.title)
+            {
+                symbol.moves.push(note);
+            }
+        }
+    }
+}
+
+/// The symbol (or nested symbol) with the pretty identifier `pretty`.
+fn find_symbol<'a>(
+    symbols: &'a mut [ExploreSymbol],
+    pretty: &str,
+) -> Option<&'a mut ExploreSymbol> {
+    for symbol in symbols {
+        if symbol.pretty == pretty {
+            return Some(symbol);
+        }
+        if let Some(found) = find_symbol(&mut symbol.children, pretty) {
+            return Some(found);
+        }
+    }
+    None
 }
 
 #[derive(Debug, Serialize)]
@@ -456,6 +583,7 @@ pub fn blot_files(
                         blot: None,
                         children: vec![],
                         same: same(path, descendant),
+                        moves: vec![],
                     })
                     .collect();
                 // (A faded symbol's view is faded as a whole, and otherwise the
@@ -475,6 +603,7 @@ pub fn blot_files(
                     blot,
                     children,
                     same: top_same,
+                    moves: vec![],
                 }
             })
             .collect();
@@ -636,6 +765,56 @@ mod tests {
         ));
         assert!(blot.contains(r#"<rect class="explore-l3" x="6" y="10" width="6" height="2"/>"#));
         assert!(files[0].symbols[0].same);
+    }
+
+    #[test]
+    fn test_annotate_moves() {
+        let commit = |rev: &str| CommitRef {
+            rev: rev.to_string(),
+            iso_date: String::new(),
+            backout: false,
+        };
+        let commits = vec![commit("a"), commit("b")];
+        // `Foo::bar` changed in old.rs, then moved to new/new.rs as `Foo::baz`.
+        let changes: Vec<CommitChanges> = vec![
+            BTreeMap::from([(
+                "old.rs".to_string(),
+                BTreeMap::from([("Foo".to_string(), 1), ("Foo::bar".to_string(), 3)]),
+            )]),
+            BTreeMap::from([(
+                "new/new.rs".to_string(),
+                BTreeMap::from([("Foo::baz".to_string(), 3)]),
+            )]),
+        ];
+        let mut files = blot_files(&commits, &changes, |path, _| path.to_string(), |_, _| false);
+        let moves = vec![(
+            1,
+            SymbolMove {
+                from_path: "old.rs".to_string(),
+                from: "Foo::bar".to_string(),
+                to_path: "new/new.rs".to_string(),
+                to: "Foo::baz".to_string(),
+                tokens: 3,
+            },
+        )];
+        annotate_moves(&mut files, &moves, |path, commit, before| {
+            format!("{}@{}{}", path, commit, if before { "^" } else { "" })
+        });
+        let moved = &files[0].symbols[0];
+        assert_eq!(moved.pretty, "Foo::baz");
+        assert_eq!(moved.moves.len(), 1);
+        assert_eq!(moved.moves[0].label, "↤ old.rs");
+        assert_eq!(
+            moved.moves[0].title,
+            "Moved from old.rs (as Foo::bar) in commit 2"
+        );
+        assert_eq!(moved.moves[0].link, "old.rs@1^");
+        // (A nested symbol's, in old.rs.)
+        let old = &files[1].symbols[0].children[0];
+        assert_eq!(old.pretty, "Foo::bar");
+        assert_eq!(old.moves[0].label, "↦ new.rs");
+        assert_eq!(old.moves[0].link, "new/new.rs@1");
+        assert!(files[1].symbols[0].moves.is_empty());
     }
 
     #[test]

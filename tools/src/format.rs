@@ -6875,6 +6875,10 @@ const MAX_HISTORY_COMMITS: usize = 100;
 /// method a busy file's weeks of commits rarely changed; see `format_history`).
 const MAX_HISTORY_CANDIDATES: usize = 1000;
 
+/// The most moves to other files a history page follows its scope back
+/// through (see `format_history`).
+const MAX_HISTORY_MOVES: usize = 8;
+
 /// Whether a history context (see `syntax_files`) is `scope` or nested in it,
 /// "" being the whole file.
 fn in_scope(context: &str, scope: &str) -> bool {
@@ -6898,7 +6902,10 @@ fn in_scope(context: &str, scope: &str) -> bool {
 /// revisions of its weekly summaries (see `consolidation`) which changed the
 /// scope (whose own changes the summaries don't keep), which their
 /// rev-summaries then say (see `explore::commit_changes`), and which also say
-/// the file's earlier paths (see `explore::commit_moves`).
+/// the file's earlier paths (see `explore::commit_moves`).  If the scope moved
+/// to the file from another (see `explore::commit_symbol_moves`), the commits
+/// before the move are the other file's which changed it (by its name there),
+/// from the other file's journal as of the move's parent, and so on.
 pub fn format_history(
     cfg: &Config,
     tree_name: &str,
@@ -6949,80 +6956,135 @@ pub fn format_history(
     };
     let scope = if scope == "%" { String::new() } else { scope };
 
-    let records: Vec<FileDeltaRecord> = JournalReader::new(&history.timeline)
-        .records(&JournalVersionRef {
-            timeline_rev: timeline_commit.id().to_string(),
-            path: JournalKind::FilesDelta.journal_path(path),
-        })
-        .map_err(|_| "The history's journal of the file is broken")?;
-    // The revisions which may have changed the scope, newest first.
-    let mut candidates: Vec<&str> = vec![];
-    let mut seen = HashSet::new();
-    for record in &records {
-        let (revs, group) = match record {
-            FileDeltaRecord::Detail(detail) => (
-                vec![detail.desc.source_rev.as_str()],
-                &detail.delta.symbol_group,
-            ),
-            FileDeltaRecord::Summary(summary) => (
-                summary
-                    .desc
-                    .source_revs
-                    .iter()
-                    .map(String::as_str)
-                    .collect(),
-                &summary.symbol_group,
-            ),
-        };
-        let touched = group.symbol_deltas.iter().any(|(context, delta)| {
-            let totals = &delta.token_totals;
-            in_scope(context, &scope) && totals.added + totals.removed > 0
-        });
-        if touched {
-            candidates.extend(revs.into_iter().filter(|rev| seen.insert(*rev)));
-        }
-    }
-
-    // Their changes to the scope, in the file's paths at the time.
-    let mut paths: HashSet<String> = HashSet::from([path.to_string()]);
+    // The scope's history in the file, and if it moved there from another
+    // file (see `explore::commit_symbol_moves`), in that one before then, as
+    // it was named there, and so on: as segments of a file and a scope in it,
+    // as of a timeline commit (the move's parent's, for the earlier files).
+    let mut segment = Some((path.to_string(), scope.clone(), timeline_commit.id()));
+    // The moves, newest first: (commit, earlier file, earlier name, name).
+    let mut moves: Vec<(String, String, String, String)> = vec![];
     let mut kept: Vec<(CommitRef, explore::CommitChanges)> = vec![];
+    let mut seen = HashSet::new();
     let mut more = false;
-    let searched_all = candidates.len() <= MAX_HISTORY_CANDIDATES;
-    candidates.truncate(MAX_HISTORY_CANDIDATES);
-    for candidate in candidates {
-        let mut scoped: BTreeMap<String, u32> = BTreeMap::new();
-        for (changed, symbols) in commit_changes(Some(history), &git.repo, candidate) {
-            if !paths.contains(&changed) {
-                continue;
+    let mut searched_all = true;
+    'segments: while let Some((segment_path, segment_scope, timeline)) = segment.take() {
+        let records: Vec<FileDeltaRecord> =
+            match JournalReader::new(&history.timeline).records(&JournalVersionRef {
+                timeline_rev: timeline.to_string(),
+                path: JournalKind::FilesDelta.journal_path(&segment_path),
+            }) {
+                Ok(records) => records,
+                Err(_) if !moves.is_empty() => break,
+                Err(_) => return Err("The history's journal of the file is broken"),
+            };
+        // The revisions which may have changed the scope, newest first, and
+        // those which may have moved it into the file (whose tokens moved,
+        // rather than changed).
+        let mut candidates: Vec<&str> = vec![];
+        let mut move_candidates: HashSet<&str> = HashSet::new();
+        for record in &records {
+            let (revs, group) = match record {
+                FileDeltaRecord::Detail(detail) => (
+                    vec![detail.desc.source_rev.as_str()],
+                    &detail.delta.symbol_group,
+                ),
+                FileDeltaRecord::Summary(summary) => (
+                    summary
+                        .desc
+                        .source_revs
+                        .iter()
+                        .map(String::as_str)
+                        .collect(),
+                    &summary.symbol_group,
+                ),
+            };
+            let touched = group.symbol_deltas.iter().any(|(context, delta)| {
+                let totals = &delta.token_totals;
+                in_scope(context, &segment_scope) && totals.added + totals.removed > 0
+            });
+            let moved = !segment_scope.is_empty()
+                && group
+                    .symbol_deltas
+                    .get(&segment_scope)
+                    .is_some_and(|delta| delta.evolved_from_path.is_some());
+            if moved {
+                move_candidates.extend(revs.iter().copied());
             }
-            for (context, tokens) in symbols {
-                if tokens > 0 && in_scope(&context, &scope) {
-                    *scoped.entry(context).or_default() += tokens;
+            if touched || moved {
+                candidates.extend(revs.into_iter().filter(|rev| seen.insert(rev.to_string())));
+            }
+        }
+
+        // Their changes to the scope, in the file's paths at the time.
+        let mut paths: HashSet<String> = HashSet::from([segment_path.clone()]);
+        searched_all &= candidates.len() <= MAX_HISTORY_CANDIDATES;
+        candidates.truncate(MAX_HISTORY_CANDIDATES);
+        for candidate in candidates {
+            let mut scoped: BTreeMap<String, u32> = BTreeMap::new();
+            for (changed, symbols) in commit_changes(Some(history), &git.repo, candidate) {
+                if !paths.contains(&changed) {
+                    continue;
+                }
+                for (context, tokens) in symbols {
+                    if tokens > 0 && in_scope(&context, &segment_scope) {
+                        *scoped.entry(context).or_default() += tokens;
+                    }
                 }
             }
-        }
-        for (to, from) in explore::commit_moves(history, candidate) {
-            if paths.contains(&to) {
-                paths.insert(from);
+            for (to, from) in explore::commit_moves(history, candidate) {
+                if paths.contains(&to) {
+                    paths.insert(from);
+                }
+            }
+            // (The commit which moved the scope into the file, after which
+            // its history goes on in the file it was in.)
+            let moved = match move_candidates.contains(candidate) {
+                true => explore::commit_symbol_moves(history, candidate)
+                    .into_iter()
+                    .find(|m| m.to == segment_scope && paths.contains(&m.to_path)),
+                false => None,
+            };
+            if let Some(m) = &moved {
+                let tokens = scoped.entry(segment_scope.clone()).or_default();
+                *tokens = (*tokens).max(m.tokens.max(1));
+            }
+            if scoped.is_empty() {
+                continue;
+            }
+            if kept.len() == MAX_HISTORY_COMMITS {
+                more = true;
+                break 'segments;
+            }
+            let Some(found) = Oid::from_str(candidate)
+                .ok()
+                .and_then(|oid| git.repo.find_commit(oid).ok())
+            else {
+                continue;
+            };
+            kept.push((
+                crate::commit_index::commit_ref(&found),
+                BTreeMap::from([(segment_path.clone(), scoped)]),
+            ));
+            if let Some(m) = moved {
+                let parent_timeline = found
+                    .parent_id(0)
+                    .ok()
+                    .and_then(|parent| history.timeline_commit(parent))
+                    .map(|commit| commit.id());
+                moves.push((
+                    candidate.to_string(),
+                    m.from_path.clone(),
+                    m.from.clone(),
+                    m.to.clone(),
+                ));
+                if let Some(parent_timeline) = parent_timeline
+                    && moves.len() <= MAX_HISTORY_MOVES
+                {
+                    segment = Some((m.from_path, m.from, parent_timeline));
+                }
+                break;
             }
         }
-        if scoped.is_empty() {
-            continue;
-        }
-        if kept.len() == MAX_HISTORY_COMMITS {
-            more = true;
-            break;
-        }
-        let Some(found) = Oid::from_str(candidate)
-            .ok()
-            .and_then(|oid| git.repo.find_commit(oid).ok())
-        else {
-            continue;
-        };
-        kept.push((
-            crate::commit_index::commit_ref(&found),
-            BTreeMap::from([(path.to_string(), scoped)]),
-        ));
     }
     kept.reverse();
     let (refs, changes): (Vec<CommitRef>, Vec<explore::CommitChanges>) = kept.into_iter().unzip();
@@ -7073,6 +7135,20 @@ pub fn format_history(
     } else {
         format!("The commits which changed it, as of {}, oldest first.", at)
     };
+    // (And where it was before it moved to its file.)
+    let note = moves.iter().fold(note, |note, (rev, from_path, from, to)| {
+        format!(
+            "{}  {} moved from {}{} in {}, and the commits before that are its changes there.",
+            note,
+            to,
+            from_path,
+            match from == to {
+                true => String::new(),
+                false => format!(" (as {})", from),
+            },
+            &rev[..12.min(rev.len())]
+        )
+    });
     let extras = ExploreExtras {
         missing: vec![],
         truncated: false,
@@ -7198,7 +7274,7 @@ fn write_explore(
     }
     // (Files link to their views with the page's stack strip; see
     // `stack_strip_json`.)
-    let files = blot_files(
+    let mut files = blot_files(
         refs,
         &changes,
         |path, rev| {
@@ -7210,6 +7286,29 @@ fn write_explore(
         },
         |_, _| false,
     );
+    // (The symbols the commits moved to other files, on both files' rows.)
+    if let Some(history) = history {
+        let moves: Vec<(usize, explore::SymbolMove)> = refs
+            .iter()
+            .enumerate()
+            .flat_map(|(i, commit_ref)| {
+                explore::commit_symbol_moves(history, &commit_ref.rev)
+                    .into_iter()
+                    .map(move |m| (i, m))
+            })
+            .collect();
+        explore::annotate_moves(&mut files, &moves, |path, commit, before| {
+            let rev = &refs[commit].rev;
+            let rev = match before {
+                true => Oid::from_str(rev)
+                    .ok()
+                    .and_then(|oid| git.repo.find_commit(oid).ok()?.parent_id(0).ok())
+                    .map_or_else(|| rev.clone(), |parent| parent.to_string()),
+                false => rev.clone(),
+            };
+            format!("/{}/rev/{}/{}", tree_name, rev, url_encode_path(path))
+        });
+    }
     let (facets, file_groups) = explore_facets(cfg, tree_name, files);
 
     let page_title = format!("{} - mozsearch", title);

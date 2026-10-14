@@ -56,3 +56,29 @@ add_task(async function test_HistoryView() {
   ok(file.length > own.length, "with more commits");
   ok(file.some(s => s.includes("Bug 1282179")), "including those from before the function");
 });
+
+// A scope which moved to its file from another file (ex: the result facets'
+// MaybeFacetRoot, which Part 120 moved from cmd_compile_results.rs to
+// facets.rs) has its history in the other file before the move, which the
+// sparklines of both files' versions of it note.
+add_task(async function test_HistoryAcrossMoves() {
+  const MOVE = "4d987207087ae51e98792a49fe36e6aaff8a7ca2";
+  const OLD = "tools/src/cmd_pipeline/cmd_compile_results.rs";
+  const NEW = "tools/src/cmd_pipeline/facets.rs";
+  await TestUtils.loadPath(`/searchfox/history/${MOVE}/${NEW}?scope=MaybeFacetRoot`);
+  ok(doc().querySelector(".explore-note")?.textContent.includes(`MaybeFacetRoot moved from ${OLD}`),
+     "The history of a symbol which moved to its file says where it was");
+  const own = summaries();
+  ok(own[0]?.includes("Implement `compile-results`"),
+     "and starts with the commit which added it there");
+  ok(own[own.length - 1]?.includes("Part 120"), "up to the commit which moved it");
+  const paths = [...doc().querySelectorAll(".explore-file")].map(file => file.dataset.path);
+  ok(paths.includes(OLD) && paths.includes(NEW), "Its changes are in both files");
+
+  const from = doc().querySelector(`.explore-file[data-path="${NEW}"] .explore-move`);
+  is(from?.textContent, "↤ cmd_compile_results.rs", "Its sparkline says where it moved from");
+  ok(from?.getAttribute("href").endsWith(`/${OLD}`) && !from.getAttribute("href").includes(MOVE),
+     "linking to that file, before the move");
+  const to = doc().querySelector(`.explore-file[data-path="${OLD}"] .explore-move`);
+  is(to?.textContent, "↦ facets.rs", "and its old self's says where it moved to");
+});

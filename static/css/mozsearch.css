@@ -2319,6 +2319,13 @@ h2.sp-called-heading {
 .explore-parent {
   display: inline-block;
 }
+/* A symbol's move to or from another file (see explore::annotate_moves). */
+.explore-move {
+  font-size: 0.9em;
+  white-space: nowrap;
+  text-decoration: none;
+  opacity: 0.8;
+}
 .explore-parent > summary {
   cursor: pointer;
 }

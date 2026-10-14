@@ -1,7 +1,8 @@
 {%- comment -%}
   A file of an /explore/ page (see explore.liquid) or of an interdiff's summary
   (see interdiff_files.liquid): its sparkline and its symbols' (expandable for
-  symbols with nested symbols).  Interdiffs fade the files and symbols whose
+  symbols with nested symbols), with their moves to and from other files in
+  the commits (see `explore::annotate_moves`).  Interdiffs fade the files and symbols whose
   changes are the same in both patches, and add a note and excerpts.
 {%- endcomment -%}
   <section class="explore-file{% if file.same %} interdiff-same{% endif %}" data-path="{{ file.path | escape }}" data-facets="{{ file.facets | escape }}" data-groups="{{ file.groups | escape }}">
@@ -11,15 +12,15 @@
       {%- for symbol in file.symbols %}
       {%- if symbol.children.size > 0 %}
       <details class="explore-symbol explore-parent{% if symbol.same %} interdiff-same{% endif %}">
-        <summary title="{{ symbol.pretty | escape }}"><span class="explore-summary"><span class="explore-name">{{ symbol.name | escape }}</span> <span class="explore-count">({{ symbol.children.size }})</span> <span class="explore-collapsed">{{ symbol.blot }}</span><span class="explore-expanded">{{ symbol.sparkline }}</span></span></summary>
+        <summary title="{{ symbol.pretty | escape }}"><span class="explore-summary"><span class="explore-name">{{ symbol.name | escape }}</span>{% for move in symbol.moves %} <a class="explore-move" href="{{ move.link }}" title="{{ move.title | escape }}">{{ move.label | escape }}</a>{% endfor %} <span class="explore-count">({{ symbol.children.size }})</span> <span class="explore-collapsed">{{ symbol.blot }}</span><span class="explore-expanded">{{ symbol.sparkline }}</span></span></summary>
         <div class="explore-children">
           {%- for child in symbol.children %}
-          <span class="explore-symbol explore-child{% if child.same %} interdiff-same{% endif %}" title="{{ child.pretty | escape }}"><span class="explore-name">{{ child.name | escape }}</span> {{ child.sparkline }}</span>
+          <span class="explore-symbol explore-child{% if child.same %} interdiff-same{% endif %}" title="{{ child.pretty | escape }}"><span class="explore-name">{{ child.name | escape }}</span>{% for move in child.moves %} <a class="explore-move" href="{{ move.link }}" title="{{ move.title | escape }}">{{ move.label | escape }}</a>{% endfor %} {{ child.sparkline }}</span>
           {%- endfor %}
         </div>
       </details>
       {%- else %}
-      <span class="explore-symbol{% if symbol.same %} interdiff-same{% endif %}" title="{{ symbol.pretty | escape }}"><span class="explore-name">{{ symbol.name | escape }}</span> {{ symbol.sparkline }}</span>
+      <span class="explore-symbol{% if symbol.same %} interdiff-same{% endif %}" title="{{ symbol.pretty | escape }}"><span class="explore-name">{{ symbol.name | escape }}</span>{% for move in symbol.moves %} <a class="explore-move" href="{{ move.link }}" title="{{ move.title | escape }}">{{ move.label | escape }}</a>{% endfor %} {{ symbol.sparkline }}</span>
       {%- endif %}
       {%- endfor %}
     </div>
