@@ -160,6 +160,55 @@ fail_if.pointer = "/fail-if"
 failure_count.pointer = "/failure_count"
 manifest.pointer = "/manifest"
 
+# ### metadata-analyze's files (see tools/src/bin/metadata-analyze.rs)
+#
+# Files' metadata from the rules the tree declares it by, with the rules'
+# lines, into the detailed info:
+# - mozbuild-bug-components.json: like bugzilla-components.json, nested by
+#   directories, whose files' values are numbers of its "rules": the moz.build
+#   `Files` rule giving the file its Bugzilla component, {"product",
+#   "component", "path" (the moz.build file), "line"}.
+# - review-context-rules.json: nested the same way, numbers of its "sets" of
+#   the review-context.toml rules applying to the file, [{"name",
+#   "description", "path", "line", "applies" ("fully", or "partially" if the
+#   rule needs other files' changes too), "loads"}].
+# - test-manifest-entries.json: like test-info-all-tests.json, the test's
+#   entries in the test manifests, {"manifests": [{"manifest", "ancestor" (if
+#   included), "line" (of its section), "conditions": {"skip-if": [{"from",
+#   "manifest", "line", "text", "comment"}], ...}}]}.
+[jsonfile."mozbuild-bug-components.json"]
+source = [{ root = "index", file = "mozbuild-bug-components.json" }]
+
+[jsonfile."mozbuild-bug-components.json".ingestion]
+root = "/paths"
+nesting = "hierarchical-dict-dirs-are-dicts-files-are-values"
+value_lookup = "/rules"
+
+[jsonfile."mozbuild-bug-components.json".detailed.info]
+bugzilla_rule.pointer = ""
+
+[jsonfile."review-context-rules.json"]
+source = [{ root = "index", file = "review-context-rules.json" }]
+
+[jsonfile."review-context-rules.json".ingestion]
+root = "/paths"
+nesting = "hierarchical-dict-dirs-are-dicts-files-are-values"
+value_lookup = "/sets"
+
+[jsonfile."review-context-rules.json".detailed.info]
+review_rules.pointer = ""
+
+[jsonfile."test-manifest-entries.json"]
+source = [{ root = "index", file = "test-manifest-entries.json" }]
+
+[jsonfile."test-manifest-entries.json".ingestion]
+root = "/tests"
+nesting = "boring-dict-of-arrays"
+nesting_key = "test"
+
+[jsonfile."test-manifest-entries.json".detailed.info]
+test_manifests.pointer = "/manifests"
+
 # ### WPT manifest variants (wpt proper plus "mozilla" wpt)
 #
 # Hierarchical tree rooted under "items" where the first level groups by the

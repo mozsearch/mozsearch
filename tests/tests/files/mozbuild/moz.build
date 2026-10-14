@@ -45,3 +45,10 @@ GeneratedFile(
     entry_point="generate_some",
     inputs=input_files,
 )
+
+# The Bugzilla components of the files here (see tools/src/file_metadata).
+with Files("**"):
+    BUG_COMPONENT = ("Core", "Build Fixtures")
+
+with Files("*.py"):
+    BUG_COMPONENT = ("Core", "Python Fixtures")

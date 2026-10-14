@@ -31,6 +31,14 @@
     "7": [
       "Core",
       "DOM: Service Workers"
+    ],
+    "8": [
+      "Core",
+      "Build Fixtures"
+    ],
+    "9": [
+      "Core",
+      "Python Fixtures"
     ]
   },
   "paths": {
@@ -71,6 +79,11 @@
     },
     "tiger.svg": 3,
     "using.cpp": 1,
-    "xpidl_cpp_consumer.cpp": 6
+    "xpidl_cpp_consumer.cpp": 6,
+    "mozbuild": {
+      "test.cpp": 8,
+      "generator.py": 9,
+      "header.h": 1
+    }
   }
 }

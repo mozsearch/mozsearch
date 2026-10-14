@@ -1,0 +1,25 @@
+# Review guidance for the tests tree's files (see Firefox's
+# docs/ai-agent-tools/code-review-context.md).
+
+version = 1
+
+[[rules]]
+name = "Build fixtures"
+description = "How to review the build fixtures' C++."
+when = { any_file = { include = ["mozbuild/**"], ext = [".cpp", ".h"] } }
+load = [
+  { type = "file", path = "docs/md_test/index.md" },
+]
+
+[[rules]]
+name = "Tests and their manifests"
+description = "Changes to tests go with their manifests' changes."
+when = { all = [
+  { any_file = { include = ["tests/**"], ext = [".html"] } },
+  { any_file = { ext = [".toml"] } },
+] }
+load = [
+  { type = "file", path = "tests/head.js" },
+  { type = "file", path = "docs/guide.md", repo = "mozilla/other-repo" },
+  { type = "fetch_revision", revision = "D12345" },
+]

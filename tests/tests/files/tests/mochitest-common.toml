@@ -3,3 +3,7 @@
 ["test_otherthing.html"]
 run-if = ["os = 'mac'"]
 fail-if = ["debug"]
+skip-if = [
+  "os == 'android'", # Bug 1234 - a fixture's comment
+  "asan",
+]

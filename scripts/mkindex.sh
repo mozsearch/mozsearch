@@ -187,6 +187,10 @@ if should_perform "mozbuild-analyze"; then
     $MOZSEARCH_PATH/scripts/mozbuild-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "mozbuild-analyze.sh"
 fi
 
+if should_perform "metadata-analyze"; then
+    $MOZSEARCH_PATH/scripts/metadata-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "metadata-analyze.sh"
+fi
+
 ANALYSIS_FILES_PATH=$INDEX_ROOT/all-analysis-files
 
 if should_perform "generate-analsysis-files-list"; then

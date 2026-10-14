@@ -24,3 +24,4 @@ hello world'''
 
 
 ["include:mochitest-common.toml"]
+skip-if = ["verify"]
