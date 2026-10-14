@@ -36,5 +36,6 @@ mod cmd_traverse;
 mod cmd_webtest;
 
 pub use builder::build_pipeline;
+pub use cmd_augment_results::excerpt_row;
 pub(crate) use cmd_graph::transform_svg;
 pub use interface::{PipelineCommand, PipelineValues};

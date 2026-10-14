@@ -3,7 +3,7 @@ use std::path::Path;
 
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
-use ustr::{Ustr, ustr};
+use ustr::{Ustr, UstrMap, ustr};
 
 use crate::abstract_server::Result;
 use crate::utils::OverflowingVec;
@@ -149,6 +149,62 @@ impl TreeJumprefs {
             }
         }
         Ok(own)
+    }
+
+    /// Add the data of `sym` to a SYM_INFO (see `format::format_code`), if it
+    /// has it, with the data of the extra symbols the context menu uses for
+    /// it (see `determine_desired_extra_syms_from_jumpref`), tracking the
+    /// traversals made for them in `traversed`.
+    pub fn add_sym_info(
+        &self,
+        sym: Ustr,
+        sym_info: &mut BTreeMap<Ustr, Option<JumprefData>>,
+        traversed: &mut UstrMap<JumprefTraversals>,
+    ) {
+        let Ok(jumpref) = self.lookup(&sym) else {
+            return;
+        };
+        // See if there are any binding slot symbols that we should also
+        // include.  This allows us to do things like, when presenting a
+        // context menu for a synthetic XPIDL symbol, we can also provide an
+        // option to go directly to the C++ binding definition.
+        let mut extra_syms = determine_desired_extra_syms_from_jumpref(jumpref.as_ref());
+        traversed
+            .entry(sym)
+            .and_modify(|t| *t |= JumprefTraversals::NormalExtra)
+            .or_insert(JumprefTraversals::NormalExtra);
+        while let Some((extra_sym, next_step)) = extra_syms.pop() {
+            // No need to lookup and add what we already know if there is no
+            // next step.  But if there is a next step, we potentially need to
+            // look-up a third symbol which may not already have been loaded.)
+            if let Some(extra_traversed) = traversed.get_mut(&extra_sym) {
+                // The jumpref should already be in sym_info, it's just a
+                // question if we need to run an extra traversal for it.
+                if extra_traversed.contains(next_step) {
+                    continue;
+                }
+                *extra_traversed |= next_step;
+                if let Some(extra_jumpref) = sym_info.get(&extra_sym) {
+                    extra_syms.extend(extra_syms_next_step_lookups(
+                        extra_jumpref.as_ref(),
+                        next_step,
+                    ));
+                }
+            } else if let Ok(extra_jumpref) = self.lookup(&extra_sym) {
+                // If there is a next step, process the info for what to
+                // contribute to extra_syms before we consume the value by
+                // storing it.
+                if !next_step.is_empty() {
+                    extra_syms.extend(extra_syms_next_step_lookups(
+                        extra_jumpref.as_ref(),
+                        next_step,
+                    ));
+                }
+                traversed.insert(extra_sym, next_step);
+                sym_info.insert(extra_sym, extra_jumpref);
+            }
+        }
+        sym_info.insert(sym, jumpref);
     }
 }
 

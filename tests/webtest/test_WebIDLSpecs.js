@@ -61,6 +61,6 @@ add_task(async function test_webidl_implementations() {
   is(impl?.querySelector(".sp-citation-note")?.textContent,
      "C++ implementation of the WebIDL BindingTest::method1",
      "followed by its C++ implementation");
-  ok(impl?.querySelector(".sp-citation-code")?.textContent.includes("Method1"),
-     "with its code");
+  ok(impl?.querySelector(".sp-citation-rows")?.textContent.includes("Method1"),
+     "with its code, as its source listing's rows");
 });

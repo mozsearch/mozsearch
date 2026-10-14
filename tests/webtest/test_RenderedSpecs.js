@@ -230,16 +230,36 @@ add_task(async function test_AlgorithmView() {
   await TestUtils.loadPath(PATH);
 
   ok(doc().classList.contains("sp-algorithm"), "The page is an algorithm's view");
-  ok(doc().textContent.includes("To poke"), "The algorithm is on the left");
+  ok(doc().textContent.includes("To poke"), "The algorithm is on the right");
   ok(!doc().querySelector("#infrastructure"), "and only it");
   const cards = [...frame.contentDocument.querySelectorAll(".sp-citation")];
   is(cards.map(card => card.dataset.step).join(), ",1,2",
-     "The code citing the algorithm, and its steps, is on the right, in order");
+     "The code citing the algorithm, and its steps, is on the left, in order");
+  const aside = frame.contentDocument.querySelector("#sp-citations");
+  ok(aside.getBoundingClientRect().right <= doc().getBoundingClientRect().left,
+     "beside the algorithm");
   const step1 = cards[1];
   ok(step1.querySelector('a[href="/tests/source/spec_citations.cpp#13"]'),
      "A citation links to its line");
   ok(step1.textContent.includes("aWidget.state = 1;"), "and has its code, up to the next step's");
   ok(!step1.textContent.includes("Step 2"), "but not the next step's");
+  ok(!cards[2].textContent.includes("Unpoke"), "nor past its block's end");
+  // (Its source listing's rows, with their syntax highlighting and symbols.)
+  const rows = step1.querySelector('.sp-citation-rows[data-tree="tests"]');
+  ok(rows?.querySelector(".syn_comment"), "The code is its source listing's rows");
+  is([...rows.querySelectorAll("a.sp-citation-lineno")].pop()?.getAttribute("href"),
+     "/tests/source/spec_citations.cpp#14", "whose line numbers link to their lines");
+  ok(!rows?.querySelector(".line-number, [id]"),
+     "and aren't this page's lines");
+  const state = rows?.querySelector('span[data-symbols^="F_"]');
+  TestUtils.click(state);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "whose symbols have context menus");
+  const gotoDef = [...menu.querySelectorAll("a")]
+    .find(a => a.textContent.includes("Go to definition of spec_citations::Widget::state"));
+  is(gotoDef?.getAttribute("href"), "/tests/source/spec_citations.cpp#8",
+     "like the source listing's");
+  frame.contentWindow.ContextMenu.hide();
   // (Each citation is next to its step's block, or after the citation before
   // it, if that's further down.)
   const block = [...doc().querySelectorAll("li .rd-block")]

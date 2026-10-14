@@ -2007,15 +2007,16 @@ span[data-symbols].selected {
   align-items: flex-start;
 }
 .sp-algorithm-view > .rendered-doc {
-  flex: 1 1 55%;
+  flex: 1 1 50%;
   min-width: 0;
 }
 .sp-citations {
   position: relative;
-  flex: 1 1 45%;
+  flex: 1 1 50%;
   min-width: 0;
   margin-top: 0.5rem;
-  margin-right: 1em;
+  /* (Like .rd-notice's.) */
+  margin-left: 36px;
 }
 .sp-citation {
   position: absolute;
@@ -2141,6 +2142,28 @@ h2.sp-called-heading {
   margin: 0;
   overflow-x: auto;
   font-size: 12px;
+}
+/* A citation's excerpt as its source listing's rows (see
+   format::citation_rows), whose line numbers link to their lines there. */
+.sp-citation-rows {
+  overflow-x: auto;
+  font-family: monospace;
+  font-size: 12px;
+}
+.sp-citation-rows .source-line-with-number {
+  padding: 0;
+}
+.sp-citation-lineno {
+  flex-shrink: 0;
+  min-width: 4ch;
+  padding-right: 0.75ch;
+  text-align: right;
+  color: #aaa;
+  text-decoration: none;
+  user-select: none;
+}
+.sp-citation-lineno::before {
+  content: attr(data-line-number);
 }
 .sp-citations-none {
   font-style: italic;

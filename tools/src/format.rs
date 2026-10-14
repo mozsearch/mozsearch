@@ -19,10 +19,7 @@ use crate::file_format::code_coverage_report;
 use crate::file_format::coverage::InterpolatedCoverage;
 use crate::file_format::crossref::CrossrefData;
 use crate::file_format::doc_trees::{DocTrees, read_doc_trees};
-use crate::file_format::jumpref::{
-    JumprefData, JumprefTraversals, TreeJumprefs, determine_desired_extra_syms_from_jumpref,
-    extra_syms_next_step_lookups,
-};
+use crate::file_format::jumpref::{JumprefData, JumprefTraversals, TreeJumprefs};
 use crate::file_format::per_file_info::{PathFacetMap, path_facet_map};
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::{self, coverage_history, coverage_summary, git_time_to_chrono};
@@ -340,63 +337,12 @@ pub fn format_code(
                         // especially in the non-crossref case.
                         // See bug 2047542 to either use or remove that data.
 
-                        if !a.no_crossref
-                            && let Ok(jumpref) = jumpref_lookup.lookup(sym)
-                        {
-                            // See if there are any binding slot symbols that we should also
-                            // include.  This allows us to do things like, when presenting a
-                            // context menu for a synthetic XPIDL symbol, we can also provide an
-                            // option to go directly to the C++ binding definition.
-                            let mut extra_syms =
-                                determine_desired_extra_syms_from_jumpref(jumpref.as_ref());
-                            jumpref_traversed
-                                .entry(*sym)
-                                .and_modify(|t| *t |= JumprefTraversals::NormalExtra)
-                                .or_insert(JumprefTraversals::NormalExtra);
-                            while let Some((extra_sym, next_step)) = extra_syms.pop() {
-                                // No need to lookup and add what we already know if there is
-                                // no next step.  But if there is a next step, we potentially
-                                // need to look-up a third symbol which may not already have
-                                // been loaded.)
-                                let extra_sym = ustr(&extra_sym);
-                                if let Some(extra_traversed) = jumpref_traversed.get_mut(&extra_sym)
-                                {
-                                    // The jumpref should already be in generated_sym_info, it's
-                                    // just a question if we need to run an extra traversal for it.
-                                    if extra_traversed.contains(next_step) {
-                                        continue;
-                                    }
-                                    *extra_traversed |= next_step;
-                                    if let Some(extra_jumpref) = generated_sym_info.get(&extra_sym)
-                                    {
-                                        for (next_sym, next_traversals) in
-                                            extra_syms_next_step_lookups(
-                                                extra_jumpref.as_ref(),
-                                                next_step,
-                                            )
-                                        {
-                                            extra_syms.push((next_sym, next_traversals));
-                                        }
-                                    }
-                                } else if let Ok(extra_jumpref) = jumpref_lookup.lookup(&extra_sym)
-                                {
-                                    // If there is a next step, process the info for what to contribute
-                                    // to extra_syms before we consume the value by storing it.
-                                    if !next_step.is_empty() {
-                                        for (next_sym, next_traversals) in
-                                            extra_syms_next_step_lookups(
-                                                extra_jumpref.as_ref(),
-                                                next_step,
-                                            )
-                                        {
-                                            extra_syms.push((next_sym, next_traversals));
-                                        }
-                                    }
-                                    jumpref_traversed.insert(extra_sym, next_step);
-                                    generated_sym_info.insert(extra_sym, extra_jumpref);
-                                }
-                            }
-                            generated_sym_info.insert(*sym, jumpref);
+                        if !a.no_crossref {
+                            jumpref_lookup.add_sym_info(
+                                *sym,
+                                &mut generated_sym_info,
+                                &mut jumpref_traversed,
+                            );
                         }
                     }
                 }
@@ -1666,7 +1612,7 @@ pub fn algorithm_redirect(cfg: &Config, tree_name: &str, sym: &str) -> Option<St
 
 /// A citation of a spec's algorithm, or one of its steps, in a tree's file:
 /// the tree, the path, the (1-based) line, the function it's in, the step,
-/// and the lines from it, up to the next step's.
+/// and the lines from it, up to the next step's or its block's end.
 struct Citation {
     tree: String,
     path: String,
@@ -1674,6 +1620,9 @@ struct Citation {
     function: String,
     step: Option<String>,
     excerpt: Vec<String>,
+    /// The excerpt's lines' rows in the tree's source listing, if it has them
+    /// (see `citation_rows`).
+    rows: Option<String>,
     /// If its step's text changed after it was written (by the trees'
     /// histories): when, and the spec's commit that changed it.
     drift: Option<(i64, String)>,
@@ -1702,10 +1651,16 @@ fn newest_change(page: &PageBlame, lines: RangeInclusive<usize>) -> Option<(i64,
 const CITATION_EXCERPT_LINES: usize = 8;
 
 /// The citations of `sym` (its doc-uses, see `spec_analyze::citations`) in
-/// the tree and in its linked trees for its prefix, with their excerpts from
-/// the trees' latest revisions.  A WebIDL member reflecting the spec's
-/// definition (its doc-use, see `spec_analyze::bcd`) is followed by its C++
-/// implementations (by its `impl` binding slots), up to their ends.
+/// the code citing the tree's specs, with their excerpts from the trees'
+/// latest revisions: in its linked trees for its prefix if it has them (ex:
+/// firefox-disco's, for wubspecs), whose code it's of, and otherwise in the
+/// tree itself (ex: the test tree's, whose code cites its own specs).  (Not a
+/// spec tree's own other files, then, which are documents, ex: the HTML
+/// Standard's review drafts, copies of it whose references to other specs
+/// are citations of them, as code's would be, or specs' published copies.)
+/// A WebIDL member reflecting the spec's definition (its doc-use, see
+/// `spec_analyze::bcd`) is followed by its C++ implementations (by its
+/// `impl` binding slots), up to their ends.
 fn algorithm_citations(
     cfg: &Config,
     tree_name: &str,
@@ -1715,15 +1670,16 @@ fn algorithm_citations(
     lazy_static! {
         static ref STEP_COMMENT: regex::Regex = regex::Regex::new(r"(?i)\bsteps?\s+[0-9]").unwrap();
     }
-    let mut trees = vec![tree_name.to_string()];
-    trees.extend(
-        tree_config
-            .paths
-            .linked_trees
-            .iter()
-            .filter(|(prefix, _)| sym.starts_with(prefix.as_str()))
-            .map(|(_, tree)| tree.clone()),
-    );
+    let mut trees: Vec<String> = tree_config
+        .paths
+        .linked_trees
+        .iter()
+        .filter(|(prefix, _)| sym.starts_with(prefix.as_str()))
+        .map(|(_, tree)| tree.clone())
+        .collect();
+    if trees.is_empty() {
+        trees.push(tree_name.to_string());
+    }
     let mut citations = vec![];
     for tree in trees {
         let Some(index_path) = cfg.tree_index_paths.get(&tree) else {
@@ -1756,12 +1712,20 @@ fn algorithm_citations(
                     None => (hit.context.to_string(), None),
                 };
                 let first = hit.lineno as usize - 1;
+                // (Up to the next step's line, or the end of the block it's
+                // in, at a line indented less.)
+                let indent = |line: &str| line.len() - line.trim_start().len();
+                let first_indent = lines.get(first).map_or(0, |line| indent(line));
                 let excerpt: Vec<String> = lines
                     .iter()
                     .enumerate()
                     .skip(first)
                     .take(CITATION_EXCERPT_LINES)
-                    .take_while(|(i, line)| *i == first || !STEP_COMMENT.is_match(line))
+                    .take_while(|(i, line)| {
+                        *i == first
+                            || !(STEP_COMMENT.is_match(line)
+                                || (!line.trim().is_empty() && indent(line) < first_indent))
+                    })
                     .map(|(_, line)| line.clone())
                     .collect();
                 let webidl = hit.contextsym.starts_with("WEBIDL_");
@@ -1773,10 +1737,15 @@ fn algorithm_citations(
                     step,
                     // (A WebIDL member's is its line.)
                     excerpt: if excerpt.is_empty() || webidl {
-                        vec![hit.line.clone()]
+                        vec![
+                            lines
+                                .get(first)
+                                .map_or_else(|| hit.line.to_string(), String::clone),
+                        ]
                     } else {
                         excerpt
                     },
+                    rows: None,
                     drift: None,
                     note: webidl.then(|| "WebIDL".to_string()),
                     order: (result.path.to_string(), hit.lineno, 0),
@@ -1869,6 +1838,7 @@ fn webidl_implementations(
             function: pretty,
             step: None,
             excerpt,
+            rows: None,
             drift: None,
             note: Some(format!(
                 "C++ implementation of the WebIDL {}",
@@ -2132,11 +2102,13 @@ fn called_algorithms(tree_config: &TreeConfig, sym: &str) -> Vec<String> {
 }
 
 /// The view of the algorithm that `sym` defines in one of the tree's specs
-/// (`/{tree}/algorithm/{sym}`), beside the code citing it and its steps in the
-/// tree and its linked trees (ex: Gecko's, in firefox-disco, for wubspecs'
-/// specs): the algorithm's rendering (see `rendered_specs::render_algorithm`),
-/// with the blame of its blocks, and the citations' excerpts, placed by the
-/// page's script next to their steps' blocks.  Then the algorithms it calls
+/// (`/{tree}/algorithm/{sym}`), beside the code citing it and its steps (see
+/// `algorithm_citations`, ex: Gecko's, in firefox-disco, for wubspecs'
+/// specs): the citations' excerpts, as their source listings' rows (see
+/// `citation_rows`), on the left, placed by the page's script next to their
+/// steps' blocks, and the algorithm's rendering (see
+/// `rendered_specs::render_algorithm`), with the blame of its blocks, on the
+/// right.  Then the algorithms it calls
 /// (see `called_algorithms`), each beside the code citing it, so that one can
 /// follow its calls (from its call sites' "↓"s), without blame.
 pub fn format_algorithm(
@@ -2186,6 +2158,7 @@ pub fn format_algorithm(
         }
     }
     let map = algorithm_map(&sections, &calls);
+    let sym_info = citation_rows(cfg, &mut sections);
     let main = &sections[0];
 
     let title = format!("{} - mozsearch", rendered_docs::escape(&main.name));
@@ -2440,6 +2413,12 @@ pub fn format_algorithm(
             .replace("</", "<\\/")
     )
     .unwrap();
+    writeln!(
+        writer,
+        "<script>var SYM_INFO = {};</script>",
+        sym_info.replace("</", "<\\/")
+    )
+    .unwrap();
     if let Some(page) = &main.token_blame {
         let info_json = to_string(&page.info).unwrap();
         writeln!(
@@ -2503,8 +2482,153 @@ fn algorithm_map(sections: &[AlgorithmSection], calls: &[(usize, usize)]) -> Opt
     Some(svg[svg.find("<svg")?..].to_string())
 }
 
+/// How much indentation an excerpt's lines have in common.
+fn excerpt_indent(excerpt: &[String]) -> usize {
+    excerpt
+        .iter()
+        .filter(|line| !line.trim().is_empty())
+        .map(|line| line.len() - line.trim_start().len())
+        .min()
+        .unwrap_or(0)
+}
+
+/// The sections' citations' excerpts as their lines' rows in their trees'
+/// source listings (see `chunked_gzip`), if the trees have them, like
+/// `/query/`'s results' (see `excerpt_row`), so that they have the listings'
+/// syntax highlighting and symbols: without their common indentation, in
+/// their trees' (`data-tree`, which context-menu.js searches in), and with
+/// links to their lines in the listings (not `.line-number`s, which
+/// code-highlighter.js would select in this page).  And the SYM_INFO (see
+/// `format_code`) of their symbols, whose jumps are to their trees' files
+/// (by their `tree`s), for their context menus.
+fn citation_rows(cfg: &Config, sections: &mut [AlgorithmSection]) -> String {
+    use crate::file_format::chunked_gzip::{Row, read_rows};
+
+    const CODE: &str = r#"<code role="cell" class="source-line">"#;
+    const DATA_SYMBOLS: &str = "data-symbols=\"";
+    let mut lines: BTreeMap<(String, String), BTreeSet<u32>> = BTreeMap::new();
+    for citation in sections.iter().flat_map(|section| &section.citations) {
+        lines
+            .entry((citation.tree.clone(), citation.path.clone()))
+            .or_default()
+            .extend(citation.line..citation.line + citation.excerpt.len() as u32);
+    }
+    let mut rows: HashMap<(String, String), HashMap<u32, Row>> = HashMap::new();
+    for ((tree, path), lines) in lines {
+        let Some(index_path) = cfg.tree_index_paths.get(&tree) else {
+            continue;
+        };
+        let gz = format!("{}/file/{}.gz", index_path, path);
+        if let Ok(file_rows) = read_rows(Path::new(&gz), &lines) {
+            rows.insert((tree, path), file_rows);
+        }
+    }
+
+    // Each tree's SYM_INFO, and its traversals (see `add_sym_info`).
+    type TreeSymInfo = (
+        TreeJumprefs,
+        BTreeMap<Ustr, Option<JumprefData>>,
+        UstrMap<JumprefTraversals>,
+    );
+    let mut tree_sym_info: BTreeMap<String, TreeSymInfo> = BTreeMap::new();
+    for citation in sections
+        .iter_mut()
+        .flat_map(|section| section.citations.iter_mut())
+    {
+        let Some(file_rows) = rows.get(&(citation.tree.clone(), citation.path.clone())) else {
+            continue;
+        };
+        let indent = excerpt_indent(&citation.excerpt);
+        let mut html = String::new();
+        for line in citation.line..citation.line + citation.excerpt.len() as u32 {
+            // (All of them, or the excerpt's text.)
+            let Some(row) = file_rows.get(&line) else {
+                html.clear();
+                break;
+            };
+            let row = crate::cmd_pipeline::excerpt_row(&row.html)
+                .replacen(&format!(r#" id="line-{}""#, line), "", 1)
+                .replacen(
+                    &format!(
+                        r#"<div role="cell" class="line-number" data-line-number="{}"></div>"#,
+                        line
+                    ),
+                    &format!(
+                        r#"<a role="cell" class="sp-citation-lineno" href="/{}/source/{}#{}" data-line-number="{}"></a>"#,
+                        citation.tree,
+                        url_encode_path(&citation.path),
+                        line,
+                        line
+                    ),
+                    1,
+                );
+            match row.find(CODE) {
+                Some(at) => {
+                    let code = at + CODE.len();
+                    let blank = row[code..]
+                        .bytes()
+                        .take(indent)
+                        .take_while(|b| *b == b' ' || *b == b'\t')
+                        .count();
+                    html.push_str(&row[..code]);
+                    html.push_str(&row[code + blank..]);
+                }
+                None => html.push_str(&row),
+            }
+        }
+        if html.is_empty() {
+            continue;
+        }
+        let (jumprefs, sym_info, traversed) = tree_sym_info
+            .entry(citation.tree.clone())
+            .or_insert_with(|| {
+                let jumprefs = cfg
+                    .trees
+                    .get(&citation.tree)
+                    .map(|tree_config| {
+                        TreeJumprefs::open(&tree_config.paths, &cfg.tree_index_paths)
+                    })
+                    .unwrap_or_default();
+                (jumprefs, BTreeMap::new(), UstrMap::default())
+            });
+        let mut rest = html.as_str();
+        while let Some(start) = rest.find(DATA_SYMBOLS) {
+            rest = &rest[start + DATA_SYMBOLS.len()..];
+            let end = rest.find('"').unwrap_or(rest.len());
+            for sym in rest[..end].split(',').filter(|sym| !sym.is_empty()) {
+                let sym = ustr(sym);
+                if !sym_info.contains_key(&sym) {
+                    jumprefs.add_sym_info(sym, sym_info, traversed);
+                }
+            }
+            rest = &rest[end..];
+        }
+        citation.rows = Some(format!(
+            r#"<div class="file sp-citation-rows" role="table" data-tree="{}">{}</div>"#,
+            rendered_docs::escape(&citation.tree),
+            html
+        ));
+    }
+
+    let mut page_sym_info: BTreeMap<Ustr, Option<JumprefData>> = BTreeMap::new();
+    for (tree, (_, sym_info, _)) in tree_sym_info {
+        let tree = ustr(&tree);
+        for (sym, mut jumpref) in sym_info {
+            if let Some(jumpref) = jumpref.as_mut() {
+                // (The tree's own symbols' jumps are to its files.)
+                jumpref.tree.get_or_insert(tree);
+                // (The history digests are for `/query/`'s results.)
+                jumpref.recency = None;
+                jumpref.recency_from = None;
+            }
+            page_sym_info.entry(sym).or_insert(jumpref);
+        }
+    }
+    to_string(&page_sym_info).unwrap()
+}
+
 /// An algorithm's section of its view (the `n`th): its heading (but the
-/// first's), its rendering with its strips, and its citations.
+/// first's), and its citations beside its rendering with its strips.
 fn write_algorithm_section(
     writer: &mut dyn Write,
     tree_name: &str,
@@ -2534,24 +2658,10 @@ fn write_algorithm_section(
         )
         .unwrap();
     }
-    write!(
-        writer,
-        r#"<div class="sp-algorithm-view"><article id="rendered-doc{}" class="rendered-doc rendered-spec sp-algorithm">"#,
-        suffix
-    )
-    .unwrap();
-    let mut pos = 0;
-    let html = &section.view.rendered.html;
-    for (block, strip) in section.view.rendered.blocks.iter().zip(&section.strips) {
-        let at = block.strip_at.clamp(pos, html.len());
-        writer.write_all(&html.as_bytes()[pos..at]).unwrap();
-        writer.write_all(strip.as_bytes()).unwrap();
-        pos = at;
-    }
-    writer.write_all(&html.as_bytes()[pos..]).unwrap();
+    // (The code on the left, and the steps it implements on the right.)
     writeln!(
         writer,
-        r#"</article><aside id="sp-citations{}" class="sp-citations">"#,
+        r#"<div class="sp-algorithm-view"><aside id="sp-citations{}" class="sp-citations">"#,
         suffix
     )
     .unwrap();
@@ -2560,7 +2670,7 @@ fn write_algorithm_section(
         let known = citation.step.is_none() || section.steps.contains_key(step);
         write!(
             writer,
-            r#"<div class="sp-citation" data-step="{}"><div class="sp-citation-head"><a href="/{}/source/{}#{}">{}{}:{}</a> <span class="sp-citation-fn">{}</span>{}{}</div><pre class="sp-citation-code">"#,
+            r#"<div class="sp-citation" data-step="{}"><div class="sp-citation-head"><a href="/{}/source/{}#{}">{}{}:{}</a> <span class="sp-citation-fn">{}</span>{}{}</div>"#,
             rendered_docs::escape(step),
             rendered_docs::escape(&citation.tree),
             url_encode_path(&citation.path),
@@ -2600,14 +2710,13 @@ fn write_algorithm_section(
             }
         )
         .unwrap();
+        if let Some(rows) = &citation.rows {
+            writeln!(writer, "{}</div>", rows).unwrap();
+            continue;
+        }
         // (Without their common indentation.)
-        let indent = citation
-            .excerpt
-            .iter()
-            .filter(|line| !line.trim().is_empty())
-            .map(|line| line.len() - line.trim_start().len())
-            .min()
-            .unwrap_or(0);
+        let indent = excerpt_indent(&citation.excerpt);
+        write!(writer, r#"<pre class="sp-citation-code">"#).unwrap();
         for line in &citation.excerpt {
             writeln!(
                 writer,
@@ -2625,7 +2734,22 @@ fn write_algorithm_section(
         )
         .unwrap();
     }
-    writeln!(writer, "</aside></div></section>").unwrap();
+    write!(
+        writer,
+        r#"</aside><article id="rendered-doc{}" class="rendered-doc rendered-spec sp-algorithm">"#,
+        suffix
+    )
+    .unwrap();
+    let mut pos = 0;
+    let html = &section.view.rendered.html;
+    for (block, strip) in section.view.rendered.blocks.iter().zip(&section.strips) {
+        let at = block.strip_at.clamp(pos, html.len());
+        writer.write_all(&html.as_bytes()[pos..at]).unwrap();
+        writer.write_all(strip.as_bytes()).unwrap();
+        pos = at;
+    }
+    writer.write_all(&html.as_bytes()[pos..]).unwrap();
+    writeln!(writer, "</article></div></section>").unwrap();
 }
 
 /// A file of a commit, as text (ex: an ecmarkup spec's imports).

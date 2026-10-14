@@ -1294,7 +1294,11 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       return;
     }
 
-    let tree = document.getElementById("data").getAttribute("data-tree");
+    // (Another tree's code on the page is in an element saying whose it is,
+    // ex: an algorithm's view's excerpts of the code citing it; see
+    // `format::citation_rows`.)
+    let tree = event.target.closest("[data-tree]")?.getAttribute("data-tree") ||
+               document.getElementById("data").getAttribute("data-tree");
 
     // Figure out the source line this click was on, if it was on any line, so
     // that we can compare it against jump strings in order to avoid offering
