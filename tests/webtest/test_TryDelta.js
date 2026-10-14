@@ -57,6 +57,10 @@ add_task(async function test_TryDeltaPages() {
   const search = menu.querySelector(".icon-search")?.getAttribute("href");
   ok(search?.startsWith("/trydelta/query/default?q=symbol:") && search.endsWith(`&rev=${head}`),
      "and its searches are of the push");
+  const gotoDef = [...menu.querySelectorAll("a")]
+    .find(a => a.textContent.includes("Go to definition"));
+  ok(gotoDef?.getAttribute("href")?.startsWith(`/trydelta/rev/${head}/widget.cpp#`),
+     "and its jumps are to the push's head's files");
 });
 
 add_task(async function test_TryDeltaQueries() {
@@ -100,7 +104,9 @@ add_task(async function test_TryDeltaUnanalyzedFiles() {
 });
 
 // The push's citations of web specs are its analysis's too, as the indexed
-// revision's are, so that its pages' citations have the push's lines.
+// revision's are, so that its pages' citations have the push's lines, and
+// the algorithms they cite can be shown beside the code citing them at its
+// head, compared with the code citing them that the spec tree's view has.
 add_task(async function test_TryDeltaCitations() {
   const head = await importPush();
 
@@ -110,4 +116,49 @@ add_task(async function test_TryDeltaCitations() {
   await TestUtils.loadPath(`/trydelta/query/default?q=symbol:${POKE}`);
   ok(doc().querySelector('a[href$="/poke.cpp#7"]') && !doc().querySelector('a[href$="/poke.cpp#9"]'),
      "unlike the indexed revision's, which don't have them");
+
+  await TestUtils.loadPath(`/trydelta/rev/${head}/poke.cpp`);
+  const citation = doc().querySelector(`#line-5 span[data-symbols="${POKE}"]`);
+  TestUtils.click(citation);
+  const menu = doc().querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the head's citation");
+  const beside = [...menu.querySelectorAll("a")]
+    .find(a => a.textContent.includes("beside the code citing it"));
+  const VIEW = `/trydelta/rev-algorithm/${head}/${POKE}`;
+  is(beside?.getAttribute("href"), VIEW,
+     "which shows the algorithm beside the code citing it at the push's head");
+  frame.contentWindow.ContextMenu.hide();
+
+  await TestUtils.loadPath(VIEW);
+  ok(doc().querySelector("#rendered-doc")?.textContent.includes("To poke"),
+     "The view has the algorithm's steps");
+  const [left, right] = [...doc().querySelectorAll("#sp-algorithm-0 .sp-citations")];
+  const steps = doc().querySelector("#rendered-doc").getBoundingClientRect();
+  ok(left.getBoundingClientRect().right <= steps.left &&
+     steps.right <= right.getBoundingClientRect().left,
+     "between the code citing it at the push's head and the code it's compared with");
+  const step2 = [...left.querySelectorAll(".sp-citation")]
+    .find(card => card.dataset.step == "2");
+  ok(step2?.querySelector(`a[href="/trydelta/rev/${head}/poke.cpp#9"]`),
+     "The push's citations link to its head's lines");
+  ok(step2?.classList.contains("sp-citation-changed"), "and are marked as changed by it");
+  ok([...left.querySelectorAll(".sp-citation-rows")]
+       .some(rows => rows.textContent.includes("aWidget.Frob(1, true);")),
+     "with the push's code");
+  ok(right.querySelector('a[href="/tests/source/spec_citations.cpp#13"]'),
+     "The code it's compared with is the spec tree's view's");
+
+  // (The push's code's symbols' menus are of the push's head.)
+  const frob = [...left.querySelectorAll(".sp-citation-rows span[data-symbols]")]
+    .find(span => span.textContent == "Frob");
+  TestUtils.click(frob);
+  await waitForShown(menu, "The push's code's symbols have context menus");
+  const links = [...menu.querySelectorAll("a")];
+  ok(links.find(a => a.textContent.includes("Go to definition"))
+       ?.getAttribute("href")?.startsWith(`/trydelta/rev/${head}/widget.cpp#`),
+     "which jump to the push's definitions, at its head");
+  const search = menu.querySelector(".icon-search")?.getAttribute("href");
+  ok(search?.startsWith("/trydelta/query/default?q=symbol:") && search.endsWith(`&rev=${head}`),
+     "and search in the push's context");
+  frame.contentWindow.ContextMenu.hide();
 });

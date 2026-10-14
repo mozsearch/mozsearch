@@ -1629,10 +1629,31 @@ struct Citation {
     /// What it is, if not a citation, ex: the C++ implementation of a WebIDL
     /// member reflecting the spec's definition.
     note: Option<String>,
+    /// The try push's head it's at, if it's a push's (see `Citing::TryPush`),
+    /// and whether it's in a file the push changes.
+    rev: Option<String>,
+    changed: bool,
     /// Where it goes among the algorithm's citations (of the same step): its
     /// own path and line, or for an implementation, its WebIDL member's, after
     /// it.
     order: (String, u32, u8),
+}
+
+/// The listing of a citation's file, at its revision.
+fn citation_url(citation: &Citation) -> String {
+    match &citation.rev {
+        Some(rev) => format!(
+            "/{}/rev/{}/{}",
+            citation.tree,
+            rev,
+            url_encode_path(&citation.path)
+        ),
+        None => format!(
+            "/{}/source/{}",
+            citation.tree,
+            url_encode_path(&citation.path)
+        ),
+    }
 }
 
 /// The newest change to a page's lines (0-based) by its token blame: its
@@ -1650,38 +1671,76 @@ fn newest_change(page: &PageBlame, lines: RangeInclusive<usize>) -> Option<(i64,
 /// How many lines a citation's excerpt has at most.
 const CITATION_EXCERPT_LINES: usize = 8;
 
+/// Whose code citing an algorithm a column of its view has (see
+/// `format_algorithm`).
+#[derive(Clone)]
+enum Citing {
+    /// The code citing the spec tree's specs: its linked trees' for the
+    /// symbol's prefix if it has them (ex: firefox-disco's, for wubspecs),
+    /// whose code it's of, and otherwise the tree's own (ex: the test
+    /// tree's, whose code cites its own specs), at their indexed revisions.
+    /// (Not a spec tree's own other files, then, which are documents, ex:
+    /// the HTML Standard's review drafts, copies of it whose references to
+    /// other specs are citations of them, as code's would be, or specs'
+    /// published copies.)
+    Specs,
+    /// A tree's code at the head of a try push's stack rebased onto its
+    /// indexed revision, by the push's semantic delta (see `try_delta`).
+    TryPush {
+        tree: String,
+        delta: std::sync::Arc<crate::try_delta::TryDelta>,
+    },
+}
+
+impl Citing {
+    /// The trees whose code it is, for the symbol, from the spec tree's.
+    fn trees(&self, tree_name: &str, tree_config: &TreeConfig, sym: &str) -> Vec<String> {
+        match self {
+            Citing::Specs => {
+                let trees: Vec<String> = tree_config
+                    .paths
+                    .linked_trees
+                    .iter()
+                    .filter(|(prefix, _)| sym.starts_with(prefix.as_str()))
+                    .map(|(_, tree)| tree.clone())
+                    .collect();
+                if trees.is_empty() {
+                    vec![tree_name.to_string()]
+                } else {
+                    trees
+                }
+            }
+            Citing::TryPush { tree, .. } => vec![tree.clone()],
+        }
+    }
+
+    fn delta(&self) -> Option<&crate::try_delta::TryDelta> {
+        match self {
+            Citing::Specs => None,
+            Citing::TryPush { delta, .. } => Some(delta),
+        }
+    }
+}
+
 /// The citations of `sym` (its doc-uses, see `spec_analyze::citations`) in
-/// the code citing the tree's specs, with their excerpts from the trees'
-/// latest revisions: in its linked trees for its prefix if it has them (ex:
-/// firefox-disco's, for wubspecs), whose code it's of, and otherwise in the
-/// tree itself (ex: the test tree's, whose code cites its own specs).  (Not a
-/// spec tree's own other files, then, which are documents, ex: the HTML
-/// Standard's review drafts, copies of it whose references to other specs
-/// are citations of them, as code's would be, or specs' published copies.)
-/// A WebIDL member reflecting the spec's definition (its doc-use, see
-/// `spec_analyze::bcd`) is followed by its C++ implementations (by its
-/// `impl` binding slots), up to their ends.
+/// the code `citing` it, with their excerpts from the code's revisions (the
+/// trees' indexed ones, or a try push's head).  A WebIDL member reflecting
+/// the spec's definition (its doc-use, see `spec_analyze::bcd`) is followed
+/// by its C++ implementations (by its `impl` binding slots), up to their
+/// ends.
 fn algorithm_citations(
     cfg: &Config,
     tree_name: &str,
     tree_config: &TreeConfig,
     sym: &str,
+    citing: &Citing,
 ) -> Vec<Citation> {
     lazy_static! {
         static ref STEP_COMMENT: regex::Regex = regex::Regex::new(r"(?i)\bsteps?\s+[0-9]").unwrap();
     }
-    let mut trees: Vec<String> = tree_config
-        .paths
-        .linked_trees
-        .iter()
-        .filter(|(prefix, _)| sym.starts_with(prefix.as_str()))
-        .map(|(_, tree)| tree.clone())
-        .collect();
-    if trees.is_empty() {
-        trees.push(tree_name.to_string());
-    }
+    let delta = citing.delta();
     let mut citations = vec![];
-    for tree in trees {
+    for tree in citing.trees(tree_name, tree_config, sym) {
         let Some(index_path) = cfg.tree_index_paths.get(&tree) else {
             continue;
         };
@@ -1695,12 +1754,27 @@ fn algorithm_citations(
         let Some(crossref) = BisectableMmap::<CrossrefData>::new(&inline, &extra) else {
             continue;
         };
-        let Ok(Some(data)) = crossref.lookup(sym) else {
+        // (A try push's, with its patches.)
+        let lookup = |sym: &str| -> Option<CrossrefData> {
+            let data = crossref.lookup(sym).ok().flatten();
+            match delta.and_then(|delta| delta.crossref_patch(sym).ok().flatten()) {
+                Some(patch) => patch.apply(data),
+                None => data,
+            }
+        };
+        let Some(data) = lookup(sym) else {
             continue;
         };
         let git = cfg.trees.get(&tree).and_then(|t| t.get_git().ok());
-        let head = git.and_then(|git| git.repo.head().ok()?.peel_to_commit().ok());
+        let head = git.and_then(|git| {
+            let object = match delta {
+                Some(delta) => git.repo.revparse_single(&delta.meta.head).ok()?,
+                None => git.repo.head().ok()?.peel(git2::ObjectType::Commit).ok()?,
+            };
+            object.peel_to_commit().ok()
+        });
         for result in data.doc_uses.unwrap_or_default() {
+            let changed = delta.is_some_and(|delta| delta.change(&result.path).is_some());
             let lines: Vec<String> = match (git, &head) {
                 (Some(git), Some(head)) => read_commit_file(&git.repo, head, &result.path)
                     .map_or(vec![], |text| text.lines().map(str::to_string).collect()),
@@ -1748,14 +1822,17 @@ fn algorithm_citations(
                     rows: None,
                     drift: None,
                     note: webidl.then(|| "WebIDL".to_string()),
+                    rev: delta.map(|delta| delta.meta.head.clone()),
+                    changed,
                     order: (result.path.to_string(), hit.lineno, 0),
                 });
                 if webidl {
                     citations.extend(webidl_implementations(
-                        &crossref,
+                        &lookup,
                         &tree,
                         git,
                         head.as_ref(),
+                        delta,
                         &hit.contextsym,
                         &hit.context,
                         (result.path.to_string(), hit.lineno, 1),
@@ -1768,19 +1845,22 @@ fn algorithm_citations(
 }
 
 /// The C++ implementations of a WebIDL member (`webidl`, by its `impl` binding
-/// slots, in the tree with `crossref` and `git`), as citations: from their
-/// definitions' lines up to their ends (a line closing a block at their
-/// indentation), at most twice as many lines as citations'.
+/// slots, in the tree whose crossref data `lookup` has, at `head`, maybe a
+/// try push's with `delta`), as citations: from their definitions' lines up
+/// to their ends (a line closing a block at their indentation), at most twice
+/// as many lines as citations'.
+#[allow(clippy::too_many_arguments)]
 fn webidl_implementations(
-    crossref: &BisectableMmap<CrossrefData>,
+    lookup: &dyn Fn(&str) -> Option<CrossrefData>,
     tree: &str,
     git: Option<&GitData>,
     head: Option<&git2::Commit>,
+    delta: Option<&crate::try_delta::TryDelta>,
     webidl: &str,
     webidl_pretty: &str,
     order: (String, u32, u8),
 ) -> Vec<Citation> {
-    let Ok(Some(data)) = crossref.lookup(webidl) else {
+    let Some(data) = lookup(webidl) else {
         return vec![];
     };
     let Some(meta) = data.meta else {
@@ -1793,7 +1873,7 @@ fn webidl_implementations(
         {
             continue;
         }
-        let Ok(Some(implementation)) = crossref.lookup(&slot.sym) else {
+        let Some(implementation) = lookup(&slot.sym) else {
             continue;
         };
         let Some(definition) = implementation
@@ -1844,6 +1924,8 @@ fn webidl_implementations(
                 "C++ implementation of the WebIDL {}",
                 webidl_pretty
             )),
+            rev: delta.map(|delta| delta.meta.head.clone()),
+            changed: delta.is_some_and(|delta| delta.change(definition.0.as_str()).is_some()),
             order: order.clone(),
         });
     }
@@ -1852,7 +1934,8 @@ fn webidl_implementations(
 
 /// An algorithm's section of its view (see `format_algorithm`): its rendering
 /// with its blocks' blame (or line markers), its steps' (1-based) lines, and
-/// the citations of it and its steps.
+/// the citations of it and its steps, in each of the view's columns of code
+/// citing it.
 struct AlgorithmSection {
     sym: String,
     name: String,
@@ -1869,13 +1952,14 @@ struct AlgorithmSection {
     view: rendered_specs::RenderedSpec,
     strips: Vec<String>,
     steps: BTreeMap<String, usize>,
-    citations: Vec<Citation>,
+    columns: Vec<Vec<Citation>>,
     token_blame: Option<std::sync::Arc<PageBlame>>,
 }
 
 /// The section of the algorithm `sym` defines in one of the tree's specs, with
 /// its blocks' blame and its citations' drift if `blame` (only the view's
-/// first section's, since the page's blame data is of one file).
+/// first section's, since the page's blame data is of one file), and a column
+/// of citations for each of `citing`.
 #[allow(clippy::too_many_arguments)]
 fn algorithm_section(
     cfg: &Config,
@@ -1886,6 +1970,7 @@ fn algorithm_section(
     commit: &git2::Commit,
     sym: &str,
     blame: bool,
+    citing: &[Citing],
 ) -> Result<AlgorithmSection, &'static str> {
     let (def_path, def_line) =
         tree_definition(tree_name, tree_config, sym).ok_or("No definition of the symbol")?;
@@ -1962,10 +2047,15 @@ fn algorithm_section(
             + 1;
         steps.entry(path.clone()).or_insert(line);
     }
-    let mut citations = algorithm_citations(cfg, tree_name, tree_config, sym);
+    let mut columns: Vec<Vec<Citation>> = citing
+        .iter()
+        .map(|citing| algorithm_citations(cfg, tree_name, tree_config, sym, citing))
+        .collect();
     // Drift: a citation of a step whose text changed (by the spec's history)
     // after the comment citing it last did (by the citing tree's), ex: after
-    // Gecko implemented it.  A step's lines are up to the next step's.
+    // Gecko implemented it.  A step's lines are up to the next step's.  (Not
+    // in the files a try push changes, which the history doesn't have at the
+    // head of its rebased stack.)
     if let Some(spec_page) = &token_blame {
         let last_line = file_source[..view.range.end.min(file_source.len())]
             .matches('\n')
@@ -1982,7 +2072,10 @@ fn algorithm_section(
         };
         // (The citing files' blame, once each.)
         let mut citing_pages: HashMap<(String, String), Option<PageBlame>> = HashMap::new();
-        for citation in citations.iter_mut() {
+        for citation in columns.iter_mut().flatten() {
+            if citation.changed {
+                continue;
+            }
             let Some(lines) = citation.step.as_deref().and_then(step_lines) else {
                 continue;
             };
@@ -2007,15 +2100,17 @@ fn algorithm_section(
         }
     }
     // (Those of the algorithm first, then by their steps' lines.)
-    citations.sort_by_key(|c| {
-        (
-            c.step
-                .as_ref()
-                .map_or(0, |step| steps.get(step).copied().unwrap_or(usize::MAX)),
-            c.tree.clone(),
-            c.order.clone(),
-        )
-    });
+    for citations in &mut columns {
+        citations.sort_by_key(|c| {
+            (
+                c.step
+                    .as_ref()
+                    .map_or(0, |step| steps.get(step).copied().unwrap_or(usize::MAX)),
+                c.tree.clone(),
+                c.order.clone(),
+            )
+        });
+    }
 
     let name = tree_jumprefs(tree_name, tree_config)
         .and_then(|jumprefs| jumprefs.lookup(sym).ok()?)
@@ -2042,7 +2137,7 @@ fn algorithm_section(
         view,
         strips,
         steps,
-        citations,
+        columns,
         token_blame,
     })
 }
@@ -2103,25 +2198,153 @@ fn called_algorithms(tree_config: &TreeConfig, sym: &str) -> Vec<String> {
 
 /// The view of the algorithm that `sym` defines in one of the tree's specs
 /// (`/{tree}/algorithm/{sym}`), beside the code citing it and its steps (see
-/// `algorithm_citations`, ex: Gecko's, in firefox-disco, for wubspecs'
-/// specs): the citations' excerpts, as their source listings' rows (see
+/// `Citing::Specs`, ex: Gecko's, in firefox-disco, for wubspecs' specs): the
+/// citations' excerpts, as their source listings' rows (see
 /// `citation_rows`), on the left, placed by the page's script next to their
 /// steps' blocks, and the algorithm's rendering (see
 /// `rendered_specs::render_algorithm`), with the blame of its blocks, on the
-/// right.  Then the algorithms it calls
-/// (see `called_algorithms`), each beside the code citing it, so that one can
-/// follow its calls (from its call sites' "↓"s), without blame.
+/// right.  Then the algorithms it calls (see `called_algorithms`), each
+/// beside the code citing it, so that one can follow its calls (from its call
+/// sites' "↓"s), without blame.
 pub fn format_algorithm(
     cfg: &Config,
     tree_name: &str,
     sym: &str,
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
+    write_algorithm_view(cfg, tree_name, sym, None, writer)
+}
+
+/// An algorithm's view at a try push's head (see `format_try_algorithm`):
+/// the tree whose push it is, the push's delta, and another push's, to
+/// compare it with instead of the code the spec tree's view has.
+struct TryAlgorithmView {
+    tree: String,
+    delta: std::sync::Arc<crate::try_delta::TryDelta>,
+    versus: Option<std::sync::Arc<crate::try_delta::TryDelta>>,
+}
+
+/// The view of an algorithm (see `format_algorithm`) in a try push's context
+/// (`/{tree}/rev-algorithm/{head}/{sym}`, ex: firefox-try's, for a `SPEC_`
+/// symbol, whose specs are its linked tree's): its steps between the code
+/// citing it at the head of the push's stack rebased onto the tree's indexed
+/// revision, by the push's semantic delta (see `try_delta`), on the left,
+/// and the code citing it that the spec tree's view has (ex: firefox-disco's,
+/// at the same revision), or with `versus` (`?versus={head}`), the code at
+/// the head of another push's, on the right.
+pub fn format_try_algorithm(
+    cfg: &Config,
+    tree_name: &str,
+    head: &str,
+    sym: &str,
+    versus: Option<&str>,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let open = |head: &str| {
+        crate::try_delta::TryDelta::open(&tree_config.paths.index_path, head)
+            .map(std::sync::Arc::new)
+            .ok_or("No semantic analysis of the revision")
+    };
+    let delta = open(head)?;
+    let versus = versus.map(open).transpose()?;
+    let (_, spec_tree) = tree_config
+        .paths
+        .linked_trees
+        .iter()
+        .find(|(prefix, _)| sym.starts_with(prefix.as_str()))
+        .ok_or("Not a linked tree's symbol")?;
+    let view = TryAlgorithmView {
+        tree: tree_name.to_string(),
+        delta,
+        versus,
+    };
+    write_algorithm_view(cfg, spec_tree, sym, Some(view), writer)
+}
+
+/// The try pushes of the tree with semantic deltas but `head`'s, as
+/// (push, head), newest first, at most `MAX_VERSUS_PUSHES`, for comparing an
+/// algorithm's view at `head` with (see `format_try_algorithm`).
+fn other_try_deltas(index_path: &str, head: &str) -> Vec<(String, String)> {
+    const MAX_VERSUS_PUSHES: usize = 30;
+    let Ok(entries) = std::fs::read_dir(Path::new(index_path).join("try-deltas")) else {
+        return vec![];
+    };
+    let mut deltas: Vec<(std::time::SystemTime, String, String)> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let meta_path = entry.path().join("meta.json");
+            let modified = std::fs::metadata(&meta_path).ok()?.modified().ok()?;
+            let meta: crate::try_delta::TryDeltaMeta =
+                serde_json::from_str(&std::fs::read_to_string(&meta_path).ok()?).ok()?;
+            (meta.head != head).then_some((modified, meta.push, meta.head))
+        })
+        .collect();
+    deltas.sort_by(|a, b| b.0.cmp(&a.0));
+    deltas
+        .into_iter()
+        .take(MAX_VERSUS_PUSHES)
+        .map(|(_, push, head)| (push, head))
+        .collect()
+}
+
+/// An algorithm's view, beside the code citing it at the spec tree's view's
+/// trees' indexed revisions, or in a try push's context (see
+/// `format_try_algorithm`).
+fn write_algorithm_view(
+    cfg: &Config,
+    tree_name: &str,
+    sym: &str,
+    try_view: Option<TryAlgorithmView>,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let specs = tree_specs(tree_name, tree_config).ok_or("The tree has no specs")?;
     let git = tree_config.get_git()?;
     let commit = rendered_commit(git, None)?;
-    let main = algorithm_section(cfg, tree_name, tree_config, &specs, git, &commit, sym, true)?;
+    let citing: Vec<Citing> = match &try_view {
+        None => vec![Citing::Specs],
+        Some(view) => vec![
+            Citing::TryPush {
+                tree: view.tree.clone(),
+                delta: view.delta.clone(),
+            },
+            match &view.versus {
+                Some(versus) => Citing::TryPush {
+                    tree: view.tree.clone(),
+                    delta: versus.clone(),
+                },
+                None => Citing::Specs,
+            },
+        ],
+    };
+    // (The sections' algorithms' views, in the try push's context.)
+    let view_url = |sym: &str| match &try_view {
+        Some(view) => format!(
+            "/{}/rev-algorithm/{}/{}{}",
+            view.tree,
+            view.delta.meta.head,
+            url_encode_path(sym),
+            view.versus
+                .as_ref()
+                .map_or_else(String::new, |versus| format!(
+                    "?versus={}",
+                    versus.meta.head
+                ))
+        ),
+        None => format!("/{}/algorithm/{}", tree_name, url_encode_path(sym)),
+    };
+    let main = algorithm_section(
+        cfg,
+        tree_name,
+        tree_config,
+        &specs,
+        git,
+        &commit,
+        sym,
+        true,
+        &citing,
+    )?;
     let mut sections = vec![main];
     let called = called_algorithms(tree_config, sym);
     for called in &called {
@@ -2134,6 +2357,7 @@ pub fn format_algorithm(
             &commit,
             called,
             false,
+            &citing,
         ) {
             sections.push(section);
         }
@@ -2158,7 +2382,11 @@ pub fn format_algorithm(
         }
     }
     let map = algorithm_map(&sections, &calls);
-    let sym_info = citation_rows(cfg, &mut sections);
+    let sym_infos: Vec<String> = citing
+        .iter()
+        .enumerate()
+        .map(|(column, citing)| citation_rows(cfg, &mut sections, column, citing))
+        .collect();
     let main = &sections[0];
 
     let title = format!("{} - mozsearch", rendered_docs::escape(&main.name));
@@ -2204,22 +2432,60 @@ pub fn format_algorithm(
     output::generate_header(&opt, writer)?;
     output::generate_breadcrumbs(&opt, writer, &main.file, &[], false)?;
     output::generate_panel(&opt, writer, &panel, false)?;
-    let citing_trees: BTreeSet<&str> = main.citations.iter().map(|c| c.tree.as_str()).collect();
+    // The trees whose code a column has, as its description says.
+    let column_trees = |column: usize| -> String {
+        let trees: BTreeSet<&str> = sections
+            .iter()
+            .flat_map(|section| &section.columns[column])
+            .map(|c| c.tree.as_str())
+            .collect();
+        match trees.len() {
+            0 => citing[column]
+                .trees(tree_name, tree_config, sym)
+                .join(" and "),
+            _ => trees.into_iter().collect::<Vec<_>>().join(" and "),
+        }
+    };
+    // (A try push's view's columns, and what to compare the push with.)
+    let describe_push = |tree: &str, delta: &crate::try_delta::TryDelta| {
+        format!(
+            r#"{} at <a href="/{}/rev/{}/">the head of try push {}'s stack</a>, rebased onto its indexed revision (with the files it changes marked)"#,
+            rendered_docs::escape(tree),
+            tree,
+            delta.meta.head,
+            rendered_docs::escape(&delta.meta.push),
+        )
+    };
+    let columns_notice = match &try_view {
+        None => {
+            let citing_trees: BTreeSet<&str> =
+                main.columns[0].iter().map(|c| c.tree.as_str()).collect();
+            match citing_trees.len() {
+                0 => " (none does)".to_string(),
+                _ => format!(
+                    ", in {}",
+                    citing_trees
+                        .iter()
+                        .copied()
+                        .collect::<Vec<_>>()
+                        .join(" and ")
+                ),
+            }
+        }
+        Some(view) => format!(
+            ": on the left, in {}; on the right, in {}",
+            describe_push(&view.tree, &view.delta),
+            match &view.versus {
+                Some(versus) => describe_push(&view.tree, versus),
+                None => format!("{}, at its indexed revision", column_trees(1)),
+            }
+        ),
+    };
     writeln!(
         writer,
         r#"<div class="rd-notice">{} beside the code citing it and its steps{}.{}{}</div>"#,
         rendered_docs::escape(&main.name),
-        match citing_trees.len() {
-            0 => " (none does)".to_string(),
-            _ => format!(
-                ", in {}",
-                citing_trees
-                    .iter()
-                    .copied()
-                    .collect::<Vec<_>>()
-                    .join(" and ")
-            ),
-        },
+        columns_notice,
         if main.token_blame.is_some() {
             " Hover over the bar to the left of a block to see what last changed its text."
         } else {
@@ -2243,8 +2509,39 @@ pub fn format_algorithm(
         )
         .unwrap();
     }
+    if let Some(view) = &try_view {
+        let tree_config = cfg.trees.get(&view.tree).ok_or("Invalid tree")?;
+        let others = other_try_deltas(&tree_config.paths.index_path, &view.delta.meta.head);
+        let versus = view.versus.as_ref().map(|versus| versus.meta.head.as_str());
+        let mut options = format!(
+            r#"<option value="">{}, at its indexed revision</option>"#,
+            rendered_docs::escape(&column_trees(1))
+        );
+        for (push, head) in &others {
+            write!(
+                options,
+                r#"<option value="{}"{}>{} at try push {}</option>"#,
+                head,
+                if versus == Some(head.as_str()) {
+                    " selected"
+                } else {
+                    ""
+                },
+                rendered_docs::escape(&view.tree),
+                rendered_docs::escape(push)
+            )
+            .unwrap();
+        }
+        writeln!(
+            writer,
+            r#"<form class="sp-versus" method="get" action="{}"><label>Compare with <select name="versus" onchange="this.form.submit()">{}</select></label></form>"#,
+            view_url(sym).split('?').next().unwrap_or_default(),
+            options
+        )
+        .unwrap();
+    }
     for (n, section) in sections.iter().enumerate() {
-        write_algorithm_section(writer, tree_name, n, section);
+        write_algorithm_section(writer, tree_name, &view_url, n, section);
     }
     // Each citation goes next to its step's block (or after the ones before
     // it), and the ones of the algorithm at the top, in each section; and the
@@ -2281,7 +2578,7 @@ pub fn format_algorithm(
   }};
   sections.forEach(({{ steps }}, n) => {{
     const doc = document.getElementById(n ? `rendered-doc-${{n}}` : "rendered-doc");
-    const aside = document.getElementById(n ? `sp-citations-${{n}}` : "sp-citations");
+    for (const aside of document.querySelectorAll(`#sp-algorithm-${{n}} > .sp-algorithm-view > .sp-citations`)) {{
     const place = () => {{
       const top = aside.getBoundingClientRect().top;
       let bottom = 0;
@@ -2297,6 +2594,7 @@ pub fn format_algorithm(
     }};
     place();
     new ResizeObserver(place).observe(doc);
+    }}
   }});
   sections.forEach(({{ anchor }}, n) => {{
     if (!anchor) {{
@@ -2413,12 +2711,22 @@ pub fn format_algorithm(
             .replace("</", "<\\/")
     )
     .unwrap();
+    // (A view with columns of code from different trees or revisions has
+    // each's SYM_INFO, for context menus in it; see `citation_rows`.)
     writeln!(
         writer,
         "<script>var SYM_INFO = {};</script>",
-        sym_info.replace("</", "<\\/")
+        sym_infos[0].replace("</", "<\\/")
     )
     .unwrap();
+    if sym_infos.len() > 1 {
+        writeln!(
+            writer,
+            "<script>var SYM_INFOS = [{}];</script>",
+            sym_infos.join(",").replace("</", "<\\/")
+        )
+        .unwrap();
+    }
     if let Some(page) = &main.token_blame {
         let info_json = to_string(&page.info).unwrap();
         writeln!(
@@ -2492,22 +2800,51 @@ fn excerpt_indent(excerpt: &[String]) -> usize {
         .unwrap_or(0)
 }
 
-/// The sections' citations' excerpts as their lines' rows in their trees'
-/// source listings (see `chunked_gzip`), if the trees have them, like
-/// `/query/`'s results' (see `excerpt_row`), so that they have the listings'
-/// syntax highlighting and symbols: without their common indentation, in
-/// their trees' (`data-tree`, which context-menu.js searches in), and with
-/// links to their lines in the listings (not `.line-number`s, which
-/// code-highlighter.js would select in this page).  And the SYM_INFO (see
-/// `format_code`) of their symbols, whose jumps are to their trees' files
-/// (by their `tree`s), for their context menus.
-fn citation_rows(cfg: &Config, sections: &mut [AlgorithmSection]) -> String {
-    use crate::file_format::chunked_gzip::{Row, read_rows};
+/// The sections' citations' excerpts in their view's `column`, of the code
+/// `citing` their algorithms, as their lines' rows in their trees' source
+/// listings (see `chunked_gzip`), if the trees have them, like `/query/`'s
+/// results' (see `excerpt_row`), so that they have the listings' syntax
+/// highlighting and symbols: without their common indentation, in their
+/// trees' (`data-tree`, and its search, which context-menu.js searches with),
+/// and with links to their lines in the listings (not `.line-number`s, which
+/// code-highlighter.js would select in this page).  A try push's files whose
+/// sources or analysis it changes are rendered by its delta, as its head's
+/// listings are.  And the SYM_INFO (see `format_code`) of their symbols, whose
+/// jumps are to their trees' files (by their `tree`s), for their context
+/// menus.
+fn citation_rows(
+    cfg: &Config,
+    sections: &mut [AlgorithmSection],
+    column: usize,
+    citing: &Citing,
+) -> String {
+    use crate::file_format::analysis::{read_analysis, read_source};
+    use crate::file_format::chunked_gzip::{Row, extract_rows, read_rows};
+    use crate::try_delta::FileChange;
 
     const CODE: &str = r#"<code role="cell" class="source-line">"#;
     const DATA_SYMBOLS: &str = "data-symbols=\"";
+    let delta = citing.delta();
+    // Each tree's jumprefs (a try push's with its delta's).
+    let mut tree_jumprefs: HashMap<String, TreeJumprefs> = HashMap::new();
+    let mut jumprefs_of = |tree: &str| -> TreeJumprefs {
+        tree_jumprefs
+            .entry(tree.to_string())
+            .or_insert_with(|| {
+                let mut jumprefs = cfg
+                    .trees
+                    .get(tree)
+                    .map(|tree_config| {
+                        TreeJumprefs::open(&tree_config.paths, &cfg.tree_index_paths)
+                    })
+                    .unwrap_or_default();
+                jumprefs.delta = delta.and_then(|delta| delta.jumprefs());
+                jumprefs
+            })
+            .clone()
+    };
     let mut lines: BTreeMap<(String, String), BTreeSet<u32>> = BTreeMap::new();
-    for citation in sections.iter().flat_map(|section| &section.citations) {
+    for citation in sections.iter().flat_map(|section| &section.columns[column]) {
         lines
             .entry((citation.tree.clone(), citation.path.clone()))
             .or_default()
@@ -2518,6 +2855,42 @@ fn citation_rows(cfg: &Config, sections: &mut [AlgorithmSection]) -> String {
         let Some(index_path) = cfg.tree_index_paths.get(&tree) else {
             continue;
         };
+        let rendered_by = delta.filter(|delta| {
+            matches!(
+                delta.change(&path),
+                Some(FileChange::Added | FileChange::Modified)
+            ) || delta.meta.analyzed.contains_key(&path)
+        });
+        if let Some(delta) = rendered_by {
+            let source = match delta.generated_source(&path) {
+                Some(file) => std::fs::read_to_string(file).ok(),
+                None => cfg
+                    .trees
+                    .get(&tree)
+                    .and_then(|tree_config| tree_config.get_git().ok())
+                    .and_then(|git| {
+                        let head = git
+                            .repo
+                            .revparse_single(&delta.meta.head)
+                            .ok()?
+                            .peel_to_commit()
+                            .ok()?;
+                        read_commit_file(&git.repo, &head, &path)
+                    }),
+            };
+            let Some(source) = source else {
+                continue;
+            };
+            // (A file it changes which its analysis doesn't have has none.)
+            let analysis = delta
+                .analysis_file(&path)
+                .filter(|file| file.exists())
+                .map(|file| read_analysis(&file.to_string_lossy(), &mut read_source))
+                .unwrap_or_default();
+            let (html, _) = source_rows_html(&jumprefs_of(&tree), &path, &source, &analysis);
+            rows.insert((tree, path), extract_rows(&html, &lines));
+            continue;
+        }
         let gz = format!("{}/file/{}.gz", index_path, path);
         if let Ok(file_rows) = read_rows(Path::new(&gz), &lines) {
             rows.insert((tree, path), file_rows);
@@ -2533,7 +2906,7 @@ fn citation_rows(cfg: &Config, sections: &mut [AlgorithmSection]) -> String {
     let mut tree_sym_info: BTreeMap<String, TreeSymInfo> = BTreeMap::new();
     for citation in sections
         .iter_mut()
-        .flat_map(|section| section.citations.iter_mut())
+        .flat_map(|section| section.columns[column].iter_mut())
     {
         let Some(file_rows) = rows.get(&(citation.tree.clone(), citation.path.clone())) else {
             continue;
@@ -2554,9 +2927,8 @@ fn citation_rows(cfg: &Config, sections: &mut [AlgorithmSection]) -> String {
                         line
                     ),
                     &format!(
-                        r#"<a role="cell" class="sp-citation-lineno" href="/{}/source/{}#{}" data-line-number="{}"></a>"#,
-                        citation.tree,
-                        url_encode_path(&citation.path),
+                        r#"<a role="cell" class="sp-citation-lineno" href="{}#{}" data-line-number="{}"></a>"#,
+                        citation_url(citation),
                         line,
                         line
                     ),
@@ -2582,14 +2954,11 @@ fn citation_rows(cfg: &Config, sections: &mut [AlgorithmSection]) -> String {
         let (jumprefs, sym_info, traversed) = tree_sym_info
             .entry(citation.tree.clone())
             .or_insert_with(|| {
-                let jumprefs = cfg
-                    .trees
-                    .get(&citation.tree)
-                    .map(|tree_config| {
-                        TreeJumprefs::open(&tree_config.paths, &cfg.tree_index_paths)
-                    })
-                    .unwrap_or_default();
-                (jumprefs, BTreeMap::new(), UstrMap::default())
+                (
+                    jumprefs_of(&citation.tree),
+                    BTreeMap::new(),
+                    UstrMap::default(),
+                )
             });
         let mut rest = html.as_str();
         while let Some(start) = rest.find(DATA_SYMBOLS) {
@@ -2604,8 +2973,13 @@ fn citation_rows(cfg: &Config, sections: &mut [AlgorithmSection]) -> String {
             rest = &rest[end..];
         }
         citation.rows = Some(format!(
-            r#"<div class="file sp-citation-rows" role="table" data-tree="{}">{}</div>"#,
+            r#"<div class="file sp-citation-rows" role="table" data-tree="{}" data-search="{}"{}>{}</div>"#,
             rendered_docs::escape(&citation.tree),
+            config::search_url(&citation.tree),
+            citation
+                .rev
+                .as_ref()
+                .map_or_else(String::new, |rev| format!(r#" data-search-rev="{}""#, rev)),
             html
         ));
     }
@@ -2628,10 +3002,14 @@ fn citation_rows(cfg: &Config, sections: &mut [AlgorithmSection]) -> String {
 }
 
 /// An algorithm's section of its view (the `n`th): its heading (but the
-/// first's), and its citations beside its rendering with its strips.
+/// first's), with a link to its own view (by `view_url`), and its rendering
+/// with its strips, after its first column of citations and before the
+/// others.  (Columns of code from different trees or revisions have their
+/// SYM_INFOs, see `write_algorithm_view`.)
 fn write_algorithm_section(
     writer: &mut dyn Write,
     tree_name: &str,
+    view_url: &dyn Fn(&str) -> String,
     n: usize,
     section: &AlgorithmSection,
 ) {
@@ -2649,31 +3027,70 @@ fn write_algorithm_section(
     if n > 0 {
         writeln!(
             writer,
-            r#"<h2 class="sp-called-heading">{} <a class="sp-called-view" href="/{}/algorithm/{}" title="Show it beside the code citing it, and the algorithms it calls">⇄</a> <a class="sp-called-rendered" href="{}">{}</a></h2>"#,
+            r#"<h2 class="sp-called-heading">{} <a class="sp-called-view" href="{}" title="Show it beside the code citing it, and the algorithms it calls">⇄</a> <a class="sp-called-rendered" href="{}">{}</a></h2>"#,
             rendered_docs::escape(&section.name),
-            tree_name,
-            url_encode_path(&section.sym),
+            view_url(&section.sym),
             rendered_docs::escape(&section.rendered_link),
             rendered_docs::escape(&section.source_path),
         )
         .unwrap();
     }
-    // (The code on the left, and the steps it implements on the right.)
-    writeln!(
-        writer,
-        r#"<div class="sp-algorithm-view"><aside id="sp-citations{}" class="sp-citations">"#,
-        suffix
-    )
-    .unwrap();
-    for citation in &section.citations {
-        let step = citation.step.as_deref().unwrap_or("");
-        let known = citation.step.is_none() || section.steps.contains_key(step);
+    let several = section.columns.len() > 1;
+    let write_article = |writer: &mut dyn Write| {
         write!(
             writer,
-            r#"<div class="sp-citation" data-step="{}"><div class="sp-citation-head"><a href="/{}/source/{}#{}">{}{}:{}</a> <span class="sp-citation-fn">{}</span>{}{}</div>"#,
+            r#"<article id="rendered-doc{}" class="rendered-doc rendered-spec sp-algorithm">"#,
+            suffix
+        )
+        .unwrap();
+        let mut pos = 0;
+        let html = &section.view.rendered.html;
+        for (block, strip) in section.view.rendered.blocks.iter().zip(&section.strips) {
+            let at = block.strip_at.clamp(pos, html.len());
+            writer.write_all(&html.as_bytes()[pos..at]).unwrap();
+            writer.write_all(strip.as_bytes()).unwrap();
+            pos = at;
+        }
+        writer.write_all(&html.as_bytes()[pos..]).unwrap();
+        writeln!(writer, "</article>").unwrap();
+    };
+    // (The code on the left, and the steps it implements on the right, and
+    // the other columns' code after them.)
+    writeln!(
+        writer,
+        r#"<div class="sp-algorithm-view{}">"#,
+        if several { " sp-algorithm-columns" } else { "" }
+    )
+    .unwrap();
+    for (column, citations) in section.columns.iter().enumerate() {
+        if column == 1 {
+            write_article(writer);
+        }
+        writeln!(
+            writer,
+            r#"<aside id="sp-citations{}{}" class="sp-citations"{}>"#,
+            suffix,
+            if column == 0 {
+                String::new()
+            } else {
+                format!("-c{}", column)
+            },
+            if several {
+                format!(r#" data-sym-info="{}""#, column)
+            } else {
+                String::new()
+            }
+        )
+        .unwrap();
+        for citation in citations {
+            let step = citation.step.as_deref().unwrap_or("");
+            let known = citation.step.is_none() || section.steps.contains_key(step);
+            write!(
+            writer,
+            r#"<div class="sp-citation{}" data-step="{}"><div class="sp-citation-head"><a href="{}#{}">{}{}:{}</a> <span class="sp-citation-fn">{}</span>{}{}{}</div>"#,
+            if citation.changed { " sp-citation-changed" } else { "" },
             rendered_docs::escape(step),
-            rendered_docs::escape(&citation.tree),
-            url_encode_path(&citation.path),
+            citation_url(citation),
             citation.line,
             if citation.tree == tree_name {
                 String::new()
@@ -2687,6 +3104,11 @@ fn write_algorithm_section(
                 r#" <span class="sp-citation-note">{}</span>"#,
                 rendered_docs::escape(note)
             )),
+            if citation.changed {
+                r#" <span class="sp-citation-pushed" title="The try push changes this file">changed by the push</span>"#
+            } else {
+                ""
+            },
             match (&citation.step, known) {
                 (Some(step), true) => format!(
                     r#" <span class="sp-citation-step">step {}</span>{}"#,
@@ -2710,46 +3132,36 @@ fn write_algorithm_section(
             }
         )
         .unwrap();
-        if let Some(rows) = &citation.rows {
-            writeln!(writer, "{}</div>", rows).unwrap();
-            continue;
+            if let Some(rows) = &citation.rows {
+                writeln!(writer, "{}</div>", rows).unwrap();
+                continue;
+            }
+            // (Without their common indentation.)
+            let indent = excerpt_indent(&citation.excerpt);
+            write!(writer, r#"<pre class="sp-citation-code">"#).unwrap();
+            for line in &citation.excerpt {
+                writeln!(
+                    writer,
+                    "{}",
+                    rendered_docs::escape(line.get(indent..).unwrap_or(line.trim_start()))
+                )
+                .unwrap();
+            }
+            writeln!(writer, "</pre></div>").unwrap();
         }
-        // (Without their common indentation.)
-        let indent = excerpt_indent(&citation.excerpt);
-        write!(writer, r#"<pre class="sp-citation-code">"#).unwrap();
-        for line in &citation.excerpt {
+        if citations.is_empty() {
             writeln!(
                 writer,
-                "{}",
-                rendered_docs::escape(line.get(indent..).unwrap_or(line.trim_start()))
+                r#"<div class="sp-citations-none">No code cites this algorithm.</div>"#
             )
             .unwrap();
         }
-        writeln!(writer, "</pre></div>").unwrap();
+        writeln!(writer, "</aside>").unwrap();
     }
-    if section.citations.is_empty() {
-        writeln!(
-            writer,
-            r#"<div class="sp-citations-none">No code cites this algorithm.</div>"#
-        )
-        .unwrap();
+    if !several {
+        write_article(writer);
     }
-    write!(
-        writer,
-        r#"</aside><article id="rendered-doc{}" class="rendered-doc rendered-spec sp-algorithm">"#,
-        suffix
-    )
-    .unwrap();
-    let mut pos = 0;
-    let html = &section.view.rendered.html;
-    for (block, strip) in section.view.rendered.blocks.iter().zip(&section.strips) {
-        let at = block.strip_at.clamp(pos, html.len());
-        writer.write_all(&html.as_bytes()[pos..at]).unwrap();
-        writer.write_all(strip.as_bytes()).unwrap();
-        pos = at;
-    }
-    writer.write_all(&html.as_bytes()[pos..]).unwrap();
-    writeln!(writer, "</article></div></section>").unwrap();
+    writeln!(writer, "</div></section>").unwrap();
 }
 
 /// A file of a commit, as text (ex: an ecmarkup spec's imports).
@@ -4160,10 +4572,8 @@ fn format_blob(
     // The head of a try push's rebased stack has the push's analysis and
     // jumprefs (see `try_delta`): its analysis of the files whose analysis it
     // changes, and the base's of the files it doesn't change.
-    let delta = crate::try_delta::TryDelta::open(
-        &tree_config.paths.index_path,
-        &commit.id().to_string(),
-    );
+    let delta =
+        crate::try_delta::TryDelta::open(&tree_config.paths.index_path, &commit.id().to_string());
     let (analysis, jumprefs) = match &delta {
         Some(delta) => {
             let file = match delta.analysis_file(path) {

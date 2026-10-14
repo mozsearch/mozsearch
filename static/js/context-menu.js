@@ -7,9 +7,12 @@ function atUnescape(text) {
 // search's only result, or, on trees searching with the pipeline-server's
 // /query/default (the #data element's data-search; see `config::search_url`),
 // there, in the context of the try push whose pages these are, if any
-// (data-search-rev).
+// (data-search-rev).  The code of another tree or revision on the page has
+// its own (see `ContextMenu.searchContext`).
 function searchUrl(tree, encodedQuery) {
-  const data = document.getElementById("data");
+  const context = window.ContextMenu?.searchContext;
+  const data = context?.getAttribute("data-tree") == tree && context.hasAttribute("data-search")
+    ? context : document.getElementById("data");
   const search = data?.getAttribute("data-search");
   if (data?.getAttribute("data-tree") == tree && search?.endsWith("/query/default")) {
     const rev = data.getAttribute("data-search-rev");
@@ -1294,11 +1297,23 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       return;
     }
 
-    // (Another tree's code on the page is in an element saying whose it is,
-    // ex: an algorithm's view's excerpts of the code citing it; see
-    // `format::citation_rows`.)
-    let tree = event.target.closest("[data-tree]")?.getAttribute("data-tree") ||
+    // (Another tree's code on the page, or another revision's, is in an
+    // element saying whose it is, and how to search it, ex: an algorithm's
+    // view's excerpts of the code citing it; see `format::citation_rows`.  And
+    // a column of code from a different tree or revision than the others has
+    // its own symbols' information, in SYM_INFOS.)
+    this.searchContext = event.target.closest("[data-tree]");
+    let tree = this.searchContext?.getAttribute("data-tree") ||
                document.getElementById("data").getAttribute("data-tree");
+    const symInfoColumn = event.target.closest("[data-sym-info]")?.getAttribute("data-sym-info");
+    const SYM_INFO = (symInfoColumn && window.SYM_INFOS?.[symInfoColumn]) || window.SYM_INFO;
+    // (In a try push's context, whose symbols' jumps are to the push's head's
+    // files, there; see `format::format_file_data`'s `search_rev`.)
+    const searchRev = (this.searchContext || document.getElementById("data"))
+      ?.getAttribute("data-search-rev");
+    const sourceUrl = (jumpTree, jump) => searchRev && jumpTree === tree
+      ? `/${tree}/rev/${searchRev}/${jump}`
+      : `/${jumpTree}/source/${jump}`;
 
     // Figure out the source line this click was on, if it was on any line, so
     // that we can compare it against jump strings in order to avoid offering
@@ -1626,7 +1641,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           if (jumpref.jumps.idl && jumpref.jumps.idl !== sourceLineClicked) {
             jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to IDL definition of <strong>_</strong>", pretty),
-              href: `/${jumpTree}/source/${jumpref.jumps.idl}`,
+              href: sourceUrl(jumpTree, jumpref.jumps.idl),
               icon: "export-alt",
               section: "jumps",
               confidence,
@@ -1635,7 +1650,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           if (jumpref.jumps.glean && jumpref.jumps.glean !== sourceLineClicked) {
             jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to Glean definition of <strong>_</strong>", pretty),
-              href: `/${jumpTree}/source/${jumpref.jumps.glean}`,
+              href: sourceUrl(jumpTree, jumpref.jumps.glean),
               icon: "export-alt",
               section: "jumps",
               confidence,
@@ -1645,7 +1660,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           if (jumpref.jumps.def && jumpref.jumps.def !== sourceLineClicked) {
             jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to definition of <strong>_</strong>", pretty),
-              href: `/${jumpTree}/source/${jumpref.jumps.def}`,
+              href: sourceUrl(jumpTree, jumpref.jumps.def),
               icon: "export-alt",
               section: "jumps",
               confidence,
@@ -1669,13 +1684,17 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           // A web spec's algorithm (or abstract operation, or IDL member with
           // steps, ex: a method's, which a Gecko WebIDL method's spec slot
           // leads to), beside the code citing it and its steps (in the tree
-          // of its definition; see `format::format_algorithm`).
+          // of its definition; see `format::format_algorithm`), or in a try
+          // push's context, beside the code citing it at the push's head (see
+          // `format::format_try_algorithm`).
           if (jumpref.jumps.def && jumpref.meta?.implKind === "spec" &&
               (["specAlgorithm", "specAbstractOp"].includes(jumpref.meta.kind) ||
                jumpref.meta.algorithm)) {
             jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Show <strong>_</strong> beside the code citing it", pretty),
-              href: `/${jumpTree}/algorithm/${jumpref.sym}`,
+              href: searchRev && jumpref.tree && jumpTree !== tree
+                ? `/${tree}/rev-algorithm/${searchRev}/${jumpref.sym}`
+                : `/${jumpTree}/algorithm/${jumpref.sym}`,
               icon: "export-alt",
               section: "jumps",
               confidence,
@@ -1685,7 +1704,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           if (jumpref.jumps.decl && jumpref.jumps.decl !== sourceLineClicked) {
             jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to declaration of <strong>_</strong>", pretty),
-              href: `/${jumpTree}/source/${jumpref.jumps.decl}`,
+              href: sourceUrl(jumpTree, jumpref.jumps.decl),
               icon: "export",
               section: "jumps",
               confidence,
@@ -1741,7 +1760,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           if (jumpref.jumps?.def && jumpref.jumps.def !== sourceLineClicked) {
             menu.push(new GotoMenuItem({
               html: this.fmt("Go to definition of <strong>_</strong>", pretty),
-              href: `/${jumpref.tree || tree}/source/${jumpref.jumps.def}`,
+              href: sourceUrl(jumpref.tree || tree, jumpref.jumps.def),
               icon: "export-alt",
               section: "jumps",
               confidence,
@@ -2018,7 +2037,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             if (def) {
               idlSubMenuItems.push(new GotoMenuItem({
                 html: this.fmt(`Go to IDL definition of <strong>_</strong>`, idlInfo.pretty),
-                href: `/${tree}/source/${def}`,
+                href: sourceUrl(tree, def),
                 icon: "export-alt",
                 section: "jumps",
                 confidence,
@@ -2056,7 +2075,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             if (def) {
               tsSubMenuItems.push(new GotoMenuItem({
                 html: this.fmt(`Go to definition of <strong>_</strong>`, tsInfo.pretty),
-                href: `/${tree}/source/${def}`,
+                href: sourceUrl(tree, def),
                 icon: "export-alt",
                 section: "jumps",
                 confidence,
@@ -2067,7 +2086,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             if (decl) {
               tsSubMenuItems.push(new GotoMenuItem({
                 html: this.fmt(`Go to declaration of <strong>_</strong>`, tsInfo.pretty),
-                href: `/${tree}/source/${decl}`,
+                href: sourceUrl(tree, decl),
                 icon: "export-alt",
                 section: "jumps",
                 confidence,

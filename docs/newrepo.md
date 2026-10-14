@@ -106,8 +106,10 @@ reviewing them at `/{tree}/try/{rev}`; see `tools/src/try_import.rs` and `tests/
 `import-try` script can also give a push semantic analysis: rebase its stack onto the indexed revision with
 `scripts/rebase-try-push.sh`, compile what it changes with the indexer, and build its semantic delta from that
 analysis with `build-try-delta` (see `tools/src/try_delta.rs` and `tests/trydelta/import-try`).  The rebased
-stack's head then has the push's jumps and references, and searches from its pages (with `rev=HEAD` on
-`/query/`) are of the tree as the push changes it.  A tree without `import-try` which shares its `history_path` with one that
+stack's head then has the push's jumps and references (and citations of web specs, if the tree's `SPEC_` symbols
+are a linked tree's), and searches from its pages (with `rev=HEAD` on `/query/`) are of the tree as the push
+changes it, as are the views of the spec algorithms it cites beside the code citing them
+(`/{tree}/rev-algorithm/{head}/{sym}`, see `format::format_try_algorithm`).  A tree without `import-try` which shares its `history_path` with one that
 has it sends its `/try/` pages to that tree (ex: firefox-disco's to firefox-try, which indexes only the platform
 pushes are compiled for, so that their analysis replaces the tree's exactly). You can
 look at the existing folders for other repos for inspiration. Copy-pasting from something like the `glean` repo will probably

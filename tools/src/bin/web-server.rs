@@ -331,6 +331,34 @@ fn handle(
             }
         }
 
+        // The view of a spec's algorithm in a try push's context, beside the
+        // code citing it at the head of the push's rebased stack, as
+        // `/{tree}/rev-algorithm/{head}/{sym}`, compared with the spec tree's
+        // view's code or, with `?versus={head}`, another push's; see
+        // `format::format_try_algorithm`.
+        "rev-algorithm" => {
+            if path.len() < 4 {
+                return WebResponse::not_found();
+            }
+            let sym = path[3..].join("/");
+            let versus = url::form_urlencoded::parse(req.query.as_bytes())
+                .find(|(key, _)| key == "versus")
+                .map(|(_, value)| value.into_owned())
+                .filter(|versus| !versus.is_empty());
+            let mut writer = Vec::new();
+            match format::format_try_algorithm(
+                cfg,
+                tree_name,
+                path[2],
+                &sym,
+                versus.as_deref(),
+                &mut writer,
+            ) {
+                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                Err(err) => WebResponse::internal_error(err.to_owned()),
+            }
+        }
+
         "hgrev" => {
             if path.len() < 3 {
                 return WebResponse::not_found();

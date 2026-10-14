@@ -2165,6 +2165,33 @@ h2.sp-called-heading {
 .sp-citation-lineno::before {
   content: attr(data-line-number);
 }
+/* A try push's view of an algorithm (see format::format_try_algorithm): the
+   code citing it at the push's head, its steps, and the code it's compared
+   with, with the push's files marked, and what to compare it with. */
+.sp-algorithm-columns > .rendered-doc,
+.sp-algorithm-columns > .sp-citations {
+  flex-basis: 33%;
+}
+.sp-algorithm-columns > .rendered-doc {
+  padding-right: 0;
+}
+.sp-algorithm-columns > .rendered-doc + .sp-citations {
+  margin-left: 0;
+  margin-right: 1em;
+}
+.sp-citation-changed {
+  border-left-color: #e8a33d;
+}
+.sp-citation-pushed {
+  margin-left: 0.25em;
+  padding: 0 0.3em;
+  border-radius: 3px;
+  background-color: color-mix(in srgb, #e8a33d 25%, transparent);
+  font-size: 0.9em;
+}
+.sp-versus {
+  padding: 0.2em 2rem 0.2em 36px;
+}
 .sp-citations-none {
   font-style: italic;
   opacity: 0.75;
