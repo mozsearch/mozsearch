@@ -12,8 +12,8 @@ bikeshed.overridePythonAttrs (old: {
     owner = "mozsearch";
     repo = "bikeshed";
     # The `mozsearch-index` branch.
-    rev = "d8bea0b7f0da5be6660c6a3ce05a5644aa639545";
-    hash = "sha256-6rXBqv5mljJ56VfvUEU3JMvCO8VhzUATq/SwuyPqI8k=";
+    rev = "4280e11d0d27bd1c3b25ec9938fed754f9c51de1";
+    hash = "sha256-fd8I3oCMBNw+jfMgfrlYeF6Rn/q54y6pJlR3el/Xo/I=";
   };
   # (nixpkgs' patch removes a check of the installation which Bikeshed no
   # longer has.)
