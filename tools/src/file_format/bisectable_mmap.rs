@@ -36,20 +36,23 @@ fn make_data_error(sym: &str) -> ServerError {
 // adapted from `identifiers.py` as well).
 impl<'de, T: Deserialize<'de>> BisectableMmap<T> {
     pub fn new(inline_path: &str, extra_path: &str) -> Option<Self> {
-        let inline_file = File::open(inline_path).unwrap();
-        let inline_mm = unsafe {
-            match Mmap::map(&inline_file) {
-                Ok(mmap) => Arc::new(mmap),
-                Err(_) => return None,
+        // (An empty file can't be mapped, which callers take as no data, but
+        // other failures are problems, ex: a process's address space limit,
+        // which would otherwise make it serve without the data.)
+        let map = |path: &str| {
+            let file = File::open(path).unwrap();
+            match unsafe { Mmap::map(&file) } {
+                Ok(mmap) => Some(Arc::new(mmap)),
+                Err(err) => {
+                    if file.metadata().is_ok_and(|m| m.len() > 0) {
+                        eprintln!("Couldn't map {}: {}", path, err);
+                    }
+                    None
+                }
             }
         };
-        let extra_file = File::open(extra_path).unwrap();
-        let extra_mm = unsafe {
-            match Mmap::map(&extra_file) {
-                Ok(mmap) => Arc::new(mmap),
-                Err(_) => return None,
-            }
-        };
+        let inline_mm = map(inline_path)?;
+        let extra_mm = map(extra_path)?;
         Some(Self {
             inline_mm,
             extra_mm,

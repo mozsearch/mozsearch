@@ -79,7 +79,15 @@ ALLOWED_GROWTH_K=$((10 * 1024 * 1024))
 # where our sum below ends up at ~48G and the pipeline-server VM ends up at
 # ~38G, although that's after doing some brief diagram testing to RES is also
 # 1410M, but it works out okay.
-PIPELINE_SERVER_VM_LIMIT_K=$(($MAPPED_FILES_USAGE_K + $STEADY_STATE_ASSUMED_K + $ALLOWED_GROWTH_K))
+# glibc gives threads their own malloc arenas, each reserving 64 MiB of address
+# space, up to 8 per core, and the pipeline-server has a thread per core (and
+# more for blocking work), so the arenas alone reserve GBs on many-core
+# machines (ex: ~4G with 64 cores, peaking at ~11G as it starts), which the
+# above doesn't allow for: then its index's mmaps fail, and it serves without
+# them (ex: a tree's own crossref data, but its linked trees').  So allow two
+# arenas per core.
+ARENAS_K=$(($(nproc) * 2 * 64 * 1024))
+PIPELINE_SERVER_VM_LIMIT_K=$(($MAPPED_FILES_USAGE_K + $STEADY_STATE_ASSUMED_K + $ALLOWED_GROWTH_K + $ARENAS_K))
 
 # ulimit -v units are kilobytes
 ulimit -v $PIPELINE_SERVER_VM_LIMIT_K
