@@ -53,3 +53,21 @@ add_task(async function test_PermalinkToSameFile() {
      "which shows the file at that revision");
   ok(!frame.contentDocument.querySelector(".permalink-note"), "without the note");
 });
+
+// A permalink to a revision at which the file has changed since offers to
+// follow its selection into the future.
+add_task(async function test_PermalinkFuture() {
+  // (The parent of the file's latest change, at which it differs from now.)
+  await TestUtils.loadPath("/searchfox/source/tools/src/format.rs");
+  const timeline = frame.contentWindow.FileTimeline;
+  const newest = timeline.commits[timeline.commits.length - 1];
+  const headers = await (await frame.contentWindow.fetch(`${timeline.info.dataUrl}/commits.json`)).json();
+  const parent = headers[newest.index].parent;
+  await TestUtils.loadPath(`/searchfox/rev/${parent}/tools/src/format.rs#1`);
+  const note = frame.contentDocument.querySelector(".permalink-note");
+  ok(note?.textContent.includes("which has changed since"), "The page says the file has changed since");
+  TestUtils.click(note.querySelector("button"));
+  await waitForCondition(
+    () => /It's now here|It was removed by|couldn't follow/.test(note.querySelector(".permalink-future").textContent),
+    "Following the line's first token says where it went");
+});

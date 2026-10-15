@@ -269,3 +269,96 @@ var PermalinkNote = new (class PermalinkNote {
       document.location.pathname + (search ? `?${search}` : "") + document.location.hash);
   }
 })();
+
+/**
+ * On a page of a file at a revision at which it differs from the indexed one
+ * (a permalink's, see the web server's `/rev/` route), with lines or tokens
+ * selected: a note with "Where is this now?", which follows the selection's
+ * first token into the future (see `hyperblame::future`), to where it is now,
+ * or the commit which removed it.
+ */
+var PermalinkFuture = new (class PermalinkFuture {
+  constructor() {
+    const info = typeof BLAME_INFO !== "undefined" ? BLAME_INFO : null;
+    const match = document.location.pathname.match(/^\/([^\/]+)\/rev\/([0-9a-f]{7,40})\/(.+)$/i);
+    if (!info?.peepholeUrl || !info.dataUrl?.includes("/rev-hyperblame/") || !match) {
+      return;
+    }
+    const [, tree, rev] = match;
+    // (Not for exactly the revision, which may be the same file as now; see
+    // PermalinkNote.)
+    if (new URLSearchParams(document.location.search).has("exactly")) {
+      return;
+    }
+    const hash = document.location.hash;
+    const tokenMatch = /^#tokens=(\d+)/.exec(hash);
+    const lineMatch = /^#(\d+)/.exec(hash);
+    if (!tokenMatch && !lineMatch) {
+      return;
+    }
+    this.tree = tree;
+    this.info = info;
+
+    const note = document.createElement("section");
+    note.className = "info-box info-box-info info-box-concise permalink-note";
+    const heading = document.createElement("h4");
+    heading.textContent = "Permalink";
+    const text = document.createElement("span");
+    text.className = "info-box-facts";
+    text.textContent = `This is the file at ${rev.slice(0, 12)}, which has changed since.`;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "info-box-details";
+    button.textContent = "Where is this now?";
+    const status = document.createElement("span");
+    status.className = "permalink-future";
+    note.append(heading, text, status, button);
+    const boxes = document.getElementById("info-boxes-container");
+    const file = document.getElementById("file");
+    if (boxes) {
+      boxes.prepend(note);
+    } else if (file) {
+      file.before(note);
+    } else {
+      return;
+    }
+
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      status.textContent = "Following it…";
+      try {
+        let token = tokenMatch ? parseInt(tokenMatch[1], 10) : null;
+        if (token === null) {
+          const tokens = await HyperblameContexts.contexts[0].getLineTokens(parseInt(lineMatch[1], 10));
+          token = tokens?.[0]?.index;
+        }
+        if (!token) {
+          status.textContent = "The line has no tokens to follow.";
+          return;
+        }
+        const url = info.peepholeUrl.replace(/\/peephole$/, "/future");
+        const { future, commits } = await (await fetch(`${url}/${token}.json`)).json();
+        status.replaceChildren();
+        if (future.outcome == "now") {
+          const link = document.createElement("a");
+          link.href = `/${tree}/source/${future.path.split("/").map(encodeURIComponent).join("/")}#tokens=${future.token}`;
+          link.textContent = future.changes.length
+            ? `It's now here, after ${future.changes.length} change${future.changes.length == 1 ? "" : "s"}`
+            : "It's now here";
+          status.append(link);
+        } else if (future.outcome == "removed" || future.outcome == "deleted") {
+          const header = document.createElement("template");
+          header.innerHTML = (commits[future.rev]?.header || future.rev.slice(0, 12)).split("<br>")[0];
+          const link = document.createElement("a");
+          link.href = `/${tree}/commit/${future.rev}`;
+          link.textContent = header.content.textContent;
+          status.append(future.outcome == "removed" ? "It was removed by " : "Its file was deleted by ", link);
+        } else {
+          status.textContent = "We couldn't follow it further.";
+        }
+      } catch (e) {
+        status.textContent = "We couldn't follow it.";
+      }
+    });
+  }
+})();
