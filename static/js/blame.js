@@ -610,16 +610,48 @@ var BlameColorizer = new (class BlameColorizer {
     }
   }
 
-  // The upper bounds of the age buckets, in days.
-  static AGE_BUCKET_DAYS = [7, 30, 91, 365, 730, 1826];
+  // The upper bounds of the age buckets, in days, by the age scale setting
+  // (each roughly logarithmic, for 7 colors).
+  static AGE_SCALES = {
+    recent: [1, 7, 30, 91, 182, 365],
+    default: [7, 30, 91, 365, 730, 1826],
+    long: [30, 365, 730, 1826, 3652, 7305],
+  };
   static AUTHOR_COLORS = 12;
+
+  ageBucketDays() {
+    return BlameColorizer.AGE_SCALES[Settings.blame.ageScale] ?? BlameColorizer.AGE_SCALES.default;
+  }
+
+  /**
+   * The age buckets' labels (ex: "< 1 week", "older"), for a legend.
+   */
+  ageBucketLabels() {
+    const span = days => {
+      if (days < 7) {
+        return days == 1 ? "1 day" : `${days} days`;
+      }
+      if (days < 30) {
+        const weeks = Math.round(days / 7);
+        return weeks == 1 ? "1 week" : `${weeks} weeks`;
+      }
+      if (days < 365) {
+        const months = Math.round(days / 30.4);
+        return months == 1 ? "1 month" : `${months} months`;
+      }
+      const years = Math.round(days / 365);
+      return years == 1 ? "1 year" : `${years} years`;
+    };
+    return [...this.ageBucketDays().map(days => `< ${span(days)}`), "older"];
+  }
 
   colorFor(mode, time, author, now) {
     if (mode === "age") {
       const days = (now - time) / 86400;
-      let bucket = BlameColorizer.AGE_BUCKET_DAYS.findIndex(max => days < max);
+      const buckets = this.ageBucketDays();
+      let bucket = buckets.findIndex(max => days < max);
       if (bucket === -1) {
-        bucket = BlameColorizer.AGE_BUCKET_DAYS.length;
+        bucket = buckets.length;
       }
       return `var(--blame-age-${bucket})`;
     }

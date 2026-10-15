@@ -576,21 +576,7 @@ var Panel = new (class Panel {
     // hyperblame.js.)
     if (typeof BLAME_INFO !== "undefined" || typeof BLAME_INFOS !== "undefined" ||
         typeof RENDERED_BLAME_INFOS !== "undefined") {
-      const li = document.createElement("li");
-      li.classList.add("lens");
-      const label = document.createElement("label");
-      label.textContent = "Blame";
-      label.htmlFor = "panel-lens-blame";
-      const select = document.createElement("select");
-      select.id = "panel-lens-blame";
-      select.append(...Settings.createChoiceOptions(SETTING_DEFS.blame.colorMode.choices));
-      select.value = Settings.blame.colorMode;
-      select.addEventListener("change", () => {
-        BlameColorizer.apply(select.value);
-        Settings.__setValueFromIdSpace("blame--color-mode", select.value);
-      });
-      li.append(label, select);
-      items.push(li);
+      items.push(this.createBlameLens());
     }
 
     if (items.length > 0) {
@@ -602,6 +588,166 @@ var Panel = new (class Panel {
       ul.append(...items);
       this.content.append(ul);
     }
+  }
+
+  /**
+   * The blame lens: "Blame..." for a popup explaining the blame strip's color
+   * modes, with their settings, and beside it a button for each mode.
+   */
+  createBlameLens() {
+    const li = document.createElement("li");
+    li.classList.add("lens", "lens-blame");
+
+    const more = document.createElement("button");
+    more.type = "button";
+    more.id = "panel-lens-blame";
+    more.className = "lens-more";
+    more.textContent = "Blame\u2026";
+    more.title = "How the blame strip can be colored, and its settings";
+    more.setAttribute("aria-haspopup", "dialog");
+    more.setAttribute("aria-expanded", "false");
+    more.addEventListener("click", () => this.toggleBlamePopup(more));
+
+    const modes = document.createElement("span");
+    modes.className = "lens-modes";
+    modes.setAttribute("role", "group");
+    modes.setAttribute("aria-label", "Blame strip colors");
+    const SHORT = { alternating: "alt", age: "age", author: "author" };
+    this.blameModeButtons = SETTING_DEFS.blame.colorMode.choices.map(([mode, label]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = SHORT[mode] ?? label;
+      button.title = label;
+      button.dataset.mode = mode;
+      button.addEventListener("click", () => this.setBlameMode(mode));
+      return button;
+    });
+    modes.append(...this.blameModeButtons);
+    this.updateBlameModeButtons();
+
+    li.append(more, modes);
+    return li;
+  }
+
+  setBlameMode(mode) {
+    BlameColorizer.apply(mode);
+    Settings.__setValueFromIdSpace("blame--color-mode", mode);
+    this.updateBlameModeButtons();
+  }
+
+  updateBlameModeButtons() {
+    const mode = Settings.blame.colorMode;
+    for (const button of this.blameModeButtons) {
+      button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
+    }
+    for (const radio of this.blamePopup?.querySelectorAll("input[name=blame-mode]") ?? []) {
+      radio.checked = radio.value === mode;
+    }
+  }
+
+  toggleBlamePopup(anchor) {
+    if (this.blamePopup) {
+      this.closeBlamePopup();
+      return;
+    }
+    const DESCRIPTIONS = {
+      alternating: "Two shades, switching where the commit changes, like classic blame.",
+      age: "The more recent the commit, the darker the color, by the age scale below.",
+      author: "A color for each author of a commit (the same colors for several, if there are many).",
+    };
+
+    const popup = document.createElement("div");
+    popup.className = "lens-popup";
+    popup.setAttribute("role", "dialog");
+    popup.setAttribute("aria-label", "Blame strip colors");
+
+    const heading = document.createElement("h5");
+    heading.textContent = "Blame strip colors";
+    const intro = document.createElement("p");
+    intro.textContent = "The strip beside the code shows the commits that last changed its tokens; " +
+      "hover over it or click it for them.  Its colors can show:";
+    popup.append(heading, intro);
+
+    const list = document.createElement("ul");
+    for (const [mode, label] of SETTING_DEFS.blame.colorMode.choices) {
+      const item = document.createElement("li");
+      const radioLabel = document.createElement("label");
+      const radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = "blame-mode";
+      radio.value = mode;
+      radio.addEventListener("change", () => this.setBlameMode(mode));
+      const name = document.createElement("strong");
+      name.textContent = label;
+      radioLabel.append(radio, name, `: ${DESCRIPTIONS[mode] ?? ""}`);
+      item.append(radioLabel);
+      if (mode === "age") {
+        const scaleLabel = document.createElement("label");
+        scaleLabel.className = "lens-setting";
+        scaleLabel.textContent = "Age scale: ";
+        const scale = document.createElement("select");
+        scale.id = "blame--age-scale";
+        scale.append(...Settings.createChoiceOptions(SETTING_DEFS.blame.ageScale.choices));
+        scale.value = Settings.blame.ageScale;
+        scaleLabel.append(scale);
+        const legend = document.createElement("ul");
+        legend.className = "lens-age-legend";
+        const updateLegend = () => {
+          legend.replaceChildren(...BlameColorizer.ageBucketLabels().map((text, i) => {
+            const swatch = document.createElement("li");
+            swatch.style.setProperty("--swatch", `var(--blame-age-${i})`);
+            swatch.textContent = text;
+            return swatch;
+          }));
+        };
+        scale.addEventListener("change", () => {
+          Settings.__setValueFromIdSpace("blame--age-scale", scale.value);
+          BlameColorizer.apply(Settings.blame.colorMode);
+          updateLegend();
+        });
+        updateLegend();
+        item.append(scaleLabel, legend);
+      }
+      list.append(item);
+    }
+    popup.append(list);
+
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "lens-popup-close";
+    close.textContent = "Close";
+    close.addEventListener("click", () => this.closeBlamePopup());
+    popup.append(close);
+
+    document.body.append(popup);
+    this.blamePopup = popup;
+    this.blamePopupAnchor = anchor;
+    anchor.setAttribute("aria-expanded", "true");
+    this.updateBlameModeButtons();
+
+    // Beside the panel, at the anchor's height, as far as it fits.
+    const rect = anchor.getBoundingClientRect();
+    popup.style.right = `${Math.max(8, window.innerWidth - rect.left + 8)}px`;
+    const top = Math.min(rect.top, window.innerHeight - popup.offsetHeight - 8);
+    popup.style.top = `${Math.max(8, top)}px`;
+    popup.querySelector("input:checked, input")?.focus();
+
+    this.blamePopupDismiss = event => {
+      if (event.type === "keydown" ? event.key === "Escape"
+          : !popup.contains(event.target) && !anchor.contains(event.target)) {
+        this.closeBlamePopup();
+      }
+    };
+    document.addEventListener("keydown", this.blamePopupDismiss);
+    document.addEventListener("pointerdown", this.blamePopupDismiss, true);
+  }
+
+  closeBlamePopup() {
+    this.blamePopup?.remove();
+    this.blamePopup = null;
+    this.blamePopupAnchor?.setAttribute("aria-expanded", "false");
+    document.removeEventListener("keydown", this.blamePopupDismiss);
+    document.removeEventListener("pointerdown", this.blamePopupDismiss, true);
   }
 
   addDebugSection() {

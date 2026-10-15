@@ -189,13 +189,19 @@
         </p>
         <p>
           The strip can alternate colors when the commit changes, or be colored
-          by the commit's age (within a week, a month, 3 months, a year, 2
-          years, 5 years, or older) or author.  You can also change this for
-          the current page from the "Lenses" section of the navigation panel.
+          by the commit's age (by default, within a week, a month, 3 months, a
+          year, 2 years, 5 years, or older; the age scale makes those more or
+          less recent) or author.  You can also change these from the "Blame..."
+          lens of the navigation panel.
         </p>
         <form>
           <label for="blame--color-mode">Color the blame strip by:</label>
           <select id="blame--color-mode">
+          </select>
+        </form>
+        <form>
+          <label for="blame--age-scale">Commit age scale:</label>
+          <select id="blame--age-scale">
           </select>
         </form>
       </section>

@@ -137,6 +137,17 @@ const SETTING_DEFS = {
       ],
       introducedIn: 8,
     },
+    // How recent the "Commit age" colors' buckets are (see BlameColorizer's
+    // AGE_SCALES).
+    ageScale: {
+      default: "default",
+      choices: [
+        ["recent", "Recent: a day to a year"],
+        ["default", "Default: a week to 5 years"],
+        ["long", "Long: a month to 20 years"],
+      ],
+      introducedIn: 10,
+    },
   },
 };
 
@@ -210,7 +221,7 @@ const WIDGET_DEFS = {
  *   distracting and that they likely would want to actually process the new
  *   settings later on.
  */
-const SETTINGS_VERSION = 9;
+const SETTINGS_VERSION = 10;
 
 /**
  * Convert a "camelCaseString" to "camel-case-string".

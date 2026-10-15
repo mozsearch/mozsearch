@@ -228,22 +228,41 @@ add_task(async function test_BlameLens() {
   ok(headings.indexOf("Lenses") == headings.indexOf("Copy as Markdown") + 1,
      "The Lenses section comes after Copy as Markdown");
 
-  const select = doc.querySelector("#panel-lens-blame");
-  const original = select.value;
-  TestUtils.selectMenu(select, "author");
+  // A button for each mode, beside "Blame...".
+  const pressed = d => d.querySelector(".lens-modes button[aria-pressed=true]")?.dataset.mode;
+  const original = pressed(doc);
+  TestUtils.click(doc.querySelector('.lens-modes button[data-mode="author"]'));
   ok(doc.documentElement.classList.contains("blame-colorized"),
      "Changing the lens colors the strip");
+  is(pressed(doc), "author", "The mode's button is pressed");
   is(JSON.parse(frame.contentWindow.localStorage.getItem("settings")).settings.blame.colorMode,
      "author", "Changing the lens changes the setting");
 
   // Pages loaded later use the setting.
   await TestUtils.loadPath(PATH);
-  is(frame.contentDocument.querySelector("#panel-lens-blame").value, "author",
-     "The lens shows the setting");
+  is(pressed(frame.contentDocument), "author", "The lens shows the setting");
   ok(frame.contentDocument.documentElement.classList.contains("blame-colorized"),
      "The strip is colored by the setting");
 
-  TestUtils.selectMenu(frame.contentDocument.querySelector("#panel-lens-blame"), original);
+  // "Blame..." explains the modes, with the age scale's setting.
+  const more = frame.contentDocument.querySelector("#panel-lens-blame");
+  TestUtils.click(more);
+  const popup = frame.contentDocument.querySelector(".lens-popup");
+  ok(popup, "Blame... opens its popup");
+  is(more.getAttribute("aria-expanded"), "true", "which it says");
+  is(popup.querySelector("input[name=blame-mode]:checked")?.value, "author",
+     "The popup shows the mode");
+  const legend = () => [...popup.querySelectorAll(".lens-age-legend li")].map(li => li.textContent);
+  is(legend()[0], "< 1 week", "The age legend has the default scale's buckets");
+  TestUtils.selectMenu(popup.querySelector("#blame--age-scale"), "recent");
+  is(legend()[0], "< 1 day", "The age scale changes the buckets");
+  is(JSON.parse(frame.contentWindow.localStorage.getItem("settings")).settings.blame.ageScale,
+     "recent", "and the setting");
+  TestUtils.selectMenu(popup.querySelector("#blame--age-scale"), "default");
+  TestUtils.click(popup.querySelector(".lens-popup-close"));
+  ok(!frame.contentDocument.querySelector(".lens-popup"), "Close closes the popup");
+
+  TestUtils.click(frame.contentDocument.querySelector(`.lens-modes button[data-mode="${original}"]`));
 });
 
 add_task(async function test_TokenBlameColors() {

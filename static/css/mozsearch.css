@@ -1224,6 +1224,95 @@ html.fancy-bar-resizing {
   /* Align with the items of the other sections. */
   padding: 0.25rem 0.5rem 0.25rem 30px;
 }
+/* The blame lens: "Blame..." for its popup, and its modes' buttons (see
+   panel.js's createBlameLens). */
+.panel .lens button {
+  font: inherit;
+  cursor: pointer;
+}
+.panel .lens-more {
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+  text-decoration: underline dotted;
+}
+.panel .lens-modes {
+  display: inline-flex;
+}
+.panel .lens-modes button {
+  font-size: 85%;
+  padding: 1px 6px;
+  border: 1px solid var(--page-border-color);
+  background-color: var(--button-background);
+  color: var(--button-color);
+  margin-inline-start: -1px;
+}
+.panel .lens-modes button:first-child {
+  border-radius: 3px 0 0 3px;
+}
+.panel .lens-modes button:last-child {
+  border-radius: 0 3px 3px 0;
+}
+.panel .lens-modes button[aria-pressed="true"] {
+  background-color: var(--button-active-background);
+  font-weight: bold;
+}
+.lens-popup {
+  position: fixed;
+  z-index: 204;
+  width: 22rem;
+  max-width: calc(100vw - 2rem);
+  background-color: var(--page-background);
+  color: var(--page-foreground);
+  border: 1px solid var(--page-border-color);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .25);
+  padding: 0.6rem 0.8rem;
+  font-size: 90%;
+}
+.lens-popup h5 {
+  margin: 0 0 0.4rem;
+  font-size: 100%;
+}
+.lens-popup p {
+  margin: 0 0 0.4rem;
+}
+.lens-popup > ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+}
+.lens-popup > ul > li {
+  margin-bottom: 0.4rem;
+}
+.lens-popup .lens-setting {
+  display: block;
+  margin: 0.3rem 0 0.2rem 1.5rem;
+}
+.lens-age-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0 1.5rem;
+  font-size: 90%;
+}
+.lens-age-legend li::before {
+  content: "";
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-inline-end: 3px;
+  vertical-align: middle;
+  background-color: var(--swatch);
+  border: 1px solid var(--page-border-color);
+}
+.lens-popup-close {
+  font: inherit;
+  cursor: pointer;
+}
 
 .panel .selected-symbol-section {
   width: 240px;
