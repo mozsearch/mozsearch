@@ -99,3 +99,27 @@ add_task(async function test_TokenPermalink() {
     () => /It's now here|It was removed by|couldn't follow/.test(note.querySelector(".permalink-future").textContent),
     "The permalink's token is followed");
 });
+
+// The timeline's commits link to their diffs of the file and the file then,
+// and can highlight the changes since them on the blame strip.
+add_task(async function test_TimelineSince() {
+  await TestUtils.loadPath("/searchfox/source/tools/src/format.rs");
+  const doc = frame.contentDocument;
+  TestUtils.click(doc.querySelector("#revision button.file-timeline"));
+  const popup = doc.querySelector(".file-timeline-popup");
+  await waitForCondition(() => popup.querySelector(".file-timeline-commits li .file-timeline-extras"),
+                         "The commits are listed");
+  const item = popup.querySelector(".file-timeline-commits li");
+  const links = [...item.querySelectorAll(".file-timeline-extras a")].map(a => a.getAttribute("href"));
+  ok(links[0].startsWith("/searchfox/diff/") && links[0].endsWith("/tools/src/format.rs"),
+     "A commit links to its diff of the file");
+  ok(links[1].startsWith("/searchfox/rev/") && links[1].endsWith("/tools/src/format.rs"),
+     "and to the file then");
+  TestUtils.click(item.querySelector(".file-timeline-extras button"));
+  ok(popup.querySelector(".file-timeline-since").textContent.startsWith("Highlighting the changes since"),
+     "Since highlights the changes since it");
+  ok(frame.contentWindow.BlameColorizer.sinceTime > 0, "on the strip");
+  TestUtils.click(popup.querySelector(".file-timeline-since button"));
+  ok(!frame.contentWindow.BlameColorizer.sinceTime, "Clear clears it");
+  TestUtils.click(popup.querySelector(".lens-popup-close"));
+});

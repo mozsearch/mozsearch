@@ -60,6 +60,8 @@ var FileTimeline = new (class FileTimeline {
       release.setAttribute("y1", 0);
       release.setAttribute("y2", height);
       release.classList.add("file-timeline-release");
+      release.dataset.since = time;
+      release.dataset.sinceLabel = `Firefox ${version}`;
       const title = document.createElementNS(NS, "title");
       title.textContent = `Firefox ${version}, released ${new Date(time * 1000).toISOString().slice(0, 10)}`;
       release.append(title);
@@ -109,6 +111,12 @@ var FileTimeline = new (class FileTimeline {
     this.button = button;
   }
 
+  /** The page's file's path (of a source listing or a revision's page). */
+  path() {
+    const match = document.location.pathname.match(/^\/[^\/]+\/(?:source|rev\/[^\/]+)\/(.*)$/);
+    return match ? match[1] : "";
+  }
+
   async releases() {
     const tree = document.getElementById("data")?.dataset.tree || "";
     if (!tree.startsWith("firefox")) {
@@ -141,12 +149,45 @@ var FileTimeline = new (class FileTimeline {
     big.append(this.svg(600, 40));
     const list = document.createElement("ol");
     list.className = "file-timeline-commits";
+    // (Highlighting the changes since a commit or a release on the strip.)
+    const since = document.createElement("div");
+    since.className = "file-timeline-since";
+    const hint = () => {
+      since.textContent = "Click a release's line, or a commit's \u201csince\u201d, to highlight the changes since it.";
+    };
+    const showSince = (time, label, apply = true) => {
+      since.replaceChildren();
+      if (time === null) {
+        BlameColorizer.apply(Settings.blame.colorMode);
+        hint();
+        return;
+      }
+      if (apply) {
+        BlameColorizer.applySince(time);
+      }
+      const clear = document.createElement("button");
+      clear.type = "button";
+      clear.textContent = "Clear";
+      clear.addEventListener("click", () => showSince(null));
+      since.append(`Highlighting the changes since ${label}. `, clear);
+    };
+    big.addEventListener("click", event => {
+      const release = event.target.closest?.("[data-since]");
+      if (release) {
+        showSince(parseFloat(release.dataset.since), release.dataset.sinceLabel);
+      }
+    });
     const close = document.createElement("button");
     close.type = "button";
     close.className = "lens-popup-close";
     close.textContent = "Close";
     close.addEventListener("click", () => this.closePopup());
-    popup.append(heading, big, list, close);
+    popup.append(heading, big, since, list, close);
+    if (BlameColorizer.sinceTime) {
+      showSince(BlameColorizer.sinceTime, "then", false);
+    } else {
+      hint();
+    }
 
     const rect = anchor.getBoundingClientRect();
     popup.style.left = `${Math.max(8, rect.left)}px`;
@@ -206,7 +247,25 @@ var FileTimeline = new (class FileTimeline {
       const header = document.createElement("template");
       header.innerHTML = (headers[commit.index]?.header ?? commit.rev.slice(0, 12)).split("<br>")[0];
       link.textContent = header.content.textContent;
-      item.append(date, " ", link);
+      // (The commit's diff of the file and the file then, and highlighting the
+      // changes since it.)
+      const path = this.path();
+      const extras = document.createElement("span");
+      extras.className = "file-timeline-extras";
+      for (const [text, href] of [["diff", `/${tree}/diff/${commit.rev}/${path}`],
+                                  ["file", `/${tree}/rev/${commit.rev}/${path}`]]) {
+        const a = document.createElement("a");
+        a.href = href;
+        a.textContent = text;
+        extras.append(a, " ");
+      }
+      const sinceButton = document.createElement("button");
+      sinceButton.type = "button";
+      sinceButton.textContent = "since";
+      sinceButton.title = "Highlight the changes since this commit on the blame strip";
+      sinceButton.addEventListener("click", () => showSince(commit.time, date.textContent));
+      extras.append(sinceButton);
+      item.append(date, " ", link, " ", extras);
       if (this.revTime && Math.abs(commit.time - this.revTime) < 1) {
         item.classList.add("file-timeline-current");
       }

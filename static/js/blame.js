@@ -661,7 +661,39 @@ var BlameColorizer = new (class BlameColorizer {
     return null;
   }
 
+  /**
+   * Color the strip for the changes since a time (ex: a Firefox release's,
+   * from the file timeline, see file-timeline.js): the commits since it in a
+   * highlight color, and the others not at all, until `apply` again.
+   */
+  applySince(time) {
+    const rules = [];
+    this.infos.forEach((info, ctx) => {
+      if (!info) {
+        return;
+      }
+      const scope = this.isDiff ? `[data-hb-ctx="${ctx}"]` : "";
+      info.commits.forEach(([_rev, commitTime], i) => {
+        const color = commitTime >= time ? "var(--blame-since)" : "transparent";
+        rules.push(
+          `${scope}.bc-${i} { background-color: ${color}; }`,
+          `${scope}.sa-${i} { --sa: ${color}; }`,
+          `${scope}.sb-${i} { --sb: ${color}; }`,
+          `${scope}.sw-${i} { --sw: ${color}; }`
+        );
+      });
+    });
+    if (!this.style) {
+      this.style = document.createElement("style");
+      document.head.appendChild(this.style);
+    }
+    this.style.textContent = rules.join("\n");
+    document.documentElement.classList.toggle("blame-colorized", rules.length > 0);
+    this.sinceTime = time;
+  }
+
   apply(mode) {
+    this.sinceTime = null;
     const now = Date.now() / 1000;
     const rules = [];
     this.infos.forEach((info, ctx) => {

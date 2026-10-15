@@ -77,6 +77,8 @@ table {
   --blame-age-4: #fcbba1;
   --blame-age-5: #fee0d2;
   --blame-age-6: var(--blame-light-gray);
+  /* (Changes since a time, from the file timeline.) */
+  --blame-since: #f59e0b;
   --blame-author-0: #4e79a7;
   --blame-author-1: #f28e2b;
   --blame-author-2: #e15759;
@@ -280,6 +282,7 @@ table {
     --blame-age-4: #682520;
     --blame-age-5: #4d2320;
     --blame-age-6: var(--blame-dark-gray);
+    --blame-since: #d97706;
 
     --context-menu-new-section: #444;
     --context-menu-same-section: #181818;
@@ -1496,6 +1499,24 @@ html.fancy-bar-resizing {
   stroke: var(--test-results-good, green);
   stroke-dasharray: 2 2;
   vector-effect: non-scaling-stroke;
+}
+.file-timeline-big .file-timeline-release {
+  stroke-width: 3;
+  cursor: pointer;
+}
+.file-timeline-since {
+  margin: 0.3rem 0;
+  color: var(--page-subtle-foreground);
+}
+.file-timeline-since button,
+.file-timeline-extras button {
+  font: inherit;
+  font-size: 85%;
+  cursor: pointer;
+}
+.file-timeline-extras {
+  margin-inline-start: 0.4rem;
+  font-size: 85%;
 }
 .file-timeline-rev {
   fill: var(--test-results-crashes, red);
