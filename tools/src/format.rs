@@ -4543,6 +4543,38 @@ fn redirect_target<'a>(
         .map(|(name, _)| name.clone())
 }
 
+/// Whether a file (not a directory) is the same at a revision as at the
+/// tree's indexed revision, whose source listing then serves for it (see the
+/// web server's `/rev/` route).
+pub fn same_as_head(cfg: &Config, tree_name: &str, rev: &str, path: &str) -> bool {
+    let Some(tree_config) = cfg.trees.get(tree_name) else {
+        return false;
+    };
+    let Ok(git) = tree_config.get_git() else {
+        return false;
+    };
+    let path = Path::new(path.trim_end_matches('/'));
+    let blob_at = |commit: git2::Oid| {
+        let (repo, oid) = get_object_at(OwnedOrBorrowed::Borrowed(&git.repo), commit, path).ok()?;
+        let kind = repo.find_object(oid, None).ok()?.kind();
+        (kind == Some(git2::ObjectType::Blob)).then_some(oid)
+    };
+    let (Ok(commit), Ok(head)) = (
+        git.repo.revparse_single(rev).and_then(|o| o.peel_to_commit()),
+        git.repo.head().and_then(|h| h.peel_to_commit()),
+    ) else {
+        return false;
+    };
+    // (A try push's head's pages are the push's, whose searches and jumps are
+    // of it; see `format_file_data`'s `search_rev`.)
+    let is_try_push = crate::try_delta::delta_dir(&tree_config.paths.index_path, &commit.id().to_string())
+        .join("meta.json")
+        .exists();
+    commit.id() != head.id()
+        && !is_try_push
+        && blob_at(commit.id()).is_some_and(|blob| Some(blob) == blob_at(head.id()))
+}
+
 pub fn format_path(
     cfg: &Config,
     tree_name: &str,

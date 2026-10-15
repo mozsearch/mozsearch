@@ -239,6 +239,19 @@ fn handle(
                 return WebResponse::redirect(format!("/{}/rev/{}/{}", other_tree, rev, path));
             }
 
+            // A permalink to a revision at which the file is the same as at
+            // the indexed revision goes to its source listing (with its
+            // semantic information), which says so (see file-timeline.js's
+            // PermalinkNote), unless it's for exactly that revision
+            // (`?exactly`).
+            let exactly = url::form_urlencoded::parse(req.query.as_bytes()).any(|(key, _)| key == "exactly");
+            if !exactly && format::same_as_head(cfg, tree_name, rev, &path) {
+                return WebResponse::redirect(format!(
+                    "/{}/source/{}?permalink={}",
+                    tree_name, path, rev
+                ));
+            }
+
             let mut writer = Vec::new();
             match format::format_path(cfg, tree_name, rev, &path, &mut writer) {
                 Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),

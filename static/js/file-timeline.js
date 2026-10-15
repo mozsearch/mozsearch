@@ -226,3 +226,46 @@ var FileTimeline = new (class FileTimeline {
     document.removeEventListener("pointerdown", this.dismiss, true);
   }
 })();
+
+/**
+ * The note on a source listing that a permalink led to because the file is
+ * the same at the permalink's revision as at the indexed one (see the web
+ * server's `/rev/` route): it says so, with a link to the file at exactly
+ * that revision, and the URL goes back to the source listing's.
+ */
+var PermalinkNote = new (class PermalinkNote {
+  constructor() {
+    const params = new URLSearchParams(document.location.search);
+    const rev = params.get("permalink");
+    const match = document.location.pathname.match(/^\/([^\/]+)\/source\/(.*)$/);
+    if (!rev || !/^[0-9a-f]{7,40}$/i.test(rev) || !match) {
+      return;
+    }
+    const [, tree, path] = match;
+    const note = document.createElement("section");
+    note.className = "info-box info-box-info info-box-concise permalink-note";
+    const heading = document.createElement("h4");
+    heading.textContent = "Permalink";
+    const text = document.createElement("span");
+    text.className = "info-box-facts";
+    text.append(`The file is the same at ${rev.slice(0, 12)} as in the indexed revision, so this is its current view.`);
+    const exact = document.createElement("a");
+    exact.href = `/${tree}/rev/${rev}/${path}?exactly${document.location.hash}`;
+    exact.className = "info-box-details";
+    exact.textContent = `Show it at ${rev.slice(0, 12)}`;
+    note.append(heading, text, exact);
+    const boxes = document.getElementById("info-boxes-container");
+    const file = document.getElementById("file");
+    if (boxes) {
+      boxes.prepend(note);
+    } else if (file) {
+      file.before(note);
+    } else {
+      document.getElementById("content")?.prepend(note);
+    }
+    params.delete("permalink");
+    const search = params.toString();
+    window.history.replaceState(window.history.state, "",
+      document.location.pathname + (search ? `?${search}` : "") + document.location.hash);
+  }
+})();
