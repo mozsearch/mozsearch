@@ -15,6 +15,7 @@ pub struct LanguageSpec {
     // Rust is mostly C-like, with a couple of differences.
     pub rust_tweaks: bool,
     pub cxx14_digit_separators: bool,
+    pub jsx: bool,
     pub markdown_slug: &'static str,
 }
 
@@ -580,6 +581,12 @@ lazy_static! {
         .. LanguageSpec::default()
     };
 
+    static ref JSX_SPEC : LanguageSpec = LanguageSpec {
+        jsx: true,
+        markdown_slug: "jsx",
+        .. JS_SPEC.clone()
+    };
+
     static ref HTML_SPEC : LanguageSpec = LanguageSpec {
         markdown_slug: "html",
         .. JS_SPEC.clone()
@@ -684,6 +691,7 @@ pub fn select_formatting(filename: &str) -> FormatAs {
         "js" | "jsm" | "json" | "mjs" | "cjs" | "sjs" | "ts" | "mts" | "cts" => {
             FormatAs::FormatCLike(&JS_SPEC)
         }
+        "jsx" => FormatAs::FormatCLike(&JSX_SPEC),
         "py" | "build" | "mozbuild" | "configure" => FormatAs::FormatCLike(&PYTHON_SPEC),
         "rs" => FormatAs::FormatCLike(&RUST_SPEC),
         "java" => FormatAs::FormatCLike(&JAVA_SPEC),

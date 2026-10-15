@@ -363,14 +363,28 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             || ch.is_ascii_digit()
             || (ch == '#' && spec.hash_identifier)
     };
+    let is_jsx_name = |ch: char| -> bool { is_ident(ch) || ch == '-' || ch == '.' || ch == ':' };
+
+    // What to resume once the braces of a `${...}` or JSX `{...}` are closed.
+    #[derive(Clone, Copy)]
+    enum StateBeforeInterpolation {
+        Backtick,
+        // Number of open JSX elements, and whether we were inside an opening
+        // tag (as opposed to element children).
+        Jsx { depth: u32, in_tag: bool },
+    }
 
     let mut tokens = Vec::new();
 
     let chars: Vec<(usize, char)> = string.char_indices().collect();
-    let mut backtick_nesting: Vec<Cell<u32>> = Vec::new();
+    let mut interpolations: Vec<(StateBeforeInterpolation, Cell<u32>)> = Vec::new();
     let cur_pos = Cell::new(0);
 
-    let mut next_token_maybe_regexp_literal = true;
+    // Whether the next token can start an expression, as opposed to continuing
+    // one. This disambiguates between `/` as division and as the start of a
+    // regexp literal, and between `<` as less-than and as the start of a JSX
+    // element.
+    let mut next_token_maybe_expression = true;
 
     let get_char = || {
         let p = cur_pos.get();
@@ -446,24 +460,26 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
 
     'token_loop: while cur_pos.get() < chars.len() {
         let (start, mut ch) = get_char();
-        let mut continue_backtick = false;
-        if let Some(braces) = backtick_nesting.last_mut() {
+        let mut resume_after_interpolation = None;
+        if let Some((saved_state, braces)) = interpolations.last() {
             match ch {
                 '{' => {
                     braces.set(braces.get() + 1);
                 }
                 '}' => {
                     braces.set(braces.get() - 1);
-                    continue_backtick = braces.get() == 0;
+                    if braces.get() == 0 {
+                        resume_after_interpolation = Some(*saved_state);
+                    }
                 }
                 _ => {}
             }
         }
 
-        // If continue_backtick is true, then backtick_nesting.last() is
-        // non-None and 0, so pop it off the stack before continuing.
-        if continue_backtick {
-            backtick_nesting.pop();
+        // The braces of interpolations.last() are all closed, so pop it off the
+        // stack before continuing.
+        if resume_after_interpolation.is_some() {
+            interpolations.pop();
         }
 
         // Pre-process rust byte strings here. To do so, scan ahead a little:
@@ -605,7 +621,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 end: peek_pos(),
                 kind: TokenKind::StringLiteral,
             });
-            next_token_maybe_regexp_literal = false;
+            next_token_maybe_expression = false;
         } else if is_ident(ch) {
             let cxx14_number = spec.cxx14_digit_separators && ch.is_ascii_digit();
             while is_ident(peek_char()) || (cxx14_number && peek_char() == '\'') {
@@ -622,7 +638,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             });
             // NOTE: yield and await can also be followed by RegExp, but
             //       only in generator or async context.
-            next_token_maybe_regexp_literal = word == "return";
+            next_token_maybe_expression = word == "return";
         } else if ch == '\n' {
             tokens.push(Token {
                 start,
@@ -676,7 +692,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 end: peek_pos(),
                 kind: TokenKind::Identifier(class),
             });
-            next_token_maybe_regexp_literal = false;
+            next_token_maybe_expression = false;
         } else if ch == '<'
             && spec.c_preprocessor
             && let Some(previous_token) = tokens.last()
@@ -766,7 +782,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                     end: peek_pos(),
                     kind: TokenKind::Newline,
                 });
-            } else if next_token_maybe_regexp_literal && spec.regexp_literals {
+            } else if next_token_maybe_expression && spec.regexp_literals {
                 loop {
                     if cur_pos.get() == chars.len() {
                         debug!("Invalid regexp literal");
@@ -791,16 +807,177 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                     end: peek_pos(),
                     kind: TokenKind::RegularExpressionLiteral,
                 });
-                next_token_maybe_regexp_literal = true;
+                next_token_maybe_expression = true;
             } else {
                 tokens.push(Token {
                     start,
                     end: peek_pos(),
                     kind: TokenKind::Punctuation,
                 });
-                next_token_maybe_regexp_literal = true;
+                next_token_maybe_expression = true;
             }
-        } else if continue_backtick || (ch == '`' && spec.backtick_strings) {
+        } else if matches!(
+            resume_after_interpolation,
+            Some(StateBeforeInterpolation::Jsx { .. })
+        ) || (spec.jsx && ch == '<' && next_token_maybe_expression)
+        {
+            let push_punctuation = |start: usize, tokens: &mut Vec<Token>| {
+                tokens.push(Token {
+                    start,
+                    end: peek_pos(),
+                    kind: TokenKind::Punctuation,
+                });
+            };
+            let push_tag_name = |tokens: &mut Vec<Token>, kind: TokenKind| {
+                let start = peek_pos();
+                while is_jsx_name(peek_char()) {
+                    get_char();
+                }
+                if peek_pos() != start {
+                    tokens.push(Token {
+                        start,
+                        end: peek_pos(),
+                        kind,
+                    });
+                }
+            };
+            let skip_spaces = || {
+                while matches!(peek_char(), ' ' | '\t' | '\r') {
+                    get_char();
+                }
+            };
+
+            let (mut depth, mut in_tag) = match resume_after_interpolation {
+                Some(StateBeforeInterpolation::Jsx { depth, in_tag }) => {
+                    push_punctuation(start, &mut tokens);
+                    (depth, in_tag)
+                }
+                _ => {
+                    // Let the loop below handle the '<'.
+                    cur_pos.set(cur_pos.get() - 1);
+                    (0, false)
+                }
+            };
+            loop {
+                if peek_pos() == string.len() {
+                    debug!("Unterminated JSX element");
+                    return tokens;
+                }
+
+                let (start, c) = get_char();
+                if c == '\n' {
+                    tokens.push(Token {
+                        start,
+                        end: peek_pos(),
+                        kind: TokenKind::Newline,
+                    });
+                    continue;
+                }
+
+                if in_tag {
+                    match c {
+                        ' ' | '\t' | '\r' => {}
+                        '>' => {
+                            push_punctuation(start, &mut tokens);
+                            in_tag = false;
+                        }
+                        '/' if peek_char() == '>' => {
+                            get_char();
+                            push_punctuation(start, &mut tokens);
+                            in_tag = false;
+                            depth -= 1;
+                        }
+                        '"' | '\'' => {
+                            let mut start = start;
+                            loop {
+                                if peek_pos() == string.len() {
+                                    debug!("Unterminated JSX attribute");
+                                    return tokens;
+                                }
+                                let (_, next) = get_char();
+                                if next == c {
+                                    break;
+                                } else if next == '\n' {
+                                    start =
+                                        push_newline(start, &mut tokens, TokenKind::StringLiteral);
+                                }
+                            }
+                            tokens.push(Token {
+                                start,
+                                end: peek_pos(),
+                                kind: TokenKind::StringLiteral,
+                            });
+                        }
+                        '{' => {
+                            push_punctuation(start, &mut tokens);
+                            interpolations.push((
+                                StateBeforeInterpolation::Jsx { depth, in_tag },
+                                Cell::new(1),
+                            ));
+                            next_token_maybe_expression = true;
+                            break;
+                        }
+                        c if is_jsx_name(c) => {
+                            cur_pos.set(cur_pos.get() - 1);
+                            push_tag_name(&mut tokens, TokenKind::TagAttrName);
+                        }
+                        _ => push_punctuation(start, &mut tokens),
+                    }
+                } else {
+                    match c {
+                        '<' if peek_char() == '/' => {
+                            get_char();
+                            push_punctuation(start, &mut tokens);
+                            skip_spaces();
+                            push_tag_name(&mut tokens, TokenKind::EndTagName);
+                            skip_spaces();
+                            if peek_char() == '>' {
+                                let (start, _) = get_char();
+                                push_punctuation(start, &mut tokens);
+                            }
+                            depth = depth.saturating_sub(1);
+                        }
+                        '<' => {
+                            push_punctuation(start, &mut tokens);
+                            skip_spaces();
+                            push_tag_name(&mut tokens, TokenKind::TagName);
+                            in_tag = true;
+                            depth += 1;
+                        }
+                        '{' => {
+                            push_punctuation(start, &mut tokens);
+                            interpolations.push((
+                                StateBeforeInterpolation::Jsx { depth, in_tag },
+                                Cell::new(1),
+                            ));
+                            next_token_maybe_expression = true;
+                            break;
+                        }
+                        _ => {
+                            while peek_pos() != string.len()
+                                && !matches!(peek_char(), '<' | '{' | '\n')
+                            {
+                                get_char();
+                            }
+                            tokens.push(Token {
+                                start,
+                                end: peek_pos(),
+                                kind: TokenKind::PlainText,
+                            });
+                        }
+                    }
+                }
+
+                if depth == 0 {
+                    next_token_maybe_expression = false;
+                    break;
+                }
+            }
+        } else if matches!(
+            resume_after_interpolation,
+            Some(StateBeforeInterpolation::Backtick)
+        ) || (ch == '`' && spec.backtick_strings)
+        {
             let mut start = start;
             loop {
                 if peek_pos() == string.len() {
@@ -822,7 +999,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                     // last close brace that isn't part of a string or regexp,
                     // we'll come back in here to finish this template string.
                     get_char(); // Skip '{'.
-                    backtick_nesting.push(Cell::new(1));
+                    interpolations.push((StateBeforeInterpolation::Backtick, Cell::new(1)));
                     break;
                 }
             }
@@ -833,7 +1010,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                     kind: TokenKind::StringLiteral,
                 });
             }
-            next_token_maybe_regexp_literal = true;
+            next_token_maybe_expression = true;
         } else if ch == '\'' || ch == '"' {
             let need_triple = spec.triple_quote_literals && peek_char() == ch && peek_char2() == ch;
             if need_triple {
@@ -897,7 +1074,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
                 end: peek_pos(),
                 kind: TokenKind::StringLiteral,
             });
-            next_token_maybe_regexp_literal = false;
+            next_token_maybe_expression = false;
         } else {
             tokens.push(Token {
                 start,
@@ -920,7 +1097,7 @@ pub fn tokenize_c_like(string: &str, spec: &LanguageSpec) -> Vec<Token> {
             //
             // See test_regexp_js and test_not_regexp_js for examples.
             let s = string[start..peek_pos()].to_string();
-            next_token_maybe_regexp_literal = s == "="
+            next_token_maybe_expression = s == "="
                 || s == "("
                 || s == "["
                 || s == "{"
@@ -1820,6 +1997,114 @@ mod tests {
                 ("}`", TokenKind::StringLiteral),
             ],
         );
+    }
+
+    #[test]
+    fn test_jsx() {
+        let spec = match select_formatting("test.jsx") {
+            FormatAs::FormatCLike(spec) => spec,
+            _ => panic!("wrong spec"),
+        };
+
+        let check = |s: &str, expected: &[(&str, TokenKind)]| {
+            check_tokens(s, expected, spec);
+        };
+
+        check(
+            r##"x = <a href="u" b={c}>Don't</a>;"##,
+            &[
+                ("x", TokenKind::Identifier(None)),
+                ("=", TokenKind::Punctuation),
+                ("<", TokenKind::Punctuation),
+                ("a", TokenKind::TagName),
+                ("href", TokenKind::TagAttrName),
+                ("=", TokenKind::Punctuation),
+                ("\"u\"", TokenKind::StringLiteral),
+                ("b", TokenKind::TagAttrName),
+                ("=", TokenKind::Punctuation),
+                ("{", TokenKind::Punctuation),
+                ("c", TokenKind::Identifier(None)),
+                ("}", TokenKind::Punctuation),
+                (">", TokenKind::Punctuation),
+                ("Don't", TokenKind::PlainText),
+                ("</", TokenKind::Punctuation),
+                ("a", TokenKind::EndTagName),
+                (">", TokenKind::Punctuation),
+                (";", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "return (<>\n{l.map(i => <li>{i}</li>)}\n<Foo.Bar />\n</>) / 2",
+            &[
+                (
+                    "return",
+                    TokenKind::Identifier(Some(SYN_RESERVED_CLASS.into())),
+                ),
+                ("(", TokenKind::Punctuation),
+                ("<", TokenKind::Punctuation),
+                (">", TokenKind::Punctuation),
+                ("\n", TokenKind::Newline),
+                ("{", TokenKind::Punctuation),
+                ("l", TokenKind::Identifier(None)),
+                (".", TokenKind::Punctuation),
+                ("map", TokenKind::Identifier(None)),
+                ("(", TokenKind::Punctuation),
+                ("i", TokenKind::Identifier(None)),
+                ("=", TokenKind::Punctuation),
+                (">", TokenKind::Punctuation),
+                ("<", TokenKind::Punctuation),
+                ("li", TokenKind::TagName),
+                (">", TokenKind::Punctuation),
+                ("{", TokenKind::Punctuation),
+                ("i", TokenKind::Identifier(None)),
+                ("}", TokenKind::Punctuation),
+                ("</", TokenKind::Punctuation),
+                ("li", TokenKind::EndTagName),
+                (">", TokenKind::Punctuation),
+                (")", TokenKind::Punctuation),
+                ("}", TokenKind::Punctuation),
+                ("\n", TokenKind::Newline),
+                ("<", TokenKind::Punctuation),
+                ("Foo.Bar", TokenKind::TagName),
+                ("/>", TokenKind::Punctuation),
+                ("\n", TokenKind::Newline),
+                ("</", TokenKind::Punctuation),
+                (">", TokenKind::Punctuation),
+                (")", TokenKind::Punctuation),
+                ("/", TokenKind::Punctuation),
+                ("2", TokenKind::Identifier(None)),
+            ],
+        );
+        check(
+            "f(< a />)",
+            &[
+                ("f", TokenKind::Identifier(None)),
+                ("(", TokenKind::Punctuation),
+                ("<", TokenKind::Punctuation),
+                ("a", TokenKind::TagName),
+                ("/>", TokenKind::Punctuation),
+                (")", TokenKind::Punctuation),
+            ],
+        );
+        check(
+            "if (a < b) {}",
+            &[
+                ("if", TokenKind::Identifier(Some(SYN_RESERVED_CLASS.into()))),
+                ("(", TokenKind::Punctuation),
+                ("a", TokenKind::Identifier(None)),
+                ("<", TokenKind::Punctuation),
+                ("b", TokenKind::Identifier(None)),
+                (")", TokenKind::Punctuation),
+                ("{", TokenKind::Punctuation),
+                ("}", TokenKind::Punctuation),
+            ],
+        );
+
+        let js_spec = match select_formatting("test.js") {
+            FormatAs::FormatCLike(spec) => spec,
+            _ => panic!("wrong spec"),
+        };
+        assert!(!js_spec.jsx);
     }
 
     #[test]

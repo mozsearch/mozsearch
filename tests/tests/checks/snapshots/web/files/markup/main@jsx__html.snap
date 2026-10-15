@@ -1,0 +1,139 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/web/files/markup/jsx__html
+---
+<code role="cell" class="source-line"><span class="syn_comment" >/* This Source Code Form is subject to the terms of the Mozilla Public</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" > * License, v. 2.0. If a copy of the MPL was not distributed with this file,</span>
+</code>
+<code role="cell" class="source-line"><span class="syn_comment" > * You can obtain one at <a href="http://mozilla.org/MPL/2.0/">http://mozilla.org/MPL/2.0/</a>. */</span>
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >import</span> React from <span class="syn_string" >"react"</span>;
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >import</span> { useSelector } from <span class="syn_string" >"react-redux"</span>;
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >import</span> {
+</code>
+<code role="cell" class="source-line">  WIDGET_REGISTRY,
+</code>
+<code role="cell" class="source-line">  isWidgetEnabled,
+</code>
+<code role="cell" class="source-line">  resolveWidgetSize,
+</code>
+<code role="cell" class="source-line">  resolveWidgetHasSidebar,
+</code>
+<code role="cell" class="source-line">} from <span class="syn_string" >"common/WidgetsRegistry.mjs"</span>;
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >import</span> { Weather as WeatherWidget } from <span class="syn_string" >"./Weather/Weather"</span>;
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >import</span> { ErrorBoundary } from <span class="syn_string" >"content-src/components/ErrorBoundary/ErrorBoundary"</span>;
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >import</span> { WIDGET_SIDEBAR_COMPONENTS } from <span class="syn_string" >"./WidgetsComponentRegistry.jsx"</span>;
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >const</span> PREF_WIDGETS_ENABLED = <span class="syn_string" >"widgets.enabled"</span>;
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >const</span> PREF_NOVA_ENABLED = <span class="syn_string" >"nova.enabled"</span>;
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >function</span> WidgetsSidebar({ dispatch }) {
+</code>
+<code role="cell" class="source-line">  <span class="syn_reserved" >const</span> prefs = useSelector(state => state.Prefs.values);
+</code>
+<code role="cell" class="source-line">  <span class="syn_reserved" >const</span> widgetsEnabled = prefs[PREF_WIDGETS_ENABLED];
+</code>
+<code role="cell" class="source-line">  <span class="syn_reserved" >const</span> novaEnabled = prefs[PREF_NOVA_ENABLED];
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line">  <span class="syn_comment" >// Only one widget is supported here going forward: .sidebar-inline-end</span>
+</code>
+<code role="cell" class="source-line">  <span class="syn_comment" >// subgrids two rows of the outer grid, and anything past that overflows into</span>
+</code>
+<code role="cell" class="source-line">  <span class="syn_comment" >// the .content-full-width band below it.</span>
+</code>
+<code role="cell" class="source-line">  <span class="syn_reserved" >const</span> sidebarWidgets = WIDGET_REGISTRY.filter(
+</code>
+<code role="cell" class="source-line">    w =>
+</code>
+<code role="cell" class="source-line">      resolveWidgetHasSidebar(w, prefs) &amp;&amp;
+</code>
+<code role="cell" class="source-line">      isWidgetEnabled(w, prefs, widgetsEnabled) &amp;&amp;
+</code>
+<code role="cell" class="source-line">      resolveWidgetSize(w, prefs) === <span class="syn_string" >"small"</span>
+</code>
+<code role="cell" class="source-line">  );
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line">  <span class="syn_reserved" >if</span> (!sidebarWidgets.length) {
+</code>
+<code role="cell" class="source-line">    <span class="syn_reserved" >return</span> <span class="syn_reserved" >null</span>;
+</code>
+<code role="cell" class="source-line">  }
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line">  <span class="syn_reserved" >return</span> (
+</code>
+<code role="cell" class="source-line">    &lt;>
+</code>
+<code role="cell" class="source-line">      {sidebarWidgets.map(w => {
+</code>
+<code role="cell" class="source-line">        <span class="syn_reserved" >if</span> (novaEnabled) {
+</code>
+<code role="cell" class="source-line">          <span class="syn_reserved" >const</span> Component = WIDGET_SIDEBAR_COMPONENTS[w.id];
+</code>
+<code role="cell" class="source-line">          <span class="syn_reserved" >return</span> Component ? (
+</code>
+<code role="cell" class="source-line">            &lt;<span class="syn_tag" >ErrorBoundary</span> <span class="syn_tag" >key</span>={w.id}>
+</code>
+<code role="cell" class="source-line">              &lt;<span class="syn_tag" >Component</span> <span class="syn_tag" >dispatch</span>={dispatch} />
+</code>
+<code role="cell" class="source-line">            &lt;/<span class="syn_tag" >ErrorBoundary</span>>
+</code>
+<code role="cell" class="source-line">          ) : <span class="syn_reserved" >null</span>;
+</code>
+<code role="cell" class="source-line">        }
+</code>
+<code role="cell" class="source-line">        <span class="syn_comment" >// @nova-cleanup: remove below</span>
+</code>
+<code role="cell" class="source-line">        <span class="syn_reserved" >if</span> (w.id === <span class="syn_string" >"weather"</span>) {
+</code>
+<code role="cell" class="source-line">          <span class="syn_reserved" >if</span> (!prefs.showWeather) {
+</code>
+<code role="cell" class="source-line">            <span class="syn_reserved" >return</span> <span class="syn_reserved" >null</span>;
+</code>
+<code role="cell" class="source-line">          }
+</code>
+<code role="cell" class="source-line">          <span class="syn_reserved" >return</span> (
+</code>
+<code role="cell" class="source-line">            &lt;<span class="syn_tag" >ErrorBoundary</span> <span class="syn_tag" >key</span>=<span class="syn_string" >"weather"</span>>
+</code>
+<code role="cell" class="source-line">              &lt;<span class="syn_tag" >WeatherWidget</span> <span class="syn_tag" >dispatch</span>={dispatch} <span class="syn_tag" >size</span>=<span class="syn_string" >"small"</span> />
+</code>
+<code role="cell" class="source-line">            &lt;/<span class="syn_tag" >ErrorBoundary</span>>
+</code>
+<code role="cell" class="source-line">          );
+</code>
+<code role="cell" class="source-line">        }
+</code>
+<code role="cell" class="source-line">        <span class="syn_reserved" >return</span> <span class="syn_reserved" >null</span>;
+</code>
+<code role="cell" class="source-line">      })}
+</code>
+<code role="cell" class="source-line">    &lt;/>
+</code>
+<code role="cell" class="source-line">  );
+</code>
+<code role="cell" class="source-line">}
+</code>
+<code role="cell" class="source-line">
+</code>
+<code role="cell" class="source-line"><span class="syn_reserved" >export</span> { WidgetsSidebar };
+</code>
