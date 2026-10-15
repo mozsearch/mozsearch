@@ -12,7 +12,7 @@
 //! See "Token blame UI plan" in the hyperblame notes for how this is used.
 
 use std::cmp::Ordering;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::ops::Range;
 use std::path::Path;
@@ -26,7 +26,9 @@ use crate::file_format::history::syntax_files::{TokenClass, split_token_line, to
 use crate::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use crate::file_format::history::timeline_annotated::{HyperLineData, RemovalMarker};
 use crate::source_mapping::{NotesRefs, SourceMapping, TRY_BRANCH, default_notes_ref};
-use crate::tree_sitter_support::cst_tokenizer::{hypertokenize_with_profile, profile_for_lang};
+use crate::tree_sitter_support::cst_tokenizer::{
+    HyperTokenized, hypertokenize_with_profile, profile_for_lang,
+};
 
 /// A tree's history repos (see `TreeConfigPaths::history_path`) for its branch.
 pub struct TreeHistory {
@@ -261,6 +263,80 @@ impl TreeHistory {
         }
         Ok(Some(ranges))
     }
+
+    /// The lines (1-based, first and last) of the containers of `source`,
+    /// which must be the contents of `path` in the revision `timeline_commit`
+    /// describes, by their pretty identifiers as the history's tokens have
+    /// them: those of their tokens (including their comments) and their nested
+    /// containers' (and for overloads, which share a pretty identifier, the
+    /// lines between them), or None if the history doesn't have the file.  (If
+    /// the tokens differ from the history's, ex: if the tokenizer changed
+    /// since, by the pretty identifiers the tokenizer gives them now, which
+    /// mostly match.)
+    pub fn container_lines(
+        &self,
+        timeline_commit: &Commit,
+        path: &str,
+        source: &str,
+    ) -> Result<Option<HashMap<String, (u32, u32)>>, TokenBlameError> {
+        let Some((lang, syntax)) = self.lang_and_syntax(timeline_commit, path)? else {
+            return Ok(None);
+        };
+        let profile =
+            profile_for_lang(&lang).ok_or_else(|| TokenBlameError::UnknownLang(lang.clone()))?;
+        let tokenized =
+            hypertokenize_with_profile(profile, source).map_err(TokenBlameError::Tokenize)?;
+        match lines_by_container(&tokenized, &token_file_lines(&syntax), source) {
+            Err(TokenBlameError::TokenMismatch(_)) => {
+                let ours: Vec<&str> = tokenized.tokenized.iter().map(String::as_str).collect();
+                lines_by_container(&tokenized, &ours, source).map(Some)
+            }
+            lines => lines.map(Some),
+        }
+    }
+}
+
+/// `TreeHistory::container_lines` for the tokens `tokenized` of `source`, given
+/// the history's lines for them, `syntax_lines`.
+fn lines_by_container(
+    tokenized: &HyperTokenized,
+    syntax_lines: &[&str],
+    source: &str,
+) -> Result<HashMap<String, (u32, u32)>, TokenBlameError> {
+    if syntax_lines.len() != tokenized.tokenized.len() {
+        return Err(TokenBlameError::TokenMismatch(
+            syntax_lines.len().min(tokenized.tokenized.len()),
+        ));
+    }
+    let line_starts: Vec<usize> = std::iter::once(0)
+        .chain(source.match_indices('\n').map(|(index, _)| index + 1))
+        .collect();
+    let mut lines: HashMap<String, (u32, u32)> = HashMap::new();
+    for (index, (ours, theirs)) in tokenized.tokenized.iter().zip(syntax_lines).enumerate() {
+        let (ours, theirs) = (split_token_line(ours), split_token_line(theirs));
+        if ours.token != theirs.token {
+            return Err(TokenBlameError::TokenMismatch(index));
+        }
+        let Some(offset) = tokenized.offsets[index] else {
+            continue;
+        };
+        let line = line_starts.partition_point(|start| *start <= offset as usize) as u32;
+        // (The token's container's, and its ancestors'.)
+        let mut context = Some(theirs.context).filter(|context| *context != "%");
+        while let Some(container) = context {
+            match lines.get_mut(container) {
+                Some((first, last)) => {
+                    *first = (*first).min(line);
+                    *last = (*last).max(line);
+                }
+                None => {
+                    lines.insert(container.to_string(), (line, line));
+                }
+            }
+            context = container.rfind("::").map(|index| &container[..index]);
+        }
+    }
+    Ok(lines)
 }
 
 fn read_path(
@@ -500,6 +576,35 @@ mod tests {
     use super::*;
     use crate::file_format::history::timeline_annotated::HyperTokenRef;
     use crate::tree_sitter_support::cst_tokenizer::hypertokenize_source_file;
+
+    #[test]
+    fn test_lines_by_container() {
+        let source = "struct S {\n    a: u32,\n}\n\nimpl S {\n    /// Doc.\n    fn f(&self) {\n        g();\n    }\n}\n";
+        let tokenized = hypertokenize_source_file("x.rs", source).unwrap();
+        let syntax: Vec<&str> = tokenized.tokenized.iter().map(String::as_str).collect();
+        let lines = lines_by_container(&tokenized, &syntax, source).unwrap();
+        let mut found: Vec<(&str, (u32, u32))> = lines
+            .iter()
+            .map(|(name, lines)| (name.as_str(), *lines))
+            .collect();
+        found.sort();
+        let structure: Vec<&str> = tokenized
+            .structure
+            .iter()
+            .map(|row| row.pretty.as_str())
+            .collect();
+        // (Every container has lines, and a method's start at its comment.)
+        for pretty in &structure {
+            assert!(lines.contains_key(*pretty), "{} in {:?}", pretty, found);
+        }
+        let f = structure
+            .iter()
+            .find(|pretty| pretty.ends_with('f'))
+            .unwrap();
+        assert_eq!(lines[*f], (6, 9), "{:?}", found);
+        let mismatched: Vec<&str> = syntax[1..].to_vec();
+        assert!(lines_by_container(&tokenized, &mismatched, source).is_err());
+    }
 
     #[test]
     fn test_try_lookup() {

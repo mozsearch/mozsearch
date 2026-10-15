@@ -355,6 +355,7 @@ pub fn generate_footer(
         "blame.js",
         "hyperblame.js",
         "file-timeline.js",
+        "outline.js",
         "stack-strip.js",
         "interdiff.js",
         "d3.v7.min.js",

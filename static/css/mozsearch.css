@@ -1553,6 +1553,70 @@ html.fancy-bar-resizing {
   font: inherit;
   cursor: pointer;
 }
+/* The fancy bar's outline of the file, with its definitions' changes since a
+   baseline (see outline.js). */
+.outline-section {
+  padding: 0.25rem 0.5rem 0.25rem 30px;
+  font-size: 90%;
+}
+.outline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.outline-baseline button {
+  font: inherit;
+  cursor: pointer;
+}
+.outline-all {
+  white-space: nowrap;
+}
+.outline-summary {
+  margin: 0.2rem 0;
+  color: var(--page-subtle-foreground);
+}
+.panel ul.outline-list {
+  max-height: 50vh;
+  overflow: auto;
+}
+.outline-entry {
+  padding: 1px 0 1px calc(var(--outline-depth, 0) * 0.8rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.outline-entry[hidden] {
+  display: none;
+}
+.outline-name {
+  color: inherit;
+}
+.outline-unchanged .outline-name {
+  color: var(--page-subtle-foreground);
+}
+.outline-removed .outline-name {
+  text-decoration: line-through;
+}
+.outline-badge {
+  font-size: 85%;
+  padding: 0 3px;
+  border-radius: 2px;
+  background-color: var(--info-box-warning-background);
+}
+.outline-added .outline-badge,
+.outline-moved .outline-badge {
+  background-color: var(--diff-plus-line-background);
+}
+.outline-removed .outline-badge {
+  background-color: var(--diff-minus-line-background);
+}
+.outline-spark {
+  width: 40px;
+  height: 0.9em;
+  vertical-align: middle;
+  fill: var(--blame-since);
+}
 
 .panel .selected-symbol-section {
   width: 240px;

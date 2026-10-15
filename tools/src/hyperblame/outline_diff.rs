@@ -10,6 +10,7 @@
 //! pretty identifier, so they're one entry.
 
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 
 use chrono::DateTime;
 use git2::{Commit, Repository};
@@ -142,6 +143,13 @@ pub struct OutlineEntry {
     /// tokens removed].
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub changes: Vec<(usize, u32, u32)>,
+    /// Its first and last lines (see `TreeHistory::container_lines`) in the
+    /// "to" file.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lines: Option<(u32, u32)>,
+    /// For removed definitions, their lines in the "from" file.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_lines: Option<(u32, u32)>,
 }
 
 #[derive(Debug, Serialize)]
@@ -285,7 +293,42 @@ pub fn outline_diff(
     }
     let from_rows = from_rows.map(|(_, rows)| rows).unwrap_or_default();
 
-    let (toplevel, entries) = classify(&from_rows, &to_rows, &collected.records);
+    let (toplevel, mut entries) = classify(&from_rows, &to_rows, &collected.records);
+
+    // Their lines, for going to them (without them if the file's tokens differ
+    // from the history's, ex: if the tokenizer changed since).
+    let lines_at = |timeline: &Commit, commit: &Commit, path: &str| {
+        let source = commit
+            .tree()
+            .and_then(|tree| tree.get_path(Path::new(path)))
+            .and_then(|entry| repo.find_blob(entry.id()))
+            .ok()?;
+        let source = std::str::from_utf8(source.content()).ok()?;
+        history
+            .container_lines(timeline, path, source)
+            .ok()
+            .flatten()
+    };
+    let to_lines = lines_at(&to_timeline, to, path);
+    let removed = |entry: &OutlineEntry| entry.status == OutlineStatus::Removed;
+    let from_lines = match entries.iter().any(removed) {
+        true => lines_at(
+            &from_timeline,
+            from,
+            collected.from_path.as_deref().unwrap_or(path),
+        ),
+        false => None,
+    };
+    for entry in &mut entries {
+        let lines = match removed(entry) {
+            true => (&from_lines, &mut entry.from_lines),
+            false => (&to_lines, &mut entry.lines),
+        };
+        *lines.1 = lines
+            .0
+            .as_ref()
+            .and_then(|lines| lines.get(&entry.pretty).copied());
+    }
     Ok(OutlineDiff {
         path: path.to_string(),
         from_path: collected.from_path,
@@ -573,6 +616,8 @@ pub fn classify(
                 evolved_into,
                 tokens: changes.map(|c| c.tokens.clone()).unwrap_or_default(),
                 changes: changes.map(|c| c.changes.clone()).unwrap_or_default(),
+                lines: None,
+                from_lines: None,
             }
         };
 

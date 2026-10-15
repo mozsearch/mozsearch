@@ -7,7 +7,10 @@
  * newest first (their headers from the file's commits.json), on a bigger
  * timeline, each tick and item highlighting the other on hover, and for a
  * Firefox tree, the dates of Firefox's releases (product-details', fetched
- * then; each branched from mozilla-central about 4 weeks before).
+ * then; each branched from mozilla-central about 4 weeks before).  Its
+ * "since" (a commit or a release) is the page's baseline: the blame strip
+ * highlights the changes since it, and the outline (see outline.js) compares
+ * the file with it, through "baselinechange" events.
  */
 var FileTimeline = new (class FileTimeline {
   constructor() {
@@ -37,6 +40,11 @@ var FileTimeline = new (class FileTimeline {
 
   year(time) {
     return new Date(time * 1000).getUTCFullYear();
+  }
+
+  /** The UTC day of `time` (in seconds), as YYYY-MM-DD. */
+  day(time) {
+    return new Date(time * 1000).toISOString().slice(0, 10);
   }
 
   svg(width, height, { ticks = true, releases = [] } = {}) {
@@ -117,20 +125,49 @@ var FileTimeline = new (class FileTimeline {
     return match ? match[1] : "";
   }
 
-  async releases() {
+  /** The page's revision (a revision's page's, or the indexed one). */
+  pageRev() {
+    return document.location.pathname.match(/^\/[^\/]+\/rev\/([0-9a-f]{7,40})\//i)?.[1] ??
+      document.querySelector("#rev-id a")?.getAttribute("href")?.split("/").pop();
+  }
+
+  /** Firefox's major releases, as [version, time], oldest first. */
+  allReleases() {
     const tree = document.getElementById("data")?.dataset.tree || "";
     if (!tree.startsWith("firefox")) {
-      return [];
+      return Promise.resolve([]);
     }
-    try {
-      const response = await fetch("https://product-details.mozilla.org/1.0/firefox_history_major_releases.json");
-      const json = await response.json();
-      return Object.entries(json)
-        .map(([version, date]) => [version, Date.parse(date) / 1000])
-        .filter(([_, time]) => time >= this.start && time <= this.end);
-    } catch (e) {
-      return [];
+    this.releasesPromise ??= (async () => {
+      try {
+        const response = await fetch("https://product-details.mozilla.org/1.0/firefox_history_major_releases.json");
+        const json = await response.json();
+        return Object.entries(json)
+          .map(([version, date]) => [version, Date.parse(date) / 1000])
+          .sort((a, b) => a[1] - b[1]);
+      } catch (e) {
+        return [];
+      }
+    })();
+    return this.releasesPromise;
+  }
+
+  async releases() {
+    return (await this.allReleases()).filter(([_, time]) => time >= this.start && time <= this.end);
+  }
+
+  /**
+   * Set the page's baseline (or clear it, with null): `time`, for the blame
+   * strip, and `from`, the revision (or "since:YYYY-MM-DD") for the outline,
+   * with its `label`.
+   */
+  setBaseline(baseline) {
+    if (baseline) {
+      BlameColorizer.applySince(baseline.time);
+    } else {
+      BlameColorizer.apply(Settings.blame.colorMode);
     }
+    this.baseline = baseline;
+    document.dispatchEvent(new CustomEvent("baselinechange", { detail: baseline }));
   }
 
   async togglePopup(anchor) {
@@ -155,26 +192,26 @@ var FileTimeline = new (class FileTimeline {
     const hint = () => {
       since.textContent = "Click a release's line, or a commit's \u201csince\u201d, to highlight the changes since it.";
     };
-    const showSince = (time, label, apply = true) => {
+    const showSince = (baseline, apply = true) => {
       since.replaceChildren();
-      if (time === null) {
-        BlameColorizer.apply(Settings.blame.colorMode);
+      if (apply) {
+        this.setBaseline(baseline);
+      }
+      if (!baseline) {
         hint();
         return;
-      }
-      if (apply) {
-        BlameColorizer.applySince(time);
       }
       const clear = document.createElement("button");
       clear.type = "button";
       clear.textContent = "Clear";
       clear.addEventListener("click", () => showSince(null));
-      since.append(`Highlighting the changes since ${label}. `, clear);
+      since.append(`Highlighting the changes since ${baseline.label}. `, clear);
     };
     big.addEventListener("click", event => {
       const release = event.target.closest?.("[data-since]");
       if (release) {
-        showSince(parseFloat(release.dataset.since), release.dataset.sinceLabel);
+        const time = parseFloat(release.dataset.since);
+        showSince({ time, from: `since:${this.day(time)}`, label: release.dataset.sinceLabel });
       }
     });
     const close = document.createElement("button");
@@ -183,8 +220,8 @@ var FileTimeline = new (class FileTimeline {
     close.textContent = "Close";
     close.addEventListener("click", () => this.closePopup());
     popup.append(heading, big, since, list, close);
-    if (BlameColorizer.sinceTime) {
-      showSince(BlameColorizer.sinceTime, "then", false);
+    if (this.baseline) {
+      showSince(this.baseline, false);
     } else {
       hint();
     }
@@ -248,8 +285,9 @@ var FileTimeline = new (class FileTimeline {
       header.innerHTML = (headers[commit.index]?.header ?? commit.rev.slice(0, 12)).split("<br>")[0];
       link.textContent = header.content.textContent;
       // (The commit's diff of the file and the file then, and highlighting the
-      // changes since it.)
+      // changes since it, from its parent.)
       const path = this.path();
+      const parent = headers[commit.index]?.parent ?? `${commit.rev}^`;
       const extras = document.createElement("span");
       extras.className = "file-timeline-extras";
       for (const [text, href] of [["diff", `/${tree}/diff/${commit.rev}/${path}`],
@@ -263,7 +301,9 @@ var FileTimeline = new (class FileTimeline {
       sinceButton.type = "button";
       sinceButton.textContent = "since";
       sinceButton.title = "Highlight the changes since this commit on the blame strip";
-      sinceButton.addEventListener("click", () => showSince(commit.time, date.textContent));
+      // (Since the commit, so from its parent.)
+      sinceButton.addEventListener("click", () =>
+        showSince({ time: commit.time, from: parent, label: date.textContent }));
       extras.append(sinceButton);
       item.append(date, " ", link, " ", extras);
       if (this.revTime && Math.abs(commit.time - this.revTime) < 1) {

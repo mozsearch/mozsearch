@@ -36,3 +36,53 @@ add_task(async function test_OutlineJSON() {
   ok(since.from.date < day, "A baseline by date is the newest revision before it");
   ok(since.commits.some(commit => commit.rev == newest.rev), "so the range has the commits since");
 });
+
+// The fancy bar's outline lists the definitions which changed since the
+// baseline, which the file timeline's "since" picks, and goes to them.
+add_task(async function test_OutlineSection() {
+  await TestUtils.loadPath("/searchfox/source/tools/src/format.rs");
+  const doc = frame.contentDocument;
+  const section = doc.querySelector("#panel-outline");
+  ok(section, "The fancy bar has the file's outline");
+  const summary = section.querySelector(".outline-summary");
+  await waitForCondition(() => !summary.textContent.startsWith("Loading"), "which loads");
+  const timeline = frame.contentWindow.FileTimeline;
+  is(section.querySelector(".outline-baseline button").textContent,
+     timeline.day(timeline.revTime - 28 * 24 * 60 * 60),
+     "with the changes since 4 weeks before the revision by default");
+  let entries = [...section.querySelectorAll(".outline-entry")];
+  ok(entries.length > 10, "It has the file's definitions");
+  const shown = () => entries.filter(entry => !entry.hidden);
+  const all = section.querySelector(".outline-all input");
+  TestUtils.click(all);
+  is(shown().length, entries.length, "\"All\" shows all of them");
+  TestUtils.click(all);
+  const depth = entry => Number(entry?.style.getPropertyValue("--outline-depth") ?? -1);
+  ok(shown().every(entry => !entry.classList.contains("outline-unchanged") ||
+                            depth(entry.nextElementSibling) > depth(entry)),
+     "and otherwise the ones which changed, and the ones they're in");
+
+  // (Since the file's newest commit, on the timeline.)
+  TestUtils.click(doc.querySelector("#revision button.file-timeline"));
+  const popup = doc.querySelector(".file-timeline-popup");
+  await waitForCondition(() => popup.querySelector(".file-timeline-commits li"), "The timeline lists the commits");
+  const newest = popup.querySelector(".file-timeline-commits li");
+  TestUtils.click(newest.querySelector(".file-timeline-extras button"));
+  TestUtils.click(popup.querySelector(".lens-popup-close"));
+  const date = newest.querySelector("time").textContent;
+  is(section.querySelector(".outline-baseline button").textContent, date,
+     "The timeline's \"since\" is the outline's baseline");
+  await waitForCondition(() => !summary.textContent.startsWith("Loading"), "which loads again");
+  entries = [...section.querySelectorAll(".outline-entry")];
+  const changed = shown().filter(entry => entry.querySelector(".outline-badge"));
+  ok(changed.length > 0, "with the definitions the commit changed");
+  ok(changed.some(entry => entry.querySelector(".outline-spark rect")), "and their sparklines");
+
+  const link = shown().map(entry => entry.querySelector("a.outline-name[href^='#']")).find(Boolean);
+  ok(link, "A definition links to its line");
+  TestUtils.click(link);
+  await waitForCondition(() => frame.contentWindow.location.hash == link.getAttribute("href"),
+                         "Clicking it goes to its line");
+  ok(doc.getElementById(`line-${link.getAttribute("href").slice(1)}`).classList.contains("highlighted"),
+     "which it selects");
+});
