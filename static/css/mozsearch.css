@@ -1617,6 +1617,73 @@ html.fancy-bar-resizing {
   vertical-align: middle;
   fill: var(--blame-since);
 }
+.explore-outline {
+  font-size: 85%;
+}
+/* An outline diff's page (see outline_diff.liquid): the "from" file's
+   definitions and the "to" file's side by side, with the changes between
+   them. */
+.outline-diff {
+  padding: 0 1rem 1rem;
+}
+.outline-diff-table {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 80rem;
+}
+.outline-diff-table th {
+  text-align: start;
+  font-weight: normal;
+  color: var(--page-subtle-foreground);
+}
+.outline-diff-table td {
+  padding: 1px 0.5rem;
+  white-space: nowrap;
+}
+.outline-diff-table :is(td, th):is(.outline-diff-from, .outline-diff-to),
+.outline-diff-table th:is(:first-child, :last-child) {
+  width: 40%;
+}
+.outline-diff-table td:is(.outline-diff-from, .outline-diff-to) {
+  padding-inline-start: calc(0.5rem + var(--outline-depth, 0) * 1rem);
+}
+.outline-diff-change {
+  text-align: center;
+}
+.outline-diff:has(#outline-diff-all:not(:checked)) .outline-unchanged:not(.outline-context) {
+  display: none;
+}
+.outline-diff-row.outline-unchanged a {
+  color: var(--page-subtle-foreground);
+}
+.outline-diff-row:is(.outline-added, .outline-moved, .outline-renamed) .outline-diff-to {
+  background-color: color-mix(in srgb, var(--diff-plus-line-background) 35%, transparent);
+  box-shadow: inset 3px 0 var(--diff-plus-line-background);
+}
+.outline-diff-row:is(.outline-removed, .outline-renamed) .outline-diff-from {
+  background-color: color-mix(in srgb, var(--diff-minus-line-background) 35%, transparent);
+  box-shadow: inset 3px 0 var(--diff-minus-line-background);
+}
+.outline-diff-row.outline-removed .outline-diff-from a {
+  text-decoration: line-through;
+}
+.outline-diff-note {
+  color: var(--page-subtle-foreground);
+  font-size: 85%;
+}
+.outline-diff-commit {
+  font-size: 85%;
+}
+.outline-diff-commits time {
+  color: var(--page-subtle-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.outline-diff-commits li:target {
+  background-color: var(--info-box-warning-background);
+}
+.outline-diff-file-diff {
+  font-size: 85%;
+}
 
 .panel .selected-symbol-section {
   width: 240px;

@@ -44,7 +44,7 @@ use crate::rendered_specs::{self, SpecLinks};
 use crate::spec_analyze::{SpecEntry, SpecsConfig};
 use crate::templating::builder::{
     build_and_parse_coverage_history, build_and_parse_dir_listing, build_and_parse_explore,
-    build_and_parse_interdiff_files,
+    build_and_parse_interdiff_files, build_and_parse_outline_diff,
 };
 use crate::tokenize;
 use crate::utils::OwnedOrBorrowed;
@@ -4135,6 +4135,20 @@ pub fn outline_json(
     to: &str,
     path: &str,
 ) -> Result<String, &'static str> {
+    let diff = resolve_outline_diff(cfg, tree_name, from, to, path, false)?;
+    Ok(to_string(&diff).unwrap())
+}
+
+/// The outline diff of `outline_json`, with all of the "from" file's
+/// definitions' lines if `all_from_lines`.
+fn resolve_outline_diff(
+    cfg: &Config,
+    tree_name: &str,
+    from: &str,
+    to: &str,
+    path: &str,
+    all_from_lines: bool,
+) -> Result<outline_diff::OutlineDiff, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
     let history = git.history.as_ref().ok_or("No history")?;
@@ -4158,9 +4172,255 @@ pub fn outline_json(
         }
         None => (parse(from)?, true),
     };
-    let mut diff = outline_diff::outline_diff(history, &git.repo, &from, &to, path)?;
+    let mut diff =
+        outline_diff::outline_diff(history, &git.repo, &from, &to, path, all_from_lines)?;
     diff.complete &= reached;
-    Ok(to_string(&diff).unwrap())
+    Ok(diff)
+}
+
+/// The page of an outline diff (`/{tree}/outline-diff/{from}/{to}/{path}`,
+/// with `from` as for `outline_json`): the definitions of the "from" file and
+/// of the "to" file side by side, with their changes between them (and the
+/// commits which made them), linking to their lines, and the commits.  It
+/// shows the definitions which changed (and the ones they're in), and the
+/// unchanged ones if asked.
+pub fn format_outline_diff(
+    cfg: &Config,
+    tree_name: &str,
+    from: &str,
+    to: &str,
+    path: &str,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    use outline_diff::OutlineStatus;
+
+    let diff = resolve_outline_diff(cfg, tree_name, from, to, path, true)?;
+    let short = |rev: &str| rev[..12.min(rev.len())].to_string();
+    let day = |date: &str| date[..10.min(date.len())].to_string();
+    let from_path = diff.from_path.as_deref().unwrap_or(path);
+    let rev_link = |rev: &str, path: &str, lines: Option<(u32, u32)>| {
+        format!(
+            "/{}/rev/{}/{}{}",
+            tree_name,
+            rev,
+            url_encode_path(path),
+            lines.map_or(String::new(), |(first, _)| format!("#{}", first))
+        )
+    };
+
+    // (The entries which the changed ones are in show with them.)
+    let mut context = vec![false; diff.entries.len()];
+    let mut ancestors: Vec<usize> = vec![];
+    for (index, entry) in diff.entries.iter().enumerate() {
+        ancestors.truncate(entry.depth);
+        if entry.status != OutlineStatus::Unchanged {
+            for ancestor in &ancestors {
+                context[*ancestor] = true;
+            }
+        }
+        ancestors.push(index);
+    }
+
+    let mut counts: BTreeMap<&str, usize> = BTreeMap::new();
+    let rows: Vec<serde_json::Value> = diff
+        .entries
+        .iter()
+        .enumerate()
+        .map(|(index, entry)| {
+            let tokens = &entry.tokens;
+            let delta = [
+                (tokens.added > 0).then(|| format!("+{}", tokens.added)),
+                (tokens.removed > 0).then(|| format!("\u{2212}{}", tokens.removed)),
+            ]
+            .into_iter()
+            .flatten()
+            .join(" ");
+            let with_delta = |label: &str| match delta.is_empty() {
+                true => label.to_string(),
+                false => format!("{} {}", label, delta),
+            };
+            // (A renamed one's earlier name, past the ancestors it shares.)
+            let parent = &entry.pretty[..entry.pretty.len() - entry.name.len()];
+            let earlier = |pretty: &str| pretty.strip_prefix(parent).unwrap_or(pretty).to_string();
+            let both = (Some(entry.name.clone()), Some(entry.name.clone()));
+            let ((from_name, to_name), from_note, to_note, badge, status) = match entry.status {
+                OutlineStatus::Unchanged => (both, None, None, String::new(), "unchanged"),
+                OutlineStatus::Changed => (both, None, None, delta.clone(), "changed"),
+                OutlineStatus::Added => (
+                    (None, Some(entry.name.clone())),
+                    None,
+                    None,
+                    with_delta("added"),
+                    "added",
+                ),
+                OutlineStatus::Removed => match &entry.evolved_into {
+                    Some(into) => (
+                        (Some(entry.name.clone()), Some(into.pretty.clone())),
+                        None,
+                        into.path.clone(),
+                        "moved out".to_string(),
+                        "removed",
+                    ),
+                    None => (
+                        (Some(entry.name.clone()), None),
+                        None,
+                        None,
+                        "removed".to_string(),
+                        "removed",
+                    ),
+                },
+                OutlineStatus::Renamed => (
+                    (
+                        entry
+                            .evolved_from
+                            .as_ref()
+                            .map(|from| earlier(&from.pretty)),
+                        Some(entry.name.clone()),
+                    ),
+                    None,
+                    None,
+                    with_delta("renamed"),
+                    "renamed",
+                ),
+                OutlineStatus::Moved => (
+                    (
+                        entry.evolved_from.as_ref().map(|from| from.pretty.clone()),
+                        Some(entry.name.clone()),
+                    ),
+                    entry
+                        .evolved_from
+                        .as_ref()
+                        .and_then(|from| from.path.clone()),
+                    None,
+                    with_delta("moved in"),
+                    "moved",
+                ),
+            };
+            *counts.entry(status).or_default() += 1;
+            let from_link = match entry.status {
+                OutlineStatus::Moved => None,
+                _ => from_name
+                    .as_ref()
+                    .map(|_| rev_link(&diff.from.rev, from_path, entry.from_lines)),
+            };
+            let to_link = match (&entry.status, &to_note) {
+                (OutlineStatus::Removed, Some(into_path)) => {
+                    Some(rev_link(&diff.to.rev, into_path, None))
+                }
+                (OutlineStatus::Removed, None) => None,
+                _ => Some(rev_link(&diff.to.rev, path, entry.lines)),
+            };
+            json!({
+                "status": status,
+                "depth": entry.depth,
+                "context": context[index],
+                "title": format!(
+                    "{} ({})",
+                    entry.pretty,
+                    if entry.decl { "declaration" } else { &entry.kind }
+                ),
+                "from_name": from_name,
+                "from_link": from_link,
+                "from_note": from_note,
+                "to_name": to_name,
+                "to_link": to_link,
+                "to_note": to_note,
+                "badge": badge,
+                "commits": entry.changes.iter().map(|(commit, added, removed)| {
+                    let commit_info = &diff.commits[*commit];
+                    json!({
+                        "n": commit + 1,
+                        "title": format!(
+                            "{} {}: +{} \u{2212}{}",
+                            day(&commit_info.date),
+                            commit_info.subject,
+                            added,
+                            removed
+                        ),
+                    })
+                }).collect::<Vec<_>>(),
+            })
+        })
+        .collect();
+
+    let commits: Vec<serde_json::Value> = diff
+        .commits
+        .iter()
+        .enumerate()
+        .map(|(index, commit)| {
+            json!({
+                "n": index + 1,
+                "day": day(&commit.date),
+                "subject": commit.subject,
+                "count": commit.count,
+                "link": format!("/{}/commit/{}", tree_name, commit.rev),
+                "diff": format!("/{}/diff/{}/{}", tree_name, commit.rev, url_encode_path(path)),
+            })
+        })
+        .collect();
+    let changed: Vec<String> = [
+        ("changed", "changed"),
+        ("added", "added"),
+        ("removed", "removed"),
+        ("renamed", "renamed"),
+        ("moved", "moved in"),
+    ]
+    .iter()
+    .filter_map(|(status, label)| counts.get(status).map(|n| format!("{} {}", n, label)))
+    .collect();
+    let commit_count: usize = diff.commits.iter().map(|commit| commit.count).sum();
+    let summary = format!(
+        "{} of {} definitions, in {} commit{}",
+        match changed.is_empty() {
+            true => "No changes".to_string(),
+            false => changed.join(", "),
+        },
+        diff.entries.len(),
+        commit_count,
+        if commit_count == 1 { "" } else { "s" }
+    );
+
+    let title = format!(
+        "Outline of {} from {} to {} - mozsearch",
+        path,
+        short(&diff.from.rev),
+        short(&diff.to.rev)
+    );
+    let opt = Options {
+        title: &title,
+        tree_name,
+        include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
+        revision: None,
+        breadcrumbs_links_to: BreadcrumbsLinksTo::Latest,
+        extra_content_classes: "outline-diff-page",
+        search_rev: None,
+    };
+    output::generate_header(&opt, writer)?;
+    let globals = liquid::to_object(&json!({
+        "tree": tree_name,
+        "path": path,
+        "source_link": format!("/{}/source/{}", tree_name, url_encode_path(path)),
+        "from": {
+            "short": short(&diff.from.rev),
+            "day": day(&diff.from.date),
+            "link": rev_link(&diff.from.rev, from_path, None),
+            "path": diff.from_path,
+        },
+        "to": {
+            "short": short(&diff.to.rev),
+            "day": day(&diff.to.date),
+            "link": rev_link(&diff.to.rev, path, None),
+        },
+        "complete": diff.complete,
+        "summary": summary,
+        "rows": rows,
+        "commits": commits,
+    }))
+    .map_err(|_| "Template problems")?;
+    build_and_parse_outline_diff()
+        .render_to(writer, &globals)
+        .map_err(|_| "Template problems")?;
+    output::generate_footer(&opt, tree_name, "", writer)
 }
 
 /// Set the URLs of a page's token-centric blame data: the page loads the
@@ -7599,6 +7859,28 @@ fn write_explore(
             format!("/{}/rev/{}/{}", tree_name, rev, url_encode_path(path))
         });
     }
+    // (In trees with history, each file's outline diff from before the first
+    // of the commits changing it to after the last.)
+    if history.is_some() {
+        for file in &mut files {
+            let mut changed = (0..changes.len()).filter(|&i| changes[i].contains_key(&file.path));
+            let (Some(first), last) = (changed.next(), changed.last()) else {
+                continue;
+            };
+            let parent = Oid::from_str(&refs[first].rev)
+                .ok()
+                .and_then(|oid| git.repo.find_commit(oid).ok()?.parent_id(0).ok());
+            if let Some(parent) = parent {
+                file.outline = format!(
+                    "/{}/outline-diff/{}/{}/{}",
+                    tree_name,
+                    parent,
+                    refs[last.unwrap_or(first)].rev,
+                    url_encode_path(&file.path)
+                );
+            }
+        }
+    }
     let (facets, file_groups) = explore_facets(cfg, tree_name, files);
 
     let page_title = format!("{} - mozsearch", title);
@@ -7964,6 +8246,7 @@ mod tests {
             facets: String::new(),
             groups: String::new(),
             title: String::new(),
+            outline: String::new(),
         }
     }
 

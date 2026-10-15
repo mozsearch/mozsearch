@@ -437,6 +437,7 @@ for repo in config['trees']:
     location(f'/{repo}/rev', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/rev-hyperblame', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/rev-outline', ['proxy_pass http://127.0.0.1:8001;'])
+    location(f'/{repo}/outline-diff', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/rendered', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/rev-rendered', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/algorithm', ['proxy_pass http://127.0.0.1:8001;'])

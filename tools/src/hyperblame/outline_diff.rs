@@ -147,7 +147,8 @@ pub struct OutlineEntry {
     /// "to" file.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lines: Option<(u32, u32)>,
-    /// For removed definitions, their lines in the "from" file.
+    /// Its (or for renamed definitions, its earlier name's) lines in the
+    /// "from" file, if it's removed or `outline_diff` was asked for them all.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub from_lines: Option<(u32, u32)>,
 }
@@ -238,13 +239,15 @@ fn subject(repo: &Repository, rev: &str) -> (String, String) {
 }
 
 /// The outline diff of `path` (as of `to`) from `from` to `to`, which must be
-/// an ancestor of `to`.
+/// an ancestor of `to`, with the lines in the "from" file of all of the
+/// definitions it had if `all_from_lines`, or else of the removed ones.
 pub fn outline_diff(
     history: &TreeHistory,
     repo: &Repository,
     from: &Commit,
     to: &Commit,
     path: &str,
+    all_from_lines: bool,
 ) -> Result<OutlineDiff, &'static str> {
     let to_timeline = history
         .timeline_commit(to.id())
@@ -311,7 +314,7 @@ pub fn outline_diff(
     };
     let to_lines = lines_at(&to_timeline, to, path);
     let removed = |entry: &OutlineEntry| entry.status == OutlineStatus::Removed;
-    let from_lines = match entries.iter().any(removed) {
+    let from_lines = match all_from_lines || entries.iter().any(removed) {
         true => lines_at(
             &from_timeline,
             from,
@@ -320,14 +323,25 @@ pub fn outline_diff(
         false => None,
     };
     for entry in &mut entries {
-        let lines = match removed(entry) {
-            true => (&from_lines, &mut entry.from_lines),
-            false => (&to_lines, &mut entry.lines),
+        // (Its name in the "from" file, if it had it.)
+        let from_name = match entry.status {
+            OutlineStatus::Removed => Some(&entry.pretty),
+            OutlineStatus::Unchanged | OutlineStatus::Changed if all_from_lines => {
+                Some(&entry.pretty)
+            }
+            OutlineStatus::Renamed if all_from_lines => {
+                entry.evolved_from.as_ref().map(|from| &from.pretty)
+            }
+            _ => None,
         };
-        *lines.1 = lines
-            .0
-            .as_ref()
-            .and_then(|lines| lines.get(&entry.pretty).copied());
+        entry.from_lines = from_name
+            .and_then(|name| from_lines.as_ref()?.get(name))
+            .copied();
+        if !removed(entry) {
+            entry.lines = to_lines
+                .as_ref()
+                .and_then(|lines| lines.get(&entry.pretty).copied());
+        }
     }
     Ok(OutlineDiff {
         path: path.to_string(),

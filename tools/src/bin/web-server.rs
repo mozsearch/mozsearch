@@ -319,6 +319,28 @@ fn handle(
             }
         }
 
+        // The page of how a file's outline changed between two revisions, as
+        // `/{tree}/outline-diff/{from}/{to}/{path}`; see
+        // `format::format_outline_diff`.
+        "outline-diff" => {
+            if path.len() < 5 {
+                return WebResponse::not_found();
+            }
+            let file_path = path[4..].join("/");
+            let mut writer = Vec::new();
+            match format::format_outline_diff(
+                cfg,
+                tree_name,
+                path[2],
+                path[3],
+                &file_path,
+                &mut writer,
+            ) {
+                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                Err(err) => WebResponse::internal_error(err.to_owned()),
+            }
+        }
+
         // Rendered views of documents, at the tip as `/{tree}/rendered/{path}`
         // and at other revisions as `/{tree}/rev-rendered/{rev}/{path}`; see
         // `format::format_rendered`.

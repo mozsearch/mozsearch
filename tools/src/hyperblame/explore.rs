@@ -466,6 +466,9 @@ pub struct ExploreFile {
     pub facets: String,
     pub groups: String,
     pub title: String,
+    /// The page of its outline diff (see `format::format_outline_diff`)
+    /// across the commits changing it, if any.
+    pub outline: String,
 }
 
 /// The symbols' parents: the longest proper prefix (by "::" segments) which is
@@ -623,6 +626,7 @@ pub fn blot_files(
             facets: String::new(),
             groups: String::new(),
             title: String::new(),
+            outline: String::new(),
         });
     }
     files

@@ -133,6 +133,12 @@ var OutlineSection = new (class OutlineSection {
     if (!diff.complete) {
       this.summary.append(" (the history doesn't reach back that far)");
     }
+    const compare = document.createElement("a");
+    compare.className = "outline-compare";
+    compare.href = FileTimeline.outlineDiffURL(this.baseline.from, this.rev);
+    compare.textContent = "compare";
+    compare.title = "The file's outline then and now, side by side";
+    this.summary.append(" (", compare, ")");
 
     // (The sparklines' scale, for comparing them.)
     const fromTime = Date.parse(diff.from.date);

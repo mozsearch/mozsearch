@@ -86,3 +86,55 @@ add_task(async function test_OutlineSection() {
   ok(doc.getElementById(`line-${link.getAttribute("href").slice(1)}`).classList.contains("highlighted"),
      "which it selects");
 });
+
+// The page of an outline diff, from the timeline's commits: the file's
+// definitions before and after the commit side by side, with their changes.
+add_task(async function test_OutlineDiffPage() {
+  await TestUtils.loadPath("/searchfox/source/tools/src/format.rs");
+  let doc = frame.contentDocument;
+  const { newest, parent } = await revisions();
+  TestUtils.click(doc.querySelector("#revision button.file-timeline"));
+  const popup = doc.querySelector(".file-timeline-popup");
+  await waitForCondition(() => popup.querySelector(".file-timeline-commits li"), "The timeline lists the commits");
+  const link = [...popup.querySelectorAll(".file-timeline-commits li")[0].querySelectorAll(".file-timeline-extras a")]
+    .find(a => a.textContent == "outline");
+  is(link?.getAttribute("href"), `/searchfox/outline-diff/${parent}/${newest.rev}/tools/src/format.rs`,
+     "A commit links to how it changed the file's outline");
+  const loadPromise = TestUtils.waitForLoad();
+  TestUtils.click(link);
+  await loadPromise;
+
+  doc = frame.contentDocument;
+  ok(doc.querySelector(".outline-diff h2").textContent.includes("tools/src/format.rs"), "The page is the file's outline diff");
+  const rows = [...doc.querySelectorAll(".outline-diff-row")];
+  ok(rows.length > 10, "with its definitions");
+  const visible = row => frame.contentWindow.getComputedStyle(row).display != "none";
+  const changed = rows.filter(row => visible(row) && row.querySelector(".outline-badge"));
+  ok(changed.length > 0, "and the ones the commit changed");
+  ok(changed.some(row => row.querySelector(".outline-diff-commit")?.getAttribute("href") == "#commit-1"),
+     "which link to the commit");
+  is(doc.querySelector("#commit-1 a").getAttribute("href"), `/searchfox/commit/${newest.rev}`,
+     "in the list of the commits");
+  const to = changed.map(row => row.querySelector(".outline-diff-to a")).find(Boolean);
+  ok(to?.getAttribute("href").startsWith(`/searchfox/rev/${newest.rev}/tools/src/format.rs#`),
+     "Definitions link to their lines");
+  const unchanged = rows.find(row => row.matches(".outline-unchanged:not(.outline-context)"));
+  ok(unchanged && !visible(unchanged), "The unchanged definitions are hidden");
+  TestUtils.click(doc.querySelector("#outline-diff-all"));
+  ok(visible(unchanged), "unless asked for");
+});
+
+// The outline section and explore pages link to outline diffs too.
+add_task(async function test_OutlineDiffLinks() {
+  await TestUtils.loadPath("/searchfox/source/tools/src/format.rs");
+  const section = frame.contentDocument.querySelector("#panel-outline");
+  await waitForCondition(() => section.querySelector(".outline-compare"), "The outline loads");
+  ok(/^\/searchfox\/outline-diff\/since%3A\d{4}-\d{2}-\d{2}\/[0-9a-f]+\/tools\/src\/format\.rs$/
+       .test(section.querySelector(".outline-compare").getAttribute("href")),
+     "The outline section links to the outline diff since its baseline");
+
+  await TestUtils.loadPath("/searchfox/explore/bug/1975601");
+  const file = frame.contentDocument.querySelector(".explore-file .explore-outline");
+  ok(/^\/searchfox\/outline-diff\/[0-9a-f]{40}\/[0-9a-f]{40}\//.test(file?.getAttribute("href")),
+     "An explore page's files link to their outline diffs across its commits");
+});

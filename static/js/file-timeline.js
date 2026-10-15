@@ -131,6 +131,12 @@ var FileTimeline = new (class FileTimeline {
       document.querySelector("#rev-id a")?.getAttribute("href")?.split("/").pop();
   }
 
+  /** The page of the file's outline diff from `from` (see outline.js) to the page's revision. */
+  outlineDiffURL(from, to = this.pageRev()) {
+    const tree = document.getElementById("data")?.dataset.tree;
+    return `/${tree}/outline-diff/${encodeURIComponent(from)}/${to}/${this.path()}`;
+  }
+
   /** Firefox's major releases, as [version, time], oldest first. */
   allReleases() {
     const tree = document.getElementById("data")?.dataset.tree || "";
@@ -205,7 +211,10 @@ var FileTimeline = new (class FileTimeline {
       clear.type = "button";
       clear.textContent = "Clear";
       clear.addEventListener("click", () => showSince(null));
-      since.append(`Highlighting the changes since ${baseline.label}. `, clear);
+      const compare = document.createElement("a");
+      compare.href = this.outlineDiffURL(baseline.from);
+      compare.textContent = "Compare the outlines";
+      since.append(`Highlighting the changes since ${baseline.label}. `, compare, " ", clear);
     };
     big.addEventListener("click", event => {
       const release = event.target.closest?.("[data-since]");
@@ -284,14 +293,15 @@ var FileTimeline = new (class FileTimeline {
       const header = document.createElement("template");
       header.innerHTML = (headers[commit.index]?.header ?? commit.rev.slice(0, 12)).split("<br>")[0];
       link.textContent = header.content.textContent;
-      // (The commit's diff of the file and the file then, and highlighting the
-      // changes since it, from its parent.)
+      // (The commit's diff of the file, the file then, how its outline
+      // changed, and highlighting the changes since it.)
       const path = this.path();
       const parent = headers[commit.index]?.parent ?? `${commit.rev}^`;
       const extras = document.createElement("span");
       extras.className = "file-timeline-extras";
       for (const [text, href] of [["diff", `/${tree}/diff/${commit.rev}/${path}`],
-                                  ["file", `/${tree}/rev/${commit.rev}/${path}`]]) {
+                                  ["file", `/${tree}/rev/${commit.rev}/${path}`],
+                                  ["outline", this.outlineDiffURL(parent, commit.rev)]]) {
         const a = document.createElement("a");
         a.href = href;
         a.textContent = text;

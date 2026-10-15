@@ -1,0 +1,31 @@
+{%- comment -%}
+  An outline diff's page (see `format::format_outline_diff`): the definitions
+  of a file at two revisions side by side, the "from" file's on the left and
+  the "to" file's on the right, with their changes between them and the
+  commits which made them (numbered as in the commits' list), and the commits.
+  The unchanged definitions show only with "Show the unchanged definitions",
+  except for the ones which changed definitions are in.
+{%- endcomment -%}
+<div class="outline-diff">
+  <h2>Outline of <a href="{{ source_link }}">{{ path | escape }}</a></h2>
+  <p class="outline-diff-range">From <a href="{{ from.link }}">{{ from.short }}</a> ({{ from.day }}){% if from.path %}, as {{ from.path | escape }},{% endif %} to <a href="{{ to.link }}">{{ to.short }}</a> ({{ to.day }}): {{ summary | escape }}.{% unless complete %} (The history doesn't reach back to the asked baseline, so this is from its oldest revision.){% endunless %}</p>
+  <label class="outline-diff-all"><input type="checkbox" id="outline-diff-all"> Show the unchanged definitions</label>
+  <table class="outline-diff-table">
+    <thead><tr><th>{{ from.short }}</th><th>Changes</th><th>{{ to.short }}</th></tr></thead>
+    <tbody>
+    {%- for row in rows %}
+      <tr class="outline-diff-row outline-{{ row.status }}{% if row.context %} outline-context{% endif %}" style="--outline-depth: {{ row.depth }}" title="{{ row.title | escape }}">
+        <td class="outline-diff-from">{% if row.from_name %}{% if row.from_link %}<a href="{{ row.from_link }}">{{ row.from_name | escape }}</a>{% else %}{{ row.from_name | escape }}{% endif %}{% if row.from_note %} <span class="outline-diff-note">in {{ row.from_note | escape }}</span>{% endif %}{% endif %}</td>
+        <td class="outline-diff-change">{% if row.badge != "" %}<span class="outline-badge">{{ row.badge | escape }}</span>{% endif %}{% for commit in row.commits %} <a class="outline-diff-commit" href="#commit-{{ commit.n }}" title="{{ commit.title | escape }}">{{ commit.n }}</a>{% endfor %}</td>
+        <td class="outline-diff-to">{% if row.to_name %}{% if row.to_link %}<a href="{{ row.to_link }}">{{ row.to_name | escape }}</a>{% else %}{{ row.to_name | escape }}{% endif %}{% if row.to_note %} <span class="outline-diff-note">in {{ row.to_note | escape }}</span>{% endif %}{% endif %}</td>
+      </tr>
+    {%- endfor %}
+    </tbody>
+  </table>
+  <h3>Commits</h3>
+  <ol class="outline-diff-commits">
+  {%- for commit in commits %}
+    <li id="commit-{{ commit.n }}"><time>{{ commit.day }}</time> <a href="{{ commit.link }}">{{ commit.subject | escape }}</a>{% if commit.count > 1 %} (and the week's {{ commit.count | minus: 1 }} other commits){% endif %} <a class="outline-diff-file-diff" href="{{ commit.diff }}">diff</a></li>
+  {%- endfor %}
+  </ol>
+</div>
