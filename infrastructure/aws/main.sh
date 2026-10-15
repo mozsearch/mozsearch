@@ -20,10 +20,14 @@ handle_error() {
     # store.  We create an "interrupted" parent directory for these contents in
     # order to avoid any ambiguities about what the state of the scratch drive
     # was. We only do this if we got far enough to actually start indexing.
+    # (Not the log, which ~/index-log links to and this shell writes to, and
+    # which would then be lost, nor the swap file, which is in use; the log is
+    # copied there last.)
     if [ -d "/index-ebs" ]; then
         mkdir -p /index-ebs/interrupted
         if [ -d "/index" ]; then
-            mv -f /index/* /index-ebs/interrupted
+            find /index -mindepth 1 -maxdepth 1 ! -name index-log ! -name swapfile \
+                -exec mv -f -t /index-ebs/interrupted {} +
         fi
         # try and get a list of open files that might have caused problems
         # unmounting /index-ebs or moving things from /index to /index-ebs.
@@ -35,6 +39,9 @@ handle_error() {
     # local storage is lost when it shuts down.
     $AWS_ROOT/set-status.py "failed: ${TARGETSCRIPT:-main.sh}; see the emailed log${KEEP_ON_FAILURE:+ (the instance was left running)}" || true
     $AWS_ROOT/upload-log.sh failed "${CHANNEL:-unknown}_${TARGETSCRIPT:-main}" || true
+    if [ -d "/index-ebs/interrupted" ]; then
+        cp ~/index-log /index-ebs/interrupted/index-log || true
+    fi
 
     # Send failure email and shut down (unless KEEP_ON_FAILURE is set; see
     # send-failure-email.py). Release channel failures get sent to the

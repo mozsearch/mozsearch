@@ -9,8 +9,12 @@ client = boto3.client('ses')
 subj_prefix = sys.argv[1]
 dest_email = sys.argv[2]
 
-log_tail = subprocess.check_output(["tail", "-n", "120", "/home/ubuntu/index-log"])
-log_tail = log_tail.decode('utf-8', 'replace')
+# (Even without the log, the email is sent, and the instance shut down.)
+try:
+    log_tail = subprocess.check_output(["tail", "-n", "120", "/home/ubuntu/index-log"])
+    log_tail = log_tail.decode('utf-8', 'replace')
+except (OSError, subprocess.CalledProcessError) as e:
+    log_tail = f'(The log could not be read: {e})'
 
 # With KEEP_ON_FAILURE set in the environment (ex: `--setenv KEEP_ON_FAILURE=1`
 # for a reblame we're watching), leave the instance running, with its local
