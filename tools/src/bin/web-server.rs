@@ -244,7 +244,8 @@ fn handle(
             // semantic information), which says so (see file-timeline.js's
             // PermalinkNote), unless it's for exactly that revision
             // (`?exactly`).
-            let exactly = url::form_urlencoded::parse(req.query.as_bytes()).any(|(key, _)| key == "exactly");
+            let exactly =
+                url::form_urlencoded::parse(req.query.as_bytes()).any(|(key, _)| key == "exactly");
             if !exactly && format::same_as_head(cfg, tree_name, rev, &path) {
                 return WebResponse::redirect(format!(
                     "/{}/source/{}?permalink={}",
@@ -299,6 +300,20 @@ fn handle(
             let file_path = path[3..path.len() - 1].join("/");
 
             match format::hyperblame_file(cfg, tree_name, rev, &file_path, file_name) {
+                Ok(json) => WebResponse::json(json),
+                Err(err) => WebResponse::internal_error(err.to_owned()),
+            }
+        }
+
+        // How a file's outline changed between two revisions, as
+        // `/{tree}/rev-outline/{from}/{to}/{path}`, where `from` may be
+        // `since:YYYY-MM-DD`; see `format::outline_json`.
+        "rev-outline" => {
+            if path.len() < 5 {
+                return WebResponse::not_found();
+            }
+            let file_path = path[4..].join("/");
+            match format::outline_json(cfg, tree_name, path[2], path[3], &file_path) {
                 Ok(json) => WebResponse::json(json),
                 Err(err) => WebResponse::internal_error(err.to_owned()),
             }

@@ -29,6 +29,7 @@ use crate::hyperblame::interdiff::{
     self, Counts as InterdiffCounts, IdToken, Mark as InterdiffMark, Side as InterdiffSideTokens,
     TokenId,
 };
+use crate::hyperblame::outline_diff;
 use crate::hyperblame::page_blame::{
     CommitMeta, PageBlame, StripLine, interpolate_blank_lines, page_blame,
 };
@@ -4123,6 +4124,45 @@ pub fn future_json(
     Ok(to_string(&json!({ "future": future, "commits": commits })).unwrap())
 }
 
+/// How the outline of the file at `path` in revision `to` changed since
+/// revision `from` (see `outline_diff::outline_diff`), where `from` may be
+/// `since:YYYY-MM-DD` for the newest revision before that day on `to`'s
+/// first-parent chain (see `outline_diff::first_parent_before`), as JSON.
+pub fn outline_json(
+    cfg: &Config,
+    tree_name: &str,
+    from: &str,
+    to: &str,
+    path: &str,
+) -> Result<String, &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let history = git.history.as_ref().ok_or("No history")?;
+    let parse = |rev: &str| {
+        git.repo
+            .revparse_single(rev)
+            .and_then(|object| object.peel_to_commit())
+            .map_err(|_| "Bad revision")
+    };
+    let to = parse(to)?;
+    let (from, reached) = match from.strip_prefix("since:") {
+        Some(day) => {
+            let time = chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d")
+                .map_err(|_| "Bad date")?
+                .and_hms_opt(0, 0, 0)
+                .ok_or("Bad date")?
+                .and_utc()
+                .timestamp();
+            outline_diff::first_parent_before(history, &to, time)
+                .ok_or("The history doesn't have the revision")?
+        }
+        None => (parse(from)?, true),
+    };
+    let mut diff = outline_diff::outline_diff(history, &git.repo, &from, &to, path)?;
+    diff.complete &= reached;
+    Ok(to_string(&diff).unwrap())
+}
+
 /// Set the URLs of a page's token-centric blame data: the page loads the
 /// popup's data from the tip's static files, or from the web-server for other
 /// revisions (see `hyperblame_files`), and the peephole histories are always
@@ -4560,16 +4600,19 @@ pub fn same_as_head(cfg: &Config, tree_name: &str, rev: &str, path: &str) -> boo
         (kind == Some(git2::ObjectType::Blob)).then_some(oid)
     };
     let (Ok(commit), Ok(head)) = (
-        git.repo.revparse_single(rev).and_then(|o| o.peel_to_commit()),
+        git.repo
+            .revparse_single(rev)
+            .and_then(|o| o.peel_to_commit()),
         git.repo.head().and_then(|h| h.peel_to_commit()),
     ) else {
         return false;
     };
     // (A try push's head's pages are the push's, whose searches and jumps are
     // of it; see `format_file_data`'s `search_rev`.)
-    let is_try_push = crate::try_delta::delta_dir(&tree_config.paths.index_path, &commit.id().to_string())
-        .join("meta.json")
-        .exists();
+    let is_try_push =
+        crate::try_delta::delta_dir(&tree_config.paths.index_path, &commit.id().to_string())
+            .join("meta.json")
+            .exists();
     commit.id() != head.id()
         && !is_try_push
         && blob_at(commit.id()).is_some_and(|blob| Some(blob) == blob_at(head.id()))

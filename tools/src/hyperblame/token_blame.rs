@@ -23,7 +23,7 @@ use git2::{Commit, Oid, Repository};
 use crate::cinnabar::OldRevisionMap;
 use crate::file_format::config::{ThreadLocalRepository, timeline_commit_to_meta};
 use crate::file_format::history::syntax_files::{TokenClass, split_token_line, token_file_lines};
-use crate::file_format::history::syntax_files_struct::FileStructureHeader;
+use crate::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use crate::file_format::history::timeline_annotated::{HyperLineData, RemovalMarker};
 use crate::source_mapping::{NotesRefs, SourceMapping, TRY_BRANCH, default_notes_ref};
 use crate::tree_sitter_support::cst_tokenizer::{hypertokenize_with_profile, profile_for_lang};
@@ -193,6 +193,35 @@ impl TreeHistory {
                 path
             ))),
         }
+    }
+
+    /// The outline of `path` (its "files-struct/PATH" header and containers, in
+    /// source order) as of `timeline_commit`, or None if the history doesn't
+    /// have the file.
+    pub fn files_struct(
+        &self,
+        timeline_commit: &Commit,
+        path: &str,
+    ) -> Result<Option<(FileStructureHeader, Vec<FileStructureRow>)>, TokenBlameError> {
+        let meta = timeline_commit_to_meta(timeline_commit);
+        let syntax_tree = self.syntax.find_commit(meta.syntax_rev)?.tree()?;
+        let Some(files_struct) = read_path(
+            &self.syntax,
+            &syntax_tree,
+            &format!("files-struct/{}", path),
+        )?
+        else {
+            return Ok(None);
+        };
+        let mut lines = files_struct.lines();
+        let header: FileStructureHeader = serde_json::from_str(lines.next().unwrap_or_default())
+            .map_err(|e| TokenBlameError::BadHistory(format!("files-struct header: {}", e)))?;
+        let rows = lines
+            .filter(|line| !line.is_empty())
+            .map(serde_json::from_str)
+            .collect::<Result<Vec<FileStructureRow>, _>>()
+            .map_err(|e| TokenBlameError::BadHistory(format!("files-struct row: {}", e)))?;
+        Ok(Some((header, rows)))
     }
 
     /// The byte ranges and classes of the tokens of `source`, which must be
