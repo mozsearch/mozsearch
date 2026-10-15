@@ -98,10 +98,36 @@ set -o pipefail # Check all commands in a pipeline
 # TODO: In the future we might consider doing some kind of performance RAID when
 # there are multiple SSDs.
 INSTANCE_STORAGE_DEV=$(sudo nvme list -o json | jq --raw-output 'first(.Devices[] | select(.ModelNumber | contains("Instance Storage")) | .DevicePath)')
-sudo mkfs -t ext4 $INSTANCE_STORAGE_DEV
+
+# Given INDEX_GB, the size of the index volume in GiB (for indexing; see
+# index.sh), /index is a partition of exactly that size, so that the index can
+# be built in place and then copied to the volume at the block level, and the
+# rest of the SSD is /scratch, for the swap file and temporary files.  (Unless
+# the SSD doesn't have SCRATCH_MIN_GB to spare beyond that, in which case
+# /index is the whole SSD, and the index is moved to the volume tree by tree;
+# see indexer-run.sh.)
+INDEX_GB=${1:-}
+SCRATCH_MIN_GB=32
+SSD_GB=$(( $(sudo blockdev --getsize64 $INSTANCE_STORAGE_DEV) / 1024 / 1024 / 1024 ))
 sudo mkdir /index
-sudo mount $INSTANCE_STORAGE_DEV /index
-sudo chown ubuntu:ubuntu /index
+if [[ $INDEX_GB ]] && (( SSD_GB >= INDEX_GB + SCRATCH_MIN_GB )); then
+    printf 'label: gpt\n,%sG\n,\n' $INDEX_GB | sudo sfdisk -q $INSTANCE_STORAGE_DEV
+    sudo udevadm settle
+    INDEX_DEV=${INSTANCE_STORAGE_DEV}p1
+    SCRATCH_DEV=${INSTANCE_STORAGE_DEV}p2
+    sudo mkfs -t ext4 $INDEX_DEV
+    sudo mkfs -t ext4 $SCRATCH_DEV
+    sudo mkdir /scratch
+    sudo mount $INDEX_DEV /index
+    sudo mount $SCRATCH_DEV /scratch
+    sudo chown ubuntu:ubuntu /index /scratch
+    SCRATCH_DIR=/scratch
+else
+    sudo mkfs -t ext4 $INSTANCE_STORAGE_DEV
+    sudo mount $INSTANCE_STORAGE_DEV /index
+    sudo chown ubuntu:ubuntu /index
+    SCRATCH_DIR=/index
+fi
 
 # For swap purposes, let's see if there was a 2nd instance storage; we use nth(1; ...)
 # for this.  If there is no 2nd entry, we will get an empty string.
@@ -118,7 +144,7 @@ if [[ $SWAP_STORAGE_DEV && $SWAP_STORAGE_DEV != $INSTANCE_STORAGE_DEV ]]; then
   sudo mkswap $SWAP_STORAGE_DEV
   sudo swapon $SWAP_STORAGE_DEV
 else
-  SWAP_FILE=/index/swapfile
+  SWAP_FILE=$SCRATCH_DIR/swapfile
   # SWAP_GIB GiB of swap (8 by default), ex: more for reblame (see
   # trigger_blame_rebuild.py), so that briefly needing more memory than the
   # instance has only slows it down.

@@ -19,11 +19,12 @@ handle_error() {
     # drive that will be lost if we don't first move them to the persistent EBS
     # store.  We create an "interrupted" parent directory for these contents in
     # order to avoid any ambiguities about what the state of the scratch drive
-    # was. We only do this if we got far enough to actually start indexing.
+    # was. We only do this if we got far enough to actually start indexing, and
+    # the volume is still mounted (not if index.sh already unmounted it).
     # (Not the log, which ~/index-log links to and this shell writes to, and
     # which would then be lost, nor the swap file, which is in use; the log is
     # copied there last.)
-    if [ -d "/index-ebs" ]; then
+    if mountpoint -q /index-ebs; then
         mkdir -p /index-ebs/interrupted
         if [ -d "/index" ]; then
             find /index -mindepth 1 -maxdepth 1 ! -name index-log ! -name swapfile \
@@ -109,27 +110,41 @@ ${AWS_ROOT}/make-crontab.py "${EMAIL_PREFIX}/timeout" "${DEST_EMAIL}" ${MAXHOURS
 echo "Disabling daily and weekly cron jobs for this indexing run"
 sudo chmod -x /etc/cron.daily/* /etc/cron.weekly/*
 
+# For indexing, /index is the size of the index volume (see mkscratch.sh).
+INDEX_GB=""
+if [[ ${TARGETSCRIPT} == "index.sh" ]]; then
+    INDEX_GB=$(${AWS_ROOT}/index_volume.py ${CHANNEL} "$5/$6")
+fi
+
 echo "Creating /index on local instance SSD and setting up swap"
-${AWS_ROOT}/mkscratch.sh
+${AWS_ROOT}/mkscratch.sh ${INDEX_GB}
+
+# The SSD's space outside of the index: /scratch, if mkscratch.sh made one, or
+# else /index.  (Not in /index when it's the index's own filesystem, since
+# index.sh unmounts it to copy it to the volume.)
+SCRATCH_ROOT=/index
+if mountpoint -q /scratch; then
+    SCRATCH_ROOT=/scratch
+fi
 
 # Write the log to the SSD from now on, since writing a big log (ex: reblame's)
 # to the EBS root volume is slow, and can fill it up.  The scripts which read
 # the log use ~/index-log, which becomes a symlink to it.  The SSD is lost when
 # the instance shuts down, so everything which shuts it down uploads the log
 # first (see upload-log.sh).
-cp ~/index-log /index/index-log
-exec &>> /index/index-log
-ln -sf /index/index-log ~/index-log
+cp ~/index-log $SCRATCH_ROOT/index-log
+exec &>> $SCRATCH_ROOT/index-log
+ln -sf $SCRATCH_ROOT/index-log ~/index-log
 
 # Log resource usage (memory, swap, CPU, disk) as we go, so that we know how
 # much headroom the instance had.
 ${AWS_ROOT}/resource-monitor.py &
 
-# Put our tmp directory on the SSD at /index instead of /tmp which is on our EBS
-# root image and which would be both slower and has had problems with filling
-# up (bug 1712578).
-mkdir -p /index/tmp
-export TMPDIR=/index/tmp
+# Put our tmp directory on the SSD instead of /tmp which is on our EBS root
+# image and which would be both slower and has had problems with filling up
+# (bug 1712578).
+mkdir -p $SCRATCH_ROOT/tmp
+export TMPDIR=$SCRATCH_ROOT/tmp
 
 # Run target script with arguments supplied to this script.
 ${AWS_ROOT}/${TARGETSCRIPT} $*
