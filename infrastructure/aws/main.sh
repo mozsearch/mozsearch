@@ -19,8 +19,9 @@ handle_error() {
     # drive that will be lost if we don't first move them to the persistent EBS
     # store.  We create an "interrupted" parent directory for these contents in
     # order to avoid any ambiguities about what the state of the scratch drive
-    # was. We only do this if we got far enough to actually start indexing.
-    if [ -d "/index-ebs" ]; then
+    # was. We only do this if we got far enough to actually start indexing, and
+    # the volume is still mounted (not if index.sh already unmounted it).
+    if mountpoint -q /index-ebs; then
         mkdir -p /index-ebs/interrupted
         if [ -d "/index" ]; then
             mv -f /index/* /index-ebs/interrupted
@@ -94,14 +95,25 @@ ${AWS_ROOT}/make-crontab.py "${EMAIL_PREFIX}/timeout" "${DEST_EMAIL}" ${MAXHOURS
 echo "Disabling daily and weekly cron jobs for this indexing run"
 sudo chmod -x /etc/cron.daily/* /etc/cron.weekly/*
 
-echo "Creating /index on local instance SSD and setting up swap"
-${AWS_ROOT}/mkscratch.sh
+# For indexing, /index is the size of the index volume (see mkscratch.sh).
+INDEX_GB=""
+if [[ ${TARGETSCRIPT} == "index.sh" ]]; then
+    INDEX_GB=$(${AWS_ROOT}/index_volume.py ${CHANNEL})
+fi
 
-# Put our tmp directory on the SSD at /index instead of /tmp which is on our EBS
-# root image and which would be both slower and has had problems with filling
-# up (bug 1712578).
-mkdir -p /index/tmp
-export TMPDIR=/index/tmp
+echo "Creating /index on local instance SSD and setting up swap"
+${AWS_ROOT}/mkscratch.sh ${INDEX_GB}
+
+# Put our tmp directory on the SSD instead of /tmp which is on our EBS root
+# image and which would be both slower and has had problems with filling up
+# (bug 1712578): at /scratch, if mkscratch.sh made one (outside of the index),
+# or else at /index.
+TMP_ROOT=/index
+if mountpoint -q /scratch; then
+    TMP_ROOT=/scratch
+fi
+mkdir -p $TMP_ROOT/tmp
+export TMPDIR=$TMP_ROOT/tmp
 
 # Run target script with arguments supplied to this script.
 ${AWS_ROOT}/${TARGETSCRIPT} $*
