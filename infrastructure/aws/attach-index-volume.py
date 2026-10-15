@@ -24,9 +24,17 @@ instance = list(instances)[0]
 volumeSize = volume_size(channel, configFile)
 print(f'Creating a {volumeSize} GiB index volume', file=sys.stderr)
 
+# gp3, with more throughput than its baseline 125 MB/s, which bounds the
+# indexer's block-level copy of the index to the volume and web servers'
+# copies of it to their SSDs (see index.sh and web-serve.sh): 1000 MB/s, gp3's
+# most, which needs at least 4000 IOPS (up to 0.25 MB/s per IOPS).  (Web
+# servers without an SSD serve the index from the volume, for which gp3's IOPS
+# are also more than gp2's 3 per GiB.)
 r = client.create_volume(
     Size=volumeSize,
-    VolumeType='gp2',
+    VolumeType='gp3',
+    Iops=4000,
+    Throughput=1000,
     AvailabilityZone=instance.placement['AvailabilityZone'],
 )
 
