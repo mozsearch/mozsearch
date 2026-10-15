@@ -563,19 +563,6 @@ fn main() {
                     });
                 }
 
-                if let Some(link) = tree_config.paths.make_raw_resource_branch_url(&path) {
-                    vcs_panel_items.push(PanelItem {
-                        label: PanelItemLabel::Plaintext("Raw".to_owned()),
-                        tooltip: "Open a raw file of the current file".to_owned(),
-                        id: "panel-raw",
-                        link,
-                        update_link_lineno: "",
-                        accel_key: Some('R'),
-                        copyable: true,
-                        extras: Default::default(),
-                    });
-                }
-
                 panel.push(PanelSection {
                     name: "Revision control".to_owned(),
                     items: vcs_panel_items,
@@ -602,7 +589,13 @@ fn main() {
             }
         }
 
-        panel.push(create_markdown_panel_section(true));
+        // (The raw file is in its "Copy as..." popup.)
+        let raw_url = if path.contains("__GENERATED__") {
+            None
+        } else {
+            tree_config.paths.make_raw_resource_branch_url(&path)
+        };
+        panel.push(create_markdown_panel_section(true, raw_url.as_deref()));
 
         let mut tools_items = vec![];
 

@@ -211,17 +211,9 @@ input_file: inputs/web/files/nav-panel/test_otherthing__navpanel__html
   <a id="panel-remove-permalink" href="/tests/source/tests/test_otherthing.html" title="Create a revision-agnostic link of the current file" class="icon item" data-update-link="#{}" data-link="/tests/source/tests/test_otherthing.html">Remove the Permalink</a>
   </li>
   </ul>
-  <h4>Copy as Markdown</h4>
+  <h4>Copy as</h4>
   <ul>
-  <li>
-  <button id="panel-copy-filename-link" data-accel="F" title="Copy a Markdown link to clipboard, with the filename" class="icon item">Filename Link <span class="accel">F</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
-  </li>
-  <li>
-  <button id="panel-copy-symbol-link" data-accel="S" title="Copy a Markdown link to clipboard, with the selected symbol" class="icon item">Symbol Link <span class="accel">S</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
-  </li>
-  <li>
-  <button id="panel-copy-code-block" data-accel="C" title="Copy a Markdown code block of the selected code to clipboard" class="icon item">Code Block <span class="accel">C</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
-  </li>
+  <li class="copy-as"><button type="button" id="panel-copy-as" class="copy-as-more" title="Copy the page as one of several formats, previewed" aria-haspopup="dialog" aria-expanded="false">Copy as&hellip;</button><span class="copy-as-modes" role="group" aria-label="Copy as"><button type="button" id="panel-copy-symbol-link" class="item" data-accel="S" title="Copy a Markdown link whose text is the selected symbol (or the file and its selected lines)">sym<span class="accel">S</span></button><button type="button" id="panel-copy-symbol-block" class="item" data-accel="B" title="Copy a Markdown code block of the selected lines, led by the link to the selected symbol (or the file and lines)">sym+block<span class="accel">B</span></button><button type="button" id="panel-copy-code-block" class="item" data-accel="C" title="Copy a Markdown code block of the selected lines, led by their URL">block<span class="accel">C</span></button></span><button type="button" hidden id="panel-copy-filename-link" class="item" data-accel="F">Filename link</button></li>
   </ul>
   <h4>Other Tools</h4>
   <ul>

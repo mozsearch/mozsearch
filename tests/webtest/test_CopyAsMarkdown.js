@@ -12,10 +12,12 @@ add_task(async function test_CopyAsMarkdown() {
   const filenameButton = frame.contentDocument.querySelector("#panel-copy-filename-link");
   const symbolButton = frame.contentDocument.querySelector("#panel-copy-symbol-link");
   const codeButton = frame.contentDocument.querySelector("#panel-copy-code-block");
+  const symbolBlockButton = frame.contentDocument.querySelector("#panel-copy-symbol-block");
 
   ok(!filenameButton.disabled, "Filename Link should always be enabled");
-  ok(symbolButton.disabled, "Symbol Link should be disabled if nothing is selected");
+  ok(!symbolButton.disabled, "Symbol Link should always be enabled (for the file, without a symbol)");
   ok(codeButton.disabled, "Code Block should be disabled if nothing is selected");
+  ok(symbolBlockButton.disabled, "Symbol Link and Code Block should be disabled if nothing is selected");
 
   TestUtils.click(filenameButton);
   is(sanitizeURL(clipboard.value),
@@ -28,12 +30,18 @@ add_task(async function test_CopyAsMarkdown() {
      "[CopyAsMarkdown.cpp](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp)",
      "Filename is copied");
 
-  clipboard.value = "*unmodified*";
+  clipboard.value = "";
   TestUtils.click(symbolButton);
-  is(clipboard.value, "*unmodified*", "Copy does not happen for disabled Symbol Link button");
+  is(sanitizeURL(clipboard.value),
+     "[CopyAsMarkdown.cpp](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp)",
+     "Without a symbol, Symbol Link links the file");
+  clipboard.value = "";
   TestUtils.keypress(frame.contentDocument.documentElement, { bubbles: true, key: "S" });
-  is(clipboard.value, "*unmodified*", "Copy does not happen for disabled Symbol Link accel");
+  is(sanitizeURL(clipboard.value),
+     "[CopyAsMarkdown.cpp](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp)",
+     "Without a symbol, Symbol Link links the file, by its accel too");
 
+  clipboard.value = "*unmodified*";
   TestUtils.click(codeButton);
   is(clipboard.value, "*unmodified*", "Copy does not happen for disabled Code Block button");
   TestUtils.keypress(frame.contentDocument.documentElement, { bubbles: true, key: "C" });
@@ -43,8 +51,9 @@ add_task(async function test_CopyAsMarkdown() {
   TestUtils.selectLine(3);
 
   ok(!filenameButton.disabled, "Filename Link should always be enabled");
-  ok(symbolButton.disabled, "Symbol Link should be disabled if no symbol is selected");
+  ok(!symbolButton.disabled, "Symbol Link should be enabled (for the file and lines) if no symbol is selected");
   ok(!codeButton.disabled, "Code Block should be enabled when a line is selected");
+  ok(!symbolBlockButton.disabled, "Symbol Link and Code Block should be enabled when a line is selected");
 
   TestUtils.click(codeButton);
   is(sanitizeURL(clipboard.value),
@@ -63,11 +72,19 @@ add_task(async function test_CopyAsMarkdown() {
      "```",
      "Code block with single line is copied");
 
-  clipboard.value = "*unmodified*";
   TestUtils.click(symbolButton);
-  is(clipboard.value, "*unmodified*", "Copy does not happen for disabled Symbol Link button");
-  TestUtils.keypress(frame.contentDocument.documentElement, { bubbles: true, key: "S" });
-  is(clipboard.value, "*unmodified*", "Copy does not happen for disabled Symbol Link accel");
+  is(sanitizeURL(clipboard.value),
+     "[CopyAsMarkdown.cpp#3](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#3)",
+     "Without a symbol, Symbol Link links the file and lines");
+
+  clipboard.value = "";
+  TestUtils.keypress(frame.contentDocument.documentElement, { bubbles: true, key: "B" });
+  is(sanitizeURL(clipboard.value),
+     "[CopyAsMarkdown.cpp#3](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#3)\n" +
+     "```cpp\n" +
+     "// Comment at the top level.\n" +
+     "```",
+     "Symbol Link and Code Block leads the code block with the link");
 
   // Select the global variable.
   TestUtils.selectLine(5);
@@ -80,6 +97,32 @@ add_task(async function test_CopyAsMarkdown() {
   is(sanitizeURL(clipboard.value),
      "[globalVariable](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#5)",
      "Global variable symbol is copied");
+
+  TestUtils.click(symbolBlockButton);
+  is(sanitizeURL(clipboard.value),
+     "[globalVariable](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#5)\n" +
+     "```cpp\n" +
+     "bool globalVariable = true;\n" +
+     "```",
+     "Symbol Link and Code Block leads the code block with the symbol's link");
+
+  // "Copy as..." previews each format, to copy.
+  TestUtils.click(frame.contentDocument.querySelector("#panel-copy-as"));
+  const popup = frame.contentDocument.querySelector(".copy-as-popup");
+  ok(popup, "Copy as... opens its popup");
+  const rows = [...popup.querySelectorAll("li")];
+  is(JSON.stringify(rows.map(row => row.querySelector("strong").textContent)),
+     JSON.stringify(["Symbol link", "Symbol link and code block", "Code block", "File link"]),
+     "The popup has the formats");
+  is(sanitizeURL(rows[0].querySelector(".copy-as-preview").textContent),
+     "[globalVariable](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#5)",
+     "with previews");
+  clipboard.value = "";
+  TestUtils.click(rows[3].querySelector(".copy-as-copy"));
+  is(sanitizeURL(clipboard.value),
+     "[CopyAsMarkdown.cpp](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#5)",
+     "whose Copy buttons copy them");
+  TestUtils.click(popup.querySelector(".lens-popup-close"));
 
   clipboard.value = "";
   TestUtils.keypress(frame.contentDocument.documentElement, { bubbles: true, key: "S" });

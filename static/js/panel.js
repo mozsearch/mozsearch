@@ -16,40 +16,51 @@ var Panel = new (class Panel {
 
     this.selectedSymbol = null;
 
+    // The formats of "Copy as" (see format.rs's
+    // create_markdown_panel_section), by name: each one's button, whether it
+    // applies, its name and description for the popup, and its text for a URL.
+    const filenameOf = url => new URL(url).pathname.match(/\/([^\/]+)$/)[1];
+    // (A symbol link's text: the selected symbol, or the file and its
+    // selected lines.)
+    const linkText = url => this.selectedSymbol || `${filenameOf(url)}${new URL(url).hash}`;
+    const codeBlock = () => {
+      const file = document.getElementById("file");
+      const lang = file.getAttribute("data-markdown-slug") || "";
+      return ["```" + lang, ...this.formatSelectedLines(), "```"];
+    };
+    const hasLines = () => Highlighter?.selectedLines.size > 0;
     this.markdown = {
-      filename: {
-        node: document.querySelector("#panel-copy-filename-link"),
-        isEnabled: () => {
-          return true;
-        },
-        getText: url => {
-          const filename = new URL(url).pathname.match(/\/([^\/]+)$/)[1];
-          return `[${filename}](${url})`;
-        },
-      },
       symbol: {
         node: document.querySelector("#panel-copy-symbol-link"),
-        isEnabled: () => {
-          return this.selectedSymbol;
-        },
-        getText: url => {
-          return `[${this.selectedSymbol}](${url})`;
-        },
+        name: "Symbol link",
+        description: "For mentioning the selected symbol (or the file and its selected lines) in prose.",
+        isEnabled: () => true,
+        getText: url => `[${linkText(url)}](${url})`,
+      },
+      symbolBlock: {
+        node: document.querySelector("#panel-copy-symbol-block"),
+        name: "Symbol link and code block",
+        description: "The selected lines, led by the link to their symbol.",
+        isEnabled: hasLines,
+        getText: url => [`[${linkText(url)}](${url})`, ...codeBlock()].join("\n"),
       },
       block: {
         node: document.querySelector("#panel-copy-code-block"),
-        isEnabled: () => {
-          return Highlighter?.selectedLines.size > 0;
-        },
-        getText: url => {
-          const file = document.getElementById("file");
-          const lang = file.getAttribute("data-markdown-slug") || "";
-          return [url, "```" + lang, ...this.formatSelectedLines(), "```"].join(
-            "\n"
-          );
-        },
+        name: "Code block",
+        description: "The selected lines, led by their URL.",
+        isEnabled: hasLines,
+        getText: url => [url, ...codeBlock()].join("\n"),
+      },
+      filename: {
+        node: document.querySelector("#panel-copy-filename-link"),
+        name: "File link",
+        description: "A link to the file, with its name as its text.",
+        isEnabled: () => true,
+        getText: url => `[${filenameOf(url)}](${url})`,
       },
     };
+    this.copyAsButton = document.querySelector("#panel-copy-as");
+    this.copyAsButton?.addEventListener("click", () => this.toggleCopyAsPopup());
 
     // We want the default event for clicking on the settings link to work, but
     // we want to stop its propagation so that it doesn't bubble up to the
@@ -255,6 +266,9 @@ var Panel = new (class Panel {
         case "c":
         case "C":
           return this.findAccel('C');
+        case "b":
+        case "B":
+          return this.findAccel('B');
         case "t":
         case "T":
           return this.findAccel('T');
@@ -375,14 +389,124 @@ var Panel = new (class Panel {
       return;
     }
 
-    const copy = node.querySelector(".copy");
+    // (The compact buttons say they copied themselves.)
+    const copy = node.querySelector(".copy") || node;
+    this.copyText(copy, getText(this.copyURL()));
+  }
+
+  /** The URL that "Copy as" copies: the permalink's, with the selection. */
+  copyURL() {
     let url = this.permalinkNode?.href || document.location.href;
     if (Settings.fancyBar.enabled) {
       url = this.reflectSelectedSymbolLineToURL(url);
     }
-    const text = getText(url);
+    return url;
+  }
 
-    this.copyText(copy, text);
+  /**
+   * "Copy as...": a popup of the formats, each previewed as it'd be copied
+   * now, with a button to copy it, and the raw file, to open or copy its URL.
+   */
+  toggleCopyAsPopup() {
+    if (this.copyAsPopup) {
+      this.closeCopyAsPopup();
+      return;
+    }
+    const anchor = this.copyAsButton;
+    const popup = document.createElement("div");
+    popup.className = "lens-popup copy-as-popup";
+    popup.setAttribute("role", "dialog");
+    popup.setAttribute("aria-label", "Copy as");
+    const heading = document.createElement("h5");
+    heading.textContent = "Copy as";
+    popup.append(heading);
+
+    const url = this.copyURL();
+    const list = document.createElement("ul");
+    const addRow = (name, description, text, accel, copy) => {
+      const item = document.createElement("li");
+      const title = document.createElement("div");
+      title.className = "copy-as-title";
+      const strong = document.createElement("strong");
+      strong.textContent = name;
+      title.append(strong);
+      if (accel) {
+        const key = document.createElement("span");
+        key.className = "accel";
+        key.textContent = accel;
+        title.append(" ", key);
+      }
+      if (copy) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "copy-as-copy";
+        button.textContent = "Copy";
+        button.addEventListener("click", () => copy(button));
+        title.append(button);
+      }
+      const desc = document.createElement("div");
+      desc.className = "copy-as-description";
+      desc.textContent = description;
+      item.append(title, desc);
+      if (text !== null) {
+        const pre = document.createElement("pre");
+        pre.className = "copy-as-preview";
+        pre.textContent = text;
+        item.append(pre);
+      }
+      list.append(item);
+    };
+    for (const [name, format] of Object.entries(this.markdown)) {
+      if (!format.node) {
+        continue;
+      }
+      const enabled = format.isEnabled();
+      addRow(format.name, enabled ? format.description : `${format.description} (Select some lines first.)`,
+             enabled ? format.getText(url) : null, format.node.dataset.accel,
+             enabled ? button => this.copyText(button, format.getText(url)) : null);
+    }
+    const raw = document.querySelector("#panel-raw");
+    if (raw) {
+      addRow("Raw file", "The file's contents, without searchfox's markup.", raw.href, "R",
+             button => this.copyText(button, raw.href));
+      const open = document.createElement("a");
+      open.href = raw.href;
+      open.textContent = "Open the raw file";
+      list.lastChild.append(open);
+    }
+    popup.append(list);
+
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "lens-popup-close";
+    close.textContent = "Close";
+    close.addEventListener("click", () => this.closeCopyAsPopup());
+    popup.append(close);
+
+    document.body.append(popup);
+    this.copyAsPopup = popup;
+    anchor.setAttribute("aria-expanded", "true");
+    const rect = anchor.getBoundingClientRect();
+    popup.style.right = `${Math.max(8, window.innerWidth - rect.left + 8)}px`;
+    popup.style.top = `${Math.max(8, Math.min(rect.top, window.innerHeight - popup.offsetHeight - 8))}px`;
+    popup.querySelector("button")?.focus();
+
+    this.copyAsDismiss = event => {
+      if (event.type === "keydown" ? event.key === "Escape"
+          : !popup.contains(event.target) && !anchor.contains(event.target)) {
+        this.closeCopyAsPopup();
+      }
+    };
+    document.addEventListener("keydown", this.copyAsDismiss);
+    document.addEventListener("pointerdown", this.copyAsDismiss, true);
+  }
+
+  closeCopyAsPopup() {
+    this.copyAsPopup?.remove();
+    this.copyAsPopup = null;
+    this.copyAsButton?.setAttribute("aria-expanded", "false");
+    document.removeEventListener("keydown", this.copyAsDismiss);
+    document.removeEventListener("pointerdown", this.copyAsDismiss, true);
   }
 
   formatSelectedLines() {
@@ -509,7 +633,7 @@ var Panel = new (class Panel {
   // Add Symbol section with the symbol name and copy button.
   addSymbolSection() {
     const markdownHeader = [...this.content.querySelectorAll("h4")]
-      .find(n => n.textContent == "Copy as Markdown");
+      .find(n => n.textContent == "Copy as");
     if (!markdownHeader) {
       return;
     }

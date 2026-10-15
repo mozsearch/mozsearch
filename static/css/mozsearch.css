@@ -1284,10 +1284,21 @@ html.fancy-bar-resizing {
 }
 /* The blame lens: "Blame..." for its popup, and its modes' buttons (see
    panel.js's createBlameLens). */
-.panel .lens button {
+.panel .lens button,
+.panel .copy-as button {
   font: inherit;
   cursor: pointer;
 }
+/* "Copy as..." and its formats' buttons, like the blame lens's (see
+   format.rs's create_markdown_panel_section). */
+.panel .copy-as {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem 0.25rem 30px;
+}
+.panel .copy-as-more,
 .panel .lens-more {
   border: none;
   background: none;
@@ -1295,9 +1306,24 @@ html.fancy-bar-resizing {
   color: inherit;
   text-decoration: underline dotted;
 }
-.panel .lens-modes {
+.panel .lens-modes,
+.panel .copy-as-modes {
   display: inline-flex;
 }
+.panel .copy-as-modes button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.panel .copy-as-modes button.copied,
+.copy-as-copy.copied {
+  background-color: var(--info-box-info-background);
+}
+.panel .copy-as-modes .accel {
+  margin: 0 0 0 4px;
+  padding: 0 2px;
+  font-size: 85%;
+}
+.panel .copy-as-modes button,
 .panel .lens-modes button {
   font-size: 85%;
   padding: 1px 6px;
@@ -1306,9 +1332,11 @@ html.fancy-bar-resizing {
   color: var(--button-color);
   margin-inline-start: -1px;
 }
+.panel .copy-as-modes button:first-child,
 .panel .lens-modes button:first-child {
   border-radius: 3px 0 0 3px;
 }
+.panel .copy-as-modes button:last-child,
 .panel .lens-modes button:last-child {
   border-radius: 0 3px 3px 0;
 }
@@ -1366,6 +1394,32 @@ html.fancy-bar-resizing {
   vertical-align: middle;
   background-color: var(--swatch);
   border: 1px solid var(--page-border-color);
+}
+.copy-as-popup {
+  width: 28rem;
+}
+.copy-as-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+.copy-as-copy {
+  margin-inline-start: auto;
+  font: inherit;
+  cursor: pointer;
+}
+.copy-as-description {
+  color: var(--page-subtle-foreground);
+}
+.copy-as-preview {
+  margin: 0.2rem 0 0.4rem;
+  padding: 0.3rem;
+  max-height: 8rem;
+  overflow: auto;
+  background-color: var(--info-box-test-skip-info-background);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 90%;
 }
 .lens-popup-close {
   font: inherit;

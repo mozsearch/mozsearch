@@ -225,8 +225,8 @@ add_task(async function test_BlameLens() {
 
   const doc = frame.contentDocument;
   const headings = [...doc.querySelectorAll("#panel h4")].map(h => h.textContent);
-  ok(headings.indexOf("Lenses") == headings.indexOf("Copy as Markdown") + 1,
-     "The Lenses section comes after Copy as Markdown");
+  ok(headings.indexOf("Lenses") == headings.indexOf("Copy as") + 1,
+     "The Lenses section comes after Copy as");
 
   // A button for each mode, beside "Blame...".
   const pressed = d => d.querySelector(".lens-modes button[aria-pressed=true]")?.dataset.mode;

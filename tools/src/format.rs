@@ -4886,7 +4886,7 @@ fn format_blob(
             items: vcs_panel_items,
             raw_items: vec![],
         },
-        create_markdown_panel_section(false),
+        create_markdown_panel_section(false, None),
     ];
 
     let rev = commit.id().to_string();
@@ -4916,44 +4916,61 @@ fn format_blob(
     Ok(())
 }
 
-pub fn create_markdown_panel_section(add_symbol_link: bool) -> PanelSection {
-    let mut markdown_panel_items = vec![];
-    markdown_panel_items.push(PanelItem {
-        label: PanelItemLabel::Plaintext("Filename Link".to_owned()),
-        tooltip: "Copy a Markdown link to clipboard, with the filename".to_owned(),
-        id: "panel-copy-filename-link",
-        link: String::new(),
-        update_link_lineno: "",
-        accel_key: Some('F'),
-        copyable: true,
-        extras: Default::default(),
-    });
+/// The "Copy as" panel section: "Copy as..." for a popup of the formats to
+/// copy the page as (Markdown links and code blocks, previewed, and the raw
+/// file's URL, if any; see panel.js), with buttons beside it for the usual
+/// ones: a link to the selected symbol (or the file and its selected lines),
+/// that link leading a code block of the selected lines, and the code block
+/// with the URL.  (The file link and the raw file are only in the popup, but
+/// keep their keyboard shortcuts.)
+pub fn create_markdown_panel_section(add_symbol_link: bool, raw_url: Option<&str>) -> PanelSection {
+    let escape = |s: &str| {
+        s.replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+            .replace('"', "&quot;")
+    };
+    let button = |id: &str, accel: char, label: &str, tooltip: &str| {
+        format!(
+            r#"<button type="button" id="{}" class="item" data-accel="{}" title="{}">{}<span class="accel">{}</span></button>"#,
+            id, accel, tooltip, label, accel
+        )
+    };
+    let mut modes = String::new();
     if add_symbol_link {
-        markdown_panel_items.push(PanelItem {
-            label: PanelItemLabel::Plaintext("Symbol Link".to_owned()),
-            tooltip: "Copy a Markdown link to clipboard, with the selected symbol".to_owned(),
-            id: "panel-copy-symbol-link",
-            link: String::new(),
-            update_link_lineno: "",
-            accel_key: Some('S'),
-            copyable: true,
-            extras: Default::default(),
-        });
+        modes.push_str(&button(
+            "panel-copy-symbol-link",
+            'S',
+            "sym",
+            "Copy a Markdown link whose text is the selected symbol (or the file and its selected lines)",
+        ));
+        modes.push_str(&button(
+            "panel-copy-symbol-block",
+            'B',
+            "sym+block",
+            "Copy a Markdown code block of the selected lines, led by the link to the selected symbol (or the file and lines)",
+        ));
     }
-    markdown_panel_items.push(PanelItem {
-        label: PanelItemLabel::Plaintext("Code Block".to_owned()),
-        tooltip: "Copy a Markdown code block of the selected code to clipboard".to_owned(),
-        id: "panel-copy-code-block",
-        link: String::new(),
-        update_link_lineno: "",
-        accel_key: Some('C'),
-        copyable: true,
-        extras: Default::default(),
+    modes.push_str(&button(
+        "panel-copy-code-block",
+        'C',
+        "block",
+        "Copy a Markdown code block of the selected lines, led by their URL",
+    ));
+    let raw = raw_url.map_or(String::new(), |url| {
+        format!(
+            r#"<a hidden id="panel-raw" class="item" data-accel="R" href="{}">Raw</a>"#,
+            escape(url)
+        )
     });
+    let html = format!(
+        r#"<li class="copy-as"><button type="button" id="panel-copy-as" class="copy-as-more" title="Copy the page as one of several formats, previewed" aria-haspopup="dialog" aria-expanded="false">Copy as&hellip;</button><span class="copy-as-modes" role="group" aria-label="Copy as">{}</span><button type="button" hidden id="panel-copy-filename-link" class="item" data-accel="F">Filename link</button>{}</li>"#,
+        modes, raw
+    );
     PanelSection {
-        name: "Copy as Markdown".to_owned(),
-        items: markdown_panel_items,
-        raw_items: vec![],
+        name: "Copy as".to_owned(),
+        items: vec![],
+        raw_items: vec![html],
     }
 }
 
