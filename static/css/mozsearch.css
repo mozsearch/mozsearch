@@ -1421,6 +1421,78 @@ html.fancy-bar-resizing {
   overflow-wrap: anywhere;
   font-size: 90%;
 }
+/* The file timeline, in place of the revision's description (see
+   file-timeline.js). */
+.file-timeline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font: inherit;
+  /* (Not taller than the revision's line; after the font, which resets it.) */
+  line-height: 1;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.file-timeline .file-timeline-svg {
+  width: 12rem;
+  height: 0.9em;
+}
+.file-timeline-label {
+  text-decoration: underline dotted;
+}
+.file-timeline-axis {
+  stroke: var(--page-border-color);
+}
+.file-timeline-tick {
+  stroke: var(--page-subtle-foreground);
+  stroke-opacity: 0.6;
+  vector-effect: non-scaling-stroke;
+}
+.file-timeline-tick.file-timeline-highlight {
+  stroke: var(--test-results-failures, orange);
+  stroke-opacity: 1;
+  stroke-width: 3;
+}
+.file-timeline-release {
+  stroke: var(--test-results-good, green);
+  stroke-dasharray: 2 2;
+  vector-effect: non-scaling-stroke;
+}
+.file-timeline-rev {
+  fill: var(--test-results-crashes, red);
+}
+.file-timeline-popup {
+  width: 40rem;
+  max-height: 70vh;
+  overflow: auto;
+}
+.file-timeline-big .file-timeline-svg {
+  width: 100%;
+  height: 3rem;
+}
+.file-timeline-commits {
+  padding-inline-start: 0;
+  list-style: none;
+  margin: 0.4rem 0;
+}
+.file-timeline-commits li {
+  padding: 1px 4px;
+}
+.file-timeline-commits time {
+  color: var(--page-subtle-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.file-timeline-commits li.file-timeline-highlight,
+.file-timeline-commits li.file-timeline-current {
+  background-color: var(--info-box-warning-background);
+}
+.file-timeline-commits a {
+  color: inherit;
+}
 .lens-popup-close {
   font: inherit;
   cursor: pointer;

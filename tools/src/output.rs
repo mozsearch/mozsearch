@@ -354,6 +354,7 @@ pub fn generate_footer(
         "code-highlighter.js",
         "blame.js",
         "hyperblame.js",
+        "file-timeline.js",
         "stack-strip.js",
         "interdiff.js",
         "d3.v7.min.js",
