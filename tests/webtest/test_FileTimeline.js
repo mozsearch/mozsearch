@@ -71,3 +71,31 @@ add_task(async function test_PermalinkFuture() {
     () => /It's now here|It was removed by|couldn't follow/.test(note.querySelector(".permalink-future").textContent),
     "Following the line's first token says where it went");
 });
+
+// A permalink copied with a token selected has the token, which a later page
+// of the file at the permalink's revision follows into the future.
+add_task(async function test_TokenPermalink() {
+  await TestUtils.loadPath("/searchfox/source/tools/src/output.rs");
+  const doc = frame.contentDocument;
+  const clipboard = TestUtils.spyClipboard();
+  const token = doc.querySelector('code.source-line span[data-symbols]');
+  TestUtils.click(token);
+  await waitForCondition(() => frame.contentWindow.Panel.selectedTokenIndex > 0,
+                         "Selecting a token finds its index");
+  const index = frame.contentWindow.Panel.selectedTokenIndex;
+  frame.contentWindow.ContextMenu.hide();
+  TestUtils.click(doc.querySelector("#panel-copy-symbol-link"));
+  ok(clipboard.value.includes(`?token=${index}#`),
+     "The copied permalink has the token, before the line hash");
+
+  // (The parent of the file's latest change, at which it differs from now.)
+  const timeline = frame.contentWindow.FileTimeline;
+  const newest = timeline.commits[timeline.commits.length - 1];
+  const headers = await (await frame.contentWindow.fetch(`${timeline.info.dataUrl}/commits.json`)).json();
+  await TestUtils.loadPath(`/searchfox/rev/${headers[newest.index].parent}/tools/src/output.rs?token=1#1`);
+  const note = frame.contentDocument.querySelector(".permalink-note");
+  TestUtils.click(note.querySelector("button"));
+  await waitForCondition(
+    () => /It's now here|It was removed by|couldn't follow/.test(note.querySelector(".permalink-future").textContent),
+    "The permalink's token is followed");
+});

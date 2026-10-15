@@ -100,7 +100,11 @@ var Panel = new (class Panel {
         }
 
         // (Its text, if not its item's link, ex: a review skill's path.)
-        this.copyText(copy, copy.dataset.copy ?? copy.parentNode.href);
+        // (The permalink's, with the selected token; see permalinkURL.)
+        const text = copy.parentNode === this.permalinkNode
+          ? this.permalinkURL(copy.parentNode.href)
+          : copy.dataset.copy ?? copy.parentNode.href;
+        this.copyText(copy, text);
       });
     }
 
@@ -129,10 +133,11 @@ var Panel = new (class Panel {
         ) {
           return;
         }
+        const href = this.permalinkURL(event.target.href);
         window.history.pushState(
-          { permalink: event.target.href },
+          { permalink: href },
           window.title,
-          event.target.href
+          href
         );
         event.preventDefault();
 
@@ -400,7 +405,53 @@ var Panel = new (class Panel {
     if (Settings.fancyBar.enabled) {
       url = this.reflectSelectedSymbolLineToURL(url);
     }
-    return url;
+    return this.permalinkURL(url);
+  }
+
+  /**
+   * A permalink with the selected token, if any (as `?token=`, the line hash
+   * staying as it is), which a later page of the file at the permalink's
+   * revision can follow into the future (see file-timeline.js's
+   * PermalinkFuture).
+   */
+  permalinkURL(spec) {
+    if (!this.selectedTokenIndex || !/\/rev\//.test(spec)) {
+      return spec;
+    }
+    const url = new URL(spec);
+    url.searchParams.set("token", this.selectedTokenIndex);
+    return url.toString();
+  }
+
+  /**
+   * The selected token's index in the file, by its hyperblame data (see
+   * HyperblameData's tokens' `start`, `end` and `index`), for permalinks.
+   */
+  async updateSelectedTokenIndex() {
+    const token = typeof ContextMenu !== "undefined" ? ContextMenu.selectedToken : null;
+    this.selectedTokenIndex = null;
+    const data = typeof HyperblameContexts !== "undefined" ? HyperblameContexts.contexts?.[0] : null;
+    const code = token?.closest("code.source-line");
+    const row = code?.closest(".source-line-with-number");
+    const lineno = parseInt(row?.querySelector(".line-number")?.dataset.lineNumber, 10);
+    if (!data || !code || !lineno) {
+      return;
+    }
+    let offset = 0;
+    const walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode() && !token.contains(walker.currentNode)) {
+      offset += walker.currentNode.length;
+    }
+    try {
+      const tokens = await data.getLineTokens(lineno);
+      if (ContextMenu.selectedToken !== token) {
+        return;
+      }
+      const found = (tokens || []).find(t => t.start <= offset && offset < t.end);
+      this.selectedTokenIndex = found?.index ?? null;
+    } catch (e) {
+      this.selectedTokenIndex = null;
+    }
   }
 
   /**
@@ -1420,6 +1471,7 @@ var Panel = new (class Panel {
 
   onSelectedTokenChanged() {
     this.updateCopyState();
+    this.updateSelectedTokenIndex();
   }
 
   // Returns true if the event is dispatched inside the navigation panel.

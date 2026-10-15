@@ -291,7 +291,10 @@ var PermalinkFuture = new (class PermalinkFuture {
       return;
     }
     const hash = document.location.hash;
-    const tokenMatch = /^#tokens=(\d+)/.exec(hash);
+    // (A permalink's selected token, see panel.js's permalinkURL, or the
+    // hash's.)
+    const tokenParam = new URLSearchParams(document.location.search).get("token");
+    const tokenMatch = /^\d+$/.test(tokenParam || "") ? [null, tokenParam] : /^#tokens=(\d+)/.exec(hash);
     const lineMatch = /^#(\d+)/.exec(hash);
     if (!tokenMatch && !lineMatch) {
       return;
