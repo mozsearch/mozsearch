@@ -7345,6 +7345,7 @@ pub fn format_explore(
         changes: None,
         stack_links: true,
         semantic_head: None,
+        semantic_failure: None,
     };
     write_explore(cfg, tree_name, &refs, &title, extras, writer)
 }
@@ -7709,6 +7710,7 @@ pub fn format_history(
         changes: Some(changes),
         stack_links: false,
         semantic_head: None,
+        semantic_failure: None,
     };
     write_explore(cfg, tree_name, &refs, &title, extras, writer)
 }
@@ -7786,6 +7788,8 @@ struct ExploreExtras {
     /// its stack rebased onto the indexed revision, whose pages have the
     /// push's analysis, and whose searches (and the page's) are of the push.
     semantic_head: Option<String>,
+    /// For a try push without one, why, if its import's analysis failed.
+    semantic_failure: Option<crate::try_import::SemanticFailure>,
 }
 
 /// An explore page (see `format_explore`), of the commits `refs`, oldest
@@ -7909,6 +7913,7 @@ fn write_explore(
         "note": extras.note,
         "scopes": extras.scopes,
         "semantic_head": extras.semantic_head,
+        "semantic_failure": extras.semantic_failure,
     }))
     .map_err(|_| "Template problems")?;
     build_and_parse_explore()
@@ -7968,6 +7973,11 @@ pub fn format_try(
                 truncated,
                 other_branches: vec![],
                 explore_url: format!("try/{}", rev),
+                // (And if it has none, why, if its import's analysis failed.)
+                semantic_failure: match semantic_head {
+                    Some(_) => None,
+                    None => crate::try_import::semantic_failure(cfg, tree_name, &rev),
+                },
                 note: Some(format!(
                     "Its stack (its commits since it diverged from the trunk{}), imported into \
                      this tree's history, for its commits' blame and what they changed{}.",

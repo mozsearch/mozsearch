@@ -1,7 +1,7 @@
 "use strict";
 
 // The trydelta tree's try pushes get semantic analysis (see
-// tests/trydelta/import-try and tools/src/try_delta.rs): 0123456789ab changes
+// tests/trydelta/analyze-try and tools/src/try_delta.rs): 0123456789ab changes
 // Widget::Frob's signature (which user.cpp's call and gadget.h's then use,
 // though they don't change), adds Widget::Wobble, and adds wobbler.cpp, which
 // calls it.  It also renames hello.js's greetPerson, which its analysis (only
@@ -231,4 +231,22 @@ add_task(async function test_TryCanvas() {
   is(response.headers.get("Access-Control-Allow-Origin"), "*",
      "Its model is JSON which other sites can read");
   is((await response.json()).nodes.length, 7, "with its cards");
+});
+
+// A push whose changes conflict with the indexed revision's can't be analyzed
+// semantically, which its page says, with why: fedcba987654 is based on the
+// tree's first revision, and declares Widget::Grow where the second declares
+// Widget::Shrink.
+add_task(async function test_TryDeltaFailure() {
+  await TestUtils.loadPath("/trydelta/try/fedcba987654");
+  if (!doc().querySelector(".explore-page")) {
+    doc().querySelector(".try-import-button").click();
+    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+                           "The push is imported", 500, 240);
+  }
+  ok(!doc().querySelector(".explore-semantic-head"), "The push has no semantic analysis");
+  const failure = doc().querySelector(".explore-semantic-failure")?.textContent ?? "";
+  ok(failure.includes("failed in its rebase step"), "Its page says which step of it failed");
+  ok(failure.includes("conflict with the indexed revision's"), "and why");
+  ok(failure.includes("The files whose changes conflict: widget.h."), "with the files");
 });

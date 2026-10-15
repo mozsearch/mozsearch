@@ -105,7 +105,9 @@ besides the index (ex: firefox-try's sandbox for building try pushes), and `impo
 reviewing them at `/{tree}/try/{rev}`; see `tools/src/try_import.rs` and `tests/spechist/import-try`).  An
 `import-try` script can also give a push semantic analysis: rebase its stack onto the indexed revision with
 `scripts/rebase-try-push.sh`, compile what it changes with the indexer, and build its semantic delta from that
-analysis with `build-try-delta` (see `tools/src/try_delta.rs` and `tests/trydelta/import-try`).  The rebased
+analysis with `build-try-delta` (see `tools/src/try_delta.rs` and `tests/trydelta/analyze-try`).  If it logs its steps
+as `Performing semantic::STEP step` lines, a push whose analysis failed has its page say in which step and why
+(see `semantic_failure` in `tools/src/try_import.rs`).  The rebased
 stack's head then has the push's jumps and references (and citations of web specs, if the tree's `SPEC_` symbols
 are a linked tree's), and searches from its pages (with `rev=HEAD` on `/query/`) are of the tree as the push
 changes it, as are the views of the spec algorithms it cites beside the code citing them

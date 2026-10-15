@@ -3,8 +3,11 @@
 //! (`/{tree}/try/{rev}`; see `format::format_try`), whose views then have
 //! them like the branch's revisions (see `TreeHistory`'s try notes, and the
 //! commit index's other branches).  What's imported is what the history
-//! derives (the token-centric blame, and the explore page's sparklines), not
-//! semantic analysis, which needs an indexing of the push.
+//! derives (the token-centric blame, and the explore page's sparklines), and,
+//! if the tree's hook does it, the push's semantic analysis (see `try_delta`),
+//! whose steps the hook logs as "Performing semantic::STEP step" lines (like
+//! the indexing's other steps), so that the push's page can say why it has no
+//! semantic analysis if it failed (see `semantic_failure`).
 //!
 //! A tree can import try pushes if it has a history and its directory in the
 //! config repo has an executable `import-try` hook (like `upload-after-index`
@@ -366,6 +369,85 @@ impl TryImports {
     }
 }
 
+/// Why the imported try push `rev` has no semantic analysis, if its import's
+/// failed (see the module's comment).
+#[derive(Debug, PartialEq, Serialize)]
+pub struct SemanticFailure {
+    /// The step it failed in (the last one it started).
+    pub step: String,
+    /// Its error: its last "ERROR: " line after the step started (the hook's
+    /// own messages), or else its last error line from what the step ran (ex:
+    /// a Python exception's, or git's "error: " or "fatal: " lines).
+    pub error: Option<String>,
+    /// The files whose changes conflicted in the step, if it rebased the push
+    /// (see scripts/rebase-try-push.sh).
+    pub conflicts: Vec<String>,
+}
+
+/// Why the imported try push `rev` has no semantic analysis, from its
+/// import's log, if its import tried one (see `SemanticFailure`).  (The caller
+/// knows whether it has one; see `try_delta`.)
+pub fn semantic_failure(cfg: &Config, tree_name: &str, rev: &str) -> Option<SemanticFailure> {
+    let history = cfg.trees.get(tree_name)?.paths.history_path.as_ref()?;
+    let log = fs::read(
+        Path::new(history)
+            .join("try-imports")
+            .join(format!("{}.log", rev)),
+    )
+    .ok()?;
+    parse_semantic_failure(&String::from_utf8_lossy(&log))
+}
+
+/// `semantic_failure` for an import's log.
+fn parse_semantic_failure(log: &str) -> Option<SemanticFailure> {
+    const STEP: &str = "Performing semantic::";
+    // (Without the shell's traces of the commands, ex: of the step's echo.)
+    let lines: Vec<&str> = log.lines().filter(|line| !line.starts_with('+')).collect();
+    let start = lines.iter().rposition(|line| line.starts_with(STEP))?;
+    let step = lines[start][STEP.len()..]
+        .split(" step")
+        .next()
+        .unwrap_or_default()
+        .to_string();
+    let after = &lines[start + 1..];
+    let is_exception = |line: &str| {
+        line.split_once(": ").is_some_and(|(name, _)| {
+            !name.contains(char::is_whitespace)
+                && (name.ends_with("Error") || name.ends_with("Exception"))
+        })
+    };
+    let error = after
+        .iter()
+        .rev()
+        .find_map(|line| line.strip_prefix("ERROR: "))
+        .or_else(|| {
+            after.iter().rev().copied().find(|line| {
+                is_exception(line) || line.starts_with("error: ") || line.starts_with("fatal: ")
+            })
+        })
+        .map(|error| error.trim().to_string());
+    let mut conflicts: Vec<String> = vec![];
+    for line in after {
+        let file = line
+            .strip_prefix("Applied patch to '")
+            .and_then(|rest| rest.strip_suffix("' with conflicts."))
+            .or_else(|| {
+                line.strip_prefix("error: ")
+                    .and_then(|rest| rest.strip_suffix(": patch does not apply"))
+            });
+        if let Some(file) = file
+            && !conflicts.iter().any(|known| known == file)
+        {
+            conflicts.push(file.to_string());
+        }
+    }
+    Some(SemanticFailure {
+        step,
+        error,
+        conflicts,
+    })
+}
+
 /// The last `n` non-empty lines of a log (of its last 8 KiB).
 fn last_lines(path: &Path, n: usize) -> String {
     let mut text = String::new();
@@ -442,6 +524,48 @@ mod tests {
         assert_eq!(importing_tree(&cfg, "b"), None);
         assert_eq!(importing_tree(&cfg, "c"), None);
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn test_parse_semantic_failure() {
+        // (A tree's import without semantic analysis.)
+        assert_eq!(parse_semantic_failure("Performing import step\nok\n"), None);
+        // (A Python script's exception, after the traces of the step's echo
+        // and of later commands.)
+        let log = "+ echo 'Performing semantic::rebase step for x'\n\
+                   Performing semantic::rebase step for x\n\
+                   Performing semantic::build-analysis step for x : 2026\n\
+                   + python3 select_tus.py\n\
+                   Traceback (most recent call last):\n  \
+                   File \"select_tus.py\", line 36, in <module>\n\
+                   FileNotFoundError: [Errno 2] No such file or directory: 'cc.json'\n\
+                   + echo 'WARNING: failed.'\n\
+                   WARNING: failed.\n";
+        assert_eq!(
+            parse_semantic_failure(log),
+            Some(SemanticFailure {
+                step: "build-analysis".to_string(),
+                error: Some(
+                    "FileNotFoundError: [Errno 2] No such file or directory: 'cc.json'".to_string()
+                ),
+                conflicts: vec![],
+            })
+        );
+        // (A rebase's conflicts, with the hook's own message.)
+        let log = "Performing semantic::rebase step for x\n\
+                   Performing three-way merge...\n\
+                   Applied patch to 'a.h' with conflicts.\n\
+                   Applied patch to 'b.cpp' cleanly.\n\
+                   error: c.py: patch does not apply\n\
+                   ERROR: The push's changes conflict.\n";
+        assert_eq!(
+            parse_semantic_failure(log),
+            Some(SemanticFailure {
+                step: "rebase".to_string(),
+                error: Some("The push's changes conflict.".to_string()),
+                conflicts: vec!["a.h".to_string(), "c.py".to_string()],
+            })
+        );
     }
 
     #[test]

@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
+
+# The trydelta tree's semantic analysis of a try push (see import-try, which
+# runs this with its environment, and tools/src/try_delta.rs): its stack
+# rebased onto the indexed revision (here, the tree's head) is compiled with
+# the indexer (all of the tree's C++, since it's small; see build), and its
+# semantic delta built from that analysis.  Its steps are "semantic::" steps,
+# which the push's page names if it fails (see try_import's
+# `semantic_failure`).
+#
+# Usage: analyze-try NAME HEAD_REV
+
+NAME=$1
+HEAD_REV=$2
+
+echo "Performing semantic::rebase step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+if ! REBASED=$("$MOZSEARCH_PATH/scripts/rebase-try-push.sh" "$GIT_ROOT" "$NAME" "$HEAD_REV"); then
+    echo "ERROR: The push's changes conflict with the indexed revision's, so it can't be analyzed semantically until it's rebased."
+    exit 1
+fi
+
+echo "Performing semantic::build step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+WORK=$(mktemp -d)
+mkdir -p "$WORK/files" "$WORK/objdir" "$WORK/tip-analysis"
+git -C "$GIT_ROOT" archive "$REBASED" | tar -x -C "$WORK/files"
+INDEX_ROOT=$WORK FILES_ROOT=$WORK/files OBJDIR=$WORK/objdir \
+    "$MOZSEARCH_PATH/scripts/indexer-setup.py" > "$WORK/config"
+source "$WORK/config"
+pushd "$WORK/files"
+for SRC_FILE in $(find . -name '*.cpp' | sed 's#^\./##'); do
+    mkdir -p "$(dirname "$WORK/objdir/$SRC_FILE")"
+    MOZSEARCH_PLATFORM=linux64 $CXX "$SRC_FILE" -std=c++17 -I . -c -o "$WORK/objdir/${SRC_FILE%.cpp}.o" -Wall
+done
+popd
+# (Merged, like the tree's; see build.)
+mv "$WORK/analysis" "$WORK/analysis-linux64"
+pushd "$WORK"
+(cd analysis-linux64 && find . -type f | sed 's#^\./##') | while read -r FILE; do
+    mkdir -p "$(dirname "tip-analysis/$FILE")"
+    merge-analyses "analysis-linux64/$FILE" > "tip-analysis/$FILE"
+done
+popd
+
+echo "Performing semantic::delta step for $NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+build-try-delta "$CONFIG_FILE" "$TREE_NAME" "$NAME" "$REBASED" "$WORK/tip-analysis"
+rm -rf "$WORK"
