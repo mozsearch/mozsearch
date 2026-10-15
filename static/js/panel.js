@@ -750,6 +750,200 @@ var Panel = new (class Panel {
     document.removeEventListener("pointerdown", this.blamePopupDismiss, true);
   }
 
+  /**
+   * The analysis records widget: the hovered token's records (those of its
+   * line overlapping it), or its line's, rendered like devtools' objects, from
+   * the file's raw analysis (fetched on the first hover).  It keeps its
+   * records while the context menu is open (ex: for a clicked token).  Its
+   * "Properties" button picks which properties it shows.
+   */
+  createRecordsWidget(rawUrl) {
+    const li = document.createElement("li");
+    li.className = "debug-records";
+    const header = document.createElement("div");
+    header.className = "debug-records-header";
+    header.textContent = "Analysis records";
+    const propsButton = document.createElement("button");
+    propsButton.type = "button";
+    propsButton.textContent = "Properties";
+    propsButton.title = "Choose which properties of the records to show";
+    header.append(propsButton);
+    const props = document.createElement("div");
+    props.className = "debug-records-props";
+    props.hidden = true;
+    const body = document.createElement("div");
+    body.className = "debug-records-body";
+    body.textContent = "Hover over a token or a line for its records.";
+    li.append(header, props, body);
+
+    const hiddenKey = "debug-records-hidden";
+    const hidden = new Set((localStorage.getItem(hiddenKey) || "").split(",").filter(Boolean));
+    let byLine = null;
+    let loading = null;
+    let last = null;
+
+    const load = () => {
+      loading ??= fetch(rawUrl).then(r => r.text()).then(text => {
+        byLine = new Map();
+        for (const line of text.split("\n")) {
+          if (!line.trim()) {
+            continue;
+          }
+          let record;
+          try {
+            record = JSON.parse(line);
+          } catch (e) {
+            continue;
+          }
+          const m = /^(\d+):(\d+)(?:-(?:(\d+):)?(\d+))?$/.exec(record.loc || "");
+          if (!m) {
+            continue;
+          }
+          const lineno = parseInt(m[1], 10);
+          const start = parseInt(m[2], 10);
+          const end = m[4] !== undefined && m[3] === undefined ? parseInt(m[4], 10) : Infinity;
+          if (!byLine.has(lineno)) {
+            byLine.set(lineno, []);
+          }
+          byLine.get(lineno).push({ start, end, record });
+        }
+      }).catch(e => {
+        body.textContent = `Couldn't load the records: ${e}`;
+      });
+      return loading;
+    };
+
+    const renderValue = value => {
+      if (value !== null && typeof value === "object") {
+        const details = document.createElement("details");
+        const summary = document.createElement("summary");
+        summary.textContent = Array.isArray(value) ? `Array(${value.length})` : "{\u2026}";
+        details.append(summary, renderObject(value));
+        return details;
+      }
+      const span = document.createElement("span");
+      span.className = `debug-value debug-${typeof value}`;
+      span.textContent = typeof value === "string" ? JSON.stringify(value) : String(value);
+      return span;
+    };
+    const renderObject = (object, filter = false) => {
+      const rows = document.createElement("dl");
+      for (const [key, value] of Object.entries(object)) {
+        if (filter && hidden.has(key)) {
+          continue;
+        }
+        const dt = document.createElement("dt");
+        dt.textContent = key;
+        const dd = document.createElement("dd");
+        dd.append(renderValue(value));
+        rows.append(dt, dd);
+      }
+      return rows;
+    };
+
+    const show = () => {
+      if (!last || !byLine) {
+        return;
+      }
+      const { lineno, start, end } = last;
+      const records = (byLine.get(lineno) || [])
+        .filter(r => start === null || (r.start < end && start < r.end) || r.start === start);
+      body.replaceChildren();
+      const title = document.createElement("div");
+      title.className = "debug-records-title";
+      title.textContent = start === null
+        ? `Line ${lineno}: ${records.length} records`
+        : `Line ${lineno}, columns ${start}-${end}: ${records.length} records`;
+      body.append(title);
+      for (const { record } of records) {
+        const details = document.createElement("details");
+        details.open = true;
+        details.className = "debug-record";
+        const summary = document.createElement("summary");
+        summary.textContent = [record.kind || (record.syntax !== undefined ? "source" : "record"),
+                               record.pretty || record.sym || ""].join(" ").trim();
+        details.append(summary, renderObject(record, true));
+        body.append(details);
+      }
+    };
+
+    propsButton.addEventListener("click", () => {
+      props.hidden = !props.hidden;
+      if (props.hidden || !byLine) {
+        return;
+      }
+      const keys = new Set();
+      for (const records of byLine.values()) {
+        for (const { record } of records) {
+          Object.keys(record).forEach(key => keys.add(key));
+        }
+      }
+      props.replaceChildren(...[...keys].sort().map(key => {
+        const label = document.createElement("label");
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.checked = !hidden.has(key);
+        box.addEventListener("change", () => {
+          box.checked ? hidden.delete(key) : hidden.add(key);
+          localStorage.setItem(hiddenKey, [...hidden].join(","));
+          show();
+        });
+        label.append(box, key);
+        return label;
+      }));
+    });
+
+    let scheduled = false;
+    document.getElementById("content")?.addEventListener("mousemove", event => {
+      if (scheduled || (typeof ContextMenu !== "undefined" && ContextMenu.active) ||
+          !this.isExpanded() || li.closest("section")?.style.display === "none") {
+        return;
+      }
+      const code = event.target.closest?.("code.source-line");
+      if (!code) {
+        return;
+      }
+      scheduled = true;
+      requestAnimationFrame(async () => {
+        scheduled = false;
+        const row = code.closest(".source-line-with-number");
+        const lineno = parseInt(row?.querySelector(".line-number")?.dataset.lineNumber ||
+                                row?.id?.replace("line-", ""), 10);
+        if (!lineno) {
+          return;
+        }
+        // (The hovered token's columns: its text's offset in the line's.)
+        let start = null;
+        let end = null;
+        const token = event.target.closest("[data-symbols]") ||
+              (event.target !== code && code.contains(event.target) ? event.target : null);
+        if (token) {
+          const walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT);
+          let offset = 0;
+          while (walker.nextNode()) {
+            if (token.contains(walker.currentNode)) {
+              break;
+            }
+            offset += walker.currentNode.length;
+          }
+          start = offset;
+          end = offset + token.textContent.length;
+        }
+        if (last && last.lineno === lineno && last.start === start) {
+          return;
+        }
+        last = { lineno, start, end };
+        if (!byLine) {
+          body.textContent = "Loading the records\u2026";
+          await load();
+        }
+        show();
+      });
+    });
+
+    return li;
+  }
+
   addDebugSection() {
     const items = [];
 
@@ -764,6 +958,7 @@ var Panel = new (class Panel {
       link.textContent = "Raw analysis records";
       li.append(link);
       items.push(li);
+      items.push(this.createRecordsWidget(link.href.replace(/#.*$/, "")));
     }
 
     if (window.IS_DEBUG_LOGS_AVAILABLE) {

@@ -22,6 +22,35 @@ add_task(async function test_RawAnalysisLink() {
      "Raw analysis page is opened");
 });
 
+// The analysis records widget shows the hovered token's records.
+add_task(async function test_AnalysisRecordsWidget() {
+  await TestUtils.loadPath("/tests/source/webtest/Titler.cpp");
+  const doc = frame.contentDocument;
+  const content = doc.querySelector("#panel-content");
+  if (content.style.display == "none") {
+    TestUtils.click(doc.querySelector("#panel-toggle"));
+  }
+  const widget = doc.querySelector(".debug-records");
+  ok(widget, "The Debug section has the analysis records widget");
+
+  const token = doc.querySelector('#line-1 span[data-symbols="_Z14globalVariable"]');
+  token.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+  await waitForCondition(
+    () => widget.querySelector(".debug-records-title")?.textContent.startsWith("Line 1, columns 5-19"),
+    "Hovering a token shows its records");
+  const summaries = [...widget.querySelectorAll(".debug-record > summary")].map(s => s.textContent);
+  ok(summaries.includes("def globalVariable"), "including its definition's");
+
+  // Its properties can be hidden.
+  TestUtils.click(widget.querySelector(".debug-records-header button"));
+  const peekRange = [...widget.querySelectorAll(".debug-records-props label")]
+    .find(l => l.textContent == "peekRange").querySelector("input");
+  TestUtils.clickCheckbox(peekRange);
+  ok(![...widget.querySelectorAll(".debug-records dt")].some(dt => dt.textContent == "peekRange"),
+     "A hidden property isn't shown");
+  TestUtils.clickCheckbox(peekRange);
+});
+
 add_task(async function test_QueryDebugLog() {
   await TestUtils.loadQuery("tests", "field-layout:'field_layout::holes::Sub'");
 

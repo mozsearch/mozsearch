@@ -1224,6 +1224,64 @@ html.fancy-bar-resizing {
   /* Align with the items of the other sections. */
   padding: 0.25rem 0.5rem 0.25rem 30px;
 }
+/* The analysis records widget (see panel.js's createRecordsWidget). */
+.panel .debug-records {
+  padding: 0.25rem 0.5rem 0.25rem 30px;
+  font-size: 85%;
+}
+.debug-records-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.debug-records-header button {
+  font: inherit;
+  cursor: pointer;
+}
+.debug-records-props {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  margin: 0.25rem 0;
+}
+.debug-records-title {
+  color: var(--page-subtle-foreground);
+  margin: 0.25rem 0;
+}
+.debug-record > summary {
+  cursor: pointer;
+  font-weight: bold;
+}
+.debug-records dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0 0.5rem;
+  margin: 0 0 0.25rem 0.75rem;
+  font-family: monospace;
+}
+.debug-records dt {
+  color: var(--page-subtle-foreground);
+}
+.debug-records dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.debug-value.debug-string {
+  color: #c41a16;
+}
+.debug-value.debug-number,
+.debug-value.debug-boolean {
+  color: #1c00cf;
+}
+@media (prefers-color-scheme: dark) {
+  .debug-value.debug-string {
+    color: #ff7b72;
+  }
+  .debug-value.debug-number,
+  .debug-value.debug-boolean {
+    color: #79c0ff;
+  }
+}
 /* The blame lens: "Blame..." for its popup, and its modes' buttons (see
    panel.js's createBlameLens). */
 .panel .lens button {
