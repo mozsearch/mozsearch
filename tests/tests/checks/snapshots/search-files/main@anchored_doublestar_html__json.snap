@@ -219,7 +219,67 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": null,
-        "info": {},
+        "info": {
+          "test_results": {
+            "crashes": 0,
+            "daily_issue_rates": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              5.0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2.5,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "daily_skip_rates": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              100.0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "days": 21,
+            "end_date": "2026-09-30",
+            "failures": 3,
+            "issues": 3,
+            "pass_rate": 98.14,
+            "runs": 161,
+            "skips": 6,
+            "start_date": "2026-09-10",
+            "state": "flaky",
+            "timeouts": 0
+          }
+        },
         "coverage": null
       }
     },
@@ -233,7 +293,21 @@ input_file: inputs/search-files/anchored_doublestar_html__json
         "subsystem": null,
         "tags": [],
         "description": null,
-        "info": {},
+        "info": {
+          "test_results": {
+            "crashes": 0,
+            "days": 21,
+            "end_date": "2026-09-30",
+            "failures": 0,
+            "issues": 0,
+            "pass_rate": 100,
+            "runs": 60,
+            "skips": 0,
+            "start_date": "2026-09-10",
+            "state": "stable",
+            "timeouts": 0
+          }
+        },
         "coverage": null
       }
     },

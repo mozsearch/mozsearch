@@ -7,7 +7,7 @@ input_file: inputs/web/files/test-info-boxes/test_otherthing__html
   
   <section class="info-box info-box-warning info-box-concise">
     <h4>Test Info: Warnings</h4>
-    <span class="info-box-facts"><span class="info-box-fact">skipped given 3 conditions</span><span class="info-box-fact">runs only given 1 condition</span><span class="info-box-fact">expected to fail given 1 condition</span><span class="info-box-fact">in 1 manifest</span>
+    <span class="info-box-facts"><span class="info-box-fact">161 runs in 21 days</span><span class="info-box-fact">3 with failures, timeouts or crashes (98.14% passed)</span><span class="info-box-fact">6 skipped</span><span class="info-box-fact">skipped given 3 conditions</span><span class="info-box-fact">runs only given 1 condition</span><span class="info-box-fact">expected to fail given 1 condition</span><span class="info-box-fact">in 1 manifest</span>
     </span>
     <button type="button" class="info-box-details" data-panel-section="panel-tests">Details</button>
   </section>

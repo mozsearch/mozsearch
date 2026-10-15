@@ -19,6 +19,166 @@ input_file: inputs/web/files/nav-panel/test_otherthing__navpanel__html
   <h4 id="panel-tests">Tests</h4>
 <div class="panel-tests">
   <ul>
+    <li>
+      <div class="test-results">
+        <div class="test-results-header"><a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html" title="More details on tests.firefox.dev">CI results</a> <span class="test-results-period" title="2026-09-10 to 2026-09-30">over the last 21 days</span></div>
+        <div class="test-results-body">
+        <a class="test-results-tiles" href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html" title="More details on tests.firefox.dev">
+<div class="test-results-tile"><span class="test-results-tile-value test-results-tile-plain">161</span><span class="test-results-tile-label">Runs</span></div>
+<div class="test-results-tile"><span class="test-results-tile-value test-results-tile-plain">98.14%</span><span class="test-results-tile-label">Pass</span></div>
+<div class="test-results-tile"><span class="test-results-tile-value test-results-tile-failures">3</span><span class="test-results-tile-label">Failures</span></div>
+<div class="test-results-tile"><span class="test-results-tile-value test-results-tile-zero">0</span><span class="test-results-tile-label">Timeouts</span></div>
+<div class="test-results-tile"><span class="test-results-tile-value test-results-tile-zero">0</span><span class="test-results-tile-label">Crashes</span></div>
+<div class="test-results-tile"><span class="test-results-tile-value test-results-tile-skips">6</span><span class="test-results-tile-label">Skips</span></div>
+        </a>
+        <div class="test-results-charts test-results-charts-2">
+          <figure class="test-results-figure">
+            <figcaption>Runs with issues per day (up to 5%)</figcaption><svg class="test-results-chart" width="273" height="48" viewBox="0 0 273 48" role="img">
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-10&amp;to=2026-09-10"><g><title>2026-09-10
+40 runs</title><rect class="test-results-hit" x="0" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-11&amp;to=2026-09-11"><g><title>2026-09-11
+0 runs</title><rect class="test-results-hit" x="13" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-12&amp;to=2026-09-12"><g><title>2026-09-12
+0 runs</title><rect class="test-results-hit" x="26" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-13&amp;to=2026-09-13"><g><title>2026-09-13
+0 runs</title><rect class="test-results-hit" x="39" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-14&amp;to=2026-09-14"><g><title>2026-09-14
+0 runs</title><rect class="test-results-hit" x="52" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-15&amp;to=2026-09-15"><g><title>2026-09-15
+5% failures (2)
+40 runs</title><rect class="test-results-hit" x="65" y="0" width="13" height="48"/>
+    <rect class="test-results-failures" x="65" y="0" width="10" height="48" rx="1.5"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-16&amp;to=2026-09-16"><g><title>2026-09-16
+0 runs</title><rect class="test-results-hit" x="78" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-17&amp;to=2026-09-17"><g><title>2026-09-17
+0 runs</title><rect class="test-results-hit" x="91" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-18&amp;to=2026-09-18"><g><title>2026-09-18
+0 runs</title><rect class="test-results-hit" x="104" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-19&amp;to=2026-09-19"><g><title>2026-09-19
+0 runs</title><rect class="test-results-hit" x="117" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-20&amp;to=2026-09-20"><g><title>2026-09-20
+41 runs</title><rect class="test-results-hit" x="130" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-21&amp;to=2026-09-21"><g><title>2026-09-21
+0 runs</title><rect class="test-results-hit" x="143" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-22&amp;to=2026-09-22"><g><title>2026-09-22
+0 runs</title><rect class="test-results-hit" x="156" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-23&amp;to=2026-09-23"><g><title>2026-09-23
+0 runs</title><rect class="test-results-hit" x="169" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-24&amp;to=2026-09-24"><g><title>2026-09-24
+0 runs</title><rect class="test-results-hit" x="182" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-25&amp;to=2026-09-25"><g><title>2026-09-25
+2.5% failures (1)
+40 runs</title><rect class="test-results-hit" x="195" y="0" width="13" height="48"/>
+    <rect class="test-results-failures" x="195" y="24" width="10" height="24" rx="1.5"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-26&amp;to=2026-09-26"><g><title>2026-09-26
+0 runs</title><rect class="test-results-hit" x="208" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-27&amp;to=2026-09-27"><g><title>2026-09-27
+0 runs</title><rect class="test-results-hit" x="221" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-28&amp;to=2026-09-28"><g><title>2026-09-28
+0 runs</title><rect class="test-results-hit" x="234" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-29&amp;to=2026-09-29"><g><title>2026-09-29
+0 runs</title><rect class="test-results-hit" x="247" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-30&amp;to=2026-09-30"><g><title>2026-09-30
+0 runs</title><rect class="test-results-hit" x="260" y="0" width="13" height="48"/>
+  </g></a>
+</svg>
+            <div class="test-results-axis"><span>Sep 10</span><span>Sep 30</span></div>
+            <ul class="test-results-legend"><li><span class="test-results-swatch test-results-failures"></span>Failures</li></ul>
+          </figure>
+          <figure class="test-results-figure">
+            <figcaption>Scheduled runs skipped per day (up to 100%)</figcaption><svg class="test-results-chart" width="273" height="48" viewBox="0 0 273 48" role="img">
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-10&amp;to=2026-09-10"><g><title>2026-09-10
+40 runs</title><rect class="test-results-hit" x="0" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-11&amp;to=2026-09-11"><g><title>2026-09-11
+0 runs</title><rect class="test-results-hit" x="13" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-12&amp;to=2026-09-12"><g><title>2026-09-12
+0 runs</title><rect class="test-results-hit" x="26" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-13&amp;to=2026-09-13"><g><title>2026-09-13
+0 runs</title><rect class="test-results-hit" x="39" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-14&amp;to=2026-09-14"><g><title>2026-09-14
+0 runs</title><rect class="test-results-hit" x="52" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-15&amp;to=2026-09-15"><g><title>2026-09-15
+40 runs</title><rect class="test-results-hit" x="65" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-16&amp;to=2026-09-16"><g><title>2026-09-16
+0 runs</title><rect class="test-results-hit" x="78" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-17&amp;to=2026-09-17"><g><title>2026-09-17
+0 runs</title><rect class="test-results-hit" x="91" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-18&amp;to=2026-09-18"><g><title>2026-09-18
+0 runs</title><rect class="test-results-hit" x="104" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-19&amp;to=2026-09-19"><g><title>2026-09-19
+0 runs</title><rect class="test-results-hit" x="117" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-20&amp;to=2026-09-20"><g><title>2026-09-20
+41 runs</title><rect class="test-results-hit" x="130" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-21&amp;to=2026-09-21"><g><title>2026-09-21
+0 runs</title><rect class="test-results-hit" x="143" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-22&amp;to=2026-09-22"><g><title>2026-09-22
+100% skips (6)
+0 runs</title><rect class="test-results-hit" x="156" y="0" width="13" height="48"/>
+    <rect class="test-results-skips" x="156" y="0" width="10" height="48" rx="1.5"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-23&amp;to=2026-09-23"><g><title>2026-09-23
+0 runs</title><rect class="test-results-hit" x="169" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-24&amp;to=2026-09-24"><g><title>2026-09-24
+0 runs</title><rect class="test-results-hit" x="182" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-25&amp;to=2026-09-25"><g><title>2026-09-25
+40 runs</title><rect class="test-results-hit" x="195" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-26&amp;to=2026-09-26"><g><title>2026-09-26
+0 runs</title><rect class="test-results-hit" x="208" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-27&amp;to=2026-09-27"><g><title>2026-09-27
+0 runs</title><rect class="test-results-hit" x="221" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-28&amp;to=2026-09-28"><g><title>2026-09-28
+0 runs</title><rect class="test-results-hit" x="234" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-29&amp;to=2026-09-29"><g><title>2026-09-29
+0 runs</title><rect class="test-results-hit" x="247" y="0" width="13" height="48"/>
+  </g></a>
+  <a href="https://tests.firefox.dev/test.html?test=tests%2Ftest_otherthing.html#from=2026-09-30&amp;to=2026-09-30"><g><title>2026-09-30
+0 runs</title><rect class="test-results-hit" x="260" y="0" width="13" height="48"/>
+  </g></a>
+</svg>
+            <div class="test-results-axis"><span>Sep 10</span><span>Sep 30</span></div>
+          </figure>
+        </div>
+        </div>
+      </div>
+    </li>
     <li>Manifest: <a href="/tests/source/tests/mochitest.toml">tests/mochitest.toml</a> includes <a href="/tests/source/tests/mochitest-common.toml#3" class="test-manifest-section">tests/mochitest-common.toml</a>
       <ul>
         <li>Skipped if any of:
@@ -62,5 +222,12 @@ input_file: inputs/web/files/nav-panel/test_otherthing__navpanel__html
   <li>
   <button id="panel-copy-code-block" data-accel="C" title="Copy a Markdown code block of the selected code to clipboard" class="icon item">Code Block <span class="accel">C</span><span class="icon copy indicator"><span class="icon-docs copy-icon"></span><span class="icon-ok tick-icon"></span></span></button>
   </li>
+  </ul>
+  <h4>Other Tools</h4>
+  <ul>
+  <li>
+  <a id="panel-tests-firefox-dev" href="https://tests.firefox.dev/test.html?test=tests/test_otherthing.html" data-accel="T" title="Open the CI results of the current test on tests.firefox.dev" class="icon item">tests.firefox.dev <span class="accel">T</span></a>
+  </li>
+  
   </ul>
   </section>

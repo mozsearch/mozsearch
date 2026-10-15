@@ -12,6 +12,11 @@
            else
            %}aria-expanded="false" aria-hidden="true" style="display: none;"{%
            endif %}>
+{%- comment %}(Sections rendered by the page's template, ex: a directory's
+tests' CI results.){% endcomment -%}
+{%- if extra_html %}
+  {{ extra_html }}
+{%- endif -%}
 {%- if panel -%}
 {%- for section in panel %}
   <h4>{{section.name | escape}}</h4>

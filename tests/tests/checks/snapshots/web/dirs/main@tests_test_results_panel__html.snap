@@ -1,0 +1,6 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/web/dirs/tests_test_results_panel__html
+---
+<h4 id="panel-tests">Tests</h4>

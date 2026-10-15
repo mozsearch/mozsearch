@@ -1324,6 +1324,13 @@ html.fancy-bar-resizing {
 .panel-tests a.test-results-tiles {
   text-decoration: none;
 }
+/* (A directory's CI results' box, in the panel.) */
+.panel-tests .test-results-box {
+  margin: 0;
+  padding: 0;
+  border: none;
+  font-size: 100%;
+}
 .panel-tests .test-skip-info,
 .info-box .test-skip-info {
   font-family: monospace;

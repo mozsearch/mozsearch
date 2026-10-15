@@ -1,0 +1,82 @@
+{
+ "metadata": {
+  "startDate": "2026-09-10",
+  "endDate": "2026-09-30",
+  "searchfox-test-repo-note": "A made-up mochitest-issues.json (see scripts/summarize-test-results.py): test_otherthing.html is flaky, test_something.html stable."
+ },
+ "tables": {
+  "statuses": [
+   "PASS",
+   "FAIL",
+   "SKIP"
+  ],
+  "testPaths": [
+   "tests"
+  ],
+  "testNames": [
+   "test_otherthing.html",
+   "test_something.html"
+  ],
+  "messages": []
+ },
+ "testInfo": {
+  "testPathIds": [
+   0,
+   0
+  ],
+  "testNameIds": [
+   0,
+   1
+  ]
+ },
+ "testRuns": [
+  [
+   {
+    "counts": [
+     40,
+     38,
+     41,
+     39
+    ],
+    "days": [
+     0,
+     5,
+     5,
+     5
+    ]
+   },
+   {
+    "counts": [
+     2,
+     1
+    ],
+    "days": [
+     5,
+     10
+    ]
+   },
+   {
+    "counts": [
+     6
+    ],
+    "days": [
+     12
+    ]
+   }
+  ],
+  [
+   {
+    "counts": [
+     30,
+     30
+    ],
+    "days": [
+     0,
+     20
+    ]
+   },
+   null,
+   null
+  ]
+ ]
+}

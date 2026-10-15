@@ -59,7 +59,8 @@ add_task(async function test_TestManifestConditions() {
 
   // The info box summarizes the test's conditions...
   const box = frame.contentDocument.querySelector("section.info-box-concise");
-  is(JSON.stringify([...box.querySelectorAll(".info-box-fact")].map(f => f.textContent)),
+  // (After its CI results' counts, see test_TestResults.)
+  is(JSON.stringify([...box.querySelectorAll(".info-box-fact")].map(f => f.textContent).slice(-4)),
      JSON.stringify([
        "skipped given 3 conditions",
        "runs only given 1 condition",
@@ -95,4 +96,32 @@ add_task(async function test_TestManifestConditions() {
   await TestUtils.loadPath("/tests/source/tests/test_something.html");
   is(frame.contentDocument.querySelector(".panel-tests a.test-skip-info")?.getAttribute("href"),
      "/tests/source/tests/mochitest.toml#12", "Its condition goes to its line");
+});
+
+// A test's and a directory's CI results (tests.firefox.dev's, from the tests
+// tree's fake mochitest-issues.json) are a line of counts, with their details
+// in the navigation panel.
+add_task(async function test_TestResults() {
+  await TestUtils.loadPath("/tests/source/tests/test_otherthing.html");
+  const facts = [...frame.contentDocument.querySelectorAll("section.info-box-concise .info-box-fact")]
+    .map(f => f.textContent);
+  is(JSON.stringify(facts.slice(0, 3)), JSON.stringify([
+    "161 runs in 21 days",
+    "3 with failures, timeouts or crashes (98.14% passed)",
+    "6 skipped",
+  ]), "The test's info box has its CI results' counts");
+  ok(frame.contentDocument.querySelector(".panel-tests .test-results"),
+     "and the panel has its CI results");
+
+  await TestUtils.loadPath("/tests/source/tests");
+  const box = frame.contentDocument.querySelector("section.test-results-concise");
+  ok(box?.classList.contains("info-box-warning"), "A directory with a flaky test warns");
+  is(JSON.stringify([...box.querySelectorAll(".info-box-fact")].map(f => f.textContent)),
+     JSON.stringify(["2 tests", "1 flaky", "221 runs in 21 days", "3 with failures, timeouts or crashes"]),
+     "Its tests' CI results are counted");
+  TestUtils.click(box.querySelector("button.info-box-details"));
+  ok(frame.contentDocument.querySelector("#panel-content").style.display != "none",
+     "The details button shows the panel");
+  ok(frame.contentDocument.querySelector("#panel-tests + .panel-tests .test-results"),
+     "whose Tests section has the CI results");
 });

@@ -62,8 +62,7 @@ input_file: inputs/web/dirs/root_listing__html
   <div class="breadcrumbs">
     <a href="/tests/source/">tests</a><button id="tree-switcher" title="Open tree switcher menu" aria-expanded="false" aria-haspopup="true" aria-controls="tree-switcher-menu"></button><div id="tree-switcher-menu" title="Tree switcher" role="menu" class="context-menu" style="display: none"></div>
   </div>
-
-    <div class="panel" id="panel">
+<div class="panel" id="panel">
   <button id="panel-toggle">
     <span class="navpanel-toggle-icon icon-down-dir" aria-hidden="false"></span>
     Navigation
@@ -72,6 +71,7 @@ input_file: inputs/web/dirs/root_listing__html
     </span>
   </button>
   <section id="panel-content" aria-expanded="false" aria-hidden="true" style="display: none;">
+  
   <h4>Revision control</h4>
   <ul>
     <li>

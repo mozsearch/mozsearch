@@ -12,16 +12,43 @@
       {%- assign has_coverage_history = false -%}
     {%- endif -%}
     {% include 'breadcrumbs.liquid' path: path, hidden: false, is_graph: false %}
-    {% include 'navigation_panel.liquid' expanded: false, panel: panel %}
-    {%- if coverage_history != nil -%}
-      {% include 'coverage_history.liquid' coverage_history: coverage_history %}
-    {%- endif -%}
+    {%- comment %}The CI results of the directory's tests: a line of counts,
+    and their details in the navigation panel.{% endcomment -%}
     {%- assign show_test_results = false -%}
+    {%- assign tests_section = "" -%}
     {%- if dir_concise -%}
       {%- if dir_concise.info contains "test_results" -%}
         {%- assign show_test_results = true -%}
-        {% include 'test_results/dir_panel.liquid' results: dir_concise.info.test_results, path: path %}
+        {%- assign results = dir_concise.info.test_results -%}
+        {%- capture tests_section %}<h4 id="panel-tests">Tests</h4>
+  <div class="panel-tests">
+    {% include 'test_results/dir_panel.liquid' results: results, path: path %}
+  </div>
+{% endcapture -%}
       {%- endif -%}
+    {%- endif -%}
+    {% include 'navigation_panel.liquid' expanded: false, panel: panel, extra_html: tests_section %}
+    {%- if coverage_history != nil -%}
+      {% include 'coverage_history.liquid' coverage_history: coverage_history %}
+    {%- endif -%}
+    {%- if show_test_results %}
+    <section class="info-box info-box-{% if results.flaky_tests > 0 %}warning{% else %}info{% endif %} info-box-concise test-results-concise">
+      <h4>Tests in this directory</h4>
+      <span class="info-box-facts">
+        <span class="info-box-fact">{{ results.tests | thousands }} test{% if results.tests != 1 %}s{% endif %}</span>
+      {%- if results.flaky_tests > 0 %}
+        <span class="info-box-fact">{{ results.flaky_tests | thousands }} flaky</span>
+      {%- endif -%}
+      {%- if results.skipped_tests > 0 %}
+        <span class="info-box-fact">{{ results.skipped_tests | thousands }} skipped</span>
+      {%- endif %}
+        <span class="info-box-fact">{{ results.runs | thousands }} runs in {{ results.days }} days</span>
+      {%- if results.issues > 0 %}
+        <span class="info-box-fact">{{ results.issues | thousands }} with failures, timeouts or crashes</span>
+      {%- endif %}
+      </span>
+      <button type="button" class="info-box-details" data-panel-section="panel-tests">Details</button>
+    </section>
     {%- endif -%}
     {%- include 'query_results/file_table.liquid' files: files, show_test_results: show_test_results %}
   </div>

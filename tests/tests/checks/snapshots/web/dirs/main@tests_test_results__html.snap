@@ -1,0 +1,15 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/web/dirs/tests_test_results__html
+---
+<section class="info-box info-box-warning info-box-concise test-results-concise">
+      <h4>Tests in this directory</h4>
+      <span class="info-box-facts">
+        <span class="info-box-fact">2 tests</span>
+        <span class="info-box-fact">1 flaky</span>
+        <span class="info-box-fact">221 runs in 21 days</span>
+        <span class="info-box-fact">3 with failures, timeouts or crashes</span>
+      </span>
+      <button type="button" class="info-box-details" data-panel-section="panel-tests">Details</button>
+    </section>
