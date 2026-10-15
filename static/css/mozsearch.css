@@ -1203,6 +1203,11 @@ html.fancy-bar-resizing {
 .panel .item-extra:hover {
   background-color: var(--button-hover-background);
 }
+/* (Hidden items, ex: "Copy as"'s file link and raw file, which keep their
+   keyboard shortcuts.) */
+.panel .item[hidden] {
+  display: none;
+}
 .panel section button.item {
   font: unset;
   appearance: unset;
@@ -1293,6 +1298,7 @@ html.fancy-bar-resizing {
    format.rs's create_markdown_panel_section). */
 .panel .copy-as {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
@@ -1300,6 +1306,7 @@ html.fancy-bar-resizing {
 }
 .panel .copy-as-more,
 .panel .lens-more {
+  white-space: nowrap;
   border: none;
   background: none;
   padding: 0;
