@@ -1403,7 +1403,35 @@ html.fancy-bar-resizing {
   border: 1px solid var(--page-border-color);
 }
 .copy-as-popup {
-  width: 28rem;
+  width: 46rem;
+  max-height: 80vh;
+  overflow: auto;
+}
+/* A format's Markdown on the left, and its rendering on the right. */
+.copy-as-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin: 0.2rem 0 0.4rem;
+}
+.copy-as-columns > * {
+  min-width: 0;
+}
+.copy-as-rendered {
+  padding: 0.3rem;
+  border: 1px solid var(--page-border-color);
+  max-height: 8rem;
+  overflow: auto;
+}
+.copy-as-rendered p {
+  margin: 0;
+}
+.copy-as-rendered pre {
+  margin: 0.2rem 0 0;
+  padding: 0.3rem;
+  background-color: var(--info-box-test-skip-info-background);
+  white-space: pre-wrap;
+  font-size: 90%;
 }
 .copy-as-title {
   display: flex;
@@ -1419,7 +1447,7 @@ html.fancy-bar-resizing {
   color: var(--page-subtle-foreground);
 }
 .copy-as-preview {
-  margin: 0.2rem 0 0.4rem;
+  margin: 0;
   padding: 0.3rem;
   max-height: 8rem;
   overflow: auto;

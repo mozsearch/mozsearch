@@ -117,6 +117,12 @@ add_task(async function test_CopyAsMarkdown() {
   is(sanitizeURL(rows[0].querySelector(".copy-as-preview").textContent),
      "[globalVariable](BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#5)",
      "with previews");
+  const rendered = rows[0].querySelector(".copy-as-rendered a");
+  is(rendered?.textContent, "globalVariable", "rendered beside their Markdown");
+  is(sanitizeURL(rendered?.href ?? ""), "BASE_URL/tests/rev/REV/webtest/CopyAsMarkdown.cpp#5",
+     "with their links");
+  is(rows[1].querySelector(".copy-as-rendered pre code")?.textContent, "bool globalVariable = true;",
+     "and code blocks");
   clipboard.value = "";
   TestUtils.click(rows[3].querySelector(".copy-as-copy"));
   is(sanitizeURL(clipboard.value),

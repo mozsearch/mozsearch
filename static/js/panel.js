@@ -449,10 +449,14 @@ var Panel = new (class Panel {
       desc.textContent = description;
       item.append(title, desc);
       if (text !== null) {
+        // (Its Markdown on the left, and how it renders on the right.)
+        const columns = document.createElement("div");
+        columns.className = "copy-as-columns";
         const pre = document.createElement("pre");
         pre.className = "copy-as-preview";
         pre.textContent = text;
-        item.append(pre);
+        columns.append(pre, this.renderMarkdownPreview(text));
+        item.append(columns);
       }
       list.append(item);
     };
@@ -486,8 +490,10 @@ var Panel = new (class Panel {
     document.body.append(popup);
     this.copyAsPopup = popup;
     anchor.setAttribute("aria-expanded", "true");
+    // (Beside the panel, like the blame lens's.)
     const rect = anchor.getBoundingClientRect();
-    popup.style.right = `${Math.max(8, window.innerWidth - rect.left + 8)}px`;
+    const left = Math.min(rect.left, this.panel.getBoundingClientRect().left);
+    popup.style.right = `${Math.max(8, window.innerWidth - left + 8)}px`;
     popup.style.top = `${Math.max(8, Math.min(rect.top, window.innerHeight - popup.offsetHeight - 8))}px`;
     popup.querySelector("button")?.focus();
 
@@ -499,6 +505,55 @@ var Panel = new (class Panel {
     };
     document.addEventListener("keydown", this.copyAsDismiss);
     document.addEventListener("pointerdown", this.copyAsDismiss, true);
+  }
+
+  /**
+   * The rendering of a "Copy as" format's Markdown, for its preview: its links
+   * (`[text](url)`, and bare URLs) and fenced code blocks, which are all the
+   * formats have.
+   */
+  renderMarkdownPreview(text) {
+    const out = document.createElement("div");
+    out.className = "copy-as-rendered";
+    const inline = (line, parent) => {
+      const re = /\[([^\]]*)\]\(([^)\s]+)\)|(https?:\/\/\S+)/g;
+      let last = 0;
+      let m;
+      while ((m = re.exec(line))) {
+        parent.append(line.slice(last, m.index));
+        const a = document.createElement("a");
+        a.href = m[2] ?? m[3];
+        a.textContent = m[1] ?? m[3];
+        parent.append(a);
+        last = re.lastIndex;
+      }
+      parent.append(line.slice(last));
+    };
+    const lines = text.split("\n");
+    let paragraph = null;
+    for (let i = 0; i < lines.length; i++) {
+      if (/^```/.test(lines[i])) {
+        const code = [];
+        for (i++; i < lines.length && lines[i] !== "```"; i++) {
+          code.push(lines[i]);
+        }
+        const pre = document.createElement("pre");
+        const codeElt = document.createElement("code");
+        codeElt.textContent = code.join("\n");
+        pre.append(codeElt);
+        out.append(pre);
+        paragraph = null;
+        continue;
+      }
+      if (paragraph) {
+        paragraph.append(" ");
+      } else {
+        paragraph = document.createElement("p");
+        out.append(paragraph);
+      }
+      inline(lines[i], paragraph);
+    }
+    return out;
   }
 
   closeCopyAsPopup() {
@@ -851,7 +906,8 @@ var Panel = new (class Panel {
 
     // Beside the panel, at the anchor's height, as far as it fits.
     const rect = anchor.getBoundingClientRect();
-    popup.style.right = `${Math.max(8, window.innerWidth - rect.left + 8)}px`;
+    const left = Math.min(rect.left, this.panel.getBoundingClientRect().left);
+    popup.style.right = `${Math.max(8, window.innerWidth - left + 8)}px`;
     const top = Math.min(rect.top, window.innerHeight - popup.offsetHeight - 8);
     popup.style.top = `${Math.max(8, top)}px`;
     popup.querySelector("input:checked, input")?.focus();
