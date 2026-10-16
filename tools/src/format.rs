@@ -1266,12 +1266,22 @@ pub fn hyperblame_file(
         })
         .ok_or("No token blame for the file")?;
 
+    // (And leave them for nginx; see `sidecars`.  Only for the full commit
+    // id, which pages request, so that the files are at their URLs.)
+    let full_rev = rev == commit.id().to_string();
     if file_name == "commits.json" {
         let revs = || data.revs.iter().map(String::as_str);
-        return Ok(data
+        let json = data
             .commits_json
             .get_or_init(|| hyperblame_commits_json(tree_config, git, revs()))
-            .clone());
+            .clone();
+        if full_rev {
+            write_page_data_sidecars(tree_config, tree_name, rev, path, &data, Some(&json));
+        }
+        return Ok(json);
+    }
+    if full_rev {
+        write_page_data_sidecars(tree_config, tree_name, rev, path, &data, None);
     }
     file_name
         .strip_prefix("lines-")
@@ -3633,10 +3643,7 @@ pub fn format_rendered(
         // The page will request its hyperblame data right away; see
         // `hyperblame_file`.  (The tip's are static files.)
         if rev.is_some() {
-            PAGE_DATA_CACHE.insert(
-                (tree_name.to_string(), commit_id.clone(), path.to_string()),
-                PageData::new(page),
-            );
+            keep_page_data(tree_config, tree_name, &commit_id, path, page);
         }
     }
 
@@ -4461,6 +4468,7 @@ fn set_token_blame_urls(
 /// right away, so we leave the data in `PAGE_DATA_CACHE` (see
 /// `hyperblame_file`).
 fn revision_token_blame(
+    tree_config: &TreeConfig,
     tree_name: &str,
     git: &GitData,
     commit: &git2::Commit,
@@ -4482,15 +4490,52 @@ fn revision_token_blame(
         path,
         BreadcrumbsLinksTo::Historical,
     );
-    PAGE_DATA_CACHE.insert(
-        (
-            tree_name.to_string(),
-            commit.id().to_string(),
-            path.to_string(),
-        ),
-        PageData::new(&page),
-    );
+    keep_page_data(tree_config, tree_name, &commit.id().to_string(), path, &page);
     Some(page)
+}
+
+/// Keep the hyperblame data of a page we rendered for the file at `path` in
+/// revision `rev` (a full commit id), which the page will request right away
+/// (see `hyperblame_file`): as sidecar files of its popup chunks (see
+/// `sidecars`), which nginx serves, and in `PAGE_DATA_CACHE`, for its
+/// `commits.json` (which we only generate if it's requested), and for requests
+/// before the files are written.
+fn keep_page_data(tree_config: &TreeConfig, tree_name: &str, rev: &str, path: &str, page: &PageBlame) {
+    let data = PageData::new(page);
+    write_page_data_sidecars(tree_config, tree_name, rev, path, &data, None);
+    PAGE_DATA_CACHE.insert(
+        (tree_name.to_string(), rev.to_string(), path.to_string()),
+        data,
+    );
+}
+
+/// Write the sidecar files (see `sidecars`) of a page's hyperblame data, with
+/// its `commits.json` too if it's been generated.
+fn write_page_data_sidecars(
+    tree_config: &TreeConfig,
+    tree_name: &str,
+    rev: &str,
+    path: &str,
+    data: &PageData,
+    commits_json: Option<&str>,
+) {
+    let dir = format!("rev-hyperblame/{}/{}", rev, path);
+    for (k, chunk) in data.chunks.iter().enumerate() {
+        crate::sidecars::write(
+            &tree_config.paths.index_path,
+            tree_name,
+            &format!("{}/lines-{}.json", dir, k),
+            chunk,
+        );
+    }
+    if let Some(commits_json) = commits_json {
+        crate::sidecars::write(
+            &tree_config.paths.index_path,
+            tree_name,
+            &format!("{}/commits.json", dir),
+            commits_json,
+        );
+    }
 }
 
 /// The token-centric blame of the file at `path` in `commit` whose contents are
@@ -5243,10 +5288,7 @@ fn format_blob(
     // The page will request its hyperblame data right away; see
     // `hyperblame_file`.
     if let Some(page) = formatted.token_blame {
-        PAGE_DATA_CACHE.insert(
-            (tree_name.to_string(), rev, path.to_string()),
-            PageData::new(&page),
-        );
+        keep_page_data(tree_config, tree_name, &rev, path, &page);
     }
     Ok(())
 }
@@ -5396,7 +5438,7 @@ pub fn format_diff(
     let mut token_blames: Vec<Option<PageBlame>> = match &git.history {
         Some(_) => std::iter::once(commit.clone())
             .chain(commit.parents())
-            .map(|c| revision_token_blame(tree_name, git, &c, path))
+            .map(|c| revision_token_blame(tree_config, tree_name, git, &c, path))
             .collect(),
         None => vec![],
     };
@@ -6761,8 +6803,8 @@ pub fn format_interdiff(
     let file = file_interdiff(git, history, tree_config.get_git_path()?, &a, &b, path)?;
     let (rows, new_lines, num_lines) = parse_diff_rows(&file.difftxt, 1, None, None)?;
     let mut token_blames = vec![
-        revision_token_blame(tree_name, git, b.post(), path),
-        revision_token_blame(tree_name, git, &b.base, path),
+        revision_token_blame(tree_config, tree_name, git, b.post(), path),
+        revision_token_blame(tree_config, tree_name, git, &b.base, path),
     ];
     drop_mismatched_token_blames(path, &mut token_blames, &num_lines);
     if let FormatAs::Binary = languages::select_formatting(path) {

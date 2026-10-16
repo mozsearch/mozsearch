@@ -303,6 +303,11 @@ location('= /robots.txt', [
 
 print(' error_page 404 /static/html/404.html;')
 
+# The web-server's sidecar files (see `tools::sidecars`) which aren't on disk
+# (yet): it generates them (and writes them), so its responses aren't cached
+# too.
+location('@sidecar', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
+
 # TODO: it's possible some of the `try_files` machinations and symlinks
 # we're using could better cleaned up by use of "alias".  The exception is
 # "source" where the "try_files" is definitely absolutely necessary.
@@ -435,7 +440,19 @@ for repo in config['trees']:
     location(f'/{repo}/commit', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/oldcommit', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/rev', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/rev-hyperblame', ['proxy_pass http://127.0.0.1:8001;'])
+    # Sidecar files, which the web-server writes by URL beside the trees'
+    # index directories (see `tools::sidecars`), gzipped with empty markers for
+    # `try_files`, falling back to the web-server.
+    sidecar_root = os.path.join(os.path.dirname(index_path), 'sidecars')
+    location(f'/{repo}/rev-hyperblame', [
+        f'root {sidecar_root};',
+        'try_files $uri @sidecar;',
+        'types { }',
+        'default_type application/json;',
+        'add_header Cache-Control "must-revalidate";',
+        'gzip_static always;',
+        'gunzip on;',
+    ])
     location(f'/{repo}/rev-outline', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/outline-diff', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/rendered', ['proxy_pass http://127.0.0.1:8001;'])

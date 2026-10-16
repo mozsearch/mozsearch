@@ -770,6 +770,13 @@ async fn main() {
         std::thread::spawn(move || tools::try_import::IMPORTS.run(&cfg));
     }
 
+    // The eviction of sidecar files when the disk fills up; see
+    // `tools::sidecars`.
+    {
+        let cfg = cfg.clone();
+        std::thread::spawn(move || tools::sidecars::janitor(&cfg));
+    }
+
     // Limit ourselves to processing 4 requests at the same time.
     static SEMAPHORE: Semaphore = Semaphore::const_new(4);
     // Peephole histories and futures (see `format::peephole_json` and
