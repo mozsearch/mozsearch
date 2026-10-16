@@ -45,7 +45,23 @@
 //!   range for a value spanning lines), and its definitions can have
 //!   structured records with binding slots (by symbol, or by the pretty name
 //!   of a symbol, for crossref to resolve, ex: a C++ getter generated from a
-//!   pref).
+//!   pref).  A data rule for definitions can be a `scope`: its definitions'
+//!   symbols and pretty names are the context of the records inside the
+//!   entries it matches (the innermost scope's; ex: a taskcluster task's, for
+//!   the toolchains it fetches), and with `inherits`, its scopes use symbols,
+//!   with themselves as the context (ex: a task's `task-defaults`), if the
+//!   data path `when` matches anything in the document.  With `uses_scope`,
+//!   a data rule's definitions use their scope's symbol, with themselves as
+//!   the context (ex: a toolchain alias, its task).
+//! - `file_scope`: the context of the records outside of any data scope (ex:
+//!   a taskcluster kind, for its files), which the file defines with
+//!   `define` (ex: the kind's kind.yml).  With several mappings, the first
+//!   one's (and the scopes of all of them apply to the records of all of
+//!   them).
+//!
+//! The target records in data scopes (or in a file scope) also have
+//! `ctxtra`: the keys from their scope's entry to their own (ex: `fetches`
+//! and `toolchain`), which say where they are in it without being symbols.
 //!
 //! Query rules' templates see each capture's text by name, `scope.<name>` for
 //! the innermost enclosing scope of each name (with its `name`, `sym`, and
@@ -98,6 +114,26 @@ pub struct Mapping {
     pub rules: Vec<QueryRule>,
     #[serde(default)]
     pub data: Vec<DataRule>,
+    #[serde(default)]
+    pub file_scope: Option<FileScopeRule>,
+}
+
+/// A document's own scope (see `Mapping::file_scope`).
+#[derive(Debug, Deserialize)]
+pub struct FileScopeRule {
+    pub sym: String,
+    pub pretty: String,
+    #[serde(default)]
+    pub define: bool,
+}
+
+/// A symbol which a data scope uses (see `DataRule::inherits`), if the data
+/// path `when` matches anything in the document.
+#[derive(Debug, Deserialize)]
+pub struct InheritRule {
+    pub when: String,
+    pub sym: String,
+    pub pretty: String,
 }
 
 /// A data path to a scalar whose value starts with `prefix`.
@@ -209,6 +245,17 @@ pub struct DataRule {
     /// rule's records, with the word as `item`.
     #[serde(default)]
     pub each: Option<String>,
+    /// Whether its definitions are the context of the records inside the
+    /// entries it matches.
+    #[serde(default)]
+    pub scope: bool,
+    #[serde(default)]
+    pub inherits: Vec<InheritRule>,
+    /// Whether its definitions use their scope's symbol (with themselves as
+    /// the context), ex: a toolchain alias, the task it's an alias of, so
+    /// that diagrams go through the alias to the task.
+    #[serde(default)]
+    pub uses_scope: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -337,6 +384,9 @@ struct CompiledDataRule {
     except_keys: Vec<String>,
     except_values: Vec<String>,
     each: Option<liquid::Template>,
+    scope: bool,
+    inherits: Vec<(Vec<Segment>, liquid::Template, liquid::Template)>,
+    uses_scope: bool,
 }
 
 /// A mapping ready to analyze files with.
@@ -351,6 +401,9 @@ pub struct CompiledMapping {
     scopes: Vec<CompiledScope>,
     rules: Vec<CompiledRule>,
     data: Vec<CompiledDataRule>,
+    /// The file scope's symbol and pretty name, and whether the file defines
+    /// it.
+    file_scope: Option<(liquid::Template, liquid::Template, bool)>,
 }
 
 impl CompiledMapping {
@@ -476,6 +529,12 @@ impl CompiledMapping {
                     if rule.role == Role::Constant {
                         return Err(format!("{}: data rules can't be constants", name));
                     }
+                    if (rule.scope || !rule.inherits.is_empty()) && rule.role != Role::Def {
+                        return Err(format!("{}: only definitions can be scopes", name));
+                    }
+                    if rule.uses_scope && rule.role != Role::Def {
+                        return Err(format!("{}: only definitions can use their scopes", name));
+                    }
                     Ok(CompiledDataRule {
                         path: parse_data_path(&rule.path),
                         at: rule.at,
@@ -489,9 +548,30 @@ impl CompiledMapping {
                         except_keys: rule.except_keys.clone(),
                         except_values: rule.except_values.clone(),
                         each: rule.each.as_deref().map(template).transpose()?,
+                        scope: rule.scope || !rule.inherits.is_empty(),
+                        inherits: rule
+                            .inherits
+                            .iter()
+                            .map(|inherit| {
+                                Ok((
+                                    parse_data_path(&inherit.when),
+                                    template(&inherit.sym)?,
+                                    template(&inherit.pretty)?,
+                                ))
+                            })
+                            .collect::<Result<_, String>>()?,
+                        uses_scope: rule.uses_scope,
                     })
                 })
                 .collect::<Result<_, String>>()?,
+            file_scope: match &mapping.file_scope {
+                Some(scope) => Some((
+                    template(&scope.sym)?,
+                    template(&scope.pretty)?,
+                    scope.define,
+                )),
+                None => None,
+            },
             language,
         })
     }
@@ -990,6 +1070,7 @@ pub(crate) fn target_record(
             peek_range: LineRange::default(),
             arg_ranges: vec![],
             slot: None,
+            ctxtra: vec![],
         },
     })
 }
@@ -1473,18 +1554,137 @@ fn query_records(
 }
 
 /// The records of a mapping's data rules, for the file at `path`.
+/// A file's data rules' records, with the keys of the entries they're at
+/// (from the document's root) and whether they're at the keys (rather than the
+/// values), and its scopes, for their contexts (see `assign_data_contexts`).
+#[derive(Default)]
+struct DataRecords {
+    records: Vec<(Record, Vec<String>, bool)>,
+    scopes: Vec<DataScope>,
+    /// The definitions which use their scopes (see `DataRule::uses_scope`):
+    /// their keys, location, symbol, and pretty name.
+    scope_users: Vec<(Vec<String>, Location, String, String)>,
+    /// The file scope's symbol and pretty name, and whether the file defines
+    /// it.
+    file_scope: Option<(String, String, bool)>,
+}
+
+/// An entry which is a scope (see `DataRule::scope`).
+struct DataScope {
+    keys: Vec<String>,
+    sym: String,
+    pretty: String,
+    loc: Location,
+    /// The symbols it uses (see `DataRule::inherits`), and their pretty names.
+    inherits: Vec<(String, String)>,
+}
+
+/// The records of a file's data rules (see `data_records`), with their
+/// contexts: target records' contexts are their innermost scope's (see
+/// `DataRule::scope`), or else the file scope's, with `ctxtra`, the keys from
+/// that scope's entry to their own (but for records at keys, their own key),
+/// and the scopes' uses of the symbols they inherit (with themselves as the
+/// context), and the uses of their scopes by the definitions which use them.
+fn assign_data_contexts(data_records: DataRecords, records: &mut Vec<Record>) {
+    let DataRecords {
+        records: data,
+        scopes,
+        scope_users,
+        file_scope,
+    } = data_records;
+    // The innermost scope of an entry at `keys`.  (A scope's own entry isn't
+    // in it.)
+    let scope_of = |keys: &[String]| {
+        scopes
+            .iter()
+            .filter(|scope| scope.keys.len() < keys.len() && keys.starts_with(&scope.keys))
+            .max_by_key(|scope| scope.keys.len())
+    };
+    if let Some((sym, pretty, true)) = &file_scope {
+        records.push(target_record(
+            Location {
+                lineno: 1,
+                col_start: 0,
+                col_end: 0,
+            },
+            AnalysisKind::Def,
+            pretty.clone(),
+            sym.clone(),
+            String::new(),
+            String::new(),
+        ));
+    }
+    for (mut record, keys, at_key) in data {
+        if let Record::Target(target) = &mut record
+            && target.data.context.is_empty()
+        {
+            let context = match (scope_of(&keys), &file_scope) {
+                (Some(scope), _) => {
+                    Some((scope.pretty.clone(), scope.sym.clone(), scope.keys.len()))
+                }
+                (None, Some((sym, pretty, _))) => Some((pretty.clone(), sym.clone(), 0)),
+                (None, None) => None,
+            };
+            if let Some((pretty, sym, depth)) = context {
+                target.data.context = pretty;
+                target.data.contextsym = sym;
+                let end = keys.len() - at_key as usize;
+                target.data.ctxtra = keys[depth.min(end)..end].to_vec();
+            }
+        }
+        records.push(record);
+    }
+    for scope in &scopes {
+        for (sym, pretty) in &scope.inherits {
+            records.push(target_record(
+                scope.loc,
+                AnalysisKind::Use,
+                pretty.clone(),
+                sym.clone(),
+                scope.pretty.clone(),
+                scope.sym.clone(),
+            ));
+        }
+    }
+    for (keys, loc, sym, pretty) in &scope_users {
+        if let Some(scope) = scope_of(keys) {
+            records.push(target_record(
+                *loc,
+                AnalysisKind::Use,
+                scope.pretty.clone(),
+                scope.sym.clone(),
+                pretty.clone(),
+                sym.clone(),
+            ));
+        }
+    }
+}
+
 fn data_records(
     mapping: &CompiledMapping,
     data: &Data,
     path: &str,
     source: &str,
-    records: &mut Vec<Record>,
+    out: &mut DataRecords,
 ) -> Result<(), String> {
     let render = |template: &liquid::Template, globals: &liquid::Object| {
         template.render(globals).map_err(|e| e.to_string())
     };
     let (dir_path, _) = path.rsplit_once('/').unwrap_or(("", path));
     let dir = dir_path.rsplit('/').next().unwrap_or_default();
+    if let Some((sym, pretty, define)) = &mapping.file_scope {
+        let globals = liquid::object!({
+            "path": path,
+            "dir_path": dir_path,
+            "dir": dir,
+        });
+        match &mut out.file_scope {
+            None => {
+                out.file_scope = Some((render(sym, &globals)?, render(pretty, &globals)?, *define))
+            }
+            Some((_, _, defined)) => *defined |= *define,
+        }
+    }
     for rule in &mapping.data {
         let mut matches = vec![];
         match_data_path(data, &rule.path, &mut vec![], &mut matches);
@@ -1567,21 +1767,49 @@ fn data_records(
                         }
                         slots.push(slot);
                     }
-                    records.push(Record::Structured(
-                        loc,
-                        json!({
-                            "loc": loc,
-                            "structured": 1,
-                            "pretty": pretty,
-                            "sym": sym,
-                            "kind": structured.kind,
-                            "implKind": structured.impl_kind,
-                            "bindingSlots": slots,
-                        }),
+                    out.records.push((
+                        Record::Structured(
+                            loc,
+                            json!({
+                                "loc": loc,
+                                "structured": 1,
+                                "pretty": pretty,
+                                "sym": sym,
+                                "kind": structured.kind,
+                                "implKind": structured.impl_kind,
+                                "bindingSlots": slots,
+                            }),
+                        ),
+                        keys.clone(),
+                        rule.at == DataSubject::Key,
                     ));
                 }
+                if rule.scope {
+                    let mut inherits = vec![];
+                    for (when, inherit_sym, inherit_pretty) in &rule.inherits {
+                        let mut found = vec![];
+                        match_data_path(data, when, &mut vec![], &mut found);
+                        if !found.is_empty() {
+                            inherits.push((
+                                render(inherit_sym, &globals)?,
+                                render(inherit_pretty, &globals)?,
+                            ));
+                        }
+                    }
+                    out.scopes.push(DataScope {
+                        keys: keys.clone(),
+                        sym: sym.clone(),
+                        pretty: pretty.clone(),
+                        loc,
+                        inherits,
+                    });
+                }
+                if rule.uses_scope {
+                    out.scope_users.push((keys.clone(), loc, sym.clone(), pretty.clone()));
+                }
+                let mut rule_out = vec![];
                 rule_records(
-                    records,
+                    &mut rule_out,
                     rule.role,
                     loc,
                     &rule.syntax_kind,
@@ -1591,6 +1819,11 @@ fn data_records(
                     nesting_range.clone(),
                     (String::new(), String::new()),
                     None,
+                );
+                out.records.extend(
+                    rule_out
+                        .into_iter()
+                        .map(|record| (record, keys.clone(), rule.at == DataSubject::Key)),
                 );
             }
         }
@@ -1795,6 +2028,8 @@ pub fn analyze_resolving(
             }
             None => Data::Other,
         };
+        // (Data scopes apply to the records of all of the grammar's mappings.)
+        let mut file_data_records = DataRecords::default();
         for mapping in grammar_mappings {
             if !conditions_hold(&mapping.when, &data) {
                 continue;
@@ -1802,8 +2037,9 @@ pub fn analyze_resolving(
             for root in &roots {
                 query_records(mapping, *root, source, &mut analysis)?;
             }
-            data_records(mapping, &data, path, source, &mut analysis.records)?;
+            data_records(mapping, &data, path, source, &mut file_data_records)?;
         }
+        assign_data_contexts(file_data_records, &mut analysis.records);
     }
     sort_records(&mut analysis.records);
     Ok(analysis)
@@ -1841,6 +2077,112 @@ mod tests {
 
     fn mapping(name: &str, toml: &str) -> CompiledMapping {
         CompiledMapping::new(name, &toml::from_str(toml).unwrap()).unwrap()
+    }
+
+    #[test]
+    fn test_taskcluster_contexts() {
+        let mappings = builtin_mappings().unwrap();
+        let path = "taskcluster/kinds/searchfox/kind.yml";
+        let applying: Vec<&CompiledMapping> =
+            mappings.iter().filter(|m| m.applies_to(path)).collect();
+        let source = "\
+task-defaults:
+    worker-type: b-linux
+tasks:
+    linux64-searchfox/debug:
+        worker-type:
+            by-platform:
+                linux64.*: b-linux-large
+        fetches:
+            toolchain:
+                - linux64-rust-analyzer
+";
+        let records = analyze(&applying, path, source).unwrap();
+        let targets: Vec<String> = records
+            .iter()
+            .filter_map(|r| match r {
+                Record::Target(t) if !t.data.sym.starts_with("FILE_") => Some(format!(
+                    "{} {:?} {} in {} [{}]",
+                    t.loc.lineno,
+                    t.data.kind,
+                    t.data.pretty,
+                    t.data.contextsym,
+                    t.data.ctxtra.join(" > ")
+                )),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            targets,
+            vec![
+                "1 Def searchfox in  []",
+                "1 Def searchfox::task-defaults in TCKIND_searchfox []",
+                "2 Use b-linux in TASKDEFAULTS_searchfox [worker-type]",
+                "4 Def searchfox::linux64-searchfox/debug in TCKIND_searchfox [tasks]",
+                "4 Use searchfox::task-defaults in TASK_searchfox/linux64-searchfox/debug []",
+                "7 Use b-linux-large in TASK_searchfox/linux64-searchfox/debug [worker-type > by-platform > linux64.*]",
+                "10 Use toolchain::linux64-rust-analyzer in TASK_searchfox/linux64-searchfox/debug [fetches > toolchain]",
+            ],
+            "{:#?}",
+            targets
+        );
+        // (The task and the task-defaults are callable, for diagrams.)
+        let structured: Vec<String> = records
+            .iter()
+            .filter_map(|r| match r {
+                Record::Structured(_, value) => {
+                    Some(format!("{} {}", value["sym"], value["kind"]))
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            structured,
+            vec![
+                r#""TASKDEFAULTS_searchfox" "task""#,
+                r#""TASK_searchfox/linux64-searchfox/debug" "task""#,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_taskcluster_aliases() {
+        let mappings = builtin_mappings().unwrap();
+        let path = "taskcluster/kinds/toolchain/clang.yml";
+        let applying: Vec<&CompiledMapping> =
+            mappings.iter().filter(|m| m.applies_to(path)).collect();
+        let source = "\
+linux64-clang-19:
+    run:
+        toolchain-alias:
+            by-project:
+                toolchains: linux64-clang-toolchains
+                default: linux64-clang
+";
+        let records = analyze(&applying, path, source).unwrap();
+        let targets: Vec<String> = records
+            .iter()
+            .filter_map(|r| match r {
+                Record::Target(t) if t.data.sym.starts_with("TASK_") => Some(format!(
+                    "{} {:?} {} in {}",
+                    t.loc.lineno, t.data.kind, t.data.pretty, t.data.contextsym
+                )),
+                _ => None,
+            })
+            .collect();
+        // (The aliases use their task, for diagrams.)
+        assert_eq!(
+            targets,
+            vec![
+                "1 Def toolchain::linux64-clang-19 in TCKIND_toolchain",
+                "5 Def toolchain::linux64-clang-toolchains in TASK_toolchain/linux64-clang-19",
+                "5 Use toolchain::linux64-clang-19 in TASK_toolchain/linux64-clang-toolchains",
+                "6 Def toolchain::linux64-clang in TASK_toolchain/linux64-clang-19",
+                "6 Use toolchain::linux64-clang-19 in TASK_toolchain/linux64-clang",
+            ],
+            "{:#?}",
+            targets
+        );
     }
 
     #[test]

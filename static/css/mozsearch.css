@@ -825,6 +825,13 @@ tr.after-context-line + tr.before-context-line {
   color: var(--result-context-color);
 }
 
+/* Where a result is in its context, beyond the context symbol (ex: a task's
+   "› fetches › toolchain"; see search.js). */
+.result-ctxtra {
+  margin-left: 0.3em;
+  opacity: 0.85;
+}
+
 .result-upsearch {
   padding-left: 8px;
   color: var(--link-color);

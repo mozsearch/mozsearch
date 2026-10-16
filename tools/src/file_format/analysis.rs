@@ -240,6 +240,12 @@ where
     /// since a context can fill slots of many symbols; see `Event`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slot: Option<BindingSlotKind>,
+    /// Where it is in its context, beyond the context symbol: for data, the
+    /// keys from its context's entry to its own (ex: `["fetches",
+    /// "toolchain"]` for a toolchain a task fetches), which aren't symbols
+    /// (see semantic_analyzer's data scopes).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ctxtra: Vec<StrT>,
 }
 
 /// See TargetTag for more info
@@ -1355,9 +1361,21 @@ pub struct SearchResult {
     /// so that it's one interned string; an array in JSON.  See `pp_stack`.
     #[serde(default, skip_serializing_if = "Ustr::is_empty", with = "pp_stack")]
     pub pp: Ustr,
+    /// Where it is in its context, beyond the context symbol (see
+    /// `AnalysisTarget::ctxtra`), joined by newlines like `pp`.
+    #[serde(default, skip_serializing_if = "Ustr::is_empty", with = "pp_stack")]
+    pub ctxtra: Ustr,
 }
 
 impl SearchResult {
+    /// `ctxtra`'s keys.
+    pub fn ctxtra_stack(&self) -> Vec<String> {
+        if self.ctxtra.is_empty() {
+            return vec![];
+        }
+        self.ctxtra.split('\n').map(str::to_string).collect()
+    }
+
     /// `pp`'s conditions.
     pub fn pp_stack(&self) -> Vec<String> {
         if self.pp.is_empty() {

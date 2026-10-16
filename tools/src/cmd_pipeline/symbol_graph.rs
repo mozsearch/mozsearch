@@ -150,6 +150,10 @@ pub fn semantic_kind_is_callable(semantic_kind: &str) -> bool {
         // Web specs' algorithms (see `spec_analyze`), whose steps' references
         // to other algorithms are calls.
         "specAlgorithm" | "specAbstractOp" => true,
+        // Taskcluster's tasks and task-defaults (see taskcluster_kind.toml),
+        // whose uses of other tasks (ex: fetching their toolchains) are
+        // dependencies, and of their task-defaults are inheritance.
+        "task" => true,
         _ => false,
     }
 }

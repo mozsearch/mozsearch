@@ -1452,10 +1452,21 @@ function populateResults(data, full, jumpToSingle) {
         )}&redirect=false`;
         inside = "<a href='" + url + "'>" + escape(line.context) + "</a>";
       }
+      // (And where in it, beyond the context symbol, ex: a task's
+      // "› fetches › toolchain"; see `AnalysisTarget::ctxtra`.)
+      var where = "";
+      if (line.ctxtra && line.ctxtra.length) {
+        where =
+          " <span class='result-ctxtra'>› " +
+          line.ctxtra.map(key => "<code>" + escape(key) + "</code>").join(" › ") +
+          "</span>";
+      }
       html +=
         " <span class='result-context'>// found in <code>" +
         inside +
-        "</code></span>";
+        "</code>" +
+        where +
+        "</span>";
     }
 
     // Hacky attempt to provide a means of providing related searches.

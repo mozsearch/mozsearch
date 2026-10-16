@@ -578,6 +578,155 @@ fn pp_views(
     views
 }
 
+/// How many places the "Placement" facet shows at its top level, and in each
+/// place, before folding the rest into an "other" value.
+const CTXTRA_SHOWN: [usize; 2] = [10, 8];
+
+/// The "Placement" facet of results' lines, by where they are in their
+/// contexts beyond their context symbols (see `FlattenedLineSpan::ctxtra`,
+/// ex: a task's `fetches › toolchain`): for each line, its keys' prefixes
+/// (ex: "fetches" and "fetches\ntoolchain", the values in it), up to the most
+/// common few at each level, and the rest's "other" value (ex:
+/// "fetches\n*"), or "" for lines without any.
+pub struct CtxtraFacet {
+    pub view: FacetView,
+    shown: HashSet<String>,
+}
+
+impl CtxtraFacet {
+    /// The facet, if any of the lines (paths and keys) have keys, and the
+    /// values of each file's lines, by path.
+    pub fn new<'a>(
+        lines: impl IntoIterator<Item = (&'a str, &'a [String])>,
+    ) -> Option<(CtxtraFacet, HashMap<String, Vec<String>>)> {
+        let lines: Vec<(&str, &[String])> = lines.into_iter().collect();
+        if !lines.iter().any(|(_, keys)| !keys.is_empty()) {
+            return None;
+        }
+        let mut paths: HashMap<String, HashSet<&str>> = HashMap::new();
+        let mut nested: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+        for (path, keys) in &lines {
+            let mut parent = String::new();
+            for value in all_ctxtra_values(keys) {
+                paths.entry(value.clone()).or_default().insert(path);
+                nested.entry(parent).or_default().insert(value.clone());
+                parent = value;
+            }
+        }
+        let mut shown = HashSet::new();
+        let values = ctxtra_views(&String::new(), 0, &paths, &nested, &mut shown);
+        let facet = CtxtraFacet {
+            view: FacetView {
+                key: "ctxtra",
+                label: "Placement".to_string(),
+                values,
+            },
+            shown,
+        };
+        let mut file_values: HashMap<String, BTreeSet<String>> = HashMap::new();
+        for (path, keys) in &lines {
+            file_values
+                .entry(path.to_string())
+                .or_default()
+                .extend(facet.line_values(keys));
+        }
+        let file_values = file_values
+            .into_iter()
+            .map(|(path, values)| (path, values.into_iter().collect()))
+            .collect();
+        Some((facet, file_values))
+    }
+
+    /// A line's values (see `CtxtraFacet`).
+    pub fn line_values(&self, keys: &[String]) -> Vec<String> {
+        let mut values = vec![];
+        for value in all_ctxtra_values(keys) {
+            if self.shown.contains(&value) {
+                values.push(value);
+                continue;
+            }
+            values.push(match value.rsplit_once('\n') {
+                Some((parent, _)) => format!("{}\n*", parent),
+                None => "*".to_string(),
+            });
+            break;
+        }
+        values
+    }
+}
+
+fn all_ctxtra_values(keys: &[String]) -> Vec<String> {
+    if keys.is_empty() {
+        return vec![String::new()];
+    }
+    (1..=keys.len()).map(|n| keys[..n].join("\n")).collect()
+}
+
+fn ctxtra_views(
+    parent: &String,
+    depth: usize,
+    paths: &HashMap<String, HashSet<&str>>,
+    nested: &BTreeMap<String, BTreeSet<String>>,
+    shown: &mut HashSet<String>,
+) -> Vec<FacetValueView> {
+    let Some(values) = nested.get(parent) else {
+        return vec![];
+    };
+    let count = |value: &String| paths[value].len() as u32;
+    let mut places: Vec<&String> = values.iter().filter(|value| !value.is_empty()).collect();
+    places.sort_by_key(|value| std::cmp::Reverse(count(value)));
+    let limit = CTXTRA_SHOWN[depth.min(CTXTRA_SHOWN.len() - 1)];
+    let folded = if places.len() > limit + 1 {
+        places.split_off(limit)
+    } else {
+        vec![]
+    };
+    let mut views = vec![];
+    if values.contains("") {
+        shown.insert(String::new());
+        views.push(FacetValueView {
+            value: String::new(),
+            name: "None".to_string(),
+            title: "Lines with no place in a context beyond its symbol (ex: textual occurrences)"
+                .to_string(),
+            count: count(&String::new()),
+            values: vec![],
+            sparkline: None,
+        });
+    }
+    for value in places {
+        shown.insert(value.clone());
+        let name = value.rsplit('\n').next().unwrap_or(value);
+        views.push(FacetValueView {
+            value: value.clone(),
+            name: truncated(name, 60),
+            title: format!("› {}", value.replace('\n', " › ")),
+            count: count(value),
+            values: ctxtra_views(value, depth + 1, paths, nested, shown),
+            sparkline: None,
+        });
+    }
+    if !folded.is_empty() {
+        let files: HashSet<&str> = folded
+            .iter()
+            .flat_map(|value| paths[*value].iter().copied())
+            .collect();
+        views.push(FacetValueView {
+            value: if parent.is_empty() {
+                "*".to_string()
+            } else {
+                format!("{}\n*", parent)
+            },
+            name: "other".to_string(),
+            title: "The other places".to_string(),
+            count: files.len() as u32,
+            values: vec![],
+            sparkline: None,
+        });
+    }
+    views
+}
+
 /// `text`, cut to at most `max` characters (with an ellipsis if cut).
 fn truncated(text: &str, max: usize) -> String {
     match text.char_indices().nth(max) {

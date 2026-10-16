@@ -1,0 +1,11 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/traverse/taskcluster/uses__linux64_clang__dot
+---
+digraph g {
+  node[shape=box fontname="Courier New" fontsize=10]
+  "TASK_package/linux64/opt"[label="package::linux64/opt"]
+  "TASK_toolchain/linux64-clang"[label="toolchain::linux64-clang"]
+  "TASK_package/linux64/opt" -> "TASK_toolchain/linux64-clang"
+}

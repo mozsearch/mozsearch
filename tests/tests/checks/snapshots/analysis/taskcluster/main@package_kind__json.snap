@@ -5,18 +5,39 @@ input_file: inputs/analysis/taskcluster/package_kind__json
 ---
 [
   {
+    "loc": "00001:0",
+    "target": 1,
+    "kind": "def",
+    "pretty": "package",
+    "sym": "TCKIND_package"
+  },
+  {
+    "loc": "00009:4-15",
+    "structured": 1,
+    "pretty": "package::linux64/opt",
+    "sym": "TASK_package/linux64/opt",
+    "kind": "task",
+    "implKind": "taskcluster",
+    "bindingSlots": []
+  },
+  {
     "loc": "00009:4-15",
     "source": 1,
     "syntax": "def",
-    "pretty": "task package/linux64/opt",
+    "pretty": "task package::linux64/opt",
     "sym": "TASK_package/linux64/opt"
   },
   {
     "loc": "00009:4-15",
     "target": 1,
     "kind": "def",
-    "pretty": "package/linux64/opt",
-    "sym": "TASK_package/linux64/opt"
+    "pretty": "package::linux64/opt",
+    "sym": "TASK_package/linux64/opt",
+    "context": "package",
+    "contextsym": "TCKIND_package",
+    "ctxtra": [
+      "tasks"
+    ]
   },
   {
     "loc": "00013:25-38",
@@ -30,34 +51,53 @@ input_file: inputs/analysis/taskcluster/package_kind__json
     "target": 1,
     "kind": "use",
     "pretty": "b-linux-large",
-    "sym": "TCWORKER_b-linux-large"
+    "sym": "TCWORKER_b-linux-large",
+    "context": "package::linux64/opt",
+    "contextsym": "TASK_package/linux64/opt",
+    "ctxtra": [
+      "worker-type",
+      "by-platform",
+      "linux.*"
+    ]
   },
   {
     "loc": "00022:18-31",
     "source": 1,
     "syntax": "use",
-    "pretty": "task toolchain/linux64-clang",
+    "pretty": "task toolchain::linux64-clang",
     "sym": "TASK_toolchain/linux64-clang"
   },
   {
     "loc": "00022:18-31",
     "target": 1,
     "kind": "use",
-    "pretty": "toolchain/linux64-clang",
-    "sym": "TASK_toolchain/linux64-clang"
+    "pretty": "toolchain::linux64-clang",
+    "sym": "TASK_toolchain/linux64-clang",
+    "context": "package::linux64/opt",
+    "contextsym": "TASK_package/linux64/opt",
+    "ctxtra": [
+      "fetches",
+      "toolchain"
+    ]
   },
   {
     "loc": "00024:18-23",
     "source": 1,
     "syntax": "use",
-    "pretty": "task fetch/clang",
+    "pretty": "task fetch::clang",
     "sym": "TASK_fetch/clang"
   },
   {
     "loc": "00024:18-23",
     "target": 1,
     "kind": "use",
-    "pretty": "fetch/clang",
-    "sym": "TASK_fetch/clang"
+    "pretty": "fetch::clang",
+    "sym": "TASK_fetch/clang",
+    "context": "package::linux64/opt",
+    "contextsym": "TASK_package/linux64/opt",
+    "ctxtra": [
+      "fetches",
+      "fetch"
+    ]
   }
 ]

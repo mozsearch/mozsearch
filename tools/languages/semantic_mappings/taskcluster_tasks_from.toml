@@ -1,14 +1,63 @@
 # Taskcluster kinds' `tasks-from` files (see semantic_analyzer.rs and
 # taskcluster_tasks.toml): their top-level keys (but `task-defaults` and
 # `job-defaults`) are tasks, defining `TASK_<kind>/<name>`.
+#
+# Contexts (as in taskcluster_kind.toml): the kind is the outermost context;
+# the tasks and the file's `task-defaults` (`TASKDEFAULTS_<kind>/<file>`, its
+# file name without `.yml`) are the contexts of the records inside them, and
+# each task uses the file's task-defaults.  (The kind.yml's task-defaults
+# apply to these tasks too, but this file can't tell whether there are any.)
 grammar = "yaml"
 paths = ["**/taskcluster/kinds/*/*.yml"]
 exclude_paths = ["**/kind.yml"]
+
+[file_scope]
+sym = "TCKIND_{{ dir }}"
+pretty = "{{ dir }}"
 
 [[data]]
 path = "*"
 role = "def"
 except_keys = ["task-defaults", "job-defaults"]
 sym = "TASK_{{ dir }}/{{ value }}"
-pretty = "{{ dir }}/{{ value }}"
+pretty = "{{ dir }}::{{ value }}"
 syntax_kind = "task"
+scope = true
+
+[data.structured]
+kind = "task"
+impl_kind = "taskcluster"
+
+[[data.inherits]]
+when = "task-defaults"
+sym = "TASKDEFAULTS_{{ dir }}/{{ path | split: '/' | last | remove: '.yml' }}"
+pretty = "{{ dir }}::{{ path | split: '/' | last | remove: '.yml' }}::task-defaults"
+
+[[data.inherits]]
+when = "job-defaults"
+sym = "TASKDEFAULTS_{{ dir }}/{{ path | split: '/' | last | remove: '.yml' }}"
+pretty = "{{ dir }}::{{ path | split: '/' | last | remove: '.yml' }}::task-defaults"
+
+[[data]]
+path = "task-defaults"
+role = "def"
+sym = "TASKDEFAULTS_{{ dir }}/{{ path | split: '/' | last | remove: '.yml' }}"
+pretty = "{{ dir }}::{{ path | split: '/' | last | remove: '.yml' }}::task-defaults"
+syntax_kind = "task-defaults"
+scope = true
+
+[data.structured]
+kind = "task"
+impl_kind = "taskcluster"
+
+[[data]]
+path = "job-defaults"
+role = "def"
+sym = "TASKDEFAULTS_{{ dir }}/{{ path | split: '/' | last | remove: '.yml' }}"
+pretty = "{{ dir }}::{{ path | split: '/' | last | remove: '.yml' }}::task-defaults"
+syntax_kind = "task-defaults"
+scope = true
+
+[data.structured]
+kind = "task"
+impl_kind = "taskcluster"

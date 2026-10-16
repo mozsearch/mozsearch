@@ -1035,6 +1035,11 @@ pub struct FlattenedLineSpan {
     /// known.
     #[serde(skip_serializing_if = "pp_is_empty")]
     pub pp: Option<Vec<String>>,
+    /// For semantic results, where the result is in its context beyond the
+    /// context symbol (see `SearchResult::ctxtra`), ex: `["fetches",
+    /// "toolchain"]`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ctxtra: Vec<String>,
     /// For HTML pages with facets of lines ("Last changed" and
     /// "Preprocessor"), the result's values of them, as facets.js's JSON
     /// (see `results_file_facets` in pipeline-server.rs), which
@@ -1090,11 +1095,24 @@ impl FlattenedLineSpan {
                         urlencoding::encode(&self.contextsym),
                         rev
                     ),
-                    None => config::search_link(tree, &format!("symbol:{}", self.contextsym), false),
+                    None => {
+                        config::search_link(tree, &format!("symbol:{}", self.contextsym), false)
+                    }
                 };
                 format!(r#"<a href="{}">{}</a>"#, escape(&link), context)
             };
             annotation.push_str(&format!(" found in <code>{}</code>", inside));
+            // (And where in it, ex: "› fetches › toolchain".)
+            if !self.ctxtra.is_empty() {
+                annotation.push_str(&format!(
+                    r#" <span class="result-ctxtra">› {}</span>"#,
+                    self.ctxtra
+                        .iter()
+                        .map(|key| format!("<code>{}</code>", escape(key)))
+                        .collect::<Vec<_>>()
+                        .join(" › ")
+                ));
+            }
         }
         // (Long conditions are cut, with all of them in the title.)
         if !pp.is_empty() {
@@ -1114,6 +1132,7 @@ impl FlattenedLineSpan {
         self.context = ustr("");
         self.contextsym = ustr("");
         self.pp = None;
+        self.ctxtra.clear();
     }
 
     /// Expand the range by before/after, ensuring we don't go below line 1 for
@@ -1485,6 +1504,7 @@ mod tests {
             recency: None,
             recency_label: None,
             pp: None,
+            ctxtra: vec![],
             facets: None,
         };
         span.inline_context("tests", None);
@@ -1495,6 +1515,27 @@ mod tests {
         ));
         assert_eq!(span.contents.matches("result-context").count(), 1);
         assert!(span.context.is_empty() && span.contextsym.is_empty());
+
+        // Where in its context, after the context.
+        let mut span = FlattenedLineSpan {
+            key_line: 8,
+            line_range: (8, 8),
+            contents: row(8, "      - linux64-rust-analyzer"),
+            context: ustr("searchfox::linux64-searchfox/debug"),
+            contextsym: ustr(""),
+            hits: vec![],
+            repeated: false,
+            recency: None,
+            recency_label: None,
+            pp: None,
+            ctxtra: vec!["fetches".to_string(), "toolchain".to_string()],
+            facets: None,
+        };
+        span.inline_context("tests", None);
+        assert!(span.contents.contains(
+            "// found in <code>searchfox::linux64-searchfox/debug</code> <span class=\"result-ctxtra\">› <code>fetches</code> › <code>toolchain</code></span></span>"
+        ));
+        assert!(span.ctxtra.is_empty());
 
         // Without a context (ex: a textual occurrence), nothing changes.
         let mut span = FlattenedLineSpan {
@@ -1508,6 +1549,7 @@ mod tests {
             recency: None,
             recency_label: None,
             pp: None,
+            ctxtra: vec![],
             facets: None,
         };
         span.inline_context("tests", None);
@@ -1529,6 +1571,7 @@ mod tests {
                 "defined(XP_WIN)".to_string(),
                 "A < 2 || B".to_string(),
             ]),
+            ctxtra: vec![],
             facets: None,
         };
         span.inline_context("tests", None);
@@ -1560,6 +1603,7 @@ mod tests {
             recency: None,
             recency_label: None,
             pp: None,
+            ctxtra: vec![],
             facets: None,
         };
         let mut by_file = FlattenedResultsByFile {

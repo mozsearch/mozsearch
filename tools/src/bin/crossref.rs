@@ -126,10 +126,11 @@ fn subset_ingestion(cfg: &Config, base_index: &str, paths: &[Ustr]) -> RepoInges
     let concise: BTreeMap<Ustr, ConcisePerFileInfo<Ustr>> =
         serde_json::from_reader(BufReader::new(File::open(&concise_path).unwrap())).unwrap();
     let wanted: UstrSet = paths.iter().copied().collect();
-    ingestion
-        .state
-        .concise_per_file
-        .extend(concise.into_iter().filter(|(path, _)| wanted.contains(path)));
+    ingestion.state.concise_per_file.extend(
+        concise
+            .into_iter()
+            .filter(|(path, _)| wanted.contains(path)),
+    );
     for path in paths {
         if !ingestion.state.concise_per_file.contains_key(path) {
             let path_kind = heuristic_path_kind(&ingestion.config.pathkind, path);
@@ -384,6 +385,14 @@ fn process_analysis_target(
             contextsym: piece.contextsym,
             peek_range: piece.peek_range,
             pp,
+            ctxtra: ustr(
+                &piece
+                    .ctxtra
+                    .iter()
+                    .map(|key| key.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            ),
         },
     ));
 
@@ -2234,7 +2243,12 @@ fn write_identifiers(tree_config: &TreeConfig, id_table: IdTable) {
 /// as `main` does the whole tree, but without history digests (and so without
 /// file recency), and writing only the crossref, jumpref, and identifiers
 /// files.
-async fn crossref_subset(cli: &CrossrefCli, cfg: &Config, tree_config: &TreeConfig, base_index: &str) {
+async fn crossref_subset(
+    cli: &CrossrefCli,
+    cfg: &Config,
+    tree_config: &TreeConfig,
+    base_index: &str,
+) {
     let tree_name = &cli.tree_name;
     let analysis_relative_paths: Vec<Ustr> =
         BufReader::new(File::open(&cli.analysis_files_list_path).unwrap())

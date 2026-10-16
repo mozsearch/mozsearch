@@ -331,6 +331,7 @@ impl SearchResults {
                 .or_default()
                 .push(token.unwrap_or((0, u32::MAX)));
             let pp = search_result.pp_stack();
+            let ctxtra = search_result.ctxtra_stack();
             file_results.line_spans.push(FlattenedLineSpan {
                 key_line: search_result.lineno,
                 line_range: if search_result.peek_range.is_empty() {
@@ -349,6 +350,7 @@ impl SearchResults {
                 recency,
                 recency_label: recency.and(recency_label.clone()),
                 pp: Some(pp),
+                ctxtra,
                 facets: None,
             });
         }
@@ -458,6 +460,7 @@ impl SearchResults {
                     recency: None,
                     recency_label: None,
                     pp: None,
+                    ctxtra: vec![],
                     facets: None,
                 });
             }
@@ -769,6 +772,7 @@ mod tests {
                 end_lineno: peek.1,
             },
             pp: Ustr::default(),
+            ctxtra: Ustr::default(),
         };
         let mut results = SearchResults::default();
         // A declaration's several records on line 7 (ex: one with a peek
@@ -821,6 +825,7 @@ mod tests {
                 end_lineno: 0,
             },
             pp: Ustr::default(),
+            ctxtra: Ustr::default(),
         };
         for (sym, pretty, kind, lines) in [
             (

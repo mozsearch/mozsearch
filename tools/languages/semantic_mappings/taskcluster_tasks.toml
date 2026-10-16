@@ -1,9 +1,10 @@
 # Taskcluster kinds' tasks, in kind.yml and `tasks-from` files (see
 # semantic_analyzer.rs, taskcluster_kind.toml, and taskcluster_tasks_from.toml):
 # - A toolchain's `toolchain-alias`es (or keyed-by ones, ex: by-project) and
-#   a fetch's `fetch-alias`es are more definitions of `TASK_<kind>/<alias>`,
-#   and `fetches`' `toolchain` and `fetch` lists use `TASK_toolchain/<name>`
-#   and `TASK_fetch/<name>`.
+#   a fetch's `fetch-alias`es are more definitions of `TASK_<kind>/<alias>`
+#   (tasks too, for diagrams, as their tasks' definitions are, which use
+#   their tasks; see taskcluster_kind.toml), and `fetches`' `toolchain` and
+#   `fetch` lists use `TASK_toolchain/<name>` and `TASK_fetch/<name>`.
 # - `docker-image: {in-tree: <name>}` uses `TASK_docker-image/<name>`.
 # - `worker-type` uses `TCWORKER_<worker-type>` (see taskcluster_config.toml),
 #   except keyed-by `default`s (the default worker).
@@ -21,40 +22,65 @@ path = "**/toolchain-alias"
 at = "value"
 role = "def"
 sym = "TASK_{{ dir }}/{{ value }}"
-pretty = "{{ dir }}/{{ value }}"
+pretty = "{{ dir }}::{{ value }}"
 syntax_kind = "task"
+uses_scope = true
+
+[data.structured]
+kind = "task"
+impl_kind = "taskcluster"
 
 [[data]]
 path = "**/toolchain-alias/**/[]"
 at = "value"
 role = "def"
 sym = "TASK_{{ dir }}/{{ value }}"
-pretty = "{{ dir }}/{{ value }}"
+pretty = "{{ dir }}::{{ value }}"
 syntax_kind = "task"
+uses_scope = true
+
+[data.structured]
+kind = "task"
+impl_kind = "taskcluster"
 
 [[data]]
 path = "**/toolchain-alias/**/*"
 at = "value"
 role = "def"
 sym = "TASK_{{ dir }}/{{ value }}"
-pretty = "{{ dir }}/{{ value }}"
+pretty = "{{ dir }}::{{ value }}"
 syntax_kind = "task"
+uses_scope = true
+
+[data.structured]
+kind = "task"
+impl_kind = "taskcluster"
 
 [[data]]
 path = "**/fetch-alias"
 at = "value"
 role = "def"
 sym = "TASK_{{ dir }}/{{ value }}"
-pretty = "{{ dir }}/{{ value }}"
+pretty = "{{ dir }}::{{ value }}"
 syntax_kind = "task"
+uses_scope = true
+
+[data.structured]
+kind = "task"
+impl_kind = "taskcluster"
 
 [[data]]
 path = "**/fetch-alias/**/[]"
 at = "value"
 role = "def"
 sym = "TASK_{{ dir }}/{{ value }}"
-pretty = "{{ dir }}/{{ value }}"
+pretty = "{{ dir }}::{{ value }}"
 syntax_kind = "task"
+uses_scope = true
+
+[data.structured]
+kind = "task"
+impl_kind = "taskcluster"
 
 ## Fetches and docker images
 
@@ -63,7 +89,7 @@ path = "**/fetches/**/toolchain/**/[]"
 at = "value"
 role = "use"
 sym = "TASK_toolchain/{{ value }}"
-pretty = "toolchain/{{ value }}"
+pretty = "toolchain::{{ value }}"
 syntax_kind = "task"
 
 [[data]]
@@ -71,7 +97,7 @@ path = "**/fetches/**/fetch/**/[]"
 at = "value"
 role = "use"
 sym = "TASK_fetch/{{ value }}"
-pretty = "fetch/{{ value }}"
+pretty = "fetch::{{ value }}"
 syntax_kind = "task"
 
 [[data]]
@@ -79,7 +105,7 @@ path = "**/docker-image/in-tree"
 at = "value"
 role = "use"
 sym = "TASK_docker-image/{{ value }}"
-pretty = "docker-image/{{ value }}"
+pretty = "docker-image::{{ value }}"
 syntax_kind = "task"
 
 [[data]]
@@ -87,7 +113,7 @@ path = "**/docker-image/in-tree/**/*"
 at = "value"
 role = "use"
 sym = "TASK_docker-image/{{ value }}"
-pretty = "docker-image/{{ value }}"
+pretty = "docker-image::{{ value }}"
 syntax_kind = "task"
 
 ## Workers

@@ -23,7 +23,12 @@ input_file: inputs/analysis/taskcluster/package_kind_files__json
     "target": 1,
     "kind": "use",
     "pretty": "taskcluster/kinds/toolchain/kind.yml",
-    "sym": "FILE_taskcluster/kinds/toolchain/kind@2Eyml"
+    "sym": "FILE_taskcluster/kinds/toolchain/kind@2Eyml",
+    "context": "package",
+    "contextsym": "TCKIND_package",
+    "ctxtra": [
+      "kind-dependencies"
+    ]
   },
   {
     "loc": "00006:6-11",
@@ -37,7 +42,12 @@ input_file: inputs/analysis/taskcluster/package_kind_files__json
     "target": 1,
     "kind": "use",
     "pretty": "taskcluster/kinds/fetch/kind.yml",
-    "sym": "FILE_taskcluster/kinds/fetch/kind@2Eyml"
+    "sym": "FILE_taskcluster/kinds/fetch/kind@2Eyml",
+    "context": "package",
+    "contextsym": "TCKIND_package",
+    "ctxtra": [
+      "kind-dependencies"
+    ]
   },
   {
     "loc": "00018:18-55",
@@ -51,7 +61,13 @@ input_file: inputs/analysis/taskcluster/package_kind_files__json
     "target": 1,
     "kind": "use",
     "pretty": "testing/mozharness/configs/builds/releng_base_linux_64_builds.py",
-    "sym": "FILE_testing/mozharness/configs/builds/releng_base_linux_64_builds@2Epy"
+    "sym": "FILE_testing/mozharness/configs/builds/releng_base_linux_64_builds@2Epy",
+    "context": "package::linux64/opt",
+    "contextsym": "TASK_package/linux64/opt",
+    "ctxtra": [
+      "run",
+      "config"
+    ]
   },
   {
     "loc": "00019:20-60",
@@ -65,6 +81,12 @@ input_file: inputs/analysis/taskcluster/package_kind_files__json
     "target": 1,
     "kind": "use",
     "pretty": "testing/mozharness/scripts/fx_desktop_build.py",
-    "sym": "FILE_testing/mozharness/scripts/fx_desktop_build@2Epy"
+    "sym": "FILE_testing/mozharness/scripts/fx_desktop_build@2Epy",
+    "context": "package::linux64/opt",
+    "contextsym": "TASK_package/linux64/opt",
+    "ctxtra": [
+      "run",
+      "script"
+    ]
   }
 ]

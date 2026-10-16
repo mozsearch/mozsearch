@@ -20,8 +20,12 @@ input_file: inputs/crossref/taskcluster/tasks__json
                   15
                 ],
                 "line": "- linux64-clang",
-                "context": "",
-                "contextsym": ""
+                "context": "package::linux64/opt",
+                "contextsym": "TASK_package/linux64/opt",
+                "ctxtra": [
+                  "fetches",
+                  "toolchain"
+                ]
               }
             ]
           }
@@ -38,12 +42,46 @@ input_file: inputs/crossref/taskcluster/tasks__json
                   22
                 ],
                 "line": "default: linux64-clang",
-                "context": "",
-                "contextsym": ""
+                "context": "toolchain::linux64-clang-19",
+                "contextsym": "TASK_toolchain/linux64-clang-19",
+                "ctxtra": [
+                  "run",
+                  "toolchain-alias",
+                  "by-project",
+                  "default"
+                ]
               }
             ]
           }
-        ]
+        ],
+        "callees": [
+          {
+            "jump": "taskcluster/kinds/toolchain/clang.yml#13",
+            "kind": "task",
+            "pretty": "toolchain::linux64-clang-19",
+            "sym": "TASK_toolchain/linux64-clang-19"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "toolchain::linux64-clang",
+          "sym": "TASK_toolchain/linux64-clang",
+          "type_pretty": null,
+          "kind": "task",
+          "subsystem": null,
+          "implKind": "taskcluster",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
       },
       "relation": "Queried",
       "quality": "ExplicitSymbol",
@@ -64,8 +102,12 @@ input_file: inputs/crossref/taskcluster/tasks__json
                   7
                 ],
                 "line": "- clang",
-                "context": "",
-                "contextsym": ""
+                "context": "package::linux64/opt",
+                "contextsym": "TASK_package/linux64/opt",
+                "ctxtra": [
+                  "fetches",
+                  "fetch"
+                ]
               }
             ]
           },
@@ -80,8 +122,12 @@ input_file: inputs/crossref/taskcluster/tasks__json
                   7
                 ],
                 "line": "- clang",
-                "context": "",
-                "contextsym": ""
+                "context": "toolchain::linux64-clang-19",
+                "contextsym": "TASK_toolchain/linux64-clang-19",
+                "ctxtra": [
+                  "fetches",
+                  "fetch"
+                ]
               }
             ]
           }
@@ -98,12 +144,43 @@ input_file: inputs/crossref/taskcluster/tasks__json
                   18
                 ],
                 "line": "fetch-alias: clang",
-                "context": "",
-                "contextsym": ""
+                "context": "fetch::clang-19",
+                "contextsym": "TASK_fetch/clang-19",
+                "ctxtra": [
+                  "fetch-alias"
+                ]
               }
             ]
           }
-        ]
+        ],
+        "callees": [
+          {
+            "jump": "taskcluster/kinds/fetch/toolchains.yml#7",
+            "kind": "task",
+            "pretty": "fetch::clang-19",
+            "sym": "TASK_fetch/clang-19"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "fetch::clang",
+          "sym": "TASK_fetch/clang",
+          "type_pretty": null,
+          "kind": "task",
+          "subsystem": null,
+          "implKind": "taskcluster",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
       },
       "relation": "Queried",
       "quality": "ExplicitSymbol",
@@ -124,8 +201,13 @@ input_file: inputs/crossref/taskcluster/tasks__json
                   22
                 ],
                 "line": "linux.*: b-linux-large",
-                "context": "",
-                "contextsym": ""
+                "context": "package::linux64/opt",
+                "contextsym": "TASK_package/linux64/opt",
+                "ctxtra": [
+                  "worker-type",
+                  "by-platform",
+                  "linux.*"
+                ]
               }
             ]
           }
@@ -168,8 +250,12 @@ input_file: inputs/crossref/taskcluster/tasks__json
                   22
                 ],
                 "line": "script: build-clang.sh",
-                "context": "taskcluster/kinds/toolchain/clang.yml",
-                "contextsym": "FILE_taskcluster/kinds/toolchain/clang@2Eyml"
+                "context": "toolchain::linux64-clang-19",
+                "contextsym": "TASK_toolchain/linux64-clang-19",
+                "ctxtra": [
+                  "run",
+                  "script"
+                ]
               }
             ]
           }

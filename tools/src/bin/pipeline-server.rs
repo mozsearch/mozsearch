@@ -20,7 +20,7 @@ use tools::{
     cmd_pipeline::{
         PipelineValues,
         builder::build_pipeline_graph,
-        facets::{FacetFile, PathKinds, PpFacet, file_facets, last_changed_facet},
+        facets::{CtxtraFacet, FacetFile, PathKinds, PpFacet, file_facets, last_changed_facet},
         interface::FlattenedResultsBundle,
     },
     file_format::config::{self, SearchEndpoint},
@@ -121,7 +121,22 @@ fn results_file_facets(
         facet
     });
 
-    if recency || pp.is_some() {
+    // The "Placement" facet of the results' lines (see `CtxtraFacet`).
+    let lines = results.path_kind_results.iter().flat_map(|pk_group| {
+        pk_group.kind_groups.iter().flat_map(|kind_group| {
+            kind_group.by_file.iter().flat_map(|file| {
+                file.line_spans
+                    .iter()
+                    .map(move |span| (file.file.as_str(), span.ctxtra.as_slice()))
+            })
+        })
+    });
+    let ctxtra = CtxtraFacet::new(lines).map(|(facet, file_values)| {
+        add_file_values("ctxtra", file_values);
+        facet
+    });
+
+    if recency || pp.is_some() || ctxtra.is_some() {
         for pk_group in &mut results.path_kind_results {
             for kind_group in &mut pk_group.kind_groups {
                 for file in &mut kind_group.by_file {
@@ -139,6 +154,12 @@ fn results_file_facets(
                                 json!(pp.line_values(&file.file, span.pp.as_deref())),
                             );
                         }
+                        if let Some(ctxtra) = &ctxtra {
+                            line_facets.insert(
+                                "ctxtra".to_string(),
+                                json!(ctxtra.line_values(&span.ctxtra)),
+                            );
+                        }
                         span.facets = Some(Value::Object(line_facets).to_string());
                     }
                 }
@@ -147,6 +168,9 @@ fn results_file_facets(
     }
     if let Some(pp) = pp {
         facets.push(pp.view);
+    }
+    if let Some(ctxtra) = ctxtra {
+        facets.push(ctxtra.view);
     }
     json!({ "facets": facets, "files": data })
 }
