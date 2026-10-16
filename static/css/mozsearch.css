@@ -1560,6 +1560,19 @@ html.fancy-bar-resizing {
   font: inherit;
   cursor: pointer;
 }
+/* What the hovered line is inside, in the fancy bar (see panel.js's
+   `addInsideSection`). */
+.inside-section {
+  padding: 0.25rem 0.5rem 0.25rem 30px;
+  font-size: 90%;
+  overflow-wrap: anywhere;
+}
+.inside-section a {
+  color: inherit;
+}
+.inside-top {
+  color: var(--page-subtle-foreground);
+}
 /* The fancy bar's outline of the file, with its definitions' changes since a
    baseline (see outline.js). */
 .outline-section {

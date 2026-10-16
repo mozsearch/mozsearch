@@ -203,6 +203,7 @@ var Panel = new (class Panel {
     if (Settings.fancyBar.enabled) {
       this.setupFancyBar();
       this.addSymbolSection();
+      this.addInsideSection();
       this.addOpenInEditorAction();
     }
 
@@ -790,6 +791,93 @@ var Panel = new (class Panel {
     });
 
     markdownHeader.before(box);
+  }
+
+  /**
+   * The "Inside" section says what the hovered line (or else the selected
+   * one) is inside, from the source listing's nesting containers (whose first
+   * lines are the sticky lines), outermost first, each linking to its line,
+   * ex: "tasks › linux64/opt › fetches › toolchain" in a taskgraph kind.  (A
+   * line starting a nesting container isn't inside it.)
+   */
+  addInsideSection() {
+    const file = document.getElementById("file");
+    const markdownHeader = [...this.content.querySelectorAll("h4")]
+      .find(n => n.textContent == "Copy as");
+    if (!file || !markdownHeader || !file.querySelector(".nesting-container")) {
+      return;
+    }
+
+    const h4 = document.createElement("h4");
+    h4.textContent = "Inside";
+    this.insideBox = document.createElement("div");
+    this.insideBox.id = "panel-inside";
+    this.insideBox.className = "inside-section";
+    markdownHeader.before(h4, this.insideBox);
+
+    file.addEventListener("mouseover", event => {
+      const line = event.target.closest?.(".source-line-with-number");
+      if (line) {
+        this.showInside(line);
+      }
+    });
+    // (The selected line's once code-highlighter.js has selected it.)
+    const showSelected = () => {
+      const selected = window.Highlighter?.selectedLines?.size > 0
+        ? document.getElementById(`line-${Math.min(...Highlighter.selectedLines)}`)
+        : null;
+      this.showInside(selected);
+    };
+    file.addEventListener("mouseleave", showSelected);
+    if (document.readyState == "loading") {
+      document.addEventListener("DOMContentLoaded", showSelected);
+    } else {
+      showSelected();
+    }
+  }
+
+  /** Say what `line` (a source listing's row, if any) is inside. */
+  showInside(line) {
+    if (line === this.insideLine && line) {
+      return;
+    }
+    this.insideLine = line;
+    const crumbs = [];
+    let container = line?.closest(".nesting-container");
+    if (container && line.parentElement === container && line.classList.contains("nesting-sticky-line")) {
+      container = container.parentElement.closest(".nesting-container");
+    }
+    for (; container; container = container.parentElement.closest(".nesting-container")) {
+      const sticky = container.querySelector(":scope > .nesting-sticky-line");
+      if (!sticky) {
+        continue;
+      }
+      const text = sticky.querySelector(".source-line")?.textContent.trim() ?? "";
+      const pretty = window.SYM_INFO?.[container.dataset.nestingSym]?.pretty;
+      // (Pretty names can have their syntax's kind first, ex: "class Foo".)
+      let label = pretty
+        ? pretty.replace(/^[\w-]+ /, "").split("::").pop()
+        : text.replace(/\s+/g, " ").replace(/\s*[{:]$/, "");
+      if (label.length > 60) {
+        label = `${label.slice(0, 59)}\u2026`;
+      }
+      const lineno = sticky.id.replace(/^line-/, "");
+      const link = document.createElement("a");
+      link.href = `#${lineno}`;
+      link.title = `Line ${lineno}: ${text}`;
+      link.textContent = label;
+      crumbs.unshift(link);
+    }
+    if (!line) {
+      this.insideBox.replaceChildren();
+    } else if (crumbs.length == 0) {
+      const top = document.createElement("span");
+      top.className = "inside-top";
+      top.textContent = "(the top level)";
+      this.insideBox.replaceChildren(top);
+    } else {
+      this.insideBox.replaceChildren(...crumbs.flatMap((crumb, i) => i == 0 ? [crumb] : [" \u203a ", crumb]));
+    }
   }
 
   /**
