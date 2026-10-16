@@ -6,8 +6,9 @@ use std::{
 
 use axum::{
     Extension, Json, Router,
-    extract::{Path, Query},
+    extract::{Path, Query, Request},
     http::{HeaderMap, StatusCode, header},
+    middleware::{self, Next},
     response::{Html, IntoResponse, Response},
     routing::get,
 };
@@ -17,6 +18,7 @@ use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tools::{
     abstract_server::{AbstractServer, ServerError, make_all_local_servers},
+    admission,
     cmd_pipeline::{
         PipelineValues,
         builder::build_pipeline_graph,
@@ -417,6 +419,21 @@ struct SomeTemplates {
     query_results: Template,
 }
 
+/// Requests from outside wait for their client's tokens, or are turned away,
+/// and agents and bots only get some of the concurrency limit's permits; see
+/// `tools::admission`.
+async fn admit(req: Request, next: Next) -> Response {
+    match admission::admit_request(req.headers(), req.uri().path()).await {
+        Ok((_, _permit)) => next.run(req).await,
+        Err(retry) => (
+            StatusCode::TOO_MANY_REQUESTS,
+            [(header::RETRY_AFTER, retry.as_secs().to_string())],
+            "Too many requests; please slow down.",
+        )
+            .into_response(),
+    }
+}
+
 #[tokio::main]
 async fn main() {
     init_logging();
@@ -431,7 +448,10 @@ async fn main() {
         .route("/{tree}/query/{preset}", get(handle_query))
         .layer(Extension(local_servers))
         .layer(Extension(templates))
-        .layer(GlobalConcurrencyLimitLayer::new(4));
+        .layer(GlobalConcurrencyLimitLayer::new(4))
+        // (Outside the concurrency limit, so that requests waiting for their
+        // tokens don't hold its permits.)
+        .layer(middleware::from_fn(admit));
 
     let listener = TcpListener::bind("0.0.0.0:8002").await.unwrap();
     axum::serve(listener, app).await.unwrap();

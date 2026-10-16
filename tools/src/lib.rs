@@ -40,6 +40,8 @@ pub mod file_format;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod abstract_server;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod admission;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod cmd_pipeline;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod patch_canvas;

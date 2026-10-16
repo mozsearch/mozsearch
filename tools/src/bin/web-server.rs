@@ -21,6 +21,7 @@ use hyper::{Method, StatusCode, header};
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
+use tools::admission;
 use tools::blame;
 use tools::commit_index::CommitIndex;
 use tools::diagnostics::diagnostics_from_config;
@@ -804,6 +805,21 @@ async fn main() {
                         .status(StatusCode::METHOD_NOT_ALLOWED)
                         .body("Invalid method".to_string());
                 }
+
+                // Requests from outside wait for their client's tokens, or are
+                // turned away, and agents and bots only get some of the
+                // permits below; see `tools::admission`.
+                let _class_permit =
+                    match admission::admit_request(req.headers(), req.uri().path()).await {
+                        Ok((_, permit)) => permit,
+                        Err(retry) => {
+                            return http::Response::builder()
+                                .status(StatusCode::TOO_MANY_REQUESTS)
+                                .header(header::CONTENT_TYPE, "text/plain")
+                                .header(header::RETRY_AFTER, retry.as_secs().to_string())
+                                .body("Too many requests; please slow down.".to_string());
+                        }
+                    };
 
                 let response = {
                     let low_priority = {
