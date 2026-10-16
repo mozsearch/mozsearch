@@ -247,8 +247,10 @@ if nginx_cache_dir:
     print('proxy_cache_lock_timeout 3m;')
     print('proxy_read_timeout 3m;')
     print('proxy_cache_valid 200 120d;')
-    # XXX cache despite the server saying otherwise
-    print('proxy_ignore_headers X-Accel-Expires Expires Cache-Control Set-Cookie;')
+    # XXX cache despite the server saying otherwise (but for X-Accel-Expires,
+    # which the web-server sends for pages it wrote as sidecar files, which
+    # nginx serves instead; see `tools::sidecars`)
+    print('proxy_ignore_headers Expires Cache-Control Set-Cookie;')
     print('')
 
 # Peephole histories (see `format::peephole_json` in the tools) keep loading as
@@ -269,6 +271,17 @@ map $host $favicon {
 map $status $expires {
   default 2m;
   "301" 1m;
+}
+
+# The sidecar files of the web-server's pages (see `tools::sidecars`), which
+# requests with queries don't have.
+map $args $page_sidecar_html {
+  "" "$uri.page.html";
+  default "/.no-page-sidecar";
+}
+map $args $page_sidecar_json {
+  "" "$uri.page.json";
+  default "/.no-page-sidecar";
 }
 
 server {
@@ -307,6 +320,35 @@ print(' error_page 404 /static/html/404.html;')
 # (yet): it generates them (and writes them), so its responses aren't cached
 # too.
 location('@sidecar', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
+# The web-server's pages which aren't sidecar files (yet), or have queries;
+# nginx caches them, but for those it writes as sidecar files (whose
+# responses say not to).
+location('@page', ['proxy_pass http://127.0.0.1:8001;'])
+
+# The web-server's routes whose pages it writes as sidecar files (keep in sync
+# with `tools::sidecars::PAGE_ROUTES`), gzipped with empty markers for
+# `try_files`, as `{uri}.page.html` or `{uri}.page.json`, whose extension
+# gives their content type.
+page_sidecar_routes = [
+    'algorithm',
+    'commit',
+    'commit-info',
+    'diagnostics',
+    'diff',
+    'explore',
+    'history',
+    'interdiff',
+    'oldcommit',
+    'olddiff',
+    'oldrev',
+    'outline-diff',
+    'rendered',
+    'rev',
+    'rev-algorithm',
+    'rev-canvas',
+    'rev-outline',
+    'rev-rendered',
+]
 
 # TODO: it's possible some of the `try_files` machinations and symlinks
 # we're using could better cleaned up by use of "alias".  The exception is
@@ -314,6 +356,9 @@ location('@sidecar', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
 for repo in config['trees']:
     tree_config = config['trees'][repo]
     index_path = tree_config['index_path']
+    # The web-server's sidecar files, which it writes by URL beside the trees'
+    # index directories (see `tools::sidecars`).
+    sidecar_root = os.path.join(os.path.dirname(index_path), 'sidecars')
     head_rev = None
     if 'git_path' in tree_config:
         try:
@@ -432,18 +477,18 @@ for repo in config['trees']:
     location(f'/{repo}/sorch', ['proxy_pass http://127.0.0.1:8000;'])
     location(f'/{repo}/define', ['proxy_pass http://127.0.0.1:8000;'])
 
-    # Handled by Rust `web-server.rs`.
-    location(f'/{repo}/diagnostics', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/diff', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/olddiff', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/interdiff', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/commit', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/oldcommit', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/rev', ['proxy_pass http://127.0.0.1:8001;'])
-    # Sidecar files, which the web-server writes by URL beside the trees'
-    # index directories (see `tools::sidecars`), gzipped with empty markers for
-    # `try_files`, falling back to the web-server.
-    sidecar_root = os.path.join(os.path.dirname(index_path), 'sidecars')
+    # Handled by Rust `web-server.rs`: its pages, which it writes as sidecar
+    # files (see above), falling back to it,
+    for route in page_sidecar_routes:
+        location(f'/{repo}/{route}', [
+            f'root {sidecar_root};',
+            'try_files $page_sidecar_html $page_sidecar_json @page;',
+            'types { text/html html; application/json json; }',
+            'gzip_static always;',
+            'gunzip on;',
+        ])
+    # its pages' data, which it writes as sidecar files by URL (gzipped with
+    # empty markers for `try_files`), falling back to it,
     location(f'/{repo}/rev-hyperblame', [
         f'root {sidecar_root};',
         'try_files $uri @sidecar;',
@@ -453,24 +498,14 @@ for repo in config['trees']:
         'gzip_static always;',
         'gunzip on;',
     ])
-    location(f'/{repo}/rev-outline', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/outline-diff', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/rendered', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/rev-rendered', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/algorithm', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/rev-algorithm', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/rev-canvas', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/explore', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/history', ['proxy_pass http://127.0.0.1:8001;'])
+    # and its other routes.
     location(f'/{repo}/hgrev', ['proxy_pass http://127.0.0.1:8001;'])
-    location(f'/{repo}/oldrev', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/complete', ['proxy_pass http://127.0.0.1:8001;'])
     # A try push's page, which also takes POSTs asking for its import, and its
     # import's status, which change until it's imported (see the tools'
     # `try_import`).
     location(f'/{repo}/try', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
     location(f'/{repo}/try-status', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
-    location(f'/{repo}/commit-info', ['proxy_pass http://127.0.0.1:8001;'])
 
     # Handled by Rust `pipeline-server.rs`
     location(f'/{repo}/query', ['proxy_pass http://127.0.0.1:8002;'])

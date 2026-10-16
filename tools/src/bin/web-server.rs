@@ -31,6 +31,7 @@ use tools::file_format::per_file_info::path_facet_map;
 use tools::format;
 use tools::git_ops;
 
+use tools::sidecars;
 use tools::url_encode_path::url_decode_path;
 
 struct WebRequest<'a> {
@@ -165,6 +166,40 @@ fn handle_static(path: String, content_type: Option<&str>) -> WebResponse {
         output: input,
         ..WebResponse::default()
     }
+}
+
+/// Write a page's response (to a GET request at `raw_path`, without a query)
+/// as a sidecar file (see `tools::sidecars`), which nginx serves from then
+/// on, if it's of a route whose pages nginx looks for, and succeeded with HTML
+/// or JSON and nothing a file can't have (ex: CORS headers); and return
+/// whether it's there, in which case nginx mustn't cache the response too.
+fn write_page_sidecar(cfg: &config::Config, raw_path: &str, response: &WebResponse) -> bool {
+    if response.status != StatusCode::OK
+        || response.no_store
+        || response.shared
+        || response.redirect_location.is_some()
+    {
+        return false;
+    }
+    let Some(suffix) = sidecars::page_suffix(&response.content_type) else {
+        return false;
+    };
+    let path = url_decode_path(raw_path);
+    let Some((tree_name, rest)) = path.strip_prefix('/').and_then(|path| path.split_once('/'))
+    else {
+        return false;
+    };
+    let route = rest.split('/').next().unwrap_or_default();
+    let Some(tree_config) = cfg.trees.get(tree_name) else {
+        return false;
+    };
+    sidecars::PAGE_ROUTES.contains(&route)
+        && sidecars::write(
+            &tree_config.paths.index_path,
+            tree_name,
+            &format!("{}{}", rest, suffix),
+            &response.output,
+        )
 }
 
 fn handle(
@@ -775,7 +810,7 @@ async fn main() {
     // `tools::sidecars`.
     {
         let cfg = cfg.clone();
-        std::thread::spawn(move || tools::sidecars::janitor(&cfg));
+        std::thread::spawn(move || sidecars::janitor(&cfg));
     }
 
     // Limit ourselves to processing 4 requests at the same time.
@@ -839,7 +874,10 @@ async fn main() {
                     match tokio::task::spawn_blocking(move || {
                         let path = req.uri().path();
                         let query = req.uri().query().unwrap_or("");
-                        handle(&cfg, &ident_map, WebRequest { path, query, post })
+                        let response = handle(&cfg, &ident_map, WebRequest { path, query, post });
+                        let written =
+                            !post && query.is_empty() && write_page_sidecar(&cfg, path, &response);
+                        (response, written)
                     })
                     .await
                     {
@@ -847,7 +885,7 @@ async fn main() {
 
                         Err(join_err) if join_err.is_panic() => {
                             eprintln!("Request handler panicked: {:?}", join_err);
-                            WebResponse::internal_error("Internal server error".to_owned())
+                            (WebResponse::internal_error("Internal server error".to_owned()), false)
                         }
 
                         Err(join_err) => {
@@ -855,10 +893,11 @@ async fn main() {
                                 "Request handler task failed or was cancelled: {:?}",
                                 join_err
                             );
-                            WebResponse::internal_error("Internal server error".to_owned())
+                            (WebResponse::internal_error("Internal server error".to_owned()), false)
                         }
                     }
                 };
+                let (response, written_as_sidecar) = response;
 
                 let mut builder = http::Response::builder()
                     .status(response.status)
@@ -872,6 +911,10 @@ async fn main() {
                 }
                 if response.shared {
                     builder = builder.header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+                }
+                // (nginx serves the page's sidecar file from now on.)
+                if written_as_sidecar {
+                    builder = builder.header("X-Accel-Expires", "0");
                 }
 
                 builder.body(response.output)

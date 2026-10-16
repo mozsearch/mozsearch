@@ -10,11 +10,18 @@
 //! servers), and nginx doesn't cache the web-server's responses for them
 //! (see nginx-setup.py), so nothing is cached twice.
 //!
+//! Pages too (see `PAGE_ROUTES`): the web-server writes the HTML or JSON of
+//! a page it serves (without a query) as `{rest}.page.html` or
+//! `{rest}.page.json`, whose extension gives nginx its content type, and nginx
+//! serves those, and doesn't cache the web-server's responses for them, rather
+//! than caching them itself (in its smaller, uncompressed cache).
+//!
 //! Files are written gzipped with an empty marker file, like output-file's
 //! (nginx's `try_files` looks for the marker, and `gzip_static` serves the
 //! `.gz`): the `.gz` is renamed into place before the marker is created, so
 //! that nginx only finds complete files, and the janitor (see `janitor`)
-//! removes the marker before the `.gz`.
+//! removes the marker before the `.gz`.  They're kept until the disk fills up,
+//! or the web-server starts with another index or binary.
 
 use std::fs::{self, File};
 use std::io::Write;
@@ -34,6 +41,40 @@ const MIN_FREE_FRACTION: f64 = 0.10;
 /// How often the janitor checks.
 const JANITOR_PERIOD: Duration = Duration::from_secs(5 * 60);
 
+/// The web-server's routes (`/{tree}/{route}/...`) whose pages nginx looks
+/// for as sidecar files (see the module's comment).  (Keep in sync with
+/// nginx-setup.py's `page_sidecar_routes`.)
+pub const PAGE_ROUTES: &[&str] = &[
+    "algorithm",
+    "commit",
+    "commit-info",
+    "diagnostics",
+    "diff",
+    "explore",
+    "history",
+    "interdiff",
+    "oldcommit",
+    "olddiff",
+    "oldrev",
+    "outline-diff",
+    "rendered",
+    "rev",
+    "rev-algorithm",
+    "rev-canvas",
+    "rev-outline",
+    "rev-rendered",
+];
+
+/// The suffix of the sidecar file of a page of this content type, if it can
+/// have one.
+pub fn page_suffix(content_type: &str) -> Option<&'static str> {
+    match content_type {
+        "text/html" => Some(".page.html"),
+        "application/json" => Some(".page.json"),
+        _ => None,
+    }
+}
+
 /// The sidecar directory of a tree whose index directory is `index_path`.
 pub fn sidecar_dir(index_path: &str, tree_name: &str) -> PathBuf {
     sidecar_root(index_path).join(tree_name)
@@ -51,15 +92,19 @@ pub fn sidecar_root(index_path: &str) -> PathBuf {
 /// Write the sidecar file of `/{tree_name}/{rest}` (ex:
 /// `rev-hyperblame/{rev}/{path}/lines-0.json`) for the tree whose index
 /// directory is `index_path`, unless it would be outside the tree's sidecar
-/// directory.  Failures only mean the web-server computes it again when it's
-/// requested, so they're logged, not returned.
-pub fn write(index_path: &str, tree_name: &str, rest: &str, contents: &str) {
+/// directory, and return whether it's there.  Failures only mean the
+/// web-server computes it again when it's requested, so they're logged.
+pub fn write(index_path: &str, tree_name: &str, rest: &str, contents: &str) -> bool {
     if rest.split('/').any(|segment| segment.is_empty() || segment == "." || segment == "..") {
-        return;
+        return false;
     }
     let path = sidecar_dir(index_path, tree_name).join(rest);
-    if let Err(e) = write_file(&path, contents) {
-        log::warn!("Couldn't write the sidecar {}: {}", path.display(), e);
+    match write_file(&path, contents) {
+        Ok(()) => true,
+        Err(e) => {
+            log::warn!("Couldn't write the sidecar {}: {}", path.display(), e);
+            false
+        }
     }
 }
 
@@ -159,12 +204,36 @@ pub fn evict(root: &Path) -> usize {
     removed
 }
 
-/// Remove the trees' sidecar directories (which may be of an earlier index,
-/// ex: locally), and then evict sidecar files (see `evict`) periodically,
-/// forever: for a web-server thread, when the web-server starts.
+/// What the sidecar files of a tree whose index directory is `index_path`
+/// were generated from: its index (by its `all-files`, which indexing
+/// rewrites) and the web-server's binary.
+fn stamp(index_path: &str) -> String {
+    use std::os::unix::fs::MetadataExt;
+    let identity = |path: &Path| match fs::metadata(path) {
+        Ok(meta) => format!("{} {} {}", meta.ino(), meta.mtime(), meta.len()),
+        Err(_) => "-".to_string(),
+    };
+    let exe = std::env::current_exe().unwrap_or_default();
+    format!(
+        "index {}\nbinary {}\n",
+        identity(&Path::new(index_path).join("all-files")),
+        identity(&exe)
+    )
+}
+
+/// Remove the trees' sidecar directories if they're of another index or
+/// binary (see `stamp`; ex: locally, after reindexing or rebuilding, but not
+/// when the web-server restarts after a crash), and then evict sidecar files
+/// (see `evict`) periodically, forever: for a web-server thread, when the
+/// web-server starts.
 pub fn janitor(cfg: &Config) {
     for (tree_name, tree_config) in &cfg.trees {
         let dir = sidecar_dir(&tree_config.paths.index_path, tree_name);
+        let stamp_path = dir.join(".stamp");
+        let stamp = stamp(&tree_config.paths.index_path);
+        if fs::read_to_string(&stamp_path).ok().as_ref() == Some(&stamp) {
+            continue;
+        }
         if dir.exists() {
             // (Renamed first, so that nginx stops finding them at once.)
             let old = dir.with_file_name(format!(".{}.old.{}", tree_name, std::process::id()));
@@ -172,8 +241,14 @@ pub fn janitor(cfg: &Config) {
                 Ok(()) => {
                     let _ = fs::remove_dir_all(&old);
                 }
-                Err(e) => log::warn!("Couldn't clear the sidecars {}: {}", dir.display(), e),
+                Err(e) => {
+                    log::warn!("Couldn't clear the sidecars {}: {}", dir.display(), e);
+                    continue;
+                }
             }
+        }
+        if let Err(e) = fs::create_dir_all(&dir).and_then(|()| fs::write(&stamp_path, &stamp)) {
+            log::warn!("Couldn't stamp the sidecars {}: {}", dir.display(), e);
         }
     }
     let mut roots: Vec<PathBuf> = cfg
@@ -222,6 +297,13 @@ mod tests {
         assert_eq!(files.len(), 1);
         assert_eq!(files[0].1, path);
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn test_page_suffix() {
+        assert_eq!(page_suffix("text/html"), Some(".page.html"));
+        assert_eq!(page_suffix("application/json"), Some(".page.json"));
+        assert_eq!(page_suffix("text/plain"), None);
     }
 
     #[test]
