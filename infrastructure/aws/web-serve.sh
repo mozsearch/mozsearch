@@ -93,6 +93,11 @@ if [[ $LOCAL_NVME_DEV ]]; then
     EBS_FS_BLOCK_SIZE=$(sed -n 's/^Block size: *//p' <<< "$EBS_FS_INFO")
     EBS_FS_BYTES=$(( ${EBS_FS_BLOCKS:-0} * ${EBS_FS_BLOCK_SIZE:-0} ))
     LOCAL_BYTES=$(sudo blockdev --getsize64 $LOCAL_NVME_DEV)
+    # (e2image reads the volume a block run at a time, so it's the kernel's
+    # readahead that keeps several reads in flight: with the default 128 KiB,
+    # reading a gp3 volume with 1000 MB/s of throughput ran at ~250 MB/s, and
+    # with 8 MiB, at ~1.4 GB/s.)
+    sudo blockdev --setra 16384 $EBS_NVME_DEV
     if (( EBS_FS_BYTES > 0 && EBS_FS_BYTES <= LOCAL_BYTES )) &&
         sudo e2image -ra $EBS_NVME_DEV $LOCAL_NVME_DEV; then
         sudo mount $LOCAL_NVME_DEV /index
