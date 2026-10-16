@@ -137,3 +137,30 @@ add_task(async function test_DiagramIgnore_menu() {
   ok(frame.contentDocument.querySelector(`g[data-symbols="_ZN14diagram_ignore3F10Ev"]`),
      "F10 is shown");
 });
+
+// Ignored nodes' pretty names can have spaces (ex: web specs' terms', "<spec>
+// <term>") or commas (escaped in the list, see `split_ignore_nodes` in the
+// tools' traverse), so the list is quoted in the query when it has to be.
+add_task(async function test_DiagramIgnore_spaces() {
+  await TestUtils.loadQuery("tests", "calls-to-sym:'SPEC_examplebs_poke' depth:4");
+
+  const caller = frame.contentDocument.querySelector(`g[data-symbols="SPEC_examplebs_dom@2Dgadget@2Dpoke"]`);
+  ok(caller, "The method calling the algorithm is shown");
+  TestUtils.click(caller);
+
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for symbol click");
+  const ignoreRow = [...menu.querySelectorAll(".icon-brush")].find(x => x.textContent == "Ignore this node in the diagram");
+  ok(ignoreRow, "the ignore context menu item is shown");
+
+  const loadPromise = TestUtils.waitForLoad();
+  TestUtils.click(ignoreRow);
+  await loadPromise;
+
+  is(frame.contentDocument.querySelector("#query").value,
+     "calls-to-sym:'SPEC_examplebs_poke' depth:4 ignore-nodes:'examplebs Gadget/poke'",
+     "The ignored node's name is quoted");
+  ok(frame.contentDocument.querySelector(`g[data-symbols="SPEC_examplebs_poke"]`), "The algorithm is shown");
+  ok(!frame.contentDocument.querySelector(`g[data-symbols="SPEC_examplebs_dom@2Dgadget@2Dpoke"]`),
+     "but not the ignored method");
+});

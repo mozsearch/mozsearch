@@ -884,10 +884,12 @@ var Diagram = new (class Diagram {
           continue;
         }
 
-        const re = new RegExp(" +" + item.name + ":[^ ]+");
-        query = query.replace(re, "");
+        // (And the caller limit's old name's.)
+        for (const name of item.name == "caller-limit" ? [item.name, "path-limit"] : [item.name]) {
+          query = query.replace(this.queryTermRegExp(name, "g"), "");
+        }
         if (item.value != item.default) {
-          query += " " + item.name + ":" + item.value;
+          query += " " + item.name + ":" + this.quoteQueryValue(item.value);
         }
       }
     }
@@ -963,12 +965,46 @@ var Diagram = new (class Diagram {
   }
 
   ignoreNode(pretty) {
+    const name = this.escapeIgnoredNode(pretty);
     if (this.ignoreNodesItem.value != "") {
-      this.ignoreNodesItem.value += "," + pretty;
+      this.ignoreNodesItem.value += "," + name;
     } else {
-      this.ignoreNodesItem.value = pretty;
+      this.ignoreNodesItem.value = name;
     }
     this.applyOptions();
+  }
+
+  /**
+   * A pretty name for the ignore-nodes option's comma-separated list, with
+   * its commas (ex: a C++ template's, "Pair<A, B>") and backslashes escaped
+   * (see `split_ignore_nodes` in the tools' traverse).
+   */
+  escapeIgnoredNode(pretty) {
+    return pretty.replace(/[\\,]/g, c => `\\${c}`);
+  }
+
+  /**
+   * A query term's value, quoted (with its quotes and backslashes escaped) if
+   * it has to be (ex: an ignore-nodes list with a web spec's term's pretty
+   * name, "html navigate").
+   */
+  quoteQueryValue(value) {
+    const text = String(value);
+    return /^[^\s'"\\]+$/.test(text) ? text : `'${text.replace(/[\\']/g, c => `\\${c}`)}'`;
+  }
+
+  /** A quoted query term's value without its quotes and escapes. */
+  unquoteQueryValue(value) {
+    const quote = value[0];
+    if ((quote != "'" && quote != '"') || !value.endsWith(quote)) {
+      return value;
+    }
+    return value.slice(1, -1).replace(/\\(.)/g, "$1");
+  }
+
+  /** A regular expression for a query's `name` terms, with their values (quoted or not). */
+  queryTermRegExp(name, flags = "") {
+    return new RegExp(`(?:^|\\s+)${name}:('(?:[^'\\\\]|\\\\.)*'|"(?:[^"\\\\]|\\\\.)*"|\\S+)`, flags);
   }
 
   addOverloadIcons() {

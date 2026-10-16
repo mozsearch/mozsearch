@@ -586,15 +586,17 @@ class Graph {
     let query = searchInput ? searchInput.value : url.searchParams.get("q");
 
     if (query) {
-      let newIgnoreList = prettyName;
+      // (As `Diagram.ignoreNode` adds it: escaped in the list, which is
+      // quoted if it has to be, ex: for a web spec's term's pretty name.)
+      let newIgnoreList = Diagram.escapeIgnoredNode(prettyName);
 
-      const match = query.match(/ignore-nodes:([^\s]+)/);
+      const match = query.match(Diagram.queryTermRegExp("ignore-nodes"));
       if (match) {
-        newIgnoreList = match[1] + "," + prettyName;
+        newIgnoreList = Diagram.unquoteQueryValue(match[1]) + "," + newIgnoreList;
       }
 
-      query = query.replace(/ +ignore-nodes:[^\s]+/g, "");
-      query += " ignore-nodes:" + newIgnoreList;
+      query = query.replace(Diagram.queryTermRegExp("ignore-nodes", "g"), "");
+      query += " ignore-nodes:" + Diagram.quoteQueryValue(newIgnoreList);
 
       if (searchInput) {
         searchInput.value = query.trim();

@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::iter::FromIterator;
 
 use async_trait::async_trait;
 use bitflags::bitflags;
@@ -96,6 +95,8 @@ pub struct Traverse {
     #[clap(long, value_parser, default_value = "24")]
     pub skip_field_member_uses_at_count: u32,
 
+    /// Pretty names of nodes to leave out, separated by commas (see
+    /// `split_ignore_nodes`).
     #[clap(long, value_parser)]
     pub ignore_nodes: Option<String>,
 }
@@ -306,8 +307,8 @@ impl PipelineCommand for TraverseCommand {
             _ => false,
         };
 
-        let ignore_node_set = match &self.args.ignore_nodes {
-            Some(s) => HashSet::from_iter(s.split(",")),
+        let ignore_node_set: HashSet<String> = match &self.args.ignore_nodes {
+            Some(s) => split_ignore_nodes(s).into_iter().collect(),
             _ => HashSet::new(),
         };
 
@@ -1476,7 +1477,7 @@ impl PipelineCommand for TraverseCommand {
             },
             "default": "",
             "type": "string",
-            "placeholder": "Comma-separated pretty names",
+            "placeholder": "Comma-separated pretty names (\\, for a comma in one)",
         }));
         let options = json!([
             {
@@ -1547,4 +1548,33 @@ impl PipelineCommand for TraverseCommand {
 
         Ok(PipelineValues::SymbolGraphCollection(graph_coll))
     }
+}
+
+/// The pretty names of the `ignore-nodes` option, which separates them with
+/// commas, where `\,` is a comma in a name (ex: a C++ template's,
+/// `Pair<A\, B>`, or a web spec's term for several interfaces) and `\\` a
+/// backslash.
+fn split_ignore_nodes(list: &str) -> Vec<String> {
+    let mut names = vec![];
+    let mut name = String::new();
+    let mut chars = list.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' => name.extend(chars.next()),
+            ',' => names.push(std::mem::take(&mut name)),
+            c => name.push(c),
+        }
+    }
+    names.push(name);
+    names.retain(|name| !name.is_empty());
+    names
+}
+
+#[test]
+fn test_split_ignore_nodes() {
+    assert_eq!(split_ignore_nodes("a::B,c"), vec!["a::B", "c"]);
+    assert_eq!(
+        split_ignore_nodes("html navigate,Pair<A\\, B>::First,a\\\\b,"),
+        vec!["html navigate", "Pair<A, B>::First", "a\\b"]
+    );
 }
