@@ -498,3 +498,32 @@ add_task(async function test_DiagramContextMenu_merge() {
     is(brushRows.length, 1, "Only one diagram menu item is shown");
   }
 });
+
+// A web spec's terms' pretty names ("<spec> <term>") can be other definitions'
+// too, so their diagrams are by symbol.
+add_task(async function test_DiagramContextMenu_specBySym() {
+  frame.contentWindow.localStorage.removeItem("diagram-pinned");
+  frame.contentWindow.localStorage.removeItem("diagram-pinned-sym");
+  await TestUtils.loadPath("/tests/source/specs/example.bs");
+
+  const poke = frame.contentDocument.querySelector(`#line-15 span[data-symbols="SPEC_examplebs_poke"]`);
+  TestUtils.click(poke);
+
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for symbol click");
+
+  const listItem = findDiagramListItem(menu);
+  const buttons = listItem.querySelectorAll(".contextmenu-button");
+  const button = [...buttons].find(x => x.textContent === "Calls to");
+  ok(button, "Button exists");
+
+  const loadPromise = TestUtils.waitForLoad();
+  TestUtils.click(button);
+  await loadPromise;
+
+  const query = frame.contentDocument.querySelector("#query");
+  is(query.value, "calls-to-sym:'SPEC_examplebs_poke' depth:4",
+     "Query is by symbol");
+  ok(frame.contentDocument.querySelector(`[data-symbols="SPEC_examplebs_dom@2Dgadget@2Dpoke"]`),
+     "The method whose steps call it is shown");
+});

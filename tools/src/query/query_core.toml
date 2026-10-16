@@ -15,13 +15,71 @@ args.exact-match = true
 command = "traverse"
 args.edge = "uses"
 
+# The diagram terms' "-sym" variants take symbols rather than pretty names (ex:
+# for a web spec's terms, whose pretty names other definitions share), in
+# groups of their own (whose crossref-lookups take no input), so that a query
+# can have both (ex: calls-between-source-sym with calls-between-target).
 [term.calls-to-sym]
-[[term.calls-to-sym.group.graph-symbols-default]]
+[[term.calls-to-sym.group.graph-symbols-default-sym]]
 command = "crossref-lookup"
 args.positional = "$0"
 [[term.calls-to-sym.group.graph-traverse]]
 command = "traverse"
 args.edge = "uses"
+
+[term.calls-from-sym]
+[[term.calls-from-sym.group.graph-symbols-default-sym]]
+command = "crossref-lookup"
+args.positional = "$0"
+[[term.calls-from-sym.group.graph-traverse]]
+command = "traverse"
+args.edge = "callees"
+
+[term.calls-between-sym]
+[[term.calls-between-sym.group.graph-symbols-default-sym]]
+command = "crossref-lookup"
+args.positional = "$0"
+args.methods = true
+[[term.calls-between-sym.group.graph-traverse]]
+command = "traverse"
+args.edge = "uses"
+args.paths-between = true
+
+[term.calls-between-source-sym]
+[[term.calls-between-source-sym.group.graph-symbols-source-sym]]
+command = "crossref-lookup"
+args.positional = "$0"
+args.methods = true
+[[term.calls-between-source-sym.group.graph-traverse]]
+command = "traverse"
+args.edge = "uses"
+args.paths-between = true
+
+[term.calls-between-target-sym]
+[[term.calls-between-target-sym.group.graph-symbols-target-sym]]
+command = "crossref-lookup"
+args.positional = "$0"
+args.methods = true
+[[term.calls-between-target-sym.group.graph-traverse]]
+command = "traverse"
+args.edge = "uses"
+args.paths-between = true
+
+[term.inheritance-diagram-sym]
+[[term.inheritance-diagram-sym.group.graph-symbols-default-sym]]
+command = "crossref-lookup"
+args.positional = "$0"
+[[term.inheritance-diagram-sym.group.graph-traverse]]
+command = "traverse"
+args.edge = "inheritance"
+
+[term.class-diagram-sym]
+[[term.class-diagram-sym.group.graph-symbols-default-sym]]
+command = "crossref-lookup"
+args.positional = "$0"
+[[term.class-diagram-sym.group.graph-traverse]]
+command = "traverse"
+args.edge = "class"
 
 
 [term.calls-between]
@@ -326,6 +384,18 @@ junction = "graph-fuse-symbols"
 
 [group.graph-symbols-default]
 output = "default"
+junction = "graph-fuse-symbols"
+
+[group.graph-symbols-source-sym]
+output = "source-sym"
+junction = "graph-fuse-symbols"
+
+[group.graph-symbols-target-sym]
+output = "target-sym"
+junction = "graph-fuse-symbols"
+
+[group.graph-symbols-default-sym]
+output = "default-sym"
 junction = "graph-fuse-symbols"
 
 [junction.graph-fuse-symbols]

@@ -469,10 +469,29 @@ class DiagramMenuSection extends MenuItem {
     this.tree = options.tree;
     this.isClass = options.isClass;
     this.showInheritance = options.showInheritance;
+    // Whether diagrams of the symbol are by its symbol rather than its pretty
+    // name, which other symbols may share (ex: a web spec's terms').
+    this.bySym = options.bySym;
 
     this.links = [];
 
     this.pinnedPretty = localStorage.getItem("diagram-pinned");
+    this.pinnedSym = localStorage.getItem("diagram-pinned-sym");
+  }
+
+  /**
+   * A query term for a diagram (ex: "calls-to") of the symbol (or of the
+   * pinned one), by its symbol (the term's "-sym" variant) if it's diagrammed
+   * by symbol, else by its pretty name; quoted, with its quotes and
+   * backslashes escaped.
+   */
+  diagramTerm(name, pinned = false) {
+    const quote = value => `'${value.replace(/[\\']/g, c => `\\${c}`)}'`;
+    const sym = pinned ? this.pinnedSym : (this.bySym ? this.sym : null);
+    if (sym) {
+      return `${name}-sym:${quote(sym)}`;
+    }
+    return `${name}:${quote(pinned ? this.pinnedPretty : this.pretty)}`;
   }
 
   isFocusable() {
@@ -538,8 +557,7 @@ class DiagramMenuSection extends MenuItem {
       // affordance, especially since it's hard to concisely express the
       // differences in signatures for overloads (although we have some
       // tentative plans to).
-      // const queryString = `calls-to-sym:'${this.sym}' depth:4`;
-      const queryString = `calls-to:'${this.pretty}' depth:4`;
+      const queryString = `${this.diagramTerm("calls-to")} depth:4`;
       link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
       link.addEventListener("keydown", event => {
         this.onKeyDown(event, menu, link, pos);
@@ -555,7 +573,7 @@ class DiagramMenuSection extends MenuItem {
       const link = document.createElement("a");
       link.classList.add("contextmenu-button");
       link.setAttribute("role", "menuitem");
-      const queryString = `calls-from:'${this.pretty}' depth:4`;
+      const queryString = `${this.diagramTerm("calls-from")} depth:4`;
       link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
       link.addEventListener("keydown", event => {
         this.onKeyDown(event, menu, link, pos);
@@ -572,7 +590,7 @@ class DiagramMenuSection extends MenuItem {
       link.classList.add("contextmenu-button");
       link.setAttribute("role", "menuitem");
       if (this.isClass) {
-        const queryString = `class-diagram:'${this.pretty}' depth:4`;
+        const queryString = `${this.diagramTerm("class-diagram")} depth:4`;
         link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
         link.addEventListener("keydown", event => {
           this.onKeyDown(event, menu, link, pos);
@@ -592,7 +610,7 @@ class DiagramMenuSection extends MenuItem {
       link.classList.add("contextmenu-button");
       link.setAttribute("role", "menuitem");
       if (this.showInheritance) {
-        const queryString = `inheritance-diagram:'${this.pretty}' depth:4`;
+        const queryString = `${this.diagramTerm("inheritance-diagram")} depth:4`;
         link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
         link.addEventListener("keydown", event => {
           this.onKeyDown(event, menu, link, pos);
@@ -662,7 +680,7 @@ class DiagramMenuSection extends MenuItem {
         const link = document.createElement("a");
         link.classList.add("contextmenu-button");
         link.setAttribute("role", "menuitem");
-        const queryString = `calls-between-source:'${this.pinnedPretty}' calls-between-target:'${this.pretty}' depth:8`;
+        const queryString = `${this.diagramTerm("calls-between-source", true)} ${this.diagramTerm("calls-between-target")} depth:8`;
         link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
         link.addEventListener("keydown", event => {
           this.onKeyDown(event, menu, link, pos);
@@ -679,7 +697,7 @@ class DiagramMenuSection extends MenuItem {
         const link = document.createElement("a");
         link.classList.add("contextmenu-button");
         link.setAttribute("role", "menuitem");
-        const queryString = `calls-between-source:'${this.pretty}' calls-between-target:'${this.pinnedPretty}' depth:8`;
+        const queryString = `${this.diagramTerm("calls-between-source")} ${this.diagramTerm("calls-between-target", true)} depth:8`;
         link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
         link.addEventListener("keydown", event => {
           this.onKeyDown(event, menu, link, pos);
@@ -699,7 +717,7 @@ class DiagramMenuSection extends MenuItem {
         link.classList.add("contextmenu-button");
         link.setAttribute("role", "menuitem");
         link.setAttribute("role", "menuitem");
-        const queryString = `calls-between:'${this.pinnedPretty}' calls-between:'${this.pretty}' depth:8`;
+        const queryString = `${this.diagramTerm("calls-between", true)} ${this.diagramTerm("calls-between")} depth:8`;
         link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
         link.addEventListener("keydown", event => {
           this.onKeyDown(event, menu, link, pos);
@@ -762,15 +780,23 @@ class DiagramMenuSection extends MenuItem {
 
   pinItem() {
     localStorage.setItem("diagram-pinned", this.pretty);
+    if (this.bySym) {
+      localStorage.setItem("diagram-pinned-sym", this.sym);
+    } else {
+      localStorage.removeItem("diagram-pinned-sym");
+    }
   }
   removePinnedItem() {
     localStorage.removeItem("diagram-pinned");
+    localStorage.removeItem("diagram-pinned-sym");
   }
 
   toKey() {
     return JSON.stringify({
       type: "diagram",
       pretty: this.pretty,
+      // (Symbols diagrammed by symbol aren't others with their pretty name.)
+      sym: this.bySym ? this.sym : null,
       tree: this.tree,
       isClass: this.isClass,
       showInheritance: this.showInheritance,
@@ -2171,6 +2197,9 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
               tree,
               isClass,
               showInheritance,
+              // (A web spec's terms' pretty names are "<spec> <term>", which
+              // its other definitions of the term, ex: a method's, share.)
+              bySym: jumpref?.meta?.implKind === "spec",
               confidence,
             }));
           }

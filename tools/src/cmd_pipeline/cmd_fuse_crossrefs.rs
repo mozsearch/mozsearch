@@ -39,9 +39,10 @@ impl PipelineJunctionCommand for FuseCrossrefsCommand {
         // match by type, but one could imagine a scenario in which they serve
         // as labels we want to propagate.
         for (name, pipe_value) in input {
+            // (The "-sym" ones are by symbol rather than pretty name.)
             let add_flags = match name.as_ref() {
-                "source" => SymbolMetaFlags::Source,
-                "target" => SymbolMetaFlags::Target,
+                "source" | "source-sym" => SymbolMetaFlags::Source,
+                "target" | "target-sym" => SymbolMetaFlags::Target,
                 _ => SymbolMetaFlags::default(),
             };
             match pipe_value {
