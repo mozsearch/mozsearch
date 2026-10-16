@@ -415,6 +415,15 @@ fn escape_quotes(s: &str) -> String {
     s.replace('"', r#"\""#)
 }
 
+/// Escape a string to use as an `esc` tagged label: its backslashes too, which
+/// graphviz would otherwise take as escapes (ex: "\N" for the node's name, "\l"
+/// for a line break, or "\p" for "p", as in a web spec's internal slot's pretty
+/// name, "AudioContext/[[\playout stats]]"), or at the end as escaping the
+/// closing quote.
+fn escape_label(s: &str) -> String {
+    escape_quotes(&s.replace('\\', r"\\"))
+}
+
 /// Perform the necessary escaping for `html` tagged value contents that aren't
 /// supposed to be HTML.
 fn escape_html(s: &str) -> String {
@@ -523,7 +532,7 @@ impl SymbolGraphCollection {
             let source_info = self.node_set.get(&source_id);
             let source_sym = source_info.symbol;
             if nodes.insert(source_sym) {
-                let mut node = node!(esc source_sym.clone(); attr!("label", esc escape_quotes(&source_info.get_pretty())));
+                let mut node = node!(esc escape_quotes(&source_sym); attr!("label", esc escape_label(&source_info.get_pretty())));
                 node_decorate(&mut node, source_info);
                 dot_graph.add_stmt(stmt!(node));
             }
@@ -531,7 +540,7 @@ impl SymbolGraphCollection {
             let target_info = self.node_set.get(&target_id);
             let target_sym = target_info.symbol;
             if nodes.insert(target_sym) {
-                let mut node = node!(esc target_sym.clone(); attr!("label", esc escape_quotes(&target_info.get_pretty())));
+                let mut node = node!(esc escape_quotes(&target_sym); attr!("label", esc escape_label(&target_info.get_pretty())));
                 node_decorate(&mut node, target_info);
                 dot_graph.add_stmt(stmt!(node));
             }
@@ -1724,7 +1733,7 @@ impl HierarchicalNode {
                 }
             }
             HierarchicalLayoutAction::Cluster(cluster_id, placeholder_id) => {
-                let mut sg = subgraph!(esc cluster_id; attr!("cluster", "true"), attr!("label", esc escape_quotes(&self.display_name)));
+                let mut sg = subgraph!(esc cluster_id; attr!("cluster", "true"), attr!("label", esc escape_label(&self.display_name)));
                 sg.stmts.push(stmt!(
                     node!(esc placeholder_id; attr!("shape", "point"), attr!("style", "invis"))
                 ));
@@ -2607,4 +2616,10 @@ impl SymbolGraphEdgeSet {
         };
         graph.ensure_edge(source, target, edge_id);
     }
+}
+
+#[test]
+fn test_escape_label() {
+    assert_eq!(escape_label(r#"a\b"c\"#), r#"a\\b\"c\\"#);
+    assert_eq!(escape_quotes(r#"a\b"c"#), r#"a\b\"c"#);
 }
