@@ -35,8 +35,8 @@ add_task(async function test_DiagramControl_basic() {
   const nodeLimit = panel.querySelector("#diagram-option-node-limit");
   is(nodeLimit.value, "384", "The default node limit is shown");
 
-  const pathLimit = panel.querySelector("#diagram-option-path-limit");
-  is(pathLimit.value, "16", "The default path limit is shown");
+  const callerLimit = panel.querySelector("#diagram-option-caller-limit");
+  is(callerLimit.value, "16", "The default caller limit is shown");
 
   const ignoreNodes = panel.querySelector("#diagram-option-ignore-nodes");
   is(ignoreNodes.value, "", "The default ignore nodes is shown");
@@ -90,15 +90,15 @@ add_task(async function test_DiagramControl_nodeLimitWarning() {
 
   const { panel, apply } = await openPanel();
 
-  const pathLimit = panel.querySelector("#diagram-option-path-limit");
-  TestUtils.setText(pathLimit, "100");
+  const callerLimit = panel.querySelector("#diagram-option-caller-limit");
+  TestUtils.setText(callerLimit, "100");
 
   const loadPromise = TestUtils.waitForLoad();
   TestUtils.click(apply);
   await loadPromise;
 
   const newQuery = frame.contentDocument.querySelector("#query");
-  is(newQuery.value, "calls-to:'diagram::uses_lines_local::target' depth:4 path-limit:100",
+  is(newQuery.value, "calls-to:'diagram::uses_lines_local::target' depth:4 caller-limit:100",
      "The query reflects the modification");
 
   const newWarningBox = frame.contentDocument.querySelector(".diagram-limit-warning");

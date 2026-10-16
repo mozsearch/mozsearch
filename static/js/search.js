@@ -623,9 +623,8 @@ var Diagram = new (class Diagram {
       } else {
         overloadInfo.other.push(overload);
         switch (overload.kind) {
-          case "UsesPaths":
-          case "UsesLines": {
-            const item = this.getOption("path-limit");
+          case "UsesCallers": {
+            const item = this.getOption("caller-limit");
             if (item && overload.exist < item.range[1]) {
               overloadInfo.canLift = true;
             }
@@ -825,9 +824,8 @@ var Diagram = new (class Diagram {
 
   liftLimit(kind, exists, skipApply=false) {
     switch (kind) {
-      case "UsesPaths":
-      case "UsesLines": {
-        const item = this.getOption("path-limit");
+      case "UsesCallers": {
+        const item = this.getOption("caller-limit");
         if (item) {
           this.setOption(item, exists + 100);
         }
@@ -1065,10 +1063,8 @@ var Diagram = new (class Diagram {
         return "Too many overrides";
       case "Subclasses":
         return "Too many subclasses";
-      case "UsesPaths":
-        return "Too many uses";
-      case "UsesLines":
-        return "Too many uses lines";
+      case "UsesCallers":
+        return "Too many callers";
       case "FieldMemberUses":
         return "Too many field member uses";
       case "NodeLimit":

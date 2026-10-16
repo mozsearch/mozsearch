@@ -1,4 +1,4 @@
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::iter::FromIterator;
 
 use async_trait::async_trait;
@@ -6,7 +6,7 @@ use bitflags::bitflags;
 use clap::Args;
 use serde_json::json;
 use tracing::trace;
-use ustr::ustr;
+use ustr::{Ustr, ustr};
 
 use super::{
     interface::{OverloadInfo, OverloadKind, PipelineCommand, PipelineValues, SymbolMetaFlags},
@@ -77,19 +77,15 @@ pub struct Traverse {
     #[clap(long, value_parser = clap::value_parser!(u32).range(16..=1024), default_value = "256")]
     pub paths_limit: u32,
 
-    /// If we see "uses" with this many paths with hits, do not process any of
-    /// the uses.  This is path-centric because uses are hierarchically
-    /// clustered by path right now.
-    ///
-    /// TODO: Probably have the meta capture the total number of uses so we can
-    /// just perform a look-up without this hack.  But this hack works for
-    /// experimenting.
+    /// When traversing a symbol's uses, include at most this many of its
+    /// callers (the distinct callable contexts of its uses); see
+    /// `OverloadKind::UsesCallers`.
     ///
     /// Note: we use a default of 0 because we differentiate the default based on
     /// whether paths-between is in use, but will use any value specified here.
     /// We don't impose a limit because our other node limits apply sufficiently well.
     #[clap(long, value_parser, default_value = "0")]
-    pub skip_uses_at_path_count: u32,
+    pub caller_limit: u32,
 
     /// Traverse field member uses when the depth has this value or less.
     #[clap(long, value_parser = clap::value_parser!(i32).range(-1..=16), default_value = "-1")]
@@ -159,8 +155,8 @@ impl PipelineCommand for TraverseCommand {
     ) -> Result<PipelineValues> {
         const DEFAULT_MAX_DEPTH_FROM_TO: u32 = 8;
         const DEFAULT_MAX_DEPTH_BETWEEN: u32 = 8;
-        const DEFAULT_SKIP_USES_AT_PATH_COUNT_FROM_TO: u32 = 16;
-        const DEFAULT_SKIP_USES_AT_PATH_COUNT_BETWEEN: u32 = 96;
+        const DEFAULT_CALLER_LIMIT_FROM_TO: u32 = 16;
+        const DEFAULT_CALLER_LIMIT_BETWEEN: u32 = 96;
 
         let default_max_depth = if self.args.paths_between {
             DEFAULT_MAX_DEPTH_BETWEEN
@@ -168,10 +164,10 @@ impl PipelineCommand for TraverseCommand {
             DEFAULT_MAX_DEPTH_FROM_TO
         };
 
-        let default_skip_uses_at_path_count = if self.args.paths_between {
-            DEFAULT_SKIP_USES_AT_PATH_COUNT_BETWEEN
+        let default_caller_limit = if self.args.paths_between {
+            DEFAULT_CALLER_LIMIT_BETWEEN
         } else {
-            DEFAULT_SKIP_USES_AT_PATH_COUNT_FROM_TO
+            DEFAULT_CALLER_LIMIT_FROM_TO
         };
 
         let max_depth = match self.args.max_depth {
@@ -248,8 +244,8 @@ impl PipelineCommand for TraverseCommand {
             self.args.node_limit
         };
 
-        let skip_uses_at_path_count = match self.args.skip_uses_at_path_count {
-            0 => default_skip_uses_at_path_count,
+        let caller_limit = match self.args.caller_limit {
+            0 => default_caller_limit,
             x => x,
         };
 
@@ -1301,142 +1297,117 @@ impl PipelineCommand for TraverseCommand {
                     sym_info.reduce_memory_usage_by_dropping_non_jumpref_info();
                 }
 
-                // Do not process the uses if there are more paths than our skip limit.
-                if uses.len() as u32 >= skip_uses_at_path_count {
-                    overloads_hit.push(OverloadInfo {
-                        kind: OverloadKind::UsesPaths,
-                        sym: Some(sym.to_string()),
-                        pretty: Some(pretty.to_string()),
-                        exist: uses.len() as u32,
-                        included: 0,
-                        local_limit: skip_uses_at_path_count,
-                        global_limit: 0,
-                    });
-                    continue;
-                }
-
-                // We may see a use edge multiple times so we want to suppress it,
-                // but we don't want to use `considered` for this because that would
-                // hide cycles in the graph!
-                let mut use_considered = HashSet::new();
-
-                let mut line_hits: u32 = 0;
-
-                // Uses are path-hitlists and each array item has the form
-                // { path, lines: [ { context, contextsym }] } eliding some
-                // of the hit fields.  We really just care about the
-                // contextsym.
+                // The symbol's callers: the distinct contexts of its uses (by
+                // their contextsyms, and their trees for linked trees' hits),
+                // in the order of their first uses, with where they use it.
+                // (Uses without contexts, ex: at a file's top level, have
+                // none.)  Many uses by few callers (ex: a web spec algorithm's
+                // in the one file of its spec) are fine; many callers aren't.
+                type CallerKey = (Ustr, Option<Ustr>, bool);
+                let mut callers: Vec<(CallerKey, Vec<EdgeDetail>)> = vec![];
+                let mut caller_indices: HashMap<CallerKey, usize> = HashMap::new();
                 let uses = uses
                     .into_iter()
                     .map(|hits| (hits, false))
                     .chain(implementations.into_iter().map(|hits| (hits, true)));
                 for (path_hits, implements) in uses {
-                    let path = path_hits.path;
-                    // (A linked tree's hits' contexts are its symbols.)
-                    let hit_tree = path_hits.tree;
-                    let hits = &path_hits.lines;
-                    // For now we're just going to use the path limit for this too.
-                    //
-                    // The specific scenario driving this is the "abort" method
-                    // which ends up called an immense number of times inside of
-                    // mfbt/Assertions.h because of assertion macros where each
-                    // hit technically has a different contextsym
-                    //
-                    // First, handle this specific path breaking things for us as
-                    // a local limit.  Then add the line count and check if the
-                    // global limit has been hit.
-                    if hits.len() as u32 >= skip_uses_at_path_count {
-                        overloads_hit.push(OverloadInfo {
-                            kind: OverloadKind::UsesLines,
-                            sym: Some(sym.to_string()),
-                            pretty: Some(pretty.to_string()),
-                            exist: hits.len() as u32,
-                            included: 0,
-                            local_limit: skip_uses_at_path_count,
-                            global_limit: 0,
-                        });
-                        break;
-                    }
-                    line_hits += hits.len() as u32;
-                    if line_hits >= skip_uses_at_path_count {
-                        overloads_hit.push(OverloadInfo {
-                            kind: OverloadKind::UsesLines,
-                            sym: Some(sym.to_string()),
-                            pretty: Some(pretty.to_string()),
-                            exist: line_hits,
-                            included: line_hits - (hits.len() as u32),
-                            local_limit: 0,
-                            // Note we're reporting this as a global limit to
-                            // differentiate from the above case.
-                            global_limit: skip_uses_at_path_count,
-                        });
-                        break;
-                    }
-                    for source in hits {
-                        let source_sym = source.contextsym;
-
-                        let (source_id, source_info) = sym_node_set
-                            .ensure_symbol_from(&source_sym, hit_tree, server, next_depth)
-                            .await?;
-
-                        let source_pretty =
-                            match source_info.get_structured().map(|meta| meta.pretty) {
-                                Some(pretty) => pretty,
-                                _ => ustr(""),
+                    for hit in &path_hits.lines {
+                        if hit.contextsym.is_empty() {
+                            continue;
+                        }
+                        let key = (hit.contextsym, path_hits.tree, implements);
+                        let index = *caller_indices.entry(key).or_insert_with(|| {
+                            // (A linked tree's hits' contexts are its symbols.)
+                            let details = match path_hits.tree {
+                                Some(tree) => vec![EdgeDetail::Tree(tree.to_string())],
+                                None => vec![],
                             };
-                        if ignore_node_set.contains(&*source_pretty) {
-                            continue;
-                        }
-
-                        if !source_info.is_callable() {
-                            continue;
-                        }
-                        // We call this even if our check below determines we've already created
-                        // and traversed this edge because we want to merge in edge detail
-                        // information.
-                        let jump = format!("{}#{}", path, source.lineno);
-                        let mut details = vec![EdgeDetail::Jump(jump)];
-                        if let Some(tree) = hit_tree {
-                            details.push(EdgeDetail::Tree(tree.to_string()));
-                        }
-                        sym_edge_set.ensure_edge_in_graph(
-                            source_id,
-                            sym_id.clone(),
-                            if implements {
-                                EdgeKind::Implementation
-                            } else {
-                                EdgeKind::Default
-                            },
-                            details,
-                            &mut graph,
-                        );
-                        if !use_considered.insert(source_info.symbol) {
-                            continue;
-                        }
-                        if !considered.insert(source_info.symbol) {
-                            continue;
-                        }
-                        // Only traverse the edge once.
-                        if next_depth >= max_depth {
-                            overloads_hit.push(OverloadInfo {
-                                kind: OverloadKind::DepthLimitOnUses,
-                                sym: Some(source_info.symbol.to_string()),
-                                pretty: Some(source_pretty.to_string()),
-                                exist: next_depth,
-                                included: depth + 1,
-                                local_limit: 0,
-                                global_limit: max_depth,
-                            });
-                            continue;
-                        }
-                        trace!(sym = source_sym.as_str(), "scheduling uses");
-                        to_traverse.push_back((
-                            source_info.symbol,
-                            source_pretty,
-                            next_depth,
-                            all_traversals_valid,
-                        ));
+                            callers.push((key, details));
+                            callers.len() - 1
+                        });
+                        callers[index]
+                            .1
+                            .push(EdgeDetail::Jump(format!("{}#{}", path_hits.path, hit.lineno)));
                     }
+                }
+
+                // Include the callable callers, up to the caller limit, looking
+                // them up in order (up to the lookup limit, for symbols used in
+                // many contexts which mostly aren't callable, ex: a web spec
+                // algorithm's in sections of many specs); the rest are left
+                // out (see `OverloadKind::UsesCallers`).
+                let lookup_limit = caller_limit.saturating_mul(8).max(128);
+                let mut included = 0;
+                let mut left_out = false;
+                for (lookups, ((caller_sym, caller_tree, implements), details)) in
+                    callers.iter().enumerate()
+                {
+                    if lookups as u32 >= lookup_limit {
+                        left_out = true;
+                        break;
+                    }
+                    let (source_id, source_info) = sym_node_set
+                        .ensure_symbol_from(caller_sym, *caller_tree, server, next_depth)
+                        .await?;
+
+                    let source_pretty = match source_info.get_structured().map(|meta| meta.pretty) {
+                        Some(pretty) => pretty,
+                        _ => ustr(""),
+                    };
+                    if ignore_node_set.contains(&*source_pretty) || !source_info.is_callable() {
+                        continue;
+                    }
+                    if included >= caller_limit {
+                        left_out = true;
+                        break;
+                    }
+                    included += 1;
+                    sym_edge_set.ensure_edge_in_graph(
+                        source_id,
+                        sym_id.clone(),
+                        if *implements {
+                            EdgeKind::Implementation
+                        } else {
+                            EdgeKind::Default
+                        },
+                        details.clone(),
+                        &mut graph,
+                    );
+                    // Only traverse the edge once.  (But not with `considered`
+                    // before adding the edge, which would hide cycles.)
+                    if !considered.insert(source_info.symbol) {
+                        continue;
+                    }
+                    if next_depth >= max_depth {
+                        overloads_hit.push(OverloadInfo {
+                            kind: OverloadKind::DepthLimitOnUses,
+                            sym: Some(source_info.symbol.to_string()),
+                            pretty: Some(source_pretty.to_string()),
+                            exist: next_depth,
+                            included: depth + 1,
+                            local_limit: 0,
+                            global_limit: max_depth,
+                        });
+                        continue;
+                    }
+                    trace!(sym = caller_sym.as_str(), "scheduling uses");
+                    to_traverse.push_back((
+                        source_info.symbol,
+                        source_pretty,
+                        next_depth,
+                        all_traversals_valid,
+                    ));
+                }
+                if left_out {
+                    overloads_hit.push(OverloadInfo {
+                        kind: OverloadKind::UsesCallers,
+                        sym: Some(sym.to_string()),
+                        pretty: Some(pretty.to_string()),
+                        exist: callers.len() as u32,
+                        included,
+                        local_limit: caller_limit,
+                        global_limit: 0,
+                    });
                 }
             } else if !self.args.retain_all_symbol_data {
                 let sym_info = sym_node_set.get_mut(&sym_id);
@@ -1481,10 +1452,10 @@ impl PipelineCommand for TraverseCommand {
             //   * The name is mapped by query_core.toml
             //   * Range is not enforced on the server side.
             //     The following range is only for the UI purpose
-            "name": "path-limit",
-            "label": "Path limit",
-            "value": skip_uses_at_path_count,
-            "default": default_skip_uses_at_path_count,
+            "name": "caller-limit",
+            "label": "Caller limit",
+            "value": caller_limit,
+            "default": default_caller_limit,
             "range": [0, 16384],
         }));
         if self.args.edge.as_str() == "class" {

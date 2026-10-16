@@ -64,4 +64,44 @@ void target() {}
 
 }
 
+// Many uses by few callers aren't too many callers.
+namespace few_callers {
+
+void target() {}
+
+void caller0() {
+  target();
+  target();
+  target();
+  target();
+  target();
+  target();
+  target();
+  target();
+}
+
+void caller1() {
+  target();
+  target();
+  target();
+  target();
+  target();
+  target();
+  target();
+  target();
+}
+
+void caller2() {
+  target();
+  target();
+  target();
+  target();
+  target();
+  target();
+  target();
+  target();
+}
+
+}
+
 }

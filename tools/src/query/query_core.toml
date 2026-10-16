@@ -165,13 +165,17 @@ args.node-limit = "$0"
 command = "traverse"
 args.paths-between-node-limit = "$0"
 
-# This is an opt-out for the heuristic that ignores uses with a ton of paths.
-# We do not enforce a range limit on this because the node-limit ends up
-# dominating.
-[term.path-limit]
-[[term.path-limit.group.graph-traverse]]
+# How many of a symbol's callers to include when traversing its uses (see
+# `OverloadKind::UsesCallers`).  We do not enforce a range limit on this
+# because the node-limit ends up dominating.  ("path-limit" is its old name,
+# from when the limit was on the files with uses.)
+[term.caller-limit]
+[[term.caller-limit.group.graph-traverse]]
 command = "traverse"
-args.skip-uses-at-path-count = "$0"
+args.caller-limit = "$0"
+
+[term.path-limit]
+alias = "caller-limit"
 
 [term.ignore-nodes]
 [[term.ignore-nodes.group.graph-traverse]]

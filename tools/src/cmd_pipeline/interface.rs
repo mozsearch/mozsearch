@@ -436,17 +436,14 @@ pub enum OverloadKind {
     /// There's just too many subclasses!  This would happen for nsISupports for
     /// example.
     Subclasses,
-    /// There's just too many uses!  This happens for mozilla::Runnable::Run for
-    /// example when following the "uses" edges in traverse (and no other
+    /// There's just too many callers!  This happens for mozilla::Runnable::Run
+    /// for example when following the "uses" edges in traverse (and no other
     /// heuristics prevent considering the symbol when travelling up the
-    /// override edge from the subclass).
-    ///
-    /// The Paths variant here captures that we gave up based on the number of
-    /// paths which is a temporary thing (and we should change to Uses when
-    /// correcting).
-    UsesPaths,
-    /// Uses limit but based on lines.
-    UsesLines,
+    /// override edge from the subclass), or for `abort` in mfbt/Assertions.h's
+    /// macros.  A symbol's callers are the distinct callable contexts of its
+    /// uses, and only the first `local_limit` of them are included; `exist` is
+    /// how many contexts its uses have (callable or not).
+    UsesCallers,
     FieldMemberUses,
     NodeLimit,
     DepthLimitOnFieldPointer,
