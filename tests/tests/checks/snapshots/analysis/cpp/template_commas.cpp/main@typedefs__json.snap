@@ -1,0 +1,52 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/cpp/template_commas.cpp/typedefs__json
+---
+[
+  {
+    "loc": "00012:8-13",
+    "target": 1,
+    "kind": "alias",
+    "pretty": "template_commas::Pair<type-parameter-0-0, int>::First",
+    "sym": "TA_template_commas::Pair<type-parameter-0-0@2C_int>::First"
+  },
+  {
+    "loc": "00013:2-7",
+    "target": 1,
+    "kind": "use",
+    "pretty": "template_commas::Pair<type-parameter-0-0, int>::First",
+    "sym": "TA_template_commas::Pair<type-parameter-0-0@2C_int>::First"
+  },
+  {
+    "loc": "00016:17-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "template_commas::Pair::First",
+    "sym": "TA_template_commas::Pair::First"
+  },
+  {
+    "loc": "00012:8-13",
+    "source": 1,
+    "syntax": "alias,type",
+    "pretty": "type template_commas::Pair<type-parameter-0-0, int>::First",
+    "sym": "TA_template_commas::Pair<type-parameter-0-0@2C_int>::First",
+    "type": "A"
+  },
+  {
+    "loc": "00013:2-7",
+    "source": 1,
+    "syntax": "type,use",
+    "pretty": "type template_commas::Pair<type-parameter-0-0, int>::First",
+    "sym": "TA_template_commas::Pair<type-parameter-0-0@2C_int>::First",
+    "type": "template_commas::Pair<type-parameter-0-0, int>::First"
+  },
+  {
+    "loc": "00016:17-22",
+    "source": 1,
+    "syntax": "type,use",
+    "pretty": "type template_commas::Pair::First",
+    "sym": "TA_template_commas::Pair::First",
+    "type": "template_commas::Pair<char, int>::First"
+  }
+]

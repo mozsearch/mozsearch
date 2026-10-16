@@ -1221,6 +1221,9 @@ pub fn read_analyses<T>(
                     continue;
                 }
             };
+            // (Whatever produced the file, its symbols have no commas; see
+            // `escape_record_symbol_commas`.)
+            super::analysis_manglings::escape_record_symbol_commas(&mut data);
             let obj = data.as_object_mut().unwrap();
             // Destructively pull the "loc" out before passing it into the filter.  This is for
             // read_structured which stores everything it doesn't directly process in `payload`.

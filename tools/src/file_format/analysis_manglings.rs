@@ -12,6 +12,161 @@ pub fn mangle_file(filename: &str) -> String {
     .to_string()
 }
 
+/// A symbol with its commas, which separate symbols in source records' "sym"s
+/// (see `AnalysisSource::sym`) and pages' `data-symbols` attributes, escaped
+/// like `mangle_file`'s, as "@2C" (ex: in the clang plugin's symbols for C++
+/// templates' types, "T_Pair<A,_B>", before it escaped them).
+pub fn escape_symbol_commas(sym: &str) -> std::borrow::Cow<'_, str> {
+    if sym.contains(',') {
+        std::borrow::Cow::Owned(sym.replace(',', "@2C"))
+    } else {
+        std::borrow::Cow::Borrowed(sym)
+    }
+}
+
+/// Split a source record's comma-separated symbols, but not at commas inside
+/// a symbol's brackets (ex: "T_Pair<A,_B>"'s; see `escape_symbol_commas`):
+/// only at commas outside of "<>", "()", and "[]", where a ">" only closes a
+/// "<" (so that "(N_>_0)" doesn't), and operators' "<" and ">" (ex:
+/// "operator<<") don't count.  If the brackets don't balance, all commas
+/// separate, as before.
+pub fn split_symbol_list(syms: &str) -> Vec<&str> {
+    let mut pieces = vec![];
+    let mut stack: Vec<char> = vec![];
+    let mut start = 0;
+    for (i, c) in syms.char_indices() {
+        let before = &syms[..i];
+        let in_operator = ["operator", "operator<", "operator>", "operator<=", "operator-"]
+            .iter()
+            .any(|op| before.ends_with(op));
+        match c {
+            '<' | '>' if in_operator => {}
+            '<' | '(' | '[' => stack.push(c),
+            '>' => {
+                if stack.last() == Some(&'<') {
+                    stack.pop();
+                }
+            }
+            ')' | ']' => {
+                let open = if c == ')' { '(' } else { '[' };
+                match stack.iter().rposition(|&o| o == open) {
+                    Some(pos) => stack.truncate(pos),
+                    None => return syms.split(',').collect(),
+                }
+            }
+            ',' if stack.is_empty() => {
+                pieces.push(&syms[start..i]);
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    if !stack.is_empty() {
+        return syms.split(',').collect();
+    }
+    pieces.push(&syms[start..]);
+    pieces
+}
+
+#[test]
+fn test_symbol_commas() {
+    assert_eq!(split_symbol_list("_ZN3fooEv,_ZN3barEv"), vec!["_ZN3fooEv", "_ZN3barEv"]);
+    assert_eq!(
+        split_symbol_list("TA_Pair<A,_B<C,_D>>::type,_ZN3barEv"),
+        vec!["TA_Pair<A,_B<C,_D>>::type", "_ZN3barEv"]
+    );
+    assert_eq!(
+        split_symbol_list("F_<T_Foo<(N_>_0),_int>>_mBar,T_Baz"),
+        vec!["F_<T_Foo<(N_>_0),_int>>_mBar", "T_Baz"]
+    );
+    assert_eq!(
+        split_symbol_list("T_ns::operator<<(A,_B)::Local,_ZN3barEv"),
+        vec!["T_ns::operator<<(A,_B)::Local", "_ZN3barEv"]
+    );
+    // (Unbalanced brackets: all commas separate.)
+    assert_eq!(split_symbol_list("T_a<b,T_c"), vec!["T_a<b", "T_c"]);
+    assert_eq!(escape_symbol_commas("TA_Pair<A,_B>::type"), "TA_Pair<A@2C_B>::type");
+    assert_eq!(escape_symbol_commas("_ZN3fooEv"), "_ZN3fooEv");
+}
+
+/// Escape the commas in an analysis record's symbols (see
+/// `escape_symbol_commas`) from producers which didn't (ex: the clang plugin's
+/// for C++ templates' types, from mozilla-central's copy of it), as JSON, as
+/// `read_analyses` reads records (whether merge-analyses merged their files or
+/// not, ex: generated files which differ between platforms): a source record's "sym" is its symbols, separated
+/// by the commas outside their brackets (see `split_symbol_list`), and other
+/// fields named "...sym" (in any records, and their parts) are one symbol,
+/// and "...syms", "subclasses", and "overriddenBy" lists of them.  (Source
+/// records' expansions are keyed by lists of macros' symbols, which have no
+/// commas.)
+pub fn escape_record_symbol_commas(obj: &mut serde_json::Value) {
+    use itertools::Itertools;
+    use serde_json::Value;
+    fn escape(value: &mut Value) {
+        if let Value::String(sym) = value
+            && sym.contains(',')
+        {
+            *sym = escape_symbol_commas(sym).into_owned();
+        }
+    }
+    fn walk(value: &mut Value) {
+        match value {
+            Value::Object(map) => {
+                for (key, value) in map.iter_mut() {
+                    let key = key.to_ascii_lowercase();
+                    if key.ends_with("sym") {
+                        escape(value);
+                    } else if key.ends_with("syms") || key == "subclasses" || key == "overriddenby"
+                    {
+                        if let Value::Array(syms) = value {
+                            syms.iter_mut().for_each(escape);
+                        }
+                    } else {
+                        walk(value);
+                    }
+                }
+            }
+            Value::Array(values) => values.iter_mut().for_each(walk),
+            _ => {}
+        }
+    }
+    if obj.get("source").is_none() {
+        walk(obj);
+        return;
+    }
+    if let Some(Value::String(syms)) = obj.get_mut("sym")
+        && syms.contains(',')
+    {
+        *syms = split_symbol_list(syms)
+            .into_iter()
+            .map(escape_symbol_commas)
+            .join(",");
+    }
+    if let Some(typesym) = obj.get_mut("typesym") {
+        escape(typesym);
+    }
+}
+
+#[test]
+fn test_escape_record_symbol_commas() {
+    let mut source = serde_json::json!({"source": 1, "pretty": "type Pair<A, B>::type", "sym": "TA_Pair<A,_B>::type,_ZN3fooEv", "typesym": "T_Pair<A,_B>"});
+    escape_record_symbol_commas(&mut source);
+    assert_eq!(source["sym"], "TA_Pair<A@2C_B>::type,_ZN3fooEv");
+    assert_eq!(source["typesym"], "T_Pair<A@2C_B>");
+    let mut target = serde_json::json!({"target": 1, "pretty": "Pair<A, B>::type", "sym": "TA_Pair<A,_B>::type", "contextsym": "T_Pair<A,_B>"});
+    escape_record_symbol_commas(&mut target);
+    assert_eq!(target["sym"], "TA_Pair<A@2C_B>::type");
+    assert_eq!(target["contextsym"], "T_Pair<A@2C_B>");
+    let mut structured = serde_json::json!({"structured": 1, "sym": "T_Pair<A,_B>", "fields": [{"sym": "F_<T_Pair<A,_B>>_mFirst", "typesym": "T_X<C,_D>", "pointerInfo": [{"sym": "T_Y<E,_F>"}]}], "subclasses": ["T_Sub<G,_H>"], "ontologySlots": [{"syms": ["T_Z<I,_J>"]}]});
+    escape_record_symbol_commas(&mut structured);
+    assert_eq!(structured["sym"], "T_Pair<A@2C_B>");
+    assert_eq!(structured["fields"][0]["sym"], "F_<T_Pair<A@2C_B>>_mFirst");
+    assert_eq!(structured["fields"][0]["typesym"], "T_X<C@2C_D>");
+    assert_eq!(structured["fields"][0]["pointerInfo"][0]["sym"], "T_Y<E@2C_F>");
+    assert_eq!(structured["subclasses"][0], "T_Sub<G@2C_H>");
+    assert_eq!(structured["ontologySlots"][0]["syms"][0], "T_Z<I@2C_J>");
+}
+
 // NOTE: The generated files can have different symbol than this.
 //       Please consider using analysis::collect_file_syms_from_target or
 //       analysis::collect_file_syms_from_source whenever possible.

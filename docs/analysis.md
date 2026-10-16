@@ -75,6 +75,17 @@ comma-delimited list of symbols. The results for all of these symbols
 are combined in search results. Target records can only contain a
 single symbol.
 
+So symbols can't contain commas (or whitespace): producers escape them, like
+file symbols' other characters, as `@2C` (ex: the clang plugin's symbols for a
+C++ partial specialization's members, `TA_Pair<A@2C_int>::First`, and
+js-analyze's for a property with a string key, `obj#a@2Cb`).  The tools escape
+the commas of symbols from producers which don't (ex: older versions of the
+clang plugin, like mozilla-central's copy of it) as they read analysis files
+(see `escape_record_symbol_commas`), so merged analysis (merge-analyses) has
+none, and neither do generated files' per-platform analysis, which isn't
+merged; source records' symbol lists are split only at commas outside of
+brackets.
+
 In JavaScript, the symbol can take three forms:
 
 * `${file_index}-${var_index}`. All local variables are assigned a number

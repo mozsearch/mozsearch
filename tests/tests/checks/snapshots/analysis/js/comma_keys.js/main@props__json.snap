@@ -1,0 +1,22 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/js/comma_keys.js/props__json
+---
+[
+  {
+    "loc": "5:3-6",
+    "source": 1,
+    "syntax": "def,prop",
+    "pretty": "property commaKeys.a,b",
+    "sym": "commaKeys#a@2Cb"
+  },
+  {
+    "loc": "5:3-6",
+    "target": 1,
+    "kind": "def",
+    "pretty": "commaKeys.a,b",
+    "sym": "commaKeys#a@2Cb",
+    "context": "commaKeys"
+  }
+]

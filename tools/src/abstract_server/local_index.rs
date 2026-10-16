@@ -23,6 +23,7 @@ use super::{CommitInfo, TextMatches, TextMatchesByFile, TreeInfo};
 use crate::blame;
 use crate::cmd_pipeline::interface::split_file_key;
 use crate::file_format::analysis::{read_analyses, read_source};
+use crate::file_format::analysis_manglings::escape_record_symbol_commas;
 use crate::file_format::bisectable_mmap::BisectableMmap;
 use crate::file_format::chunked_gzip::{self, Row};
 use crate::file_format::code_coverage_report;
@@ -264,7 +265,9 @@ impl AbstractServer for LocalIndex {
     async fn fetch_raw_analysis<'a>(&self, sf_path: &str) -> Result<BoxStream<'a, Value>> {
         let norm_path = self.normalize_and_validate_path(sf_path)?;
         let full_path = self.translate_path(SearchfoxIndexRoot::CompressedAnalysis, norm_path)?;
-        let values = read_maybe_gzipped_ndjson_from_file(&full_path).await?;
+        let mut values = read_maybe_gzipped_ndjson_from_file(&full_path).await?;
+        // (As `read_analyses` reads them; see `escape_record_symbol_commas`.)
+        values.iter_mut().for_each(escape_record_symbol_commas);
         Ok(Box::pin(tokio_stream::iter(values)))
     }
 

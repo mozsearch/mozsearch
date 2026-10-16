@@ -642,7 +642,29 @@ private:
   }
 
   std::string mangleQualifiedName(std::string Name) {
-    std::replace(Name.begin(), Name.end(), ' ', '_');
+    // Spaces become underscores, in place, and commas, which separate symbols
+    // in source records' "sym"s (ex: between a template's arguments), are
+    // escaped like file symbols' characters, as "@2C", which needs a new
+    // string from the first comma on.  (Most names have none, so they're only
+    // scanned once, in place.)
+    for (size_t I = 0; I < Name.size(); I++) {
+      if (Name[I] == ' ') {
+        Name[I] = '_';
+      } else if (Name[I] == ',') {
+        std::string Escaped;
+        Escaped.reserve(Name.size() + 8);
+        Escaped.append(Name, 0, I);
+        for (; I < Name.size(); I++) {
+          char C = Name[I];
+          if (C == ',') {
+            Escaped += "@2C";
+          } else {
+            Escaped += C == ' ' ? '_' : C;
+          }
+        }
+        return Escaped;
+      }
+    }
     return Name;
   }
 

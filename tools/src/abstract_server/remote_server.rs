@@ -5,7 +5,10 @@ use url::{ParseError, Url};
 use ustr::Ustr;
 
 use crate::{
-    file_format::{code_coverage_report, crossref::CrossrefData, jumpref::JumprefData},
+    file_format::{
+        analysis_manglings::escape_record_symbol_commas, code_coverage_report,
+        crossref::CrossrefData, jumpref::JumprefData,
+    },
     git_ops::RevisionCoverage,
     hyperblame::journals::JournalKind,
 };
@@ -133,7 +136,13 @@ impl AbstractServer for RemoteServer {
         let raw_str = get(url).await?.text().await?;
         let values: Result<Vec<Value>> = raw_str
             .lines()
-            .map(|s| from_str(s).map_err(ServerError::from))
+            .map(|s| {
+                // (As `read_analyses` reads them; see
+                // `escape_record_symbol_commas`.)
+                let mut value: Value = from_str(s).map_err(ServerError::from)?;
+                escape_record_symbol_commas(&mut value);
+                Ok(value)
+            })
             .collect();
         Ok(Box::pin(tokio_stream::iter(values?)))
     }

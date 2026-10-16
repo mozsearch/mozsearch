@@ -544,6 +544,14 @@ function atEscape(text) {
   return text.replace(/[^A-Za-z0-9_/]/g, matched => "@" + matched.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0"));
 }
 
+// A symbol with its commas, which separate symbols in source records' "sym"s
+// and pages' data-symbols attributes, escaped like atEscape's (ex: in a
+// property with a string key, `colors["187,0,0,204"]`'s "colors#187@2C0@2C0@2C204").
+// (Some records have no symbol.)
+function escapeSymbolCommas(sym) {
+  return typeof sym == "string" ? sym.replace(/,/g, "@2C") : sym;
+}
+
 // Fluent localization (see tools/languages/semantic_mappings/fluent.toml for
 // its symbols): message identifiers, resource ids like "browser/foo.ftl",
 // object properties whose values are message ids (ex: `l10nId: "id"`,
@@ -2274,7 +2282,7 @@ class Analyzer extends ASTVisitor {
     } else {
       locProp = loc;
     }
-    let obj = {loc: locProp, source: 1, syntax, pretty, sym};
+    let obj = {loc: locProp, source: 1, syntax, pretty, sym: escapeSymbolCommas(sym)};
     if (no_crossref) {
       obj.no_crossref = 1;
     }
@@ -2313,8 +2321,8 @@ class Analyzer extends ASTVisitor {
     } else {
       locProp = loc;
     }
-    print(JSON.stringify({loc: locProp, target: 1, kind, pretty, sym,
-                          context: this.context}));
+    print(JSON.stringify({loc: locProp, target: 1, kind, pretty,
+                          sym: escapeSymbolCommas(sym), context: this.context}));
   }
 
   defProp(name, loc, extra, extraPretty, maybeNesting) {
