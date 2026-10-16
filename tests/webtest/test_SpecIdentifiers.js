@@ -11,3 +11,14 @@ add_task(async function test_SpecTermQuery() {
   ok(content.textContent.includes("Definitions (example poke)"),
      "/query/ finds a spec term's definition by the term");
 });
+
+// (The router reads identifiers with spaces too.)
+add_task(async function test_SpecTermSearch() {
+  await TestUtils.loadPath("/tests/search?q=poke");
+  const content = frame.contentDocument.querySelector("#content");
+  await waitForCondition(() => content.textContent.includes("Definitions (example poke)"),
+                         "Classic search finds a spec term's definition by the term");
+  await TestUtils.loadPath(`/tests/search?q=${encodeURIComponent("example poke")}`);
+  await waitForCondition(() => frame.contentDocument.querySelector("#content").textContent.includes("Definitions (example poke)"),
+                         "and by its whole pretty name");
+});

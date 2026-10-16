@@ -72,9 +72,13 @@ def lookup(tree_name, needle, complete, fold_case):
     result = []
     mm.seek(first)
     while mm.tell() < last:
-        # Identifiers files are written from Rust and are in utf-8
+        # Identifiers files are written from Rust and are in utf-8.  (Their
+        # identifiers can have spaces, ex: web specs' "<spec> <term>", but
+        # their symbols can't, so the symbol is after the last space.)
         line = mm.readline().decode('utf-8').strip()
-        pieces = line.split(' ')
+        pieces = line.rsplit(' ', 1)
+        if len(pieces) != 2:
+            continue
         suffix = pieces[0][len(needle):]
         if ':' in suffix or '.' in suffix or (complete and suffix):
             continue

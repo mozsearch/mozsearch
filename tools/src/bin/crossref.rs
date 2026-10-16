@@ -396,11 +396,18 @@ fn process_analysis_target(
         },
     ));
 
-    // Idempotently insert the pretty identifier -> symbol mapping as long as the pretty
-    // symbol looks sane.  (Whitespace breaks the `identifiers` file's text format, so
-    // we can't include them.)
+    // Idempotently insert the pretty identifier -> symbol mapping as long as the
+    // symbol looks sane.  (The `identifiers` file's lines are identifiers and
+    // their symbols, separated by the line's last space, so symbols can't have
+    // whitespace, and identifiers' other whitespace, ex: a web spec's term's
+    // newline, is spaces.)
     let ch = piece.sym.chars().next().unwrap();
-    if !ch.is_ascii_digit() && !piece.sym.contains(' ') {
+    if !ch.is_ascii_digit() && !piece.sym.contains(char::is_whitespace) {
+        let pretty = if piece.pretty.contains(|c: char| c.is_whitespace() && c != ' ') {
+            piece.pretty.split_whitespace().collect::<Vec<_>>().join(" ")
+        } else {
+            piece.pretty.to_string()
+        };
         // Split the pretty identifier into parts so for "foo::bar::Baz"
         // we can emit ["foo::bar::Baz", "bar::Baz", "Baz"] into our
         // identifiers table so people don't have to always type out
@@ -420,7 +427,7 @@ fn process_analysis_target(
         } else {
             ""
         };
-        let (components, delim) = split_pretty(piece.pretty.as_str(), split_sym);
+        let (components, delim) = split_pretty(&pretty, split_sym);
         for i in 0..components.len() {
             let sub = &components[i..components.len()];
             let sub = sub.join(delim);
