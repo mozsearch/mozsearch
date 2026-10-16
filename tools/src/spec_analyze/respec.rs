@@ -43,12 +43,13 @@ use super::wattsi::step_path;
 use super::webidl_defs::{IdlDef, IdlReference, idl_defs, idl_references};
 use super::xref::{Export, Query, Terms};
 use super::{
-    Combined, ForResolver, InContext, Lines, SpecsConfig, dfn_kind, normalize_path, spec_records,
-    spec_structured, spec_symbol, unescape_context_name as context_name,
+    Combined, ForResolver, InContext, Lines, SpecsConfig, dfn_kind, intro_context, normalize_path,
+    section_step_context, spec_records, spec_structured, spec_symbol,
+    unescape_context_name as context_name,
 };
 use crate::file_format::analysis::Location;
 use crate::semantic_analyzer::{Record, sort_records};
-use crate::tree_sitter_support::spec_tokenizer::{html_contexts, idl_steps};
+use crate::tree_sitter_support::spec_tokenizer::{html_contexts, idl_steps, non_normative_ranges};
 
 /// The analysis's counts, for reporting.
 #[derive(Debug, Default)]
@@ -1945,9 +1946,12 @@ fn analyze_placed(
     }
     rendering.cited.sort_by_key(|(spec, _)| spec.to_lowercase());
 
-    // Contexts: the innermost algorithm (by its first dfn) with the step, or
-    // the section.
+    // Contexts: the innermost algorithm (by its first dfn, or else what its
+    // intro names, see `intro_context`) with the step, or the section, as for
+    // algorithms without symbols and non-normative blocks (see
+    // `section_step_context`).
     let contexts = html_contexts(src, &doc.items);
+    let non_normative = non_normative_ranges(src, &doc.items, false);
     // (Sections are symbolized by their ids, or else their headings'.)
     let mut heading_syms: HashMap<usize, String> = heading_ids
         .iter()
@@ -2072,6 +2076,22 @@ fn analyze_placed(
             },
         ));
     }
+    for (range, context) in &mut algorithms {
+        if context.sym.is_empty()
+            && let Some(intro) = intro_context(
+                src,
+                range,
+                // (Terms' definitions and references, not sections' or
+                // bibliography references, `#bib-`s.)
+                pending
+                    .iter()
+                    .filter(|p| p.what != "section" && !p.sym.contains("_bib@2D"))
+                    .map(|p| (p.range.start, p.sym.as_str(), p.pretty.as_str())),
+            )
+        {
+            *context = intro;
+        }
+    }
     rendering.algorithms = algorithms
         .iter()
         .filter(|(_, context)| !context.sym.is_empty())
@@ -2081,7 +2101,15 @@ fn analyze_placed(
         .filter(|&node| doc.is(node, "li"))
         .map(|node| (doc.nodes[node].range.start, node))
         .collect();
+    let section_at = |pos: usize| -> InContext {
+        let i = section_contexts.partition_point(|(start, _)| *start <= pos);
+        i.checked_sub(1)
+            .map_or_else(InContext::default, |i| section_contexts[i].1.clone())
+    };
     let context_at = |pos: usize| -> InContext {
+        if non_normative.iter().any(|range| range.contains(&pos)) {
+            return section_at(pos);
+        }
         if let Some((range, context)) = algorithms
             .iter()
             .filter(|(range, _)| range.contains(&pos))
@@ -2095,6 +2123,9 @@ fn analyze_placed(
                 .map(|(_, node)| *node)
                 .next();
             let path = li.map_or_else(String::new, |li| step_path(&doc, li, range.start));
+            if context.sym.is_empty() {
+                return section_step_context(section_at(pos), &path);
+            }
             return if path.is_empty() {
                 context.clone()
             } else {
@@ -2104,9 +2135,7 @@ fn analyze_placed(
                 }
             };
         }
-        let i = section_contexts.partition_point(|(start, _)| *start <= pos);
-        i.checked_sub(1)
-            .map_or_else(InContext::default, |i| section_contexts[i].1.clone())
+        section_at(pos)
     };
 
     // Structured records: definitions' kinds and parents.
@@ -3139,6 +3168,56 @@ var respecConfig = { shortName: "example-respec", specStatus: "ED" };
         assert_eq!(
             context,
             Some(("poke() step 2".to_string(), sym("dom-gizmo-poke")))
+        );
+    }
+
+    #[test]
+    fn test_algorithm_contexts() {
+        // As Wattsi's: an algorithm without a definition of its own is what
+        // its intro names, or else its section's, and so are non-normative
+        // blocks in algorithms.
+        let src = r##"<section id=frobbing><h2>Frobbing</h2>
+<p>A <dfn>gadget</dfn> has <dfn>frob steps</dfn>, and <dfn>pokes</dfn>.
+<p>The <a>frob steps</a> for a <a>gadget</a> are:</p>
+<div algorithm>
+<ol>
+ <li><p><a data-lt="pokes">Poke</a> it.
+  <p class=note>It <a>pokes</a> once.
+</ol>
+</div>
+<div algorithm>
+<p>Tidy up as follows:</p>
+<ol>
+ <li><p><a data-lt="pokes">Poke</a> every <a>gadget</a>.
+</ol>
+</div>
+</section>
+"##;
+        let (records, _) = analyze(src, "", "example-respec", &config(), &Terms::default());
+        let uses: Vec<String> = records
+            .iter()
+            .filter_map(|record| match record {
+                Record::Target(t) if t.data.kind.to_ustr() == "use" => Some(format!(
+                    "{} {} {} ({})",
+                    t.loc.lineno, t.data.sym, t.data.context, t.data.contextsym
+                )),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            uses,
+            vec![
+                "3 SPEC_example@2Drespec_dfn@2Dfrob@2Dsteps Frobbing (SPEC_example@2Drespec_frobbing)",
+                "3 SPEC_example@2Drespec_dfn@2Dgadget Frobbing (SPEC_example@2Drespec_frobbing)",
+                "6 SPEC_example@2Drespec_dfn@2Dpokes frob steps step 1 (SPEC_example@2Drespec_dfn@2Dfrob@2Dsteps)",
+                // (The note.)
+                "7 SPEC_example@2Drespec_dfn@2Dpokes Frobbing (SPEC_example@2Drespec_frobbing)",
+                // (The algorithm whose intro names nothing.)
+                "13 SPEC_example@2Drespec_dfn@2Dpokes Frobbing step 1 (SPEC_example@2Drespec_frobbing)",
+                "13 SPEC_example@2Drespec_dfn@2Dgadget Frobbing step 1 (SPEC_example@2Drespec_frobbing)",
+            ],
+            "{:#?}",
+            uses
         );
     }
 

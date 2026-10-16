@@ -18,7 +18,13 @@
 //!
 //! Records' contexts are the spec's sections and algorithms (as the spec
 //! tokenizer's, see `spec_tokenizer::html_contexts`), and within an
-//! algorithm's steps, the step's number (ex: "navigate step 12.6").
+//! algorithm's steps, the step's number (ex: "navigate step 12.6").  An
+//! algorithm without a definition of its own is what its intro names (ex: a
+//! method's steps after "The <code data-x="...">foo()</code> method steps
+//! are:", see `intro_context`), or else its section's (ex: "Data state step
+//! 2"), and non-normative blocks in algorithms (notes, examples; see
+//! `spec_tokenizer::non_normative_ranges`) are their sections', so their
+//! references aren't the algorithms' calls (see `section_step_context`).
 //!
 //! Definitions also get structured records (see `spec_structured`), with
 //! kinds from their types (see `dfn_kind`), their parents (by what they're
@@ -726,6 +732,90 @@ impl Combined {
 pub struct InContext {
     pub name: String,
     pub sym: String,
+}
+
+lazy_static! {
+    /// The start of a list (HTML's, or a Markdown list item).
+    static ref LIST_START: regex::Regex =
+        regex::Regex::new(r"(?m)<(?:ol|ul|dl)\b|^[ \t]*(?:\d+\.|[*+-])[ \t]").unwrap();
+    static ref MARKUP: regex::Regex = regex::Regex::new(r"<[^>]*>").unwrap();
+}
+
+/// The intro of an algorithm at `range` of `src`: its text before its first
+/// list (without its own start tag, ex: `<div algorithm>`), or if it starts
+/// with its list, the paragraph right before it (back to a `<p>` or a blank
+/// line); if it opens steps: it ends with ":", or mentions steps (ex: "The
+/// <code data-x="dom-document-hasStorageAccess">hasStorageAccess()</code>
+/// method steps are:").
+pub(crate) fn algorithm_intro(src: &str, range: &Range<usize>) -> Option<Range<usize>> {
+    let text = &src[range.clone()];
+    let own_tag = if text.starts_with('<') {
+        text.find('>').map_or(0, |end| end + 1)
+    } else {
+        0
+    };
+    let words = |range: &Range<usize>| {
+        let text = MARKUP.replace_all(&src[range.clone()], "");
+        text.split_whitespace().collect::<Vec<_>>().join(" ")
+    };
+    let list = LIST_START
+        .find(&text[own_tag..])
+        .map_or(text.len(), |m| own_tag + m.start());
+    let mut intro = range.start + own_tag..range.start + list;
+    if words(&intro).is_empty() {
+        let from = src.floor_char_boundary(range.start.saturating_sub(1000));
+        // (Without the whitespace before the algorithm, ex: Markdown's blank
+        // line after its intro.)
+        let before = src[from..range.start].trim_end();
+        let start = [before.rfind("<p>"), before.rfind("<p "), before.rfind("\n\n")]
+            .into_iter()
+            .flatten()
+            .max()?;
+        intro = from + start..from + before.len();
+    }
+    let words = words(&intro);
+    (words.ends_with(':') || words.contains("steps")).then_some(intro)
+}
+
+/// The context of an algorithm at `range` of `src` which defines nothing
+/// itself (ex: HTML's `<div algorithm>` after "The <code
+/// data-x="dom-document-hasStorageAccess">hasStorageAccess()</code> method
+/// steps are:", or "The insertion steps for the HTML Standard ... are
+/// defined as the following:"): the first of the definitions and references
+/// (positions, symbols, and pretty names) in its intro (see
+/// `algorithm_intro`), named by its pretty name without its spec's name and
+/// what it's for.
+pub(crate) fn intro_context<'a>(
+    src: &str,
+    range: &Range<usize>,
+    refs: impl Iterator<Item = (usize, &'a str, &'a str)>,
+) -> Option<InContext> {
+    let intro = algorithm_intro(src, range)?;
+    let (_, sym, pretty) = refs
+        .filter(|(pos, sym, _)| intro.contains(pos) && !sym.is_empty())
+        .min_by_key(|(pos, _, _)| *pos)?;
+    let name = pretty.split_once(' ').map_or(pretty, |(_, name)| name);
+    let name = name.rsplit('/').next().unwrap_or(name);
+    Some(InContext {
+        name: name.to_string(),
+        sym: sym.to_string(),
+    })
+}
+
+/// The context of a position in an algorithm without a symbol (see
+/// `intro_context`), or in a non-normative block (see
+/// `spec_tokenizer::non_normative_ranges`): its section's, whose references
+/// aren't calls (sections aren't callable), with the algorithm's step, if
+/// any (ex: "Data state step 2").
+pub(crate) fn section_step_context(section: InContext, step: &str) -> InContext {
+    if step.is_empty() {
+        section
+    } else {
+        InContext {
+            name: format!("{} step {}", section.name, step),
+            sym: section.sym,
+        }
+    }
 }
 
 /// A definition's or reference's records: a source record, whose pretty

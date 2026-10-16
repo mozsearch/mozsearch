@@ -963,6 +963,101 @@ pub(crate) fn idl_steps(src: &str, items: &[Item]) -> Vec<(Range<usize>, usize)>
     steps
 }
 
+/// Classes of specs' non-normative blocks (notes, examples, editors'
+/// issues, warnings, and summaries for developers), whose references aren't
+/// steps of the algorithms they're in (see `non_normative_ranges`).
+const NON_NORMATIVE_CLASSES: &[&str] = &[
+    "note",
+    "example",
+    "XXX",
+    "issue",
+    "informative",
+    "non-normative",
+    "domintro",
+    "warning",
+];
+
+/// Elements which are non-normative blocks (ecmarkup's notes).
+const NON_NORMATIVE_ELEMENTS: &[&str] = &["emu-note"];
+
+/// Elements whose ends end a paragraph whose end tag is left out.
+const PARAGRAPH_PARENTS: &[&str] = &[
+    "li", "dd", "dt", "td", "th", "div", "section", "aside", "blockquote", "figure", "ol", "ul",
+    "dl", "body",
+];
+
+/// The ranges of a spec source's non-normative blocks: elements of the
+/// non-normative classes (see `NON_NORMATIVE_CLASSES`) or elements (see
+/// `NON_NORMATIVE_ELEMENTS`), and with `markdown` (Bikeshed's), paragraphs
+/// starting "Note:", "Note, ", or "Issue:" (outside literal elements), to a
+/// blank line or a list item.  (A `<p>` without its end tag ends at the next
+/// block or list item, or its parent's end.)
+pub(crate) fn non_normative_ranges(src: &str, items: &[Item], markdown: bool) -> Vec<Range<usize>> {
+    let mut ranges = vec![];
+    for (i, item) in items.iter().enumerate() {
+        let Item::Start { name, range, .. } = item else {
+            continue;
+        };
+        let non_normative = NON_NORMATIVE_ELEMENTS.contains(&name.as_str())
+            || attr(src, item, "class").is_some_and(|class| {
+                class
+                    .split_ascii_whitespace()
+                    .any(|class| NON_NORMATIVE_CLASSES.contains(&class))
+            });
+        if !non_normative {
+            continue;
+        }
+        let end = if name == "p" {
+            (i + 1..items.len())
+                .find(|&j| match &items[j] {
+                    Item::End { name, .. } => name == "p" || PARAGRAPH_PARENTS.contains(&name.as_str()),
+                    Item::Start { name, .. } => {
+                        BLOCKS.contains(&name.as_str())
+                            || matches!(name.as_str(), "li" | "dt" | "dd" | "tr" | "td" | "th")
+                    }
+                    _ => false,
+                })
+                .map(|j| {
+                    if is_end(&items[j], "p") {
+                        items[j].range().end
+                    } else {
+                        items[j].range().start
+                    }
+                })
+        } else {
+            matching_end(items, i, name).map(|j| items[j].range().end)
+        };
+        if let Some(end) = end {
+            ranges.push(range.start..end);
+        }
+    }
+    if markdown {
+        let literal = literal_ranges(items);
+        let mut pos = 0;
+        let mut open: Option<usize> = None;
+        for line in src.split_inclusive('\n') {
+            let text = line.trim();
+            let starts_note = ["Note:", "Note, ", "Issue:"].iter().any(|n| text.starts_with(n))
+                && !literal.iter().any(|r| r.contains(&pos));
+            if let Some(start) = open
+                && (text.is_empty() || MD_LIST_ITEM.is_match(line) || starts_note)
+            {
+                ranges.push(start..pos);
+                open = None;
+            }
+            if starts_note {
+                open = Some(pos);
+            }
+            pos += line.len();
+        }
+        if let Some(start) = open {
+            ranges.push(start..pos);
+        }
+    }
+    ranges.sort_by_key(|range| range.start);
+    ranges
+}
+
 /// Tokenize a Bikeshed source (see the module's documentation).
 /// A Bikeshed source's markup and contexts (both HTML's and Markdown's).
 pub(crate) fn bikeshed_contexts(source: &str) -> (Vec<Item>, Vec<Context>) {
@@ -1187,6 +1282,48 @@ fn markdown_contexts(src: &str, items: &[Item]) -> Vec<Context> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_non_normative_ranges() {
+        let src = "\
+<div algorithm>
+<p>To <dfn>poke</dfn> a widget:</p>
+<ol>
+ <li><p>Poke it.
+  <p class=note>Poking isn't <span>frobbing</span>.
+ <li><p>Return.
+</ol>
+<div class=\"example no-backref\"><p>An <span>example</span>.</p></div>
+</div>
+<emu-note>A <emu-xref>note</emu-xref>.</emu-note>
+
+1. Frob.
+
+    Note: Frobbing [=pokes=].
+    Still the note.
+
+2. Return.
+";
+        let texts = |markdown| {
+            let items = lex(src, markdown);
+            non_normative_ranges(src, &items, markdown)
+                .into_iter()
+                .map(|range| src[range].trim_end().to_string())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            texts(false),
+            vec![
+                "<p class=note>Poking isn't <span>frobbing</span>.",
+                "<div class=\"example no-backref\"><p>An <span>example</span>.</p></div>",
+                "<emu-note>A <emu-xref>note</emu-xref>.</emu-note>",
+            ]
+        );
+        assert_eq!(
+            texts(true).last().map(String::as_str),
+            Some("    Note: Frobbing [=pokes=].\n    Still the note.")
+        );
+    }
 
     #[test]
     fn test_idl_steps() {

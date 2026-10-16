@@ -54,6 +54,7 @@ use super::{
 };
 use crate::file_format::analysis::Location;
 use crate::semantic_analyzer::{Record, sort_records};
+use crate::tree_sitter_support::spec_tokenizer::non_normative_ranges;
 
 pub(crate) const CLAUSES: &[&str] = &["emu-clause", "emu-annex", "emu-intro"];
 
@@ -1018,7 +1019,17 @@ fn analyze_placed(
         ids.extend(steps.starts.iter().filter_map(|(_, _, id)| id.clone()));
     }
 
-    // Contexts: the innermost clause, and the step.
+    // Contexts: the innermost clause, and the step; but a non-normative block
+    // (ex: an abstract operation's `<emu-note>`) in an algorithm's clause is
+    // its parent clause's, whose references aren't the algorithm's calls.
+    let non_normative = non_normative_ranges(src, &doc.items, false);
+    let callable = |clause: &Clause| {
+        clause.aoid.is_some()
+            || doc.nodes[clause.node]
+                .children
+                .iter()
+                .any(|&child| doc.is(child, "emu-alg"))
+    };
     let mut clause_ranges: Vec<(Range<usize>, usize)> = clauses
         .values()
         .map(|c| (doc.nodes[c.node].range.clone(), c.node))
@@ -1030,11 +1041,16 @@ fn analyze_placed(
         .map(|(i, (node, _))| (doc.content_range(*node), i))
         .collect();
     let context_at = |pos: usize| -> InContext {
-        let clause = clause_ranges
+        let containing: Vec<&Clause> = clause_ranges
             .iter()
             .filter(|(range, _)| range.start <= pos && pos < range.end)
-            .last()
-            .map(|(_, node)| &clauses[node]);
+            .map(|(_, node)| &clauses[node])
+            .collect();
+        let in_note = non_normative.iter().any(|range| range.contains(&pos));
+        let clause = match containing.last() {
+            Some(&clause) if in_note && callable(clause) => containing.iter().rev().nth(1).copied(),
+            clause => clause.copied(),
+        };
         let Some(clause) = clause else {
             return InContext::default();
         };
@@ -1043,7 +1059,8 @@ fn analyze_placed(
             .partition_point(|(range, _)| range.start <= pos)
             .checked_sub(1)
             .filter(|&i| pos < alg_ranges[i].0.end);
-        if let Some(path) = alg.and_then(|i| algorithms[alg_ranges[i].1].1.path_at(pos))
+        if !in_note
+            && let Some(path) = alg.and_then(|i| algorithms[alg_ranges[i].1].1.path_at(pos))
             && !path.is_empty()
         {
             name = format!("{} step {}", name, path);
@@ -1762,6 +1779,43 @@ mod tests {
             ]
         );
         assert_eq!((stats.operations, stats.unresolved), (3, 0));
+    }
+
+    #[test]
+    fn test_note_contexts() {
+        // A non-normative block in an algorithm's clause (ex: an abstract
+        // operation's `<emu-note>`) is its parent clause's, whose references
+        // aren't the algorithm's calls; in other clauses, their own.
+        let src = r##"<emu-clause id="sec-terms">
+  <h1>Terms</h1>
+  <emu-clause id="sec-frob" aoid="Frob">
+    <h1>Frob ( _x_ )</h1>
+    <emu-alg>
+      1. Return <emu-xref aoid="Call"></emu-xref>(_x_).
+    </emu-alg>
+    <emu-note>Frob is like <emu-xref aoid="Call"></emu-xref>.</emu-note>
+  </emu-clause>
+  <emu-note>See <emu-xref aoid="Call"></emu-xref>.</emu-note>
+</emu-clause>
+<emu-clause id="sec-call" aoid="Call"><h1>Call</h1></emu-clause>
+"##;
+        let (records, _) = analyze(src, "es", &SpecsConfig::default());
+        let uses: Vec<String> = summary(&records)
+            .into_iter()
+            .filter(|record| record.contains(" use "))
+            .collect();
+        assert_eq!(
+            uses,
+            vec![
+                "6:16-38 use SPEC_es_sec@2Dcall | Frob step 1",
+                // (Frob's note.)
+                "8:27-49 use SPEC_es_sec@2Dcall | Terms",
+                // (Terms' own note.)
+                "10:16-38 use SPEC_es_sec@2Dcall | Terms",
+            ],
+            "{:#?}",
+            uses
+        );
     }
 
     #[test]

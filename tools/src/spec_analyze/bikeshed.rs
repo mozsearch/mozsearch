@@ -37,12 +37,14 @@ use serde::Deserialize;
 use super::markup::Doc;
 use super::xref::Export;
 use super::{
-    Combined, ForResolver, InContext, Lines, SpecsConfig, dfn_kind, normalize_path, spec_records,
-    spec_structured, spec_symbol, unescape_context_name,
+    Combined, ForResolver, InContext, Lines, SpecsConfig, dfn_kind, intro_context, normalize_path,
+    section_step_context, spec_records, spec_structured, spec_symbol, unescape_context_name,
 };
 use crate::file_format::analysis::{AnalysisKind, Location};
 use crate::semantic_analyzer::{Record, sort_records, target_record};
-use crate::tree_sitter_support::spec_tokenizer::{bikeshed_contexts, idl_steps};
+use crate::tree_sitter_support::spec_tokenizer::{
+    bikeshed_contexts, idl_steps, non_normative_ranges,
+};
 
 /// `bikeshed index --json`'s output (version 3, or 2, without `oldids` and
 /// links' `id`s), whose positions are in the source, or, with a `file`, in the
@@ -502,7 +504,11 @@ fn analyze_placed(
         });
     }
 
-    // Contexts: the innermost algorithm, with the step, or else the section.
+    // Contexts: the innermost algorithm (by its first definition, or else
+    // what its intro names, see `intro_context`), with the step, or else the
+    // section, as for algorithms without symbols and non-normative blocks
+    // (see `section_step_context`).
+    let non_normative = non_normative_ranges(src, &doc.items, true);
     dfn_starts.sort();
     let mut steps: Vec<(usize, &str)> = index
         .steps
@@ -578,25 +584,55 @@ fn analyze_placed(
             },
         ));
     }
+    for (range, context) in &mut algorithms {
+        if context.sym.is_empty()
+            && let Some(intro) = intro_context(
+                src,
+                range,
+                // (Terms' definitions and references, not anchors', sections',
+                // or bibliography references.)
+                pending
+                    .iter()
+                    .filter(|p| !matches!(p.what.as_str(), "anchor" | "section" | "biblio" | "reference"))
+                    .map(|p| (p.range.start, p.sym.as_str(), p.pretty.as_str())),
+            )
+        {
+            *context = intro;
+        }
+    }
     algorithms.sort_by_key(|(range, _)| (range.start, std::cmp::Reverse(range.end)));
+    let section_at = |pos: usize| -> InContext {
+        let i = sections.partition_point(|(start, _)| *start <= pos);
+        i.checked_sub(1)
+            .map_or_else(InContext::default, |i| sections[i].1.clone())
+    };
     let context_at = |pos: usize| -> InContext {
+        if non_normative.iter().any(|range| range.contains(&pos)) {
+            return section_at(pos);
+        }
         if let Some((range, context)) = algorithms
             .iter()
             .filter(|(range, _)| range.contains(&pos))
             .last()
         {
             let i = steps.partition_point(|(start, _)| *start <= pos);
-            return match i.checked_sub(1).map(|i| steps[i]) {
-                Some((start, path)) if start >= range.start => InContext {
+            let path = match i.checked_sub(1).map(|i| steps[i]) {
+                Some((start, path)) if start >= range.start => path,
+                _ => "",
+            };
+            if context.sym.is_empty() {
+                return section_step_context(section_at(pos), path);
+            }
+            return if path.is_empty() {
+                context.clone()
+            } else {
+                InContext {
                     name: format!("{} step {}", context.name, path),
                     sym: context.sym.clone(),
-                },
-                _ => context.clone(),
+                }
             };
         }
-        let i = sections.partition_point(|(start, _)| *start <= pos);
-        i.checked_sub(1)
-            .map_or_else(InContext::default, |i| sections[i].1.clone())
+        section_at(pos)
     };
 
     // Structured records: definitions' kinds (algorithms' are callable),
@@ -915,6 +951,158 @@ mod tests {
                 "SPEC_x_poke specAlgorithm -",
                 "SPEC_x_gadget class -",
             ]
+        );
+    }
+
+    #[test]
+    fn test_algorithm_contexts() {
+        // As Wattsi's: an algorithm without a definition of its own is what
+        // its intro names (here a Markdown paragraph before it), or else its
+        // section's, and so are non-normative blocks (here a Markdown note)
+        // in algorithms.
+        let src = "<pre class=metadata>\nTitle: X\n</pre>\n\n# Frobbing # {#frobbing}\n\nA <dfn>gadget</dfn> has <dfn>frob steps</dfn>, and <dfn>pokes</dfn>.\n\nThe [=frob steps=] for a [=gadget=] are:\n\n<div algorithm>\n\n1. [=pokes|Poke=] it.\n\n    Note: It [=pokes=] once.\n\n</div>\n\n<div algorithm>\n\nTidy up as follows:\n\n1. [=pokes|Poke=] every [=gadget=].\n\n</div>\n";
+        let index = parse_index(
+            r##"{
+ "bikeshed-index": 2,
+ "dfns": [
+  {
+   "line": 7,
+   "col": 3,
+   "id": "gadget",
+   "type": "dfn",
+   "for": [],
+   "text": "gadget",
+   "idl": false
+  },
+  {
+   "line": 7,
+   "col": 25,
+   "id": "frob-steps",
+   "type": "dfn",
+   "for": [],
+   "text": "frob steps",
+   "idl": false
+  },
+  {
+   "line": 7,
+   "col": 52,
+   "id": "pokes",
+   "type": "dfn",
+   "for": [],
+   "text": "pokes",
+   "idl": false
+  }
+ ],
+ "links": [
+  {
+   "line": 9,
+   "col": 5,
+   "href": "#frob-steps",
+   "type": "dfn",
+   "lt": "frob steps",
+   "syntax": "[=frob steps=]",
+   "text": "frob steps",
+   "idl": false
+  },
+  {
+   "line": 9,
+   "col": 26,
+   "href": "#gadget",
+   "type": "dfn",
+   "lt": "gadget",
+   "syntax": "[=gadget=]",
+   "text": "gadget",
+   "idl": false
+  },
+  {
+   "line": 13,
+   "col": 4,
+   "href": "#pokes",
+   "type": "dfn",
+   "lt": "pokes",
+   "syntax": "[=pokes|Poke=]",
+   "text": "Poke",
+   "idl": false
+  },
+  {
+   "line": 15,
+   "col": 14,
+   "href": "#pokes",
+   "type": "dfn",
+   "lt": "pokes",
+   "syntax": "[=pokes=]",
+   "text": "pokes",
+   "idl": false
+  },
+  {
+   "line": 23,
+   "col": 4,
+   "href": "#pokes",
+   "type": "dfn",
+   "lt": "pokes",
+   "syntax": "[=pokes|Poke=]",
+   "text": "Poke",
+   "idl": false
+  },
+  {
+   "line": 23,
+   "col": 25,
+   "href": "#gadget",
+   "type": "dfn",
+   "lt": "gadget",
+   "syntax": "[=gadget=]",
+   "text": "gadget",
+   "idl": false
+  }
+ ],
+ "headings": [
+  {
+   "line": 5,
+   "col": 1,
+   "id": "frobbing",
+   "level": 2,
+   "text": "Frobbing"
+  }
+ ],
+ "algorithms": [],
+ "steps": [
+  {
+   "line": 13,
+   "col": 1,
+   "path": "1"
+  },
+  {
+   "line": 23,
+   "col": 1,
+   "path": "1"
+  }
+ ]
+}"##,
+        )
+        .unwrap();
+        let config: SpecsConfig = toml::from_str(
+            "[[spec]]\nname = \"dom\"\nrendered = \"https://dom.spec.whatwg.org/\"\n",
+        )
+        .unwrap();
+        let (records, _) = analyze(src, &index, "x", &config);
+        let uses: Vec<String> = summary(&records)
+            .into_iter()
+            .filter(|record| record.contains(" use "))
+            .collect();
+        assert_eq!(
+            uses,
+            vec![
+                "9:4-18 use SPEC_x_frob@2Dsteps | Frobbing (SPEC_x_frobbing)",
+                "9:25-35 use SPEC_x_gadget | Frobbing (SPEC_x_frobbing)",
+                "13:3-17 use SPEC_x_pokes | frob steps step 1 (SPEC_x_frob@2Dsteps)",
+                // (The note.)
+                "15:13-22 use SPEC_x_pokes | Frobbing (SPEC_x_frobbing)",
+                // (The algorithm whose intro names nothing.)
+                "23:3-17 use SPEC_x_pokes | Frobbing step 1 (SPEC_x_frobbing)",
+                "23:24-34 use SPEC_x_gadget | Frobbing step 1 (SPEC_x_frobbing)",
+            ],
+            "{:#?}",
+            uses
         );
     }
 

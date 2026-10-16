@@ -42,12 +42,12 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use super::markup::{Doc, NodeKind};
 use super::xref::Export;
 use super::{
-    ForResolver, InContext, Lines, SpecsConfig, dfn_kind, spec_records, spec_structured,
-    spec_symbol, unescape_context_name as context_name,
+    ForResolver, InContext, Lines, SpecsConfig, dfn_kind, intro_context, section_step_context,
+    spec_records, spec_structured, spec_symbol, unescape_context_name as context_name,
 };
 use crate::file_format::analysis::AnalysisKind;
 use crate::semantic_analyzer::{Record, sort_records, target_record};
-use crate::tree_sitter_support::spec_tokenizer::html_contexts;
+use crate::tree_sitter_support::spec_tokenizer::{html_contexts, non_normative_ranges};
 
 /// "MungeStringToTopic": lowercase ASCII letters, drop `#`s, and collapse
 /// runs of spaces and newlines into a space (dropping a trailing one).
@@ -719,8 +719,11 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
     }
 
     // Contexts: the innermost algorithm (named and symbolized by its first
-    // `<dfn>`), with the step, or else the section.
+    // `<dfn>`, or else by what its intro names, see `intro_context`), with
+    // the step, or else the section, as for algorithms without symbols and
+    // non-normative blocks (see `section_step_context`).
     let contexts = html_contexts(src, &doc.items);
+    let non_normative = non_normative_ranges(src, &doc.items, false);
     let heading_syms: HashMap<usize, &str> = defs
         .iter()
         .filter(|(_, def)| def.what == "section")
@@ -764,6 +767,22 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
             ))
         })
         .collect();
+    for (start, end, context) in &mut algorithms {
+        if context.sym.is_empty()
+            && let Some(intro) = intro_context(
+                src,
+                &(*start..*end),
+                // (Terms' definitions and references, not anchors',
+                // sections', or bibliography references.)
+                pending
+                    .iter()
+                    .filter(|p| !matches!(p.what, "reference" | "anchor" | "section"))
+                    .map(|p| (doc.nodes[p.node].range.start, p.sym.as_str(), p.pretty.as_str())),
+            )
+        {
+            *context = intro;
+        }
+    }
     algorithms.sort_by_key(|&(start, end, _)| (start, std::cmp::Reverse(end)));
     // (The furthest end of the algorithms up to each, to stop looking back.)
     let mut furthest = Vec::with_capacity(algorithms.len());
@@ -772,14 +791,25 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
         max_end = max_end.max(*end);
         furthest.push(max_end);
     }
+    let section_at = |pos: usize| -> InContext {
+        let i = sections.partition_point(|&(start, _)| start <= pos);
+        i.checked_sub(1)
+            .map_or_else(InContext::default, |i| sections[i].1.clone())
+    };
     let context_at = |node: usize| -> InContext {
         let pos = doc.nodes[node].range.start;
+        if non_normative.iter().any(|range| range.contains(&pos)) {
+            return section_at(pos);
+        }
         let mut i = algorithms.partition_point(|&(start, _, _)| start <= pos);
         while i > 0 && furthest[i - 1] > pos {
             i -= 1;
             let (start, end, context) = &algorithms[i];
             if *end > pos {
                 let path = step_path(doc, node, *start);
+                if context.sym.is_empty() {
+                    return section_step_context(section_at(pos), &path);
+                }
                 return if path.is_empty() {
                     context.clone()
                 } else {
@@ -790,9 +820,7 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
                 };
             }
         }
-        let i = sections.partition_point(|&(start, _)| start <= pos);
-        i.checked_sub(1)
-            .map_or_else(InContext::default, |i| sections[i].1.clone())
+        section_at(pos)
     };
 
     // Structured records: definitions' kinds (algorithms' are callable),
@@ -1022,6 +1050,58 @@ mod tests {
             ]
         );
         assert_eq!((stats.headings, stats.dfns, stats.unresolved), (2, 5, 1));
+    }
+
+    #[test]
+    fn test_algorithm_contexts() {
+        // An algorithm without a definition of its own is what its intro names
+        // (ex: steps of a term defined elsewhere), or else its section's, and
+        // so are non-normative blocks in algorithms, whose references aren't
+        // calls.
+        let src = r##"<h2 id=frobbing>Frobbing</h2>
+<p>A <dfn data-x=concept-gadget>gadget</dfn> has <dfn data-x=concept-frob>frob steps</dfn>, and <dfn data-x=concept-poke>pokes</dfn>.
+<p>The <span data-x=concept-frob>frob steps</span> for a <span data-x=concept-gadget>gadget</span> are:</p>
+<div algorithm>
+<ol>
+ <li><p><span data-x=concept-poke>Poke</span> it.
+  <p class=note>It <span data-x=concept-poke>pokes</span> once.
+</ol>
+</div>
+<div algorithm>
+<p>Tidy up as follows:</p>
+<ol>
+ <li><p><span data-x=concept-poke>Poke</span> every <span data-x=concept-gadget>gadget</span>.
+</ol>
+</div>
+"##;
+        let (records, _) = analyze(src, "test", &config());
+        let uses: Vec<String> = summary(&records)
+            .into_iter()
+            .filter(|record| record.contains(" use "))
+            .collect();
+        assert_eq!(
+            uses,
+            vec![
+                // (The intro, before the algorithm.)
+                "3:33-43 use SPEC_test_concept@2Dfrob Frobbing (SPEC_test_frobbing)",
+                "3:85-91 use SPEC_test_concept@2Dgadget Frobbing (SPEC_test_frobbing)",
+                "6:34-38 use SPEC_test_concept@2Dpoke frob steps step 1 (SPEC_test_concept@2Dfrob)",
+                // (The note.)
+                "7:45-50 use SPEC_test_concept@2Dpoke Frobbing (SPEC_test_frobbing)",
+                // (The algorithm whose intro names nothing.)
+                "13:34-38 use SPEC_test_concept@2Dpoke Frobbing step 1 (SPEC_test_frobbing)",
+                "13:80-86 use SPEC_test_concept@2Dgadget Frobbing step 1 (SPEC_test_frobbing)",
+            ],
+            "{:#?}",
+            uses
+        );
+        let frob = records.iter().find_map(|record| match record {
+            Record::Structured(_, value) if value["sym"] == "SPEC_test_concept@2Dfrob" => {
+                Some(value["kind"].to_string())
+            }
+            _ => None,
+        });
+        assert_eq!(frob.as_deref(), Some("\"specAlgorithm\""));
     }
 
     #[test]
