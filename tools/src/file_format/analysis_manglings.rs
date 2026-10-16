@@ -96,7 +96,10 @@ pub fn split_pretty(pretty: &str, sym: &str) -> (Vec<String>, &'static str) {
 
         match (state, next_c) {
             (_, None) => {
-                if state != SplitState::NotInArg {
+                // (A trailing lone colon is part of the last piece.)
+                if state == SplitState::NotInArgSawColon {
+                    token.push(':');
+                } else if state != SplitState::NotInArg {
                     info!(
                         "In arg state with depth {} when ran out of chars on {}.",
                         arg_depth, pretty,
@@ -135,17 +138,18 @@ pub fn split_pretty(pretty: &str, sym: &str) -> (Vec<String>, &'static str) {
                 state = SplitState::NotInArg;
             }
             (SplitState::NotInArgSawColon, Some(c)) => {
-                // We expect to be called on a bunch of garbage, so no warnings.
-                // In particular, we will have things like:
+                // A lone colon, which is part of the piece, ex: in observer
+                // topics ("AboutReader:Ready"), URLs, and things like
                 // NSPRLogModulesParser_RawArg_Test::TestBody::(anonymous)::(lambda at /builds/worker/checkouts/gecko/xpcom/tests/gtest/TestNSPRLogModulesParser.cpp:130:19)
                 // NameTableKey::(anonymous)::(unnamed union at /builds/worker/checkouts/gecko/xpcom/ds/nsStaticNameTable.cpp:33:3)
-                info!(
-                    "Saw a single colon when not in arg while parsing {}",
-                    pretty
-                );
-                token.push(')');
+                token.push(':');
                 token.push(c);
-                state = SplitState::NotInArg;
+                if c == '<' {
+                    state = SplitState::InArg;
+                    arg_depth = 1;
+                } else {
+                    state = SplitState::NotInArg;
+                }
             }
             (SplitState::InArg, Some('<')) => {
                 token.push('<');
@@ -211,6 +215,35 @@ fn test_split_pretty() {
             ]),
             "::"
         )
+    );
+
+    // Lone colons are part of their pieces.
+    assert_eq!(
+        split_pretty("AboutReader:Ready", "OBSTOPIC_AboutReader@3AReady"),
+        (ts(vec!["AboutReader:Ready"]), "::")
+    );
+    assert_eq!(
+        split_pretty(
+            "Test::TestBody::(anonymous)::(lambda at a/Test.cpp:130:19)",
+            "_ZZblah"
+        ),
+        (
+            ts(vec![
+                "Test",
+                "TestBody",
+                "(anonymous)",
+                "(lambda at a/Test.cpp:130:19)"
+            ]),
+            "::"
+        )
+    );
+    assert_eq!(
+        split_pretty("a::b:", "T_blah"),
+        (ts(vec!["a", "b:"]), "::")
+    );
+    assert_eq!(
+        split_pretty("a:<b::c>::d", "T_blah"),
+        (ts(vec!["a:<b::c>", "d"]), "::")
     );
 
     assert_eq!(
