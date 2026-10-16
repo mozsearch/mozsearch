@@ -412,8 +412,15 @@ fn process_analysis_target(
         // beyond "::" here in the future.  (Although there's
         // something to be said for normalizing on use of "::" for
         // everything but paths, and we sorta do this for scip-indexer
-        // already.)
-        let (components, delim) = split_pretty(piece.pretty.as_str(), "");
+        // already.)  But web specs' terms are split by their spec and
+        // "for"s, ex: "html Navigation/navigate(url, options)" is also
+        // "Navigation/navigate(url, options)" and "navigate(url, options)".
+        let split_sym = if piece.sym.starts_with("SPEC_") {
+            piece.sym.as_str()
+        } else {
+            ""
+        };
+        let (components, delim) = split_pretty(piece.pretty.as_str(), split_sym);
         for i in 0..components.len() {
             let sub = &components[i..components.len()];
             let sub = sub.join(delim);

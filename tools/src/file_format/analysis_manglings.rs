@@ -86,6 +86,20 @@ pub fn split_pretty(pretty: &str, sym: &str) -> (Vec<String>, &'static str) {
         );
     }
 
+    // Web specs' terms are "<spec> <term>", where the term's "for"s (what it's
+    // defined for) are "/"-separated (ex: "html Navigation/navigate(url,
+    // options)"), so they split after the spec's name and each "/", with their
+    // delimiters, like paths.
+    if sym.starts_with("SPEC_") {
+        let (spec, term) = match pretty.split_once(' ') {
+            Some((spec, term)) => (Some(spec), term),
+            None => (None, pretty),
+        };
+        let mut pieces: Vec<String> = spec.map(|spec| format!("{} ", spec)).into_iter().collect();
+        pieces.extend(term.split_inclusive('/').map(|s| s.to_string()));
+        return (pieces, "");
+    }
+
     let mut pieces = vec![];
     let mut state = SplitState::NotInArg;
     let mut arg_depth = 0;
@@ -215,6 +229,21 @@ fn test_split_pretty() {
             ]),
             "::"
         )
+    );
+
+    assert_eq!(
+        split_pretty(
+            "html Navigation/navigate(url, options)",
+            "SPEC_html_dom@2Dnavigation@2Dnavigate"
+        ),
+        (
+            ts(vec!["html ", "Navigation/", "navigate(url, options)"]),
+            ""
+        )
+    );
+    assert_eq!(
+        split_pretty("html navigate", "SPEC_html_navigate"),
+        (ts(vec!["html ", "navigate"]), "")
     );
 
     // Lone colons are part of their pieces.
