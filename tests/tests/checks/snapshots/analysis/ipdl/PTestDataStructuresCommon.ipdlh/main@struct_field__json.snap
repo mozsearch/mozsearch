@@ -1,0 +1,52 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ipdl/PTestDataStructuresCommon.ipdlh/struct_field__json
+---
+[
+  {
+    "loc": "15:8-9",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "mozilla::_foo::SIntDouble::i",
+    "sym": "IPDL_mozilla__foo_SIntDouble_i"
+  },
+  {
+    "loc": "15:8-9",
+    "source": 1,
+    "syntax": "idl,field,def",
+    "pretty": "ipdl field mozilla::_foo::SIntDouble::i",
+    "sym": "IPDL_mozilla__foo_SIntDouble_i"
+  },
+  {
+    "kind": "field",
+    "parentsym": "IPDL_mozilla__foo_SIntDouble",
+    "type_pretty": "int",
+    "bindingSlots": [
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "_ZNK7mozilla4_foo10SIntDouble1iEv"
+      },
+      {
+        "slotKind": "setter",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "_ZN7mozilla4_foo10SIntDouble1iEv"
+      },
+      {
+        "slotKind": "member",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "F_<T_mozilla::_foo::SIntDouble>_i_"
+      }
+    ],
+    "ipdlIndex": 0,
+    "loc": "15:8-9",
+    "structured": 1,
+    "pretty": "mozilla::_foo::SIntDouble::i",
+    "sym": "IPDL_mozilla__foo_SIntDouble_i",
+    "implKind": "idl"
+  }
+]

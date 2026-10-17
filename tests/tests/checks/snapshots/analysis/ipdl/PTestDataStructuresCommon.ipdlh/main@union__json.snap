@@ -1,0 +1,83 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ipdl/PTestDataStructuresCommon.ipdlh/union__json
+---
+[
+  {
+    "loc": "73:4-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "mozilla::_foo::Actors",
+    "sym": "IPDL_mozilla__foo_Actors",
+    "context": "mozilla::_foo::WithUnions::aa",
+    "contextsym": "IPDL_mozilla__foo_WithUnions_aa"
+  },
+  {
+    "loc": "73:4-10",
+    "source": 1,
+    "syntax": "idl,type,use",
+    "pretty": "ipdl type mozilla::_foo::Actors",
+    "sym": "IPDL_mozilla__foo_Actors"
+  },
+  {
+    "loc": "35:6-12",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "mozilla::_foo::Actors",
+    "sym": "IPDL_mozilla__foo_Actors"
+  },
+  {
+    "loc": "35:6-12",
+    "source": 1,
+    "syntax": "idl,union,def",
+    "pretty": "ipdl union mozilla::_foo::Actors",
+    "sym": "IPDL_mozilla__foo_Actors"
+  },
+  {
+    "kind": "union",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "T_mozilla::_foo::Actors"
+      }
+    ],
+    "fields": [
+      {
+        "pretty": "mozilla::_foo::Actors::int",
+        "sym": "IPDL_mozilla__foo_Actors_int"
+      },
+      {
+        "pretty": "mozilla::_foo::Actors::ArrayOfint",
+        "sym": "IPDL_mozilla__foo_Actors_ArrayOfint"
+      },
+      {
+        "pretty": "mozilla::_foo::Actors::ArrayOfPTestDataStructuresSub",
+        "sym": "IPDL_mozilla__foo_Actors_ArrayOfPTestDataStructuresSub"
+      }
+    ],
+    "loc": "35:6-12",
+    "structured": 1,
+    "pretty": "mozilla::_foo::Actors",
+    "sym": "IPDL_mozilla__foo_Actors",
+    "implKind": "idl"
+  },
+  {
+    "loc": "51:4-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "mozilla::_foo::Actors",
+    "sym": "IPDL_mozilla__foo_Actors",
+    "context": "mozilla::_foo::Unions::ArrayOfActors",
+    "contextsym": "IPDL_mozilla__foo_Unions_ArrayOfActors"
+  },
+  {
+    "loc": "51:4-10",
+    "source": 1,
+    "syntax": "idl,type,use",
+    "pretty": "ipdl type mozilla::_foo::Actors",
+    "sym": "IPDL_mozilla__foo_Actors"
+  }
+]

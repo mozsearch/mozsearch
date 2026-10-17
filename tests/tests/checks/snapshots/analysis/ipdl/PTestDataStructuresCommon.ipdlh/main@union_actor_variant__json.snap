@@ -1,0 +1,52 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ipdl/PTestDataStructuresCommon.ipdlh/union_actor_variant__json
+---
+[
+  {
+    "loc": "38:4-26",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "mozilla::_foo::Actors::ArrayOfPTestDataStructuresSub",
+    "sym": "IPDL_mozilla__foo_Actors_ArrayOfPTestDataStructuresSub"
+  },
+  {
+    "loc": "38:4-26",
+    "source": 1,
+    "syntax": "idl,variant,def",
+    "pretty": "ipdl variant mozilla::_foo::Actors::ArrayOfPTestDataStructuresSub",
+    "sym": "IPDL_mozilla__foo_Actors_ArrayOfPTestDataStructuresSub"
+  },
+  {
+    "kind": "field",
+    "parentsym": "IPDL_mozilla__foo_Actors",
+    "type_pretty": "PTestDataStructuresSub",
+    "bindingSlots": [
+      {
+        "slotKind": "getter",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "_ZNK7mozilla4_foo6Actors33get_ArrayOfPTestDataStructuresSubEv"
+      },
+      {
+        "slotKind": "setter",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "_ZN7mozilla4_foo6Actors33get_ArrayOfPTestDataStructuresSubEv"
+      },
+      {
+        "slotKind": "const",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "E_<T_mozilla::_foo::Actors::Type>_TArrayOfPTestDataStructuresSub"
+      }
+    ],
+    "ipdlIndex": 2,
+    "loc": "38:4-26",
+    "structured": 1,
+    "pretty": "mozilla::_foo::Actors::ArrayOfPTestDataStructuresSub",
+    "sym": "IPDL_mozilla__foo_Actors_ArrayOfPTestDataStructuresSub",
+    "implKind": "idl"
+  }
+]

@@ -1,0 +1,122 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/ipdl/PTestDataStructuresCommon.ipdlh/field_getter_slot_owner__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "_ZNK7mozilla4_foo10SIntDouble1iEv",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "__GENERATED__/ipdl/PTestDataStructuresCommon.cpp",
+            "path_kind": "generated",
+            "lines": [
+              {
+                "lno": 345,
+                "bounds": [
+                  32,
+                  33
+                ],
+                "line": "IPC::WriteParam(aWriter, (aVar).i());",
+                "context": "IPC::ParamTraits<mozilla::_foo::SIntDouble>::Write",
+                "contextsym": "_ZN3IPC11ParamTraitsIN7mozilla4_foo10SIntDoubleEE5WriteEPNS_13MessageWriterERKS3_"
+              }
+            ]
+          },
+          {
+            "path": "ipdl/TestDataStructures.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 258,
+                "bounds": [
+                  0,
+                  9
+                ],
+                "line": "EXPECT_EQ(1, i.i());",
+                "context": "mozilla::_ipdltest::TestDataStructuresParent::RecvTestStruct",
+                "contextsym": "_ZN7mozilla9_ipdltest24TestDataStructuresParent14RecvTestStructERKNS_4_foo10SIntDoubleEPS3_"
+              },
+              {
+                "lno": 258,
+                "bounds": [
+                  15,
+                  16
+                ],
+                "line": "EXPECT_EQ(1, i.i());",
+                "context": "mozilla::_ipdltest::TestDataStructuresParent::RecvTestStruct",
+                "contextsym": "_ZN7mozilla9_ipdltest24TestDataStructuresParent14RecvTestStructERKNS_4_foo10SIntDoubleEPS3_"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "__GENERATED__/ipc/ipdl/_ipdlheaders/mozilla/_foo/PTestDataStructuresCommon.h",
+            "path_kind": "generated",
+            "lines": [
+              {
+                "lno": 239,
+                "bounds": [
+                  0,
+                  1
+                ],
+                "line": "i() const",
+                "context": "mozilla::_foo::SIntDouble",
+                "contextsym": "T_mozilla::_foo::SIntDouble",
+                "peekRange": "238-239"
+              }
+            ]
+          }
+        ],
+        "callees": [
+          {
+            "jump": "__GENERATED__/ipc/ipdl/_ipdlheaders/mozilla/_foo/PTestDataStructuresCommon.h#241",
+            "kind": "field",
+            "pretty": "mozilla::_foo::SIntDouble::i_",
+            "sym": "F_<T_mozilla::_foo::SIntDouble>_i_"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "mozilla::_foo::SIntDouble::i",
+          "sym": "_ZNK7mozilla4_foo10SIntDouble1iEv",
+          "type_pretty": null,
+          "kind": "method",
+          "subsystem": null,
+          "parentsym": "T_mozilla::_foo::SIntDouble",
+          "slotOwner": {
+            "slotKind": "getter",
+            "slotLang": "cpp",
+            "implKind": null,
+            "ownerLang": "idl",
+            "sym": "IPDL_mozilla__foo_SIntDouble_i"
+          },
+          "implKind": "",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [
+            "instance",
+            "user"
+          ],
+          "variants": [],
+          "args": [],
+          "canGC": false
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

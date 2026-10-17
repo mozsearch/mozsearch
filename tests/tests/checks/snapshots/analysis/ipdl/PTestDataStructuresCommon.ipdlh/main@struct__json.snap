@@ -1,0 +1,47 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ipdl/PTestDataStructuresCommon.ipdlh/struct__json
+---
+[
+  {
+    "loc": "14:7-17",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "mozilla::_foo::SIntDouble",
+    "sym": "IPDL_mozilla__foo_SIntDouble"
+  },
+  {
+    "loc": "14:7-17",
+    "source": 1,
+    "syntax": "idl,struct,def",
+    "pretty": "ipdl struct mozilla::_foo::SIntDouble",
+    "sym": "IPDL_mozilla__foo_SIntDouble"
+  },
+  {
+    "kind": "struct",
+    "bindingSlots": [
+      {
+        "slotKind": "class",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "T_mozilla::_foo::SIntDouble"
+      }
+    ],
+    "fields": [
+      {
+        "pretty": "mozilla::_foo::SIntDouble::i",
+        "sym": "IPDL_mozilla__foo_SIntDouble_i"
+      },
+      {
+        "pretty": "mozilla::_foo::SIntDouble::d",
+        "sym": "IPDL_mozilla__foo_SIntDouble_d"
+      }
+    ],
+    "loc": "14:7-17",
+    "structured": 1,
+    "pretty": "mozilla::_foo::SIntDouble",
+    "sym": "IPDL_mozilla__foo_SIntDouble",
+    "implKind": "idl"
+  }
+]

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::env;
 use std::fs::File;
 use std::io::BufRead;
@@ -109,6 +109,383 @@ fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a 
     }
 
     best_piece
+}
+
+/// Write a JSON record as a line.
+fn emit(outputf: &mut File, record: serde_json::Value) {
+    writeln!(outputf, "{}", record).unwrap();
+}
+
+/// A location's `loc` for a name `len` long.
+fn locstr(loc: &ast::Location, len: usize) -> String {
+    format!("{}:{}-{}", loc.lineno, loc.colno, loc.colno + len)
+}
+
+/// The C++ symbols of a generated header's definitions and declarations, by
+/// their pretty names (ex: "mozilla::_foo::SIntDouble::i" for both of a
+/// struct field's accessors).
+#[derive(Default)]
+struct GeneratedSymbols {
+    by_pretty: HashMap<String, Vec<String>>,
+}
+
+impl GeneratedSymbols {
+    fn load(path: &str) -> GeneratedSymbols {
+        let mut syms = GeneratedSymbols::default();
+        for datum in read_analyses(&[path.to_string()], &mut read_target) {
+            for piece in datum.data {
+                if piece.kind == AnalysisKind::Def || piece.kind == AnalysisKind::Decl {
+                    let list = syms.by_pretty.entry(piece.pretty.to_string()).or_default();
+                    if !list.iter().any(|s| s == piece.sym.as_str()) {
+                        list.push(piece.sym.to_string());
+                    }
+                }
+            }
+        }
+        syms
+    }
+
+    fn get(&self, pretty: &str) -> &[String] {
+        self.by_pretty
+            .get(pretty)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
+    }
+
+    /// A method's const overload and its other (mutable) one, ex: a struct
+    /// field's accessors.
+    fn const_and_mutable(&self, pretty: &str) -> (Option<&str>, Option<&str>) {
+        let syms = self.get(pretty);
+        let is_const = |s: &&String| s.starts_with("_ZNK");
+        (
+            syms.iter().find(is_const).map(|s| s.as_str()),
+            syms.iter()
+                .find(|s| s.starts_with("_Z") && !is_const(s))
+                .map(|s| s.as_str()),
+        )
+    }
+
+    fn first_with_prefix(&self, pretty: &str, prefix: &str) -> Option<&str> {
+        self.get(pretty)
+            .iter()
+            .find(|s| s.starts_with(prefix))
+            .map(|s| s.as_str())
+    }
+}
+
+/// IPDL structs and unions, by their qualified and unqualified names, as
+/// their `IPDL_` symbols and pretty names.
+type IpdlTypes = HashMap<String, (String, String)>;
+
+/// A data structure's (or its part's) `IPDL_` symbol: the namespaces, its
+/// name, and its parts' names, joined with `_` (as messages' `IPC_` symbols
+/// are).
+fn ipdl_sym(ns: &ast::Namespace, parts: &[&str]) -> String {
+    let mut sym = format!("IPDL_{}_{}", ns.namespaces.join("_"), ns.name.id);
+    for part in parts {
+        sym.push('_');
+        sym.push_str(part);
+    }
+    sym
+}
+
+/// The C++ pretty name of a data structure (or its part).
+fn cxx_pretty(ns: &ast::Namespace, parts: &[&str]) -> String {
+    let mut pretty = format!("{}::{}", ns.namespaces.join("::"), ns.name.id);
+    for part in parts {
+        pretty.push_str("::");
+        pretty.push_str(part);
+    }
+    pretty
+}
+
+/// The names IPDL might generate for a union's variant of a type (its
+/// `T<name>` enum value and `get_<name>()` accessors): the type's name,
+/// prefixed by its modifiers' (ex: "ArrayOfint" for `int[]`), and, for
+/// actors (whose variants are generally named for the protocol, ex:
+/// "ArrayOfPTestDataStructuresSub"), each side's too.
+fn variant_names(type_spec: &ast::TypeSpec, actors: &HashSet<String>) -> Vec<String> {
+    let base = type_spec
+        .spec
+        .rsplit("::")
+        .next()
+        .unwrap_or(&type_spec.spec);
+    let bases = if actors.contains(base) {
+        vec![
+            base.to_string(),
+            format!("{}Parent", base),
+            format!("{}Child", base),
+        ]
+    } else {
+        vec![base.to_string()]
+    };
+    bases
+        .into_iter()
+        .map(|mut name| {
+            for modifier in &type_spec.modifiers {
+                let prefix = match modifier {
+                    ast::TypeSpecModifier::Array => "ArrayOf",
+                    ast::TypeSpecModifier::Maybe => "Maybe",
+                    ast::TypeSpecModifier::UniquePtr => "UniquePtr",
+                };
+                name = format!("{}{}", prefix, name);
+            }
+            name
+        })
+        .collect()
+}
+
+/// A variant's name for its `IPDL_` symbol: its type's, without the sides
+/// actors' generated names have.
+fn variant_owner_name(type_spec: &ast::TypeSpec) -> String {
+    let mut name = type_spec
+        .spec
+        .rsplit("::")
+        .next()
+        .unwrap_or(&type_spec.spec)
+        .to_string();
+    for modifier in &type_spec.modifiers {
+        let prefix = match modifier {
+            ast::TypeSpecModifier::Array => "ArrayOf",
+            ast::TypeSpecModifier::Maybe => "Maybe",
+            ast::TypeSpecModifier::UniquePtr => "UniquePtr",
+        };
+        name = format!("{}{}", prefix, name);
+    }
+    name
+}
+
+/// Write a use of an IPDL struct or union, if a type names one.
+fn output_type_use(
+    outputf: &mut File,
+    type_spec: &ast::TypeSpec,
+    ipdl_types: &IpdlTypes,
+    context: &str,
+    contextsym: &str,
+) {
+    let found = ipdl_types.get(&type_spec.spec).or_else(|| {
+        type_spec
+            .spec
+            .rsplit("::")
+            .next()
+            .and_then(|name| ipdl_types.get(name))
+    });
+    let Some((sym, pretty)) = found else {
+        return;
+    };
+    let loc = locstr(&type_spec.loc, type_spec.spec.len());
+    emit(
+        outputf,
+        json!({
+            "loc": loc,
+            "target": 1,
+            "kind": "use",
+            "pretty": pretty,
+            "sym": sym,
+            "context": context,
+            "contextsym": contextsym,
+        }),
+    );
+    emit(
+        outputf,
+        json!({
+            "loc": loc,
+            "source": 1,
+            "syntax": "idl,type,use",
+            "pretty": format!("ipdl type {}", pretty),
+            "sym": sym,
+        }),
+    );
+}
+
+/// Write the records of an IPDL definition: its target and source records,
+/// and its structured record (to which `structured` adds).
+fn output_definition(
+    outputf: &mut File,
+    loc: &str,
+    syntax: &str,
+    pretty: &str,
+    sym: &str,
+    mut structured: serde_json::Value,
+) {
+    emit(
+        outputf,
+        json!({
+            "loc": loc,
+            "target": 1,
+            "kind": "idl",
+            "pretty": pretty,
+            "sym": sym,
+        }),
+    );
+    emit(
+        outputf,
+        json!({
+            "loc": loc,
+            "source": 1,
+            "syntax": format!("idl,{},def", syntax),
+            "pretty": format!("ipdl {} {}", syntax, pretty),
+            "sym": sym,
+        }),
+    );
+    let obj = structured.as_object_mut().unwrap();
+    obj.insert("loc".to_string(), json!(loc));
+    obj.insert("structured".to_string(), json!(1));
+    obj.insert("pretty".to_string(), json!(pretty));
+    obj.insert("sym".to_string(), json!(sym));
+    obj.insert("implKind".to_string(), json!("idl"));
+    emit(outputf, structured);
+}
+
+fn cpp_slot(kind: &str, sym: &str) -> serde_json::Value {
+    json!({
+        "slotKind": kind,
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": sym,
+    })
+}
+
+/// Write a translation unit's structs and unions: an `IPDL_` symbol for each,
+/// and for each of their fields and variants, with binding slots for the C++
+/// IPDL generates for them (found by their pretty names in the generated
+/// header's analysis).
+fn output_data_structures(
+    outputf: &mut File,
+    tu: &ast::TranslationUnit,
+    generated: &GeneratedSymbols,
+    ipdl_types: &IpdlTypes,
+    actors: &HashSet<String>,
+) {
+    for (ns, _attrs, fields) in &tu.structs {
+        let sym = ipdl_sym(ns, &[]);
+        let pretty = cxx_pretty(ns, &[]);
+        let mut slots = vec![];
+        if let Some(class) = generated.first_with_prefix(&pretty, "T_") {
+            slots.push(cpp_slot("class", class));
+        }
+        let mut field_infos = vec![];
+        for (index, field) in fields.iter().enumerate() {
+            let name = field.name.id.as_str();
+            let field_sym = ipdl_sym(ns, &[name]);
+            let field_pretty = cxx_pretty(ns, &[name]);
+            let mut field_slots = vec![];
+            let (getter, setter) = generated.const_and_mutable(&field_pretty);
+            if let Some(getter) = getter {
+                field_slots.push(cpp_slot("getter", getter));
+            }
+            if let Some(setter) = setter {
+                field_slots.push(cpp_slot("setter", setter));
+            }
+            if let Some(member) = generated.first_with_prefix(&format!("{}_", field_pretty), "F_") {
+                field_slots.push(cpp_slot("member", member));
+            }
+            output_definition(
+                outputf,
+                &locstr(&field.name.loc, name.len()),
+                "field",
+                &field_pretty,
+                &field_sym,
+                json!({
+                    "kind": "field",
+                    "parentsym": sym,
+                    "type_pretty": field.type_spec.spec,
+                    "bindingSlots": field_slots,
+                    // (Its constructor parameter's.)
+                    "ipdlIndex": index,
+                }),
+            );
+            output_type_use(
+                outputf,
+                &field.type_spec,
+                ipdl_types,
+                &field_pretty,
+                &field_sym,
+            );
+            field_infos.push(json!({ "pretty": field_pretty, "sym": field_sym }));
+        }
+        output_definition(
+            outputf,
+            &locstr(&ns.name.loc, ns.name.id.len()),
+            "struct",
+            &pretty,
+            &sym,
+            json!({
+                "kind": "struct",
+                "bindingSlots": slots,
+                "fields": field_infos,
+            }),
+        );
+    }
+
+    for (ns, _attrs, variants) in &tu.unions {
+        let sym = ipdl_sym(ns, &[]);
+        let pretty = cxx_pretty(ns, &[]);
+        let mut slots = vec![];
+        if let Some(class) = generated.first_with_prefix(&pretty, "T_") {
+            slots.push(cpp_slot("class", class));
+        }
+        let mut variant_infos = vec![];
+        for (index, type_spec) in variants.iter().enumerate() {
+            let owner_name = variant_owner_name(type_spec);
+            let variant_sym = ipdl_sym(ns, &[&owner_name]);
+            let variant_pretty = cxx_pretty(ns, &[&owner_name]);
+            let mut variant_slots = vec![];
+            for name in variant_names(type_spec, actors) {
+                let (getter, setter) =
+                    generated.const_and_mutable(&cxx_pretty(ns, &[&format!("get_{}", name)]));
+                if let Some(getter) = getter {
+                    variant_slots.push(cpp_slot("getter", getter));
+                }
+                if let Some(setter) = setter {
+                    variant_slots.push(cpp_slot("setter", setter));
+                }
+                // (The type's `T<name>` enum value.)
+                if let Some(value) = generated
+                    .first_with_prefix(&cxx_pretty(ns, &["Type", &format!("T{}", name)]), "E_")
+                    .or_else(|| {
+                        generated.first_with_prefix(&cxx_pretty(ns, &[&format!("T{}", name)]), "E_")
+                    })
+                {
+                    variant_slots.push(cpp_slot("const", value));
+                }
+            }
+            output_definition(
+                outputf,
+                &locstr(&type_spec.loc, type_spec.spec.len()),
+                "variant",
+                &variant_pretty,
+                &variant_sym,
+                json!({
+                    "kind": "field",
+                    "parentsym": sym,
+                    "type_pretty": type_spec.spec,
+                    "bindingSlots": variant_slots,
+                    "ipdlIndex": index,
+                }),
+            );
+            output_type_use(
+                outputf,
+                type_spec,
+                ipdl_types,
+                &variant_pretty,
+                &variant_sym,
+            );
+            variant_infos.push(json!({ "pretty": variant_pretty, "sym": variant_sym }));
+        }
+        output_definition(
+            outputf,
+            &locstr(&ns.name.loc, ns.name.id.len()),
+            "union",
+            &pretty,
+            &sym,
+            json!({
+                "kind": "union",
+                "bindingSlots": slots,
+                "fields": variant_infos,
+            }),
+        );
+    }
 }
 
 /// Write a message's `IPC_` symbol's records, with binding slots for its
@@ -283,6 +660,26 @@ fn main() {
 
     let tus = maybe_tus.unwrap();
 
+    // (Every translation unit's structs and unions, for their uses' symbols,
+    // and protocols, whose actors are types too.)
+    let mut ipdl_types: IpdlTypes = HashMap::new();
+    let mut actors: HashSet<String> = HashSet::new();
+    for tu in tus.values() {
+        for (ns, _, _) in &tu.structs {
+            let entry = (ipdl_sym(ns, &[]), cxx_pretty(ns, &[]));
+            ipdl_types.insert(cxx_pretty(ns, &[]), entry.clone());
+            ipdl_types.entry(ns.name.id.clone()).or_insert(entry);
+        }
+        for (ns, _, _) in &tu.unions {
+            let entry = (ipdl_sym(ns, &[]), cxx_pretty(ns, &[]));
+            ipdl_types.insert(cxx_pretty(ns, &[]), entry.clone());
+            ipdl_types.entry(ns.name.id.clone()).or_insert(entry);
+        }
+        if let Some((ns, _)) = &tu.protocol {
+            actors.insert(ns.name.id.clone());
+        }
+    }
+
     for (_, tu) in tus {
         println!("Analyzing {:?}", tu.file_name);
 
@@ -290,6 +687,29 @@ fn main() {
         let relative = path.strip_prefix(base_path).unwrap();
         let absolute = analysis_path.join(relative);
         let mut outputf = File::create(absolute).unwrap();
+
+        // ### Structs and unions
+        //
+        // Their C++ is in the header named for the file (ex:
+        // `PTestDataStructuresCommon.h` for `PTestDataStructuresCommon.ipdlh`).
+        if !tu.structs.is_empty() || !tu.unions.is_empty() {
+            let stem = path
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let generated = match objdir_files_map.get(&format!("{}.h", stem)) {
+                Some(header) => {
+                    let header_path = analysis_path.join(header).to_string_lossy().into_owned();
+                    println!("  Reading data structures' header {:?}", &header_path);
+                    GeneratedSymbols::load(&header_path)
+                }
+                None => {
+                    println!("  Unable to find the header for {:?}", path);
+                    GeneratedSymbols::default()
+                }
+            };
+            output_data_structures(&mut outputf, &tu, &generated, &ipdl_types, &actors);
+        }
 
         if let Some((ns, protocol)) = tu.protocol {
             // ## Analyses Linkage
@@ -424,6 +844,29 @@ fn main() {
                 }
 
                 let is_ctor = protocol.manages.iter().any(|e| e.id == message.name.id);
+
+                // (Its parameters' types' uses, for IPDL structs and unions.)
+                let message_pretty = format!(
+                    "{}::{}::{}",
+                    ns.namespaces.join("_"),
+                    ns.name.id,
+                    message.name.id
+                );
+                let message_sym = format!(
+                    "IPC_{}_{}_{}",
+                    ns.namespaces.join("_"),
+                    ns.name.id,
+                    message.name.id
+                );
+                for param in message.in_params.iter().chain(message.out_params.iter()) {
+                    output_type_use(
+                        &mut outputf,
+                        &param.type_spec,
+                        &ipdl_types,
+                        &message_pretty,
+                        &message_sym,
+                    );
+                }
 
                 // (One symbol for the message, with the send and recv slots of
                 // each direction it goes in: both for `both:` messages.)

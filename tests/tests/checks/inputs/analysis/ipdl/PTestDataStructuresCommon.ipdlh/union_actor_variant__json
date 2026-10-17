@@ -1,0 +1,1 @@
+filter-analysis ipdl/PTestDataStructuresCommon.ipdlh -i "mozilla::_foo::Actors::ArrayOfPTestDataStructuresSub"
