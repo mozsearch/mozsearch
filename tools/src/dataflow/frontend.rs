@@ -1111,6 +1111,11 @@ impl<'c, 'a> Builder<'c, 'a> {
                 if let Some(place) = self.cpp_declare_targets(decl, vals, decl) {
                     places.push(place);
                 }
+            } else if decl.kind() == "function_declarator"
+                && let Some(ident) = cpp_declarator_ident(decl)
+                && let Some(place) = self.cpp_vexing_declaration(decl, ident)
+            {
+                places.push(place);
             } else if let Some(ident) = cpp_declarator_ident(decl) {
                 places.push(self.declare_local(ident));
             } else if decl.kind() == "structured_binding_declarator" {
@@ -1127,6 +1132,59 @@ impl<'c, 'a> Builder<'c, 'a> {
             self.assign(node, place, vals, "init");
         }
         places
+    }
+
+    /// `T x(y);`, which parses as a function's declaration (C++'s "most
+    /// vexing parse"), when the records say it's a variable constructed from
+    /// the variables the parameters' types name: the local, initialized by
+    /// the constructor's call.
+    fn cpp_vexing_declaration(&mut self, decl: Node<'c>, ident: Node<'c>) -> Option<Place> {
+        let recs = self.recs(ident);
+        if !recs.iter().any(|r| r.sym().starts_with("V_")) {
+            return None;
+        }
+        let ctor_recs: Vec<&SourceRec> = recs
+            .into_iter()
+            .filter(|r| r.has_syntax("constructor"))
+            .collect();
+        if ctor_recs.is_empty() {
+            return None;
+        }
+        let params = decl.child_by_field_name("parameters")?;
+        let mut args = vec![];
+        for param in named(params) {
+            if param.kind() != "parameter_declaration"
+                || param.child_by_field_name("declarator").is_some()
+            {
+                return None;
+            }
+            let name = param.child_by_field_name("type")?;
+            let ev = self.cpp_ident(name);
+            args.push(Arg {
+                vals: ev.vals,
+                place: ev.place,
+                addr: ev.addr,
+                text: truncate(self.t(name), 60),
+                line: self.pos(name).0,
+                end_line: self.end_line(name),
+            });
+        }
+        let id = self.push_call(
+            params,
+            &ctor_recs,
+            "constructor",
+            CallKind::Construct,
+            None,
+            args,
+        );
+        let place = self.declare_local(ident);
+        self.assign(
+            decl,
+            place.clone(),
+            vec![Val::direct(Atom::Call(id))],
+            "init",
+        );
+        Some(place)
     }
 
     /// Declare what a declarator declares, initialized with `vals`.

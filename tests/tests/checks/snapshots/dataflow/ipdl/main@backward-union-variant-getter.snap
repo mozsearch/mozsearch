@@ -16,3 +16,10 @@ mozilla::_ipdltest::TestDataStructuresChild::TestArrayOfUnion (ipdl/TestDataStru
         -> #1 call IntDouble::get_int in TestDataStructuresParent::RecvTestUnion [field: int]
   #5     488 const      3                                  i1.AppendElement(IntDouble(int(3)));
         -> #4 call IntDouble::IntDouble [local: 3]
+mozilla::_ipdltest::TestDataStructuresChild::TestUnion (ipdl/TestDataStructures.cpp)
+  #7     472 assign     i1i =                              int i1i = 42;
+        -> #6 call IntDouble::IntDouble [local: i1i]
+  #8     472 const      42                                 int i1i = 42;
+        -> #7 i1i = [local: 42]
+  #6     474 call       call IntDouble::IntDouble          IntDouble i1(i1i);
+        -> #1 call IntDouble::get_int in TestDataStructuresParent::RecvTestUnion [field: int]
