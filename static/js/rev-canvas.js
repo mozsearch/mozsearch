@@ -12,6 +12,13 @@
 // browser (IndexedDB, by tree and head, with when it was saved), and can be
 // exported as JSON (which names the push, and its model's URL) and imported,
 // ex: to share it.
+//
+// The push's changes are also sliced into the clusters of dataflow they touch
+// (the `slice-rev:` query's JSON, see tools/src/dataflow/slice.rs, loaded after
+// the cards): cards are badged with their clusters, which a panel lists grouped
+// by their commits and then by class, and one cluster can be shown alone.
+// Clusters aren't merged unless asked to: then those of a class (and commits)
+// are one.
 
 var RevCanvas = new (class RevCanvas {
   constructor() {
@@ -24,7 +31,7 @@ var RevCanvas = new (class RevCanvas {
   static STORE = "arrangements";
 
   defaultState() {
-    return { context: true, hidden: [], collapsed: [] };
+    return { context: true, hidden: [], collapsed: [], cluster: null, merge: false };
   }
 
   async init() {
@@ -47,6 +54,8 @@ var RevCanvas = new (class RevCanvas {
       { renderBlock: (block, node) => this.renderBlock(block, node) });
     this.addCallHovers();
     this.updateToolbar();
+    // (Not waited for: the cards are useful without them.)
+    this.loadClusters();
     // (Then as this browser last arranged it, if it did.)
     try {
       const saved = await this.load(this.key);
@@ -55,6 +64,9 @@ var RevCanvas = new (class RevCanvas {
         this.savedAt = saved.saved;
         this.graph.setInput(this.input());
         this.updateToolbar();
+        if (this.clusters) {
+          this.renderClusters();
+        }
       }
     } catch (e) {
       console.warn("Couldn't load the canvas's arrangement:", e);
@@ -69,15 +81,193 @@ var RevCanvas = new (class RevCanvas {
       context: state?.context !== false,
       hidden: ids(state?.hidden),
       collapsed: ids(state?.collapsed),
+      cluster: typeof state?.cluster == "string" ? state.cluster : null,
+      merge: state?.merge === true,
     };
+  }
+
+  // The push's slicing (see the file's comment), and its clusters' groups.
+  async loadClusters() {
+    const query = `slice-rev:${this.model.base}..${this.model.head} slice-format:json`;
+    const url = `/${this.model.tree}/query/default?q=${encodeURIComponent(query)}` +
+      `&rev=${encodeURIComponent(this.model.head)}`;
+    try {
+      const response = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!response.ok) {
+        throw new Error(`${response.status} ${response.statusText}`);
+      }
+      this.slicing = (await response.json())?.JsonValue?.value;
+    } catch (e) {
+      console.warn("Couldn't slice the push:", e);
+    }
+    if (!this.slicing?.clusters) {
+      this.clusterNote.textContent = "Its changes couldn't be sliced into dataflow clusters.";
+      return;
+    }
+    this.buildClusters();
+    this.renderClusters();
+    this.graph.setInput(this.input());
+    document.documentElement.dataset.canvasClustersReady = "true";
+  }
+
+  // Each cluster (by its number, 1 for the biggest) as its units' functions,
+  // classes and commits, and the groups (merged or not) they're shown as.
+  buildClusters() {
+    const units = this.slicing.units;
+    const short = sym => this.nodes.get(sym)?.pretty?.split("::").slice(-2).join("::") ??
+      units.find(u => u.func_sym == sym)?.func?.split("::").slice(-2).join("::") ?? sym;
+    this.clusters = this.slicing.clusters.map((ids, i) => {
+      const members = ids.map(id => units[id]);
+      const funcs = [...new Set(members.map(u => u.func_sym).filter(Boolean))];
+      const commits = [...new Set(members.flatMap(u => u.commits ?? []))];
+      // (Its class: the one most of its functions are methods of, if any.)
+      const counts = new Map();
+      for (const u of members.filter(u => u.class)) {
+        counts.set(u.class, (counts.get(u.class) ?? 0) + 1);
+      }
+      const cls = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+      return {
+        n: i + 1,
+        funcs,
+        names: funcs.map(short),
+        units: members.length,
+        commits,
+        cls,
+        // (Which commits and class it's grouped under.)
+        group: `${commits.join(",")}|${cls ?? ""}`,
+      };
+    });
+    // A card's clusters, by its function.
+    this.cardClusters = new Map();
+    for (const cluster of this.clusters) {
+      for (const sym of cluster.funcs) {
+        if (!this.cardClusters.has(sym)) {
+          this.cardClusters.set(sym, []);
+        }
+        this.cardClusters.get(sym).push(cluster.n);
+      }
+    }
+  }
+
+  // What's shown alone (`state.cluster`): a cluster ("c<n>"), or, merged, all
+  // of a group's ("g<group>").
+  shownKey(cluster) {
+    return this.state.merge ? `g${cluster.group}` : `c${cluster.n}`;
+  }
+
+  clusterColor(n) {
+    return `hsl(${(n * 137) % 360} 55% 50%)`;
+  }
+
+  renderClusters() {
+    const list = this.clusterList;
+    list.replaceChildren();
+    const commitName = commits => commits.length
+      ? `${commits.length > 1 ? "Commits" : "Commit"} ${commits.map(c => c.slice(0, 12)).join(", ")}`
+      : "Changes";
+    const className = cls => cls ? cls.replace(/^T_/, "") : "Not in a class";
+    // (By commits, then class, in the clusters' order.)
+    const byCommits = new Map();
+    for (const cluster of this.clusters) {
+      const key = cluster.commits.join(",");
+      if (!byCommits.has(key)) {
+        byCommits.set(key, new Map());
+      }
+      const byClass = byCommits.get(key);
+      if (!byClass.has(cluster.cls)) {
+        byClass.set(cluster.cls, []);
+      }
+      byClass.get(cluster.cls).push(cluster);
+    }
+    for (const byClass of byCommits.values()) {
+      const commitItem = document.createElement("li");
+      commitItem.className = "rc-cluster-commit";
+      commitItem.append(commitName([...byClass.values()][0][0].commits));
+      const classes = document.createElement("ul");
+      for (const [cls, clusters] of byClass) {
+        const classItem = document.createElement("li");
+        classItem.className = "rc-cluster-class";
+        classItem.append(className(cls));
+        const items = document.createElement("ul");
+        // (Merged: the group as one.)
+        const shown = this.state.merge ? [clusters] : clusters.map(c => [c]);
+        for (const members of shown) {
+          const item = document.createElement("li");
+          item.className = "rc-cluster";
+          const key = this.shownKey(members[0]);
+          const names = members.flatMap(c => c.names);
+          const swatch = document.createElement("span");
+          swatch.className = "rc-cluster-swatch";
+          swatch.style.backgroundColor = this.clusterColor(members[0].n);
+          const label = members.map(c => c.n).join("+");
+          const show = this.button(
+            `${members.length > 1 ? "Clusters" : "Cluster"} ${label}`,
+            this.state.cluster == key ? "Show all the cards" : "Show only its cards",
+            () => {
+              this.state.cluster = this.state.cluster == key ? null : key;
+              this.changed();
+            });
+          show.classList.add("rc-cluster-show");
+          show.dataset.cluster = key;
+          show.setAttribute("aria-pressed", String(this.state.cluster == key));
+          const units = members.reduce((sum, c) => sum + c.units, 0);
+          const what = document.createElement("span");
+          what.className = "rc-cluster-what";
+          what.textContent = `${names.slice(0, 4).join(", ")}${names.length > 4 ? ", …" : ""}` +
+            ` (${units} ${units == 1 ? "change" : "changes"})`;
+          item.append(swatch, show, " ", what);
+          // (Its diagram, for one cluster.)
+          if (members.length == 1) {
+            const diagram = document.createElement("a");
+            diagram.className = "rc-cluster-diagram";
+            const query = `slice-rev:${this.model.base}..${this.model.head} slice-cluster:${members[0].n}`;
+            diagram.href = `/${this.model.tree}/query/default?q=${encodeURIComponent(query)}` +
+              `&rev=${encodeURIComponent(this.model.head)}`;
+            diagram.textContent = "diagram";
+            item.append(" ", diagram);
+          }
+          items.append(item);
+        }
+        classItem.append(items);
+        classes.append(classItem);
+      }
+      commitItem.append(classes);
+      list.append(commitItem);
+    }
+    const other = this.slicing.other?.length ?? 0;
+    this.clusterNote.textContent =
+      `${this.clusters.length} clusters of the dataflow its changes touch` +
+      (other ? `, and ${other} changes without dataflow (ex: includes)` : "") + ".";
+    this.mergeBox.checked = this.state.merge;
+  }
+
+  // The cards of the cluster (or group) shown alone, if any, and the context's
+  // cards calling them or called by them.
+  clusterCards() {
+    const key = this.state.cluster;
+    const members = (this.clusters ?? []).filter(c => this.shownKey(c) == key);
+    if (!key || !members.length) {
+      return null;
+    }
+    const cards = new Set(members.flatMap(c => c.funcs).filter(sym => this.nodes.has(sym)));
+    for (const edge of this.model.edges) {
+      for (const [a, b] of [[edge.from, edge.to], [edge.to, edge.from]]) {
+        if (cards.has(a) && this.nodes.get(b)?.status == "context") {
+          cards.add(b);
+        }
+      }
+    }
+    return cards;
   }
 
   // The graph's input: the shown cards, and the calls among them.
   input() {
     const hidden = new Set(this.state.hidden);
+    const cluster = this.clusterCards();
     const shown = new Set(
       this.model.nodes
         .filter(node => (this.state.context || node.status != "context") && !hidden.has(node.id))
+        .filter(node => !cluster || cluster.has(node.id))
         .map(node => node.id));
     return {
       nodes: this.model.nodes
@@ -123,7 +313,17 @@ var RevCanvas = new (class RevCanvas {
     collapse.classList.add("rc-collapse");
     const hide = this.button("×", "Hide it", () => this.toggle("hidden", node.id));
     hide.classList.add("rc-hide");
-    head.append(collapse, status, name, where, hide);
+    head.append(collapse, status, name, where);
+    // (Its clusters' badges.)
+    for (const n of this.cardClusters?.get(node.id) ?? []) {
+      const badge = document.createElement("span");
+      badge.className = "rc-cluster-badge";
+      badge.textContent = `c${n}`;
+      badge.title = `In dataflow cluster ${n}`;
+      badge.style.backgroundColor = this.clusterColor(n);
+      head.append(badge);
+    }
+    head.append(hide);
     element.append(head);
 
     if (!collapsed && node.rows) {
@@ -190,6 +390,9 @@ var RevCanvas = new (class RevCanvas {
   changed() {
     this.graph.setInput(this.input());
     this.updateToolbar();
+    if (this.clusters) {
+      this.renderClusters();
+    }
     this.save();
   }
 
@@ -257,6 +460,29 @@ var RevCanvas = new (class RevCanvas {
     }
     toolbar.after(legend);
 
+    // The push's dataflow clusters (see `loadClusters`).
+    const clusters = document.createElement("details");
+    clusters.className = "rc-clusters";
+    const summary = document.createElement("summary");
+    summary.textContent = "Dataflow clusters";
+    this.clusterNote = document.createElement("span");
+    this.clusterNote.className = "rc-cluster-note";
+    this.clusterNote.textContent = "Slicing its changes…";
+    const mergeLabel = document.createElement("label");
+    this.mergeBox = document.createElement("input");
+    this.mergeBox.type = "checkbox";
+    this.mergeBox.className = "rc-cluster-merge";
+    this.mergeBox.addEventListener("change", () => {
+      this.state.merge = this.mergeBox.checked;
+      this.state.cluster = null;
+      this.changed();
+    });
+    mergeLabel.append(this.mergeBox, " Merge clusters of the same class");
+    this.clusterList = document.createElement("ul");
+    this.clusterList.className = "rc-cluster-list";
+    clusters.append(summary, this.clusterNote, " ", mergeLabel, this.clusterList);
+    legend.after(clusters);
+
     if (this.model.other_files.length) {
       const others = document.createElement("p");
       others.className = "rc-other-files";
@@ -267,7 +493,7 @@ var RevCanvas = new (class RevCanvas {
         a.textContent = file.path;
         others.append(...(i ? [", "] : []), a, ` (${file.change}, ${file.note})`);
       });
-      legend.after(others);
+      clusters.after(others);
     }
   }
 

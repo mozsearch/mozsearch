@@ -293,6 +293,39 @@ add_task(async function test_TryCanvas() {
   is((await response.json()).nodes.length, 7, "with its cards");
 });
 
+// The canvas's dataflow clusters (see rev-canvas.js's `loadClusters`): its
+// cards are badged with the clusters of the push's slicing, which a panel
+// lists by commit and class, and which can be shown alone, or merged by class.
+add_task(async function test_TryCanvasClusters() {
+  const head = await importPush();
+  await TestUtils.loadPath(`/trydelta/rev-canvas/${head}`);
+  await waitForCondition(() => doc().documentElement.dataset.canvasClustersReady,
+                         "The push's clusters are loaded");
+  const card = name => [...doc().querySelectorAll(".rc-card")]
+    .find(c => c.querySelector(".rc-name")?.textContent == name);
+  const badges = name => [...(card(name)?.querySelectorAll(".rc-cluster-badge") ?? [])]
+    .map(b => b.textContent).join();
+  ok(badges("trydelta::Widget::Wobble"), "Cards are badged with their clusters");
+  is(badges("trydelta::WobbleTwice"), badges("trydelta::Widget::Wobble"),
+     "and Wobble's new caller is in its cluster");
+  isnot(badges("trydelta::Unpoke"), badges("trydelta::Widget::Wobble"), "unlike Unpoke");
+  ok(doc().querySelector(".rc-cluster-commit")?.textContent.includes(head.slice(0, 12)),
+     "The panel lists them by commit");
+
+  const show = cluster => doc().querySelector(`.rc-cluster-show[data-cluster="${cluster}"]`);
+  const cluster = badges("trydelta::Widget::Wobble").split(",")[0];
+  show(cluster).click();
+  ok(card("trydelta::Widget::Wobble") && card("trydelta::WobbleTwice") && !card("trydelta::Unpoke"),
+     "A cluster can be shown alone");
+  show(cluster).click();
+  ok(card("trydelta::Unpoke"), "and then all of them again");
+
+  doc().querySelector(".rc-cluster-merge").click();
+  ok(doc().querySelector('.rc-cluster-show[data-cluster^="g"]'),
+     "Clusters can be merged by class");
+  doc().querySelector(".rc-toolbar button[title='Forget this arrangement']").click();
+});
+
 // A push whose changes conflict with the indexed revision's can't be analyzed
 // semantically, which its page says, with why: fedcba987654 is based on the
 // tree's first revision, and declares Widget::Grow where the second declares

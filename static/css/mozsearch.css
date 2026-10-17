@@ -4517,6 +4517,53 @@ g.rc-call-hovered .interactive-graph-edge {
   padding: 0.1em 0.4em 0.2em;
   font-size: 0.85em;
 }
+/* The push's dataflow clusters (see rev-canvas.js's `loadClusters`). */
+.rc-clusters {
+  margin: 0.2em 0;
+  font-size: 0.9em;
+}
+.rc-clusters summary {
+  cursor: pointer;
+  font-weight: bold;
+}
+.rc-cluster-note {
+  opacity: 0.8;
+}
+.rc-cluster-list,
+.rc-cluster-list ul {
+  margin: 0.1em 0;
+  padding-left: 1.2em;
+}
+.rc-cluster-commit,
+.rc-cluster-class {
+  list-style: none;
+  font-weight: bold;
+}
+.rc-cluster {
+  list-style: none;
+  font-weight: normal;
+}
+.rc-cluster-swatch {
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-right: 0.3em;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+.rc-cluster-show[aria-pressed="true"] {
+  font-weight: bold;
+  outline: 2px solid var(--page-border-color);
+}
+.rc-cluster-what {
+  font-family: monospace;
+}
+.rc-cluster-badge {
+  padding: 0 0.3em;
+  border-radius: 3px;
+  font-size: 0.8em;
+  color: white;
+}
 
 /* Field Layout */
 
