@@ -6,17 +6,25 @@ input_file: inputs/analysis/cpp/params/header_param_after_unnamed__json
 [
   {
     "loc": "00011:21-28",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "params::Second::aSecond",
+    "sym": "V_512b34f971ad9cec_1",
+    "context": "params::Second",
+    "contextsym": "_ZN6params6SecondEib"
+  },
+  {
+    "loc": "00011:21-28",
     "source": 1,
     "syntax": "",
     "type": "_Bool",
     "pretty": "variable aSecond",
-    "sym": "V_512b34f971ad9cec_1",
-    "no_crossref": 1
+    "sym": "V_512b34f971ad9cec_1"
   },
   {
     "loc": "00011:21-28",
     "structured": 1,
-    "pretty": "aSecond",
+    "pretty": "params::Second::aSecond",
     "sym": "V_512b34f971ad9cec_1",
     "kind": "parameter"
   }

@@ -354,10 +354,13 @@ fn process_analysis_target(
     // redundantly when it's the symbol we're attaching data to.
     //
     // (But a use whose context receives its symbol, ex: an observer's
-    // comparison of its topic with an observer topic, doesn't call it.)
+    // comparison of its topic with an observer topic, doesn't call it, and
+    // nor does a use of a C++ local or parameter; see `local_symbols`.)
+    let is_local = piece.sym.starts_with("V_");
     if piece.kind == AnalysisKind::Use
         && !piece.contextsym.is_empty()
         && piece.slot != Some(BindingSlotKind::Recv)
+        && !is_local
     {
         callees_items.push((piece.contextsym, piece.sym, *path, loc.lineno, false));
     }
@@ -403,8 +406,15 @@ fn process_analysis_target(
     // newline, is spaces.)
     let ch = piece.sym.chars().next().unwrap();
     if !ch.is_ascii_digit() && !piece.sym.contains(char::is_whitespace) {
-        let pretty = if piece.pretty.contains(|c: char| c.is_whitespace() && c != ' ') {
-            piece.pretty.split_whitespace().collect::<Vec<_>>().join(" ")
+        let pretty = if piece
+            .pretty
+            .contains(|c: char| c.is_whitespace() && c != ' ')
+        {
+            piece
+                .pretty
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
         } else {
             piece.pretty.to_string()
         };
@@ -428,7 +438,15 @@ fn process_analysis_target(
             ""
         };
         let (components, delim) = split_pretty(&pretty, split_sym);
-        for i in 0..components.len() {
+        // (A C++ local's or parameter's name alone, ex: "aCx" or "i", would
+        // be one of thousands, so it's only an identifier with its
+        // function's, ex: "Scale::aFactor".)
+        let last = if is_local {
+            components.len().saturating_sub(1)
+        } else {
+            components.len()
+        };
+        for i in 0..last {
             let sub = &components[i..components.len()];
             let sub = sub.join(delim);
 

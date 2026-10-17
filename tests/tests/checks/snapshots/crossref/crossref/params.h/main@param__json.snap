@@ -1,0 +1,92 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/crossref/params.h/param__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "V_4f0600ec68786a8e_1",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "params/params.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 7,
+                "bounds": [
+                  53,
+                  60
+                ],
+                "line": "int Scale(int aValue, int aFactor) { return aValue * aFactor; }",
+                "context": "params::Scale",
+                "contextsym": "_ZN6params5ScaleEii"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "params/params.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 7,
+                "bounds": [
+                  26,
+                  33
+                ],
+                "line": "int Scale(int aValue, int aFactor) { return aValue * aFactor; }",
+                "context": "params::Scale",
+                "contextsym": "_ZN6params5ScaleEii"
+              }
+            ]
+          }
+        ],
+        "decls": [
+          {
+            "path": "params/params.h",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 7,
+                "bounds": [
+                  26,
+                  33
+                ],
+                "line": "int Scale(int aValue, int aFactor);",
+                "context": "params::Scale",
+                "contextsym": "_ZN6params5ScaleEii"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "params::Scale::aFactor",
+          "sym": "V_4f0600ec68786a8e_1",
+          "type_pretty": null,
+          "kind": "parameter",
+          "subsystem": null,
+          "implKind": "",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

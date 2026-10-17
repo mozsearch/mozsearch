@@ -7,6 +7,12 @@ const FOLLOWABLE_KINDS = new Set([
   "field", "variable", "arg", "parameter", "localVar", "property", "var",
 ]);
 
+// C/C++ locals' and parameters' symbols (MozsearchIndexer.cpp's, and the
+// tools' unified parameters'; see tools/src/file_format/local_symbols.rs).
+function isCxxLocalSym(sym) {
+  return /^V_[0-9a-fA-F]+_[0-9a-fA-F]+$/.test(sym);
+}
+
 // The files whose languages dataflow understands (C++, JS/TS, Kotlin).
 const DATAFLOW_PATH_RE = /\.(c|cc|cpp|cxx|h|hh|hpp|hxx|js|jsm|mjs|sjs|ts|tsx|jsx|kt|kts)$/;
 
@@ -1547,11 +1553,17 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           jsLocalSyms.push(sym);
           return;
         }
-        if (sym.match(/^V_[0-9a-fA-F]+_[0-9a-fA-F]+$/)) {
-          // C/C++ local symbols from MozsearchIndexer.cpp.
-          nonJSLocalSyms.push(sym);
+        if (isCxxLocalSym(sym)) {
           followSyms.push(sym);
-          return;
+          // C/C++ locals' and parameters' symbols from MozsearchIndexer.cpp
+          // have crossref entries (see tools/src/file_format/local_symbols.rs),
+          // so they have jumps and searches like other symbols, except in
+          // indexes from before that, where their first occurrence in the
+          // file is their declaration.
+          if (!SYM_INFO[sym]?.pretty) {
+            nonJSLocalSyms.push(sym);
+            return;
+          }
         }
 
         let symInfo = SYM_INFO[sym];
@@ -1650,7 +1662,9 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         // Also, we don't currently de-duplicate the diagram links, but it
         // would be appropriate to do so or otherwise address that the traverse
         // logic itself will follow binding slots.
-        if (symInfo.meta && symInfo.meta.implKind !== "idl") {
+        //
+        // (Nor locals' and parameters'.)
+        if (symInfo.meta && symInfo.meta.implKind !== "idl" && !isCxxLocalSym(sym)) {
           diagrammableSyms.push(symInfo);
         }
 

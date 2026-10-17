@@ -1,0 +1,74 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/crossref/params.cpp/local__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "V_2160d5bc63f4b27b_198c65b1356",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "params/params.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 15,
+                "bounds": [
+                  7,
+                  13
+                ],
+                "line": "return scaled;",
+                "context": "params::UseThem",
+                "contextsym": "_ZN6params7UseThemEv"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "params/params.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 14,
+                "bounds": [
+                  4,
+                  10
+                ],
+                "line": "int scaled = Scale(Second(1, true), Third(2, 3));",
+                "context": "params::UseThem",
+                "contextsym": "_ZN6params7UseThemEv"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "params::UseThem::scaled",
+          "sym": "V_2160d5bc63f4b27b_198c65b1356",
+          "type_pretty": null,
+          "kind": "localVar",
+          "subsystem": null,
+          "implKind": "",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExactIdentifier",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

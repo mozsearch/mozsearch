@@ -1,1 +1,1 @@
-filter-analysis params/params.h -i aSecond
+filter-analysis params/params.h --symbol-prefix V_512b34f971ad9cec_1

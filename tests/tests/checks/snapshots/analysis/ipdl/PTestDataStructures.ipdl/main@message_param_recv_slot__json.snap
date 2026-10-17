@@ -6,18 +6,26 @@ input_file: inputs/analysis/ipdl/PTestDataStructures.ipdl/message_param_recv_slo
 [
   {
     "loc": "00169:30-31",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "mozilla::_ipdltest::PTestDataStructuresParent::RecvTestStruct::i",
+    "sym": "V_c9aff968d698e28a_0",
+    "context": "mozilla::_ipdltest::PTestDataStructuresParent::RecvTestStruct",
+    "contextsym": "_ZN7mozilla9_ipdltest25PTestDataStructuresParent14RecvTestStructERKNS_4_foo10SIntDoubleEPS3_"
+  },
+  {
+    "loc": "00169:30-31",
     "source": 1,
     "syntax": "",
     "pretty": "variable i",
     "sym": "V_c9aff968d698e28a_0",
-    "no_crossref": 1,
     "type": "const mozilla::_ipdltest::PTestDataStructuresParent::SIntDouble &",
     "typesym": "T_mozilla::_foo::SIntDouble"
   },
   {
     "loc": "00169:30-31",
     "structured": 1,
-    "pretty": "i",
+    "pretty": "mozilla::_ipdltest::PTestDataStructuresParent::RecvTestStruct::i",
     "sym": "V_c9aff968d698e28a_0",
     "type_pretty": null,
     "kind": "parameter",

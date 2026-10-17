@@ -6,11 +6,28 @@ input_file: inputs/analysis/cpp/params/definition_param__json
 [
   {
     "loc": "00007:26-33",
+    "target": 1,
+    "kind": "def",
+    "pretty": "params::Scale::aFactor",
+    "sym": "V_4f0600ec68786a8e_1",
+    "context": "params::Scale",
+    "contextsym": "_ZN6params5ScaleEii"
+  },
+  {
+    "loc": "00007:53-60",
+    "target": 1,
+    "kind": "use",
+    "pretty": "params::Scale::aFactor",
+    "sym": "V_4f0600ec68786a8e_1",
+    "context": "params::Scale",
+    "contextsym": "_ZN6params5ScaleEii"
+  },
+  {
+    "loc": "00007:26-33",
     "source": 1,
     "syntax": "",
     "pretty": "variable aFactor",
     "sym": "V_4f0600ec68786a8e_1",
-    "no_crossref": 1,
     "type": "int"
   },
   {
@@ -19,13 +36,12 @@ input_file: inputs/analysis/cpp/params/definition_param__json
     "syntax": "",
     "pretty": "variable aFactor",
     "sym": "V_4f0600ec68786a8e_1",
-    "no_crossref": 1,
     "type": "int"
   },
   {
     "loc": "00007:26-33",
     "structured": 1,
-    "pretty": "aFactor",
+    "pretty": "params::Scale::aFactor",
     "sym": "V_4f0600ec68786a8e_1",
     "type_pretty": null,
     "kind": "parameter",

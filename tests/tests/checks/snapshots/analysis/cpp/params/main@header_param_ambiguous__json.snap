@@ -6,17 +6,25 @@ input_file: inputs/analysis/cpp/params/header_param_ambiguous__json
 [
   {
     "loc": "00015:19-25",
+    "target": 1,
+    "kind": "decl",
+    "pretty": "params::Third::aThird",
+    "sym": "V_cc75183506bd2ea5_1494e40f256",
+    "context": "params::Third",
+    "contextsym": "_ZN6params5ThirdEii"
+  },
+  {
+    "loc": "00015:19-25",
     "source": 1,
     "syntax": "",
     "type": "int",
     "pretty": "variable aThird",
-    "sym": "V_cc75183506bd2ea5_1494e40f256",
-    "no_crossref": 1
+    "sym": "V_cc75183506bd2ea5_1494e40f256"
   },
   {
     "loc": "00015:19-25",
     "structured": 1,
-    "pretty": "aThird",
+    "pretty": "params::Third::aThird",
     "sym": "V_cc75183506bd2ea5_1494e40f256",
     "kind": "parameter"
   }

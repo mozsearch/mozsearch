@@ -19,7 +19,7 @@ use ipdl_parser::ast::ProtocolSide;
 use tools::file_format::analysis::{
     AnalysisKind, AnalysisTarget, WithLocation, read_analyses, read_target,
 };
-use tools::file_format::parameter_symbols::parameter_symbol;
+use tools::file_format::local_symbols::parameter_symbol;
 
 use ipdl_parser::ast;
 use ipdl_parser::parser;
@@ -135,7 +135,10 @@ impl GeneratedSymbols {
         let mut syms = GeneratedSymbols::default();
         for datum in read_analyses(&[path.to_string()], &mut read_target) {
             for piece in datum.data {
-                if piece.kind == AnalysisKind::Def || piece.kind == AnalysisKind::Decl {
+                // (Not locals' and parameters'; see `local_symbols`.)
+                if (piece.kind == AnalysisKind::Def || piece.kind == AnalysisKind::Decl)
+                    && !piece.sym.starts_with("V_")
+                {
                     let list = syms.by_pretty.entry(piece.pretty.to_string()).or_default();
                     if !list.iter().any(|s| s == piece.sym.as_str()) {
                         list.push(piece.sym.to_string());
@@ -491,7 +494,7 @@ fn output_data_structures(
 
 /// Write a message's parameters' symbols (`IPC_…_<Message>__<param>`), with
 /// binding slots for the send and recv methods' parameters (whose symbols
-/// are unified; see `parameter_symbols`): in-parameters in order, then sync
+/// are unified; see `local_symbols`): in-parameters in order, then sync
 /// messages' out-parameters (pointers), and async messages' return values
 /// without slots (their send methods take resolvers), and uses of the IPDL
 /// structs and unions their types name.

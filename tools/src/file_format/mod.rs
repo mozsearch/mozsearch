@@ -27,11 +27,11 @@ pub mod identifiers;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod jumpref;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod local_symbols;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod merger;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod ontology_mapping;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod parameter_symbols;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod per_file_info;
 #[cfg(not(target_arch = "wasm32"))]

@@ -1,0 +1,8 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(sl).unwrap()"
+input_file: inputs/crossref/identifiers/params.h/param_bare_name__json
+---
+{
+  "symbols": []
+}

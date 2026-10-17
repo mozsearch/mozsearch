@@ -111,6 +111,11 @@ distinguish overloads.
 
 * For local variables, the symbol is `V_${variable_location_hash}_${variable_name_hash}`,
 where the location is the hash of the filename and line where the variable is declared.
+As the tools read analysis files, parameters' symbols become
+`V_${function_symbol_hash}_${index}` (a 64-bit FNV-1a hash of the function's
+symbol, and the parameter's position, in hex), so that a declaration's and the
+definition's parameters share a symbol, and other locals with several platforms'
+symbols get the least of them; see `tools/src/file_format/local_symbols.rs`.
 
 * For anonymous types, the symbol is `T_${type_location_hash}`.
 
@@ -213,11 +218,18 @@ analysis records are generated for multiple platforms, the final source records 
 contain the symbols from all the platforms merged into a comma-separated list. The
 `scripts/merge-analyses.py` script is used to do this.
 
-Also, in many cases (notably for C++ and JS code), local variables have their
+Also, in many cases (notably for JS code), local variables have their
 target records omitted, and their source records have the `no_crossref`
 property. Since local variables are not referenced outside of a very narrow
 context, this optimization helps to avoid bloating the index files with a
-lot of unnecessary entries.
+lot of unnecessary entries.  C++ locals and parameters are named across files
+(ex: by binding slots, for IPDL messages' parameters), so as the tools read
+analysis files they give them target records (definitions, declarations for
+declarations' parameters, and uses, in their functions' contexts, with pretty
+names qualified by their functions', ex: `params::Scale::aFactor`) and remove
+their `no_crossref`; see `tools/src/file_format/local_symbols.rs`.  Their
+names alone aren't identifiers (only with their functions', ex:
+`Scale::aFactor`), and their uses aren't their functions' callees.
 
 ### Sources
 

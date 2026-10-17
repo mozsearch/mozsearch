@@ -66,11 +66,47 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "contextsym": "_ZN13GlobalContext18decideBooleanTraitEv"
   },
   {
+    "loc": "00028:8-12",
+    "target": 1,
+    "kind": "def",
+    "pretty": "GlobalContext::decideBooleanTrait::rval",
+    "sym": "V_6d0df62064ef3d77_a959d9c71",
+    "context": "GlobalContext::decideBooleanTrait",
+    "contextsym": "_ZN13GlobalContext18decideBooleanTraitEv"
+  },
+  {
     "loc": "00034:24-32",
     "target": 1,
     "kind": "use",
     "pretty": "RAND_MAX",
     "sym": "M_e89e6d7fbc4c5277"
+  },
+  {
+    "loc": "00034:8-21",
+    "target": 1,
+    "kind": "def",
+    "pretty": "GlobalContext::decideBooleanTrait::midpointValue",
+    "sym": "V_33c4072064ef3d77_644177abb24920da",
+    "context": "GlobalContext::decideBooleanTrait",
+    "contextsym": "_ZN13GlobalContext18decideBooleanTraitEv"
+  },
+  {
+    "loc": "00036:15-28",
+    "target": 1,
+    "kind": "use",
+    "pretty": "GlobalContext::decideBooleanTrait::midpointValue",
+    "sym": "V_33c4072064ef3d77_644177abb24920da",
+    "context": "GlobalContext::decideBooleanTrait",
+    "contextsym": "_ZN13GlobalContext18decideBooleanTraitEv"
+  },
+  {
+    "loc": "00036:8-12",
+    "target": 1,
+    "kind": "use",
+    "pretty": "GlobalContext::decideBooleanTrait::rval",
+    "sym": "V_6d0df62064ef3d77_a959d9c71",
+    "context": "GlobalContext::decideBooleanTrait",
+    "contextsym": "_ZN13GlobalContext18decideBooleanTraitEv"
   },
   {
     "loc": "00063:14-47",
@@ -219,6 +255,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "peekRange": "133-133"
   },
   {
+    "loc": "00133:28-31",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::CycleCollectingMagic::unlink::raw",
+    "sym": "V_9832ab16a6e5791a_0",
+    "context": "outerNS::CycleCollectingMagic::unlink",
+    "contextsym": "_ZN7outerNS20CycleCollectingMagic6unlinkEPv"
+  },
+  {
     "loc": "00136:6-11",
     "target": 1,
     "kind": "def",
@@ -247,6 +292,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "peekRange": "146-146"
   },
   {
+    "loc": "00149:12-18",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::Thing::Thing::baseHP",
+    "sym": "V_1fa318e74e0ac992_0",
+    "context": "outerNS::Thing::Thing",
+    "contextsym": "_ZN7outerNS5ThingC1Ei"
+  },
+  {
     "loc": "00149:2-7",
     "target": 1,
     "kind": "def",
@@ -264,6 +318,13 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "F_<T_outerNS::Thing>_mHP",
     "context": "outerNS::Thing::Thing",
     "contextsym": "_ZN7outerNS5ThingC1Ei"
+  },
+  {
+    "loc": "00149:26-32",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::Thing::Thing::baseHP",
+    "sym": "V_1fa318e74e0ac992_0"
   },
   {
     "loc": "00149:35-43",
@@ -295,6 +356,24 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "peekRange": "155-155"
   },
   {
+    "loc": "00155:30-36",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::Thing::takeDamage::damage",
+    "sym": "V_1176b0ee933b02d5_0",
+    "context": "outerNS::Thing::takeDamage",
+    "contextsym": "_ZN7outerNS5Thing10takeDamageEi"
+  },
+  {
+    "loc": "00156:11-17",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::Thing::takeDamage::damage",
+    "sym": "V_1176b0ee933b02d5_0",
+    "context": "outerNS::Thing::takeDamage",
+    "contextsym": "_ZN7outerNS5Thing10takeDamageEi"
+  },
+  {
     "loc": "00156:4-7",
     "target": 1,
     "kind": "use",
@@ -304,11 +383,29 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "contextsym": "_ZN7outerNS5Thing10takeDamageEi"
   },
   {
+    "loc": "00158:8-14",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::Thing::takeDamage::damage",
+    "sym": "V_1176b0ee933b02d5_0",
+    "context": "outerNS::Thing::takeDamage",
+    "contextsym": "_ZN7outerNS5Thing10takeDamageEi"
+  },
+  {
     "loc": "00159:6-14",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::Thing::mDefunct",
     "sym": "F_<T_outerNS::Thing>_mDefunct",
+    "context": "outerNS::Thing::takeDamage",
+    "contextsym": "_ZN7outerNS5Thing10takeDamageEi"
+  },
+  {
+    "loc": "00160:6-12",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::Thing::takeDamage::damage",
+    "sym": "V_1176b0ee933b02d5_0",
     "context": "outerNS::Thing::takeDamage",
     "contextsym": "_ZN7outerNS5Thing10takeDamageEi"
   },
@@ -425,6 +522,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "contextsym": "T_outerNS::Superhero"
   },
   {
+    "loc": "00187:22-28",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::Superhero::takeDamage::damage",
+    "sym": "V_a658475f157d5ad2_0",
+    "context": "outerNS::Superhero::takeDamage",
+    "contextsym": "_ZN7outerNS9Superhero10takeDamageEi"
+  },
+  {
     "loc": "00187:7-17",
     "target": 1,
     "kind": "def",
@@ -452,6 +558,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "peekRange": "196-196"
   },
   {
+    "loc": "00198:12-19",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::Couch::Couch::couchHP",
+    "sym": "V_ed9b4331aa114cd0_0",
+    "context": "outerNS::Couch::Couch",
+    "contextsym": "_ZN7outerNS5CouchC1Ei"
+  },
+  {
     "loc": "00198:2-7",
     "target": 1,
     "kind": "def",
@@ -476,6 +591,22 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "kind": "use",
     "pretty": "outerNS::Thing::Thing",
     "sym": "_ZN7outerNS5ThingC1Ei",
+    "context": "outerNS::Couch::Couch",
+    "contextsym": "_ZN7outerNS5CouchC1Ei"
+  },
+  {
+    "loc": "00198:34-41",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::Couch::Couch::couchHP",
+    "sym": "V_ed9b4331aa114cd0_0"
+  },
+  {
+    "loc": "00199:14-22",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::Couch::Couch::superBob",
+    "sym": "V_c6b4e335607c3527_74bc848dc87ea1",
     "context": "outerNS::Couch::Couch",
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
@@ -509,9 +640,27 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00200:31-37",
     "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::Couch::Couch::victor",
+    "sym": "V_a58abe45607c3527_c9114c22356",
+    "context": "outerNS::Couch::Couch",
+    "contextsym": "_ZN7outerNS5CouchC1Ei"
+  },
+  {
+    "loc": "00200:31-37",
+    "target": 1,
     "kind": "use",
     "pretty": "WhatsYourVector::WhatsYourVector<T>",
     "sym": "_ZN15WhatsYourVectorC1EPT_",
+    "context": "outerNS::Couch::Couch",
+    "contextsym": "_ZN7outerNS5CouchC1Ei"
+  },
+  {
+    "loc": "00200:39-47",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::Couch::Couch::superBob",
+    "sym": "V_c6b4e335607c3527_74bc848dc87ea1",
     "context": "outerNS::Couch::Couch",
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
@@ -521,6 +670,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "kind": "use",
     "pretty": "WhatsYourVector",
     "sym": "T_WhatsYourVector",
+    "context": "outerNS::Couch::Couch",
+    "contextsym": "_ZN7outerNS5CouchC1Ei"
+  },
+  {
+    "loc": "00202:10-13",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::Couch::Couch::bob",
+    "sym": "V_9d0cce45607c3527_872688b",
     "context": "outerNS::Couch::Couch",
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
@@ -554,6 +712,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00203:27-45",
     "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::Couch::Couch::goodReferenceRight",
+    "sym": "V_26d4de45607c3527_bbca21f4b95005a5",
+    "context": "outerNS::Couch::Couch",
+    "contextsym": "_ZN7outerNS5CouchC1Ei"
+  },
+  {
+    "loc": "00203:27-45",
+    "target": 1,
     "kind": "use",
     "pretty": "WhatsYourVector::WhatsYourVector<T>",
     "sym": "_ZN15WhatsYourVectorC1EPT_",
@@ -570,6 +737,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
   {
+    "loc": "00203:47-50",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::Couch::Couch::bob",
+    "sym": "V_9d0cce45607c3527_872688b",
+    "context": "outerNS::Couch::Couch",
+    "contextsym": "_ZN7outerNS5CouchC1Ei"
+  },
+  {
     "loc": "00205:11-51",
     "target": 1,
     "kind": "use",
@@ -582,6 +758,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     ]
   },
   {
+    "loc": "00205:4-10",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::Couch::Couch::victor",
+    "sym": "V_a58abe45607c3527_c9114c22356",
+    "context": "outerNS::Couch::Couch",
+    "contextsym": "_ZN7outerNS5CouchC1Ei"
+  },
+  {
     "loc": "00206:23-63",
     "target": 1,
     "kind": "use",
@@ -592,6 +777,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "argRanges": [
       "206:64-206:64"
     ]
+  },
+  {
+    "loc": "00206:4-22",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::Couch::Couch::goodReferenceRight",
+    "sym": "V_26d4de45607c3527_bbca21f4b95005a5",
+    "context": "outerNS::Couch::Couch",
+    "contextsym": "_ZN7outerNS5CouchC1Ei"
   },
   {
     "loc": "00210:17-22",
@@ -678,6 +872,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "peekRange": "228-228"
   },
   {
+    "loc": "00240:16-26",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::OuterCat::OuterCat::beFriendly",
+    "sym": "V_5a53d6747131f729_0",
+    "context": "outerNS::OuterCat::OuterCat",
+    "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
+  },
+  {
     "loc": "00240:2-10",
     "target": 1,
     "kind": "def",
@@ -693,6 +896,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "kind": "use",
     "pretty": "std::shared_ptr::shared_ptr<_Tp>",
     "sym": "_ZNSt10shared_ptrC1Ev",
+    "context": "outerNS::OuterCat::OuterCat",
+    "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
+  },
+  {
+    "loc": "00246:16-36",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::OuterCat::OuterCat::beSecretlyUnfriendly",
+    "sym": "V_5a53d6747131f729_1",
     "context": "outerNS::OuterCat::OuterCat",
     "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
   },
@@ -722,6 +934,13 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
   },
   {
+    "loc": "00251:20-30",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::OuterCat::beFriendly",
+    "sym": "V_5a53d6747131f729_0"
+  },
+  {
     "loc": "00251:8-19",
     "target": 1,
     "kind": "use",
@@ -729,6 +948,13 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "F_<T_outerNS::OuterCat>_mIsFriendly",
     "context": "outerNS::OuterCat::OuterCat",
     "contextsym": "_ZN7outerNS8OuterCatC1Ebb"
+  },
+  {
+    "loc": "00256:30-50",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::OuterCat::beSecretlyUnfriendly",
+    "sym": "V_5a53d6747131f729_1"
   },
   {
     "loc": "00256:8-29",
@@ -825,6 +1051,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "peekRange": "329-329"
   },
   {
+    "loc": "00330:22-25",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::OuterCat::CycleCollectingCat::unlink::raw",
+    "sym": "V_7083e248ad15a9a1_0",
+    "context": "outerNS::OuterCat::CycleCollectingCat::unlink",
+    "contextsym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv"
+  },
+  {
     "loc": "00330:9-15",
     "target": 1,
     "kind": "def",
@@ -835,11 +1070,29 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "peekRange": "330-330"
   },
   {
+    "loc": "00331:16-19",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::OuterCat::CycleCollectingCat::unlink::cat",
+    "sym": "V_2a6a7775607c3527_df4688b",
+    "context": "outerNS::OuterCat::CycleCollectingCat::unlink",
+    "contextsym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv"
+  },
+  {
     "loc": "00331:23-31",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat",
     "sym": "T_outerNS::OuterCat",
+    "context": "outerNS::OuterCat::CycleCollectingCat::unlink",
+    "contextsym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv"
+  },
+  {
+    "loc": "00331:33-36",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::CycleCollectingCat::unlink::raw",
+    "sym": "V_7083e248ad15a9a1_0",
     "context": "outerNS::OuterCat::CycleCollectingCat::unlink",
     "contextsym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv"
   },
@@ -884,11 +1137,29 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "contextsym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv"
   },
   {
+    "loc": "00332:6-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::CycleCollectingCat::unlink::cat",
+    "sym": "V_2a6a7775607c3527_df4688b",
+    "context": "outerNS::OuterCat::CycleCollectingCat::unlink",
+    "contextsym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv"
+  },
+  {
     "loc": "00333:11-25",
     "target": 1,
     "kind": "use",
     "pretty": "outerNS::OuterCat::mFavoriteCouch",
     "sym": "F_<T_outerNS::OuterCat>_mFavoriteCouch",
+    "context": "outerNS::OuterCat::CycleCollectingCat::unlink",
+    "contextsym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv"
+  },
+  {
+    "loc": "00333:6-9",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::CycleCollectingCat::unlink::cat",
+    "sym": "V_2a6a7775607c3527_df4688b",
     "context": "outerNS::OuterCat::CycleCollectingCat::unlink",
     "contextsym": "_ZN7outerNS8OuterCat18CycleCollectingCat6unlinkEPv"
   },
@@ -907,6 +1178,24 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "kind": "use",
     "pretty": "outerNS::Human",
     "sym": "T_outerNS::Human",
+    "context": "outerNS::OuterCat::meet",
+    "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE"
+  },
+  {
+    "loc": "00339:19-24",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::OuterCat::meet::human",
+    "sym": "V_c75d7cb4a965cad9_0",
+    "context": "outerNS::OuterCat::meet",
+    "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE"
+  },
+  {
+    "loc": "00339:28-33",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::meet::human",
+    "sym": "V_c75d7cb4a965cad9_0",
     "context": "outerNS::OuterCat::meet",
     "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5HumanE"
   },
@@ -939,6 +1228,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE"
   },
   {
+    "loc": "00348:19-24",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::OuterCat::meet::couch",
+    "sym": "V_f6237cd8f53a4894_0",
+    "context": "outerNS::OuterCat::meet",
+    "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE"
+  },
+  {
     "loc": "00348:7-11",
     "target": 1,
     "kind": "def",
@@ -947,6 +1245,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
     "peekRange": "341-348"
+  },
+  {
+    "loc": "00349:10-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::meet::couch",
+    "sym": "V_f6237cd8f53a4894_0",
+    "context": "outerNS::OuterCat::meet",
+    "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE"
   },
   {
     "loc": "00349:4-9",
@@ -966,6 +1273,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "kind": "use",
     "pretty": "outerNS::OuterCat::isFriendlyCat",
     "sym": "_ZN7outerNS8OuterCat13isFriendlyCatEv",
+    "context": "outerNS::OuterCat::meet",
+    "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE"
+  },
+  {
+    "loc": "00359:14-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::meet::couch",
+    "sym": "V_f6237cd8f53a4894_0",
     "context": "outerNS::OuterCat::meet",
     "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE"
   },
@@ -991,6 +1307,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE"
   },
   {
+    "loc": "00380:14-19",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::meet::couch",
+    "sym": "V_f6237cd8f53a4894_0",
+    "context": "outerNS::OuterCat::meet",
+    "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE"
+  },
+  {
     "loc": "00380:6-13",
     "target": 1,
     "kind": "use",
@@ -1008,6 +1333,24 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "kind": "use",
     "pretty": "outerNS::Thing",
     "sym": "T_outerNS::Thing",
+    "context": "outerNS::OuterCat::shred",
+    "contextsym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
+  },
+  {
+    "loc": "00387:20-25",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::OuterCat::shred::thing",
+    "sym": "V_d95056392fc33236_0",
+    "context": "outerNS::OuterCat::shred",
+    "contextsym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
+  },
+  {
+    "loc": "00387:29-34",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::shred::thing",
+    "sym": "V_d95056392fc33236_0",
     "context": "outerNS::OuterCat::shred",
     "contextsym": "_ZN7outerNS8OuterCat5shredERNS_5ThingE"
   },
@@ -1043,6 +1386,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
   },
   {
+    "loc": "00392:22-27",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::OuterCat::destroy::thing",
+    "sym": "V_1580c0771ca586f0_0",
+    "context": "outerNS::OuterCat::destroy",
+    "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
+  },
+  {
     "loc": "00392:7-14",
     "target": 1,
     "kind": "def",
@@ -1051,6 +1403,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "context": "outerNS::OuterCat",
     "contextsym": "T_outerNS::OuterCat",
     "peekRange": "389-392"
+  },
+  {
+    "loc": "00394:10-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::destroy::thing",
+    "sym": "V_1580c0771ca586f0_0",
+    "context": "outerNS::OuterCat::destroy",
+    "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
   },
   {
     "loc": "00394:4-9",
@@ -1065,6 +1426,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     ]
   },
   {
+    "loc": "00397:10-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::destroy::thing",
+    "sym": "V_1580c0771ca586f0_0",
+    "context": "outerNS::OuterCat::destroy",
+    "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
+  },
+  {
     "loc": "00397:4-9",
     "target": 1,
     "kind": "use",
@@ -1075,6 +1445,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "argRanges": [
       "397:10-397:10"
     ]
+  },
+  {
+    "loc": "00400:10-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::destroy::thing",
+    "sym": "V_1580c0771ca586f0_0",
+    "context": "outerNS::OuterCat::destroy",
+    "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
   },
   {
     "loc": "00400:4-9",
@@ -1089,6 +1468,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     ]
   },
   {
+    "loc": "00403:10-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::destroy::thing",
+    "sym": "V_1580c0771ca586f0_0",
+    "context": "outerNS::OuterCat::destroy",
+    "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
+  },
+  {
     "loc": "00403:4-9",
     "target": 1,
     "kind": "use",
@@ -1099,6 +1487,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "argRanges": [
       "403:10-403:10"
     ]
+  },
+  {
+    "loc": "00406:10-15",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::OuterCat::destroy::thing",
+    "sym": "V_1580c0771ca586f0_0",
+    "context": "outerNS::OuterCat::destroy",
+    "contextsym": "_ZN7outerNS8OuterCat7destroyERNS_5ThingE"
   },
   {
     "loc": "00406:4-9",
@@ -1290,6 +1687,15 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "peekRange": "436-436"
   },
   {
+    "loc": "00436:31-35",
+    "target": 1,
+    "kind": "def",
+    "pretty": "outerNS::StackArtHolder::StackArtHolder::aArt",
+    "sym": "V_e8195959a43924f6_0",
+    "context": "outerNS::StackArtHolder::StackArtHolder",
+    "contextsym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE"
+  },
+  {
     "loc": "00436:39-47",
     "target": 1,
     "kind": "use",
@@ -1297,6 +1703,13 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "sym": "F_<T_outerNS::StackArtHolder>_mHeldArt",
     "context": "outerNS::StackArtHolder::StackArtHolder",
     "contextsym": "_ZN7outerNS14StackArtHolderC1ERNS_12PracticalArtE"
+  },
+  {
+    "loc": "00436:48-52",
+    "target": 1,
+    "kind": "use",
+    "pretty": "outerNS::StackArtHolder::StackArtHolder::aArt",
+    "sym": "V_e8195959a43924f6_0"
   },
   {
     "loc": "00439:10-17",
@@ -1403,7 +1816,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable rval",
     "sym": "V_6d0df62064ef3d77_a959d9c71",
-    "no_crossref": 1,
     "type": "int"
   },
   {
@@ -1420,7 +1832,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable midpointValue",
     "sym": "V_33c4072064ef3d77_644177abb24920da",
-    "no_crossref": 1,
     "type": "int"
   },
   {
@@ -1446,7 +1857,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable rval",
     "sym": "V_6d0df62064ef3d77_a959d9c71",
-    "no_crossref": 1,
     "type": "int"
   },
   {
@@ -1455,7 +1865,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable midpointValue",
     "sym": "V_33c4072064ef3d77_644177abb24920da",
-    "no_crossref": 1,
     "type": "int"
   },
   {
@@ -1598,7 +2007,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable raw",
     "sym": "V_9832ab16a6e5791a_0",
-    "no_crossref": 1,
     "type": "void *"
   },
   {
@@ -1640,7 +2048,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable baseHP",
     "sym": "V_1fa318e74e0ac992_0",
-    "no_crossref": 1,
     "type": "int"
   },
   {
@@ -1657,7 +2064,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable baseHP",
     "sym": "V_1fa318e74e0ac992_0",
-    "no_crossref": 1,
     "type": "int"
   },
   {
@@ -1691,7 +2097,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable damage",
     "sym": "V_1176b0ee933b02d5_0",
-    "no_crossref": 1,
     "type": "int"
   },
   {
@@ -1708,7 +2113,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable damage",
     "sym": "V_1176b0ee933b02d5_0",
-    "no_crossref": 1,
     "type": "int"
   },
   {
@@ -1717,7 +2121,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable damage",
     "sym": "V_1176b0ee933b02d5_0",
-    "no_crossref": 1,
     "type": "int"
   },
   {
@@ -1734,7 +2137,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable damage",
     "sym": "V_1176b0ee933b02d5_0",
-    "no_crossref": 1,
     "type": "int"
   },
   {
@@ -1871,7 +2273,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable damage",
     "sym": "V_a658475f157d5ad2_0",
-    "no_crossref": 1,
     "type": "int"
   },
   {
@@ -1906,7 +2307,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable couchHP",
     "sym": "V_ed9b4331aa114cd0_0",
-    "no_crossref": 1,
     "type": "int"
   },
   {
@@ -1931,7 +2331,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable couchHP",
     "sym": "V_ed9b4331aa114cd0_0",
-    "no_crossref": 1,
     "type": "int"
   },
   {
@@ -1956,7 +2355,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable superBob",
     "sym": "V_c6b4e335607c3527_74bc848dc87ea1",
-    "no_crossref": 1,
     "type": "outerNS::Superhero",
     "typesym": "T_outerNS::Superhero"
   },
@@ -1989,7 +2387,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable victor",
     "sym": "V_a58abe45607c3527_c9114c22356",
-    "no_crossref": 1,
     "type": "WhatsYourVector<outerNS::Superhero>",
     "typesym": "T_WhatsYourVector"
   },
@@ -1999,7 +2396,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable superBob",
     "sym": "V_c6b4e335607c3527_74bc848dc87ea1",
-    "no_crossref": 1,
     "type": "outerNS::Superhero",
     "typesym": "T_outerNS::Superhero"
   },
@@ -2025,7 +2421,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable bob",
     "sym": "V_9d0cce45607c3527_872688b",
-    "no_crossref": 1,
     "type": "outerNS::Human",
     "typesym": "T_outerNS::Human"
   },
@@ -2058,7 +2453,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable goodReferenceRight",
     "sym": "V_26d4de45607c3527_bbca21f4b95005a5",
-    "no_crossref": 1,
     "type": "WhatsYourVector<outerNS::Human>",
     "typesym": "T_WhatsYourVector"
   },
@@ -2068,7 +2462,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable bob",
     "sym": "V_9d0cce45607c3527_872688b",
-    "no_crossref": 1,
     "type": "outerNS::Human",
     "typesym": "T_outerNS::Human"
   },
@@ -2078,7 +2471,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable victor",
     "sym": "V_a58abe45607c3527_c9114c22356",
-    "no_crossref": 1,
     "type": "WhatsYourVector<outerNS::Superhero>",
     "typesym": "T_WhatsYourVector"
   },
@@ -2100,7 +2492,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable goodReferenceRight",
     "sym": "V_26d4de45607c3527_bbca21f4b95005a5",
-    "no_crossref": 1,
     "type": "WhatsYourVector<outerNS::Human>",
     "typesym": "T_WhatsYourVector"
   },
@@ -2214,7 +2605,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable beFriendly",
     "sym": "V_5a53d6747131f729_0",
-    "no_crossref": 1,
     "type": "_Bool"
   },
   {
@@ -2223,7 +2613,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable beSecretlyUnfriendly",
     "sym": "V_5a53d6747131f729_1",
-    "no_crossref": 1,
     "type": "_Bool"
   },
   {
@@ -2273,7 +2662,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable beFriendly",
     "sym": "V_5a53d6747131f729_0",
-    "no_crossref": 1,
     "type": "_Bool"
   },
   {
@@ -2290,7 +2678,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable beSecretlyUnfriendly",
     "sym": "V_5a53d6747131f729_1",
-    "no_crossref": 1,
     "type": "_Bool"
   },
   {
@@ -2384,7 +2771,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable raw",
     "sym": "V_7083e248ad15a9a1_0",
-    "no_crossref": 1,
     "type": "void *"
   },
   {
@@ -2402,7 +2788,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable cat",
     "sym": "V_2a6a7775607c3527_df4688b",
-    "no_crossref": 1,
     "type": "outerNS::OuterCat *",
     "typesym": "T_outerNS::OuterCat"
   },
@@ -2421,7 +2806,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable raw",
     "sym": "V_7083e248ad15a9a1_0",
-    "no_crossref": 1,
     "type": "void *"
   },
   {
@@ -2430,7 +2814,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable cat",
     "sym": "V_2a6a7775607c3527_df4688b",
-    "no_crossref": 1,
     "type": "outerNS::OuterCat *",
     "typesym": "T_outerNS::OuterCat"
   },
@@ -2469,7 +2852,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable cat",
     "sym": "V_2a6a7775607c3527_df4688b",
-    "no_crossref": 1,
     "type": "outerNS::OuterCat *",
     "typesym": "T_outerNS::OuterCat"
   },
@@ -2515,7 +2897,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable human",
     "sym": "V_c75d7cb4a965cad9_0",
-    "no_crossref": 1,
     "type": "outerNS::Human &",
     "typesym": "T_outerNS::Human"
   },
@@ -2525,7 +2906,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable human",
     "sym": "V_c75d7cb4a965cad9_0",
-    "no_crossref": 1,
     "type": "outerNS::Human &",
     "typesym": "T_outerNS::Human"
   },
@@ -2561,7 +2941,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable couch",
     "sym": "V_f6237cd8f53a4894_0",
-    "no_crossref": 1,
     "type": "outerNS::Couch &",
     "typesym": "T_outerNS::Couch"
   },
@@ -2582,7 +2961,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable couch",
     "sym": "V_f6237cd8f53a4894_0",
-    "no_crossref": 1,
     "type": "outerNS::Couch &",
     "typesym": "T_outerNS::Couch"
   },
@@ -2611,7 +2989,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable couch",
     "sym": "V_f6237cd8f53a4894_0",
-    "no_crossref": 1,
     "type": "outerNS::Couch &",
     "typesym": "T_outerNS::Couch"
   },
@@ -2640,7 +3017,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable couch",
     "sym": "V_f6237cd8f53a4894_0",
-    "no_crossref": 1,
     "type": "outerNS::Couch &",
     "typesym": "T_outerNS::Couch"
   },
@@ -2668,7 +3044,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable thing",
     "sym": "V_d95056392fc33236_0",
-    "no_crossref": 1,
     "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
@@ -2678,7 +3053,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable thing",
     "sym": "V_d95056392fc33236_0",
-    "no_crossref": 1,
     "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
@@ -2717,7 +3091,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable thing",
     "sym": "V_1580c0771ca586f0_0",
-    "no_crossref": 1,
     "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
@@ -2738,7 +3111,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable thing",
     "sym": "V_1580c0771ca586f0_0",
-    "no_crossref": 1,
     "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
@@ -2759,7 +3131,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable thing",
     "sym": "V_1580c0771ca586f0_0",
-    "no_crossref": 1,
     "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
@@ -2780,7 +3151,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable thing",
     "sym": "V_1580c0771ca586f0_0",
-    "no_crossref": 1,
     "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
@@ -2801,7 +3171,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable thing",
     "sym": "V_1580c0771ca586f0_0",
-    "no_crossref": 1,
     "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
@@ -2822,7 +3191,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable thing",
     "sym": "V_1580c0771ca586f0_0",
-    "no_crossref": 1,
     "type": "outerNS::Thing &",
     "typesym": "T_outerNS::Thing"
   },
@@ -3009,7 +3377,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable aArt",
     "sym": "V_e8195959a43924f6_0",
-    "no_crossref": 1,
     "type": "outerNS::PracticalArt &",
     "typesym": "T_outerNS::PracticalArt"
   },
@@ -3028,7 +3395,6 @@ input_file: inputs/crossref/merge/merge__big_cpp
     "syntax": "",
     "pretty": "variable aArt",
     "sym": "V_e8195959a43924f6_0",
-    "no_crossref": 1,
     "type": "outerNS::PracticalArt &",
     "typesym": "T_outerNS::PracticalArt"
   },
@@ -4336,7 +4702,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00155:30-36",
     "structured": 1,
-    "pretty": "damage",
+    "pretty": "outerNS::Thing::takeDamage::damage",
     "sym": "V_1176b0ee933b02d5_0",
     "type_pretty": null,
     "kind": "parameter",
@@ -4357,7 +4723,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00392:22-27",
     "structured": 1,
-    "pretty": "thing",
+    "pretty": "outerNS::OuterCat::destroy::thing",
     "sym": "V_1580c0771ca586f0_0",
     "type_pretty": null,
     "kind": "parameter",
@@ -4378,7 +4744,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00149:12-18",
     "structured": 1,
-    "pretty": "baseHP",
+    "pretty": "outerNS::Thing::Thing::baseHP",
     "sym": "V_1fa318e74e0ac992_0",
     "type_pretty": null,
     "kind": "parameter",
@@ -4399,7 +4765,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00203:27-45",
     "structured": 1,
-    "pretty": "goodReferenceRight",
+    "pretty": "outerNS::Couch::Couch::goodReferenceRight",
     "sym": "V_26d4de45607c3527_bbca21f4b95005a5",
     "type_pretty": null,
     "kind": "localVar",
@@ -4420,7 +4786,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00331:16-19",
     "structured": 1,
-    "pretty": "cat",
+    "pretty": "outerNS::OuterCat::CycleCollectingCat::unlink::cat",
     "sym": "V_2a6a7775607c3527_df4688b",
     "type_pretty": null,
     "kind": "localVar",
@@ -4441,7 +4807,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00034:8-21",
     "structured": 1,
-    "pretty": "midpointValue",
+    "pretty": "GlobalContext::decideBooleanTrait::midpointValue",
     "sym": "V_33c4072064ef3d77_644177abb24920da",
     "type_pretty": null,
     "kind": "localVar",
@@ -4462,7 +4828,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00240:16-26",
     "structured": 1,
-    "pretty": "beFriendly",
+    "pretty": "outerNS::OuterCat::OuterCat::beFriendly",
     "sym": "V_5a53d6747131f729_0",
     "type_pretty": null,
     "kind": "parameter",
@@ -4483,7 +4849,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00246:16-36",
     "structured": 1,
-    "pretty": "beSecretlyUnfriendly",
+    "pretty": "outerNS::OuterCat::OuterCat::beSecretlyUnfriendly",
     "sym": "V_5a53d6747131f729_1",
     "type_pretty": null,
     "kind": "parameter",
@@ -4504,7 +4870,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00028:8-12",
     "structured": 1,
-    "pretty": "rval",
+    "pretty": "GlobalContext::decideBooleanTrait::rval",
     "sym": "V_6d0df62064ef3d77_a959d9c71",
     "type_pretty": null,
     "kind": "localVar",
@@ -4525,7 +4891,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00330:22-25",
     "structured": 1,
-    "pretty": "raw",
+    "pretty": "outerNS::OuterCat::CycleCollectingCat::unlink::raw",
     "sym": "V_7083e248ad15a9a1_0",
     "type_pretty": null,
     "kind": "parameter",
@@ -4546,7 +4912,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00133:28-31",
     "structured": 1,
-    "pretty": "raw",
+    "pretty": "outerNS::CycleCollectingMagic::unlink::raw",
     "sym": "V_9832ab16a6e5791a_0",
     "type_pretty": null,
     "kind": "parameter",
@@ -4567,7 +4933,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00202:10-13",
     "structured": 1,
-    "pretty": "bob",
+    "pretty": "outerNS::Couch::Couch::bob",
     "sym": "V_9d0cce45607c3527_872688b",
     "type_pretty": null,
     "kind": "localVar",
@@ -4588,7 +4954,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00200:31-37",
     "structured": 1,
-    "pretty": "victor",
+    "pretty": "outerNS::Couch::Couch::victor",
     "sym": "V_a58abe45607c3527_c9114c22356",
     "type_pretty": null,
     "kind": "localVar",
@@ -4609,7 +4975,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00187:22-28",
     "structured": 1,
-    "pretty": "damage",
+    "pretty": "outerNS::Superhero::takeDamage::damage",
     "sym": "V_a658475f157d5ad2_0",
     "type_pretty": null,
     "kind": "parameter",
@@ -4630,7 +4996,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00199:14-22",
     "structured": 1,
-    "pretty": "superBob",
+    "pretty": "outerNS::Couch::Couch::superBob",
     "sym": "V_c6b4e335607c3527_74bc848dc87ea1",
     "type_pretty": null,
     "kind": "localVar",
@@ -4651,7 +5017,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00339:19-24",
     "structured": 1,
-    "pretty": "human",
+    "pretty": "outerNS::OuterCat::meet::human",
     "sym": "V_c75d7cb4a965cad9_0",
     "type_pretty": null,
     "kind": "parameter",
@@ -4672,7 +5038,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00387:20-25",
     "structured": 1,
-    "pretty": "thing",
+    "pretty": "outerNS::OuterCat::shred::thing",
     "sym": "V_d95056392fc33236_0",
     "type_pretty": null,
     "kind": "parameter",
@@ -4693,7 +5059,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00436:31-35",
     "structured": 1,
-    "pretty": "aArt",
+    "pretty": "outerNS::StackArtHolder::StackArtHolder::aArt",
     "sym": "V_e8195959a43924f6_0",
     "type_pretty": null,
     "kind": "parameter",
@@ -4714,7 +5080,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00198:12-19",
     "structured": 1,
-    "pretty": "couchHP",
+    "pretty": "outerNS::Couch::Couch::couchHP",
     "sym": "V_ed9b4331aa114cd0_0",
     "type_pretty": null,
     "kind": "parameter",
@@ -4735,7 +5101,7 @@ input_file: inputs/crossref/merge/merge__big_cpp
   {
     "loc": "00348:19-24",
     "structured": 1,
-    "pretty": "couch",
+    "pretty": "outerNS::OuterCat::meet::couch",
     "sym": "V_f6237cd8f53a4894_0",
     "type_pretty": null,
     "kind": "parameter",

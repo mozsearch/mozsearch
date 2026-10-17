@@ -1,0 +1,99 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/ipdl/PTestDataStructures.ipdl/message_param_send_slot_owner__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "V_8962d69e671489ff_0",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "__GENERATED__/ipdl/PTestDataStructuresChild.cpp",
+            "path_kind": "generated",
+            "lines": [
+              {
+                "lno": 989,
+                "bounds": [
+                  31,
+                  32
+                ],
+                "line": "IPC::WriteParam((&(writer__)), i);",
+                "context": "mozilla::_ipdltest::PTestDataStructuresChild::SendTestStruct",
+                "contextsym": "_ZN7mozilla9_ipdltest24PTestDataStructuresChild14SendTestStructERKNS_4_foo10SIntDoubleEPS3_"
+              }
+            ]
+          }
+        ],
+        "defs": [
+          {
+            "path": "__GENERATED__/ipdl/PTestDataStructuresChild.cpp",
+            "path_kind": "generated",
+            "lines": [
+              {
+                "lno": 981,
+                "bounds": [
+                  18,
+                  19
+                ],
+                "line": "const SIntDouble& i,",
+                "context": "mozilla::_ipdltest::PTestDataStructuresChild::SendTestStruct",
+                "contextsym": "_ZN7mozilla9_ipdltest24PTestDataStructuresChild14SendTestStructERKNS_4_foo10SIntDoubleEPS3_"
+              }
+            ]
+          }
+        ],
+        "decls": [
+          {
+            "path": "__GENERATED__/ipc/ipdl/_ipdlheaders/mozilla/_ipdltest/PTestDataStructuresChild.h",
+            "path_kind": "generated",
+            "lines": [
+              {
+                "lno": 226,
+                "bounds": [
+                  18,
+                  19
+                ],
+                "line": "const SIntDouble& i,",
+                "context": "mozilla::_ipdltest::PTestDataStructuresChild::SendTestStruct",
+                "contextsym": "_ZN7mozilla9_ipdltest24PTestDataStructuresChild14SendTestStructERKNS_4_foo10SIntDoubleEPS3_"
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "mozilla::_ipdltest::PTestDataStructuresChild::SendTestStruct::i",
+          "sym": "V_8962d69e671489ff_0",
+          "type_pretty": null,
+          "kind": "parameter",
+          "subsystem": null,
+          "slotOwner": {
+            "slotKind": "param",
+            "slotLang": "cpp",
+            "implKind": null,
+            "ownerLang": "idl",
+            "sym": "IPC_mozilla__ipdltest_PTestDataStructures_TestStruct__i"
+          },
+          "implKind": "",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

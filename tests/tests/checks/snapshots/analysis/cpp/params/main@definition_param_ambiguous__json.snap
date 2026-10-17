@@ -6,11 +6,28 @@ input_file: inputs/analysis/cpp/params/definition_param_ambiguous__json
 [
   {
     "loc": "00011:19-25",
+    "target": 1,
+    "kind": "def",
+    "pretty": "params::Third::aThird",
+    "sym": "V_78f45f5d30886a0f_1",
+    "context": "params::Third",
+    "contextsym": "_ZN6params5ThirdEii"
+  },
+  {
+    "loc": "00011:36-42",
+    "target": 1,
+    "kind": "use",
+    "pretty": "params::Third::aThird",
+    "sym": "V_78f45f5d30886a0f_1",
+    "context": "params::Third",
+    "contextsym": "_ZN6params5ThirdEii"
+  },
+  {
+    "loc": "00011:19-25",
     "source": 1,
     "syntax": "",
     "pretty": "variable aThird",
     "sym": "V_78f45f5d30886a0f_1",
-    "no_crossref": 1,
     "type": "int"
   },
   {
@@ -19,13 +36,12 @@ input_file: inputs/analysis/cpp/params/definition_param_ambiguous__json
     "syntax": "",
     "pretty": "variable aThird",
     "sym": "V_78f45f5d30886a0f_1",
-    "no_crossref": 1,
     "type": "int"
   },
   {
     "loc": "00011:19-25",
     "structured": 1,
-    "pretty": "aThird",
+    "pretty": "params::Third::aThird",
     "sym": "V_78f45f5d30886a0f_1",
     "type_pretty": null,
     "kind": "parameter",

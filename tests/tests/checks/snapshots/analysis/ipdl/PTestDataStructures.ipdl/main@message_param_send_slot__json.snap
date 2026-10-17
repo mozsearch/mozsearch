@@ -6,13 +6,30 @@ input_file: inputs/analysis/ipdl/PTestDataStructures.ipdl/message_param_send_slo
 [
   {
     "loc": "00981:26-27",
+    "target": 1,
+    "kind": "def",
+    "pretty": "mozilla::_ipdltest::PTestDataStructuresChild::SendTestStruct::i",
+    "sym": "V_8962d69e671489ff_0",
+    "context": "mozilla::_ipdltest::PTestDataStructuresChild::SendTestStruct",
+    "contextsym": "_ZN7mozilla9_ipdltest24PTestDataStructuresChild14SendTestStructERKNS_4_foo10SIntDoubleEPS3_"
+  },
+  {
+    "loc": "00981:26-27",
     "source": 1,
     "syntax": "",
     "pretty": "variable i",
     "sym": "V_8962d69e671489ff_0",
-    "no_crossref": 1,
     "type": "const mozilla::_ipdltest::PTestDataStructuresChild::SIntDouble &",
     "typesym": "T_mozilla::_foo::SIntDouble"
+  },
+  {
+    "loc": "00989:35-36",
+    "target": 1,
+    "kind": "use",
+    "pretty": "mozilla::_ipdltest::PTestDataStructuresChild::SendTestStruct::i",
+    "sym": "V_8962d69e671489ff_0",
+    "context": "mozilla::_ipdltest::PTestDataStructuresChild::SendTestStruct",
+    "contextsym": "_ZN7mozilla9_ipdltest24PTestDataStructuresChild14SendTestStructERKNS_4_foo10SIntDoubleEPS3_"
   },
   {
     "loc": "00989:35-36",
@@ -20,14 +37,13 @@ input_file: inputs/analysis/ipdl/PTestDataStructures.ipdl/message_param_send_slo
     "syntax": "",
     "pretty": "variable i",
     "sym": "V_8962d69e671489ff_0",
-    "no_crossref": 1,
     "type": "const mozilla::_ipdltest::PTestDataStructuresChild::SIntDouble &",
     "typesym": "T_mozilla::_foo::SIntDouble"
   },
   {
     "loc": "00981:26-27",
     "structured": 1,
-    "pretty": "i",
+    "pretty": "mozilla::_ipdltest::PTestDataStructuresChild::SendTestStruct::i",
     "sym": "V_8962d69e671489ff_0",
     "type_pretty": null,
     "kind": "parameter",

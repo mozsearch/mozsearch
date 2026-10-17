@@ -1230,8 +1230,9 @@ pub fn read_analyses<T>(
             super::analysis_manglings::escape_record_symbol_commas(&mut data);
             values.push(data);
         }
-        // (Parameters' symbols are unified; see `parameter_symbols`.)
-        super::parameter_symbols::unify_parameter_symbols(&mut values);
+        // (Locals' and parameters' symbols are unified and get target
+        // records; see `local_symbols`.)
+        super::local_symbols::process_local_symbols(&mut values);
         for mut data in values {
             let obj = data.as_object_mut().unwrap();
             // Destructively pull the "loc" out before passing it into the filter.  This is for

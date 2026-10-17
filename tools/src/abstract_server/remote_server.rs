@@ -145,7 +145,7 @@ impl AbstractServer for RemoteServer {
             })
             .collect();
         let mut values = values?;
-        crate::file_format::parameter_symbols::unify_parameter_symbols(&mut values);
+        crate::file_format::local_symbols::process_local_symbols(&mut values);
         Ok(Box::pin(tokio_stream::iter(values)))
     }
 
