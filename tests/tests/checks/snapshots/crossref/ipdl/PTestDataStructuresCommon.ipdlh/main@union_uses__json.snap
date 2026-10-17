@@ -1,0 +1,153 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/ipdl/PTestDataStructuresCommon.ipdlh/union_uses__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "IPDL_mozilla__foo_IntDouble",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "ipdl/PTestDataStructures.ipdl",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 27,
+                "bounds": [
+                  15,
+                  24
+                ],
+                "line": "sync TestUnion(IntDouble i1,",
+                "context": "mozilla__ipdltest::PTestDataStructures::TestUnion::i1",
+                "contextsym": "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__i1"
+              },
+              {
+                "lno": 28,
+                "bounds": [
+                  0,
+                  9
+                ],
+                "line": "IntDouble i2)",
+                "context": "mozilla__ipdltest::PTestDataStructures::TestUnion::i2",
+                "contextsym": "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__i2"
+              },
+              {
+                "lno": 29,
+                "bounds": [
+                  9,
+                  18
+                ],
+                "line": "returns (IntDouble o1,",
+                "context": "mozilla__ipdltest::PTestDataStructures::TestUnion::o1",
+                "contextsym": "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__o1"
+              },
+              {
+                "lno": 30,
+                "bounds": [
+                  0,
+                  9
+                ],
+                "line": "IntDouble o2);",
+                "context": "mozilla__ipdltest::PTestDataStructures::TestUnion::o2",
+                "contextsym": "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__o2"
+              },
+              {
+                "lno": 32,
+                "bounds": [
+                  22,
+                  31
+                ],
+                "line": "sync TestArrayOfUnion(IntDouble[] i1)",
+                "context": "mozilla__ipdltest::PTestDataStructures::TestArrayOfUnion::i1",
+                "contextsym": "IPC_mozilla__ipdltest_PTestDataStructures_TestArrayOfUnion__i1"
+              },
+              {
+                "lno": 33,
+                "bounds": [
+                  9,
+                  18
+                ],
+                "line": "returns (IntDouble[] o1);",
+                "context": "mozilla__ipdltest::PTestDataStructures::TestArrayOfUnion::o1",
+                "contextsym": "IPC_mozilla__ipdltest_PTestDataStructures_TestArrayOfUnion__o1"
+              }
+            ]
+          }
+        ],
+        "idl": [
+          {
+            "path": "ipdl/PTestDataStructuresCommon.ipdlh",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 9,
+                "bounds": [
+                  6,
+                  15
+                ],
+                "line": "union IntDouble {",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "mozilla::_foo::IntDouble",
+          "sym": "IPDL_mozilla__foo_IntDouble",
+          "type_pretty": null,
+          "kind": "union",
+          "subsystem": null,
+          "implKind": "idl",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "class",
+              "slotLang": "cpp",
+              "implKind": null,
+              "ownerLang": "idl",
+              "sym": "T_mozilla::_foo::IntDouble"
+            }
+          ],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [
+            {
+              "lineRange": "",
+              "pretty": "mozilla::_foo::IntDouble::int",
+              "sym": "IPDL_mozilla__foo_IntDouble_int",
+              "type": "",
+              "typesym": "",
+              "offsetBytes": null,
+              "bitPositions": null,
+              "sizeBytes": null
+            },
+            {
+              "lineRange": "",
+              "pretty": "mozilla::_foo::IntDouble::double",
+              "sym": "IPDL_mozilla__foo_IntDouble_double",
+              "type": "",
+              "typesym": "",
+              "offsetBytes": null,
+              "bitPositions": null,
+              "sizeBytes": null
+            }
+          ],
+          "overrides": [],
+          "props": [],
+          "variants": []
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

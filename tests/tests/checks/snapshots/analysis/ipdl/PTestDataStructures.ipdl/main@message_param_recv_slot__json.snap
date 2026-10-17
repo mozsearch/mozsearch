@@ -1,0 +1,38 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ipdl/PTestDataStructures.ipdl/message_param_recv_slot__json
+---
+[
+  {
+    "loc": "00169:30-31",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable i",
+    "sym": "V_c9aff968d698e28a_0",
+    "no_crossref": 1,
+    "type": "const mozilla::_ipdltest::PTestDataStructuresParent::SIntDouble &",
+    "typesym": "T_mozilla::_foo::SIntDouble"
+  },
+  {
+    "loc": "00169:30-31",
+    "structured": 1,
+    "pretty": "i",
+    "sym": "V_c9aff968d698e28a_0",
+    "type_pretty": null,
+    "kind": "parameter",
+    "subsystem": null,
+    "implKind": "",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  }
+]

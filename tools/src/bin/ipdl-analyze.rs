@@ -19,6 +19,7 @@ use ipdl_parser::ast::ProtocolSide;
 use tools::file_format::analysis::{
     AnalysisKind, AnalysisTarget, WithLocation, read_analyses, read_target,
 };
+use tools::file_format::parameter_symbols::parameter_symbol;
 
 use ipdl_parser::ast;
 use ipdl_parser::parser;
@@ -488,6 +489,62 @@ fn output_data_structures(
     }
 }
 
+/// Write a message's parameters' symbols (`IPC_…_<Message>__<param>`), with
+/// binding slots for the send and recv methods' parameters (whose symbols
+/// are unified; see `parameter_symbols`): in-parameters in order, then sync
+/// messages' out-parameters (pointers), and async messages' return values
+/// without slots (their send methods take resolvers), and uses of the IPDL
+/// structs and unions their types name.
+fn output_message_params(
+    outputf: &mut File,
+    message: &ast::MessageDecl,
+    message_pretty: &str,
+    message_sym: &str,
+    slots: &[(&AnalysisTarget, &AnalysisTarget)],
+    ipdl_types: &IpdlTypes,
+) {
+    let sync = message.send_semantics != ast::SendSemantics::Async;
+    let params = message
+        .in_params
+        .iter()
+        .map(|p| (p, false))
+        .chain(message.out_params.iter().map(|p| (p, true)));
+    for (position, (param, is_out)) in params.enumerate() {
+        let name = param.name.id.as_str();
+        let param_sym = format!("{}__{}", message_sym, name);
+        let param_pretty = format!("{}::{}", message_pretty, name);
+        let mut param_slots = vec![];
+        if !is_out || sync {
+            for (send, recv) in slots {
+                param_slots.push(cpp_slot("param", &parameter_symbol(&send.sym, position)));
+                param_slots.push(cpp_slot("param", &parameter_symbol(&recv.sym, position)));
+            }
+        }
+        output_definition(
+            outputf,
+            &locstr(&param.name.loc, name.len()),
+            "parameter",
+            &param_pretty,
+            &param_sym,
+            json!({
+                "kind": "parameter",
+                "parentsym": message_sym,
+                "type_pretty": param.type_spec.spec,
+                "bindingSlots": param_slots,
+                "ipdlIndex": position,
+                "ipdlOut": is_out,
+            }),
+        );
+        output_type_use(
+            outputf,
+            &param.type_spec,
+            ipdl_types,
+            &param_pretty,
+            &param_sym,
+        );
+    }
+}
+
 /// Write a message's `IPC_` symbol's records, with binding slots for its
 /// send and recv methods (for both directions' for `both:` messages).
 fn output_ipc_data(
@@ -845,7 +902,6 @@ fn main() {
 
                 let is_ctor = protocol.manages.iter().any(|e| e.id == message.name.id);
 
-                // (Its parameters' types' uses, for IPDL structs and unions.)
                 let message_pretty = format!(
                     "{}::{}::{}",
                     ns.namespaces.join("_"),
@@ -858,15 +914,6 @@ fn main() {
                     ns.name.id,
                     message.name.id
                 );
-                for param in message.in_params.iter().chain(message.out_params.iter()) {
-                    output_type_use(
-                        &mut outputf,
-                        &param.type_spec,
-                        &ipdl_types,
-                        &message_pretty,
-                        &message_sym,
-                    );
-                }
 
                 // (One symbol for the message, with the send and recv slots of
                 // each direction it goes in: both for `both:` messages.)
@@ -914,6 +961,15 @@ fn main() {
                     );
                     output_ipc_data(&mut outputf, &locstr, &ipc_pretty, &ipc_sym, &slots);
                 }
+
+                output_message_params(
+                    &mut outputf,
+                    &message,
+                    &message_pretty,
+                    &message_sym,
+                    &slots,
+                    &ipdl_types,
+                );
             }
         }
     }

@@ -1,0 +1,47 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/ipdl/PTestDataStructures.ipdl/message_param__json
+---
+[
+  {
+    "loc": "70:31-32",
+    "target": 1,
+    "kind": "idl",
+    "pretty": "mozilla__ipdltest::PTestDataStructures::TestStruct::i",
+    "sym": "IPC_mozilla__ipdltest_PTestDataStructures_TestStruct__i"
+  },
+  {
+    "loc": "70:31-32",
+    "source": 1,
+    "syntax": "idl,parameter,def",
+    "pretty": "ipdl parameter mozilla__ipdltest::PTestDataStructures::TestStruct::i",
+    "sym": "IPC_mozilla__ipdltest_PTestDataStructures_TestStruct__i"
+  },
+  {
+    "kind": "parameter",
+    "parentsym": "IPC_mozilla__ipdltest_PTestDataStructures_TestStruct",
+    "type_pretty": "SIntDouble",
+    "bindingSlots": [
+      {
+        "slotKind": "param",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "V_8962d69e671489ff_0"
+      },
+      {
+        "slotKind": "param",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "V_c9aff968d698e28a_0"
+      }
+    ],
+    "ipdlIndex": 0,
+    "ipdlOut": false,
+    "loc": "70:31-32",
+    "structured": 1,
+    "pretty": "mozilla__ipdltest::PTestDataStructures::TestStruct::i",
+    "sym": "IPC_mozilla__ipdltest_PTestDataStructures_TestStruct__i",
+    "implKind": "idl"
+  }
+]

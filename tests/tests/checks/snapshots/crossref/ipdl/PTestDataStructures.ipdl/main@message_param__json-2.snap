@@ -1,0 +1,82 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/ipdl/PTestDataStructures.ipdl/message_param__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "IPC_mozilla__ipdltest_PTestDataStructures_TestStruct__i",
+      "crossref_info": {
+        "idl": [
+          {
+            "path": "ipdl/PTestDataStructures.ipdl",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 70,
+                "bounds": [
+                  27,
+                  28
+                ],
+                "line": "sync TestStruct(SIntDouble i)",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          }
+        ],
+        "callees": [
+          {
+            "jump": "ipdl/PTestDataStructures.ipdl#70",
+            "kind": "struct",
+            "pretty": "mozilla::_foo::SIntDouble",
+            "sym": "IPDL_mozilla__foo_SIntDouble"
+          }
+        ],
+        "meta": {
+          "structured": 1,
+          "pretty": "mozilla__ipdltest::PTestDataStructures::TestStruct::i",
+          "sym": "IPC_mozilla__ipdltest_PTestDataStructures_TestStruct__i",
+          "type_pretty": "SIntDouble",
+          "kind": "parameter",
+          "subsystem": null,
+          "parentsym": "IPC_mozilla__ipdltest_PTestDataStructures_TestStruct",
+          "implKind": "idl",
+          "sizeBytes": null,
+          "alignmentBytes": null,
+          "ownVFPtrBytes": null,
+          "bindingSlots": [
+            {
+              "slotKind": "param",
+              "slotLang": "cpp",
+              "implKind": null,
+              "ownerLang": "idl",
+              "sym": "V_8962d69e671489ff_0"
+            },
+            {
+              "slotKind": "param",
+              "slotLang": "cpp",
+              "implKind": null,
+              "ownerLang": "idl",
+              "sym": "V_c9aff968d698e28a_0"
+            }
+          ],
+          "ontologySlots": [],
+          "supers": [],
+          "methods": [],
+          "fields": [],
+          "overrides": [],
+          "props": [],
+          "variants": [],
+          "ipdlIndex": 0,
+          "ipdlOut": false
+        }
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

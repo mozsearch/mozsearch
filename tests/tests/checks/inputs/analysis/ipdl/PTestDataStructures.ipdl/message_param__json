@@ -1,0 +1,1 @@
+filter-analysis ipdl/PTestDataStructures.ipdl -i "mozilla__ipdltest::PTestDataStructures::TestStruct::i"

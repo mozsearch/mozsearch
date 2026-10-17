@@ -421,6 +421,9 @@ pub enum BindingSlotKind {
     Namespace,
     /// A WebIDL dictionary member.
     Member,
+    /// A parameter of a method (ex: of an IPDL message's send and recv
+    /// methods, for its parameter).
+    Param,
     /// Future: Pref symbol specified in a WebIDL `Pref="foo"` annotation.
     ///
     EnablingPref,
