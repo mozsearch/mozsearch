@@ -476,7 +476,7 @@ impl SymbolGraphCollection {
                 match detail {
                     EdgeDetail::Jump(s) => jumps.push(s.clone()),
                     EdgeDetail::HoverClass(s) => hovers.push(s.clone()),
-                    EdgeDetail::Tree(_) => {}
+                    EdgeDetail::Tree(_) | EdgeDetail::Weight(_) | EdgeDetail::Label(_) => {}
                 }
             }
 
@@ -528,7 +528,7 @@ impl SymbolGraphCollection {
         };
 
         let mut nodes = BTreeSet::new();
-        for (source_id, target_id, _edge_id) in graph.list_edges() {
+        for (source_id, target_id, edge_id) in graph.list_edges() {
             let source_info = self.node_set.get(&source_id);
             let source_sym = source_info.symbol;
             if nodes.insert(source_sym) {
@@ -548,9 +548,10 @@ impl SymbolGraphCollection {
             // node_id!'s macro_rules currently can't handle an `esc` prefix, so
             // we create the structs via a hand-rolled `escaped_node_id` that
             // replicates what the equivalent macros would do.
-            dot_graph.add_stmt(stmt!(
-                edge!(escaped_node_id(&source_sym) => escaped_node_id(&target_sym))
-            ));
+            let mut edge = edge!(escaped_node_id(&source_sym) => escaped_node_id(&target_sym));
+            edge.attributes
+                .extend(weight_attributes(&self.edge_set.get(&edge_id).data));
+            dot_graph.add_stmt(stmt!(edge));
         }
 
         dot_graph
@@ -1965,6 +1966,9 @@ impl HierarchicalNode {
                     maybe_edge
                         .attributes
                         .push(attr!("id", state.id_for_edge(edge_id)));
+                    maybe_edge
+                        .attributes
+                        .extend(weight_attributes(&edge_info.data));
 
                     state.set_edge_metadata(from_id, to_id, edge_id, &edge_info.data);
 
@@ -2157,6 +2161,7 @@ impl HierarchicalRenderState {
                 EdgeDetail::HoverClass(class_detail) => {
                     hover_classes.push(class_detail.clone());
                 }
+                EdgeDetail::Weight(_) | EdgeDetail::Label(_) => {}
             }
         }
 
@@ -2213,6 +2218,30 @@ pub enum EdgeDetail {
     /// Hover class for the target node when the source node is hovered.  This
     /// could also be applied to the edge if desired.
     HoverClass(String),
+    /// How much the edge stands for (ex: a block diagram's edge's calls),
+    /// shown as its label and width.
+    Weight(u32),
+    /// A description of the edge, shown as its tooltip.
+    Label(String),
+}
+
+/// The graphviz attributes for an edge's `Weight` and `Label` details.
+fn weight_attributes(data: &[EdgeDetail]) -> Vec<graphviz_rust::dot_structures::Attribute> {
+    let mut attrs = vec![];
+    for detail in data {
+        match detail {
+            EdgeDetail::Weight(count) => {
+                let width = 1.0 + (*count as f64).log2().max(0.0) / 2.0;
+                attrs.push(attr!("label", esc count.to_string()));
+                attrs.push(attr!("penwidth", esc format!("{:.1}", width)));
+            }
+            EdgeDetail::Label(text) => {
+                attrs.push(attr!("tooltip", esc escape_label(text)));
+            }
+            _ => {}
+        }
+    }
+    attrs
 }
 
 /// Information about the edge between two nodes that is something we either

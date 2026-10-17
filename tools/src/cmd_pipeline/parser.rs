@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 
 use super::cmd_augment_results::AugmentResults;
 use super::cmd_batch_render::BatchRender;
+use super::cmd_block_diagram::BlockDiagram;
 use super::cmd_cat_html::CatHtml;
 use super::cmd_compile_results::CompileResults;
 use super::cmd_crossref_expand::CrossrefExpand;
@@ -87,6 +88,7 @@ pub enum Command {
     ShowHtml(ShowHtml),
     TokenizeSource(TokenizeSource),
     Dataflow(Dataflow),
+    BlockDiagram(BlockDiagram),
     Traverse(Traverse),
     Webtest(Webtest),
 }

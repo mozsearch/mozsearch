@@ -131,6 +131,27 @@ From inside the VM:
 ./searchfox-tool '--server=/home/vagrant/index/config.json --tree=tests search-identifiers outerNS::OuterCat::meet | crossref-lookup | traverse | graph --format=svg' > /vagrant/pretty.svg
 ```
 
+### Block diagrams
+
+crossref rolls the calls between functions up into calls between classes and
+between subsystems (from files' Bugzilla components), stored as `callRollup`
+on classes' crossref entries and on subsystems' pseudo-symbols
+(`SUBSYS_<subsystem>`, and `SUBSYS_` for the whole tree; see
+`tools/src/file_format/rollup.rs`).  `block-diagram` draws them, without
+walking methods:
+```
+./searchfox-tool '--server=/home/vagrant/index/config.json --tree=tests block-diagram | graph --format=svg --hier=flat'
+./searchfox-tool "--server=/home/vagrant/index/config.json --tree=tests block-diagram 'Core/Rollup View' | graph --format=svg --hier=subsystem"
+./searchfox-tool "--server=/home/vagrant/index/config.json --tree=tests block-diagram T_rollup::Panel | graph --format=svg"
+./searchfox-tool '--server=/home/vagrant/index/config.json --tree=tests crossref-lookup SUBSYS_'
+```
+The whole tree's subsystems; a subsystem's classes and their neighbors
+(`--level subsystem` for its neighboring subsystems instead); a class's
+neighbors.  Edges are labeled and weighted by how many calls they stand for;
+`--min-count` and `--max-edges` prune them.  The query terms are
+`block-diagram:*`, `block-diagram:<subsystem or class symbol>`,
+`block-level:`, `block-min-count:` and `block-max-edges:`.
+
 ### Following values (dataflow)
 
 `dataflow` (see `tools/src/dataflow/`) shows what it understood of a file's

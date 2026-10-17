@@ -1,0 +1,11 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/block/block_tree
+---
+digraph g {
+  node[shape=box fontname="Courier New" fontsize=10]
+  "SUBSYS_Core/Rollup@20View"[label="Core/Rollup View"]
+  "SUBSYS_Core/Rollup@20Model"[label="Core/Rollup Model"]
+  "SUBSYS_Core/Rollup@20View" -> "SUBSYS_Core/Rollup@20Model" [label="2" penwidth="1.5" tooltip="2 calls"]
+}

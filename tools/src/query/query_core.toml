@@ -169,14 +169,44 @@ args.exact-match = true
 command = "traverse"
 args.edge = "class"
 
+# "block-diagram" shows how areas of the code interact, from crossref's
+# roll-ups of the calls between their functions (see `cmd_block_diagram`):
+# "block-diagram:*" the whole tree's subsystems, "block-diagram:Core/DOM/Workers"
+# a subsystem's classes (clustered by subsystem) and their neighbors, or a
+# class's symbol its neighbors.
+[term.block-diagram]
+[[term.block-diagram.group.block-diagram]]
+command = "block-diagram"
+args.positional = "$0"
+[[term.block-diagram.group.graph-render]]
+command = "graph"
+args.hier = "subsystem"
+
+[term.block-level]
+[[term.block-level.group.block-diagram]]
+command = "block-diagram"
+args.level = "$0"
+
+[term.block-min-count]
+[[term.block-min-count.group.block-diagram]]
+command = "block-diagram"
+args.min-count = "$0"
+
+[term.block-max-edges]
+[[term.block-max-edges.group.block-diagram]]
+command = "block-diagram"
+args.max-edges = "$0"
+
 [term.fmus-through-depth]
 [[term.fmus-through-depth.group.graph-traverse]]
 command = "traverse"
 args.traverse-field-member-uses = "$0"
 
+# (Over block diagrams' default.)
 [term.hier]
 [[term.hier.group.graph-render]]
 command = "graph"
+priority = 1
 args.hier = "$0"
 
 [term.colorize-callees]
@@ -432,6 +462,10 @@ output = "fused-symbols"
 next = "graph-traverse"
 
 [group.graph-traverse]
+output = "graph"
+next = "graph-render"
+
+[group.block-diagram]
 output = "graph"
 next = "graph-render"
 

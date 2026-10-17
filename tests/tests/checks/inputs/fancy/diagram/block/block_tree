@@ -1,0 +1,1 @@
+block-diagram | graph --format=raw-dot --hier=flat

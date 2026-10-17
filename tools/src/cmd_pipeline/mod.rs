@@ -11,6 +11,7 @@ pub mod transforms;
 
 mod cmd_augment_results;
 mod cmd_batch_render;
+mod cmd_block_diagram;
 mod cmd_cat_html;
 mod cmd_compile_results;
 mod cmd_crossref_expand;

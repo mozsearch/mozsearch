@@ -1,0 +1,1 @@
+block-diagram 'Core/Rollup View' | graph --format=raw-dot --hier=subsystem
