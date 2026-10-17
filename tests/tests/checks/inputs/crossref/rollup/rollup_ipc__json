@@ -1,0 +1,1 @@
+crossref-lookup 'T_mozilla::_ipdltest::TestDataStructuresChild' | jq '.symbol_crossref_infos[0].crossref_info.callRollup.out | map(select(.ipc)) | map({sym, count, ipc, examples: (.examples | map(.fromPretty + " -> " + .toPretty))})'

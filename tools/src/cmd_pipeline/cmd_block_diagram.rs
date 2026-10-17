@@ -95,6 +95,8 @@ struct BlockEdge {
     example: Option<(Ustr, Ustr)>,
     /// For data edges between fields: a function the data flows in.
     via: Option<Ustr>,
+    /// How many of its calls are IPDL messages.
+    ipc: u32,
 }
 
 async fn rollup_of(
@@ -180,6 +182,7 @@ impl PipelineCommand for BlockDiagramCommand {
                         count: e.count,
                         example: None,
                         via: e.via.first().copied(),
+                        ipc: 0,
                     });
                 }
                 for e in &member_rollup.into {
@@ -189,6 +192,7 @@ impl PipelineCommand for BlockDiagramCommand {
                         count: e.count,
                         example: None,
                         via: e.via.first().copied(),
+                        ipc: 0,
                     });
                 }
             }
@@ -203,6 +207,7 @@ impl PipelineCommand for BlockDiagramCommand {
                     count: pair.count,
                     example: None,
                     via: None,
+                    ipc: 0,
                 });
             }
         } else if is_subsystem && level == BlockLevel::Class {
@@ -225,6 +230,7 @@ impl PipelineCommand for BlockDiagramCommand {
                         count: edge_count(e),
                         example: first_example(e),
                         via: None,
+                        ipc: e.ipc,
                     });
                 }
                 // (Calls in from outside the members; the members' own are
@@ -237,6 +243,7 @@ impl PipelineCommand for BlockDiagramCommand {
                             count: edge_count(e),
                             example: first_example(e),
                             via: None,
+                            ipc: e.ipc,
                         });
                     }
                 }
@@ -250,6 +257,7 @@ impl PipelineCommand for BlockDiagramCommand {
                     count: edge_count(e),
                     example: first_example(e),
                     via: None,
+                    ipc: e.ipc,
                 });
             }
             for e in &rollup.into {
@@ -259,6 +267,7 @@ impl PipelineCommand for BlockDiagramCommand {
                     count: edge_count(e),
                     example: first_example(e),
                     via: None,
+                    ipc: e.ipc,
                 });
             }
         }
@@ -305,12 +314,22 @@ impl PipelineCommand for BlockDiagramCommand {
             };
             data.push(EdgeDetail::Label(match (&edge.example, via) {
                 (_, Some(via)) => format!("{} {}, ex: in {}", edge.count, unit, via),
+                (Some((caller, callee)), None) if edge.ipc > 0 => format!(
+                    "{} {} ({} IPC messages), ex: {} → {}",
+                    edge.count, unit, edge.ipc, caller, callee
+                ),
                 (Some((caller, callee)), None) => {
                     format!("{} {}, ex: {} → {}", edge.count, unit, caller, callee)
                 }
                 (None, None) => format!("{} {}", edge.count, unit),
             }));
-            edge_set.ensure_edge_in_graph(from_id, to_id, EdgeKind::Default, data, &mut graph);
+            // (All IPC: dotted, as calls diagrams' IPC edges are.)
+            let kind = if edge.ipc > 0 && edge.ipc >= edge.count {
+                EdgeKind::IPC
+            } else {
+                EdgeKind::Default
+            };
+            edge_set.ensure_edge_in_graph(from_id, to_id, kind, data, &mut graph);
         }
 
         // (The diagram panel's controls, as query terms; see `cmd_traverse`.)

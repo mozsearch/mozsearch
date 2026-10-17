@@ -1905,14 +1905,18 @@ const ROLLUP_TREE_EDGES: usize = 4000;
 struct RollupAccum {
     count: u32,
     accessors: u32,
+    ipc: u32,
     pairs: UstrMap<UstrMap<u32>>,
 }
 
 impl RollupAccum {
-    fn add(&mut self, from: Ustr, to: Ustr, count: u32, accessor: bool) {
+    fn add(&mut self, from: Ustr, to: Ustr, count: u32, accessor: bool, ipc: bool) {
         self.count += count;
         if accessor {
             self.accessors += count;
+        }
+        if ipc {
+            self.ipc += count;
         }
         *self.pairs.entry(from).or_default().entry(to).or_default() += count;
     }
@@ -1934,6 +1938,7 @@ impl RollupAccum {
             pretty,
             count: self.count,
             accessors: self.accessors,
+            ipc: self.ipc,
             via: vec![],
             pairs: self.pair_count(),
             examples: examples
@@ -1968,6 +1973,9 @@ struct UnitEdge {
     to_class: Option<Ustr>,
     count: u32,
     accessor: bool,
+    /// Whether it's an IPDL message, from its generated `Send` method to the
+    /// actor's `Recv` implementation.
+    ipc: bool,
 }
 
 /// A method's or field's class, for roll-ups: its `parentsym`, if that's a
@@ -1995,6 +2003,37 @@ fn call_edges(
     categories: &UstrMap<Category>,
 ) -> Vec<UnitEdge> {
     let stop = ustr("calls-diagram:stop");
+    // (IPDL messages' generated `Send` methods, and their actors' `Recv`
+    // implementations, which calls of the `Send` methods reach through IPC.)
+    let mut ipc_targets: UstrMap<Vec<Ustr>> = UstrMap::default();
+    for meta in meta_table.values() {
+        if !meta.sym.starts_with("IPC_") {
+            continue;
+        }
+        let slots = |kind: BindingSlotKind| -> Vec<Ustr> {
+            meta.binding_slots
+                .iter()
+                .filter(|slot| slot.props.slot_kind == kind)
+                .map(|slot| slot.sym)
+                .collect()
+        };
+        let mut impls: Vec<Ustr> = vec![];
+        for recv in slots(BindingSlotKind::Recv) {
+            // (A generated base class's declaration: the actors' overrides.)
+            match meta_table.get(&recv) {
+                Some(m) if !m.overridden_by_syms.is_empty() => {
+                    impls.extend(m.overridden_by_syms.iter().copied())
+                }
+                _ => impls.push(recv),
+            }
+        }
+        for send in slots(BindingSlotKind::Send) {
+            ipc_targets
+                .entry(send)
+                .or_default()
+                .extend(impls.iter().copied());
+        }
+    }
     let mut edges = vec![];
     for (caller, callees) in callees_table {
         let Some(caller_meta) = meta_table.get(caller) else {
@@ -2006,6 +2045,23 @@ fn call_edges(
         let from_class = rollup_class(meta_table, caller);
         for (callee, (_, lines, only_cites)) in callees {
             if *only_cites || callee == caller {
+                continue;
+            }
+            // (A call of an IPDL message's `Send` method is, through IPC, a
+            // call of the actors' `Recv` implementations; the generated actor
+            // class in between is plumbing.)
+            if let Some(impls) = ipc_targets.get(callee) {
+                for recv_impl in impls {
+                    edges.push(UnitEdge {
+                        from: *caller,
+                        to: *recv_impl,
+                        from_class,
+                        to_class: rollup_class(meta_table, recv_impl),
+                        count: lines.len().max(1) as u32,
+                        accessor: false,
+                        ipc: true,
+                    });
+                }
                 continue;
             }
             let Some(callee_meta) = meta_table.get(callee) else {
@@ -2027,6 +2083,7 @@ fn call_edges(
                     categories.get(callee),
                     Some(Category::Getter | Category::Setter | Category::Trivial)
                 ),
+                ipc: false,
             });
         }
     }
@@ -2045,6 +2102,7 @@ fn data_edges(meta_table: &MetaTable, field_edges: &[FieldEdge]) -> Vec<UnitEdge
             to_class: rollup_class(meta_table, &edge.to),
             count: edge.count,
             accessor: false,
+            ipc: false,
         })
         .collect()
 }
@@ -2078,6 +2136,7 @@ fn rollup_edges(meta_table: &MetaTable, edges: &[UnitEdge]) -> (UstrMap<Rollup>,
                     edge.to,
                     count,
                     edge.accessor,
+                    edge.ipc,
                 );
             }
         }
@@ -2105,6 +2164,7 @@ fn rollup_edges(meta_table: &MetaTable, edges: &[UnitEdge]) -> (UstrMap<Rollup>,
                     to_unit,
                     count,
                     edge.accessor,
+                    edge.ipc,
                 );
             }
         }

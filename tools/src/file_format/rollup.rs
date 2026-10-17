@@ -62,6 +62,10 @@ pub struct RollupEdge {
     /// the areas interact.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub accessors: u32,
+    /// How many of the calls are IPDL messages (from generated `Send`
+    /// methods to actors' `Recv` implementations).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub ipc: u32,
     /// How many distinct pairs of functions (for subsystems, of classes or
     /// free functions) the calls are between.
     pub pairs: u32,

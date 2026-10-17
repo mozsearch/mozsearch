@@ -145,7 +145,9 @@ walking methods:
 ./searchfox-tool "--server=/home/vagrant/index/config.json --tree=tests block-diagram T_rollup::Panel | graph --format=svg"
 ./searchfox-tool '--server=/home/vagrant/index/config.json --tree=tests crossref-lookup SUBSYS_'
 ```
-The whole tree's subsystems; a subsystem's classes and their neighbors
+A call of an IPDL message's generated `Send` method counts as a call of the
+actors' `Recv` implementations (an `ipc` count on the edge, drawn dotted
+when it's all IPC).  The whole tree's subsystems; a subsystem's classes and their neighbors
 (`--level subsystem` for its neighboring subsystems instead); a class's
 neighbors.  Edges are labeled and weighted by how many calls they stand for;
 `--min-count` and `--max-edges` prune them.  The query terms are
