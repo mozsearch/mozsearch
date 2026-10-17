@@ -23,16 +23,21 @@ use ustr::Ustr;
 
 use super::frontend::FileIr;
 use super::ir::*;
+use super::render::DotOptions;
 use super::trace::{Dir, IpdlSlot, Tracer, ipc_message_sym, short_pretty};
 use crate::file_format::rollup::is_boring_callee;
 
 /// The lines a patch changed, in the coordinates of the files we have the
-/// analysis of (its new side).
+/// analysis of (its new side; see `rev_lines`).
 #[derive(Deserialize)]
 pub struct ChangedLines {
+    /// Its commits, oldest first.
     #[serde(default)]
     pub commits: Vec<String>,
     pub files: BTreeMap<String, FileChange>,
+    /// What isn't in `files` (ex: removed files).
+    #[serde(default)]
+    pub notes: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -42,6 +47,9 @@ pub struct FileChange {
     /// Where removed lines were.
     #[serde(default)]
     pub removed: Vec<u32>,
+    /// The commits making the added lines, by line, if known.
+    #[serde(default)]
+    pub commits: BTreeMap<u32, String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
@@ -65,8 +73,16 @@ pub struct Unit {
     pub id: usize,
     pub path: String,
     pub lines: Vec<u32>,
-    /// The function it's in, if any.
+    /// The function it's in, if any: its pretty name, symbol, and class.
     pub func: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub func_sym: Option<Ustr>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub class: Option<Ustr>,
+    /// The commits making its lines, if known (see `FileChange::commits`),
+    /// in the patch's order.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub commits: Vec<String>,
     pub keys: BTreeSet<Key>,
     pub text: Vec<String>,
     /// Its function's callees anywhere in its body (but plumbing), and the
@@ -92,6 +108,10 @@ pub struct Slicing {
     pub links: Vec<Link>,
     /// Clusters of units, largest first.
     pub clusters: Vec<Vec<usize>>,
+    /// The units without dataflow (no keys, or links), ex: `#include`s and
+    /// namespaces' braces, which aren't clusters of their own.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub other: Vec<usize>,
     pub notes: Vec<String>,
 }
 
@@ -162,6 +182,16 @@ fn event_keys(f: &FuncIr, lines: &BTreeSet<u32>, keys: &mut BTreeSet<Key>) {
     }
 }
 
+/// The symbols defined on a line (see `FileRecords::symbols_defined_at`), but
+/// files, directories and namespaces, which contain things rather than
+/// carrying data (two new files in a namespace aren't linked by it).
+fn defined_at(recs: &super::records::FileRecords, line: u32) -> Vec<Ustr> {
+    recs.symbols_defined_at(line)
+        .into_iter()
+        .filter(|sym| !["FILE_", "DIR_", "NS_"].iter().any(|p| sym.starts_with(p)))
+        .collect()
+}
+
 /// The IPDL fields a function's events on some lines read or write: their
 /// accessors' calls, their structs' constructors' calls (whose arguments
 /// are the fields'), and assignments through their mutable accessors (which
@@ -211,7 +241,17 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
     let mut units: Vec<Unit> = vec![];
     // (Units' functions and lines, for tracing.)
     let mut unit_funcs: Vec<Option<(Arc<FileIr>, usize)>> = vec![];
-    let mut notes = vec![];
+    let mut notes = changes.notes.clone();
+    // (The commits making a file's lines, in the patch's order.)
+    let commits_of = |change: &FileChange, lines: &BTreeSet<u32>| -> Vec<String> {
+        let made: BTreeSet<&String> = lines.iter().filter_map(|l| change.commits.get(l)).collect();
+        changes
+            .commits
+            .iter()
+            .filter(|c| made.contains(c))
+            .cloned()
+            .collect()
+    };
     for (path, change) in &changes.files {
         let mut lines: BTreeSet<u32> = change.added.iter().copied().collect();
         lines.extend(change.removed.iter().copied());
@@ -234,7 +274,7 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
             let mut keys = BTreeSet::new();
             if let Some(recs) = &recs {
                 for line in &lines {
-                    for sym in recs.symbols_defined_at(*line) {
+                    for sym in defined_at(recs, *line) {
                         let kind = recs
                             .structured(&sym)
                             .and_then(|s| s.get("kind"))
@@ -255,6 +295,9 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
                 path: path.clone(),
                 lines: lines.iter().copied().collect(),
                 func: None,
+                func_sym: None,
+                class: None,
+                commits: commits_of(change, &lines),
                 keys,
                 text: lines.iter().map(|l| text_of(*l)).collect(),
                 body_calls: BTreeSet::new(),
@@ -290,7 +333,7 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
             // methods, parameters.)
             if let Some(recs) = &recs {
                 for line in &group_lines {
-                    for sym in recs.symbols_defined_at(*line) {
+                    for sym in defined_at(recs, *line) {
                         if sym.starts_with("F_") {
                             keys.insert(Key::Field(sym));
                         } else if sym.starts_with("V_") {
@@ -333,6 +376,12 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
                 path: path.clone(),
                 lines: group_lines.iter().copied().collect(),
                 func: func.map(|fi| file.funcs[fi].pretty.clone()),
+                func_sym: func.map(|fi| file.funcs[fi].sym),
+                class: match func {
+                    Some(fi) => tracer.class_of(&file.funcs[fi].sym).await,
+                    None => None,
+                },
+                commits: commits_of(change, &group_lines),
                 keys,
                 text: group_lines.iter().map(|l| text_of(*l)).collect(),
                 body_calls,
@@ -352,7 +401,7 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
         if let Some(recs) = tracer.records(&unit.path).await {
             for line in &unit.lines {
                 patch_syms.extend(
-                    recs.symbols_defined_at(*line)
+                    defined_at(&recs, *line)
                         .into_iter()
                         .filter(|s| !s.starts_with("V_")),
                 );
@@ -420,9 +469,17 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
         if let Some(j) = merged_into[i] {
             let lines = std::mem::take(&mut units[i].lines);
             let text = std::mem::take(&mut units[i].text);
+            let commits = std::mem::take(&mut units[i].commits);
             units[j].lines.extend(lines);
             units[j].text.extend(text);
             units[j].lines.sort();
+            for commit in commits {
+                if !units[j].commits.contains(&commit) {
+                    units[j].commits.push(commit);
+                }
+            }
+            let order = |c: &String| changes.commits.iter().position(|o| o == c);
+            units[j].commits.sort_by_key(order);
         }
     }
     let keep: Vec<bool> = merged_into.iter().map(|m| m.is_none()).collect();
@@ -597,11 +654,21 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
     }
 
     let mut clusters: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    let mut other = vec![];
     for i in 0..units.len() {
         let root = find(&mut parent, i);
         clusters.entry(root).or_default().push(i);
     }
-    let mut clusters: Vec<Vec<usize>> = clusters.into_values().collect();
+    let mut clusters: Vec<Vec<usize>> = clusters
+        .into_values()
+        .filter(|cluster| match cluster.as_slice() {
+            [only] if units[*only].keys.is_empty() => {
+                other.push(*only);
+                false
+            }
+            _ => true,
+        })
+        .collect();
     clusters.sort_by_key(|c| std::cmp::Reverse(c.len()));
     links.sort_by_key(|l| (l.from, l.to));
     links.dedup_by(|a, b| a.from == b.from && a.to == b.to && a.why == b.why);
@@ -612,14 +679,61 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
         units,
         links,
         clusters,
+        other,
         notes,
+    }
+}
+
+/// A slicing's cluster's commits' (abbreviated) SHAs, in the patch's order,
+/// if its units' commits are known.
+fn cluster_commits(slicing: &Slicing, cluster: &[usize]) -> String {
+    let mut commits: Vec<&String> = vec![];
+    for &ui in cluster {
+        for commit in &slicing.units[ui].commits {
+            if !commits.contains(&commit) {
+                commits.push(commit);
+            }
+        }
+    }
+    commits
+        .iter()
+        .map(|c| &c[..c.len().min(12)])
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+impl Slicing {
+    /// Only its `n`th cluster (1 for the biggest), and the links among its
+    /// units.
+    pub fn only_cluster(&mut self, n: usize) -> Result<(), String> {
+        if n == 0 || n > self.clusters.len() {
+            return Err(format!("No cluster {} (of {})", n, self.clusters.len()));
+        }
+        let cluster = self.clusters.swap_remove(n - 1);
+        let units: BTreeSet<usize> = cluster.iter().copied().collect();
+        self.links
+            .retain(|l| units.contains(&l.from) && units.contains(&l.to));
+        self.clusters = vec![cluster];
+        self.other.clear();
+        Ok(())
     }
 }
 
 pub fn render_slicing_text(slicing: &Slicing) -> String {
     let mut out = String::new();
     for (ci, cluster) in slicing.clusters.iter().enumerate() {
-        let _ = writeln!(out, "== cluster {} ({} units)", ci + 1, cluster.len());
+        let commits = cluster_commits(slicing, cluster);
+        let _ = writeln!(
+            out,
+            "== cluster {} ({} units){}",
+            ci + 1,
+            cluster.len(),
+            if commits.is_empty() {
+                String::new()
+            } else {
+                format!(" in {}", commits)
+            }
+        );
         for &ui in cluster {
             let unit = &slicing.units[ui];
             let lines = match (unit.lines.first(), unit.lines.last()) {
@@ -654,13 +768,29 @@ pub fn render_slicing_text(slicing: &Slicing) -> String {
             );
         }
     }
+    if !slicing.other.is_empty() {
+        let _ = writeln!(out, "== without dataflow ({} units)", slicing.other.len());
+        for &ui in &slicing.other {
+            let unit = &slicing.units[ui];
+            let _ = writeln!(
+                out,
+                "  u{:<3} {}:{}",
+                ui,
+                unit.path,
+                unit.lines.first().copied().unwrap_or(0)
+            );
+        }
+    }
     for note in &slicing.notes {
         let _ = writeln!(out, "note: {}", note);
     }
     out
 }
 
-pub fn render_slicing_dot(slicing: &Slicing) -> String {
+/// A slicing as DOT: its clusters as subgraphs (labeled with their commits,
+/// if known), its units as nodes (linked to their first lines, with
+/// `options`' `link_tree`), and its links as edges.
+pub fn render_slicing_dot(slicing: &Slicing, options: &DotOptions) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "digraph slicing {{");
     let _ = writeln!(
@@ -668,12 +798,26 @@ pub fn render_slicing_dot(slicing: &Slicing) -> String {
         "  node [shape=box, fontname=\"monospace\", fontsize=10, style=rounded];"
     );
     let escape = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
+    // (And the units without dataflow, apart.)
+    let mut groups: Vec<(String, &str, &[usize])> = vec![];
     for (ci, cluster) in slicing.clusters.iter().enumerate() {
+        let commits = cluster_commits(slicing, cluster);
+        let label = match commits.is_empty() {
+            true => format!("cluster {}", ci + 1),
+            false => format!("cluster {} ({})", ci + 1, commits),
+        };
+        groups.push((label, "solid", cluster));
+    }
+    if !slicing.other.is_empty() {
+        groups.push(("without dataflow".to_string(), "dashed", &slicing.other));
+    }
+    for (ci, (label, style, cluster)) in groups.into_iter().enumerate() {
         let _ = writeln!(
             out,
-            "  subgraph cluster_{} {{ label=\"cluster {}\"; color=gray;",
+            "  subgraph cluster_{} {{ label=\"{}\"; color=gray; style={};",
             ci,
-            ci + 1
+            escape(&label),
+            style
         );
         for &ui in cluster {
             let unit = &slicing.units[ui];
@@ -691,7 +835,23 @@ pub fn render_slicing_dot(slicing: &Slicing) -> String {
                         .unwrap_or("")
                 )
             );
-            let _ = writeln!(out, "    u{} [label=\"{}\"];", ui, label);
+            let first = unit.lines.first().copied().unwrap_or(0);
+            let link = match &options.link_tree {
+                Some(tree) if first > 0 => format!(
+                    ", URL=\"/{}/{}/{}#{}\", tooltip=\"{}:{}\"",
+                    escape(tree),
+                    match &options.link_rev {
+                        Some(rev) => format!("rev/{}", escape(rev)),
+                        None => "source".to_string(),
+                    },
+                    escape(&unit.path),
+                    first,
+                    escape(file),
+                    first
+                ),
+                _ => String::new(),
+            };
+            let _ = writeln!(out, "    u{} [label=\"{}\"{}];", ui, label, link);
         }
         let _ = writeln!(out, "  }}");
     }

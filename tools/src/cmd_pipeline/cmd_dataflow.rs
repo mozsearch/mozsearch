@@ -102,6 +102,17 @@ pub struct Dataflow {
     #[clap(long)]
     changed: Option<String>,
 
+    /// Slice the lines a revision changes into clusters, instead: a commit's
+    /// (from its first parent) or `<a>..<b>`'s, in the coordinates of the
+    /// files the server has the analysis of (the indexed revision's, or a
+    /// try push's head's; see `rev_lines`).
+    #[clap(long)]
+    slice_rev: Option<String>,
+
+    /// Show only this cluster of a slicing (1 for the biggest).
+    #[clap(long)]
+    slice_cluster: Option<usize>,
+
     /// How many hops to trace values written by changes, for `--slice`.
     #[clap(long, default_value_t = 3)]
     slice_hops: usize,
@@ -197,6 +208,7 @@ fn parse_changed(spec: &str) -> Result<ChangedLines> {
             .or_insert_with(|| FileChange {
                 added: vec![],
                 removed: vec![],
+                commits: Default::default(),
             })
             .added
             .extend(added);
@@ -204,6 +216,7 @@ fn parse_changed(spec: &str) -> Result<ChangedLines> {
     Ok(ChangedLines {
         commits: vec![],
         files,
+        notes: vec![],
     })
 }
 
@@ -382,6 +395,7 @@ impl PipelineCommand for DataflowCommand {
             );
         }
         let changes = match (&self.args.changed, &self.args.slice) {
+            _ if let Some(spec) = &self.args.slice_rev => Some(server.rev_changed_lines(spec)?),
             (Some(spec), _) => Some(parse_changed(spec)?),
             (None, Some(slice_file)) => {
                 let json = std::fs::read_to_string(slice_file)
@@ -394,11 +408,24 @@ impl PipelineCommand for DataflowCommand {
             (None, None) => None,
         };
         if let Some(changes) = changes {
-            let slicing = slice(&mut tracer, &changes, self.args.slice_hops).await;
+            let mut slicing = slice(&mut tracer, &changes, self.args.slice_hops).await;
+            if let Some(n) = self.args.slice_cluster {
+                slicing.only_cluster(n).map_err(data_error)?;
+            }
             return match self.args.format {
                 DataflowFormat::Text => text(render_slicing_text(&slicing), "text/plain"),
-                DataflowFormat::Dot => text(render_slicing_dot(&slicing), "text/vnd.graphviz"),
-                DataflowFormat::Svg => svg_of(render_slicing_dot(&slicing)),
+                DataflowFormat::Dot => text(
+                    render_slicing_dot(&slicing, &DotOptions::default()),
+                    "text/vnd.graphviz",
+                ),
+                DataflowFormat::Svg => svg_of(render_slicing_dot(
+                    &slicing,
+                    &DotOptions {
+                        link_tree: Some(server.tree_info()?.name),
+                        link_rev: server.try_delta_meta().map(|meta| meta.head),
+                        title: false,
+                    },
+                )),
                 DataflowFormat::Json => Ok(PipelineValues::JsonValue(JsonValue {
                     value: serde_json::to_value(&slicing).unwrap(),
                 })),

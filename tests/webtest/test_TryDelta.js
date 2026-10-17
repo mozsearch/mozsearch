@@ -121,6 +121,35 @@ add_task(async function test_TryDeltaFollow() {
      "and its nodes link to the push's head's lines");
 });
 
+// Slicing a revision's changes into the clusters of dataflow they touch (see
+// tools/src/dataflow/slice.rs and rev_lines.rs): the push's, in its context,
+// and a landed commit's, in the indexed revision.
+add_task(async function test_TryDeltaSlicing() {
+  const head = await importPush();
+  const sliceLinks = () => [...(doc().querySelector(".query-result svg")?.querySelectorAll("a") ?? [])]
+    .map(a => a.getAttribute("xlink:href"));
+
+  await TestUtils.loadPath(
+    `/trydelta/query/default?q=${encodeURIComponent(`slice-rev:${head}`)}&rev=${head}`);
+  ok(sliceLinks().some(href => href?.startsWith(`/trydelta/rev/${head}/wobbler.cpp#`)),
+     "The push's slicing's units link to its head's lines, of the files it adds too");
+  ok(doc().querySelector(".query-result svg").textContent.includes("cluster 2"),
+     "in several clusters (Frob's signature, Wobble, ...)");
+
+  await TestUtils.loadPath(
+    `/trydelta/query/default?q=${encodeURIComponent(`slice-rev:${head} slice-cluster:1`)}&rev=${head}`);
+  const one = doc().querySelector(".query-result svg")?.textContent ?? "";
+  ok(one.includes("cluster 1") && !one.includes("cluster 2"), "One of them can be shown");
+
+  // "Let widgets shrink": Shrink's declaration and definition, and unpoke.cpp,
+  // whose includes and namespace aren't dataflow.
+  await TestUtils.loadQuery("trydelta", "slice-rev:3b6f1c8f943932e006c9b03d8978879e05dfc4fc");
+  ok(sliceLinks().includes("/trydelta/source/widget.cpp#7"),
+     "A landed commit's slicing links to the indexed revision's lines");
+  ok(doc().querySelector(".query-result svg").textContent.includes("without dataflow"),
+     "and has its changes without dataflow apart");
+});
+
 add_task(async function test_TryDeltaUnanalyzedFiles() {
   const head = await importPush();
 

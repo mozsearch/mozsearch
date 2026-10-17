@@ -552,6 +552,12 @@ impl<'s> Tracer<'s> {
         slot
     }
 
+    /// The class a function is a method of, if any.
+    pub async fn class_of(&mut self, sym: &Ustr) -> Option<Ustr> {
+        let parent = self.xref(sym).await?.meta.as_ref()?.parent_sym?;
+        parent.starts_with("T_").then_some(parent)
+    }
+
     /// A call's IPDL slot (its first callee's that is one), if any.
     pub async fn call_ipdl_slot(&mut self, call: &Call) -> Option<IpdlSlot> {
         for sym in &call.callee {

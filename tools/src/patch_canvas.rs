@@ -27,7 +27,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
 
-use git2::{DiffOptions, Patch, Repository};
+use git2::Repository;
 use serde::Serialize;
 use ustr::{Ustr, UstrMap};
 
@@ -37,6 +37,7 @@ use crate::file_format::config::Config;
 use crate::file_format::crossref::CrossrefData;
 use crate::file_format::jumpref::{JumprefData, JumprefTraversals, TreeJumprefs};
 use crate::format::{add_rows_sym_info, excerpt_row_html, file_rows};
+use crate::rev_lines::changed_lines;
 use crate::try_delta::{FileChange, TryDelta};
 use crate::url_encode_path::url_encode_path;
 
@@ -158,45 +159,6 @@ fn functions(file: &Path) -> Vec<Function> {
         }
     }
     functions
-}
-
-/// The lines (1-based) of `new` which differ from `old` (all of them if
-/// there's no `old`): the ones it adds or changes, and with those, the ones
-/// before which it removes lines.
-fn changed_lines(old: Option<&[u8]>, new: &[u8]) -> (BTreeSet<u32>, BTreeSet<u32>) {
-    let Some(old) = old else {
-        let newlines = new.iter().filter(|b| **b == b'\n').count();
-        let count = (newlines + usize::from(!new.is_empty() && !new.ends_with(b"\n"))) as u32;
-        let all: BTreeSet<u32> = (1..=count).collect();
-        return (all.clone(), all);
-    };
-    let mut added = BTreeSet::new();
-    let mut touched = BTreeSet::new();
-    let mut options = DiffOptions::new();
-    options.context_lines(0);
-    let Ok(patch) = Patch::from_buffers(old, None, new, None, Some(&mut options)) else {
-        return (added, touched);
-    };
-    for h in 0..patch.num_hunks() {
-        let Ok((hunk, count)) = patch.hunk(h) else {
-            continue;
-        };
-        if hunk.new_lines() == 0 {
-            // (A removal, before the line after it.)
-            touched.insert(hunk.new_start().max(1) + 1);
-            touched.insert(hunk.new_start().max(1));
-        }
-        for l in 0..count {
-            if let Ok(line) = patch.line_in_hunk(h, l)
-                && line.origin() == '+'
-                && let Some(lineno) = line.new_lineno()
-            {
-                added.insert(lineno);
-                touched.insert(lineno);
-            }
-        }
-    }
-    (added, touched)
 }
 
 /// A file's contents at a commit.
@@ -512,21 +474,6 @@ pub fn build_canvas(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_changed_lines() {
-        let old = b"a\nb\nc\nd\n";
-        let new = b"a\nB\nc\nx\ny\n";
-        let (added, touched) = changed_lines(Some(old), new);
-        assert_eq!(added.into_iter().collect::<Vec<_>>(), vec![2, 4, 5]);
-        assert_eq!(touched.into_iter().collect::<Vec<_>>(), vec![2, 4, 5]);
-        // (A removal touches the lines around it.)
-        let (added, touched) = changed_lines(Some(b"a\nb\nc\n"), b"a\nc\n");
-        assert!(added.is_empty());
-        assert_eq!(touched.into_iter().collect::<Vec<_>>(), vec![1, 2]);
-        let (added, _) = changed_lines(None, b"x\ny");
-        assert_eq!(added.into_iter().collect::<Vec<_>>(), vec![1, 2]);
-    }
 
     #[test]
     fn test_jump_lines() {

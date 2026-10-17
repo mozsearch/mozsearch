@@ -207,6 +207,27 @@ impl AbstractServer for LocalIndex {
         Ok(self.head_info.clone())
     }
 
+    fn rev_changed_lines(&self, spec: &str) -> Result<crate::dataflow::slice::ChangedLines> {
+        let bad = |message: String| {
+            ServerError::StickyProblem(ErrorDetails {
+                layer: ErrorLayer::BadInput,
+                message,
+            })
+        };
+        let path = self
+            .config_paths
+            .git_path
+            .as_deref()
+            .ok_or(ServerError::Unsupported)?;
+        let repo = git2::Repository::open(path).map_err(|err| bad(err.message().to_string()))?;
+        // (The indexed revision's files.)
+        let head = self
+            .head_info
+            .as_ref()
+            .map_or("HEAD".to_string(), |info| info.rev.clone());
+        crate::rev_lines::rev_changed_lines(&repo, &head, spec).map_err(bad)
+    }
+
     fn file_facet_info(&self, path: &str) -> Option<(Ustr, Option<Ustr>)> {
         self.file_lookup_map
             .lookup_file_from_str(path)

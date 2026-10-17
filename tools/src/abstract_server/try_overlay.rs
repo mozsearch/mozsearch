@@ -431,6 +431,17 @@ impl AbstractServer for TryOverlay {
         Some(self.delta.meta.clone())
     }
 
+    fn rev_changed_lines(&self, spec: &str) -> Result<crate::dataflow::slice::ChangedLines> {
+        crate::rev_lines::rev_changed_lines(&self.repo()?, &self.delta.meta.head, spec).map_err(
+            |message| {
+                ServerError::StickyProblem(ErrorDetails {
+                    layer: ErrorLayer::BadInput,
+                    message,
+                })
+            },
+        )
+    }
+
     async fn fetch_history_journal(
         &self,
         kind: JournalKind,

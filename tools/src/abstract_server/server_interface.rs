@@ -510,6 +510,14 @@ pub trait AbstractServer {
         None
     }
 
+    /// The lines a revision changes (a commit's changes from its first
+    /// parent, or `<a>..<b>`'s), in the coordinates of the files this
+    /// analyzes (the indexed revision's, or a try push's head's), for
+    /// slicing them (see `rev_lines` and `dataflow::slice`).
+    fn rev_changed_lines(&self, _spec: &str) -> Result<crate::dataflow::slice::ChangedLines> {
+        Err(ServerError::Unsupported)
+    }
+
     /// Fetch the records of a token-centric history timeline journal (see
     /// `hyperblame::journals`) as JSON values, newest to oldest.  `target` is a
     /// tree-relative path for future and files-delta journals, and a token for
