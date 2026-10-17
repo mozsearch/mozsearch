@@ -13,7 +13,7 @@ extern crate ipdl_parser;
 extern crate tools;
 
 use getopts::Options;
-use serde_json::json;
+use serde_json::{Value, json};
 
 use ipdl_parser::ast::ProtocolSide;
 use tools::file_format::analysis::{
@@ -128,6 +128,9 @@ fn locstr(loc: &ast::Location, len: usize) -> String {
 #[derive(Default)]
 struct GeneratedSymbols {
     by_pretty: HashMap<String, Vec<String>>,
+    /// Functions' parameters' names, by symbol (from their structured
+    /// records).
+    params: HashMap<String, Vec<String>>,
 }
 
 impl GeneratedSymbols {
@@ -146,7 +149,36 @@ impl GeneratedSymbols {
                 }
             }
         }
+        let mut read_params = |value: Value, _: &_, _| -> Option<(String, Vec<String>)> {
+            value.get("structured")?;
+            let sym = value.get("sym")?.as_str()?.to_string();
+            let names = value
+                .get("args")?
+                .as_array()?
+                .iter()
+                .filter_map(|arg| Some(arg.get("name")?.as_str()?.to_string()))
+                .collect();
+            Some((sym, names))
+        };
+        for datum in read_analyses(&[path.to_string()], &mut read_params) {
+            syms.params.extend(datum.data);
+        }
         syms
+    }
+
+    /// A struct's constructors from its fields: those whose parameters are
+    /// the fields, in order, as IPDL names them (`_<field>`), ex:
+    /// `SIntDouble(const int& _i, const double& _d)` and its `&&` overload.
+    fn field_constructors(&self, pretty: &str, name: &str, fields: &[&str]) -> Vec<&str> {
+        if fields.is_empty() {
+            return vec![];
+        }
+        let params: Vec<String> = fields.iter().map(|f| format!("_{}", f)).collect();
+        self.get(&format!("{}::{}", pretty, name))
+            .iter()
+            .filter(|sym| self.params.get(*sym) == Some(&params))
+            .map(|sym| sym.as_str())
+            .collect()
     }
 
     fn get(&self, pretty: &str) -> &[String] {
@@ -367,6 +399,11 @@ fn output_data_structures(
         let mut slots = vec![];
         if let Some(class) = generated.first_with_prefix(&pretty, "T_") {
             slots.push(cpp_slot("class", class));
+        }
+        // (Whose arguments are the fields' values, by their `ipdlIndex`es.)
+        let field_names: Vec<&str> = fields.iter().map(|f| f.name.id.as_str()).collect();
+        for constructor in generated.field_constructors(&pretty, &ns.name.id, &field_names) {
+            slots.push(cpp_slot("constructor", constructor));
         }
         let mut field_infos = vec![];
         for (index, field) in fields.iter().enumerate() {

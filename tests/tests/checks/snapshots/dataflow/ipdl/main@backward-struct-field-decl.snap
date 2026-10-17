@@ -1,0 +1,10 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/ipdl/backward-struct-field-decl
+---
+mozilla::_foo::SIntDoubleArrays::ai (ipdl/PTestDataStructuresCommon.ipdlh)
+  #0      27 seed       mozilla::_foo::SIntDoubleArrays::ai int[] ai;
+mozilla::_ipdltest::TestDataStructuresChild::TestStructWithArrays (ipdl/TestDataStructures.cpp)
+  #1     669 call       call SIntDoubleArrays::SIntDoubleArrays SIntDoubleArrays i(42, ai, ad);
+        -> #0 mozilla::_foo::SIntDoubleArrays::ai in SIntDoubleArrays::ai [field: ai]

@@ -26,6 +26,18 @@ input_file: inputs/analysis/ipdl/PTestDataStructuresCommon.ipdlh/struct__json
         "slotLang": "cpp",
         "ownerLang": "idl",
         "sym": "T_mozilla::_foo::SIntDouble"
+      },
+      {
+        "slotKind": "constructor",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "_ZN7mozilla4_foo10SIntDoubleC1ERKiRKd"
+      },
+      {
+        "slotKind": "constructor",
+        "slotLang": "cpp",
+        "ownerLang": "idl",
+        "sym": "_ZN7mozilla4_foo10SIntDoubleC1EOiOd"
       }
     ],
     "fields": [

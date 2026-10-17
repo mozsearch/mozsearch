@@ -424,6 +424,9 @@ pub enum BindingSlotKind {
     /// A parameter of a method (ex: of an IPDL message's send and recv
     /// methods, for its parameter).
     Param,
+    /// A constructor taking the owner's parts as its parameters (ex: an IPDL
+    /// struct's generated constructors from its fields, in order).
+    Constructor,
     /// Future: Pref symbol specified in a WebIDL `Pref="foo"` annotation.
     ///
     EnablingPref,

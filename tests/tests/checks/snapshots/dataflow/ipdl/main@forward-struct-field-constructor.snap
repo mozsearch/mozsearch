@@ -1,0 +1,41 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/ipdl/forward-struct-field-constructor
+---
+mozilla::_ipdltest::TestDataStructuresChild::TestStructWithArrays (ipdl/TestDataStructures.cpp)
+  #0     669 seed       ai                                 SIntDoubleArrays i(42, ai, ad);
+        -> #1 call SIntDoubleArrays::SIntDoubleArrays [local: ai]
+        -> #4 call EqHelper::Compare [local: ai]
+  #1     669 call       call SIntDoubleArrays::SIntDoubleArrays SIntDoubleArrays i(42, ai, ad);
+        -> #2 call SIntDoubleArrays::ai [field: ai]
+        -> #3 call SIntDoubleArrays::ai in TestDataStructuresParent::RecvTestStructWithArrays [field: ai]
+  #2     675 call       call SIntDoubleArrays::ai          EXPECT_EQ(ai, o.ai());
+        -> #4 call EqHelper::Compare [local: SIntDoubleArrays::ai(…)]
+  #4     675 call       call EqHelper::Compare             EXPECT_EQ(ai, o.ai());
+        -> #5 EqHelper::Compare(…) result (assumed) [assumed: ?]
+  #5     675 opaque     EqHelper::Compare(…) result (assumed) EXPECT_EQ(ai, o.ai());
+        -> #8 gtest_ar = [local: EqHelper::Compare(…)]
+  #8     675 assign     gtest_ar =                         EXPECT_EQ(ai, o.ai());
+        -> #10 test [local: gtest_ar]
+        -> #11 call AssertionResult::failure_message [local: gtest_ar]
+  #10    675 test       test                               EXPECT_EQ(ai, o.ai());
+  #11    675 call       call AssertionResult::failure_message EXPECT_EQ(ai, o.ai());
+        -> #12 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
+  #12    675 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(ai, o.ai());
+mozilla::_ipdltest::TestDataStructuresParent::RecvTestStructWithArrays (ipdl/TestDataStructures.cpp)
+  #3     277 call       call SIntDoubleArrays::ai          EXPECT_EQ(ai, i.ai());
+        -> #6 call EqHelper::Compare [local: SIntDoubleArrays::ai(…)]
+  #6     277 call       call EqHelper::Compare             EXPECT_EQ(ai, i.ai());
+        -> #7 EqHelper::Compare(…) result (assumed) [assumed: ?]
+  #7     277 opaque     EqHelper::Compare(…) result (assumed) EXPECT_EQ(ai, i.ai());
+        -> #9 gtest_ar = [local: EqHelper::Compare(…)]
+  #9     277 assign     gtest_ar =                         EXPECT_EQ(ai, i.ai());
+        -> #13 test [local: gtest_ar]
+        -> #14 call AssertionResult::failure_message [local: gtest_ar]
+  #13    277 test       test                               EXPECT_EQ(ai, i.ai());
+  #14    277 call       call AssertionResult::failure_message EXPECT_EQ(ai, i.ai());
+        -> #15 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
+  #15    277 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(ai, i.ai());
+note: Couldn't see into EqHelper::Compare (assumed its result comes from its arguments)
+note: Couldn't see into AssertionResult::failure_message (assumed its result comes from its arguments)

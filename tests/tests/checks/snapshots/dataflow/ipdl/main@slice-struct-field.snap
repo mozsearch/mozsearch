@@ -1,0 +1,13 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/ipdl/slice-struct-field
+---
+== cluster 1 (3 units)
+  u0   ipdl/PTestDataStructuresCommon.ipdlh:27 
+         | int[] ai;
+  u1   ipdl/TestDataStructures.cpp:277 TestDataStructuresParent::RecvTestStructWithArrays
+         | EXPECT_EQ(ai, i.ai());
+  u2   ipdl/TestDataStructures.cpp:669 TestDataStructuresChild::TestStructWithArrays
+         | SIntDoubleArrays i(42, ai, ad);
+  linked by: field IPDL_mozilla__foo_SIntDoubleArrays_ai

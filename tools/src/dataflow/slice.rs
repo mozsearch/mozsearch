@@ -6,9 +6,10 @@
 //! lines of a function, or of declarations outside functions), and units are
 //! linked when they share a specific dataflow "key": the same field (the
 //! most specific member of a place, not the objects it's reached through),
-//! local, or parameter; a call of a function another unit defines or changes;
-//! or the same binding (an IPDL message's Send and Recv, XPIDL's JS and
-//! C++).  Then values written by each unit are traced forwards a few hops,
+//! local, or parameter (an IPDL struct's field too, which its accessors read
+//! and its constructors' arguments write; see `IpdlSlot`); a call of a
+//! function another unit defines or changes; or the same binding (an IPDL
+//! message's Send and Recv, XPIDL's JS and C++).  Then values written by each unit are traced forwards a few hops,
 //! linking the units they reach, for flows through unchanged code.  The
 //! clusters are the connected components.
 
@@ -21,7 +22,7 @@ use ustr::Ustr;
 
 use super::frontend::FileIr;
 use super::ir::*;
-use super::trace::{Dir, Tracer, ipc_message_sym, short_pretty};
+use super::trace::{Dir, IpdlSlot, Tracer, ipc_message_sym, short_pretty};
 
 /// The lines a patch changed, in the coordinates of the files we have the
 /// analysis of (its new side).
@@ -55,9 +56,6 @@ pub enum Key {
     /// A symbol the patch defines (ex: a new enum value, class, or
     /// function), mentioned.
     Mention(Ustr),
-    /// A name declared in a file without analysis (ex: an IPDL struct's
-    /// field), and its generated accessor's calls (`.name()`).
-    Name(String),
 }
 
 #[derive(Serialize)]
@@ -155,6 +153,51 @@ fn event_keys(f: &FuncIr, lines: &BTreeSet<u32>, keys: &mut BTreeSet<Key>) {
     }
 }
 
+/// The IPDL fields a function's events on some lines read or write: their
+/// accessors' calls, their structs' constructors' calls (whose arguments
+/// are the fields'), and assignments through their mutable accessors (which
+/// `place_keys` gives the accessors' symbols, not the fields').
+async fn ipdl_keys(
+    tracer: &mut Tracer<'_>,
+    f: &FuncIr,
+    lines: &BTreeSet<u32>,
+    keys: &mut BTreeSet<Key>,
+) {
+    let on_lines =
+        |line: u32, end_line: u32| lines.range(line..=end_line.max(line)).next().is_some();
+    for e in &f.events {
+        match &e.kind {
+            EventKind::Call(c) if on_lines(e.line, e.end_line) => {
+                let call = &f.calls[*c];
+                match tracer.call_ipdl_slot(call).await {
+                    Some(IpdlSlot::Accessor(field)) if on_lines(call.line, call.end_line) => {
+                        keys.insert(Key::Field(field));
+                    }
+                    // (The fields whose arguments are on the lines: a
+                    // constructor's call can span many.)
+                    Some(IpdlSlot::Constructor(fields)) => {
+                        for (arg, field) in call.args.iter().zip(fields) {
+                            if on_lines(arg.line, arg.end_line) {
+                                keys.insert(Key::Field(field));
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            EventKind::Assign { place, .. } if lines.contains(&e.line) => {
+                if let Some(field) = tracer.ipdl_field_of_place(place).await {
+                    keys.insert(Key::Field(field));
+                    if let Some(Step::Field(accessor)) = place.path.last() {
+                        keys.remove(&Key::Field(*accessor));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: usize) -> Slicing {
     let mut units: Vec<Unit> = vec![];
     // (Units' functions and lines, for tracing.)
@@ -177,25 +220,20 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
         };
         let Some(file) = file else {
             // (Files we have no frontend for, ex: IPDL: their declarations'
-            // symbols.)
+            // symbols, its structs' fields as fields.)
             let recs = tracer.records(path).await;
             let mut keys = BTreeSet::new();
-            // (Declared names: `nsString timezoneOverride;`.)
-            for line in &lines {
-                let text = text_of(*line);
-                if let Some(decl) = text.strip_suffix(';')
-                    && let Some(name) = decl.split_whitespace().last()
-                    && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
-                    && decl.split_whitespace().count() >= 2
-                {
-                    keys.insert(Key::Name(name.to_string()));
-                }
-            }
             if let Some(recs) = &recs {
                 for line in &lines {
                     for sym in recs.symbols_defined_at(*line) {
+                        let kind = recs
+                            .structured(&sym)
+                            .and_then(|s| s.get("kind"))
+                            .and_then(|k| k.as_str());
                         if sym.starts_with("IPC_") {
                             keys.insert(Key::Binding(sym));
+                        } else if sym.starts_with("IPDL_") && kind == Some("field") {
+                            keys.insert(Key::Field(sym));
                         } else {
                             keys.insert(Key::Function(sym));
                         }
@@ -255,6 +293,7 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
             if let Some(fi) = func {
                 let f = &file.funcs[fi];
                 event_keys(f, &group_lines, &mut keys);
+                ipdl_keys(tracer, f, &group_lines, &mut keys).await;
                 // (A changed function's callers link to it.)
                 keys.insert(Key::Function(f.sym));
                 // (Parameters declared on the lines.)
@@ -309,23 +348,6 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
                         unit.keys.insert(Key::Mention(sym));
                     }
                 }
-            }
-        }
-    }
-    // (Accessors' calls of names declared without analysis.)
-    let names: BTreeSet<String> = units
-        .iter()
-        .flat_map(|u| u.keys.iter())
-        .filter_map(|k| match k {
-            Key::Name(name) => Some(name.clone()),
-            _ => None,
-        })
-        .collect();
-    for unit in &mut units {
-        for name in &names {
-            let call = format!(".{}()", name);
-            if unit.text.iter().any(|t| t.contains(&call)) {
-                unit.keys.insert(Key::Name(name.clone()));
             }
         }
     }
@@ -442,7 +464,6 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
             Key::Local(_, sym) => sym_short_name(sym),
             Key::Function(sym) | Key::Mention(sym) => sym_short_name(sym),
             Key::Binding(sym) => sym.to_string(),
-            Key::Name(name) => name.clone(),
         }
     };
     for (key, ids) in &by_key {

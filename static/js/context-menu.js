@@ -6,6 +6,10 @@ function atUnescape(text) {
 const FOLLOWABLE_KINDS = new Set([
   "field", "variable", "arg", "parameter", "localVar", "property", "var",
 ]);
+// IPDL files, whose structs' fields (`IPDL_` symbols) dataflow follows through
+// the C++ IPDL generates for them (see tools/src/dataflow/trace.rs's
+// `IpdlSlot`), but not their messages' parameters yet.
+const IPDL_PATH_RE = /\.ipdlh?$/;
 
 // C/C++ locals' and parameters' symbols (MozsearchIndexer.cpp's, and the
 // tools' unified parameters'; see tools/src/file_format/local_symbols.rs).
@@ -1684,7 +1688,11 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
 
         const confidence = confidences[index];
 
-        if (FOLLOWABLE_KINDS.has(symInfo.meta?.kind)) {
+        // (And an IPDL struct's field's accessor, for the field.)
+        const slotOwner = symInfo.meta?.slotOwner;
+        if (FOLLOWABLE_KINDS.has(symInfo.meta?.kind) ||
+            (slotOwner?.sym?.startsWith("IPDL_") &&
+             ["getter", "setter"].includes(slotOwner.slotKind))) {
           followSyms.push(sym);
         }
 
@@ -2403,9 +2411,13 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
 
       // Follow the value forwards or backwards (in the languages dataflow
       // understands), from the line clicked.
+      const isIpdl = IPDL_PATH_RE.test(Router.sourcePath || "");
       if (Settings.dataflow.enabled && sourceLineClicked &&
-          DATAFLOW_PATH_RE.test(Router.sourcePath)) {
+          (DATAFLOW_PATH_RE.test(Router.sourcePath) || isIpdl)) {
         for (const sym of new Set(followSyms)) {
+          if (isIpdl && !sym.startsWith("IPDL_")) {
+            continue;
+          }
           const at = `follow-at:${Diagram.quoteQueryValue(sourceLineClicked)}`;
           const quotedSym = Diagram.quoteQueryValue(sym);
           dataflowMenuItems.push(new MenuItem({

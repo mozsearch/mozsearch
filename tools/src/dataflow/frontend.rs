@@ -766,6 +766,8 @@ impl<'c, 'a> Builder<'c, 'a> {
             place: ev.place,
             addr: ev.addr,
             text: truncate(self.t(node), 60),
+            line: self.pos(node).0,
+            end_line: self.end_line(node),
         }
     }
 
@@ -833,6 +835,8 @@ impl<'c, 'a> Builder<'c, 'a> {
             place: Some(Place::this()),
             addr: false,
             text: "this".to_string(),
+            line: 0,
+            end_line: 0,
         })
     }
 
@@ -1296,8 +1300,35 @@ impl<'c, 'a> Builder<'c, 'a> {
                     .child_by_field_name("left")
                     .map(|l| self.eval(l))
                     .unwrap_or_default();
-                match left.place {
-                    Some(place) if !left.addr => {
+                // (`x.f() = v`: an assignment to the reference an accessor
+                // returns, ex: an IPDL struct's field's mutable one, as one to
+                // the part of `x` named by the accessor's symbol.)
+                let through = match left.vals.as_slice() {
+                    [
+                        Val {
+                            atom: Atom::Call(id),
+                            derived: false,
+                        },
+                    ] if left.place.is_none() => {
+                        let call = &self.ir.calls[*id];
+                        match (&call.receiver, call.callee.first()) {
+                            (
+                                Some(Arg {
+                                    place: Some(receiver),
+                                    addr: false,
+                                    ..
+                                }),
+                                Some(sym),
+                            ) if call.args.is_empty() && call.kind == CallKind::Call => {
+                                Some(receiver.with(Step::Field(*sym)))
+                            }
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                };
+                match left.place.filter(|_| !left.addr).or(through) {
+                    Some(place) => {
                         let vals = if op == "=" {
                             right
                         } else {
@@ -1541,6 +1572,8 @@ impl<'c, 'a> Builder<'c, 'a> {
                     place: callee.place,
                     addr: false,
                     text: truncate(self.t(function), 60),
+                    line: self.pos(function).0,
+                    end_line: self.end_line(function),
                 };
                 let id = self.push_call(
                     node,
@@ -2363,6 +2396,8 @@ impl<'c, 'a> Builder<'c, 'a> {
                     place: callee.place,
                     addr: false,
                     text: truncate(self.t(function), 60),
+                    line: self.pos(function).0,
+                    end_line: self.end_line(function),
                 };
                 let text = self.t(function).to_string();
                 let id = self.push_call(node, &[], &text, CallKind::Call, Some(receiver), args);
@@ -2889,6 +2924,8 @@ impl<'c, 'a> Builder<'c, 'a> {
                     place: callee.place,
                     addr: false,
                     text: truncate(self.t(function), 60),
+                    line: self.pos(function).0,
+                    end_line: self.end_line(function),
                 };
                 let text = self.t(function).to_string();
                 let id = self.push_call(node, &[], &text, CallKind::Call, Some(receiver), args);

@@ -12,5 +12,9 @@ mozilla::_ipdltest::TestDataStructuresChild::TestStruct (ipdl/TestDataStructures
         -> #2 call PTestDataStructuresChild::SendTestStruct [local: i]
   #4     649 call       call SIntDouble::SIntDouble        SIntDouble i(1, 2.0);
         -> #3 i = [local: SIntDouble::SIntDouble(…)]
+  #5     649 const      1                                  SIntDouble i(1, 2.0);
+        -> #4 call SIntDouble::SIntDouble [local: 1]
+  #6     649 const      2.0                                SIntDouble i(1, 2.0);
+        -> #4 call SIntDouble::SIntDouble [local: 2.0]
   #2     652 call       call PTestDataStructuresChild::SendTestStruct EXPECT_TRUE(SendTestStruct(i, &o));
         -> #1 param i in TestDataStructuresParent::RecvTestStruct [call: arg 0]

@@ -185,6 +185,14 @@ context menu's "Follow" items do through the `follow-forward:`,
 lists questions for an oracle, `--oracle <dir>` applies its answers, and
 `--stats <paths>` reports how much the frontends understood.
 
+Values go through IPDL structs' fields (by ipdl-analyze's binding slots)
+rather than into the C++ IPDL generates for them: a field's value comes from
+its struct's constructors' arguments (at the field's index) and assignments
+through its mutable accessor (`x.f() = v`), and goes to its accessors' calls,
+wherever they are.  `--symbol` takes an accessor's symbol, or a `.ipdlh`
+field's `IPDL_` symbol, too, and slicing links units which read or write the
+same IPDL field, as it does for fields.
+
 `--summary` shows a file's (or `--function`'s) dataflow summaries (see
 `tools/src/dataflow/summary.rs`): which inputs (parameters, fields, globals,
 calls' results) flow into which outputs (fields, returns, calls' arguments),

@@ -148,6 +148,9 @@ pub struct Arg {
     pub place: Option<Place>,
     pub addr: bool,
     pub text: String,
+    /// Its first and last lines (0 for an implicit `this`).
+    pub line: u32,
+    pub end_line: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]

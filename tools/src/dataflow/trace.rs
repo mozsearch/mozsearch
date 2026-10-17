@@ -3,8 +3,9 @@
 //! parameters and back out of their returns and out-parameters, matching
 //! returns to the calls they came from when we know them), callers (from
 //! crossref's uses), fields and globals (from crossref's uses of them,
-//! wherever they're written or read), and binding layers (XPIDL's JS methods
-//! to their C++ implementations, from binding slots).
+//! wherever they're written or read), binding layers (XPIDL's JS methods to
+//! their C++ implementations, from binding slots), and IPDL structs' fields
+//! (see `IpdlSlot`).
 //!
 //! This is demand-driven and lazy: only the functions a trace reaches are
 //! parsed, and only the symbols it reaches are looked up.
@@ -21,6 +22,7 @@ use super::ir::*;
 use super::oracle::{Oracle, OracleQuestion, SITE_ASK, SUMMARY_ASK, Slot, parse_slot};
 use super::records::{FileRecords, short_name};
 use crate::abstract_server::AbstractServer;
+use crate::file_format::analysis::BindingSlotKind;
 use crate::file_format::crossref::CrossrefData;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
@@ -159,6 +161,23 @@ struct Site {
     entered: Option<usize>,
 }
 
+/// What a C++ function is of the code IPDL generates for a struct or union
+/// (by ipdl-analyze's binding slots), for following values through their
+/// fields rather than into the generated code implementing them: a field's
+/// values go in through the struct's constructors' arguments and
+/// assignments to its mutable accessor's result (`x.f() = v`), and come out
+/// of its accessors' calls, wherever they are (by crossref's uses of the
+/// slots, as fields' reads and writes are found; see `forward_field`).
+#[derive(Clone, Debug, PartialEq)]
+pub enum IpdlSlot {
+    /// An accessor of a field (or of a union's variant), by the field's
+    /// `IPDL_` symbol.
+    Accessor(Ustr),
+    /// A struct's constructor from its fields: its arguments are their
+    /// values, in order (their `IPDL_` symbols).
+    Constructor(Vec<Ustr>),
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum Flow {
     Place(Place),
@@ -206,6 +225,7 @@ pub struct Tracer<'s> {
     sources: HashMap<String, Option<Arc<String>>>,
     records: HashMap<String, Option<Arc<FileRecords>>>,
     xrefs: HashMap<Ustr, Option<Arc<CrossrefData>>>,
+    ipdl_slots: HashMap<Ustr, Option<IpdlSlot>>,
     pub oracle: Option<Arc<Oracle>>,
     pub graph: TraceGraph,
     node_ids: HashMap<(String, Ustr, NodeKey), usize>,
@@ -224,6 +244,7 @@ impl<'s> Tracer<'s> {
             sources: HashMap::new(),
             records: HashMap::new(),
             xrefs: HashMap::new(),
+            ipdl_slots: HashMap::new(),
             oracle: None,
             graph: TraceGraph::default(),
             node_ids: HashMap::new(),
@@ -300,6 +321,7 @@ impl<'s> Tracer<'s> {
         sub.sources = std::mem::take(&mut self.sources);
         sub.records = std::mem::take(&mut self.records);
         sub.xrefs = std::mem::take(&mut self.xrefs);
+        sub.ipdl_slots = std::mem::take(&mut self.ipdl_slots);
         sub
     }
 
@@ -308,6 +330,7 @@ impl<'s> Tracer<'s> {
         self.sources = sub.sources;
         self.records = sub.records;
         self.xrefs = sub.xrefs;
+        self.ipdl_slots = sub.ipdl_slots;
     }
 
     /// Questions for an oracle about the calls in some files that we can't
@@ -484,6 +507,128 @@ impl<'s> Tracer<'s> {
         data
     }
 
+    /// What a symbol is of the code IPDL generates for a struct or union,
+    /// if anything.
+    pub async fn ipdl_slot(&mut self, sym: &Ustr) -> Option<IpdlSlot> {
+        // (C++ functions only.)
+        if !sym.starts_with("_Z") {
+            return None;
+        }
+        if let Some(cached) = self.ipdl_slots.get(sym) {
+            return cached.clone();
+        }
+        let owner = self
+            .xref(sym)
+            .await
+            .and_then(|xref| xref.meta.as_ref()?.slot_owner.clone());
+        let slot = match owner {
+            Some(owner) if owner.sym.starts_with("IPDL_") => match owner.props.slot_kind {
+                BindingSlotKind::Getter | BindingSlotKind::Setter => {
+                    Some(IpdlSlot::Accessor(owner.sym))
+                }
+                BindingSlotKind::Constructor => {
+                    // (Its fields are in order; see ipdl-analyze.)
+                    let fields: Vec<Ustr> = self
+                        .xref(&owner.sym)
+                        .await
+                        .and_then(|xref| {
+                            Some(xref.meta.as_ref()?.fields.iter().map(|f| f.sym).collect())
+                        })
+                        .unwrap_or_default();
+                    (!fields.is_empty()).then_some(IpdlSlot::Constructor(fields))
+                }
+                _ => None,
+            },
+            _ => None,
+        };
+        self.ipdl_slots.insert(*sym, slot.clone());
+        slot
+    }
+
+    /// A call's IPDL slot (its first callee's that is one), if any.
+    pub async fn call_ipdl_slot(&mut self, call: &Call) -> Option<IpdlSlot> {
+        for sym in &call.callee {
+            if let Some(slot) = self.ipdl_slot(sym).await {
+                return Some(slot);
+            }
+        }
+        None
+    }
+
+    /// The IPDL field a place is (a part of), if it's one assigned to through
+    /// a mutable accessor (see the C++ frontend's assignments).
+    pub async fn ipdl_field_of_place(&mut self, p: &Place) -> Option<Ustr> {
+        for step in &p.path {
+            if let Step::Field(sym) = step
+                && let Some(IpdlSlot::Accessor(field)) = self.ipdl_slot(sym).await
+            {
+                return Some(field);
+            }
+        }
+        None
+    }
+
+    /// An IPDL field's accessors, and its struct's constructors with the
+    /// field's index among their parameters.
+    async fn ipdl_field_slots(&mut self, field: Ustr) -> (Vec<Ustr>, Vec<(Ustr, usize)>) {
+        let Some(xref) = self.xref(&field).await else {
+            return (vec![], vec![]);
+        };
+        let Some(meta) = &xref.meta else {
+            return (vec![], vec![]);
+        };
+        let accessors = meta
+            .binding_slots
+            .iter()
+            .filter(|s| {
+                matches!(
+                    s.props.slot_kind,
+                    BindingSlotKind::Getter | BindingSlotKind::Setter
+                )
+            })
+            .map(|s| s.sym)
+            .collect();
+        let mut constructors = vec![];
+        if let Some(parent) = meta.parent_sym
+            && let Some(owner) = self.xref(&parent).await
+            && let Some(owner_meta) = &owner.meta
+            && let Some(index) = owner_meta.fields.iter().position(|f| f.sym == field)
+        {
+            constructors.extend(
+                owner_meta
+                    .binding_slots
+                    .iter()
+                    .filter(|s| s.props.slot_kind == BindingSlotKind::Constructor)
+                    .map(|s| (s.sym, index)),
+            );
+        }
+        (accessors, constructors)
+    }
+
+    /// Whether a call of an IPDL field's accessor reads (a part of) the
+    /// value in a flow: the receiver's whole value, or that field of it.
+    async fn reads_ipdl_field(&mut self, call: &Call, flow: &Flow, field: Ustr) -> bool {
+        let (
+            Flow::Place(p),
+            Some(Arg {
+                place: Some(rp), ..
+            }),
+        ) = (flow, &call.receiver)
+        else {
+            return true;
+        };
+        if !p.within(rp) || p.path.len() == rp.path.len() {
+            return true;
+        }
+        match &p.path[rp.path.len()] {
+            Step::Field(sym) => match self.ipdl_slot(sym).await {
+                Some(IpdlSlot::Accessor(of)) => of == field,
+                _ => true,
+            },
+            _ => true,
+        }
+    }
+
     fn note(&mut self, note: String) {
         if self.noted.insert(note.clone()) {
             self.graph.notes.push(note);
@@ -630,9 +775,11 @@ impl<'s> Tracer<'s> {
 
     /// Start tracing a symbol's value from a line of a file, as a context
     /// menu knows it: a local or parameter (in the function at the line), a
-    /// field or global (the place at the line with it in that function), or,
-    /// on a line outside functions (ex: a field's declaration), a field or
-    /// global everywhere it's read (forwards) or written (backwards).
+    /// field or global (the place at the line with it in that function), an
+    /// IPDL field's accessor (its call's result at the line), or, on a line
+    /// outside functions (ex: a field's declaration, or an IPDL field's), a
+    /// field or global everywhere it's read (forwards) or written
+    /// (backwards).
     pub async fn seed_symbol(
         &mut self,
         path: &str,
@@ -641,6 +788,37 @@ impl<'s> Tracer<'s> {
         dir: Dir,
     ) -> Result<(), String> {
         self.graph.dir = Some(dir);
+        if sym.starts_with("IPDL_") {
+            // (Where the IPDL file declares it, which has no IR.)
+            let name = self.symbol_name(&sym).await;
+            let text = self
+                .source(path)
+                .await
+                .and_then(|s| {
+                    s.lines()
+                        .nth(line as usize - 1)
+                        .map(|l| l.trim().to_string())
+                })
+                .unwrap_or_default();
+            let id = self.graph.nodes.len();
+            self.graph.nodes.push(TraceNode {
+                id,
+                kind: NodeKind::Seed,
+                path: path.to_string(),
+                line,
+                func: name.clone(),
+                func_sym: sym,
+                lang: Lang::Cpp,
+                label: name,
+                text,
+                detail: String::new(),
+            });
+            match dir {
+                Dir::Forward => self.forward_ipdl_field(sym, id, 0).await,
+                Dir::Backward => self.backward_ipdl_field(sym, id, 0).await,
+            }
+            return Ok(());
+        }
         let Some(file) = self.file(path).await else {
             return Err(format!("Can't follow values in {}", path));
         };
@@ -671,6 +849,34 @@ impl<'s> Tracer<'s> {
             }
             if let Some(place) = places.into_iter().next() {
                 self.seed(file.clone(), fi, place, Some(line), dir);
+                return Ok(());
+            }
+            // (An IPDL field's accessor's call: the field's value it reads.)
+            if let Some(IpdlSlot::Accessor(_)) = self.ipdl_slot(&sym).await
+                && let Some(&(c, ei)) = ipdl_reads(f, line, sym).first()
+            {
+                let name = format!("{}(…)", short_pretty(&f.calls[c].callee_pretty));
+                let node = self.node(
+                    &file,
+                    fi,
+                    NodeKey::Seed(name.clone()),
+                    NodeKind::Seed,
+                    line,
+                    name.clone(),
+                );
+                self.queue.push_back(Item {
+                    file: file.clone(),
+                    func: fi,
+                    flow: Flow::Result(c),
+                    pos: Some(ei as isize),
+                    node,
+                    label: name,
+                    kind: EdgeKind::Local,
+                    stack: vec![],
+                    hops: 0,
+                    fresh: true,
+                    root_ty: None,
+                });
                 return Ok(());
             }
             if is_local {
@@ -1548,6 +1754,11 @@ impl<'s> Tracer<'s> {
         {
             self.forward_escapes(&file, func, p, node, &stack, hops)
                 .await;
+            // (Put in an IPDL field, through its mutable accessor: to its
+            // reads.)
+            if let Some(field) = self.ipdl_field_of_place(p).await {
+                self.forward_ipdl_field(field, node, hops).await;
+            }
         }
         let n_events = file.funcs[func].events.len();
         for ei in 0..n_events {
@@ -1567,6 +1778,25 @@ impl<'s> Tracer<'s> {
                     }
                     let n = self.event_node(&file, func, ei);
                     self.edge(node, n, kind, label.clone());
+                    // (Copying the whole of something the value is part of:
+                    // the value's part of the copy, as backwards in
+                    // `backward_place`.)
+                    let place = match (&flow, vals.as_slice()) {
+                        (
+                            Flow::Place(p),
+                            [
+                                Val {
+                                    atom: Atom::Read(r),
+                                    derived: false,
+                                },
+                            ],
+                        ) if p.within(r) && p.path.len() > r.path.len() => {
+                            let mut part = place;
+                            part.path.extend(p.path[r.path.len()..].iter().cloned());
+                            part
+                        }
+                        _ => place,
+                    };
                     if Flow::Place(place.clone()) != flow {
                         self.push(
                             &file,
@@ -1595,6 +1825,45 @@ impl<'s> Tracer<'s> {
                         .is_some_and(|r| reads(&r.vals, &flow) || arg_place_hit(r, &flow));
                     if arg_hits.is_empty() && !receiver_hit {
                         continue;
+                    }
+                    // (Through IPDL fields rather than the generated code.)
+                    match self.call_ipdl_slot(&call).await {
+                        Some(IpdlSlot::Constructor(fields)) => {
+                            let hit: Vec<Ustr> = arg_hits
+                                .iter()
+                                .filter_map(|&ai| fields.get(ai).copied())
+                                .collect();
+                            if !hit.is_empty() {
+                                let n = self.event_node(&file, func, ei);
+                                self.edge(node, n, kind, label.clone());
+                                for field in hit {
+                                    self.forward_ipdl_field(field, n, hops).await;
+                                }
+                            }
+                            continue;
+                        }
+                        Some(IpdlSlot::Accessor(field)) => {
+                            // (The field of the value, read.)
+                            if receiver_hit
+                                && !is_assigned(&file.funcs[func], c)
+                                && self.reads_ipdl_field(&call, &flow, field).await
+                            {
+                                let n = self.event_node(&file, func, ei);
+                                self.edge(node, n, kind, label.clone());
+                                self.push(
+                                    &file,
+                                    func,
+                                    Flow::Result(c),
+                                    epos,
+                                    n,
+                                    stack.clone(),
+                                    hops,
+                                    EdgeKind::Local,
+                                );
+                            }
+                            continue;
+                        }
+                        None => {}
                     }
                     let targets = self.targets(&file, func, c).await;
                     let targets = Self::prune_overloads(
@@ -2148,6 +2417,22 @@ impl<'s> Tracer<'s> {
         self.edge(n, node, kind, label.to_string());
         let call = file.funcs[func].calls[c].clone();
         let epos = Some(ei as isize);
+        // (Through IPDL fields rather than the generated code: a field's
+        // value comes from its writes, and a constructed struct's from its
+        // fields' arguments.)
+        match self.call_ipdl_slot(&call).await {
+            Some(IpdlSlot::Accessor(field)) => {
+                self.backward_ipdl_field(field, n, hops).await;
+                return;
+            }
+            Some(IpdlSlot::Constructor(_)) => {
+                for arg in &call.args {
+                    self.push_sources(file, func, &arg.vals, epos, n, stack, hops, EdgeKind::Local);
+                }
+                return;
+            }
+            None => {}
+        }
         let targets = self.targets(file, func, c).await;
         if targets.is_empty()
             && let Some(summary) = self
@@ -2821,6 +3106,194 @@ impl<'s> Tracer<'s> {
             ));
         }
     }
+
+    // ## IPDL fields (see `IpdlSlot`)
+
+    /// The reads of an IPDL field, wherever they are: its accessors' calls'
+    /// results (but for those assigned to).
+    async fn forward_ipdl_field(&mut self, field: Ustr, node: usize, hops: usize) {
+        if hops + 1 > self.opts.max_hops {
+            self.note(format!("Stopped at {} hops", self.opts.max_hops));
+            return;
+        }
+        let name = short_name(&self.symbol_name(&field).await).to_string();
+        let (accessors, _) = self.ipdl_field_slots(field).await;
+        let mut funcs: HashSet<(String, Ustr)> = HashSet::new();
+        for accessor in accessors {
+            for (path, line, contextsym) in self.field_uses(accessor).await {
+                // (Not the generated code's own, ex: its serialization's
+                // `ParamTraits<…>::Write`: IPC hops carry values across.)
+                if path.starts_with("__GENERATED__/") {
+                    continue;
+                }
+                let Some(use_file) = self.file(&path).await else {
+                    continue;
+                };
+                let Some(uf) = use_file.by_sym.get(&contextsym).copied() else {
+                    continue;
+                };
+                let reads = ipdl_reads(&use_file.funcs[uf], line, accessor);
+                if reads.is_empty()
+                    || (funcs.insert((path.clone(), contextsym)) && funcs.len() > self.opts.fanout)
+                {
+                    continue;
+                }
+                for (c, ei) in reads {
+                    let n = self.event_node(&use_file, uf, ei);
+                    self.edge(node, n, EdgeKind::Field, name.clone());
+                    self.push(
+                        &use_file,
+                        uf,
+                        Flow::Result(c),
+                        Some(ei as isize),
+                        n,
+                        vec![],
+                        hops + 1,
+                        EdgeKind::Local,
+                    );
+                }
+            }
+        }
+        if funcs.len() > self.opts.fanout {
+            self.note(format!(
+                "{} is read in {} functions; followed {}",
+                name,
+                funcs.len(),
+                self.opts.fanout
+            ));
+        }
+    }
+
+    /// The writes of an IPDL field, wherever they are: its struct's
+    /// constructors' arguments, and assignments through its mutable
+    /// accessor.
+    async fn backward_ipdl_field(&mut self, field: Ustr, node: usize, hops: usize) {
+        if hops + 1 > self.opts.max_hops {
+            self.note(format!("Stopped at {} hops", self.opts.max_hops));
+            return;
+        }
+        let name = short_name(&self.symbol_name(&field).await).to_string();
+        let (accessors, constructors) = self.ipdl_field_slots(field).await;
+        // (The constructors' calls, with the field's argument, and the
+        // accessors' assignments.)
+        let slots: Vec<(Ustr, Option<usize>)> = constructors
+            .into_iter()
+            .map(|(sym, index)| (sym, Some(index)))
+            .chain(accessors.into_iter().map(|sym| (sym, None)))
+            .collect();
+        let mut funcs: HashSet<(String, Ustr)> = HashSet::new();
+        for (slot, index) in slots {
+            for (path, line, contextsym) in self.field_uses(slot).await {
+                // (Not the generated code's own; see `forward_ipdl_field`.)
+                if path.starts_with("__GENERATED__/") {
+                    continue;
+                }
+                let Some(use_file) = self.file(&path).await else {
+                    continue;
+                };
+                let Some(uf) = use_file.by_sym.get(&contextsym).copied() else {
+                    continue;
+                };
+                let wf = &use_file.funcs[uf];
+                let writes: Vec<(usize, Vec<Val>)> = match index {
+                    Some(index) => wf
+                        .events
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(ei, e)| match e.kind {
+                            EventKind::Call(c)
+                                if e.on_line(line) && wf.calls[c].callee.contains(&slot) =>
+                            {
+                                Some((ei, wf.calls[c].args.get(index)?.vals.clone()))
+                            }
+                            _ => None,
+                        })
+                        .collect(),
+                    None => wf
+                        .events
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(ei, e)| match &e.kind {
+                            EventKind::Assign { place, vals, .. }
+                                if e.on_line(line)
+                                    && place.path.last() == Some(&Step::Field(slot)) =>
+                            {
+                                Some((ei, vals.clone()))
+                            }
+                            _ => None,
+                        })
+                        .collect(),
+                };
+                if writes.is_empty()
+                    || (funcs.insert((path.clone(), contextsym)) && funcs.len() > self.opts.fanout)
+                {
+                    continue;
+                }
+                for (ei, vals) in writes {
+                    let n = self.event_node(&use_file, uf, ei);
+                    self.edge(n, node, EdgeKind::Field, name.clone());
+                    self.push_sources(
+                        &use_file,
+                        uf,
+                        &vals,
+                        Some(ei as isize),
+                        n,
+                        &[],
+                        hops + 1,
+                        EdgeKind::Local,
+                    );
+                }
+            }
+        }
+        if funcs.len() > self.opts.fanout {
+            self.note(format!(
+                "{} is written in {} functions; followed {}",
+                name,
+                funcs.len(),
+                self.opts.fanout
+            ));
+        }
+    }
+}
+
+/// The calls of an IPDL field's accessor on a line of a function which read
+/// it (as call and event indexes): not those whose results are assigned to
+/// (`x.f() = v`; see `is_assigned`).
+fn ipdl_reads(f: &FuncIr, line: u32, accessor: Ustr) -> Vec<(usize, usize)> {
+    f.events
+        .iter()
+        .enumerate()
+        .filter_map(|(ei, e)| match e.kind {
+            EventKind::Call(c)
+                if e.on_line(line)
+                    && f.calls[c].callee.contains(&accessor)
+                    && !is_assigned(f, c) =>
+            {
+                Some((c, ei))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+/// Whether a call's result is assigned to (`x.f() = v`, an assignment to
+/// `x`'s part named by `f`'s symbol; see the C++ frontend's assignments).
+fn is_assigned(f: &FuncIr, c: usize) -> bool {
+    let call = &f.calls[c];
+    let (
+        Some(Arg {
+            place: Some(receiver),
+            ..
+        }),
+        Some(sym),
+    ) = (&call.receiver, call.callee.first())
+    else {
+        return false;
+    };
+    let place = receiver.with(Step::Field(*sym));
+    f.events.iter().any(|e| {
+        e.on_line(call.line) && matches!(&e.kind, EventKind::Assign { place: q, .. } if *q == place)
+    })
 }
 
 fn e_line(file: &FileIr, func: usize, ei: usize) -> u32 {

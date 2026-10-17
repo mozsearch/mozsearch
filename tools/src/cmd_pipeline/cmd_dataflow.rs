@@ -191,13 +191,15 @@ fn parse_changed(spec: &str) -> Result<ChangedLines> {
             };
             added.extend(start..=end);
         }
-        files.insert(
-            path.to_string(),
-            FileChange {
-                added,
+        // (A path given again adds lines.)
+        files
+            .entry(path.to_string())
+            .or_insert_with(|| FileChange {
+                added: vec![],
                 removed: vec![],
-            },
-        );
+            })
+            .added
+            .extend(added);
     }
     Ok(ChangedLines {
         commits: vec![],

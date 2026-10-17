@@ -101,3 +101,45 @@ add_task(async function test_DataflowQueryJs() {
   ok(svg.textContent.includes("param a"),
      "The trace reaches the C++ implementation's parameter");
 });
+
+// An IPDL struct's field (tests/tests/files/ipdl/PTestDataStructuresCommon.ipdlh),
+// from its declaration and from its accessor's call: its values come from the
+// struct's constructor's arguments (and its mutable accessor's assignments),
+// rather than from the generated C++.
+add_task(async function test_DataflowFollowIpdlField() {
+  await TestUtils.resetFeatureGate("dataflow");
+  const construction = "/tests/source/ipdl/TestDataStructures.cpp#669";
+  const traced = () => {
+    const svg = frame.contentDocument.querySelector(".query-result svg");
+    const links = [...(svg?.querySelectorAll("a") ?? [])].map(a => a.getAttribute("xlink:href"));
+    return {
+      construction: links.some(href => href?.endsWith(construction)),
+      generated: links.some(href => href?.includes("__GENERATED__")),
+    };
+  };
+
+  for (const [path, line, isToken, what] of [
+    ["/tests/source/ipdl/PTestDataStructuresCommon.ipdlh", 27,
+     span => span.textContent === "ai", "the field's declaration"],
+    ["/tests/source/ipdl/TestDataStructures.cpp", 277,
+     span => span.textContent === "ai" && span.getAttribute("data-symbols").startsWith("_ZNK"),
+     "the field's accessor's call"],
+  ]) {
+    await TestUtils.loadPath(path);
+    const token = [...frame.contentDocument.querySelectorAll(`#line-${line} span[data-symbols]`)]
+      .find(isToken);
+    ok(token, `The token of ${what} is there`);
+    TestUtils.click(token);
+    const menu = frame.contentDocument.querySelector("#context-menu");
+    await waitForShown(menu, `Context menu is shown for ${what}`);
+    const backward = findFollowItem(menu, "Follow where ai comes from");
+    ok(backward, `${what} can be followed`);
+
+    const loadPromise = TestUtils.waitForLoad();
+    TestUtils.click(backward);
+    await loadPromise;
+    const { construction: found, generated } = traced();
+    ok(found, `From ${what}, the trace has the struct's construction`);
+    ok(!generated, "and not the generated code");
+  }
+});
