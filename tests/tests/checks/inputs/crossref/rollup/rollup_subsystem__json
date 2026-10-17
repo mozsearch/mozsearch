@@ -1,0 +1,1 @@
+crossref-lookup 'SUBSYS_Core/Rollup@20View' | jq '.symbol_crossref_infos[0].crossref_info'

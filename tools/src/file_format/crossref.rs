@@ -5,6 +5,7 @@ use super::{
     analysis::{AnalysisStructured, PathSearchResult},
     ontology_mapping::OntologyPointerKind,
     recency::{Recency, RecencyFrom},
+    rollup::Rollup,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -84,6 +85,14 @@ pub struct CrossrefData {
     /// Candidate scip-typescript symbols if this is a js-analyze symbol
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ts_syms: Vec<Ustr>,
+    /// For classes and subsystems: the calls between them and others (see
+    /// `rollup`).
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "callRollup"
+    )]
+    pub call_rollup: Option<Rollup>,
 }
 
 impl CrossrefData {

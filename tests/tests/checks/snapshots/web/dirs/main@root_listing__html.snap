@@ -588,7 +588,7 @@ input_file: inputs/web/dirs/root_listing__html
         <tr>
           <td class="name"><a href="/tests/source/moz.build" class="mimetype-fixed-container mimetype-icon-build">moz.build</a></td>
           <td class="description"><a href="/tests/source/moz.build" title=""></td>
-          <td class="size"><a href="/tests/source/moz.build">1159</a></td>
+          <td class="size"><a href="/tests/source/moz.build">1331</a></td>
           <td class="coverage"><a href="/tests/source/moz.build" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
@@ -694,6 +694,13 @@ input_file: inputs/web/dirs/root_listing__html
           <td class="description"><a href="/tests/source/review-context.toml" title=""></td>
           <td class="size"><a href="/tests/source/review-context.toml">764</a></td>
           <td class="coverage"><a href="/tests/source/review-context.toml" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
+        </tr>
+
+        <tr>
+          <td class="name"><a href="/tests/source/rollup" class="mimetype-fixed-container mimetype-icon-folder">rollup</a></td>
+          <td class="description"><a href="/tests/source/rollup" title=""></td>
+          <td class="size"><a href="/tests/source/rollup"></a></td>
+          <td class="coverage"><a href="/tests/source/rollup" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>

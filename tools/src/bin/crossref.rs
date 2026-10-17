@@ -51,6 +51,10 @@ use tools::file_format::recency::{FileRecency, Recency, RecencyFrom};
 use tools::file_format::repo_data_ingestion::{
     ConcisePerFileInfo, RepoIngestion, heuristic_path_kind,
 };
+use tools::file_format::rollup::{
+    Rollup, RollupEdge, RollupExample, RollupMember, RollupPair, is_boring_callee,
+    root_subsystem_sym, subsystem_sym,
+};
 use tools::hyperblame::recency::{CONTEXT_KINDS, FileLinkage, HistoryDigests, link_definitions};
 use tools::logging::LoggedSpan;
 use tools::logging::init_logging;
@@ -1885,6 +1889,304 @@ fn write_inline_and_ext(
     }
 }
 
+/// How many edges (and members) a class's or subsystem's roll-up keeps in
+/// each direction, how many examples each edge keeps, and how many edges
+/// between subsystems the whole tree's keeps.
+const ROLLUP_EDGES: usize = 48;
+const ROLLUP_EXAMPLES: usize = 6;
+const ROLLUP_MEMBERS: usize = 64;
+const ROLLUP_TREE_EDGES: usize = 4000;
+
+/// Calls between two classes or subsystems: how many, and by which pairs.
+#[derive(Default)]
+struct RollupAccum {
+    count: u32,
+    pairs: UstrMap<UstrMap<u32>>,
+}
+
+impl RollupAccum {
+    fn add(&mut self, from: Ustr, to: Ustr, count: u32) {
+        self.count += count;
+        *self.pairs.entry(from).or_default().entry(to).or_default() += count;
+    }
+
+    fn pair_count(&self) -> u32 {
+        self.pairs.values().map(|tos| tos.len() as u32).sum()
+    }
+
+    fn edge(&self, sym: Ustr, pretty: Ustr, pretty_of: &dyn Fn(&Ustr) -> Ustr) -> RollupEdge {
+        let mut examples: Vec<(Ustr, Ustr, u32)> = self
+            .pairs
+            .iter()
+            .flat_map(|(from, tos)| tos.iter().map(move |(to, count)| (*from, *to, *count)))
+            .collect();
+        examples.sort_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)).then(a.1.cmp(&b.1)));
+        examples.truncate(ROLLUP_EXAMPLES);
+        RollupEdge {
+            sym,
+            pretty,
+            count: self.count,
+            pairs: self.pair_count(),
+            examples: examples
+                .into_iter()
+                .map(|(from, to, count)| RollupExample {
+                    from,
+                    from_pretty: pretty_of(&from),
+                    to,
+                    to_pretty: pretty_of(&to),
+                    count,
+                })
+                .collect(),
+        }
+    }
+}
+
+/// Whether a structured record is of something that's called (a function or
+/// method), for roll-ups.
+fn is_rollup_callable(meta: &AnalysisStructured) -> bool {
+    matches!(meta.kind.as_str(), "function" | "method")
+}
+
+/// Roll the calls between functions up into calls between classes and
+/// between subsystems (see `tools::file_format::rollup`), leaving out
+/// callees labeled `calls-diagram:stop` (assertions, logging, ...), as call
+/// diagrams do, and other plumbing (`is_boring_callee`).  A method's class is its `parentsym`, and its subsystem its
+/// class's (else its own).  Returns the roll-ups by symbol (classes',
+/// subsystems' pseudo-symbols', and the whole tree's), and the subsystems'
+/// pseudo-symbols' structured records.
+fn rollup_calls(
+    meta_table: &MetaTable,
+    callees_table: &CalleesTable,
+) -> (UstrMap<Rollup>, Vec<AnalysisStructured>) {
+    let stop = ustr("calls-diagram:stop");
+    let class_of = |meta: &AnalysisStructured| -> Option<Ustr> {
+        let parent = meta.parent_sym?;
+        (meta.kind == "method" && !parent.starts_with("NS_") && meta_table.contains_key(&parent))
+            .then_some(parent)
+    };
+    let subsystem_of = |sym: Ustr, meta: &AnalysisStructured| -> Option<Ustr> {
+        meta_table
+            .get(&sym)
+            .and_then(|m| m.subsystem)
+            .or(meta.subsystem)
+    };
+
+    let mut class_edges: HashMap<(Ustr, Ustr), RollupAccum> = HashMap::new();
+    let mut class_internal: UstrMap<u32> = UstrMap::default();
+    let mut subsystem_edges: HashMap<(Ustr, Ustr), RollupAccum> = HashMap::new();
+    let mut subsystem_internal: UstrMap<u32> = UstrMap::default();
+    let mut subsystem_members: UstrMap<UstrMap<u32>> = UstrMap::default();
+    for (caller, callees) in callees_table {
+        let Some(caller_meta) = meta_table.get(caller) else {
+            continue;
+        };
+        if !is_rollup_callable(caller_meta) {
+            continue;
+        }
+        let caller_class = class_of(caller_meta);
+        let caller_unit = caller_class.unwrap_or(*caller);
+        let caller_subsystem = subsystem_of(caller_unit, caller_meta);
+        for (callee, (_, lines, only_cites)) in callees {
+            if *only_cites || callee == caller {
+                continue;
+            }
+            let Some(callee_meta) = meta_table.get(callee) else {
+                continue;
+            };
+            if !is_rollup_callable(callee_meta)
+                || callee_meta.labels.contains(&stop)
+                || is_boring_callee(&callee_meta.pretty)
+            {
+                continue;
+            }
+            let count = lines.len().max(1) as u32;
+            let callee_class = class_of(callee_meta);
+            let callee_unit = callee_class.unwrap_or(*callee);
+            if let (Some(from), Some(to)) = (caller_class, callee_class) {
+                if from == to {
+                    *class_internal.entry(from).or_default() += count;
+                } else {
+                    class_edges
+                        .entry((from, to))
+                        .or_default()
+                        .add(*caller, *callee, count);
+                }
+            }
+            let callee_subsystem = subsystem_of(callee_unit, callee_meta);
+            if let (Some(from), Some(to)) = (caller_subsystem, callee_subsystem) {
+                *subsystem_members
+                    .entry(from)
+                    .or_default()
+                    .entry(caller_unit)
+                    .or_default() += count;
+                if from == to {
+                    *subsystem_internal.entry(from).or_default() += count;
+                } else {
+                    *subsystem_members
+                        .entry(to)
+                        .or_default()
+                        .entry(callee_unit)
+                        .or_default() += count;
+                    subsystem_edges.entry((from, to)).or_default().add(
+                        caller_unit,
+                        callee_unit,
+                        count,
+                    );
+                }
+            }
+        }
+    }
+
+    let pretty_of = |sym: &Ustr| -> Ustr { meta_table.get(sym).map_or(*sym, |m| m.pretty) };
+    let mut rollups: UstrMap<Rollup> = UstrMap::default();
+    // (Each edge, at both ends, most calls first.)
+    let finish = |rollup: &mut Rollup| {
+        let order = |a: &RollupEdge, b: &RollupEdge| b.count.cmp(&a.count).then(a.sym.cmp(&b.sym));
+        rollup.out.sort_by(order);
+        rollup.into.sort_by(order);
+        rollup.out_total = rollup.out.len() as u32;
+        rollup.in_total = rollup.into.len() as u32;
+        rollup.out.truncate(ROLLUP_EDGES);
+        rollup.into.truncate(ROLLUP_EDGES);
+    };
+    for ((from, to), accum) in &class_edges {
+        rollups
+            .entry(*from)
+            .or_default()
+            .out
+            .push(accum.edge(*to, pretty_of(to), &pretty_of));
+        rollups
+            .entry(*to)
+            .or_default()
+            .into
+            .push(accum.edge(*from, pretty_of(from), &pretty_of));
+    }
+    for (class, internal) in &class_internal {
+        rollups.entry(*class).or_default().internal = *internal;
+    }
+    rollups.values_mut().for_each(finish);
+
+    let mut subsystems: BTreeSet<Ustr> = subsystem_members.keys().copied().collect();
+    subsystems.extend(subsystem_internal.keys().copied());
+    for ((from, to), accum) in &subsystem_edges {
+        rollups
+            .entry(subsystem_sym(from))
+            .or_default()
+            .out
+            .push(accum.edge(subsystem_sym(to), *to, &pretty_of));
+        rollups
+            .entry(subsystem_sym(to))
+            .or_default()
+            .into
+            .push(accum.edge(subsystem_sym(from), *from, &pretty_of));
+    }
+    let mut tree = Rollup::default();
+    let mut metas = vec![];
+    for subsystem in &subsystems {
+        let sym = subsystem_sym(subsystem);
+        let rollup = rollups.entry(sym).or_default();
+        rollup.internal = subsystem_internal.get(subsystem).copied().unwrap_or(0);
+        let mut members: Vec<RollupMember> = subsystem_members
+            .get(subsystem)
+            .into_iter()
+            .flatten()
+            .map(|(member, count)| RollupMember {
+                sym: *member,
+                pretty: pretty_of(member),
+                count: *count,
+            })
+            .collect();
+        members.sort_by(|a, b| b.count.cmp(&a.count).then(a.sym.cmp(&b.sym)));
+        members.truncate(ROLLUP_MEMBERS);
+        rollup.members = members;
+        finish(rollup);
+        tree.members.push(RollupMember {
+            sym,
+            pretty: *subsystem,
+            count: rollup.internal
+                + rollup.out.iter().map(|e| e.count).sum::<u32>()
+                + rollup.into.iter().map(|e| e.count).sum::<u32>(),
+        });
+        metas.push(subsystem_structured(sym, *subsystem));
+    }
+    if !subsystems.is_empty() {
+        tree.members
+            .sort_by(|a, b| b.count.cmp(&a.count).then(a.sym.cmp(&b.sym)));
+        let mut edges: Vec<RollupPair> = subsystem_edges
+            .iter()
+            .map(|((from, to), accum)| RollupPair {
+                from: subsystem_sym(from),
+                to: subsystem_sym(to),
+                count: accum.count,
+                pairs: accum.pair_count(),
+            })
+            .collect();
+        edges.sort_by(|a, b| {
+            b.count
+                .cmp(&a.count)
+                .then(a.from.cmp(&b.from))
+                .then(a.to.cmp(&b.to))
+        });
+        edges.truncate(ROLLUP_TREE_EDGES);
+        tree.edges = edges;
+        tree.internal = subsystem_internal.values().sum();
+        let root = root_subsystem_sym();
+        rollups.insert(root, tree);
+        metas.push(subsystem_structured(root, ustr("")));
+    }
+    (rollups, metas)
+}
+
+/// A subsystem pseudo-symbol's structured record.
+fn subsystem_structured(sym: Ustr, subsystem: Ustr) -> AnalysisStructured {
+    AnalysisStructured {
+        structured: StructuredTag::Structured,
+        pretty: subsystem,
+        sym,
+        js_sym: None,
+        type_pretty: None,
+        kind: ustr("subsystem"),
+        subsystem: (!subsystem.is_empty()).then_some(subsystem),
+        parent_sym: None,
+        slot_owner: None,
+        impl_kind: ustr("impl"),
+        size_bytes: None,
+        alignment_bytes: None,
+        own_vf_ptr_bytes: None,
+        binding_slots: vec![],
+        ontology_slots: vec![],
+        supers: vec![],
+        methods: vec![],
+        fields: vec![],
+        overrides: vec![],
+        props: vec![],
+        labels: BTreeSet::default(),
+        subclass_syms: vec![],
+        overridden_by_syms: vec![],
+        variants: vec![],
+        supplement: false,
+        docs: vec![],
+        extra: Map::default(),
+        can_gc: None,
+        gc_path: None,
+    }
+}
+
+/// Roll up the calls (see `rollup_calls`), and add the subsystems'
+/// pseudo-symbols to the tables, so they're written with the roll-ups.
+fn add_rollups(
+    meta_table: &mut MetaTable,
+    search_result_table: &mut SearchResultTable,
+    callees_table: &CalleesTable,
+) -> UstrMap<Rollup> {
+    let (rollups, metas) = rollup_calls(meta_table, callees_table);
+    for meta in metas {
+        search_result_table.entry(meta.sym).or_default();
+        meta_table.insert(meta.sym, meta);
+    }
+    rollups
+}
+
 fn write_crossref_and_jumpref_thread(
     xref_file: String,
     xref_ext_file: String,
@@ -1901,6 +2203,7 @@ fn write_crossref_and_jumpref_thread(
     js_idl_table: &JSIDLTable,
     js_ts_table: &JsTsTable,
     recency_table: &UstrMap<(Recency, RecencyFrom)>,
+    rollup_table: &UstrMap<Rollup>,
     is_first_chunk: bool,
     xref_ext_size: &mut Option<usize>,
     jumpref_ext_size: &mut Option<usize>,
@@ -2037,6 +2340,10 @@ fn write_crossref_and_jumpref_thread(
             crossref_data.recency_from = Some(from.clone());
         }
 
+        if let Some(rollup) = rollup_table.get(id) {
+            crossref_data.call_rollup = Some(rollup.clone());
+        }
+
         write_inline_and_ext(
             &mut xref_out,
             &mut xref_ext_out,
@@ -2074,6 +2381,7 @@ fn write_crossref_and_jumpref(
     js_idl_table: JSIDLTable,
     js_ts_table: JsTsTable,
     recency_table: UstrMap<(Recency, RecencyFrom)>,
+    rollup_table: UstrMap<Rollup>,
     thread_count: usize,
 ) {
     let search_result_list: SearchResultList = search_result_table.into_iter().collect();
@@ -2107,6 +2415,7 @@ fn write_crossref_and_jumpref(
             &js_idl_table,
             &js_ts_table,
             &recency_table,
+            &rollup_table,
             true,
             &mut xref_ext_size,
             &mut jumpref_ext_size,
@@ -2145,6 +2454,7 @@ fn write_crossref_and_jumpref(
             let js_idl_table = &js_idl_table;
             let js_ts_table = &js_ts_table;
             let recency_table = &recency_table;
+            let rollup_table = &rollup_table;
 
             let start = chunk * index;
             let end = if index == thread_count - 1 {
@@ -2169,6 +2479,7 @@ fn write_crossref_and_jumpref(
                     js_idl_table,
                     js_ts_table,
                     recency_table,
+                    rollup_table,
                     index == 0,
                     xref_ext_size,
                     jumpref_ext_size,
@@ -2290,7 +2601,7 @@ async fn crossref_subset(
     let ingestion = subset_ingestion(cfg, base_index, &analysis_relative_paths);
     let ontology = load_ontology(cfg);
     let AnalysisData {
-        search_result_table,
+        mut search_result_table,
         pretty_table,
         id_table,
         mut meta_table,
@@ -2331,6 +2642,7 @@ async fn crossref_subset(
     );
     process_ontology_rules(&ontology, &search_result_table, &id_table, &mut meta_table);
     let (js_idl_table, js_ts_table) = create_js_tables(&meta_table);
+    let rollup_table = add_rollups(&mut meta_table, &mut search_result_table, &callees_table);
     write_crossref_and_jumpref(
         tree_name,
         &tree_config.paths.index_path,
@@ -2343,6 +2655,7 @@ async fn crossref_subset(
         js_idl_table,
         js_ts_table,
         recency_table,
+        rollup_table,
         cli.thread_count,
     );
     write_identifiers(tree_config, id_table);
@@ -2480,7 +2793,7 @@ async fn main() {
     );
     let analyzed: UstrSet = analysis_relative_paths.iter().copied().collect();
     let AnalysisData {
-        search_result_table,
+        mut search_result_table,
         pretty_table,
         id_table,
         mut meta_table,
@@ -2550,6 +2863,13 @@ async fn main() {
     let (js_idl_table, js_ts_table) = create_js_tables(&meta_table);
 
     println!(
+        "Performing crossref::rollup step for {} : {}",
+        tree_name,
+        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+    );
+    let rollup_table = add_rollups(&mut meta_table, &mut search_result_table, &callees_table);
+
+    println!(
         "Performing crossref::write-crossref step for {} : {}",
         tree_name,
         Local::now().format("%Y-%m-%dT%H:%M:%S%z")
@@ -2566,6 +2886,7 @@ async fn main() {
         js_idl_table,
         js_ts_table,
         recency_table,
+        rollup_table,
         cli.thread_count,
     );
 

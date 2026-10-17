@@ -270,6 +270,87 @@ input_file: inputs/crossref/crossref/big_cpp.cpp/thing__json
             "T_outerNS::AbstractArt"
           ],
           "variants": []
+        },
+        "callRollup": {
+          "in": [
+            {
+              "sym": "T_outerNS::OuterCat",
+              "pretty": "outerNS::OuterCat",
+              "count": 3,
+              "pairs": 3,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
+                  "fromPretty": "outerNS::OuterCat::meet",
+                  "to": "_ZN7outerNS5Thing6ignoreEv",
+                  "toPretty": "outerNS::Thing::ignore",
+                  "count": 1
+                },
+                {
+                  "from": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+                  "fromPretty": "outerNS::OuterCat::shred",
+                  "to": "_ZN7outerNS5Thing10takeDamageEi",
+                  "toPretty": "outerNS::Thing::takeDamage",
+                  "count": 1
+                },
+                {
+                  "from": "_ZN7outerNS8OuterCatC1Ebb",
+                  "fromPretty": "outerNS::OuterCat::OuterCat",
+                  "to": "_ZN7outerNS5ThingC1Ei",
+                  "toPretty": "outerNS::Thing::Thing",
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "sym": "T_outerNS::AbstractArt",
+              "pretty": "outerNS::AbstractArt",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS11AbstractArtC1Ev",
+                  "fromPretty": "outerNS::AbstractArt::AbstractArt",
+                  "to": "_ZN7outerNS5ThingC1Ei",
+                  "toPretty": "outerNS::Thing::Thing",
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "sym": "T_outerNS::Couch",
+              "pretty": "outerNS::Couch",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS5CouchC1Ei",
+                  "fromPretty": "outerNS::Couch::Couch",
+                  "to": "_ZN7outerNS5ThingC1Ei",
+                  "toPretty": "outerNS::Thing::Thing",
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "sym": "T_outerNS::Human",
+              "pretty": "outerNS::Human",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS5HumanC1Ev",
+                  "fromPretty": "outerNS::Human::Human",
+                  "to": "_ZN7outerNS5ThingC1Ei",
+                  "toPretty": "outerNS::Thing::Thing",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "outTotal": 0,
+          "inTotal": 4,
+          "internal": 0
         }
       },
       "relation": "Queried",

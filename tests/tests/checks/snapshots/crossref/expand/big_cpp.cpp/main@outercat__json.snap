@@ -291,6 +291,42 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
             "cc"
           ],
           "variants": []
+        },
+        "callRollup": {
+          "out": [
+            {
+              "sym": "T_outerNS::Thing",
+              "pretty": "outerNS::Thing",
+              "count": 3,
+              "pairs": 3,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
+                  "fromPretty": "outerNS::OuterCat::meet",
+                  "to": "_ZN7outerNS5Thing6ignoreEv",
+                  "toPretty": "outerNS::Thing::ignore",
+                  "count": 1
+                },
+                {
+                  "from": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+                  "fromPretty": "outerNS::OuterCat::shred",
+                  "to": "_ZN7outerNS5Thing10takeDamageEi",
+                  "toPretty": "outerNS::Thing::takeDamage",
+                  "count": 1
+                },
+                {
+                  "from": "_ZN7outerNS8OuterCatC1Ebb",
+                  "fromPretty": "outerNS::OuterCat::OuterCat",
+                  "to": "_ZN7outerNS5ThingC1Ei",
+                  "toPretty": "outerNS::Thing::Thing",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "outTotal": 1,
+          "inTotal": 0,
+          "internal": 12
         }
       },
       "relation": "Queried",
@@ -562,6 +598,87 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
             "T_outerNS::AbstractArt"
           ],
           "variants": []
+        },
+        "callRollup": {
+          "in": [
+            {
+              "sym": "T_outerNS::OuterCat",
+              "pretty": "outerNS::OuterCat",
+              "count": 3,
+              "pairs": 3,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS8OuterCat4meetERNS_5HumanE",
+                  "fromPretty": "outerNS::OuterCat::meet",
+                  "to": "_ZN7outerNS5Thing6ignoreEv",
+                  "toPretty": "outerNS::Thing::ignore",
+                  "count": 1
+                },
+                {
+                  "from": "_ZN7outerNS8OuterCat5shredERNS_5ThingE",
+                  "fromPretty": "outerNS::OuterCat::shred",
+                  "to": "_ZN7outerNS5Thing10takeDamageEi",
+                  "toPretty": "outerNS::Thing::takeDamage",
+                  "count": 1
+                },
+                {
+                  "from": "_ZN7outerNS8OuterCatC1Ebb",
+                  "fromPretty": "outerNS::OuterCat::OuterCat",
+                  "to": "_ZN7outerNS5ThingC1Ei",
+                  "toPretty": "outerNS::Thing::Thing",
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "sym": "T_outerNS::AbstractArt",
+              "pretty": "outerNS::AbstractArt",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS11AbstractArtC1Ev",
+                  "fromPretty": "outerNS::AbstractArt::AbstractArt",
+                  "to": "_ZN7outerNS5ThingC1Ei",
+                  "toPretty": "outerNS::Thing::Thing",
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "sym": "T_outerNS::Couch",
+              "pretty": "outerNS::Couch",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS5CouchC1Ei",
+                  "fromPretty": "outerNS::Couch::Couch",
+                  "to": "_ZN7outerNS5ThingC1Ei",
+                  "toPretty": "outerNS::Thing::Thing",
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "sym": "T_outerNS::Human",
+              "pretty": "outerNS::Human",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS5HumanC1Ev",
+                  "fromPretty": "outerNS::Human::Human",
+                  "to": "_ZN7outerNS5ThingC1Ei",
+                  "toPretty": "outerNS::Thing::Thing",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "outTotal": 0,
+          "inTotal": 4,
+          "internal": 0
         }
       },
       "relation": {
@@ -771,6 +888,60 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
             "T_outerNS::Superhero"
           ],
           "variants": []
+        },
+        "callRollup": {
+          "out": [
+            {
+              "sym": "T_outerNS::Thing",
+              "pretty": "outerNS::Thing",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS5HumanC1Ev",
+                  "fromPretty": "outerNS::Human::Human",
+                  "to": "_ZN7outerNS5ThingC1Ei",
+                  "toPretty": "outerNS::Thing::Thing",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "in": [
+            {
+              "sym": "T_outerNS::Couch",
+              "pretty": "outerNS::Couch",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS5CouchC1Ei",
+                  "fromPretty": "outerNS::Couch::Couch",
+                  "to": "_ZN7outerNS5HumanC1Ev",
+                  "toPretty": "outerNS::Human::Human",
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "sym": "T_outerNS::Superhero",
+              "pretty": "outerNS::Superhero",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS9SuperheroC1Ev",
+                  "fromPretty": "outerNS::Superhero::Superhero",
+                  "to": "_ZN7outerNS5HumanC1Ev",
+                  "toPretty": "outerNS::Human::Human",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "outTotal": 1,
+          "inTotal": 2,
+          "internal": 0
         }
       },
       "relation": {
@@ -917,6 +1088,58 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
           "overrides": [],
           "props": [],
           "variants": []
+        },
+        "callRollup": {
+          "out": [
+            {
+              "sym": "T_outerNS::Human",
+              "pretty": "outerNS::Human",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS5CouchC1Ei",
+                  "fromPretty": "outerNS::Couch::Couch",
+                  "to": "_ZN7outerNS5HumanC1Ev",
+                  "toPretty": "outerNS::Human::Human",
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "sym": "T_outerNS::Superhero",
+              "pretty": "outerNS::Superhero",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS5CouchC1Ei",
+                  "fromPretty": "outerNS::Couch::Couch",
+                  "to": "_ZN7outerNS9SuperheroC1Ev",
+                  "toPretty": "outerNS::Superhero::Superhero",
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "sym": "T_outerNS::Thing",
+              "pretty": "outerNS::Thing",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS5CouchC1Ei",
+                  "fromPretty": "outerNS::Couch::Couch",
+                  "to": "_ZN7outerNS5ThingC1Ei",
+                  "toPretty": "outerNS::Thing::Thing",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "outTotal": 3,
+          "inTotal": 0,
+          "internal": 0
         }
       },
       "relation": {
@@ -1084,6 +1307,45 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
             "T_outerNS::PracticalArt"
           ],
           "variants": []
+        },
+        "callRollup": {
+          "out": [
+            {
+              "sym": "T_outerNS::Thing",
+              "pretty": "outerNS::Thing",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS11AbstractArtC1Ev",
+                  "fromPretty": "outerNS::AbstractArt::AbstractArt",
+                  "to": "_ZN7outerNS5ThingC1Ei",
+                  "toPretty": "outerNS::Thing::Thing",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "in": [
+            {
+              "sym": "T_outerNS::PracticalArt",
+              "pretty": "outerNS::PracticalArt",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS12PracticalArtC1Ev",
+                  "fromPretty": "outerNS::PracticalArt::PracticalArt",
+                  "to": "_ZN7outerNS11AbstractArtC1Ev",
+                  "toPretty": "outerNS::AbstractArt::AbstractArt",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "outTotal": 1,
+          "inTotal": 1,
+          "internal": 0
         }
       },
       "relation": {
@@ -1248,6 +1510,45 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
           "overrides": [],
           "props": [],
           "variants": []
+        },
+        "callRollup": {
+          "out": [
+            {
+              "sym": "T_outerNS::Human",
+              "pretty": "outerNS::Human",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS9SuperheroC1Ev",
+                  "fromPretty": "outerNS::Superhero::Superhero",
+                  "to": "_ZN7outerNS5HumanC1Ev",
+                  "toPretty": "outerNS::Human::Human",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "in": [
+            {
+              "sym": "T_outerNS::Couch",
+              "pretty": "outerNS::Couch",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS5CouchC1Ei",
+                  "fromPretty": "outerNS::Couch::Couch",
+                  "to": "_ZN7outerNS9SuperheroC1Ev",
+                  "toPretty": "outerNS::Superhero::Superhero",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "outTotal": 1,
+          "inTotal": 1,
+          "internal": 0
         }
       },
       "relation": {
@@ -1404,6 +1705,28 @@ input_file: inputs/crossref/expand/big_cpp.cpp/outercat__json
           "overrides": [],
           "props": [],
           "variants": []
+        },
+        "callRollup": {
+          "out": [
+            {
+              "sym": "T_outerNS::AbstractArt",
+              "pretty": "outerNS::AbstractArt",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "_ZN7outerNS12PracticalArtC1Ev",
+                  "fromPretty": "outerNS::PracticalArt::PracticalArt",
+                  "to": "_ZN7outerNS11AbstractArtC1Ev",
+                  "toPretty": "outerNS::AbstractArt::AbstractArt",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "outTotal": 1,
+          "inTotal": 0,
+          "internal": 0
         }
       },
       "relation": {

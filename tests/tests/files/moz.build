@@ -33,3 +33,9 @@ with Files("testing/web-platform/tests/complex-tests/some_cross_global_test.any.
 
 with Files("xpidl_cpp_consumer.cpp"):
     BUG_COMPONENT = ("Core", "XPCOM")
+
+with Files("rollup/model.h", "rollup/model.cpp"):
+    BUG_COMPONENT = ("Core", "Rollup Model")
+
+with Files("rollup/view.cpp"):
+    BUG_COMPONENT = ("Core", "Rollup View")

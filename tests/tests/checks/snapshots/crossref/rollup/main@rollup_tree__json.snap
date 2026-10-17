@@ -1,0 +1,45 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/crossref/rollup/rollup_tree__json
+---
+{
+  "outTotal": 0,
+  "inTotal": 0,
+  "internal": 69,
+  "members": [
+    {
+      "sym": "SUBSYS_Core/Big",
+      "pretty": "Core/Big",
+      "count": 32
+    },
+    {
+      "sym": "SUBSYS_Core/Simple",
+      "pretty": "Core/Simple",
+      "count": 25
+    },
+    {
+      "sym": "SUBSYS_Core/Rollup@20View",
+      "pretty": "Core/Rollup View",
+      "count": 7
+    },
+    {
+      "sym": "SUBSYS_Core/Templates",
+      "pretty": "Core/Templates",
+      "count": 7
+    },
+    {
+      "sym": "SUBSYS_Core/Rollup@20Model",
+      "pretty": "Core/Rollup Model",
+      "count": 2
+    }
+  ],
+  "edges": [
+    {
+      "from": "SUBSYS_Core/Rollup@20View",
+      "to": "SUBSYS_Core/Rollup@20Model",
+      "count": 2,
+      "pairs": 1
+    }
+  ]
+}

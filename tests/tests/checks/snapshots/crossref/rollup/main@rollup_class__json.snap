@@ -1,0 +1,58 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/crossref/rollup/rollup_class__json
+---
+{
+  "out": [
+    {
+      "sym": "T_rollup::Store",
+      "pretty": "rollup::Store",
+      "count": 2,
+      "pairs": 2,
+      "examples": [
+        {
+          "from": "_ZN6rollup5Panel4EditEi",
+          "fromPretty": "rollup::Panel::Edit",
+          "to": "_ZN6rollup5Store3PutEi",
+          "toPretty": "rollup::Store::Put",
+          "count": 1
+        },
+        {
+          "from": "_ZN6rollup5Panel7RefreshEv",
+          "fromPretty": "rollup::Panel::Refresh",
+          "to": "_ZNK6rollup5Store3GetEv",
+          "toPretty": "rollup::Store::Get",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "in": [
+    {
+      "sym": "T_rollup::Controller",
+      "pretty": "rollup::Controller",
+      "count": 2,
+      "pairs": 2,
+      "examples": [
+        {
+          "from": "_ZN6rollup10Controller3RunERNS_5PanelE",
+          "fromPretty": "rollup::Controller::Run",
+          "to": "_ZN6rollup5Panel4EditEi",
+          "toPretty": "rollup::Panel::Edit",
+          "count": 1
+        },
+        {
+          "from": "_ZN6rollup10Controller3RunERNS_5PanelE",
+          "fromPretty": "rollup::Controller::Run",
+          "to": "_ZN6rollup5Panel7RefreshEv",
+          "toPretty": "rollup::Panel::Refresh",
+          "count": 1
+        }
+      ]
+    }
+  ],
+  "outTotal": 1,
+  "inTotal": 1,
+  "internal": 1
+}

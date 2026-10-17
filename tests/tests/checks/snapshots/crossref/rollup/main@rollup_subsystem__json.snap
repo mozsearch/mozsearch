@@ -1,0 +1,66 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/crossref/rollup/rollup_subsystem__json
+---
+{
+  "meta": {
+    "structured": 1,
+    "pretty": "Core/Rollup View",
+    "sym": "SUBSYS_Core/Rollup@20View",
+    "type_pretty": null,
+    "kind": "subsystem",
+    "subsystem": "Core/Rollup View",
+    "implKind": "impl",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  },
+  "callRollup": {
+    "out": [
+      {
+        "sym": "SUBSYS_Core/Rollup@20Model",
+        "pretty": "Core/Rollup Model",
+        "count": 2,
+        "pairs": 1,
+        "examples": [
+          {
+            "from": "T_rollup::Panel",
+            "fromPretty": "rollup::Panel",
+            "to": "T_rollup::Store",
+            "toPretty": "rollup::Store",
+            "count": 2
+          }
+        ]
+      }
+    ],
+    "outTotal": 1,
+    "inTotal": 0,
+    "internal": 5,
+    "members": [
+      {
+        "sym": "T_rollup::Panel",
+        "pretty": "rollup::Panel",
+        "count": 3
+      },
+      {
+        "sym": "T_rollup::Controller",
+        "pretty": "rollup::Controller",
+        "count": 2
+      },
+      {
+        "sym": "_ZN6rollup7UseThemEv",
+        "pretty": "rollup::UseThem",
+        "count": 2
+      }
+    ]
+  }
+}

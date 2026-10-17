@@ -1,0 +1,1 @@
+crossref-lookup SUBSYS_ | jq '.symbol_crossref_infos[0].crossref_info.callRollup'

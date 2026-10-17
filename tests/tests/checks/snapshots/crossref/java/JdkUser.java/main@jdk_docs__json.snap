@@ -105,6 +105,28 @@ input_file: inputs/crossref/java/JdkUser.java/jdk_docs__json
               "url": "https://developer.android.com/reference/java/util/Map.Entry"
             }
           ]
+        },
+        "callRollup": {
+          "in": [
+            {
+              "sym": "S_jvm_sample/JdkUser#",
+              "pretty": "sample::JdkUser",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "S_jvm_sample/JdkUser#describe().",
+                  "fromPretty": "sample::JdkUser::describe",
+                  "to": "S_jvm_java/util/Map#Entry#getKey().",
+                  "toPretty": "java::util::Map::Entry::getKey",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "outTotal": 0,
+          "inTotal": 1,
+          "internal": 0
         }
       },
       "relation": "Queried",

@@ -138,8 +138,9 @@ def bisect_for_payload(mm, search_sym):
 # Fields of crossref records which the router doesn't use, and whose values
 # aren't lists of results, which it assumes of all of them but 'meta' and
 # 'callees' (ex: `lookup_merging`): symbols' history digests, for /query/'s
-# recency facets (see tools/src/file_format/recency.rs).
-UNUSED_FIELDS = ('recency', 'recency_from')
+# recency facets (see tools/src/file_format/recency.rs), and classes' and
+# subsystems' roll-ups, for block diagrams (see tools/src/file_format/rollup.rs).
+UNUSED_FIELDS = ('recency', 'recency_from', 'callRollup')
 
 def without_unused_fields(result):
     for field in UNUSED_FIELDS:

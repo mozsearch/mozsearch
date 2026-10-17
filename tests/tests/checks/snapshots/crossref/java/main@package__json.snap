@@ -157,6 +157,43 @@ input_file: inputs/crossref/java/package__json
           "overrides": [],
           "props": [],
           "variants": []
+        },
+        "callRollup": {
+          "out": [
+            {
+              "sym": "S_jvm_kotlin/String#",
+              "pretty": "kotlin::String",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "S_jvm_sample/normalizeUrl().",
+                  "fromPretty": "sample::normalizeUrl",
+                  "to": "S_jvm_kotlin/String#plus().",
+                  "toPretty": "kotlin::String::plus",
+                  "count": 1
+                }
+              ]
+            },
+            {
+              "sym": "S_jvm_sample/UrlSink#",
+              "pretty": "sample::UrlSink",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "S_jvm_sample/configure().",
+                  "fromPretty": "sample::configure",
+                  "to": "S_jvm_sample/UrlSink#setUrl().",
+                  "toPretty": "sample::UrlSink::setUrl",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "outTotal": 2,
+          "inTotal": 0,
+          "internal": 1
         }
       },
       "relation": "Queried",
