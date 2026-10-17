@@ -11,6 +11,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 use clap::Parser;
@@ -86,19 +87,23 @@ fn main() {
         .collect();
 
     let start = Instant::now();
+    // (Each thread takes the next file, as files' sizes vary a lot.)
     let thread_count = cli.thread_count.max(1);
-    let chunk = files.len().div_ceil(thread_count).max(1);
+    let next = AtomicUsize::new(0);
     let mut summaries: Vec<Summary> = vec![];
     let mut failed = 0;
     std::thread::scope(|s| {
-        let handles: Vec<_> = files
-            .chunks(chunk)
-            .map(|paths_chunk| {
-                let paths = &paths;
+        let handles: Vec<_> = (0..thread_count)
+            .map(|_| {
+                let (paths, files, next) = (&paths, &files, &next);
                 s.spawn(move || {
                     let mut out = vec![];
                     let mut failed = 0;
-                    for path in paths_chunk {
+                    loop {
+                        let i = next.fetch_add(1, Ordering::Relaxed);
+                        let Some(path) = files.get(i) else {
+                            break;
+                        };
                         match summarize_file(
                             &paths.index_path,
                             &paths.files_path,

@@ -16,7 +16,7 @@ use ustr::{Ustr, ustr};
 use super::ir::*;
 use super::records::{FileRecords, SourceRec, short_name};
 use crate::tree_sitter_support::cst_tokenizer::{
-    parse_source_for_analysis, parse_with_profile_for_analysis, profile_for_lang,
+    SourceParse, parse_source_for_analysis, parse_with_profile_for_analysis, profile_for_lang,
 };
 
 /// The functions of a file.
@@ -51,6 +51,30 @@ pub fn lang_for_path(path: &str) -> Option<Lang> {
     }
 }
 
+/// Where a macro-defined function's name is in a macro's expansion (by
+/// its key and platform), from its record.
+fn expansion_offset(def: &SourceRec, key: &str, platform: &str) -> Option<usize> {
+    def.expansion_offsets
+        .iter()
+        .find(|(k, p, _)| k == key && p == platform)
+        .and_then(|(_, _, offsets)| offsets.first().copied())
+}
+
+/// The function definition in a macro's expansion whose name is at an
+/// offset.
+fn macro_function_node(parse: &SourceParse, offset: usize) -> Option<Node<'_>> {
+    let mut stack = vec![parse.tree.root_node()];
+    while let Some(node) = stack.pop() {
+        if node.kind() == "function_definition"
+            && cpp_function_name(node).is_some_and(|n| n.start_byte() == offset)
+        {
+            return Some(node);
+        }
+        stack.extend(named(node));
+    }
+    None
+}
+
 pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<FileIr, String> {
     let parse = parse_source_for_analysis(path, source)?;
     let lang = match parse.lang {
@@ -78,9 +102,15 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
         }
         stack.extend(named(node).into_iter().rev());
     }
-    // Functions defined by macros, from their expansions.
+    // Functions defined by macros, from their expansions.  (Each
+    // expansion, by the macro's place, key and platform, is parsed once:
+    // `NS_FORWARD_*`-style macros define hundreds of functions each.)
+    let macro_defs = recs.macro_function_defs();
+    let cpp = profile_for_lang("cpp").unwrap();
+    let mut expansion_parses: HashMap<(u32, u32, &str, &str), Option<SourceParse>> = HashMap::new();
+    let mut chosen: Vec<(usize, (u32, u32, &str, &str))> = vec![];
     let mut seen: std::collections::HashSet<Ustr> = funcs.iter().map(|f| f.sym).collect();
-    for (def, mac) in recs.macro_function_defs() {
+    for (di, (def, mac)) in macro_defs.iter().enumerate() {
         let sym = def.sym();
         if seen.contains(&sym) {
             continue;
@@ -95,49 +125,49 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
             (rank, platform.clone(), key.clone())
         });
         for (key, platform, expansion) in options {
-            let Some(offset) = def
-                .expansion_offsets
-                .iter()
-                .find(|(k, p, _)| k == key && p == platform)
-                .and_then(|(_, _, offsets)| offsets.first().copied())
-            else {
+            let Some(offset) = expansion_offset(def, key, platform) else {
                 continue;
             };
-            let Ok(parse) =
-                parse_with_profile_for_analysis(profile_for_lang("cpp").unwrap(), expansion)
-            else {
+            let cache_key = (mac.line, mac.col, key.as_str(), platform.as_str());
+            let parse = expansion_parses
+                .entry(cache_key)
+                .or_insert_with(|| parse_with_profile_for_analysis(cpp, expansion).ok());
+            let Some(parse) = parse else {
                 continue;
             };
-            let mut found = None;
-            let mut stack = vec![parse.tree.root_node()];
-            while let Some(node) = stack.pop() {
-                if node.kind() == "function_definition"
-                    && cpp_function_name(node).is_some_and(|n| n.start_byte() == offset)
-                {
-                    found = Some(node);
-                    break;
-                }
-                stack.extend(named(node));
+            if macro_function_node(parse, offset).is_none() {
+                continue;
             }
-            let Some(node) = found else {
-                continue;
-            };
-            let mut builder = Builder::new(&cx, &parse.text, node, sym, def.pretty.clone());
-            builder.macro_cx = Some(MacroCx {
-                line: mac.line,
-                col: mac.col,
-                key: key.clone(),
-                platform: platform.clone(),
-                prefix: 0,
-                name: mac.short_name().to_string(),
-            });
-            builder.ir.line = mac.line;
-            builder.ir.end_line = mac.line;
-            builder.build(node);
-            funcs.push(builder.ir);
+            chosen.push((di, cache_key));
             seen.insert(sym);
             break;
         }
+    }
+    for (di, cache_key) in chosen {
+        let (def, mac) = &macro_defs[di];
+        let (_, _, key, platform) = cache_key;
+        let Some(Some(parse)) = expansion_parses.get(&cache_key) else {
+            continue;
+        };
+        let Some(offset) = expansion_offset(def, key, platform) else {
+            continue;
+        };
+        let Some(node) = macro_function_node(parse, offset) else {
+            continue;
+        };
+        let mut builder = Builder::new(&cx, &parse.text, node, def.sym(), def.pretty.clone());
+        builder.macro_cx = Some(MacroCx {
+            line: mac.line,
+            col: mac.col,
+            key: key.to_string(),
+            platform: platform.to_string(),
+            prefix: 0,
+            name: mac.short_name().to_string(),
+        });
+        builder.ir.line = mac.line;
+        builder.ir.end_line = mac.line;
+        builder.build(node);
+        funcs.push(builder.ir);
     }
     funcs.sort_by_key(|f| (f.line, f.end_line));
     let mut by_sym = HashMap::new();
