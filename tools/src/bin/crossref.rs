@@ -1932,6 +1932,7 @@ impl RollupAccum {
             pretty,
             count: self.count,
             accessors: self.accessors,
+            via: vec![],
             pairs: self.pair_count(),
             examples: examples
                 .into_iter()
@@ -2253,8 +2254,9 @@ fn add_rollups(
         meta_table,
         &call_edges(meta_table, callees_table, &categories),
     );
-    let (data_rollups, data_subsystems) =
+    let (mut data_rollups, data_subsystems) =
         rollup_edges(meta_table, &data_edges(meta_table, &field_edges));
+    add_field_flows(meta_table, &field_edges, &mut data_rollups);
     subsystems.extend(data_subsystems);
     if !subsystems.is_empty() {
         let root = root_subsystem_sym();
@@ -2267,6 +2269,50 @@ fn add_rollups(
         meta_table.insert(sym, subsystem_structured(sym, subsystem));
     }
     (call_rollups, data_rollups)
+}
+
+/// Give each field (and function) in the edges between fields a data
+/// roll-up of its own edges, for diagrams of fields (see
+/// `cmd_block_diagram`'s field level).
+fn add_field_flows(
+    meta_table: &MetaTable,
+    field_edges: &[FieldEdge],
+    rollups: &mut UstrMap<Rollup>,
+) {
+    let pretty_of = |sym: &Ustr| -> Ustr { meta_table.get(sym).map_or(*sym, |m| m.pretty) };
+    let mut nodes: UstrSet = UstrSet::default();
+    for edge in field_edges {
+        let flow = |sym: Ustr| RollupEdge {
+            sym,
+            pretty: pretty_of(&sym),
+            count: edge.count,
+            pairs: 1,
+            via: edge.via.clone(),
+            ..Default::default()
+        };
+        rollups
+            .entry(edge.from)
+            .or_default()
+            .out
+            .push(flow(edge.to));
+        rollups
+            .entry(edge.to)
+            .or_default()
+            .into
+            .push(flow(edge.from));
+        nodes.insert(edge.from);
+        nodes.insert(edge.to);
+    }
+    for node in nodes {
+        let rollup = rollups.get_mut(&node).unwrap();
+        let order = |a: &RollupEdge, b: &RollupEdge| b.count.cmp(&a.count).then(a.sym.cmp(&b.sym));
+        rollup.out.sort_by(order);
+        rollup.into.sort_by(order);
+        rollup.out_total = rollup.out.len() as u32;
+        rollup.in_total = rollup.into.len() as u32;
+        rollup.out.truncate(ROLLUP_EDGES);
+        rollup.into.truncate(ROLLUP_EDGES);
+    }
 }
 
 /// The functions' categories from `dataflow-summarize`'s summaries, and its

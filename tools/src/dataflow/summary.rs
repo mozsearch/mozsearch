@@ -770,6 +770,12 @@ pub fn field_edges(summaries: &[Summary]) -> Vec<FieldEdge> {
         if summary_class(summary).is_some_and(|class| is_value_type_class(&class)) {
             continue;
         }
+        // (An accessor's reads and writes are its callers'; the composed
+        // summaries have them.)
+        let is_accessor = matches!(
+            summary.category,
+            Category::Getter | Category::Setter | Category::Trivial
+        );
         let mut seen: BTreeSet<(Ustr, Ustr)> = BTreeSet::new();
         for flow in flows {
             // (Between fields; or into another object's field from the
@@ -778,8 +784,10 @@ pub fn field_edges(summaries: &[Summary]) -> Vec<FieldEdge> {
             // it reads.)
             let (from, to) = match (port_node(&flow.from), port_node(&flow.to)) {
                 (Some(from), Some(to)) => (from, to),
-                (None, Some(to)) if !is_own_field(&flow.to) => (summary.sym, to),
-                (Some(from), None) if !is_own_field(&flow.from) => (from, summary.sym),
+                (None, Some(to)) if !is_accessor && !is_own_field(&flow.to) => (summary.sym, to),
+                (Some(from), None) if !is_accessor && !is_own_field(&flow.from) => {
+                    (from, summary.sym)
+                }
                 _ => continue,
             };
             if from == to || !seen.insert((from, to)) {

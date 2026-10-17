@@ -1,0 +1,18 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/block/block_field
+---
+digraph g {
+  graph[fontname="Courier New" fontsize=12 compound=true]
+  node[shape=box fontname="Courier New" fontsize=10]
+  subgraph "NS_rollup" {
+    cluster=true
+    label="rollup"
+    "SYN_0"[shape=point style=invis]
+    "T_rollup::Panel"[shape=none label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4"><tr><td id="Gidn0" href="T_rollup%3A%3APanel" port="T_rollup__Panel" align="left"><b>Panel</b></td></tr><tr><td id="Gidn3" href="_ZN6rollup5Panel4EditEi" port="_ZN6rollup5Panel4EditEi" align="left">&nbsp;Edit</td></tr><tr><td id="Gidn2" href="F_%3CT_rollup%3A%3APanel%3E_mShown" port="F__T_rollup__Panel__mShown" align="left">&nbsp;mShown</td></tr></table>> class="diagram-depth-0"]
+    "T_rollup::Store"[shape=none label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4"><tr><td id="Gidn5" href="T_rollup%3A%3AStore" port="T_rollup__Store" align="left"><b>Store</b></td></tr><tr><td id="Gidn1" href="F_%3CT_rollup%3A%3AStore%3E_mValue" port="F__T_rollup__Store__mValue" align="left">&nbsp;mValue</td></tr></table>> class="diagram-depth-1"]
+  }
+  "T_rollup::Store":"F__T_rollup__Store__mValue" -> "T_rollup::Panel":"F__T_rollup__Panel__mShown" [style=solid arrowhead=normal id=Gide0 label="1" penwidth="1.0" tooltip="1 flows, ex: in rollup::Panel::Refresh"]
+  "T_rollup::Panel":"_ZN6rollup5Panel4EditEi" -> "T_rollup::Store":"F__T_rollup__Store__mValue" [style=solid arrowhead=normal id=Gide1 label="1" penwidth="1.0" tooltip="1 flows, ex: in rollup::Panel::Edit"]
+}

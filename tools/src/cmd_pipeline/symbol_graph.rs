@@ -302,7 +302,7 @@ impl DerivedSymbolInfo {
     pub fn get_pretty(&self) -> Ustr {
         match self.get_structured().map(|meta| meta.pretty) {
             Some(pretty) => pretty,
-            _ => self.symbol,
+            _ => fallback_pretty(self.symbol),
         }
     }
 
@@ -350,6 +350,18 @@ impl DerivedSymbolInfo {
             crossref_info.callees = None;
         }
     }
+}
+
+/// A pretty name for a symbol without a structured record, where its symbol
+/// says (ex: a C++ field's, `F_<T_JSErrorReport>_exnType`, from a class
+/// outside the tree: "JSErrorReport::exnType"), else the symbol.
+fn fallback_pretty(sym: Ustr) -> Ustr {
+    if let Some(rest) = sym.strip_prefix("F_<T_")
+        && let Some((class, field)) = rest.rsplit_once(">_")
+    {
+        return ustr(&format!("{}::{}", class, field));
+    }
+    sym
 }
 
 impl DerivedSymbolInfo {

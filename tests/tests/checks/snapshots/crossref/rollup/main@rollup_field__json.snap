@@ -1,0 +1,41 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/crossref/rollup/rollup_field__json
+---
+{
+  "out": [
+    {
+      "sym": "F_<T_rollup::Panel>_mShown",
+      "pretty": "rollup::Panel::mShown",
+      "count": 1,
+      "pairs": 1,
+      "via": [
+        "_ZN6rollup5Panel7RefreshEv"
+      ]
+    }
+  ],
+  "in": [
+    {
+      "sym": "F_<T_rollup::Controller>_mInput",
+      "pretty": "rollup::Controller::mInput",
+      "count": 1,
+      "pairs": 1,
+      "via": [
+        "_ZN6rollup10Controller3RunERNS_5PanelE"
+      ]
+    },
+    {
+      "sym": "_ZN6rollup5Panel4EditEi",
+      "pretty": "rollup::Panel::Edit",
+      "count": 1,
+      "pairs": 1,
+      "via": [
+        "_ZN6rollup5Panel4EditEi"
+      ]
+    }
+  ],
+  "outTotal": 1,
+  "inTotal": 2,
+  "internal": 0
+}

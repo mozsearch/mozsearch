@@ -6,6 +6,10 @@
 //! they summarize how areas of the code interact without walking every
 //! method.
 //!
+//! Fields (and functions) get data roll-ups too, of the edges between them
+//! and other objects' fields (see `dataflow::summary::FieldEdge`), for
+//! diagrams of how data moves between data structures' fields.
+//!
 //! Subsystems (from the files' per-file info, ex: "Core/DOM/Workers") get
 //! pseudo-symbols of their own, `SUBSYS_<mangled subsystem>`, whose crossref
 //! entries have their roll-ups, and `SUBSYS_` (no subsystem) is the whole
@@ -64,6 +68,10 @@ pub struct RollupEdge {
     /// The pairs with the most calls, for drilling down.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub examples: Vec<RollupExample>,
+    /// For a field's or function's data edges: some of the functions the
+    /// data flows in.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub via: Vec<Ustr>,
 }
 
 /// A pair of functions (for subsystems, of classes or free functions) an

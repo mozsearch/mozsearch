@@ -30,6 +30,10 @@ pub enum BlockLevel {
     /// Classes' blocks (clustered by subsystem when rendered with
     /// `--hier=subsystem`).
     Class,
+    /// A class's fields (and methods), and the other classes' fields and
+    /// functions data flows between them and (rendered as classes' tables
+    /// of fields with `--hier=pretty`); always data edges.
+    Field,
 }
 
 /// A block diagram: how subsystems, or classes, interact, from crossref's
@@ -89,6 +93,8 @@ struct BlockEdge {
     to: Ustr,
     count: u32,
     example: Option<(Ustr, Ustr)>,
+    /// For data edges between fields: a function the data flows in.
+    via: Option<Ustr>,
 }
 
 async fn rollup_of(
@@ -129,11 +135,16 @@ impl PipelineCommand for BlockDiagramCommand {
         } else {
             BlockLevel::Class
         });
-        let Some(rollup) = rollup_of(server, &focus_sym, self.args.edges).await? else {
-            return Err(ServerError::StickyProblem(ErrorDetails {
-                layer: ErrorLayer::BadInput,
-                message: format!("No roll-up for {}", focus_sym),
-            }));
+        let rollup = if level == BlockLevel::Field {
+            Rollup::default()
+        } else {
+            let Some(rollup) = rollup_of(server, &focus_sym, self.args.edges).await? else {
+                return Err(ServerError::StickyProblem(ErrorDetails {
+                    layer: ErrorLayer::BadInput,
+                    message: format!("No roll-up for {}", focus_sym),
+                }));
+            };
+            rollup
         };
 
         let mut edges: Vec<BlockEdge> = vec![];
@@ -147,7 +158,43 @@ impl PipelineCommand for BlockDiagramCommand {
                 e.count
             }
         };
-        if focus_sym == root_subsystem_sym() && level == BlockLevel::Subsystem {
+        if level == BlockLevel::Field {
+            // A class's fields' and methods' data edges.
+            let meta = server
+                .crossref_lookup(&focus_sym)
+                .await?
+                .and_then(|data| data.meta);
+            let mut members: Vec<Ustr> = vec![];
+            if let Some(meta) = &meta {
+                members.extend(meta.fields.iter().map(|f| f.sym));
+                members.extend(meta.methods.iter().map(|m| m.sym));
+            }
+            for member in &members {
+                let Some(member_rollup) = rollup_of(server, member, BlockEdges::Data).await? else {
+                    continue;
+                };
+                for e in &member_rollup.out {
+                    edges.push(BlockEdge {
+                        from: *member,
+                        to: e.sym,
+                        count: e.count,
+                        example: None,
+                        via: e.via.first().copied(),
+                    });
+                }
+                for e in &member_rollup.into {
+                    edges.push(BlockEdge {
+                        from: e.sym,
+                        to: *member,
+                        count: e.count,
+                        example: None,
+                        via: e.via.first().copied(),
+                    });
+                }
+            }
+            edges.sort_by(|a, b| a.from.cmp(&b.from).then(a.to.cmp(&b.to)));
+            edges.dedup_by(|a, b| a.from == b.from && a.to == b.to);
+        } else if focus_sym == root_subsystem_sym() && level == BlockLevel::Subsystem {
             // The whole tree's subsystems.
             for pair in &rollup.edges {
                 edges.push(BlockEdge {
@@ -155,6 +202,7 @@ impl PipelineCommand for BlockDiagramCommand {
                     to: pair.to,
                     count: pair.count,
                     example: None,
+                    via: None,
                 });
             }
         } else if is_subsystem && level == BlockLevel::Class {
@@ -176,6 +224,7 @@ impl PipelineCommand for BlockDiagramCommand {
                         to: e.sym,
                         count: edge_count(e),
                         example: first_example(e),
+                        via: None,
                     });
                 }
                 // (Calls in from outside the members; the members' own are
@@ -187,6 +236,7 @@ impl PipelineCommand for BlockDiagramCommand {
                             to: *member,
                             count: edge_count(e),
                             example: first_example(e),
+                            via: None,
                         });
                     }
                 }
@@ -199,6 +249,7 @@ impl PipelineCommand for BlockDiagramCommand {
                     to: e.sym,
                     count: edge_count(e),
                     example: first_example(e),
+                    via: None,
                 });
             }
             for e in &rollup.into {
@@ -207,18 +258,23 @@ impl PipelineCommand for BlockDiagramCommand {
                     to: focus_sym,
                     count: edge_count(e),
                     example: first_example(e),
+                    via: None,
                 });
             }
         }
 
         edges.retain(|e| e.count >= self.args.min_count && e.from != e.to);
-        let unit = match self.args.edges {
-            BlockEdges::Calls => "calls",
-            BlockEdges::Data => "flows",
+        let unit = match (self.args.edges, level) {
+            (BlockEdges::Calls, l) if l != BlockLevel::Field => "calls",
+            _ => "flows",
         };
+        // (Most first; and, for fields, edges between fields before those
+        // between functions and fields.)
+        let between_fields = |e: &BlockEdge| e.from.starts_with("F_") && e.to.starts_with("F_");
         edges.sort_by(|a, b| {
-            b.count
-                .cmp(&a.count)
+            between_fields(b)
+                .cmp(&between_fields(a))
+                .then(b.count.cmp(&a.count))
                 .then(a.from.cmp(&b.from))
                 .then(a.to.cmp(&b.to))
         });
@@ -238,11 +294,21 @@ impl PipelineCommand for BlockDiagramCommand {
             let (from_id, _) = node_set.ensure_symbol(&edge.from, server, 1).await?;
             let (to_id, _) = node_set.ensure_symbol(&edge.to, server, 1).await?;
             let mut data = vec![EdgeDetail::Weight(edge.count)];
-            data.push(EdgeDetail::Label(match &edge.example {
-                Some((caller, callee)) => {
+            let via = match edge.via {
+                Some(via) => server
+                    .crossref_lookup(&via)
+                    .await?
+                    .and_then(|d| d.meta)
+                    .map(|m| m.pretty)
+                    .or(Some(via)),
+                None => None,
+            };
+            data.push(EdgeDetail::Label(match (&edge.example, via) {
+                (_, Some(via)) => format!("{} {}, ex: in {}", edge.count, unit, via),
+                (Some((caller, callee)), None) => {
                     format!("{} {}, ex: {} → {}", edge.count, unit, caller, callee)
                 }
-                None => format!("{} {}", edge.count, unit),
+                (None, None) => format!("{} {}", edge.count, unit),
             }));
             edge_set.ensure_edge_in_graph(from_id, to_id, EdgeKind::Default, data, &mut graph);
         }

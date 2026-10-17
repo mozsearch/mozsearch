@@ -182,4 +182,8 @@ both for every file (`dataflow-summarize`, before crossref), and crossref
 rolls the edges up into classes' and subsystems' `dataRollup`s, which
 `block-diagram --edges data` (`block-edges:data`) draws instead of calls;
 `--no-accessors` (`block-no-accessors:`) doesn't count calls of getters,
-setters and trivial methods.
+setters and trivial methods.  Fields (and functions) have data roll-ups of
+their own edges, which `block-diagram <class> --level field`
+(`block-level:field`, with `hier:pretty` for classes' tables of fields)
+draws: how data moves between the class's fields and other classes' fields
+and functions.

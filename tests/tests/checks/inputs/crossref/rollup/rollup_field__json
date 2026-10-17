@@ -1,0 +1,1 @@
+crossref-lookup 'F_<T_rollup::Store>_mValue' | jq '.symbol_crossref_infos[0].crossref_info.dataRollup'
