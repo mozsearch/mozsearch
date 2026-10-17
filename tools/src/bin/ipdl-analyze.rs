@@ -111,13 +111,14 @@ fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a 
     best_piece
 }
 
+/// Write a message's `IPC_` symbol's records, with binding slots for its
+/// send and recv methods (for both directions' for `both:` messages).
 fn output_ipc_data(
     outputf: &mut File,
     locstr: &str,
     ipc_pretty: &str,
     ipc_sym: &str,
-    send_datum: &AnalysisTarget,
-    recv_datum: &AnalysisTarget,
+    slots: &[(&AnalysisTarget, &AnalysisTarget)],
 ) {
     write!(
         outputf,
@@ -145,6 +146,21 @@ fn output_ipc_data(
     )
     .unwrap();
     writeln!(outputf).unwrap();
+    let mut binding_slots = vec![];
+    for (send_datum, recv_datum) in slots {
+        binding_slots.push(json!({
+            "slotKind": "send",
+            "slotLang": "cpp",
+            "ownerLang": "idl",
+            "sym": send_datum.sym,
+        }));
+        binding_slots.push(json!({
+            "slotKind": "recv",
+            "slotLang": "cpp",
+            "ownerLang": "idl",
+            "sym": recv_datum.sym,
+        }));
+    }
     write!(
         outputf,
         "{}",
@@ -156,38 +172,23 @@ fn output_ipc_data(
             // Note that this is different than the target record kind.
             "kind": "ipc",
             "implKind": "idl",
-            "bindingSlots": [
-                {
-                    "slotKind": "send",
-                    "slotLang": "cpp",
-                    "ownerLang": "idl",
-                    "sym": send_datum.sym,
-                },
-                {
-                    "slotKind": "recv",
-                    "slotLang": "cpp",
-                    "ownerLang": "idl",
-                    "sym": recv_datum.sym,
-                },
-            ]
+            "bindingSlots": binding_slots,
         })
     )
     .unwrap();
     writeln!(outputf).unwrap();
 }
 
-#[allow(clippy::too_many_arguments)]
-fn output_send_recv(
-    outputf: &mut File,
-    locstr: &str,
+/// A message's send and recv methods for one direction, if both are found.
+fn find_send_recv<'a>(
     protocol: &ast::Namespace,
     message: &ast::MessageDecl,
     is_ctor: bool,
     send_side: &str,
-    send_analysis: &TargetAnalysis,
+    send_analysis: &'a TargetAnalysis,
     recv_side: &str,
-    recv_analysis: &TargetAnalysis,
-) {
+    recv_analysis: &'a TargetAnalysis,
+) -> Option<(&'a AnalysisTarget, &'a AnalysisTarget)> {
     let send_prefix = if message.send_semantics == ast::SendSemantics::Intr {
         "Call"
     } else {
@@ -235,27 +236,9 @@ fn output_send_recv(
         );
     }
 
-    if let (Some(send_datum), Some(recv_datum)) = (maybe_send_datum, maybe_recv_datum) {
-        let ipc_pretty = format!(
-            "{}::{}::{}",
-            protocol.namespaces.join("_"),
-            protocol.name.id,
-            message.name.id
-        );
-        let ipc_sym = format!(
-            "IPC_{}_{}_{}",
-            protocol.namespaces.join("_"),
-            protocol.name.id,
-            message.name.id
-        );
-        output_ipc_data(
-            outputf,
-            locstr,
-            &ipc_pretty,
-            &ipc_sym,
-            send_datum,
-            recv_datum,
-        );
+    match (maybe_send_datum, maybe_recv_datum) {
+        (Some(send_datum), Some(recv_datum)) => Some((send_datum, recv_datum)),
+        _ => None,
     }
 }
 
@@ -442,12 +425,13 @@ fn main() {
 
                 let is_ctor = protocol.manages.iter().any(|e| e.id == message.name.id);
 
+                // (One symbol for the message, with the send and recv slots of
+                // each direction it goes in: both for `both:` messages.)
+                let mut slots = vec![];
                 if message.direction == ast::Direction::To(ProtocolSide::Child)
                     || message.direction == ast::Direction::Both
                 {
-                    output_send_recv(
-                        &mut outputf,
-                        &locstr,
+                    slots.extend(find_send_recv(
                         &ns,
                         &message,
                         is_ctor,
@@ -455,15 +439,13 @@ fn main() {
                         &parent_analysis,
                         "Child",
                         &child_analysis,
-                    );
+                    ));
                 }
 
                 if message.direction == ast::Direction::To(ProtocolSide::Parent)
                     || message.direction == ast::Direction::Both
                 {
-                    output_send_recv(
-                        &mut outputf,
-                        &locstr,
+                    slots.extend(find_send_recv(
                         &ns,
                         &message,
                         is_ctor,
@@ -471,7 +453,23 @@ fn main() {
                         &child_analysis,
                         "Parent",
                         &parent_analysis,
+                    ));
+                }
+
+                if !slots.is_empty() {
+                    let ipc_pretty = format!(
+                        "{}::{}::{}",
+                        ns.namespaces.join("_"),
+                        ns.name.id,
+                        message.name.id
                     );
+                    let ipc_sym = format!(
+                        "IPC_{}_{}_{}",
+                        ns.namespaces.join("_"),
+                        ns.name.id,
+                        message.name.id
+                    );
+                    output_ipc_data(&mut outputf, &locstr, &ipc_pretty, &ipc_sym, &slots);
                 }
             }
         }
