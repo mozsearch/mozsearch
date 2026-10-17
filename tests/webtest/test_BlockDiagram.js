@@ -35,7 +35,13 @@ add_task(async function test_BlockDiagramData() {
      `The classes data flows between are shown: ${texts.join(", ")}`);
   // (Controller's mInput reaches Store's mValue, which reaches Panel's
   // mShown, and Panel::Edit writes Store's mValue.)
-  is(texts.filter(t => t === "1").length, 3, "The edges are labeled with their flows");
+  const edges = [...frame.contentDocument.querySelectorAll("svg [data-symbols]")]
+    .map(e => e.getAttribute("data-symbols"));
+  for (const edge of ["T_rollup::Controller->T_rollup::Store",
+                      "T_rollup::Store->T_rollup::Panel",
+                      "T_rollup::Panel->T_rollup::Store"]) {
+    ok(edges.includes(edge), `There's a data edge ${edge}`);
+  }
 });
 
 add_task(async function test_BlockDiagramPanel() {

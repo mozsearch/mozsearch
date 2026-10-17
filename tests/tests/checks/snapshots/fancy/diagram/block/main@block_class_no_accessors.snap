@@ -8,4 +8,6 @@ digraph g {
   "T_rollup::Controller"[label="rollup::Controller"]
   "T_rollup::Panel"[label="rollup::Panel"]
   "T_rollup::Controller" -> "T_rollup::Panel" [label="2" penwidth="1.5" tooltip="2 calls, ex: rollup::Controller::Run → rollup::Panel::Edit"]
+  "T_rollup::Store"[label="rollup::Store"]
+  "T_rollup::Panel" -> "T_rollup::Store" [label="1" penwidth="1.0" tooltip="1 calls, ex: rollup::Panel::Edit → rollup::Store::Put"]
 }

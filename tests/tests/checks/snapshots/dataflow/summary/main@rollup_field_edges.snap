@@ -6,6 +6,14 @@ input_file: inputs/dataflow/summary/rollup_field_edges
 [
   {
     "from": "F_<T_rollup::Controller>_mInput",
+    "to": "F_<T_rollup::Stats>_mLast",
+    "count": 1,
+    "via": [
+      "_ZN6rollup10Controller3RunERNS_5PanelE"
+    ]
+  },
+  {
+    "from": "F_<T_rollup::Controller>_mInput",
     "to": "F_<T_rollup::Store>_mValue",
     "count": 1,
     "via": [
@@ -22,10 +30,26 @@ input_file: inputs/dataflow/summary/rollup_field_edges
   },
   {
     "from": "_ZN6rollup5Panel4EditEi",
+    "to": "F_<T_rollup::Stats>_mLast",
+    "count": 1,
+    "via": [
+      "_ZN6rollup5Panel4EditEi"
+    ]
+  },
+  {
+    "from": "_ZN6rollup5Panel4EditEi",
     "to": "F_<T_rollup::Store>_mValue",
     "count": 1,
     "via": [
       "_ZN6rollup5Panel4EditEi"
+    ]
+  },
+  {
+    "from": "_ZN6rollup5Store3PutEi",
+    "to": "F_<T_rollup::Stats>_mLast",
+    "count": 1,
+    "via": [
+      "_ZN6rollup5Store3PutEi"
     ]
   }
 ]

@@ -10,7 +10,7 @@ input_file: inputs/crossref/rollup/rollup_data_class__json
         "sym": "T_rollup::Panel",
         "pretty": "rollup::Panel",
         "count": 2,
-        "accessors": 2,
+        "accessors": 1,
         "pairs": 2,
         "examples": [
           {
@@ -86,6 +86,6 @@ input_file: inputs/crossref/rollup/rollup_data_class__json
     ],
     "outTotal": 1,
     "inTotal": 2,
-    "internal": 0
+    "internal": 1
   }
 }

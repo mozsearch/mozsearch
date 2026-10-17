@@ -2090,19 +2090,96 @@ fn call_edges(
     edges
 }
 
+/// A class's own state's classes: it, its supers, and the classes of its
+/// members it holds by value (not through pointers), and theirs, a few
+/// levels deep (ex: `WorkerPrivate`'s `mLoadInfo`'s `WorkerLoadInfo`, and
+/// its super `WorkerLoadInfoData`), whose fields are the class's own.
+struct InternalClasses<'a> {
+    meta_table: &'a MetaTable,
+    memo: UstrMap<UstrSet>,
+}
+
+impl<'a> InternalClasses<'a> {
+    fn new(meta_table: &'a MetaTable) -> Self {
+        InternalClasses {
+            meta_table,
+            memo: UstrMap::default(),
+        }
+    }
+
+    fn of(&mut self, class: Ustr) -> &UstrSet {
+        let meta_table = self.meta_table;
+        self.memo.entry(class).or_insert_with(|| {
+            let mut set = UstrSet::default();
+            set.insert(class);
+            let mut frontier = vec![class];
+            for _ in 0..3 {
+                let mut next = vec![];
+                for x in frontier {
+                    let Some(meta) = meta_table.get(&x) else {
+                        continue;
+                    };
+                    // (A member held by value, or a container of values,
+                    // ex: `nsTArray<Foo>`, whose pointer infos are all
+                    // `contains`.)
+                    let by_value = meta
+                        .fields
+                        .iter()
+                        .filter(|f| {
+                            f.pointer_info
+                                .iter()
+                                .all(|p| p.kind == OntologyPointerKind::Contains)
+                                && f.type_sym.starts_with("T_")
+                                && !f.type_pretty.contains(['*', '&'])
+                        })
+                        .flat_map(|f| {
+                            std::iter::once(f.type_sym).chain(f.pointer_info.iter().map(|p| p.sym))
+                        });
+                    for y in meta.supers.iter().map(|s| s.sym).chain(by_value) {
+                        if set.len() < 64 && meta_table.contains_key(&y) && set.insert(y) {
+                            next.push(y);
+                        }
+                    }
+                }
+                frontier = next;
+            }
+            set
+        })
+    }
+}
+
 /// The edges between fields, and between functions and other objects'
-/// fields, from `dataflow-summarize`, for roll-ups.
+/// fields, from `dataflow-summarize`, for roll-ups; a field of the edge's
+/// function's class's own state (see `InternalClasses`) is the class's.
 fn data_edges(meta_table: &MetaTable, field_edges: &[FieldEdge]) -> Vec<UnitEdge> {
+    let mut internal = InternalClasses::new(meta_table);
     field_edges
         .iter()
-        .map(|edge| UnitEdge {
-            from: edge.from,
-            to: edge.to,
-            from_class: rollup_class(meta_table, &edge.from),
-            to_class: rollup_class(meta_table, &edge.to),
-            count: edge.count,
-            accessor: false,
-            ipc: false,
+        .map(|edge| {
+            let mut from_class = rollup_class(meta_table, &edge.from);
+            let mut to_class = rollup_class(meta_table, &edge.to);
+            // (The function the data flows in: an end, or the first `via`.)
+            let function = [edge.from, edge.to]
+                .into_iter()
+                .find(|sym| !sym.starts_with("F_"))
+                .or_else(|| edge.via.first().copied());
+            if let Some(context) = function.and_then(|f| rollup_class(meta_table, &f)) {
+                let own = internal.of(context);
+                for class in [&mut from_class, &mut to_class] {
+                    if class.is_some_and(|c| own.contains(&c)) {
+                        *class = Some(context);
+                    }
+                }
+            }
+            UnitEdge {
+                from: edge.from,
+                to: edge.to,
+                from_class,
+                to_class,
+                count: edge.count,
+                accessor: false,
+                ipc: false,
+            }
         })
         .collect()
 }
@@ -2340,15 +2417,30 @@ fn add_rollups(
 
 /// Give each field (and function) in the edges between fields a data
 /// roll-up of its own edges, for diagrams of fields (see
-/// `cmd_block_diagram`'s field level).
+/// `cmd_block_diagram`'s field level), leaving out functions' reads and
+/// writes of their classes' own state (see `InternalClasses`).
 fn add_field_flows(
     meta_table: &MetaTable,
     field_edges: &[FieldEdge],
     rollups: &mut UstrMap<Rollup>,
 ) {
     let pretty_of = |sym: &Ustr| -> Ustr { meta_table.get(sym).map_or(*sym, |m| m.pretty) };
+    let mut internal = InternalClasses::new(meta_table);
     let mut nodes: UstrSet = UstrSet::default();
     for edge in field_edges {
+        // (Not a function's reads and writes of its class's own state's
+        // fields, ex: an embedded member's.)
+        let ends = [edge.from, edge.to];
+        if let Some(function) = ends.iter().find(|sym| !sym.starts_with("F_"))
+            && let Some(field) = ends.iter().find(|sym| sym.starts_with("F_"))
+            && let (Some(context), Some(class)) = (
+                rollup_class(meta_table, function),
+                rollup_class(meta_table, field),
+            )
+            && internal.of(context).contains(&class)
+        {
+            continue;
+        }
         let flow = |sym: Ustr| RollupEdge {
             sym,
             pretty: pretty_of(&sym),

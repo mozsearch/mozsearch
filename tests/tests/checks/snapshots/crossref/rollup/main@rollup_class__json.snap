@@ -9,7 +9,7 @@ input_file: inputs/crossref/rollup/rollup_class__json
       "sym": "T_rollup::Store",
       "pretty": "rollup::Store",
       "count": 2,
-      "accessors": 2,
+      "accessors": 1,
       "pairs": 2,
       "examples": [
         {

@@ -5,6 +5,12 @@
 
 namespace rollup {
 
+// (Held by value: the store's own state, so its writes aren't data moving
+// to another class.)
+struct Stats {
+  int mLast = 0;
+};
+
 class Store {
  public:
   void Put(int aValue);
@@ -14,6 +20,7 @@ class Store {
 
  private:
   int mValue = 0;
+  Stats mStats;
 };
 
 }  // namespace rollup
