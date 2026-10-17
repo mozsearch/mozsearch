@@ -1,0 +1,202 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(scil).unwrap()"
+input_file: inputs/crossref/crossref/xpctest_params.idl/base_interface_uses__json
+---
+{
+  "symbol_crossref_infos": [
+    {
+      "symbol": "XPIDL_nsISupports",
+      "crossref_info": {
+        "uses": [
+          {
+            "path": "xpidl/xpctest_attributes.idl",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 13,
+                "bounds": [
+                  37,
+                  48
+                ],
+                "line": "interface nsIXPCTestObjectReadOnly : nsISupports {",
+                "context": "nsIXPCTestObjectReadOnly",
+                "contextsym": "XPIDL_nsIXPCTestObjectReadOnly"
+              },
+              {
+                "lno": 24,
+                "bounds": [
+                  38,
+                  49
+                ],
+                "line": "interface nsIXPCTestObjectReadWrite : nsISupports {",
+                "context": "nsIXPCTestObjectReadWrite",
+                "contextsym": "XPIDL_nsIXPCTestObjectReadWrite"
+              }
+            ]
+          },
+          {
+            "path": "xpidl/xpctest_bug809674.idl",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 18,
+                "bounds": [
+                  32,
+                  43
+                ],
+                "line": "interface nsIXPCTestBug809674 : nsISupports {",
+                "context": "nsIXPCTestBug809674",
+                "contextsym": "XPIDL_nsIXPCTestBug809674"
+              }
+            ]
+          },
+          {
+            "path": "xpidl/xpctest_cenums.idl",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 13,
+                "bounds": [
+                  29,
+                  40
+                ],
+                "line": "interface nsIXPCTestCEnums : nsISupports {",
+                "context": "nsIXPCTestCEnums",
+                "contextsym": "XPIDL_nsIXPCTestCEnums"
+              }
+            ]
+          },
+          {
+            "path": "xpidl/xpctest_interfaces.idl",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 15,
+                "bounds": [
+                  33,
+                  44
+                ],
+                "line": "interface nsIXPCTestInterfaceA : nsISupports {",
+                "context": "nsIXPCTestInterfaceA",
+                "contextsym": "XPIDL_nsIXPCTestInterfaceA"
+              },
+              {
+                "lno": 20,
+                "bounds": [
+                  33,
+                  44
+                ],
+                "line": "interface nsIXPCTestInterfaceB : nsISupports {",
+                "context": "nsIXPCTestInterfaceB",
+                "contextsym": "XPIDL_nsIXPCTestInterfaceB"
+              },
+              {
+                "lno": 25,
+                "bounds": [
+                  33,
+                  44
+                ],
+                "line": "interface nsIXPCTestInterfaceC : nsISupports {",
+                "context": "nsIXPCTestInterfaceC",
+                "contextsym": "XPIDL_nsIXPCTestInterfaceC"
+              }
+            ]
+          },
+          {
+            "path": "xpidl/xpctest_params.idl",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 20,
+                "bounds": [
+                  29,
+                  40
+                ],
+                "line": "interface nsIXPCTestParams : nsISupports {",
+                "context": "nsIXPCTestParams",
+                "contextsym": "XPIDL_nsIXPCTestParams"
+              }
+            ]
+          },
+          {
+            "path": "xpidl/xpctest_returncode.idl",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 19,
+                "bounds": [
+                  39,
+                  50
+                ],
+                "line": "interface nsIXPCTestReturnCodeParent : nsISupports {",
+                "context": "nsIXPCTestReturnCodeParent",
+                "contextsym": "XPIDL_nsIXPCTestReturnCodeParent"
+              },
+              {
+                "lno": 26,
+                "bounds": [
+                  38,
+                  49
+                ],
+                "line": "interface nsIXPCTestReturnCodeChild : nsISupports {",
+                "context": "nsIXPCTestReturnCodeChild",
+                "contextsym": "XPIDL_nsIXPCTestReturnCodeChild"
+              }
+            ]
+          },
+          {
+            "path": "xpidl/xpctest_utils.idl",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 12,
+                "bounds": [
+                  40,
+                  51
+                ],
+                "line": "interface nsIXPCTestFunctionInterface : nsISupports {",
+                "context": "nsIXPCTestFunctionInterface",
+                "contextsym": "XPIDL_nsIXPCTestFunctionInterface"
+              },
+              {
+                "lno": 17,
+                "bounds": [
+                  28,
+                  39
+                ],
+                "line": "interface nsIXPCTestUtils : nsISupports {",
+                "context": "nsIXPCTestUtils",
+                "contextsym": "XPIDL_nsIXPCTestUtils"
+              },
+              {
+                "lno": 30,
+                "bounds": [
+                  36,
+                  47
+                ],
+                "line": "interface nsIXPCTestNotScriptable : nsISupports {",
+                "context": "nsIXPCTestNotScriptable",
+                "contextsym": "XPIDL_nsIXPCTestNotScriptable"
+              },
+              {
+                "lno": 35,
+                "bounds": [
+                  33,
+                  44
+                ],
+                "line": "interface nsIXPCTestTypeScript : nsISupports {",
+                "context": "nsIXPCTestTypeScript",
+                "contextsym": "XPIDL_nsIXPCTestTypeScript"
+              }
+            ]
+          }
+        ]
+      },
+      "relation": "Queried",
+      "quality": "ExplicitSymbol",
+      "overloads_hit": []
+    }
+  ],
+  "unknown_symbols": []
+}

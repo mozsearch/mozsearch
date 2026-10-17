@@ -256,13 +256,15 @@ def handle_interface(methods, enums, iface):
             'sym': base_idl_sym,
         })
 
-        # Base target
+        # Base target (a use of the base interface, in this one)
         emit_record({
             'loc': base_loc,
             'target': 1,
-            'syntax': 'idl',
+            'kind': 'use',
             'pretty': iface.base,
             'sym': base_idl_sym,
+            'context': iface.name,
+            'contextsym': iface_idl_sym,
         })
 
     iface_methods = []
@@ -310,7 +312,7 @@ def handle_interface(methods, enums, iface):
                     })
 
 
-                if not m.noscript:
+                if iface.attributes.scriptable and not m.noscript:
                     method_js_sym = f'#{m.name}'
                     method_slots.append({
                         'slotKind': 'method',
@@ -382,7 +384,7 @@ def handle_interface(methods, enums, iface):
                             'sym': setter_cpp_sym,
                         })
 
-                if not m.noscript:
+                if iface.attributes.scriptable and not m.noscript:
                     attr_js_sym = f'#{m.name}'
                     attr_slots.append({
                         'slotKind': 'attribute',
@@ -443,8 +445,8 @@ def handle_interface(methods, enums, iface):
                 })
 
                 # there's no such thing as noscript for a const, so we just go based
-                # on whether the interface is itself scriptable.
-                # XXX uh, should we have been checking that above too?
+                # on whether the interface is itself scriptable (as for methods
+                # and attributes).
                 if iface.attributes.scriptable:
                     const_js_sym = f'#{m.name}'
                     const_slots.append({
@@ -472,7 +474,7 @@ def handle_interface(methods, enums, iface):
 
 
     emit_record({
-        'loc': '%d:%d-%d' % (lineno, colno, colno + len(iface.name)),
+        'loc': iface_loc,
         'structured': 1,
         'pretty': iface.name,
         'sym': iface_idl_sym,
