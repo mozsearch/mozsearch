@@ -141,6 +141,9 @@ pub struct Summary {
     /// boring ones.
     pub events: usize,
     pub flows: Vec<Flow>,
+    /// Whether it had more flows than `MAX_FLOWS`, so it has none.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub flows_omitted: bool,
     /// The (virtual) methods it overrides, whose calls can reach it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub overrides: Vec<Ustr>,
@@ -482,10 +485,15 @@ impl<'f> Builder<'f> {
         }
     }
 
-    fn flows(&self) -> BTreeSet<Flow> {
+    /// The function's flows, or None if it has more than `MAX_FLOWS`.
+    fn flows(&self) -> Option<BTreeSet<Flow>> {
         let mut flows = BTreeSet::new();
+        let mut overflowed = false;
         let mut add = |sources: &Sources, to: &Port| {
             for (from, derived) in sources {
+                if overflowed {
+                    return;
+                }
                 if from == to {
                     continue;
                 }
@@ -494,6 +502,7 @@ impl<'f> Builder<'f> {
                     to: to.clone(),
                     derived: *derived,
                 });
+                overflowed = flows.len() > MAX_FLOWS;
             }
         };
         for event in &self.events {
@@ -583,17 +592,30 @@ impl<'f> Builder<'f> {
                 EventKind::Test { .. } => {}
             }
         }
-        flows
+        (!overflowed).then_some(flows)
     }
 }
+
+/// The most flows a function's summary has: more (ex: a minified bundle's
+/// function, whose locals each carry most of its inputs, 1.7 million for
+/// one of the newtab vendor bundle's) aren't a summary of anything, and were
+/// most of firefox's summaries' 17.8 GB (66 of its 1.06 million functions
+/// have more than 10000; 22 more than 100000).
+pub const MAX_FLOWS: usize = 10_000;
 
 /// A function's summary.
 pub fn summarize(f: &FuncIr) -> Summary {
     let mut builder = Builder::new(f);
     builder.propagate_locals();
-    let flows: Vec<Flow> = builder.flows().into_iter().collect();
+    let (flows, flows_omitted) = match builder.flows() {
+        Some(flows) => (flows.into_iter().collect(), false),
+        None => (vec![], true),
+    };
     let events = builder.events.len();
-    let category = categorize(&flows, events);
+    let category = match flows_omitted {
+        true => Category::Big,
+        false => categorize(&flows, events),
+    };
     Summary {
         sym: f.sym,
         pretty: f.pretty.clone(),
@@ -602,6 +624,7 @@ pub fn summarize(f: &FuncIr) -> Summary {
         category,
         events,
         flows,
+        flows_omitted,
         overrides: vec![],
     }
 }
