@@ -10,4 +10,4 @@ input_file: inputs/dataflow/ipdl/slice-struct-field
          | EXPECT_EQ(ai, i.ai());
   u2   ipdl/TestDataStructures.cpp:669 TestDataStructuresChild::TestStructWithArrays
          | SIntDoubleArrays i(42, ai, ad);
-  linked by: field IPDL_mozilla__foo_SIntDoubleArrays_ai
+  linked by: binding IPC_mozilla__ipdltest_PTestDataStructures_TestStructWithArrays, field IPDL_mozilla__foo_SIntDoubleArrays_ai

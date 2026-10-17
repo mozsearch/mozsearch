@@ -8,8 +8,9 @@
 //! most specific member of a place, not the objects it's reached through),
 //! local, or parameter (an IPDL struct's field too, which its accessors read
 //! and its constructors' arguments write; see `IpdlSlot`); a call of a
-//! function another unit defines or changes; or the same binding (an IPDL
-//! message's Send and Recv, XPIDL's JS and C++).  Then values written by each unit are traced forwards a few hops,
+//! function another unit defines or changes (anywhere in a changed function's
+//! body: the patch changes both a caller and its callee); or the same binding
+//! (an IPDL message's Send and Recv, XPIDL's JS and C++).  Then values written by each unit are traced forwards a few hops,
 //! linking the units they reach, for flows through unchanged code.  The
 //! clusters are the connected components.
 
@@ -23,6 +24,7 @@ use ustr::Ustr;
 use super::frontend::FileIr;
 use super::ir::*;
 use super::trace::{Dir, IpdlSlot, Tracer, ipc_message_sym, short_pretty};
+use crate::file_format::rollup::is_boring_callee;
 
 /// The lines a patch changed, in the coordinates of the files we have the
 /// analysis of (its new side).
@@ -67,6 +69,13 @@ pub struct Unit {
     pub func: Option<String>,
     pub keys: BTreeSet<Key>,
     pub text: Vec<String>,
+    /// Its function's callees anywhere in its body (but plumbing), and the
+    /// IPDL messages it sends, for linking it to the patch's other functions
+    /// and messages (see `slice`).
+    #[serde(skip)]
+    body_calls: BTreeSet<Ustr>,
+    #[serde(skip)]
+    body_sends: BTreeSet<Ustr>,
 }
 
 #[derive(Serialize)]
@@ -248,6 +257,8 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
                 func: None,
                 keys,
                 text: lines.iter().map(|l| text_of(*l)).collect(),
+                body_calls: BTreeSet::new(),
+                body_sends: BTreeSet::new(),
             });
             unit_funcs.push(None);
             continue;
@@ -306,6 +317,16 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
                     }
                 }
             }
+            let (mut body_calls, mut body_sends) = (BTreeSet::new(), BTreeSet::new());
+            if let Some(fi) = func {
+                for call in &file.funcs[fi].calls {
+                    if is_boring_callee(&call.callee_pretty) {
+                        continue;
+                    }
+                    body_calls.extend(call.callee.iter().copied());
+                    body_sends.extend(ipc_message_sym(&call.callee_pretty));
+                }
+            }
             let id = units.len();
             units.push(Unit {
                 id,
@@ -314,6 +335,8 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
                 func: func.map(|fi| file.funcs[fi].pretty.clone()),
                 keys,
                 text: group_lines.iter().map(|l| text_of(*l)).collect(),
+                body_calls,
+                body_sends,
             });
             unit_funcs.push(func.map(|fi| (file.clone(), fi)));
         }
@@ -341,6 +364,15 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
             Key::Function(sym) => patch_syms.contains(sym),
             _ => true,
         });
+        // (Its function's calls of the patch's other functions, on its
+        // unchanged lines too: the patch changes a caller and its callee.)
+        let calls: Vec<Key> = unit
+            .body_calls
+            .iter()
+            .filter(|sym| patch_syms.contains(sym))
+            .map(|sym| Key::Function(*sym))
+            .collect();
+        unit.keys.extend(calls);
         if let Some(recs) = tracer.records(&unit.path).await {
             for line in &unit.lines {
                 for sym in recs.symbols_at(*line) {
@@ -438,6 +470,27 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
             })
             .collect();
         unit.keys.extend(extra);
+    }
+    // (The patch's IPDL messages, ones whose declarations or implementations
+    // it changes, sent anywhere in its changed functions' bodies.)
+    let mut messages: BTreeSet<Ustr> = BTreeSet::new();
+    for (unit, uf) in units.iter().zip(&unit_funcs) {
+        match uf {
+            Some((file, fi)) => messages.extend(binding_of.get(&file.funcs[*fi].sym)),
+            None => messages.extend(unit.keys.iter().filter_map(|k| match k {
+                Key::Binding(owner) => Some(*owner),
+                _ => None,
+            })),
+        }
+    }
+    for unit in &mut units {
+        let sends: Vec<Key> = unit
+            .body_sends
+            .iter()
+            .filter(|owner| messages.contains(owner))
+            .map(|owner| Key::Binding(*owner))
+            .collect();
+        unit.keys.extend(sends);
     }
 
     // Link units sharing keys.

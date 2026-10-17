@@ -467,16 +467,23 @@ impl<'s> Tracer<'s> {
     }
 
     /// The owner of the binding a function is a slot of (ex: an XPIDL
-    /// method's, an IPDL message's), if any.
+    /// method's, an IPDL message's), or implements one of (ex: an actor's
+    /// override of the generated `Recv` declaration), if any.
     pub async fn binding_owner(&mut self, sym: &Ustr) -> Option<Ustr> {
-        let xref = self.xref(sym).await;
-        if let Some(xref) = &xref
-            && let Some(meta) = &xref.meta
-        {
-            if let Some(owner) = &meta.slot_owner {
-                return Some(owner.sym);
-            }
-            if let Some(owner) = ipc_message_sym(&meta.pretty) {
+        let xref = self.xref(sym).await?;
+        let meta = xref.meta.as_ref()?;
+        if let Some(owner) = &meta.slot_owner {
+            return Some(owner.sym);
+        }
+        if let Some(owner) = ipc_message_sym(&meta.pretty) {
+            return Some(owner);
+        }
+        for overridden in &meta.overrides {
+            if let Some(owner) = self
+                .xref(&overridden.sym)
+                .await
+                .and_then(|xref| Some(xref.meta.as_ref()?.slot_owner.as_ref()?.sym))
+            {
                 return Some(owner);
             }
         }
