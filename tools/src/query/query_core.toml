@@ -275,6 +275,13 @@ args.caller-limit = "$0"
 [term.path-limit]
 alias = "caller-limit"
 
+# Only follow callers in classes on paths between the sources' and targets'
+# classes in crossref's call roll-ups (see `traverse --rollup-guide`).
+[term.rollup-guide]
+[[term.rollup-guide.group.graph-traverse]]
+command = "traverse"
+args.rollup-guide = true
+
 [term.ignore-nodes]
 [[term.ignore-nodes.group.graph-traverse]]
 command = "traverse"

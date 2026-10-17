@@ -1,0 +1,13 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/traverse/paths_between_rollup_guide
+---
+digraph g {
+  node[shape=box fontname="Courier New" fontsize=10]
+  "_ZN6rollup10Controller3RunERNS_5PanelE"[label="rollup::Controller::Run"]
+  "_ZN6rollup5Panel4EditEi"[label="rollup::Panel::Edit"]
+  "_ZN6rollup10Controller3RunERNS_5PanelE" -> "_ZN6rollup5Panel4EditEi"
+  "_ZN6rollup5Store3PutEi"[label="rollup::Store::Put"]
+  "_ZN6rollup5Panel4EditEi" -> "_ZN6rollup5Store3PutEi"
+}

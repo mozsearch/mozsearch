@@ -11,7 +11,7 @@ use super::{
     interface::{OverloadInfo, OverloadKind, PipelineCommand, PipelineValues, SymbolMetaFlags},
     symbol_graph::{
         DerivedSymbolInfo, NamedSymbolGraph, SymbolBadge, SymbolGraphCollection,
-        SymbolGraphEdgeSet, SymbolGraphNodeSet,
+        SymbolGraphEdgeSet, SymbolGraphNodeId, SymbolGraphNodeSet,
     },
 };
 
@@ -99,6 +99,80 @@ pub struct Traverse {
     /// `split_ignore_nodes`).
     #[clap(long, value_parser)]
     pub ignore_nodes: Option<String>,
+
+    /// For `--paths-between` over uses: only follow callers that are
+    /// methods of classes on a path between the sources' and targets'
+    /// classes in crossref's call roll-ups (see `file_format::rollup`), or
+    /// that aren't methods, so the traversal needn't look up callers that
+    /// can't lead to a source.  (Roll-ups keep only classes' biggest edges,
+    /// so a path through a class's weak edges can be missed.)
+    #[clap(long)]
+    pub rollup_guide: bool,
+}
+
+/// The classes on paths from `sources`' to `targets'` (by their call
+/// roll-ups' edges, up to `depth` long), and the sources and targets.
+async fn rollup_guided_classes(
+    server: &(dyn AbstractServer + Send + Sync),
+    sources: &[Ustr],
+    targets: &[Ustr],
+    depth: u32,
+) -> Result<HashSet<Ustr>> {
+    // (Breadth-first from each side, along callers' or callees' classes.)
+    let mut reached: [HashSet<Ustr>; 2] = [HashSet::new(), HashSet::new()];
+    for (side, starts) in [sources, targets].into_iter().enumerate() {
+        let mut frontier: Vec<Ustr> = starts.to_vec();
+        reached[side].extend(starts.iter().copied());
+        for _ in 0..depth {
+            let mut next = vec![];
+            for class in &frontier {
+                let Some(data) = server.crossref_lookup(class).await? else {
+                    continue;
+                };
+                let mut neighbors: Vec<Ustr> = vec![];
+                if let Some(rollup) = &data.call_rollup {
+                    let edges = if side == 0 { &rollup.out } else { &rollup.into };
+                    neighbors.extend(edges.iter().map(|edge| edge.sym));
+                }
+                // (Calls of a class's methods can be of its supers' and
+                // subclasses' (virtual) methods, which traversals follow.)
+                if let Some(meta) = &data.meta {
+                    neighbors.extend(meta.supers.iter().map(|s| s.sym));
+                    neighbors.extend(meta.subclass_syms.iter().copied());
+                }
+                for neighbor in neighbors {
+                    if reached[side].insert(neighbor) {
+                        next.push(neighbor);
+                    }
+                }
+            }
+            if next.is_empty() {
+                break;
+            }
+            frontier = next;
+        }
+    }
+    let mut allowed: HashSet<Ustr> = reached[0].intersection(&reached[1]).copied().collect();
+    allowed.extend(sources.iter().copied());
+    allowed.extend(targets.iter().copied());
+    Ok(allowed)
+}
+
+/// The class a symbol is (for classes) or is a method of, by its structured
+/// record.
+fn class_of_info(info: &DerivedSymbolInfo) -> Option<Ustr> {
+    let meta = info.get_structured()?;
+    if meta.kind == "method" {
+        meta.parent_sym
+    } else if is_class_kind(&meta.kind) {
+        Some(meta.sym)
+    } else {
+        None
+    }
+}
+
+fn is_class_kind(kind: &str) -> bool {
+    matches!(kind, "class" | "struct" | "union" | "interface")
 }
 
 #[derive(Debug)]
@@ -248,6 +322,28 @@ impl PipelineCommand for TraverseCommand {
         let caller_limit = match self.args.caller_limit {
             0 => default_caller_limit,
             x => x,
+        };
+
+        // (The classes worth following callers in, for `--rollup-guide`.)
+        let guided_classes = if self.args.rollup_guide && self.args.paths_between {
+            let classes = |set: &Vec<SymbolGraphNodeId>| -> Vec<Ustr> {
+                let mut classes: Vec<Ustr> = set
+                    .iter()
+                    .filter_map(|id| class_of_info(sym_node_set.get(id)))
+                    .collect();
+                classes.sort();
+                classes.dedup();
+                classes
+            };
+            let sources = classes(&source_set);
+            let targets = classes(&target_set);
+            if sources.is_empty() || targets.is_empty() {
+                None
+            } else {
+                Some(rollup_guided_classes(server, &sources, &targets, max_depth).await?)
+            }
+        } else {
+            None
         };
 
         let stop_at_class_label = match self.args.edge.as_str() {
@@ -1326,9 +1422,10 @@ impl PipelineCommand for TraverseCommand {
                             callers.push((key, details));
                             callers.len() - 1
                         });
-                        callers[index]
-                            .1
-                            .push(EdgeDetail::Jump(format!("{}#{}", path_hits.path, hit.lineno)));
+                        callers[index].1.push(EdgeDetail::Jump(format!(
+                            "{}#{}",
+                            path_hits.path, hit.lineno
+                        )));
                     }
                 }
 
@@ -1356,6 +1453,14 @@ impl PipelineCommand for TraverseCommand {
                         _ => ustr(""),
                     };
                     if ignore_node_set.contains(&*source_pretty) || !source_info.is_callable() {
+                        continue;
+                    }
+                    if let Some(allowed) = &guided_classes
+                        && source_info
+                            .get_structured()
+                            .is_some_and(|meta| meta.kind == "method")
+                        && class_of_info(source_info).is_some_and(|class| !allowed.contains(&class))
+                    {
                         continue;
                     }
                     if included >= caller_limit {

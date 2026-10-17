@@ -1891,9 +1891,11 @@ fn write_inline_and_ext(
 }
 
 /// How many edges (and members) a class's or subsystem's roll-up keeps in
-/// each direction, how many examples each edge keeps, and how many edges
-/// between subsystems the whole tree's keeps.
-const ROLLUP_EDGES: usize = 48;
+/// each direction (enough that hubs' are complete, for finding paths between
+/// classes), how many of them keep examples and how many each keeps, and how
+/// many edges between subsystems the whole tree's keeps.
+const ROLLUP_EDGES: usize = 256;
+const ROLLUP_EXAMPLE_EDGES: usize = 32;
 const ROLLUP_EXAMPLES: usize = 6;
 const ROLLUP_MEMBERS: usize = 64;
 const ROLLUP_TREE_EDGES: usize = 4000;
@@ -2119,6 +2121,11 @@ fn rollup_edges(meta_table: &MetaTable, edges: &[UnitEdge]) -> (UstrMap<Rollup>,
         rollup.in_total = rollup.into.len() as u32;
         rollup.out.truncate(ROLLUP_EDGES);
         rollup.into.truncate(ROLLUP_EDGES);
+        for edges in [&mut rollup.out, &mut rollup.into] {
+            for edge in edges.iter_mut().skip(ROLLUP_EXAMPLE_EDGES) {
+                edge.examples.clear();
+            }
+        }
     };
     for ((from, to), accum) in &class_edges {
         rollups

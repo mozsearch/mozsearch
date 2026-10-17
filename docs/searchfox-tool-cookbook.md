@@ -152,6 +152,12 @@ neighbors.  Edges are labeled and weighted by how many calls they stand for;
 `block-diagram:*`, `block-diagram:<subsystem or class symbol>`,
 `block-level:`, `block-min-count:` and `block-max-edges:`.
 
+`traverse --paths-between --rollup-guide` (the `rollup-guide:true` query term,
+with `calls-between:`) follows only callers that are methods of classes on a
+path between the sources' and targets' classes in the call roll-ups (and
+their supers and subclasses), or that aren't methods, so it looks up fewer
+symbols.
+
 ### Following values (dataflow)
 
 `dataflow` (see `tools/src/dataflow/`) shows what it understood of a file's
