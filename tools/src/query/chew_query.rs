@@ -194,7 +194,8 @@ impl QueryPipelineGroupBuilder {
 
                 for (group_name, pipeline_uses) in term.group.iter() {
                     for pipe_use in pipeline_uses.iter() {
-                        let flattened_args = flatten_args(&term_value, 0, &pipe_use.args);
+                        let flattened_args =
+                            flatten_args(&term_value, pipe_use.priority, &pipe_use.args);
                         self.ensure_pipeline_step(
                             group_name.clone(),
                             pipe_use.command.clone(),

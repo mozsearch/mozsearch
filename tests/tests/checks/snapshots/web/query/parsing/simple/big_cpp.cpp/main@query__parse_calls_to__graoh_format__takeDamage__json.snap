@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&jv.value"
+input_file: inputs/web/query/parsing/simple/big_cpp.cpp/query__parse_calls_to__graoh_format__takeDamage__json
 ---
 {
   "groups": {
@@ -14,7 +15,7 @@ expression: "&jv.value"
             "named_args": {
               "format": [
                 "rawdot",
-                0
+                1
               ]
             },
             "positional_args": []
