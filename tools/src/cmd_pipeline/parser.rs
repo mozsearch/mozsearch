@@ -57,6 +57,12 @@ pub struct ToolOpts {
     )]
     pub tree: String,
 
+    /// Where to cache a remote server's responses on disk (see
+    /// `abstract_server::remote_server`), if anywhere.  (No default, so that
+    /// nothing fills a disk by surprise.)
+    #[clap(long, value_parser, env = "SEARCHFOX_REMOTE_CACHE")]
+    pub remote_cache: Option<String>,
+
     #[clap(long, short, value_parser, value_enum, default_value = "concise")]
     pub output_format: OutputFormat,
 

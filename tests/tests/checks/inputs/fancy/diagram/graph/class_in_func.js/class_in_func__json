@@ -1,1 +1,2 @@
+# servers: local remote
 search-identifiers class_in_func::func | crossref-lookup | traverse --edge=uses --max-depth=4 | graph --format=json --hier=pretty | jq '.hierarchicalGraphs | [([.. | select(.symbols?) | .symbols] | flatten | sort), ([.. | select(.edges?) | .edges] | flatten | map(.from + " -> " + .to) | sort)]'

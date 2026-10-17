@@ -42,6 +42,20 @@ searchfox-tool 'query --help'
 
 ## Cookbook Proper
 
+### Working over a remote tree
+
+With a URL for `--server`, the tool works over that server's tree through its
+data API (see `docs/web-server.md`), without an index of your own, ex: a
+dataflow trace over firefox-main:
+```
+searchfox-tool "--server=https://searchfox.org/ --tree=firefox-main --remote-cache=$HOME/.cache/searchfox-remote dataflow dom/workers/WorkerPrivate.cpp --function WorkerPrivate::Notify --forward aStatus"
+```
+
+Responses are only cached on disk where `--remote-cache` (or the
+`SEARCHFOX_REMOTE_CACHE` environment variable) says, under
+`{host}/{tree}/{indexed revision}/`, and the cache keeps only the tree's
+current indexed revision.  Without either, nothing is cached.
+
 ### Dumping crossref info from an identifier on a web-server shell
 ```
 ~/mozsearch/tools/target/release/searchfox-tool '--server=/home/ubuntu/index/config.json

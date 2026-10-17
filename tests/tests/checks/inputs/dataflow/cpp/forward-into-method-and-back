@@ -1,1 +1,2 @@
+# servers: local remote
 dataflow dataflow/dataflow.cpp --function BumpedCount --forward aBy

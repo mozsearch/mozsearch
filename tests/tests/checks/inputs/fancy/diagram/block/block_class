@@ -1,1 +1,2 @@
+# servers: local remote
 block-diagram 'T_rollup::Panel' | graph --format=raw-dot --hier=flat

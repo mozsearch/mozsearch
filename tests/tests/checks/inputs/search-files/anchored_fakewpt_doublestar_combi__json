@@ -1,1 +1,2 @@
+# servers: local remote
 search-files "^testing/**.{js,ini}"

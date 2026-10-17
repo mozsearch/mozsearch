@@ -1,16 +1,39 @@
+//! A tree of a remote searchfox server (see `make_remote_server`), over HTTP:
+//! the index's primitives over its data API (see `data_api`), which returns
+//! them as the tools' types serialize, so that the code above this can't tell
+//! a remote tree from a local one (ex: the checks' remote pass, or a
+//! contributor's tools and servers working over firefox-main without indexing
+//! it), and the rest over its pages (rendered sources, the router's search).
+//! With `try_overlay`, the tree as a try push changes it (the API's `rev=`).
+//!
+//! Responses can be cached on disk, but only where `remote_cache` says (see
+//! `ToolOpts::remote_cache`; there's no default location, so that nothing
+//! fills a disk by surprise): under `{cache}/{host}/{tree}/{indexed rev}/`,
+//! since they're immutable for an index (try pushes' responses have their
+//! heads in their URLs), with the other indexed revisions' removed.
+
+use std::fs;
+use std::io::Write;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
+use std::time::Duration;
+
 use async_trait::async_trait;
+use chrono::DateTime;
 use futures_core::stream::BoxStream;
+use serde::de::DeserializeOwned;
 use serde_json::{Value, from_str};
+use tokio::sync::OnceCell;
 use url::{ParseError, Url};
-use ustr::Ustr;
+use ustr::{Ustr, ustr};
 
 use crate::{
-    file_format::{
-        analysis_manglings::escape_record_symbol_commas, code_coverage_report,
-        crossref::CrossrefData, jumpref::JumprefData,
-    },
+    dataflow::slice::ChangedLines,
+    file_format::{code_coverage_report, crossref::CrossrefData, jumpref::JumprefData},
     git_ops::RevisionCoverage,
     hyperblame::journals::JournalKind,
+    try_delta::TryDeltaMeta,
 };
 
 use super::{
@@ -42,61 +65,258 @@ impl From<ParseError> for ServerError {
     }
 }
 
-#[allow(dead_code)]
-#[derive(Clone, Debug)]
+/// The size cap the API's requests ask for (see `data_api`): the responses
+/// whole, as a local index's.
+const MAX_BYTES: &str = "1073741824";
+/// The most results the API's searches return (`data_api::MAX_LIMIT`).
+const MAX_LIMIT: usize = 2_000_001;
+/// How many times a request turned away for its client's rate (429) is
+/// retried, after the `Retry-After` it's told (at most `MAX_RETRY_AFTER`).
+const RETRIES: usize = 3;
+const MAX_RETRY_AFTER: Duration = Duration::from_secs(60);
+
+/// The one HTTP client (connections kept alive across requests), which says
+/// what it is (an agent, for the servers' admission; see
+/// `admission::RequestClass`).
+fn client() -> &'static reqwest::Client {
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .user_agent(concat!(
+                "searchfox-remote-server/",
+                env!("CARGO_PKG_VERSION")
+            ))
+            .build()
+            .unwrap()
+    })
+}
+
+fn problem(sticky: bool, layer: ErrorLayer, message: String) -> ServerError {
+    let details = ErrorDetails { layer, message };
+    if sticky {
+        ServerError::StickyProblem(details)
+    } else {
+        ServerError::TransientProblem(details)
+    }
+}
+
+/// The body of the response for `url`, retrying when turned away for the
+/// client's rate; other unhappy statuses are errors (with the API's error
+/// message, if it says one).
+async fn get_bytes(url: Url, accept: Option<&str>) -> Result<Vec<u8>> {
+    let mut retries = 0;
+    loop {
+        let mut request = client().get(url.clone());
+        if let Some(accept) = accept {
+            request = request.header("Accept", accept);
+        }
+        let response = request.send().await?;
+        let status = response.status();
+        if status == reqwest::StatusCode::TOO_MANY_REQUESTS && retries < RETRIES {
+            retries += 1;
+            let retry_after = response
+                .headers()
+                .get("retry-after")
+                .and_then(|value| value.to_str().ok()?.parse().ok())
+                .map_or(Duration::from_secs(1), Duration::from_secs);
+            tokio::time::sleep(retry_after.min(MAX_RETRY_AFTER)).await;
+            continue;
+        }
+        let bytes = response.bytes().await?.to_vec();
+        if status.is_success() {
+            return Ok(bytes);
+        }
+        let error = serde_json::from_slice::<Value>(&bytes)
+            .ok()
+            .and_then(|body| body["error"].as_str().map(str::to_string))
+            .unwrap_or_default();
+        let message = format!("Server status of {} for {}: {}", status, url.path(), error);
+        return Err(match status.as_u16() {
+            422 => problem(true, ErrorLayer::BadInput, message),
+            404 => problem(true, ErrorLayer::DataLayer, message),
+            429 => problem(false, ErrorLayer::ServerLayer, message),
+            _ if status.is_server_error() => problem(false, ErrorLayer::ServerLayer, message),
+            _ => problem(true, ErrorLayer::ServerLayer, message),
+        });
+    }
+}
+
+fn parse<T: DeserializeOwned>(bytes: &[u8]) -> Result<T> {
+    serde_json::from_slice(bytes).map_err(ServerError::from)
+}
+
+/// Run `future` to completion from a synchronous method (some of
+/// `AbstractServer`'s are), on the multi-threaded runtime they're called on.
+fn block_on<F: Future>(future: F) -> Option<F::Output> {
+    let handle = tokio::runtime::Handle::try_current().ok()?;
+    if handle.runtime_flavor() != tokio::runtime::RuntimeFlavor::MultiThread {
+        return None;
+    }
+    Some(tokio::task::block_in_place(|| handle.block_on(future)))
+}
+
+/// The disk cache of a tree's API responses (see the module's comment).
+struct ResponseCache {
+    /// `{cache}/{host}/{tree}`.
+    dir: PathBuf,
+}
+
+impl ResponseCache {
+    /// Where `url`'s response is for the indexed revision `rev`.
+    fn path(&self, rev: &str, url: &Url) -> PathBuf {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        url.as_str().hash(&mut hasher);
+        let hash = format!("{:016x}", hasher.finish());
+        self.dir.join(rev).join(&hash[..2]).join(hash)
+    }
+
+    /// The cached response, if it's there (and for this URL, in case of the
+    /// hash's collisions).
+    fn read(&self, rev: &str, url: &Url) -> Option<Vec<u8>> {
+        let bytes = fs::read(self.path(rev, url)).ok()?;
+        let newline = bytes.iter().position(|b| *b == b'\n')?;
+        (&bytes[..newline] == url.as_str().as_bytes()).then(|| bytes[newline + 1..].to_vec())
+    }
+
+    fn write(&self, rev: &str, url: &Url, body: &[u8]) {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let path = self.path(rev, url);
+        let Some(dir) = path.parent() else {
+            return;
+        };
+        let temp = dir.join(format!(
+            ".{}.{}.tmp",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        let written = fs::create_dir_all(dir).and_then(|_| {
+            let mut file = fs::File::create(&temp)?;
+            file.write_all(url.as_str().as_bytes())?;
+            file.write_all(b"\n")?;
+            file.write_all(body)?;
+            fs::rename(&temp, &path)
+        });
+        if let Err(err) = written {
+            log::warn!("Couldn't cache {}: {}", url, err);
+            let _ = fs::remove_file(&temp);
+        }
+    }
+
+    /// Remove the responses of the tree's other indexed revisions (named by
+    /// their revisions, so nothing else).
+    fn remove_others(&self, rev: &str) {
+        let Ok(entries) = fs::read_dir(&self.dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name != rev && crate::try_delta::is_full_rev(&name) {
+                let _ = fs::remove_dir_all(entry.path());
+            }
+        }
+    }
+}
+
+#[derive(Clone)]
 struct RemoteServer {
     tree_name: String,
-    server_base_url: Url,
-    tree_base_url: Url,
+    /// `{tree}/api/v1/`.
+    api_base_url: Url,
     source_base_url: Url,
-    raw_analysis_base_url: Url,
     search_url: Url,
+    /// The head of the try push whose context this is, if it's a
+    /// `try_overlay`.
+    rev: Option<String>,
+    /// The API's `tree-info` of the tree as indexed, and with `rev`, once.
+    base_info: Arc<OnceCell<Value>>,
+    info: Arc<OnceCell<Value>>,
+    cache: Option<Arc<ResponseCache>>,
 }
 
-async fn get(url: Url) -> Result<reqwest::Response> {
-    //println!("Using URL {}", url);
-    let res = reqwest::get(url).await?;
+impl RemoteServer {
+    /// The URL of the API's `route` (with the file `path`, if any) with
+    /// `params`, in this server's try push's context.
+    fn api_url(&self, route: &str, path: Option<&str>, params: &[(&str, &str)]) -> Result<Url> {
+        let mut url = self.api_base_url.join(route)?;
+        if let Some(path) = path {
+            let mut segments = url
+                .path_segments_mut()
+                .map_err(|_| problem(true, ErrorLayer::BadInput, "not a base URL".to_string()))?;
+            segments.extend(path.strip_prefix('/').unwrap_or(path).split('/'));
+        }
+        {
+            let mut query = url.query_pairs_mut();
+            for (name, value) in params {
+                query.append_pair(name, value);
+            }
+            if let Some(rev) = &self.rev {
+                query.append_pair("rev", rev);
+            }
+            query.append_pair("max_bytes", MAX_BYTES);
+        }
+        Ok(url)
+    }
 
-    if !res.status().is_success() {
-        if res.status().is_server_error() {
-            return Err(ServerError::TransientProblem(ErrorDetails {
-                layer: ErrorLayer::ServerLayer,
-                message: format!("Server status of {}", res.status()),
-            }));
-        } else {
-            return Err(ServerError::StickyProblem(ErrorDetails {
-                layer: ErrorLayer::DataLayer,
-                message: format!("Server status of {}", res.status()),
-            }));
+    async fn tree_info_value(&self, rev: Option<&str>) -> Result<Value> {
+        let mut url = self.api_base_url.join("tree-info")?;
+        if let Some(rev) = rev {
+            url.query_pairs_mut().append_pair("rev", rev);
+        }
+        parse(&get_bytes(url, None).await?)
+    }
+
+    /// The tree's `tree-info` as indexed (whose revision keys the cache).
+    async fn base_info(&self) -> Result<&Value> {
+        self.base_info
+            .get_or_try_init(|| async {
+                let info = self.tree_info_value(None).await?;
+                if let (Some(cache), Some(rev)) = (&self.cache, info["commit"]["rev"].as_str()) {
+                    cache.remove_others(rev);
+                }
+                Ok(info)
+            })
+            .await
+    }
+
+    /// The `tree-info` of this server's tree (in its try push's context).
+    async fn info(&self) -> Result<&Value> {
+        match &self.rev {
+            None => self.base_info().await,
+            Some(rev) => {
+                self.info
+                    .get_or_try_init(|| self.tree_info_value(Some(rev)))
+                    .await
+            }
         }
     }
 
-    Ok(res)
-}
-
-async fn get_json(url: Url) -> Result<reqwest::Response> {
-    let client = reqwest::Client::new();
-    let res = client
-        .get(url)
-        .header("Accept", "application/json")
-        .send()
-        .await?;
-
-    if !res.status().is_success() {
-        if res.status().is_server_error() {
-            return Err(ServerError::TransientProblem(ErrorDetails {
-                layer: ErrorLayer::ServerLayer,
-                message: format!("Server status of {}", res.status()),
-            }));
-        } else {
-            return Err(ServerError::StickyProblem(ErrorDetails {
-                layer: ErrorLayer::DataLayer,
-                message: format!("Server status of {}", res.status()),
-            }));
+    /// The body of the API's response for `route` (see `api_url`), from the
+    /// cache if it's there.
+    async fn api(
+        &self,
+        route: &str,
+        path: Option<&str>,
+        params: &[(&str, &str)],
+    ) -> Result<Vec<u8>> {
+        let url = self.api_url(route, path, params)?;
+        let cache = match &self.cache {
+            Some(cache) => self.base_info().await?["commit"]["rev"]
+                .as_str()
+                .map(|rev| (cache, rev.to_string())),
+            None => None,
+        };
+        if let Some((cache, rev)) = &cache
+            && let Some(body) = cache.read(rev, &url)
+        {
+            return Ok(body);
         }
+        let body = get_bytes(url.clone(), None).await?;
+        if let Some((cache, rev)) = &cache {
+            cache.write(rev, &url, &body);
+        }
+        Ok(body)
     }
-
-    Ok(res)
 }
 
 #[async_trait]
@@ -112,7 +332,34 @@ impl AbstractServer for RemoteServer {
     }
 
     fn commit_info(&self) -> Result<Option<CommitInfo>> {
-        Ok(None)
+        let info = block_on(self.info()).ok_or(ServerError::Unsupported)??;
+        let commit = &info["commit"];
+        let (Some(rev), Some(header), Some(date)) = (
+            commit["rev"].as_str(),
+            commit["header"].as_str(),
+            commit["date"]
+                .as_str()
+                .and_then(|date| DateTime::parse_from_rfc3339(date).ok()),
+        ) else {
+            return Ok(None);
+        };
+        Ok(Some(CommitInfo {
+            rev: rev.to_string(),
+            header: header.to_string(),
+            date,
+        }))
+    }
+
+    fn path_kinds(&self) -> Vec<(Ustr, Ustr)> {
+        let Some(Ok(info)) = block_on(self.base_info()) else {
+            return vec![];
+        };
+        info["path_kinds"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|kind| Some((ustr(kind[0].as_str()?), ustr(kind[1].as_str()?))))
+            .collect()
     }
 
     fn translate_path(&self, _root: SearchfoxIndexRoot, _sf_path: &str) -> Result<String> {
@@ -132,30 +379,23 @@ impl AbstractServer for RemoteServer {
     }
 
     async fn fetch_raw_analysis<'a>(&self, sf_path: &str) -> Result<BoxStream<'a, Value>> {
-        let url = self.raw_analysis_base_url.join(sf_path)?;
-        let raw_str = get(url).await?.text().await?;
-        let values: Result<Vec<Value>> = raw_str
+        // (Processed, as the local index's are; see `data_api`.)
+        let body = self.api("analysis", Some(sf_path), &[]).await?;
+        let text = String::from_utf8_lossy(&body);
+        let values: Result<Vec<Value>> = text
             .lines()
-            .map(|s| {
-                // (As `read_analyses` reads them; see
-                // `escape_record_symbol_commas`.)
-                let mut value: Value = from_str(s).map_err(ServerError::from)?;
-                escape_record_symbol_commas(&mut value);
-                Ok(value)
-            })
+            .map(|line| from_str(line).map_err(ServerError::from))
             .collect();
-        let mut values = values?;
-        crate::file_format::local_symbols::process_local_symbols(&mut values);
-        Ok(Box::pin(tokio_stream::iter(values)))
+        Ok(Box::pin(tokio_stream::iter(values?)))
     }
 
     async fn fetch_formatted_lines(&self, _sf_path: &str) -> Result<(Vec<String>, String)> {
         Err(ServerError::Unsupported)
     }
 
-    async fn fetch_raw_source(&self, _sf_path: &str) -> Result<String> {
-        // I'm not sure we actually expose the underlying raw file?
-        Err(ServerError::Unsupported)
+    async fn fetch_raw_source(&self, sf_path: &str) -> Result<String> {
+        let body = self.api("source", Some(sf_path), &[]).await?;
+        String::from_utf8(body).map_err(|err| problem(true, ErrorLayer::DataLayer, err.to_string()))
     }
 
     async fn fetch_history_journal(
@@ -182,46 +422,57 @@ impl AbstractServer for RemoteServer {
         // have any security-ish things to worry about for a public web server.
 
         let url = self.source_base_url.join(norm_path)?;
-        let html = get(url).await?.text().await?;
-        Ok(html)
+        let html = get_bytes(url, None).await?;
+        Ok(String::from_utf8_lossy(&html).to_string())
     }
 
-    async fn crossref_lookup(&self, _symbol: &str) -> Result<Option<CrossrefData>> {
-        // Let's require local index for now; we'll expose this once this
-        // mechanism is exposed to the web so we can talk to the corresponding
-        // local server over https.
-        //
-        // That is, we could build this on top of the existing router.py, but
-        // the legacy rep is definitely not what we want and although the
-        // "sorch" endpoint that's an artifact of the fancy-branch prototype
-        // is closer, it's probably better if that doesn't get stabilized.
-        Err(ServerError::Unsupported)
+    async fn crossref_lookup(&self, symbol: &str) -> Result<Option<CrossrefData>> {
+        parse(&self.api("crossref", None, &[("sym", symbol)]).await?)
     }
 
-    async fn jumpref_lookup(&self, _symbol: &str) -> Result<Option<JumprefData>> {
-        // Same rationale for `crossref_lookup` above.
-        Err(ServerError::Unsupported)
+    async fn jumpref_lookup(&self, symbol: &str) -> Result<Option<JumprefData>> {
+        parse(&self.api("jumpref", None, &[("sym", symbol)]).await?)
     }
 
     async fn search_files(
         &self,
-        _pathre: &str,
-        _is_dir: bool,
-        _limit: usize,
+        pathre: &str,
+        include_dirs: bool,
+        limit: usize,
     ) -> Result<FileMatches> {
-        // Not yet; see interface comment.
-        Err(ServerError::Unsupported)
+        if limit == 0 {
+            return Ok(FileMatches {
+                file_matches: vec![],
+                limit_hit: false,
+            });
+        }
+        let limit = limit.min(MAX_LIMIT).to_string();
+        let mut params = vec![("re", pathre), ("limit", limit.as_str())];
+        if include_dirs {
+            params.push(("dirs", "true"));
+        }
+        parse(&self.api("files", None, &params).await?)
     }
 
     async fn search_identifiers(
         &self,
-        _needle: &str,
-        _exact_match: bool,
-        _ignore_case: bool,
-        _match_limit: usize,
+        needle: &str,
+        exact_match: bool,
+        ignore_case: bool,
+        match_limit: usize,
     ) -> Result<Vec<(Ustr, Ustr)>> {
-        // Same rationale as crossref_lookup.
-        Err(ServerError::Unsupported)
+        if match_limit == 0 || needle.is_empty() {
+            return Ok(vec![]);
+        }
+        let limit = match_limit.min(MAX_LIMIT).to_string();
+        let mut params = vec![("q", needle), ("limit", limit.as_str())];
+        if exact_match {
+            params.push(("exact", "true"));
+        }
+        if ignore_case {
+            params.push(("ignore_case", "true"));
+        }
+        parse(&self.api("identifiers", None, &params).await?)
     }
 
     async fn search_text(
@@ -239,32 +490,184 @@ impl AbstractServer for RemoteServer {
         let mut url = self.search_url.clone();
         // If adding more parameters, considering using `query_pairs_mut()`.
         url.set_query(Some(&format!("q={}", q)));
-        let raw_str = get_json(url).await?.text().await?;
-        match from_str(&raw_str) {
-            Ok(json) => Ok(json),
-            Err(err) => Err(ServerError::StickyProblem(ErrorDetails {
+        let raw = get_bytes(url, Some("application/json")).await?;
+        serde_json::from_slice(&raw).map_err(|err| {
+            ServerError::StickyProblem(ErrorDetails {
                 layer: ErrorLayer::ServerLayer,
                 message: err.to_string(),
-            })),
-        }
+            })
+        })
+    }
+
+    fn try_overlay(&self, head: &str) -> Option<Box<dyn AbstractServer + Send + Sync>> {
+        // (If the server has the push's analysis.)
+        let info = block_on(self.tree_info_value(Some(head)))?.ok()?;
+        Some(Box::new(RemoteServer {
+            rev: Some(head.to_string()),
+            info: Arc::new(OnceCell::new_with(Some(info))),
+            ..self.clone()
+        }))
+    }
+
+    fn try_delta_meta(&self) -> Option<TryDeltaMeta> {
+        self.rev.as_ref()?;
+        let info = block_on(self.info())?.ok()?;
+        serde_json::from_value(info["try_meta"].clone()).ok()
+    }
+
+    fn old_side(&self, rev: &str) -> Option<Box<dyn AbstractServer + Send + Sync>> {
+        // (A try push's base is the indexed revision.)
+        (self.try_delta_meta()?.base == rev).then(|| {
+            Box::new(RemoteServer {
+                rev: None,
+                info: Arc::new(OnceCell::new()),
+                ..self.clone()
+            }) as Box<dyn AbstractServer + Send + Sync>
+        })
+    }
+
+    fn rev_changed_lines(&self, spec: &str) -> Result<ChangedLines> {
+        let body = block_on(self.api("changed-lines", None, &[("spec", spec)]))
+            .ok_or(ServerError::Unsupported)??;
+        parse(&body)
     }
 }
 
+/// The tree `tree_name` of the searchfox server at `server_base_url`, with
+/// its responses cached under `cache_dir`, if given (see the module's
+/// comment).
 pub fn make_remote_server(
     server_base_url: Url,
     tree_name: &str,
+    cache_dir: Option<&str>,
 ) -> Result<Box<dyn AbstractServer + Send + Sync>> {
     let tree_base_url = server_base_url.join(&format!("{}/", tree_name))?;
+    let api_base_url = tree_base_url.join("api/v1/")?;
     let source_base_url = tree_base_url.join("source/")?;
-    let raw_analysis_base_url = tree_base_url.join("raw-analysis/")?;
     let search_url = tree_base_url.join("search")?;
+    let cache = cache_dir.map(|dir| {
+        let host = match server_base_url.port() {
+            Some(port) => format!("{}:{}", server_base_url.host_str().unwrap_or("-"), port),
+            None => server_base_url.host_str().unwrap_or("-").to_string(),
+        };
+        Arc::new(ResponseCache {
+            dir: PathBuf::from(dir).join(host).join(tree_name),
+        })
+    });
 
     Ok(Box::new(RemoteServer {
         tree_name: tree_name.to_string(),
-        server_base_url,
-        tree_base_url,
+        api_base_url,
         source_base_url,
-        raw_analysis_base_url,
         search_url,
+        rev: None,
+        base_info: Arc::new(OnceCell::new()),
+        info: Arc::new(OnceCell::new()),
+        cache,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data_api::fake::Fake;
+    use std::collections::{BTreeMap, BTreeSet};
+    use tokio_stream::StreamExt;
+
+    /// A remote server over the data API of `data_api::fake::Fake`'s tree,
+    /// served on a local port, with its responses cached under `cache`; and
+    /// the API server's task.
+    async fn remote(
+        cache: &str,
+    ) -> (
+        Box<dyn AbstractServer + Send + Sync>,
+        tokio::task::JoinHandle<()>,
+    ) {
+        let servers: crate::data_api::Servers = Arc::new(BTreeMap::from([(
+            "fake".to_string(),
+            Box::new(Fake) as Box<dyn AbstractServer + Send + Sync>,
+        )]));
+        let app = crate::data_api::router(servers, BTreeSet::from(["fake".to_string()]));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = Url::parse(&format!("http://{}/", listener.local_addr().unwrap())).unwrap();
+        let task = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        (make_remote_server(url, "fake", Some(cache)).unwrap(), task)
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_remote_server() {
+        let cache = std::env::temp_dir().join(format!("remote-server-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&cache);
+        let (server, task) = remote(cache.to_str().unwrap()).await;
+
+        // The local tree's results, as the same types.
+        let entry = server.crossref_lookup("A").await.unwrap().unwrap();
+        let local = Fake.crossref_lookup("A").await.unwrap().unwrap();
+        assert_eq!(
+            serde_json::to_value(entry).unwrap(),
+            serde_json::to_value(local).unwrap()
+        );
+        assert!(server.crossref_lookup("Z").await.unwrap().is_none());
+        assert!(server.jumpref_lookup("A").await.unwrap().is_none());
+        assert_eq!(
+            server.fetch_raw_source("dir/a.cpp").await.unwrap(),
+            "int a;\n"
+        );
+        let records: Vec<Value> = server
+            .fetch_raw_analysis("dir/a.cpp")
+            .await
+            .unwrap()
+            .collect()
+            .await;
+        assert_eq!(
+            records,
+            vec![serde_json::json!({"loc": "1:4-5", "sym": "A"})]
+        );
+        assert_eq!(
+            server
+                .search_identifiers("a", true, false, 2)
+                .await
+                .unwrap(),
+            vec![(ustr("A"), ustr("a")); 2]
+        );
+        assert_eq!(
+            server.commit_info().unwrap().unwrap().rev,
+            "0123456789abcdef0123456789abcdef01234567"
+        );
+        // Errors as such.
+        assert!(matches!(
+            server.fetch_raw_source("dir/b.cpp").await,
+            Err(ServerError::StickyProblem(ErrorDetails {
+                layer: ErrorLayer::DataLayer,
+                ..
+            }))
+        ));
+        assert!(matches!(
+            server.search_files("(", false, 10).await,
+            Err(ServerError::StickyProblem(ErrorDetails {
+                layer: ErrorLayer::BadInput,
+                ..
+            }))
+        ));
+        assert!(server.try_overlay(&"0".repeat(40)).is_none());
+
+        // Cached under the indexed revision, so that they're there without
+        // the server.
+        let host = cache.read_dir().unwrap().next().unwrap().unwrap().path();
+        assert!(
+            host.join("fake/0123456789abcdef0123456789abcdef01234567")
+                .is_dir()
+        );
+        task.abort();
+        let _ = task.await;
+        assert_eq!(
+            server.fetch_raw_source("dir/a.cpp").await.unwrap(),
+            "int a;\n"
+        );
+        assert!(server.crossref_lookup("Z").await.unwrap().is_none());
+        assert!(server.fetch_raw_source("dir/c.cpp").await.is_err());
+        fs::remove_dir_all(&cache).unwrap();
+    }
 }

@@ -170,7 +170,14 @@ pub fn build_pipeline(bin_name: &str, arg_str: &str) -> Result<(ServerPipeline, 
 
         if first_time {
             (server_kind, server) = match Url::parse(&opts.server) {
-                Ok(url) => ("remote", Some(make_remote_server(url, &opts.tree)?)),
+                Ok(url) => (
+                    "remote",
+                    Some(make_remote_server(
+                        url,
+                        &opts.tree,
+                        opts.remote_cache.as_deref(),
+                    )?),
+                ),
                 Err(_) => ("local", Some(make_local_server(&opts.server, &opts.tree)?)),
             };
             output_format = Some(opts.output_format.clone());

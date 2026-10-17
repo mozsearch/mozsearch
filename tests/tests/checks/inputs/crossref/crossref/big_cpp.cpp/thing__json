@@ -1,1 +1,2 @@
+# servers: local remote
 search-identifiers outerNS::Thing | crossref-lookup

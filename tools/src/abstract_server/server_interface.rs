@@ -3,7 +3,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use chrono::{DateTime, FixedOffset};
 use futures_core::stream::BoxStream;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeSet, HashMap};
 use ustr::{Ustr, UstrMap, ustr};
@@ -218,7 +218,7 @@ impl TextPattern {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct FileMatch {
     pub path: Ustr,
     pub concise: ConcisePerFileInfo<Ustr>,
@@ -234,11 +234,11 @@ impl FileMatch {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct FileMatches {
     pub file_matches: Vec<FileMatch>,
     /// Whether there were more matches than the limit (see `search-files`).
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub limit_hit: bool,
 }
 

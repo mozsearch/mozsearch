@@ -577,8 +577,9 @@ async fn route_body(
     }
 }
 
+/// A fake tree, for tests of the API (and `RemoteServer`'s, over it).
 #[cfg(test)]
-mod tests {
+pub(crate) mod fake {
     use super::*;
     use crate::abstract_server::{
         ErrorDetails, FileMatches, HtmlFileRoot, Result, SearchfoxIndexRoot, TextMatches, TreeInfo,
@@ -593,7 +594,7 @@ mod tests {
     /// A tree with the file `dir/a.cpp`, whose source is "int a;\n", and
     /// the symbol `A` with a big crossref entry.
     #[derive(Clone)]
-    struct Fake;
+    pub struct Fake;
 
     fn missing() -> ServerError {
         ServerError::StickyProblem(ErrorDetails {
@@ -613,7 +614,11 @@ mod tests {
             })
         }
         fn commit_info(&self) -> Result<Option<crate::abstract_server::CommitInfo>> {
-            Ok(None)
+            Ok(Some(crate::abstract_server::CommitInfo {
+                rev: "0123456789abcdef0123456789abcdef01234567".to_string(),
+                header: "Fake".to_string(),
+                date: chrono::DateTime::parse_from_rfc3339("2026-10-17T12:00:00+01:00").unwrap(),
+            }))
         }
         fn file_facet_info(&self, path: &str) -> Option<(Ustr, Option<Ustr>)> {
             (path == "dir/a.cpp" || path == "dir").then(|| (ustr("normal"), None))
@@ -707,6 +712,12 @@ mod tests {
             Err(ServerError::Unsupported)
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fake::Fake;
+    use super::*;
 
     struct FakeServers;
 
