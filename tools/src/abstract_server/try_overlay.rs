@@ -178,6 +178,12 @@ impl AbstractServer for TryOverlay {
         Ok(Some(CommitInfo {
             rev: commit.id().to_string(),
             header: blame::commit_header(&commit).unwrap_or_default(),
+            summary: commit
+                .summary()
+                .ok()
+                .flatten()
+                .unwrap_or_default()
+                .to_string(),
             date: git_time_to_chrono(commit.time()),
         }))
     }

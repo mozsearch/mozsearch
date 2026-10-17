@@ -1247,17 +1247,48 @@ pub fn read_analyses<T>(
         let Some(values) = read_analysis_values(used_filename) else {
             continue;
         };
-        for mut data in values {
-            let obj = data.as_object_mut().unwrap();
-            // Destructively pull the "loc" out before passing it into the filter.  This is for
-            // read_structured which stores everything it doesn't directly process in `payload`.
-            let loc = parse_location(obj.remove("loc").unwrap().as_str().unwrap());
-            if let Some(v) = filter(data, &loc, i_file) {
-                result.push(WithLocation { data: v, loc })
-            }
-        }
+        filter_analysis_values(values, i_file, filter, &mut result);
     }
 
+    group_by_location(result)
+}
+
+/// A file's analysis records (ex: as `AbstractServer::fetch_raw_analysis`
+/// returns them, which `read_analysis_values` read), as `read_analysis`
+/// reads them from its file.
+pub fn analysis_from_values<T>(
+    values: Vec<Value>,
+    filter: &mut dyn FnMut(Value, &Location, usize) -> Option<T>,
+) -> Vec<WithLocation<Vec<T>>> {
+    let mut result = Vec::new();
+    filter_analysis_values(values, 0, filter, &mut result);
+    group_by_location(result)
+}
+
+fn filter_analysis_values<T>(
+    values: Vec<Value>,
+    i_file: usize,
+    filter: &mut dyn FnMut(Value, &Location, usize) -> Option<T>,
+    result: &mut Vec<WithLocation<T>>,
+) {
+    for mut data in values {
+        let Some(obj) = data.as_object_mut() else {
+            continue;
+        };
+        // Destructively pull the "loc" out before passing it into the filter.  This is for
+        // read_structured which stores everything it doesn't directly process in `payload`.
+        let Some(loc) = obj.remove("loc") else {
+            continue;
+        };
+        let loc = parse_location(loc.as_str().unwrap_or_default());
+        if let Some(v) = filter(data, &loc, i_file) {
+            result.push(WithLocation { data: v, loc })
+        }
+    }
+}
+
+/// Records sorted by their locations, and grouped by them.
+fn group_by_location<T>(mut result: Vec<WithLocation<T>>) -> Vec<WithLocation<Vec<T>>> {
     result.sort_by(|x1, x2| x1.loc.cmp(&x2.loc));
 
     let mut result2 = Vec::new();

@@ -269,7 +269,10 @@ pub struct TreeInfo {
 #[derive(Clone, Debug)]
 pub struct CommitInfo {
     pub rev: String,
+    /// Its header's HTML (see `blame::commit_header`).
     pub header: String,
+    /// Its message's first line.
+    pub summary: String,
     pub date: DateTime<FixedOffset>,
 }
 

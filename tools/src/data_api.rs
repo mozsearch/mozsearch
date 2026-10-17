@@ -451,6 +451,7 @@ async fn route_body(
                 "commit": commit.map(|commit| json!({
                     "rev": commit.rev,
                     "header": commit.header,
+                    "summary": commit.summary,
                     "date": commit.date.to_rfc3339(),
                 })),
                 "path_kinds": server.path_kinds(),
@@ -617,6 +618,7 @@ pub(crate) mod fake {
             Ok(Some(crate::abstract_server::CommitInfo {
                 rev: "0123456789abcdef0123456789abcdef01234567".to_string(),
                 header: "Fake".to_string(),
+                summary: "Fake".to_string(),
                 date: chrono::DateTime::parse_from_rfc3339("2026-10-17T12:00:00+01:00").unwrap(),
             }))
         }

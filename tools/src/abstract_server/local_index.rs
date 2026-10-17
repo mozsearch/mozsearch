@@ -6,8 +6,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::io::Read;
 use std::path::Path;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
@@ -172,13 +172,21 @@ pub struct LocalIndex {
     /// The files' history digests, for trees with histories (see
     /// `file_format::recency::FileRecency`).
     file_recency_lookup_map: Option<BisectableMmap<FileRecency>>,
-    file_lookup_map: FileLookupMap,
+    /// The files' concise information, loaded when first needed (it's big,
+    /// ex: ~260 MB of JSON for firefox), from `file_lookup_path`.
+    file_lookup_map: Arc<OnceLock<FileLookupMap>>,
+    file_lookup_path: String,
     /// The tree's path kinds' keys and names, in display order.
     path_kinds: Vec<(Ustr, Ustr)>,
     head_info: Option<CommitInfo>,
 }
 
 impl LocalIndex {
+    fn file_lookup_map(&self) -> &FileLookupMap {
+        self.file_lookup_map
+            .get_or_init(|| FileLookupMap::new(&self.file_lookup_path))
+    }
+
     fn normalize_and_validate_path<'a>(&self, sf_path: &'a str) -> Result<&'a str> {
         // We normalize off any leading "/" mainly to support our test cases
         // being able to use "/" to indicate they're interested in a root dir.
@@ -242,7 +250,7 @@ impl AbstractServer for LocalIndex {
     }
 
     fn file_facet_info(&self, path: &str) -> Option<(Ustr, Option<Ustr>)> {
-        self.file_lookup_map
+        self.file_lookup_map()
             .lookup_file_from_str(path)
             .map(|info| (info.path_kind, info.subsystem))
     }
@@ -546,7 +554,7 @@ impl AbstractServer for LocalIndex {
         include_dirs: bool,
         limit: usize,
     ) -> Result<FileMatches> {
-        self.file_lookup_map
+        self.file_lookup_map()
             .search_files(pathre, include_dirs, limit)
     }
 
@@ -633,7 +641,7 @@ impl AbstractServer for LocalIndex {
                 .or_insert_with(|| {
                     let path = ustr(&result.path);
                     let path_kind = self
-                        .file_lookup_map
+                        .file_lookup_map()
                         .lookup_file_from_ustr(&path)
                         .map_or_else(|| ustr(""), |fi| fi.path_kind);
                     TextMatchesByFile {
@@ -783,8 +791,6 @@ fn fab_server(
         tree_config.paths.index_path
     );
 
-    let file_lookup_map = FileLookupMap::new(&file_lookup_path);
-
     let head_info = match tree_config.get_git() {
         Ok(git) => match git.repo.head() {
             Ok(r) => match r.target() {
@@ -795,6 +801,12 @@ fn fab_server(
                     Some(CommitInfo {
                         rev: rev.to_string(),
                         header,
+                        summary: commit
+                            .summary()
+                            .ok()
+                            .flatten()
+                            .unwrap_or_default()
+                            .to_string(),
                         date,
                     })
                 }
@@ -816,7 +828,8 @@ fn fab_server(
         linked_crossrefs,
         jumprefs,
         file_recency_lookup_map,
-        file_lookup_map,
+        file_lookup_map: Arc::new(OnceLock::new()),
+        file_lookup_path,
         path_kinds,
         head_info,
     }))

@@ -17,7 +17,7 @@ use liquid::Template;
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tools::{
-    abstract_server::{AbstractServer, ServerError, make_all_local_servers},
+    abstract_server::{AbstractServer, ServerError, make_all_local_servers, sym_info},
     admission,
     cmd_pipeline::{
         PipelineValues,
@@ -27,10 +27,7 @@ use tools::{
     },
     data_api,
     file_format::config::{self, SearchEndpoint},
-    file_format::jumpref::{
-        JumprefData, JumprefTraversals, determine_desired_extra_syms_from_jumpref,
-        extra_syms_next_step_lookups,
-    },
+    file_format::jumpref::{JumprefData, JumprefTraversals},
     file_format::recency::Recency,
     logging::{LoggedSpan, init_logging},
     query::chew_query::chew_query,
@@ -38,7 +35,7 @@ use tools::{
 };
 use tower::limit::GlobalConcurrencyLimitLayer;
 use tracing::Instrument;
-use ustr::{Ustr, UstrMap, ustr};
+use ustr::{Ustr, UstrMap};
 
 /// The facets of the files of file-centric results (see facet_bar.liquid), as
 /// on the `/explore/` pages: their path kinds, subsystems, and directories, as
@@ -191,19 +188,12 @@ async fn results_sym_info(
     server: &(dyn AbstractServer + Send + Sync),
     results: &FlattenedResultsBundle,
 ) -> String {
-    const DATA_SYMBOLS: &str = "data-symbols=\"";
     let mut syms: BTreeSet<Ustr> = BTreeSet::new();
     for pk_group in &results.path_kind_results {
         for kind_group in &pk_group.kind_groups {
             for file in &kind_group.by_file {
                 for span in &file.line_spans {
-                    let mut rest = span.contents.as_str();
-                    while let Some(start) = rest.find(DATA_SYMBOLS) {
-                        rest = &rest[start + DATA_SYMBOLS.len()..];
-                        let end = rest.find('"').unwrap_or(rest.len());
-                        syms.extend(rest[..end].split(',').filter(|s| !s.is_empty()).map(ustr));
-                        rest = &rest[end..];
-                    }
+                    syms.extend(sym_info::html_symbols(&span.contents));
                 }
             }
         }
@@ -213,41 +203,9 @@ async fn results_sym_info(
     let mut sym_info: BTreeMap<Ustr, Option<JumprefData>> = BTreeMap::new();
     let mut traversed: UstrMap<JumprefTraversals> = UstrMap::default();
     for sym in syms {
-        if sym_info.contains_key(&sym) {
-            continue;
+        if !sym_info.contains_key(&sym) {
+            sym_info::add_sym_info(server, sym, &mut sym_info, &mut traversed).await;
         }
-        let Ok(jumpref) = server.jumpref_lookup(&sym).await else {
-            continue;
-        };
-        let mut extra_syms = determine_desired_extra_syms_from_jumpref(jumpref.as_ref());
-        traversed
-            .entry(sym)
-            .and_modify(|t| *t |= JumprefTraversals::NormalExtra)
-            .or_insert(JumprefTraversals::NormalExtra);
-        while let Some((extra_sym, next_step)) = extra_syms.pop() {
-            if let Some(extra_traversed) = traversed.get_mut(&extra_sym) {
-                if extra_traversed.contains(next_step) {
-                    continue;
-                }
-                *extra_traversed |= next_step;
-                if let Some(extra_jumpref) = sym_info.get(&extra_sym) {
-                    extra_syms.extend(extra_syms_next_step_lookups(
-                        extra_jumpref.as_ref(),
-                        next_step,
-                    ));
-                }
-            } else if let Ok(extra_jumpref) = server.jumpref_lookup(&extra_sym).await {
-                if !next_step.is_empty() {
-                    extra_syms.extend(extra_syms_next_step_lookups(
-                        extra_jumpref.as_ref(),
-                        next_step,
-                    ));
-                }
-                traversed.insert(extra_sym, next_step);
-                sym_info.insert(extra_sym, extra_jumpref);
-            }
-        }
-        sym_info.insert(sym, jumpref);
     }
     let mut sym_info = serde_json::to_value(&sym_info).unwrap_or_default();
     if let Some(sym_info) = sym_info.as_object_mut() {

@@ -5,7 +5,9 @@
 //! laying out by their control flow on an infinite canvas (see
 //! static/js/rev-canvas.js and graph.js).  It's from the push's semantic delta
 //! (see `try_delta`), whose analysis is the compiler's, so that the calls are
-//! the ones the code makes, not a parse's guesses.
+//! the ones the code makes, not a parse's guesses, through the tree's server
+//! as the push changes it (see `AbstractServer::try_overlay`), so that it can
+//! be built over a remote tree's too (see `RemoteServer`).
 //!
 //! - A function the push changes is a definition (in its analysis of a file it
 //!   changes) whose lines, from its name to the end of its body, include lines
@@ -25,20 +27,19 @@
 //! it, which the page keeps (see rev-canvas.js).
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::path::Path;
 
-use git2::Repository;
 use serde::Serialize;
-use ustr::{Ustr, UstrMap};
+use serde_json::Value;
+use tokio_stream::StreamExt;
+use ustr::{Ustr, UstrMap, ustr};
 
-use crate::file_format::analysis::{read_analysis, read_source};
-use crate::file_format::bisectable_mmap::BisectableMmap;
-use crate::file_format::config::Config;
-use crate::file_format::crossref::CrossrefData;
-use crate::file_format::jumpref::{JumprefData, JumprefTraversals, TreeJumprefs};
-use crate::format::{add_rows_sym_info, excerpt_row_html, file_rows};
+use crate::abstract_server::AbstractServer;
+use crate::abstract_server::sym_info::add_html_sym_info;
+use crate::file_format::analysis::{analysis_from_values, read_source};
+use crate::file_format::jumpref::{JumprefData, JumprefTraversals};
+use crate::format::excerpt_row_html;
 use crate::rev_lines::changed_lines;
-use crate::try_delta::{FileChange, TryDelta};
+use crate::try_delta::FileChange;
 use crate::url_encode_path::url_encode_path;
 
 /// The version of the model's format.
@@ -122,16 +123,14 @@ struct Function {
     lines: (u32, u32),
 }
 
-/// The function definitions of an analysis file (of any revision): the
-/// definitions whose syntax is a function's or a method's, from their names to
-/// the ends of their bodies (their nesting ranges), by their names' lines.
-fn functions(file: &Path) -> Vec<Function> {
-    if !file.exists() {
-        return vec![];
-    }
+/// The function definitions of a file's analysis records (of any revision;
+/// see `AbstractServer::fetch_raw_analysis`): the definitions whose syntax is
+/// a function's or a method's, from their names to the ends of their bodies
+/// (their nesting ranges), by their names' lines.
+fn functions(records: Vec<Value>) -> Vec<Function> {
     let mut seen = BTreeSet::new();
     let mut functions = vec![];
-    for record in read_analysis(&file.to_string_lossy(), &mut read_source) {
+    for record in analysis_from_values(records, &mut read_source) {
         for source in &record.data {
             let syntax: Vec<&str> = source.syntax.iter().map(|s| s.as_str()).collect();
             if !syntax.contains(&"def")
@@ -161,10 +160,48 @@ fn functions(file: &Path) -> Vec<Function> {
     functions
 }
 
-/// A file's contents at a commit.
-fn blob_at(repo: &Repository, commit: &git2::Commit, path: &str) -> Option<Vec<u8>> {
-    let entry = commit.tree().ok()?.get_path(Path::new(path)).ok()?;
-    Some(repo.find_blob(entry.id()).ok()?.content().to_vec())
+/// The function definitions of the file at `path` in `server`'s analysis
+/// (none if it has none).
+async fn file_functions(server: &(dyn AbstractServer + Send + Sync), path: &str) -> Vec<Function> {
+    match server.fetch_raw_analysis(path).await {
+        Ok(records) => functions(records.collect().await),
+        Err(_) => vec![],
+    }
+}
+
+/// A function the push doesn't change, as a card of the context (only
+/// functions: uses' contexts can be other definitions, ex: a variable's, for
+/// its initializer).
+async fn context_node(
+    server: &(dyn AbstractServer + Send + Sync),
+    sym: &str,
+    link: &(dyn Fn(&str) -> String + Sync),
+) -> Option<CanvasNode> {
+    let data = server.crossref_lookup(sym).await.ok()??;
+    if !data
+        .meta
+        .as_ref()
+        .is_some_and(|meta| matches!(meta.kind.as_str(), "function" | "method"))
+    {
+        return None;
+    }
+    let definition = data.definitions.as_ref()?.first()?;
+    let line = definition.lines.first()?.lineno;
+    let pretty = match data.meta.as_ref() {
+        Some(meta) => meta.pretty.to_string(),
+        None => server.jumpref_lookup(sym).await.ok()??.pretty.to_string(),
+    };
+    Some(CanvasNode {
+        id: sym.to_string(),
+        pretty,
+        status: "context",
+        path: definition.path.to_string(),
+        lines: (line, line),
+        changed_lines: vec![],
+        rows: String::new(),
+        complete: true,
+        link: link(&definition.path),
+    })
 }
 
 /// The lines of the `(line, line, ...)` of a crossref callee's jump
@@ -175,101 +212,66 @@ fn jump_lines(jump: &str) -> Vec<u32> {
         .unwrap_or_default()
 }
 
-/// The canvas of the try push of the tree whose rebased stack's head is
-/// `head`.
-pub fn build_canvas(
-    cfg: &Config,
+/// The canvas of the try push of `server`'s tree whose rebased stack's head
+/// is `head` (see `AbstractServer::try_overlay`).
+pub async fn build_canvas(
+    server: &(dyn AbstractServer + Send + Sync),
     tree_name: &str,
     head: &str,
 ) -> Result<CanvasModel, &'static str> {
-    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
-    let git = tree_config.get_git()?;
-    let repo = &git.repo;
-    let paths = &tree_config.paths;
-    let delta =
-        TryDelta::open(&paths.index_path, head).ok_or("No semantic analysis of the revision")?;
-    let commit = |rev: &str| {
-        repo.revparse_single(rev)
-            .and_then(|object| object.peel_to_commit())
-            .map_err(|_| "Bad revision")
-    };
-    let head_commit = commit(&delta.meta.head)?;
-    let base_commit = commit(&delta.meta.base)?;
-    let mut jumprefs = TreeJumprefs::open(paths, &cfg.tree_index_paths);
-    jumprefs.delta = delta.jumprefs();
-    let crossref = BisectableMmap::<CrossrefData>::new(
-        &format!("{}/crossref", paths.index_path),
-        &format!("{}/crossref-extra", paths.index_path),
-    );
-    // (The push's, with its patches.)
-    let lookup = |sym: &str| -> Option<CrossrefData> {
-        let data = crossref.as_ref().and_then(|c| c.lookup(sym).ok().flatten());
-        match delta.crossref_patch(sym).ok().flatten() {
-            Some(patch) => patch.apply(data),
-            None => data,
-        }
-    };
-    let link = |path: &str| {
-        format!(
-            "/{}/rev/{}/{}",
-            tree_name,
-            delta.meta.head,
-            url_encode_path(path)
-        )
-    };
+    const NO_ANALYSIS: &str = "No semantic analysis of the revision";
+    // (The tree as the push changes it, and as indexed, which is the push's
+    // base.)
+    let overlay = server.try_overlay(head).ok_or(NO_ANALYSIS)?;
+    let overlay = overlay.as_ref();
+    let meta = overlay.try_delta_meta().ok_or(NO_ANALYSIS)?;
+    let head_commit = overlay.commit_info().ok().flatten().ok_or("Bad revision")?;
+    let base = overlay.old_side(&meta.base).ok_or("Bad revision")?;
+    let base = base.as_ref();
+    if base.commit_info().ok().flatten().map(|commit| commit.rev) != Some(meta.base.clone()) {
+        return Err("The push's base isn't the indexed revision");
+    }
+    let link = |path: &str| format!("/{}/rev/{}/{}", tree_name, meta.head, url_encode_path(path));
 
     // ## The functions the push adds or changes.
     let mut nodes: Vec<CanvasNode> = vec![];
     let mut other_files = vec![];
-    for (path, change) in &delta.meta.changed {
+    for (path, change) in &meta.changed {
         let other = |note| CanvasFile {
             path: path.clone(),
             change: *change,
             note,
             link: link(path),
         };
-        let Some(analysis) = delta.analysis_file(path).filter(|file| file.exists()) else {
+        if *change == FileChange::Removed || !meta.analyzed.contains_key(path) {
             other_files.push(other(match change {
                 FileChange::Removed => "removed",
                 _ => "not analyzed",
             }));
             continue;
-        };
-        let (head_source, base_source) = match delta.generated_source(path) {
-            Some(file) => (
-                std::fs::read(file).ok(),
-                path.strip_prefix("__GENERATED__/")
-                    .and_then(|rel| std::fs::read(Path::new(&paths.objdir_path).join(rel)).ok()),
-            ),
-            None => (
-                blob_at(repo, &head_commit, path),
-                blob_at(repo, &base_commit, path),
-            ),
-        };
-        let Some(head_source) = head_source else {
+        }
+        let Ok(head_source) = overlay.fetch_raw_source(path).await else {
             other_files.push(other("not found"));
             continue;
         };
+        let base_source = match change {
+            FileChange::Added => None,
+            _ => base.fetch_raw_source(path).await.ok(),
+        };
         let (added, touched) = changed_lines(
-            match change {
-                FileChange::Added => None,
-                _ => base_source.as_deref(),
-            },
-            &head_source,
+            base_source.as_deref().map(str::as_bytes),
+            head_source.as_bytes(),
         );
         let base_functions: BTreeSet<String> = match change {
             FileChange::Added => BTreeSet::new(),
-            _ => functions(
-                &Path::new(&paths.index_path)
-                    .join("analysis")
-                    .join(format!("{}.gz", path)),
-            )
-            .into_iter()
-            .map(|f| f.pretty)
-            .collect(),
+            _ => file_functions(base, path)
+                .await
+                .into_iter()
+                .map(|f| f.pretty)
+                .collect(),
         };
         let before = nodes.len();
-        for function in functions(&analysis) {
+        for function in file_functions(overlay, path).await {
             let (first, last) = function.lines;
             if touched.range(first..=last).next().is_none() {
                 continue;
@@ -303,39 +305,9 @@ pub fn build_canvas(
         .map(|(i, node)| (node.id.clone(), i))
         .collect();
     let mut calls: BTreeMap<(String, String), BTreeSet<u32>> = BTreeMap::new();
-    let context_node = |sym: &str| -> Option<CanvasNode> {
-        let data = lookup(sym)?;
-        // (Only functions; uses' contexts can be other definitions, ex: a
-        // variable's, for its initializer.)
-        if !data
-            .meta
-            .as_ref()
-            .is_some_and(|meta| matches!(meta.kind.as_str(), "function" | "method"))
-        {
-            return None;
-        }
-        let definition = data.definitions.as_ref()?.first()?;
-        let line = definition.lines.first()?.lineno;
-        let pretty = data
-            .meta
-            .as_ref()
-            .map(|meta| meta.pretty.to_string())
-            .or_else(|| Some(jumprefs.lookup(sym).ok()??.pretty.to_string()))?;
-        Some(CanvasNode {
-            id: sym.to_string(),
-            pretty,
-            status: "context",
-            path: definition.path.to_string(),
-            lines: (line, line),
-            changed_lines: vec![],
-            rows: String::new(),
-            complete: true,
-            link: link(&definition.path),
-        })
-    };
     for i in 0..nodes.len() {
         let sym = nodes[i].id.clone();
-        let Some(data) = lookup(&sym) else {
+        let Some(data) = overlay.crossref_lookup(&sym).await.ok().flatten() else {
             continue;
         };
         let mut context = 0;
@@ -348,7 +320,7 @@ pub fn build_canvas(
                 if context == MAX_CONTEXT_PER_NODE {
                     continue;
                 }
-                let Some(node) = context_node(&to) else {
+                let Some(node) = context_node(overlay, &to, &link).await else {
                     continue;
                 };
                 context += 1;
@@ -371,7 +343,7 @@ pub fn build_canvas(
                     if context == MAX_CONTEXT_PER_NODE {
                         continue;
                     }
-                    let Some(node) = context_node(&from) else {
+                    let Some(node) = context_node(overlay, &from, &link).await else {
                         continue;
                     };
                     context += 1;
@@ -406,15 +378,18 @@ pub fn build_canvas(
     let mut sym_info: BTreeMap<Ustr, Option<JumprefData>> = BTreeMap::new();
     let mut traversed: UstrMap<JumprefTraversals> = UstrMap::default();
     for (path, lines) in file_lines {
-        let Some(rows) = file_rows(cfg, tree_name, Some(&delta), &jumprefs, &path, &lines) else {
+        // (A file at a time, so that one without rows doesn't lose the
+        // others'.)
+        let key = ustr(&path);
+        let Some(rows) = overlay
+            .fetch_html_lines(vec![(key, lines)])
+            .await
+            .ok()
+            .and_then(|mut rows| rows.remove(&key))
+        else {
             continue;
         };
-        let source = match delta.generated_source(&path) {
-            Some(file) => std::fs::read(file).ok(),
-            None => blob_at(repo, &head_commit, &path),
-        }
-        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
-        .unwrap_or_default();
+        let source = overlay.fetch_raw_source(&path).await.unwrap_or_default();
         let text: Vec<&str> = source.lines().collect();
         for node in nodes.iter_mut().filter(|node| node.path == path) {
             let last = node.lines.1.min(node.lines.0 + MAX_NODE_LINES - 1);
@@ -440,7 +415,7 @@ pub fn build_canvas(
                     changed.contains(&line).then_some("rc-changed-line"),
                 ));
             }
-            add_rows_sym_info(&jumprefs, &html, &mut sym_info, &mut traversed);
+            add_html_sym_info(overlay, &html, &mut sym_info, &mut traversed).await;
             node.complete = last == node.lines.1;
             node.rows = html;
         }
@@ -451,19 +426,13 @@ pub fn build_canvas(
         jumpref.recency_from = None;
     }
 
-    let summary = head_commit
-        .summary()
-        .ok()
-        .flatten()
-        .unwrap_or_default()
-        .to_string();
     Ok(CanvasModel {
         version: CANVAS_VERSION,
         tree: tree_name.to_string(),
-        push: delta.meta.push.clone(),
-        base: delta.meta.base.clone(),
-        head: delta.meta.head.clone(),
-        summary,
+        push: meta.push.clone(),
+        base: meta.base.clone(),
+        head: meta.head.clone(),
+        summary: head_commit.summary,
         nodes,
         edges,
         other_files,

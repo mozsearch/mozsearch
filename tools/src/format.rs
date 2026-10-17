@@ -8,7 +8,7 @@ use std::process::Command;
 use std::rc::Rc;
 use std::time::Instant;
 
-use crate::abstract_server::FileMatch;
+use crate::abstract_server::{AbstractServer, FileMatch};
 use crate::blame;
 use crate::cmd_pipeline::facets::{FacetFile, FacetView, PathKinds, file_facets};
 use crate::commit_index::{CommitIndex, CommitRef};
@@ -2230,10 +2230,38 @@ struct TryAlgorithmView {
     versus: Option<std::sync::Arc<crate::try_delta::TryDelta>>,
 }
 
+/// Run `future` from the web-server's synchronous handlers (on tokio's
+/// blocking threads), on the runtime's workers, where servers' synchronous
+/// methods can block in place (see `abstract_server::RemoteServer`).
+fn run_on_runtime<T: Send + 'static>(future: impl Future<Output = T> + Send + 'static) -> T {
+    let handle = tokio::runtime::Handle::current();
+    match handle.block_on(handle.spawn(future)) {
+        Ok(output) => output,
+        Err(err) => std::panic::resume_unwind(err.into_panic()),
+    }
+}
+
+/// The model of the canvas of the try push of `server`'s tree whose rebased
+/// stack's head is `head` (see `patch_canvas`).
+fn canvas_model(
+    server: &(dyn AbstractServer + Send + Sync),
+    tree_name: &str,
+    head: &str,
+) -> Result<crate::patch_canvas::CanvasModel, &'static str> {
+    let (server, tree_name, head) = (server.clonify(), tree_name.to_string(), head.to_string());
+    run_on_runtime(async move {
+        crate::patch_canvas::build_canvas(server.as_ref(), &tree_name, &head).await
+    })
+}
+
 /// The model of a try push's canvas (see `patch_canvas`), as JSON
 /// (`/{tree}/rev-canvas/{head}/canvas.json`).
-pub fn try_canvas_json(cfg: &Config, tree_name: &str, head: &str) -> Result<String, &'static str> {
-    let model = crate::patch_canvas::build_canvas(cfg, tree_name, head)?;
+pub fn try_canvas_json(
+    server: &(dyn AbstractServer + Send + Sync),
+    tree_name: &str,
+    head: &str,
+) -> Result<String, &'static str> {
+    let model = canvas_model(server, tree_name, head)?;
     serde_json::to_string(&model).map_err(|_| "Canvas problems")
 }
 
@@ -2243,12 +2271,12 @@ pub fn try_canvas_json(cfg: &Config, tree_name: &str, head: &str) -> Result<Stri
 /// links, with the head's searches (its pages', and its code's context
 /// menus') in the push's context.
 pub fn format_try_canvas(
-    cfg: &Config,
+    server: &(dyn AbstractServer + Send + Sync),
     tree_name: &str,
     head: &str,
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
-    let model = crate::patch_canvas::build_canvas(cfg, tree_name, head)?;
+    let model = canvas_model(server, tree_name, head)?;
     let title = format!("Canvas of try push {} - mozsearch", model.push);
     let opt = Options {
         title: &title,

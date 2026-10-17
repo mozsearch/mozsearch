@@ -10,7 +10,7 @@ use std::io::{Read, Write};
 use std::net::SocketAddr;
 use std::path::Path;
 use std::process::Command;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, Mutex};
 
 use git2::Oid;
 use hyper::http;
@@ -21,6 +21,7 @@ use hyper::{Method, StatusCode, header};
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
+use tools::abstract_server::{AbstractServer, make_local_server};
 use tools::admission;
 use tools::blame;
 use tools::commit_index::CommitIndex;
@@ -200,6 +201,23 @@ fn write_page_sidecar(cfg: &config::Config, raw_path: &str, response: &WebRespon
             &format!("{}{}", rest, suffix),
             &response.output,
         )
+}
+
+/// The tree's server (see `tools::abstract_server`), for the pages built over
+/// one rather than over the index's files (ex: try pushes' canvases), made
+/// when first needed: its local index (whose big parts load as they're
+/// needed).
+fn tree_server(tree_name: &str) -> Option<Arc<dyn AbstractServer + Send + Sync>> {
+    static SERVERS: LazyLock<Mutex<HashMap<String, Arc<dyn AbstractServer + Send + Sync>>>> =
+        LazyLock::new(Default::default);
+    let mut servers = SERVERS.lock().unwrap();
+    if let Some(server) = servers.get(tree_name) {
+        return Some(server.clone());
+    }
+    let server: Arc<dyn AbstractServer + Send + Sync> =
+        Arc::from(make_local_server(&env::args().nth(1)?, tree_name).ok()?);
+    servers.insert(tree_name.to_string(), server.clone());
+    Some(server)
 }
 
 fn handle(
@@ -434,21 +452,33 @@ fn handle(
         // `/{tree}/rev-canvas/{head}/canvas.json`, which other sites' pages
         // can read (ex: a service keeping notes on it); see
         // `format::format_try_canvas`.
-        "rev-canvas" => match path.len() {
-            3 => {
-                let mut writer = Vec::new();
-                match format::format_try_canvas(cfg, tree_name, path[2], &mut writer) {
-                    Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
-                    Err(err) => WebResponse::internal_error(err.to_owned()),
+        "rev-canvas" => {
+            // (Over the tree's server; see `tree_server`.)
+            let Some(server) = tree_server(tree_name) else {
+                return WebResponse::not_found();
+            };
+            match path.len() {
+                3 => {
+                    let mut writer = Vec::new();
+                    match format::format_try_canvas(
+                        server.as_ref(),
+                        tree_name,
+                        path[2],
+                        &mut writer,
+                    ) {
+                        Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                        Err(err) => WebResponse::internal_error(err.to_owned()),
+                    }
                 }
+                4 if path[3] == "canvas.json" => {
+                    match format::try_canvas_json(server.as_ref(), tree_name, path[2]) {
+                        Ok(json) => WebResponse::json(json).shared(),
+                        Err(err) => WebResponse::internal_error(err.to_owned()),
+                    }
+                }
+                _ => WebResponse::not_found(),
             }
-            4 if path[3] == "canvas.json" => match format::try_canvas_json(cfg, tree_name, path[2])
-            {
-                Ok(json) => WebResponse::json(json).shared(),
-                Err(err) => WebResponse::internal_error(err.to_owned()),
-            },
-            _ => WebResponse::not_found(),
-        },
+        }
 
         // The view of a spec's algorithm in a try push's context, beside the
         // code citing it at the head of the push's rebased stack, as

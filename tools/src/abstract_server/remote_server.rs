@@ -346,6 +346,7 @@ impl AbstractServer for RemoteServer {
         Ok(Some(CommitInfo {
             rev: rev.to_string(),
             header: header.to_string(),
+            summary: commit["summary"].as_str().unwrap_or_default().to_string(),
             date,
         }))
     }
