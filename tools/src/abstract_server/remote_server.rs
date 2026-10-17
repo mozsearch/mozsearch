@@ -108,9 +108,14 @@ fn problem(sticky: bool, layer: ErrorLayer, message: String) -> ServerError {
 /// client's rate; other unhappy statuses are errors (with the API's error
 /// message, if it says one).
 async fn get_bytes(url: Url, accept: Option<&str>) -> Result<Vec<u8>> {
+    request_bytes(reqwest::Method::GET, url, accept).await
+}
+
+/// `get_bytes`, with `method`.
+async fn request_bytes(method: reqwest::Method, url: Url, accept: Option<&str>) -> Result<Vec<u8>> {
     let mut retries = 0;
     loop {
-        let mut request = client().get(url.clone());
+        let mut request = client().request(method.clone(), url.clone());
         if let Some(accept) = accept {
             request = request.header("Accept", accept);
         }
@@ -293,6 +298,22 @@ impl RemoteServer {
                     .await
             }
         }
+    }
+
+    /// The body of the API's response for `route` (see `api_url`) of the tree
+    /// as indexed, which changes (ex: a try push's import's status), so not
+    /// cached, `post`ed if it asks for something.
+    async fn api_live(&self, route: &str, params: &[(&str, &str)], post: bool) -> Result<Vec<u8>> {
+        let base = RemoteServer {
+            rev: None,
+            ..self.clone()
+        };
+        let url = base.api_url(route, None, params)?;
+        let method = match post {
+            true => reqwest::Method::POST,
+            false => reqwest::Method::GET,
+        };
+        request_bytes(method, url, None).await
     }
 
     /// The body of the API's response for `route` (see `api_url`), from the
@@ -572,6 +593,32 @@ impl AbstractServer for RemoteServer {
                 message: err.to_string(),
             })
         })
+    }
+
+    async fn try_import_status(&self, push: &str) -> Result<crate::try_import::ImportStatus> {
+        parse(
+            &self
+                .api_live("try-status", &[("push", push)], false)
+                .await?,
+        )
+    }
+
+    async fn request_try_import(&self, push: &str) -> Result<()> {
+        self.api_live("try-import", &[("push", push)], true).await?;
+        Ok(())
+    }
+
+    async fn try_push(&self, push: &str) -> Result<Option<crate::try_import::TryPush>> {
+        parse(&self.api_live("try-push", &[("push", push)], false).await?)
+    }
+
+    async fn explore(&self, revs: &[String], stack_url: Option<&str>) -> Result<Value> {
+        let revs = revs.join(",");
+        let mut params = vec![("revs", revs.as_str())];
+        if let Some(stack_url) = stack_url {
+            params.push(("stack_url", stack_url));
+        }
+        parse(&self.api("explore", None, &params).await?)
     }
 
     fn try_overlay(&self, head: &str) -> Option<Box<dyn AbstractServer + Send + Sync>> {

@@ -8,7 +8,7 @@ use std::process::Command;
 use std::rc::Rc;
 use std::time::Instant;
 
-use crate::abstract_server::{AbstractServer, FileMatch};
+use crate::abstract_server::{AbstractServer, FileMatch, ServerError};
 use crate::blame;
 use crate::cmd_pipeline::facets::{FacetFile, FacetView, PathKinds, file_facets};
 use crate::commit_index::{CommitIndex, CommitRef};
@@ -2233,7 +2233,7 @@ struct TryAlgorithmView {
 /// Run `future` from the web-server's synchronous handlers (on tokio's
 /// blocking threads), on the runtime's workers, where servers' synchronous
 /// methods can block in place (see `abstract_server::RemoteServer`).
-fn run_on_runtime<T: Send + 'static>(future: impl Future<Output = T> + Send + 'static) -> T {
+pub fn run_on_runtime<T: Send + 'static>(future: impl Future<Output = T> + Send + 'static) -> T {
     let handle = tokio::runtime::Handle::current();
     match handle.block_on(handle.spawn(future)) {
         Ok(output) => output,
@@ -7833,7 +7833,6 @@ pub fn stack_strip_json(
     serde_json::to_string(&strip).map_err(|_| "Stack strip problems")
 }
 
-/// What an explore page has besides its commits (see `write_explore`).
 struct ExploreExtras {
     /// The keys no commit mentions.
     missing: Vec<String>,
@@ -7869,9 +7868,33 @@ fn write_explore(
     tree_name: &str,
     refs: &[CommitRef],
     title: &str,
-    extras: ExploreExtras,
+    mut extras: ExploreExtras,
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
+    let stack_url = extras.stack_links.then(|| extras.explore_url.clone());
+    let data = explore_data(
+        cfg,
+        tree_name,
+        refs,
+        extras.changes.take(),
+        stack_url.as_deref(),
+    )?;
+    render_explore(tree_name, title, data, extras, writer)
+}
+
+/// The data of an explore page (see `write_explore`) of the commits `refs`,
+/// oldest first, as explore.liquid takes it: its `commits`, and its files'
+/// `facets` and `file_groups`, from what the commits changed (`changes`, if
+/// not all of it), with the files' links with the stack strip of the page at
+/// `stack_url`, if any (see `stack_strip_json`).  (For trees' servers' explore
+/// pages; see `AbstractServer::explore`.)
+pub fn explore_data(
+    cfg: &Config,
+    tree_name: &str,
+    refs: &[CommitRef],
+    changes: Option<Vec<explore::CommitChanges>>,
+    stack_url: Option<&str>,
+) -> Result<serde_json::Value, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
     let history = git.history.as_ref();
@@ -7880,7 +7903,7 @@ fn write_explore(
         .enumerate()
         .map(|(i, commit_ref)| explore_commit(tree_config, git, i + 1, commit_ref))
         .collect();
-    let changes: Vec<_> = match extras.changes {
+    let changes: Vec<_> = match changes {
         Some(changes) => changes,
         None => refs
             .iter()
@@ -7903,9 +7926,9 @@ fn write_explore(
         &changes,
         |path, rev| {
             let url = format!("/{}/rev/{}/{}", tree_name, rev, url_encode_path(path));
-            match extras.stack_links {
-                true => format!("{}?stack={}", url, extras.explore_url),
-                false => url,
+            match stack_url {
+                Some(stack_url) => format!("{}?stack={}", url, stack_url),
+                None => url,
             }
         },
         |_, _| false,
@@ -7956,7 +7979,22 @@ fn write_explore(
         }
     }
     let (facets, file_groups) = explore_facets(cfg, tree_name, files);
+    Ok(json!({
+        "commits": commits,
+        "facets": facets,
+        "file_groups": file_groups,
+    }))
+}
 
+/// An explore page with its `data` (see `explore_data`).
+fn render_explore(
+    tree_name: &str,
+    title: &str,
+    data: serde_json::Value,
+    extras: ExploreExtras,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let commit_count = data["commits"].as_array().map_or(0, Vec::len);
     let page_title = format!("{} - mozsearch", title);
     let opt = Options {
         title: &page_title,
@@ -7972,10 +8010,10 @@ fn write_explore(
     let globals = liquid::to_object(&json!({
         "tree": tree_name,
         "title": title,
-        "commits": commits,
-        "facets": facets,
-        "file_groups": file_groups,
-        "slot": explore::slot_width(commits.len()),
+        "commits": data["commits"],
+        "facets": data["facets"],
+        "file_groups": data["file_groups"],
+        "slot": explore::slot_width(commit_count),
         "missing": extras.missing,
         "truncated": extras.truncated,
         "other_branches": extras.other_branches,
@@ -7999,64 +8037,52 @@ fn write_explore(
 /// button asking for it (see `request_try_import`), and while it waits or
 /// runs, polling its status (see `format_try_status`).
 pub fn format_try(
-    cfg: &Config,
+    server: &(dyn AbstractServer + Send + Sync),
     tree_name: &str,
     rev: &str,
     notice: Option<&str>,
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
-    use crate::try_import::{IMPORTS, ImportStatus, normalize_rev, push_commits};
+    use crate::try_import::{ImportStatus, normalize_rev};
 
     let rev = normalize_rev(rev).ok_or("Not a try push's revision")?;
-    let status = IMPORTS.status(cfg, tree_name, &rev);
+    let status = try_import_status(server, &rev)?;
     match status {
         ImportStatus::Unavailable => return Err("This tree can't import try pushes"),
         ImportStatus::Imported { .. } => {
-            let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
-            let git = tree_config.get_git()?;
-            let (stack, task_selections) = push_commits(cfg, tree_name, &rev);
-            let mut refs: Vec<CommitRef> = stack
-                .into_iter()
-                .filter_map(|oid| git.repo.find_commit(oid).ok())
-                .map(|commit| crate::commit_index::commit_ref(&commit))
-                .collect();
-            let truncated = refs.len() > explore::MAX_COMMITS;
-            refs.truncate(explore::MAX_COMMITS);
-            explore::mark_history_backouts(
-                git.history.as_ref().map(|h| Path::new(&h.path)),
-                &mut refs,
-            );
-            // The head of its stack rebased onto the indexed revision, if
-            // that has a semantic delta (see `try_delta`).
-            let semantic_head = git
-                .repo
-                .refname_to_id(&format!("refs/try-rebased/{}", rev))
+            let (server_, rev_) = (server.clonify(), rev.clone());
+            let push = run_on_runtime(async move { server_.try_push(&rev_).await })
                 .ok()
-                .map(|oid| oid.to_string())
-                .filter(|head| {
-                    crate::try_delta::delta_dir(&tree_config.paths.index_path, head)
-                        .join("meta.json")
-                        .exists()
-                });
+                .flatten()
+                .ok_or("The try push's import isn't there")?;
+            let explore_url = format!("try/{}", rev);
+            let (server_, revs, stack_url) = (
+                server.clonify(),
+                push.stack
+                    .iter()
+                    .map(|commit| commit.rev.clone())
+                    .collect::<Vec<_>>(),
+                explore_url.clone(),
+            );
+            let data =
+                run_on_runtime(async move { server_.explore(&revs, Some(&stack_url)).await })
+                    .map_err(|_| "The try push's commits aren't there")?;
             let extras = ExploreExtras {
                 missing: vec![],
-                truncated,
+                truncated: push.truncated,
                 other_branches: vec![],
-                explore_url: format!("try/{}", rev),
+                explore_url,
                 // (And if it has none, why, if its import's analysis failed.)
-                semantic_failure: match semantic_head {
-                    Some(_) => None,
-                    None => crate::try_import::semantic_failure(cfg, tree_name, &rev),
-                },
+                semantic_failure: push.semantic_failure,
                 note: Some(format!(
                     "Its stack (its commits since it diverged from the trunk{}), imported into \
                      this tree's history, for its commits' blame and what they changed{}.",
-                    match task_selections {
+                    match push.task_selections {
                         0 => String::new(),
                         1 => ", but the one selecting try's tasks".to_string(),
                         n => format!(", but the {} selecting try's tasks", n),
                     },
-                    match semantic_head {
+                    match push.semantic_head {
                         Some(_) => "",
                         None => ", but not indexed, so its revisions have no jumps or references",
                     }
@@ -8064,13 +8090,12 @@ pub fn format_try(
                 scopes: vec![],
                 changes: None,
                 stack_links: true,
-                semantic_head,
+                semantic_head: push.semantic_head,
             };
-            return write_explore(
-                cfg,
+            return render_explore(
                 tree_name,
-                &refs,
                 &format!("Try push {}", rev),
+                data,
                 extras,
                 writer,
             );
@@ -8104,20 +8129,43 @@ pub fn format_try(
     Ok(())
 }
 
+/// The status of the import of the try push `rev` into `server`'s tree.
+fn try_import_status(
+    server: &(dyn AbstractServer + Send + Sync),
+    rev: &str,
+) -> Result<crate::try_import::ImportStatus, &'static str> {
+    let (server, rev) = (server.clonify(), rev.to_string());
+    run_on_runtime(async move { server.try_import_status(&rev).await })
+        .map_err(|_| "This tree can't import try pushes")
+}
+
 /// The status of the import of a try push into the tree (see `try_import`),
 /// as JSON (`/{tree}/try-status/{rev}`), for its page's polling.
-pub fn format_try_status(cfg: &Config, tree_name: &str, rev: &str) -> Result<String, &'static str> {
+pub fn format_try_status(
+    server: &(dyn AbstractServer + Send + Sync),
+    rev: &str,
+) -> Result<String, &'static str> {
     let rev = crate::try_import::normalize_rev(rev).ok_or("Not a try push's revision")?;
-    let status = crate::try_import::IMPORTS.status(cfg, tree_name, &rev);
+    let status = try_import_status(server, &rev)?;
     serde_json::to_string(&status).map_err(|_| "Status problems")
 }
 
 /// Ask for a try push to be imported into the tree (see `try_import`).
-pub fn request_try_import(cfg: &Config, tree_name: &str, rev: &str) -> Result<(), &'static str> {
+pub fn request_try_import(
+    server: &(dyn AbstractServer + Send + Sync),
+    rev: &str,
+) -> Result<(), String> {
     let rev = crate::try_import::normalize_rev(rev).ok_or("Not a try push's revision")?;
-    crate::try_import::IMPORTS
-        .request(cfg, tree_name, &rev)
-        .map(|_| ())
+    let server = server.clonify();
+    run_on_runtime(async move { server.request_try_import(&rev).await }).map_err(|err| match err {
+        // (The import machinery's own reasons, ex: too many waiting.)
+        ServerError::StickyProblem(details) | ServerError::TransientProblem(details)
+            if matches!(details.layer, crate::abstract_server::ErrorLayer::BadInput) =>
+        {
+            details.message
+        }
+        _ => "The try push couldn't be asked for".to_string(),
+    })
 }
 
 pub fn format_commit(

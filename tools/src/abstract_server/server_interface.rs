@@ -515,6 +515,34 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The status of the import of the try push `push` (its revision; see
+    /// `try_import::normalize_rev`) into the tree (see `try_import`).  (Only
+    /// the server performing the tree's imports knows of those waiting and
+    /// running: the web-server, whose `try-status` data API route this is.)
+    async fn try_import_status(&self, _push: &str) -> Result<crate::try_import::ImportStatus> {
+        Err(ServerError::Unsupported)
+    }
+
+    /// Ask for the try push `push` to be imported into the tree (see
+    /// `try_import::TryImports::request`), with its reasons not to (ex: too
+    /// many waiting) as `BadInput` errors.
+    async fn request_try_import(&self, _push: &str) -> Result<()> {
+        Err(ServerError::Unsupported)
+    }
+
+    /// The try push `push`, if the tree imported it (see
+    /// `try_import::TryPush`).
+    async fn try_push(&self, _push: &str) -> Result<Option<crate::try_import::TryPush>> {
+        Err(ServerError::Unsupported)
+    }
+
+    /// The data of an explore page of the commits `revs`, oldest first (see
+    /// `format::explore_data`), whose files link to their views with the
+    /// stack strip of the page at `stack_url` (ex: `try/<push>`), if any.
+    async fn explore(&self, _revs: &[String], _stack_url: Option<&str>) -> Result<Value> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The try push this is the tree as changed by, if it's a `try_overlay`.
     fn try_delta_meta(&self) -> Option<crate::try_delta::TryDeltaMeta> {
         None

@@ -27,5 +27,7 @@ parameters and paths (422 for unknown or malformed ones), and responses are
 capped at 4 MiB unless the request's `max_bytes` raises the cap (406
 otherwise).  API requests have their own token buckets, charged for their
 processing time (see `tools/src/admission.rs`).  It's on for every tree
-unless its config says `"data_api": false`.  See `tools/src/data_api.rs` for
-the routes.
+unless its config says `"data_api": false`.  Its routes for try pushes'
+imports (`try-status`, and POSTs to `try-import`) are the web-server's, which
+performs the imports, and nginx sends them there uncached.  See
+`tools/src/data_api.rs` for the routes.

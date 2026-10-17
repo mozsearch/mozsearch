@@ -130,6 +130,19 @@ async fn read_maybe_gzipped_ndjson_from_file(path: &str) -> Result<Vec<Value>> {
 /// Helper to ensure that our path-ish use of &str's does not ever try and do
 /// something that can escape a hackily constructed path.  We probably should
 /// move to using path types more directly.
+fn bad_input(message: String) -> ServerError {
+    ServerError::StickyProblem(ErrorDetails {
+        layer: ErrorLayer::BadInput,
+        message,
+    })
+}
+
+/// A try push's revision, normalized (see `try_import::normalize_rev`).
+fn normalized_push(push: &str) -> Result<String> {
+    crate::try_import::normalize_rev(push)
+        .ok_or_else(|| bad_input(format!("Not a try push's revision: {}", push)))
+}
+
 fn validate_absoluteish_path(path: &str) -> Result<()> {
     if path.split("/").any(|x| x == "..") {
         Err(ServerError::StickyProblem(ErrorDetails {
@@ -158,6 +171,10 @@ pub struct LocalIndex {
     /// Every configured tree's index path, for the tree's `linked_trees`.
     tree_index_paths: BTreeMap<String, String>,
     config_repo_path: String,
+    /// The config file, for what needs the tree's whole configuration, git
+    /// repositories included (ex: its try pushes' imports), which it loads
+    /// then (see `tree_config_loaded`), since they aren't `Sync`.
+    config_file: String,
     tree_name: String,
     // Note: IdentMap internally handles the identifiers db not existing
     ident_map: Option<IdentMap>,
@@ -182,6 +199,12 @@ pub struct LocalIndex {
 }
 
 impl LocalIndex {
+    /// The tree's configuration, with its git repositories (see
+    /// `config_file`).
+    fn tree_config_loaded(&self) -> crate::file_format::config::Config {
+        load(&self.config_file, false, Some(&self.tree_name), None, None)
+    }
+
     fn file_lookup_map(&self) -> &FileLookupMap {
         self.file_lookup_map
             .get_or_init(|| FileLookupMap::new(&self.file_lookup_path))
@@ -213,6 +236,51 @@ impl AbstractServer for LocalIndex {
 
     fn commit_info(&self) -> Result<Option<CommitInfo>> {
         Ok(self.head_info.clone())
+    }
+
+    async fn try_import_status(&self, push: &str) -> Result<crate::try_import::ImportStatus> {
+        let push = normalized_push(push)?;
+        let cfg = self.tree_config_loaded();
+        Ok(crate::try_import::IMPORTS.status(&cfg, &self.tree_name, &push))
+    }
+
+    async fn request_try_import(&self, push: &str) -> Result<()> {
+        let push = normalized_push(push)?;
+        let cfg = self.tree_config_loaded();
+        crate::try_import::IMPORTS
+            .request(&cfg, &self.tree_name, &push)
+            .map(|_| ())
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
+    async fn try_push(&self, push: &str) -> Result<Option<crate::try_import::TryPush>> {
+        let push = normalized_push(push)?;
+        let cfg = self.tree_config_loaded();
+        Ok(crate::try_import::try_push(&cfg, &self.tree_name, &push))
+    }
+
+    async fn explore(&self, revs: &[String], stack_url: Option<&str>) -> Result<Value> {
+        let cfg = self.tree_config_loaded();
+        let git = cfg
+            .trees
+            .get(&self.tree_name)
+            .and_then(|tree| tree.git.as_ref())
+            .ok_or(ServerError::Unsupported)?;
+        let mut refs = vec![];
+        for rev in revs {
+            let commit = git
+                .repo
+                .revparse_single(rev)
+                .and_then(|object| object.peel_to_commit())
+                .map_err(|_| bad_input(format!("No commit {}", rev)))?;
+            refs.push(crate::commit_index::commit_ref(&commit));
+        }
+        crate::hyperblame::explore::mark_history_backouts(
+            git.history.as_ref().map(|h| Path::new(&h.path)),
+            &mut refs,
+        );
+        crate::format::explore_data(&cfg, &self.tree_name, &refs, None, stack_url)
+            .map_err(|message| bad_input(message.to_string()))
     }
 
     fn tree_config(&self) -> Result<Value> {
@@ -741,6 +809,7 @@ fn read_rows_of_files(
 fn fab_server(
     tree_config: TreeConfig,
     tree_name: &str,
+    config_file: &str,
     config_repo_path: &str,
     tree_index_paths: &BTreeMap<String, String>,
     per_file_info_toml: Option<String>,
@@ -830,6 +899,7 @@ fn fab_server(
         config_paths: tree_config.paths,
         tree_index_paths: tree_index_paths.clone(),
         config_repo_path: config_repo_path.to_string(),
+        config_file: config_file.to_string(),
         tree_name: tree_name.to_string(),
         ident_map,
         crossref_lookup_map,
@@ -864,6 +934,7 @@ pub fn make_local_server(
     fab_server(
         tree_config,
         tree_name,
+        &config.config_file,
         &config.config_repo_path,
         &config.tree_index_paths,
         per_file_info_toml,
@@ -883,6 +954,7 @@ pub fn make_all_local_servers(
         let server = fab_server(
             tree_config,
             &tree_name,
+            &config.config_file,
             &config.config_repo_path,
             &config.tree_index_paths,
             per_file_info_toml.clone(),

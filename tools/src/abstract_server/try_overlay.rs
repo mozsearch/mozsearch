@@ -196,6 +196,22 @@ impl AbstractServer for TryOverlay {
         self.base.tree_config()
     }
 
+    async fn try_import_status(&self, push: &str) -> Result<crate::try_import::ImportStatus> {
+        self.base.try_import_status(push).await
+    }
+
+    async fn request_try_import(&self, push: &str) -> Result<()> {
+        self.base.request_try_import(push).await
+    }
+
+    async fn try_push(&self, push: &str) -> Result<Option<crate::try_import::TryPush>> {
+        self.base.try_push(push).await
+    }
+
+    async fn explore(&self, revs: &[String], stack_url: Option<&str>) -> Result<Value> {
+        self.base.explore(revs, stack_url).await
+    }
+
     fn path_kinds(&self) -> Vec<(Ustr, Ustr)> {
         self.base.path_kinds()
     }

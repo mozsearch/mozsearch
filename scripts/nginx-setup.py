@@ -515,6 +515,9 @@ for repo in config['trees']:
     # (whose requests then don't reach it).
     if tree_config.get('data_api', True):
         location(f'/{repo}/api/', ['proxy_pass http://127.0.0.1:8002;'])
+        # but for its routes for try pushes' imports, which the web-server
+        # performs, and whose statuses change.
+        location(f'~ ^/{repo}/api/v1/try-(status|import)$', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
 
     # Show different icons for the testing servers.
     print(f'  rewrite ^/{repo}/static/icons/search.png$ /{repo}/static/icons/$favicon permanent;')

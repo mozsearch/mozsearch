@@ -83,7 +83,7 @@ pub struct UpdateOptions {
 }
 
 /// A commit which mentions a bug or Phabricator revision.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 pub struct CommitRef {
     pub rev: String,
     #[serde(rename = "isoDate")]

@@ -27,6 +27,7 @@ use tools::abstract_server::{
 use tools::admission;
 use tools::blame;
 use tools::commit_index::CommitIndex;
+use tools::data_api;
 use tools::diagnostics::diagnostics_from_config;
 use tools::file_format::config;
 use tools::file_format::identifiers::IdentMap;
@@ -225,6 +226,21 @@ fn tree_server(tree_name: &str) -> Option<Arc<dyn AbstractServer + Send + Sync>>
     Some(server)
 }
 
+/// The trees' servers for the data API's routes the web-server serves (see
+/// `handle`), if the tree's API is on.
+struct WebApiServers {
+    enabled: bool,
+}
+
+impl data_api::ApiServers for WebApiServers {
+    fn server(&self, tree: &str) -> Option<Box<dyn AbstractServer + Send + Sync>> {
+        self.enabled
+            .then(|| tree_server(tree))
+            .flatten()
+            .map(|server| server.clonify())
+    }
+}
+
 fn handle(
     cfg: &config::Config,
     ident_map: &HashMap<String, IdentMap>,
@@ -236,6 +252,38 @@ fn handle(
     if !path.is_empty() && path[0] == "static" {
         let path = cfg.mozsearch_path.clone() + req.path;
         return handle_static(path, None);
+    }
+
+    // The data API's routes for try pushes' imports, which this server
+    // performs (see `data_api::Host`); nginx routes its others to the
+    // pipeline-server.
+    if path.len() >= 4 && path[1] == "api" {
+        let path_and_query = match req.query {
+            "" => req.path.to_string(),
+            query => format!("{}?{}", req.path, query),
+        };
+        let enabled = cfg
+            .trees
+            .get(path[0])
+            .is_some_and(|tree| tree.paths.data_api);
+        let post = req.post;
+        let (status, content_type, body) = format::run_on_runtime(async move {
+            data_api::respond_parts(
+                &WebApiServers { enabled },
+                data_api::Host::WebServer,
+                post,
+                &path_and_query,
+            )
+            .await
+        });
+        return WebResponse {
+            status: StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+            content_type: content_type.to_string(),
+            output: String::from_utf8_lossy(&body).into_owned(),
+            ..WebResponse::default()
+        }
+        .uncached()
+        .shared();
     }
 
     if path.len() < 2 {
@@ -721,9 +769,13 @@ fn handle(
                 return WebResponse::not_found();
             }
             let rev = path[2];
+            // (Over the tree's server; see `tree_server`.)
+            let Some(server) = tree_server(tree_name) else {
+                return WebResponse::not_found();
+            };
             let mut notice = None;
             if req.post {
-                match format::request_try_import(cfg, tree_name, rev) {
+                match format::request_try_import(server.as_ref(), rev) {
                     Ok(()) => {
                         return WebResponse::see_other(format!("/{}/try/{}", tree_name, rev))
                             .uncached();
@@ -732,7 +784,13 @@ fn handle(
                 }
             }
             let mut writer = Vec::new();
-            match format::format_try(cfg, tree_name, rev, notice, &mut writer) {
+            match format::format_try(
+                server.as_ref(),
+                tree_name,
+                rev,
+                notice.as_deref(),
+                &mut writer,
+            ) {
                 Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()).uncached(),
                 Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
             }
@@ -762,7 +820,10 @@ fn handle(
             if path.len() != 3 {
                 return WebResponse::not_found();
             }
-            match format::format_try_status(cfg, tree_name, path[2]) {
+            let Some(server) = tree_server(tree_name) else {
+                return WebResponse::not_found();
+            };
+            match format::format_try_status(server.as_ref(), path[2]) {
                 Ok(json) => WebResponse::json(json).uncached(),
                 Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
             }
@@ -899,9 +960,11 @@ async fn main() {
         let ident_map = ident_map.clone();
         tokio::spawn(async move {
             let handler = async |req: http::Request<_>| {
-                // (Only a try push's page takes POSTs, to import it.)
+                // (Only a try push's page takes POSTs, to import it, as does
+                // the data API's route for that.)
                 let post = req.method() == Method::POST
-                    && req.uri().path().split('/').nth(2) == Some("try");
+                    && (req.uri().path().split('/').nth(2) == Some("try")
+                        || req.uri().path().ends_with("/api/v1/try-import"));
                 if req.method() != Method::GET && !post {
                     return http::Response::builder()
                         .status(StatusCode::METHOD_NOT_ALLOWED)

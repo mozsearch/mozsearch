@@ -107,6 +107,22 @@ add_task(async function test_DataApiTryContext() {
   ok(source.status == 200 && source.text.includes("Wobble"), "with its source");
   is((await get(`${API}/tree-info?rev=${"0".repeat(40)}`)).status, 404,
      "A push without an analysis isn't there");
+
+  // Try pushes' imports (the web-server's routes) and their pages' data.
+  const status = await getJson(`${API}/try-status?push=${PUSH}`);
+  is(status.state, "imported", "A try push's import's status is there");
+  const push = await getJson(`${API}/try-push?push=${PUSH}`);
+  is(push.semantic_head, head, "and the imported push's semantic head");
+  ok(push.stack?.length, "and stack");
+  const revs = push.stack.map(commit => commit.rev).join(",");
+  const explore = await getJson(`${API}/explore?revs=${revs}&stack_url=try/${PUSH}`);
+  is(explore.commits?.length, push.stack.length, "as an explore page's data");
+  ok(explore.file_groups?.some(group => group.files.some(file => file.path == "wobbler.cpp")),
+     "with the files it changes");
+  const asked = await fetch(`${API}/try-import?push=${PUSH}`, { method: "POST", cache: "no-store" });
+  is(asked.status, 200, "Asking for an imported push's import is fine");
+  is((await asked.json()).state, "imported", "and says it's imported");
+  is((await get(`${API}/try-import?push=${PUSH}`)).status, 405, "but only with a POST");
 });
 
 add_task(async function test_DataApiBadRequests() {

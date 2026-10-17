@@ -46,7 +46,7 @@ use std::sync::{Condvar, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
 use git2::Oid;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::file_format::config::Config;
 
@@ -149,8 +149,68 @@ pub fn push_commits(cfg: &Config, tree_name: &str, rev: &str) -> (Vec<Oid>, usiz
     (stack, task_selections)
 }
 
+/// An imported try push, for its page (see `format::format_try` and
+/// `AbstractServer::try_push`).
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TryPush {
+    /// Its stack, oldest first, with backouts marked (see
+    /// `explore::mark_history_backouts`), at most `explore::MAX_COMMITS` of
+    /// it.
+    pub stack: Vec<crate::commit_index::CommitRef>,
+    /// Whether its stack has more commits than `stack`.
+    pub truncated: bool,
+    /// How many of its commits only select try's tasks (see `push_commits`).
+    pub task_selections: usize,
+    /// The head of its stack rebased onto the indexed revision, if that has a
+    /// semantic delta (see `try_delta`).
+    pub semantic_head: Option<String>,
+    /// And if it has none, why, if its import's analysis failed.
+    pub semantic_failure: Option<SemanticFailure>,
+}
+
+/// The imported try push `rev` (see `normalize_rev`), if the tree imported
+/// it.
+pub fn try_push(cfg: &Config, tree_name: &str, rev: &str) -> Option<TryPush> {
+    let tree_config = cfg.trees.get(tree_name)?;
+    let git = tree_config.git.as_ref()?;
+    imported_head(cfg, tree_name, rev)?;
+    let (stack, task_selections) = push_commits(cfg, tree_name, rev);
+    let mut stack: Vec<crate::commit_index::CommitRef> = stack
+        .into_iter()
+        .filter_map(|oid| git.repo.find_commit(oid).ok())
+        .map(|commit| crate::commit_index::commit_ref(&commit))
+        .collect();
+    let truncated = stack.len() > crate::hyperblame::explore::MAX_COMMITS;
+    stack.truncate(crate::hyperblame::explore::MAX_COMMITS);
+    crate::hyperblame::explore::mark_history_backouts(
+        git.history.as_ref().map(|h| Path::new(&h.path)),
+        &mut stack,
+    );
+    let semantic_head = git
+        .repo
+        .refname_to_id(&format!("refs/try-rebased/{}", rev))
+        .ok()
+        .map(|oid| oid.to_string())
+        .filter(|head| {
+            crate::try_delta::delta_dir(&tree_config.paths.index_path, head)
+                .join("meta.json")
+                .exists()
+        });
+    let semantic_failure = match semantic_head {
+        Some(_) => None,
+        None => semantic_failure(cfg, tree_name, rev),
+    };
+    Some(TryPush {
+        stack,
+        truncated,
+        task_selections,
+        semantic_head,
+        semantic_failure,
+    })
+}
+
 /// What's become of an import, for the try pages and their polling.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(tag = "state", rename_all = "camelCase")]
 pub enum ImportStatus {
     /// The tree can't import try pushes.
@@ -371,7 +431,7 @@ impl TryImports {
 
 /// Why the imported try push `rev` has no semantic analysis, if its import's
 /// failed (see the module's comment).
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct SemanticFailure {
     /// The step it failed in (the last one it started).
     pub step: String,

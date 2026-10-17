@@ -41,6 +41,15 @@
 //! - `text?re=[&fold_case=true][&path=][&limit=]`: the lines matching a
 //!   regular expression (livegrep's; see `search_text`).
 //!
+//! - `try-push?push=`: an imported try push's stack, and its semantic head or
+//!   why it has none (see `try_import::TryPush`; `null` if it isn't
+//!   imported).
+//! - `explore?revs=a,b[&stack_url=]`: the data of the explore page of commits
+//!   (see `format::explore_data`).
+//! - `try-status?push=` and POST `try-import?push=`: a try push's import's
+//!   status, and asking for its import; served by the web-server, which
+//!   performs imports (see `Host`).
+//!
 //! All of them take `rev=` (a try push's head) and `max_bytes=`.
 //!
 //! Requests are checked strictly, since nginx caches responses by their URLs
@@ -68,9 +77,10 @@ use std::sync::Arc;
 
 use axum::Router;
 use axum::extract::State;
+use axum::http::Method;
 use axum::http::{StatusCode, Uri, header};
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::any;
 use serde_json::{Value, json};
 use tokio_stream::StreamExt;
 
@@ -100,15 +110,15 @@ struct ApiState {
 /// The routes of the API of `servers`' trees in `enabled`.
 pub fn router(servers: Servers, enabled: BTreeSet<String>) -> Router {
     Router::new()
-        .route("/{tree}/api/{*rest}", get(handle))
+        .route("/{tree}/api/{*rest}", any(handle))
         .with_state(ApiState {
             servers,
             enabled: Arc::new(enabled),
         })
 }
 
-async fn handle(State(state): State<ApiState>, uri: Uri) -> Response {
-    let response = match respond(&state, &uri).await {
+async fn handle(State(state): State<ApiState>, method: Method, uri: Uri) -> Response {
+    let response = match respond(&state, Host::PipelineServer, method == Method::POST, &uri).await {
         Ok(body) => body.into_response(),
         Err(error) => error.into_response(),
     };
@@ -198,88 +208,162 @@ struct Route {
     name: &'static str,
     takes_path: bool,
     params: &'static [&'static str],
+    /// Which server serves it (see `Host`).
+    host: Host,
+    /// Whether it's a POST (ex: asking for a try push's import), rather than
+    /// a GET.
+    post: bool,
+}
+
+/// Which server serves a route: the pipeline-server, the API's host, or for
+/// try pushes' imports, the web-server, which performs them (and so knows
+/// which are waiting and running), to which nginx routes them, uncached.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Host {
+    PipelineServer,
+    WebServer,
 }
 
 const ROUTES: &[Route] = &[
     Route {
+        name: "try-status",
+        takes_path: false,
+        params: &["push"],
+        host: Host::WebServer,
+        post: false,
+    },
+    Route {
+        name: "try-import",
+        takes_path: false,
+        params: &["push"],
+        host: Host::WebServer,
+        post: true,
+    },
+    Route {
+        name: "try-push",
+        takes_path: false,
+        params: &["push"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "explore",
+        takes_path: false,
+        params: &["revs", "stack_url"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
         name: "tree-info",
         takes_path: false,
         params: &[],
+        host: Host::PipelineServer,
+        post: false,
     },
     Route {
         name: "config",
         takes_path: false,
         params: &[],
+        host: Host::PipelineServer,
+        post: false,
     },
     Route {
         name: "crossref",
         takes_path: false,
         params: &["sym", "fields"],
+        host: Host::PipelineServer,
+        post: false,
     },
     Route {
         name: "jumpref",
         takes_path: false,
         params: &["sym"],
+        host: Host::PipelineServer,
+        post: false,
     },
     Route {
         name: "identifiers",
         takes_path: false,
         params: &["q", "exact", "ignore_case", "limit"],
+        host: Host::PipelineServer,
+        post: false,
     },
     Route {
         name: "files",
         takes_path: false,
         params: &["re", "dirs", "limit"],
+        host: Host::PipelineServer,
+        post: false,
     },
     Route {
         name: "source",
         takes_path: true,
         params: &[],
+        host: Host::PipelineServer,
+        post: false,
     },
     Route {
         name: "analysis",
         takes_path: true,
         params: &[],
+        host: Host::PipelineServer,
+        post: false,
     },
     Route {
         name: "changed-lines",
         takes_path: false,
         params: &["spec"],
+        host: Host::PipelineServer,
+        post: false,
     },
     Route {
         name: "formatted-lines",
         takes_path: true,
         params: &[],
+        host: Host::PipelineServer,
+        post: false,
     },
     Route {
         name: "html-lines",
         takes_path: true,
         params: &["lines"],
+        host: Host::PipelineServer,
+        post: false,
     },
     Route {
         name: "file-info",
         takes_path: true,
         params: &[],
+        host: Host::PipelineServer,
+        post: false,
     },
     Route {
         name: "file-recency",
         takes_path: true,
         params: &[],
+        host: Host::PipelineServer,
+        post: false,
     },
     Route {
         name: "journal",
         takes_path: false,
         params: &["kind", "target", "source_rev", "expand"],
+        host: Host::PipelineServer,
+        post: false,
     },
     Route {
         name: "linked-crossref",
         takes_path: false,
         params: &["tree", "sym"],
+        host: Host::PipelineServer,
+        post: false,
     },
     Route {
         name: "text",
         takes_path: false,
         params: &["re", "fold_case", "path", "limit"],
+        host: Host::PipelineServer,
+        post: false,
     },
 ];
 
@@ -348,6 +432,16 @@ pub fn valid_tree_path(path: &str) -> bool {
         && path
             .split('/')
             .all(|segment| !segment.is_empty() && segment != "." && segment != "..")
+}
+
+/// The most commits an explore page has (see `explore::MAX_COMMITS`).
+const MAX_EXPLORE_REVS: usize = 200;
+
+/// A try push's revision (see `try_import::normalize_rev`), from the `push`
+/// parameter.
+fn push_param(params: &Params) -> Result<String, ApiError> {
+    crate::try_import::normalize_rev(params.required("push")?)
+        .ok_or_else(|| bad("push must be a try push's revision (12 to 40 hexadecimal digits)"))
 }
 
 /// The most lines `html-lines` gives at once.
@@ -436,7 +530,12 @@ impl Params {
 }
 
 /// The response to a request for `uri`.
-pub async fn respond(state: &(impl ApiServers + ?Sized), uri: &Uri) -> Result<Body, ApiError> {
+pub async fn respond(
+    state: &(impl ApiServers + ?Sized),
+    host: Host,
+    post: bool,
+    uri: &Uri,
+) -> Result<Body, ApiError> {
     let path = uri.path().strip_prefix('/').unwrap_or(uri.path());
     let mut parts = path.splitn(4, '/');
     let tree = decode(parts.next().unwrap_or_default(), false)?;
@@ -457,6 +556,18 @@ pub async fn respond(state: &(impl ApiServers + ?Sized), uri: &Uri) -> Result<Bo
     else {
         return Err(not_found(format!("Unknown route {:?}", rest)));
     };
+    if route.host != host {
+        return Err(not_found(format!(
+            "{} is served by the {:?}",
+            route.name, route.host
+        )));
+    }
+    if route.post != post {
+        return Err(ApiError {
+            status: StatusCode::METHOD_NOT_ALLOWED,
+            body: json!({ "error": format!("{} is a {}", route.name, if route.post { "POST" } else { "GET" }) }),
+        });
+    }
 
     let mut params = BTreeMap::new();
     for (param, value) in parse_query(uri.query())? {
@@ -514,15 +625,38 @@ pub async fn respond(state: &(impl ApiServers + ?Sized), uri: &Uri) -> Result<Bo
 /// The trees' servers, for `respond` (the pipeline-server's, and tests').
 pub trait ApiServers {
     /// The server of `tree`, if its API is on.
-    fn server(&self, tree: &str) -> Option<&(dyn AbstractServer + Send + Sync)>;
+    fn server(&self, tree: &str) -> Option<Box<dyn AbstractServer + Send + Sync>>;
 }
 
 impl ApiServers for ApiState {
-    fn server(&self, tree: &str) -> Option<&(dyn AbstractServer + Send + Sync)> {
+    fn server(&self, tree: &str) -> Option<Box<dyn AbstractServer + Send + Sync>> {
         if !self.enabled.contains(tree) {
             return None;
         }
-        self.servers.get(tree).map(|server| server.as_ref())
+        self.servers.get(tree).map(|server| server.clonify())
+    }
+}
+
+/// The status, content type and body of the response to a request for
+/// `path_and_query` (see `respond`), for servers not using axum (the
+/// web-server).
+pub async fn respond_parts(
+    state: &(impl ApiServers + ?Sized),
+    host: Host,
+    post: bool,
+    path_and_query: &str,
+) -> (u16, &'static str, Vec<u8>) {
+    let result = match path_and_query.parse::<Uri>() {
+        Ok(uri) => respond(state, host, post, &uri).await,
+        Err(_) => Err(bad("Malformed URL")),
+    };
+    match result {
+        Ok(body) => (200, body.content_type, body.bytes),
+        Err(error) => (
+            error.status.as_u16(),
+            "application/json",
+            serde_json::to_vec(&error.body).unwrap_or_default(),
+        ),
     }
 }
 
@@ -559,6 +693,57 @@ async fn route_body(
                 "path_kinds": server.path_kinds(),
                 "try_meta": server.try_delta_meta(),
             })))
+        }
+        "try-status" => {
+            let status = server
+                .try_import_status(&push_param(params)?)
+                .await
+                .map_err(error)?;
+            Ok(Body::json(
+                &serde_json::to_value(status).unwrap_or_default(),
+            ))
+        }
+        "try-import" => {
+            let push = push_param(params)?;
+            server.request_try_import(&push).await.map_err(error)?;
+            let status = server.try_import_status(&push).await.map_err(error)?;
+            Ok(Body::json(
+                &serde_json::to_value(status).unwrap_or_default(),
+            ))
+        }
+        "try-push" => {
+            let push = server.try_push(&push_param(params)?).await.map_err(error)?;
+            Ok(Body::json(&serde_json::to_value(push).unwrap_or_default()))
+        }
+        "explore" => {
+            let revs: Vec<String> = params
+                .required("revs")?
+                .split(',')
+                .map(str::to_string)
+                .collect();
+            let hex = |rev: &String| {
+                (7..=40).contains(&rev.len())
+                    && rev
+                        .bytes()
+                        .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+            };
+            if revs.len() > MAX_EXPLORE_REVS || !revs.iter().all(hex) {
+                return Err(bad(format!(
+                    "revs must be at most {} revisions (hexadecimal)",
+                    MAX_EXPLORE_REVS
+                )));
+            }
+            let stack_url = params.get("stack_url");
+            if stack_url.is_some_and(|url| {
+                url.len() > 200
+                    || !url
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b"/_.-".contains(&b))
+            }) {
+                return Err(bad("stack_url must be a page of the tree, ex: try/<push>"));
+            }
+            let data = server.explore(&revs, stack_url).await.map_err(error)?;
+            Ok(Body::json(&data))
         }
         "config" => {
             let mut config = server.tree_config().map_err(error)?;
@@ -942,15 +1127,15 @@ mod tests {
     struct FakeServers;
 
     impl ApiServers for FakeServers {
-        fn server(&self, tree: &str) -> Option<&(dyn AbstractServer + Send + Sync)> {
-            (tree == "fake").then_some(&Fake as &(dyn AbstractServer + Send + Sync))
+        fn server(&self, tree: &str) -> Option<Box<dyn AbstractServer + Send + Sync>> {
+            (tree == "fake").then(|| Box::new(Fake) as Box<dyn AbstractServer + Send + Sync>)
         }
     }
 
     /// The status and body of the response for `url`.
     async fn get(url: &str) -> (StatusCode, String) {
         let uri: Uri = url.parse().unwrap();
-        match respond(&FakeServers, &uri).await {
+        match respond(&FakeServers, Host::PipelineServer, false, &uri).await {
             Ok(body) => (StatusCode::OK, String::from_utf8(body.bytes).unwrap()),
             Err(error) => (error.status, error.body.to_string()),
         }
@@ -1101,6 +1286,9 @@ mod tests {
             "/fake/api/v1/linked-crossref?tree=../x&sym=A",
             "/fake/api/v1/text?re=",
             "/fake/api/v1/formatted-lines/../a.cpp",
+            "/fake/api/v1/try-push?push=main",
+            "/fake/api/v1/explore?revs=abcdef1,HEAD",
+            "/fake/api/v1/explore?revs=abcdef1&stack_url=%3Cscript%3E",
         ] {
             assert_eq!(
                 get(url).await.0,
@@ -1109,6 +1297,23 @@ mod tests {
                 url
             );
         }
+        // (The web-server's routes, and POSTs as GETs.)
+        assert_eq!(
+            get("/fake/api/v1/try-status?push=0123456789ab").await.0,
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            respond(
+                &FakeServers,
+                Host::WebServer,
+                false,
+                &"/fake/api/v1/try-import?push=0123456789ab".parse().unwrap()
+            )
+            .await
+            .unwrap_err()
+            .status,
+            StatusCode::METHOD_NOT_ALLOWED
+        );
         for url in [
             "/other/api/v1/tree-info",
             "/fake/api/v2/tree-info",
