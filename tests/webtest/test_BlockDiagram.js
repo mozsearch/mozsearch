@@ -59,3 +59,76 @@ add_task(async function test_BlockDiagramPanel() {
   const minCount = panel.querySelector("#diagram-option-block-min-count");
   is(minCount?.value, "1", "The minimum count is the default");
 });
+
+function findDiagramButton(menu, label) {
+  const title = [...menu.querySelectorAll(".contextmenu-section-title.icon-brush")][0];
+  ok(title, "Diagram section exists");
+  return [...title.closest("li").querySelectorAll(".contextmenu-button")]
+    .find(x => x.textContent === label);
+}
+
+add_task(async function test_BlockDiagramFromClass() {
+  await TestUtils.resetFeatureGate("diagramming");
+  await TestUtils.loadPath("/tests/source/rollup/view.cpp");
+
+  const panel = [...frame.contentDocument.querySelectorAll(`span[data-symbols="T_rollup::Panel"]`)][0];
+  ok(panel, "The class's token is there");
+  TestUtils.click(panel);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the class");
+
+  const block = findDiagramButton(menu, "Block");
+  ok(block, "The class has a block diagram button");
+  ok(findDiagramButton(menu, "Data"), "The class has a data block diagram button");
+
+  const loadPromise = TestUtils.waitForLoad();
+  TestUtils.click(block);
+  await loadPromise;
+  is(frame.contentDocument.querySelector("#query").value, "block-diagram:'T_rollup::Panel'",
+     "The block diagram's query is the class's");
+});
+
+add_task(async function test_BlockDiagramEdgeCalls() {
+  await TestUtils.resetFeatureGate("diagramming");
+  await TestUtils.loadQuery("tests", "block-diagram:'Core/Rollup View'");
+
+  const edge = [...frame.contentDocument.querySelectorAll("svg [data-symbols]")]
+    .find(e => e.getAttribute("data-symbols") === "T_rollup::Panel->T_rollup::Store");
+  ok(edge, "There's an edge from Panel to Store");
+  TestUtils.click(edge);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the edge");
+
+  const link = [...menu.querySelectorAll(".contextmenu-link")]
+    .find(l => l.textContent === "Calls between rollup::Panel and rollup::Store");
+  ok(link, "The edge has the calls between its classes");
+
+  const loadPromise = TestUtils.waitForLoad();
+  TestUtils.click(link);
+  await loadPromise;
+  is(frame.contentDocument.querySelector("#query").value,
+     "calls-between-source:'rollup::Panel' calls-between-target:'rollup::Store' depth:6",
+     "The query is the calls between the classes");
+});
+
+add_task(async function test_BlockDiagramSubsystemNode() {
+  await TestUtils.resetFeatureGate("diagramming");
+  await TestUtils.loadQuery("tests", "block-diagram:*");
+
+  const node = [...frame.contentDocument.querySelectorAll("svg [data-symbols]")]
+    .find(e => e.getAttribute("data-symbols") === "SUBSYS_Core/Rollup@20View");
+  ok(node, "The subsystem's node is there");
+  TestUtils.click(node);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the subsystem");
+
+  ok(!findDiagramButton(menu, "Calls to"), "A subsystem has no calls diagrams");
+  const block = findDiagramButton(menu, "Block");
+  ok(block, "The subsystem has a block diagram button");
+
+  const loadPromise = TestUtils.waitForLoad();
+  TestUtils.click(block);
+  await loadPromise;
+  is(frame.contentDocument.querySelector("#query").value, "block-diagram:'Core/Rollup View'",
+     "The block diagram's query is the subsystem's");
+});

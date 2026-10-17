@@ -483,6 +483,10 @@ class DiagramMenuSection extends MenuItem {
     this.tree = options.tree;
     this.isClass = options.isClass;
     this.showInheritance = options.showInheritance;
+    // A subsystem's pseudo-symbol (see tools/src/file_format/rollup.rs),
+    // which only block diagrams draw.
+    this.isSubsystem = options.isSubsystem;
+    this.isClassKind = options.isClassKind;
     // Whether diagrams of the symbol are by its symbol rather than its pretty
     // name, which other symbols may share (ex: a web spec's terms').
     this.bySym = options.bySym;
@@ -517,6 +521,34 @@ class DiagramMenuSection extends MenuItem {
       return this.links[0];
     }
     return this.links.at(-1);
+  }
+
+  /**
+   * Buttons for block diagrams (see tools/src/cmd_pipeline/cmd_block_diagram.rs)
+   * of the class's or subsystem's calls and data, from crossref's roll-ups.
+   */
+  addBlockButtons(buttons, menu, pos) {
+    const quote = value => `'${value.replace(/[\\']/g, c => `\\${c}`)}'`;
+    // (A subsystem's block diagram is by its name, a class's by its symbol.)
+    const focus = this.isSubsystem ? this.pretty : this.sym;
+    for (const [label, extra, title] of [
+      ["Block", "", `Block diagram of ${this.pretty}'s calls`],
+      ["Data", " block-edges:data", `Block diagram of ${this.pretty}'s data`],
+    ]) {
+      const link = document.createElement("a");
+      link.classList.add("contextmenu-button");
+      link.setAttribute("role", "menuitem");
+      const queryString = `block-diagram:${quote(focus)}${extra}`;
+      link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+      link.addEventListener("keydown", event => {
+        this.onKeyDown(event, menu, link, pos);
+      });
+      link.append(label);
+      link.title = title;
+      link.setAttribute("aria-label", title);
+      buttons.append(link);
+      this.links.push(link);
+    }
   }
 
   populateListItem(li, menu, pos) {
@@ -558,6 +590,11 @@ class DiagramMenuSection extends MenuItem {
     const buttons = document.createElement("div");
     buttons.classList.add("contextmenu-buttons");
     li.append(buttons);
+
+    if (this.isSubsystem) {
+      this.addBlockButtons(buttons, menu, pos);
+      return;
+    }
 
     {
       const link = document.createElement("a");
@@ -638,6 +675,9 @@ class DiagramMenuSection extends MenuItem {
       link.title = `Inheritance diagram of ${this.pretty}`;
       link.setAttribute("aria-label", `Inheritance diagram of ${this.pretty}`);
       buttons.append(link);
+    }
+    if (this.isClass || this.isClassKind) {
+      this.addBlockButtons(buttons, menu, pos);
     }
 
     if (this.pinnedPretty) {
@@ -1474,6 +1514,21 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         let srcSymInfo = SYM_INFO[srcSyms[0]];
         let targSymInfo = SYM_INFO[targSyms[0]];
 
+        // A block diagram's edge between classes: the calls between them.
+        const isClassInfo = info => ["class", "struct"].includes(info?.meta?.kind);
+        if (isClassInfo(srcSymInfo) && isClassInfo(targSymInfo)) {
+          const quote = value => `'${value.replace(/[\\']/g, c => `\\${c}`)}'`;
+          const queryString = `calls-between-source:${quote(srcSymInfo.pretty)} ` +
+            `calls-between-target:${quote(targSymInfo.pretty)} depth:6`;
+          jumpMenuItems.push(new MenuItem({
+            html: this.fmt("Calls between <strong>_</strong>", srcSymInfo.pretty) +
+              this.fmt(" and <strong>_</strong>", targSymInfo.pretty),
+            href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
+            icon: "brush",
+            section: "jumps",
+          }));
+        }
+
         // Generate a "go to use"
         const edgeExtra = GRAPH_EXTRA[0].edges[symbolToken.id];
         if (edgeExtra.jump && targSymInfo) {
@@ -2231,6 +2286,8 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
               sym: jumpref.sym,
               tree,
               isClass,
+              isSubsystem: jumpref?.meta?.kind === "subsystem",
+              isClassKind: ["class", "struct"].includes(jumpref?.meta?.kind),
               showInheritance,
               // (A web spec's terms' pretty names are "<spec> <term>", which
               // its other definitions of the term, ex: a method's, share.)
