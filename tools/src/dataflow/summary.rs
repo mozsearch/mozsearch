@@ -141,6 +141,23 @@ pub struct Summary {
     /// boring ones.
     pub events: usize,
     pub flows: Vec<Flow>,
+    /// The (virtual) methods it overrides, whose calls can reach it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub overrides: Vec<Ustr>,
+}
+
+/// The methods a function's structured record says it overrides.
+pub fn structured_overrides(structured: &serde_json::Value) -> Vec<Ustr> {
+    structured
+        .get("overrides")
+        .and_then(|o| o.as_array())
+        .map(|overrides| {
+            overrides
+                .iter()
+                .filter_map(|o| o.get("sym").and_then(|s| s.as_str()).map(ustr))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// Macros whose expansions are plumbing rather than data's movement.
@@ -585,6 +602,7 @@ pub fn summarize(f: &FuncIr) -> Summary {
         category,
         events,
         flows,
+        overrides: vec![],
     }
 }
 
@@ -735,20 +753,35 @@ pub struct FieldEdge {
 }
 
 /// How many rounds of composing summaries through calls (each composes one
-/// more level of calls), and how many flows a function's composed summary
-/// keeps.
+/// more level of calls), how many flows a function's composed summary keeps,
+/// and how many implementations of a virtual method its calls compose with.
 const COMPOSE_ROUNDS: usize = 3;
+const MAX_IMPLEMENTATIONS: usize = 8;
 const MAX_COMPOSED_FLOWS: usize = 400;
 const MAX_VIA: usize = 4;
 
 /// Compose the summaries through their calls (see `compose_round`), and the
 /// edges between fields that the composed summaries' flows are.
 pub fn field_edges(summaries: &[Summary]) -> Vec<FieldEdge> {
-    let by_sym: HashMap<Ustr, usize> = summaries
+    // (A callee's summary, or, for a virtual method, its implementations'.)
+    let mut by_sym: HashMap<Ustr, Vec<usize>> = summaries
         .iter()
         .enumerate()
-        .map(|(i, s)| (s.sym, i))
+        .map(|(i, s)| (s.sym, vec![i]))
         .collect();
+    // (A virtual method with more implementations than that is too generic
+    // to say where its arguments go, ex: `nsIRunnable::Run`.)
+    let mut implementations: HashMap<Ustr, Vec<usize>> = HashMap::new();
+    for (i, summary) in summaries.iter().enumerate() {
+        for base in &summary.overrides {
+            implementations.entry(*base).or_default().push(i);
+        }
+    }
+    for (base, impls) in implementations {
+        if impls.len() <= MAX_IMPLEMENTATIONS {
+            by_sym.entry(base).or_default().extend(impls);
+        }
+    }
     let mut composed: Vec<BTreeSet<Flow>> = summaries
         .iter()
         .map(|s| s.flows.iter().cloned().collect())
@@ -834,7 +867,7 @@ fn summary_class(summary: &Summary) -> Option<Ustr> {
 fn compose_round(
     flows: &BTreeSet<Flow>,
     composed: &[BTreeSet<Flow>],
-    by_sym: &HashMap<Ustr, usize>,
+    by_sym: &HashMap<Ustr, Vec<usize>>,
 ) -> BTreeSet<Flow> {
     let mut out = flows.clone();
     // (What the function passes each call: its arguments' and receivers'
@@ -889,9 +922,9 @@ fn compose_round(
         }
         // (What a call returns flows where the call's result goes.)
         if let Port::Result { callee, i: None } = &flow.from
-            && let Some(&ci) = by_sym.get(callee)
+            && let Some(callees) = by_sym.get(callee)
         {
-            for callee_flow in &composed[ci] {
+            for callee_flow in callees.iter().flat_map(|&ci| &composed[ci]) {
                 if callee_flow.to != Port::Return {
                     continue;
                 }
@@ -909,9 +942,9 @@ fn compose_round(
             callee,
             i: Some(ai),
         } = &flow.to
-            && let Some(&ci) = by_sym.get(callee)
+            && let Some(callees) = by_sym.get(callee)
         {
-            for callee_flow in &composed[ci] {
+            for callee_flow in callees.iter().flat_map(|&ci| &composed[ci]) {
                 let Port::Param { i, fields } = &callee_flow.from else {
                     continue;
                 };

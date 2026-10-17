@@ -194,6 +194,28 @@ input_file: inputs/crossref/java/package__json
           "outTotal": 2,
           "inTotal": 0,
           "internal": 1
+        },
+        "dataRollup": {
+          "out": [
+            {
+              "sym": "S_jvm_sample/DataflowSettings#",
+              "pretty": "sample::DataflowSettings",
+              "count": 1,
+              "pairs": 1,
+              "examples": [
+                {
+                  "from": "S_jvm_sample/configure().",
+                  "fromPretty": "sample::configure",
+                  "to": "S_jvm_sample/DataflowSettings#url.",
+                  "toPretty": "sample::DataflowSettings::url",
+                  "count": 1
+                }
+              ]
+            }
+          ],
+          "outTotal": 1,
+          "inTotal": 0,
+          "internal": 0
         }
       },
       "relation": "Queried",

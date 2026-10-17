@@ -1,0 +1,15 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/summary/virtual_field_edges
+---
+[
+  {
+    "from": "F_<T_rollup::Emitter>_mCurrent",
+    "to": "F_<T_rollup::Recorder>_mLast",
+    "count": 1,
+    "via": [
+      "_ZN6rollup7Emitter4EmitEv"
+    ]
+  }
+]

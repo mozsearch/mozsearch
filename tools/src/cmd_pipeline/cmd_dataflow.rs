@@ -410,6 +410,19 @@ impl PipelineCommand for DataflowCommand {
                 };
                 summaries.extend(file.funcs.iter().filter(|f| f.has_body).map(summarize));
             }
+            // (What they override, for virtual calls; see
+            // `summary::field_edges`.)
+            for summary in &mut summaries {
+                if let Some(meta) = server
+                    .crossref_lookup(&summary.sym)
+                    .await
+                    .ok()
+                    .flatten()
+                    .and_then(|data| data.meta)
+                {
+                    summary.overrides = meta.overrides.iter().map(|o| o.sym).collect();
+                }
+            }
             summaries.sort_by(|a, b| a.sym.cmp(&b.sym));
             summaries.dedup_by(|a, b| a.sym == b.sym);
             let edges = field_edges(&summaries);

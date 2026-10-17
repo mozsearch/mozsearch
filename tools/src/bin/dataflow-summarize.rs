@@ -18,7 +18,7 @@ use clap::Parser;
 
 use tools::dataflow::frontend::{build_file_ir, lang_for_path};
 use tools::dataflow::records::FileRecords;
-use tools::dataflow::summary::{Summary, field_edges, summarize};
+use tools::dataflow::summary::{Summary, field_edges, structured_overrides, summarize};
 use tools::file_format::analysis::read_analysis_values;
 use tools::file_format::config;
 
@@ -68,7 +68,13 @@ fn summarize_file(
         .funcs
         .iter()
         .filter(|f| f.has_body)
-        .map(summarize)
+        .map(|f| {
+            let mut summary = summarize(f);
+            if let Some(structured) = recs.structured(&f.sym) {
+                summary.overrides = structured_overrides(structured);
+            }
+            summary
+        })
         .collect())
 }
 
