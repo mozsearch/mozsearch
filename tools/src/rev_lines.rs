@@ -48,6 +48,29 @@ pub fn changed_lines(old: Option<&[u8]>, new: &[u8]) -> (BTreeSet<u32>, BTreeSet
     (added, touched)
 }
 
+/// The lines (1-based) of `old` which `new` removes (or changes).
+pub fn removed_lines(old: &[u8], new: &[u8]) -> BTreeSet<u32> {
+    let mut removed = BTreeSet::new();
+    let mut options = DiffOptions::new();
+    options.context_lines(0);
+    let Ok(patch) = Patch::from_buffers(old, None, new, None, Some(&mut options)) else {
+        return removed;
+    };
+    for h in 0..patch.num_hunks() {
+        let Ok((_, count)) = patch.hunk(h) else {
+            continue;
+        };
+        for l in 0..count {
+            if let Ok(line) = patch.line_in_hunk(h, l)
+                && line.origin() == '-'
+            {
+                removed.extend(line.old_lineno());
+            }
+        }
+    }
+    removed
+}
+
 /// How many lines a file's contents have.
 fn line_count(text: &[u8]) -> u32 {
     let newlines = text.iter().filter(|b| **b == b'\n').count();
@@ -105,7 +128,8 @@ fn blob_at(repo: &Repository, commit: &Commit, path: &str) -> Option<Vec<u8>> {
 /// parent; `<a>..<b>`: those from `a` to `b`), in the coordinates of
 /// `context`'s versions of the files, with the commits making them (the
 /// range's, by blame).  Lines changed again since aren't there, nor are files
-/// `context` doesn't have (they're in the notes).
+/// `context` doesn't have (they're in the notes).  And the lines it removes, in
+/// the old side's coordinates (all of a removed file's).
 pub fn rev_changed_lines(
     repo: &Repository,
     context: &str,
@@ -150,14 +174,19 @@ pub fn rev_changed_lines(
     let short = |commit: &Commit| commit.id().to_string()[..12].to_string();
     let mut files = BTreeMap::new();
     let mut notes = vec![];
+    let mut removed_by_file: BTreeMap<String, Vec<u32>> = BTreeMap::new();
     for delta in diff.deltas() {
+        if delta.status() == Delta::Deleted {
+            if let Some(path) = delta.old_file().path().and_then(|p| p.to_str())
+                && let Ok(old) = repo.find_blob(delta.old_file().id())
+            {
+                removed_by_file.insert(path.to_string(), (1..=line_count(old.content())).collect());
+            }
+            continue;
+        }
         let Some(path) = delta.new_file().path().and_then(|p| p.to_str()) else {
             continue;
         };
-        if delta.status() == Delta::Deleted {
-            notes.push(format!("{} is removed", path));
-            continue;
-        }
         let Ok(new) = repo.find_blob(delta.new_file().id()) else {
             continue;
         };
@@ -166,6 +195,17 @@ pub fn rev_changed_lines(
             _ => repo.find_blob(delta.old_file().id()).ok(),
         };
         let (added, touched) = changed_lines(old.as_ref().map(|b| b.content()), new.content());
+        if let Some(old) = &old {
+            let removed = removed_lines(old.content(), new.content());
+            if !removed.is_empty() {
+                let old_path = delta
+                    .old_file()
+                    .path()
+                    .and_then(|p| p.to_str())
+                    .unwrap_or(path);
+                removed_by_file.insert(old_path.to_string(), removed.into_iter().collect());
+            }
+        }
         // (In the context's versions of the files.)
         let map = if to.id() == context.id() {
             None
@@ -229,6 +269,8 @@ pub fn rev_changed_lines(
         commits,
         files,
         notes,
+        from: from.as_ref().map(|commit| commit.id().to_string()),
+        removed_lines: removed_by_file,
     })
 }
 
@@ -262,5 +304,9 @@ mod tests {
         );
         assert_eq!(line_map(b"x\ny", b"x\ny"), vec![Some(1), Some(2)]);
         assert_eq!(line_map(b"x\n", b""), vec![None]);
+        assert_eq!(
+            removed_lines(old, new).into_iter().collect::<Vec<_>>(),
+            vec![2, 5]
+        );
     }
 }

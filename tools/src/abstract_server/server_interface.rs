@@ -510,6 +510,13 @@ pub trait AbstractServer {
         None
     }
 
+    /// The server with the analysis of revision `rev`'s files, if there's one
+    /// (ex: a try push's base, the indexed revision), for a patch's old side
+    /// (see `dataflow::slice::ChangedLines::removed_lines`).
+    fn old_side(&self, _rev: &str) -> Option<Box<dyn AbstractServer + Send + Sync>> {
+        None
+    }
+
     /// What this server's steps' results depend on, for caching them (see
     /// `step_cache`): its index's identity, and a try push's delta's.  None
     /// if they shouldn't be cached (ex: a remote server's).

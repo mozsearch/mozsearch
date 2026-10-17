@@ -219,6 +219,8 @@ fn parse_changed(spec: &str) -> Result<ChangedLines> {
         commits: vec![],
         files,
         notes: vec![],
+        from: None,
+        removed_lines: Default::default(),
     })
 }
 
@@ -405,7 +407,21 @@ impl PipelineCommand for DataflowCommand {
             let value =
                 crate::step_cache::cached(server.cache_identity(), "slice-rev", &args, || async {
                     let changes = server.rev_changed_lines(spec)?;
-                    let slicing = slice(&mut tracer, &changes, self.args.slice_hops).await;
+                    // (What it removes, in the old side's analysis, if it's
+                    // here; see `AbstractServer::old_side`.)
+                    let old_server = changes.from.as_deref().and_then(|rev| server.old_side(rev));
+                    let mut old_tracer = old_server.as_deref().map(|old| {
+                        let mut old_tracer = Tracer::new(old, tracer.opts.clone());
+                        old_tracer.oracle = tracer.oracle.clone();
+                        old_tracer
+                    });
+                    let slicing = slice(
+                        &mut tracer,
+                        &changes,
+                        self.args.slice_hops,
+                        old_tracer.as_mut(),
+                    )
+                    .await;
                     Ok::<_, ServerError>(serde_json::to_value(&slicing).unwrap())
                 })
                 .await?;
@@ -426,7 +442,7 @@ impl PipelineCommand for DataflowCommand {
             (None, None) => None,
         };
         if let Some(changes) = changes {
-            let slicing = slice(&mut tracer, &changes, self.args.slice_hops).await;
+            let slicing = slice(&mut tracer, &changes, self.args.slice_hops, None).await;
             return self.render_slicing(server, slicing);
         }
         if let Some(paths) = paths_arg(&self.args.field_edges, &None)? {

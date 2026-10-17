@@ -141,6 +141,18 @@ add_task(async function test_TryDeltaSlicing() {
   const one = doc().querySelector(".query-result svg")?.textContent ?? "";
   ok(one.includes("cluster 1") && !one.includes("cluster 2"), "One of them can be shown");
 
+  // (What it removes, from the indexed revision's analysis: the old Frob.)
+  const response = await fetch(
+    `/trydelta/query/default?q=${encodeURIComponent(`slice-rev:${head} slice-format:json`)}&rev=${head}`,
+    { headers: { Accept: "application/json" }, cache: "no-store" });
+  const slicing = (await response.json())?.JsonValue?.value;
+  const clusterOf = unit => slicing.clusters.findIndex(c => c.includes(unit.id));
+  const removed = slicing.units.find(u => u.removed && u.func_sym == OLD_FROB);
+  const added = slicing.units.find(u => !u.removed && u.func_sym == NEW_FROB);
+  ok(removed?.path == "widget.cpp", "The slicing has the lines the push removes, as units");
+  ok(added && clusterOf(removed) == clusterOf(added),
+     "which are in the cluster of what replaces them");
+
   // "Let widgets shrink": Shrink's declaration and definition, and unpoke.cpp,
   // whose includes and namespace aren't dataflow.
   await TestUtils.loadQuery("trydelta", "slice-rev:3b6f1c8f943932e006c9b03d8978879e05dfc4fc");

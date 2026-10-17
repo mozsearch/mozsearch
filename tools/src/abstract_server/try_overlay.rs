@@ -431,6 +431,11 @@ impl AbstractServer for TryOverlay {
         Some(self.delta.meta.clone())
     }
 
+    fn old_side(&self, rev: &str) -> Option<Box<dyn AbstractServer + Send + Sync>> {
+        // (Its base, the indexed revision.)
+        (rev == self.delta.meta.base).then(|| self.base.clonify())
+    }
+
     fn cache_identity(&self) -> Option<String> {
         // (The delta's, in case it's analyzed again.)
         use std::os::unix::fs::MetadataExt;

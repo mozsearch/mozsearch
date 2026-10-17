@@ -35,9 +35,17 @@ pub struct ChangedLines {
     #[serde(default)]
     pub commits: Vec<String>,
     pub files: BTreeMap<String, FileChange>,
-    /// What isn't in `files` (ex: removed files).
+    /// What isn't in `files` or `removed_lines`.
     #[serde(default)]
     pub notes: Vec<String>,
+    /// The revision it changes (the old side), if known, and the lines it
+    /// removes there, by file (all of a removed file's), for the units of
+    /// what it removes, when the old side's analysis is there (ex: a try
+    /// push's base; see `AbstractServer::old_side`).
+    #[serde(default)]
+    pub from: Option<String>,
+    #[serde(default)]
+    pub removed_lines: BTreeMap<String, Vec<u32>>,
 }
 
 #[derive(Deserialize)]
@@ -83,6 +91,9 @@ pub struct Unit {
     /// in the patch's order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub commits: Vec<String>,
+    /// Whether it's lines the patch removes, in the old side's coordinates.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub removed: bool,
     pub keys: BTreeSet<Key>,
     pub text: Vec<String>,
     /// Its function's callees anywhere in its body (but plumbing), and the
@@ -237,7 +248,161 @@ async fn ipdl_keys(
     }
 }
 
-pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: usize) -> Slicing {
+/// The units of a file's lines (of the patch's new side, or, `removed`, those
+/// it removes, on the old side, which `tracer` is of), with their functions'
+/// IR: a function's contiguous changed lines, or a run of declarations
+/// outside functions, with their keys.
+async fn file_units(
+    tracer: &mut Tracer<'_>,
+    path: &str,
+    lines: &BTreeSet<u32>,
+    commits: &(dyn Fn(&BTreeSet<u32>) -> Vec<String> + Sync),
+    removed: bool,
+) -> Vec<(Unit, Option<(Arc<FileIr>, usize)>)> {
+    let mut out = vec![];
+    let file = tracer.file(path).await;
+    let source = tracer.source(path).await.unwrap_or_default();
+    let source_lines: Vec<&str> = source.lines().collect();
+    let text_of = |line: u32| -> String {
+        source_lines
+            .get(line as usize - 1)
+            .map(|l| l.trim().to_string())
+            .unwrap_or_default()
+    };
+    let Some(file) = file else {
+        // (Files we have no frontend for, ex: IPDL: their declarations'
+        // symbols, its structs' fields as fields.)
+        let recs = tracer.records(path).await;
+        let mut keys = BTreeSet::new();
+        if let Some(recs) = &recs {
+            for line in lines {
+                for sym in defined_at(recs, *line) {
+                    let kind = recs
+                        .structured(&sym)
+                        .and_then(|s| s.get("kind"))
+                        .and_then(|k| k.as_str());
+                    if sym.starts_with("IPC_") {
+                        keys.insert(Key::Binding(sym));
+                    } else if sym.starts_with("IPDL_") && kind == Some("field") {
+                        keys.insert(Key::Field(sym));
+                    } else {
+                        keys.insert(Key::Function(sym));
+                    }
+                }
+            }
+        }
+        out.push((
+            Unit {
+                id: 0,
+                path: path.to_string(),
+                lines: lines.iter().copied().collect(),
+                func: None,
+                func_sym: None,
+                class: None,
+                commits: commits(lines),
+                removed,
+                keys,
+                text: lines.iter().map(|l| text_of(*l)).collect(),
+                body_calls: BTreeSet::new(),
+                body_sends: BTreeSet::new(),
+            },
+            None,
+        ));
+        return out;
+    };
+    // Group the lines by the function they're in (or none), and
+    // contiguous runs outside functions.
+    let mut groups: BTreeMap<(Option<usize>, u32), BTreeSet<u32>> = BTreeMap::new();
+    let mut last: Option<(Option<usize>, u32, u32)> = None;
+    for &line in lines {
+        let func = file
+            .func_at_line(line)
+            .and_then(|f| file.by_sym.get(&f.sym).copied())
+            .filter(|&i| file.funcs[i].line < file.funcs[i].end_line || file.funcs[i].line == line);
+        let start = match (last, func) {
+            (Some((lf, start, prev)), f) if lf == f && (f.is_some() || line <= prev + 2) => start,
+            _ => line,
+        };
+        groups.entry((func, start)).or_default().insert(line);
+        last = Some((func, start, line));
+    }
+    for ((func, _), group_lines) in groups {
+        let mut keys = BTreeSet::new();
+        let recs = tracer.records(path).await;
+        // (Definitions and declarations on the lines: new fields,
+        // methods, parameters.)
+        if let Some(recs) = &recs {
+            for line in &group_lines {
+                for sym in defined_at(recs, *line) {
+                    if sym.starts_with("F_") {
+                        keys.insert(Key::Field(sym));
+                    } else if sym.starts_with("V_") {
+                        // (Parameters, by their functions' events.)
+                    } else {
+                        keys.insert(Key::Function(sym));
+                    }
+                }
+            }
+        }
+        if let Some(fi) = func {
+            let f = &file.funcs[fi];
+            event_keys(f, &group_lines, &mut keys);
+            ipdl_keys(tracer, f, &group_lines, &mut keys).await;
+            // (A changed function's callers link to it.)
+            keys.insert(Key::Function(f.sym));
+            // (Parameters declared on the lines.)
+            for p in &f.params {
+                if let Root::Local(sym) = p.place.root
+                    && group_lines.contains(&f.line)
+                    && !is_hub(&p.name)
+                {
+                    keys.insert(Key::Local(f.sym, sym));
+                }
+            }
+        }
+        let (mut body_calls, mut body_sends) = (BTreeSet::new(), BTreeSet::new());
+        if let Some(fi) = func {
+            for call in &file.funcs[fi].calls {
+                if is_boring_callee(&call.callee_pretty) {
+                    continue;
+                }
+                body_calls.extend(call.callee.iter().copied());
+                body_sends.extend(ipc_message_sym(&call.callee_pretty));
+            }
+        }
+        out.push((
+            Unit {
+                id: 0,
+                path: path.to_string(),
+                lines: group_lines.iter().copied().collect(),
+                func: func.map(|fi| file.funcs[fi].pretty.clone()),
+                func_sym: func.map(|fi| file.funcs[fi].sym),
+                class: match func {
+                    Some(fi) => tracer.class_of(&file.funcs[fi].sym).await,
+                    None => None,
+                },
+                commits: commits(&group_lines),
+                removed,
+                keys,
+                text: group_lines.iter().map(|l| text_of(*l)).collect(),
+                body_calls,
+                body_sends,
+            },
+            func.map(|fi| (file.clone(), fi)),
+        ));
+    }
+    out
+}
+
+/// Slice a patch's changed lines (with `tracer`, of its new side), and the lines
+/// it removes, if there's an `old` tracer, of its old side (see
+/// `ChangedLines::removed_lines`).
+pub async fn slice(
+    tracer: &mut Tracer<'_>,
+    changes: &ChangedLines,
+    trace_hops: usize,
+    old: Option<&mut Tracer<'_>>,
+) -> Slicing {
     let mut units: Vec<Unit> = vec![];
     // (Units' functions and lines, for tracing.)
     let mut unit_funcs: Vec<Option<(Arc<FileIr>, usize)>> = vec![];
@@ -258,147 +423,46 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
         if lines.is_empty() {
             continue;
         }
-        let file = tracer.file(path).await;
-        let source = tracer.source(path).await.unwrap_or_default();
-        let source_lines: Vec<&str> = source.lines().collect();
-        let text_of = |line: u32| -> String {
-            source_lines
-                .get(line as usize - 1)
-                .map(|l| l.trim().to_string())
-                .unwrap_or_default()
-        };
-        let Some(file) = file else {
-            // (Files we have no frontend for, ex: IPDL: their declarations'
-            // symbols, its structs' fields as fields.)
-            let recs = tracer.records(path).await;
-            let mut keys = BTreeSet::new();
-            if let Some(recs) = &recs {
-                for line in &lines {
-                    for sym in defined_at(recs, *line) {
-                        let kind = recs
-                            .structured(&sym)
-                            .and_then(|s| s.get("kind"))
-                            .and_then(|k| k.as_str());
-                        if sym.starts_with("IPC_") {
-                            keys.insert(Key::Binding(sym));
-                        } else if sym.starts_with("IPDL_") && kind == Some("field") {
-                            keys.insert(Key::Field(sym));
-                        } else {
-                            keys.insert(Key::Function(sym));
-                        }
-                    }
-                }
-            }
-            let id = units.len();
-            units.push(Unit {
-                id,
-                path: path.clone(),
-                lines: lines.iter().copied().collect(),
-                func: None,
-                func_sym: None,
-                class: None,
-                commits: commits_of(change, &lines),
-                keys,
-                text: lines.iter().map(|l| text_of(*l)).collect(),
-                body_calls: BTreeSet::new(),
-                body_sends: BTreeSet::new(),
-            });
-            unit_funcs.push(None);
-            continue;
-        };
-        // Group the lines by the function they're in (or none), and
-        // contiguous runs outside functions.
-        let mut groups: BTreeMap<(Option<usize>, u32), BTreeSet<u32>> = BTreeMap::new();
-        let mut last: Option<(Option<usize>, u32, u32)> = None;
-        for &line in &lines {
-            let func = file
-                .func_at_line(line)
-                .and_then(|f| file.by_sym.get(&f.sym).copied())
-                .filter(|&i| {
-                    file.funcs[i].line < file.funcs[i].end_line || file.funcs[i].line == line
-                });
-            let start = match (last, func) {
-                (Some((lf, start, prev)), f) if lf == f && (f.is_some() || line <= prev + 2) => {
-                    start
-                }
-                _ => line,
-            };
-            groups.entry((func, start)).or_default().insert(line);
-            last = Some((func, start, line));
+        let commits = |lines: &BTreeSet<u32>| commits_of(change, lines);
+        for (unit, uf) in file_units(tracer, path, &lines, &commits, false).await {
+            units.push(unit);
+            unit_funcs.push(uf);
         }
-        for ((func, _), group_lines) in groups {
-            let mut keys = BTreeSet::new();
-            let recs = tracer.records(path).await;
-            // (Definitions and declarations on the lines: new fields,
-            // methods, parameters.)
-            if let Some(recs) = &recs {
-                for line in &group_lines {
-                    for sym in defined_at(recs, *line) {
-                        if sym.starts_with("F_") {
-                            keys.insert(Key::Field(sym));
-                        } else if sym.starts_with("V_") {
-                            // (Parameters, by their functions' events.)
-                        } else {
-                            keys.insert(Key::Function(sym));
-                        }
-                    }
+    }
+    // (What it removes, on the old side, if its analysis is there.)
+    let mut old = old;
+    match old.as_deref_mut() {
+        Some(old) => {
+            for (path, lines) in &changes.removed_lines {
+                let lines: BTreeSet<u32> = lines.iter().copied().collect();
+                for (unit, _) in file_units(old, path, &lines, &|_| vec![], true).await {
+                    units.push(unit);
+                    // (Not traced: its values are gone.)
+                    unit_funcs.push(None);
                 }
             }
-            if let Some(fi) = func {
-                let f = &file.funcs[fi];
-                event_keys(f, &group_lines, &mut keys);
-                ipdl_keys(tracer, f, &group_lines, &mut keys).await;
-                // (A changed function's callers link to it.)
-                keys.insert(Key::Function(f.sym));
-                // (Parameters declared on the lines.)
-                for p in &f.params {
-                    if let Root::Local(sym) = p.place.root
-                        && group_lines.contains(&f.line)
-                        && !is_hub(&p.name)
-                    {
-                        keys.insert(Key::Local(f.sym, sym));
-                    }
-                }
-            }
-            let (mut body_calls, mut body_sends) = (BTreeSet::new(), BTreeSet::new());
-            if let Some(fi) = func {
-                for call in &file.funcs[fi].calls {
-                    if is_boring_callee(&call.callee_pretty) {
-                        continue;
-                    }
-                    body_calls.extend(call.callee.iter().copied());
-                    body_sends.extend(ipc_message_sym(&call.callee_pretty));
-                }
-            }
-            let id = units.len();
-            units.push(Unit {
-                id,
-                path: path.clone(),
-                lines: group_lines.iter().copied().collect(),
-                func: func.map(|fi| file.funcs[fi].pretty.clone()),
-                func_sym: func.map(|fi| file.funcs[fi].sym),
-                class: match func {
-                    Some(fi) => tracer.class_of(&file.funcs[fi].sym).await,
-                    None => None,
-                },
-                commits: commits_of(change, &group_lines),
-                keys,
-                text: group_lines.iter().map(|l| text_of(*l)).collect(),
-                body_calls,
-                body_sends,
-            });
-            unit_funcs.push(func.map(|fi| (file.clone(), fi)));
         }
+        None if !changes.removed_lines.is_empty() => notes.push(format!(
+            "The lines it removes ({} files') aren't sliced: their old side's analysis isn't here",
+            changes.removed_lines.len()
+        )),
+        None => {}
+    }
+    for (i, unit) in units.iter_mut().enumerate() {
+        unit.id = i;
     }
 
     // The symbols the patch defines or changes the definitions of: only
     // calls of those link units (everything calls `AssertIsOnMainThread`).
     let mut patch_syms: BTreeSet<Ustr> = BTreeSet::new();
-    for (unit, uf) in units.iter().zip(&unit_funcs) {
-        if let Some((file, fi)) = uf {
-            patch_syms.insert(file.funcs[*fi].sym);
-        }
-        if let Some(recs) = tracer.records(&unit.path).await {
+    for unit in &units {
+        patch_syms.extend(unit.func_sym);
+        // (A removed unit's, on the old side.)
+        let recs = match old.as_deref_mut() {
+            Some(old) if unit.removed => old.records(&unit.path).await,
+            _ => tracer.records(&unit.path).await,
+        };
+        if let Some(recs) = recs {
             for line in &unit.lines {
                 patch_syms.extend(
                     defined_at(&recs, *line)
@@ -422,7 +486,11 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
             .map(|sym| Key::Function(*sym))
             .collect();
         unit.keys.extend(calls);
-        if let Some(recs) = tracer.records(&unit.path).await {
+        let recs = match old.as_deref_mut() {
+            Some(old) if unit.removed => old.records(&unit.path).await,
+            _ => tracer.records(&unit.path).await,
+        };
+        if let Some(recs) = recs {
             for line in &unit.lines {
                 for sym in recs.symbols_at(*line) {
                     if patch_syms.contains(&sym) {
@@ -449,7 +517,12 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
         let first = units[i].lines.first().copied().unwrap_or(0);
         let last = units[i].lines.last().copied().unwrap_or(0);
         let neighbor = (0..units.len())
-            .filter(|&j| j != i && units[j].path == units[i].path && !trivial(&units[j]))
+            .filter(|&j| {
+                j != i
+                    && units[j].path == units[i].path
+                    && units[j].removed == units[i].removed
+                    && !trivial(&units[j])
+            })
             .filter_map(|j| {
                 let jf = units[j].lines.first().copied().unwrap_or(0);
                 let jl = units[j].lines.last().copied().unwrap_or(0);
@@ -531,9 +604,9 @@ pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: 
     // (The patch's IPDL messages, ones whose declarations or implementations
     // it changes, sent anywhere in its changed functions' bodies.)
     let mut messages: BTreeSet<Ustr> = BTreeSet::new();
-    for (unit, uf) in units.iter().zip(&unit_funcs) {
-        match uf {
-            Some((file, fi)) => messages.extend(binding_of.get(&file.funcs[*fi].sym)),
+    for unit in &units {
+        match unit.func_sym {
+            Some(sym) => messages.extend(binding_of.get(&sym)),
             None => messages.extend(unit.keys.iter().filter_map(|k| match k {
                 Key::Binding(owner) => Some(*owner),
                 _ => None,
@@ -743,8 +816,9 @@ pub fn render_slicing_text(slicing: &Slicing) -> String {
             };
             let _ = writeln!(
                 out,
-                "  u{:<3} {}:{} {}",
+                "  u{:<3} {}{}:{} {}",
                 ui,
+                if unit.removed { "removed " } else { "" },
                 unit.path,
                 lines,
                 unit.func.as_deref().map(short_pretty).unwrap_or_default()
@@ -823,7 +897,8 @@ pub fn render_slicing_dot(slicing: &Slicing, options: &DotOptions) -> String {
             let unit = &slicing.units[ui];
             let file = unit.path.rsplit('/').next().unwrap_or(&unit.path);
             let label = format!(
-                "{}:{}\\n{}\\n{}",
+                "{}{}:{}\\n{}\\n{}",
+                if unit.removed { "removed " } else { "" },
                 file,
                 unit.lines.first().copied().unwrap_or(0),
                 escape(&unit.func.as_deref().map(short_pretty).unwrap_or_default()),
@@ -840,9 +915,11 @@ pub fn render_slicing_dot(slicing: &Slicing, options: &DotOptions) -> String {
                 Some(tree) if first > 0 => format!(
                     ", URL=\"/{}/{}/{}#{}\", tooltip=\"{}:{}\"",
                     escape(tree),
+                    // (The lines it removes are the old side's, the indexed
+                    // revision's.)
                     match &options.link_rev {
-                        Some(rev) => format!("rev/{}", escape(rev)),
-                        None => "source".to_string(),
+                        Some(rev) if !unit.removed => format!("rev/{}", escape(rev)),
+                        _ => "source".to_string(),
                     },
                     escape(&unit.path),
                     first,
@@ -851,7 +928,12 @@ pub fn render_slicing_dot(slicing: &Slicing, options: &DotOptions) -> String {
                 ),
                 _ => String::new(),
             };
-            let _ = writeln!(out, "    u{} [label=\"{}\"{}];", ui, label, link);
+            let style = if unit.removed {
+                ", style=\"rounded,dashed\""
+            } else {
+                ""
+            };
+            let _ = writeln!(out, "    u{} [label=\"{}\"{}{}];", ui, label, link, style);
         }
         let _ = writeln!(out, "  }}");
     }

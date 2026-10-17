@@ -187,7 +187,9 @@ revision the server analyzes: the indexed one, or, for queries with `rev`, a
 try push's head; see `tools/src/rev_lines.rs`), as the `slice-rev:` query
 term does (`slice-cluster:<n>` for one cluster, `slice-format:json` for the
 units, their functions, classes and commits, and links; the pipeline-server
-caches slicings, see `tools/src/step_cache.rs`), `--questions <paths>`
+caches slicings, see `tools/src/step_cache.rs`); in a try push's context, the
+lines it removes are units too, from the indexed revision's analysis,
+`--questions <paths>`
 lists questions for an oracle, `--oracle <dir>` applies its answers, and
 `--stats <paths>` reports how much the frontends understood.
 
