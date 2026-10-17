@@ -44,6 +44,8 @@ pub mod admission;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod cmd_pipeline;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod data_api;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod dataflow;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod patch_canvas;

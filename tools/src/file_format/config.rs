@@ -193,6 +193,15 @@ pub struct TreeConfigPaths {
     /// `SearchEndpoint` and `search_url`.
     #[serde(default)]
     pub search_endpoint: SearchEndpoint,
+    /// Whether the pipeline-server serves the tree's data API (see
+    /// `data_api`), which it does by default; `false` turns it off (ex: for a
+    /// tree whose API is being abused).
+    #[serde(default = "data_api_default")]
+    pub data_api: bool,
+}
+
+fn data_api_default() -> bool {
+    true
 }
 
 impl TreeConfigPaths {

@@ -844,9 +844,9 @@ async fn main() {
                 // Requests from outside wait for their client's tokens, or are
                 // turned away, and agents and bots only get some of the
                 // permits below; see `tools::admission`.
-                let _class_permit =
+                let _admitted =
                     match admission::admit_request(req.headers(), req.uri().path()).await {
-                        Ok((_, permit)) => permit,
+                        Ok(admitted) => admitted,
                         Err(retry) => {
                             return http::Response::builder()
                                 .status(StatusCode::TOO_MANY_REQUESTS)

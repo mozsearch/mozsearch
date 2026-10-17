@@ -25,6 +25,7 @@ use tools::{
         facets::{CtxtraFacet, FacetFile, PathKinds, PpFacet, file_facets, last_changed_facet},
         interface::FlattenedResultsBundle,
     },
+    data_api,
     file_format::config::{self, SearchEndpoint},
     file_format::jumpref::{
         JumprefData, JumprefTraversals, determine_desired_extra_syms_from_jumpref,
@@ -420,11 +421,18 @@ struct SomeTemplates {
 }
 
 /// Requests from outside wait for their client's tokens, or are turned away,
-/// and agents and bots only get some of the concurrency limit's permits; see
-/// `tools::admission`.
+/// and agents and bots only get some of the concurrency limit's permits; and
+/// then they're charged for their processing time, for the pools charging
+/// for it (the data API's); see `tools::admission`.
 async fn admit(req: Request, next: Next) -> Response {
     match admission::admit_request(req.headers(), req.uri().path()).await {
-        Ok((_, _permit)) => next.run(req).await,
+        Ok(admitted) => {
+            let response = next.run(req).await;
+            if let Some(admission::Processing(processing)) = response.extensions().get() {
+                admitted.charge(*processing);
+            }
+            response
+        }
         Err(retry) => (
             StatusCode::TOO_MANY_REQUESTS,
             [(header::RETRY_AFTER, retry.as_secs().to_string())],
@@ -432,6 +440,16 @@ async fn admit(req: Request, next: Next) -> Response {
         )
             .into_response(),
     }
+}
+
+/// Time the request's processing (inside the concurrency limit), for `admit`.
+async fn time_processing(req: Request, next: Next) -> Response {
+    let start = std::time::Instant::now();
+    let mut response = next.run(req).await;
+    response
+        .extensions_mut()
+        .insert(admission::Processing(start.elapsed()));
+    response
 }
 
 #[tokio::main]
@@ -451,12 +469,20 @@ async fn main() {
     let templates = Arc::new(SomeTemplates {
         query_results: build_and_parse_query_results(),
     });
+    // (The trees whose data API is on; see `TreeConfigPaths::data_api`.)
+    let data_api_trees = config
+        .trees
+        .iter()
+        .filter(|(_, tree)| tree.paths.data_api)
+        .map(|(name, _)| name.clone())
+        .collect();
 
-    // build our application with a single route
     let app = Router::new()
         .route("/{tree}/query/{preset}", get(handle_query))
-        .layer(Extension(local_servers))
+        .layer(Extension(local_servers.clone()))
         .layer(Extension(templates))
+        .merge(data_api::router(local_servers, data_api_trees))
+        .layer(middleware::from_fn(time_processing))
         .layer(GlobalConcurrencyLimitLayer::new(4))
         // (Outside the concurrency limit, so that requests waiting for their
         // tokens don't hold its permits.)

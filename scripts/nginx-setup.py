@@ -511,6 +511,10 @@ for repo in config['trees']:
 
     # Handled by Rust `pipeline-server.rs`
     location(f'/{repo}/query', ['proxy_pass http://127.0.0.1:8002;'])
+    # and its data API (see the tools' `data_api`), unless the tree's is off
+    # (whose requests then don't reach it).
+    if tree_config.get('data_api', True):
+        location(f'/{repo}/api/', ['proxy_pass http://127.0.0.1:8002;'])
 
     # Show different icons for the testing servers.
     print(f'  rewrite ^/{repo}/static/icons/search.png$ /{repo}/static/icons/$favicon permanent;')

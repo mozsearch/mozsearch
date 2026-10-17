@@ -30,7 +30,8 @@
       "history_path": null,
       "codesearch_path": "$WORKING/searchfox-line-blame/livegrep.idx",
       "codesearch_port": 8082,
-      "scip_subtrees": {}
+      "scip_subtrees": {},
+      "data_api": false
     },
     "spechist": {
       "priority": 80,

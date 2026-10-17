@@ -29,7 +29,7 @@ use crate::file_format::rollup::is_boring_callee;
 
 /// The lines a patch changed, in the coordinates of the files we have the
 /// analysis of (its new side; see `rev_lines`).
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct ChangedLines {
     /// Its commits, oldest first.
     #[serde(default)]
@@ -48,7 +48,7 @@ pub struct ChangedLines {
     pub removed_lines: BTreeMap<String, Vec<u32>>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct FileChange {
     #[serde(default)]
     pub added: Vec<u32>,

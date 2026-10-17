@@ -12,6 +12,14 @@
 //! (ex: from the web server itself, or tests) aren't limited.  Each server
 //! has its own buckets (see `admit_request`).
 //!
+//! The data API's requests (see `data_api`) have their own buckets (see
+//! `Pool`), so that a tool's bursts of them don't use up its person's pages',
+//! and take a small cost up front and then their processing time (see
+//! `Admitted::charge`): what they cost the server is its CPU and memory, which
+//! vary (a crossref lookup is cheap, a big analysis file isn't), and which
+//! are easier to measure than to predict.  A client can go into debt (up to
+//! its bucket's capacity) for its last request, which its next ones wait for.
+//!
 //! Clients are by `Fastly-Client-IP` (which Fastly sets, unless the request
 //! has one already, which its VCL can prevent) or else `X-Forwarded-For`
 //! (whose first address the client can choose), which nginx passes on: so a
@@ -42,6 +50,7 @@ pub enum RequestClass {
 /// first: some agents' user agents mention "bot".)
 const AGENTS: &[&str] = &[
     "searchfox-cli",
+    "searchfox-remote",
     "claude-user",
     "claude-code",
     "chatgpt-user",
@@ -98,6 +107,34 @@ impl RequestClass {
     }
 }
 
+/// Which of a client's buckets a request takes its tokens from, by its path.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum Pool {
+    /// Pages and their data files (see `cost`), and queries.
+    Pages,
+    /// The data API's requests (`/{tree}/api/...`; see `data_api`).
+    Api,
+}
+
+impl Pool {
+    pub fn of(path: &str) -> Pool {
+        if path.split('/').nth(2) == Some("api") {
+            Pool::Api
+        } else {
+            Pool::Pages
+        }
+    }
+
+    /// How many tokens a second of a request's processing takes (see
+    /// `Admitted::charge`).
+    fn tokens_per_second(self) -> f64 {
+        match self {
+            Pool::Pages => 0.0,
+            Pool::Api => 1.0,
+        }
+    }
+}
+
 /// A gap this long between a client's requests ends a sustained run.
 const GAP: Duration = Duration::from_secs(60);
 /// A run of requests this long without a gap is sustained (see the module's
@@ -131,7 +168,7 @@ pub enum Admission {
 
 #[derive(Default)]
 pub struct Admissions {
-    clients: Mutex<HashMap<(String, RequestClass), Client>>,
+    clients: Mutex<HashMap<(String, RequestClass, Pool), Client>>,
 }
 
 pub static ADMISSIONS: LazyLock<Admissions> = LazyLock::new(Admissions::default);
@@ -156,12 +193,13 @@ pub fn client_key(fastly_client_ip: Option<&str>, forwarded_for: Option<&str>) -
 
 impl Admissions {
     /// Whether a request costing `cost` tokens, from `client` (see
-    /// `client_key`) of `class`, may go ahead now (taking its tokens), after
-    /// waiting `waited` so far.
+    /// `client_key`) of `class`, for `pool`, may go ahead now (taking its
+    /// tokens), after waiting `waited` so far.
     pub fn admit(
         &self,
         client: &str,
         class: RequestClass,
+        pool: Pool,
         cost: f64,
         waited: Duration,
         now: Instant,
@@ -172,7 +210,7 @@ impl Admissions {
             clients.retain(|_, c| now.duration_since(c.last_request) < FORGET_AFTER);
         }
         let state = clients
-            .entry((client.to_string(), class))
+            .entry((client.to_string(), class, pool))
             .or_insert_with(|| Client {
                 tokens: capacity,
                 refilled: now,
@@ -203,6 +241,46 @@ impl Admissions {
             Admission::Wait(needed)
         }
     }
+
+    /// Take `tokens` more from the bucket of `client`'s requests of `class`
+    /// for `pool` (after its request; see `Admitted::charge`), down to minus
+    /// its capacity.
+    pub fn charge(&self, client: &str, class: RequestClass, pool: Pool, tokens: f64) {
+        let (capacity, _, _) = class.bucket();
+        let mut clients = self.clients.lock().unwrap();
+        if let Some(state) = clients.get_mut(&(client.to_string(), class, pool)) {
+            state.tokens = (state.tokens - tokens).max(-capacity);
+        }
+    }
+}
+
+/// How long a request took to process (inside the server's concurrency
+/// limit, so not counting its waiting), which the pipeline-server's responses
+/// carry as an extension for `Admitted::charge`.
+#[derive(Clone, Copy, Debug)]
+pub struct Processing(pub Duration);
+
+/// An admitted request (see `admit_request`): its class, with the permit to
+/// hold while it's processed, and its bucket, for charging it afterwards.
+pub struct Admitted {
+    pub class: RequestClass,
+    pub permit: Option<SemaphorePermit<'static>>,
+    /// Its client and the class of its bucket (not a sustained client's bot
+    /// class), and the pool, if it's from outside.
+    bucket: Option<(String, RequestClass, Pool)>,
+}
+
+impl Admitted {
+    /// Charge the request's bucket for its processing time, if its pool
+    /// charges for that (see `Pool::tokens_per_second`).
+    pub fn charge(&self, processing: Duration) {
+        if let Some((client, class, pool)) = &self.bucket {
+            let tokens = processing.as_secs_f64() * pool.tokens_per_second();
+            if tokens > 0.0 {
+                ADMISSIONS.charge(client, *class, *pool, tokens);
+            }
+        }
+    }
 }
 
 /// Agents' and bots' shares of the server's concurrent requests (see
@@ -216,18 +294,18 @@ static BOT_SEMAPHORE: Semaphore = Semaphore::const_new(RequestClass::Bot.concurr
 /// concurrency (for agents and bots), to hold while it's processed (and
 /// taken before the server's own); or, if it's turned away, how long until
 /// it may retry (for a 429's `Retry-After`).
-pub async fn admit_request(
-    headers: &HeaderMap,
-    path: &str,
-) -> Result<(RequestClass, Option<SemaphorePermit<'static>>), Duration> {
+pub async fn admit_request(headers: &HeaderMap, path: &str) -> Result<Admitted, Duration> {
     let header = |name: &str| headers.get(name).and_then(|v| v.to_str().ok());
     let mut class = RequestClass::of(header("user-agent").unwrap_or_default());
+    let mut bucket = None;
     if let Some(client) = client_key(header("fastly-client-ip"), header("x-forwarded-for")) {
+        let pool = Pool::of(path);
         let cost = cost(path);
         let start = Instant::now();
         loop {
-            match ADMISSIONS.admit(&client, class, cost, start.elapsed(), Instant::now()) {
+            match ADMISSIONS.admit(&client, class, pool, cost, start.elapsed(), Instant::now()) {
                 Admission::Admit(admitted) => {
+                    bucket = Some((client.clone(), class, pool));
                     class = admitted;
                     break;
                 }
@@ -251,16 +329,21 @@ pub async fn admit_request(
         RequestClass::Agent => Some(AGENT_SEMAPHORE.acquire().await.unwrap()),
         RequestClass::Bot => Some(BOT_SEMAPHORE.acquire().await.unwrap()),
     };
-    Ok((class, permit))
+    Ok(Admitted {
+        class,
+        permit,
+        bucket,
+    })
 }
 
-/// How many tokens a request for `path` takes: pages 1, and their data
-/// files (which nginx usually serves from sidecar files) less.
+/// How many tokens a request for `path` takes up front: pages 1, their data
+/// files (which nginx usually serves from sidecar files) less, and the data
+/// API's requests a little (and then their processing time; see `Pool`).
 pub fn cost(path: &str) -> f64 {
-    if path.split('/').nth(2) == Some("rev-hyperblame") {
-        0.2
-    } else {
-        1.0
+    match path.split('/').nth(2) {
+        Some("rev-hyperblame") => 0.2,
+        Some("api") => 0.1,
+        _ => 1.0,
     }
 }
 
@@ -303,32 +386,62 @@ mod tests {
         // can't, so it's turned away.
         for _ in 0..10 {
             assert_eq!(
-                admissions.admit("a", bot, 1.0, Duration::ZERO, start),
+                admissions.admit("a", bot, Pool::Pages, 1.0, Duration::ZERO, start),
                 Admission::Admit(bot)
             );
         }
         assert_eq!(
-            admissions.admit("a", bot, 1.0, Duration::ZERO, start),
+            admissions.admit("a", bot, Pool::Pages, 1.0, Duration::ZERO, start),
             Admission::Wait(Duration::from_secs(5))
         );
         assert!(matches!(
-            admissions.admit("a", bot, 1.0, Duration::from_secs(1), start),
+            admissions.admit("a", bot, Pool::Pages, 1.0, Duration::from_secs(1), start),
             Admission::Reject(_, 1)
         ));
         assert!(matches!(
-            admissions.admit("a", bot, 1.0, Duration::from_secs(1), start),
+            admissions.admit("a", bot, Pool::Pages, 1.0, Duration::from_secs(1), start),
             Admission::Reject(_, 2)
         ));
         // After 5 s, it has one again.
         let later = start + Duration::from_secs(5);
         assert_eq!(
-            admissions.admit("a", bot, 1.0, Duration::ZERO, later),
+            admissions.admit("a", bot, Pool::Pages, 1.0, Duration::ZERO, later),
             Admission::Admit(bot)
         );
         // Other clients have their own buckets.
         assert_eq!(
-            admissions.admit("b", bot, 1.0, Duration::ZERO, start),
+            admissions.admit("b", bot, Pool::Pages, 1.0, Duration::ZERO, start),
             Admission::Admit(bot)
+        );
+    }
+
+    #[test]
+    fn test_api_pool() {
+        let admissions = Admissions::default();
+        let start = Instant::now();
+        let agent = RequestClass::Agent;
+        assert_eq!(Pool::of("/tests/api/v1/crossref"), Pool::Api);
+        assert_eq!(Pool::of("/tests/source/a.cpp"), Pool::Pages);
+        // An agent's 30 pages leave its API requests' bucket full.
+        for _ in 0..30 {
+            admissions.admit("d", agent, Pool::Pages, 1.0, Duration::ZERO, start);
+        }
+        assert_eq!(
+            admissions.admit("d", agent, Pool::Api, 0.1, Duration::ZERO, start),
+            Admission::Admit(agent)
+        );
+        // A long request puts it in debt (down to minus its capacity), which
+        // its next request waits for, or is turned away.
+        admissions.charge("d", agent, Pool::Api, 1000.0);
+        assert!(matches!(
+            admissions.admit("d", agent, Pool::Api, 0.1, Duration::ZERO, start),
+            Admission::Reject(_, 1)
+        ));
+        // (30 s to pay its debt of 30 tokens at 1 a second.)
+        let later = start + Duration::from_secs(31);
+        assert_eq!(
+            admissions.admit("d", agent, Pool::Api, 0.1, Duration::ZERO, later),
+            Admission::Admit(agent)
         );
     }
 
@@ -342,14 +455,14 @@ mod tests {
         let mut now = start;
         let mut last = None;
         while now <= start + SUSTAINED {
-            last = Some(admissions.admit("c", browser, 1.0, Duration::ZERO, now));
+            last = Some(admissions.admit("c", browser, Pool::Pages, 1.0, Duration::ZERO, now));
             now += Duration::from_secs(10);
         }
         assert_eq!(last, Some(Admission::Admit(RequestClass::Bot)));
         // After a gap, it's a browser's again.
         now += GAP;
         assert_eq!(
-            admissions.admit("c", browser, 1.0, Duration::ZERO, now),
+            admissions.admit("c", browser, Pool::Pages, 1.0, Duration::ZERO, now),
             Admission::Admit(browser)
         );
     }
