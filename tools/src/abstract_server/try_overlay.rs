@@ -431,6 +431,19 @@ impl AbstractServer for TryOverlay {
         Some(self.delta.meta.clone())
     }
 
+    fn cache_identity(&self) -> Option<String> {
+        // (The delta's, in case it's analyzed again.)
+        use std::os::unix::fs::MetadataExt;
+        let meta = std::fs::metadata(self.delta.dir.join("meta.json")).ok()?;
+        Some(format!(
+            "{} try {} {} {}",
+            self.base.cache_identity()?,
+            self.delta.meta.head,
+            meta.ino(),
+            meta.mtime()
+        ))
+    }
+
     fn rev_changed_lines(&self, spec: &str) -> Result<crate::dataflow::slice::ChangedLines> {
         crate::rev_lines::rev_changed_lines(&self.repo()?, &self.delta.meta.head, spec).map_err(
             |message| {

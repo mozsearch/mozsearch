@@ -510,6 +510,13 @@ pub trait AbstractServer {
         None
     }
 
+    /// What this server's steps' results depend on, for caching them (see
+    /// `step_cache`): its index's identity, and a try push's delta's.  None
+    /// if they shouldn't be cached (ex: a remote server's).
+    fn cache_identity(&self) -> Option<String> {
+        None
+    }
+
     /// The lines a revision changes (a commit's changes from its first
     /// parent, or `<a>..<b>`'s), in the coordinates of the files this
     /// analyzes (the indexed revision's, or a try push's head's), for

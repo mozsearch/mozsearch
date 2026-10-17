@@ -8,7 +8,9 @@ use crate::{
         frontend::FileIr,
         oracle::Oracle,
         render::{DotOptions, render_dot, render_text},
-        slice::{ChangedLines, FileChange, render_slicing_dot, render_slicing_text, slice},
+        slice::{
+            ChangedLines, FileChange, Slicing, render_slicing_dot, render_slicing_text, slice,
+        },
         summary::{Summary, field_edges, summarize},
         trace::{Dir, TraceOpts, Tracer, find_place},
     },
@@ -394,8 +396,24 @@ impl PipelineCommand for DataflowCommand {
                 "application/jsonl",
             );
         }
+        if let Some(spec) = &self.args.slice_rev {
+            // (Cached, by everything slicing depends on; see `step_cache`.)
+            let args = format!(
+                "{} hops {} {:?} oracle {:?}",
+                spec, self.args.slice_hops, tracer.opts, self.args.oracle
+            );
+            let value =
+                crate::step_cache::cached(server.cache_identity(), "slice-rev", &args, || async {
+                    let changes = server.rev_changed_lines(spec)?;
+                    let slicing = slice(&mut tracer, &changes, self.args.slice_hops).await;
+                    Ok::<_, ServerError>(serde_json::to_value(&slicing).unwrap())
+                })
+                .await?;
+            let slicing: Slicing = serde_json::from_value(value)
+                .map_err(|e| data_error(format!("A cached slicing: {}", e)))?;
+            return self.render_slicing(server, slicing);
+        }
         let changes = match (&self.args.changed, &self.args.slice) {
-            _ if let Some(spec) = &self.args.slice_rev => Some(server.rev_changed_lines(spec)?),
             (Some(spec), _) => Some(parse_changed(spec)?),
             (None, Some(slice_file)) => {
                 let json = std::fs::read_to_string(slice_file)
@@ -408,28 +426,8 @@ impl PipelineCommand for DataflowCommand {
             (None, None) => None,
         };
         if let Some(changes) = changes {
-            let mut slicing = slice(&mut tracer, &changes, self.args.slice_hops).await;
-            if let Some(n) = self.args.slice_cluster {
-                slicing.only_cluster(n).map_err(data_error)?;
-            }
-            return match self.args.format {
-                DataflowFormat::Text => text(render_slicing_text(&slicing), "text/plain"),
-                DataflowFormat::Dot => text(
-                    render_slicing_dot(&slicing, &DotOptions::default()),
-                    "text/vnd.graphviz",
-                ),
-                DataflowFormat::Svg => svg_of(render_slicing_dot(
-                    &slicing,
-                    &DotOptions {
-                        link_tree: Some(server.tree_info()?.name),
-                        link_rev: server.try_delta_meta().map(|meta| meta.head),
-                        title: false,
-                    },
-                )),
-                DataflowFormat::Json => Ok(PipelineValues::JsonValue(JsonValue {
-                    value: serde_json::to_value(&slicing).unwrap(),
-                })),
-            };
+            let slicing = slice(&mut tracer, &changes, self.args.slice_hops).await;
+            return self.render_slicing(server, slicing);
         }
         if let Some(paths) = paths_arg(&self.args.field_edges, &None)? {
             let mut summaries = vec![];
@@ -591,6 +589,35 @@ impl PipelineCommand for DataflowCommand {
 }
 
 impl DataflowCommand {
+    /// A slicing (or its `--slice-cluster`) in the format asked for.
+    fn render_slicing(
+        &self,
+        server: &(dyn AbstractServer + Send + Sync),
+        mut slicing: Slicing,
+    ) -> Result<PipelineValues> {
+        if let Some(n) = self.args.slice_cluster {
+            slicing.only_cluster(n).map_err(data_error)?;
+        }
+        match self.args.format {
+            DataflowFormat::Text => text(render_slicing_text(&slicing), "text/plain"),
+            DataflowFormat::Dot => text(
+                render_slicing_dot(&slicing, &DotOptions::default()),
+                "text/vnd.graphviz",
+            ),
+            DataflowFormat::Svg => svg_of(render_slicing_dot(
+                &slicing,
+                &DotOptions {
+                    link_tree: Some(server.tree_info()?.name),
+                    link_rev: server.try_delta_meta().map(|meta| meta.head),
+                    title: false,
+                },
+            )),
+            DataflowFormat::Json => Ok(PipelineValues::JsonValue(JsonValue {
+                value: serde_json::to_value(&slicing).unwrap(),
+            })),
+        }
+    }
+
     fn render_trace(
         &self,
         server: &(dyn AbstractServer + Send + Sync),

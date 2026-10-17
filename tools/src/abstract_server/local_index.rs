@@ -207,6 +207,19 @@ impl AbstractServer for LocalIndex {
         Ok(self.head_info.clone())
     }
 
+    fn cache_identity(&self) -> Option<String> {
+        // (Its `all-files`, which indexing rewrites, as the sidecars' stamp.)
+        use std::os::unix::fs::MetadataExt;
+        let meta = std::fs::metadata(format!("{}/all-files", self.config_paths.index_path)).ok()?;
+        Some(format!(
+            "{} {} {} {}",
+            self.tree_name,
+            meta.ino(),
+            meta.mtime(),
+            meta.len()
+        ))
+    }
+
     fn rev_changed_lines(&self, spec: &str) -> Result<crate::dataflow::slice::ChangedLines> {
         let bad = |message: String| {
             ServerError::StickyProblem(ErrorDetails {

@@ -223,9 +223,11 @@ if nginx_cache_dir:
     #   keys or 80,000 cache things.  This was a default recommendation that's
     #   expected to be sufficient.  The "sfox" is the name of the cache to be
     #   used with `proxy_cache`.
-    # - max_size=20g - 20 gigs of cached data, max.  This is a somewhat
+    # - max_size=18g - 18 gigs of cached data, max.  This is a somewhat
     #   arbitrary decision based on the mozilla-releases.json using 223G of 296G
-    #   right now, leaving 59G free.
+    #   right now, leaving 59G free.  (It was 20g; the pipeline-server's step
+    #   cache, of at most 2 GB, see tools/src/step_cache.rs, gets the rest of
+    #   the space index.sh's NGINX_CACHE_IN_KB reserves.)
     #   If you change this value, please update the NGINX_CACHE_IN_KB variable
     #   in infrastructure/aws/index.sh script as well.
     # - use_temp_path=off - Disables the file being written to disk in one
@@ -234,7 +236,7 @@ if nginx_cache_dir:
     #   the cache has filled up.  The machine should be reaped after 2 days in
     #   normal successful operation, so anything above that is really just a
     #   convenience for analysis purposes.
-    print('proxy_cache_path', nginx_cache_dir, 'levels=1:2 keys_zone=sfox:10m max_size=20g use_temp_path=off inactive=7d;')
+    print('proxy_cache_path', nginx_cache_dir, 'levels=1:2 keys_zone=sfox:10m max_size=18g use_temp_path=off inactive=7d;')
     # If a 2nd identical request comes in while we're still asking the server
     # for an answer, block the 2nd and serve it the result of the 1st.  This is
     # massively desired for cases where anxious users hit the refresh button on

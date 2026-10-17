@@ -438,7 +438,16 @@ async fn admit(req: Request, next: Next) -> Response {
 async fn main() {
     init_logging();
 
-    let local_servers = Arc::new(make_all_local_servers(&env::args().nth(1).unwrap()).unwrap());
+    let config_path = env::args().nth(1).unwrap();
+    let local_servers = Arc::new(make_all_local_servers(&config_path).unwrap());
+    // Cache steps' results beside the trees' index directories (see
+    // `step_cache`).
+    let config = tools::file_format::config::load(&config_path, false, None, None, None);
+    if let Some(tree) = config.trees.values().next() {
+        let root =
+            tools::sidecars::sidecar_root(&tree.paths.index_path).with_file_name("step-cache");
+        tools::step_cache::init(&root, tools::step_cache::CAP_BYTES);
+    }
     let templates = Arc::new(SomeTemplates {
         query_results: build_and_parse_query_results(),
     });

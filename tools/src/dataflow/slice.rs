@@ -52,7 +52,7 @@ pub struct FileChange {
     pub commits: BTreeMap<u32, String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Key {
     /// A member, by symbol.
     Field(Ustr),
@@ -68,20 +68,20 @@ pub enum Key {
     Mention(Ustr),
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Unit {
     pub id: usize,
     pub path: String,
     pub lines: Vec<u32>,
     /// The function it's in, if any: its pretty name, symbol, and class.
     pub func: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub func_sym: Option<Ustr>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub class: Option<Ustr>,
     /// The commits making its lines, if known (see `FileChange::commits`),
     /// in the patch's order.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub commits: Vec<String>,
     pub keys: BTreeSet<Key>,
     pub text: Vec<String>,
@@ -94,7 +94,7 @@ pub struct Unit {
     body_sends: BTreeSet<Ustr>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Link {
     pub from: usize,
     pub to: usize,
@@ -102,7 +102,7 @@ pub struct Link {
     pub why: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Slicing {
     pub units: Vec<Unit>,
     pub links: Vec<Link>,
@@ -110,7 +110,7 @@ pub struct Slicing {
     pub clusters: Vec<Vec<usize>>,
     /// The units without dataflow (no keys, or links), ex: `#include`s and
     /// namespaces' braces, which aren't clusters of their own.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub other: Vec<usize>,
     pub notes: Vec<String>,
 }
