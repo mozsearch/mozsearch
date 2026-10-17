@@ -1,0 +1,18 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/ipdl/backward-union-variant-getter
+---
+mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnion (ipdl/TestDataStructures.cpp)
+  #0      83 seed       IntDouble::get_int(…)              EXPECT_EQ(42, i1.get_int());
+  #1      83 call       call IntDouble::get_int            EXPECT_EQ(42, i1.get_int());
+        -> #0 IntDouble::get_int(…) [local: IntDouble::get_int(…)]
+mozilla::_ipdltest::TestDataStructuresChild::TestArrayOfUnion (ipdl/TestDataStructures.cpp)
+  #2     486 call       call IntDouble::IntDouble          i1.AppendElement(IntDouble(int(1)));
+        -> #1 call IntDouble::get_int in TestDataStructuresParent::RecvTestUnion [field: int]
+  #3     486 const      1                                  i1.AppendElement(IntDouble(int(1)));
+        -> #2 call IntDouble::IntDouble [local: 1]
+  #4     488 call       call IntDouble::IntDouble          i1.AppendElement(IntDouble(int(3)));
+        -> #1 call IntDouble::get_int in TestDataStructuresParent::RecvTestUnion [field: int]
+  #5     488 const      3                                  i1.AppendElement(IntDouble(int(3)));
+        -> #4 call IntDouble::IntDouble [local: 3]

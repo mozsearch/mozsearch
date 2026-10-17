@@ -8,7 +8,8 @@ const FOLLOWABLE_KINDS = new Set([
 ]);
 // IPDL files, whose structs' fields (`IPDL_` symbols) dataflow follows through
 // the C++ IPDL generates for them (see tools/src/dataflow/trace.rs's
-// `IpdlSlot`), but not their messages' parameters yet.
+// `IpdlSlot`), and whose messages' parameters (`IPC_` symbols) it follows from
+// the `Recv` implementations' parameters.
 const IPDL_PATH_RE = /\.ipdlh?$/;
 
 // C/C++ locals' and parameters' symbols (MozsearchIndexer.cpp's, and the
@@ -2415,7 +2416,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       if (Settings.dataflow.enabled && sourceLineClicked &&
           (DATAFLOW_PATH_RE.test(Router.sourcePath) || isIpdl)) {
         for (const sym of new Set(followSyms)) {
-          if (isIpdl && !sym.startsWith("IPDL_")) {
+          if (isIpdl && !sym.startsWith("IPDL_") && !sym.startsWith("IPC_")) {
             continue;
           }
           const at = `follow-at:${Diagram.quoteQueryValue(sourceLineClicked)}`;

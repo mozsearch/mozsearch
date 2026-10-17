@@ -1,0 +1,70 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/ipdl/forward-message-param
+---
+mozilla::_ipdltest::TestDataStructuresParent::RecvTestStruct (ipdl/TestDataStructures.cpp)
+  #0     257 seed       i                                  
+        -> #1 call SIntDouble::i [local: i]
+        -> #2 call SIntDouble::d [local: i]
+        -> #3 *o = [local: i]
+  #1     258 call       call SIntDouble::i                 EXPECT_EQ(1, i.i());
+        -> #4 call EqHelper::Compare [local: SIntDouble::i(…)]
+  #4     258 call       call EqHelper::Compare             EXPECT_EQ(1, i.i());
+        -> #5 EqHelper::Compare(…) result (assumed) [assumed: ?]
+  #5     258 opaque     EqHelper::Compare(…) result (assumed) EXPECT_EQ(1, i.i());
+        -> #9 gtest_ar = [local: EqHelper::Compare(…)]
+  #9     258 assign     gtest_ar =                         EXPECT_EQ(1, i.i());
+        -> #13 test [local: gtest_ar]
+        -> #14 call AssertionResult::failure_message [local: gtest_ar]
+  #13    258 test       test                               EXPECT_EQ(1, i.i());
+  #14    258 call       call AssertionResult::failure_message EXPECT_EQ(1, i.i());
+        -> #15 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
+  #15    258 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(1, i.i());
+  #2     259 call       call SIntDouble::d                 EXPECT_EQ(2.0, i.d());
+        -> #6 call EqHelper::Compare [local: SIntDouble::d(…)]
+  #6     259 call       call EqHelper::Compare             EXPECT_EQ(2.0, i.d());
+        -> #7 EqHelper::Compare(…) result (assumed) [assumed: ?]
+  #7     259 opaque     EqHelper::Compare(…) result (assumed) EXPECT_EQ(2.0, i.d());
+        -> #10 gtest_ar = [local: EqHelper::Compare(…)]
+  #10    259 assign     gtest_ar =                         EXPECT_EQ(2.0, i.d());
+        -> #16 test [local: gtest_ar]
+        -> #17 call AssertionResult::failure_message [local: gtest_ar]
+  #16    259 test       test                               EXPECT_EQ(2.0, i.d());
+  #17    259 call       call AssertionResult::failure_message EXPECT_EQ(2.0, i.d());
+        -> #18 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
+  #18    259 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(2.0, i.d());
+  #3     260 assign     *o =                               *o = i;
+        -> #8 call PTestDataStructuresChild::SendTestStruct in TestDataStructuresChild::TestStruct [return: out o]
+mozilla::_ipdltest::TestDataStructuresChild::TestStruct (ipdl/TestDataStructures.cpp)
+  #8     652 call       call PTestDataStructuresChild::SendTestStruct EXPECT_TRUE(SendTestStruct(i, &o));
+        -> #11 call SIntDouble::i [local: o]
+        -> #12 call SIntDouble::d [local: o]
+  #11    654 call       call SIntDouble::i                 EXPECT_EQ(o.i(), 1);
+        -> #19 call EqHelper::Compare [local: SIntDouble::i(…)]
+  #19    654 call       call EqHelper::Compare             EXPECT_EQ(o.i(), 1);
+        -> #20 EqHelper::Compare(…) result (assumed) [assumed: ?]
+  #20    654 opaque     EqHelper::Compare(…) result (assumed) EXPECT_EQ(o.i(), 1);
+        -> #23 gtest_ar = [local: EqHelper::Compare(…)]
+  #23    654 assign     gtest_ar =                         EXPECT_EQ(o.i(), 1);
+        -> #25 test [local: gtest_ar]
+        -> #26 call AssertionResult::failure_message [local: gtest_ar]
+  #25    654 test       test                               EXPECT_EQ(o.i(), 1);
+  #26    654 call       call AssertionResult::failure_message EXPECT_EQ(o.i(), 1);
+        -> #27 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
+  #27    654 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(o.i(), 1);
+  #12    655 call       call SIntDouble::d                 EXPECT_EQ(o.d(), 2.0);
+        -> #21 call EqHelper::Compare [local: SIntDouble::d(…)]
+  #21    655 call       call EqHelper::Compare             EXPECT_EQ(o.d(), 2.0);
+        -> #22 EqHelper::Compare(…) result (assumed) [assumed: ?]
+  #22    655 opaque     EqHelper::Compare(…) result (assumed) EXPECT_EQ(o.d(), 2.0);
+        -> #24 gtest_ar = [local: EqHelper::Compare(…)]
+  #24    655 assign     gtest_ar =                         EXPECT_EQ(o.d(), 2.0);
+        -> #28 test [local: gtest_ar]
+        -> #29 call AssertionResult::failure_message [local: gtest_ar]
+  #28    655 test       test                               EXPECT_EQ(o.d(), 2.0);
+  #29    655 call       call AssertionResult::failure_message EXPECT_EQ(o.d(), 2.0);
+        -> #30 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
+  #30    655 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(o.d(), 2.0);
+note: Couldn't see into EqHelper::Compare (assumed its result comes from its arguments)
+note: Couldn't see into AssertionResult::failure_message (assumed its result comes from its arguments)

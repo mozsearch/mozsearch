@@ -13,6 +13,8 @@ extern crate ipdl_parser;
 extern crate tools;
 
 use getopts::Options;
+use lazy_static::lazy_static;
+use regex::Regex;
 use serde_json::{Value, json};
 
 use ipdl_parser::ast::ProtocolSide;
@@ -128,15 +130,17 @@ fn locstr(loc: &ast::Location, len: usize) -> String {
 #[derive(Default)]
 struct GeneratedSymbols {
     by_pretty: HashMap<String, Vec<String>>,
-    /// Functions' parameters' names, by symbol (from their structured
-    /// records).
-    params: HashMap<String, Vec<String>>,
+    /// Functions' parameters' names and types, by symbol (from their
+    /// structured records).
+    params: HashMap<String, Vec<(String, String)>>,
 }
 
 impl GeneratedSymbols {
-    fn load(path: &str) -> GeneratedSymbols {
+    /// From the generated files' analysis (a data structures' header, and
+    /// their `.cpp`, which defines unions' constructors).
+    fn load(paths: &[String]) -> GeneratedSymbols {
         let mut syms = GeneratedSymbols::default();
-        for datum in read_analyses(&[path.to_string()], &mut read_target) {
+        for datum in read_analyses(paths, &mut read_target) {
             for piece in datum.data {
                 // (Not locals' and parameters'; see `local_symbols`.)
                 if (piece.kind == AnalysisKind::Def || piece.kind == AnalysisKind::Decl)
@@ -149,18 +153,23 @@ impl GeneratedSymbols {
                 }
             }
         }
-        let mut read_params = |value: Value, _: &_, _| -> Option<(String, Vec<String>)> {
+        let mut read_params = |value: Value, _: &_, _| -> Option<(String, Vec<(String, String)>)> {
             value.get("structured")?;
             let sym = value.get("sym")?.as_str()?.to_string();
-            let names = value
+            let params = value
                 .get("args")?
                 .as_array()?
                 .iter()
-                .filter_map(|arg| Some(arg.get("name")?.as_str()?.to_string()))
+                .filter_map(|arg| {
+                    Some((
+                        arg.get("name")?.as_str()?.to_string(),
+                        arg.get("type")?.as_str()?.to_string(),
+                    ))
+                })
                 .collect();
-            Some((sym, names))
+            Some((sym, params))
         };
-        for datum in read_analyses(&[path.to_string()], &mut read_params) {
+        for datum in read_analyses(paths, &mut read_params) {
             syms.params.extend(datum.data);
         }
         syms
@@ -173,10 +182,28 @@ impl GeneratedSymbols {
         if fields.is_empty() {
             return vec![];
         }
-        let params: Vec<String> = fields.iter().map(|f| format!("_{}", f)).collect();
+        let names: Vec<String> = fields.iter().map(|f| format!("_{}", f)).collect();
         self.get(&format!("{}::{}", pretty, name))
             .iter()
-            .filter(|sym| self.params.get(*sym) == Some(&params))
+            .filter(|sym| {
+                self.params
+                    .get(*sym)
+                    .is_some_and(|params| params.iter().map(|(n, _)| n).eq(names.iter()))
+            })
+            .map(|sym| sym.as_str())
+            .collect()
+    }
+
+    /// A union's constructors from one of its variants: those whose only
+    /// parameter is of the variant's type (see `variant_cxx_type`), ex:
+    /// `IntDouble(const int& aOther)` and its `&&` overload.
+    fn variant_constructors(&self, pretty: &str, name: &str, ty: &str) -> Vec<&str> {
+        self.get(&format!("{}::{}", pretty, name))
+            .iter()
+            .filter(|sym| match self.params.get(*sym).map(|p| p.as_slice()) {
+                Some([(_, param_ty)]) => unqualified_type(param_ty) == ty,
+                _ => false,
+            })
             .map(|sym| sym.as_str())
             .collect()
     }
@@ -212,6 +239,43 @@ impl GeneratedSymbols {
 /// IPDL structs and unions, by their qualified and unqualified names, as
 /// their `IPDL_` symbols and pretty names.
 type IpdlTypes = HashMap<String, (String, String)>;
+
+/// A C++ type without qualifiers, `const`, references or spaces (ex:
+/// `nsTArray<Actors>` for `const nsTArray<mozilla::_foo::Unions::Actors> &`),
+/// for comparing types however generated code spells them.
+fn unqualified_type(ty: &str) -> String {
+    lazy_static! {
+        static ref QUALIFIER: Regex = Regex::new(r"[A-Za-z_][A-Za-z0-9_]*::").unwrap();
+    }
+    QUALIFIER
+        .replace_all(&ty.replace("const ", ""), "")
+        .chars()
+        .filter(|c| !c.is_whitespace() && *c != '&')
+        .collect()
+}
+
+/// A union variant's C++ type, unqualified (see `unqualified_type`), ex:
+/// `nsTArray<int>` for `int[]`, but for actors' (whose C++ types are
+/// `SideVariant`s of their sides).
+fn variant_cxx_type(type_spec: &ast::TypeSpec, actors: &HashSet<String>) -> Option<String> {
+    let base = type_spec
+        .spec
+        .rsplit("::")
+        .next()
+        .unwrap_or(&type_spec.spec);
+    if actors.contains(base) {
+        return None;
+    }
+    let mut ty = base.to_string();
+    for modifier in &type_spec.modifiers {
+        ty = match modifier {
+            ast::TypeSpecModifier::Array => format!("nsTArray<{}>", ty),
+            ast::TypeSpecModifier::Maybe => format!("Maybe<{}>", ty),
+            ast::TypeSpecModifier::UniquePtr => format!("UniquePtr<{}>", ty),
+        };
+    }
+    Some(ty)
+}
 
 /// A data structure's (or its part's) `IPDL_` symbol: the namespaces, its
 /// name, and its parts' names, joined with `_` (as messages' `IPC_` symbols
@@ -472,6 +536,12 @@ fn output_data_structures(
             let variant_sym = ipdl_sym(ns, &[&owner_name]);
             let variant_pretty = cxx_pretty(ns, &[&owner_name]);
             let mut variant_slots = vec![];
+            // (Constructing the union from the variant's value writes it.)
+            if let Some(ty) = variant_cxx_type(type_spec, actors) {
+                for constructor in generated.variant_constructors(&pretty, &ns.name.id, &ty) {
+                    variant_slots.push(cpp_slot("constructor", constructor));
+                }
+            }
             for name in variant_names(type_spec, actors) {
                 let (getter, setter) =
                     generated.const_and_mutable(&cxx_pretty(ns, &[&format!("get_{}", name)]));
@@ -796,9 +866,13 @@ fn main() {
                 .unwrap_or_default();
             let generated = match objdir_files_map.get(&format!("{}.h", stem)) {
                 Some(header) => {
-                    let header_path = analysis_path.join(header).to_string_lossy().into_owned();
-                    println!("  Reading data structures' header {:?}", &header_path);
-                    GeneratedSymbols::load(&header_path)
+                    let mut paths = vec![analysis_path.join(header).to_string_lossy().into_owned()];
+                    println!("  Reading data structures' header {:?}", &paths[0]);
+                    // (And their `.cpp`, which defines unions' constructors.)
+                    if let Some(cpp) = objdir_files_map.get(&format!("{}.cpp", stem)) {
+                        paths.push(analysis_path.join(cpp).to_string_lossy().into_owned());
+                    }
+                    GeneratedSymbols::load(&paths)
                 }
                 None => {
                     println!("  Unable to find the header for {:?}", path);

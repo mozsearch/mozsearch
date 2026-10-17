@@ -174,7 +174,8 @@ pub enum IpdlSlot {
     /// `IPDL_` symbol.
     Accessor(Ustr),
     /// A struct's constructor from its fields: its arguments are their
-    /// values, in order (their `IPDL_` symbols).
+    /// values, in order (their `IPDL_` symbols); or a union's from one of its
+    /// variants (its one argument is the variant's value).
     Constructor(Vec<Ustr>),
 }
 
@@ -534,14 +535,16 @@ impl<'s> Tracer<'s> {
                     Some(IpdlSlot::Accessor(owner.sym))
                 }
                 BindingSlotKind::Constructor => {
-                    // (Its fields are in order; see ipdl-analyze.)
-                    let fields: Vec<Ustr> = self
-                        .xref(&owner.sym)
-                        .await
-                        .and_then(|xref| {
-                            Some(xref.meta.as_ref()?.fields.iter().map(|f| f.sym).collect())
-                        })
-                        .unwrap_or_default();
+                    // (A struct's fields are in order; see ipdl-analyze.  A
+                    // union's variant is a field of it.)
+                    let fields: Vec<Ustr> = match self.xref(&owner.sym).await {
+                        Some(xref) => match &xref.meta {
+                            Some(meta) if meta.kind == "field" => vec![owner.sym],
+                            Some(meta) => meta.fields.iter().map(|f| f.sym).collect(),
+                            None => vec![],
+                        },
+                        None => vec![],
+                    };
                     (!fields.is_empty()).then_some(IpdlSlot::Constructor(fields))
                 }
                 _ => None,
@@ -581,8 +584,89 @@ impl<'s> Tracer<'s> {
         None
     }
 
+    /// The places an IPDL message's parameter is in, in the functions
+    /// implementing its `Recv` method (the overrides of the generated base
+    /// class's declaration, or the implementations the generated code calls
+    /// directly), by its `param` binding slots.
+    async fn ipc_param_seeds(&mut self, sym: &Ustr) -> Vec<(Arc<FileIr>, usize, Place)> {
+        let Some(xref) = self.xref(sym).await else {
+            return vec![];
+        };
+        let Some(meta) = &xref.meta else {
+            return vec![];
+        };
+        let mut seen: HashSet<(Ustr, usize)> = HashSet::new();
+        let mut out = vec![];
+        for slot in meta
+            .binding_slots
+            .iter()
+            .filter(|s| s.props.slot_kind == BindingSlotKind::Param)
+        {
+            // (Its function's, by the unified symbol's index; see
+            // `local_symbols`.)
+            let Some(index) = slot
+                .sym
+                .rsplit('_')
+                .next()
+                .and_then(|i| i.parse::<usize>().ok())
+            else {
+                continue;
+            };
+            let Some(param) = self.xref(&slot.sym).await else {
+                continue;
+            };
+            let Some(func) = param
+                .definitions
+                .iter()
+                .chain(param.declarations.iter())
+                .flatten()
+                .flat_map(|result| result.lines.iter())
+                .map(|line| line.contextsym)
+                .find(|sym| !sym.is_empty())
+            else {
+                continue;
+            };
+            let impls = match self.xref(&func).await {
+                Some(xref) => match &xref.meta {
+                    Some(meta) if !meta.overridden_by_syms.is_empty() => {
+                        meta.overridden_by_syms.clone()
+                    }
+                    _ => vec![func],
+                },
+                None => vec![func],
+            };
+            for imp in impls {
+                if !seen.insert((imp, index)) {
+                    continue;
+                }
+                let Some(def) = self.xref(&imp).await.and_then(|xref| {
+                    let result = xref.definitions.as_ref()?.first()?;
+                    Some(result.path.to_string())
+                }) else {
+                    continue;
+                };
+                // (Not the generated code, ex: `Send` methods.)
+                if def.starts_with("__GENERATED__/") {
+                    continue;
+                }
+                let Some(file) = self.file(&def).await else {
+                    continue;
+                };
+                let Some(fi) = file.by_sym.get(&imp).copied() else {
+                    continue;
+                };
+                if let Some(param) = file.funcs[fi].params.get(index) {
+                    let place = param.place.clone();
+                    out.push((file.clone(), fi, place));
+                }
+            }
+        }
+        out
+    }
+
     /// An IPDL field's accessors, and its struct's constructors with the
-    /// field's index among their parameters.
+    /// field's index among their parameters (or, for a union's variant, the
+    /// union's constructors from it).
     async fn ipdl_field_slots(&mut self, field: Ustr) -> (Vec<Ustr>, Vec<(Ustr, usize)>) {
         let Some(xref) = self.xref(&field).await else {
             return (vec![], vec![]);
@@ -601,7 +685,12 @@ impl<'s> Tracer<'s> {
             })
             .map(|s| s.sym)
             .collect();
-        let mut constructors = vec![];
+        let mut constructors: Vec<(Ustr, usize)> = meta
+            .binding_slots
+            .iter()
+            .filter(|s| s.props.slot_kind == BindingSlotKind::Constructor)
+            .map(|s| (s.sym, 0))
+            .collect();
         if let Some(parent) = meta.parent_sym
             && let Some(owner) = self.xref(&parent).await
             && let Some(owner_meta) = &owner.meta
@@ -801,6 +890,19 @@ impl<'s> Tracer<'s> {
         dir: Dir,
     ) -> Result<(), String> {
         self.graph.dir = Some(dir);
+        if sym.starts_with("IPC_") {
+            // (An IPDL message's parameter: its `Recv` implementations', whose
+            // values come from the `Send` methods' callers' arguments; see
+            // `callers`.)
+            let seeds = self.ipc_param_seeds(&sym).await;
+            if seeds.is_empty() {
+                return Err(format!("No implementations of {}'s message", sym));
+            }
+            for (file, func, place) in seeds {
+                self.seed(file, func, place, None, dir);
+            }
+            return Ok(());
+        }
         if sym.starts_with("IPDL_") {
             // (Where the IPDL file declares it, which has no IR.)
             let name = self.symbol_name(&sym).await;

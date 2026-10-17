@@ -1,0 +1,1 @@
+dataflow --at ipdl/PTestDataStructures.ipdl#70 --symbol IPC_mozilla__ipdltest_PTestDataStructures_TestStruct__i --direction forward

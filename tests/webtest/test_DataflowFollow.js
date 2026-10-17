@@ -143,3 +143,32 @@ add_task(async function test_DataflowFollowIpdlField() {
     ok(!generated, "and not the generated code");
   }
 });
+
+// An IPDL message's parameter (tests/tests/files/ipdl/PTestDataStructures.ipdl's
+// TestStruct's `i`): forwards, from the `Recv` implementation's parameter;
+// backwards, to the `Send` method's callers' arguments.
+add_task(async function test_DataflowFollowIpdlMessageParam() {
+  await TestUtils.resetFeatureGate("dataflow");
+  for (const [direction, item, line] of [
+    ["forward", "Follow where i goes", 257],
+    ["backward", "Follow where i comes from", 649],
+  ]) {
+    await TestUtils.loadPath("/tests/source/ipdl/PTestDataStructures.ipdl");
+    const param = [...frame.contentDocument.querySelectorAll("#line-70 span[data-symbols]")]
+      .find(span => span.textContent === "i" && span.getAttribute("data-symbols").startsWith("IPC_"));
+    ok(param, "The message's parameter's token is there");
+    TestUtils.click(param);
+    const menu = frame.contentDocument.querySelector("#context-menu");
+    await waitForShown(menu, "Context menu is shown for the parameter");
+    const follow = findFollowItem(menu, item);
+    ok(follow, `The parameter can be followed ${direction}`);
+
+    const loadPromise = TestUtils.waitForLoad();
+    TestUtils.click(follow);
+    await loadPromise;
+    const svg = frame.contentDocument.querySelector(".query-result svg");
+    ok([...(svg?.querySelectorAll("a") ?? [])].some(
+      a => a.getAttribute("xlink:href")?.endsWith(`/tests/source/ipdl/TestDataStructures.cpp#${line}`)),
+       `and its trace has TestDataStructures.cpp:${line}`);
+  }
+});
