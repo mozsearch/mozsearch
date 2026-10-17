@@ -313,16 +313,57 @@ impl PipelineCommand for BlockDiagramCommand {
             edge_set.ensure_edge_in_graph(from_id, to_id, EdgeKind::Default, data, &mut graph);
         }
 
-        let options = json!({
-            "blockDiagram": {
-                "focus": focus_sym,
-                "level": format!("{:?}", level).to_lowercase(),
-                "edges": edges.len(),
-                "totalEdges": total_edges,
-                "minCount": self.args.min_count,
-                "edgeKind": format!("{:?}", self.args.edges).to_lowercase(),
+        // (The diagram panel's controls, as query terms; see `cmd_traverse`.)
+        let level_name = |level: BlockLevel| format!("{:?}", level).to_lowercase();
+        let default_level = if focus.is_empty() {
+            BlockLevel::Subsystem
+        } else {
+            BlockLevel::Class
+        };
+        let options = json!([
+            {
+                "section": "Block diagram",
+                "items": [
+                    {
+                        // (No "label", so the panel ignores it.)
+                        "name": "*block*",
+                        "focus": focus_sym,
+                        "edges": edges.len(),
+                        "totalEdges": total_edges,
+                    },
+                    {
+                        "name": "block-level",
+                        "label": "Level",
+                        "value": level_name(level),
+                        "default": level_name(default_level),
+                        "type": "string",
+                        "placeholder": "subsystem, class or field",
+                    },
+                    {
+                        "name": "block-edges",
+                        "label": "Edges",
+                        "value": format!("{:?}", self.args.edges).to_lowercase(),
+                        "default": "calls",
+                        "type": "string",
+                        "placeholder": "calls or data",
+                    },
+                    {
+                        "name": "block-min-count",
+                        "label": "Minimum count",
+                        "value": self.args.min_count,
+                        "default": 1,
+                        "range": [1, 1000],
+                    },
+                    {
+                        "name": "block-max-edges",
+                        "label": "Edge limit",
+                        "value": self.args.max_edges,
+                        "default": 48,
+                        "range": [1, 512],
+                    },
+                ],
             }
-        });
+        ]);
         Ok(PipelineValues::SymbolGraphCollection(
             SymbolGraphCollection {
                 node_set,
