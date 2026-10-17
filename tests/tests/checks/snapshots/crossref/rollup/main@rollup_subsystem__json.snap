@@ -30,6 +30,7 @@ input_file: inputs/crossref/rollup/rollup_subsystem__json
         "sym": "SUBSYS_Core/Rollup@20Model",
         "pretty": "Core/Rollup Model",
         "count": 2,
+        "accessors": 2,
         "pairs": 1,
         "examples": [
           {
@@ -60,6 +61,64 @@ input_file: inputs/crossref/rollup/rollup_subsystem__json
         "sym": "_ZN6rollup7UseThemEv",
         "pretty": "rollup::UseThem",
         "count": 2
+      }
+    ]
+  },
+  "dataRollup": {
+    "out": [
+      {
+        "sym": "SUBSYS_Core/Rollup@20Model",
+        "pretty": "Core/Rollup Model",
+        "count": 2,
+        "pairs": 2,
+        "examples": [
+          {
+            "from": "T_rollup::Controller",
+            "fromPretty": "rollup::Controller",
+            "to": "T_rollup::Store",
+            "toPretty": "rollup::Store",
+            "count": 1
+          },
+          {
+            "from": "T_rollup::Panel",
+            "fromPretty": "rollup::Panel",
+            "to": "T_rollup::Store",
+            "toPretty": "rollup::Store",
+            "count": 1
+          }
+        ]
+      }
+    ],
+    "in": [
+      {
+        "sym": "SUBSYS_Core/Rollup@20Model",
+        "pretty": "Core/Rollup Model",
+        "count": 1,
+        "pairs": 1,
+        "examples": [
+          {
+            "from": "T_rollup::Store",
+            "fromPretty": "rollup::Store",
+            "to": "T_rollup::Panel",
+            "toPretty": "rollup::Panel",
+            "count": 1
+          }
+        ]
+      }
+    ],
+    "outTotal": 1,
+    "inTotal": 1,
+    "internal": 0,
+    "members": [
+      {
+        "sym": "T_rollup::Panel",
+        "pretty": "rollup::Panel",
+        "count": 2
+      },
+      {
+        "sym": "T_rollup::Controller",
+        "pretty": "rollup::Controller",
+        "count": 1
       }
     ]
   }

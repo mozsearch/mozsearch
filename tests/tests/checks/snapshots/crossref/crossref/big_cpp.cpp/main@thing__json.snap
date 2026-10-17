@@ -277,6 +277,7 @@ input_file: inputs/crossref/crossref/big_cpp.cpp/thing__json
               "sym": "T_outerNS::OuterCat",
               "pretty": "outerNS::OuterCat",
               "count": 3,
+              "accessors": 2,
               "pairs": 3,
               "examples": [
                 {
@@ -306,6 +307,7 @@ input_file: inputs/crossref/crossref/big_cpp.cpp/thing__json
               "sym": "T_outerNS::AbstractArt",
               "pretty": "outerNS::AbstractArt",
               "count": 1,
+              "accessors": 1,
               "pairs": 1,
               "examples": [
                 {
@@ -321,6 +323,7 @@ input_file: inputs/crossref/crossref/big_cpp.cpp/thing__json
               "sym": "T_outerNS::Couch",
               "pretty": "outerNS::Couch",
               "count": 1,
+              "accessors": 1,
               "pairs": 1,
               "examples": [
                 {
@@ -336,6 +339,7 @@ input_file: inputs/crossref/crossref/big_cpp.cpp/thing__json
               "sym": "T_outerNS::Human",
               "pretty": "outerNS::Human",
               "count": 1,
+              "accessors": 1,
               "pairs": 1,
               "examples": [
                 {

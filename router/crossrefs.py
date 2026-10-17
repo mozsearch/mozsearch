@@ -140,7 +140,7 @@ def bisect_for_payload(mm, search_sym):
 # 'callees' (ex: `lookup_merging`): symbols' history digests, for /query/'s
 # recency facets (see tools/src/file_format/recency.rs), and classes' and
 # subsystems' roll-ups, for block diagrams (see tools/src/file_format/rollup.rs).
-UNUSED_FIELDS = ('recency', 'recency_from', 'callRollup')
+UNUSED_FIELDS = ('recency', 'recency_from', 'callRollup', 'dataRollup')
 
 def without_unused_fields(result):
     for field in UNUSED_FIELDS:

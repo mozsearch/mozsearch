@@ -1,0 +1,91 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/crossref/rollup/rollup_data_class__json
+---
+{
+  "callRollup": {
+    "in": [
+      {
+        "sym": "T_rollup::Panel",
+        "pretty": "rollup::Panel",
+        "count": 2,
+        "accessors": 2,
+        "pairs": 2,
+        "examples": [
+          {
+            "from": "_ZN6rollup5Panel4EditEi",
+            "fromPretty": "rollup::Panel::Edit",
+            "to": "_ZN6rollup5Store3PutEi",
+            "toPretty": "rollup::Store::Put",
+            "count": 1
+          },
+          {
+            "from": "_ZN6rollup5Panel7RefreshEv",
+            "fromPretty": "rollup::Panel::Refresh",
+            "to": "_ZNK6rollup5Store3GetEv",
+            "toPretty": "rollup::Store::Get",
+            "count": 1
+          }
+        ]
+      }
+    ],
+    "outTotal": 0,
+    "inTotal": 1,
+    "internal": 0
+  },
+  "dataRollup": {
+    "out": [
+      {
+        "sym": "T_rollup::Panel",
+        "pretty": "rollup::Panel",
+        "count": 1,
+        "pairs": 1,
+        "examples": [
+          {
+            "from": "F_<T_rollup::Store>_mValue",
+            "fromPretty": "rollup::Store::mValue",
+            "to": "F_<T_rollup::Panel>_mShown",
+            "toPretty": "rollup::Panel::mShown",
+            "count": 1
+          }
+        ]
+      }
+    ],
+    "in": [
+      {
+        "sym": "T_rollup::Controller",
+        "pretty": "rollup::Controller",
+        "count": 1,
+        "pairs": 1,
+        "examples": [
+          {
+            "from": "F_<T_rollup::Controller>_mInput",
+            "fromPretty": "rollup::Controller::mInput",
+            "to": "F_<T_rollup::Store>_mValue",
+            "toPretty": "rollup::Store::mValue",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "sym": "T_rollup::Panel",
+        "pretty": "rollup::Panel",
+        "count": 1,
+        "pairs": 1,
+        "examples": [
+          {
+            "from": "_ZN6rollup5Panel4EditEi",
+            "fromPretty": "rollup::Panel::Edit",
+            "to": "F_<T_rollup::Store>_mValue",
+            "toPretty": "rollup::Store::mValue",
+            "count": 1
+          }
+        ]
+      }
+    ],
+    "outTotal": 1,
+    "inTotal": 2,
+    "internal": 0
+  }
+}

@@ -1,0 +1,1 @@
+block-diagram 'Core/Rollup View' --edges data | graph --format=raw-dot --hier=subsystem

@@ -1,0 +1,11 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/block/block_class_no_accessors
+---
+digraph g {
+  node[shape=box fontname="Courier New" fontsize=10]
+  "T_rollup::Controller"[label="rollup::Controller"]
+  "T_rollup::Panel"[label="rollup::Panel"]
+  "T_rollup::Controller" -> "T_rollup::Panel" [label="2" penwidth="1.5" tooltip="2 calls, ex: rollup::Controller::Run → rollup::Panel::Edit"]
+}

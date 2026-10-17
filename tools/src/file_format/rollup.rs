@@ -50,8 +50,14 @@ pub struct RollupEdge {
     /// The other end: a class's symbol, or a subsystem's pseudo-symbol.
     pub sym: Ustr,
     pub pretty: Ustr,
-    /// How many calls (call sites).
+    /// How many calls (call sites), or, for data, flows (functions with
+    /// them).
     pub count: u32,
+    /// How many of the calls are of accessors (getters, setters, trivial
+    /// methods, by their dataflow summaries), which say little about how
+    /// the areas interact.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub accessors: u32,
     /// How many distinct pairs of functions (for subsystems, of classes or
     /// free functions) the calls are between.
     pub pairs: u32,
@@ -71,6 +77,10 @@ pub struct RollupExample {
     #[serde(rename = "toPretty")]
     pub to_pretty: Ustr,
     pub count: u32,
+}
+
+fn is_zero(n: &u32) -> bool {
+    *n == 0
 }
 
 /// A member of a subsystem (a class, or a free function) and its calls in

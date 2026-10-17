@@ -1,0 +1,1 @@
+crossref-lookup 'T_rollup::Store' | jq '.symbol_crossref_infos[0].crossref_info | {callRollup, dataRollup}'

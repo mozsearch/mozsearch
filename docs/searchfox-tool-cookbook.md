@@ -170,3 +170,16 @@ context menu's "Follow" items do through the `follow-forward:`,
 "<path>:<lines>;…"` slices changed lines into clusters, `--questions <paths>`
 lists questions for an oracle, `--oracle <dir>` applies its answers, and
 `--stats <paths>` reports how much the frontends understood.
+
+`--summary` shows a file's (or `--function`'s) dataflow summaries (see
+`tools/src/dataflow/summary.rs`): which inputs (parameters, fields, globals,
+calls' results) flow into which outputs (fields, returns, calls' arguments),
+and whether the function is a getter, setter, trivial, small or big; and
+`--field-edges <paths>` composes the summaries of those files' functions
+through their calls into edges between fields (and between functions and
+other objects' fields).  Trees with `"dataflow_summaries": true` precompute
+both for every file (`dataflow-summarize`, before crossref), and crossref
+rolls the edges up into classes' and subsystems' `dataRollup`s, which
+`block-diagram --edges data` (`block-edges:data`) draws instead of calls;
+`--no-accessors` (`block-no-accessors:`) doesn't count calls of getters,
+setters and trivial methods.

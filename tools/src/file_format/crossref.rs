@@ -93,6 +93,15 @@ pub struct CrossrefData {
         rename = "callRollup"
     )]
     pub call_rollup: Option<Rollup>,
+    /// For classes and subsystems: the data flowing between them and others
+    /// (see `rollup`, and `dataflow::summary::FieldEdge`), if the tree has
+    /// dataflow summaries.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "dataRollup"
+    )]
+    pub data_rollup: Option<Rollup>,
 }
 
 impl CrossrefData {

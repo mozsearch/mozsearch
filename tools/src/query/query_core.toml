@@ -192,6 +192,16 @@ args.level = "$0"
 command = "block-diagram"
 args.min-count = "$0"
 
+[term.block-edges]
+[[term.block-edges.group.block-diagram]]
+command = "block-diagram"
+args.edges = "$0"
+
+[term.block-no-accessors]
+[[term.block-no-accessors.group.block-diagram]]
+command = "block-diagram"
+args.no-accessors = true
+
 [term.block-max-edges]
 [[term.block-max-edges.group.block-diagram]]
 command = "block-diagram"
