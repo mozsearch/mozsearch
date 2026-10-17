@@ -21,7 +21,7 @@ use serde::Serialize;
 use serde_json::Map;
 extern crate tools;
 use tools::cmd_pipeline::symbol_graph::is_implementable;
-use tools::dataflow::summary::{Category, FieldEdge, Summary, field_class};
+use tools::dataflow::summary::{Category, FieldEdge, Summary, field_class, is_value_type_class};
 use tools::file_format::analysis::AnalysisStructured;
 use tools::file_format::analysis::BindingSlotLang;
 use tools::file_format::analysis::OntologySlotInfo;
@@ -2090,6 +2090,58 @@ fn call_edges(
     edges
 }
 
+/// The classes of a class's members held by value (not through pointers),
+/// and of the values in its containers of values (ex: `nsTArray<Foo>`),
+/// whose pointer infos are all `contains`.
+fn by_value_member_classes(meta: &AnalysisStructured) -> impl Iterator<Item = Ustr> + '_ {
+    meta.fields
+        .iter()
+        .filter(|f| {
+            f.pointer_info
+                .iter()
+                .all(|p| p.kind == OntologyPointerKind::Contains)
+                && f.type_sym.starts_with("T_")
+                && !f.type_pretty.contains(['*', '&'])
+        })
+        .flat_map(|f| std::iter::once(f.type_sym).chain(f.pointer_info.iter().map(|p| p.sym)))
+}
+
+/// The classes held by value (as members, or their supers) in exactly one
+/// other class, and that class (ex: a `Stats` only a `Store` holds), so data
+/// roll-ups count their data as their owners'.  (Value types held by many
+/// classes, ex: IPDL structs, stay classes of their own.)
+fn unique_owners(meta_table: &MetaTable) -> UstrMap<Ustr> {
+    let mut owners: UstrMap<UstrSet> = UstrMap::default();
+    for meta in meta_table.values() {
+        if !matches!(meta.kind.as_str(), "class" | "struct") {
+            continue;
+        }
+        let mut held: Vec<Ustr> = by_value_member_classes(meta).collect();
+        // (A held class's supers are held too.)
+        let mut i = 0;
+        while i < held.len() && held.len() < 64 {
+            if let Some(m) = meta_table.get(&held[i]) {
+                for sup in &m.supers {
+                    if !held.contains(&sup.sym) {
+                        held.push(sup.sym);
+                    }
+                }
+            }
+            i += 1;
+        }
+        for class in held {
+            if class != meta.sym && meta_table.contains_key(&class) {
+                owners.entry(class).or_default().insert(meta.sym);
+            }
+        }
+    }
+    owners
+        .into_iter()
+        .filter(|(class, set)| set.len() == 1 && !is_value_type_class(class))
+        .map(|(class, set)| (class, *set.iter().next().unwrap()))
+        .collect()
+}
+
 /// A class's own state's classes: it, its supers, and the classes of its
 /// members it holds by value (not through pointers), and theirs, a few
 /// levels deep (ex: `WorkerPrivate`'s `mLoadInfo`'s `WorkerLoadInfo`, and
@@ -2119,22 +2171,7 @@ impl<'a> InternalClasses<'a> {
                     let Some(meta) = meta_table.get(&x) else {
                         continue;
                     };
-                    // (A member held by value, or a container of values,
-                    // ex: `nsTArray<Foo>`, whose pointer infos are all
-                    // `contains`.)
-                    let by_value = meta
-                        .fields
-                        .iter()
-                        .filter(|f| {
-                            f.pointer_info
-                                .iter()
-                                .all(|p| p.kind == OntologyPointerKind::Contains)
-                                && f.type_sym.starts_with("T_")
-                                && !f.type_pretty.contains(['*', '&'])
-                        })
-                        .flat_map(|f| {
-                            std::iter::once(f.type_sym).chain(f.pointer_info.iter().map(|p| p.sym))
-                        });
+                    let by_value = by_value_member_classes(meta);
                     for y in meta.supers.iter().map(|s| s.sym).chain(by_value) {
                         if set.len() < 64 && meta_table.contains_key(&y) && set.insert(y) {
                             next.push(y);
@@ -2150,9 +2187,24 @@ impl<'a> InternalClasses<'a> {
 
 /// The edges between fields, and between functions and other objects'
 /// fields, from `dataflow-summarize`, for roll-ups; a field of the edge's
-/// function's class's own state (see `InternalClasses`) is the class's.
+/// function's class's own state (see `InternalClasses`) is the class's, and
+/// a class held by value in only one other is its owner's (see
+/// `unique_owners`).
 fn data_edges(meta_table: &MetaTable, field_edges: &[FieldEdge]) -> Vec<UnitEdge> {
     let mut internal = InternalClasses::new(meta_table);
+    let owners = unique_owners(meta_table);
+    // (A class held by value in one other class is its owner's, a few
+    // levels up.)
+    let owner_of = |class: Ustr| -> Ustr {
+        let mut class = class;
+        for _ in 0..3 {
+            match owners.get(&class) {
+                Some(owner) => class = *owner,
+                None => break,
+            }
+        }
+        class
+    };
     field_edges
         .iter()
         .map(|edge| {
@@ -2171,6 +2223,8 @@ fn data_edges(meta_table: &MetaTable, field_edges: &[FieldEdge]) -> Vec<UnitEdge
                     }
                 }
             }
+            from_class = from_class.map(owner_of);
+            to_class = to_class.map(owner_of);
             UnitEdge {
                 from: edge.from,
                 to: edge.to,

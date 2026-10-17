@@ -14,22 +14,14 @@ digraph g {
       cluster=true
       label="Rollup Model"
       "SYN_2"[shape=point style=invis]
-      "T_rollup::Stats"[id=Gidn1 label=<Stats> class="diagram-depth-1"]
-      "T_rollup::Store"[id=Gidn2 label=<Store> class="diagram-depth-1"]
-      subgraph  {
-        rank=same
-        cluster=false
-        label=""
-        "T_rollup::Stats"
-        "T_rollup::Store"
-      }
+      "T_rollup::Store"[id=Gidn1 label=<Store> class="diagram-depth-1"]
     }
     subgraph "SYN_5" {
       cluster=true
       label="Rollup View"
       "SYN_4"[shape=point style=invis]
       "T_rollup::Controller"[id=Gidn0 label=<Controller> class="diagram-depth-1"]
-      "T_rollup::Panel"[id=Gidn3 label=<Panel> class="diagram-depth-1"]
+      "T_rollup::Panel"[id=Gidn2 label=<Panel> class="diagram-depth-1"]
       subgraph  {
         rank=same
         cluster=false
@@ -39,9 +31,7 @@ digraph g {
       }
     }
   }
-  "T_rollup::Controller" -> "T_rollup::Stats" [style=solid arrowhead=normal id=Gide0 label="1" penwidth="1.0" tooltip="1 flows, ex: rollup::Controller::mInput → rollup::Stats::mLast"]
-  "T_rollup::Controller" -> "T_rollup::Store" [style=solid arrowhead=normal id=Gide1 label="1" penwidth="1.0" tooltip="1 flows, ex: rollup::Controller::mInput → rollup::Store::mValue"]
-  "T_rollup::Panel" -> "T_rollup::Stats" [style=solid arrowhead=normal id=Gide2 label="1" penwidth="1.0" tooltip="1 flows, ex: rollup::Panel::Edit → rollup::Stats::mLast"]
-  "T_rollup::Panel" -> "T_rollup::Store" [style=solid arrowhead=normal id=Gide3 label="1" penwidth="1.0" tooltip="1 flows, ex: rollup::Panel::Edit → rollup::Store::mValue"]
-  "T_rollup::Store" -> "T_rollup::Panel" [style=solid arrowhead=normal id=Gide4 label="1" penwidth="1.0" tooltip="1 flows, ex: rollup::Store::mValue → rollup::Panel::mShown"]
+  "T_rollup::Controller" -> "T_rollup::Store" [style=solid arrowhead=normal id=Gide0 label="2" penwidth="1.5" tooltip="2 flows, ex: rollup::Controller::mInput → rollup::Stats::mLast"]
+  "T_rollup::Panel" -> "T_rollup::Store" [style=solid arrowhead=normal id=Gide1 label="2" penwidth="1.5" tooltip="2 flows, ex: rollup::Panel::Edit → rollup::Stats::mLast"]
+  "T_rollup::Store" -> "T_rollup::Panel" [style=solid arrowhead=normal id=Gide2 label="1" penwidth="1.0" tooltip="1 flows, ex: rollup::Store::mValue → rollup::Panel::mShown"]
 }

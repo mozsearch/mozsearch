@@ -56,9 +56,16 @@ input_file: inputs/crossref/rollup/rollup_data_class__json
       {
         "sym": "T_rollup::Controller",
         "pretty": "rollup::Controller",
-        "count": 1,
-        "pairs": 1,
+        "count": 2,
+        "pairs": 2,
         "examples": [
+          {
+            "from": "F_<T_rollup::Controller>_mInput",
+            "fromPretty": "rollup::Controller::mInput",
+            "to": "F_<T_rollup::Stats>_mLast",
+            "toPretty": "rollup::Stats::mLast",
+            "count": 1
+          },
           {
             "from": "F_<T_rollup::Controller>_mInput",
             "fromPretty": "rollup::Controller::mInput",
@@ -71,9 +78,16 @@ input_file: inputs/crossref/rollup/rollup_data_class__json
       {
         "sym": "T_rollup::Panel",
         "pretty": "rollup::Panel",
-        "count": 1,
-        "pairs": 1,
+        "count": 2,
+        "pairs": 2,
         "examples": [
+          {
+            "from": "_ZN6rollup5Panel4EditEi",
+            "fromPretty": "rollup::Panel::Edit",
+            "to": "F_<T_rollup::Stats>_mLast",
+            "toPretty": "rollup::Stats::mLast",
+            "count": 1
+          },
           {
             "from": "_ZN6rollup5Panel4EditEi",
             "fromPretty": "rollup::Panel::Edit",
