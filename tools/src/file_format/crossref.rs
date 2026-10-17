@@ -5,7 +5,7 @@ use super::{
     analysis::{AnalysisStructured, PathSearchResult},
     ontology_mapping::OntologyPointerKind,
     recency::{Recency, RecencyFrom},
-    rollup::Rollup,
+    rollup::{Rollup, RollupDelta},
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -185,6 +185,14 @@ pub struct CrossrefPatch {
     /// replace the base's.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub defined: bool,
+    /// For classes and subsystems: what the push changes about their call
+    /// roll-ups (see `RollupDelta`).
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "callRollupDelta"
+    )]
+    pub call_rollup_delta: Option<RollupDelta>,
 }
 
 impl CrossrefPatch {
@@ -224,6 +232,13 @@ impl CrossrefPatch {
             merged.field_member_uses = self.data.field_member_uses.clone();
             merged.idl_syms = self.data.idl_syms.clone();
         }
+        if let Some(delta) = &self.call_rollup_delta {
+            merged.call_rollup = merged
+                .call_rollup
+                .take()
+                .unwrap_or_default()
+                .with_delta(delta);
+        }
         let empty = [
             &merged.uses,
             &merged.definitions,
@@ -240,7 +255,8 @@ impl CrossrefPatch {
         .iter()
         .all(|results| results.is_none())
             && merged.meta.is_none()
-            && merged.callees.is_none();
+            && merged.callees.is_none()
+            && merged.call_rollup.is_none();
         (!empty).then_some(merged)
     }
 }

@@ -8,9 +8,10 @@
 //! - `analysis/{path}.gz`: the push's analysis of the files whose analysis it
 //!   changes.
 //! - `crossref` and `crossref-extra`: the `CrossrefPatch`es of the symbols
-//!   whose crossref data it changes, as a bisectable map (see
-//!   `BisectableMmap`).
-//! - `jumpref` and `jumpref-extra`: those symbols' jumprefs, with the patches.
+//!   whose crossref data (or call roll-ups; see `RollupDelta`) it changes, as
+//!   a bisectable map (see `BisectableMmap`).
+//! - `jumpref` and `jumpref-extra`: those symbols' jumprefs, with the patches
+//!   (but for those whose roll-ups alone it changes).
 //! - `identifiers`: the identifiers it adds, like the tree's `identifiers`.
 //! - `objdir/{path}`: its versions of the generated files it changes
 //!   (`__GENERATED__/{path}`), which git doesn't have.
@@ -73,7 +74,10 @@ pub struct TryDelta {
 
 /// Whether `rev` is a full git revision (as deltas' heads are named).
 pub fn is_full_rev(rev: &str) -> bool {
-    rev.len() == 40 && rev.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+    rev.len() == 40
+        && rev
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
 }
 
 /// The directory of the tree's delta for `head`.

@@ -34,6 +34,7 @@ use tools::file_format::bisectable_mmap::{BisectableMmap, write_bisectable};
 use tools::file_format::config;
 use tools::file_format::crossref::{CrossrefData, CrossrefPatch};
 use tools::file_format::jumpref::{JumprefData, convert_crossref_value_to_sym_info_rep};
+use tools::file_format::rollup::RollupDelta;
 use tools::try_delta::{AnalyzedFile, FileChange, TryDeltaMeta, delta_dir};
 
 #[derive(Parser)]
@@ -510,16 +511,45 @@ fn main() {
     );
     let syms: BTreeSet<String> = base_data.keys().chain(tip_data.keys()).cloned().collect();
     let (mut patches, mut jumprefs) = (vec![], vec![]);
+    let empty_data = serde_json::to_string(&CrossrefData::default()).unwrap();
     for sym in syms {
         let mut base = base_data.remove(&sym);
         let mut tip = tip_data.remove(&sym);
-        // (The subsets have no history digests; the tree's stay.)
-        for data in [&mut base, &mut tip].into_iter().flatten() {
-            data.recency = None;
-            data.recency_from = None;
+        // (The subsets have no history digests, or data roll-ups, which need
+        // the whole tree's dataflow summaries; the tree's stay.  Their call
+        // roll-ups are of the changed files' calls, before and after, which
+        // are what the push changes about the tree's; see `RollupDelta`.)
+        // (A class the changed files only call methods of has a roll-up and
+        // nothing else.)
+        let mut rollups = [None, None];
+        for (side, data) in [&mut base, &mut tip].into_iter().enumerate() {
+            if let Some(d) = data {
+                d.recency = None;
+                d.recency_from = None;
+                d.data_rollup = None;
+                rollups[side] = d.call_rollup.take();
+                if serde_json::to_string(d).unwrap() == empty_data {
+                    *data = None;
+                }
+            }
         }
+        let [before, after] = rollups;
+        let call_rollup_delta = (before != after).then_some(RollupDelta { before, after });
         let same = serde_json::to_string(&base).unwrap() == serde_json::to_string(&tip).unwrap();
         if same {
+            // (Only its roll-up changes: the tree's data otherwise, and its
+            // jumpref.)
+            if call_rollup_delta.is_some() {
+                patches.push((
+                    sym,
+                    CrossrefPatch {
+                        paths: vec![],
+                        data: CrossrefData::default(),
+                        defined: false,
+                        call_rollup_delta,
+                    },
+                ));
+            }
             continue;
         }
         let mut paths: BTreeSet<Ustr> = BTreeSet::new();
@@ -532,6 +562,7 @@ fn main() {
             paths: paths.into_iter().collect(),
             data: tip.unwrap_or_default(),
             defined,
+            call_rollup_delta,
         };
         let tree_data = tree_crossref
             .as_ref()

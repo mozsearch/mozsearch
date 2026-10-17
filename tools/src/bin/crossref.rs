@@ -37,6 +37,7 @@ use tools::file_format::analysis::{
 use tools::file_format::analysis::{BindingOwnerLang, BindingSlotKind, DocLink};
 use tools::file_format::analysis_manglings::make_file_sym_from_path;
 use tools::file_format::analysis_manglings::split_pretty;
+use tools::file_format::bisectable_mmap::BisectableMmap;
 use tools::file_format::config;
 use tools::file_format::config::{Config, FindSourceFile, TreeConfig};
 use tools::file_format::crossref::Callee;
@@ -53,8 +54,9 @@ use tools::file_format::repo_data_ingestion::{
     ConcisePerFileInfo, RepoIngestion, heuristic_path_kind,
 };
 use tools::file_format::rollup::{
-    Rollup, RollupEdge, RollupExample, RollupMember, RollupPair, is_boring_callee,
-    root_subsystem_sym, subsystem_sym,
+    ROLLUP_EDGES, ROLLUP_EXAMPLE_EDGES, ROLLUP_EXAMPLES, ROLLUP_MEMBERS, ROLLUP_TREE_EDGES, Rollup,
+    RollupEdge, RollupExample, RollupMember, RollupPair, is_boring_callee, root_subsystem_sym,
+    subsystem_sym,
 };
 use tools::hyperblame::recency::{CONTEXT_KINDS, FileLinkage, HistoryDigests, link_definitions};
 use tools::logging::LoggedSpan;
@@ -1890,16 +1892,6 @@ fn write_inline_and_ext(
     }
 }
 
-/// How many edges (and members) a class's or subsystem's roll-up keeps in
-/// each direction (enough that hubs' are complete, for finding paths between
-/// classes), how many of them keep examples and how many each keeps, and how
-/// many edges between subsystems the whole tree's keeps.
-const ROLLUP_EDGES: usize = 256;
-const ROLLUP_EXAMPLE_EDGES: usize = 32;
-const ROLLUP_EXAMPLES: usize = 6;
-const ROLLUP_MEMBERS: usize = 64;
-const ROLLUP_TREE_EDGES: usize = 4000;
-
 /// Calls between two classes or subsystems: how many, and by which pairs.
 #[derive(Default)]
 struct RollupAccum {
@@ -2446,16 +2438,35 @@ fn add_rollups(
     meta_table: &mut MetaTable,
     search_result_table: &mut SearchResultTable,
     callees_table: &CalleesTable,
+    tree_metas: Option<MetaTable>,
 ) -> (UstrMap<Rollup>, UstrMap<Rollup>) {
     let (categories, field_edges) = read_dataflow_outputs(index_path);
-    let (call_rollups, mut subsystems) = rollup_edges(
-        meta_table,
-        &call_edges(meta_table, callees_table, &categories),
-    );
-    let (mut data_rollups, data_subsystems) =
-        rollup_edges(meta_table, &data_edges(meta_table, &field_edges));
-    add_field_flows(meta_table, &field_edges, &mut data_rollups);
-    subsystems.extend(data_subsystems);
+    let (call_rollups, data_rollups, subsystems) = {
+        // (A subset's roll-ups attribute calls as the tree's do: by the
+        // tree's structured records, else its own; see `tree_rollup_metas`.)
+        let combined;
+        let view: &MetaTable = match tree_metas {
+            Some(tree_metas) => {
+                let mut metas = meta_table.clone();
+                metas.extend(tree_metas);
+                combined = metas;
+                &combined
+            }
+            None => meta_table,
+        };
+        let (call_rollups, mut subsystems) =
+            rollup_edges(view, &call_edges(view, callees_table, &categories));
+        let (mut data_rollups, data_subsystems) =
+            rollup_edges(view, &data_edges(view, &field_edges));
+        add_field_flows(view, &field_edges, &mut data_rollups);
+        subsystems.extend(data_subsystems);
+        (call_rollups, data_rollups, subsystems)
+    };
+    // (Every symbol with a roll-up gets an entry, ex: in a subset, a class
+    // whose methods its files call without naming it.)
+    for sym in call_rollups.keys().chain(data_rollups.keys()) {
+        search_result_table.entry(*sym).or_default();
+    }
     if !subsystems.is_empty() {
         let root = root_subsystem_sym();
         search_result_table.entry(root).or_default();
@@ -2467,6 +2478,90 @@ fn add_rollups(
         meta_table.insert(sym, subsystem_structured(sym, subsystem));
     }
     (call_rollups, data_rollups)
+}
+
+/// For a subset's call roll-ups (see `crossref_subset`): the tree's
+/// structured records of the symbols its calls involve (callers, callees,
+/// their classes, and IPDL messages' owners and `Recv` implementations),
+/// from the tree's crossref, so that the subset's roll-ups attribute calls
+/// as the tree's do (and calls of the tree's functions outside the subset
+/// count), which a try push's roll-up deltas need (see `RollupDelta`).
+/// Plumbing callees (by their pretty names) aren't looked up.
+fn tree_rollup_metas(
+    base_index: &str,
+    callees_table: &CalleesTable,
+    pretty_table: &PrettyTable,
+) -> MetaTable {
+    let mut metas = MetaTable::new();
+    let Some(tree) = BisectableMmap::<CrossrefData>::new(
+        &format!("{}/crossref", base_index),
+        &format!("{}/crossref-extra", base_index),
+    ) else {
+        return metas;
+    };
+    let mut missing: UstrSet = UstrSet::default();
+    let mut fetch = |sym: Ustr, metas: &mut MetaTable| -> Option<AnalysisStructured> {
+        if let Some(meta) = metas.get(&sym) {
+            return Some(meta.clone());
+        }
+        if missing.contains(&sym) {
+            return None;
+        }
+        match tree.lookup(&sym).ok().flatten().and_then(|data| data.meta) {
+            Some(meta) => {
+                metas.insert(sym, meta.clone());
+                Some(meta)
+            }
+            None => {
+                missing.insert(sym);
+                None
+            }
+        }
+    };
+    let mut syms: Vec<Ustr> = callees_table.keys().copied().collect();
+    syms.extend(
+        callees_table
+            .values()
+            .flat_map(|callees| callees.keys().copied())
+            .filter(|sym| {
+                !pretty_table
+                    .get(sym)
+                    .is_some_and(|pretty| is_boring_callee(pretty))
+            }),
+    );
+    syms.sort();
+    syms.dedup();
+    for sym in syms {
+        let Some(meta) = fetch(sym, &mut metas) else {
+            continue;
+        };
+        if let Some(parent) = meta.parent_sym {
+            fetch(parent, &mut metas);
+        }
+        // (A call of an IPDL message's `Send` method reaches its `Recv`
+        // implementations; see `call_edges`.)
+        let Some(owner) = meta.slot_owner.as_ref().map(|o| o.sym) else {
+            continue;
+        };
+        if !owner.starts_with("IPC_") {
+            continue;
+        }
+        let Some(owner_meta) = fetch(owner, &mut metas) else {
+            continue;
+        };
+        for slot in &owner_meta.binding_slots {
+            let Some(slot_meta) = fetch(slot.sym, &mut metas) else {
+                continue;
+            };
+            for sym in std::iter::once(slot.sym).chain(slot_meta.overridden_by_syms.iter().copied())
+            {
+                if let Some(parent) = fetch(sym, &mut metas).and_then(|m| m.parent_sym) {
+                    fetch(parent, &mut metas);
+                }
+            }
+        }
+    }
+    metas
 }
 
 /// Give each field (and function) in the edges between fields a data
@@ -3013,11 +3108,13 @@ async fn crossref_subset(
     );
     process_ontology_rules(&ontology, &search_result_table, &id_table, &mut meta_table);
     let (js_idl_table, js_ts_table) = create_js_tables(&meta_table);
+    let tree_metas = tree_rollup_metas(base_index, &callees_table, &pretty_table);
     let (rollup_table, data_rollup_table) = add_rollups(
         &tree_config.paths.index_path,
         &mut meta_table,
         &mut search_result_table,
         &callees_table,
+        Some(tree_metas),
     );
     write_crossref_and_jumpref(
         tree_name,
@@ -3249,6 +3346,7 @@ async fn main() {
         &mut meta_table,
         &mut search_result_table,
         &callees_table,
+        None,
     );
 
     println!(

@@ -154,6 +154,12 @@ neighbors.  Edges are labeled and weighted by how many calls they stand for;
 `block-diagram:*`, `block-diagram:<subsystem or class symbol>`,
 `block-level:`, `block-min-count:` and `block-max-edges:`.
 
+A try push's semantic delta (see `tools/src/try_delta.rs`) carries what it
+changes about the call roll-ups: the roll-ups of the changed files' calls
+before and after the push (`callRollupDelta`), which a query in the push's
+context (`rev=<head>`) subtracts from and adds to the tree's.  Data roll-ups
+stay the tree's (a push's summaries would need the whole tree's).
+
 `traverse --paths-between --rollup-guide` (the `rollup-guide:true` query term,
 with `calls-between:`) follows only callers that are methods of classes on a
 path between the sources' and targets' classes in the call roll-ups (and
