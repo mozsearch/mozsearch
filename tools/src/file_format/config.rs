@@ -37,6 +37,15 @@ pub enum SearchEndpoint {
 static SEARCH_ENDPOINTS: LazyLock<RwLock<HashMap<String, SearchEndpoint>>> =
     LazyLock::new(Default::default);
 
+/// Say where a tree without a configuration here sends searches (ex: a remote
+/// tree's, by its `tree_config`; see `abstract_server::make_remote_servers`).
+pub fn register_search_endpoint(tree_name: &str, endpoint: SearchEndpoint) {
+    SEARCH_ENDPOINTS
+        .write()
+        .unwrap()
+        .insert(tree_name.to_string(), endpoint);
+}
+
 /// Where the tree's pages send searches (see `SearchEndpoint`).
 pub fn search_endpoint(tree_name: &str) -> SearchEndpoint {
     SEARCH_ENDPOINTS
@@ -198,6 +207,12 @@ pub struct TreeConfigPaths {
     /// tree whose API is being abused).
     #[serde(default = "data_api_default")]
     pub data_api: bool,
+    /// The tree's other settings, ex: those its scripts read with jq (like
+    /// `dataflow_summaries`), kept so that its configuration can be
+    /// introspected whole (see `AbstractServer::tree_config`).  Settings which
+    /// mustn't be exposed go under `private`, which isn't.
+    #[serde(flatten)]
+    pub other: BTreeMap<String, serde_json::Value>,
 }
 
 fn data_api_default() -> bool {

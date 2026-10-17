@@ -59,6 +59,9 @@
       "search_endpoint": "query",
       "linked_trees": {
         "SPEC_": "tests"
+      },
+      "private": {
+        "note": "The data API's config route doesn't expose this."
       }
     }
   },

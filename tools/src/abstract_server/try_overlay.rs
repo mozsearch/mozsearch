@@ -192,6 +192,10 @@ impl AbstractServer for TryOverlay {
         self.base.file_facet_info(path)
     }
 
+    fn tree_config(&self) -> Result<Value> {
+        self.base.tree_config()
+    }
+
     fn path_kinds(&self) -> Vec<(Ustr, Ustr)> {
         self.base.path_kinds()
     }

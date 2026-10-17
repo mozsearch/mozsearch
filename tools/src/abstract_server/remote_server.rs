@@ -30,7 +30,9 @@ use ustr::{Ustr, ustr};
 
 use crate::{
     dataflow::slice::ChangedLines,
-    file_format::{code_coverage_report, crossref::CrossrefData, jumpref::JumprefData},
+    file_format::{
+        code_coverage_report, crossref::CrossrefData, jumpref::JumprefData, recency::FileRecency,
+    },
     git_ops::RevisionCoverage,
     hyperblame::journals::JournalKind,
     try_delta::TryDeltaMeta,
@@ -363,6 +365,11 @@ impl AbstractServer for RemoteServer {
             .collect()
     }
 
+    fn tree_config(&self) -> Result<Value> {
+        let body = block_on(self.api("config", None, &[])).ok_or(ServerError::Unsupported)??;
+        parse(&body)
+    }
+
     fn translate_path(&self, _root: SearchfoxIndexRoot, _sf_path: &str) -> Result<String> {
         // Remote servers don't have local filesystem paths.
         Err(ServerError::Unsupported)
@@ -390,8 +397,35 @@ impl AbstractServer for RemoteServer {
         Ok(Box::pin(tokio_stream::iter(values?)))
     }
 
-    async fn fetch_formatted_lines(&self, _sf_path: &str) -> Result<(Vec<String>, String)> {
-        Err(ServerError::Unsupported)
+    async fn fetch_formatted_lines(&self, sf_path: &str) -> Result<(Vec<String>, String)> {
+        let body: Value = parse(&self.api("formatted-lines", Some(sf_path), &[]).await?)?;
+        let lines = serde_json::from_value(body["lines"].clone())?;
+        Ok((lines, body["sym_info"].as_str().unwrap_or("{}").to_string()))
+    }
+
+    fn file_facet_info(&self, path: &str) -> Option<(Ustr, Option<Ustr>)> {
+        let body = block_on(self.api("file-info", Some(path), &[]))?.ok()?;
+        let info: Value = parse(&body).ok()?;
+        Some((
+            ustr(info["path_kind"].as_str()?),
+            info["subsystem"].as_str().map(ustr),
+        ))
+    }
+
+    async fn file_recency_lookup(&self, path: &str) -> Result<Option<FileRecency>> {
+        parse(&self.api("file-recency", Some(path), &[]).await?)
+    }
+
+    async fn linked_crossref_lookup(
+        &self,
+        tree: &str,
+        symbol: &str,
+    ) -> Result<Option<CrossrefData>> {
+        parse(
+            &self
+                .api("linked-crossref", None, &[("tree", tree), ("sym", symbol)])
+                .await?,
+        )
     }
 
     async fn fetch_raw_source(&self, sf_path: &str) -> Result<String> {
@@ -401,12 +435,24 @@ impl AbstractServer for RemoteServer {
 
     async fn fetch_history_journal(
         &self,
-        _kind: JournalKind,
-        _target: &str,
-        _source_rev: Option<&str>,
-        _expand: bool,
+        kind: JournalKind,
+        target: &str,
+        source_rev: Option<&str>,
+        expand: bool,
     ) -> Result<Vec<Value>> {
-        Err(ServerError::Unsupported)
+        let kind = match kind {
+            JournalKind::Future => "future",
+            JournalKind::FilesDelta => "files-delta",
+            JournalKind::Tokens => "tokens",
+        };
+        let mut params = vec![("kind", kind), ("target", target)];
+        if let Some(rev) = source_rev {
+            params.push(("source_rev", rev));
+        }
+        if expand {
+            params.push(("expand", "true"));
+        }
+        parse(&self.api("journal", None, &params).await?)
     }
 
     async fn fetch_html(&self, root: HtmlFileRoot, sf_path: &str) -> Result<String> {
@@ -478,13 +524,20 @@ impl AbstractServer for RemoteServer {
 
     async fn search_text(
         &self,
-        _pattern: &str,
-        _fold_case: bool,
-        _path: &str,
-        _limit: usize,
+        pattern: &str,
+        fold_case: bool,
+        path: &str,
+        limit: usize,
     ) -> Result<TextMatches> {
-        // It's not clear we ever want to implement this.
-        Err(ServerError::Unsupported)
+        let limit = limit.clamp(1, MAX_LIMIT).to_string();
+        let mut params = vec![("re", pattern), ("limit", limit.as_str())];
+        if fold_case {
+            params.push(("fold_case", "true"));
+        }
+        if !path.is_empty() {
+            params.push(("path", path));
+        }
+        parse(&self.api("text", None, &params).await?)
     }
 
     async fn perform_query(&self, q: &str) -> Result<Value> {
@@ -532,6 +585,36 @@ impl AbstractServer for RemoteServer {
             .ok_or(ServerError::Unsupported)??;
         parse(&body)
     }
+}
+
+/// The remote trees at `urls` (separated by semicolons, ex:
+/// `https://searchfox.org/firefox-disco/;https://searchfox.org/wubspecs/`), by
+/// their names (their URLs' last segments), with their responses cached under
+/// `cache_dir`, if given: for servers and tools working over remote trees
+/// without configurations of their own (their `tree_config`s say what they
+/// need of theirs).
+pub fn make_remote_servers(
+    urls: &str,
+    cache_dir: Option<&str>,
+) -> Result<std::collections::BTreeMap<String, Box<dyn AbstractServer + Send + Sync>>> {
+    let mut servers = std::collections::BTreeMap::new();
+    for url in urls.split(';').map(str::trim).filter(|url| !url.is_empty()) {
+        let mut url = Url::parse(url)?;
+        if !url.path().ends_with('/') {
+            url.set_path(&format!("{}/", url.path()));
+        }
+        let tree_name = url
+            .path_segments()
+            .and_then(|segments| segments.filter(|s| !s.is_empty()).last())
+            .map(str::to_string)
+            .ok_or_else(|| problem(true, ErrorLayer::BadInput, format!("No tree in {}", url)))?;
+        let server_base_url = url.join("../")?;
+        servers.insert(
+            tree_name.clone(),
+            make_remote_server(server_base_url, &tree_name, cache_dir)?,
+        );
+    }
+    Ok(servers)
 }
 
 /// The tree `tree_name` of the searchfox server at `server_base_url`, with
@@ -637,6 +720,19 @@ mod tests {
             server.commit_info().unwrap().unwrap().rev,
             "0123456789abcdef0123456789abcdef01234567"
         );
+        assert_eq!(
+            server.tree_config().unwrap(),
+            serde_json::json!({"search_endpoint": "query"})
+        );
+        assert_eq!(
+            server.fetch_formatted_lines("dir/a.cpp").await.unwrap(),
+            (vec!["int <b>a</b>;".to_string()], "{}".to_string())
+        );
+        assert_eq!(
+            server.file_facet_info("dir/a.cpp"),
+            Some((ustr("normal"), None))
+        );
+        assert_eq!(server.file_facet_info("dir/b.cpp"), None);
         // Errors as such.
         assert!(matches!(
             server.fetch_raw_source("dir/b.cpp").await,

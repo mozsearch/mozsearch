@@ -17,7 +17,9 @@ use liquid::Template;
 use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tools::{
-    abstract_server::{AbstractServer, ServerError, make_all_local_servers, sym_info},
+    abstract_server::{
+        AbstractServer, ServerError, make_all_local_servers, make_remote_servers, sym_info,
+    },
     admission,
     cmd_pipeline::{
         PipelineValues,
@@ -414,26 +416,46 @@ async fn time_processing(req: Request, next: Next) -> Response {
 async fn main() {
     init_logging();
 
-    let config_path = env::args().nth(1).unwrap();
-    let local_servers = Arc::new(make_all_local_servers(&config_path).unwrap());
-    // Cache steps' results beside the trees' index directories (see
-    // `step_cache`).
-    let config = tools::file_format::config::load(&config_path, false, None, None, None);
-    if let Some(tree) = config.trees.values().next() {
-        let root =
-            tools::sidecars::sidecar_root(&tree.paths.index_path).with_file_name("step-cache");
-        tools::step_cache::init(&root, tools::step_cache::CAP_BYTES);
-    }
+    // The config file of the trees to serve, or for a local server over
+    // remote trees (ex: for developing their pages' features without indexing
+    // them), their URLs (see `make_remote_servers`), with their responses
+    // cached where SEARCHFOX_REMOTE_CACHE says, if anywhere.
+    let trees = env::args().nth(1).unwrap();
+    let (local_servers, data_api_trees) = if trees.contains("://") {
+        let cache = env::var("SEARCHFOX_REMOTE_CACHE").ok();
+        let servers = make_remote_servers(&trees, cache.as_deref()).unwrap();
+        for (name, server) in &servers {
+            let endpoint = server
+                .tree_config()
+                .ok()
+                .and_then(|config| serde_json::from_value(config["search_endpoint"].clone()).ok())
+                .unwrap_or_default();
+            config::register_search_endpoint(name, endpoint);
+        }
+        // (Their data APIs are their servers'.)
+        (Arc::new(servers), BTreeSet::new())
+    } else {
+        let local_servers = Arc::new(make_all_local_servers(&trees).unwrap());
+        // Cache steps' results beside the trees' index directories (see
+        // `step_cache`).
+        let config = config::load(&trees, false, None, None, None);
+        if let Some(tree) = config.trees.values().next() {
+            let root =
+                tools::sidecars::sidecar_root(&tree.paths.index_path).with_file_name("step-cache");
+            tools::step_cache::init(&root, tools::step_cache::CAP_BYTES);
+        }
+        // (The trees whose data API is on; see `TreeConfigPaths::data_api`.)
+        let data_api_trees = config
+            .trees
+            .iter()
+            .filter(|(_, tree)| tree.paths.data_api)
+            .map(|(name, _)| name.clone())
+            .collect();
+        (local_servers, data_api_trees)
+    };
     let templates = Arc::new(SomeTemplates {
         query_results: build_and_parse_query_results(),
     });
-    // (The trees whose data API is on; see `TreeConfigPaths::data_api`.)
-    let data_api_trees = config
-        .trees
-        .iter()
-        .filter(|(_, tree)| tree.paths.data_api)
-        .map(|(name, _)| name.clone())
-        .collect();
 
     let app = Router::new()
         .route("/{tree}/query/{preset}", get(handle_query))
@@ -446,6 +468,9 @@ async fn main() {
         // tokens don't hold its permits.)
         .layer(middleware::from_fn(admit));
 
-    let listener = TcpListener::bind("0.0.0.0:8002").await.unwrap();
+    // (Elsewhere with PIPELINE_SERVER_ADDR, ex: beside a production server's
+    // on a development machine.)
+    let addr = env::var("PIPELINE_SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:8002".to_string());
+    let listener = TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }

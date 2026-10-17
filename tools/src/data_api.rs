@@ -9,6 +9,8 @@
 //! - `tree-info`: the tree's name, the commit of its files (with `rev=`, the
 //!   try push's head), its path kinds, and with `rev=`, the try push's
 //!   `TryDeltaMeta`.
+//! - `config`: the tree's settings in the config file (see
+//!   `AbstractServer::tree_config`), without its `private` ones.
 //! - `crossref?sym=[&fields=]`: the symbol's crossref entry (`null` if it has
 //!   none), only its comma-separated `fields` if given (ex: `meta,callees`).
 //! - `jumpref?sym=`: the symbol's jumpref (`null` if it has none).
@@ -23,6 +25,18 @@
 //! - `changed-lines?spec=`: the lines a revision (`<rev>`, from its first
 //!   parent, or `<rev>..<rev>`) changes, in the coordinates of the tree's
 //!   files (see `rev_changed_lines`).
+//! - `formatted-lines/{path}`: a file's source listing's lines' HTML, and
+//!   their SYM_INFO (see `fetch_formatted_lines`).
+//! - `file-info/{path}`: a file's (or directory's) path kind and subsystem
+//!   (`null` if the tree doesn't have it).
+//! - `file-recency/{path}`: a file's history digests (`null` without them).
+//! - `journal?kind=&target=[&source_rev=][&expand=true]`: a history timeline
+//!   journal's records (`kind` is `future`, `files-delta` or `tokens`; see
+//!   `fetch_history_journal`).
+//! - `linked-crossref?tree=&sym=`: a linked tree's crossref entry for a
+//!   symbol of the tree's (see `linked_crossref_lookup`).
+//! - `text?re=[&fold_case=true][&path=][&limit=]`: the lines matching a
+//!   regular expression (livegrep's; see `search_text`).
 //!
 //! All of them take `rev=` (a try push's head) and `max_bytes=`.
 //!
@@ -58,6 +72,7 @@ use serde_json::{Value, json};
 use tokio_stream::StreamExt;
 
 use crate::abstract_server::{AbstractServer, ErrorLayer, ServerError};
+use crate::hyperblame::journals::JournalKind;
 use crate::try_delta::is_full_rev;
 
 /// The responses' size cap, unless the request's `max_bytes` says otherwise.
@@ -189,6 +204,11 @@ const ROUTES: &[Route] = &[
         params: &[],
     },
     Route {
+        name: "config",
+        takes_path: false,
+        params: &[],
+    },
+    Route {
         name: "crossref",
         takes_path: false,
         params: &["sym", "fields"],
@@ -222,6 +242,36 @@ const ROUTES: &[Route] = &[
         name: "changed-lines",
         takes_path: false,
         params: &["spec"],
+    },
+    Route {
+        name: "formatted-lines",
+        takes_path: true,
+        params: &[],
+    },
+    Route {
+        name: "file-info",
+        takes_path: true,
+        params: &[],
+    },
+    Route {
+        name: "file-recency",
+        takes_path: true,
+        params: &[],
+    },
+    Route {
+        name: "journal",
+        takes_path: false,
+        params: &["kind", "target", "source_rev", "expand"],
+    },
+    Route {
+        name: "linked-crossref",
+        takes_path: false,
+        params: &["tree", "sym"],
+    },
+    Route {
+        name: "text",
+        takes_path: false,
+        params: &["re", "fold_case", "path", "limit"],
     },
 ];
 
@@ -458,6 +508,13 @@ async fn route_body(
                 "try_meta": server.try_delta_meta(),
             })))
         }
+        "config" => {
+            let mut config = server.tree_config().map_err(error)?;
+            if let Some(config) = config.as_object_mut() {
+                config.remove("private");
+            }
+            Ok(Body::json(&config))
+        }
         "crossref" => {
             let sym = params.symbol()?;
             let fields: Option<BTreeSet<&str>> = match params.get("fields") {
@@ -574,6 +631,89 @@ async fn route_body(
                 .map_err(error)?;
             Ok(Body::json(&serde_json::to_value(lines).unwrap_or_default()))
         }
+        "formatted-lines" => {
+            let path = file_path.unwrap_or_default();
+            if !source_path_known(server.as_ref(), path) {
+                return Err(not_found(format!("No such file: {}", path)));
+            }
+            let (lines, sym_info) = server.fetch_formatted_lines(path).await.map_err(error)?;
+            Ok(Body::json(&json!({ "lines": lines, "sym_info": sym_info })))
+        }
+        "file-info" => {
+            let info = server.file_facet_info(file_path.unwrap_or_default()).map(
+                |(path_kind, subsystem)| json!({ "path_kind": path_kind, "subsystem": subsystem }),
+            );
+            Ok(Body::json(&info.unwrap_or(Value::Null)))
+        }
+        "file-recency" => {
+            let recency = server
+                .file_recency_lookup(file_path.unwrap_or_default())
+                .await
+                .map_err(error)?;
+            Ok(Body::json(
+                &serde_json::to_value(recency).unwrap_or_default(),
+            ))
+        }
+        "journal" => {
+            let kind = match params.required("kind")? {
+                "future" => JournalKind::Future,
+                "files-delta" => JournalKind::FilesDelta,
+                "tokens" => JournalKind::Tokens,
+                _ => return Err(bad("kind must be future, files-delta or tokens")),
+            };
+            let target = params.required("target")?;
+            let valid_target = match kind {
+                JournalKind::Tokens => !target.is_empty() && target.len() <= MAX_SYM_BYTES,
+                _ => valid_tree_path(target),
+            };
+            if !valid_target {
+                return Err(bad("target must be a path in the tree, or a token"));
+            }
+            let source_rev = params.get("source_rev");
+            if source_rev.is_some_and(|rev| !is_full_rev(rev)) {
+                return Err(bad("source_rev must be a full revision"));
+            }
+            let records = server
+                .fetch_history_journal(kind, target, source_rev, params.flag("expand")?)
+                .await
+                .map_err(error)?;
+            Ok(Body::json(&Value::Array(records)))
+        }
+        "linked-crossref" => {
+            let tree = params.required("tree")?;
+            if tree.is_empty()
+                || !tree
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_' || b == b'.')
+            {
+                return Err(bad("tree must be a tree's name"));
+            }
+            let entry = server
+                .linked_crossref_lookup(tree, params.symbol()?)
+                .await
+                .map_err(error)?;
+            Ok(Body::json(&serde_json::to_value(entry).unwrap_or_default()))
+        }
+        "text" => {
+            let pattern = params.required("re")?;
+            if pattern.is_empty() || pattern.len() > MAX_NEEDLE_BYTES {
+                return Err(bad(format!("re must have 1 to {} bytes", MAX_NEEDLE_BYTES)));
+            }
+            let path = params.get("path").unwrap_or_default();
+            if path.len() > MAX_NEEDLE_BYTES {
+                return Err(bad(format!(
+                    "path must have at most {} bytes",
+                    MAX_NEEDLE_BYTES
+                )));
+            }
+            let matches = server
+                .search_text(pattern, params.flag("fold_case")?, path, params.limit()?)
+                .await
+                .map_err(error)?;
+            Ok(Body::json(
+                &serde_json::to_value(matches).unwrap_or_default(),
+            ))
+        }
         _ => Err(not_found(format!("Unknown route {:?}", route))),
     }
 }
@@ -625,6 +765,9 @@ pub(crate) mod fake {
         fn file_facet_info(&self, path: &str) -> Option<(Ustr, Option<Ustr>)> {
             (path == "dir/a.cpp" || path == "dir").then(|| (ustr("normal"), None))
         }
+        fn tree_config(&self) -> Result<Value> {
+            Ok(json!({"search_endpoint": "query", "private": {"key": "secret"}}))
+        }
         fn translate_path(&self, _root: SearchfoxIndexRoot, _path: &str) -> Result<String> {
             Err(ServerError::Unsupported)
         }
@@ -653,8 +796,11 @@ pub(crate) mod fake {
                 _ => Err(missing()),
             }
         }
-        async fn fetch_formatted_lines(&self, _path: &str) -> Result<(Vec<String>, String)> {
-            Err(ServerError::Unsupported)
+        async fn fetch_formatted_lines(&self, path: &str) -> Result<(Vec<String>, String)> {
+            match path {
+                "dir/a.cpp" => Ok((vec!["int <b>a</b>;".to_string()], "{}".to_string())),
+                _ => Err(missing()),
+            }
         }
         async fn fetch_html(&self, _root: HtmlFileRoot, _path: &str) -> Result<String> {
             Err(ServerError::Unsupported)
@@ -833,6 +979,14 @@ mod tests {
             get("/fake/api/v1/jumpref?sym=A").await,
             (StatusCode::OK, "null".to_string())
         );
+        // (Without the private settings.)
+        assert_eq!(
+            get("/fake/api/v1/config").await,
+            (
+                StatusCode::OK,
+                "{\"search_endpoint\":\"query\"}".to_string()
+            )
+        );
         assert_eq!(
             get("/fake/api/v1/identifiers?q=a&exact=true&limit=2").await,
             (StatusCode::OK, "[[\"A\",\"a\"],[\"A\",\"a\"]]".to_string())
@@ -859,6 +1013,12 @@ mod tests {
             "/fake/api/v1/changed-lines?spec=HEAD",
             "/fake/api/v1/changed-lines?spec=:/fix",
             "/fake/api/v1/changed-lines?spec=abcdef1...abcdef2",
+            "/fake/api/v1/journal?kind=past&target=a.cpp",
+            "/fake/api/v1/journal?kind=future&target=../a.cpp",
+            "/fake/api/v1/journal?kind=future&target=a.cpp&source_rev=HEAD",
+            "/fake/api/v1/linked-crossref?tree=../x&sym=A",
+            "/fake/api/v1/text?re=",
+            "/fake/api/v1/formatted-lines/../a.cpp",
         ] {
             assert_eq!(
                 get(url).await.0,

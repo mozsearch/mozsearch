@@ -215,6 +215,14 @@ impl AbstractServer for LocalIndex {
         Ok(self.head_info.clone())
     }
 
+    fn tree_config(&self) -> Result<Value> {
+        let mut config = serde_json::to_value(&self.config_paths)?;
+        if let Some(config) = config.as_object_mut() {
+            config.remove("private");
+        }
+        Ok(config)
+    }
+
     fn cache_identity(&self) -> Option<String> {
         // (Its `all-files`, which indexing rewrites, as the sidecars' stamp.)
         use std::os::unix::fs::MetadataExt;

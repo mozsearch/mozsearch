@@ -56,6 +56,15 @@ Responses are only cached on disk where `--remote-cache` (or the
 `{host}/{tree}/{indexed revision}/`, and the cache keeps only the tree's
 current indexed revision.  Without either, nothing is cached.
 
+The pipeline-server can serve `/query/` over remote trees too, without any
+configuration of its own, given their URLs (separated by semicolons) instead
+of a config file; their settings come from their servers' `config` routes:
+```
+PIPELINE_SERVER_ADDR=127.0.0.1:8002 SEARCHFOX_REMOTE_CACHE=$HOME/.cache/searchfox-remote tools/target/release/pipeline-server "https://searchfox.org/firefox-disco/;https://searchfox.org/wubspecs/"
+```
+and `PIPELINE_SERVER=http://localhost:8002 node scripts/dev-server.js` sends
+the pages' queries (diagrams, dataflow, slicing) to it.
+
 ### Dumping crossref info from an identifier on a web-server shell
 ```
 ~/mozsearch/tools/target/release/searchfox-tool '--server=/home/ubuntu/index/config.json

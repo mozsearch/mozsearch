@@ -159,14 +159,14 @@ pub enum ServerError {
 }
 
 /// Livegrep/codesearch bounds
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct TextBounds {
     pub start: i32,
     pub end_exclusive: i32,
 }
 
 /// Livegrep/codesearch line hit results
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct TextMatchInFile {
     pub line_num: u32,
     pub bounds: TextBounds,
@@ -174,7 +174,7 @@ pub struct TextMatchInFile {
     pub line_str: String,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct TextMatchesByFile {
     pub file: Ustr,
     pub path_kind: Ustr,
@@ -182,17 +182,17 @@ pub struct TextMatchesByFile {
 }
 
 /// Livegrep/codesearch text search results clustered by file.
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct TextMatches {
     pub by_file: Vec<TextMatchesByFile>,
     /// Whether livegrep stopped at its limit on matches, or its timeout, so
     /// there may have been more matches.
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub limit_hit: bool,
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub timed_out: bool,
     /// The search's pattern (set by `search-text`).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pattern: Option<TextPattern>,
 }
 
@@ -200,7 +200,7 @@ pub struct TextMatches {
 /// so this finds the others (to tell whether semantic results cover them; see
 /// `cmd_compile_results`) and the matches in excerpts (see
 /// `cmd_pipeline::highlight`).
-#[derive(Clone, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct TextPattern {
     /// An RE2 regexp, as livegrep takes, which the `regex` crate mostly agrees
     /// with (and does for escaped text).
@@ -506,6 +506,13 @@ pub trait AbstractServer {
     /// pipeline-server's `rev`).
     fn try_overlay(&self, _head: &str) -> Option<Box<dyn AbstractServer + Send + Sync>> {
         None
+    }
+
+    /// The tree's configuration: its settings in the config file (see
+    /// `TreeConfigPaths`), without its `private` ones, for introspection (ex:
+    /// a local server over a remote tree; see `RemoteServer`).
+    fn tree_config(&self) -> Result<Value> {
+        Err(ServerError::Unsupported)
     }
 
     /// The try push this is the tree as changed by, if it's a `try_overlay`.

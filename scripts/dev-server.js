@@ -9,6 +9,12 @@
 // - /<tree>/source/<directory> is rendered locally with searchfox-tool, using
 //   the list of files from searchfox.org.  Files that haven't been viewed yet
 //   are represented by empty placeholders of the right size.
+// - /<tree>/query/* (queries, diagrams, dataflow, slicing) goes to a local
+//   pipeline-server if PIPELINE_SERVER says where (ex: http://localhost:8002),
+//   which can work over searchfox.org's trees without an index:
+//     PIPELINE_SERVER_ADDR=127.0.0.1:8002 SEARCHFOX_REMOTE_CACHE=/tmp/sf \
+//       tools/target/release/pipeline-server https://searchfox.org/firefox-main/
+//   (see tools/src/abstract_server/remote_server.rs).
 // - Everything else (search, blame, ...) is proxied to searchfox.org.
 //
 // The tools are rebuilt (if needed) before each render, so changes to the Rust
@@ -33,6 +39,8 @@ const PORT = parseInt(process.argv[2] || process.env.PORT || "8000", 10);
 const TREE = process.env.TREE || "firefox-main";
 const GITHUB_REPO = process.env.GITHUB_REPO || "mozilla-firefox/firefox";
 const UPSTREAM = "https://searchfox.org";
+// A local pipeline-server for /<tree>/query/, if any (see above).
+const PIPELINE_SERVER = process.env.PIPELINE_SERVER || null;
 // searchfox.org serves a JS challenge to some non-browser user agents.
 const USER_AGENT = "Mozilla/5.0 (searchfox dev-server) Firefox/140.0";
 
@@ -77,8 +85,8 @@ let currentRev = null;
 let currentRevTime = 0;
 const REV_TTL_MS = 10 * 60 * 1000;
 
-function upstreamFetch(urlPath, options = {}) {
-  return fetch(UPSTREAM + urlPath, {
+function upstreamFetch(urlPath, options = {}, upstream = UPSTREAM) {
+  return fetch(upstream + urlPath, {
     ...options,
     headers: { ...options.headers, "User-Agent": USER_AGENT },
     redirect: "manual",
@@ -475,7 +483,7 @@ function serveStatic(res, relPath) {
   fs.createReadStream(file).pipe(res);
 }
 
-async function proxy(req, res) {
+async function proxy(req, res, upstream = UPSTREAM) {
   const body = ["GET", "HEAD"].includes(req.method)
     ? undefined
     : await new Promise(resolve => {
@@ -493,7 +501,7 @@ async function proxy(req, res) {
     method: req.method,
     headers,
     body,
-  });
+  }, upstream);
   const responseHeaders = {};
   for (const [name, value] of response.headers) {
     // fetch() already decompressed the body.
@@ -521,6 +529,11 @@ async function handle(req, res) {
   let match = pathname.match(/^(?:\/[^/]+)?\/static\/(.+)$/);
   if (match) {
     serveStatic(res, match[1]);
+    return;
+  }
+
+  if (PIPELINE_SERVER && /^\/[^/]+\/query\//.test(pathname)) {
+    await proxy(req, res, PIPELINE_SERVER);
     return;
   }
 

@@ -42,6 +42,12 @@ add_task(async function test_DataApiRoutes() {
   const info = await getJson(`${API}/tree-info`);
   is(info.name, "trydelta", "The tree's info has its name");
   is(info.commit?.header?.includes("Let widgets shrink"), true, "and its indexed commit");
+  is(info.commit?.summary, "Let widgets shrink", "and its summary");
+
+  const config = await getJson(`${API}/config`);
+  is(config.search_endpoint, "query", "The tree's configuration has its settings");
+  is(config.linked_trees?.SPEC_, "tests", "all of them");
+  ok(!("private" in config), "but not its private ones");
 
   const response = await get(`${API}/crossref?sym=${OLD_FROB}`);
   is(response.headers.get("content-type"), "application/json", "Crossref entries are JSON");
@@ -71,6 +77,20 @@ add_task(async function test_DataApiRoutes() {
 
   const lines = await getJson(`${API}/changed-lines?spec=${LANDED}`);
   ok(lines.files?.["widget.cpp"]?.added?.length, "The lines a commit changes are there");
+
+  const formatted = await getJson(`${API}/formatted-lines/widget.cpp`);
+  ok(formatted.lines?.some(line => line.includes(OLD_FROB)),
+     "Files' source listings' lines are there");
+  const fileInfo = await getJson(`${API}/file-info/widget.cpp`);
+  ok(fileInfo?.path_kind, "Files' path kinds are there");
+  const recency = await getJson(`${API}/file-recency/widget.cpp`);
+  is(typeof recency, "object", "Files' history digests are there");
+  const journal = await getJson(`${API}/journal?kind=future&target=widget.cpp`);
+  ok(Array.isArray(journal), "History journals are there");
+  const linked = await getJson(`${API}/linked-crossref?tree=tests&sym=SPEC_example_unpoke`);
+  ok(linked?.defs?.length, "Linked trees' crossref entries are there");
+  const text = await getJson(`${API}/text?re=Frob&limit=10`);
+  ok(text.by_file?.some(file => file.file == "widget.cpp"), "Text searches are there");
 });
 
 add_task(async function test_DataApiTryContext() {
