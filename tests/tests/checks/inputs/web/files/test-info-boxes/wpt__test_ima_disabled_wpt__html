@@ -1,1 +1,2 @@
+# servers: local remote
 cat-html testing/web-platform/tests/fake-standard/test_ima_disabled_wpt.js --select "section.info-boxes"

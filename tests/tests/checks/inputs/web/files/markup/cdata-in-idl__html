@@ -1,1 +1,2 @@
+# servers: local remote
 cat-html xpidl/CDATATest.idl --select ".source-line"

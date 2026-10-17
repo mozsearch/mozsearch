@@ -1,1 +1,2 @@
+# servers: local remote
 cat-html tests/test_otherthing.html --select "section.info-boxes"

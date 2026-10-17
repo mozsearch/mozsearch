@@ -1,1 +1,2 @@
+# servers: local remote
 cat-html --dir "__GENERATED__" --select ".folder-content tbody tr:nth-child(2)"

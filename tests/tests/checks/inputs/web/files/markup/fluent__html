@@ -1,1 +1,2 @@
+# servers: local remote
 cat-html fluent/test.ftl --select ".source-line"

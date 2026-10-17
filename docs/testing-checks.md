@@ -40,6 +40,31 @@ in order to:
 - Replace line numbers with N
 - Replace data-i values with "NORM".
 
+### Which servers an input runs against
+
+The checks run twice: against the on-disk index ("local", when indexing) and
+against the web server ("remote", by `infrastructure/web-server-check.sh`),
+whose results are compared with the same snapshots.  An input runs only
+against the servers its `# servers:` comment line names (a shell comment,
+which the command's parsing ignores), and only locally without one:
+
+```
+# servers: local remote
+crossref-lookup 'outerNS::Thing'
+```
+
+- `# servers: local remote` checks that the web server (ex: the data API; see
+  `docs/web-server.md`) gives the local index's results: a few inputs per
+  remote primitive, rather than every pipeline over HTTP.
+- `# servers: remote` is for what only the web server has (ex: `search`, the
+  router's search).
+
+`test-index` prints how many inputs each pass checked and skipped.  An input
+whose command a server it's for doesn't support (`ServerError::Unsupported`)
+fails, as does a malformed `# servers:` line.  The snapshots of inputs with
+the same file name (in different directories) are named `main@{name}`,
+`main@{name}-2`, ... in the inputs' order, whichever of them a pass runs.
+
 ## Purpose of the Checks
 
 ### mozsearch "tests" checks

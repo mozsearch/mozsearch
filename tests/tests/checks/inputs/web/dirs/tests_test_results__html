@@ -1,1 +1,2 @@
+# servers: local remote
 cat-html --dir "tests" --select ".test-results-concise"

@@ -1,1 +1,2 @@
+# servers: local remote
 cat-html test_custom_element_base.xul --select "section.info-boxes"
