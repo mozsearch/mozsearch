@@ -55,6 +55,10 @@ SOURCE_FILES=(
   [js/xpconnect/tests/idl/xpctest_returncode.idl]=xpidl/
   [js/xpconnect/tests/idl/xpctest_utils.idl]=xpidl/
   [ipc/ipdl/test/gtest/PTestBasic.ipdl]=ipdl/
+  # IPDL structs and unions (in the .ipdlh) used by messages.
+  [ipc/ipdl/test/gtest/PTestDataStructures.ipdl]=ipdl/
+  [ipc/ipdl/test/gtest/PTestDataStructuresCommon.ipdlh]=ipdl/
+  [ipc/ipdl/test/gtest/PTestDataStructuresSub.ipdl]=ipdl/
 )
 
 # Ugh, so, for some source files, we may want to just steal the analysis
@@ -63,6 +67,7 @@ SOURCE_FILES=(
 declare -A SOURCE_ANALYSIS_FILES
 SOURCE_ANALYSIS_FILES=(
   [ipc/ipdl/test/gtest/TestBasic.cpp]=ipdl/
+  [ipc/ipdl/test/gtest/TestDataStructures.cpp]=ipdl/
   # These normally live next to TestBasic.cpp above but they get installed to
   # this location so this is where the includes hardcode.
   [ipc/ipdl/test/gtest/TestBasicChild.h]=mozilla/_ipdltest
@@ -104,6 +109,11 @@ for src_file in "${!SOURCE_FILES[@]}"; do
     GENERATED_FILES["ipc/ipdl/_ipdlheaders/mozilla/_ipdltest/${filename%.ipdl}Parent.h"]=ipc/ipdl/_ipdlheaders/mozilla/_ipdltest
   fi
 done
+
+# A .ipdlh's generated files (its namespace, mozilla::_foo, isn't derivable from
+# its name).
+GENERATED_FILES["ipc/ipdl/PTestDataStructuresCommon.cpp"]=ipdl
+GENERATED_FILES["ipc/ipdl/_ipdlheaders/mozilla/_foo/PTestDataStructuresCommon.h"]=ipc/ipdl/_ipdlheaders/mozilla/_foo
 
 # These are files we want the source for but absolutely do not want the actual
 # generated header files for because they increase the set of stubs we need.
