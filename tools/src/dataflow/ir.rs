@@ -165,6 +165,7 @@ pub struct Call {
     pub id: usize,
     pub line: u32,
     pub col: u32,
+    pub end_line: u32,
     /// The callee's symbols (several for C++ overloads per platform, ex:
     /// `std::unique_ptr::get`'s).
     pub callee: Vec<Ustr>,
@@ -202,6 +203,8 @@ pub enum EventKind {
 pub struct Event {
     pub line: u32,
     pub col: u32,
+    /// The last line of the syntax it's from (ex: a call's arguments' lines).
+    pub end_line: u32,
     pub kind: EventKind,
     /// Whether it's in a lambda (or local function) in the function, whose
     /// returns aren't the function's.
@@ -210,6 +213,13 @@ pub struct Event {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub macro_name: Option<String>,
     pub text: String,
+}
+
+impl Event {
+    /// Whether it spans a line.
+    pub fn on_line(&self, line: u32) -> bool {
+        self.line <= line && line <= self.end_line
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]

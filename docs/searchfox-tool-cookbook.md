@@ -130,3 +130,22 @@ From inside the VM:
 ```
 ./searchfox-tool '--server=/home/vagrant/index/config.json --tree=tests search-identifiers outerNS::OuterCat::meet | crossref-lookup | traverse | graph --format=svg' > /vagrant/pretty.svg
 ```
+
+### Following values (dataflow)
+
+`dataflow` (see `tools/src/dataflow/`) shows what it understood of a file's
+functions, or follows a value forwards (where does it go?) or backwards (where
+does it come from?), as text, DOT, SVG, or JSON:
+```
+./searchfox-tool '--server=/home/vagrant/index/config.json --tree=tests dataflow dataflow/dataflow.cpp --function GetBoolWithDefault'
+./searchfox-tool '--server=/home/vagrant/index/config.json --tree=tests dataflow dataflow/dataflow.cpp --function UseDefault --backward value'
+./searchfox-tool "--server=/home/vagrant/index/config.json --tree=tests dataflow --at dataflow/dataflow.cpp#46 --symbol 'F_<T_Widget>_mName' --direction backward --format dot"
+```
+Places are named as the IR shows them (`aRetVal`, `*aRetVal`, `this->mName`,
+`return` for backwards from the returns); `--symbol` with `--at <path>#<line>`
+takes a local's, parameter's, field's or global's symbol instead, as the
+context menu's "Follow" items do through the `follow-forward:`,
+`follow-backward:` and `follow-at:` query terms.  `--changed
+"<path>:<lines>;…"` slices changed lines into clusters, `--questions <paths>`
+lists questions for an oracle, `--oracle <dir>` applies its answers, and
+`--stats <paths>` reports how much the frontends understood.

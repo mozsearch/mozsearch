@@ -168,7 +168,7 @@ fn is_comment(node: &Node) -> bool {
 
 /// Whether a scip symbol is a local or a parameter (scip's locals are
 /// "<prefix><path>/#<n>"; parameters "...().(<name>)").
-fn is_scip_local(sym: &str) -> bool {
+pub(crate) fn is_scip_local(sym: &str) -> bool {
     if let Some((_, n)) = sym.rsplit_once("/#")
         && !n.is_empty()
         && n.bytes().all(|b| b.is_ascii_digit())
@@ -528,11 +528,21 @@ impl<'c, 'a> Builder<'c, 'a> {
         self.ir.questions.push(Question { line, kind, text });
     }
 
+    /// The last line of a node (in the file).
+    fn end_line(&self, node: Node) -> u32 {
+        match &self.macro_cx {
+            Some(m) => m.line,
+            None => node.end_position().row as u32 + 1,
+        }
+    }
+
     fn event(&mut self, node: Node, kind: EventKind) {
         let (line, col) = self.pos(node);
+        let end_line = self.end_line(node);
         self.ir.events.push(Event {
             line,
             col,
+            end_line,
             kind,
             in_lambda: self.lambda_depth > 0,
             macro_name: self.macro_cx.as_ref().map(|m| m.name.clone()),
@@ -752,10 +762,12 @@ impl<'c, 'a> Builder<'c, 'a> {
                 format!("call of {}", truncate(callee_text, 60)),
             );
         }
+        let end_line = self.end_line(node);
         self.ir.calls.push(Call {
             id,
             line,
             col,
+            end_line,
             callee,
             callee_pretty: pretty,
             kind,
@@ -1570,11 +1582,13 @@ impl<'c, 'a> Builder<'c, 'a> {
             }
             let saved = self.macro_cx.take();
             let (line, col) = self.pos(node);
+            let end_line = self.end_line(node);
             self.macro_cx = saved;
             if !vals.is_empty() {
                 self.ir.events.push(Event {
                     line,
                     col,
+                    end_line,
                     kind: EventKind::Test { vals },
                     in_lambda: self.lambda_depth > 0,
                     macro_name: Some(name_text),

@@ -105,6 +105,14 @@ const SETTING_DEFS = {
       introducedIn: 5,
     },
   },
+  // Following values forwards and backwards from the context menu (see
+  // tools/src/dataflow/).
+  dataflow: {
+    enabled: {
+      quality: "alpha",
+      introducedIn: 11,
+    },
+  },
   debug: {
     ui: {
       default: (document.location.host !== "searchfox.org"),
@@ -221,7 +229,7 @@ const WIDGET_DEFS = {
  *   distracting and that they likely would want to actually process the new
  *   settings later on.
  */
-const SETTINGS_VERSION = 10;
+const SETTINGS_VERSION = 11;
 
 /**
  * Convert a "camelCaseString" to "camel-case-string".

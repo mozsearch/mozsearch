@@ -347,6 +347,34 @@ command = "crossref-lookup"
 [[term.symbol.group.semantic-search]]
 command = "crossref-expand"
 
+# Following values (see tools/src/dataflow/): where the value of a symbol (a
+# local, parameter, field or global) goes, or comes from, from the line
+# `follow-at` gives as "<path>#<line>" (as the context menu's "Follow value"
+# items do).
+[term.follow-forward]
+[[term.follow-forward.group.dataflow]]
+command = "dataflow"
+args.symbol = "$0"
+args.direction = "forward"
+args.format = "svg"
+
+[term.follow-backward]
+[[term.follow-backward.group.dataflow]]
+command = "dataflow"
+args.symbol = "$0"
+args.direction = "backward"
+args.format = "svg"
+
+[term.follow-at]
+[[term.follow-at.group.dataflow]]
+command = "dataflow"
+args.at = "$0"
+
+[term.follow-hops]
+[[term.follow-hops.group.dataflow]]
+command = "dataflow"
+args.max-hops = "$0"
+
 [term.text]
 [[term.text.expand]]
 term = "re"
@@ -412,6 +440,9 @@ output = "result"
 [[group.graph-render.commands]]
 command = "graph"
 args.format = "mozsearch"
+
+[group.dataflow]
+output = "result"
 
 [group.semantic-lookup]
 output = "semantic-lookup"

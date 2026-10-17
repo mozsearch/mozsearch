@@ -1,0 +1,22 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/symbol/field-at-use-backward
+---
+Widget::Name (dataflow/dataflow.cpp)
+  #0      46 seed       this->mName                        const char* Name() const { return mName; }
+Widget::Widget (dataflow/dataflow.cpp)
+  #1      45 assign     this->mName =                      explicit Widget(const char* aName) : mName(aName), mCount(0) {}
+        -> #0 this->mName in Widget::Name [field: mName]
+  #2      45 param      param aName                        explicit Widget(const char* aName) : mName(aName), mCount(0) {}
+        -> #1 this->mName = [local: aName]
+MakeWidgetName (dataflow/dataflow.cpp)
+  #3      56 call       call Widget::Widget                Widget widget("gadget");
+        -> #2 param aName in Widget::Widget [call: arg 0]
+  #4      56 const      "gadget"                           Widget widget("gadget");
+        -> #3 call Widget::Widget [local: "gadget"]
+BumpedCount (dataflow/dataflow.cpp)
+  #5      61 call       call Widget::Widget                Widget widget("counter");
+        -> #2 param aName in Widget::Widget [call: arg 0]
+  #6      61 const      "counter"                          Widget widget("counter");
+        -> #5 call Widget::Widget [local: "counter"]

@@ -82,10 +82,45 @@ fn escape(text: &str) -> String {
     out
 }
 
-pub fn render_dot(graph: &TraceGraph) -> String {
+#[derive(Default)]
+pub struct DotOptions {
+    /// Link nodes to their source lines in this tree.
+    pub link_tree: Option<String>,
+    /// Title the graph with what was followed, and note where the trace
+    /// stopped or guessed.
+    pub title: bool,
+}
+
+/// The trace's seed's description (ex: "Where aRetVal (Preferences.cpp:2903)
+/// goes").
+fn title(graph: &TraceGraph) -> String {
+    let seed = graph.nodes.iter().find(|n| n.kind == NodeKind::Seed);
+    let what = match seed {
+        Some(seed) => format!("{} ({}:{})", seed.label, file_name(&seed.path), seed.line),
+        None => "the value".to_string(),
+    };
+    match graph.dir {
+        Some(super::trace::Dir::Backward) => format!("Where {} comes from", what),
+        _ => format!("Where {} goes", what),
+    }
+}
+
+pub fn render_dot(graph: &TraceGraph, options: &DotOptions) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "digraph dataflow {{");
     let _ = writeln!(out, "  rankdir=TB; compound=true;");
+    if options.title {
+        let mut label = escape(&title(graph));
+        for note in &graph.notes {
+            label.push_str("\\n");
+            label.push_str(&escape(note));
+        }
+        let _ = writeln!(
+            out,
+            "  label=\"{}\"; labelloc=t; fontname=\"sans-serif\"; fontsize=12;",
+            label
+        );
+    }
     let _ = writeln!(
         out,
         "  node [shape=box, fontname=\"monospace\", fontsize=10, style=rounded];"
@@ -133,13 +168,25 @@ pub fn render_dot(graph: &TraceGraph) -> String {
                 }
                 _ => text,
             };
+            let link = match &options.link_tree {
+                Some(tree) if node.line > 0 => format!(
+                    ", URL=\"/{}/source/{}#{}\", tooltip=\"{}:{}\"",
+                    escape(tree),
+                    escape(&node.path),
+                    node.line,
+                    escape(file_name(&node.path)),
+                    node.line
+                ),
+                _ => String::new(),
+            };
             let _ = writeln!(
                 out,
-                "    n{} [label=\"{}\", shape={}, color=\"{}\"];",
+                "    n{} [label=\"{}\", shape={}, color=\"{}\"{}];",
                 node.id,
                 escape(&label),
                 shape,
-                color
+                color,
+                link
             );
         }
         let _ = writeln!(out, "  }}");

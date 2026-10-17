@@ -1,0 +1,42 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/symbol/kotlin-param-forward
+---
+sample::configure (src/main/kotlin/sample/Dataflow.kt)
+  #0      32 seed       input                              val normalized = normalizeUrl(input)
+        -> #1 call sample::normalizeUrl [local: input]
+  #1      32 call       call sample::normalizeUrl          val normalized = normalizeUrl(input)
+        -> #2 param input in sample::normalizeUrl [call: input]
+        -> #10 normalized = [local: sample::normalizeUrl(…)]
+  #10     32 assign     normalized =                       val normalized = normalizeUrl(input)
+        -> #11 call UrlSink::setUrl [local: normalized]
+  #11     33 call       call UrlSink::setUrl               sink.setUrl(normalized)
+        -> #12 param url in DataflowProvider::setUrl [call: url]
+sample::normalizeUrl (src/main/kotlin/sample/Dataflow.kt)
+  #2      26 param      param input                        
+        -> #3 call String::trim [local: input]
+  #3      27 call       call String::trim                  val trimmed = input.trim()
+        -> #4 String::trim(…) result (assumed) [assumed: ?]
+  #4      27 opaque     String::trim(…) result (assumed)   val trimmed = input.trim()
+        -> #5 trimmed = [local: String::trim(…)]
+  #5      27 assign     trimmed =                          val trimmed = input.trim()
+        -> #6 call String::startsWith [local: trimmed]
+        -> #8 return [local: trimmed]
+  #6      28 call       call String::startsWith            return if (trimmed.startsWith("https://")) trimmed else "https://" + trimmed
+        -> #7 String::startsWith(…) result (assumed) [assumed: ?]
+  #7      28 opaque     String::startsWith(…) result (assumed) return if (trimmed.startsWith("https://")) trimmed else "https://" + trimmed
+        -> #9 test [local: String::startsWith(…)]
+  #8      28 return     return                             return if (trimmed.startsWith("https://")) trimmed else "https://" + trimmed
+        -> #1 call sample::normalizeUrl in sample::configure [return: result]
+  #9      28 test       test                               return if (trimmed.startsWith("https://")) trimmed else "https://" + trimmed
+sample::DataflowProvider::setUrl (src/main/kotlin/sample/Dataflow.kt)
+  #12     17 param      param url                          
+        -> #13 this.settings.url = [local: url]
+  #13     18 assign     this.settings.url =                settings.url = url
+        -> #11 call UrlSink::setUrl in sample::configure [return: out sink.settings.url]
+        -> #14 return in DataflowProvider::currentUrl [field: this.settings.url]
+sample::DataflowProvider::currentUrl (src/main/kotlin/sample/Dataflow.kt)
+  #14     22 return     return                             return settings.url
+note: Couldn't see into String::trim (assumed its result comes from its arguments)
+note: Couldn't see into String::startsWith (assumed its result comes from its arguments)

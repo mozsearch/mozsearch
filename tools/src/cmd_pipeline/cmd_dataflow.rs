@@ -7,16 +7,25 @@ use crate::{
     dataflow::{
         frontend::FileIr,
         oracle::Oracle,
-        render::{render_dot, render_text},
+        render::{DotOptions, render_dot, render_text},
         slice::{ChangedLines, FileChange, render_slicing_dot, render_slicing_text, slice},
         trace::{Dir, TraceOpts, Tracer, find_place},
     },
 };
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
+pub enum DataflowDirection {
+    Forward,
+    Backward,
+}
+
+#[derive(Clone, Debug, PartialEq, ValueEnum)]
 pub enum DataflowFormat {
     Text,
     Dot,
+    /// The DOT rendered by graphviz, with nodes linking to their source
+    /// lines (for the web).
+    Svg,
     Json,
 }
 
@@ -26,7 +35,12 @@ pub enum DataflowFormat {
 pub struct Dataflow {
     /// Tree-relative source file path.
     #[clap(value_parser)]
-    file: String,
+    file: Option<String>,
+
+    /// The file and line, as `<path>#<line>`, instead of `file` and
+    /// `--line` (as query terms give them).
+    #[clap(long)]
+    at: Option<String>,
 
     /// The function (by symbol, pretty name, or a suffix of its pretty name)
     /// to analyze, else all of the file's (or the one containing `--line`).
@@ -36,6 +50,15 @@ pub struct Dataflow {
     /// The function containing this line, and where traces start.
     #[clap(long)]
     line: Option<u32>,
+
+    /// Follow this symbol's value (a local, parameter, field or global) from
+    /// `--line`, in the direction `--direction` says, instead of a place
+    /// named by `--forward`/`--backward` (as a context menu does).
+    #[clap(long)]
+    symbol: Option<String>,
+
+    #[clap(long, value_enum, default_value_t = DataflowDirection::Forward)]
+    direction: DataflowDirection,
 
     /// Follow where this place's value goes (by its name as the IR shows it,
     /// ex: "aRetVal", "*aRetVal", "this->mName").
@@ -172,6 +195,24 @@ pub struct DataflowCommand {
     pub args: Dataflow,
 }
 
+/// DOT rendered as SVG by graphviz, to inline in a page.
+fn svg_of(dot: String) -> Result<PipelineValues> {
+    let svg = graphviz_rust::exec_dot(
+        dot,
+        vec![graphviz_rust::cmd::CommandArg::Format(
+            graphviz_rust::cmd::Format::Svg,
+        )],
+    )
+    .map_err(|e| data_error(format!("graphviz: {}", e)))?;
+    let svg = String::from_utf8_lossy(&svg).to_string();
+    // (No XML declaration or doctype, inlined.)
+    let svg = match svg.find("<svg") {
+        Some(start) => svg[start..].to_string(),
+        None => svg,
+    };
+    text(svg, "image/svg+xml")
+}
+
 fn text(contents: String, mime: &str) -> Result<PipelineValues> {
     Ok(PipelineValues::TextFile(TextFile {
         mime_type: mime.to_string(),
@@ -284,9 +325,21 @@ impl PipelineCommand for DataflowCommand {
         server: &(dyn AbstractServer + Send + Sync),
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
+        let (file_path, line) = match &self.args.at {
+            Some(at) => {
+                let Some((path, line)) = at.rsplit_once('#') else {
+                    return Err(data_error(format!("--at {:?} isn't <path>#<line>", at)));
+                };
+                let line: u32 = line
+                    .parse()
+                    .map_err(|_| data_error(format!("--at {:?} isn't <path>#<line>", at)))?;
+                (path.to_string(), Some(line))
+            }
+            None => (self.args.file.clone().unwrap_or_default(), self.args.line),
+        };
         // (Servers without raw sources, ex: remote ones, can't analyze; checks
         // skip commands their servers don't support.)
-        if let Err(ServerError::Unsupported) = server.fetch_raw_source(&self.args.file).await {
+        if let Err(ServerError::Unsupported) = server.fetch_raw_source(&file_path).await {
             return Err(ServerError::Unsupported);
         }
         let opts = TraceOpts {
@@ -328,6 +381,7 @@ impl PipelineCommand for DataflowCommand {
             return match self.args.format {
                 DataflowFormat::Text => text(render_slicing_text(&slicing), "text/plain"),
                 DataflowFormat::Dot => text(render_slicing_dot(&slicing), "text/vnd.graphviz"),
+                DataflowFormat::Svg => svg_of(render_slicing_dot(&slicing)),
                 DataflowFormat::Json => Ok(PipelineValues::JsonValue(JsonValue {
                     value: serde_json::to_value(&slicing).unwrap(),
                 })),
@@ -377,13 +431,28 @@ impl PipelineCommand for DataflowCommand {
             }
             return text(stats.render(), "text/plain");
         }
-        let Some(file) = tracer.file(&self.args.file).await else {
+        if let Some(sym) = &self.args.symbol {
+            let dir = match self.args.direction {
+                DataflowDirection::Forward => Dir::Forward,
+                DataflowDirection::Backward => Dir::Backward,
+            };
+            let Some(line) = line else {
+                return Err(data_error("--symbol needs --line".to_string()));
+            };
+            tracer
+                .seed_symbol(&file_path, line, ustr::ustr(sym), dir)
+                .await
+                .map_err(data_error)?;
+            tracer.run(dir).await;
+            return self.render_trace(server, &tracer);
+        }
+        let Some(file) = tracer.file(&file_path).await else {
             return Err(data_error(tracer.graph.notes.join("\n")));
         };
         let funcs: Vec<usize> = (0..file.funcs.len())
             .filter(|&i| {
                 let f = &file.funcs[i];
-                match (&self.args.function, self.args.line) {
+                match (&self.args.function, line) {
                     (Some(name), _) => {
                         f.sym == name.as_str()
                             || f.pretty == *name
@@ -431,12 +500,36 @@ impl PipelineCommand for DataflowCommand {
                     place_name, file.funcs[func].pretty
                 )));
             };
-            tracer.seed(file.clone(), func, place, self.args.line, dir);
+            tracer.seed(file.clone(), func, place, line, dir);
         }
         tracer.run(dir).await;
+        self.render_trace(server, &tracer)
+    }
+}
+
+impl DataflowCommand {
+    fn render_trace(
+        &self,
+        server: &(dyn AbstractServer + Send + Sync),
+        tracer: &Tracer<'_>,
+    ) -> Result<PipelineValues> {
         match self.args.format {
             DataflowFormat::Text => text(render_text(&tracer.graph), "text/plain"),
-            DataflowFormat::Dot => text(render_dot(&tracer.graph), "text/vnd.graphviz"),
+            DataflowFormat::Dot => text(
+                render_dot(&tracer.graph, &DotOptions::default()),
+                "text/vnd.graphviz",
+            ),
+            DataflowFormat::Svg => {
+                let tree = server.tree_info()?.name;
+                let dot = render_dot(
+                    &tracer.graph,
+                    &DotOptions {
+                        link_tree: Some(tree),
+                        title: true,
+                    },
+                );
+                svg_of(dot)
+            }
             DataflowFormat::Json => Ok(PipelineValues::JsonValue(JsonValue {
                 value: serde_json::to_value(&tracer.graph).unwrap(),
             })),

@@ -12,15 +12,21 @@ UseDefault (dataflow/dataflow.cpp)
   #1      39 call       call GetBoolWithDefault            GetBoolWithDefault("browser.thing", true, &value);
         -> #0 value [local: value]
         -> #8 param aDefault in GetBoolWithDefault [call: arg 1]
+        -> #13 param aName in GetBoolWithDefault [call: arg 0]
   #9      39 const      true                               GetBoolWithDefault("browser.thing", true, &value);
         -> #1 call GetBoolWithDefault [local: true]
+  #14     39 const      "browser.thing"                    GetBoolWithDefault("browser.thing", true, &value);
+        -> #1 call GetBoolWithDefault [local: "browser.thing"]
 GetBoolWithDefault (dataflow/dataflow.cpp)
   #2      23 param      param aRetVal                      
         -> #1 call GetBoolWithDefault in UseDefault [return: out *aRetVal]
   #8      23 param      param aDefault                     
         -> #5 *aRetVal = [local: aDefault]
+  #13     23 param      param aName                        
+        -> #6 call LookupBool [local: aName[]]
   #6      24 call       call LookupBool                    int rv = LookupBool(aName, aRetVal);
         -> #2 param aRetVal [local: *aRetVal]
+        -> #12 param aName in LookupBool [call: arg 0]
   #5      26 assign     *aRetVal =                         *aRetVal = aDefault;
         -> #2 param aRetVal [local: *aRetVal]
 LookupBool (dataflow/dataflow.cpp)

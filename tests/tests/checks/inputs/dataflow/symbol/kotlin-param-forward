@@ -1,0 +1,1 @@
+dataflow --at src/main/kotlin/sample/Dataflow.kt#32 --symbol 'S_jvm_sample/configure().(input)' --direction forward

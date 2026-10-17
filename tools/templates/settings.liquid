@@ -416,6 +416,24 @@
       </section>
     </section>
     <section>
+      <h2>Following values (<span id="quality--dataflow--enabled"></span></b> quality)</h2>
+      <p>
+        Searchfox can follow a local's, parameter's or field's value forwards
+        (where does it go?) and backwards (where does it come from?) through
+        C++, JS and Kotlin, across calls, fields, and XPIDL and IPDL bindings,
+        from the context menu's "Follow" items.  It's naive: it doesn't know
+        which branches run, and it guesses what calls it can't see into do.
+      </p>
+      <section>
+        <h3>Following Values Feature Gate</h3>
+        <form>
+          <label for="dataflow--enabled">Following values feature gate:</label>
+          <select id="dataflow--enabled">
+          </select>
+        </form>
+      </section>
+    </section>
+    <section>
       <h2>Debug</h2>
 
       <section>

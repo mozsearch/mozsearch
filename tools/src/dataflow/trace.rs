@@ -154,6 +154,9 @@ struct Site {
     func: usize,
     call: usize,
     map: ArgMap,
+    /// The parameter a backwards trace entered the callee through, to find
+    /// what the callee writes through it (see `backward_place`).
+    entered: Option<usize>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -600,7 +603,7 @@ impl<'s> Tracer<'s> {
             Dir::Forward => {
                 f.events
                     .iter()
-                    .position(|e| e.line >= l)
+                    .position(|e| e.end_line >= l)
                     .unwrap_or(f.events.len()) as isize
                     - 1
             }
@@ -623,6 +626,97 @@ impl<'s> Tracer<'s> {
             fresh: true,
             root_ty: None,
         });
+    }
+
+    /// Start tracing a symbol's value from a line of a file, as a context
+    /// menu knows it: a local or parameter (in the function at the line), a
+    /// field or global (the place at the line with it in that function), or,
+    /// on a line outside functions (ex: a field's declaration), a field or
+    /// global everywhere it's read (forwards) or written (backwards).
+    pub async fn seed_symbol(
+        &mut self,
+        path: &str,
+        line: u32,
+        sym: Ustr,
+        dir: Dir,
+    ) -> Result<(), String> {
+        self.graph.dir = Some(dir);
+        let Some(file) = self.file(path).await else {
+            return Err(format!("Can't follow values in {}", path));
+        };
+        let func = file
+            .funcs
+            .iter()
+            .enumerate()
+            .filter(|(_, f)| f.line <= line && line <= f.end_line)
+            .min_by_key(|(_, f)| f.end_line - f.line)
+            .map(|(i, _)| i);
+        if let Some(fi) = func {
+            let f = &file.funcs[fi];
+            let is_local = sym.starts_with("V_")
+                || sym.starts_with("L_")
+                || super::frontend::is_scip_local(&sym);
+            if is_local
+                && (f.names.contains_key(&sym)
+                    || f.params.iter().any(|p| p.place == Place::local(sym)))
+            {
+                self.seed(file.clone(), fi, Place::local(sym), Some(line), dir);
+                return Ok(());
+            }
+            let mut places = places_with_field(f, line, sym, true);
+            for place in places_with_field(f, line, sym, false) {
+                if !places.contains(&place) {
+                    places.push(place);
+                }
+            }
+            if let Some(place) = places.into_iter().next() {
+                self.seed(file.clone(), fi, place, Some(line), dir);
+                return Ok(());
+            }
+            if is_local {
+                return Err(format!("{} isn't in {}", sym, f.pretty));
+            }
+        }
+        // (A field or global where it's declared: everywhere.)
+        let name = self.symbol_name(&sym).await;
+        let text = self
+            .source(path)
+            .await
+            .and_then(|s| {
+                s.lines()
+                    .nth(line as usize - 1)
+                    .map(|l| l.trim().to_string())
+            })
+            .unwrap_or_default();
+        let id = self.graph.nodes.len();
+        self.graph.nodes.push(TraceNode {
+            id,
+            kind: NodeKind::Seed,
+            path: path.to_string(),
+            line,
+            func: name.clone(),
+            func_sym: sym,
+            lang: file.lang,
+            label: name,
+            text,
+            detail: String::new(),
+        });
+        match dir {
+            Dir::Forward => self.forward_field(&file, usize::MAX, sym, id, 0).await,
+            Dir::Backward => self.backward_field(&file, usize::MAX, sym, id, 0).await,
+        }
+        Ok(())
+    }
+
+    /// A symbol's pretty name (from crossref), or a name from the symbol.
+    async fn symbol_name(&mut self, sym: &Ustr) -> String {
+        match self.xref(sym).await {
+            Some(xref) => match &xref.meta {
+                Some(meta) if !meta.pretty.is_empty() => meta.pretty.to_string(),
+                _ => sym_short_name(sym),
+            },
+            None => sym_short_name(sym),
+        }
     }
 
     /// Start tracing backwards from a function's returns.
@@ -1067,12 +1161,13 @@ impl<'s> Tracer<'s> {
                 };
                 let cf = &caller_file.funcs[caller];
                 for (ci, call) in cf.calls.iter().enumerate() {
-                    if call.line == line && call.callee.contains(&s) {
+                    if call.line <= line && line <= call.end_line && call.callee.contains(&s) {
                         sites.push(Site {
                             file: caller_file.clone(),
                             func: caller,
                             call: ci,
                             map: map.clone(),
+                            entered: None,
                         });
                     }
                 }
@@ -1620,6 +1715,7 @@ impl<'s> Tracer<'s> {
                             func,
                             call: c,
                             map: target.map.clone(),
+                            entered: None,
                         });
                         let pn = match pi {
                             Some(pi) => {
@@ -1898,7 +1994,7 @@ impl<'s> Tracer<'s> {
                 let before = use_file.funcs[uf]
                     .events
                     .iter()
-                    .position(|e| e.line >= line)
+                    .position(|e| e.end_line >= line)
                     .unwrap_or(0) as isize
                     - 1;
                 self.push_entered(
@@ -1923,11 +2019,11 @@ impl<'s> Tracer<'s> {
     }
 
     fn names_of(&self, file: &FileIr, func: usize, sym: Ustr) -> String {
-        file.funcs[func]
-            .names
-            .get(&sym)
+        file.funcs
+            .get(func)
+            .and_then(|f| f.names.get(&sym))
             .cloned()
-            .unwrap_or_else(|| sym.to_string())
+            .unwrap_or_else(|| sym_short_name(&sym))
     }
 
     async fn field_uses(&mut self, field: Ustr) -> Vec<(String, u32, Ustr)> {
@@ -2069,6 +2165,7 @@ impl<'s> Tracer<'s> {
                 func,
                 call: c,
                 map: target.map.clone(),
+                entered: None,
             });
             let tf = &target.file.funcs[target.func];
             match target.map {
@@ -2340,6 +2437,7 @@ impl<'s> Tracer<'s> {
                             func,
                             call: c,
                             map: target.map.clone(),
+                            entered: None,
                         });
                         let mut places = vec![];
                         for &ai in &writes {
@@ -2425,13 +2523,19 @@ impl<'s> Tracer<'s> {
                                         root_typed.as_ref(),
                                     )
                                 });
+                            let mut entered_stack = new_stack.clone();
+                            if let Some(site) = entered_stack.last_mut()
+                                && pi != usize::MAX
+                            {
+                                site.entered = Some(pi);
+                            }
                             self.push_entered_typed(
                                 &target.file,
                                 target.func,
                                 cp,
                                 None,
                                 pn,
-                                new_stack.clone(),
+                                entered_stack,
                                 hops + 1,
                                 EdgeKind::Local,
                                 carried,
@@ -2459,7 +2563,7 @@ impl<'s> Tracer<'s> {
             // (What was in an out-parameter before the call we came from:
             // the caller's backwards scan, which entered here, goes on past
             // the call to that.)
-            if !stack.is_empty() && !p.path.is_empty() {
+            if stack.last().is_some_and(|site| site.entered == Some(pi)) && !p.path.is_empty() {
                 return;
             }
             let sites = match stack.last() {
@@ -2613,7 +2717,7 @@ impl<'s> Tracer<'s> {
                 .iter()
                 .enumerate()
                 .filter(|(_, e)| {
-                    e.line == line
+                    e.on_line(line)
                         && matches!(&e.kind, EventKind::Assign { place, .. } if place.path.contains(&Step::Field(field)) || place.root == Root::Global(field))
                 })
                 .map(|(i, _)| i)
@@ -2757,7 +2861,7 @@ fn places_with_field(f: &FuncIr, line: u32, field: Ustr, writes: bool) -> Vec<Pl
             }
         }
     };
-    for e in f.events.iter().filter(|e| e.line == line) {
+    for e in f.events.iter().filter(|e| e.on_line(line)) {
         let vals: Vec<&Val> = match &e.kind {
             EventKind::Assign { place, vals, .. } => {
                 if writes {

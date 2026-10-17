@@ -2,6 +2,14 @@ function atUnescape(text) {
   return text.replace(/@([0-9A-F][0-9A-F])/g, (_, s) => String.fromCharCode(parseInt(s, 16)));
 }
 
+// The structured kinds of symbols whose values the "Follow" items follow.
+const FOLLOWABLE_KINDS = new Set([
+  "field", "variable", "arg", "parameter", "localVar", "property", "var",
+]);
+
+// The files whose languages dataflow understands (C++, JS/TS, Kotlin).
+const DATAFLOW_PATH_RE = /\.(c|cc|cpp|cxx|h|hh|hpp|hxx|js|jsm|mjs|sjs|ts|tsx|jsx|kt|kts)$/;
+
 // The URL of the search for `encodedQuery` (a URL-encoded `q`) on `tree`.
 // Pages search with router.py's /search, whose links here shouldn't go to a
 // search's only result, or, on trees searching with the pipeline-server's
@@ -1392,6 +1400,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
 
     // diagram item
     let diagramMenuItems = [];
+    let dataflowMenuItems = [];
     // then gc item
     let gcMenuItems = [];
 
@@ -1518,6 +1527,9 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       let filteredSymTuples = [];
       let jsLocalSyms = [];
       let nonJSLocalSyms = [];
+      // Symbols whose values the "Follow" items can follow: locals,
+      // parameters, fields and globals.
+      let followSyms = [];
       let sawDef = false;
       let hasModuleGlobalAndExported = false;
       symbols.forEach((sym, index) => {
@@ -1538,6 +1550,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         if (sym.match(/^V_[0-9a-fA-F]+_[0-9a-fA-F]+$/)) {
           // C/C++ local symbols from MozsearchIndexer.cpp.
           nonJSLocalSyms.push(sym);
+          followSyms.push(sym);
           return;
         }
 
@@ -1556,6 +1569,10 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
 
         // XXX Ignore no_crossref data that's currently not useful/used.
         if (!symInfo || !symInfo.sym || !symInfo.pretty) {
+          // (scip's locals and parameters: "…/#N", "…().(name)".)
+          if (sym.match(/^S_.+(\/#\d+|\(\)\.\([^)]+\))$/)) {
+            followSyms.push(sym);
+          }
           if (sym.match(/^S_(rs|java|jvm)_.+\/#\d+$/)) {
             // Rust/Java/Kotlin symbols from scip-indexer.rs.
             nonJSLocalSyms.push(sym);
@@ -1587,6 +1604,10 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         }
 
         const confidence = confidences[index];
+
+        if (FOLLOWABLE_KINDS.has(symInfo.meta?.kind)) {
+          followSyms.push(sym);
+        }
 
         // The symInfo is self-identifying via `pretty` and `sym` so we don't
         // need to try and include any extra context.
@@ -2297,6 +2318,30 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         addLocalJump(def);
       }
 
+      // Follow the value forwards or backwards (in the languages dataflow
+      // understands), from the line clicked.
+      if (Settings.dataflow.enabled && sourceLineClicked &&
+          DATAFLOW_PATH_RE.test(Router.sourcePath)) {
+        for (const sym of new Set(followSyms)) {
+          const at = `follow-at:${Diagram.quoteQueryValue(sourceLineClicked)}`;
+          const quotedSym = Diagram.quoteQueryValue(sym);
+          dataflowMenuItems.push(new MenuItem({
+            html: this.fmt("Follow where <strong>_</strong> goes",
+                           symbolToken.textContent),
+            href: `/${tree}/query/default?q=${encodeURIComponent(`follow-forward:${quotedSym} ${at}`)}`,
+            icon: "right-dir",
+            section: "dataflow",
+          }));
+          dataflowMenuItems.push(new MenuItem({
+            html: this.fmt("Follow where <strong>_</strong> comes from",
+                           symbolToken.textContent),
+            href: `/${tree}/query/default?q=${encodeURIComponent(`follow-backward:${quotedSym} ${at}`)}`,
+            icon: "left-dir",
+            section: "dataflow",
+          }));
+        }
+      }
+
       const tokenText = symbolToken.textContent;
       stickyMenuItems.push(new MenuItem({
         html: "Sticky highlight",
@@ -2432,6 +2477,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       ...heuristicsMenuItems,
       ...gleanMenuItems,
       ...stickyMenuItems,
+      ...dataflowMenuItems,
       ...diagramMenuItems,
       ...gcMenuItems,
       ...overloadMenuItems,

@@ -1,0 +1,35 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/symbol/field-at-use-backward-dot
+---
+digraph dataflow {
+  rankdir=TB; compound=true;
+  node [shape=box, fontname="monospace", fontsize=10, style=rounded];
+  edge [fontname="monospace", fontsize=9];
+  subgraph cluster_0 {
+    label="Widget::Name\ndataflow.cpp"; style=rounded; color=gray;
+    n0 [label="this->mName", shape=box, color="black", penwidth="2"];
+  }
+  subgraph cluster_1 {
+    label="Widget::Widget\ndataflow.cpp"; style=rounded; color=gray;
+    n1 [label="45: explicit Widget(const char* aName) : mName(aName), mCount(0) {}", shape=box, color="black"];
+    n2 [label="param aName", shape=cds, color="gray30"];
+  }
+  subgraph cluster_2 {
+    label="MakeWidgetName\ndataflow.cpp"; style=rounded; color=gray;
+    n3 [label="56: (\"gadget\")", shape=box, color="black"];
+    n4 [label="\"gadget\"", shape=plaintext, color="gray30"];
+  }
+  subgraph cluster_3 {
+    label="BumpedCount\ndataflow.cpp"; style=rounded; color=gray;
+    n5 [label="61: (\"counter\")", shape=box, color="black"];
+    n6 [label="\"counter\"", shape=plaintext, color="gray30"];
+  }
+  n1 -> n0 [label="mName", color="purple", style=dashed];
+  n2 -> n1 [label="aName", color="black", style=solid];
+  n3 -> n2 [label="arg 0", color="blue", style=solid];
+  n4 -> n3 [label="\"gadget\"", color="black", style=solid];
+  n5 -> n2 [label="arg 0", color="blue", style=solid];
+  n6 -> n5 [label="\"counter\"", color="black", style=solid];
+}
