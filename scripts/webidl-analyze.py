@@ -612,12 +612,14 @@ def handle_maplike_or_setlike_or_iterable(records, iface_name, target):
     else:
         print(f'warning: WebIDL: Unknown maplikeOrSetlikeOrIterableType: {target.maplikeOrSetlikeOrIterableType}',
               file=sys.stderr)
+        cpp_sym = None
 
     emit_source(records, loc, 'idl', 'method', pretty, idl_sym)
     emit_target(records, loc, 'idl', pretty, idl_sym)
 
     slots = []
-    append_slot(slots, 'class', 'cpp', None, cpp_sym)
+    if cpp_sym:
+        append_slot(slots, 'class', 'cpp', None, cpp_sym)
 
     emit_structured(records, loc, 'method', pretty, idl_sym,
                     slots=slots)
@@ -702,9 +704,9 @@ def handle_interface_or_namespace(records, target, mixin_consumers_map=None):
         if isinstance(member, WebIDL.IDLMethod):
             handle_method(records, name, methods, cpp_symbols, member)
         elif isinstance(member, WebIDL.IDLAttribute):
-            handle_attribute(records, name, methods, cpp_symbols, member)
+            handle_attribute(records, name, fields, cpp_symbols, member)
         elif isinstance(member, WebIDL.IDLConst):
-            handle_const(records, name, methods, cpp_symbols, member)
+            handle_const(records, name, fields, cpp_symbols, member)
         elif isinstance(member, WebIDL.IDLMaplikeOrSetlike):
             handle_maplike_or_setlike_or_iterable(records, name, member)
         elif isinstance(member, WebIDL.IDLIterable):

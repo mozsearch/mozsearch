@@ -83,7 +83,7 @@ input_file: inputs/analysis/webidl/const.webidl/webidl_const__json
         "sym": "#TestInterfaceForConst"
       }
     ],
-    "methods": [
+    "fields": [
       {
         "pretty": "TestInterfaceForConst::const1",
         "sym": "WEBIDL_TestInterfaceForConst_const1",

@@ -127,7 +127,7 @@ input_file: inputs/analysis/webidl/attribute.webidl/webidl_attribute__json
         "sym": "#TestInterfaceForAttribute"
       }
     ],
-    "methods": [
+    "fields": [
       {
         "pretty": "TestInterfaceForAttribute::attr1",
         "sym": "WEBIDL_TestInterfaceForAttribute_attr1",
