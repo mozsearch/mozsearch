@@ -15,6 +15,11 @@
 //     PIPELINE_SERVER_ADDR=127.0.0.1:8002 SEARCHFOX_REMOTE_CACHE=/tmp/sf \
 //       tools/target/release/pipeline-server https://searchfox.org/firefox-main/
 //   (see tools/src/abstract_server/remote_server.rs).
+// - /<tree>/rev-canvas/* (try pushes' canvases) goes to a local web-server if
+//   WEB_SERVER says where (ex: http://localhost:8001), which works over
+//   searchfox.org's trees the same way:
+//     WEB_SERVER_ADDR=127.0.0.1:8001 tools/target/release/web-server \
+//       https://searchfox.org/firefox-main/ /tmp/web-server-status
 // - Everything else (search, blame, ...) is proxied to searchfox.org.
 //
 // The tools are rebuilt (if needed) before each render, so changes to the Rust
@@ -41,6 +46,8 @@ const GITHUB_REPO = process.env.GITHUB_REPO || "mozilla-firefox/firefox";
 const UPSTREAM = "https://searchfox.org";
 // A local pipeline-server for /<tree>/query/, if any (see above).
 const PIPELINE_SERVER = process.env.PIPELINE_SERVER || null;
+// A local web-server for the pages it builds over the trees' servers, if any.
+const WEB_SERVER = process.env.WEB_SERVER || null;
 // searchfox.org serves a JS challenge to some non-browser user agents.
 const USER_AGENT = "Mozilla/5.0 (searchfox dev-server) Firefox/140.0";
 
@@ -534,6 +541,10 @@ async function handle(req, res) {
 
   if (PIPELINE_SERVER && /^\/[^/]+\/query\//.test(pathname)) {
     await proxy(req, res, PIPELINE_SERVER);
+    return;
+  }
+  if (WEB_SERVER && /^\/[^/]+\/rev-canvas\//.test(pathname)) {
+    await proxy(req, res, WEB_SERVER);
     return;
   }
 

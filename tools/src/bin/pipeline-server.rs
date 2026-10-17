@@ -18,7 +18,8 @@ use serde_json::{Value, json};
 use tokio::net::TcpListener;
 use tools::{
     abstract_server::{
-        AbstractServer, ServerError, make_all_local_servers, make_remote_servers, sym_info,
+        AbstractServer, ServerError, make_all_local_servers, make_remote_servers,
+        remote_trees_config, sym_info,
     },
     admission,
     cmd_pipeline::{
@@ -424,14 +425,8 @@ async fn main() {
     let (local_servers, data_api_trees) = if trees.contains("://") {
         let cache = env::var("SEARCHFOX_REMOTE_CACHE").ok();
         let servers = make_remote_servers(&trees, cache.as_deref()).unwrap();
-        for (name, server) in &servers {
-            let endpoint = server
-                .tree_config()
-                .ok()
-                .and_then(|config| serde_json::from_value(config["search_endpoint"].clone()).ok())
-                .unwrap_or_default();
-            config::register_search_endpoint(name, endpoint);
-        }
+        // (For where their pages search.)
+        remote_trees_config(&servers, "");
         // (Their data APIs are their servers'.)
         (Arc::new(servers), BTreeSet::new())
     } else {

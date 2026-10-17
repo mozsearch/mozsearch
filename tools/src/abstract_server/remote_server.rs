@@ -26,7 +26,9 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, from_str};
 use tokio::sync::OnceCell;
 use url::{ParseError, Url};
-use ustr::{Ustr, ustr};
+use ustr::{Ustr, UstrMap, ustr};
+
+use crate::file_format::chunked_gzip::Row;
 
 use crate::{
     dataflow::slice::ChangedLines,
@@ -473,6 +475,25 @@ impl AbstractServer for RemoteServer {
         Ok(String::from_utf8_lossy(&html).to_string())
     }
 
+    async fn fetch_html_lines(
+        &self,
+        requests: Vec<(Ustr, std::collections::BTreeSet<u32>)>,
+    ) -> Result<UstrMap<std::collections::HashMap<u32, Row>>> {
+        // (The server's rows, ex: a try push's head's, for its files.)
+        let mut rows = UstrMap::default();
+        for (path, lines) in requests {
+            if lines.is_empty() {
+                continue;
+            }
+            let spec = crate::data_api::format_lines(&lines);
+            let body = self
+                .api("html-lines", Some(&path), &[("lines", spec.as_str())])
+                .await?;
+            rows.insert(path, parse(&body)?);
+        }
+        Ok(rows)
+    }
+
     async fn crossref_lookup(&self, symbol: &str) -> Result<Option<CrossrefData>> {
         parse(&self.api("crossref", None, &[("sym", symbol)]).await?)
     }
@@ -615,6 +636,51 @@ pub fn make_remote_servers(
         );
     }
     Ok(servers)
+}
+
+/// The configuration of remote trees (see `make_remote_servers`), from their
+/// servers' `config` routes (see `AbstractServer::tree_config`), for a local
+/// server over them (with `mozsearch_path`, its checkout, for its static
+/// files and templates): their paths point nowhere (their files are their
+/// servers'), and they have no git repositories here.  Also says where their
+/// pages search (see `config::search_endpoint`).
+pub fn remote_trees_config(
+    servers: &std::collections::BTreeMap<String, Box<dyn AbstractServer + Send + Sync>>,
+    mozsearch_path: &str,
+) -> crate::file_format::config::Config {
+    use crate::file_format::config::{self, TreeConfig, TreeConfigPaths};
+    let mut trees = std::collections::BTreeMap::new();
+    for (name, server) in servers {
+        let mut settings = server
+            .tree_config()
+            .unwrap_or_else(|_| serde_json::json!({}));
+        if let Some(settings) = settings.as_object_mut() {
+            for (key, value) in settings.iter_mut() {
+                if key.ends_with("_path") && value.is_string() {
+                    *value = Value::String(format!("/nonexistent/remote-tree/{}/{}", name, key));
+                }
+            }
+            settings.insert("git_path".to_string(), Value::Null);
+        }
+        let Ok(paths) = serde_json::from_value::<TreeConfigPaths>(settings) else {
+            log::warn!("{}'s configuration isn't one", name);
+            continue;
+        };
+        config::register_search_endpoint(name, paths.search_endpoint);
+        trees.insert(name.clone(), TreeConfig { paths, git: None });
+    }
+    config::Config {
+        tree_index_paths: trees
+            .iter()
+            .map(|(name, tree)| (name.clone(), tree.paths.index_path.clone()))
+            .collect(),
+        trees,
+        mozsearch_path: mozsearch_path.to_string(),
+        config_repo_path: String::new(),
+        url_map_path: None,
+        doc_trees_path: None,
+        config_file: String::new(),
+    }
 }
 
 /// The tree `tree_name` of the searchfox server at `server_base_url`, with

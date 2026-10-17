@@ -58,7 +58,7 @@ const NESTING_ATTRIBUTE: &str = " data-nesting=\"";
 
 /// A row (see `ROW_START`), with the symbols of the innermost nesting
 /// containers around it, if it's in ones that are known.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct Row {
     pub html: String,
     /// The innermost container (ex: the function a line is in).

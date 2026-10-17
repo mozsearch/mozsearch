@@ -27,6 +27,9 @@
 //!   files (see `rev_changed_lines`).
 //! - `formatted-lines/{path}`: a file's source listing's lines' HTML, and
 //!   their SYM_INFO (see `fetch_formatted_lines`).
+//! - `html-lines/{path}?lines=`: rows of a file's source listing (as
+//!   `chunked_gzip::Row`s, by line), for lines like `1-40,52` (see
+//!   `fetch_html_lines`).
 //! - `file-info/{path}`: a file's (or directory's) path kind and subsystem
 //!   (`null` if the tree doesn't have it).
 //! - `file-recency/{path}`: a file's history digests (`null` without them).
@@ -249,6 +252,11 @@ const ROUTES: &[Route] = &[
         params: &[],
     },
     Route {
+        name: "html-lines",
+        takes_path: true,
+        params: &["lines"],
+    },
+    Route {
         name: "file-info",
         takes_path: true,
         params: &[],
@@ -340,6 +348,50 @@ pub fn valid_tree_path(path: &str) -> bool {
         && path
             .split('/')
             .all(|segment| !segment.is_empty() && segment != "." && segment != "..")
+}
+
+/// The most lines `html-lines` gives at once.
+const MAX_LINES: usize = 100_000;
+
+/// The lines of a `lines` parameter, ex: `1-40,52`.
+pub fn parse_lines(spec: &str) -> Option<BTreeSet<u32>> {
+    let mut lines = BTreeSet::new();
+    for part in spec.split(',') {
+        let (first, last) = match part.split_once('-') {
+            Some((first, last)) => (first.parse::<u32>().ok()?, last.parse::<u32>().ok()?),
+            None => {
+                let line = part.parse::<u32>().ok()?;
+                (line, line)
+            }
+        };
+        if first == 0 || last < first || (last - first) as usize >= MAX_LINES {
+            return None;
+        }
+        lines.extend(first..=last);
+        if lines.len() > MAX_LINES {
+            return None;
+        }
+    }
+    Some(lines)
+}
+
+/// The `lines` parameter of `lines`, as ranges (see `parse_lines`).
+pub fn format_lines(lines: &BTreeSet<u32>) -> String {
+    let mut ranges: Vec<(u32, u32)> = vec![];
+    for &line in lines {
+        match ranges.last_mut() {
+            Some((_, last)) if *last + 1 == line => *last = line,
+            _ => ranges.push((line, line)),
+        }
+    }
+    ranges
+        .iter()
+        .map(|&(first, last)| match first == last {
+            true => first.to_string(),
+            false => format!("{}-{}", first, last),
+        })
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 /// A request's parameters (known to be its route's, once each).
@@ -639,6 +691,26 @@ async fn route_body(
             let (lines, sym_info) = server.fetch_formatted_lines(path).await.map_err(error)?;
             Ok(Body::json(&json!({ "lines": lines, "sym_info": sym_info })))
         }
+        "html-lines" => {
+            let path = file_path.unwrap_or_default();
+            if !source_path_known(server.as_ref(), path) {
+                return Err(not_found(format!("No such file: {}", path)));
+            }
+            let lines = parse_lines(params.required("lines")?).ok_or_else(|| {
+                bad(format!(
+                    "lines must be like 1-40,52 (at most {} of them)",
+                    MAX_LINES
+                ))
+            })?;
+            let key = ustr::ustr(path);
+            let mut rows = server
+                .fetch_html_lines(vec![(key, lines)])
+                .await
+                .map_err(error)?;
+            let rows: BTreeMap<u32, _> =
+                rows.remove(&key).unwrap_or_default().into_iter().collect();
+            Ok(Body::json(&serde_json::to_value(rows).unwrap_or_default()))
+        }
         "file-info" => {
             let info = server.file_facet_info(file_path.unwrap_or_default()).map(
                 |(path_kind, subsystem)| json!({ "path_kind": path_kind, "subsystem": subsystem }),
@@ -903,6 +975,16 @@ mod tests {
             "a\nb",
         ] {
             assert!(!valid_tree_path(path), "{:?}", path);
+        }
+    }
+
+    #[test]
+    fn test_lines() {
+        let lines: BTreeSet<u32> = [1, 2, 3, 5, 7, 8].into();
+        assert_eq!(format_lines(&lines), "1-3,5,7-8");
+        assert_eq!(parse_lines("1-3,5,7-8"), Some(lines));
+        for spec in ["", "0", "3-1", "a", "1-", "1-1000000", "1,,2"] {
+            assert_eq!(parse_lines(spec), None, "{:?}", spec);
         }
     }
 

@@ -21,7 +21,9 @@ use hyper::{Method, StatusCode, header};
 use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
-use tools::abstract_server::{AbstractServer, make_local_server};
+use tools::abstract_server::{
+    AbstractServer, make_local_server, make_remote_servers, remote_trees_config,
+};
 use tools::admission;
 use tools::blame;
 use tools::commit_index::CommitIndex;
@@ -203,13 +205,16 @@ fn write_page_sidecar(cfg: &config::Config, raw_path: &str, response: &WebRespon
         )
 }
 
+/// The trees' servers made so far (see `tree_server`), or, for a local server
+/// over remote trees, theirs (see `main`).
+static SERVERS: LazyLock<Mutex<HashMap<String, Arc<dyn AbstractServer + Send + Sync>>>> =
+    LazyLock::new(Default::default);
+
 /// The tree's server (see `tools::abstract_server`), for the pages built over
 /// one rather than over the index's files (ex: try pushes' canvases), made
 /// when first needed: its local index (whose big parts load as they're
 /// needed).
 fn tree_server(tree_name: &str) -> Option<Arc<dyn AbstractServer + Send + Sync>> {
-    static SERVERS: LazyLock<Mutex<HashMap<String, Arc<dyn AbstractServer + Send + Sync>>>> =
-        LazyLock::new(Default::default);
     let mut servers = SERVERS.lock().unwrap();
     if let Some(server) = servers.get(tree_name) {
         return Some(server.clone());
@@ -780,7 +785,34 @@ fn handle(
 async fn main() {
     env_logger::init();
 
-    let cfg = config::load(&env::args().nth(1).unwrap(), true, None, None, None);
+    // The config file of the trees to serve, or for a local server over
+    // remote trees (ex: for developing their try pushes' pages and canvases
+    // without indexing them), their URLs (see `make_remote_servers`), with
+    // their responses cached where SEARCHFOX_REMOTE_CACHE says, if anywhere,
+    // and their pages' static files and templates from MOZSEARCH_PATH (by
+    // default, the checkout of this binary).  Its pages over the trees'
+    // servers work (see `tree_server`); the others need the trees' files.
+    let trees = env::args().nth(1).unwrap();
+    let cfg = if trees.contains("://") {
+        let cache = env::var("SEARCHFOX_REMOTE_CACHE").ok();
+        let servers = make_remote_servers(&trees, cache.as_deref()).unwrap();
+        let mozsearch_path = env::var("MOZSEARCH_PATH").unwrap_or_else(|_| {
+            // (tools/target/release/web-server's.)
+            env::current_exe()
+                .ok()
+                .and_then(|exe| Some(exe.ancestors().nth(4)?.to_string_lossy().into_owned()))
+                .unwrap_or_default()
+        });
+        let cfg = remote_trees_config(&servers, &mozsearch_path);
+        SERVERS.lock().unwrap().extend(
+            servers
+                .into_iter()
+                .map(|(name, server)| (name, Arc::from(server))),
+        );
+        cfg
+    } else {
+        config::load(&trees, true, None, None, None)
+    };
     let ident_map = IdentMap::load(&cfg);
 
     let cfg = Arc::new(cfg);
@@ -851,7 +883,12 @@ async fn main() {
     // before taking one of the above.
     static PEEPHOLE_SEMAPHORE: Semaphore = Semaphore::const_new(1);
 
-    let addr: SocketAddr = "0.0.0.0:8001".parse().unwrap();
+    // (Elsewhere with WEB_SERVER_ADDR, ex: beside a production server's on a
+    // development machine.)
+    let addr: SocketAddr = env::var("WEB_SERVER_ADDR")
+        .unwrap_or_else(|_| "0.0.0.0:8001".to_string())
+        .parse()
+        .unwrap();
     let server = TcpListener::bind(addr).await.unwrap();
     println!("Listening on http://{addr}");
     loop {
