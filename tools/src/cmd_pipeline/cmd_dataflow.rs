@@ -579,6 +579,7 @@ impl DataflowCommand {
                     &tracer.graph,
                     &DotOptions {
                         link_tree: Some(tree),
+                        link_rev: server.try_delta_meta().map(|meta| meta.head),
                         title: true,
                     },
                 );

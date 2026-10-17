@@ -35,6 +35,18 @@ function searchUrl(tree, encodedQuery) {
   return `/${tree}/search?q=${encodedQuery}&redirect=false`;
 }
 
+// A link to the pipeline-server's /query/default (diagrams, following
+// values), in the context of the try push whose code was clicked, or whose
+// pages these are, if any (data-search-rev; see `searchUrl`).
+function queryUrl(tree, queryString) {
+  const context = window.ContextMenu?.searchContext;
+  const data = context?.getAttribute("data-tree") == tree && context.hasAttribute("data-search")
+    ? context : document.getElementById("data");
+  const rev = data?.getAttribute("data-tree") == tree && data.getAttribute("data-search-rev");
+  return `/${tree}/query/default?q=${encodeURIComponent(queryString)}` +
+    (rev ? `&rev=${encodeURIComponent(rev)}` : "");
+}
+
 class ContextMenuBase {
   constructor() {
     this.menu = null;
@@ -539,7 +551,7 @@ class DiagramMenuSection extends MenuItem {
       link.classList.add("contextmenu-button");
       link.setAttribute("role", "menuitem");
       const queryString = `block-diagram:${quote(focus)}${extra}`;
-      link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+      link.href = queryUrl(this.tree, queryString);
       link.addEventListener("keydown", event => {
         this.onKeyDown(event, menu, link, pos);
       });
@@ -609,7 +621,7 @@ class DiagramMenuSection extends MenuItem {
       // differences in signatures for overloads (although we have some
       // tentative plans to).
       const queryString = `${this.diagramTerm("calls-to")} depth:4`;
-      link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+      link.href = queryUrl(this.tree, queryString);
       link.addEventListener("keydown", event => {
         this.onKeyDown(event, menu, link, pos);
       });
@@ -625,7 +637,7 @@ class DiagramMenuSection extends MenuItem {
       link.classList.add("contextmenu-button");
       link.setAttribute("role", "menuitem");
       const queryString = `${this.diagramTerm("calls-from")} depth:4`;
-      link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+      link.href = queryUrl(this.tree, queryString);
       link.addEventListener("keydown", event => {
         this.onKeyDown(event, menu, link, pos);
       });
@@ -642,7 +654,7 @@ class DiagramMenuSection extends MenuItem {
       link.setAttribute("role", "menuitem");
       if (this.isClass) {
         const queryString = `${this.diagramTerm("class-diagram")} depth:4`;
-        link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+        link.href = queryUrl(this.tree, queryString);
         link.addEventListener("keydown", event => {
           this.onKeyDown(event, menu, link, pos);
         });
@@ -662,7 +674,7 @@ class DiagramMenuSection extends MenuItem {
       link.setAttribute("role", "menuitem");
       if (this.showInheritance) {
         const queryString = `${this.diagramTerm("inheritance-diagram")} depth:4`;
-        link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+        link.href = queryUrl(this.tree, queryString);
         link.addEventListener("keydown", event => {
           this.onKeyDown(event, menu, link, pos);
         });
@@ -735,7 +747,7 @@ class DiagramMenuSection extends MenuItem {
         link.classList.add("contextmenu-button");
         link.setAttribute("role", "menuitem");
         const queryString = `${this.diagramTerm("calls-between-source", true)} ${this.diagramTerm("calls-between-target")} depth:8`;
-        link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+        link.href = queryUrl(this.tree, queryString);
         link.addEventListener("keydown", event => {
           this.onKeyDown(event, menu, link, pos);
         });
@@ -752,7 +764,7 @@ class DiagramMenuSection extends MenuItem {
         link.classList.add("contextmenu-button");
         link.setAttribute("role", "menuitem");
         const queryString = `${this.diagramTerm("calls-between-source")} ${this.diagramTerm("calls-between-target", true)} depth:8`;
-        link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+        link.href = queryUrl(this.tree, queryString);
         link.addEventListener("keydown", event => {
           this.onKeyDown(event, menu, link, pos);
         });
@@ -772,7 +784,7 @@ class DiagramMenuSection extends MenuItem {
         link.setAttribute("role", "menuitem");
         link.setAttribute("role", "menuitem");
         const queryString = `${this.diagramTerm("calls-between", true)} ${this.diagramTerm("calls-between")} depth:8`;
-        link.href = `/${this.tree}/query/default?q=${encodeURIComponent(queryString)}`;
+        link.href = queryUrl(this.tree, queryString);
         link.addEventListener("keydown", event => {
           this.onKeyDown(event, menu, link, pos);
         });
@@ -1523,7 +1535,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           jumpMenuItems.push(new MenuItem({
             html: this.fmt("Calls between <strong>_</strong>", srcSymInfo.pretty) +
               this.fmt(" and <strong>_</strong>", targSymInfo.pretty),
-            href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
+            href: queryUrl(tree, queryString),
             icon: "brush",
             section: "jumps",
           }));
@@ -2251,7 +2263,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
               let queryString = `field-layout:'${jumpref.pretty}'`;
               fieldLayoutMenuItems.push(new MenuItem({
                 html: this.fmt("Class layout of <strong>_</strong>", jumpref.pretty),
-                href: `/${tree}/query/default?q=${encodeURIComponent(queryString)}`,
+                href: queryUrl(tree, queryString),
                 // TODO: pick out a custom icon for this; "tasks" was great but
                 // is already used for sticky highlight and so we now expect it
                 // to have muscle memory implications so we can't repurpose it.
@@ -2399,14 +2411,14 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
           dataflowMenuItems.push(new MenuItem({
             html: this.fmt("Follow where <strong>_</strong> goes",
                            symbolToken.textContent),
-            href: `/${tree}/query/default?q=${encodeURIComponent(`follow-forward:${quotedSym} ${at}`)}`,
+            href: queryUrl(tree, `follow-forward:${quotedSym} ${at}`),
             icon: "right-dir",
             section: "dataflow",
           }));
           dataflowMenuItems.push(new MenuItem({
             html: this.fmt("Follow where <strong>_</strong> comes from",
                            symbolToken.textContent),
-            href: `/${tree}/query/default?q=${encodeURIComponent(`follow-backward:${quotedSym} ${at}`)}`,
+            href: queryUrl(tree, `follow-backward:${quotedSym} ${at}`),
             icon: "left-dir",
             section: "dataflow",
           }));

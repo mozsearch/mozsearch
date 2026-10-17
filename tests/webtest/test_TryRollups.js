@@ -46,3 +46,27 @@ add_task(async function test_TryRollups() {
   await TestUtils.loadQuery("trydelta", "block-diagram:'T_trydelta::Widget'");
   ok(!diagramEdges().includes(EDGE), "The indexed revision's Widget doesn't have it");
 });
+
+// The context menu's diagrams of the push's code are in its context.
+add_task(async function test_TryRollupsFromClass() {
+  await TestUtils.resetFeatureGate("diagramming");
+  const head = await importPush();
+
+  await TestUtils.loadPath(`/trydelta/rev/${head}/meter.cpp`);
+  const meter = doc().querySelector(`span[data-symbols="T_trydelta::Meter"]`);
+  ok(meter, "The push's class's token is there");
+  TestUtils.click(meter);
+  const menu = doc().querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the class");
+
+  const title = menu.querySelector(".contextmenu-section-title.icon-brush");
+  const block = [...(title?.closest("li").querySelectorAll(".contextmenu-button") ?? [])]
+    .find(button => button.textContent === "Block");
+  ok(block?.getAttribute("href")?.endsWith(`&rev=${head}`),
+     "The class's block diagram is in the push's context");
+
+  const loadPromise = TestUtils.waitForLoad();
+  TestUtils.click(block);
+  await loadPromise;
+  ok(diagramEdges().includes(EDGE), "and has the push's edge");
+});

@@ -86,6 +86,9 @@ fn escape(text: &str) -> String {
 pub struct DotOptions {
     /// Link nodes to their source lines in this tree.
     pub link_tree: Option<String>,
+    /// At this revision (a try push's head, for a trace in its context; see
+    /// `try_delta`), else the indexed one.
+    pub link_rev: Option<String>,
     /// Title the graph with what was followed, and note where the trace
     /// stopped or guessed.
     pub title: bool,
@@ -170,8 +173,12 @@ pub fn render_dot(graph: &TraceGraph, options: &DotOptions) -> String {
             };
             let link = match &options.link_tree {
                 Some(tree) if node.line > 0 => format!(
-                    ", URL=\"/{}/source/{}#{}\", tooltip=\"{}:{}\"",
+                    ", URL=\"/{}/{}/{}#{}\", tooltip=\"{}:{}\"",
                     escape(tree),
+                    match &options.link_rev {
+                        Some(rev) => format!("rev/{}", escape(rev)),
+                        None => "source".to_string(),
+                    },
                     escape(&node.path),
                     node.line,
                     escape(file_name(&node.path)),

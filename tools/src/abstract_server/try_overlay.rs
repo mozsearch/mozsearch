@@ -25,7 +25,9 @@ use super::server_interface::{
     TextMatchesByFile, TreeInfo,
 };
 use crate::blame;
-use crate::file_format::analysis::{AnalysisSource, WithLocation, read_analysis, read_source};
+use crate::file_format::analysis::{
+    AnalysisSource, WithLocation, read_analysis, read_analysis_values, read_source,
+};
 use crate::file_format::chunked_gzip::{Row, extract_rows};
 use crate::file_format::code_coverage_report;
 use crate::file_format::crossref::CrossrefData;
@@ -212,10 +214,9 @@ impl AbstractServer for TryOverlay {
             }
             return self.base.fetch_raw_analysis(sf_path).await;
         };
-        let values = read_analysis(&file.to_string_lossy(), &mut |value, _, _| Some(value))
-            .into_iter()
-            .flat_map(|with_loc| with_loc.data)
-            .collect::<Vec<Value>>();
+        // (With their locations, which `read_analysis` takes out of them, as
+        // the base's raw records have them.)
+        let values = read_analysis_values(&file.to_string_lossy()).unwrap_or_default();
         Ok(Box::pin(tokio_stream::iter(values)))
     }
 

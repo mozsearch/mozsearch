@@ -90,6 +90,37 @@ add_task(async function test_TryDeltaQueries() {
   ok(doc().querySelector('a[href$="/user.cpp"]'), "unlike in the indexed revision");
 });
 
+// Following a value in the push's code (see tools/src/dataflow/) follows it
+// through the push's: the parameter it adds to Widget::Frob.
+add_task(async function test_TryDeltaFollow() {
+  await TestUtils.resetFeatureGate("dataflow");
+  const head = await importPush();
+
+  await TestUtils.loadPath(`/trydelta/rev/${head}/widget.cpp`);
+  // `mSize += aLoudly ? aAmount * 2 : aAmount;`
+  const param = [...doc().querySelectorAll("#line-6 span[data-symbols]")]
+    .find(span => span.textContent === "aLoudly");
+  ok(param, "The push's parameter's token is there");
+  TestUtils.click(param);
+  const menu = doc().querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the parameter");
+
+  const backward = [...menu.querySelectorAll(".contextmenu-link")]
+    .find(link => link.textContent === "Follow where aLoudly comes from");
+  ok(backward?.getAttribute("href")?.endsWith(`&rev=${head}`),
+     "Following it is in the push's context");
+
+  const loadPromise = TestUtils.waitForLoad();
+  TestUtils.click(backward);
+  await loadPromise;
+  const svg = doc().querySelector(".query-result svg");
+  ok(svg?.textContent.includes("Where aLoudly (widget.cpp:6) comes from"),
+     "The trace is of the push's code");
+  ok([...svg.querySelectorAll("a")].some(
+    a => a.getAttribute("xlink:href") === `/trydelta/rev/${head}/widget.cpp#6`),
+     "and its nodes link to the push's head's lines");
+});
+
 add_task(async function test_TryDeltaUnanalyzedFiles() {
   const head = await importPush();
 
