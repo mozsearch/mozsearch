@@ -128,12 +128,6 @@ input_file: inputs/dataflow/slice/json
           ]
         },
         {
-          "Local": [
-            "_Z11BumpedCounti",
-            "_ZN6WidgetC1EPKc"
-          ]
-        },
-        {
           "Function": "_Z11BumpedCounti"
         },
         {
@@ -185,6 +179,11 @@ input_file: inputs/dataflow/slice/json
       "from": 2,
       "to": 3,
       "why": "flows: return"
+    },
+    {
+      "from": 3,
+      "to": 2,
+      "why": "flows: this->mCount +="
     }
   ],
   "clusters": [

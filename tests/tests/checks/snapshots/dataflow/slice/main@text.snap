@@ -20,4 +20,4 @@ input_file: inputs/dataflow/slice/text
          | Widget widget("counter");
          | widget.Bump(aBy);
          | return widget.Count();
-  linked by: flows: call Widget::Count, flows: return, function _ZN6Widget4BumpEi, mention _ZN6Widget4BumpEi
+  linked by: flows: call Widget::Count, flows: return, flows: this->mCount +=, function _ZN6Widget4BumpEi, mention _ZN6Widget4BumpEi

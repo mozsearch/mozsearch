@@ -929,6 +929,20 @@ impl<'s> Tracer<'s> {
     }
 
     async fn resolve(&mut self, sym: &Ustr) -> Vec<Target> {
+        // An IPDL message's generated `Send` method: the actor's `Recv`
+        // methods, which IPC calls with the same arguments, rather than the
+        // generated method's body (which serializes them, ex: with
+        // `IPC::WriteParam`).
+        if let Some(xref) = self.xref(sym).await
+            && let Some(meta) = &xref.meta
+            && let Some(owner) = &meta.slot_owner
+            && owner.props.slot_kind == crate::file_format::analysis::BindingSlotKind::Send
+        {
+            let recvs = self.ipc_recvs(owner.sym).await;
+            if !recvs.is_empty() {
+                return recvs;
+            }
+        }
         let mut out = self.defs_of(sym, None, ArgMap::Direct).await;
         // (Interfaces' and abstract classes' declarations aren't what's
         // called: their overrides are.)
@@ -1058,7 +1072,20 @@ impl<'s> Tracer<'s> {
                 "ipc {}",
                 owner.strip_prefix("IPC_").unwrap_or(&owner)
             ));
-            out.extend(self.defs_of(&recv, via, ArgMap::Direct).await);
+            let mut defs = self.defs_of(&recv, via.clone(), ArgMap::Direct).await;
+            defs.retain(|t| t.file.funcs[t.func].has_body);
+            // (A generated actor base class's declaration: its overrides,
+            // the actor's.)
+            if defs.is_empty()
+                && let Some(xref) = self.xref(&recv).await
+                && let Some(meta) = &xref.meta
+            {
+                let overridden_by: Vec<Ustr> = meta.overridden_by_syms.clone();
+                for o in overridden_by.iter().take(self.opts.fanout) {
+                    defs.extend(self.defs_of(o, via.clone(), ArgMap::Direct).await);
+                }
+            }
+            out.extend(defs);
         }
         out
     }
@@ -1075,6 +1102,35 @@ impl<'s> Tracer<'s> {
             for o in &meta.overrides {
                 syms.push((o.sym, ArgMap::Direct));
             }
+        }
+        // (An IPDL message's `Recv` method (or an override of one): the
+        // message's `Send` methods' callers, which IPC passes the same
+        // arguments, rather than the generated code that calls it (which
+        // deserializes them, ex: with `IPC::ReadParam`).)
+        let mut sends: Vec<(Ustr, ArgMap)> = vec![];
+        for (s, _) in syms.clone() {
+            let Some(xref) = self.xref(&s).await else {
+                continue;
+            };
+            let Some(owner) = xref.meta.as_ref().and_then(|m| m.slot_owner.clone()) else {
+                continue;
+            };
+            if owner.props.slot_kind != crate::file_format::analysis::BindingSlotKind::Recv {
+                continue;
+            }
+            let Some(owner_xref) = self.xref(&owner.sym).await else {
+                continue;
+            };
+            for slot in owner_xref.meta.iter().flat_map(|m| &m.binding_slots) {
+                if slot.props.slot_kind == crate::file_format::analysis::BindingSlotKind::Send
+                    && !sends.iter().any(|(x, _)| *x == slot.sym)
+                {
+                    sends.push((slot.sym, ArgMap::Direct));
+                }
+            }
+        }
+        if !sends.is_empty() {
+            syms = sends;
         }
         // (A C++ implementation of an XPIDL method: its JS callers.)
         let mut i = 0;

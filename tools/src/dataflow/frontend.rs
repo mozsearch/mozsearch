@@ -627,7 +627,17 @@ impl<'c, 'a> Builder<'c, 'a> {
     fn declare_local(&mut self, name_node: Node) -> Place {
         let name = self.t(name_node).to_string();
         let recs = self.recs(name_node);
-        let place = match recs.iter().find(|r| !r.syms.is_empty()) {
+        // (A C++ local's record, rather than its constructor's, which clang
+        // puts at the local's name for `T x(a, b);`.)
+        let rec = recs
+            .iter()
+            .find(|r| r.sym().starts_with("V_"))
+            .or_else(|| {
+                recs.iter()
+                    .find(|r| !r.syms.is_empty() && !r.has_syntax("constructor"))
+            })
+            .or_else(|| recs.iter().find(|r| !r.syms.is_empty()));
+        let place = match rec {
             Some(rec) => {
                 let sym = rec.sym();
                 self.name_sym(sym, &name);
