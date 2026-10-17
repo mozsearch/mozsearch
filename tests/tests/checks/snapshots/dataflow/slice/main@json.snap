@@ -1,0 +1,201 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/slice/json
+---
+{
+  "units": [
+    {
+      "id": 0,
+      "path": "dataflow/dataflow.cpp",
+      "lines": [
+        24,
+        25,
+        26,
+        27
+      ],
+      "func": "GetBoolWithDefault",
+      "keys": [
+        {
+          "Local": [
+            "_Z18GetBoolWithDefaultPKcbPb",
+            "V_0e08f7606e625fbe_7a9b60f013"
+          ]
+        },
+        {
+          "Local": [
+            "_Z18GetBoolWithDefaultPKcbPb",
+            "V_1418f7606e625fbe_4b76c35f0b0d"
+          ]
+        },
+        {
+          "Local": [
+            "_Z18GetBoolWithDefaultPKcbPb",
+            "V_3018f7606e625fbe_b4213266bc6ea1"
+          ]
+        },
+        {
+          "Function": "_Z18GetBoolWithDefaultPKcbPb"
+        }
+      ],
+      "text": [
+        "int rv = LookupBool(aName, aRetVal);",
+        "if (rv != 0) {",
+        "*aRetVal = aDefault;",
+        "}"
+      ]
+    },
+    {
+      "id": 1,
+      "path": "dataflow/dataflow.cpp",
+      "lines": [
+        38,
+        39,
+        40
+      ],
+      "func": "UseDefault",
+      "keys": [
+        {
+          "Local": [
+            "_Z10UseDefaultv",
+            "V_5f83de8e8cd670b8_2475d80113"
+          ]
+        },
+        {
+          "Function": "_Z10UseDefaultv"
+        },
+        {
+          "Function": "_Z18GetBoolWithDefaultPKcbPb"
+        },
+        {
+          "Mention": "_Z18GetBoolWithDefaultPKcbPb"
+        }
+      ],
+      "text": [
+        "bool value = false;",
+        "GetBoolWithDefault(\"browser.thing\", true, &value);",
+        "return value;"
+      ]
+    },
+    {
+      "id": 2,
+      "path": "dataflow/dataflow.cpp",
+      "lines": [
+        47
+      ],
+      "func": "Widget::Bump",
+      "keys": [
+        {
+          "Field": "F_<T_Widget>_mCount"
+        },
+        {
+          "Local": [
+            "_ZN6Widget4BumpEi",
+            "V_523e5a606e625fbe_188588b"
+          ]
+        },
+        {
+          "Function": "_ZN6Widget4BumpEi"
+        },
+        {
+          "Mention": "_ZN6Widget4BumpEi"
+        }
+      ],
+      "text": [
+        "void Bump(int aBy) { mCount += aBy; }"
+      ]
+    },
+    {
+      "id": 3,
+      "path": "dataflow/dataflow.cpp",
+      "lines": [
+        61,
+        62,
+        63
+      ],
+      "func": "BumpedCount",
+      "keys": [
+        {
+          "Local": [
+            "_Z11BumpedCounti",
+            "V_350cee8e8cd670b8_90e89152356"
+          ]
+        },
+        {
+          "Local": [
+            "_Z11BumpedCounti",
+            "V_b9d36c606e625fbe_188588b"
+          ]
+        },
+        {
+          "Local": [
+            "_Z11BumpedCounti",
+            "_ZN6WidgetC1EPKc"
+          ]
+        },
+        {
+          "Function": "_Z11BumpedCounti"
+        },
+        {
+          "Function": "_ZN6Widget4BumpEi"
+        },
+        {
+          "Mention": "_ZN6Widget4BumpEi"
+        }
+      ],
+      "text": [
+        "Widget widget(\"counter\");",
+        "widget.Bump(aBy);",
+        "return widget.Count();"
+      ]
+    }
+  ],
+  "links": [
+    {
+      "from": 0,
+      "to": 1,
+      "why": "function _Z18GetBoolWithDefaultPKcbPb"
+    },
+    {
+      "from": 0,
+      "to": 1,
+      "why": "flows: call GetBoolWithDefault"
+    },
+    {
+      "from": 0,
+      "to": 1,
+      "why": "flows: return"
+    },
+    {
+      "from": 2,
+      "to": 3,
+      "why": "function _ZN6Widget4BumpEi"
+    },
+    {
+      "from": 2,
+      "to": 3,
+      "why": "mention _ZN6Widget4BumpEi"
+    },
+    {
+      "from": 2,
+      "to": 3,
+      "why": "flows: call Widget::Count"
+    },
+    {
+      "from": 2,
+      "to": 3,
+      "why": "flows: return"
+    }
+  ],
+  "clusters": [
+    [
+      0,
+      1
+    ],
+    [
+      2,
+      3
+    ]
+  ],
+  "notes": []
+}

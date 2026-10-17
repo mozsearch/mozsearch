@@ -1,0 +1,25 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/backward-template-overload-bool
+---
+StoreBool (dataflow/dataflow.cpp)
+  #0      75 seed       flag                               
+  #3      76 assign     flag =                             bool flag = false;
+        -> #0 flag [local: flag]
+  #4      76 const      false                              bool flag = false;
+        -> #3 flag = [local: false]
+  #1      77 call       call StoreThrough                  StoreThrough(&flag);
+        -> #0 flag [local: flag]
+StoreThrough (dataflow/dataflow.cpp)
+  #2      71 param      param aOut                         
+        -> #1 call StoreThrough in StoreBool [return: out *aOut]
+  #5      72 call       call Store                         Store(static_cast<T&&>(aOut));
+        -> #2 param aOut [local: *aOut]
+Store (dataflow/dataflow.cpp)
+  #6      67 param      param aOut                         void Store(bool* aOut) { *aOut = true; }
+        -> #5 call Store in StoreThrough [return: out *aOut]
+  #7      67 assign     *aOut =                            void Store(bool* aOut) { *aOut = true; }
+        -> #6 param aOut [local: *aOut]
+  #8      67 const      true                               void Store(bool* aOut) { *aOut = true; }
+        -> #7 *aOut = [local: true]

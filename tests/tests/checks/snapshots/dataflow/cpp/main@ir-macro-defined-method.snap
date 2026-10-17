@@ -1,0 +1,7 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/ir-macro-defined-method
+---
+Holder::GetSize (dataflow/dataflow.cpp:94-94)
+     94:2   [DF_GETTER] return {this->mSize}

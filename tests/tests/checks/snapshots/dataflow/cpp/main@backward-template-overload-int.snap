@@ -1,0 +1,25 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/backward-template-overload-int
+---
+StoreInt (dataflow/dataflow.cpp)
+  #0      81 seed       n                                  
+  #3      82 assign     n =                                int n = 0;
+        -> #0 n [local: n]
+  #4      82 const      0                                  int n = 0;
+        -> #3 n = [local: 0]
+  #1      83 call       call StoreThrough                  StoreThrough(&n);
+        -> #0 n [local: n]
+StoreThrough (dataflow/dataflow.cpp)
+  #2      71 param      param aOut                         
+        -> #1 call StoreThrough in StoreInt [return: out *aOut]
+  #5      72 call       call Store                         Store(static_cast<T&&>(aOut));
+        -> #2 param aOut [local: *aOut]
+Store (dataflow/dataflow.cpp)
+  #6      68 param      param aOut                         void Store(int* aOut) { *aOut = 42; }
+        -> #5 call Store in StoreThrough [return: out *aOut]
+  #7      68 assign     *aOut =                            void Store(int* aOut) { *aOut = 42; }
+        -> #6 param aOut [local: *aOut]
+  #8      68 const      42                                 void Store(int* aOut) { *aOut = 42; }
+        -> #7 *aOut = [local: 42]

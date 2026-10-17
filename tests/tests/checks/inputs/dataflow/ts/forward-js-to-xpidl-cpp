@@ -1,0 +1,1 @@
+dataflow ts/src/dataflow.js --function viaXpcom --forward input

@@ -1,0 +1,14 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/ir-GetBoolWithDefault
+---
+GetBoolWithDefault (dataflow/dataflow.cpp:23-29)
+  param 0: aName : const char *
+  param 1: aDefault : _Bool
+  param 2: aRetVal : _Bool *
+     24:11  call#0 Call LookupBool({aName}@aName, {aRetVal}@aRetVal) -> _ZL10LookupBoolPKcPb
+     24:6   rv init {LookupBool(…)}
+     25:6   test {~rv, ~0}
+     26:4   *aRetVal = {aDefault}
+     28:2   return {0}

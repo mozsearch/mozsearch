@@ -1,0 +1,638 @@
+//! Slicing a patch (or patch stack) into the clusters of dataflow it
+//! touches, so its changes can be shown as a series of linked diagrams
+//! rather than one that conflates unrelated changes.
+//!
+//! A patch's changed lines are grouped into units (the contiguous changed
+//! lines of a function, or of declarations outside functions), and units are
+//! linked when they share a specific dataflow "key": the same field (the
+//! most specific member of a place, not the objects it's reached through),
+//! local, or parameter; a call of a function another unit defines or changes;
+//! or the same binding (an IPDL message's Send and Recv, XPIDL's JS and
+//! C++).  Then values written by each unit are traced forwards a few hops,
+//! linking the units they reach, for flows through unchanged code.  The
+//! clusters are the connected components.
+
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::fmt::Write;
+use std::sync::Arc;
+
+use serde::{Deserialize, Serialize};
+use ustr::Ustr;
+
+use super::frontend::FileIr;
+use super::ir::*;
+use super::trace::{Dir, Tracer, ipc_message_sym, short_pretty};
+
+/// The lines a patch changed, in the coordinates of the files we have the
+/// analysis of (its new side).
+#[derive(Deserialize)]
+pub struct ChangedLines {
+    #[serde(default)]
+    pub commits: Vec<String>,
+    pub files: BTreeMap<String, FileChange>,
+}
+
+#[derive(Deserialize)]
+pub struct FileChange {
+    #[serde(default)]
+    pub added: Vec<u32>,
+    /// Where removed lines were.
+    #[serde(default)]
+    pub removed: Vec<u32>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
+pub enum Key {
+    /// A member, by symbol.
+    Field(Ustr),
+    Global(Ustr),
+    /// A function's local or parameter.
+    Local(Ustr, Ustr),
+    /// A function called, defined, or changed.
+    Function(Ustr),
+    /// A binding's owner (ex: an IPDL message), which its slots share.
+    Binding(Ustr),
+    /// A symbol the patch defines (ex: a new enum value, class, or
+    /// function), mentioned.
+    Mention(Ustr),
+    /// A name declared in a file without analysis (ex: an IPDL struct's
+    /// field), and its generated accessor's calls (`.name()`).
+    Name(String),
+}
+
+#[derive(Serialize)]
+pub struct Unit {
+    pub id: usize,
+    pub path: String,
+    pub lines: Vec<u32>,
+    /// The function it's in, if any.
+    pub func: Option<String>,
+    pub keys: BTreeSet<Key>,
+    pub text: Vec<String>,
+}
+
+#[derive(Serialize)]
+pub struct Link {
+    pub from: usize,
+    pub to: usize,
+    /// Why (the shared key, or the trace).
+    pub why: String,
+}
+
+#[derive(Serialize)]
+pub struct Slicing {
+    pub units: Vec<Unit>,
+    pub links: Vec<Link>,
+    /// Clusters of units, largest first.
+    pub clusters: Vec<Vec<usize>>,
+    pub notes: Vec<String>,
+}
+
+/// Keys whose sharing doesn't mean much (they're everywhere), by name.
+fn is_hub(name: &str) -> bool {
+    matches!(
+        name,
+        "this" | "rv" | "aRv" | "result" | "aResult" | "self" | "mActor" | "mLoadInfo"
+    )
+}
+
+fn place_keys(f: &FuncIr, place: &Place, keys: &mut BTreeSet<Key>) {
+    // (The most specific member: `mLoadInfo.mTimezoneOverride` is about
+    // `mTimezoneOverride`, not everything in `mLoadInfo`.)
+    if let Some(field) = place.last_field()
+        && !field.starts_with("name:")
+    {
+        keys.insert(Key::Field(field));
+        return;
+    }
+    match &place.root {
+        Root::Local(sym) if !sym.starts_with("name:") => {
+            let name = f.names.get(sym).map(|s| s.as_str()).unwrap_or("");
+            if !is_hub(name) {
+                keys.insert(Key::Local(f.sym, *sym));
+            }
+        }
+        Root::Global(sym) => {
+            keys.insert(Key::Global(*sym));
+        }
+        _ => {}
+    }
+}
+
+fn vals_keys(f: &FuncIr, vals: &[Val], keys: &mut BTreeSet<Key>) {
+    for v in vals {
+        if let Atom::Read(p) | Atom::Addr(p) = &v.atom {
+            place_keys(f, p, keys);
+        }
+    }
+}
+
+/// The keys of a function's events at some lines.
+fn event_keys(f: &FuncIr, lines: &BTreeSet<u32>, keys: &mut BTreeSet<Key>) {
+    for e in f.events.iter().filter(|e| lines.contains(&e.line)) {
+        match &e.kind {
+            EventKind::Assign { place, vals, .. } => {
+                place_keys(f, place, keys);
+                vals_keys(f, vals, keys);
+            }
+            EventKind::Call(c) => {
+                let call = &f.calls[*c];
+                for sym in &call.callee {
+                    keys.insert(Key::Function(*sym));
+                }
+                if let Some(owner) = ipc_message_sym(&call.callee_pretty) {
+                    keys.insert(Key::Binding(owner));
+                }
+                for a in &call.args {
+                    vals_keys(f, &a.vals, keys);
+                }
+                if let Some(r) = &call.receiver {
+                    vals_keys(f, &r.vals, keys);
+                }
+            }
+            EventKind::Return { vals } | EventKind::Test { vals } => vals_keys(f, vals, keys),
+        }
+    }
+}
+
+pub async fn slice(tracer: &mut Tracer<'_>, changes: &ChangedLines, trace_hops: usize) -> Slicing {
+    let mut units: Vec<Unit> = vec![];
+    // (Units' functions and lines, for tracing.)
+    let mut unit_funcs: Vec<Option<(Arc<FileIr>, usize)>> = vec![];
+    let mut notes = vec![];
+    for (path, change) in &changes.files {
+        let mut lines: BTreeSet<u32> = change.added.iter().copied().collect();
+        lines.extend(change.removed.iter().copied());
+        if lines.is_empty() {
+            continue;
+        }
+        let file = tracer.file(path).await;
+        let source = tracer.source(path).await.unwrap_or_default();
+        let source_lines: Vec<&str> = source.lines().collect();
+        let text_of = |line: u32| -> String {
+            source_lines
+                .get(line as usize - 1)
+                .map(|l| l.trim().to_string())
+                .unwrap_or_default()
+        };
+        let Some(file) = file else {
+            // (Files we have no frontend for, ex: IPDL: their declarations'
+            // symbols.)
+            let recs = tracer.records(path).await;
+            let mut keys = BTreeSet::new();
+            // (Declared names: `nsString timezoneOverride;`.)
+            for line in &lines {
+                let text = text_of(*line);
+                if let Some(decl) = text.strip_suffix(';')
+                    && let Some(name) = decl.split_whitespace().last()
+                    && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+                    && decl.split_whitespace().count() >= 2
+                {
+                    keys.insert(Key::Name(name.to_string()));
+                }
+            }
+            if let Some(recs) = &recs {
+                for line in &lines {
+                    for sym in recs.symbols_defined_at(*line) {
+                        if sym.starts_with("IPC_") {
+                            keys.insert(Key::Binding(sym));
+                        } else {
+                            keys.insert(Key::Function(sym));
+                        }
+                    }
+                }
+            }
+            let id = units.len();
+            units.push(Unit {
+                id,
+                path: path.clone(),
+                lines: lines.iter().copied().collect(),
+                func: None,
+                keys,
+                text: lines.iter().map(|l| text_of(*l)).collect(),
+            });
+            unit_funcs.push(None);
+            continue;
+        };
+        // Group the lines by the function they're in (or none), and
+        // contiguous runs outside functions.
+        let mut groups: BTreeMap<(Option<usize>, u32), BTreeSet<u32>> = BTreeMap::new();
+        let mut last: Option<(Option<usize>, u32, u32)> = None;
+        for &line in &lines {
+            let func = file
+                .func_at_line(line)
+                .and_then(|f| file.by_sym.get(&f.sym).copied())
+                .filter(|&i| {
+                    file.funcs[i].line < file.funcs[i].end_line || file.funcs[i].line == line
+                });
+            let start = match (last, func) {
+                (Some((lf, start, prev)), f) if lf == f && (f.is_some() || line <= prev + 2) => {
+                    start
+                }
+                _ => line,
+            };
+            groups.entry((func, start)).or_default().insert(line);
+            last = Some((func, start, line));
+        }
+        for ((func, _), group_lines) in groups {
+            let mut keys = BTreeSet::new();
+            let recs = tracer.records(path).await;
+            // (Definitions and declarations on the lines: new fields,
+            // methods, parameters.)
+            if let Some(recs) = &recs {
+                for line in &group_lines {
+                    for sym in recs.symbols_defined_at(*line) {
+                        if sym.starts_with("F_") {
+                            keys.insert(Key::Field(sym));
+                        } else if sym.starts_with("V_") {
+                            // (Parameters, by their functions' events.)
+                        } else {
+                            keys.insert(Key::Function(sym));
+                        }
+                    }
+                }
+            }
+            if let Some(fi) = func {
+                let f = &file.funcs[fi];
+                event_keys(f, &group_lines, &mut keys);
+                // (A changed function's callers link to it.)
+                keys.insert(Key::Function(f.sym));
+                // (Parameters declared on the lines.)
+                for p in &f.params {
+                    if let Root::Local(sym) = p.place.root
+                        && group_lines.contains(&f.line)
+                        && !is_hub(&p.name)
+                    {
+                        keys.insert(Key::Local(f.sym, sym));
+                    }
+                }
+            }
+            let id = units.len();
+            units.push(Unit {
+                id,
+                path: path.clone(),
+                lines: group_lines.iter().copied().collect(),
+                func: func.map(|fi| file.funcs[fi].pretty.clone()),
+                keys,
+                text: group_lines.iter().map(|l| text_of(*l)).collect(),
+            });
+            unit_funcs.push(func.map(|fi| (file.clone(), fi)));
+        }
+    }
+
+    // The symbols the patch defines or changes the definitions of: only
+    // calls of those link units (everything calls `AssertIsOnMainThread`).
+    let mut patch_syms: BTreeSet<Ustr> = BTreeSet::new();
+    for (unit, uf) in units.iter().zip(&unit_funcs) {
+        if let Some((file, fi)) = uf {
+            patch_syms.insert(file.funcs[*fi].sym);
+        }
+        if let Some(recs) = tracer.records(&unit.path).await {
+            for line in &unit.lines {
+                patch_syms.extend(
+                    recs.symbols_defined_at(*line)
+                        .into_iter()
+                        .filter(|s| !s.starts_with("V_")),
+                );
+            }
+        }
+    }
+    for unit in units.iter_mut() {
+        unit.keys.retain(|k| match k {
+            Key::Function(sym) => patch_syms.contains(sym),
+            _ => true,
+        });
+        if let Some(recs) = tracer.records(&unit.path).await {
+            for line in &unit.lines {
+                for sym in recs.symbols_at(*line) {
+                    if patch_syms.contains(&sym) {
+                        unit.keys.insert(Key::Mention(sym));
+                    }
+                }
+            }
+        }
+    }
+    // (Accessors' calls of names declared without analysis.)
+    let names: BTreeSet<String> = units
+        .iter()
+        .flat_map(|u| u.keys.iter())
+        .filter_map(|k| match k {
+            Key::Name(name) => Some(name.clone()),
+            _ => None,
+        })
+        .collect();
+    for unit in &mut units {
+        for name in &names {
+            let call = format!(".{}()", name);
+            if unit.text.iter().any(|t| t.contains(&call)) {
+                unit.keys.insert(Key::Name(name.clone()));
+            }
+        }
+    }
+    // Units of nothing but blank lines, braces and comments join their
+    // neighbors.
+    let trivial = |unit: &Unit| {
+        unit.keys.iter().all(|k| matches!(k, Key::Function(_)))
+            && unit.text.iter().all(|t| {
+                let t = t.trim();
+                t.is_empty() || t.chars().all(|c| "{}();,".contains(c)) || t.starts_with("//")
+            })
+    };
+    let mut merged_into: Vec<Option<usize>> = vec![None; units.len()];
+    for i in 0..units.len() {
+        if !trivial(&units[i]) {
+            continue;
+        }
+        let first = units[i].lines.first().copied().unwrap_or(0);
+        let last = units[i].lines.last().copied().unwrap_or(0);
+        let neighbor = (0..units.len())
+            .filter(|&j| j != i && units[j].path == units[i].path && !trivial(&units[j]))
+            .filter_map(|j| {
+                let jf = units[j].lines.first().copied().unwrap_or(0);
+                let jl = units[j].lines.last().copied().unwrap_or(0);
+                let gap = if jl < first {
+                    first - jl
+                } else {
+                    jf.saturating_sub(last)
+                };
+                (gap <= 3).then_some((gap, j))
+            })
+            .min();
+        if let Some((_, j)) = neighbor {
+            merged_into[i] = Some(j);
+        }
+    }
+    for i in 0..units.len() {
+        if let Some(j) = merged_into[i] {
+            let lines = std::mem::take(&mut units[i].lines);
+            let text = std::mem::take(&mut units[i].text);
+            units[j].lines.extend(lines);
+            units[j].text.extend(text);
+            units[j].lines.sort();
+        }
+    }
+    let keep: Vec<bool> = merged_into.iter().map(|m| m.is_none()).collect();
+    let mut renumber = vec![usize::MAX; units.len()];
+    let mut kept_units = vec![];
+    let mut kept_funcs = vec![];
+    for (i, (unit, uf)) in units.into_iter().zip(unit_funcs).enumerate() {
+        if keep[i] {
+            renumber[i] = kept_units.len();
+            kept_units.push(unit);
+            kept_funcs.push(uf);
+        }
+    }
+    let mut units = kept_units;
+    let unit_funcs = kept_funcs;
+    for (i, unit) in units.iter_mut().enumerate() {
+        unit.id = i;
+    }
+
+    // Bindings: functions which are slots of the same binding (ex: an IPDL
+    // message's Recv method and the Send calls).
+    let functions: Vec<Ustr> = units
+        .iter()
+        .flat_map(|u| u.keys.iter())
+        .filter_map(|k| match k {
+            Key::Function(sym) => Some(*sym),
+            _ => None,
+        })
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    let mut binding_of: HashMap<Ustr, Ustr> = HashMap::new();
+    for sym in functions {
+        if let Some(owner) = tracer.binding_owner(&sym).await {
+            binding_of.insert(sym, owner);
+        }
+    }
+    for unit in &mut units {
+        let extra: Vec<Key> = unit
+            .keys
+            .iter()
+            .filter_map(|k| match k {
+                Key::Function(sym) => binding_of.get(sym).map(|o| Key::Binding(*o)),
+                _ => None,
+            })
+            .collect();
+        unit.keys.extend(extra);
+    }
+
+    // Link units sharing keys.
+    let mut links = vec![];
+    let mut by_key: BTreeMap<&Key, Vec<usize>> = BTreeMap::new();
+    for unit in &units {
+        for key in &unit.keys {
+            by_key.entry(key).or_default().push(unit.id);
+        }
+    }
+    let mut parent: Vec<usize> = (0..units.len()).collect();
+    fn find(parent: &mut [usize], i: usize) -> usize {
+        let mut i = i;
+        while parent[i] != i {
+            parent[i] = parent[parent[i]];
+            i = parent[i];
+        }
+        i
+    }
+    let key_name = |key: &Key, units: &[Unit]| -> String {
+        let _ = units;
+        match key {
+            Key::Field(sym) | Key::Global(sym) => sym_short_name(sym),
+            Key::Local(_, sym) => sym_short_name(sym),
+            Key::Function(sym) | Key::Mention(sym) => sym_short_name(sym),
+            Key::Binding(sym) => sym.to_string(),
+            Key::Name(name) => name.clone(),
+        }
+    };
+    for (key, ids) in &by_key {
+        if ids.len() < 2 {
+            continue;
+        }
+        for pair in ids.windows(2) {
+            let (a, b) = (pair[0], pair[1]);
+            let (ra, rb) = (find(&mut parent, a), find(&mut parent, b));
+            links.push(Link {
+                from: a,
+                to: b,
+                why: format!("{:?}", key)
+                    .split('(')
+                    .next()
+                    .unwrap_or("")
+                    .to_lowercase()
+                    + " "
+                    + &key_name(key, &units),
+            });
+            if ra != rb {
+                parent[ra] = rb;
+            }
+        }
+    }
+
+    // Link units whose written values reach others (through unchanged code).
+    if trace_hops > 0 {
+        let unit_lines: Vec<(String, BTreeSet<u32>)> = units
+            .iter()
+            .map(|u| (u.path.clone(), u.lines.iter().copied().collect()))
+            .collect();
+        for (ui, uf) in unit_funcs.iter().enumerate() {
+            let Some((file, fi)) = uf else {
+                continue;
+            };
+            let f = &file.funcs[*fi];
+            let written: Vec<(Place, u32)> = f
+                .events
+                .iter()
+                .filter(|e| unit_lines[ui].1.contains(&e.line))
+                .filter_map(|e| match &e.kind {
+                    EventKind::Assign { place, .. } => Some((place.clone(), e.line)),
+                    _ => None,
+                })
+                .collect();
+            for (place, line) in written.into_iter().take(4) {
+                let mut sub = tracer.fork(trace_hops);
+                sub.seed(file.clone(), *fi, place, Some(line + 1), Dir::Forward);
+                sub.run(Dir::Forward).await;
+                for node in &sub.graph.nodes {
+                    if !matches!(
+                        node.kind,
+                        super::trace::NodeKind::Assign
+                            | super::trace::NodeKind::Call
+                            | super::trace::NodeKind::Return
+                            | super::trace::NodeKind::Test
+                    ) {
+                        continue;
+                    }
+                    for (uj, (path, lines)) in unit_lines.iter().enumerate() {
+                        if uj != ui && *path == node.path && lines.contains(&node.line) {
+                            let (ra, rb) = (find(&mut parent, ui), find(&mut parent, uj));
+                            links.push(Link {
+                                from: ui,
+                                to: uj,
+                                why: format!("flows: {}", node.label),
+                            });
+                            if ra != rb {
+                                parent[ra] = rb;
+                            }
+                        }
+                    }
+                }
+                tracer.absorb(sub);
+            }
+        }
+    }
+
+    let mut clusters: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    for i in 0..units.len() {
+        let root = find(&mut parent, i);
+        clusters.entry(root).or_default().push(i);
+    }
+    let mut clusters: Vec<Vec<usize>> = clusters.into_values().collect();
+    clusters.sort_by_key(|c| std::cmp::Reverse(c.len()));
+    links.sort_by_key(|l| (l.from, l.to));
+    links.dedup_by(|a, b| a.from == b.from && a.to == b.to && a.why == b.why);
+    if units.is_empty() {
+        notes.push("No changed lines in files with analysis".to_string());
+    }
+    Slicing {
+        units,
+        links,
+        clusters,
+        notes,
+    }
+}
+
+pub fn render_slicing_text(slicing: &Slicing) -> String {
+    let mut out = String::new();
+    for (ci, cluster) in slicing.clusters.iter().enumerate() {
+        let _ = writeln!(out, "== cluster {} ({} units)", ci + 1, cluster.len());
+        for &ui in cluster {
+            let unit = &slicing.units[ui];
+            let lines = match (unit.lines.first(), unit.lines.last()) {
+                (Some(a), Some(b)) if a != b => format!("{}-{}", a, b),
+                (Some(a), _) => a.to_string(),
+                _ => String::new(),
+            };
+            let _ = writeln!(
+                out,
+                "  u{:<3} {}:{} {}",
+                ui,
+                unit.path,
+                lines,
+                unit.func.as_deref().map(short_pretty).unwrap_or_default()
+            );
+            for text in unit.text.iter().filter(|t| !t.is_empty()).take(3) {
+                let _ = writeln!(out, "         | {}", text);
+            }
+        }
+        let cluster_set: BTreeSet<usize> = cluster.iter().copied().collect();
+        let mut whys: BTreeMap<String, usize> = BTreeMap::new();
+        for link in &slicing.links {
+            if cluster_set.contains(&link.from) {
+                *whys.entry(link.why.clone()).or_default() += 1;
+            }
+        }
+        if !whys.is_empty() {
+            let _ = writeln!(
+                out,
+                "  linked by: {}",
+                whys.keys().cloned().collect::<Vec<_>>().join(", ")
+            );
+        }
+    }
+    for note in &slicing.notes {
+        let _ = writeln!(out, "note: {}", note);
+    }
+    out
+}
+
+pub fn render_slicing_dot(slicing: &Slicing) -> String {
+    let mut out = String::new();
+    let _ = writeln!(out, "digraph slicing {{");
+    let _ = writeln!(
+        out,
+        "  node [shape=box, fontname=\"monospace\", fontsize=10, style=rounded];"
+    );
+    let escape = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
+    for (ci, cluster) in slicing.clusters.iter().enumerate() {
+        let _ = writeln!(
+            out,
+            "  subgraph cluster_{} {{ label=\"cluster {}\"; color=gray;",
+            ci,
+            ci + 1
+        );
+        for &ui in cluster {
+            let unit = &slicing.units[ui];
+            let file = unit.path.rsplit('/').next().unwrap_or(&unit.path);
+            let label = format!(
+                "{}:{}\\n{}\\n{}",
+                file,
+                unit.lines.first().copied().unwrap_or(0),
+                escape(&unit.func.as_deref().map(short_pretty).unwrap_or_default()),
+                escape(
+                    unit.text
+                        .iter()
+                        .find(|t| !t.is_empty())
+                        .map(|t| t.as_str())
+                        .unwrap_or("")
+                )
+            );
+            let _ = writeln!(out, "    u{} [label=\"{}\"];", ui, label);
+        }
+        let _ = writeln!(out, "  }}");
+    }
+    let mut seen = BTreeSet::new();
+    for link in &slicing.links {
+        if seen.insert((link.from, link.to)) {
+            let _ = writeln!(
+                out,
+                "  u{} -> u{} [label=\"{}\", dir=none, fontsize=8];",
+                link.from,
+                link.to,
+                escape(&link.why)
+            );
+        }
+    }
+    let _ = writeln!(out, "}}");
+    out
+}

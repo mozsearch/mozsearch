@@ -1,0 +1,23 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/slice/text
+---
+== cluster 1 (2 units)
+  u0   dataflow/dataflow.cpp:24-27 GetBoolWithDefault
+         | int rv = LookupBool(aName, aRetVal);
+         | if (rv != 0) {
+         | *aRetVal = aDefault;
+  u1   dataflow/dataflow.cpp:38-40 UseDefault
+         | bool value = false;
+         | GetBoolWithDefault("browser.thing", true, &value);
+         | return value;
+  linked by: flows: call GetBoolWithDefault, flows: return, function _Z18GetBoolWithDefaultPKcbPb
+== cluster 2 (2 units)
+  u2   dataflow/dataflow.cpp:47 Widget::Bump
+         | void Bump(int aBy) { mCount += aBy; }
+  u3   dataflow/dataflow.cpp:61-63 BumpedCount
+         | Widget widget("counter");
+         | widget.Bump(aBy);
+         | return widget.Count();
+  linked by: flows: call Widget::Count, flows: return, function _ZN6Widget4BumpEi, mention _ZN6Widget4BumpEi

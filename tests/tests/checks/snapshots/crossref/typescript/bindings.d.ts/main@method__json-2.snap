@@ -40,6 +40,24 @@ input_file: inputs/crossref/typescript/bindings.d.ts/method__json
     {
       "symbol": "S_js_ts/src/bindings.d.ts/tsMethod().",
       "crossref_info": {
+        "uses": [
+          {
+            "path": "ts/src/dataflow.js",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 18,
+                "bounds": [
+                  15,
+                  23
+                ],
+                "line": "const result = tsMethod(input, false);",
+                "context": "viaXpcom",
+                "contextsym": "S_js_ts/src/dataflow.js/viaXpcom()."
+              }
+            ]
+          }
+        ],
         "defs": [
           {
             "path": "ts/src/bindings.d.ts",

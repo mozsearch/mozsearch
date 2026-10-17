@@ -1,0 +1,26 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/forward-into-method-and-back
+---
+BumpedCount (dataflow/dataflow.cpp)
+  #0      60 seed       aBy                                
+        -> #1 call Widget::Bump [local: aBy]
+  #1      62 call       call Widget::Bump                  widget.Bump(aBy);
+        -> #2 param aBy in Widget::Bump [call: aBy]
+        -> #4 call Widget::Count [local: widget.mCount]
+  #4      63 call       call Widget::Count                 return widget.Count();
+        -> #5 this in Widget::Count [call: this (this->mCount)]
+        -> #7 return [local: Widget::Count(…)]
+  #7      63 return     return                             return widget.Count();
+Widget::Bump (dataflow/dataflow.cpp)
+  #2      47 param      param aBy                          void Bump(int aBy) { mCount += aBy; }
+        -> #3 this->mCount += [local: aBy]
+  #3      47 assign     this->mCount +=                    void Bump(int aBy) { mCount += aBy; }
+        -> #1 call Widget::Bump in BumpedCount [return: out widget.mCount]
+        -> #6 return in Widget::Count [field: this->mCount]
+Widget::Count (dataflow/dataflow.cpp)
+  #5      48 param      this                               int Count() const { return mCount; }
+        -> #6 return [local: this->mCount]
+  #6      48 return     return                             int Count() const { return mCount; }
+        -> #4 call Widget::Count in BumpedCount [return: result]

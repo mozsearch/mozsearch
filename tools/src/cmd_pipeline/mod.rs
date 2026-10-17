@@ -15,6 +15,7 @@ mod cmd_cat_html;
 mod cmd_compile_results;
 mod cmd_crossref_expand;
 mod cmd_crossref_lookup;
+mod cmd_dataflow;
 mod cmd_filter_analysis;
 mod cmd_format_symbols;
 mod cmd_fuse_crossrefs;

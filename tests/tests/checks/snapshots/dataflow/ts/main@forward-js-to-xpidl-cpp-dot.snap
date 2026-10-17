@@ -1,0 +1,46 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/ts/forward-js-to-xpidl-cpp-dot
+---
+digraph dataflow {
+  rankdir=TB; compound=true;
+  node [shape=box, fontname="monospace", fontsize=10, style=rounded];
+  edge [fontname="monospace", fontsize=9];
+  subgraph cluster_0 {
+    label="viaXpcom\ndataflow.js"; style=rounded; color=gray;
+    n0 [label="input", shape=box, color="black", penwidth="2"];
+    n1 [label="18: tsMethod(input, false)", shape=box, color="black"];
+    n5 [label="18: const result = tsMethod(input, false);", shape=box, color="black"];
+    n6 [label="19: if (result) {", shape=diamond, color="gray30"];
+    n7 [label="20: describe({ enabled: result })", shape=box, color="black"];
+  }
+  subgraph cluster_1 {
+    label="DataflowParams::TestBoolean\ndataflow.cpp"; style=rounded; color=gray;
+    n2 [label="param a", shape=cds, color="gray30"];
+    n3 [label="113: *_retval = a && *b;", shape=box, color="black"];
+    n4 [label="114: *b = a;", shape=box, color="black"];
+  }
+  subgraph cluster_2 {
+    label="describe\ndataflow.js"; style=rounded; color=gray;
+    n8 [label="param settings", shape=cds, color="gray30"];
+    n9 [label="12: pick(settings.enabled, \"off\")", shape=box, color="black"];
+  }
+  subgraph cluster_3 {
+    label="pick\ndataflow.js"; style=rounded; color=gray;
+    n10 [label="param flag", shape=cds, color="gray30"];
+    n11 [label="7: const choice = flag ? \"on\" : fallback;", shape=diamond, color="gray30"];
+  }
+  n0 -> n1 [label="input", color="black", style=solid];
+  n1 -> n2 [label="a", color="red", style=bold];
+  n2 -> n3 [label="a", color="black", style=solid];
+  n2 -> n4 [label="a", color="black", style=solid];
+  n3 -> n1 [label="retval", color="red", style=bold];
+  n1 -> n5 [label="tsMethod(…)", color="black", style=solid];
+  n5 -> n6 [label="result", color="black", style=solid];
+  n5 -> n7 [label="result", color="black", style=solid];
+  n7 -> n8 [label="settings", color="blue", style=solid];
+  n8 -> n9 [label="settings", color="black", style=solid];
+  n9 -> n10 [label="flag", color="blue", style=solid];
+  n10 -> n11 [label="flag", color="black", style=solid];
+}

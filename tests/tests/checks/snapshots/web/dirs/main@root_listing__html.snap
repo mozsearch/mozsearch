@@ -376,6 +376,13 @@ input_file: inputs/web/dirs/root_listing__html
         </tr>
 
         <tr>
+          <td class="name"><a href="/tests/source/dataflow" class="mimetype-fixed-container mimetype-icon-folder">dataflow</a></td>
+          <td class="description"><a href="/tests/source/dataflow" title=""></td>
+          <td class="size"><a href="/tests/source/dataflow"></a></td>
+          <td class="coverage"><a href="/tests/source/dataflow" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
+        </tr>
+
+        <tr>
           <td class="name"><a href="/tests/source/docs" class="mimetype-fixed-container mimetype-icon-folder">docs</a></td>
           <td class="description"><a href="/tests/source/docs" title=""></td>
           <td class="size"><a href="/tests/source/docs"></a></td>

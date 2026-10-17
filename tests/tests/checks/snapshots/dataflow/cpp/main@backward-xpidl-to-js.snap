@@ -1,0 +1,23 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/backward-xpidl-to-js
+---
+DataflowParams::TestBoolean (dataflow/dataflow.cpp)
+  #0     112 seed       *_retval                           
+  #2     112 param      param _retval                      
+        -> #0 *_retval [local: *_retval]
+  #3     112 param      param a                            
+        -> #1 *_retval = [local: a]
+  #5     112 param      param b                            
+        -> #1 *_retval = [local: *b]
+  #1     113 assign     *_retval =                         *_retval = a && *b;
+        -> #0 *_retval [local: *_retval]
+viaXpcom (ts/src/dataflow.js)
+  #7      17 param      param input                        
+        -> #4 call tsMethod [local: input]
+  #4      18 call       call tsMethod                      const result = tsMethod(input, false);
+        -> #3 param a in DataflowParams::TestBoolean [binding: arg 0]
+        -> #5 param b in DataflowParams::TestBoolean [binding: arg 1]
+  #6      18 const      false                              const result = tsMethod(input, false);
+        -> #4 call tsMethod [local: false]

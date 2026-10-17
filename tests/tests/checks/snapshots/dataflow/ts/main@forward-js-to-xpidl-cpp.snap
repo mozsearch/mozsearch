@@ -1,0 +1,33 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/ts/forward-js-to-xpidl-cpp
+---
+viaXpcom (ts/src/dataflow.js)
+  #0      17 seed       input                              
+        -> #1 call tsMethod [local: input]
+  #1      18 call       call tsMethod                      const result = tsMethod(input, false);
+        -> #2 param a in DataflowParams::TestBoolean [binding: a]
+        -> #5 result = [local: tsMethod(…)]
+  #5      18 assign     result =                           const result = tsMethod(input, false);
+        -> #6 test [local: result]
+        -> #7 call describe [local: result]
+  #6      19 test       test                               if (result) {
+  #7      20 call       call describe                      return describe({ enabled: result });
+        -> #8 param settings in describe [call: settings]
+DataflowParams::TestBoolean (dataflow/dataflow.cpp)
+  #2     112 param      param a                            
+        -> #3 *_retval = [local: a]
+        -> #4 *b = [local: a]
+  #3     113 assign     *_retval =                         *_retval = a && *b;
+        -> #1 call tsMethod in viaXpcom [binding: retval]
+  #4     114 assign     *b =                               *b = a;
+describe (ts/src/dataflow.js)
+  #8      11 param      param settings                     
+        -> #9 call pick [local: settings]
+  #9      12 call       call pick                          const label = pick(settings.enabled, "off");
+        -> #10 param flag in pick [call: flag]
+pick (ts/src/dataflow.js)
+  #10      6 param      param flag                         
+        -> #11 test [local: flag]
+  #11      7 test       test                               const choice = flag ? "on" : fallback;

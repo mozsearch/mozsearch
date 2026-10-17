@@ -6,6 +6,7 @@ use super::cmd_cat_html::CatHtml;
 use super::cmd_compile_results::CompileResults;
 use super::cmd_crossref_expand::CrossrefExpand;
 use super::cmd_crossref_lookup::CrossrefLookup;
+use super::cmd_dataflow::Dataflow;
 use super::cmd_filter_analysis::FilterAnalysis;
 use super::cmd_format_symbols::FormatSymbols;
 use super::cmd_fuse_crossrefs::FuseCrossrefs;
@@ -85,6 +86,7 @@ pub enum Command {
     SearchText(SearchText),
     ShowHtml(ShowHtml),
     TokenizeSource(TokenizeSource),
+    Dataflow(Dataflow),
     Traverse(Traverse),
     Webtest(Webtest),
 }

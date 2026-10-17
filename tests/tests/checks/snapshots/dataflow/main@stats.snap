@@ -1,0 +1,41 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/stats
+---
+      10 Cpp-callees
+      10 Cpp-callees-with-defs
+      13 Cpp-calls
+      13 Cpp-calls-with-callee-symbols
+       1 Cpp-calls-with-several-callees
+      18 Cpp-events-assign
+      13 Cpp-events-call
+       4 Cpp-events-from-macro-expansions
+      15 Cpp-events-return
+       4 Cpp-events-test
+       1 Cpp-files
+      19 Cpp-functions
+       0 Cpp-reads-unresolved-names
+       3 Js-callees
+       3 Js-callees-with-defs
+       3 Js-calls
+       3 Js-calls-with-callee-symbols
+       4 Js-events-assign
+       3 Js-events-call
+       4 Js-events-return
+       2 Js-events-test
+       1 Js-files
+       3 Js-functions
+       0 Js-reads-unresolved-names
+       4 Kotlin-callees
+       2 Kotlin-callees-with-defs
+       2 Kotlin-callees-without-defs
+       4 Kotlin-calls
+       4 Kotlin-calls-with-callee-symbols
+       3 Kotlin-events-assign
+       4 Kotlin-events-call
+       2 Kotlin-events-return
+       1 Kotlin-events-test
+       1 Kotlin-files
+       5 Kotlin-functions
+       0 Kotlin-reads-unresolved-names

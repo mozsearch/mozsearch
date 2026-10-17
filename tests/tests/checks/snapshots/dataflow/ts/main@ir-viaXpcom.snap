@@ -1,0 +1,13 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/ts/ir-viaXpcom
+---
+viaXpcom (ts/src/dataflow.js:17-23)
+  param 0: input : any
+     18:17  call#0 Call tsMethod({input}@input, {false}) -> S_js_ts/src/bindings.d.ts/tsMethod().
+     18:8   result init {tsMethod(…)}
+     19:5   test {result}
+     20:11  call#1 Call describe({~result}) -> S_js_ts/src/dataflow.js/describe().
+     20:4   return {describe(…)}
+     22:2   return {null}

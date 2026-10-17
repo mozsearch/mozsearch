@@ -1,0 +1,1 @@
+dataflow src/main/kotlin/sample/Dataflow.kt --function configure --forward input

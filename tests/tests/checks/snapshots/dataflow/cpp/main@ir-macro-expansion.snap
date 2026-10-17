@@ -1,0 +1,14 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/ir-macro-expansion
+---
+CheckedLookup (dataflow/dataflow.cpp:31-35)
+  param 0: aName : const char *
+  param 1: aRetVal : _Bool *
+     32:11  call#0 Call LookupBool({aName}@aName, {aRetVal}@aRetVal) -> _ZL10LookupBoolPKcPb
+     32:6   rv init {LookupBool(…)}
+     33:2   [DF_ENSURE_SUCCESS] test {~rv, ~0}
+     33:2   [DF_ENSURE_SUCCESS] return {rv}
+     33:2   [DF_ENSURE_SUCCESS] test {false}
+     34:2   return {0}

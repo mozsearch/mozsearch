@@ -58,6 +58,22 @@ input_file: inputs/crossref/java/package__json
             ]
           },
           {
+            "path": "src/main/kotlin/sample/Dataflow.kt",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 6,
+                "bounds": [
+                  8,
+                  14
+                ],
+                "line": "package sample",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
             "path": "src/main/kotlin/sample/InlineObject.kt",
             "path_kind": "normal",
             "lines": [

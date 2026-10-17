@@ -1,0 +1,6 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/oracle/questions
+---
+

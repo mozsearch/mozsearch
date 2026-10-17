@@ -659,6 +659,60 @@ pub fn hypertokenize_source_file(
     }
 }
 
+/// A tree-sitter parse of a source file, for analyses of its syntax beyond
+/// tokenizing (ex: `dataflow`).
+pub struct SourceParse {
+    /// The language profile's `lang` (ex: "cpp", "js", "kotlin").
+    pub lang: &'static str,
+    pub tree: tree_sitter::Tree,
+    /// The text the tree is of: the file's, but for C++ with its preprocessor
+    /// directives and conditionals' other branches blanked (see
+    /// `plan_conditionals`), at the same offsets.
+    pub text: String,
+}
+
+/// Parse a source file in a language with a grammar for code (C++, JS/TS,
+/// Kotlin, Java, Rust, Python) for analyzing its syntax, using the default
+/// language for its path.
+pub fn parse_source_for_analysis(path: &str, source: &str) -> Result<SourceParse, String> {
+    let Some(profile) = default_profile_for_path(Path::new(path)) else {
+        return Err("Binary files can't be parsed".to_string());
+    };
+    parse_with_profile_for_analysis(profile, source)
+}
+
+/// See `parse_source_for_analysis`; also for parsing snippets (ex: macro
+/// expansions).
+pub fn parse_with_profile_for_analysis(
+    profile: LanguageProfile,
+    source: &str,
+) -> Result<SourceParse, String> {
+    match profile.grammar {
+        Grammar::Cpp
+        | Grammar::TypeScript
+        | Grammar::Tsx
+        | Grammar::Kotlin
+        | Grammar::Java
+        | Grammar::Rust
+        | Grammar::Python => {}
+        grammar => return Err(format!("{:?} isn't a grammar for code", grammar)),
+    }
+    let setup = tree_sitter_setup(profile.grammar)?;
+    let text = match profile.grammar {
+        Grammar::Cpp => match plan_conditionals(source) {
+            Some(plan) => plan.first_branches,
+            None => source.to_string(),
+        },
+        _ => source.to_string(),
+    };
+    let tree = parse(&setup, &text)?;
+    Ok(SourceParse {
+        lang: profile.lang,
+        tree,
+        text,
+    })
+}
+
 /// What tokenizing a language with tree-sitter takes.
 struct TreeSitterSetup {
     grammar: Grammar,

@@ -1,0 +1,15 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/forward-field
+---
+Widget::Widget (dataflow/dataflow.cpp)
+  #0      45 seed       this->mName                        explicit Widget(const char* aName) : mName(aName), mCount(0) {}
+        -> #1 return in Widget::Name [field: this->mName]
+Widget::Name (dataflow/dataflow.cpp)
+  #1      46 return     return                             const char* Name() const { return mName; }
+        -> #2 call Widget::Name in MakeWidgetName [return: result]
+MakeWidgetName (dataflow/dataflow.cpp)
+  #2      57 call       call Widget::Name                  return widget.Name();
+        -> #3 return [local: Widget::Name(…)]
+  #3      57 return     return                             return widget.Name();

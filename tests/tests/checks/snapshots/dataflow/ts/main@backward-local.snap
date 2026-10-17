@@ -1,0 +1,23 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/ts/backward-local
+---
+describe (ts/src/dataflow.js)
+  #0      11 seed       label                              
+  #1      12 assign     label =                            const label = pick(settings.enabled, "off");
+        -> #0 label [local: label]
+  #2      12 call       call pick                          const label = pick(settings.enabled, "off");
+        -> #1 label = [local: pick(…)]
+        -> #6 param fallback in pick [call: arg 1]
+  #7      12 const      "off"                              const label = pick(settings.enabled, "off");
+        -> #2 call pick [local: "off"]
+pick (ts/src/dataflow.js)
+  #6       6 param      param fallback                     
+        -> #4 choice = [local: fallback]
+  #4       7 assign     choice =                           const choice = flag ? "on" : fallback;
+        -> #3 return [local: choice]
+  #5       7 const      "on"                               const choice = flag ? "on" : fallback;
+        -> #4 choice = [local: "on"]
+  #3       8 return     return                             return choice;
+        -> #2 call pick in describe [return: result]

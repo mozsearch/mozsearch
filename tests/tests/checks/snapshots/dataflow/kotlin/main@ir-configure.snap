@@ -1,0 +1,11 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/kotlin/ir-configure
+---
+sample::configure (src/main/kotlin/sample/Dataflow.kt:31-34)
+  param 0: sink : UrlSink
+  param 1: input : String
+     32:21  call#0 Call sample::normalizeUrl({input}@input) -> S_jvm_sample/normalizeUrl().
+     32:4   normalized init {sample::normalizeUrl(…)}
+     33:4   call#1 Call sink.sample::UrlSink::setUrl({normalized}@normalized) -> S_jvm_sample/UrlSink#setUrl().

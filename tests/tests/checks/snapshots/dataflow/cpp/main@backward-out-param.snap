@@ -1,0 +1,34 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/backward-out-param
+---
+UseDefault (dataflow/dataflow.cpp)
+  #0      37 seed       value                              
+  #3      38 assign     value =                            bool value = false;
+        -> #0 value [local: value]
+  #4      38 const      false                              bool value = false;
+        -> #3 value = [local: false]
+  #1      39 call       call GetBoolWithDefault            GetBoolWithDefault("browser.thing", true, &value);
+        -> #0 value [local: value]
+        -> #8 param aDefault in GetBoolWithDefault [call: arg 1]
+  #9      39 const      true                               GetBoolWithDefault("browser.thing", true, &value);
+        -> #1 call GetBoolWithDefault [local: true]
+GetBoolWithDefault (dataflow/dataflow.cpp)
+  #2      23 param      param aRetVal                      
+        -> #1 call GetBoolWithDefault in UseDefault [return: out *aRetVal]
+  #8      23 param      param aDefault                     
+        -> #5 *aRetVal = [local: aDefault]
+  #6      24 call       call LookupBool                    int rv = LookupBool(aName, aRetVal);
+        -> #2 param aRetVal [local: *aRetVal]
+  #5      26 assign     *aRetVal =                         *aRetVal = aDefault;
+        -> #2 param aRetVal [local: *aRetVal]
+LookupBool (dataflow/dataflow.cpp)
+  #7      15 param      param aResult                      
+        -> #6 call LookupBool in GetBoolWithDefault [return: out *aResult]
+  #12     15 param      param aName                        
+        -> #10 *aResult = [local: aName[]]
+  #10     19 assign     *aResult =                         *aResult = aName[0] == 't';
+        -> #7 param aResult [local: *aResult]
+  #11     19 const      't'                                *aResult = aName[0] == 't';
+        -> #10 *aResult = [local: 't']
