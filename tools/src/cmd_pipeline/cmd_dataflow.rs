@@ -9,6 +9,7 @@ use crate::{
         oracle::Oracle,
         render::{DotOptions, render_dot, render_text},
         slice::{ChangedLines, FileChange, render_slicing_dot, render_slicing_text, slice},
+        summary::{Summary, field_edges, summarize},
         trace::{Dir, TraceOpts, Tracer, find_place},
     },
 };
@@ -131,6 +132,20 @@ pub struct Dataflow {
     /// Like `--stats-paths`, for these (comma-separated) tree paths.
     #[clap(long)]
     stats: Option<String>,
+
+    /// Show the file's functions' dataflow summaries (see
+    /// `dataflow::summary`; `--function` for one), instead, as
+    /// `dataflow-summarize` precomputes them.
+    #[clap(long)]
+    summary: bool,
+
+    /// Show the edges between fields (and between functions and other
+    /// objects' fields) that the summaries of the functions in these
+    /// (comma-separated) tree paths are, composed through their calls, as
+    /// `dataflow-summarize` precomputes them for a whole tree, instead (`file`
+    /// is ignored).
+    #[clap(long)]
+    field_edges: Option<String>,
 }
 
 /// Tree paths given inline (comma-separated) or in a local file (one per
@@ -387,6 +402,21 @@ impl PipelineCommand for DataflowCommand {
                 })),
             };
         }
+        if let Some(paths) = paths_arg(&self.args.field_edges, &None)? {
+            let mut summaries = vec![];
+            for path in &paths {
+                let Some(file) = tracer.file(path).await else {
+                    continue;
+                };
+                summaries.extend(file.funcs.iter().filter(|f| f.has_body).map(summarize));
+            }
+            summaries.sort_by(|a, b| a.sym.cmp(&b.sym));
+            summaries.dedup_by(|a, b| a.sym == b.sym);
+            let edges = field_edges(&summaries);
+            return Ok(PipelineValues::JsonValue(JsonValue {
+                value: serde_json::to_value(&edges).unwrap(),
+            }));
+        }
         if let Some(paths) = paths_arg(&self.args.stats, &self.args.stats_paths)? {
             let mut stats = Stats::default();
             for path in &paths {
@@ -463,6 +493,17 @@ impl PipelineCommand for DataflowCommand {
                 }
             })
             .collect();
+        if self.args.summary {
+            let summaries: Vec<Summary> = funcs
+                .iter()
+                .map(|&i| &file.funcs[i])
+                .filter(|f| f.has_body)
+                .map(summarize)
+                .collect();
+            return Ok(PipelineValues::JsonValue(JsonValue {
+                value: serde_json::to_value(&summaries).unwrap(),
+            }));
+        }
         let (dir, place_name) = match (&self.args.forward, &self.args.backward) {
             (Some(p), _) => (Dir::Forward, p.clone()),
             (None, Some(p)) => (Dir::Backward, p.clone()),

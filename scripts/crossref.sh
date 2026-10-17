@@ -10,4 +10,11 @@ ANALYSIS_FILES_PATH=$3
 
 echo Root is $INDEX_ROOT
 
+# Trees with `"dataflow_summaries": true` precompute their functions' dataflow
+# summaries, which crossref rolls up into classes' and subsystems' data edges
+# (see tools/src/bin/dataflow-summarize.rs).
+if [ "$(jq -r ".trees[\"${TREE_NAME}\"].dataflow_summaries // false" ${CONFIG_FILE})" = "true" ]; then
+  dataflow-summarize $CONFIG_FILE $TREE_NAME $ANALYSIS_FILES_PATH 16
+fi
+
 crossref $CONFIG_FILE $TREE_NAME $ANALYSIS_FILES_PATH 16

@@ -1,0 +1,31 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/summary/rollup_field_edges
+---
+[
+  {
+    "from": "F_<T_rollup::Controller>_mInput",
+    "to": "F_<T_rollup::Store>_mValue",
+    "count": 1,
+    "via": [
+      "_ZN6rollup10Controller3RunERNS_5PanelE"
+    ]
+  },
+  {
+    "from": "F_<T_rollup::Store>_mValue",
+    "to": "F_<T_rollup::Panel>_mShown",
+    "count": 1,
+    "via": [
+      "_ZN6rollup5Panel7RefreshEv"
+    ]
+  },
+  {
+    "from": "_ZN6rollup5Panel4EditEi",
+    "to": "F_<T_rollup::Store>_mValue",
+    "count": 1,
+    "via": [
+      "_ZN6rollup5Panel4EditEi"
+    ]
+  }
+]

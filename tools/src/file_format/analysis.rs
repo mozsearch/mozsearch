@@ -1160,6 +1160,63 @@ pub fn read_analysis<T>(
     read_analyses(vec![filename.to_string()].as_slice(), filter)
 }
 
+/// A file's analysis records, as `read_analyses` reads them (with commas in
+/// symbols escaped, and locals' symbols processed; see `local_symbols`), or
+/// None if it can't be opened.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn read_analysis_values(used_filename: &str) -> Option<Vec<Value>> {
+    let file = match File::open(used_filename) {
+        Ok(f) => f,
+        Err(_) => {
+            // TODO: This should be a warning again or have more explicit
+            // propagation of this case to callers.  This was reduced from
+            // a warning because we have a bunch of cases from
+            // mozsearch-mozilla/shared/collapse-generated-files.sh being
+            // invoked on "analysis-*/etc" expansions that don't match and
+            // so are passed through directly because we're not using
+            // "shopt -s nullglob" there.  Also crossref seems to sometimes
+            // end up trying to ingest files that aren't there?  Both of
+            // these things should be addressed if we want to turn this back
+            // into a warning.
+            info!("Error trying to open analysis file [{}]", used_filename);
+            return None;
+        }
+    };
+    // An analysis file that ends in .gz is compressed and should be
+    // dynamically decompressed.
+    let reader: Box<dyn Read> = if used_filename.ends_with(".gz") {
+        Box::new(GzDecoder::new(file))
+    } else {
+        Box::new(file)
+    };
+    let reader = BufReader::new(reader);
+    let mut lineno = 0;
+    let mut values = vec![];
+    for line in reader.lines() {
+        let line = line.unwrap();
+        lineno += 1;
+        let data: serde_json::Result<Value> = from_str(&line);
+        let mut data = match data {
+            Ok(data) => data,
+            Err(e) => {
+                warn!(
+                    "Error [{}] trying to read analysis from file [{}] line [{}]: [{}]",
+                    e, used_filename, lineno, &line
+                );
+                continue;
+            }
+        };
+        // (Whatever produced the file, its symbols have no commas; see
+        // `escape_record_symbol_commas`.)
+        super::analysis_manglings::escape_record_symbol_commas(&mut data);
+        values.push(data);
+    }
+    // (Locals' and parameters' symbols are unified and get target
+    // records; see `local_symbols`.)
+    super::local_symbols::process_local_symbols(&mut values);
+    Some(values)
+}
+
 /// Load analysis data for one or more files, sorting and grouping by location, with data payloads
 /// transformed via the provided `filter`, resulting in either AnalysisSource records being
 /// returned (if `read_source` is provided) or AnalysisTarget (if `read_target`) and other record
@@ -1184,55 +1241,9 @@ pub fn read_analyses<T>(
             filename.as_str()
         };
 
-        let file = match File::open(used_filename) {
-            Ok(f) => f,
-            Err(_) => {
-                // TODO: This should be a warning again or have more explicit
-                // propagation of this case to callers.  This was reduced from
-                // a warning because we have a bunch of cases from
-                // mozsearch-mozilla/shared/collapse-generated-files.sh being
-                // invoked on "analysis-*/etc" expansions that don't match and
-                // so are passed through directly because we're not using
-                // "shopt -s nullglob" there.  Also crossref seems to sometimes
-                // end up trying to ingest files that aren't there?  Both of
-                // these things should be addressed if we want to turn this back
-                // into a warning.
-                info!("Error trying to open analysis file [{}]", used_filename);
-                continue;
-            }
+        let Some(values) = read_analysis_values(used_filename) else {
+            continue;
         };
-        // An analysis file that ends in .gz is compressed and should be
-        // dynamically decompressed.
-        let reader: Box<dyn Read> = if used_filename.ends_with(".gz") {
-            Box::new(GzDecoder::new(file))
-        } else {
-            Box::new(file)
-        };
-        let reader = BufReader::new(reader);
-        let mut lineno = 0;
-        let mut values = vec![];
-        for line in reader.lines() {
-            let line = line.unwrap();
-            lineno += 1;
-            let data: serde_json::Result<Value> = from_str(&line);
-            let mut data = match data {
-                Ok(data) => data,
-                Err(e) => {
-                    warn!(
-                        "Error [{}] trying to read analysis from file [{}] line [{}]: [{}]",
-                        e, used_filename, lineno, &line
-                    );
-                    continue;
-                }
-            };
-            // (Whatever produced the file, its symbols have no commas; see
-            // `escape_record_symbol_commas`.)
-            super::analysis_manglings::escape_record_symbol_commas(&mut data);
-            values.push(data);
-        }
-        // (Locals' and parameters' symbols are unified and get target
-        // records; see `local_symbols`.)
-        super::local_symbols::process_local_symbols(&mut values);
         for mut data in values {
             let obj = data.as_object_mut().unwrap();
             // Destructively pull the "loc" out before passing it into the filter.  This is for

@@ -1,0 +1,181 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/summary/view_summary
+---
+[
+  {
+    "sym": "_ZN6rollup5PanelC1EPNS_5StoreE",
+    "pretty": "rollup::Panel::Panel",
+    "path": "rollup/view.cpp",
+    "line": 10,
+    "category": "setter",
+    "events": 1,
+    "flows": [
+      {
+        "from": {
+          "k": "param",
+          "i": 0
+        },
+        "to": {
+          "k": "this",
+          "fields": [
+            "F_<T_rollup::Panel>_mStore"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sym": "_ZN6rollup5Panel7RefreshEv",
+    "pretty": "rollup::Panel::Refresh",
+    "path": "rollup/view.cpp",
+    "line": 12,
+    "category": "small",
+    "events": 2,
+    "flows": [
+      {
+        "from": {
+          "k": "this",
+          "fields": [
+            "F_<T_rollup::Panel>_mStore"
+          ]
+        },
+        "to": {
+          "k": "arg",
+          "callee": "_ZNK6rollup5Store3GetEv"
+        }
+      },
+      {
+        "from": {
+          "k": "result",
+          "callee": "_ZNK6rollup5Store3GetEv"
+        },
+        "to": {
+          "k": "this",
+          "fields": [
+            "F_<T_rollup::Panel>_mShown"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "sym": "_ZN6rollup5Panel4EditEi",
+    "pretty": "rollup::Panel::Edit",
+    "path": "rollup/view.cpp",
+    "line": 17,
+    "category": "small",
+    "events": 2,
+    "flows": [
+      {
+        "from": {
+          "k": "param",
+          "i": 0
+        },
+        "to": {
+          "k": "arg",
+          "callee": "_ZN6rollup5Store3PutEi",
+          "i": 0
+        }
+      },
+      {
+        "from": {
+          "k": "this"
+        },
+        "to": {
+          "k": "arg",
+          "callee": "_ZN6rollup5Panel7RefreshEv"
+        }
+      },
+      {
+        "from": {
+          "k": "this",
+          "fields": [
+            "F_<T_rollup::Panel>_mStore"
+          ]
+        },
+        "to": {
+          "k": "arg",
+          "callee": "_ZN6rollup5Store3PutEi"
+        }
+      }
+    ]
+  },
+  {
+    "sym": "_ZN6rollup10Controller3RunERNS_5PanelE",
+    "pretty": "rollup::Controller::Run",
+    "path": "rollup/view.cpp",
+    "line": 29,
+    "category": "small",
+    "events": 2,
+    "flows": [
+      {
+        "from": {
+          "k": "param",
+          "i": 0
+        },
+        "to": {
+          "k": "arg",
+          "callee": "_ZN6rollup5Panel4EditEi"
+        }
+      },
+      {
+        "from": {
+          "k": "param",
+          "i": 0
+        },
+        "to": {
+          "k": "arg",
+          "callee": "_ZN6rollup5Panel7RefreshEv"
+        }
+      },
+      {
+        "from": {
+          "k": "this",
+          "fields": [
+            "F_<T_rollup::Controller>_mInput"
+          ]
+        },
+        "to": {
+          "k": "arg",
+          "callee": "_ZN6rollup5Panel4EditEi",
+          "i": 0
+        }
+      }
+    ]
+  },
+  {
+    "sym": "_ZN6rollup7UseThemEv",
+    "pretty": "rollup::UseThem",
+    "path": "rollup/view.cpp",
+    "line": 38,
+    "category": "small",
+    "events": 3,
+    "flows": [
+      {
+        "from": {
+          "k": "result",
+          "callee": "_ZN6rollup5PanelC1EPNS_5StoreE"
+        },
+        "to": {
+          "k": "arg",
+          "callee": "_ZN6rollup10Controller3RunERNS_5PanelE",
+          "i": 0
+        }
+      },
+      {
+        "from": {
+          "k": "result",
+          "callee": "_ZN6rollup5PanelC1EPNS_5StoreE",
+          "i": 0
+        },
+        "to": {
+          "k": "arg",
+          "callee": "_ZN6rollup5PanelC1EPNS_5StoreE",
+          "i": 0
+        }
+      }
+    ]
+  }
+]
