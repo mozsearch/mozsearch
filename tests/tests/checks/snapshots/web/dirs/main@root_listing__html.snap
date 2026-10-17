@@ -662,6 +662,13 @@ input_file: inputs/web/dirs/root_listing__html
         </tr>
 
         <tr>
+          <td class="name"><a href="/tests/source/params" class="mimetype-fixed-container mimetype-icon-folder">params</a></td>
+          <td class="description"><a href="/tests/source/params" title=""></td>
+          <td class="size"><a href="/tests/source/params"></a></td>
+          <td class="coverage"><a href="/tests/source/params" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
+        </tr>
+
+        <tr>
           <td class="name"><a href="/tests/source/prefs" class="mimetype-fixed-container mimetype-icon-folder">prefs</a></td>
           <td class="description"><a href="/tests/source/prefs" title=""></td>
           <td class="size"><a href="/tests/source/prefs"></a></td>

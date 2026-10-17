@@ -1,0 +1,23 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/cpp/params/header_param_after_unnamed__json
+---
+[
+  {
+    "loc": "00011:21-28",
+    "source": 1,
+    "syntax": "",
+    "type": "_Bool",
+    "pretty": "variable aSecond",
+    "sym": "V_512b34f971ad9cec_1",
+    "no_crossref": 1
+  },
+  {
+    "loc": "00011:21-28",
+    "structured": 1,
+    "pretty": "aSecond",
+    "sym": "V_512b34f971ad9cec_1",
+    "kind": "parameter"
+  }
+]

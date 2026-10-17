@@ -1,0 +1,46 @@
+---
+source: src/bin/test-index.rs
+expression: "&json_results"
+input_file: inputs/analysis/cpp/params/definition_param__json
+---
+[
+  {
+    "loc": "00007:26-33",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable aFactor",
+    "sym": "V_4f0600ec68786a8e_1",
+    "no_crossref": 1,
+    "type": "int"
+  },
+  {
+    "loc": "00007:53-60",
+    "source": 1,
+    "syntax": "",
+    "pretty": "variable aFactor",
+    "sym": "V_4f0600ec68786a8e_1",
+    "no_crossref": 1,
+    "type": "int"
+  },
+  {
+    "loc": "00007:26-33",
+    "structured": 1,
+    "pretty": "aFactor",
+    "sym": "V_4f0600ec68786a8e_1",
+    "type_pretty": null,
+    "kind": "parameter",
+    "subsystem": null,
+    "implKind": "",
+    "sizeBytes": null,
+    "alignmentBytes": null,
+    "ownVFPtrBytes": null,
+    "bindingSlots": [],
+    "ontologySlots": [],
+    "supers": [],
+    "methods": [],
+    "fields": [],
+    "overrides": [],
+    "props": [],
+    "variants": []
+  }
+]

@@ -32,6 +32,7 @@ use crate::file_format::crossref::CrossrefData;
 use crate::file_format::history::timeline_common::JournalVersionRef;
 use crate::file_format::identifiers::IdentMap;
 use crate::file_format::jumpref::{JumprefData, TreeJumprefs};
+use crate::file_format::parameter_symbols::unify_parameter_symbols;
 use crate::file_format::per_file_info::FileLookupMap;
 use crate::file_format::recency::FileRecency;
 use crate::file_format::repo_data_ingestion::RepoIngestionConfig;
@@ -268,6 +269,7 @@ impl AbstractServer for LocalIndex {
         let mut values = read_maybe_gzipped_ndjson_from_file(&full_path).await?;
         // (As `read_analyses` reads them; see `escape_record_symbol_commas`.)
         values.iter_mut().for_each(escape_record_symbol_commas);
+        unify_parameter_symbols(&mut values);
         Ok(Box::pin(tokio_stream::iter(values)))
     }
 

@@ -19,19 +19,19 @@ input_file: inputs/dataflow/slice/json
         {
           "Local": [
             "_Z18GetBoolWithDefaultPKcbPb",
-            "V_0e08f7606e625fbe_7a9b60f013"
+            "V_733986e666fd63e6_0"
           ]
         },
         {
           "Local": [
             "_Z18GetBoolWithDefaultPKcbPb",
-            "V_1418f7606e625fbe_4b76c35f0b0d"
+            "V_733986e666fd63e6_1"
           ]
         },
         {
           "Local": [
             "_Z18GetBoolWithDefaultPKcbPb",
-            "V_3018f7606e625fbe_b4213266bc6ea1"
+            "V_733986e666fd63e6_2"
           ]
         },
         {
@@ -91,7 +91,7 @@ input_file: inputs/dataflow/slice/json
         {
           "Local": [
             "_ZN6Widget4BumpEi",
-            "V_523e5a606e625fbe_188588b"
+            "V_a9768cfa9b9d1166_0"
           ]
         },
         {
@@ -124,7 +124,7 @@ input_file: inputs/dataflow/slice/json
         {
           "Local": [
             "_Z11BumpedCounti",
-            "V_b9d36c606e625fbe_188588b"
+            "V_9efc2da3d041ad11_0"
           ]
         },
         {

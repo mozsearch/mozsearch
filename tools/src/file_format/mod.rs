@@ -31,6 +31,8 @@ pub mod merger;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod ontology_mapping;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod parameter_symbols;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod per_file_info;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod recency;

@@ -144,7 +144,9 @@ impl AbstractServer for RemoteServer {
                 Ok(value)
             })
             .collect();
-        Ok(Box::pin(tokio_stream::iter(values?)))
+        let mut values = values?;
+        crate::file_format::parameter_symbols::unify_parameter_symbols(&mut values);
+        Ok(Box::pin(tokio_stream::iter(values)))
     }
 
     async fn fetch_formatted_lines(&self, _sf_path: &str) -> Result<(Vec<String>, String)> {
