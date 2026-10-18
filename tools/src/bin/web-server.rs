@@ -369,9 +369,8 @@ fn query_params(query: &str) -> HashMap<String, String> {
 
 /// The tree's query page for the query (ex: normalized), and what it was
 /// before, if it's different (which the page shows; see pipeline-server.rs),
-/// in a try push's context (`rev`), and whether the input asked for a
-/// case-sensitive search (which the page says queries don't have).
-fn query_url(tree_name: &str, query: &str, input: &str, rev: Option<&str>, case: bool) -> String {
+/// in a try push's context (`rev`).
+fn query_url(tree_name: &str, query: &str, input: &str, rev: Option<&str>) -> String {
     let mut url = url::form_urlencoded::Serializer::new(String::new());
     url.append_pair("q", query);
     if input.trim() != query {
@@ -379,9 +378,6 @@ fn query_url(tree_name: &str, query: &str, input: &str, rev: Option<&str>, case:
     }
     if let Some(rev) = rev.filter(|rev| !rev.is_empty()) {
         url.append_pair("rev", rev);
-    }
-    if case {
-        url.append_pair("case", "true");
     }
     format!("/{}/query/default?{}", tree_name, url.finish())
 }
@@ -1092,16 +1088,11 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                             &normalization.query,
                             input,
                             params.get("rev").map(String::as_str),
-                            false,
                         ))
                     }
-                    config::SearchEndpoint::Query => WebResponse::found(query_url(
-                        tree_name,
-                        &normalization.query,
-                        input,
-                        None,
-                        false,
-                    )),
+                    config::SearchEndpoint::Query => {
+                        WebResponse::found(query_url(tree_name, &normalization.query, input, None))
+                    }
                     config::SearchEndpoint::Search => WebResponse::found(format!(
                         "/{}/search?q={}",
                         tree_name,
@@ -1124,13 +1115,7 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 param("case") == Some("true"),
                 param("regexp") == Some("true"),
             );
-            WebResponse::found(query_url(
-                tree_name,
-                &normalization.query,
-                input,
-                None,
-                param("case") == Some("true"),
-            ))
+            WebResponse::found(query_url(tree_name, &normalization.query, input, None))
         }
 
         "opensearch.xml" if cfg.trees.contains_key(*tree_name) => WebResponse {

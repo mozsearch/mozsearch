@@ -372,6 +372,22 @@ alias = "path"
 term = "pathre"
 transforms = ["path_glob"]
 
+# Case-sensitivity: the text and identifiers a query searches, if it does,
+# ignore case, but with `case:sensitive` (ex: router.py's search's
+# "Case-sensitive" option).
+[term.case]
+values = ["sensitive", "insensitive"]
+[[term.case.group.text-search]]
+command = "search-text"
+when = "sensitive"
+amend = true
+args.case-sensitive = true
+[[term.case.group.semantic-search]]
+command = "search-identifiers"
+when = "sensitive"
+amend = true
+args.case-sensitive = true
+
 # The paths to leave out, a regexp: `-path:`'s and `-pathre:`'s, which
 # chew_query combines (only these terms can be negated), from the files and
 # the text the query searches, if it does.

@@ -27,11 +27,6 @@
       {%- if interpretation.changes != empty %} ({{ interpretation.changes | join: "; " | escape }}){% endif %}.
     </div>
     {%- endif %}
-    {%- if case_sensitive %}
-    <div class="query-interpretation">
-      Queries can't search case-sensitively yet, so this search isn't.
-    </div>
-    {%- endif %}
     <div class="query-result">
       {% for result_pair in results %}
         {% case result_pair[0] %}

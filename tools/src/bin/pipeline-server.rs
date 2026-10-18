@@ -366,8 +366,6 @@ async fn handle_query(
             "results": result_value,
             "query": query.clone(),
             "interpretation": interpretation,
-            // (Asked for by router.py's search's input, which queries can't do.)
-            "case_sensitive": params.get("case").is_some_and(|case| case == "true"),
             "preset": preset.clone(),
             "tree": tree.clone(),
             // (The page's tree's, for its own results; see line_span.liquid.)

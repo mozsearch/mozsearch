@@ -105,7 +105,6 @@ pub fn normalize_input(input: &str) -> Normalization {
 /// whether the text is a regexp), as the query language has them.
 pub fn normalize_classic(q: &str, path: Option<&str>, case: bool, regexp: bool) -> Normalization {
     let mut terms: Vec<String> = vec![];
-    let mut changes: Vec<String> = vec![];
     let pieces: Vec<&str> = q.split(' ').collect();
     let rest = |i: usize, prefix: &str| pieces[i..].join(" ")[prefix.len()..].to_string();
     let mut text: Option<String> = None;
@@ -149,11 +148,11 @@ pub fn normalize_classic(q: &str, path: Option<&str>, case: bool, regexp: bool) 
         terms.push(format!("path:{}", quote(path)));
     }
     if case {
-        changes.push("the query language has no case-sensitive search yet".to_string());
+        terms.push("case:sensitive".to_string());
     }
     Normalization {
         query: terms.join(" "),
-        changes,
+        changes: vec![],
     }
 }
 
@@ -235,6 +234,6 @@ mod tests {
             n("symbol:_ZN3FooEv", None, false, false),
             "symbol:_ZN3FooEv"
         );
-        assert!(!normalize_classic("x", None, true, false).changes.is_empty());
+        assert_eq!(n("x", None, true, false), "x case:sensitive");
     }
 }

@@ -778,4 +778,33 @@ mod tests {
         assert_eq!(values("--foo"), values("'--foo'"));
         assert_eq!(values("-Foo::Bar"), values("'-Foo::Bar'"));
     }
+
+    #[test]
+    fn test_case_sensitivity() {
+        // (The searches of text and identifiers are case-sensitive.)
+        let groups: serde_json::Value =
+            serde_json::from_str(&values("Foo case:sensitive")).unwrap();
+        for (group, command) in [
+            ("text-search", "search-text"),
+            ("semantic-search", "search-identifiers"),
+        ] {
+            let segment = groups[group]["segments"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|segment| segment["command"] == command)
+                .unwrap();
+            assert!(
+                segment["args"]["bool_args"]
+                    .as_array()
+                    .unwrap()
+                    .contains(&serde_json::json!("case-sensitive"))
+            );
+        }
+        assert!(!values("Foo case:insensitive").contains("case-sensitive"));
+        assert!(!values("Foo").contains("case-sensitive"));
+        // (Not a diagram's, which has no searches of text.)
+        assert!(!values("calls-to:Foo case:sensitive").contains("search-text"));
+        assert!(chew_query("Foo case:upper").is_err());
+    }
 }

@@ -100,10 +100,8 @@ add_task(async function test_QueryNormalization() {
   await TestUtils.loadPath("/trydelta/search?q=Widget::Frob&path=widget&case=true&regexp=false");
   is(doc().location.pathname, "/trydelta/query/default", "A search's URL queries");
   params = new URLSearchParams(doc().location.search);
-  is(params.get("q"), "'Widget::Frob' path:widget", "with its path filter");
-  ok([...doc().querySelectorAll(".query-interpretation")].some(
-       div => div.textContent.includes("case-sensitively")),
-     "saying that queries can't search case-sensitively");
+  is(params.get("q"), "'Widget::Frob' path:widget case:sensitive",
+     "with its path filter and case-sensitivity");
 });
 
 add_task(async function test_DwimRules() {
@@ -141,4 +139,17 @@ add_task(async function test_QueryExcludedPaths() {
   await TestUtils.loadQuery("tests", "aWidget -calls-to:Poke");
   ok(doc().body.textContent.includes("Only path: and pathre: terms can be negated"),
      "Negating another term says it can't be");
+});
+
+add_task(async function test_QueryCaseSensitivity() {
+  // A query's searches of text and identifiers ignore case, but with
+  // `case:sensitive` (which router.py's search's "Case-sensitive" option is).
+  await TestUtils.loadQuery("tests", "text:AWIDGET");
+  ok(doc().querySelector('details[data-path="spec_citations.cpp"]'), "A search ignores case");
+  await TestUtils.loadQuery("tests", "text:AWIDGET case:sensitive");
+  ok(!doc().querySelector('details[data-path="spec_citations.cpp"]'),
+     "but not with case:sensitive");
+  await TestUtils.loadQuery("tests", "text:aWidget case:sensitive");
+  ok(doc().querySelector('details[data-path="spec_citations.cpp"]'),
+     "which finds the case it has");
 });
