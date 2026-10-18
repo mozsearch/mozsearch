@@ -1,0 +1,1 @@
+block-diagram 'T_mozilla::_ipdltest::TestDataStructuresChild' --edges data | graph --format=raw-dot --hier=flat

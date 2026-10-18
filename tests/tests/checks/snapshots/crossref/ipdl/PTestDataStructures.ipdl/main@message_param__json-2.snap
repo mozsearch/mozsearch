@@ -71,6 +71,22 @@ input_file: inputs/crossref/ipdl/PTestDataStructures.ipdl/message_param__json
           "variants": [],
           "ipdlIndex": 0,
           "ipdlOut": false
+        },
+        "dataRollup": {
+          "out": [
+            {
+              "sym": "IPC_mozilla__ipdltest_PTestDataStructures_TestStruct__o",
+              "pretty": "mozilla__ipdltest::PTestDataStructures::TestStruct::o",
+              "count": 1,
+              "pairs": 1,
+              "via": [
+                "_ZN7mozilla9_ipdltest24TestDataStructuresParent14RecvTestStructERKNS_4_foo10SIntDoubleEPS3_"
+              ]
+            }
+          ],
+          "outTotal": 1,
+          "inTotal": 0,
+          "internal": 0
         }
       },
       "relation": "Queried",

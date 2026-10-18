@@ -1,19 +1,24 @@
+use std::collections::{BTreeSet, HashMap};
+
 use async_trait::async_trait;
 use clap::{Args, ValueEnum};
+use ustr::Ustr;
 
 use super::interface::{JsonValue, PipelineCommand, PipelineValues, TextFile};
 use crate::{
     abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError},
     dataflow::{
         frontend::FileIr,
+        ir::{EventKind, FuncIr, Step},
         oracle::Oracle,
         render::{DotOptions, render_dot, render_text},
         slice::{
             ChangedLines, FileChange, Slicing, render_slicing_dot, render_slicing_text, slice,
         },
-        summary::{Summary, field_edges, summarize},
+        summary::{IpdlSlots, Summary, field_edges, summarize_in},
         trace::{Dir, TraceOpts, Tracer, find_place},
     },
+    file_format::local_symbols::parameter_symbol,
 };
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
@@ -352,6 +357,107 @@ fn data_error(message: String) -> ServerError {
     })
 }
 
+/// The functions' summaries, as `dataflow-summarize` makes them: with the
+/// methods they override, and seeing through the code IPDL generates (see
+/// `ipdl_slots_of`), which is returned too, for `field_edges`.
+async fn summaries_of(
+    server: &(dyn AbstractServer + Send + Sync),
+    funcs: &[&FuncIr],
+) -> (Vec<Summary>, IpdlSlots) {
+    let syms: Vec<Ustr> = funcs.iter().map(|f| f.sym).collect();
+    server.prefetch_crossref(&syms).await;
+    let mut overrides: HashMap<Ustr, Vec<Ustr>> = HashMap::new();
+    for f in funcs {
+        if let Some(meta) = server
+            .crossref_lookup(&f.sym)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|data| data.meta)
+        {
+            overrides.insert(f.sym, meta.overrides.iter().map(|o| o.sym).collect());
+        }
+    }
+    let ipdl = ipdl_slots_of(server, funcs, &overrides).await;
+    let summaries = funcs
+        .iter()
+        .map(|f| {
+            let overrides = overrides.get(&f.sym).cloned().unwrap_or_default();
+            summarize_in(f, &ipdl, overrides)
+        })
+        .collect();
+    (summaries, ipdl)
+}
+
+/// What the code IPDL generates is (see `summary::IpdlSlots`), as far as the
+/// functions use it, from crossref's entries of the IPDL owners of their
+/// callees, of the fields they assign to, and of the methods they override
+/// (rather than the whole tree's, which `dataflow-summarize` reads from the
+/// IPDL files' analysis): the structs' fields and constructors, and the
+/// messages' parameters (by their `Send` methods' and `Recv` methods'
+/// parameters' symbols; see `parameter_symbol`).
+async fn ipdl_slots_of(
+    server: &(dyn AbstractServer + Send + Sync),
+    funcs: &[&FuncIr],
+    overrides: &HashMap<Ustr, Vec<Ustr>>,
+) -> IpdlSlots {
+    let meta_of = async |sym: &Ustr| {
+        server
+            .crossref_lookup(sym)
+            .await
+            .ok()
+            .flatten()
+            .and_then(|data| data.meta)
+    };
+    let mut syms: BTreeSet<Ustr> = BTreeSet::new();
+    for f in funcs {
+        syms.extend(f.calls.iter().flat_map(|call| call.callee.iter().copied()));
+        for event in &f.events {
+            if let EventKind::Assign { place, .. } = &event.kind {
+                syms.extend(place.path.iter().filter_map(|step| match step {
+                    Step::Field(sym) => Some(*sym),
+                    _ => None,
+                }));
+            }
+        }
+        syms.extend(overrides.get(&f.sym).into_iter().flatten().copied());
+    }
+    syms.retain(|sym| sym.starts_with("_Z"));
+    let syms: Vec<Ustr> = syms.into_iter().collect();
+    server.prefetch_crossref(&syms).await;
+    let mut owners: BTreeSet<Ustr> = BTreeSet::new();
+    for sym in &syms {
+        let Some(owner) = meta_of(sym).await.and_then(|meta| meta.slot_owner) else {
+            continue;
+        };
+        if owner.sym.starts_with("IPDL_") {
+            owners.insert(owner.sym);
+        } else if owner.sym.starts_with("IPC_") {
+            // (A message's `Send` or `Recv` method: its parameters' owners,
+            // and the message's, for its slots.)
+            owners.insert(owner.sym);
+            for i in 0..32 {
+                let param = ustr::ustr(&parameter_symbol(sym, i));
+                match meta_of(&param).await.and_then(|meta| meta.slot_owner) {
+                    Some(param_owner) if param_owner.sym.starts_with("IPC_") => {
+                        owners.insert(param_owner.sym);
+                    }
+                    _ => break,
+                }
+            }
+        }
+    }
+    let owners: Vec<Ustr> = owners.into_iter().collect();
+    server.prefetch_crossref(&owners).await;
+    let mut records = vec![];
+    for owner in &owners {
+        if let Some(meta) = meta_of(owner).await {
+            records.push(serde_json::to_value(&meta).unwrap());
+        }
+    }
+    IpdlSlots::from_structured(&records)
+}
+
 #[async_trait]
 impl PipelineCommand for DataflowCommand {
     async fn execute(
@@ -446,29 +552,20 @@ impl PipelineCommand for DataflowCommand {
             return self.render_slicing(server, slicing);
         }
         if let Some(paths) = paths_arg(&self.args.field_edges, &None)? {
-            let mut summaries = vec![];
+            let mut files = vec![];
             for path in &paths {
-                let Some(file) = tracer.file(path).await else {
-                    continue;
-                };
-                summaries.extend(file.funcs.iter().filter(|f| f.has_body).map(summarize));
-            }
-            // (What they override, for virtual calls; see
-            // `summary::field_edges`.)
-            for summary in &mut summaries {
-                if let Some(meta) = server
-                    .crossref_lookup(&summary.sym)
-                    .await
-                    .ok()
-                    .flatten()
-                    .and_then(|data| data.meta)
-                {
-                    summary.overrides = meta.overrides.iter().map(|o| o.sym).collect();
+                if let Some(file) = tracer.file(path).await {
+                    files.push(file);
                 }
             }
+            let funcs: Vec<&FuncIr> = files
+                .iter()
+                .flat_map(|file| file.funcs.iter().filter(|f| f.has_body))
+                .collect();
+            let (mut summaries, ipdl) = summaries_of(server, &funcs).await;
             summaries.sort_by(|a, b| a.sym.cmp(&b.sym));
             summaries.dedup_by(|a, b| a.sym == b.sym);
-            let edges = field_edges(&summaries);
+            let edges = field_edges(&summaries, &ipdl);
             return Ok(PipelineValues::JsonValue(JsonValue {
                 value: serde_json::to_value(&edges).unwrap(),
             }));
@@ -550,12 +647,12 @@ impl PipelineCommand for DataflowCommand {
             })
             .collect();
         if self.args.summary {
-            let summaries: Vec<Summary> = funcs
+            let funcs: Vec<&FuncIr> = funcs
                 .iter()
                 .map(|&i| &file.funcs[i])
                 .filter(|f| f.has_body)
-                .map(summarize)
                 .collect();
+            let (summaries, _) = summaries_of(server, &funcs).await;
             return Ok(PipelineValues::JsonValue(JsonValue {
                 value: serde_json::to_value(&summaries).unwrap(),
             }));

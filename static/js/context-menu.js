@@ -18,6 +18,14 @@ function isCxxLocalSym(sym) {
   return /^V_[0-9a-fA-F]+_[0-9a-fA-F]+$/.test(sym);
 }
 
+// Whether a symbol is an IPDL struct, union or message, whose fields or
+// parameters data flows through, so it has a data roll-up of its own (see
+// `IpdlSlots` in tools/src/dataflow/summary.rs), unlike other IDL symbols,
+// which are diagrammed by their language bindings.
+function isIpdlDataSym(sym, info) {
+  return /^IPDL_|^IPC_/.test(sym) && ["struct", "union", "ipc"].includes(info?.meta?.kind);
+}
+
 // The files whose languages dataflow understands (C++, JS/TS, Kotlin).
 const DATAFLOW_PATH_RE = /\.(c|cc|cpp|cxx|h|hh|hpp|hxx|js|jsm|mjs|sjs|ts|tsx|jsx|kt|kts)$/;
 
@@ -504,6 +512,10 @@ class DiagramMenuSection extends MenuItem {
     // which only block diagrams draw.
     this.isSubsystem = options.isSubsystem;
     this.isClassKind = options.isClassKind;
+    // An IPDL struct, union or message, whose fields or parameters data
+    // flows through, so it has a data roll-up but no calls' (see
+    // `IpdlSlots` in tools/src/dataflow/summary.rs).
+    this.isIpdl = options.isIpdl;
     // Whether diagrams of the symbol are by its symbol rather than its pretty
     // name, which other symbols may share (ex: a web spec's terms').
     this.bySym = options.bySym;
@@ -548,10 +560,11 @@ class DiagramMenuSection extends MenuItem {
     const quote = value => `'${value.replace(/[\\']/g, c => `\\${c}`)}'`;
     // (A subsystem's block diagram is by its name, a class's by its symbol.)
     const focus = this.isSubsystem ? this.pretty : this.sym;
-    for (const [label, extra, title] of [
+    const kinds = [
       ["Block", "", `Block diagram of ${this.pretty}'s calls`],
       ["Data", " block-edges:data", `Block diagram of ${this.pretty}'s data`],
-    ]) {
+    ];
+    for (const [label, extra, title] of this.isIpdl ? kinds.slice(1) : kinds) {
       const link = document.createElement("a");
       link.classList.add("contextmenu-button");
       link.setAttribute("role", "menuitem");
@@ -576,7 +589,7 @@ class DiagramMenuSection extends MenuItem {
     const title = document.createElement("div");
     title.classList.add("contextmenu-section-title");
     title.classList.add(`icon-brush`);
-    title.append("Diagram of " + this.pretty);
+    title.append(this.isIpdl ? `Diagram of ${this.pretty} (IPDL)` : "Diagram of " + this.pretty);
     withButtons.append(title);
 
     const titleButtons = document.createElement("div");
@@ -608,7 +621,7 @@ class DiagramMenuSection extends MenuItem {
     buttons.classList.add("contextmenu-buttons");
     li.append(buttons);
 
-    if (this.isSubsystem) {
+    if (this.isSubsystem || this.isIpdl) {
       this.addBlockButtons(buttons, menu, pos);
       return;
     }
@@ -1534,9 +1547,13 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         // A block diagram's edge between classes: the calls between them,
         // and the data between their fields and methods (the first's field
         // diagram, with the second's; see the tools' `cmd_block_diagram`).
+        // (An IPDL struct, union or message is a class for data, whose fields
+        // or parameters data flows through.)
         const quote = value => `'${value.replace(/[\\']/g, c => `\\${c}`)}'`;
         const isClassInfo = info => ["class", "struct"].includes(info?.meta?.kind);
-        if (isClassInfo(srcSymInfo) && isClassInfo(targSymInfo)) {
+        const isDataClass = (sym, info) => isClassInfo(info) || isIpdlDataSym(sym, info);
+        if (isClassInfo(srcSymInfo) && isClassInfo(targSymInfo) &&
+            !isIpdlDataSym(srcSyms[0], srcSymInfo) && !isIpdlDataSym(targSyms[0], targSymInfo)) {
           const queryString = `calls-between-source:${quote(srcSymInfo.pretty)} ` +
             `calls-between-target:${quote(targSymInfo.pretty)} depth:6`;
           jumpMenuItems.push(new MenuItem({
@@ -1546,6 +1563,8 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             icon: "brush",
             section: "jumps",
           }));
+        }
+        if (isDataClass(srcSyms[0], srcSymInfo) && isDataClass(targSyms[0], targSymInfo)) {
           jumpMenuItems.push(new MenuItem({
             html: this.fmt("Data between <strong>_</strong>", srcSymInfo.pretty) +
               this.fmt(" and <strong>_</strong>", targSymInfo.pretty),
@@ -1765,7 +1784,9 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         // logic itself will follow binding slots.
         //
         // (Nor locals' and parameters'.)
-        if (symInfo.meta && symInfo.meta.implKind !== "idl" && !isCxxLocalSym(sym)) {
+        // (But IPDL's structs and messages, for their data's block diagrams.)
+        if (symInfo.meta && (symInfo.meta.implKind !== "idl" || isIpdlDataSym(sym, symInfo)) &&
+            !isCxxLocalSym(sym)) {
           diagrammableSyms.push(symInfo);
         }
 
@@ -2293,7 +2314,9 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
 
         if (Settings.semanticInfo.enabled) {
           for (const jumpref of diagrammableSyms) {
-            if (jumpref?.meta?.kind === "class" || jumpref?.meta?.kind === "struct") {
+            // (An IPDL struct's layout is its C++ class's, its slot's.)
+            if ((jumpref?.meta?.kind === "class" || jumpref?.meta?.kind === "struct") &&
+                !isIpdlDataSym(jumpref.sym, jumpref)) {
               let queryString = `field-layout:'${jumpref.pretty}'`;
               fieldLayoutMenuItems.push(new MenuItem({
                 html: this.fmt("Class layout of <strong>_</strong>", jumpref.pretty),
@@ -2334,6 +2357,7 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
               isClass,
               isSubsystem: jumpref?.meta?.kind === "subsystem",
               isClassKind: ["class", "struct"].includes(jumpref?.meta?.kind),
+              isIpdl: isIpdlDataSym(jumpref.sym, jumpref),
               showInheritance,
               // (A web spec's terms' pretty names are "<spec> <term>", which
               // its other definitions of the term, ex: a method's, share.)

@@ -256,4 +256,10 @@ setters and trivial methods.  Fields (and functions) have data roll-ups of
 their own edges, which `block-diagram <class> --level field`
 (`block-level:field`, with `hier:pretty` for classes' tables of fields)
 draws: how data moves between the class's fields and other classes' fields
-and functions.
+and functions.  Summaries see through the code IPDL generates, as traces
+do: an IPDL struct's field (or union's variant) and a message's parameter
+are data of their own (written by the struct's constructors, `x.f() = v` and
+`Send` calls' arguments, read by its accessors and the `Recv`
+implementations' parameters), so data edges cross IPC through them, and the
+IPDL struct or message is a class between the sender's and the receiver's
+in roll-ups (`block-diagram IPDL_<struct> --level field` draws its fields).

@@ -1,0 +1,146 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/summary/ipdl_struct_field_edges
+---
+[
+  {
+    "from": "F_<T_mozilla::_ipdltest::TestDataStructuresChild>_kids",
+    "to": "IPDL_mozilla__foo_SActors_ap",
+    "count": 3,
+    "via": [
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild11TestStructsEv",
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild20TestStructWithActorsEv",
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild20TestUnionWithStructsEv"
+    ]
+  },
+  {
+    "from": "F_<T_mozilla::_ipdltest::TestDataStructuresChild>_kids",
+    "to": "IPDL_mozilla__foo_SetAttrs_x",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild16TestUnionWithCxxEv"
+    ]
+  },
+  {
+    "from": "F_<T_mozilla::_ipdltest::TestDataStructuresChild>_kids",
+    "to": "IPDL_mozilla__foo_Structs_ap",
+    "count": 2,
+    "via": [
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild11TestStructsEv",
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild20TestUnionWithStructsEv"
+    ]
+  },
+  {
+    "from": "F_<T_mozilla::_ipdltest::TestDataStructuresChild>_kids",
+    "to": "IPDL_mozilla__foo_WithUnions_ap",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild20TestStructWithUnionsEv"
+    ]
+  },
+  {
+    "from": "F_<T_mozilla::_ipdltest::TestDataStructuresParent>_kids",
+    "to": "IPDL_mozilla__foo_ActorWrapper_actor",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest24TestDataStructuresParent23RecvTestStructWithActorERKNS_4_foo12ActorWrapperEPS3_"
+    ]
+  },
+  {
+    "from": "IPDL_mozilla__foo_Actors_ArrayOfint",
+    "to": "_ZN7mozilla9_ipdltest24TestDataStructuresParent23RecvTestUnionWithActorsERKNS_4_foo6ActorsES5_S5_PS3_S6_S6_",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest24TestDataStructuresParent23RecvTestUnionWithActorsERKNS_4_foo6ActorsES5_S5_PS3_S6_S6_"
+    ]
+  },
+  {
+    "from": "IPDL_mozilla__foo_IntDoubleArrays_ArrayOfdouble",
+    "to": "_ZN7mozilla9_ipdltest24TestDataStructuresParent22RecvTestUnionWithArrayERKNS_4_foo15IntDoubleArraysES5_S5_PS3_S6_S6_",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest24TestDataStructuresParent22RecvTestUnionWithArrayERKNS_4_foo15IntDoubleArraysES5_S5_PS3_S6_S6_"
+    ]
+  },
+  {
+    "from": "IPDL_mozilla__foo_IntDoubleArrays_ArrayOfdouble",
+    "to": "_ZN7mozilla9_ipdltest24TestDataStructuresParent29RecvTestArrayOfUnionWithArrayEO8nsTArrayINS_4_foo15IntDoubleArraysEEPS5_",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest24TestDataStructuresParent29RecvTestArrayOfUnionWithArrayEO8nsTArrayINS_4_foo15IntDoubleArraysEEPS5_"
+    ]
+  },
+  {
+    "from": "IPDL_mozilla__foo_IntDoubleArrays_ArrayOfint",
+    "to": "_ZN7mozilla9_ipdltest24TestDataStructuresParent22RecvTestUnionWithArrayERKNS_4_foo15IntDoubleArraysES5_S5_PS3_S6_S6_",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest24TestDataStructuresParent22RecvTestUnionWithArrayERKNS_4_foo15IntDoubleArraysES5_S5_PS3_S6_S6_"
+    ]
+  },
+  {
+    "from": "IPDL_mozilla__foo_IntDoubleArrays_ArrayOfint",
+    "to": "_ZN7mozilla9_ipdltest24TestDataStructuresParent29RecvTestArrayOfUnionWithArrayEO8nsTArrayINS_4_foo15IntDoubleArraysEEPS5_",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest24TestDataStructuresParent29RecvTestArrayOfUnionWithArrayEO8nsTArrayINS_4_foo15IntDoubleArraysEEPS5_"
+    ]
+  },
+  {
+    "from": "_ZN7mozilla9_ipdltest23TestDataStructuresChild11TestStructsEv",
+    "to": "IPDL_mozilla__foo_Structs_aa",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild11TestStructsEv"
+    ]
+  },
+  {
+    "from": "_ZN7mozilla9_ipdltest23TestDataStructuresChild16TestUnionWithCxxEv",
+    "to": "IPDL_mozilla__foo_Attrs_common",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild16TestUnionWithCxxEv"
+    ]
+  },
+  {
+    "from": "_ZN7mozilla9_ipdltest23TestDataStructuresChild16TestUnionWithCxxEv",
+    "to": "IPDL_mozilla__foo_Attrs_specific",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild16TestUnionWithCxxEv"
+    ]
+  },
+  {
+    "from": "_ZN7mozilla9_ipdltest23TestDataStructuresChild16TestUnionWithCxxEv",
+    "to": "IPDL_mozilla__foo_Op_SetAttrs",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild16TestUnionWithCxxEv"
+    ]
+  },
+  {
+    "from": "_ZN7mozilla9_ipdltest23TestDataStructuresChild20TestStructWithUnionsEv",
+    "to": "IPDL_mozilla__foo_WithUnions_aa",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild20TestStructWithUnionsEv"
+    ]
+  },
+  {
+    "from": "_ZN7mozilla9_ipdltest23TestDataStructuresChild20TestStructWithUnionsEv",
+    "to": "IPDL_mozilla__foo_WithUnions_au",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild20TestStructWithUnionsEv"
+    ]
+  },
+  {
+    "from": "_ZN7mozilla9_ipdltest23TestDataStructuresChild20TestUnionWithStructsEv",
+    "to": "IPDL_mozilla__foo_Structs_aa",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild20TestUnionWithStructsEv"
+    ]
+  }
+]

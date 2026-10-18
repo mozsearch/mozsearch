@@ -190,3 +190,65 @@ add_task(async function test_BlockDiagramSubsystemEdge() {
   ok(texts.includes("Panel") && texts.includes("Store"), `Their classes are shown: ${texts.join(", ")}`);
   ok(!texts.includes("Controller"), "but not the classes without calls between them");
 });
+
+add_task(async function test_BlockDiagramIpdlEdge() {
+  await TestUtils.resetFeatureGate("diagramming");
+  await TestUtils.loadQuery(
+    "tests", "block-diagram:'T_mozilla::_ipdltest::TestDataStructuresChild' block-edges:data");
+
+  // (The child writes its `kids` into the IPDL struct's `ap` field; see
+  // `IpdlSlots` in tools/src/dataflow/summary.rs.)
+  const edge = [...frame.contentDocument.querySelectorAll("svg [data-symbols]")]
+    .find(e => e.getAttribute("data-symbols") ===
+      "T_mozilla::_ipdltest::TestDataStructuresChild->IPDL_mozilla__foo_Structs");
+  ok(edge, "There's an edge from the actor to the IPDL struct");
+  TestUtils.click(edge);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the edge");
+
+  const links = [...menu.querySelectorAll(".contextmenu-link")].map(l => l.textContent);
+  ok(!links.some(l => l.startsWith("Calls between")),
+     `An IPDL struct has no calls between: ${links.join(", ")}`);
+  const link = [...menu.querySelectorAll(".contextmenu-link")]
+    .find(l => l.textContent ===
+      "Data between mozilla::_ipdltest::TestDataStructuresChild and mozilla::_foo::Structs");
+  ok(link, "The edge has the data between the actor and the struct");
+
+  const loadPromise = TestUtils.waitForLoad();
+  TestUtils.click(link);
+  await loadPromise;
+  is(frame.contentDocument.querySelector("#query").value,
+     "block-diagram:'T_mozilla::_ipdltest::TestDataStructuresChild' block-level:field " +
+     "block-with:'IPDL_mozilla__foo_Structs' hier:pretty",
+     "The query is the actor's fields, with the struct's");
+  const texts = svgTexts().map(t => t.trim());
+  ok(texts.includes("kids") && texts.includes("ap"),
+     `The actor's field and the struct's are shown: ${texts.join(", ")}`);
+});
+
+add_task(async function test_BlockDiagramIpdlNode() {
+  await TestUtils.resetFeatureGate("diagramming");
+  await TestUtils.loadQuery(
+    "tests", "block-diagram:'T_mozilla::_ipdltest::TestDataStructuresChild' block-edges:data");
+
+  const node = [...frame.contentDocument.querySelectorAll("svg [data-symbols]")]
+    .find(e => e.getAttribute("data-symbols") === "IPDL_mozilla__foo_Structs");
+  ok(node, "The IPDL struct's node is there");
+  TestUtils.click(node);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the struct");
+
+  ok(!findDiagramButton(menu, "Block"), "An IPDL struct has no calls' block diagram");
+  const data = findDiagramButton(menu, "Data");
+  ok(data, "but has a data block diagram button");
+
+  const loadPromise = TestUtils.waitForLoad();
+  TestUtils.click(data);
+  await loadPromise;
+  is(frame.contentDocument.querySelector("#query").value,
+     "block-diagram:'IPDL_mozilla__foo_Structs' block-edges:data",
+     "The block diagram's query is the struct's data");
+  const texts = svgTexts();
+  ok(texts.some(t => t.includes("TestDataStructuresChild")),
+     `The actor writing it is shown: ${texts.join(", ")}`);
+});

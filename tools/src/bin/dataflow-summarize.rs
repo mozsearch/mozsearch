@@ -3,6 +3,9 @@
 //! and calls, from the dataflow frontends' IR of each listed file, and the
 //! edges between fields those flows are once composed through calls.
 //! crossref rolls the edges up into classes' and subsystems' data roll-ups.
+//! The `.ipdl` and `.ipdlh` files' structured records are read first, so
+//! that summaries see through the code IPDL generates to the struct fields
+//! and message parameters it carries (see `IpdlSlots`).
 //!
 //! Writes, into the tree's index directory:
 //! - `dataflow-summaries`: a summary per line (JSON), by function symbol;
@@ -41,7 +44,9 @@ use clap::Parser;
 
 use tools::dataflow::frontend::{build_file_ir, lang_for_path};
 use tools::dataflow::records::FileRecords;
-use tools::dataflow::summary::{Summary, field_edges, structured_overrides, summarize};
+use tools::dataflow::summary::{
+    IpdlSlots, Summary, field_edges, structured_overrides, summarize_in,
+};
 use tools::file_format::analysis::read_analysis_values;
 use tools::file_format::config;
 
@@ -79,10 +84,14 @@ fn read_source(files_path: &str, objdir_path: &str, path: &str) -> Option<String
 }
 
 /// The path of a file's analysis (gzipped or not), and its size, uncompressed
-/// (estimated for gzipped ones), if it has one.
+/// (estimated for gzipped ones), if it has one.  (An empty file is the
+/// marker compress-outputs leaves beside the gzipped one, in an index that's
+/// done.)
 fn analysis_file(index_path: &str, path: &str) -> Option<(String, u64)> {
     let plain = format!("{}/analysis/{}", index_path, path);
-    if let Ok(meta) = std::fs::metadata(&plain) {
+    if let Ok(meta) = std::fs::metadata(&plain)
+        && meta.len() > 0
+    {
         return Some((plain, meta.len()));
     }
     // (Gzipped analysis is 10 to 15 times smaller.)
@@ -189,6 +198,7 @@ fn summarize_file(
     objdir_path: &str,
     path: &str,
     analysis: &str,
+    ipdl: &IpdlSlots,
 ) -> Result<Vec<Summary>, String> {
     let source = read_source(files_path, objdir_path, path).ok_or("no source")?;
     let values = read_analysis_values(analysis).ok_or("no analysis")?;
@@ -199,13 +209,34 @@ fn summarize_file(
         .iter()
         .filter(|f| f.has_body)
         .map(|f| {
-            let mut summary = summarize(f);
-            if let Some(structured) = recs.structured(&f.sym) {
-                summary.overrides = structured_overrides(structured);
-            }
-            summary
+            let overrides = recs
+                .structured(&f.sym)
+                .map(structured_overrides)
+                .unwrap_or_default();
+            summarize_in(f, ipdl, overrides)
         })
         .collect())
+}
+
+/// What the code IPDL generates is (see `IpdlSlots`), from the structured
+/// records of the tree's `.ipdl` and `.ipdlh` files' analysis.
+fn read_ipdl_slots(index_path: &str, files: &[String]) -> IpdlSlots {
+    let mut records = vec![];
+    for path in files {
+        if !(path.ends_with(".ipdl") || path.ends_with(".ipdlh")) {
+            continue;
+        }
+        let Some((analysis, _)) = analysis_file(index_path, path) else {
+            continue;
+        };
+        records.extend(
+            read_analysis_values(&analysis)
+                .into_iter()
+                .flatten()
+                .filter(|value| value.get("structured").is_some()),
+        );
+    }
+    IpdlSlots::from_structured(&records)
 }
 
 /// How long summarizing a file took (see `diags/dataflow-summarize`).
@@ -257,14 +288,15 @@ fn main() {
     let paths = &tree_config.paths;
 
     let list = File::open(&cli.analysis_files_list).unwrap();
-    let files: Vec<String> = BufReader::new(list)
-        .lines()
-        .map_while(|l| l.ok())
+    let listed: Vec<String> = BufReader::new(list).lines().map_while(|l| l.ok()).collect();
+    let start = Instant::now();
+    let ipdl = read_ipdl_slots(&paths.index_path, &listed);
+    let files: Vec<String> = listed
+        .into_iter()
         // (TypeScript's declaration files have no functions' bodies.)
         .filter(|path| lang_for_path(path).is_some() && !path.ends_with(".d.ts"))
         .collect();
 
-    let start = Instant::now();
     let analyses: Vec<Option<(String, u64)>> = files
         .iter()
         .map(|path| analysis_file(&paths.index_path, path))
@@ -295,7 +327,8 @@ fn main() {
     std::thread::scope(|s| {
         let handles: Vec<_> = (0..thread_count)
             .map(|_| {
-                let (paths, files, analyses, queue) = (&paths, &files, &analyses, &queue);
+                let (paths, files, analyses, queue, ipdl) =
+                    (&paths, &files, &analyses, &queue, &ipdl);
                 s.spawn(move || {
                     // (Serialized, a line each, so that what summarizing a
                     // file allocates is freed in whole pages, which
@@ -319,6 +352,7 @@ fn main() {
                             &paths.objdir_path,
                             path,
                             analysis,
+                            ipdl,
                         ) {
                             Ok(file_summaries) => {
                                 for summary in &file_summaries {
@@ -365,7 +399,7 @@ fn main() {
     summaries.dedup_by(|a, b| a.sym == b.sym);
     let summarized = start.elapsed();
 
-    let edges = field_edges(&summaries);
+    let edges = field_edges(&summaries, &ipdl);
     let composed = start.elapsed() - summarized;
 
     let index = Path::new(&paths.index_path);

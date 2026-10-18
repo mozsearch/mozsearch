@@ -1,0 +1,1 @@
+block-diagram 'IPDL_mozilla__foo_Structs' --level field | graph --format=raw-dot --hier=pretty

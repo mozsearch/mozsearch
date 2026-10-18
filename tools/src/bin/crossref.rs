@@ -22,7 +22,9 @@ use serde::Serialize;
 use serde_json::Map;
 extern crate tools;
 use tools::cmd_pipeline::symbol_graph::is_implementable;
-use tools::dataflow::summary::{Category, FieldEdge, Summary, field_class, is_value_type_class};
+use tools::dataflow::summary::{
+    Category, FieldEdge, Summary, field_class, is_field_sym, is_value_type_class,
+};
 use tools::file_format::analysis::AnalysisStructured;
 use tools::file_format::analysis::BindingSlotLang;
 use tools::file_format::analysis::OntologySlotInfo;
@@ -1979,15 +1981,20 @@ struct UnitEdge {
 
 /// A method's or field's class, for roll-ups: its `parentsym`, if that's a
 /// symbol with a structured record that isn't a namespace (else, for a C++
-/// field, the class its symbol names).
+/// field, the class its symbol names); an IPDL struct's field's is the
+/// struct, and a message's parameter's the message (see
+/// `tools::dataflow::summary::IpdlSlots`).
 fn rollup_class(meta_table: &MetaTable, sym: &Ustr) -> Option<Ustr> {
     match meta_table.get(sym) {
         Some(meta) => {
             let parent = meta.parent_sym?;
-            (matches!(meta.kind.as_str(), "method" | "field")
-                && !parent.starts_with("NS_")
-                && meta_table.contains_key(&parent))
-            .then_some(parent)
+            let is_member = match meta.kind.as_str() {
+                "method" | "field" => true,
+                "parameter" => parent.starts_with("IPC_"),
+                _ => false,
+            };
+            (is_member && !parent.starts_with("NS_") && meta_table.contains_key(&parent))
+                .then_some(parent)
         }
         None => field_class(sym).filter(|class| meta_table.contains_key(class)),
     }
@@ -2311,7 +2318,7 @@ fn data_edges(meta_table: &MetaTable, field_edges: &[FieldEdge]) -> Vec<UnitEdge
             // (The function the data flows in: an end, or the first `via`.)
             let function = [edge.from, edge.to]
                 .into_iter()
-                .find(|sym| !sym.starts_with("F_"))
+                .find(|sym| !is_field_sym(sym))
                 .or_else(|| edge.via.first().copied());
             if let Some(context) = function.and_then(|f| rollup_class(meta_table, &f)) {
                 let own = internal.of(context);
@@ -2686,8 +2693,8 @@ fn add_field_flows(
         // (Not a function's reads and writes of its class's own state's
         // fields, ex: an embedded member's.)
         let ends = [edge.from, edge.to];
-        if let Some(function) = ends.iter().find(|sym| !sym.starts_with("F_"))
-            && let Some(field) = ends.iter().find(|sym| sym.starts_with("F_"))
+        if let Some(function) = ends.iter().find(|sym| !is_field_sym(sym))
+            && let Some(field) = ends.iter().find(|sym| is_field_sym(sym))
             && let (Some(context), Some(class)) = (
                 rollup_class(meta_table, function),
                 rollup_class(meta_table, field),

@@ -9,7 +9,9 @@
 //! rolls up into edges between classes and subsystems.
 //!
 //! "Boring" plumbing is left out: logging and assertion macros' expansions,
-//! refcounting, and assertion methods.
+//! refcounting, and assertion methods.  The code IPDL generates is seen
+//! through, to the struct fields and message parameters it carries (see
+//! `IpdlSlots`).
 
 use std::collections::{BTreeSet, HashMap};
 
@@ -214,6 +216,189 @@ pub fn is_boring_macro(name: &str) -> bool {
 
 pub use crate::file_format::rollup::is_boring_callee;
 
+/// What the C++ code IPDL generates for structs, unions and messages is (by
+/// ipdl-analyze's binding slots: its `IPDL_` and `IPC_` owners), so that
+/// summaries see through it to the data it carries, as data of its own: a
+/// struct's field (or a union's variant) is written by the struct's
+/// constructors' arguments and through its mutable accessor (`x.f() = v`),
+/// and read through its accessors' calls; a message's parameter is its
+/// `Send` callers' argument and its `Recv` implementations' parameter.  Each
+/// is a `Port::Global` wherever the struct or message is (context
+/// insensitively, as the tracer's `IpdlSlot`s are), so field edges go from
+/// the sender's fields into the struct's fields (or the message's
+/// parameters), and out of them into the receiver's: data edges cross IPC.
+/// (Not in the generated code itself, whose serializers read every field.)
+#[derive(Clone, Debug, Default)]
+pub struct IpdlSlots {
+    /// The accessors (getter and setter slots) of struct fields and union
+    /// variants: the field's (or variant's) `IPDL_` symbol.
+    pub accessors: HashMap<Ustr, Ustr>,
+    /// Structs' constructors from their fields: the fields, in order; and
+    /// unions' from a variant: the variant.
+    pub constructors: HashMap<Ustr, Vec<Ustr>>,
+    /// Struct fields' generated members (`F_<T_…>_field_`): the field.
+    pub members: HashMap<Ustr, Ustr>,
+    /// Messages' generated `Send` methods: their parameters, by argument.
+    pub sends: HashMap<Ustr, Vec<Option<IpcParam>>>,
+    /// Messages' `Recv` methods (the generated base classes' declarations,
+    /// which the actors' implementations override, or the implementations
+    /// the generated code calls directly): their parameters, by argument.
+    pub recvs: HashMap<Ustr, Vec<Option<IpcParam>>>,
+}
+
+/// An IPDL message's parameter: its `IPC_` symbol, and whether it's an
+/// out-parameter (a sync message's reply, which the `Recv` implementation
+/// writes and the `Send` caller reads).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct IpcParam {
+    pub sym: Ustr,
+    pub out: bool,
+}
+
+impl IpdlSlots {
+    /// From the structured records of `.ipdl` and `.ipdlh` files' analysis
+    /// (or crossref's entries of the same owners).
+    pub fn from_structured<'a>(records: impl IntoIterator<Item = &'a serde_json::Value>) -> Self {
+        let str_of = |v: &serde_json::Value, key: &str| v.get(key)?.as_str().map(ustr);
+        let slots_of = |record: &'a serde_json::Value| {
+            record
+                .get("bindingSlots")
+                .and_then(|slots| slots.as_array())
+                .into_iter()
+                .flatten()
+                .filter_map(move |slot| {
+                    Some((slot.get("slotKind")?.as_str()?, str_of(slot, "sym")?))
+                })
+        };
+        let mut table = IpdlSlots::default();
+        // (Messages' `Send` and `Recv` slots, for their parameters.)
+        let mut messages: HashMap<Ustr, Vec<(&str, Ustr)>> = HashMap::new();
+        let mut params: Vec<&serde_json::Value> = vec![];
+        for record in records {
+            let (Some(sym), Some(kind)) = (str_of(record, "sym"), str_of(record, "kind")) else {
+                continue;
+            };
+            match (kind.as_str(), sym.starts_with("IPDL_")) {
+                ("field", true) => {
+                    for (slot_kind, slot) in slots_of(record) {
+                        match slot_kind {
+                            "getter" | "setter" => {
+                                table.accessors.insert(slot, sym);
+                            }
+                            "member" => {
+                                table.members.insert(slot, sym);
+                            }
+                            // (A union's constructor from the variant.)
+                            "constructor" => {
+                                table.constructors.insert(slot, vec![sym]);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                ("struct", true) => {
+                    let fields: Vec<Ustr> = record
+                        .get("fields")
+                        .and_then(|fields| fields.as_array())
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|field| str_of(field, "sym"))
+                        .collect();
+                    for (slot_kind, slot) in slots_of(record) {
+                        if slot_kind == "constructor" && !fields.is_empty() {
+                            table.constructors.insert(slot, fields.clone());
+                        }
+                    }
+                }
+                ("ipc", _) => {
+                    messages.insert(sym, slots_of(record).collect());
+                }
+                ("parameter", _) if sym.starts_with("IPC_") => params.push(record),
+                _ => {}
+            }
+        }
+        for record in params {
+            let (Some(sym), Some(message), Some(index)) = (
+                str_of(record, "sym"),
+                str_of(record, "parentsym"),
+                record.get("ipdlIndex").and_then(|i| i.as_u64()),
+            ) else {
+                continue;
+            };
+            let param = IpcParam {
+                sym,
+                out: record.get("ipdlOut").and_then(|o| o.as_bool()) == Some(true),
+            };
+            for (slot_kind, slot) in messages.get(&message).into_iter().flatten() {
+                let by_slot = match *slot_kind {
+                    "send" => &mut table.sends,
+                    "recv" => &mut table.recvs,
+                    _ => continue,
+                };
+                let args = by_slot.entry(*slot).or_default();
+                let index = index as usize;
+                if args.len() <= index {
+                    args.resize(index + 1, None);
+                }
+                args[index] = Some(param);
+            }
+        }
+        table
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.accessors.is_empty()
+            && self.constructors.is_empty()
+            && self.sends.is_empty()
+            && self.recvs.is_empty()
+    }
+
+    /// The field a call accesses, if it's of an IPDL struct field's (or
+    /// union variant's) accessor.
+    fn accessor(&self, call: &Call) -> Option<Ustr> {
+        call.callee
+            .iter()
+            .find_map(|callee| self.accessors.get(callee).copied())
+    }
+
+    /// The fields a call's arguments are, if it's of an IPDL struct's (or
+    /// union's) constructor.
+    fn constructor(&self, call: &Call) -> Option<&[Ustr]> {
+        call.callee.iter().find_map(|callee| {
+            self.constructors
+                .get(callee)
+                .map(|fields| fields.as_slice())
+        })
+    }
+
+    /// The field a field symbol is, if it's an IPDL struct field's accessor
+    /// (see the C++ frontend's assignments through one) or member.
+    fn field(&self, sym: &Ustr) -> Option<Ustr> {
+        self.accessors
+            .get(sym)
+            .or_else(|| self.members.get(sym))
+            .copied()
+    }
+}
+
+/// Whether a path is of generated code (see `IpdlSlots`).
+fn is_generated_path(path: &str) -> bool {
+    path.starts_with("__GENERATED__/")
+}
+
+/// Whether a field edge's end is a field (a C++ member, an IPDL struct's
+/// field or union's variant, or an IPDL message's parameter; see
+/// `IpdlSlots`) rather than a function (or a global).
+pub fn is_field_sym(sym: &str) -> bool {
+    sym.starts_with("F_") || is_ipdl_sym(sym)
+}
+
+/// Whether a symbol is an IPDL struct's field, union's variant, or message's
+/// parameter (see `IpdlSlots`).
+fn is_ipdl_sym(sym: &str) -> bool {
+    sym.starts_with("IPDL_") || sym.starts_with("IPC_")
+}
+
 /// Whether a call is a method of a value type (see `is_value_type_class`;
 /// ex: `nsTArray::AppendElement`, `RefPtr::operator->`), which summaries see
 /// through: its result is its object's (and arguments') data, and, unless
@@ -273,6 +458,11 @@ type Sources = BTreeSet<(Port, bool)>;
 
 struct Builder<'f> {
     f: &'f FuncIr,
+    /// The code IPDL generates (none in generated code; see `IpdlSlots`).
+    ipdl: Option<&'f IpdlSlots>,
+    /// If it implements an IPDL message's `Recv` method: the message's
+    /// parameters, by its parameters.
+    recv_params: &'f [Option<IpcParam>],
     /// What each local (by symbol) holds.
     locals: HashMap<Ustr, Sources>,
     /// The function's events and calls that aren't plumbing.
@@ -280,21 +470,16 @@ struct Builder<'f> {
     boring_calls: Vec<bool>,
 }
 
-/// The fields in a path (ignoring dereferences and indexing).
-fn path_fields(path: &[Step]) -> Vec<Ustr> {
-    let mut fields: Vec<Ustr> = path
-        .iter()
-        .filter_map(|step| match step {
-            Step::Field(sym) => Some(*sym),
-            _ => None,
-        })
-        .collect();
-    fields.truncate(MAX_FIELDS);
-    fields
-}
-
 impl<'f> Builder<'f> {
-    fn new(f: &'f FuncIr) -> Self {
+    fn new(f: &'f FuncIr, ipdl: &'f IpdlSlots, overrides: &[Ustr]) -> Self {
+        let ipdl = (!ipdl.is_empty() && !is_generated_path(&f.path)).then_some(ipdl);
+        let recv_params = ipdl
+            .and_then(|ipdl| {
+                std::iter::once(&f.sym)
+                    .chain(overrides)
+                    .find_map(|sym| ipdl.recvs.get(sym))
+            })
+            .map_or(&[][..], |params| params.as_slice());
         let boring_calls: Vec<bool> = f
             .calls
             .iter()
@@ -311,32 +496,91 @@ impl<'f> Builder<'f> {
             .collect();
         Builder {
             f,
+            ipdl,
+            recv_params,
             locals: HashMap::new(),
             events,
             boring_calls,
         }
     }
 
+    /// The fields in a path (ignoring dereferences and indexing), an IPDL
+    /// struct field's accessor's as the field (see `IpdlSlots`).
+    fn path_fields(&self, path: &[Step]) -> Vec<Ustr> {
+        let mut fields: Vec<Ustr> = path
+            .iter()
+            .filter_map(|step| match step {
+                Step::Field(sym) => {
+                    Some(self.ipdl.and_then(|ipdl| ipdl.field(sym)).unwrap_or(*sym))
+                }
+                _ => None,
+            })
+            .collect();
+        fields.truncate(MAX_FIELDS);
+        fields
+    }
+
+    /// The IPDL message's parameter a parameter is, if the function
+    /// implements a message's `Recv` method.
+    fn recv_param(&self, i: usize) -> Option<IpcParam> {
+        self.recv_params.get(i).copied().flatten()
+    }
+
+    /// The IPDL message's parameter a call's argument is, if it's of a
+    /// message's `Send` method.
+    fn send_param(&self, callee: &Ustr, i: usize) -> Option<IpcParam> {
+        self.ipdl?.sends.get(callee)?.get(i).copied().flatten()
+    }
+
     /// The port a place is (for parameters, `this`, globals), or the ports
-    /// it may alias (a local holding a reference or pointer to one).
+    /// it may alias (a local holding a reference or pointer to one); and an
+    /// IPDL struct's field it's (a part of), assigned to through its mutable
+    /// accessor (`x.f() = v`), or an IPDL message's parameter, wherever they
+    /// are (see `IpdlSlots`).
     fn place_ports(&self, place: &Place) -> Vec<(Port, bool)> {
-        let fields = path_fields(&place.path);
-        match &place.root {
+        let fields = self.path_fields(&place.path);
+        let mut ports = match &place.root {
             Root::This => vec![(Port::This { fields }, false)],
             Root::Global(sym) => vec![(Port::Global { sym: *sym, fields }, false)],
-            Root::Local(sym) => {
-                if let Some(i) = self.f.param_index(place) {
-                    return vec![(Port::Param { i, fields }, false)];
+            Root::Local(sym) => match self.f.param_index(place) {
+                Some(i) => {
+                    let mut ports = vec![];
+                    if let Some(param) = self.recv_param(i) {
+                        let fields = fields.clone();
+                        ports.push((
+                            Port::Global {
+                                sym: param.sym,
+                                fields,
+                            },
+                            false,
+                        ));
+                    }
+                    ports.push((Port::Param { i, fields }, false));
+                    ports
                 }
-                match self.locals.get(sym) {
+                None => match self.locals.get(sym) {
                     Some(sources) => sources
                         .iter()
                         .map(|(port, derived)| (port.with_fields(&fields), *derived))
                         .collect(),
                     None => vec![],
-                }
-            }
+                },
+            },
+        };
+        if let Some(ipdl) = self.ipdl
+            && let Some((k, field)) = place
+                .path
+                .iter()
+                .enumerate()
+                .find_map(|(k, step)| match step {
+                    Step::Field(sym) => Some((k, *ipdl.accessors.get(sym)?)),
+                    _ => None,
+                })
+        {
+            let fields = self.path_fields(&place.path[k + 1..]);
+            ports.push((Port::Global { sym: field, fields }, false));
         }
+        ports
     }
 
     fn val_sources(&self, val: &Val, out: &mut Sources) {
@@ -349,6 +593,30 @@ impl<'f> Builder<'f> {
             Atom::Call(id) => {
                 let call = &self.f.calls[*id];
                 if self.boring_calls[*id] {
+                    return;
+                }
+                if let Some(field) = self.ipdl.and_then(|ipdl| ipdl.accessor(call)) {
+                    // (An IPDL struct field's accessor reads the field: of
+                    // the object it's called on, and wherever it is.)
+                    out.insert((
+                        Port::Global {
+                            sym: field,
+                            fields: vec![],
+                        },
+                        val.derived,
+                    ));
+                    if let Some(receiver) = &call.receiver {
+                        let mut inner = Sources::new();
+                        for v in &receiver.vals {
+                            self.val_sources(v, &mut inner);
+                        }
+                        out.extend(inner.into_iter().filter_map(|(p, d)| match p {
+                            Port::Param { .. } | Port::This { .. } | Port::Global { .. } => {
+                                Some((p.with_fields(&[field]), d || val.derived))
+                            }
+                            _ => None,
+                        }));
+                    }
                     return;
                 }
                 if value_type_call(call).is_some() {
@@ -469,6 +737,8 @@ impl<'f> Builder<'f> {
                     if self.f.param_index(place).is_some() || !place.path.is_empty() {
                         continue;
                     }
+                    // (A sync IPDL message's reply, ex: `SendFoo(&reply)`.)
+                    let reply = self.send_param(callee, ai).filter(|param| param.out);
                     let entry = self.locals.entry(*sym).or_default();
                     changed |= entry.insert((
                         Port::Result {
@@ -477,6 +747,15 @@ impl<'f> Builder<'f> {
                         },
                         false,
                     ));
+                    if let Some(reply) = reply {
+                        changed |= entry.insert((
+                            Port::Global {
+                                sym: reply.sym,
+                                fields: vec![],
+                            },
+                            false,
+                        ));
+                    }
                 }
             }
             if !changed {
@@ -489,12 +768,27 @@ impl<'f> Builder<'f> {
     fn flows(&self) -> Option<BTreeSet<Flow>> {
         let mut flows = BTreeSet::new();
         let mut overflowed = false;
+        // (A `Recv` implementation's parameter is its message's too (see
+        // `place_ports`): a flow between one's parameter and another's
+        // message's parameter is the same as those between the parameters and
+        // between the message's.)
+        let is_recv_param = |port: &Port| match port {
+            Port::Param { i, .. } => self.recv_param(*i).is_some(),
+            _ => false,
+        };
+        let is_message_param = |port: &Port| match port {
+            Port::Global { sym, .. } => self.recv_params.iter().flatten().any(|p| p.sym == *sym),
+            _ => false,
+        };
         let mut add = |sources: &Sources, to: &Port| {
             for (from, derived) in sources {
                 if overflowed {
                     return;
                 }
-                if from == to {
+                if from == to
+                    || (is_recv_param(from) && is_message_param(to))
+                    || (is_message_param(from) && is_recv_param(to))
+                {
                     continue;
                 }
                 flows.insert(Flow {
@@ -525,6 +819,24 @@ impl<'f> Builder<'f> {
                 }
                 EventKind::Call(ci) => {
                     let call = &self.f.calls[*ci];
+                    if let Some(ipdl) = self.ipdl {
+                        // (An IPDL struct field's accessor is a read, or,
+                        // assigned to, a write; see `val_sources` and
+                        // `place_ports`.)
+                        if ipdl.accessor(call).is_some() {
+                            continue;
+                        }
+                        // (An IPDL struct's constructor writes its fields.)
+                        if let Some(fields) = ipdl.constructor(call) {
+                            for (arg, field) in call.args.iter().zip(fields) {
+                                let to = Port::Global {
+                                    sym: *field,
+                                    fields: vec![],
+                                };
+                                add(&self.sources(&arg.vals), &to);
+                            }
+                        }
+                    }
                     if let Some(writes) = value_type_call(call) {
                         // (A value type's mutator writes its object, ex:
                         // `mList.AppendElement(aItem)`.)
@@ -554,13 +866,23 @@ impl<'f> Builder<'f> {
                                 i: Some(ai),
                             },
                         );
+                        // (An IPDL message's parameter, for its `Send`
+                        // method; a reply comes back, below.)
+                        let param = self.send_param(callee, ai);
+                        if let Some(param) = param.filter(|param| !param.out) {
+                            let to = Port::Global {
+                                sym: param.sym,
+                                fields: vec![],
+                            };
+                            add(&sources, &to);
+                        }
                         // (What the callee writes through `&x`: `x`'s new
                         // value, for parameters and fields.)
                         if arg.addr
                             && let Some(place) = &arg.place
                             && !(place.root == Root::This && place.path.is_empty())
                         {
-                            let result: Sources = [(
+                            let mut result: Sources = [(
                                 Port::Result {
                                     callee: *callee,
                                     i: Some(ai),
@@ -569,6 +891,13 @@ impl<'f> Builder<'f> {
                             )]
                             .into_iter()
                             .collect();
+                            if let Some(reply) = param.filter(|param| param.out) {
+                                let from = Port::Global {
+                                    sym: reply.sym,
+                                    fields: vec![],
+                                };
+                                result.insert((from, false));
+                            }
                             if !matches!(place.root, Root::Local(_))
                                 || self.f.param_index(place).is_some()
                             {
@@ -603,9 +932,16 @@ impl<'f> Builder<'f> {
 /// have more than 10000; 22 more than 100000).
 pub const MAX_FLOWS: usize = 10_000;
 
-/// A function's summary.
+/// A function's summary, without IPDL's (see `summarize_in`).
 pub fn summarize(f: &FuncIr) -> Summary {
-    let mut builder = Builder::new(f);
+    summarize_in(f, &IpdlSlots::default(), vec![])
+}
+
+/// A function's summary, seeing through the code IPDL generates (see
+/// `IpdlSlots`), given the methods it overrides (for messages' `Recv`
+/// implementations; the summary's `overrides`).
+pub fn summarize_in(f: &FuncIr, ipdl: &IpdlSlots, overrides: Vec<Ustr>) -> Summary {
+    let mut builder = Builder::new(f, ipdl, &overrides);
     builder.propagate_locals();
     let (flows, flows_omitted) = match builder.flows() {
         Some(flows) => (flows.into_iter().collect(), false),
@@ -625,7 +961,7 @@ pub fn summarize(f: &FuncIr) -> Summary {
         events,
         flows,
         flows_omitted,
-        overrides: vec![],
+        overrides,
     }
 }
 
@@ -784,8 +1120,10 @@ const MAX_COMPOSED_FLOWS: usize = 400;
 const MAX_VIA: usize = 4;
 
 /// Compose the summaries through their calls (see `compose_round`), and the
-/// edges between fields that the composed summaries' flows are.
-pub fn field_edges(summaries: &[Summary]) -> Vec<FieldEdge> {
+/// edges between fields that the composed summaries' flows are; an IPDL
+/// struct field's generated member is the field (see `IpdlSlots`), whose
+/// edges in the generated code are left out.
+pub fn field_edges(summaries: &[Summary], ipdl: &IpdlSlots) -> Vec<FieldEdge> {
     // (A callee's summary, or, for a virtual method, its implementations'.)
     let mut by_sym: HashMap<Ustr, Vec<usize>> = summaries
         .iter()
@@ -832,13 +1170,17 @@ pub fn field_edges(summaries: &[Summary]) -> Vec<FieldEdge> {
             summary.category,
             Category::Getter | Category::Setter | Category::Trivial
         );
+        let generated = is_generated_path(&summary.path);
+        let node = |port: &Port| {
+            port_node(port).map(|node| ipdl.members.get(&node).copied().unwrap_or(node))
+        };
         let mut seen: BTreeSet<(Ustr, Ustr)> = BTreeSet::new();
         for flow in flows {
             // (Between fields; or into another object's field from the
             // function's other data, which the function writes; or out of
             // another object's field into the function's other outputs, which
             // it reads.)
-            let (from, to) = match (port_node(&flow.from), port_node(&flow.to)) {
+            let (from, to) = match (node(&flow.from), node(&flow.to)) {
                 (Some(from), Some(to)) => (from, to),
                 (None, Some(to)) if !is_accessor && !is_own_field(&flow.to) => (summary.sym, to),
                 (Some(from), None) if !is_accessor && !is_own_field(&flow.from) => {
@@ -847,6 +1189,11 @@ pub fn field_edges(summaries: &[Summary]) -> Vec<FieldEdge> {
                 _ => continue,
             };
             if from == to || !seen.insert((from, to)) {
+                continue;
+            }
+            // (IPDL's serializers and dispatch read and write every field and
+            // parameter.)
+            if generated && (is_ipdl_sym(&from) || is_ipdl_sym(&to)) {
                 continue;
             }
             let edge = edges.entry((from, to)).or_insert_with(|| FieldEdge {
@@ -1013,6 +1360,56 @@ mod tests {
             Some("T_Pair<A, B>")
         );
         assert_eq!(field_class("V_1234_0"), None);
+    }
+
+    #[test]
+    fn test_ipdl_slots() {
+        // (As ipdl-analyze writes them, for a struct, a union's variant, and a
+        // sync message with a reply.)
+        let records: Vec<serde_json::Value> = [
+            r#"{"kind":"struct","sym":"IPDL_S","fields":[{"sym":"IPDL_S_a"},{"sym":"IPDL_S_b"}],
+                "bindingSlots":[{"slotKind":"class","sym":"T_S"},{"slotKind":"constructor","sym":"_ZS_ctor"}]}"#,
+            r#"{"kind":"field","sym":"IPDL_S_a","parentsym":"IPDL_S","ipdlIndex":0,
+                "bindingSlots":[{"slotKind":"getter","sym":"_ZNK_a"},{"slotKind":"setter","sym":"_ZN_a"},
+                                {"slotKind":"member","sym":"F_<T_S>_a_"}]}"#,
+            r#"{"kind":"field","sym":"IPDL_U_int","parentsym":"IPDL_U","ipdlIndex":0,
+                "bindingSlots":[{"slotKind":"constructor","sym":"_ZU_ctor_int"},{"slotKind":"getter","sym":"_ZNK_get_int"}]}"#,
+            r#"{"kind":"ipc","sym":"IPC_P_M",
+                "bindingSlots":[{"slotKind":"send","sym":"_ZSendM"},{"slotKind":"recv","sym":"_ZRecvM"}]}"#,
+            r#"{"kind":"parameter","sym":"IPC_P_M__reply","parentsym":"IPC_P_M","ipdlIndex":1,"ipdlOut":true}"#,
+            r#"{"kind":"parameter","sym":"IPC_P_M__arg","parentsym":"IPC_P_M","ipdlIndex":0,"ipdlOut":false}"#,
+        ]
+        .iter()
+        .map(|r| serde_json::from_str(r).unwrap())
+        .collect();
+        let slots = IpdlSlots::from_structured(&records);
+        let u = |s: &str| ustr(s);
+        assert_eq!(slots.accessors.get(&u("_ZN_a")), Some(&u("IPDL_S_a")));
+        assert_eq!(
+            slots.accessors.get(&u("_ZNK_get_int")),
+            Some(&u("IPDL_U_int"))
+        );
+        assert_eq!(slots.members.get(&u("F_<T_S>_a_")), Some(&u("IPDL_S_a")));
+        assert_eq!(
+            slots.constructors.get(&u("_ZS_ctor")),
+            Some(&vec![u("IPDL_S_a"), u("IPDL_S_b")])
+        );
+        assert_eq!(
+            slots.constructors.get(&u("_ZU_ctor_int")),
+            Some(&vec![u("IPDL_U_int")])
+        );
+        let params = vec![
+            Some(IpcParam {
+                sym: u("IPC_P_M__arg"),
+                out: false,
+            }),
+            Some(IpcParam {
+                sym: u("IPC_P_M__reply"),
+                out: true,
+            }),
+        ];
+        assert_eq!(slots.sends.get(&u("_ZSendM")), Some(&params));
+        assert_eq!(slots.recvs.get(&u("_ZRecvM")), Some(&params));
     }
 
     #[test]

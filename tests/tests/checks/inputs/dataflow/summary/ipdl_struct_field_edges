@@ -1,0 +1,1 @@
+dataflow x --field-edges ipdl/TestDataStructures.cpp | jq '[.[] | select(.from | startswith("IPC_") | not) | select(.to | startswith("IPC_") | not) | select((.from | startswith("IPDL_")) or (.to | startswith("IPDL_")))]'

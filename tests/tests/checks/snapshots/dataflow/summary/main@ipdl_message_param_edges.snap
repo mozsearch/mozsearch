@@ -1,0 +1,55 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/summary/ipdl_message_param_edges
+---
+[
+  {
+    "from": "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__i1",
+    "to": "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__o1",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest24TestDataStructuresParent13RecvTestUnionERKNS_4_foo9IntDoubleES5_PS3_S6_"
+    ]
+  },
+  {
+    "from": "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__i2",
+    "to": "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__o2",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest24TestDataStructuresParent13RecvTestUnionERKNS_4_foo9IntDoubleES5_PS3_S6_"
+    ]
+  },
+  {
+    "from": "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__o1",
+    "to": "_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv"
+    ]
+  },
+  {
+    "from": "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__o2",
+    "to": "_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv"
+    ]
+  },
+  {
+    "from": "_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv",
+    "to": "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__i1",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv"
+    ]
+  },
+  {
+    "from": "_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv",
+    "to": "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__i2",
+    "count": 1,
+    "via": [
+      "_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv"
+    ]
+  }
+]

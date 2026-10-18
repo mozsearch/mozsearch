@@ -8,6 +8,7 @@ use super::symbol_graph::{
     EdgeDetail, NamedSymbolGraph, SymbolGraphCollection, SymbolGraphEdgeSet, SymbolGraphNodeSet,
 };
 use crate::abstract_server::{AbstractServer, ErrorDetails, ErrorLayer, Result, ServerError};
+use crate::dataflow::summary::is_field_sym;
 use crate::file_format::rollup::{
     Rollup, RollupEdge, SUBSYSTEM_PREFIX, root_subsystem_sym, subsystem_sym,
 };
@@ -89,9 +90,16 @@ pub struct BlockDiagram {
     with: Option<String>,
 }
 
+/// Whether a symbol is a class, for block diagrams: a C++ (or other
+/// language's) class, or an IPDL struct or message, whose fields or
+/// parameters data flows through (see `dataflow::summary::IpdlSlots`).
+fn is_block_class(sym: &str) -> bool {
+    sym.starts_with("T_") || sym.starts_with("IPDL_") || sym.starts_with("IPC_")
+}
+
 /// A class or subsystem's symbol, by its symbol or a subsystem's name.
 fn block_sym(name: &str) -> Ustr {
-    if name.starts_with("T_") || name.starts_with(SUBSYSTEM_PREFIX) {
+    if is_block_class(name) || name.starts_with(SUBSYSTEM_PREFIX) {
         ustr(name)
     } else {
         subsystem_sym(name)
@@ -106,18 +114,23 @@ async fn is_in(server: &(dyn AbstractServer + Send + Sync), sym: Ustr, with: Ust
     if sym == with {
         return Ok(true);
     }
-    // (Its class: a field's, by its symbol, or a method's, by its parent.)
+    // (Its class: a field's, by its symbol, or a method's (or an IPDL
+    // struct's field's, or a message's parameter's), by its parent; an IPDL
+    // struct or message, which has none, is one.)
     let class = match crate::dataflow::summary::field_class(&sym) {
         Some(class) => Some(class),
         None if sym.starts_with("T_") || sym.starts_with(SUBSYSTEM_PREFIX) => Some(sym),
-        None => server
-            .crossref_lookup(&sym)
-            .await?
-            .and_then(|data| data.meta)
-            .and_then(|meta| meta.parent_sym)
-            .filter(|parent| parent.starts_with("T_")),
+        None => {
+            let parent = server
+                .crossref_lookup(&sym)
+                .await?
+                .and_then(|data| data.meta)
+                .and_then(|meta| meta.parent_sym)
+                .filter(|parent| is_block_class(parent));
+            parent.or_else(|| is_block_class(&sym).then_some(sym))
+        }
     };
-    if with.starts_with("T_") {
+    if is_block_class(&with) {
         return Ok(class == Some(with));
     }
     let subject = class.unwrap_or(sym);
@@ -268,7 +281,7 @@ impl PipelineCommand for BlockDiagramCommand {
             let members: Vec<Ustr> = rollup
                 .members
                 .iter()
-                .filter(|m| m.sym.starts_with("T_"))
+                .filter(|m| is_block_class(&m.sym))
                 .take(self.args.max_members)
                 .map(|m| m.sym)
                 .collect();
@@ -360,7 +373,7 @@ impl PipelineCommand for BlockDiagramCommand {
         };
         // (Most first; and, for fields, edges between fields before those
         // between functions and fields.)
-        let between_fields = |e: &BlockEdge| e.from.starts_with("F_") && e.to.starts_with("F_");
+        let between_fields = |e: &BlockEdge| is_field_sym(&e.from) && is_field_sym(&e.to);
         edges.sort_by(|a, b| {
             between_fields(b)
                 .cmp(&between_fields(a))
