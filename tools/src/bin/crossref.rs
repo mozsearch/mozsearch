@@ -58,8 +58,8 @@ use tools::file_format::repo_data_ingestion::{
 };
 use tools::file_format::rollup::{
     ROLLUP_EDGES, ROLLUP_EXAMPLE_EDGES, ROLLUP_EXAMPLES, ROLLUP_MEMBERS, ROLLUP_TREE_EDGES, Rollup,
-    RollupEdge, RollupExample, RollupMember, RollupPair, is_boring_callee, root_subsystem_sym,
-    subsystem_sym,
+    RollupEdge, RollupExample, RollupMember, RollupPair, directory_subsystems, is_boring_callee,
+    root_subsystem_sym, subsystem_sym,
 };
 use tools::hyperblame::recency::{CONTEXT_KINDS, FileLinkage, HistoryDigests, link_definitions};
 use tools::logging::LoggedSpan;
@@ -535,17 +535,36 @@ fn process_analysis_structured(
     structured_items.push(piece)
 }
 
+/// Directories' subsystems for the files (see `directory_subsystems`), if
+/// the tree's per-file info gives none of its files a subsystem.
+fn fallback_subsystems(ingestion: &RepoIngestion, paths: &[Ustr]) -> HashMap<Ustr, Ustr> {
+    let has_subsystems = ingestion
+        .state
+        .concise_per_file
+        .values()
+        .any(|info| info.subsystem.is_some());
+    if has_subsystems {
+        return HashMap::new();
+    }
+    directory_subsystems(paths)
+}
+
+/// A file's subsystem: its per-file info's, else its directory's (see
+/// `fallback_subsystems`); and its file symbols' structured records.
 fn make_subsystem(
     path: &Ustr,
     file_syms: &Vec<String>,
     ingestion: &RepoIngestion,
+    dir_subsystems: &HashMap<Ustr, Ustr>,
     structured_items: &mut StructuredItems,
     pretty_items: &mut PrettyItems,
     id_items: &mut IdItems,
 ) -> Option<Ustr> {
     let concise_info = ingestion.state.concise_per_file.get(path);
 
-    let subsystem = concise_info?.subsystem;
+    let subsystem = concise_info
+        .and_then(|info| info.subsystem)
+        .or_else(|| dir_subsystems.get(path).copied());
 
     for file_sym_str in file_syms {
         let file_sym = ustr(file_sym_str);
@@ -807,6 +826,7 @@ fn read_analysis_files_thread(
     index_path: String,
     find_source_file: &FindSourceFile,
     ingestion: &RepoIngestion,
+    dir_subsystems: &HashMap<Ustr, Ustr>,
     history: Option<&HistoryDigests>,
     out: &mut Option<PerThreadAnalysisData>,
 ) {
@@ -840,6 +860,7 @@ fn read_analysis_files_thread(
             path,
             &file_syms,
             ingestion,
+            dir_subsystems,
             &mut structured_items,
             &mut pretty_items,
             &mut id_items,
@@ -1033,6 +1054,7 @@ fn read_analysis_files(
     tree_name: &String,
     tree_config: &TreeConfig,
     ingestion: &RepoIngestion,
+    dir_subsystems: &HashMap<Ustr, Ustr>,
     history: Option<&HistoryDigests>,
     thread_count: usize,
 ) -> AnalysisData {
@@ -1072,6 +1094,7 @@ fn read_analysis_files(
                     index_path,
                     &find_source_file,
                     ingestion,
+                    dir_subsystems,
                     history,
                     out,
                 );
@@ -3212,6 +3235,17 @@ async fn crossref_subset(
             .map(|x| ustr(&x.unwrap()))
             .collect();
     let ingestion = subset_ingestion(cfg, base_index, &analysis_relative_paths);
+    // (Directories' subsystems as the tree's are, by its files.)
+    let tree_paths: Vec<Ustr> = File::open(format!("{}/all-analysis-files", base_index))
+        .map(|file| {
+            BufReader::new(file)
+                .lines()
+                .map_while(|l| l.ok())
+                .map(|l| ustr(&l))
+                .collect()
+        })
+        .unwrap_or_else(|_| analysis_relative_paths.clone());
+    let dir_subsystems = fallback_subsystems(&ingestion, &tree_paths);
     let ontology = load_ontology(cfg);
     let AnalysisData {
         mut search_result_table,
@@ -3226,6 +3260,7 @@ async fn crossref_subset(
         tree_name,
         tree_config,
         &ingestion,
+        &dir_subsystems,
         None,
         cli.thread_count,
     );
@@ -3412,6 +3447,7 @@ async fn main() {
         if history.is_some() { "yes" } else { "no" }
     );
     let analyzed: UstrSet = analysis_relative_paths.iter().copied().collect();
+    let dir_subsystems = fallback_subsystems(&ingestion, &analysis_relative_paths);
     let AnalysisData {
         mut search_result_table,
         pretty_table,
@@ -3427,6 +3463,7 @@ async fn main() {
         tree_name,
         tree_config,
         &ingestion,
+        &dir_subsystems,
         history.as_ref(),
         cli.thread_count,
     );

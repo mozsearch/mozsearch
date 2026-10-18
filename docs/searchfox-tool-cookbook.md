@@ -164,7 +164,9 @@ From inside the VM:
 ### Block diagrams
 
 crossref rolls the calls between functions up into calls between classes and
-between subsystems (from files' Bugzilla components), stored as `callRollup`
+between subsystems (from files' Bugzilla components; in trees whose files
+have none, directories: a file's top-level directory, split into
+subdirectories where it has more than `max(256, files / 32)` files), stored as `callRollup`
 on classes' crossref entries and on subsystems' pseudo-symbols
 (`SUBSYS_<subsystem>`, and `SUBSYS_` for the whole tree; see
 `tools/src/file_format/rollup.rs`).  `block-diagram` draws them, without

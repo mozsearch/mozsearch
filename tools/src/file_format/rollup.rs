@@ -10,8 +10,9 @@
 //! and other objects' fields (see `dataflow::summary::FieldEdge`), for
 //! diagrams of how data moves between data structures' fields.
 //!
-//! Subsystems (from the files' per-file info, ex: "Core/DOM/Workers") get
-//! pseudo-symbols of their own, `SUBSYS_<mangled subsystem>`, whose crossref
+//! Subsystems (from the files' per-file info, ex: "Core/DOM/Workers", or, in
+//! trees whose per-file info has none, directories; see
+//! `directory_subsystems`) get pseudo-symbols of their own, `SUBSYS_<mangled subsystem>`, whose crossref
 //! entries have their roll-ups, and `SUBSYS_` (no subsystem) is the whole
 //! tree's: its members are the subsystems, and its `edges` the biggest edges
 //! between them.
@@ -42,6 +43,49 @@ pub fn subsystem_sym(subsystem: &str) -> Ustr {
 /// The whole tree's pseudo-symbol, whose members are its subsystems.
 pub fn root_subsystem_sym() -> Ustr {
     ustr(SUBSYSTEM_PREFIX)
+}
+
+/// The subsystem of files at the top of a tree, for `directory_subsystems`.
+pub const TOP_LEVEL_SUBSYSTEM: &str = "(top level)";
+
+/// Subsystems by directory, for trees whose files' per-file info gives them
+/// none (their subsystems come from Bugzilla components, which only trees
+/// with moz.build files have): a file's subsystem is its top-level
+/// directory, or, if that has more than `max(256, files / 32)` of the files,
+/// its subdirectory, and so on (a file directly in a directory that's split
+/// is in the directory's), so that subsystems are areas of a size that
+/// block diagrams can show (ex: mozsearch's `tools/src/cmd_pipeline`).
+/// `paths` are the tree's (analyzed) files.
+pub fn directory_subsystems(paths: &[Ustr]) -> std::collections::HashMap<Ustr, Ustr> {
+    use std::collections::HashMap;
+    let cap = (paths.len() / 32).max(256);
+    // (How many of the files each directory has, below it.)
+    let mut counts: HashMap<&str, usize> = HashMap::new();
+    for path in paths {
+        for (i, _) in path.match_indices('/') {
+            *counts.entry(&path[..i]).or_default() += 1;
+        }
+    }
+    paths
+        .iter()
+        .map(|path| {
+            let mut dirs = path.match_indices('/').map(|(i, _)| &path[..i]);
+            let subsystem = match dirs.next() {
+                None => TOP_LEVEL_SUBSYSTEM,
+                Some(top) => {
+                    let mut dir = top;
+                    for sub in dirs {
+                        if counts.get(dir).copied().unwrap_or(0) <= cap {
+                            break;
+                        }
+                        dir = sub;
+                    }
+                    dir
+                }
+            };
+            (*path, ustr(subsystem))
+        })
+        .collect()
 }
 
 /// Whether a function (by its pretty name) is plumbing whose calls don't say
@@ -358,6 +402,27 @@ impl Rollup {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_directory_subsystems() {
+        // (300 files in a/b/c, 10 in a/b/d, a/b/e.txt, 5 in x, and README.)
+        let mut paths: Vec<Ustr> = (0..300)
+            .map(|i| ustr(&format!("a/b/c/f{}.cpp", i)))
+            .collect();
+        paths.extend((0..10).map(|i| ustr(&format!("a/b/d/g{}.cpp", i))));
+        paths.push(ustr("a/b/e.txt"));
+        paths.extend((0..5).map(|i| ustr(&format!("x/h{}.rs", i))));
+        paths.push(ustr("README"));
+        let subsystems = directory_subsystems(&paths);
+        let of = |path: &str| subsystems.get(&ustr(path)).unwrap().as_str();
+        // (`a`, and `a/b`, have more than 256 files: split; `a/b/c` too, but
+        // its files are directly in it.)
+        assert_eq!(of("a/b/c/f1.cpp"), "a/b/c");
+        assert_eq!(of("a/b/d/g1.cpp"), "a/b/d");
+        assert_eq!(of("a/b/e.txt"), "a/b");
+        assert_eq!(of("x/h1.rs"), "x");
+        assert_eq!(of("README"), TOP_LEVEL_SUBSYSTEM);
+    }
 
     fn edge(sym: &str, count: u32, pairs: u32, examples: &[(&str, &str, u32)]) -> RollupEdge {
         RollupEdge {
