@@ -549,6 +549,12 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The data of the page of the file at `path` in the revision `rev` (see
+    /// `format::rev_file_data`), if it's a file there.
+    async fn rev_file(&self, _rev: &str, _path: &str) -> Result<Option<crate::format::RevFile>> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The try push this is the tree as changed by, if it's a `try_overlay`.
     fn try_delta_meta(&self) -> Option<crate::try_delta::TryDeltaMeta> {
         None

@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write;
 use std::ops::RangeInclusive;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::token_blame::FileTokenBlame;
 use crate::file_format::history::timeline_annotated::RemovalMarker;
@@ -21,7 +21,7 @@ pub struct CommitMeta {
     pub author: String,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct BlameInfo {
     /// `[rev, commit time, author index]` for each commit, indexed by the
     /// commit indices in the strip's classes and data attributes.
@@ -59,7 +59,7 @@ pub const CHUNK_TOKENS: usize = 16384;
 
 /// The popup's data for a chunk of lines, the `lines-K.json` hyperblame file
 /// for chunk K.
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
 pub struct LinesChunk {
     /// The (0-based) index of the chunk's first line.
     #[serde(rename = "firstLine")]
@@ -90,7 +90,7 @@ fn utf16_len(s: &str) -> usize {
 }
 
 /// The tokens on a line from one commit (and path).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct StripEntry {
     pub commit: usize,
     pub path: usize,
@@ -99,7 +99,7 @@ pub struct StripEntry {
 }
 
 /// A removal of a run of tokens; see `RemovalMarker`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct StripRemoval {
     pub commit: usize,
     /// The path of the file in the commit's parent.
@@ -111,7 +111,7 @@ pub struct StripRemoval {
 }
 
 /// Which neighbor a line without tokens got its commit from.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
 pub enum Interpolation {
     /// The lines on both sides, which have the same commit.
     Between,
@@ -123,7 +123,7 @@ pub enum Interpolation {
 }
 
 /// What the blame strip shows for a line.
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct StripLine {
     /// The commit whose color the line gets.
     pub commit: Option<usize>,
@@ -139,6 +139,7 @@ pub struct StripLine {
     pub removals_within: Vec<StripRemoval>,
 }
 
+#[derive(Deserialize, Serialize)]
 pub struct PageBlame {
     pub lines: Vec<StripLine>,
     pub info: BlameInfo,

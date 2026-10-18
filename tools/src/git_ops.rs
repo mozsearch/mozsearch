@@ -1,5 +1,5 @@
 use git2::{Commit, Object, Repository, TreeEntry};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     path::{Path, PathBuf},
     str::FromStr,
@@ -124,6 +124,7 @@ pub fn get_blame_lines(
     }
 }
 
+#[derive(Deserialize, Serialize)]
 pub struct FileCoverage {
     pub exact: bool,
     pub lines: Vec<InterpolatedCoverage>,

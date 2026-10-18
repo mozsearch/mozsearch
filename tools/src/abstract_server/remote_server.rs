@@ -621,6 +621,14 @@ impl AbstractServer for RemoteServer {
         parse(&self.api_live("try-push", &[("push", push)], false).await?)
     }
 
+    async fn rev_file(&self, rev: &str, path: &str) -> Result<Option<crate::format::RevFile>> {
+        parse(
+            &self
+                .api("rev-file", None, &[("commit", rev), ("path", path)])
+                .await?,
+        )
+    }
+
     async fn rev_dir(&self, rev: &str, path: &str) -> Result<Option<Value>> {
         parse(
             &self

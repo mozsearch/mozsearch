@@ -150,12 +150,19 @@ impl TreeJumprefs {
         }
         Ok(own)
     }
+}
+
+/// Where a page's jumprefs come from (see `format::format_code`): a tree's
+/// (see `TreeJumprefs`), or ones looked up ahead of time (ex: over a remote
+/// tree's server; see `PrefetchedJumprefs`).
+pub trait JumprefSource {
+    fn lookup(&self, sym: &str) -> Result<Option<JumprefData>>;
 
     /// Add the data of `sym` to a SYM_INFO (see `format::format_code`), if it
     /// has it, with the data of the extra symbols the context menu uses for
     /// it (see `determine_desired_extra_syms_from_jumpref`), tracking the
     /// traversals made for them in `traversed`.
-    pub fn add_sym_info(
+    fn add_sym_info(
         &self,
         sym: Ustr,
         sym_info: &mut BTreeMap<Ustr, Option<JumprefData>>,
@@ -205,6 +212,24 @@ impl TreeJumprefs {
             }
         }
         sym_info.insert(sym, jumpref);
+    }
+}
+
+impl JumprefSource for TreeJumprefs {
+    fn lookup(&self, sym: &str) -> Result<Option<JumprefData>> {
+        TreeJumprefs::lookup(self, sym)
+    }
+}
+
+/// Jumprefs looked up ahead of time, by symbol (`None` for symbols without
+/// any), ex: a remote tree's for a page's symbols (see
+/// `abstract_server::sym_info`).
+#[derive(Default)]
+pub struct PrefetchedJumprefs(pub BTreeMap<Ustr, Option<JumprefData>>);
+
+impl JumprefSource for PrefetchedJumprefs {
+    fn lookup(&self, sym: &str) -> Result<Option<JumprefData>> {
+        Ok(self.0.get(&ustr(sym)).cloned().flatten())
     }
 }
 

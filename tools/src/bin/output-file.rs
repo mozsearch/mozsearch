@@ -29,8 +29,9 @@ use tools::doc_trees_handler::find_doc_url;
 use tools::file_format::analysis::{read_analysis, read_source};
 use tools::file_format::jumpref::TreeJumprefs;
 use tools::format::{
-    create_markdown_panel_section, format_file_data, has_rendered_spec_view, hyperblame_files,
-    imported_spec_files, rendered_url, spec_globals, tests_firefox_dev_panel_item, tree_specs,
+    create_markdown_panel_section, file_extras, format_file_data, has_rendered_spec_view,
+    hyperblame_files, imported_spec_files, rendered_url, spec_globals,
+    tests_firefox_dev_panel_item, tree_specs,
 };
 use tools::languages;
 use tools::templating::info_boxes::InfoBoxes;
@@ -746,21 +747,32 @@ fn main() {
         // since output.sh's parallel stops every job at the first which fails.
         // (The panic's message and backtrace go to stderr, as usual.)
         let formatted = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            match format_file_data(
+            let formatted = file_extras(
                 &cfg,
                 tree_name,
-                panel,
-                source_file_info_boxes,
                 &head_commit,
                 BreadcrumbsLinksTo::Latest,
                 &blame_commit,
                 coverage_commit.as_ref(),
                 &path,
-                input,
-                &jumprefs,
-                &analysis,
-                &mut writer,
-            ) {
+                &input,
+            )
+            .and_then(|extras| {
+                format_file_data(
+                    &cfg,
+                    tree_name,
+                    panel,
+                    source_file_info_boxes,
+                    extras,
+                    BreadcrumbsLinksTo::Latest,
+                    &path,
+                    input,
+                    &jumprefs,
+                    &analysis,
+                    &mut writer,
+                )
+            });
+            match formatted {
                 Ok(formatted) => {
                     let perf_info = formatted.perf;
                     writeln!(

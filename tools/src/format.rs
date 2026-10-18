@@ -19,7 +19,7 @@ use crate::file_format::code_coverage_report;
 use crate::file_format::coverage::InterpolatedCoverage;
 use crate::file_format::crossref::CrossrefData;
 use crate::file_format::doc_trees::{DocTrees, read_doc_trees};
-use crate::file_format::jumpref::{JumprefData, JumprefTraversals, TreeJumprefs};
+use crate::file_format::jumpref::{JumprefData, JumprefSource, JumprefTraversals, TreeJumprefs};
 use crate::file_format::per_file_info::{PathFacetMap, path_facet_map};
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::{self, coverage_history, coverage_summary, git_time_to_chrono};
@@ -62,7 +62,7 @@ use crate::url_encode_path::url_encode_path;
 
 use git2::{Oid, Repository, Tree, TreeEntry};
 use itertools::Itertools;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, to_string, to_string_pretty};
 use ustr::{Ustr, UstrMap, ustr};
 
@@ -163,7 +163,7 @@ fn split_strings_at_records(
 /// for generating line numbers and any blame information.
 pub fn format_code(
     cfg: Option<&Config>,
-    jumpref_lookup: &TreeJumprefs,
+    jumpref_lookup: &dyn JumprefSource,
     format: FormatAs,
     path: &str,
     input: &str,
@@ -712,7 +712,7 @@ pub struct FormattedFile {
 /// `abstract_server::TryOverlay`), so that their lines can be excerpted for
 /// results like other files' (see `chunked_gzip::extract_rows`).
 pub fn source_rows_html(
-    jumprefs: &TreeJumprefs,
+    jumprefs: &dyn JumprefSource,
     path: &str,
     source: &str,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
@@ -771,26 +771,136 @@ pub fn source_rows_html(
     (html, sym_json)
 }
 
-pub fn format_file_data(
+/// What a file's source listing shows besides its text and analysis (see
+/// `format_file_data`): its revision's commit, its blame, its coverage, and
+/// the try push whose context its searches are in, from the tree's git
+/// repositories and history (see `file_extras`), so that a page can be
+/// rendered over a tree's server (see `AbstractServer::rev_file`).
+#[derive(Default, Deserialize, Serialize)]
+pub struct FileExtras {
+    /// The revision, its commit's header (HTML; see `blame::commit_header`),
+    /// and its date (RFC 3339).
+    pub revision: Option<(String, String, String)>,
+    /// The token-centric blame, if the tree's history has it (see
+    /// `page_token_blame`), with its data's URLs.
+    pub token_blame: Option<PageBlame>,
+    /// Else the classic line blame's lines (see `blame::LineData`).
+    pub blame_lines: Option<Vec<String>>,
+    pub coverage: Option<git_ops::FileCoverage>,
+    pub coverage_history: Option<serde_json::Value>,
+    /// The revision's coverage summary, if the file has a coverage history.
+    pub coverage_summary: Option<code_coverage_report::NodeMetadata>,
+    /// The try push whose context its searches are in (a try push's rebased
+    /// head's; see `try_delta`).
+    pub search_rev: Option<String>,
+    #[serde(skip)]
+    pub blame_lines_duration_us: u64,
+    #[serde(skip)]
+    pub commit_info_duration_us: u64,
+}
+
+/// The `FileExtras` of the file at `path`, whose text is `data`, in `commit`
+/// (and its blame's and coverage's commits), for a page whose links go to
+/// `breadcrumbs_links_to`.
+#[allow(clippy::too_many_arguments)]
+pub fn file_extras(
     cfg: &Config,
     tree_name: &str,
-    mut panel: Vec<PanelSection>,
-    info_boxes: String,
     commit: &Option<git2::Commit>,
     breadcrumbs_links_to: BreadcrumbsLinksTo,
     blame_commit: &Option<git2::Commit>,
     coverage_commit: Option<&git2::Commit>,
     path: &str,
+    data: &str,
+) -> Result<FileExtras, &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let coverage = git_ops::get_coverage(tree_config.git.as_ref(), coverage_commit, path);
+
+    let pre_blame_lines = Instant::now();
+    // We use the token-centric history if the tree has it (and it has the
+    // file), and otherwise the classic line blame; trees only have one or the
+    // other (see `config::git_data`).
+    let mut token_blame = tree_config
+        .git
+        .as_ref()
+        .zip(commit.as_ref())
+        .and_then(|(git, commit)| page_token_blame(git, commit, path, data));
+    if let (Some(page), Some(commit)) = (&mut token_blame, commit) {
+        set_token_blame_urls(page, tree_name, commit, path, breadcrumbs_links_to);
+    }
+    let blame_lines = match token_blame {
+        Some(_) => None,
+        None => git_ops::get_blame_lines(tree_config.git.as_ref(), blame_commit, path),
+    };
+    let blame_lines_duration_us = pre_blame_lines.elapsed().as_micros() as u64;
+
+    let pre_commit = Instant::now();
+    let revision = match *commit {
+        Some(ref commit) => Some((
+            commit.id().to_string(),
+            blame::commit_header(commit)?,
+            git_time_to_chrono(commit.time()).to_rfc3339(),
+        )),
+        None => None,
+    };
+    let commit_info_duration_us = pre_commit.elapsed().as_micros() as u64;
+
+    // The head of a try push's stack rebased onto the indexed revision has
+    // the push's semantic delta (see `try_delta`), and its pages' searches
+    // are of the push.
+    let search_rev = revision
+        .as_ref()
+        .map(|(rev, _, _)| rev.clone())
+        .filter(|rev| {
+            crate::try_delta::delta_dir(&tree_config.paths.index_path, rev)
+                .join("meta.json")
+                .exists()
+        });
+
+    let coverage_history = coverage_history(tree_config.git.as_ref(), path);
+    let coverage_summary = match coverage_history {
+        Some(_) => coverage_commit.as_ref().and_then(|commit| {
+            let coverage_rev = commit.id().to_string();
+            git_ops::coverage_summary(tree_config.git.as_ref(), &coverage_rev, path)
+        }),
+        None => None,
+    };
+    Ok(FileExtras {
+        revision,
+        token_blame,
+        blame_lines,
+        coverage,
+        coverage_history: coverage_history.and_then(|history| serde_json::to_value(history).ok()),
+        coverage_summary,
+        search_rev,
+        blame_lines_duration_us,
+        commit_info_duration_us,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn format_file_data(
+    cfg: &Config,
+    tree_name: &str,
+    mut panel: Vec<PanelSection>,
+    info_boxes: String,
+    extras: FileExtras,
+    breadcrumbs_links_to: BreadcrumbsLinksTo,
+    path: &str,
     data: String,
-    jumpref_lookup: &TreeJumprefs,
+    jumpref_lookup: &dyn JumprefSource,
     analysis: &[WithLocation<Vec<AnalysisSource>>],
     writer: &mut dyn Write,
 ) -> Result<FormattedFile, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
 
-    let coverage = git_ops::get_coverage(tree_config.git.as_ref(), coverage_commit, path);
+    let coverage = extras.coverage;
 
-    let mut format_perf = FormatPerfInfo::default();
+    let mut format_perf = FormatPerfInfo {
+        blame_lines_duration_us: extras.blame_lines_duration_us,
+        commit_info_duration_us: extras.commit_info_duration_us,
+        ..FormatPerfInfo::default()
+    };
 
     let format = languages::select_formatting(path);
     if let FormatAs::Binary = format {
@@ -807,55 +917,28 @@ pub fn format_file_data(
         format_code(Some(cfg), jumpref_lookup, format, path, &data, analysis);
     format_perf.format_code_duration_us = pre_format_code.elapsed().as_micros() as u64;
 
-    let pre_blame_lines = Instant::now();
-    // We use the token-centric history if the tree has it (and it has the
-    // file), and otherwise the classic line blame; trees only have one or the
-    // other (see `config::git_data`).
-    let mut token_blame = tree_config
-        .git
-        .as_ref()
-        .zip(commit.as_ref())
-        .and_then(|(git, commit)| page_token_blame(git, commit, path, &data))
-        .filter(|page| {
-            let matches = page.lines.len() == output_lines.len();
-            if !matches {
-                log::warn!(
-                    "Not using token blame for {}: {} lines but {} formatted lines",
-                    path,
-                    page.lines.len(),
-                    output_lines.len()
-                );
-            }
-            matches
-        });
-    if let (Some(page), Some(commit)) = (&mut token_blame, commit) {
-        set_token_blame_urls(page, tree_name, commit, path, breadcrumbs_links_to);
-    }
-    let blame_lines = match token_blame {
-        Some(_) => None,
-        None => git_ops::get_blame_lines(tree_config.git.as_ref(), blame_commit, path),
-    };
-    format_perf.blame_lines_duration_us = pre_blame_lines.elapsed().as_micros() as u64;
-
-    let pre_commit = Instant::now();
-    let revision_owned = match *commit {
-        Some(ref commit) => {
-            let rev = commit.id().to_string();
-            let header = blame::commit_header(commit)?;
-            let date = git_time_to_chrono(commit.time());
-            Some((rev, header, date))
+    let token_blame = extras.token_blame.filter(|page| {
+        let matches = page.lines.len() == output_lines.len();
+        if !matches {
+            log::warn!(
+                "Not using token blame for {}: {} lines but {} formatted lines",
+                path,
+                page.lines.len(),
+                output_lines.len()
+            );
         }
-        None => None,
-    };
-    let revision = match revision_owned {
-        Some((ref rev, ref header, date)) => Some(RevisionData {
+        matches
+    });
+    let blame_lines = extras.blame_lines;
+
+    let revision = match &extras.revision {
+        Some((rev, header, date)) => Some(RevisionData {
             rev: rev.as_str(),
             desc: header.as_str(),
-            date,
+            date: chrono::DateTime::parse_from_rfc3339(date).map_err(|_| "Bad date")?,
         }),
         None => None,
     };
-    format_perf.commit_info_duration_us = pre_commit.elapsed().as_micros() as u64;
 
     let pre_format_mixing = Instant::now();
 
@@ -863,17 +946,7 @@ pub fn format_file_data(
     let filename = path_wrapper.file_name().unwrap().to_str().unwrap();
 
     let title = format!("{} - mozsearch", filename);
-    // The head of a try push's stack rebased onto the indexed revision has
-    // the push's semantic delta (see `try_delta`), and its pages' searches
-    // are of the push.
-    let search_rev = revision_owned
-        .as_ref()
-        .map(|(rev, _, _)| rev.as_str())
-        .filter(|rev| {
-            crate::try_delta::delta_dir(&tree_config.paths.index_path, rev)
-                .join("meta.json")
-                .exists()
-        });
+    let search_rev = extras.search_rev.as_deref();
     let opt = Options {
         title: &title,
         tree_name,
@@ -890,12 +963,12 @@ pub fn format_file_data(
 
     output::generate_breadcrumbs(&opt, writer, path, &file_syms, !analysis.is_empty())?;
 
-    let coverage_history = coverage_history(cfg.trees[tree_name].git.as_ref(), path);
-    if let Some(coverage_history) = coverage_history {
+    if let Some(coverage_history) = &extras.coverage_history {
         let liquid_globals = liquid::object!({
             "tree": tree_name,
             "path": path,
-            "coverage_history": coverage_history,
+            "coverage_history": liquid::model::to_value(coverage_history)
+                .map_err(|_| "Template problems")?,
         });
 
         let template = build_and_parse_coverage_history();
@@ -903,11 +976,7 @@ pub fn format_file_data(
             .render_to(writer, &liquid_globals)
             .or(Err("Template problems"))?;
 
-        let coverage_summary = coverage_commit.as_ref().and_then(|commit| {
-            let coverage_rev = commit.id().to_string();
-            git_ops::coverage_summary(tree_config.git.as_ref(), &coverage_rev, path)
-        });
-        add_coverage_panel_item(&mut panel, coverage_summary.as_ref());
+        add_coverage_panel_item(&mut panel, extras.coverage_summary.as_ref());
     }
     output::generate_panel(&opt, writer, &panel, false)?;
 
@@ -3034,7 +3103,7 @@ pub(crate) fn excerpt_row_html(
 /// Add the SYM_INFO (see `format_code`) of the symbols in rows' `html` (their
 /// `data-symbols`) to `sym_info`, by `jumprefs` (see `add_sym_info`).
 pub(crate) fn add_rows_sym_info(
-    jumprefs: &TreeJumprefs,
+    jumprefs: &dyn JumprefSource,
     html: &str,
     sym_info: &mut BTreeMap<Ustr, Option<JumprefData>>,
     traversed: &mut UstrMap<JumprefTraversals>,
@@ -4979,17 +5048,19 @@ pub fn format_path(
 
     match object.kind() {
         Some(git2::ObjectType::Blob) => {
-            let blob = git_ops::read_blob_object(&object);
-            format_blob(
-                cfg,
-                tree_name,
-                path.to_str().expect("This Path was built from a str"),
-                writer,
-                tree_config,
-                git,
-                commit,
-                blob,
-            )
+            let path = path.to_str().expect("This Path was built from a str");
+            let file = rev_file_data(cfg, tree_name, rev, path)?.ok_or("Invalid path")?;
+            // (A try push's rebased head's jumprefs are the push's; see
+            // `try_delta`.)
+            let mut jumprefs = TreeJumprefs::default();
+            if let Some(delta) = crate::try_delta::TryDelta::open(
+                &tree_config.paths.index_path,
+                &commit.id().to_string(),
+            ) {
+                jumprefs = TreeJumprefs::open(&tree_config.paths, &cfg.tree_index_paths);
+                jumprefs.delta = delta.jumprefs();
+            }
+            render_rev_file(cfg, tree_name, path, file, &jumprefs, writer)
         }
         _ => Err("Invalid path"),
     }
@@ -5172,16 +5243,44 @@ pub fn render_dir_listing(
         .or(Err("Template problems"))
 }
 
-fn format_blob(
+/// A file's page at a revision (see `rev_file_data` and `render_rev_file`).
+#[derive(Deserialize, Serialize)]
+pub struct RevFile {
+    /// The revision (its full id).
+    pub rev: String,
+    /// Its hg revision, if known, else "default".
+    pub hg_rev: String,
+    pub text: String,
+    /// Its analysis records, as `AbstractServer::fetch_raw_analysis` gives
+    /// them: a try push's rebased head's (see `try_delta`), none otherwise.
+    pub analysis: Vec<serde_json::Value>,
+    pub extras: FileExtras,
+}
+
+/// The data of the page of the file at `path` in the revision `rev` (see
+/// `render_rev_file`), if it's a file there.  (For trees' servers; see
+/// `AbstractServer::rev_file`.)
+pub fn rev_file_data(
     cfg: &Config,
     tree_name: &str,
+    rev: &str,
     path: &str,
-    writer: &mut dyn Write,
-    tree_config: &TreeConfig,
-    git: &GitData,
-    commit: git2::Commit<'_>,
-    data: String,
-) -> Result<(), &'static str> {
+) -> Result<Option<RevFile>, &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
+    let path_ = Path::new(path.trim_end_matches('/'));
+    let (repo, oid) = get_object_at(OwnedOrBorrowed::Borrowed(&git.repo), commit_obj.id(), path_)?;
+    let object = repo
+        .find_object(oid, None)
+        .map_err(|_| "Failed to retrieve git object from id")?;
+    if object.kind() != Some(git2::ObjectType::Blob) {
+        return Ok(None);
+    }
+    let text = git_ops::read_blob_object(&object);
+    let commit = commit_obj.into_commit().or(Err("Bad revision"))?;
+    let path = path_.to_str().expect("This Path was built from a str");
+
     // Get blame.
     let blame_commit = if let Some(ref blame_repo) = git.blame_repo {
         let blame_oid = git
@@ -5202,12 +5301,13 @@ fn format_blob(
             .and_then(|object| object.peel_to_commit().ok())
     });
 
-    // The head of a try push's rebased stack has the push's analysis and
-    // jumprefs (see `try_delta`): its analysis of the files whose analysis it
-    // changes, and the base's of the files it doesn't change.
-    let delta =
-        crate::try_delta::TryDelta::open(&tree_config.paths.index_path, &commit.id().to_string());
-    let (analysis, jumprefs) = match &delta {
+    // The head of a try push's rebased stack has the push's analysis (see
+    // `try_delta`): its analysis of the files whose analysis it changes, and
+    // the base's of the files it doesn't change.
+    let analysis = match crate::try_delta::TryDelta::open(
+        &tree_config.paths.index_path,
+        &commit.id().to_string(),
+    ) {
         Some(delta) => {
             let file = match delta.analysis_file(path) {
                 Some(file) => Some(file),
@@ -5217,28 +5317,54 @@ fn format_blob(
                 ))),
                 None => None,
             };
-            let analysis = file
-                .filter(|file| file.exists() || file.with_extension("").exists())
-                .map(|file| {
-                    crate::file_format::analysis::read_analysis(
-                        &file.to_string_lossy(),
-                        &mut crate::file_format::analysis::read_source,
-                    )
-                })
-                .unwrap_or_default();
-            let mut jumprefs = TreeJumprefs::open(&tree_config.paths, &cfg.tree_index_paths);
-            jumprefs.delta = delta.jumprefs();
-            (analysis, jumprefs)
+            file.and_then(|file| {
+                let file = if file.exists() {
+                    file
+                } else {
+                    file.with_extension("")
+                };
+                crate::file_format::analysis::read_analysis_values(&file.to_string_lossy())
+            })
+            .unwrap_or_default()
         }
-        None => (Vec::new(), TreeJumprefs::default()),
+        None => vec![],
     };
 
-    let hg_rev = tree_config
-        .git
-        .as_ref()
-        .and_then(|git| git.hg_rev(commit.id()))
+    let hg_rev = git
+        .hg_rev(commit.id())
         .unwrap_or_else(|| "default".to_string());
-    let hg_rev: &str = &hg_rev;
+    let extras = file_extras(
+        cfg,
+        tree_name,
+        &Some(commit.clone()),
+        BreadcrumbsLinksTo::Historical,
+        &blame_commit,
+        coverage_commit.as_ref(),
+        path,
+        &text,
+    )?;
+    Ok(Some(RevFile {
+        rev: commit.id().to_string(),
+        hg_rev,
+        text,
+        analysis,
+        extras,
+    }))
+}
+
+/// The page of the file at `path` in a revision, with its `file` data (see
+/// `rev_file_data`) and the jumprefs of its analysis's symbols.
+pub fn render_rev_file(
+    cfg: &Config,
+    tree_name: &str,
+    path: &str,
+    file: RevFile,
+    jumprefs: &dyn JumprefSource,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let path = path.trim_end_matches('/');
+    let hg_rev: &str = &file.hg_rev;
 
     let encoded_path = url_encode_path(path);
 
@@ -5258,7 +5384,7 @@ fn format_blob(
         .paths
         .github_repo
         .as_ref()
-        .map(|gh_root| format!("{}/commits/{}/{}", gh_root, commit.id(), encoded_path));
+        .map(|gh_root| format!("{}/commits/{}/{}", gh_root, file.rev, encoded_path));
     let hg_log_link = tree_config
         .paths
         .hg_root
@@ -5289,10 +5415,9 @@ fn format_blob(
         });
     }
 
-    if let Some(link) =
-        tree_config
-            .paths
-            .make_raw_resource_rev_url(&commit.id().to_string(), hg_rev, path)
+    if let Some(link) = tree_config
+        .paths
+        .make_raw_resource_rev_url(&file.rev, hg_rev, path)
     {
         vcs_panel_items.push(PanelItem {
             label: PanelItemLabel::Plaintext("Raw".to_owned()),
@@ -5325,7 +5450,7 @@ fn format_blob(
             label: PanelItemLabel::Plaintext("Rendered view".to_owned()),
             tooltip: "Show the rendered document, with the blame of its blocks".to_owned(),
             id: "panel-rendered-view",
-            link: rendered_url(tree_name, Some(&commit.id().to_string()), path),
+            link: rendered_url(tree_name, Some(&file.rev), path),
             update_link_lineno: "",
             accel_key: None,
             copyable: true,
@@ -5341,28 +5466,47 @@ fn format_blob(
         create_markdown_panel_section(false, None),
     ];
 
-    let rev = commit.id().to_string();
+    let analysis = crate::file_format::analysis::analysis_from_values(
+        file.analysis,
+        &mut crate::file_format::analysis::read_source,
+    );
     let formatted = format_file_data(
         cfg,
         tree_name,
         panel,
         "".to_string(),
-        &Some(commit),
+        file.extras,
         BreadcrumbsLinksTo::Historical,
-        &blame_commit,
-        coverage_commit.as_ref(),
         path,
-        data,
-        &jumprefs,
+        file.text,
+        jumprefs,
         &analysis,
         writer,
     )?;
     // The page will request its hyperblame data right away; see
     // `hyperblame_file`.
     if let Some(page) = formatted.token_blame {
-        keep_page_data(tree_config, tree_name, &rev, path, &page);
+        keep_page_data(tree_config, tree_name, &file.rev, path, &page);
     }
     Ok(())
+}
+
+/// The symbols whose jumprefs a page of a file with the records `analysis`
+/// (see `fetch_raw_analysis`) at `path` may need (see `format_code`): its
+/// file's and its records', for looking them up ahead of time (see
+/// `jumpref::PrefetchedJumprefs`).
+pub fn page_symbols(path: &str, analysis: &[serde_json::Value]) -> Vec<Ustr> {
+    let mut syms: BTreeSet<Ustr> = BTreeSet::new();
+    syms.insert(ustr(&make_file_sym_from_path(path)));
+    for record in analysis {
+        if record.get("source").is_none() {
+            continue;
+        }
+        if let Some(sym) = record["sym"].as_str() {
+            syms.extend(sym.split(',').filter(|s| !s.is_empty()).map(ustr));
+        }
+    }
+    syms.into_iter().collect()
 }
 
 /// The "Copy as" panel section: "Copy as..." for a popup of the formats to

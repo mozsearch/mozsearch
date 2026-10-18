@@ -279,6 +279,12 @@ impl AbstractServer for LocalIndex {
         Ok(crate::try_import::try_push(&cfg, &self.tree_name, &push))
     }
 
+    async fn rev_file(&self, rev: &str, path: &str) -> Result<Option<crate::format::RevFile>> {
+        let cfg = self.tree_config_loaded();
+        crate::format::rev_file_data(&cfg, &self.tree_name, rev, path)
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
     async fn rev_dir(&self, rev: &str, path: &str) -> Result<Option<Value>> {
         let cfg = self.tree_config_loaded();
         crate::format::rev_dir_data(&cfg, &self.tree_name, rev, path)

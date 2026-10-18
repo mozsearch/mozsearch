@@ -49,6 +49,9 @@
 //! - `rev-dir?commit=[&path=]`: the data of a directory's listing at a
 //!   revision (`null` if it isn't a directory there; see
 //!   `format::rev_dir_data`).
+//! - `rev-file?commit=&path=`: the data of a file's page at a revision (its
+//!   text, its analysis if it's a try push's head's, its blame and coverage;
+//!   `null` if it isn't a file there; see `format::rev_file_data`).
 //! - `try-status?push=` and POST `try-import?push=`: a try push's import's
 //!   status, and asking for its import; served by the web-server, which
 //!   performs imports (see `Host`).
@@ -258,6 +261,13 @@ const ROUTES: &[Route] = &[
     },
     Route {
         name: "rev-dir",
+        takes_path: false,
+        params: &["commit", "path"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "rev-file",
         takes_path: false,
         params: &["commit", "path"],
         host: Host::PipelineServer,
@@ -744,6 +754,15 @@ async fn route_body(
             }
             let data = server.rev_dir(&commit, path).await.map_err(error)?;
             Ok(Body::json(&data.unwrap_or(Value::Null)))
+        }
+        "rev-file" => {
+            let commit = commit_param(params)?;
+            let path = params.required("path")?;
+            if !valid_tree_path(path) {
+                return Err(bad(format!("Not a path in the tree: {:?}", path)));
+            }
+            let file = server.rev_file(&commit, path).await.map_err(error)?;
+            Ok(Body::json(&serde_json::to_value(file).unwrap_or_default()))
         }
         "explore" => {
             let revs: Vec<String> = params

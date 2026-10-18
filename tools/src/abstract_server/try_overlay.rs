@@ -216,6 +216,10 @@ impl AbstractServer for TryOverlay {
         self.base.rev_dir(rev, path).await
     }
 
+    async fn rev_file(&self, rev: &str, path: &str) -> Result<Option<crate::format::RevFile>> {
+        self.base.rev_file(rev, path).await
+    }
+
     fn path_kinds(&self) -> Vec<(Ustr, Ustr)> {
         self.base.path_kinds()
     }

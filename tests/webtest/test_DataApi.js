@@ -84,6 +84,12 @@ add_task(async function test_DataApiRoutes() {
      "with its files' sizes");
   is(await getJson(`${API}/rev-dir?commit=${LANDED}&path=widget.cpp`), null,
      "but files aren't directories");
+  const file = await getJson(`${API}/rev-file?commit=${LANDED}&path=widget.cpp`);
+  is(file.rev, LANDED, "A file's page's data at a revision is there");
+  ok(file.text.includes("Widget::Frob"), "with its text");
+  ok(file.extras?.token_blame?.lines?.length, "and its blame");
+  is((await get(`${API}/rev-file?commit=${LANDED}&path=nothing.cpp`)).status, 422,
+     "but not of files it doesn't have");
 
   const formatted = await getJson(`${API}/formatted-lines/widget.cpp`);
   ok(formatted.lines?.some(line => line.includes(OLD_FROB)),
@@ -112,6 +118,8 @@ add_task(async function test_DataApiTryContext() {
   is((await get(`${API}/source/wobbler.cpp`)).status, 404, "as a file it adds is");
   const source = await get(`${API}/source/wobbler.cpp?rev=${head}`);
   ok(source.status == 200 && source.text.includes("Wobble"), "with its source");
+  const headFile = await getJson(`${API}/rev-file?commit=${head}&path=wobbler.cpp`);
+  ok(headFile.analysis?.length, "and its head's page's data has the push's analysis");
   is((await get(`${API}/tree-info?rev=${"0".repeat(40)}`)).status, 404,
      "A push without an analysis isn't there");
 

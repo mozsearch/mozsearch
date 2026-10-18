@@ -2,7 +2,7 @@ extern crate env_logger;
 extern crate hyper;
 extern crate tools;
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::fs::{File, OpenOptions};
 use std::io::BufReader;
@@ -22,7 +22,7 @@ use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
 use tokio::sync::Semaphore;
 use tools::abstract_server::{
-    AbstractServer, make_local_server, make_remote_servers, remote_trees_config,
+    AbstractServer, make_local_server, make_remote_servers, remote_trees_config, sym_info,
 };
 use tools::admission;
 use tools::blame;
@@ -31,9 +31,11 @@ use tools::data_api;
 use tools::diagnostics::diagnostics_from_config;
 use tools::file_format::config;
 use tools::file_format::identifiers::IdentMap;
+use tools::file_format::jumpref::PrefetchedJumprefs;
 use tools::file_format::per_file_info::path_facet_map;
 use tools::format;
 use tools::git_ops;
+use ustr::UstrMap;
 
 use tools::sidecars;
 use tools::url_encode_path::url_decode_path;
@@ -364,8 +366,9 @@ fn handle(
             // (Directories' listings over the tree's server; see
             // `tree_server`.)
             if let Some(server) = tree_server(tree_name) {
-                let (server, rev_, path_) = (server.clonify(), rev.to_string(), path.clone());
-                match format::run_on_runtime(async move { server.rev_dir(&rev_, &path_).await }) {
+                let (dir_server, rev_, path_) = (server.clonify(), rev.to_string(), path.clone());
+                match format::run_on_runtime(async move { dir_server.rev_dir(&rev_, &path_).await })
+                {
                     Ok(Some(data)) => {
                         return match format::render_dir_listing(
                             tree_name,
@@ -378,7 +381,57 @@ fn handle(
                             Err(err) => WebResponse::internal_error(err.to_owned()),
                         };
                     }
-                    Ok(None) => {}
+                    Ok(None) => {
+                        // (Files' pages over the tree's server too, with
+                        // their analysis's jumprefs looked up ahead of time;
+                        // see `format::render_rev_file`.)
+                        let (server, rev_, path_) =
+                            (server.clonify(), rev.to_string(), path.clone());
+                        let file = format::run_on_runtime(async move {
+                            let Some(file) = server.rev_file(&rev_, &path_).await? else {
+                                return Ok(None);
+                            };
+                            let mut jumprefs = BTreeMap::new();
+                            if !file.analysis.is_empty() {
+                                // (A try push's rebased head's are the push's.)
+                                let source = server
+                                    .try_overlay(&file.rev)
+                                    .unwrap_or_else(|| server.clonify());
+                                let mut traversed = UstrMap::default();
+                                for sym in format::page_symbols(&path_, &file.analysis) {
+                                    if !jumprefs.contains_key(&sym) {
+                                        sym_info::add_sym_info(
+                                            source.as_ref(),
+                                            sym,
+                                            &mut jumprefs,
+                                            &mut traversed,
+                                        )
+                                        .await;
+                                    }
+                                }
+                            }
+                            Ok::<_, tools::abstract_server::ServerError>(Some((file, jumprefs)))
+                        });
+                        match file {
+                            Ok(Some((file, jumprefs))) => {
+                                return match format::render_rev_file(
+                                    cfg,
+                                    tree_name,
+                                    &path,
+                                    file,
+                                    &PrefetchedJumprefs(jumprefs),
+                                    &mut writer,
+                                ) {
+                                    Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                                    Err(err) => WebResponse::internal_error(err.to_owned()),
+                                };
+                            }
+                            Ok(None) => {}
+                            Err(_)
+                                if cfg.trees.get(*tree_name).is_some_and(|t| t.git.is_some()) => {}
+                            Err(err) => return WebResponse::internal_error(format!("{:?}", err)),
+                        }
+                    }
                     Err(_) if cfg.trees.get(*tree_name).is_some_and(|t| t.git.is_some()) => {}
                     Err(err) => return WebResponse::internal_error(format!("{:?}", err)),
                 }
