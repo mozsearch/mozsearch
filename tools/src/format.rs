@@ -2907,7 +2907,7 @@ fn write_algorithm_view(
     if let Some(map) = &map {
         writeln!(
             writer,
-            r#"<details id="sp-algorithm-map" class="sp-algorithm-map" open><summary>Map of the page's algorithms and their calls</summary>{}</details>"#,
+            r#"<details id="sp-algorithm-map" class="sp-algorithm-map" data-own-context-menu open><summary>Map of the page's algorithms and their calls</summary>{}</details>"#,
             map
         )
         .unwrap();
@@ -3232,10 +3232,35 @@ fn write_algorithm_view(
       }}
     }}, {{ passive: true }});
     showCurrent();
+    // A node's click goes to its section (the map has no symbols' menus on
+    // clicks: see `data-own-context-menu`), and its right-click is a menu of
+    // its algorithm's pages.
     for (const node of nodes) {{
       node.addEventListener("click", () => {{
         keepHeight();
         sectionOf(node)?.scrollIntoView();
+      }});
+      node.addEventListener("contextmenu", event => {{
+        const section = sectionOf(node);
+        if (!section || typeof ContextMenu == "undefined") {{
+          return;
+        }}
+        event.preventDefault();
+        const n = Number(node.id.slice("sp-map-".length));
+        const link = selector => section.querySelector(selector)?.getAttribute("href");
+        const items = [
+          ["Go to its section", `#${{section.id}}`],
+          ["Show it beside the code citing it, and the algorithms it calls",
+           n ? link(".sp-called-view") : null],
+          ["Show it in its spec", n ? link(".sp-called-rendered") : null],
+        ].filter(([, href]) => href).map(([html, href]) => new MenuItem({{
+          html,
+          href,
+          preaction: () => ContextMenu.hide(),
+          icon: "export-alt",
+          section: "algorithm-map",
+        }}));
+        ContextMenu.showItems(items, event);
       }});
     }}
   }}

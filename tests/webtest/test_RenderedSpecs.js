@@ -410,6 +410,20 @@ add_task(async function test_AlgorithmMap() {
      "and scrolls to its section, just below the map");
   ok(!node(0)?.classList.contains("sp-map-current"),
      "The first section's node isn't highlighted then");
+  const menu = doc.querySelector("#context-menu");
+  ok(!menu || menu.style.display == "none",
+     "Clicking a node doesn't show the symbols' context menu");
+
+  // A node's right-click is a menu of its algorithm's pages.
+  const right = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2 });
+  ok(!node(1)?.dispatchEvent(right), "A node's right-click is the page's");
+  await waitForShown(doc.querySelector("#context-menu"), "with a menu");
+  const hrefs = [...doc.querySelectorAll("#context-menu a")].map(a => a.getAttribute("href"));
+  ok(hrefs.includes("#sp-algorithm-1"), `of its section: ${JSON.stringify(hrefs)}`);
+  ok(hrefs.some(href => href?.startsWith("/tests/algorithm/")), "its own view");
+  ok(!doc.querySelector("#context-menu").textContent.includes("Search for the substring"),
+     "and not the symbols' menu's");
+  frame.contentWindow.ContextMenu.hide();
 });
 
 // An algorithm's view's sections have their files' blame: the spechist tree's
