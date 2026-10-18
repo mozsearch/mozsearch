@@ -1722,7 +1722,10 @@ pub fn algorithm_redirect(cfg: &Config, tree_name: &str, sym: &str) -> Option<St
 
 /// A citation of a spec's algorithm, or one of its steps, in a tree's file:
 /// the tree, the path, the (1-based) line, the function it's in, the step,
-/// and the lines from it, up to the next step's or its block's end.
+/// and the lines from it, up to the next step's or its block's end (see
+/// `citation_extent`), of which the first `shown` show at first, and the
+/// lines after them, up to its file's next citation (at most
+/// `CITATION_AFTER_LINES`), which it can show.
 struct Citation {
     tree: String,
     path: String,
@@ -1730,6 +1733,15 @@ struct Citation {
     function: String,
     step: Option<String>,
     excerpt: Vec<String>,
+    shown: usize,
+    after: Vec<String>,
+    /// If it continues the citation before it in its column (in the same
+    /// file and function, after it): how many lines are between them; and
+    /// whether the one after it continues it closely, so that its lines
+    /// after it are those between them, which show, lightened (see
+    /// `mark_continuations`).
+    continues: Option<u32>,
+    continued_closely: bool,
     /// The excerpt's lines' rows in the tree's source listing, if it has them
     /// (see `citation_rows`).
     rows: Option<String>,
@@ -1778,8 +1790,168 @@ fn newest_change(page: &PageBlame, lines: RangeInclusive<usize>) -> Option<(i64,
         .map(|(rev, time, _)| (*time, rev.clone()))
 }
 
-/// How many lines a citation's excerpt has at most.
-const CITATION_EXCERPT_LINES: usize = 8;
+/// How many lines a citation's excerpt has at most (see `citation_extent`),
+/// and how many show at first, at least (and through how many of its lines of
+/// code, past its comments, at most this many), the rest folded.
+const CITATION_EXCERPT_LINES: usize = 60;
+const CITATION_SHOWN_LINES: usize = 12;
+const CITATION_SHOWN_CODE_LINES: usize = 4;
+const CITATION_SHOWN_MAX_LINES: usize = 30;
+/// How many lines after a citation's excerpt it can show (up to its file's
+/// next citation), in case its extent should have been longer.
+const CITATION_AFTER_LINES: usize = 30;
+
+/// How many of an excerpt's lines show at first (see `CITATION_SHOWN_LINES`):
+/// all of them, if only a few more would fold.
+fn citation_shown(excerpt: &[String]) -> usize {
+    let mut code = 0;
+    let mut through_code = excerpt.len();
+    for (i, line) in excerpt.iter().enumerate() {
+        if !line.trim().is_empty() && !is_comment_line(line) {
+            code += 1;
+            if code == CITATION_SHOWN_CODE_LINES {
+                through_code = i + 1;
+                break;
+            }
+        }
+    }
+    let shown = CITATION_SHOWN_LINES
+        .max(through_code)
+        .min(CITATION_SHOWN_MAX_LINES);
+    if excerpt.len() <= shown + 3 {
+        excerpt.len()
+    } else {
+        shown
+    }
+}
+
+/// The lines after a citation's excerpt (ending at `end`, 0-based), up to
+/// its file's `next` citation, or the end of the top-level definition it's in
+/// (a `}` unindented, or before a line unindented, ex: Python's), at most
+/// `CITATION_AFTER_LINES`.
+fn citation_after(lines: &[String], end: usize, next: Option<usize>) -> Vec<String> {
+    let until = next
+        .unwrap_or(usize::MAX)
+        .min(end + CITATION_AFTER_LINES)
+        .min(lines.len());
+    let mut after = vec![];
+    for line in lines.get(end..until.max(end)).unwrap_or_default() {
+        let unindented = !line.is_empty() && !line.starts_with(char::is_whitespace);
+        if unindented && !line.starts_with(['}', ')', ']']) {
+            break;
+        }
+        after.push(line.clone());
+        if unindented {
+            break;
+        }
+    }
+    after
+}
+
+/// A step's key among its algorithm's (see `AlgorithmSection::steps`): a
+/// range's or list's first step's (ex: "1-3"'s, "5 and 6"'s).
+fn step_key(step: &str) -> &str {
+    let end = step
+        .find(|c: char| c.is_whitespace() || matches!(c, '-' | '–' | ','))
+        .unwrap_or(step.len());
+    step[..end].trim_end_matches(['.', ':'])
+}
+
+/// Whether a line of a file is a comment's (or a block comment's line).
+fn is_comment_line(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    trimmed.starts_with("//")
+        || trimmed.starts_with("/*")
+        || trimmed.starts_with('*')
+        || trimmed == "#"
+        || trimmed.starts_with("# ")
+}
+
+/// How many of a file's lines from a citation's (0-based) `first` its
+/// excerpt has, as the implementation of its step: up to (but not) its
+/// file's `next` citation of the algorithm, or a comment starting with a
+/// step (ex: "// Step 3."), or a line leaving the block it's in (closing it,
+/// or indented less), or after the end of a definition it precedes (ex: a
+/// function under its URL), and at most `CITATION_EXCERPT_LINES`, without
+/// blank lines at its end.  (Blank lines and comments don't end it.)
+fn citation_extent(lines: &[String], first: usize, next: Option<usize>) -> usize {
+    lazy_static! {
+        static ref STEP_START: regex::Regex =
+            regex::Regex::new(r"(?i)^\s*(?://+|/?\*+|#+)\s*\(?steps?\s+[0-9]").unwrap();
+        static ref CONTROL: regex::Regex = regex::Regex::new(
+            r"^\s*(?:\}\s*)?(?:if|else|for|while|do|switch|case|default|try|catch|return|co_return)\b"
+        )
+        .unwrap();
+    }
+    let indent = |line: &str| line.len() - line.trim_start().len();
+    let Some(start) = lines.get(first) else {
+        return 0;
+    };
+    // (A block comment's lines' stars are after its indentation.)
+    let level =
+        indent(start) - usize::from(start.trim_start().starts_with('*') && indent(start) > 0);
+    let mut depth: i64 = 0;
+    // Whether its first code is a definition (ex: a function's, not a
+    // statement's), whose end ends it: whether it opens a block before its
+    // statement ends (and isn't control flow), once that's known.
+    let mut definition: Option<bool> = None;
+    let mut first_code: Option<bool> = None;
+    let mut end = first + 1;
+    for (i, line) in lines
+        .iter()
+        .enumerate()
+        .skip(first)
+        .take(CITATION_EXCERPT_LINES)
+    {
+        let trimmed = line.trim();
+        if i > first && Some(i) == next {
+            break;
+        }
+        if trimmed.is_empty() {
+            continue;
+        }
+        if is_comment_line(line) {
+            if i > first && STEP_START.is_match(line) {
+                break;
+            }
+            end = i + 1;
+            continue;
+        }
+        if i > first && indent(line) < level && !trimmed.starts_with(['}', ')', ']']) {
+            break;
+        }
+        // (Its braces, but a trailing comment's.)
+        let code = trimmed.split("//").next().unwrap_or_default();
+        let control = *first_code.get_or_insert_with(|| CONTROL.is_match(line));
+        let mut left = false;
+        for c in code.chars() {
+            match c {
+                '{' => {
+                    if depth == 0 {
+                        definition.get_or_insert(!control);
+                    }
+                    depth += 1;
+                }
+                '}' => {
+                    depth -= 1;
+                    left |= depth < 0;
+                }
+                ';' if depth == 0 => {
+                    definition.get_or_insert(false);
+                }
+                _ => {}
+            }
+        }
+        if left {
+            break;
+        }
+        end = i + 1;
+        if definition == Some(true) && depth == 0 && code.contains('}') {
+            break;
+        }
+    }
+    end - first
+}
 
 /// Whose code citing an algorithm a column of its view has (see
 /// `format_algorithm`).
@@ -1845,9 +2017,6 @@ fn algorithm_citations(
     sym: &str,
     citing: &Citing,
 ) -> Vec<Citation> {
-    lazy_static! {
-        static ref STEP_COMMENT: regex::Regex = regex::Regex::new(r"(?i)\bsteps?\s+[0-9]").unwrap();
-    }
     let delta = citing.delta();
     let mut citations = vec![];
     for tree in citing.trees(tree_name, tree_config, sym) {
@@ -1890,45 +2059,48 @@ fn algorithm_citations(
                     .map_or(vec![], |text| text.lines().map(str::to_string).collect()),
                 _ => vec![],
             };
+            // (The file's citations of the algorithm, whose next ends one's
+            // excerpt, 0-based.)
+            let mut cited_lines: Vec<usize> = result
+                .lines
+                .iter()
+                .map(|hit| hit.lineno as usize - 1)
+                .collect();
+            cited_lines.sort_unstable();
             for hit in result.lines {
                 let (function, step) = match hit.context.rsplit_once(" step ") {
                     Some((function, step)) => (function.to_string(), Some(step.to_string())),
                     None => (hit.context.to_string(), None),
                 };
                 let first = hit.lineno as usize - 1;
-                // (Up to the next step's line, or the end of the block it's
-                // in, at a line indented less.)
-                let indent = |line: &str| line.len() - line.trim_start().len();
-                let first_indent = lines.get(first).map_or(0, |line| indent(line));
-                let excerpt: Vec<String> = lines
-                    .iter()
-                    .enumerate()
-                    .skip(first)
-                    .take(CITATION_EXCERPT_LINES)
-                    .take_while(|(i, line)| {
-                        *i == first
-                            || !(STEP_COMMENT.is_match(line)
-                                || (!line.trim().is_empty() && indent(line) < first_indent))
-                    })
-                    .map(|(_, line)| line.clone())
-                    .collect();
+                // (Up to the file's next citation of the algorithm, or step,
+                // or the end of the block it's in; see `citation_extent`.)
+                let next = cited_lines.iter().copied().find(|&line| line > first);
+                let len = citation_extent(&lines, first, next);
+                let excerpt: Vec<String> =
+                    lines[first.min(lines.len())..(first + len).min(lines.len())].to_vec();
+                let after = citation_after(&lines, first + len, next);
                 let webidl = hit.contextsym.starts_with("WEBIDL_");
+                // (A WebIDL member's is its line.)
+                let (excerpt, after) = if excerpt.is_empty() || webidl {
+                    let line = lines
+                        .get(first)
+                        .map_or_else(|| hit.line.to_string(), String::clone);
+                    (vec![line], vec![])
+                } else {
+                    (excerpt, after)
+                };
                 citations.push(Citation {
                     tree: tree.clone(),
                     path: result.path.to_string(),
                     line: hit.lineno,
                     function,
                     step,
-                    // (A WebIDL member's is its line.)
-                    excerpt: if excerpt.is_empty() || webidl {
-                        vec![
-                            lines
-                                .get(first)
-                                .map_or_else(|| hit.line.to_string(), String::clone),
-                        ]
-                    } else {
-                        excerpt
-                    },
+                    shown: citation_shown(&excerpt),
+                    excerpt,
+                    after,
+                    continues: None,
+                    continued_closely: false,
                     rows: None,
                     drift: None,
                     note: webidl.then(|| "WebIDL".to_string()),
@@ -1957,8 +2129,8 @@ fn algorithm_citations(
 /// The C++ implementations of a WebIDL member (`webidl`, by its `impl` binding
 /// slots, in the tree whose crossref data `lookup` has, at `head`, maybe a
 /// try push's with `delta`), as citations: from their definitions' lines up
-/// to their ends (a line closing a block at their indentation), at most twice
-/// as many lines as citations'.
+/// to their ends (a line closing a block at their indentation), at most
+/// `CITATION_EXCERPT_LINES`.
 #[allow(clippy::too_many_arguments)]
 fn webidl_implementations(
     lookup: &dyn Fn(&str) -> Option<CrossrefData>,
@@ -2005,7 +2177,7 @@ fn webidl_implementations(
         };
         let indent = start.len() - start.trim_start().len();
         let mut excerpt = vec![];
-        for line in lines.iter().skip(first).take(CITATION_EXCERPT_LINES * 2) {
+        for line in lines.iter().skip(first).take(CITATION_EXCERPT_LINES) {
             excerpt.push(line.clone());
             let trimmed = line.trim_start();
             if excerpt.len() > 1 && trimmed.starts_with('}') && line.len() - trimmed.len() <= indent
@@ -2021,13 +2193,18 @@ fn webidl_implementations(
             .meta
             .as_ref()
             .map_or_else(|| slot.sym.to_string(), |meta| meta.pretty.to_string());
+        let after = citation_after(&lines, first + excerpt.len(), None);
         implementations.push(Citation {
             tree: tree.to_string(),
             path: definition.0.to_string(),
             line: definition.1,
             function: pretty,
             step: None,
+            shown: citation_shown(&excerpt),
             excerpt,
+            after,
+            continues: None,
+            continued_closely: false,
             rows: None,
             drift: None,
             note: Some(format!(
@@ -2208,9 +2385,9 @@ fn algorithm_section(
     for citations in &mut columns {
         citations.sort_by_key(|c| {
             (
-                c.step
-                    .as_ref()
-                    .map_or(0, |step| steps.get(step).copied().unwrap_or(usize::MAX)),
+                c.step.as_ref().map_or(0, |step| {
+                    steps.get(step_key(step)).copied().unwrap_or(usize::MAX)
+                }),
                 c.tree.clone(),
                 c.order.clone(),
             )
@@ -2807,19 +2984,27 @@ fn write_algorithm_view(
     for (const aside of document.querySelectorAll(`#sp-algorithm-${{n}} > .sp-algorithm-view > .sp-citations`)) {{
     const place = () => {{
       const top = aside.getBoundingClientRect().top;
-      let bottom = 0;
+      let bottom = null;
       for (const card of aside.querySelectorAll(".sp-citation")) {{
         const line = steps[card.dataset.step];
         const block = line && blockOfLine(doc, line);
-        const want = block ? block.getBoundingClientRect().top - top : bottom;
-        const at = Math.max(want, bottom);
+        // (A card continuing the one before it adjoins it.)
+        const gap = card.classList.contains("sp-citation-continued") ? 0 : 6;
+        const floor = bottom === null ? 0 : bottom + gap;
+        const want = block ? block.getBoundingClientRect().top - top : floor;
+        const at = Math.max(want, floor);
         card.style.top = `${{at}}px`;
-        bottom = at + card.offsetHeight + 6;
+        bottom = at + card.offsetHeight;
       }}
-      aside.style.minHeight = `${{bottom}}px`;
+      aside.style.minHeight = `${{bottom ?? 0}}px`;
     }};
     place();
-    new ResizeObserver(place).observe(doc);
+    const observer = new ResizeObserver(place);
+    observer.observe(doc);
+    // (And when a card's folded lines show.)
+    for (const card of aside.querySelectorAll(".sp-citation")) {{
+      observer.observe(card);
+    }}
     }}
   }});
   sections.forEach(({{ anchor }}, n) => {{
@@ -2844,6 +3029,20 @@ fn write_algorithm_view(
       toggle.setAttribute("aria-expanded", "false");
       toggle.textContent = "▸";
       link.after(down, toggle);
+    }}
+  }});
+  // A card's folded lines, and the lines after it, show on its buttons'
+  // clicks (the latter's with the former).
+  document.addEventListener("click", event => {{
+    const unfold = event.target.closest(".sp-citation-unfold");
+    if (!unfold) {{
+      return;
+    }}
+    const card = unfold.closest(".sp-citation");
+    const groups = unfold.dataset.unfold == "after" ? ["fold", "after"] : ["fold"];
+    for (const group of groups) {{
+      card.querySelector(`.sp-citation-${{group}}`)?.removeAttribute("hidden");
+      card.querySelector(`.sp-citation-unfold[data-unfold="${{group}}"]`)?.remove();
     }}
   }});
   const shown = new WeakMap();
@@ -3153,6 +3352,87 @@ pub(crate) fn add_rows_sym_info(
     }
 }
 
+/// Mark the citations (of a section's column, in its order) which continue
+/// the one before them (see `Citation::continues`): of the same tree's file,
+/// at the same revision, and function, after it (not WebIDL members and their
+/// implementations, which say what they are).
+fn mark_continuations(citations: &mut [Citation]) {
+    for i in 1..citations.len() {
+        let (before, rest) = citations.split_at_mut(i);
+        let (previous, citation) = (&mut before[i - 1], &mut rest[0]);
+        let end = previous.line + previous.excerpt.len() as u32;
+        if (
+            &previous.tree,
+            &previous.path,
+            &previous.rev,
+            &previous.function,
+        ) != (
+            &citation.tree,
+            &citation.path,
+            &citation.rev,
+            &citation.function,
+        ) || citation.line < end
+            || previous.note.is_some()
+            || citation.note.is_some()
+        {
+            continue;
+        }
+        let between = citation.line - end;
+        citation.continues = Some(between);
+        // (Its lines after it are those between them, if they're all there.)
+        previous.continued_closely =
+            between <= CLOSE_CONTINUATION_LINES && previous.after.len() == between as usize;
+    }
+}
+
+/// How many lines can be between a citation and the one continuing it for
+/// them to show, rather than a note of how many there are.
+const CLOSE_CONTINUATION_LINES: u32 = 3;
+
+/// The indentation the citations' excerpts lose (see `excerpt_row_html`):
+/// their runs' (see `mark_continuations`) common indentation, so that their
+/// code lines up.
+fn run_indents(citations: &[Citation]) -> Vec<usize> {
+    let mut indents = vec![];
+    let mut start = 0;
+    for i in 0..=citations.len() {
+        if i == citations.len() || (i > start && citations[i].continues.is_none()) {
+            let indent = citations[start..i]
+                .iter()
+                .map(|citation| excerpt_indent(&citation.excerpt))
+                .min()
+                .unwrap_or(0);
+            indents.extend(std::iter::repeat_n(indent, i - start));
+            start = i;
+        }
+    }
+    indents
+}
+
+/// The buttons showing a citation's folded lines, and the lines after it.
+fn unfold_buttons(folded: usize, after: usize) -> String {
+    let mut html = String::new();
+    if folded > 0 {
+        html.push_str(&format!(
+            r#"<button type="button" class="sp-citation-unfold" data-unfold="fold">Show {} more line{}</button>"#,
+            folded,
+            if folded == 1 { "" } else { "s" }
+        ));
+    }
+    if after > 0 {
+        html.push_str(&format!(
+            r#"<button type="button" class="sp-citation-unfold" data-unfold="after" title="In case its step goes on">Show the {} line{} after it</button>"#,
+            after,
+            if after == 1 { "" } else { "s" }
+        ));
+    }
+    if html.is_empty() {
+        html
+    } else {
+        format!(r#"<div class="sp-citation-unfolds">{}</div>"#, html)
+    }
+}
+
 /// The sections' citations' excerpts in their view's `column`, of the code
 /// `citing` their algorithms, as their lines' rows in their trees' source
 /// listings (see `chunked_gzip`), if the trees have them, like `/query/`'s
@@ -3192,12 +3472,18 @@ fn citation_rows(
             })
             .clone()
     };
+    for section in sections.iter_mut() {
+        mark_continuations(&mut section.columns[column]);
+    }
     let mut lines: BTreeMap<(String, String), BTreeSet<u32>> = BTreeMap::new();
     for citation in sections.iter().flat_map(|section| &section.columns[column]) {
         lines
             .entry((citation.tree.clone(), citation.path.clone()))
             .or_default()
-            .extend(citation.line..citation.line + citation.excerpt.len() as u32);
+            .extend(
+                citation.line
+                    ..citation.line + (citation.excerpt.len() + citation.after.len()) as u32,
+            );
     }
     let mut rows: HashMap<(String, String), HashMap<u32, Row>> = HashMap::new();
     for ((tree, path), lines) in lines {
@@ -3214,53 +3500,86 @@ fn citation_rows(
         UstrMap<JumprefTraversals>,
     );
     let mut tree_sym_info: BTreeMap<String, TreeSymInfo> = BTreeMap::new();
-    for citation in sections
-        .iter_mut()
-        .flat_map(|section| section.columns[column].iter_mut())
-    {
-        let Some(file_rows) = rows.get(&(citation.tree.clone(), citation.path.clone())) else {
-            continue;
-        };
-        let indent = excerpt_indent(&citation.excerpt);
-        let mut html = String::new();
-        for line in citation.line..citation.line + citation.excerpt.len() as u32 {
-            // (All of them, or the excerpt's text.)
-            let Some(row) = file_rows.get(&line) else {
-                html.clear();
-                break;
+    for section in sections.iter_mut() {
+        let indents = run_indents(&section.columns[column]);
+        for (citation, indent) in section.columns[column].iter_mut().zip(indents) {
+            let Some(file_rows) = rows.get(&(citation.tree.clone(), citation.path.clone())) else {
+                continue;
             };
-            html.push_str(&excerpt_row_html(
-                &row.html,
-                line,
-                &citation_url(citation),
-                "sp-citation-lineno",
-                indent,
-                None,
+            // (All of their rows, or the excerpt's text.)
+            let url = citation_url(citation);
+            let row_lines = |from: usize, to: usize, class: Option<&str>| -> Option<String> {
+                (from..to)
+                    .map(|i| {
+                        let line = citation.line + i as u32;
+                        let row = file_rows.get(&line)?;
+                        Some(excerpt_row_html(
+                            &row.html,
+                            line,
+                            &url,
+                            "sp-citation-lineno",
+                            indent,
+                            class,
+                        ))
+                    })
+                    .collect()
+            };
+            let (len, after) = (citation.excerpt.len(), citation.after.len());
+            let Some(shown) = row_lines(0, citation.shown, None) else {
+                continue;
+            };
+            let Some(folded) = row_lines(citation.shown, len, None) else {
+                continue;
+            };
+            // (The lines up to the citation continuing it closely show,
+            // lightened; others' are folded.)
+            let Some(after_rows) = row_lines(
+                len,
+                len + after,
+                citation.continued_closely.then_some("sp-citation-between"),
+            ) else {
+                continue;
+            };
+            let mut html = shown;
+            if !folded.is_empty() {
+                html.push_str(&format!(
+                    r#"<div class="sp-citation-fold" role="rowgroup" hidden>{}</div>"#,
+                    folded
+                ));
+            }
+            if citation.continued_closely {
+                html.push_str(&after_rows);
+            } else if !after_rows.is_empty() {
+                html.push_str(&format!(
+                    r#"<div class="sp-citation-after" role="rowgroup" hidden>{}</div>"#,
+                    after_rows
+                ));
+            }
+            let (jumprefs, sym_info, traversed) = tree_sym_info
+                .entry(citation.tree.clone())
+                .or_insert_with(|| {
+                    (
+                        jumprefs_of(&citation.tree),
+                        BTreeMap::new(),
+                        UstrMap::default(),
+                    )
+                });
+            add_rows_sym_info(jumprefs, &html, sym_info, traversed);
+            citation.rows = Some(format!(
+                r#"<div class="file sp-citation-rows" role="table" data-tree="{}" data-search="{}"{}>{}</div>{}"#,
+                rendered_docs::escape(&citation.tree),
+                config::search_url(&citation.tree),
+                citation
+                    .rev
+                    .as_ref()
+                    .map_or_else(String::new, |rev| format!(r#" data-search-rev="{}""#, rev)),
+                html,
+                unfold_buttons(
+                    len - citation.shown,
+                    if citation.continued_closely { 0 } else { after }
+                ),
             ));
         }
-        if html.is_empty() {
-            continue;
-        }
-        let (jumprefs, sym_info, traversed) = tree_sym_info
-            .entry(citation.tree.clone())
-            .or_insert_with(|| {
-                (
-                    jumprefs_of(&citation.tree),
-                    BTreeMap::new(),
-                    UstrMap::default(),
-                )
-            });
-        add_rows_sym_info(jumprefs, &html, sym_info, traversed);
-        citation.rows = Some(format!(
-            r#"<div class="file sp-citation-rows" role="table" data-tree="{}" data-search="{}"{}>{}</div>"#,
-            rendered_docs::escape(&citation.tree),
-            config::search_url(&citation.tree),
-            citation
-                .rev
-                .as_ref()
-                .map_or_else(String::new, |rev| format!(r#" data-search-rev="{}""#, rev)),
-            html
-        ));
     }
 
     let mut page_sym_info: BTreeMap<Ustr, Option<JumprefData>> = BTreeMap::new();
@@ -3363,34 +3682,65 @@ fn write_algorithm_section(
         .unwrap();
         for citation in citations {
             let step = citation.step.as_deref().unwrap_or("");
-            let known = citation.step.is_none() || section.steps.contains_key(step);
+            let key = step_key(step);
+            let known = citation.step.is_none() || section.steps.contains_key(key);
             write!(
-            writer,
-            r#"<div class="sp-citation{}" data-step="{}"><div class="sp-citation-head"><a href="{}#{}">{}{}:{}</a> <span class="sp-citation-fn">{}</span>{}{}{}</div>"#,
-            if citation.changed { " sp-citation-changed" } else { "" },
-            rendered_docs::escape(step),
-            citation_url(citation),
-            citation.line,
-            if citation.tree == tree_name {
-                String::new()
-            } else {
-                format!("{}: ", rendered_docs::escape(&citation.tree))
-            },
-            rendered_docs::escape(&citation.path),
-            citation.line,
-            rendered_docs::escape(&citation.function),
-            citation.note.as_deref().map_or_else(String::new, |note| format!(
-                r#" <span class="sp-citation-note">{}</span>"#,
-                rendered_docs::escape(note)
-            )),
-            if citation.changed {
-                r#" <span class="sp-citation-pushed" title="The try push changes this file">changed by the push</span>"#
-            } else {
-                ""
-            },
-            match (&citation.step, known) {
+                writer,
+                r#"<div class="sp-citation{}{}" data-step="{}">"#,
+                if citation.changed {
+                    " sp-citation-changed"
+                } else {
+                    ""
+                },
+                if citation.continues.is_some() {
+                    " sp-citation-continued"
+                } else {
+                    ""
+                },
+                rendered_docs::escape(key),
+            )
+            .unwrap();
+            // Its file and function, unless it continues the one before it
+            // (then how many lines are between them, if they don't show).
+            match citation.continues {
+                None => write!(
+                    writer,
+                    r#"<div class="sp-citation-head"><a href="{}#{}">{}{}:{}</a> <span class="sp-citation-fn">{}</span>{}{}</div>"#,
+                    citation_url(citation),
+                    citation.line,
+                    if citation.tree == tree_name {
+                        String::new()
+                    } else {
+                        format!("{}: ", rendered_docs::escape(&citation.tree))
+                    },
+                    rendered_docs::escape(&citation.path),
+                    citation.line,
+                    rendered_docs::escape(&citation.function),
+                    citation.note.as_deref().map_or_else(String::new, |note| format!(
+                        r#" <span class="sp-citation-note">{}</span>"#,
+                        rendered_docs::escape(note)
+                    )),
+                    if citation.changed {
+                        r#" <span class="sp-citation-pushed" title="The try push changes this file">changed by the push</span>"#
+                    } else {
+                        ""
+                    },
+                )
+                .unwrap(),
+                Some(between) if between > CLOSE_CONTINUATION_LINES => write!(
+                    writer,
+                    r#"<a class="sp-citation-skip" href="{}#{}">⋮ {} lines</a>"#,
+                    citation_url(citation),
+                    citation.line - between,
+                    between
+                )
+                .unwrap(),
+                Some(_) => {}
+            }
+            // Its step, in the gutter beside its code.
+            let label = match (&citation.step, known) {
                 (Some(step), true) => format!(
-                    r#" <span class="sp-citation-step">step {}</span>{}"#,
+                    r#"<span class="sp-citation-step">step {}</span>{}"#,
                     rendered_docs::escape(step),
                     match &citation.drift {
                         Some((time, rev)) => format!(
@@ -3398,21 +3748,27 @@ fn write_algorithm_section(
                             tree_name,
                             rev,
                             chrono::DateTime::from_timestamp(*time, 0)
-                                .map_or_else(String::new, |date| date.format("%Y-%m-%d").to_string())
+                                .map_or_else(String::new, |date| date
+                                    .format("%Y-%m-%d")
+                                    .to_string())
                         ),
                         None => String::new(),
                     }
                 ),
                 (Some(step), false) => format!(
-                    r#" <span class="sp-citation-step sp-citation-unknown" title="The spec's algorithm has no such step now">step {}?</span>"#,
+                    r#"<span class="sp-citation-step sp-citation-unknown" title="The spec's algorithm has no such step now">step {}?</span>"#,
                     rendered_docs::escape(step)
                 ),
                 (None, _) => String::new(),
-            }
-        )
-        .unwrap();
+            };
+            write!(
+                writer,
+                r#"<div class="sp-citation-body"><div class="sp-citation-gutter">{}</div><div class="sp-citation-lines">"#,
+                label
+            )
+            .unwrap();
             if let Some(rows) = &citation.rows {
-                writeln!(writer, "{}</div>", rows).unwrap();
+                writeln!(writer, "{}</div></div></div>", rows).unwrap();
                 continue;
             }
             // (Without their common indentation.)
@@ -3426,7 +3782,7 @@ fn write_algorithm_section(
                 )
                 .unwrap();
             }
-            writeln!(writer, "</pre></div>").unwrap();
+            writeln!(writer, "</pre></div></div></div>").unwrap();
         }
         if citations.is_empty() {
             writeln!(
@@ -8592,6 +8948,76 @@ pub fn render_commit(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_citation_extent() {
+        let extent = |source: &str, first: usize, next: Option<usize>| -> Vec<String> {
+            let lines: Vec<String> = source.lines().map(str::to_string).collect();
+            let len = super::citation_extent(&lines, first, next);
+            lines[first..first + len].to_vec()
+        };
+        // (TransformStream::CreateGeneric's, as of 2026-10.)
+        let create = r#"already_AddRefed<TransformStream> TransformStream::CreateGeneric(
+    const GlobalObject& aGlobal, ErrorResult& aRv) {
+  // Step 4. Let readableSizeAlgorithm be an algorithm that returns 1.
+  // Note: Callers should recognize nullptr as a callback that returns 1.
+  RefPtr<QueuingStrategySize> readableSizeAlgorithm;
+
+  // Step 5. Let transformAlgorithmWrapper be an algorithm that runs these steps
+  // given a value chunk:
+  // Step 6. Let flushAlgorithmWrapper be an algorithm that runs these steps:
+  // (Done by TransformerAlgorithmsWrapper)
+
+  // Step 8. Perform ! InitializeTransformStream(stream, startPromise,
+  // writableHighWaterMark, writableSizeAlgorithm, readableHighWaterMark,
+  // readableSizeAlgorithm).
+  RefPtr<TransformStream> stream =
+      new TransformStream(global, nullptr, nullptr);
+  stream->Initialize(aGlobal.Context(), startPromise, writableHighWaterMark,
+                     writableSizeAlgorithm, readableHighWaterMark,
+                     readableSizeAlgorithm, aRv);
+  if (aRv.Failed()) {
+    return nullptr;
+  }
+
+  return stream.forget();
+}
+
+void Other() {}
+"#;
+        // A step's comment, and code, up to the next step's.
+        assert_eq!(extent(create, 2, Some(5)).len(), 3);
+        // (Its comment, if the next step's follows it.)
+        assert_eq!(extent(create, 6, Some(8)).len(), 2);
+        assert_eq!(extent(create, 8, Some(11)).len(), 2);
+        // Comments and blank lines don't end it, nor 8 lines: the rest of the
+        // block does.
+        let step8 = extent(create, 11, None);
+        assert_eq!(
+            step8.last().map(String::as_str),
+            Some("  return stream.forget();")
+        );
+        // A citation before a definition is of it, to its end, or its first
+        // step's comment.
+        let whole = "// https://example.org/#count\nint Count(\n    int a) {\n  int b = a;\n\n  return b;\n}\n\nvoid Other() {}\n";
+        assert_eq!(extent(whole, 0, None).len(), 7);
+        let lines: Vec<String> = create.lines().map(str::to_string).collect();
+        let stepped = ["// https://streams.spec.whatwg.org/#transformstream-set-up".to_string()]
+            .into_iter()
+            .chain(lines)
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert_eq!(extent(&stepped, 0, None).len(), 3);
+        // A block comment's citation, before a definition.
+        let block = "/**\n * Steps 1 and 2 are handled by LookupCustomElementDefinition.\n */\nFoo* Lookup(int a) {\n  return nullptr;\n}\n\nint b;\n";
+        assert_eq!(extent(block, 1, None).len(), 5);
+        // A step inside a block ends with it.
+        let nested = "  if (a) {\n    // Step 3. Throw.\n    return Err();\n  }\n  Next();\n";
+        assert_eq!(extent(nested, 1, None).len(), 2);
+        // A step of a statement goes on after it (to the next step's).
+        let statement = "  // Step 2. For each x, frob it, then wibble.\n  for (auto x : xs) {\n    Frob(x);\n  }\n  Wibble();\n  // Step 3.\n";
+        assert_eq!(extent(statement, 0, None).len(), 5);
+    }
+
     #[test]
     fn test_redirect_target() {
         use super::RevKnowledge::*;

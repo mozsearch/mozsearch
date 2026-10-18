@@ -290,6 +290,62 @@ input_file: inputs/crossref/specs/citations__json
                 "contextsym": "S_py_spec_citations/assemble()."
               }
             ]
+          },
+          {
+            "path": "spec_excerpts.cpp",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 12,
+                "bounds": [
+                  3,
+                  44
+                ],
+                "line": "// https://example.spec.whatwg.org/#assemble",
+                "context": "spec_excerpts::AssembleAll",
+                "contextsym": "_ZN13spec_excerpts11AssembleAllEPii"
+              },
+              {
+                "lno": 16,
+                "bounds": [
+                  3,
+                  9
+                ],
+                "line": "// Step 1. Let node be a new node.",
+                "context": "spec_excerpts::AssembleAll step 1",
+                "contextsym": "_ZN13spec_excerpts11AssembleAllEPii"
+              },
+              {
+                "lno": 21,
+                "bounds": [
+                  3,
+                  9
+                ],
+                "line": "// Step 2. For each widget in it:",
+                "context": "spec_excerpts::AssembleAll step 2",
+                "contextsym": "_ZN13spec_excerpts11AssembleAllEPii"
+              },
+              {
+                "lno": 40,
+                "bounds": [
+                  3,
+                  11
+                ],
+                "line": "// Step 2.1. Poke it.",
+                "context": "spec_excerpts::AssembleAll step 2.1",
+                "contextsym": "_ZN13spec_excerpts11AssembleAllEPii"
+              },
+              {
+                "lno": 47,
+                "bounds": [
+                  3,
+                  11
+                ],
+                "line": "// Step 2.2. See widgets and trees.",
+                "context": "spec_excerpts::AssembleAll step 2.2",
+                "contextsym": "_ZN13spec_excerpts11AssembleAllEPii"
+              }
+            ]
           }
         ],
         "callees": [

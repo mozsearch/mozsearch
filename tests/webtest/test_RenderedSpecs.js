@@ -223,6 +223,57 @@ add_task(async function test_ObsoleteSpec() {
      "Other specs' source listings don't");
 });
 
+add_task(async function test_AlgorithmExcerpts() {
+  // The code citing the example spec's "assemble" algorithm's steps, in a
+  // function (tests/tests/files/spec_excerpts.cpp), and in another file.
+  await TestUtils.loadPath("/tests/algorithm/SPEC_example_assemble");
+  const cards = [...frame.contentDocument.querySelectorAll("#sp-citations > .sp-citation")]
+    .filter(card => card.querySelector('a[href*="/spec_excerpts.cpp#"]'));
+  is(cards.map(card => card.dataset.step).join(), ",1,2,2.1,2.2",
+     "The function's citations of the algorithm and its steps are cards");
+  const [whole, step1, step2, step21] = cards;
+  ok(whole.querySelector(".sp-citation-head")?.textContent.includes("spec_excerpts::AssembleAll"),
+     "The function's first card says its file and function");
+  // (spec_citations.py's cite steps 1, 2.1 and 2.2 too, and go first.)
+  ok(step1.querySelector(".sp-citation-head"),
+     "and so does a card after another file's");
+  ok(!step2.querySelector(".sp-citation-head") && step2.classList.contains("sp-citation-continued"),
+     "but not a card continuing the one before it");
+  is(step2.querySelector(".sp-citation-gutter")?.textContent.trim(), "step 2",
+     "which has its step, in its gutter");
+
+  const between = [...step1.querySelectorAll(".sp-citation-between")]
+    .map(row => row.textContent.trim());
+  ok(between.includes("Frob(node);"),
+     `The few lines between a card and the one continuing it show, lightened: ${JSON.stringify(between)}`);
+
+  ok(step2.textContent.includes("for (int i = 0; i < aCount; i++) {"),
+     "A step's code goes on past its comments and blank lines");
+  const fold = step2.querySelector(".sp-citation-fold");
+  ok(fold?.hidden && fold.textContent.includes("Frob(aWidgets[i] + 12);"),
+     "and a long excerpt's end folds");
+  step2.querySelector('.sp-citation-unfold[data-unfold="fold"]').click();
+  ok(!fold.hidden, "which shows on asking");
+  ok(!step2.querySelector('.sp-citation-unfold[data-unfold="fold"]'), "once");
+
+  const after = step21.querySelector(".sp-citation-after");
+  ok(after?.hidden && after.textContent.includes("Frob(4);"),
+     "The lines after an excerpt, up to the next citation, are there");
+  step21.querySelector('.sp-citation-unfold[data-unfold="after"]').click();
+  ok(!after.hidden, "and show on asking (in case its step goes on)");
+
+
+  // A card continuing the one before it many lines on says how many (the
+  // examplebs spec's poke, which only this file cites).
+  await TestUtils.loadPath("/tests/algorithm/SPEC_examplebs_poke");
+  const [, poke1, poke2] = [...frame.contentDocument.querySelectorAll("#sp-citations > .sp-citation")];
+  is(poke2?.querySelector(".sp-citation-skip")?.textContent, "⋮ 5 lines",
+     "A card continuing one many lines on says how many");
+  ok(poke2 && !poke2.querySelector(".sp-citation-head"), "rather than its file and function");
+  ok(poke1?.querySelector(".sp-citation-after")?.textContent.includes("Frob(4);"),
+     "and the one before it has them");
+});
+
 add_task(async function test_AlgorithmView() {
   // The example spec's "poke" algorithm beside the code citing it and its
   // steps (tests/tests/files/spec_citations.cpp).
@@ -264,8 +315,9 @@ add_task(async function test_AlgorithmView() {
   // it, if that's further down.)
   const block = [...doc().querySelectorAll("li .rd-block")]
     .find(block => block.textContent.includes("Set widget"));
+  // (Adjoining the one before it, which it continues.)
   const expected = Math.max(block.getBoundingClientRect().top,
-                            cards[0].getBoundingClientRect().bottom + 6);
+                            cards[0].getBoundingClientRect().bottom);
   ok(Math.abs(step1.getBoundingClientRect().top - expected) < 2,
      "A step's citations are next to it, or after the ones before it");
 

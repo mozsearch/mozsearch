@@ -14,5 +14,7 @@ digraph g {
   "_ZN14spec_citations8AssembleERNS_6WidgetE" -> "SPEC_example_assemble"
   "S_py_spec_citations/assemble()."[label="spec_citations::assemble"]
   "S_py_spec_citations/assemble()." -> "SPEC_example_assemble"
+  "_ZN13spec_excerpts11AssembleAllEPii"[label="spec_excerpts::AssembleAll"]
+  "_ZN13spec_excerpts11AssembleAllEPii" -> "SPEC_example_assemble"
   "_ZN14spec_citations8AssembleERNS_6WidgetE" -> "_ZN14spec_citations4PokeERNS_6WidgetE"
 }

@@ -827,6 +827,13 @@ Spread over multiple lines.
         </tr>
 
         <tr>
+          <td class="name"><a href="/tests/source/spec_excerpts.cpp" class="mimetype-fixed-container mimetype-icon-cpp">spec_excerpts.cpp</a></td>
+          <td class="description"><a href="/tests/source/spec_excerpts.cpp" title=""></td>
+          <td class="size"><a href="/tests/source/spec_excerpts.cpp">1526</a></td>
+          <td class="coverage"><a href="/tests/source/spec_excerpts.cpp" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
+        </tr>
+
+        <tr>
           <td class="name"><a href="/tests/source/specs" class="mimetype-fixed-container mimetype-icon-folder">specs</a></td>
           <td class="description"><a href="/tests/source/specs" title=""></td>
           <td class="size"><a href="/tests/source/specs"></a></td>

@@ -2864,18 +2864,63 @@ span[data-symbols].selected {
   left: 0;
   right: 0;
   border-left: 3px solid var(--link-color);
-  padding: 0.2em 0.5em;
+  padding: 0.3em 0.5em 0.2em 0;
   background-color: var(--page-background);
   font-size: 13px;
+  /* The gutter of its steps, left of its code, under its file and function. */
+  --sp-gutter: 5.5em;
+}
+/* A card continuing the one before it, in the same file and function (see
+   format::mark_continuations), whose code flows on from it, without its file
+   and function. */
+.sp-citation-continued {
+  padding-top: 0;
 }
 .sp-citation-head {
-  margin-bottom: 0.2em;
+  margin: 0 0 0.2em 0.4em;
 }
 .sp-citation-fn {
   font-weight: bold;
 }
-.sp-citation-step {
-  opacity: 0.75;
+.sp-citation-body {
+  display: grid;
+  grid-template-columns: var(--sp-gutter) minmax(0, 1fr);
+}
+.sp-citation-gutter {
+  padding: 0.1em 0.6em 0 0.4em;
+  color: color-mix(in srgb, currentColor 55%, transparent);
+  font-size: 11px;
+  line-height: 1.3;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.sp-citation-gutter .sp-drift {
+  display: inline-block;
+  margin: 0.2em 0 0;
+}
+/* How many lines are between a card and the one it continues, if they don't
+   show; those that do are lightened (they're of neither's step). */
+.sp-citation-skip {
+  display: block;
+  margin-left: var(--sp-gutter);
+  color: color-mix(in srgb, currentColor 55%, transparent);
+  font-size: 11px;
+  text-decoration: none;
+}
+.sp-citation-between {
+  opacity: 0.45;
+}
+.sp-citation-unfolds {
+  display: flex;
+  gap: 1em;
+}
+.sp-citation-unfold {
+  padding: 0.1em 0;
+  border: none;
+  background: none;
+  color: var(--link-color);
+  font-size: 11px;
+  cursor: pointer;
 }
 /* The algorithms an algorithm's view shows which it calls (see
    format_algorithm), and the links to their sections from their call sites. */
