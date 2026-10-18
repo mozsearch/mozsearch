@@ -3694,6 +3694,14 @@ input::placeholder {
   flex: 6;
   position: relative;
 }
+/* The closing quote of a qualified name being typed (see search.js's
+   QueryQuoting), over the box. */
+.query-phantom-quote {
+  position: absolute;
+  color: GrayText;
+  pointer-events: none;
+  white-space: pre;
+}
 #option-section {
   flex-grow: 0;
   flex-shrink: 0;

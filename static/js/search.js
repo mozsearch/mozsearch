@@ -1,3 +1,141 @@
+/**
+ * Quoting C++ qualified names as they're typed into a query's search box (in
+ * trees searching with queries, and on queries' pages; see
+ * `config::SearchEndpoint`): the query language takes `Foo::Bar` as the term
+ * `Foo` (with the value `:Bar`), so typing `::` after a name (or as a term's
+ * value, ex: `calls-to:Foo::`) puts a quote before it, and shows its closing
+ * quote, grayed, after it, which typing a space (but in template arguments),
+ * pressing Enter or leaving the box writes, and which typing a quote closes.
+ * (The DWIM endpoint, which the box sends what's typed to, quotes qualified
+ * names too (see the tools' `query::normalize`), but this shows the query
+ * syntax as it's typed.)
+ */
+class QueryQuoting {
+  // A name (or a term's value, after its name) just followed by `::`: the
+  // term's name, if any, and the name.
+  static NAME_BEFORE_COLONS =
+    /(?:^|\s)(-?(?:[a-z][a-z0-9-]*:(?!:))?)((?:[A-Za-z_~]\w*(?:<[^\s'"]*>)?::)+)$/;
+
+  constructor(input) {
+    this.input = input;
+    // The index of the opening quote of the name being typed, if any.
+    this.open = null;
+    this.phantom = document.createElement("span");
+    this.phantom.className = "query-phantom-quote";
+    this.phantom.setAttribute("aria-hidden", "true");
+    this.phantom.textContent = "'";
+    this.phantom.hidden = true;
+    input.after(this.phantom);
+
+    input.addEventListener("beforeinput", event => this.onBeforeInput(event));
+    input.addEventListener("input", event => this.onInput(event));
+    input.addEventListener("scroll", () => this.place());
+    input.addEventListener("blur", () => this.close());
+    // (Before the form's data is gathered.)
+    input.form?.addEventListener("submit", () => this.close());
+  }
+
+  /**
+   * Where the name being typed ends: its first whitespace outside template
+   * arguments, or the input's end.
+   */
+  nameEnd() {
+    const value = this.input.value;
+    let depth = 0;
+    for (let i = this.open + 1; i < value.length; i++) {
+      const c = value[i];
+      if (c == "<") {
+        depth++;
+      } else if (c == ">") {
+        depth--;
+      } else if (/\s/.test(c) && depth <= 0) {
+        return i;
+      }
+    }
+    return value.length;
+  }
+
+  onInput(event) {
+    const input = this.input;
+    if (this.open !== null && input.value[this.open] != "'") {
+      // (Its opening quote was deleted.)
+      this.open = null;
+    }
+    if (this.open === null && event.inputType == "insertText" && event.data == ":") {
+      const caret = input.selectionStart;
+      const before = input.value.slice(0, caret);
+      // (Not in a quoted value already.)
+      const quotes = (before.match(/['"]/g) || []).length;
+      const match = before.match(QueryQuoting.NAME_BEFORE_COLONS);
+      if (match && quotes % 2 == 0) {
+        const quote = caret - match[2].length;
+        input.setRangeText("'", quote, quote, "end");
+        input.setSelectionRange(caret + 1, caret + 1);
+        this.open = quote;
+      }
+    }
+    this.place();
+  }
+
+  onBeforeInput(event) {
+    if (this.open === null || event.inputType != "insertText") {
+      return;
+    }
+    const input = this.input;
+    const caret = input.selectionStart;
+    if (event.data == "'") {
+      // (Closed as it's typed.)
+      this.open = null;
+    } else if (event.data == " " && caret == this.nameEnd() &&
+               input.selectionEnd == caret) {
+      event.preventDefault();
+      input.setRangeText("' ", caret, caret, "end");
+      this.open = null;
+      input.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    }
+    this.place();
+  }
+
+  /**
+   * Write the closing quote of the name being typed, if any.
+   */
+  close() {
+    if (this.open === null) {
+      return;
+    }
+    const end = this.nameEnd();
+    const caret = this.input.selectionStart;
+    this.input.setRangeText("'", end, end, caret >= end ? "end" : "preserve");
+    this.open = null;
+    this.place();
+  }
+
+  /**
+   * Show the closing quote after the name being typed, if any.
+   */
+  place() {
+    this.phantom.hidden = this.open === null;
+    if (this.open === null) {
+      return;
+    }
+    const input = this.input;
+    const style = getComputedStyle(input);
+    QueryQuoting.context ??= document.createElement("canvas").getContext("2d");
+    QueryQuoting.context.font = style.font;
+    const width = QueryQuoting.context.measureText(
+      input.value.slice(0, this.nameEnd())).width;
+    const left = input.offsetLeft + parseFloat(style.borderLeftWidth) +
+          parseFloat(style.paddingLeft) + width - input.scrollLeft;
+    Object.assign(this.phantom.style, {
+      left: `${left}px`,
+      top: `${input.offsetTop}px`,
+      height: `${input.offsetHeight}px`,
+      lineHeight: `${input.offsetHeight}px`,
+      font: style.font,
+    });
+  }
+}
+
 var Dxr = new (class Dxr {
   constructor() {
     let constants = document.getElementById("data");
@@ -98,6 +236,8 @@ var Dxr = new (class Dxr {
         this.startSearch();
       });
       this.initFormFromLocalStorageOrUrl();
+    } else {
+      this.queryQuoting = new QueryQuoting(this.fields.query);
     }
 
     // Set to the current timestamp when we want to suppress the next
