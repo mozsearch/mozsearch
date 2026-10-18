@@ -85,13 +85,22 @@ const MAX_RETRY_AFTER: Duration = Duration::from_secs(60);
 fn client() -> &'static reqwest::Client {
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
-        reqwest::Client::builder()
-            .user_agent(concat!(
+        let builder = || {
+            reqwest::Client::builder().user_agent(concat!(
                 "searchfox-remote-server/",
                 env!("CARGO_PKG_VERSION")
             ))
-            .build()
-            .unwrap()
+        };
+        builder().build().unwrap_or_else(|err| {
+            // (Without the system's CA certificates, ex: in a nix build's
+            // sandbox, whose tests use a local http:// server, only http://
+            // servers work.)
+            log::warn!("No TLS roots, so only http:// servers will work: {}", err);
+            builder()
+                .tls_certs_only(std::iter::empty())
+                .build()
+                .unwrap()
+        })
     })
 }
 
