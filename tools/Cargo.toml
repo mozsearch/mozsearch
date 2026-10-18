@@ -35,6 +35,7 @@ env_logger = "0.11.9"
 fantoccini = "0.22.1"
 flate2 = { version = "1.1.9" }
 futures-core = "0.3.17"
+futures-util = "0.3.32"
 getopts = "0.2.19"
 google-cloud-auth = "1.7.0"
 google-cloud-gax = "1.8.0"

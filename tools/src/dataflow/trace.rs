@@ -10,7 +10,7 @@
 //! This is demand-driven and lazy: only the functions a trace reaches are
 //! parsed, and only the symbols it reaches are looked up.
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 
 use serde::Serialize;
@@ -219,6 +219,18 @@ enum NodeKey {
     Opaque(usize),
 }
 
+/// How many lookups or files `Tracer::prefetch` asks a server for at once.
+const PREFETCH_CONCURRENCY: usize = 16;
+
+/// The paths of a symbol's definitions.
+fn def_paths(xref: &CrossrefData) -> Vec<String> {
+    xref.definitions
+        .iter()
+        .flatten()
+        .map(|p| p.path.to_string())
+        .collect()
+}
+
 pub struct Tracer<'s> {
     server: &'s (dyn AbstractServer + Send + Sync),
     pub opts: TraceOpts,
@@ -279,6 +291,8 @@ impl<'s> Tracer<'s> {
         if lang_for_path(path).is_none() {
             return Err("no dataflow frontend for its language".to_string());
         }
+        // (Its source and analysis at once.)
+        self.prefetch([], [path.to_string()]).await;
         let source = self.source(path).await.ok_or("no source")?;
         let recs = self.records(path).await.ok_or("no analysis")?;
         build_file_ir(path, &source, &recs)
@@ -308,6 +322,157 @@ impl<'s> Tracer<'s> {
         };
         self.records.insert(path.to_string(), records.clone());
         records
+    }
+
+    /// Look `syms` up and fetch `paths`' sources and analysis records, at
+    /// once, for what's about to need them one at a time, so that a remote
+    /// server's round trips overlap (see `PREFETCH_CONCURRENCY`).  Only fills
+    /// the caches: what uses them, and so the trace, is the same.
+    pub async fn prefetch(
+        &mut self,
+        syms: impl IntoIterator<Item = Ustr>,
+        paths: impl IntoIterator<Item = String>,
+    ) {
+        use futures_util::stream::{self, StreamExt as FuturesStreamExt};
+        let server = self.server;
+        let syms: BTreeSet<Ustr> = syms
+            .into_iter()
+            .filter(|sym| !self.xrefs.contains_key(sym))
+            .collect();
+        let lookups = FuturesStreamExt::map(stream::iter(syms), |sym: Ustr| async move {
+            let data = server.crossref_lookup(&sym).await.ok().flatten();
+            (sym, data.map(Arc::new))
+        });
+        let xrefs: Vec<(Ustr, Option<Arc<CrossrefData>>)> =
+            FuturesStreamExt::collect(lookups.buffer_unordered(PREFETCH_CONCURRENCY)).await;
+        self.xrefs.extend(xrefs);
+        let paths: BTreeSet<String> = paths
+            .into_iter()
+            .filter(|path| !self.records.contains_key(path) || !self.sources.contains_key(path))
+            .collect();
+        let fetches = FuturesStreamExt::map(stream::iter(paths), |path: String| async move {
+            let (source, records) = futures_util::future::join(
+                server.fetch_raw_source(&path),
+                server.fetch_raw_analysis(&path),
+            )
+            .await;
+            let records = match records {
+                Ok(values) => {
+                    let values: Vec<serde_json::Value> =
+                        tokio_stream::StreamExt::collect(values).await;
+                    Some(Arc::new(FileRecords::from_values(values)))
+                }
+                Err(_) => None,
+            };
+            (path, source.ok().map(Arc::new), records)
+        });
+        let files: Vec<(String, Option<Arc<String>>, Option<Arc<FileRecords>>)> =
+            FuturesStreamExt::collect(fetches.buffer_unordered(PREFETCH_CONCURRENCY)).await;
+        for (path, source, records) in files {
+            self.sources.entry(path.clone()).or_insert(source);
+            self.records.entry(path).or_insert(records);
+        }
+    }
+
+    /// `prefetch` what resolving symbols as calls' targets (see `resolve`)
+    /// looks up: their crossref entries, and then their definitions' files,
+    /// or, for IPDL's and IPC's generated methods (`slot_owned`, which
+    /// `resolve` doesn't go into), their owners' entries (see `ipdl_slot`).
+    async fn prefetch_defs(&mut self, syms: Vec<Ustr>) {
+        self.prefetch(syms.iter().copied(), []).await;
+        let xrefs: Vec<Arc<CrossrefData>> = syms
+            .iter()
+            .filter_map(|sym| self.xrefs.get(sym)?.clone())
+            .collect();
+        let owners: Vec<Ustr> = xrefs
+            .iter()
+            .filter_map(|xref| Some(xref.meta.as_ref()?.slot_owner.as_ref()?.sym))
+            .collect();
+        let paths: Vec<String> = xrefs
+            .iter()
+            .filter(|xref| xref.meta.as_ref().is_none_or(|m| m.slot_owner.is_none()))
+            .flat_map(|xref| def_paths(xref))
+            .collect();
+        self.prefetch(owners, paths).await;
+    }
+
+    /// The callees of the calls processing `item` resolves (see `forward`,
+    /// `backward_result` and `backward_place`), for `prefetch_defs`.
+    fn item_callees(&self, item: &Item, dir: Dir) -> Vec<Ustr> {
+        let f = &item.file.funcs[item.func];
+        let ordered_out = |ei: usize| {
+            self.opts.ordered
+                && item.pos.is_some_and(|pos| match dir {
+                    Dir::Forward => (ei as isize) <= pos,
+                    Dir::Backward => (ei as isize) >= pos,
+                })
+        };
+        let event_calls = || {
+            f.events
+                .iter()
+                .enumerate()
+                .filter(move |(ei, _)| !ordered_out(*ei))
+                .filter_map(|(_, e)| match &e.kind {
+                    EventKind::Call(c) => Some(&f.calls[*c]),
+                    _ => None,
+                })
+        };
+        let calls: Vec<&Call> = match (dir, &item.flow) {
+            (Dir::Backward, Flow::Result(c)) => vec![&f.calls[*c]],
+            (Dir::Backward, Flow::Place(p)) => event_calls()
+                .filter(|call| {
+                    call.args.iter().any(|a| may_write(a, p, f.lang))
+                        || call.receiver.as_ref().is_some_and(|r| {
+                            r.place
+                                .as_ref()
+                                .is_some_and(|rp| p.within(rp) && p.path.len() > rp.path.len())
+                        })
+                })
+                .collect(),
+            (Dir::Forward, flow) => event_calls()
+                .filter(|call| {
+                    call.args
+                        .iter()
+                        .any(|a| reads(&a.vals, flow) || arg_place_hit(a, flow))
+                        || call
+                            .receiver
+                            .as_ref()
+                            .is_some_and(|r| reads(&r.vals, flow) || arg_place_hit(r, flow))
+                })
+                .collect(),
+        };
+        calls
+            .iter()
+            .flat_map(|call| call.callee.iter().take(self.opts.fanout).copied())
+            .collect()
+    }
+
+    /// The key of an item in `seen`.
+    fn item_key(item: &Item, dir: Dir) -> (String, Ustr, String, bool) {
+        (
+            item.file.path.clone(),
+            item.file.funcs[item.func].sym,
+            format!("{:?}@{:?}", item.flow, item.pos),
+            dir == Dir::Forward,
+        )
+    }
+
+    /// `prefetch` the symbols, and the files of their first uses (see
+    /// `field_uses`): as many as a fanout follows, and one more.
+    async fn prefetch_uses(&mut self, syms: Vec<Ustr>) {
+        self.prefetch(syms.iter().copied(), []).await;
+        let mut paths: Vec<String> = vec![];
+        for sym in syms {
+            for (path, _, _) in self.field_uses(sym).await {
+                if paths.len() > self.opts.fanout {
+                    break;
+                }
+                if !paths.contains(&path) {
+                    paths.push(path);
+                }
+            }
+        }
+        self.prefetch([], paths).await;
     }
 
     /// A tracer for a sub-trace with at most `max_hops`, sharing this one's
@@ -489,6 +654,11 @@ impl<'s> Tracer<'s> {
             }
         }
         None
+    }
+
+    /// A symbol's crossref entry, if it's been looked up (see `prefetch`).
+    pub fn cached_xref(&self, sym: &Ustr) -> Option<Arc<CrossrefData>> {
+        self.xrefs.get(sym)?.clone()
     }
 
     async fn xref(&mut self, sym: &Ustr) -> Option<Arc<CrossrefData>> {
@@ -1066,7 +1236,27 @@ impl<'s> Tracer<'s> {
 
     pub async fn run(&mut self, dir: Dir) {
         let mut processed = 0;
-        while let Some(item) = self.queue.pop_front() {
+        // (How many of the queue's first items had what they resolve
+        // prefetched: once they're processed, the items they queued, the
+        // next hop's, are, at once.)
+        let mut prefetched = 0;
+        loop {
+            if prefetched == 0 {
+                let budget = self.opts.max_items.saturating_sub(processed) + 1;
+                let callees: Vec<Ustr> = self
+                    .queue
+                    .iter()
+                    .take(budget)
+                    .filter(|item| !self.seen.contains(&Self::item_key(item, dir)))
+                    .flat_map(|item| self.item_callees(item, dir))
+                    .collect();
+                self.prefetch_defs(callees).await;
+                prefetched = self.queue.len();
+            }
+            let Some(item) = self.queue.pop_front() else {
+                break;
+            };
+            prefetched -= 1;
             processed += 1;
             if processed > self.opts.max_items {
                 self.note(format!(
@@ -1077,12 +1267,7 @@ impl<'s> Tracer<'s> {
                 break;
             }
             let f = &item.file.funcs[item.func];
-            let key = (
-                item.file.path.clone(),
-                f.sym,
-                format!("{:?}@{:?}", item.flow, item.pos),
-                dir == Dir::Forward,
-            );
+            let key = Self::item_key(&item, dir);
             if std::env::var("DATAFLOW_DEBUG").is_ok() {
                 eprintln!(
                     "item {} {} {:?} pos={:?} hops={} stack={}",
@@ -1228,6 +1413,8 @@ impl<'s> Tracer<'s> {
             .flatten()
             .flat_map(|p| p.lines.iter().map(move |l| (p.path.to_string(), l.lineno)))
             .collect();
+        self.prefetch([], defs.iter().map(|(path, _)| path.clone()))
+            .await;
         for (path, line) in defs {
             let Some(file) = self.file(&path).await else {
                 continue;
@@ -1308,6 +1495,14 @@ impl<'s> Tracer<'s> {
                     self.opts.fanout
                 ));
             }
+            self.prefetch_defs(
+                overridden_by
+                    .iter()
+                    .take(self.opts.fanout)
+                    .copied()
+                    .collect(),
+            )
+            .await;
             for o in overridden_by.iter().take(self.opts.fanout) {
                 out.extend(
                     self.defs_of(o, Some("override".to_string()), ArgMap::Direct)
@@ -1388,6 +1583,13 @@ impl<'s> Tracer<'s> {
             .filter(|s| s.props.slot_kind == crate::file_format::analysis::BindingSlotKind::Recv)
             .map(|s| s.sym)
             .collect();
+        self.prefetch(recvs.iter().copied(), []).await;
+        let recv_defs: Vec<String> = recvs
+            .iter()
+            .filter_map(|recv| self.xrefs.get(recv)?.clone())
+            .flat_map(|xref| def_paths(&xref))
+            .collect();
+        self.prefetch([], recv_defs).await;
         for recv in recvs {
             let via = Some(format!(
                 "ipc {}",
@@ -1424,6 +1626,7 @@ impl<'s> Tracer<'s> {
                 syms.push((o.sym, ArgMap::Direct));
             }
         }
+        self.prefetch(syms.iter().map(|(s, _)| *s), []).await;
         // (An IPDL message's `Recv` method (or an override of one): the
         // message's `Send` methods' callers, which IPC passes the same
         // arguments, rather than the generated code that calls it (which
@@ -1504,6 +1707,8 @@ impl<'s> Tracer<'s> {
                 }
             }
         }
+        self.prefetch_uses(syms.iter().map(|(s, _)| *s).collect())
+            .await;
         let mut sites = vec![];
         let mut total = 0;
         for (s, map) in syms {
@@ -2408,6 +2613,7 @@ impl<'s> Tracer<'s> {
         if field.starts_with("name:") {
             return;
         }
+        self.prefetch_uses(vec![field]).await;
         let uses = self.field_uses(field).await;
         let total = uses.len();
         let mut followed = 0;
@@ -3154,6 +3360,7 @@ impl<'s> Tracer<'s> {
         if field.starts_with("name:") || hops + 1 > self.opts.max_hops {
             return;
         }
+        self.prefetch_uses(vec![field]).await;
         let uses = self.field_uses(field).await;
         let mut followed = 0;
         let mut writes_total = 0;
@@ -3233,6 +3440,7 @@ impl<'s> Tracer<'s> {
         }
         let name = short_name(&self.symbol_name(&field).await).to_string();
         let (accessors, _) = self.ipdl_field_slots(field).await;
+        self.prefetch_uses(accessors.clone()).await;
         let mut funcs: HashSet<(String, Ustr)> = HashSet::new();
         for accessor in accessors {
             for (path, line, contextsym) in self.field_uses(accessor).await {
@@ -3296,6 +3504,8 @@ impl<'s> Tracer<'s> {
             .map(|(sym, index)| (sym, Some(index)))
             .chain(accessors.into_iter().map(|sym| (sym, None)))
             .collect();
+        self.prefetch_uses(slots.iter().map(|(sym, _)| *sym).collect())
+            .await;
         let mut funcs: HashSet<(String, Ustr)> = HashSet::new();
         for (slot, index) in slots {
             for (path, line, contextsym) in self.field_uses(slot).await {

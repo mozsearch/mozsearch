@@ -4268,6 +4268,7 @@ dependencies = [
  "fantoccini",
  "flate2",
  "futures-core",
+ "futures-util",
  "getopts",
  "git2",
  "globset",

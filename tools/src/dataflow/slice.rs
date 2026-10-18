@@ -248,6 +248,46 @@ async fn ipdl_keys(
     }
 }
 
+/// Fetch, at once, what `file_units` looks up for files' lines one at a
+/// time: the files, then the callees of the calls on the lines and the
+/// functions they're in (for `ipdl_keys` and `Tracer::class_of`), and then
+/// those's IPDL owners and classes.
+async fn prefetch_units<'a>(
+    tracer: &mut Tracer<'_>,
+    files: impl Iterator<Item = (&'a String, BTreeSet<u32>)>,
+) {
+    let files: Vec<(&String, BTreeSet<u32>)> = files.collect();
+    tracer
+        .prefetch([], files.iter().map(|(path, _)| path.to_string()))
+        .await;
+    let mut syms: Vec<Ustr> = vec![];
+    for (path, lines) in &files {
+        let Some(file) = tracer.file(path).await else {
+            continue;
+        };
+        for line in lines {
+            if let Some(f) = file.func_at_line(*line) {
+                syms.push(f.sym);
+                syms.extend(
+                    f.calls
+                        .iter()
+                        .filter(|c| c.line <= *line && *line <= c.end_line.max(c.line))
+                        .flat_map(|c| c.callee.iter().copied()),
+                );
+            }
+        }
+    }
+    tracer.prefetch(syms.iter().copied(), []).await;
+    let mut owners: Vec<Ustr> = vec![];
+    for sym in &syms {
+        if let Some(meta) = tracer.cached_xref(sym).and_then(|xref| xref.meta.clone()) {
+            owners.extend(meta.slot_owner.map(|owner| owner.sym));
+            owners.extend(meta.parent_sym);
+        }
+    }
+    tracer.prefetch(owners, []).await;
+}
+
 /// The units of a file's lines (of the patch's new side, or, `removed`, those
 /// it removes, on the old side, which `tracer` is of), with their functions'
 /// IR: a function's contiguous changed lines, or a run of declarations
@@ -417,6 +457,33 @@ pub async fn slice(
             .cloned()
             .collect()
     };
+    let mut old = old;
+    let changed_lines = |change: &FileChange| -> BTreeSet<u32> {
+        change
+            .added
+            .iter()
+            .chain(&change.removed)
+            .copied()
+            .collect()
+    };
+    prefetch_units(
+        tracer,
+        changes
+            .files
+            .iter()
+            .map(|(path, change)| (path, changed_lines(change))),
+    )
+    .await;
+    if let Some(old) = old.as_deref_mut() {
+        prefetch_units(
+            old,
+            changes
+                .removed_lines
+                .iter()
+                .map(|(path, lines)| (path, lines.iter().copied().collect())),
+        )
+        .await;
+    }
     for (path, change) in &changes.files {
         let mut lines: BTreeSet<u32> = change.added.iter().copied().collect();
         lines.extend(change.removed.iter().copied());
@@ -430,7 +497,6 @@ pub async fn slice(
         }
     }
     // (What it removes, on the old side, if its analysis is there.)
-    let mut old = old;
     match old.as_deref_mut() {
         Some(old) => {
             for (path, lines) in &changes.removed_lines {
