@@ -64,6 +64,17 @@ pub fn search_url(tree_name: &str) -> String {
     }
 }
 
+/// Where the tree's pages' search boxes send what's typed into them: its
+/// `/search` (router.py's, or in a tree searching with queries, its
+/// normalization into a query; see web-server.rs), but in a try push's context
+/// in a tree that doesn't, its `/query/default` (which router.py can't have).
+pub fn search_box_url(tree_name: &str, try_context: bool) -> String {
+    match (search_endpoint(tree_name), try_context) {
+        (SearchEndpoint::Search, true) => format!("/{}/query/default", tree_name),
+        _ => format!("/{}/search", tree_name),
+    }
+}
+
 /// A link from the tree's pages to the search for `q`.  (router.py's
 /// `/search` goes to a search's only result unless `redirect_single`.)
 pub fn search_link(tree_name: &str, q: &str, redirect_single: bool) -> String {

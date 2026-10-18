@@ -50,6 +50,7 @@ impl PipelineCommand for RenderCommand {
                     // the header always needs this
                     "query": "",
                     "search_url": config::search_url(&tree_info.name),
+                    "search_box_url": config::search_box_url(&tree_info.name, false),
                     "query_search": config::search_endpoint(&tree_info.name) == SearchEndpoint::Query,
                 });
                 let rendered = match template.render(&liquid_globals) {
@@ -78,6 +79,7 @@ impl PipelineCommand for RenderCommand {
                     // the header always needs this
                     "query": "",
                     "search_url": config::search_url(&tree_info.name),
+                    "search_box_url": config::search_box_url(&tree_info.name, false),
                     "query_search": config::search_endpoint(&tree_info.name) == SearchEndpoint::Query,
                     "content": content,
                 });
@@ -103,6 +105,7 @@ impl PipelineCommand for RenderCommand {
                     // the header always needs this
                     "query": "",
                     "search_url": config::search_url(&tree_info.name),
+                    "search_box_url": config::search_box_url(&tree_info.name, false),
                     "query_search": config::search_endpoint(&tree_info.name) == SearchEndpoint::Query,
                 });
                 let rendered = match template.render(&liquid_globals) {

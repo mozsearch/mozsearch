@@ -50,16 +50,10 @@ fn search_url(opt: &Options) -> String {
     }
 }
 
-/// Where the page's search box sends what's typed into it: the DWIM endpoint,
-/// which normalizes it into a query (see `query::dwim`), where searches are
-/// queries, else router.py's search.
+/// Where the page's search box sends what's typed into it (see
+/// `config::search_box_url`).
 fn search_box_url(opt: &Options) -> String {
-    match opt.search_rev.is_some()
-        || config::search_endpoint(opt.tree_name) == SearchEndpoint::Query
-    {
-        true => format!("/{}/dwim", opt.tree_name),
-        false => search_url(opt),
-    }
+    config::search_box_url(opt.tree_name, opt.search_rev.is_some())
 }
 
 /// The page's link to the tree's OpenSearch description (see web-server.rs's

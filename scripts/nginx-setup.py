@@ -286,9 +286,10 @@ map $args $page_sidecar_json {
   default "/.no-page-sidecar";
 }
 
-# router.py's search in a tree searching with queries: pages (ex: old links and
-# keyword bookmarks) go to the web-server, which normalizes the search into a
-# query (see its `search` route), and JSON (ex: scripts') to router.py.
+# router.py's search in a tree searching with queries: pages (ex: its search
+# boxes', keyword and OpenSearch engines', and old links) go to the
+# web-server, which normalizes what a person searched for into a query (see
+# its `search` route), and JSON (ex: scripts') to router.py.
 map $http_accept $classic_search_server {
   default 127.0.0.1:8001;
   "~application/json" 127.0.0.1:8000;
@@ -514,11 +515,9 @@ for repo in config['trees']:
     # and its other routes.
     location(f'/{repo}/hgrev', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/complete', ['proxy_pass http://127.0.0.1:8001;'])
-    # The DWIM endpoint's redirects (see the tools' `query::dwim`), and the
-    # tree's OpenSearch description, which searches with it (and whose URLs
-    # are absolute, so of the request's host; and so not cached), and its
-    # suggestions.
-    location(f'/{repo}/dwim', ['proxy_pass http://127.0.0.1:8001;'])
+    # The tree's OpenSearch description, which searches with `/search` (and
+    # whose URLs are absolute, so of the request's host; and so not cached),
+    # and its suggestions.
     location(f'= /{repo}/opensearch.xml', [
         # (With its port, unlike $host.)
         'proxy_set_header X-Forwarded-Host $http_host;',

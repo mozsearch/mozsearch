@@ -20,6 +20,11 @@
       the indexed revision (<a href="/{{tree}}/query/{{preset}}?q={{ query | url_encode }}">search the indexed revision instead</a>).
     </div>
     {%- endif %}
+    {%- if dwim %}
+    <div class="query-interpretation query-dwim">
+      <a href="{{ dwim.url | escape }}">Go to {{ dwim.url | escape }}</a> ({{ dwim.description | escape }})
+    </div>
+    {%- endif %}
     {%- if interpretation %}
     <div class="query-interpretation">
       Searching for <code>{{ query | escape }}</code>, the query for

@@ -5756,6 +5756,7 @@ pub fn render_dir_listing(
         },
         "query_search": search_rev.is_some()
             || config::search_endpoint(tree_name) == SearchEndpoint::Query,
+        "search_box_url": config::search_box_url(tree_name, search_rev.is_some()),
         "search_rev": search_rev,
     });
 

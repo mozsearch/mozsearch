@@ -1,16 +1,16 @@
-# The DWIM ("do what I mean") endpoint's rules (`/{tree}/dwim?q=...`; see
-# dwim.rs): what to do with what people paste or type into a keyword bookmark,
-# an OpenSearch engine or a query tree's search box, which isn't a query yet
-# (ex: a URL of another tool's page), as the current best advice for it: they
-# aren't a stable interface, and are likely to become queries over time.
+# The DWIM ("do what I mean") rules (see dwim.rs; bug 1908776): where what a
+# person searches for (`/search`'s input, in a tree searching with queries)
+# may be, if it's something one has (ex: another tool's URL of a file), as the
+# current best advice for it: they aren't a stable interface, and are likely
+# to become queries over time.  The query's page says where (with the rule's
+# `description`) beside the results of searching for it, and goes there if
+# the search finds nothing.
 #
 # The first rule whose `pattern` (a regexp) matches all of the input (trimmed)
-# goes to its `redirect`, a URL (or the tree's path), with `{tree}` and the
+# is where its `redirect` is, a URL (or the tree's path), with `{tree}` and the
 # pattern's named captures substituted (as they are: they're parts of a URL
 # already), and `[...]` left out where a capture in it didn't match.  A rule
-# with `exists` only applies if the tree has the path that capture names (and
-# else the input is searched for).  Input matching no rule is searched for, as
-# the query language reads it (see normalize.rs).
+# with `exists` only applies if the tree has the path that capture names.
 
 [[rule]]
 name = "wpt-sync-pr"

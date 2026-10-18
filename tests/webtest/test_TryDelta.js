@@ -43,8 +43,8 @@ add_task(async function test_TryDeltaPages() {
   await TestUtils.loadPath(`/trydelta/rev/${head}/user.cpp`);
   is(doc().querySelector("#data").getAttribute("data-search-rev"), head,
      "The head's pages search in the push's context");
-  is(doc().querySelector("#search-box").getAttribute("action"), "/trydelta/dwim",
-     "with the DWIM endpoint");
+  is(doc().querySelector("#search-box").getAttribute("action"), "/trydelta/search",
+     "with /search");
   is(doc().querySelector('#search-box input[name="rev"]')?.value, head, "for the push");
   // (Which queries in the push's context.)
   doc().querySelector("#query").value = "Frob";

@@ -22,11 +22,11 @@
 <body>
 <div id="fixed-header">
   {%- comment %}
-    (A query tree's search box's input is a person's, which the DWIM endpoint
-    normalizes into a query, or takes where its rules say; so are keyword
-    bookmarks' made from it.  Its pages' links to searches are queries.)
+    (What's typed into it goes to `/search` (see `config::search_box_url`),
+    which in a tree searching with queries normalizes it into one; so do
+    keyword engines made from it.  Its pages' links to searches are queries.)
   {% endcomment %}
-  <form method="get" action="{% if query_search %}/{{tree}}/dwim{% else %}{{ search_url }}{% endif %}" class="search-box" id="search-box">
+  <form method="get" action="{{ search_box_url }}" class="search-box" id="search-box">
     <fieldset>
       <div id="query-section">
         <label for="query" class="query_label visually-hidden">Find</label>

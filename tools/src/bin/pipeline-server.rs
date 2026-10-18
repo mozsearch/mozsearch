@@ -33,7 +33,7 @@ use tools::{
     file_format::jumpref::{JumprefData, JumprefTraversals},
     file_format::recency::Recency,
     logging::{LoggedSpan, init_logging},
-    query::{chew_query::chew_query, normalize::normalize_input},
+    query::{chew_query::chew_query, dwim::dwim_target, normalize::normalize_input},
     templating::builder::build_and_parse_query_results,
 };
 use tower::limit::GlobalConcurrencyLimitLayer;
@@ -296,6 +296,22 @@ async fn handle_query(
         .map(|x| x.to_str().unwrap_or("text/html"));
     let make_html = !matches!(accept, Some("application/json"));
 
+    // Where a DWIM rule says what a person searched for may be (see
+    // `tools::query::dwim`; ex: a GitHub URL of a file, the tree's file), for
+    // the page of their search (with its input; see web-server.rs's `search`
+    // route), which goes there if the search finds nothing.
+    let dwim = params.get("input").and_then(|input| {
+        dwim_target(&tree, input, &|path: &str| {
+            server.file_facet_info(path).is_some()
+        })
+    });
+    if make_html
+        && let Some(target) = &dwim
+        && finds_nothing(&result)
+    {
+        return Ok((StatusCode::FOUND, [(header::LOCATION, target.url.clone())]).into_response());
+    }
+
     let logs = match logged_span {
         Some(lspan) => lspan.retrieve_serde_json().await,
         _ => Value::Null,
@@ -347,9 +363,9 @@ async fn handle_query(
             _ => serde_json::to_value(result).unwrap(),
         };
 
-        // What the query was before it was normalized (ex: by the DWIM
-        // endpoint; see web-server.rs's `query_url`), and what normalizing
-        // changed, if it's reproducible (else the input is only shown).
+        // What the query was before it was normalized (by `/search`; see
+        // web-server.rs's `query_url`), and what normalizing changed, if it's
+        // reproducible (else the input is only shown).
         let interpretation = match params.get("input").filter(|input| input.trim() != query) {
             Some(input) => {
                 let normalization = normalize_input(input);
@@ -366,6 +382,7 @@ async fn handle_query(
             "results": result_value,
             "query": query.clone(),
             "interpretation": interpretation,
+            "dwim": dwim.map(|target| json!({ "url": target.url, "description": target.description })),
             "preset": preset.clone(),
             "tree": tree.clone(),
             // (The page's tree's, for its own results; see line_span.liquid.)
@@ -386,6 +403,18 @@ async fn handle_query(
         Ok((header_map, Html(output)).into_response())
     } else {
         Ok((header_map, Json(result)).into_response())
+    }
+}
+
+/// Whether a query's results are none.
+fn finds_nothing(result: &PipelineValues) -> bool {
+    match result {
+        PipelineValues::Void => true,
+        PipelineValues::FlattenedResultsBundle(bundle) => bundle
+            .path_kind_results
+            .iter()
+            .all(|results| results.file_names.is_empty() && results.kind_groups.is_empty()),
+        _ => false,
     }
 }
 

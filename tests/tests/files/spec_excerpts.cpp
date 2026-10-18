@@ -62,3 +62,6 @@ void PokeTwice(int aWidget) {
 }
 
 }  // namespace spec_excerpts
+
+// (A URL of this file elsewhere, which /search finds, and says its DWIM rule
+// says where it is: https://github.com/example/tests/blob/main/spec_excerpts.cpp)

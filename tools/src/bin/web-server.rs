@@ -30,7 +30,6 @@ use tools::file_format::config;
 use tools::file_format::jumpref::PrefetchedJumprefs;
 use tools::file_format::per_file_info::path_facet_map;
 use tools::format;
-use tools::query::dwim::Dwim;
 use ustr::UstrMap;
 
 use tools::sidecars;
@@ -338,8 +337,10 @@ fn request_origin(headers: &http::HeaderMap) -> String {
 }
 
 /// The tree's OpenSearch description (`/{tree}/opensearch.xml`, which its
-/// pages link to; see `output::opensearch_link`): searching with the DWIM
-/// endpoint, with suggestions of identifiers (see the `suggest` route).
+/// pages link to; see `output::opensearch_link`): searching with `/search`
+/// (router.py's, or a tree searching with queries' normalization into them;
+/// see the `search` route), with suggestions of identifiers (see the
+/// `suggest` route).  (Its URLs are forever: Firefox doesn't update them.)
 /// (Firefox wants absolute URLs, and the link's title for the name.)
 fn opensearch_description(tree_name: &str, origin: &str) -> String {
     format!(
@@ -349,7 +350,7 @@ fn opensearch_description(tree_name: &str, origin: &str) -> String {
   <Description>Search {tree} with Searchfox</Description>
   <InputEncoding>UTF-8</InputEncoding>
   <Image width="52" height="52" type="image/png">{origin}/{tree}/static/icons/search.png</Image>
-  <Url type="text/html" method="get" template="{origin}/{tree}/dwim?q={{searchTerms}}"/>
+  <Url type="text/html" method="get" template="{origin}/{tree}/search?q={{searchTerms}}"/>
   <Url type="application/x-suggestions+json" method="get" template="{origin}/{tree}/suggest?q={{searchTerms}}"/>
   <Url type="application/opensearchdescription+xml" rel="self" template="{origin}/{tree}/opensearch.xml"/>
   <moz:SearchForm>{origin}/{tree}/source/</moz:SearchForm>
@@ -1059,63 +1060,29 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             }
         }
 
-        // Human input (from a keyword bookmark, an OpenSearch engine or a
-        // query tree's search box; see `tools::query::dwim`): where its DWIM
-        // rule says, or its search, with the query language (as `normalize`
-        // reads it) in a tree searching with it, else router.py's.
-        "dwim" => {
-            let params = query_params(req.query);
-            let input = params.get("q").map(String::as_str).unwrap_or_default();
-            let files_path = cfg
-                .trees
-                .get(*tree_name)
-                .map(|tree| tree.paths.files_path.clone());
-            // (Only of the tree's files: a relative path, without `..`s.)
-            let has_path = |path: &str| {
-                files_path.as_ref().is_some_and(|files| {
-                    !path.starts_with('/')
-                        && !path.split('/').any(|part| part == "..")
-                        && Path::new(files).join(path).exists()
-                })
-            };
-            match tools::query::dwim::dwim(tree_name, input, &has_path) {
-                Dwim::Redirect { url, .. } => WebResponse::found(url),
-                // (A try push's context's searches are queries.)
-                Dwim::Search(normalization) => match config::search_endpoint(tree_name) {
-                    _ if params.get("rev").is_some_and(|rev| !rev.is_empty()) => {
-                        WebResponse::found(query_url(
-                            tree_name,
-                            &normalization.query,
-                            input,
-                            params.get("rev").map(String::as_str),
-                        ))
-                    }
-                    config::SearchEndpoint::Query => {
-                        WebResponse::found(query_url(tree_name, &normalization.query, input, None))
-                    }
-                    config::SearchEndpoint::Search => WebResponse::found(format!(
-                        "/{}/search?q={}",
-                        tree_name,
-                        urlencoding::encode(input)
-                    )),
-                },
-            }
-        }
-
-        // router.py's search, in a tree searching with the query language
-        // (whose pages' links and search box don't go here; nginx sends the
-        // rest of its requests, for JSON, to router.py): the query for it.
+        // What a person searched for (from a search box, a keyword or
+        // OpenSearch engine, or router.py's search's URLs, with its form's
+        // fields), in a tree searching with queries (nginx sends the requests
+        // for JSON, and the other trees', to router.py): its query (see
+        // `tools::query::normalize`), whose page (with the input) also says
+        // where a DWIM rule says it may be (see pipeline-server.rs), in a try
+        // push's context if it was (`rev`).
         "search" if config::search_endpoint(tree_name) == config::SearchEndpoint::Query => {
             let params = query_params(req.query);
             let param = |name: &str| params.get(name).map(String::as_str);
             let input = param("q").unwrap_or_default();
-            let normalization = tools::query::normalize::normalize_classic(
+            let form = tools::query::normalize::SearchForm {
+                path: param("path"),
+                case: param("case") == Some("true"),
+                regexp: param("regexp") == Some("true"),
+            };
+            let normalization = tools::query::normalize::normalize_search(input, &form);
+            WebResponse::found(query_url(
+                tree_name,
+                &normalization.query,
                 input,
-                param("path"),
-                param("case") == Some("true"),
-                param("regexp") == Some("true"),
-            );
-            WebResponse::found(query_url(tree_name, &normalization.query, input, None))
+                param("rev"),
+            ))
         }
 
         "opensearch.xml" if cfg.trees.contains_key(*tree_name) => WebResponse {
@@ -1127,7 +1094,9 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
 
         // An OpenSearch engine's suggestions (see `opensearch_description`):
         // the identifiers the input's the prefix of (see `dwim::suggestion`),
-        // as Firefox has them: `[input, [suggestion, ...]]`.
+        // as Firefox has them: `[input, [suggestion, ...]]`.  (Only a tree
+        // searching with queries trims the spaces after those that look like
+        // URLs to Firefox's address bar; router.py would search for them.)
         "suggest" => {
             let params = query_params(req.query);
             let input = params.get("q").cloned().unwrap_or_default();
@@ -1140,8 +1109,13 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                     server.search_identifiers(&needle, false, true, 50).await
                 })
                 .unwrap_or_default();
+                let query_tree =
+                    config::search_endpoint(tree_name) == config::SearchEndpoint::Query;
                 for (_, id) in ids {
-                    let suggestion = tools::query::dwim::suggestion(before, &id);
+                    let suggestion = match query_tree {
+                        true => tools::query::dwim::suggestion(before, &id),
+                        false => format!("{}{}", before, id),
+                    };
                     if !suggestions.contains(&suggestion) {
                         suggestions.push(suggestion);
                     }

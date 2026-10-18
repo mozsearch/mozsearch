@@ -1,11 +1,12 @@
-//! Normalizing human-authored search input into the query language's
-//! canonical form (see `chew_query`): what a keyword bookmark, an OpenSearch
-//! engine or the classic search form (router.py's `/search`, with its path
-//! field and case and regexp checkboxes) sends was typed without any help
-//! with the query language's syntax, so it's read the way people type
-//! searches, and the canonical query is what's run (and shown, so that it
-//! teaches the syntax): qualified names (`Foo::Bar`) and phrases quoted,
-//! classic terms translated.  The `/query/` endpoint itself stays strict.
+//! Normalizing what people search for into the query language's canonical
+//! form (see `chew_query`): what a search box, a keyword or OpenSearch engine
+//! or router.py's search's URLs (with its form's path field and case and
+//! regexp options) send to `/search` (see web-server.rs) was typed without any
+//! help with the query language's syntax, so it's read the way people type
+//! searches (and router.py read them), and the canonical query is what's run
+//! (and shown, so that it teaches the syntax): qualified names (`Foo::Bar`)
+//! and phrases quoted, router.py's terms translated.  The `/query/` endpoint
+//! itself stays strict.
 
 use query_parser::{TermValue, parse};
 
@@ -16,6 +17,15 @@ use super::chew_query::{is_qualified_name, is_term};
 pub struct Normalization {
     pub query: String,
     pub changes: Vec<String>,
+}
+
+/// router.py's search form's fields, besides its query (`q`): a path glob,
+/// case-sensitivity, and whether the text to search for is a regexp.
+#[derive(Debug, Default)]
+pub struct SearchForm<'a> {
+    pub path: Option<&'a str>,
+    pub case: bool,
+    pub regexp: bool,
 }
 
 /// A value as the query language reads it back: bare if that's unambiguous,
@@ -39,17 +49,107 @@ pub fn quote(value: &str) -> String {
     out
 }
 
-/// Human-typed input (ex: a keyword bookmark's `%s`): the query language's
-/// terms stay terms (`path:dom`, `calls-to:Foo`), qualified names are quoted
-/// (`Foo::Bar`, which the query language would take as the term `Foo`), and
-/// the rest is the text to search for, as one phrase, the way the classic
-/// search reads it (`foo bar`, which the query language would take as two
-/// searches), unless the input quotes anything (then it's in the query
-/// language already, which a query's page's search box has, and a phrase is
-/// quoted).  A word starting with a dash is text (ex: `-moz-appearance`; the
-/// query language takes it as a negated term, and has no negation yet), as is
-/// a dash before a qualified name, but not one before a term (`-path:foo`).
+/// What a person searched for (`/search`'s `q`, and router.py's form's
+/// fields), as a query:
+/// - the query language's terms stay terms (`path:dom`, `calls-to:Foo`,
+///   `-path:dom`);
+/// - router.py's `re:`, `text:` and `symbol:` take the rest of the input, as
+///   they did, after only terms, but for terms at its end (ex: `re:a b
+///   path:dom` is `re:'a b' path:dom`), unless it quotes anything;
+/// - qualified names are quoted (`Foo::Bar`, which the query language would
+///   take as the term `Foo`);
+/// - the rest is the text to search for, as one phrase, as router.py read it
+///   (`foo bar`, which the query language would take as two searches), unless
+///   the input quotes anything (then it's in the query language already);
+/// - a word starting with a dash is text (ex: `-moz-appearance`), as is a
+///   dash before a qualified name, but not one before a term (`-path:foo`);
+/// - and the form's fields are terms (`path:`, `case:sensitive`), and with
+///   its regexp option, the phrase is a regexp (`re:`).
+pub fn normalize_search(input: &str, form: &SearchForm) -> Normalization {
+    let input = input.trim();
+    let phrase_prefix = if form.regexp { "re:" } else { "" };
+    let mut normalization = rest_of_input(input).unwrap_or_else(|| words(input, phrase_prefix));
+    let mut terms: Vec<String> = vec![normalization.query];
+    if let Some(path) = form.path.map(str::trim).filter(|path| !path.is_empty()) {
+        terms.push(format!("path:{}", quote(path)));
+    }
+    if form.case {
+        terms.push("case:sensitive".to_string());
+    }
+    terms.retain(|term| !term.is_empty());
+    normalization.query = terms.join(" ");
+    normalization
+}
+
+/// What a person typed, without router.py's form's fields (see
+/// `normalize_search`).
 pub fn normalize_input(input: &str) -> Normalization {
+    normalize_search(input, &SearchForm::default())
+}
+
+/// router.py's terms whose values are the rest of the input.
+const REST_OF_INPUT: [&str; 3] = ["re:", "text:", "symbol:"];
+
+/// The input as router.py's `re:`, `text:` or `symbol:` would have it (see
+/// `normalize_search`), if it has one of them after only terms (and no
+/// quotes).
+fn rest_of_input(input: &str) -> Option<Normalization> {
+    if input.contains(['\'', '"']) {
+        return None;
+    }
+    let pieces: Vec<&str> = input.split(' ').collect();
+    let rest_of_input = |piece: &str| {
+        REST_OF_INPUT
+            .into_iter()
+            .find(|prefix| piece.starts_with(prefix))
+    };
+    let is_term_piece = |piece: &str| {
+        let piece = piece.strip_prefix('-').unwrap_or(piece);
+        rest_of_input(piece).is_none()
+            && piece.split_once(':').is_some_and(|(key, value)| {
+                is_term(key) && !value.is_empty() && !is_qualified_name(value)
+            })
+    };
+    let at = pieces
+        .iter()
+        .position(|piece| rest_of_input(piece).is_some())?;
+    if !pieces[..at]
+        .iter()
+        .all(|piece| piece.is_empty() || is_term_piece(piece))
+    {
+        return None;
+    }
+    let prefix = rest_of_input(pieces[at])?;
+    let mut end = pieces.len();
+    while end > at + 1 && is_term_piece(pieces[end - 1]) {
+        end -= 1;
+    }
+    let value = pieces[at..end].join(" ")[prefix.len()..].to_string();
+    let value = match prefix {
+        "symbol:" => value.trim().to_string(),
+        _ => value,
+    };
+    let (before, after) = (
+        words(&pieces[..at].join(" "), ""),
+        words(&pieces[end..].join(" "), ""),
+    );
+    let terms: Vec<String> = [
+        before.query,
+        format!("{}{}", prefix, quote(&value)),
+        after.query,
+    ]
+    .into_iter()
+    .filter(|term| !term.is_empty())
+    .collect();
+    Some(Normalization {
+        query: terms.join(" "),
+        changes: before.changes.into_iter().chain(after.changes).collect(),
+    })
+}
+
+/// The input's terms, and its words, as one phrase (after `phrase_prefix`,
+/// ex: `re:`), unless it quotes anything (see `normalize_search`).
+fn words(input: &str, phrase_prefix: &str) -> Normalization {
     let mut terms: Vec<String> = vec![];
     // (Where the phrase goes, and its words.)
     let mut phrase: Option<(usize, Vec<String>)> = None;
@@ -90,69 +190,11 @@ pub fn normalize_input(input: &str) -> Normalization {
         if words.len() > 1 {
             changes.push(format!("searched for the phrase \"{}\"", text));
         }
-        terms[index] = quote(&text);
+        terms[index] = format!("{}{}", phrase_prefix, quote(&text));
     }
     Normalization {
         query: terms.join(" "),
         changes,
-    }
-}
-
-/// The classic search's input (router.py's `/search`): its query string's
-/// terms (`path:`, `pathre:`, `context:N`, `id:`, and `symbol:`, `re:` and
-/// `text:`, which take the rest of it; else the rest of it is the text to
-/// search for), and its form's fields (a path glob, case-sensitivity, and
-/// whether the text is a regexp), as the query language has them.
-pub fn normalize_classic(q: &str, path: Option<&str>, case: bool, regexp: bool) -> Normalization {
-    let mut terms: Vec<String> = vec![];
-    let pieces: Vec<&str> = q.split(' ').collect();
-    let rest = |i: usize, prefix: &str| pieces[i..].join(" ")[prefix.len()..].to_string();
-    let mut text: Option<String> = None;
-    for (i, piece) in pieces.iter().enumerate() {
-        if piece.is_empty() {
-            continue;
-        }
-        let simple = ["path:", "pathre:", "context:", "id:"]
-            .into_iter()
-            .find(|prefix| piece.starts_with(prefix));
-        if let Some(prefix) = simple {
-            terms.push(format!(
-                "{}:{}",
-                &prefix[..prefix.len() - 1],
-                quote(&piece[prefix.len()..])
-            ));
-            continue;
-        }
-        if let Some(prefix) = ["symbol:", "re:", "text:"]
-            .into_iter()
-            .find(|prefix| piece.starts_with(prefix))
-        {
-            terms.push(format!(
-                "{}:{}",
-                &prefix[..prefix.len() - 1],
-                quote(rest(i, prefix).trim())
-            ));
-            break;
-        }
-        text = Some(rest(i, ""));
-        break;
-    }
-    if let Some(text) = text.filter(|text| !text.trim().is_empty()) {
-        if regexp {
-            terms.push(format!("re:{}", quote(&text)));
-        } else {
-            terms.push(quote(&text));
-        }
-    }
-    if let Some(path) = path.map(str::trim).filter(|path| !path.is_empty()) {
-        terms.push(format!("path:{}", quote(path)));
-    }
-    if case {
-        terms.push("case:sensitive".to_string());
-    }
-    Normalization {
-        query: terms.join(" "),
-        changes: vec![],
     }
 }
 
@@ -208,9 +250,10 @@ mod tests {
     }
 
     #[test]
-    fn test_normalize_classic() {
+    fn test_normalize_search() {
+        // router.py's search's URLs, with its form's fields.
         let n = |q: &str, path: Option<&str>, case: bool, regexp: bool| {
-            normalize_classic(q, path, case, regexp).query
+            normalize_search(q, &SearchForm { path, case, regexp }).query
         };
         assert_eq!(n("Foo::Bar", None, false, false), "'Foo::Bar'");
         assert_eq!(
@@ -226,14 +269,24 @@ mod tests {
             "foo path:'dom/a b'"
         );
         assert_eq!(n("a.*b", None, false, true), "re:a.*b");
-        assert_eq!(
-            n("context:3 re:foo bar", None, false, false),
-            "context:3 re:'foo bar'"
-        );
-        assert_eq!(
-            n("symbol:_ZN3FooEv", None, false, false),
-            "symbol:_ZN3FooEv"
-        );
+        assert_eq!(n("a b", None, false, true), "re:'a b'");
         assert_eq!(n("x", None, true, false), "x case:sensitive");
+        assert_eq!(
+            n("Widget::Frob", Some("widget"), true, false),
+            "'Widget::Frob' path:widget case:sensitive"
+        );
+        // router.py's `re:`, `text:` and `symbol:` take the rest of the input,
+        // but terms at its end.
+        let n = |q: &str| normalize_input(q).query;
+        assert_eq!(n("re:foo bar"), "re:'foo bar'");
+        assert_eq!(n("context:3 re:foo bar"), "context:3 re:'foo bar'");
+        assert_eq!(n("path:dom re:a.*b c"), "path:dom re:'a.*b c'");
+        assert_eq!(n("text:foo bar path:dom"), "text:'foo bar' path:dom");
+        assert_eq!(n("text:if ( -path:dom"), "text:'if (' -path:dom");
+        assert_eq!(n("symbol:_ZN3FooEv"), "symbol:_ZN3FooEv");
+        assert_eq!(n("symbol:_ZN3FooEv "), "symbol:_ZN3FooEv");
+        // (Not after the text to search for, nor quoted.)
+        assert_eq!(n("calls-to:Foo depth:3"), "calls-to:Foo depth:3");
+        assert_eq!(n("re:'a b' c"), "re:'a b' c");
     }
 }

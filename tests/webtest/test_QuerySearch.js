@@ -2,9 +2,10 @@
 
 // The trydelta tree searches with the pipeline-server's /query/ (its config's
 // "search_endpoint": "query"; see `config::SearchEndpoint`): its pages' search
-// box is a single field submitted with Enter, to the DWIM endpoint, which
-// normalizes what's typed into a query (see the tools' `query::dwim`), and
-// their links to searches go to /query/default.
+// box is a single field submitted with Enter, to /search, which normalizes
+// what's typed into a query (see the tools' `query::normalize`), whose page
+// says where a DWIM rule says it may be (`query::dwim`), and their links to
+// searches go to /query/default.
 
 function doc() {
   return frame.contentDocument;
@@ -13,8 +14,8 @@ function doc() {
 add_task(async function test_QuerySearchBox() {
   await TestUtils.loadPath("/trydelta/source/user.cpp");
   const form = doc().querySelector("#search-box");
-  is(form.getAttribute("action"), "/trydelta/dwim",
-     "A source listing's search box sends what's typed to the DWIM endpoint");
+  is(form.getAttribute("action"), "/trydelta/search",
+     "A source listing's search box sends what's typed to /search");
   ok(!doc().querySelector("#path"), "with no path filter");
   ok(!doc().querySelector("#case") && !doc().querySelector("#regexp"),
      "nor case and regexp options");
@@ -34,7 +35,7 @@ add_task(async function test_QuerySearchBox() {
   ok(doc().querySelector('details[data-path="widget.h"]'), "with its results");
 
   await TestUtils.loadPath("/trydelta/source/");
-  is(doc().querySelector("#search-box").getAttribute("action"), "/trydelta/dwim",
+  is(doc().querySelector("#search-box").getAttribute("action"), "/trydelta/search",
      "A directory listing's search box does too");
   ok(!doc().querySelector("#path"), "with no path filter");
 });
@@ -86,7 +87,7 @@ add_task(async function test_QueryNormalization() {
   params = new URLSearchParams(doc().location.search);
   is(params.get("q"), "'Widget::Frob'", "Searching for the query again");
   ok(!params.has("input"), "is of what was typed");
-  // (Which the DWIM endpoint would have made a phrase.)
+  // (Which /search would have made a phrase.)
   doc().querySelector("#query").value = "Widget Frob";
   loaded = TestUtils.waitForLoad();
   doc().querySelector("#search-box").requestSubmit();
@@ -105,22 +106,33 @@ add_task(async function test_QueryNormalization() {
 });
 
 add_task(async function test_DwimRules() {
-  // A URL of a file elsewhere (ex: GitHub's) goes to the tree's.
+  // A search for a URL of a file elsewhere (ex: GitHub's) is of the URL, and
+  // goes to the tree's file if it finds nothing.
   const github = "https://github.com/mozilla-firefox/firefox/blob/main/user.cpp#L8";
-  await TestUtils.loadPath(`/trydelta/dwim?q=${encodeURIComponent(github)}`);
-  is(doc().location.pathname, "/trydelta/source/user.cpp", "A GitHub file's URL goes to the file");
+  await TestUtils.loadPath(`/trydelta/search?q=${encodeURIComponent(github)}`);
+  is(doc().location.pathname, "/trydelta/source/user.cpp",
+     "A search for a GitHub URL of a file, which finds nothing, goes to the file");
   is(doc().location.hash, "#8", "at its line");
 
-  // A path the tree doesn't have is searched for.
+  // A path the tree doesn't have is only searched for.
   const missing = "https://github.com/mozilla-firefox/firefox/blob/main/missing.cpp";
-  await TestUtils.loadPath(`/trydelta/dwim?q=${encodeURIComponent(missing)}`);
+  await TestUtils.loadPath(`/trydelta/search?q=${encodeURIComponent(missing)}`);
   is(doc().location.pathname, "/trydelta/query/default", "One of a file the tree doesn't have");
   is(new URLSearchParams(doc().location.search).get("q"), `'${missing}'`, "is searched for");
+  ok(!doc().querySelector(".query-dwim"), "without where it is");
 
-  // In a tree searching with router.py's search, it has what isn't a rule's.
-  await TestUtils.loadPath(`/tests/dwim?q=${encodeURIComponent("Foo::Bar baz")}`);
-  is(doc().location.pathname, "/tests/search", "Other trees' DWIM searches");
-  is(new URLSearchParams(doc().location.search).get("q"), "Foo::Bar baz", "for what was typed");
+  // A search for a URL which finds it (ex: code citing it) shows what it
+  // finds, and says where the URL's file is (the page of a search with its
+  // input, in any tree; see tests/tests/files/spec_excerpts.cpp's end).
+  const cited = "https://github.com/example/tests/blob/main/spec_excerpts.cpp";
+  await TestUtils.loadQuery("tests", `'${cited}'`, { input: cited });
+  is(doc().location.pathname, "/tests/query/default", "A search for a URL which finds it stays");
+  ok(doc().querySelector('details[data-path="spec_excerpts.cpp"]'), "with what it finds");
+  is(doc().querySelector(".query-dwim a")?.getAttribute("href"), "/tests/source/spec_excerpts.cpp",
+     "and says where its file is");
+  // (But not a query's, which isn't a person's search.)
+  await TestUtils.loadQuery("tests", `'${cited}'`);
+  ok(!doc().querySelector(".query-dwim"), "A query doesn't");
 });
 
 add_task(async function test_QueryExcludedPaths() {

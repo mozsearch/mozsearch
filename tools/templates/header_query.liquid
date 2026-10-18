@@ -21,9 +21,9 @@
 <div id="fixed-header">
   {%- comment %}
     (A query's page's box has its query, in the query language, and searches
-    with /query/ as it is, unlike other pages' boxes in trees searching with
-    queries, which send what's typed to the DWIM endpoint, see
-    header_search.liquid; its additions get search.js's quoting.)
+    with /query/ as it is, unlike other pages' boxes, which send what's typed
+    to `/search`, see header_search.liquid; its additions get search.js's
+    quoting.)
   {% endcomment %}
   <form method="get" action="/{{tree}}/query/{{preset}}" class="search-box" id="search-box">
   <fieldset>

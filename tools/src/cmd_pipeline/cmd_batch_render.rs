@@ -92,6 +92,7 @@ impl PipelineCommand for BatchRenderCommand {
                             // the header always needs this
                             "query": "",
                             "search_url": config::search_url(&tree_info.name),
+                            "search_box_url": config::search_box_url(&tree_info.name, false),
                             "query_search": config::search_endpoint(&tree_info.name) == SearchEndpoint::Query,
                             "path": item.name,
                             "files": fm.file_matches,

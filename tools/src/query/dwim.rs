@@ -1,15 +1,16 @@
-//! The DWIM ("do what I mean") endpoint's logic (`/{tree}/dwim?q=...`; see
-//! bug 1908776): human input, from a keyword bookmark, an OpenSearch engine or
-//! a query tree's search box, goes where its rule (dwim.toml) says, if it's
-//! something one has (ex: another tool's URL for a file), and is otherwise
-//! searched for, as the query language reads it (see `normalize`).
+//! DWIM ("do what I mean") rules (dwim.toml; see bug 1908776): where what
+//! a person searches for (in a tree searching with queries, `/search`'s
+//! input; see web-server.rs) may be, if it's something one has (ex: another
+//! tool's URL for a file), which its query's page says, beside the results of
+//! searching for it (a search for a URL is of the URL: code cites them), and
+//! goes to if the search finds nothing (see pipeline-server.rs).  And the
+//! suggestions of OpenSearch engines (`/suggest`).
 
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::Deserialize;
 
 use super::chew_query::{is_qualified_name, is_term};
-use super::normalize::{Normalization, normalize_input};
 
 #[derive(Deserialize)]
 struct RulesConfig {
@@ -19,6 +20,7 @@ struct RulesConfig {
 #[derive(Deserialize)]
 struct RuleConfig {
     name: String,
+    description: String,
     pattern: String,
     redirect: String,
     exists: Option<String>,
@@ -26,6 +28,7 @@ struct RuleConfig {
 
 struct Rule {
     name: String,
+    description: String,
     pattern: Regex,
     redirect: String,
     exists: Option<String>,
@@ -40,6 +43,7 @@ lazy_static! {
             .map(|rule| Rule {
                 pattern: Regex::new(&rule.pattern).unwrap(),
                 name: rule.name,
+                description: rule.description,
                 redirect: rule.redirect,
                 exists: rule.exists,
             })
@@ -47,17 +51,18 @@ lazy_static! {
     };
 }
 
-/// What to do with the input.
+/// Where a DWIM rule says the input may be: its URL (ex: "/{tree}/source/...",
+/// or another site's), and the rule's name and description.
 #[derive(Debug, PartialEq)]
-pub enum Dwim {
-    /// Go to the URL (ex: "/{tree}/source/..."), by the named rule.
-    Redirect { rule: String, url: String },
-    /// Search for it (with the query language, in a tree searching with it).
-    Search(Normalization),
+pub struct DwimTarget {
+    pub rule: String,
+    pub description: String,
+    pub url: String,
 }
 
-/// What to do with the input in the tree, whose paths `has_path` says it has.
-pub fn dwim(tree: &str, input: &str, has_path: &dyn Fn(&str) -> bool) -> Dwim {
+/// Where the first DWIM rule matching the input says it may be in the tree,
+/// whose paths `has_path` says it has, if one does.
+pub fn dwim_target(tree: &str, input: &str, has_path: &dyn Fn(&str) -> bool) -> Option<DwimTarget> {
     let input = input.trim();
     for rule in RULES.iter() {
         let Some(captures) = rule.pattern.captures(input) else {
@@ -74,12 +79,13 @@ pub fn dwim(tree: &str, input: &str, has_path: &dyn Fn(&str) -> bool) -> Dwim {
         {
             continue;
         }
-        return Dwim::Redirect {
+        return Some(DwimTarget {
             rule: rule.name.clone(),
+            description: rule.description.clone(),
             url: substitute(&rule.redirect, &capture),
-        };
+        });
     }
-    Dwim::Search(normalize_input(input))
+    None
 }
 
 /// What to suggest completions of for the input, as an OpenSearch engine's
@@ -103,7 +109,8 @@ pub fn suggestion_needle(input: &str) -> Option<(&str, &str)> {
 /// `suggestion_needle`): Firefox's address bar leaves out suggestions which
 /// look like URLs (with no whitespace and a `/`, `@`, `:`, `[` or `.`; see its
 /// UrlbarProviderSearchSuggestions's `looksLikeUrl`), as qualified names and
-/// paths do, so those end with a space (which the DWIM endpoint trims).
+/// paths do, so those end with a space (which `/search` trims, in a tree
+/// searching with queries; see `normalize::normalize_search`).
 pub fn suggestion(before: &str, id: &str) -> String {
     let suggestion = format!("{}{}", before, id);
     match suggestion.contains(['/', '@', ':', '[', '.']) {
@@ -161,10 +168,7 @@ mod tests {
 
     fn redirect(input: &str) -> Option<String> {
         let has_path = |path: &str| path.starts_with("dom/");
-        match dwim("firefox-main", input, &has_path) {
-            Dwim::Redirect { url, .. } => Some(url),
-            Dwim::Search(_) => None,
-        }
+        dwim_target("firefox-main", input, &has_path).map(|target| target.url)
     }
 
     #[test]
@@ -225,14 +229,5 @@ mod tests {
         assert_eq!(suggestion("", "WorkerPrivate"), "WorkerPrivate");
         assert_eq!(suggestion("", "WorkerPrivate::Get"), "WorkerPrivate::Get ");
         assert_eq!(suggestion("calls-to:", "Get"), "calls-to:Get ");
-    }
-
-    #[test]
-    fn test_search() {
-        let has_path = |_: &str| false;
-        assert_eq!(
-            dwim("t", " Foo::Bar ", &has_path),
-            Dwim::Search(normalize_input("Foo::Bar"))
-        );
     }
 }
