@@ -30,6 +30,7 @@ use tools::file_format::config;
 use tools::file_format::jumpref::PrefetchedJumprefs;
 use tools::file_format::per_file_info::path_facet_map;
 use tools::format;
+use tools::query::dwim::Dwim;
 use ustr::UstrMap;
 
 use tools::sidecars;
@@ -41,6 +42,10 @@ struct WebRequest<'a> {
     query: &'a str,
     /// Whether it's a POST (only `/{tree}/try/{rev}`'s are allowed).
     post: bool,
+    /// The site's origin, as the browser has it (ex: "https://searchfox.org"),
+    /// for what needs absolute URLs (an OpenSearch description); see
+    /// `request_origin`.
+    origin: String,
 }
 
 struct WebResponse {
@@ -104,6 +109,15 @@ impl WebResponse {
     fn redirect(url: String) -> WebResponse {
         WebResponse {
             status: StatusCode::MOVED_PERMANENTLY,
+            redirect_location: Some(url),
+            ..WebResponse::default()
+        }
+    }
+
+    /// Where to go for now (ex: by a DWIM rule, which may change).
+    fn found(url: String) -> WebResponse {
+        WebResponse {
+            status: StatusCode::FOUND,
             redirect_location: Some(url),
             ..WebResponse::default()
         }
@@ -302,6 +316,74 @@ fn server_error_message(err: &tools::abstract_server::ServerError) -> String {
         }
         ServerError::Unsupported => "Not available for this tree".to_string(),
     }
+}
+
+/// A request's site's origin: its host (nginx's X-Forwarded-Host, else its
+/// Host) and its scheme (the load balancer's X-Forwarded-Proto, else http), if
+/// it's a host's.
+fn request_origin(headers: &http::HeaderMap) -> String {
+    let header = |name: &str| headers.get(name).and_then(|value| value.to_str().ok());
+    let host = header("x-forwarded-host")
+        .or(header("host"))
+        .filter(|host| {
+            host.chars()
+                .all(|c| c.is_ascii_alphanumeric() || "-.:[]".contains(c))
+        })
+        .unwrap_or("localhost");
+    let scheme = match header("x-forwarded-proto") {
+        Some("https") => "https",
+        _ => "http",
+    };
+    format!("{}://{}", scheme, host)
+}
+
+/// The tree's OpenSearch description (`/{tree}/opensearch.xml`, which its
+/// pages link to; see `output::opensearch_link`): searching with the DWIM
+/// endpoint, with suggestions of identifiers (see the `suggest` route).
+/// (Firefox wants absolute URLs, and the link's title for the name.)
+fn opensearch_description(tree_name: &str, origin: &str) -> String {
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/" xmlns:moz="http://www.mozilla.org/2006/browser/search/">
+  <ShortName>Searchfox ({tree})</ShortName>
+  <Description>Search {tree} with Searchfox</Description>
+  <InputEncoding>UTF-8</InputEncoding>
+  <Image width="52" height="52" type="image/png">{origin}/{tree}/static/icons/search.png</Image>
+  <Url type="text/html" method="get" template="{origin}/{tree}/dwim?q={{searchTerms}}"/>
+  <Url type="application/x-suggestions+json" method="get" template="{origin}/{tree}/suggest?q={{searchTerms}}"/>
+  <Url type="application/opensearchdescription+xml" rel="self" template="{origin}/{tree}/opensearch.xml"/>
+  <moz:SearchForm>{origin}/{tree}/source/</moz:SearchForm>
+</OpenSearchDescription>
+"#,
+        tree = tree_name,
+        origin = origin,
+    )
+}
+
+/// A request's query string's parameters.
+fn query_params(query: &str) -> HashMap<String, String> {
+    url::form_urlencoded::parse(query.as_bytes())
+        .into_owned()
+        .collect()
+}
+
+/// The tree's query page for the query (ex: normalized), and what it was
+/// before, if it's different (which the page shows; see pipeline-server.rs),
+/// in a try push's context (`rev`), and whether the input asked for a
+/// case-sensitive search (which the page says queries don't have).
+fn query_url(tree_name: &str, query: &str, input: &str, rev: Option<&str>, case: bool) -> String {
+    let mut url = url::form_urlencoded::Serializer::new(String::new());
+    url.append_pair("q", query);
+    if input.trim() != query {
+        url.append_pair("input", input);
+    }
+    if let Some(rev) = rev.filter(|rev| !rev.is_empty()) {
+        url.append_pair("rev", rev);
+    }
+    if case {
+        url.append_pair("case", "true");
+    }
+    format!("/{}/query/default?{}", tree_name, url.finish())
 }
 
 /// The trees' servers for the data API's routes the web-server serves (see
@@ -981,6 +1063,115 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             }
         }
 
+        // Human input (from a keyword bookmark, an OpenSearch engine or a
+        // query tree's search box; see `tools::query::dwim`): where its DWIM
+        // rule says, or its search, with the query language (as `normalize`
+        // reads it) in a tree searching with it, else router.py's.
+        "dwim" => {
+            let params = query_params(req.query);
+            let input = params.get("q").map(String::as_str).unwrap_or_default();
+            let files_path = cfg
+                .trees
+                .get(*tree_name)
+                .map(|tree| tree.paths.files_path.clone());
+            // (Only of the tree's files: a relative path, without `..`s.)
+            let has_path = |path: &str| {
+                files_path.as_ref().is_some_and(|files| {
+                    !path.starts_with('/')
+                        && !path.split('/').any(|part| part == "..")
+                        && Path::new(files).join(path).exists()
+                })
+            };
+            match tools::query::dwim::dwim(tree_name, input, &has_path) {
+                Dwim::Redirect { url, .. } => WebResponse::found(url),
+                // (A try push's context's searches are queries.)
+                Dwim::Search(normalization) => match config::search_endpoint(tree_name) {
+                    _ if params.get("rev").is_some_and(|rev| !rev.is_empty()) => {
+                        WebResponse::found(query_url(
+                            tree_name,
+                            &normalization.query,
+                            input,
+                            params.get("rev").map(String::as_str),
+                            false,
+                        ))
+                    }
+                    config::SearchEndpoint::Query => WebResponse::found(query_url(
+                        tree_name,
+                        &normalization.query,
+                        input,
+                        None,
+                        false,
+                    )),
+                    config::SearchEndpoint::Search => WebResponse::found(format!(
+                        "/{}/search?q={}",
+                        tree_name,
+                        urlencoding::encode(input)
+                    )),
+                },
+            }
+        }
+
+        // router.py's search, in a tree searching with the query language
+        // (whose pages' links and search box don't go here; nginx sends the
+        // rest of its requests, for JSON, to router.py): the query for it.
+        "search" if config::search_endpoint(tree_name) == config::SearchEndpoint::Query => {
+            let params = query_params(req.query);
+            let param = |name: &str| params.get(name).map(String::as_str);
+            let input = param("q").unwrap_or_default();
+            let normalization = tools::query::normalize::normalize_classic(
+                input,
+                param("path"),
+                param("case") == Some("true"),
+                param("regexp") == Some("true"),
+            );
+            WebResponse::found(query_url(
+                tree_name,
+                &normalization.query,
+                input,
+                None,
+                param("case") == Some("true"),
+            ))
+        }
+
+        "opensearch.xml" if cfg.trees.contains_key(*tree_name) => WebResponse {
+            content_type: "application/opensearchdescription+xml".to_string(),
+            output: opensearch_description(tree_name, &req.origin),
+            ..WebResponse::default()
+        }
+        .uncached(),
+
+        // An OpenSearch engine's suggestions (see `opensearch_description`):
+        // the identifiers the input's the prefix of (see `dwim::suggestion`),
+        // as Firefox has them: `[input, [suggestion, ...]]`.
+        "suggest" => {
+            let params = query_params(req.query);
+            let input = params.get("q").cloned().unwrap_or_default();
+            let mut suggestions: Vec<String> = vec![];
+            if let Some((before, needle)) = tools::query::dwim::suggestion_needle(&input)
+                && let Some(server) = tree_server(tree_name)
+            {
+                let (server, needle) = (server.clonify(), needle.to_string());
+                let ids = format::run_on_runtime(async move {
+                    server.search_identifiers(&needle, false, true, 50).await
+                })
+                .unwrap_or_default();
+                for (_, id) in ids {
+                    let suggestion = tools::query::dwim::suggestion(before, &id);
+                    if !suggestions.contains(&suggestion) {
+                        suggestions.push(suggestion);
+                    }
+                    if suggestions.len() == 10 {
+                        break;
+                    }
+                }
+            }
+            WebResponse {
+                content_type: "application/x-suggestions+json".to_string(),
+                output: serde_json::json!([input, suggestions]).to_string(),
+                ..WebResponse::default()
+            }
+        }
+
         "complete" => {
             // (Over the tree's server, as `IdentMap::lookup_json` would give
             // them.)
@@ -1164,7 +1355,16 @@ async fn main() {
                     match tokio::task::spawn_blocking(move || {
                         let path = req.uri().path();
                         let query = req.uri().query().unwrap_or("");
-                        let response = handle(&cfg, WebRequest { path, query, post });
+                        let origin = request_origin(req.headers());
+                        let response = handle(
+                            &cfg,
+                            WebRequest {
+                                path,
+                                query,
+                                post,
+                                origin,
+                            },
+                        );
                         let written =
                             !post && query.is_empty() && write_page_sidecar(&cfg, path, &response);
                         (response, written)
@@ -1175,7 +1375,10 @@ async fn main() {
 
                         Err(join_err) if join_err.is_panic() => {
                             eprintln!("Request handler panicked: {:?}", join_err);
-                            (WebResponse::internal_error("Internal server error".to_owned()), false)
+                            (
+                                WebResponse::internal_error("Internal server error".to_owned()),
+                                false,
+                            )
                         }
 
                         Err(join_err) => {
@@ -1183,7 +1386,10 @@ async fn main() {
                                 "Request handler task failed or was cancelled: {:?}",
                                 join_err
                             );
-                            (WebResponse::internal_error("Internal server error".to_owned()), false)
+                            (
+                                WebResponse::internal_error("Internal server error".to_owned()),
+                                false,
+                            )
                         }
                     }
                 };

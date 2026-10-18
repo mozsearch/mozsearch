@@ -10,6 +10,7 @@ input_file: inputs/web/templates/search_template__html
   <meta name="color-scheme" content="light dark">
   <link href="/tests/static/icons/search.png" rel="shortcut icon">
   <title>{{TITLE}} - mozsearch</title>
+  <link rel="search" type="application/opensearchdescription+xml" href="/tests/opensearch.xml" title="Searchfox (tests)">
 
   <link href="/tests/static/css/mozsearch.css" rel="stylesheet" media="screen"/>
   <link href="/tests/static/css/icons.css" rel="stylesheet" media="screen" />

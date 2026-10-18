@@ -33,7 +33,7 @@ use tools::{
     file_format::jumpref::{JumprefData, JumprefTraversals},
     file_format::recency::Recency,
     logging::{LoggedSpan, init_logging},
-    query::chew_query::chew_query,
+    query::{chew_query::chew_query, normalize::normalize_input},
     templating::builder::build_and_parse_query_results,
 };
 use tower::limit::GlobalConcurrencyLimitLayer;
@@ -347,9 +347,27 @@ async fn handle_query(
             _ => serde_json::to_value(result).unwrap(),
         };
 
+        // What the query was before it was normalized (ex: by the DWIM
+        // endpoint; see web-server.rs's `query_url`), and what normalizing
+        // changed, if it's reproducible (else the input is only shown).
+        let interpretation = match params.get("input").filter(|input| input.trim() != query) {
+            Some(input) => {
+                let normalization = normalize_input(input);
+                let changes = match &normalization.query == query {
+                    true => normalization.changes,
+                    false => vec![],
+                };
+                json!({ "input": input, "changes": changes })
+            }
+            None => Value::Null,
+        };
+
         let globals = liquid::object!({
             "results": result_value,
             "query": query.clone(),
+            "interpretation": interpretation,
+            // (Asked for by router.py's search's input, which queries can't do.)
+            "case_sensitive": params.get("case").is_some_and(|case| case == "true"),
             "preset": preset.clone(),
             "tree": tree.clone(),
             // (The page's tree's, for its own results; see line_span.liquid.)

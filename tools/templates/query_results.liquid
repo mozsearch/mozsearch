@@ -20,6 +20,18 @@
       the indexed revision (<a href="/{{tree}}/query/{{preset}}?q={{ query | url_encode }}">search the indexed revision instead</a>).
     </div>
     {%- endif %}
+    {%- if interpretation %}
+    <div class="query-interpretation">
+      Searching for <code>{{ query | escape }}</code>, the query for
+      <code>{{ interpretation.input | escape }}</code>
+      {%- if interpretation.changes != empty %} ({{ interpretation.changes | join: "; " | escape }}){% endif %}.
+    </div>
+    {%- endif %}
+    {%- if case_sensitive %}
+    <div class="query-interpretation">
+      Queries can't search case-sensitively yet, so this search isn't.
+    </div>
+    {%- endif %}
     <div class="query-result">
       {% for result_pair in results %}
         {% case result_pair[0] %}

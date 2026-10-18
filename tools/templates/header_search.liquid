@@ -12,6 +12,7 @@
   <meta name="color-scheme" content="light dark">
   <link href="/{{tree}}/static/icons/search.png" rel="shortcut icon">
   <title>{{ title }}</title>
+  <link rel="search" type="application/opensearchdescription+xml" href="/{{tree}}/opensearch.xml" title="Searchfox ({{tree}})">
 
   <link href="/{{tree}}/static/css/mozsearch.css" rel="stylesheet" media="screen"/>
   <link href="/{{tree}}/static/css/icons.css" rel="stylesheet" media="screen" />
@@ -20,7 +21,12 @@
 
 <body>
 <div id="fixed-header">
-  <form method="get" action="{{ search_url }}" class="search-box" id="search-box">
+  {%- comment %}
+    (A query tree's search box's input is a person's, which the DWIM endpoint
+    normalizes into a query, or takes where its rules say; so are keyword
+    bookmarks' made from it.  Its pages' links to searches are queries.)
+  {% endcomment %}
+  <form method="get" action="{% if query_search %}/{{tree}}/dwim{% else %}{{ search_url }}{% endif %}" class="search-box" id="search-box">
     <fieldset>
       <div id="query-section">
         <label for="query" class="query_label visually-hidden">Find</label>

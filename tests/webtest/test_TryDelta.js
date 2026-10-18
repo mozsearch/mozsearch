@@ -43,9 +43,17 @@ add_task(async function test_TryDeltaPages() {
   await TestUtils.loadPath(`/trydelta/rev/${head}/user.cpp`);
   is(doc().querySelector("#data").getAttribute("data-search-rev"), head,
      "The head's pages search in the push's context");
-  is(doc().querySelector("#search-box").getAttribute("action"), "/trydelta/query/default",
-     "with /query/");
+  is(doc().querySelector("#search-box").getAttribute("action"), "/trydelta/dwim",
+     "with the DWIM endpoint");
   is(doc().querySelector('#search-box input[name="rev"]')?.value, head, "for the push");
+  // (Which queries in the push's context.)
+  doc().querySelector("#query").value = "Frob";
+  const loaded = TestUtils.waitForLoad();
+  doc().querySelector("#search-box").requestSubmit();
+  await loaded;
+  is(doc().location.pathname, "/trydelta/query/default", "Searching from them queries");
+  is(new URLSearchParams(doc().location.search).get("rev"), head, "in the push's context");
+  await TestUtils.loadPath(`/trydelta/rev/${head}/user.cpp`);
 
   const frob = [...doc().querySelectorAll("#line-8 .source-line span[data-symbols]")]
     .find(span => span.textContent == "Frob");

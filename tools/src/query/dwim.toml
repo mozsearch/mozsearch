@@ -1,0 +1,47 @@
+# The DWIM ("do what I mean") endpoint's rules (`/{tree}/dwim?q=...`; see
+# dwim.rs): what to do with what people paste or type into a keyword bookmark,
+# an OpenSearch engine or a query tree's search box, which isn't a query yet
+# (ex: a URL of another tool's page), as the current best advice for it: they
+# aren't a stable interface, and are likely to become queries over time.
+#
+# The first rule whose `pattern` (a regexp) matches all of the input (trimmed)
+# goes to its `redirect`, a URL (or the tree's path), with `{tree}` and the
+# pattern's named captures substituted (as they are: they're parts of a URL
+# already), and `[...]` left out where a capture in it didn't match.  A rule
+# with `exists` only applies if the tree has the path that capture names (and
+# else the input is searched for).  Input matching no rule is searched for, as
+# the query language reads it (see normalize.rs).
+
+[[rule]]
+name = "wpt-sync-pr"
+description = "A web-platform-tests pull request: its sync bugs."
+pattern = '^(?:https?://)?github\.com/web-platform-tests/wpt/pull/(?P<pr>\d+)(?:[/?#]\S*)?$'
+redirect = 'https://bugzilla.mozilla.org/buglist.cgi?quicksearch=%22Sync%20PR%20{pr}%22'
+
+[[rule]]
+name = "searchfox-file"
+description = "Another tree's file: the file in this tree."
+pattern = '^https?://searchfox\.org/[^/]+/(?:source|rev/[0-9a-f]+)/(?P<path>[^?#]*)(?:\?[^#]*)?(?P<fragment>#\S*)?$'
+redirect = '/{tree}/source/{path}[{fragment}]'
+exists = "path"
+
+[[rule]]
+name = "github-file"
+description = "A file on GitHub: the file in this tree."
+pattern = '^https?://github\.com/[^/]+/[^/]+/(?:blob|tree)/[^/]+/(?P<path>[^?#]*)(?:\?[^#]*)?(?:#L(?P<line>\d+)(?:-L(?P<end>\d+))?)?$'
+redirect = '/{tree}/source/{path}[#{line}][-{end}]'
+exists = "path"
+
+[[rule]]
+name = "hg-file"
+description = "A file on hg.mozilla.org: the file in this tree."
+pattern = '^https?://hg(?:-edge)?\.mozilla\.org/[^?#]+?/(?:file|annotate|raw-file|log)/[0-9a-f]+/(?P<path>[^?#]*)(?:\?[^#]*)?(?:#l(?P<line>\d+))?$'
+redirect = '/{tree}/source/{path}[#{line}]'
+exists = "path"
+
+[[rule]]
+name = "path-line"
+description = "A path and line (ex: from a compiler's error or a stack): the line."
+pattern = '^(?:/builds/worker/checkouts/gecko/)?(?P<path>(?:[\w.+-]+/)+[\w.+-]+\.\w+)(?::(?P<line>\d+))(?::\d+)?:?$'
+redirect = '/{tree}/source/{path}#{line}'
+exists = "path"

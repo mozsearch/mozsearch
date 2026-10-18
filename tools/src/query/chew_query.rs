@@ -109,6 +109,11 @@ lazy_static! {
     static ref QUERY_CORE: QueryConfig = toml::from_str(include_str!("query_core.toml")).unwrap();
 }
 
+/// Whether a word is one of the query language's terms' names (ex: `path`).
+pub fn is_term(name: &str) -> bool {
+    QUERY_CORE.term.contains_key(name)
+}
+
 #[derive(Default, Serialize)]
 pub struct PipelinePhase {
     pub groups: Vec<Vec<String>>,

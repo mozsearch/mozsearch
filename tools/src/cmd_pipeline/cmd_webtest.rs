@@ -110,6 +110,53 @@ fn println_bold(msg: &str) {
 
 type TestResult<T> = std::result::Result<T, String>;
 
+/// geckodriver's command switching a session's context: Firefox's pages'
+/// ("content") or the browser's own ("chrome"), for tests' steps in the
+/// browser's (see `run_chrome`), which scripts/webtest.sh's geckodrivers allow
+/// (`--allow-system-access`).
+#[derive(Debug)]
+struct SetContext(&'static str);
+
+impl fantoccini::wd::WebDriverCompatibleCommand for SetContext {
+    fn endpoint(
+        &self,
+        base_url: &url::Url,
+        session_id: Option<&str>,
+    ) -> std::result::Result<url::Url, url::ParseError> {
+        base_url.join(&format!(
+            "session/{}/moz/context",
+            session_id.unwrap_or_default()
+        ))
+    }
+
+    fn method_and_body(&self, _url: &url::Url) -> (hyper::http::Method, Option<String>) {
+        let body = serde_json::json!({ "context": self.0 }).to_string();
+        (hyper::http::Method::POST, Some(body))
+    }
+}
+
+/// A test's step in the browser's context (`TestHarness.chrome`'s request, a
+/// script and its arguments, which it runs as WebDriver's async scripts are,
+/// ex: to install an OpenSearch engine): its result (`{"value": ...}`), or
+/// error (`{"error": ...}`).
+async fn run_chrome(client: &Client, request: &serde_json::Value) -> serde_json::Value {
+    if let Err(err) = client.issue_cmd(SetContext("chrome")).await {
+        return serde_json::json!({ "error": format!("Switching to chrome: {:?}", err) });
+    }
+    let result = client
+        .execute_async(
+            request["script"].as_str().unwrap_or_default(),
+            request["args"].as_array().cloned().unwrap_or_default(),
+        )
+        .await;
+    let switched_back = client.issue_cmd(SetContext("content")).await;
+    match (result, switched_back) {
+        (Ok(value), Ok(_)) => serde_json::json!({ "value": value }),
+        (Err(err), _) => serde_json::json!({ "error": format!("{:?}", err) }),
+        (_, Err(err)) => serde_json::json!({ "error": format!("Switching back: {:?}", err) }),
+    }
+}
+
 impl WebtestCommand {
     async fn setup_webdriver_and_run_tests(&self) -> TestResult<bool> {
         let mut clients = vec![];
@@ -221,6 +268,19 @@ impl WebtestCommand {
             for (ty, msg) in log {
                 if ty == "SUBTEST" {
                     outcome.subtests += 1;
+                    continue;
+                }
+                // (A step in the browser's context, whose result the test
+                // waits for.)
+                if ty == "CHROME" {
+                    let request: serde_json::Value = serde_json::from_str(&msg)?;
+                    let result = run_chrome(client, &request).await;
+                    client
+                        .execute(
+                            "window.TestHarness.chromeResult(...arguments);",
+                            vec![request["id"].clone(), result],
+                        )
+                        .await?;
                     continue;
                 }
                 if ty == "FAIL" {

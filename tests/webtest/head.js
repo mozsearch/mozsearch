@@ -266,6 +266,43 @@ class TestHarness {
     this.pendingLogs.length = 0;
     return logs;
   }
+
+  /**
+   * Requests of `chrome` waiting for their results, by their ids.
+   */
+  static chromeRequests = new Map();
+  static lastChromeRequest = 0;
+
+  /**
+   * Run a script in the browser's own (chrome) context, as WebDriver's async
+   * scripts are (its last argument is the function to call with its result),
+   * ex: to install an OpenSearch engine (see cmd_webtest.rs's `run_chrome`).
+   *
+   * @param {String} script
+   *        The script's body.
+   * @param {...any} args
+   *        Its arguments (JSON).
+   * @returns {Promise<any>}
+   *          Resolves with its result, or rejects with its error.
+   */
+  static chrome(script, ...args) {
+    const id = ++this.lastChromeRequest;
+    const { promise, resolve } = Promise.withResolvers();
+    this.chromeRequests.set(id, resolve);
+    this.log("CHROME", JSON.stringify({ id, script, args }));
+    return promise.then(result => {
+      if ("error" in result) {
+        throw new Error(`Chrome script failed: ${result.error}`);
+      }
+      return result.value;
+    });
+  }
+
+  static chromeResult(id, result) {
+    const resolve = this.chromeRequests.get(id);
+    this.chromeRequests.delete(id);
+    resolve?.(result);
+  }
 }
 window.TestHarness = TestHarness;
 

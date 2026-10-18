@@ -50,6 +50,27 @@ fn search_url(opt: &Options) -> String {
     }
 }
 
+/// Where the page's search box sends what's typed into it: the DWIM endpoint,
+/// which normalizes it into a query (see `query::dwim`), where searches are
+/// queries, else router.py's search.
+fn search_box_url(opt: &Options) -> String {
+    match opt.search_rev.is_some()
+        || config::search_endpoint(opt.tree_name) == SearchEndpoint::Query
+    {
+        true => format!("/{}/dwim", opt.tree_name),
+        false => search_url(opt),
+    }
+}
+
+/// The page's link to the tree's OpenSearch description (see web-server.rs's
+/// `opensearch_description`), whose title must be its engine's name.
+pub fn opensearch_link(tree_name: &str) -> String {
+    format!(
+        r#"<link rel="search" type="application/opensearchdescription+xml" href="/{0}/opensearch.xml" title="Searchfox ({0})">"#,
+        tree_name
+    )
+}
+
 pub fn file_url(opt: &Options, path: &str) -> String {
     let rev_fragment = match (opt.breadcrumbs_links_to, &opt.revision) {
         (BreadcrumbsLinksTo::Historical, Some(RevisionData { rev, .. })) => {
@@ -177,14 +198,15 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
             opt.tree_name
         )),
         F::T(format!("<title>{}</title>", opt.title)),
+        F::T(opensearch_link(opt.tree_name)),
     ];
     head_seq.extend(css_tags);
 
     // Trees searching with the pipeline-server's /query/ have a single field,
     // submitted with Enter (see `config::SearchEndpoint`), and so do pages in
     // a try push's context, whose searches are queries of the push.
-    let query_search = opt.search_rev.is_some()
-        || config::search_endpoint(opt.tree_name) == SearchEndpoint::Query;
+    let query_search =
+        opt.search_rev.is_some() || config::search_endpoint(opt.tree_name) == SearchEndpoint::Query;
 
     let mut fieldset = vec![
         F::S(r#"<div id="query-section">"#),
@@ -274,7 +296,10 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
         ])
     };
     let rev_input = match opt.search_rev {
-        Some(rev) => F::T(format!(r#"<input type="hidden" name="rev" value="{}" />"#, rev)),
+        Some(rev) => F::T(format!(
+            r#"<input type="hidden" name="rev" value="{}" />"#,
+            rev
+        )),
         None => F::Seq(vec![]),
     };
     let form = vec![
@@ -306,7 +331,7 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
             F::S(r#"<div id="fixed-header">"#),
             F::T(format!(
                 r#"<form method="get" action="{}" class="search-box" id="search-box">"#,
-                search_url(opt)
+                search_box_url(opt)
             )),
             F::Indent(form),
             F::S("</form>"),
@@ -528,7 +553,9 @@ pub fn generate_panel(
                                 .extras
                                 .copy_text
                                 .as_ref()
-                                .map_or(String::new(), |text| format!(r#" data-copy="{}""#, escape_attr(text)));
+                                .map_or(String::new(), |text| {
+                                    format!(r#" data-copy="{}""#, escape_attr(text))
+                                });
                             format!(
                                 r#"<button class="copy" title="Copy to clipboard"{}>{}</button>"#,
                                 copy_text, COPY_ICONS

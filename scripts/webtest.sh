@@ -28,7 +28,9 @@ mkdir -p "$LOGS"
 WEBDRIVERS=""
 for i in $(seq 0 $((BROWSERS - 1))); do
     PORT=$((4444 + i))
-    geckodriver --port $PORT > "$LOGS/geckodriver-$i.log" 2>&1 &
+    # (Tests' steps in the browser's own context need its system access; see
+    # cmd_webtest.rs's `run_chrome`.)
+    geckodriver --port $PORT --allow-system-access > "$LOGS/geckodriver-$i.log" 2>&1 &
     WEBDRIVERS="${WEBDRIVERS:+$WEBDRIVERS,}http://localhost:$PORT"
 done
 for i in $(seq 0 $((BROWSERS - 1))); do

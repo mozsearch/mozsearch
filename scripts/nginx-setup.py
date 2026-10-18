@@ -286,6 +286,14 @@ map $args $page_sidecar_json {
   default "/.no-page-sidecar";
 }
 
+# router.py's search in a tree searching with queries: pages (ex: old links and
+# keyword bookmarks) go to the web-server, which normalizes the search into a
+# query (see its `search` route), and JSON (ex: scripts') to router.py.
+map $http_accept $classic_search_server {
+  default 127.0.0.1:8001;
+  "~application/json" 127.0.0.1:8000;
+}
+
 server {
   listen 16995 default_server;
   absolute_redirect off;
@@ -475,7 +483,10 @@ for repo in config['trees']:
         ])
 
     # Handled by router/router.py
-    location(f'/{repo}/search', ['proxy_pass http://127.0.0.1:8000;'])
+    if tree_config.get('search_endpoint') == 'query':
+        location(f'/{repo}/search', ['proxy_pass http://$classic_search_server;'])
+    else:
+        location(f'/{repo}/search', ['proxy_pass http://127.0.0.1:8000;'])
     location(f'/{repo}/sorch', ['proxy_pass http://127.0.0.1:8000;'])
     location(f'/{repo}/define', ['proxy_pass http://127.0.0.1:8000;'])
 
@@ -503,6 +514,17 @@ for repo in config['trees']:
     # and its other routes.
     location(f'/{repo}/hgrev', ['proxy_pass http://127.0.0.1:8001;'])
     location(f'/{repo}/complete', ['proxy_pass http://127.0.0.1:8001;'])
+    # The DWIM endpoint's redirects (see the tools' `query::dwim`), and the
+    # tree's OpenSearch description, which searches with it (and whose URLs
+    # are absolute, so of the request's host; and so not cached), and its
+    # suggestions.
+    location(f'/{repo}/dwim', ['proxy_pass http://127.0.0.1:8001;'])
+    location(f'= /{repo}/opensearch.xml', [
+        # (With its port, unlike $host.)
+        'proxy_set_header X-Forwarded-Host $http_host;',
+        'proxy_pass http://127.0.0.1:8001;',
+    ], cache=False)
+    location(f'/{repo}/suggest', ['proxy_pass http://127.0.0.1:8001;'])
     # A try push's page, which also takes POSTs asking for its import, and its
     # import's status, which change until it's imported (see the tools'
     # `try_import`).
