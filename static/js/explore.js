@@ -58,7 +58,7 @@
   });
 
   // The commits checked as side A and side B of an interdiff (see
-  // `format_interdiff` in format.rs) make the picker's link.
+  // `interdiff_file_data` in format.rs) make the picker's link.
   const interdiffLink = root.querySelector(".explore-interdiff-link");
   function updateInterdiffLink() {
     const picked = side =>

@@ -24,7 +24,7 @@
 //! We present B's diff with its added and removed tokens marked as the same as
 //! A's or new in B, the tokens A removed which B keeps, the tokens from
 //! outside both patches, and A's added tokens which B doesn't have; see
-//! `format::format_interdiff`.
+//! `format::interdiff_file_data`.
 
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;

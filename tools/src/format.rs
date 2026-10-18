@@ -4262,20 +4262,13 @@ pub fn future_json(
 /// revision `from` (see `outline_diff::outline_diff`), where `from` may be
 /// `since:YYYY-MM-DD` for the newest revision before that day on `to`'s
 /// first-parent chain (see `outline_diff::first_parent_before`), as JSON.
-pub fn outline_json(
-    cfg: &Config,
-    tree_name: &str,
-    from: &str,
-    to: &str,
-    path: &str,
-) -> Result<String, &'static str> {
-    let diff = resolve_outline_diff(cfg, tree_name, from, to, path, false)?;
-    Ok(to_string(&diff).unwrap())
-}
-
-/// The outline diff of `outline_json`, with all of the "from" file's
-/// definitions' lines if `all_from_lines`.
-fn resolve_outline_diff(
+/// The outline diff of the file at `path` between the revisions `from` (or
+/// `since:YYYY-MM-DD`, the first-parent revision before that day) and `to`
+/// (`/{tree}/rev-outline/{from}/{to}/{path}`, as JSON, and the outline diff
+/// page's; see `render_outline_diff`), with all of the "from" file's
+/// definitions' lines if `all_from_lines`.  (For trees' servers; see
+/// `AbstractServer::outline_diff`.)
+pub fn outline_diff_data(
     cfg: &Config,
     tree_name: &str,
     from: &str,
@@ -4313,22 +4306,19 @@ fn resolve_outline_diff(
 }
 
 /// The page of an outline diff (`/{tree}/outline-diff/{from}/{to}/{path}`,
-/// with `from` as for `outline_json`): the definitions of the "from" file and
+/// with `from` as for `outline_diff_data`): the definitions of the "from" file and
 /// of the "to" file side by side, with their changes between them (and the
 /// commits which made them), linking to their lines, and the commits.  It
 /// shows the definitions which changed (and the ones they're in), and the
 /// unchanged ones if asked.
-pub fn format_outline_diff(
-    cfg: &Config,
+pub fn render_outline_diff(
     tree_name: &str,
-    from: &str,
-    to: &str,
     path: &str,
+    diff: outline_diff::OutlineDiff,
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
     use outline_diff::OutlineStatus;
 
-    let diff = resolve_outline_diff(cfg, tree_name, from, to, path, true)?;
     let short = |rev: &str| rev[..12.min(rev.len())].to_string();
     let day = |date: &str| date[..10.min(date.len())].to_string();
     let from_path = diff.from_path.as_deref().unwrap_or(path);
@@ -5983,13 +5973,13 @@ fn drop_mismatched_token_blames(
     }
 }
 
-/// What interdiffs add to the rows of a diff page (see `format_interdiff`):
+/// What interdiffs add to the rows of a diff page (see `interdiff_file_data`):
 /// attributes for the code of the rows of the lines of the file in the commit
 /// and of the removed lines of the file in its (one) parent, by their
 /// (1-based) lines, and rows to insert before the row of a line of the file in
 /// the commit (or after the last row, for the number of lines + 1).
-#[derive(Default)]
-struct DiffRowExtras {
+#[derive(Default, Deserialize, Serialize)]
+pub struct DiffRowExtras {
     line_attrs: HashMap<usize, String>,
     removed_line_attrs: HashMap<usize, String>,
     rows_before: BTreeMap<usize, Vec<String>>,
@@ -6514,7 +6504,7 @@ fn entity_escape(s: &str) -> String {
     s.replace("&", "&amp;").replace("<", "&lt;")
 }
 
-/// The interdiff of a file (see `format_interdiff`): B's diff of it, what marks
+/// The interdiff of a file (see `interdiff_file_data`): B's diff of it, what marks
 /// its rows' tokens, and the contexts of the differences (see
 /// `interdiff::Mark::differs`) and of B's lines, by line (1-based).
 struct FileInterdiff {
@@ -7072,14 +7062,38 @@ fn message_diff_html(a_text: &str, b_text: &str) -> String {
 /// revisions): B's diff of the file, from before its first commit to its last,
 /// with its added and removed tokens marked by how they compare with A's (see
 /// `hyperblame::interdiff`).
-pub fn format_interdiff(
+/// The data of a file's interdiff (see `interdiff_file_data` and
+/// `render_interdiff_file`).
+#[derive(Deserialize, Serialize)]
+pub struct InterdiffFile {
+    /// The diff of B's diff from A's, as `parse_diff_rows` takes it.
+    pub diff: String,
+    pub extras: DiffRowExtras,
+    /// The token-centric blame of the file after B, and before it.
+    pub token_blames: Vec<Option<PageBlame>>,
+    /// B's last commit, its header (HTML) and its date (RFC 3339).
+    pub b_rev: String,
+    pub header: String,
+    pub date: String,
+    /// The sides' keys (their revisions, comma-separated) and commits (HTML;
+    /// see `interdiff_commits_html`), and the legend of the differences.
+    pub a_key: String,
+    pub b_key: String,
+    pub a_commits: String,
+    pub b_commits: String,
+    pub legend: String,
+}
+
+/// The data of the interdiff of the file at `path` between the sides `a_revs`
+/// and `b_revs` (comma-separated revisions; see `render_interdiff_file`).
+/// (For trees' servers; see `AbstractServer::interdiff_file`.)
+pub fn interdiff_file_data(
     cfg: &Config,
     tree_name: &str,
     a_revs: &str,
     b_revs: &str,
     path: &str,
-    writer: &mut dyn Write,
-) -> Result<(), &'static str> {
+) -> Result<InterdiffFile, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
     let history = git
@@ -7091,19 +7105,43 @@ pub fn format_interdiff(
     let b = interdiff_side(repo, b_revs)?;
 
     let file = file_interdiff(git, history, tree_config.get_git_path()?, &a, &b, path)?;
-    let (rows, new_lines, num_lines) = parse_diff_rows(&file.difftxt, 1, None, None)?;
-    let mut token_blames = vec![
-        revision_token_blame(tree_config, tree_name, git, b.post(), path),
-        revision_token_blame(tree_config, tree_name, git, &b.base, path),
-    ];
+    Ok(InterdiffFile {
+        extras: file.extras(),
+        legend: interdiff_legend(&file.counts),
+        diff: file.difftxt,
+        token_blames: vec![
+            revision_token_blame(tree_config, tree_name, git, b.post(), path),
+            revision_token_blame(tree_config, tree_name, git, &b.base, path),
+        ],
+        b_rev: b.post().id().to_string(),
+        header: blame::commit_header(b.post())?,
+        date: git_time_to_chrono(b.post().time()).to_rfc3339(),
+        a_key: a.key(),
+        b_key: b.key(),
+        a_commits: interdiff_commits_html(tree_name, &a),
+        b_commits: interdiff_commits_html(tree_name, &b),
+    })
+}
+
+/// A file's interdiff (`/{tree}/interdiff/{A}/{B}/{path}`), with its `data`
+/// (see `interdiff_file_data`).
+pub fn render_interdiff_file(
+    cfg: &Config,
+    tree_name: &str,
+    path: &str,
+    data: InterdiffFile,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let (rows, new_lines, num_lines) = parse_diff_rows(&data.diff, 1, None, None)?;
+    let mut token_blames = data.token_blames;
     drop_mismatched_token_blames(path, &mut token_blames, &num_lines);
     if let FormatAs::Binary = languages::select_formatting(path) {
         return Err("Cannot diff binary file");
     };
-    let extras = file.extras();
+    let extras = data.extras;
 
-    let b_rev = b.post().id().to_string();
-    let header = blame::commit_header(b.post())?;
+    let b_rev = data.b_rev;
+    let header = data.header;
     let filename = Path::new(path).file_name().unwrap().to_str().unwrap();
     let title = format!("{} interdiff - mozsearch", filename);
     let opt = Options {
@@ -7113,7 +7151,7 @@ pub fn format_interdiff(
         revision: Some(RevisionData {
             rev: &b_rev,
             desc: &header,
-            date: git_time_to_chrono(b.post().time()),
+            date: chrono::DateTime::parse_from_rfc3339(&data.date).map_err(|_| "Bad date")?,
         }),
         breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
         extra_content_classes: "source-listing diff interdiff",
@@ -7124,7 +7162,7 @@ pub fn format_interdiff(
     output::generate_breadcrumbs(&opt, writer, path, &file_syms, false)?;
 
     let encoded_path = url_encode_path(path);
-    let (a_key, b_key) = (a.key(), b.key());
+    let (a_key, b_key) = (data.a_key, data.b_key);
     let sections = vec![PanelSection {
         name: "Interdiff".to_owned(),
         items: vec![
@@ -7173,9 +7211,7 @@ pub fn format_interdiff(
 <p class="interdiff-legend">{}</p>
 </section>
 "#,
-        interdiff_commits_html(tree_name, &a),
-        interdiff_commits_html(tree_name, &b),
-        interdiff_legend(&file.counts),
+        data.a_commits, data.b_commits, data.legend,
     )
     .unwrap();
 
@@ -7186,21 +7222,24 @@ pub fn format_interdiff(
 }
 
 /// The most files an interdiff's summary compares (see
-/// `format_interdiff_files`).
+/// `interdiff_files_data`).
 const MAX_INTERDIFF_SUMMARY_FILES: usize = 100;
 
-/// An interdiff's summary (see `format_interdiff`): the sides' commits, with a
+/// An interdiff's summary (see `interdiff_file_data`): the sides' commits, with a
 /// diff of their messages, and the files either side changed, with the explore
 /// pages' sparklines (see `hyperblame::explore`) of A's commits and then B's,
 /// faded for the files and symbols where B's changes are the same as A's, and
 /// excerpts of B's diff where they differ (see `interdiff_excerpts`).
-pub fn format_interdiff_files(
+/// The data of the interdiff of the files the sides `a_revs` and `b_revs`
+/// (comma-separated revisions) changed (see `render_interdiff_files`), as
+/// interdiff_files.liquid takes it.  (For trees' servers; see
+/// `AbstractServer::interdiff_files`.)
+pub fn interdiff_files_data(
     cfg: &Config,
     tree_name: &str,
     a_revs: &str,
     b_revs: &str,
-    writer: &mut dyn Write,
-) -> Result<(), &'static str> {
+) -> Result<serde_json::Value, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
     let history = git
@@ -7319,20 +7358,7 @@ pub fn format_interdiff_files(
     }
 
     let (facets, file_groups) = explore_facets(cfg, tree_name, files);
-
-    let title = "Interdiff - mozsearch";
-    let opt = Options {
-        title,
-        tree_name,
-        include_date: true,
-        revision: None,
-        breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
-        extra_content_classes: "explore interdiff-files",
-        search_rev: None,
-    };
-    output::generate_header(&opt, writer)?;
-    output::generate_panel(&opt, writer, &[], true)?;
-    let globals = liquid::to_object(&json!({
+    Ok(json!({
         "tree": tree_name,
         "sides": [
             {"name": "A", "start": 1, "commits": &commits[..a.refs.len()]},
@@ -7345,7 +7371,29 @@ pub fn format_interdiff_files(
         "messages": interdiff_messages_html(&a, &b),
         "swap": format!("/{}/interdiff/{}/{}", tree_name, b_key, a_key),
     }))
-    .map_err(|_| "Template problems")?;
+}
+
+/// The interdiff of the files two sides changed
+/// (`/{tree}/interdiff/{A}/{B}`), with its `data` (see
+/// `interdiff_files_data`).
+pub fn render_interdiff_files(
+    tree_name: &str,
+    data: serde_json::Value,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let title = "Interdiff - mozsearch";
+    let opt = Options {
+        title,
+        tree_name,
+        include_date: true,
+        revision: None,
+        breadcrumbs_links_to: BreadcrumbsLinksTo::Historical,
+        extra_content_classes: "explore interdiff-files",
+        search_rev: None,
+    };
+    output::generate_header(&opt, writer)?;
+    output::generate_panel(&opt, writer, &[], true)?;
+    let globals = liquid::to_object(&data).map_err(|_| "Template problems")?;
     build_and_parse_interdiff_files()
         .render_to(writer, &globals)
         .map_err(|_| "Template problems")?;

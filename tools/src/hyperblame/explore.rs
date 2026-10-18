@@ -220,7 +220,7 @@ pub fn mark_history_backouts(history_path: Option<&Path>, refs: &mut [CommitRef]
     }
 }
 
-/// The relands on a page (see `format::format_interdiff`): for each backout
+/// The relands on a page (see `format::interdiff_file_data`): for each backout
 /// on it (by index in `refs`), the commits on the page which it backed out,
 /// and the next commit after it which isn't a backout and changed some of the
 /// same files, with the commits after that which landed with it (within a
@@ -350,7 +350,7 @@ pub struct ExploreSymbol {
     /// The nested symbols (all of them, including more deeply nested ones,
     /// named relative to this symbol).
     pub children: Vec<ExploreSymbol>,
-    /// For interdiffs (see `format::format_interdiff_files`), whether the
+    /// For interdiffs (see `format::interdiff_files_data`), whether the
     /// patches' changes to the symbol are the same, which fades it.
     pub same: bool,
     /// Its moves to or from other files in the commits (see `annotate_moves`).
@@ -454,7 +454,7 @@ pub struct ExploreFile {
     pub link: String,
     pub sparkline: String,
     pub symbols: Vec<ExploreSymbol>,
-    /// For interdiffs (see `format::format_interdiff_files`), whether the
+    /// For interdiffs (see `format::interdiff_files_data`), whether the
     /// patches' changes to the file are the same, and HTML notes about them
     /// and excerpts of where they differ.
     pub same: bool,
@@ -466,7 +466,7 @@ pub struct ExploreFile {
     pub facets: String,
     pub groups: String,
     pub title: String,
-    /// The page of its outline diff (see `format::format_outline_diff`)
+    /// The page of its outline diff (see `format::render_outline_diff`)
     /// across the commits changing it, if any.
     pub outline: String,
 }

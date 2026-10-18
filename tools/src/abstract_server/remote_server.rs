@@ -686,6 +686,41 @@ impl AbstractServer for RemoteServer {
         String::from_utf8(body).map_err(|err| problem(true, ErrorLayer::DataLayer, err.to_string()))
     }
 
+    async fn interdiff_files(&self, a: &str, b: &str) -> Result<Value> {
+        parse(&self.api("interdiff", None, &[("a", a), ("b", b)]).await?)
+    }
+
+    async fn interdiff_file(
+        &self,
+        a: &str,
+        b: &str,
+        path: &str,
+    ) -> Result<crate::format::InterdiffFile> {
+        parse(
+            &self
+                .api(
+                    "interdiff-file",
+                    None,
+                    &[("a", a), ("b", b), ("path", path)],
+                )
+                .await?,
+        )
+    }
+
+    async fn outline_diff(
+        &self,
+        from: &str,
+        to: &str,
+        path: &str,
+        all_from_lines: bool,
+    ) -> Result<Value> {
+        let mut params = vec![("from", from), ("to", to), ("path", path)];
+        if all_from_lines {
+            params.push(("all", "true"));
+        }
+        parse(&self.api("outline-diff", None, &params).await?)
+    }
+
     async fn rev_dir(&self, rev: &str, path: &str) -> Result<Option<Value>> {
         parse(
             &self

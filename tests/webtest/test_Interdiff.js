@@ -1,7 +1,7 @@
 "use strict";
 
 // The interdiff of a reland from the landing it relands (see
-// `format::format_interdiff`): dad860f9 (Bug 2016448) was backed out by
+// `format::interdiff_file_data`): dad860f9 (Bug 2016448) was backed out by
 // e21bd3e0 and relanded as f8647c89, which made the directories with `cd` and
 // `mkdir -p {}` rather than `mkdir -p '$INDEX_ROOT/file/{}'`.
 const LANDING = "dad860f9";

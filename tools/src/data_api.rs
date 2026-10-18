@@ -62,6 +62,12 @@
 //!   `format::commit_page_data`).
 //! - `commit-info?revs=a,b`: what the blame popups show about commits (see
 //!   `blame::get_commit_info`).
+//! - `interdiff?a=&b=` and `interdiff-file?a=&b=&path=`: the data of the
+//!   interdiff of the files two sides (comma-separated revisions) changed,
+//!   and of a file's (see `format::interdiff_files_data` and
+//!   `interdiff_file_data`).
+//! - `outline-diff?from=&to=&path=[&all=true]`: a file's outline diff (see
+//!   `format::outline_diff_data`).
 //! - `stack-strip?stack=&commit=&path=`: a file's stack strip for a stack
 //!   page (see `format::stack_strip_json`).
 //! - `try-status?push=` and POST `try-import?push=`: a try push's import's
@@ -321,6 +327,27 @@ const ROUTES: &[Route] = &[
         post: false,
     },
     Route {
+        name: "interdiff",
+        takes_path: false,
+        params: &["a", "b"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "interdiff-file",
+        takes_path: false,
+        params: &["a", "b", "path"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "outline-diff",
+        takes_path: false,
+        params: &["from", "to", "path", "all"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
         name: "stack-strip",
         takes_path: false,
         params: &["stack", "commit", "path"],
@@ -518,15 +545,44 @@ fn push_param(params: &Params) -> Result<String, ApiError> {
         .ok_or_else(|| bad("push must be a try push's revision (12 to 40 hexadecimal digits)"))
 }
 
-/// A revision (7 to 40 hexadecimal digits), from the `commit` parameter.
-fn commit_param(params: &Params) -> Result<String, ApiError> {
-    let commit = params.required("commit")?;
-    ((7..=40).contains(&commit.len())
-        && commit
+/// Whether `rev` is a revision (7 to 40 lowercase hexadecimal digits).
+fn is_hex_rev(rev: &str) -> bool {
+    (7..=40).contains(&rev.len())
+        && rev
             .bytes()
-            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()))
-    .then(|| commit.to_string())
-    .ok_or_else(|| bad("commit must be a revision (7 to 40 hexadecimal digits)"))
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+}
+
+/// A revision, from the `commit` parameter.
+fn commit_param(params: &Params) -> Result<String, ApiError> {
+    commit_param_named(params, "commit")
+}
+
+/// A revision, from the parameter `name`.
+fn commit_param_named(params: &Params, name: &str) -> Result<String, ApiError> {
+    let commit = params.required(name)?;
+    is_hex_rev(commit)
+        .then(|| commit.to_string())
+        .ok_or_else(|| {
+            bad(format!(
+                "{} must be a revision (7 to 40 hexadecimal digits)",
+                name
+            ))
+        })
+}
+
+/// Comma-separated revisions (at most `MAX_EXPLORE_REVS`), from the parameter
+/// `name`.
+fn revs_param<'a>(params: &'a Params, name: &str) -> Result<&'a str, ApiError> {
+    let revs = params.required(name)?;
+    (revs.split(',').count() <= MAX_EXPLORE_REVS && revs.split(',').all(is_hex_rev))
+        .then_some(revs)
+        .ok_or_else(|| {
+            bad(format!(
+                "{} must be revisions (hexadecimal, comma-separated)",
+                name
+            ))
+        })
 }
 
 /// The most lines `html-lines` gives at once.
@@ -874,6 +930,42 @@ async fn route_body(
                 content_type: "application/json",
                 bytes: json.into_bytes(),
             })
+        }
+        "interdiff" | "interdiff-file" => {
+            let a = revs_param(params, "a")?;
+            let b = revs_param(params, "b")?;
+            if route == "interdiff" {
+                return Ok(Body::json(
+                    &server.interdiff_files(a, b).await.map_err(error)?,
+                ));
+            }
+            let path = params.required("path")?;
+            if !valid_tree_path(path) {
+                return Err(bad(format!("Not a path in the tree: {:?}", path)));
+            }
+            let file = server.interdiff_file(a, b, path).await.map_err(error)?;
+            Ok(Body::json(&serde_json::to_value(file).unwrap_or_default()))
+        }
+        "outline-diff" => {
+            let from = params.required("from")?;
+            let to = commit_param_named(params, "to")?;
+            let valid_from = match from.strip_prefix("since:") {
+                Some(day) => {
+                    day.len() == 10 && day.bytes().all(|b| b.is_ascii_digit() || b == b'-')
+                }
+                None => is_hex_rev(from),
+            };
+            let path = params.required("path")?;
+            if !valid_from || !valid_tree_path(path) {
+                return Err(bad(
+                    "from must be a revision or since:YYYY-MM-DD, and path a path in the tree",
+                ));
+            }
+            let diff = server
+                .outline_diff(from, &to, path, params.flag("all")?)
+                .await
+                .map_err(error)?;
+            Ok(Body::json(&diff))
         }
         "hyperblame" => {
             let commit = commit_param(params)?;

@@ -14,7 +14,7 @@ use std::path::Path;
 
 use chrono::DateTime;
 use git2::{Commit, Repository};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::journals::{JournalKind, JournalReader};
 use super::token_blame::TreeHistory;
@@ -29,7 +29,7 @@ use crate::file_format::history::timeline_files_delta::FileDeltaRecord;
 const MAX_MISSING_STEPS: usize = 100;
 
 /// A revision of an outline diff.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct OutlineRev {
     pub rev: String,
     pub date: String,
@@ -38,12 +38,12 @@ pub struct OutlineRev {
 /// A commit in the range of an outline diff which changed the file, or for
 /// weeks the history summarizes, the week's newest commit standing for the
 /// week's `count` commits.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct OutlineCommit {
     pub rev: String,
     pub date: String,
     pub subject: String,
-    #[serde(skip_serializing_if = "is_one")]
+    #[serde(default = "default_one", skip_serializing_if = "is_one")]
     pub count: usize,
 }
 
@@ -51,14 +51,18 @@ fn is_one(n: &usize) -> bool {
     *n == 1
 }
 
+fn default_one() -> usize {
+    1
+}
+
 /// Token changes, counted as `TokenDeltaDetails` count them: the tokens added
 /// (including evolved ones' new sides), removed (including evolved ones' old
 /// sides), and moved (within or between files, not counting as changes).
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
 pub struct OutlineTokens {
     pub added: u32,
     pub removed: u32,
-    #[serde(skip_serializing_if = "is_zero")]
+    #[serde(default, skip_serializing_if = "is_zero")]
     pub moved: u32,
 }
 
@@ -91,7 +95,7 @@ impl OutlineTokens {
 }
 
 /// What happened to a definition between the two revisions.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OutlineStatus {
     Unchanged,
@@ -107,7 +111,7 @@ pub enum OutlineStatus {
 }
 
 /// The other end of a definition's rename or move.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
 pub struct OutlineEvolution {
     pub pretty: String,
     /// The other file, for moves between files.
@@ -116,7 +120,7 @@ pub struct OutlineEvolution {
 }
 
 /// A definition of the union of the two revisions' outlines.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct OutlineEntry {
     pub pretty: String,
     /// `pretty` past its nearest ancestor in the union's "::" (ex: "f" for
@@ -125,9 +129,9 @@ pub struct OutlineEntry {
     pub name: String,
     pub kind: String,
     /// It's only declared (ex: a method in its class in a header).
-    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub decl: bool,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub pp: Vec<String>,
     /// How many of its "::" ancestors the union has.
     pub depth: usize,
@@ -137,11 +141,11 @@ pub struct OutlineEntry {
     /// For removed definitions, what they became in another file.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub evolved_into: Option<OutlineEvolution>,
-    #[serde(skip_serializing_if = "OutlineTokens::is_empty")]
+    #[serde(default, skip_serializing_if = "OutlineTokens::is_empty")]
     pub tokens: OutlineTokens,
     /// The commits which changed it, as [index in `commits`, tokens added,
     /// tokens removed].
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub changes: Vec<(usize, u32, u32)>,
     /// Its first and last lines (see `TreeHistory::container_lines`) in the
     /// "to" file.
@@ -153,7 +157,7 @@ pub struct OutlineEntry {
     pub from_lines: Option<(u32, u32)>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct OutlineDiff {
     pub path: String,
     /// The file's path at `from`, if it was renamed (or copied) since.

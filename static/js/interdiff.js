@@ -1,5 +1,5 @@
 /**
- * Interdiff pages (see `format_interdiff` in format.rs): B's diff, whose rows'
+ * Interdiff pages (see `interdiff_file_data` in format.rs): B's diff, whose rows'
  * code has a `data-idiff` attribute naming its tokens' marks ("START:END:MARK"
  * for each token, separated by ";", where START and END are UTF-16 offsets in
  * the code, and MARK is how the token compares with A's version of the patch;

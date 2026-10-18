@@ -327,6 +327,37 @@ impl AbstractServer for LocalIndex {
             .map_err(|message| bad_input(message.to_string()))
     }
 
+    async fn interdiff_files(&self, a: &str, b: &str) -> Result<Value> {
+        let cfg = self.tree_config_loaded();
+        crate::format::interdiff_files_data(&cfg, &self.tree_name, a, b)
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
+    async fn interdiff_file(
+        &self,
+        a: &str,
+        b: &str,
+        path: &str,
+    ) -> Result<crate::format::InterdiffFile> {
+        let cfg = self.tree_config_loaded();
+        crate::format::interdiff_file_data(&cfg, &self.tree_name, a, b, path)
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
+    async fn outline_diff(
+        &self,
+        from: &str,
+        to: &str,
+        path: &str,
+        all_from_lines: bool,
+    ) -> Result<Value> {
+        let cfg = self.tree_config_loaded();
+        let diff =
+            crate::format::outline_diff_data(&cfg, &self.tree_name, from, to, path, all_from_lines)
+                .map_err(|message| bad_input(message.to_string()))?;
+        Ok(serde_json::to_value(diff)?)
+    }
+
     async fn rev_dir(&self, rev: &str, path: &str) -> Result<Option<Value>> {
         let cfg = self.tree_config_loaded();
         crate::format::rev_dir_data(&cfg, &self.tree_name, rev, path)

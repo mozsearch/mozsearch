@@ -598,6 +598,38 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The data of the interdiff of the files the sides `a` and `b`
+    /// (comma-separated revisions) changed (see
+    /// `format::interdiff_files_data`).
+    async fn interdiff_files(&self, _a: &str, _b: &str) -> Result<Value> {
+        Err(ServerError::Unsupported)
+    }
+
+    /// The data of the interdiff of the file at `path` between the sides `a`
+    /// and `b` (see `format::interdiff_file_data`).
+    async fn interdiff_file(
+        &self,
+        _a: &str,
+        _b: &str,
+        _path: &str,
+    ) -> Result<crate::format::InterdiffFile> {
+        Err(ServerError::Unsupported)
+    }
+
+    /// The outline diff of the file at `path` between `from` (a revision, or
+    /// `since:YYYY-MM-DD`) and `to`, with all of the "from" file's
+    /// definitions' lines if `all_from_lines` (see
+    /// `format::outline_diff_data`).
+    async fn outline_diff(
+        &self,
+        _from: &str,
+        _to: &str,
+        _path: &str,
+        _all_from_lines: bool,
+    ) -> Result<Value> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The try push this is the tree as changed by, if it's a `try_overlay`.
     fn try_delta_meta(&self) -> Option<crate::try_delta::TryDeltaMeta> {
         None

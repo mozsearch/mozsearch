@@ -95,6 +95,17 @@ add_task(async function test_DataApiRoutes() {
      "A file's history page's data is there");
   const diff = await getJson(`${API}/rev-diff?commit=${LANDED}&path=widget.cpp`);
   ok(diff.diff?.includes("Shrink"), "and its diff in a revision");
+  const first = history.explore.commits[0].rev;
+  const outline = await getJson(`${API}/outline-diff?from=${first}&to=${LANDED}&path=widget.cpp`);
+  ok(outline.entries?.some(entry => entry.status != "unchanged"), "and its outline diff");
+  // (A side compared with itself; the first commit has no parent, so it
+  // can't be a side.)
+  const interdiff = await getJson(`${API}/interdiff-file?a=${LANDED}&b=${LANDED}&path=widget.cpp`);
+  ok(typeof interdiff.diff == "string" && interdiff.b_rev == LANDED, "and an interdiff of it");
+  const interdiffs = await getJson(`${API}/interdiff?a=${LANDED}&b=${LANDED}`);
+  is(interdiffs.sides?.length, 2, "and of the files two sides changed");
+  is((await get(`${API}/interdiff?a=${first}&b=${LANDED}`)).status, 422,
+     "but not of a side whose first commit has no parent");
   const commitPage = await getJson(`${API}/commit?commit=${LANDED}`);
   ok(commitPage.content?.includes("Let widgets shrink"), "and a commit's page's");
   const infos = await getJson(`${API}/commit-info?revs=${LANDED}`);

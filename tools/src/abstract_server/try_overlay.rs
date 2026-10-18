@@ -242,6 +242,29 @@ impl AbstractServer for TryOverlay {
         self.base.commit_page(rev).await
     }
 
+    async fn interdiff_files(&self, a: &str, b: &str) -> Result<Value> {
+        self.base.interdiff_files(a, b).await
+    }
+
+    async fn interdiff_file(
+        &self,
+        a: &str,
+        b: &str,
+        path: &str,
+    ) -> Result<crate::format::InterdiffFile> {
+        self.base.interdiff_file(a, b, path).await
+    }
+
+    async fn outline_diff(
+        &self,
+        from: &str,
+        to: &str,
+        path: &str,
+        all_from_lines: bool,
+    ) -> Result<Value> {
+        self.base.outline_diff(from, to, path, all_from_lines).await
+    }
+
     async fn commit_info_json(&self, revs: &str) -> Result<String> {
         self.base.commit_info_json(revs).await
     }

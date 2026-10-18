@@ -504,37 +504,55 @@ fn handle(
 
         // How a file's outline changed between two revisions, as
         // `/{tree}/rev-outline/{from}/{to}/{path}`, where `from` may be
-        // `since:YYYY-MM-DD`; see `format::outline_json`.
+        // `since:YYYY-MM-DD`; see `format::outline_diff_data`.
         "rev-outline" => {
             if path.len() < 5 {
                 return WebResponse::not_found();
             }
             let file_path = path[4..].join("/");
-            match format::outline_json(cfg, tree_name, path[2], path[3], &file_path) {
-                Ok(json) => WebResponse::json(json),
-                Err(err) => WebResponse::internal_error(err.to_owned()),
+            // (Over the tree's server.)
+            let Some(server) = tree_server(tree_name) else {
+                return WebResponse::not_found();
+            };
+            let (server, from, to) = (server.clonify(), path[2].to_string(), path[3].to_string());
+            match format::run_on_runtime(async move {
+                server.outline_diff(&from, &to, &file_path, false).await
+            }) {
+                Ok(diff) => WebResponse::json(diff.to_string()),
+                Err(err) => WebResponse::internal_error(server_error_message(&err)),
             }
         }
 
         // The page of how a file's outline changed between two revisions, as
         // `/{tree}/outline-diff/{from}/{to}/{path}`; see
-        // `format::format_outline_diff`.
+        // `format::render_outline_diff`.
         "outline-diff" => {
             if path.len() < 5 {
                 return WebResponse::not_found();
             }
             let file_path = path[4..].join("/");
+            // (Over the tree's server.)
+            let Some(server) = tree_server(tree_name) else {
+                return WebResponse::not_found();
+            };
+            let (server_, from, to, path_) = (
+                server.clonify(),
+                path[2].to_string(),
+                path[3].to_string(),
+                file_path.clone(),
+            );
+            let diff = format::run_on_runtime(async move {
+                server_.outline_diff(&from, &to, &path_, true).await
+            })
+            .map_err(|err| server_error_message(&err))
+            .and_then(|diff| serde_json::from_value(diff).map_err(|err| err.to_string()));
             let mut writer = Vec::new();
-            match format::format_outline_diff(
-                cfg,
-                tree_name,
-                path[2],
-                path[3],
-                &file_path,
-                &mut writer,
-            ) {
+            match diff.and_then(|diff| {
+                format::render_outline_diff(tree_name, &file_path, diff, &mut writer)
+                    .map_err(str::to_string)
+            }) {
                 Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
-                Err(err) => WebResponse::internal_error(err.to_owned()),
+                Err(err) => WebResponse::internal_error(err),
             }
         }
 
@@ -748,22 +766,38 @@ fn handle(
 
         // `/{tree}/interdiff/{A}/{B}` lists the files either side changed, and
         // `/{tree}/interdiff/{A}/{B}/{path}` is a file's interdiff, where each
-        // side is comma-separated revisions; see `format::format_interdiff`.
+        // side is comma-separated revisions; see `format::interdiff_file_data`.
         "interdiff" => {
             if path.len() < 4 {
                 return WebResponse::not_found();
             }
 
+            // (Over the tree's server.)
+            let Some(server) = tree_server(tree_name) else {
+                return WebResponse::not_found();
+            };
+            let (server, a, b) = (server.clonify(), path[2].to_string(), path[3].to_string());
             let mut writer = Vec::new();
             let result = if path.len() == 4 {
-                format::format_interdiff_files(cfg, tree_name, path[2], path[3], &mut writer)
+                format::run_on_runtime(async move { server.interdiff_files(&a, &b).await })
+                    .map_err(|err| server_error_message(&err))
+                    .and_then(|data| {
+                        format::render_interdiff_files(tree_name, data, &mut writer)
+                            .map_err(str::to_string)
+                    })
             } else {
                 let file_path = path[4..].join("/");
-                format::format_interdiff(cfg, tree_name, path[2], path[3], &file_path, &mut writer)
+                let path_ = file_path.clone();
+                format::run_on_runtime(async move { server.interdiff_file(&a, &b, &path_).await })
+                    .map_err(|err| server_error_message(&err))
+                    .and_then(|data| {
+                        format::render_interdiff_file(cfg, tree_name, &file_path, data, &mut writer)
+                            .map_err(str::to_string)
+                    })
             };
             match result {
                 Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
-                Err(err) => WebResponse::internal_error(err.to_owned()),
+                Err(err) => WebResponse::internal_error(err),
             }
         }
 
