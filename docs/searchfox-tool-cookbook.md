@@ -177,7 +177,11 @@ walking methods:
 ```
 A call of an IPDL message's generated `Send` method counts as a call of the
 actors' `Recv` implementations (an `ipc` count on the edge, drawn dotted
-when it's all IPC).  The whole tree's subsystems; a subsystem's classes and their neighbors
+when it's all IPC); notifying observers of a topic as a call of the
+observers' methods receiving it; and a JS call of an IDL method's binding
+(or of an XPIDL member's generated TypeScript type) as a call of its C++
+slot (an XPIDL interface's method, as C++ callers through the interface
+call it, or a WebIDL member's implementation).  The whole tree's subsystems; a subsystem's classes and their neighbors
 (`--level subsystem` for its neighboring subsystems instead); a class's
 neighbors.  Edges are labeled and weighted by how many calls they stand for;
 `--min-count` and `--max-edges` prune them.  The query terms are

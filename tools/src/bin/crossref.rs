@@ -1993,9 +1993,33 @@ fn rollup_class(meta_table: &MetaTable, sym: &Ustr) -> Option<Ustr> {
     }
 }
 
+/// The XPIDL member whose generated TypeScript type a JS symbol (of
+/// scip-typescript's) is of, ex: `XPIDL_nsIObserverService_notifyObservers`
+/// for `S_js_typescript_generated/lib.gecko.xpcom.d.ts/global/nsIObserverService#notifyObservers().`
+/// (the generated types are named as their IDL is).
+fn xpidl_member_of_ts_sym(sym: &str) -> Option<Ustr> {
+    let rest = sym.strip_prefix("S_js_typescript_generated/lib.gecko.xpcom.d.ts/global/")?;
+    let (interface, member) = rest.split_once('#')?;
+    let member = member
+        .strip_suffix("().")
+        .or_else(|| member.strip_suffix('.'))?;
+    let is_name = |name: &str| {
+        !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+    };
+    (is_name(interface) && is_name(member))
+        .then(|| ustr(&format!("XPIDL_{}_{}", interface, member)))
+}
+
 /// The calls between functions, for roll-ups, leaving out callees labeled
 /// `calls-diagram:stop` (assertions, logging, ...), as call diagrams do, and
-/// other plumbing (`is_boring_callee`).
+/// other plumbing (`is_boring_callee`).  Some calls stand for others: an
+/// IPDL message's `Send` method's for its actors' `Recv` implementations',
+/// through IPC; an observer topic's (its notifications', its `send` slots')
+/// for its observers' methods receiving it (its `recv` slots); and a JS
+/// call of an IDL method's or attribute's JS binding (or, for XPIDL, of its
+/// generated TypeScript type's member) for its C++ slot's (an XPIDL
+/// interface's virtual method, as C++ callers through the interface call it,
+/// or WebIDL's implementation).
 fn call_edges(
     meta_table: &MetaTable,
     callees_table: &CalleesTable,
@@ -2033,6 +2057,61 @@ fn call_edges(
                 .extend(impls.iter().copied());
         }
     }
+    // (Observer topics' receivers, and JS bindings' C++ slots: of the JS
+    // slots only one IDL owner has, as name-based JS symbols, ex:
+    // `#init`, are many interfaces' slots, and calls of other objects'.)
+    let mut stand_ins: UstrMap<Vec<Ustr>> = UstrMap::default();
+    let mut js_slot_owners: UstrMap<Vec<Ustr>> = UstrMap::default();
+    let mut owners_cpp: UstrMap<Vec<Ustr>> = UstrMap::default();
+    for meta in meta_table.values() {
+        let owned_by = |lang: BindingOwnerLang| {
+            meta.binding_slots
+                .iter()
+                .any(|slot| slot.props.owner_lang == lang)
+        };
+        if owned_by(BindingOwnerLang::Event) {
+            let receivers: Vec<Ustr> = meta
+                .binding_slots
+                .iter()
+                .filter(|slot| slot.props.slot_kind == BindingSlotKind::Recv)
+                .map(|slot| slot.sym)
+                .collect();
+            if !receivers.is_empty() {
+                stand_ins.insert(meta.sym, receivers);
+            }
+        } else if owned_by(BindingOwnerLang::Idl) {
+            let cpp: Vec<Ustr> = meta
+                .binding_slots
+                .iter()
+                .filter(|slot| slot.props.slot_lang == BindingSlotLang::Cpp)
+                .map(|slot| slot.sym)
+                .collect();
+            if cpp.is_empty() {
+                continue;
+            }
+            for slot in &meta.binding_slots {
+                if slot.props.slot_lang == BindingSlotLang::JS
+                    && matches!(
+                        slot.props.slot_kind,
+                        BindingSlotKind::Method
+                            | BindingSlotKind::Attribute
+                            | BindingSlotKind::Getter
+                            | BindingSlotKind::Setter
+                    )
+                {
+                    js_slot_owners.entry(slot.sym).or_default().push(meta.sym);
+                }
+            }
+            owners_cpp.insert(meta.sym, cpp);
+        }
+    }
+    for (js, mut owners) in js_slot_owners {
+        owners.sort();
+        owners.dedup();
+        if let [owner] = owners.as_slice() {
+            stand_ins.insert(js, owners_cpp[owner].clone());
+        }
+    }
     let mut edges = vec![];
     for (caller, callees) in callees_table {
         let Some(caller_meta) = meta_table.get(caller) else {
@@ -2059,6 +2138,26 @@ fn call_edges(
                         count: lines.len().max(1) as u32,
                         accessor: false,
                         ipc: true,
+                    });
+                }
+                continue;
+            }
+            let targets = stand_ins.get(callee).or_else(|| {
+                xpidl_member_of_ts_sym(callee).and_then(|owner| owners_cpp.get(&owner))
+            });
+            if let Some(targets) = targets {
+                for target in targets {
+                    if target == caller || !meta_table.get(target).is_some_and(is_rollup_callable) {
+                        continue;
+                    }
+                    edges.push(UnitEdge {
+                        from: *caller,
+                        to: *target,
+                        from_class,
+                        to_class: rollup_class(meta_table, target),
+                        count: lines.len().max(1) as u32,
+                        accessor: false,
+                        ipc: false,
                     });
                 }
                 continue;
@@ -3436,4 +3535,30 @@ async fn main() {
     // them took minutes.)
     let _ = std::io::stdout().flush();
     std::process::exit(0);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_xpidl_member_of_ts_sym() {
+        let sym = "S_js_typescript_generated/lib.gecko.xpcom.d.ts/global/nsIObserverService#";
+        assert_eq!(
+            xpidl_member_of_ts_sym(&format!("{}notifyObservers().", sym)).as_deref(),
+            Some("XPIDL_nsIObserverService_notifyObservers")
+        );
+        assert_eq!(
+            xpidl_member_of_ts_sym(
+                "S_js_typescript_generated/lib.gecko.xpcom.d.ts/global/nsIFile#path."
+            )
+            .as_deref(),
+            Some("XPIDL_nsIFile_path")
+        );
+        assert_eq!(xpidl_member_of_ts_sym(sym), None);
+        assert_eq!(
+            xpidl_member_of_ts_sym("S_js_typescript/lib.dom.d.ts/global/Document#title."),
+            None
+        );
+    }
 }

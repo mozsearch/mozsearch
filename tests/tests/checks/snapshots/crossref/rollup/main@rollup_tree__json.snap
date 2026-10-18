@@ -6,7 +6,7 @@ input_file: inputs/crossref/rollup/rollup_tree__json
 {
   "outTotal": 0,
   "inTotal": 0,
-  "internal": 70,
+  "internal": 71,
   "members": [
     {
       "sym": "SUBSYS_Core/Big",
@@ -32,6 +32,11 @@ input_file: inputs/crossref/rollup/rollup_tree__json
       "sym": "SUBSYS_Core/Rollup@20Model",
       "pretty": "Core/Rollup Model",
       "count": 3
+    },
+    {
+      "sym": "SUBSYS_Core/Rollup@20Topics",
+      "pretty": "Core/Rollup Topics",
+      "count": 1
     }
   ],
   "edges": [

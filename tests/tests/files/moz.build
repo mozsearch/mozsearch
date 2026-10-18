@@ -39,3 +39,6 @@ with Files("rollup/model.h", "rollup/model.cpp"):
 
 with Files("rollup/view.cpp"):
     BUG_COMPONENT = ("Core", "Rollup View")
+
+with Files("rollup/topic.cpp"):
+    BUG_COMPONENT = ("Core", "Rollup Topics")
