@@ -1,9 +1,11 @@
 extern crate memmap;
 
 use self::memmap::Mmap;
+use std::collections::HashMap;
 use std::fs::File;
+use std::os::unix::fs::MetadataExt;
 use std::str;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock, Mutex, Weak};
 use std::{cmp::Ordering, marker::PhantomData};
 
 use serde::Deserialize;
@@ -24,6 +26,31 @@ const ID_START: u8 = b'!';
 const INLINE_STORED: u8 = b':';
 const EXTERNALLY_STORED: u8 = b'@';
 
+/// The files mapped in the process, by device, inode and length, so that a
+/// file several trees look up is mapped once: a linked tree's crossref and
+/// jumpref, which each tree linking to it maps too (see
+/// `TreeConfigPaths::linked_trees`; ex: firefox-disco's, ~37 GB, for
+/// wubspecs).  Each mapping takes its file's size of the process's address
+/// space, which the pipeline-server's is limited to by its files' sizes, once
+/// each (see `infrastructure/web-server-run.sh`): mapping firefox-disco's
+/// twice left it ~0.5 GB of room on config8, and queries failed allocating.
+/// (A replaced or grown file is mapped again.)
+static MAPPED: LazyLock<Mutex<HashMap<(u64, u64, u64), Weak<Mmap>>>> =
+    LazyLock::new(Default::default);
+
+/// A file's mapping: the process's, if it's mapped already (see `MAPPED`).
+fn map_shared(file: &File) -> std::io::Result<Arc<Mmap>> {
+    let key = file.metadata().map(|m| (m.dev(), m.ino(), m.len()))?;
+    let mut mapped = MAPPED.lock().unwrap();
+    if let Some(mmap) = mapped.get(&key).and_then(Weak::upgrade) {
+        return Ok(mmap);
+    }
+    let mmap = Arc::new(unsafe { Mmap::map(file) }?);
+    mapped.retain(|_, weak| weak.strong_count() > 0);
+    mapped.insert(key, Arc::downgrade(&mmap));
+    Ok(mmap)
+}
+
 fn make_data_error(sym: &str) -> ServerError {
     ServerError::StickyProblem(ErrorDetails {
         layer: ErrorLayer::DataLayer,
@@ -41,8 +68,8 @@ impl<'de, T: Deserialize<'de>> BisectableMmap<T> {
         // which would otherwise make it serve without the data.)
         let map = |path: &str| {
             let file = File::open(path).unwrap();
-            match unsafe { Mmap::map(&file) } {
-                Ok(mmap) => Some(Arc::new(mmap)),
+            match map_shared(&file) {
+                Ok(mmap) => Some(mmap),
                 Err(err) => {
                     if file.metadata().is_ok_and(|m| m.len() > 0) {
                         eprintln!("Couldn't map {}: {}", path, err);
@@ -257,7 +284,12 @@ pub fn write_bisectable<T: serde::Serialize>(
             extra.write_all(id_line.as_bytes())?;
             extra_offset += id_line.len();
             // (After the ":", with the newline.)
-            write!(inline, "@{:x} {:x}\n", extra_offset + 1, value_line.len() - 1)?;
+            write!(
+                inline,
+                "@{:x} {:x}\n",
+                extra_offset + 1,
+                value_line.len() - 1
+            )?;
             extra.write_all(value_line.as_bytes())?;
             extra_offset += value_line.len();
         } else {
@@ -266,4 +298,29 @@ pub fn write_bisectable<T: serde::Serialize>(
     }
     inline.flush()?;
     extra.flush()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_shared_mappings() {
+        let dir = std::env::temp_dir().join(format!("bisectable-mmap-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (inline, extra) = (dir.join("crossref"), dir.join("crossref-extra"));
+        std::fs::write(&inline, "!a\n:{}\n").unwrap();
+        std::fs::write(&extra, "{}\n").unwrap();
+        let (inline, extra) = (inline.to_str().unwrap(), extra.to_str().unwrap());
+        // (A tree's, and another tree's as its linked tree's: one mapping.)
+        let own = BisectableMmap::<serde_json::Value>::new(inline, extra).unwrap();
+        let linked = BisectableMmap::<serde_json::Value>::new(inline, extra).unwrap();
+        assert!(Arc::ptr_eq(&own.inline_mm, &linked.inline_mm));
+        assert!(Arc::ptr_eq(&own.extra_mm, &linked.extra_mm));
+        // (A file rewritten in place, grown, is mapped again.)
+        std::fs::write(dir.join("crossref"), "!a\n:{}\n!b\n:{}\n").unwrap();
+        let rewritten = BisectableMmap::<serde_json::Value>::new(inline, extra).unwrap();
+        assert!(!Arc::ptr_eq(&own.inline_mm, &rewritten.inline_mm));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }
