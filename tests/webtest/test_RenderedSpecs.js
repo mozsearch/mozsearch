@@ -232,6 +232,24 @@ add_task(async function test_AlgorithmExcerpts() {
   is(cards.map(card => card.dataset.step).join(), ",1,2,2.1,2.2",
      "The function's citations of the algorithm and its steps are cards");
   const [whole, step1, step2, step21] = cards;
+
+  // Each step's block goes down to its first card, if it's below it (after
+  // the cards before it), with space after the step before it, whose text
+  // sticks while its code shows.
+  await frame.contentDocument.fonts.ready;
+  await new Promise(resolve => frame.contentWindow.requestAnimationFrame(resolve));
+  for (const card of [step1, step2]) {
+    const first = [...frame.contentDocument.querySelectorAll("#sp-citations > .sp-citation")]
+      .find(other => other.dataset.step == card.dataset.step);
+    const sticky = [...doc().querySelectorAll(".sp-step-sticky")];
+    const block = sticky.find(block => Math.abs(block.getBoundingClientRect().top -
+                                                first.getBoundingClientRect().top) < 2);
+    ok(block, `Step ${card.dataset.step}'s text is beside its first card`);
+  }
+  ok(doc().querySelector(".sp-step-space"), "with space before it");
+  is(getComputedStyle(doc().querySelector(".sp-step-sticky")).position, "sticky",
+     "and its text sticks while its code shows");
+
   ok(whole.querySelector(".sp-citation-head")?.textContent.includes("spec_excerpts::AssembleAll"),
      "The function's first card says its file and function");
   // (spec_citations.py's cite steps 1, 2.1 and 2.2 too, and go first.)
@@ -315,11 +333,12 @@ add_task(async function test_AlgorithmView() {
   // it, if that's further down.)
   const block = [...doc().querySelectorAll("li .rd-block")]
     .find(block => block.textContent.includes("Set widget"));
-  // (Adjoining the one before it, which it continues.)
-  const expected = Math.max(block.getBoundingClientRect().top,
-                            cards[0].getBoundingClientRect().bottom);
-  ok(Math.abs(step1.getBoundingClientRect().top - expected) < 2,
-     "A step's citations are next to it, or after the ones before it");
+  // (Its step's block goes down to it, if it's after the one before it,
+  // which it adjoins, as it continues it.)
+  ok(Math.abs(step1.getBoundingClientRect().top - block.getBoundingClientRect().top) < 2,
+     "A step's citations are next to it");
+  ok(step1.getBoundingClientRect().top >= cards[0].getBoundingClientRect().bottom - 1,
+     "after the ones before it");
 
   // The rendered spec links to the view from the algorithm's definition.
   await TestUtils.loadPath("/tests/rendered/specs/source");

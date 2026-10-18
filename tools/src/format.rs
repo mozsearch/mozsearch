@@ -2947,7 +2947,9 @@ fn write_algorithm_view(
         write_algorithm_section(writer, tree_name, &view_url, n, section);
     }
     // Each citation goes next to its step's block (or after the ones before
-    // it), and the ones of the algorithm at the top, in each section; and the
+    // it), and the ones of the algorithm at the top, in each section, and a
+    // step's block goes down to its citations, if they're below it, with space
+    // after the step before it, whose text sticks while its code shows; and the
     // links to the algorithms the sections after the first are of get "↓"s
     // to their sections, and "▸"s showing their steps in place, after the
     // calling blocks (copies of their sections' renderings, without their
@@ -2970,42 +2972,145 @@ fn write_algorithm_view(
         writer,
         r##"<script>(() => {{
   const sections = {};
+  // A step's block: its text's, by its tokens' lines (`data-l`, but blanks',
+  // ex: a paragraph's last, of the next line; not in the copies of called
+  // algorithms' steps), as blocks' line ranges overlap (ex: a list item's,
+  // without its end tag, goes to the next one's line), or else the block
+  // whose range starts last before it.
   const blockOfLine = (doc, line) => {{
+    const token = [...doc.querySelectorAll(`[data-l="${{line}}"]`)]
+      .find(token => token.textContent.trim() && !token.closest(".sp-inline-called"));
+    const block = token && (token.closest("tr") || token.closest(".rd-block"));
+    if (block) {{
+      return block;
+    }}
+    let found = null;
+    let start = -1;
     for (const mark of doc.querySelectorAll("[data-rd-lines]")) {{
       const [first, last] = mark.dataset.rdLines.split("-").map(Number);
-      if (first <= line && line <= last) {{
-        return mark.closest("tr") || mark.parentElement;
+      if (first <= line && line <= last && first > start) {{
+        found = mark.closest("tr") || mark.parentElement;
+        start = first;
       }}
     }}
-    return null;
+    return found;
   }};
   sections.forEach(({{ steps }}, n) => {{
     const doc = document.getElementById(n ? `rendered-doc-${{n}}` : "rendered-doc");
-    for (const aside of document.querySelectorAll(`#sp-algorithm-${{n}} > .sp-algorithm-view > .sp-citations`)) {{
-    const place = () => {{
-      const top = aside.getBoundingClientRect().top;
-      let bottom = null;
-      for (const card of aside.querySelectorAll(".sp-citation")) {{
+    const asides = [...document.querySelectorAll(`#sp-algorithm-${{n}} > .sp-algorithm-view > .sp-citations`)];
+    if (!doc || !asides.length) {{
+      return;
+    }}
+    // Each column's cards, and their steps' blocks, which stick below the
+    // page's header while their code shows.
+    const columns = asides.map(aside => [...aside.querySelectorAll(":scope > .sp-citation")]
+      .map(card => {{
         const line = steps[card.dataset.step];
-        const block = line && blockOfLine(doc, line);
-        // (A card continuing the one before it adjoins it.)
-        const gap = card.classList.contains("sp-citation-continued") ? 0 : 6;
-        const floor = bottom === null ? 0 : bottom + gap;
-        const want = block ? block.getBoundingClientRect().top - top : floor;
-        const at = Math.max(want, floor);
-        card.style.top = `${{at}}px`;
-        bottom = at + card.offsetHeight;
+        return {{ card, block: (line && blockOfLine(doc, line)) || null }};
+      }}));
+    for (const {{ block }} of columns.flat()) {{
+      block?.classList.add("sp-step-sticky");
+    }}
+    const blocks = [...new Set(columns.flat().map(({{ block }}) => block).filter(Boolean))]
+      .sort((a, b) => a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
+    const order = new Map(blocks.map((block, i) => [block, i]));
+    // (The space before a step's block: after the step before it which has
+    // code, at its list item's end (so its text sticks while its code shows),
+    // or before its own sub-steps if it's one of them, or else before it.)
+    const spaceBefore = (block, previous) => {{
+      const item = previous?.parentElement?.tagName == "LI" ? previous.parentElement : null;
+      const [at, where] = !item ? [block, "before"]
+        : item.contains(block) ? [previous, "after"] : [item, "append"];
+      const row = (where == "append" ? at.lastElementChild : at)?.tagName == "TR";
+      const space = document.createElement(row ? "tr" : "div");
+      space.className = "sp-step-space";
+      space.setAttribute("aria-hidden", "true");
+      if (row) {{
+        space.append(document.createElement("td"));
       }}
-      aside.style.minHeight = `${{bottom ?? 0}}px`;
+      at[where](space);
+      return space;
     }};
-    place();
-    const observer = new ResizeObserver(place);
+    const place = () => {{
+      // (Where the steps are, not where they're stuck.)
+      doc.classList.add("sp-placing");
+      for (const space of doc.querySelectorAll(".sp-step-space")) {{
+        space.remove();
+      }}
+      const tops = asides.map(aside => aside.getBoundingClientRect().top);
+      const bottoms = asides.map(() => null);
+      const next = asides.map(() => 0);
+      // (A card continuing the one before it adjoins it.)
+      const floor = (c, card) => bottoms[c] === null ? 0
+        : bottoms[c] + (card.classList.contains("sp-citation-continued") ? 0 : 6);
+      const put = (c, card, at) => {{
+        card.style.top = `${{at}}px`;
+        bottoms[c] = at + card.offsetHeight;
+      }};
+      let previous = null;
+      for (const block of blocks) {{
+        // (Each column's cards before its block's, but those of later steps:
+        // of the algorithm, or out of order.)
+        const goals = [];
+        columns.forEach((cards, c) => {{
+          while (next[c] < cards.length && cards[next[c]].block !== block &&
+                 !(order.get(cards[next[c]].block) > order.get(block))) {{
+            const {{ card }} = cards[next[c]++];
+            put(c, card, floor(c, card));
+          }}
+          if (cards[next[c]]?.block === block) {{
+            goals.push(tops[c] + floor(c, cards[next[c]].card));
+          }}
+        }});
+        if (!goals.length) {{
+          continue;
+        }}
+        const goal = Math.max(...goals);
+        let top = block.getBoundingClientRect().top;
+        if (goal > top + 1) {{
+          const space = spaceBefore(block, previous);
+          space.style.height = `${{Math.round(goal - top)}}px`;
+          // (Less its margins' collapsing.)
+          const moved = block.getBoundingClientRect().top;
+          space.style.height = `${{Math.max(0, Math.round(2 * goal - top - moved))}}px`;
+          top = block.getBoundingClientRect().top;
+        }}
+        columns.forEach((cards, c) => {{
+          while (cards[next[c]]?.block === block) {{
+            const {{ card }} = cards[next[c]++];
+            put(c, card, Math.max(top - tops[c], floor(c, card)));
+          }}
+        }});
+        previous = block;
+      }}
+      columns.forEach((cards, c) => {{
+        while (next[c] < cards.length) {{
+          const {{ card }} = cards[next[c]++];
+          put(c, card, floor(c, card));
+        }}
+        asides[c].style.minHeight = `${{bottoms[c] ?? 0}}px`;
+      }});
+      doc.classList.remove("sp-placing");
+    }};
+    // Again when the view's size changes (but by its spaces), or a card's
+    // (ex: its folded lines showing).
+    let placed = null;
+    const size = () => `${{doc.clientWidth}}x${{doc.offsetHeight}}`;
+    const replace = () => {{
+      place();
+      placed = size();
+    }};
+    replace();
+    const observer = new ResizeObserver(entries => {{
+      if (entries.some(entry => entry.target !== doc) || size() !== placed) {{
+        replace();
+      }}
+    }});
     observer.observe(doc);
-    // (And when a card's folded lines show.)
-    for (const card of aside.querySelectorAll(".sp-citation")) {{
+    for (const {{ card }} of columns.flat()) {{
       observer.observe(card);
     }}
-    }}
+    document.fonts?.ready.then(replace);
   }});
   sections.forEach(({{ anchor }}, n) => {{
     if (!anchor) {{
@@ -3071,8 +3176,12 @@ fn write_algorithm_view(
     for (const child of document.getElementById(`rendered-doc-${{n}}`).children) {{
       called.append(child.cloneNode(true));
     }}
-    for (const elt of called.querySelectorAll(".blame-strip, [data-rd-lines], .sp-inline-called")) {{
+    // (Without its section's spaces, nor sticking steps.)
+    for (const elt of called.querySelectorAll(".blame-strip, [data-rd-lines], .sp-inline-called, .sp-step-space")) {{
       elt.remove();
+    }}
+    for (const elt of called.querySelectorAll(".sp-step-sticky")) {{
+      elt.classList.remove("sp-step-sticky");
     }}
     for (const elt of called.querySelectorAll("[id]")) {{
       elt.removeAttribute("id");

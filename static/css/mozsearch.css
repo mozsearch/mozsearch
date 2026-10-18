@@ -2879,6 +2879,25 @@ span[data-symbols].selected {
 .sp-citation-head {
   margin: 0 0 0.2em 0.4em;
 }
+/* An algorithm's step with code, whose text sticks below the page's header
+   (and its view's map) while its code shows (see format::write_algorithm_view's
+   script, which puts space after it, down to the next one's code). */
+.sp-algorithm .rd-block.sp-step-sticky {
+  position: sticky;
+  top: calc(var(--header-height) + var(--breadcrumbs-height) + var(--sp-map-height, 0px));
+  z-index: 1;
+  background-color: var(--page-background);
+}
+/* (Where they are, while their places are measured: not offset by their
+   sticky `top`s, which relative positioning would also apply.) */
+.sp-algorithm.sp-placing .rd-block.sp-step-sticky {
+  position: relative;
+  top: auto;
+}
+.sp-step-space > td {
+  padding: 0;
+  border: 0;
+}
 .sp-citation-fn {
   font-weight: bold;
 }
