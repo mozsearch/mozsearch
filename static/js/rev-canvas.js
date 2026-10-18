@@ -86,22 +86,48 @@ var RevCanvas = new (class RevCanvas {
     };
   }
 
-  // The push's slicing (see the file's comment), and its clusters' groups.
+  // The push's slicing (see the file's comment), and its clusters' groups;
+  // or why it couldn't be had: the server's error (a pipeline error's
+  // message), the browser's (ex: the connection was lost), or a load
+  // balancer's timeout, with a link to the slicing query's page, which shows
+  // the server's error in full, or the slicing, once it's done (it's cached
+  // when it is; see tools/src/step_cache.rs).
   async loadClusters() {
-    const query = `slice-rev:${this.model.base}..${this.model.head} slice-format:json`;
-    const url = `/${this.model.tree}/query/default?q=${encodeURIComponent(query)}` +
+    const slicing = `slice-rev:${this.model.base}..${this.model.head}`;
+    const queryUrl = format => `/${this.model.tree}/query/default?q=` +
+      encodeURIComponent(format ? `${slicing} slice-format:${format}` : slicing) +
       `&rev=${encodeURIComponent(this.model.head)}`;
+    this.slicing = null;
+    let why = null;
     try {
-      const response = await fetch(url, { headers: { Accept: "application/json" } });
-      if (!response.ok) {
-        throw new Error(`${response.status} ${response.statusText}`);
+      const response = await fetch(queryUrl("json"), { headers: { Accept: "application/json" } });
+      if (response.ok) {
+        this.slicing = (await response.json())?.JsonValue?.value;
+        if (!this.slicing?.clusters) {
+          why = "the server's response had no clusters";
+        }
+      } else {
+        // (The pipeline-server's errors are `Error: <its debug form>`, whose
+        // message is what to show.)
+        const text = await response.text().catch(() => "");
+        const message = text.match(/message: "((?:[^"\\]|\\.)*)"/)?.[1]?.replace(/\\(.)/g, "$1") ??
+          (text.startsWith("<") ? "" : text.split("\n")[0].slice(0, 200));
+        why = `${response.status} ${response.statusText}${message ? `: ${message}` : ""}`;
+        if (response.status == 504) {
+          why += "; slicing a big push can take a while, so it may be done if you try again later";
+        }
       }
-      this.slicing = (await response.json())?.JsonValue?.value;
     } catch (e) {
-      console.warn("Couldn't slice the push:", e);
+      why = `the request failed: ${e.message || e}`;
     }
-    if (!this.slicing?.clusters) {
-      this.clusterNote.textContent = "Its changes couldn't be sliced into dataflow clusters.";
+    if (why) {
+      console.warn("Couldn't slice the push:", why);
+      this.clusterNote.textContent = `Its changes couldn't be sliced into dataflow clusters (${why}). `;
+      const link = document.createElement("a");
+      link.className = "rc-cluster-query";
+      link.href = queryUrl(null);
+      link.textContent = "Open the slicing";
+      this.clusterNote.append(link);
       return;
     }
     this.buildClusters();

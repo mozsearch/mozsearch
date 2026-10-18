@@ -339,6 +339,35 @@ add_task(async function test_TryCanvasClusters() {
   doc().querySelector(".rc-toolbar button[title='Forget this arrangement']").click();
 });
 
+// When the slicing fails, the canvas says why (the server's error, or the
+// browser's), with a link to the slicing query's page.
+add_task(async function test_TryCanvasClustersError() {
+  const head = await importPush();
+  await TestUtils.loadPath(`/trydelta/rev-canvas/${head}`);
+  await waitForCondition(() => doc().documentElement.dataset.canvasClustersReady,
+                         "The push's clusters are loaded");
+  const win = frame.contentWindow;
+  const note = () => doc().querySelector(".rc-cluster-note");
+
+  // (As the pipeline-server reports a pipeline's error.)
+  win.fetch = async () => new win.Response(
+    'Error: StickyProblem(\n    ErrorDetails {\n        layer: DataLayer,\n' +
+    '        message: "no \\"rev\\" here",\n    },\n)',
+    { status: 500, statusText: "Internal Server Error" });
+  await win.RevCanvas.loadClusters();
+  ok(note().textContent.includes('500 Internal Server Error: no "rev" here'),
+     `The server's error is shown: ${note().textContent}`);
+  const link = note().querySelector("a.rc-cluster-query");
+  ok(link?.getAttribute("href").startsWith("/trydelta/query/default?q=slice-rev%3A"),
+     "with a link to the slicing query's page");
+  ok(!link.getAttribute("href").includes("slice-format"), "rendered, not JSON");
+
+  win.fetch = async () => { throw new win.TypeError("NetworkError when attempting to fetch resource."); };
+  await win.RevCanvas.loadClusters();
+  ok(note().textContent.includes("the request failed: NetworkError"),
+     `and the browser's: ${note().textContent}`);
+});
+
 // A push whose changes conflict with the indexed revision's can't be analyzed
 // semantically, which its page says, with why: fedcba987654 is based on the
 // tree's first revision, and declares Widget::Grow where the second declares
