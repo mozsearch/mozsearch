@@ -3430,4 +3430,10 @@ async fn main() {
     ingestion
         .state
         .write_out_concise_file_info(&tree_config.paths.index_path);
+
+    // (Without freeing its tables: their outputs are written, and at
+    // firefox's scale, with tens of GB of them partly swapped out, freeing
+    // them took minutes.)
+    let _ = std::io::stdout().flush();
+    std::process::exit(0);
 }
