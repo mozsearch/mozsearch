@@ -115,7 +115,7 @@ fn problem(sticky: bool, layer: ErrorLayer, message: String) -> ServerError {
 
 /// The body of the response for `url`, retrying when turned away for the
 /// client's rate; other unhappy statuses are errors (with the API's error
-/// message, if it says one).
+/// message, if it says one, so that they read as the tree's server's own).
 async fn get_bytes(url: Url, accept: Option<&str>) -> Result<Vec<u8>> {
     request_bytes(reqwest::Method::GET, url, accept).await
 }
@@ -146,9 +146,10 @@ async fn request_bytes(method: reqwest::Method, url: Url, accept: Option<&str>) 
         }
         let error = serde_json::from_slice::<Value>(&bytes)
             .ok()
-            .and_then(|body| body["error"].as_str().map(str::to_string))
-            .unwrap_or_default();
-        let message = format!("Server status of {} for {}: {}", status, url.path(), error);
+            .and_then(|body| body["error"].as_str().map(str::to_string));
+        log::debug!("Server status of {} for {}: {:?}", status, url, error);
+        let message =
+            error.unwrap_or_else(|| format!("Server status of {} for {}", status, url.path()));
         return Err(match status.as_u16() {
             422 => problem(true, ErrorLayer::BadInput, message),
             404 => problem(true, ErrorLayer::DataLayer, message),

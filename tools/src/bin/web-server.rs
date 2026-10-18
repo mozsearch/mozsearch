@@ -464,7 +464,7 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                         Err(err) => return WebResponse::internal_error(server_error_message(&err)),
                     },
                     Err(_) if cfg.trees.get(*tree_name).is_some_and(|t| t.git.is_some()) => {}
-                    Err(err) => return WebResponse::internal_error(format!("{:?}", err)),
+                    Err(err) => return WebResponse::internal_error(server_error_message(&err)),
                 }
             }
             match format::format_path(cfg, tree_name, rev, &path, &mut writer) {
