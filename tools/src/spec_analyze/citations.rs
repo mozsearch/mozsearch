@@ -21,6 +21,13 @@
 //!   (see `indent_scope_end`).  A
 //!   step is in the scope of the last citing line before it whose scope it's
 //!   in, so later citations take over, and nested ones end with their scopes.
+//! - A citing line saying which of its algorithm's steps it's of ("Step 5 and
+//!   6 of <URL>", or "Step 5 and 6 of" before a line with only the URL) cites
+//!   them (its context has them), and if it's only that, the steps in its
+//!   scope are theirs (ex: "Step 1." is "5.1", unless it's one of them, ex:
+//!   "Step 6.2."), and each such line's before the same definition (ex: a
+//!   function implementing steps of several algorithms, as Gecko's streams'
+//!   `PromisifyAlgorithm` does).
 //! - A comment citing a section of an ecmarkup spec by its number and title,
 //!   as SpiderMonkey's do (ex: "22.1.3.13 Array.prototype.join ( separator
 //!   )", after a line naming the edition, ex: "ES2025 draft rev ..."), is a
@@ -67,6 +74,15 @@ lazy_static! {
         r"(?i)^[ \t]*(?:/{2,}|/\*+|\*+|#+|--|<!--)?[!<]?[ \t]*\(?(steps?[ \t]+(?P<path>\d+(?:\.(?:\d+|[a-z]{1,4}))*(?:[ \t]*(?:-|–|to|through|and|,)[ \t]*(?:\d+|[a-z]{1,4})(?:\.(?:\d+|[a-z]{1,4}))*)*))"
     )
     .unwrap();
+    /// A line's comment naming the steps of the algorithm its URL (after it,
+    /// or on the next line) is of, ex: "// Step 5 and 6 of " (before
+    /// "https://streams.spec.whatwg.org/#transformstream-set-up").
+    static ref STEPS_OF: Regex = Regex::new(
+        r"(?i)^[ \t]*(?:/{2,}|/\*+|\*+|#+|--)?[ \t]*\(?steps?[ \t]+(?P<path>\d+(?:\.(?:\d+|[a-z]{1,4}))*(?:[ \t]*(?:-|–|to|through|and|,)[ \t]*(?:\d+|[a-z]{1,4})(?:\.(?:\d+|[a-z]{1,4}))*)*)[ \t]+of[ \t]*$"
+    )
+    .unwrap();
+    /// A line's text before or after a URL that's only a comment's markers.
+    static ref COMMENT_MARKERS: Regex = Regex::new(r"^[ \t]*(?:/{2,}|/\*+|\*+|#+|--)?[ \t]*(?:\*/)?[ \t]*$").unwrap();
     /// A comment line that's only a section's title, with its parameters (as
     /// the specs space them, unlike calls in code, ex: "Date.UTC(2021, 1)")
     /// or as an accessor, ex: "Temporal.Instant ( epochNanoseconds )", "get
@@ -352,13 +368,46 @@ impl Defined {
 }
 
 /// A line citing a spec: its first citation's symbol and pretty name, and its
-/// scope's last line and definition.
+/// scope's last line and definition, and the steps of the algorithm it says
+/// it's of, if it does ("Step 5 and 6 of <URL>", or on the line before it, see
+/// `STEPS_OF`): their path, the line saying so, and whether the line is only
+/// that (then the steps in its scope are theirs, see `relative_step`).
 struct Citing {
     line: u32,
     sym: String,
     pretty: String,
     scope_end: u32,
     def: Option<Def>,
+    steps: Option<(String, u32, bool)>,
+}
+
+/// Whether a step's path is of one of the steps a line citing an algorithm
+/// says it's of (see `Citing::steps`, ex: "6.2" of "5 and 6", "3.a" of "2-4").
+fn step_of(steps: &str, path: &str) -> bool {
+    let numbers: Vec<u32> = steps
+        .split(|c: char| !c.is_ascii_digit() && c != '.')
+        .filter_map(|part| part.split('.').next()?.parse().ok())
+        .collect();
+    let ranged =
+        steps.contains(['-', '–']) || steps.contains(" to ") || steps.contains(" through ");
+    let first = path
+        .split(['.', '-', ' ', ','])
+        .next()
+        .and_then(|n| n.parse::<u32>().ok());
+    first.is_some_and(|n| match (ranged, numbers.as_slice()) {
+        (true, [from, to, ..]) => (*from..=*to).contains(&n),
+        _ => numbers.contains(&n),
+    })
+}
+
+/// A step's path in the scope of a line citing an algorithm's `steps`, as one
+/// of the first of them's (ex: "5.1", for "5 and 6"'s "1").
+fn relative_step(steps: &str, path: &str) -> String {
+    let step = steps
+        .split(|c: char| c.is_whitespace() || matches!(c, '-' | '–' | ','))
+        .next()
+        .unwrap_or(steps);
+    format!("{}.{}", step, path)
 }
 
 /// Whether a line is (part of) a comment, by its start, in the usual
@@ -562,12 +611,32 @@ pub fn citation_records(
             continue;
         }
         let (scope_end, def) = scope(line);
+        // (The steps it says it's of, before it on its line, or on the line
+        // before it, if it's alone on its own.)
+        let line_start = src[..m.start()].rfind('\n').map_or(0, |at| at + 1);
+        let line_end = src[m.start()..]
+            .find('\n')
+            .map_or(src.len(), |at| m.start() + at);
+        let url_end = m.start() + url.len();
+        let (before, after) = (
+            &src[line_start..m.start()],
+            &src[url_end..line_end.max(url_end)],
+        );
+        let steps = match STEPS_OF.captures(before) {
+            Some(steps) => Some((steps["path"].to_string(), line)),
+            None if line > 1 && COMMENT_MARKERS.is_match(before) => STEPS_OF
+                .captures(lines[line as usize - 2])
+                .map(|steps| (steps["path"].to_string(), line - 1)),
+            None => None,
+        }
+        .map(|(path, at)| (path, at, COMMENT_MARKERS.is_match(after)));
         citing.push(Citing {
             line,
             sym,
             pretty,
             scope_end,
             def,
+            steps,
         });
     }
     // Citations of sections by their titles, on lines without URLs.
@@ -619,6 +688,7 @@ pub fn citation_records(
                 pretty: pretty.to_string(),
                 scope_end,
                 def,
+                steps: None,
             });
         }
     }
@@ -633,6 +703,12 @@ pub fn citation_records(
         stats.outdated += usize::from(outdated);
         let loc = lines_index.location(&range);
         let def = context_of(loc.lineno).and_then(|c| c.def.as_ref());
+        // (Of the steps its line says it's of, if it does.)
+        let steps = citing
+            .iter()
+            .find(|c| c.line == loc.lineno && c.sym == sym)
+            .and_then(|c| c.steps.as_ref())
+            .map(|(path, _, _)| path.clone());
         // (A citation by an outdated URL says so, in its pretty names, and in
         // its source record's syntax, which its code's view marks.)
         let pretty = if outdated {
@@ -651,12 +727,18 @@ pub fn citation_records(
             source.data.syntax.push("outdated".into());
         }
         records.push(source);
+        let context = match (def, steps) {
+            (Some(def), Some(steps)) => format!("{} step {}", def.pretty, steps),
+            (None, Some(steps)) => format!("step {}", steps),
+            (Some(def), None) => def.pretty.clone(),
+            (None, None) => String::new(),
+        };
         records.push(target_record(
             loc,
             AnalysisKind::DocUse,
             pretty,
             sym,
-            def.map_or(String::new(), |d| d.pretty.clone()),
+            context,
             def.map_or(String::new(), |d| d.sym.clone()),
         ));
     }
@@ -670,6 +752,14 @@ pub fn citation_records(
         let Some(c) = context_of(lineno).filter(|c| c.line < lineno) else {
             continue;
         };
+        // (Not a line saying which steps a URL after it is of.)
+        if citing.iter().any(|c| {
+            c.steps
+                .as_ref()
+                .is_some_and(|(_, at, _)| *at == lineno && c.line > lineno)
+        }) {
+            continue;
+        }
         let Some(step) = STEP.captures(line) else {
             continue;
         };
@@ -679,25 +769,58 @@ pub fn citation_records(
         stats.steps += 1;
         let path = path.as_str().trim_end_matches(['.', ':']);
         let loc = lines_index.location(&(start + whole.start()..start + whole.end()));
-        let context = match &c.def {
-            Some(def) => format!("{} step {}", def.pretty, path),
-            None => format!("step {}", path),
+        // A step in the scope of lines citing algorithms' steps (only that,
+        // ex: "// Step 5 and 6 of <URL>", "// Step 2 and 3 of <URL>", before
+        // a function implementing them all) is each's (ex: "5.1" and "2.1"),
+        // and else the last citing line's.
+        let all_of = |g: &&Citing| {
+            g.scope_end == c.scope_end
+                && g.def == c.def
+                && g.steps.as_ref().is_some_and(|(_, _, only)| *only)
+                && (g.line.min(c.line)..g.line.max(c.line))
+                    .all(|l| is_comment(lines[l as usize - 1]))
         };
-        records.push(source_record(
-            loc,
-            "use",
-            format!("spec {}", c.pretty),
-            c.sym.clone(),
-            Default::default(),
-        ));
-        records.push(target_record(
-            loc,
-            AnalysisKind::DocUse,
-            c.pretty.clone(),
-            c.sym.clone(),
-            context,
-            c.def.as_ref().map_or(String::new(), |d| d.sym.clone()),
-        ));
+        let group: Vec<&Citing> = match c.steps.as_ref().is_some_and(|(_, _, only)| *only) {
+            true => citing.iter().filter(all_of).collect(),
+            false => vec![c],
+        };
+        // (A step of the steps some of them say they're of is theirs, as it
+        // is, ex: "Step 6.2" of "Step 5 and 6 of <URL>"'s; else, of each's.)
+        let of_steps = |g: &&Citing| {
+            g.steps
+                .as_ref()
+                .is_some_and(|(steps, _, only)| *only && step_of(steps, path))
+        };
+        let owners: Vec<&Citing> = group.iter().copied().filter(of_steps).collect();
+        let (group, relative) = match owners.is_empty() {
+            true => (group, true),
+            false => (owners, false),
+        };
+        for g in group {
+            let path = match &g.steps {
+                Some((steps, _, true)) if relative => relative_step(steps, path),
+                _ => path.to_string(),
+            };
+            let context = match &g.def {
+                Some(def) => format!("{} step {}", def.pretty, path),
+                None => format!("step {}", path),
+            };
+            records.push(source_record(
+                loc.clone(),
+                "use",
+                format!("spec {}", g.pretty),
+                g.sym.clone(),
+                Default::default(),
+            ));
+            records.push(target_record(
+                loc.clone(),
+                AnalysisKind::DocUse,
+                g.pretty.clone(),
+                g.sym.clone(),
+                context,
+                g.def.as_ref().map_or(String::new(), |d| d.sym.clone()),
+            ));
+        }
     }
     sort_records(&mut records);
     (records, stats)
@@ -1117,6 +1240,56 @@ Navigate(int aX)
                 "5:5-11 doc-use SPEC_html_navigate | step 1 ()",
             ]
         );
+    }
+
+    #[test]
+    fn test_steps_of() {
+        // (StreamUtils.h's PromisifyAlgorithm's, as of 2026-10: lines saying
+        // which steps of several algorithms a function implements, whose
+        // steps are theirs.)
+        let src = "\
+// Promisification algorithm, shared among:
+// Step 2 and 3 of https://html.spec.whatwg.org/#run-a
+// Step 2 and 3 of
+// https://html.spec.whatwg.org/#run-b
+// Step 5 and 6 of https://dom.spec.whatwg.org/#run-c
+int Promisify()
+{
+  // Step 1. Let result be the result of running it.
+  int result = 0;
+  // Step 6.2.
+  return result;
+}
+
+// Steps 1-4 of https://html.spec.whatwg.org/#run-d are the caller's.
+int Rest()
+{
+  // Step 5.
+}
+";
+        let (records, _) = citation_records(src, &[], &config(), None, None);
+        assert_eq!(
+            summary(&records),
+            vec![
+                "2:19-54 doc-use SPEC_html_run@2Da | step 2 and 3 ()",
+                "4:3-38 doc-use SPEC_html_run@2Db | step 2 and 3 ()",
+                "5:19-53 doc-use SPEC_dom_run@2Dc | step 5 and 6 ()",
+                // (Each's.)
+                "8:5-11 doc-use SPEC_html_run@2Da | step 2.1 ()",
+                "8:5-11 doc-use SPEC_html_run@2Db | step 2.1 ()",
+                "8:5-11 doc-use SPEC_dom_run@2Dc | step 5.1 ()",
+                // (One of one's steps.)
+                "10:5-13 doc-use SPEC_dom_run@2Dc | step 6.2 ()",
+                // (A line saying more than which steps it's of isn't only
+                // that: its scope's steps are as they say.)
+                "14:16-51 doc-use SPEC_html_run@2Dd | step 1-4 ()",
+                "17:5-11 doc-use SPEC_html_run@2Dd | step 5 ()",
+            ]
+        );
+        assert!(step_of("5 and 6", "6.2") && step_of("2-4", "3.a"));
+        assert!(!step_of("5 and 6", "1") && !step_of("2-4", "5"));
+        assert_eq!(relative_step("5 and 6", "1"), "5.1");
+        assert_eq!(relative_step("3.b", "1"), "3.b.1");
     }
 
     #[test]
