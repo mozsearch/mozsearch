@@ -74,6 +74,7 @@ add_task(async function test_DataApiRoutes() {
   const records = analysis.text.trim().split("\n").map(line => JSON.parse(line));
   ok(records.some(record => record.sym?.split(",").includes(OLD_FROB)),
      "and their analysis records, one a line");
+  is(analysis.headers.get("content-encoding"), "gzip", "compressed");
 
   const lines = await getJson(`${API}/changed-lines?spec=${LANDED}`);
   ok(lines.files?.["widget.cpp"]?.added?.length, "The lines a commit changes are there");

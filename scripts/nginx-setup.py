@@ -514,7 +514,15 @@ for repo in config['trees']:
     # and its data API (see the tools' `data_api`), unless the tree's is off
     # (whose requests then don't reach it).
     if tree_config.get('data_api', True):
-        location(f'/{repo}/api/', ['proxy_pass http://127.0.0.1:8002;'])
+        # (Compressed: analysis records are ~12 times smaller gzipped, and
+        # remote servers ask for gzip; for the CDN's requests too, by
+        # Accept-Encoding.)
+        location(f'/{repo}/api/', [
+            'proxy_pass http://127.0.0.1:8002;',
+            'gzip_types application/json application/x-ndjson text/plain;',
+            'gzip_proxied any;',
+            'gzip_vary on;',
+        ])
         # but for its routes for try pushes' imports, which the web-server
         # performs, and whose statuses change.
         location(f'~ ^/{repo}/api/v1/try-(status|import)$', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
