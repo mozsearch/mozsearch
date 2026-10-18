@@ -495,12 +495,9 @@ impl<'s> Tracer<'s> {
             (Dir::Backward, Flow::Result(c)) => vec![&f.calls[*c]],
             (Dir::Backward, Flow::Place(p)) => event_calls()
                 .filter(|call| {
-                    call.args.iter().any(|a| may_write(a, p, f.lang))
-                        || call.receiver.as_ref().is_some_and(|r| {
-                            r.place
-                                .as_ref()
-                                .is_some_and(|rp| p.within(rp) && p.path.len() > rp.path.len())
-                        })
+                    let (writes, receiver_writes) = call_writes(call, p, f.lang);
+                    (!writes.is_empty() || receiver_writes)
+                        && self.callees_may_write(call, p, &writes, receiver_writes, f.lang)
                 })
                 .collect(),
             (Dir::Forward, flow) => event_calls()
@@ -519,6 +516,62 @@ impl<'s> Tracer<'s> {
             .iter()
             .flat_map(|call| call.callee.iter().take(self.opts.fanout).copied())
             .collect()
+    }
+
+    /// Whether a call's callees may write a place through the arguments
+    /// that could (`writes`) or its receiver (`receiver_writes`), as
+    /// entering them looks for (see `backward_place`), by their crossref
+    /// entries (looked up already) rather than their files: a C++ callee
+    /// can't through a parameter that isn't a non-const pointer or reference
+    /// (by its structured record's `args`), unless it's given an address,
+    /// nor write the caller's pointer it's given by value (only what it
+    /// points to).  Unknown (callees without entries, definitions, or
+    /// parameters' types) may.
+    fn callees_may_write(
+        &self,
+        call: &Call,
+        p: &Place,
+        writes: &[usize],
+        receiver_writes: bool,
+        lang: Lang,
+    ) -> bool {
+        if receiver_writes
+            || lang != Lang::Cpp
+            || call.callee.is_empty()
+            || writes.iter().any(|&ai| call.args[ai].addr)
+        {
+            return true;
+        }
+        call.callee.iter().take(self.opts.fanout).any(|sym| {
+            let Some(Some(xref)) = self.xrefs.get(sym) else {
+                return true;
+            };
+            let has_defs = xref.definitions.as_ref().is_some_and(|d| !d.is_empty());
+            let args = xref
+                .meta
+                .as_ref()
+                .and_then(|meta| meta.extra.get("args"))
+                .and_then(|args| args.as_array());
+            let (true, Some(args)) = (has_defs, args) else {
+                return true;
+            };
+            writes.iter().any(|&ai| {
+                match args
+                    .get(ai)
+                    .and_then(|arg| arg.get("type"))
+                    .and_then(|t| t.as_str())
+                {
+                    // (A pointer passed by value: what it points to, not the
+                    // caller's pointer.)
+                    Some(ty) if is_out_type(Some(ty)) && ty.trim().ends_with('*') => call.args[ai]
+                        .place
+                        .as_ref()
+                        .is_none_or(|ap| p.within(&ap.with(Step::Deref))),
+                    Some(ty) => is_out_type(Some(ty)),
+                    None => true,
+                }
+            })
+        })
     }
 
     /// The key of an item in `seen`.
@@ -1326,14 +1379,20 @@ impl<'s> Tracer<'s> {
         loop {
             if prefetched == 0 {
                 let budget = self.opts.max_items.saturating_sub(processed) + 1;
-                let callees: Vec<Ustr> = self
-                    .queue
-                    .iter()
-                    .take(budget)
-                    .filter(|item| !self.seen.contains(&Self::item_key(item, dir)))
-                    .flat_map(|item| self.item_callees(item, dir))
-                    .collect();
-                self.prefetch_defs(callees).await;
+                let callees = |tracer: &Self| -> Vec<Ustr> {
+                    tracer
+                        .queue
+                        .iter()
+                        .take(budget)
+                        .filter(|item| !tracer.seen.contains(&Self::item_key(item, dir)))
+                        .flat_map(|item| tracer.item_callees(item, dir))
+                        .collect()
+                };
+                // (The callees' entries, and then the definitions of those
+                // the items can enter, by their entries; see
+                // `callees_may_write`.)
+                self.prefetch(callees(self), []).await;
+                self.prefetch_defs(callees(self)).await;
                 prefetched = self.queue.len();
             }
             let Some(item) = self.queue.pop_front() else {
@@ -3395,19 +3454,16 @@ impl<'s> Tracer<'s> {
                 EventKind::Call(c) => {
                     let call = f.calls[c].clone();
                     // (Arguments the callee can write `p` through.)
-                    let writes: Vec<usize> = call
-                        .args
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, a)| may_write(a, &p, lang))
-                        .map(|(i, _)| i)
-                        .collect();
-                    let receiver_writes = call.receiver.as_ref().is_some_and(|r| {
-                        r.place
-                            .as_ref()
-                            .is_some_and(|rp| p.within(rp) && p.path.len() > rp.path.len())
-                    });
+                    let (writes, receiver_writes) = call_writes(&call, &p, lang);
                     if writes.is_empty() && !receiver_writes {
+                        continue;
+                    }
+                    // (Callees that can't, by their parameters' types, aren't
+                    // entered; see `callees_may_write`.)
+                    for sym in call.callee.iter().take(self.opts.fanout) {
+                        self.xref(sym).await;
+                    }
+                    if !self.callees_may_write(&call, &p, &writes, receiver_writes, lang) {
                         continue;
                     }
                     // (An accessor: what its summary says it writes `p` (or
@@ -4240,6 +4296,24 @@ fn arg_place_hit(arg: &Arg, flow: &Flow) -> bool {
 /// Whether a callee could write a place through an argument: `&x` for `x`,
 /// a pointer `p` for `*p`, a reference or object `o` for `o` (and their
 /// parts).
+/// The arguments of a call its callee could write a place through (see
+/// `may_write`), and whether the place is a part of its receiver.
+fn call_writes(call: &Call, p: &Place, lang: Lang) -> (Vec<usize>, bool) {
+    let writes: Vec<usize> = call
+        .args
+        .iter()
+        .enumerate()
+        .filter(|(_, a)| may_write(a, p, lang))
+        .map(|(i, _)| i)
+        .collect();
+    let receiver_writes = call.receiver.as_ref().is_some_and(|r| {
+        r.place
+            .as_ref()
+            .is_some_and(|rp| p.within(rp) && p.path.len() > rp.path.len())
+    });
+    (writes, receiver_writes)
+}
+
 fn may_write(arg: &Arg, p: &Place, lang: Lang) -> bool {
     let Some(ap) = &arg.place else {
         return false;
