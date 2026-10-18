@@ -304,7 +304,9 @@ impl<'a> Cx<'a> {
             .get(line.wrapping_sub(1) as usize)
             .map(|l| l.trim())
             .unwrap_or("");
-        truncate(text, 120)
+        // (A line has no newlines: looking for one in each event's line was
+        // 70% of a bundle's time, whose lines are MBs.)
+        truncate_known(text, 120, false)
     }
 
     /// The source records at a node (in the file), whose symbols are spelled
@@ -400,15 +402,12 @@ impl<'a> Cx<'a> {
     }
 }
 
-fn truncate(text: &str, max: usize) -> String {
-    truncate_known(text, max, text.contains('\n'))
-}
-
-/// `truncate`, for a text whose having a newline is known (see
-/// `Builder::trunc`): without scanning all of it, as a node's text can be
-/// most of the file (ex: a bundle's function expression), and many calls'
-/// labels are truncated (it was 3/4 of a 37 MB bundle's time).  Multi-line
-/// texts' whitespace is collapsed, only as far as `max` needs.
+/// A text, at most `max` bytes of it (and "…" if it's cut), with multi-line
+/// texts' whitespace collapsed: for a text whose having a newline is known
+/// (see `Builder::has_newline`), so without scanning all of it, as a node's
+/// text can be most of the file (ex: a bundle's function expression), and
+/// many calls' labels are truncated; and its whitespace is collapsed only as
+/// far as `max` needs.
 fn truncate_known(text: &str, max: usize, has_newline: bool) -> String {
     let collapsed;
     let text = if has_newline {
@@ -622,7 +621,7 @@ impl<'c, 'a> Builder<'c, 'a> {
         text.contains('\n')
     }
 
-    /// `truncate`, knowing whether a text has a newline cheaply.
+    /// `truncate_known`, knowing whether a text has a newline cheaply.
     fn trunc(&self, text: &str, max: usize) -> String {
         truncate_known(text, max, self.has_newline(text))
     }
