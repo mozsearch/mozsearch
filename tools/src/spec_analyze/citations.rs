@@ -35,7 +35,6 @@
 //!   specs' definitions are known (see `Defined`).
 //! - Records' contexts are the definitions their scopes are of.
 
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::ops::Range;
 use std::path::Path;
@@ -44,7 +43,9 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use super::{Lines, SpecsConfig, spec_symbol};
-use crate::file_format::analysis::{AnalysisKind, read_analysis, read_source, read_target};
+use crate::file_format::analysis::{
+    AnalysisKind, WithLocation, read_analysis, read_source, read_target,
+};
 use crate::file_format::bisectable_mmap::BisectableMmap;
 use crate::file_format::crossref::CrossrefData;
 use crate::semantic_analyzer::{Record, sort_records, source_record, target_record};
@@ -95,8 +96,40 @@ pub fn analysis_defs(analysis_path: &Path) -> Vec<Def> {
     if !analysis_path.exists() {
         return vec![];
     }
-    let sources = read_analysis(path, &mut read_source);
-    let targets = read_analysis(path, &mut read_target);
+    // (The source and target records, in one read, as `read_source` and
+    // `read_target` would each read them: a file's analysis took most of
+    // this, for each of firefox's ~33,000 files with URLs.)
+    let records = read_analysis(path, &mut |value, loc, i| {
+        let (source, target) = (value.get("source").is_some(), value.get("target").is_some());
+        match (source, target) {
+            (true, true) => Some((
+                read_source(value.clone(), loc, i),
+                read_target(value, loc, i),
+            )),
+            (true, false) => Some((read_source(value, loc, i), None)),
+            (false, true) => Some((None, read_target(value, loc, i))),
+            (false, false) => None,
+        }
+    });
+    let mut sources = vec![];
+    let mut targets = vec![];
+    for group in records {
+        let (s, t): (Vec<_>, Vec<_>) = group.data.into_iter().unzip();
+        let s: Vec<_> = s.into_iter().flatten().collect();
+        let t: Vec<_> = t.into_iter().flatten().collect();
+        if !s.is_empty() {
+            sources.push(WithLocation {
+                data: s,
+                loc: group.loc,
+            });
+        }
+        if !t.is_empty() {
+            targets.push(WithLocation {
+                data: t,
+                loc: group.loc,
+            });
+        }
+    }
     let mut defs = vec![];
     for source in sources {
         for data in &source.data {
@@ -104,11 +137,13 @@ pub fn analysis_defs(analysis_path: &Path) -> Vec<Def> {
             if range.is_empty() || !data.syntax.iter().any(|s| s.as_str() == "def") {
                 continue;
             }
-            // (The target record of the definition, for its pretty name.)
+            // (The target record of the definition, for its pretty name: the
+            // targets are grouped by their locations, in order.)
             let Some(target) = targets
-                .iter()
-                .filter(|t| t.loc == source.loc)
-                .flat_map(|t| &t.data)
+                .binary_search_by(|t| t.loc.cmp(&source.loc))
+                .ok()
+                .into_iter()
+                .flat_map(|i| &targets[i].data)
                 .find(|t| t.kind == AnalysisKind::Def && data.sym.contains(&t.sym))
             else {
                 continue;
@@ -238,7 +273,7 @@ pub enum Defined {
     /// have metas.
     Crossref(
         BisectableMmap<CrossrefData>,
-        RefCell<HashMap<String, (bool, bool)>>,
+        std::sync::Mutex<HashMap<String, (bool, bool)>>,
     ),
 }
 
@@ -254,7 +289,7 @@ impl Defined {
             return None;
         }
         let crossref = BisectableMmap::new(inline.to_str()?, extra.to_str()?)?;
-        Some(Defined::Crossref(crossref, RefCell::default()))
+        Some(Defined::Crossref(crossref, Default::default()))
     }
 
     /// Add a spec's analysis's definitions.
@@ -283,17 +318,23 @@ impl Defined {
             Defined::Symbols(symbols, structured) => {
                 (symbols.contains(sym), structured.contains(sym))
             }
-            Defined::Crossref(crossref, known) => *known
-                .borrow_mut()
-                .entry(sym.to_string())
-                .or_insert_with(|| {
-                    let data = crossref.lookup(sym).ok().flatten();
-                    let has_meta = data.as_ref().is_some_and(|data| data.meta.is_some());
-                    let defined = data
-                        .and_then(|data| data.definitions)
-                        .is_some_and(|definitions| !definitions.is_empty());
-                    (defined, has_meta)
-                }),
+            Defined::Crossref(crossref, known) => {
+                if let Some(found) = known.lock().unwrap().get(sym) {
+                    return *found;
+                }
+                // (Looked up without the lock, as files' citations are
+                // found on several threads.)
+                let data = crossref.lookup(sym).ok().flatten();
+                let has_meta = data.as_ref().is_some_and(|data| data.meta.is_some());
+                let defined = data
+                    .and_then(|data| data.definitions)
+                    .is_some_and(|definitions| !definitions.is_empty());
+                known
+                    .lock()
+                    .unwrap()
+                    .insert(sym.to_string(), (defined, has_meta));
+                (defined, has_meta)
+            }
         }
     }
 

@@ -427,30 +427,67 @@ fn main() {
         (0, 0, 0, 0, 0, 0);
     // (Written once the citations of stale anchors are known.)
     let mut citing: Vec<(String, Vec<Record>)> = vec![];
-    for path in paths.lines().map(str::trim).filter(|p| !p.is_empty()) {
-        if spec_files.contains(path) {
-            continue;
-        }
-        // (Only text files, and quickly past those without URLs.)
-        let Ok(source) = std::fs::read_to_string(files_root.join(path)) else {
-            continue;
-        };
-        if !source.contains("://") {
-            continue;
-        }
-        let analysis_path = analysis_root.join(path);
-        let defs = citations::analysis_defs(&analysis_path);
-        let (mut records, stats) =
-            citations::citation_records(&source, &defs, &config, Some(&titles), defined.as_ref());
-        if records.is_empty() {
-            continue;
-        }
-        // (A file without other analysis gets its file's definition, as
-        // semantic-analyze's do.)
-        if !analysis_path.exists() {
-            records.insert(0, file_def_record(path));
-        }
-        citing.push((path.to_string(), records));
+    // (The files, on all of the machine's threads, in their order: this
+    // was single-threaded, ~10 minutes of firefox's indexing.)
+    let all_paths: Vec<&str> = paths
+        .lines()
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect();
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let threads = std::thread::available_parallelism().map_or(1, |n| n.get());
+    let mut found: Vec<(usize, Vec<Record>, citations::Stats)> = std::thread::scope(|s| {
+        let handles: Vec<_> = (0..threads)
+            .map(|_| {
+                s.spawn(|| {
+                    let mut found = vec![];
+                    loop {
+                        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let Some(path) = all_paths.get(i).copied() else {
+                            break;
+                        };
+                        if spec_files.contains(path) {
+                            continue;
+                        }
+                        // (Only text files, and quickly past those without
+                        // URLs.)
+                        let Ok(source) = std::fs::read_to_string(files_root.join(path)) else {
+                            continue;
+                        };
+                        if !source.contains("://") {
+                            continue;
+                        }
+                        let analysis_path = analysis_root.join(path);
+                        let defs = citations::analysis_defs(&analysis_path);
+                        let (mut records, stats) = citations::citation_records(
+                            &source,
+                            &defs,
+                            &config,
+                            Some(&titles),
+                            defined.as_ref(),
+                        );
+                        if records.is_empty() {
+                            continue;
+                        }
+                        // (A file without other analysis gets its file's
+                        // definition, as semantic-analyze's do.)
+                        if !analysis_path.exists() {
+                            records.insert(0, file_def_record(path));
+                        }
+                        found.push((i, records, stats));
+                    }
+                    found
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .flat_map(|handle| handle.join().unwrap())
+            .collect()
+    });
+    found.sort_by_key(|(i, _, _)| *i);
+    for (i, records, stats) in found {
+        citing.push((all_paths[i].to_string(), records));
         files += 1;
         cited += stats.citations;
         steps += stats.steps;
