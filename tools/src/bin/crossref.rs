@@ -2542,18 +2542,27 @@ fn subsystem_structured(sym: Ustr, subsystem: Ustr) -> AnalysisStructured {
     }
 }
 
+/// The roll-ups of calls and of data, by symbol, and the accessors'
+/// summaries, for crossref entries (see `add_rollups`).
+#[derive(Default)]
+struct RollupTables {
+    calls: UstrMap<Rollup>,
+    data: UstrMap<Rollup>,
+    summaries: UstrMap<Summary>,
+}
+
 /// Roll up the calls, and the data edges from `dataflow-summarize` if the
 /// tree has them (see `rollup_edges`), and add the subsystems'
 /// pseudo-symbols to the tables, so they're written with the roll-ups.
-/// Returns the call roll-ups and the data roll-ups.
+/// Returns them, and the accessors' summaries (see `read_dataflow_outputs`).
 fn add_rollups(
     index_path: &str,
     meta_table: &mut MetaTable,
     search_result_table: &mut SearchResultTable,
     callees_table: &CalleesTable,
     tree_metas: Option<MetaTable>,
-) -> (UstrMap<Rollup>, UstrMap<Rollup>) {
-    let (categories, field_edges) = read_dataflow_outputs(index_path);
+) -> RollupTables {
+    let (categories, field_edges, summaries) = read_dataflow_outputs(index_path);
     let (call_rollups, data_rollups, subsystems) = {
         // (A subset's roll-ups attribute calls as the tree's do: by the
         // tree's structured records, else its own; see `tree_rollup_metas`.)
@@ -2590,7 +2599,11 @@ fn add_rollups(
         search_result_table.entry(sym).or_default();
         meta_table.insert(sym, subsystem_structured(sym, subsystem));
     }
-    (call_rollups, data_rollups)
+    RollupTables {
+        calls: call_rollups,
+        data: data_rollups,
+        summaries,
+    }
 }
 
 /// For a subset's call roll-ups (see `crossref_subset`): the tree's
@@ -2736,15 +2749,26 @@ fn add_field_flows(
     }
 }
 
-/// The functions' categories from `dataflow-summarize`'s summaries, and its
-/// edges between fields, if the tree has them.
-fn read_dataflow_outputs(index_path: &str) -> (UstrMap<Category>, Vec<FieldEdge>) {
+/// The functions' categories from `dataflow-summarize`'s summaries, its
+/// edges between fields, and the accessors' (getters', setters' and trivial
+/// methods') summaries, for their crossref entries (see
+/// `CrossrefData::dataflow`), if the tree has them.
+fn read_dataflow_outputs(
+    index_path: &str,
+) -> (UstrMap<Category>, Vec<FieldEdge>, UstrMap<Summary>) {
     let mut categories = UstrMap::default();
     let mut field_edges = vec![];
+    let mut accessors = UstrMap::default();
     if let Ok(file) = File::open(format!("{}/dataflow-summaries", index_path)) {
         for line in BufReader::new(file).lines().map_while(|l| l.ok()) {
             if let Ok(summary) = serde_json::from_str::<Summary>(&line) {
                 categories.insert(summary.sym, summary.category);
+                if matches!(
+                    summary.category,
+                    Category::Getter | Category::Setter | Category::Trivial
+                ) {
+                    accessors.insert(summary.sym, summary);
+                }
             }
         }
     }
@@ -2755,7 +2779,7 @@ fn read_dataflow_outputs(index_path: &str) -> (UstrMap<Category>, Vec<FieldEdge>
             }
         }
     }
-    (categories, field_edges)
+    (categories, field_edges, accessors)
 }
 
 fn write_crossref_and_jumpref_thread(
@@ -2774,8 +2798,7 @@ fn write_crossref_and_jumpref_thread(
     js_idl_table: &JSIDLTable,
     js_ts_table: &JsTsTable,
     recency_table: &UstrMap<(Recency, RecencyFrom)>,
-    rollup_table: &UstrMap<Rollup>,
-    data_rollup_table: &UstrMap<Rollup>,
+    rollups: &RollupTables,
     is_first_chunk: bool,
     xref_ext_size: &mut Option<usize>,
     jumpref_ext_size: &mut Option<usize>,
@@ -2914,11 +2937,14 @@ fn write_crossref_and_jumpref_thread(
             crossref_data.recency_from = Some(from.clone());
         }
 
-        if let Some(rollup) = rollup_table.get(id) {
+        if let Some(rollup) = rollups.calls.get(id) {
             crossref_data.call_rollup = Some(rollup.clone());
         }
-        if let Some(rollup) = data_rollup_table.get(id) {
+        if let Some(rollup) = rollups.data.get(id) {
             crossref_data.data_rollup = Some(rollup.clone());
+        }
+        if let Some(summary) = rollups.summaries.get(id) {
+            crossref_data.dataflow = Some(summary.clone());
         }
 
         write_inline_and_ext(
@@ -2966,8 +2992,7 @@ fn write_crossref_and_jumpref(
     js_idl_table: JSIDLTable,
     js_ts_table: JsTsTable,
     recency_table: UstrMap<(Recency, RecencyFrom)>,
-    rollup_table: UstrMap<Rollup>,
-    data_rollup_table: UstrMap<Rollup>,
+    rollups: RollupTables,
     thread_count: usize,
 ) {
     let search_result_list: SearchResultList = search_result_table.into_iter().collect();
@@ -3001,8 +3026,7 @@ fn write_crossref_and_jumpref(
             &js_idl_table,
             &js_ts_table,
             &recency_table,
-            &rollup_table,
-            &data_rollup_table,
+            &rollups,
             true,
             &mut xref_ext_size,
             &mut jumpref_ext_size,
@@ -3041,8 +3065,7 @@ fn write_crossref_and_jumpref(
             let js_idl_table = &js_idl_table;
             let js_ts_table = &js_ts_table;
             let recency_table = &recency_table;
-            let rollup_table = &rollup_table;
-            let data_rollup_table = &data_rollup_table;
+            let rollups = &rollups;
 
             let start = chunk * index;
             let end = if index == thread_count - 1 {
@@ -3067,8 +3090,7 @@ fn write_crossref_and_jumpref(
                     js_idl_table,
                     js_ts_table,
                     recency_table,
-                    rollup_table,
-                    data_rollup_table,
+                    rollups,
                     index == 0,
                     xref_ext_size,
                     jumpref_ext_size,
@@ -3234,7 +3256,7 @@ async fn crossref_subset(
     process_ontology_rules(&ontology, &search_result_table, &id_table, &mut meta_table);
     let (js_idl_table, js_ts_table) = create_js_tables(&meta_table);
     let tree_metas = tree_rollup_metas(base_index, &callees_table, &pretty_table);
-    let (rollup_table, data_rollup_table) = add_rollups(
+    let rollups = add_rollups(
         &tree_config.paths.index_path,
         &mut meta_table,
         &mut search_result_table,
@@ -3253,8 +3275,7 @@ async fn crossref_subset(
         js_idl_table,
         js_ts_table,
         recency_table,
-        rollup_table,
-        data_rollup_table,
+        rollups,
         cli.thread_count,
     );
     write_identifiers(tree_config, id_table);
@@ -3466,7 +3487,7 @@ async fn main() {
         tree_name,
         Local::now().format("%Y-%m-%dT%H:%M:%S%z")
     );
-    let (rollup_table, data_rollup_table) = add_rollups(
+    let rollups = add_rollups(
         &tree_config.paths.index_path,
         &mut meta_table,
         &mut search_result_table,
@@ -3491,8 +3512,7 @@ async fn main() {
         js_idl_table,
         js_ts_table,
         recency_table,
-        rollup_table,
-        data_rollup_table,
+        rollups,
         cli.thread_count,
     );
 

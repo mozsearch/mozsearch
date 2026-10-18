@@ -397,6 +397,23 @@ input_file: inputs/crossref/staticprefs/prefs__json
           "props": [],
           "variants": [],
           "args": []
+        },
+        "dataflow": {
+          "sym": "_ZN7mozilla11StaticPrefs8test_intEv",
+          "pretty": "mozilla::StaticPrefs::test_int",
+          "path": "staticprefs/bindings/StaticPrefList_test.h",
+          "line": 6,
+          "category": "trivial",
+          "events": 1,
+          "flows": [],
+          "consts": [
+            {
+              "text": "10",
+              "to": {
+                "k": "return"
+              }
+            }
+          ]
         }
       },
       "relation": "Queried",

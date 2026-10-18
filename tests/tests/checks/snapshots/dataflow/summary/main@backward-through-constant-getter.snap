@@ -1,0 +1,14 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/summary/backward-through-constant-getter
+---
+accessors::Check (dataflow/accessors.cpp)
+  #0      18 return     return                             bool Check(const Gauge& aGauge) { return aGauge.IsReady(); }
+  #1      18 call       call Gauge::IsReady                bool Check(const Gauge& aGauge) { return aGauge.IsReady(); }
+        -> #0 return [local: Gauge::IsReady(…)]
+accessors::Gauge::IsReady (dataflow/accessors.h)
+  #2      14 summary    Gauge::IsReady (trivial)           
+        -> #1 call Gauge::IsReady in accessors::Check [return: result]
+  #3      14 const      true                               
+        -> #2 Gauge::IsReady (trivial) [local: true]

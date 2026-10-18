@@ -1,0 +1,29 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/summary/forward-through-setter-and-getter
+---
+accessors::Measure (dataflow/accessors.cpp)
+  #0       7 seed       aInput                             
+        -> #1 call Gauge::SetLevel [local: aInput]
+  #1       8 call       call Gauge::SetLevel               aGauge.SetLevel(aInput);
+        -> #2 Gauge::SetLevel (setter) in Gauge::SetLevel [call: arg 0 → this.mLevel]
+  #3       9 call       call Gauge::Level                  int level = aGauge.Level();
+        -> #4 Gauge::Level (getter) in Gauge::Level [call: this.mLevel → return]
+  #7       9 assign     level =                            int level = aGauge.Level();
+        -> #9 return [local: level]
+  #9      10 return     return                             return level;
+accessors::Gauge::SetLevel (dataflow/accessors.h)
+  #2      10 summary    Gauge::SetLevel (setter)           
+        -> #3 call Gauge::Level in accessors::Measure [return: aGauge.mLevel]
+        -> #5 return in Gauge::Level [field: this->mLevel]
+accessors::Gauge::Level (dataflow/accessors.h)
+  #4       9 summary    Gauge::Level (getter)              
+        -> #7 level = in accessors::Measure [return: Gauge::Level(…)]
+  #5       9 return     return                             int Level() const { return mLevel; }
+        -> #3 call Gauge::Level in accessors::Measure [return: result]
+        -> #6 call Gauge::Level in accessors::Restart [return: result]
+accessors::Restart (dataflow/accessors.cpp)
+  #6      15 call       call Gauge::Level                  return aGauge.Level();
+        -> #8 return [local: Gauge::Level(…)]
+  #8      15 return     return                             return aGauge.Level();

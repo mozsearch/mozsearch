@@ -1,0 +1,38 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/summary/backward-through-getter-reset-entered
+---
+accessors::Restart (dataflow/accessors.cpp)
+  #8      13 param      param aGauge                       
+        -> #1 call Gauge::Level [local: aGauge.mLevel]
+        -> #6 call Gauge::Reset [local: aGauge.mLevel]
+  #6      14 call       call Gauge::Reset                  aGauge.Reset();
+        -> #1 call Gauge::Level [local: aGauge.mLevel]
+        -> #7 this in Gauge::Reset [call: this]
+  #0      15 return     return                             return aGauge.Level();
+  #1      15 call       call Gauge::Level                  return aGauge.Level();
+        -> #0 return [local: Gauge::Level(…)]
+        -> #2 return in Gauge::Level [call: this]
+accessors::Gauge::Level (dataflow/accessors.h)
+  #2       9 return     return                             int Level() const { return mLevel; }
+        -> #1 call Gauge::Level in accessors::Restart [return: result]
+accessors::Gauge::SetLevel (dataflow/accessors.h)
+  #3      10 assign     this->mLevel =                     void SetLevel(int aLevel) { mLevel = aLevel; }
+        -> #2 return in Gauge::Level [field: mLevel]
+        -> #7 this in Gauge::Reset [field: mLevel]
+  #9      10 param      param aLevel                       void SetLevel(int aLevel) { mLevel = aLevel; }
+        -> #3 this->mLevel = [local: aLevel]
+accessors::Gauge::Reset (dataflow/accessors.h)
+  #4      13 assign     this->mLevel =                     void Reset() { mLevel = 0; }
+        -> #2 return in Gauge::Level [field: mLevel]
+        -> #7 this [local: this->mLevel]
+  #5      13 const      0                                  void Reset() { mLevel = 0; }
+        -> #4 this->mLevel = [local: 0]
+  #7      13 param      this                               void Reset() { mLevel = 0; }
+        -> #6 call Gauge::Reset in accessors::Restart [return: out this->mLevel]
+accessors::Measure (dataflow/accessors.cpp)
+  #11      7 param      param aInput                       
+        -> #10 call Gauge::SetLevel [local: aInput]
+  #10      8 call       call Gauge::SetLevel               aGauge.SetLevel(aInput);
+        -> #9 param aLevel in Gauge::SetLevel [call: arg 0]

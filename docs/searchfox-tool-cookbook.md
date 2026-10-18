@@ -263,3 +263,10 @@ are data of their own (written by the struct's constructors, `x.f() = v` and
 implementations' parameters), so data edges cross IPC through them, and the
 IPDL struct or message is a class between the sender's and the receiver's
 in roll-ups (`block-diagram IPDL_<struct> --level field` draws its fields).
+Accessors' summaries (getters', setters' and trivial methods', with the
+constants they return or write) are in their crossref entries (`dataflow`),
+and traces step over their calls by them rather than building their files'
+IR (often a big header's, for inline getters), showing each as one node at
+its definition, and skip their uses of fields they don't write when looking
+for a field's writes; `--no-summaries` enters them, and slicing always does
+(its units link by traces' nodes on their lines).

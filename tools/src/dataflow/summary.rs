@@ -149,7 +149,23 @@ pub struct Summary {
     /// The (virtual) methods it overrides, whose calls can reach it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub overrides: Vec<Ustr>,
+    /// For accessors (getters, setters and trivial methods): the constants
+    /// it returns or writes (ex: `mFoo = 0`, `return true`), which flows,
+    /// between ports, leave out, but traces stepping over its calls by its
+    /// summary show (see `dataflow::trace`'s `accessor_summary`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub consts: Vec<ConstFlow>,
 }
+
+/// A constant a function returns or writes (see `Summary::consts`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ConstFlow {
+    pub text: String,
+    pub to: Port,
+}
+
+/// The most constants an accessor's summary keeps.
+const MAX_CONSTS: usize = 8;
 
 /// The methods a function's structured record says it overrides.
 pub fn structured_overrides(structured: &serde_json::Value) -> Vec<Ustr> {
@@ -764,6 +780,47 @@ impl<'f> Builder<'f> {
         }
     }
 
+    /// The constants the function returns or writes to ports (see
+    /// `Summary::consts`).
+    fn consts(&self) -> Vec<ConstFlow> {
+        let mut consts: Vec<ConstFlow> = vec![];
+        for event in &self.events {
+            let (vals, tos) = match &event.kind {
+                EventKind::Assign { place, vals, .. } => {
+                    let is_plain_local = matches!(place.root, Root::Local(_))
+                        && self.f.param_index(place).is_none()
+                        && place.path.is_empty();
+                    if is_plain_local {
+                        continue;
+                    }
+                    let tos: Vec<Port> = self
+                        .place_ports(place)
+                        .into_iter()
+                        .map(|(p, _)| p)
+                        .collect();
+                    (vals, tos)
+                }
+                EventKind::Return { vals } => (vals, vec![Port::Return]),
+                _ => continue,
+            };
+            for val in vals {
+                let Atom::Const(text) = &val.atom else {
+                    continue;
+                };
+                for to in &tos {
+                    let flow = ConstFlow {
+                        text: text.clone(),
+                        to: to.clone(),
+                    };
+                    if consts.len() < MAX_CONSTS && !consts.contains(&flow) {
+                        consts.push(flow);
+                    }
+                }
+            }
+        }
+        consts
+    }
+
     /// The function's flows, or None if it has more than `MAX_FLOWS`.
     fn flows(&self) -> Option<BTreeSet<Flow>> {
         let mut flows = BTreeSet::new();
@@ -952,6 +1009,10 @@ pub fn summarize_in(f: &FuncIr, ipdl: &IpdlSlots, overrides: Vec<Ustr>) -> Summa
         true => Category::Big,
         false => categorize(&flows, events),
     };
+    let consts = match category {
+        Category::Getter | Category::Setter | Category::Trivial => builder.consts(),
+        _ => vec![],
+    };
     Summary {
         sym: f.sym,
         pretty: f.pretty.clone(),
@@ -962,6 +1023,7 @@ pub fn summarize_in(f: &FuncIr, ipdl: &IpdlSlots, overrides: Vec<Ustr>) -> Summa
         flows,
         flows_omitted,
         overrides,
+        consts,
     }
 }
 

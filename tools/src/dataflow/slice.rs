@@ -443,6 +443,14 @@ pub async fn slice(
     trace_hops: usize,
     old: Option<&mut Tracer<'_>>,
 ) -> Slicing {
+    // (Units link by traces' nodes on their lines, so traces enter accessors
+    // rather than stepping over them by their summaries, whose nodes are only
+    // at their definitions.)
+    tracer.opts.summaries = false;
+    let mut old = old;
+    if let Some(old) = old.as_mut() {
+        old.opts.summaries = false;
+    }
     let mut units: Vec<Unit> = vec![];
     // (Units' functions and lines, for tracing.)
     let mut unit_funcs: Vec<Option<(Arc<FileIr>, usize)>> = vec![];
@@ -457,7 +465,6 @@ pub async fn slice(
             .cloned()
             .collect()
     };
-    let mut old = old;
     let changed_lines = |change: &FileChange| -> BTreeSet<u32> {
         change
             .added

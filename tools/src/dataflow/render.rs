@@ -161,14 +161,17 @@ pub fn render_dot(graph: &TraceGraph, options: &DotOptions) -> String {
                 NodeKind::Param => ("cds", "gray30"),
                 NodeKind::Const => ("plaintext", "gray30"),
                 NodeKind::Opaque => ("box", "orange"),
+                NodeKind::Summary => ("box", "steelblue"),
                 NodeKind::Test => ("diamond", "gray30"),
                 NodeKind::Return => ("box", "gray30"),
                 _ => ("box", "black"),
             };
             let label = match node.kind {
-                NodeKind::Param | NodeKind::Seed | NodeKind::Const | NodeKind::Opaque => {
-                    node.label.clone()
-                }
+                NodeKind::Param
+                | NodeKind::Seed
+                | NodeKind::Const
+                | NodeKind::Opaque
+                | NodeKind::Summary => node.label.clone(),
                 _ => text,
             };
             let link = match &options.link_tree {

@@ -98,6 +98,12 @@ pub struct Dataflow {
     #[clap(long)]
     unordered: bool,
 
+    /// Enter accessors' calls (getters, setters and trivial methods), rather
+    /// than stepping over them by their precomputed summaries (see
+    /// `dataflow::trace`'s `accessor_summary`).
+    #[clap(long)]
+    no_summaries: bool,
+
     /// Slice the changed lines in this (local) JSON file (see
     /// `dataflow::slice::ChangedLines`) into clusters, instead (`file` is
     /// ignored).
@@ -487,6 +493,7 @@ impl PipelineCommand for DataflowCommand {
             max_hops: self.args.max_hops,
             fanout: self.args.fanout,
             ordered: !self.args.unordered,
+            summaries: !self.args.no_summaries,
         };
         let mut tracer = Tracer::new(server, opts);
         if let Some(dir) = &self.args.oracle {

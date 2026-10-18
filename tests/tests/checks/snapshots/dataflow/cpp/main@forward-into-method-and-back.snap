@@ -7,20 +7,18 @@ BumpedCount (dataflow/dataflow.cpp)
   #0      60 seed       aBy                                
         -> #1 call Widget::Bump [local: aBy]
   #1      62 call       call Widget::Bump                  widget.Bump(aBy);
-        -> #2 param aBy in Widget::Bump [call: aBy]
-        -> #4 call Widget::Count [local: widget.mCount]
-  #4      63 call       call Widget::Count                 return widget.Count();
-        -> #5 this in Widget::Count [call: this (this->mCount)]
-        -> #7 return [local: Widget::Count(…)]
+        -> #2 Widget::Bump (setter) in Widget::Bump [call: arg 0 → this.mCount]
+  #3      63 call       call Widget::Count                 return widget.Count();
+        -> #4 Widget::Count (getter) in Widget::Count [call: this.mCount → return]
   #7      63 return     return                             return widget.Count();
 Widget::Bump (dataflow/dataflow.cpp)
-  #2      47 param      param aBy                          void Bump(int aBy) { mCount += aBy; }
-        -> #3 this->mCount += [local: aBy]
-  #3      47 assign     this->mCount +=                    void Bump(int aBy) { mCount += aBy; }
-        -> #1 call Widget::Bump in BumpedCount [return: out widget.mCount]
+  #2      47 summary    Widget::Bump (setter)              
+        -> #3 call Widget::Count in BumpedCount [return: widget.mCount]
+        -> #5 this->mCount += [field: this->mCount]
         -> #6 return in Widget::Count [field: this->mCount]
+  #5      47 assign     this->mCount +=                    void Bump(int aBy) { mCount += aBy; }
 Widget::Count (dataflow/dataflow.cpp)
-  #5      48 param      this                               int Count() const { return mCount; }
-        -> #6 return [local: this->mCount]
+  #4      48 summary    Widget::Count (getter)             
+        -> #7 return in BumpedCount [return: Widget::Count(…)]
   #6      48 return     return                             int Count() const { return mCount; }
-        -> #4 call Widget::Count in BumpedCount [return: result]
+        -> #3 call Widget::Count in BumpedCount [return: result]

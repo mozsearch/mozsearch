@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use ustr::{Ustr, ustr};
 
+use crate::dataflow::summary::Summary;
+
 use super::{
     analysis::{AnalysisStructured, PathSearchResult},
     ontology_mapping::OntologyPointerKind,
@@ -102,6 +104,12 @@ pub struct CrossrefData {
         rename = "dataRollup"
     )]
     pub data_rollup: Option<Rollup>,
+    /// For accessors (getters, setters and trivial methods, by their
+    /// summaries), if the tree has dataflow summaries: the function's
+    /// summary, by which traces step over its calls rather than building its
+    /// file's IR (see `dataflow::trace`'s `accessor_summary`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dataflow: Option<Summary>,
 }
 
 impl CrossrefData {

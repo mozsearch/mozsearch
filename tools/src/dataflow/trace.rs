@@ -21,6 +21,7 @@ use super::frontend::{FileIr, build_file_ir, lang_for_path};
 use super::ir::*;
 use super::oracle::{Oracle, OracleQuestion, SITE_ASK, SUMMARY_ASK, Slot, parse_slot};
 use super::records::{FileRecords, short_name};
+use super::summary::{Category, Port, Summary};
 use crate::abstract_server::AbstractServer;
 use crate::file_format::analysis::BindingSlotKind;
 use crate::file_format::crossref::CrossrefData;
@@ -44,6 +45,10 @@ pub struct TraceOpts {
     /// Whether to only consider events after (forwards) or before
     /// (backwards) where a value is, in source order.
     pub ordered: bool,
+    /// Whether to step over accessors' calls by their precomputed summaries
+    /// (see `Tracer::accessor_summary`) rather than building their files'
+    /// IR.
+    pub summaries: bool,
 }
 
 impl Default for TraceOpts {
@@ -53,6 +58,7 @@ impl Default for TraceOpts {
             max_hops: 6,
             fanout: 8,
             ordered: true,
+            summaries: true,
         }
     }
 }
@@ -70,6 +76,9 @@ pub enum NodeKind {
     /// A call we couldn't see into: we assume its result comes from its
     /// arguments (and receiver).
     Opaque,
+    /// An accessor stepped over by its precomputed summary (see
+    /// `Tracer::accessor_summary`), at its definition.
+    Summary,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -388,9 +397,12 @@ impl<'s> Tracer<'s> {
             .iter()
             .filter_map(|xref| Some(xref.meta.as_ref()?.slot_owner.as_ref()?.sym))
             .collect();
+        let summaries = self.opts.summaries;
         let paths: Vec<String> = xrefs
             .iter()
             .filter(|xref| xref.meta.as_ref().is_none_or(|m| m.slot_owner.is_none()))
+            // (Not accessors', stepped over by their summaries.)
+            .filter(|xref| !(summaries && is_summarized(xref)))
             .flat_map(|xref| def_paths(xref))
             .collect();
         self.prefetch(owners, paths).await;
@@ -1290,6 +1302,220 @@ impl<'s> Tracer<'s> {
         }
     }
 
+    // ## Precomputed summaries
+
+    /// The precomputed summary of what a call reaches, if it's an accessor's
+    /// (a getter, setter or trivial method, by `dataflow-summarize`; see
+    /// `CrossrefData::dataflow`), which traces step over by its flows rather
+    /// than building the callee's file's IR (for an inline getter, often a
+    /// big header's): not a virtual method's that's overridden, nor several
+    /// callees' unless they're one function's (ex: its symbols on several
+    /// platforms; not overloads, which `prune_overloads` chooses between when
+    /// entering them).
+    async fn accessor_summary(&mut self, call: &Call) -> Option<Summary> {
+        if !self.opts.summaries || call.callee.is_empty() {
+            return None;
+        }
+        let mut summary: Option<Summary> = None;
+        for sym in call.callee.iter().take(self.opts.fanout) {
+            let xref = self.xref(sym).await?;
+            if !is_summarized(&xref) {
+                return None;
+            }
+            let other = xref.dataflow.as_ref()?;
+            match &summary {
+                None => summary = Some(other.clone()),
+                Some(first) => {
+                    let same = first.path == other.path
+                        && first.line == other.line
+                        && first.flows == other.flows
+                        && first.consts == other.consts;
+                    if !same {
+                        return None;
+                    }
+                }
+            }
+        }
+        summary
+    }
+
+    /// The node of an accessor stepped over by its summary, at its
+    /// definition.
+    fn summary_node(&mut self, summary: &Summary, lang: Lang) -> usize {
+        let map_key = (
+            summary.path.clone(),
+            summary.sym,
+            NodeKey::Seed("summary".to_string()),
+        );
+        if let Some(&id) = self.node_ids.get(&map_key) {
+            return id;
+        }
+        let id = self.graph.nodes.len();
+        let category = match summary.category {
+            Category::Getter => "getter",
+            Category::Setter => "setter",
+            _ => "trivial",
+        };
+        self.graph.nodes.push(TraceNode {
+            id,
+            kind: NodeKind::Summary,
+            path: summary.path.clone(),
+            line: summary.line,
+            func: summary.pretty.clone(),
+            func_sym: summary.sym,
+            lang,
+            label: format!("{} ({})", short_pretty(&summary.pretty), category),
+            text: String::new(),
+            detail: String::new(),
+        });
+        self.node_ids.insert(map_key, id);
+        id
+    }
+
+    /// The node of a constant an accessor stepped over by its summary returns
+    /// or writes (see `Summary::consts`).
+    fn summary_const_node(&mut self, summary: &Summary, text: &str, lang: Lang) -> usize {
+        let map_key = (
+            summary.path.clone(),
+            summary.sym,
+            NodeKey::Const(text.to_string(), summary.line),
+        );
+        if let Some(&id) = self.node_ids.get(&map_key) {
+            return id;
+        }
+        let id = self.graph.nodes.len();
+        self.graph.nodes.push(TraceNode {
+            id,
+            kind: NodeKind::Const,
+            path: summary.path.clone(),
+            line: summary.line,
+            func: summary.pretty.clone(),
+            func_sym: summary.sym,
+            lang,
+            label: text.to_string(),
+            text: String::new(),
+            detail: String::new(),
+        });
+        self.node_ids.insert(map_key, id);
+        id
+    }
+
+    /// Forwards through a call of an accessor by its summary: where the
+    /// value, in the call's arguments (`hits.0`) or receiver (`hits.1`),
+    /// goes, in the caller: the call's result, its receiver's (or
+    /// arguments') fields, or a global; and, as from the accessor's writes
+    /// of its object's fields, the fields' reads elsewhere (see
+    /// `forward_escapes`).
+    #[allow(clippy::too_many_arguments)]
+    async fn forward_summary(
+        &mut self,
+        file: &Arc<FileIr>,
+        func: usize,
+        ei: usize,
+        summary: &Summary,
+        hits: (&[usize], bool),
+        from: (usize, EdgeKind, &str),
+        stack: &[Site],
+        hops: usize,
+    ) {
+        let EventKind::Call(c) = file.funcs[func].events[ei].kind else {
+            return;
+        };
+        let call = &file.funcs[func].calls[c];
+        let mut tos: Vec<(Flow, String)> = vec![];
+        let mut fields: Vec<Ustr> = vec![];
+        for flow in &summary.flows {
+            let hit = match &flow.from {
+                Port::This { .. } => hits.1,
+                Port::Param { i, .. } => hits.0.contains(i),
+                _ => false,
+            };
+            if !hit {
+                continue;
+            }
+            let to = match &flow.to {
+                Port::Return => Flow::Result(c),
+                port => match port_place(call, port) {
+                    Some(place) => Flow::Place(place),
+                    None => continue,
+                },
+            };
+            tos.push((
+                to,
+                format!("{} → {}", port_text(&flow.from), port_text(&flow.to)),
+            ));
+            if let Port::This { fields: f } = &flow.to
+                && let Some(field) = f.last()
+                && !fields.contains(field)
+            {
+                fields.push(*field);
+            }
+        }
+        if tos.is_empty() {
+            return;
+        }
+        let (node, kind, label) = from;
+        let n = self.event_node(file, func, ei);
+        self.edge(node, n, kind, label.to_string());
+        let sn = self.summary_node(summary, file.funcs[func].lang);
+        for (to, text) in tos {
+            self.edge(n, sn, EdgeKind::Call, text);
+            self.push(
+                file,
+                func,
+                to,
+                Some(ei as isize),
+                sn,
+                stack.to_vec(),
+                hops + 1,
+                EdgeKind::Return,
+            );
+        }
+        for field in fields {
+            self.forward_field(file, func, field, sn, hops + 1).await;
+        }
+    }
+
+    /// Push where the value of a port of a call's callee's summary comes
+    /// from, in the caller (backwards): the receiver's or an argument's place
+    /// (and the port's fields), or its values if it isn't one, or a global.
+    #[allow(clippy::too_many_arguments)]
+    fn push_port_sources(
+        &mut self,
+        file: &Arc<FileIr>,
+        func: usize,
+        call: &Call,
+        port: &Port,
+        pos: Option<isize>,
+        node: usize,
+        stack: &[Site],
+        hops: usize,
+    ) {
+        if let Some(place) = port_place(call, port) {
+            self.push(
+                file,
+                func,
+                Flow::Place(place),
+                pos,
+                node,
+                stack.to_vec(),
+                hops,
+                EdgeKind::Call,
+            );
+            return;
+        }
+        let vals: Vec<Val> = match port {
+            Port::This { .. } => call.receiver.iter().flat_map(|r| r.vals.clone()).collect(),
+            Port::Param { i, .. } => call
+                .args
+                .get(*i)
+                .map(|a| a.vals.clone())
+                .unwrap_or_default(),
+            _ => vec![],
+        };
+        self.push_sources(file, func, &vals, pos, node, stack, hops, EdgeKind::Call);
+    }
+
     // ## Resolving calls
 
     /// The functions a call can reach.
@@ -2185,6 +2411,21 @@ impl<'s> Tracer<'s> {
                         }
                         None => {}
                     }
+                    // (An accessor: by its summary.)
+                    if let Some(summary) = self.accessor_summary(&call).await {
+                        self.forward_summary(
+                            &file,
+                            func,
+                            ei,
+                            &summary,
+                            (&arg_hits, receiver_hit),
+                            (node, kind, &label),
+                            &stack,
+                            hops,
+                        )
+                        .await;
+                        continue;
+                    }
                     let targets = self.targets(&file, func, c).await;
                     let targets = Self::prune_overloads(
                         &file.funcs[func],
@@ -2754,6 +2995,26 @@ impl<'s> Tracer<'s> {
             }
             None => {}
         }
+        // (An accessor: by its summary.)
+        if let Some(summary) = self.accessor_summary(&call).await {
+            let sn = self.summary_node(&summary, file.funcs[func].lang);
+            self.edge(sn, n, EdgeKind::Return, "result".to_string());
+            for flow in summary.flows.iter().filter(|f| f.to == Port::Return) {
+                self.push_port_sources(file, func, &call, &flow.from, epos, sn, stack, hops + 1);
+                // (As from the accessor's read of its object's field: the
+                // field's writes elsewhere; see `backward_place`.)
+                if let Port::This { fields } = &flow.from
+                    && let Some(field) = fields.last()
+                {
+                    self.backward_field(file, func, *field, sn, hops + 1).await;
+                }
+            }
+            for konst in summary.consts.iter().filter(|k| k.to == Port::Return) {
+                let cn = self.summary_const_node(&summary, &konst.text, file.funcs[func].lang);
+                self.edge(cn, sn, EdgeKind::Local, konst.text.clone());
+            }
+            return;
+        }
         let targets = self.targets(file, func, c).await;
         if targets.is_empty()
             && let Some(summary) = self
@@ -2974,6 +3235,64 @@ impl<'s> Tracer<'s> {
                             .is_some_and(|rp| p.within(rp) && p.path.len() > rp.path.len())
                     });
                     if writes.is_empty() && !receiver_writes {
+                        continue;
+                    }
+                    // (An accessor: what its summary says it writes `p` (or
+                    // what `p` is a part of) from; and, as from the
+                    // accessor's write of its object's field, the field's
+                    // other writes, as `backward_place` looks for there.)
+                    if let Some(summary) = self.accessor_summary(&call).await {
+                        let mut fields: Vec<Ustr> = vec![];
+                        let written = summary
+                            .flows
+                            .iter()
+                            .map(|flow| &flow.to)
+                            .chain(summary.consts.iter().map(|konst| &konst.to));
+                        for to in written {
+                            if let Port::This { fields: f } = to
+                                && let Some(field) = f.last()
+                                && port_place(&call, to).is_some_and(|place| place.overlaps(&p))
+                                && !fields.contains(field)
+                            {
+                                fields.push(*field);
+                            }
+                        }
+                        for flow in &summary.flows {
+                            if !port_place(&call, &flow.to).is_some_and(|to| to.overlaps(&p)) {
+                                continue;
+                            }
+                            let n = self.event_node(file, func, ei);
+                            self.edge(n, node, kind, label.to_string());
+                            let sn = self.summary_node(&summary, lang);
+                            self.edge(sn, n, EdgeKind::Return, port_text(&flow.to));
+                            self.push_port_sources(
+                                file,
+                                func,
+                                &call,
+                                &flow.from,
+                                epos,
+                                sn,
+                                stack,
+                                hops + 1,
+                            );
+                        }
+                        for konst in &summary.consts {
+                            if !port_place(&call, &konst.to).is_some_and(|to| to.overlaps(&p)) {
+                                continue;
+                            }
+                            let n = self.event_node(file, func, ei);
+                            self.edge(n, node, kind, label.to_string());
+                            let sn = self.summary_node(&summary, lang);
+                            self.edge(sn, n, EdgeKind::Return, port_text(&konst.to));
+                            let cn = self.summary_const_node(&summary, &konst.text, lang);
+                            self.edge(cn, sn, EdgeKind::Local, konst.text.clone());
+                        }
+                        if !fields.is_empty() {
+                            let sn = self.summary_node(&summary, lang);
+                            for field in fields {
+                                self.backward_field(file, func, field, sn, hops + 1).await;
+                            }
+                        }
                         continue;
                     }
                     let targets = self.targets(file, func, c).await;
@@ -3362,9 +3681,28 @@ impl<'s> Tracer<'s> {
         }
         self.prefetch_uses(vec![field]).await;
         let uses = self.field_uses(field).await;
+        // (Not in accessors whose summaries say they don't write it, ex: a
+        // header's inline getters, whose files needn't be built.)
+        let mut readers: HashSet<Ustr> = HashSet::new();
+        if self.opts.summaries {
+            let contexts: Vec<Ustr> = uses.iter().map(|(_, _, sym)| *sym).collect();
+            self.prefetch(contexts.iter().copied(), []).await;
+            for sym in contexts {
+                if let Some(xref) = self.xrefs.get(&sym).cloned().flatten()
+                    && is_summarized(&xref)
+                    && let Some(summary) = &xref.dataflow
+                    && !summary_writes(summary, field)
+                {
+                    readers.insert(sym);
+                }
+            }
+        }
         let mut followed = 0;
         let mut writes_total = 0;
         for (path, line, contextsym) in uses {
+            if readers.contains(&contextsym) {
+                continue;
+            }
             let Some(use_file) = self.file(&path).await else {
                 continue;
             };
@@ -3578,6 +3916,73 @@ impl<'s> Tracer<'s> {
                 self.opts.fanout
             ));
         }
+    }
+}
+
+/// Whether a symbol's crossref entry has its accessor's summary, by which
+/// traces step over its calls (see `Tracer::accessor_summary`), and it isn't
+/// an overridden virtual method.
+fn is_summarized(xref: &CrossrefData) -> bool {
+    xref.dataflow.is_some()
+        && xref
+            .meta
+            .as_ref()
+            .is_none_or(|meta| meta.overridden_by_syms.is_empty())
+}
+
+/// The caller's place a port of a call's callee's summary is: the call's
+/// receiver's (`This`), an argument's (`Param`: what's passed by reference,
+/// or the address of), or a global, with the port's fields.
+fn port_place(call: &Call, port: &Port) -> Option<Place> {
+    let (mut place, fields) = match port {
+        Port::This { fields } => (call.receiver.as_ref()?.place.clone()?, fields),
+        Port::Param { i, fields } => (call.args.get(*i)?.place.clone()?, fields),
+        Port::Global { sym, fields } => (Place::global(*sym), fields),
+        _ => return None,
+    };
+    place
+        .path
+        .extend(fields.iter().map(|field| Step::Field(*field)));
+    Some(place)
+}
+
+/// Whether a function's summary says it writes a field (or global), from
+/// another port or a constant.
+fn summary_writes(summary: &Summary, field: Ustr) -> bool {
+    let writes = |port: &Port| match port {
+        Port::This { fields } | Port::Param { fields, .. } => fields.contains(&field),
+        Port::Global { sym, fields } => *sym == field || fields.contains(&field),
+        _ => false,
+    };
+    summary.flows.iter().any(|flow| writes(&flow.to))
+        || summary.consts.iter().any(|konst| writes(&konst.to))
+}
+
+/// A summary's port, for edges' labels (ex: "arg 0", "this.mValue").
+fn port_text(port: &Port) -> String {
+    let fields = |fields: &[Ustr]| -> String {
+        fields
+            .iter()
+            .map(|field| format!(".{}", field_name(field)))
+            .collect()
+    };
+    match port {
+        Port::Param { i, fields: f } => format!("arg {}{}", i, fields(f)),
+        Port::This { fields: f } => format!("this{}", fields(f)),
+        Port::Global { sym, fields: f } => format!("{}{}", field_name(sym), fields(f)),
+        Port::Return => "return".to_string(),
+        Port::Arg { .. } | Port::Result { .. } => "call".to_string(),
+    }
+}
+
+/// A field's (or global's) name, from its symbol, for labels.
+fn field_name(sym: &str) -> &str {
+    match sym
+        .strip_prefix("F_<")
+        .and_then(|rest| rest.rsplit_once(">_"))
+    {
+        Some((_, name)) => name,
+        None => sym,
     }
 }
 

@@ -111,6 +111,27 @@ input_file: inputs/crossref/ipdl/PTestDataStructuresCommon.ipdlh/field_getter_sl
           "variants": [],
           "args": [],
           "canGC": false
+        },
+        "dataflow": {
+          "sym": "_ZNK7mozilla4_foo10SIntDouble1iEv",
+          "pretty": "mozilla::_foo::SIntDouble::i",
+          "path": "__GENERATED__/ipc/ipdl/_ipdlheaders/mozilla/_foo/PTestDataStructuresCommon.h",
+          "line": 238,
+          "category": "getter",
+          "events": 1,
+          "flows": [
+            {
+              "from": {
+                "k": "this",
+                "fields": [
+                  "F_<T_mozilla::_foo::SIntDouble>_i_"
+                ]
+              },
+              "to": {
+                "k": "return"
+              }
+            }
+          ]
         }
       },
       "relation": "Queried",
