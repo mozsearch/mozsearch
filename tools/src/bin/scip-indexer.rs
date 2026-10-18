@@ -14,7 +14,7 @@ use serde_json::Map;
 use std::collections::BTreeSet;
 use std::fs::{self, File};
 use std::io;
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
 use tools::file_format::analysis::{
     AnalysisKind, AnalysisSource, AnalysisStructured, AnalysisTarget, BindingOwnerLang,
@@ -119,7 +119,9 @@ fn node_range_to_searchfox_range(range: tree_sitter::Range) -> SourceRange {
     }
 }
 
-fn write_line(mut file: &mut File, data: &impl serde::Serialize) {
+/// (Buffered: serde_json writes a record in many small pieces, which were a
+/// system call each, most of the indexer's time.)
+fn write_line(mut file: &mut BufWriter<File>, data: &impl serde::Serialize) {
     use std::io::Write;
     serde_json::to_writer(&mut file, data).unwrap();
     file.write_all(b"\n").unwrap();
@@ -1085,7 +1087,7 @@ fn analyze_using_scip(
             continue;
         }
         let mut file = match File::create(&output_file) {
-            Ok(f) => f,
+            Ok(f) => BufWriter::new(f),
             Err(err) => {
                 error!(
                     "Couldn't open output file: {}, {:?}",
@@ -1446,6 +1448,7 @@ fn analyze_using_scip(
                 nesting_stack.push(nested);
             }
         }
+        std::io::Write::flush(&mut file).unwrap();
     }
 
     // ## Create fake structured records for any remaining unknown scip symbols
@@ -1502,7 +1505,7 @@ fn analyze_using_scip(
             return;
         }
         let mut file = match File::create(&output_file) {
-            Ok(f) => f,
+            Ok(f) => BufWriter::new(f),
             Err(err) => {
                 error!(
                     "Couldn't open output file: {}, {:?}",
@@ -1528,6 +1531,7 @@ fn analyze_using_scip(
                 );
             }
         }
+        std::io::Write::flush(&mut file).unwrap();
     }
 
     assert_eq!(file.pos(), byte_count, "Should've processed the whole file");

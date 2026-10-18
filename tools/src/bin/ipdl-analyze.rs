@@ -3,6 +3,7 @@ use std::env;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
+use std::io::BufWriter;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
@@ -115,7 +116,7 @@ fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a 
 }
 
 /// Write a JSON record as a line.
-fn emit(outputf: &mut File, record: serde_json::Value) {
+fn emit(outputf: &mut BufWriter<File>, record: serde_json::Value) {
     writeln!(outputf, "{}", record).unwrap();
 }
 
@@ -357,7 +358,7 @@ fn variant_owner_name(type_spec: &ast::TypeSpec) -> String {
 
 /// Write a use of an IPDL struct or union, if a type names one.
 fn output_type_use(
-    outputf: &mut File,
+    outputf: &mut BufWriter<File>,
     type_spec: &ast::TypeSpec,
     ipdl_types: &IpdlTypes,
     context: &str,
@@ -401,7 +402,7 @@ fn output_type_use(
 /// Write the records of an IPDL definition: its target and source records,
 /// and its structured record (to which `structured` adds).
 fn output_definition(
-    outputf: &mut File,
+    outputf: &mut BufWriter<File>,
     loc: &str,
     syntax: &str,
     pretty: &str,
@@ -451,7 +452,7 @@ fn cpp_slot(kind: &str, sym: &str) -> serde_json::Value {
 /// IPDL generates for them (found by their pretty names in the generated
 /// header's analysis).
 fn output_data_structures(
-    outputf: &mut File,
+    outputf: &mut BufWriter<File>,
     tu: &ast::TranslationUnit,
     generated: &GeneratedSymbols,
     ipdl_types: &IpdlTypes,
@@ -606,7 +607,7 @@ fn output_data_structures(
 /// without slots (their send methods take resolvers), and uses of the IPDL
 /// structs and unions their types name.
 fn output_message_params(
-    outputf: &mut File,
+    outputf: &mut BufWriter<File>,
     message: &ast::MessageDecl,
     message_pretty: &str,
     message_sym: &str,
@@ -658,7 +659,7 @@ fn output_message_params(
 /// Write a message's `IPC_` symbol's records, with binding slots for its
 /// send and recv methods (for both directions' for `both:` messages).
 fn output_ipc_data(
-    outputf: &mut File,
+    outputf: &mut BufWriter<File>,
     locstr: &str,
     ipc_pretty: &str,
     ipc_sym: &str,
@@ -853,7 +854,8 @@ fn main() {
         let path = tu.file_name.as_path();
         let relative = path.strip_prefix(base_path).unwrap();
         let absolute = analysis_path.join(relative);
-        let mut outputf = File::create(absolute).unwrap();
+        // (Buffered: a record's JSON is written in many small pieces.)
+        let mut outputf = BufWriter::new(File::create(absolute).unwrap());
 
         // ### Structs and unions
         //
@@ -1086,5 +1088,6 @@ fn main() {
                 );
             }
         }
+        outputf.flush().unwrap();
     }
 }

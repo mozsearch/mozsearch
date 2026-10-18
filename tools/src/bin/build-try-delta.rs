@@ -88,10 +88,11 @@ fn read_records(path: &Path) -> Option<Vec<String>> {
 
 fn write_lines(path: &Path, lines: &[String]) {
     fs::create_dir_all(path.parent().unwrap()).unwrap();
-    let mut out = File::create(path).unwrap();
+    let mut out = std::io::BufWriter::new(File::create(path).unwrap());
     for line in lines {
         writeln!(out, "{}", line).unwrap();
     }
+    out.flush().unwrap();
 }
 
 /// The files under `root`, by path relative to it.

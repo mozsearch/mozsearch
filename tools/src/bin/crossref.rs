@@ -7,6 +7,7 @@ use std::fs::File;
 use std::fs::{create_dir_all, remove_file};
 use std::io::BufRead;
 use std::io::BufReader;
+use std::io::BufWriter;
 use std::io::Read;
 use std::io::Write;
 
@@ -1362,7 +1363,7 @@ fn write_recency_linkage(index_path: &str, linked: u32, mut linkages: Vec<(Ustr,
 
     let dir = format!("{}/diags/crossref", index_path);
     create_dir_all(&dir).unwrap();
-    let mut out = File::create(format!("{}/recency-linkage.tsv", dir)).unwrap();
+    let mut out = BufWriter::new(File::create(format!("{}/recency-linkage.tsv", dir)).unwrap());
     writeln!(
         out,
         "# Definitions of functions, classes, and the like whose history contexts aren't their own (see hyperblame::recency), so they get no history digests, by file\n# path\tunlinked\tlinked\ttop level\tnamespaces\tother contexts\texamples (pretty in context at line)"
@@ -1387,6 +1388,7 @@ fn write_recency_linkage(index_path: &str, linked: u32, mut linkages: Vec<(Ustr,
         )
         .unwrap();
     }
+    out.flush().unwrap();
 }
 
 /// The whole-file history digests of files without analysis (ex: docs), which
@@ -1420,8 +1422,9 @@ fn unanalyzed_file_recency(
 /// `FileRecency`) to `file-recency` (and `file-recency-extra`), keyed by path,
 /// like the crossref.
 fn write_file_recency(index_path: &str, table: BTreeMap<String, FileRecency>) {
-    let mut out = File::create(format!("{}/file-recency", index_path)).unwrap();
-    let mut ext_out = File::create(format!("{}/file-recency-extra", index_path)).unwrap();
+    let mut out = BufWriter::new(File::create(format!("{}/file-recency", index_path)).unwrap());
+    let mut ext_out =
+        BufWriter::new(File::create(format!("{}/file-recency-extra", index_path)).unwrap());
     let mut ext_offset = 0;
     for (path, file_recency) in table {
         write_inline_and_ext(
@@ -1433,6 +1436,8 @@ fn write_file_recency(index_path: &str, table: BTreeMap<String, FileRecency>) {
             true,
         );
     }
+    out.flush().unwrap();
+    ext_out.flush().unwrap();
 }
 
 type FieldOwningClassRules = UstrMap<OntologyLabelOwningClass>;
@@ -1851,9 +1856,11 @@ fn create_js_tables(meta_table: &MetaTable) -> (JSIDLTable, JsTsTable) {
     (js_idl_table, js_ts_table)
 }
 
+/// (`out` and `ext_out` should be buffered: this writes a few small pieces for
+/// each symbol.)
 fn write_inline_and_ext(
-    out: &mut File,
-    ext_out: &mut File,
+    out: &mut impl Write,
+    ext_out: &mut impl Write,
     ext_offset: &mut usize,
     id: &Ustr,
     data: &impl Serialize,
@@ -2668,11 +2675,13 @@ fn write_crossref_and_jumpref_thread(
     jumpref_ext_size: &mut Option<usize>,
 ) {
     // ## Write out the crossref and jumpref databases.
-    let mut xref_out = File::create(xref_file).unwrap();
-    let mut xref_ext_out = File::create(xref_ext_file).unwrap();
+    // (Buffered: unbuffered, each symbol's few small writes were a system call
+    // each, much of crossref's time writing.)
+    let mut xref_out = BufWriter::new(File::create(xref_file).unwrap());
+    let mut xref_ext_out = BufWriter::new(File::create(xref_ext_file).unwrap());
 
-    let mut jumpref_out = File::create(jumpref_file).unwrap();
-    let mut jumpref_ext_out = File::create(jumpref_ext_file).unwrap();
+    let mut jumpref_out = BufWriter::new(File::create(jumpref_file).unwrap());
+    let mut jumpref_ext_out = BufWriter::new(File::create(jumpref_ext_file).unwrap());
 
     // We need to know offset positions in the `-extra` file.  File::tell is a
     // nightly-only experimental API as documented at
@@ -2827,6 +2836,14 @@ fn write_crossref_and_jumpref_thread(
         );
     }
 
+    for out in [
+        &mut xref_out,
+        &mut xref_ext_out,
+        &mut jumpref_out,
+        &mut jumpref_ext_out,
+    ] {
+        out.flush().unwrap();
+    }
     xref_ext_size.replace(xref_ext_offset);
     jumpref_ext_size.replace(jumpref_ext_offset);
 }
@@ -2974,7 +2991,7 @@ fn write_crossref_and_jumpref(
 
             s.spawn(move || {
                 let out_file = format!("{}/{}", index_path, name);
-                let mut out_f = File::create(out_file).unwrap();
+                let mut out_f = BufWriter::new(File::create(out_file).unwrap());
 
                 for i in 0..thread_count {
                     let in_file = format!("{}/{}-{}", index_path, name, i);
@@ -2992,13 +3009,14 @@ fn write_crossref_and_jumpref(
                             let offset = line[2..end].parse::<usize>().unwrap();
 
                             write!(out_f, "@{:x}", offset + ext_offsets[i]).unwrap();
-                            out_f.write(line[end..].as_bytes()).unwrap();
+                            out_f.write_all(line[end..].as_bytes()).unwrap();
                         } else {
-                            out_f.write(line.as_bytes()).unwrap();
+                            out_f.write_all(line.as_bytes()).unwrap();
                         }
                     }
                     remove_file(in_file).unwrap()
                 }
+                out_f.flush().unwrap();
             });
         }
 
@@ -3022,7 +3040,7 @@ fn write_crossref_and_jumpref(
                         if size == 0 {
                             break;
                         }
-                        out_f.write(&buf[..size]).unwrap();
+                        out_f.write_all(&buf[..size]).unwrap();
                     }
                     remove_file(in_file).unwrap()
                 }
@@ -3034,7 +3052,7 @@ fn write_crossref_and_jumpref(
 fn write_identifiers(tree_config: &TreeConfig, id_table: IdTable) {
     let id_file = format!("{}/identifiers", tree_config.paths.index_path);
 
-    let mut idf = File::create(id_file).unwrap();
+    let mut idf = BufWriter::new(File::create(id_file).unwrap());
 
     let mut lines: Vec<_> = id_table
         .into_iter()
@@ -3046,6 +3064,7 @@ fn write_identifiers(tree_config: &TreeConfig, id_table: IdTable) {
     for line in lines {
         let _ = idf.write_all(line.as_bytes());
     }
+    let _ = idf.flush();
 }
 
 /// Cross-reference a subset of the tree's files (see `CrossrefCli::subset_of`),
