@@ -1,4 +1,5 @@
 "use strict";
+// webtest-group: trydelta-push (they import it)
 
 // The data API (see tools/src/data_api.rs): the trees' index data as JSON, by
 // the pipeline-server, through nginx, of the tree as indexed or as a try push

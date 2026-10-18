@@ -1,4 +1,5 @@
 "use strict";
+// webtest-group: trydelta-push (they import it)
 
 // The patch stack strip (see tools/src/hyperblame/stack_strip.rs and
 // static/js/stack-strip.js): files' views opened from explore pages (and try

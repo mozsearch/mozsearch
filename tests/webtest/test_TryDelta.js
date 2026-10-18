@@ -1,4 +1,5 @@
 "use strict";
+// webtest-group: trydelta-push (they import it)
 
 // The trydelta tree's try pushes get semantic analysis (see
 // tests/trydelta/analyze-try and tools/src/try_delta.rs): 0123456789ab changes

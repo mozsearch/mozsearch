@@ -1,4 +1,5 @@
 "use strict";
+// webtest-group: trydelta-push (they import it)
 
 // A try push's call roll-ups (see build-try-delta and `RollupDelta`): the
 // trydelta tree's push abcdef012345 adds meter.cpp, whose Meter class calls

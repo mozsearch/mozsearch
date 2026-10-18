@@ -24,6 +24,23 @@ If the repositories are ready, you can also directly run `./scripts/webtest.sh`,
 ./scripts/webtest.sh
 ```
 
+`make check-all` builds the test and webtest repositories' index once, and
+runs both the test repo's checks (see [testing-checks.md](testing-checks.md))
+and the webtests.
+
+The tests run in several headless browsers at once (`WEBTEST_BROWSERS`, 4 by
+default; one geckodriver each, on ports from 4444): sorted by name and dealt
+to them in turn, so each browser runs the same tests each time.  A test's
+leading comment lines can say how it runs among the others:
+  * `// webtest-group: <name>` (and why): with the group's other tests, in
+    order, in one browser (ex: the tests sharing the trydelta push's import);
+  * `// webtest-exclusive` (and why): alone, after the others (ex: a test of
+    the servers' timing).
+
+Running the tests again against the same index can fail tests of what
+happens the first time (ex: test_TryImport's push isn't imported yet, and
+test_Sidecars' pages aren't sidecars yet).
+
 `webtest.sh` takes an optional filter arguments, to specify which test to run.
 It's a substring-match on the test path.
 

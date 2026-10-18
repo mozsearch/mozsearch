@@ -1,4 +1,5 @@
 "use strict";
+// webtest-exclusive (its requests' timing is what it tests)
 
 // The web-server's admission (see tools/src/admission.rs): a client (by its
 // forwarding headers' address) whose requests outrun its token bucket waits
