@@ -650,6 +650,7 @@ impl AbstractServer for RemoteServer {
     async fn search_files(
         &self,
         pathre: &str,
+        not_pathre: &str,
         include_dirs: bool,
         limit: usize,
     ) -> Result<FileMatches> {
@@ -661,6 +662,9 @@ impl AbstractServer for RemoteServer {
         }
         let limit = limit.min(MAX_LIMIT).to_string();
         let mut params = vec![("re", pathre), ("limit", limit.as_str())];
+        if !not_pathre.is_empty() {
+            params.push(("not_re", not_pathre));
+        }
         if include_dirs {
             params.push(("dirs", "true"));
         }
@@ -693,6 +697,7 @@ impl AbstractServer for RemoteServer {
         pattern: &str,
         fold_case: bool,
         path: &str,
+        not_path: &str,
         limit: usize,
     ) -> Result<TextMatches> {
         let limit = limit.clamp(1, MAX_LIMIT).to_string();
@@ -702,6 +707,9 @@ impl AbstractServer for RemoteServer {
         }
         if !path.is_empty() {
             params.push(("path", path));
+        }
+        if !not_path.is_empty() {
+            params.push(("not_path", not_path));
         }
         parse(&self.api("text", None, &params).await?)
     }
@@ -1106,7 +1114,7 @@ mod tests {
             }))
         ));
         assert!(matches!(
-            server.search_files("(", false, 10).await,
+            server.search_files("(", "", false, 10).await,
             Err(ServerError::StickyProblem(ErrorDetails {
                 layer: ErrorLayer::BadInput,
                 ..

@@ -475,9 +475,13 @@ pub trait AbstractServer {
     /// Note that this will initially be local-only and whether it makes sense
     /// as a remote API really hinges on a rationale for not just remoting
     /// the new "query" mechanism.
+    ///
+    /// Paths matching `not_pathre` (if it's not empty) are left out, before
+    /// the limit (ex: the query language's `-path:`).
     async fn search_files(
         &self,
         pathre: &str,
+        not_pathre: &str,
         include_dirs: bool,
         limit: usize,
     ) -> Result<FileMatches>;
@@ -504,11 +508,14 @@ pub trait AbstractServer {
     /// the future while our rust code may be responsible for starting the
     /// codesearch server and keeping it running, for now that responsibility
     /// continues to fall to the `router.py` webserver using `codesearch.py`.
+    /// Files whose paths match `not_path` (if it's not empty) are left out,
+    /// by livegrep, before its limit (ex: the query language's `-path:`).
     async fn search_text(
         &self,
         pattern: &str,
         fold_case: bool,
         path: &str,
+        not_path: &str,
         limit: usize,
     ) -> Result<TextMatches>;
 

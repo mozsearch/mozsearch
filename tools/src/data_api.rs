@@ -17,7 +17,7 @@
 //! - `identifiers?q=[&exact=true][&ignore_case=true][&limit=]`: identifiers
 //!   starting with `q` (or equal to it, if `exact`), as `[symbol,
 //!   identifier]`s.
-//! - `files?re=[&dirs=true][&limit=]`: the files (and directories, if `dirs`)
+//! - `files?re=[&not_re=][&dirs=true][&limit=]`: the files (and directories, if `dirs`)
 //!   whose paths match the regular expression.
 //! - `source/{path}`: a file's text.
 //! - `analysis/{path}`: a file's analysis records, one JSON record a line, as
@@ -38,8 +38,9 @@
 //!   `fetch_history_journal`).
 //! - `linked-crossref?tree=&sym=`: a linked tree's crossref entry for a
 //!   symbol of the tree's (see `linked_crossref_lookup`).
-//! - `text?re=[&fold_case=true][&path=][&limit=]`: the lines matching a
-//!   regular expression (livegrep's; see `search_text`).
+//! - `text?re=[&fold_case=true][&path=][&not_path=][&limit=]`: the lines
+//!   matching a regular expression (livegrep's; see `search_text`), in files
+//!   whose paths match `path`, but `not_path`.
 //!
 //! - `try-push?push=`: an imported try push's stack, and its semantic head or
 //!   why it has none (see `try_import::TryPush`; `null` if it isn't
@@ -410,7 +411,7 @@ const ROUTES: &[Route] = &[
     Route {
         name: "files",
         takes_path: false,
-        params: &["re", "dirs", "limit"],
+        params: &["re", "not_re", "dirs", "limit"],
         host: Host::PipelineServer,
         post: false,
     },
@@ -480,7 +481,7 @@ const ROUTES: &[Route] = &[
     Route {
         name: "text",
         takes_path: false,
-        params: &["re", "fold_case", "path", "limit"],
+        params: &["re", "fold_case", "path", "not_path", "limit"],
         host: Host::PipelineServer,
         post: false,
     },
@@ -1152,8 +1153,15 @@ async fn route_body(
                     MAX_NEEDLE_BYTES
                 )));
             }
+            let not_pathre = params.get("not_re").unwrap_or_default();
+            if not_pathre.len() > MAX_NEEDLE_BYTES {
+                return Err(bad(format!(
+                    "not_re must have at most {} bytes",
+                    MAX_NEEDLE_BYTES
+                )));
+            }
             let matches = server
-                .search_files(pathre, params.flag("dirs")?, params.limit()?)
+                .search_files(pathre, not_pathre, params.flag("dirs")?, params.limit()?)
                 .await
                 .map_err(error)?;
             Ok(Body::json(
@@ -1305,8 +1313,21 @@ async fn route_body(
                     MAX_NEEDLE_BYTES
                 )));
             }
+            let not_path = params.get("not_path").unwrap_or_default();
+            if not_path.len() > MAX_NEEDLE_BYTES {
+                return Err(bad(format!(
+                    "not_path must have at most {} bytes",
+                    MAX_NEEDLE_BYTES
+                )));
+            }
             let matches = server
-                .search_text(pattern, params.flag("fold_case")?, path, params.limit()?)
+                .search_text(
+                    pattern,
+                    params.flag("fold_case")?,
+                    path,
+                    not_path,
+                    params.limit()?,
+                )
                 .await
                 .map_err(error)?;
             Ok(Body::json(
@@ -1419,6 +1440,7 @@ pub(crate) mod fake {
         async fn search_files(
             &self,
             pathre: &str,
+            _not_pathre: &str,
             _include_dirs: bool,
             _limit: usize,
         ) -> Result<FileMatches> {
@@ -1442,6 +1464,7 @@ pub(crate) mod fake {
             _pattern: &str,
             _fold_case: bool,
             _path: &str,
+            _not_path: &str,
             _limit: usize,
         ) -> Result<TextMatches> {
             Err(ServerError::Unsupported)

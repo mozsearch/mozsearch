@@ -71,14 +71,20 @@ impl FileLookupMap {
         }
     }
 
-    /// Search the list of files by applying a regexp to the paths.
+    /// Search the list of files by applying a regexp to the paths, but those
+    /// matching `not_pathre`, if it's not empty.
     pub fn search_files(
         &self,
         pathre: &str,
+        not_pathre: &str,
         include_dirs: bool,
         limit: usize,
     ) -> Result<FileMatches> {
         let re_path = Regex::new(pathre)?;
+        let not_path = match not_pathre {
+            "" => None,
+            not_pathre => Some(Regex::new(not_pathre)?),
+        };
         let mut matches: Vec<FileMatch> = self
             .concise_per_file
             .iter()
@@ -86,7 +92,7 @@ impl FileLookupMap {
                 if !include_dirs && v.1.is_dir {
                     false
                 } else {
-                    re_path.is_match(v.0)
+                    re_path.is_match(v.0) && !not_path.as_ref().is_some_and(|re| re.is_match(v.0))
                 }
             })
             .map(|v| FileMatch {

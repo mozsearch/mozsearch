@@ -124,3 +124,21 @@ add_task(async function test_DwimRules() {
   is(doc().location.pathname, "/tests/search", "Other trees' DWIM searches");
   is(new URLSearchParams(doc().location.search).get("q"), "Foo::Bar baz", "for what was typed");
 });
+
+add_task(async function test_QueryExcludedPaths() {
+  // `-path:` (and `-pathre:`) leaves out paths from the files and text a query
+  // searches.
+  await TestUtils.loadQuery("tests", "aWidget");
+  ok(doc().querySelector('details[data-path="spec_excerpts.cpp"]') &&
+     doc().querySelector('details[data-path="spec_citations.cpp"]'),
+     "A search has its files' lines");
+  await TestUtils.loadQuery("tests", "aWidget -path:spec_excerpts.cpp");
+  ok(!doc().querySelector('details[data-path="spec_excerpts.cpp"]'),
+     "but not those of a path it leaves out");
+  ok(doc().querySelector('details[data-path="spec_citations.cpp"]'), "but others'");
+
+  // (Other terms can't be negated; a negated word is text, with its dash.)
+  await TestUtils.loadQuery("tests", "aWidget -calls-to:Poke");
+  ok(doc().body.textContent.includes("Only path: and pathre: terms can be negated"),
+     "Negating another term says it can't be");
+});

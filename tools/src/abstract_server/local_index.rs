@@ -778,11 +778,12 @@ impl AbstractServer for LocalIndex {
     async fn search_files(
         &self,
         pathre: &str,
+        not_pathre: &str,
         include_dirs: bool,
         limit: usize,
     ) -> Result<FileMatches> {
         self.file_lookup_map()
-            .search_files(pathre, include_dirs, limit)
+            .search_files(pathre, not_pathre, include_dirs, limit)
     }
 
     async fn search_identifiers(
@@ -815,6 +816,7 @@ impl AbstractServer for LocalIndex {
         pattern: &str,
         fold_case: bool,
         path: &str,
+        not_path: &str,
         limit: usize,
     ) -> Result<TextMatches> {
         let now = Instant::now();
@@ -839,7 +841,11 @@ impl AbstractServer for LocalIndex {
             repo: "".into(),
             tags: "".into(),
             fold_case,
-            not_file: vec![],
+            not_file: if not_path.is_empty() {
+                vec![]
+            } else {
+                vec![not_path.into()]
+            },
             not_repo: "".into(),
             not_tags: "".into(),
             // 0 falls back to the default, I believe.

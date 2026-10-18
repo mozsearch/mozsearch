@@ -63,6 +63,9 @@ pub struct QueryConfig {
 #[derive(Deserialize)]
 pub struct TermConfig {
     pub alias: Option<String>,
+    /// The values it can have, if only some (ex: `case:`'s).
+    #[serde(default)]
+    pub values: Vec<String>,
     #[serde(default)]
     pub conflicts: Vec<String>,
     #[serde(default)]
@@ -85,6 +88,13 @@ pub struct PipelineUse {
     pub priority: u32,
     #[serde(default)]
     pub args: Table,
+    /// Only for this value of the term (ex: `case:sensitive`).
+    pub when: Option<String>,
+    /// Only adding its args to the group's step of the command, if the query
+    /// has one (once all its terms are in), rather than adding the step (ex:
+    /// `-path:`'s, which a diagram's query has no text search for).
+    #[serde(default)]
+    pub amend: bool,
 }
 
 #[derive(Deserialize)]
@@ -125,6 +135,10 @@ pub struct QueryPipelineGroupBuilder {
     pub groups: BTreeMap<String, PipelineGroup>,
     pub junctions: BTreeMap<String, JunctionNode>,
     pub phases: Vec<PipelinePhase>,
+    /// The args of `amend` pipeline uses (see `PipelineUse::amend`), by their
+    /// groups and commands, for once all the terms are in.
+    #[serde(skip)]
+    amends: Vec<(String, String, PipelineArgs)>,
 }
 
 fn apply_transforms(user_val: String, transforms: &[String]) -> String {
@@ -177,6 +191,17 @@ impl QueryPipelineGroupBuilder {
         let mut terms_processed = vec![];
         while let Some((term_str, term_value)) = terms_to_process.pop_front() {
             if let Some(term) = QUERY_CORE.term.get(&term_str) {
+                if !term.values.is_empty() && !term.values.contains(&term_value) {
+                    return Err(ServerError::StickyProblem(ErrorDetails {
+                        layer: ErrorLayer::BadInput,
+                        message: format!(
+                            "{}: can be {}, not {:?}",
+                            term_str,
+                            term.values.join(" or "),
+                            term_value
+                        ),
+                    }));
+                }
                 if let Some(alias) = &term.alias {
                     terms_to_process.push_back((alias.clone(), term_value.clone()));
                 }
@@ -199,8 +224,23 @@ impl QueryPipelineGroupBuilder {
 
                 for (group_name, pipeline_uses) in term.group.iter() {
                     for pipe_use in pipeline_uses.iter() {
+                        if pipe_use
+                            .when
+                            .as_ref()
+                            .is_some_and(|when| *when != term_value)
+                        {
+                            continue;
+                        }
                         let flattened_args =
                             flatten_args(&term_value, pipe_use.priority, &pipe_use.args);
+                        if pipe_use.amend {
+                            self.amends.push((
+                                group_name.clone(),
+                                pipe_use.command.clone(),
+                                flattened_args,
+                            ));
+                            continue;
+                        }
                         self.ensure_pipeline_step(
                             group_name.clone(),
                             pipe_use.command.clone(),
@@ -320,7 +360,35 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
     let q = parse(full_arg_str);
 
     // ## 2: Ingest / process the terms
+    // (Paths to leave out, `-path:` and `-pathre:`, as one regexp, for
+    // `not-pathre`; only these terms can be negated.  A negated word is text
+    // starting with a dash, ex: `-moz-appearance`, `--foo`, which the parser
+    // takes as `moz-appearance` and `-foo`, negated.)
+    let mut excluded: Vec<String> = vec![];
     for term in q.terms {
+        if term.negated {
+            let TermValue::Simple(value) = &term.value;
+            match term.key.as_deref() {
+                Some("path") if !is_qualified_name(value) => {
+                    excluded.push(path_glob_transform(value))
+                }
+                Some("pathre") if !is_qualified_name(value) => excluded.push(value.clone()),
+                None => builder.ingest_term("default", &format!("-{}", value))?,
+                Some(key) if !QUERY_CORE.term.contains_key(key) || is_qualified_name(value) => {
+                    builder.ingest_term("default", &format!("-{}:{}", key, value))?
+                }
+                Some(key) => {
+                    return Err(ServerError::StickyProblem(ErrorDetails {
+                        layer: ErrorLayer::BadInput,
+                        message: format!(
+                            "Only path: and pathre: terms can be negated (to leave out paths), not {}:",
+                            key
+                        ),
+                    }));
+                }
+            }
+            continue;
+        }
         match term.value {
             TermValue::Simple(value) => match term.key {
                 // (A qualified name, `Foo::Bar` (the parser's term `Foo` with
@@ -335,6 +403,31 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                 Some(key) => builder.ingest_term("default", &format!("{}:{}", key, value))?,
                 None => builder.ingest_term("default", &value)?,
             },
+        }
+    }
+    // (Groups, not non-capturing ones, which livegrep's `-file:` can't
+    // parse.)
+    match excluded.as_slice() {
+        [] => {}
+        [one] => builder.ingest_term("not-pathre", one)?,
+        several => {
+            let regexp = several
+                .iter()
+                .map(|re| format!("({})", re))
+                .collect::<Vec<_>>()
+                .join("|");
+            builder.ingest_term("not-pathre", &regexp)?;
+        }
+    }
+    // (Amending the steps the terms added.)
+    for (group_name, command, args) in std::mem::take(&mut builder.amends) {
+        if let Some(segment) = builder.groups.get_mut(&group_name).and_then(|group| {
+            group
+                .segments
+                .iter_mut()
+                .rfind(|seg| seg.command == command)
+        }) {
+            segment.args.merge(args);
         }
     }
 
@@ -652,5 +745,37 @@ mod tests {
         // namespace.)
         let colorize = values("colorize-callees:'::isFriendlyCat'");
         assert!(colorize.contains("::isFriendlyCat") && !colorize.contains("colorize-callees:::"));
+    }
+
+    #[test]
+    fn test_excluded_paths() {
+        // (The searches of files and text leave out the paths, as one regexp.)
+        let groups: serde_json::Value =
+            serde_json::from_str(&values("Foo -path:dom/ -pathre:^testing/")).unwrap();
+        for (group, command) in [
+            ("file-search", "search-files"),
+            ("text-search", "search-text"),
+        ] {
+            let segment = groups[group]["segments"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|segment| segment["command"] == command)
+                .unwrap();
+            let not = segment["args"]["named_args"]["not-pathre"][0]
+                .as_str()
+                .unwrap();
+            assert_eq!(not, "(dom/)|(^testing/)");
+        }
+        // (A query without them, ex: a diagram's, doesn't get them.)
+        let diagram = values("calls-to:Foo -path:dom/");
+        assert!(!diagram.contains("not-pathre") && !diagram.contains("search-text"));
+        assert!(values("Foo -path:dom/").contains("\"not-pathre\":[\"dom/\""));
+        // (Nor can other terms be negated; a negated word is text, with its
+        // dash.)
+        assert!(chew_query("Foo -calls-to:Bar").is_err());
+        assert_eq!(values("-moz-appearance"), values("'-moz-appearance'"));
+        assert_eq!(values("--foo"), values("'--foo'"));
+        assert_eq!(values("-Foo::Bar"), values("'-Foo::Bar'"));
     }
 }

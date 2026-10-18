@@ -372,6 +372,19 @@ alias = "path"
 term = "pathre"
 transforms = ["path_glob"]
 
+# The paths to leave out, a regexp: `-path:`'s and `-pathre:`'s, which
+# chew_query combines (only these terms can be negated), from the files and
+# the text the query searches, if it does.
+[term.not-pathre]
+[[term.not-pathre.group.file-search]]
+command = "search-files"
+amend = true
+args.not-pathre = "$0"
+[[term.not-pathre.group.text-search]]
+command = "search-text"
+amend = true
+args.not-pathre = "$0"
+
 [term.re]
 [[term.re.group.text-search]]
 command = "search-text"

@@ -390,16 +390,27 @@ impl AbstractServer for TryOverlay {
     async fn search_files(
         &self,
         pathre: &str,
+        not_pathre: &str,
         include_dirs: bool,
         limit: usize,
     ) -> Result<FileMatches> {
-        let mut matches = self.base.search_files(pathre, include_dirs, limit).await?;
+        let mut matches = self
+            .base
+            .search_files(pathre, not_pathre, include_dirs, limit)
+            .await?;
+        let not_re = match not_pathre {
+            "" => None,
+            not_pathre => Some(regex::Regex::new(not_pathre)?),
+        };
         matches
             .file_matches
             .retain(|file| self.delta.change(&file.path) != Some(FileChange::Removed));
         let re = regex::Regex::new(pathre)?;
         for (path, change) in &self.delta.meta.changed {
-            if *change == FileChange::Added && re.is_match(path) {
+            if *change == FileChange::Added
+                && re.is_match(path)
+                && !not_re.as_ref().is_some_and(|re| re.is_match(path))
+            {
                 matches.file_matches.push(FileMatch {
                     path: ustr(path),
                     concise: ConcisePerFileInfo {
@@ -416,7 +427,9 @@ impl AbstractServer for TryOverlay {
                 });
             }
         }
-        matches.file_matches.sort_by(|a, b| a.path.as_str().cmp(b.path.as_str()));
+        matches
+            .file_matches
+            .sort_by(|a, b| a.path.as_str().cmp(b.path.as_str()));
         if matches.file_matches.len() > limit {
             matches.file_matches.truncate(limit);
             matches.limit_hit = true;
@@ -451,9 +464,13 @@ impl AbstractServer for TryOverlay {
         pattern: &str,
         fold_case: bool,
         path: &str,
+        not_path: &str,
         limit: usize,
     ) -> Result<TextMatches> {
-        let mut matches = self.base.search_text(pattern, fold_case, path, limit).await?;
+        let mut matches = self
+            .base
+            .search_text(pattern, fold_case, path, not_path, limit)
+            .await?;
         // (The push's versions of the files it changes replace the base's.)
         matches
             .by_file
@@ -466,6 +483,11 @@ impl AbstractServer for TryOverlay {
         } else {
             Some(regex::Regex::new(path)?)
         };
+        let not_path_re = if not_path.is_empty() {
+            None
+        } else {
+            Some(regex::Regex::new(not_path)?)
+        };
         let mut count: usize = matches.by_file.iter().map(|file| file.matches.len()).sum();
         let mut by_path: BTreeMap<String, TextMatchesByFile> = matches
             .by_file
@@ -475,6 +497,7 @@ impl AbstractServer for TryOverlay {
         for (file, change) in &self.delta.meta.changed {
             if *change == FileChange::Removed
                 || path_re.as_ref().is_some_and(|re| !re.is_match(file))
+                || not_path_re.as_ref().is_some_and(|re| re.is_match(file))
             {
                 continue;
             }

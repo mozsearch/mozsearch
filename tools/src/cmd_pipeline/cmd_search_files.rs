@@ -26,6 +26,10 @@ pub struct SearchFiles {
     #[clap(long, value_parser)]
     pathre: Option<String>,
 
+    /// Leave out paths matching a regexp (ex: the query language's `-path:`).
+    #[clap(long, value_parser)]
+    not_pathre: Option<String>,
+
     /// The most files to list (like `/search/`'s), noting whether there were
     /// more (see `FileMatches::limit_hit`).
     #[clap(short, long, value_parser, default_value = "4000")]
@@ -71,7 +75,12 @@ impl PipelineCommand for SearchFilesCommand {
 
         // (One more than the limit, to know if there were more.)
         let mut matches = server
-            .search_files(&pathre_pattern, self.args.include_dirs, use_limit + 1)
+            .search_files(
+                &pathre_pattern,
+                self.args.not_pathre.as_deref().unwrap_or_default(),
+                self.args.include_dirs,
+                use_limit + 1,
+            )
             .await?;
         matches.limit_hit = matches.file_matches.len() > use_limit;
         matches.file_matches.truncate(use_limit);

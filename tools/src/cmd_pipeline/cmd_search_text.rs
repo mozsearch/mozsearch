@@ -31,6 +31,11 @@ pub struct SearchText {
     #[clap(long, value_parser)]
     pathre: Option<String>,
 
+    /// Leave out files whose paths match a regexp (ex: the query language's
+    /// `-path:`).
+    #[clap(long, value_parser)]
+    not_pathre: Option<String>,
+
     /// Should this be case-sensitive?  By default we are case-insensitive.
     #[clap(short, long, value_parser)]
     case_sensitive: bool,
@@ -75,6 +80,7 @@ impl PipelineCommand for SearchTextCommand {
                 &re_pattern,
                 !self.args.case_sensitive,
                 &pathre_pattern,
+                self.args.not_pathre.as_deref().unwrap_or_default(),
                 self.args.limit,
             )
             .await?;
