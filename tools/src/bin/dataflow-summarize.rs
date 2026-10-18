@@ -161,8 +161,11 @@ impl Queue {
 }
 
 /// Files with at least this much analysis give back the memory their
-/// summaries freed (see `release_freed_memory`) when they're done.
-const RELEASE_AFTER_BYTES: u64 = 1 << 20;
+/// summaries freed (see `release_freed_memory`) when they're done.  (Not
+/// smaller ones: with 16 threads, trimming after each of 1,600 1-50 MB files
+/// took a third of the time, and the arenas keep at most ~10 times this for
+/// each thread.)
+const RELEASE_AFTER_BYTES: u64 = 32 << 20;
 
 /// Give the memory freed in all of the threads' heaps back to the system
 /// (glibc keeps it in each thread's arena otherwise).
