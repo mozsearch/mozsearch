@@ -15,12 +15,16 @@
 //     PIPELINE_SERVER_ADDR=127.0.0.1:8002 SEARCHFOX_REMOTE_CACHE=/tmp/sf \
 //       tools/target/release/pipeline-server https://searchfox.org/firefox-main/
 //   (see tools/src/abstract_server/remote_server.rs).
-// - /<tree>/rev-canvas/* (try pushes' canvases) goes to a local web-server if
-//   WEB_SERVER says where (ex: http://localhost:8001), which works over
-//   searchfox.org's trees the same way:
+// - The pages the web-server builds over the trees' servers (revisions' files
+//   and directories, history, diffs, commits, interdiffs, outline diffs, try
+//   pushes and their canvases, explore pages, blame popups' data,
+//   completions; see WEB_SERVER_ROUTES) go to a local web-server if WEB_SERVER
+//   says where (ex: http://localhost:8001), which works over searchfox.org's
+//   trees the same way:
 //     WEB_SERVER_ADDR=127.0.0.1:8001 tools/target/release/web-server \
 //       https://searchfox.org/firefox-main/ /tmp/web-server-status
-// - Everything else (search, blame, ...) is proxied to searchfox.org.
+// - Everything else (search, rendered and algorithm views, ...) is proxied to
+//   searchfox.org.
 //
 // The tools are rebuilt (if needed) before each render, so changes to the Rust
 // code or to tools/templates show up on reload.
@@ -48,6 +52,12 @@ const UPSTREAM = "https://searchfox.org";
 const PIPELINE_SERVER = process.env.PIPELINE_SERVER || null;
 // A local web-server for the pages it builds over the trees' servers, if any.
 const WEB_SERVER = process.env.WEB_SERVER || null;
+// The web-server's routes (`/<tree>/<route>/...`) it builds over the trees'
+// servers (the others read the trees' files).
+const WEB_SERVER_ROUTES = new RegExp(
+  "^/[^/]+/(rev|rev-hyperblame|rev-canvas|rev-outline|outline-diff|hgrev|" +
+  "oldrev|diff|interdiff|olddiff|explore|commit|oldcommit|commit-info|try|" +
+  "try-status|history|complete)/");
 // searchfox.org serves a JS challenge to some non-browser user agents.
 const USER_AGENT = "Mozilla/5.0 (searchfox dev-server) Firefox/140.0";
 
@@ -543,7 +553,7 @@ async function handle(req, res) {
     await proxy(req, res, PIPELINE_SERVER);
     return;
   }
-  if (WEB_SERVER && /^\/[^/]+\/rev-canvas\//.test(pathname)) {
+  if (WEB_SERVER && WEB_SERVER_ROUTES.test(pathname)) {
     await proxy(req, res, WEB_SERVER);
     return;
   }

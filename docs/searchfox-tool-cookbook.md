@@ -65,10 +65,12 @@ PIPELINE_SERVER_ADDR=127.0.0.1:8002 SEARCHFOX_REMOTE_CACHE=$HOME/.cache/searchfo
 and `PIPELINE_SERVER=http://localhost:8002 node scripts/dev-server.js` sends
 the pages' queries (diagrams, dataflow, slicing) to it.  The web-server takes
 the trees' URLs too (`WEB_SERVER_ADDR=127.0.0.1:8001 web-server <urls>
-<status-file>`), and builds the pages it builds over the trees' servers (so
-far, try pushes' canvases; `WEB_SERVER=http://localhost:8001` sends
-dev-server.js's `/<tree>/rev-canvas/` to it); its other pages need the trees'
-files.
+<status-file>`), and builds its pages over the trees' servers (revisions'
+files and directories, history, diffs, commits, interdiffs, outline diffs,
+try pushes and their canvases, explore pages, blame popups' data,
+completions; `WEB_SERVER=http://localhost:8001` sends dev-server.js's
+requests for them to it); its rendered and algorithm views and diagnostics
+still need the trees' files.
 
 ### Dumping crossref info from an identifier on a web-server shell
 ```
