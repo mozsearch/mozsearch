@@ -238,10 +238,16 @@ lists questions for an oracle, `--oracle <dir>` applies its answers, and
 Values go through IPDL structs' fields (by ipdl-analyze's binding slots)
 rather than into the C++ IPDL generates for them: a field's value comes from
 its struct's constructors' arguments (at the field's index) and assignments
-through its mutable accessor (`x.f() = v`), and goes to its accessors' calls,
-wherever they are.  `--symbol` takes an accessor's symbol, or a `.ipdlh`
-field's `IPDL_` symbol, too, and slicing links units which read or write the
-same IPDL field, as it does for fields.
+through its mutable accessor (`x.f() = v`), and goes to its accessors' calls.
+A local's or parameter's struct's field is followed along the struct
+(`x.<field>`, through calls and IPC, as places' parts are), so a value put
+in a struct reaches the reads of that struct's field after it's sent, and a
+read comes from the writes of that struct's field before it was; a field of
+a struct in `this`'s or a global's field, a read of a struct that isn't a
+place, and a `.ipdlh` field followed from its declaration go to (or come
+from) the field's accessors' calls wherever they are.  `--symbol` takes an
+accessor's symbol, or a `.ipdlh` field's `IPDL_` symbol, too, and slicing
+links units which read or write the same IPDL field, as it does for fields.
 
 `--summary` shows a file's (or `--function`'s) dataflow summaries (see
 `tools/src/dataflow/summary.rs`): which inputs (parameters, fields, globals,

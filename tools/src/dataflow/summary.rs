@@ -388,12 +388,26 @@ impl IpdlSlots {
     }
 
     /// The field a field symbol is, if it's an IPDL struct field's accessor
-    /// (see the C++ frontend's assignments through one) or member.
+    /// (see the C++ frontend's assignments through one) or member, or the
+    /// field itself (as the tracer's places have it; see
+    /// `Tracer::canonicalize_ipdl_steps`).
     fn field(&self, sym: &Ustr) -> Option<Ustr> {
+        if sym.starts_with("IPDL_") {
+            return Some(*sym);
+        }
         self.accessors
             .get(sym)
             .or_else(|| self.members.get(sym))
             .copied()
+    }
+
+    /// The field a step through an IPDL struct field's mutable accessor (or
+    /// the field itself) writes, if it's one.
+    fn written_field(&self, sym: &Ustr) -> Option<Ustr> {
+        if sym.starts_with("IPDL_") {
+            return Some(*sym);
+        }
+        self.accessors.get(sym).copied()
     }
 }
 
@@ -589,7 +603,7 @@ impl<'f> Builder<'f> {
                 .iter()
                 .enumerate()
                 .find_map(|(k, step)| match step {
-                    Step::Field(sym) => Some((k, *ipdl.accessors.get(sym)?)),
+                    Step::Field(sym) => Some((k, ipdl.written_field(sym)?)),
                     _ => None,
                 })
         {

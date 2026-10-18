@@ -298,11 +298,33 @@ pub fn type_of_path(ty: &str, path: &[Step]) -> Option<String> {
     Some(ty)
 }
 
+/// The names of IPDL struct fields' symbols (`IPDL_…`), which the tracer
+/// makes the steps of places reached through their accessors (see
+/// `Tracer::canonicalize_ipdl_steps`) and which can't be derived from them
+/// (their structs' and namespaces' names have underscores too), for
+/// `sym_short_name`: process-wide, as a symbol's name is always the same.
+static IPDL_NAMES: std::sync::LazyLock<std::sync::RwLock<HashMap<String, String>>> =
+    std::sync::LazyLock::new(Default::default);
+
+/// Remember an IPDL struct field's name (see `IPDL_NAMES`).
+pub fn set_ipdl_name(sym: &str, name: &str) {
+    IPDL_NAMES
+        .write()
+        .unwrap()
+        .insert(sym.to_string(), name.to_string());
+}
+
 /// A short name for a symbol without a display name: a member's name from
-/// its symbol (C++'s `F_<T_Foo>_mBar`, scip's `…#bar.`), else the symbol.
+/// its symbol (C++'s `F_<T_Foo>_mBar`, scip's `…#bar.`), or an IPDL struct
+/// field's (see `IPDL_NAMES`), else the symbol.
 pub fn sym_short_name(sym: &str) -> String {
     if let Some(name) = sym.strip_prefix("name:") {
         return name.to_string();
+    }
+    if sym.starts_with("IPDL_")
+        && let Some(name) = IPDL_NAMES.read().unwrap().get(sym)
+    {
+        return name.clone();
     }
     if sym.starts_with("F_")
         && let Some((_, name)) = sym.rsplit_once(">_")
@@ -366,6 +388,36 @@ pub struct FuncIr {
 }
 
 impl FuncIr {
+    /// Visit each of its places (events', and calls' arguments' and
+    /// receivers').
+    pub fn for_each_place_mut(&mut self, visit: &mut impl FnMut(&mut Place)) {
+        let vals = |vals: &mut Vec<Val>, visit: &mut dyn FnMut(&mut Place)| {
+            for val in vals {
+                if let Atom::Read(place) | Atom::Addr(place) = &mut val.atom {
+                    visit(place);
+                }
+            }
+        };
+        for event in &mut self.events {
+            match &mut event.kind {
+                EventKind::Assign { place, vals: v, .. } => {
+                    visit(place);
+                    vals(v, visit);
+                }
+                EventKind::Return { vals: v } | EventKind::Test { vals: v } => vals(v, visit),
+                EventKind::Call(_) => {}
+            }
+        }
+        for call in &mut self.calls {
+            for arg in call.args.iter_mut().chain(call.receiver.iter_mut()) {
+                if let Some(place) = &mut arg.place {
+                    visit(place);
+                }
+                vals(&mut arg.vals, visit);
+            }
+        }
+    }
+
     pub fn place_name(&self, place: &Place) -> String {
         let name = |sym: &Ustr| -> String {
             match self.names.get(sym) {

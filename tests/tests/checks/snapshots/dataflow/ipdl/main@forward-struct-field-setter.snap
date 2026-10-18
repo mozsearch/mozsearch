@@ -10,150 +10,44 @@ mozilla::_ipdltest::TestDataStructuresChild::TestStructWithActors (ipdl/TestData
   #1     687 call       call nsTArray::Clone               i.ai() = ai.Clone();
         -> #2 nsTArray::Clone(…) result (assumed) [assumed: ?]
   #2     687 opaque     nsTArray::Clone(…) result (assumed) i.ai() = ai.Clone();
-        -> #5 i._ZN7mozilla4_foo7SActors2aiEv = [local: nsTArray::Clone(…)]
-  #5     687 assign     i._ZN7mozilla4_foo7SActors2aiEv =  i.ai() = ai.Clone();
-        -> #7 call SActors::ai [field: ai]
-        -> #8 call SActors::ai in TestDataStructuresParent::RecvTestStructWithActors [field: ai]
-        -> #9 call SActors::ai in TestDataStructuresParent::RecvTestStructs [field: ai]
-        -> #10 call SActors::ai in TestDataStructuresParent::RecvTestUnionWithStructs [field: ai]
-        -> #11 call SActors::ai in TestDataStructuresParent::RecvTestUnionWithStructs [field: ai]
-        -> #12 call SActors::ai in TestDataStructuresChild::TestStructs [field: ai]
-        -> #13 call SActors::ai in TestDataStructuresChild::TestUnionWithStructs [field: ai]
-        -> #14 call SActors::ai in TestDataStructuresChild::TestUnionWithStructs [field: ai]
-        -> #15 call PTestDataStructuresChild::SendTestStructWithActors [local: i._ZN7mozilla4_foo7SActors2aiEv]
-  #15    691 call       call PTestDataStructuresChild::SendTestStructWithActors EXPECT_TRUE(SendTestStructWithActors(i, &o));
-        -> #16 param i in TestDataStructuresParent::RecvTestStructWithActors [binding: i._ZN7mozilla4_foo7SActors2aiEv]
-        -> #7 call SActors::ai [field: ai]
-        -> #8 call SActors::ai in TestDataStructuresParent::RecvTestStructWithActors [field: ai]
-        -> #9 call SActors::ai in TestDataStructuresParent::RecvTestStructs [field: ai]
-        -> #10 call SActors::ai in TestDataStructuresParent::RecvTestUnionWithStructs [field: ai]
-        -> #11 call SActors::ai in TestDataStructuresParent::RecvTestUnionWithStructs [field: ai]
-        -> #12 call SActors::ai in TestDataStructuresChild::TestStructs [field: ai]
-        -> #13 call SActors::ai in TestDataStructuresChild::TestUnionWithStructs [field: ai]
-        -> #14 call SActors::ai in TestDataStructuresChild::TestUnionWithStructs [field: ai]
-        -> #7 call SActors::ai [local: o._ZN7mozilla4_foo7SActors2aiEv]
+        -> #5 i.ai = [local: nsTArray::Clone(…)]
+  #5     687 assign     i.ai =                             i.ai() = ai.Clone();
+        -> #7 call PTestDataStructuresChild::SendTestStructWithActors [local: i.ai]
+  #7     691 call       call PTestDataStructuresChild::SendTestStructWithActors EXPECT_TRUE(SendTestStructWithActors(i, &o));
+        -> #8 param i in TestDataStructuresParent::RecvTestStructWithActors [binding: i.ai]
+        -> #17 call SActors::ai [local: o.ai]
   #3     694 call       call EqHelper::Compare             EXPECT_EQ(ai, o.ai());
         -> #4 EqHelper::Compare(…) result (assumed) [assumed: ?]
   #4     694 opaque     EqHelper::Compare(…) result (assumed) EXPECT_EQ(ai, o.ai());
         -> #6 gtest_ar = [local: EqHelper::Compare(…)]
   #6     694 assign     gtest_ar =                         EXPECT_EQ(ai, o.ai());
-        -> #17 test [local: gtest_ar]
-        -> #18 call AssertionResult::failure_message [local: gtest_ar]
-  #7     694 call       call SActors::ai                   EXPECT_EQ(ai, o.ai());
+        -> #9 test [local: gtest_ar]
+        -> #10 call AssertionResult::failure_message [local: gtest_ar]
+  #9     694 test       test                               EXPECT_EQ(ai, o.ai());
+  #10    694 call       call AssertionResult::failure_message EXPECT_EQ(ai, o.ai());
+        -> #11 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
+  #11    694 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(ai, o.ai());
+  #17    694 call       call SActors::ai                   EXPECT_EQ(ai, o.ai());
         -> #3 call EqHelper::Compare [local: SActors::ai(…)]
-  #17    694 test       test                               EXPECT_EQ(ai, o.ai());
-  #18    694 call       call AssertionResult::failure_message EXPECT_EQ(ai, o.ai());
-        -> #19 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
-  #19    694 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(ai, o.ai());
 mozilla::_ipdltest::TestDataStructuresParent::RecvTestStructWithActors (ipdl/TestDataStructures.cpp)
-  #16    285 param      param i                            
-        -> #8 call SActors::ai [local: i._ZN7mozilla4_foo7SActors2aiEv]
-        -> #34 *o = [local: i._ZN7mozilla4_foo7SActors2aiEv]
-  #8     293 call       call SActors::ai                   EXPECT_EQ(ai, i.ai());
-        -> #20 call EqHelper::Compare [local: SActors::ai(…)]
-  #20    293 call       call EqHelper::Compare             EXPECT_EQ(ai, i.ai());
-        -> #21 EqHelper::Compare(…) result (assumed) [assumed: ?]
-  #21    293 opaque     EqHelper::Compare(…) result (assumed) EXPECT_EQ(ai, i.ai());
-        -> #35 gtest_ar = [local: EqHelper::Compare(…)]
-  #35    293 assign     gtest_ar =                         EXPECT_EQ(ai, i.ai());
-        -> #42 test [local: gtest_ar]
-        -> #43 call AssertionResult::failure_message [local: gtest_ar]
-  #42    293 test       test                               EXPECT_EQ(ai, i.ai());
-  #43    293 call       call AssertionResult::failure_message EXPECT_EQ(ai, i.ai());
-        -> #44 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
-  #44    293 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(ai, i.ai());
-  #34    296 assign     *o =                               *o = i;
-        -> #15 call PTestDataStructuresChild::SendTestStructWithActors in TestDataStructuresChild::TestStructWithActors [return: out o._ZN7mozilla4_foo7SActors2aiEv]
-        -> #7 call SActors::ai in TestDataStructuresChild::TestStructWithActors [field: ai]
-        -> #8 call SActors::ai [field: ai]
-        -> #9 call SActors::ai in TestDataStructuresParent::RecvTestStructs [field: ai]
-        -> #10 call SActors::ai in TestDataStructuresParent::RecvTestUnionWithStructs [field: ai]
-        -> #11 call SActors::ai in TestDataStructuresParent::RecvTestUnionWithStructs [field: ai]
-        -> #12 call SActors::ai in TestDataStructuresChild::TestStructs [field: ai]
-        -> #13 call SActors::ai in TestDataStructuresChild::TestUnionWithStructs [field: ai]
-        -> #14 call SActors::ai in TestDataStructuresChild::TestUnionWithStructs [field: ai]
-mozilla::_ipdltest::TestDataStructuresParent::RecvTestStructs (ipdl/TestDataStructures.cpp)
-  #9     313 call       call SActors::ai                   EXPECT_EQ(ai, ia.ai());
-        -> #22 call EqHelper::Compare [local: SActors::ai(…)]
-  #22    313 call       call EqHelper::Compare             EXPECT_EQ(ai, ia.ai());
-        -> #23 EqHelper::Compare(…) result (assumed) [assumed: ?]
-  #23    313 opaque     EqHelper::Compare(…) result (assumed) EXPECT_EQ(ai, ia.ai());
-        -> #36 gtest_ar = [local: EqHelper::Compare(…)]
-  #36    313 assign     gtest_ar =                         EXPECT_EQ(ai, ia.ai());
-        -> #45 test [local: gtest_ar]
-        -> #46 call AssertionResult::failure_message [local: gtest_ar]
-  #45    313 test       test                               EXPECT_EQ(ai, ia.ai());
-  #46    313 call       call AssertionResult::failure_message EXPECT_EQ(ai, ia.ai());
-        -> #47 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
-  #47    313 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(ai, ia.ai());
-mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs (ipdl/TestDataStructures.cpp)
-  #10    337 call       call SActors::ai                   EXPECT_EQ(ai, ia.ai());
-        -> #24 call EqHelper::Compare [local: SActors::ai(…)]
-  #24    337 call       call EqHelper::Compare             EXPECT_EQ(ai, ia.ai());
-        -> #25 EqHelper::Compare(…) result (assumed) [assumed: ?]
-  #25    337 opaque     EqHelper::Compare(…) result (assumed) EXPECT_EQ(ai, ia.ai());
-        -> #37 gtest_ar = [local: EqHelper::Compare(…)]
-  #37    337 assign     gtest_ar =                         EXPECT_EQ(ai, ia.ai());
-        -> #48 test [local: gtest_ar]
-        -> #49 call AssertionResult::failure_message [local: gtest_ar]
-  #48    337 test       test                               EXPECT_EQ(ai, ia.ai());
-  #49    337 call       call AssertionResult::failure_message EXPECT_EQ(ai, ia.ai());
-        -> #50 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
-  #50    337 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(ai, ia.ai());
-  #11    347 call       call SActors::ai                   EXPECT_EQ(ai, isa.ai());
-        -> #26 call EqHelper::Compare [local: SActors::ai(…)]
-  #26    347 call       call EqHelper::Compare             EXPECT_EQ(ai, isa.ai());
-        -> #27 EqHelper::Compare(…) result (assumed) [assumed: ?]
-  #27    347 opaque     EqHelper::Compare(…) result (assumed) EXPECT_EQ(ai, isa.ai());
-        -> #38 gtest_ar = [local: EqHelper::Compare(…)]
-  #38    347 assign     gtest_ar =                         EXPECT_EQ(ai, isa.ai());
-        -> #51 test [local: gtest_ar]
-        -> #52 call AssertionResult::failure_message [local: gtest_ar]
-  #51    347 test       test                               EXPECT_EQ(ai, isa.ai());
-  #52    347 call       call AssertionResult::failure_message EXPECT_EQ(ai, isa.ai());
-        -> #53 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
-  #53    347 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(ai, isa.ai());
-mozilla::_ipdltest::TestDataStructuresChild::TestStructs (ipdl/TestDataStructures.cpp)
-  #12    726 call       call SActors::ai                   EXPECT_EQ(ai, os.ai());
-        -> #28 call EqHelper::Compare [local: SActors::ai(…)]
-  #28    726 call       call EqHelper::Compare             EXPECT_EQ(ai, os.ai());
-        -> #29 EqHelper::Compare(…) result (assumed) [assumed: ?]
-  #29    726 opaque     EqHelper::Compare(…) result (assumed) EXPECT_EQ(ai, os.ai());
-        -> #39 gtest_ar = [local: EqHelper::Compare(…)]
-  #39    726 assign     gtest_ar =                         EXPECT_EQ(ai, os.ai());
-        -> #54 test [local: gtest_ar]
-        -> #55 call AssertionResult::failure_message [local: gtest_ar]
-  #54    726 test       test                               EXPECT_EQ(ai, os.ai());
-  #55    726 call       call AssertionResult::failure_message EXPECT_EQ(ai, os.ai());
-        -> #56 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
-  #56    726 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(ai, os.ai());
-mozilla::_ipdltest::TestDataStructuresChild::TestUnionWithStructs (ipdl/TestDataStructures.cpp)
-  #13    762 call       call SActors::ai                   EXPECT_EQ(ai, oa.ai());
-        -> #30 call EqHelper::Compare [local: SActors::ai(…)]
-  #30    762 call       call EqHelper::Compare             EXPECT_EQ(ai, oa.ai());
-        -> #31 EqHelper::Compare(…) result (assumed) [assumed: ?]
-  #31    762 opaque     EqHelper::Compare(…) result (assumed) EXPECT_EQ(ai, oa.ai());
-        -> #40 gtest_ar = [local: EqHelper::Compare(…)]
-  #40    762 assign     gtest_ar =                         EXPECT_EQ(ai, oa.ai());
-        -> #57 test [local: gtest_ar]
-        -> #58 call AssertionResult::failure_message [local: gtest_ar]
-  #57    762 test       test                               EXPECT_EQ(ai, oa.ai());
-  #58    762 call       call AssertionResult::failure_message EXPECT_EQ(ai, oa.ai());
-        -> #59 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
-  #59    762 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(ai, oa.ai());
-  #14    772 call       call SActors::ai                   EXPECT_EQ(ai, osa.ai());
-        -> #32 call EqHelper::Compare [local: SActors::ai(…)]
-  #32    772 call       call EqHelper::Compare             EXPECT_EQ(ai, osa.ai());
-        -> #33 EqHelper::Compare(…) result (assumed) [assumed: ?]
-  #33    772 opaque     EqHelper::Compare(…) result (assumed) EXPECT_EQ(ai, osa.ai());
-        -> #41 gtest_ar = [local: EqHelper::Compare(…)]
-  #41    772 assign     gtest_ar =                         EXPECT_EQ(ai, osa.ai());
-        -> #60 test [local: gtest_ar]
-        -> #61 call AssertionResult::failure_message [local: gtest_ar]
-  #60    772 test       test                               EXPECT_EQ(ai, osa.ai());
-  #61    772 call       call AssertionResult::failure_message EXPECT_EQ(ai, osa.ai());
-        -> #62 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
-  #62    772 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(ai, osa.ai());
+  #8     285 param      param i                            
+        -> #12 call SActors::ai [local: i.ai]
+        -> #13 *o = [local: i.ai]
+  #12    293 call       call SActors::ai                   EXPECT_EQ(ai, i.ai());
+        -> #14 call EqHelper::Compare [local: SActors::ai(…)]
+  #14    293 call       call EqHelper::Compare             EXPECT_EQ(ai, i.ai());
+        -> #15 EqHelper::Compare(…) result (assumed) [assumed: ?]
+  #15    293 opaque     EqHelper::Compare(…) result (assumed) EXPECT_EQ(ai, i.ai());
+        -> #16 gtest_ar = [local: EqHelper::Compare(…)]
+  #16    293 assign     gtest_ar =                         EXPECT_EQ(ai, i.ai());
+        -> #18 test [local: gtest_ar]
+        -> #19 call AssertionResult::failure_message [local: gtest_ar]
+  #18    293 test       test                               EXPECT_EQ(ai, i.ai());
+  #19    293 call       call AssertionResult::failure_message EXPECT_EQ(ai, i.ai());
+        -> #20 AssertionResult::failure_message(…) result (assumed) [assumed: ?]
+  #20    293 opaque     AssertionResult::failure_message(…) result (assumed) EXPECT_EQ(ai, i.ai());
+  #13    296 assign     *o =                               *o = i;
+        -> #7 call PTestDataStructuresChild::SendTestStructWithActors in TestDataStructuresChild::TestStructWithActors [return: out o.ai]
 note: Couldn't see into nsTArray::Clone (assumed its result comes from its arguments)
 note: Couldn't see into EqHelper::Compare (assumed its result comes from its arguments)
 note: Couldn't see into AssertionResult::failure_message (assumed its result comes from its arguments)

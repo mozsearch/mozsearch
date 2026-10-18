@@ -25,6 +25,10 @@ pub struct FileIr {
     pub lang: Lang,
     pub funcs: Vec<FuncIr>,
     pub by_sym: HashMap<Ustr, usize>,
+    /// The IPDL struct fields' accessors whose steps in its places (`x.f() =
+    /// v`'s) are the fields' `IPDL_` symbols, by the tracer (see
+    /// `Tracer::canonicalize_ipdl_steps`): the fields, by accessor.
+    pub ipdl_fields: HashMap<Ustr, Ustr>,
 }
 
 impl FileIr {
@@ -210,6 +214,7 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
         lang,
         funcs,
         by_sym,
+        ipdl_fields: HashMap::new(),
     })
 }
 

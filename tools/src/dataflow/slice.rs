@@ -698,6 +698,18 @@ pub async fn slice(
 
     // Link units sharing keys.
     let mut links = vec![];
+    // (IPDL fields' names, for the links' keys; see `Tracer::name_ipdl_field`.)
+    let ipdl_fields: BTreeSet<Ustr> = units
+        .iter()
+        .flat_map(|unit| unit.keys.iter())
+        .filter_map(|key| match key {
+            Key::Field(sym) if sym.starts_with("IPDL_") => Some(*sym),
+            _ => None,
+        })
+        .collect();
+    for field in ipdl_fields {
+        tracer.name_ipdl_field(field).await;
+    }
     let mut by_key: BTreeMap<&Key, Vec<usize>> = BTreeMap::new();
     for unit in &units {
         for key in &unit.keys {

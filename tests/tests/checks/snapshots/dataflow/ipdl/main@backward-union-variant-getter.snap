@@ -4,22 +4,17 @@ expression: "&fb.contents"
 input_file: inputs/dataflow/ipdl/backward-union-variant-getter
 ---
 mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnion (ipdl/TestDataStructures.cpp)
+  #2      81 param      param i1                           
+        -> #1 call IntDouble::get_int [local: i1.int]
   #0      83 seed       IntDouble::get_int(…)              EXPECT_EQ(42, i1.get_int());
   #1      83 call       call IntDouble::get_int            EXPECT_EQ(42, i1.get_int());
         -> #0 IntDouble::get_int(…) [local: IntDouble::get_int(…)]
-mozilla::_ipdltest::TestDataStructuresChild::TestArrayOfUnion (ipdl/TestDataStructures.cpp)
-  #2     486 call       call IntDouble::IntDouble          i1.AppendElement(IntDouble(int(1)));
-        -> #1 call IntDouble::get_int in TestDataStructuresParent::RecvTestUnion [field: int]
-  #3     486 const      1                                  i1.AppendElement(IntDouble(int(1)));
-        -> #2 call IntDouble::IntDouble [local: 1]
-  #4     488 call       call IntDouble::IntDouble          i1.AppendElement(IntDouble(int(3)));
-        -> #1 call IntDouble::get_int in TestDataStructuresParent::RecvTestUnion [field: int]
-  #5     488 const      3                                  i1.AppendElement(IntDouble(int(3)));
-        -> #4 call IntDouble::IntDouble [local: 3]
 mozilla::_ipdltest::TestDataStructuresChild::TestUnion (ipdl/TestDataStructures.cpp)
-  #7     472 assign     i1i =                              int i1i = 42;
-        -> #6 call IntDouble::IntDouble [local: i1i]
-  #8     472 const      42                                 int i1i = 42;
-        -> #7 i1i = [local: 42]
-  #6     474 call       call IntDouble::IntDouble          IntDouble i1(i1i);
-        -> #1 call IntDouble::get_int in TestDataStructuresParent::RecvTestUnion [field: int]
+  #5     472 assign     i1i =                              int i1i = 42;
+        -> #4 i1 = [local: i1i]
+  #6     472 const      42                                 int i1i = 42;
+        -> #5 i1i = [local: 42]
+  #4     474 assign     i1 =                               IntDouble i1(i1i);
+        -> #3 call PTestDataStructuresChild::SendTestUnion [local: i1.int]
+  #3     478 call       call PTestDataStructuresChild::SendTestUnion SendTestUnion(i1, i2, &o1, &o2);
+        -> #2 param i1 in TestDataStructuresParent::RecvTestUnion [call: arg 0]

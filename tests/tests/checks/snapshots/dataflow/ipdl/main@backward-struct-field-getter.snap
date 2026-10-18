@@ -4,9 +4,13 @@ expression: "&fb.contents"
 input_file: inputs/dataflow/ipdl/backward-struct-field-getter
 ---
 mozilla::_ipdltest::TestDataStructuresParent::RecvTestStructWithArrays (ipdl/TestDataStructures.cpp)
+  #2     264 param      param i                            
+        -> #1 call SIntDoubleArrays::ai [local: i.ai]
   #0     277 seed       SIntDoubleArrays::ai(…)            EXPECT_EQ(ai, i.ai());
   #1     277 call       call SIntDoubleArrays::ai          EXPECT_EQ(ai, i.ai());
         -> #0 SIntDoubleArrays::ai(…) [local: SIntDoubleArrays::ai(…)]
 mozilla::_ipdltest::TestDataStructuresChild::TestStructWithArrays (ipdl/TestDataStructures.cpp)
-  #2     669 call       call SIntDoubleArrays::SIntDoubleArrays SIntDoubleArrays i(42, ai, ad);
-        -> #1 call SIntDoubleArrays::ai in TestDataStructuresParent::RecvTestStructWithArrays [field: ai]
+  #4     669 assign     i =                                SIntDoubleArrays i(42, ai, ad);
+        -> #3 call PTestDataStructuresChild::SendTestStructWithArrays [local: i.ai]
+  #3     672 call       call PTestDataStructuresChild::SendTestStructWithArrays EXPECT_TRUE(SendTestStructWithArrays(i, &o));
+        -> #2 param i in TestDataStructuresParent::RecvTestStructWithArrays [call: arg 0]
