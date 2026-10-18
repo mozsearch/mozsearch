@@ -2,6 +2,7 @@ help:
 	@echo "This Makefile provides some useful targets to run:"
 	@echo "  build-test-repo - Builds the index and starts the web server for the test repo"
 	@echo "  build-mozilla-repo - Builds the index and starts the web server for the repos in mozsearch-mozilla/config1.json"
+	@echo "  check-all - Builds the test and webtest repos' index once, and runs their checks and the webtests"
 	@echo ""
 	@echo "To build a local index from a try push of firefox-main:"
 	@echo "  TRYPUSH_REV=7b25952b97afc2a34cc31701ffb185222727be72 make trypush # set TRYPUSH_REV to the full hg rev of your try push"
@@ -272,6 +273,18 @@ clean-build-webtest-repo: build-webtest-repo
 
 clean-webtest: export CLEAN_HISTORY=1
 clean-webtest: webtest
+
+# Everything build-test-repo and clean-webtest check, indexing once: the
+# webtest config's trees, which include config.json's tests tree (whose checks
+# run as it's indexed, and against its servers), and the webtests.
+check-all: _INDEX_ROOT=~/index
+check-all: _CONFIG_REPO=/vagrant/tests
+check-all: _CONFIG_NAME=webtest-config.json
+check-all: export CHECK_WARNINGS=1
+check-all: export CLEAN_HISTORY=1
+check-all: export MOZSEARCH_SOURCE_PATH=/vagrant
+check-all: check-in-vagrant update-indexer-packages internal-build-repo internal-serve-repo internal-test-repo
+	./scripts/webtest.sh
 
 # Create favicon for the following 3 cases, from search.png:
 #   * production.png for searchfox.org
