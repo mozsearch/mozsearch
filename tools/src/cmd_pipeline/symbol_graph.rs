@@ -243,6 +243,9 @@ pub fn semantic_kind_is_class(semantic_kind: &str) -> bool {
         // Gecko has many structs that are basically classes; also, for our
         // purposes in general, anything with fields is a class.
         "struct" => true,
+        // (Unions' fields are their variants, and IPDL messages' their
+        // parameters, ex: for block diagrams' fields' tables.)
+        "union" | "ipc" => true,
         _ => false,
     }
 }

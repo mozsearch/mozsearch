@@ -262,7 +262,8 @@ are data of their own (written by the struct's constructors, `x.f() = v` and
 `Send` calls' arguments, read by its accessors and the `Recv`
 implementations' parameters), so data edges cross IPC through them, and the
 IPDL struct or message is a class between the sender's and the receiver's
-in roll-ups (`block-diagram IPDL_<struct> --level field` draws its fields).
+in roll-ups (`block-diagram IPDL_<struct> --level field` draws its fields,
+and `block-diagram IPC_<message> --level field` its parameters).
 Accessors' summaries (getters', setters' and trivial methods', with the
 constants they return or write) are in their crossref entries (`dataflow`),
 and traces step over their calls by them rather than building their files'

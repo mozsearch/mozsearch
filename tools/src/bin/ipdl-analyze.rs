@@ -656,14 +656,34 @@ fn output_message_params(
     }
 }
 
+/// A message's parameters (see `output_message_params`), as its structured
+/// record's `fields`, as a struct's are its fields (for block diagrams of
+/// the data through a message's parameters).
+fn message_param_infos(message: &ast::MessageDecl, ipc_pretty: &str, ipc_sym: &str) -> Vec<Value> {
+    message
+        .in_params
+        .iter()
+        .chain(message.out_params.iter())
+        .map(|param| {
+            let name = param.name.id.as_str();
+            json!({
+                "pretty": format!("{}::{}", ipc_pretty, name),
+                "sym": format!("{}__{}", ipc_sym, name),
+            })
+        })
+        .collect()
+}
+
 /// Write a message's `IPC_` symbol's records, with binding slots for its
-/// send and recv methods (for both directions' for `both:` messages).
+/// send and recv methods (for both directions' for `both:` messages), and its
+/// parameters as `fields` (see `message_param_infos`).
 fn output_ipc_data(
     outputf: &mut BufWriter<File>,
     locstr: &str,
     ipc_pretty: &str,
     ipc_sym: &str,
     slots: &[(&AnalysisTarget, &AnalysisTarget)],
+    params: Vec<Value>,
 ) {
     write!(
         outputf,
@@ -718,6 +738,7 @@ fn output_ipc_data(
             "kind": "ipc",
             "implKind": "idl",
             "bindingSlots": binding_slots,
+            "fields": params,
         })
     )
     .unwrap();
@@ -1075,7 +1096,8 @@ fn main() {
                         ns.name.id,
                         message.name.id
                     );
-                    output_ipc_data(&mut outputf, &locstr, &ipc_pretty, &ipc_sym, &slots);
+                    let params = message_param_infos(&message, &ipc_pretty, &ipc_sym);
+                    output_ipc_data(&mut outputf, &locstr, &ipc_pretty, &ipc_sym, &slots, params);
                 }
 
                 output_message_params(

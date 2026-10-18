@@ -1,0 +1,37 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/block/block_field_ipc_message
+---
+digraph g {
+  graph[fontname="Courier New" fontsize=12 compound=true]
+  node[shape=box fontname="Courier New" fontsize=10]
+  subgraph "NS_mozilla::_ipdltest" {
+    cluster=true
+    label="mozilla::_ipdltest"
+    "SYN_0"[shape=point style=invis]
+    "T_mozilla::_ipdltest::TestDataStructuresChild"[shape=none label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4"><tr><td id="Gidn8" href="T_mozilla%3A%3A_ipdltest%3A%3ATestDataStructuresChild" port="T_mozilla___ipdltest__TestDataStructuresChild" align="left"><b>TestDataStructuresChild</b>  <U>🧮</U></td></tr><tr><td id="Gidn5" href="_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv" port="_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv" align="left">&nbsp;TestUnion</td></tr></table>> class="diagram-depth-1"]
+  }
+  subgraph "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion" {
+    cluster=true
+    label="mozilla__ipdltest::PTestDataStructures::TestUnion"
+    "SYN_1"[shape=point style=invis]
+    "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__i1"[id=Gidn1 label=<i1> class="diagram-depth-1"]
+    "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__i2"[id=Gidn3 label=<i2> class="diagram-depth-1"]
+    "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__o1"[id=Gidn2 label=<o1> class="diagram-depth-1"]
+    "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__o2"[id=Gidn4 label=<o2> class="diagram-depth-1"]
+    subgraph  {
+      rank=same
+      cluster=false
+      label=""
+      "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__i1"
+      "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__i2"
+    }
+  }
+  "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__i1" -> "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__o1" [style=solid arrowhead=normal id=Gide0 label="1" penwidth="1.0" tooltip="1 flows, ex: in mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnion"]
+  "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__i2" -> "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__o2" [style=solid arrowhead=normal id=Gide1 label="1" penwidth="1.0" tooltip="1 flows, ex: in mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnion"]
+  "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__o1" -> "T_mozilla::_ipdltest::TestDataStructuresChild":"_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv" [style=solid arrowhead=normal id=Gide2 label="1" penwidth="1.0" tooltip="1 flows, ex: in mozilla::_ipdltest::TestDataStructuresChild::TestUnion"]
+  "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__o2" -> "T_mozilla::_ipdltest::TestDataStructuresChild":"_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv" [style=solid arrowhead=normal id=Gide3 label="1" penwidth="1.0" tooltip="1 flows, ex: in mozilla::_ipdltest::TestDataStructuresChild::TestUnion"]
+  "T_mozilla::_ipdltest::TestDataStructuresChild":"_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv" -> "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__i1" [style=solid arrowhead=normal id=Gide4 label="1" penwidth="1.0" tooltip="1 flows, ex: in mozilla::_ipdltest::TestDataStructuresChild::TestUnion"]
+  "T_mozilla::_ipdltest::TestDataStructuresChild":"_ZN7mozilla9_ipdltest23TestDataStructuresChild9TestUnionEv" -> "IPC_mozilla__ipdltest_PTestDataStructures_TestUnion__i2" [style=solid arrowhead=normal id=Gide5 label="1" penwidth="1.0" tooltip="1 flows, ex: in mozilla::_ipdltest::TestDataStructuresChild::TestUnion"]
+}
