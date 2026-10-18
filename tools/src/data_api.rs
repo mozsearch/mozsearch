@@ -70,6 +70,8 @@
 //!   `format::outline_diff_data`).
 //! - `explore-keys?kind=bug|phab&keys=`: the data of the explore page of bugs
 //!   or Phabricator revisions (see `format::explore_page_data`).
+//! - `map-rev?kind=hg|old&from=`: the tree's revision for an hg revision or
+//!   an old git repository's (`null` if it has none).
 //! - `stack-strip?stack=&commit=&path=`: a file's stack strip for a stack
 //!   page (see `format::stack_strip_json`).
 //! - `try-status?push=` and POST `try-import?push=`: a try push's import's
@@ -339,6 +341,13 @@ const ROUTES: &[Route] = &[
         name: "explore-keys",
         takes_path: false,
         params: &["kind", "keys"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "map-rev",
+        takes_path: false,
+        params: &["kind", "from"],
         host: Host::PipelineServer,
         post: false,
     },
@@ -940,6 +949,19 @@ async fn route_body(
                 bytes: json.into_bytes(),
             })
         }
+        "map-rev" => {
+            let kind = params.required("kind")?;
+            let rev = params.required("from")?;
+            let valid_rev =
+                (7..=40).contains(&rev.len()) && rev.bytes().all(|b| b.is_ascii_hexdigit());
+            if !matches!(kind, "hg" | "old") || !valid_rev {
+                return Err(bad("kind must be hg or old, and from a revision"));
+            }
+            let mapped = server.map_rev(kind, rev).await.map_err(error)?;
+            Ok(Body::json(
+                &serde_json::to_value(mapped).unwrap_or_default(),
+            ))
+        }
         "explore-keys" => {
             let kind = params.required("kind")?;
             let keys = params.required("keys")?;
@@ -1480,6 +1502,17 @@ mod tests {
             "a\nb",
         ] {
             assert!(!valid_tree_path(path), "{:?}", path);
+        }
+    }
+
+    #[test]
+    fn test_routes_params() {
+        // (A route's own parameters can't be the common ones, ex: `rev`, a
+        // try push's context.)
+        for route in ROUTES {
+            for param in route.params {
+                assert!(!COMMON_PARAMS.contains(param), "{}: {}", route.name, param);
+            }
         }
     }
 

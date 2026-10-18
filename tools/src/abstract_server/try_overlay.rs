@@ -242,6 +242,10 @@ impl AbstractServer for TryOverlay {
         self.base.commit_page(rev).await
     }
 
+    async fn map_rev(&self, kind: &str, rev: &str) -> Result<Option<String>> {
+        self.base.map_rev(kind, rev).await
+    }
+
     async fn explore_keys(&self, kind: &str, keys: &str) -> Result<Value> {
         self.base.explore_keys(kind, keys).await
     }

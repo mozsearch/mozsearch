@@ -637,6 +637,14 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The tree's git revision for the revision `rev` of another kind: an hg
+    /// revision (`kind` "hg"; ex: firefox's, by git-cinnabar's mapping) or a
+    /// revision of the tree's old git repository ("old"; see
+    /// `TreeConfigPaths::oldgit_path`), if it has one.
+    async fn map_rev(&self, _kind: &str, _rev: &str) -> Result<Option<String>> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The try push this is the tree as changed by, if it's a `try_overlay`.
     fn try_delta_meta(&self) -> Option<crate::try_delta::TryDeltaMeta> {
         None

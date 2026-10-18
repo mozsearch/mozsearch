@@ -364,6 +364,46 @@ impl AbstractServer for LocalIndex {
             .map_err(|message| bad_input(message.to_string()))
     }
 
+    async fn map_rev(&self, kind: &str, rev: &str) -> Result<Option<String>> {
+        match kind {
+            "hg" => {
+                let Some(git_path) = &self.config_paths.git_path else {
+                    return Ok(None);
+                };
+                // (The system git, with SHA-1 collision detection, since
+                // this works on a source repo; see `fast_import_git` for our
+                // git.)
+                let output = std::process::Command::new("git")
+                    .arg("cinnabar")
+                    .arg("hg2git")
+                    .arg(rev)
+                    .current_dir(git_path)
+                    .output()?;
+                let mapped = crate::git_ops::decode_bytes(output.stdout)
+                    .trim()
+                    .to_string();
+                // (Unknown revisions map to zeroes.)
+                Ok((output.status.success()
+                    && !mapped.is_empty()
+                    && mapped.bytes().any(|b| b != b'0'))
+                .then_some(mapped))
+            }
+            "old" => {
+                let cfg = self.tree_config_loaded();
+                let Ok(old) = git2::Oid::from_str(rev) else {
+                    return Ok(None);
+                };
+                Ok(cfg
+                    .trees
+                    .get(&self.tree_name)
+                    .and_then(|tree| tree.git.as_ref())
+                    .and_then(|git| git.new_rev_for_old_rev(old))
+                    .map(|new| new.to_string()))
+            }
+            _ => Err(bad_input(format!("Unknown kind of revision: {}", kind))),
+        }
+    }
+
     async fn rev_dir(&self, rev: &str, path: &str) -> Result<Option<Value>> {
         let cfg = self.tree_config_loaded();
         crate::format::rev_dir_data(&cfg, &self.tree_name, rev, path)

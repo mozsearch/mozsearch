@@ -9,10 +9,8 @@ use std::io::BufReader;
 use std::io::{Read, Write};
 use std::net::SocketAddr;
 use std::path::Path;
-use std::process::Command;
 use std::sync::{Arc, LazyLock, Mutex};
 
-use git2::Oid;
 use hyper::http;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
@@ -29,11 +27,9 @@ use tools::commit_index::CommitIndex;
 use tools::data_api;
 use tools::diagnostics::diagnostics_from_config;
 use tools::file_format::config;
-use tools::file_format::identifiers::IdentMap;
 use tools::file_format::jumpref::PrefetchedJumprefs;
 use tools::file_format::per_file_info::path_facet_map;
 use tools::format;
-use tools::git_ops;
 use ustr::UstrMap;
 
 use tools::sidecars;
@@ -277,6 +273,29 @@ fn rev_file_page(
     ))
 }
 
+/// A redirect to the tree's `page` (ex: "rev", with `rest` after the revision)
+/// for the revision `rev` of another kind (see `AbstractServer::map_rev`).
+fn redirect_mapped_rev(
+    tree_name: &str,
+    kind: &str,
+    rev: &str,
+    page: &str,
+    rest: &str,
+) -> WebResponse {
+    let Some(server) = tree_server(tree_name) else {
+        return WebResponse::not_found();
+    };
+    let (server, kind_, rev_) = (server.clonify(), kind.to_string(), rev.to_string());
+    match format::run_on_runtime(async move { server.map_rev(&kind_, &rev_).await }) {
+        Ok(Some(mapped)) => WebResponse::redirect(match rest {
+            "" => format!("/{}/{}/{}", tree_name, page, mapped),
+            rest => format!("/{}/{}/{}/{}", tree_name, page, mapped, rest),
+        }),
+        Ok(None) => WebResponse::not_found(),
+        Err(err) => WebResponse::internal_error(server_error_message(&err)),
+    }
+}
+
 /// What a server's error says, for a page (the message of its reasons, ex:
 /// "Bad revision").
 fn server_error_message(err: &tools::abstract_server::ServerError) -> String {
@@ -304,11 +323,7 @@ impl data_api::ApiServers for WebApiServers {
     }
 }
 
-fn handle(
-    cfg: &config::Config,
-    ident_map: &HashMap<String, IdentMap>,
-    req: WebRequest,
-) -> WebResponse {
+fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
     let path = url_decode_path(req.path);
     let path = path[1..].split('/').collect::<Vec<_>>();
 
@@ -674,31 +689,7 @@ fn handle(
                 return WebResponse::not_found();
             }
 
-            let tree_config = &cfg.trees[*tree_name];
-            let git_path = match tree_config.get_git_path() {
-                Ok(git_path) => git_path,
-                Err(_) => return WebResponse::not_found(),
-            };
-
-            let hg_rev = path[2];
-            // (The system git, with SHA-1 collision detection, since this works on a
-            // source repo; see `fast_import_git` for our git.)
-            let output_result = Command::new("git")
-                .arg("cinnabar")
-                .arg("hg2git")
-                .arg(hg_rev)
-                .current_dir(git_path)
-                .output();
-            match output_result {
-                Ok(output) if output.status.success() => WebResponse::redirect(format!(
-                    "/{}/rev/{}/{}",
-                    tree_name,
-                    git_ops::decode_bytes(output.stdout).trim(),
-                    path[3..].join("/")
-                )),
-                Ok(_) => WebResponse::not_found(),
-                Err(err) => WebResponse::internal_error(format!("{:?}", err)),
-            }
+            redirect_mapped_rev(tree_name, "hg", path[2], "rev", &path[3..].join("/"))
         }
 
         "oldrev" => {
@@ -706,30 +697,29 @@ fn handle(
                 return WebResponse::not_found();
             }
 
-            let tree_config = &cfg.trees[*tree_name];
-            let old_rev = path[2];
-            match (&tree_config.git, Oid::from_str(old_rev)) {
-                (Some(gitdata), Ok(old_oid)) => match gitdata.new_rev_for_old_rev(old_oid) {
-                    Some(new_oid) => WebResponse::redirect(format!(
-                        "/{}/rev/{}/{}",
-                        tree_name,
-                        new_oid,
-                        path[3..].join("/")
-                    )),
-                    _ => WebResponse::not_found(),
-                },
-                _ => WebResponse::not_found(),
-            }
+            redirect_mapped_rev(tree_name, "old", path[2], "rev", &path[3..].join("/"))
         }
 
         "source" => {
             let path = path.clone().split_off(2);
             let path = path.join("/");
 
-            let tree_config = &cfg.trees[*tree_name];
-
-            let path = format!("{}/file/{}", tree_config.paths.index_path, path);
-            handle_static(path, Some("text/html"))
+            // (Usually nginx's; over the tree's server.  A file's listing, or
+            // else a directory's, as nginx's `try_files` does.)
+            let Some(server) = tree_server(tree_name) else {
+                return WebResponse::not_found();
+            };
+            let server = server.clonify();
+            match format::run_on_runtime(async move {
+                use tools::abstract_server::HtmlFileRoot;
+                match server.fetch_html(HtmlFileRoot::FormattedFile, &path).await {
+                    Ok(html) => Ok(html),
+                    Err(_) => server.fetch_html(HtmlFileRoot::FormattedDir, &path).await,
+                }
+            }) {
+                Ok(html) => WebResponse::html(html),
+                Err(_) => WebResponse::not_found(),
+            }
         }
 
         "diff" => {
@@ -806,20 +796,7 @@ fn handle(
                 return WebResponse::not_found();
             }
 
-            let tree_config = &cfg.trees[*tree_name];
-            let old_rev = path[2];
-            match (&tree_config.git, Oid::from_str(old_rev)) {
-                (Some(gitdata), Ok(old_oid)) => match gitdata.new_rev_for_old_rev(old_oid) {
-                    Some(new_oid) => WebResponse::redirect(format!(
-                        "/{}/diff/{}/{}",
-                        tree_name,
-                        new_oid,
-                        path[3..].join("/")
-                    )),
-                    _ => WebResponse::not_found(),
-                },
-                _ => WebResponse::not_found(),
-            }
+            redirect_mapped_rev(tree_name, "old", path[2], "diff", &path[3..].join("/"))
         }
 
         // `/{tree}/explore/bug/{bugs}` and `/{tree}/explore/phab/{revs}`; see
@@ -887,17 +864,7 @@ fn handle(
                 return WebResponse::not_found();
             }
 
-            let tree_config = &cfg.trees[*tree_name];
-            let old_rev = path[2];
-            match (&tree_config.git, Oid::from_str(old_rev)) {
-                (Some(gitdata), Ok(old_oid)) => match gitdata.new_rev_for_old_rev(old_oid) {
-                    Some(new_oid) => {
-                        WebResponse::redirect(format!("/{}/commit/{}", tree_name, new_oid,))
-                    }
-                    _ => WebResponse::not_found(),
-                },
-                _ => WebResponse::not_found(),
-            }
+            redirect_mapped_rev(tree_name, "old", path[2], "commit", "")
         }
 
         // We don't have an "oldcommit-info" because this endpoint is only for
@@ -1019,11 +986,23 @@ fn handle(
         }
 
         "complete" => {
-            if let Some(ids) = ident_map.get(&tree_name.to_string()) {
-                let json = ids.lookup_json(path[2], false, false, 6);
-                WebResponse::json(json)
-            } else {
-                WebResponse::not_found()
+            // (Over the tree's server, as `IdentMap::lookup_json` would give
+            // them.)
+            let Some(server) = tree_server(tree_name) else {
+                return WebResponse::not_found();
+            };
+            let (server, prefix) = (server.clonify(), path[2].to_string());
+            match format::run_on_runtime(async move {
+                server.search_identifiers(&prefix, false, false, 6).await
+            }) {
+                Ok(ids) => {
+                    let ids: Vec<serde_json::Value> = ids
+                        .into_iter()
+                        .map(|(symbol, id)| serde_json::json!({ "id": id, "symbol": symbol }))
+                        .collect();
+                    WebResponse::json(serde_json::Value::Array(ids).to_string())
+                }
+                Err(_) => WebResponse::not_found(),
             }
         }
 
@@ -1063,10 +1042,8 @@ async fn main() {
     } else {
         config::load(&trees, true, None, None, None)
     };
-    let ident_map = IdentMap::load(&cfg);
 
     let cfg = Arc::new(cfg);
-    let ident_map = Arc::new(ident_map);
 
     {
         // We *append* to the status file because other server components
@@ -1146,7 +1123,6 @@ async fn main() {
         let io = TokioIo::new(stream);
 
         let cfg = cfg.clone();
-        let ident_map = ident_map.clone();
         tokio::spawn(async move {
             let handler = async |req: http::Request<_>| {
                 // (Only a try push's page takes POSTs, to import it, as does
@@ -1189,11 +1165,10 @@ async fn main() {
                     };
                     let _permit = SEMAPHORE.acquire().await.unwrap();
                     let cfg = cfg.clone();
-                    let ident_map = ident_map.clone();
                     match tokio::task::spawn_blocking(move || {
                         let path = req.uri().path();
                         let query = req.uri().query().unwrap_or("");
-                        let response = handle(&cfg, &ident_map, WebRequest { path, query, post });
+                        let response = handle(&cfg, WebRequest { path, query, post });
                         let written =
                             !post && query.is_empty() && write_page_sidecar(&cfg, path, &response);
                         (response, written)

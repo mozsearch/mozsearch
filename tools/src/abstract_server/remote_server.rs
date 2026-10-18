@@ -729,6 +729,14 @@ impl AbstractServer for RemoteServer {
         )
     }
 
+    async fn map_rev(&self, kind: &str, rev: &str) -> Result<Option<String>> {
+        parse(
+            &self
+                .api("map-rev", None, &[("kind", kind), ("from", rev)])
+                .await?,
+        )
+    }
+
     async fn rev_dir(&self, rev: &str, path: &str) -> Result<Option<Value>> {
         parse(
             &self

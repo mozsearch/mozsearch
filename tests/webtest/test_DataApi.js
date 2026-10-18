@@ -108,6 +108,8 @@ add_task(async function test_DataApiRoutes() {
      "but not of a side whose first commit has no parent");
   const bug = await getJson("/searchfox/api/v1/explore-keys?kind=bug&keys=1975601");
   ok(bug.title == "Bug 1975601" && bug.explore?.commits?.length, "and a bug's explore page's");
+  is(await getJson(`${API}/map-rev?kind=old&from=${LANDED}`), null,
+     "and revisions of other kinds a tree doesn't have aren't mapped");
   const commitPage = await getJson(`${API}/commit?commit=${LANDED}`);
   ok(commitPage.content?.includes("Let widgets shrink"), "and a commit's page's");
   const infos = await getJson(`${API}/commit-info?revs=${LANDED}`);
