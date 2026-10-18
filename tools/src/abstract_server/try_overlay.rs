@@ -212,6 +212,10 @@ impl AbstractServer for TryOverlay {
         self.base.explore(revs, stack_url).await
     }
 
+    async fn rev_dir(&self, rev: &str, path: &str) -> Result<Option<Value>> {
+        self.base.rev_dir(rev, path).await
+    }
+
     fn path_kinds(&self) -> Vec<(Ustr, Ustr)> {
         self.base.path_kinds()
     }

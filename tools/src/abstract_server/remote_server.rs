@@ -612,6 +612,14 @@ impl AbstractServer for RemoteServer {
         parse(&self.api_live("try-push", &[("push", push)], false).await?)
     }
 
+    async fn rev_dir(&self, rev: &str, path: &str) -> Result<Option<Value>> {
+        parse(
+            &self
+                .api("rev-dir", None, &[("commit", rev), ("path", path)])
+                .await?,
+        )
+    }
+
     async fn explore(&self, revs: &[String], stack_url: Option<&str>) -> Result<Value> {
         let revs = revs.join(",");
         let mut params = vec![("revs", revs.as_str())];

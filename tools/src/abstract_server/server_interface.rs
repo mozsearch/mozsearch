@@ -543,6 +543,12 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The data of the listing of the directory at `path` in the revision
+    /// `rev` (see `format::rev_dir_data`), if it's a directory there.
+    async fn rev_dir(&self, _rev: &str, _path: &str) -> Result<Option<Value>> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The try push this is the tree as changed by, if it's a `try_overlay`.
     fn try_delta_meta(&self) -> Option<crate::try_delta::TryDeltaMeta> {
         None

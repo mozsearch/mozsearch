@@ -200,9 +200,29 @@ pub struct LocalIndex {
 
 impl LocalIndex {
     /// The tree's configuration, with its git repositories (see
-    /// `config_file`).
-    fn tree_config_loaded(&self) -> crate::file_format::config::Config {
-        load(&self.config_file, false, Some(&self.tree_name), None, None)
+    /// `config_file`), loaded once per thread (git repositories aren't
+    /// `Sync`, but they're `Send`).
+    fn tree_config_loaded(&self) -> std::rc::Rc<crate::file_format::config::Config> {
+        thread_local! {
+            static LOADED: std::cell::RefCell<
+                HashMap<(String, String), std::rc::Rc<crate::file_format::config::Config>>,
+            > = Default::default();
+        }
+        LOADED.with(|loaded| {
+            loaded
+                .borrow_mut()
+                .entry((self.config_file.clone(), self.tree_name.clone()))
+                .or_insert_with(|| {
+                    std::rc::Rc::new(load(
+                        &self.config_file,
+                        false,
+                        Some(&self.tree_name),
+                        None,
+                        None,
+                    ))
+                })
+                .clone()
+        })
     }
 
     fn file_lookup_map(&self) -> &FileLookupMap {
@@ -257,6 +277,12 @@ impl AbstractServer for LocalIndex {
         let push = normalized_push(push)?;
         let cfg = self.tree_config_loaded();
         Ok(crate::try_import::try_push(&cfg, &self.tree_name, &push))
+    }
+
+    async fn rev_dir(&self, rev: &str, path: &str) -> Result<Option<Value>> {
+        let cfg = self.tree_config_loaded();
+        crate::format::rev_dir_data(&cfg, &self.tree_name, rev, path)
+            .map_err(|message| bad_input(message.to_string()))
     }
 
     async fn explore(&self, revs: &[String], stack_url: Option<&str>) -> Result<Value> {

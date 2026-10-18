@@ -78,6 +78,13 @@ add_task(async function test_DataApiRoutes() {
   const lines = await getJson(`${API}/changed-lines?spec=${LANDED}`);
   ok(lines.files?.["widget.cpp"]?.added?.length, "The lines a commit changes are there");
 
+  const dir = await getJson(`${API}/rev-dir?commit=${LANDED}&path=`);
+  is(dir.rev, LANDED, "A directory's listing at a revision is there");
+  ok(dir.files?.some(file => file.path == "widget.cpp" && file.concise.file_size > 0),
+     "with its files' sizes");
+  is(await getJson(`${API}/rev-dir?commit=${LANDED}&path=widget.cpp`), null,
+     "but files aren't directories");
+
   const formatted = await getJson(`${API}/formatted-lines/widget.cpp`);
   ok(formatted.lines?.some(line => line.includes(OLD_FROB)),
      "Files' source listings' lines are there");

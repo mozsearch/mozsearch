@@ -361,6 +361,28 @@ fn handle(
             }
 
             let mut writer = Vec::new();
+            // (Directories' listings over the tree's server; see
+            // `tree_server`.)
+            if let Some(server) = tree_server(tree_name) {
+                let (server, rev_, path_) = (server.clonify(), rev.to_string(), path.clone());
+                match format::run_on_runtime(async move { server.rev_dir(&rev_, &path_).await }) {
+                    Ok(Some(data)) => {
+                        return match format::render_dir_listing(
+                            tree_name,
+                            rev,
+                            &path,
+                            data,
+                            &mut writer,
+                        ) {
+                            Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                            Err(err) => WebResponse::internal_error(err.to_owned()),
+                        };
+                    }
+                    Ok(None) => {}
+                    Err(_) if cfg.trees.get(*tree_name).is_some_and(|t| t.git.is_some()) => {}
+                    Err(err) => return WebResponse::internal_error(format!("{:?}", err)),
+                }
+            }
             match format::format_path(cfg, tree_name, rev, &path, &mut writer) {
                 Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
                 Err(err) => WebResponse::internal_error(err.to_owned()),

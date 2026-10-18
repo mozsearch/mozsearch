@@ -46,6 +46,9 @@
 //!   imported).
 //! - `explore?revs=a,b[&stack_url=]`: the data of the explore page of commits
 //!   (see `format::explore_data`).
+//! - `rev-dir?commit=[&path=]`: the data of a directory's listing at a
+//!   revision (`null` if it isn't a directory there; see
+//!   `format::rev_dir_data`).
 //! - `try-status?push=` and POST `try-import?push=`: a try push's import's
 //!   status, and asking for its import; served by the web-server, which
 //!   performs imports (see `Host`).
@@ -254,6 +257,13 @@ const ROUTES: &[Route] = &[
         post: false,
     },
     Route {
+        name: "rev-dir",
+        takes_path: false,
+        params: &["commit", "path"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
         name: "tree-info",
         takes_path: false,
         params: &[],
@@ -442,6 +452,17 @@ const MAX_EXPLORE_REVS: usize = 200;
 fn push_param(params: &Params) -> Result<String, ApiError> {
     crate::try_import::normalize_rev(params.required("push")?)
         .ok_or_else(|| bad("push must be a try push's revision (12 to 40 hexadecimal digits)"))
+}
+
+/// A revision (7 to 40 hexadecimal digits), from the `commit` parameter.
+fn commit_param(params: &Params) -> Result<String, ApiError> {
+    let commit = params.required("commit")?;
+    ((7..=40).contains(&commit.len())
+        && commit
+            .bytes()
+            .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()))
+    .then(|| commit.to_string())
+    .ok_or_else(|| bad("commit must be a revision (7 to 40 hexadecimal digits)"))
 }
 
 /// The most lines `html-lines` gives at once.
@@ -714,6 +735,15 @@ async fn route_body(
         "try-push" => {
             let push = server.try_push(&push_param(params)?).await.map_err(error)?;
             Ok(Body::json(&serde_json::to_value(push).unwrap_or_default()))
+        }
+        "rev-dir" => {
+            let commit = commit_param(params)?;
+            let path = params.get("path").unwrap_or_default();
+            if !path.is_empty() && !valid_tree_path(path.trim_end_matches('/')) {
+                return Err(bad(format!("Not a path in the tree: {:?}", path)));
+            }
+            let data = server.rev_dir(&commit, path).await.map_err(error)?;
+            Ok(Body::json(&data.unwrap_or(Value::Null)))
         }
         "explore" => {
             let revs: Vec<String> = params

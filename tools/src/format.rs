@@ -4958,6 +4958,11 @@ pub fn format_path(
     path: &str,
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
+    // (Directories' listings; see `rev_dir_data`.)
+    if let Some(data) = rev_dir_data(cfg, tree_name, rev, path)? {
+        return render_dir_listing(tree_name, rev, path, data, writer);
+    }
+
     // Get the file data.
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
@@ -4986,41 +4991,48 @@ pub fn format_path(
                 blob,
             )
         }
-        Some(git2::ObjectType::Tree) => {
-            let tree = object
-                .into_tree()
-                .expect("Should really be a tree, we just checked the object kind.");
-
-            // (A try push's rebased head's searches are of the push; see
-            // `try_delta`.)
-            let search_rev = Some(commit.id().to_string()).filter(|head| {
-                crate::try_delta::delta_dir(&tree_config.paths.index_path, head)
-                    .join("meta.json")
-                    .exists()
-            });
-            format_tree(
-                tree_name, rev, path, writer, git, commit, &repo, tree, search_rev,
-            )
-        }
         _ => Err("Invalid path"),
     }
 }
 
-fn format_tree(
+/// The data of the listing of the directory at `path` in the revision `rev`
+/// (see `render_dir_listing`), if it's a directory there: the revision's
+/// commit (`rev`, `desc_html`, and `date`), its `files` (as `FileMatch`es,
+/// with their sizes and coverage), its `coverage` and `coverage_history`,
+/// the coverage summary for its panel (`coverage_panel`), and the try push
+/// whose context its searches are in (`search_rev`).  (For trees' servers;
+/// see `AbstractServer::rev_dir`.)
+pub fn rev_dir_data(
+    cfg: &Config,
     tree_name: &str,
     rev: &str,
-    path: &Path,
-    writer: &mut dyn Write,
-    git: &GitData,
-    commit: git2::Commit<'_>,
-    repo: &Repository,
-    tree: Tree<'_>,
-    search_rev: Option<String>,
-) -> Result<(), &'static str> {
+    path: &str,
+) -> Result<Option<serde_json::Value>, &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
+    let path = Path::new(path.trim_end_matches('/'));
+    let (repo, oid) = get_object_at(OwnedOrBorrowed::Borrowed(&git.repo), commit_obj.id(), path)?;
+    let object = repo
+        .find_object(oid, None)
+        .map_err(|_| "Failed to retrieve git object from id")?;
+    if object.kind() != Some(git2::ObjectType::Tree) {
+        return Ok(None);
+    }
+    let tree = object
+        .into_tree()
+        .expect("Should really be a tree, we just checked the object kind.");
+    let commit = commit_obj.into_commit().or(Err("Bad revision"))?;
+
+    // (A try push's rebased head's searches are of the push; see
+    // `try_delta`.)
+    let search_rev = Some(commit.id().to_string()).filter(|head| {
+        crate::try_delta::delta_dir(&tree_config.paths.index_path, head)
+            .join("meta.json")
+            .exists()
+    });
     let desc_html = blame::commit_header(&commit)?;
-
     let coverage_rev = format!("refs/tags/reverse/all/all/{}", commit.id());
-
     let files = tree
         .iter()
         .map(|entry| {
@@ -5034,7 +5046,7 @@ fn format_tree(
                 0
             } else {
                 let object = entry
-                    .to_object(repo)
+                    .to_object(&repo)
                     .or(Err("Failed to map git TreeEntry to Object"))?;
                 object.into_blob().map_or(0, |blob| blob.size())
             };
@@ -5062,6 +5074,48 @@ fn format_tree(
         })
         .collect::<Result<Vec<_>, &str>>()?;
 
+    let coverage_history = coverage_history(Some(git), path);
+    let coverage = git_ops::coverage_summary(Some(git), &coverage_rev, path);
+    let coverage_panel = match coverage_history {
+        Some(_) => git
+            .coverage_repo
+            .as_ref()
+            .and_then(|repo| {
+                repo.revparse_single(&format!("refs/tags/reverse/all/all/{}", commit.id()))
+                    .ok()
+                    .and_then(|object| object.peel_to_commit().ok())
+            })
+            .and_then(|commit| {
+                git_ops::coverage_summary(Some(git), &commit.id().to_string(), path)
+            }),
+        None => None,
+    };
+    let date = git_time_to_chrono(commit.time())
+        .format("%F %T %z")
+        .to_string();
+    Ok(Some(json!({
+        "rev": commit.id().to_string(),
+        "desc_html": desc_html,
+        "date": date,
+        "files": files,
+        "coverage": coverage,
+        "has_coverage_history": coverage_history.is_some(),
+        "coverage_history": coverage_history,
+        "coverage_panel": coverage_panel,
+        "search_rev": search_rev,
+    })))
+}
+
+/// The listing of the directory at `path` in the revision `rev`, with its
+/// `data` (see `rev_dir_data`).
+pub fn render_dir_listing(
+    tree_name: &str,
+    rev: &str,
+    path: &str,
+    data: serde_json::Value,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let path = Path::new(path.trim_end_matches('/'));
     let mut panel = vec![PanelSection {
         name: "Revision control".to_owned(),
         items: vec![PanelItem {
@@ -5076,42 +5130,32 @@ fn format_tree(
         }],
         raw_items: vec![],
     }];
-
-    let coverage_history = coverage_history(Some(git), path);
-    let coverage = git_ops::coverage_summary(Some(git), &coverage_rev, path);
-    if coverage_history.is_some() {
-        let coverage_commit = git.coverage_repo.as_ref().and_then(|repo| {
-            repo.revparse_single(&format!("refs/tags/reverse/all/all/{}", commit.id()))
-                .ok()
-                .and_then(|object| object.peel_to_commit().ok())
-        });
-        let coverage_summary = coverage_commit.as_ref().and_then(|commit| {
-            let coverage_rev = commit.id().to_string();
-            git_ops::coverage_summary(Some(git), &coverage_rev, path)
-        });
-        add_coverage_panel_item(&mut panel, coverage_summary.as_ref());
+    if data["has_coverage_history"].as_bool() == Some(true) {
+        let summary: Option<code_coverage_report::NodeMetadata> =
+            serde_json::from_value(data["coverage_panel"].clone()).ok();
+        add_coverage_panel_item(&mut panel, summary.as_ref());
     }
 
-    let commit_hash = commit.id().to_string();
-    let date = git_time_to_chrono(commit.time());
-    let date = date.format("%F %T %z").to_string();
-    let date = liquid::model::DateTime::from_str(&date).unwrap();
-
+    let commit_hash = data["rev"].as_str().unwrap_or_default();
+    let date = liquid::model::DateTime::from_str(data["date"].as_str().unwrap_or_default())
+        .ok_or("Bad date")?;
+    let search_rev = data["search_rev"].as_str().map(str::to_string);
     let liquid_globals = liquid::object!({
         "tree": tree_name,
         // the header always needs this
         "query": "",
         "path": path,
-        "files": files,
+        "files": liquid::model::to_value(&data["files"]).map_err(|_| "Template problems")?,
         "rev": rev,
         "rev_box": {
             "long": commit_hash,
-            "short": &commit_hash[..8],
-            "desc_html": desc_html,
+            "short": &commit_hash[..commit_hash.len().min(8)],
+            "desc_html": data["desc_html"].as_str().unwrap_or_default(),
             "date": date,
         },
-        "coverage": coverage,
-        "coverage_history": coverage_history,
+        "coverage": liquid::model::to_value(&data["coverage"]).map_err(|_| "Template problems")?,
+        "coverage_history": liquid::model::to_value(&data["coverage_history"])
+            .map_err(|_| "Template problems")?,
         "panel": panel,
         "search_url": match &search_rev {
             Some(_) => format!("/{}/query/default", tree_name),
