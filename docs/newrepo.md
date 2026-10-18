@@ -105,7 +105,8 @@ optionally `upload-after-index`, which runs after the indexing on release channe
 besides the index (ex: firefox-try's sandbox for building try pushes), and `import-try`, with which a tree with a `history_path` lets the web server import try pushes into its history for
 reviewing them at `/{tree}/try/{rev}`; see `tools/src/try_import.rs` and `tests/spechist/import-try`).  An
 `import-try` script can also give a push semantic analysis: rebase its stack onto the indexed revision with
-`scripts/rebase-try-push.sh`, compile what it changes with the indexer, and build its semantic delta from that
+`scripts/rebase-try-push.sh` (which leaves out the stack's commits which have landed since it diverged, by their
+changes or their Phabricator revisions, and logs them, for the push's page), compile what it changes with the indexer, and build its semantic delta from that
 analysis with `build-try-delta` (see `tools/src/try_delta.rs` and `tests/trydelta/analyze-try`).  If it logs its steps
 as `Performing semantic::STEP step` lines, a push whose analysis failed has its page say in which step and why
 (see `semantic_failure` in `tools/src/try_import.rs`).  The rebased

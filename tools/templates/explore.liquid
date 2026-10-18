@@ -18,8 +18,21 @@
   {%- if note %}
   <p class="explore-note">{{ note | escape }}</p>
   {%- endif %}
+  {%- if landed.size > 0 %}
+  <div class="explore-note explore-landed">{% if landed.size == 1 %}One of its commits has{% else %}{{ landed.size }} of its commits have{% endif %} landed since it diverged from the trunk, so its semantic analysis leaves {% if landed.size == 1 %}it{% else %}them{% endif %} out:
+    <ul>
+      {%- for commit in landed %}
+      <li><a href="/{{tree}}/commit/{{ commit.rev | escape }}">{{ commit.summary | escape }}</a>, as <a class="explore-landed-as" href="/{{tree}}/commit/{{ commit.landed | escape }}">{{ commit.landed | slice: 0, 12 }}</a>{% unless commit.same_changes %} (the same Phabricator revision, which may have changed before it landed: {{ commit.landed_summary | escape }}){% endunless %}</li>
+      {%- endfor %}
+    </ul>
+  </div>
+  {%- endif %}
   {%- if semantic_failure %}
-  <p class="explore-note explore-semantic-failure">Its semantic analysis, for jumps and references in what it changes, failed in its <code>{{ semantic_failure.step | escape }}</code> step{% if semantic_failure.error %}: {{ semantic_failure.error | escape }}{% else %}.{% endif %}{% if semantic_failure.conflicts.size > 0 %} The files whose changes conflict: {{ semantic_failure.conflicts | join: ", " | escape }}.{% endif %}</p>
+  {%- if semantic_failure.all_landed %}
+  <p class="explore-note explore-semantic-failure">All of its commits (but those selecting try's tasks) have landed, so there's nothing for its semantic analysis to analyze: the indexed revision has its changes.</p>
+  {%- else %}
+  <p class="explore-note explore-semantic-failure">Its semantic analysis, for jumps and references in what it changes, failed in its <code>{{ semantic_failure.step | escape }}</code> step{% if semantic_failure.error %}: {{ semantic_failure.error | escape }}{% else %}.{% endif %}{% if semantic_failure.conflicting_commit %} The commit whose changes conflict: {{ semantic_failure.conflicting_commit | escape }}.{% endif %}{% if semantic_failure.conflicts.size > 0 %} The files whose changes conflict: {{ semantic_failure.conflicts | join: ", " | escape }}.{% endif %}</p>
+  {%- endif %}
   {%- endif %}
   {%- if semantic_head %}
   <p class="explore-note explore-semantic-head">Its stack rebased onto the indexed revision has semantic analysis: <a href="/{{tree}}/rev/{{ semantic_head | escape }}/">browse it</a>, with jumps and references, where searches (like this page's) are of the push, or see <a class="explore-canvas" href="/{{tree}}/rev-canvas/{{ semantic_head | escape }}">the functions it adds or changes and their calls on a canvas</a>.</p>

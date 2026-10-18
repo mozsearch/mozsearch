@@ -4607,7 +4607,13 @@ fn revision_token_blame(
         path,
         BreadcrumbsLinksTo::Historical,
     );
-    keep_page_data(tree_config, tree_name, &commit.id().to_string(), path, &page);
+    keep_page_data(
+        tree_config,
+        tree_name,
+        &commit.id().to_string(),
+        path,
+        &page,
+    );
     Some(page)
 }
 
@@ -4617,7 +4623,13 @@ fn revision_token_blame(
 /// `sidecars`), which nginx serves, and in `PAGE_DATA_CACHE`, for its
 /// `commits.json` (which we only generate if it's requested), and for requests
 /// before the files are written.
-fn keep_page_data(tree_config: &TreeConfig, tree_name: &str, rev: &str, path: &str, page: &PageBlame) {
+fn keep_page_data(
+    tree_config: &TreeConfig,
+    tree_name: &str,
+    rev: &str,
+    path: &str,
+    page: &PageBlame,
+) {
     let data = PageData::new(page);
     write_page_data_sidecars(tree_config, tree_name, rev, path, &data, None);
     PAGE_DATA_CACHE.insert(
@@ -7759,6 +7771,7 @@ pub fn render_explore_page(
         scopes: vec![],
         semantic_head: None,
         semantic_failure: None,
+        landed: vec![],
     };
     let title = data["title"].as_str().unwrap_or_default().to_string();
     render_explore(tree_name, &title, data["explore"].clone(), extras, writer)
@@ -8138,6 +8151,7 @@ pub fn render_history(
         scopes: data["scopes"].as_array().cloned().unwrap_or_default(),
         semantic_head: None,
         semantic_failure: None,
+        landed: vec![],
     };
     let title = data["title"].as_str().unwrap_or_default().to_string();
     render_explore(tree_name, &title, data["explore"].clone(), extras, writer)
@@ -8211,6 +8225,10 @@ struct ExploreExtras {
     semantic_head: Option<String>,
     /// For a try push without one, why, if its import's analysis failed.
     semantic_failure: Option<crate::try_import::SemanticFailure>,
+    /// For a try push, its commits which have landed (see
+    /// `try_import::LandedCommit`), as `{rev, summary, landed, landed_summary,
+    /// same_changes}`.
+    landed: Vec<serde_json::Value>,
 }
 
 /// The data of an explore page (see `render_explore`) of the commits `refs`,
@@ -8353,6 +8371,7 @@ fn render_explore(
         "scopes": extras.scopes,
         "semantic_head": extras.semantic_head,
         "semantic_failure": extras.semantic_failure,
+        "landed": extras.landed,
     }))
     .map_err(|_| "Template problems")?;
     build_and_parse_explore()
@@ -8405,6 +8424,19 @@ pub fn format_try(
                 explore_url,
                 // (And if it has none, why, if its import's analysis failed.)
                 semantic_failure: push.semantic_failure,
+                landed: push
+                    .landed
+                    .iter()
+                    .map(|landed| {
+                        json!({
+                            "rev": landed.rev,
+                            "summary": landed.rev_summary,
+                            "landed": landed.landed,
+                            "landed_summary": landed.summary,
+                            "same_changes": landed.same_changes,
+                        })
+                    })
+                    .collect(),
                 note: Some(format!(
                     "Its stack (its commits since it diverged from the trunk{}), imported into \
                      this tree's history, for its commits' blame and what they changed{}.",

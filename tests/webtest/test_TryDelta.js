@@ -368,6 +368,31 @@ add_task(async function test_TryCanvasClustersError() {
      `and the browser's: ${note().textContent}`);
 });
 
+// A push whose stack has a commit which has landed since it diverged: its
+// semantic analysis leaves that commit out (rather than its changes
+// conflicting with the landed commit's), which its page says: 1a2b3c4d5e6f is
+// based on the tree's first revision, its first commit is the second's
+// changes, and its second commit uses them.
+add_task(async function test_TryDeltaLanded() {
+  await TestUtils.loadPath("/trydelta/try/1a2b3c4d5e6f");
+  if (!doc().querySelector(".explore-page")) {
+    doc().querySelector(".try-import-button").click();
+    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+                           "The push is imported", 500, 240);
+  }
+  const landed = doc().querySelector(".explore-landed");
+  ok(landed?.textContent.includes("One of its commits has landed"), "Its page says a commit landed");
+  ok(landed?.textContent.includes("Bug 2345 - Let widgets shrink."), "which one");
+  const as = landed?.querySelector(".explore-landed-as");
+  ok(as?.getAttribute("href").match(/^\/trydelta\/commit\/[0-9a-f]{40}$/),
+     `and as what: ${as?.getAttribute("href")}`);
+  const asPage = await (await fetch(as.getAttribute("href"), { cache: "no-store" })).text();
+  ok(asPage.includes("Let widgets shrink"), "the tree's second revision");
+  ok(doc().querySelector(".explore-semantic-head"),
+     "The rest of its stack has semantic analysis");
+  ok(!doc().querySelector(".explore-semantic-failure"), "which didn't fail");
+});
+
 // A push whose changes conflict with the indexed revision's can't be analyzed
 // semantically, which its page says, with why: fedcba987654 is based on the
 // tree's first revision, and declares Widget::Grow where the second declares

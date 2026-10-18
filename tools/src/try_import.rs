@@ -166,6 +166,29 @@ pub struct TryPush {
     pub semantic_head: Option<String>,
     /// And if it has none, why, if its import's analysis failed.
     pub semantic_failure: Option<SemanticFailure>,
+    /// Its commits which have landed since it diverged from the trunk, which
+    /// its semantic analysis left out (see scripts/rebase-try-push.sh).
+    #[serde(default)]
+    pub landed: Vec<LandedCommit>,
+}
+
+/// A try push's commit which has landed, by its import's log (see
+/// scripts/rebase-try-push.sh's "Landed: " lines).
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct LandedCommit {
+    /// The push's commit.
+    pub rev: String,
+    /// The commit it landed as, in the tree's history.
+    pub landed: String,
+    /// Whether its changes are the landed commit's, rather than it being the
+    /// same Phabricator revision (which may have changed before it landed).
+    pub same_changes: bool,
+    /// The landed commit's summary (its message's first line).
+    #[serde(default)]
+    pub summary: String,
+    /// The push's commit's summary.
+    #[serde(default)]
+    pub rev_summary: String,
 }
 
 /// The imported try push `rev` (see `normalize_rev`), if the tree imported
@@ -200,12 +223,37 @@ pub fn try_push(cfg: &Config, tree_name: &str, rev: &str) -> Option<TryPush> {
         Some(_) => None,
         None => semantic_failure(cfg, tree_name, rev),
     };
+    let landed = import_log(cfg, tree_name, rev)
+        .map(|log| parse_landed(&log))
+        .unwrap_or_default()
+        .into_iter()
+        .map(|mut landed| {
+            let summary = |rev: &str| {
+                Oid::from_str(rev)
+                    .ok()
+                    .and_then(|oid| git.repo.find_commit(oid).ok())
+                    .map(|commit| {
+                        commit
+                            .summary()
+                            .ok()
+                            .flatten()
+                            .unwrap_or_default()
+                            .to_string()
+                    })
+                    .unwrap_or_default()
+            };
+            landed.summary = summary(&landed.landed);
+            landed.rev_summary = summary(&landed.rev);
+            landed
+        })
+        .collect();
     Some(TryPush {
         stack,
         truncated,
         task_selections,
         semantic_head,
         semantic_failure,
+        landed,
     })
 }
 
@@ -442,12 +490,25 @@ pub struct SemanticFailure {
     /// The files whose changes conflicted in the step, if it rebased the push
     /// (see scripts/rebase-try-push.sh).
     pub conflicts: Vec<String>,
+    /// The commit whose changes conflicted, as its hash and summary, if the
+    /// rebase said (it applies the push's commits one at a time).
+    #[serde(default)]
+    pub conflicting_commit: Option<String>,
+    /// Whether the rebase found that all of the push's commits have landed
+    /// (but those selecting try's tasks), so there's nothing to analyze.
+    #[serde(default)]
+    pub all_landed: bool,
 }
 
 /// Why the imported try push `rev` has no semantic analysis, from its
 /// import's log, if its import tried one (see `SemanticFailure`).  (The caller
 /// knows whether it has one; see `try_delta`.)
 pub fn semantic_failure(cfg: &Config, tree_name: &str, rev: &str) -> Option<SemanticFailure> {
+    parse_semantic_failure(&import_log(cfg, tree_name, rev)?)
+}
+
+/// The imported try push `rev`'s import's log, if it's there.
+fn import_log(cfg: &Config, tree_name: &str, rev: &str) -> Option<String> {
     let history = cfg.trees.get(tree_name)?.paths.history_path.as_ref()?;
     let log = fs::read(
         Path::new(history)
@@ -455,7 +516,34 @@ pub fn semantic_failure(cfg: &Config, tree_name: &str, rev: &str) -> Option<Sema
             .join(format!("{}.log", rev)),
     )
     .ok()?;
-    parse_semantic_failure(&String::from_utf8_lossy(&log))
+    Some(String::from_utf8_lossy(&log).into_owned())
+}
+
+/// The commits an import's log says landed (see `LandedCommit`), without
+/// their summaries.
+fn parse_landed(log: &str) -> Vec<LandedCommit> {
+    let mut landed: Vec<LandedCommit> = vec![];
+    for line in log.lines() {
+        let Some(rest) = line.strip_prefix("Landed: ") else {
+            continue;
+        };
+        let mut words = rest.split_whitespace();
+        let (Some(rev), Some("as"), Some(as_rev)) = (words.next(), words.next(), words.next())
+        else {
+            continue;
+        };
+        if landed.iter().any(|known| known.rev == rev) {
+            continue;
+        }
+        landed.push(LandedCommit {
+            rev: rev.to_string(),
+            landed: as_rev.to_string(),
+            same_changes: rest.ends_with("(the same changes)"),
+            summary: String::new(),
+            rev_summary: String::new(),
+        });
+    }
+    landed
 }
 
 /// `semantic_failure` for an import's log.
@@ -487,6 +575,14 @@ fn parse_semantic_failure(log: &str) -> Option<SemanticFailure> {
         })
         .map(|error| error.trim().to_string());
     let mut conflicts: Vec<String> = vec![];
+    let conflicting_commit = after
+        .iter()
+        .rev()
+        .find_map(|line| line.strip_prefix("Conflicting commit: "))
+        .map(|commit| commit.trim().to_string());
+    let all_landed = after
+        .iter()
+        .any(|line| line.trim() == "All of the push's commits have landed.");
     for line in after {
         let file = line
             .strip_prefix("Applied patch to '")
@@ -505,6 +601,8 @@ fn parse_semantic_failure(log: &str) -> Option<SemanticFailure> {
         step,
         error,
         conflicts,
+        conflicting_commit,
+        all_landed,
     })
 }
 
@@ -609,6 +707,8 @@ mod tests {
                     "FileNotFoundError: [Errno 2] No such file or directory: 'cc.json'".to_string()
                 ),
                 conflicts: vec![],
+                conflicting_commit: None,
+                all_landed: false,
             })
         );
         // (A rebase's conflicts, with the hook's own message.)
@@ -624,8 +724,38 @@ mod tests {
                 step: "rebase".to_string(),
                 error: Some("The push's changes conflict.".to_string()),
                 conflicts: vec!["a.h".to_string(), "c.py".to_string()],
+                conflicting_commit: None,
+                all_landed: false,
             })
         );
+        // (A rebase leaving out landed commits, conflicting in another, and
+        // one finding that all of them landed.)
+        let log = "Performing semantic::rebase step for x\n\
+                   Landed: aaa as bbb (the same changes)\n\
+                   Landed: ccc as ddd (its Differential Revision)\n\
+                   Applied patch to 'a.h' with conflicts.\n\
+                   Conflicting commit: eee Bug 1 - Do a thing\n\
+                   ERROR: The push's changes conflict.\n";
+        let failure = parse_semantic_failure(log).unwrap();
+        assert_eq!(failure.conflicts, vec!["a.h".to_string()]);
+        assert_eq!(
+            failure.conflicting_commit.as_deref(),
+            Some("eee Bug 1 - Do a thing")
+        );
+        assert!(!failure.all_landed);
+        let landed = parse_landed(log);
+        assert_eq!(
+            landed
+                .iter()
+                .map(|l| (l.rev.as_str(), l.landed.as_str(), l.same_changes))
+                .collect::<Vec<_>>(),
+            vec![("aaa", "bbb", true), ("ccc", "ddd", false)]
+        );
+        let log = "Performing semantic::rebase step for x\n\
+                   Landed: aaa as bbb (the same changes)\n\
+                   All of the push's commits have landed.\n\
+                   ERROR: The push's changes conflict.\n";
+        assert!(parse_semantic_failure(log).unwrap().all_landed);
     }
 
     #[test]
