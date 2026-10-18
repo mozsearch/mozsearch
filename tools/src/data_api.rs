@@ -54,6 +54,14 @@
 //!   `null` if it isn't a file there; see `format::rev_file_data`).
 //! - `hyperblame?commit=&path=&file=`: a file's token-centric blame data file
 //!   at a revision (see `format::hyperblame_json`).
+//! - `history?commit=&path=[&scope=][&token=]`: the data of a history page
+//!   (see `format::history_data`).
+//! - `rev-diff?commit=&path=`: the data of a file's diff in a revision (`null`
+//!   if it doesn't change it; see `format::rev_diff_data`).
+//! - `commit?commit=`: the data of a commit's page (see
+//!   `format::commit_page_data`).
+//! - `commit-info?revs=a,b`: what the blame popups show about commits (see
+//!   `blame::get_commit_info`).
 //! - `stack-strip?stack=&commit=&path=`: a file's stack strip for a stack
 //!   page (see `format::stack_strip_json`).
 //! - `try-status?push=` and POST `try-import?push=`: a try push's import's
@@ -281,6 +289,34 @@ const ROUTES: &[Route] = &[
         name: "hyperblame",
         takes_path: false,
         params: &["commit", "path", "file"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "history",
+        takes_path: false,
+        params: &["commit", "path", "scope", "token"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "rev-diff",
+        takes_path: false,
+        params: &["commit", "path"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "commit",
+        takes_path: false,
+        params: &["commit"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "commit-info",
+        takes_path: false,
+        params: &["revs"],
         host: Host::PipelineServer,
         post: false,
     },
@@ -781,6 +817,63 @@ async fn route_body(
             }
             let file = server.rev_file(&commit, path).await.map_err(error)?;
             Ok(Body::json(&serde_json::to_value(file).unwrap_or_default()))
+        }
+        "history" => {
+            let commit = commit_param(params)?;
+            let path = params.required("path")?;
+            if !valid_tree_path(path) {
+                return Err(bad(format!("Not a path in the tree: {:?}", path)));
+            }
+            let scope = params.get("scope");
+            if scope.is_some_and(|scope| scope.len() > MAX_SYM_BYTES) {
+                return Err(bad("scope is too long"));
+            }
+            let token = match params.get("token") {
+                Some(token) => Some(
+                    token
+                        .parse::<usize>()
+                        .map_err(|_| bad("token must be a token's index"))?,
+                ),
+                None => None,
+            };
+            let data = server
+                .history(&commit, path, scope, token)
+                .await
+                .map_err(error)?;
+            Ok(Body::json(&data))
+        }
+        "rev-diff" => {
+            let commit = commit_param(params)?;
+            let path = params.required("path")?;
+            if !valid_tree_path(path) {
+                return Err(bad(format!("Not a path in the tree: {:?}", path)));
+            }
+            let diff = server.rev_diff(&commit, path).await.map_err(error)?;
+            Ok(Body::json(&serde_json::to_value(diff).unwrap_or_default()))
+        }
+        "commit" => {
+            let data = server
+                .commit_page(&commit_param(params)?)
+                .await
+                .map_err(error)?;
+            Ok(Body::json(&data))
+        }
+        "commit-info" => {
+            let revs = params.required("revs")?;
+            let hex = |rev: &str| {
+                (7..=40).contains(&rev.len())
+                    && rev
+                        .bytes()
+                        .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+            };
+            if revs.split(',').count() > MAX_EXPLORE_REVS || !revs.split(',').all(hex) {
+                return Err(bad("revs must be revisions (hexadecimal)"));
+            }
+            let json = server.commit_info_json(revs).await.map_err(error)?;
+            Ok(Body {
+                content_type: "application/json",
+                bytes: json.into_bytes(),
+            })
         }
         "hyperblame" => {
             let commit = commit_param(params)?;

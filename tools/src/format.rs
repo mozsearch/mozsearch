@@ -5607,13 +5607,36 @@ fn split_lines(s: &str) -> Vec<&str> {
 
 /// Dynamically renders a specific diff with blame annotations but without any semantic analysis
 /// data available.
-pub fn format_diff(
+/// The data of a file's diff in a revision (see `rev_diff_data` and
+/// `render_diff`).
+#[derive(Deserialize, Serialize)]
+pub struct RevDiff {
+    /// The commit's header (HTML; see `blame::commit_header`), and its date
+    /// (RFC 3339).
+    pub header: String,
+    pub date: String,
+    /// `git diff-tree --cc`'s, with all of the file as its context.
+    pub diff: String,
+    pub parents: usize,
+    /// The classic line blame of the file in the commit, and in its parents,
+    /// if the tree has it.
+    pub self_blame: Option<Vec<String>>,
+    pub parent_blames: Option<Vec<Option<Vec<String>>>>,
+    /// Or the token-centric blame of the file in the commit and then in each
+    /// parent, if the tree has a history.
+    pub token_blames: Vec<Option<PageBlame>>,
+}
+
+/// The data of the diff of the file at `path` in the revision `rev` (see
+/// `render_diff`), unless the revision doesn't change it (whose page is then
+/// the file's at the revision).  (For trees' servers; see
+/// `AbstractServer::rev_diff`.)
+pub fn rev_diff_data(
     cfg: &Config,
     tree_name: &str,
     rev: &str,
     path: &str,
-    writer: &mut dyn Write,
-) -> Result<(), &'static str> {
+) -> Result<Option<RevDiff>, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
 
     let git_path = tree_config.get_git_path()?;
@@ -5640,7 +5663,7 @@ pub fn format_diff(
     let difftxt = git_ops::decode_bytes(output.stdout);
 
     if difftxt.is_empty() {
-        return format_path(cfg, tree_name, rev, path, writer);
+        return Ok(None);
     }
 
     let git = tree_config.get_git()?;
@@ -5681,20 +5704,41 @@ pub fn format_diff(
     // the page's `BLAME_INFOS`) and which line of that file they're for with
     // `data-hb-ctx` and `data-hb-line`, since the rows' ids are only the
     // commit's lines; see hyperblame.js.
-    let mut token_blames: Vec<Option<PageBlame>> = match &git.history {
+    let token_blames: Vec<Option<PageBlame>> = match &git.history {
         Some(_) => std::iter::once(commit.clone())
             .chain(commit.parents())
             .map(|c| revision_token_blame(tree_config, tree_name, git, &c, path))
             .collect(),
         None => vec![],
     };
+    Ok(Some(RevDiff {
+        header: blame::commit_header(commit)?,
+        date: git_time_to_chrono(commit.time()).to_rfc3339(),
+        diff: difftxt,
+        parents: commit.parents().count(),
+        self_blame,
+        parent_blames: git.blame_repo.as_ref().map(|_| parent_blames),
+        token_blames,
+    }))
+}
 
-    let line_blames = git.blame_repo.as_ref().map(|_| parent_blames.as_slice());
+/// The diff of the file at `path` in the revision `rev`
+/// (`/{tree}/diff/{rev}/{path}`), with its `data` (see `rev_diff_data`).
+pub fn render_diff(
+    cfg: &Config,
+    tree_name: &str,
+    rev: &str,
+    path: &str,
+    data: RevDiff,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let mut token_blames = data.token_blames;
     let (rows, new_lines, num_lines) = parse_diff_rows(
-        &difftxt,
-        commit.parents().count(),
-        self_blame.as_ref(),
-        line_blames,
+        &data.diff,
+        data.parents,
+        data.self_blame.as_ref(),
+        data.parent_blames.as_deref(),
     )?;
     drop_mismatched_token_blames(path, &mut token_blames, &num_lines);
 
@@ -5702,8 +5746,8 @@ pub fn format_diff(
         return Err("Cannot diff binary file");
     };
 
-    let header = blame::commit_header(commit)?;
-    let date = git_time_to_chrono(commit.time());
+    let header = data.header;
+    let date = chrono::DateTime::parse_from_rfc3339(&data.date).map_err(|_| "Bad date")?;
 
     let filename = Path::new(path).file_name().unwrap().to_str().unwrap();
     let title = format!("{} - mozsearch", filename);
@@ -5833,7 +5877,7 @@ struct DiffRow<'a> {
     blame: Option<&'a String>,
     /// The file and (1-based) line in it that the row's token blame is for:
     /// 0 for the file in the commit, and i + 1 for the file in parent i (see
-    /// `format_diff`'s `token_blames`).
+    /// `render_diff`'s `token_blames`).
     token_line: Option<(usize, usize)>,
     origin: Vec<char>,
     content: &'a str,
@@ -5952,7 +5996,7 @@ struct DiffRowExtras {
 }
 
 /// Write the rows of a diff page (see `parse_diff_rows`), with their blame
-/// strips, and its `BLAME_INFOS` (see `format_diff`).  `new_lines` is the
+/// strips, and its `BLAME_INFOS` (see `render_diff`).  `new_lines` is the
 /// contents of the file in the commit, for its syntax highlighting.
 fn write_diff_rows(
     writer: &mut dyn Write,
@@ -7707,15 +7751,15 @@ fn explore_refs(
     })
 }
 
-/// The most commits a history page (see `format_history`) shows.
+/// The most commits a history page (see `history_data`) shows.
 const MAX_HISTORY_COMMITS: usize = 100;
 
 /// The most commits a history page looks at for changes to its scope (ex: of a
-/// method a busy file's weeks of commits rarely changed; see `format_history`).
+/// method a busy file's weeks of commits rarely changed; see `history_data`).
 const MAX_HISTORY_CANDIDATES: usize = 1000;
 
 /// The most moves to other files a history page follows its scope back
-/// through (see `format_history`).
+/// through (see `history_data`).
 const MAX_HISTORY_MOVES: usize = 8;
 
 /// Whether a history context (see `syntax_files`) is `scope` or nested in it,
@@ -7745,14 +7789,19 @@ fn in_scope(context: &str, scope: &str) -> bool {
 /// to the file from another (see `explore::commit_symbol_moves`), the commits
 /// before the move are the other file's which changed it (by its name there),
 /// from the other file's journal as of the move's parent, and so on.
-pub fn format_history(
+/// The data of the history page of the scope `scope` (or else the context of
+/// the token `token`, or else the whole file) of the file at `path` as of the
+/// revision `rev` (see `render_history`): its `title`, `note` and `scopes`,
+/// and its explore page's data (`explore`; see `explore_data`).  (For trees'
+/// servers; see `AbstractServer::history`.)
+pub fn history_data(
     cfg: &Config,
     tree_name: &str,
     rev: &str,
     path: &str,
-    query: &str,
-    writer: &mut dyn Write,
-) -> Result<(), &'static str> {
+    scope: Option<&str>,
+    token: Option<usize>,
+) -> Result<serde_json::Value, &'static str> {
     use crate::file_format::history::syntax_files::{split_token_line, token_file_lines};
     use crate::file_format::history::timeline_common::JournalVersionRef;
     use crate::file_format::history::timeline_files_delta::FileDeltaRecord;
@@ -7770,14 +7819,8 @@ pub fn format_history(
         .timeline_commit(commit.id())
         .ok_or("The history doesn't have the revision")?;
 
-    let params: HashMap<String, String> = url::form_urlencoded::parse(query.as_bytes())
-        .into_owned()
-        .collect();
-    let token = params
-        .get("token")
-        .and_then(|token| token.parse::<usize>().ok());
-    let scope = match (params.get("scope"), token) {
-        (Some(scope), _) => scope.clone(),
+    let scope = match (scope, token) {
+        (Some(scope), _) => scope.to_string(),
         (None, Some(token)) => {
             let file = history
                 .file_history(&timeline_commit, path)
@@ -7988,19 +8031,36 @@ pub fn format_history(
             &rev[..12.min(rev.len())]
         )
     });
+    let explore = explore_data(cfg, tree_name, &refs, Some(changes), None)?;
+    Ok(json!({
+        "title": title,
+        "note": note,
+        "scopes": scopes,
+        "explore": explore,
+    }))
+}
+
+/// A history page (`/{tree}/history/{rev}/{path}`), with its `data` (see
+/// `history_data`).
+pub fn render_history(
+    tree_name: &str,
+    data: serde_json::Value,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
     let extras = ExploreExtras {
         missing: vec![],
         truncated: false,
         other_branches: vec![],
         explore_url: String::new(),
-        note: Some(note),
-        scopes,
-        changes: Some(changes),
+        note: data["note"].as_str().map(str::to_string),
+        scopes: data["scopes"].as_array().cloned().unwrap_or_default(),
+        changes: None,
         stack_links: false,
         semantic_head: None,
         semantic_failure: None,
     };
-    write_explore(cfg, tree_name, &refs, &title, extras, writer)
+    let title = data["title"].as_str().unwrap_or_default().to_string();
+    render_explore(tree_name, &title, data["explore"].clone(), extras, writer)
 }
 
 /// The patch stack strip (see `hyperblame::stack_strip`) of the file at `path`
@@ -8062,7 +8122,7 @@ struct ExploreExtras {
     explore_url: String,
     /// A note under its title (ex: a try push's).
     note: Option<String>,
-    /// For a history page (see `format_history`), the scopes it can show,
+    /// For a history page (see `history_data`), the scopes it can show,
     /// broadest first, as `{label, url}` (the shown one without a URL).
     scopes: Vec<serde_json::Value>,
     /// What the commits changed, if not all of it (ex: a history page's
@@ -8386,18 +8446,36 @@ pub fn request_try_import(
     })
 }
 
-pub fn format_commit(
+/// The data of a commit's page (see `render_commit`): its `date` (RFC 3339)
+/// and its `content` (its message, revisions, people and changed files, as
+/// HTML).  (For trees' servers; see `AbstractServer::commit_page`.)
+pub fn commit_page_data(
     cfg: &Config,
     tree_name: &str,
     rev: &str,
-    writer: &mut dyn Write,
-) -> Result<(), &'static str> {
+) -> Result<serde_json::Value, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
-
     let git = tree_config.get_git()?;
     let commit_obj = git.repo.revparse_single(rev).map_err(|_| "Bad revision")?;
     let commit = commit_obj.as_commit().ok_or("Bad revision")?;
-    let date = git_time_to_chrono(commit.time());
+    let mut content = Vec::new();
+    generate_commit_info(tree_name, tree_config, &mut content, commit)?;
+    Ok(json!({
+        "date": git_time_to_chrono(commit.time()).to_rfc3339(),
+        "content": String::from_utf8_lossy(&content),
+    }))
+}
+
+/// A commit's page (`/{tree}/commit/{rev}`), with its `data` (see
+/// `commit_page_data`).
+pub fn render_commit(
+    tree_name: &str,
+    rev: &str,
+    data: serde_json::Value,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let date = chrono::DateTime::parse_from_rfc3339(data["date"].as_str().unwrap_or_default())
+        .map_err(|_| "Bad date")?;
 
     let title = format!("{} - mozsearch", rev);
     let opt = Options {
@@ -8420,7 +8498,9 @@ pub fn format_commit(
 
     output::generate_panel(&opt, writer, &[], true)?;
 
-    generate_commit_info(tree_name, tree_config, writer, commit)?;
+    writer
+        .write_all(data["content"].as_str().unwrap_or_default().as_bytes())
+        .map_err(|_| "Write problems")?;
 
     output::generate_footer(&opt, tree_name, "", writer).unwrap();
 

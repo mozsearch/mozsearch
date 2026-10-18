@@ -90,6 +90,15 @@ add_task(async function test_DataApiRoutes() {
   ok(file.extras?.token_blame?.lines?.length, "and its blame");
   is((await get(`${API}/rev-file?commit=${LANDED}&path=nothing.cpp`)).status, 422,
      "but not of files it doesn't have");
+  const history = await getJson(`${API}/history?commit=${LANDED}&path=widget.cpp`);
+  ok(history.title?.includes("widget.cpp") && history.explore?.commits?.length,
+     "A file's history page's data is there");
+  const diff = await getJson(`${API}/rev-diff?commit=${LANDED}&path=widget.cpp`);
+  ok(diff.diff?.includes("Shrink"), "and its diff in a revision");
+  const commitPage = await getJson(`${API}/commit?commit=${LANDED}`);
+  ok(commitPage.content?.includes("Let widgets shrink"), "and a commit's page's");
+  const infos = await getJson(`${API}/commit-info?revs=${LANDED}`);
+  is(infos.length, 1, "and what the blame popups show about commits");
   const commits = await getJson(`${API}/hyperblame?commit=${LANDED}&path=widget.cpp&file=commits.json`);
   ok(Object.keys(commits).length, "A file's blame's commits at a revision are there");
   const chunk = await getJson(`${API}/hyperblame?commit=${LANDED}&path=widget.cpp&file=lines-0.json`);

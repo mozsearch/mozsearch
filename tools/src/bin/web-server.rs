@@ -25,7 +25,6 @@ use tools::abstract_server::{
     AbstractServer, make_local_server, make_remote_servers, remote_trees_config, sym_info,
 };
 use tools::admission;
-use tools::blame;
 use tools::commit_index::CommitIndex;
 use tools::data_api;
 use tools::diagnostics::diagnostics_from_config;
@@ -228,6 +227,56 @@ fn tree_server(tree_name: &str) -> Option<Arc<dyn AbstractServer + Send + Sync>>
     Some(server)
 }
 
+/// The page of the file at `path` in the revision `rev` over the tree's
+/// server, with the jumprefs of its analysis's symbols looked up ahead of
+/// time (see `format::render_rev_file`), if it's a file there.
+fn rev_file_page(
+    cfg: &config::Config,
+    tree_name: &str,
+    server: &(dyn AbstractServer + Send + Sync),
+    rev: &str,
+    path: &str,
+) -> Result<Option<WebResponse>, tools::abstract_server::ServerError> {
+    let (server, rev_, path_) = (server.clonify(), rev.to_string(), path.to_string());
+    let file = format::run_on_runtime(async move {
+        let Some(file) = server.rev_file(&rev_, &path_).await? else {
+            return Ok(None);
+        };
+        let mut jumprefs = BTreeMap::new();
+        if !file.analysis.is_empty() {
+            // (A try push's rebased head's are the push's.)
+            let source = server
+                .try_overlay(&file.rev)
+                .unwrap_or_else(|| server.clonify());
+            let mut traversed = UstrMap::default();
+            for sym in format::page_symbols(&path_, &file.analysis) {
+                if !jumprefs.contains_key(&sym) {
+                    sym_info::add_sym_info(source.as_ref(), sym, &mut jumprefs, &mut traversed)
+                        .await;
+                }
+            }
+        }
+        Ok::<_, tools::abstract_server::ServerError>(Some((file, jumprefs)))
+    })?;
+    let Some((file, jumprefs)) = file else {
+        return Ok(None);
+    };
+    let mut writer = Vec::new();
+    Ok(Some(
+        match format::render_rev_file(
+            cfg,
+            tree_name,
+            path,
+            file,
+            &PrefetchedJumprefs(jumprefs),
+            &mut writer,
+        ) {
+            Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+            Err(err) => WebResponse::internal_error(err.to_owned()),
+        },
+    ))
+}
+
 /// What a server's error says, for a page (the message of its reasons, ex:
 /// "Bad revision").
 fn server_error_message(err: &tools::abstract_server::ServerError) -> String {
@@ -393,57 +442,12 @@ fn handle(
                             Err(err) => WebResponse::internal_error(err.to_owned()),
                         };
                     }
-                    Ok(None) => {
-                        // (Files' pages over the tree's server too, with
-                        // their analysis's jumprefs looked up ahead of time;
-                        // see `format::render_rev_file`.)
-                        let (server, rev_, path_) =
-                            (server.clonify(), rev.to_string(), path.clone());
-                        let file = format::run_on_runtime(async move {
-                            let Some(file) = server.rev_file(&rev_, &path_).await? else {
-                                return Ok(None);
-                            };
-                            let mut jumprefs = BTreeMap::new();
-                            if !file.analysis.is_empty() {
-                                // (A try push's rebased head's are the push's.)
-                                let source = server
-                                    .try_overlay(&file.rev)
-                                    .unwrap_or_else(|| server.clonify());
-                                let mut traversed = UstrMap::default();
-                                for sym in format::page_symbols(&path_, &file.analysis) {
-                                    if !jumprefs.contains_key(&sym) {
-                                        sym_info::add_sym_info(
-                                            source.as_ref(),
-                                            sym,
-                                            &mut jumprefs,
-                                            &mut traversed,
-                                        )
-                                        .await;
-                                    }
-                                }
-                            }
-                            Ok::<_, tools::abstract_server::ServerError>(Some((file, jumprefs)))
-                        });
-                        match file {
-                            Ok(Some((file, jumprefs))) => {
-                                return match format::render_rev_file(
-                                    cfg,
-                                    tree_name,
-                                    &path,
-                                    file,
-                                    &PrefetchedJumprefs(jumprefs),
-                                    &mut writer,
-                                ) {
-                                    Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
-                                    Err(err) => WebResponse::internal_error(err.to_owned()),
-                                };
-                            }
-                            Ok(None) => {}
-                            Err(_)
-                                if cfg.trees.get(*tree_name).is_some_and(|t| t.git.is_some()) => {}
-                            Err(err) => return WebResponse::internal_error(format!("{:?}", err)),
-                        }
-                    }
+                    Ok(None) => match rev_file_page(cfg, tree_name, server.as_ref(), rev, &path) {
+                        Ok(Some(response)) => return response,
+                        Ok(None) => {}
+                        Err(_) if cfg.trees.get(*tree_name).is_some_and(|t| t.git.is_some()) => {}
+                        Err(err) => return WebResponse::internal_error(server_error_message(&err)),
+                    },
                     Err(_) if cfg.trees.get(*tree_name).is_some_and(|t| t.git.is_some()) => {}
                     Err(err) => return WebResponse::internal_error(format!("{:?}", err)),
                 }
@@ -715,14 +719,30 @@ fn handle(
                 return WebResponse::not_found();
             }
 
-            let rev = &path[2];
+            let rev = path[2];
             let path = path.clone().split_off(3);
             let path = path.join("/");
 
-            let mut writer = Vec::new();
-            match format::format_diff(cfg, tree_name, rev, &path, &mut writer) {
-                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
-                Err(err) => WebResponse::internal_error(err.to_owned()),
+            // (Over the tree's server; a revision which doesn't change the
+            // file shows the file.)
+            let Some(server) = tree_server(tree_name) else {
+                return WebResponse::not_found();
+            };
+            let (server_, rev_, path_) = (server.clonify(), rev.to_string(), path.clone());
+            match format::run_on_runtime(async move { server_.rev_diff(&rev_, &path_).await }) {
+                Ok(Some(diff)) => {
+                    let mut writer = Vec::new();
+                    match format::render_diff(cfg, tree_name, rev, &path, diff, &mut writer) {
+                        Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                        Err(err) => WebResponse::internal_error(err.to_owned()),
+                    }
+                }
+                Ok(None) => match rev_file_page(cfg, tree_name, server.as_ref(), rev, &path) {
+                    Ok(Some(response)) => response,
+                    Ok(None) => WebResponse::internal_error("Invalid path".to_owned()),
+                    Err(err) => WebResponse::internal_error(server_error_message(&err)),
+                },
+                Err(err) => WebResponse::internal_error(server_error_message(&err)),
             }
         }
 
@@ -796,12 +816,22 @@ fn handle(
                 return WebResponse::not_found();
             }
 
-            let rev = &path[2];
+            let rev = path[2];
 
-            let mut writer = Vec::new();
-            match format::format_commit(cfg, tree_name, rev, &mut writer) {
-                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
-                Err(err) => WebResponse::internal_error(err.to_owned()),
+            // (Over the tree's server.)
+            let Some(server) = tree_server(tree_name) else {
+                return WebResponse::not_found();
+            };
+            let (server, rev_) = (server.clonify(), rev.to_string());
+            match format::run_on_runtime(async move { server.commit_page(&rev_).await }) {
+                Ok(data) => {
+                    let mut writer = Vec::new();
+                    match format::render_commit(tree_name, rev, data, &mut writer) {
+                        Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                        Err(err) => WebResponse::internal_error(err.to_owned()),
+                    }
+                }
+                Err(err) => WebResponse::internal_error(server_error_message(&err)),
             }
         }
 
@@ -832,10 +862,14 @@ fn handle(
                 return WebResponse::not_found();
             }
 
-            let rev = &path[2];
-            match blame::get_commit_info(cfg, tree_name, rev) {
+            // (Over the tree's server.)
+            let Some(server) = tree_server(tree_name) else {
+                return WebResponse::not_found();
+            };
+            let (server, revs) = (server.clonify(), path[2].to_string());
+            match format::run_on_runtime(async move { server.commit_info_json(&revs).await }) {
                 Ok(json) => WebResponse::json(json),
-                Err(err) => WebResponse::internal_error(err.to_owned()),
+                Err(err) => WebResponse::internal_error(server_error_message(&err)),
             }
         }
 
@@ -889,23 +923,38 @@ fn handle(
             }
         }
 
-        // A scope's history; see `format::format_history`.
+        // A scope's history; see `format::history_data`.
         "history" => {
             if path.len() < 4 {
                 return WebResponse::not_found();
             }
             let file_path = path[3..].join("/");
-            let mut writer = Vec::new();
-            match format::format_history(
-                cfg,
-                tree_name,
-                path[2],
-                &file_path,
-                req.query,
-                &mut writer,
-            ) {
-                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
-                Err(err) => WebResponse::internal_error(err.to_owned()),
+            // (Its scope, or a token whose context is the scope; over the
+            // tree's server.)
+            let params: HashMap<String, String> = url::form_urlencoded::parse(req.query.as_bytes())
+                .into_owned()
+                .collect();
+            let scope = params.get("scope").cloned();
+            let token = params
+                .get("token")
+                .and_then(|token| token.parse::<usize>().ok());
+            let Some(server) = tree_server(tree_name) else {
+                return WebResponse::not_found();
+            };
+            let (server, rev) = (server.clonify(), path[2].to_string());
+            match format::run_on_runtime(async move {
+                server
+                    .history(&rev, &file_path, scope.as_deref(), token)
+                    .await
+            }) {
+                Ok(data) => {
+                    let mut writer = Vec::new();
+                    match format::render_history(tree_name, data, &mut writer) {
+                        Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                        Err(err) => WebResponse::internal_error(err.to_owned()),
+                    }
+                }
+                Err(err) => WebResponse::internal_error(server_error_message(&err)),
             }
         }
 

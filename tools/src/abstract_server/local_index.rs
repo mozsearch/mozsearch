@@ -297,6 +297,36 @@ impl AbstractServer for LocalIndex {
             .map_err(|message| bad_input(message.to_string()))
     }
 
+    async fn history(
+        &self,
+        rev: &str,
+        path: &str,
+        scope: Option<&str>,
+        token: Option<usize>,
+    ) -> Result<Value> {
+        let cfg = self.tree_config_loaded();
+        crate::format::history_data(&cfg, &self.tree_name, rev, path, scope, token)
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
+    async fn rev_diff(&self, rev: &str, path: &str) -> Result<Option<crate::format::RevDiff>> {
+        let cfg = self.tree_config_loaded();
+        crate::format::rev_diff_data(&cfg, &self.tree_name, rev, path)
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
+    async fn commit_page(&self, rev: &str) -> Result<Value> {
+        let cfg = self.tree_config_loaded();
+        crate::format::commit_page_data(&cfg, &self.tree_name, rev)
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
+    async fn commit_info_json(&self, revs: &str) -> Result<String> {
+        let cfg = self.tree_config_loaded();
+        crate::blame::get_commit_info(&cfg, &self.tree_name, revs)
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
     async fn rev_dir(&self, rev: &str, path: &str) -> Result<Option<Value>> {
         let cfg = self.tree_config_loaded();
         crate::format::rev_dir_data(&cfg, &self.tree_name, rev, path)

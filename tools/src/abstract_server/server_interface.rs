@@ -567,6 +567,37 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The data of the history page of `scope` (or the context of `token`, or
+    /// the whole file) of the file at `path` as of `rev` (see
+    /// `format::history_data`).
+    async fn history(
+        &self,
+        _rev: &str,
+        _path: &str,
+        _scope: Option<&str>,
+        _token: Option<usize>,
+    ) -> Result<Value> {
+        Err(ServerError::Unsupported)
+    }
+
+    /// The data of the diff of the file at `path` in the revision `rev`, if
+    /// it changes it (see `format::rev_diff_data`).
+    async fn rev_diff(&self, _rev: &str, _path: &str) -> Result<Option<crate::format::RevDiff>> {
+        Err(ServerError::Unsupported)
+    }
+
+    /// The data of the page of the commit `rev` (see
+    /// `format::commit_page_data`).
+    async fn commit_page(&self, _rev: &str) -> Result<Value> {
+        Err(ServerError::Unsupported)
+    }
+
+    /// What the blame popups show about the commits `revs` (comma-separated;
+    /// see `blame::get_commit_info`), as JSON.
+    async fn commit_info_json(&self, _revs: &str) -> Result<String> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The try push this is the tree as changed by, if it's a `try_overlay`.
     fn try_delta_meta(&self) -> Option<crate::try_delta::TryDeltaMeta> {
         None

@@ -1,6 +1,6 @@
 "use strict";
 
-// History pages (see `format::format_history`): the history of a scope of a
+// History pages (see `format::history_data`): the history of a scope of a
 // file (a context of the history's, ex: a function, or the whole file), from
 // the token menu, as an explore page of the commits which changed it.  We use
 // the fixed revision of blame.rs that test_TokenBlame.js uses, whose line 12

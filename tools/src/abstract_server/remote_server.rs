@@ -651,6 +651,41 @@ impl AbstractServer for RemoteServer {
         String::from_utf8(body).map_err(|err| problem(true, ErrorLayer::DataLayer, err.to_string()))
     }
 
+    async fn history(
+        &self,
+        rev: &str,
+        path: &str,
+        scope: Option<&str>,
+        token: Option<usize>,
+    ) -> Result<Value> {
+        let token = token.map(|token| token.to_string());
+        let mut params = vec![("commit", rev), ("path", path)];
+        if let Some(scope) = scope {
+            params.push(("scope", scope));
+        }
+        if let Some(token) = &token {
+            params.push(("token", token.as_str()));
+        }
+        parse(&self.api("history", None, &params).await?)
+    }
+
+    async fn rev_diff(&self, rev: &str, path: &str) -> Result<Option<crate::format::RevDiff>> {
+        parse(
+            &self
+                .api("rev-diff", None, &[("commit", rev), ("path", path)])
+                .await?,
+        )
+    }
+
+    async fn commit_page(&self, rev: &str) -> Result<Value> {
+        parse(&self.api("commit", None, &[("commit", rev)]).await?)
+    }
+
+    async fn commit_info_json(&self, revs: &str) -> Result<String> {
+        let body = self.api("commit-info", None, &[("revs", revs)]).await?;
+        String::from_utf8(body).map_err(|err| problem(true, ErrorLayer::DataLayer, err.to_string()))
+    }
+
     async fn rev_dir(&self, rev: &str, path: &str) -> Result<Option<Value>> {
         parse(
             &self

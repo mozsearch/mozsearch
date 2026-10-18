@@ -47,7 +47,7 @@ pub struct BlameInfo {
     #[serde(rename = "peepholeUrl", skip_serializing_if = "Option::is_none")]
     pub peephole_url: Option<String>,
     /// The URL of the history page of the file as of the page's revision (see
-    /// `format::format_history`), which the token menu links to with a token's
+    /// `format::history_data`), which the token menu links to with a token's
     /// `?token=N`, for the history of the context it's in.
     #[serde(rename = "historyUrl", skip_serializing_if = "Option::is_none")]
     pub history_url: Option<String>,

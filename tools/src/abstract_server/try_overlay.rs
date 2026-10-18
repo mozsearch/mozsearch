@@ -224,6 +224,28 @@ impl AbstractServer for TryOverlay {
         self.base.hyperblame_json(rev, path, file).await
     }
 
+    async fn history(
+        &self,
+        rev: &str,
+        path: &str,
+        scope: Option<&str>,
+        token: Option<usize>,
+    ) -> Result<Value> {
+        self.base.history(rev, path, scope, token).await
+    }
+
+    async fn rev_diff(&self, rev: &str, path: &str) -> Result<Option<crate::format::RevDiff>> {
+        self.base.rev_diff(rev, path).await
+    }
+
+    async fn commit_page(&self, rev: &str) -> Result<Value> {
+        self.base.commit_page(rev).await
+    }
+
+    async fn commit_info_json(&self, revs: &str) -> Result<String> {
+        self.base.commit_info_json(revs).await
+    }
+
     async fn stack_strip_json(&self, stack: &str, rev: &str, path: &str) -> Result<String> {
         self.base.stack_strip_json(stack, rev, path).await
     }
