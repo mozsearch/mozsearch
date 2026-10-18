@@ -159,7 +159,7 @@ const LOCAL_KINDS: [&str; 2] = ["parameter", "localVar"];
 
 /// What `process_local_symbols` does to a record.
 #[derive(Default)]
-struct Edit {
+pub(crate) struct Edit {
     drop: bool,
     sym: Option<String>,
     pretty: Option<String>,
@@ -252,32 +252,88 @@ pub fn process_local_symbols(records: &mut Vec<Value>) {
     let old = std::mem::take(records);
     let targets: usize = edits.iter().flatten().map(|e| e.targets.len()).sum();
     records.reserve(old.len() + targets);
-    for (index, mut record) in old.into_iter().enumerate() {
-        let Some(edit) = edits[index].take() else {
-            records.push(record);
-            continue;
-        };
-        if edit.drop {
-            continue;
+    for (index, record) in old.into_iter().enumerate() {
+        match edits[index].take() {
+            Some(edit) => apply_local_edit(*edit, record, &mut |r| records.push(r)),
+            None => records.push(record),
         }
-        records.extend(edit.targets);
-        if let Some(obj) = record.as_object_mut() {
-            if let Some(sym) = edit.sym
-                && let Some(value) = obj.get_mut("sym")
-            {
-                *value = Value::String(sym);
-            }
-            if let Some(pretty) = edit.pretty
-                && let Some(value) = obj.get_mut("pretty")
-            {
-                *value = Value::String(pretty);
-            }
-            if edit.local_source {
-                obj.shift_remove("no_crossref");
-            }
-        }
-        records.push(record);
     }
+}
+
+/// Give `out` what `process_local_symbols` makes of a record with an edit:
+/// its target records, and it, edited (or nothing, if it's dropped).
+pub(crate) fn apply_local_edit(edit: Edit, mut record: Value, out: &mut dyn FnMut(Value)) {
+    if edit.drop {
+        return;
+    }
+    for target in edit.targets {
+        out(target);
+    }
+    if let Some(obj) = record.as_object_mut() {
+        if let Some(sym) = edit.sym
+            && let Some(value) = obj.get_mut("sym")
+        {
+            *value = Value::String(sym);
+        }
+        if let Some(pretty) = edit.pretty
+            && let Some(value) = obj.get_mut("pretty")
+        {
+            *value = Value::String(pretty);
+        }
+        if edit.local_source {
+            obj.shift_remove("no_crossref");
+        }
+    }
+    out(record);
+}
+
+/// Whether a record's line could be one `plan_local_edits` uses (a
+/// superset, by its text, so that the other lines needn't be parsed for it).
+pub(crate) fn may_plan_from(line: &str) -> bool {
+    line.contains("\"V_")
+        || line.contains("\"peekRange\"")
+        || line.contains("\"args\"")
+        || line.contains("function")
+        || line.contains("destructor")
+}
+
+/// Whether `plan_local_edits` uses a record: it ignores the others, so it
+/// plans the same edits for those (as `plan_local_edits_of`) as for all.
+pub(crate) fn plans_from(record: &Value) -> bool {
+    let Some(obj) = record.as_object() else {
+        return false;
+    };
+    let f = fields(obj);
+    let Some(sym) = f.sym else {
+        return false;
+    };
+    let local = sym.starts_with("V_") && sym.split(',').all(|s| s.starts_with("V_"));
+    if local {
+        return f.source || f.target || f.structured;
+    }
+    if f.source {
+        f.syntax
+            .is_some_and(|syntax| syntax.contains("function") || syntax.contains("destructor"))
+    } else if f.target {
+        f.peek_range.is_some()
+    } else if f.structured {
+        f.args.is_some()
+    } else {
+        false
+    }
+}
+
+/// `plan_local_edits` of some of a file's records (the ones it uses; see
+/// `plans_from`), by their indices among all of the file's (`indices`).
+pub(crate) fn plan_local_edits_of(
+    indices: &[usize],
+    records: &[Value],
+) -> HashMap<usize, Box<Edit>> {
+    plan_local_edits(records)
+        .into_iter()
+        .enumerate()
+        .filter_map(|(i, edit)| Some((indices[i], edit?)))
+        .collect()
 }
 
 /// A list of locals' symbols, renamed (without duplicates), and whether any

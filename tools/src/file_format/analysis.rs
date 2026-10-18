@@ -1244,13 +1244,91 @@ pub fn read_analyses<T>(
             filename.as_str()
         };
 
-        let Some(values) = read_analysis_values(used_filename) else {
-            continue;
-        };
-        filter_analysis_values(values, i_file, filter, &mut result);
+        // (A record at a time, rather than `read_analysis_values`'s
+        // whole file of them.)
+        for_each_analysis_value(used_filename, &mut |value| {
+            filter_analysis_value(value, i_file, filter, &mut result);
+        });
     }
 
     group_by_location(result)
+}
+
+/// A file's analysis records, as `read_analysis_values` makes them (with
+/// locals' symbols processed; see `local_symbols`), one at a time, without
+/// holding all of them as `Value`s, which cost several times their text:
+/// files without locals' records are read a line at a time; the others'
+/// lines are kept as text, the records `local_symbols` plans its edits from
+/// (see `plans_from`) are parsed for it first, and then each line is parsed
+/// again and edited as it's given out.  (Holding whole files' values made
+/// crossref's and output-file's threads need GBs each for firefox's biggest
+/// files.)  Returns false if the file couldn't be read.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn for_each_analysis_value(used_filename: &str, out: &mut dyn FnMut(Value)) -> bool {
+    use super::local_symbols::{apply_local_edit, may_plan_from, plan_local_edits_of, plans_from};
+    let Ok(file) = File::open(used_filename) else {
+        // (As `read_analysis_values`.)
+        info!("Error trying to open analysis file [{}]", used_filename);
+        return false;
+    };
+    let reader: Box<dyn Read> = if used_filename.ends_with(".gz") {
+        Box::new(GzDecoder::new(file))
+    } else {
+        Box::new(file)
+    };
+    let parse = |lineno: usize, line: &str| -> Option<Value> {
+        match from_str::<Value>(line) {
+            Ok(mut data) => {
+                super::analysis_manglings::escape_record_symbol_commas(&mut data);
+                Some(data)
+            }
+            Err(e) => {
+                warn!(
+                    "Error [{}] trying to read analysis from file [{}] line [{}]: [{}]",
+                    e, used_filename, lineno, line
+                );
+                None
+            }
+        }
+    };
+    let lines: Vec<String> = BufReader::new(reader)
+        .lines()
+        .map(|line| line.unwrap())
+        .collect();
+    if !lines.iter().any(|line| line.contains("\"V_")) {
+        for (i, line) in lines.iter().enumerate() {
+            if let Some(data) = parse(i + 1, line) {
+                out(data);
+            }
+        }
+        return true;
+    }
+    let (mut indices, mut planned) = (vec![], vec![]);
+    for (i, line) in lines.iter().enumerate() {
+        // (Only the lines it could use, without the warnings of a second
+        // parse.)
+        if may_plan_from(line)
+            && let Ok(mut data) = from_str::<Value>(line)
+        {
+            super::analysis_manglings::escape_record_symbol_commas(&mut data);
+            if plans_from(&data) {
+                indices.push(i);
+                planned.push(data);
+            }
+        }
+    }
+    let mut edits = plan_local_edits_of(&indices, &planned);
+    drop(planned);
+    for (i, line) in lines.iter().enumerate() {
+        let Some(data) = parse(i + 1, line) else {
+            continue;
+        };
+        match edits.remove(&i) {
+            Some(edit) => apply_local_edit(*edit, data, out),
+            None => out(data),
+        }
+    }
+    true
 }
 
 /// A file's analysis records (ex: as `AbstractServer::fetch_raw_analysis`
@@ -1271,19 +1349,28 @@ fn filter_analysis_values<T>(
     filter: &mut dyn FnMut(Value, &Location, usize) -> Option<T>,
     result: &mut Vec<WithLocation<T>>,
 ) {
-    for mut data in values {
-        let Some(obj) = data.as_object_mut() else {
-            continue;
-        };
-        // Destructively pull the "loc" out before passing it into the filter.  This is for
-        // read_structured which stores everything it doesn't directly process in `payload`.
-        let Some(loc) = obj.remove("loc") else {
-            continue;
-        };
-        let loc = parse_location(loc.as_str().unwrap_or_default());
-        if let Some(v) = filter(data, &loc, i_file) {
-            result.push(WithLocation { data: v, loc })
-        }
+    for data in values {
+        filter_analysis_value(data, i_file, filter, result);
+    }
+}
+
+fn filter_analysis_value<T>(
+    mut data: Value,
+    i_file: usize,
+    filter: &mut dyn FnMut(Value, &Location, usize) -> Option<T>,
+    result: &mut Vec<WithLocation<T>>,
+) {
+    let Some(obj) = data.as_object_mut() else {
+        return;
+    };
+    // Destructively pull the "loc" out before passing it into the filter.  This is for
+    // read_structured which stores everything it doesn't directly process in `payload`.
+    let Some(loc) = obj.remove("loc") else {
+        return;
+    };
+    let loc = parse_location(loc.as_str().unwrap_or_default());
+    if let Some(v) = filter(data, &loc, i_file) {
+        result.push(WithLocation { data: v, loc })
     }
 }
 
