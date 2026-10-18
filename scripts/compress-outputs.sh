@@ -42,14 +42,19 @@ set -o pipefail # Check all commands in a pipeline
 #   to users is that of the gzip file anyways and so the overwrite case doesn't
 #   do any harm there either.)
 
+# (Many files to each job, rather than a job, of three processes, for each
+# file, which was most of this step's time: 3.5 minutes rather than 2 seconds
+# for 50,000 files on 16 cores.)
+GZIP_WITH_MARKERS="$(dirname "$(readlink -f "$0")")/gzip-with-markers.sh"
+
 function compress_dir_with_touch {
   echo "Compressing files in $1 with zero-length marker for try_files"
   pushd $1
   find . -type f > ../compress-file-list
   # It's possible there won't be matches, in which case grep will exit with 1,
   # which we want to eat.
-  { egrep '\.gz$' ../compress-file-list || test $? = 1; } | parallel --halt now,fail=1 'gzip -f {} && touch -r {}.gz {}'
-  { egrep -v '\.gz$' ../compress-file-list || test $? = 1; } | parallel --halt now,fail=1 'gzip -f {} && touch -r {}.gz {}'
+  { egrep '\.gz$' ../compress-file-list || test $? = 1; } | parallel -X --halt now,fail=1 "$GZIP_WITH_MARKERS"
+  { egrep -v '\.gz$' ../compress-file-list || test $? = 1; } | parallel -X --halt now,fail=1 "$GZIP_WITH_MARKERS"
   rm -f ../compress-file-list
   popd
 }
@@ -60,7 +65,7 @@ function idempotently_gzip_dir_no_touch {
   echo "Compressing files in $1 without zero-length marker"
   pushd $1
   find . -type f > ../compress-file-list
-  { egrep -v '\.gz$' ../compress-file-list || test $? = 1; } | parallel --halt now,fail=1 'gzip -f {}'
+  { egrep -v '\.gz$' ../compress-file-list || test $? = 1; } | parallel -X --halt now,fail=1 gzip -f --
   rm -f ../compress-file-list
   popd
 }
