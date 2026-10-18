@@ -432,6 +432,20 @@ pub trait AbstractServer {
     /// symbol.
     async fn jumpref_lookup(&self, symbol: &str) -> Result<Option<JumprefData>>;
 
+    /// Look symbols' crossref entries up ahead of the calls of
+    /// `crossref_lookup` that are about to (one at a time), where that's
+    /// worth it, so that those find them at once: a remote server's round
+    /// trips (see `RemoteServer`'s memo).  Nothing for local indexes, whose
+    /// lookups are microseconds.
+    async fn prefetch_crossref(&self, _syms: &[Ustr]) {}
+
+    /// `prefetch_crossref`, for `jumpref_lookup`.
+    async fn prefetch_jumpref(&self, _syms: &[Ustr]) {}
+
+    /// `prefetch_crossref`, for `fetch_raw_source` and `fetch_raw_analysis`
+    /// of files.
+    async fn prefetch_files(&self, _paths: &[String]) {}
+
     /// A file's history digests, if the tree has a history (see
     /// `file_format::recency::FileRecency`).
     async fn file_recency_lookup(&self, _path: &str) -> Result<Option<FileRecency>> {

@@ -171,6 +171,7 @@ impl PipelineCommand for BlockDiagramCommand {
                 members.extend(meta.fields.iter().map(|f| f.sym));
                 members.extend(meta.methods.iter().map(|m| m.sym));
             }
+            server.prefetch_crossref(&members).await;
             for member in &members {
                 let Some(member_rollup) = rollup_of(server, member, BlockEdges::Data).await? else {
                     continue;
@@ -219,6 +220,7 @@ impl PipelineCommand for BlockDiagramCommand {
                 .take(self.args.max_members)
                 .map(|m| m.sym)
                 .collect();
+            server.prefetch_crossref(&members).await;
             for member in &members {
                 let Some(member_rollup) = rollup_of(server, member, self.args.edges).await? else {
                     continue;
@@ -299,6 +301,12 @@ impl PipelineCommand for BlockDiagramCommand {
             let (focus_id, _) = node_set.ensure_symbol(&focus_sym, server, 0).await?;
             graph.ensure_node(focus_id);
         }
+        // (The nodes' and the vias' entries, at once.)
+        let syms: Vec<Ustr> = std::iter::once(focus_sym)
+            .chain(edges.iter().flat_map(|edge| [edge.from, edge.to]))
+            .chain(edges.iter().filter_map(|edge| edge.via))
+            .collect();
+        server.prefetch_crossref(&syms).await;
         for edge in &edges {
             let (from_id, _) = node_set.ensure_symbol(&edge.from, server, 1).await?;
             let (to_id, _) = node_set.ensure_symbol(&edge.to, server, 1).await?;

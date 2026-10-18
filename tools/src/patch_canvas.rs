@@ -234,6 +234,26 @@ pub async fn build_canvas(
     let link = |path: &str| format!("/{}/rev/{}/{}", tree_name, meta.head, url_encode_path(path));
 
     // ## The functions the push adds or changes.
+    // (The analyzed files' sources and analysis, on both sides, at once; see
+    // `AbstractServer::prefetch_files`.)
+    let analyzed: Vec<String> = meta
+        .changed
+        .iter()
+        .filter(|(path, change)| {
+            **change != FileChange::Removed && meta.analyzed.contains_key(*path)
+        })
+        .map(|(path, _)| path.clone())
+        .collect();
+    let based: Vec<String> = analyzed
+        .iter()
+        .filter(|path| meta.changed.get(*path) != Some(&FileChange::Added))
+        .cloned()
+        .collect();
+    futures_util::future::join(
+        overlay.prefetch_files(&analyzed),
+        base.prefetch_files(&based),
+    )
+    .await;
     let mut nodes: Vec<CanvasNode> = vec![];
     let mut other_files = vec![];
     for (path, change) in &meta.changed {
@@ -305,9 +325,48 @@ pub async fn build_canvas(
         .map(|(i, node)| (node.id.clone(), i))
         .collect();
     let mut calls: BTreeMap<(String, String), BTreeSet<u32>> = BTreeMap::new();
-    for i in 0..nodes.len() {
+    // (Their entries, at once, and then those of the first of their callees
+    // and callers that can be context cards; see `context_node`.)
+    let syms: Vec<Ustr> = nodes.iter().map(|node| ustr(&node.id)).collect();
+    overlay.prefetch_crossref(&syms).await;
+    let mut node_data = vec![];
+    for sym in &syms {
+        node_data.push(overlay.crossref_lookup(sym).await.ok().flatten());
+    }
+    let mut candidates: Vec<Ustr> = vec![];
+    for (sym, data) in syms.iter().zip(&node_data) {
+        let Some(data) = data else {
+            continue;
+        };
+        candidates.extend(
+            data.callees
+                .iter()
+                .flatten()
+                .filter(|callee| {
+                    !callee.implements && matches!(callee.kind.as_str(), "function" | "method")
+                })
+                .map(|callee| callee.sym)
+                .filter(|callee| !ids.contains_key(callee.as_str()))
+                .take(MAX_CONTEXT_PER_NODE),
+        );
+        let mut callers: Vec<Ustr> = vec![];
+        for hit in data.uses.iter().flatten().flat_map(|hits| &hits.lines) {
+            let from = hit.contextsym;
+            if callers.len() < MAX_CONTEXT_PER_NODE
+                && !from.is_empty()
+                && from != *sym
+                && !ids.contains_key(from.as_str())
+                && !callers.contains(&from)
+            {
+                callers.push(from);
+            }
+        }
+        candidates.extend(callers);
+    }
+    overlay.prefetch_crossref(&candidates).await;
+    for (i, data) in node_data.into_iter().enumerate() {
         let sym = nodes[i].id.clone();
-        let Some(data) = overlay.crossref_lookup(&sym).await.ok().flatten() else {
+        let Some(data) = data else {
             continue;
         };
         let mut context = 0;
@@ -377,16 +436,30 @@ pub async fn build_canvas(
     }
     let mut sym_info: BTreeMap<Ustr, Option<JumprefData>> = BTreeMap::new();
     let mut traversed: UstrMap<JumprefTraversals> = UstrMap::default();
-    for (path, lines) in file_lines {
-        // (A file at a time, so that one without rows doesn't lose the
-        // others'.)
+    // (A file at a time, so that one without rows doesn't lose the others',
+    // at once.)
+    let mut file_rows: HashMap<Ustr, HashMap<u32, crate::file_format::chunked_gzip::Row>> = {
+        use futures_util::stream::{self, StreamExt as FuturesStreamExt};
+        let fetches = FuturesStreamExt::map(stream::iter(file_lines.clone()), |(path, lines)| {
+            let key = ustr(&path);
+            async move {
+                let rows = overlay
+                    .fetch_html_lines(vec![(key, lines)])
+                    .await
+                    .ok()
+                    .and_then(|mut rows| rows.remove(&key));
+                (key, rows)
+            }
+        });
+        let fetched: Vec<_> = FuturesStreamExt::collect(fetches.buffer_unordered(16)).await;
+        fetched
+            .into_iter()
+            .filter_map(|(key, rows)| Some((key, rows?)))
+            .collect()
+    };
+    for (path, _) in file_lines {
         let key = ustr(&path);
-        let Some(rows) = overlay
-            .fetch_html_lines(vec![(key, lines)])
-            .await
-            .ok()
-            .and_then(|mut rows| rows.remove(&key))
-        else {
+        let Some(rows) = file_rows.remove(&key) else {
             continue;
         };
         let source = overlay.fetch_raw_source(&path).await.unwrap_or_default();

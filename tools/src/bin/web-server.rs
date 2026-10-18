@@ -245,12 +245,8 @@ fn rev_file_page(
                 .try_overlay(&file.rev)
                 .unwrap_or_else(|| server.clonify());
             let mut traversed = UstrMap::default();
-            for sym in format::page_symbols(&path_, &file.analysis) {
-                if !jumprefs.contains_key(&sym) {
-                    sym_info::add_sym_info(source.as_ref(), sym, &mut jumprefs, &mut traversed)
-                        .await;
-                }
-            }
+            let syms = format::page_symbols(&path_, &file.analysis);
+            sym_info::add_syms_info(source.as_ref(), syms, &mut jumprefs, &mut traversed).await;
         }
         Ok::<_, tools::abstract_server::ServerError>(Some((file, jumprefs)))
     })?;

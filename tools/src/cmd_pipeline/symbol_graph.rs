@@ -644,6 +644,50 @@ impl SymbolGraphCollection {
         // visually at 10 right now.
         const SYNTHETIC_DEPTH: u32 = 13;
 
+        // (The pieces' lookups below, at once: every prefix of the nodes'
+        // pretty names but the whole, and then the symbols found's entries;
+        // see `AbstractServer::prefetch_crossref`.)
+        let mut prefixes: BTreeSet<String> = BTreeSet::new();
+        for sym_id in graph.list_nodes() {
+            let node_info = self.node_set.get(&sym_id);
+            let (sym, sym_pretty) = (node_info.symbol.as_str(), node_info.get_pretty().as_str());
+            let (pieces, delim) = match &policies.grouping {
+                GraphHierarchy::Flat | GraphHierarchy::Flatbadges => {
+                    (vec![sym_pretty.to_string()], "")
+                }
+                _ => split_pretty(sym_pretty, sym),
+            };
+            let mut so_far = String::new();
+            for piece in pieces {
+                so_far = if so_far.is_empty() {
+                    piece
+                } else {
+                    format!("{}{}{}", so_far, delim, piece)
+                };
+                if so_far != sym_pretty {
+                    prefixes.insert(so_far.clone());
+                }
+            }
+        }
+        let prefix_matches: HashMap<String, Option<(Ustr, Ustr)>> = {
+            use futures_util::stream::{self, StreamExt};
+            stream::iter(prefixes)
+                .map(|prefix| async move {
+                    let found = server.search_identifiers(&prefix, true, false, 1).await;
+                    (prefix, found.ok().map(|matches| matches.first().cloned()))
+                })
+                .buffer_unordered(16)
+                .filter_map(|(prefix, found)| async move { Some((prefix, found?)) })
+                .collect()
+                .await
+        };
+        let found_syms: Vec<Ustr> = prefix_matches
+            .values()
+            .flatten()
+            .map(|(sym, _)| *sym)
+            .collect();
+        server.prefetch_crossref(&found_syms).await;
+
         for sym_id in graph.list_nodes() {
             let (sym, sym_pretty) = {
                 let node_info = self.node_set.get(&sym_id);
@@ -693,11 +737,15 @@ impl SymbolGraphCollection {
                         // general, since we are taking a fast path on the full pretty
                         // match, we shouldn't be dealing with overloads here, so there
                         // really should only be a single ancestor symbol per pretty.
-                        if let Some((match_sym, _)) = server
-                            .search_identifiers(&pretty_so_far, true, false, 1)
-                            .await?
-                            .first()
-                        {
+                        let first_match = match prefix_matches.get(&pretty_so_far) {
+                            Some(found) => *found,
+                            None => server
+                                .search_identifiers(&pretty_so_far, true, false, 1)
+                                .await?
+                                .first()
+                                .cloned(),
+                        };
+                        if let Some((match_sym, _)) = &first_match {
                             let (match_sym_id, match_sym_info) = self
                                 .node_set
                                 .ensure_symbol(match_sym, server, SYNTHETIC_DEPTH)

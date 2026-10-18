@@ -205,11 +205,7 @@ async fn results_sym_info(
     // (Like `format::format_code`'s.)
     let mut sym_info: BTreeMap<Ustr, Option<JumprefData>> = BTreeMap::new();
     let mut traversed: UstrMap<JumprefTraversals> = UstrMap::default();
-    for sym in syms {
-        if !sym_info.contains_key(&sym) {
-            sym_info::add_sym_info(server, sym, &mut sym_info, &mut traversed).await;
-        }
-    }
+    sym_info::add_syms_info(server, syms, &mut sym_info, &mut traversed).await;
     let mut sym_info = serde_json::to_value(&sym_info).unwrap_or_default();
     if let Some(sym_info) = sym_info.as_object_mut() {
         for jumpref in sym_info.values_mut() {

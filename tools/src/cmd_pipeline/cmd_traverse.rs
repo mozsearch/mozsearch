@@ -416,7 +416,26 @@ impl PipelineCommand for TraverseCommand {
         //   set of symbols we're traversing from which we already have cached
         //   values for and the new edges we discover, but it's not a concern.
         // - We traverse the list of edges.
-        while let Some((sym, pretty, depth, cur_traversals)) = to_traverse.pop_front() {
+        // (How many of the queue's first items' symbols were prefetched: once
+        // they're processed, the items they queued, the next depth's, are, at
+        // once; see `AbstractServer::prefetch_crossref`.)
+        let mut prefetched = 0;
+        loop {
+            if prefetched == 0 {
+                let room =
+                    (node_limit as usize).saturating_sub(sym_node_set.symbol_crossref_infos.len());
+                let syms: Vec<Ustr> = to_traverse
+                    .iter()
+                    .take(room)
+                    .map(|(sym, ..)| *sym)
+                    .collect();
+                server.prefetch_crossref(&syms).await;
+                prefetched = to_traverse.len();
+            }
+            let Some((sym, pretty, depth, cur_traversals)) = to_traverse.pop_front() else {
+                break;
+            };
+            prefetched -= 1;
             if sym_node_set.symbol_crossref_infos.len() as u32 >= node_limit {
                 trace!(sym = %sym, depth, "stopping because of node limit");
                 overloads_hit.push(OverloadInfo {
@@ -1435,6 +1454,15 @@ impl PipelineCommand for TraverseCommand {
                 // algorithm's in sections of many specs); the rest are left
                 // out (see `OverloadKind::UsesCallers`).
                 let lookup_limit = caller_limit.saturating_mul(8).max(128);
+                // (The first callers' entries, at once: as many as can be
+                // included.)
+                let first: Vec<Ustr> = callers
+                    .iter()
+                    .filter(|((_, tree, _), _)| tree.is_none())
+                    .take(caller_limit as usize)
+                    .map(|((sym, _, _), _)| *sym)
+                    .collect();
+                server.prefetch_crossref(&first).await;
                 let mut included = 0;
                 let mut left_out = false;
                 for (lookups, ((caller_sym, caller_tree, implements), details)) in

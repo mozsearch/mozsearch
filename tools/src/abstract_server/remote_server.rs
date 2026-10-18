@@ -6,17 +6,22 @@
 //! it), and the rest over its pages (rendered sources, the router's search).
 //! With `try_overlay`, the tree as a try push changes it (the API's `rev=`).
 //!
+//! Responses are kept in memory for the process, by URL (see `Memo`), so
+//! that a request in flight is made once, and lookups prefetched (see
+//! `AbstractServer::prefetch_crossref`) are found at once.
+//!
 //! Responses can be cached on disk, but only where `remote_cache` says (see
 //! `ToolOpts::remote_cache`; there's no default location, so that nothing
 //! fills a disk by surprise): under `{cache}/{host}/{tree}/{indexed rev}/`,
 //! since they're immutable for an index (try pushes' responses have their
 //! heads in their URLs), with the other indexed revisions' removed.
 
+use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -72,6 +77,10 @@ impl From<ParseError> for ServerError {
 /// The size cap the API's requests ask for (see `data_api`): the responses
 /// whole, as a local index's.
 const MAX_BYTES: &str = "1073741824";
+/// How many requests prefetching makes at once.
+const PREFETCH_CONCURRENCY: usize = 16;
+/// About how many bytes of responses the memo keeps (see `Memo`).
+const MEMO_BYTES: usize = 256 << 20;
 /// The most results the API's searches return (`data_api::MAX_LIMIT`).
 const MAX_LIMIT: usize = 2_000_001;
 /// How many times a request turned away for its client's rate (429) is
@@ -237,6 +246,53 @@ impl ResponseCache {
     }
 }
 
+/// The API's responses by URL, for the process (all of its remote trees'
+/// servers'), so that the requests for the same URL in flight at once are
+/// made once, and later ones are answered from memory: a tree's responses
+/// don't change while it's the same index (as for the disk cache), and a
+/// server's indexed revision is looked up once (see `base_info`).  Kept to
+/// about `MEMO_BYTES`: when the current generation's responses are half of
+/// that, they become the previous generation, which replaces the one before,
+/// and responses found in the previous one move back into the current one.
+#[derive(Default)]
+struct Memo {
+    current: HashMap<String, Arc<OnceCell<Arc<Vec<u8>>>>>,
+    previous: HashMap<String, Arc<OnceCell<Arc<Vec<u8>>>>>,
+    current_bytes: usize,
+}
+
+impl Memo {
+    fn get() -> &'static Mutex<Memo> {
+        static MEMO: OnceLock<Mutex<Memo>> = OnceLock::new();
+        MEMO.get_or_init(Default::default)
+    }
+
+    /// The cell of `url`'s response (empty while it's being fetched).
+    fn cell(url: &str) -> Arc<OnceCell<Arc<Vec<u8>>>> {
+        let mut memo = Memo::get().lock().unwrap();
+        if let Some(cell) = memo.current.get(url) {
+            return cell.clone();
+        }
+        let cell = memo.previous.remove(url).unwrap_or_default();
+        if let Some(body) = cell.get() {
+            memo.current_bytes += body.len();
+        }
+        memo.current.insert(url.to_string(), cell.clone());
+        cell
+    }
+
+    /// Count a fetched response's bytes, starting a new generation if the
+    /// current one is full.
+    fn add(bytes: usize) {
+        let mut memo = Memo::get().lock().unwrap();
+        memo.current_bytes += bytes;
+        if memo.current_bytes > MEMO_BYTES / 2 {
+            memo.previous = std::mem::take(&mut memo.current);
+            memo.current_bytes = 0;
+        }
+    }
+}
+
 #[derive(Clone)]
 struct RemoteServer {
     tree_name: String,
@@ -327,14 +383,43 @@ impl RemoteServer {
     }
 
     /// The body of the API's response for `route` (see `api_url`), from the
-    /// cache if it's there.
+    /// memo or the disk cache if it's there.
     async fn api(
         &self,
         route: &str,
         path: Option<&str>,
         params: &[(&str, &str)],
-    ) -> Result<Vec<u8>> {
+    ) -> Result<Arc<Vec<u8>>> {
         let url = self.api_url(route, path, params)?;
+        let cell = Memo::cell(url.as_str());
+        let body = cell
+            .get_or_try_init(|| async {
+                let body = self.fetch(url.clone()).await?;
+                Memo::add(body.len());
+                Ok::<_, ServerError>(Arc::new(body))
+            })
+            .await?;
+        Ok(body.clone())
+    }
+
+    /// Fetch `route`'s responses for `syms` into the memo, at once (as
+    /// `api`, so that the lookups they're for find them there).
+    async fn prefetch_route(&self, route: &str, syms: &[Ustr]) {
+        use futures_util::stream::{self, StreamExt};
+        let mut syms: Vec<Ustr> = syms.to_vec();
+        syms.sort();
+        syms.dedup();
+        stream::iter(syms)
+            .map(|sym| async move {
+                let _ = self.api(route, None, &[("sym", sym.as_str())]).await;
+            })
+            .buffer_unordered(PREFETCH_CONCURRENCY)
+            .collect::<Vec<()>>()
+            .await;
+    }
+
+    /// `url`'s response, from the disk cache if it's there.
+    async fn fetch(&self, url: Url) -> Result<Vec<u8>> {
         let cache = match &self.cache {
             Some(cache) => self.base_info().await?["commit"]["rev"]
                 .as_str()
@@ -463,7 +548,8 @@ impl AbstractServer for RemoteServer {
 
     async fn fetch_raw_source(&self, sf_path: &str) -> Result<String> {
         let body = self.api("source", Some(sf_path), &[]).await?;
-        String::from_utf8(body).map_err(|err| problem(true, ErrorLayer::DataLayer, err.to_string()))
+        String::from_utf8(body.to_vec())
+            .map_err(|err| problem(true, ErrorLayer::DataLayer, err.to_string()))
     }
 
     async fn fetch_history_journal(
@@ -531,6 +617,34 @@ impl AbstractServer for RemoteServer {
 
     async fn jumpref_lookup(&self, symbol: &str) -> Result<Option<JumprefData>> {
         parse(&self.api("jumpref", None, &[("sym", symbol)]).await?)
+    }
+
+    async fn prefetch_crossref(&self, syms: &[Ustr]) {
+        self.prefetch_route("crossref", syms).await;
+    }
+
+    async fn prefetch_jumpref(&self, syms: &[Ustr]) {
+        self.prefetch_route("jumpref", syms).await;
+    }
+
+    async fn prefetch_files(&self, paths: &[String]) {
+        use futures_util::stream::{self, StreamExt};
+        let mut paths: Vec<String> = paths.to_vec();
+        paths.sort();
+        paths.dedup();
+        // (Each file's source, and its analysis.)
+        let fetches: Vec<(bool, String)> = paths
+            .into_iter()
+            .flat_map(|path| [(true, path.clone()), (false, path)])
+            .collect();
+        stream::iter(fetches)
+            .map(|(source, path)| async move {
+                let route = if source { "source" } else { "analysis" };
+                let _ = self.api(route, Some(&path), &[]).await;
+            })
+            .buffer_unordered(PREFETCH_CONCURRENCY)
+            .collect::<Vec<()>>()
+            .await;
     }
 
     async fn search_files(
@@ -638,7 +752,8 @@ impl AbstractServer for RemoteServer {
                 &[("commit", rev), ("path", path), ("file", file)],
             )
             .await?;
-        String::from_utf8(body).map_err(|err| problem(true, ErrorLayer::DataLayer, err.to_string()))
+        String::from_utf8(body.to_vec())
+            .map_err(|err| problem(true, ErrorLayer::DataLayer, err.to_string()))
     }
 
     async fn stack_strip_json(&self, stack: &str, rev: &str, path: &str) -> Result<String> {
@@ -649,7 +764,8 @@ impl AbstractServer for RemoteServer {
                 &[("stack", stack), ("commit", rev), ("path", path)],
             )
             .await?;
-        String::from_utf8(body).map_err(|err| problem(true, ErrorLayer::DataLayer, err.to_string()))
+        String::from_utf8(body.to_vec())
+            .map_err(|err| problem(true, ErrorLayer::DataLayer, err.to_string()))
     }
 
     async fn history(
@@ -684,7 +800,8 @@ impl AbstractServer for RemoteServer {
 
     async fn commit_info_json(&self, revs: &str) -> Result<String> {
         let body = self.api("commit-info", None, &[("revs", revs)]).await?;
-        String::from_utf8(body).map_err(|err| problem(true, ErrorLayer::DataLayer, err.to_string()))
+        String::from_utf8(body.to_vec())
+            .map_err(|err| problem(true, ErrorLayer::DataLayer, err.to_string()))
     }
 
     async fn interdiff_files(&self, a: &str, b: &str) -> Result<Value> {

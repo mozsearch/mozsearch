@@ -79,6 +79,27 @@ pub fn html_symbols(html: &str) -> Vec<Ustr> {
     syms
 }
 
+/// `add_sym_info` for each of `syms` (in order) that `sym_info` doesn't
+/// have, with their jumprefs prefetched (see
+/// `AbstractServer::prefetch_jumpref`).
+pub async fn add_syms_info(
+    server: &(dyn AbstractServer + Send + Sync),
+    syms: impl IntoIterator<Item = Ustr>,
+    sym_info: &mut BTreeMap<Ustr, Option<JumprefData>>,
+    traversed: &mut UstrMap<JumprefTraversals>,
+) {
+    let syms: Vec<Ustr> = syms
+        .into_iter()
+        .filter(|sym| !sym_info.contains_key(sym))
+        .collect();
+    server.prefetch_jumpref(&syms).await;
+    for sym in syms {
+        if !sym_info.contains_key(&sym) {
+            add_sym_info(server, sym, sym_info, traversed).await;
+        }
+    }
+}
+
 /// Add the SYM_INFO of the symbols in `html` (see `html_symbols`) to
 /// `sym_info` (see `add_sym_info`).
 pub async fn add_html_sym_info(
@@ -87,9 +108,5 @@ pub async fn add_html_sym_info(
     sym_info: &mut BTreeMap<Ustr, Option<JumprefData>>,
     traversed: &mut UstrMap<JumprefTraversals>,
 ) {
-    for sym in html_symbols(html) {
-        if !sym_info.contains_key(&sym) {
-            add_sym_info(server, sym, sym_info, traversed).await;
-        }
-    }
+    add_syms_info(server, html_symbols(html), sym_info, traversed).await;
 }
