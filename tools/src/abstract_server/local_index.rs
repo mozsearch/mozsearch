@@ -285,6 +285,18 @@ impl AbstractServer for LocalIndex {
             .map_err(|message| bad_input(message.to_string()))
     }
 
+    async fn hyperblame_json(&self, rev: &str, path: &str, file: &str) -> Result<String> {
+        let cfg = self.tree_config_loaded();
+        crate::format::hyperblame_json(&cfg, &self.tree_name, rev, path, file)
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
+    async fn stack_strip_json(&self, stack: &str, rev: &str, path: &str) -> Result<String> {
+        let cfg = self.tree_config_loaded();
+        crate::format::stack_strip_json(&cfg, &self.tree_name, stack, rev, path)
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
     async fn rev_dir(&self, rev: &str, path: &str) -> Result<Option<Value>> {
         let cfg = self.tree_config_loaded();
         crate::format::rev_dir_data(&cfg, &self.tree_name, rev, path)

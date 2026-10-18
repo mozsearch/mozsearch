@@ -220,6 +220,14 @@ impl AbstractServer for TryOverlay {
         self.base.rev_file(rev, path).await
     }
 
+    async fn hyperblame_json(&self, rev: &str, path: &str, file: &str) -> Result<String> {
+        self.base.hyperblame_json(rev, path, file).await
+    }
+
+    async fn stack_strip_json(&self, stack: &str, rev: &str, path: &str) -> Result<String> {
+        self.base.stack_strip_json(stack, rev, path).await
+    }
+
     fn path_kinds(&self) -> Vec<(Ustr, Ustr)> {
         self.base.path_kinds()
     }

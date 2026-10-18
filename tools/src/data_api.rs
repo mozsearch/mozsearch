@@ -52,6 +52,10 @@
 //! - `rev-file?commit=&path=`: the data of a file's page at a revision (its
 //!   text, its analysis if it's a try push's head's, its blame and coverage;
 //!   `null` if it isn't a file there; see `format::rev_file_data`).
+//! - `hyperblame?commit=&path=&file=`: a file's token-centric blame data file
+//!   at a revision (see `format::hyperblame_json`).
+//! - `stack-strip?stack=&commit=&path=`: a file's stack strip for a stack
+//!   page (see `format::stack_strip_json`).
 //! - `try-status?push=` and POST `try-import?push=`: a try push's import's
 //!   status, and asking for its import; served by the web-server, which
 //!   performs imports (see `Host`).
@@ -270,6 +274,20 @@ const ROUTES: &[Route] = &[
         name: "rev-file",
         takes_path: false,
         params: &["commit", "path"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "hyperblame",
+        takes_path: false,
+        params: &["commit", "path", "file"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "stack-strip",
+        takes_path: false,
+        params: &["stack", "commit", "path"],
         host: Host::PipelineServer,
         post: false,
     },
@@ -763,6 +781,50 @@ async fn route_body(
             }
             let file = server.rev_file(&commit, path).await.map_err(error)?;
             Ok(Body::json(&serde_json::to_value(file).unwrap_or_default()))
+        }
+        "hyperblame" => {
+            let commit = commit_param(params)?;
+            let path = params.required("path")?;
+            let file = params.required("file")?;
+            let valid_file = file.len() <= 1000
+                && file
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b",./-".contains(&b));
+            if !valid_tree_path(path) || !valid_file {
+                return Err(bad(
+                    "path must be a path in the tree, and file a hyperblame file",
+                ));
+            }
+            let json = server
+                .hyperblame_json(&commit, path, file)
+                .await
+                .map_err(error)?;
+            Ok(Body {
+                content_type: "application/json",
+                bytes: json.into_bytes(),
+            })
+        }
+        "stack-strip" => {
+            let commit = commit_param(params)?;
+            let path = params.required("path")?;
+            let stack = params.required("stack")?;
+            let valid_stack = stack.len() <= 200
+                && stack
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b"/_.-".contains(&b));
+            if !valid_tree_path(path) || !valid_stack {
+                return Err(bad(
+                    "path must be a path in the tree, and stack a stack page",
+                ));
+            }
+            let json = server
+                .stack_strip_json(stack, &commit, path)
+                .await
+                .map_err(error)?;
+            Ok(Body {
+                content_type: "application/json",
+                bytes: json.into_bytes(),
+            })
         }
         "explore" => {
             let revs: Vec<String> = params

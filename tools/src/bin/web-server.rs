@@ -228,6 +228,18 @@ fn tree_server(tree_name: &str) -> Option<Arc<dyn AbstractServer + Send + Sync>>
     Some(server)
 }
 
+/// What a server's error says, for a page (the message of its reasons, ex:
+/// "Bad revision").
+fn server_error_message(err: &tools::abstract_server::ServerError) -> String {
+    use tools::abstract_server::ServerError;
+    match err {
+        ServerError::StickyProblem(details) | ServerError::TransientProblem(details) => {
+            details.message.clone()
+        }
+        ServerError::Unsupported => "Not available for this tree".to_string(),
+    }
+}
+
 /// The trees' servers for the data API's routes the web-server serves (see
 /// `handle`), if the tree's API is on.
 struct WebApiServers {
@@ -451,39 +463,38 @@ fn handle(
                 return WebResponse::not_found();
             }
 
-            let rev = &path[2];
-            let file_name = path[path.len() - 1];
+            let rev = path[2];
 
             // Peephole histories (see `format::peephole_json`) as
             // `/{tree}/rev-hyperblame/{rev}/{path}/peephole/{tokens}.json` for
             // comma-separated token indices, futures (see `format::future_json`)
             // as `.../future/{token}.json`, and where tokens were before they
             // were introduced (see `format::before_json`) as
-            // `.../before/{token}.json`.  (Data files have other names.)
-            let tokens: Option<Vec<u32>> = file_name
-                .strip_suffix(".json")
-                .and_then(|tokens| tokens.split(',').map(|t| t.parse::<u32>().ok()).collect());
-            if let Some(tokens) = tokens
-                && path.len() >= 6
+            // `.../before/{token}.json`; and the data files (`commits.json`
+            // and `lines-K.json`); over the tree's server (see
+            // `format::hyperblame_json`).
+            let (file_path, file) = if path.len() >= 6
                 && matches!(path[path.len() - 2], "peephole" | "future" | "before")
             {
-                let file_path = path[3..path.len() - 2].join("/");
-                let json = match path[path.len() - 2] {
-                    "peephole" => format::peephole_json(cfg, tree_name, rev, &file_path, tokens),
-                    "future" => format::future_json(cfg, tree_name, rev, &file_path, tokens[0]),
-                    _ => format::before_json(cfg, tree_name, rev, &file_path, tokens[0]),
-                };
-                return match json {
-                    Ok(json) => WebResponse::json(json),
-                    Err(err) => WebResponse::internal_error(err.to_owned()),
-                };
-            }
-
-            let file_path = path[3..path.len() - 1].join("/");
-
-            match format::hyperblame_file(cfg, tree_name, rev, &file_path, file_name) {
+                (
+                    path[3..path.len() - 2].join("/"),
+                    format!("{}/{}", path[path.len() - 2], path[path.len() - 1]),
+                )
+            } else {
+                (
+                    path[3..path.len() - 1].join("/"),
+                    path[path.len() - 1].to_string(),
+                )
+            };
+            let Some(server) = tree_server(tree_name) else {
+                return WebResponse::not_found();
+            };
+            let (server, rev) = (server.clonify(), rev.to_string());
+            match format::run_on_runtime(async move {
+                server.hyperblame_json(&rev, &file_path, &file).await
+            }) {
                 Ok(json) => WebResponse::json(json),
-                Err(err) => WebResponse::internal_error(err.to_owned()),
+                Err(err) => WebResponse::internal_error(server_error_message(&err)),
             }
         }
 
@@ -835,9 +846,16 @@ fn handle(
             if path.len() >= 6 && path[3] == "stack-strip" {
                 let stack = path[1..3].join("/");
                 let file_path = path[5..].join("/");
-                return match format::stack_strip_json(cfg, tree_name, &stack, path[4], &file_path) {
+                // (Over the tree's server; see `tree_server`.)
+                let Some(server) = tree_server(tree_name) else {
+                    return WebResponse::not_found();
+                };
+                let (server, rev) = (server.clonify(), path[4].to_string());
+                return match format::run_on_runtime(async move {
+                    server.stack_strip_json(&stack, &rev, &file_path).await
+                }) {
                     Ok(json) => WebResponse::json(json).uncached(),
-                    Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
+                    Err(err) => WebResponse::internal_error(server_error_message(&err)).uncached(),
                 };
             }
             if path.len() != 3 {

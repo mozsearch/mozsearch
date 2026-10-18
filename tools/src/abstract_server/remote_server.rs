@@ -629,6 +629,28 @@ impl AbstractServer for RemoteServer {
         )
     }
 
+    async fn hyperblame_json(&self, rev: &str, path: &str, file: &str) -> Result<String> {
+        let body = self
+            .api(
+                "hyperblame",
+                None,
+                &[("commit", rev), ("path", path), ("file", file)],
+            )
+            .await?;
+        String::from_utf8(body).map_err(|err| problem(true, ErrorLayer::DataLayer, err.to_string()))
+    }
+
+    async fn stack_strip_json(&self, stack: &str, rev: &str, path: &str) -> Result<String> {
+        let body = self
+            .api(
+                "stack-strip",
+                None,
+                &[("stack", stack), ("commit", rev), ("path", path)],
+            )
+            .await?;
+        String::from_utf8(body).map_err(|err| problem(true, ErrorLayer::DataLayer, err.to_string()))
+    }
+
     async fn rev_dir(&self, rev: &str, path: &str) -> Result<Option<Value>> {
         parse(
             &self

@@ -90,6 +90,10 @@ add_task(async function test_DataApiRoutes() {
   ok(file.extras?.token_blame?.lines?.length, "and its blame");
   is((await get(`${API}/rev-file?commit=${LANDED}&path=nothing.cpp`)).status, 422,
      "but not of files it doesn't have");
+  const commits = await getJson(`${API}/hyperblame?commit=${LANDED}&path=widget.cpp&file=commits.json`);
+  ok(Object.keys(commits).length, "A file's blame's commits at a revision are there");
+  const chunk = await getJson(`${API}/hyperblame?commit=${LANDED}&path=widget.cpp&file=lines-0.json`);
+  ok(chunk.lines?.length, "and its blame's data");
 
   const formatted = await getJson(`${API}/formatted-lines/widget.cpp`);
   ok(formatted.lines?.some(line => line.includes(OLD_FROB)),
@@ -134,6 +138,9 @@ add_task(async function test_DataApiTryContext() {
   is(explore.commits?.length, push.stack.length, "as an explore page's data");
   ok(explore.file_groups?.some(group => group.files.some(file => file.path == "wobbler.cpp")),
      "with the files it changes");
+  const strip = await getJson(
+    `${API}/stack-strip?stack=try/${PUSH}&commit=${push.stack[0].rev}&path=wobbler.cpp`);
+  ok(strip, "and its files' stack strips");
   const asked = await fetch(`${API}/try-import?push=${PUSH}`, { method: "POST", cache: "no-store" });
   is(asked.status, 200, "Asking for an imported push's import is fine");
   is((await asked.json()).state, "imported", "and says it's imported");

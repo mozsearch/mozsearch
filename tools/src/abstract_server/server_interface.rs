@@ -555,6 +555,18 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// A token-centric blame data file of the file at `path` in the revision
+    /// `rev` (see `format::hyperblame_json`).
+    async fn hyperblame_json(&self, _rev: &str, _path: &str, _file: &str) -> Result<String> {
+        Err(ServerError::Unsupported)
+    }
+
+    /// The stack strip of the file at `path` in the revision `rev` for the
+    /// stack page `stack` (ex: `try/<push>`; see `format::stack_strip_json`).
+    async fn stack_strip_json(&self, _stack: &str, _rev: &str, _path: &str) -> Result<String> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The try push this is the tree as changed by, if it's a `try_overlay`.
     fn try_delta_meta(&self) -> Option<crate::try_delta::TryDeltaMeta> {
         None

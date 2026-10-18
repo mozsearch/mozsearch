@@ -1301,6 +1301,36 @@ fn hyperblame_commits_json<'a>(
 /// One of the hyperblame data files (see `hyperblame_files`) for the file at
 /// `path` in revision `rev`, for pages of revisions other than the tip.  We
 /// use the data rendering the page left in `PAGE_DATA_CACHE`, if it's there.
+/// A token-centric blame data file of the file at `path` in the revision
+/// `rev` (`/{tree}/rev-hyperblame/{rev}/{path}/{file}`): `file` is
+/// `commits.json` or `lines-K.json` (see `hyperblame_file`), or
+/// `peephole/{tokens}.json` for comma-separated token indices,
+/// `future/{token}.json` or `before/{token}.json` (see `peephole_json`,
+/// `future_json` and `before_json`).  (For trees' servers; see
+/// `AbstractServer::hyperblame_json`.)
+pub fn hyperblame_json(
+    cfg: &Config,
+    tree_name: &str,
+    rev: &str,
+    path: &str,
+    file: &str,
+) -> Result<String, &'static str> {
+    if let Some((kind, name)) = file.split_once('/') {
+        let tokens: Vec<u32> = name
+            .strip_suffix(".json")
+            .and_then(|tokens| tokens.split(',').map(|t| t.parse::<u32>().ok()).collect())
+            .filter(|tokens: &Vec<u32>| !tokens.is_empty())
+            .ok_or("Bad tokens")?;
+        return match kind {
+            "peephole" => peephole_json(cfg, tree_name, rev, path, tokens),
+            "future" => future_json(cfg, tree_name, rev, path, tokens[0]),
+            "before" => before_json(cfg, tree_name, rev, path, tokens[0]),
+            _ => Err("Unknown hyperblame data"),
+        };
+    }
+    hyperblame_file(cfg, tree_name, rev, path, file)
+}
+
 pub fn hyperblame_file(
     cfg: &Config,
     tree_name: &str,
