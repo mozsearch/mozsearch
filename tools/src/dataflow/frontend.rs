@@ -87,15 +87,17 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
         other => return Err(format!("No dataflow frontend for {}", other)),
     };
     let lines: Vec<&str> = source.lines().collect();
+    let file_text: std::rc::Rc<str> = std::rc::Rc::from(parse.text.as_str());
     let cx = Cx {
         path,
         lang,
         recs,
         lines: &lines,
         utf16_columns: Default::default(),
+        file_text: (file_text.as_ptr() as usize, file_text.len()),
+        newlines: file_text.match_indices('\n').map(|(i, _)| i).collect(),
     };
     let mut funcs = vec![];
-    let file_text: std::rc::Rc<str> = std::rc::Rc::from(parse.text.as_str());
     let mut stack = vec![parse.tree.root_node()];
     while let Some(node) = stack.pop() {
         if let Some((sym, pretty)) = cx.function_sym(node, &parse.text) {
@@ -289,6 +291,10 @@ struct Cx<'a> {
     /// quadratic in minified JS's huge lines (69 s of 70 for a 35 MB
     /// bundle).
     utf16_columns: std::cell::RefCell<HashMap<usize, Option<std::rc::Rc<Vec<u32>>>>>,
+    /// The file's text the builders share (see `Builder::text`), as where it
+    /// is in memory, and its newlines' offsets, for `Builder::has_newline`.
+    file_text: (usize, usize),
+    newlines: Vec<usize>,
 }
 
 impl<'a> Cx<'a> {
@@ -395,9 +401,28 @@ impl<'a> Cx<'a> {
 }
 
 fn truncate(text: &str, max: usize) -> String {
+    truncate_known(text, max, text.contains('\n'))
+}
+
+/// `truncate`, for a text whose having a newline is known (see
+/// `Builder::trunc`): without scanning all of it, as a node's text can be
+/// most of the file (ex: a bundle's function expression), and many calls'
+/// labels are truncated (it was 3/4 of a 37 MB bundle's time).  Multi-line
+/// texts' whitespace is collapsed, only as far as `max` needs.
+fn truncate_known(text: &str, max: usize, has_newline: bool) -> String {
     let collapsed;
-    let text = if text.contains('\n') {
-        collapsed = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let text = if has_newline {
+        let mut prefix = String::new();
+        for word in text.split_whitespace() {
+            if !prefix.is_empty() {
+                prefix.push(' ');
+            }
+            prefix.push_str(word);
+            if prefix.len() > max {
+                break;
+            }
+        }
+        collapsed = prefix;
         collapsed.as_str()
     } else {
         text
@@ -505,8 +530,10 @@ impl Ev {
     }
 
     fn konst(text: &str) -> Self {
-        let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
-        Ev::vals(vec![Val::direct(Atom::Const(truncate(&text, 40)))])
+        // (Its whitespace collapsed, only as far as is shown.)
+        Ev::vals(vec![Val::direct(Atom::Const(truncate_known(
+            text, 40, true,
+        )))])
     }
 }
 
@@ -576,6 +603,28 @@ impl<'c, 'a> Builder<'c, 'a> {
 
     fn t(&self, node: Node) -> &str {
         self.text.get(node.byte_range()).unwrap_or("")
+    }
+
+    /// Whether a text has a newline: by the file's newlines, for its text's
+    /// (ex: `t`'s), else by looking.
+    fn has_newline(&self, text: &str) -> bool {
+        let start = text.as_ptr() as usize;
+        let (base, len) = self.cx.file_text;
+        if start >= base && start + text.len() <= base + len {
+            let offset = start - base;
+            let i = self.cx.newlines.partition_point(|&n| n < offset);
+            return self
+                .cx
+                .newlines
+                .get(i)
+                .is_some_and(|&n| n < offset + text.len());
+        }
+        text.contains('\n')
+    }
+
+    /// `truncate`, knowing whether a text has a newline cheaply.
+    fn trunc(&self, text: &str, max: usize) -> String {
+        truncate_known(text, max, self.has_newline(text))
     }
 
     fn pos(&self, node: Node) -> (u32, u32) {
@@ -823,7 +872,7 @@ impl<'c, 'a> Builder<'c, 'a> {
             vals: ev.vals,
             place: ev.place,
             addr: ev.addr,
-            text: truncate(self.t(node), 60),
+            text: self.trunc(self.t(node), 60),
             line: self.pos(node).0,
             end_line: self.end_line(node),
         }
@@ -859,7 +908,7 @@ impl<'c, 'a> Builder<'c, 'a> {
             self.question(
                 node,
                 QuestionKind::UnresolvedCall,
-                format!("call of {}", truncate(callee_text, 60)),
+                format!("call of {}", self.trunc(callee_text, 60)),
             );
         }
         let end_line = self.end_line(node);
@@ -873,7 +922,7 @@ impl<'c, 'a> Builder<'c, 'a> {
             kind,
             receiver,
             args,
-            text: truncate(self.t(node), 80),
+            text: self.trunc(self.t(node), 80),
         });
         self.event(node, EventKind::Call(id));
         id
@@ -1088,7 +1137,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                 self.nested.push(node);
             }
             "ERROR" => {
-                self.question(node, QuestionKind::Unparsed, truncate(self.t(node), 60));
+                self.question(node, QuestionKind::Unparsed, self.trunc(self.t(node), 60));
                 for child in named(node) {
                     self.stmt(child);
                 }
@@ -1222,7 +1271,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                 vals: ev.vals,
                 place: ev.place,
                 addr: ev.addr,
-                text: truncate(self.t(name), 60),
+                text: self.trunc(self.t(name), 60),
                 line: self.pos(name).0,
                 end_line: self.end_line(name),
             });
@@ -1462,7 +1511,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                         self.question(
                             node,
                             QuestionKind::Unparsed,
-                            format!("assignment to {}", truncate(self.t(node), 60)),
+                            format!("assignment to {}", self.trunc(self.t(node), 60)),
                         );
                         Ev::vals(right)
                     }
@@ -1563,7 +1612,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                 Ev::vals(self.cpp_macro(node, node.child_by_field_name("name"), false))
             }
             "ERROR" => {
-                self.question(node, QuestionKind::Unparsed, truncate(self.t(node), 60));
+                self.question(node, QuestionKind::Unparsed, self.trunc(self.t(node), 60));
                 Ev::vals(self.eval_union(named(node)))
             }
             _ => Ev::vals(self.eval_union(named(node))),
@@ -1687,7 +1736,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                     vals: callee.vals,
                     place: callee.place,
                     addr: false,
-                    text: truncate(self.t(function), 60),
+                    text: self.trunc(self.t(function), 60),
                     line: self.pos(function).0,
                     end_line: self.end_line(function),
                 };
@@ -2087,7 +2136,7 @@ impl<'c, 'a> Builder<'c, 'a> {
             "break_statement" | "continue_statement" | "empty_statement" | "debugger_statement"
             | "import_statement" | "export_statement" => {}
             "ERROR" => {
-                self.question(node, QuestionKind::Unparsed, truncate(self.t(node), 60));
+                self.question(node, QuestionKind::Unparsed, self.trunc(self.t(node), 60));
                 for child in named(node) {
                     self.stmt(child);
                 }
@@ -2483,7 +2532,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                 Ev::konst("class")
             }
             "ERROR" => {
-                self.question(node, QuestionKind::Unparsed, truncate(self.t(node), 60));
+                self.question(node, QuestionKind::Unparsed, self.trunc(self.t(node), 60));
                 Ev::vals(self.eval_union(named(node)))
             }
             _ => Ev::vals(self.eval_union(named(node))),
@@ -2511,7 +2560,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                     vals: callee.vals,
                     place: callee.place,
                     addr: false,
-                    text: truncate(self.t(function), 60),
+                    text: self.trunc(self.t(function), 60),
                     line: self.pos(function).0,
                     end_line: self.end_line(function),
                 };
@@ -2951,7 +3000,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                 Ev::vals(derive(self.eval_union(named(node))))
             }
             "ERROR" => {
-                self.question(node, QuestionKind::Unparsed, truncate(self.t(node), 60));
+                self.question(node, QuestionKind::Unparsed, self.trunc(self.t(node), 60));
                 Ev::vals(self.eval_union(named(node)))
             }
             _ => Ev::vals(self.eval_union(named(node))),
@@ -3039,7 +3088,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                     vals: callee.vals,
                     place: callee.place,
                     addr: false,
-                    text: truncate(self.t(function), 60),
+                    text: self.trunc(self.t(function), 60),
                     line: self.pos(function).0,
                     end_line: self.end_line(function),
                 };
