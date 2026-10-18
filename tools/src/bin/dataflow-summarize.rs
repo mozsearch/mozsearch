@@ -6,7 +6,15 @@
 //!
 //! Writes, into the tree's index directory:
 //! - `dataflow-summaries`: a summary per line (JSON), by function symbol;
-//! - `dataflow-fields`: an edge between fields per line (JSON).
+//! - `dataflow-fields`: an edge between fields per line (JSON);
+//! - `diags/dataflow-summarize/files.tsv`: each file's analysis bytes, how
+//!   long it took, and its functions' count, slowest first.
+//!
+//! Scheduling: a thread that's free takes the biggest file left whose
+//! analysis fits in what's left of the budget (see `Queue`), so that the big
+//! files start first, and small ones fill the threads while they run (rather
+//! than files in the list's order, where a thread that took a big file
+//! waited for the budget, idle).
 //!
 //! Memory: summarizing a file takes ~10 times its analysis's size at its peak
 //! (ex: ~2 GB for firefox's `mfbt/Assertions.h`, whose analysis is 212 MB, and
@@ -22,10 +30,10 @@
 //!   16 threads, one big file at a time peaked at 844 MB without these, and at
 //!   300 MB (as one thread does) with them.
 
+use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Condvar, Mutex};
 use std::time::Instant;
 
@@ -98,28 +106,56 @@ fn analysis_budget() -> u64 {
     total / 32
 }
 
-/// The bytes of analysis being summarized, at most the budget's: a file
-/// waits until its analysis fits (a file bigger than the budget takes all of
-/// it, so it's summarized alone).
-struct Budget {
-    used: Mutex<u64>,
+/// The files left to summarize, by their analysis's size (see
+/// `analysis_file`), and the bytes of analysis being summarized, at most the
+/// budget's: a free thread takes the biggest file that fits in what's left
+/// of it (a file bigger than the budget counts as the budget, so it's
+/// summarized alone), or waits for one to.
+struct Queue {
+    state: Mutex<QueueState>,
     freed: Condvar,
     cap: u64,
 }
 
-impl Budget {
-    fn acquire(&self, bytes: u64) -> u64 {
-        let bytes = bytes.min(self.cap);
-        let mut used = self.used.lock().unwrap();
-        while *used + bytes > self.cap {
-            used = self.freed.wait(used).unwrap();
+struct QueueState {
+    /// (Size, index into the files), for the files left.
+    left: BTreeSet<(u64, usize)>,
+    used: u64,
+}
+
+impl Queue {
+    /// The next file to summarize (its index), and the budget it takes,
+    /// waiting for one to fit; `None` once none are left.
+    fn take(&self) -> Option<(usize, u64)> {
+        let mut state = self.state.lock().unwrap();
+        loop {
+            let room = self.cap.saturating_sub(state.used);
+            let fits = match state.left.last().copied() {
+                // (A file bigger than the budget, alone, first: it's the
+                // longest.)
+                Some(biggest) if biggest.0 >= self.cap => (state.used == 0).then_some(biggest),
+                // (The biggest that fits.)
+                _ => state
+                    .left
+                    .range(..(room.saturating_add(1), 0))
+                    .next_back()
+                    .copied(),
+            };
+            match fits {
+                Some(entry) => {
+                    state.left.remove(&entry);
+                    let taken = entry.0.min(self.cap);
+                    state.used += taken;
+                    return Some((entry.1, taken));
+                }
+                None if state.left.is_empty() => return None,
+                None => state = self.freed.wait(state).unwrap(),
+            }
         }
-        *used += bytes;
-        bytes
     }
 
     fn release(&self, bytes: u64) {
-        *self.used.lock().unwrap() -= bytes;
+        self.state.lock().unwrap().used -= bytes;
         self.freed.notify_all();
     }
 }
@@ -169,6 +205,47 @@ fn summarize_file(
         .collect())
 }
 
+/// How long summarizing a file took (see `diags/dataflow-summarize`).
+struct FileTiming {
+    /// Its index in the files.
+    path: usize,
+    bytes: u64,
+    elapsed: std::time::Duration,
+    /// Its functions' summaries' count, if it had analysis to summarize.
+    functions: Option<usize>,
+}
+
+/// Write the files' timings, slowest first, as `files.tsv` in the index's
+/// `diags/dataflow-summarize`.
+fn write_timings(index_path: &str, files: &[String], timings: &mut [FileTiming]) {
+    let dir = Path::new(index_path).join("diags/dataflow-summarize");
+    if std::fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let Ok(file) = File::create(dir.join("files.tsv")) else {
+        return;
+    };
+    timings.sort_by(|a, b| b.elapsed.cmp(&a.elapsed));
+    let mut out = BufWriter::new(file);
+    let _ = writeln!(
+        out,
+        "# path\tanalysis bytes\tseconds\tfunctions (- if it failed)"
+    );
+    for timing in timings.iter() {
+        let _ = writeln!(
+            out,
+            "{}\t{}\t{:.3}\t{}",
+            files[timing.path],
+            timing.bytes,
+            timing.elapsed.as_secs_f64(),
+            timing
+                .functions
+                .map_or_else(|| "-".to_string(), |n| n.to_string())
+        );
+    }
+    let _ = out.flush();
+}
+
 fn main() {
     env_logger::init();
     let cli = DataflowSummarizeCli::parse();
@@ -180,26 +257,42 @@ fn main() {
     let files: Vec<String> = BufReader::new(list)
         .lines()
         .map_while(|l| l.ok())
-        .filter(|path| lang_for_path(path).is_some())
+        // (TypeScript's declaration files have no functions' bodies.)
+        .filter(|path| lang_for_path(path).is_some() && !path.ends_with(".d.ts"))
         .collect();
 
     let start = Instant::now();
-    // (Each thread takes the next file, as files' sizes vary a lot.)
+    let analyses: Vec<Option<(String, u64)>> = files
+        .iter()
+        .map(|path| analysis_file(&paths.index_path, path))
+        .collect();
     let thread_count = cli.thread_count.max(1);
-    let next = AtomicUsize::new(0);
-    let budget = Budget {
-        used: Mutex::new(0),
+    let queue = Queue {
+        state: Mutex::new(QueueState {
+            left: analyses
+                .iter()
+                .enumerate()
+                .filter_map(|(i, analysis)| Some((analysis.as_ref()?.1, i)))
+                .collect(),
+            used: 0,
+        }),
         freed: Condvar::new(),
         cap: cli
             .analysis_budget_mb
             .map_or_else(analysis_budget, |mb| mb << 20),
     };
     let mut summaries: Vec<Summary> = vec![];
-    let mut failed = 0;
+    let mut failed = analyses
+        .iter()
+        .filter(|analysis| analysis.is_none())
+        .count();
+    // (Each file's time, and the threads' times waiting for the budget.)
+    let mut timings: Vec<FileTiming> = vec![];
+    let mut waited = std::time::Duration::ZERO;
     std::thread::scope(|s| {
         let handles: Vec<_> = (0..thread_count)
             .map(|_| {
-                let (paths, files, next, budget) = (&paths, &files, &next, &budget);
+                let (paths, files, analyses, queue) = (&paths, &files, &analyses, &queue);
                 s.spawn(move || {
                     // (Serialized, a line each, so that what summarizing a
                     // file allocates is freed in whole pages, which
@@ -207,43 +300,60 @@ fn main() {
                     // pinned by the summaries kept between them.)
                     let mut out: Vec<u8> = vec![];
                     let mut failed = 0;
+                    let mut timings = vec![];
+                    let mut waited = std::time::Duration::ZERO;
                     loop {
-                        let i = next.fetch_add(1, Ordering::Relaxed);
-                        let Some(path) = files.get(i) else {
+                        let wait_start = Instant::now();
+                        let Some((i, taken)) = queue.take() else {
                             break;
                         };
-                        let Some((analysis, size)) = analysis_file(&paths.index_path, path) else {
-                            failed += 1;
-                            continue;
-                        };
-                        let taken = budget.acquire(size);
-                        match summarize_file(&paths.files_path, &paths.objdir_path, path, &analysis)
-                        {
+                        waited += wait_start.elapsed();
+                        let path = &files[i];
+                        let (analysis, size) = analyses[i].as_ref().unwrap();
+                        let file_start = Instant::now();
+                        let functions = match summarize_file(
+                            &paths.files_path,
+                            &paths.objdir_path,
+                            path,
+                            analysis,
+                        ) {
                             Ok(file_summaries) => {
                                 for summary in &file_summaries {
                                     serde_json::to_writer(&mut out, summary).unwrap();
                                     out.push(b'\n');
                                 }
+                                Some(file_summaries.len())
                             }
-                            Err(_) => failed += 1,
-                        }
-                        if size >= RELEASE_AFTER_BYTES {
+                            Err(_) => {
+                                failed += 1;
+                                None
+                            }
+                        };
+                        if *size >= RELEASE_AFTER_BYTES {
                             release_freed_memory();
                         }
-                        budget.release(taken);
+                        queue.release(taken);
+                        timings.push(FileTiming {
+                            path: i,
+                            bytes: *size,
+                            elapsed: file_start.elapsed(),
+                            functions,
+                        });
                     }
-                    (out, failed)
+                    (out, failed, timings, waited)
                 })
             })
             .collect();
         for handle in handles {
-            let (out, f) = handle.join().unwrap();
+            let (out, f, t, w) = handle.join().unwrap();
             summaries.extend(
                 out.split(|b| *b == b'\n')
                     .filter(|line| !line.is_empty())
                     .map(|line| serde_json::from_slice::<Summary>(line).unwrap()),
             );
             failed += f;
+            timings.extend(t);
+            waited += w;
         }
     });
     // (Several files can define a function, ex: a header's inline one in each
@@ -269,15 +379,27 @@ fn main() {
     }
     out.flush().unwrap();
 
+    // (How much of the threads' time summarizing took, and waiting for the
+    // budget.)
+    let busy: std::time::Duration = timings.iter().map(|timing| timing.elapsed).sum();
+    let threads_time = summarized.as_secs_f64() * thread_count as f64;
+    write_timings(&paths.index_path, &files, &mut timings);
     println!(
-        "dataflow-summarize {}: {} files ({} without source or analysis), {} functions, {} field edges; summarized in {:.1?} (at most {} MB of analysis at once), composed in {:.1?}",
+        "dataflow-summarize {}: {} files ({} without source or analysis), {} functions, {} field edges; summarized in {:.1?} (at most {} MB of analysis at once; {} threads {:.0}% busy, {:.0}% waiting for the budget; the slowest file {:.1?}), composed in {:.1?}",
         cli.tree_name,
         files.len(),
         failed,
         summaries.len(),
         edges.len(),
         summarized,
-        budget.cap >> 20,
+        queue.cap >> 20,
+        thread_count,
+        100.0 * busy.as_secs_f64() / threads_time,
+        100.0 * waited.as_secs_f64() / threads_time,
+        timings
+            .first()
+            .map(|timing| timing.elapsed)
+            .unwrap_or_default(),
         composed
     );
 }
