@@ -60,19 +60,22 @@ fn expansion_offset(def: &SourceRec, key: &str, platform: &str) -> Option<usize>
         .and_then(|(_, _, offsets)| offsets.first().copied())
 }
 
-/// The function definition in a macro's expansion whose name is at an
-/// offset.
-fn macro_function_node(parse: &SourceParse, offset: usize) -> Option<Node<'_>> {
+/// The function definitions in a macro's expansion, by their names'
+/// offsets (the first in the walk, for an offset).  (Indexed once for each
+/// expansion: walking the expansion for each function's offset was quadratic
+/// in X-macro expansions defining many functions, ex: 45 s of MIR.h's 65.)
+fn macro_function_nodes(parse: &SourceParse) -> HashMap<usize, Node<'_>> {
+    let mut nodes = HashMap::new();
     let mut stack = vec![parse.tree.root_node()];
     while let Some(node) = stack.pop() {
         if node.kind() == "function_definition"
-            && cpp_function_name(node).is_some_and(|n| n.start_byte() == offset)
+            && let Some(name) = cpp_function_name(node)
         {
-            return Some(node);
+            nodes.entry(name.start_byte()).or_insert(node);
         }
         stack.extend(named(node));
     }
-    None
+    nodes
 }
 
 pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<FileIr, String> {
@@ -89,6 +92,7 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
         lang,
         recs,
         lines: &lines,
+        utf16_columns: Default::default(),
     };
     let mut funcs = vec![];
     let mut stack = vec![parse.tree.root_node()];
@@ -108,6 +112,9 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
     let macro_defs = recs.macro_function_defs();
     let cpp = profile_for_lang("cpp").unwrap();
     let mut expansion_parses: HashMap<(u32, u32, &str, &str), Option<SourceParse>> = HashMap::new();
+    // (Their functions' names' offsets.)
+    let mut expansion_functions: HashMap<(u32, u32, &str, &str), std::collections::HashSet<usize>> =
+        HashMap::new();
     let mut chosen: Vec<(usize, (u32, u32, &str, &str))> = vec![];
     let mut seen: std::collections::HashSet<Ustr> = funcs.iter().map(|f| f.sym).collect();
     for (di, (def, mac)) in macro_defs.iter().enumerate() {
@@ -135,12 +142,23 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
             let Some(parse) = parse else {
                 continue;
             };
-            if macro_function_node(parse, offset).is_none() {
+            let functions = expansion_functions
+                .entry(cache_key)
+                .or_insert_with(|| macro_function_nodes(parse).into_keys().collect());
+            if !functions.contains(&offset) {
                 continue;
             }
             chosen.push((di, cache_key));
             seen.insert(sym);
             break;
+        }
+    }
+    let mut expansion_nodes: HashMap<(u32, u32, &str, &str), HashMap<usize, Node>> = HashMap::new();
+    for (_, cache_key) in &chosen {
+        if let Some(Some(parse)) = expansion_parses.get(cache_key) {
+            expansion_nodes
+                .entry(*cache_key)
+                .or_insert_with(|| macro_function_nodes(parse));
         }
     }
     for (di, cache_key) in chosen {
@@ -152,7 +170,10 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
         let Some(offset) = expansion_offset(def, key, platform) else {
             continue;
         };
-        let Some(node) = macro_function_node(parse, offset) else {
+        let Some(&node) = expansion_nodes
+            .get(&cache_key)
+            .and_then(|nodes| nodes.get(&offset))
+        else {
             continue;
         };
         let mut builder = Builder::new(&cx, &parse.text, node, def.sym(), def.pretty.clone());
@@ -255,6 +276,11 @@ struct Cx<'a> {
     lang: Lang,
     recs: &'a FileRecords,
     lines: &'a [&'a str],
+    /// Non-ASCII lines' UTF-16 columns by byte offset (`None` for ASCII
+    /// lines), as `recs_at` needs them: computing them for each lookup was
+    /// quadratic in minified JS's huge lines (69 s of 70 for a 35 MB
+    /// bundle).
+    utf16_columns: std::cell::RefCell<HashMap<usize, Option<std::rc::Rc<Vec<u32>>>>>,
 }
 
 impl<'a> Cx<'a> {
@@ -276,15 +302,37 @@ impl<'a> Cx<'a> {
         let mut out: Vec<&SourceRec> = self.recs.sources_at(line, pos.column as u32).collect();
         if out.is_empty()
             && self.lang != Lang::Cpp
-            && let Some(text) = self.lines.get(pos.row)
-            && !text.is_ascii()
-            && pos.column <= text.len()
-            && text.is_char_boundary(pos.column)
+            && let Some(columns) = self.utf16_columns(pos.row)
+            && let Some(&col16) = columns.get(pos.column)
+            && col16 != u32::MAX
         {
-            let col16 = text[..pos.column].encode_utf16().count() as u32;
             out = self.recs.sources_at(line, col16).collect();
         }
         out
+    }
+
+    /// A line's UTF-16 column at each byte offset (`u32::MAX` inside a
+    /// character), if it isn't ASCII (see `utf16_columns`).
+    fn utf16_columns(&self, row: usize) -> Option<std::rc::Rc<Vec<u32>>> {
+        if let Some(columns) = self.utf16_columns.borrow().get(&row) {
+            return columns.clone();
+        }
+        let columns = self
+            .lines
+            .get(row)
+            .filter(|text| !text.is_ascii())
+            .map(|text| {
+                let mut columns = vec![u32::MAX; text.len() + 1];
+                let mut col16 = 0u32;
+                for (offset, c) in text.char_indices() {
+                    columns[offset] = col16;
+                    col16 += c.len_utf16() as u32;
+                }
+                columns[text.len()] = col16;
+                std::rc::Rc::new(columns)
+            });
+        self.utf16_columns.borrow_mut().insert(row, columns.clone());
+        columns
     }
 
     /// The symbol and pretty name of a function node, if it's a function
