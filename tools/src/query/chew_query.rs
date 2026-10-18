@@ -212,6 +212,14 @@ impl QueryPipelineGroupBuilder {
     }
 }
 
+/// Whether a term's value is what the parser leaves of a qualified name's
+/// after its first part (ex: `Foo::Bar`'s `:Bar`, as the term `Foo`): one
+/// colon, then not another (as a quoted name in the global namespace's,
+/// `colorize-callees:'::Foo'`, has).
+pub fn is_qualified_name(value: &str) -> bool {
+    value.starts_with(':') && !value.starts_with("::")
+}
+
 #[derive(Default, Serialize)]
 pub struct PipelineGroup {
     pub input: Option<String>,
@@ -309,13 +317,19 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
     // ## 2: Ingest / process the terms
     for term in q.terms {
         match term.value {
-            TermValue::Simple(value) => {
-                if let Some(key) = term.key {
+            TermValue::Simple(value) => match term.key {
+                // (A qualified name, `Foo::Bar` (the parser's term `Foo` with
+                // the value `:Bar`), is text, even if `Foo` is a term's name
+                // (ex: `C::Foo`, `context::Bar`); see `is_qualified_name`.)
+                Some(key) if QUERY_CORE.term.contains_key(&key) && !is_qualified_name(&value) => {
                     builder.ingest_term(&key, &value)?;
-                } else {
-                    builder.ingest_term("default", &value)?;
                 }
-            }
+                // (Nor is a word that isn't a term's name (ex: `Foo::Bar`, or
+                // a URL's scheme), which was ignored, so the query had no
+                // pipelines.)
+                Some(key) => builder.ingest_term("default", &format!("{}:{}", key, value))?,
+                None => builder.ingest_term("default", &value)?,
+            },
         }
     }
 
@@ -599,4 +613,39 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
     }
 
     Ok(builder)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The values the query's groups' commands get.
+    fn values(query: &str) -> String {
+        serde_json::to_string(&chew_query(query).unwrap().groups).unwrap()
+    }
+
+    #[test]
+    fn test_qualified_names() {
+        // (A C++ qualified name is searched for, as bare text is, rather than
+        // taken as an unknown term and ignored.)
+        let builder = chew_query("serviceworkercontainer::register").unwrap();
+        assert!(!builder.groups.is_empty());
+        assert!(
+            values("serviceworkercontainer::register").contains("serviceworkercontainer::register")
+        );
+        assert_eq!(
+            values("outerNS::Thing::doStuff"),
+            values("default:outerNS::Thing::doStuff")
+        );
+        // (Even if its first part is a term's name.)
+        assert_eq!(values("context::Bar"), values("default:context::Bar"));
+        assert_eq!(values("C::Foo"), values("default:C::Foo"));
+        // (Terms are still terms.)
+        assert!(values("path:foo").contains("foo"));
+        assert_ne!(values("context:3 Foo"), values("default:context:3 Foo"));
+        // (Including those whose quoted values are names in the global
+        // namespace.)
+        let colorize = values("colorize-callees:'::isFriendlyCat'");
+        assert!(colorize.contains("::isFriendlyCat") && !colorize.contains("colorize-callees:::"));
+    }
 }
