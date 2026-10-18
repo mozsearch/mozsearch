@@ -95,10 +95,11 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
         utf16_columns: Default::default(),
     };
     let mut funcs = vec![];
+    let file_text: std::rc::Rc<str> = std::rc::Rc::from(parse.text.as_str());
     let mut stack = vec![parse.tree.root_node()];
     while let Some(node) = stack.pop() {
         if let Some((sym, pretty)) = cx.function_sym(node, &parse.text) {
-            let mut builder = Builder::new(&cx, &parse.text, node, sym, pretty);
+            let mut builder = Builder::new(&cx, &file_text, node, sym, pretty);
             builder.build(node);
             stack.append(&mut builder.nested);
             funcs.push(builder.ir);
@@ -154,19 +155,20 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
         }
     }
     let mut expansion_nodes: HashMap<(u32, u32, &str, &str), HashMap<usize, Node>> = HashMap::new();
+    let mut expansion_texts: HashMap<(u32, u32, &str, &str), std::rc::Rc<str>> = HashMap::new();
     for (_, cache_key) in &chosen {
         if let Some(Some(parse)) = expansion_parses.get(cache_key) {
             expansion_nodes
                 .entry(*cache_key)
                 .or_insert_with(|| macro_function_nodes(parse));
+            expansion_texts
+                .entry(*cache_key)
+                .or_insert_with(|| std::rc::Rc::from(parse.text.as_str()));
         }
     }
     for (di, cache_key) in chosen {
         let (def, mac) = &macro_defs[di];
         let (_, _, key, platform) = cache_key;
-        let Some(Some(parse)) = expansion_parses.get(&cache_key) else {
-            continue;
-        };
         let Some(offset) = expansion_offset(def, key, platform) else {
             continue;
         };
@@ -176,7 +178,13 @@ pub fn build_file_ir(path: &str, source: &str, recs: &FileRecords) -> Result<Fil
         else {
             continue;
         };
-        let mut builder = Builder::new(&cx, &parse.text, node, def.sym(), def.pretty.clone());
+        let mut builder = Builder::new(
+            &cx,
+            &expansion_texts[&cache_key],
+            node,
+            def.sym(),
+            def.pretty.clone(),
+        );
         builder.macro_cx = Some(MacroCx {
             line: mac.line,
             col: mac.col,
@@ -517,7 +525,9 @@ struct MacroCx {
 struct Builder<'c, 'a> {
     cx: &'c Cx<'a>,
     /// The text the current nodes are of: the file's, or a macro expansion's.
-    text: String,
+    /// (Shared: copying the file's for each function's builder was most of
+    /// the time for files of many functions, ex: 2/3 of rlbox.wasm.c's.)
+    text: std::rc::Rc<str>,
     ir: FuncIr,
     lambda_depth: u32,
     macro_cx: Option<MacroCx>,
@@ -533,14 +543,14 @@ struct Builder<'c, 'a> {
 }
 
 impl<'c, 'a> Builder<'c, 'a> {
-    fn new(cx: &'c Cx<'a>, text: &str, node: Node, sym: Ustr, pretty: String) -> Self {
+    fn new(cx: &'c Cx<'a>, text: &std::rc::Rc<str>, node: Node, sym: Ustr, pretty: String) -> Self {
         let class_prefix = match cx.lang {
             Lang::Cpp => pretty.rsplit_once("::").map(|(class, _)| class.to_string()),
             _ => sym.rsplit_once('#').map(|(class, _)| class.to_string()),
         };
         Builder {
             cx,
-            text: text.to_string(),
+            text: text.clone(),
             ir: FuncIr {
                 sym,
                 pretty,
@@ -1847,7 +1857,7 @@ impl<'c, 'a> Builder<'c, 'a> {
         else {
             return vec![];
         };
-        let saved_text = std::mem::replace(&mut self.text, parse.text.clone());
+        let saved_text = std::mem::replace(&mut self.text, std::rc::Rc::from(parse.text.as_str()));
         self.macro_cx = Some(MacroCx {
             line,
             col,
@@ -1875,7 +1885,7 @@ impl<'c, 'a> Builder<'c, 'a> {
         // sub-builder borrowing our state walks them.
         let mut sub = Builder {
             cx: self.cx,
-            text: std::mem::take(&mut self.text),
+            text: self.text.clone(),
             ir: std::mem::replace(&mut self.ir, empty_ir()),
             lambda_depth: self.lambda_depth,
             macro_cx: self.macro_cx.take(),
