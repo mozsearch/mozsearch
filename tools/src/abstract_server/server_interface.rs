@@ -630,6 +630,13 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The data of the explore page of the bugs (`kind` "bug") or Phabricator
+    /// revisions ("phab") `keys` (comma-separated; see
+    /// `format::explore_page_data`).
+    async fn explore_keys(&self, _kind: &str, _keys: &str) -> Result<Value> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The try push this is the tree as changed by, if it's a `try_overlay`.
     fn try_delta_meta(&self) -> Option<crate::try_delta::TryDeltaMeta> {
         None

@@ -242,6 +242,10 @@ impl AbstractServer for TryOverlay {
         self.base.commit_page(rev).await
     }
 
+    async fn explore_keys(&self, kind: &str, keys: &str) -> Result<Value> {
+        self.base.explore_keys(kind, keys).await
+    }
+
     async fn interdiff_files(&self, a: &str, b: &str) -> Result<Value> {
         self.base.interdiff_files(a, b).await
     }

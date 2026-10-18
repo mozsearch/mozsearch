@@ -68,6 +68,8 @@
 //!   `interdiff_file_data`).
 //! - `outline-diff?from=&to=&path=[&all=true]`: a file's outline diff (see
 //!   `format::outline_diff_data`).
+//! - `explore-keys?kind=bug|phab&keys=`: the data of the explore page of bugs
+//!   or Phabricator revisions (see `format::explore_page_data`).
 //! - `stack-strip?stack=&commit=&path=`: a file's stack strip for a stack
 //!   page (see `format::stack_strip_json`).
 //! - `try-status?push=` and POST `try-import?push=`: a try push's import's
@@ -330,6 +332,13 @@ const ROUTES: &[Route] = &[
         name: "interdiff",
         takes_path: false,
         params: &["a", "b"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "explore-keys",
+        takes_path: false,
+        params: &["kind", "keys"],
         host: Host::PipelineServer,
         post: false,
     },
@@ -931,6 +940,21 @@ async fn route_body(
                 bytes: json.into_bytes(),
             })
         }
+        "explore-keys" => {
+            let kind = params.required("kind")?;
+            let keys = params.required("keys")?;
+            let valid_keys = !keys.is_empty()
+                && keys.len() <= 1000
+                && keys
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b',' || b == b'-');
+            if !matches!(kind, "bug" | "phab") || !valid_keys {
+                return Err(bad("kind must be bug or phab, and keys bugs or revisions"));
+            }
+            Ok(Body::json(
+                &server.explore_keys(kind, keys).await.map_err(error)?,
+            ))
+        }
         "interdiff" | "interdiff-file" => {
             let a = revs_param(params, "a")?;
             let b = revs_param(params, "b")?;
@@ -993,10 +1017,10 @@ async fn route_body(
             let commit = commit_param(params)?;
             let path = params.required("path")?;
             let stack = params.required("stack")?;
-            let valid_stack = stack.len() <= 200
+            let valid_stack = stack.len() <= 1000
                 && stack
                     .bytes()
-                    .all(|b| b.is_ascii_alphanumeric() || b"/_.-".contains(&b));
+                    .all(|b| b.is_ascii_alphanumeric() || b"/_.,-".contains(&b));
             if !valid_tree_path(path) || !valid_stack {
                 return Err(bad(
                     "path must be a path in the tree, and stack a stack page",

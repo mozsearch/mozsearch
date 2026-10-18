@@ -721,6 +721,14 @@ impl AbstractServer for RemoteServer {
         parse(&self.api("outline-diff", None, &params).await?)
     }
 
+    async fn explore_keys(&self, kind: &str, keys: &str) -> Result<Value> {
+        parse(
+            &self
+                .api("explore-keys", None, &[("kind", kind), ("keys", keys)])
+                .await?,
+        )
+    }
+
     async fn rev_dir(&self, rev: &str, path: &str) -> Result<Option<Value>> {
         parse(
             &self

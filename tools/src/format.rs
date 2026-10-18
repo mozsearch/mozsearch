@@ -7651,13 +7651,18 @@ const MAX_EXPLORE_KEYS: usize = 10;
 /// "bug" or "phab" and `keys` is comma-separated: the commits which mention the
 /// bugs (or Phabricator revisions), oldest first, and what they changed (see
 /// `hyperblame::explore`).
-pub fn format_explore(
+/// The data of an `/explore/bug/BUGS` or `/explore/phab/REVS` page (see
+/// `render_explore_page`): its `title`, the keys no commit mentions
+/// (`missing`), whether it has fewer commits than there are (`truncated`),
+/// the keys' commits on other branches (`other_branches`), its URL in the
+/// tree (`explore_url`), and its explore page's data (`explore`; see
+/// `explore_data`).  (For trees' servers; see `AbstractServer::explore_keys`.)
+pub fn explore_page_data(
     cfg: &Config,
     tree_name: &str,
     kind: &str,
     keys: &str,
-    writer: &mut dyn Write,
-) -> Result<(), &'static str> {
+) -> Result<serde_json::Value, &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
     let history = git.history.as_ref();
@@ -7715,22 +7720,51 @@ pub fn format_explore(
         "bug" => format!("Bugs {}", keys.join(", ")),
         _ => keys.join(", "),
     };
+    let explore_url = format!("explore/{}/{}", kind, keys.join(","));
+    let explore = explore_data(cfg, tree_name, &refs, None, Some(&explore_url))?;
+    Ok(json!({
+        "title": title,
+        "missing": missing,
+        "truncated": truncated,
+        "other_branches": other_branches,
+        "explore_url": explore_url,
+        "explore": explore,
+    }))
+}
+
+/// An `/explore/bug/BUGS` or `/explore/phab/REVS` page, with its `data` (see
+/// `explore_page_data`).
+pub fn render_explore_page(
+    tree_name: &str,
+    data: serde_json::Value,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let strings = |value: &serde_json::Value| -> Vec<String> {
+        value
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|v| v.as_str().map(str::to_string))
+            .collect()
+    };
     let extras = ExploreExtras {
-        missing,
-        truncated,
-        other_branches,
-        explore_url: format!("explore/{}/{}", kind, keys.join(",")),
+        missing: strings(&data["missing"]),
+        truncated: data["truncated"].as_bool().unwrap_or(false),
+        other_branches: data["other_branches"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default(),
+        explore_url: data["explore_url"].as_str().unwrap_or_default().to_string(),
         note: None,
         scopes: vec![],
-        changes: None,
-        stack_links: true,
         semantic_head: None,
         semantic_failure: None,
     };
-    write_explore(cfg, tree_name, &refs, &title, extras, writer)
+    let title = data["title"].as_str().unwrap_or_default().to_string();
+    render_explore(tree_name, &title, data["explore"].clone(), extras, writer)
 }
 
-/// The commits of an explore page (see `format_explore`): its keys (with
+/// The commits of an explore page (see `explore_page_data`): its keys (with
 /// Phabricator revisions as "DNNN"), the commits mentioning them in the tree's
 /// commit index, oldest first, up to `explore::MAX_COMMITS`, and the keys no
 /// commit mentions.
@@ -7823,7 +7857,7 @@ fn in_scope(context: &str, scope: &str) -> bool {
 /// The history of a scope of the file at `path` (`/{tree}/history/{rev}/{path}`),
 /// as of `rev`: the file, or one of its classes, methods or other contexts of
 /// the history's (`?scope=Foo::Bar`, or `?token=N`, the context of its Nth
-/// token), as the explore page (see `write_explore`) of the newest commits
+/// token), as the explore page (see `render_explore`) of the newest commits
 /// which changed it (up to `MAX_HISTORY_COMMITS`), oldest first, with the
 /// scope's changes, and links to its broader scopes (ex: the class of a
 /// method).
@@ -8102,8 +8136,6 @@ pub fn render_history(
         explore_url: String::new(),
         note: data["note"].as_str().map(str::to_string),
         scopes: data["scopes"].as_array().cloned().unwrap_or_default(),
-        changes: None,
-        stack_links: false,
         semantic_head: None,
         semantic_failure: None,
     };
@@ -8164,7 +8196,7 @@ struct ExploreExtras {
     missing: Vec<String>,
     /// Whether there were more commits than it shows.
     truncated: bool,
-    /// The keys' commits on other branches (see `format_explore`).
+    /// The keys' commits on other branches (see `explore_page_data`).
     other_branches: Vec<serde_json::Value>,
     /// Its URL in the tree, for the other branches' trees' explore pages.
     explore_url: String,
@@ -8173,12 +8205,6 @@ struct ExploreExtras {
     /// For a history page (see `history_data`), the scopes it can show,
     /// broadest first, as `{label, url}` (the shown one without a URL).
     scopes: Vec<serde_json::Value>,
-    /// What the commits changed, if not all of it (ex: a history page's
-    /// scope's), by commit.
-    changes: Option<Vec<explore::CommitChanges>>,
-    /// Whether its files link to their views with its stack strip (see
-    /// `stack_strip_json`).
-    stack_links: bool,
     /// For a try push with a semantic delta (see `try_delta`), the head of
     /// its stack rebased onto the indexed revision, whose pages have the
     /// push's analysis, and whose searches (and the page's) are of the push.
@@ -8187,28 +8213,7 @@ struct ExploreExtras {
     semantic_failure: Option<crate::try_import::SemanticFailure>,
 }
 
-/// An explore page (see `format_explore`), of the commits `refs`, oldest
-/// first: the commits, and the files, classes and methods they changed.
-fn write_explore(
-    cfg: &Config,
-    tree_name: &str,
-    refs: &[CommitRef],
-    title: &str,
-    mut extras: ExploreExtras,
-    writer: &mut dyn Write,
-) -> Result<(), &'static str> {
-    let stack_url = extras.stack_links.then(|| extras.explore_url.clone());
-    let data = explore_data(
-        cfg,
-        tree_name,
-        refs,
-        extras.changes.take(),
-        stack_url.as_deref(),
-    )?;
-    render_explore(tree_name, title, data, extras, writer)
-}
-
-/// The data of an explore page (see `write_explore`) of the commits `refs`,
+/// The data of an explore page (see `render_explore`) of the commits `refs`,
 /// oldest first, as explore.liquid takes it: its `commits`, and its files'
 /// `facets` and `file_groups`, from what the commits changed (`changes`, if
 /// not all of it), with the files' links with the stack strip of the page at
@@ -8414,8 +8419,6 @@ pub fn format_try(
                     }
                 )),
                 scopes: vec![],
-                changes: None,
-                stack_links: true,
                 semantic_head: push.semantic_head,
             };
             return render_explore(

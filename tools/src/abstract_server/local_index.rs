@@ -358,6 +358,12 @@ impl AbstractServer for LocalIndex {
         Ok(serde_json::to_value(diff)?)
     }
 
+    async fn explore_keys(&self, kind: &str, keys: &str) -> Result<Value> {
+        let cfg = self.tree_config_loaded();
+        crate::format::explore_page_data(&cfg, &self.tree_name, kind, keys)
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
     async fn rev_dir(&self, rev: &str, path: &str) -> Result<Option<Value>> {
         let cfg = self.tree_config_loaded();
         crate::format::rev_dir_data(&cfg, &self.tree_name, rev, path)

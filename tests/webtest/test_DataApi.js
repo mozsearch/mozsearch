@@ -106,6 +106,8 @@ add_task(async function test_DataApiRoutes() {
   is(interdiffs.sides?.length, 2, "and of the files two sides changed");
   is((await get(`${API}/interdiff?a=${first}&b=${LANDED}`)).status, 422,
      "but not of a side whose first commit has no parent");
+  const bug = await getJson("/searchfox/api/v1/explore-keys?kind=bug&keys=1975601");
+  ok(bug.title == "Bug 1975601" && bug.explore?.commits?.length, "and a bug's explore page's");
   const commitPage = await getJson(`${API}/commit?commit=${LANDED}`);
   ok(commitPage.content?.includes("Let widgets shrink"), "and a commit's page's");
   const infos = await getJson(`${API}/commit-info?revs=${LANDED}`);

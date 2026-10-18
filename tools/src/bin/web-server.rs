@@ -823,25 +823,38 @@ fn handle(
         }
 
         // `/{tree}/explore/bug/{bugs}` and `/{tree}/explore/phab/{revs}`; see
-        // `format::format_explore`.  And their files' patch stack strips, as
+        // `format::explore_page_data`.  And their files' patch stack strips, as
         // `.../stack-strip/{rev}/{path}`; see `format::stack_strip_json`.
         "explore" => {
+            // (Over the tree's server.)
+            let Some(server) = tree_server(tree_name) else {
+                return WebResponse::not_found();
+            };
             if path.len() >= 7 && path[4] == "stack-strip" {
                 let stack = path[1..4].join("/");
                 let file_path = path[6..].join("/");
-                return match format::stack_strip_json(cfg, tree_name, &stack, path[5], &file_path) {
+                let (server, rev) = (server.clonify(), path[5].to_string());
+                return match format::run_on_runtime(async move {
+                    server.stack_strip_json(&stack, &rev, &file_path).await
+                }) {
                     Ok(json) => WebResponse::json(json),
-                    Err(err) => WebResponse::internal_error(err.to_owned()),
+                    Err(err) => WebResponse::internal_error(server_error_message(&err)),
                 };
             }
             if path.len() != 4 {
                 return WebResponse::not_found();
             }
 
-            let mut writer = Vec::new();
-            match format::format_explore(cfg, tree_name, path[2], path[3], &mut writer) {
-                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
-                Err(err) => WebResponse::internal_error(err.to_owned()),
+            let (server, kind, keys) = (server.clonify(), path[2].to_string(), path[3].to_string());
+            match format::run_on_runtime(async move { server.explore_keys(&kind, &keys).await }) {
+                Ok(data) => {
+                    let mut writer = Vec::new();
+                    match format::render_explore_page(tree_name, data, &mut writer) {
+                        Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
+                        Err(err) => WebResponse::internal_error(err.to_owned()),
+                    }
+                }
+                Err(err) => WebResponse::internal_error(server_error_message(&err)),
             }
         }
 
