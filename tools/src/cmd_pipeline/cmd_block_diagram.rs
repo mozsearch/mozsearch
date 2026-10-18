@@ -79,6 +79,57 @@ pub struct BlockDiagram {
     /// calls) to show.
     #[clap(long, default_value_t = 24)]
     max_members: usize,
+
+    /// Only the edges between the focus (its classes, or its fields and
+    /// methods) and this class (symbol) or subsystem (its fields, methods
+    /// and classes): ex: for an edge between two classes, the first's fields
+    /// with `--level field --with <the second>`, or for one between two
+    /// subsystems, the first's classes with `--with <the second>`.
+    #[clap(long, value_parser)]
+    with: Option<String>,
+}
+
+/// A class or subsystem's symbol, by its symbol or a subsystem's name.
+fn block_sym(name: &str) -> Ustr {
+    if name.starts_with("T_") || name.starts_with(SUBSYSTEM_PREFIX) {
+        ustr(name)
+    } else {
+        subsystem_sym(name)
+    }
+}
+
+/// Whether a diagram's end (a class, a subsystem, a field, or a function) is
+/// in `with` (a class or a subsystem): the class itself or its fields and
+/// methods; the subsystem itself or its classes and their members (by their
+/// crossref entries' subsystems), or its free functions.
+async fn is_in(server: &(dyn AbstractServer + Send + Sync), sym: Ustr, with: Ustr) -> Result<bool> {
+    if sym == with {
+        return Ok(true);
+    }
+    // (Its class: a field's, by its symbol, or a method's, by its parent.)
+    let class = match crate::dataflow::summary::field_class(&sym) {
+        Some(class) => Some(class),
+        None if sym.starts_with("T_") || sym.starts_with(SUBSYSTEM_PREFIX) => Some(sym),
+        None => server
+            .crossref_lookup(&sym)
+            .await?
+            .and_then(|data| data.meta)
+            .and_then(|meta| meta.parent_sym)
+            .filter(|parent| parent.starts_with("T_")),
+    };
+    if with.starts_with("T_") {
+        return Ok(class == Some(with));
+    }
+    let subject = class.unwrap_or(sym);
+    if subject.starts_with(SUBSYSTEM_PREFIX) {
+        return Ok(subject == with);
+    }
+    let subsystem = server
+        .crossref_lookup(&subject)
+        .await?
+        .and_then(|data| data.meta)
+        .and_then(|meta| meta.subsystem);
+    Ok(subsystem.is_some_and(|subsystem| subsystem_sym(&subsystem) == with))
 }
 
 #[derive(Debug)]
@@ -125,10 +176,8 @@ impl PipelineCommand for BlockDiagramCommand {
         let focus = if focus == "*" { "" } else { focus };
         let focus_sym = if focus.is_empty() {
             root_subsystem_sym()
-        } else if focus.starts_with("T_") || focus.starts_with(SUBSYSTEM_PREFIX) {
-            ustr(focus)
         } else {
-            subsystem_sym(focus)
+            block_sym(focus)
         };
         let is_subsystem = focus_sym.starts_with(SUBSYSTEM_PREFIX);
         // (The whole tree's subsystems, else classes.)
@@ -150,6 +199,8 @@ impl PipelineCommand for BlockDiagramCommand {
         };
 
         let mut edges: Vec<BlockEdge> = vec![];
+        // (The focus's side: it, and the members whose edges are shown.)
+        let mut own: std::collections::HashSet<Ustr> = [focus_sym].into_iter().collect();
         let first_example =
             |e: &RollupEdge| e.examples.first().map(|x| (x.from_pretty, x.to_pretty));
         let no_accessors = self.args.no_accessors;
@@ -172,6 +223,7 @@ impl PipelineCommand for BlockDiagramCommand {
                 members.extend(meta.methods.iter().map(|m| m.sym));
             }
             server.prefetch_crossref(&members).await;
+            own.extend(members.iter().copied());
             for member in &members {
                 let Some(member_rollup) = rollup_of(server, member, BlockEdges::Data).await? else {
                     continue;
@@ -221,6 +273,7 @@ impl PipelineCommand for BlockDiagramCommand {
                 .map(|m| m.sym)
                 .collect();
             server.prefetch_crossref(&members).await;
+            own.extend(members.iter().copied());
             for member in &members {
                 let Some(member_rollup) = rollup_of(server, member, self.args.edges).await? else {
                     continue;
@@ -275,6 +328,32 @@ impl PipelineCommand for BlockDiagramCommand {
         }
 
         edges.retain(|e| e.count >= self.args.min_count && e.from != e.to);
+        // (Only those with the other side; see `with`.)
+        let with_sym = self
+            .args
+            .with
+            .as_deref()
+            .map(str::trim)
+            .filter(|w| !w.is_empty())
+            .map(block_sym);
+        if let Some(with) = with_sym {
+            let other = |e: &BlockEdge| match (own.contains(&e.from), own.contains(&e.to)) {
+                (true, false) => Some(e.to),
+                (false, true) => Some(e.from),
+                _ => None,
+            };
+            let mut others: Vec<Ustr> = edges.iter().filter_map(other).collect();
+            others.sort();
+            others.dedup();
+            server.prefetch_crossref(&others).await;
+            let mut inside: std::collections::HashSet<Ustr> = Default::default();
+            for sym in others {
+                if is_in(server, sym, with).await? {
+                    inside.insert(sym);
+                }
+            }
+            edges.retain(|e| other(e).is_some_and(|o| inside.contains(&o)));
+        }
         let unit = match (self.args.edges, level) {
             (BlockEdges::Calls, l) if l != BlockLevel::Field => "calls",
             _ => "flows",
@@ -387,6 +466,14 @@ impl PipelineCommand for BlockDiagramCommand {
                         "value": self.args.max_edges,
                         "default": 48,
                         "range": [1, 512],
+                    },
+                    {
+                        "name": "block-with",
+                        "label": "With",
+                        "value": self.args.with.as_deref().unwrap_or(""),
+                        "default": "",
+                        "type": "string",
+                        "placeholder": "a class's symbol or a subsystem",
                     },
                 ],
             }

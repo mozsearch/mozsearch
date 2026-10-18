@@ -132,3 +132,61 @@ add_task(async function test_BlockDiagramSubsystemNode() {
   is(frame.contentDocument.querySelector("#query").value, "block-diagram:'Core/Rollup View'",
      "The block diagram's query is the subsystem's");
 });
+
+add_task(async function test_BlockDiagramEdgeData() {
+  await TestUtils.resetFeatureGate("diagramming");
+  await TestUtils.loadQuery("tests", "block-diagram:'Core/Rollup View'");
+
+  const edge = [...frame.contentDocument.querySelectorAll("svg [data-symbols]")]
+    .find(e => e.getAttribute("data-symbols") === "T_rollup::Panel->T_rollup::Store");
+  ok(edge, "There's an edge from Panel to Store");
+  TestUtils.click(edge);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the edge");
+
+  const link = [...menu.querySelectorAll(".contextmenu-link")]
+    .find(l => l.textContent === "Data between rollup::Panel and rollup::Store");
+  ok(link, "The edge has the data between its classes");
+
+  const loadPromise = TestUtils.waitForLoad();
+  TestUtils.click(link);
+  await loadPromise;
+  is(frame.contentDocument.querySelector("#query").value,
+     "block-diagram:'T_rollup::Panel' block-level:field block-with:'T_rollup::Store' hier:pretty",
+     "The query is the first class's fields, with the second's");
+  // (Panel::Edit writes Store's mValue, which reaches Panel's mShown.)
+  // (Fields' rows' texts are indented.)
+  const texts = svgTexts().map(t => t.trim());
+  ok(texts.includes("mValue") && texts.includes("mShown"),
+     `Both classes' fields are shown: ${texts.join(", ")}`);
+  ok(!texts.includes("Controller"), "but not the other classes'");
+});
+
+add_task(async function test_BlockDiagramSubsystemEdge() {
+  await TestUtils.resetFeatureGate("diagramming");
+  await TestUtils.loadQuery("tests", "block-diagram:*");
+
+  const edge = [...frame.contentDocument.querySelectorAll("svg [data-symbols]")]
+    .find(e => e.getAttribute("data-symbols") === "SUBSYS_Core/Rollup@20View->SUBSYS_Core/Rollup@20Model");
+  ok(edge, "There's an edge from the view's subsystem to the model's");
+  TestUtils.click(edge);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  await waitForShown(menu, "Context menu is shown for the edge");
+
+  const links = [...menu.querySelectorAll(".contextmenu-link")].map(l => l.textContent);
+  ok(links.includes("Data between Core/Rollup View and Core/Rollup Model"),
+     `The edge has the data between the subsystems' classes: ${links.join(", ")}`);
+  const link = [...menu.querySelectorAll(".contextmenu-link")]
+    .find(l => l.textContent === "Classes between Core/Rollup View and Core/Rollup Model");
+  ok(link, "and the calls between their classes");
+
+  const loadPromise = TestUtils.waitForLoad();
+  TestUtils.click(link);
+  await loadPromise;
+  is(frame.contentDocument.querySelector("#query").value,
+     "block-diagram:'SUBSYS_Core/Rollup@20View' block-level:class block-with:'SUBSYS_Core/Rollup@20Model'",
+     "The query is the first subsystem's classes, with the second's");
+  const texts = svgTexts();
+  ok(texts.includes("Panel") && texts.includes("Store"), `Their classes are shown: ${texts.join(", ")}`);
+  ok(!texts.includes("Controller"), "but not the classes without calls between them");
+});

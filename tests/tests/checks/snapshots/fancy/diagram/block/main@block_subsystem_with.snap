@@ -1,0 +1,27 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/block/block_subsystem_with
+---
+digraph g {
+  graph[fontname="Courier New" fontsize=12 compound=true]
+  node[shape=box fontname="Courier New" fontsize=10]
+  subgraph "SYN_1" {
+    cluster=true
+    label="Core"
+    "SYN_0"[shape=point style=invis]
+    subgraph "SYN_3" {
+      cluster=true
+      label="Rollup Model"
+      "SYN_2"[shape=point style=invis]
+      "T_rollup::Store"[id=Gidn1 label=<Store> class="diagram-depth-1"]
+    }
+    subgraph "SYN_5" {
+      cluster=true
+      label="Rollup View"
+      "SYN_4"[shape=point style=invis]
+      "T_rollup::Panel"[id=Gidn0 label=<Panel> class="diagram-depth-1"]
+    }
+  }
+  "T_rollup::Panel" -> "T_rollup::Store" [style=solid arrowhead=normal id=Gide0 label="2" penwidth="1.5" tooltip="2 calls, ex: rollup::Panel::Edit → rollup::Store::Put"]
+}

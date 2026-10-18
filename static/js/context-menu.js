@@ -1531,10 +1531,12 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         let srcSymInfo = SYM_INFO[srcSyms[0]];
         let targSymInfo = SYM_INFO[targSyms[0]];
 
-        // A block diagram's edge between classes: the calls between them.
+        // A block diagram's edge between classes: the calls between them,
+        // and the data between their fields and methods (the first's field
+        // diagram, with the second's; see the tools' `cmd_block_diagram`).
+        const quote = value => `'${value.replace(/[\\']/g, c => `\\${c}`)}'`;
         const isClassInfo = info => ["class", "struct"].includes(info?.meta?.kind);
         if (isClassInfo(srcSymInfo) && isClassInfo(targSymInfo)) {
-          const quote = value => `'${value.replace(/[\\']/g, c => `\\${c}`)}'`;
           const queryString = `calls-between-source:${quote(srcSymInfo.pretty)} ` +
             `calls-between-target:${quote(targSymInfo.pretty)} depth:6`;
           jumpMenuItems.push(new MenuItem({
@@ -1544,6 +1546,29 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             icon: "brush",
             section: "jumps",
           }));
+          jumpMenuItems.push(new MenuItem({
+            html: this.fmt("Data between <strong>_</strong>", srcSymInfo.pretty) +
+              this.fmt(" and <strong>_</strong>", targSymInfo.pretty),
+            href: queryUrl(tree, `block-diagram:${quote(srcSyms[0])} block-level:field ` +
+              `block-with:${quote(targSyms[0])} hier:pretty`),
+            icon: "brush",
+            section: "jumps",
+          }));
+        }
+        // An edge between subsystems: their classes' calls, and data.
+        const isSubsystem = sym => sym?.startsWith("SUBSYS_");
+        if (isSubsystem(srcSyms[0]) && isSubsystem(targSyms[0])) {
+          const name = sym => SYM_INFO[sym]?.pretty || sym.slice("SUBSYS_".length);
+          for (const [label, edges] of [["Classes between", ""], ["Data between", " block-edges:data"]]) {
+            jumpMenuItems.push(new MenuItem({
+              html: this.fmt(`${label} <strong>_</strong>`, name(srcSyms[0])) +
+                this.fmt(" and <strong>_</strong>", name(targSyms[0])),
+              href: queryUrl(tree, `block-diagram:${quote(srcSyms[0])} block-level:class ` +
+                `block-with:${quote(targSyms[0])}${edges}`),
+              icon: "brush",
+              section: "jumps",
+            }));
+          }
         }
 
         // Generate a "go to use"

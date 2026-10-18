@@ -207,6 +207,11 @@ args.no-accessors = true
 command = "block-diagram"
 args.max-edges = "$0"
 
+[term.block-with]
+[[term.block-with.group.block-diagram]]
+command = "block-diagram"
+args.with = "$0"
+
 [term.fmus-through-depth]
 [[term.fmus-through-depth.group.graph-traverse]]
 command = "traverse"

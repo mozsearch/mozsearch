@@ -182,7 +182,13 @@ when it's all IPC).  The whole tree's subsystems; a subsystem's classes and thei
 neighbors.  Edges are labeled and weighted by how many calls they stand for;
 `--min-count` and `--max-edges` prune them.  The query terms are
 `block-diagram:*`, `block-diagram:<subsystem or class symbol>`,
-`block-level:`, `block-min-count:` and `block-max-edges:`.
+`block-level:`, `block-min-count:` and `block-max-edges:`.  `--with <class
+or subsystem>` (`block-with:`) keeps only the edges between the focus's side
+and it: for an edge between two classes, `block-diagram <A> --level field
+--with <B>` is the data between their fields and methods, and for one
+between two subsystems, `block-diagram <S1> --with <S2>` the calls (or, with
+`--edges data`, data) between their classes; the context menus of block
+diagrams' edges offer them.
 
 A try push's semantic delta (see `tools/src/try_delta.rs`) carries what it
 changes about the call roll-ups: the roll-ups of the changed files' calls

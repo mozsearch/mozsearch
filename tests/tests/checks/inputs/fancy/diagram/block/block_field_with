@@ -1,0 +1,1 @@
+block-diagram 'T_rollup::Panel' --level field --with 'T_rollup::Store' | graph --format=raw-dot --hier=pretty
