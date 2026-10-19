@@ -7,7 +7,8 @@ use ustr::Ustr;
 use super::interface::{PipelineCommand, PipelineValues};
 use crate::{
     abstract_server::{
-        AbstractServer, ErrorDetails, ErrorLayer, Result, SearchfoxIndexRoot, ServerError,
+        AbstractServer, ErrorDetails, ErrorLayer, FileMatches, Result, SearchfoxIndexRoot,
+        ServerError,
     },
     file_format::config::{self, SearchEndpoint},
     file_utils::write_file_ensuring_parent_dir,
@@ -68,6 +69,11 @@ impl PipelineCommand for BatchRenderCommand {
                         }
                     }
                 }
+                // (Each directory's coverage, first, as the server's lookups
+                // are async; then their pages, rendered and written by as
+                // many threads as there are cores, as a big tree has ~100k
+                // directories: ~3 minutes of firefox's output step on one.)
+                let mut dirs = vec![];
                 for item in batch_groups.groups {
                     if let PipelineValues::FileMatches(fm) = item.value {
                         let coverage_history = server.coverage_history(&item.name).await?;
@@ -86,53 +92,84 @@ impl PipelineCommand for BatchRenderCommand {
                                 raw_items: vec![],
                             });
                         }
-
-                        let mut liquid_globals = liquid::object!({
-                            "tree": tree_info.name,
-                            // the header always needs this
-                            "query": "",
-                            "search_url": config::search_url(&tree_info.name),
-                            "search_box_url": config::search_box_url(&tree_info.name, false),
-                            "query_search": config::search_endpoint(&tree_info.name) == SearchEndpoint::Query,
-                            "path": item.name,
-                            "files": fm.file_matches,
-                            "panel": panel,
-                            "coverage_history": coverage_history,
-                            "dir_concise": dir_concise,
-                        });
-                        if let Some(info) = &commit_info {
-                            let date = info.date.format("%F %T %z").to_string();
-                            let date = liquid::model::DateTime::from_str(&date).unwrap();
-                            liquid_globals.insert(
-                                "rev_box".into(),
-                                liquid::object!({
-                                    "long": info.rev,
-                                    "short": &info.rev[..8],
-                                    "desc_html": info.header.as_str(),
-                                    "date": date,
-                                })
-                                .into(),
-                            );
-                        } else {
-                            liquid_globals.insert("rev_box".into(), liquid::model::Value::Nil);
-                        }
-
-                        let rendered = match template.render(&liquid_globals) {
-                            Ok(r) => r,
-                            Err(e) => {
-                                return Err(ServerError::StickyProblem(ErrorDetails {
-                                    layer: ErrorLayer::ConfigLayer,
-                                    message: format!("Template problems: {}", e),
-                                }));
-                            }
-                        };
-                        let output_path = server.translate_path(
-                            SearchfoxIndexRoot::UncompressedDirectoryListing,
-                            &item.name,
-                        )?;
-                        write_file_ensuring_parent_dir(&output_path, &rendered)?;
+                        dirs.push((item.name, fm, coverage_history, panel));
                     }
                 }
+
+                let rev_box = commit_info.as_ref().map(|info| {
+                    let date = info.date.format("%F %T %z").to_string();
+                    let date = liquid::model::DateTime::from_str(&date).unwrap();
+                    liquid::object!({
+                        "long": info.rev,
+                        "short": &info.rev[..8],
+                        "desc_html": info.header.as_str(),
+                        "date": date,
+                    })
+                });
+                let render = |(name, fm, coverage_history, panel): &(
+                    String,
+                    FileMatches,
+                    _,
+                    Vec<PanelSection>,
+                )|
+                 -> Result<()> {
+                    let dir_concise = dir_infos.get(&Ustr::from(name));
+                    let mut liquid_globals = liquid::object!({
+                        "tree": tree_info.name,
+                        // the header always needs this
+                        "query": "",
+                        "search_url": config::search_url(&tree_info.name),
+                        "search_box_url": config::search_box_url(&tree_info.name, false),
+                        "query_search": config::search_endpoint(&tree_info.name) == SearchEndpoint::Query,
+                        "path": name,
+                        "files": fm.file_matches,
+                        "panel": panel,
+                        "coverage_history": coverage_history,
+                        "dir_concise": dir_concise,
+                    });
+                    match &rev_box {
+                        Some(rev_box) => {
+                            liquid_globals.insert("rev_box".into(), rev_box.clone().into());
+                        }
+                        None => {
+                            liquid_globals.insert("rev_box".into(), liquid::model::Value::Nil);
+                        }
+                    }
+
+                    let rendered = match template.render(&liquid_globals) {
+                        Ok(r) => r,
+                        Err(e) => {
+                            return Err(ServerError::StickyProblem(ErrorDetails {
+                                layer: ErrorLayer::ConfigLayer,
+                                message: format!("Template problems: {}", e),
+                            }));
+                        }
+                    };
+                    let output_path = server
+                        .translate_path(SearchfoxIndexRoot::UncompressedDirectoryListing, name)?;
+                    write_file_ensuring_parent_dir(&output_path, &rendered)?;
+                    Ok(())
+                };
+                let next = std::sync::atomic::AtomicUsize::new(0);
+                let threads = std::thread::available_parallelism().map_or(1, |n| n.get());
+                std::thread::scope(|scope| {
+                    let workers: Vec<_> = (0..threads.min(dirs.len().max(1)))
+                        .map(|_| {
+                            scope.spawn(|| -> Result<()> {
+                                loop {
+                                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                    let Some(dir) = dirs.get(i) else {
+                                        return Ok(());
+                                    };
+                                    render(dir)?;
+                                }
+                            })
+                        })
+                        .collect();
+                    workers
+                        .into_iter()
+                        .try_for_each(|worker| worker.join().unwrap())
+                })?;
                 Ok(PipelineValues::Void)
             }
             unknown => Err(ServerError::StickyProblem(ErrorDetails {

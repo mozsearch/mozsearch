@@ -315,6 +315,7 @@ fn main() {
 
         let pre_analysis_load = Instant::now();
         let analysis_fname = format!("{}/analysis/{}", tree_config.paths.index_path, path);
+        let analysis_bytes = fs::metadata(&analysis_fname).map_or(0, |meta| meta.len());
         let analysis = read_analysis(&analysis_fname, &mut read_source);
         writeln!(
             stdout,
@@ -334,6 +335,7 @@ fn main() {
         .unwrap();
 
         let pre_file_read = Instant::now();
+        let source_bytes = metadata.len();
         let mut input = String::new();
         match reader.read_to_string(&mut input) {
             Ok(_) => {}
@@ -880,6 +882,32 @@ fn main() {
             file_start.elapsed().as_micros() as u64
         )
         .unwrap();
+        if analysis_bytes + source_bytes >= RELEASE_AFTER_BYTES {
+            release_freed_memory();
+        }
     }
     writeln!(stdout, "Done writing files.").unwrap();
 }
+
+/// Files with at least this much source and analysis give back the memory
+/// formatting them freed (see `release_freed_memory`) when they're done.
+const RELEASE_AFTER_BYTES: u64 = 8 << 20;
+
+/// Give the memory freed in the heap back to the system: glibc keeps it
+/// otherwise, so that each process stays the size of the biggest file it
+/// formatted (ex: a generated file's tens of MB of analysis), which bounds
+/// how many processes output.sh can run at once.  (As dataflow-summarize and
+/// crossref do.)
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
+fn release_freed_memory() {
+    unsafe extern "C" {
+        fn malloc_trim(pad: usize) -> std::os::raw::c_int;
+    }
+    // SAFETY: malloc_trim only releases free memory.
+    unsafe {
+        malloc_trim(0);
+    }
+}
+
+#[cfg(not(all(target_os = "linux", target_env = "gnu")))]
+fn release_freed_memory() {}
