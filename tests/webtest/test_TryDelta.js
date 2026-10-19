@@ -138,15 +138,16 @@ add_task(async function test_TryDeltaSlicing() {
   const sliceLinks = () => [...(doc().querySelector(".query-result svg")?.querySelectorAll("a") ?? [])]
     .map(a => a.getAttribute("xlink:href"));
 
+  // (The dataflow graph, rather than the subway map; see test_TryDeltaSubway.)
   await TestUtils.loadPath(
-    `/trydelta/query/default?q=${encodeURIComponent(`slice-rev:${head}`)}&rev=${head}`);
+    `/trydelta/query/default?q=${encodeURIComponent(`slice-rev:${head} slice-format:svg`)}&rev=${head}`);
   ok(sliceLinks().some(href => href?.startsWith(`/trydelta/rev/${head}/wobbler.cpp#`)),
      "The push's slicing's units link to its head's lines, of the files it adds too");
   ok(doc().querySelector(".query-result svg").textContent.includes("cluster 2"),
      "in several clusters (Frob's signature, Wobble, ...)");
 
   await TestUtils.loadPath(
-    `/trydelta/query/default?q=${encodeURIComponent(`slice-rev:${head} slice-cluster:1`)}&rev=${head}`);
+    `/trydelta/query/default?q=${encodeURIComponent(`slice-rev:${head} slice-cluster:1 slice-format:svg`)}&rev=${head}`);
   const one = doc().querySelector(".query-result svg")?.textContent ?? "";
   ok(one.includes("cluster 1") && !one.includes("cluster 2"), "One of them can be shown");
 
@@ -164,11 +165,47 @@ add_task(async function test_TryDeltaSlicing() {
 
   // "Let widgets shrink": Shrink's declaration and definition, and unpoke.cpp,
   // whose includes and namespace aren't dataflow.
-  await TestUtils.loadQuery("trydelta", "slice-rev:3b6f1c8f943932e006c9b03d8978879e05dfc4fc");
+  await TestUtils.loadQuery("trydelta", "slice-rev:3b6f1c8f943932e006c9b03d8978879e05dfc4fc slice-format:svg");
   ok(sliceLinks().includes("/trydelta/source/widget.cpp#7"),
      "A landed commit's slicing links to the indexed revision's lines");
   ok(doc().querySelector(".query-result svg").textContent.includes("without dataflow"),
      "and has its changes without dataflow apart");
+});
+
+// A slicing's default view is a subway map (see subway.js): its functions'
+// cards, their stations (statement blocks) with the lines (values) stopping
+// there, and the lines along the calls between them, with a legend toggling
+// them and a link to the dataflow graph.
+add_task(async function test_TryDeltaSubway() {
+  const head = await importPush();
+  await TestUtils.loadPath(
+    `/trydelta/query/default?q=${encodeURIComponent(`slice-rev:${head}`)}&rev=${head}`);
+  await waitForCondition(() => doc().documentElement.dataset.subwayReady, "The subway map is drawn");
+  const win = frame.contentWindow;
+  const model = win.SUBWAY;
+  ok(model.cards.length > 1 && model.lines.length > 0, "The map has the push's functions and values");
+  const cards = [...doc().querySelectorAll(".sw-card")];
+  is(cards.length, model.cards.length, "as cards");
+  ok(doc().querySelector(`.sw-card a.sw-lno[href^="/trydelta/rev/${head}/"]`),
+     "whose lines link to the push's head's");
+  ok(doc().querySelector(".sw-card .sw-dot"), "with dots where values stop");
+  const legend = doc().querySelector("#sw-legend");
+  ok(legend.querySelector(".sw-legend-line"), "The legend lists the values");
+  const graphLink = legend.querySelector("a.sw-dot-link");
+  ok(decodeURIComponent(graphLink.getAttribute("href")).includes("slice-format:svg"),
+     "and links to the dataflow graph");
+
+  // (Hiding a line hides its tracks and edges.)
+  const line = model.lines.find(l => doc().querySelector(`.sw-track[data-line="${l.id}"]`));
+  ok(line, "A line has tracks");
+  const box = legend.querySelector(`input[data-line="${line.id}"]`);
+  box.checked = false;
+  box.dispatchEvent(new win.Event("change"));
+  ok(!doc().querySelector(`.sw-track[data-line="${line.id}"]`), "Unchecking it hides it");
+  ok(!doc().querySelector(`.interactive-graph-edge-line-${line.id}`), "and its edges");
+  box.checked = true;
+  box.dispatchEvent(new win.Event("change"));
+  ok(doc().querySelector(`.sw-track[data-line="${line.id}"]`), "and checking it shows it again");
 });
 
 add_task(async function test_TryDeltaUnanalyzedFiles() {

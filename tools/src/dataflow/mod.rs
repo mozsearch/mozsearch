@@ -10,5 +10,6 @@ pub mod oracle;
 pub mod records;
 pub mod render;
 pub mod slice;
+pub mod subway;
 pub mod summary;
 pub mod trace;

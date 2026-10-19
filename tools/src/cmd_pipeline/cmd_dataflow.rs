@@ -15,6 +15,7 @@ use crate::{
         slice::{
             ChangedLines, FileChange, Slicing, render_slicing_dot, render_slicing_text, slice,
         },
+        subway::subway_map,
         summary::{IpdlSlots, Summary, field_edges, summarize_in},
         trace::{Dir, TraceOpts, Tracer, find_place},
     },
@@ -35,6 +36,9 @@ pub enum DataflowFormat {
     /// lines (for the web).
     Svg,
     Json,
+    /// A slicing's clusters as a subway map (see `dataflow::subway`), as
+    /// JSON for static/js/subway.js (for the web).
+    Subway,
 }
 
 /// Naive dataflow analysis of a source file's functions (see `dataflow`):
@@ -239,6 +243,10 @@ fn parse_changed(spec: &str) -> Result<ChangedLines> {
 pub struct DataflowCommand {
     pub args: Dataflow,
 }
+
+/// The MIME type of a subway map's JSON (see `dataflow::subway`), which the
+/// query page shows with static/js/subway.js.
+pub const SUBWAY_MIME: &str = "application/vnd.searchfox.subway+json";
 
 /// DOT rendered as SVG by graphviz, to inline in a page.
 fn svg_of(dot: String) -> Result<PipelineValues> {
@@ -540,7 +548,9 @@ impl PipelineCommand for DataflowCommand {
                 .await?;
             let slicing: Slicing = serde_json::from_value(value)
                 .map_err(|e| data_error(format!("A cached slicing: {}", e)))?;
-            return self.render_slicing(server, slicing);
+            return self
+                .render_slicing(server, &mut tracer, slicing, Some(args))
+                .await;
         }
         let changes = match (&self.args.changed, &self.args.slice) {
             (Some(spec), _) => Some(parse_changed(spec)?),
@@ -556,7 +566,9 @@ impl PipelineCommand for DataflowCommand {
         };
         if let Some(changes) = changes {
             let slicing = slice(&mut tracer, &changes, self.args.slice_hops, None).await;
-            return self.render_slicing(server, slicing);
+            return self
+                .render_slicing(server, &mut tracer, slicing, None)
+                .await;
         }
         if let Some(paths) = paths_arg(&self.args.field_edges, &None)? {
             let mut files = vec![];
@@ -709,14 +721,36 @@ impl PipelineCommand for DataflowCommand {
 }
 
 impl DataflowCommand {
-    /// A slicing (or its `--slice-cluster`) in the format asked for.
-    fn render_slicing(
+    /// A slicing (or its `--slice-cluster`) in the format asked for.  (Its
+    /// subway map is cached by `cache_args`, the slicing's step cache
+    /// arguments, if it's cached; see `step_cache`.)
+    async fn render_slicing(
         &self,
         server: &(dyn AbstractServer + Send + Sync),
+        tracer: &mut Tracer<'_>,
         mut slicing: Slicing,
+        cache_args: Option<String>,
     ) -> Result<PipelineValues> {
         if let Some(n) = self.args.slice_cluster {
             slicing.only_cluster(n).map_err(data_error)?;
+        }
+        match self.args.format {
+            DataflowFormat::Subway => {
+                let first = self.args.slice_cluster.unwrap_or(1);
+                let identity = cache_args.as_ref().and_then(|_| server.cache_identity());
+                let args = format!("{:?} cluster {:?}", cache_args, self.args.slice_cluster);
+                let value = crate::step_cache::cached(identity, "subway", &args, || async {
+                    let map = subway_map(tracer, &slicing, first).await;
+                    Ok::<_, ServerError>(serde_json::to_value(&map).unwrap())
+                })
+                .await?;
+                // (Its "<"s escaped, as it's inlined in a page's script.)
+                return text(value.to_string().replace('<', "\\u003c"), SUBWAY_MIME);
+            }
+            DataflowFormat::Text
+            | DataflowFormat::Dot
+            | DataflowFormat::Svg
+            | DataflowFormat::Json => {}
         }
         match self.args.format {
             DataflowFormat::Text => text(render_slicing_text(&slicing), "text/plain"),
@@ -735,6 +769,7 @@ impl DataflowCommand {
             DataflowFormat::Json => Ok(PipelineValues::JsonValue(JsonValue {
                 value: serde_json::to_value(&slicing).unwrap(),
             })),
+            DataflowFormat::Subway => unreachable!(),
         }
     }
 
@@ -764,6 +799,9 @@ impl DataflowCommand {
             DataflowFormat::Json => Ok(PipelineValues::JsonValue(JsonValue {
                 value: serde_json::to_value(&tracer.graph).unwrap(),
             })),
+            DataflowFormat::Subway => Err(data_error(
+                "Subway maps are of slicings (slice-rev)".to_string(),
+            )),
         }
     }
 }

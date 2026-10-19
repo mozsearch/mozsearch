@@ -1667,6 +1667,34 @@ impl<'s> Tracer<'s> {
     // ## Resolving calls
 
     /// The functions a call can reach.
+    /// The summary a call is stepped over by (see `accessor_summary`), for
+    /// what isn't a trace (ex: `subway`).
+    pub(crate) async fn call_summary(&mut self, call: &Call) -> Option<Summary> {
+        self.accessor_summary(call).await
+    }
+
+    /// The functions a function's call reaches (see `targets`), each with,
+    /// for each of the call's arguments, the callee's parameter it is (if
+    /// any): for what isn't a trace (ex: `subway`).
+    pub(crate) async fn call_targets(
+        &mut self,
+        file: &Arc<FileIr>,
+        func: usize,
+        call: usize,
+    ) -> Vec<(Arc<FileIr>, usize, Vec<Option<usize>>)> {
+        let argc = file.funcs[func].calls[call].args.len();
+        self.targets(file, func, call)
+            .await
+            .into_iter()
+            .map(|target| {
+                let params = (0..argc)
+                    .map(|ai| Self::param_for_arg(&target.map, ai))
+                    .collect();
+                (target.file, target.func, params)
+            })
+            .collect()
+    }
+
     async fn targets(&mut self, file: &Arc<FileIr>, func: usize, call: usize) -> Vec<Target> {
         let callee = file.funcs[func].calls[call].callee.clone();
         // (Several symbols are overloads per platform, or, in templates, per

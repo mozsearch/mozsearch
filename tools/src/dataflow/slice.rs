@@ -134,7 +134,7 @@ fn is_hub(name: &str) -> bool {
     )
 }
 
-fn place_keys(f: &FuncIr, place: &Place, keys: &mut BTreeSet<Key>) {
+pub(super) fn place_keys(f: &FuncIr, place: &Place, keys: &mut BTreeSet<Key>) {
     // (The most specific member: `mLoadInfo.mTimezoneOverride` is about
     // `mTimezoneOverride`, not everything in `mLoadInfo`.)
     if let Some(field) = place.last_field()
@@ -844,7 +844,7 @@ pub async fn slice(
 
 /// A slicing's cluster's commits' (abbreviated) SHAs, in the patch's order,
 /// if its units' commits are known.
-fn cluster_commits(slicing: &Slicing, cluster: &[usize]) -> String {
+pub(super) fn cluster_commits(slicing: &Slicing, cluster: &[usize]) -> String {
     let mut commits: Vec<&String> = vec![];
     for &ui in cluster {
         for commit in &slicing.units[ui].commits {

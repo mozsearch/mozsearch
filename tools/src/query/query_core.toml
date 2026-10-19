@@ -459,13 +459,14 @@ args.max-hops = "$0"
 # Slicing a revision's changes (a commit's, or `<a>..<b>`'s) into the clusters
 # of dataflow they touch (see tools/src/dataflow/slice.rs), in the coordinates
 # of the query's revision (the indexed one, or, with `rev`, a try push's
-# head's): `slice-cluster` shows one of them (1 for the biggest), and
-# `slice-format` (json, text, dot) something other than the diagram.
+# head's), as a subway map (see static/js/subway.js): `slice-cluster` shows
+# one of them (1 for the biggest), and `slice-format` (svg, the dataflow
+# graph; json, text, dot) something other than the map.
 [term.slice-rev]
 [[term.slice-rev.group.slicing]]
 command = "dataflow"
 args.slice-rev = "$0"
-args.format = "svg"
+args.format = "subway"
 
 [term.slice-cluster]
 [[term.slice-cluster.group.slicing]]

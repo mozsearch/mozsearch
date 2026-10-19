@@ -4909,3 +4909,145 @@ textarea.monospace {
   margin-inline-start: 1rem;
 }
 
+/* The subway map of a slicing's clusters (see subway.js). */
+.sw-base {
+  position: relative;
+}
+.sw-legend {
+  position: absolute;
+  top: 0.5em;
+  right: 0.5em;
+  max-width: 22em;
+  max-height: calc(100% - 1em);
+  overflow: auto;
+  padding: 0.4em 0.6em;
+  background-color: var(--page-background);
+  border: 1px solid var(--page-border-color);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  font-size: 0.85em;
+  z-index: 5;
+}
+.sw-legend h4 {
+  display: inline;
+  margin: 0 0.5em 0 0;
+}
+.sw-legend summary {
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 0.3em;
+}
+.sw-legend ul {
+  list-style: none;
+  margin: 0.1em 0;
+  padding-left: 1.1em;
+}
+.sw-legend label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  cursor: pointer;
+}
+.sw-swatch {
+  display: inline-block;
+  width: 1.4em;
+  height: 0.45em;
+  border-radius: 2px;
+}
+.sw-type {
+  opacity: 0.6;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+.sw-note {
+  margin: 0.3em 0 0;
+  opacity: 0.75;
+}
+.interactive-graph-block.sw-card {
+  max-width: 100ch;
+  overflow: hidden;
+  cursor: default;
+  background-color: var(--page-background);
+  border-width: 1px 1px 1px 5px;
+  border-radius: 6px;
+  border-left-color: var(--page-border-color);
+  font-family: sans-serif;
+}
+.sw-card-changed {
+  border-left-color: #e8a33d;
+}
+.sw-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  padding: 0.25em 0.4em;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--page-border-color);
+}
+.sw-name {
+  font-family: monospace;
+  font-weight: bold;
+}
+.sw-where {
+  font-size: 0.85em;
+  text-decoration: none;
+}
+.sw-row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: pre;
+}
+.sw-changed {
+  background-color: var(--diff-plus-line-background);
+}
+.sw-gutter {
+  flex: none;
+  height: 16px;
+  margin-right: 0.3em;
+}
+.sw-gutter line {
+  stroke-width: 3px;
+  vector-effect: non-scaling-stroke;
+}
+.sw-dots {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 16px;
+  width: var(--sw-gutter);
+  pointer-events: none;
+}
+.sw-dot {
+  position: absolute;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  transform: translate(-50%, -50%);
+  border: 1.5px solid #000;
+  border-radius: 50%;
+  background-color: #fff;
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+.sw-dot-write {
+  background-color: #000;
+}
+.sw-lno {
+  flex: none;
+  min-width: 3.5em;
+  padding-right: 0.5em;
+  text-align: right;
+  color: var(--page-subtle-foreground);
+  text-decoration: none;
+}
+.sw-code {
+  padding-right: 0.4em;
+}
+.sw-gap-text {
+  color: var(--page-subtle-foreground);
+  padding-left: 1em;
+}

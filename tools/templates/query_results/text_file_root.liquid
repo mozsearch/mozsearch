@@ -1,5 +1,17 @@
 {% if results.TextFile.mime_type == "image/svg+xml" %}
     {{ results.TextFile.contents }}
+{% elsif results.TextFile.mime_type == "application/vnd.searchfox.subway+json" %}
+{%- comment %}(A subway map's model, with its "<"s escaped; see subway.js.){% endcomment %}
+<script>var SUBWAY = {{ results.TextFile.contents }}; var GRAPH_EXTRA = [];</script>
+<div id="interactive-graph-base" class="sw-base">
+<div id="interactive-graph-viewport">
+<div id="interactive-graph-container">
+</div>
+</div>
+<div id="sw-legend" class="sw-legend"></div>
+</div>
+<script src="/{{tree}}/static/js/graph.js"></script>
+<script src="/{{tree}}/static/js/subway.js"></script>
 {% elsif results.TextFile.mime_type == "text/x-dot" %}
 <pre>{{ results.TextFile.contents | escape }}</pre>
 {% else %}
