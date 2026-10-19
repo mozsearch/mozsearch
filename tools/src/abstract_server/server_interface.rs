@@ -486,8 +486,9 @@ pub trait AbstractServer {
         limit: usize,
     ) -> Result<FileMatches>;
 
-    /// Given an identifier (prefix), return pairs of matching identifiers and
-    /// symbols that correspond to those identifiers.
+    /// Given an identifier (prefix), return pairs of the symbols that
+    /// correspond to matching identifiers and those identifiers: (symbol,
+    /// identifier).
     ///
     /// If `exact_match` is true, then this is just a (potentially case-insensitive)
     /// lookup.  If it's false, then this is a prefix search that skips anything

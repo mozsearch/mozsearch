@@ -1849,7 +1849,7 @@ impl<'s> Tracer<'s> {
                 else {
                     continue;
                 };
-                let mut syms: Vec<Ustr> = matches.into_iter().map(|(_, sym)| sym).collect();
+                let mut syms: Vec<Ustr> = matches.into_iter().map(|(sym, _)| sym).collect();
                 syms.sort();
                 syms.dedup();
                 for sym in syms.into_iter().take(self.opts.fanout) {
@@ -1905,7 +1905,7 @@ impl<'s> Tracer<'s> {
         let suffix = format!("#{}().", name);
         let mut syms: Vec<Ustr> = matches
             .into_iter()
-            .map(|(_, sym)| sym)
+            .map(|(sym, _)| sym)
             .filter(|sym| {
                 sym.starts_with("S_js_typescript_generated/lib.gecko.xpcom.d.ts/")
                     && sym.ends_with(&suffix)
