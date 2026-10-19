@@ -343,16 +343,18 @@ impl DerivedSymbolInfo {
         }
     }
 
-    pub fn get_binding_slot_sym(&self, kind: BindingSlotKind) -> Option<Ustr> {
-        if let Some(slots) = self.get_structured().map(|meta| &meta.binding_slots) {
-            for slot in slots {
-                if slot.props.slot_kind != kind {
-                    continue;
-                }
-                return Some(slot.sym);
-            }
-        }
-        None
+    /// The symbols of its binding slots of a kind (ex: a message's `Send`
+    /// methods: overloads, and their symbols on each platform).
+    pub fn get_binding_slot_syms(&self, kind: BindingSlotKind) -> Vec<Ustr> {
+        self.get_structured()
+            .map(|meta| {
+                meta.binding_slots
+                    .iter()
+                    .filter(|slot| slot.props.slot_kind == kind)
+                    .map(|slot| slot.sym)
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 
     pub fn get_subsystem(&self) -> Option<Ustr> {

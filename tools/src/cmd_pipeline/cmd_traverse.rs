@@ -753,66 +753,67 @@ impl PipelineCommand for TraverseCommand {
                         _ => ustr(""),
                     };
 
-                    // Handle the case where we need to traverse a slot
+                    // Handle the case where we need to traverse a slot: each of
+                    // its symbols (ex: a message's `Send` methods' overloads,
+                    // and their symbols on each platform).
                     if let Some(other_slot) = traverse_slot {
-                        let Some(other_sym) = owner_info.get_binding_slot_sym(other_slot) else {
-                            continue;
-                        };
-                        let (other_id, other_info) = sym_node_set
-                            .ensure_symbol(&other_sym, server, next_depth)
-                            .await?;
+                        for other_sym in owner_info.get_binding_slot_syms(other_slot) {
+                            let (other_id, other_info) = sym_node_set
+                                .ensure_symbol(&other_sym, server, next_depth)
+                                .await?;
 
-                        let other_pretty = match other_info.get_structured().map(|meta| meta.pretty)
-                        {
-                            Some(pretty) => pretty,
-                            _ => ustr(""),
-                        };
-                        if ignore_node_set.contains(&*other_pretty) {
-                            continue;
-                        }
+                            let other_pretty =
+                                match other_info.get_structured().map(|meta| meta.pretty) {
+                                    Some(pretty) => pretty,
+                                    _ => ustr(""),
+                                };
+                            if ignore_node_set.contains(&*other_pretty) {
+                                continue;
+                            }
 
-                        if outbound_edge {
-                            sym_edge_set.ensure_edge_in_graph(
-                                sym_id.clone(),
-                                other_id,
-                                edge_kind,
-                                vec![],
-                                &mut graph,
+                            if outbound_edge {
+                                sym_edge_set.ensure_edge_in_graph(
+                                    sym_id.clone(),
+                                    other_id,
+                                    edge_kind.clone(),
+                                    vec![],
+                                    &mut graph,
+                                );
+                            } else {
+                                sym_edge_set.ensure_edge_in_graph(
+                                    other_id,
+                                    sym_id.clone(),
+                                    edge_kind.clone(),
+                                    vec![],
+                                    &mut graph,
+                                );
+                            }
+                            if !considered.insert(other_info.symbol) {
+                                continue;
+                            }
+                            if next_depth >= max_depth {
+                                overloads_hit.push(OverloadInfo {
+                                    kind: OverloadKind::DepthLimitOnBindingSlot,
+                                    sym: Some(other_info.symbol.to_string()),
+                                    pretty: Some(other_pretty.to_string()),
+                                    exist: next_depth,
+                                    included: depth + 1,
+                                    local_limit: 0,
+                                    global_limit: max_depth,
+                                });
+                                continue;
+                            }
+                            trace!(
+                                sym = other_info.symbol.as_str(),
+                                "scheduling traversed binding slot sym"
                             );
-                        } else {
-                            sym_edge_set.ensure_edge_in_graph(
-                                other_id,
-                                sym_id.clone(),
-                                edge_kind,
-                                vec![],
-                                &mut graph,
-                            );
+                            to_traverse.push_back((
+                                other_info.symbol,
+                                other_pretty,
+                                next_depth,
+                                all_traversals_valid,
+                            ));
                         }
-                        if !considered.insert(other_info.symbol) {
-                            continue;
-                        }
-                        if next_depth >= max_depth {
-                            overloads_hit.push(OverloadInfo {
-                                kind: OverloadKind::DepthLimitOnBindingSlot,
-                                sym: Some(other_info.symbol.to_string()),
-                                pretty: Some(other_pretty.to_string()),
-                                exist: next_depth,
-                                included: depth + 1,
-                                local_limit: 0,
-                                global_limit: max_depth,
-                            });
-                            continue;
-                        }
-                        trace!(
-                            sym = other_info.symbol.as_str(),
-                            "scheduling traversed binding slot sym"
-                        );
-                        to_traverse.push_back((
-                            other_info.symbol,
-                            other_pretty,
-                            next_depth,
-                            all_traversals_valid,
-                        ));
                         continue;
                     }
                     if !ignore_node_set.contains(&*owner_pretty) {

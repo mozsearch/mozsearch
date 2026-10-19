@@ -92,13 +92,13 @@ fn mangle_nested_name(ns: &[String], protocol: &str, name: &str) -> String {
     )
 }
 
-fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a AnalysisTarget> {
-    // As a hack to deal with SendPFooConstructor having a single-arg variant
-    // that takes an args struct which just news the actor and then calls the
-    // 2-arg variant, passing the actor as the first variant, and because the
-    // 1-arg variant comes before the 2-arg variant, we return the last variant
-    // we see.  Will this cause even more problems?  Maybe!
-    let mut best_piece = None;
+/// The declarations and definitions of the methods with the mangled nested
+/// name `mangled`: all of their symbols, in order (a method's symbols differ
+/// between platforms, ex: by their parameters' STL types, and a message's
+/// `Send` methods can be overloads, ex: with and without its reply's
+/// callbacks, or `SendPFooConstructor`'s with and without its actor).
+fn find_analyses<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Vec<&'a AnalysisTarget> {
+    let mut found: Vec<&AnalysisTarget> = vec![];
     for datum in analysis {
         for piece in &datum.data {
             // Inline method definitions and pure virtual method declarations
@@ -106,13 +106,13 @@ fn find_analysis<'a>(analysis: &'a TargetAnalysis, mangled: &str) -> Option<&'a 
             // declaration, so we need to accept both decls and defs.
             if (piece.kind == AnalysisKind::Decl || piece.kind == AnalysisKind::Def)
                 && piece.sym.contains(mangled)
+                && !found.iter().any(|f| f.sym == piece.sym)
             {
-                best_piece = Some(piece);
+                found.push(piece);
             }
         }
     }
-
-    best_piece
+    found
 }
 
 /// Write a JSON record as a line.
@@ -605,13 +605,18 @@ fn output_data_structures(
 /// are unified; see `local_symbols`): in-parameters in order, then sync
 /// messages' out-parameters (pointers), and async messages' return values
 /// without slots (their send methods take resolvers), and uses of the IPDL
-/// structs and unions their types name.
+/// structs and unions their types name.  (The methods' symbols on each
+/// platform, and send methods' overloads with resolvers, whose parameters
+/// are in the same positions; but of a constructor's send methods, whose
+/// overloads' parameters aren't, only the last's, which takes the actor and
+/// then the message's parameters.)
 fn output_message_params(
     outputf: &mut BufWriter<File>,
     message: &ast::MessageDecl,
+    is_ctor: bool,
     message_pretty: &str,
     message_sym: &str,
-    slots: &[(&AnalysisTarget, &AnalysisTarget)],
+    slots: &[(Vec<&AnalysisTarget>, Vec<&AnalysisTarget>)],
     ipdl_types: &IpdlTypes,
 ) {
     let sync = message.send_semantics != ast::SendSemantics::Async;
@@ -626,9 +631,14 @@ fn output_message_params(
         let param_pretty = format!("{}::{}", message_pretty, name);
         let mut param_slots = vec![];
         if !is_out || sync {
-            for (send, recv) in slots {
-                param_slots.push(cpp_slot("param", &parameter_symbol(&send.sym, position)));
-                param_slots.push(cpp_slot("param", &parameter_symbol(&recv.sym, position)));
+            for (sends, recvs) in slots {
+                let sends: &[&AnalysisTarget] = match is_ctor {
+                    true => &sends[sends.len().saturating_sub(1)..],
+                    false => sends,
+                };
+                for method in sends.iter().chain(recvs) {
+                    param_slots.push(cpp_slot("param", &parameter_symbol(&method.sym, position)));
+                }
             }
         }
         output_definition(
@@ -682,7 +692,7 @@ fn output_ipc_data(
     locstr: &str,
     ipc_pretty: &str,
     ipc_sym: &str,
-    slots: &[(&AnalysisTarget, &AnalysisTarget)],
+    slots: &[(Vec<&AnalysisTarget>, Vec<&AnalysisTarget>)],
     params: Vec<Value>,
 ) {
     write!(
@@ -712,19 +722,17 @@ fn output_ipc_data(
     .unwrap();
     writeln!(outputf).unwrap();
     let mut binding_slots = vec![];
-    for (send_datum, recv_datum) in slots {
-        binding_slots.push(json!({
-            "slotKind": "send",
-            "slotLang": "cpp",
-            "ownerLang": "idl",
-            "sym": send_datum.sym,
-        }));
-        binding_slots.push(json!({
-            "slotKind": "recv",
-            "slotLang": "cpp",
-            "ownerLang": "idl",
-            "sym": recv_datum.sym,
-        }));
+    for (sends, recvs) in slots {
+        for (kind, data) in [("send", sends), ("recv", recvs)] {
+            for datum in data {
+                binding_slots.push(json!({
+                    "slotKind": kind,
+                    "slotLang": "cpp",
+                    "ownerLang": "idl",
+                    "sym": datum.sym,
+                }));
+            }
+        }
     }
     write!(
         outputf,
@@ -745,7 +753,8 @@ fn output_ipc_data(
     writeln!(outputf).unwrap();
 }
 
-/// A message's send and recv methods for one direction, if both are found.
+/// A message's send and recv methods for one direction (all of their symbols;
+/// see `find_analyses`), if both are found.
 fn find_send_recv<'a>(
     protocol: &ast::Namespace,
     message: &ast::MessageDecl,
@@ -754,7 +763,7 @@ fn find_send_recv<'a>(
     send_analysis: &'a TargetAnalysis,
     recv_side: &str,
     recv_analysis: &'a TargetAnalysis,
-) -> Option<(&'a AnalysisTarget, &'a AnalysisTarget)> {
+) -> Option<(Vec<&'a AnalysisTarget>, Vec<&'a AnalysisTarget>)> {
     let send_prefix = if message.send_semantics == ast::SendSemantics::Intr {
         "Call"
     } else {
@@ -773,8 +782,8 @@ fn find_send_recv<'a>(
         &format!("{}{}", protocol.name.id, send_side),
         &format!("{}{}{}", send_prefix, message.name.id, ctor_suffix),
     );
-    let maybe_send_datum = find_analysis(send_analysis, &mangled);
-    if maybe_send_datum.is_none() {
+    let sends = find_analyses(send_analysis, &mangled);
+    if sends.is_empty() {
         println!("No analysis target found for send: {}", mangled);
     }
 
@@ -793,19 +802,18 @@ fn find_send_recv<'a>(
         &format!("{}{}", /* not sliced */ protocol.name.id, recv_side),
         &format!("{}{}{}", recv_prefix, message.name.id, ctor_suffix),
     );
-    let maybe_recv_datum = find_analysis(recv_analysis, &mangled_no_p)
-        .or_else(|| find_analysis(recv_analysis, &mangled_yes_p));
-    if maybe_recv_datum.is_none() {
+    let mut recvs = find_analyses(recv_analysis, &mangled_no_p);
+    if recvs.is_empty() {
+        recvs = find_analyses(recv_analysis, &mangled_yes_p);
+    }
+    if recvs.is_empty() {
         println!(
             "No analysis target found for recv: {} or {}",
             mangled_no_p, mangled_yes_p
         );
     }
 
-    match (maybe_send_datum, maybe_recv_datum) {
-        (Some(send_datum), Some(recv_datum)) => Some((send_datum, recv_datum)),
-        _ => None,
-    }
+    (!sends.is_empty() && !recvs.is_empty()).then_some((sends, recvs))
 }
 
 fn main() {
@@ -1103,6 +1111,7 @@ fn main() {
                 output_message_params(
                     &mut outputf,
                     &message,
+                    is_ctor,
                     &message_pretty,
                     &message_sym,
                     &slots,

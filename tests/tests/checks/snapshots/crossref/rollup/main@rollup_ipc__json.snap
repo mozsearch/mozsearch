@@ -6,15 +6,15 @@ input_file: inputs/crossref/rollup/rollup_ipc__json
 [
   {
     "sym": "T_mozilla::_ipdltest::TestDataStructuresParent",
-    "count": 20,
-    "ipc": 20,
+    "count": 28,
+    "ipc": 28,
     "examples": [
-      "mozilla::_ipdltest::TestDataStructuresChild::TestUnionWithActors -> mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithActors",
-      "mozilla::_ipdltest::TestDataStructuresChild::TestStruct -> mozilla::_ipdltest::TestDataStructuresParent::RecvTestStruct",
-      "mozilla::_ipdltest::TestDataStructuresChild::TestUnions -> mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnions",
-      "mozilla::_ipdltest::TestDataStructuresChild::TestStructs -> mozilla::_ipdltest::TestDataStructuresParent::RecvTestStructs",
       "mozilla::_ipdltest::TestDataStructuresChild::TestArrayOfInt -> mozilla::_ipdltest::TestDataStructuresParent::RecvTestArrayOfInt",
-      "mozilla::_ipdltest::TestDataStructuresChild::TestNsIntRegion -> mozilla::_ipdltest::TestDataStructuresParent::RecvTestNsIntRegion"
+      "mozilla::_ipdltest::TestDataStructuresChild::TestNsIntRegion -> mozilla::_ipdltest::TestDataStructuresParent::RecvTestNsIntRegion",
+      "mozilla::_ipdltest::TestDataStructuresChild::TestArrayOfActor -> mozilla::_ipdltest::TestDataStructuresParent::RecvTestArrayOfActor",
+      "mozilla::_ipdltest::TestDataStructuresChild::TestArrayOfUnion -> mozilla::_ipdltest::TestDataStructuresParent::RecvTestArrayOfUnion",
+      "mozilla::_ipdltest::TestDataStructuresChild::TestUnionWithCxx -> mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithCxx",
+      "mozilla::_ipdltest::TestDataStructuresChild::TestArrayOfUnions -> mozilla::_ipdltest::TestDataStructuresParent::RecvTestArrayOfUnions"
     ]
   },
   {
