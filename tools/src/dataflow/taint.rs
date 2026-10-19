@@ -86,52 +86,151 @@ fn names(pretty: &str, name: &str) -> bool {
                 && pretty[..pretty.len() - name.len()].ends_with("::")))
 }
 
+/// The symbols of a type (by its last component and qualified name): by its
+/// qualified name if it has one, else any type's of its name; and if only
+/// aliases have its qualified name (ex: IPDL protocols' `typedef
+/// mozilla::_foo::Structs Structs`, which Recv methods' parameters have), by
+/// its name.  (Aliases have no structured records.)
+async fn named_type_syms(tracer: &mut Tracer<'_>, short: &str, qualified: &str) -> Vec<Ustr> {
+    let all = tracer.type_syms(short).await;
+    let syms: Vec<Ustr> = all
+        .iter()
+        .filter(|(pretty, sym)| {
+            !sym.starts_with("TA_") && (!qualified.contains("::") || names(pretty, qualified))
+        })
+        .map(|(_, sym)| *sym)
+        .collect();
+    if !syms.is_empty() {
+        return syms;
+    }
+    all.into_iter()
+        .filter(|(_, sym)| !sym.starts_with("TA_"))
+        .map(|(_, sym)| sym)
+        .collect()
+}
+
+/// The type of a container's or an array's elements, if it's one: IPDL's
+/// `T[]`, `T?` and `nullable T`, and Gecko's arrays and spans (ex:
+/// `nsTArray<mozilla::ipc::PrincipalInfo>`, `const nsTArray<T>&`).
+fn element_type(ty: &str) -> Option<String> {
+    const CONTAINERS: [&str; 7] = [
+        "nsTArray",
+        "CopyableTArray",
+        "AutoTArray",
+        "nsCOMArray",
+        "Span",
+        "FallibleTArray",
+        "nsTArrayView",
+    ];
+    let ty = ty.trim();
+    if let Some(element) = ty.strip_suffix("[]").or_else(|| ty.strip_suffix('?')) {
+        return Some(element.trim().to_string());
+    }
+    if let Some(element) = ty.strip_prefix("nullable ") {
+        return Some(element.trim().to_string());
+    }
+    let qualified = qualified_type(ty)?;
+    let name = qualified.rsplit("::").next().unwrap_or(&qualified);
+    if !CONTAINERS.contains(&name) {
+        return None;
+    }
+    // (Its first template argument, at the top level.)
+    let start = ty.find('<')? + 1;
+    let mut depth = 0;
+    for (i, c) in ty[start..].char_indices() {
+        match c {
+            '<' => depth += 1,
+            '>' if depth > 0 => depth -= 1,
+            '>' | ',' if depth == 0 => return Some(ty[start..start + i].trim().to_string()),
+            _ => {}
+        }
+    }
+    None
+}
+
 /// The most functions a taint audit maps (see `audit_slicing`).
 pub const MAX_AUDITED: usize = 48;
 
 /// A taint audit's slicing (for `subway::subway_map`, with the type
 /// tainted): a cluster for each function receiving a message from content
-/// processes with parameters of a type (by name, qualified or not), of those
-/// parameters' values.  The functions are found by the type's uses (in their
-/// declarations' parameters): the `Recv` methods (or the generated
-/// declarations they override) of messages marked `fromContent`.  (Not those
-/// of IPDL structs containing the type.)
+/// processes with parameters of a type (by name, qualified or not), or of
+/// IPDL structs (or unions) containing it, of those parameters' values.  The
+/// functions are found by the type's uses (in their declarations'
+/// parameters, and in IPDL structs' fields): the `Recv` methods (or the
+/// generated declarations they override) of messages marked `fromContent`.
 pub async fn audit_slicing(tracer: &mut Tracer<'_>, ty: &str) -> Slicing {
     let mut notes = vec![];
     let (Some(short), Some(qualified)) = (semantic_type(ty), qualified_type(ty)) else {
         notes.push(format!("{:?} isn't a type.", ty));
         return Slicing::empty(notes);
     };
-    let type_syms: Vec<Ustr> = tracer
-        .type_syms(&short)
-        .await
-        .into_iter()
-        .filter(|(pretty, _)| !qualified.contains("::") || names(pretty, &qualified))
-        .map(|(_, sym)| sym)
-        .collect();
+    let type_syms: Vec<Ustr> = named_type_syms(tracer, &short, &qualified).await;
     if type_syms.is_empty() {
         notes.push(format!("No type is named {:?}.", ty));
     }
     // (The functions whose declarations use it (or its aliases), by name
-    // `Recv…`, and for an IPDL type, the messages whose parameters it is.)
+    // `Recv…`; the messages whose parameters it is, for an IPDL type; and the
+    // IPDL structs and unions containing it (by their fields' uses of it in
+    // .ipdl files, or their generated classes' members'), whose uses are
+    // followed in turn, at most `MAX_STRUCT_DEPTH` deep.)
     let mut candidates: BTreeSet<Ustr> = BTreeSet::new();
     let mut messages: BTreeSet<Ustr> = BTreeSet::new();
-    for sym in &type_syms {
-        let Some(xref) = tracer.crossref(sym).await else {
-            continue;
-        };
-        for result in xref.uses.iter().flatten() {
-            for line in &result.lines {
-                let name = line.context.rsplit("::").next().unwrap_or("");
-                if line.contextsym.starts_with("IPC_")
-                    && let Some((message, _param)) = line.contextsym.rsplit_once("__")
-                {
-                    messages.insert(ustr::ustr(message));
-                } else if !line.contextsym.is_empty() && name.starts_with("Recv") {
-                    candidates.insert(line.contextsym);
+    let mut seen: BTreeSet<Ustr> = type_syms.iter().copied().collect();
+    let mut level: Vec<Ustr> = type_syms.clone();
+    for _ in 0..=MAX_STRUCT_DEPTH {
+        let mut contexts: BTreeSet<(Ustr, Ustr)> = BTreeSet::new();
+        for sym in &level {
+            let Some(xref) = tracer.crossref(sym).await else {
+                continue;
+            };
+            for result in xref.uses.iter().flatten() {
+                for line in &result.lines {
+                    if !line.contextsym.is_empty() {
+                        contexts.insert((line.contextsym, line.context));
+                    }
                 }
             }
         }
+        // (The fields' and classes' crossref entries, at once.)
+        tracer
+            .prefetch(
+                contexts
+                    .iter()
+                    .map(|(sym, _)| *sym)
+                    .filter(|sym| sym.starts_with("IPDL_") || sym.starts_with("T_")),
+                [],
+            )
+            .await;
+        let mut next = vec![];
+        for (contextsym, context) in contexts {
+            let name = context.rsplit("::").next().unwrap_or("");
+            if contextsym.starts_with("IPC_")
+                && let Some((message, _param)) = contextsym.rsplit_once("__")
+            {
+                messages.insert(ustr::ustr(message));
+            } else if contextsym.starts_with("IPDL_") || contextsym.starts_with("T_") {
+                // (An IPDL field's struct, or a generated class's.)
+                let container = tracer.crossref(&contextsym).await.and_then(|xref| {
+                    let meta = xref.meta.as_ref()?;
+                    match contextsym.starts_with("IPDL_") {
+                        true => meta.parent_sym,
+                        false => Some(meta.slot_owner.as_ref()?.sym),
+                    }
+                });
+                if let Some(container) = container
+                    && container.starts_with("IPDL_")
+                    && seen.insert(container)
+                {
+                    next.push(container);
+                }
+            } else if name.starts_with("Recv") {
+                candidates.insert(contextsym);
+            }
+        }
+        if next.is_empty() {
+            break;
+        }
+        level = next;
     }
     for message in messages {
         if let Some(xref) = tracer.crossref(&message).await
@@ -369,6 +468,17 @@ impl Taint {
         if is_builtin(&qualified) && !self.spec.types.contains(&qualified) {
             return TypeTaint::default();
         }
+        // (A container's or an array's values are its elements': tainted
+        // whole if they're tainted at all.)
+        if let Some(element) = element_type(ty) {
+            let element = Box::pin(self.type_taint_at(tracer, &element, depth, with_fields)).await;
+            let taint = TypeTaint {
+                whole: element.whole || !element.fields.is_empty(),
+                fields: vec![],
+            };
+            self.types.insert(key, taint.clone());
+            return taint;
+        }
         // (Not tainted while it's being looked at, for recursive types.)
         self.types.insert(key.clone(), TypeTaint::default());
         let mut taint = TypeTaint {
@@ -379,17 +489,10 @@ impl Taint {
                 .any(|name| names(&qualified, name) || name == &short),
             fields: vec![],
         };
-        // (Its symbols: by its qualified name if it has one, else any type of
-        // its name.)
+        // (Its symbols; see `named_type_syms`.)
         let syms: Vec<Ustr> = match taint.whole {
             true => vec![],
-            false => tracer
-                .type_syms(&short)
-                .await
-                .into_iter()
-                .filter(|(pretty, _)| !qualified.contains("::") || names(pretty, &qualified))
-                .map(|(_, sym)| sym)
-                .collect(),
+            false => named_type_syms(tracer, &short, &qualified).await,
         };
         for sym in &syms {
             if tracer.labels(sym).await.contains(&ustr::ustr(TAINT_LABEL)) {
@@ -690,6 +793,25 @@ fn is_failure(f: &FuncIr, vals: &[Val]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_element_type() {
+        assert_eq!(element_type("SActors[]").as_deref(), Some("SActors"));
+        assert_eq!(element_type("nullable PFoo").as_deref(), Some("PFoo"));
+        assert_eq!(
+            element_type("PrincipalInfo?").as_deref(),
+            Some("PrincipalInfo")
+        );
+        assert_eq!(
+            element_type("const nsTArray<mozilla::ipc::PrincipalInfo> &").as_deref(),
+            Some("mozilla::ipc::PrincipalInfo")
+        );
+        assert_eq!(
+            element_type("AutoTArray<RefPtr<nsIPrincipal>, 4>").as_deref(),
+            Some("RefPtr<nsIPrincipal>")
+        );
+        assert_eq!(element_type("nsIPrincipal *"), None);
+    }
 
     #[test]
     fn test_names() {

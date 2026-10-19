@@ -256,7 +256,19 @@ fn render_audit_text(map: &serde_json::Value) -> String {
                 "{:<12} {} {} ({}:{}): {} of {} stops tainted{}",
                 status,
                 card["func"].as_str().unwrap_or("?"),
-                line["label"].as_str().unwrap_or("?"),
+                // (Its field, if it's one: `aArgs.principal`.)
+                match source["field"].as_str() {
+                    Some(field) => format!(
+                        "{}.{}",
+                        source["why"]
+                            .as_str()
+                            .and_then(|why| why.split(" receives ").nth(1))
+                            .and_then(|rest| rest.split('.').next())
+                            .unwrap_or("?"),
+                        field
+                    ),
+                    None => line["label"].as_str().unwrap_or("?").to_string(),
+                },
                 card["path"].as_str().unwrap_or("?"),
                 first,
                 source["tainted_stops"],

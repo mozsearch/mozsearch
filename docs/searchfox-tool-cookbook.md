@@ -252,7 +252,8 @@ are tainted, to try them out:
 ```
 `--taint-audit <type>` (the `taint-audit:` query term) maps the functions
 receiving a type's values from content processes instead (the `Recv` methods
-of messages with parameters of the type, found by its uses), with whether
+of messages with parameters of the type, or of IPDL structs containing it,
+found by its uses), with whether
 each parameter is validated before all of its uses there, some, or none
 (`--format text` lists them, the unvalidated first):
 ```
