@@ -1085,6 +1085,28 @@ fn read_analysis_files_thread(
     }
 }
 
+/// Give the memory freed in all of the threads' heaps back to the system:
+/// glibc keeps it in each thread's arena otherwise, so that each thread's
+/// heap stays the size of the biggest chunk it read (and the merge's tables
+/// come on top).  After each chunk, read-analysis peaks at 0.78 GB on
+/// minidisco rather than 1.30 (1.07 before chunks, when each thread read a
+/// 16th of the files), for 4% more time; config8's crossref peaked at 85 GiB
+/// rather than 47 with chunks.  (See dataflow-summarize's, which does the
+/// same.)
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
+fn release_freed_memory() {
+    unsafe extern "C" {
+        fn malloc_trim(pad: usize) -> std::os::raw::c_int;
+    }
+    // SAFETY: malloc_trim only releases free memory.
+    unsafe {
+        malloc_trim(0);
+    }
+}
+
+#[cfg(not(all(target_os = "linux", target_env = "gnu")))]
+fn release_freed_memory() {}
+
 /// The end of the chunk starting at `start` (see `analysis_chunks`).
 fn chunk_end(chunks: &[std::ops::Range<usize>], start: usize) -> usize {
     chunks
@@ -1323,6 +1345,8 @@ fn read_analysis_files(
                     if sender.send((range.start, data)).is_err() {
                         break;
                     }
+                    // (What reading it allocated is freed; give it back.)
+                    release_freed_memory();
                 }
             });
         }
