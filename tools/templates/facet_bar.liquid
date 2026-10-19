@@ -4,8 +4,8 @@
   selected values, and to group them by a facet: a collapsible box (with the
   navigation panel's arrow, since it's a control rather than content) with
   each facet's values (nested for hierarchical facets, ex: directories), how
-  many files each has, and (if `group_by`) the choice of grouping to their
-  right.
+  many files each has, and (if `group_by`) the choices of grouping and of
+  sorting (if `sort_by`) after them.
 {%- endcomment -%}
 <section class="facet-box">
   <div class="facet-header">
@@ -32,6 +32,12 @@
       <option value="subsystem">Subsystem</option>
       <option value="dir">Directory</option>
     </select></label>
+    {%- if sort_by %}
+    <label class="facet-sort-by">Sort by <select>
+      <option value="alpha" selected>Alphabetical</option>
+      <option value="size">Change size</option>
+    </select></label>
+    {%- endif %}
     {%- endif %}
   </div>
 </section>

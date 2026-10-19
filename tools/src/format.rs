@@ -4809,21 +4809,32 @@ pub fn outline_diff_data(
     Ok(diff)
 }
 
-/// The page of an outline diff (`/{tree}/outline-diff/{from}/{to}/{path}`,
-/// with `from` as for `outline_diff_data`): the definitions of the "from" file and
-/// of the "to" file side by side, with their changes between them (and the
-/// commits which made them), linking to their lines, and the commits.  It
-/// shows the definitions which changed (and the ones they're in), and the
-/// unchanged ones if asked.
-pub fn render_outline_diff(
+/// Tokens added and removed, as outline diffs' pages show them (ex: "+3 −1").
+fn outline_delta(tokens: &outline_diff::OutlineTokens) -> String {
+    [
+        (tokens.added > 0).then(|| format!("+{}", tokens.added)),
+        (tokens.removed > 0).then(|| format!("\u{2212}{}", tokens.removed)),
+    ]
+    .into_iter()
+    .flatten()
+    .join(" ")
+}
+
+/// The rows of the outline diff `diff` of the file at `path` (see
+/// `render_outline_diff`), one per entry, as outline_diff.liquid and
+/// explore_file.liquid take them, and how many entries have each status.
+/// Their names in the "from" and "to" files, linking to their lines, and as
+/// one column (`name`, `link` and `note`; ex: a renamed one's earlier name),
+/// and the commits which changed them, newest first, linking to
+/// `commit_link(index, commit)`'s link and label.
+fn outline_rows(
     tree_name: &str,
     path: &str,
-    diff: outline_diff::OutlineDiff,
-    writer: &mut dyn Write,
-) -> Result<(), &'static str> {
+    diff: &outline_diff::OutlineDiff,
+    commit_link: impl Fn(usize, &outline_diff::OutlineCommit) -> (String, String),
+) -> (Vec<serde_json::Value>, BTreeMap<&'static str, usize>) {
     use outline_diff::OutlineStatus;
 
-    let short = |rev: &str| rev[..12.min(rev.len())].to_string();
     let day = |date: &str| date[..10.min(date.len())].to_string();
     let from_path = diff.from_path.as_deref().unwrap_or(path);
     let rev_link = |rev: &str, path: &str, lines: Option<(u32, u32)>| {
@@ -4855,14 +4866,7 @@ pub fn render_outline_diff(
         .iter()
         .enumerate()
         .map(|(index, entry)| {
-            let tokens = &entry.tokens;
-            let delta = [
-                (tokens.added > 0).then(|| format!("+{}", tokens.added)),
-                (tokens.removed > 0).then(|| format!("\u{2212}{}", tokens.removed)),
-            ]
-            .into_iter()
-            .flatten()
-            .join(" ");
+            let delta = outline_delta(&entry.tokens);
             let with_delta = |label: &str| match delta.is_empty() {
                 true => label.to_string(),
                 false => format!("{} {}", label, delta),
@@ -4938,6 +4942,36 @@ pub fn render_outline_diff(
                 (OutlineStatus::Removed, None) => None,
                 _ => Some(rev_link(&diff.to.rev, path, entry.lines)),
             };
+            // (As one column: removed ones as they were, and where moved ones
+            // came from or went, by their names there if they differ.)
+            let elsewhere = |name: &Option<String>, path: &Option<String>| match (name, path) {
+                (Some(name), Some(path)) if *name != entry.pretty => {
+                    Some(format!("{} in {}", unescape_name(name), path))
+                }
+                (_, Some(path)) => Some(path.clone()),
+                (Some(name), None) => Some(unescape_name(name)),
+                (None, None) => None,
+            };
+            let (name, link, note) = match entry.status {
+                OutlineStatus::Removed => (
+                    &from_name,
+                    &from_link,
+                    elsewhere(&to_name, &to_note).map(|to| format!("to {}", to)),
+                ),
+                OutlineStatus::Renamed => (
+                    &to_name,
+                    &to_link,
+                    from_name
+                        .as_deref()
+                        .map(|from| format!("was {}", unescape_name(from))),
+                ),
+                OutlineStatus::Moved => (
+                    &to_name,
+                    &to_link,
+                    elsewhere(&from_name, &from_note).map(|from| format!("from {}", from)),
+                ),
+                _ => (&to_name, &to_link, None),
+            };
             json!({
                 "status": status,
                 "depth": entry.depth,
@@ -4953,11 +4987,16 @@ pub fn render_outline_diff(
                 "to_name": to_name.as_deref().map(unescape_name),
                 "to_link": to_link,
                 "to_note": to_note,
+                "name": name.as_deref().map(unescape_name),
+                "link": link,
+                "note": note,
                 "badge": badge,
-                "commits": entry.changes.iter().map(|(commit, added, removed)| {
+                "commits": entry.changes.iter().sorted().map(|(commit, added, removed)| {
                     let commit_info = &diff.commits[*commit];
+                    let (link, label) = commit_link(*commit, commit_info);
                     json!({
-                        "n": commit + 1,
+                        "link": link,
+                        "label": label,
                         "title": format!(
                             "{} {}: +{} \u{2212}{}",
                             day(&commit_info.date),
@@ -4970,6 +5009,30 @@ pub fn render_outline_diff(
             })
         })
         .collect();
+    (rows, counts)
+}
+
+/// The page of an outline diff (`/{tree}/outline-diff/{from}/{to}/{path}`,
+/// with `from` as for `outline_diff_data`): the definitions of the "from" file and
+/// of the "to" file side by side, with their changes between them (and the
+/// commits which made them), linking to their lines, and the commits.  It
+/// shows the definitions which changed (and the ones they're in), and the
+/// unchanged ones if asked.
+pub fn render_outline_diff(
+    tree_name: &str,
+    path: &str,
+    diff: outline_diff::OutlineDiff,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let short = |rev: &str| rev[..12.min(rev.len())].to_string();
+    let day = |date: &str| date[..10.min(date.len())].to_string();
+    let from_path = diff.from_path.as_deref().unwrap_or(path);
+    let rev_link =
+        |rev: &str, path: &str| format!("/{}/rev/{}/{}", tree_name, rev, url_encode_path(path));
+    // (Its commits are numbered as in its list of them.)
+    let (rows, counts) = outline_rows(tree_name, path, &diff, |index, _| {
+        (format!("#commit-{}", index + 1), (index + 1).to_string())
+    });
 
     let commits: Vec<serde_json::Value> = diff
         .commits
@@ -5031,13 +5094,13 @@ pub fn render_outline_diff(
         "from": {
             "short": short(&diff.from.rev),
             "day": day(&diff.from.date),
-            "link": rev_link(&diff.from.rev, from_path, None),
+            "link": rev_link(&diff.from.rev, from_path),
             "path": diff.from_path,
         },
         "to": {
             "short": short(&diff.to.rev),
             "day": day(&diff.to.date),
-            "link": rev_link(&diff.to.rev, path, None),
+            "link": rev_link(&diff.to.rev, path),
         },
         "complete": diff.complete,
         "summary": summary,
@@ -7930,6 +7993,7 @@ pub fn render_interdiff_files(
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
     unescape_explore_names(&mut data["file_groups"]);
+    order_explore_files(&mut data["file_groups"]);
     let title = "Interdiff - mozsearch";
     let opt = Options {
         title,
@@ -8282,8 +8346,9 @@ pub fn explore_page_data(
 }
 
 /// An `/explore/bug/BUGS` or `/explore/phab/REVS` page, with its `data` (see
-/// `explore_page_data`).
+/// `explore_page_data`), and its files' outline diffs from `server`.
 pub fn render_explore_page(
+    server: &(dyn AbstractServer + Send + Sync),
     tree_name: &str,
     data: serde_json::Value,
     writer: &mut dyn Write,
@@ -8311,7 +8376,14 @@ pub fn render_explore_page(
         landed: vec![],
     };
     let title = data["title"].as_str().unwrap_or_default().to_string();
-    render_explore(tree_name, &title, data["explore"].clone(), extras, writer)
+    render_explore(
+        Some(server),
+        tree_name,
+        &title,
+        data["explore"].clone(),
+        extras,
+        writer,
+    )
 }
 
 /// The commits of an explore page (see `explore_page_data`): its keys (with
@@ -8673,7 +8745,9 @@ pub fn history_data(
 }
 
 /// A history page (`/{tree}/history/{rev}/{path}`), with its `data` (see
-/// `history_data`).
+/// `history_data`).  (Its files show their symbols' sparklines, of the
+/// scope's changes, rather than their outline diffs, which have all of the
+/// files' changes across their commits.)
 pub fn render_history(
     tree_name: &str,
     data: serde_json::Value,
@@ -8691,7 +8765,14 @@ pub fn render_history(
         landed: vec![],
     };
     let title = data["title"].as_str().unwrap_or_default().to_string();
-    render_explore(tree_name, &title, data["explore"].clone(), extras, writer)
+    render_explore(
+        None,
+        tree_name,
+        &title,
+        data["explore"].clone(),
+        extras,
+        writer,
+    )
 }
 
 /// The patch stack strip (see `hyperblame::stack_strip`) of the file at `path`
@@ -8872,7 +8953,6 @@ pub fn explore_data(
     }))
 }
 
-/// An explore page with its `data` (see `explore_data`).
 /// The names of the symbols (history contexts) of explore data's files
 /// (`ExploreFile`s, in `file_groups`' `files`, or a list of them) as they're
 /// shown: without their escapes (see `config_tokenizer::unescape_name`).
@@ -8900,7 +8980,159 @@ fn unescape_explore_names(value: &mut serde_json::Value) {
     }
 }
 
+/// Explore data's files (see `unescape_explore_names`) in the order they're
+/// shown (see `explore::file_order_key`; ex: headers first), without outline
+/// diffs yet (see `explore_outlines`).
+fn order_explore_files(file_groups: &mut serde_json::Value) {
+    for group in file_groups.as_array_mut().into_iter().flatten() {
+        if let Some(files) = group["files"].as_array_mut() {
+            files.sort_by(|a, b| {
+                let path =
+                    |file: &serde_json::Value| file["path"].as_str().unwrap_or("").to_string();
+                let (a, b) = (path(a), path(b));
+                explore::file_order_key(&a).cmp(&explore::file_order_key(&b))
+            });
+            for file in files {
+                file["outline_rows"] = serde_json::Value::Null;
+                file["change_size"] = serde_json::Value::Null;
+            }
+        }
+    }
+}
+
+/// The most files of an explore page whose outline diffs it shows (see
+/// `explore_outlines`); the others show their symbols.
+const MAX_EXPLORE_OUTLINES: usize = 200;
+
+/// How many outline diffs an explore page asks its tree's server for at once.
+const EXPLORE_OUTLINE_CONCURRENCY: usize = 8;
+
+/// Under each of explore data's files (in `file_groups`; see `explore_data`)
+/// with an outline diff (`outline`, its page's URL), the diff's rows (see the
+/// function `outline_rows`) of the definitions which changed and of the ones
+/// they're in (`outline_rows`), after a row of the changes outside of them,
+/// if any, with their commits linking to the page's (`commits`), and how
+/// many tokens the diff added and removed (`change_size`, for facets.js's
+/// sorting by it).  The diffs are `server`'s.
+fn explore_outlines(
+    server: &(dyn AbstractServer + Send + Sync),
+    tree_name: &str,
+    commits: &serde_json::Value,
+    file_groups: &mut serde_json::Value,
+) {
+    // (Their revisions, from their pages' URLs:
+    // `/{tree}/outline-diff/{from}/{to}/{path}`.)
+    let mut requests = vec![];
+    for (g, group) in file_groups.as_array().into_iter().flatten().enumerate() {
+        for (f, file) in group["files"].as_array().into_iter().flatten().enumerate() {
+            let outline = file["outline"].as_str().unwrap_or("");
+            let segments: Vec<&str> = outline.splitn(6, '/').collect();
+            if let (["", _, "outline-diff", from, to, _], Some(path)) =
+                (segments.as_slice(), file["path"].as_str())
+            {
+                requests.push(((g, f), from.to_string(), to.to_string(), path.to_string()));
+            }
+        }
+    }
+    requests.truncate(MAX_EXPLORE_OUTLINES);
+    let server_ = server.clonify();
+    let diffs = run_on_runtime(async move {
+        use futures_util::stream::{self, StreamExt as FuturesStreamExt};
+        // (Each on a task of its own, as a local server's are synchronous.)
+        let fetches = FuturesStreamExt::map(stream::iter(requests), |(at, from, to, path)| {
+            let server = server_.clonify();
+            async move {
+                let diff = tokio::spawn(async move {
+                    let diff = server.outline_diff(&from, &to, &path, false).await;
+                    (path, diff)
+                })
+                .await;
+                (at, diff)
+            }
+        });
+        FuturesStreamExt::collect::<Vec<_>>(fetches.buffer_unordered(EXPLORE_OUTLINE_CONCURRENCY))
+            .await
+    });
+
+    let numbers: HashMap<&str, u64> = commits
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|commit| Some((commit["rev"].as_str()?, commit["number"].as_u64()?)))
+        .collect();
+    for ((g, f), fetched) in diffs {
+        let (path, diff) = match fetched {
+            Ok((path, Ok(value))) => {
+                match serde_json::from_value::<outline_diff::OutlineDiff>(value) {
+                    Ok(diff) => (path, diff),
+                    Err(err) => {
+                        log::warn!("Bad outline diff of {}: {}", path, err);
+                        continue;
+                    }
+                }
+            }
+            Ok((path, Err(err))) => {
+                log::warn!("No outline diff of {}: {:?}", path, err);
+                continue;
+            }
+            Err(_) => continue,
+        };
+        // (Commits other than the page's, ex: between its commits, link to
+        // theirs.)
+        let (mut rows, _) = outline_rows(tree_name, &path, &diff, |_, commit| {
+            match numbers.get(commit.rev.as_str()) {
+                Some(n) => (format!("#commit-{}", n), n.to_string()),
+                None => (
+                    format!("/{}/commit/{}", tree_name, commit.rev),
+                    commit.rev[..8.min(commit.rev.len())].to_string(),
+                ),
+            }
+        });
+        for row in &mut rows {
+            // (Oldest first, as the page's commits are.)
+            if let Some(commits) = row["commits"].as_array_mut() {
+                commits.reverse();
+            }
+        }
+        let changed = |tokens: &outline_diff::OutlineTokens| tokens.added + tokens.removed;
+        let mut shown = vec![];
+        if changed(&diff.toplevel) > 0 {
+            shown.push(json!({
+                "status": "changed",
+                "depth": 0,
+                "context": false,
+                "title": "The changes outside of any definition",
+                "name": explore::TOP_LEVEL,
+                "link": null,
+                "note": null,
+                "badge": outline_delta(&diff.toplevel),
+                "commits": [],
+            }));
+        }
+        shown.extend(
+            rows.into_iter()
+                .filter(|row| row["status"] != "unchanged" || row["context"] == true),
+        );
+        let size: u32 = changed(&diff.toplevel)
+            + diff
+                .entries
+                .iter()
+                .map(|entry| changed(&entry.tokens))
+                .sum::<u32>();
+        // (Files whose outline diffs have no changes, ex: as the history
+        // doesn't have their syntax, show their symbols.)
+        let file = &mut file_groups[g]["files"][f];
+        if !shown.is_empty() {
+            file["outline_rows"] = json!(shown);
+        }
+        file["change_size"] = json!(size);
+    }
+}
+
+/// An explore page with its `data` (see `explore_data`), and its files'
+/// outline diffs, from `server`, if given (see `explore_outlines`).
 fn render_explore(
+    server: Option<&(dyn AbstractServer + Send + Sync)>,
     tree_name: &str,
     title: &str,
     data: serde_json::Value,
@@ -8922,12 +9154,17 @@ fn render_explore(
     output::generate_header(&opt, writer)?;
     let mut file_groups = data["file_groups"].clone();
     unescape_explore_names(&mut file_groups);
+    order_explore_files(&mut file_groups);
+    if let Some(server) = server {
+        explore_outlines(server, tree_name, &data["commits"], &mut file_groups);
+    }
     let globals = liquid::to_object(&json!({
         "tree": tree_name,
         "title": title,
         "commits": data["commits"],
         "facets": data["facets"],
         "file_groups": file_groups,
+        "outlines": server.is_some(),
         "slot": explore::slot_width(commit_count),
         "missing": extras.missing,
         "truncated": extras.truncated,
@@ -9020,6 +9257,7 @@ pub fn format_try(
                 semantic_head: push.semantic_head,
             };
             return render_explore(
+                Some(server),
                 tree_name,
                 &format!("Try push {}", rev),
                 data,

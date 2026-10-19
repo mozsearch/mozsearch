@@ -15,7 +15,7 @@
     {%- comment %}(Expanded with the facets of file-centric results, which
     filter them.){% endcomment %}
     {%- if file_facets %}
-    {% include 'navigation_panel.liquid' expanded: true, panel: null, panel_facets: file_facets.facets, panel_group_by: false %}
+    {% include 'navigation_panel.liquid' expanded: true, panel: null, panel_facets: file_facets.facets, panel_group_by: false, panel_sort_by: false %}
     {%- else %}
     {% include 'navigation_panel.liquid' expanded: false, panel: null %}
     {%- endif %}

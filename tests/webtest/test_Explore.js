@@ -1,9 +1,10 @@
 "use strict";
 
 // The /explore/ pages show the commits of bugs (or Phabricator revisions) and
-// a dense "horizontal Southern blot" of what they changed: a sparkline with a
-// slot per commit for each file and symbol.  Bug 1975601's 4 parts landed
-// together, so they share a commit time and are ordered by ancestry.
+// what they changed: a sparkline with a slot per commit for each file, and
+// under it, its outline diff's definitions which changed.  Bug 1975601's 4
+// parts landed together, so they share a commit time and are ordered by
+// ancestry.
 add_task(async function test_ExploreBug() {
   await TestUtils.loadPath("/searchfox/explore/bug/1975601");
 
@@ -20,9 +21,15 @@ add_task(async function test_ExploreBug() {
   // With 4 commits, each commit's slot is 6px wide, and Part 1 is the first.
   ok(blameRs.querySelector('.explore-file-header rect[class^="explore-l"][x="0"]'),
      "Part 1 changed blame.rs");
-  const symbol = [...blameRs.querySelectorAll(".explore-symbol")].find(
-    s => s.querySelector(".explore-name").textContent == "find_phab_rev");
-  ok(symbol, "The function Part 1 added has a sparkline");
+  const row = [...blameRs.querySelectorAll(".explore-outline-rows tr")].find(
+    r => r.querySelector(".explore-outline-name").textContent == "find_phab_rev");
+  ok(row?.classList.contains("outline-added"), "The function Part 1 added is under it");
+  is(row?.querySelector(".outline-badge").textContent, "added +63", "with its tokens");
+  is(row?.querySelector(".outline-diff-commit").getAttribute("href"), "#commit-1",
+     "and the commit which added it");
+  ok(/^\/searchfox\/rev\/[0-9a-f]{40}\/tools\/src\/blame\.rs#\d+$/.test(
+       row?.querySelector(".explore-outline-name a").getAttribute("href")),
+     "which links to its lines");
 
   // Hovering over a slot shows its commit.
   const svg = blameRs.querySelector(".explore-file-header svg");
@@ -38,30 +45,30 @@ add_task(async function test_ExploreBug() {
      "The commit is highlighted in the list");
 });
 
-// Classes are collapsed into their sparkline with a thin row per member, with
-// a disclosure triangle and a count of their members.
-add_task(async function test_ExploreCollapsedClass() {
+// The definitions which changed are nested in the ones they're in (as on the
+// outline diffs' pages), which are shown unchanged, and the files' sparklines
+// are faded.
+add_task(async function test_ExploreOutlines() {
   await TestUtils.loadPath("/searchfox/explore/bug/2002694");
 
   const doc = frame.contentDocument;
-  const parent = [...doc.querySelectorAll(".explore-parent")].find(
-    p => p.querySelector(".explore-name").textContent == "IndexConsumer");
-  ok(parent, "IndexConsumer is collapsible");
-  ok(!parent.open, "IndexConsumer is collapsed");
-  const summary = parent.querySelector("summary");
-  is(window.getComputedStyle(summary).display, "list-item", "The summary has a disclosure triangle");
-  const count = parent.querySelector(".explore-count");
-  is(count.textContent, "(7)", "The summary says how many members there are");
-  ok(parent.querySelector(".explore-collapsed svg").getBoundingClientRect().height > 0,
-     "The collapsed sparkline is visible");
-  ok(!parent.querySelector(".explore-children").checkVisibility(), "The members are hidden");
-
-  summary.click();
-  await waitForCondition(() => parent.open, "IndexConsumer expands");
-  ok(!count.checkVisibility(), "The count is hidden once the members are shown");
-  const members = [...parent.querySelectorAll(".explore-child .explore-name")].map(n => n.textContent);
-  is(members.length, 7, "The members are shown");
-  ok(members.includes("combineRanges"), "The members don't have the class prefix");
+  const file = doc.querySelector('.explore-file[data-path="clang-plugin/MozsearchIndexer.cpp"]');
+  const rows = [...file.querySelectorAll(".explore-outline-rows tr")];
+  const name = row => row.querySelector(".explore-outline-name").textContent;
+  const depth = row => row.style.getPropertyValue("--outline-depth");
+  is(name(rows[0]), "IndexConsumer", "The class the changed methods are in is first");
+  ok(rows[0].matches(".outline-unchanged.outline-context"), "unchanged");
+  const members = rows.slice(1);
+  is(members.length, 7, "Its changed methods follow");
+  ok(members.every(row => row.matches(".outline-changed") && depth(row) == "1"), "nested in it");
+  const combine = members.find(row => name(row) == "combineRanges");
+  ok(combine, "without the class's prefix");
+  is(combine?.querySelector(".outline-badge").textContent, "+4 \u22124", "with their tokens");
+  ok(file.querySelector(".explore-outline").getAttribute("href").includes("/outline-diff/"),
+     "The file links to its whole outline diff");
+  ok(Number(getComputedStyle(file.querySelector(".explore-file-header svg")).opacity) < 1,
+     "Its sparkline is faded");
+  is(file.dataset.size, "32", "Its size is its outline diff's tokens added and removed");
 });
 
 add_task(async function test_ExploreMissingBug() {
@@ -121,6 +128,65 @@ add_task(async function test_ExploreFacetsFromURL() {
   is(doc.querySelector(".facet-group-by select").value, "dir", "and groups them");
   ok(doc.querySelector(".facet-status").textContent.startsWith(`Showing ${shown.length} of`),
      "The status says how many files are shown");
+});
+
+// The files can be sorted by how many tokens they changed, biggest first,
+// and the groups (but path kinds, whose order is their own) by their biggest
+// files'.
+add_task(async function test_ExploreSortBy() {
+  await TestUtils.loadPath("/searchfox/explore/bug/2018468");
+
+  const doc = frame.contentDocument;
+  const headers = () => [...doc.querySelectorAll(".facet-group-header")]
+    .map(header => header.firstChild.textContent.trim());
+  const sizes = group => [...group.querySelectorAll(".explore-file")]
+    .map(file => Number(file.dataset.size));
+  const sorted = values => values.every((value, i) => i == 0 || values[i - 1] >= value);
+  is(doc.querySelector(".facet-sort-by select").value, "alpha", "The files are sorted by path");
+
+  TestUtils.selectMenu(doc.querySelector(".facet-sort-by select"), "size");
+  await waitForCondition(() => frame.contentWindow.location.search.includes("sort-by=size"),
+                         "The sorting is in the URL");
+  ok([...doc.querySelectorAll(".facet-group")].every(group => sorted(sizes(group))),
+     "The files are sorted by size, biggest first");
+  is(doc.querySelector(".explore-file").dataset.path, "static/js/search.js", "the biggest first");
+  ok(headers()[0].startsWith("Core code") && headers()[1].startsWith("Test files"),
+     "The path kinds stay in their order");
+
+  TestUtils.selectMenu(doc.querySelector(".facet-group-by select"), "dir");
+  await waitForCondition(() => headers()[0] == "static/js/", "The directories are sorted by size");
+  const maxima = [...doc.querySelectorAll(".facet-group")].map(group => Math.max(...sizes(group)));
+  ok(sorted(maxima), `by their biggest files': ${JSON.stringify(headers())}`);
+
+  TestUtils.selectMenu(doc.querySelector(".facet-sort-by select"), "alpha");
+  await waitForCondition(() => headers()[0] == "static/css/", "and back by name");
+});
+
+// The groups' headers' context menu chooses the grouping and the sorting too.
+add_task(async function test_ExploreGroupHeaderMenu() {
+  await TestUtils.loadPath("/searchfox/explore/bug/2018468");
+
+  const doc = frame.contentDocument;
+  const header = doc.querySelector(".facet-group-header");
+  const right = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2 });
+  ok(!header.dispatchEvent(right), "A group's header's right-click is the page's");
+  const menu = doc.querySelector("#context-menu");
+  await waitForShown(menu, "with a menu");
+  const labels = [...menu.querySelectorAll(".submenu-label")];
+  is(labels.map(label => label.textContent).join(", "), "Group by, Sort by",
+     "of the choices of grouping and sorting");
+
+  TestUtils.dispatchMouseEvent("mouseenter", labels[0]);
+  await waitForCondition(() => doc.querySelector(".context-submenu"), "Which are submenus");
+  const submenu = doc.querySelector(".context-submenu");
+  await waitForShown(submenu, "shown on hover");
+  const checked = [...submenu.querySelectorAll("a:not(.facet-choice-off)")].map(a => a.textContent);
+  is(checked.join(), "Path kind", "checking the current choice");
+  TestUtils.click([...submenu.querySelectorAll("a")].find(a => a.textContent == "Directory"));
+  await waitForCondition(() => doc.querySelector(".facet-group-by select").value == "dir",
+                         "Choosing another groups the files by it");
+  ok(doc.querySelector(".facet-group-header").textContent.startsWith("static/css/"),
+     "by directory");
 });
 
 // The facets are in a collapsible box, which stays collapsed.

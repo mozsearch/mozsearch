@@ -13,11 +13,14 @@
  * groups of items (`.facet-group`, which may nest) without any shown items
  * are hidden.  The items can also be grouped by a facet (`data-groups`, whose
  * JSON gives each item's group's sort key and name for each way of grouping),
- * if there's a "Group by" choice; the server groups them by the first.
+ * if there's a "Group by" choice; the server groups them by the first.  And
+ * sorted by their changes' sizes (`data-size`), if there's a "Sort by"
+ * choice, rather than by path (see `fileOrderKey`).  The groups' headers'
+ * context menu has the choices too.
  *
- * The selections and the grouping go in the URL's query (`facet-KEY=VALUE`,
- * repeated, and `group-by=KEY`), so links reproduce the view.  The box of
- * facets is collapsible, which we remember.
+ * The selections, the grouping and the sorting go in the URL's query
+ * (`facet-KEY=VALUE`, repeated, `group-by=KEY` and `sort-by=size`), so links
+ * reproduce the view.  The box of facets is collapsible, which we remember.
  */
 (function () {
   const bar = document.querySelector(".facet-box");
@@ -37,6 +40,7 @@
       },
       groups: JSON.parse(element.dataset.groups || "{}"),
       path: element.dataset.path || outer?.dataset.path || "",
+      size: Number(element.dataset.size || 0),
     };
   });
   const buttons = [...bar.querySelectorAll(".facet-value")].map(button => ({
@@ -47,6 +51,8 @@
   }));
   const groupBy = bar.querySelector(".facet-group-by select");
   const defaultGroupBy = groupBy?.value;
+  const sortBy = bar.querySelector(".facet-sort-by select");
+  const defaultSortBy = sortBy?.value;
   const status = bar.querySelector(".facet-status");
   const clear = bar.querySelector(".facet-clear");
   const plural = n => `${n} file${n == 1 ? "" : "s"}`;
@@ -94,20 +100,44 @@
     saveState();
   }
 
-  // Group the items by a way of grouping, sorted by the groups' sort keys and
-  // then by path.
-  function regroup(key) {
+  const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  const compareKeys = (a, b) => a.reduce((result, part, i) => result || compare(part, b[i]), 0);
+  // The order of files by path (as `explore::file_order_key` in
+  // tools/src/hyperblame/explore.rs), but with headers before the files with
+  // their names (ex: "Foo.h" before "Foo.cpp", rather than after): by their
+  // paths without their extensions, then whether they're headers.
+  const HEADER_EXTENSIONS = new Set(["h", "hh", "hpp", "hxx"]);
+  function fileOrderKey(path) {
+    const nameStart = path.lastIndexOf("/") + 1;
+    const dot = path.lastIndexOf(".");
+    const stemEnd = dot > nameStart ? dot : path.length;
+    const header = HEADER_EXTENSIONS.has(path.slice(stemEnd + 1));
+    return [path.slice(0, stemEnd), header ? 0 : 1, path];
+  }
+
+  // Group the items by the chosen way of grouping, sorted by the groups' sort
+  // keys and then by their names, and the items in each by path, or if
+  // sorting by size, by their sizes, biggest first, and the groups by their
+  // biggest items' sizes (rather than their totals, as many small changes
+  // aren't a big one), except for path kinds, whose order says which matter
+  // more (ex: tests after the code).
+  function regroup() {
+    const key = groupBy.value;
+    const bySize = sortBy?.value == "size";
     const groups = new Map();
     for (const item of items) {
       const [sortKey, name] = item.groups[key] || ["", ""];
       if (!groups.has(name)) {
-        groups.set(name, { sortKey, name, items: [] });
+        groups.set(name, { sortKey, name, items: [], size: 0 });
       }
-      groups.get(name).items.push(item);
+      const group = groups.get(name);
+      group.items.push(item);
+      group.size = Math.max(group.size, item.size);
     }
-    const compare = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+    const bySizeFirst = (a, b) => (bySize ? b.size - a.size : 0);
     const sections = [...groups.values()]
-      .sort((a, b) => compare(a.sortKey, b.sortKey) || compare(a.name, b.name))
+      .sort((a, b) => (key == "kind" ? 0 : bySizeFirst(a, b)) ||
+        compare(a.sortKey, b.sortKey) || compare(a.name, b.name))
       .map(group => {
         const section = document.createElement("section");
         section.className = "facet-group";
@@ -116,7 +146,8 @@
         const count = document.createElement("span");
         count.className = "facet-group-count";
         header.append(`${group.name} `, count);
-        group.items.sort((a, b) => compare(a.path, b.path));
+        group.items.sort((a, b) =>
+          bySizeFirst(a, b) || compareKeys(fileOrderKey(a.path), fileOrderKey(b.path)));
         section.append(header, ...group.items.map(item => item.element));
         return section;
       });
@@ -126,7 +157,7 @@
   function saveState() {
     const params = new URLSearchParams(location.search);
     for (const key of [...params.keys()]) {
-      if (key.startsWith("facet-") || key == "group-by") {
+      if (key.startsWith("facet-") || key == "group-by" || key == "sort-by") {
         params.delete(key);
       }
     }
@@ -137,6 +168,9 @@
     }
     if (groupBy && groupBy.value != defaultGroupBy) {
       params.set("group-by", groupBy.value);
+    }
+    if (sortBy && sortBy.value != defaultSortBy) {
+      params.set("sort-by", sortBy.value);
     }
     const query = params.toString();
     history.replaceState(history.state, "",
@@ -154,9 +188,11 @@
         selected.get(facet).add(value);
       }
     }
-    const key = params.get("group-by");
-    if (groupBy && key && [...groupBy.options].some(option => option.value == key)) {
-      groupBy.value = key;
+    for (const [select, param] of [[groupBy, "group-by"], [sortBy, "sort-by"]]) {
+      const value = params.get(param);
+      if (select && value && [...select.options].some(option => option.value == value)) {
+        select.value = value;
+      }
     }
   }
 
@@ -177,9 +213,47 @@
       update();
     }
   });
-  groupBy?.addEventListener("change", () => {
-    regroup(groupBy.value);
-    update();
+  for (const select of [groupBy, sortBy]) {
+    select?.addEventListener("change", () => {
+      regroup();
+      update();
+    });
+  }
+
+  // The groups' headers' context menu (see context-menu.js) has the choices
+  // of grouping and sorting, as submenus, which check the current ones.
+  let headerMenu = null;
+  container.addEventListener("contextmenu", event => {
+    if (!groupBy || !event.target.closest(".facet-group-header") ||
+        typeof ContextMenu == "undefined") {
+      return;
+    }
+    event.preventDefault();
+    const choices = [[groupBy, "Group by"], [sortBy, "Sort by"]]
+      .filter(([select]) => select);
+    headerMenu ||= choices.map(([select, label]) => new MenuItemWithSubMenu({
+      html: label,
+      section: "facet-choices",
+      menu: ContextMenu,
+      searches: [],
+      items: [...select.options].map(option => new MenuItem({
+        html: ContextMenu.fmt("_", option.textContent),
+        action: () => {
+          ContextMenu.hide();
+          select.value = option.value;
+          select.dispatchEvent(new Event("change"));
+        },
+        icon: "ok",
+        section: "facet-choice",
+        option,
+      })),
+    }));
+    for (const [i, [select]] of choices.entries()) {
+      for (const item of headerMenu[i].items) {
+        item.classNames = item.option.value == select.value ? [] : ["facet-choice-off"];
+      }
+    }
+    ContextMenu.showItems(headerMenu, event);
   });
 
   const toggle = bar.querySelector(".facet-toggle");
@@ -196,8 +270,8 @@
   setExpanded(localStorage.getItem("facets-collapsed") != "1");
 
   loadState();
-  if (groupBy && groupBy.value != defaultGroupBy) {
-    regroup(groupBy.value);
+  if (groupBy && (groupBy.value != defaultGroupBy || (sortBy && sortBy.value != defaultSortBy))) {
+    regroup();
   }
   update();
 })();

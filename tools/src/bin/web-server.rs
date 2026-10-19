@@ -897,11 +897,13 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 return WebResponse::not_found();
             }
 
-            let (server, kind, keys) = (server.clonify(), path[2].to_string(), path[3].to_string());
-            match format::run_on_runtime(async move { server.explore_keys(&kind, &keys).await }) {
+            let (server_, kind, keys) =
+                (server.clonify(), path[2].to_string(), path[3].to_string());
+            match format::run_on_runtime(async move { server_.explore_keys(&kind, &keys).await }) {
                 Ok(data) => {
                     let mut writer = Vec::new();
-                    match format::render_explore_page(tree_name, data, &mut writer) {
+                    match format::render_explore_page(server.as_ref(), tree_name, data, &mut writer)
+                    {
                         Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
                         Err(err) => WebResponse::internal_error(err.to_owned()),
                     }

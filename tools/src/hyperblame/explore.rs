@@ -501,6 +501,20 @@ fn symbol_parents(symbols: &BTreeSet<&str>) -> BTreeMap<String, String> {
 /// The name of the changes outside of any symbol.
 pub const TOP_LEVEL: &str = "(top level)";
 
+/// The sort key of a file's path in the lists of explore pages' files (as
+/// facets.js's `fileOrderKey`): by path, but with headers before the files
+/// with their names (ex: "Foo.h" before "Foo.cpp", rather than after), by
+/// their paths without their extensions, then whether they're headers.
+pub fn file_order_key(path: &str) -> (&str, bool, &str) {
+    let name_start = path.rfind('/').map_or(0, |slash| slash + 1);
+    let (stem, extension) = match path[name_start..].rfind('.') {
+        Some(dot) if dot > 0 => (&path[..name_start + dot], &path[name_start + dot + 1..]),
+        _ => (path, ""),
+    };
+    let header = matches!(extension, "h" | "hh" | "hpp" | "hxx");
+    (stem, !header, path)
+}
+
 /// The files which the commits (in page order) changed, sorted by path, with
 /// their symbols.  `link` makes a file's link from its path and the last commit
 /// which changed it.  For interdiffs, `same` says whether the patches' changes
@@ -662,6 +676,36 @@ mod tests {
         );
         assert_eq!(parents.get("lonely::fn"), None);
         assert_eq!(parents.get("Foo"), None);
+    }
+
+    #[test]
+    fn test_file_order_key() {
+        let mut paths = vec![
+            "dom/FooBar.cpp",
+            "dom/Foo/Baz.cpp",
+            "dom/Foo.cpp",
+            "dom/Foo-inl.h",
+            "dom/Foo.h",
+            "dom/foo.d/README",
+            "dom/Foo.hpp",
+            "dom/moz.build",
+        ];
+        paths.sort_by_key(|path| file_order_key(path));
+        assert_eq!(
+            paths,
+            vec![
+                // (Headers first, then the files with their names.)
+                "dom/Foo.h",
+                "dom/Foo.hpp",
+                "dom/Foo.cpp",
+                "dom/Foo-inl.h",
+                "dom/Foo/Baz.cpp",
+                "dom/FooBar.cpp",
+                // (Directories' dots aren't extensions.)
+                "dom/foo.d/README",
+                "dom/moz.build",
+            ]
+        );
     }
 
     #[test]

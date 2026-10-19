@@ -2200,6 +2200,9 @@ span[data-symbols].selected {
 .contextmenu-row.has-submenu a .submenu-label {
   flex: 1;
 }
+.contextmenu-row.has-submenu a .submenu-marker {
+  padding-inline-start: 1em;
+}
 .contextmenu-row.has-submenu a .submenu-marker:before {
   content: ">";
 }
@@ -3315,6 +3318,41 @@ h2.sp-called-heading {
   flex-shrink: 0;
   vertical-align: middle;
 }
+/* The sparklines of files with their outline diffs under them are faded, as
+   the outline diffs say more, until one of them is hovered. */
+.explore-file:has(> .explore-outline-rows) > .explore-file-header .explore-sparkline {
+  opacity: 0.45;
+  filter: saturate(0.25);
+  transition: opacity 0.15s, filter 0.15s;
+}
+.explore-page:has(.explore-file-header .explore-sparkline:hover) .explore-file-header .explore-sparkline {
+  opacity: 1;
+  filter: none;
+}
+/* An explore page's files' outline diffs' definitions which changed (and the
+   ones they're in), nested as on the outline diffs' pages (see
+   explore_file.liquid). */
+.explore-outline-rows {
+  width: auto;
+  margin-inline-start: 1.5em;
+  font-size: 0.9em;
+}
+.explore-outline-rows td {
+  padding: 0 0.75rem 0 0;
+  vertical-align: baseline;
+}
+.explore-outline-rows td.explore-outline-name {
+  padding-inline-start: calc(var(--outline-depth, 0) * 1rem);
+}
+.explore-outline-change {
+  white-space: nowrap;
+}
+.explore-outline-rows .outline-unchanged a {
+  color: var(--page-subtle-foreground);
+}
+.explore-outline-rows .outline-removed .explore-outline-name > a {
+  text-decoration: line-through;
+}
 .explore-track {
   fill: var(--blame-light-gray);
   opacity: 0.4;
@@ -3488,7 +3526,7 @@ mark.query-match {
   flex-direction: column;
   gap: 4px;
 }
-.facet-group-by {
+:is(.facet-group-by, .facet-sort-by) {
   white-space: nowrap;
 }
 .facet {
@@ -3535,13 +3573,13 @@ mark.query-match {
   opacity: 0.7;
 }
 .facet-clear,
-.facet-group-by select {
+:is(.facet-group-by, .facet-sort-by) select {
   font: inherit;
   padding: 0 4px;
 }
 /* In the navigation panel (see navigation_panel.liquid): a section of it,
    whose facets stack, each value on its own if it doesn't fit beside others,
-   with the choice of grouping under them. */
+   with the choices of grouping (and sorting) under them. */
 #panel-content .facet-box {
   margin: 0;
   padding: 0.5rem;
@@ -3574,10 +3612,15 @@ mark.query-match {
   text-align: left;
   overflow-wrap: anywhere;
 }
-#panel-content .facet-group-by {
+#panel-content :is(.facet-group-by, .facet-sort-by) {
   display: flex;
   align-items: baseline;
   gap: 6px;
+}
+/* The groups' headers' context menu's choices, checking the current ones (see
+   facets.js). */
+.context-menu .facet-choice-off::before {
+  visibility: hidden;
 }
 .facet-group-header {
   font-size: 1em;

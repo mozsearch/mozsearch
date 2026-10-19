@@ -1,13 +1,27 @@
 {%- comment -%}
   A file of an /explore/ page (see explore.liquid) or of an interdiff's summary
-  (see interdiff_files.liquid): its sparkline and its symbols' (expandable for
-  symbols with nested symbols), with their moves to and from other files in
-  the commits (see `explore::annotate_moves`).  Interdiffs fade the files and symbols whose
+  (see interdiff_files.liquid): its sparkline, and its outline diff's
+  definitions which changed (see `format::explore_outlines`), nested in the
+  ones they're in, with their changes and the commits which made them, or
+  without one, its symbols' sparklines (expandable for symbols with nested
+  symbols), with their moves to and from other files in the commits (see
+  `explore::annotate_moves`).  Interdiffs fade the files and symbols whose
   changes are the same in both patches, and add a note and excerpts.
 {%- endcomment -%}
-  <section class="explore-file{% if file.same %} interdiff-same{% endif %}" data-path="{{ file.path | escape }}" data-facets="{{ file.facets | escape }}" data-groups="{{ file.groups | escape }}">
+  <section class="explore-file{% if file.same %} interdiff-same{% endif %}" data-path="{{ file.path | escape }}" data-facets="{{ file.facets | escape }}" data-groups="{{ file.groups | escape }}"{% if file.change_size %} data-size="{{ file.change_size }}"{% endif %}>
     <div class="explore-file-header"><a href="{{ file.link }}"{% if file.title != "" %} title="{{ file.title | escape }}"{% endif %}>{{ file.path | escape }}</a> {{ file.sparkline }}{% if file.outline != "" %} <a class="explore-outline" href="{{ file.outline }}" title="How the file's definitions changed across these commits (and any between them)">outline</a>{% endif %}{% if file.note != "" %} <span class="interdiff-file-note">{{ file.note }}</span>{% endif %}</div>
-    {%- if file.symbols.size > 0 %}
+    {%- if file.outline_rows %}
+    {%- if file.outline_rows.size > 0 %}
+    <table class="explore-outline-rows">
+      {%- for row in file.outline_rows %}
+      <tr class="outline-{{ row.status }}{% if row.context %} outline-context{% endif %}" style="--outline-depth: {{ row.depth }}" title="{{ row.title | escape }}">
+        <td class="explore-outline-name">{% if row.link %}<a href="{{ row.link }}">{{ row.name | escape }}</a>{% else %}{{ row.name | escape }}{% endif %}{% if row.note %} <span class="outline-diff-note">{{ row.note | escape }}</span>{% endif %}</td>
+        <td class="explore-outline-change">{% if row.badge != "" %}<span class="outline-badge">{{ row.badge | escape }}</span>{% endif %}{% for commit in row.commits %} <a class="outline-diff-commit" href="{{ commit.link }}" title="{{ commit.title | escape }}">{{ commit.label }}</a>{% endfor %}</td>
+      </tr>
+      {%- endfor %}
+    </table>
+    {%- endif %}
+    {%- elsif file.symbols.size > 0 %}
     <div class="explore-symbols">
       {%- for symbol in file.symbols %}
       {%- if symbol.children.size > 0 %}
