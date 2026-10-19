@@ -206,6 +206,33 @@ add_task(async function test_TryDeltaSubway() {
   box.checked = true;
   box.dispatchEvent(new win.Event("change"));
   ok(doc().querySelector(`.sw-track[data-line="${line.id}"]`), "and checking it shows it again");
+
+  // (Each of a family's lines has a color of its own.)
+  for (const family of model.families) {
+    const colors = model.lines.filter(l => l.family == family.id).map(l => win.SubwayMap.colors.get(l.id));
+    is(new Set(colors).size, colors.length, `${family.label}'s lines have colors of their own`);
+  }
+
+  // The cards' code is highlighted as the push's source listings are, with
+  // their symbols, whose context menus work.
+  const token = [...doc().querySelectorAll(".sw-code [data-symbols]")].find(t => t.textContent == "mSize");
+  ok(token, "The cards' code has its symbols");
+  ok(doc().querySelector('.sw-code [class^="syn_"]'), "and is highlighted");
+  ok(win.SYM_INFO[token.dataset.symbols], "and the symbols' SYM_INFO");
+  TestUtils.click(token);
+  const menu = doc().querySelector("#context-menu");
+  await waitForShown(menu, "A symbol's click shows its context menu");
+  ok(menu.textContent.includes("trydelta::Widget::mSize"), "for it");
+  doc().dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+
+  // Hovering a station highlights its rows, and its lines' symbols' tokens.
+  const station = [...doc().querySelectorAll(".sw-station")]
+    .find(s => s.contains(token) && s.dataset.stops);
+  TestUtils.dispatchMouseEvent("mouseover", station.querySelector(".sw-code"));
+  ok(station.classList.contains("sw-station-hot"), "Hovering a station highlights it");
+  ok(token.classList.contains("sw-brushed"), "and its lines' symbols' tokens");
+  const brushed = [...doc().querySelectorAll(".sw-brushed")];
+  ok(brushed.some(t => !station.contains(t)), "in the other cards too");
 });
 
 // A try push's page's excerpts of its changed definitions (see

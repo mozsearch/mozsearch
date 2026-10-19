@@ -259,6 +259,11 @@ pub struct Tracer<'s> {
 }
 
 impl<'s> Tracer<'s> {
+    /// The server it traces over.
+    pub fn server(&self) -> &'s (dyn AbstractServer + Send + Sync) {
+        self.server
+    }
+
     pub fn new(server: &'s (dyn AbstractServer + Send + Sync), opts: TraceOpts) -> Self {
         Tracer {
             server,

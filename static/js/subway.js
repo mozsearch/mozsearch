@@ -10,14 +10,19 @@
 //
 // Colors: a family of lines (a root value and the values derived from it)
 // has a hue, by its root's (semantic) type, so a principal's family is blue
-// in every map; a value derived from another is its parent's hue's other
-// variation (as blame's striping alternates), or for one of several derived
-// from the same value (a split), a slightly rotated hue, and a value derived
-// from several (a merge) is its family's hue again.
+// in every map, and its lines are shades of it, each its own (hues around
+// the family's, in alternating lightness, roots and parents first), so that
+// a family's lines can be told apart (a family can have dozens of lines, ex:
+// what's derived from a message's data; when merges, values derived from
+// several, all had the family's own hue, many of them looked the same).
 //
 // A legend toggles lines, families and clusters, and cards (whose lines
 // then go straight from their callers to their callees), and hovering a line
-// there highlights it.  The dataflow graph (DOT) is a link away.
+// there, or its track or dots in a card, highlights it, and its symbols'
+// tokens in the cards' code (which is highlighted as source listings are,
+// with their context menus; see `subway::add_rows_html`), and hovering a
+// station highlights its rows, its lines, and their tokens.  The dataflow
+// graph (DOT) is a link away.
 //
 // Taint (see tools/src/dataflow/taint.rs): a line is dashed, with a red halo,
 // where it's tainted (from where a parent actor receives it from a content
@@ -50,6 +55,8 @@ var SubwayMap = new (class SubwayMap {
     }
     document.documentElement.classList.add("for-interactive-graph");
     this.model = SUBWAY;
+    // (The cards' code's symbols' context menus' SYM_INFO.)
+    window.SYM_INFO = Object.assign(window.SYM_INFO || {}, this.model.sym_info || {});
     this.tree = document.getElementById("data")?.dataset.tree;
     this.rev = new URLSearchParams(document.location.search).get("rev");
     this.hiddenLines = new Set();
@@ -67,7 +74,66 @@ var SubwayMap = new (class SubwayMap {
       document.querySelector("#interactive-graph-container"),
       this.input(), [], [], GRAPH_EXTRA,
       { renderBlock: (block, element) => this.renderCard(block, element) });
+    this.addHovering(document.querySelector("#interactive-graph-container"));
     document.documentElement.dataset.subwayReady = "true";
+  }
+
+  /**
+   * Hovering over a card's track or dot highlights its line, and over a
+   * station, the station's rows and the lines stopping there, with their
+   * symbols' tokens in the cards' code (see `brush`).
+   */
+  addHovering(container) {
+    let hovered = null;
+    container.addEventListener("mouseover", event => {
+      let lines = null;
+      let station = null;
+      const dot = event.target.closest(".sw-dot");
+      const gutter = event.target.closest(".sw-gutter");
+      if (dot) {
+        lines = [Number(dot.dataset.line)];
+      } else if (gutter?.dataset.order) {
+        const order = gutter.dataset.order.split(",").map(Number);
+        const x = event.clientX - gutter.getBoundingClientRect().left;
+        const line = order[Math.floor(x / (gutter.getBoundingClientRect().width / order.length))];
+        lines = line === undefined ? null : [line];
+      }
+      if (!lines) {
+        station = event.target.closest(".sw-station");
+        lines = station ? station.dataset.stops.split(",").filter(Boolean).map(Number) : null;
+      }
+      const key = `${station?.dataset.key ?? ""}:${lines?.join(",") ?? ""}`;
+      if (key == hovered) {
+        return;
+      }
+      hovered = key;
+      container.querySelector(".sw-station-hot")?.classList.remove("sw-station-hot");
+      station?.classList.add("sw-station-hot");
+      this.focus(lines);
+      this.brush(container, lines);
+    });
+    container.addEventListener("mouseleave", () => {
+      hovered = null;
+      container.querySelector(".sw-station-hot")?.classList.remove("sw-station-hot");
+      this.focus(null);
+      this.brush(container, null);
+    });
+  }
+
+  /** Highlight the tokens of lines' symbols (see `Line::syms`) in the cards. */
+  brush(container, lines) {
+    for (const token of container.querySelectorAll(".sw-brushed")) {
+      token.classList.remove("sw-brushed");
+    }
+    const syms = new Set((lines ?? []).flatMap(line => this.model.lines[line]?.syms ?? []));
+    if (!syms.size) {
+      return;
+    }
+    for (const token of container.querySelectorAll(".sw-code [data-symbols]")) {
+      if (token.dataset.symbols.split(",").some(sym => syms.has(sym))) {
+        token.classList.add("sw-brushed");
+      }
+    }
   }
 
   /** A semantic type's family hue (see SEMANTIC_HUES), else a hash's. */
@@ -84,10 +150,15 @@ var SubwayMap = new (class SubwayMap {
     return hash % 360;
   }
 
+  // The hues around a family's of its lines (the root's first), and their
+  // lightnesses (alternating, and then darker and lighter for more lines).
+  static FAMILY_OFFSETS = [0, 30, -30, 60, -60, 15, -15, 45, -45, 75, -75, 90, -90];
+  static LIGHTNESS = [42, 60, 32, 52];
+
   /**
-   * Each line's color: its family's hue (by its root's semantic type),
-   * rotated for siblings derived from one value, and alternating between
-   * two variations by generation; merges are their family's hue again.
+   * Each line's color: a shade of its family's hue (by its root's semantic
+   * type) of its own, in the order its lines are reached from the family's
+   * roots (breadth first, so parents before what's derived from them).
    */
   allocateColors() {
     const lines = this.model.lines;
@@ -97,44 +168,44 @@ var SubwayMap = new (class SubwayMap {
         children.get(parent)?.push(line.id);
       }
     }
-    const hue = new Map();
-    const generation = new Map();
-    const familyHues = new Map();
+    const colors = new Map();
     for (const family of this.model.families) {
-      familyHues.set(family.id, this.hueOf(family.semantic ?? family.label));
-    }
-    // (Breadth first from each family's roots; another root of a family is
-    // a rotated hue of it.)
-    const queue = [];
-    for (const family of this.model.families) {
+      const hue = this.hueOf(family.semantic ?? family.label);
       const roots = lines.filter(line => line.family == family.id && !line.parents.length);
       roots.sort((a, b) => (a.id == family.root ? -1 : 0) - (b.id == family.root ? -1 : 0));
-      roots.forEach((root, i) => {
-        hue.set(root.id, familyHues.get(family.id) + i * 40);
-        generation.set(root.id, 0);
-        queue.push(root.id);
-      });
-    }
-    while (queue.length) {
-      const id = queue.shift();
-      const kids = children.get(id);
-      kids.forEach((kid, i) => {
-        if (hue.has(kid)) {
-          return;
+      const order = [];
+      const queue = roots.map(root => root.id);
+      const seen = new Set(queue);
+      while (queue.length) {
+        const id = queue.shift();
+        order.push(id);
+        for (const kid of children.get(id)) {
+          if (!seen.has(kid)) {
+            seen.add(kid);
+            queue.push(kid);
+          }
         }
-        const line = lines[kid];
-        const merge = line.parents.length > 1;
-        const rotation = kids.length > 1 ? (i % 2 ? 1 : -1) * 18 * Math.ceil((i + 1) / 2) : 0;
-        hue.set(kid, merge ? familyHues.get(line.family) : hue.get(id) + rotation);
-        generation.set(kid, generation.get(id) + 1);
-        queue.push(kid);
+      }
+      // (Lines of the family reached from none of its roots, last.)
+      for (const line of lines) {
+        if (line.family == family.id && !seen.has(line.id)) {
+          order.push(line.id);
+        }
+      }
+      const offsets = SubwayMap.FAMILY_OFFSETS;
+      const lightness = SubwayMap.LIGHTNESS;
+      order.forEach((id, k) => {
+        const h = ((hue + offsets[k % offsets.length]) % 360 + 360) % 360;
+        const light = lightness[(k + Math.floor(k / offsets.length)) % lightness.length];
+        colors.set(id, `hsl(${h}, 68%, ${light}%)`);
       });
     }
-    return new Map(lines.map(line => {
-      const h = ((hue.get(line.id) ?? familyHues.get(line.family) ?? 0) % 360 + 360) % 360;
-      const light = generation.get(line.id) % 2 ? 60 : 42;
-      return [line.id, `hsl(${h}, 68%, ${light}%)`];
-    }));
+    for (const line of lines) {
+      if (!colors.has(line.id)) {
+        colors.set(line.id, `hsl(${this.hueOf(line.semantic ?? line.label)}, 68%, 42%)`);
+      }
+    }
+    return colors;
   }
 
   addStyles() {
@@ -154,11 +225,13 @@ var SubwayMap = new (class SubwayMap {
     document.head.append(this.focusStyle);
   }
 
-  /** Highlight a line (or stop, with null). */
-  focus(id) {
-    this.focusStyle.textContent = id == null ? "" :
-      `.interactive-graph-edge:not(.interactive-graph-edge-line-${id}):not(.interactive-graph-edge-line-${id}-tainted),
-       .sw-track:not([data-line="${id}"]) { opacity: 0.15; }`;
+  /** Highlight a line, or lines (or stop, with null). */
+  focus(ids) {
+    ids = ids == null ? [] : [].concat(ids);
+    this.focusStyle.textContent = !ids.length ? "" :
+      `.interactive-graph-edge${ids.map(id =>
+        `:not(.interactive-graph-edge-line-${id}):not(.interactive-graph-edge-line-${id}-tainted)`).join("")},
+       .sw-track${ids.map(id => `:not([data-line="${id}"])`).join("")} { opacity: 0.15; }`;
   }
 
   /** A card's node: its function's symbol, else its id. */
@@ -286,6 +359,7 @@ var SubwayMap = new (class SubwayMap {
     const width = Math.max(1, tracks.order.length) * SubwayMap.TRACK;
     const svg = document.createElementNS(NS, "svg");
     svg.classList.add("sw-gutter");
+    svg.dataset.order = tracks.order.join(",");
     svg.setAttribute("width", width);
     svg.setAttribute("viewBox", `0 0 ${width} 10`);
     svg.setAttribute("preserveAspectRatio", "none");
@@ -315,7 +389,13 @@ var SubwayMap = new (class SubwayMap {
         }
       }
       if (top >= bottom) {
-        return;
+        // (A line stopping at one station of a card, without coming or
+        // going, is a stub there, so that its color shows.)
+        if (span.first != span.last || rowIndex != stopRow) {
+          return;
+        }
+        top = 1;
+        bottom = 9;
       }
       const x = i * SubwayMap.TRACK + SubwayMap.TRACK / 2;
       // (Tainted as it arrives at the station, above its stops' row, and as
@@ -368,6 +448,13 @@ var SubwayMap = new (class SubwayMap {
       const dot = document.createElement("span");
       dot.className = "sw-dot sw-track" + (writes.includes(line) ? " sw-dot-write" : "");
       dot.dataset.line = line;
+      // (In its line's color, but validations' rings.)
+      if (!checks.length) {
+        dot.style.borderColor = this.colors.get(line);
+        if (writes.includes(line)) {
+          dot.style.backgroundColor = this.colors.get(line);
+        }
+      }
       dot.style.left = `${i * SubwayMap.TRACK + SubwayMap.TRACK / 2}px`;
       const label = this.model.lines[line].label;
       dot.title = `${label} ${writes.includes(line) ? "written" : "read"} here`;
@@ -408,6 +495,11 @@ var SubwayMap = new (class SubwayMap {
     element.append(head);
 
     card.stations.forEach((station, si) => {
+      // (Its rows, which hovering highlights, with its lines.)
+      const box = document.createElement("div");
+      box.className = "sw-station";
+      box.dataset.key = `${card.id}:${si}`;
+      box.dataset.stops = station.stops.filter(line => !this.hiddenLines.has(line)).join(",");
       if (si > 0) {
         const gap = document.createElement("div");
         gap.className = "sw-row sw-gap";
@@ -418,6 +510,7 @@ var SubwayMap = new (class SubwayMap {
         gap.append(text);
         element.append(gap);
       }
+      element.append(box);
       const stopRow = Math.floor((station.rows.length - 1) / 2);
       station.rows.forEach((row, ri) => {
         if (row.skipped) {
@@ -428,7 +521,7 @@ var SubwayMap = new (class SubwayMap {
           text.className = "sw-gap-text";
           text.textContent = `⋮ ${row.skipped} line${row.skipped == 1 ? "" : "s"}`;
           skip.append(text);
-          element.append(skip);
+          box.append(skip);
         }
         const div = document.createElement("div");
         div.className = "sw-row" + (row.changed ? " sw-changed" : "");
@@ -442,9 +535,13 @@ var SubwayMap = new (class SubwayMap {
         number.textContent = row.line;
         const code = document.createElement("code");
         code.className = "sw-code";
-        code.textContent = row.text;
+        if (row.html) {
+          code.innerHTML = row.html;
+        } else {
+          code.textContent = row.text;
+        }
         div.append(number, code);
-        element.append(div);
+        box.append(div);
       });
     });
   }

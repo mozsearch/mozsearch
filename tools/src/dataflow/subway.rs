@@ -26,7 +26,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 
 use serde::Serialize;
-use ustr::Ustr;
+use ustr::{Ustr, UstrMap, ustr};
 
 use super::frontend::FileIr;
 use super::ir::*;
@@ -34,6 +34,8 @@ use super::slice::{Key, Slicing, cluster_commits, place_keys};
 use super::summary::{Port, Summary};
 use super::taint::{Taint, TaintSpec, TaintedField, Validated};
 use super::trace::{Tracer, ipc_message_sym};
+use crate::abstract_server::sym_info::add_html_sym_info;
+use crate::file_format::jumpref::JumprefData;
 
 /// Events at most this many lines apart are one station.
 const STATION_GAP: u32 = 2;
@@ -56,6 +58,10 @@ pub struct SubwayMap {
     /// `taint`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub taint: Option<TaintInfo>,
+    /// The SYM_INFO (see `format::format_code`) of the symbols in the rows'
+    /// code (see `Row::html`), for their context menus.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub sym_info: BTreeMap<Ustr, Option<JumprefData>>,
 }
 
 #[derive(Debug, Serialize)]
@@ -138,6 +144,10 @@ pub struct Station {
 pub struct Row {
     pub line: u32,
     pub text: String,
+    /// Its code as the source listing has it, highlighted, with its symbols
+    /// (see `add_rows_html`), if the server has it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub html: Option<String>,
     /// Whether the clusters' patch changes it.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub changed: bool,
@@ -164,6 +174,10 @@ pub struct Line {
     pub family: usize,
     /// The lines it's derived from.
     pub parents: Vec<usize>,
+    /// Its places' symbols (its fields', globals' and locals'), whose tokens
+    /// the map's code highlights with its stations (see subway.js).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub syms: Vec<Ustr>,
     /// Whether it's tainted anywhere (see `taint`).
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub tainted: bool,
@@ -517,6 +531,7 @@ async fn subway_map_inner(
         clusters: vec![],
         notes: slicing.notes.clone(),
         taint: None,
+        sym_info: BTreeMap::new(),
     };
 
     // ## The cards: the clusters' functions, and files' declarations.
@@ -699,6 +714,27 @@ async fn subway_map_inner(
         .flat_map(|flows| flows.reads.iter().chain(flows.writes.iter()))
         .cloned()
         .collect();
+    // (Not the locals only macros' expansions have, ex: MOZ_TRY's
+    // temporaries, which aren't the code's values.)
+    let mut in_code: BTreeSet<Key> = BTreeSet::new();
+    let mut in_macros: BTreeSet<Key> = BTreeSet::new();
+    for func in &funcs {
+        let f = &func.file.funcs[func.fi];
+        for (ei, flows) in func.flows.iter().enumerate() {
+            let keys = flows
+                .reads
+                .iter()
+                .chain(flows.writes.iter())
+                .filter(|key| matches!(key, Key::Local(..)))
+                .cloned();
+            match f.events[ei].macro_name {
+                Some(_) => in_macros.extend(keys),
+                None => in_code.extend(keys),
+            }
+        }
+    }
+    let macro_only: BTreeSet<Key> = in_macros.difference(&in_code).cloned().collect();
+    let present: BTreeSet<Key> = present.difference(&macro_only).cloned().collect();
     let mut values: BTreeSet<Key> = seeds.intersection(&present).cloned().collect();
     loop {
         let before = values.len();
@@ -719,6 +755,7 @@ async fn subway_map_inner(
             values.insert(b.clone());
         }
     }
+    values.retain(|value| !macro_only.contains(value));
 
     // ## The lines: the values joined by copies in their functions, and a
     // parameter (or a call's result) with what it's given if it's always
@@ -876,6 +913,14 @@ async fn subway_map_inner(
             }
         }
         let ty = keys.iter().find_map(|key| types.get(key).cloned());
+        let syms: BTreeSet<Ustr> = keys
+            .iter()
+            .filter_map(|key| match key {
+                Key::Field(sym) | Key::Global(sym) | Key::Local(_, sym) => Some(*sym),
+                _ => None,
+            })
+            .filter(|sym| !sym.starts_with("name:"))
+            .collect();
         map.lines.push(Line {
             id: new,
             label: line_names
@@ -887,6 +932,7 @@ async fn subway_map_inner(
             ty,
             family: 0,
             parents: vec![],
+            syms: syms.into_iter().collect(),
             tainted: false,
         });
     }
@@ -1004,6 +1050,8 @@ async fn subway_map_inner(
                         .unwrap_or_default(),
                     changed: func.changed.contains(&line),
                     skipped: prev.map_or(0, |p| line - p - 1),
+
+                    html: None,
                 });
                 prev = Some(line);
             }
@@ -1065,6 +1113,8 @@ async fn subway_map_inner(
                         .unwrap_or_default(),
                     changed: true,
                     skipped: 0,
+
+                    html: None,
                 })
                 .collect();
             stations.push(Station {
@@ -1197,7 +1247,67 @@ async fn subway_map_inner(
         &event_station,
     )
     .await;
+    add_rows_html(tracer, &mut map).await;
     map
+}
+
+/// The cards' rows' code as the server's source listings (or for a try
+/// push's files, its own; see `TryOverlay::fetch_html_lines`) highlight it,
+/// with its symbols (`Row::html`), and their SYM_INFO (`SubwayMap::sym_info`),
+/// so that the map's code has the listings' syntax highlighting and context
+/// menus.
+async fn add_rows_html(tracer: &Tracer<'_>, map: &mut SubwayMap) {
+    let server = tracer.server();
+    let mut file_lines: BTreeMap<String, BTreeSet<u32>> = BTreeMap::new();
+    for card in &map.cards {
+        for row in card.stations.iter().flat_map(|station| station.rows.iter()) {
+            file_lines
+                .entry(card.path.clone())
+                .or_default()
+                .insert(row.line);
+        }
+    }
+    let mut sym_info: BTreeMap<Ustr, Option<JumprefData>> = BTreeMap::new();
+    let mut traversed = UstrMap::default();
+    for (path, lines) in file_lines {
+        let key = ustr(&path);
+        let Some(rows) = server
+            .fetch_html_lines(vec![(key, lines)])
+            .await
+            .ok()
+            .and_then(|mut rows| rows.remove(&key))
+        else {
+            continue;
+        };
+        let mut html = String::new();
+        for card in map.cards.iter_mut().filter(|card| card.path == path) {
+            for row in card
+                .stations
+                .iter_mut()
+                .flat_map(|station| station.rows.iter_mut())
+            {
+                if let Some(code) = rows.get(&row.line).and_then(|r| code_html(&r.html)) {
+                    html.push_str(&code);
+                    row.html = Some(code);
+                }
+            }
+        }
+        add_html_sym_info(server, &html, &mut sym_info, &mut traversed).await;
+    }
+    // (The history digests are for `/query/`'s results.)
+    for jumpref in sym_info.values_mut().flatten() {
+        jumpref.recency = None;
+        jumpref.recency_from = None;
+    }
+    map.sym_info = sym_info;
+}
+
+/// The inner HTML of a source listing's row's code (see `chunked_gzip::Row`).
+fn code_html(row: &str) -> Option<String> {
+    let start = row.find("<code")?;
+    let open_end = start + row[start..].find('>')? + 1;
+    let end = row.rfind("</code>")?;
+    (end >= open_end).then(|| row[open_end..end].to_string())
 }
 
 /// The lines tainted in each of a map's cards (see `taint`), by their
