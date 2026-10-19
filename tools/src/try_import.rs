@@ -50,6 +50,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::file_format::config::Config;
 
+/// The step of an import's status while its pages' data is precomputed after
+/// its hook (see `TryImports::run`).
+pub const PRECOMPUTING: &str = "Precomputing its canvas and dataflow";
+
 /// The most imports which can be waiting at a time.
 pub const MAX_QUEUED: usize = 8;
 /// The most revisions an import processes (see import-try-push.sh), which
@@ -377,8 +381,13 @@ impl TryImports {
         Ok(self.status(cfg, tree_name, rev))
     }
 
-    /// Perform the imports as they're asked for, forever.
-    pub fn run(&self, cfg: &Config) {
+    /// Perform the imports as they're asked for, forever, and after each
+    /// which succeeds, `precompute` (tree, push) what its pages show which
+    /// takes long to compute (ex: its canvas and its slicing; see the
+    /// web-server's `precompute_try_push`), before its status says it's
+    /// imported (as `Running` until then, with the step `PRECOMPUTING`).
+    /// Failing to precompute only means its pages compute it when asked.
+    pub fn run(&self, cfg: &Config, precompute: &dyn Fn(&str, &str)) {
         loop {
             let job = {
                 let mut state = self.state.lock().unwrap();
@@ -392,6 +401,12 @@ impl TryImports {
                 job
             };
             let result = self.import(cfg, &job);
+            if result.is_ok() {
+                if let Some((_, _, step)) = &mut self.state.lock().unwrap().running {
+                    *step = PRECOMPUTING.to_string();
+                }
+                precompute(&job.tree, &job.rev);
+            }
             let mut state = self.state.lock().unwrap();
             state.running = None;
             if let Err(message) = result {
@@ -405,6 +420,7 @@ impl TryImports {
     }
 
     /// Run the tree's hook for the job, until it's done or `TIME_LIMIT`.
+    /// (`run` precomputes its pages' data after it.)
     fn import(&self, cfg: &Config, job: &Job) -> Result<(), String> {
         let tree_config = cfg.trees.get(&job.tree).ok_or("No such tree")?;
         let hook = hook(cfg, &job.tree).ok_or("The tree can't import try pushes")?;

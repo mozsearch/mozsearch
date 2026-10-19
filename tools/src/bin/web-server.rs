@@ -10,6 +10,7 @@ use std::io::{Read, Write};
 use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::{Arc, LazyLock, Mutex};
+use std::time::{Duration, Instant};
 
 use hyper::http;
 use hyper::server::conn::http1;
@@ -214,6 +215,97 @@ fn write_page_sidecar(cfg: &config::Config, raw_path: &str, response: &WebRespon
             &format!("{}{}", rest, suffix),
             &response.output,
         )
+}
+
+/// How long precomputing a try push's slicing may take (see
+/// `precompute_try_push`; big pushes' take minutes).
+const PRECOMPUTE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+
+/// Precompute what the pages of the try push `rev`, which the tree has just
+/// imported (see `tools::try_import`), show which takes long to compute, so
+/// that they're ready by the time its import says it's done, if it has a
+/// semantic analysis (see `try_delta`): its canvas's page (see
+/// `format::format_try_canvas`), written as a sidecar file, as its first
+/// request's would be (see `write_page_sidecar`), and its slicing, in the
+/// formats its pages ask for (the canvas's clusters' JSON and the slicing's
+/// subway map, the "Open the slicing" link's), which the pipeline-server's
+/// step cache keeps (see `tools::step_cache`).  (Those are also lost when the
+/// servers start over with another index or binary, after which they're
+/// computed again when asked for.)  Failures are logged.
+fn precompute_try_push(cfg: &config::Config, tree_name: &str, rev: &str) {
+    let started = Instant::now();
+    let Some(tree_config) = cfg.trees.get(tree_name) else {
+        return;
+    };
+    let Some(head) =
+        tools::try_import::try_push(cfg, tree_name, rev).and_then(|push| push.semantic_head)
+    else {
+        return;
+    };
+    let Some(server) = tree_server(tree_name) else {
+        return;
+    };
+    let Some(base) = server
+        .try_overlay(&head)
+        .and_then(|overlay| overlay.try_delta_meta())
+        .map(|meta| meta.base)
+    else {
+        return;
+    };
+
+    let mut html = Vec::new();
+    match format::format_try_canvas(server.as_ref(), tree_name, &head, &mut html) {
+        Ok(()) => {
+            sidecars::write(
+                &tree_config.paths.index_path,
+                tree_name,
+                &format!("rev-canvas/{}.page.html", head),
+                &String::from_utf8_lossy(&html),
+            );
+        }
+        Err(err) => log::warn!("Couldn't precompute {}'s canvas: {}", rev, err),
+    }
+
+    // (The pipeline-server's, as its `PIPELINE_SERVER_ADDR` says, here.)
+    let addr = env::var("PIPELINE_SERVER_ADDR").unwrap_or_else(|_| "0.0.0.0:8002".to_string());
+    let addr = addr.replace("0.0.0.0", "127.0.0.1");
+    let slicing = format!("slice-rev:{}..{}", base, head);
+    let queries = [
+        (format!("{} slice-format:json", slicing), "application/json"),
+        (slicing.clone(), "text/html"),
+    ];
+    let client = reqwest::Client::new();
+    for (query, accept) in queries {
+        let url = format!(
+            "http://{}/{}/query/default?q={}&rev={}",
+            addr,
+            tree_name,
+            urlencoding::encode(&query),
+            head
+        );
+        let request = client
+            .get(&url)
+            .header("Accept", accept)
+            .timeout(PRECOMPUTE_TIMEOUT)
+            .send();
+        match tokio::runtime::Handle::current().block_on(request) {
+            Ok(response) if response.status().is_success() => {}
+            Ok(response) => {
+                log::warn!(
+                    "Couldn't precompute {}'s {}: {}",
+                    rev,
+                    query,
+                    response.status()
+                )
+            }
+            Err(err) => log::warn!("Couldn't precompute {}'s {}: {}", rev, query, err),
+        }
+    }
+    eprintln!(
+        "Precomputed try push {}'s canvas and slicing in {:.1} s",
+        rev,
+        started.elapsed().as_secs_f64()
+    );
 }
 
 /// The trees' servers made so far (see `tree_server`), or, for a local server
@@ -1276,7 +1368,14 @@ async fn main() {
     // `tools::try_import`.
     {
         let cfg = cfg.clone();
-        std::thread::spawn(move || tools::try_import::IMPORTS.run(&cfg));
+        let runtime = tokio::runtime::Handle::current();
+        std::thread::spawn(move || {
+            // (Precomputing uses the server's runtime; see `run_on_runtime`.)
+            let _runtime = runtime.enter();
+            tools::try_import::IMPORTS.run(&cfg, &|tree_name, rev| {
+                precompute_try_push(&cfg, tree_name, rev)
+            })
+        });
     }
 
     // The eviction of sidecar files when the disk fills up; see
