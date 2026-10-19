@@ -75,10 +75,21 @@ release* )
 * )
     ;;
 esac
-# Now actually run the indexing, telling the scripts to move the data to the
-# EBS as we complete.  However, on the web-server we will be mounting /index-ebs
-# at /index to provide consistency of absolute paths because we use git-worktree.
-$MOZSEARCH_PATH/infrastructure/indexer-run.sh $CONFIG_REPO_PATH /index /index-ebs
+# Now actually run the indexing.  If /index is the size of the volume (see
+# mkscratch.sh, which then also made /scratch), the index is built in place
+# there, and copied to the volume at the block level when it's done (below).
+# Otherwise, the scripts move each tree's index to the volume as it completes.
+# Either way, the web server mounts the volume at /index, to provide
+# consistency of absolute paths because we use git-worktree.
+if mountpoint -q /scratch; then
+    IN_PLACE=1
+    INDEX_FS=/index
+    $MOZSEARCH_PATH/infrastructure/indexer-run.sh $CONFIG_REPO_PATH /index
+else
+    IN_PLACE=""
+    INDEX_FS=/index-ebs
+    $MOZSEARCH_PATH/infrastructure/indexer-run.sh $CONFIG_REPO_PATH /index /index-ebs
+fi
 case "$CHANNEL" in
 release* )
     # And what indexing updated which the next indexing reuses (ex: caches).
@@ -93,13 +104,17 @@ echo "Indexing complete"
 
 # Copy indexing log to index mount so it's easy to get to from the
 # web server instance
-cp ~ubuntu/index-log /index-ebs/index-log
+cp ~ubuntu/index-log $INDEX_FS/index-log
+if [[ $IN_PLACE ]]; then
+    # (As indexer-run.sh does when moving the index; see there.)
+    cp -f /index/config.json /index/indexed-config.json
+fi
 
-AVAIL_IN_KB=$(df --output=avail /index-ebs | tail -1)
+AVAIL_IN_KB=$(df --output=avail $INDEX_FS | tail -1)
 NGINX_CACHE_IN_KB=$((20 * 1024 * 1024))
 if [[ $AVAIL_IN_KB -lt $NGINX_CACHE_IN_KB ]]; then
     echo ""
-    echo "The /index-ebs volume does not have sufficient space for the nginx cache."
+    echo "The $INDEX_FS volume does not have sufficient space for the nginx cache."
     echo "  available: $AVAIL_IN_KB kB"
     echo "   required: $NGINX_CACHE_IN_KB kB"
     exit 1
@@ -117,6 +132,26 @@ pkill -u ubuntu sshd || true
 # And then sleep a little just in case there's some cleanup time required.
 sleep 1
 sudo umount /index-ebs
+
+if [[ $IN_PLACE ]]; then
+    # Copy the index to the volume at the block level: e2image copies the index
+    # filesystem's used blocks to the volume, which has its size (see
+    # mkscratch.sh), in big sequential writes, which only the volume's
+    # throughput bounds, rather than its millions of files one by one, which
+    # its IOPS bound.  (/index is mounted again afterwards for the web server's
+    # checks, which read its config.json; see web-server-check.sh.)
+    date
+    INDEX_DEV=$(findmnt -n -o SOURCE /index)
+    if ! sudo umount /index; then
+        sudo fuser -vm /index || true
+        exit 1
+    fi
+    sudo e2image -ra $INDEX_DEV $EBS_NVME_DEV
+    # (Before the volume is detached.)
+    sync
+    sudo mount $INDEX_DEV /index
+    date
+fi
 
 $AWS_ROOT/detach-volume.py $EC2_INSTANCE_ID $VOLUME_ID
 # Path notes:

@@ -74,38 +74,53 @@ set -o pipefail
 
 echo "Index volume detected"
 
-EBS_PATH=/index
-
 LOCAL_JQ_QUERY=".Devices[] | select(.ModelNumber == \"Amazon EC2 NVMe Instance Storage\") | .DevicePath"
 LOCAL_NVME_DEV=$(sudo nvme list -o json | jq --raw-output "$LOCAL_JQ_QUERY")
 
+sudo mkdir /index
 if [[ $LOCAL_NVME_DEV ]]; then
-    EBS_PATH=/index-ebs
-
+    # Copy the index to the instance's SSD, at the block level if the index
+    # volume's filesystem fits on it: e2image copies the filesystem's used
+    # blocks, in big sequential reads, which only the volume's throughput
+    # bounds, and resize2fs then grows the copy to fill the SSD.  Copying the
+    # index's files one by one is bound by the volume's IOPS instead, since
+    # the index has millions of small files: rsync took half an hour for
+    # config1's 3.5 million files, and over 2 hours for config2's index.
     date
 
-    sudo mkfs -t ext4 $LOCAL_NVME_DEV
-    sudo mkdir /index
-    sudo mount $LOCAL_NVME_DEV /index
-    sudo chown ubuntu:ubuntu /index
+    EBS_FS_INFO=$(sudo dumpe2fs -h $EBS_NVME_DEV 2>/dev/null || true)
+    EBS_FS_BLOCKS=$(sed -n 's/^Block count: *//p' <<< "$EBS_FS_INFO")
+    EBS_FS_BLOCK_SIZE=$(sed -n 's/^Block size: *//p' <<< "$EBS_FS_INFO")
+    EBS_FS_BYTES=$(( ${EBS_FS_BLOCKS:-0} * ${EBS_FS_BLOCK_SIZE:-0} ))
+    LOCAL_BYTES=$(sudo blockdev --getsize64 $LOCAL_NVME_DEV)
+    # (e2image reads the volume a block run at a time, so it's the kernel's
+    # readahead that keeps several reads in flight: with the default 128 KiB,
+    # reading a gp3 volume with 1000 MB/s of throughput ran at ~250 MB/s, and
+    # with 8 MiB, at ~1.4 GB/s.)
+    sudo blockdev --setra 16384 $EBS_NVME_DEV
+    if (( EBS_FS_BYTES > 0 && EBS_FS_BYTES <= LOCAL_BYTES )) &&
+        sudo e2image -ra $EBS_NVME_DEV $LOCAL_NVME_DEV; then
+        sudo mount $LOCAL_NVME_DEV /index
+        # (Online, since the copy's filesystem is clean but unchecked.  It
+        # works at the volume's size too.)
+        sudo resize2fs $LOCAL_NVME_DEV ||
+            echo "WARNING: The index's filesystem couldn't be grown to fill the SSD."
+    else
+        echo "The index volume's filesystem can't be copied to the SSD at the block level, so copying its files."
+        sudo mkfs -t ext4 -F $LOCAL_NVME_DEV
+        sudo mount $LOCAL_NVME_DEV /index
+        sudo mkdir /index-ebs
+        sudo mount $EBS_NVME_DEV /index-ebs
+        sudo rsync -a /index-ebs/ /index/
+        sudo umount /index-ebs
+        sudo rmdir /index-ebs
+    fi
 
     date
+else
+    sudo mount $EBS_NVME_DEV /index
 fi
-
-sudo mkdir $EBS_PATH
-sudo mount $EBS_NVME_DEV $EBS_PATH
-sudo chown ubuntu:ubuntu $EBS_PATH
-
-if [[ $LOCAL_NVME_DEV ]]; then
-    date
-
-    sudo rsync -a $EBS_PATH/ /index/
-
-    sudo umount $EBS_PATH
-    sudo rmdir $EBS_PATH
-
-    date
-fi
+sudo chown ubuntu:ubuntu /index
 
 # Swap on the instance's SSD, so that briefly needing more memory than the
 # instance has (ex: the pipeline-server's growth, which web-server-run.sh
