@@ -1,0 +1,2 @@
+# servers: local
+dataflow --at dataflow/dataflow.cpp#46 --symbol 'F_<T_Widget>_mName' --direction backward --format subway | jq ".contents | fromjson | del(.sym_info) | .cards[].stations[].rows[] |= del(.html)"

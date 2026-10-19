@@ -251,6 +251,10 @@ pub struct Tracer<'s> {
     type_syms: HashMap<String, Vec<(Ustr, Ustr)>>,
     pub oracle: Option<Arc<Oracle>>,
     pub graph: TraceGraph,
+    /// The places followed, and those of its steps (assignments' and
+    /// parameters'), in their functions (by their files' paths), in the order
+    /// it reached them (for its subway map; see `subway::trace_subway_map`).
+    pub traced: Vec<(String, usize, Place)>,
     node_ids: HashMap<(String, Ustr, NodeKey), usize>,
     edge_set: HashSet<(usize, usize, String)>,
     queue: VecDeque<Item>,
@@ -276,6 +280,7 @@ impl<'s> Tracer<'s> {
             type_syms: HashMap::new(),
             oracle: None,
             graph: TraceGraph::default(),
+            traced: vec![],
             node_ids: HashMap::new(),
             edge_set: HashSet::new(),
             queue: VecDeque::new(),
@@ -1186,6 +1191,16 @@ impl<'s> Tracer<'s> {
         label: String,
     ) -> usize {
         let f = &file.funcs[func];
+        // (The place of a step, for the trace's subway map: what an
+        // assignment writes, a parameter.)
+        let place = match &key {
+            NodeKey::Event(ei) => match &f.events[*ei].kind {
+                EventKind::Assign { place, .. } => Some(place.clone()),
+                _ => None,
+            },
+            NodeKey::Param(pi) => f.params.get(*pi).map(|param| param.place.clone()),
+            _ => None,
+        };
         let map_key = (file.path.clone(), f.sym, key);
         if let Some(&id) = self.node_ids.get(&map_key) {
             return id;
@@ -1197,6 +1212,9 @@ impl<'s> Tracer<'s> {
             .find(|e| e.line == line)
             .map(|e| e.text.clone())
             .unwrap_or_default();
+        if let Some(place) = place {
+            self.traced.push((file.path.clone(), func, place));
+        }
         self.graph.nodes.push(TraceNode {
             id,
             kind,
@@ -1560,6 +1578,10 @@ impl<'s> Tracer<'s> {
             if !self.seen.insert(key) {
                 // (Still connect what led here.)
                 continue;
+            }
+            if let Flow::Place(place) = &item.flow {
+                self.traced
+                    .push((item.file.path.clone(), item.func, place.clone()));
             }
             match dir {
                 Dir::Forward => self.forward(item).await,

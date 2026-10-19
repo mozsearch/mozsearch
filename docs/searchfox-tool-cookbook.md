@@ -212,7 +212,7 @@ symbols.
 
 `dataflow` (see `tools/src/dataflow/`) shows what it understood of a file's
 functions, or follows a value forwards (where does it go?) or backwards (where
-does it come from?), as text, DOT, SVG, or JSON:
+does it come from?), as text, DOT, SVG, JSON, or a subway map (see below):
 ```
 ./searchfox-tool '--server=/home/vagrant/index/config.json --tree=tests dataflow dataflow/dataflow.cpp --function GetBoolWithDefault'
 ./searchfox-tool '--server=/home/vagrant/index/config.json --tree=tests dataflow dataflow/dataflow.cpp --function UseDefault --backward value'
@@ -222,7 +222,9 @@ Places are named as the IR shows them (`aRetVal`, `*aRetVal`, `this->mName`,
 `return` for backwards from the returns); `--symbol` with `--at <path>#<line>`
 takes a local's, parameter's, field's or global's symbol instead, as the
 context menu's "Follow" items do through the `follow-forward:`,
-`follow-backward:` and `follow-at:` query terms.  `--changed
+`follow-backward:` and `follow-at:` query terms, whose traces are subway maps
+of the functions they go through, with their steps' rows highlighted
+(`follow-format:svg` for the graph).  `--changed
 "<path>:<lines>;…"` slices changed lines into clusters, `--slice-rev <rev>`
 a revision's changes (a commit's, or `<a>..<b>`'s, in the coordinates of the
 revision the server analyzes: the indexed one, or, for queries with `rev`, a

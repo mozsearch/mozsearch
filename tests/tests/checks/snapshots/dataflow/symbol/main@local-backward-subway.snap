@@ -1,0 +1,230 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/symbol/local-backward-subway
+---
+{
+  "cards": [
+    {
+      "id": 0,
+      "func": "UseDefault",
+      "sym": "_Z10UseDefaultv",
+      "path": "dataflow/dataflow.cpp",
+      "changed": false,
+      "seed": true,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 38,
+              "text": "  bool value = false;",
+              "writes": [
+                0
+              ],
+              "traced": true,
+              "stops": [
+                0
+              ]
+            },
+            {
+              "line": 39,
+              "text": "  GetBoolWithDefault(\"browser.thing\", true, &value);",
+              "stops": [
+                0
+              ],
+              "traced": true
+            },
+            {
+              "line": 40,
+              "text": "  return value;",
+              "stops": [
+                0
+              ]
+            }
+          ],
+          "stops": [
+            0
+          ],
+          "writes": [
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "func": "GetBoolWithDefault",
+      "sym": "_Z18GetBoolWithDefaultPKcbPb",
+      "path": "dataflow/dataflow.cpp",
+      "changed": false,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 24,
+              "text": "  int rv = LookupBool(aName, aRetVal);",
+              "stops": [
+                0,
+                1
+              ],
+              "traced": true
+            },
+            {
+              "line": 25,
+              "text": "  if (rv != 0) {"
+            },
+            {
+              "line": 26,
+              "text": "    *aRetVal = aDefault;",
+              "writes": [
+                0
+              ],
+              "traced": true,
+              "stops": [
+                0
+              ]
+            }
+          ],
+          "stops": [
+            0,
+            1
+          ],
+          "writes": [
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "func": "LookupBool",
+      "sym": "_ZL10LookupBoolPKcPb",
+      "path": "dataflow/dataflow.cpp",
+      "changed": false,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 16,
+              "text": "  if (!aName) {",
+              "stops": [
+                1
+              ]
+            }
+          ],
+          "stops": [
+            1
+          ],
+          "writes": []
+        },
+        {
+          "rows": [
+            {
+              "line": 19,
+              "text": "  *aResult = aName[0] == 't';",
+              "writes": [
+                0
+              ],
+              "traced": true,
+              "stops": [
+                0,
+                1
+              ]
+            }
+          ],
+          "stops": [
+            0,
+            1
+          ],
+          "writes": [
+            0
+          ]
+        }
+      ]
+    }
+  ],
+  "lines": [
+    {
+      "id": 0,
+      "label": "value",
+      "names": [
+        "value",
+        "aRetVal",
+        "aDefault",
+        "aResult"
+      ],
+      "type": "_Bool",
+      "semantic": "_Bool",
+      "family": 0,
+      "parents": [
+        1
+      ],
+      "syms": [
+        "V_5f83de8e8cd670b8_2475d80113",
+        "V_733986e666fd63e6_1",
+        "V_733986e666fd63e6_2",
+        "V_e00f83e15ded7385_1"
+      ]
+    },
+    {
+      "id": 1,
+      "label": "aName",
+      "names": [
+        "aName"
+      ],
+      "type": "const char *",
+      "semantic": "char",
+      "family": 0,
+      "parents": [],
+      "syms": [
+        "V_733986e666fd63e6_0",
+        "V_e00f83e15ded7385_0"
+      ]
+    }
+  ],
+  "families": [
+    {
+      "id": 0,
+      "root": 1,
+      "label": "aName",
+      "semantic": "char",
+      "cluster": 1
+    }
+  ],
+  "connectors": [
+    {
+      "from": 0,
+      "from_station": 0,
+      "to": 1,
+      "kind": "call",
+      "lines": [
+        0,
+        1
+      ]
+    },
+    {
+      "from": 1,
+      "from_station": 0,
+      "to": 2,
+      "kind": "call",
+      "lines": [
+        0,
+        1
+      ]
+    }
+  ],
+  "clusters": [
+    {
+      "n": 1,
+      "commits": ""
+    }
+  ],
+  "notes": [],
+  "trace": {
+    "title": "Where value (dataflow.cpp:37) comes from",
+    "dir": "backward"
+  }
+}

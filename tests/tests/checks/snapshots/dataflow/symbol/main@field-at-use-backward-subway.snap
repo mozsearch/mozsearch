@@ -1,0 +1,196 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/symbol/field-at-use-backward-subway
+---
+{
+  "cards": [
+    {
+      "id": 0,
+      "func": "Widget::Name",
+      "sym": "_ZNK6Widget4NameEv",
+      "path": "dataflow/dataflow.cpp",
+      "changed": false,
+      "seed": true,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 46,
+              "text": "  const char* Name() const { return mName; }",
+              "stops": [
+                0
+              ],
+              "traced": true
+            }
+          ],
+          "stops": [
+            0
+          ],
+          "writes": []
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "func": "Widget::Widget",
+      "sym": "_ZN6WidgetC1EPKc",
+      "path": "dataflow/dataflow.cpp",
+      "changed": false,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 45,
+              "text": "  explicit Widget(const char* aName) : mName(aName), mCount(0) {}",
+              "writes": [
+                0
+              ],
+              "traced": true,
+              "stops": [
+                0
+              ]
+            }
+          ],
+          "stops": [
+            0
+          ],
+          "writes": [
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "func": "MakeWidgetName",
+      "sym": "_Z14MakeWidgetNamev",
+      "path": "dataflow/dataflow.cpp",
+      "changed": false,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 56,
+              "text": "  Widget widget(\"gadget\");",
+              "traced": true
+            },
+            {
+              "line": 57,
+              "text": "  return widget.Name();",
+              "stops": [
+                0
+              ]
+            }
+          ],
+          "stops": [
+            0
+          ],
+          "writes": []
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "func": "BumpedCount",
+      "sym": "_Z11BumpedCounti",
+      "path": "dataflow/dataflow.cpp",
+      "changed": false,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 61,
+              "text": "  Widget widget(\"counter\");",
+              "traced": true
+            }
+          ],
+          "stops": [],
+          "writes": []
+        }
+      ]
+    }
+  ],
+  "lines": [
+    {
+      "id": 0,
+      "label": "mName",
+      "names": [
+        "mName",
+        "aName"
+      ],
+      "type": "const char *",
+      "semantic": "char",
+      "family": 0,
+      "parents": [],
+      "syms": [
+        "F_<T_Widget>_mName",
+        "V_66350c1f737364ef_0"
+      ]
+    }
+  ],
+  "families": [
+    {
+      "id": 0,
+      "root": 0,
+      "label": "mName",
+      "semantic": "char",
+      "cluster": 1
+    }
+  ],
+  "connectors": [
+    {
+      "from": 1,
+      "from_station": 0,
+      "to": 0,
+      "to_station": 0,
+      "kind": "field",
+      "lines": [
+        0
+      ]
+    },
+    {
+      "from": 1,
+      "from_station": 0,
+      "to": 2,
+      "to_station": 0,
+      "kind": "field",
+      "lines": [
+        0
+      ]
+    },
+    {
+      "from": 2,
+      "from_station": 0,
+      "to": 1,
+      "kind": "call",
+      "lines": [
+        0
+      ]
+    },
+    {
+      "from": 3,
+      "from_station": 0,
+      "to": 1,
+      "kind": "call",
+      "lines": [
+        0
+      ]
+    }
+  ],
+  "clusters": [
+    {
+      "n": 1,
+      "commits": ""
+    }
+  ],
+  "notes": [],
+  "trace": {
+    "title": "Where this->mName (dataflow.cpp:46) comes from",
+    "dir": "backward"
+  }
+}

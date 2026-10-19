@@ -21,6 +21,9 @@
 //! The values are the clusters' units' (see `Unit::keys`), and the values
 //! their functions copy them to or from (all of their copies, in the
 //! clusters' functions) or derive them from or to (one step).
+//!
+//! A trace's map (see `trace_subway_map`) is a cluster of the functions it
+//! followed values through, of those values, with its steps' rows marked.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
@@ -30,10 +33,10 @@ use ustr::{Ustr, UstrMap, ustr};
 
 use super::frontend::FileIr;
 use super::ir::*;
-use super::slice::{Key, Slicing, cluster_commits, place_keys};
+use super::slice::{Key, Slicing, Unit, cluster_commits, is_hub, place_keys_with_hubs};
 use super::summary::{Port, Summary};
 use super::taint::{Taint, TaintSpec, TaintedField, Validated};
-use super::trace::{Tracer, ipc_message_sym};
+use super::trace::{Dir, NodeKind, Tracer, ipc_message_sym};
 use crate::abstract_server::sym_info::add_html_sym_info;
 use crate::file_format::jumpref::JumprefData;
 
@@ -62,6 +65,16 @@ pub struct SubwayMap {
     /// code (see `Row::html`), for their context menus.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub sym_info: BTreeMap<Ustr, Option<JumprefData>>,
+    /// What a trace's map followed (see `trace_subway_map`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trace: Option<TraceInfo>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TraceInfo {
+    /// Ex: "Where aRetVal (Preferences.cpp:2903) goes".
+    pub title: String,
+    pub dir: Option<Dir>,
 }
 
 #[derive(Debug, Serialize)]
@@ -118,6 +131,9 @@ pub struct Card {
     pub path: String,
     /// Whether the clusters change it (rather than only passing values).
     pub changed: bool,
+    /// Whether it's where a trace starts.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub seed: bool,
     pub cluster: usize,
     pub stations: Vec<Station>,
     /// The lines tainted at its end (going on to what it returns to, or
@@ -151,6 +167,9 @@ pub struct Row {
     /// Whether the clusters' patch changes it.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub changed: bool,
+    /// Whether it's a step of a trace (see `trace_subway_map`).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub traced: bool,
     /// The lines of the file not shown before it (in its station).
     #[serde(skip_serializing_if = "is_zero")]
     pub skipped: u32,
@@ -287,9 +306,10 @@ struct EventFlows {
     moves: Vec<(Key, Key, bool)>,
 }
 
+/// A place's keys, hubs' included (see `subway_map_inner`'s values).
 fn keys_of(f: &FuncIr, place: &Place) -> BTreeSet<Key> {
     let mut keys = BTreeSet::new();
-    place_keys(f, place, &mut keys);
+    place_keys_with_hubs(f, place, &mut keys);
     keys
 }
 
@@ -513,14 +533,153 @@ pub async fn subway_map(
     first_cluster: usize,
     taint: &TaintSpec,
 ) -> SubwayMap {
+    map_of(tracer, slicing, first_cluster, taint, false).await
+}
+
+/// The map of a slicing, or of a trace's (see `trace_slicing`).
+async fn map_of(
+    tracer: &mut Tracer<'_>,
+    slicing: &Slicing,
+    first_cluster: usize,
+    taint: &TaintSpec,
+    trace: bool,
+) -> SubwayMap {
     // (Calls are stepped over by their summaries (accessors', hints'),
     // which slicing doesn't use.)
     let summaries = tracer.opts.summaries;
     tracer.opts.summaries = true;
     let mut taint = Taint::new(taint.clone());
-    let map = subway_map_inner(tracer, slicing, first_cluster, &mut taint).await;
+    let map = subway_map_inner(tracer, slicing, first_cluster, &mut taint, trace).await;
     tracer.opts.summaries = summaries;
     map
+}
+
+/// The subway map of a trace (see `trace`, after `Tracer::run`): the
+/// functions it followed values through are cards (in the order it reached
+/// them), and the values it followed there are the lines (with their copies
+/// and what they're derived from or to, as a slicing's units' values are),
+/// with its steps' rows marked (`Row::traced`), and its seed's card.
+pub async fn trace_subway_map(tracer: &mut Tracer<'_>, taint: &TaintSpec) -> SubwayMap {
+    let slicing = trace_slicing(tracer).await;
+    let mut map = map_of(tracer, &slicing, 1, taint, true).await;
+    let seed = tracer
+        .graph
+        .nodes
+        .iter()
+        .find(|node| node.kind == NodeKind::Seed)
+        .map(|node| {
+            (
+                node.path.clone(),
+                node.func_sym,
+                node.line,
+                node.func.clone(),
+            )
+        });
+    // (Its steps' lines are the slicing's changed lines, so that their events
+    // are stations; they're its steps, not changes.)
+    for card in &mut map.cards {
+        // (Its seed's function's card, or its declaration's, named after it.)
+        let declaration = card.sym.is_none()
+            && seed.as_ref().is_some_and(|(path, _, line, _)| {
+                *path == card.path
+                    && card
+                        .stations
+                        .iter()
+                        .any(|s| s.rows.iter().any(|r| r.line == *line))
+            });
+        if declaration && let Some((_, _, _, name)) = &seed {
+            card.func = name.clone();
+        }
+        card.seed = declaration
+            || seed
+                .as_ref()
+                .is_some_and(|(path, sym, _, _)| *path == card.path && card.sym == Some(*sym));
+        card.changed = false;
+        for row in card.stations.iter_mut().flat_map(|s| s.rows.iter_mut()) {
+            row.traced = std::mem::take(&mut row.changed);
+        }
+    }
+    map.trace = Some(TraceInfo {
+        title: super::render::title(&tracer.graph),
+        dir: tracer.graph.dir,
+    });
+    map
+}
+
+/// A trace's slicing, for its map: a cluster of a unit for each function it
+/// followed places in (in the order it did), of those places' values, with
+/// the lines of its steps there as the unit's lines.
+async fn trace_slicing(tracer: &mut Tracer<'_>) -> Slicing {
+    let mut units: Vec<Unit> = vec![];
+    let mut unit_of: HashMap<(String, Ustr), usize> = HashMap::new();
+    for (path, fi, place) in tracer.traced.clone() {
+        // (Its files are the tracer's, already built.)
+        let Some(file) = tracer.file(&path).await else {
+            continue;
+        };
+        let f = &file.funcs[fi];
+        let ui = *unit_of
+            .entry((file.path.clone(), f.sym))
+            .or_insert_with(|| {
+                units.push(Unit::of_values(units.len(), &file.path, f, BTreeSet::new()));
+                units.len() - 1
+            });
+        units[ui].keys.extend(keys_of(f, &place));
+    }
+    // (And the functions of its steps without places, ex: a caller passing
+    // a constant; but not accessors' it stepped over by their summaries.)
+    let steps: Vec<(String, Ustr, u32, NodeKind)> = tracer
+        .graph
+        .nodes
+        .iter()
+        .filter(|node| node.kind != NodeKind::Summary)
+        .map(|node| (node.path.clone(), node.func_sym, node.line, node.kind))
+        .collect();
+    for (path, func_sym, line, kind) in steps {
+        let ui = match unit_of.get(&(path.clone(), func_sym)) {
+            Some(&ui) => ui,
+            None => {
+                let file = tracer.file(&path).await;
+                let Some((file, &fi)) = file
+                    .as_ref()
+                    .and_then(|file| Some((file, file.by_sym.get(&func_sym)?)))
+                else {
+                    // (A seed outside functions, ex: a field's declaration:
+                    // a declarations' card, of its symbol's value.)
+                    if kind == NodeKind::Seed {
+                        let keys = BTreeSet::from([Key::Field(func_sym), Key::Global(func_sym)]);
+                        units.push(Unit::of_declarations(units.len(), &path, vec![line], keys));
+                        unit_of.insert((path, func_sym), units.len() - 1);
+                    }
+                    continue;
+                };
+                units.push(Unit::of_values(
+                    units.len(),
+                    &path,
+                    &file.funcs[fi],
+                    BTreeSet::new(),
+                ));
+                unit_of.insert((path, func_sym), units.len() - 1);
+                units.len() - 1
+            }
+        };
+        units[ui].lines.push(line);
+    }
+    for unit in &mut units {
+        unit.lines.sort();
+        unit.lines.dedup();
+    }
+    let clusters = match units.is_empty() {
+        true => vec![],
+        false => vec![(0..units.len()).collect()],
+    };
+    Slicing {
+        units,
+        links: vec![],
+        clusters,
+        other: vec![],
+        notes: tracer.graph.notes.clone(),
+    }
 }
 
 async fn subway_map_inner(
@@ -528,6 +687,7 @@ async fn subway_map_inner(
     slicing: &Slicing,
     first_cluster: usize,
     taint: &mut Taint,
+    trace: bool,
 ) -> SubwayMap {
     let mut map = SubwayMap {
         cards: vec![],
@@ -538,6 +698,7 @@ async fn subway_map_inner(
         notes: slicing.notes.clone(),
         taint: None,
         sym_info: BTreeMap::new(),
+        trace: None,
     };
 
     // ## The cards: the clusters' functions, and files' declarations.
@@ -586,6 +747,7 @@ async fn subway_map_inner(
                 sym: Some(sym),
                 path: unit.path.clone(),
                 changed: true,
+                seed: false,
                 cluster: n,
                 stations: vec![],
                 tainted_out: vec![],
@@ -627,8 +789,12 @@ async fn subway_map_inner(
                 continue;
             };
             let call = &f.calls[c];
-            // (Only calls of the clusters' functions.)
-            if !call.callee.iter().any(|sym| func_index.contains_key(sym))
+            // (Only calls of the clusters' functions, or a trace's steps'
+            // calls, whose callees' symbols can be other than their targets'
+            // cards', ex: a binding's JS method's.)
+            let step = trace && funcs[i].changed.contains(&e.line);
+            if !step
+                && !call.callee.iter().any(|sym| func_index.contains_key(sym))
                 && ipc_message_sym(&call.callee_pretty).is_none()
             {
                 continue;
@@ -648,7 +814,17 @@ async fn subway_map_inner(
                         continue;
                     };
                     for to in keys_of(tf, &param.place) {
-                        for (from, derived) in val_keys(f, &arg.vals, &sums) {
+                        let froms = val_keys(f, &arg.vals, &sums);
+                        // (A trace's constant argument is where its
+                        // parameter's value comes from: its line comes from
+                        // the call.)
+                        if trace
+                            && froms.is_empty()
+                            && arg.vals.iter().any(|v| matches!(v.atom, Atom::Const(_)))
+                        {
+                            args.push((to.clone(), to.clone(), false));
+                        }
+                        for (from, derived) in froms {
                             args.push((from, to.clone(), derived));
                         }
                     }
@@ -685,6 +861,57 @@ async fn subway_map_inner(
                     kind,
                 });
             }
+        }
+    }
+
+    // (Locals named as hubs (ex: `rv`, `aResult`; see `slice::is_hub`) are
+    // values only if they're the units' (ex: a trace's), as slicings don't
+    // key them: the others aren't read, written, or moved.)
+    let mut hubs: BTreeSet<Key> = BTreeSet::new();
+    {
+        let mut consider = |key: &Key| {
+            if let Key::Local(func_sym, sym) = key
+                && !seeds.contains(key)
+                && let Some(&i) = func_index.get(func_sym)
+                && funcs[i].file.funcs[funcs[i].fi]
+                    .names
+                    .get(sym)
+                    .is_some_and(|name| is_hub(name))
+            {
+                hubs.insert(key.clone());
+            }
+        };
+        for func in &funcs {
+            for flows in &func.flows {
+                flows
+                    .reads
+                    .iter()
+                    .chain(flows.writes.iter())
+                    .for_each(&mut consider);
+            }
+        }
+        for call in &call_moves {
+            for (from, to, _) in call.args.iter().chain(call.returns.iter()) {
+                consider(from);
+                consider(to);
+            }
+        }
+    }
+    if !hubs.is_empty() {
+        for func in &mut funcs {
+            for flows in &mut func.flows {
+                flows.reads.retain(|key| !hubs.contains(key));
+                flows.writes.retain(|key| !hubs.contains(key));
+                flows
+                    .moves
+                    .retain(|(from, to, _)| !hubs.contains(from) && !hubs.contains(to));
+            }
+        }
+        for call in &mut call_moves {
+            call.args
+                .retain(|(from, to, _)| !hubs.contains(from) && !hubs.contains(to));
+            call.returns
+                .retain(|(from, to, _)| !hubs.contains(from) && !hubs.contains(to));
         }
     }
 
@@ -1055,6 +1282,7 @@ async fn subway_map_inner(
                         .map(|s| s.trim_end().to_string())
                         .unwrap_or_default(),
                     changed: func.changed.contains(&line),
+                    traced: false,
                     skipped: prev.map_or(0, |p| line - p - 1),
 
                     html: None,
@@ -1141,6 +1369,7 @@ async fn subway_map_inner(
                         .map(|s| s.trim_end().to_string())
                         .unwrap_or_default(),
                     changed: true,
+                    traced: false,
                     skipped: 0,
 
                     html: None,
@@ -1166,6 +1395,7 @@ async fn subway_map_inner(
             sym: None,
             path,
             changed: true,
+            seed: false,
             cluster: n,
             stations,
             tainted_out: vec![],

@@ -96,7 +96,7 @@ pub struct DotOptions {
 
 /// The trace's seed's description (ex: "Where aRetVal (Preferences.cpp:2903)
 /// goes").
-fn title(graph: &TraceGraph) -> String {
+pub fn title(graph: &TraceGraph) -> String {
     let seed = graph.nodes.iter().find(|n| n.kind == NodeKind::Seed);
     let what = match seed {
         Some(seed) => format!("{} ({}:{})", seed.label, file_name(&seed.path), seed.line),

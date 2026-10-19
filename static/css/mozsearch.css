@@ -5156,8 +5156,15 @@ textarea.monospace {
   border-left-color: var(--page-border-color);
   font-family: sans-serif;
 }
-.sw-card-changed {
+.sw-card.sw-card-changed {
   border-left-color: #e8a33d;
+}
+/* A trace's seed's card, and its steps' rows (see static/js/subway.js). */
+.sw-card.sw-card-seed {
+  border-left-color: var(--link-color);
+}
+.sw-traced {
+  background-color: var(--line-highlight-background);
 }
 .sw-head {
   display: flex;

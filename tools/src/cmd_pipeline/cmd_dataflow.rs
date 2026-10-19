@@ -15,7 +15,7 @@ use crate::{
         slice::{
             ChangedLines, FileChange, Slicing, render_slicing_dot, render_slicing_text, slice,
         },
-        subway::subway_map,
+        subway::{subway_map, trace_subway_map},
         summary::{IpdlSlots, Summary, field_edges, summarize_in},
         taint::{TaintSpec, audit_slicing},
         trace::{Dir, TraceOpts, Tracer, find_place},
@@ -797,7 +797,7 @@ impl PipelineCommand for DataflowCommand {
                 .await
                 .map_err(data_error)?;
             tracer.run(dir).await;
-            return self.render_trace(server, &tracer);
+            return self.render_trace(server, &mut tracer).await;
         }
         let Some(file) = tracer.file(&file_path).await else {
             return Err(data_error(tracer.graph.notes.join("\n")));
@@ -867,7 +867,7 @@ impl PipelineCommand for DataflowCommand {
             tracer.seed(file.clone(), func, place, line, dir);
         }
         tracer.run(dir).await;
-        self.render_trace(server, &tracer)
+        self.render_trace(server, &mut tracer).await
     }
 }
 
@@ -1002,10 +1002,10 @@ impl DataflowCommand {
         }
     }
 
-    fn render_trace(
+    async fn render_trace(
         &self,
         server: &(dyn AbstractServer + Send + Sync),
-        tracer: &Tracer<'_>,
+        tracer: &mut Tracer<'_>,
     ) -> Result<PipelineValues> {
         match self.args.format {
             DataflowFormat::Text => text(render_text(&tracer.graph), "text/plain"),
@@ -1028,8 +1028,14 @@ impl DataflowCommand {
             DataflowFormat::Json => Ok(PipelineValues::JsonValue(JsonValue {
                 value: serde_json::to_value(&tracer.graph).unwrap(),
             })),
-            DataflowFormat::Subway | DataflowFormat::Lines => Err(data_error(
-                "Subway maps and dataflow lines are of slicings (slice-rev)".to_string(),
+            DataflowFormat::Subway => {
+                let map = trace_subway_map(tracer, &self.taint_spec()).await;
+                // (Its "<"s escaped, as it's inlined in a page's script.)
+                let json = serde_json::to_string(&map).unwrap();
+                text(json.replace('<', "\\u003c"), SUBWAY_MIME)
+            }
+            DataflowFormat::Lines => Err(data_error(
+                "Dataflow lines are of slicings (slice-rev)".to_string(),
             )),
         }
     }

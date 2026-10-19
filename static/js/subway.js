@@ -1,7 +1,9 @@
 "use strict";
 
 // The subway map of a slicing's clusters (`slice-rev:` queries' default
-// view; see tools/src/dataflow/subway.rs for the model, SUBWAY): the
+// view; see tools/src/dataflow/subway.rs for the model, SUBWAY), or of a
+// trace (`follow-forward:` and `follow-backward:` queries', whose steps' rows
+// are highlighted, and whose seed's card is marked): the
 // clusters' functions are cards of their stations (statement blocks), laid
 // out by the calls between them with graph.js, and their values are colored
 // lines: down each card's gutter (stopping, a dot, at the rows of the
@@ -504,6 +506,7 @@ var SubwayMap = new (class SubwayMap {
     const tracks = this.cardTracks(card);
     element.classList.add("sw-card");
     element.classList.toggle("sw-card-changed", card.changed);
+    element.classList.toggle("sw-card-seed", card.seed ?? false);
     element.style.setProperty("--sw-gutter", `${Math.max(1, tracks.order.length) * SubwayMap.TRACK}px`);
 
     const head = document.createElement("div");
@@ -549,7 +552,8 @@ var SubwayMap = new (class SubwayMap {
           box.append(skip);
         }
         const div = document.createElement("div");
-        div.className = "sw-row" + (row.changed ? " sw-changed" : "");
+        div.className = "sw-row" + (row.changed ? " sw-changed" : "") +
+          (row.traced ? " sw-traced" : "");
         div.append(this.gutter(tracks, position), this.dots(tracks, position));
         const number = document.createElement("a");
         number.className = "sw-lno";
@@ -585,10 +589,13 @@ var SubwayMap = new (class SubwayMap {
     const dot = document.createElement("a");
     dot.className = "sw-dot-link";
     const params = new URLSearchParams(document.location.search);
-    params.set("q", `${params.get("q") ?? ""} slice-format:svg`);
+    const trace = this.model.trace;
+    params.set("q", `${params.get("q") ?? ""} ${trace ? "follow-format" : "slice-format"}:svg`);
     dot.href = `${document.location.pathname}?${params}`;
     dot.textContent = "Dataflow graph";
-    dot.title = "The clusters' changes and the dataflow linking them, as a graph";
+    dot.title = trace
+      ? "The trace's steps, as a graph"
+      : "The clusters' changes and the dataflow linking them, as a graph";
     legend.append(heading, dot);
 
     const checkbox = (checked, onchange) => {
@@ -673,7 +680,8 @@ var SubwayMap = new (class SubwayMap {
       const section = document.createElement("details");
       section.open = true;
       const summary = document.createElement("summary");
-      summary.textContent = `Cluster ${cluster.n}` + (cluster.commits ? ` (${cluster.commits})` : "");
+      summary.textContent = trace?.title ??
+        (`Cluster ${cluster.n}` + (cluster.commits ? ` (${cluster.commits})` : ""));
       const list = document.createElement("ul");
       list.className = "sw-legend-families";
       list.append(...families.map(familyItem));

@@ -106,6 +106,25 @@ pub struct Unit {
 }
 
 impl Unit {
+    /// A unit of declarations' lines outside functions, of values (ex: a
+    /// trace's field's, from its declaration; see `subway::trace_subway_map`).
+    pub fn of_declarations(id: usize, path: &str, lines: Vec<u32>, keys: BTreeSet<Key>) -> Unit {
+        Unit {
+            id,
+            path: path.to_string(),
+            lines,
+            func: None,
+            func_sym: None,
+            class: None,
+            commits: vec![],
+            removed: false,
+            keys,
+            text: vec![],
+            body_calls: BTreeSet::new(),
+            body_sends: BTreeSet::new(),
+        }
+    }
+
     /// A unit of a function's values (by their keys), not of changed lines
     /// (ex: for a taint audit's maps; see `taint::audit_slicing`).
     pub fn of_values(id: usize, path: &str, func: &FuncIr, keys: BTreeSet<Key>) -> Unit {
@@ -161,7 +180,7 @@ impl Slicing {
 }
 
 /// Keys whose sharing doesn't mean much (they're everywhere), by name.
-fn is_hub(name: &str) -> bool {
+pub(crate) fn is_hub(name: &str) -> bool {
     matches!(
         name,
         "this" | "rv" | "aRv" | "result" | "aResult" | "self" | "mActor" | "mLoadInfo"
@@ -169,6 +188,16 @@ fn is_hub(name: &str) -> bool {
 }
 
 pub(crate) fn place_keys(f: &FuncIr, place: &Place, keys: &mut BTreeSet<Key>) {
+    place_keys_of(f, place, keys, false);
+}
+
+/// A place's keys, and its root's if it's a hub's (see `is_hub`; for subway
+/// maps, whose lines are their functions' values).
+pub(crate) fn place_keys_with_hubs(f: &FuncIr, place: &Place, keys: &mut BTreeSet<Key>) {
+    place_keys_of(f, place, keys, true);
+}
+
+fn place_keys_of(f: &FuncIr, place: &Place, keys: &mut BTreeSet<Key>, hubs: bool) {
     // (The most specific member: `mLoadInfo.mTimezoneOverride` is about
     // `mTimezoneOverride`, not everything in `mLoadInfo`.)
     if let Some(field) = place.last_field()
@@ -180,7 +209,7 @@ pub(crate) fn place_keys(f: &FuncIr, place: &Place, keys: &mut BTreeSet<Key>) {
     match &place.root {
         Root::Local(sym) if !sym.starts_with("name:") => {
             let name = f.names.get(sym).map(|s| s.as_str()).unwrap_or("");
-            if !is_hub(name) {
+            if hubs || !is_hub(name) {
                 keys.insert(Key::Local(f.sym, *sym));
             }
         }

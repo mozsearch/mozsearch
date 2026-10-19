@@ -1,0 +1,322 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/symbol/js-param-forward-subway
+---
+{
+  "cards": [
+    {
+      "id": 0,
+      "func": "viaXpcom",
+      "sym": "S_js_ts/src/dataflow.js/viaXpcom().",
+      "path": "ts/src/dataflow.js",
+      "changed": false,
+      "seed": true,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 18,
+              "text": "  const result = tsMethod(input, false);",
+              "writes": [
+                1
+              ],
+              "traced": true,
+              "stops": [
+                0,
+                1
+              ]
+            },
+            {
+              "line": 19,
+              "text": "  if (result) {",
+              "stops": [
+                1
+              ],
+              "traced": true
+            },
+            {
+              "line": 20,
+              "text": "    return describe({ enabled: result });",
+              "stops": [
+                1
+              ],
+              "traced": true
+            }
+          ],
+          "stops": [
+            0,
+            1
+          ],
+          "writes": [
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "func": "DataflowParams::TestBoolean",
+      "sym": "_ZN14DataflowParams11TestBooleanEbPbS0_",
+      "path": "dataflow/dataflow.cpp",
+      "changed": false,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 113,
+              "text": "  *_retval = a && *b;",
+              "writes": [
+                2
+              ],
+              "traced": true,
+              "stops": [
+                0,
+                2
+              ]
+            },
+            {
+              "line": 114,
+              "text": "  *b = a;",
+              "writes": [
+                0
+              ],
+              "traced": true,
+              "stops": [
+                0
+              ]
+            }
+          ],
+          "stops": [
+            0,
+            2
+          ],
+          "writes": [
+            0,
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "func": "describe",
+      "sym": "S_js_ts/src/dataflow.js/describe().",
+      "path": "ts/src/dataflow.js",
+      "changed": false,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 12,
+              "text": "  const label = pick(settings.enabled, \"off\");",
+              "writes": [
+                3
+              ],
+              "traced": true,
+              "stops": [
+                3
+              ]
+            },
+            {
+              "line": 13,
+              "text": "  settings.label = label;",
+              "writes": [
+                3
+              ],
+              "stops": [
+                3
+              ]
+            },
+            {
+              "line": 14,
+              "text": "  return label;",
+              "stops": [
+                3
+              ]
+            }
+          ],
+          "stops": [
+            3
+          ],
+          "writes": [
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "func": "pick",
+      "sym": "S_js_ts/src/dataflow.js/pick().",
+      "path": "ts/src/dataflow.js",
+      "changed": false,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 7,
+              "text": "  const choice = flag ? \"on\" : fallback;",
+              "writes": [
+                3
+              ],
+              "traced": true,
+              "stops": [
+                3
+              ]
+            },
+            {
+              "line": 8,
+              "text": "  return choice;",
+              "stops": [
+                3
+              ]
+            }
+          ],
+          "stops": [
+            3
+          ],
+          "writes": [
+            3
+          ]
+        }
+      ]
+    }
+  ],
+  "lines": [
+    {
+      "id": 0,
+      "label": "input",
+      "names": [
+        "input",
+        "a",
+        "b"
+      ],
+      "type": "any",
+      "semantic": "any",
+      "family": 0,
+      "parents": [],
+      "syms": [
+        "S_js_ts/src/dataflow.js/viaXpcom().(input)",
+        "V_d3ae7f85abd2b0a0_0",
+        "V_d3ae7f85abd2b0a0_1"
+      ]
+    },
+    {
+      "id": 1,
+      "label": "result",
+      "names": [
+        "result"
+      ],
+      "family": 0,
+      "parents": [
+        0
+      ],
+      "syms": [
+        "S_js_ts/src/dataflow.js/#2"
+      ]
+    },
+    {
+      "id": 2,
+      "label": "_retval",
+      "names": [
+        "_retval"
+      ],
+      "type": "_Bool *",
+      "semantic": "_Bool",
+      "family": 0,
+      "parents": [
+        0
+      ],
+      "syms": [
+        "V_d3ae7f85abd2b0a0_2"
+      ]
+    },
+    {
+      "id": 3,
+      "label": "settings",
+      "names": [
+        "settings",
+        "label",
+        "flag",
+        "fallback",
+        "choice"
+      ],
+      "type": "any",
+      "semantic": "any",
+      "family": 0,
+      "parents": [
+        1
+      ],
+      "syms": [
+        "S_js_ts/src/dataflow.js/#0",
+        "S_js_ts/src/dataflow.js/#1",
+        "S_js_ts/src/dataflow.js/describe().(settings)",
+        "S_js_ts/src/dataflow.js/pick().(fallback)",
+        "S_js_ts/src/dataflow.js/pick().(flag)"
+      ]
+    }
+  ],
+  "families": [
+    {
+      "id": 0,
+      "root": 0,
+      "label": "input",
+      "semantic": "any",
+      "cluster": 1
+    }
+  ],
+  "connectors": [
+    {
+      "from": 0,
+      "from_station": 0,
+      "to": 1,
+      "kind": "call",
+      "lines": [
+        0
+      ]
+    },
+    {
+      "from": 0,
+      "from_station": 0,
+      "to": 2,
+      "kind": "call",
+      "lines": [
+        1
+      ]
+    },
+    {
+      "from": 2,
+      "from_station": 0,
+      "to": 3,
+      "kind": "call",
+      "lines": [
+        3
+      ]
+    },
+    {
+      "from": 3,
+      "to": 2,
+      "to_station": 0,
+      "kind": "return",
+      "lines": [
+        3
+      ]
+    }
+  ],
+  "clusters": [
+    {
+      "n": 1,
+      "commits": ""
+    }
+  ],
+  "notes": [],
+  "trace": {
+    "title": "Where input (dataflow.js:17) goes",
+    "dir": "forward"
+  }
+}

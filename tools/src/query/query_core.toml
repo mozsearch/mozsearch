@@ -431,20 +431,28 @@ command = "crossref-expand"
 # Following values (see tools/src/dataflow/): where the value of a symbol (a
 # local, parameter, field or global) goes, or comes from, from the line
 # `follow-at` gives as "<path>#<line>" (as the context menu's "Follow value"
-# items do).
+# items do), as a subway map of the functions it goes through (see
+# static/js/subway.js): `follow-format` shows something else (svg, the
+# dataflow graph; json, text, dot).
 [term.follow-forward]
 [[term.follow-forward.group.dataflow]]
 command = "dataflow"
 args.symbol = "$0"
 args.direction = "forward"
-args.format = "svg"
+args.format = "subway"
 
 [term.follow-backward]
 [[term.follow-backward.group.dataflow]]
 command = "dataflow"
 args.symbol = "$0"
 args.direction = "backward"
-args.format = "svg"
+args.format = "subway"
+
+[term.follow-format]
+[[term.follow-format.group.dataflow]]
+command = "dataflow"
+priority = 1
+args.format = "$0"
 
 [term.follow-at]
 [[term.follow-at.group.dataflow]]

@@ -1,0 +1,2 @@
+# servers: local
+dataflow dataflow/dataflow.cpp --function UseDefault --backward value --format subway | jq ".contents | fromjson | del(.sym_info) | .cards[].stations[].rows[] |= del(.html)"

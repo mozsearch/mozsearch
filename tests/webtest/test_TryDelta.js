@@ -122,12 +122,13 @@ add_task(async function test_TryDeltaFollow() {
   const loadPromise = TestUtils.waitForLoad();
   TestUtils.click(backward);
   await loadPromise;
-  const svg = doc().querySelector(".query-result svg");
-  ok(svg?.textContent.includes("Where aLoudly (widget.cpp:6) comes from"),
+  // (Its subway map; see test_DataflowFollow.)
+  await waitForCondition(() => doc().documentElement.dataset.subwayReady, "The trace's map is drawn");
+  is(frame.contentWindow.SUBWAY.trace?.title, "Where aLoudly (widget.cpp:6) comes from",
      "The trace is of the push's code");
-  ok([...svg.querySelectorAll("a")].some(
-    a => a.getAttribute("xlink:href") === `/trydelta/rev/${head}/widget.cpp#6`),
-     "and its nodes link to the push's head's lines");
+  ok([...doc().querySelectorAll(".sw-traced .sw-lno")].some(
+    a => a.getAttribute("href") === `/trydelta/rev/${head}/widget.cpp#6`),
+     "and its steps' rows link to the push's head's lines");
 });
 
 // Slicing a revision's changes into the clusters of dataflow they touch (see
