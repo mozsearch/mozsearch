@@ -41,6 +41,9 @@ var OutlineSection = new (class OutlineSection {
     header.append(this.baselineNode, allLabel);
     this.summary = document.createElement("div");
     this.summary.className = "outline-summary";
+    // (Loading from the start: the default baseline waits for the release
+    // cuts first.)
+    this.summary.textContent = "Loading\u2026";
     this.list = document.createElement("ul");
     this.list.className = "outline-list";
     section.append(header, this.summary, this.list);
