@@ -275,6 +275,14 @@ map $status $expires {
   "301" 1m;
 }
 
+# Responses the web-server says nothing may cache (`Cache-Control: no-store`,
+# with `X-Accel-Expires: 0` for nginx; ex: a try push's page while it's being
+# imported) keep that for browsers too, rather than `$expires`'s.
+map $upstream_http_cache_control $no_store_expires {
+  "~no-store" off;
+  default $expires;
+}
+
 # The sidecar files of the web-server's pages (see `tools::sidecars`), which
 # requests with queries don't have.
 map $args $page_sidecar_html {
@@ -525,9 +533,14 @@ for repo in config['trees']:
     ], cache=False)
     location(f'/{repo}/suggest', ['proxy_pass http://127.0.0.1:8001;'])
     # A try push's page, which also takes POSTs asking for its import, and its
-    # import's status, which change until it's imported (see the tools'
-    # `try_import`).
-    location(f'/{repo}/try', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
+    # files' stack strips and excerpts, cached as pages are once the push is
+    # imported (which doesn't change), but not before (the web-server says
+    # `no-store`, and `X-Accel-Expires: 0`, until then), and its import's
+    # status, which changes until it's imported (see the tools' `try_import`).
+    location(f'/{repo}/try', [
+        'expires $no_store_expires;',
+        'proxy_pass http://127.0.0.1:8001;',
+    ])
     location(f'/{repo}/try-status', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
 
     # Handled by Rust `pipeline-server.rs`

@@ -16,6 +16,12 @@ async function statusOf(push) {
   return (await fetch(`/spechist/try-status/${push}`)).json();
 }
 
+// The Cache-Control header of a try push's page, as nginx gives it.
+async function cacheControlOf(push) {
+  const response = await fetch(`/spechist/try/${push}`, { cache: "no-store" });
+  return response.headers.get("Cache-Control");
+}
+
 add_task(async function test_TryImport() {
   await TestUtils.loadPath(`/spechist/try/${PUSH}`);
   ok(doc().querySelector(".try-import-status")?.textContent.includes("hasn't imported"),
@@ -23,6 +29,7 @@ add_task(async function test_TryImport() {
   ok(parseFloat(frame.contentWindow.getComputedStyle(doc().querySelector(".try-import")).paddingLeft) > 0,
      "padded in from the page's edge, as its explore page is");
   is((await statusOf(PUSH)).state, "notImported", "and so does its status");
+  is(await cacheControlOf(PUSH), "no-store", "which nothing caches until it's imported");
 
   const button = doc().querySelector(".try-import-button");
   ok(button, "The page has a button to import it");
@@ -40,6 +47,7 @@ add_task(async function test_TryImport() {
   ok(doc().querySelector('.explore-file a[href*="cite.cpp"]'),
      "and the files they changed");
   is((await statusOf(PUSH)).state, "imported", "Its status says it's imported");
+  is(await cacheControlOf(PUSH), "max-age=120", "and from then on, it's cached as pages are");
 
   // The tree's views have the push's revisions' history, ex: the blame of the
   // file its first commit changed, at that commit.

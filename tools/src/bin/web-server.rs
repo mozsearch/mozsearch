@@ -132,6 +132,9 @@ impl WebResponse {
         }
     }
 
+    /// A response nothing may cache (ex: a try import's status): browsers
+    /// (`Cache-Control: no-store`), nor nginx (`X-Accel-Expires: 0`, which it
+    /// heeds even where it ignores `Cache-Control`; see nginx-setup.py).
     fn uncached(self) -> WebResponse {
         WebResponse {
             no_store: true,
@@ -1106,10 +1109,11 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                     return WebResponse::not_found();
                 };
                 let (server, rev) = (server.clonify(), path[4].to_string());
+                // (Cached once it's there: an imported push doesn't change.)
                 return match format::run_on_runtime(async move {
                     server.stack_strip_json(&stack, &rev, &file_path).await
                 }) {
-                    Ok(json) => WebResponse::json(json).uncached(),
+                    Ok(json) => WebResponse::json(json),
                     Err(err) => WebResponse::internal_error(server_error_message(&err)).uncached(),
                 };
             }
@@ -1128,7 +1132,7 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                     path[5],
                     &file_path,
                 ) {
-                    Ok(json) => WebResponse::json(json).uncached(),
+                    Ok(json) => WebResponse::json(json),
                     Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
                 };
             }
@@ -1158,7 +1162,12 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 notice.as_deref(),
                 &mut writer,
             ) {
-                Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()).uncached(),
+                // (The imported push's page doesn't change, but its import's
+                // status's and a POST's do.)
+                Ok(true) if notice.is_none() => {
+                    WebResponse::html(String::from_utf8(writer).unwrap())
+                }
+                Ok(_) => WebResponse::html(String::from_utf8(writer).unwrap()).uncached(),
                 Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
             }
         }
@@ -1520,7 +1529,9 @@ async fn main() {
                     builder = builder.header(header::LOCATION, loc);
                 }
                 if response.no_store {
-                    builder = builder.header(header::CACHE_CONTROL, "no-store");
+                    builder = builder
+                        .header(header::CACHE_CONTROL, "no-store")
+                        .header("X-Accel-Expires", "0");
                 }
                 if response.shared {
                     builder = builder.header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");

@@ -9711,14 +9711,16 @@ fn render_explore(
 /// tree has imported it, the explore page of its commits, and before, its
 /// import's status (with `notice`, ex: why it couldn't be asked for), and a
 /// button asking for it (see `request_try_import`), and while it waits or
-/// runs, polling its status (see `format_try_status`).
+/// runs, polling its status (see `format_try_status`).  Returns whether it's
+/// the imported push's page, which doesn't change (so it can be cached),
+/// rather than its import's status's.
 pub fn format_try(
     server: &(dyn AbstractServer + Send + Sync),
     tree_name: &str,
     rev: &str,
     notice: Option<&str>,
     writer: &mut dyn Write,
-) -> Result<(), &'static str> {
+) -> Result<bool, &'static str> {
     use crate::try_import::{ImportStatus, normalize_rev};
 
     let rev = normalize_rev(rev).ok_or("Not a try push's revision")?;
@@ -9779,14 +9781,15 @@ pub fn format_try(
                 scopes: vec![],
                 semantic_head: push.semantic_head,
             };
-            return render_explore(
+            render_explore(
                 Some(server),
                 tree_name,
                 &format!("Try push {}", rev),
                 data,
                 extras,
                 writer,
-            );
+            )?;
+            return Ok(true);
         }
         _ => {}
     }
@@ -9814,7 +9817,7 @@ pub fn format_try(
         .render_to(writer, &globals)
         .map_err(|_| "Template problems")?;
     output::generate_footer(&opt, tree_name, "", writer).unwrap();
-    Ok(())
+    Ok(false)
 }
 
 /// The status of the import of the try push `rev` into `server`'s tree.
