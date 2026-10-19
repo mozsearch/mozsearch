@@ -8918,8 +8918,8 @@ fn render_explore(
         extra_content_classes: "explore",
         search_rev: extras.semantic_head.as_deref(),
     };
+    // (explore.liquid has the navigation panel, with the facets.)
     output::generate_header(&opt, writer)?;
-    output::generate_panel(&opt, writer, &[], true)?;
     let mut file_groups = data["file_groups"].clone();
     unescape_explore_names(&mut file_groups);
     let globals = liquid::to_object(&json!({

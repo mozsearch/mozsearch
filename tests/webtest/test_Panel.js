@@ -38,8 +38,10 @@ add_task(async function test_PanelOnLoad() {
       itemCount: 0,
     },
     {
+      // (Expanded with its file-centric results' facets; see
+      // test_QueryFacets.js.)
       path: "/tests/query/default?q=webtest",
-      expanded: false,
+      expanded: true,
       // Debug items are added on tests repository.
       itemCount: null,
     },

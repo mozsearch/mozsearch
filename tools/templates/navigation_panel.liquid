@@ -12,6 +12,11 @@
            else
            %}aria-expanded="false" aria-hidden="true" style="display: none;"{%
            endif %}>
+{%- comment %}(The facets filtering the page's list of files, if it has
+one, ex: an explore page's or a query's results; see facet_bar.liquid.){% endcomment -%}
+{%- if panel_facets %}
+  {% include 'facet_bar.liquid' facets: panel_facets, group_by: panel_group_by %}
+{%- endif %}
 {%- comment %}(Sections rendered by the page's template, ex: a directory's
 tests' CI results.){% endcomment -%}
 {%- if extra_html %}

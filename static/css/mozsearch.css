@@ -3539,6 +3539,46 @@ mark.query-match {
   font: inherit;
   padding: 0 4px;
 }
+/* In the navigation panel (see navigation_panel.liquid): a section of it,
+   whose facets stack, each value on its own if it doesn't fit beside others,
+   with the choice of grouping under them. */
+#panel-content .facet-box {
+  margin: 0;
+  padding: 0.5rem;
+  border: 0;
+  border-bottom: 1px solid var(--page-border-color);
+  border-radius: 0;
+  background: none;
+}
+#panel-content .facet-header {
+  flex-wrap: wrap;
+}
+/* (On a row of its own, so that saying that files are hidden doesn't move the
+   button showing them onto another row, which moved the header.) */
+#panel-content .facet-status {
+  order: 1;
+  flex-basis: 100%;
+}
+#panel-content .facet-bar {
+  flex-direction: column;
+  gap: 0.6em;
+}
+#panel-content .facet-filters {
+  gap: 0.5em;
+  width: 100%;
+}
+#panel-content .facet-label {
+  flex-basis: 100%;
+}
+#panel-content .facet-value {
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+#panel-content .facet-group-by {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
 .facet-group-header {
   font-size: 1em;
   margin: 0.8em 0 0.2em;
