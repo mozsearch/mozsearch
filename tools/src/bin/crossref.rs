@@ -68,7 +68,7 @@ use tools::rendered_docs::is_doc_path;
 use tools::templating::builder::build_and_parse_ontology_ingestion_explainer;
 use tools::templating::builder::build_and_parse_repo_ingestion_explainer;
 use tools::tree_sitter_support::preprocessor::{ConditionalStacks, is_c_family};
-use tools::utils::case_semisensitive_cmp;
+use tools::utils::case_semisensitive_str_cmp;
 use ustr::Ustr;
 use ustr::UstrMap;
 use ustr::UstrSet;
@@ -3321,7 +3321,7 @@ fn write_identifiers(tree_config: &TreeConfig, id_table: IdTable) {
         .flat_map(|(key, syms)| syms.into_iter().map(move |sym| (key, sym)))
         .map(|(id, sym)| format!("{} {}\n", id, sym))
         .collect();
-    lines.sort_unstable_by(|lhs, rhs| case_semisensitive_cmp(lhs.chars(), rhs.chars()));
+    lines.sort_unstable_by(|lhs, rhs| case_semisensitive_str_cmp(lhs, rhs));
 
     for line in lines {
         let _ = idf.write_all(line.as_bytes());

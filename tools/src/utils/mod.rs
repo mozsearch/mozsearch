@@ -48,3 +48,26 @@ where
 {
     case_insensitive_cmp(lhs.clone(), rhs.clone()).then_with(move || lhs.cmp(rhs))
 }
+
+/// `case_semisensitive_cmp` of two strings, by their bytes if they're ASCII
+/// (whose uppercase is ASCII's, as `char::to_uppercase` has it, so the order is
+/// the same), which is ~10 times faster than by their chars' uppercase (ex:
+/// sorting firefox-disco's identifiers, single-threaded in crossref).
+///
+/// ```
+/// # use tools::utils::{case_semisensitive_cmp, case_semisensitive_str_cmp};
+/// for (a, b) in [("ABCD", "ABC"), ("abc", "ABC"), ("a_b", "aB"), ("é", "E"), ("x", "x")] {
+///     assert_eq!(case_semisensitive_str_cmp(a, b), case_semisensitive_cmp(a.chars(), b.chars()));
+/// }
+/// ```
+pub fn case_semisensitive_str_cmp(lhs: &str, rhs: &str) -> core::cmp::Ordering {
+    if lhs.is_ascii() && rhs.is_ascii() {
+        let (lhs, rhs) = (lhs.as_bytes(), rhs.as_bytes());
+        lhs.iter()
+            .map(u8::to_ascii_uppercase)
+            .cmp(rhs.iter().map(u8::to_ascii_uppercase))
+            .then_with(|| lhs.cmp(rhs))
+    } else {
+        case_semisensitive_cmp(lhs.chars(), rhs.chars())
+    }
+}
