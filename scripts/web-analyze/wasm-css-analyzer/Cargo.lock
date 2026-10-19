@@ -4574,7 +4574,7 @@ dependencies = [
 [[package]]
 name = "tree-sitter-mozcpp"
 version = "0.1.0"
-source = "git+https://github.com/mozsearch/tree-sitter-mozcpp?rev=54c5a7c5b6e901e6d227ab91137a2a4111c9c71f#54c5a7c5b6e901e6d227ab91137a2a4111c9c71f"
+source = "git+https://github.com/mozsearch/tree-sitter-mozcpp?rev=67015e08f7e2757aaa63110bf814d66c8573d805#67015e08f7e2757aaa63110bf814d66c8573d805"
 dependencies = [
  "cc",
  "tree-sitter-language",
