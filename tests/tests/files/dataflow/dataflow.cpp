@@ -185,3 +185,13 @@ void TaintEntry(const Ticket& aTicket, const Ticket& aOther) {
   Ticket copy = aOther;
   UseTicket(copy);
 }
+
+// (Both of an `||`'s validations bless what follows.)
+void TaintEntryBoth(const Ticket& aTicket, const Ticket& aOther) {
+  if (!CheckTicket(aTicket) || !CheckTicket(aOther)) {
+    return;
+  }
+
+  UseTicket(aTicket);
+  UseTicket(aOther);
+}

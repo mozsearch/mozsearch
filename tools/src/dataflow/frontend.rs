@@ -849,25 +849,33 @@ impl<'c, 'a> Builder<'c, 'a> {
         }
     }
 
-    /// The IR call of a guard's call's syntax, among the calls since
-    /// `calls_before`: at its position, or (in a macro's expansion, whose
-    /// calls are at the macro) by its function's name.
-    fn guard_ir_call(&self, call: Node, calls_before: usize) -> Option<usize> {
-        let (line, col) = self.pos(call);
-        let name = call
-            .child_by_field_name("function")
-            .map(|f| self.t(f).rsplit("::").next().unwrap_or("").to_string())
-            .unwrap_or_default();
+    /// The IR calls of guards' calls' syntax, among the calls since
+    /// `calls_before`: at their positions, or (in a macro's expansion, whose
+    /// calls are at the macro) by their functions' names, in order.
+    fn guard_ir_calls(&self, calls_syntax: &[Node], calls_before: usize) -> Vec<usize> {
         let calls = &self.ir.calls[calls_before.min(self.ir.calls.len())..];
-        calls
-            .iter()
-            .find(|c| c.line == line && c.col == col)
-            .or_else(|| {
-                calls.iter().find(|c| {
-                    !name.is_empty() && c.callee_pretty.rsplit("::").next() == Some(name.as_str())
-                })
-            })
-            .map(|c| c.id)
+        let mut out: Vec<usize> = vec![];
+        for call in calls_syntax {
+            let (line, col) = self.pos(*call);
+            let name = call
+                .child_by_field_name("function")
+                .map(|f| self.t(f).rsplit("::").next().unwrap_or("").to_string())
+                .unwrap_or_default();
+            let found = calls
+                .iter()
+                .find(|c| c.line == line && c.col == col && !out.contains(&c.id))
+                .or_else(|| {
+                    calls.iter().find(|c| {
+                        !name.is_empty()
+                            && c.callee_pretty.rsplit("::").next() == Some(name.as_str())
+                            && !out.contains(&c.id)
+                    })
+                });
+            if let Some(c) = found {
+                out.push(c.id);
+            }
+        }
+        out
     }
 
     fn lambda_body(&mut self, body: Node<'c>, params: Option<Node<'c>>) {
@@ -1100,7 +1108,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                 for child in named(node) {
                     self.eval(child);
                 }
-                // (An assertion of a call's success guards the rest of the
+                // (An assertion of calls' success guards the rest of the
                 // block.)
                 if let Some(expr) = named(node).first()
                     && expr.kind() == "call_expression"
@@ -1109,11 +1117,12 @@ impl<'c, 'a> Builder<'c, 'a> {
                     && let Some(arg) = expr
                         .child_by_field_name("arguments")
                         .and_then(|args| named(args).into_iter().next())
-                    && let Some((call, false)) = guard_call(arg, |n| self.t(n).to_string())
-                    && let Some(c) = self.guard_ir_call(call, calls_before)
                 {
-                    self.open_guards
-                        .push((c, self.ir.events.len(), self.block_depth));
+                    let calls = guard_calls(arg, true, &|n| self.t(n).to_string());
+                    for c in self.guard_ir_calls(&calls, calls_before) {
+                        self.open_guards
+                            .push((c, self.ir.events.len(), self.block_depth));
+                    }
                 }
             }
             "return_statement" | "co_return_statement" => {
@@ -1126,34 +1135,54 @@ impl<'c, 'a> Builder<'c, 'a> {
                 if let Some(cond) = cond {
                     self.cpp_condition(cond);
                 }
-                // (A call's success guarding the consequence, or if the
-                // consequence exits when the call fails, the rest of the
-                // block; see `Guard`.)
-                let guard = cond
-                    .and_then(|cond| guard_call(cond, |n| self.t(n).to_string()))
-                    .and_then(|(call, negated)| {
-                        Some((self.guard_ir_call(call, calls_before)?, negated))
-                    });
+                // (The calls whose success the condition's truth implies
+                // guard the consequence; those whose success its falsehood
+                // implies guard the alternative, and if the consequence
+                // exits, the rest of the block; see `Guard`.)
+                let (when_true, when_false) = match cond {
+                    Some(cond) => {
+                        let text = |n: Node| self.t(n).to_string();
+                        (
+                            self.guard_ir_calls(&guard_calls(cond, true, &text), calls_before),
+                            self.guard_ir_calls(&guard_calls(cond, false, &text), calls_before),
+                        )
+                    }
+                    None => (vec![], vec![]),
+                };
                 let consequence = node.child_by_field_name("consequence");
                 let start = self.ir.events.len();
                 if let Some(c) = consequence {
                     self.stmt(c);
                 }
-                if let Some((c, false)) = guard {
-                    self.ir.guards.push(Guard {
-                        call: c,
-                        start,
-                        end: self.ir.events.len(),
-                    });
+                for &c in &when_true {
+                    if start < self.ir.events.len() {
+                        self.ir.guards.push(Guard {
+                            call: c,
+                            start,
+                            end: self.ir.events.len(),
+                        });
+                    }
                 }
                 if let Some(alt) = node.child_by_field_name("alternative") {
+                    let start = self.ir.events.len();
                     self.stmts(alt);
+                    for &c in &when_false {
+                        if start < self.ir.events.len() {
+                            self.ir.guards.push(Guard {
+                                call: c,
+                                start,
+                                end: self.ir.events.len(),
+                            });
+                        }
+                    }
                 }
-                if let (Some((c, true)), Some(consequence)) = (guard, consequence)
+                if let Some(consequence) = consequence
                     && exits(consequence, &|n| self.t(n).to_string())
                 {
-                    self.open_guards
-                        .push((c, self.ir.events.len(), self.block_depth));
+                    for &c in &when_false {
+                        self.open_guards
+                            .push((c, self.ir.events.len(), self.block_depth));
+                    }
                 }
             }
             "while_statement" | "switch_statement" => {
@@ -1260,11 +1289,12 @@ impl<'c, 'a> Builder<'c, 'a> {
                     .next();
                 if let (Some(name), Some(arg)) = (name, first_arg)
                     && GUARDING_MACROS.contains(&self.t(name))
-                    && let Some((call, false)) = guard_call(arg, |n| self.t(n).to_string())
-                    && let Some(c) = self.guard_ir_call(call, calls_before)
                 {
-                    self.open_guards
-                        .push((c, self.ir.events.len(), self.block_depth));
+                    let calls = guard_calls(arg, true, &|n| self.t(n).to_string());
+                    for c in self.guard_ir_calls(&calls, calls_before) {
+                        self.open_guards
+                            .push((c, self.ir.events.len(), self.block_depth));
+                    }
                 }
             }
             "break_statement"
@@ -3303,34 +3333,63 @@ const GUARDING_MACROS: [&str; 5] = [
 /// Macros wrapping conditions without changing them.
 const CONDITION_WRAPPERS: [&str; 3] = ["NS_WARN_IF", "MOZ_UNLIKELY", "MOZ_LIKELY"];
 
-/// The call a condition is (`Validate(x)`, or negated, `!Validate(x)`), if
-/// it's one, seeing through parentheses and `NS_WARN_IF`-like wrappers: the
-/// call's syntax, and whether it's negated.
-fn guard_call<'t>(node: Node<'t>, text: impl Fn(Node<'t>) -> String) -> Option<(Node<'t>, bool)> {
-    let mut node = node;
-    let mut negated = false;
-    loop {
-        match node.kind() {
-            "condition_clause" => node = node.child_by_field_name("value")?,
-            "parenthesized_expression" => node = *named(node).first()?,
-            "unary_expression"
-                if node
-                    .child_by_field_name("operator")
-                    .is_some_and(|op| text(op) == "!") =>
-            {
-                negated = !negated;
-                node = node.child_by_field_name("argument")?;
-            }
-            "call_expression" => {
-                let function = node.child_by_field_name("function")?;
-                if CONDITION_WRAPPERS.contains(&text(function).as_str()) {
-                    node = *named(node.child_by_field_name("arguments")?).first()?;
-                    continue;
-                }
-                return Some((node, negated));
-            }
-            _ => return None,
+/// The calls whose success a condition's being `want` implies: for true,
+/// `Validate(x)`'s, and both sides' of `&&`; for false, `!Validate(x)`'s, and
+/// both sides' of `||` (ex: `if (!V(a) || !V(b)) { return …; }` validates
+/// both after it), seeing through parentheses and `NS_WARN_IF`-like
+/// wrappers.
+fn guard_calls<'t>(node: Node<'t>, want: bool, text: &dyn Fn(Node<'t>) -> String) -> Vec<Node<'t>> {
+    match node.kind() {
+        "condition_clause" => node
+            .child_by_field_name("value")
+            .map_or(vec![], |value| guard_calls(value, want, text)),
+        "parenthesized_expression" => named(node)
+            .first()
+            .map_or(vec![], |inner| guard_calls(*inner, want, text)),
+        "unary_expression"
+            if node
+                .child_by_field_name("operator")
+                .is_some_and(|op| text(op) == "!") =>
+        {
+            node.child_by_field_name("argument")
+                .map_or(vec![], |arg| guard_calls(arg, !want, text))
         }
+        "binary_expression" => {
+            let op = node
+                .child_by_field_name("operator")
+                .map(|op| text(op))
+                .unwrap_or_default();
+            let both = matches!(
+                (op.as_str(), want),
+                ("&&" | "and", true) | ("||" | "or", false)
+            );
+            if !both {
+                return vec![];
+            }
+            let mut out = vec![];
+            for side in ["left", "right"] {
+                if let Some(side) = node.child_by_field_name(side) {
+                    out.extend(guard_calls(side, want, text));
+                }
+            }
+            out
+        }
+        "call_expression" => {
+            let Some(function) = node.child_by_field_name("function") else {
+                return vec![];
+            };
+            if CONDITION_WRAPPERS.contains(&text(function).as_str()) {
+                return node
+                    .child_by_field_name("arguments")
+                    .and_then(|args| named(args).first().copied())
+                    .map_or(vec![], |arg| guard_calls(arg, want, text));
+            }
+            match want {
+                true => vec![node],
+                false => vec![],
+            }
+        }
+        _ => vec![],
     }
 }
 
@@ -3650,5 +3709,94 @@ mod tests {
         assert!(lines(rest).contains(&5) && lines(rest).contains(&7) && lines(rest).contains(&9));
         let then = f.guards.iter().find(|g| f.calls[g.call].line == 6).unwrap();
         assert_eq!(lines(then), vec![7]);
+    }
+
+    /// `if (!V(a) || NS_WARN_IF(!V(b))) { return …; }` validates both for
+    /// the rest of the block; `if (V(a) && V(b)) { … } else { … }`, both for
+    /// the consequence, neither for the alternative; `if (x && !V(a))
+    /// { return …; }` neither.
+    #[test]
+    fn test_cpp_compound_guards() {
+        let source = "bool Foo::Recv(const char* aP, const char* aQ) {\n  \
+                      if (!Check(aP) || NS_WARN_IF(!Check(aQ))) {\n    \
+                      return false;\n  \
+                      }\n  \
+                      Use(aP);\n  \
+                      if (Check(aP) && Check(aQ)) {\n    \
+                      Use(aQ);\n  \
+                      } else {\n    \
+                      Use(aP);\n  \
+                      }\n  \
+                      if (aQ && !Check(aP)) {\n    \
+                      return false;\n  \
+                      }\n  \
+                      return true;\n\
+                      }\n";
+        let mut values = vec![rec(
+            source,
+            1,
+            "Recv",
+            "def,function",
+            "function Foo::Recv",
+            "_ZRecv",
+            None,
+        )];
+        for (name, sym) in [("aP", "V_p"), ("aQ", "V_q")] {
+            values.push(rec(
+                source,
+                1,
+                name,
+                "",
+                &format!("variable {}", name),
+                sym,
+                Some("const char *"),
+            ));
+        }
+        for (line, name, sym) in [
+            (2, "Check", "_ZCheck"),
+            (5, "Use", "_ZUse"),
+            (6, "Check", "_ZCheck"),
+            (7, "Use", "_ZUse"),
+            (9, "Use", "_ZUse"),
+            (11, "Check", "_ZCheck"),
+        ] {
+            values.push(rec(
+                source,
+                line,
+                name,
+                "function,use",
+                &format!("function {}", name),
+                sym,
+                None,
+            ));
+        }
+        let recs = FileRecords::from_values(values);
+        let file = build_file_ir("a.cpp", source, &recs).unwrap();
+        let f = &file.funcs[0];
+        let lines = |guard: &Guard| -> Vec<u32> {
+            f.events[guard.start..guard.end]
+                .iter()
+                .map(|e| e.line)
+                .collect()
+        };
+        let at = |line: u32| -> Vec<Vec<u32>> {
+            f.guards
+                .iter()
+                .filter(|g| f.calls[g.call].line == line)
+                .map(lines)
+                .collect()
+        };
+        // (Both of line 2's calls guard the rest of the block.)
+        let rest = at(2);
+        assert_eq!(rest.len(), 2, "{:?}", f.guards);
+        assert!(
+            rest.iter().all(|l| l.contains(&5) && l.contains(&14)),
+            "{:?}",
+            rest
+        );
+        // (Both of line 6's, the consequence only.)
+        assert_eq!(at(6), vec![vec![7], vec![7]], "{:?}", f.guards);
+        // (Line 11's mixed condition guards nothing.)
+        assert!(at(11).is_empty(), "{:?}", f.guards);
     }
 }
