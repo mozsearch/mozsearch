@@ -130,6 +130,45 @@ add_task(async function test_ExploreFacetsFromURL() {
      "The status says how many files are shown");
 });
 
+// Hovering over a changed definition shows its excerpt in the navigation
+// panel: its changed lines (added, and removed ones) and lines around them,
+// with gaps, and the stack strip of the commits which changed them; clicking
+// keeps it there until Escape.
+add_task(async function test_ExploreExcerpts() {
+  await TestUtils.loadPath("/searchfox/explore/bug/2002694");
+
+  const doc = frame.contentDocument;
+  const row = name => [...doc.querySelectorAll(".explore-outline-rows tr[data-range]")]
+    .find(r => r.querySelector(".explore-outline-name").textContent == name);
+  const section = doc.querySelector("#panel-excerpt");
+  ok(section, "The panel has a section for the excerpts");
+  TestUtils.dispatchMouseEvent("mouseover", row("combineRanges"));
+  await waitForCondition(() => section.querySelector(".excerpt-row"), "Hovering shows the excerpt");
+  is(section.querySelector(".excerpt-name").textContent, "combineRanges", "of the definition");
+  is(section.querySelectorAll(".excerpt-added").length, 4, "with its added lines");
+  is(section.querySelectorAll(".excerpt-removed").length, 4, "and its removed lines");
+  const numbers = [...section.querySelectorAll(".excerpt-row:not(.excerpt-removed) .excerpt-lineno")]
+    .map(a => Number(a.textContent));
+  is(numbers[0], 2060, "and its first line");
+  ok(numbers.every((n, i) => i == 0 || numbers[i - 1] < n), "in order");
+  ok(/^\/searchfox\/rev\/[0-9a-f]{40}\/clang-plugin\/MozsearchIndexer\.cpp#2060$/.test(
+       section.querySelector(".excerpt-lineno").getAttribute("href")),
+     "linking to their lines");
+  ok(section.querySelector(".excerpt-added .excerpt-slot"), "The changed lines have their stack strip");
+  ok(section.querySelector(".excerpt-row [class^=\"syn_\"]"), "The lines are highlighted");
+
+  TestUtils.click(row("combineRanges").querySelector(".explore-outline-change"));
+  ok(row("combineRanges").classList.contains("excerpt-selected"), "Clicking keeps the excerpt");
+  TestUtils.dispatchMouseEvent("mouseover", row("validateRange"));
+  await new Promise(resolve => setTimeout(resolve, 200));
+  is(section.querySelector(".excerpt-name").textContent, "combineRanges", "while hovering over others");
+  doc.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  ok(!row("combineRanges").classList.contains("excerpt-selected"), "until Escape");
+  TestUtils.dispatchMouseEvent("mouseover", row("validateRange"));
+  await waitForCondition(() => section.querySelector(".excerpt-name")?.textContent == "validateRange",
+                         "after which hovering shows others'");
+});
+
 // The files can be sorted by how many tokens they changed, biggest first,
 // and the groups (but path kinds, whose order is their own) by their biggest
 // files'.

@@ -94,3 +94,6 @@ files, if there are any; see facet_bar.liquid.){% endcomment %}
   {%- endif %}
 </div>
 <script src="/{{ tree }}/static/js/explore.js"></script>
+{%- if outlines %}
+<script defer src="/{{ tree }}/static/js/outline-excerpts.js"></script>
+{%- endif %}

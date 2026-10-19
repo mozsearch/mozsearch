@@ -3353,6 +3353,101 @@ h2.sp-called-heading {
 .explore-outline-rows .outline-removed .explore-outline-name > a {
   text-decoration: line-through;
 }
+/* The definition whose excerpt the navigation panel shows, and the one kept
+   there by a click (see outline-excerpts.js). */
+.explore-outline-rows tr.excerpt-shown {
+  background-color: var(--line-highlight-background);
+}
+.explore-outline-rows tr.excerpt-selected {
+  outline: 1px solid var(--link-color);
+  outline-offset: -1px;
+}
+/* The navigation panel's excerpt of a changed definition (see
+   outline-excerpts.js): its changed lines (added, and removed ones) and the
+   lines it chose around them, with gaps for the others, and the stack strip
+   of the commits which changed each line. */
+.excerpt-section {
+  padding: 0.25rem 0.5rem 0.5rem;
+  font-size: 85%;
+}
+.excerpt-section.excerpt-loading {
+  opacity: 0.6;
+}
+.excerpt-hint {
+  margin: 0.25rem 0;
+  color: var(--page-subtle-foreground);
+}
+.excerpt-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.5em;
+  margin-bottom: 0.25rem;
+}
+.excerpt-name {
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
+.excerpt-path {
+  flex-basis: 100%;
+  color: var(--page-subtle-foreground);
+  overflow-wrap: anywhere;
+}
+.excerpt-rows {
+  overflow-x: auto;
+}
+.excerpt-row {
+  display: flex;
+  align-items: stretch;
+  width: max-content;
+  min-width: 100%;
+}
+.excerpt-row > code.source-line {
+  flex-grow: 1;
+  white-space: pre;
+}
+.excerpt-lineno {
+  flex: 0 0 3em;
+  padding-inline-end: 0.5em;
+  text-align: end;
+  color: var(--page-subtle-foreground);
+  text-decoration: none;
+}
+.excerpt-added {
+  background-color: color-mix(in srgb, var(--diff-plus-line-background) 70%, transparent);
+}
+.excerpt-removed {
+  background-color: color-mix(in srgb, var(--diff-minus-line-background) 70%, transparent);
+}
+.excerpt-structure > .excerpt-lineno {
+  box-shadow: inset -2px 0 var(--page-subtle-foreground);
+}
+.excerpt-gap {
+  padding-inline-start: 1em;
+  color: var(--page-subtle-foreground);
+  font-style: italic;
+}
+.excerpt-strip {
+  position: relative;
+  flex-shrink: 0;
+  margin-inline-end: 2px;
+}
+.excerpt-slot {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background-color: var(--link-color);
+  opacity: 0.65;
+}
+.excerpt-scar {
+  top: auto;
+  height: 3px;
+  background-color: #e15759;
+}
+.excerpt-slot-hot {
+  opacity: 1;
+  outline: 1px solid var(--link-color);
+}
 .explore-track {
   fill: var(--blame-light-gray);
   opacity: 0.4;

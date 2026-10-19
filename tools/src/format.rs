@@ -4972,10 +4972,18 @@ fn outline_rows(
                 ),
                 _ => (&to_name, &to_link, None),
             };
+            // (Its lines, by which explore pages' panel finds its excerpt;
+            // see `outline_excerpts_json`.)
+            let range = match (entry.status, entry.lines, entry.from_lines) {
+                (OutlineStatus::Removed, _, Some(from)) => Some(excerpt_range_key(from, true)),
+                (OutlineStatus::Removed, _, None) => None,
+                (_, lines, _) => lines.map(|lines| excerpt_range_key(lines, false)),
+            };
             json!({
                 "status": status,
                 "depth": entry.depth,
                 "context": context[index],
+                "range": range,
                 "title": format!(
                     "{} ({})",
                     unescape_name(&entry.pretty),
@@ -8995,6 +9003,7 @@ fn order_explore_files(file_groups: &mut serde_json::Value) {
             for file in files {
                 file["outline_rows"] = serde_json::Value::Null;
                 file["change_size"] = serde_json::Value::Null;
+                file["excerpt_url"] = serde_json::Value::Null;
             }
         }
     }
@@ -9013,10 +9022,13 @@ const EXPLORE_OUTLINE_CONCURRENCY: usize = 8;
 /// they're in (`outline_rows`), after a row of the changes outside of them,
 /// if any, with their commits linking to the page's (`commits`), and how
 /// many tokens the diff added and removed (`change_size`, for facets.js's
-/// sorting by it).  The diffs are `server`'s.
+/// sorting by it), and the URL of the data of its rows' excerpts, if the page
+/// is a stack's (`stack`, its URL in the tree, ex: "try/abcdef012345"; see
+/// `outline_excerpts_json`).  The diffs are `server`'s.
 fn explore_outlines(
     server: &(dyn AbstractServer + Send + Sync),
     tree_name: &str,
+    stack: &str,
     commits: &serde_json::Value,
     file_groups: &mut serde_json::Value,
 ) {
@@ -9103,6 +9115,7 @@ fn explore_outlines(
                 "context": false,
                 "title": "The changes outside of any definition",
                 "name": explore::TOP_LEVEL,
+                "range": EXCERPT_TOP_LEVEL,
                 "link": null,
                 "note": null,
                 "badge": outline_delta(&diff.toplevel),
@@ -9124,9 +9137,457 @@ fn explore_outlines(
         let file = &mut file_groups[g]["files"][f];
         if !shown.is_empty() {
             file["outline_rows"] = json!(shown);
+            if !stack.is_empty() {
+                file["excerpt_url"] = json!(format!(
+                    "/{}/{}/excerpts/{}/{}/{}",
+                    tree_name,
+                    stack,
+                    diff.from.rev,
+                    diff.to.rev,
+                    url_encode_path(&path)
+                ));
+            }
         }
         file["change_size"] = json!(size);
     }
+}
+
+/// The key of an outline diff's entry's excerpt in its excerpts' data (see
+/// `outline_excerpts_json`), by its lines in the "to" file, or for removed
+/// ones, in the "from" file: "12-40" or "from:12-40".
+fn excerpt_range_key((first, last): (u32, u32), from: bool) -> String {
+    format!("{}{}-{}", if from { "from:" } else { "" }, first, last)
+}
+
+/// The key of the excerpt of the changes outside of any definition (see
+/// `excerpt_range_key`).
+const EXCERPT_TOP_LEVEL: &str = "top";
+
+/// The most lines of a definition an excerpt's data has all of (see
+/// `outline_excerpts_json`); bigger ones' have the lines around their changes
+/// (`EXCERPT_WINDOW`) and their structure's.
+const EXCERPT_WHOLE_LINES: u32 = 300;
+
+/// How many lines before and after a change an excerpt's data has, for
+/// definitions bigger than `EXCERPT_WHOLE_LINES` and outside of definitions.
+const EXCERPT_WINDOW: u32 = 12;
+
+/// The most lines of a control flow or definition's header that count as its
+/// structure (ex: a long condition's), from its first line (see
+/// `excerpt_structure`).
+const EXCERPT_MAX_HEADER_LINES: usize = 4;
+
+/// How much the structure of each level out of the control flow enclosing a
+/// change matters, relatively (see `excerpt_structure`).
+const EXCERPT_STRUCTURE_DECAY: f32 = 0.8;
+
+/// How much a syntax node's header matters as the structure around changes
+/// in it (see `excerpt_structure`), if it does, and whether it's control
+/// flow (ex: an `if` or its `else`, a loop, a `case`), whose nesting decays
+/// its outer levels', rather than a definition (ex: a function's signature).
+/// (The kinds of the grammars of `cst_tokenizer::parse_source_for_analysis`.)
+fn excerpt_node_weight(kind: &str) -> Option<(f32, bool)> {
+    match kind {
+        "if_statement"
+        | "if_expression"
+        | "if_let_expression"
+        | "else_clause"
+        | "elif_clause"
+        | "for_statement"
+        | "for_range_loop"
+        | "for_in_statement"
+        | "enhanced_for_statement"
+        | "for_expression"
+        | "while_statement"
+        | "while_expression"
+        | "do_statement"
+        | "do_while_statement"
+        | "loop_expression"
+        | "switch_statement"
+        | "switch_expression"
+        | "case_statement"
+        | "switch_case"
+        | "switch_default"
+        | "switch_block_statement_group"
+        | "match_expression"
+        | "match_arm"
+        | "when_expression"
+        | "when_entry"
+        | "try_statement"
+        | "try_expression"
+        | "catch_clause"
+        | "except_clause"
+        | "finally_clause"
+        | "with_statement" => Some((1.0, true)),
+        "function_definition"
+        | "function_declaration"
+        | "function_item"
+        | "method_definition"
+        | "method_declaration"
+        | "constructor_declaration"
+        | "function_expression"
+        | "arrow_function"
+        | "lambda_expression"
+        | "template_declaration" => Some((0.9, false)),
+        "class_specifier" | "struct_specifier" | "union_specifier" | "enum_specifier"
+        | "class_declaration" | "class_definition" | "class" | "impl_item" | "trait_item"
+        | "object_declaration" => Some((0.6, false)),
+        _ => None,
+    }
+}
+
+/// The kinds of the bodies whose starts end their parents' headers (see
+/// `excerpt_structure`).
+fn excerpt_is_body(kind: &str) -> bool {
+    matches!(
+        kind,
+        "compound_statement"
+            | "block"
+            | "statement_block"
+            | "declaration_list"
+            | "field_declaration_list"
+            | "enumerator_list"
+            | "class_body"
+            | "enum_body"
+            | "function_body"
+            | "control_structure_body"
+            | "switch_body"
+            | "switch_block"
+            | "match_block"
+    )
+}
+
+/// How much each line of `source` (1-based) matters as the structure around
+/// its lines `changed`, if `path`'s language has a grammar for code (see
+/// `cst_tokenizer::parse_source_for_analysis`): the headers (their lines up
+/// to where their bodies start) of the control flow enclosing each changed
+/// line, most for the innermost (ex: the condition of the `if` it's in, and
+/// the `else` of the branch it's in), and of the definitions enclosing them
+/// (ex: a method's signature, its class's).  (Explore pages' excerpts bias
+/// what they show toward these; see `outline_excerpts_json`.)
+fn excerpt_structure(
+    parse: &crate::tree_sitter_support::cst_tokenizer::SourceParse,
+    changed: &BTreeSet<u32>,
+) -> BTreeMap<u32, f32> {
+    let mut scores: BTreeMap<u32, f32> = BTreeMap::new();
+    let mut seen = HashSet::new();
+    for &line in changed {
+        let Some(node) = excerpt_line_node(parse, line) else {
+            continue;
+        };
+        let mut level = 0;
+        let mut node = Some(node);
+        while let Some(current) = node {
+            if let Some((weight, control)) = excerpt_node_weight(current.kind())
+                && seen.insert((current.id(), level))
+            {
+                let first = current.start_position().row;
+                let mut cursor = current.walk();
+                let body = current
+                    .named_children(&mut cursor)
+                    .find(|child| excerpt_is_body(child.kind()))
+                    .map_or(first, |body| body.start_position().row);
+                let score = weight * EXCERPT_STRUCTURE_DECAY.powi(level);
+                for header in first..=body.min(first + EXCERPT_MAX_HEADER_LINES - 1) {
+                    let entry = scores.entry(header as u32 + 1).or_default();
+                    *entry = entry.max(score);
+                }
+                if control {
+                    level += 1;
+                }
+            }
+            node = current.parent();
+        }
+    }
+    scores
+}
+
+/// The smallest syntax node of `parse` spanning the line `line` (1-based)
+/// from its first non-blank character.
+fn excerpt_line_node(
+    parse: &crate::tree_sitter_support::cst_tokenizer::SourceParse,
+    line: u32,
+) -> Option<tree_sitter::Node<'_>> {
+    let text = parse.text.lines().nth(line.checked_sub(1)? as usize)?;
+    let start = text.len() - text.trim_start().len();
+    let row = line as usize - 1;
+    parse.tree.root_node().descendant_for_point_range(
+        tree_sitter::Point::new(row, start),
+        tree_sitter::Point::new(row, text.len().max(start)),
+    )
+}
+
+/// The most lines of a statement whose lines explore pages' excerpts show
+/// together (see `excerpt_statements`).
+const EXCERPT_MAX_STATEMENT_LINES: usize = 8;
+
+/// For each of the lines `lines` (1-based) of `parse` which continues a
+/// statement (or a declaration) started on an earlier line, of at most
+/// `EXCERPT_MAX_STATEMENT_LINES` lines, the statement's first line, so that
+/// explore pages' excerpts show its lines together rather than a fragment of
+/// it (ex: a call's last argument's line).
+fn excerpt_statements(
+    parse: &crate::tree_sitter_support::cst_tokenizer::SourceParse,
+    lines: &BTreeSet<u32>,
+) -> BTreeMap<u32, u32> {
+    let mut starts = BTreeMap::new();
+    for &line in lines {
+        let row = line as usize - 1;
+        let mut node = excerpt_line_node(parse, line);
+        while let Some(current) = node {
+            let kind = current.kind();
+            let first = current.start_position().row;
+            if excerpt_node_weight(kind).is_some() || excerpt_is_body(kind) {
+                break;
+            }
+            if (kind.ends_with("statement")
+                || kind.ends_with("declaration")
+                || kind == "expression_statement"
+                || kind == "lexical_declaration")
+                && first < row
+            {
+                if current.end_position().row - first < EXCERPT_MAX_STATEMENT_LINES {
+                    starts.insert(line, first as u32 + 1);
+                }
+                break;
+            }
+            node = current.parent();
+        }
+    }
+    starts
+}
+
+/// The data of the excerpts of the changes of the file at `path` from the
+/// revision `from` to `to`, as the outline diff between them (see
+/// `outline_diff_data`) has them, as JSON for explore pages' panel (see
+/// outline-excerpts.js; `/{tree}/{stack}/excerpts/{from}/{to}/{path}`,
+/// `stack` being the page's URL in the tree, ex: "try/abcdef012345", for its
+/// stack strip; see `stack_strip_json`).  The changed definitions' excerpts'
+/// lines (`entries`, by `excerpt_range_key`): the lines they added (`own`, in
+/// the "to" file, and not in the definitions nested in them) and removed
+/// (`removed`, indices in the file's), and the changes outside of any
+/// definition's (`EXCERPT_TOP_LEVEL`).  And the lines of the "to" file which
+/// the excerpts could show (`lines`, by number: their HTML, `h`, whether they
+/// changed, `c`, how much they matter as the structure around changes, `s`,
+/// see `excerpt_structure`, and the first lines of the statements they
+/// continue, `u`, see `excerpt_statements`): all of the changed definitions'
+/// lines, or
+/// for big ones the lines around their changes, and the removed lines
+/// (`removed`: after which line of the "to" file, their lines in the "from"
+/// file, and their HTML), and the file's stack strip (`strip`).  The page's
+/// panel chooses which lines to show by how much room it has.
+pub fn outline_excerpts_json(
+    server: &(dyn AbstractServer + Send + Sync),
+    tree_name: &str,
+    stack: &str,
+    from: &str,
+    to: &str,
+    path: &str,
+) -> Result<String, &'static str> {
+    let (server_, from_, to_, path_) = (
+        server.clonify(),
+        from.to_string(),
+        to.to_string(),
+        path.to_string(),
+    );
+    let value =
+        run_on_runtime(async move { server_.outline_diff(&from_, &to_, &path_, true).await })
+            .map_err(|_| "No outline diff of the file")?;
+    let diff: outline_diff::OutlineDiff =
+        serde_json::from_value(value).map_err(|_| "Bad outline diff")?;
+    let from_path = diff.from_path.clone().unwrap_or_else(|| path.to_string());
+    let text_at = |rev: &str, path: &str| -> Result<String, &'static str> {
+        let (server, rev, path) = (server.clonify(), rev.to_string(), path.to_string());
+        Ok(
+            run_on_runtime(async move { server.rev_file(&rev, &path).await })
+                .map_err(|_| "No such revision")?
+                .map(|file| file.text)
+                .unwrap_or_default(),
+        )
+    };
+    let to_text = text_at(&diff.to.rev, path)?;
+    let from_text = text_at(&diff.from.rev, &from_path)?;
+    let format = languages::select_formatting(path);
+    if let FormatAs::Binary = format {
+        return Err("Binary file");
+    }
+
+    // The lines the range added (in the "to" file) and removed (in the
+    // "from" file, after which line of the "to" file, and for replaced
+    // lines, the first line replacing them).
+    let mut added: BTreeSet<u32> = BTreeSet::new();
+    let mut removed: Vec<(u32, u32)> = vec![];
+    let mut replaced_by: Vec<Option<u32>> = vec![];
+    for op in similar::TextDiff::from_lines(&from_text, &to_text).ops() {
+        let (tag, old, new) = op.as_tag_tuple();
+        if tag == similar::DiffTag::Equal {
+            continue;
+        }
+        let after = new.start as u32;
+        let replacing = (!new.is_empty()).then_some(after + 1);
+        added.extend(new.map(|line| line as u32 + 1));
+        for line in old {
+            removed.push((after, line as u32 + 1));
+            replaced_by.push(replacing);
+        }
+    }
+
+    // Each change's innermost definition, by its lines (or for a removed
+    // definition's lines, by its lines in the "from" file).
+    let innermost = |line: u32, from: bool| -> Option<String> {
+        diff.entries
+            .iter()
+            .filter_map(|entry| {
+                let lines = match (from, entry.status) {
+                    (true, outline_diff::OutlineStatus::Removed) => entry.from_lines?,
+                    (false, outline_diff::OutlineStatus::Removed) => return None,
+                    (false, _) => entry.lines?,
+                    (true, _) => return None,
+                };
+                (lines.0 <= line && line <= lines.1).then_some((lines.1 - lines.0, lines, from))
+            })
+            .min()
+            .map(|(_, lines, from)| excerpt_range_key(lines, from))
+    };
+    let mut entries: BTreeMap<String, (Vec<u32>, Vec<usize>)> = BTreeMap::new();
+    for &line in &added {
+        let key = innermost(line, false).unwrap_or_else(|| EXCERPT_TOP_LEVEL.to_string());
+        entries.entry(key).or_default().0.push(line);
+    }
+    for (index, &(after, line)) in removed.iter().enumerate() {
+        // (Replaced lines are their replacements' definition's, and removed
+        // lines between two of a definition's lines are its.)
+        let key = innermost(line, true)
+            .or_else(|| replaced_by[index].and_then(|first| innermost(first, false)))
+            .or_else(|| {
+                innermost(after, false)
+                    .filter(|key| innermost(after + 1, false).as_ref() == Some(key))
+            })
+            .unwrap_or_else(|| EXCERPT_TOP_LEVEL.to_string());
+        entries.entry(key).or_default().1.push(index);
+    }
+
+    // The lines the excerpts could show.
+    let positions: BTreeSet<u32> = added
+        .iter()
+        .copied()
+        .chain(removed.iter().map(|&(after, _)| after.max(1)))
+        .collect();
+    let parse =
+        crate::tree_sitter_support::cst_tokenizer::parse_source_for_analysis(path, &to_text).ok();
+    let structure = parse
+        .as_ref()
+        .map(|parse| excerpt_structure(parse, &positions))
+        .unwrap_or_default();
+    let line_count = to_text.lines().count() as u32;
+    let mut wanted: BTreeSet<u32> = BTreeSet::new();
+    let window = |wanted: &mut BTreeSet<u32>, line: u32, (first, last): (u32, u32)| {
+        let start = line.saturating_sub(EXCERPT_WINDOW).max(first);
+        wanted.extend(start..=(line + EXCERPT_WINDOW).min(last));
+    };
+    for (key, (own, removals)) in &entries {
+        let range = key
+            .split_once('-')
+            .filter(|_| !key.starts_with("from:"))
+            .and_then(|(first, last)| Some((first.parse().ok()?, last.parse().ok()?)));
+        let changes = own
+            .iter()
+            .copied()
+            .chain(removals.iter().map(|&index| removed[index].0.max(1)));
+        match range {
+            Some((first, last)) if last - first < EXCERPT_WHOLE_LINES => {
+                wanted.extend(first..=last);
+            }
+            Some((first, last)) => {
+                wanted.extend([first, last]);
+                wanted.extend(structure.range(first..=last).map(|(line, _)| *line));
+                for line in changes {
+                    window(&mut wanted, line, (first, last));
+                }
+            }
+            None => {
+                for line in changes {
+                    window(&mut wanted, line, (1, line_count));
+                }
+            }
+        }
+    }
+
+    let statements = parse
+        .as_ref()
+        .map(|parse| excerpt_statements(parse, &wanted))
+        .unwrap_or_default();
+    let (to_lines, _) = format_code(None, &TreeJumprefs::default(), format, path, &to_text, &[]);
+    let lines: serde_json::Map<String, serde_json::Value> = wanted
+        .iter()
+        .filter_map(|&line| {
+            let formatted = to_lines.get(line as usize - 1)?;
+            let mut value = json!({ "h": formatted.line });
+            if added.contains(&line) {
+                value["c"] = json!(true);
+            }
+            if let Some(score) = structure.get(&line) {
+                value["s"] = json!((*score as f64 * 100.0).round() / 100.0);
+            }
+            if let Some(start) = statements.get(&line) {
+                value["u"] = json!(start);
+            }
+            Some((line.to_string(), value))
+        })
+        .collect();
+    let removed_rows: Vec<serde_json::Value> = if removed.is_empty() {
+        vec![]
+    } else {
+        let format = languages::select_formatting(&from_path);
+        let (from_lines, _) = match format {
+            FormatAs::Binary => (vec![], String::new()),
+            format => format_code(
+                None,
+                &TreeJumprefs::default(),
+                format,
+                &from_path,
+                &from_text,
+                &[],
+            ),
+        };
+        removed
+            .iter()
+            .map(|&(after, line)| {
+                json!({
+                    "after": after,
+                    "line": line,
+                    "h": from_lines.get(line as usize - 1).map_or("", |formatted| &formatted.line),
+                })
+            })
+            .collect()
+    };
+    let strip = {
+        let (server, stack, rev, path) = (
+            server.clonify(),
+            stack.to_string(),
+            diff.to.rev.clone(),
+            path.to_string(),
+        );
+        run_on_runtime(async move { server.stack_strip_json(&stack, &rev, &path).await })
+            .ok()
+            .and_then(|json| serde_json::from_str::<serde_json::Value>(&json).ok())
+    };
+    serde_json::to_string(&json!({
+        "path": path,
+        "from_path": diff.from_path,
+        "from": diff.from.rev,
+        "to": diff.to.rev,
+        "link": format!("/{}/rev/{}/{}", tree_name, diff.to.rev, url_encode_path(path)),
+        "from_link": format!("/{}/rev/{}/{}", tree_name, diff.from.rev, url_encode_path(&from_path)),
+        "entries": entries
+            .into_iter()
+            .map(|(key, (own, removals))| (key, json!({ "own": own, "removed": removals })))
+            .collect::<serde_json::Map<_, _>>(),
+        "lines": lines,
+        "removed": removed_rows,
+        "strip": strip,
+    }))
+    .map_err(|_| "Excerpt problems")
 }
 
 /// An explore page with its `data` (see `explore_data`), and its files'
@@ -9156,7 +9617,13 @@ fn render_explore(
     unescape_explore_names(&mut file_groups);
     order_explore_files(&mut file_groups);
     if let Some(server) = server {
-        explore_outlines(server, tree_name, &data["commits"], &mut file_groups);
+        explore_outlines(
+            server,
+            tree_name,
+            &extras.explore_url,
+            &data["commits"],
+            &mut file_groups,
+        );
     }
     let globals = liquid::to_object(&json!({
         "tree": tree_name,

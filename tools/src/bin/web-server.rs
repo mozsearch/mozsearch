@@ -893,6 +893,23 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                     Err(err) => WebResponse::internal_error(server_error_message(&err)),
                 };
             }
+            // (Its files' excerpts, `.../excerpts/{from}/{to}/{path}`; see
+            // `format::outline_excerpts_json`.)
+            if path.len() >= 8 && path[4] == "excerpts" {
+                let stack = path[1..4].join("/");
+                let file_path = path[7..].join("/");
+                return match format::outline_excerpts_json(
+                    server.as_ref(),
+                    tree_name,
+                    &stack,
+                    path[5],
+                    path[6],
+                    &file_path,
+                ) {
+                    Ok(json) => WebResponse::json(json),
+                    Err(err) => WebResponse::internal_error(err.to_owned()),
+                };
+            }
             if path.len() != 4 {
                 return WebResponse::not_found();
             }
@@ -981,6 +998,25 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 }) {
                     Ok(json) => WebResponse::json(json).uncached(),
                     Err(err) => WebResponse::internal_error(server_error_message(&err)).uncached(),
+                };
+            }
+            // (And its files' excerpts; see `format::outline_excerpts_json`.)
+            if path.len() >= 7 && path[3] == "excerpts" {
+                let stack = path[1..3].join("/");
+                let file_path = path[6..].join("/");
+                let Some(server) = tree_server(tree_name) else {
+                    return WebResponse::not_found();
+                };
+                return match format::outline_excerpts_json(
+                    server.as_ref(),
+                    tree_name,
+                    &stack,
+                    path[4],
+                    path[5],
+                    &file_path,
+                ) {
+                    Ok(json) => WebResponse::json(json).uncached(),
+                    Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
                 };
             }
             if path.len() != 3 {
