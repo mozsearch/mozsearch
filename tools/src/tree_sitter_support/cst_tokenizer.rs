@@ -1132,7 +1132,7 @@ fn walk_parsed<'s>(
     // pseudo-CST to its own tree rep, whereas we are just linearizing tokens here, but the
     // general desire to have all tokens remains.
     let mut cursor = parse_tree.walk();
-    let mut _depth = 0;
+    let mut depth = 0;
     let mut visited_children = false;
     // For each node whose children we are currently visiting, its kind and
     // whether it is (or is inside of) an "extra" node, which is how comments
@@ -1208,7 +1208,7 @@ fn walk_parsed<'s>(
                 visited_children = false;
             } else if cursor.goto_parent() {
                 visited_children = true;
-                _depth -= 1;
+                depth -= 1;
                 parent_stack.pop();
 
                 if let Some(container_id) = id_stack.last()
@@ -1298,9 +1298,11 @@ fn walk_parsed<'s>(
             };
             let leaf_context = trivia_context.as_ref().map(&pretty_for);
             let parent_kind_id = parent_stack.last().map(|p| p.0);
-            if (node.is_error() || (node.parent().is_none() && node.has_error()))
-                && node.child_count() > 0
-            {
+            // (The root is the walk's depth 0: tree-sitter's `parent` walks
+            // down from the root to the node, so that asking it for each node
+            // made deep trees quadratic, ex: 449 s for wasm2c's 80 KB
+            // lexer-keywords.cc.)
+            if (node.is_error() || (depth == 0 && node.has_error())) && node.child_count() > 0 {
                 push_error_gap_tokens(&node, text, &source_slice, &context_pretty, walked);
             }
             if setup.ignore_nodes.contains(&node_kind_id) {
@@ -1362,7 +1364,7 @@ fn walk_parsed<'s>(
                 visited_children = true;
             } else if !setup.atom_nodes.contains(&node_kind_id) && cursor.goto_first_child() {
                 visited_children = false;
-                _depth += 1;
+                depth += 1;
                 parent_stack.push((node_kind_id, in_comment));
                 if let Some(stack) = trivia_context {
                     context_stack = stack;
