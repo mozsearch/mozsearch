@@ -58,4 +58,21 @@ add_task(async function test_StackStripTry() {
      "The first's removal of Never is a scar on the line before it");
   is(doc().querySelectorAll("#line-6 .stack-slot").length, 0,
      "Lines the push didn't change have no slots");
+
+  // Its page's other links pass the push on as they're followed (ex: its
+  // outline rows' links to the definitions it changed; see stack-strip.js),
+  // and in its context the outline's changes are since its base (see
+  // outline.js), rather than since a release.
+  await TestUtils.loadPath(`/spechist/try/${push}`);
+  const row = doc().querySelector(".explore-outline-name a");
+  ok(row && !row.getAttribute("href").includes("stack="),
+     "Its outline rows link to the definitions it changed");
+  row.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+  ok(row.getAttribute("href").includes(`?stack=try/${push}`), "with the push, once followed");
+  await TestUtils.loadPath(row.getAttribute("href"));
+  await waitForCondition(() => doc().querySelector(".stack-strip"),
+                         "whose views show the stack strip");
+  await waitForCondition(
+    () => doc().querySelector(".outline-baseline button")?.textContent == "the try push's base",
+    "and the outline's changes since the push's base");
 });

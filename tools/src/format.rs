@@ -8787,7 +8787,11 @@ pub fn render_history(
 /// in `rev` for the stack of commits of an explore page or a try push's page,
 /// `stack` being the page's URL in the tree (ex: "explore/bug/123" or
 /// "try/abcdef012345", which its files' links pass to their views), as JSON
-/// for the views' script (`/{tree}/{stack}/stack-strip/{rev}/{path}`).
+/// for the views' script (`/{tree}/{stack}/stack-strip/{rev}/{path}`), with
+/// the stack's `base`, the outline's default baseline in its context (see
+/// outline.js): where it left the trunk, its first commit's parent, or for a
+/// try push's stack rebased onto the indexed revision (its delta's head; see
+/// `try_delta`), that revision.
 pub fn stack_strip_json(
     cfg: &Config,
     tree_name: &str,
@@ -8828,7 +8832,20 @@ pub fn stack_strip_json(
         log::warn!("No stack strip for {} in {}: {}", path, rev, e);
         "No stack strip for the file"
     })?;
-    serde_json::to_string(&strip).map_err(|_| "Stack strip problems")
+    let rebased_base = std::fs::read_to_string(
+        crate::try_delta::delta_dir(&tree_config.paths.index_path, &commit.id().to_string())
+            .join("meta.json"),
+    )
+    .ok()
+    .and_then(|meta| serde_json::from_str::<crate::try_delta::TryDeltaMeta>(&meta).ok())
+    .map(|meta| meta.base);
+    let base = rebased_base.or_else(|| {
+        let first = git.repo.find_commit(*commits.first()?).ok()?;
+        Some(first.parent_id(0).ok()?.to_string())
+    });
+    let mut value = serde_json::to_value(&strip).map_err(|_| "Stack strip problems")?;
+    value["base"] = json!(base);
+    serde_json::to_string(&value).map_err(|_| "Stack strip problems")
 }
 
 struct ExploreExtras {

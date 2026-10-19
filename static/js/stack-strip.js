@@ -8,17 +8,47 @@
  * explore page's sparklines per line.  Hovering over a slot names its commit
  * and highlights the commit's slots on the other lines, and a note above the
  * file links back to the stack's page.
+ *
+ * The stack's pages' links within the tree (to files and directories at
+ * revisions, commits, outline diffs, canvases), and the links of pages in
+ * its context, pass it on as they're followed, so that it stays with what's
+ * browsed from them (ex: an outline row's link to a changed definition, a
+ * directory listing's files).  (And the outline's default baseline in its
+ * context is its base; see outline.js.)
  */
 (function () {
-  const stack = new URLSearchParams(location.search).get("stack");
-  if (!stack || !/^(explore\/(bug|phab)\/[\w,]+|try\/[0-9a-f]+)$/i.test(stack)) {
+  const STACK = /^(explore\/(bug|phab)\/[\w,]+|try\/[0-9a-f]+)$/i;
+  const tree = location.pathname.split("/")[1];
+  const param = new URLSearchParams(location.search).get("stack");
+  // (The page's stack: its parameter's, or the page's own, if it's a stack's.)
+  const own = location.pathname.split("/").slice(2).filter(Boolean).join("/");
+  const stack = param && STACK.test(param) ? param : STACK.test(own) ? own : null;
+  if (!tree || !stack) {
     return;
   }
+  const KEEP = new RegExp(`^/${tree}/(rev|commit|outline-diff|rev-canvas)/`);
+  const keep = event => {
+    const link = event.target.closest?.("a[href]");
+    if (!link) {
+      return;
+    }
+    const url = new URL(link.href, location.href);
+    if (url.origin != location.origin || !KEEP.test(url.pathname) || url.searchParams.has("stack")) {
+      return;
+    }
+    // (As the stack's pages' own links have it, unescaped.)
+    url.search += `${url.search ? "&" : "?"}stack=${stack}`;
+    link.href = url.toString();
+  };
+  // (Before their clicks, middle clicks, context menus and keyboard use.)
+  document.addEventListener("mousedown", keep, true);
+  document.addEventListener("focusin", keep, true);
+
   const match = location.pathname.match(/^\/([^/]+)\/rev\/([0-9a-f]+)\/(.+)$/);
-  if (!match) {
+  if (!param || !match) {
     return;
   }
-  const [, tree, rev, path] = match;
+  const [, , rev, path] = match;
 
   function show(strip) {
     const count = strip.commits.length;
@@ -87,8 +117,9 @@
     document.getElementById("file")?.before(note);
   }
 
-  fetch(`/${tree}/${stack}/stack-strip/${rev}/${path}`)
+  // (Shared with outline.js, whose default baseline is the stack's base.)
+  (window.stackStripData ??= fetch(`/${tree}/${stack}/stack-strip/${rev}/${path}`)
     .then(response => (response.ok ? response.json() : null))
-    .then(strip => strip && show(strip))
-    .catch(() => {});
+    .catch(() => null))
+    .then(strip => strip && show(strip));
 })();

@@ -4,11 +4,12 @@
  * saying how it changed since a baseline and a sparkline of the commits which
  * changed it since then, from the outline diff of the page's revision from
  * the baseline (see `hyperblame::outline_diff`, which the web-server serves
- * as `/{tree}/rev-outline/{from}/{to}/{path}`).  The baseline is the latest
- * Firefox version cut before the revision on trees with them (see
- * file-timeline.js's `allCuts`), or else 4 weeks before it, unless the file
- * timeline's "since" picks another (a commit or a cut; see file-timeline.js's
- * `setBaseline`).  It lists the definitions
+ * as `/{tree}/rev-outline/{from}/{to}/{path}`).  The baseline is, in a
+ * stack's context (a try push's, or an explore page's; see stack-strip.js),
+ * its base, where it left the trunk; else the latest Firefox version cut
+ * before the revision on trees with them (see file-timeline.js's `allCuts`),
+ * or else 4 weeks before it; unless the file timeline's "since" picks another
+ * (a commit or a cut; see file-timeline.js's `setBaseline`).  It lists the definitions
  * which changed (with the ones they're in), or all of them with "All".
  */
 var OutlineSection = new (class OutlineSection {
@@ -62,6 +63,24 @@ var OutlineSection = new (class OutlineSection {
 
   /** The default baseline: see the class's comment. */
   async defaultBaseline() {
+    const stack = new URLSearchParams(location.search).get("stack");
+    if (stack && /^(explore\/(bug|phab)\/[\w,]+|try\/[0-9a-f]+)$/i.test(stack)) {
+      // (The stack strip's data has its base; shared with stack-strip.js.)
+      const strip = await (window.stackStripData ??=
+        fetch(`/${this.tree}/${stack}/stack-strip/${this.rev}/${this.path}`)
+          .then(response => (response.ok ? response.json() : null))
+          .catch(() => null));
+      if (strip?.base) {
+        const tryPush = stack.startsWith("try/");
+        return {
+          from: strip.base,
+          label: tryPush ? "the try push's base" : "the stack's base",
+          description: tryPush
+            ? `The trunk's revision the try push's commits are on (${strip.base.slice(0, 12)})`
+            : `Where the stack's commits start (${strip.base.slice(0, 12)}, the first's parent)`,
+        };
+      }
+    }
     const revTime = FileTimeline.revTime ?? Date.now() / 1000;
     const latest = (await FileTimeline.allCuts()).filter(cut => cut.time <= revTime).pop();
     if (latest) {
