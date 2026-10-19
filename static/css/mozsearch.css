@@ -3199,7 +3199,9 @@ h2.sp-called-heading {
 }
 
 /* The /explore/ pages; see explore.liquid. */
-.explore-page {
+.explore-page,
+.try-import {
+  /* (A try push's page before its import, as the explore page it becomes.) */
   padding: 0 1rem 1rem;
 }
 .explore-note {

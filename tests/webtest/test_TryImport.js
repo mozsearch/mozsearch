@@ -20,6 +20,8 @@ add_task(async function test_TryImport() {
   await TestUtils.loadPath(`/spechist/try/${PUSH}`);
   ok(doc().querySelector(".try-import-status")?.textContent.includes("hasn't imported"),
      "A try push's page says the tree hasn't imported it");
+  ok(parseFloat(frame.contentWindow.getComputedStyle(doc().querySelector(".try-import")).paddingLeft) > 0,
+     "padded in from the page's edge, as its explore page is");
   is((await statusOf(PUSH)).state, "notImported", "and so does its status");
 
   const button = doc().querySelector(".try-import-button");
