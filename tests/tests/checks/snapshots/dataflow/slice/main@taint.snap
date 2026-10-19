@@ -1,6 +1,275 @@
 ---
 source: src/bin/test-index.rs
-expression: "&fb.contents"
+expression: "&jv.value"
 input_file: inputs/dataflow/slice/taint
 ---
-{"cards":[{"id":0,"func":"TaintEntry","sym":"_Z10TaintEntryRK6TicketS1_","path":"dataflow/dataflow.cpp","changed":true,"cluster":1,"stations":[{"rows":[{"line":172,"text":"  int id = aTicket.mId + 1;","changed":true},{"line":173,"text":"  UseTicket(aTicket);","changed":true}],"stops":[0,1,2],"writes":[1],"tainted":[0,1,2,3]},{"rows":[{"line":176,"text":"  if (!CheckTicketWrapper(aTicket)) {","changed":true},{"line":177,"text":"    return;","changed":true}],"stops":[2],"writes":[],"tainted":[0,1,2,3],"validates":[2]},{"rows":[{"line":181,"text":"  UseTicket(aTicket);","changed":true},{"line":182,"text":"  UseId(id);","changed":true}],"stops":[1,2],"writes":[],"tainted":[3]},{"rows":[{"line":185,"text":"  Ticket copy = aOther;","changed":true},{"line":186,"text":"  UseTicket(copy);","changed":true}],"stops":[3],"writes":[3],"tainted":[3]}],"tainted_out":[3]}],"lines":[{"id":0,"label":"mId","names":["mId"],"family":0,"parents":[],"tainted":true},{"id":1,"label":"id","names":["id"],"type":"int","semantic":"int","family":0,"parents":[0],"tainted":true},{"id":2,"label":"aTicket","names":["aTicket"],"type":"const Ticket &","semantic":"Ticket","family":1,"parents":[],"tainted":true},{"id":3,"label":"aOther","names":["aOther","copy"],"type":"const Ticket &","semantic":"Ticket","family":2,"parents":[],"tainted":true}],"families":[{"id":0,"root":0,"label":"mId","cluster":1},{"id":1,"root":2,"label":"aTicket","semantic":"Ticket","cluster":1},{"id":2,"root":3,"label":"aOther","semantic":"Ticket","cluster":1}],"connectors":[],"clusters":[{"n":1,"commits":""}],"notes":[],"taint":{"sources":[{"card":0,"line":2,"why":"TaintEntry receives aTicket (const Ticket &) (taint-from)","status":"partly","stops":2,"tainted_stops":1},{"card":0,"line":3,"why":"TaintEntry receives aOther (const Ticket &) (taint-from)","status":"unvalidated","stops":1,"tainted_stops":1}],"validations":[{"card":0,"station":1,"lines":[2],"by":"CheckTicketWrapper","guards":true}]}}
+{
+  "cards": [
+    {
+      "id": 0,
+      "func": "TaintEntry",
+      "sym": "_Z10TaintEntryRK6TicketS1_",
+      "path": "dataflow/dataflow.cpp",
+      "changed": true,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 172,
+              "text": "  int id = aTicket.mId + 1;",
+              "writes": [
+                1
+              ],
+              "changed": true,
+              "stops": [
+                0,
+                1
+              ]
+            },
+            {
+              "line": 173,
+              "text": "  UseTicket(aTicket);",
+              "stops": [
+                2
+              ],
+              "changed": true
+            }
+          ],
+          "stops": [
+            0,
+            1,
+            2
+          ],
+          "writes": [
+            1
+          ],
+          "tainted": [
+            0,
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "rows": [
+            {
+              "line": 176,
+              "text": "  if (!CheckTicketWrapper(aTicket)) {",
+              "stops": [
+                2
+              ],
+              "changed": true
+            },
+            {
+              "line": 177,
+              "text": "    return;",
+              "changed": true
+            }
+          ],
+          "stops": [
+            2
+          ],
+          "writes": [],
+          "tainted": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "validates": [
+            2
+          ]
+        },
+        {
+          "rows": [
+            {
+              "line": 181,
+              "text": "  UseTicket(aTicket);",
+              "stops": [
+                2
+              ],
+              "changed": true
+            },
+            {
+              "line": 182,
+              "text": "  UseId(id);",
+              "stops": [
+                1
+              ],
+              "changed": true
+            }
+          ],
+          "stops": [
+            1,
+            2
+          ],
+          "writes": [],
+          "tainted": [
+            3
+          ]
+        },
+        {
+          "rows": [
+            {
+              "line": 185,
+              "text": "  Ticket copy = aOther;",
+              "writes": [
+                3
+              ],
+              "changed": true,
+              "stops": [
+                3
+              ]
+            },
+            {
+              "line": 186,
+              "text": "  UseTicket(copy);",
+              "stops": [
+                3
+              ],
+              "changed": true
+            }
+          ],
+          "stops": [
+            3
+          ],
+          "writes": [
+            3
+          ],
+          "tainted": [
+            3
+          ]
+        }
+      ],
+      "tainted_out": [
+        3
+      ]
+    }
+  ],
+  "lines": [
+    {
+      "id": 0,
+      "label": "mId",
+      "names": [
+        "mId"
+      ],
+      "family": 0,
+      "parents": [],
+      "syms": [
+        "F_<T_Ticket>_mId"
+      ],
+      "tainted": true
+    },
+    {
+      "id": 1,
+      "label": "id",
+      "names": [
+        "id"
+      ],
+      "type": "int",
+      "semantic": "int",
+      "family": 0,
+      "parents": [
+        0
+      ],
+      "syms": [
+        "V_3796109e8cd670b8_238795"
+      ],
+      "tainted": true
+    },
+    {
+      "id": 2,
+      "label": "aTicket",
+      "names": [
+        "aTicket"
+      ],
+      "type": "const Ticket &",
+      "semantic": "Ticket",
+      "family": 1,
+      "parents": [],
+      "syms": [
+        "V_07b655139a4c80a9_0"
+      ],
+      "tainted": true
+    },
+    {
+      "id": 3,
+      "label": "aOther",
+      "names": [
+        "aOther",
+        "copy"
+      ],
+      "type": "const Ticket &",
+      "semantic": "Ticket",
+      "family": 2,
+      "parents": [],
+      "syms": [
+        "V_07b655139a4c80a9_1",
+        "V_a920209e8cd670b8_020459c71"
+      ],
+      "tainted": true
+    }
+  ],
+  "families": [
+    {
+      "id": 0,
+      "root": 0,
+      "label": "mId",
+      "cluster": 1
+    },
+    {
+      "id": 1,
+      "root": 2,
+      "label": "aTicket",
+      "semantic": "Ticket",
+      "cluster": 1
+    },
+    {
+      "id": 2,
+      "root": 3,
+      "label": "aOther",
+      "semantic": "Ticket",
+      "cluster": 1
+    }
+  ],
+  "connectors": [],
+  "clusters": [
+    {
+      "n": 1,
+      "commits": ""
+    }
+  ],
+  "notes": [],
+  "taint": {
+    "sources": [
+      {
+        "card": 0,
+        "line": 2,
+        "why": "TaintEntry receives aTicket (const Ticket &) (taint-from)",
+        "status": "partly",
+        "stops": 2,
+        "tainted_stops": 1
+      },
+      {
+        "card": 0,
+        "line": 3,
+        "why": "TaintEntry receives aOther (const Ticket &) (taint-from)",
+        "status": "unvalidated",
+        "stops": 1,
+        "tainted_stops": 1
+      }
+    ],
+    "validations": [
+      {
+        "card": 0,
+        "station": 1,
+        "lines": [
+          2
+        ],
+        "by": "CheckTicketWrapper",
+        "guards": true
+      }
+    ]
+  }
+}

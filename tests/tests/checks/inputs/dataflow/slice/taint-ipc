@@ -1,2 +1,2 @@
 # servers: local
-dataflow x --changed "ipdl/TestDataStructures.cpp:258-260,652" --format subway --taint-type SIntDouble
+dataflow x --changed "ipdl/TestDataStructures.cpp:258-260,652" --format subway --taint-type SIntDouble | jq ".contents | fromjson | del(.sym_info) | .cards[].stations[].rows[] |= del(.html)"

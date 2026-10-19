@@ -154,6 +154,12 @@ pub struct Row {
     /// The lines of the file not shown before it (in its station).
     #[serde(skip_serializing_if = "is_zero")]
     pub skipped: u32,
+    /// The lines stopping at its events (its station's stops on its line),
+    /// and those of them written there, where subway.js puts their dots.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub stops: Vec<usize>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub writes: Vec<usize>,
 }
 
 fn is_zero(n: &u32) -> bool {
@@ -1052,13 +1058,30 @@ async fn subway_map_inner(
                     skipped: prev.map_or(0, |p| line - p - 1),
 
                     html: None,
+                    stops: vec![],
+                    writes: vec![],
                 });
                 prev = Some(line);
             }
             let mut stops: BTreeSet<usize> = BTreeSet::new();
             let mut writes: BTreeSet<usize> = BTreeSet::new();
+            // (And each row's, by its events' first lines.)
+            let mut row_stops: BTreeMap<u32, (BTreeSet<usize>, BTreeSet<usize>)> = BTreeMap::new();
             for &ei in &events {
                 let flows = &func.flows[ei];
+                let (row_reads, row_writes) = row_stops.entry(f.events[ei].line).or_default();
+                row_reads.extend(
+                    flows
+                        .reads
+                        .iter()
+                        .filter_map(|key| key_line.get(key).copied()),
+                );
+                row_writes.extend(
+                    flows
+                        .writes
+                        .iter()
+                        .filter_map(|key| key_line.get(key).copied()),
+                );
                 stops.extend(
                     flows
                         .reads
@@ -1074,6 +1097,12 @@ async fn subway_map_inner(
                 event_station.insert((func.card, ei), card.stations.len());
             }
             stops.extend(writes.iter().copied());
+            for row in &mut rows {
+                if let Some((row_reads, row_writes)) = row_stops.remove(&row.line) {
+                    row.stops = row_reads.union(&row_writes).copied().collect();
+                    row.writes = row_writes.into_iter().collect();
+                }
+            }
             card.stations.push(Station {
                 rows,
                 stops: stops.into_iter().collect(),
@@ -1115,6 +1144,8 @@ async fn subway_map_inner(
                     skipped: 0,
 
                     html: None,
+                    stops: vec![],
+                    writes: vec![],
                 })
                 .collect();
             stations.push(Station {

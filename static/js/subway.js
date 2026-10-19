@@ -4,9 +4,9 @@
 // view; see tools/src/dataflow/subway.rs for the model, SUBWAY): the
 // clusters' functions are cards of their stations (statement blocks), laid
 // out by the calls between them with graph.js, and their values are colored
-// lines: down each card's gutter (stopping, a dot, at the stations reading
-// or writing them), and between cards along the calls (and returns, IPC
-// messages and fields' writes to reads) they take, side by side.
+// lines: down each card's gutter (stopping, a dot, at the rows of the
+// stations reading or writing them), and between cards along the calls (and
+// returns, IPC messages and fields' writes to reads) they take, side by side.
 //
 // Colors: a family of lines (a root value and the values derived from it)
 // has a hue, by its root's (semantic) type, so a principal's family is blue
@@ -305,40 +305,66 @@ var SubwayMap = new (class SubwayMap {
     };
   }
 
-  /** The lines in a card, and where each is (first and last station). */
+  /**
+   * The lines in a card, and where each is, by its rows' positions (`rows`,
+   * flattened across its stations): from the first row it stops at (or
+   * comes in at: the top, -1, or for a return, its call's row) to the last
+   * (or the bottom, `rows.length`, where it goes on from the card).  A row's
+   * stops are its events' (`Row::stops`), or for maps without them, its
+   * station's, at the station's middle row.
+   */
   cardTracks(card) {
+    const rows = [];
+    const firstStop = [];
+    card.stations.forEach((station, si) => {
+      const start = rows.length;
+      if (!station.rows.some(row => row.stops)) {
+        const middle = station.rows[Math.floor((station.rows.length - 1) / 2)];
+        if (middle) {
+          middle.stops = station.stops;
+          middle.writes = station.writes;
+        }
+      }
+      station.rows.forEach((row, ri) => rows.push({ si, ri, row }));
+      const stopping = station.rows.findIndex(row => row.stops?.length);
+      firstStop.push(start + (stopping >= 0 ? stopping : Math.floor((station.rows.length - 1) / 2)));
+    });
     const spans = new Map();
-    const extend = (line, station) => {
+    const extend = (line, position) => {
       if (this.hiddenLines.has(line)) {
         return;
       }
-      const span = spans.get(line) ?? { first: station, last: station };
-      span.first = Math.min(span.first, station);
-      span.last = Math.max(span.last, station);
+      const span = spans.get(line) ?? { first: position, last: position };
+      span.first = Math.min(span.first, position);
+      span.last = Math.max(span.last, position);
       spans.set(line, span);
     };
-    card.stations.forEach((station, i) => station.stops.forEach(line => extend(line, i)));
+    rows.forEach(({ row }, position) => (row.stops ?? []).forEach(line => extend(line, position)));
     // (A taint source, a parameter, comes in at the top.)
     for (const source of this.model.taint?.sources ?? []) {
       if (source.card == card.id) {
         extend(source.line, -1);
       }
     }
+    // (Where a line stops in a station: its first row there, else the
+    // station's first stop's.)
+    const stopIn = (si, line) => {
+      const at = rows.findIndex(({ si: s, row }) => s == si && row.stops?.includes(line));
+      return at >= 0 ? at : firstStop[si];
+    };
     for (const c of this.model.connectors) {
       for (const line of c.lines) {
-        // (Coming in at the top (before station 0), or for a return, at its
-        // call's station; going out at the bottom (after the last station).)
         if (c.to == card.id) {
-          extend(line, c.to_station ?? -1);
+          extend(line, c.to_station != null ? stopIn(c.to_station, line) : -1);
         }
         if (c.from == card.id) {
-          extend(line, card.stations.length);
+          extend(line, rows.length);
         }
       }
     }
     const order = [...spans.keys()].sort((a, b) =>
       this.model.lines[a].family - this.model.lines[b].family || a - b);
-    return { card, order, spans };
+    return { card, order, spans, rows, firstStop, stopIn };
   }
 
   /**
@@ -353,8 +379,12 @@ var SubwayMap = new (class SubwayMap {
     return station.tainted?.includes(line) ?? false;
   }
 
-  /** A row's gutter: its tracks, and (at its station's middle row) dots. */
-  gutter(tracks, stationIndex, rowIndex, stopRow, stops) {
+  /**
+   * The gutter at a row's position (or between two, at x.5, for gaps): its
+   * tracks, from their first stops' rows' middles to their last's, tainted
+   * as they arrive at a station (above its first stop's row) or leave it.
+   */
+  gutter(tracks, position) {
     const NS = "http://www.w3.org/2000/svg";
     const width = Math.max(1, tracks.order.length) * SubwayMap.TRACK;
     const svg = document.createElementNS(NS, "svg");
@@ -363,54 +393,44 @@ var SubwayMap = new (class SubwayMap {
     svg.setAttribute("width", width);
     svg.setAttribute("viewBox", `0 0 ${width} 10`);
     svg.setAttribute("preserveAspectRatio", "none");
+    const whole = Number.isInteger(position);
+    const ceil = Math.ceil(position);
+    const si = tracks.rows[Math.min(ceil, tracks.rows.length - 1)]?.si ?? 0;
+    const split = tracks.firstStop[si];
     tracks.order.forEach((line, i) => {
       const span = tracks.spans.get(line);
-      if (stationIndex < span.first || stationIndex > span.last) {
+      if (position < span.first || position > span.last) {
         return;
       }
-      // (A line starts and ends at its stops' row, the middle of their
-      // stations', unless it comes from above or goes on below.)
       let top = 0;
       let bottom = 10;
-      if (stationIndex == span.first) {
-        if (rowIndex < stopRow) {
-          return;
-        }
-        if (rowIndex == stopRow) {
-          top = 5;
-        }
+      if (position == span.first) {
+        top = 5;
       }
-      if (stationIndex == span.last) {
-        if (rowIndex > stopRow) {
-          return;
-        }
-        if (rowIndex == stopRow) {
-          bottom = 5;
-        }
+      if (position == span.last && span.last < tracks.rows.length) {
+        bottom = 5;
       }
       if (top >= bottom) {
-        // (A line stopping at one station of a card, without coming or
-        // going, is a stub there, so that its color shows.)
-        if (span.first != span.last || rowIndex != stopRow) {
-          return;
-        }
+        // (A line stopping at one row of a card, without coming or going,
+        // is a stub there, so that its color shows.)
         top = 1;
         bottom = 9;
       }
-      const x = i * SubwayMap.TRACK + SubwayMap.TRACK / 2;
-      // (Tainted as it arrives at the station, above its stops' row, and as
-      // it leaves, below.)
-      const k = Math.ceil(stationIndex);
       const parts = [];
-      if (Number.isInteger(stationIndex) && rowIndex >= stopRow) {
-        if (rowIndex == stopRow && top < 5) {
-          parts.push([top, 5, this.taintedBefore(tracks.card, line, k)]);
-          top = 5;
-        }
+      // (Arriving at its station above its first stop's row, and leaving
+      // below; gaps between stations are arriving at the next.)
+      const k = si;
+      if (!whole) {
+        parts.push([top, bottom, this.taintedBefore(tracks.card, line, position < split ? k : k + 1)]);
+      } else if (position < split) {
+        parts.push([top, bottom, this.taintedBefore(tracks.card, line, k)]);
+      } else if (position > split) {
         parts.push([top, bottom, this.taintedBefore(tracks.card, line, k + 1)]);
       } else {
-        parts.push([top, bottom, this.taintedBefore(tracks.card, line, k)]);
+        parts.push([top, Math.max(top, 5), this.taintedBefore(tracks.card, line, k)]);
+        parts.push([Math.max(top, 5), bottom, this.taintedBefore(tracks.card, line, k + 1)]);
       }
+      const x = i * SubwayMap.TRACK + SubwayMap.TRACK / 2;
       for (const [y1, y2, tainted] of parts) {
         if (y1 >= y2) {
           continue;
@@ -431,17 +451,22 @@ var SubwayMap = new (class SubwayMap {
   }
 
   /**
-   * A row's dots (the lines stopping at its station), over its gutter, and
-   * its validations' rings (see `subway::Validation`).
+   * A row's dots (the lines stopping at its events), over its gutter, and
+   * its station's validations' rings (see `subway::Validation`), at the rows
+   * where their lines stop.
    */
-  dots(tracks, station, stationIndex) {
-    const { stops, writes } = station;
+  dots(tracks, position) {
+    const { si, row } = tracks.rows[position];
+    const station = tracks.card.stations[si];
+    const stops = row.stops ?? [];
+    const writes = row.writes ?? [];
     const validations = (this.model.taint?.validations ?? []).filter(v =>
-      v.card == tracks.card.id && v.station == stationIndex);
+      v.card == tracks.card.id && v.station == si);
     const box = document.createElement("span");
     box.className = "sw-dots";
     tracks.order.forEach((line, i) => {
-      const checks = validations.filter(v => v.lines.includes(line));
+      const checks = validations.filter(v =>
+        v.lines.includes(line) && tracks.stopIn(si, line) == position);
       if (!stops.includes(line) && !checks.length) {
         return;
       }
@@ -494,6 +519,7 @@ var SubwayMap = new (class SubwayMap {
     head.append(name, " ", where);
     element.append(head);
 
+    let position = 0;
     card.stations.forEach((station, si) => {
       // (Its rows, which hovering highlights, with its lines.)
       const box = document.createElement("div");
@@ -503,7 +529,7 @@ var SubwayMap = new (class SubwayMap {
       if (si > 0) {
         const gap = document.createElement("div");
         gap.className = "sw-row sw-gap";
-        gap.append(this.gutter(tracks, si - 0.5, 0, -1, []));
+        gap.append(this.gutter(tracks, position - 0.5));
         const text = document.createElement("span");
         text.className = "sw-gap-text";
         text.textContent = "⋮";
@@ -511,12 +537,11 @@ var SubwayMap = new (class SubwayMap {
         element.append(gap);
       }
       element.append(box);
-      const stopRow = Math.floor((station.rows.length - 1) / 2);
-      station.rows.forEach((row, ri) => {
+      station.rows.forEach(row => {
         if (row.skipped) {
           const skip = document.createElement("div");
           skip.className = "sw-row sw-skip";
-          skip.append(this.gutter(tracks, si, ri - 0.5, stopRow, []));
+          skip.append(this.gutter(tracks, position - 0.5));
           const text = document.createElement("span");
           text.className = "sw-gap-text";
           text.textContent = `⋮ ${row.skipped} line${row.skipped == 1 ? "" : "s"}`;
@@ -525,10 +550,7 @@ var SubwayMap = new (class SubwayMap {
         }
         const div = document.createElement("div");
         div.className = "sw-row" + (row.changed ? " sw-changed" : "");
-        div.append(this.gutter(tracks, si, ri, stopRow, station.stops));
-        if (ri == stopRow) {
-          div.append(this.dots(tracks, station, si));
-        }
+        div.append(this.gutter(tracks, position), this.dots(tracks, position));
         const number = document.createElement("a");
         number.className = "sw-lno";
         number.href = this.sourceURL(card.path, row.line);
@@ -542,6 +564,7 @@ var SubwayMap = new (class SubwayMap {
         }
         div.append(number, code);
         box.append(div);
+        position++;
       });
     });
   }

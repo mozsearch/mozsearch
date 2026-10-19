@@ -1,2 +1,2 @@
 # servers: local
-dataflow x --changed "dataflow/dataflow.cpp:191-196" --format subway --taint-from TaintEntryBoth --taint-type Ticket --detaint-by CheckTicket
+dataflow x --changed "dataflow/dataflow.cpp:191-196" --format subway --taint-from TaintEntryBoth --taint-type Ticket --detaint-by CheckTicket | jq ".contents | fromjson | del(.sym_info) | .cards[].stations[].rows[] |= del(.html)"

@@ -1,0 +1,9 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/slice/subway-html
+---
+{
+  "rows": true,
+  "sym_info": true
+}

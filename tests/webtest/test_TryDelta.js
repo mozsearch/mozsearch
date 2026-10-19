@@ -207,6 +207,13 @@ add_task(async function test_TryDeltaSubway() {
   box.dispatchEvent(new win.Event("change"));
   ok(doc().querySelector(`.sw-track[data-line="${line.id}"]`), "and checking it shows it again");
 
+  // (A line's dots are at the rows of the events reading or writing it.)
+  const rowStops = (lno, line) => model.cards.some(card => card.stations.some(station =>
+    station.rows.some(row => row.line == lno && (row.stops ?? []).includes(line))));
+  ok([...doc().querySelectorAll(".sw-card .sw-dot")].every(dot =>
+    rowStops(Number(dot.closest(".sw-row").querySelector(".sw-lno").textContent), Number(dot.dataset.line))),
+     "Its dots are at the rows of their lines' events");
+
   // (Each of a family's lines has a color of its own.)
   for (const family of model.families) {
     const colors = model.lines.filter(l => l.family == family.id).map(l => win.SubwayMap.colors.get(l.id));

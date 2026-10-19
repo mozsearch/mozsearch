@@ -1,6 +1,161 @@
 ---
 source: src/bin/test-index.rs
-expression: "&fb.contents"
+expression: "&jv.value"
 input_file: inputs/dataflow/slice/taint-labels
 ---
-{"cards":[{"id":0,"func":"TaintEntryPrincipal","sym":"_Z19TaintEntryPrincipalPN7mozilla3dom13ContentParentEP12nsIPrincipal","path":"dataflow/dataflow.cpp","changed":true,"cluster":1,"stations":[{"rows":[{"line":219,"text":"  UsePrincipal(aPrincipal);","changed":true}],"stops":[0],"writes":[],"tainted":[0]},{"rows":[{"line":222,"text":"  if (!aParent->ValidatePrincipal(aPrincipal)) {","changed":true},{"line":223,"text":"    return;","changed":true}],"stops":[0,1],"writes":[],"tainted":[0],"validates":[0]},{"rows":[{"line":226,"text":"  UsePrincipal(aPrincipal);","changed":true}],"stops":[0],"writes":[]}]}],"lines":[{"id":0,"label":"aPrincipal","names":["aPrincipal"],"type":"nsIPrincipal *","semantic":"nsIPrincipal","family":0,"parents":[],"tainted":true},{"id":1,"label":"aParent","names":["aParent"],"type":"mozilla::dom::ContentParent *","semantic":"ContentParent","family":1,"parents":[]}],"families":[{"id":0,"root":0,"label":"aPrincipal","semantic":"nsIPrincipal","cluster":1},{"id":1,"root":1,"label":"aParent","semantic":"ContentParent","cluster":1}],"connectors":[],"clusters":[{"n":1,"commits":""}],"notes":[],"taint":{"sources":[{"card":0,"line":0,"why":"TaintEntryPrincipal receives aPrincipal (nsIPrincipal *) (taint-from)","status":"partly","stops":2,"tainted_stops":1}],"validations":[{"card":0,"station":1,"lines":[0],"by":"mozilla::dom::ContentParent::ValidatePrincipal","guards":true}]}}
+{
+  "cards": [
+    {
+      "id": 0,
+      "func": "TaintEntryPrincipal",
+      "sym": "_Z19TaintEntryPrincipalPN7mozilla3dom13ContentParentEP12nsIPrincipal",
+      "path": "dataflow/dataflow.cpp",
+      "changed": true,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 219,
+              "text": "  UsePrincipal(aPrincipal);",
+              "stops": [
+                0
+              ],
+              "changed": true
+            }
+          ],
+          "stops": [
+            0
+          ],
+          "writes": [],
+          "tainted": [
+            0
+          ]
+        },
+        {
+          "rows": [
+            {
+              "line": 222,
+              "text": "  if (!aParent->ValidatePrincipal(aPrincipal)) {",
+              "stops": [
+                0,
+                1
+              ],
+              "changed": true
+            },
+            {
+              "line": 223,
+              "text": "    return;",
+              "changed": true
+            }
+          ],
+          "stops": [
+            0,
+            1
+          ],
+          "writes": [],
+          "tainted": [
+            0
+          ],
+          "validates": [
+            0
+          ]
+        },
+        {
+          "rows": [
+            {
+              "line": 226,
+              "text": "  UsePrincipal(aPrincipal);",
+              "stops": [
+                0
+              ],
+              "changed": true
+            }
+          ],
+          "stops": [
+            0
+          ],
+          "writes": []
+        }
+      ]
+    }
+  ],
+  "lines": [
+    {
+      "id": 0,
+      "label": "aPrincipal",
+      "names": [
+        "aPrincipal"
+      ],
+      "type": "nsIPrincipal *",
+      "semantic": "nsIPrincipal",
+      "family": 0,
+      "parents": [],
+      "syms": [
+        "V_65e4d4b633dc5d7d_1"
+      ],
+      "tainted": true
+    },
+    {
+      "id": 1,
+      "label": "aParent",
+      "names": [
+        "aParent"
+      ],
+      "type": "mozilla::dom::ContentParent *",
+      "semantic": "ContentParent",
+      "family": 1,
+      "parents": [],
+      "syms": [
+        "V_65e4d4b633dc5d7d_0"
+      ]
+    }
+  ],
+  "families": [
+    {
+      "id": 0,
+      "root": 0,
+      "label": "aPrincipal",
+      "semantic": "nsIPrincipal",
+      "cluster": 1
+    },
+    {
+      "id": 1,
+      "root": 1,
+      "label": "aParent",
+      "semantic": "ContentParent",
+      "cluster": 1
+    }
+  ],
+  "connectors": [],
+  "clusters": [
+    {
+      "n": 1,
+      "commits": ""
+    }
+  ],
+  "notes": [],
+  "taint": {
+    "sources": [
+      {
+        "card": 0,
+        "line": 0,
+        "why": "TaintEntryPrincipal receives aPrincipal (nsIPrincipal *) (taint-from)",
+        "status": "partly",
+        "stops": 2,
+        "tainted_stops": 1
+      }
+    ],
+    "validations": [
+      {
+        "card": 0,
+        "station": 1,
+        "lines": [
+          0
+        ],
+        "by": "mozilla::dom::ContentParent::ValidatePrincipal",
+        "guards": true
+      }
+    ]
+  }
+}

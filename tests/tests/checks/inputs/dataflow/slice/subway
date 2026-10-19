@@ -1,2 +1,2 @@
 # servers: local
-dataflow x --changed "dataflow/dataflow.cpp:24-27,38-40,47,61-63,128,139-152" --format subway
+dataflow x --changed "dataflow/dataflow.cpp:24-27,38-40,47,61-63,128,139-152" --format subway | jq ".contents | fromjson | del(.sym_info) | .cards[].stations[].rows[] |= del(.html)"

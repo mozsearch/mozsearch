@@ -1,6 +1,672 @@
 ---
 source: src/bin/test-index.rs
-expression: "&fb.contents"
+expression: "&jv.value"
 input_file: inputs/dataflow/slice/subway
 ---
-{"cards":[{"id":0,"func":"Unbox","sym":"_ZL5UnboxRK3Box","path":"dataflow/dataflow.cpp","changed":true,"cluster":1,"stations":[{"rows":[{"line":142,"text":"static int Unbox(const Box& aBox) { return aBox.mValue; }","changed":true}],"stops":[0],"writes":[]}]},{"id":1,"func":"Boxed","sym":"_Z5Boxedi","path":"dataflow/dataflow.cpp","changed":true,"cluster":1,"stations":[{"rows":[{"line":144,"text":"int Boxed(int aSeed) { return Unbox(Box(aSeed + 2)); }","changed":true}],"stops":[1],"writes":[]}]},{"id":2,"func":"GetBoolWithDefault","sym":"_Z18GetBoolWithDefaultPKcbPb","path":"dataflow/dataflow.cpp","changed":true,"cluster":2,"stations":[{"rows":[{"line":24,"text":"  int rv = LookupBool(aName, aRetVal);","changed":true},{"line":25,"text":"  if (rv != 0) {","changed":true},{"line":26,"text":"    *aRetVal = aDefault;","changed":true}],"stops":[2,3],"writes":[3]}]},{"id":3,"func":"UseDefault","sym":"_Z10UseDefaultv","path":"dataflow/dataflow.cpp","changed":true,"cluster":2,"stations":[{"rows":[{"line":38,"text":"  bool value = false;","changed":true},{"line":39,"text":"  GetBoolWithDefault(\"browser.thing\", true, &value);","changed":true},{"line":40,"text":"  return value;","changed":true}],"stops":[3],"writes":[3]}]},{"id":4,"func":"Widget::Bump","sym":"_ZN6Widget4BumpEi","path":"dataflow/dataflow.cpp","changed":true,"cluster":3,"stations":[{"rows":[{"line":47,"text":"  void Bump(int aBy) { mCount += aBy; }","changed":true}],"stops":[4,5],"writes":[4]}]},{"id":5,"func":"BumpedCount","sym":"_Z11BumpedCounti","path":"dataflow/dataflow.cpp","changed":true,"cluster":3,"stations":[{"rows":[{"line":61,"text":"  Widget widget(\"counter\");","changed":true},{"line":62,"text":"  widget.Bump(aBy);","changed":true},{"line":63,"text":"  return widget.Count();","changed":true}],"stops":[4,5,6],"writes":[4,6]}]},{"id":6,"func":"UseName","sym":"_ZL7UseNameRK12nsTSubstringIcE","path":"dataflow/dataflow.cpp","changed":true,"cluster":4,"stations":[{"rows":[{"line":146,"text":"static int UseName(const nsTSubstring\u003cchar>& aName) { return aName.Length(); }","changed":true}],"stops":[7],"writes":[]}]},{"id":7,"func":"Names","sym":"_Z5NamesRK12nsTSubstringIcE","path":"dataflow/dataflow.cpp","changed":true,"cluster":4,"stations":[{"rows":[{"line":149,"text":"  nsTString\u003cchar> copy(aSource);","changed":true},{"line":150,"text":"  nsTString\u003cchar> assigned;","changed":true},{"line":151,"text":"  assigned.Assign(aSource);","changed":true},{"line":152,"text":"  return UseName(copy) + UseName(assigned) + UseName(nsTString\u003cchar>(aSource));","changed":true}],"stops":[7],"writes":[7]}]},{"id":8,"func":"InitCapture","sym":"_Z11InitCapturei","path":"dataflow/dataflow.cpp","changed":true,"cluster":5,"stations":[{"rows":[{"line":128,"text":"  return RunNow([seed = aSeed + 1]() { return Consume(seed); });","changed":true}],"stops":[8,9],"writes":[9]}]},{"id":9,"func":"dataflow.cpp (declarations)","path":"dataflow/dataflow.cpp","changed":true,"cluster":1,"stations":[{"rows":[{"line":139,"text":"  int mValue;","changed":true},{"line":140,"text":"};","changed":true},{"line":141,"text":"","changed":true}],"stops":[0],"writes":[0]}]}],"lines":[{"id":0,"label":"mValue","names":["mValue"],"family":0,"parents":[]},{"id":1,"label":"aSeed","names":["aSeed"],"type":"int","semantic":"int","family":1,"parents":[]},{"id":2,"label":"aName","names":["aName"],"type":"const char *","semantic":"char","family":2,"parents":[]},{"id":3,"label":"aDefault","names":["aDefault","value","aRetVal"],"type":"_Bool","semantic":"_Bool","family":3,"parents":[]},{"id":4,"label":"mCount","names":["mCount"],"family":4,"parents":[5]},{"id":5,"label":"aBy","names":["aBy"],"type":"int","semantic":"int","family":4,"parents":[]},{"id":6,"label":"widget","names":["widget"],"type":"Widget","semantic":"Widget","family":5,"parents":[]},{"id":7,"label":"aSource","names":["aSource","aName","copy","assigned"],"type":"const nsTSubstring\u003cchar> &","semantic":"nsTSubstring","family":6,"parents":[]},{"id":8,"label":"aSeed","names":["aSeed"],"type":"int","semantic":"int","family":7,"parents":[]},{"id":9,"label":"seed","names":["seed"],"type":"int","semantic":"int","family":7,"parents":[8]}],"families":[{"id":0,"root":0,"label":"mValue","cluster":1},{"id":1,"root":1,"label":"aSeed","semantic":"int","cluster":1},{"id":2,"root":2,"label":"aName","semantic":"char","cluster":2},{"id":3,"root":3,"label":"aDefault","semantic":"_Bool","cluster":2},{"id":4,"root":5,"label":"aBy","semantic":"int","cluster":3},{"id":5,"root":6,"label":"widget","semantic":"Widget","cluster":3},{"id":6,"root":7,"label":"aSource","semantic":"nsTSubstring","cluster":4},{"id":7,"root":8,"label":"aSeed","semantic":"int","cluster":5}],"connectors":[{"from":1,"from_station":0,"to":0,"kind":"call","lines":[1]},{"from":3,"from_station":0,"to":2,"kind":"call","lines":[3]},{"from":5,"from_station":0,"to":4,"kind":"call","lines":[5]},{"from":7,"from_station":0,"to":6,"kind":"call","lines":[7]},{"from":9,"from_station":0,"to":0,"to_station":0,"kind":"field","lines":[0]}],"clusters":[{"n":1,"commits":""},{"n":2,"commits":""},{"n":3,"commits":""},{"n":4,"commits":""},{"n":5,"commits":""}],"notes":[]}
+{
+  "cards": [
+    {
+      "id": 0,
+      "func": "Unbox",
+      "sym": "_ZL5UnboxRK3Box",
+      "path": "dataflow/dataflow.cpp",
+      "changed": true,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 142,
+              "text": "static int Unbox(const Box& aBox) { return aBox.mValue; }",
+              "stops": [
+                0
+              ],
+              "changed": true
+            }
+          ],
+          "stops": [
+            0
+          ],
+          "writes": []
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "func": "Boxed",
+      "sym": "_Z5Boxedi",
+      "path": "dataflow/dataflow.cpp",
+      "changed": true,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 144,
+              "text": "int Boxed(int aSeed) { return Unbox(Box(aSeed + 2)); }",
+              "stops": [
+                1
+              ],
+              "changed": true
+            }
+          ],
+          "stops": [
+            1
+          ],
+          "writes": []
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "func": "GetBoolWithDefault",
+      "sym": "_Z18GetBoolWithDefaultPKcbPb",
+      "path": "dataflow/dataflow.cpp",
+      "changed": true,
+      "cluster": 2,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 24,
+              "text": "  int rv = LookupBool(aName, aRetVal);",
+              "stops": [
+                2,
+                3
+              ],
+              "changed": true
+            },
+            {
+              "line": 25,
+              "text": "  if (rv != 0) {",
+              "changed": true
+            },
+            {
+              "line": 26,
+              "text": "    *aRetVal = aDefault;",
+              "writes": [
+                3
+              ],
+              "changed": true,
+              "stops": [
+                3
+              ]
+            }
+          ],
+          "stops": [
+            2,
+            3
+          ],
+          "writes": [
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "func": "UseDefault",
+      "sym": "_Z10UseDefaultv",
+      "path": "dataflow/dataflow.cpp",
+      "changed": true,
+      "cluster": 2,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 38,
+              "text": "  bool value = false;",
+              "writes": [
+                3
+              ],
+              "changed": true,
+              "stops": [
+                3
+              ]
+            },
+            {
+              "line": 39,
+              "text": "  GetBoolWithDefault(\"browser.thing\", true, &value);",
+              "stops": [
+                3
+              ],
+              "changed": true
+            },
+            {
+              "line": 40,
+              "text": "  return value;",
+              "stops": [
+                3
+              ],
+              "changed": true
+            }
+          ],
+          "stops": [
+            3
+          ],
+          "writes": [
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "func": "Widget::Bump",
+      "sym": "_ZN6Widget4BumpEi",
+      "path": "dataflow/dataflow.cpp",
+      "changed": true,
+      "cluster": 3,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 47,
+              "text": "  void Bump(int aBy) { mCount += aBy; }",
+              "writes": [
+                4
+              ],
+              "changed": true,
+              "stops": [
+                4,
+                5
+              ]
+            }
+          ],
+          "stops": [
+            4,
+            5
+          ],
+          "writes": [
+            4
+          ]
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "func": "BumpedCount",
+      "sym": "_Z11BumpedCounti",
+      "path": "dataflow/dataflow.cpp",
+      "changed": true,
+      "cluster": 3,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 61,
+              "text": "  Widget widget(\"counter\");",
+              "writes": [
+                6
+              ],
+              "changed": true,
+              "stops": [
+                6
+              ]
+            },
+            {
+              "line": 62,
+              "text": "  widget.Bump(aBy);",
+              "writes": [
+                4
+              ],
+              "changed": true,
+              "stops": [
+                4,
+                5,
+                6
+              ]
+            },
+            {
+              "line": 63,
+              "text": "  return widget.Count();",
+              "stops": [
+                4,
+                6
+              ],
+              "changed": true
+            }
+          ],
+          "stops": [
+            4,
+            5,
+            6
+          ],
+          "writes": [
+            4,
+            6
+          ]
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "func": "UseName",
+      "sym": "_ZL7UseNameRK12nsTSubstringIcE",
+      "path": "dataflow/dataflow.cpp",
+      "changed": true,
+      "cluster": 4,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 146,
+              "text": "static int UseName(const nsTSubstring<char>& aName) { return aName.Length(); }",
+              "stops": [
+                7
+              ],
+              "changed": true
+            }
+          ],
+          "stops": [
+            7
+          ],
+          "writes": []
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "func": "Names",
+      "sym": "_Z5NamesRK12nsTSubstringIcE",
+      "path": "dataflow/dataflow.cpp",
+      "changed": true,
+      "cluster": 4,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 149,
+              "text": "  nsTString<char> copy(aSource);",
+              "writes": [
+                7
+              ],
+              "changed": true,
+              "stops": [
+                7
+              ]
+            },
+            {
+              "line": 150,
+              "text": "  nsTString<char> assigned;",
+              "changed": true
+            },
+            {
+              "line": 151,
+              "text": "  assigned.Assign(aSource);",
+              "writes": [
+                7
+              ],
+              "changed": true,
+              "stops": [
+                7
+              ]
+            },
+            {
+              "line": 152,
+              "text": "  return UseName(copy) + UseName(assigned) + UseName(nsTString<char>(aSource));",
+              "stops": [
+                7
+              ],
+              "changed": true
+            }
+          ],
+          "stops": [
+            7
+          ],
+          "writes": [
+            7
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "func": "InitCapture",
+      "sym": "_Z11InitCapturei",
+      "path": "dataflow/dataflow.cpp",
+      "changed": true,
+      "cluster": 5,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 128,
+              "text": "  return RunNow([seed = aSeed + 1]() { return Consume(seed); });",
+              "writes": [
+                9
+              ],
+              "changed": true,
+              "stops": [
+                8,
+                9
+              ]
+            }
+          ],
+          "stops": [
+            8,
+            9
+          ],
+          "writes": [
+            9
+          ]
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "func": "dataflow.cpp (declarations)",
+      "path": "dataflow/dataflow.cpp",
+      "changed": true,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 139,
+              "text": "  int mValue;",
+              "changed": true
+            },
+            {
+              "line": 140,
+              "text": "};",
+              "changed": true
+            },
+            {
+              "line": 141,
+              "text": "",
+              "changed": true
+            }
+          ],
+          "stops": [
+            0
+          ],
+          "writes": [
+            0
+          ]
+        }
+      ]
+    }
+  ],
+  "lines": [
+    {
+      "id": 0,
+      "label": "mValue",
+      "names": [
+        "mValue"
+      ],
+      "family": 0,
+      "parents": [],
+      "syms": [
+        "F_<T_Box>_mValue"
+      ]
+    },
+    {
+      "id": 1,
+      "label": "aSeed",
+      "names": [
+        "aSeed"
+      ],
+      "type": "int",
+      "semantic": "int",
+      "family": 1,
+      "parents": [],
+      "syms": [
+        "V_005e1eed5c8a458c_0"
+      ]
+    },
+    {
+      "id": 2,
+      "label": "aName",
+      "names": [
+        "aName"
+      ],
+      "type": "const char *",
+      "semantic": "char",
+      "family": 2,
+      "parents": [],
+      "syms": [
+        "V_733986e666fd63e6_0"
+      ]
+    },
+    {
+      "id": 3,
+      "label": "aDefault",
+      "names": [
+        "aDefault",
+        "value",
+        "aRetVal"
+      ],
+      "type": "_Bool",
+      "semantic": "_Bool",
+      "family": 3,
+      "parents": [],
+      "syms": [
+        "V_5f83de8e8cd670b8_2475d80113",
+        "V_733986e666fd63e6_1",
+        "V_733986e666fd63e6_2"
+      ]
+    },
+    {
+      "id": 4,
+      "label": "mCount",
+      "names": [
+        "mCount"
+      ],
+      "family": 4,
+      "parents": [
+        5
+      ],
+      "syms": [
+        "F_<T_Widget>_mCount"
+      ]
+    },
+    {
+      "id": 5,
+      "label": "aBy",
+      "names": [
+        "aBy"
+      ],
+      "type": "int",
+      "semantic": "int",
+      "family": 4,
+      "parents": [],
+      "syms": [
+        "V_9efc2da3d041ad11_0",
+        "V_a9768cfa9b9d1166_0"
+      ]
+    },
+    {
+      "id": 6,
+      "label": "widget",
+      "names": [
+        "widget"
+      ],
+      "type": "Widget",
+      "semantic": "Widget",
+      "family": 5,
+      "parents": [],
+      "syms": [
+        "V_350cee8e8cd670b8_90e89152356"
+      ]
+    },
+    {
+      "id": 7,
+      "label": "aSource",
+      "names": [
+        "aSource",
+        "aName",
+        "copy",
+        "assigned"
+      ],
+      "type": "const nsTSubstring<char> &",
+      "semantic": "nsTSubstring",
+      "family": 6,
+      "parents": [],
+      "syms": [
+        "V_2ad490906e625fbe_397e5f8a9d6ea1",
+        "V_6a8829f72c10bc48_0",
+        "V_a842cf806e625fbe_020459c71",
+        "V_a8a4be2a6e8dcf6a_0"
+      ]
+    },
+    {
+      "id": 8,
+      "label": "aSeed",
+      "names": [
+        "aSeed"
+      ],
+      "type": "int",
+      "semantic": "int",
+      "family": 7,
+      "parents": [],
+      "syms": [
+        "V_b18a4450272d5c59_0"
+      ]
+    },
+    {
+      "id": 9,
+      "label": "seed",
+      "names": [
+        "seed"
+      ],
+      "type": "int",
+      "semantic": "int",
+      "family": 7,
+      "parents": [
+        8
+      ],
+      "syms": [
+        "V_62767d806e625fbe_62add9c71"
+      ]
+    }
+  ],
+  "families": [
+    {
+      "id": 0,
+      "root": 0,
+      "label": "mValue",
+      "cluster": 1
+    },
+    {
+      "id": 1,
+      "root": 1,
+      "label": "aSeed",
+      "semantic": "int",
+      "cluster": 1
+    },
+    {
+      "id": 2,
+      "root": 2,
+      "label": "aName",
+      "semantic": "char",
+      "cluster": 2
+    },
+    {
+      "id": 3,
+      "root": 3,
+      "label": "aDefault",
+      "semantic": "_Bool",
+      "cluster": 2
+    },
+    {
+      "id": 4,
+      "root": 5,
+      "label": "aBy",
+      "semantic": "int",
+      "cluster": 3
+    },
+    {
+      "id": 5,
+      "root": 6,
+      "label": "widget",
+      "semantic": "Widget",
+      "cluster": 3
+    },
+    {
+      "id": 6,
+      "root": 7,
+      "label": "aSource",
+      "semantic": "nsTSubstring",
+      "cluster": 4
+    },
+    {
+      "id": 7,
+      "root": 8,
+      "label": "aSeed",
+      "semantic": "int",
+      "cluster": 5
+    }
+  ],
+  "connectors": [
+    {
+      "from": 1,
+      "from_station": 0,
+      "to": 0,
+      "kind": "call",
+      "lines": [
+        1
+      ]
+    },
+    {
+      "from": 3,
+      "from_station": 0,
+      "to": 2,
+      "kind": "call",
+      "lines": [
+        3
+      ]
+    },
+    {
+      "from": 5,
+      "from_station": 0,
+      "to": 4,
+      "kind": "call",
+      "lines": [
+        5
+      ]
+    },
+    {
+      "from": 7,
+      "from_station": 0,
+      "to": 6,
+      "kind": "call",
+      "lines": [
+        7
+      ]
+    },
+    {
+      "from": 9,
+      "from_station": 0,
+      "to": 0,
+      "to_station": 0,
+      "kind": "field",
+      "lines": [
+        0
+      ]
+    }
+  ],
+  "clusters": [
+    {
+      "n": 1,
+      "commits": ""
+    },
+    {
+      "n": 2,
+      "commits": ""
+    },
+    {
+      "n": 3,
+      "commits": ""
+    },
+    {
+      "n": 4,
+      "commits": ""
+    },
+    {
+      "n": 5,
+      "commits": ""
+    }
+  ],
+  "notes": []
+}
