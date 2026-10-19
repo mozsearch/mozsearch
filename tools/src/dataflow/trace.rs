@@ -809,15 +809,24 @@ impl<'s> Tracer<'s> {
         None
     }
 
-    /// The IPC message (its `IPC_` symbol) whose `Recv` method a function is
-    /// (its binding slot), or implements (an actor's override of the
-    /// generated declaration), if any.
+    /// The IPC message (its `IPC_` symbol) whose parent actor's `Recv`
+    /// method a function is (its binding slot), or implements (an actor's
+    /// override of the generated declaration), if any: not the child actor's,
+    /// of a message sent both ways (by the generated class's name, IPDL's
+    /// `P<Protocol>Parent`).
     pub async fn recv_message(&mut self, sym: &Ustr) -> Option<Ustr> {
         let xref = self.xref(sym).await?;
         let meta = xref.meta.as_ref()?;
         let recv_owner = |meta: &AnalysisStructured<Ustr>| {
             let owner = meta.slot_owner.as_ref()?;
-            (owner.props.slot_kind == BindingSlotKind::Recv && owner.sym.starts_with("IPC_"))
+            let parent = meta
+                .pretty
+                .rsplit("::")
+                .nth(1)
+                .is_some_and(|class| class.ends_with("Parent"));
+            (owner.props.slot_kind == BindingSlotKind::Recv
+                && owner.sym.starts_with("IPC_")
+                && parent)
                 .then_some(owner.sym)
         };
         if let Some(owner) = recv_owner(meta) {

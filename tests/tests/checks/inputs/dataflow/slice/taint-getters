@@ -1,0 +1,2 @@
+# servers: local
+dataflow x --changed "dataflow/dataflow.cpp:269-275" --format subway --taint-from TaintEntryInit --taint-type Ticket --detaint-by TicketChecker::Validate | jq ".contents | fromjson | del(.sym_info) | .cards[].stations[].rows[] |= del(.html)"

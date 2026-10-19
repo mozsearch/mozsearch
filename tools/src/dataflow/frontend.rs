@@ -850,27 +850,42 @@ impl<'c, 'a> Builder<'c, 'a> {
     }
 
     /// The IR calls of guards' calls' syntax, among the calls since
-    /// `calls_before`: at their positions, or (in a macro's expansion, whose
+    /// `calls_before`: at their positions (by their functions' names, as a
+    /// call on a call's result starts where it does, ex: `Manager()` in
+    /// `Manager()->ValidatePrincipal(p)`), or (in a macro's expansion, whose
     /// calls are at the macro) by their functions' names, in order.
     fn guard_ir_calls(&self, calls_syntax: &[Node], calls_before: usize) -> Vec<usize> {
         let calls = &self.ir.calls[calls_before.min(self.ir.calls.len())..];
         let mut out: Vec<usize> = vec![];
         for call in calls_syntax {
             let (line, col) = self.pos(*call);
+            // (Its function's name: `F` of `ns::F`, `x->F`, `x.F`, `F<T>`.)
             let name = call
                 .child_by_field_name("function")
-                .map(|f| self.t(f).rsplit("::").next().unwrap_or("").to_string())
+                .map(|f| {
+                    let f = match f.kind() {
+                        "field_expression" => f.child_by_field_name("field").unwrap_or(f),
+                        _ => f,
+                    };
+                    let text = self.t(f);
+                    let text = text.split('<').next().unwrap_or(text);
+                    text.rsplit([':', '.', '>'])
+                        .next()
+                        .unwrap_or("")
+                        .to_string()
+                })
                 .unwrap_or_default();
+            let at = |c: &&Call| c.line == line && c.col == col && !out.contains(&c.id);
+            let named = |c: &&Call| {
+                !name.is_empty()
+                    && c.callee_pretty.rsplit("::").next() == Some(name.as_str())
+                    && !out.contains(&c.id)
+            };
             let found = calls
                 .iter()
-                .find(|c| c.line == line && c.col == col && !out.contains(&c.id))
-                .or_else(|| {
-                    calls.iter().find(|c| {
-                        !name.is_empty()
-                            && c.callee_pretty.rsplit("::").next() == Some(name.as_str())
-                            && !out.contains(&c.id)
-                    })
-                });
+                .find(|c| at(c) && named(c))
+                .or_else(|| calls.iter().find(at))
+                .or_else(|| calls.iter().find(named));
             if let Some(c) = found {
                 out.push(c.id);
             }

@@ -864,6 +864,34 @@ async fn subway_map_inner(
         }
     }
 
+    // (Tainted parameters' tainted fields, if the parameters are values, are
+    // values too, where they're read (ex: `aInit.principal()`), as parts of
+    // their parameters' lines, so that validating one blesses its own source;
+    // see `apply_taint`.)
+    for func in &funcs {
+        let f = &func.file.funcs[func.fi];
+        let message = taint.source_message(tracer, f).await;
+        if message.is_none() && !taint.is_source(f) {
+            continue;
+        }
+        for i in taint.tainted_params(tracer, f, message.as_ref()).await {
+            let param = &f.params[i];
+            if !keys_of(f, &param.place)
+                .iter()
+                .any(|key| seeds.contains(key))
+            {
+                continue;
+            }
+            let ty = param.type_pretty.clone().unwrap_or_default();
+            let type_taint = taint.type_taint(tracer, &ty).await;
+            if !type_taint.whole {
+                for field in &type_taint.fields {
+                    seeds.extend(field.syms.iter().map(|sym| Key::Field(*sym)));
+                }
+            }
+        }
+    }
+
     // (Locals named as hubs (ex: `rv`, `aResult`; see `slice::is_hub`) are
     // values only if they're the units' (ex: a trace's), as slicings don't
     // key them: the others aren't read, written, or moved.)

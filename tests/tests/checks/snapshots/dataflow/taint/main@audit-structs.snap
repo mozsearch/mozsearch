@@ -4,14 +4,9 @@ expression: "&fb.contents"
 input_file: inputs/dataflow/taint/audit-structs
 ---
 unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestStructWithActors i (ipdl/TestDataStructures.cpp:292): 1 of 1 stops tainted
-unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestStructs i.aa (ipdl/TestDataStructures.cpp:307): 2 of 2 stops tainted
-unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs i1.ArrayOfSActors (ipdl/TestDataStructures.cpp:331): 2 of 2 stops tainted
-unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs i1.ArrayOfStructs (ipdl/TestDataStructures.cpp:331): 2 of 2 stops tainted
-unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs i2.ArrayOfSActors (ipdl/TestDataStructures.cpp:331): 2 of 2 stops tainted
-unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs i2.ArrayOfStructs (ipdl/TestDataStructures.cpp:331): 2 of 2 stops tainted
-unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs i3.ArrayOfSActors (ipdl/TestDataStructures.cpp:331): 2 of 2 stops tainted
-unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs i3.ArrayOfStructs (ipdl/TestDataStructures.cpp:331): 2 of 2 stops tainted
-unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs i4.ArrayOfSActors (ipdl/TestDataStructures.cpp:331): 2 of 2 stops tainted
-unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs i4.ArrayOfStructs (ipdl/TestDataStructures.cpp:331): 2 of 2 stops tainted
-unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs i5.ArrayOfSActors (ipdl/TestDataStructures.cpp:331): 2 of 2 stops tainted
-unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs i5.ArrayOfStructs (ipdl/TestDataStructures.cpp:331): 2 of 2 stops tainted
+unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestStructs i.aa (ipdl/TestDataStructures.cpp:307): 1 of 1 stops tainted
+unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs i1.{ArrayOfSActors, ArrayOfStructs} (ipdl/TestDataStructures.cpp:331): 1 of 1 stops tainted
+unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs i2.{ArrayOfSActors, ArrayOfStructs} (ipdl/TestDataStructures.cpp:331): 1 of 1 stops tainted
+unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs i3.{ArrayOfSActors, ArrayOfStructs} (ipdl/TestDataStructures.cpp:331): 1 of 1 stops tainted
+unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs i4.{ArrayOfSActors, ArrayOfStructs} (ipdl/TestDataStructures.cpp:331): 1 of 1 stops tainted
+unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestUnionWithStructs i5.{ArrayOfSActors, ArrayOfStructs} (ipdl/TestDataStructures.cpp:331): 1 of 1 stops tainted

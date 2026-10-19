@@ -1,0 +1,200 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/dataflow/slice/taint-getters
+---
+{
+  "cards": [
+    {
+      "id": 0,
+      "func": "TaintEntryInit",
+      "sym": "_Z14TaintEntryInitRK11TicketsInit",
+      "path": "dataflow/dataflow.cpp",
+      "changed": true,
+      "cluster": 1,
+      "stations": [
+        {
+          "rows": [
+            {
+              "line": 269,
+              "text": "  if (!Checker()->Validate(aInit.first())) {",
+              "stops": [
+                0,
+                1
+              ],
+              "changed": true
+            },
+            {
+              "line": 270,
+              "text": "    return FailTicket(aInit.first());",
+              "stops": [
+                0,
+                1
+              ],
+              "changed": true
+            }
+          ],
+          "stops": [
+            0,
+            1
+          ],
+          "writes": [],
+          "tainted": [
+            0,
+            1,
+            2
+          ],
+          "validates": [
+            1
+          ]
+        },
+        {
+          "rows": [
+            {
+              "line": 273,
+              "text": "  UseTicket(aInit.first());",
+              "stops": [
+                0,
+                1
+              ],
+              "changed": true
+            },
+            {
+              "line": 274,
+              "text": "  UseTicket(aInit.second());",
+              "stops": [
+                0,
+                2
+              ],
+              "changed": true
+            },
+            {
+              "line": 275,
+              "text": "  return 0;",
+              "changed": true
+            }
+          ],
+          "stops": [
+            0,
+            1,
+            2
+          ],
+          "writes": [],
+          "tainted": [
+            0,
+            2
+          ]
+        }
+      ],
+      "tainted_out": [
+        0,
+        2
+      ]
+    }
+  ],
+  "lines": [
+    {
+      "id": 0,
+      "label": "aInit",
+      "names": [
+        "aInit"
+      ],
+      "type": "const TicketsInit &",
+      "semantic": "TicketsInit",
+      "family": 0,
+      "parents": [],
+      "syms": [
+        "V_9372652734290a95_0"
+      ],
+      "tainted": true
+    },
+    {
+      "id": 1,
+      "label": "mFirst",
+      "names": [
+        "mFirst"
+      ],
+      "family": 1,
+      "parents": [],
+      "syms": [
+        "F_<T_TicketsInit>_mFirst"
+      ],
+      "tainted": true
+    },
+    {
+      "id": 2,
+      "label": "mSecond",
+      "names": [
+        "mSecond"
+      ],
+      "family": 2,
+      "parents": [],
+      "syms": [
+        "F_<T_TicketsInit>_mSecond"
+      ],
+      "tainted": true
+    }
+  ],
+  "families": [
+    {
+      "id": 0,
+      "root": 0,
+      "label": "aInit",
+      "semantic": "TicketsInit",
+      "cluster": 1
+    },
+    {
+      "id": 1,
+      "root": 1,
+      "label": "mFirst",
+      "cluster": 1
+    },
+    {
+      "id": 2,
+      "root": 2,
+      "label": "mSecond",
+      "cluster": 1
+    }
+  ],
+  "connectors": [],
+  "clusters": [
+    {
+      "n": 1,
+      "commits": ""
+    }
+  ],
+  "notes": [],
+  "taint": {
+    "sources": [
+      {
+        "card": 0,
+        "line": 1,
+        "field": "mFirst",
+        "why": "TaintEntryInit receives aInit.mFirst (struct Ticket) (taint-from)",
+        "status": "validated",
+        "stops": 1,
+        "tainted_stops": 0
+      },
+      {
+        "card": 0,
+        "line": 2,
+        "field": "mSecond",
+        "why": "TaintEntryInit receives aInit.mSecond (struct Ticket) (taint-from)",
+        "status": "unvalidated",
+        "stops": 2,
+        "tainted_stops": 2
+      }
+    ],
+    "validations": [
+      {
+        "card": 0,
+        "station": 0,
+        "lines": [
+          1
+        ],
+        "by": "TicketChecker::Validate",
+        "guards": true
+      }
+    ]
+  }
+}

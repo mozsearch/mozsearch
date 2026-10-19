@@ -241,3 +241,36 @@ void TaintEntryFields(const Tickets& aTickets) {
   UseTicket(aTickets.mFirst);
   UseTicket(aTickets.mSecond);
 }
+
+// (As Gecko validates principals: a validator called on a call's result
+// (`Manager()->ValidatePrincipal(…)`), of a tainted struct's field by its
+// getter (`aInit.principal()`), failing with a call's result: the fields
+// read by their getters are lines of their own, so that validating the first
+// leaves the second tainted.)
+class TicketsInit {
+ public:
+  const Ticket& first() const { return mFirst; }
+  const Ticket& second() const { return mSecond; }
+
+ private:
+  Ticket mFirst;
+  Ticket mSecond;
+};
+
+class TicketChecker {
+ public:
+  bool Validate(const Ticket& aTicket);
+};
+
+TicketChecker* Checker();
+int FailTicket(const Ticket& aTicket);
+
+int TaintEntryInit(const TicketsInit& aInit) {
+  if (!Checker()->Validate(aInit.first())) {
+    return FailTicket(aInit.first());
+  }
+
+  UseTicket(aInit.first());
+  UseTicket(aInit.second());
+  return 0;
+}

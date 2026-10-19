@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use async_trait::async_trait;
 use clap::{Args, ValueEnum};
@@ -233,11 +233,14 @@ fn paths_arg(inline: &Option<String>, file: &Option<String>) -> Result<Option<Ve
 }
 
 /// A taint audit's subway map (see `dataflow::subway::TaintInfo`) as text:
-/// its sources' statuses, the unvalidated first, then its notes.
+/// its sources' statuses, the unvalidated first (a parameter's fields alike
+/// in a row: `aArgs.{principal, cookieJarSettings}`), then its notes.
 fn render_audit_text(map: &serde_json::Value) -> String {
     let cards = map["cards"].as_array().cloned().unwrap_or_default();
     let lines = map["lines"].as_array().cloned().unwrap_or_default();
-    let mut rows: Vec<(usize, String)> = vec![];
+    // (By order, status, function, parameter and the rest of the row: the
+    // fields.)
+    let mut rows: BTreeMap<(usize, String, String, String, String), Vec<String>> = BTreeMap::new();
     for source in map["taint"]["sources"].as_array().into_iter().flatten() {
         let status = source["status"].as_str().unwrap_or("?");
         let order = ["unvalidated", "partly", "validated", "unused"]
@@ -254,41 +257,52 @@ fn render_audit_text(map: &serde_json::Value) -> String {
             .filter(|v| v["card"] == source["card"] && v["guards"].as_bool() == Some(true))
             .filter_map(|v| v["by"].as_str())
             .collect();
-        rows.push((
-            order,
-            format!(
-                "{:<12} {} {} ({}:{}): {} of {} stops tainted{}",
-                status,
-                card["func"].as_str().unwrap_or("?"),
-                // (Its field, if it's one: `aArgs.principal`.)
-                match source["field"].as_str() {
-                    Some(field) => format!(
-                        "{}.{}",
-                        source["why"]
-                            .as_str()
-                            .and_then(|why| why.split(" receives ").nth(1))
-                            .and_then(|rest| rest.split('.').next())
-                            .unwrap_or("?"),
-                        field
-                    ),
-                    None => line["label"].as_str().unwrap_or("?").to_string(),
-                },
-                card["path"].as_str().unwrap_or("?"),
-                first,
-                source["tainted_stops"],
-                source["stops"],
-                match validators.is_empty() {
-                    true => String::new(),
-                    false => format!(
-                        ", validated by {}",
-                        validators.into_iter().collect::<Vec<_>>().join(", ")
-                    ),
-                }
+        // (Its parameter, and its field, if it's one: `aArgs.principal`.)
+        let (param, field) = match source["field"].as_str() {
+            Some(field) => (
+                source["why"]
+                    .as_str()
+                    .and_then(|why| why.split(" receives ").nth(1))
+                    .and_then(|rest| rest.split('.').next())
+                    .unwrap_or("?")
+                    .to_string(),
+                field.to_string(),
             ),
-        ));
+            None => (
+                line["label"].as_str().unwrap_or("?").to_string(),
+                String::new(),
+            ),
+        };
+        let rest = format!(
+            "({}:{}): {} of {} stops tainted{}",
+            card["path"].as_str().unwrap_or("?"),
+            first,
+            source["tainted_stops"],
+            source["stops"],
+            match validators.is_empty() {
+                true => String::new(),
+                false => format!(
+                    ", validated by {}",
+                    validators.into_iter().collect::<Vec<_>>().join(", ")
+                ),
+            }
+        );
+        let func = card["func"].as_str().unwrap_or("?").to_string();
+        rows.entry((order, status.to_string(), func, param, rest))
+            .or_default()
+            .push(field);
     }
-    rows.sort();
-    let mut out: Vec<String> = rows.into_iter().map(|(_, row)| row).collect();
+    let mut out: Vec<String> = rows
+        .into_iter()
+        .map(|((_, status, func, param, rest), fields)| {
+            let what = match fields.as_slice() {
+                [field] if field.is_empty() => param,
+                [field] => format!("{}.{}", param, field),
+                _ => format!("{}.{{{}}}", param, fields.join(", ")),
+            };
+            format!("{:<12} {} {} {}", status, func, what, rest)
+        })
+        .collect();
     for note in map["notes"].as_array().into_iter().flatten() {
         out.push(format!("Note: {}", note.as_str().unwrap_or("")));
     }

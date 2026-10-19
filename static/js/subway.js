@@ -720,13 +720,29 @@ var SubwayMap = new (class SubwayMap {
       const ORDER = ["unvalidated", "partly", "validated", "unused"];
       const sources = [...this.model.taint.sources].sort((a, b) =>
         ORDER.indexOf(a.status) - ORDER.indexOf(b.status));
+      // (A parameter's fields alike are an item, ex: a struct's principals.)
+      const groups = new Map();
       for (const source of sources) {
+        const key = [source.card, source.line, source.status, source.stops, source.tainted_stops].join(":");
+        if (!groups.has(key)) {
+          groups.set(key, { source, fields: [] });
+        }
+        if (source.field) {
+          groups.get(key).fields.push(source.field);
+        }
+      }
+      for (const { source, fields } of groups.values()) {
         const item = document.createElement("li");
         const status = document.createElement("span");
         status.className = `sw-status sw-status-${source.status}`;
         status.textContent = source.status;
         status.title = `${source.tainted_stops} of its ${source.stops} stops tainted`;
-        item.append(status, ` \u2623 ${this.model.lines[source.line].label}: ${source.why}`);
+        const label = this.model.lines[source.line].label;
+        // (Its parameter's, rather than its first field's: "receives aArgs".)
+        const why = fields.length > 1 ?
+          source.why.replace(/ receives ([^ .]+)\.\S+ \([^)]*\)/, " receives $1") : source.why;
+        item.append(status, ` \u2623 ${label}` +
+          (fields.length > 1 ? ` (${fields.length} fields: ${fields.join(", ")})` : "") + `: ${why}`);
         item.dataset.line = source.line;
         item.addEventListener("mouseenter", () => this.focus(source.line));
         item.addEventListener("mouseleave", () => this.focus(null));
