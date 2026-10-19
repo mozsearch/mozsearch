@@ -715,3 +715,200 @@ kind = "weak"
 
 [types."WTF::WeakObjCPtr".pointer]
 kind = "weak"
+
+# ### Dataflow hints ###
+#
+# What functions do with data where the dataflow analysis (tools/src/dataflow/)
+# can't see it: their implementations are beyond it (ex: Gecko's string
+# classes' buffer sharing and copying, in xpcom/string) or too costly to
+# analyze for every trace.  crossref gives each function's symbols (all of
+# its overloads and instantiations, by its pretty name without template
+# arguments) a summary with these flows, which traces step over its calls by
+# (shown as "(hint)" nodes).
+#
+# `flows` are "from -> to", or "from ~> to" if the value is derived from it
+# (ex: converted between encodings), with the ports "this" (for a constructor,
+# the object it constructs), "return" and "argN" (as a destination, what's
+# written through it).  `why` says why, for people reading traces.  Hints
+# should be things the analysis would conclude if it could see; they're
+# reviewed like code.
+
+[pretty."nsTSubstring::nsTSubstring".dataflow]
+flows = ["arg0 -> this"]
+why = "A string constructed from its first argument's characters (or sharing its buffer)."
+
+[pretty."nsTString::nsTString".dataflow]
+flows = ["arg0 -> this"]
+why = "A string constructed from its first argument's characters (or sharing its buffer)."
+
+[pretty."nsTAutoStringN::nsTAutoStringN".dataflow]
+flows = ["arg0 -> this"]
+why = "A string constructed from its first argument's characters."
+
+[pretty."nsTDependentString::nsTDependentString".dataflow]
+flows = ["arg0 -> this"]
+why = "A string depending on (pointing into) its first argument's characters."
+
+[pretty."nsTDependentSubstring::nsTDependentSubstring".dataflow]
+flows = ["arg0 ~> this"]
+why = "A string depending on (pointing into) a part of its first argument's characters."
+
+[pretty."nsTPromiseFlatString::nsTPromiseFlatString".dataflow]
+flows = ["arg0 -> this"]
+why = "Its argument's characters, null-terminated (shared, or else copied)."
+
+[pretty."nsTLiteralString::nsTLiteralString".dataflow]
+flows = ["arg0 -> this"]
+why = "A string of its literal argument's characters."
+
+[pretty."NS_ConvertUTF16toUTF8::NS_ConvertUTF16toUTF8".dataflow]
+flows = ["arg0 ~> this"]
+why = "Its UTF-16 argument, converted to UTF-8."
+
+[pretty."NS_ConvertUTF8toUTF16::NS_ConvertUTF8toUTF16".dataflow]
+flows = ["arg0 ~> this"]
+why = "Its UTF-8 argument, converted to UTF-16."
+
+[pretty."NS_ConvertASCIItoUTF16::NS_ConvertASCIItoUTF16".dataflow]
+flows = ["arg0 ~> this"]
+why = "Its ASCII argument, widened to UTF-16."
+
+[pretty."NS_LossyConvertUTF16toASCII::NS_LossyConvertUTF16toASCII".dataflow]
+flows = ["arg0 ~> this"]
+why = "Its UTF-16 argument, narrowed to ASCII (lossily)."
+
+[pretty."nsTSubstring::Assign".dataflow]
+flows = ["arg0 -> this"]
+why = "Replaces the string's characters with its first argument's (copied, or sharing its buffer)."
+
+[pretty."nsTSubstring::AssignASCII".dataflow]
+flows = ["arg0 ~> this"]
+why = "Replaces the string's characters with its ASCII argument's (widened for UTF-16 strings)."
+
+[pretty."nsTSubstring::AssignLiteral".dataflow]
+flows = ["arg0 ~> this"]
+why = "Replaces the string's characters with its literal argument's."
+
+[pretty."nsTSubstring::operator=".dataflow]
+flows = ["arg0 -> this", "arg0 -> return"]
+why = "Replaces the string's characters with its argument's (as Assign), and returns the string."
+
+[pretty."nsTSubstring::Append".dataflow]
+flows = ["arg0 -> this"]
+why = "Appends its first argument's characters to the string's."
+
+[pretty."nsTSubstring::AppendASCII".dataflow]
+flows = ["arg0 ~> this"]
+why = "Appends its ASCII argument's characters to the string's (widened for UTF-16 strings)."
+
+[pretty."nsTSubstring::AppendLiteral".dataflow]
+flows = ["arg0 ~> this"]
+why = "Appends its literal argument's characters to the string's."
+
+[pretty."nsTSubstring::AppendInt".dataflow]
+flows = ["arg0 ~> this"]
+why = "Appends its integer argument, formatted, to the string."
+
+[pretty."nsTSubstring::operator+=".dataflow]
+flows = ["arg0 -> this", "arg0 -> return"]
+why = "Appends its argument's characters to the string's (as Append), and returns the string."
+
+[pretty."nsTSubstring::Insert".dataflow]
+flows = ["arg0 -> this"]
+why = "Inserts its first argument's characters into the string."
+
+[pretty."nsTSubstring::Replace".dataflow]
+flows = ["arg2 -> this"]
+why = "Replaces a range of the string's characters with its third argument's."
+
+[pretty."CopyUTF16toUTF8".dataflow]
+flows = ["arg0 ~> arg1"]
+why = "Writes its UTF-16 first argument, converted to UTF-8, to its second."
+
+[pretty."CopyUTF8toUTF16".dataflow]
+flows = ["arg0 ~> arg1"]
+why = "Writes its UTF-8 first argument, converted to UTF-16, to its second."
+
+[pretty."AppendUTF16toUTF8".dataflow]
+flows = ["arg0 ~> arg1"]
+why = "Appends its UTF-16 first argument, converted to UTF-8, to its second."
+
+[pretty."AppendUTF8toUTF16".dataflow]
+flows = ["arg0 ~> arg1"]
+why = "Appends its UTF-8 first argument, converted to UTF-16, to its second."
+
+[pretty."CopyASCIItoUTF16".dataflow]
+flows = ["arg0 ~> arg1"]
+why = "Writes its ASCII first argument, widened to UTF-16, to its second."
+
+[pretty."AppendASCIItoUTF16".dataflow]
+flows = ["arg0 ~> arg1"]
+why = "Appends its ASCII first argument, widened to UTF-16, to its second."
+
+[pretty."LossyCopyUTF16toASCII".dataflow]
+flows = ["arg0 ~> arg1"]
+why = "Writes its UTF-16 first argument, narrowed to ASCII (lossily), to its second."
+
+[pretty."LossyAppendUTF16toASCII".dataflow]
+flows = ["arg0 ~> arg1"]
+why = "Appends its UTF-16 first argument, narrowed to ASCII (lossily), to its second."
+
+[pretty."mozilla::Result::Result".dataflow]
+flows = ["arg0 -> this"]
+why = "A Result of its argument (its success or error value)."
+
+[pretty."mozilla::Result::unwrap".dataflow]
+flows = ["this -> return"]
+why = "The Result's success value."
+
+[pretty."mozilla::Result::inspect".dataflow]
+flows = ["this -> return"]
+why = "The Result's success value (a reference to it)."
+
+[pretty."mozilla::Result::unwrapOr".dataflow]
+flows = ["this -> return", "arg0 -> return"]
+why = "The Result's success value, or else its argument."
+
+[pretty."mozilla::Result::unwrapErr".dataflow]
+flows = ["this -> return"]
+why = "The Result's error value."
+
+[pretty."mozilla::Result::inspectErr".dataflow]
+flows = ["this -> return"]
+why = "The Result's error value (a reference to it)."
+
+[pretty."mozilla::Maybe::Maybe".dataflow]
+flows = ["arg0 -> this"]
+why = "A Maybe of its argument's value."
+
+[pretty."mozilla::Maybe::emplace".dataflow]
+flows = ["arg0 -> this"]
+why = "Constructs the Maybe's value from its argument."
+
+[pretty."mozilla::Maybe::ref".dataflow]
+flows = ["this -> return"]
+why = "The Maybe's value (a reference to it)."
+
+[pretty."mozilla::Maybe::value".dataflow]
+flows = ["this -> return"]
+why = "The Maybe's value."
+
+[pretty."mozilla::Maybe::extract".dataflow]
+flows = ["this -> return"]
+why = "The Maybe's value, moved out of it."
+
+[pretty."mozilla::Maybe::valueOr".dataflow]
+flows = ["this -> return", "arg0 -> return"]
+why = "The Maybe's value, or else its argument."
+
+[pretty."mozilla::Maybe::operator*".dataflow]
+flows = ["this -> return"]
+why = "The Maybe's value (a reference to it)."
+
+[pretty."mozilla::Maybe::operator->".dataflow]
+flows = ["this -> return"]
+why = "The Maybe's value (a pointer to it)."
+
+[pretty."mozilla::Some".dataflow]
+flows = ["arg0 -> return"]
+why = "A Maybe of its argument."

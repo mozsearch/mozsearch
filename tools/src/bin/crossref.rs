@@ -23,7 +23,8 @@ use serde_json::Map;
 extern crate tools;
 use tools::cmd_pipeline::symbol_graph::is_implementable;
 use tools::dataflow::summary::{
-    Category, FieldEdge, Summary, field_class, is_field_sym, is_value_type_class,
+    Category, FieldEdge, Summary, field_class, hint_summary, is_field_sym, is_value_type_class,
+    parse_hint_flow, untemplated_pretty,
 };
 use tools::file_format::analysis::AnalysisStructured;
 use tools::file_format::analysis::BindingSlotLang;
@@ -2883,6 +2884,60 @@ fn add_field_flows(
     }
 }
 
+/// The summaries of the functions the ontology has dataflow hints for (see
+/// `OntologyRule::dataflow`), by their pretty names without template
+/// arguments (all of their overloads and instantiations), at their
+/// definitions, in place of `dataflow-summarize`'s, for traces to step over
+/// their calls by (see `CrossrefData::dataflow`).
+fn add_dataflow_hints(
+    ontology: &OntologyMappingIngestion,
+    pretty_table: &PrettyTable,
+    search_result_table: &SearchResultTable,
+    summaries: &mut UstrMap<Summary>,
+) {
+    let hints: HashMap<String, (Vec<_>, &str)> = ontology
+        .config
+        .pretty
+        .iter()
+        .filter_map(|(pretty, rule)| {
+            let hint = rule.dataflow.as_ref()?;
+            let flows: Vec<_> = hint
+                .flows
+                .iter()
+                .filter_map(|flow| {
+                    let parsed = parse_hint_flow(flow);
+                    if parsed.is_none() {
+                        eprintln!(
+                            "ontology-mapping.toml: {}'s flow {:?} isn't a flow",
+                            pretty, flow
+                        );
+                    }
+                    parsed
+                })
+                .collect();
+            Some((untemplated_pretty(pretty), (flows, hint.why.as_str())))
+        })
+        .collect();
+    if hints.is_empty() {
+        return;
+    }
+    for (sym, pretty) in pretty_table {
+        let Some((flows, why)) = hints.get(&untemplated_pretty(pretty)) else {
+            continue;
+        };
+        let (path, line) = search_result_table
+            .get(sym)
+            .and_then(|kinds| kinds.get(&AnalysisKind::Def))
+            .and_then(|paths| paths.iter().next())
+            .and_then(|(path, results)| Some((path.as_str(), results.first()?.lineno)))
+            .unwrap_or(("", 0));
+        summaries.insert(
+            *sym,
+            hint_summary(*sym, pretty, path, line, flows.clone(), why),
+        );
+    }
+}
+
 /// The functions' categories from `dataflow-summarize`'s summaries, its
 /// edges between fields, and the accessors' (getters', setters' and trivial
 /// methods') summaries, for their crossref entries (see
@@ -3402,12 +3457,18 @@ async fn crossref_subset(
     process_ontology_rules(&ontology, &search_result_table, &id_table, &mut meta_table);
     let (js_idl_table, js_ts_table) = create_js_tables(&meta_table);
     let tree_metas = tree_rollup_metas(base_index, &callees_table, &pretty_table);
-    let rollups = add_rollups(
+    let mut rollups = add_rollups(
         &tree_config.paths.index_path,
         &mut meta_table,
         &mut search_result_table,
         &callees_table,
         Some(tree_metas),
+    );
+    add_dataflow_hints(
+        &ontology,
+        &pretty_table,
+        &search_result_table,
+        &mut rollups.summaries,
     );
     write_crossref_and_jumpref(
         tree_name,
@@ -3635,12 +3696,18 @@ async fn main() {
         tree_name,
         Local::now().format("%Y-%m-%dT%H:%M:%S%z")
     );
-    let rollups = add_rollups(
+    let mut rollups = add_rollups(
         &tree_config.paths.index_path,
         &mut meta_table,
         &mut search_result_table,
         &callees_table,
         None,
+    );
+    add_dataflow_hints(
+        &ontology,
+        &pretty_table,
+        &search_result_table,
+        &mut rollups.summaries,
     );
 
     println!(

@@ -3,18 +3,19 @@ source: src/bin/test-index.rs
 expression: "&fb.contents"
 input_file: inputs/dataflow/stats
 ---
-      10 Cpp-callees
-      10 Cpp-callees-with-defs
-      13 Cpp-calls
-      13 Cpp-calls-with-callee-symbols
+      19 Cpp-callees
+      15 Cpp-callees-with-defs
+       4 Cpp-callees-without-defs
+      25 Cpp-calls
+      25 Cpp-calls-with-callee-symbols
        1 Cpp-calls-with-several-callees
-      18 Cpp-events-assign
-      13 Cpp-events-call
+      21 Cpp-events-assign
+      25 Cpp-events-call
        4 Cpp-events-from-macro-expansions
-      15 Cpp-events-return
+      23 Cpp-events-return
        4 Cpp-events-test
        1 Cpp-files
-      19 Cpp-functions
+      27 Cpp-functions
        0 Cpp-reads-unresolved-names
        3 Js-callees
        3 Js-callees-with-defs

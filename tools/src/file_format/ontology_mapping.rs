@@ -42,6 +42,26 @@ pub struct OntologyRule {
     /// Labels that we always apply to the class.
     #[serde(default)]
     pub labels: Vec<Ustr>,
+    /// What the function (all of its overloads, by its pretty name without
+    /// template arguments) does with data, for the dataflow analysis, where
+    /// it can't see that itself (ex: an implementation beyond it, or too
+    /// costly to analyze).
+    pub dataflow: Option<OntologyDataflow>,
+}
+
+/// A hint for the dataflow analysis about a function (see
+/// `dataflow::summary::hint_summary`): crossref gives the function's symbols
+/// summaries with its flows, which traces step over its calls by.
+#[derive(Deserialize)]
+pub struct OntologyDataflow {
+    /// Where values go in it: "from -> to", or "from ~> to" if the value is
+    /// derived from it (ex: converted), with the ports "this" (for a
+    /// constructor, the object it constructs), "return" and "argN" (as a
+    /// destination, what's written through it); see
+    /// `dataflow::summary::parse_hint_flow`.
+    pub flows: Vec<String>,
+    /// Why, for people reading traces.
+    pub why: String,
 }
 
 #[derive(Eq, PartialEq, Deserialize)]
@@ -768,4 +788,41 @@ kind = "contains"
         ),
         (vec![], vec![])
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The checked-in ontology mapping parses, and its dataflow hints'
+    /// flows are flows.  (In a checkout: nix builds the tools without
+    /// config_defaults.)
+    #[test]
+    fn test_default_dataflow_hints() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../config_defaults/ontology-mapping.toml"
+        );
+        let Ok(text) = std::fs::read_to_string(path) else {
+            return;
+        };
+        let ontology = OntologyMappingIngestion::new(&text).unwrap();
+        let mut hints = 0;
+        for (pretty, rule) in &ontology.config.pretty {
+            let Some(hint) = &rule.dataflow else {
+                continue;
+            };
+            hints += 1;
+            assert!(!hint.flows.is_empty() && !hint.why.is_empty(), "{}", pretty);
+            for flow in &hint.flows {
+                assert!(
+                    crate::dataflow::summary::parse_hint_flow(flow).is_some(),
+                    "{}: {:?}",
+                    pretty,
+                    flow
+                );
+            }
+        }
+        assert!(hints > 0);
+    }
 }

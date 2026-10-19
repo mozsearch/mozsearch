@@ -1,0 +1,21 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/backward-constructed
+---
+Unbox (dataflow/dataflow.cpp)
+  #0     142 seed       aBox                               static int Unbox(const Box& aBox) { return aBox.mValue; }
+  #1     142 param      param aBox                         static int Unbox(const Box& aBox) { return aBox.mValue; }
+        -> #0 aBox [local: aBox]
+Boxed (dataflow/dataflow.cpp)
+  #2     144 call       call Unbox                         int Boxed(int aSeed) { return Unbox(Box(aSeed + 2)); }
+        -> #1 param aBox in Unbox [call: arg 0]
+  #3     144 call       call Box::Box                      int Boxed(int aSeed) { return Unbox(Box(aSeed + 2)); }
+        -> #2 call Unbox [local: Box::Box(…)]
+  #5     144 const      2                                  int Boxed(int aSeed) { return Unbox(Box(aSeed + 2)); }
+        -> #4 Box::Box (setter) in Box::Box [local: 2]
+  #6     144 param      param aSeed                        int Boxed(int aSeed) { return Unbox(Box(aSeed + 2)); }
+        -> #4 Box::Box (setter) in Box::Box [call: aSeed]
+Box::Box (dataflow/dataflow.cpp)
+  #4     138 summary    Box::Box (setter)                  
+        -> #3 call Box::Box in Boxed [return: result]

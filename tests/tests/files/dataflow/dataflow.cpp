@@ -127,3 +127,27 @@ static int RunNow(F&& aFunc) {
 int InitCapture(int aSeed) {
   return RunNow([seed = aSeed + 1]() { return Consume(seed); });
 }
+
+// A constructed object's value is what its constructor puts in it: by its
+// definition (Box's), or for constructors and methods the analysis can't see
+// into (Gecko's string classes', see strings.h), by their hints.
+#include "strings.h"
+
+class Box {
+ public:
+  explicit Box(int aValue) : mValue(aValue) {}
+  int mValue;
+};
+
+static int Unbox(const Box& aBox) { return aBox.mValue; }
+
+int Boxed(int aSeed) { return Unbox(Box(aSeed + 2)); }
+
+static int UseName(const nsTSubstring<char>& aName) { return aName.Length(); }
+
+int Names(const nsTSubstring<char>& aSource) {
+  nsTString<char> copy(aSource);
+  nsTString<char> assigned;
+  assigned.Assign(aSource);
+  return UseName(copy) + UseName(assigned) + UseName(nsTString<char>(aSource));
+}

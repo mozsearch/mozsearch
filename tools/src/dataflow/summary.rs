@@ -155,6 +155,85 @@ pub struct Summary {
     /// summary show (see `dataflow::trace`'s `accessor_summary`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub consts: Vec<ConstFlow>,
+    /// For a function whose flows are a hint (see `hint_summary`), rather
+    /// than analyzed: why they're what they are.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hint: Option<String>,
+}
+
+/// A hint's flow (see `ontology_mapping::OntologyDataflow`): "from -> to",
+/// or "from ~> to" if the value is derived from it (ex: converted), with the
+/// ports "this", "return" and "argN".
+pub fn parse_hint_flow(text: &str) -> Option<Flow> {
+    let (from, to, derived) = match text.split_once("~>") {
+        Some((from, to)) => (from, to, true),
+        None => {
+            let (from, to) = text.split_once("->")?;
+            (from, to, false)
+        }
+    };
+    let port = |text: &str| match text.trim() {
+        "this" => Some(Port::This { fields: vec![] }),
+        "return" => Some(Port::Return),
+        arg => Some(Port::Param {
+            i: arg.strip_prefix("arg")?.parse().ok()?,
+            fields: vec![],
+        }),
+    };
+    Some(Flow {
+        from: port(from)?,
+        to: port(to)?,
+        derived,
+    })
+}
+
+/// The summary of the function `sym` (`pretty`, defined at `path:line`, if
+/// we know) by a hint's flows (see `parse_hint_flow`), for a function whose
+/// flows the analysis can't work out (ex: Gecko's string classes' `Assign`,
+/// whose implementation is beyond it), and why.
+pub fn hint_summary(
+    sym: Ustr,
+    pretty: &str,
+    path: &str,
+    line: u32,
+    flows: Vec<Flow>,
+    why: &str,
+) -> Summary {
+    Summary {
+        sym,
+        pretty: pretty.to_string(),
+        path: path.to_string(),
+        line,
+        category: Category::Small,
+        events: flows.len(),
+        flows,
+        flows_omitted: false,
+        overrides: vec![],
+        consts: vec![],
+        hint: Some(why.to_string()),
+    }
+}
+
+/// A pretty identifier without its template arguments (ex:
+/// "nsTString::nsTString" for "nsTString::nsTString<T>"), as hints name
+/// functions (see `hint_summary`).  (Not operators' angle brackets.)
+pub fn untemplated_pretty(pretty: &str) -> String {
+    let mut out = String::new();
+    let mut depth = 0;
+    for c in pretty.chars() {
+        let in_operator = depth == 0
+            && out
+                .rsplit("::")
+                .next()
+                .is_some_and(|last| last.starts_with("operator"));
+        match c {
+            '<' if !in_operator => depth += 1,
+            '>' if depth > 0 => depth -= 1,
+            _ if depth > 0 => {}
+            _ => out.push(c),
+        }
+    }
+    out
 }
 
 /// A constant a function returns or writes (see `Summary::consts`).
@@ -1038,6 +1117,7 @@ pub fn summarize_in(f: &FuncIr, ipdl: &IpdlSlots, overrides: Vec<Ustr>) -> Summa
         flows_omitted,
         overrides,
         consts,
+        hint: None,
     }
 }
 
@@ -1494,5 +1574,32 @@ mod tests {
         assert!(is_boring_macro("EXPECT_EQ"));
         assert!(is_boring_macro("WORKER_LOG"));
         assert!(!is_boring_macro("NS_IMPL_ISUPPORTS"));
+    }
+
+    #[test]
+    fn test_hints() {
+        assert_eq!(
+            untemplated_pretty("nsTString::nsTString<T>"),
+            "nsTString::nsTString"
+        );
+        assert_eq!(untemplated_pretty("Foo<a::b>::bar"), "Foo::bar");
+        assert_eq!(untemplated_pretty("Foo::operator<<"), "Foo::operator<<");
+        assert_eq!(untemplated_pretty("Foo<T>::operator->"), "Foo::operator->");
+        assert_eq!(
+            parse_hint_flow("arg0 -> this"),
+            Some(Flow {
+                from: Port::Param {
+                    i: 0,
+                    fields: vec![]
+                },
+                to: Port::This { fields: vec![] },
+                derived: false,
+            })
+        );
+        assert_eq!(
+            parse_hint_flow("arg1 ~> return").map(|f| (f.to, f.derived)),
+            Some((Port::Return, true))
+        );
+        assert_eq!(parse_hint_flow("args -> this"), None);
     }
 }

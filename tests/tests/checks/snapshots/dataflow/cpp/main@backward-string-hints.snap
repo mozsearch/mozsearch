@@ -1,0 +1,34 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/backward-string-hints
+---
+UseName (dataflow/dataflow.cpp)
+  #0     146 seed       aName                              static int UseName(const nsTSubstring<char>& aName) { return aName.Length(); }
+  #1     146 param      param aName                        static int UseName(const nsTSubstring<char>& aName) { return aName.Length(); }
+        -> #0 aName [local: aName]
+Names (dataflow/dataflow.cpp)
+  #11    148 param      param aSource                      
+        -> #7 nsTSubstring::Assign (hint) in nsTSubstring::Assign [call: aSource]
+        -> #9 nsTString::nsTString<T> (hint) in nsTString::nsTString<T> [call: aSource]
+  #5     149 assign     copy =                             nsTString<char> copy(aSource);
+        -> #2 call UseName [local: copy]
+  #10    149 call       call nsTString::nsTString<T>       nsTString<char> copy(aSource);
+        -> #5 copy = [local: nsTString::nsTString<T>(…)]
+  #6     151 call       call nsTSubstring::Assign          assigned.Assign(aSource);
+        -> #3 call UseName [local: assigned]
+  #2     152 call       call UseName                       return UseName(copy) + UseName(assigned) + UseName(nsTString<char>(aSource));
+        -> #1 param aName in UseName [call: arg 0]
+  #3     152 call       call UseName                       return UseName(copy) + UseName(assigned) + UseName(nsTString<char>(aSource));
+        -> #1 param aName in UseName [call: arg 0]
+  #4     152 call       call UseName                       return UseName(copy) + UseName(assigned) + UseName(nsTString<char>(aSource));
+        -> #1 param aName in UseName [call: arg 0]
+  #8     152 call       call nsTString::nsTString<T>       return UseName(copy) + UseName(assigned) + UseName(nsTString<char>(aSource));
+        -> #4 call UseName [local: nsTString::nsTString<T>(…)]
+nsTSubstring::Assign ()
+  #7       0 summary    nsTSubstring::Assign (hint)        
+        -> #6 call nsTSubstring::Assign in Names [return: this]
+nsTString::nsTString<T> ()
+  #9       0 summary    nsTString::nsTString<T> (hint)     
+        -> #8 call nsTString::nsTString<T> in Names [return: result]
+        -> #10 call nsTString::nsTString<T> in Names [return: result]

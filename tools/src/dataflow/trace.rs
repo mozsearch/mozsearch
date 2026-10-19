@@ -686,6 +686,20 @@ impl<'s> Tracer<'s> {
                     {
                         continue;
                     }
+                    // (Nor callees with hints, which are answers; see
+                    // `summary::hint_summary`.)
+                    let mut hinted = false;
+                    for s in call.callee.iter().take(self.opts.fanout) {
+                        if let Some(xref) = self.xref(s).await
+                            && xref.dataflow.as_ref().is_some_and(|d| d.hint.is_some())
+                        {
+                            hinted = true;
+                            break;
+                        }
+                    }
+                    if hinted {
+                        continue;
+                    }
                     let mut resolved = false;
                     for s in call.callee.iter().take(self.opts.fanout) {
                         if !self.resolve(s).await.is_empty() {
@@ -1482,6 +1496,7 @@ impl<'s> Tracer<'s> {
         }
         let id = self.graph.nodes.len();
         let category = match summary.category {
+            _ if summary.hint.is_some() => "hint",
             Category::Getter => "getter",
             Category::Setter => "setter",
             _ => "trivial",
@@ -1496,7 +1511,8 @@ impl<'s> Tracer<'s> {
             lang,
             label: format!("{} ({})", short_pretty(&summary.pretty), category),
             text: String::new(),
-            detail: String::new(),
+            // (A hint's why.)
+            detail: summary.hint.clone().unwrap_or_default(),
         });
         self.node_ids.insert(map_key, id);
         id
@@ -1565,6 +1581,8 @@ impl<'s> Tracer<'s> {
             }
             let to = match &flow.to {
                 Port::Return => Flow::Result(c),
+                // (A constructor's object is its result.)
+                Port::This { .. } if call.kind == CallKind::Construct => Flow::Result(c),
                 port => match port_place(call, port) {
                     Some(place) => Flow::Place(place),
                     None => continue,
@@ -3154,6 +3172,9 @@ impl<'s> Tracer<'s> {
         self.edge(n, node, kind, label.to_string());
         let call = file.funcs[func].calls[c].clone();
         let epos = Some(ei as isize);
+        // (A constructor's result is the object it constructs: what flows
+        // into its `this`.)
+        let ctor = call.kind == CallKind::Construct;
         // (Through IPDL fields rather than the generated code: a field's
         // value comes from its writes, and a constructed struct's from its
         // fields' arguments.)
@@ -3191,7 +3212,9 @@ impl<'s> Tracer<'s> {
         if let Some(summary) = self.accessor_summary(&call).await {
             let sn = self.summary_node(&summary, file.funcs[func].lang);
             self.edge(sn, n, EdgeKind::Return, "result".to_string());
-            for flow in summary.flows.iter().filter(|f| f.to == Port::Return) {
+            let result =
+                |to: &Port| *to == Port::Return || (ctor && matches!(to, Port::This { .. }));
+            for flow in summary.flows.iter().filter(|f| result(&f.to)) {
                 self.push_port_sources(file, func, &call, &flow.from, epos, sn, stack, hops + 1);
                 // (As from the accessor's read of its object's field: the
                 // field's writes elsewhere; see `backward_place`.)
@@ -3223,7 +3246,11 @@ impl<'s> Tracer<'s> {
                 format!("{}(…) per oracle", short_pretty(&call.callee_pretty)),
             );
             self.edge(o, n, EdgeKind::Oracle, "return".to_string());
-            for flow in summary.flows.iter().filter(|f| f.to == "return") {
+            for flow in summary
+                .flows
+                .iter()
+                .filter(|f| f.to == "return" || (ctor && f.to == "this"))
+            {
                 let vals: Vec<Val> = match parse_slot(&flow.from) {
                     Some(Slot::This) => call.receiver.iter().flat_map(|r| r.vals.clone()).collect(),
                     Some(Slot::Arg(i)) => {
@@ -3312,6 +3339,28 @@ impl<'s> Tracer<'s> {
                         Flow::Place(place),
                         None,
                         pn,
+                        new_stack,
+                        hops + 1,
+                        EdgeKind::Local,
+                    );
+                }
+                _ if ctor => {
+                    // (What it writes to its object, from its end.)
+                    let tn = self.node(
+                        &target.file,
+                        target.func,
+                        NodeKey::Seed("this".to_string()),
+                        NodeKind::Param,
+                        tf.line,
+                        "this".to_string(),
+                    );
+                    self.edge(tn, n, EdgeKind::Return, "constructed".to_string());
+                    self.push(
+                        &target.file,
+                        target.func,
+                        Flow::Place(Place::this()),
+                        None,
+                        tn,
                         new_stack,
                         hops + 1,
                         EdgeKind::Local,
@@ -3455,7 +3504,18 @@ impl<'s> Tracer<'s> {
                     let call = f.calls[c].clone();
                     // (Arguments the callee can write `p` through.)
                     let (writes, receiver_writes) = call_writes(&call, &p, lang);
-                    if writes.is_empty() && !receiver_writes {
+                    // (A method of `p` (or of what it's in) writing its
+                    // object, by its summary (ex: a hint's, for string
+                    // classes' `Assign`): not otherwise, as assuming every
+                    // method we can't see into writes its object would
+                    // drown the trace.)
+                    let whole_receiver = !receiver_writes
+                        && call
+                            .receiver
+                            .as_ref()
+                            .and_then(|r| r.place.as_ref())
+                            .is_some_and(|rp| p.within(rp));
+                    if writes.is_empty() && !receiver_writes && !whole_receiver {
                         continue;
                     }
                     // (Callees that can't, by their parameters' types, aren't
@@ -3463,7 +3523,13 @@ impl<'s> Tracer<'s> {
                     for sym in call.callee.iter().take(self.opts.fanout) {
                         self.xref(sym).await;
                     }
-                    if !self.callees_may_write(&call, &p, &writes, receiver_writes, lang) {
+                    if !self.callees_may_write(
+                        &call,
+                        &p,
+                        &writes,
+                        receiver_writes || whole_receiver,
+                        lang,
+                    ) {
                         continue;
                     }
                     // (An accessor: what its summary says it writes `p` (or
@@ -3522,6 +3588,9 @@ impl<'s> Tracer<'s> {
                                 self.backward_field(file, func, field, sn, hops + 1).await;
                             }
                         }
+                        continue;
+                    }
+                    if writes.is_empty() && !receiver_writes {
                         continue;
                     }
                     let targets = self.targets(file, func, c).await;
