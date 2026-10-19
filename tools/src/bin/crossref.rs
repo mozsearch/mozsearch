@@ -1088,11 +1088,13 @@ fn read_analysis_files_thread(
 /// Give the memory freed in all of the threads' heaps back to the system:
 /// glibc keeps it in each thread's arena otherwise, so that each thread's
 /// heap stays the size of the biggest chunk it read (and the merge's tables
-/// come on top).  After each chunk, read-analysis peaks at 0.78 GB on
-/// minidisco rather than 1.30 (1.07 before chunks, when each thread read a
-/// 16th of the files), for 4% more time; config8's crossref peaked at 85 GiB
-/// rather than 47 with chunks.  (See dataflow-summarize's, which does the
-/// same.)
+/// come on top).  read-analysis does after the chunks of files bigger than a
+/// chunk: on minidisco it then peaks at 0.79 GB rather than 1.30 (1.07 before
+/// chunks, when each thread read a 16th of the files).  config8's crossref
+/// peaked at 85 GiB rather than 47 with chunks, and at 59 GiB trimming after
+/// every chunk, which made read-analysis 5.7 minutes rather than 2.7 (each
+/// trim walks every arena, which 16 threads then wait for).  (See
+/// dataflow-summarize's, which does the same.)
 #[cfg(all(target_os = "linux", target_env = "gnu"))]
 fn release_freed_memory() {
     unsafe extern "C" {
@@ -1133,11 +1135,12 @@ fn analysis_bytes(index_path: &str, path: &str) -> u64 {
 /// (Each thread reading a 16th of the files, in order, left one reading a
 /// chunk of big files for the last 8 of read-analysis's 13 minutes on
 /// firefox-disco, while the others idled.)
+/// Also returns which chunks are the files bigger than that.
 fn analysis_chunks(
     index_path: &str,
     paths: &[Ustr],
     thread_count: usize,
-) -> Vec<std::ops::Range<usize>> {
+) -> (Vec<std::ops::Range<usize>>, Vec<bool>) {
     let sizes: Vec<u64> = paths
         .iter()
         .map(|path| analysis_bytes(index_path, path))
@@ -1159,7 +1162,8 @@ fn analysis_chunks(
         true => (0, std::cmp::Reverse(*bytes), range.start),
         false => (1, std::cmp::Reverse(0), range.start),
     });
-    chunks.into_iter().map(|(range, _)| range).collect()
+    let giants = chunks.iter().map(|(_, bytes)| *bytes > target).collect();
+    (chunks.into_iter().map(|(range, _)| range).collect(), giants)
 }
 
 struct AnalysisData {
@@ -1186,7 +1190,7 @@ fn read_analysis_files(
     let total = analysis_relative_paths.len();
     let thread_count = if total > 100 { thread_count } else { 1 };
     let index_path = tree_config.paths.index_path.as_str();
-    let chunks = analysis_chunks(index_path, &analysis_relative_paths, thread_count);
+    let (chunks, giants) = analysis_chunks(index_path, &analysis_relative_paths, thread_count);
 
     info!(
         "{} analysis files found. Processing with {} threads ({} chunks of about equal analysis, biggest first)",
@@ -1326,7 +1330,7 @@ fn read_analysis_files(
         let (sender, receiver) = std::sync::mpsc::channel::<(usize, PerThreadAnalysisData)>();
         for _ in 0..thread_count {
             let sender = sender.clone();
-            let (chunks, next, paths) = (&chunks, &next, &analysis_relative_paths);
+            let (chunks, giants, next, paths) = (&chunks, &giants, &next, &analysis_relative_paths);
             let find_source_file = tree_config.get_find_source_file();
             s.spawn(move || {
                 loop {
@@ -1345,8 +1349,12 @@ fn read_analysis_files(
                     if sender.send((range.start, data)).is_err() {
                         break;
                     }
-                    // (What reading it allocated is freed; give it back.)
-                    release_freed_memory();
+                    // (What reading a file bigger than a chunk allocated is
+                    // freed; give it back.)
+                    let trim = giants[taken];
+                    if trim {
+                        release_freed_memory();
+                    }
                 }
             });
         }
