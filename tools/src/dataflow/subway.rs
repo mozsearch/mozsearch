@@ -32,7 +32,7 @@ use super::frontend::FileIr;
 use super::ir::*;
 use super::slice::{Key, Slicing, cluster_commits, place_keys};
 use super::summary::{Port, Summary};
-use super::taint::{Taint, TaintSpec, Validated};
+use super::taint::{Taint, TaintSpec, TaintedField, Validated};
 use super::trace::{Tracer, ipc_message_sym};
 
 /// Events at most this many lines apart are one station.
@@ -70,6 +70,10 @@ pub struct TaintInfo {
 pub struct TaintSource {
     pub card: usize,
     pub line: usize,
+    /// The field of its parameter it is, if it's one (of a struct whose
+    /// fields are tainted, rather than its type).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub field: Option<String>,
     pub why: String,
     /// Whether its card's validations bless it before all of its uses there
     /// ("validated"), some ("partly"), or none ("unvalidated"), or it has no
@@ -276,17 +280,31 @@ type CallSummaries = HashMap<usize, Summary>;
 /// The keys of the places a port of a call's callee's summary is (an
 /// argument's values, or its object's), and whether derived.
 fn port_keys(f: &FuncIr, call: &Call, port: &Port, sums: &CallSummaries) -> Vec<(Key, bool)> {
+    // (A port's fields, of an argument that's a place, are its fields' keys:
+    // a getter's `aArgs.principal()` reads the field, rather than all of
+    // `aArgs`.)
+    let keys = |arg: &Arg, fields: &[Ustr]| -> Vec<(Key, bool)> {
+        match &arg.place {
+            Some(place) if !fields.is_empty() => {
+                let mut place = place.clone();
+                for field in fields {
+                    place = place.with(Step::Field(*field));
+                }
+                keys_of(f, &place)
+                    .into_iter()
+                    .map(|key| (key, false))
+                    .collect()
+            }
+            _ => val_keys(f, &arg.vals, sums),
+        }
+    };
     match port {
-        Port::Param { i, .. } => call
+        Port::Param { i, fields } => call
             .args
             .get(*i)
-            .map(|arg| val_keys(f, &arg.vals, sums))
+            .map(|arg| keys(arg, fields))
             .unwrap_or_default(),
-        Port::This { .. } => call
-            .receiver
-            .iter()
-            .flat_map(|r| val_keys(f, &r.vals, sums))
-            .collect(),
+        Port::This { fields } => call.receiver.iter().flat_map(|r| keys(r, fields)).collect(),
         _ => vec![],
     }
 }
@@ -1251,6 +1269,8 @@ async fn apply_taint(
         validations: vec![],
     };
     let mut tainted: CardTaint = vec![BTreeMap::new(); map.cards.len()];
+    // (Each source's field's keys' symbols, if it's a field.)
+    let mut source_fields: Vec<Vec<Ustr>> = vec![];
     // ## The sources.
     for func in funcs {
         let f = &func.file.funcs[func.fi];
@@ -1269,29 +1289,53 @@ async fn apply_taint(
         };
         for i in taint.tainted_params(tracer, f, message.as_ref()).await {
             let param = &f.params[i];
-            let lines: BTreeSet<usize> = keys_of(f, &param.place)
+            let ty = param.type_pretty.clone().unwrap_or_default();
+            let type_taint = taint.type_taint(tracer, &ty).await;
+            let param_lines: BTreeSet<usize> = keys_of(f, &param.place)
                 .iter()
                 .filter_map(|key| key_line.get(key).copied())
                 .collect();
-            if lines.is_empty() {
-                map.notes.push(format!(
-                    "{}'s {} is tainted ({}), but isn't on the map.",
-                    f.pretty, param.name, from
-                ));
-            }
-            for line in lines {
-                tainted[func.card]
-                    .entry(line)
-                    .or_default()
-                    .insert(info.sources.len());
+            // (Its value, or its tainted fields, each a source of its own, so
+            // that validating one doesn't bless the others; the parameter
+            // carries them all.)
+            let parts: Vec<Option<&TaintedField>> = match type_taint.whole {
+                true => vec![None],
+                false => type_taint.fields.iter().map(Some).collect(),
+            };
+            for part in parts {
+                let (lines, name, field_syms) = match part {
+                    None => (param_lines.clone(), param.name.clone(), vec![]),
+                    Some(field) => (
+                        field
+                            .syms
+                            .iter()
+                            .filter_map(|sym| key_line.get(&Key::Field(*sym)).copied())
+                            .collect::<BTreeSet<usize>>(),
+                        format!("{}.{}", param.name, field.name),
+                        field.syms.clone(),
+                    ),
+                };
+                let Some(&line) = lines.iter().chain(param_lines.iter()).next() else {
+                    map.notes.push(format!(
+                        "{}'s {} is tainted ({}), but isn't on the map.",
+                        f.pretty, name, from
+                    ));
+                    continue;
+                };
+                let si = info.sources.len();
+                for &l in lines.iter().chain(param_lines.iter()) {
+                    tainted[func.card].entry(l).or_default().insert(si);
+                }
+                source_fields.push(field_syms);
                 info.sources.push(TaintSource {
                     card: func.card,
                     line,
+                    field: part.map(|field| field.name.clone()),
                     why: format!(
                         "{} receives {} ({}) {}",
                         f.pretty,
-                        param.name,
-                        param.type_pretty.as_deref().unwrap_or("?"),
+                        name,
+                        part.map_or(ty.as_str(), |field| field.ty.as_str()),
                         from
                     ),
                     status: "unused",
@@ -1408,30 +1452,54 @@ async fn apply_taint(
                 .collect()
         })
         .collect();
-    // (The lines that are parts of others in each card: a field of an
-    // object (`aTicket.mId`, its own line, by its field's key) is the
-    // object's, for taint.)
-    let mut card_parts: Vec<BTreeSet<(usize, usize)>> = vec![BTreeSet::new(); map.cards.len()];
+    // (The lines that are parts of others in each card, with the parts'
+    // fields: a field of an object (`aTicket.mId`, its own line, by its
+    // field's key; or a getter's, by its summary) is the object's, for
+    // taint.)
+    let mut card_parts: Vec<BTreeSet<(usize, usize, Ustr)>> =
+        vec![BTreeSet::new(); map.cards.len()];
     for func in funcs {
         let f = &func.file.funcs[func.fi];
-        f.for_each_place(&mut |place| {
-            if place.path.is_empty() {
-                return;
-            }
-            let whole = Place {
-                root: place.root.clone(),
-                path: vec![],
-            };
-            for whole in keys_of(f, &whole) {
-                for part in keys_of(f, place) {
-                    if let (Some(&w), Some(&p)) = (key_line.get(&whole), key_line.get(&part))
+        let mut add_part = |whole: &Place, part: &Place| {
+            for whole in keys_of(f, whole) {
+                for part in keys_of(f, part) {
+                    if let Key::Field(field) = part
+                        && let (Some(&w), Some(&p)) = (key_line.get(&whole), key_line.get(&part))
                         && w != p
                     {
-                        card_parts[func.card].insert((w, p));
+                        card_parts[func.card].insert((w, p, field));
                     }
                 }
             }
+        };
+        f.for_each_place(&mut |place| {
+            if !place.path.is_empty() {
+                let whole = Place {
+                    root: place.root.clone(),
+                    path: vec![],
+                };
+                add_part(&whole, place);
+            }
         });
+        for (c, summary) in &func.sums {
+            let call = &f.calls[*c];
+            for flow in &summary.flows {
+                let (arg, fields) = match &flow.from {
+                    Port::This { fields } => (call.receiver.as_ref(), fields),
+                    Port::Param { i, fields } => (call.args.get(*i), fields),
+                    _ => continue,
+                };
+                if let Some(place) = arg.and_then(|arg| arg.place.as_ref())
+                    && !fields.is_empty()
+                {
+                    let mut part = place.clone();
+                    for field in fields {
+                        part = part.with(Step::Field(*field));
+                    }
+                    add_part(place, &part);
+                }
+            }
+        }
     }
     // (A connector's tainted lines, by its from, from station, to, to
     // station and kind.)
@@ -1459,9 +1527,19 @@ async fn apply_taint(
                     add(&mut tainted, card, line, &sources);
                 }
             }
-            for &(whole, part) in &card_parts[card] {
-                if let Some(sources) = tainted[card].get(&whole).cloned() {
-                    add(&mut tainted, card, part, &sources);
+            // (A part has its whole's taint, but that of its other fields.)
+            for &(whole, part, field) in &card_parts[card] {
+                if let Some(sources) = tainted[card].get(&whole) {
+                    let sources: BTreeSet<usize> = sources
+                        .iter()
+                        .copied()
+                        .filter(|&si| {
+                            source_fields[si].is_empty() || source_fields[si].contains(&field)
+                        })
+                        .collect();
+                    if !sources.is_empty() {
+                        add(&mut tainted, card, part, &sources);
+                    }
                 }
             }
         }

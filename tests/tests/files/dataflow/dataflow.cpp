@@ -225,3 +225,19 @@ void TaintEntryPrincipal(mozilla::dom::ContentParent* aParent,
 
   UsePrincipal(aPrincipal);
 }
+
+// (A struct's tainted fields are sources of their own: validating one leaves
+// the other tainted.)
+struct Tickets {
+  Ticket mFirst;
+  Ticket mSecond;
+};
+
+void TaintEntryFields(const Tickets& aTickets) {
+  if (!CheckTicket(aTickets.mFirst)) {
+    return;
+  }
+
+  UseTicket(aTickets.mFirst);
+  UseTicket(aTickets.mSecond);
+}

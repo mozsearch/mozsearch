@@ -6,16 +6,16 @@ input_file: inputs/dataflow/stats
       26 Cpp-callees
       18 Cpp-callees-with-defs
        8 Cpp-callees-without-defs
-      39 Cpp-calls
-      39 Cpp-calls-with-callee-symbols
+      42 Cpp-calls
+      42 Cpp-calls-with-callee-symbols
        1 Cpp-calls-with-several-callees
       23 Cpp-events-assign
-      39 Cpp-events-call
+      42 Cpp-events-call
        4 Cpp-events-from-macro-expansions
-      28 Cpp-events-return
-       7 Cpp-events-test
+      29 Cpp-events-return
+       8 Cpp-events-test
        1 Cpp-files
-      32 Cpp-functions
+      33 Cpp-functions
        0 Cpp-reads-unresolved-names
        3 Js-callees
        3 Js-callees-with-defs

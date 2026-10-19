@@ -242,7 +242,8 @@ values of types ontology-mapping.toml labels "taint:content" (principals)
 that parent actors receive from content processes (by ipdl-analyze's
 `fromContent`) are dashed, with a red halo, until a validator's call (labeled
 "detaint:N", or a function wrapping one) blesses them, with what's derived
-from them, where its success dominates.  `--taint-type`, `--detaint-by` and
+from them, where its success dominates (a struct's tainted fields each on
+their own).  `--taint-type`, `--detaint-by` and
 `--taint-from` (the `taint-type:`, `detaint-by:` and `taint-from:` query
 terms, comma-separated) add types, validators and functions whose parameters
 are tainted, to try them out:

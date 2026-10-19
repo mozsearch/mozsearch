@@ -18,8 +18,11 @@
 //!   in what it dominates (see `ir::Guard`: a failed validation ends the
 //!   control flow, ex: by returning `IPC_FAIL`, which kills the content
 //!   process), and in the functions called from there.
-//! - A parameter of an IPDL struct (or union) type with tainted fields is
-//!   tainted, as a whole.
+//! - A parameter whose type's fields are tainted (a C++ class's members of
+//!   tainted types, an IPDL struct's or union's fields, also by their own
+//!   fields) has a source for each of them, so that validating one field
+//!   (`ValidatePrincipal(aInit.principal())`) doesn't bless the others; the
+//!   parameter carries them all (see `TypeTaint`).
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
@@ -243,10 +246,74 @@ fn is_builtin(ty: &str) -> bool {
             && ty.chars().next().is_some_and(|c| c.is_ascii_lowercase()))
 }
 
+/// A type's taint: whether its values are tainted (the spec's type, or
+/// labeled "taint:content"), else its fields that are.
+#[derive(Clone, Debug, Default)]
+pub struct TypeTaint {
+    pub whole: bool,
+    pub fields: Vec<TaintedField>,
+}
+
+/// A tainted field of a type: its name, the symbols its places' keys have
+/// (a C++ member's `F_` symbol; an IPDL field's `IPDL_` one, and its C++
+/// member's), and its type.
+#[derive(Clone, Debug)]
+pub struct TaintedField {
+    pub name: String,
+    pub syms: Vec<Ustr>,
+    pub ty: String,
+}
+
+/// A type's fields, by its symbol: a C++ class's members, or an IPDL struct's
+/// (or union's) fields: (name, their keys' symbols, type).
+async fn type_fields(tracer: &mut Tracer<'_>, sym: &Ustr) -> Vec<(String, Vec<Ustr>, String)> {
+    let Some(xref) = tracer.crossref(sym).await else {
+        return vec![];
+    };
+    let Some(meta) = &xref.meta else {
+        return vec![];
+    };
+    let short = |pretty: &str| pretty.rsplit("::").next().unwrap_or(pretty).to_string();
+    let mut out = vec![];
+    if sym.starts_with("IPDL_") {
+        let fields: Vec<Ustr> = meta.fields.iter().map(|f| f.sym).collect();
+        for field in fields {
+            let Some(fxref) = tracer.crossref(&field).await else {
+                continue;
+            };
+            let Some(fmeta) = &fxref.meta else {
+                continue;
+            };
+            let Some(ty) = &fmeta.type_pretty else {
+                continue;
+            };
+            let mut syms = vec![field];
+            syms.extend(
+                fmeta
+                    .binding_slots
+                    .iter()
+                    .filter(|slot| slot.props.slot_kind == BindingSlotKind::Member)
+                    .map(|slot| slot.sym),
+            );
+            out.push((short(&fmeta.pretty), syms, ty.to_string()));
+        }
+    } else {
+        for field in &meta.fields {
+            if field.type_pretty.is_empty() || field.sym.is_empty() {
+                continue;
+            }
+            // (IPDL's generated members are named with a trailing `_`.)
+            let name = short(&field.pretty).trim_end_matches('_').to_string();
+            out.push((name, vec![field.sym], field.type_pretty.to_string()));
+        }
+    }
+    out
+}
+
 /// A taint spec's answers, cached.
 pub struct Taint {
     pub spec: TaintSpec,
-    types: HashMap<String, bool>,
+    types: HashMap<String, TypeTaint>,
     validators: HashMap<Ustr, Option<Vec<Validated>>>,
     /// The parameters functions validate when they succeed (see
     /// `wrapper_validated`), by symbol.
@@ -266,80 +333,98 @@ impl Taint {
     }
 
     /// Whether values of a type (as a declaration has it, ex: `const
-    /// nsCOMPtr<nsIPrincipal>&`) from content processes are tainted: the
-    /// spec's, or labeled so, or an IPDL struct or union with fields that
-    /// are.
+    /// nsCOMPtr<nsIPrincipal>&`) from content processes are tainted, whole or
+    /// by their fields (see `type_taint`).
     pub async fn is_tainted_type(&mut self, tracer: &mut Tracer<'_>, ty: &str) -> bool {
-        self.tainted_type_at(tracer, ty, 0).await
+        let taint = self.type_taint(tracer, ty).await;
+        taint.whole || !taint.fields.is_empty()
     }
 
-    async fn tainted_type_at(&mut self, tracer: &mut Tracer<'_>, ty: &str, depth: usize) -> bool {
+    /// A type's taint (see `TypeTaint`): the spec's, or labeled so, whole;
+    /// or for a C++ class, its members of types tainted whole, and for an
+    /// IPDL struct or union, its fields of tainted types (whole, or by their
+    /// fields, which taint the field whole).  (Not C++ members' members:
+    /// classes like ContentParent have hundreds, of types with as many.)
+    pub async fn type_taint(&mut self, tracer: &mut Tracer<'_>, ty: &str) -> TypeTaint {
+        Box::pin(self.type_taint_at(tracer, ty, 0, true)).await
+    }
+
+    async fn type_taint_at(
+        &mut self,
+        tracer: &mut Tracer<'_>,
+        ty: &str,
+        depth: usize,
+        with_fields: bool,
+    ) -> TypeTaint {
         let (Some(short), Some(qualified)) = (semantic_type(ty), qualified_type(ty)) else {
-            return false;
+            return TypeTaint::default();
         };
-        if let Some(&cached) = self.types.get(&qualified) {
-            return cached;
+        let key = match with_fields {
+            true => qualified.clone(),
+            false => format!("{} (whole)", qualified),
+        };
+        if let Some(cached) = self.types.get(&key) {
+            return cached.clone();
         }
         if is_builtin(&qualified) && !self.spec.types.contains(&qualified) {
-            return false;
+            return TypeTaint::default();
         }
         // (Not tainted while it's being looked at, for recursive types.)
-        self.types.insert(qualified.clone(), false);
-        let mut tainted = self
-            .spec
-            .types
-            .iter()
-            .any(|name| names(&qualified, name) || name == &short);
-        if !tainted {
-            // (Its symbols: by its qualified name if it has one, else any
-            // type of its name.)
-            let syms: Vec<Ustr> = tracer
+        self.types.insert(key.clone(), TypeTaint::default());
+        let mut taint = TypeTaint {
+            whole: self
+                .spec
+                .types
+                .iter()
+                .any(|name| names(&qualified, name) || name == &short),
+            fields: vec![],
+        };
+        // (Its symbols: by its qualified name if it has one, else any type of
+        // its name.)
+        let syms: Vec<Ustr> = match taint.whole {
+            true => vec![],
+            false => tracer
                 .type_syms(&short)
                 .await
                 .into_iter()
                 .filter(|(pretty, _)| !qualified.contains("::") || names(pretty, &qualified))
                 .map(|(_, sym)| sym)
-                .collect();
+                .collect(),
+        };
+        for sym in &syms {
+            if tracer.labels(sym).await.contains(&ustr::ustr(TAINT_LABEL)) {
+                taint.whole = true;
+                break;
+            }
+        }
+        if !taint.whole && with_fields && depth < MAX_STRUCT_DEPTH {
             for sym in syms {
-                if tracer.labels(&sym).await.contains(&ustr::ustr(TAINT_LABEL)) {
-                    tainted = true;
-                    break;
-                }
-                // (An IPDL struct's or union's fields.)
-                if depth < MAX_STRUCT_DEPTH && sym.starts_with("IPDL_") {
-                    let field_types: Vec<String> = match tracer.crossref(&sym).await {
-                        Some(xref) => {
-                            let fields: Vec<Ustr> = xref
-                                .meta
-                                .as_ref()
-                                .map(|meta| meta.fields.iter().map(|f| f.sym).collect())
-                                .unwrap_or_default();
-                            let mut out = vec![];
-                            for field in fields {
-                                if let Some(ty) = tracer.crossref(&field).await.and_then(|x| {
-                                    Some(x.meta.as_ref()?.type_pretty.as_ref()?.to_string())
-                                }) {
-                                    out.push(ty);
+                let ipdl = sym.starts_with("IPDL_");
+                for (name, field_syms, field_ty) in type_fields(tracer, &sym).await {
+                    let field_taint =
+                        Box::pin(self.type_taint_at(tracer, &field_ty, depth + 1, ipdl)).await;
+                    if !field_taint.whole && field_taint.fields.is_empty() {
+                        continue;
+                    }
+                    match taint.fields.iter_mut().find(|f| f.name == name) {
+                        Some(field) => {
+                            for sym in field_syms {
+                                if !field.syms.contains(&sym) {
+                                    field.syms.push(sym);
                                 }
                             }
-                            out
                         }
-                        None => vec![],
-                    };
-                    for field_ty in field_types {
-                        if Box::pin(self.tainted_type_at(tracer, &field_ty, depth + 1)).await {
-                            tainted = true;
-                            break;
-                        }
-                    }
-                    if tainted {
-                        break;
+                        None => taint.fields.push(TaintedField {
+                            name,
+                            syms: field_syms,
+                            ty: field_ty,
+                        }),
                     }
                 }
             }
         }
-        self.types.insert(qualified, tainted);
-        tainted
+        self.types.insert(key, taint.clone());
+        taint
     }
 
     /// What a call validates, if its callee is a validator: the spec's (all
