@@ -450,7 +450,9 @@ var FileTimeline = new (class FileTimeline {
     const cell = document.createElement("div");
     cell.className = "file-timeline-changes";
     // (The last two parts of a qualified name, for the column's width.)
-    const short = pretty => pretty == "%" ? "(top level)" : pretty.split("::").slice(-2).join("::");
+    const short = pretty => pretty == "%"
+      ? "(top level)"
+      : pretty.split("::").slice(-2).map(contextDisplayName).join("::");
     const file = path => path.split("/").pop();
     for (const change of changes) {
       const line = document.createElement("div");
@@ -462,11 +464,11 @@ var FileTimeline = new (class FileTimeline {
         added: "added",
         removed: "removed",
         changed: "changed",
-        renamed: `renamed from ${change.other}`,
+        renamed: `renamed from ${contextDisplayName(change.other)}`,
         "moved-in": `moved from ${change.other}`,
         "moved-out": `moved to ${change.other}`,
       }[change.kind] ?? change.kind;
-      line.title = `${change.pretty == "%" ? "Outside of any definition" : change.pretty}: ${what}` +
+      line.title = `${change.pretty == "%" ? "Outside of any definition" : contextDisplayName(change.pretty)}: ${what}` +
         ` (${change.added} tokens added, ${change.removed} removed)`;
       const sign = { added: "+ ", removed: "\u2212 " }[change.kind] ?? "";
       const after = {

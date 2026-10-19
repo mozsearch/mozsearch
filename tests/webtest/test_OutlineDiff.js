@@ -138,3 +138,16 @@ add_task(async function test_OutlineDiffLinks() {
   ok(/^\/searchfox\/outline-diff\/[0-9a-f]{40}\/[0-9a-f]{40}\//.test(file?.getAttribute("href")),
      "An explore page's files link to their outline diffs across its commits");
 });
+
+// Sections' names are shown without the escapes of the history's contexts
+// (ex: a Markdown heading's spaces are "%20" in them).
+add_task(async function test_OutlineUnescapedNames() {
+  await TestUtils.loadPath("/searchfox/source/README.md");
+  const section = frame.contentDocument.querySelector("#panel-outline");
+  const summary = section.querySelector(".outline-summary");
+  await waitForCondition(() => !summary.textContent.startsWith("Loading"), "The outline loads");
+  TestUtils.click(section.querySelector(".outline-all input"));
+  const names = [...section.querySelectorAll(".outline-name")].map(name => name.textContent);
+  ok(names.some(name => name.includes(" ")), "Its sections' names have their spaces");
+  ok(!names.some(name => name.includes("%20")), "rather than their escapes");
+});

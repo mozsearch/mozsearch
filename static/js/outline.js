@@ -156,8 +156,8 @@ var OutlineSection = new (class OutlineSection {
       const lines = removed ? entry.from_lines : entry.lines;
       const name = document.createElement(lines ? "a" : "span");
       name.className = "outline-name";
-      name.textContent = entry.name;
-      name.title = `${entry.pretty} (${entry.decl ? "declaration" : entry.kind})` +
+      name.textContent = contextDisplayName(entry.name);
+      name.title = `${contextDisplayName(entry.pretty)} (${entry.decl ? "declaration" : entry.kind})` +
         (lines ? `, lines ${lines[0]}\u2013${lines[1]}` : "") +
         (removed ? `, in ${diff.from.rev.slice(0, 12)}` : "");
       if (lines) {
@@ -200,16 +200,16 @@ var OutlineSection = new (class OutlineSection {
       case "removed":
         badge.textContent = entry.evolved_into ? "moved" : "removed";
         badge.title = entry.evolved_into
-          ? `Moved to ${entry.evolved_into.pretty} in ${entry.evolved_into.path}`
+          ? `Moved to ${contextDisplayName(entry.evolved_into.pretty)} in ${entry.evolved_into.path}`
           : `Removed since ${this.baseline.label}`;
         break;
       case "renamed":
         badge.textContent = delta ? `renamed ${delta}` : "renamed";
-        badge.title = `Renamed from ${entry.evolved_from.pretty}; ${changes}`;
+        badge.title = `Renamed from ${contextDisplayName(entry.evolved_from.pretty)}; ${changes}`;
         break;
       case "moved":
         badge.textContent = "moved in";
-        badge.title = `Moved from ${entry.evolved_from.pretty} in ${entry.evolved_from.path}`;
+        badge.title = `Moved from ${contextDisplayName(entry.evolved_from.pretty)} in ${entry.evolved_from.path}`;
         break;
       default:
         return null;

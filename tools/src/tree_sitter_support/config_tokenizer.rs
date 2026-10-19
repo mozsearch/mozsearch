@@ -47,6 +47,19 @@ pub(crate) fn escape_name(name: &str) -> String {
         .replace("::", "%3A%3A")
 }
 
+/// A context (or a part of one) without `escape_name`'s escapes, for showing
+/// (ex: "Quick Start" for the Markdown section "Quick%20Start"): where it's a
+/// key (links, lookups), keep it escaped.
+pub fn unescape_name(name: &str) -> String {
+    if !name.contains('%') {
+        return name.to_string();
+    }
+    name.replace("%20", " ")
+        .replace("%09", "\t")
+        .replace("%3A%3A", "::")
+        .replace("%25", "%")
+}
+
 struct Output<'a> {
     tokens: Vec<RawToken<'a>>,
     structure: Vec<FileStructureRow>,
@@ -634,6 +647,23 @@ mod tests {
 
     fn toml(source: &str) -> Vec<String> {
         tokenize_toml(source).0.lines
+    }
+
+    #[test]
+    fn test_unescape_name() {
+        for name in [
+            "Quick Start",
+            "a::b",
+            "100% done\tnow",
+            "%20 literally",
+            "plain",
+        ] {
+            assert_eq!(unescape_name(&escape_name(name)), name);
+        }
+        assert_eq!(
+            unescape_name("Mozsearch::Quick%20Start"),
+            "Mozsearch::Quick Start"
+        );
     }
 
     #[test]

@@ -8,6 +8,20 @@
  */
 
 /**
+ * A history context's name (or a part of one) as it's shown: without the
+ * escapes of the names the history's tokenizers put in contexts (see
+ * `config_tokenizer::escape_name`), ex: "Quick Start" for the Markdown
+ * section "Quick%20Start".  (Where it's a key, ex: in links, it stays
+ * escaped.)
+ */
+function contextDisplayName(name) {
+  if (!name?.includes("%")) {
+    return name;
+  }
+  return name.replaceAll("%20", " ").replaceAll("%09", "\t").replaceAll("%3A%3A", "::").replaceAll("%25", "%");
+}
+
+/**
  * Loads the hyperblame data files of one of the page's token-centric blames
  * (see `HyperblameContexts`), starting with the commits and the chunk with the
  * page's first selected line (or its first line), and loading other chunks as

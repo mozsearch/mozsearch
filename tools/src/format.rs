@@ -48,6 +48,7 @@ use crate::templating::builder::{
     build_and_parse_interdiff_files, build_and_parse_outline_diff,
 };
 use crate::tokenize;
+use crate::tree_sitter_support::config_tokenizer::unescape_name;
 use crate::utils::OwnedOrBorrowed;
 
 use crate::file_format::analysis::{
@@ -4943,13 +4944,13 @@ pub fn render_outline_diff(
                 "context": context[index],
                 "title": format!(
                     "{} ({})",
-                    entry.pretty,
+                    unescape_name(&entry.pretty),
                     if entry.decl { "declaration" } else { &entry.kind }
                 ),
-                "from_name": from_name,
+                "from_name": from_name.as_deref().map(unescape_name),
                 "from_link": from_link,
                 "from_note": from_note,
-                "to_name": to_name,
+                "to_name": to_name.as_deref().map(unescape_name),
                 "to_link": to_link,
                 "to_note": to_note,
                 "badge": badge,
@@ -7925,9 +7926,10 @@ pub fn interdiff_files_data(
 /// `interdiff_files_data`).
 pub fn render_interdiff_files(
     tree_name: &str,
-    data: serde_json::Value,
+    mut data: serde_json::Value,
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
+    unescape_explore_names(&mut data["file_groups"]);
     let title = "Interdiff - mozsearch";
     let opt = Options {
         title,
@@ -8619,7 +8621,7 @@ pub fn history_data(
         let segments: Vec<&str> = scope.split("::").collect();
         for n in 1..=segments.len() {
             scopes.push(json!({
-                "label": segments[n - 1],
+                "label": unescape_name(segments[n - 1]),
                 "url": url(Some(&segments[..n].join("::"))),
             }));
         }
@@ -8630,7 +8632,7 @@ pub fn history_data(
     let title = if scope.is_empty() {
         format!("History of {}", path)
     } else {
-        format!("History of {}", scope)
+        format!("History of {}", unescape_name(&scope))
     };
     let at = &commit.id().to_string()[..12];
     let note = if more {
@@ -8871,6 +8873,33 @@ pub fn explore_data(
 }
 
 /// An explore page with its `data` (see `explore_data`).
+/// The names of the symbols (history contexts) of explore data's files
+/// (`ExploreFile`s, in `file_groups`' `files`, or a list of them) as they're
+/// shown: without their escapes (see `config_tokenizer::unescape_name`).
+fn unescape_explore_names(value: &mut serde_json::Value) {
+    fn unescape_symbols(symbols: &mut serde_json::Value) {
+        for symbol in symbols.as_array_mut().into_iter().flatten() {
+            for key in ["name", "pretty"] {
+                if let Some(name) = symbol[key].as_str() {
+                    symbol[key] = unescape_name(name).into();
+                }
+            }
+            for change in symbol["moves"].as_array_mut().into_iter().flatten() {
+                if let Some(title) = change["title"].as_str() {
+                    change["title"] = unescape_name(title).into();
+                }
+            }
+            unescape_symbols(&mut symbol["children"]);
+        }
+    }
+    for item in value.as_array_mut().into_iter().flatten() {
+        match item.get_mut("files") {
+            Some(files) => unescape_explore_names(files),
+            None => unescape_symbols(&mut item["symbols"]),
+        }
+    }
+}
+
 fn render_explore(
     tree_name: &str,
     title: &str,
@@ -8891,12 +8920,14 @@ fn render_explore(
     };
     output::generate_header(&opt, writer)?;
     output::generate_panel(&opt, writer, &[], true)?;
+    let mut file_groups = data["file_groups"].clone();
+    unescape_explore_names(&mut file_groups);
     let globals = liquid::to_object(&json!({
         "tree": tree_name,
         "title": title,
         "commits": data["commits"],
         "facets": data["facets"],
-        "file_groups": data["file_groups"],
+        "file_groups": file_groups,
         "slot": explore::slot_width(commit_count),
         "missing": extras.missing,
         "truncated": extras.truncated,

@@ -356,12 +356,7 @@ fn escape_into(text: &str, out: &mut String) {
 
 /// A context name from `spec_tokenizer`, without its escapes (see
 /// `config_tokenizer::escape_name`).
-pub(crate) fn unescape_context_name(name: &str) -> String {
-    name.replace("%20", " ")
-        .replace("%09", "\t")
-        .replace("%3A%3A", "::")
-        .replace("%25", "%")
-}
+pub(crate) use crate::tree_sitter_support::config_tokenizer::unescape_name as unescape_context_name;
 
 /// The structured record kind of a definition of a type (Bikeshed's and
 /// Wattsi's dfn types, ex: "interface"): for IDL, the kinds of Gecko's WebIDL

@@ -8,6 +8,8 @@ use std::ops::Range;
 
 use serde::{Deserialize, Serialize};
 
+use crate::tree_sitter_support::config_tokenizer::unescape_name;
+
 /// The (exclusive) upper bounds of the bins' ages, in weeks before the indexed
 /// revision: under 1 week, 1-2 weeks, 2-4 weeks, 1-2 months, 2-3 months, 3-6
 /// months, 6-12 months, 1-2 years, 2-4 years, and older.
@@ -86,7 +88,10 @@ impl RecencyFrom {
         };
         format!(
             "History of {}\nfrom history context {} in {}{}",
-            pretty, self.context, self.path, others
+            unescape_name(pretty),
+            unescape_name(&self.context),
+            self.path,
+            others
         )
     }
 }
