@@ -202,6 +202,10 @@ pub fn label_to_badge_info(label: &str) -> Option<(i32, &str)> {
     if label.starts_with("uses-diagram:") {
         return None;
     }
+    // (Taint's, for dataflow; see `dataflow::taint`.)
+    if label.starts_with("taint:") || label.starts_with("detaint") {
+        return None;
+    }
 
     match label {
         // "atom symbol" for atomic refcount.  We also will have an "rc"

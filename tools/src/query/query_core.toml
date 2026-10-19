@@ -479,6 +479,25 @@ command = "dataflow"
 priority = 1
 args.format = "$0"
 
+# Taint in a slicing's subway map (see tools/src/dataflow/taint.rs), besides
+# ontology-mapping.toml's labels: values of these (comma-separated) types from
+# content processes (and from these functions' parameters, `taint-from`), and
+# these validators' calls (validating all of their arguments).
+[term.taint-type]
+[[term.taint-type.group.slicing]]
+command = "dataflow"
+args.taint-type = "$0"
+
+[term.detaint-by]
+[[term.detaint-by.group.slicing]]
+command = "dataflow"
+args.detaint-by = "$0"
+
+[term.taint-from]
+[[term.taint-from.group.slicing]]
+command = "dataflow"
+args.taint-from = "$0"
+
 [term.text]
 [[term.text.expand]]
 term = "re"

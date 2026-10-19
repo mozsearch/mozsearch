@@ -5036,6 +5036,43 @@ textarea.monospace {
 .sw-dot-write {
   background-color: #000;
 }
+/* Taint (see static/js/subway.js): dashed with a red halo where tainted; a
+   green ring where a validation blesses it (dashed if nothing depends on
+   the validation's success). */
+.sw-gutter {
+  overflow: visible;
+}
+.sw-gutter line.sw-tainted {
+  stroke-dasharray: 3 2;
+  filter: drop-shadow(0 0 1px rgb(210, 0, 0));
+}
+.sw-dot-tainted {
+  box-shadow: 0 0 2px 1px rgb(210, 0, 0);
+}
+.sw-dot-validate,
+.sw-dot-check {
+  width: 11px;
+  height: 11px;
+  border: 2.5px solid #1a7f37;
+  background-color: #fff;
+}
+.sw-dot-validate.sw-dot-write {
+  background-color: #000;
+}
+.sw-dot-check {
+  border-style: dashed;
+}
+.sw-swatch-tainted {
+  background-image: repeating-linear-gradient(
+    -45deg, transparent 0 3px, rgba(0, 0, 0, 0.55) 3px 5px);
+  box-shadow: 0 0 2px rgb(210, 0, 0);
+}
+.sw-hazard {
+  color: rgb(190, 0, 0);
+}
+.sw-legend-taint li {
+  margin: 0.15em 0;
+}
 .sw-lno {
   flex: none;
   min-width: 3.5em;

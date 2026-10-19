@@ -571,6 +571,11 @@ struct Builder<'c, 'a> {
     class_prefix: Option<String>,
     /// Named functions in this one, which get their own IR.
     nested: Vec<Node<'c>>,
+    /// How deeply nested in blocks the current statement is, and the guards
+    /// (see `Guard`) dominating the rest of their blocks (call, first event,
+    /// block depth), which their blocks' ends close.
+    block_depth: usize,
+    open_guards: Vec<(usize, usize, usize)>,
 }
 
 impl<'c, 'a> Builder<'c, 'a> {
@@ -594,6 +599,7 @@ impl<'c, 'a> Builder<'c, 'a> {
                 events: vec![],
                 calls: vec![],
                 questions: vec![],
+                guards: vec![],
                 names: HashMap::new(),
                 types: HashMap::new(),
             },
@@ -602,6 +608,8 @@ impl<'c, 'a> Builder<'c, 'a> {
             scope: HashMap::new(),
             class_prefix,
             nested: vec![],
+            block_depth: 0,
+            open_guards: vec![],
         }
     }
 
@@ -826,6 +834,42 @@ impl<'c, 'a> Builder<'c, 'a> {
         shadowed
     }
 
+    /// Close the guards of the current block (see `open_guards`).
+    fn close_guards(&mut self) {
+        let depth = self.block_depth;
+        let end = self.ir.events.len();
+        let (closed, open): (Vec<_>, Vec<_>) = std::mem::take(&mut self.open_guards)
+            .into_iter()
+            .partition(|&(_, _, d)| d >= depth);
+        self.open_guards = open;
+        for (call, start, _) in closed {
+            if start < end {
+                self.ir.guards.push(Guard { call, start, end });
+            }
+        }
+    }
+
+    /// The IR call of a guard's call's syntax, among the calls since
+    /// `calls_before`: at its position, or (in a macro's expansion, whose
+    /// calls are at the macro) by its function's name.
+    fn guard_ir_call(&self, call: Node, calls_before: usize) -> Option<usize> {
+        let (line, col) = self.pos(call);
+        let name = call
+            .child_by_field_name("function")
+            .map(|f| self.t(f).rsplit("::").next().unwrap_or("").to_string())
+            .unwrap_or_default();
+        let calls = &self.ir.calls[calls_before.min(self.ir.calls.len())..];
+        calls
+            .iter()
+            .find(|c| c.line == line && c.col == col)
+            .or_else(|| {
+                calls.iter().find(|c| {
+                    !name.is_empty() && c.callee_pretty.rsplit("::").next() == Some(name.as_str())
+                })
+            })
+            .map(|c| c.id)
+    }
+
     fn lambda_body(&mut self, body: Node<'c>, params: Option<Node<'c>>) {
         self.lambda_depth += 1;
         if let Some(params) = params {
@@ -1041,13 +1085,35 @@ impl<'c, 'a> Builder<'c, 'a> {
 
     fn cpp_stmt(&mut self, node: Node<'c>) {
         match node.kind() {
-            "compound_statement" | "translation_unit" | "declaration_list" => self.stmts(node),
+            "compound_statement" => {
+                self.block_depth += 1;
+                self.stmts(node);
+                self.close_guards();
+                self.block_depth -= 1;
+            }
+            "translation_unit" | "declaration_list" => self.stmts(node),
             "declaration" => {
                 self.cpp_declaration(node);
             }
             "expression_statement" => {
+                let calls_before = self.ir.calls.len();
                 for child in named(node) {
                     self.eval(child);
+                }
+                // (An assertion of a call's success guards the rest of the
+                // block.)
+                if let Some(expr) = named(node).first()
+                    && expr.kind() == "call_expression"
+                    && let Some(function) = expr.child_by_field_name("function")
+                    && GUARDING_MACROS.contains(&self.t(function))
+                    && let Some(arg) = expr
+                        .child_by_field_name("arguments")
+                        .and_then(|args| named(args).into_iter().next())
+                    && let Some((call, false)) = guard_call(arg, |n| self.t(n).to_string())
+                    && let Some(c) = self.guard_ir_call(call, calls_before)
+                {
+                    self.open_guards
+                        .push((c, self.ir.events.len(), self.block_depth));
                 }
             }
             "return_statement" | "co_return_statement" => {
@@ -1055,14 +1121,39 @@ impl<'c, 'a> Builder<'c, 'a> {
                 self.event(node, EventKind::Return { vals });
             }
             "if_statement" => {
-                if let Some(cond) = node.child_by_field_name("condition") {
+                let calls_before = self.ir.calls.len();
+                let cond = node.child_by_field_name("condition");
+                if let Some(cond) = cond {
                     self.cpp_condition(cond);
                 }
-                if let Some(c) = node.child_by_field_name("consequence") {
+                // (A call's success guarding the consequence, or if the
+                // consequence exits when the call fails, the rest of the
+                // block; see `Guard`.)
+                let guard = cond
+                    .and_then(|cond| guard_call(cond, |n| self.t(n).to_string()))
+                    .and_then(|(call, negated)| {
+                        Some((self.guard_ir_call(call, calls_before)?, negated))
+                    });
+                let consequence = node.child_by_field_name("consequence");
+                let start = self.ir.events.len();
+                if let Some(c) = consequence {
                     self.stmt(c);
+                }
+                if let Some((c, false)) = guard {
+                    self.ir.guards.push(Guard {
+                        call: c,
+                        start,
+                        end: self.ir.events.len(),
+                    });
                 }
                 if let Some(alt) = node.child_by_field_name("alternative") {
                     self.stmts(alt);
+                }
+                if let (Some((c, true)), Some(consequence)) = (guard, consequence)
+                    && exits(consequence, &|n| self.t(n).to_string())
+                {
+                    self.open_guards
+                        .push((c, self.ir.events.len(), self.block_depth));
                 }
             }
             "while_statement" | "switch_statement" => {
@@ -1153,7 +1244,28 @@ impl<'c, 'a> Builder<'c, 'a> {
                 }
             }
             "macro_invocation" => {
-                self.cpp_macro(node, node.child_by_field_name("name"), true);
+                let calls_before = self.ir.calls.len();
+                let name = node.child_by_field_name("name");
+                self.cpp_macro(node, name, true);
+                // (As an assertion's in an expression statement.)
+                let first_arg = node
+                    .child_by_field_name("arguments")
+                    .map(named)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .flat_map(|a| match a.kind() {
+                        "macro_arguments" => named(a),
+                        _ => vec![a],
+                    })
+                    .next();
+                if let (Some(name), Some(arg)) = (name, first_arg)
+                    && GUARDING_MACROS.contains(&self.t(name))
+                    && let Some((call, false)) = guard_call(arg, |n| self.t(n).to_string())
+                    && let Some(c) = self.guard_ir_call(call, calls_before)
+                {
+                    self.open_guards
+                        .push((c, self.ir.events.len(), self.block_depth));
+                }
             }
             "break_statement"
             | "continue_statement"
@@ -1985,6 +2097,8 @@ impl<'c, 'a> Builder<'c, 'a> {
             scope: std::mem::take(&mut self.scope),
             class_prefix: self.class_prefix.clone(),
             nested: vec![],
+            block_depth: self.block_depth,
+            open_guards: std::mem::take(&mut self.open_guards),
         };
         let vals = if is_stmt {
             sub.stmt(body);
@@ -2005,6 +2119,7 @@ impl<'c, 'a> Builder<'c, 'a> {
         self.ir = sub.ir;
         self.macro_cx = sub.macro_cx;
         self.scope = sub.scope;
+        self.open_guards = sub.open_guards;
         vals
     }
 
@@ -3174,6 +3289,73 @@ impl<'c, 'a> Builder<'c, 'a> {
     }
 }
 
+/// Macros asserting their conditions (crashing, or returning, otherwise, in
+/// release builds too), whose calls' success guards the rest of their blocks
+/// (see `Guard`).
+const GUARDING_MACROS: [&str; 5] = [
+    "MOZ_RELEASE_ASSERT",
+    "MOZ_DIAGNOSTIC_ASSERT",
+    "NS_ENSURE_TRUE",
+    "NS_ENSURE_TRUE_VOID",
+    "MOZ_ALWAYS_TRUE",
+];
+
+/// Macros wrapping conditions without changing them.
+const CONDITION_WRAPPERS: [&str; 3] = ["NS_WARN_IF", "MOZ_UNLIKELY", "MOZ_LIKELY"];
+
+/// The call a condition is (`Validate(x)`, or negated, `!Validate(x)`), if
+/// it's one, seeing through parentheses and `NS_WARN_IF`-like wrappers: the
+/// call's syntax, and whether it's negated.
+fn guard_call<'t>(node: Node<'t>, text: impl Fn(Node<'t>) -> String) -> Option<(Node<'t>, bool)> {
+    let mut node = node;
+    let mut negated = false;
+    loop {
+        match node.kind() {
+            "condition_clause" => node = node.child_by_field_name("value")?,
+            "parenthesized_expression" => node = *named(node).first()?,
+            "unary_expression"
+                if node
+                    .child_by_field_name("operator")
+                    .is_some_and(|op| text(op) == "!") =>
+            {
+                negated = !negated;
+                node = node.child_by_field_name("argument")?;
+            }
+            "call_expression" => {
+                let function = node.child_by_field_name("function")?;
+                if CONDITION_WRAPPERS.contains(&text(function).as_str()) {
+                    node = *named(node.child_by_field_name("arguments")?).first()?;
+                    continue;
+                }
+                return Some((node, negated));
+            }
+            _ => return None,
+        }
+    }
+}
+
+/// Whether a statement always exits its function: a `return`, a `throw`, or
+/// a crash (`MOZ_CRASH`), or a block with one.
+fn exits(node: Node, text: &dyn Fn(Node) -> String) -> bool {
+    match node.kind() {
+        "return_statement" | "co_return_statement" | "throw_statement" => true,
+        "compound_statement" => named(node).into_iter().any(|stmt| exits(stmt, text)),
+        "expression_statement" => named(node).first().is_some_and(|expr| {
+            expr.kind() == "call_expression"
+                && expr.child_by_field_name("function").is_some_and(|f| {
+                    matches!(
+                        text(f).as_str(),
+                        "MOZ_CRASH"
+                            | "MOZ_CRASH_UNSAFE"
+                            | "MOZ_CRASH_UNSAFE_PRINTF"
+                            | "NS_RUNTIMEABORT"
+                    )
+                })
+        }),
+        _ => false,
+    }
+}
+
 fn empty_ir() -> FuncIr {
     FuncIr {
         sym: Ustr::default(),
@@ -3187,6 +3369,7 @@ fn empty_ir() -> FuncIr {
         events: vec![],
         calls: vec![],
         questions: vec![],
+        guards: vec![],
         names: HashMap::new(),
         types: HashMap::new(),
     }
@@ -3398,5 +3581,74 @@ mod tests {
             "{}",
             ir
         );
+    }
+
+    /// A call's success guards what it dominates: the rest of the block
+    /// after `if (!V(x)) { return …; }`, and `if (V(x)) { … }`'s consequence.
+    #[test]
+    fn test_cpp_guards() {
+        let source = "bool Foo::Recv(const char* aP) {\n  \
+                      if (!Check(aP)) {\n    \
+                      return false;\n  \
+                      }\n  \
+                      Use(aP);\n  \
+                      if (Check(aP)) {\n    \
+                      Other(aP);\n  \
+                      }\n  \
+                      return true;\n\
+                      }\n";
+        let mut values = vec![
+            rec(
+                source,
+                1,
+                "Recv",
+                "def,function",
+                "function Foo::Recv",
+                "_ZRecv",
+                None,
+            ),
+            rec(
+                source,
+                1,
+                "aP",
+                "",
+                "variable aP",
+                "V_p",
+                Some("const char *"),
+            ),
+        ];
+        for (line, name, sym) in [
+            (2, "Check", "_ZCheck"),
+            (5, "Use", "_ZUse"),
+            (6, "Check", "_ZCheck"),
+            (7, "Other", "_ZOther"),
+        ] {
+            values.push(rec(
+                source,
+                line,
+                name,
+                "function,use",
+                &format!("function {}", name),
+                sym,
+                None,
+            ));
+            values.push(rec(source, line, "aP", "", "variable aP", "V_p", None));
+        }
+        let recs = FileRecords::from_values(values);
+        let file = build_file_ir("a.cpp", source, &recs).unwrap();
+        let f = &file.funcs[0];
+        let callee = |guard: &Guard| f.calls[guard.call].callee_pretty.clone();
+        let lines = |guard: &Guard| -> Vec<u32> {
+            f.events[guard.start..guard.end]
+                .iter()
+                .map(|e| e.line)
+                .collect()
+        };
+        assert_eq!(f.guards.len(), 2, "{:?}", f.guards);
+        let rest = f.guards.iter().find(|g| f.calls[g.call].line == 2).unwrap();
+        assert_eq!(callee(rest), "Check");
+        assert!(lines(rest).contains(&5) && lines(rest).contains(&7) && lines(rest).contains(&9));
+        let then = f.guards.iter().find(|g| f.calls[g.call].line == 6).unwrap();
+        assert_eq!(lines(then), vec![7]);
     }
 }

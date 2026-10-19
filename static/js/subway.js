@@ -18,6 +18,10 @@
 // A legend toggles lines, families and clusters, and cards (whose lines
 // then go straight from their callers to their callees), and hovering a line
 // there highlights it.  The dataflow graph (DOT) is a link away.
+//
+// Taint (see tools/src/dataflow/taint.rs): a line is dashed, with a red halo,
+// where it's tainted (from where a parent actor receives it from a content
+// process), until a validation (a green ring) blesses it.
 
 var SubwayMap = new (class SubwayMap {
   constructor() {
@@ -136,8 +140,15 @@ var SubwayMap = new (class SubwayMap {
   addStyles() {
     const style = document.createElement("style");
     style.textContent = this.model.lines.map(line =>
-      `.interactive-graph-edge-line-${line.id}:not(.clicktarget) { stroke: ${this.colors.get(line.id)}; stroke-width: 3px; }`
-    ).join("\n");
+      `.interactive-graph-edge-line-${line.id}:not(.clicktarget),
+       .interactive-graph-edge-line-${line.id}-tainted:not(.clicktarget) {
+         stroke: ${this.colors.get(line.id)}; stroke-width: 3px; stroke-opacity: 1;
+       }`
+    ).join("\n") + `
+      [class*="interactive-graph-edge-line-"][class$="-tainted"]:not(.clicktarget) {
+        stroke-dasharray: 6 3;
+        filter: drop-shadow(0 0 1.5px rgb(210, 0, 0));
+      }`;
     document.head.append(style);
     this.focusStyle = document.createElement("style");
     document.head.append(this.focusStyle);
@@ -146,7 +157,7 @@ var SubwayMap = new (class SubwayMap {
   /** Highlight a line (or stop, with null). */
   focus(id) {
     this.focusStyle.textContent = id == null ? "" :
-      `.interactive-graph-edge:not(.interactive-graph-edge-line-${id}),
+      `.interactive-graph-edge:not(.interactive-graph-edge-line-${id}):not(.interactive-graph-edge-line-${id}-tainted),
        .sw-track:not([data-line="${id}"]) { opacity: 0.15; }`;
   }
 
@@ -170,8 +181,9 @@ var SubwayMap = new (class SubwayMap {
     const cards = this.model.cards.filter(card => !this.hiddenCards.has(card.id));
     const edges = [];
     const seen = new Set();
-    const add = (from, to, line, jump) => {
-      const key = `${from}->${to}:${line}`;
+    const add = (from, to, line, jump, tainted) => {
+      const kind = `line-${line}` + (tainted ? "-tainted" : "");
+      const key = `${from}->${to}:${kind}`;
       if (from == to || seen.has(key) || this.hiddenLines.has(line)) {
         return;
       }
@@ -179,7 +191,7 @@ var SubwayMap = new (class SubwayMap {
       edges.push({
         from: this.cardSym(this.model.cards[from]),
         to: this.cardSym(this.model.cards[to]),
-        kind: `line-${line}`,
+        kind,
         jumps: jump ? [jump] : [],
         hovers: [],
       });
@@ -208,8 +220,9 @@ var SubwayMap = new (class SubwayMap {
         const from = this.model.cards[c.from];
         const station = c.from_station != null ? from.stations[c.from_station] : null;
         const jump = station?.rows.length ? `${from.path}#${station.rows[0].line}` : null;
+        const tainted = c.tainted?.includes(line) ?? false;
         for (const to of targets) {
-          add(c.from, to, line, jump);
+          add(c.from, to, line, jump, tainted);
         }
       }
     }
@@ -246,7 +259,19 @@ var SubwayMap = new (class SubwayMap {
     }
     const order = [...spans.keys()].sort((a, b) =>
       this.model.lines[a].family - this.model.lines[b].family || a - b);
-    return { order, spans };
+    return { card, order, spans };
+  }
+
+  /**
+   * Whether a line is tainted arriving at a card's station `k` (after its
+   * last station, for k past it: where it goes on from the card).
+   */
+  taintedBefore(card, line, k) {
+    const station = card.stations[Math.max(0, k)];
+    if (k >= card.stations.length || !station) {
+      return card.tainted_out?.includes(line) ?? false;
+    }
+    return station.tainted?.includes(line) ?? false;
   }
 
   /** A row's gutter: its tracks, and (at its station's middle row) dots. */
@@ -287,32 +312,70 @@ var SubwayMap = new (class SubwayMap {
         return;
       }
       const x = i * SubwayMap.TRACK + SubwayMap.TRACK / 2;
-      const segment = document.createElementNS(NS, "line");
-      segment.setAttribute("x1", x);
-      segment.setAttribute("x2", x);
-      segment.setAttribute("y1", top);
-      segment.setAttribute("y2", bottom);
-      segment.setAttribute("stroke", this.colors.get(line));
-      segment.classList.add("sw-track");
-      segment.dataset.line = line;
-      svg.append(segment);
+      // (Tainted as it arrives at the station, above its stops' row, and as
+      // it leaves, below.)
+      const k = Math.ceil(stationIndex);
+      const parts = [];
+      if (Number.isInteger(stationIndex) && rowIndex >= stopRow) {
+        if (rowIndex == stopRow && top < 5) {
+          parts.push([top, 5, this.taintedBefore(tracks.card, line, k)]);
+          top = 5;
+        }
+        parts.push([top, bottom, this.taintedBefore(tracks.card, line, k + 1)]);
+      } else {
+        parts.push([top, bottom, this.taintedBefore(tracks.card, line, k)]);
+      }
+      for (const [y1, y2, tainted] of parts) {
+        if (y1 >= y2) {
+          continue;
+        }
+        const segment = document.createElementNS(NS, "line");
+        segment.setAttribute("x1", x);
+        segment.setAttribute("x2", x);
+        segment.setAttribute("y1", y1);
+        segment.setAttribute("y2", y2);
+        segment.setAttribute("stroke", this.colors.get(line));
+        segment.classList.add("sw-track");
+        segment.classList.toggle("sw-tainted", tainted);
+        segment.dataset.line = line;
+        svg.append(segment);
+      }
     });
     return svg;
   }
 
-  /** A row's dots (the lines stopping at its station), over its gutter. */
-  dots(tracks, stops, writes) {
+  /**
+   * A row's dots (the lines stopping at its station), over its gutter, and
+   * its validations' rings (see `subway::Validation`).
+   */
+  dots(tracks, station, stationIndex) {
+    const { stops, writes } = station;
+    const validations = (this.model.taint?.validations ?? []).filter(v =>
+      v.card == tracks.card.id && v.station == stationIndex);
     const box = document.createElement("span");
     box.className = "sw-dots";
     tracks.order.forEach((line, i) => {
-      if (!stops.includes(line)) {
+      const checks = validations.filter(v => v.lines.includes(line));
+      if (!stops.includes(line) && !checks.length) {
         return;
       }
       const dot = document.createElement("span");
       dot.className = "sw-dot sw-track" + (writes.includes(line) ? " sw-dot-write" : "");
       dot.dataset.line = line;
       dot.style.left = `${i * SubwayMap.TRACK + SubwayMap.TRACK / 2}px`;
-      dot.title = `${this.model.lines[line].label} ${writes.includes(line) ? "written" : "read"} here`;
+      const label = this.model.lines[line].label;
+      dot.title = `${label} ${writes.includes(line) ? "written" : "read"} here`;
+      if (station.tainted?.includes(line)) {
+        dot.classList.add("sw-dot-tainted");
+        dot.title += " (tainted)";
+      }
+      if (checks.length) {
+        const guards = checks.some(v => v.guards);
+        dot.classList.add(guards ? "sw-dot-validate" : "sw-dot-check");
+        dot.title += checks.map(v => guards ?
+          `; validated by ${v.by} (blessing it, and what's derived from its sources, where that succeeded)` :
+          `; checked by ${v.by}, but nothing depends on its success`).join("");
+      }
       box.append(dot);
     });
     return box;
@@ -365,7 +428,7 @@ var SubwayMap = new (class SubwayMap {
         div.className = "sw-row" + (row.changed ? " sw-changed" : "");
         div.append(this.gutter(tracks, si, ri, stopRow, station.stops));
         if (ri == stopRow) {
-          div.append(this.dots(tracks, station.stops, station.writes));
+          div.append(this.dots(tracks, station, si));
         }
         const number = document.createElement("a");
         number.className = "sw-lno";
@@ -423,9 +486,17 @@ var SubwayMap = new (class SubwayMap {
       const swatch = document.createElement("span");
       swatch.className = "sw-swatch";
       swatch.style.background = this.colors.get(line.id);
+      swatch.classList.toggle("sw-swatch-tainted", line.tainted ?? false);
       const name = document.createElement("span");
       name.textContent = line.label;
       label.append(box, swatch, name);
+      if (line.tainted) {
+        const hazard = document.createElement("span");
+        hazard.className = "sw-hazard";
+        hazard.textContent = "\u2623";
+        hazard.title = "Tainted where it's dashed: from a content process, until validated";
+        label.append(" ", hazard);
+      }
       if (line.type) {
         const type = document.createElement("span");
         type.className = "sw-type";
@@ -503,6 +574,39 @@ var SubwayMap = new (class SubwayMap {
     }
     cards.append(summary, list);
     legend.append(cards);
+
+    if (this.model.taint) {
+      const taint = document.createElement("details");
+      taint.open = true;
+      taint.className = "sw-legend-taint";
+      const summary = document.createElement("summary");
+      summary.textContent = "Taint";
+      const list = document.createElement("ul");
+      for (const source of this.model.taint.sources) {
+        const item = document.createElement("li");
+        item.textContent = `\u2623 ${this.model.lines[source.line].label}: ${source.why}`;
+        item.dataset.line = source.line;
+        item.addEventListener("mouseenter", () => this.focus(source.line));
+        item.addEventListener("mouseleave", () => this.focus(null));
+        list.append(item);
+      }
+      for (const v of this.model.taint.validations) {
+        const item = document.createElement("li");
+        const card = this.model.cards[v.card];
+        const names = v.lines.map(line => this.model.lines[line].label).join(", ");
+        item.textContent = v.guards ?
+          `\u2713 ${card.func} validates ${names} (${v.by})` :
+          `? ${card.func} calls ${v.by} on ${names}, but nothing depends on its success`;
+        list.append(item);
+      }
+      if (!this.model.taint.validations.length) {
+        const item = document.createElement("li");
+        item.textContent = "No validations.";
+        list.append(item);
+      }
+      taint.append(summary, list);
+      legend.append(taint);
+    }
 
     for (const note of this.model.notes) {
       const p = document.createElement("p");

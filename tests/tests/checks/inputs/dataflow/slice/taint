@@ -1,0 +1,2 @@
+# servers: local
+dataflow x --changed "dataflow/dataflow.cpp:172-186" --format subway --taint-from TaintEntry --taint-type Ticket --detaint-by CheckTicket

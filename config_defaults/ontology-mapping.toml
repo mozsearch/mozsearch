@@ -156,6 +156,30 @@ labels = ["uses-diagram:stop"]
 [pretty."mozilla::detail::RunnableFunction::Run"]
 labels = ["uses-diagram:skip"]
 
+# Taint (see tools/src/dataflow/taint.rs): values of types labeled
+# "taint:content" that parent actors receive from content processes (in
+# messages of protocols whose toplevel managers' `ChildProc` includes content
+# processes) are tainted in slicings' subway maps until a validator's call
+# (labeled "detaint:N" for its Nth argument, from 0; "detaint:this" for its
+# object; "detaint" for all of them) blesses them, where its success
+# dominates, with what's derived from them.  (IPDL structs with fields of
+# these types are tainted too.)
+[pretty."nsIPrincipal"]
+labels = ["taint:content"]
+[pretty."mozilla::ipc::PrincipalInfo"]
+labels = ["taint:content"]
+
+[pretty."mozilla::dom::ContentParent::ValidatePrincipal"]
+labels = ["detaint:0"]
+[pretty."mozilla::dom::ThreadsafeContentParentHandle::ValidatePrincipal"]
+labels = ["detaint:0"]
+[pretty."mozilla::dom::LoadedOriginSet::ValidatePrincipal"]
+labels = ["detaint:0"]
+[pretty."mozilla::ipc::BackgroundParent::ValidatePrincipal"]
+labels = ["detaint:1"]
+[pretty."mozilla::ipc::BackgroundParent::ValidatePrincipalInfo"]
+labels = ["detaint:1"]
+
 [pretty."nsIThreadPool"]
 labels = ["class-diagram:stop"]
 

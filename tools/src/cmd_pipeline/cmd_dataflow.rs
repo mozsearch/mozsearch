@@ -17,6 +17,7 @@ use crate::{
         },
         subway::subway_map,
         summary::{IpdlSlots, Summary, field_edges, summarize_in},
+        taint::TaintSpec,
         trace::{Dir, TraceOpts, Tracer, find_place},
     },
     file_format::local_symbols::parameter_symbol,
@@ -129,6 +130,24 @@ pub struct Dataflow {
     /// Show only this cluster of a slicing (1 for the biggest).
     #[clap(long)]
     slice_cluster: Option<usize>,
+
+    /// Taint values of these (comma-separated) types (by name, qualified or
+    /// not) from content processes in subway maps, besides those
+    /// ontology-mapping.toml labels "taint:content" (see `dataflow::taint`).
+    #[clap(long)]
+    taint_type: Option<String>,
+
+    /// Take calls of these (comma-separated) functions (by pretty name, or
+    /// its last components) as validating all of their arguments, besides
+    /// those ontology-mapping.toml labels "detaint:N".
+    #[clap(long)]
+    detaint_by: Option<String>,
+
+    /// Taint the parameters of tainted types of these (comma-separated)
+    /// functions (by pretty name, or its last components), besides the
+    /// `Recv` methods of messages from content processes.
+    #[clap(long)]
+    taint_from: Option<String>,
 
     /// How many hops to trace values written by changes, for `--slice`.
     #[clap(long, default_value_t = 3)]
@@ -738,9 +757,24 @@ impl DataflowCommand {
             DataflowFormat::Subway => {
                 let first = self.args.slice_cluster.unwrap_or(1);
                 let identity = cache_args.as_ref().and_then(|_| server.cache_identity());
-                let args = format!("{:?} cluster {:?}", cache_args, self.args.slice_cluster);
+                let list = |arg: &Option<String>| -> Vec<String> {
+                    arg.iter()
+                        .flat_map(|s| s.split(','))
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect()
+                };
+                let taint = TaintSpec {
+                    types: list(&self.args.taint_type),
+                    validators: list(&self.args.detaint_by),
+                    sources: list(&self.args.taint_from),
+                };
+                let args = format!(
+                    "{:?} cluster {:?} taint {:?}",
+                    cache_args, self.args.slice_cluster, taint
+                );
                 let value = crate::step_cache::cached(identity, "subway", &args, || async {
-                    let map = subway_map(tracer, &slicing, first).await;
+                    let map = subway_map(tracer, &slicing, first, &taint).await;
                     Ok::<_, ServerError>(serde_json::to_value(&map).unwrap())
                 })
                 .await?;

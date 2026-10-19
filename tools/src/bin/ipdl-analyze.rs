@@ -684,6 +684,59 @@ fn message_param_infos(message: &ast::MessageDecl, ipc_pretty: &str, ipc_sym: &s
         .collect()
 }
 
+/// The `[ChildProc=...]` values whose processes include content processes
+/// (ipc/docs/ipdl.md's process type attributes: `Content`, and the wildcards
+/// including it).
+const CONTENT_CHILD_PROCS: [&str; 4] = ["Content", "any", "anychild", "anydom"];
+
+/// The protocols (by name) whose child actors can be in content processes:
+/// those with a toplevel manager (by `managed by`, transitively; or
+/// themselves, if toplevel) whose `[ChildProc=...]` includes content
+/// processes.  What their child actors send their parent actors comes from
+/// processes running the web's code, which may be compromised, so dataflow
+/// takes its values as tainted (see `dataflow::taint`).
+fn content_facing_protocols(tus: &HashMap<ast::TUId, ast::TranslationUnit>) -> HashSet<String> {
+    let mut managers: HashMap<String, Vec<String>> = HashMap::new();
+    let mut child_procs: HashMap<String, String> = HashMap::new();
+    for tu in tus.values() {
+        let Some((ns, protocol)) = &tu.protocol else {
+            continue;
+        };
+        let name = ns.name.id.clone();
+        managers.insert(
+            name.clone(),
+            protocol.managers.iter().map(|m| m.id.clone()).collect(),
+        );
+        if let Some((_, ast::AttributeValue::Identifier(id))) = protocol.attributes.get("ChildProc")
+        {
+            child_procs.insert(name, id.id.clone());
+        }
+    }
+    let mut out = HashSet::new();
+    for name in managers.keys() {
+        // (Up to the toplevel managers.)
+        let mut stack = vec![name.clone()];
+        let mut seen = HashSet::new();
+        let mut facing = false;
+        while let Some(current) = stack.pop() {
+            if !seen.insert(current.clone()) {
+                continue;
+            }
+            let ups = managers.get(&current).cloned().unwrap_or_default();
+            if ups.is_empty() {
+                facing |= child_procs
+                    .get(&current)
+                    .is_some_and(|proc| CONTENT_CHILD_PROCS.contains(&proc.as_str()));
+            }
+            stack.extend(ups);
+        }
+        if facing {
+            out.insert(name.clone());
+        }
+    }
+    out
+}
+
 /// Write a message's `IPC_` symbol's records, with binding slots for its
 /// send and recv methods (for both directions' for `both:` messages), and its
 /// parameters as `fields` (see `message_param_infos`).
@@ -694,6 +747,7 @@ fn output_ipc_data(
     ipc_sym: &str,
     slots: &[(Vec<&AnalysisTarget>, Vec<&AnalysisTarget>)],
     params: Vec<Value>,
+    from_content: bool,
 ) {
     write!(
         outputf,
@@ -747,6 +801,9 @@ fn output_ipc_data(
             "implKind": "idl",
             "bindingSlots": binding_slots,
             "fields": params,
+            // (Whether its parent actor receives it from content processes;
+            // see `content_facing_protocols`.)
+            "fromContent": from_content,
         })
     )
     .unwrap();
@@ -876,6 +933,8 @@ fn main() {
             actors.insert(ns.name.id.clone());
         }
     }
+
+    let content_facing = content_facing_protocols(&tus);
 
     for (_, tu) in tus {
         println!("Analyzing {:?}", tu.file_name);
@@ -1105,7 +1164,19 @@ fn main() {
                         message.name.id
                     );
                     let params = message_param_infos(&message, &ipc_pretty, &ipc_sym);
-                    output_ipc_data(&mut outputf, &locstr, &ipc_pretty, &ipc_sym, &slots, params);
+                    // (Sent to the parent actor, in a protocol whose child
+                    // actors can be in content processes.)
+                    let from_content = content_facing.contains(&ns.name.id)
+                        && message.direction != ast::Direction::To(ProtocolSide::Child);
+                    output_ipc_data(
+                        &mut outputf,
+                        &locstr,
+                        &ipc_pretty,
+                        &ipc_sym,
+                        &slots,
+                        params,
+                        from_content,
+                    );
                 }
 
                 output_message_params(

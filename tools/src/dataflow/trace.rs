@@ -23,7 +23,7 @@ use super::oracle::{Oracle, OracleQuestion, SITE_ASK, SUMMARY_ASK, Slot, parse_s
 use super::records::{FileRecords, short_name};
 use super::summary::{Category, Port, Summary};
 use crate::abstract_server::AbstractServer;
-use crate::file_format::analysis::BindingSlotKind;
+use crate::file_format::analysis::{AnalysisStructured, BindingSlotKind};
 use crate::file_format::crossref::CrossrefData;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize)]
@@ -248,6 +248,7 @@ pub struct Tracer<'s> {
     records: HashMap<String, Option<Arc<FileRecords>>>,
     xrefs: HashMap<Ustr, Option<Arc<CrossrefData>>>,
     ipdl_slots: HashMap<Ustr, Option<IpdlSlot>>,
+    type_syms: HashMap<String, Vec<(Ustr, Ustr)>>,
     pub oracle: Option<Arc<Oracle>>,
     pub graph: TraceGraph,
     node_ids: HashMap<(String, Ustr, NodeKey), usize>,
@@ -267,6 +268,7 @@ impl<'s> Tracer<'s> {
             records: HashMap::new(),
             xrefs: HashMap::new(),
             ipdl_slots: HashMap::new(),
+            type_syms: HashMap::new(),
             oracle: None,
             graph: TraceGraph::default(),
             node_ids: HashMap::new(),
@@ -797,9 +799,122 @@ impl<'s> Tracer<'s> {
         None
     }
 
+    /// The IPC message (its `IPC_` symbol) whose `Recv` method a function is
+    /// (its binding slot), or implements (an actor's override of the
+    /// generated declaration), if any.
+    pub async fn recv_message(&mut self, sym: &Ustr) -> Option<Ustr> {
+        let xref = self.xref(sym).await?;
+        let meta = xref.meta.as_ref()?;
+        let recv_owner = |meta: &AnalysisStructured<Ustr>| {
+            let owner = meta.slot_owner.as_ref()?;
+            (owner.props.slot_kind == BindingSlotKind::Recv && owner.sym.starts_with("IPC_"))
+                .then_some(owner.sym)
+        };
+        if let Some(owner) = recv_owner(meta) {
+            return Some(owner);
+        }
+        for overridden in &meta.overrides {
+            if let Some(owner) = self
+                .xref(&overridden.sym)
+                .await
+                .and_then(|xref| recv_owner(xref.meta.as_ref()?))
+            {
+                return Some(owner);
+            }
+        }
+        None
+    }
+
+    /// Whether an IPC message's parent actor receives it from content
+    /// processes (ipdl-analyze's `fromContent`).
+    pub async fn from_content(&mut self, ipc_sym: &Ustr) -> bool {
+        self.xref(ipc_sym).await.is_some_and(|xref| {
+            xref.meta
+                .as_ref()
+                .and_then(|meta| meta.extra.get("fromContent")?.as_bool())
+                .unwrap_or(false)
+        })
+    }
+
+    /// The positions of an IPC message's parameters in its send and recv
+    /// methods (its `fields`' `ipdlIndex`es; see ipdl-analyze's
+    /// `output_message_params`), not its sync replies' out parameters
+    /// (`ipdlOut`).
+    pub async fn message_params(&mut self, ipc_sym: &Ustr) -> BTreeSet<usize> {
+        let fields: Vec<Ustr> = match self.xref(ipc_sym).await {
+            Some(xref) => match &xref.meta {
+                Some(meta) => meta.fields.iter().map(|f| f.sym).collect(),
+                None => vec![],
+            },
+            None => vec![],
+        };
+        let mut out = BTreeSet::new();
+        for field in fields {
+            let Some(xref) = self.xref(&field).await else {
+                continue;
+            };
+            let Some(meta) = &xref.meta else {
+                continue;
+            };
+            let reply = meta.extra.get("ipdlOut").and_then(|v| v.as_bool()) == Some(true);
+            if let Some(index) = meta.extra.get("ipdlIndex").and_then(|v| v.as_u64())
+                && !reply
+            {
+                out.insert(index as usize);
+            }
+        }
+        out
+    }
+
+    /// A symbol's labels (see ontology-mapping.toml).
+    pub async fn labels(&mut self, sym: &Ustr) -> BTreeSet<Ustr> {
+        self.xref(sym)
+            .await
+            .and_then(|xref| Some(xref.meta.as_ref()?.labels.clone()))
+            .unwrap_or_default()
+    }
+
+    /// The symbols of types named `name` (its last component), with their
+    /// pretty names.
+    pub async fn type_syms(&mut self, name: &str) -> Vec<(Ustr, Ustr)> {
+        if let Some(cached) = self.type_syms.get(name) {
+            return cached.clone();
+        }
+        let mut syms: Vec<Ustr> = self
+            .server
+            .search_identifiers(name, true, false, 200)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(sym, _)| sym)
+            .filter(|sym| sym.starts_with("T_") || sym.starts_with("IPDL_"))
+            .collect();
+        syms.sort();
+        syms.dedup();
+        let mut out = vec![];
+        for sym in syms {
+            let pretty = match self
+                .xref(&sym)
+                .await
+                .and_then(|xref| Some(xref.meta.as_ref()?.pretty))
+            {
+                Some(pretty) => pretty,
+                None => ustr(sym.strip_prefix("T_").unwrap_or(&sym)),
+            };
+            out.push((pretty, sym));
+        }
+        self.type_syms.insert(name.to_string(), out.clone());
+        out
+    }
+
     /// A symbol's crossref entry, if it's been looked up (see `prefetch`).
     pub fn cached_xref(&self, sym: &Ustr) -> Option<Arc<CrossrefData>> {
         self.xrefs.get(sym)?.clone()
+    }
+
+    /// A symbol's crossref entry.
+    pub async fn crossref(&mut self, sym: &Ustr) -> Option<Arc<CrossrefData>> {
+        self.xref(sym).await
     }
 
     async fn xref(&mut self, sym: &Ustr) -> Option<Arc<CrossrefData>> {

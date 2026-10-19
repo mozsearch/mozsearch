@@ -151,3 +151,37 @@ int Names(const nsTSubstring<char>& aSource) {
   assigned.Assign(aSource);
   return UseName(copy) + UseName(assigned) + UseName(nsTString<char>(aSource));
 }
+
+// Taint (see tools/src/dataflow/taint.rs; the check taints TaintEntry's
+// Tickets, validated by CheckTicket): a validation blesses what it dominates,
+// through its wrappers (CheckTicketWrapper), and the value's genealogy (id,
+// derived from aTicket before it), but not other tainted values (aOther).
+struct Ticket {
+  int mId;
+};
+
+bool CheckTicket(const Ticket& aTicket);
+void UseTicket(const Ticket& aTicket);
+void UseId(int aId);
+
+static bool CheckTicketWrapper(const Ticket& aTicket) {
+  return CheckTicket(aTicket);
+}
+
+void TaintEntry(const Ticket& aTicket, const Ticket& aOther) {
+  int id = aTicket.mId + 1;
+  UseTicket(aTicket);
+
+  // (Validated from here on: aTicket, and id with it.)
+  if (!CheckTicketWrapper(aTicket)) {
+    return;
+  }
+
+  // (Blessed.)
+  UseTicket(aTicket);
+  UseId(id);
+
+  // (Still tainted: aOther isn't validated.)
+  Ticket copy = aOther;
+  UseTicket(copy);
+}

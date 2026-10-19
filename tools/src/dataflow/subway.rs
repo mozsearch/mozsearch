@@ -32,6 +32,7 @@ use super::frontend::FileIr;
 use super::ir::*;
 use super::slice::{Key, Slicing, cluster_commits, place_keys};
 use super::summary::{Port, Summary};
+use super::taint::{Taint, TaintSpec, Validated};
 use super::trace::{Tracer, ipc_message_sym};
 
 /// Events at most this many lines apart are one station.
@@ -51,6 +52,37 @@ pub struct SubwayMap {
     /// commits.
     pub clusters: Vec<ClusterInfo>,
     pub notes: Vec<String>,
+    /// The tainted values' sources and their validations, if any (see
+    /// `taint`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub taint: Option<TaintInfo>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TaintInfo {
+    pub sources: Vec<TaintSource>,
+    pub validations: Vec<Validation>,
+}
+
+/// A tainted parameter of a function receiving a message from content
+/// processes.
+#[derive(Debug, Serialize)]
+pub struct TaintSource {
+    pub card: usize,
+    pub line: usize,
+    pub why: String,
+}
+
+/// A validator's call, validating its lines (and their genealogies) in what
+/// it dominates (`guards`), or not (its result unchecked, or checked in a way
+/// the analysis doesn't see).
+#[derive(Debug, Serialize)]
+pub struct Validation {
+    pub card: usize,
+    pub station: usize,
+    pub lines: Vec<usize>,
+    pub by: String,
+    pub guards: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -71,6 +103,10 @@ pub struct Card {
     pub changed: bool,
     pub cluster: usize,
     pub stations: Vec<Station>,
+    /// The lines tainted at its end (going on to what it returns to, or
+    /// what reads the fields it writes).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tainted_out: Vec<usize>,
 }
 
 #[derive(Debug, Serialize)]
@@ -79,6 +115,12 @@ pub struct Station {
     /// The lines stopping here, and those of them written here.
     pub stops: Vec<usize>,
     pub writes: Vec<usize>,
+    /// The lines tainted where it starts (see `taint`), and those its
+    /// validations bless (for what they dominate).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tainted: Vec<usize>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub validates: Vec<usize>,
 }
 
 #[derive(Debug, Serialize)]
@@ -111,6 +153,9 @@ pub struct Line {
     pub family: usize,
     /// The lines it's derived from.
     pub parents: Vec<usize>,
+    /// Whether it's tainted anywhere (see `taint`).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub tainted: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -136,6 +181,9 @@ pub struct Connector {
     /// "call", "ipc", "return" or "field".
     pub kind: &'static str,
     pub lines: Vec<usize>,
+    /// The lines tainted along it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub tainted: Vec<usize>,
 }
 
 /// A type without its qualifiers, pointers and references, and the smart
@@ -143,6 +191,16 @@ pub struct Connector {
 /// for `const nsCOMPtr<nsIPrincipal>&`, "PrincipalInfo" for
 /// `const mozilla::ipc::PrincipalInfo&`), which the view colors families by.
 pub fn semantic_type(ty: &str) -> Option<String> {
+    let ty = qualified_type(ty)?;
+    let name = ty.rsplit("::").next().unwrap_or(&ty).trim();
+    (!name.is_empty()).then(|| name.to_string())
+}
+
+/// A type without its qualifiers, pointers and references, and the smart
+/// pointers and wrappers around it, and its template arguments, but with its
+/// namespaces (ex: "mozilla::ipc::PrincipalInfo" for
+/// `const mozilla::ipc::PrincipalInfo&`).
+pub fn qualified_type(ty: &str) -> Option<String> {
     const WRAPPERS: [&str; 12] = [
         "RefPtr",
         "nsCOMPtr",
@@ -186,7 +244,7 @@ pub fn semantic_type(ty: &str) -> Option<String> {
         Some((outer, _)) => outer,
         None => ty.as_str(),
     };
-    let name = name.rsplit("::").next().unwrap_or(name).trim();
+    let name = name.trim().trim_start_matches("::");
     (!name.is_empty() && name != "auto").then(|| name.to_string())
 }
 
@@ -353,6 +411,19 @@ struct Func {
     sums: CallSummaries,
 }
 
+/// A call from a function of the clusters to another (by their indexes in
+/// `funcs`), at its event, and the values it moves.
+struct CallMove {
+    from: usize,
+    event: usize,
+    to: usize,
+    /// (argument's key, parameter's key, derived)
+    args: Vec<(Key, Key, bool)>,
+    /// (returned key, the result's key in the caller, derived)
+    returns: Vec<(Key, Key, bool)>,
+    kind: &'static str,
+}
+
 /// Union-find over keys.
 struct Union {
     parent: HashMap<Key, Key>,
@@ -389,17 +460,20 @@ impl Union {
 }
 
 /// The subway map of a slicing's clusters (all of them, or the one
-/// `only_cluster` left), in the tracer's tree (or try push).
+/// `only_cluster` left), in the tracer's tree (or try push), with the taint
+/// of the ontology's labels and `taint`'s (see `taint`).
 pub async fn subway_map(
     tracer: &mut Tracer<'_>,
     slicing: &Slicing,
     first_cluster: usize,
+    taint: &TaintSpec,
 ) -> SubwayMap {
     // (Calls are stepped over by their summaries (accessors', hints'),
     // which slicing doesn't use.)
     let summaries = tracer.opts.summaries;
     tracer.opts.summaries = true;
-    let map = subway_map_inner(tracer, slicing, first_cluster).await;
+    let mut taint = Taint::new(taint.clone());
+    let map = subway_map_inner(tracer, slicing, first_cluster, &mut taint).await;
     tracer.opts.summaries = summaries;
     map
 }
@@ -408,6 +482,7 @@ async fn subway_map_inner(
     tracer: &mut Tracer<'_>,
     slicing: &Slicing,
     first_cluster: usize,
+    taint: &mut Taint,
 ) -> SubwayMap {
     let mut map = SubwayMap {
         cards: vec![],
@@ -416,6 +491,7 @@ async fn subway_map_inner(
         connectors: vec![],
         clusters: vec![],
         notes: slicing.notes.clone(),
+        taint: None,
     };
 
     // ## The cards: the clusters' functions, and files' declarations.
@@ -466,6 +542,7 @@ async fn subway_map_inner(
                 changed: true,
                 cluster: n,
                 stations: vec![],
+                tainted_out: vec![],
             });
             let mut sums = CallSummaries::new();
             for (c, call) in f.calls.iter().enumerate() {
@@ -494,17 +571,6 @@ async fn subway_map_inner(
 
     // ## Moves between the cards: calls' arguments to their parameters, and
     // their returns to their results.
-    // (from card, call's event, to card, (from key, to key) pairs, kind)
-    struct CallMove {
-        from: usize,
-        event: usize,
-        to: usize,
-        /// (argument's key, parameter's key, derived)
-        args: Vec<(Key, Key, bool)>,
-        /// (returned key, the result's key in the caller, derived)
-        returns: Vec<(Key, Key, bool)>,
-        kind: &'static str,
-    }
     let mut call_moves: Vec<CallMove> = vec![];
     for i in 0..funcs.len() {
         let (file, fi) = (funcs[i].file.clone(), funcs[i].fi);
@@ -796,6 +862,7 @@ async fn subway_map_inner(
             ty,
             family: 0,
             parents: vec![],
+            tainted: false,
         });
     }
     // (Derivations between lines.)
@@ -938,6 +1005,8 @@ async fn subway_map_inner(
                 rows,
                 stops: stops.into_iter().collect(),
                 writes: writes.into_iter().collect(),
+                tainted: vec![],
+                validates: vec![],
             });
         }
     }
@@ -977,6 +1046,8 @@ async fn subway_map_inner(
                 rows,
                 writes: stops.clone(),
                 stops,
+                tainted: vec![],
+                validates: vec![],
             });
         }
         let id = map.cards.len();
@@ -991,6 +1062,7 @@ async fn subway_map_inner(
             changed: true,
             cluster: n,
             stations,
+            tainted_out: vec![],
         });
     }
     // (Families' clusters: their roots' first cards'.)
@@ -1086,10 +1158,449 @@ async fn subway_map_inner(
                 to_station,
                 kind,
                 lines: lines.into_iter().collect(),
+                tainted: vec![],
             },
         )
         .collect();
+    apply_taint(
+        tracer,
+        taint,
+        &mut map,
+        &funcs,
+        &key_line,
+        &call_moves,
+        &event_station,
+    )
+    .await;
     map
+}
+
+/// The lines tainted in each of a map's cards (see `taint`), by their
+/// sources (indexes in `TaintInfo::sources`).
+type CardTaint = Vec<BTreeMap<usize, BTreeSet<usize>>>;
+
+/// A function's validator call: the events it dominates (if it guards
+/// them), its event, and the lines it validates.
+struct FuncValidation {
+    range: Option<(usize, usize)>,
+    event: Option<usize>,
+    lines: BTreeSet<usize>,
+    by: String,
+}
+
+/// The sources (by index) a card's validations bless at an event.
+fn blessed_at(
+    validations: &[FuncValidation],
+    tainted: &BTreeMap<usize, BTreeSet<usize>>,
+    event: usize,
+) -> BTreeSet<usize> {
+    let mut out = BTreeSet::new();
+    for v in validations {
+        if let Some((start, end)) = v.range
+            && start <= event
+            && event < end
+        {
+            for line in &v.lines {
+                out.extend(tainted.get(line).into_iter().flatten().copied());
+            }
+        }
+    }
+    out
+}
+
+/// The lines tainted at an event (those with sources not blessed there).
+fn tainted_at(
+    validations: &[FuncValidation],
+    tainted: &BTreeMap<usize, BTreeSet<usize>>,
+    event: usize,
+) -> BTreeMap<usize, BTreeSet<usize>> {
+    let blessed = blessed_at(validations, tainted, event);
+    tainted
+        .iter()
+        .filter_map(|(&line, sources)| {
+            let left: BTreeSet<usize> = sources.difference(&blessed).copied().collect();
+            (!left.is_empty()).then_some((line, left))
+        })
+        .collect()
+}
+
+/// Mark a map's tainted lines, at its stations and along its connectors:
+/// from their sources (the tainted parameters of the cards receiving
+/// messages from content processes), through what's derived from them and
+/// the calls, returns and fields' connectors to other cards, until the
+/// validations dominating them bless them (and what's derived from their
+/// sources).
+async fn apply_taint(
+    tracer: &mut Tracer<'_>,
+    taint: &mut Taint,
+    map: &mut SubwayMap,
+    funcs: &[Func],
+    key_line: &BTreeMap<Key, usize>,
+    call_moves: &[CallMove],
+    event_station: &HashMap<(usize, usize), usize>,
+) {
+    let mut info = TaintInfo {
+        sources: vec![],
+        validations: vec![],
+    };
+    let mut tainted: CardTaint = vec![BTreeMap::new(); map.cards.len()];
+    // ## The sources.
+    for func in funcs {
+        let f = &func.file.funcs[func.fi];
+        let message = taint.source_message(tracer, f).await;
+        let from = match &message {
+            Some(message) => format!(
+                "from content processes ({})",
+                tracer
+                    .crossref(message)
+                    .await
+                    .and_then(|xref| Some(xref.meta.as_ref()?.pretty.to_string()))
+                    .unwrap_or_else(|| message.to_string())
+            ),
+            None if taint.is_source(f) => "(taint-from)".to_string(),
+            None => continue,
+        };
+        for i in taint.tainted_params(tracer, f, message.as_ref()).await {
+            let param = &f.params[i];
+            let lines: BTreeSet<usize> = keys_of(f, &param.place)
+                .iter()
+                .filter_map(|key| key_line.get(key).copied())
+                .collect();
+            if lines.is_empty() {
+                map.notes.push(format!(
+                    "{}'s {} is tainted ({}), but isn't on the map.",
+                    f.pretty, param.name, from
+                ));
+            }
+            for line in lines {
+                tainted[func.card]
+                    .entry(line)
+                    .or_default()
+                    .insert(info.sources.len());
+                info.sources.push(TaintSource {
+                    card: func.card,
+                    line,
+                    why: format!(
+                        "{} receives {} ({}) {}",
+                        f.pretty,
+                        param.name,
+                        param.type_pretty.as_deref().unwrap_or("?"),
+                        from
+                    ),
+                });
+            }
+        }
+    }
+    if info.sources.is_empty() {
+        return;
+    }
+    // ## The validations: calls of validators, or of their wrappers (of
+    // the tainted lines' families' values).
+    let source_families: BTreeSet<usize> = info
+        .sources
+        .iter()
+        .map(|source| map.lines[source.line].family)
+        .collect();
+    let mut validations: Vec<Vec<FuncValidation>> = (0..map.cards.len()).map(|_| vec![]).collect();
+    for func in funcs {
+        let f = &func.file.funcs[func.fi];
+        for (c, call) in f.calls.iter().enumerate() {
+            let mut validated = taint.validated(tracer, call).await;
+            if validated.is_empty()
+                && call
+                    .args
+                    .iter()
+                    .chain(call.receiver.iter())
+                    .flat_map(|arg| val_keys(f, &arg.vals, &func.sums))
+                    .filter_map(|(key, _)| key_line.get(&key))
+                    .any(|&line| source_families.contains(&map.lines[line].family))
+            {
+                validated = taint
+                    .wrapper_validated(tracer, &func.file, func.fi, c)
+                    .await;
+            }
+            if validated.is_empty() {
+                continue;
+            }
+            let mut vals: Vec<&[Val]> = vec![];
+            for v in &validated {
+                match v {
+                    Validated::Arg(i) => vals.extend(call.args.get(*i).map(|a| a.vals.as_slice())),
+                    Validated::This => vals.extend(call.receiver.iter().map(|r| r.vals.as_slice())),
+                    Validated::All => vals.extend(
+                        call.args
+                            .iter()
+                            .chain(call.receiver.iter())
+                            .map(|a| a.vals.as_slice()),
+                    ),
+                }
+            }
+            let lines: BTreeSet<usize> = vals
+                .into_iter()
+                .flat_map(|vals| val_keys(f, vals, &func.sums))
+                .filter_map(|(key, _)| key_line.get(&key).copied())
+                .collect();
+            let event = f
+                .events
+                .iter()
+                .position(|e| matches!(e.kind, EventKind::Call(ec) if ec == c));
+            let ranges: Vec<(usize, usize)> = f
+                .guards
+                .iter()
+                .filter(|g| g.call == c)
+                .map(|g| (g.start, g.end))
+                .collect();
+            let by = call.callee_pretty.clone();
+            if ranges.is_empty() {
+                validations[func.card].push(FuncValidation {
+                    range: None,
+                    event,
+                    lines,
+                    by,
+                });
+            } else {
+                for range in ranges {
+                    validations[func.card].push(FuncValidation {
+                        range: Some(range),
+                        event,
+                        lines: lines.clone(),
+                        by: by.clone(),
+                    });
+                }
+            }
+        }
+    }
+    // ## Propagation, until it settles: to what's derived in a card, and
+    // along the connectors, what isn't blessed where they leave.
+    let last_event = |card: usize| -> usize {
+        funcs
+            .iter()
+            .find(|func| func.card == card)
+            .map_or(0, |func| {
+                func.file.funcs[func.fi].events.len().saturating_sub(1)
+            })
+    };
+    let mut station_events: HashMap<(usize, usize), Vec<usize>> = HashMap::new();
+    for (&(card, ei), &station) in event_station {
+        station_events.entry((card, station)).or_default().push(ei);
+    }
+    for events in station_events.values_mut() {
+        events.sort();
+    }
+    let line_parents: Vec<Vec<usize>> = map.lines.iter().map(|l| l.parents.clone()).collect();
+    let card_lines: Vec<BTreeSet<usize>> = map
+        .cards
+        .iter()
+        .map(|card| {
+            card.stations
+                .iter()
+                .flat_map(|s| s.stops.iter().copied())
+                .collect()
+        })
+        .collect();
+    // (The lines that are parts of others in each card: a field of an
+    // object (`aTicket.mId`, its own line, by its field's key) is the
+    // object's, for taint.)
+    let mut card_parts: Vec<BTreeSet<(usize, usize)>> = vec![BTreeSet::new(); map.cards.len()];
+    for func in funcs {
+        let f = &func.file.funcs[func.fi];
+        f.for_each_place(&mut |place| {
+            if place.path.is_empty() {
+                return;
+            }
+            let whole = Place {
+                root: place.root.clone(),
+                path: vec![],
+            };
+            for whole in keys_of(f, &whole) {
+                for part in keys_of(f, place) {
+                    if let (Some(&w), Some(&p)) = (key_line.get(&whole), key_line.get(&part))
+                        && w != p
+                    {
+                        card_parts[func.card].insert((w, p));
+                    }
+                }
+            }
+        });
+    }
+    // (A connector's tainted lines, by its from, from station, to, to
+    // station and kind.)
+    type ConnectorKey = (usize, Option<usize>, usize, Option<usize>, &'static str);
+    let mut connector_taint: BTreeMap<ConnectorKey, BTreeSet<usize>> = BTreeMap::new();
+    for _ in 0..(map.cards.len() + 4) {
+        let mut changed = false;
+        let mut add =
+            |tainted: &mut CardTaint, card: usize, line: usize, sources: &BTreeSet<usize>| {
+                let entry = tainted[card].entry(line).or_default();
+                let before = entry.len();
+                entry.extend(sources.iter().copied());
+                if entry.len() != before {
+                    changed = true;
+                }
+            };
+        // (Derived values, in the cards they're in.)
+        for card in 0..map.cards.len() {
+            for &line in &card_lines[card] {
+                let mut sources = BTreeSet::new();
+                for parent in &line_parents[line] {
+                    sources.extend(tainted[card].get(parent).into_iter().flatten().copied());
+                }
+                if !sources.is_empty() {
+                    add(&mut tainted, card, line, &sources);
+                }
+            }
+            for &(whole, part) in &card_parts[card] {
+                if let Some(sources) = tainted[card].get(&whole).cloned() {
+                    add(&mut tainted, card, part, &sources);
+                }
+            }
+        }
+        // (Calls' arguments, and their returns.)
+        for call in call_moves {
+            let (from, to) = (funcs[call.from].card, funcs[call.to].card);
+            let station = event_station.get(&(from, call.event)).copied();
+            let at_call = tainted_at(&validations[from], &tainted[from], call.event);
+            let args: BTreeSet<usize> = call
+                .args
+                .iter()
+                .filter_map(|(a, b, _)| Some(*key_line.get(a).or_else(|| key_line.get(b))?))
+                .collect();
+            for line in args {
+                if let Some(sources) = at_call.get(&line) {
+                    let sources = sources.clone();
+                    add(&mut tainted, to, line, &sources);
+                    connector_taint
+                        .entry((from, station, to, None, call.kind))
+                        .or_default()
+                        .insert(line);
+                }
+                // (A message's tainted parameters, along its IPC edge.)
+                if call.kind == "ipc"
+                    && info
+                        .sources
+                        .iter()
+                        .any(|source| source.card == to && source.line == line)
+                {
+                    connector_taint
+                        .entry((from, station, to, None, call.kind))
+                        .or_default()
+                        .insert(line);
+                }
+            }
+            let at_return = tainted_at(&validations[to], &tainted[to], last_event(to));
+            let returns: BTreeSet<usize> = call
+                .returns
+                .iter()
+                .filter_map(|(a, b, _)| Some(*key_line.get(a).or_else(|| key_line.get(b))?))
+                .collect();
+            for line in returns {
+                if let Some(sources) = at_return.get(&line) {
+                    let sources = sources.clone();
+                    add(&mut tainted, from, line, &sources);
+                    connector_taint
+                        .entry((to, None, from, station, "return"))
+                        .or_default()
+                        .insert(line);
+                }
+            }
+        }
+        // (Fields, from the stations writing them.)
+        for connector in &map.connectors {
+            if connector.kind != "field" {
+                continue;
+            }
+            let Some(station) = connector.from_station else {
+                continue;
+            };
+            let event = station_events
+                .get(&(connector.from, station))
+                .and_then(|events| events.last().copied())
+                .unwrap_or_else(|| last_event(connector.from));
+            let at_write = tainted_at(
+                &validations[connector.from],
+                &tainted[connector.from],
+                event,
+            );
+            for &line in &connector.lines {
+                if let Some(sources) = at_write.get(&line) {
+                    let sources = sources.clone();
+                    add(&mut tainted, connector.to, line, &sources);
+                    connector_taint
+                        .entry((
+                            connector.from,
+                            connector.from_station,
+                            connector.to,
+                            connector.to_station,
+                            connector.kind,
+                        ))
+                        .or_default()
+                        .insert(line);
+                }
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+    // ## The map's taint: its stations', cards', connectors' and lines'.
+    for card in 0..map.cards.len() {
+        if tainted[card].is_empty() && validations[card].is_empty() {
+            continue;
+        }
+        for (station, s) in map.cards[card].stations.iter_mut().enumerate() {
+            let Some(events) = station_events.get(&(card, station)) else {
+                continue;
+            };
+            let first = events[0];
+            s.tainted = tainted_at(&validations[card], &tainted[card], first)
+                .into_keys()
+                .collect();
+            let mut validates = BTreeSet::new();
+            for v in &validations[card] {
+                if let Some(event) = v.event
+                    && events.contains(&event)
+                {
+                    if v.range.is_some() {
+                        validates.extend(v.lines.iter().copied());
+                    }
+                    info.validations.push(Validation {
+                        card,
+                        station,
+                        lines: v.lines.iter().copied().collect(),
+                        by: v.by.clone(),
+                        guards: v.range.is_some(),
+                    });
+                }
+            }
+            s.validates = validates.into_iter().collect();
+        }
+        map.cards[card].tainted_out =
+            tainted_at(&validations[card], &tainted[card], last_event(card))
+                .into_keys()
+                .collect();
+        for &line in tainted[card].keys() {
+            map.lines[line].tainted = true;
+        }
+    }
+    info.validations.dedup_by(|a, b| {
+        a.card == b.card && a.station == b.station && a.by == b.by && a.lines == b.lines
+    });
+    for connector in &mut map.connectors {
+        if let Some(lines) = connector_taint.get(&(
+            connector.from,
+            connector.from_station,
+            connector.to,
+            connector.to_station,
+            connector.kind,
+        )) {
+            connector.tainted = lines
+                .iter()
+                .copied()
+                .filter(|line| connector.lines.contains(line))
+                .collect();
+        }
+    }
+    map.taint = Some(info);
 }
 
 #[cfg(test)]

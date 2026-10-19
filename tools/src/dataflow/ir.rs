@@ -365,6 +365,21 @@ pub enum QuestionKind {
     Unparsed,
 }
 
+/// A call whose success dominates some of a function's events, by the
+/// syntax (see `frontend`'s guards): `if (!Validate(x)) { return …; }` (or
+/// whose consequence otherwise exits: `throw`, `MOZ_CRASH`), the rest of its
+/// block; `if (Validate(x)) { … }`, its consequence; and
+/// `MOZ_RELEASE_ASSERT(Validate(x))` (and `MOZ_DIAGNOSTIC_ASSERT`,
+/// `NS_ENSURE_TRUE`), the rest of its block.  (For taint: a validation
+/// blesses what it dominates.)
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Guard {
+    pub call: usize,
+    /// The events it dominates, `start..end`.
+    pub start: usize,
+    pub end: usize,
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct FuncIr {
     pub sym: Ustr,
@@ -380,6 +395,9 @@ pub struct FuncIr {
     pub events: Vec<Event>,
     pub calls: Vec<Call>,
     pub questions: Vec<Question>,
+    /// The calls whose success dominates some of its events (see `Guard`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub guards: Vec<Guard>,
     /// Display names of the symbols in its places (locals, fields, globals).
     pub names: HashMap<Ustr, String>,
     /// The types of its locals and parameters, where the records have them
@@ -414,6 +432,35 @@ impl FuncIr {
                     visit(place);
                 }
                 vals(&mut arg.vals, visit);
+            }
+        }
+    }
+
+    /// Visit each of its places, as `for_each_place_mut` does.
+    pub fn for_each_place(&self, visit: &mut impl FnMut(&Place)) {
+        let vals = |vals: &Vec<Val>, visit: &mut dyn FnMut(&Place)| {
+            for val in vals {
+                if let Atom::Read(place) | Atom::Addr(place) = &val.atom {
+                    visit(place);
+                }
+            }
+        };
+        for event in &self.events {
+            match &event.kind {
+                EventKind::Assign { place, vals: v, .. } => {
+                    visit(place);
+                    vals(v, visit);
+                }
+                EventKind::Return { vals: v } | EventKind::Test { vals: v } => vals(v, visit),
+                EventKind::Call(_) => {}
+            }
+        }
+        for call in &self.calls {
+            for arg in call.args.iter().chain(call.receiver.iter()) {
+                if let Some(place) = &arg.place {
+                    visit(place);
+                }
+                vals(&arg.vals, visit);
             }
         }
     }
@@ -582,6 +629,7 @@ mod tests {
             events: vec![],
             calls: vec![],
             questions: vec![],
+            guards: vec![],
             names,
             types: HashMap::new(),
         }

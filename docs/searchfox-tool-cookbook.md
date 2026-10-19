@@ -235,6 +235,21 @@ lines it removes are units too, from the indexed revision's analysis,
 lists questions for an oracle, `--oracle <dir>` applies its answers, and
 `--stats <paths>` reports how much the frontends understood.
 
+`slice-rev:` shows its clusters as a subway map (`--format subway`, see
+`tools/src/dataflow/subway.rs` and `static/js/subway.js`; `slice-format:svg`
+for the dataflow graph), with taint (see `tools/src/dataflow/taint.rs`):
+values of types ontology-mapping.toml labels "taint:content" (principals)
+that parent actors receive from content processes (by ipdl-analyze's
+`fromContent`) are dashed, with a red halo, until a validator's call (labeled
+"detaint:N", or a function wrapping one) blesses them, with what's derived
+from them, where its success dominates.  `--taint-type`, `--detaint-by` and
+`--taint-from` (the `taint-type:`, `detaint-by:` and `taint-from:` query
+terms, comma-separated) add types, validators and functions whose parameters
+are tainted, to try them out:
+```
+./searchfox-tool '--server=/home/vagrant/index/config.json --tree=tests dataflow x --changed "dataflow/dataflow.cpp:172-186" --format subway --taint-from TaintEntry --taint-type Ticket --detaint-by CheckTicket'
+```
+
 Values go through IPDL structs' fields (by ipdl-analyze's binding slots)
 rather than into the C++ IPDL generates for them: a field's value comes from
 its struct's constructors' arguments (at the field's index) and assignments
