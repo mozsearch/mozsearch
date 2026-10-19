@@ -114,3 +114,16 @@ uint32_t DataflowParams::TestBoolean(bool a, bool* b, bool* _retval) {
   *b = a;
   return 0;
 }
+
+// A lambda's init-capture: a variable of its own, which its body uses (ex:
+// `[aScopeURL = nsCString(aScopeURL)]` in a runnable's lambda).
+static int Consume(int aValue) { return aValue; }
+
+template <typename F>
+static int RunNow(F&& aFunc) {
+  return aFunc();
+}
+
+int InitCapture(int aSeed) {
+  return RunNow([seed = aSeed + 1]() { return Consume(seed); });
+}

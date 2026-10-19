@@ -1,0 +1,18 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/backward-init-capture
+---
+Consume (dataflow/dataflow.cpp)
+  #0     120 seed       aValue                             static int Consume(int aValue) { return aValue; }
+  #1     120 param      param aValue                       static int Consume(int aValue) { return aValue; }
+        -> #0 aValue [local: aValue]
+InitCapture (dataflow/dataflow.cpp)
+  #5     127 param      param aSeed                        
+        -> #3 seed = [local: aSeed]
+  #2     128 call       call Consume                       return RunNow([seed = aSeed + 1]() { return Consume(seed); });
+        -> #1 param aValue in Consume [call: arg 0]
+  #3     128 assign     seed =                             return RunNow([seed = aSeed + 1]() { return Consume(seed); });
+        -> #2 call Consume [local: seed]
+  #4     128 const      1                                  return RunNow([seed = aSeed + 1]() { return Consume(seed); });
+        -> #3 seed = [local: 1]

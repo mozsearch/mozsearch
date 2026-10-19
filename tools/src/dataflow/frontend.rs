@@ -793,6 +793,39 @@ impl<'c, 'a> Builder<'c, 'a> {
         place
     }
 
+    /// A C++ lambda's init-captures (`[x = expr]`, `[&r = expr]`): variables
+    /// of their own (clang's records say so), which the body's uses are of,
+    /// assigned their initializers where the lambda is made.  (Other captures
+    /// are the enclosing function's variables, by their records.)  Returns
+    /// the names they shadow in the scope, with what they were, for after
+    /// the body.
+    fn cpp_init_captures(&mut self, lambda: Node<'c>) -> Vec<(String, Option<Place>)> {
+        let mut shadowed = vec![];
+        let Some(captures) = lambda.child_by_field_name("captures") else {
+            return shadowed;
+        };
+        for capture in named(captures) {
+            if capture.kind() != "lambda_capture_initializer" {
+                continue;
+            }
+            let (Some(left), Some(right)) = (
+                capture.child_by_field_name("left"),
+                capture.child_by_field_name("right"),
+            ) else {
+                continue;
+            };
+            let vals = match right.kind() {
+                "argument_list" | "initializer_list" => self.eval_union(named(right)),
+                _ => self.eval(right).vals,
+            };
+            let name = self.t(left).to_string();
+            shadowed.push((name.clone(), self.scope.get(&name).cloned()));
+            let place = self.declare_local(left);
+            self.assign(capture, place, vals, "=");
+        }
+        shadowed
+    }
+
     fn lambda_body(&mut self, body: Node<'c>, params: Option<Node<'c>>) {
         self.lambda_depth += 1;
         if let Some(params) = params {
@@ -1593,8 +1626,15 @@ impl<'c, 'a> Builder<'c, 'a> {
                 let params = node
                     .child_by_field_name("declarator")
                     .and_then(|d| d.child_by_field_name("parameters"));
+                let shadowed = self.cpp_init_captures(node);
                 if let Some(body) = node.child_by_field_name("body") {
                     self.lambda_body(body, params);
+                }
+                for (name, place) in shadowed {
+                    match place {
+                        Some(place) => self.scope.insert(name, place),
+                        None => self.scope.remove(&name),
+                    };
                 }
                 Ev::konst(&format!("lambda@{}", self.pos(node).0))
             }
@@ -3280,6 +3320,83 @@ mod tests {
              3:6   test {~rv, ~0}\n      \
              3:17  *aRetVal = {false}\n      \
              4:2   return {rv}\n"
+        );
+    }
+
+    /// A lambda's init-capture is a variable of its own (by its record),
+    /// which its body's uses are of, assigned where the lambda is made.
+    #[test]
+    fn test_cpp_init_capture() {
+        let source = "void Foo::Run(const char* aScope) {\n  \
+                      Dispatch([scope = aScope]() { Use(scope); });\n\
+                      }\n";
+        let values = vec![
+            rec(
+                source,
+                1,
+                "Run",
+                "def,function",
+                "function Foo::Run",
+                "_ZRun",
+                None,
+            ),
+            rec(
+                source,
+                1,
+                "aScope",
+                "",
+                "variable aScope",
+                "V_param",
+                Some("const char *"),
+            ),
+            rec(
+                source,
+                2,
+                "Dispatch",
+                "function,use",
+                "function Dispatch",
+                "_ZDispatch",
+                None,
+            ),
+            rec(
+                source,
+                2,
+                "scope",
+                "def",
+                "variable scope",
+                "V_capture",
+                Some("const char *"),
+            ),
+            rec(source, 2, "aScope", "", "variable aScope", "V_param", None),
+            rec(
+                source,
+                2,
+                "Use",
+                "function,use",
+                "function Use",
+                "_ZUse",
+                None,
+            ),
+        ];
+        let mut values = values;
+        // (The use in the body, after the capture's name.)
+        let text = source.lines().nth(1).unwrap();
+        let col = text.rfind("scope").unwrap();
+        values.push(json!({
+            "loc": format!("{:05}:{}-{}", 2, col, col + 5),
+            "source": 1,
+            "syntax": "",
+            "pretty": "variable scope",
+            "sym": "V_capture",
+        }));
+        let recs = FileRecords::from_values(values);
+        let file = build_file_ir("a.cpp", source, &recs).unwrap();
+        let ir = file.funcs[0].to_string();
+        assert!(ir.contains("scope = {aScope}"), "{}", ir);
+        assert!(
+            ir.contains("_ZUse") && ir.contains("{scope}@scope"),
+            "{}",
+            ir
         );
     }
 }
