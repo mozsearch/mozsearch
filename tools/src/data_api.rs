@@ -1250,6 +1250,11 @@ async fn route_body(
                     decoded_len,
                 });
             }
+            // (Else its share of the memory budget, by its length: its records
+            // parsed and serialized take ~9 times that, ex: 355 MB for 40 MB;
+            // see `memory_budget`.)
+            let estimate = server.analysis_file_len(path).unwrap_or(0) * 9;
+            let _share = crate::memory_budget::budget().acquire(estimate).await;
             let Ok(mut records) = server.fetch_raw_analysis(path).await else {
                 return Err(not_found(format!("No analysis of {}", path)));
             };

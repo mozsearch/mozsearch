@@ -1247,6 +1247,14 @@ pub trait PipelineCommand: Debug {
         server: &(dyn AbstractServer + Send + Sync),
         input: PipelineValues,
     ) -> Result<PipelineValues>;
+
+    /// How many bytes of memory it's expected to take, roughly, from what
+    /// it's asked for (without lookups which would cost much themselves),
+    /// for the pipeline-server's budget (see `memory_budget`): nothing much,
+    /// unless it says otherwise.
+    fn estimate(&self, _server: &(dyn AbstractServer + Send + Sync)) -> u64 {
+        0
+    }
 }
 
 /// A command that takes multiple inputs and produces a single output.
@@ -1402,6 +1410,31 @@ impl ServerPipeline {
 }
 
 impl ServerPipelineGraph {
+    /// How many bytes of memory it's expected to take (see
+    /// `PipelineCommand::estimate`): the most of its phases', which run one
+    /// after another, each the sum of its pipelines' (which run at once),
+    /// each the most of its commands' (which run one after another).
+    pub fn estimate(&self) -> u64 {
+        self.pipelines
+            .iter()
+            .map(|phase| {
+                phase
+                    .pipelines
+                    .iter()
+                    .map(|pipeline| {
+                        pipeline
+                            .commands
+                            .iter()
+                            .map(|command| command.estimate(self.server.as_ref()))
+                            .max()
+                            .unwrap_or(0)
+                    })
+                    .sum::<u64>()
+            })
+            .max()
+            .unwrap_or(0)
+    }
+
     pub async fn run(self, traced: bool) -> Result<PipelineValues> {
         let mut named_values: BTreeMap<String, PipelineValues> = BTreeMap::new();
 

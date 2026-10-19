@@ -33,6 +33,7 @@ use tools::{
     file_format::jumpref::{JumprefData, JumprefTraversals},
     file_format::recency::Recency,
     logging::{LoggedSpan, init_logging},
+    memory_budget,
     query::{chew_query::chew_query, dwim::dwim_target, normalize::normalize_input},
     templating::builder::build_and_parse_query_results,
 };
@@ -228,6 +229,7 @@ async fn results_sym_info(
 async fn handle_query(
     local_servers: Extension<Arc<BTreeMap<String, Box<dyn AbstractServer + Send + Sync>>>>,
     templates: Extension<Arc<SomeTemplates>>,
+    class: Option<Extension<admission::RequestClass>>,
     headers: HeaderMap,
     Path((tree, preset)): Path<(String, String)>,
     Query(params): Query<HashMap<String, String>>,
@@ -286,10 +288,43 @@ async fn handle_query(
         build_pipeline_graph(server.clonify(), pipeline_plan)?
     };
 
+    // (Its share of the memory budget, while it runs, by its estimate; a
+    // bot's from outside is turned away if the budget can't have it now,
+    // rather than wait; see `memory_budget`.)
+    let budget = memory_budget::budget();
+    let estimate = graph.estimate();
+    let share = match class.as_deref() {
+        Some(admission::RequestClass::Bot) => match budget.try_acquire(estimate) {
+            Some(share) => share,
+            None => {
+                println!("Turned away a bot's {:?} for the memory budget", query);
+                return Ok((
+                    StatusCode::TOO_MANY_REQUESTS,
+                    [(axum::http::header::RETRY_AFTER, "30")],
+                    "The server is busy with other expensive queries.",
+                )
+                    .into_response());
+            }
+        },
+        _ => budget.acquire(estimate).await,
+    };
+    let memory_before = memory_budget::cgroup_memory_mib();
+
     let mut result = match &logged_span {
         Some(lspan) => graph.run(true).instrument(lspan.span.clone()).await?,
         _ => graph.run(true).await?,
     };
+    if share.mib > 0 {
+        println!(
+            "Memory budget: {} of {} MiB for {:?} (waited {:.1} s; cgroup {:?} -> {:?} MiB)",
+            share.mib,
+            budget.mib(),
+            query,
+            share.waited.as_secs_f64(),
+            memory_before,
+            memory_budget::cgroup_memory_mib()
+        );
+    }
 
     let accept = headers
         .get("accept")
@@ -426,9 +461,14 @@ struct SomeTemplates {
 /// and agents and bots only get some of the concurrency limit's permits; and
 /// then they're charged for their processing time, for the pools charging
 /// for it (the data API's); see `tools::admission`.
-async fn admit(req: Request, next: Next) -> Response {
+async fn admit(mut req: Request, next: Next) -> Response {
     match admission::admit_request(req.headers(), req.uri().path()).await {
         Ok(admitted) => {
+            // (Its class, if it's from outside, for its share of the memory
+            // budget; see `handle_query`.)
+            if admitted.from_outside() {
+                req.extensions_mut().insert(admitted.class);
+            }
             let response = next.run(req).await;
             if let Some(admission::Processing(processing)) = response.extensions().get() {
                 admitted.charge(*processing);
@@ -489,6 +529,8 @@ async fn main() {
             .collect();
         (local_servers, data_api_trees)
     };
+    // (The budget for its requests' expected memory; see `memory_budget`.)
+    println!("Memory budget: {} MiB", memory_budget::budget().mib());
     let templates = Arc::new(SomeTemplates {
         query_results: build_and_parse_query_results(),
     });

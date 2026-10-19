@@ -381,6 +381,13 @@ pub trait AbstractServer {
         None
     }
 
+    /// The length of the analysis records of `sf_path` (decoded), if the
+    /// server has them locally, for the data API's estimate of the memory
+    /// serving them takes (see `memory_budget`).
+    fn analysis_file_len(&self, _sf_path: &str) -> Option<u64> {
+        None
+    }
+
     /// Fetch the contents of a raw (not HTML rendered) source file
     /// corresponding to the indexed revision like you would get out of revision
     /// control.

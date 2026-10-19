@@ -114,9 +114,22 @@ where
     cache.get_or_compute(&identity, step, args, compute).await
 }
 
+/// Whether the cache has a step's result (by its file, without reading it;
+/// for estimates, see `PipelineCommand::estimate`).
+pub fn is_cached(identity: Option<String>, step: &str, args: &str) -> bool {
+    let (Some(cache), Some(identity)) = (CACHE.get(), identity) else {
+        return false;
+    };
+    cache.has(&identity, step, args)
+}
+
 impl StepCache {
     fn key(identity: &str, step: &str, args: &str) -> String {
         format!("{}\n{}\n{}", identity, step, args)
+    }
+
+    fn has(&self, identity: &str, step: &str, args: &str) -> bool {
+        self.path(&Self::key(identity, step, args)).is_file()
     }
 
     fn path(&self, key: &str) -> PathBuf {
@@ -275,6 +288,8 @@ mod tests {
             .await;
         assert_eq!(first, second);
         assert_eq!(computed.load(Ordering::Relaxed), 1);
+        assert!(cache.has("tree 1", "slice", "a..b"));
+        assert!(!cache.has("tree 2", "slice", "a..b"));
         // (Another server's, or other arguments, are another result.)
         cache
             .get_or_compute("tree 2", "slice", "a..b", compute)

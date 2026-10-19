@@ -48,6 +48,8 @@ pub mod data_api;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod dataflow;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod memory_budget;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod patch_canvas;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod rev_lines;

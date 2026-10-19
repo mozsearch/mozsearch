@@ -179,6 +179,11 @@ async fn rollup_of(
 
 #[async_trait]
 impl PipelineCommand for BlockDiagramCommand {
+    /// Its roll-ups' crossref data.  (Rough; see `memory_budget`.)
+    fn estimate(&self, _server: &(dyn AbstractServer + Send + Sync)) -> u64 {
+        crate::memory_budget::mib(128)
+    }
+
     async fn execute(
         &self,
         server: &(dyn AbstractServer + Send + Sync),

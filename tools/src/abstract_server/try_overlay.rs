@@ -324,6 +324,15 @@ impl AbstractServer for TryOverlay {
         self.base.normalized_analysis_file(sf_path)
     }
 
+    fn analysis_file_len(&self, sf_path: &str) -> Option<u64> {
+        let path = sf_path.strip_prefix('/').unwrap_or(sf_path);
+        match self.delta.analysis_file(path) {
+            Some(file) => super::local_index::decoded_file_len(&file.to_string_lossy()),
+            None if self.delta.change(path).is_some() => Some(0),
+            None => self.base.analysis_file_len(sf_path),
+        }
+    }
+
     async fn fetch_raw_source(&self, sf_path: &str) -> Result<String> {
         let path = sf_path.strip_prefix('/').unwrap_or(sf_path);
         self.source_at_head(path).await

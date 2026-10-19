@@ -271,6 +271,12 @@ pub struct Admitted {
 }
 
 impl Admitted {
+    /// Whether it's from outside (see `client_key`), rather than from the web
+    /// server itself or tests.
+    pub fn from_outside(&self) -> bool {
+        self.bucket.is_some()
+    }
+
     /// Charge the request's bucket for its processing time, if its pool
     /// charges for that (see `Pool::tokens_per_second`).
     pub fn charge(&self, processing: Duration) {

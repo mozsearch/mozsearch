@@ -93,6 +93,20 @@ impl From<tonic::transport::Error> for ServerError {
 }
 
 /// Read newline-delimited JSON that's possibly been gzip-compressed.
+/// A file's length decoded: a gzipped one's (by its name) from gzip's trailer
+/// (mod 2^32), else its length.
+pub(crate) fn decoded_file_len(path: &str) -> Option<u64> {
+    use std::io::{Seek, SeekFrom};
+    let mut file = fs::File::open(path).ok()?;
+    if !path.ends_with(".gz") {
+        return Some(file.metadata().ok()?.len());
+    }
+    file.seek(SeekFrom::End(-4)).ok()?;
+    let mut trailer = [0u8; 4];
+    file.read_exact(&mut trailer).ok()?;
+    Some(u32::from_le_bytes(trailer) as u64)
+}
+
 async fn read_maybe_gzipped_ndjson_from_file(path: &str) -> Result<Vec<Value>> {
     let used_path = if path.ends_with(".gz") && !fs::exists(path).unwrap_or(false) {
         &path[..path.len() - 3]
@@ -558,6 +572,15 @@ impl AbstractServer for LocalIndex {
             .translate_path(SearchfoxIndexRoot::CompressedAnalysis, norm_path)
             .ok()?;
         Path::new(&full_path).is_file().then_some(full_path)
+    }
+
+    fn analysis_file_len(&self, sf_path: &str) -> Option<u64> {
+        let norm_path = self.normalize_and_validate_path(sf_path).ok()?;
+        let full_path = self
+            .translate_path(SearchfoxIndexRoot::CompressedAnalysis, norm_path)
+            .ok()?;
+        // (Or uncompressed, as `read_maybe_gzipped_ndjson_from_file` reads it.)
+        decoded_file_len(&full_path).or_else(|| decoded_file_len(full_path.strip_suffix(".gz")?))
     }
 
     async fn fetch_raw_source(&self, sf_path: &str) -> Result<String> {

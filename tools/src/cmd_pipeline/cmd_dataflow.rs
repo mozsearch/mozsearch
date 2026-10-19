@@ -568,6 +568,54 @@ async fn ipdl_slots_of(
 
 #[async_trait]
 impl PipelineCommand for DataflowCommand {
+    /// Slicings by their files (a try push's changed files, or `--changed`'s,
+    /// else a guess), each a file's IR (its parse and records) and its
+    /// traces' files', and the subway map's or lines' more; traces by their
+    /// items; audits as many slicings' worth; and what the step cache has
+    /// (a slicing, rendered but as its map or lines, or those), nothing.
+    /// (Rough; see `memory_budget`.)
+    fn estimate(&self, server: &(dyn AbstractServer + Send + Sync)) -> u64 {
+        use crate::memory_budget::mib;
+        let args = &self.args;
+        let slicing = match (&args.slice_rev, &args.taint_audit) {
+            (Some(spec), _) => Some(("slice-rev", self.slice_rev_cache_args(spec))),
+            (None, Some(ty)) => Some(("taint-audit", self.audit_cache_args(ty))),
+            _ => None,
+        };
+        if let Some((step, slicing_args)) = slicing {
+            let identity = server.cache_identity();
+            let cached = match self.rendering_cache_args(&Some(slicing_args.clone())) {
+                Some((rendering, rendering_args)) => {
+                    crate::step_cache::is_cached(identity, rendering, &rendering_args)
+                }
+                None => crate::step_cache::is_cached(identity, step, &slicing_args),
+            };
+            if cached {
+                return 0;
+            }
+        }
+        if args.taint_audit.is_some() {
+            return mib(1024);
+        }
+        if args.slice_rev.is_some() || args.changed.is_some() || args.slice.is_some() {
+            let files = match (&args.changed, server.try_delta_meta()) {
+                (Some(changed), _) => changed.split(';').count() as u64,
+                (None, Some(meta)) => meta.changed.len() as u64,
+                (None, None) => 16,
+            };
+            let maps = matches!(args.format, DataflowFormat::Subway | DataflowFormat::Lines);
+            return mib(256) + files * mib(if maps { 96 } else { 64 });
+        }
+        if args.forward.is_some()
+            || args.backward.is_some()
+            || args.at.is_some()
+            || args.symbol.is_some()
+        {
+            return mib(128) + args.max_items as u64 * mib(1) / 2;
+        }
+        mib(128)
+    }
+
     async fn execute(
         &self,
         server: &(dyn AbstractServer + Send + Sync),
@@ -590,14 +638,7 @@ impl PipelineCommand for DataflowCommand {
         if let Err(ServerError::Unsupported) = server.fetch_raw_source(&file_path).await {
             return Err(ServerError::Unsupported);
         }
-        let opts = TraceOpts {
-            max_items: self.args.max_items,
-            max_hops: self.args.max_hops,
-            fanout: self.args.fanout,
-            ordered: !self.args.unordered,
-            summaries: !self.args.no_summaries,
-        };
-        let mut tracer = Tracer::new(server, opts);
+        let mut tracer = Tracer::new(server, self.trace_opts());
         if let Some(dir) = &self.args.oracle {
             let oracle = Oracle::load(std::path::Path::new(dir)).map_err(data_error)?;
             tracer.oracle = Some(std::sync::Arc::new(oracle));
@@ -615,10 +656,7 @@ impl PipelineCommand for DataflowCommand {
         }
         if let Some(spec) = &self.args.slice_rev {
             // (Cached, by everything slicing depends on; see `step_cache`.)
-            let args = format!(
-                "{} hops {} {:?} oracle {:?}",
-                spec, self.args.slice_hops, tracer.opts, self.args.oracle
-            );
+            let args = self.slice_rev_cache_args(spec);
             let value =
                 crate::step_cache::cached(server.cache_identity(), "slice-rev", &args, || async {
                     let changes = server.rev_changed_lines(spec)?;
@@ -648,7 +686,7 @@ impl PipelineCommand for DataflowCommand {
         }
         if let Some(ty) = &self.args.taint_audit {
             // (Cached, as slicings are; see `step_cache`.)
-            let args = format!("taint-audit {} {:?}", ty, tracer.opts);
+            let args = self.audit_cache_args(ty);
             let value = crate::step_cache::cached(
                 server.cache_identity(),
                 "taint-audit",
@@ -834,6 +872,75 @@ impl PipelineCommand for DataflowCommand {
 }
 
 impl DataflowCommand {
+    fn trace_opts(&self) -> TraceOpts {
+        TraceOpts {
+            max_items: self.args.max_items,
+            max_hops: self.args.max_hops,
+            fanout: self.args.fanout,
+            ordered: !self.args.unordered,
+            summaries: !self.args.no_summaries,
+        }
+    }
+
+    /// `slice-rev`'s step cache arguments (see `step_cache`).
+    fn slice_rev_cache_args(&self, spec: &str) -> String {
+        format!(
+            "{} hops {} {:?} oracle {:?}",
+            spec,
+            self.args.slice_hops,
+            self.trace_opts(),
+            self.args.oracle
+        )
+    }
+
+    /// A taint audit's step cache arguments.
+    fn audit_cache_args(&self, ty: &str) -> String {
+        format!("taint-audit {} {:?}", ty, self.trace_opts())
+    }
+
+    fn taint_spec(&self) -> TaintSpec {
+        let list = |arg: &Option<String>| -> Vec<String> {
+            arg.iter()
+                .flat_map(|s| s.split(','))
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect()
+        };
+        let mut taint = TaintSpec {
+            types: list(&self.args.taint_type),
+            validators: list(&self.args.detaint_by),
+            sources: list(&self.args.taint_from),
+        };
+        taint.types.extend(self.args.taint_audit.iter().cloned());
+        taint
+    }
+
+    /// The step and step cache arguments of what a slicing (whose arguments
+    /// are `cache_args`) is rendered as, if it's cached: its subway map (an
+    /// audit's text is its map's), or its lines.
+    fn rendering_cache_args(&self, cache_args: &Option<String>) -> Option<(&'static str, String)> {
+        let audit_text =
+            self.args.taint_audit.is_some() && self.args.format == DataflowFormat::Text;
+        if audit_text || self.args.format == DataflowFormat::Subway {
+            Some((
+                "subway",
+                format!(
+                    "{:?} cluster {:?} taint {:?}",
+                    cache_args,
+                    self.args.slice_cluster,
+                    self.taint_spec()
+                ),
+            ))
+        } else if self.args.format == DataflowFormat::Lines {
+            Some((
+                "slice-lines",
+                format!("{:?} cluster {:?}", cache_args, self.args.slice_cluster),
+            ))
+        } else {
+            None
+        }
+    }
+
     /// A slicing (or its `--slice-cluster`) in the format asked for.  (Its
     /// subway map is cached by `cache_args`, the slicing's step cache
     /// arguments, if it's cached; see `step_cache`.)
@@ -852,23 +959,8 @@ impl DataflowCommand {
         if audit_text || self.args.format == DataflowFormat::Subway {
             let first = self.args.slice_cluster.unwrap_or(1);
             let identity = cache_args.as_ref().and_then(|_| server.cache_identity());
-            let list = |arg: &Option<String>| -> Vec<String> {
-                arg.iter()
-                    .flat_map(|s| s.split(','))
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
-                    .collect()
-            };
-            let mut taint = TaintSpec {
-                types: list(&self.args.taint_type),
-                validators: list(&self.args.detaint_by),
-                sources: list(&self.args.taint_from),
-            };
-            taint.types.extend(self.args.taint_audit.iter().cloned());
-            let args = format!(
-                "{:?} cluster {:?} taint {:?}",
-                cache_args, self.args.slice_cluster, taint
-            );
+            let taint = self.taint_spec();
+            let (_, args) = self.rendering_cache_args(&cache_args).unwrap_or_default();
             let value = crate::step_cache::cached(identity, "subway", &args, || async {
                 let map = subway_map(tracer, &slicing, first, &taint).await;
                 Ok::<_, ServerError>(serde_json::to_value(&map).unwrap())
@@ -882,7 +974,7 @@ impl DataflowCommand {
         }
         if self.args.format == DataflowFormat::Lines {
             let identity = cache_args.as_ref().and_then(|_| server.cache_identity());
-            let args = format!("{:?} cluster {:?}", cache_args, self.args.slice_cluster);
+            let (_, args) = self.rendering_cache_args(&cache_args).unwrap_or_default();
             let value = crate::step_cache::cached(identity, "slice-lines", &args, || async {
                 Ok::<_, ServerError>(crate::dataflow::impact::slicing_lines(tracer, &slicing).await)
             })

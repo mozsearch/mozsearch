@@ -222,6 +222,15 @@ bitflags! {
 ///
 #[async_trait]
 impl PipelineCommand for TraverseCommand {
+    /// By its graphs' node limits, each node's crossref data.  (Rough; see
+    /// `memory_budget`.)
+    fn estimate(&self, _server: &(dyn AbstractServer + Send + Sync)) -> u64 {
+        use crate::memory_budget::mib;
+        mib(64)
+            + self.args.node_limit as u64 * mib(1) / 16
+            + self.args.paths_between_node_limit as u64 * mib(1) / 32
+    }
+
     #[allow(clippy::match_like_matches_macro)]
     async fn execute(
         &self,
