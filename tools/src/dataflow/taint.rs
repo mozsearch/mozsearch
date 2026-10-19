@@ -21,16 +21,18 @@
 //! - A parameter of an IPDL struct (or union) type with tainted fields is
 //!   tainted, as a whole.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 
 use ustr::Ustr;
 
 use super::frontend::FileIr;
 use super::ir::{Atom, Call, EventKind, FuncIr, Root, Val};
+use super::slice::{Slicing, Unit, place_keys};
 use super::subway::{qualified_type, semantic_type};
 use super::summary::untemplated_pretty;
 use super::trace::Tracer;
+use crate::file_format::analysis::BindingSlotKind;
 
 /// The label of types whose values from content processes are tainted.
 pub const TAINT_LABEL: &str = "taint:content";
@@ -79,6 +81,151 @@ fn names(pretty: &str, name: &str) -> bool {
             || (pretty.len() > name.len()
                 && pretty.ends_with(name)
                 && pretty[..pretty.len() - name.len()].ends_with("::")))
+}
+
+/// The most functions a taint audit maps (see `audit_slicing`).
+pub const MAX_AUDITED: usize = 48;
+
+/// A taint audit's slicing (for `subway::subway_map`, with the type
+/// tainted): a cluster for each function receiving a message from content
+/// processes with parameters of a type (by name, qualified or not), of those
+/// parameters' values.  The functions are found by the type's uses (in their
+/// declarations' parameters): the `Recv` methods (or the generated
+/// declarations they override) of messages marked `fromContent`.  (Not those
+/// of IPDL structs containing the type.)
+pub async fn audit_slicing(tracer: &mut Tracer<'_>, ty: &str) -> Slicing {
+    let mut notes = vec![];
+    let (Some(short), Some(qualified)) = (semantic_type(ty), qualified_type(ty)) else {
+        notes.push(format!("{:?} isn't a type.", ty));
+        return Slicing::empty(notes);
+    };
+    let type_syms: Vec<Ustr> = tracer
+        .type_syms(&short)
+        .await
+        .into_iter()
+        .filter(|(pretty, _)| !qualified.contains("::") || names(pretty, &qualified))
+        .map(|(_, sym)| sym)
+        .collect();
+    if type_syms.is_empty() {
+        notes.push(format!("No type is named {:?}.", ty));
+    }
+    // (The functions whose declarations use it (or its aliases), by name
+    // `Recv…`, and for an IPDL type, the messages whose parameters it is.)
+    let mut candidates: BTreeSet<Ustr> = BTreeSet::new();
+    let mut messages: BTreeSet<Ustr> = BTreeSet::new();
+    for sym in &type_syms {
+        let Some(xref) = tracer.crossref(sym).await else {
+            continue;
+        };
+        for result in xref.uses.iter().flatten() {
+            for line in &result.lines {
+                let name = line.context.rsplit("::").next().unwrap_or("");
+                if line.contextsym.starts_with("IPC_")
+                    && let Some((message, _param)) = line.contextsym.rsplit_once("__")
+                {
+                    messages.insert(ustr::ustr(message));
+                } else if !line.contextsym.is_empty() && name.starts_with("Recv") {
+                    candidates.insert(line.contextsym);
+                }
+            }
+        }
+    }
+    for message in messages {
+        if let Some(xref) = tracer.crossref(&message).await
+            && let Some(meta) = &xref.meta
+        {
+            candidates.extend(
+                meta.binding_slots
+                    .iter()
+                    .filter(|slot| slot.props.slot_kind == BindingSlotKind::Recv)
+                    .map(|slot| slot.sym),
+            );
+        }
+    }
+    // (Their implementations: themselves, or the overrides of generated
+    // declarations.)
+    let mut impls: BTreeMap<Ustr, Ustr> = BTreeMap::new();
+    for sym in candidates {
+        let Some(message) = tracer.recv_message(&sym).await else {
+            continue;
+        };
+        if !tracer.from_content(&message).await {
+            continue;
+        }
+        let Some(xref) = tracer.crossref(&sym).await else {
+            continue;
+        };
+        let generated = xref
+            .definitions
+            .iter()
+            .flatten()
+            .next()
+            .is_none_or(|def| def.path.starts_with("__GENERATED__/"));
+        if !generated {
+            impls.insert(sym, message);
+            continue;
+        }
+        for imp in xref
+            .meta
+            .as_ref()
+            .map(|meta| meta.overridden_by_syms.clone())
+            .unwrap_or_default()
+        {
+            impls.insert(imp, message);
+        }
+    }
+    if impls.len() > MAX_AUDITED {
+        notes.push(format!(
+            "The audit maps {} of the {} functions receiving {} from content processes.",
+            MAX_AUDITED,
+            impls.len(),
+            ty
+        ));
+    }
+    let mut taint = Taint::new(TaintSpec {
+        types: vec![ty.to_string()],
+        ..Default::default()
+    });
+    let mut units: Vec<Unit> = vec![];
+    let mut clusters: Vec<Vec<usize>> = vec![];
+    for (sym, message) in impls.into_iter().take(MAX_AUDITED) {
+        let Some(path) = tracer
+            .crossref(&sym)
+            .await
+            .and_then(|xref| Some(xref.definitions.as_ref()?.first()?.path.to_string()))
+        else {
+            continue;
+        };
+        let Some(file) = tracer.file(&path).await else {
+            continue;
+        };
+        let Some(&fi) = file.by_sym.get(&sym) else {
+            continue;
+        };
+        let f = &file.funcs[fi];
+        let mut keys = BTreeSet::new();
+        for i in taint.tainted_params(tracer, f, Some(&message)).await {
+            place_keys(f, &f.params[i].place, &mut keys);
+        }
+        if keys.is_empty() {
+            continue;
+        }
+        clusters.push(vec![units.len()]);
+        units.push(Unit::of_values(units.len(), &path, f, keys));
+    }
+    if units.is_empty() {
+        notes.push(format!(
+            "No functions receive {} from content processes (in their messages' parameters).",
+            ty
+        ));
+    }
+    Slicing {
+        units,
+        links: vec![],
+        clusters,
+        other: vec![],
+        notes,
+    }
 }
 
 /// Whether a type is a builtin or fixed-width integer one (ex: `int`,

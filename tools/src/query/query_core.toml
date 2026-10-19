@@ -498,6 +498,15 @@ args.detaint-by = "$0"
 command = "dataflow"
 args.taint-from = "$0"
 
+# The functions receiving a type's values from content processes (the `Recv`
+# methods of messages with parameters of the type), as a subway map of their
+# uses of them and their validations (see tools/src/dataflow/taint.rs).
+[term.taint-audit]
+[[term.taint-audit.group.slicing]]
+command = "dataflow"
+args.taint-audit = "$0"
+args.format = "subway"
+
 [term.text]
 [[term.text.expand]]
 term = "re"

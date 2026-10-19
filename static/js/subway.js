@@ -245,6 +245,12 @@ var SubwayMap = new (class SubwayMap {
       spans.set(line, span);
     };
     card.stations.forEach((station, i) => station.stops.forEach(line => extend(line, i)));
+    // (A taint source, a parameter, comes in at the top.)
+    for (const source of this.model.taint?.sources ?? []) {
+      if (source.card == card.id) {
+        extend(source.line, -1);
+      }
+    }
     for (const c of this.model.connectors) {
       for (const line of c.lines) {
         // (Coming in at the top (before station 0), or for a return, at its
@@ -582,9 +588,17 @@ var SubwayMap = new (class SubwayMap {
       const summary = document.createElement("summary");
       summary.textContent = "Taint";
       const list = document.createElement("ul");
-      for (const source of this.model.taint.sources) {
+      // (The unvalidated first, as an audit's list.)
+      const ORDER = ["unvalidated", "partly", "validated", "unused"];
+      const sources = [...this.model.taint.sources].sort((a, b) =>
+        ORDER.indexOf(a.status) - ORDER.indexOf(b.status));
+      for (const source of sources) {
         const item = document.createElement("li");
-        item.textContent = `\u2623 ${this.model.lines[source.line].label}: ${source.why}`;
+        const status = document.createElement("span");
+        status.className = `sw-status sw-status-${source.status}`;
+        status.textContent = source.status;
+        status.title = `${source.tainted_stops} of its ${source.stops} stops tainted`;
+        item.append(status, ` \u2623 ${this.model.lines[source.line].label}: ${source.why}`);
         item.dataset.line = source.line;
         item.addEventListener("mouseenter", () => this.focus(source.line));
         item.addEventListener("mouseleave", () => this.focus(null));

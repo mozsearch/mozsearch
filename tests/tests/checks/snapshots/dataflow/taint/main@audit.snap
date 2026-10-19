@@ -1,0 +1,6 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/taint/audit
+---
+unvalidated  mozilla::_ipdltest::TestDataStructuresParent::RecvTestStruct i (ipdl/TestDataStructures.cpp:258): 1 of 1 stops tainted

@@ -5073,6 +5073,22 @@ textarea.monospace {
 .sw-legend-taint li {
   margin: 0.15em 0;
 }
+.sw-status {
+  padding: 0 0.3em;
+  border-radius: 3px;
+  font-size: 0.85em;
+  color: #fff;
+  background-color: #6e7781;
+}
+.sw-status-unvalidated {
+  background-color: rgb(190, 0, 0);
+}
+.sw-status-partly {
+  background-color: #bc4c00;
+}
+.sw-status-validated {
+  background-color: #1a7f37;
+}
 .sw-lno {
   flex: none;
   min-width: 3.5em;

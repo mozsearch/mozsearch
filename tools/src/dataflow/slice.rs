@@ -105,6 +105,27 @@ pub struct Unit {
     body_sends: BTreeSet<Ustr>,
 }
 
+impl Unit {
+    /// A unit of a function's values (by their keys), not of changed lines
+    /// (ex: for a taint audit's maps; see `taint::audit_slicing`).
+    pub fn of_values(id: usize, path: &str, func: &FuncIr, keys: BTreeSet<Key>) -> Unit {
+        Unit {
+            id,
+            path: path.to_string(),
+            lines: vec![],
+            func: Some(func.pretty.clone()),
+            func_sym: Some(func.sym),
+            class: None,
+            commits: vec![],
+            removed: false,
+            keys,
+            text: vec![],
+            body_calls: BTreeSet::new(),
+            body_sends: BTreeSet::new(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct Link {
     pub from: usize,
@@ -126,6 +147,19 @@ pub struct Slicing {
     pub notes: Vec<String>,
 }
 
+impl Slicing {
+    /// A slicing of nothing, with notes saying why.
+    pub fn empty(notes: Vec<String>) -> Slicing {
+        Slicing {
+            units: vec![],
+            links: vec![],
+            clusters: vec![],
+            other: vec![],
+            notes,
+        }
+    }
+}
+
 /// Keys whose sharing doesn't mean much (they're everywhere), by name.
 fn is_hub(name: &str) -> bool {
     matches!(
@@ -134,7 +168,7 @@ fn is_hub(name: &str) -> bool {
     )
 }
 
-pub(super) fn place_keys(f: &FuncIr, place: &Place, keys: &mut BTreeSet<Key>) {
+pub(crate) fn place_keys(f: &FuncIr, place: &Place, keys: &mut BTreeSet<Key>) {
     // (The most specific member: `mLoadInfo.mTimezoneOverride` is about
     // `mTimezoneOverride`, not everything in `mLoadInfo`.)
     if let Some(field) = place.last_field()

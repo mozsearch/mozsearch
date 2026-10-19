@@ -17,7 +17,7 @@ use crate::{
         },
         subway::subway_map,
         summary::{IpdlSlots, Summary, field_edges, summarize_in},
-        taint::TaintSpec,
+        taint::{TaintSpec, audit_slicing},
         trace::{Dir, TraceOpts, Tracer, find_place},
     },
     file_format::local_symbols::parameter_symbol,
@@ -149,6 +149,14 @@ pub struct Dataflow {
     #[clap(long)]
     taint_from: Option<String>,
 
+    /// Audit a type's taint, instead: map the functions receiving its values
+    /// from content processes (the `Recv` methods of messages with
+    /// parameters of the type), with their validations (see
+    /// `dataflow::taint::audit_slicing`); `--format text` lists their
+    /// parameters' statuses.
+    #[clap(long)]
+    taint_audit: Option<String>,
+
     /// How many hops to trace values written by changes, for `--slice`.
     #[clap(long, default_value_t = 3)]
     slice_hops: usize,
@@ -218,6 +226,57 @@ fn paths_arg(inline: &Option<String>, file: &Option<String>) -> Result<Option<Ve
             .map(|l| l.to_string())
             .collect(),
     ))
+}
+
+/// A taint audit's subway map (see `dataflow::subway::TaintInfo`) as text:
+/// its sources' statuses, the unvalidated first, then its notes.
+fn render_audit_text(map: &serde_json::Value) -> String {
+    let cards = map["cards"].as_array().cloned().unwrap_or_default();
+    let lines = map["lines"].as_array().cloned().unwrap_or_default();
+    let mut rows: Vec<(usize, String)> = vec![];
+    for source in map["taint"]["sources"].as_array().into_iter().flatten() {
+        let status = source["status"].as_str().unwrap_or("?");
+        let order = ["unvalidated", "partly", "validated", "unused"]
+            .iter()
+            .position(|s| *s == status)
+            .unwrap_or(4);
+        let card = &cards[source["card"].as_u64().unwrap_or(0) as usize];
+        let line = &lines[source["line"].as_u64().unwrap_or(0) as usize];
+        let first = card["stations"][0]["rows"][0]["line"].as_u64().unwrap_or(0);
+        let validators: BTreeSet<&str> = map["taint"]["validations"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|v| v["card"] == source["card"] && v["guards"].as_bool() == Some(true))
+            .filter_map(|v| v["by"].as_str())
+            .collect();
+        rows.push((
+            order,
+            format!(
+                "{:<12} {} {} ({}:{}): {} of {} stops tainted{}",
+                status,
+                card["func"].as_str().unwrap_or("?"),
+                line["label"].as_str().unwrap_or("?"),
+                card["path"].as_str().unwrap_or("?"),
+                first,
+                source["tainted_stops"],
+                source["stops"],
+                match validators.is_empty() {
+                    true => String::new(),
+                    false => format!(
+                        ", validated by {}",
+                        validators.into_iter().collect::<Vec<_>>().join(", ")
+                    ),
+                }
+            ),
+        ));
+    }
+    rows.sort();
+    let mut out: Vec<String> = rows.into_iter().map(|(_, row)| row).collect();
+    for note in map["notes"].as_array().into_iter().flatten() {
+        out.push(format!("Note: {}", note.as_str().unwrap_or("")));
+    }
+    out.join("\n") + "\n"
 }
 
 /// Parse `--changed`'s `<path>:<lines>[;...]`.
@@ -571,6 +630,25 @@ impl PipelineCommand for DataflowCommand {
                 .render_slicing(server, &mut tracer, slicing, Some(args))
                 .await;
         }
+        if let Some(ty) = &self.args.taint_audit {
+            // (Cached, as slicings are; see `step_cache`.)
+            let args = format!("taint-audit {} {:?}", ty, tracer.opts);
+            let value = crate::step_cache::cached(
+                server.cache_identity(),
+                "taint-audit",
+                &args,
+                || async {
+                    let slicing = audit_slicing(&mut tracer, ty).await;
+                    Ok::<_, ServerError>(serde_json::to_value(&slicing).unwrap())
+                },
+            )
+            .await?;
+            let slicing: Slicing = serde_json::from_value(value)
+                .map_err(|e| data_error(format!("A cached audit: {}", e)))?;
+            return self
+                .render_slicing(server, &mut tracer, slicing, Some(args))
+                .await;
+        }
         let changes = match (&self.args.changed, &self.args.slice) {
             (Some(spec), _) => Some(parse_changed(spec)?),
             (None, Some(slice_file)) => {
@@ -753,38 +831,38 @@ impl DataflowCommand {
         if let Some(n) = self.args.slice_cluster {
             slicing.only_cluster(n).map_err(data_error)?;
         }
-        match self.args.format {
-            DataflowFormat::Subway => {
-                let first = self.args.slice_cluster.unwrap_or(1);
-                let identity = cache_args.as_ref().and_then(|_| server.cache_identity());
-                let list = |arg: &Option<String>| -> Vec<String> {
-                    arg.iter()
-                        .flat_map(|s| s.split(','))
-                        .map(|s| s.trim().to_string())
-                        .filter(|s| !s.is_empty())
-                        .collect()
-                };
-                let taint = TaintSpec {
-                    types: list(&self.args.taint_type),
-                    validators: list(&self.args.detaint_by),
-                    sources: list(&self.args.taint_from),
-                };
-                let args = format!(
-                    "{:?} cluster {:?} taint {:?}",
-                    cache_args, self.args.slice_cluster, taint
-                );
-                let value = crate::step_cache::cached(identity, "subway", &args, || async {
-                    let map = subway_map(tracer, &slicing, first, &taint).await;
-                    Ok::<_, ServerError>(serde_json::to_value(&map).unwrap())
-                })
-                .await?;
-                // (Its "<"s escaped, as it's inlined in a page's script.)
-                return text(value.to_string().replace('<', "\\u003c"), SUBWAY_MIME);
+        let audit_text =
+            self.args.taint_audit.is_some() && self.args.format == DataflowFormat::Text;
+        if audit_text || self.args.format == DataflowFormat::Subway {
+            let first = self.args.slice_cluster.unwrap_or(1);
+            let identity = cache_args.as_ref().and_then(|_| server.cache_identity());
+            let list = |arg: &Option<String>| -> Vec<String> {
+                arg.iter()
+                    .flat_map(|s| s.split(','))
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            };
+            let mut taint = TaintSpec {
+                types: list(&self.args.taint_type),
+                validators: list(&self.args.detaint_by),
+                sources: list(&self.args.taint_from),
+            };
+            taint.types.extend(self.args.taint_audit.iter().cloned());
+            let args = format!(
+                "{:?} cluster {:?} taint {:?}",
+                cache_args, self.args.slice_cluster, taint
+            );
+            let value = crate::step_cache::cached(identity, "subway", &args, || async {
+                let map = subway_map(tracer, &slicing, first, &taint).await;
+                Ok::<_, ServerError>(serde_json::to_value(&map).unwrap())
+            })
+            .await?;
+            if audit_text {
+                return text(render_audit_text(&value), "text/plain");
             }
-            DataflowFormat::Text
-            | DataflowFormat::Dot
-            | DataflowFormat::Svg
-            | DataflowFormat::Json => {}
+            // (Its "<"s escaped, as it's inlined in a page's script.)
+            return text(value.to_string().replace('<', "\\u003c"), SUBWAY_MIME);
         }
         match self.args.format {
             DataflowFormat::Text => text(render_slicing_text(&slicing), "text/plain"),

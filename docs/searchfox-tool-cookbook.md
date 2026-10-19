@@ -249,6 +249,14 @@ are tainted, to try them out:
 ```
 ./searchfox-tool '--server=/home/vagrant/index/config.json --tree=tests dataflow x --changed "dataflow/dataflow.cpp:172-186" --format subway --taint-from TaintEntry --taint-type Ticket --detaint-by CheckTicket'
 ```
+`--taint-audit <type>` (the `taint-audit:` query term) maps the functions
+receiving a type's values from content processes instead (the `Recv` methods
+of messages with parameters of the type, found by its uses), with whether
+each parameter is validated before all of its uses there, some, or none
+(`--format text` lists them, the unvalidated first):
+```
+./searchfox-tool '--server=/home/vagrant/index/config.json --tree=tests dataflow x --taint-audit SIntDouble --format text'
+```
 
 Values go through IPDL structs' fields (by ipdl-analyze's binding slots)
 rather than into the C++ IPDL generates for them: a field's value comes from

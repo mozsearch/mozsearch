@@ -71,6 +71,13 @@ pub struct TaintSource {
     pub card: usize,
     pub line: usize,
     pub why: String,
+    /// Whether its card's validations bless it before all of its uses there
+    /// ("validated"), some ("partly"), or none ("unvalidated"), or it has no
+    /// uses there ("unused"): its stops (the stations of the lines it
+    /// taints, but its validations'), and those where it's still tainted.
+    pub status: &'static str,
+    pub stops: usize,
+    pub tainted_stops: usize,
 }
 
 /// A validator's call, validating its lines (and their genealogies) in what
@@ -1287,6 +1294,9 @@ async fn apply_taint(
                         param.type_pretty.as_deref().unwrap_or("?"),
                         from
                     ),
+                    status: "unused",
+                    stops: 0,
+                    tainted_stops: 0,
                 });
             }
         }
@@ -1585,6 +1595,44 @@ async fn apply_taint(
     info.validations.dedup_by(|a, b| {
         a.card == b.card && a.station == b.station && a.by == b.by && a.lines == b.lines
     });
+    // (The sources' statuses, in their cards.)
+    for (si, source) in info.sources.iter_mut().enumerate() {
+        let card = source.card;
+        let carrying: BTreeSet<usize> = tainted[card]
+            .iter()
+            .filter(|(_, sources)| sources.contains(&si))
+            .map(|(&line, _)| line)
+            .collect();
+        let validated_here = |v: &FuncValidation| {
+            v.range.is_some() && v.lines.iter().any(|line| carrying.contains(line))
+        };
+        let blessed = validations[card].iter().any(validated_here);
+        for (station, s) in map.cards[card].stations.iter().enumerate() {
+            let Some(events) = station_events.get(&(card, station)) else {
+                continue;
+            };
+            if !s.stops.iter().any(|line| carrying.contains(line))
+                || validations[card]
+                    .iter()
+                    .any(|v| validated_here(v) && v.event.is_some_and(|e| events.contains(&e)))
+            {
+                continue;
+            }
+            source.stops += 1;
+            let at = tainted_at(&validations[card], &tainted[card], events[0]);
+            if s.stops.iter().any(|line| {
+                carrying.contains(line) && at.get(line).is_some_and(|ss| ss.contains(&si))
+            }) {
+                source.tainted_stops += 1;
+            }
+        }
+        source.status = match (source.stops, source.tainted_stops, blessed) {
+            (0, _, _) => "unused",
+            (_, 0, true) => "validated",
+            (_, _, false) => "unvalidated",
+            _ => "partly",
+        };
+    }
     for connector in &mut map.connectors {
         if let Some(lines) = connector_taint.get(&(
             connector.from,

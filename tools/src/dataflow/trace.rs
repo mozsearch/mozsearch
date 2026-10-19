@@ -874,8 +874,8 @@ impl<'s> Tracer<'s> {
             .unwrap_or_default()
     }
 
-    /// The symbols of types named `name` (its last component), with their
-    /// pretty names.
+    /// The symbols of types (and type aliases) named `name` (its last
+    /// component), with their pretty names.
     pub async fn type_syms(&mut self, name: &str) -> Vec<(Ustr, Ustr)> {
         if let Some(cached) = self.type_syms.get(name) {
             return cached.clone();
@@ -887,7 +887,9 @@ impl<'s> Tracer<'s> {
             .unwrap_or_default()
             .into_iter()
             .map(|(sym, _)| sym)
-            .filter(|sym| sym.starts_with("T_") || sym.starts_with("IPDL_"))
+            .filter(|sym| {
+                sym.starts_with("T_") || sym.starts_with("TA_") || sym.starts_with("IPDL_")
+            })
             .collect();
         syms.sort();
         syms.dedup();
