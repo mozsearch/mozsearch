@@ -24,6 +24,7 @@ use crate::file_format::per_file_info::{PathFacetMap, path_facet_map};
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::{self, coverage_history, coverage_summary, git_time_to_chrono};
 use crate::hyperblame::explore::{self, ExploreCommit, ExploreFile, blot_files, commit_changes};
+use crate::hyperblame::file_changes::{ScopeChange, file_changes};
 use crate::hyperblame::future;
 use crate::hyperblame::interdiff::{
     self, Counts as InterdiffCounts, IdToken, Mark as InterdiffMark, Side as InterdiffSideTokens,
@@ -825,8 +826,9 @@ pub fn file_extras(
         .as_ref()
         .zip(commit.as_ref())
         .and_then(|(git, commit)| page_token_blame(git, commit, path, data));
-    if let (Some(page), Some(commit)) = (&mut token_blame, commit) {
+    if let (Some(page), Some(commit), Some(git)) = (&mut token_blame, commit, &tree_config.git) {
         set_token_blame_urls(page, tree_name, commit, path, breadcrumbs_links_to);
+        set_file_changes(git, commit, path, page);
     }
     let blame_lines = match token_blame {
         Some(_) => None,
@@ -1273,7 +1275,7 @@ pub fn hyperblame_files(
     let revs = page.info.commits.iter().map(|(rev, _, _)| rev.as_str());
     let mut files = vec![(
         "commits.json".to_string(),
-        hyperblame_commits_json(tree_config, git, revs),
+        hyperblame_commits_json(tree_config, git, revs, &page.scope_changes),
     )];
     for (k, chunk) in page.chunks.iter().enumerate() {
         files.push((format!("lines-{}.json", k), to_string(chunk).unwrap()));
@@ -1285,14 +1287,24 @@ fn hyperblame_commits_json<'a>(
     tree_config: &TreeConfig,
     git: &GitData,
     revs: impl Iterator<Item = &'a str>,
+    scope_changes: &[Vec<ScopeChange>],
 ) -> String {
     let infos: Vec<serde_json::Value> = revs
-        .map(|rev| {
-            Oid::from_str(rev)
+        .enumerate()
+        .map(|(i, rev)| {
+            let mut info = Oid::from_str(rev)
                 .and_then(|oid| git.repo.find_commit(oid))
                 .ok()
                 .and_then(|commit| blame::commit_info_json(tree_config, git, &commit).ok())
-                .unwrap_or(serde_json::Value::Null)
+                .unwrap_or(serde_json::Value::Null);
+            // (Its most changed definitions in the file, for the file
+            // timeline's list.)
+            if let (Some(info), Some(changes)) = (info.as_object_mut(), scope_changes.get(i))
+                && !changes.is_empty()
+            {
+                info.insert("changes".to_string(), json!(changes));
+            }
+            info
         })
         .collect();
     to_string(&infos).unwrap()
@@ -1360,7 +1372,8 @@ pub fn hyperblame_file(
             .ok()?;
             let object = repo.find_object(oid, Some(git2::ObjectType::Blob)).ok()?;
             let source = git_ops::read_blob_object(&object);
-            let page = page_token_blame(git, &commit, path, &source)?;
+            let mut page = page_token_blame(git, &commit, path, &source)?;
+            set_file_changes(git, &commit, path, &mut page);
             Some(PageData::new(&page))
         })
         .ok_or("No token blame for the file")?;
@@ -1372,7 +1385,7 @@ pub fn hyperblame_file(
         let revs = || data.revs.iter().map(String::as_str);
         let json = data
             .commits_json
-            .get_or_init(|| hyperblame_commits_json(tree_config, git, revs()))
+            .get_or_init(|| hyperblame_commits_json(tree_config, git, revs(), &data.scope_changes))
             .clone();
         if full_rev {
             write_page_data_sidecars(tree_config, tree_name, rev, path, &data, Some(&json));
@@ -5035,6 +5048,37 @@ pub fn render_outline_diff(
         .render_to(writer, &globals)
         .map_err(|_| "Template problems")?;
     output::generate_footer(&opt, tree_name, "", writer)
+}
+
+/// Give a source page's token-centric blame what each of its commits changed
+/// in the file (see `hyperblame::file_changes`), for the file timeline: the
+/// sizes of their changes in `BLAME_INFO`, and their most changed definitions
+/// for `commits.json`.
+fn set_file_changes(git: &GitData, commit: &git2::Commit, path: &str, page: &mut PageBlame) {
+    let Some(history) = git.history.as_ref() else {
+        return;
+    };
+    let Some(timeline_commit) = history.timeline_commit(commit.id()) else {
+        return;
+    };
+    let revs: Vec<&str> = page
+        .info
+        .commits
+        .iter()
+        .map(|(rev, _, _)| rev.as_str())
+        .collect();
+    let changes = file_changes(history, &timeline_commit, path, &revs);
+    if changes.iter().all(Option::is_none) {
+        return;
+    }
+    page.info.changes = changes
+        .iter()
+        .map(|change| change.as_ref().map(|change| change.size))
+        .collect();
+    page.scope_changes = changes
+        .into_iter()
+        .map(|change| change.map(|change| change.scopes).unwrap_or_default())
+        .collect();
 }
 
 /// Set the URLs of a page's token-centric blame data: the page loads the

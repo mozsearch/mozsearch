@@ -5,10 +5,11 @@
  * tokens and of the removals they bear the scars of), a tick for each by its
  * time, and a mark for the page's revision.  Clicking it shows those commits,
  * newest first (their headers from the file's commits.json), on a bigger
- * timeline, each tick and item highlighting the other on hover, and for a
- * Firefox tree, the dates of Firefox's releases (product-details', fetched
- * then; each branched from mozilla-central about 4 weeks before).  Its
- * "since" (a commit or a release) is the page's baseline: the blame strip
+ * timeline, each tick and item highlighting the other on hover (the nearest
+ * tick's), and in a band above the ticks, Firefox's version cuts, for a tree
+ * with them (its pages/milestones.json, from its config/milestone.txt; see
+ * milestone-cuts.py), labeled as they fit, the nearest one's date on hover.
+ * Its "since" (a commit or a cut) is the page's baseline: the blame strip
  * highlights the changes since it, and the outline (see outline.js) compares
  * the file with it, through "baselinechange" events.
  */
@@ -21,12 +22,13 @@ var FileTimeline = new (class FileTimeline {
     }
     this.info = info;
     this.commits = info.commits
-      .map(([rev, time, author], index) => ({ rev, time, author, index }))
+      .map(([rev, time, author], index) => ({ rev, time, author, index, change: info.changes?.[index] ?? null }))
       .filter(commit => commit.time > 0)
       .sort((a, b) => a.time - b.time);
     if (!this.commits.length) {
       return;
     }
+    this.maxChange = Math.max(0, ...this.commits.map(commit => commit.change ?? 0));
     const revTime = document.querySelector("#rev-id time")?.getAttribute("datetime");
     this.revTime = revTime ? Date.parse(revTime) / 1000 : null;
     this.start = this.commits[0].time;
@@ -47,7 +49,20 @@ var FileTimeline = new (class FileTimeline {
     return new Date(time * 1000).toISOString().slice(0, 10);
   }
 
-  svg(width, height, { ticks = true, releases = [] } = {}) {
+  /**
+   * How tall a commit's tick is, as a fraction of the timeline's height: by
+   * the logarithm of how much the commit changed the file, from 20% for the
+   * least change to 80% for the most (the top 20% being the cuts' band), or
+   * 80% without the sizes of the changes.
+   */
+  tickHeight(commit) {
+    if (!this.maxChange || commit.change == null) {
+      return 0.8;
+    }
+    return 0.2 + 0.6 * Math.log1p(commit.change) / Math.log1p(this.maxChange);
+  }
+
+  svg(width, height, { cuts = [] } = {}) {
     const NS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(NS, "svg");
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
@@ -60,33 +75,28 @@ var FileTimeline = new (class FileTimeline {
     line.setAttribute("y2", height - 1);
     line.classList.add("file-timeline-axis");
     svg.append(line);
-    for (const [version, time] of releases) {
+    // (In the top 20%, above the ticks.)
+    cuts.forEach((cut, i) => {
       const release = document.createElementNS(NS, "line");
-      const x = this.x(time, width);
+      const x = this.x(cut.time, width);
       release.setAttribute("x1", x);
       release.setAttribute("x2", x);
       release.setAttribute("y1", 0);
-      release.setAttribute("y2", height);
+      release.setAttribute("y2", height * 0.2);
       release.classList.add("file-timeline-release");
-      release.dataset.since = time;
-      release.dataset.sinceLabel = `Firefox ${version}`;
-      const title = document.createElementNS(NS, "title");
-      title.textContent = `Firefox ${version}, released ${new Date(time * 1000).toISOString().slice(0, 10)}`;
-      release.append(title);
+      release.dataset.cut = i;
       svg.append(release);
-    }
-    if (ticks) {
-      for (const commit of this.commits) {
-        const tick = document.createElementNS(NS, "line");
-        const x = this.x(commit.time, width);
-        tick.setAttribute("x1", x);
-        tick.setAttribute("x2", x);
-        tick.setAttribute("y1", height * 0.25);
-        tick.setAttribute("y2", height - 1);
-        tick.classList.add("file-timeline-tick");
-        tick.dataset.commit = commit.index;
-        svg.append(tick);
-      }
+    });
+    for (const commit of this.commits) {
+      const tick = document.createElementNS(NS, "line");
+      const x = this.x(commit.time, width);
+      tick.setAttribute("x1", x);
+      tick.setAttribute("x2", x);
+      tick.setAttribute("y1", (height - 1) * (1 - this.tickHeight(commit)));
+      tick.setAttribute("y2", height - 1);
+      tick.classList.add("file-timeline-tick");
+      tick.dataset.commit = commit.index;
+      svg.append(tick);
     }
     if (this.revTime) {
       const mark = document.createElementNS(NS, "circle");
@@ -104,7 +114,9 @@ var FileTimeline = new (class FileTimeline {
     button.type = "button";
     button.className = "file-timeline";
     button.title = `${this.desc.title || this.desc.textContent}\n\n` +
-      "The file's history: its commits by their dates, and this revision; click for them.";
+      "The file's history: its commits by their dates" +
+      (this.maxChange ? " (taller for bigger changes to the file)" : "") +
+      ", and this revision; click for them.";
     button.setAttribute("aria-haspopup", "dialog");
     button.setAttribute("aria-expanded", "false");
     const label = document.createElement("span");
@@ -113,7 +125,7 @@ var FileTimeline = new (class FileTimeline {
     const last = this.year(this.commits[this.commits.length - 1].time);
     label.textContent = `${this.commits.length} commit${this.commits.length == 1 ? "" : "s"}, ` +
       (first == last ? `${first}` : `${first}–${last}`);
-    button.append(this.svg(300, 14), label);
+    button.append(this.svg(600, 14), label);
     button.addEventListener("click", () => this.togglePopup(button));
     this.desc.replaceWith(button);
     this.button = button;
@@ -137,28 +149,57 @@ var FileTimeline = new (class FileTimeline {
     return `/${tree}/outline-diff/${encodeURIComponent(from)}/${to}/${this.path()}`;
   }
 
-  /** Firefox's major releases, as [version, time], oldest first. */
-  allReleases() {
-    const tree = document.getElementById("data")?.dataset.tree || "";
-    if (!tree.startsWith("firefox")) {
-      return Promise.resolve([]);
-    }
-    this.releasesPromise ??= (async () => {
+  /**
+   * The tree's Firefox version cuts (see milestone-cuts.py), oldest first:
+   * each version's cut commit (the bump to the next version), its parent (the
+   * version's last commit), and its time.
+   */
+  allCuts() {
+    this.cutsPromise ??= (async () => {
+      const tree = document.getElementById("data")?.dataset.tree;
       try {
-        const response = await fetch("https://product-details.mozilla.org/1.0/firefox_history_major_releases.json");
-        const json = await response.json();
-        return Object.entries(json)
-          .map(([version, date]) => [version, Date.parse(date) / 1000])
-          .sort((a, b) => a[1] - b[1]);
+        const response = await fetch(`/${tree}/pages/milestones.json`);
+        if (!response.ok) {
+          return [];
+        }
+        return (await response.json()).map(([version, rev, parent, time]) => ({ version, rev, parent, time }));
       } catch (e) {
         return [];
       }
     })();
-    return this.releasesPromise;
+    return this.cutsPromise;
   }
 
-  async releases() {
-    return (await this.allReleases()).filter(([_, time]) => time >= this.start && time <= this.end);
+  async cuts() {
+    return (await this.allCuts()).filter(cut => cut.time >= this.start && cut.time <= this.end);
+  }
+
+  /**
+   * The cuts to label, on a timeline `width` pixels wide: those of every
+   * Nth version, N the smallest of 1, 2, 5, 10... that keeps their labels
+   * `gap` pixels apart.
+   */
+  labeledCuts(cuts, width, gap = 32) {
+    for (const step of [1, 2, 5, 10, 20, 50, 100]) {
+      const labeled = cuts.filter(cut => cut.version % step == 0);
+      const xs = labeled.map(cut => this.x(cut.time, width));
+      if (xs.every((x, i) => i == 0 || x - xs[i - 1] >= gap)) {
+        return labeled;
+      }
+    }
+    return [];
+  }
+
+  /** The cut or commit nearest the time `time`, of those within `within` seconds. */
+  nearest(items, time, within = Infinity) {
+    let best = null;
+    for (const item of items) {
+      const distance = Math.abs(item.time - time);
+      if (distance <= within && (!best || distance < Math.abs(best.time - time))) {
+        best = item;
+      }
+    }
+    return best;
   }
 
   /**
@@ -189,14 +230,22 @@ var FileTimeline = new (class FileTimeline {
     heading.textContent = "The file's history";
     const big = document.createElement("div");
     big.className = "file-timeline-big";
-    big.append(this.svg(600, 40));
+    // (The cuts' labels, the timeline, and what the pointer's nearest to.)
+    const labels = document.createElement("div");
+    labels.className = "file-timeline-versions";
+    const readout = document.createElement("div");
+    readout.className = "file-timeline-readout";
+    big.append(labels, this.svg(600, 40), readout);
+    let cuts = [];
     const list = document.createElement("ol");
     list.className = "file-timeline-commits";
-    // (Highlighting the changes since a commit or a release on the strip.)
+    // (Highlighting the changes since a commit or a cut on the strip.)
     const since = document.createElement("div");
     since.className = "file-timeline-since";
     const hint = () => {
-      since.textContent = "Click a release's line, or a commit's \u201csince\u201d, to highlight the changes since it.";
+      since.textContent = cuts.length
+        ? "Click a version in the band above the commits, or a commit’s “since”, to highlight the changes since it."
+        : "Click a commit’s “since” to highlight the changes since it.";
     };
     const showSince = (baseline, apply = true) => {
       since.replaceChildren();
@@ -216,13 +265,6 @@ var FileTimeline = new (class FileTimeline {
       compare.textContent = "Compare the outlines";
       since.append(`Highlighting the changes since ${baseline.label}. `, compare, " ", clear);
     };
-    big.addEventListener("click", event => {
-      const release = event.target.closest?.("[data-since]");
-      if (release) {
-        const time = parseFloat(release.dataset.since);
-        showSince({ time, from: `since:${this.day(time)}`, label: release.dataset.sinceLabel });
-      }
-    });
     const close = document.createElement("button");
     close.type = "button";
     close.className = "lens-popup-close";
@@ -235,29 +277,85 @@ var FileTimeline = new (class FileTimeline {
       hint();
     }
 
+    // (At the page's indent, where "Showing" starts, under the timeline.)
     const rect = anchor.getBoundingClientRect();
-    popup.style.left = `${Math.max(8, rect.left)}px`;
+    const indent = document.getElementById("rev-id")?.getBoundingClientRect().left ?? rect.left;
+    popup.style.left = `${Math.max(8, indent)}px`;
     popup.style.top = `${rect.bottom + 4}px`;
     document.body.append(popup);
     this.popup = popup;
     anchor.setAttribute("aria-expanded", "true");
 
-    // (Each tick and item highlights the other.)
+    // (Each item highlights its tick, and the pointer on the timeline the
+    // nearest cut, in the band, or else the nearest tick and its item.)
     const highlight = (index, on) => {
       for (const node of popup.querySelectorAll(`[data-commit="${index}"]`)) {
         node.classList.toggle("file-timeline-highlight", on);
       }
     };
     popup.addEventListener("mouseover", event => {
-      const node = event.target.closest?.("[data-commit]");
+      const node = event.target.closest?.("li[data-commit]");
       if (node) {
         highlight(node.dataset.commit, true);
       }
     });
     popup.addEventListener("mouseout", event => {
-      const node = event.target.closest?.("[data-commit]");
+      const node = event.target.closest?.("li[data-commit]");
       if (node) {
         highlight(node.dataset.commit, false);
+      }
+    });
+    let hovered = null;
+    const unhover = () => {
+      if (hovered) {
+        for (const node of big.querySelectorAll(".file-timeline-highlight")) {
+          node.classList.remove("file-timeline-highlight");
+        }
+        highlight(hovered.index, false);
+      }
+      hovered = null;
+      readout.textContent = "";
+    };
+    const pointed = event => {
+      const svg = big.querySelector("svg");
+      const box = svg.getBoundingClientRect();
+      const time = this.start + ((event.clientX - box.left) / box.width) * (this.end - this.start);
+      // (Seconds per pixel, for snapping to ticks.)
+      const pixel = (this.end - this.start) / box.width;
+      const inBand = event.clientY < box.top + box.height * 0.2;
+      if (cuts.length && inBand) {
+        const cut = this.nearest(cuts, time);
+        return cut && { cut };
+      }
+      const commit = this.nearest(this.commits, time, 6 * pixel);
+      return commit && { commit };
+    };
+    big.addEventListener("pointermove", event => {
+      const target = pointed(event);
+      if (target?.cut === hovered?.cut && target?.commit === hovered?.commit) {
+        return;
+      }
+      unhover();
+      if (target?.cut) {
+        const i = cuts.indexOf(target.cut);
+        for (const node of big.querySelectorAll(`[data-cut="${i}"]`)) {
+          node.classList.add("file-timeline-highlight");
+        }
+        readout.textContent = `Firefox ${target.cut.version}: cut from mozilla-central on ${this.day(target.cut.time)}` +
+          " (click for the changes since)";
+        hovered = { cut: target.cut };
+      } else if (target?.commit) {
+        highlight(target.commit.index, true);
+        hovered = { commit: target.commit, index: target.commit.index };
+      }
+    });
+    big.addEventListener("pointerleave", unhover);
+    big.addEventListener("click", event => {
+      const target = pointed(event);
+      if (target?.cut) {
+        showSince({ time: target.cut.time, from: target.cut.parent, label: `Firefox ${target.cut.version}` });
+      } else if (target?.commit) {
+        list.querySelector(`li[data-commit="${target.commit.index}"]`)?.scrollIntoView({ block: "nearest" });
       }
     });
 
@@ -282,6 +380,9 @@ var FileTimeline = new (class FileTimeline {
     if (this.popup !== popup) {
       return;
     }
+    // (With a column of the commits' most changed definitions, if we know
+    // them.)
+    popup.classList.toggle("file-timeline-with-changes", headers.some(info => info?.changes?.length));
     for (const commit of [...this.commits].reverse()) {
       const item = document.createElement("li");
       item.dataset.commit = commit.index;
@@ -315,16 +416,72 @@ var FileTimeline = new (class FileTimeline {
       sinceButton.addEventListener("click", () =>
         showSince({ time: commit.time, from: parent, label: date.textContent }));
       extras.append(sinceButton);
-      item.append(date, " ", link, " ", extras);
+      const summary = document.createElement("div");
+      summary.className = "file-timeline-summary";
+      summary.append(date, " ", link, " ", extras);
+      item.append(summary, this.changesCell(headers[commit.index]?.changes ?? []));
       if (this.revTime && Math.abs(commit.time - this.revTime) < 1) {
         item.classList.add("file-timeline-current");
       }
       list.append(item);
     }
-    const releases = await this.releases();
-    if (releases.length && this.popup === popup) {
-      big.replaceChildren(this.svg(600, 40, { releases }));
+    cuts = await this.cuts();
+    if (cuts.length && this.popup === popup) {
+      big.querySelector("svg").replaceWith(this.svg(600, 40, { cuts }));
+      const width = big.getBoundingClientRect().width;
+      for (const cut of this.labeledCuts(cuts, width)) {
+        const label = document.createElement("span");
+        label.dataset.cut = cuts.indexOf(cut);
+        label.style.left = `${(this.x(cut.time, 1) * 100).toFixed(3)}%`;
+        label.textContent = cut.version;
+        labels.append(label);
+      }
+      if (!this.baseline) {
+        hint();
+      }
     }
+  }
+
+  /**
+   * A commit's most changed definitions in the file (its `commits.json`
+   * entry's `changes`; see `hyperblame::file_changes`), one per line.
+   */
+  changesCell(changes) {
+    const cell = document.createElement("div");
+    cell.className = "file-timeline-changes";
+    // (The last two parts of a qualified name, for the column's width.)
+    const short = pretty => pretty == "%" ? "(top level)" : pretty.split("::").slice(-2).join("::");
+    const file = path => path.split("/").pop();
+    for (const change of changes) {
+      const line = document.createElement("div");
+      line.className = `file-timeline-change file-timeline-change-${change.kind}`;
+      const name = document.createElement("span");
+      name.className = "file-timeline-change-name";
+      name.textContent = short(change.pretty);
+      const what = {
+        added: "added",
+        removed: "removed",
+        changed: "changed",
+        renamed: `renamed from ${change.other}`,
+        "moved-in": `moved from ${change.other}`,
+        "moved-out": `moved to ${change.other}`,
+      }[change.kind] ?? change.kind;
+      line.title = `${change.pretty == "%" ? "Outside of any definition" : change.pretty}: ${what}` +
+        ` (${change.added} tokens added, ${change.removed} removed)`;
+      const sign = { added: "+ ", removed: "\u2212 " }[change.kind] ?? "";
+      const after = {
+        renamed: ` \u2190 ${short(change.other ?? "")}`,
+        "moved-in": ` \u2190 ${file(change.other ?? "")}`,
+        "moved-out": ` \u2192 ${file(change.other ?? "")}`,
+      }[change.kind] ?? "";
+      const tokens = document.createElement("span");
+      tokens.className = "file-timeline-change-tokens";
+      tokens.textContent = [change.added && `+${change.added}`, change.removed && `\u2212${change.removed}`]
+        .filter(Boolean).join(" ");
+      line.append(sign, name, after, " ", tokens);
+      cell.append(line);
+    }
+    return cell;
   }
 
   closePopup() {

@@ -11,6 +11,7 @@ use std::ops::RangeInclusive;
 
 use serde::{Deserialize, Serialize};
 
+use super::file_changes::ScopeChange;
 use super::token_blame::FileTokenBlame;
 use crate::file_format::history::timeline_annotated::RemovalMarker;
 
@@ -51,6 +52,12 @@ pub struct BlameInfo {
     /// `?token=N`, for the history of the context it's in.
     #[serde(rename = "historyUrl", skip_serializing_if = "Option::is_none")]
     pub history_url: Option<String>,
+    /// How many tokens each commit added and removed in the file (see
+    /// `hyperblame::file_changes`), for the heights of the file timeline's
+    /// ticks: null for those which didn't change it, or whose changes we
+    /// don't know.  (A source page's, if the history has the file's journal.)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub changes: Vec<Option<u32>>,
 }
 
 /// About how many tokens each chunk of the popup's data has.  Chunks end at
@@ -144,6 +151,10 @@ pub struct PageBlame {
     pub lines: Vec<StripLine>,
     pub info: BlameInfo,
     pub chunks: Vec<LinesChunk>,
+    /// Each commit's most changed definitions (see `BlameInfo::changes`), for
+    /// `commits.json`.
+    #[serde(skip)]
+    pub scope_changes: Vec<Vec<ScopeChange>>,
 }
 
 struct Indexer {
@@ -243,6 +254,7 @@ fn page_blame_with_chunk_tokens(
             data_url: None,
             peephole_url: None,
             history_url: None,
+            changes: vec![],
         },
         commit_indices: HashMap::new(),
         author_indices: HashMap::new(),
@@ -365,6 +377,7 @@ fn page_blame_with_chunk_tokens(
         lines,
         info: indexer.info,
         chunks,
+        scope_changes: vec![],
     }
 }
 
@@ -781,8 +794,10 @@ mod tests {
                 data_url: None,
                 peephole_url: None,
                 history_url: None,
+                changes: vec![],
             },
             chunks: vec![],
+            scope_changes: vec![],
         };
         // The newest commit's tokens come first, and the removal after the
         // first line is within the block.

@@ -92,3 +92,9 @@ TOOL_CMD="render settings"
 SEARCHFOX_SERVER=${CONFIG_FILE} \
     SEARCHFOX_TREE=${TREE_NAME} \
     searchfox-tool "$TOOL_CMD"
+
+# Firefox's version cuts, for the file timeline (see milestone-cuts.py).
+if [ -f "$GIT_ROOT/config/milestone.txt" ]; then
+    mkdir -p $INDEX_ROOT/pages
+    $MOZSEARCH_PATH/scripts/milestone-cuts.py $GIT_ROOT > $INDEX_ROOT/pages/milestones.json
+fi

@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
+use super::file_changes::ScopeChange;
 use super::page_blame::PageBlame;
 
 /// The web-server's cache.
@@ -31,6 +32,9 @@ pub struct PageData {
     pub chunks: Vec<String>,
     /// The page's commits (`BlameInfo::commits`), for `commits.json`.
     pub revs: Vec<String>,
+    /// The commits' most changed definitions (`PageBlame::scope_changes`),
+    /// for `commits.json`.
+    pub scope_changes: Vec<Vec<ScopeChange>>,
     /// `commits.json`, which we only generate if it's requested.
     pub commits_json: OnceLock<String>,
 }
@@ -49,6 +53,7 @@ impl PageData {
                 .iter()
                 .map(|(rev, _, _)| rev.clone())
                 .collect(),
+            scope_changes: page.scope_changes.clone(),
             commits_json: OnceLock::new(),
         }
     }
@@ -120,6 +125,7 @@ mod tests {
         PageData {
             chunks: vec![chunk.to_string()],
             revs: vec![],
+            scope_changes: vec![],
             commits_json: OnceLock::new(),
         }
     }

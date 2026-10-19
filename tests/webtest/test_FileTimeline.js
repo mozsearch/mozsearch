@@ -123,3 +123,70 @@ add_task(async function test_TimelineSince() {
   ok(!frame.contentWindow.BlameColorizer.sinceTime, "Clear clears it");
   TestUtils.click(popup.querySelector(".lens-popup-close"));
 });
+
+// The timeline's ticks are as tall as their commits' changes to the file are
+// big, and its list says what each commit changed most.
+add_task(async function test_TimelineChanges() {
+  await TestUtils.loadPath("/searchfox/source/tools/src/format.rs");
+  const doc = frame.contentDocument;
+  const timeline = frame.contentWindow.FileTimeline;
+  const changes = timeline.info.changes;
+  is(changes?.length, timeline.info.commits.length, "The page has each commit's change to the file");
+  ok(changes.some(change => change > 0), "with their sizes");
+  const button = doc.querySelector("#revision button.file-timeline");
+  const heights = new Set([...button.querySelectorAll(".file-timeline-tick")].map(tick => tick.getAttribute("y1")));
+  ok(heights.size > 1, "The ticks' heights vary");
+  ok(timeline.commits.every(commit => timeline.tickHeight(commit) >= 0.2 && timeline.tickHeight(commit) <= 0.8),
+     "between 20% and 80% of the timeline's");
+
+  TestUtils.click(button);
+  const popup = doc.querySelector(".file-timeline-popup");
+  await waitForCondition(() => popup.querySelector(".file-timeline-change"),
+                         "The list says what the commits changed");
+  ok(popup.classList.contains("file-timeline-with-changes"), "in a column of their own");
+  ok(Math.abs(popup.getBoundingClientRect().left - doc.querySelector("#rev-id").getBoundingClientRect().left) < 1,
+     "The popup starts at the page's indent");
+  const change = popup.querySelector(".file-timeline-change");
+  ok(/tokens added/.test(change.title), "A change says how many tokens it added and removed");
+  TestUtils.click(popup.querySelector(".lens-popup-close"));
+});
+
+// Firefox's version cuts are in a band above the commits' ticks, labeled as
+// they fit; pointing in the band says the nearest one's date, and clicking
+// highlights the changes since it.  (The tests' trees have no
+// config/milestone.txt, so these are made up.)
+add_task(async function test_TimelineCuts() {
+  await TestUtils.loadPath("/searchfox/source/tools/src/format.rs");
+  const doc = frame.contentDocument;
+  const timeline = frame.contentWindow.FileTimeline;
+  const span = timeline.end - timeline.start;
+  const cuts = [0.2, 0.4, 0.6].map((at, i) => ({
+    version: 100 + i,
+    rev: "a".repeat(40),
+    parent: "b".repeat(40),
+    time: Math.round(timeline.start + at * span),
+  }));
+  timeline.cutsPromise = Promise.resolve(cuts);
+  TestUtils.click(doc.querySelector("#revision button.file-timeline"));
+  const popup = doc.querySelector(".file-timeline-popup");
+  await waitForCondition(() => popup.querySelectorAll(".file-timeline-release").length == 3,
+                         "The cuts are in the timeline");
+  is([...popup.querySelectorAll(".file-timeline-versions span")].map(label => label.textContent).join(","),
+     "100,101,102", "labeled");
+  const svg = popup.querySelector(".file-timeline-big svg");
+  const box = svg.getBoundingClientRect();
+  const at = { clientX: box.left + box.width * 0.41, clientY: box.top + 2, bubbles: true };
+  popup.querySelector(".file-timeline-big").dispatchEvent(new frame.contentWindow.PointerEvent("pointermove", at));
+  ok(popup.querySelector(".file-timeline-readout").textContent.startsWith("Firefox 101: cut from mozilla-central on"),
+     "Pointing in the band says the nearest cut");
+  ok(popup.querySelector('.file-timeline-release[data-cut="1"]').classList.contains("file-timeline-highlight"),
+     "and highlights it");
+  popup.querySelector(".file-timeline-big").dispatchEvent(new frame.contentWindow.MouseEvent("click", at));
+  ok(popup.querySelector(".file-timeline-since").textContent.startsWith("Highlighting the changes since Firefox 101"),
+     "Clicking highlights the changes since it");
+  is(frame.contentWindow.BlameColorizer.sinceTime, cuts[1].time, "on the strip");
+  ok(popup.querySelector(".file-timeline-since a").getAttribute("href").includes(`/outline-diff/${cuts[1].parent}/`),
+     "and compares the outlines from the version's last commit");
+  TestUtils.click(popup.querySelector(".file-timeline-since button"));
+  TestUtils.click(popup.querySelector(".lens-popup-close"));
+});

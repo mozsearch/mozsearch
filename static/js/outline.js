@@ -5,9 +5,10 @@
  * changed it since then, from the outline diff of the page's revision from
  * the baseline (see `hyperblame::outline_diff`, which the web-server serves
  * as `/{tree}/rev-outline/{from}/{to}/{path}`).  The baseline is the latest
- * Firefox release before the revision on Firefox trees, or else 4 weeks
- * before it, unless the file timeline's "since" picks another (a commit or a
- * release; see file-timeline.js's `setBaseline`).  It lists the definitions
+ * Firefox version cut before the revision on trees with them (see
+ * file-timeline.js's `allCuts`), or else 4 weeks before it, unless the file
+ * timeline's "since" picks another (a commit or a cut; see file-timeline.js's
+ * `setBaseline`).  It lists the definitions
  * which changed (with the ones they're in), or all of them with "All".
  */
 var OutlineSection = new (class OutlineSection {
@@ -59,13 +60,13 @@ var OutlineSection = new (class OutlineSection {
   /** The default baseline: see the class's comment. */
   async defaultBaseline() {
     const revTime = FileTimeline.revTime ?? Date.now() / 1000;
-    const latest = (await FileTimeline.allReleases()).filter(([_, time]) => time <= revTime).pop();
+    const latest = (await FileTimeline.allCuts()).filter(cut => cut.time <= revTime).pop();
     if (latest) {
       return {
-        time: latest[1],
-        from: `since:${FileTimeline.day(latest[1])}`,
-        label: `Firefox ${latest[0]}`,
-        description: `Firefox ${latest[0]}'s release, the latest before this revision`,
+        time: latest.time,
+        from: latest.parent,
+        label: `Firefox ${latest.version}`,
+        description: `Firefox ${latest.version}'s cut from mozilla-central, the latest before this revision`,
       };
     }
     const time = revTime - 28 * 24 * 60 * 60;

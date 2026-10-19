@@ -1483,7 +1483,7 @@ html.fancy-bar-resizing {
   vertical-align: middle;
 }
 .file-timeline .file-timeline-svg {
-  width: 12rem;
+  width: 24rem;
   height: 0.9em;
 }
 .file-timeline-label {
@@ -1502,14 +1502,39 @@ html.fancy-bar-resizing {
   stroke-opacity: 1;
   stroke-width: 3;
 }
+/* Firefox's version cuts, in the band above the commits' ticks. */
 .file-timeline-release {
   stroke: var(--test-results-good, green);
-  stroke-dasharray: 2 2;
+  stroke-opacity: 0.5;
   vector-effect: non-scaling-stroke;
 }
-.file-timeline-big .file-timeline-release {
+.file-timeline-release.file-timeline-highlight {
+  stroke-opacity: 1;
   stroke-width: 3;
+}
+.file-timeline-big {
   cursor: pointer;
+}
+.file-timeline-versions {
+  position: relative;
+  height: 1.2em;
+  font-size: 80%;
+  color: var(--page-subtle-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.file-timeline-versions span {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+}
+.file-timeline-versions span.file-timeline-highlight {
+  color: var(--test-results-good, green);
+  font-weight: bold;
+}
+.file-timeline-readout {
+  min-height: 1.2em;
+  font-size: 85%;
+  color: var(--page-subtle-foreground);
 }
 .file-timeline-since {
   margin: 0.3rem 0;
@@ -1532,6 +1557,31 @@ html.fancy-bar-resizing {
   width: 40rem;
   max-height: 70vh;
   overflow: auto;
+}
+/* (The commits' column as wide, and their changes beside them.) */
+.file-timeline-popup.file-timeline-with-changes {
+  width: 61rem;
+}
+.file-timeline-with-changes .file-timeline-commits li {
+  display: grid;
+  grid-template-columns: 38.4rem 1fr;
+  column-gap: 0.8rem;
+}
+.file-timeline-changes {
+  font-size: 85%;
+  min-width: 0;
+}
+.file-timeline-change {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.file-timeline-change-name {
+  font-family: monospace;
+}
+.file-timeline-change-tokens {
+  color: var(--page-subtle-foreground);
+  font-variant-numeric: tabular-nums;
 }
 .file-timeline-big .file-timeline-svg {
   width: 100%;
