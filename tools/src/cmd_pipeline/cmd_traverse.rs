@@ -1204,6 +1204,20 @@ impl PipelineCommand for TraverseCommand {
                     if ignore_node_set.contains(&*target_pretty) {
                         continue;
                     }
+                    // (Not up to IPDL's generated virtual `Recv` methods,
+                    // whose uses are its generated dispatch: a `Recv`
+                    // method's IPC edges from its `Send` methods are its
+                    // control flow.  But up to those with the IPC slots, of
+                    // the protocols whose actors IPDL still calls virtually;
+                    // see ipdl-analyze.)
+                    if self.args.edge == "uses"
+                        && target_info.is_ipdl_generated()
+                        && target_info
+                            .get_structured()
+                            .is_some_and(|meta| meta.slot_owner.is_none())
+                    {
+                        continue;
+                    }
 
                     if !considered.insert(target_info.symbol) {
                         continue;
@@ -1337,6 +1351,10 @@ impl PipelineCommand for TraverseCommand {
                         _ => ustr(""),
                     };
                     if ignore_node_set.contains(&*target_pretty) {
+                        continue;
+                    }
+                    // (Plumbing labeled to be left out of calls diagrams.)
+                    if target_info.has_label("calls-diagram:skip") {
                         continue;
                     }
 
@@ -1481,6 +1499,16 @@ impl PipelineCommand for TraverseCommand {
                         _ => ustr(""),
                     };
                     if ignore_node_set.contains(&*source_pretty) || !source_info.is_callable() {
+                        continue;
+                    }
+                    // (Plumbing: callers labeled to be left out of uses
+                    // diagrams (ex: mozilla::detail::RunnableFunction::Run,
+                    // whose callee, a runnable's lambda, has a direct edge
+                    // from where it's made), and IPDL's generated dispatch,
+                    // as `Recv` methods' IPC edges from their `Send` methods
+                    // are their control flow.)
+                    if source_info.has_label("uses-diagram:skip") || source_info.is_ipdl_dispatch()
+                    {
                         continue;
                     }
                     if let Some(allowed) = &guided_classes

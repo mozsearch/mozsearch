@@ -141,6 +141,21 @@ labels = ["uses-diagram:stop"]
 [pretty."nsISupports::QueryInterface"]
 labels = ["uses-diagram:stop"]
 
+# "uses-diagram:skip" (and "calls-diagram:skip") leave plumbing out of uses
+# (and calls) diagrams altogether, its node and its edges, unlike
+# "uses-diagram:stop", which shows the node but goes no further: for plumbing
+# between callers and callees which have direct edges of their own.  (IPDL's
+# generated dispatch, `OnMessageReceived`, and the generated virtual `Recv`
+# methods that implementations override, are left out without labels, by
+# where they're generated; see cmd_traverse.rs.)
+#
+# A runnable's lambda is called by `RunnableFunction::Run`, whose overrides
+# (`mozilla::Runnable::Run`) lead to every runnable's constructor, while the
+# lambda's edge from where it's made (ex: `NS_NewRunnableFunction`'s caller)
+# is its control flow.
+[pretty."mozilla::detail::RunnableFunction::Run"]
+labels = ["uses-diagram:skip"]
+
 [pretty."nsIThreadPool"]
 labels = ["class-diagram:stop"]
 

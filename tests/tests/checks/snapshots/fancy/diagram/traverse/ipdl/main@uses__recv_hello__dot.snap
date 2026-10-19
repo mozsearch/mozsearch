@@ -1,0 +1,15 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/traverse/ipdl/uses__recv_hello__dot
+---
+digraph g {
+  node[shape=box fontname="Courier New" fontsize=10]
+  "_ZN7mozilla9_ipdltest16PTestBasicParent9SendHelloEv"[label="mozilla::_ipdltest::PTestBasicParent::SendHello"]
+  "_ZN7mozilla9_ipdltest14TestBasicChild9RecvHelloEv"[label="mozilla::_ipdltest::TestBasicChild::RecvHello"]
+  "_ZN7mozilla9_ipdltest16PTestBasicParent9SendHelloEv" -> "_ZN7mozilla9_ipdltest14TestBasicChild9RecvHelloEv"
+  "_ZN7mozilla9_ipdltest19IPDL_TEST_TestBasic8TestBodyEv"[label="mozilla::_ipdltest::IPDL_TEST_TestBasic::TestBody"]
+  "_ZN7mozilla9_ipdltest19IPDL_TEST_TestBasic8TestBodyEv" -> "_ZN7mozilla9_ipdltest16PTestBasicParent9SendHelloEv"
+  "_ZN7mozilla9_ipdltest14IPDLTestHelper8TestBodyEv"[label="_ZN7mozilla9_ipdltest14IPDLTestHelper8TestBodyEv"]
+  "_ZN7mozilla9_ipdltest14IPDLTestHelper8TestBodyEv" -> "_ZN7mozilla9_ipdltest19IPDL_TEST_TestBasic8TestBodyEv"
+}

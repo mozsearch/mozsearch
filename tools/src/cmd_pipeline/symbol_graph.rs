@@ -251,6 +251,40 @@ pub fn semantic_kind_is_class(semantic_kind: &str) -> bool {
 }
 
 impl DerivedSymbolInfo {
+    /// Whether the symbol is labeled so (ex: "uses-diagram:skip", by
+    /// ontology-mapping.toml).
+    pub fn has_label(&self, label: &str) -> bool {
+        self.get_structured()
+            .is_some_and(|meta| meta.labels.iter().any(|l| l.as_str() == label))
+    }
+
+    /// Whether IPDL generated the symbol: it's declared or defined in its
+    /// generated code (ex: a protocol actor's `PFooParent::RecvBar`, the
+    /// virtual method its implementation overrides).
+    pub fn is_ipdl_generated(&self) -> bool {
+        let Some(xref) = &self.crossref_info else {
+            return false;
+        };
+        xref.definitions
+            .iter()
+            .chain(xref.declarations.iter())
+            .flatten()
+            .any(|hits| hits.path.starts_with(IPDL_GENERATED_PATH))
+    }
+
+    /// Whether the symbol is IPDL's generated dispatch of messages to their
+    /// `Recv` methods (`OnMessageReceived`, `OnCallReceived`), whose calls
+    /// diagrams leave out, as `Send` methods' IPC edges to `Recv` methods are
+    /// the control flow.
+    pub fn is_ipdl_dispatch(&self) -> bool {
+        self.get_structured().is_some_and(|meta| {
+            matches!(
+                meta.pretty.rsplit("::").next(),
+                Some("OnMessageReceived" | "OnCallReceived")
+            )
+        }) && self.is_ipdl_generated()
+    }
+
     pub fn is_callable(&self) -> bool {
         match self.get_structured().map(|meta| meta.kind) {
             Some(sem_kind) => semantic_kind_is_callable(&sem_kind),
@@ -354,6 +388,9 @@ impl DerivedSymbolInfo {
         }
     }
 }
+
+/// Where IPDL's generated code is.
+const IPDL_GENERATED_PATH: &str = "__GENERATED__/ipc/ipdl/";
 
 /// A pretty name for a symbol without a structured record, where its symbol
 /// says (ex: a C++ field's, `F_<T_JSErrorReport>_exnType`, from a class
