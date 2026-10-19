@@ -819,17 +819,15 @@ fn file_recency_items(
 }
 
 #[allow(clippy::too_many_arguments)]
+/// The records of a chunk of the analysis files (see `analysis_chunks`).
 fn read_analysis_files_thread(
-    analysis_relative_paths: &Vec<Ustr>,
-    start: usize,
-    end: usize,
-    index_path: String,
+    paths: &[Ustr],
+    index_path: &str,
     find_source_file: &FindSourceFile,
     ingestion: &RepoIngestion,
     dir_subsystems: &HashMap<Ustr, Ustr>,
     history: Option<&HistoryDigests>,
-    out: &mut Option<PerThreadAnalysisData>,
-) {
+) -> PerThreadAnalysisData {
     let mut search_result_items = SearchResultItems::new();
     let mut top_level_search_result_items = TopLevelSearchResultItems::new();
     let mut pretty_items = PrettyItems::new();
@@ -846,7 +844,7 @@ fn read_analysis_files_thread(
     let mut recency_linked = 0;
     let mut recency_linkages = vec![];
 
-    for path in &analysis_relative_paths[start..end] {
+    for path in paths {
         println!("File {}", path);
 
         let analysis_fname = format!("{}/analysis/{}", index_path, path);
@@ -1018,7 +1016,7 @@ fn read_analysis_files_thread(
         }
     }
 
-    out.replace(PerThreadAnalysisData {
+    PerThreadAnalysisData {
         search_result_items,
         top_level_search_result_items,
         pretty_items,
@@ -1034,7 +1032,62 @@ fn read_analysis_files_thread(
         recency_files,
         recency_linked,
         recency_linkages,
+    }
+}
+
+/// The end of the chunk starting at `start` (see `analysis_chunks`).
+fn chunk_end(chunks: &[std::ops::Range<usize>], start: usize) -> usize {
+    chunks
+        .iter()
+        .find(|range| range.start == start)
+        .map_or(start, |range| range.end)
+}
+
+/// An analysis file's size, for scheduling (see `analysis_chunks`): its own,
+/// or its gzipped one's, as gzipped analysis is 10 to 15 times smaller.
+fn analysis_bytes(index_path: &str, path: &str) -> u64 {
+    let plain = format!("{}/analysis/{}", index_path, path);
+    fs::metadata(&plain)
+        .map(|meta| meta.len())
+        .unwrap_or_else(|_| fs::metadata(format!("{}.gz", plain)).map_or(0, |meta| meta.len() * 10))
+}
+
+/// The analysis files' contiguous chunks (ranges of `paths`), each with about
+/// a (32 x threads)th of their analysis's bytes (or a file bigger than that),
+/// in the order to read them: the files bigger than that first, biggest
+/// first, then the others in order, so that each is merged soon after it's
+/// read (their records are merged in the files' order, so that the tables
+/// are as one thread's reading would make them; see `read_analysis_files`).
+/// (Each thread reading a 16th of the files, in order, left one reading a
+/// chunk of big files for the last 8 of read-analysis's 13 minutes on
+/// firefox-disco, while the others idled.)
+fn analysis_chunks(
+    index_path: &str,
+    paths: &[Ustr],
+    thread_count: usize,
+) -> Vec<std::ops::Range<usize>> {
+    let sizes: Vec<u64> = paths
+        .iter()
+        .map(|path| analysis_bytes(index_path, path))
+        .collect();
+    let target = (sizes.iter().sum::<u64>() / (thread_count as u64 * 32)).max(1);
+    let mut chunks: Vec<(std::ops::Range<usize>, u64)> = vec![];
+    let (mut start, mut bytes) = (0, 0);
+    for (i, size) in sizes.iter().enumerate() {
+        if i > start && bytes + size > target {
+            chunks.push((start..i, bytes));
+            (start, bytes) = (i, 0);
+        }
+        bytes += size;
+    }
+    if start < paths.len() {
+        chunks.push((start..paths.len(), bytes));
+    }
+    chunks.sort_by_key(|(range, bytes)| match *bytes > target {
+        true => (0, std::cmp::Reverse(*bytes), range.start),
+        false => (1, std::cmp::Reverse(0), range.start),
     });
+    chunks.into_iter().map(|(range, _)| range).collect()
 }
 
 struct AnalysisData {
@@ -1060,52 +1113,14 @@ fn read_analysis_files(
 ) -> AnalysisData {
     let total = analysis_relative_paths.len();
     let thread_count = if total > 100 { thread_count } else { 1 };
-    let chunk = total / thread_count;
+    let index_path = tree_config.paths.index_path.as_str();
+    let chunks = analysis_chunks(index_path, &analysis_relative_paths, thread_count);
 
     info!(
-        "{} analysis files found. Processing with {} threads (chunk size={})",
-        total, thread_count, chunk
-    );
-
-    let mut out_list = vec![];
-    for _ in 0..thread_count {
-        out_list.push(None);
-    }
-
-    std::thread::scope(|s| {
-        for (index, out) in out_list.iter_mut().enumerate() {
-            let start = chunk * index;
-            let end = if index == thread_count - 1 {
-                total
-            } else {
-                chunk * (index + 1)
-            };
-
-            let analysis_relative_paths = &analysis_relative_paths;
-            let ingestion = &ingestion;
-            let index_path = tree_config.paths.index_path.clone();
-            let find_source_file = tree_config.get_find_source_file();
-
-            s.spawn(move || {
-                read_analysis_files_thread(
-                    analysis_relative_paths,
-                    start,
-                    end,
-                    index_path,
-                    &find_source_file,
-                    ingestion,
-                    dir_subsystems,
-                    history,
-                    out,
-                );
-            });
-        }
-    });
-
-    println!(
-        "Performing crossref::read-analysis-merge step for {} : {}",
-        tree_name,
-        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+        "{} analysis files found. Processing with {} threads ({} chunks of about equal analysis, biggest first)",
+        total,
+        thread_count,
+        chunks.len()
     );
 
     let mut search_result_table = SearchResultTable::new();
@@ -1129,7 +1144,8 @@ fn read_analysis_files(
     let mut xrefs = vec![];
     let mut all_use_slots = vec![];
 
-    for out in out_list.iter_mut() {
+    // (Each chunk's records, merged in the files' order, as they come.)
+    let mut merge = |out: PerThreadAnalysisData| {
         let PerThreadAnalysisData {
             search_result_items,
             top_level_search_result_items,
@@ -1146,7 +1162,7 @@ fn read_analysis_files(
             recency_files: (digested, unaligned, no_grammar),
             recency_linked,
             recency_linkages,
-        } = out.take().unwrap();
+        } = out;
         all_recency_linked += recency_linked;
         all_recency_linkages.extend(recency_linkages);
         for (path, file_recency) in file_recency_items {
@@ -1231,7 +1247,53 @@ fn read_analysis_files(
             // XXX otherwise weird things are happening, but I'm not
             // sure we need to warn on this.
         }
-    }
+    };
+
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    std::thread::scope(|s| {
+        let (sender, receiver) = std::sync::mpsc::channel::<(usize, PerThreadAnalysisData)>();
+        for _ in 0..thread_count {
+            let sender = sender.clone();
+            let (chunks, next, paths) = (&chunks, &next, &analysis_relative_paths);
+            let find_source_file = tree_config.get_find_source_file();
+            s.spawn(move || {
+                loop {
+                    let taken = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some(range) = chunks.get(taken) else {
+                        break;
+                    };
+                    let data = read_analysis_files_thread(
+                        &paths[range.clone()],
+                        index_path,
+                        &find_source_file,
+                        ingestion,
+                        dir_subsystems,
+                        history,
+                    );
+                    if sender.send((range.start, data)).is_err() {
+                        break;
+                    }
+                }
+            });
+        }
+        drop(sender);
+        let mut pending: BTreeMap<usize, PerThreadAnalysisData> = BTreeMap::new();
+        let mut merged = 0;
+        for (start, data) in receiver {
+            pending.insert(start, data);
+            while let Some(data) = pending.remove(&merged) {
+                merged = chunk_end(&chunks, merged);
+                merge(data);
+            }
+        }
+        assert!(pending.is_empty(), "Unmerged analysis chunks");
+    });
+
+    println!(
+        "Performing crossref::read-analysis-merge step for {} : {}",
+        tree_name,
+        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+    );
 
     println!(
         "Performing crossref::read-analysis-process step for {} : {}",
