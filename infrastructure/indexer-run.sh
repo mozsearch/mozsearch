@@ -21,14 +21,59 @@ export PERMANENT=${3:+$(readlink -f $3)}
 
 CONFIG_FILE=$WORKING/config.json
 
-for TREE_NAME in $(jq -r ".trees|keys_unsorted|.[]" ${CONFIG_FILE})
+# With "pipeline_trees" in the config, the next tree's early steps (its
+# find-repo-files, mkdirs and build: ex: firefox-shared's processing of the
+# downloaded Gecko analysis) run while this tree's others do, as a tree's early
+# steps only depend on its setup, and most of an indexing's steps leave most of
+# the cores idle.  (A tree's early steps' log goes in the main log when they're
+# done.)  Not by default, as two trees' steps at once take more memory (ex: a
+# developer's container).
+PIPELINE_TREES=$(jq -r '.pipeline_trees // false' ${CONFIG_FILE})
+EARLY_STEPS=find-repo-files,mkdirs,build
+TREES=($(jq -r ".trees|keys_unsorted|.[]" ${CONFIG_FILE}))
+EARLY_PID=""
+mkdir -p $WORKING/tmp
+
+# Start the early steps of the tree at index $1 in the background.
+start_early_steps() {
+    local tree=${TREES[$1]}
+    (
+        . $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $tree
+        ONLY=$EARLY_STEPS $MOZSEARCH_PATH/scripts/mkindex.sh $CONFIG_REPO $CONFIG_FILE $tree
+    ) > $WORKING/tmp/early-steps-$tree.log 2>&1 &
+    EARLY_PID=$!
+}
+
+for TREE_INDEX in "${!TREES[@]}"
 do
+    TREE_NAME=${TREES[$TREE_INDEX]}
     echo "Performing indexer-run section for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
     echo "Performing load-vars step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
     . $MOZSEARCH_PATH/scripts/load-vars.sh $CONFIG_FILE $TREE_NAME
 
-    $MOZSEARCH_PATH/scripts/mkindex.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME || handle_tree_error "mkindex.sh"
+    if [[ $PIPELINE_TREES == "true" ]]; then
+        # (This tree's early steps: started with the previous tree's others,
+        # or now for the first.)
+        if [[ -z $EARLY_PID ]]; then
+            start_early_steps $TREE_INDEX
+        fi
+        EARLY_STATUS=0
+        wait $EARLY_PID || EARLY_STATUS=$?
+        EARLY_PID=""
+        echo "Early steps' log for $TREE_NAME:"
+        cat $WORKING/tmp/early-steps-$TREE_NAME.log
+        if [[ $EARLY_STATUS != 0 ]]; then
+            handle_tree_error "mkindex.sh's early steps"
+        fi
+        if (( TREE_INDEX + 1 < ${#TREES[@]} )); then
+            start_early_steps $((TREE_INDEX + 1))
+        fi
+        SKIP="${SKIP:+$SKIP,}$EARLY_STEPS" EARLY_STEPS_DONE=1 \
+            $MOZSEARCH_PATH/scripts/mkindex.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME || handle_tree_error "mkindex.sh"
+    else
+        $MOZSEARCH_PATH/scripts/mkindex.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME || handle_tree_error "mkindex.sh"
+    fi
     # If we were given a permanent path, move the index results there and
     # symlink from the old location to the new location.
     if [ -n "$PERMANENT" ]
@@ -39,6 +84,11 @@ do
 
     echo "Performed indexer-run section for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 done
+
+# The uploads after setup which indexer-upload.sh started in the background
+# (ex: of the history the setup updated) are done before the "*-shared"
+# directories move (see there).
+$MOZSEARCH_PATH/infrastructure/indexer-upload.sh $CONFIG_REPO $WORKING wait
 
 # If we were given a permanent path, move any "*-shared" directories, specifically
 # to cover "firefox-shared".

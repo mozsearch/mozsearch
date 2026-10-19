@@ -25,13 +25,10 @@ mkdir -p $INDEX_ROOT/aliases
 
 mkdir -p $INDEX_ROOT/analysis/__GENERATED__
 
-cat $INDEX_ROOT/repo-dirs | \
-    parallel \
-        "echo 'Making {file,dir,analysis,description} dirs for' {}; \
-         cd $INDEX_ROOT/file; mkdir -p {}; \
-         cd $INDEX_ROOT/dir/; mkdir -p {}; \
-         cd $INDEX_ROOT/analysis; mkdir -p {}; \
-         cd $INDEX_ROOT/description; mkdir -p {}"
-
+# (A mkdir per batch of directories, rather than a shell and four mkdirs
+# per directory, ~100k for firefox, which took 1.4 minutes.)
+for ROOT in file dir analysis description; do
+    (cd $INDEX_ROOT/$ROOT && xargs -r -d '\n' mkdir -p -- < $INDEX_ROOT/repo-dirs)
+done
 mkdir -p $INDEX_ROOT/templates
 

@@ -66,5 +66,6 @@
     }
   },
 
+  "pipeline_trees": true,
   "allow_webtest": true
 }

@@ -121,6 +121,11 @@ pub struct ConfigJson {
     /// index on and the web-server serves it from, if not the default for the
     /// channel; see infrastructure/aws/attach-index-volume.py.
     pub index_volume_gb: Option<u32>,
+    /// Whether the indexer runs the next tree's early steps (its
+    /// find-repo-files, mkdirs and build) while each tree's others run; see
+    /// infrastructure/indexer-run.sh.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pipeline_trees: Option<bool>,
     pub trees: BTreeMap<String, TreeConfigPaths>,
 
     #[serde(default)]

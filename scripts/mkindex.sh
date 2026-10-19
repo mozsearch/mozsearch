@@ -76,6 +76,13 @@ export RUST_BACKTRACE=1
 #     and then
 #     SKIP=mkdirs,build,compress-outputs make review-test-repo
 should_perform() {
+    # (`ONLY`: only these steps, ex: indexer-run.sh's early steps.)
+    if [[ ${ONLY:-} != "" ]]; then
+        if ! echo ",$ONLY," | grep ",$1," > /dev/null; then
+            return 1
+        fi
+    fi
+
     if [[ ${SKIP:-} != "" ]]; then
         if echo ",$SKIP," | grep ",$1," > /dev/null; then
             echo "Skipping $1 step"
@@ -109,7 +116,8 @@ else
     SKIPPED_MKDIRS=1
 fi
 
-if [[ ${SKIPPED_MKDIRS:-} -eq 1 ]]; then
+# (Unless indexer-run.sh ran the early steps, mkdirs included, already.)
+if [[ ${SKIPPED_MKDIRS:-} -eq 1 && -z ${EARLY_STEPS_DONE:-} && -z ${ONLY:-} ]]; then
     # NOTE: Given that mkdirs is skipped, the intermediate files/directories
     #       are reused from the previous run.
     #       undo the compress-outputs step, just in case the previous run
