@@ -372,6 +372,15 @@ pub trait AbstractServer {
     /// tree-local path, decompressing if it's compressed.
     async fn fetch_raw_analysis<'a>(&self, sf_path: &str) -> Result<BoxStream<'a, Value>>;
 
+    /// The path of the gzipped analysis file of the tree-local path
+    /// `sf_path` whose records are as `fetch_raw_analysis` gives them (see
+    /// the normalize-analyses tool), if the server has one, which the data
+    /// API can serve as it is, rather than parsing, processing and
+    /// serializing them.
+    fn normalized_analysis_file(&self, _sf_path: &str) -> Option<String> {
+        None
+    }
+
     /// Fetch the contents of a raw (not HTML rendered) source file
     /// corresponding to the indexed revision like you would get out of revision
     /// control.

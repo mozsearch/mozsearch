@@ -804,6 +804,63 @@ mod tests {
             .collect()
     }
 
+    /// Analysis files are written processed at index time (see the
+    /// normalize-analyses tool), and their readers process them again (see
+    /// `analysis::read_analysis_values`), which must change nothing: for the
+    /// checked-in analysis files (of the tests tree's IPDL tests, whose
+    /// parameters and locals this renames), processing them twice is
+    /// processing them once.  (In a checkout: nix builds the tools without
+    /// the tests' files.)
+    #[test]
+    fn test_processing_is_idempotent() {
+        use crate::file_format::analysis::analysis_values_from;
+        use crate::file_format::analysis_manglings::escape_record_symbol_commas;
+
+        fn files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+            for entry in std::fs::read_dir(dir).unwrap().flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    files(&path, out);
+                } else {
+                    out.push(path);
+                }
+            }
+        }
+        let dir =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/tests/mc-analysis");
+        if !dir.is_dir() {
+            return;
+        }
+        let mut paths = vec![];
+        files(&dir, &mut paths);
+        let mut changed = 0;
+        for path in &paths {
+            let raw = std::fs::read_to_string(path).unwrap();
+            let once = analysis_values_from(raw.as_bytes(), &path.to_string_lossy());
+            let text: String = once.iter().map(|value| format!("{}\n", value)).collect();
+            let twice = analysis_values_from(text.as_bytes(), &path.to_string_lossy());
+            assert_eq!(
+                once,
+                twice,
+                "{} changes when processed again",
+                path.display()
+            );
+            let escaped: Vec<Value> = raw
+                .lines()
+                .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+                .map(|mut value| {
+                    escape_record_symbol_commas(&mut value);
+                    value
+                })
+                .collect();
+            if escaped != once {
+                changed += 1;
+            }
+        }
+        assert!(paths.len() > 10, "{} files", paths.len());
+        assert!(changed > 0, "processing changed none of the files");
+    }
+
     #[test]
     fn test_parameter_types() {
         assert_eq!(

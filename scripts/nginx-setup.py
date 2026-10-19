@@ -550,9 +550,15 @@ for repo in config['trees']:
     if tree_config.get('data_api', True):
         # (Compressed: analysis records are ~12 times smaller gzipped, and
         # remote servers ask for gzip; for the CDN's requests too, by
-        # Accept-Encoding.)
+        # Accept-Encoding.  The pipeline-server serves the tree's analysis
+        # files as they're stored, gzipped (see the tools'
+        # `normalized_analysis_file`), when asked for gzip, which nginx
+        # always does, so that it doesn't parse and serialize them, and
+        # nginx decompresses them for clients which don't take gzip.)
         location(f'/{repo}/api/', [
             'proxy_pass http://127.0.0.1:8002;',
+            'proxy_set_header Accept-Encoding gzip;',
+            'gunzip on;',
             'gzip_types application/json application/x-ndjson text/plain;',
             'gzip_proxied any;',
             'gzip_vary on;',

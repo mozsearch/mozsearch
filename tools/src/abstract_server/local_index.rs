@@ -196,6 +196,10 @@ pub struct LocalIndex {
     /// The tree's path kinds' keys and names, in display order.
     path_kinds: Vec<(Ustr, Ustr)>,
     head_info: Option<CommitInfo>,
+    /// Whether its gzipped analysis files are as `fetch_raw_analysis` gives
+    /// them (its `analysis-normalized` stamp; see compress-outputs.sh and
+    /// the normalize-analyses tool).
+    analysis_normalized: bool,
 }
 
 impl LocalIndex {
@@ -536,10 +540,24 @@ impl AbstractServer for LocalIndex {
         let norm_path = self.normalize_and_validate_path(sf_path)?;
         let full_path = self.translate_path(SearchfoxIndexRoot::CompressedAnalysis, norm_path)?;
         let mut values = read_maybe_gzipped_ndjson_from_file(&full_path).await?;
-        // (As `read_analyses` reads them; see `escape_record_symbol_commas`.)
-        values.iter_mut().for_each(escape_record_symbol_commas);
-        process_local_symbols(&mut values);
+        // (As `read_analyses` reads them, unless they're written so; see
+        // `escape_record_symbol_commas` and `normalized_analysis_file`.)
+        if !self.analysis_normalized {
+            values.iter_mut().for_each(escape_record_symbol_commas);
+            process_local_symbols(&mut values);
+        }
         Ok(Box::pin(tokio_stream::iter(values)))
+    }
+
+    fn normalized_analysis_file(&self, sf_path: &str) -> Option<String> {
+        if !self.analysis_normalized {
+            return None;
+        }
+        let norm_path = self.normalize_and_validate_path(sf_path).ok()?;
+        let full_path = self
+            .translate_path(SearchfoxIndexRoot::CompressedAnalysis, norm_path)
+            .ok()?;
+        Path::new(&full_path).is_file().then_some(full_path)
     }
 
     async fn fetch_raw_source(&self, sf_path: &str) -> Result<String> {
@@ -1051,6 +1069,9 @@ fn fab_server(
         Err(_) => None,
     };
 
+    let analysis_normalized = Path::new(&tree_config.paths.index_path)
+        .join("analysis-normalized")
+        .is_file();
     Ok(Box::new(LocalIndex {
         // We don't need the blame and hg maps (yet)
         config_paths: tree_config.paths,
@@ -1067,6 +1088,7 @@ fn fab_server(
         file_lookup_path,
         path_kinds,
         head_info,
+        analysis_normalized,
     }))
 }
 

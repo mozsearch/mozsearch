@@ -1192,7 +1192,13 @@ pub fn read_analysis_values(used_filename: &str) -> Option<Vec<Value>> {
     } else {
         Box::new(file)
     };
-    let reader = BufReader::new(reader);
+    Some(analysis_values_from(BufReader::new(reader), used_filename))
+}
+
+/// The analysis records of a file's lines (as `read_analysis_values` reads
+/// them, from a file named `used_filename`, for warnings).
+#[cfg(not(target_arch = "wasm32"))]
+pub fn analysis_values_from(reader: impl BufRead, used_filename: &str) -> Vec<Value> {
     let mut lineno = 0;
     let mut values = vec![];
     for line in reader.lines() {
@@ -1217,7 +1223,7 @@ pub fn read_analysis_values(used_filename: &str) -> Option<Vec<Value>> {
     // (Locals' and parameters' symbols are unified and get target
     // records; see `local_symbols`.)
     super::local_symbols::process_local_symbols(&mut values);
-    Some(values)
+    values
 }
 
 /// Load analysis data for one or more files, sorting and grouping by location, with data payloads

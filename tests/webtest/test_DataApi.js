@@ -76,6 +76,10 @@ add_task(async function test_DataApiRoutes() {
   ok(records.some(record => record.sym?.split(",").includes(OLD_FROB)),
      "and their analysis records, one a line");
   is(analysis.headers.get("content-encoding"), "gzip", "compressed");
+  // (As the index stores it: the pipeline-server sends the file as it is,
+  // whose length it knows, rather than records nginx compresses as they come,
+  // in chunks; see the tools' `normalized_analysis_file`.)
+  ok(Number(analysis.headers.get("content-length")) > 0, "as it's stored");
 
   const lines = await getJson(`${API}/changed-lines?spec=${LANDED}`);
   ok(lines.files?.["widget.cpp"]?.added?.length, "The lines a commit changes are there");

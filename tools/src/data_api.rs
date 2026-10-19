@@ -146,8 +146,21 @@ pub fn router(servers: Servers, enabled: BTreeSet<String>) -> Router {
         })
 }
 
-async fn handle(State(state): State<ApiState>, method: Method, uri: Uri) -> Response {
-    let response = match respond(&state, Host::PipelineServer, method == Method::POST, &uri).await {
+async fn handle(
+    State(state): State<ApiState>,
+    method: Method,
+    headers: header::HeaderMap,
+    uri: Uri,
+) -> Response {
+    let response = match respond(
+        &state,
+        Host::PipelineServer,
+        method == Method::POST,
+        accepts_gzip(&headers),
+        &uri,
+    )
+    .await
+    {
         Ok(body) => body.into_response(),
         Err(error) => error.into_response(),
     };
@@ -168,20 +181,46 @@ async fn handle(State(state): State<ApiState>, method: Method, uri: Uri) -> Resp
 pub struct Body {
     content_type: &'static str,
     bytes: Vec<u8>,
+    /// The bytes' `Content-Encoding`, if they're encoded (ex: a normalized
+    /// analysis file's gzip; see `AbstractServer::normalized_analysis_file`),
+    /// and their length decoded, which `max_bytes` is of.
+    encoding: Option<&'static str>,
+    decoded_len: usize,
 }
 
 impl Body {
-    fn json(value: &Value) -> Body {
+    fn new(content_type: &'static str, bytes: Vec<u8>) -> Body {
+        let decoded_len = bytes.len();
         Body {
-            content_type: "application/json",
-            bytes: serde_json::to_vec(value).unwrap_or_default(),
+            content_type,
+            bytes,
+            encoding: None,
+            decoded_len,
         }
+    }
+
+    fn json(value: &Value) -> Body {
+        Body::new(
+            "application/json",
+            serde_json::to_vec(value).unwrap_or_default(),
+        )
     }
 }
 
 impl IntoResponse for Body {
     fn into_response(self) -> Response {
-        ([(header::CONTENT_TYPE, self.content_type)], self.bytes).into_response()
+        match self.encoding {
+            Some(encoding) => (
+                [
+                    (header::CONTENT_TYPE, self.content_type),
+                    (header::CONTENT_ENCODING, encoding),
+                    (header::VARY, "Accept-Encoding"),
+                ],
+                self.bytes,
+            )
+                .into_response(),
+            None => ([(header::CONTENT_TYPE, self.content_type)], self.bytes).into_response(),
+        }
     }
 }
 
@@ -690,10 +729,24 @@ impl Params {
 }
 
 /// The response to a request for `uri`.
+/// Whether a request's `Accept-Encoding` takes gzip.
+fn accepts_gzip(headers: &header::HeaderMap) -> bool {
+    headers
+        .get_all(header::ACCEPT_ENCODING)
+        .iter()
+        .filter_map(|value| value.to_str().ok())
+        .flat_map(|value| value.split(','))
+        .any(|coding| coding.split(';').next().is_some_and(|c| c.trim() == "gzip"))
+}
+
+/// The response to a request for `uri` (a POST if `post`), by the routes
+/// served by `host`, gzipped as it is if it's stored so and the request
+/// `accepts_gzip` (see `Body::encoding`).
 pub async fn respond(
     state: &(impl ApiServers + ?Sized),
     host: Host,
     post: bool,
+    accepts_gzip: bool,
     uri: &Uri,
 ) -> Result<Body, ApiError> {
     let path = uri.path().strip_prefix('/').unwrap_or(uri.path());
@@ -768,13 +821,20 @@ pub async fn respond(
         None => server.clonify(),
     };
 
-    let body = route_body(route.name, server, &params, file_path.as_deref()).await?;
-    if body.bytes.len() > max_bytes {
+    let body = route_body(
+        route.name,
+        server,
+        &params,
+        file_path.as_deref(),
+        accepts_gzip,
+    )
+    .await?;
+    if body.decoded_len > max_bytes {
         return Err(ApiError {
             status: StatusCode::NOT_ACCEPTABLE,
             body: json!({
                 "error": "The response is bigger than max_bytes",
-                "bytes": body.bytes.len(),
+                "bytes": body.decoded_len,
                 "max_bytes": max_bytes,
             }),
         });
@@ -807,7 +867,7 @@ pub async fn respond_parts(
     path_and_query: &str,
 ) -> (u16, &'static str, Vec<u8>) {
     let result = match path_and_query.parse::<Uri>() {
-        Ok(uri) => respond(state, host, post, &uri).await,
+        Ok(uri) => respond(state, host, post, false, &uri).await,
         Err(_) => Err(bad("Malformed URL")),
     };
     match result {
@@ -835,6 +895,7 @@ async fn route_body(
     server: Box<dyn AbstractServer + Send + Sync>,
     params: &Params,
     file_path: Option<&str>,
+    accepts_gzip: bool,
 ) -> Result<Body, ApiError> {
     let error = |e| server_error(route, e);
     match route {
@@ -945,10 +1006,7 @@ async fn route_body(
                 return Err(bad("revs must be revisions (hexadecimal)"));
             }
             let json = server.commit_info_json(revs).await.map_err(error)?;
-            Ok(Body {
-                content_type: "application/json",
-                bytes: json.into_bytes(),
-            })
+            Ok(Body::new("application/json", json.into_bytes()))
         }
         "map-rev" => {
             let kind = params.required("kind")?;
@@ -1031,10 +1089,7 @@ async fn route_body(
                 .hyperblame_json(&commit, path, file)
                 .await
                 .map_err(error)?;
-            Ok(Body {
-                content_type: "application/json",
-                bytes: json.into_bytes(),
-            })
+            Ok(Body::new("application/json", json.into_bytes()))
         }
         "stack-strip" => {
             let commit = commit_param(params)?;
@@ -1053,10 +1108,7 @@ async fn route_body(
                 .stack_strip_json(stack, &commit, path)
                 .await
                 .map_err(error)?;
-            Ok(Body {
-                content_type: "application/json",
-                bytes: json.into_bytes(),
-            })
+            Ok(Body::new("application/json", json.into_bytes()))
         }
         "explore" => {
             let revs: Vec<String> = params
@@ -1174,15 +1226,30 @@ async fn route_body(
                 return Err(not_found(format!("No such file: {}", path)));
             }
             match server.fetch_raw_source(path).await {
-                Ok(text) => Ok(Body {
-                    content_type: "text/plain; charset=utf-8",
-                    bytes: text.into_bytes(),
-                }),
+                Ok(text) => Ok(Body::new("text/plain; charset=utf-8", text.into_bytes())),
                 Err(_) => Err(not_found(format!("No such file: {}", path))),
             }
         }
         "analysis" => {
             let path = file_path.unwrap_or_default();
+            // (A normalized analysis file as it is, gzipped, rather than its
+            // records parsed, processed and serialized in memory; nginx asks
+            // for gzip, and decompresses it for clients which don't.)
+            if accepts_gzip && let Some(file) = server.normalized_analysis_file(path) {
+                let bytes = tokio::fs::read(&file)
+                    .await
+                    .map_err(|_| not_found(format!("No analysis of {}", path)))?;
+                // (gzip's trailer has the decoded length, mod 2^32.)
+                let decoded_len = bytes.len().checked_sub(4).map_or(0, |at| {
+                    u32::from_le_bytes(bytes[at..].try_into().unwrap()) as usize
+                });
+                return Ok(Body {
+                    content_type: "application/x-ndjson",
+                    bytes,
+                    encoding: Some("gzip"),
+                    decoded_len,
+                });
+            }
             let Ok(mut records) = server.fetch_raw_analysis(path).await else {
                 return Err(not_found(format!("No analysis of {}", path)));
             };
@@ -1191,10 +1258,7 @@ async fn route_body(
                 serde_json::to_writer(&mut bytes, &record).unwrap_or_default();
                 bytes.push(b'\n');
             }
-            Ok(Body {
-                content_type: "application/x-ndjson",
-                bytes,
-            })
+            Ok(Body::new("application/x-ndjson", bytes))
         }
         "changed-lines" => {
             let spec = params.required("spec")?;
@@ -1342,6 +1406,26 @@ async fn route_body(
 #[cfg(test)]
 pub(crate) mod fake {
     use super::*;
+
+    /// `dir/a.cpp`'s normalized analysis file (see `Fake`), gzipped.
+    pub fn normalized_fixture() -> std::path::PathBuf {
+        use std::io::Write;
+        static PATH: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+        PATH.get_or_init(|| {
+            let path =
+                std::env::temp_dir().join(format!("data-api-normalized-{}.gz", std::process::id()));
+            let mut gz = flate2::write::GzEncoder::new(
+                std::fs::File::create(&path).unwrap(),
+                flate2::Compression::default(),
+            );
+            gz.write_all(b"{\"loc\":\"1:4-5\",\"sym\":\"A\"}\n")
+                .unwrap();
+            gz.finish().unwrap();
+            path
+        })
+        .clone()
+    }
+
     use crate::abstract_server::{
         ErrorDetails, FileMatches, HtmlFileRoot, Result, SearchfoxIndexRoot, TextMatches, TreeInfo,
     };
@@ -1402,6 +1486,9 @@ pub(crate) mod fake {
             _path: &str,
         ) -> Result<Option<crate::file_format::code_coverage_report::NodeMetadata>> {
             Err(ServerError::Unsupported)
+        }
+        fn normalized_analysis_file(&self, path: &str) -> Option<String> {
+            (path == "dir/a.cpp").then(|| normalized_fixture().to_string_lossy().into_owned())
         }
         async fn fetch_raw_analysis<'a>(&self, path: &str) -> Result<BoxStream<'a, Value>> {
             if path != "dir/a.cpp" {
@@ -1486,7 +1573,7 @@ pub(crate) mod fake {
 
 #[cfg(test)]
 mod tests {
-    use super::fake::Fake;
+    use super::fake::{Fake, normalized_fixture};
     use super::*;
 
     struct FakeServers;
@@ -1500,7 +1587,7 @@ mod tests {
     /// The status and body of the response for `url`.
     async fn get(url: &str) -> (StatusCode, String) {
         let uri: Uri = url.parse().unwrap();
-        match respond(&FakeServers, Host::PipelineServer, false, &uri).await {
+        match respond(&FakeServers, Host::PipelineServer, false, false, &uri).await {
             Ok(body) => (StatusCode::OK, String::from_utf8(body.bytes).unwrap()),
             Err(error) => (error.status, error.body.to_string()),
         }
@@ -1616,6 +1703,43 @@ mod tests {
         );
     }
 
+    /// A normalized analysis file is served as it is, gzipped, to requests
+    /// taking gzip (with its decoded length checked against `max_bytes`),
+    /// and parsed and serialized for the others.
+    #[tokio::test]
+    async fn test_normalized_analysis() {
+        let uri: Uri = "/fake/api/v1/analysis/dir/a.cpp".parse().unwrap();
+        let body = respond(&FakeServers, Host::PipelineServer, false, true, &uri)
+            .await
+            .unwrap();
+        assert_eq!(body.encoding, Some("gzip"));
+        assert_eq!(body.bytes, std::fs::read(normalized_fixture()).unwrap());
+        assert_eq!(
+            body.decoded_len,
+            "{\"loc\":\"1:4-5\",\"sym\":\"A\"}\n".len()
+        );
+        let response = body.into_response();
+        assert_eq!(response.headers()[header::CONTENT_ENCODING], "gzip");
+        assert_eq!(response.headers()[header::VARY], "Accept-Encoding");
+
+        let plain = respond(&FakeServers, Host::PipelineServer, false, false, &uri)
+            .await
+            .unwrap();
+        assert_eq!(plain.encoding, None);
+        assert_eq!(plain.bytes, b"{\"loc\":\"1:4-5\",\"sym\":\"A\"}\n");
+
+        let small: Uri = "/fake/api/v1/analysis/dir/a.cpp?max_bytes=10"
+            .parse()
+            .unwrap();
+        assert_eq!(
+            respond(&FakeServers, Host::PipelineServer, false, true, &small)
+                .await
+                .unwrap_err()
+                .status,
+            StatusCode::NOT_ACCEPTABLE
+        );
+    }
+
     #[tokio::test]
     async fn test_params() {
         assert_eq!(
@@ -1682,6 +1806,7 @@ mod tests {
             respond(
                 &FakeServers,
                 Host::WebServer,
+                false,
                 false,
                 &"/fake/api/v1/try-import?push=0123456789ab".parse().unwrap()
             )

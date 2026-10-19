@@ -315,6 +315,15 @@ impl AbstractServer for TryOverlay {
         Ok(Box::pin(tokio_stream::iter(values)))
     }
 
+    fn normalized_analysis_file(&self, sf_path: &str) -> Option<String> {
+        // (The base's, for the files the push doesn't change.)
+        let path = sf_path.strip_prefix('/').unwrap_or(sf_path);
+        if self.delta.analysis_file(path).is_some() || self.delta.change(path).is_some() {
+            return None;
+        }
+        self.base.normalized_analysis_file(sf_path)
+    }
+
     async fn fetch_raw_source(&self, sf_path: &str) -> Result<String> {
         let path = sf_path.strip_prefix('/').unwrap_or(sf_path);
         self.source_at_head(path).await

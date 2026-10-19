@@ -13,4 +13,7 @@ function uncompress_dir {
 }
 
 uncompress_dir "${INDEX_ROOT}/dir/"
+# (The analysis files aren't the gzipped ones the stamp is of anymore; see
+# compress-outputs.sh.)
+rm -f "${INDEX_ROOT}/analysis-normalized"
 uncompress_dir "${INDEX_ROOT}/analysis/"

@@ -70,5 +70,23 @@ function idempotently_gzip_dir_no_touch {
   popd
 }
 
+# The analysis files are written as their readers read them (escaped and
+# with their locals' symbols processed), gzipped, with zero-length markers,
+# by normalize-analyses (see its comment): `.gz`-suffixed files first, as
+# `compress_dir_with_touch` does, a batch of files per process.  Then the
+# tree's `analysis-normalized` stamp says so, so that the data API serves
+# them as they are (see `LocalIndex::normalized_analysis_file`).
+function normalize_analysis_dir {
+  echo "Normalizing and compressing the analysis files in $1"
+  rm -f "${INDEX_ROOT}/analysis-normalized"
+  pushd $1
+  find . -type f > ../compress-file-list
+  { egrep '\.gz$' ../compress-file-list || test $? = 1; } | parallel --pipe -N 500 --halt now,fail=1 normalize-analyses
+  { egrep -v '\.gz$' ../compress-file-list || test $? = 1; } | parallel --pipe -N 500 --halt now,fail=1 normalize-analyses
+  rm -f ../compress-file-list
+  popd
+  echo 1 > "${INDEX_ROOT}/analysis-normalized"
+}
+
 compress_dir_with_touch "${INDEX_ROOT}/dir/"
-compress_dir_with_touch "${INDEX_ROOT}/analysis/"
+normalize_analysis_dir "${INDEX_ROOT}/analysis/"
