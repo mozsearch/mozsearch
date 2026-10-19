@@ -4,7 +4,7 @@ expression: "&fb.contents"
 input_file: inputs/dataflow/symbol/field-at-use-backward-dot
 ---
 digraph dataflow {
-  rankdir=TB; compound=true;
+  rankdir=TB; compound=true; newrank=true;
   node [shape=box, fontname="monospace", fontsize=10, style=rounded];
   edge [fontname="monospace", fontsize=9];
   subgraph cluster_0 {

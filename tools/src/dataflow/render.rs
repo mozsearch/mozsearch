@@ -111,7 +111,10 @@ fn title(graph: &TraceGraph) -> String {
 pub fn render_dot(graph: &TraceGraph, options: &DotOptions) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "digraph dataflow {{");
-    let _ = writeln!(out, "  rankdir=TB; compound=true;");
+    // (newrank: dot's own ranking of clusters can't rank some traces, "trouble
+    // in init_rank", and newrank's layouts of the others are the same or
+    // about as compact, as a function's cluster has no clusters in it.)
+    let _ = writeln!(out, "  rankdir=TB; compound=true; newrank=true;");
     if options.title {
         let mut label = escape(&title(graph));
         for note in &graph.notes {

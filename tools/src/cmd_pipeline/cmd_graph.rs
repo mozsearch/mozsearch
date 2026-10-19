@@ -391,13 +391,29 @@ impl PipelineCommand for GraphCommand {
             GraphFormat::PNG => (Format::Png, "image/png".to_string()),
             _ => (Format::Dot, "text/x-dot".to_string()),
         };
-        let mut exec_commands = vec![CommandArg::Format(format)];
-        exec_commands.push(match self.args.layout {
-            GraphLayout::Dot => CommandArg::Layout(Layout::Dot),
-            GraphLayout::Neato => CommandArg::Layout(Layout::Neato),
-            GraphLayout::Fdp => CommandArg::Layout(Layout::Fdp),
-        });
-        let graph_contents = exec(dot_graph, &mut PrinterContext::default(), exec_commands)?;
+        let layout = match self.args.layout {
+            GraphLayout::Dot => Layout::Dot,
+            GraphLayout::Neato => Layout::Neato,
+            GraphLayout::Fdp => Layout::Fdp,
+        };
+        let exec_commands = || vec![CommandArg::Format(format), CommandArg::Layout(layout)];
+        // dot's ranking of clusters can fail to rank some graphs ("trouble in
+        // init_rank"), which newrank's doesn't, but newrank leaves whitespace
+        // in nested clusters (see `HierarchicalNode::render`), so it's
+        // only for the graphs dot can't lay out otherwise.
+        let graph_contents = match exec(
+            dot_graph.clone(),
+            &mut PrinterContext::default(),
+            exec_commands(),
+        ) {
+            Ok(contents) => contents,
+            Err(err) if layout == Layout::Dot => {
+                let mut dot_graph = dot_graph;
+                dot_graph.add_stmt(stmt!(attr!("newrank", "true")));
+                exec(dot_graph, &mut PrinterContext::default(), exec_commands()).map_err(|_| err)?
+            }
+            Err(err) => Err(err)?,
+        };
         match use_format {
             GraphFormat::Json => Ok(PipelineValues::SymbolGraphCollection(graphs)),
             GraphFormat::MozsearchInteractive => {
