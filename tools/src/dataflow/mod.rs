@@ -5,6 +5,7 @@
 //! values are followed).
 
 pub mod frontend;
+pub mod impact;
 pub mod ir;
 pub mod oracle;
 pub mod records;

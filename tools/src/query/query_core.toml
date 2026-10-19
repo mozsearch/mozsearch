@@ -461,7 +461,8 @@ args.max-hops = "$0"
 # of the query's revision (the indexed one, or, with `rev`, a try push's
 # head's), as a subway map (see static/js/subway.js): `slice-cluster` shows
 # one of them (1 for the biggest), and `slice-format` (svg, the dataflow
-# graph; json, text, dot) something other than the map.
+# graph; json, text, dot; lines, its changed functions' lines on their
+# dataflow, see tools/src/dataflow/impact.rs) something other than the map.
 [term.slice-rev]
 [[term.slice-rev.group.slicing]]
 command = "dataflow"

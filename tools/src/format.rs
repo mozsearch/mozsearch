@@ -9371,11 +9371,14 @@ fn excerpt_statements(
 /// changed, `c`, how much they matter as the structure around changes, `s`,
 /// see `excerpt_structure`, and the first lines of the statements they
 /// continue, `u`, see `excerpt_statements`): all of the changed definitions'
-/// lines, or
-/// for big ones the lines around their changes, and the removed lines
-/// (`removed`: after which line of the "to" file, their lines in the "from"
-/// file, and their HTML), and the file's stack strip (`strip`).  The page's
-/// panel chooses which lines to show by how much room it has.
+/// lines, or for big ones the lines around their changes, and the removed
+/// lines (`removed`: after which line of the "to" file, their lines in the
+/// "from" file, and their HTML), and the file's stack strip (`strip`).  And
+/// for a try push with a semantic analysis, the URL of its slicing's lines on
+/// its changes' dataflow (`dataflow`; see `dataflow::impact`), which are its
+/// rebased head's, and the head's lines of the lines, if they're not the
+/// same (`head_lines`).  The page's panel chooses which lines to show by how
+/// much room it has.
 pub fn outline_excerpts_json(
     server: &(dyn AbstractServer + Send + Sync),
     tree_name: &str,
@@ -9572,6 +9575,40 @@ pub fn outline_excerpts_json(
             .ok()
             .and_then(|json| serde_json::from_str::<serde_json::Value>(&json).ok())
     };
+
+    // (For a try push with a semantic analysis, its slicing's lines on its
+    // changes' dataflow, by its rebased head's lines, which may not be the
+    // file's at `to` if the push was rebased past changes to it.)
+    let (dataflow, head_lines) = match excerpt_try_slicing(server, stack) {
+        Some((base, head)) => {
+            let head_text = text_at(&head, path)?;
+            let head_lines: Option<BTreeMap<u32, u32>> = (head_text != to_text).then(|| {
+                let mut map = BTreeMap::new();
+                for op in similar::TextDiff::from_lines(&to_text, &head_text).ops() {
+                    let (tag, old, new) = op.as_tag_tuple();
+                    if tag == similar::DiffTag::Equal {
+                        for (to_line, head_line) in old.zip(new) {
+                            if wanted.contains(&(to_line as u32 + 1)) {
+                                map.insert(to_line as u32 + 1, head_line as u32 + 1);
+                            }
+                        }
+                    }
+                }
+                map
+            });
+            let query = format!("slice-rev:{}..{} slice-format:lines", base, head);
+            (
+                Some(format!(
+                    "/{}/query/default?q={}&rev={}",
+                    tree_name,
+                    urlencoding::encode(&query),
+                    head
+                )),
+                head_lines,
+            )
+        }
+        None => (None, None),
+    };
     serde_json::to_string(&json!({
         "path": path,
         "from_path": diff.from_path,
@@ -9586,8 +9623,27 @@ pub fn outline_excerpts_json(
         "lines": lines,
         "removed": removed_rows,
         "strip": strip,
+        "dataflow": dataflow,
+        "head_lines": head_lines,
     }))
     .map_err(|_| "Excerpt problems")
+}
+
+/// The base and rebased head of the try push whose stack's URL in the tree is
+/// `stack` (ex: "try/abcdef012345"), if it has a semantic analysis (see
+/// `try_delta`), whose slicing's lines on its changes' dataflow its files'
+/// excerpts prefer (see `outline_excerpts_json`).
+fn excerpt_try_slicing(
+    server: &(dyn AbstractServer + Send + Sync),
+    stack: &str,
+) -> Option<(String, String)> {
+    let push = stack.strip_prefix("try/")?.to_string();
+    let server_ = server.clonify();
+    let head = run_on_runtime(async move { server_.try_push(&push).await })
+        .ok()??
+        .semantic_head?;
+    let base = server.try_overlay(&head)?.try_delta_meta()?.base;
+    Some((base, head))
 }
 
 /// An explore page with its `data` (see `explore_data`), and its files'

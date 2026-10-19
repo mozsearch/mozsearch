@@ -227,11 +227,12 @@ const PRECOMPUTE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 /// semantic analysis (see `try_delta`): its canvas's page (see
 /// `format::format_try_canvas`), written as a sidecar file, as its first
 /// request's would be (see `write_page_sidecar`), and its slicing, in the
-/// formats its pages ask for (the canvas's clusters' JSON and the slicing's
-/// subway map, the "Open the slicing" link's), which the pipeline-server's
+/// formats its pages ask for (the canvas's clusters' JSON, the slicing's
+/// subway map, the "Open the slicing" link's, and the lines on its changes'
+/// dataflow, its excerpts'; see `format::outline_excerpts_json`), which the pipeline-server's
 /// step cache keeps (see `tools::step_cache`).  (Those are also lost when the
 /// servers start over with another index or binary, after which they're
-/// computed again when asked for.)  Failures are logged.
+/// computed again when asked for.)  What happened to each is logged.
 fn precompute_try_push(cfg: &config::Config, tree_name: &str, rev: &str) {
     let started = Instant::now();
     let Some(tree_config) = cfg.trees.get(tree_name) else {
@@ -253,17 +254,23 @@ fn precompute_try_push(cfg: &config::Config, tree_name: &str, rev: &str) {
         return;
     };
 
+    // (What happened to each, for the log.)
+    let mut outcomes = vec![];
     let mut html = Vec::new();
     match format::format_try_canvas(server.as_ref(), tree_name, &head, &mut html) {
         Ok(()) => {
-            sidecars::write(
+            let written = sidecars::write(
                 &tree_config.paths.index_path,
                 tree_name,
                 &format!("rev-canvas/{}.page.html", head),
                 &String::from_utf8_lossy(&html),
             );
+            outcomes.push(format!(
+                "canvas {}",
+                if written { "written" } else { "not written" }
+            ));
         }
-        Err(err) => log::warn!("Couldn't precompute {}'s canvas: {}", rev, err),
+        Err(err) => outcomes.push(format!("canvas failed: {}", err)),
     }
 
     // (The pipeline-server's, as its `PIPELINE_SERVER_ADDR` says, here.)
@@ -271,11 +278,20 @@ fn precompute_try_push(cfg: &config::Config, tree_name: &str, rev: &str) {
     let addr = addr.replace("0.0.0.0", "127.0.0.1");
     let slicing = format!("slice-rev:{}..{}", base, head);
     let queries = [
-        (format!("{} slice-format:json", slicing), "application/json"),
-        (slicing.clone(), "text/html"),
+        (
+            "json",
+            format!("{} slice-format:json", slicing),
+            "application/json",
+        ),
+        ("subway", slicing.clone(), "text/html"),
+        (
+            "lines",
+            format!("{} slice-format:lines", slicing),
+            "application/json",
+        ),
     ];
     let client = reqwest::Client::new();
-    for (query, accept) in queries {
+    for (name, query, accept) in queries {
         let url = format!(
             "http://{}/{}/query/default?q={}&rev={}",
             addr,
@@ -288,23 +304,28 @@ fn precompute_try_push(cfg: &config::Config, tree_name: &str, rev: &str) {
             .header("Accept", accept)
             .timeout(PRECOMPUTE_TIMEOUT)
             .send();
-        match tokio::runtime::Handle::current().block_on(request) {
-            Ok(response) if response.status().is_success() => {}
-            Ok(response) => {
-                log::warn!(
-                    "Couldn't precompute {}'s {}: {}",
-                    rev,
-                    query,
-                    response.status()
-                )
-            }
-            Err(err) => log::warn!("Couldn't precompute {}'s {}: {}", rev, query, err),
-        }
+        let query_started = Instant::now();
+        // (With its body, which is what takes long to compute.)
+        let outcome = tokio::runtime::Handle::current().block_on(async {
+            let response = request.await?;
+            let status = response.status();
+            response.bytes().await.map(|_| status)
+        });
+        outcomes.push(match outcome {
+            Ok(status) => format!(
+                "{} {} ({:.1} s)",
+                name,
+                status.as_u16(),
+                query_started.elapsed().as_secs_f64()
+            ),
+            Err(err) => format!("{} failed: {}", name, err),
+        });
     }
     eprintln!(
-        "Precomputed try push {}'s canvas and slicing in {:.1} s",
+        "Precomputed try push {}'s canvas and slicing in {:.1} s: {}",
         rev,
-        started.elapsed().as_secs_f64()
+        started.elapsed().as_secs_f64(),
+        outcomes.join(", ")
     );
 }
 

@@ -10,8 +10,10 @@
  * the definition's own changes (added lines, and removed ones) are always
  * shown, and the other lines by the most they matter as the structure around
  * the changes (ex: the condition of the `if` a change is in; see
- * `format::excerpt_structure`), by their nearness to changes, and as the
- * definition's first line, as many as fit in the panel's room (the fancy
+ * `format::excerpt_structure`), on the changes' dataflow, for try pushes
+ * with a semantic analysis (ex: where a value a changed line reads was
+ * written; see tools/src/dataflow/impact.rs), by their nearness to changes,
+ * and as the definition's first line, as many as fit in the panel's room (the fancy
  * bar's height less its other sections'), with "⋮ N lines" for the lines
  * between them.  Each line has the stack strip of the commits which changed
  * it (see stack-strip.js), numbered as the page's commits are.
@@ -61,6 +63,46 @@
     return fetches.get(url);
   }
 
+  // A try push's slicing's lines on its changes' dataflow (see
+  // `format::outline_excerpts_json`'s `dataflow`), by file, once loaded.
+  const dataflows = new Map();
+  const loadedDataflows = new Map();
+  function dataflowData(url) {
+    if (!dataflows.has(url)) {
+      dataflows.set(url, fetch(url, { headers: { Accept: "application/json" } })
+        .then(response => (response.ok ? response.json() : null))
+        .then(json => {
+          const files = json?.JsonValue?.value?.files || {};
+          loadedDataflows.set(url, files);
+          return files;
+        })
+        .catch(() => loadedDataflows.set(url, {})));
+    }
+    return dataflows.get(url);
+  }
+
+  // A file's dataflow lines, by its lines at the excerpts' "to" revision
+  // (the slicing's are its rebased head's; see `head_lines`).
+  function dataflowLines(data) {
+    const lines = loadedDataflows.get(data.dataflow)?.[data.path];
+    const byLine = new Map();
+    if (!lines) {
+      return byLine;
+    }
+    if (data.head_lines) {
+      for (const [line, head] of Object.entries(data.head_lines)) {
+        if (lines[head]) {
+          byLine.set(Number(line), lines[head]);
+        }
+      }
+    } else {
+      for (const [line, impact] of Object.entries(lines)) {
+        byLine.set(Number(line), impact);
+      }
+    }
+    return byLine;
+  }
+
   // The row whose excerpt is shown, whether it's kept (clicked), and the
   // latest request's number, so that slower earlier ones don't replace it.
   let shown = null;
@@ -81,6 +123,13 @@
       const data = await excerptsData(file.dataset.excerpts);
       if (number == request) {
         render(row, data);
+      }
+      // (Again with the dataflow's lines once they're loaded.)
+      if (data.dataflow && !loadedDataflows.has(data.dataflow)) {
+        await dataflowData(data.dataflow);
+        if (number == request) {
+          render(row, data);
+        }
       }
     } catch (e) {
       if (number == request) {
@@ -157,11 +206,14 @@
       }
       removedAfter.delete(after);
     };
+    const dataflow = dataflowLines(data);
     for (const n of lines) {
       addRemoved(n - 1);
       const line = data.lines[n];
+      const impact = dataflow.get(n);
       rows.push({
         line: n, html: line.h, changed: !!line.c, own: own.has(n), s: line.s || 0, u: line.u,
+        d: impact?.d || 0, why: impact?.why || [],
       });
     }
     for (const after of [...removedAfter.keys()].sort((a, b) => a - b)) {
@@ -214,7 +266,7 @@
     const isDefinition = key != "top" && !key.startsWith("from:");
     const changedStatements = new Set(own.flatMap(i => statement(i)));
     const scored = rows.map((row, i) => {
-      const scores = [row.s, NEARNESS[distance[i]] || 0];
+      const scores = [row.s, row.d || 0, NEARNESS[distance[i]] || 0];
       if (changedStatements.has(i)) {
         scores.push(CHANGED_STATEMENT);
       }
@@ -335,7 +387,10 @@
       } else if (candidate.changed) {
         div.classList.add("excerpt-added");
       }
-      if (candidate.s && !candidate.changed && !candidate.removed) {
+      if (candidate.d && !candidate.changed && !candidate.removed) {
+        div.classList.add("excerpt-dataflow");
+        div.title = candidate.why.join("\n");
+      } else if (candidate.s && !candidate.changed && !candidate.removed) {
         div.classList.add("excerpt-structure");
         div.title = "Shown as the structure around the changes";
       }

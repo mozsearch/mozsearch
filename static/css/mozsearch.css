@@ -3422,6 +3422,9 @@ h2.sp-called-heading {
 .excerpt-structure > .excerpt-lineno {
   box-shadow: inset -2px 0 var(--page-subtle-foreground);
 }
+.excerpt-dataflow > .excerpt-lineno {
+  box-shadow: inset -2px 0 #f28e2b;
+}
 .excerpt-gap {
   padding-inline-start: 1em;
   color: var(--page-subtle-foreground);

@@ -208,6 +208,34 @@ add_task(async function test_TryDeltaSubway() {
   ok(doc().querySelector(`.sw-track[data-line="${line.id}"]`), "and checking it shows it again");
 });
 
+// A try push's page's excerpts of its changed definitions (see
+// test_Explore.js's test_ExploreExcerpts) prefer the lines on its changes'
+// dataflow, from its slicing (`slice-format:lines`; see
+// tools/src/dataflow/impact.rs), by its rebased head's lines.
+add_task(async function test_TryDeltaExcerpts() {
+  const head = await importPush();
+  const file = doc().querySelector('.explore-file[data-path="widget.cpp"]');
+  ok(file?.dataset.excerpts, "The push's files have excerpts");
+  const win = frame.contentWindow;
+  const data = await (await win.fetch(file.dataset.excerpts, { cache: "no-store" })).json();
+  ok(decodeURIComponent(data.dataflow || "").includes("slice-format:lines") &&
+     data.dataflow.endsWith(`&rev=${head}`),
+     "which name its slicing's lines on its changes' dataflow");
+  const response = await win.fetch(data.dataflow, {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  ok(response.ok, "which the pipeline-server gives");
+  ok((await response.json())?.JsonValue?.value?.files, "by file");
+
+  const row = [...file.querySelectorAll("tr[data-range]")]
+    .find(r => r.querySelector(".explore-outline-name").textContent.includes("Frob"));
+  TestUtils.dispatchMouseEvent("mouseover", row);
+  await waitForCondition(() => doc().querySelector("#panel-excerpt .excerpt-added"),
+                         "Hovering over a changed definition shows its excerpt");
+  ok(doc().querySelector("#panel-excerpt .excerpt-removed"), "with the lines it removed");
+});
+
 add_task(async function test_TryDeltaUnanalyzedFiles() {
   const head = await importPush();
 

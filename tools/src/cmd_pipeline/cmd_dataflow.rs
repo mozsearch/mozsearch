@@ -40,6 +40,10 @@ pub enum DataflowFormat {
     /// A slicing's clusters as a subway map (see `dataflow::subway`), as
     /// JSON for static/js/subway.js (for the web).
     Subway,
+    /// The lines of a slicing's changed functions on their changes'
+    /// dataflow, and why (see `dataflow::impact`), as JSON for explore pages'
+    /// excerpts (static/js/outline-excerpts.js).
+    Lines,
 }
 
 /// Naive dataflow analysis of a source file's functions (see `dataflow`):
@@ -876,6 +880,15 @@ impl DataflowCommand {
             // (Its "<"s escaped, as it's inlined in a page's script.)
             return text(value.to_string().replace('<', "\\u003c"), SUBWAY_MIME);
         }
+        if self.args.format == DataflowFormat::Lines {
+            let identity = cache_args.as_ref().and_then(|_| server.cache_identity());
+            let args = format!("{:?} cluster {:?}", cache_args, self.args.slice_cluster);
+            let value = crate::step_cache::cached(identity, "slice-lines", &args, || async {
+                Ok::<_, ServerError>(crate::dataflow::impact::slicing_lines(tracer, &slicing).await)
+            })
+            .await?;
+            return Ok(PipelineValues::JsonValue(JsonValue { value }));
+        }
         match self.args.format {
             DataflowFormat::Text => text(render_slicing_text(&slicing), "text/plain"),
             DataflowFormat::Dot => text(
@@ -893,7 +906,7 @@ impl DataflowCommand {
             DataflowFormat::Json => Ok(PipelineValues::JsonValue(JsonValue {
                 value: serde_json::to_value(&slicing).unwrap(),
             })),
-            DataflowFormat::Subway => unreachable!(),
+            DataflowFormat::Subway | DataflowFormat::Lines => unreachable!(),
         }
     }
 
@@ -923,8 +936,8 @@ impl DataflowCommand {
             DataflowFormat::Json => Ok(PipelineValues::JsonValue(JsonValue {
                 value: serde_json::to_value(&tracer.graph).unwrap(),
             })),
-            DataflowFormat::Subway => Err(data_error(
-                "Subway maps are of slicings (slice-rev)".to_string(),
+            DataflowFormat::Subway | DataflowFormat::Lines => Err(data_error(
+                "Subway maps and dataflow lines are of slicings (slice-rev)".to_string(),
             )),
         }
     }
