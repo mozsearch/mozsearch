@@ -195,3 +195,33 @@ void TaintEntryBoth(const Ticket& aTicket, const Ticket& aOther) {
   UseTicket(aTicket);
   UseTicket(aOther);
 }
+
+// (Taint by ontology-mapping.toml's labels, on stand-ins named as Gecko's
+// are: nsIPrincipal is "taint:content", and ContentParent::ValidatePrincipal
+// "detaint:0"; defined, as crossref labels only symbols with structured
+// records.)
+class nsIPrincipal {
+ public:
+  virtual bool IsSystemPrincipal() = 0;
+};
+
+namespace mozilla::dom {
+class ContentParent {
+ public:
+  bool ValidatePrincipal(nsIPrincipal* aPrincipal) { return !aPrincipal->IsSystemPrincipal(); }
+};
+}  // namespace mozilla::dom
+
+void UsePrincipal(nsIPrincipal* aPrincipal);
+
+void TaintEntryPrincipal(mozilla::dom::ContentParent* aParent,
+                         nsIPrincipal* aPrincipal) {
+  UsePrincipal(aPrincipal);
+
+  // (Validated from here on.)
+  if (!aParent->ValidatePrincipal(aPrincipal)) {
+    return;
+  }
+
+  UsePrincipal(aPrincipal);
+}
