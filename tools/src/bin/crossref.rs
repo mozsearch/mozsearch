@@ -819,6 +819,54 @@ fn file_recency_items(
 }
 
 #[allow(clippy::too_many_arguments)]
+/// An analysis file's target and structured records, by their locations, as
+/// `read_analysis` with `read_target` and with `read_structured` would read
+/// them, from one read (`read_analysis` groups a location's records in their
+/// order, so each kind's groups are the combined groups' records of that
+/// kind).
+#[allow(clippy::type_complexity)]
+fn read_targets_and_structured(
+    analysis_fname: &str,
+) -> (
+    Vec<WithLocation<Vec<AnalysisTarget>>>,
+    Vec<WithLocation<Vec<AnalysisStructured>>>,
+) {
+    enum Record {
+        Target(AnalysisTarget),
+        Structured(AnalysisStructured),
+    }
+    let records = read_analysis(analysis_fname, &mut |obj, loc, size| match obj
+        .get("target")
+        .is_some()
+    {
+        true => read_target(obj, loc, size).map(Record::Target),
+        false => read_structured(obj, loc, size).map(Record::Structured),
+    });
+    let (mut targets, mut structured) = (vec![], vec![]);
+    for WithLocation { loc, data } in records {
+        let (mut these_targets, mut these_structured) = (vec![], vec![]);
+        for record in data {
+            match record {
+                Record::Target(target) => these_targets.push(target),
+                Record::Structured(record) => these_structured.push(record),
+            }
+        }
+        if !these_targets.is_empty() {
+            targets.push(WithLocation {
+                loc,
+                data: these_targets,
+            });
+        }
+        if !these_structured.is_empty() {
+            structured.push(WithLocation {
+                loc,
+                data: these_structured,
+            });
+        }
+    }
+    (targets, structured)
+}
+
 /// The records of a chunk of the analysis files (see `analysis_chunks`).
 fn read_analysis_files_thread(
     paths: &[Ustr],
@@ -850,7 +898,9 @@ fn read_analysis_files_thread(
         let analysis_fname = format!("{}/analysis/{}", index_path, path);
         let fallback_file_sym: Ustr = ustr(&make_file_sym_from_path(path));
 
-        let analysis = read_analysis(&analysis_fname, &mut read_target);
+        // (Its target and structured records, from one read of it, rather
+        // than one each, which parsed every record twice.)
+        let (analysis, structured_analysis) = read_targets_and_structured(&analysis_fname);
 
         let file_syms = collect_file_syms_from_target(path, &analysis);
 
@@ -868,7 +918,6 @@ fn read_analysis_files_thread(
         // to allow us to ingest the structured records from SCIP indexing that
         // do not actually correspond to a source file.  This is the case for
         // Java imports from the JDK/Kotlin/Android runtimes.
-        let structured_analysis = read_analysis(&analysis_fname, &mut read_structured);
         // (The definitions that should have their own history contexts, and
         // whether they're functions; see `file_recency_items`.)
         let mut context_syms: UstrMap<bool> = UstrMap::default();
