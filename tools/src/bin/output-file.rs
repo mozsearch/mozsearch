@@ -19,7 +19,7 @@ use tools::file_format::per_file_info::read_detailed_file_info;
 use tools::output::BreadcrumbsLinksTo;
 use tools::output::PanelItemLabel;
 use tools::templating::builder::build_and_parse;
-use ustr::ustr;
+use ustr::{Ustr, ustr};
 
 extern crate env_logger;
 extern crate log;
@@ -77,7 +77,9 @@ fn review_load_link(tree_name: &str, load: &serde_json::Value) -> Option<(String
                     Some((url.clone(), url, format!("{} {}", repo, path)))
                 }
                 None => {
-                    let is_doc = [".md", ".markdown", ".rst"].iter().any(|ext| path.ends_with(ext));
+                    let is_doc = [".md", ".markdown", ".rst"]
+                        .iter()
+                        .any(|ext| path.ends_with(ext));
                     let view = if is_doc { "rendered" } else { "source" };
                     Some((
                         format!("/{}/{}/{}", tree_name, view, url_encode_path(path)),
@@ -88,7 +90,11 @@ fn review_load_link(tree_name: &str, load: &serde_json::Value) -> Option<(String
             }
         }
         "fetch_revision" => {
-            let (url, name) = match (load["revision"].as_str(), load["repo"].as_str(), load["hash"].as_str()) {
+            let (url, name) = match (
+                load["revision"].as_str(),
+                load["repo"].as_str(),
+                load["hash"].as_str(),
+            ) {
                 (Some(revision), _, _) => (
                     format!("https://phabricator.services.mozilla.com/{}", revision),
                     revision.to_string(),
@@ -170,12 +176,22 @@ fn main() {
     )
     .unwrap();
 
+    // The paths to output (all of them first, so that the file lookup map
+    // has only theirs; see `FileLookupMap::new_for_paths`).
+    let paths: Vec<Ustr> = io::stdin()
+        .lock()
+        .lines()
+        .map_while(|line| line.ok())
+        .map(|line| ustr(line.trim_end()))
+        .collect();
+
     let pre_lookup_map = Instant::now();
     let file_lookup_path = format!(
         "{}/concise-per-file-info.json",
         tree_config.paths.index_path
     );
-    let file_lookup_map = FileLookupMap::new(&file_lookup_path);
+    let file_lookup_map =
+        FileLookupMap::new_for_paths(&file_lookup_path, &paths.iter().copied().collect());
     writeln!(
         stdout,
         "FileLookupMap loadded, duration: {}us",
@@ -235,12 +251,7 @@ fn main() {
     extension_mapping.insert("hpp", ("source", vec!["cpp", "cc", "cxx"]));
     extension_mapping.insert("hxx", ("source", vec!["cpp", "cc", "cxx"]));
 
-    let mut stdin = io::stdin().lock();
-
-    let mut path_buf = String::new();
-    #[allow(clippy::unit_cmp)]
-    while () == path_buf.clear() && stdin.read_line(&mut path_buf).unwrap() > 0 {
-        let path = ustr(path_buf.trim_end());
+    for path in paths {
         let file_start = Instant::now();
         writeln!(stdout, "File '{}'", path).unwrap();
 
@@ -413,7 +424,12 @@ fn main() {
                     "Go to the rule giving this file its component, in {} on line {}",
                     rule_path, line
                 ),
-                link: format!("/{}/source/{}#{}", tree_name, url_encode_path(rule_path), line),
+                link: format!(
+                    "/{}/source/{}#{}",
+                    tree_name,
+                    url_encode_path(rule_path),
+                    line
+                ),
             });
             source_panel_items.push(PanelItem {
                 label: PanelItemLabel::Plaintext(format!(
@@ -442,7 +458,11 @@ fn main() {
 
         // The review guidance (see review-context.toml) for patches changing
         // the file, by the rules' loads, with links to the rules.
-        for rule in detailed_info.info["review_rules"].as_array().into_iter().flatten() {
+        for rule in detailed_info.info["review_rules"]
+            .as_array()
+            .into_iter()
+            .flatten()
+        {
             let (Some(name), Some(rules_path), Some(line)) = (
                 rule["name"].as_str(),
                 rule["path"].as_str(),

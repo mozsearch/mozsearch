@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::File;
 use std::io::BufReader;
 use std::sync::{Arc, LazyLock, Mutex};
@@ -44,6 +44,54 @@ impl FileLookupMap {
         let components_file = File::open(concise_file_path).unwrap();
         let mut reader = BufReader::new(&components_file);
         let map: UstrMap<ConcisePerFileInfo<Ustr>> = from_reader(&mut reader).unwrap();
+        FileLookupMap {
+            concise_per_file: Arc::new(map),
+        }
+    }
+
+    /// The concise info of only `paths` (ex: an output-file process's files,
+    /// which it looks up only theirs of), rather than the whole tree's:
+    /// firefox-disco's is 268 MB of JSON (541,927 files and directories),
+    /// ~0.8 GB parsed, in each of output.sh's 16 processes.  (The others'
+    /// entries aren't parsed, but skipped.)
+    pub fn new_for_paths(concise_file_path: &str, paths: &HashSet<Ustr>) -> Self {
+        struct Only<'a>(&'a HashSet<Ustr>);
+        impl<'de> serde::de::DeserializeSeed<'de> for Only<'_> {
+            type Value = UstrMap<ConcisePerFileInfo<Ustr>>;
+            fn deserialize<D: serde::Deserializer<'de>>(
+                self,
+                deserializer: D,
+            ) -> std::result::Result<Self::Value, D::Error> {
+                deserializer.deserialize_map(self)
+            }
+        }
+        impl<'de> serde::de::Visitor<'de> for Only<'_> {
+            type Value = UstrMap<ConcisePerFileInfo<Ustr>>;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("paths' concise per-file info")
+            }
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> std::result::Result<Self::Value, A::Error> {
+                let mut out = UstrMap::default();
+                while let Some(path) = map.next_key::<String>()? {
+                    match existing_ustr(&path).filter(|path| self.0.contains(path)) {
+                        Some(path) => {
+                            out.insert(path, map.next_value()?);
+                        }
+                        None => {
+                            map.next_value::<serde::de::IgnoredAny>()?;
+                        }
+                    }
+                }
+                Ok(out)
+            }
+        }
+        use serde::de::DeserializeSeed;
+        let file = File::open(concise_file_path).unwrap();
+        let mut deserializer = serde_json::Deserializer::from_reader(BufReader::new(file));
+        let map = Only(paths).deserialize(&mut deserializer).unwrap();
         FileLookupMap {
             concise_per_file: Arc::new(map),
         }
