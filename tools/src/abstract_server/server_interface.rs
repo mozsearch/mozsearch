@@ -574,6 +574,12 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The data of the tree's landing page (see `format::landing_data`), for
+    /// rendering it at index time (see `cmd_render`).
+    async fn landing(&self) -> Result<Value> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The data of an explore page of the commits `revs`, oldest first (see
     /// `format::explore_data`), whose files link to their views with the
     /// stack strip of the page at `stack_url` (ex: `try/<push>`), if any.

@@ -122,6 +122,24 @@ impl PipelineCommand for RenderCommand {
                 write_file_ensuring_parent_dir(&output_path, &rendered)?;
                 Ok(PipelineValues::Void)
             }
+            // The tree's landing page (see `format::render_landing`), once, as
+            // the tree's state doesn't change.
+            "landing" => {
+                let data = server.landing().await?;
+                let mut rendered = Vec::new();
+                crate::format::render_landing(&tree_info.name, data, &mut rendered).map_err(
+                    |message| {
+                        ServerError::StickyProblem(ErrorDetails {
+                            layer: ErrorLayer::ConfigLayer,
+                            message: message.to_string(),
+                        })
+                    },
+                )?;
+                let output_path =
+                    server.translate_path(SearchfoxIndexRoot::IndexPages, "landing.html")?;
+                write_file_ensuring_parent_dir(&output_path, &String::from_utf8_lossy(&rendered))?;
+                Ok(PipelineValues::Void)
+            }
             unknown => Err(ServerError::StickyProblem(ErrorDetails {
                 layer: ErrorLayer::ConfigLayer,
                 message: format!("Unknown task type: {}", unknown),

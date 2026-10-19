@@ -81,6 +81,11 @@ SEARCHFOX_SERVER=${CONFIG_FILE} \
     SEARCHFOX_TREE=${TREE_NAME} \
     searchfox-tool "$TOOL_CMD"
 
+TOOL_CMD="render landing"
+SEARCHFOX_SERVER=${CONFIG_FILE} \
+    SEARCHFOX_TREE=${TREE_NAME} \
+    searchfox-tool "$TOOL_CMD"
+
 TOOL_CMD="render settings"
 SEARCHFOX_SERVER=${CONFIG_FILE} \
     SEARCHFOX_TREE=${TREE_NAME} \

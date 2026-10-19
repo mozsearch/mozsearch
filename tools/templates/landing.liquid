@@ -1,0 +1,36 @@
+{%- comment -%}
+  A tree's landing page (`/{tree}/`; see `format::format_landing` and
+  `format::landing_data`): a link to browse its source; its system diagrams
+  (block diagrams of its subsystems, by their calls and the data they share,
+  and of each subsystem's classes), if it has roll-ups; and its recently
+  landed bugs, linking to their explore pages, if it has those.
+{%- endcomment -%}
+<div class="landing">
+  <h2>{{ tree }}</h2>
+  {%- if data.head %}
+  <p class="landing-head">Indexed at <a href="/{{ tree }}/commit/{{ data.head.rev }}">{{ data.head.rev | slice: 0, 12 }}</a> ({{ data.head.isoDate | slice: 0, 10 }}).</p>
+  {%- endif %}
+  <p class="landing-browse"><a class="landing-browse-link" href="/{{ tree }}/source/">Browse the source</a>, or search it with the box above.</p>
+  {%- if data.diagrams %}
+  <section class="landing-diagrams">
+    <h3>System diagrams</h3>
+    <p>How the tree's subsystems (its Bugzilla components, or else its main directories) interact: <a class="landing-diagram" href="{{ data.diagrams.calls | escape }}">all of them, by their calls</a>{% if data.diagrams.data %}, or <a class="landing-diagram" href="{{ data.diagrams.data | escape }}">by the data they share</a>{% endif %}; or a subsystem's main classes, and their neighbors:</p>
+    <ul class="landing-subsystems">
+      {%- for subsystem in data.diagrams.subsystems %}
+      <li><a href="{{ subsystem.url | escape }}">{{ subsystem.name | escape }}</a> <span class="landing-count" title="Its calls in, out and within">{{ subsystem.count }}</span></li>
+      {%- endfor %}
+    </ul>
+  </section>
+  {%- endif %}
+  {%- if data.bugs.size > 0 %}
+  <section class="landing-bugs">
+    <h3>Recently landed bugs</h3>
+    <p>The bugs whose commits landed most recently before the indexed revision, newest first (but those backed out since), each linking to what its commits changed, file by file (with how many of its commits landed in the {{ data.bugDays }} days before it):</p>
+    <ul class="landing-bug-list">
+      {%- for bug in data.bugs %}
+      <li><span class="landing-date">{{ bug.isoDate | slice: 0, 10 }}</span> <a class="landing-bug" href="https://bugzilla.mozilla.org/show_bug.cgi?id={{ bug.bug }}">Bug {{ bug.bug }}</a>: <a class="landing-explore" href="/{{ tree }}/explore/bug/{{ bug.bug }}">{% if bug.summary != "" %}{{ bug.summary | escape }}{% else %}its commits{% endif %}</a>{% if bug.commits > 1 %} <span class="landing-count">{{ bug.commits }} commits</span>{% endif %}</li>
+      {%- endfor %}
+    </ul>
+  </section>
+  {%- endif %}
+</div>

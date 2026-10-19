@@ -9837,6 +9837,219 @@ pub fn format_try(
     Ok(false)
 }
 
+/// How many recently landed bugs a tree's landing page lists (see
+/// `recent_bugs`), from at most how many commits, of how many days before the
+/// newest.
+const LANDING_BUGS: usize = 40;
+const LANDING_MAX_COMMITS: usize = 5000;
+const LANDING_DAYS: i64 = 14;
+
+/// A bug whose commits recently landed (see `recent_bugs`).
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub struct RecentBug {
+    pub bug: String,
+    /// Its newest commit's summary line, without its "Bug N - " and its
+    /// reviewers.
+    pub summary: String,
+    /// Its newest commit's date, in UTC.
+    #[serde(rename = "isoDate")]
+    pub iso_date: String,
+    pub commits: usize,
+}
+
+/// The bugs whose commits landed most recently on `head`, newest first, at
+/// most `limit` of them: the bugs of its commits (but merges) of the
+/// `LANDING_DAYS` before the newest (at most `LANDING_MAX_COMMITS` of them),
+/// by their summary lines' leading "Bug N" (not other bugs they mention, ex:
+/// "(follow-up to bug M)"), but those whose newest commit there is a backout
+/// (by any bug it mentions: a landing backed out, and not relanded since).
+pub fn recent_bugs(repo: &Repository, head: Oid, limit: usize) -> Vec<RecentBug> {
+    let Ok(mut walk) = repo.revwalk() else {
+        return vec![];
+    };
+    // (In libgit2's default order, newest first, as `git log`'s, which it
+    // walks as it goes: `Sort::TIME` sorts the whole history first, 7.5 s
+    // rather than 54 ms for firefox-main's last 2 weeks' 2723 commits.)
+    if walk.push(head).is_err() {
+        return vec![];
+    }
+    let mut bugs: Vec<RecentBug> = vec![];
+    // (Each bug's index in `bugs`, or None if it was backed out.)
+    let mut seen: HashMap<String, Option<usize>> = HashMap::new();
+    let mut newest: Option<i64> = None;
+    for oid in walk.take(LANDING_MAX_COMMITS).flatten() {
+        let Ok(commit) = repo.find_commit(oid) else {
+            continue;
+        };
+        let time = commit.time().seconds();
+        if time < *newest.get_or_insert(time) - LANDING_DAYS * 24 * 60 * 60 {
+            break;
+        }
+        if commit.parent_count() > 1 {
+            continue;
+        }
+        let message = String::from_utf8_lossy(commit.message_bytes());
+        let commit_ref = crate::commit_index::commit_ref(&commit);
+        let summary = message.lines().next().unwrap_or("");
+        let bugs_of_commit = match commit_ref.backout {
+            true => crate::commit_index::message_bugs(&message),
+            false => leading_bug(summary).into_iter().collect(),
+        };
+        for bug in bugs_of_commit {
+            match seen.get(&bug) {
+                Some(Some(i)) if !commit_ref.backout => bugs[*i].commits += 1,
+                Some(_) => {}
+                None if commit_ref.backout => {
+                    seen.insert(bug, None);
+                }
+                None => {
+                    seen.insert(bug.clone(), Some(bugs.len()));
+                    bugs.push(RecentBug {
+                        bug,
+                        summary: bug_summary(summary),
+                        iso_date: commit_ref.iso_date.clone(),
+                        commits: 1,
+                    });
+                }
+            }
+        }
+    }
+    bugs.truncate(limit);
+    bugs
+}
+
+/// A commit summary line's leading bug's number (ex: "2083426" for "Bug
+/// 2083426 - Defer throwing X").
+fn leading_bug(summary: &str) -> Option<String> {
+    static LEADING: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"^(?i)\s*bug\s*([1-9][0-9]{2,6})\b").unwrap()
+    });
+    Some(LEADING.captures(summary)?[1].to_string())
+}
+
+/// How many characters of a bug's summary its landing page shows.
+const LANDING_SUMMARY_CHARS: usize = 200;
+
+/// A commit's summary line without its "Bug N - " and its reviewers (ex:
+/// "Defer throwing X." for "Bug 2083426 - Defer throwing X.
+/// r=gfx-reviewers,ahale"), at most `LANDING_SUMMARY_CHARS` of it.
+fn bug_summary(summary: &str) -> String {
+    static PREFIX: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"^(?i)\s*bug\s*[0-9]+\s*[-:,.]*\s*").unwrap()
+    });
+    static REVIEWERS: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+        regex::Regex::new(r"(?:\s+(?:r|sr|a|ir)[=?]\S*)+\s*$").unwrap()
+    });
+    let summary = PREFIX.replace(summary, "");
+    let summary = REVIEWERS.replace(&summary, "").trim().to_string();
+    match summary.char_indices().nth(LANDING_SUMMARY_CHARS) {
+        Some((at, _)) => format!("{}\u{2026}", summary[..at].trim_end()),
+        None => summary,
+    }
+}
+
+/// A query page's URL in the tree, for `query`.
+fn landing_query_url(tree_name: &str, query: &str) -> String {
+    let mut url = url::form_urlencoded::Serializer::new(String::new());
+    url.append_pair("q", query);
+    format!("/{}/query/default?{}", tree_name, url.finish())
+}
+
+/// The data of a tree's landing page (see `format_landing`): its indexed
+/// revision (`head`); its system diagrams, if it has call roll-ups (see
+/// `cmd_block_diagram`): the whole tree's subsystems by calls (and by data, if
+/// it has data roll-ups), and each subsystem's classes, from the whole tree's
+/// call roll-up's members (`subsystems`, most calls first: in, out and
+/// within; see `root_rollup`); and its recently landed bugs (see
+/// `recent_bugs`), if it has explore pages for them (a commit index).  For
+/// local indexes; see `AbstractServer::landing`.
+pub fn landing_data(
+    cfg: &Config,
+    tree_name: &str,
+    root_rollup: Option<crate::file_format::rollup::Rollup>,
+    data_rollups: bool,
+) -> Result<serde_json::Value, &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let quote = |name: &str| match name.contains('\'') {
+        true => format!("\"{}\"", name),
+        false => format!("'{}'", name),
+    };
+    let diagrams = root_rollup.as_ref().map(|rollup| {
+        json!({
+            "calls": landing_query_url(tree_name, "block-diagram:*"),
+            "data": data_rollups.then(|| landing_query_url(tree_name, "block-diagram:* block-edges:data")),
+            "subsystems": rollup
+                .members
+                .iter()
+                .map(|member| json!({
+                    "name": member.pretty,
+                    "count": member.count,
+                    "url": landing_query_url(
+                        tree_name,
+                        &format!("block-diagram:{}", quote(member.pretty.as_str())),
+                    ),
+                }))
+                .collect::<Vec<_>>(),
+        })
+    });
+    let git = tree_config.get_git().ok();
+    let head = git.and_then(|git| git.repo.head().ok()?.peel_to_commit().ok());
+    let explore = git.is_some_and(|git| {
+        git.history.as_ref().is_some_and(|history| {
+            let branch = tree_config.paths.git_branch.as_deref().unwrap_or("HEAD");
+            CommitIndex::open_branch(&Path::new(&history.path).join("commit-index"), branch)
+                .is_some()
+        })
+    });
+    let bugs = match (git, &head) {
+        (Some(git), Some(head)) if explore => recent_bugs(&git.repo, head.id(), LANDING_BUGS),
+        _ => vec![],
+    };
+    Ok(json!({
+        "head": head.as_ref().map(|head| json!({
+            "rev": head.id().to_string(),
+            "isoDate": crate::commit_index::commit_ref(head).iso_date,
+        })),
+        "diagrams": diagrams,
+        "bugs": bugs,
+        "bugDays": LANDING_DAYS,
+    }))
+}
+
+/// A tree's landing page (`/{tree}/`), from its `landing_data`: a link to
+/// browse its source, links to its system diagrams, and its recently landed
+/// bugs, linking to their explore pages.  It's rendered once, at index time,
+/// as the tree's state doesn't change (`searchfox-tool "render landing"`, to
+/// `pages/landing.html`, which nginx serves).
+pub fn render_landing(
+    tree_name: &str,
+    data: serde_json::Value,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let title = format!("{} - mozsearch", tree_name);
+    let opt = Options {
+        title: &title,
+        tree_name,
+        include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
+        revision: None,
+        breadcrumbs_links_to: BreadcrumbsLinksTo::Latest,
+        extra_content_classes: "landing-page",
+        search_rev: None,
+    };
+    output::generate_header(&opt, writer)?;
+    output::generate_panel(&opt, writer, &[], true)?;
+    let globals = liquid::to_object(&json!({
+        "tree": tree_name,
+        "data": data,
+    }))
+    .map_err(|_| "Template problems")?;
+    crate::templating::builder::build_and_parse_landing()
+        .render_to(writer, &globals)
+        .map_err(|_| "Template problems")?;
+    output::generate_footer(&opt, tree_name, "", writer).unwrap();
+    Ok(())
+}
+
 /// The status of the import of the try push `rev` into `server`'s tree.
 fn try_import_status(
     server: &(dyn AbstractServer + Send + Sync),
@@ -9939,6 +10152,88 @@ pub fn render_commit(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_bug_summary() {
+        assert_eq!(
+            super::bug_summary(
+                "Bug 2083426 - Defer throwing webglcontextcreationerror. r=gfx-reviewers,ahale"
+            ),
+            "Defer throwing webglcontextcreationerror."
+        );
+        assert_eq!(
+            super::bug_summary("bug 123: Part 2: fix it r?foo a=bar"),
+            "Part 2: fix it"
+        );
+        assert_eq!(super::bug_summary("Bug 5"), "");
+        let long = format!("Bug 6 - {}", "word ".repeat(100));
+        assert!(super::bug_summary(&long).ends_with("word\u{2026}"));
+        assert_eq!(
+            super::leading_bug("Bug 2083426 - X (bug 777)").as_deref(),
+            Some("2083426")
+        );
+        assert_eq!(super::leading_bug("No bug - X (bug 777)"), None);
+    }
+
+    /// The bugs which landed most recently, newest first: a bug's commits
+    /// counted, and its newest summary; merges skipped; a bug whose newest
+    /// commit is a backout left out, unless it relanded since; and only the
+    /// last `LANDING_DAYS`.
+    #[test]
+    fn test_recent_bugs() {
+        use git2::{Oid, Repository};
+        let dir = std::env::temp_dir().join(format!("recent-bugs-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let repo = Repository::init(&dir).unwrap();
+        let tree_oid = repo.index().unwrap().write_tree().unwrap();
+        let tree = repo.find_tree(tree_oid).unwrap();
+        let day = 24 * 60 * 60;
+        let start = 1_700_000_000;
+        let mut head: Option<Oid> = None;
+        let mut commit = |message: &str, days: i64, extra_parent: Option<Oid>| -> Oid {
+            let sig = git2::Signature::new(
+                "A",
+                "a@example.com",
+                &git2::Time::new(start + days * day, 0),
+            )
+            .unwrap();
+            let parents: Vec<git2::Commit> = head
+                .iter()
+                .chain(extra_parent.iter())
+                .map(|p| repo.find_commit(*p).unwrap())
+                .collect();
+            let parent_refs: Vec<&git2::Commit> = parents.iter().collect();
+            let oid = repo
+                .commit(None, &sig, &sig, message, &tree, &parent_refs)
+                .unwrap();
+            head = Some(oid);
+            oid
+        };
+        commit("Bug 1001 - Too old. r=x", 0, None);
+        commit("Bug 1002 - Part 1: first. r=x", 20, None);
+        commit("Bug 1002 - Part 2: second. r=x", 21, None);
+        commit("Bug 1003 - Landed. r=x", 22, None);
+        commit("Bug 1005 - Follow-up to bug 1006. r=x", 22, None);
+        let side = commit("Bug 1004 - Relanded later. r=x", 23, None);
+        commit("Backed out changeset abc (Bug 1003) for failures", 24, None);
+        commit("Merge autoland to mozilla-central a=merge", 25, Some(side));
+        let head = commit("Bug 1004 - Relanded. r=x", 26, None);
+        let bugs = super::recent_bugs(&repo, head, 10);
+        let got: Vec<(&str, &str, usize)> = bugs
+            .iter()
+            .map(|b| (b.bug.as_str(), b.summary.as_str(), b.commits))
+            .collect();
+        assert_eq!(
+            got,
+            vec![
+                ("1004", "Relanded.", 2),
+                ("1005", "Follow-up to bug 1006.", 1),
+                ("1002", "Part 2: second.", 2)
+            ]
+        );
+        assert_eq!(super::recent_bugs(&repo, head, 1).len(), 1);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     #[test]
     fn test_citation_extent() {
         let extent = |source: &str, first: usize, next: Option<usize>| -> Vec<String> {

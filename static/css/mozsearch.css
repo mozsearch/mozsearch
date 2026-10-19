@@ -3201,6 +3201,38 @@ h2.sp-called-heading {
   background-color: transparent;
 }
 
+/* A tree's landing page; see landing.liquid. */
+.landing {
+  max-width: 120ch;
+  padding: 0 1rem 1rem;
+}
+.landing-browse-link {
+  font-size: 1.2em;
+  font-weight: bold;
+}
+.landing-subsystems {
+  columns: 18em;
+  padding-left: 1.2em;
+}
+.landing-subsystems li {
+  break-inside: avoid;
+}
+.landing-count {
+  font-size: 0.9em;
+  opacity: 0.6;
+}
+.landing-bug-list {
+  padding-left: 0;
+  list-style: none;
+}
+.landing-bug-list li {
+  margin: 0.2em 0;
+}
+.landing-date {
+  font-family: monospace;
+  opacity: 0.7;
+}
+
 /* The /explore/ pages; see explore.liquid. */
 .explore-page,
 .try-import {

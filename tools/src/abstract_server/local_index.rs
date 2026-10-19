@@ -376,6 +376,18 @@ impl AbstractServer for LocalIndex {
         Ok(serde_json::to_value(diff)?)
     }
 
+    async fn landing(&self) -> Result<Value> {
+        // (The whole tree's roll-ups, for its system diagrams.)
+        let root = self
+            .crossref_lookup(&crate::file_format::rollup::root_subsystem_sym())
+            .await?;
+        let data_rollups = root.as_ref().is_some_and(|data| data.data_rollup.is_some());
+        let call_rollup = root.and_then(|data| data.call_rollup);
+        let cfg = self.tree_config_loaded();
+        crate::format::landing_data(&cfg, &self.tree_name, call_rollup, data_rollups)
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
     async fn explore_keys(&self, kind: &str, keys: &str) -> Result<Value> {
         let cfg = self.tree_config_loaded();
         crate::format::explore_page_data(&cfg, &self.tree_name, kind, keys)
