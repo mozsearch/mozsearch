@@ -2184,7 +2184,32 @@ fn xpidl_member_of_ts_sym(sym: &str) -> Option<Ustr> {
         .then(|| ustr(&format!("XPIDL_{}_{}", interface, member)))
 }
 
-/// The calls between functions, for roll-ups, leaving out callees labeled
+/// Test code, for roll-ups, which leave out its calls (ex: the tests of many
+/// subsystems calling GTest made one group of them, in the whole tree's block
+/// diagram): the symbols whose definitions are all in test files (by their
+/// per-file info's path kind; see per-file-info.toml's `pathkind.test`).
+fn test_code(search_result_table: &SearchResultTable, ingestion: &RepoIngestion) -> UstrSet {
+    let test = ustr("test");
+    let is_test = |path: &Ustr| {
+        ingestion
+            .state
+            .concise_per_file
+            .get(path)
+            .is_some_and(|info| info.path_kind == test)
+    };
+    search_result_table
+        .iter()
+        .filter(|(_, kinds)| {
+            kinds
+                .get(&AnalysisKind::Def)
+                .is_some_and(|paths| !paths.is_empty() && paths.keys().all(is_test))
+        })
+        .map(|(sym, _)| *sym)
+        .collect()
+}
+
+/// The calls between functions, for roll-ups, leaving out test code's (see
+/// `test_code`), and callees labeled
 /// `calls-diagram:stop` (assertions, logging, ...), as call diagrams do, and
 /// other plumbing (`is_boring_callee`).  Some calls stand for others: an
 /// IPDL message's `Send` method's for its actors' `Recv` implementations',
@@ -2198,6 +2223,7 @@ fn call_edges(
     meta_table: &MetaTable,
     callees_table: &CalleesTable,
     categories: &UstrMap<Category>,
+    test_code: &UstrSet,
 ) -> Vec<UnitEdge> {
     let stop = ustr("calls-diagram:stop");
     // (IPDL messages' generated `Send` methods, and their actors' `Recv`
@@ -2291,7 +2317,7 @@ fn call_edges(
         let Some(caller_meta) = meta_table.get(caller) else {
             continue;
         };
-        if !is_rollup_callable(caller_meta) {
+        if !is_rollup_callable(caller_meta) || test_code.contains(caller) {
             continue;
         }
         let from_class = rollup_class(meta_table, caller);
@@ -2461,8 +2487,12 @@ impl<'a> InternalClasses<'a> {
 /// fields, from `dataflow-summarize`, for roll-ups; a field of the edge's
 /// function's class's own state (see `InternalClasses`) is the class's, and
 /// a class held by value in only one other is its owner's (see
-/// `unique_owners`).
-fn data_edges(meta_table: &MetaTable, field_edges: &[FieldEdge]) -> Vec<UnitEdge> {
+/// `unique_owners`); but not test code's (see `test_code`).
+fn data_edges(
+    meta_table: &MetaTable,
+    field_edges: &[FieldEdge],
+    test_code: &UstrSet,
+) -> Vec<UnitEdge> {
     let mut internal = InternalClasses::new(meta_table);
     let owners = unique_owners(meta_table);
     // (A class held by value in one other class is its owner's, a few
@@ -2477,16 +2507,20 @@ fn data_edges(meta_table: &MetaTable, field_edges: &[FieldEdge]) -> Vec<UnitEdge
         }
         class
     };
+    // (The function the data flows in: an end, or the first `via`.)
+    let function_of = |edge: &FieldEdge| {
+        [edge.from, edge.to]
+            .into_iter()
+            .find(|sym| !is_field_sym(sym))
+            .or_else(|| edge.via.first().copied())
+    };
     field_edges
         .iter()
+        .filter(|edge| !function_of(edge).is_some_and(|f| test_code.contains(&f)))
         .map(|edge| {
             let mut from_class = rollup_class(meta_table, &edge.from);
             let mut to_class = rollup_class(meta_table, &edge.to);
-            // (The function the data flows in: an end, or the first `via`.)
-            let function = [edge.from, edge.to]
-                .into_iter()
-                .find(|sym| !is_field_sym(sym))
-                .or_else(|| edge.via.first().copied());
+            let function = function_of(edge);
             if let Some(context) = function.and_then(|f| rollup_class(meta_table, &f)) {
                 let own = internal.of(context);
                 for class in [&mut from_class, &mut to_class] {
@@ -2728,8 +2762,10 @@ fn add_rollups(
     search_result_table: &mut SearchResultTable,
     callees_table: &CalleesTable,
     tree_metas: Option<MetaTable>,
+    ingestion: &RepoIngestion,
 ) -> RollupTables {
     let (categories, field_edges, summaries) = read_dataflow_outputs(index_path);
+    let test_code = test_code(search_result_table, ingestion);
     let (call_rollups, data_rollups, subsystems) = {
         // (A subset's roll-ups attribute calls as the tree's do: by the
         // tree's structured records, else its own; see `tree_rollup_metas`.)
@@ -2743,10 +2779,12 @@ fn add_rollups(
             }
             None => meta_table,
         };
-        let (call_rollups, mut subsystems) =
-            rollup_edges(view, &call_edges(view, callees_table, &categories));
+        let (call_rollups, mut subsystems) = rollup_edges(
+            view,
+            &call_edges(view, callees_table, &categories, &test_code),
+        );
         let (mut data_rollups, data_subsystems) =
-            rollup_edges(view, &data_edges(view, &field_edges));
+            rollup_edges(view, &data_edges(view, &field_edges, &test_code));
         add_field_flows(view, &field_edges, &mut data_rollups);
         subsystems.extend(data_subsystems);
         (call_rollups, data_rollups, subsystems)
@@ -3495,6 +3533,7 @@ async fn crossref_subset(
         &mut search_result_table,
         &callees_table,
         Some(tree_metas),
+        &ingestion,
     );
     add_dataflow_hints(
         &ontology,
@@ -3734,6 +3773,7 @@ async fn main() {
         &mut search_result_table,
         &callees_table,
         None,
+        &ingestion,
     );
     add_dataflow_hints(
         &ontology,

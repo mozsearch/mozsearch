@@ -48,3 +48,6 @@ with Files("rollup/storage.h", "rollup/storage.cpp"):
 
 with Files("rollup/engine.cpp"):
     BUG_COMPONENT = ("Core", "Rollup Engine")
+
+with Files("rollup/tests/*"):
+    BUG_COMPONENT = ("Core", "Rollup Tests")

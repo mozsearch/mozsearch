@@ -10,6 +10,10 @@
 //! and other objects' fields (see `dataflow::summary::FieldEdge`), for
 //! diagrams of how data moves between data structures' fields.
 //!
+//! Test code's calls (and data flows) aren't rolled up: the functions defined
+//! only in test files, by their path kind (see crossref's `test_code`), as
+//! architecture diagrams are of the code, not of its tests.
+//!
 //! Subsystems (from the files' per-file info, ex: "Core/DOM/Workers", or, in
 //! trees whose per-file info has none, directories; see
 //! `directory_subsystems`) get pseudo-symbols of their own, `SUBSYS_<mangled subsystem>`, whose crossref

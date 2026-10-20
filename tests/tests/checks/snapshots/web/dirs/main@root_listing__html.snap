@@ -589,7 +589,7 @@ input_file: inputs/web/dirs/root_listing__html
         <tr>
           <td class="name"><a href="/tests/source/moz.build" class="mimetype-fixed-container mimetype-icon-build">moz.build</a></td>
           <td class="description"><a href="/tests/source/moz.build" title=""></td>
-          <td class="size"><a href="/tests/source/moz.build">1592</a></td>
+          <td class="size"><a href="/tests/source/moz.build">1668</a></td>
           <td class="coverage"><a href="/tests/source/moz.build" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
