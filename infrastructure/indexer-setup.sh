@@ -29,8 +29,8 @@ fi
 $MOZSEARCH_PATH/scripts/generate-config.sh $CONFIG_REPO $CONFIG_INPUT $WORKING $WORKING
 CONFIG_FILE=$WORKING/config.json
 
-for TREE_NAME in $(jq -r ".trees|keys_unsorted|.[]" ${CONFIG_FILE})
-do
+setup_tree() {
+    TREE_NAME=$1
     echo "Performing indexer-setup section for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
     echo "Performing load-vars step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
@@ -45,6 +45,65 @@ do
     $CONFIG_REPO/$TREE_NAME/setup
 
     echo "Performed indexer-setup section for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+}
+
+# With "setup_groups" in the config (a list of lists of trees), each group's
+# trees are set up one after another, in the group's order, while the other
+# groups' are: a tree goes in the group of the trees whose setups it depends on
+# or shares anything with (ex: firefox-try's, which uses firefox-disco's
+# firefox-shared repos and its target.json), and in a group of its own if its
+# setup is independent (ex: wubspecs', which only downloads and updates its own
+# repos and history).  Each group's log goes in the main log when the group is
+# done.  The trees in no group are set up afterwards, one after another.
+SETUP_GROUPS=$(jq -c '.setup_groups // []' ${CONFIG_FILE})
+GROUPED_TREES=$(jq -r '.setup_groups // [] | flatten | .[]' ${CONFIG_FILE})
+for TREE_NAME in $GROUPED_TREES; do
+    if ! jq -e --arg tree "$TREE_NAME" '.trees | has($tree)' ${CONFIG_FILE} > /dev/null; then
+        echo "setup_groups has $TREE_NAME, which isn't a tree."
+        exit 1
+    fi
+done
+if [[ $(echo "$GROUPED_TREES" | sort | uniq -d) != "" ]]; then
+    echo "setup_groups has trees in more than one group: $(echo "$GROUPED_TREES" | sort | uniq -d)"
+    exit 1
+fi
+
+GROUP_COUNT=$(echo "$SETUP_GROUPS" | jq 'length')
+if (( GROUP_COUNT > 0 )); then
+    mkdir -p $WORKING/tmp
+    GROUP_PIDS=()
+    for (( GROUP_INDEX = 0; GROUP_INDEX < GROUP_COUNT; GROUP_INDEX++ )); do
+        (
+            for TREE_NAME in $(echo "$SETUP_GROUPS" | jq -r ".[$GROUP_INDEX][]"); do
+                setup_tree $TREE_NAME
+            done
+        ) > $WORKING/tmp/setup-group-$GROUP_INDEX.log 2>&1 &
+        GROUP_PIDS+=($!)
+    done
+    FAILED_GROUPS=0
+    for (( GROUP_INDEX = 0; GROUP_INDEX < GROUP_COUNT; GROUP_INDEX++ )); do
+        GROUP_STATUS=0
+        wait ${GROUP_PIDS[$GROUP_INDEX]} || GROUP_STATUS=$?
+        echo "Setup log for group $GROUP_INDEX ($(echo "$SETUP_GROUPS" | jq -r ".[$GROUP_INDEX] | join(\", \")")):"
+        cat $WORKING/tmp/setup-group-$GROUP_INDEX.log
+        if [[ $GROUP_STATUS != 0 ]]; then
+            echo "Setup group $GROUP_INDEX failed ($GROUP_STATUS)."
+            FAILED_GROUPS=$((FAILED_GROUPS + 1))
+        fi
+    done
+    # (As a tree's setup's failure stops the whole indexer: once all the
+    # groups are done, so their logs are all in the main log.)
+    if (( FAILED_GROUPS > 0 )); then
+        exit 1
+    fi
+fi
+
+for TREE_NAME in $(jq -r ".trees|keys_unsorted|.[]" ${CONFIG_FILE})
+do
+    if echo "$GROUPED_TREES" | grep -qxF "$TREE_NAME"; then
+        continue
+    fi
+    setup_tree $TREE_NAME
 done
 
 if [ -n "${CHECK_WARNINGS:-}" ]; then

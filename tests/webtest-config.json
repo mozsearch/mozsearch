@@ -67,5 +67,6 @@
   },
 
   "pipeline_trees": true,
+  "setup_groups": [["tests"], ["searchfox", "searchfox-line-blame"], ["spechist"], ["trydelta"]],
   "allow_webtest": true
 }
