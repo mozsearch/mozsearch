@@ -153,3 +153,10 @@ else
   sudo mkswap $SWAP_FILE
   sudo swapon $SWAP_FILE
 fi
+
+# Prefer dropping the page cache to swapping out processes' memory: swap is for
+# briefly needing more memory than the instance has.  (With the default, 60,
+# config8's crossref had ~3.4 GiB swapped out with ~58 GiB of the memory free,
+# as its writes filled the page cache, and its later phases took ~2.5 minutes
+# longer than in the runs before.)
+sudo sysctl -w vm.swappiness=10

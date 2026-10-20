@@ -1370,6 +1370,11 @@ fn read_analysis_files(
         }
         assert!(pending.is_empty(), "Unmerged analysis chunks");
     });
+    // (And what the reading threads freed: their arenas keep it otherwise,
+    // and the roll-ups and writes after this are on this thread, so they
+    // can't reuse it.  config8's crossref kept 65 GiB through them, and the
+    // kernel swapped some out as their writes filled the page cache.)
+    release_freed_memory();
 
     println!(
         "Performing crossref::read-analysis-merge step for {} : {}",
