@@ -9,14 +9,14 @@ input_file: inputs/analysis/ts/ChromeUtils.js/defineLazyGetter/prop
     "source": 1,
     "syntax": "def,field",
     "pretty": "field obj::prop",
-    "sym": "S_js_ts/src/ChromeUtils.js/obj.prop.",
+    "sym": "S_js_test-ts/ts/src/ChromeUtils.js/obj.prop.",
     "type": "\"prop\""
   },
   {
     "loc": "00013:34-40",
     "structured": 1,
     "pretty": "obj::prop",
-    "sym": "S_js_ts/src/ChromeUtils.js/obj.prop.",
+    "sym": "S_js_test-ts/ts/src/ChromeUtils.js/obj.prop.",
     "js_sym": "#prop",
     "type_pretty": "\"prop\"",
     "kind": "field",
@@ -39,14 +39,14 @@ input_file: inputs/analysis/ts/ChromeUtils.js/defineLazyGetter/prop
     "target": 1,
     "kind": "def",
     "pretty": "obj::prop",
-    "sym": "S_js_ts/src/ChromeUtils.js/obj.prop."
+    "sym": "S_js_test-ts/ts/src/ChromeUtils.js/obj.prop."
   },
   {
     "loc": "00019:4-8",
     "source": 1,
     "syntax": "use,field",
     "pretty": "field obj::prop",
-    "sym": "S_js_ts/src/ChromeUtils.js/obj.prop.",
+    "sym": "S_js_test-ts/ts/src/ChromeUtils.js/obj.prop.",
     "type": "\"prop\""
   },
   {
@@ -54,6 +54,6 @@ input_file: inputs/analysis/ts/ChromeUtils.js/defineLazyGetter/prop
     "target": 1,
     "kind": "use",
     "pretty": "obj::prop",
-    "sym": "S_js_ts/src/ChromeUtils.js/obj.prop."
+    "sym": "S_js_test-ts/ts/src/ChromeUtils.js/obj.prop."
   }
 ]

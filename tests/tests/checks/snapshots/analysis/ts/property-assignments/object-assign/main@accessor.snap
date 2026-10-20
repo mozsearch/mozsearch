@@ -9,7 +9,7 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/accessor
     "source": 1,
     "syntax": "def,field",
     "pretty": "field objectAssign::accessor",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
     "nestingRange": "11:17-13:3",
     "type": "\"accessor\""
   },
@@ -17,7 +17,7 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/accessor
     "loc": "00011:6-14",
     "structured": 1,
     "pretty": "objectAssign::accessor",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
     "js_sym": "#accessor",
     "type_pretty": "\"accessor\"",
     "kind": "field",
@@ -40,14 +40,14 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/accessor
     "target": 1,
     "kind": "def",
     "pretty": "objectAssign::accessor",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor."
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.accessor."
   },
   {
     "loc": "00014:6-14",
     "source": 1,
     "syntax": "def,field",
     "pretty": "field objectAssign::accessor",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
     "nestingRange": "14:20-16:3",
     "type": "\"accessor\""
   },
@@ -55,7 +55,7 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/accessor
     "loc": "00014:6-14",
     "structured": 1,
     "pretty": "objectAssign::accessor",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
     "js_sym": "#accessor",
     "type_pretty": "\"accessor\"",
     "kind": "field",
@@ -78,14 +78,14 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/accessor
     "target": 1,
     "kind": "def",
     "pretty": "objectAssign::accessor",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor."
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.accessor."
   },
   {
     "loc": "00022:13-21",
     "source": 1,
     "syntax": "use,field",
     "pretty": "field objectAssign::accessor",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
     "type": "\"accessor\""
   },
   {
@@ -93,14 +93,14 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/accessor
     "target": 1,
     "kind": "use",
     "pretty": "objectAssign::accessor",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor."
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.accessor."
   },
   {
     "loc": "00023:13-21",
     "source": 1,
     "syntax": "use,field",
     "pretty": "field objectAssign::accessor",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.accessor.",
     "type": "\"accessor\""
   },
   {
@@ -108,6 +108,6 @@ input_file: inputs/analysis/ts/property-assignments/object-assign/accessor
     "target": 1,
     "kind": "use",
     "pretty": "objectAssign::accessor",
-    "sym": "S_js_ts/src/property-assignments/object-assign.js/objectAssign.accessor."
+    "sym": "S_js_test-ts/ts/src/property-assignments/object-assign.js/objectAssign.accessor."
   }
 ]
