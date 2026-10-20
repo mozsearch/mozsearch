@@ -488,6 +488,10 @@ fn analyse_symbol(
     let mut last_contributes_to_parent = false;
     let mut prev_kind = None;
 
+    if !symbol.package.name.is_empty() {
+        sym_pieces.push(format!("{}/", symbol.package.name));
+    }
+
     for descriptor in &symbol.descriptors {
         // Ignore descriptor enums from the future, skipping them.
         let suffix = match descriptor.suffix.enum_value() {

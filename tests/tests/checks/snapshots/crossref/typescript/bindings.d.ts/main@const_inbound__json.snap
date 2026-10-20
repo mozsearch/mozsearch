@@ -6,7 +6,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/const_inbound__json
 {
   "symbol_crossref_infos": [
     {
-      "symbol": "S_js_ts/src/bindings.d.ts/TsEnum#TsConstInbound.",
+      "symbol": "S_js_test-ts/ts/src/bindings.d.ts/TsEnum#TsConstInbound.",
       "crossref_info": {
         "defs": [
           {
@@ -29,12 +29,12 @@ input_file: inputs/crossref/typescript/bindings.d.ts/const_inbound__json
         "meta": {
           "structured": 1,
           "pretty": "TsEnum::TsConstInbound",
-          "sym": "S_js_ts/src/bindings.d.ts/TsEnum#TsConstInbound.",
+          "sym": "S_js_test-ts/ts/src/bindings.d.ts/TsEnum#TsConstInbound.",
           "js_sym": "#TsConstInbound",
           "type_pretty": "(enum member) TsConstInbound",
           "kind": "field",
           "subsystem": null,
-          "parentsym": "S_js_ts/src/bindings.d.ts/TsEnum#",
+          "parentsym": "S_js_test-ts/ts/src/bindings.d.ts/TsEnum#",
           "slotOwner": {
             "slotKind": "const",
             "slotLang": "js",

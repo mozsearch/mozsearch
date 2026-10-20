@@ -9,14 +9,14 @@ input_file: inputs/analysis/ts/property-assignments/bracket-equals
     "source": 1,
     "syntax": "def,field",
     "pretty": "field bracketEquals::prop",
-    "sym": "S_js_ts/src/property-assignments/brackets-equals.js/bracketEquals.prop.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/brackets-equals.js/bracketEquals.prop.",
     "type": "\"prop\""
   },
   {
     "loc": "00002:14-20",
     "structured": 1,
     "pretty": "bracketEquals::prop",
-    "sym": "S_js_ts/src/property-assignments/brackets-equals.js/bracketEquals.prop.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/brackets-equals.js/bracketEquals.prop.",
     "js_sym": "#prop",
     "type_pretty": "\"prop\"",
     "kind": "field",
@@ -39,14 +39,14 @@ input_file: inputs/analysis/ts/property-assignments/bracket-equals
     "target": 1,
     "kind": "def",
     "pretty": "bracketEquals::prop",
-    "sym": "S_js_ts/src/property-assignments/brackets-equals.js/bracketEquals.prop."
+    "sym": "S_js_test-ts/ts/src/property-assignments/brackets-equals.js/bracketEquals.prop."
   },
   {
     "loc": "00003:14-18",
     "source": 1,
     "syntax": "use,field",
     "pretty": "field bracketEquals::prop",
-    "sym": "S_js_ts/src/property-assignments/brackets-equals.js/bracketEquals.prop.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/brackets-equals.js/bracketEquals.prop.",
     "type": "\"prop\""
   },
   {
@@ -54,14 +54,14 @@ input_file: inputs/analysis/ts/property-assignments/bracket-equals
     "target": 1,
     "kind": "use",
     "pretty": "bracketEquals::prop",
-    "sym": "S_js_ts/src/property-assignments/brackets-equals.js/bracketEquals.prop."
+    "sym": "S_js_test-ts/ts/src/property-assignments/brackets-equals.js/bracketEquals.prop."
   },
   {
     "loc": "00004:14-20",
     "source": 1,
     "syntax": "use,field",
     "pretty": "field bracketEquals::prop",
-    "sym": "S_js_ts/src/property-assignments/brackets-equals.js/bracketEquals.prop.",
+    "sym": "S_js_test-ts/ts/src/property-assignments/brackets-equals.js/bracketEquals.prop.",
     "type": "\"prop\""
   },
   {
@@ -69,6 +69,6 @@ input_file: inputs/analysis/ts/property-assignments/bracket-equals
     "target": 1,
     "kind": "use",
     "pretty": "bracketEquals::prop",
-    "sym": "S_js_ts/src/property-assignments/brackets-equals.js/bracketEquals.prop."
+    "sym": "S_js_test-ts/ts/src/property-assignments/brackets-equals.js/bracketEquals.prop."
   }
 ]

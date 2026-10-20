@@ -1,1 +1,1 @@
-filter-analysis ts/src/ChromeUtils.js -s "S_js_ts/src/ChromeUtils.js/obj.SomeExportedClass."
+filter-analysis ts/src/ChromeUtils.js -s "S_js_test-ts/ts/src/ChromeUtils.js/obj.SomeExportedClass."
