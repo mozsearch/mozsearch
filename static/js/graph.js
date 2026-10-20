@@ -717,24 +717,36 @@ class Graph {
 
   // Calculate the depth that reflects the edges between the blocks.
   calculateDepth() {
+    const propagate = roots => {
+      const pending = roots.map(block => ({ block, path: [] }));
+      while (pending.length > 0) {
+        const { block, path } = pending.shift();
+        for (const succBlock of block.succs) {
+          if (succBlock.depth > block.depth) {
+            continue;
+          }
+          if (path.includes(succBlock)) {
+            continue;
+          }
+          succBlock.depth = block.depth + 1;
+          pending.push({ block: succBlock, path: path.concat([block]) });
+        }
+      }
+    };
+
     const roots = this.blocks.filter(b => b.preds.length === 0);
     for (const block of roots) {
       block.depth = 0;
     }
+    propagate(roots);
 
-    const pending = roots.map(block => ({ block, path: [] }));
-    while (pending.length > 0) {
-      const { block, path } = pending.shift();
-      for (const succBlock of block.succs) {
-        if (succBlock.depth > block.depth) {
-          continue;
-        }
-        if (path.includes(succBlock)) {
-          continue;
-        }
-        succBlock.depth = block.depth + 1;
-        pending.push({ block: succBlock, path: path.concat([block]) });
-      }
+    // The blocks no root reaches: those of a cycle with no way in (ex: a
+    // trace's function and a callee calling it back), and what they reach.
+    // The first of them is a root too, until all of them have depths (which
+    // the other steps need: compressDepth looped forever without them).
+    for (let block; (block = this.blocks.find(b => b.depth < 0)); ) {
+      block.depth = 0;
+      propagate([block]);
     }
   }
 
@@ -744,8 +756,17 @@ class Graph {
     let remaining = this.blocks.slice();
     let destDepth = 0;
     let srcDepth = 0;
+    // (Every block has a depth, from calculateDepth; but should one not, it
+    // goes at the last depth rather than this looping forever.)
+    const maxDepth = Math.max(0, ...remaining.map(b => b.depth));
 
     while (remaining.length > 0) {
+      if (srcDepth > maxDepth) {
+        for (const block of remaining) {
+          block.depth = destDepth;
+        }
+        break;
+      }
       const blocksInDepth = remaining.filter(b => b.depth === srcDepth);
       remaining = remaining.filter(b => b.depth !== srcDepth);
       if (blocksInDepth.length === 0) {

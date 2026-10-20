@@ -324,3 +324,25 @@ add_task(async function test_DiagramInteractive_Ignore_Twice() {
      qParam.includes("ignore-nodes:diagram_ignore::F3,diagram_ignore::F5"),
      "URL should contain both ignored nodes comma-separated");
 });
+
+add_task(async function test_DiagramInteractive_RootlessCycle() {
+  // (A cycle no root leads into, and what it reaches: ex: a trace's function
+  // and a callee calling it back, in a subway map.  Its blocks had no depth,
+  // and the layout's compressDepth looped forever.)
+  await TestUtils.loadQuery("tests", "calls-to:'diagram_ignore::F1' depth:8 graph-format:mozsearch-interactive");
+  const doc = frame.contentDocument;
+  const viewport = doc.createElement("div");
+  const container = doc.createElement("div");
+  viewport.append(container);
+  doc.body.append(viewport);
+  const node = name => ({ sym: name, pretty: `cycle::${name}` });
+  const edge = (from, to) => ({ from, to, kind: "default", jumps: [], hovers: [] });
+  const input = {
+    nodes: ["Root", "Leaf", "A", "B", "C"].map(node),
+    edges: [edge("Root", "Leaf"), edge("A", "B"), edge("B", "A"), edge("B", "C"), edge("C", "Leaf")],
+  };
+  const graph = new (frame.contentWindow.eval("Graph"))(viewport, container, input, [], [], []);
+  const depths = graph.blocks.map(block => `${block.pretty}: ${block.depth}`).join(", ");
+  ok(graph.blocks.every(block => block.depth >= 0), `Every block has a depth: ${depths}`);
+  is(container.querySelectorAll(".interactive-graph-block").length, 5, "and a node");
+});
