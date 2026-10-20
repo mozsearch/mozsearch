@@ -29,8 +29,18 @@ input_file: inputs/crossref/rollup/rollup_tree__json
       "count": 7
     },
     {
+      "sym": "SUBSYS_Core/Rollup@20Engine",
+      "pretty": "Core/Rollup Engine",
+      "count": 3
+    },
+    {
       "sym": "SUBSYS_Core/Rollup@20Model",
       "pretty": "Core/Rollup Model",
+      "count": 3
+    },
+    {
+      "sym": "SUBSYS_Core/Rollup@20Storage",
+      "pretty": "Core/Rollup Storage",
       "count": 3
     },
     {
@@ -40,6 +50,12 @@ input_file: inputs/crossref/rollup/rollup_tree__json
     }
   ],
   "edges": [
+    {
+      "from": "SUBSYS_Core/Rollup@20Engine",
+      "to": "SUBSYS_Core/Rollup@20Storage",
+      "count": 3,
+      "pairs": 1
+    },
     {
       "from": "SUBSYS_Core/Rollup@20View",
       "to": "SUBSYS_Core/Rollup@20Model",

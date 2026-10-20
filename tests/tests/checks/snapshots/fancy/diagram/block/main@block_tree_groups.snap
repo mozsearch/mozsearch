@@ -1,0 +1,42 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/block/block_tree_groups
+---
+digraph g {
+  rankdir="LR"
+  label="Group 1: Core/Rollup Engine, Core/Rollup Storage (2 subsystems)"
+  labelloc="t"
+  graph[fontname="Courier New" fontsize=12 compound=true]
+  node[shape=box fontname="Courier New" fontsize=10]
+  subgraph "SYN_1" {
+    cluster=true
+    label="Core"
+    "SYN_0"[shape=point style=invis]
+    "SUBSYS_Core/Rollup@20Engine"[id=Gidn0 label=<Rollup Engine> class="diagram-depth-1"]
+    "SUBSYS_Core/Rollup@20Storage"[id=Gidn1 label=<Rollup Storage> class="diagram-depth-1"]
+  }
+  "SUBSYS_Core/Rollup@20Engine" -> "SUBSYS_Core/Rollup@20Storage" [style=solid arrowhead=normal id=Gide0 label="3" penwidth="5.0" tooltip="3 calls"]
+}
+digraph g {
+  rankdir="LR"
+  label="Group 2: Core/Rollup View, Core/Rollup Model (2 subsystems)"
+  labelloc="t"
+  graph[fontname="Courier New" fontsize=12 compound=true]
+  node[shape=box fontname="Courier New" fontsize=10]
+  subgraph "SYN_1" {
+    cluster=true
+    label="Core"
+    "SYN_0"[shape=point style=invis]
+    "SUBSYS_Core/Rollup@20Model"[id=Gidn3_g1 label=<Rollup Model> class="diagram-depth-1"]
+    "SUBSYS_Core/Rollup@20View"[id=Gidn2_g1 label=<Rollup View> class="diagram-depth-1"]
+  }
+  "SUBSYS_Core/Rollup@20View" -> "SUBSYS_Core/Rollup@20Model" [style=solid arrowhead=normal id=Gide1_g1 label="2" penwidth="1.0" tooltip="2 calls"]
+}
+digraph g {
+  rankdir="LR"
+  label="4 other subsystems are in smaller groups, or have none of the strongest calls between subsystems"
+  labelloc="t"
+  graph[fontname="Courier New" fontsize=12 compound=true]
+  node[shape=box fontname="Courier New" fontsize=10]
+}

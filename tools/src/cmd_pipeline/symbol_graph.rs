@@ -580,6 +580,9 @@ impl SymbolGraphCollection {
             Some(g) => g,
             None => return dot_graph,
         };
+        for (name, value) in &graph.graph_attrs {
+            dot_graph.add_stmt(stmt!(attr!(esc name, esc value)));
+        }
 
         let mut nodes = BTreeSet::new();
         for (source_id, target_id, edge_id) in graph.list_edges() {
@@ -1024,6 +1027,7 @@ impl SymbolGraphCollection {
 
         self.hierarchical_graphs.push(HierarchicalSymbolGraph {
             name: graph.name.clone(),
+            graph_attrs: graph.graph_attrs.clone(),
             root,
         });
 
@@ -1039,6 +1043,9 @@ impl SymbolGraphCollection {
     ) -> (Graph, HierarchicalRenderState) {
         trace!(graph_idx = %graph_idx, "hierarchical_graph_to_graphviz");
         let mut state = HierarchicalRenderState::new();
+        if graph_idx > 0 {
+            state.id_suffix = format!("_g{}", graph_idx);
+        }
         let graph = match self.hierarchical_graphs.get_mut(graph_idx) {
             Some(g) => g,
             None => {
@@ -1072,6 +1079,9 @@ impl SymbolGraphCollection {
         if graph_layout == &GraphLayout::Neato {
             dot_graph.add_stmt(stmt!(node!("graph"; attr!("overlap","prism"), attr!("mode","hier"), attr!("sep",esc "+10"))));
         }
+        for (name, value) in &graph.graph_attrs {
+            dot_graph.add_stmt(stmt!(attr!(esc name, esc value)));
+        }
 
         // Note that the root node renders the default style directives.
         let stmts = graph
@@ -1089,6 +1099,9 @@ impl SymbolGraphCollection {
 #[derive(Debug)]
 pub struct NamedSymbolGraph {
     pub name: String,
+    /// Graphviz attributes of the graph its producer asks for (ex: a block
+    /// diagram's `rankdir`).
+    pub graph_attrs: Vec<(&'static str, String)>,
     graph: PetGraph<u32, SymbolGraphEdgeId, Directed>,
     /// Maps SymbolGraphNodeId values to NodeIndex values when the node is
     /// present in the graph.  Exclusively used by ensure_node and it's likely
@@ -1102,6 +1115,7 @@ impl NamedSymbolGraph {
     pub fn new(name: String) -> Self {
         NamedSymbolGraph {
             name,
+            graph_attrs: vec![],
             graph: PetGraph::new(),
             node_id_to_ix: HashMap::new(),
             node_ix_to_id: HashMap::new(),
@@ -1466,6 +1480,8 @@ impl HierarchySegment {
 #[derive(Debug)]
 pub struct HierarchicalSymbolGraph {
     pub name: String,
+    /// Its `NamedSymbolGraph`'s `graph_attrs`.
+    pub graph_attrs: Vec<(&'static str, String)>,
     pub root: HierarchicalNode,
 }
 
@@ -2166,6 +2182,9 @@ impl HierarchicalNode {
 #[derive(Debug)]
 pub struct HierarchicalRenderState {
     next_synthetic_id: u32,
+    /// After its nodes' and edges' ids, so that they're unique among a
+    /// collection's graphs' (ex: "_g1" for its second's; see `cmd_graph`).
+    id_suffix: String,
     /// Maps the SymbolGraphNodeId to (in-edge id, out-edge-id)
     sym_to_edges: HashMap<u32, (NodeId, NodeId)>,
     /// Maps node identifiers to data for hover purposes; value tuple is:
@@ -2209,6 +2228,7 @@ impl HierarchicalRenderState {
     pub fn new() -> Self {
         Self {
             next_synthetic_id: 0,
+            id_suffix: String::new(),
             sym_to_edges: HashMap::default(),
             svg_node_extra: BTreeMap::default(),
             svg_edge_extra: BTreeMap::default(),
@@ -2254,7 +2274,7 @@ impl HierarchicalRenderState {
     }
 
     pub fn id_for_node(&self, node_id: &SymbolGraphNodeId) -> String {
-        format!("Gidn{}", node_id.0)
+        format!("Gidn{}{}", node_id.0, self.id_suffix)
     }
 
     /// Return a node identifier for the set of nodes.  We just pick the first
@@ -2265,12 +2285,12 @@ impl HierarchicalRenderState {
         if nodes.is_empty() {
             "".to_string()
         } else {
-            format!("Gidn{}", nodes[0].0)
+            format!("Gidn{}{}", nodes[0].0, self.id_suffix)
         }
     }
 
     pub fn id_for_edge(&self, edge_id: &SymbolGraphEdgeId) -> String {
-        format!("Gide{}", edge_id.0)
+        format!("Gide{}{}", edge_id.0, self.id_suffix)
     }
 
     pub fn set_edge_metadata(

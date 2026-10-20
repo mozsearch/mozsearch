@@ -207,6 +207,14 @@ args.no-accessors = true
 command = "block-diagram"
 args.max-edges = "$0"
 
+# The whole tree's block diagram as a diagram per group of the subsystems most
+# tied by their calls in trees with at least this many subsystems (20 by
+# default).
+[term.block-groups-at]
+[[term.block-groups-at.group.block-diagram]]
+command = "block-diagram"
+args.groups-at = "$0"
+
 [term.block-with]
 [[term.block-with.group.block-diagram]]
 command = "block-diagram"

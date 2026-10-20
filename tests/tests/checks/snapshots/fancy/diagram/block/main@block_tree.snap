@@ -5,7 +5,11 @@ input_file: inputs/fancy/diagram/block/block_tree
 ---
 digraph g {
   node[shape=box fontname="Courier New" fontsize=10]
+  rankdir="LR"
+  "SUBSYS_Core/Rollup@20Engine"[label="Core/Rollup Engine"]
+  "SUBSYS_Core/Rollup@20Storage"[label="Core/Rollup Storage"]
+  "SUBSYS_Core/Rollup@20Engine" -> "SUBSYS_Core/Rollup@20Storage" [label="3" penwidth="5.0" tooltip="3 calls"]
   "SUBSYS_Core/Rollup@20View"[label="Core/Rollup View"]
   "SUBSYS_Core/Rollup@20Model"[label="Core/Rollup Model"]
-  "SUBSYS_Core/Rollup@20View" -> "SUBSYS_Core/Rollup@20Model" [label="2" penwidth="3.0" tooltip="2 calls"]
+  "SUBSYS_Core/Rollup@20View" -> "SUBSYS_Core/Rollup@20Model" [label="2" penwidth="1.0" tooltip="2 calls"]
 }

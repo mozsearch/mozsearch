@@ -308,33 +308,40 @@ impl PipelineCommand for GraphCommand {
             }
         };
 
-        let (dot_graph, render_state) = match &self.args.hier {
-            GraphHierarchy::Flat => (
-                graphs.graph_to_graphviz(graphs.graphs.len() - 1, decorate_node),
-                HierarchicalRenderState::new(),
-            ),
-            hier_mode => {
-                let policies = HierarchyPolicies {
-                    grouping: hier_mode.clone(),
-                    summarize: self.args.summarize.clone(),
-                    force_summarize_pretties: HashSet::from_iter(
-                        self.args.collapse.iter().cloned(),
-                    ),
-                    force_expand_pretties: HashSet::from_iter(self.args.expand.iter().cloned()),
-                    group_fields_at: self.args.group_fields_at,
-                    use_port_dirs: false,
-                };
-                graphs
-                    .derive_hierarchical_graph(&policies, graphs.graphs.len() - 1, server)
-                    .await?;
-                //return Ok(PipelineValues::SymbolGraphCollection(graphs));
-                graphs.hierarchical_graph_to_graphviz(
-                    &policies,
-                    graphs.hierarchical_graphs.len() - 1,
-                    &self.args.layout,
-                )
-            }
-        };
+        // (Each of its graphs, ex: a block diagram's groups of subsystems; see
+        // `cmd_block_diagram`.)
+        let mut rendered: Vec<(
+            graphviz_rust::dot_structures::Graph,
+            HierarchicalRenderState,
+        )> = vec![];
+        for graph_idx in 0..graphs.graphs.len() {
+            rendered.push(match &self.args.hier {
+                GraphHierarchy::Flat => (
+                    graphs.graph_to_graphviz(graph_idx, &decorate_node),
+                    HierarchicalRenderState::new(),
+                ),
+                hier_mode => {
+                    let policies = HierarchyPolicies {
+                        grouping: hier_mode.clone(),
+                        summarize: self.args.summarize.clone(),
+                        force_summarize_pretties: HashSet::from_iter(
+                            self.args.collapse.iter().cloned(),
+                        ),
+                        force_expand_pretties: HashSet::from_iter(self.args.expand.iter().cloned()),
+                        group_fields_at: self.args.group_fields_at,
+                        use_port_dirs: false,
+                    };
+                    graphs
+                        .derive_hierarchical_graph(&policies, graph_idx, server)
+                        .await?;
+                    graphs.hierarchical_graph_to_graphviz(
+                        &policies,
+                        graphs.hierarchical_graphs.len() - 1,
+                        &self.args.layout,
+                    )
+                }
+            });
+        }
 
         if let Value::Array(options) = &mut graphs.options {
             let mut graph_options = vec![];
@@ -396,7 +403,11 @@ impl PipelineCommand for GraphCommand {
         }
 
         if self.args.format == GraphFormat::RawDot {
-            let raw_dot_str = dot_graph.print(&mut PrinterContext::default());
+            let raw_dot_str = rendered
+                .iter()
+                .map(|(dot_graph, _)| dot_graph.print(&mut PrinterContext::default()))
+                .collect::<Vec<_>>()
+                .join("\n");
             return Ok(PipelineValues::TextFile(TextFile {
                 mime_type: "text/x-dot".to_string(),
                 contents: raw_dot_str,
@@ -425,19 +436,25 @@ impl PipelineCommand for GraphCommand {
         // init_rank"), which newrank's doesn't, but newrank leaves whitespace
         // in nested clusters (see `HierarchicalNode::render`), so it's
         // only for the graphs dot can't lay out otherwise.
-        let graph_contents = match exec(
-            dot_graph.clone(),
-            &mut PrinterContext::default(),
-            exec_commands(),
-        ) {
-            Ok(contents) => contents,
-            Err(err) if layout == Layout::Dot => {
-                let mut dot_graph = dot_graph;
-                dot_graph.add_stmt(stmt!(attr!("newrank", "true")));
-                exec(dot_graph, &mut PrinterContext::default(), exec_commands()).map_err(|_| err)?
-            }
-            Err(err) => Err(err)?,
-        };
+        let mut graphs_contents: Vec<Vec<u8>> = vec![];
+        for (dot_graph, _) in &rendered {
+            graphs_contents.push(
+                match exec(
+                    dot_graph.clone(),
+                    &mut PrinterContext::default(),
+                    exec_commands(),
+                ) {
+                    Ok(contents) => contents,
+                    Err(err) if layout == Layout::Dot => {
+                        let mut dot_graph = dot_graph.clone();
+                        dot_graph.add_stmt(stmt!(attr!("newrank", "true")));
+                        exec(dot_graph, &mut PrinterContext::default(), exec_commands())
+                            .map_err(|_| err)?
+                    }
+                    Err(err) => Err(err)?,
+                },
+            );
+        }
         match use_format {
             GraphFormat::Json => Ok(PipelineValues::SymbolGraphCollection(graphs)),
             GraphFormat::MozsearchInteractive => {
@@ -456,20 +473,35 @@ impl PipelineCommand for GraphCommand {
                 }))
             }
             GraphFormat::Mozsearch => Ok(PipelineValues::GraphResultsBundle(GraphResultsBundle {
-                graphs: vec![RenderedGraph {
-                    graph: transform_svg(str::from_utf8(&graph_contents).unwrap()),
-                    extra: json!({
-                        "nodes": render_state.svg_node_extra,
-                        "edges": render_state.svg_edge_extra,
-                    }),
-                }],
+                graphs: rendered
+                    .into_iter()
+                    .zip(graphs_contents)
+                    .map(|((_, render_state), contents)| RenderedGraph {
+                        graph: transform_svg(str::from_utf8(&contents).unwrap()),
+                        extra: json!({
+                            "nodes": render_state.svg_node_extra,
+                            "edges": render_state.svg_edge_extra,
+                        }),
+                    })
+                    .collect(),
                 symbols: graphs.node_set.symbols_meta_to_jumpref_json_nomut(),
                 overloads_hit: graphs.overloads_hit,
                 options: graphs.options,
             })),
+            // (Its graphs one after another, but a PNG's first.)
             _ => Ok(PipelineValues::TextFile(TextFile {
+                contents: match format {
+                    Format::Png => {
+                        String::from_utf8(graphs_contents.into_iter().next().unwrap_or_default())
+                            .unwrap()
+                    }
+                    _ => graphs_contents
+                        .into_iter()
+                        .map(|contents| String::from_utf8(contents).unwrap())
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                },
                 mime_type,
-                contents: String::from_utf8(graph_contents).unwrap(),
             })),
         }
     }

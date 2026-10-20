@@ -36,6 +36,22 @@ const DATAFLOW_PATH_RE = /\.(c|cc|cpp|cxx|h|hh|hpp|hxx|js|jsm|mjs|sjs|ts|tsx|jsx
 // there, in the context of the try push whose pages these are, if any
 // (data-search-rev).  The code of another tree or revision on the page has
 // its own (see `ContextMenu.searchContext`).
+// A diagram's node's or edge's extra data (`kind` "nodes" or "edges"), from
+// whichever of the page's graphs has it (see the tools' `cmd_graph`, whose
+// graphs' ids are unique among them: ex: a block diagram's groups').
+function graphExtra(kind, id) {
+  if (typeof GRAPH_EXTRA === "undefined") {
+    return undefined;
+  }
+  for (const extra of GRAPH_EXTRA) {
+    const found = extra?.[kind]?.[id];
+    if (found) {
+      return found;
+    }
+  }
+  return undefined;
+}
+
 function searchUrl(tree, encodedQuery) {
   const context = window.ContextMenu?.searchContext;
   const data = context?.getAttribute("data-tree") == tree && context.hasAttribute("data-search")
@@ -1591,8 +1607,8 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
         }
 
         // Generate a "go to use"
-        const edgeExtra = GRAPH_EXTRA[0].edges[symbolToken.id];
-        if (edgeExtra.jump && targSymInfo) {
+        const edgeExtra = graphExtra("edges", symbolToken.id);
+        if (edgeExtra?.jump && targSymInfo) {
           jumpMenuItems.push(new GotoMenuItem({
             html: this.fmt("Go to use of <strong>_</strong>", targSymInfo.pretty),
             // (A linked tree's edge's jump is to its files.)
@@ -2792,11 +2808,13 @@ var Hover = new (class Hover {
     }
 
     this.#edgeReverseMap = new Map();
-    if (!GRAPH_EXTRA?.[0]) {
+    if (typeof GRAPH_EXTRA === "undefined") {
       return;
     }
 
-    for (const [node, nodeInfo] of Object.entries(GRAPH_EXTRA[0].nodes)) {
+    // (All of the page's graphs', whose ids are unique among them.)
+    const nodes = GRAPH_EXTRA.flatMap(extra => Object.entries(extra?.nodes ?? {}));
+    for (const [node, nodeInfo] of nodes) {
       for (const inEdge of nodeInfo.in_edges) {
         let edgeInfo = this.#edgeReverseMap.get(inEdge);
         if (!edgeInfo) {
@@ -2848,7 +2866,7 @@ var Hover = new (class Hover {
 
     // ## Hovered Edge
     if (id.startsWith("Gide")) {
-      const edgeExtra = GRAPH_EXTRA[0].edges[id];
+      const edgeExtra = graphExtra("edges", id);
       if (!edgeExtra) {
         return;
       }
@@ -2870,7 +2888,7 @@ var Hover = new (class Hover {
       return;
     }
 
-    let nodeExtra = GRAPH_EXTRA[0].nodes[id];
+    let nodeExtra = graphExtra("nodes", id);
     if (!nodeExtra) {
       return;
     }

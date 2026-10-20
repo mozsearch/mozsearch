@@ -252,3 +252,26 @@ add_task(async function test_BlockDiagramIpdlNode() {
   ok(texts.some(t => t.includes("TestDataStructuresChild")),
      `The actor writing it is shown: ${texts.join(", ")}`);
 });
+
+// The whole tree's diagram as groups of the subsystems most tied by their
+// calls (see cmd_block_diagram.rs's `louvain`; by default only in trees with
+// 20 subsystems): a diagram per group, one after another down the page, where
+// hovering works in each (their nodes' and edges' ids are unique among the
+// page's graphs).
+add_task(async function test_BlockDiagramGroups() {
+  await TestUtils.resetFeatureGate("diagramming");
+  await TestUtils.loadQuery("tests", "block-diagram:* block-groups-at:1");
+  const doc = frame.contentDocument;
+  const graphs = [...doc.querySelectorAll("svg > g.graph")];
+  const titles = graphs.map(g => g.querySelector(":scope > text")?.textContent ?? "");
+  ok(titles.some(t => t.startsWith("Group 1: ")) && titles.some(t => t.startsWith("Group 2: ")),
+     `A diagram per group: ${titles.join(" | ")}`);
+
+  const second = graphs[titles.findIndex(t => t.startsWith("Group 2: "))];
+  const edge = second.querySelector("g.edge");
+  ok(edge, "The second group's diagram has an edge");
+  edge.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+  ok(edge.classList.contains("hovered-cur-edge"), "which hovering highlights");
+  ok(second.querySelector(".hovered-in-node") && second.querySelector(".hovered-out-node"),
+     "with its ends");
+});
