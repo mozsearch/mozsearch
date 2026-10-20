@@ -1,0 +1,33 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/dataflow/cpp/backward-test-callers
+---
+rollup::Storage::Put (rollup/storage.cpp)
+  #0       5 seed       aValue                             void Storage::Put(int aValue) { mValue = aValue; }
+  #1       5 param      param aValue                       void Storage::Put(int aValue) { mValue = aValue; }
+        -> #0 aValue [local: aValue]
+        -> #8 this->mValue = [local: aValue]
+  #8       5 assign     this->mValue =                     void Storage::Put(int aValue) { mValue = aValue; }
+        -> #7 Storage::Get (getter) in Storage::Get [field: mValue]
+        -> #9 Storage::Put (setter) [field: mValue]
+  #9       5 summary    Storage::Put (setter)              
+        -> #2 call Storage::Put in Engine::Run [return: this.mValue]
+rollup::Engine::Run (rollup/engine.cpp)
+  #10      7 param      param aStorage                     
+        -> #7 Storage::Get (getter) in Storage::Get [call: aStorage.mValue]
+  #2       8 call       call Storage::Put                  aStorage.Put(1);
+        -> #1 param aValue in Storage::Put [call: arg 0]
+        -> #7 Storage::Get (getter) in Storage::Get [call: aStorage.mValue]
+  #3       8 const      1                                  aStorage.Put(1);
+        -> #2 call Storage::Put [local: 1]
+        -> #9 Storage::Put (setter) in Storage::Put [local: 1]
+  #4       9 call       call Storage::Put                  aStorage.Put(aStorage.Get() + 1);
+        -> #1 param aValue in Storage::Put [call: arg 0]
+  #5       9 const      1                                  aStorage.Put(aStorage.Get() + 1);
+        -> #4 call Storage::Put [local: 1]
+  #6       9 call       call Storage::Get                  aStorage.Put(aStorage.Get() + 1);
+        -> #4 call Storage::Put [local: Storage::Get(…)]
+rollup::Storage::Get (rollup/storage.cpp)
+  #7       7 summary    Storage::Get (getter)              
+        -> #6 call Storage::Get in Engine::Run [return: result]

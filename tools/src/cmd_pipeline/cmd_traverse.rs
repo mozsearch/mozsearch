@@ -86,6 +86,14 @@ pub struct Traverse {
     #[clap(long, value_parser, default_value = "0")]
     pub caller_limit: u32,
 
+    /// Include the uses in test files (by their path kind; see
+    /// per-file-info.toml's `pathkind.test`), which uses traversals leave out
+    /// otherwise, but of test code (`CrossrefData::is_test_code`): tests'
+    /// calls (ex: gtests', mochitests') clutter diagrams of how the code calls
+    /// itself.
+    #[clap(long)]
+    pub include_tests: bool,
+
     /// Traverse field member uses when the depth has this value or less.
     #[clap(long, value_parser = clap::value_parser!(i32).range(-1..=16), default_value = "-1")]
     pub traverse_field_member_uses: i32,
@@ -1436,6 +1444,13 @@ impl PipelineCommand for TraverseCommand {
                 } else {
                     vec![]
                 };
+                // Test files' uses, unless the symbol is test code itself (see
+                // `Traverse::include_tests`).
+                let skip_tests = !self.args.include_tests
+                    && !sym_info
+                        .crossref_info
+                        .as_ref()
+                        .is_some_and(|ci| ci.is_test_code());
                 // we just took the uses, but drop the callees too.
                 if !self.args.retain_all_symbol_data {
                     sym_info.reduce_memory_usage_by_dropping_non_jumpref_info();
@@ -1455,6 +1470,9 @@ impl PipelineCommand for TraverseCommand {
                     .map(|hits| (hits, false))
                     .chain(implementations.into_iter().map(|hits| (hits, true)));
                 for (path_hits, implements) in uses {
+                    if skip_tests && path_hits.path_kind == "test" {
+                        continue;
+                    }
                     for hit in &path_hits.lines {
                         if hit.contextsym.is_empty() {
                             continue;
@@ -1629,6 +1647,13 @@ impl PipelineCommand for TraverseCommand {
             "value": caller_limit,
             "default": default_caller_limit,
             "range": [0, 16384],
+        }));
+        traverse_options.push(json!({
+            "name": "include-tests",
+            "label": "Test files' calls",
+            "value": self.args.include_tests,
+            "default": false,
+            "type": "bool",
         }));
         if self.args.edge.as_str() == "class" {
             traverse_options.push(json!({

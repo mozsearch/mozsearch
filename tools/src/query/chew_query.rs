@@ -807,4 +807,30 @@ mod tests {
         assert!(!values("calls-to:Foo case:sensitive").contains("search-text"));
         assert!(chew_query("Foo case:upper").is_err());
     }
+
+    #[test]
+    fn test_include_tests() {
+        // (It amends the query's traversal, trace or slicing, and starts none.)
+        let bool_args = |query: &str, group: &str| {
+            let groups: serde_json::Value = serde_json::from_str(&values(query)).unwrap();
+            groups[group]["segments"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .flat_map(|segment| segment["args"]["bool_args"].as_array().unwrap().clone())
+                .collect::<Vec<_>>()
+        };
+        let include = serde_json::json!("include-tests");
+        for (query, group) in [
+            ("calls-to:Foo", "graph-traverse"),
+            ("follow-backward:Foo", "dataflow"),
+            ("slice-rev:abc", "slicing"),
+        ] {
+            assert!(bool_args(&format!("{query} include-tests:true"), group).contains(&include));
+            assert!(!bool_args(query, group).contains(&include));
+        }
+        let traversal = values("calls-to:Foo include-tests:true");
+        assert!(!traversal.contains("\"dataflow\"") && !traversal.contains("\"slicing\""));
+        assert!(!values("follow-backward:Foo include-tests:true").contains("graph-traverse"));
+    }
 }

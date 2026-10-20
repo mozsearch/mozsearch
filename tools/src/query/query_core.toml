@@ -292,6 +292,24 @@ args.paths-between-node-limit = "$0"
 command = "traverse"
 args.caller-limit = "$0"
 
+# Diagrams leave out test code's calls (the uses in test files, by their path
+# kind) unless asked to include them, and traces, slicings and taint audits
+# leave out its calls and field uses.  (Amending, so it doesn't start a
+# traversal or a trace of its own.)
+[term.include-tests]
+[[term.include-tests.group.graph-traverse]]
+command = "traverse"
+amend = true
+args.include-tests = true
+[[term.include-tests.group.dataflow]]
+command = "dataflow"
+amend = true
+args.include-tests = true
+[[term.include-tests.group.slicing]]
+command = "dataflow"
+amend = true
+args.include-tests = true
+
 [term.path-limit]
 alias = "caller-limit"
 

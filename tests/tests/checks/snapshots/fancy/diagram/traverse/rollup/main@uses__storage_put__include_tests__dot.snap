@@ -1,0 +1,15 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/traverse/rollup/uses__storage_put__include_tests__dot
+---
+digraph g {
+  node[shape=box fontname="Courier New" fontsize=10]
+  "_ZN6rollup6Engine3RunERNS_7StorageE"[label="rollup::Engine::Run"]
+  "_ZN6rollup7Storage3PutEi"[label="rollup::Storage::Put"]
+  "_ZN6rollup6Engine3RunERNS_7StorageE" -> "_ZN6rollup7Storage3PutEi"
+  "_ZN6rollup11StorageTest3RunERNS_7StorageE"[label="rollup::StorageTest::Run"]
+  "_ZN6rollup11StorageTest3RunERNS_7StorageE" -> "_ZN6rollup7Storage3PutEi"
+  "_ZN6rollup14RunStorageTestERNS_7StorageE"[label="rollup::RunStorageTest"]
+  "_ZN6rollup14RunStorageTestERNS_7StorageE" -> "_ZN6rollup11StorageTest3RunERNS_7StorageE"
+}

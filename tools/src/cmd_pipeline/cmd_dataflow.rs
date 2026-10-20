@@ -107,6 +107,11 @@ pub struct Dataflow {
     #[clap(long)]
     unordered: bool,
 
+    /// Follow test files' calls and field uses of symbols that aren't test
+    /// code (see `TraceOpts::include_tests`).
+    #[clap(long)]
+    include_tests: bool,
+
     /// Enter accessors' calls (getters, setters and trivial methods), rather
     /// than stepping over them by their precomputed summaries (see
     /// `dataflow::trace`'s `accessor_summary`).
@@ -892,6 +897,7 @@ impl DataflowCommand {
             max_hops: self.args.max_hops,
             fanout: self.args.fanout,
             ordered: !self.args.unordered,
+            include_tests: self.args.include_tests,
             summaries: !self.args.no_summaries,
         }
     }

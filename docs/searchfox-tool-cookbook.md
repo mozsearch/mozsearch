@@ -103,6 +103,15 @@ RUST_LOG=trace ~/mozsearch/tools/target/release/searchfox-tool '--server=/home/u
 --tree=firefox-main search-identifiers ClientSource::Focus | crossref-lookup | traverse --edge=uses --max-depth=4'
 ```
 
+Uses traversals leave out the uses in test files (by their path kind; see
+`pathkind.test` in per-file-info.toml), but of symbols that are test code
+themselves (all of their definitions in test files): tests' calls of the code
+clutter diagrams of how the code calls itself.  `--include-tests` (the
+`include-tests:true` query term, or the diagram panel's "Test files' calls")
+includes them.  Dataflow traces, slicings and taint audits leave out the same
+callers and field uses (`dataflow --include-tests`), and crossref's roll-ups
+test code's calls (see below).
+
 ### Graphing on a web-server shell
 
 ```

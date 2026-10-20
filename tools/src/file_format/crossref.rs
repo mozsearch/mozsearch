@@ -113,6 +113,15 @@ pub struct CrossrefData {
 }
 
 impl CrossrefData {
+    /// Whether the symbol is test code: it has definitions, and they're all in
+    /// test files (by their path kind; see per-file-info.toml's
+    /// `pathkind.test`), as crossref's roll-ups tell (`test_code`).
+    pub fn is_test_code(&self) -> bool {
+        self.definitions
+            .as_ref()
+            .is_some_and(|defs| !defs.is_empty() && defs.iter().all(|d| d.path_kind == "test"))
+    }
+
     /// Add a linked tree's data for the symbol (see
     /// `TreeConfigPaths::linked_trees`, ex: a web spec's definitions, for a
     /// symbol cited in Gecko): its path results, in a `tree:<tree>` path kind

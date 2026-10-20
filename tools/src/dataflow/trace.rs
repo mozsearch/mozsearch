@@ -45,6 +45,11 @@ pub struct TraceOpts {
     /// Whether to only consider events after (forwards) or before
     /// (backwards) where a value is, in source order.
     pub ordered: bool,
+    /// Whether to follow uses in test files (by their path kind; see
+    /// per-file-info.toml's `pathkind.test`) of symbols that aren't test code
+    /// themselves (`CrossrefData::is_test_code`): tests' calls aren't how the
+    /// code's values flow, as in diagrams (see `Traverse::include_tests`).
+    pub include_tests: bool,
     /// Whether to step over accessors' calls by their precomputed summaries
     /// (see `Tracer::accessor_summary`) rather than building their files'
     /// IR.
@@ -58,6 +63,7 @@ impl Default for TraceOpts {
             max_hops: 6,
             fanout: 8,
             ordered: true,
+            include_tests: false,
             summaries: true,
         }
     }
@@ -2270,10 +2276,12 @@ impl<'s> Tracer<'s> {
             let Some(xref) = self.xref(&s).await else {
                 continue;
             };
+            let skip_tests = self.skips_tests(&xref);
             let uses: Vec<(String, u32, Ustr)> = xref
                 .uses
                 .iter()
                 .flatten()
+                .filter(|p| !(skip_tests && p.path_kind == "test"))
                 .flat_map(|p| {
                     p.lines
                         .iter()
@@ -3287,14 +3295,24 @@ impl<'s> Tracer<'s> {
             .unwrap_or_else(|| sym_short_name(&sym))
     }
 
+    /// Whether to leave out the symbol's uses in test files (see
+    /// `TraceOpts::include_tests`).
+    fn skips_tests(&self, xref: &CrossrefData) -> bool {
+        !self.opts.include_tests && !xref.is_test_code()
+    }
+
+    /// The symbol's uses and assignments, but test files' (see
+    /// `TraceOpts::include_tests`).
     async fn field_uses(&mut self, field: Ustr) -> Vec<(String, u32, Ustr)> {
         let Some(xref) = self.xref(&field).await else {
             return vec![];
         };
+        let skip_tests = self.skips_tests(&xref);
         xref.uses
             .iter()
             .flatten()
             .chain(xref.assignments.iter().flatten())
+            .filter(|p| !(skip_tests && p.path_kind == "test"))
             .flat_map(|p| {
                 p.lines
                     .iter()

@@ -105,6 +105,30 @@ add_task(async function test_DiagramControl_nodeLimitWarning() {
   ok(!newWarningBox,"warning is not present");
 });
 
+add_task(async function test_DiagramControl_includeTests() {
+  // (Diagrams leave out test files' calls, here rollup/tests/storage_test.cpp's,
+  // unless asked to include them.)
+  await TestUtils.loadQuery("tests", "calls-to:'rollup::Storage::Put'");
+  const texts = () => [...frame.contentDocument.querySelectorAll("svg text")].map(t => t.textContent);
+  ok(texts().includes("Engine") && !texts().includes("StorageTest"),
+     `Its callers but the test's are shown: ${texts().join(", ")}`);
+
+  const { panel, apply } = await openPanel();
+  const includeTests = panel.querySelector("#diagram-option-include-tests");
+  ok(!includeTests.checked, "Test files' calls are left out by default");
+  TestUtils.clickCheckbox(includeTests);
+
+  const loadPromise = TestUtils.waitForLoad();
+  TestUtils.click(apply);
+  await loadPromise;
+
+  const newQuery = frame.contentDocument.querySelector("#query");
+  is(newQuery.value, "calls-to:'rollup::Storage::Put' include-tests:true",
+     "The query reflects the modification");
+  ok(texts().includes("Engine") && texts().includes("StorageTest"),
+     `and the test's call is shown: ${texts().join(", ")}`);
+});
+
 add_task(async function test_DiagramControl_menu() {
   await TestUtils.loadQuery("tests", "calls-to:'diagram::uses_lines_local::target' depth:4");
 

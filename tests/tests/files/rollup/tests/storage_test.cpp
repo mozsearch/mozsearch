@@ -13,4 +13,8 @@ class StorageTest {
   }
 };
 
+// Test code's callers in test files are in its diagrams (see traverse's
+// `--include-tests`), unlike Storage's.
+int RunStorageTest(Storage& aStorage) { return StorageTest().Run(aStorage); }
+
 }  // namespace rollup
