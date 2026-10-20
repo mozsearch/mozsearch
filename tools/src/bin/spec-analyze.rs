@@ -167,12 +167,22 @@ fn main() {
             add_titles(spec, &biblio);
         }
     }
+    // The Bikeshed specs' analyses, each with a Bikeshed process (1-9 s:
+    // wubspecs' 333 specs took 9.2 minutes one after another), on all of the
+    // machine's threads, for the specs' loop below to use in their order.
+    // (Bikeshed's `index` only reads its own data files and the spec's, and
+    // writes its rendering, for --rendered-specs.)
+    let mut bikeshed_analyses: HashMap<usize, BikeshedAnalysis> = if citations_only {
+        HashMap::new()
+    } else {
+        analyze_bikeshed_specs(&specs, files_root, rendered_root.as_deref(), &config)
+    };
     // The specs' exported definitions, which ReSpec specs' references to
     // other specs' terms are to (see `xref`); so ReSpec specs are analyzed
     // last.
     let mut terms = xref::Terms::default();
     let mut respec_specs: Vec<(&SpecEntry, String, String)> = vec![];
-    for spec in specs.into_iter().filter(|_| !citations_only) {
+    for (spec_index, spec) in specs.into_iter().enumerate().filter(|_| !citations_only) {
         let (Some(format), Some(path)) = (spec.format, spec.source_path()) else {
             continue;
         };
@@ -255,46 +265,18 @@ fn main() {
             }
             SpecFormat::Respec => respec_specs.push((spec, path, source)),
             SpecFormat::Bikeshed => {
-                // (Bikeshed's index of the spec, unless it's configured, and
-                // with --rendered-specs, its rendering, as
-                // `RENDERED_ROOT/<path>.html`, for its rendered view.)
-                let html = rendered_root.as_ref().and_then(|root| {
-                    // (Absolute, since Bikeshed runs in the source's
-                    // directory.)
-                    let html =
-                        std::path::absolute(Path::new(root).join(format!("{}.html", path))).ok()?;
-                    std::fs::create_dir_all(html.parent()?).ok()?;
-                    Some(html)
-                });
-                let json = match &spec.index {
-                    Some(index) => {
-                        if let (Some(output), Some(html)) = (&spec.output, &html)
-                            && let Err(e) = std::fs::copy(config.dir.join(output), html)
-                        {
-                            eprintln!("spec-analyze: {}: {}", output, e);
-                        }
-                        std::fs::read_to_string(config.dir.join(index))
-                            .map_err(|e| format!("{}: {}", index, e))
-                    }
-                    None => bikeshed::run_bikeshed(&files_root.join(&path), html.as_deref()),
+                let Some(analysis) = bikeshed_analyses.remove(&spec_index) else {
+                    continue;
                 };
-                let index = match json.and_then(|json| bikeshed::parse_index(&json)) {
-                    Ok(index) => index,
+                let (exports, analyzed) = match analysis.result {
+                    Ok(result) => result,
                     Err(e) => {
                         eprintln!("spec-analyze: {}: {}", path, e);
                         continue;
                     }
                 };
-                terms.add(spec, &bikeshed::exports(&index));
-                // (With the files it includes.)
-                let read = |file: &str| std::fs::read_to_string(files_root.join(file)).ok();
-                let Some((files, stats)) = bikeshed::analyze_with_includes(
-                    &path,
-                    &read,
-                    &index,
-                    spec.shortname(),
-                    &config,
-                ) else {
+                terms.add(spec, &exports);
+                let Some((files, stats)) = analyzed else {
                     continue;
                 };
                 let file_count = files.len();
@@ -313,7 +295,7 @@ fn main() {
                     stats.links,
                     stats.external,
                     stats.unplaced,
-                    started.elapsed().as_secs_f64()
+                    analysis.seconds
                 );
             }
         }
@@ -584,4 +566,92 @@ fn main() {
         files,
         started.elapsed().as_secs_f64()
     );
+}
+
+/// A Bikeshed spec's analysis (see `analyze_bikeshed_specs`): its exported
+/// definitions, and its source's and included files' records and its stats
+/// (or None if it has none), or why it couldn't be indexed; and how long it
+/// took.
+struct BikeshedAnalysis {
+    result: Result<(Vec<xref::Export>, Option<BikeshedRecords>), String>,
+    seconds: f64,
+}
+
+/// A Bikeshed spec's source's and included files' records, and its stats.
+type BikeshedRecords = (Vec<(String, Vec<Record>)>, bikeshed::Stats);
+
+/// The Bikeshed specs' analyses, by their positions in `specs` (those with
+/// sources), on all of the machine's threads: Bikeshed's index of each spec,
+/// unless it's configured, and with `rendered_root`, its rendering, as
+/// `rendered_root/<path>.html`, for its rendered view.
+fn analyze_bikeshed_specs(
+    specs: &[&SpecEntry],
+    files_root: &Path,
+    rendered_root: Option<&str>,
+    config: &SpecsConfig,
+) -> HashMap<usize, BikeshedAnalysis> {
+    let jobs: Vec<(usize, &SpecEntry, String)> = specs
+        .iter()
+        .enumerate()
+        .filter(|(_, spec)| spec.format == Some(SpecFormat::Bikeshed))
+        .filter_map(|(i, spec)| Some((i, *spec, spec.source_path()?)))
+        .filter(|(_, _, path)| files_root.join(path).is_file())
+        .collect();
+    let analyze = |spec: &SpecEntry, path: &str| -> BikeshedAnalysis {
+        let started = Instant::now();
+        let html = rendered_root.and_then(|root| {
+            // (Absolute, since Bikeshed runs in the source's directory.)
+            let html = std::path::absolute(Path::new(root).join(format!("{}.html", path))).ok()?;
+            std::fs::create_dir_all(html.parent()?).ok()?;
+            Some(html)
+        });
+        let json = match &spec.index {
+            Some(index) => {
+                if let (Some(output), Some(html)) = (&spec.output, &html)
+                    && let Err(e) = std::fs::copy(config.dir.join(output), html)
+                {
+                    eprintln!("spec-analyze: {}: {}", output, e);
+                }
+                std::fs::read_to_string(config.dir.join(index))
+                    .map_err(|e| format!("{}: {}", index, e))
+            }
+            None => bikeshed::run_bikeshed(&files_root.join(path), html.as_deref()),
+        };
+        let result = json
+            .and_then(|json| bikeshed::parse_index(&json))
+            .map(|index| {
+                // (With the files it includes.)
+                let read = |file: &str| std::fs::read_to_string(files_root.join(file)).ok();
+                let analyzed =
+                    bikeshed::analyze_with_includes(path, &read, &index, spec.shortname(), config);
+                (bikeshed::exports(&index), analyzed)
+            });
+        BikeshedAnalysis {
+            result,
+            seconds: started.elapsed().as_secs_f64(),
+        }
+    };
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let threads = std::thread::available_parallelism().map_or(1, |n| n.get());
+    std::thread::scope(|s| {
+        let handles: Vec<_> = (0..threads.min(jobs.len().max(1)))
+            .map(|_| {
+                s.spawn(|| {
+                    let mut analyses = vec![];
+                    loop {
+                        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let Some((spec_index, spec, path)) = jobs.get(i) else {
+                            break;
+                        };
+                        analyses.push((*spec_index, analyze(spec, path)));
+                    }
+                    analyses
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .flat_map(|handle| handle.join().unwrap())
+            .collect()
+    })
 }
