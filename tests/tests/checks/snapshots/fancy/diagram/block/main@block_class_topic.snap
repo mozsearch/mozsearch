@@ -7,5 +7,5 @@ digraph g {
   node[shape=box fontname="Courier New" fontsize=10]
   "T_rollup::Announcer"[label="rollup::Announcer"]
   "T_rollup::Listener"[label="rollup::Listener"]
-  "T_rollup::Announcer" -> "T_rollup::Listener" [label="1" penwidth="1.0" tooltip="1 calls, ex: rollup::Announcer::Announce → rollup::Listener::Observe"]
+  "T_rollup::Announcer" -> "T_rollup::Listener" [label="1" penwidth="3.0" tooltip="1 calls, ex: rollup::Announcer::Announce → rollup::Listener::Observe"]
 }

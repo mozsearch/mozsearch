@@ -199,7 +199,11 @@ pub struct GraphCommand {
 /// Convert tunneled symbol identifiers in the SVG into `data-symbols`
 /// attributes.  Specific conversions:
 /// - `<title>` tags holding the node identifiers.
-/// - `<a xlink...>` tags holding links resulting from HTML labels.
+/// - `<a xlink...>` tags holding links resulting from HTML labels, which
+///   become `<g>`s (and their `</a>`s `</g>`s; but not other anchors', ex:
+///   edges' tooltips, `<a xlink:title="...">`, which stay anchors, as a
+///   `</g>` for them closed an extra group: block diagrams' first edge's
+///   closed the graph's, and everything after it was drawn out of place).
 ///
 /// Currently our general behavior is to drop anything that has an identifier
 /// that starts with "SYN_" and to assume that everything else is a valid
@@ -233,9 +237,29 @@ pub(crate) fn transform_svg(svg: &str) -> String {
             )
         }
     });
-    RE_XLINK
+    lazy_static! {
+        static ref RE_ANCHOR: Regex = Regex::new(r#"<a\b[^>]*>|</a>"#).unwrap();
+    }
+    // (Whether each open anchor became a `<g>`, for its end tag.)
+    let mut converted: Vec<bool> = vec![];
+    RE_ANCHOR
         .replace_all(&titled, |caps: &Captures| {
-            let captured = caps.get(1).unwrap().as_str();
+            let tag = caps.get(0).unwrap().as_str();
+            if tag == "</a>" {
+                return match converted.pop().unwrap_or(false) {
+                    true => "</g>".to_string(),
+                    false => tag.to_string(),
+                };
+            }
+            let Some(link) = RE_XLINK
+                .captures(tag)
+                .filter(|link| link.get(0).unwrap().as_str() == tag)
+            else {
+                converted.push(false);
+                return tag.to_string();
+            };
+            converted.push(true);
+            let captured = link.get(1).unwrap().as_str();
             if captured.starts_with("SYN_") {
                 "<g>".to_string()
             } else {
@@ -245,7 +269,7 @@ pub(crate) fn transform_svg(svg: &str) -> String {
                 )
             }
         })
-        .replace("</a>", "</g>")
+        .into_owned()
 }
 
 #[async_trait]
@@ -448,5 +472,44 @@ impl PipelineCommand for GraphCommand {
                 contents: String::from_utf8(graph_contents).unwrap(),
             })),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::transform_svg;
+
+    /// HTML labels' links become groups with their symbols, and close as
+    /// groups; tooltips' anchors (ex: block diagrams' edges') stay anchors,
+    /// closing as anchors, so the graph's groups stay as they were.
+    #[test]
+    fn test_transform_svg_anchors() {
+        let svg = concat!(
+            "<g id=\"graph0\" class=\"graph\">\n",
+            "<g id=\"node1\" class=\"node\">\n<title>T_Foo</title>\n",
+            "<g id=\"a_node1_0\"><a xlink:href=\"T_Foo%3A%3ABar\" xlink:title=\"Bar\">\n",
+            "<text>Bar</text>\n</a>\n</g>\n</g>\n",
+            "<g id=\"edge1\" class=\"edge\">\n",
+            "<g id=\"a_edge1\"><a xlink:title=\"6123 calls\">\n",
+            "<path d=\"M0,0\"/>\n</a>\n</g>\n</g>\n",
+            "</g>\n",
+        );
+        let out = transform_svg(svg);
+        assert!(out.contains("<g data-symbols=\"T_Foo::Bar\">"), "{}", out);
+        assert!(out.contains("<a xlink:title=\"6123 calls\">"), "{}", out);
+        // (Each start tag has its end tag: as many `<g`s as `</g>`s, and
+        // `<a`s as `</a>`s.)
+        assert_eq!(
+            out.matches("<g").count(),
+            out.matches("</g>").count(),
+            "{}",
+            out
+        );
+        assert_eq!(
+            out.matches("<a ").count(),
+            out.matches("</a>").count(),
+            "{}",
+            out
+        );
     }
 }

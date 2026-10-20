@@ -603,8 +603,10 @@ impl SymbolGraphCollection {
             // we create the structs via a hand-rolled `escaped_node_id` that
             // replicates what the equivalent macros would do.
             let mut edge = edge!(escaped_node_id(&source_sym) => escaped_node_id(&target_sym));
-            edge.attributes
-                .extend(weight_attributes(&self.edge_set.get(&edge_id).data));
+            edge.attributes.extend(weight_attributes(
+                &self.edge_set.get(&edge_id).data,
+                self.edge_set.weight_range(),
+            ));
             dot_graph.add_stmt(stmt!(edge));
         }
 
@@ -729,6 +731,32 @@ impl SymbolGraphCollection {
             .map(|(sym, _)| *sym)
             .collect();
         server.prefetch_crossref(&found_syms).await;
+
+        // (The subsystems with others under them among the graph's
+        // subsystems' own nodes, whose nodes stay under their paths, with
+        // their names, beside the others; see the subsystem grouping.)
+        let mut parent_subsystems: HashSet<String> = HashSet::new();
+        for sym_id in graph.list_nodes() {
+            let info = self.node_set.get(&sym_id);
+            if !info
+                .symbol
+                .starts_with(crate::file_format::rollup::SUBSYSTEM_PREFIX)
+            {
+                continue;
+            }
+            let subsystem = info.get_subsystem().map(|x| x.as_str()).unwrap_or("");
+            let Some((parent, _)) = subsystem.rsplit_once('/') else {
+                continue;
+            };
+            let mut so_far = String::new();
+            for piece in parent.split('/') {
+                if !so_far.is_empty() {
+                    so_far.push('/');
+                }
+                so_far.push_str(piece);
+                parent_subsystems.insert(so_far.clone());
+            }
+        }
 
         for sym_id in graph.list_nodes() {
             let (sym, sym_pretty) = {
@@ -872,74 +900,91 @@ impl SymbolGraphCollection {
                     }
                 })
                 .unwrap_or_else(|| pieces_and_syms.len() - 1);
-            let segments_and_syms =
-                match &policies.grouping {
-                    GraphHierarchy::Flat | GraphHierarchy::Flatbadges | GraphHierarchy::Pretty => {
-                        pieces_and_syms
-                            .into_iter()
-                            .map(|(piece, sym)| {
-                                (HierarchySegment::PrettySegment(piece, delim), sym)
-                            })
-                            .collect_vec()
-                    }
-                    GraphHierarchy::Subsystem => {
-                        // For subsystem we always use the subsystem of the first
-                        // symbol we find now in order to avoid weird cases where
-                        // the methods in a symbol are defined in a different cpp
-                        // file that is technically part of a different subsystem.
-                        //
-                        // This is different than the decision we've made for dir/file
-                        // where we do allow fragmentation (but where the class pretty
-                        // containment will mean that the class shows up in both the
-                        // right place and also the wrong place(s)).
-                        let subsystem = match &pieces_and_syms[first_real_sym].1 {
-                            Some(sym) => self
+            let segments_and_syms = match &policies.grouping {
+                GraphHierarchy::Flat | GraphHierarchy::Flatbadges | GraphHierarchy::Pretty => {
+                    pieces_and_syms
+                        .into_iter()
+                        .map(|(piece, sym)| (HierarchySegment::PrettySegment(piece, delim), sym))
+                        .collect_vec()
+                }
+                GraphHierarchy::Subsystem => {
+                    // For subsystem we always use the subsystem of the first
+                    // symbol we find now in order to avoid weird cases where
+                    // the methods in a symbol are defined in a different cpp
+                    // file that is technically part of a different subsystem.
+                    //
+                    // This is different than the decision we've made for dir/file
+                    // where we do allow fragmentation (but where the class pretty
+                    // containment will mean that the class shows up in both the
+                    // right place and also the wrong place(s)).
+                    let subsystem = match &pieces_and_syms[first_real_sym].1 {
+                        Some(sym) => self
+                            .node_set
+                            .get(sym)
+                            .get_subsystem()
+                            .map(|x| x.as_str())
+                            .unwrap_or(""),
+                        None => "",
+                    };
+                    // (A subsystem's own node, ex: a block diagram's, is
+                    // at its path's end, if no others are under it: "GC" in
+                    // Core › JavaScript, rather than "Core/JavaScript/GC"
+                    // under it, which collapsed into
+                    // "GC::Core/JavaScript/GC".)
+                    let own = pieces_and_syms[first_real_sym].1.clone().filter(|sym| {
+                        pieces_and_syms.len() == first_real_sym + 1
+                            && !parent_subsystems.contains(subsystem)
+                            && self
                                 .node_set
                                 .get(sym)
-                                .get_subsystem()
-                                .map(|x| x.as_str())
-                                .unwrap_or(""),
-                            None => "",
-                        };
-                        let segs = subsystem.split("/").map(|piece| {
+                                .symbol
+                                .starts_with(crate::file_format::rollup::SUBSYSTEM_PREFIX)
+                    });
+                    let pieces: Vec<&str> = subsystem.split("/").collect();
+                    let last = pieces.len() - 1;
+                    let segs = pieces.into_iter().enumerate().map(|(i, piece)| {
+                        (
+                            HierarchySegment::PrettySegment(piece.to_string(), "/"),
+                            own.clone().filter(|_| i == last),
+                        )
+                    });
+                    match own {
+                        Some(_) => segs.collect_vec(),
+                        None => segs
+                            .chain(pieces_and_syms.into_iter().skip(first_real_sym).map(
+                                |(piece, sym)| (HierarchySegment::PrettySegment(piece, delim), sym),
+                            ))
+                            .collect_vec(),
+                    }
+                }
+                grouping @ GraphHierarchy::File | grouping @ GraphHierarchy::Dir => {
+                    // We use the most-specific symbol here.
+                    let path = match &pieces_and_syms[pieces_and_syms.len() - 1].1 {
+                        Some(sym) => self
+                            .node_set
+                            .get(sym)
+                            .get_def_path()
+                            .map(|x| x.as_str())
+                            .unwrap_or(""),
+                        None => "",
+                    };
+                    let mut segs = path.split("/").collect_vec();
+                    if let GraphHierarchy::Dir = grouping {
+                        segs.pop();
+                    };
+                    segs.into_iter()
+                        .map(|piece| {
                             (
                                 HierarchySegment::PrettySegment(piece.to_string(), "/"),
                                 None,
                             )
-                        });
-                        segs.chain(pieces_and_syms.into_iter().skip(first_real_sym).map(
+                        })
+                        .chain(pieces_and_syms.into_iter().skip(first_real_sym).map(
                             |(piece, sym)| (HierarchySegment::PrettySegment(piece, delim), sym),
                         ))
                         .collect_vec()
-                    }
-                    grouping @ GraphHierarchy::File | grouping @ GraphHierarchy::Dir => {
-                        // We use the most-specific symbol here.
-                        let path = match &pieces_and_syms[pieces_and_syms.len() - 1].1 {
-                            Some(sym) => self
-                                .node_set
-                                .get(sym)
-                                .get_def_path()
-                                .map(|x| x.as_str())
-                                .unwrap_or(""),
-                            None => "",
-                        };
-                        let mut segs = path.split("/").collect_vec();
-                        if let GraphHierarchy::Dir = grouping {
-                            segs.pop();
-                        };
-                        segs.into_iter()
-                            .map(|piece| {
-                                (
-                                    HierarchySegment::PrettySegment(piece.to_string(), "/"),
-                                    None,
-                                )
-                            })
-                            .chain(pieces_and_syms.into_iter().skip(first_real_sym).map(
-                                |(piece, sym)| (HierarchySegment::PrettySegment(piece, delim), sym),
-                            ))
-                            .collect_vec()
-                    }
-                };
+                }
+            };
 
             let mut segments_so_far = vec![];
             for (segment, maybe_sym) in segments_and_syms {
@@ -2070,7 +2115,7 @@ impl HierarchicalNode {
                         .push(attr!("id", state.id_for_edge(edge_id)));
                     maybe_edge
                         .attributes
-                        .extend(weight_attributes(&edge_info.data));
+                        .extend(weight_attributes(&edge_info.data, edge_set.weight_range()));
 
                     state.set_edge_metadata(from_id, to_id, edge_id, &edge_info.data);
 
@@ -2309,6 +2354,21 @@ pub struct SymbolGraphEdgeSet {
     edge_lookup: HashMap<(u32, u32), u32>,
 }
 
+impl SymbolGraphEdgeSet {
+    /// The least and most of its edges' weights (see `weight_attributes`).
+    pub fn weight_range(&self) -> (u32, u32) {
+        let weights = self.edge_infos.iter().flat_map(|info| {
+            info.data.iter().filter_map(|detail| match detail {
+                EdgeDetail::Weight(count) => Some(*count),
+                _ => None,
+            })
+        });
+        weights.fold((u32::MAX, 0), |(least, most), w| {
+            (least.min(w), most.max(w))
+        })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum EdgeDetail {
     /// Provide a source code jump.
@@ -2327,13 +2387,26 @@ pub enum EdgeDetail {
     Label(String),
 }
 
-/// The graphviz attributes for an edge's `Weight` and `Label` details.
-fn weight_attributes(data: &[EdgeDetail]) -> Vec<graphviz_rust::dot_structures::Attribute> {
+/// The graphviz attributes for an edge's `Weight` and `Label` details: its
+/// weight as its label, and its width, from 1 for the least of the edges'
+/// `range` to `MAX_EDGE_WIDTH` for the most, by their logarithms (rather than
+/// by its own logarithm, which made all of a big tree's block diagrams'
+/// edges, of thousands of calls, 7 to 9 wide).
+fn weight_attributes(
+    data: &[EdgeDetail],
+    range: (u32, u32),
+) -> Vec<graphviz_rust::dot_structures::Attribute> {
+    const MAX_EDGE_WIDTH: f64 = 5.0;
     let mut attrs = vec![];
     for detail in data {
         match detail {
             EdgeDetail::Weight(count) => {
-                let width = 1.0 + (*count as f64).log2().max(0.0) / 2.0;
+                let log = |n: u32| (n.max(1) as f64).ln();
+                let (least, most) = (log(range.0), log(range.1));
+                let width = match most > least {
+                    true => 1.0 + (MAX_EDGE_WIDTH - 1.0) * (log(*count) - least) / (most - least),
+                    false => 1.0 + (MAX_EDGE_WIDTH - 1.0) / 2.0,
+                };
                 attrs.push(attr!("label", esc count.to_string()));
                 attrs.push(attr!("penwidth", esc format!("{:.1}", width)));
             }

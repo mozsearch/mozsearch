@@ -23,5 +23,5 @@ digraph g {
       "T_rollup::Panel"[id=Gidn0 label=<Panel> class="diagram-depth-1"]
     }
   }
-  "T_rollup::Panel" -> "T_rollup::Store" [style=solid arrowhead=normal id=Gide0 label="2" penwidth="1.5" tooltip="2 calls, ex: rollup::Panel::Edit → rollup::Store::Put"]
+  "T_rollup::Panel" -> "T_rollup::Store" [style=solid arrowhead=normal id=Gide0 label="2" penwidth="3.0" tooltip="2 calls, ex: rollup::Panel::Edit → rollup::Store::Put"]
 }

@@ -14,7 +14,7 @@ digraph g {
     "T_rollup::Stats"[shape=none label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4"><tr><td id="Gidn7" href="T_rollup%3A%3AStats" port="T_rollup__Stats" align="left"><b>Stats</b></td></tr><tr><td id="Gidn4" href="F_%3CT_rollup%3A%3AStats%3E_mLast" port="F__T_rollup__Stats__mLast" align="left">&nbsp;mLast</td></tr></table>> class="diagram-depth-1"]
     "T_rollup::Store"[shape=none label=<<table border="0" cellborder="1" cellspacing="0" cellpadding="4"><tr><td id="Gidn6" href="T_rollup%3A%3AStore" port="T_rollup__Store" align="left"><b>Store</b></td></tr><tr><td id="Gidn1" href="F_%3CT_rollup%3A%3AStore%3E_mValue" port="F__T_rollup__Store__mValue" align="left">&nbsp;mValue</td></tr></table>> class="diagram-depth-1"]
   }
-  "T_rollup::Store":"F__T_rollup__Store__mValue" -> "T_rollup::Panel":"F__T_rollup__Panel__mShown" [style=solid arrowhead=normal id=Gide0 label="1" penwidth="1.0" tooltip="1 flows, ex: in rollup::Panel::Refresh"]
-  "T_rollup::Panel":"_ZN6rollup5Panel4EditEi" -> "T_rollup::Stats":"F__T_rollup__Stats__mLast" [style=solid arrowhead=normal id=Gide1 label="1" penwidth="1.0" tooltip="1 flows, ex: in rollup::Panel::Edit"]
-  "T_rollup::Panel":"_ZN6rollup5Panel4EditEi" -> "T_rollup::Store":"F__T_rollup__Store__mValue" [style=solid arrowhead=normal id=Gide2 label="1" penwidth="1.0" tooltip="1 flows, ex: in rollup::Panel::Edit"]
+  "T_rollup::Store":"F__T_rollup__Store__mValue" -> "T_rollup::Panel":"F__T_rollup__Panel__mShown" [style=solid arrowhead=normal id=Gide0 label="1" penwidth="3.0" tooltip="1 flows, ex: in rollup::Panel::Refresh"]
+  "T_rollup::Panel":"_ZN6rollup5Panel4EditEi" -> "T_rollup::Stats":"F__T_rollup__Stats__mLast" [style=solid arrowhead=normal id=Gide1 label="1" penwidth="3.0" tooltip="1 flows, ex: in rollup::Panel::Edit"]
+  "T_rollup::Panel":"_ZN6rollup5Panel4EditEi" -> "T_rollup::Store":"F__T_rollup__Store__mValue" [style=solid arrowhead=normal id=Gide2 label="1" penwidth="3.0" tooltip="1 flows, ex: in rollup::Panel::Edit"]
 }
