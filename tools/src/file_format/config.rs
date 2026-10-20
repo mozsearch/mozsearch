@@ -312,7 +312,7 @@ impl TreeConfigPaths {
         None
     }
 
-    fn coverage_repo(&self) -> Option<PathBuf> {
+    pub fn coverage_repo(&self) -> Option<PathBuf> {
         let repo = Path::new(&self.index_path).join("coverage");
         repo.exists().then_some(repo)
     }

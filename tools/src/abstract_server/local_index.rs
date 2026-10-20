@@ -27,7 +27,7 @@ use crate::file_format::analysis_manglings::escape_record_symbol_commas;
 use crate::file_format::bisectable_mmap::BisectableMmap;
 use crate::file_format::chunked_gzip::{self, Row};
 use crate::file_format::code_coverage_report;
-use crate::file_format::config::{TreeConfig, TreeConfigPaths, git_data, load};
+use crate::file_format::config::{GitData, TreeConfig, TreeConfigPaths, load};
 use crate::file_format::crossref::CrossrefData;
 use crate::file_format::history::timeline_common::JournalVersionRef;
 use crate::file_format::identifiers::IdentMap;
@@ -217,6 +217,16 @@ pub struct LocalIndex {
 }
 
 impl LocalIndex {
+    /// `f` of the tree's git data (`tree_config_loaded`'s), or None if the
+    /// tree has no coverage repo (or no git data): directory listings look up
+    /// each directory's coverage (firefox's ~44k), and opening the git data
+    /// opens the tree's repos and its history (~2.7 ms each time on config8).
+    fn with_coverage_git<T>(&self, f: impl FnOnce(&GitData) -> Option<T>) -> Option<T> {
+        self.config_paths.coverage_repo()?;
+        let cfg = self.tree_config_loaded();
+        f(cfg.trees.get(&self.tree_name)?.git.as_ref()?)
+    }
+
     /// The tree's configuration, with its git repositories (see
     /// `config_file`), loaded once per thread (git repositories aren't
     /// `Sync`, but they're `Send`).
@@ -540,8 +550,7 @@ impl AbstractServer for LocalIndex {
 
     async fn coverage_history(&self, sf_path: &str) -> Result<Option<Vec<RevisionCoverage>>> {
         let norm_path = self.normalize_and_validate_path(sf_path)?;
-        let git = git_data(&self.config_paths, false);
-        Ok(coverage_history(git.as_ref(), norm_path))
+        Ok(self.with_coverage_git(|git| coverage_history(Some(git), norm_path)))
     }
 
     async fn coverage_summary(
@@ -549,17 +558,11 @@ impl AbstractServer for LocalIndex {
         sf_path: &str,
     ) -> Result<Option<code_coverage_report::NodeMetadata>> {
         let norm_path = self.normalize_and_validate_path(sf_path)?;
-        let Some(git) = git_data(&self.config_paths, false) else {
-            return Ok(None);
-        };
-        let Ok(head) = git.repo.head() else {
-            return Ok(None);
-        };
-        let Ok(commit) = head.peel_to_commit() else {
-            return Ok(None);
-        };
-        let coverage_rev = format!("refs/tags/reverse/all/all/{}", commit.id());
-        Ok(coverage_summary(Some(&git), &coverage_rev, norm_path))
+        Ok(self.with_coverage_git(|git| {
+            let commit = git.repo.head().ok()?.peel_to_commit().ok()?;
+            let coverage_rev = format!("refs/tags/reverse/all/all/{}", commit.id());
+            coverage_summary(Some(git), &coverage_rev, norm_path)
+        }))
     }
 
     async fn fetch_raw_analysis<'a>(&self, sf_path: &str) -> Result<BoxStream<'a, Value>> {
