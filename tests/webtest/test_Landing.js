@@ -20,6 +20,8 @@ add_task(async function test_LandingDiagrams() {
   const [calls, data] = [...doc().querySelectorAll(".landing-diagram")];
   is(calls && query(calls), "block-diagram:*", "and to the diagram of all of its subsystems");
   is(data && query(data), "block-diagram:* block-edges:data", "by calls and by data");
+  is(query(doc().querySelector(".landing-arcs")), "block-diagram:* block-view:arcs",
+     "and in a column with arcs");
   const subsystem = [...doc().querySelectorAll(".landing-subsystems a")].find(
     a => a.textContent == "Core/Rollup View");
   is(subsystem && query(subsystem), "block-diagram:'Core/Rollup View'",

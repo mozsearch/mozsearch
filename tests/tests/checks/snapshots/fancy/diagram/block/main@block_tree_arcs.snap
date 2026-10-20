@@ -1,0 +1,35 @@
+---
+source: src/bin/test-index.rs
+expression: "&fb.contents"
+input_file: inputs/fancy/diagram/block/block_tree_arcs
+---
+<svg class="arcs" xmlns="http://www.w3.org/2000/svg" width="712" height="208" viewBox="0 0 712 208" font-family="sans-serif" font-size="11">
+<style>
+.arcs .arcs-arc { fill: none; stroke-opacity: 0.45; }
+.arcs .arcs-down { stroke: #3b78d8; }
+.arcs .arcs-up { stroke: #d8783b; }
+.arcs:hover .arcs-arc { stroke-opacity: 0.1; }
+.arcs .arcs-row:hover .arcs-arc { stroke-opacity: 1; }
+.arcs .arcs-row:hover text { font-weight: bold; }
+.arcs .arcs-band { fill: #8881; }
+.arcs a text { fill: currentColor; }
+</style>
+<defs>
+<marker id="arcs-head-down" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3b78d8"/></marker>
+<marker id="arcs-head-up" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#d8783b"/></marker>
+</defs>
+<text x="4" y="14" font-size="12">The tree's subsystems by their groups, with their 2 strongest calls between them as arcs:</text>
+<text x="4" y="30" font-size="12">blue going down, orange going up, thicker for more; hover over a subsystem for its own. <a href="/tests/query/default?q=block-diagram%3A*"><tspan fill="#0095dd">Block diagrams</tspan></a></text>
+<rect class="arcs-band" x="0" y="44" width="712" height="66"/><text x="4" y="59" font-weight="bold">Group 1: Core/Rollup Engine, Core/Rollup Storage (2 subsystems)</text>
+<rect class="arcs-band" x="0" y="118" width="712" height="66"/><text x="4" y="133" font-weight="bold">Group 2: Core/Rollup View, Core/Rollup Model (2 subsystems)</text>
+<g class="arcs-row" data-group="1">
+<path class="arcs-arc arcs-down" d="M308 75 A8 8 0 0 1 308 91" stroke-width="4.00" marker-end="url(#arcs-head-down)"><title>Core/Rollup Engine → Core/Rollup Storage: 3 calls</title></path>
+<a href="/tests/query/default?q=block-diagram%3A%27Core%2FRollup+Engine%27"><text x="300" y="78" text-anchor="end">Core/Rollup Engine</text></a></g>
+<g class="arcs-row" data-group="1">
+<a href="/tests/query/default?q=block-diagram%3A%27Core%2FRollup+Storage%27"><text x="300" y="94" text-anchor="end">Core/Rollup Storage</text></a></g>
+<g class="arcs-row" data-group="2">
+<path class="arcs-arc arcs-down" d="M308 149 A8 8 0 0 1 308 165" stroke-width="0.75" marker-end="url(#arcs-head-down)"><title>Core/Rollup View → Core/Rollup Model: 2 calls</title></path>
+<a href="/tests/query/default?q=block-diagram%3A%27Core%2FRollup+View%27"><text x="300" y="152" text-anchor="end">Core/Rollup View</text></a></g>
+<g class="arcs-row" data-group="2">
+<a href="/tests/query/default?q=block-diagram%3A%27Core%2FRollup+Model%27"><text x="300" y="168" text-anchor="end">Core/Rollup Model</text></a></g>
+</svg>

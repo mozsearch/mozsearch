@@ -3,7 +3,7 @@ use clap::{Args, ValueEnum};
 use serde_json::json;
 use ustr::{Ustr, ustr};
 
-use super::interface::{PipelineCommand, PipelineValues};
+use super::interface::{PipelineCommand, PipelineValues, TextFile};
 use super::symbol_graph::{
     EdgeDetail, NamedSymbolGraph, SymbolBadge, SymbolGraphCollection, SymbolGraphEdgeSet,
     SymbolGraphNodeSet,
@@ -14,6 +14,16 @@ use crate::file_format::rollup::{
     Rollup, RollupEdge, SUBSYSTEM_PREFIX, root_subsystem_sym, subsystem_sym,
 };
 use crate::symbol_graph_edge_kind::EdgeKind;
+
+/// How the whole tree's subsystems are drawn.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+pub enum BlockView {
+    /// Block diagrams (in big trees, a diagram per group; see `--groups-at`).
+    Diagram,
+    /// All of its subsystems in a column, by their groups, with their
+    /// strongest calls as arcs beside it (see `arc_diagram_svg`).
+    Arcs,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 pub enum BlockEdges {
@@ -103,6 +113,10 @@ pub struct BlockDiagram {
     /// diagram.
     #[clap(long, default_value_t = 20)]
     groups_at: usize,
+
+    /// For the whole tree: block diagrams, or a column of arcs.
+    #[clap(long, value_enum, default_value_t = BlockView::Diagram)]
+    view: BlockView,
 }
 
 /// Whether a symbol is a class, for block diagrams: a C++ (or other
@@ -281,6 +295,289 @@ fn louvain(n: usize, edges: &[(usize, usize, u64)]) -> Vec<usize> {
         adj = next;
     }
     node_group
+}
+
+/// A group of the whole tree's subsystems (see `subsystem_groups`).
+struct SubsystemGroup {
+    /// Its subsystems (symbols and pretty names), most calls first.
+    members: Vec<(Ustr, Ustr)>,
+    /// The calls within it.
+    weight: u64,
+}
+
+/// The whole tree's subsystems but the omnipresent ones (see
+/// `omnipresent_subsystems`), grouped by `edges`' calls between them (see
+/// `louvain`), the groups with the most calls within first (then the
+/// biggest), and each subsystem's group (its index).
+fn subsystem_groups(
+    rollup: &Rollup,
+    omnipresent: &[(Ustr, usize)],
+    edges: &[BlockEdge],
+) -> (Vec<SubsystemGroup>, std::collections::HashMap<Ustr, usize>) {
+    use std::collections::{BTreeMap, HashMap, HashSet};
+    let omnipresent: HashSet<Ustr> = omnipresent.iter().map(|(sym, _)| *sym).collect();
+    let subsystems: Vec<(Ustr, Ustr)> = rollup
+        .members
+        .iter()
+        .filter(|m| !omnipresent.contains(&m.sym))
+        .map(|m| (m.sym, m.pretty))
+        .collect();
+    let index: HashMap<Ustr, usize> = subsystems
+        .iter()
+        .enumerate()
+        .map(|(i, (sym, _))| (*sym, i))
+        .collect();
+    let weighted: Vec<(usize, usize, u64)> = edges
+        .iter()
+        .filter_map(|e| Some((*index.get(&e.from)?, *index.get(&e.to)?, e.count as u64)))
+        .collect();
+    let group_of_index = louvain(subsystems.len(), &weighted);
+    let mut members: BTreeMap<usize, Vec<(Ustr, Ustr)>> = BTreeMap::new();
+    for (subsystem, group) in subsystems.iter().zip(&group_of_index) {
+        members.entry(*group).or_default().push(*subsystem);
+    }
+    let mut weight: HashMap<usize, u64> = HashMap::new();
+    for (a, b, w) in &weighted {
+        if group_of_index[*a] == group_of_index[*b] {
+            *weight.entry(group_of_index[*a]).or_default() += w;
+        }
+    }
+    let mut groups: Vec<(usize, SubsystemGroup)> = members
+        .into_iter()
+        .map(|(group, members)| {
+            let weight = weight.get(&group).copied().unwrap_or(0);
+            (group, SubsystemGroup { members, weight })
+        })
+        .collect();
+    groups.sort_by_key(|(group, g)| {
+        (
+            std::cmp::Reverse(g.weight),
+            std::cmp::Reverse(g.members.len()),
+            *group,
+        )
+    });
+    let renumber: HashMap<usize, usize> = groups
+        .iter()
+        .enumerate()
+        .map(|(i, (group, _))| (*group, i))
+        .collect();
+    let group_of = subsystems
+        .iter()
+        .zip(&group_of_index)
+        .map(|((sym, _), group)| (*sym, renumber[group]))
+        .collect();
+    (
+        groups.into_iter().map(|(_, group)| group).collect(),
+        group_of,
+    )
+}
+
+/// How many arcs the whole tree's column of arcs shows at most (see
+/// `arc_diagram_svg`).
+const ARC_EDGES: usize = 400;
+
+/// Text for SVG (its text, and its attributes' values).
+fn xml_escape(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+/// The whole tree's subsystems in a column, by their groups (see
+/// `subsystem_groups`), each linking to its block diagram, with `arcs` (its
+/// strongest calls between them, of `unit`) beside it: each from its caller's
+/// row to its callee's, bulging right as far as the rows are apart (up to
+/// `ARC_BULGE`), blue going down and orange going up, as thick as its count
+/// among the arcs' (by logarithms); then the omnipresent subsystems (see
+/// `omnipresent_subsystems`), without the calls into them.  Hovering over a
+/// subsystem highlights its calls, and dims the others.  It flows down the
+/// page, at any number of subsystems (ex: firefox-disco's 253, but those
+/// without any of the arcs), as a block diagram of them can't.
+fn arc_diagram_svg(
+    tree: &str,
+    groups: &[SubsystemGroup],
+    group_of: &std::collections::HashMap<Ustr, usize>,
+    omnipresent: &[(Ustr, usize)],
+    pretty_of: &std::collections::HashMap<Ustr, Ustr>,
+    arcs: &[&BlockEdge],
+    unit: &str,
+) -> String {
+    use std::collections::{HashMap, HashSet};
+    use std::fmt::Write;
+    const ROW: f64 = 16.0;
+    const HEADER: f64 = 34.0;
+    const LABEL_RIGHT: f64 = 300.0;
+    const ARC_LEFT: f64 = 308.0;
+    const ARC_BULGE: f64 = 380.0;
+    let query = |q: String| {
+        let mut url = url::form_urlencoded::Serializer::new(String::new());
+        url.append_pair("q", &q);
+        format!("/{}/query/default?{}", tree, url.finish())
+    };
+    let quote = |name: &str| match name.contains('\'') {
+        true => format!("\"{}\"", name),
+        false => format!("'{}'", name),
+    };
+    // (The rows: the subsystems with arcs, by their groups.)
+    let with_arcs: HashSet<Ustr> = arcs.iter().flat_map(|e| [e.from, e.to]).collect();
+    let mut y = 44.0;
+    let mut rows: Vec<(Ustr, Ustr, f64)> = vec![];
+    let mut headers: Vec<(String, f64, f64)> = vec![];
+    for (g, group) in groups.iter().enumerate() {
+        let members: Vec<&(Ustr, Ustr)> = group
+            .members
+            .iter()
+            .filter(|(sym, _)| with_arcs.contains(sym))
+            .collect();
+        if members.is_empty() {
+            continue;
+        }
+        let top = y;
+        y += HEADER;
+        for (sym, pretty) in members {
+            rows.push((*sym, *pretty, y));
+            y += ROW;
+        }
+        let names = group
+            .members
+            .iter()
+            .take(3)
+            .map(|(_, p)| p.as_str())
+            .collect::<Vec<_>>();
+        headers.push((
+            format!(
+                "Group {}: {}{} ({} subsystems)",
+                g + 1,
+                names.join(", "),
+                if group.members.len() > 3 { ", …" } else { "" },
+                group.members.len()
+            ),
+            top,
+            y,
+        ));
+        y += ROW / 2.0;
+    }
+    let omnipresent_top = y;
+    if !omnipresent.is_empty() {
+        y += HEADER + ROW * omnipresent.len() as f64;
+    }
+    let height = y + ROW;
+    let width = ARC_LEFT + ARC_BULGE + 24.0;
+    let row_y: HashMap<Ustr, f64> = rows.iter().map(|(sym, _, y)| (*sym, *y)).collect();
+    let log = |n: u32| (n.max(1) as f64).ln();
+    let (least, most) = arcs.iter().fold((f64::MAX, 0.0f64), |(l, m), e| {
+        (l.min(log(e.count)), m.max(log(e.count)))
+    });
+
+    let mut svg = String::new();
+    let _ = write!(
+        svg,
+        r##"<svg class="arcs" xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}" font-family="sans-serif" font-size="11">
+<style>
+.arcs .arcs-arc {{ fill: none; stroke-opacity: 0.45; }}
+.arcs .arcs-down {{ stroke: #3b78d8; }}
+.arcs .arcs-up {{ stroke: #d8783b; }}
+.arcs:hover .arcs-arc {{ stroke-opacity: 0.1; }}
+.arcs .arcs-row:hover .arcs-arc {{ stroke-opacity: 1; }}
+.arcs .arcs-row:hover text {{ font-weight: bold; }}
+.arcs .arcs-band {{ fill: #8881; }}
+.arcs a text {{ fill: currentColor; }}
+</style>
+<defs>
+<marker id="arcs-head-down" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3b78d8"/></marker>
+<marker id="arcs-head-up" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#d8783b"/></marker>
+</defs>
+<text x="4" y="14" font-size="12">The tree's subsystems by their groups, with their {n} strongest {unit} between them as arcs:</text>
+<text x="4" y="30" font-size="12">blue going down, orange going up, thicker for more; hover over a subsystem for its own. <a href="{diagrams}"><tspan fill="#0095dd">Block diagrams</tspan></a></text>
+"##,
+        w = width,
+        h = height,
+        n = arcs.len(),
+        unit = xml_escape(unit),
+        diagrams = xml_escape(&query("block-diagram:*".to_string())),
+    );
+    for (title, top, bottom) in &headers {
+        let _ = writeln!(
+            svg,
+            r#"<rect class="arcs-band" x="0" y="{}" width="{}" height="{}"/><text x="4" y="{}" font-weight="bold">{}</text>"#,
+            top,
+            width,
+            bottom - top,
+            top + 15.0,
+            xml_escape(title)
+        );
+    }
+    // (Each row with the arcs of its calls, for its hovering.)
+    for (sym, pretty, y) in &rows {
+        let _ = writeln!(
+            svg,
+            r#"<g class="arcs-row" data-group="{}">"#,
+            group_of[sym] + 1
+        );
+        for e in arcs.iter().filter(|e| e.from == *sym) {
+            let Some(&to_y) = row_y.get(&e.to) else {
+                continue;
+            };
+            let down = to_y > *y;
+            let ry = (to_y - y).abs() / 2.0;
+            let width = match most > least {
+                true => 0.75 + 3.25 * (log(e.count) - least) / (most - least),
+                false => 2.0,
+            };
+            let _ = writeln!(
+                svg,
+                r#"<path class="arcs-arc {}" d="M{} {} A{} {} 0 0 {} {} {}" stroke-width="{:.2}" marker-end="url(#arcs-head-{})"><title>{} → {}: {} {}</title></path>"#,
+                if down { "arcs-down" } else { "arcs-up" },
+                ARC_LEFT,
+                y - 3.0,
+                ry.min(ARC_BULGE).max(1.0),
+                ry.max(1.0),
+                if down { 1 } else { 0 },
+                ARC_LEFT,
+                to_y - 3.0,
+                width,
+                if down { "down" } else { "up" },
+                xml_escape(pretty),
+                xml_escape(
+                    rows.iter()
+                        .find(|r| r.0 == e.to)
+                        .map_or("", |r| r.1.as_str())
+                ),
+                e.count,
+                xml_escape(unit)
+            );
+        }
+        let _ = writeln!(
+            svg,
+            r#"<a href="{}"><text x="{}" y="{}" text-anchor="end">{}</text></a></g>"#,
+            xml_escape(&query(format!("block-diagram:{}", quote(pretty)))),
+            LABEL_RIGHT,
+            y,
+            xml_escape(pretty)
+        );
+    }
+    if !omnipresent.is_empty() {
+        let _ = writeln!(
+            svg,
+            r#"<text x="4" y="{}" font-weight="bold">Used by most subsystems (the calls into them aren't drawn)</text>"#,
+            omnipresent_top + 15.0
+        );
+        for (i, (sym, callers)) in omnipresent.iter().enumerate() {
+            let name = pretty_of.get(sym).map_or(sym.as_str(), |p| p.as_str());
+            let _ = writeln!(
+                svg,
+                r#"<a href="{}"><text x="{}" y="{}" text-anchor="end">{} (used by {})</text></a>"#,
+                xml_escape(&query(format!("block-diagram:{}", quote(&name)))),
+                LABEL_RIGHT,
+                omnipresent_top + HEADER + ROW * i as f64,
+                xml_escape(&name),
+                callers
+            );
+        }
+    }
+    svg.push_str("</svg>\n");
+    svg
 }
 
 /// How many groups the whole tree's diagram shows at most, and how many of
@@ -605,53 +902,39 @@ impl PipelineCommand for BlockDiagramCommand {
         let is_tree = focus_sym == root_subsystem_sym() && level == BlockLevel::Subsystem;
         let mut omnipresent: Vec<(Ustr, usize)> = omnipresent.into_iter().collect();
         omnipresent.sort();
+        // (The whole tree's as a column of arcs.)
+        if is_tree && self.args.view == BlockView::Arcs {
+            let (groups, group_of) = subsystem_groups(&rollup, &omnipresent, &edges);
+            let arcs: Vec<&BlockEdge> = edges
+                .iter()
+                .filter(|e| group_of.contains_key(&e.from) && group_of.contains_key(&e.to))
+                .take(ARC_EDGES)
+                .collect();
+            let tree = server.tree_info()?.name;
+            let pretty_of: std::collections::HashMap<Ustr, Ustr> =
+                rollup.members.iter().map(|m| (m.sym, m.pretty)).collect();
+            return Ok(PipelineValues::TextFile(TextFile {
+                mime_type: "image/svg+xml".to_string(),
+                contents: arc_diagram_svg(
+                    &tree,
+                    &groups,
+                    &group_of,
+                    &omnipresent,
+                    &pretty_of,
+                    &arcs,
+                    unit,
+                ),
+            }));
+        }
         let mut graphs: Vec<NamedSymbolGraph> = vec![];
         let mut shown_edges = 0;
         // (The whole tree's, in a big tree: a diagram per group.)
         if is_tree && rollup.members.len() >= self.args.groups_at {
-            let omnipresent_syms: std::collections::HashSet<Ustr> =
-                omnipresent.iter().map(|(sym, _)| *sym).collect();
-            let subsystems: Vec<(Ustr, Ustr)> = rollup
-                .members
-                .iter()
-                .filter(|m| !omnipresent_syms.contains(&m.sym))
-                .map(|m| (m.sym, m.pretty))
+            let (groups, group_of) = subsystem_groups(&rollup, &omnipresent, &edges);
+            let shown: Vec<usize> = (0..groups.len())
+                .filter(|&g| groups[g].members.len() >= 2 && groups[g].weight > 0)
+                .take(MAX_GROUPS)
                 .collect();
-            let index: std::collections::HashMap<Ustr, usize> = subsystems
-                .iter()
-                .enumerate()
-                .map(|(i, (sym, _))| (*sym, i))
-                .collect();
-            let weighted: Vec<(usize, usize, u64)> = edges
-                .iter()
-                .filter_map(|e| Some((*index.get(&e.from)?, *index.get(&e.to)?, e.count as u64)))
-                .collect();
-            let group_of_index = louvain(subsystems.len(), &weighted);
-            let group_of: std::collections::HashMap<Ustr, usize> = subsystems
-                .iter()
-                .zip(&group_of_index)
-                .map(|((sym, _), group)| (*sym, *group))
-                .collect();
-            // (Each group's subsystems, most calls first, and calls within.)
-            let mut members: std::collections::BTreeMap<usize, Vec<Ustr>> = Default::default();
-            for ((_, pretty), group) in subsystems.iter().zip(&group_of_index) {
-                members.entry(*group).or_default().push(*pretty);
-            }
-            let mut weight: std::collections::HashMap<usize, u64> = Default::default();
-            for e in &edges {
-                if let (Some(a), Some(b)) = (group_of.get(&e.from), group_of.get(&e.to))
-                    && a == b
-                {
-                    *weight.entry(*a).or_default() += e.count as u64;
-                }
-            }
-            let mut shown: Vec<usize> = members
-                .iter()
-                .filter(|(group, names)| names.len() >= 2 && weight.contains_key(group))
-                .map(|(group, _)| *group)
-                .collect();
-            shown.sort_by_key(|group| (std::cmp::Reverse(weight[group]), *group));
-            shown.truncate(MAX_GROUPS);
             if shown.len() >= 2 {
                 let internal_limit = (self.args.max_edges / 2).max(8);
                 for (k, group) in shown.iter().enumerate() {
@@ -671,7 +954,11 @@ impl PipelineCommand for BlockDiagramCommand {
                         })
                         .take(GROUP_EXTERNAL_EDGES)
                         .collect();
-                    let names = &members[group];
+                    let names: Vec<Ustr> = groups[*group]
+                        .members
+                        .iter()
+                        .map(|(_, pretty)| *pretty)
+                        .collect();
                     let mut graph = NamedSymbolGraph::new(format!(
                         "block-diagram {} group {}",
                         focus_sym,
@@ -717,8 +1004,11 @@ impl PipelineCommand for BlockDiagramCommand {
                 }
                 // (Then the omnipresent subsystems, and how many others aren't
                 // in the groups shown.)
-                let others =
-                    subsystems.len() - shown.iter().map(|g| members[g].len()).sum::<usize>();
+                let others = group_of.len()
+                    - shown
+                        .iter()
+                        .map(|g| groups[*g].members.len())
+                        .sum::<usize>();
                 let mut graph =
                     NamedSymbolGraph::new(format!("block-diagram {} others", focus_sym));
                 graph.graph_attrs.push(("rankdir", "LR".to_string()));
@@ -834,6 +1124,16 @@ impl PipelineCommand for BlockDiagramCommand {
                         "value": self.args.max_edges,
                         "default": 48,
                         "range": [1, 512],
+                    },
+                    {
+                        "name": "block-view",
+                        "label": "View",
+                        "value": "diagram",
+                        "default": "diagram",
+                        "choices": [
+                            { "value": "diagram", "label": "Block diagrams" },
+                            { "value": "arcs", "label": "All subsystems, with arcs (the whole tree)" },
+                        ],
                     },
                     {
                         "name": "block-groups-at",

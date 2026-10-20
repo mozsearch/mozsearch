@@ -14,7 +14,7 @@
   {%- if data.diagrams %}
   <section class="landing-diagrams">
     <h3>System diagrams</h3>
-    <p>How the tree's subsystems (its Bugzilla components, or else its main directories) interact: <a class="landing-diagram" href="{{ data.diagrams.calls | escape }}">all of them, by their calls</a>{% if data.diagrams.data %}, or <a class="landing-diagram" href="{{ data.diagrams.data | escape }}">by the data they share</a>{% endif %}; or a subsystem's main classes, and their neighbors:</p>
+    <p>How the tree's subsystems (its Bugzilla components, or else its main directories) interact: <a class="landing-diagram" href="{{ data.diagrams.calls | escape }}">all of them, by their calls</a>{% if data.diagrams.data %}, or <a class="landing-diagram" href="{{ data.diagrams.data | escape }}">by the data they share</a>{% endif %}, or <a class="landing-diagram landing-arcs" href="{{ data.diagrams.arcs | escape }}">all of them in a column, with their strongest calls as arcs</a>; or a subsystem's main classes, and their neighbors:</p>
     <ul class="landing-subsystems">
       {%- for subsystem in data.diagrams.subsystems %}
       <li><a href="{{ subsystem.url | escape }}">{{ subsystem.name | escape }}</a> <span class="landing-count" title="Its calls in, out and within">{{ subsystem.count }}</span></li>

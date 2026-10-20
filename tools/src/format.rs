@@ -9978,6 +9978,7 @@ pub fn landing_data(
         json!({
             "calls": landing_query_url(tree_name, "block-diagram:*"),
             "data": data_rollups.then(|| landing_query_url(tree_name, "block-diagram:* block-edges:data")),
+            "arcs": landing_query_url(tree_name, "block-diagram:* block-view:arcs"),
             "subsystems": rollup
                 .members
                 .iter()

@@ -1,0 +1,1 @@
+block-diagram '*' --view arcs | graph --format=raw-dot --hier=subsystem

@@ -281,6 +281,9 @@ impl PipelineCommand for GraphCommand {
     ) -> Result<PipelineValues> {
         let mut graphs = match input {
             PipelineValues::SymbolGraphCollection(sgc) => sgc,
+            // (Already rendered, ex: the whole tree's block diagram's column
+            // of arcs; see `cmd_block_diagram`.)
+            PipelineValues::TextFile(file) => return Ok(PipelineValues::TextFile(file)),
             // TODO: Figure out a better way to handle a nonsensical pipeline
             // configuration / usage.
             _ => {

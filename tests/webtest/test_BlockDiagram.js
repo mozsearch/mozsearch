@@ -275,3 +275,21 @@ add_task(async function test_BlockDiagramGroups() {
   ok(second.querySelector(".hovered-in-node") && second.querySelector(".hovered-out-node"),
      "with its ends");
 });
+
+// The whole tree's subsystems in a column, by their groups, with their
+// strongest calls as arcs (see cmd_block_diagram.rs's `arc_diagram_svg`).
+add_task(async function test_BlockDiagramArcs() {
+  await TestUtils.loadQuery("tests", "block-diagram:* block-view:arcs");
+  const doc = frame.contentDocument;
+  const svg = doc.querySelector("svg.arcs");
+  ok(svg, "The subsystems are drawn as a column of arcs");
+  const row = [...svg.querySelectorAll(".arcs-row")].find(
+    r => r.querySelector("text")?.textContent == "Core/Rollup Engine");
+  ok(row?.querySelector(".arcs-arc.arcs-down, .arcs-arc.arcs-up"),
+     "with an arc from a subsystem to the one it calls");
+  ok(row.querySelector("title").textContent.startsWith("Core/Rollup Engine → Core/Rollup Storage: 3 calls"),
+     "saying how many calls");
+  const link = row.querySelector("a").getAttribute("href");
+  is(new URLSearchParams(link.split("?")[1]).get("q"), "block-diagram:'Core/Rollup Engine'",
+     "Its subsystem links to its block diagram");
+});
