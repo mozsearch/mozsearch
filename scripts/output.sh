@@ -48,16 +48,18 @@ JOBS=$($MOZSEARCH_PATH/scripts/parallel-jobs.sh ${OUTPUT_FILE_MIB:-2048})
 # --joblog: Emit a joblog that can be used to `--resume` the previous job and
 #   also provides us with general performance runtime info
 # --tmpdir: We specify the location of the .par files via this.
-# --block -4: 4 blocks of the files per job slot, which the slots take as
+# --block -8: 8 blocks of the files per job slot, which the slots take as
 #   they're free, so that a block with slow files doesn't leave the other slots
 #   idle at the end (with 1 per slot, config8's slowest block took twice as
-#   long as the others).  A process takes ~2 seconds to start (its config,
-#   templates, jumprefs, and its files' per-file info).
+#   long as the others; with 4, its 128 blocks took 61 to 150 s, and the last
+#   ones ran for 80 s of the jobs' 409 s on mostly idle cores).  A process
+#   takes ~2 seconds to start (its config, templates, jumprefs, and its files'
+#   per-file info).
 # --env RUST_BACKTRACE: propagate the RUST_BACKTRACE environment variable.
 # "2>&1": If we don't do this, `--files` seems to just eat the stderr output
 #   which is obviously suboptimal.
 parallel --jobs $JOBS --pipepart -a $INDEX_ROOT/all-files --files --joblog $JOBLOG_PATH --tmpdir $TMPDIR_PATH \
-    --block -4 --halt 2 --env RUST_BACKTRACE \
+    --block -8 --halt 2 --env RUST_BACKTRACE \
     "output-file $CONFIG_FILE $TREE_NAME $URL_MAP_PATH $DOC_TREES_PATH - 2>&1"
 
 TOOL_CMD="search-files --limit=0 --include-dirs --group-by=directory | batch-render dir"
