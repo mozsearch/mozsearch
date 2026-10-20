@@ -818,7 +818,7 @@ where
 }
 
 /// See TargetTag for more info
-#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone)]
 #[repr(u8)]
 pub enum SourceTag {
     Source = 1,
@@ -830,7 +830,7 @@ fn bool_is_false(b: &bool) -> bool {
 
 /// Maps tracking expansion information.
 /// Both maps are keyd by `{symbol}(,{dependencies})*` then by platform.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ExpansionInfo {
     ExpandsTo(BTreeMap<String, BTreeMap<String, String>>),
@@ -860,7 +860,7 @@ impl Iterator for ConfidenceIterator<'_> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalysisSource<StrT = Ustr>
 where
     StrT: Clone + Debug + Default + Deref<Target = str> + FromStr + Hash + Ord + PartialEq,
@@ -924,10 +924,6 @@ where
     /// the merge doesn't really make sense.
     pub fn merge(&mut self, mut other: AnalysisSource<StrT>) {
         assert_eq!(self.pretty, other.pretty);
-        self.no_crossref &= other.no_crossref;
-        self.syntax.append(&mut other.syntax);
-        self.syntax.sort();
-        self.syntax.dedup();
         // de-duplicate symbols without sorting the symbol list so we can maintain the original
         // ordering which can allow the symbols to go from most-specific to least-specific.  In
         // the face of multiple platforms with completely platform-specific symbols and where each
@@ -939,16 +935,18 @@ where
         // This currently will give precedence to the order in "other" rather than "self", but
         // it's still consistent.
         if self.confidence.is_none() && other.confidence.is_none() {
-            other.sym.append(&mut self.sym);
-            self.sym.extend(other.sym.drain(0..).unique());
+            let mut sym = std::mem::take(&mut other.sym);
+            sym.append(&mut self.sym);
+            self.sym.extend(sym.into_iter().unique());
             // self.confidence stays None, everything is assumed to be Concrete
         } else {
             let confidence: Vec<_> = other.confidences().chain(self.confidences()).collect();
 
-            other.sym.append(&mut self.sym);
+            let mut sym = std::mem::take(&mut other.sym);
+            sym.append(&mut self.sym);
 
             let mut confidences = HashMap::<StrT, ConfidenceLevel>::new();
-            for (sym, confidence) in other.sym.into_iter().zip(confidence.into_iter()) {
+            for (sym, confidence) in sym.into_iter().zip(confidence.into_iter()) {
                 let entry = confidences.entry(sym);
                 entry
                     .and_modify(|existing_confidence| {
@@ -962,6 +960,61 @@ where
             self.confidence = Some(self.sym.iter().map(|sym| confidences[sym]).collect());
         }
 
+        self.merge_other_fields(other);
+        self.syntax.sort();
+        self.syntax.dedup();
+    }
+
+    /// `merge` each of `others` in turn, with the same result, but in time
+    /// linear in their symbols: a location's records can be many, ex: a
+    /// macro's local in a header (`MOZ_LOG`'s `moz_real_module` in
+    /// xpcom/base/Logging.h: 61322 records of 7978 symbols over firefox's
+    /// platforms), and `merge` de-duplicates the symbols so far each time.
+    /// (Merging in turn, each merge's symbols come before the ones so far: so
+    /// the symbols are those of the records' symbols, the last record's first,
+    /// in their first occurrences' order, with their highest confidences.)
+    pub fn merge_all(&mut self, mut others: Vec<AnalysisSource<StrT>>) {
+        for other in &others {
+            assert_eq!(self.pretty, other.pretty);
+        }
+        let with_confidence =
+            self.confidence.is_some() || others.iter().any(|other| other.confidence.is_some());
+        let mut syms: Vec<StrT> = vec![];
+        let mut confidences = HashMap::<StrT, ConfidenceLevel>::new();
+        for record in others.iter_mut().rev().chain(std::iter::once(&mut *self)) {
+            // (As `merge`, which only pairs symbols with confidences when some
+            // record has them.)
+            let levels: Vec<ConfidenceLevel> = if with_confidence {
+                record.confidences().collect()
+            } else {
+                vec![ConfidenceLevel::Concrete; record.sym.len()]
+            };
+            for (sym, level) in std::mem::take(&mut record.sym).into_iter().zip(levels) {
+                confidences
+                    .entry(sym)
+                    .and_modify(|existing| *existing = level.max(*existing))
+                    .or_insert_with_key(|sym| {
+                        syms.push(sym.clone());
+                        level
+                    });
+            }
+        }
+        self.confidence =
+            with_confidence.then(|| syms.iter().map(|sym| confidences[sym]).collect());
+        self.sym = syms;
+
+        for other in others {
+            self.merge_other_fields(other);
+        }
+        self.syntax.sort();
+        self.syntax.dedup();
+    }
+
+    /// `merge`'s merging of the fields but the symbols (and their
+    /// confidences), but for sorting the syntax.
+    fn merge_other_fields(&mut self, mut other: AnalysisSource<StrT>) {
+        self.no_crossref &= other.no_crossref;
+        self.syntax.append(&mut other.syntax);
         self.nesting_range.union(other.nesting_range);
         // We regrettably have no guarantee that the types are the same, so just pick a type when
         // we have it.
@@ -1271,6 +1324,49 @@ pub fn read_analyses<T>(
 /// files.)  Returns false if the file couldn't be read.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn for_each_analysis_value(used_filename: &str, out: &mut dyn FnMut(Value)) -> bool {
+    for_each_analysis_line(used_filename, &mut |line| match line {
+        AnalysisLine::Unedited { lineno, line } => {
+            if let Some(data) = parse_analysis_line(used_filename, lineno, line) {
+                out(data);
+            }
+        }
+        AnalysisLine::Edited(data) => out(data),
+    })
+}
+
+/// A line of an analysis file, as `for_each_analysis_line` gives them out.
+pub enum AnalysisLine<'a> {
+    /// A line whose record is as it is (`parse_analysis_line` parses it).
+    Unedited { lineno: usize, line: &'a str },
+    /// A record as `local_symbols` edited it (or a target record it added).
+    Edited(Value),
+}
+
+/// An analysis file's line's record, with its symbols' commas escaped (see
+/// `analysis_manglings`), or None (with a warning) if it's not JSON.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn parse_analysis_line(used_filename: &str, lineno: usize, line: &str) -> Option<Value> {
+    match from_str::<Value>(line) {
+        Ok(mut data) => {
+            super::analysis_manglings::escape_record_symbol_commas(&mut data);
+            Some(data)
+        }
+        Err(e) => {
+            warn!(
+                "Error [{}] trying to read analysis from file [{}] line [{}]: [{}]",
+                e, used_filename, lineno, line
+            );
+            None
+        }
+    }
+}
+
+/// `for_each_analysis_value`, but giving out the lines whose records aren't
+/// edited as their text, so a caller can parse a line once for all of its
+/// occurrences (ex: `merger::merge_files`, as most lines are the same in each
+/// platform's analysis of a file).
+#[cfg(not(target_arch = "wasm32"))]
+pub fn for_each_analysis_line(used_filename: &str, out: &mut dyn FnMut(AnalysisLine)) -> bool {
     use super::local_symbols::{apply_local_edit, may_plan_from, plan_local_edits_of, plans_from};
     let Ok(file) = File::open(used_filename) else {
         // (As `read_analysis_values`.)
@@ -1282,30 +1378,16 @@ pub fn for_each_analysis_value(used_filename: &str, out: &mut dyn FnMut(Value)) 
     } else {
         Box::new(file)
     };
-    let parse = |lineno: usize, line: &str| -> Option<Value> {
-        match from_str::<Value>(line) {
-            Ok(mut data) => {
-                super::analysis_manglings::escape_record_symbol_commas(&mut data);
-                Some(data)
-            }
-            Err(e) => {
-                warn!(
-                    "Error [{}] trying to read analysis from file [{}] line [{}]: [{}]",
-                    e, used_filename, lineno, line
-                );
-                None
-            }
-        }
-    };
     let lines: Vec<String> = BufReader::new(reader)
         .lines()
         .map(|line| line.unwrap())
         .collect();
     if !lines.iter().any(|line| line.contains("\"V_")) {
         for (i, line) in lines.iter().enumerate() {
-            if let Some(data) = parse(i + 1, line) {
-                out(data);
-            }
+            out(AnalysisLine::Unedited {
+                lineno: i + 1,
+                line,
+            });
         }
         return true;
     }
@@ -1326,12 +1408,17 @@ pub fn for_each_analysis_value(used_filename: &str, out: &mut dyn FnMut(Value)) 
     let mut edits = plan_local_edits_of(&indices, &planned);
     drop(planned);
     for (i, line) in lines.iter().enumerate() {
-        let Some(data) = parse(i + 1, line) else {
-            continue;
-        };
         match edits.remove(&i) {
-            Some(edit) => apply_local_edit(*edit, data, out),
-            None => out(data),
+            Some(edit) => {
+                let Some(data) = parse_analysis_line(used_filename, i + 1, line) else {
+                    continue;
+                };
+                apply_local_edit(*edit, data, &mut |data| out(AnalysisLine::Edited(data)));
+            }
+            None => out(AnalysisLine::Unedited {
+                lineno: i + 1,
+                line,
+            }),
         }
     }
     true
@@ -1360,7 +1447,7 @@ fn filter_analysis_values<T>(
     }
 }
 
-fn filter_analysis_value<T>(
+pub(crate) fn filter_analysis_value<T>(
     mut data: Value,
     i_file: usize,
     filter: &mut dyn FnMut(Value, &Location, usize) -> Option<T>,
@@ -1381,7 +1468,7 @@ fn filter_analysis_value<T>(
 }
 
 /// Records sorted by their locations, and grouped by them.
-fn group_by_location<T>(mut result: Vec<WithLocation<T>>) -> Vec<WithLocation<Vec<T>>> {
+pub(crate) fn group_by_location<T>(mut result: Vec<WithLocation<T>>) -> Vec<WithLocation<Vec<T>>> {
     result.sort_by(|x1, x2| x1.loc.cmp(&x2.loc));
 
     let mut result2 = Vec::new();
@@ -1623,4 +1710,92 @@ pub fn collect_file_syms_from_source(
         file_syms.push(make_file_sym_from_path(path));
     }
     file_syms
+}
+
+#[cfg(test)]
+mod merge_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn source(value: Value) -> AnalysisSource {
+        from_value(value).unwrap()
+    }
+
+    /// `merge_all` makes what `merge`ing each in turn does.
+    fn assert_merges_alike(records: Vec<AnalysisSource>) {
+        let mut in_turn = records[0].clone();
+        for other in &records[1..] {
+            in_turn.merge(other.clone());
+        }
+        let mut all = records[0].clone();
+        all.merge_all(records[1..].to_vec());
+        assert_eq!(
+            serde_json::to_string(&in_turn).unwrap(),
+            serde_json::to_string(&all).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_merge_all() {
+        // (Symbols repeated within and across records, syntax, `no_crossref`,
+        // types (the first record's with one), and platforms' expansions.)
+        let records = vec![
+            source(
+                json!({"source": 1, "syntax": "use,variable", "pretty": "variable x",
+                          "sym": "a,b,a", "no_crossref": 1}),
+            ),
+            source(
+                json!({"source": 1, "syntax": "variable", "pretty": "variable x",
+                          "sym": "c,a", "type": "int",
+                          "expandsTo": {"M_1": {"linux64": "1"}}}),
+            ),
+            source(
+                json!({"source": 1, "syntax": "def,variable", "pretty": "variable x",
+                          "sym": "d,b", "type": "long", "typesym": "T_long",
+                          "expandsTo": {"M_1": {"win64": "2"}, "M_2": {"win64": "3"}}}),
+            ),
+            source(
+                json!({"source": 1, "syntax": "use,variable", "pretty": "variable x",
+                          "sym": "c", "no_crossref": 1,
+                          "expandsTo": {"M_1": {"linux64": "4"}}}),
+            ),
+        ];
+        assert_merges_alike(records.clone());
+        assert_merges_alike(records[..2].to_vec());
+        // (Confidences: some records' (each symbol at its highest), and none.)
+        let mut confident = records.clone();
+        confident[1].confidence = Some(vec![
+            ConfidenceLevel::CppTemplateHeuristic,
+            ConfidenceLevel::CppTemplateHeuristic,
+        ]);
+        confident[2].confidence = Some(vec![
+            ConfidenceLevel::Concrete,
+            ConfidenceLevel::CppTemplateHeuristic,
+        ]);
+        assert_merges_alike(confident.clone());
+        assert_merges_alike(confident[1..].to_vec());
+        let mut all = confident[0].clone();
+        all.merge_all(confident[1..].to_vec());
+        assert_eq!(all.sym, ["c", "d", "b", "a"].map(ustr::ustr));
+        assert_eq!(
+            all.confidence,
+            Some(vec![
+                ConfidenceLevel::Concrete,
+                ConfidenceLevel::Concrete,
+                ConfidenceLevel::Concrete,
+                ConfidenceLevel::Concrete,
+            ])
+        );
+        // (The record with the macro's local's 3 symbols at a location: one
+        // per expansion, many times over.)
+        let many: Vec<AnalysisSource> = (0..300)
+            .map(|i| {
+                source(
+                    json!({"source": 1, "syntax": "variable", "pretty": "variable m",
+                              "sym": format!("V_{}", i % 3)}),
+                )
+            })
+            .collect();
+        assert_merges_alike(many);
+    }
 }
