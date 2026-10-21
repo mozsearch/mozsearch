@@ -181,7 +181,7 @@ pub fn is_trackable_token(token: &str) -> bool {
 fn namespace_value_words(namespace: &str) -> &'static [&'static str] {
     match namespace {
         "cpp" => &["this", "nullptr", "NULL", "true", "false"],
-        "js" => &["this", "super", "null", "undefined", "true", "false"],
+        "js" | "web" => &["this", "super", "null", "undefined", "true", "false"],
         "webidl" | "udl" => &["true", "false", "null"],
         "config" => &["true", "false"],
         "json" => &["true", "false", "null"],

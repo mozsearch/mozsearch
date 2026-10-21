@@ -108,6 +108,8 @@ tree-sitter-yaml = { git = "https://github.com/mozsearch/tree-sitter-yaml", rev 
 tree-sitter-objc = "3.0.2"
 tree-sitter-md = "0.5.3"
 tree-sitter-rst = "0.2.0"
+tree-sitter-css = "0.25.0"
+tree-sitter-scss = "1.0.0"
 toml = "1.0.7"
 tonic = "0.14.5"
 tonic-prost = "0.14.5"

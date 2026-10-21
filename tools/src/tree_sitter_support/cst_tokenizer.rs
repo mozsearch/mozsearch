@@ -13,6 +13,7 @@ use crate::tree_sitter_support::boilerplate::{
 use crate::tree_sitter_support::config_tokenizer::{tokenize_ini, tokenize_toml};
 use crate::tree_sitter_support::docs_tokenizer::{tokenize_markdown, tokenize_rst};
 use crate::tree_sitter_support::json_tokenizer::tokenize_json;
+use crate::tree_sitter_support::markup_tokenizer::tokenize_markup;
 use crate::tree_sitter_support::preprocessor::{ConditionalStacks, literal_condition};
 use crate::tree_sitter_support::spec_tokenizer::{tokenize_bikeshed, tokenize_spec_html};
 use crate::tree_sitter_support::yaml_tokenizer::tokenize_yaml;
@@ -156,6 +157,15 @@ enum Grammar {
     Bikeshed,
     /// Whitespace-delimited words.
     PlainText,
+    /// CSS, with tree-sitter-css.
+    Css,
+    /// SCSS, with tree-sitter-scss.
+    Scss,
+    /// HTML (and XHTML and XUL), with its scripts and event handlers as JS
+    /// and its styles as CSS; see `markup_tokenizer`.
+    Html,
+    /// XML (and SVG, XBL, XSLT), like HTML; see `markup_tokenizer`.
+    Xml,
 }
 
 /// A language we know how to tokenize for history purposes.
@@ -183,12 +193,12 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
     },
     LanguageProfile {
         lang: "js",
-        namespace: "js",
+        namespace: "web",
         grammar: Grammar::TypeScript,
     },
     LanguageProfile {
         lang: "jsx",
-        namespace: "js",
+        namespace: "web",
         grammar: Grammar::Tsx,
     },
     LanguageProfile {
@@ -317,6 +327,29 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
         namespace: "none",
         grammar: Grammar::PlainText,
     },
+    // (The web's languages share a namespace, so that code moved between them
+    // is followed: ex: XBL bindings' JS converted to Custom Elements' classes,
+    // and inline styles moved to stylesheets.)
+    LanguageProfile {
+        lang: "css",
+        namespace: "web",
+        grammar: Grammar::Css,
+    },
+    LanguageProfile {
+        lang: "scss",
+        namespace: "web",
+        grammar: Grammar::Scss,
+    },
+    LanguageProfile {
+        lang: "html",
+        namespace: "web",
+        grammar: Grammar::Html,
+    },
+    LanguageProfile {
+        lang: "xml",
+        namespace: "web",
+        grammar: Grammar::Xml,
+    },
 ];
 
 /// The version of the tokenizer's output, recorded in "files-struct" headers.
@@ -393,7 +426,12 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 /// - 14: Bikeshed's `.bs` sources are tokenized by `spec_tokenizer`, like
 ///   other specs' sources (with Markdown headings and algorithms, and
 ///   shorthands), rather than as plain text.
-pub const TOKENIZER_VERSION: u32 = 14;
+/// - 15: CSS and SCSS (with tree-sitter-css and tree-sitter-scss), and
+///   markup (HTML, XHTML, XUL, XML, SVG, XBL; see `markup_tokenizer`), with
+///   its scripts, event handlers, and XBL bindings' code as JS and its styles
+///   as CSS, rather than as plain text, in a "web" namespace with JS (which
+///   was "js"); and context modes (see `ContextMode`).
+pub const TOKENIZER_VERSION: u32 = 15;
 
 /// The node to name a container by, given the node its query captured as its
 /// name.  tree-sitter's error recovery can make that span unrecognized macros
@@ -531,6 +569,13 @@ pub fn default_profile_for_path(path: &Path) -> Option<LanguageProfile> {
         "md" | "markdown" => "md",
         "rst" => "rst",
         "bs" => "bikeshed",
+        "css" => "css",
+        "scss" => "scss",
+        // (XUL's `.xul` files were renamed to `.xhtml` in 2019, so they're
+        // tokenized alike, which keeps their tokens' history through the
+        // renames.)
+        "html" | "htm" | "xhtml" | "xht" | "xul" => "html",
+        "xml" | "svg" | "xsl" | "xslt" | "xsd" | "xbl" | "rdf" => "xml",
         // Explicitly skip things we know are binary; this list copied from
         // "languages.rs".
         "ogg" | "ttf" | "xpi" | "png" | "bcmap" | "gif" | "ogv" | "jpg" | "jpeg" | "bmp"
@@ -856,6 +901,10 @@ pub fn hypertokenize_with_options(
             };
             return Ok(HyperTokenized::new(profile, tokens, structure));
         }
+        Grammar::Html | Grammar::Xml => {
+            let (tokens, structure) = tokenize_markup(source_contents, options)?;
+            return Ok(HyperTokenized::new(profile, tokens, structure));
+        }
         Grammar::PlainText => {
             let tokens = source_contents
                 .split_whitespace()
@@ -1103,6 +1152,35 @@ fn tree_sitter_setup_for(grammar: Grammar, mode: ContextMode) -> Result<TreeSitt
                 ClassQuirks::default(),
             )
         }
+        Grammar::Css | Grammar::Scss => {
+            let (ts_lang, query): (tree_sitter::Language, &str) = match grammar {
+                Grammar::Css => (tree_sitter_css::LANGUAGE.into(), "css"),
+                _ => (tree_sitter_scss::language(), "scss"),
+            };
+            // Strings, colors (`#fff`), and numbers with their units (`10px`)
+            // are single tokens, like JS's strings.
+            let atoms = [
+                "string_value",
+                "color_value",
+                "integer_value",
+                "float_value",
+            ]
+            .iter()
+            .map(|kind| ts_lang.id_for_node_kind(kind, true))
+            .filter(|id| *id != 0)
+            .collect();
+            let quirks = ClassQuirks::new(
+                &ts_lang,
+                &[
+                    ("important", TokenClass::Keyword),
+                    ("at_keyword", TokenClass::Keyword),
+                    ("from", TokenClass::Keyword),
+                    ("to", TokenClass::Keyword),
+                ],
+                &[],
+            );
+            (ts_lang, query, atoms, vec![], quirks)
+        }
         Grammar::Ini
         | Grammar::Toml
         | Grammar::Json
@@ -1112,6 +1190,8 @@ fn tree_sitter_setup_for(grammar: Grammar, mode: ContextMode) -> Result<TreeSitt
         | Grammar::SpecHtml
         | Grammar::Bikeshed
         | Grammar::PlainText
+        | Grammar::Html
+        | Grammar::Xml
         | Grammar::ObjCpp => {
             return Err(format!("{:?} isn't a tree-sitter grammar", grammar));
         }
@@ -1156,6 +1236,44 @@ fn walk_tree<'s>(
     )
 }
 
+/// Code embedded in another language's file (see `markup_tokenizer`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Embedded {
+    Js,
+    Css,
+}
+
+/// The tokens (by offset in `source`) and structure of embedded code: `text`,
+/// whose offsets `to_source` maps to `source`'s (see `walk_tree`, whose
+/// tokens are `source`'s slices, even where `text` was decoded from it, ex:
+/// `&&` from `&amp;&amp;`), in contexts nested in `outer`.
+#[allow(clippy::type_complexity)]
+pub(crate) fn tokenize_embedded<'s>(
+    embedded: Embedded,
+    mode: ContextMode,
+    text: &str,
+    source: &'s str,
+    to_source: &dyn Fn(usize) -> Option<usize>,
+    outer: &[String],
+) -> Result<(Vec<(usize, RawToken<'s>)>, Vec<(usize, FileStructureRow)>), String> {
+    let grammar = match embedded {
+        Embedded::Js => Grammar::TypeScript,
+        Embedded::Css => Grammar::Css,
+    };
+    let setup = tree_sitter_setup_for(grammar, mode)?;
+    let mut walked = Walked::default();
+    walk_tree(
+        &setup,
+        text,
+        source,
+        to_source,
+        outer,
+        &mut walked,
+        &mut vec![],
+    )?;
+    Ok((walked.tokens, walked.structure))
+}
+
 fn parse(setup: &TreeSitterSetup, text: &str) -> Result<tree_sitter::Tree, String> {
     let mut parser = tree_sitter::Parser::new();
     parser
@@ -1180,14 +1298,23 @@ fn walk_parsed<'s>(
 ) -> Result<(), String> {
     let container_query = &setup.query;
 
-    // The source's version of a slice of `text`, if any.
+    // The source's version of a slice of `text`, if any: the same text, or
+    // where `text` was decoded from the source (ex: `&&` from `&amp;&amp;` in
+    // markup; see `tokenize_embedded`), the source from the slice's start to
+    // its end.
     let source_slice = |slice: &str| -> Option<(usize, &'s str)> {
         let start = slice.as_ptr() as usize - text.as_ptr() as usize;
         let source_start = to_source(start)?;
-        Some((
-            source_start,
-            source.get(source_start..source_start + slice.len())?,
-        ))
+        let same = source.get(source_start..source_start + slice.len());
+        if same == Some(slice) {
+            return Some((source_start, same?));
+        }
+        match to_source(start + slice.len()) {
+            Some(source_end) if source_end > source_start => {
+                Some((source_start, source.get(source_start..source_end)?))
+            }
+            _ => Some((source_start, same?)),
+        }
     };
 
     // The cursor traversal logic here is derived from the tree-sitter-cli
@@ -2680,6 +2807,31 @@ mod tests {
                 "ftl",
             ),
             ("a.txt", "just some words", "none"),
+            (
+                "a.css",
+                "#nav > p:hover { color: #fff; margin: 1px; }",
+                "css",
+            ),
+            (
+                "a.scss",
+                "@mixin m($x) { color: $x; }\n.a { @include m(red); }",
+                "scss",
+            ),
+            (
+                "a.html",
+                "<p id=\"x\" onclick=\"go(a &amp;&amp; b)\" style=\"color: red\">Hi</p>\n<script>function f() {}</script>",
+                "html",
+            ),
+            (
+                "a.xul",
+                "<window id=\"w\"><script><![CDATA[ function init() {} ]]></script></window>",
+                "html",
+            ),
+            (
+                "a.xml",
+                "<bindings><binding id=\"b\"><implementation><method name=\"m\"><body>go();</body></method></implementation></binding></bindings>",
+                "xml",
+            ),
         ] {
             let tokenized = hypertokenize_source_file(filename, source)
                 .unwrap_or_else(|e| panic!("{} failed to tokenize: {}", filename, e));

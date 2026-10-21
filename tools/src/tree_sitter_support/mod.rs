@@ -3,6 +3,7 @@ pub mod config_tokenizer;
 pub mod cst_tokenizer;
 pub mod docs_tokenizer;
 pub mod json_tokenizer;
+pub mod markup_tokenizer;
 pub mod preprocessor;
 pub mod spec_tokenizer;
 pub mod yaml_tokenizer;
