@@ -110,6 +110,14 @@ tree-sitter-md = "0.5.3"
 tree-sitter-rst = "0.2.0"
 tree-sitter-css = "0.25.0"
 tree-sitter-scss = "1.0.0"
+tree-sitter-bash = "0.25.1"
+tree-sitter-make = "1.1.1"
+tree-sitter-cmake = "0.7.5"
+tree-sitter-groovy = "0.1.2"
+# (tree-sitter-gn is searchfox's fork, whose Rust bindings work with current
+# tree-sitter; see its log.)
+tree-sitter-gn = { git = "https://github.com/mozsearch/tree-sitter-gn", rev = "8d12ff972ab0ca3616df6d4f29249fa79093828b" }
+tree-sitter-dockerfile-updated = "0.2.0"
 toml = "1.0.7"
 tonic = "0.14.5"
 tonic-prost = "0.14.5"

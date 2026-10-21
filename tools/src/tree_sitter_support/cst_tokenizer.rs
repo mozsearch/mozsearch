@@ -166,6 +166,19 @@ enum Grammar {
     Html,
     /// XML (and SVG, XBL, XSLT), like HTML; see `markup_tokenizer`.
     Xml,
+    /// Shell scripts, with tree-sitter-bash.
+    Bash,
+    /// Makefiles, with tree-sitter-make.
+    Make,
+    /// CMake, with tree-sitter-cmake.
+    CMake,
+    /// GN (Chromium's builds, ex: libwebrtc's), with searchfox's
+    /// tree-sitter-gn.
+    Gn,
+    /// Groovy (Gradle's build scripts), with tree-sitter-groovy.
+    Groovy,
+    /// Dockerfiles, with tree-sitter-dockerfile-updated.
+    Dockerfile,
 }
 
 /// A language we know how to tokenize for history purposes.
@@ -350,6 +363,38 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
         namespace: "web",
         grammar: Grammar::Xml,
     },
+    LanguageProfile {
+        lang: "sh",
+        namespace: "shell",
+        grammar: Grammar::Bash,
+    },
+    LanguageProfile {
+        lang: "make",
+        namespace: "make",
+        grammar: Grammar::Make,
+    },
+    LanguageProfile {
+        lang: "cmake",
+        namespace: "cmake",
+        grammar: Grammar::CMake,
+    },
+    LanguageProfile {
+        lang: "gn",
+        namespace: "gn",
+        grammar: Grammar::Gn,
+    },
+    // (Gradle's Groovy build scripts are in Kotlin's namespace, with the
+    // Kotlin DSL's `.gradle.kts`, which they were converted to.)
+    LanguageProfile {
+        lang: "groovy",
+        namespace: "kotlin",
+        grammar: Grammar::Groovy,
+    },
+    LanguageProfile {
+        lang: "dockerfile",
+        namespace: "dockerfile",
+        grammar: Grammar::Dockerfile,
+    },
 ];
 
 /// The version of the tokenizer's output, recorded in "files-struct" headers.
@@ -437,7 +482,11 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   (JS), `.pyi`, `.mozbuild`, `.gyp`, `.gypi`, `.star`, `.bazel`, `.bzl`
 ///   (Python), `.inc` (C++), `.map` (JSON), `Cargo.lock` (TOML),
 ///   `.clang-format` (YAML), `.editorconfig` (INI).
-pub const TOKENIZER_VERSION: u32 = 16;
+/// - 17: Shell scripts (`.sh`, `.bash`), Makefiles (`Makefile`,
+///   `Makefile.in`, `.mk`), CMake (`CMakeLists.txt`, `.cmake`), GN (`.gn`,
+///   `.gni`), Gradle's Groovy (`.gradle`, `.groovy`), and Dockerfiles get
+///   tree-sitter grammars, rather than being plain text.
+pub const TOKENIZER_VERSION: u32 = 17;
 
 /// The node to name a container by, given the node its query captured as its
 /// name.  tree-sitter's error recovery can make that span unrecognized macros
@@ -550,6 +599,9 @@ pub fn default_profile_for_path(path: &Path) -> Option<LanguageProfile> {
         Some("Cargo.lock") => Some("toml"),
         Some(".clang-format") => Some("yaml"),
         Some(".editorconfig") => Some("ini"),
+        Some("Makefile" | "makefile" | "GNUmakefile" | "Makefile.in") => Some("make"),
+        Some("CMakeLists.txt") => Some("cmake"),
+        Some(name) if name == "Dockerfile" || name.starts_with("Dockerfile.") => Some("dockerfile"),
         _ => None,
     };
     if let Some(lang) = by_name {
@@ -595,6 +647,12 @@ pub fn default_profile_for_path(path: &Path) -> Option<LanguageProfile> {
         "bs" => "bikeshed",
         "css" => "css",
         "scss" => "scss",
+        "sh" | "bash" => "sh",
+        "mk" | "mak" => "make",
+        "cmake" => "cmake",
+        "gn" | "gni" => "gn",
+        "gradle" | "groovy" => "groovy",
+        "dockerfile" => "dockerfile",
         // (XUL's `.xul` files were renamed to `.xhtml` in 2019, so they're
         // tokenized alike, which keeps their tokens' history through the
         // renames.)
@@ -838,6 +896,15 @@ pub fn parse_with_profile_for_analysis(
 /// What tokenizing a language with tree-sitter takes.
 struct TreeSitterSetup {
     grammar: Grammar,
+    /// Whether nodes' own text between their children is tokens: some
+    /// grammars' nodes have text which isn't their children's, ex:
+    /// tree-sitter-make's recipe lines (`shell_text`) around their variable
+    /// references, tree-sitter-gn's strings around their `$expansions`, and
+    /// tree-sitter-dockerfile's quoted strings and paths around theirs, which
+    /// would otherwise be dropped.  (Only for the grammars which need it; the
+    /// others' nodes' text is their children's, but for ERROR nodes; see
+    /// `push_error_gap_tokens`.)
+    gap_text: bool,
     ts_lang: tree_sitter::Language,
     query: Arc<tree_sitter::Query>,
     name_capture_ix: u32,
@@ -1206,6 +1273,50 @@ fn tree_sitter_setup_for(grammar: Grammar, mode: ContextMode) -> Result<TreeSitt
             );
             (ts_lang, query, atoms, vec![], quirks)
         }
+        Grammar::Bash
+        | Grammar::Make
+        | Grammar::CMake
+        | Grammar::Gn
+        | Grammar::Groovy
+        | Grammar::Dockerfile => {
+            let (ts_lang, query): (tree_sitter::Language, &str) = match grammar {
+                Grammar::Bash => (tree_sitter_bash::LANGUAGE.into(), "bash"),
+                Grammar::Make => (tree_sitter_make::LANGUAGE.into(), "make"),
+                Grammar::CMake => (tree_sitter_cmake::LANGUAGE.into(), "cmake"),
+                Grammar::Gn => (tree_sitter_gn::LANGUAGE.into(), "gn"),
+                Grammar::Groovy => (tree_sitter_groovy::LANGUAGE.into(), "groovy"),
+                _ => (tree_sitter_dockerfile_updated::language(), "dockerfile"),
+            };
+            let kinds = |kinds: &[&str]| -> Vec<u16> {
+                kinds
+                    .iter()
+                    .map(|kind| ts_lang.id_for_node_kind(kind, true))
+                    .filter(|id| *id != 0)
+                    .collect()
+            };
+            // Single-quoted strings (without substitutions) are single
+            // tokens, like other languages' strings.
+            let atoms = kinds(&[
+                "raw_string",
+                "ansi_c_string",
+                "json_string",
+                "single_quoted_string",
+            ]);
+            // Text which is a single node with spaces (Dockerfiles' `RUN`
+            // commands, Makefiles' `define`s' bodies, heredocs) is split into
+            // words, like other text.
+            let quirks = ClassQuirks::new(
+                &ts_lang,
+                &[
+                    ("shell_fragment", TokenClass::Text),
+                    ("heredoc_line", TokenClass::Text),
+                    ("heredoc_content", TokenClass::Text),
+                    ("raw_text", TokenClass::Text),
+                ],
+                &[],
+            );
+            (ts_lang, query, atoms, vec![], quirks)
+        }
         Grammar::Ini
         | Grammar::Toml
         | Grammar::Json
@@ -1224,6 +1335,15 @@ fn tree_sitter_setup_for(grammar: Grammar, mode: ContextMode) -> Result<TreeSitt
     let query = container_query(grammar, mode, &ts_lang, ts_query_filename)?;
     Ok(TreeSitterSetup {
         grammar,
+        gap_text: matches!(
+            grammar,
+            Grammar::Bash
+                | Grammar::Make
+                | Grammar::CMake
+                | Grammar::Gn
+                | Grammar::Groovy
+                | Grammar::Dockerfile
+        ),
         name_capture_ix: query.capture_index_for_name("name").unwrap(),
         container_capture_ix: query.capture_index_for_name("container").unwrap(),
         ts_lang,
@@ -1525,6 +1645,16 @@ fn walk_parsed<'s>(
             // lexer-keywords.cc.)
             if (node.is_error() || (depth == 0 && node.has_error())) && node.child_count() > 0 {
                 push_error_gap_tokens(&node, text, &source_slice, &context_pretty, walked);
+            } else if setup.gap_text
+                && node.is_named()
+                && node.child_count() > 0
+                && !in_comment
+                && !setup.atom_nodes.contains(&node_kind_id)
+            {
+                // (Text of a node's own between its children, ex:
+                // tree-sitter-make's recipe lines' around their variable
+                // references; see `TreeSitterSetup::gap_text`.)
+                push_error_gap_tokens(&node, text, &source_slice, &context_pretty, walked);
             }
             if setup.ignore_nodes.contains(&node_kind_id) {
                 // ignore this node!
@@ -1789,7 +1919,9 @@ fn push_error_gap_tokens<'s>(
         };
         for piece in gap_text.split_whitespace() {
             if let Some((offset, source_text)) = source_slice(piece) {
-                let class = if piece.chars().any(|c| c.is_alphanumeric()) {
+                let class = if node.kind().contains("string") {
+                    TokenClass::String
+                } else if piece.chars().any(|c| c.is_alphanumeric()) {
                     TokenClass::Identifier
                 } else {
                     TokenClass::Operator
@@ -2851,6 +2983,36 @@ mod tests {
                 "a.xul",
                 "<window id=\"w\"><script><![CDATA[ function init() {} ]]></script></window>",
                 "html",
+            ),
+            (
+                "a.sh",
+                "build() {\n  echo 'building' \"$1\"\n}\nbuild x\n",
+                "sh",
+            ),
+            (
+                "Makefile",
+                "all: foo.o\n\t$(CC) -o app foo.o\n\ndefine HELP\nusage text\nendef\n",
+                "make",
+            ),
+            (
+                "CMakeLists.txt",
+                "function(add_thing name)\n  message(STATUS \"adding ${name}\")\nendfunction()\n",
+                "cmake",
+            ),
+            (
+                "BUILD.gn",
+                "executable(\"foo\") {\n  sources = [ \"foo.cc\" ]\n}\n",
+                "gn",
+            ),
+            (
+                "build.gradle",
+                "android {\n    defaultConfig {\n        minSdkVersion 21\n    }\n}\n",
+                "groovy",
+            ),
+            (
+                "Dockerfile",
+                "FROM debian:12 AS builder\nRUN apt-get update && \\\n    apt-get install -y curl\nCOPY . /src\n",
+                "dockerfile",
             ),
             (
                 "a.xml",
