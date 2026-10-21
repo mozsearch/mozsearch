@@ -37,6 +37,9 @@ dependencies {
     // This dependency is used internally, and not exposed to consumers on their own compile classpath.
     implementation("com.google.guava:guava:32.1.1-jre")
 
+    // Required by the UniFFI bindings
+    implementation("net.java.dev.jna:jna:5.19.1")
+
     //
     compileOnly("com.sourcegraph:semanticdb-javac:0.12.0")
     testCompileOnly("com.sourcegraph:semanticdb-javac:0.12.0")
@@ -56,6 +59,9 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
         "-P", "plugin:semanticdb-kotlinc:targetroot=${targetroot}",
     ))
 }
+
+val generatedSources = providers.gradleProperty("generatedSources")
+kotlin.sourceSets.getByName("main").generatedKotlin.srcDir(generatedSources.get())
 
 // Apply a specific Java toolchain to ease working on different environments.
 java {

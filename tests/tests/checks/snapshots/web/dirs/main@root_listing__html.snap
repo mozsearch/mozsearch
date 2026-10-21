@@ -309,21 +309,21 @@ input_file: inputs/web/dirs/root_listing__html
         <tr>
           <td class="name"><a href="/tests/source/build.gradle.kts" class="mimetype-fixed-container mimetype-icon-kts">build.gradle.kts</a></td>
           <td class="description"><a href="/tests/source/build.gradle.kts" title=""></td>
-          <td class="size"><a href="/tests/source/build.gradle.kts">2436</a></td>
+          <td class="size"><a href="/tests/source/build.gradle.kts">2698</a></td>
           <td class="coverage"><a href="/tests/source/build.gradle.kts" class="cov-percentage cov-percentage-6" title="130 lines out of 200 instrumented lines are covered in this file."">65 %</a></td>
         </tr>
 
         <tr>
           <td class="name"><a href="/tests/source/Cargo.lock" class="mimetype-fixed-container mimetype-icon-lock">Cargo.lock</a></td>
           <td class="description"><a href="/tests/source/Cargo.lock" title=""></td>
-          <td class="size"><a href="/tests/source/Cargo.lock">254</a></td>
+          <td class="size"><a href="/tests/source/Cargo.lock">19410</a></td>
           <td class="coverage"><a href="/tests/source/Cargo.lock" class="cov-percentage cov-percentage-7" title="150 lines out of 200 instrumented lines are covered in this file."">75 %</a></td>
         </tr>
 
         <tr>
           <td class="name"><a href="/tests/source/Cargo.toml" class="mimetype-fixed-container mimetype-icon-toml">Cargo.toml</a></td>
           <td class="description"><a href="/tests/source/Cargo.toml" title=""></td>
-          <td class="size"><a href="/tests/source/Cargo.toml">53</a></td>
+          <td class="size"><a href="/tests/source/Cargo.toml">141</a></td>
           <td class="coverage"><a href="/tests/source/Cargo.toml" class="cov-percentage cov-percentage-8" title="160 lines out of 200 instrumented lines are covered in this file."">80 %</a></td>
         </tr>
 
@@ -904,6 +904,20 @@ Spread over multiple lines.
           <td class="description"><a href="/tests/source/ts" title=""></td>
           <td class="size"><a href="/tests/source/ts"></a></td>
           <td class="coverage"><a href="/tests/source/ts" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
+        </tr>
+
+        <tr>
+          <td class="name"><a href="/tests/source/uniffi-bindgen" class="mimetype-fixed-container mimetype-icon-folder">uniffi-bindgen</a></td>
+          <td class="description"><a href="/tests/source/uniffi-bindgen" title=""></td>
+          <td class="size"><a href="/tests/source/uniffi-bindgen"></a></td>
+          <td class="coverage"><a href="/tests/source/uniffi-bindgen" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
+        </tr>
+
+        <tr>
+          <td class="name"><a href="/tests/source/uniffied" class="mimetype-fixed-container mimetype-icon-folder">uniffied</a></td>
+          <td class="description"><a href="/tests/source/uniffied" title=""></td>
+          <td class="size"><a href="/tests/source/uniffied"></a></td>
+          <td class="coverage"><a href="/tests/source/uniffied" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>

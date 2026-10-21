@@ -1,3 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["simple_rust"]
+members = ["simple_rust", "uniffi-bindgen", "uniffied"]
+
+[workspace.dependencies]
+uniffi = { version = "0.32.2" }
