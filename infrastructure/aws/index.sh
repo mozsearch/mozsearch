@@ -60,7 +60,8 @@ echo "Index volume detected"
 
 # Create the "index-ebs" directory where the byproducts of indexing will
 # permanently live.
-sudo mkfs -t ext4 $EBS_NVME_DEV
+# (Without ext4's root reservation; see mkscratch.sh.)
+sudo mkfs -t ext4 -m 0 $EBS_NVME_DEV
 sudo mkdir /index-ebs
 sudo mount $EBS_NVME_DEV /index-ebs
 sudo chown ubuntu.ubuntu /index-ebs

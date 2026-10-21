@@ -82,6 +82,10 @@ do
       ln -s ${INDEX_ROOT/$WORKING/$PERMANENT} $INDEX_ROOT
     fi
 
+    # (How full the index's filesystem is after each tree, for sizing the index
+    # volume, which an indexer building the index in place needs to hold it all
+    # until it's done; see mkscratch.sh.)
+    echo "Disk usage after $TREE_NAME: $(df -BG --output=used,avail,size "$WORKING" | tail -1)"
     echo "Performed indexer-run section for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 done
 
