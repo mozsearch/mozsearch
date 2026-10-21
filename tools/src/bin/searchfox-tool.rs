@@ -134,6 +134,10 @@ async fn main() {
             emit_json(&to_value(th).unwrap());
             0
         }
+        Ok(PipelineValues::TokenNames(tn)) => {
+            emit_json(&to_value(tn).unwrap());
+            0
+        }
         Ok(PipelineValues::JsonValueList(jvl)) => {
             emit_json(&to_value(jvl).unwrap());
             0

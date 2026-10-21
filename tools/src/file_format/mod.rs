@@ -41,4 +41,6 @@ pub mod repo_data_ingestion;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod rollup;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod token_names;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod url_map;

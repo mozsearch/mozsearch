@@ -7,4 +7,5 @@
 <p class="token-history-more"><a href="/{{ tree }}/query/default?q=token-history:{{ history.token | url_encode }}%20case:sensitive">The history of <code>{{ history.token | escape }}</code></a>
 {%- if history.variants != empty %} (and of its case variants{% for variant in history.variants %} <a href="/{{ tree }}/query/default?q=token-history:{{ variant | url_encode }}%20case:sensitive"><code>{{ variant | escape }}</code></a>{% unless forloop.last %},{% endunless %}{% endfor %}){% endif %}.
 {% include 'query_results/token_history_timeline_link.liquid' history: history %}</p>
+{% include 'query_results/token_history_similar.liquid' history: history %}
 </div>

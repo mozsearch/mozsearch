@@ -26,6 +26,7 @@ use super::cmd_search_identifiers::SearchIdentifiers;
 use super::cmd_search_text::SearchText;
 use super::cmd_show_html::ShowHtml;
 use super::cmd_token_history::TokenHistoryArgs;
+use super::cmd_token_names::TokenNamesArgs;
 use super::cmd_token_timeline::TokenTimelineArgs;
 use super::cmd_tokenize_source::TokenizeSource;
 use super::cmd_traverse::Traverse;
@@ -100,6 +101,7 @@ pub enum Command {
     BlockDiagram(BlockDiagram),
     CrashStack(CrashStack),
     TokenHistory(TokenHistoryArgs),
+    TokenNames(TokenNamesArgs),
     TokenTimeline(TokenTimelineArgs),
     Traverse(Traverse),
     Webtest(Webtest),

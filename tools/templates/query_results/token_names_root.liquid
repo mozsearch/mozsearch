@@ -1,0 +1,26 @@
+{%- comment -%}
+  The token-names: view (see cmd_token_names.rs): the tokens of the
+  history's journals matching a pattern, each with links to its history and
+  timeline, and a link to the first 16's timelines together.
+{%- endcomment -%}
+{%- assign value = results.TokenNames %}
+<div class="token-names-view">
+{%- if value.unsupported %}
+<p>This tree has no token-centric history (or no index of its tokens).</p>
+{%- else %}
+{%- case value.how %}{% when "prefix" %}{% assign how = "starting with" %}{% when "suffix" %}{% assign how = "ending with" %}{% else %}{% assign how = "containing" %}{% endcase %}
+<h2>Tokens {{ how }} <code>{{ value.query | escape }}</code></h2>
+{%- if value.names == empty %}
+<p>The history has no tokens {{ how }} <code>{{ value.query | escape }}</code>.</p>
+{%- else %}
+{%- capture timelines %}{% for name in value.names limit: 16 %}token-timeline:{{ name }} {% endfor %}case:sensitive{% endcapture %}
+<p>{{ value.names.size }}{% if value.more %} (and more){% endif %} tokens, case- and accent-insensitively{% if value.how == "contains" %} (accents as written){% endif %}.
+<a href="/{{ tree }}/query/default?q={{ timelines | url_encode }}">The timelines of the first {% if value.names.size > 16 %}16{% else %}{{ value.names.size }}{% endif %}</a>.</p>
+<ul class="token-names-list">
+{%- for name in value.names %}
+  <li><code>{{ name | escape }}</code> <a href="/{{ tree }}/query/default?q=token-history:{{ name | url_encode }}%20case:sensitive">history</a> <a href="/{{ tree }}/query/default?q=token-timeline:{{ name | url_encode }}%20case:sensitive">timeline</a></li>
+{%- endfor %}
+</ul>
+{%- endif %}
+{%- endif %}
+</div>

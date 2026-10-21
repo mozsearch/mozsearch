@@ -55,6 +55,8 @@
           {% include 'query_results/text_file_root.liquid' %}
         {% when "TokenHistory" %}
           {% include 'query_results/token_history_root.liquid' %}
+        {% when "TokenNames" %}
+          {% include 'query_results/token_names_root.liquid' %}
         {% else %}
           Unhandled results type {{result_pair[0]}}!
         {% endcase %}

@@ -216,6 +216,9 @@ async fn main() -> Result<(), std::io::Error> {
                     Ok(PipelineValues::TokenHistory(th)) => {
                         insta::assert_json_snapshot!(&to_value(th).unwrap());
                     }
+                    Ok(PipelineValues::TokenNames(tn)) => {
+                        insta::assert_json_snapshot!(&to_value(tn).unwrap());
+                    }
                     Err(ServerError::Unsupported) => {
                         unsupported = true;
                     }

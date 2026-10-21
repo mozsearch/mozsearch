@@ -34,6 +34,7 @@ use crate::file_format::crossref::CrossrefData;
 use crate::file_format::jumpref::{JumprefData, TreeJumprefs};
 use crate::file_format::recency::FileRecency;
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
+use crate::file_format::token_names::{NameMatch, TokenNameMatches};
 use crate::format::{format_code, source_rows_html};
 use crate::git_ops::{RevisionCoverage, git_time_to_chrono};
 use crate::hyperblame::journals::JournalKind;
@@ -625,5 +626,14 @@ impl AbstractServer for TryOverlay {
         opts: TokenTimelineOptions,
     ) -> Result<TokenTimeline> {
         self.base.token_timeline(tokens, opts).await
+    }
+
+    async fn token_names(
+        &self,
+        query: &str,
+        how: NameMatch,
+        limit: usize,
+    ) -> Result<TokenNameMatches> {
+        self.base.token_names(query, how, limit).await
     }
 }

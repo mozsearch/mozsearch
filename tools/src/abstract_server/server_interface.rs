@@ -14,6 +14,7 @@ use crate::file_format::crossref::CrossrefData;
 use crate::file_format::jumpref::JumprefData;
 use crate::file_format::recency::FileRecency;
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
+use crate::file_format::token_names::{NameMatch, TokenNameMatches};
 use crate::git_ops::RevisionCoverage;
 use crate::hyperblame::journals::JournalKind;
 use crate::hyperblame::token_history::{TokenHistory, TokenHistoryOptions};
@@ -756,6 +757,19 @@ pub trait AbstractServer {
         _tokens: &[String],
         _opts: TokenTimelineOptions,
     ) -> Result<TokenTimeline> {
+        Err(ServerError::Unsupported)
+    }
+
+    /// The tokens of the history's journals which start with, end with, or
+    /// contain `query`, case- and accent-insensitively (see
+    /// `file_format::token_names`), up to `limit`.  Unsupported without a
+    /// token-name index (ex: the tree has no token-centric history).
+    async fn token_names(
+        &self,
+        _query: &str,
+        _how: NameMatch,
+        _limit: usize,
+    ) -> Result<TokenNameMatches> {
         Err(ServerError::Unsupported)
     }
 }

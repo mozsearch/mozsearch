@@ -5662,3 +5662,20 @@ textarea.monospace {
 .token-timeline-other-link {
   font-family: monospace;
 }
+
+/* The token-names: view (see tools/src/cmd_pipeline/cmd_token_names.rs). */
+.token-names-view {
+  max-width: 80em;
+  margin: 0.5em 1rem;
+  font-size: 13px;
+}
+.token-names-view h2 {
+  font-size: 1.3em;
+}
+.token-names-list {
+  columns: 3 20em;
+  padding-left: 1.2em;
+}
+.token-names-list a {
+  font-size: 11px;
+}

@@ -321,7 +321,21 @@ pub enum PipelineValues {
     BatchGroups(BatchGroups),
     SymbolTreeTableList(SymbolTreeTableList),
     TokenHistory(TokenHistoryValue),
+    TokenNames(TokenNamesValue),
     Void,
+}
+
+/// The tokens of the history's journals matching a query (see
+/// `cmd_token_names`), as the `token-names:` view.
+#[derive(Serialize)]
+pub struct TokenNamesValue {
+    pub query: String,
+    pub how: crate::file_format::token_names::NameMatch,
+    pub names: Vec<String>,
+    /// Whether there were more than the limit.
+    pub more: bool,
+    /// Whether the tree has no token-name index (ex: no history).
+    pub unsupported: bool,
 }
 
 /// What a token's history says about its removals (see `cmd_token_history`),

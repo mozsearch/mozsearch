@@ -4,7 +4,11 @@ use clap::Args;
 use super::interface::{PipelineCommand, PipelineValues, TokenHistoryValue};
 use crate::abstract_server::{AbstractServer, Result, ServerError};
 use crate::file_format::history::timeline_tokens::is_trackable_token;
-use crate::hyperblame::token_history::TokenHistoryOptions;
+use crate::file_format::token_names::NameMatch;
+use crate::hyperblame::token_history::{MIN_REMOVED, TokenHistoryOptions};
+
+/// How many other tokens containing a token its note and view list.
+const MAX_SIMILAR: usize = 8;
 
 /// What the history says about a token's removals (see
 /// `hyperblame::token_history`): the commits which removed most of its
@@ -53,7 +57,27 @@ impl PipelineCommand for TokenHistoryCommand {
             view: self.args.view,
         };
         match server.token_history(token, opts).await {
-            Ok(history) => value.history = history,
+            Ok(mut history) => {
+                // (Other tokens containing it, for a broader search, if its
+                // removals are noteworthy or for the view: the index's scan
+                // isn't free, ~20-50 ms for firefox.)
+                if let Some(history) = &mut history
+                    && (self.args.view || history.removed >= MIN_REMOVED)
+                    && let Ok(matches) = server
+                        .token_names(token, NameMatch::Contains, MAX_SIMILAR + 8)
+                        .await
+                {
+                    let mut similar: Vec<String> = matches
+                        .names
+                        .into_iter()
+                        .filter(|name| name.to_lowercase() != token.to_lowercase())
+                        .collect();
+                    history.similar_more = matches.more || similar.len() > MAX_SIMILAR;
+                    similar.truncate(MAX_SIMILAR);
+                    history.similar = similar;
+                }
+                value.history = history;
+            }
             Err(ServerError::Unsupported) => value.unsupported = true,
             // (The note is an extra: a search shouldn't fail for it.)
             Err(_) if !self.args.view => {}
@@ -124,6 +148,26 @@ mod tests {
             "unsupported": false,
         }}));
         assert!(view.contains("The history of <code>Gadget</code>"));
+        // (Tokens containing it.)
+        let mut similar = history.clone();
+        similar.similar = vec!["GadgetFactory".to_string()];
+        similar.similar_more = true;
+        let note = render(serde_json::json!({ "TokenHistory": {
+            "token": "Gadget",
+            "history": similar,
+            "unsupported": false,
+        }}));
+        assert!(note.contains("Tokens containing <code>Gadget</code>"));
+        assert!(note.contains("token-names:Gadget"));
+        let names = render(serde_json::json!({ "TokenNames": {
+            "query": "Gad",
+            "how": "prefix",
+            "names": ["Gadget", "GadgetFactory"],
+            "more": false,
+            "unsupported": false,
+        }}));
+        assert!(names.contains("Tokens starting with <code>Gad</code>"));
+        assert!(names.contains("token-timeline%3AGadget"));
         let none = render(serde_json::json!({ "TokenHistory": {
             "token": "Gizmo",
             "history": null,

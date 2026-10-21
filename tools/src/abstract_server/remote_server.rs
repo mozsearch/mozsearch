@@ -37,6 +37,7 @@ use crate::file_format::chunked_gzip::Row;
 
 use crate::{
     dataflow::slice::ChangedLines,
+    file_format::token_names::{NameMatch, TokenNameMatches},
     file_format::{
         code_coverage_report, crossref::CrossrefData, jumpref::JumprefData, recency::FileRecency,
     },
@@ -602,6 +603,29 @@ impl AbstractServer for RemoteServer {
             params.push(("case_sensitive", "true"));
         }
         parse(&self.api("token-timeline", None, &params).await?)
+    }
+
+    async fn token_names(
+        &self,
+        query: &str,
+        how: NameMatch,
+        limit: usize,
+    ) -> Result<TokenNameMatches> {
+        let how = match how {
+            NameMatch::Prefix => "prefix",
+            NameMatch::Suffix => "suffix",
+            NameMatch::Contains => "contains",
+        };
+        let limit = limit.to_string();
+        parse(
+            &self
+                .api(
+                    "token-names",
+                    None,
+                    &[("q", query), ("match", how), ("limit", &limit)],
+                )
+                .await?,
+        )
     }
 
     async fn fetch_html(&self, root: HtmlFileRoot, sf_path: &str) -> Result<String> {

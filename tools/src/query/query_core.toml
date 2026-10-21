@@ -599,6 +599,14 @@ command = "token-history"
 args.positional = "$0"
 args.view = true
 
+# The tokens of the history's journals matching a pattern: `Foo*` those
+# starting with `Foo`, `*Foo` those ending with it, and `Foo` those containing
+# it, case- and accent-insensitively (see file_format/token_names.rs).
+[term.token-names]
+[[term.token-names.group.token-names]]
+command = "token-names"
+args.positional = "$0"
+
 # Tokens' timelines, a line each, of their instances (with their case
 # variants') by week, with markers at the weeks changing them the most (see
 # hyperblame/token_timeline.rs and static/js/token-timeline.js): each
@@ -690,6 +698,9 @@ output = "result"
 output = "result"
 
 [group.token-timeline]
+output = "result"
+
+[group.token-names]
 output = "result"
 
 [group.semantic-lookup]

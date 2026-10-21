@@ -22,6 +22,7 @@
 <p>Its history has no removals to note: it hasn't lost much of what it had.</p>
 {%- endif %}
 <p>{% include 'query_results/token_history_timeline_link.liquid' history: history %}</p>
+{% include 'query_results/token_history_similar.liquid' history: history %}
 {%- if history.variants != empty %}
 <p>Its case variants' histories:
 {%- for variant in history.variants %} <a href="/{{ tree }}/query/default?q=token-history:{{ variant | url_encode }}%20case:sensitive"><code>{{ variant | escape }}</code></a>{% unless forloop.last %},{% endunless %}{% endfor %}.</p>

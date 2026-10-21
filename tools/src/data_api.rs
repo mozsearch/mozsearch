@@ -42,6 +42,8 @@
 //! - `token-timeline?tokens=a,b[&case_sensitive=true]`: tokens' timelines, by
 //!   week, with markers at the weeks changing them the most (see
 //!   `token_timeline`).
+//! - `token-names?q=&match=prefix|suffix|contains[&limit=]`: the tokens of the
+//!   history's journals matching `q` (see `token_names`).
 //! - `linked-crossref?tree=&sym=`: a linked tree's crossref entry for a
 //!   symbol of the tree's (see `linked_crossref_lookup`).
 //! - `text?re=[&fold_case=true][&path=][&not_path=][&limit=]`: the lines
@@ -120,6 +122,7 @@ use serde_json::{Value, json};
 use tokio_stream::StreamExt;
 
 use crate::abstract_server::{AbstractServer, ErrorLayer, ServerError};
+use crate::file_format::token_names::NameMatch;
 use crate::hyperblame::journals::JournalKind;
 use crate::hyperblame::token_history::TokenHistoryOptions;
 use crate::hyperblame::token_timeline::TokenTimelineOptions;
@@ -529,6 +532,13 @@ const ROUTES: &[Route] = &[
         name: "token-timeline",
         takes_path: false,
         params: &["tokens", "case_sensitive"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "token-names",
+        takes_path: false,
+        params: &["q", "match", "limit"],
         host: Host::PipelineServer,
         post: false,
     },
@@ -1409,6 +1419,25 @@ async fn route_body(
             let timeline = server.token_timeline(&tokens, opts).await.map_err(error)?;
             Ok(Body::json(
                 &serde_json::to_value(timeline).unwrap_or_default(),
+            ))
+        }
+        "token-names" => {
+            let query = params.required("q")?;
+            if query.len() > MAX_SYM_BYTES {
+                return Err(bad("q is too long"));
+            }
+            let how = match params.get("match").unwrap_or("contains") {
+                "prefix" => NameMatch::Prefix,
+                "suffix" => NameMatch::Suffix,
+                "contains" => NameMatch::Contains,
+                _ => return Err(bad("match must be prefix, suffix or contains")),
+            };
+            let matches = server
+                .token_names(query, how, params.limit()?)
+                .await
+                .map_err(error)?;
+            Ok(Body::json(
+                &serde_json::to_value(matches).unwrap_or_default(),
             ))
         }
         "linked-crossref" => {

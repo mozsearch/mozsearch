@@ -222,6 +222,12 @@ if should_perform "crossref"; then
     $MOZSEARCH_PATH/scripts/crossref.sh $CONFIG_FILE $TREE_NAME $ANALYSIS_FILES_PATH
 fi
 
+if should_perform "token-names"; then
+    # The token-name index of the tree's history, if it has one (see
+    # tools/src/file_format/token_names.rs).
+    build-token-names $CONFIG_FILE $TREE_NAME || handle_tree_error "build-token-names"
+fi
+
 if should_perform "output"; then
     $MOZSEARCH_PATH/scripts/output.sh $CONFIG_REPO $CONFIG_FILE $TREE_NAME $URL_MAP_PATH $DOC_TREES_MAP || handle_tree_error "output.sh"
 fi

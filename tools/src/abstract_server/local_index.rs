@@ -36,6 +36,7 @@ use crate::file_format::local_symbols::process_local_symbols;
 use crate::file_format::per_file_info::FileLookupMap;
 use crate::file_format::recency::FileRecency;
 use crate::file_format::repo_data_ingestion::RepoIngestionConfig;
+use crate::file_format::token_names::{NameMatch, TokenNameMatches, TokenNames};
 use crate::format::format_code;
 use crate::git_ops::{RevisionCoverage, coverage_history, coverage_summary, git_time_to_chrono};
 use crate::hyperblame::journals::{JournalKind, JournalReader};
@@ -211,6 +212,9 @@ pub struct LocalIndex {
     /// ex: ~260 MB of JSON for firefox), from `file_lookup_path`.
     file_lookup_map: Arc<OnceLock<FileLookupMap>>,
     file_lookup_path: String,
+    /// The history's token-name index, mapped when first needed (see
+    /// `file_format::token_names`), if the index has one.
+    token_names: Arc<OnceLock<Option<TokenNames>>>,
     /// The tree's path kinds' keys and names, in display order.
     path_kinds: Vec<(Ustr, Ustr)>,
     head_info: Option<CommitInfo>,
@@ -709,6 +713,22 @@ impl AbstractServer for LocalIndex {
         })
     }
 
+    async fn token_names(
+        &self,
+        query: &str,
+        how: NameMatch,
+        limit: usize,
+    ) -> Result<TokenNameMatches> {
+        let names = self.token_names.get_or_init(|| {
+            TokenNames::open(&Path::new(&self.config_paths.index_path).join("token-names"))
+        });
+        let Some(names) = names else {
+            return Err(ServerError::Unsupported);
+        };
+        let (names, more) = names.find(query, how, limit);
+        Ok(TokenNameMatches { names, more })
+    }
+
     async fn token_timeline(
         &self,
         tokens: &[String],
@@ -1199,6 +1219,7 @@ fn fab_server(
         jumprefs,
         file_recency_lookup_map,
         file_lookup_map: Arc::new(OnceLock::new()),
+        token_names: Arc::new(OnceLock::new()),
         file_lookup_path,
         path_kinds,
         head_info,

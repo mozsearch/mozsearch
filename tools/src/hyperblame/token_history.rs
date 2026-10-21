@@ -145,6 +145,13 @@ pub struct TokenHistory {
     /// `TokenHeader::count`).
     #[serde(default)]
     pub count: Option<i64>,
+    /// Other tokens containing it (not its case variants), from the token-name
+    /// index (see `file_format::token_names`), the first few, and whether
+    /// there are more; `cmd_token_history` fills them in.
+    #[serde(default)]
+    pub similar: Vec<String>,
+    #[serde(default)]
+    pub similar_more: bool,
     /// The newest record's date (or ISO week), and the oldest read's.
     pub latest: String,
     pub oldest: String,

@@ -1,0 +1,9 @@
+{%- comment -%}
+  Other tokens containing a token history's token (see token_history.rs's
+  `similar`), with a link to all of them (the token-names: view).
+{%- endcomment -%}
+{%- if history.similar != empty %}
+<p class="token-history-similar">Tokens containing <code>{{ history.token | escape }}</code>:
+{%- for name in history.similar %} <a href="/{{ tree }}/query/default?q=token-history:{{ name | url_encode }}%20case:sensitive"><code>{{ name | escape }}</code></a>{% unless forloop.last %},{% endunless %}{% endfor %}
+{%- if history.similar_more %}, <a href="/{{ tree }}/query/default?q=token-names:{{ history.token | url_encode }}">all of them</a>{% endif %}.</p>
+{%- endif %}
