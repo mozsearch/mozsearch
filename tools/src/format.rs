@@ -4279,6 +4279,109 @@ fn rendered_line_markers(rendered: &Rendered, source: &str, range: &Range<usize>
         .collect()
 }
 
+lazy_static! {
+    /// A rendered spec's definitions' and links' opening tags (see
+    /// `annotate_spec_symbols`).
+    static ref SPEC_DFN_OR_LINK: regex::Regex = regex::Regex::new(r#"<(dfn|a)(\s[^>]*)?>"#).unwrap();
+    static ref ATTR_ID: regex::Regex = regex::Regex::new(r#"\sid="([^"]*)""#).unwrap();
+    static ref ATTR_HREF: regex::Regex = regex::Regex::new(r#"\shref="([^"]*)""#).unwrap();
+}
+
+/// An attribute's value without its HTML escapes.
+fn unescape_attr(value: &str) -> String {
+    value
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&amp;", "&")
+}
+
+/// A page of a spec's rendered view, with its definitions and its links to
+/// definitions annotated for the context menu (see context-menu.js's rendered
+/// specs' symbols), if the tree has their symbols (`has_sym`; see
+/// `spec_symbol`), which `syms` gets: a definition (`<dfn id>`) gets its
+/// anchor's symbol (`data-symbols`), and a link to an anchor of the tree's
+/// specs' rendered views (on the page, `#{anchor}`, or another,
+/// `/{tree}/rendered/{path}#{anchor}` or `.../anchor/{anchor}`) its
+/// definition's symbol and its URL (`data-rendered-def`), where "Go to
+/// definition" goes, rather than to the definition's source.
+fn annotate_spec_symbols(
+    html: &str,
+    tree_name: &str,
+    specs: &SpecsConfig,
+    spec: &SpecEntry,
+    has_sym: &dyn Fn(&str) -> bool,
+    syms: &mut Vec<String>,
+) -> String {
+    let rendered_prefix = format!("/{}/rendered/", tree_name);
+    let decode = |text: &str| {
+        urlencoding::decode(text)
+            .map(|text| text.into_owned())
+            .unwrap_or_else(|_| text.to_string())
+    };
+    SPEC_DFN_OR_LINK
+        .replace_all(html, |caps: &regex::Captures| {
+            let tag = &caps[0];
+            let attrs = caps.get(2).map_or("", |m| m.as_str());
+            if attrs.contains("data-symbols=") {
+                return tag.to_string();
+            }
+            let (sym, rendered_def) = if &caps[1] == "dfn" {
+                let Some(id) = ATTR_ID.captures(attrs) else {
+                    return tag.to_string();
+                };
+                (
+                    crate::spec_analyze::spec_symbol(spec.shortname(), &unescape_attr(&id[1])),
+                    None,
+                )
+            } else {
+                let Some(href) = ATTR_HREF.captures(attrs) else {
+                    return tag.to_string();
+                };
+                let raw_href = href[1].to_string();
+                let href = unescape_attr(&raw_href);
+                let target = if let Some(anchor) = href.strip_prefix('#') {
+                    Some((spec, decode(anchor)))
+                } else if let Some(rest) = href.strip_prefix(&rendered_prefix) {
+                    let (path, fragment) = rest.split_once('#').unwrap_or((rest, ""));
+                    spec_view(specs, &decode(path)).and_then(|(target, _, view)| match view {
+                        SpecView::Anchor(anchor) => Some((target, decode(&anchor))),
+                        SpecView::Page(_) if !fragment.is_empty() => {
+                            Some((target, decode(fragment)))
+                        }
+                        _ => None,
+                    })
+                } else {
+                    None
+                };
+                let Some((target, anchor)) = target else {
+                    return tag.to_string();
+                };
+                (
+                    crate::spec_analyze::spec_symbol(target.shortname(), &anchor),
+                    Some(raw_href),
+                )
+            };
+            if !has_sym(&sym) {
+                return tag.to_string();
+            }
+            let annotated = format!(
+                r#"<{} data-symbols="{}"{}{}>"#,
+                &caps[1],
+                rendered_docs::escape(&sym),
+                rendered_def.map_or_else(String::new, |href| format!(
+                    r#" data-rendered-def="{}""#,
+                    href
+                )),
+                attrs
+            );
+            syms.push(sym);
+            annotated
+        })
+        .into_owned()
+}
+
 /// The rendered view of a document (Markdown or reStructuredText) or of a
 /// spec's source (see `rendered_specs`) at `path`, at the tip
 /// (`/{tree}/rendered/{path}`) or at the revision `rev`
@@ -4661,17 +4764,55 @@ pub fn format_rendered(
         if spec.is_some() { " rendered-spec" } else { "" }
     )
     .unwrap();
+    // (A spec's definitions and links to definitions have their symbols, for
+    // the context menu, whose SYM_INFO the page has; see
+    // `annotate_spec_symbols`.  The segments between the blocks' strips have
+    // whole tags.)
+    let spec_jumprefs = spec
+        .is_some()
+        .then(|| TreeJumprefs::open(&tree_config.paths, &cfg.tree_index_paths));
+    let has_sym = |sym: &str| {
+        spec_jumprefs
+            .as_ref()
+            .is_some_and(|jumprefs| matches!(jumprefs.lookup(sym), Ok(Some(_))))
+    };
+    let mut page_syms: Vec<String> = vec![];
+    let mut write_segment = |writer: &mut dyn Write, segment: &str| match (spec, specs.as_deref()) {
+        (Some(spec), Some(specs)) => {
+            let annotated =
+                annotate_spec_symbols(segment, tree_name, specs, spec, &has_sym, &mut page_syms);
+            writer.write_all(annotated.as_bytes()).unwrap();
+        }
+        _ => writer.write_all(segment.as_bytes()).unwrap(),
+    };
     let mut pos = 0;
     for (block, strip) in rendered.blocks.iter().zip(&strips) {
         let at = block.strip_at.clamp(pos, rendered.html.len());
-        writer
-            .write_all(&rendered.html.as_bytes()[pos..at])
-            .unwrap();
+        write_segment(writer, &rendered.html[pos..at]);
         writer.write_all(strip.as_bytes()).unwrap();
         pos = at;
     }
-    writer.write_all(&rendered.html.as_bytes()[pos..]).unwrap();
+    write_segment(writer, &rendered.html[pos..]);
     writeln!(writer, "</article>").unwrap();
+    if let Some(jumprefs) = &spec_jumprefs
+        && !page_syms.is_empty()
+    {
+        let mut sym_info: BTreeMap<Ustr, Option<JumprefData>> = BTreeMap::new();
+        let mut traversed = UstrMap::default();
+        for sym in &page_syms {
+            if !sym_info.contains_key(&ustr(sym)) {
+                jumprefs.add_sym_info(ustr(sym), &mut sym_info, &mut traversed);
+            }
+        }
+        writeln!(
+            writer,
+            "<script>var SYM_INFO = {};</script>",
+            to_string(&sym_info)
+                .unwrap_or_else(|_| "{}".to_string())
+                .replace('<', "\\u003c")
+        )
+        .unwrap();
+    }
     if let Some(nav) = &page_nav {
         writeln!(writer, "{}", nav).unwrap();
         // Links to anchors that aren't on the page (ex: to the first page,
@@ -10240,6 +10381,53 @@ pub fn render_commit(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_annotate_spec_symbols() {
+        let specs: crate::spec_analyze::SpecsConfig = toml::from_str(
+            r#"
+            [[spec]]
+            name = "html"
+            format = "wattsi"
+            [[spec]]
+            name = "infra"
+            format = "bikeshed"
+            source = "infra.bs"
+            "#,
+        )
+        .unwrap();
+        let html_spec = &specs.specs[0];
+        // (The tree has the symbols but `nope`'s.)
+        let has_sym = |sym: &str| !sym.ends_with("_nope");
+        let mut syms = vec![];
+        let annotated = annotate_spec_symbols(
+            concat!(
+                r##"<p><dfn id="policy-container">policy container</dfn> is a "##,
+                r##"<a id="x:struct" href="/t/rendered/infra/infra.bs#struct">struct</a>, "##,
+                r##"<a href="#policy-container">again</a>, "##,
+                r##"<a href="/t/rendered/html/source/anchor/concept-fetch">fetch</a>, "##,
+                r##"<a href="/t/rendered/html/source/dom.html">a page</a>, "##,
+                r##"<a href="#nope">nope</a>.</p>"##
+            ),
+            "t",
+            &specs,
+            html_spec,
+            &has_sym,
+            &mut syms,
+        );
+        assert_eq!(
+            annotated,
+            concat!(
+                r##"<p><dfn data-symbols="SPEC_html_policy@2Dcontainer" id="policy-container">policy container</dfn> is a "##,
+                r##"<a data-symbols="SPEC_infra_struct" data-rendered-def="/t/rendered/infra/infra.bs#struct" id="x:struct" href="/t/rendered/infra/infra.bs#struct">struct</a>, "##,
+                r##"<a data-symbols="SPEC_html_policy@2Dcontainer" data-rendered-def="#policy-container" href="#policy-container">again</a>, "##,
+                r##"<a data-symbols="SPEC_html_concept@2Dfetch" data-rendered-def="/t/rendered/html/source/anchor/concept-fetch" href="/t/rendered/html/source/anchor/concept-fetch">fetch</a>, "##,
+                r##"<a href="/t/rendered/html/source/dom.html">a page</a>, "##,
+                r##"<a href="#nope">nope</a>.</p>"##
+            )
+        );
+        assert_eq!(syms.len(), 4);
+    }
+
     #[test]
     fn test_spec_for_url() {
         let specs: crate::spec_analyze::SpecsConfig = toml::from_str(

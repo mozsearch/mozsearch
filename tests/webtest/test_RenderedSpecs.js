@@ -454,3 +454,29 @@ add_task(async function test_AlgorithmViewSectionsBlame() {
     () => popup.textContent.includes("Add the jiggling and wiggling specs"),
     "with the commits of its file's history");
 });
+
+add_task(async function test_RenderedSpecContextMenu() {
+  // A rendered spec's definitions and links to definitions have the context
+  // menu (see the tools' `format::annotate_spec_symbols`), whose "Go to
+  // definition" goes to the definition in the rendered view, and a link's,
+  // which its click shows rather than following it, can follow it.
+  await TestUtils.loadPath(`${BASE}/gadgets.html`);
+  const menu = frame.contentDocument.querySelector("#context-menu");
+  const items = () => [...menu.querySelectorAll("a")].map(a => a.textContent.trim());
+
+  TestUtils.click(frame.contentDocument.querySelector('dfn[id="concept-gadget"]'));
+  await waitForShown(menu, "A definition's click shows the context menu");
+  ok(items().some(text => text.startsWith("Search for")), `with a search: ${items().join(", ")}`);
+  ok(!items().some(text => text.startsWith("Go to definition")), "but no going to itself");
+  TestUtils.click(frame.contentDocument.body);
+
+  const link = frame.contentDocument.querySelector('a[data-symbols="SPEC_example_concept@2Dwidget"]');
+  TestUtils.click(link);
+  await waitForShown(menu, "A link to a definition's click shows the context menu");
+  is(frame.contentWindow.location.pathname, `${BASE}/gadgets.html`, "rather than following it");
+  const follow = [...menu.querySelectorAll("a")].find(a => a.textContent.includes("Follow the link"));
+  is(follow?.getAttribute("href"), link.getAttribute("href"), "which can follow it");
+  const def = [...menu.querySelectorAll("a")].find(a => a.textContent.includes("Go to definition"));
+  is(def?.getAttribute("href"), `${BASE}#concept-widget`,
+     "and go to the definition, in the rendered view rather than its source");
+});

@@ -5441,3 +5441,9 @@ textarea.monospace {
 .dwim-searched code {
   word-break: break-all;
 }
+
+/* A rendered spec's definitions have the context menu (see
+   format::annotate_spec_symbols and context-menu.js). */
+.rendered-spec dfn[data-symbols] {
+  cursor: pointer;
+}

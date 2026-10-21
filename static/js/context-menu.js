@@ -1377,11 +1377,26 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
       return;
     }
 
+    // A rendered spec's definition, or link to one, which has its symbol
+    // (see the tools' `format::annotate_spec_symbols`): a link's click shows
+    // the menu, which can follow it, rather than following it, but a click
+    // with a modifier key (ex: to open it in a new tab) follows it.
+    const renderedSpecToken = event.target.closest(".rendered-spec [data-symbols]");
+    const renderedSpecLink = renderedSpecToken?.closest("a[href]");
+    if (renderedSpecLink) {
+      if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) {
+        return;
+      }
+      event.preventDefault();
+    }
+
     // We expect to find symbols in:
     // - source listings ("code")
     // - diagrams ("svg")
     // - breadcrumbs ("breadcrumbs")
+    // - rendered specs' definitions and links to them
     if (!event.target.closest("code") &&
+        !renderedSpecToken &&
         !event.target.closest(".interactive-graph-block") &&
         !event.target.closest("svg") &&
         !event.target.closest(".breadcrumbs") &&
@@ -1471,6 +1486,16 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
 
     // jumps come first
     let jumpMenuItems = [];
+    // (A rendered spec's link, whose click shows this menu, can be followed;
+    // see `renderedSpecLink` above.)
+    if (renderedSpecLink) {
+      jumpMenuItems.push(new GotoMenuItem({
+        html: this.fmt("Follow the link to <strong>_</strong>", renderedSpecLink.textContent.trim()),
+        href: renderedSpecLink.getAttribute("href"),
+        icon: "export-alt",
+        section: "jumps",
+      }));
+    }
     // then macro expansions
     let expansionMenuItems = [];
     let remainingExpansionMenuItems = [];
@@ -1872,7 +1897,20 @@ var ContextMenu = new (class ContextMenu extends ContextMenuOrSubMenu {
             }));
           }
 
-          if (jumpref.jumps.def && jumpref.jumps.def !== sourceLineClicked) {
+          // (In a rendered spec, its definition in the rendered view, if it's
+          // not the definition itself; see `renderedSpecToken` above.)
+          const renderedDef = renderedSpecToken?.dataset.renderedDef;
+          if (renderedSpecToken) {
+            if (renderedDef) {
+              jumpMenuItems.push(new GotoMenuItem({
+                html: this.fmt("Go to definition of <strong>_</strong>", pretty),
+                href: renderedDef,
+                icon: "export-alt",
+                section: "jumps",
+                confidence,
+              }));
+            }
+          } else if (jumpref.jumps.def && jumpref.jumps.def !== sourceLineClicked) {
             jumpMenuItems.push(new GotoMenuItem({
               html: this.fmt("Go to definition of <strong>_</strong>", pretty),
               href: sourceUrl(jumpTree, jumpref.jumps.def),
