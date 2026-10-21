@@ -1,1 +1,1 @@
-filter-analysis simple.rs -k def -i NonASCII::Α
+filter-analysis simple_rust/simple.rs -k def -i NonASCII::Α

@@ -1,0 +1,14 @@
+[package]
+name = "files"
+version = "0.1.0"
+authors = ["Emilio Cobos Álvarez <emilio@crisal.io>"]
+build = "build.rs"
+edition = "2018"
+
+[lib]
+name = "simple"
+path = "simple.rs"
+doctest = false
+
+[dependencies]
+test_rust_dependency = { path = "./test_rust_dependency" }
