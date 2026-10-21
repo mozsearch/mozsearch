@@ -46,14 +46,18 @@
 //
 // ### Merges
 //
-// For merge commits we don't perform any inference.  For annotated files, like
-// `build-blame.rs`, we propagate unchanged tokens from all parents with the
-// first parent taking precedence, and any other tokens are treated as newly
-// added by the merge.  For journals, we union the records from all of the
-// parents so that the records from commits on the non-first-parent branches
-// are not lost.  The merge commit itself doesn't get journal records, but it
-// does get a rev-summary.  Merges read their parents from the repo on disk
-// rather than through git-fast-import; see `MergeParents`.
+// For merge commits we don't perform any inference, except of their renamed
+// and copied files against the first parent, to decide those pairings as
+// linear revisions' are (see `decide_merge_pairings`).  For annotated files,
+// like `build-blame.rs`, we propagate unchanged tokens from all parents with
+// the first parent taking precedence, and any other tokens are treated as
+// newly added by the merge.  For journals, we union the records from all of
+// the parents so that the records from commits on the non-first-parent
+// branches are not lost.  The merge commit itself only gets token journal
+// records correcting the union to its own instances (see
+// `merge_token_journal`), but it does get a rev-summary.  Merges read their
+// parents from the repo on disk rather than through git-fast-import; see
+// `MergeParents`.
 //
 // To determine which journals may differ between parents, we look at the files
 // which differ between the first parent and each other parent in the syntax
@@ -154,6 +158,9 @@ use tools::hyperblame::consolidation::{
 use tools::hyperblame::inference::{
     FileChangeInput, FileChangeKind, FileInference, InferenceConfig, PairingSupport, RemovedFate,
     TokenOrigin, diff_token_lines, infer_revision,
+};
+use tools::hyperblame::pairing::{
+    Pairing, continuations, continued_kind, keeps_copy, keeps_rename,
 };
 use tools::hyperblame::renames;
 use tools::hyperblame::segments::{self, SPLIT_BYTES};
@@ -1099,21 +1106,6 @@ fn struct_namespace(path: &str, file_struct: &FilesStruct) -> String {
         .unwrap_or_else(|| namespace_for_file(Path::new(path)).to_string())
 }
 
-/// git pairs renamed files by similarity (see `diff_files_trees`), which small
-/// unrelated files can reach just by sharing a license header and some syntax.
-/// We only keep a rename if the content similarity of the files (see
-/// `PairingSupport`) is at least this, otherwise we treat it as a deletion and
-/// an addition.
-///
-/// This is deliberately lower than git's threshold (30%).  In the mozsearch
-/// history and a replay of vendored puppeteer syncs, the renames below 0.2
-/// were all unrelated files, but 0.2 to 0.45 also has real renames of
-/// rewritten files (ex: a 0.24 move of ProductLauncher.ts into a new package, a
-/// 0.42 .js to .ts conversion).  Wrongly splitting a rename loses more than
-/// wrongly keeping one: shared content is only found as moved if it's in long
-/// enough runs.
-const MIN_RENAME_CONTENT_SIMILARITY: f64 = 0.2;
-
 fn path_string(path: Option<&Path>) -> Option<String> {
     path.map(|p| p.to_string_lossy().into_owned())
 }
@@ -1266,115 +1258,48 @@ fn preprocess_linear(
         })
         .collect();
 
-    // libgit2 can report a deleted file as the source of several renames (ex:
-    // when a file is split in two), which would give the old file's tokens
-    // fates from each of them.  Only the most similar one is a rename, unless
-    // another of them, or of the copies from the deleted file, has clearly more
-    // of its content (see `continues_better`): ex: puppeteer's
-    // firefox-data.spec.ts was "renamed" to chromedriver/chromedriver-data.spec.ts
-    // (63 of its 108 content tokens) but "copied" to firefox/firefox-data.spec.ts
-    // (86).  The others are copies, which the copy check below may downgrade
-    // to additions if their content was mainly moved rather than copied.
-    struct Candidate {
-        idx: usize,
-        similarity: f64,
-        supported: u32,
-        same_name: bool,
-    }
-    /// Whether `challenger` continues the old file rather than `rename`: it
-    /// has at least a quarter (and 2 tokens) more of the old file's content,
-    /// since similarity favors smaller files (there, 0.65 vs 0.63), but small
-    /// differences in shared content are often generic (ex: ffvpx's deleted
-    /// x86/pixelutils.h has 16 to 19 content tokens in each of 3 unrelated new
-    /// headers).
-    fn continues_better(challenger: &Candidate, rename: &Candidate) -> bool {
-        challenger.supported >= rename.supported + (rename.supported / 4).max(2)
-    }
-    let renamed_from: HashSet<String> = pending
+    // One rename per deleted file (see `pairing::continuations`): the others
+    // are copies.
+    let pairings: Vec<Pairing> = pending
         .iter()
-        .filter(|p| p.kind == FileChangeKind::Renamed)
-        .filter_map(|p| p.old_path.clone())
+        .zip(&supports)
+        .map(|(p, support)| Pairing {
+            kind: p.kind,
+            old_path: p.old_path.as_deref(),
+            new_path: p.new_path.as_deref(),
+            support: support.as_ref(),
+        })
         .collect();
-    let mut candidates: HashMap<String, (Vec<Candidate>, Vec<Candidate>)> = HashMap::new();
-    for (idx, (p, support)) in pending.iter().zip(&supports).enumerate() {
-        let (Some(support), Some(old_path), Some(new_path)) = (support, &p.old_path, &p.new_path)
-        else {
-            continue;
-        };
-        if !renamed_from.contains(old_path) {
-            continue;
-        }
-        let candidate = Candidate {
-            idx,
-            similarity: support.similarity().unwrap_or(0.0),
-            supported: support.supported,
-            same_name: Path::new(old_path).file_name() == Path::new(new_path).file_name(),
-        };
-        let (renames, copies) = candidates.entry(old_path.clone()).or_default();
-        if p.kind == FileChangeKind::Renamed {
-            renames.push(candidate);
-        } else {
-            copies.push(candidate);
-        }
-    }
-    // Maps old paths to the index of the file which continues them.
-    let mut best_renames: HashMap<String, usize> = HashMap::new();
-    for (old_path, (renames, copies)) in &candidates {
-        // (The first of the most similar, and of the most content.)
-        let most_similar = renames
-            .iter()
-            .reduce(|a, b| if b.similarity > a.similarity { b } else { a })
-            .unwrap();
-        let challenger = renames
-            .iter()
-            .chain(copies)
-            .filter(|c| c.idx != most_similar.idx)
-            .reduce(|a, b| {
-                if (b.supported, b.same_name) > (a.supported, a.same_name) {
-                    b
-                } else {
-                    a
-                }
-            });
-        let best = match challenger {
-            Some(challenger) if continues_better(challenger, most_similar) => challenger,
-            _ => most_similar,
-        };
-        best_renames.insert(old_path.clone(), best.idx);
-    }
+    let best_renames = continuations(&pairings);
+    let kinds: Vec<FileChangeKind> = pairings
+        .iter()
+        .enumerate()
+        .map(|(idx, pairing)| continued_kind(idx, pairing, &best_renames))
+        .collect();
+    drop(pairings);
     let new_paths: Vec<String> = pending
         .iter()
         .map(|p| p.new_path.clone().unwrap_or_default())
         .collect();
     let mut changed = false;
-    for (idx, p) in pending.iter_mut().enumerate() {
-        let Some(&best_idx) = p
-            .old_path
-            .as_ref()
-            .and_then(|old_path| best_renames.get(old_path))
-        else {
+    for (idx, (p, kind)) in pending.iter_mut().zip(kinds).enumerate() {
+        if p.kind == kind {
             continue;
-        };
-        let old_path = p.old_path.as_deref().unwrap_or_default();
-        match p.kind {
-            FileChangeKind::Renamed if best_idx != idx => {
-                info!(
-                    "Treating rename {} -> {} as a copy because {} continues it",
-                    old_path, new_paths[idx], new_paths[best_idx]
-                );
-                p.kind = FileChangeKind::Copied;
-                changed = true;
-            }
-            FileChangeKind::Copied if best_idx == idx => {
-                info!(
-                    "Treating copy {} -> {} as the rename because it has clearly the most of its content",
-                    old_path, new_paths[idx]
-                );
-                p.kind = FileChangeKind::Renamed;
-                changed = true;
-            }
-            _ => {}
         }
+        let old_path = p.old_path.as_deref().unwrap_or_default();
+        let best_idx = best_renames[old_path];
+        match kind {
+            FileChangeKind::Copied => info!(
+                "Treating rename {} -> {} as a copy because {} continues it",
+                old_path, new_paths[idx], new_paths[best_idx]
+            ),
+            _ => info!(
+                "Treating copy {} -> {} as the rename because it has clearly the most of its content",
+                old_path, new_paths[idx]
+            ),
+        }
+        p.kind = kind;
+        changed = true;
     }
 
     // Only keep renames whose content supports them (see
@@ -1391,7 +1316,7 @@ fn preprocess_linear(
             continue;
         }
         let similarity = support.similarity();
-        let keep = similarity.is_none_or(|s| s >= MIN_RENAME_CONTENT_SIMILARITY);
+        let keep = keeps_rename(support);
         info!(
             "{} {} -> {}: {:?} similarity {:?}",
             if keep {
@@ -1443,7 +1368,7 @@ fn preprocess_linear(
                 return false;
             }
             let support = PairingSupport::compute(idx, input, inference);
-            let keep = support.new_content == 0 || support.supported * 2 >= support.new_content;
+            let keep = keeps_copy(&support);
             info!(
                 "{} {} -> {}: {:?}",
                 if keep {
@@ -1675,10 +1600,153 @@ fn add_tracked_tokens(
     }
 }
 
+/// Decide a merge's pairings against its first parent (`deltas`' renames and
+/// copies) as linear revisions' are (see `hyperblame::pairing`), from the
+/// inference of their files' tokens alone (merges aren't otherwise inferred;
+/// see "Merges" above): one rename per deleted file, renames whose files share
+/// too little split into a deletion and an addition, and copies most of whose
+/// content wasn't copied as additions.  (libgit2's pairings of merges were
+/// taken as they came before, 2026-10-21, which mattered for the files no
+/// other parent has as the merge does, ex: a conflict's resolution, whose
+/// lines shared with a wrongly paired file, ex: a license header, got that
+/// file's history, and for a file several renames came from, whose instances
+/// were counted as removed by each.  Merges' files mostly come from another
+/// parent as they are: none of the 605 pairings of a firefox window's 30
+/// merges, of which these split 16 renames and made 128 copies additions.)
+fn decide_merge_pairings(
+    repo: &Repository,
+    cur_root: &git2::Tree,
+    deltas: &mut Vec<MergeDelta>,
+    config: &InferenceConfig,
+) {
+    let paired: Vec<usize> = (0..deltas.len())
+        .filter(|&i| {
+            matches!(
+                deltas[i].kind,
+                FileChangeKind::Renamed | FileChangeKind::Copied
+            )
+        })
+        .collect();
+    if paired.is_empty() {
+        return;
+    }
+    let contents: Vec<(String, String, String)> = paired
+        .iter()
+        .map(|&i| {
+            let delta = &deltas[i];
+            let new_path = delta.new_path.as_deref().unwrap_or_default();
+            (
+                file_namespace(repo, cur_root, new_path),
+                blob_string(repo, delta.old_oid),
+                blob_string(repo, delta.new_oid),
+            )
+        })
+        .collect();
+    let supports = |deltas: &[MergeDelta]| -> Vec<PairingSupport> {
+        let inputs: Vec<FileChangeInput> = paired
+            .iter()
+            .zip(&contents)
+            .map(|(&i, (namespace, old, new))| FileChangeInput {
+                kind: deltas[i].kind,
+                namespace,
+                old_lines: token_file_lines(old),
+                new_lines: token_file_lines(new),
+            })
+            .collect();
+        let inferences = infer_revision(&inputs, config);
+        inputs
+            .iter()
+            .zip(&inferences)
+            .enumerate()
+            .map(|(idx, (input, inference))| PairingSupport::compute(idx, input, inference))
+            .collect()
+    };
+    let first = supports(deltas);
+    let pairings: Vec<Pairing> = paired
+        .iter()
+        .zip(&first)
+        .map(|(&i, support)| Pairing {
+            kind: deltas[i].kind,
+            old_path: deltas[i].old_path.as_deref(),
+            new_path: deltas[i].new_path.as_deref(),
+            support: Some(support),
+        })
+        .collect();
+    let best = continuations(&pairings);
+    let kinds: Vec<FileChangeKind> = pairings
+        .iter()
+        .enumerate()
+        .map(|(idx, pairing)| continued_kind(idx, pairing, &best))
+        .collect();
+    drop(pairings);
+    let mut changed = false;
+    let mut split = vec![];
+    for ((&i, kind), support) in paired.iter().zip(kinds).zip(&first) {
+        let delta = &mut deltas[i];
+        if delta.kind != kind {
+            info!(
+                "Merge: treating {:?} {} -> {} as {:?}",
+                delta.kind,
+                delta.old_path.as_deref().unwrap_or_default(),
+                delta.new_path.as_deref().unwrap_or_default(),
+                kind
+            );
+            delta.kind = kind;
+            changed = true;
+        }
+        if delta.kind == FileChangeKind::Renamed && !keeps_rename(support) {
+            info!(
+                "Merge: splitting rename {} -> {}: {:?} similarity {:?}",
+                delta.old_path.as_deref().unwrap_or_default(),
+                delta.new_path.as_deref().unwrap_or_default(),
+                support,
+                support.similarity()
+            );
+            delta.kind = FileChangeKind::Added;
+            split.push(MergeDelta {
+                kind: FileChangeKind::Deleted,
+                old_path: delta.old_path.clone(),
+                new_path: None,
+                old_oid: delta.old_oid,
+                new_oid: Oid::ZERO_SHA1,
+            });
+        }
+    }
+    // (Copies' support with the renames decided, as linear revisions' is.)
+    let last = if changed || !split.is_empty() {
+        supports(deltas)
+    } else {
+        first
+    };
+    for (&i, support) in paired.iter().zip(&last) {
+        let delta = &mut deltas[i];
+        if delta.kind == FileChangeKind::Copied && !keeps_copy(support) {
+            info!(
+                "Merge: downgrading copy {} -> {}: {:?}",
+                delta.old_path.as_deref().unwrap_or_default(),
+                delta.new_path.as_deref().unwrap_or_default(),
+                support
+            );
+            delta.kind = FileChangeKind::Added;
+        }
+    }
+    deltas.extend(split);
+}
+
+/// A merge's change of a file against its first parent; see `preprocess_merge`.
+struct MergeDelta {
+    kind: FileChangeKind,
+    old_path: Option<String>,
+    new_path: Option<String>,
+    old_oid: Oid,
+    new_oid: Oid,
+}
+
 /// Process a merge revision.
 fn preprocess_merge(
     repo: &Repository,
     commit: &git2::Commit,
+    config: &InferenceConfig,
 ) -> Result<RevisionChanges, git2::Error> {
     let cur_root = commit.tree()?;
     let cur_files = subtree(repo, &cur_root, "files");
@@ -1687,38 +1755,43 @@ fn preprocess_merge(
         .map(|p| p.tree().ok().and_then(|root| subtree(repo, &root, "files")))
         .collect();
 
-    // ## Annotated changes relative to the first parent.
-    let mut files = vec![];
-    let mut token_counts: HashMap<String, i64> = HashMap::new();
+    // ## Changes relative to the first parent, with their pairings (renames
+    // and copies) decided as linear revisions' are (see `hyperblame::pairing`),
+    // from the inference of the renamed and copied files' tokens alone.
     let first_root = commit.parent(0).ok().and_then(|p| p.tree().ok());
     let diff = diff_files_trees(repo, parent_files[0].as_ref(), cur_files.as_ref(), true)?;
-    for delta in diff.deltas() {
-        let Some(kind) = delta_kind(delta.status()) else {
-            continue;
-        };
-        let old_path = path_string(delta.old_file().path());
+    let mut deltas: Vec<MergeDelta> = diff
+        .deltas()
+        .filter_map(|delta| {
+            Some(MergeDelta {
+                kind: delta_kind(delta.status())?,
+                old_path: path_string(delta.old_file().path()),
+                new_path: path_string(delta.new_file().path()),
+                old_oid: delta.old_file().id(),
+                new_oid: delta.new_file().id(),
+            })
+        })
+        .collect();
+    decide_merge_pairings(repo, &cur_root, &mut deltas, config);
+
+    let mut files = vec![];
+    let mut token_counts: HashMap<String, i64> = HashMap::new();
+    for delta in deltas {
+        let (kind, old_path) = (delta.kind, delta.old_path);
         // (The change of the tokens' instances: the first parent's version,
         // unless it stays, and the merge's.)
         if let (Some(path), Some(root)) = (&old_path, &first_root)
-            && kind != FileChangeKind::Added
-            && kind != FileChangeKind::Copied
-            && !delta.old_file().id().is_zero()
+            && matches!(
+                kind,
+                FileChangeKind::Modified | FileChangeKind::Renamed | FileChangeKind::Deleted
+            )
+            && !delta.old_oid.is_zero()
         {
-            let contents = blob_string(repo, delta.old_file().id());
+            let contents = blob_string(repo, delta.old_oid);
             add_tracked_counts(
                 &file_namespace(repo, root, path),
                 &contents,
                 -1,
-                &mut token_counts,
-            );
-        }
-        if kind != FileChangeKind::Deleted && !delta.new_file().id().is_zero() {
-            let path = path_string(delta.new_file().path()).unwrap();
-            let contents = blob_string(repo, delta.new_file().id());
-            add_tracked_counts(
-                &file_namespace(repo, &cur_root, &path),
-                &contents,
-                1,
                 &mut token_counts,
             );
         }
@@ -1731,9 +1804,15 @@ fn preprocess_merge(
             });
             continue;
         }
-        let new_path = path_string(delta.new_file().path()).unwrap();
-        let new_oid = delta.new_file().id();
+        let new_path = delta.new_path.unwrap();
+        let new_oid = delta.new_oid;
         let new_contents = blob_string(repo, new_oid);
+        add_tracked_counts(
+            &file_namespace(repo, &cur_root, &new_path),
+            &new_contents,
+            1,
+            &mut token_counts,
+        );
         let new_lines = token_file_lines(&new_contents);
 
         let mut parents = vec![];
@@ -1866,7 +1945,7 @@ fn thread_preprocess_revision(
     let mut changes = if commit.parent_count() <= 1 {
         preprocess_linear(syntax_repo, &commit, config)?
     } else {
-        preprocess_merge(syntax_repo, &commit)?
+        preprocess_merge(syntax_repo, &commit, config)?
     };
 
     let mut backed_out = vec![];

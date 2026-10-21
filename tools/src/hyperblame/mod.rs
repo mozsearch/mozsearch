@@ -15,6 +15,7 @@ pub mod journals;
 pub mod outline_diff;
 pub mod page_blame;
 pub mod page_data_cache;
+pub mod pairing;
 pub mod peephole;
 pub mod recency;
 pub mod renames;
