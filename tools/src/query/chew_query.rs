@@ -365,6 +365,11 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
     // starting with a dash, ex: `-moz-appearance`, `--foo`, which the parser
     // takes as `moz-appearance` and `-foo`, negated.)
     let mut excluded: Vec<String> = vec![];
+    // (The bare words (and other text: a negated word, a qualified name, a
+    // word that isn't a term's), which are one phrase, in their order, as a
+    // person's search's are (see `normalize`): several default terms gave
+    // their commands several values, ex: search-files two paths.)
+    let mut bare: Vec<String> = vec![];
     for term in q.terms {
         if term.negated {
             let TermValue::Simple(value) = &term.value;
@@ -373,9 +378,9 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                     excluded.push(path_glob_transform(value))
                 }
                 Some("pathre") if !is_qualified_name(value) => excluded.push(value.clone()),
-                None => builder.ingest_term("default", &format!("-{}", value))?,
+                None => bare.push(format!("-{}", value)),
                 Some(key) if !QUERY_CORE.term.contains_key(key) || is_qualified_name(value) => {
-                    builder.ingest_term("default", &format!("-{}:{}", key, value))?
+                    bare.push(format!("-{}:{}", key, value))
                 }
                 Some(key) => {
                     return Err(ServerError::StickyProblem(ErrorDetails {
@@ -394,16 +399,20 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                 // (A qualified name, `Foo::Bar` (the parser's term `Foo` with
                 // the value `:Bar`), is text, even if `Foo` is a term's name
                 // (ex: `C::Foo`, `context::Bar`); see `is_qualified_name`.)
+                Some(key) if key == "default" => bare.push(value),
                 Some(key) if QUERY_CORE.term.contains_key(&key) && !is_qualified_name(&value) => {
                     builder.ingest_term(&key, &value)?;
                 }
                 // (Nor is a word that isn't a term's name (ex: `Foo::Bar`, or
                 // a URL's scheme), which was ignored, so the query had no
                 // pipelines.)
-                Some(key) => builder.ingest_term("default", &format!("{}:{}", key, value))?,
-                None => builder.ingest_term("default", &value)?,
+                Some(key) => bare.push(format!("{}:{}", key, value)),
+                None => bare.push(value),
             },
         }
+    }
+    if !bare.is_empty() {
+        builder.ingest_term("default", &bare.join(" "))?;
     }
     // (Groups, not non-capturing ones, which livegrep's `-file:` can't
     // parse.)
@@ -806,6 +815,18 @@ mod tests {
         // (Not a diagram's, which has no searches of text.)
         assert!(!values("calls-to:Foo case:sensitive").contains("search-text"));
         assert!(chew_query("Foo case:upper").is_err());
+    }
+
+    #[test]
+    fn test_bare_words() {
+        // (Bare words are one phrase, as a quoted one is, whatever's between
+        // them.)
+        assert_eq!(
+            values("HTTP-redirect fetch"),
+            values("'HTTP-redirect fetch'")
+        );
+        assert!(values("foo path:dom bar").contains("\"foo bar\""));
+        assert_eq!(values("foo"), values("default:foo"));
     }
 
     #[test]
