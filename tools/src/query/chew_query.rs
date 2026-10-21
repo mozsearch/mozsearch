@@ -809,6 +809,22 @@ mod tests {
     }
 
     #[test]
+    fn test_crash_signature() {
+        // (A crash signature, quoted, as the DWIM rule for crash-stats'
+        // signatures' URLs makes it, is the crash-stack command's.)
+        let groups: serde_json::Value = serde_json::from_str(&values(
+            "crash-signature:'OOM | large | IPC::ParamTraits<JSStructuredCloneData>::Read | mozilla::dom::Foo'",
+        ))
+        .unwrap();
+        let segment = &groups["crash"]["segments"][0];
+        assert_eq!(segment["command"], "crash-stack");
+        assert_eq!(
+            segment["args"]["positional_args"][0],
+            "OOM | large | IPC::ParamTraits<JSStructuredCloneData>::Read | mozilla::dom::Foo"
+        );
+    }
+
+    #[test]
     fn test_include_tests() {
         // (It amends the query's traversal, trace or slicing, and starts none.)
         let bool_args = |query: &str, group: &str| {

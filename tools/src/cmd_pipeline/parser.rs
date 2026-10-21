@@ -5,6 +5,7 @@ use super::cmd_batch_render::BatchRender;
 use super::cmd_block_diagram::BlockDiagram;
 use super::cmd_cat_html::CatHtml;
 use super::cmd_compile_results::CompileResults;
+use super::cmd_crash_stack::CrashStack;
 use super::cmd_crossref_expand::CrossrefExpand;
 use super::cmd_crossref_lookup::CrossrefLookup;
 use super::cmd_dataflow::Dataflow;
@@ -95,6 +96,7 @@ pub enum Command {
     TokenizeSource(TokenizeSource),
     Dataflow(Dataflow),
     BlockDiagram(BlockDiagram),
+    CrashStack(CrashStack),
     Traverse(Traverse),
     Webtest(Webtest),
 }

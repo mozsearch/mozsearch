@@ -20,10 +20,10 @@ use crate::{
 
 use super::{
     cmd_augment_results::AugmentResultsCommand, cmd_batch_render::BatchRenderCommand,
-    cmd_block_diagram::BlockDiagramCommand, cmd_dataflow::DataflowCommand,
-    cmd_format_symbols::FormatSymbolsCommand, cmd_fuse_crossrefs::FuseCrossrefsCommand,
-    cmd_history_journal::HistoryJournalCommand, cmd_jq::JQCommand,
-    cmd_jumpref_lookup::JumprefLookupCommand, cmd_render::RenderCommand,
+    cmd_block_diagram::BlockDiagramCommand, cmd_crash_stack::CrashStackCommand,
+    cmd_dataflow::DataflowCommand, cmd_format_symbols::FormatSymbolsCommand,
+    cmd_fuse_crossrefs::FuseCrossrefsCommand, cmd_history_journal::HistoryJournalCommand,
+    cmd_jq::JQCommand, cmd_jumpref_lookup::JumprefLookupCommand, cmd_render::RenderCommand,
     cmd_tokenize_source::TokenizeSourceCommand, cmd_traverse::TraverseCommand,
     cmd_webtest::WebtestCommand,
 };
@@ -101,6 +101,8 @@ pub fn fab_command_from_opts(
         (Command::Dataflow(df), _) => Ok(Box::new(DataflowCommand { args: df })),
 
         (Command::BlockDiagram(b), _) => Ok(Box::new(BlockDiagramCommand { args: b })),
+
+        (Command::CrashStack(c), _) => Ok(Box::new(CrashStackCommand { args: c })),
 
         (Command::Traverse(t), _) => Ok(Box::new(TraverseCommand { args: t })),
 

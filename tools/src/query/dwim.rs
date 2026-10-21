@@ -206,6 +206,22 @@ mod tests {
             redirect("/builds/worker/checkouts/gecko/dom/base/Foo.cpp:123:5:").as_deref(),
             Some("/firefox-main/source/dom/base/Foo.cpp#123")
         );
+        // (A crash-stats signature's stack: a query of its signature, as it is,
+        // encoded.)
+        assert_eq!(
+            redirect(
+                "https://crash-stats.mozilla.org/signature/?product=Firefox&signature=OOM%20%7C%20large%20%7C%20IPC%3A%3AParamTraits%3CJSStructuredCloneData%3E%3A%3ARead"
+            )
+            .as_deref(),
+            Some(
+                "/firefox-main/query/default?q=crash-signature%3A%27OOM%20%7C%20large%20%7C%20IPC%3A%3AParamTraits%3CJSStructuredCloneData%3E%3A%3ARead%27"
+            )
+        );
+        assert_eq!(
+            redirect("https://crash-stats.mozilla.org/signature/?signature=Foo%3A%3ABar&date=%3E%3D2026-10-13")
+                .as_deref(),
+            Some("/firefox-main/query/default?q=crash-signature%3A%27Foo%3A%3ABar%27")
+        );
         // (Paths the tree doesn't have are searched for.)
         assert_eq!(
             redirect("https://github.com/x/y/blob/main/widget/Foo.cpp"),

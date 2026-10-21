@@ -5338,3 +5338,93 @@ textarea.monospace {
   color: var(--page-subtle-foreground);
   padding-left: 1em;
 }
+
+/* The crash view (see tools/src/crash_stack.rs): a crash's stack beside its
+   frames' code, a row per frame, innermost first, in the columns of
+   --crash-columns: its function's code (with the lines it's believed to have
+   been at highlighted), and the frame.  (A third column, of the machine code
+   around each frame's address, would go after them.) */
+.crash-view {
+  --crash-columns: minmax(0, 1fr) 26em;
+}
+.crash-notice {
+  max-width: 60em;
+  margin: 0.5em 1em 1em;
+  color: color-mix(in srgb, currentColor 75%, transparent);
+  font-size: 13px;
+}
+.crash-notice p {
+  margin: 0 0 0.4em;
+}
+.crash-signature {
+  font-family: monospace;
+  word-break: break-all;
+}
+.crash-annotations {
+  margin: 0;
+  padding-left: 1.5em;
+}
+.crash-stack {
+  margin: 0 1em;
+}
+.crash-frame {
+  display: grid;
+  grid-template-columns: var(--crash-columns);
+  gap: 1.5em;
+  padding: 0.6em 0;
+  border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+.crash-code {
+  min-width: 0;
+  padding-left: 0.5em;
+  border-left: 3px solid var(--link-color);
+}
+.crash-code-heading {
+  margin-bottom: 0.2em;
+  font-size: 13px;
+}
+.crash-rows {
+  overflow-x: auto;
+  font-family: monospace;
+  font-size: 12px;
+}
+.crash-rows .source-line-with-number {
+  padding: 0;
+}
+.crash-line {
+  background-color: color-mix(in srgb, #e5484d 22%, transparent);
+}
+.crash-unfold {
+  padding: 0.1em 0;
+  border: none;
+  background: none;
+  color: var(--link-color);
+  font-size: 11px;
+  cursor: pointer;
+}
+.crash-code-missing,
+.crash-frame-where {
+  color: color-mix(in srgb, currentColor 60%, transparent);
+  font-size: 12px;
+}
+.crash-code-missing {
+  font-style: italic;
+}
+.crash-frame-info {
+  font-size: 13px;
+}
+.crash-frame-index {
+  margin-right: 0.3em;
+  color: color-mix(in srgb, currentColor 55%, transparent);
+  font-family: monospace;
+}
+.crash-frame-name {
+  font-family: monospace;
+  word-break: break-all;
+}
+.crash-frame-unresolved {
+  color: color-mix(in srgb, currentColor 60%, transparent);
+}
+.crash-frame-where {
+  margin-top: 0.3em;
+}

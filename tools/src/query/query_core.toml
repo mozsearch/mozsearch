@@ -551,6 +551,14 @@ args.format = "subway"
 
 # (As it is, rather than as an escaped `re:`, so that search-text knows it's a
 # text: one wider than codesearch takes is searched for by a piece of it.)
+# A crash signature's stack beside its frames' code (crash-stats' signatures,
+# ex: "OOM | large | NS_ABORT_OOM | ..."; see crash_stack.rs), which the DWIM
+# rule for crash-stats signatures' URLs goes to.
+[term.crash-signature]
+[[term.crash-signature.group.crash]]
+command = "crash-stack"
+args.positional = "$0"
+
 [term.text]
 [[term.text.group.text-search]]
 command = "search-text"
@@ -625,6 +633,9 @@ args.format = "mozsearch"
 output = "result"
 
 [group.slicing]
+output = "result"
+
+[group.crash]
 output = "result"
 
 [group.semantic-lookup]

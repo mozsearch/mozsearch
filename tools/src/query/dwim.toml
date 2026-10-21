@@ -40,6 +40,12 @@ redirect = '/{tree}/source/{path}[#{line}]'
 exists = "path"
 
 [[rule]]
+name = "crash-stats-signature"
+description = "A crash-stats signature: its stack, beside its frames' code."
+pattern = '^https?://crash-stats\.mozilla\.org/signature/\?(?:\S*?&)?signature=(?P<signature>[^&#\s]+)\S*$'
+redirect = "/{tree}/query/default?q=crash-signature%3A%27{signature}%27"
+
+[[rule]]
 name = "path-line"
 description = "A path and line (ex: from a compiler's error or a stack): the line."
 pattern = '^(?:/builds/worker/checkouts/gecko/)?(?P<path>(?:[\w.+-]+/)+[\w.+-]+\.\w+)(?::(?P<line>\d+))(?::\d+)?:?$'
