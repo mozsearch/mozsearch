@@ -431,7 +431,13 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   its scripts, event handlers, and XBL bindings' code as JS and its styles
 ///   as CSS, rather than as plain text, in a "web" namespace with JS (which
 ///   was "js"); and context modes (see `ContextMode`).
-pub const TOKENIZER_VERSION: u32 = 15;
+/// - 16: Plain text's words have their punctuation as tokens of their own,
+///   as comments' do (see `prose_words`); and more extensions and file names
+///   get their languages' tokenizers: `.cjs`, `.mts`, `.cts`, `.es5`, `.es6`
+///   (JS), `.pyi`, `.mozbuild`, `.gyp`, `.gypi`, `.star`, `.bazel`, `.bzl`
+///   (Python), `.inc` (C++), `.map` (JSON), `Cargo.lock` (TOML),
+///   `.clang-format` (YAML), `.editorconfig` (INI).
+pub const TOKENIZER_VERSION: u32 = 16;
 
 /// The node to name a container by, given the node its query captured as its
 /// name.  tree-sitter's error recovery can make that span unrecognized macros
@@ -539,16 +545,34 @@ pub fn profile_for_lang(lang: &str) -> Option<LanguageProfile> {
 /// The profile we use for a path in the absence of any overrides, or None for
 /// binary files, which we can't tokenize.
 pub fn default_profile_for_path(path: &Path) -> Option<LanguageProfile> {
+    // (Files known by their names, ex: dotfiles, which have no extension.)
+    let by_name = match path.file_name().and_then(|name| name.to_str()) {
+        Some("Cargo.lock") => Some("toml"),
+        Some(".clang-format") => Some("yaml"),
+        Some(".editorconfig") => Some("ini"),
+        _ => None,
+    };
+    if let Some(lang) = by_name {
+        return profile_for_lang(lang);
+    }
     let ext = match path.extension() {
         Some(ext) => ext.to_str().unwrap_or(""),
         None => "",
     };
     let lang = match ext {
-        "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hxx" | "hpp" => "cpp",
-        "js" | "jsm" | "mjs" | "sjs" | "ts" => "js",
-        "json" | "jsonl" | "ndjson" | "json5" | "webmanifest" | "har" | "geojson" => "json",
+        // (`.inc` files are mostly C/C++ fragments, ex: generated tables; a
+        // history's attributes can say which aren't, ex: firefox's XUL
+        // fragments.)
+        "c" | "cc" | "cpp" | "cxx" | "h" | "hh" | "hxx" | "hpp" | "inc" => "cpp",
+        // (`.es5`/`.es6` are JS, ex: WebKit's six-speed benchmarks.)
+        "js" | "jsm" | "mjs" | "cjs" | "sjs" | "ts" | "mts" | "cts" | "es5" | "es6" => "js",
+        // (`.map` files are source maps.)
+        "json" | "jsonl" | "ndjson" | "json5" | "webmanifest" | "har" | "geojson" | "map" => "json",
         "jsx" | "tsx" => "jsx",
-        "py" | "build" | "configure" => "py",
+        // (gyp's and Starlark's (Bazel's) files are Python's syntax, and
+        // `.pyi` are Python's type stubs.)
+        "py" | "build" | "configure" | "pyi" | "mozbuild" | "gyp" | "gypi" | "star" | "bazel"
+        | "bzl" => "py",
         "rs" => "rust",
         "webidl" => "webidl",
         "udl" => "udl",
@@ -906,8 +930,9 @@ pub fn hypertokenize_with_options(
             return Ok(HyperTokenized::new(profile, tokens, structure));
         }
         Grammar::PlainText => {
-            let tokens = source_contents
-                .split_whitespace()
+            // (Prose's words, with their punctuation as tokens of their own,
+            // as comments' are; see `prose_words`.)
+            let tokens = prose_words(source_contents)
                 .map(|text| RawToken {
                     context: "%".to_string(),
                     class: TokenClass::Text,
@@ -2967,6 +2992,42 @@ mod tests {
         };
         assert_eq!(tokens(&tests), tokens(&plain));
         assert!(tests.structure.iter().any(|row| row.kind == "test"));
+    }
+
+    #[test]
+    fn test_default_profiles() {
+        let lang = |path: &str| default_profile_for_path(Path::new(path)).map(|p| p.lang);
+        for (path, expected) in [
+            ("a/b.cjs", "js"),
+            ("a/b.mts", "js"),
+            ("a/b.cts", "js"),
+            ("tests/x.es6", "js"),
+            ("a/b.pyi", "py"),
+            ("a/moz.build", "py"),
+            ("a/b.mozbuild", "py"),
+            ("a/b.gyp", "py"),
+            ("a/b.gypi", "py"),
+            ("a/BUILD.bazel", "py"),
+            ("a/b.bzl", "py"),
+            ("a/b.star", "py"),
+            ("a/tables.inc", "cpp"),
+            ("a/bundle.js.map", "json"),
+            ("third_party/rust/x/Cargo.lock", "toml"),
+            ("a/.clang-format", "yaml"),
+            (".editorconfig", "ini"),
+            ("a/b.xul", "html"),
+            ("a/b.xhtml", "html"),
+            ("a/b.svg", "xml"),
+            ("a/b.css", "css"),
+            ("a/README", "none"),
+        ] {
+            assert_eq!(lang(path), Some(expected), "{}", path);
+        }
+        // (Plain text's punctuation is its own tokens, as prose's is.)
+        assert_eq!(
+            classes("a.txt", "Hello, world (again)."),
+            vec!["t:Hello", "t:,", "t:world", "t:(", "t:again", "t:)."]
+        );
     }
 
     #[test]
