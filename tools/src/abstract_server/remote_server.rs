@@ -43,6 +43,7 @@ use crate::{
     git_ops::RevisionCoverage,
     hyperblame::journals::JournalKind,
     hyperblame::token_history::{TokenHistory, TokenHistoryOptions},
+    hyperblame::token_timeline::{TokenTimeline, TokenTimelineOptions},
     try_delta::TryDeltaMeta,
 };
 
@@ -588,6 +589,19 @@ impl AbstractServer for RemoteServer {
             params.push(("view", "true"));
         }
         parse(&self.api("token-history", None, &params).await?)
+    }
+
+    async fn token_timeline(
+        &self,
+        tokens: &[String],
+        opts: TokenTimelineOptions,
+    ) -> Result<TokenTimeline> {
+        let tokens = tokens.join(",");
+        let mut params = vec![("tokens", tokens.as_str())];
+        if opts.case_sensitive {
+            params.push(("case_sensitive", "true"));
+        }
+        parse(&self.api("token-timeline", None, &params).await?)
     }
 
     async fn fetch_html(&self, root: HtmlFileRoot, sf_path: &str) -> Result<String> {

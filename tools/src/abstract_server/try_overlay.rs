@@ -38,6 +38,7 @@ use crate::format::{format_code, source_rows_html};
 use crate::git_ops::{RevisionCoverage, git_time_to_chrono};
 use crate::hyperblame::journals::JournalKind;
 use crate::hyperblame::token_history::{TokenHistory, TokenHistoryOptions};
+use crate::hyperblame::token_timeline::{TokenTimeline, TokenTimelineOptions};
 use crate::languages::select_formatting;
 use crate::try_delta::{FileChange, TryDelta};
 
@@ -616,5 +617,13 @@ impl AbstractServer for TryOverlay {
         opts: TokenHistoryOptions,
     ) -> Result<Option<TokenHistory>> {
         self.base.token_history(token, opts).await
+    }
+
+    async fn token_timeline(
+        &self,
+        tokens: &[String],
+        opts: TokenTimelineOptions,
+    ) -> Result<TokenTimeline> {
+        self.base.token_timeline(tokens, opts).await
     }
 }

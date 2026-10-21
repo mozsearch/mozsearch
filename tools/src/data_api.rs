@@ -39,6 +39,9 @@
 //! - `token-history?token=[&case_sensitive=true][&view=true]`: what the
 //!   history says about a token's removals (`null` if it has no journal for
 //!   it; see `token_history`).
+//! - `token-timeline?tokens=a,b[&case_sensitive=true]`: tokens' timelines, by
+//!   week, with markers at the weeks changing them the most (see
+//!   `token_timeline`).
 //! - `linked-crossref?tree=&sym=`: a linked tree's crossref entry for a
 //!   symbol of the tree's (see `linked_crossref_lookup`).
 //! - `text?re=[&fold_case=true][&path=][&not_path=][&limit=]`: the lines
@@ -119,6 +122,7 @@ use tokio_stream::StreamExt;
 use crate::abstract_server::{AbstractServer, ErrorLayer, ServerError};
 use crate::hyperblame::journals::JournalKind;
 use crate::hyperblame::token_history::TokenHistoryOptions;
+use crate::hyperblame::token_timeline::TokenTimelineOptions;
 use crate::try_delta::is_full_rev;
 
 /// The responses' size cap, unless the request's `max_bytes` says otherwise.
@@ -518,6 +522,13 @@ const ROUTES: &[Route] = &[
         name: "token-history",
         takes_path: false,
         params: &["token", "case_sensitive", "view"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "token-timeline",
+        takes_path: false,
+        params: &["tokens", "case_sensitive"],
         host: Host::PipelineServer,
         post: false,
     },
@@ -1378,6 +1389,26 @@ async fn route_body(
             let history = server.token_history(token, opts).await.map_err(error)?;
             Ok(Body::json(
                 &serde_json::to_value(history).unwrap_or_default(),
+            ))
+        }
+        "token-timeline" => {
+            // (Tokens are words, without commas; the timeline takes at most
+            // MAX_TOKENS of them.)
+            let tokens: Vec<String> = params
+                .required("tokens")?
+                .split(',')
+                .filter(|token| !token.is_empty())
+                .map(str::to_string)
+                .collect();
+            if tokens.is_empty() || tokens.iter().any(|token| token.len() > MAX_SYM_BYTES) {
+                return Err(bad("tokens must be comma-separated tokens"));
+            }
+            let opts = TokenTimelineOptions {
+                case_sensitive: params.flag("case_sensitive")?,
+            };
+            let timeline = server.token_timeline(&tokens, opts).await.map_err(error)?;
+            Ok(Body::json(
+                &serde_json::to_value(timeline).unwrap_or_default(),
             ))
         }
         "linked-crossref" => {

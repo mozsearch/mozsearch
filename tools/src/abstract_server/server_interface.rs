@@ -17,6 +17,7 @@ use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::RevisionCoverage;
 use crate::hyperblame::journals::JournalKind;
 use crate::hyperblame::token_history::{TokenHistory, TokenHistoryOptions};
+use crate::hyperblame::token_timeline::{TokenTimeline, TokenTimelineOptions};
 
 pub type Result<T> = std::result::Result<T, ServerError>;
 
@@ -743,6 +744,18 @@ pub trait AbstractServer {
         _token: &str,
         _opts: TokenHistoryOptions,
     ) -> Result<Option<TokenHistory>> {
+        Err(ServerError::Unsupported)
+    }
+
+    /// The timelines of `tokens`: a line a token (with its case variants) of
+    /// its instances by week, and markers at the weeks changing them the most,
+    /// with their commits (see `hyperblame::token_timeline`).  Unsupported if
+    /// the tree has no token-centric history.
+    async fn token_timeline(
+        &self,
+        _tokens: &[String],
+        _opts: TokenTimelineOptions,
+    ) -> Result<TokenTimeline> {
         Err(ServerError::Unsupported)
     }
 }

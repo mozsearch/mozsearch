@@ -24,3 +24,4 @@ pub mod stats;
 pub mod suffix_array;
 pub mod token_blame;
 pub mod token_history;
+pub mod token_timeline;

@@ -35,6 +35,7 @@ mod cmd_search_identifiers;
 pub mod cmd_search_text;
 mod cmd_show_html;
 mod cmd_token_history;
+mod cmd_token_timeline;
 mod cmd_tokenize_source;
 mod cmd_traverse;
 mod cmd_webtest;

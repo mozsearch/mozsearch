@@ -1,0 +1,7 @@
+{%- comment -%}
+  A link to the token-timeline: view of a token history's token, with what it
+  was renamed to or replaced by (see token_history_note.liquid).
+{%- endcomment -%}
+{%- capture timeline_query %}token-timeline:{{ history.token }}{% if history.renamed_to %} token-timeline:{{ history.renamed_to }}{% else %}{% for replacement in history.replaced_by %} token-timeline:{{ replacement.token }}{% endfor %}{% endif %}{% endcapture -%}
+<a class="token-history-timeline" href="/{{ tree }}/query/default?q={{ timeline_query | url_encode }}">Its timeline
+{%- if history.renamed_to %}, with <code>{{ history.renamed_to | escape }}</code>{% elsif history.replaced_by != empty %}, with {% for replacement in history.replaced_by %}<code>{{ replacement.token | escape }}</code>{% unless forloop.last %}, {% endunless %}{% endfor %}{% endif %}</a>.

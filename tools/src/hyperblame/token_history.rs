@@ -238,7 +238,7 @@ pub struct HistoryRecord {
     pub relative: i64,
 }
 
-fn delta(record: &TokenDeltaRecord) -> &TokenDeltaDetails {
+pub(crate) fn delta(record: &TokenDeltaRecord) -> &TokenDeltaDetails {
     match record {
         TokenDeltaRecord::Detail(detail) => &detail.delta,
         TokenDeltaRecord::Summary(summary) => &summary.delta,
@@ -247,15 +247,15 @@ fn delta(record: &TokenDeltaRecord) -> &TokenDeltaDetails {
 
 /// The instances a delta removed (including those which evolved into other
 /// tokens) and added.
-fn gone(delta: &TokenDeltaDetails) -> u32 {
+pub(crate) fn gone(delta: &TokenDeltaDetails) -> u32 {
     delta.removed + delta.evolved_into
 }
 
-fn came(delta: &TokenDeltaDetails) -> u32 {
+pub(crate) fn came(delta: &TokenDeltaDetails) -> u32 {
     delta.added + delta.evolved_from
 }
 
-fn week_label((year, week, _): (u16, u8, u8)) -> String {
+pub(crate) fn week_label((year, week, _): (u16, u8, u8)) -> String {
     format!("{}-W{:02}", year, week)
 }
 
@@ -292,7 +292,7 @@ pub fn header_html(message: &str) -> String {
     crate::links::linkify_commit_header(&header.replace('&', "&amp;").replace('<', "&lt;"))
 }
 
-fn read_blob(repo: &Repository, tree: &Tree, path: &str) -> Option<String> {
+pub(crate) fn read_blob(repo: &Repository, tree: &Tree, path: &str) -> Option<String> {
     let entry = tree.get_path(Path::new(path)).ok()?;
     let blob = repo.find_blob(entry.id()).ok()?;
     String::from_utf8(blob.content().to_vec()).ok()
@@ -310,12 +310,12 @@ fn parse_records(path: &str, text: &str) -> Result<Vec<TokenDeltaRecord>, String
 }
 
 /// A token journal's records, newest first, as far as `budget` bytes go.
-struct Journal {
-    records: Vec<TokenDeltaRecord>,
-    read_all: bool,
+pub(crate) struct Journal {
+    pub records: Vec<TokenDeltaRecord>,
+    pub read_all: bool,
 }
 
-fn read_journal(
+pub(crate) fn read_journal(
     repo: &Repository,
     tree: &Tree,
     token: &str,
@@ -413,7 +413,7 @@ fn shown_records(records: &[TokenDeltaRecord], removals: &LastRemovals) -> (Vec<
 
 /// The detail records of a summary's commits, from its preds' heads, which
 /// `keep` keeps.
-fn summary_details(
+pub(crate) fn summary_details(
     repo: &Repository,
     summary: &TokenDeltaSummaryRecord,
     keep: &dyn Fn(&str) -> bool,
@@ -456,7 +456,7 @@ fn summary_details(
     found
 }
 
-fn read_rev_summary(history_path: &str, rev: &str) -> Option<RevSummaryRecord> {
+pub(crate) fn read_rev_summary(history_path: &str, rev: &str) -> Option<RevSummaryRecord> {
     let path = Path::new(history_path)
         .join("rev-summaries")
         .join(rev_summary_path(rev));
@@ -702,7 +702,7 @@ fn analyze(journal: Journal) -> Analysis {
 
 /// The journals' tokens of `token`'s case variants, the token first, then by
 /// their journals' sizes, biggest first.
-fn case_variants(repo: &Repository, tree: &Tree, token: &str) -> Vec<String> {
+pub(crate) fn case_variants(repo: &Repository, tree: &Tree, token: &str) -> Vec<String> {
     let path = token_timeline_path(token);
     let lower = token.to_lowercase();
     let mut variants: Vec<(usize, String)> = vec![];
@@ -947,10 +947,10 @@ pub fn token_history(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
-    const RENAME: &str = "0801a75c76c3da8d8a2c2f9f9af7def4ac953cb7";
+    pub(crate) const RENAME: &str = "0801a75c76c3da8d8a2c2f9f9af7def4ac953cb7";
     const READD: &str = "4424263193cb9ba03d1bf8b07c222d7a2d80f987";
 
     #[test]
@@ -1008,14 +1008,14 @@ mod tests {
         assert_eq!(renamed_part("Widget", "a/Gadget.h", "a/Gizmo.h"), None);
     }
 
-    fn detail(rev: &str, date: &str, delta: &str) -> String {
+    pub(crate) fn detail(rev: &str, date: &str, delta: &str) -> String {
         format!(
             r#"{{"type":"Detail","source_rev":"{}","syntax_rev":"0000000000000000000000000000000000000000","iso_date":"{}T12:00:00Z"{}}}"#,
             rev, date, delta
         )
     }
 
-    fn journal(header: &str, records: &[String]) -> String {
+    pub(crate) fn journal(header: &str, records: &[String]) -> String {
         let mut text = header.to_string();
         for record in records {
             text.push('\n');
@@ -1024,12 +1024,16 @@ mod tests {
         text
     }
 
-    fn token_path(token: &str) -> String {
+    pub(crate) fn token_path(token: &str) -> String {
         token_timeline_path(token).to_string_lossy().into_owned()
     }
 
     /// Commit `files` (path, contents) to `repo`'s HEAD, on top of `parent`.
-    fn commit_files(repo: &Repository, parent: Option<Oid>, files: &[(String, String)]) -> Oid {
+    pub(crate) fn commit_files(
+        repo: &Repository,
+        parent: Option<Oid>,
+        files: &[(String, String)],
+    ) -> Oid {
         let mut index = git2::Index::new().unwrap();
         for (path, contents) in files {
             let blob = repo.blob(contents.as_bytes()).unwrap();
@@ -1065,7 +1069,7 @@ mod tests {
     /// rev-summary, as firefox's has them, a case variant, a token removed by
     /// commits summarized in a week (Gadget), and one whose removal is in a
     /// segment (Doohickey).
-    fn test_history(name: &str) -> (std::path::PathBuf, TreeHistory) {
+    pub(crate) fn test_history(name: &str) -> (std::path::PathBuf, TreeHistory) {
         let dir =
             std::env::temp_dir().join(format!("token-history-{}-{}", name, std::process::id()));
         let _ = fs::remove_dir_all(&dir);
@@ -1128,6 +1132,33 @@ mod tests {
             (
                 token_path("Doohickey"),
                 journal(r#"{"segments":[2012]}"#, &[]),
+            ),
+            // (A big journal's head, with its last two years, and its older
+            // years' segments; and a case variant.)
+            (
+                token_path("Widget"),
+                journal(
+                    r#"{"segments":[2024,2023]}"#,
+                    &[detail(&"e".repeat(40), "2025-03-05", r#","added":2"#)],
+                ),
+            ),
+            (
+                format!("{}.d/2024.ndjson", token_path("Widget")),
+                journal(
+                    "{}",
+                    &[detail(&"f".repeat(40), "2024-06-05", r#","removed":10"#)],
+                ),
+            ),
+            (
+                format!("{}.d/2023.ndjson", token_path("Widget")),
+                journal(
+                    "{}",
+                    &[detail(&"1".repeat(40), "2023-02-01", r#","added":50"#)],
+                ),
+            ),
+            (
+                token_path("widget"),
+                journal("{}", &[detail(&"2".repeat(40), "2024-09-04", r#","added":1"#)]),
             ),
             (
                 format!("{}.d/2012.ndjson", token_path("Doohickey")),

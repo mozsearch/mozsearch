@@ -5533,3 +5533,132 @@ textarea.monospace {
 .token-history-records .token-history-relative {
   text-align: right;
 }
+
+/* Tokens' timelines (the token-timeline: view; see static/js/token-timeline.js):
+   a line a token, markers at the weeks changing them the most, and a marker's
+   popup of its commits. */
+.token-timeline {
+  position: relative;
+  max-width: 90em;
+  margin: 0.5em 1rem;
+  font-size: 13px;
+}
+.token-timeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3em 1.5em;
+  margin: 0.3em 0;
+  padding: 0;
+  list-style: none;
+}
+.token-timeline-legend-note,
+.token-timeline-dropped,
+.token-timeline-empty,
+.token-timeline-more,
+.token-timeline-commit-changes {
+  color: var(--page-subtle-foreground);
+}
+.token-timeline-swatch {
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-right: 0.3em;
+  border-radius: 2px;
+  vertical-align: baseline;
+}
+.token-timeline-history-link,
+.token-timeline-scale {
+  font-size: 12px;
+}
+.token-timeline-chart {
+  position: relative;
+}
+.token-timeline-svg {
+  display: block;
+  overflow: visible;
+}
+.token-timeline-line {
+  fill: none;
+  stroke-width: 2;
+}
+.token-timeline-now {
+  stroke: var(--page-subtle-foreground);
+  stroke-dasharray: 3 3;
+}
+.token-timeline-axis-label {
+  fill: var(--page-subtle-foreground);
+  font-size: 11px;
+}
+.token-timeline-marker {
+  cursor: pointer;
+  outline: none;
+}
+.token-timeline-marker line {
+  stroke: color-mix(in srgb, var(--page-foreground) 30%, transparent);
+  stroke-dasharray: 2 3;
+}
+.token-timeline-marker path {
+  fill: var(--page-subtle-foreground);
+}
+.token-timeline-marker:hover line,
+.token-timeline-marker:focus line {
+  stroke: var(--link-color);
+  stroke-dasharray: none;
+}
+.token-timeline-marker:hover path,
+.token-timeline-marker:focus path {
+  fill: var(--link-color);
+}
+.token-timeline-marker-target {
+  fill: transparent;
+}
+.token-timeline-cursor {
+  stroke: color-mix(in srgb, var(--page-foreground) 25%, transparent);
+  pointer-events: none;
+}
+.token-timeline-readout {
+  position: absolute;
+  top: 24px;
+  padding: 0.2em 0.5em;
+  border: 1px solid color-mix(in srgb, var(--page-foreground) 20%, transparent);
+  background-color: var(--page-background);
+  font-size: 12px;
+  pointer-events: none;
+}
+.token-timeline-readout-date,
+.token-timeline-popup-week {
+  font-weight: bold;
+}
+.token-timeline-popup {
+  position: absolute;
+  z-index: 10;
+  max-width: 44em;
+  padding: 0.5em 0.8em;
+  border: 1px solid color-mix(in srgb, var(--page-foreground) 30%, transparent);
+  border-radius: 4px;
+  background-color: var(--page-background);
+  color: var(--page-foreground);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.token-timeline-popup-change {
+  white-space: nowrap;
+}
+.token-timeline-commits {
+  margin: 0.4em 0 0;
+  padding-left: 1.2em;
+}
+.token-timeline-commit {
+  margin-bottom: 0.4em;
+}
+.token-timeline-rev {
+  font-family: monospace;
+}
+.token-timeline-others {
+  font-size: 12px;
+}
+.token-timeline-other {
+  white-space: nowrap;
+}
+.token-timeline-other-link {
+  font-family: monospace;
+}

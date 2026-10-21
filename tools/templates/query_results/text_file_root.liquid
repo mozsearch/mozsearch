@@ -12,6 +12,11 @@
 </div>
 <script src="/{{tree}}/static/js/graph.js"></script>
 <script src="/{{tree}}/static/js/subway.js"></script>
+{% elsif results.TextFile.mime_type == "application/vnd.searchfox.token-timeline+json" %}
+{%- comment %}(Tokens' timelines' model, with its "<"s escaped; see token-timeline.js.){% endcomment %}
+<script>var TOKEN_TIMELINE = {{ results.TextFile.contents }};</script>
+<div id="token-timeline" class="token-timeline"></div>
+<script defer src="/{{tree}}/static/js/token-timeline.js"></script>
 {% elsif results.TextFile.mime_type == "application/vnd.searchfox.crash-stack+html" %}
 {%- comment %}(The crash view; see crash_stack.rs.){% endcomment %}
     {{ results.TextFile.contents }}

@@ -42,6 +42,7 @@ use crate::hyperblame::journals::{JournalKind, JournalReader};
 use crate::hyperblame::token_history::{
     TokenHistory, TokenHistoryOptions, header_html, token_history,
 };
+use crate::hyperblame::token_timeline::{TokenTimeline, TokenTimelineOptions, token_timeline};
 use crate::languages::select_formatting;
 use crate::source_mapping::{NotesRefs, SourceMapping, default_notes_ref};
 use crate::try_delta::TryDelta;
@@ -701,6 +702,29 @@ impl AbstractServer for LocalIndex {
             Some(header_html(commit.message().ok()?))
         };
         token_history(history, token, opts, &header).map_err(|message| {
+            ServerError::StickyProblem(ErrorDetails {
+                layer: ErrorLayer::DataLayer,
+                message,
+            })
+        })
+    }
+
+    async fn token_timeline(
+        &self,
+        tokens: &[String],
+        opts: TokenTimelineOptions,
+    ) -> Result<TokenTimeline> {
+        // (Trees without the token-centric history have none.)
+        let cfg = self.tree_config_loaded();
+        let Some(history) = cfg
+            .trees
+            .get(&self.tree_name)
+            .and_then(|tree| tree.git.as_ref())
+            .and_then(|git| git.history.as_ref())
+        else {
+            return Err(ServerError::Unsupported);
+        };
+        token_timeline(history, tokens, opts).map_err(|message| {
             ServerError::StickyProblem(ErrorDetails {
                 layer: ErrorLayer::DataLayer,
                 message,

@@ -849,6 +849,23 @@ mod tests {
     }
 
     #[test]
+    fn test_token_timeline() {
+        // (Each term adds its token to the one timeline.)
+        let groups: serde_json::Value = serde_json::from_str(&values(
+            "token-timeline:BackstagePass token-timeline:SystemGlobal case:sensitive",
+        ))
+        .unwrap();
+        let segment = &groups["token-timeline"]["segments"][0];
+        assert_eq!(segment["command"], "token-timeline");
+        assert_eq!(
+            segment["args"]["positional_args"],
+            serde_json::json!(["BackstagePass", "SystemGlobal"])
+        );
+        assert_eq!(segment["args"]["bool_args"][0], "case-sensitive");
+        assert!(groups.get("text-search").is_none());
+    }
+
+    #[test]
     fn test_crash_signature() {
         // (A crash signature, quoted, as the DWIM rule for crash-stats'
         // signatures' URLs makes it, is the crash-stack command's.)
