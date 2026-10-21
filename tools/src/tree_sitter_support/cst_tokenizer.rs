@@ -21,47 +21,100 @@ use tree_sitter::StreamingIterator as _;
 
 static QUERIES_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/languages/tokenizer_queries");
 
-/// Compiled container queries by grammar.  Compiling a query takes tens of
-/// milliseconds, which dominated the time to tokenize small files when we did it
-/// for every file.  (A query is only valid for the grammar it was compiled for,
-/// and some grammars share query files.)
-static CONTAINER_QUERIES: LazyLock<Mutex<HashMap<Grammar, Arc<tree_sitter::Query>>>> =
-    LazyLock::new(Default::default);
+/// How a file's tokens' contexts are derived, from its `searchfox-contexts`
+/// history attribute (see `history_config`).  Modes only change tokens'
+/// contexts, never which tokens a file has, since views tokenize source files
+/// again (to find their tokens' records) without the history's attributes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ContextMode {
+    /// The language's own: ex: JS's functions and classes, and markup's
+    /// elements' ids (see `markup_tokenizer`).
+    #[default]
+    Default,
+    /// Also tests' names: testharness's `test(..., "description")` and its
+    /// kin (see typescript-tests.scm), for test directories.
+    Tests,
+    /// Markup's sections by its headings, for documentation (see
+    /// `markup_tokenizer`).
+    Headings,
+}
+
+impl ContextMode {
+    /// The mode of a `searchfox-contexts` value.
+    pub fn parse(value: &str) -> Option<ContextMode> {
+        match value {
+            "default" => Some(ContextMode::Default),
+            "tests" => Some(ContextMode::Tests),
+            "headings" => Some(ContextMode::Headings),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ContextMode::Default => "default",
+            ContextMode::Tests => "tests",
+            ContextMode::Headings => "headings",
+        }
+    }
+}
+
+/// How to tokenize a file, beyond its language (see `history_config`'s
+/// attributes).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct TokenizeOptions {
+    pub contexts: ContextMode,
+}
+
+/// Compiled container queries by grammar and context mode.  Compiling a query
+/// takes tens of milliseconds, which dominated the time to tokenize small
+/// files when we did it for every file.  (A query is only valid for the
+/// grammar it was compiled for, and some grammars share query files.)
+static CONTAINER_QUERIES: LazyLock<
+    Mutex<HashMap<(Grammar, ContextMode), Arc<tree_sitter::Query>>>,
+> = LazyLock::new(Default::default);
 
 fn container_query(
     grammar: Grammar,
+    mode: ContextMode,
     ts_lang: &tree_sitter::Language,
     lang_str: &str,
 ) -> Result<Arc<tree_sitter::Query>, String> {
-    if let Some(query) = CONTAINER_QUERIES.lock().unwrap().get(&grammar) {
+    if let Some(query) = CONTAINER_QUERIES.lock().unwrap().get(&(grammar, mode)) {
         return Ok(query.clone());
     }
     // Compile without holding the lock; racing threads just compile twice.
-    let query = Arc::new(load_language_queries(ts_lang, lang_str)?);
+    let query = Arc::new(load_language_queries(ts_lang, lang_str, mode)?);
     Ok(CONTAINER_QUERIES
         .lock()
         .unwrap()
-        .entry(grammar)
+        .entry((grammar, mode))
         .or_insert(query)
         .clone())
 }
 
+/// A language's container queries, and for some modes, more of them (ex:
+/// typescript-tests.scm, for `ContextMode::Tests`).
 fn load_language_queries(
     ts_lang: &tree_sitter::Language,
     lang_str: &str,
+    mode: ContextMode,
 ) -> Result<tree_sitter::Query, String> {
-    match QUERIES_DIR.get_file(format!("{}.scm", lang_str)) {
-        Some(file) => {
-            let maybe_contents = file.contents_utf8().map(borrow::Cow::from);
-            match maybe_contents {
-                Some(contents) => {
-                    tree_sitter::Query::new(ts_lang, &contents).map_err(|ts_err| ts_err.message)
-                }
-                _ => Err(format!("No queries for lang: {}", lang_str)),
-            }
-        }
-        _ => Err(format!("No queries for lang: {}", lang_str)),
+    let text = |name: &str| {
+        QUERIES_DIR
+            .get_file(format!("{}.scm", name))
+            .and_then(|file| file.contents_utf8().map(borrow::Cow::from))
+    };
+    let mut contents = text(lang_str)
+        .ok_or_else(|| format!("No queries for lang: {}", lang_str))?
+        .into_owned();
+    if mode != ContextMode::Default
+        && let Some(more) = text(&format!("{}-{}", lang_str, mode.as_str()))
+    {
+        contents.push('\n');
+        contents.push_str(&more);
     }
+    tree_sitter::Query::new(ts_lang, &contents).map_err(|ts_err| ts_err.message)
 }
 
 /// The tree-sitter grammar (or lack thereof) used to tokenize a language.
@@ -772,6 +825,16 @@ pub fn hypertokenize_with_profile(
     profile: LanguageProfile,
     source_contents: &str,
 ) -> Result<HyperTokenized, String> {
+    hypertokenize_with_options(profile, TokenizeOptions::default(), source_contents)
+}
+
+/// `hypertokenize_with_profile`, with a file's options (see
+/// `TokenizeOptions`).
+pub fn hypertokenize_with_options(
+    profile: LanguageProfile,
+    options: TokenizeOptions,
+    source_contents: &str,
+) -> Result<HyperTokenized, String> {
     match profile.grammar {
         Grammar::Ini
         | Grammar::Toml
@@ -825,7 +888,7 @@ pub fn hypertokenize_with_profile(
         tokenize_objcpp(source_contents, rest, &mut walked)?;
     } else {
         walk_tree(
-            &tree_sitter_setup(profile.grammar)?,
+            &tree_sitter_setup_for(profile.grammar, options.contexts)?,
             source_contents,
             source_contents,
             &|offset| Some(offset),
@@ -863,6 +926,12 @@ pub fn hypertokenize_with_profile(
 
 /// The setup for tokenizing a language with a tree-sitter grammar.
 fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
+    tree_sitter_setup_for(grammar, ContextMode::Default)
+}
+
+/// The setup for tokenizing a language with a tree-sitter grammar, with a
+/// context mode's containers.
+fn tree_sitter_setup_for(grammar: Grammar, mode: ContextMode) -> Result<TreeSitterSetup, String> {
     let (ts_lang, ts_query_filename, atom_nodes, ignore_nodes, quirks) = match grammar {
         Grammar::Cpp => {
             let ts_lang: tree_sitter::Language = tree_sitter_mozcpp::LANGUAGE.into();
@@ -1047,7 +1116,7 @@ fn tree_sitter_setup(grammar: Grammar) -> Result<TreeSitterSetup, String> {
             return Err(format!("{:?} isn't a tree-sitter grammar", grammar));
         }
     };
-    let query = container_query(grammar, &ts_lang, ts_query_filename)?;
+    let query = container_query(grammar, mode, &ts_lang, ts_query_filename)?;
     Ok(TreeSitterSetup {
         grammar,
         name_capture_ix: query.capture_index_for_name("name").unwrap(),
@@ -2704,6 +2773,48 @@ mod tests {
             unmarked("a.txt", "vim: set ts=2 et:\nplain words"),
             vec!["t:plain", "t:words"]
         );
+    }
+
+    #[test]
+    fn test_test_contexts() {
+        // (testharness's tests by their descriptions' constant parts, and
+        // mochitest's by their functions' names, with `searchfox-contexts=tests`;
+        // otherwise only the functions'.  The tokens are the same either way.)
+        let source = concat!(
+            "promise_test(async t => {\n  await ready;\n}, \"Promise resolves\");\n",
+            "test(() => assert_true(ok), `Case ${n}: works`);\n",
+            "add_task(async function test_menu() {\n  check();\n});\n",
+        );
+        let profile = profile_for_lang("js").unwrap();
+        let options = TokenizeOptions {
+            contexts: ContextMode::Tests,
+        };
+        let tests = hypertokenize_with_options(profile, options, source).unwrap();
+        let plain = hypertokenize_with_profile(profile, source).unwrap();
+        let context = |tokenized: &HyperTokenized, token: &str| -> String {
+            tokenized
+                .tokenized
+                .iter()
+                .map(|line| split_token_line(line))
+                .find(|line| line.token == token)
+                .unwrap()
+                .context
+                .to_string()
+        };
+        assert_eq!(context(&tests, "ready"), "Promise%20resolves");
+        assert_eq!(context(&tests, "assert_true"), "Case");
+        assert_eq!(context(&tests, "check"), "test_menu");
+        assert_eq!(context(&plain, "ready"), "%");
+        assert_eq!(context(&plain, "check"), "test_menu");
+        let tokens = |tokenized: &HyperTokenized| -> Vec<String> {
+            tokenized
+                .tokenized
+                .iter()
+                .map(|line| split_token_line(line).token.to_string())
+                .collect()
+        };
+        assert_eq!(tokens(&tests), tokens(&plain));
+        assert!(tests.structure.iter().any(|row| row.kind == "test"));
     }
 
     #[test]

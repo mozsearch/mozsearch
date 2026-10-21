@@ -43,6 +43,20 @@ pub struct FileStructureHeader {
         rename = "langSource"
     )]
     pub lang_source: Option<String>,
+
+    /// The `searchfox-contexts` mode (see `ContextMode`) the file's contexts
+    /// were derived with, if not the default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contexts: Option<String>,
+
+    /// Whether the `searchfox-handler-moves` heuristic applies to the file
+    /// (see `inference::infer_handler_moves`).
+    #[serde(
+        default,
+        skip_serializing_if = "std::ops::Not::not",
+        rename = "handlerMoves"
+    )]
+    pub handler_moves: bool,
 }
 
 impl FileStructureHeader {

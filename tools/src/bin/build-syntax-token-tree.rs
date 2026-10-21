@@ -58,15 +58,15 @@ use tools::git_notes::{NotesReader, NotesWriter};
 use tools::git_ops::{fast_import_git, history_compute_threads};
 use tools::history_stop::{STOPPED_EXIT_CODE, stop_requested};
 use tools::hyperblame::history_config::{
-    AttributeRules, AttributeSet, EffectiveAttributes, HistoryConfig, LangSource, ResolvedLanguage,
-    parse_repo_gitattributes, resolve_language,
+    AttributeRules, AttributeSet, EffectiveAttributes, FileOptions, HistoryConfig, LangSource,
+    ResolvedLanguage, parse_repo_gitattributes, resolve_language,
 };
 use tools::source_mapping::{
     NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer, point_branch_at,
     require_notes_for_existing_branch,
 };
 use tools::tree_sitter_support::cst_tokenizer::{
-    HyperTokenized, LanguageProfile, TOKENIZER_VERSION, hypertokenize_with_profile,
+    ContextMode, HyperTokenized, LanguageProfile, TOKENIZER_VERSION, hypertokenize_with_options,
 };
 
 #[derive(Parser)]
@@ -747,6 +747,7 @@ fn test_sanitize() {
 struct TokenizedFile {
     hypertokenized: HyperTokenized,
     lang_source: LangSource,
+    options: FileOptions,
 }
 
 /// The state needed by `process_modified_files`.
@@ -759,7 +760,7 @@ struct ModifiedFilesContext<'a> {
     /// though they are unchanged because their resolved language changed.
     forced: &'a HashSet<PathBuf>,
     /// The files to tokenize; see `tokenize_files`.
-    to_tokenize: Vec<(PathBuf, Oid, LanguageProfile, LangSource)>,
+    to_tokenize: Vec<(PathBuf, Oid, LanguageProfile, LangSource, FileOptions)>,
     /// Files we intentionally didn't tokenize.
     skipped: HashSet<PathBuf>,
 }
@@ -773,25 +774,32 @@ const PARALLEL_TOKENIZE_FILES: usize = 64;
 /// Tokenize the files collected by `process_modified_files`.
 fn tokenize_files(
     git_repo: &git2::Repository,
-    to_tokenize: Vec<(PathBuf, Oid, LanguageProfile, LangSource)>,
+    to_tokenize: Vec<(PathBuf, Oid, LanguageProfile, LangSource, FileOptions)>,
 ) -> Result<HashMap<PathBuf, TokenizedFile>, git2::Error> {
     let mut inputs = Vec::with_capacity(to_tokenize.len());
-    for (path, oid, profile, lang_source) in to_tokenize {
+    for (path, oid, profile, lang_source, options) in to_tokenize {
         let content = git_repo.find_blob(oid)?.content().to_vec();
-        inputs.push((path, content, profile, lang_source));
+        inputs.push((path, content, profile, lang_source, options));
     }
-    let tokenize =
-        |(path, content, profile, lang_source): (PathBuf, Vec<u8>, LanguageProfile, LangSource)| {
-            let text = std::str::from_utf8(&content).ok()?;
-            let hypertokenized = hypertokenize_with_profile(profile, text).ok()?;
-            Some((
-                path,
-                TokenizedFile {
-                    hypertokenized,
-                    lang_source,
-                },
-            ))
-        };
+    #[allow(clippy::type_complexity)]
+    let tokenize = |(path, content, profile, lang_source, options): (
+        PathBuf,
+        Vec<u8>,
+        LanguageProfile,
+        LangSource,
+        FileOptions,
+    )| {
+        let text = std::str::from_utf8(&content).ok()?;
+        let hypertokenized = hypertokenize_with_options(profile, options.tokenize, text).ok()?;
+        Some((
+            path,
+            TokenizedFile {
+                hypertokenized,
+                lang_source,
+                options,
+            },
+        ))
+    };
     if inputs.len() < PARALLEL_TOKENIZE_FILES {
         return Ok(inputs.into_iter().filter_map(tokenize).collect());
     }
@@ -850,9 +858,14 @@ fn process_modified_files(
                     ResolvedLanguage::Skip => {
                         ctx.skipped.insert(path.clone());
                     }
-                    ResolvedLanguage::Tokenize(profile, lang_source) => {
-                        ctx.to_tokenize
-                            .push((path.clone(), entry.id(), profile, lang_source));
+                    ResolvedLanguage::Tokenize(profile, lang_source, options) => {
+                        ctx.to_tokenize.push((
+                            path.clone(),
+                            entry.id(),
+                            profile,
+                            lang_source,
+                            options,
+                        ));
                     }
                 }
             }
@@ -1351,6 +1364,7 @@ fn process_source_tree_changes(
                 if let Some(TokenizedFile {
                     hypertokenized,
                     lang_source,
+                    options,
                 }) = syntax_data.hypertokenized_files.get(&path)
                 {
                     info!(
@@ -1376,6 +1390,9 @@ fn process_source_tree_changes(
                             namespace: Some(hypertokenized.profile.namespace.to_string()),
                             tokenizer: Some(TOKENIZER_VERSION),
                             lang_source: Some(lang_source.as_str().to_string()),
+                            contexts: (options.tokenize.contexts != ContextMode::Default)
+                                .then(|| options.tokenize.contexts.as_str().to_string()),
+                            handler_moves: options.handler_moves,
                         },
                         &hypertokenized.structure,
                     );

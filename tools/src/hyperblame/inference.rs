@@ -201,6 +201,9 @@ pub struct FileChangeInput<'a> {
     pub old_lines: Vec<&'a str>,
     /// The new token lines; empty for `Deleted`.
     pub new_lines: Vec<&'a str>,
+    /// Whether the `searchfox-handler-moves` heuristic applies to the file's
+    /// old version (see `infer_handler_moves`).
+    pub handler_moves: bool,
 }
 
 /// Where did a token in the new version of a file come from?  Line numbers are
@@ -1889,6 +1892,7 @@ mod tests {
             namespace: "cpp",
             old_lines: old.iter().map(|s| s.as_str()).collect(),
             new_lines: new.iter().map(|s| s.as_str()).collect(),
+            handler_moves: false,
         }
     }
 

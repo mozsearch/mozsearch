@@ -282,6 +282,7 @@ mod tests {
             namespace: "cpp",
             old_lines: old.iter().map(|s| s.as_str()).collect(),
             new_lines: new.iter().map(|s| s.as_str()).collect(),
+            handler_moves: false,
         }];
         let inferences = infer_revision(&inputs, &InferenceConfig::default());
         let stats = compute_revision_stats(
@@ -313,6 +314,7 @@ mod tests {
             namespace: "cpp",
             old_lines: old.iter().map(|s| s.as_str()).collect(),
             new_lines: new.iter().map(|s| s.as_str()).collect(),
+            handler_moves: false,
         }];
         let inferences = infer_revision(&inputs, &InferenceConfig::default());
         let stats = compute_revision_stats(
@@ -359,12 +361,14 @@ mod tests {
                 namespace: "cpp",
                 old_lines: a_old.iter().map(|s| s.as_str()).collect(),
                 new_lines: a_new.iter().map(|s| s.as_str()).collect(),
+                handler_moves: false,
             },
             FileChangeInput {
                 kind: FileChangeKind::Added,
                 namespace: "cpp",
                 old_lines: vec![],
                 new_lines: b_new.iter().map(|s| s.as_str()).collect(),
+                handler_moves: false,
             },
         ];
         let inferences = infer_revision(&inputs, &InferenceConfig::default());

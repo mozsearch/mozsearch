@@ -43,6 +43,14 @@
 //! - `searchfox-lang=<lang>`: Tokenize matching files as the given
 //!   `LanguageProfile::lang`, ex: `none` for plain text.
 //! - `-searchfox-history`: Don't track matching files in history at all.
+//! - `searchfox-contexts=<mode>`: How matching files' tokens' contexts are
+//!   derived (see `ContextMode`): `tests` for test directories (testharness's
+//!   and mochitest's tests' names), `headings` for documentation (markup's
+//!   sections), or `default`.
+//! - `searchfox-handler-moves`: Follow the inline event handlers which a
+//!   revision removes from matching markup files into its JavaScript (see
+//!   `inference::infer_handler_moves`), for the directories where Firefox's
+//!   UI moved them (ex: XUL's `oncommand`s, for CSP), since it's a heuristic.
 //!
 //! ## Determinism
 //!
@@ -67,11 +75,13 @@ use globset::{GlobBuilder, GlobMatcher};
 use serde::Deserialize;
 
 use crate::tree_sitter_support::cst_tokenizer::{
-    LanguageProfile, default_profile_for_path, profile_for_lang,
+    ContextMode, LanguageProfile, TokenizeOptions, default_profile_for_path, profile_for_lang,
 };
 
 pub const ATTR_LANG: &str = "searchfox-lang";
 pub const ATTR_HISTORY: &str = "searchfox-history";
+pub const ATTR_CONTEXTS: &str = "searchfox-contexts";
+pub const ATTR_HANDLER_MOVES: &str = "searchfox-handler-moves";
 
 fn is_searchfox_attr(name: &str) -> bool {
     name.starts_with("searchfox-")
@@ -220,10 +230,17 @@ impl AttributeSet {
                 }
                 (ATTR_LANG, Some(AttrValue::Value(_)) | None) => None,
                 (ATTR_LANG, _) => Some(format!("{} requires a value", ATTR_LANG)),
-                (ATTR_HISTORY, Some(AttrValue::Value(_))) => {
-                    Some(format!("{} does not take a value", ATTR_HISTORY))
+                (ATTR_HISTORY | ATTR_HANDLER_MOVES, Some(AttrValue::Value(_))) => {
+                    Some(format!("{} does not take a value", name))
                 }
-                (ATTR_HISTORY, _) => None,
+                (ATTR_HISTORY | ATTR_HANDLER_MOVES, _) => None,
+                (ATTR_CONTEXTS, Some(AttrValue::Value(mode)))
+                    if ContextMode::parse(mode).is_none() =>
+                {
+                    Some(format!("unknown mode {:?} for {}", mode, ATTR_CONTEXTS))
+                }
+                (ATTR_CONTEXTS, Some(AttrValue::Value(_)) | None) => None,
+                (ATTR_CONTEXTS, _) => Some(format!("{} requires a value", ATTR_CONTEXTS)),
                 (other, _) => Some(format!("unknown attribute {}", other)),
             };
             if error.is_none() {
@@ -442,12 +459,36 @@ impl LangSource {
     }
 }
 
+/// A file's options from its attributes, beyond its language: how to tokenize
+/// it, and the heuristics which apply to it (which build-syntax-token-tree
+/// records in its "files-struct" header for build-timeline-tree).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FileOptions {
+    pub tokenize: TokenizeOptions,
+    /// `searchfox-handler-moves`.
+    pub handler_moves: bool,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ResolvedLanguage {
     /// Don't track this file in history, either because we can't (binary) or
     /// because of a `-searchfox-history` attribute.
     Skip,
-    Tokenize(LanguageProfile, LangSource),
+    Tokenize(LanguageProfile, LangSource, FileOptions),
+}
+
+/// A file's options from the effective attributes (see `FileOptions`).
+/// (Unknown context modes can only come from the repository's
+/// `.gitattributes`, since notes are validated, and are ignored.)
+pub fn file_options(path: &str, attrs: &EffectiveAttributes) -> FileOptions {
+    let contexts = match attrs.lookup(path, ATTR_CONTEXTS) {
+        Some(AttrValue::Value(mode)) => ContextMode::parse(mode).unwrap_or_default(),
+        _ => ContextMode::Default,
+    };
+    FileOptions {
+        tokenize: TokenizeOptions { contexts },
+        handler_moves: attrs.lookup(path, ATTR_HANDLER_MOVES) == Some(&AttrValue::Set),
+    }
 }
 
 /// Determine how to handle a path given the effective attributes.
@@ -455,16 +496,19 @@ pub fn resolve_language(path: &str, attrs: &EffectiveAttributes) -> ResolvedLang
     if attrs.lookup(path, ATTR_HISTORY) == Some(&AttrValue::Unset) {
         return ResolvedLanguage::Skip;
     }
+    let options = file_options(path, attrs);
     if let Some(AttrValue::Value(lang)) = attrs.lookup(path, ATTR_LANG) {
         match profile_for_lang(lang) {
-            Some(profile) => return ResolvedLanguage::Tokenize(profile, LangSource::Attribute),
+            Some(profile) => {
+                return ResolvedLanguage::Tokenize(profile, LangSource::Attribute, options);
+            }
             // Notes are validated, so this can only come from the repository's
             // .gitattributes, possibly specifying a language we don't know yet.
             None => log::warn!("Ignoring unknown {} {:?} for {}", ATTR_LANG, lang, path),
         }
     }
     match default_profile_for_path(Path::new(path)) {
-        Some(profile) => ResolvedLanguage::Tokenize(profile, LangSource::Extension),
+        Some(profile) => ResolvedLanguage::Tokenize(profile, LangSource::Extension, options),
         None => ResolvedLanguage::Skip,
     }
 }
@@ -483,7 +527,7 @@ mod tests {
     fn lang_of(path: &str, attrs: &EffectiveAttributes) -> String {
         match resolve_language(path, attrs) {
             ResolvedLanguage::Skip => "SKIP".to_string(),
-            ResolvedLanguage::Tokenize(profile, source) => {
+            ResolvedLanguage::Tokenize(profile, source, _) => {
                 format!("{}/{}", profile.lang, source.as_str())
             }
         }
@@ -544,6 +588,9 @@ mod tests {
             "*.x searchfox-languag=cpp",
             "*.x searchfox-history=yes",
             "\"quoted\" searchfox-lang=cpp",
+            "*.x searchfox-contexts=chapters",
+            "*.x searchfox-contexts",
+            "*.x searchfox-handler-moves=yes",
         ] {
             assert!(
                 AttributeSet::parse_note_attributes(bad).is_err(),
@@ -551,6 +598,35 @@ mod tests {
                 bad
             );
         }
+    }
+
+    #[test]
+    fn test_file_options() {
+        let attrs = note(
+            "**/tests/** searchfox-contexts=tests\n\
+             docs/** searchfox-contexts=headings\n\
+             ui/** searchfox-handler-moves\n\
+             ui/old/** -searchfox-handler-moves\n",
+        );
+        let options = |path: &str| match resolve_language(path, &attrs) {
+            ResolvedLanguage::Tokenize(_, _, options) => options,
+            ResolvedLanguage::Skip => panic!("{} skipped", path),
+        };
+        assert_eq!(
+            options("a/tests/b.js").tokenize.contexts,
+            ContextMode::Tests
+        );
+        assert_eq!(
+            options("docs/a.html").tokenize.contexts,
+            ContextMode::Headings
+        );
+        assert_eq!(options("a/b.js"), FileOptions::default());
+        assert!(options("ui/a.xhtml").handler_moves);
+        assert!(!options("ui/old/a.xhtml").handler_moves);
+        // (A test in the UI's directory: both.)
+        let both = options("ui/tests/a.html");
+        assert_eq!(both.tokenize.contexts, ContextMode::Tests);
+        assert!(both.handler_moves);
     }
 
     #[test]

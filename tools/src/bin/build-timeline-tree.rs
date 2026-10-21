@@ -1079,6 +1079,9 @@ struct FilesStruct {
     namespace: Option<String>,
     /// The set of symbol "pretty" identifiers.
     symbols: BTreeSet<String>,
+    /// Whether the `searchfox-handler-moves` heuristic applies to the file
+    /// (see `inference::infer_handler_moves`).
+    handler_moves: bool,
 }
 
 fn load_files_struct(repo: &Repository, tree: Option<&git2::Tree>, path: &str) -> FilesStruct {
@@ -1091,6 +1094,7 @@ fn load_files_struct(repo: &Repository, tree: Option<&git2::Tree>, path: &str) -
         Some((header, rows)) => FilesStruct {
             namespace: header.effective_namespace().map(str::to_string),
             symbols: rows.into_iter().map(|row| row.pretty).collect(),
+            handler_moves: header.handler_moves,
         },
         None => FilesStruct::default(),
     }
@@ -1194,6 +1198,8 @@ fn preprocess_linear(
                 namespace: &p.namespace,
                 old_lines: token_file_lines(&p.old_contents),
                 new_lines: token_file_lines(&p.new_contents),
+                // (The old version's: the heuristic follows what it loses.)
+                handler_moves: p.old_struct.handler_moves,
             })
             .collect()
     }
@@ -1651,6 +1657,7 @@ fn decide_merge_pairings(
                 namespace,
                 old_lines: token_file_lines(old),
                 new_lines: token_file_lines(new),
+                handler_moves: false,
             })
             .collect();
         let inferences = infer_revision(&inputs, config);
