@@ -74,6 +74,22 @@ input_file: inputs/crossref/java/package__json
             ]
           },
           {
+            "path": "src/main/kotlin/sample/UniffiedUser.kt",
+            "path_kind": "normal",
+            "lines": [
+              {
+                "lno": 1,
+                "bounds": [
+                  8,
+                  14
+                ],
+                "line": "package sample",
+                "context": "",
+                "contextsym": ""
+              }
+            ]
+          },
+          {
             "path": "src/test/java/sample/JavaTest.java",
             "path_kind": "test",
             "lines": [

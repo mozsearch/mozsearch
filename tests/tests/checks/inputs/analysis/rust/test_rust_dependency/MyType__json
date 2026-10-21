@@ -1,1 +1,1 @@
-filter-analysis test_rust_dependency/src/lib.rs -k def -i MyType::do_foo
+filter-analysis simple_rust/test_rust_dependency/src/lib.rs -k def -i MyType::do_foo

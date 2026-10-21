@@ -309,28 +309,21 @@ input_file: inputs/web/dirs/root_listing__html
         <tr>
           <td class="name"><a href="/tests/source/build.gradle.kts" class="mimetype-fixed-container mimetype-icon-kts">build.gradle.kts</a></td>
           <td class="description"><a href="/tests/source/build.gradle.kts" title=""></td>
-          <td class="size"><a href="/tests/source/build.gradle.kts">2436</a></td>
+          <td class="size"><a href="/tests/source/build.gradle.kts">2698</a></td>
           <td class="coverage"><a href="/tests/source/build.gradle.kts" class="cov-percentage cov-percentage-6" title="130 lines out of 200 instrumented lines are covered in this file."">65 %</a></td>
-        </tr>
-
-        <tr>
-          <td class="name"><a href="/tests/source/build.rs" class="mimetype-fixed-container mimetype-icon-rs">build.rs</a></td>
-          <td class="description"><a href="/tests/source/build.rs" title=""></td>
-          <td class="size"><a href="/tests/source/build.rs">358</a></td>
-          <td class="coverage"><a href="/tests/source/build.rs" class="cov-percentage cov-percentage-7" title="140 lines out of 200 instrumented lines are covered in this file."">70 %</a></td>
         </tr>
 
         <tr>
           <td class="name"><a href="/tests/source/Cargo.lock" class="mimetype-fixed-container mimetype-icon-lock">Cargo.lock</a></td>
           <td class="description"><a href="/tests/source/Cargo.lock" title=""></td>
-          <td class="size"><a href="/tests/source/Cargo.lock">254</a></td>
+          <td class="size"><a href="/tests/source/Cargo.lock">19410</a></td>
           <td class="coverage"><a href="/tests/source/Cargo.lock" class="cov-percentage cov-percentage-7" title="150 lines out of 200 instrumented lines are covered in this file."">75 %</a></td>
         </tr>
 
         <tr>
           <td class="name"><a href="/tests/source/Cargo.toml" class="mimetype-fixed-container mimetype-icon-toml">Cargo.toml</a></td>
           <td class="description"><a href="/tests/source/Cargo.toml" title=""></td>
-          <td class="size"><a href="/tests/source/Cargo.toml">267</a></td>
+          <td class="size"><a href="/tests/source/Cargo.toml">141</a></td>
           <td class="coverage"><a href="/tests/source/Cargo.toml" class="cov-percentage cov-percentage-8" title="160 lines out of 200 instrumented lines are covered in this file."">80 %</a></td>
         </tr>
 
@@ -421,14 +414,14 @@ input_file: inputs/web/dirs/root_listing__html
         <tr>
           <td class="name"><a href="/tests/source/gradlew" class="mimetype-fixed-container mimetype-icon-">gradlew</a></td>
           <td class="description"><a href="/tests/source/gradlew" title=""></td>
-          <td class="size"><a href="/tests/source/gradlew">8762</a></td>
+          <td class="size"><a href="/tests/source/gradlew">8728</a></td>
           <td class="coverage"><a href="/tests/source/gradlew" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
         <tr>
           <td class="name"><a href="/tests/source/gradlew.bat" class="mimetype-fixed-container mimetype-icon-bat">gradlew.bat</a></td>
           <td class="description"><a href="/tests/source/gradlew.bat" title=""></td>
-          <td class="size"><a href="/tests/source/gradlew.bat">2966</a></td>
+          <td class="size"><a href="/tests/source/gradlew.bat">2937</a></td>
           <td class="coverage"><a href="/tests/source/gradlew.bat" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
         </tr>
 
@@ -656,13 +649,6 @@ input_file: inputs/web/dirs/root_listing__html
         </tr>
 
         <tr>
-          <td class="name"><a href="/tests/source/rust" class="mimetype-fixed-container mimetype-icon-folder">rust</a></td>
-          <td class="description"><a href="/tests/source/rust" title=""></td>
-          <td class="size"><a href="/tests/source/rust"></a></td>
-          <td class="coverage"><a href="/tests/source/rust" class="cov-percentage cov-percentage-7" title="75 lines out of 100 instrumented lines are covered in this folder."">75 %</a></td>
-        </tr>
-
-        <tr>
           <td class="name"><a href="/tests/source/secret-madjewel.js" class="mimetype-fixed-container mimetype-icon-js">secret-madjewel.js</a></td>
           <td class="description"><a href="/tests/source/secret-madjewel.js" title=""></td>
           <td class="size"><a href="/tests/source/secret-madjewel.js">361</a></td>
@@ -677,14 +663,10 @@ input_file: inputs/web/dirs/root_listing__html
         </tr>
 
         <tr>
-          <td class="name"><a href="/tests/source/simple.rs" class="mimetype-fixed-container mimetype-icon-rs">simple.rs</a></td>
-          <td class="description"><a href="/tests/source/simple.rs" title="A grab-bug of rust code to exercise the searchfox indexer.
-   Note how this comment ends up in the file description, too!
-">A grab-bug of rust code to exercise the searchfox indexer.
-   Note how this comment ends up in the file description, too!
-</td>
-          <td class="size"><a href="/tests/source/simple.rs">2018</a></td>
-          <td class="coverage"><a href="/tests/source/simple.rs" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this file.">-</a></td>
+          <td class="name"><a href="/tests/source/simple_rust" class="mimetype-fixed-container mimetype-icon-folder">simple_rust</a></td>
+          <td class="description"><a href="/tests/source/simple_rust" title=""></td>
+          <td class="size"><a href="/tests/source/simple_rust"></a></td>
+          <td class="coverage"><a href="/tests/source/simple_rust" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>
@@ -876,13 +858,6 @@ Spread over multiple lines.
         </tr>
 
         <tr>
-          <td class="name"><a href="/tests/source/test_rust_dependency" class="mimetype-fixed-container mimetype-icon-folder">test_rust_dependency</a></td>
-          <td class="description"><a href="/tests/source/test_rust_dependency" title=""></td>
-          <td class="size"><a href="/tests/source/test_rust_dependency"></a></td>
-          <td class="coverage"><a href="/tests/source/test_rust_dependency" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
-        </tr>
-
-        <tr>
           <td class="name"><a href="/tests/source/test_talosconfig_browser_config.json" class="mimetype-fixed-container mimetype-icon-json">test_talosconfig_browser_config.json</a></td>
           <td class="description"><a href="/tests/source/test_talosconfig_browser_config.json" title=""></td>
           <td class="size"><a href="/tests/source/test_talosconfig_browser_config.json">3356</a></td>
@@ -929,6 +904,20 @@ Spread over multiple lines.
           <td class="description"><a href="/tests/source/ts" title=""></td>
           <td class="size"><a href="/tests/source/ts"></a></td>
           <td class="coverage"><a href="/tests/source/ts" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
+        </tr>
+
+        <tr>
+          <td class="name"><a href="/tests/source/uniffi-bindgen" class="mimetype-fixed-container mimetype-icon-folder">uniffi-bindgen</a></td>
+          <td class="description"><a href="/tests/source/uniffi-bindgen" title=""></td>
+          <td class="size"><a href="/tests/source/uniffi-bindgen"></a></td>
+          <td class="coverage"><a href="/tests/source/uniffi-bindgen" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
+        </tr>
+
+        <tr>
+          <td class="name"><a href="/tests/source/uniffied" class="mimetype-fixed-container mimetype-icon-folder">uniffied</a></td>
+          <td class="description"><a href="/tests/source/uniffied" title=""></td>
+          <td class="size"><a href="/tests/source/uniffied"></a></td>
+          <td class="coverage"><a href="/tests/source/uniffied" class="cov-percentage cov-percentage-none" title="There's no coverage data available for this folder.">-</a></td>
         </tr>
 
         <tr>

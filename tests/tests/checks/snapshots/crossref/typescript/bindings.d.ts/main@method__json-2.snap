@@ -30,7 +30,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/method__json
           "XPIDL_nsIXPCTestParams_testBoolean"
         ],
         "ts_syms": [
-          "S_js_ts/src/bindings.d.ts/tsMethod()."
+          "S_js_test-ts/ts/src/bindings.d.ts/tsMethod()."
         ]
       },
       "relation": "Queried",
@@ -38,7 +38,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/method__json
       "overloads_hit": []
     },
     {
-      "symbol": "S_js_ts/src/bindings.d.ts/tsMethod().",
+      "symbol": "S_js_test-ts/ts/src/bindings.d.ts/tsMethod().",
       "crossref_info": {
         "defs": [
           {
@@ -61,7 +61,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/method__json
         "meta": {
           "structured": 1,
           "pretty": "tsMethod",
-          "sym": "S_js_ts/src/bindings.d.ts/tsMethod().",
+          "sym": "S_js_test-ts/ts/src/bindings.d.ts/tsMethod().",
           "js_sym": "#tsMethod",
           "type_pretty": "boolean",
           "kind": "method",
