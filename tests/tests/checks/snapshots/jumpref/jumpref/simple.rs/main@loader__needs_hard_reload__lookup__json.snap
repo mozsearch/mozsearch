@@ -15,7 +15,7 @@ input_file: inputs/jumpref/jumpref/simple.rs/loader__needs_hard_reload__lookup__
           "sym": "S_rs_files/impl#[Loader]needs_hard_reload().",
           "type_pretty": "fn needs_hard_reload(&self, _: &Path) -> bool",
           "kind": "method",
-          "subsystem": "Core/Simple",
+          "subsystem": null,
           "implKind": "impl",
           "sizeBytes": null,
           "alignmentBytes": null,
@@ -30,7 +30,7 @@ input_file: inputs/jumpref/jumpref/simple.rs/loader__needs_hard_reload__lookup__
           "variants": []
         },
         "jumps": {
-          "def": "simple.rs#51"
+          "def": "simple_rust/simple.rs#51"
         }
       }
     }
