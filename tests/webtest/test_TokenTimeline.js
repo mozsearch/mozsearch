@@ -19,6 +19,11 @@ add_task(async function test_TokenTimelineLines() {
                          "A line each");
   const legend = doc().querySelector(".token-timeline-legend");
   ok(legend.textContent.includes("with StructOpt"), "with structopt's case variant");
+  // (The history's journals sum to their tokens' instances; see
+  // check-token-counts, which the tree's setup runs.)
+  ok(legend.textContent.match(/clap \(\+[\d,]+ −[\d,]+; [\d,]+ now\)/), "and their instances now");
+  is(doc().querySelector(".token-timeline-axis-label").textContent, "Instances",
+     "so the lines are of their instances");
 
   const marker = doc().querySelector('.token-timeline-marker[data-week="2022-W33"]');
   ok(marker, "The upgrade's week has a marker");
@@ -76,6 +81,7 @@ add_task(async function test_TokenTimelineApi() {
   is(response.status, 200, "The data API has timelines");
   const timeline = await response.json();
   is(timeline.series.map(s => s.token).join(","), "structopt,clap", "a line a token");
+  ok(timeline.series.every(s => Number.isInteger(s.count)), "with their instances now");
   ok(timeline.markers.some(m => m.commits.some(c => c.rev == UPGRADE)), "with the markers' commits");
 });
 

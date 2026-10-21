@@ -75,6 +75,45 @@ pub fn with_segment_years(header: &str, years: &[i32]) -> String {
     value.to_string()
 }
 
+/// The instances a token journal's header says its token has (see
+/// `TokenHeader::count`), if it says.
+pub fn header_count(header: &str) -> Option<i64> {
+    if !header.contains("\"count\"") {
+        return None;
+    }
+    serde_json::from_str::<Value>(header)
+        .ok()?
+        .get("count")?
+        .as_i64()
+}
+
+/// `header` with `count` as its token's instances.
+pub fn with_header_count(header: &str, count: i64) -> String {
+    let mut value: Value =
+        serde_json::from_str(header).unwrap_or(Value::Object(Default::default()));
+    if let Some(object) = value.as_object_mut() {
+        object.insert("count".to_string(), Value::from(count));
+    }
+    value.to_string()
+}
+
+/// A token journal's text (a head, or a joined journal) with its header's
+/// count changed by `change`: from 0 if `new` (the journal's first record),
+/// else from its count, if it has one (an older history's journals, without
+/// counts, keep none).
+pub fn change_header_count(contents: &str, change: i64, new: bool) -> Option<String> {
+    let (header, rest) = contents.split_once('\n').unwrap_or((contents, ""));
+    let count = match new {
+        true => 0,
+        false => header_count(header)?,
+    };
+    let header = with_header_count(header, count + change);
+    Some(match rest.is_empty() && !contents.contains('\n') {
+        true => header,
+        false => format!("{}\n{}", header, rest),
+    })
+}
+
 /// The ISO year of a record line, if it has a week.
 pub fn line_year(line: &str) -> Option<i32> {
     line_iso_week(line).map(|(year, _)| year)

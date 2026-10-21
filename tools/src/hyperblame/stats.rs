@@ -9,7 +9,7 @@ use crate::file_format::history::syntax_files::TokenLine;
 use crate::file_format::history::timeline_common::{
     ChangeKind, SymbolSyntaxDelta, SymbolSyntaxDeltaGroup, TokenDeltaDetails,
 };
-use crate::file_format::history::timeline_tokens::tracked_token_key;
+use crate::file_format::history::timeline_tokens::tracked_token_keys;
 
 use super::inference::{FileChangeInput, FileInference, RemovedFate, TokenOrigin};
 use crate::file_format::history::syntax_files::split_token_line;
@@ -85,13 +85,13 @@ pub fn compute_revision_stats(
             .entry(line.context.to_string())
             .or_insert_with(|| SymbolSyntaxDelta::new(ChangeKind::Changed));
         bump(&mut sym_delta.token_totals, delta);
-        if let Some(key) = tracked_token_key(namespace, line, prev) {
+        tracked_token_keys(namespace, line, prev, &mut |key| {
             bump(
                 sym_delta.token_changes.entry(key.to_string()).or_default(),
                 delta,
             );
             bump(token_totals.entry(key.into_owned()).or_default(), delta);
-        }
+        });
     };
 
     for (file, (input, inference)) in inputs.iter().zip(inferences.iter()).enumerate() {

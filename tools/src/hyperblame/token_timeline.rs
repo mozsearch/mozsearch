@@ -110,6 +110,12 @@ pub struct TimelineSeries {
     /// Whether all of its journals were read (else its line is since its
     /// oldest week).
     pub read_all: bool,
+    /// Its instances now, if its journals' headers all have their tokens'
+    /// (see `TokenHeader::count`), which makes its weeks' `relative`s
+    /// absolute counts (`count + relative`), even without reading its old
+    /// segments: histories since journals' sums are exact have them.
+    #[serde(default)]
+    pub count: Option<i64>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -214,11 +220,13 @@ fn case_key(token: &str, case_sensitive: bool) -> String {
 }
 
 /// A token's journals as read: its variants' records, and whether each was
-/// read whole (its head and all of its segments).
+/// read whole (its head and all of its segments), and their counts, if they
+/// all have them.
 struct SeriesData {
     token: String,
     journals: Vec<(String, Vec<TokenDeltaRecord>, bool)>,
     read_all: bool,
+    count: Option<i64>,
 }
 
 /// Commits' changes of the lines' tokens: by commit, its date, and changes.
@@ -402,6 +410,7 @@ fn token_timeline_within(
             token: token.clone(),
             journals: vec![],
             read_all: true,
+            count: Some(0),
         };
         if is_trackable_token(token) {
             let variants: Vec<String> = case_variants(repo, &tree, token)
@@ -413,6 +422,7 @@ fn token_timeline_within(
             for variant in variants {
                 if let Some(journal) = read_journal(repo, &tree, &variant, variant_budget)? {
                     series.read_all &= journal.read_all;
+                    series.count = series.count.zip(journal.count).map(|(a, b)| a + b);
                     series
                         .journals
                         .push((variant, journal.records, journal.read_all));
@@ -481,6 +491,9 @@ fn token_timeline_within(
             weeks: points,
             start: relative,
             read_all: series_data.read_all,
+            count: series_data
+                .count
+                .filter(|_| !series_data.journals.is_empty()),
         });
     }
 
@@ -713,6 +726,27 @@ mod tests {
         assert_eq!(found.series[0].weeks.len(), 2);
         assert!(found.series[1].weeks.is_empty());
 
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn test_token_timeline_counts() {
+        // (A journal with its token's instances makes the line's values
+        // absolute counts; without, the line is relative to now.)
+        let (dir, history) = test_history("timeline-counts");
+        let found = timeline(&history, &["Gizmo", "BackstagePass"], false);
+        let gizmo = &found.series[0];
+        assert_eq!(gizmo.count, Some(5));
+        assert_eq!(
+            gizmo
+                .weeks
+                .iter()
+                .map(|p| gizmo.count.unwrap() + p.relative)
+                .collect::<Vec<_>>(),
+            vec![9, 5]
+        );
+        assert_eq!(gizmo.count.unwrap() + gizmo.start, 0);
+        assert_eq!(found.series[1].count, None);
         fs::remove_dir_all(dir).unwrap();
     }
 

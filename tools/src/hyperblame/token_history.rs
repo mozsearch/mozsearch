@@ -141,6 +141,10 @@ pub struct TokenHistory {
     pub renamed_to: Option<String>,
     #[serde(default)]
     pub replaced_by: Vec<Replacement>,
+    /// The token's instances now, if its journal has them (see
+    /// `TokenHeader::count`).
+    #[serde(default)]
+    pub count: Option<i64>,
     /// The newest record's date (or ISO week), and the oldest read's.
     pub latest: String,
     pub oldest: String,
@@ -313,6 +317,9 @@ fn parse_records(path: &str, text: &str) -> Result<Vec<TokenDeltaRecord>, String
 pub(crate) struct Journal {
     pub records: Vec<TokenDeltaRecord>,
     pub read_all: bool,
+    /// The token's instances, if the journal's header has them (see
+    /// `TokenHeader::count`).
+    pub count: Option<i64>,
 }
 
 pub(crate) fn read_journal(
@@ -342,7 +349,12 @@ pub(crate) fn read_journal(
         bytes += segment.len();
         records.extend(parse_records(&segment_path, &segment)?);
     }
-    Ok(Some(Journal { records, read_all }))
+    let count = segments::header_count(head.lines().next().unwrap_or(""));
+    Ok(Some(Journal {
+        records,
+        read_all,
+        count,
+    }))
 }
 
 /// How many more instances than now the token had before each record (see
@@ -795,6 +807,7 @@ pub fn token_history(
         latest: records.first().map(when).unwrap_or_default(),
         oldest: records.last().map(when).unwrap_or_default(),
         read_all: analysis.journal.read_all,
+        count: analysis.journal.count,
         ..Default::default()
     };
 
@@ -1160,6 +1173,17 @@ pub(crate) mod tests {
                 token_path("widget"),
                 journal("{}", &[detail(&"2".repeat(40), "2024-09-04", r#","added":1"#)]),
             ),
+            // (A journal with its token's instances, as exact histories have.)
+            (
+                token_path("Gizmo"),
+                journal(
+                    r#"{"count":5}"#,
+                    &[
+                        detail(&"3".repeat(40), "2026-02-04", r#","removed":4"#),
+                        detail(&"4".repeat(40), "2025-02-05", r#","added":9"#),
+                    ],
+                ),
+            ),
             (
                 format!("{}.d/2012.ndjson", token_path("Doohickey")),
                 journal(
@@ -1280,6 +1304,16 @@ pub(crate) mod tests {
         assert_eq!(lookup(&history, "backstagepass", case_sensitive), None);
         let found = lookup(&history, "backstagePass", case_sensitive).unwrap();
         assert_eq!((found.token.as_str(), found.removed), ("backstagePass", 0));
+
+        // (A journal with a count has the instances there are.)
+        let found = lookup(&history, "Gizmo", Default::default()).unwrap();
+        assert_eq!((found.count, found.removed), (Some(5), 4));
+        assert_eq!(
+            lookup(&history, "BackstagePass", Default::default())
+                .unwrap()
+                .count,
+            None
+        );
 
         // (Not a token, or without a journal.)
         assert_eq!(lookup(&history, "Backstage Pass", Default::default()), None);

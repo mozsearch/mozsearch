@@ -44,5 +44,9 @@ for repo in syntax timeline; do
 done
 $MOZSEARCH_PATH/scripts/build-history.py $GIT_ROOT $HISTORY_ROOT
 
+# The token journals' records sum to their tokens' instances (see
+# check-token-counts), which token-timeline:'s counts need.
+check-token-counts $HISTORY_ROOT --show 20
+
 echo "Performing setup::build-commit-index step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 build-commit-index $GIT_ROOT $HISTORY_ROOT/commit-index

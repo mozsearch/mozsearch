@@ -17,8 +17,9 @@ add_task(async function test_TokenHistoryNote() {
 
   const note = doc().querySelector(".token-history-note");
   ok(note, "The search notes the token's removals, as the results are few");
-  ok(note.querySelector(".token-history-summary").textContent.includes("instances of structopt were removed"),
-     "how many of its instances were removed");
+  const summary = note.querySelector(".token-history-summary").textContent;
+  ok(summary.includes("instances of structopt were removed"), "how many of its instances were removed");
+  ok(summary.match(/\(\d+ left/), "and how many are left");
   const commit = note.querySelector(`.token-history-commits a[href="/searchfox/commit/${UPGRADE}"]`);
   ok(commit, "by which commits");
   ok(commit.closest("li").textContent.includes("Upgrade to clap v3"), "with their messages");

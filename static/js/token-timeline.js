@@ -1,8 +1,9 @@
 /**
  * The token-timeline: view (see tools/src/hyperblame/token_timeline.rs): a
- * line a token (with its case variants), of how many more of its instances
- * than now the tree had each week (the journals count instances added and
- * removed, not instances), with markers at the weeks changing the lines the
+ * line a token (with its case variants), of how many of its instances the
+ * tree had each week (its instances now, which exact histories' journals'
+ * headers have, and how many more than now it had; or only the latter, for
+ * histories without them), with markers at the weeks changing the lines the
  * most.  Hovering (or focusing) a marker shows what its week's commits
  * changed, and the other tokens they changed the most, with links to their
  * timelines (alone, added to this one, or all of them); clicking it keeps it
@@ -23,6 +24,9 @@ var TokenTimeline = new (class TokenTimeline {
     this.colors = [...d3.schemeTableau10, ...d3.schemeDark2];
     this.ownRange = false;
     this.pinned = null;
+    // (Absolute counts if all of the lines have their instances now.)
+    const lines = this.timeline?.series.filter(series => series.weeks.length) ?? [];
+    this.absolute = lines.length > 0 && lines.every(series => series.count != null);
     this.render();
   }
 
@@ -113,6 +117,9 @@ var TokenTimeline = new (class TokenTimeline {
         const added = series.variants.reduce((sum, v) => sum + v.added, 0);
         const removed = series.variants.reduce((sum, v) => sum + v.removed, 0);
         notes.push(this.change({ added, removed }));
+        if (series.count != null) {
+          notes.push(`${series.count.toLocaleString()} now`);
+        }
         if (!series.read_all) {
           notes.push(`since ${series.weeks[0].date.slice(0, 4)}`);
         }
@@ -136,13 +143,17 @@ var TokenTimeline = new (class TokenTimeline {
     this.root.append(legend, scale);
   }
 
-  /** A line's points: its value before its first week, each week's end, now. */
+  /**
+   * A line's points: its value before its first week, each week's end, now:
+   * its instances then, or how many more than now it had.
+   */
   points(series, start) {
-    const points = [{ date: start, value: series.start }];
+    const base = this.absolute ? series.count : 0;
+    const points = [{ date: start, value: base + series.start }];
     for (const week of series.weeks) {
-      points.push({ date: new Date(week.date), value: week.relative, week });
+      points.push({ date: new Date(week.date), value: base + week.relative, week });
     }
-    points.push({ date: new Date(), value: 0 });
+    points.push({ date: new Date(), value: base });
     return points;
   }
 
@@ -197,8 +208,9 @@ var TokenTimeline = new (class TokenTimeline {
       .attr("class", "token-timeline-axis-label")
       .attr("x", margin.left)
       .attr("y", 12)
-      .text(this.ownRange ? "Instances, within each line's range" : "Instances more than now");
-    if (!this.ownRange) {
+      .text(this.ownRange ? "Instances, within each line's range"
+            : this.absolute ? "Instances" : "Instances more than now");
+    if (!this.ownRange && !this.absolute) {
       svg.append("line")
         .attr("class", "token-timeline-now")
         .attr("x1", margin.left).attr("x2", width - margin.right)

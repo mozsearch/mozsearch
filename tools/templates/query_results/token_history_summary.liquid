@@ -11,7 +11,9 @@
   {{ history.removed | thousands }} instances of <code>{{ history.token | escape }}</code> were removed
   {%- if history.removals > 1 %} mostly{% endif %}
   {% if history.since == history.until %}{{ since_prep }} {{ history.since }}{% else %}from {{ history.since }} to {{ history.until }}{% endif %}
-  {%- if history.peak > history.removed %} (it had {{ history.peak | thousands }} more than now at most, before {{ history.peak_when }}){% endif -%}
+  {%- if history.count != nil and history.peak > history.removed %} ({{ history.count | thousands }} left; it had {{ history.peak | thousands }} more than now at most, before {{ history.peak_when }})
+  {%- elsif history.count != nil %} ({{ history.count | thousands }} left)
+  {%- elsif history.peak > history.removed %} (it had {{ history.peak | thousands }} more than now at most, before {{ history.peak_when }}){% endif -%}
   {%- if history.removals > history.commits.size %}, by {{ history.removals | thousands }} commits and weeks of commits, the biggest of them and the last:{% else %}, by:{% endif %}
 </p>
 <ul class="token-history-commits">

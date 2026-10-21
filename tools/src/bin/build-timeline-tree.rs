@@ -141,7 +141,7 @@ use tools::file_format::history::timeline_future::{
     FutureDetailRecord, FutureHeader, FutureRecord,
 };
 use tools::file_format::history::timeline_tokens::{
-    TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, token_timeline_path, tracked_token_key,
+    TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, token_timeline_path, tracked_token_keys,
 };
 use tools::git_notes::NotesWriter;
 use tools::git_ops::{fast_import_git, git_time_to_chrono, history_compute_threads};
@@ -158,6 +158,9 @@ use tools::hyperblame::inference::{
 use tools::hyperblame::renames;
 use tools::hyperblame::segments::{self, SPLIT_BYTES};
 use tools::hyperblame::stats::compute_revision_stats;
+use tools::hyperblame::token_counts::{
+    CountedFile, add_tracked_counts, exact_totals, file_namespace, journal_sum,
+};
 use tools::source_mapping::{
     NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer, point_branch_at,
     require_notes_for_existing_branch,
@@ -1016,6 +1019,10 @@ struct MergeChanges {
     candidate_paths: BTreeMap<String, bool>,
     /// Tokens whose journals may differ between parents.
     candidate_tokens: BTreeSet<String>,
+    /// How the merge changes tokens' instances against its first parent (see
+    /// `token_counts`), for the records making up the difference with what its
+    /// journals' unions bring (see `merge_token_journal`).
+    token_changes: BTreeMap<String, i64>,
 }
 
 enum RevisionChanges {
@@ -1478,7 +1485,7 @@ fn preprocess_linear(
         })
         .collect();
     let new_paths: Vec<Option<&str>> = pending.iter().map(|p| p.new_path.as_deref()).collect();
-    let stats = compute_revision_stats(
+    let mut stats = compute_revision_stats(
         &inputs,
         &inferences,
         &old_symbols,
@@ -1489,6 +1496,36 @@ fn preprocess_linear(
     drop(old_paths);
     drop(new_paths);
     drop(inputs);
+
+    // The token journals' records change their tokens' instances by exactly
+    // as much as the files do (see `token_counts::exact_totals`): each file's
+    // old version (in its own namespace) unless it stays (an addition, or a
+    // copy's source), and its new version.
+    let old_namespaces: Vec<Option<String>> = pending
+        .iter()
+        .map(|p| match (p.kind, &p.old_path) {
+            (
+                FileChangeKind::Modified | FileChangeKind::Renamed | FileChangeKind::Deleted,
+                Some(path),
+            ) => Some(struct_namespace(path, &p.old_struct)),
+            _ => None,
+        })
+        .collect();
+    let counted: Vec<CountedFile> = pending
+        .iter()
+        .zip(&old_namespaces)
+        .map(|(p, old_namespace)| CountedFile {
+            old: old_namespace
+                .as_deref()
+                .map(|namespace| (namespace, p.old_contents.as_str())),
+            new: p
+                .new_path
+                .as_ref()
+                .map(|_| (p.namespace.as_str(), p.new_contents.as_str())),
+        })
+        .collect();
+    exact_totals(&mut stats.token_totals, &counted);
+    drop(counted);
 
     let files = pending
         .into_iter()
@@ -1632,9 +1669,9 @@ fn add_tracked_tokens(
     for idx in range {
         let line = split_token_line(lines[idx]);
         let prev = idx.checked_sub(1).map(|i| split_token_line(lines[i]));
-        if let Some(key) = tracked_token_key("", &line, prev.as_ref()) {
+        tracked_token_keys("", &line, prev.as_ref(), &mut |key| {
             candidate_tokens.insert(key.into_owned());
-        }
+        });
     }
 }
 
@@ -1652,12 +1689,39 @@ fn preprocess_merge(
 
     // ## Annotated changes relative to the first parent.
     let mut files = vec![];
+    let mut token_counts: HashMap<String, i64> = HashMap::new();
+    let first_root = commit.parent(0).ok().and_then(|p| p.tree().ok());
     let diff = diff_files_trees(repo, parent_files[0].as_ref(), cur_files.as_ref(), true)?;
     for delta in diff.deltas() {
         let Some(kind) = delta_kind(delta.status()) else {
             continue;
         };
         let old_path = path_string(delta.old_file().path());
+        // (The change of the tokens' instances: the first parent's version,
+        // unless it stays, and the merge's.)
+        if let (Some(path), Some(root)) = (&old_path, &first_root)
+            && kind != FileChangeKind::Added
+            && kind != FileChangeKind::Copied
+            && !delta.old_file().id().is_zero()
+        {
+            let contents = blob_string(repo, delta.old_file().id());
+            add_tracked_counts(
+                &file_namespace(repo, root, path),
+                &contents,
+                -1,
+                &mut token_counts,
+            );
+        }
+        if kind != FileChangeKind::Deleted && !delta.new_file().id().is_zero() {
+            let path = path_string(delta.new_file().path()).unwrap();
+            let contents = blob_string(repo, delta.new_file().id());
+            add_tracked_counts(
+                &file_namespace(repo, &cur_root, &path),
+                &contents,
+                1,
+                &mut token_counts,
+            );
+        }
         if kind == FileChangeKind::Deleted {
             files.push(MergeFileChange {
                 new_path: None,
@@ -1750,6 +1814,10 @@ fn preprocess_merge(
         files,
         candidate_paths,
         candidate_tokens,
+        token_changes: token_counts
+            .into_iter()
+            .filter(|(_, change)| *change != 0)
+            .collect(),
     }))
 }
 
@@ -2050,7 +2118,9 @@ struct Consolidation<'a> {
 /// Prepend a record to the journal at `from_path` in the parent timeline commit
 /// and write it to `to_path` in the new commit, consolidating it if requested.
 /// `touched` has the paths already deleted or written in the new commit, which
-/// we can't read the parent's version of from it.  Returns the number of
+/// we can't read the parent's version of from it.  For a token journal,
+/// `count_change` is how the record changes its token's instances, which its
+/// header's count follows (see `TokenHeader::count`).  Returns the number of
 /// summary records written.
 ///
 /// Summaries reference the parent's version of the journal, so when git
@@ -2071,6 +2141,7 @@ fn prepend_journal_record<
     consolidation: Option<&Consolidation>,
     keep_from: Option<i32>,
     touched: &mut HashSet<PathBuf>,
+    count_change: Option<i64>,
 ) -> usize {
     let blob = parent.and_then(|parent| {
         let from = if touched.contains(from_path) {
@@ -2081,6 +2152,11 @@ fn prepend_journal_record<
         read_path_blob(import_helper, from, from_path)
     });
     touched.insert(to_path.to_path_buf());
+    let new = blob.is_none();
+    let counted = move |contents: String| match count_change {
+        Some(change) => segments::change_header_count(&contents, change, new).unwrap_or(contents),
+        None => contents,
+    };
     // Almost always, no weeks get summarized, and the journal's other records
     // stay as they are.
     if let Some(blob) = &blob {
@@ -2088,7 +2164,7 @@ fn prepend_journal_record<
         if let Some(contents) =
             prepend_unconsolidated(std::str::from_utf8(blob).unwrap(), &record, now)
         {
-            write_journal(import_helper, to_path, &contents, keep_from);
+            write_journal(import_helper, to_path, &counted(contents), keep_from);
             return 0;
         }
     }
@@ -2121,7 +2197,7 @@ fn prepend_journal_record<
             None => {
                 let contents = move |parent_rev: &str| {
                     fill_in_pred_revs(&mut records, parent_rev);
-                    record_file_contents_to_string(&header, &records)
+                    counted(record_file_contents_to_string(&header, &records))
                 };
                 import_helper
                     .deferred
@@ -2130,7 +2206,7 @@ fn prepend_journal_record<
             }
         }
     }
-    let contents = record_file_contents_to_string(&header, &records);
+    let contents = counted(record_file_contents_to_string(&header, &records));
     write_journal(import_helper, to_path, &contents, keep_from);
     num_summaries
 }
@@ -2300,19 +2376,139 @@ fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
     if base_oids.is_some_and(|base| oids[1..].iter().all(|oid| *oid == base)) {
         return vec![];
     }
-    union_journal_texts::<H, R>(parents, parent_revs, path, &oids, keep_from)
+    let contents = union_journal_texts::<H, R>(parents, parent_revs, path);
+    journal_files(parents, path, &oids, contents, keep_from)
 }
 
-/// `union_journal`'s union, of the parents' versions (whose ids at the
-/// journal's path and its segments' directory are `oids`).
+/// The ids of a journal's head and its segments' directory in each parent.
+fn journal_oids(
+    parents: &MergeParents,
+    parent_revs: &[String],
+    path: &Path,
+) -> Vec<(Option<Oid>, Option<Oid>)> {
+    let mut dir = path.as_os_str().to_owned();
+    dir.push(".d");
+    let dir = PathBuf::from(dir);
+    (0..parent_revs.len())
+        .map(|i| (parents.path_oid(i, path), parents.path_oid(i, &dir)))
+        .collect()
+}
+
+/// A token journal of a merge: the union of its parents' versions (see
+/// `union_journal`), and, if the instances that union's records add to the
+/// first parent's version (the difference of their sums; see
+/// `token_counts::journal_sum`) aren't the merge's change of the token's
+/// instances against its first parent's files (`change`), a record for the
+/// merge (`desc`) with the difference, so that the journal's records sum to
+/// the token's instances.  Ex: a branch's changes which the merge didn't keep
+/// (firefox's CVS conversion merged branches whose commits "deleted" files the
+/// trunk kept), or a token the merge itself added (resolving a conflict).
+fn merge_token_journal(
+    parents: &MergeParents,
+    parent_revs: &[String],
+    path: &Path,
+    keep_from: Option<i32>,
+    change: i64,
+    desc: &DetailRecordRef,
+) -> Vec<(PathBuf, String)> {
+    let oids = journal_oids(parents, parent_revs, path);
+    let first_stands = oids.iter().all(|oid| *oid == oids[0])
+        || parents.base.as_ref().is_some_and(|base| {
+            let oid = |path: &Path| base.get_path(path).ok().map(|entry| entry.id());
+            let mut dir = path.as_os_str().to_owned();
+            dir.push(".d");
+            let base_oids = (oid(path), oid(Path::new(&dir)));
+            oids[1..].iter().all(|oid| *oid == base_oids)
+        });
+    let union = (!first_stands)
+        .then(|| union_journal_texts::<TokenHeader, TokenDeltaRecord>(parents, parent_revs, path));
+    if union.is_none() && change == 0 {
+        return vec![];
+    }
+    let first = parents.journal_text(0, path);
+    let union_adds = match &union {
+        Some(union) => journal_sum(union) - first.as_deref().map_or(0, journal_sum),
+        None => 0,
+    };
+    let correction = change - union_adds;
+    // (The token's instances: the first parent's, and the merge's change,
+    // if the first parent's journal has its count, or none.)
+    let counted = |contents: String| match &first {
+        Some(first) => match segments::header_count(first.lines().next().unwrap_or("")) {
+            Some(count) => {
+                let (header, rest) = contents.split_once('\n').unwrap_or((&contents, ""));
+                format!(
+                    "{}\n{}",
+                    segments::with_header_count(header, count + change),
+                    rest
+                )
+                .trim_end_matches('\n')
+                .to_string()
+            }
+            None => contents,
+        },
+        None => segments::change_header_count(&contents, change, true).unwrap_or(contents),
+    };
+    let mut contents = match (union, correction) {
+        (Some(union), 0) => {
+            return journal_files(parents, path, &oids, counted(union), keep_from);
+        }
+        (Some(union), _) => union,
+        (None, _) => first.clone().unwrap_or_else(|| "{}".to_string()),
+    };
+    let record = TokenDeltaRecord::Detail(TokenDeltaDetailRecord {
+        desc: desc.clone(),
+        delta: TokenDeltaDetails {
+            added: correction.max(0) as u32,
+            removed: (-correction).max(0) as u32,
+            ..Default::default()
+        },
+    });
+    let header_end = contents.find('\n').unwrap_or(contents.len());
+    contents.insert_str(
+        header_end,
+        &format!("\n{}", serde_json::to_string(&record).unwrap()),
+    );
+    journal_files(parents, path, &oids, counted(contents), keep_from)
+}
+
+/// The files of a merge's version of a journal (its head and segments; see
+/// `hyperblame::segments`) which differ from its first parent's, given its
+/// `contents` (and its parents' ids, `oids`).
+fn journal_files(
+    parents: &MergeParents,
+    path: &Path,
+    oids: &[(Option<Oid>, Option<Oid>)],
+    contents: String,
+    keep_from: Option<i32>,
+) -> Vec<(PathBuf, String)> {
+    let segmented = oids.iter().any(|(_, dir)| dir.is_some());
+    let Some(keep_from) = keep_from.filter(|_| segmented || contents.len() > split_bytes()) else {
+        return vec![(path.to_path_buf(), contents)];
+    };
+    // Only the files which differ from the first parent's.
+    let split = segments::split(&contents, keep_from);
+    std::iter::once((path.to_path_buf(), split.head))
+        .chain(
+            split
+                .segments
+                .into_iter()
+                .map(|(year, text)| (segments::segment_path(path, year), text)),
+        )
+        .filter(|(path, text)| {
+            parents.path_oid(0, path)
+                != Some(Oid::hash_object(git2::ObjectType::Blob, text.as_bytes()).unwrap())
+        })
+        .collect()
+}
+
+/// `union_journal`'s union, of the parents' versions, as the journal's text
+/// (its head and segments, joined).
 fn union_journal_texts<H: DeserializeOwned + Default + Serialize, R: Summarize>(
     parents: &MergeParents,
     parent_revs: &[String],
     path: &Path,
-    oids: &[(Option<Oid>, Option<Oid>)],
-    keep_from: Option<i32>,
-) -> Vec<(PathBuf, String)> {
-    let segmented = oids.iter().any(|(_, dir)| dir.is_some());
+) -> String {
     let blobs: Vec<(JournalVersionRef, Vec<u8>)> = (0..parent_revs.len())
         .zip(parent_revs)
         .filter_map(|(i, parent_rev)| {
@@ -2327,7 +2523,7 @@ fn union_journal_texts<H: DeserializeOwned + Default + Serialize, R: Summarize>(
         .iter()
         .map(|(version, blob)| (version.clone(), std::str::from_utf8(blob).unwrap()))
         .collect();
-    let contents = merge_journal_texts(&texts).unwrap_or_else(|| {
+    merge_journal_texts(&texts).unwrap_or_else(|| {
         let mut header: Option<H> = None;
         let mut versions = vec![];
         for (version, blob) in &blobs {
@@ -2348,31 +2544,16 @@ fn union_journal_texts<H: DeserializeOwned + Default + Serialize, R: Summarize>(
         })
         .unwrap();
         record_file_contents_to_string(&header.unwrap_or_default(), &records)
-    });
-    let Some(keep_from) = keep_from.filter(|_| segmented || contents.len() > split_bytes()) else {
-        return vec![(path.to_path_buf(), contents)];
-    };
-    // Only the files which differ from the first parent's.
-    let split = segments::split(&contents, keep_from);
-    std::iter::once((path.to_path_buf(), split.head))
-        .chain(
-            split
-                .segments
-                .into_iter()
-                .map(|(year, text)| (segments::segment_path(path, year), text)),
-        )
-        .filter(|(path, text)| {
-            parents.path_oid(0, path)
-                != Some(Oid::hash_object(git2::ObjectType::Blob, text.as_bytes()).unwrap())
-        })
-        .collect()
+    })
 }
 
-/// A journal which a merge unions across its parents or deletes.
+/// A journal which a merge unions across its parents or deletes: a token's,
+/// with how the merge changes its instances against its first parent (see
+/// `merge_token_journal`).
 enum MergeJournal {
     Future(PathBuf),
     FilesDelta(PathBuf),
-    Tokens(PathBuf),
+    Tokens(PathBuf, i64),
     Delete(PathBuf),
 }
 
@@ -2381,7 +2562,7 @@ impl MergeJournal {
         match self {
             MergeJournal::Future(path)
             | MergeJournal::FilesDelta(path)
-            | MergeJournal::Tokens(path)
+            | MergeJournal::Tokens(path, _)
             | MergeJournal::Delete(path) => path,
         }
     }
@@ -2394,6 +2575,7 @@ impl MergeJournal {
         parents: &MergeParents,
         parent_revs: &[String],
         keep_from: Option<i32>,
+        desc: &DetailRecordRef,
     ) -> Vec<(PathBuf, String)> {
         match self {
             MergeJournal::Future(path) => {
@@ -2402,12 +2584,9 @@ impl MergeJournal {
             MergeJournal::FilesDelta(path) => {
                 union_journal::<FileDeltaHeader, FileDeltaRecord>(parents, parent_revs, path, None)
             }
-            MergeJournal::Tokens(path) => union_journal::<TokenHeader, TokenDeltaRecord>(
-                parents,
-                parent_revs,
-                path,
-                keep_from,
-            ),
+            MergeJournal::Tokens(path, change) => {
+                merge_token_journal(parents, parent_revs, path, keep_from, *change, desc)
+            }
             MergeJournal::Delete(_) => vec![],
         }
     }
@@ -2435,13 +2614,14 @@ fn merge_journals(
     parent_revs: &[String],
     journals: &[MergeJournal],
     keep_from: Option<i32>,
+    desc: &DetailRecordRef,
 ) {
     let num_threads = history_compute_threads("TIMELINE_COMPUTE_THREADS").min(journals.len());
     if journals.len() < MIN_JOURNALS_FOR_THREADS || num_threads < 2 {
         for journal in journals {
             journal.write(
                 import_helper,
-                journal.merged(parents, parent_revs, keep_from),
+                journal.merged(parents, parent_revs, keep_from, desc),
             );
         }
         return;
@@ -2464,7 +2644,7 @@ fn merge_journals(
                     };
                     let journal = &journals[idx];
                     match catch_unwind(AssertUnwindSafe(|| {
-                        journal.merged(&parents, parent_revs, keep_from)
+                        journal.merged(&parents, parent_revs, keep_from, desc)
                     })) {
                         Ok(contents) => result_tx.send((idx, contents)).unwrap(),
                         // The main thread would wait for this result forever.
@@ -2944,6 +3124,7 @@ fn process_linear_revision(
             consolidation,
             None,
             &mut touched,
+            None,
         );
     }
 
@@ -2980,6 +3161,7 @@ fn process_linear_revision(
             consolidation,
             None,
             &mut touched,
+            None,
         );
     }
 
@@ -3002,6 +3184,10 @@ fn process_linear_revision(
             consolidation,
             token_keep_from,
             &mut touched,
+            Some(
+                (delta.added + delta.evolved_from) as i64
+                    - (delta.removed + delta.evolved_into) as i64,
+            ),
         );
     }
 
@@ -3111,8 +3297,19 @@ fn process_merge_revision(
             journals.push(MergeJournal::Delete(files_delta_path(path)));
         }
     }
-    for token in &merge.candidate_tokens {
-        journals.push(MergeJournal::Tokens(token_timeline_path(token)));
+    // (Those whose instances the merge changes too, which are candidates
+    // unless the merge changed them itself, ex: resolving a conflict.)
+    let token_change = |token: &str| merge.token_changes.get(token).copied().unwrap_or(0);
+    let tokens: BTreeSet<&String> = merge
+        .candidate_tokens
+        .iter()
+        .chain(merge.token_changes.keys())
+        .collect();
+    for token in tokens {
+        journals.push(MergeJournal::Tokens(
+            token_timeline_path(token),
+            token_change(token),
+        ));
     }
     seen.extend(journals.iter().map(|journal| journal.path().to_path_buf()));
     // (And the journals which differ between the parents' timeline commits but
@@ -3134,7 +3331,13 @@ fn process_merge_revision(
         }
         let path_str = path.to_string_lossy();
         let journal = if path_str.starts_with("tokens/") {
-            MergeJournal::Tokens(path.clone())
+            // (The journal's file name is its token's.)
+            let token = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .and_then(|name| name.strip_suffix(".ndjson"))
+                .unwrap_or_default();
+            MergeJournal::Tokens(path.clone(), token_change(token))
         } else if path_str.starts_with("future/") {
             MergeJournal::Future(path.clone())
         } else {
@@ -3154,12 +3357,19 @@ fn process_merge_revision(
         seen.insert(path);
         journals.push(journal);
     }
+    let desc = DetailRecordRef {
+        source_rev: rev.clone(),
+        syntax_rev: data.meta.syntax_rev.to_string(),
+        iso_date: data.iso_date.clone(),
+        backs_out: vec![],
+    };
     merge_journals(
         import_helper,
         parents,
         parent_revs,
         &journals,
         keep_from(&data.iso_date),
+        &desc,
     );
 }
 

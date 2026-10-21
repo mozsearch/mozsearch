@@ -54,6 +54,13 @@ pub struct TokenHeader {
     /// `hyperblame::segments`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub segments: Vec<i32>,
+    /// The token's instances (see `hyperblame::token_counts`), which the
+    /// journal's records sum to, so that readers needn't read its segments for
+    /// it (ex: `token_timeline`'s absolute counts).  Histories from before
+    /// journals' sums were exact (merges' records; see build-timeline-tree's
+    /// "Merges") don't have it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub count: Option<i64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -245,56 +252,116 @@ fn bug_number<'a>(token: &'a str, prev: Option<&str>) -> Option<&'a str> {
     None
 }
 
-/// Decide whether a token is interesting enough to be tracked in the per-token
-/// timeline and itemized in per-symbol `token_changes`, returning the key it is
-/// tracked under.  `prev` is the preceding token in the file, if any, which is
-/// used to recognize "Bug NNNNNNN" references.
+/// The parts of a qualified name, `Foo::Bar`, `a->b` or `a.b` (a destructor's
+/// `~` aside), if `word` is one.
+fn qualified_parts(word: &str) -> Option<Vec<&str>> {
+    if !word.contains("::") && !word.contains("->") && !word.contains('.') {
+        return None;
+    }
+    let parts: Vec<&str> = word
+        .split("::")
+        .flat_map(|part| part.split("->"))
+        .flat_map(|part| part.split('.'))
+        .map(|part| part.strip_prefix('~').unwrap_or(part))
+        .collect();
+    let identifier = |part: &&str| {
+        part.starts_with(|c: char| c.is_alphabetic() || c == '_' || c == '$')
+            && part
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == '$')
+    };
+    (parts.len() >= 2 && parts.iter().all(identifier)).then_some(parts)
+}
+
+/// A string literal's text without its quotes and prefix (ex: `u8"..."`,
+/// `R"(...)"`, `'...'`, `` `...` ``), as C and C++ tokens have them (other
+/// languages' grammars give the text without them).
+fn string_text(token: &str) -> &str {
+    let quote = token.find(['"', '\'', '`']);
+    let token = match quote {
+        Some(at) if at <= 3 && token[..at].chars().all(|c| c.is_ascii_alphanumeric()) => {
+            &token[at..]
+        }
+        _ => token,
+    };
+    let token = token.trim_matches(['"', '\'', '`']);
+    // (A raw string's delimiters.)
+    token
+        .strip_prefix('(')
+        .and_then(|t| t.strip_suffix(')'))
+        .unwrap_or(token)
+}
+
+/// Decide which keys a token is tracked under in the per-token timeline and
+/// itemized under in per-symbol `token_changes`, if it's interesting enough,
+/// calling `key` for each: usually one, but the parts of a qualified name in a
+/// comment or a string are tracked (ex: `SystemGlobal::Resolve`, or
+/// `"SystemGlobal.h"`, which a search for `SystemGlobal` finds).  `prev` is the
+/// preceding token in the file, if any, which is used to recognize "Bug
+/// NNNNNNN" references.
 ///
 /// - Keywords, operators, number literals, and boilerplate (license headers
 ///   and modelines) are never tracked.
 /// - Identifiers and words in strings must look like identifiers (see
 ///   `is_trackable_token`) and not be one of the namespace's ubiquitous value
-///   words like `this` or `self`.
+///   words like `this` or `self`.  A string literal's quotes don't count (C
+///   and C++ tokens have them).
 /// - Words in comments and plain text have surrounding punctuation trimmed,
 ///   and must look like identifiers and not be English stopwords.
+/// - The parts of qualified names (`Foo::Bar`, `a->b`, `a.b`; see
+///   `qualified_parts`) in strings, comments and plain text are tracked as
+///   their words would be.  Not URLs and paths, nor prose in strings: in a 1%
+///   sample of firefox-shared's files (2026-10-21), the qualified names and
+///   quoted identifiers added ~3% to the ~1.1M instances tracked, where
+///   comments' URLs and paths would add ~11% and strings' other words ~8%.
 /// - Bug references in comments, plain text, and strings are tracked under a
 ///   `bug-NNNNNNN` key, which can't collide with identifiers.
 ///
 /// Lines lacking a class (from older syntax repos) are treated as identifiers.
-pub fn tracked_token_key<'a>(
+pub fn tracked_token_keys<'a>(
     namespace: &str,
     line: &TokenLine<'a>,
     prev: Option<&TokenLine>,
-) -> Option<Cow<'a, str>> {
+    key: &mut impl FnMut(Cow<'a, str>),
+) {
     let class = match line.class {
         TokenClass::Unknown => TokenClass::Identifier,
         class => class,
     };
+    let value_word = |word: &str| namespace_value_words(namespace).contains(&word);
     match class {
         TokenClass::Keyword
         | TokenClass::Operator
         | TokenClass::Number
-        | TokenClass::Boilerplate => None,
+        | TokenClass::Boilerplate => {}
         TokenClass::Identifier => {
             let token = line.token;
-            (is_trackable_token(token) && !namespace_value_words(namespace).contains(&token))
-                .then_some(Cow::Borrowed(token))
+            if is_trackable_token(token) && !value_word(token) {
+                key(Cow::Borrowed(token));
+            }
         }
         TokenClass::String | TokenClass::Comment | TokenClass::Text => {
             if let Some(bug) = bug_number(line.token, prev.map(|p| p.token)) {
-                return Some(Cow::Owned(format!("bug-{}", bug)));
+                key(Cow::Owned(format!("bug-{}", bug)));
+                return;
             }
-            if class == TokenClass::String {
-                let token = line.token;
-                return (is_trackable_token(token)
-                    && !namespace_value_words(namespace).contains(&token))
-                .then_some(Cow::Borrowed(token));
+            let (word, prose) = match class {
+                TokenClass::String if is_trackable_token(line.token) => (line.token, false),
+                TokenClass::String => (string_text(line.token), false),
+                _ => (trim_punctuation(line.token), true),
+            };
+            let tracked = |word: &str| {
+                is_trackable_token(word) && !(prose && is_prose_stopword(word)) && !value_word(word)
+            };
+            if tracked(word) {
+                key(Cow::Borrowed(word));
+            } else if let Some(parts) = qualified_parts(word) {
+                for part in parts {
+                    if tracked(part) {
+                        key(Cow::Borrowed(part));
+                    }
+                }
             }
-            let word = trim_punctuation(line.token);
-            (is_trackable_token(word)
-                && !is_prose_stopword(word)
-                && !namespace_value_words(namespace).contains(&word))
-            .then_some(Cow::Borrowed(word))
         }
         TokenClass::Unknown => unreachable!(),
     }
@@ -333,7 +400,7 @@ mod tests {
         assert!(!is_trackable_token("\"hello\""));
     }
 
-    fn key(namespace: &str, class: TokenClass, token: &str, prev: Option<&str>) -> Option<String> {
+    fn keys(namespace: &str, class: TokenClass, token: &str, prev: Option<&str>) -> Vec<String> {
         let line = TokenLine {
             context: "%",
             class,
@@ -344,7 +411,18 @@ mod tests {
             class,
             token: p,
         });
-        tracked_token_key(namespace, &line, prev.as_ref()).map(|k| k.into_owned())
+        let mut keys = vec![];
+        tracked_token_keys(namespace, &line, prev.as_ref(), &mut |k| {
+            keys.push(k.into_owned())
+        });
+        keys
+    }
+
+    /// The only key a token has, if any.
+    fn key(namespace: &str, class: TokenClass, token: &str, prev: Option<&str>) -> Option<String> {
+        let keys = keys(namespace, class, token, prev);
+        assert!(keys.len() <= 1, "{:?}", keys);
+        keys.into_iter().next()
     }
 
     #[test]
@@ -372,7 +450,32 @@ mod tests {
             some("ServiceWorker")
         );
         assert_eq!(key("cpp", Comment, "`Foo()`.", None), some("Foo"));
-        assert_eq!(key("cpp", Comment, "mozilla::dom", None), None);
+        // Qualified names' parts, but not URLs, paths, or stopwords.
+        let words = |w: &[&str]| w.iter().map(|w| w.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            keys("cpp", Comment, "mozilla::dom", None),
+            words(&["mozilla", "dom"])
+        );
+        assert_eq!(
+            keys("cpp", Comment, "`SystemGlobal::Resolve()`,", None),
+            words(&["SystemGlobal", "Resolve"])
+        );
+        assert_eq!(
+            keys("cpp", Comment, "Foo::~Foo", None),
+            words(&["Foo", "Foo"])
+        );
+        assert_eq!(
+            keys("cpp", Comment, "mWidget->Frob", None),
+            words(&["mWidget", "Frob"])
+        );
+        assert_eq!(keys("cpp", Comment, "this->mFoo", None), words(&["mFoo"]));
+        assert_eq!(keys("cpp", Comment, "the.end", None), words(&["end"]));
+        assert_eq!(
+            keys("cpp", Comment, "https://example.com/foo", None),
+            words(&[])
+        );
+        assert_eq!(keys("cpp", Comment, "dom/base/Foo.cpp", None), words(&[]));
+        assert_eq!(keys("cpp", Comment, "e.g.", None), words(&[]));
         assert_eq!(key("none", Text, "skip-if", None), None);
         assert_eq!(key("config", Text, "true", None), None);
         assert_eq!(key("config", Text, "condprof", None), some("condprof"));
@@ -409,9 +512,31 @@ mod tests {
         assert_eq!(key("cpp", Comment, "Größe", None), some("Größe"));
         // Other numbers in comments aren't bug references.
         assert_eq!(key("cpp", Comment, "65536", Some("up")), None);
-        // Words in strings must look like identifiers.
+        // Words in strings must look like identifiers, quotes aside, or be
+        // qualified names.
         assert_eq!(key("js", String, "error", None), some("error"));
-        assert_eq!(key("cpp", String, "\"dom.foo\"", None), None);
+        assert_eq!(
+            key("cpp", String, "\"SystemGlobal\"", None),
+            some("SystemGlobal")
+        );
+        assert_eq!(key("cpp", String, "u8\"Widget\"", None), some("Widget"));
+        assert_eq!(key("cpp", String, "R\"(Widget)\"", None), some("Widget"));
+        assert_eq!(key("py", String, "'Widget'", None), some("Widget"));
+        assert_eq!(
+            keys("cpp", String, "\"SystemGlobal.h\"", None),
+            words(&["SystemGlobal"])
+        );
+        assert_eq!(
+            keys("cpp", String, "\"dom.foo\"", None),
+            words(&["dom", "foo"])
+        );
+        assert_eq!(keys("cpp", String, "\"Hello, world\"", None), words(&[]));
+        assert_eq!(keys("cpp", String, "\"*SystemGlobal*\"", None), words(&[]));
+        assert_eq!(
+            keys("cpp", String, "\"@mozilla.org/foo;1\"", None),
+            words(&[])
+        );
+        assert_eq!(key("cpp", String, "\"this\"", None), None);
         // Lines from older syntax repos lack a class.
         assert_eq!(key("cpp", Unknown, "mCount", None), some("mCount"));
     }
