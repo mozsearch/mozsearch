@@ -24,9 +24,15 @@ etc. The indexing instances have an extra Elastic Block Store volume attached
 where the index will be stored: 300 GiB (400 GiB for release2 and release3),
 unless the config file asks for a different size with `"index_volume_gb"` (ex:
 config8.json, whose firefox-disco tree keeps a ~120 GiB history in
-firefox-shared; see `infrastructure/aws/attach-index-volume.py`). The
-following paragraphs explain the lifecycle of a single indexer and its web
-server; the lifecycle applies to each indexer instance.
+firefox-shared, or config4.json; see `infrastructure/aws/attach-index-volume.py`).
+The indexer builds the index in a partition of that size on its SSD (see
+`infrastructure/aws/mkscratch.sh`), so it must hold all of the channel's trees
+at their peak.  Web servers with an SSD copy the volume to it at the block
+level only if its filesystem fits there (m6id.2xlarge's SSD is 474 GB, ~441
+GiB), and otherwise copy its files, which takes hours for a big index (see
+`infrastructure/aws/web-serve.sh`). The following paragraphs explain the
+lifecycle of a single indexer and its web server; the lifecycle applies
+to each indexer instance.
 
 Note that as of this writing, config1.json, config2.json, config4.json,
 config5.json, and config6.json
