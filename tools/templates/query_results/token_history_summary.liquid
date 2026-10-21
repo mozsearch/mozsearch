@@ -1,0 +1,46 @@
+{%- comment -%}
+  What the history says about a token's removals (`history`, a
+  `hyperblame::token_history::TokenHistory` with removals): how many of its
+  instances its last removals removed, their biggest commits (and the last),
+  with the files and symbols named by the token which they removed or renamed,
+  and what replaced it, with a search for it.  For the results' note
+  (token_history_note.liquid) and the token-history: view.
+{%- endcomment -%}
+{%- if history.since contains "-W" %}{% assign since_prep = "in" %}{% else %}{% assign since_prep = "on" %}{% endif %}
+<p class="token-history-summary">
+  {{ history.removed | thousands }} instances of <code>{{ history.token | escape }}</code> were removed
+  {%- if history.removals > 1 %} mostly{% endif %}
+  {% if history.since == history.until %}{{ since_prep }} {{ history.since }}{% else %}from {{ history.since }} to {{ history.until }}{% endif %}
+  {%- if history.peak > history.removed %} (it had {{ history.peak | thousands }} more than now at most, before {{ history.peak_when }}){% endif -%}
+  {%- if history.removals > history.commits.size %}, by {{ history.removals | thousands }} commits and weeks of commits, the biggest of them and the last:{% else %}, by:{% endif %}
+</p>
+<ul class="token-history-commits">
+{%- for commit in history.commits %}
+  <li>
+    <a href="/{{ tree }}/commit/{{ commit.rev }}"><code>{{ commit.rev | slice: 0, 12 }}</code></a> {{ commit.date }}{% if commit.header != empty %}: {{ commit.header }}{% endif %}
+    <span class="token-history-counts">({{ commit.removed | thousands }} removed
+    {%- if commit.added > 0 %}, {{ commit.added | thousands }} added{% endif %}
+    {%- if commit.week %}; the week {{ commit.week.week }}'s {{ commit.week.commits }} commits removed {{ commit.week.removed | thousands }}{% endif %}
+    {%- if commit.backed_out %}; backed out{% endif %})</span>
+    {%- if commit.files != empty or commit.symbols != empty %}
+    <ul class="token-history-names">
+      {%- for file in commit.files %}
+      <li>{% if file.to %}Renamed <code>{{ file.name | escape }}</code> to <code>{{ file.to | escape }}</code>{% else %}Deleted <code>{{ file.name | escape }}</code>{% endif %}</li>
+      {%- endfor %}
+      {%- for symbol in commit.symbols %}
+      <li>{% if symbol.to %}Renamed <code>{{ symbol.name | escape }}</code> to <code>{{ symbol.to | escape }}</code>{% else %}Removed <code>{{ symbol.name | escape }}</code>{% endif %}</li>
+      {%- endfor %}
+      {%- if commit.more_symbols > 0 %}
+      <li>and {{ commit.more_symbols | thousands }} other symbols named by it</li>
+      {%- endif %}
+    </ul>
+    {%- endif %}
+  </li>
+{%- endfor %}
+</ul>
+{%- if history.renamed_to %}
+<p class="token-history-replacement">It was renamed to <code>{{ history.renamed_to | escape }}</code>: <a href="/{{ tree }}/query/default?q={{ history.renamed_to | url_encode }}">search for {{ history.renamed_to | escape }}</a>.</p>
+{%- elsif history.replaced_by != empty %}
+<p class="token-history-replacement">In those commits, it was replaced by
+{%- for replacement in history.replaced_by %} <a href="/{{ tree }}/query/default?q={{ replacement.token | url_encode }}"><code>{{ replacement.token | escape }}</code></a> ({{ replacement.percent }}%){% unless forloop.last %},{% endunless %}{% endfor %}.</p>
+{%- endif %}

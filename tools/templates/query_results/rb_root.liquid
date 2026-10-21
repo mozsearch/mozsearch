@@ -4,6 +4,10 @@
   `results_file_facets` in pipeline-server.rs), which filter the files (and
   hide the groups left without any).
 {%- endcomment -%}
+{%- comment %} (Only there if they removed more than the results have.) {% endcomment %}
+{%- if results.FlattenedResultsBundle contains "token_history" %}
+{% include 'query_results/token_history_note.liquid' history: results.FlattenedResultsBundle.token_history %}
+{%- endif %}
 {%- comment %} (Like /search/'s; `limits_hit` is only there if some were.) {% endcomment %}
 {%- if results.FlattenedResultsBundle contains "limits_hit" %}
 <div class="query-limits"><b>Warning</b>: The following limits were hit in your search: {{ results.FlattenedResultsBundle.limits_hit | join: ", " | escape }}</div>

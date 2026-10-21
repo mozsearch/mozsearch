@@ -130,6 +130,10 @@ async fn main() {
             emit_json(&jv.value);
             0
         }
+        Ok(PipelineValues::TokenHistory(th)) => {
+            emit_json(&to_value(th).unwrap());
+            0
+        }
         Ok(PipelineValues::JsonValueList(jvl)) => {
             emit_json(&to_value(jvl).unwrap());
             0

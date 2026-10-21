@@ -213,6 +213,9 @@ async fn main() -> Result<(), std::io::Error> {
                     Ok(PipelineValues::SymbolTreeTableList(sttl)) => {
                         insta::assert_json_snapshot!(&to_value(sttl).unwrap());
                     }
+                    Ok(PipelineValues::TokenHistory(th)) => {
+                        insta::assert_json_snapshot!(&to_value(th).unwrap());
+                    }
                     Err(ServerError::Unsupported) => {
                         unsupported = true;
                     }

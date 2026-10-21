@@ -37,6 +37,23 @@ input_file: inputs/web/query/parsing/simple/default__unquoted_dashed__json
       "output": "file-search",
       "depth": 0
     },
+    "removal-search": {
+      "input": null,
+      "segments": [
+        {
+          "command": "token-history",
+          "args": {
+            "bool_args": [],
+            "named_args": {},
+            "positional_args": [
+              "--tricky"
+            ]
+          }
+        }
+      ],
+      "output": "removal-search",
+      "depth": 0
+    },
     "semantic-search": {
       "input": null,
       "segments": [
@@ -92,6 +109,7 @@ input_file: inputs/web/query/parsing/simple/default__unquoted_dashed__json
     "compile": {
       "inputs": [
         "file-search",
+        "removal-search",
         "semantic-search",
         "text-search"
       ],
@@ -112,6 +130,9 @@ input_file: inputs/web/query/parsing/simple/default__unquoted_dashed__json
       "groups": [
         [
           "file-search"
+        ],
+        [
+          "removal-search"
         ],
         [
           "semantic-search"

@@ -352,6 +352,8 @@ term = "file"
 term = "idprefix"
 [[term.default.expand]]
 term = "text"
+[[term.default.expand]]
+term = "removals"
 
 [term.file]
 [[term.file.group.file-search]]
@@ -407,7 +409,8 @@ transforms = ["path_glob"]
 
 # Case-sensitivity: the text and identifiers a query searches, if it does,
 # ignore case, but with `case:sensitive` (ex: router.py's search's
-# "Case-sensitive" option).
+# "Case-sensitive" option), and so do token histories, which otherwise are of
+# the token's case variant with the most removals.
 [term.case]
 values = ["sensitive", "insensitive"]
 [[term.case.group.text-search]]
@@ -417,6 +420,16 @@ amend = true
 args.case-sensitive = true
 [[term.case.group.semantic-search]]
 command = "search-identifiers"
+when = "sensitive"
+amend = true
+args.case-sensitive = true
+[[term.case.group.removal-search]]
+command = "token-history"
+when = "sensitive"
+amend = true
+args.case-sensitive = true
+[[term.case.group.token-history]]
+command = "token-history"
 when = "sensitive"
 amend = true
 args.case-sensitive = true
@@ -564,6 +577,23 @@ args.positional = "$0"
 command = "search-text"
 args.positional = "$0"
 
+# What the history says about the removals of the token searched for (see
+# hyperblame/token_history.rs), which the results note if they removed more of
+# its instances than the results have (ex: a class since renamed; see
+# cmd_compile_results.rs).
+[term.removals]
+[[term.removals.group.removal-search]]
+command = "token-history"
+args.positional = "$0"
+
+# A token's history: the commits which removed most of its instances, what
+# replaced it, and its journal's records (see hyperblame/token_history.rs).
+[term.token-history]
+[[term.token-history.group.token-history]]
+command = "token-history"
+args.positional = "$0"
+args.view = true
+
 [group.file-search]
 output = "file-search"
 junction = "compile"
@@ -574,6 +604,10 @@ junction = "compile"
 
 [group.text-search]
 output = "text-search"
+junction = "compile"
+
+[group.removal-search]
+output = "removal-search"
 junction = "compile"
 
 [junction.compile]
@@ -636,6 +670,9 @@ output = "result"
 output = "result"
 
 [group.crash]
+output = "result"
+
+[group.token-history]
 output = "result"
 
 [group.semantic-lookup]

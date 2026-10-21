@@ -36,6 +36,9 @@
 //! - `journal?kind=&target=[&source_rev=][&expand=true]`: a history timeline
 //!   journal's records (`kind` is `future`, `files-delta` or `tokens`; see
 //!   `fetch_history_journal`).
+//! - `token-history?token=[&case_sensitive=true][&view=true]`: what the
+//!   history says about a token's removals (`null` if it has no journal for
+//!   it; see `token_history`).
 //! - `linked-crossref?tree=&sym=`: a linked tree's crossref entry for a
 //!   symbol of the tree's (see `linked_crossref_lookup`).
 //! - `text?re=[&fold_case=true][&path=][&not_path=][&limit=]`: the lines
@@ -115,6 +118,7 @@ use tokio_stream::StreamExt;
 
 use crate::abstract_server::{AbstractServer, ErrorLayer, ServerError};
 use crate::hyperblame::journals::JournalKind;
+use crate::hyperblame::token_history::TokenHistoryOptions;
 use crate::try_delta::is_full_rev;
 
 /// The responses' size cap, unless the request's `max_bytes` says otherwise.
@@ -507,6 +511,13 @@ const ROUTES: &[Route] = &[
         name: "journal",
         takes_path: false,
         params: &["kind", "target", "source_rev", "expand"],
+        host: Host::PipelineServer,
+        post: false,
+    },
+    Route {
+        name: "token-history",
+        takes_path: false,
+        params: &["token", "case_sensitive", "view"],
         host: Host::PipelineServer,
         post: false,
     },
@@ -1354,6 +1365,20 @@ async fn route_body(
                 .await
                 .map_err(error)?;
             Ok(Body::json(&Value::Array(records)))
+        }
+        "token-history" => {
+            let token = params.required("token")?;
+            if token.is_empty() || token.len() > MAX_SYM_BYTES {
+                return Err(bad("token must be a token"));
+            }
+            let opts = TokenHistoryOptions {
+                case_sensitive: params.flag("case_sensitive")?,
+                view: params.flag("view")?,
+            };
+            let history = server.token_history(token, opts).await.map_err(error)?;
+            Ok(Body::json(
+                &serde_json::to_value(history).unwrap_or_default(),
+            ))
         }
         "linked-crossref" => {
             let tree = params.required("tree")?;

@@ -39,6 +39,9 @@ use crate::file_format::repo_data_ingestion::RepoIngestionConfig;
 use crate::format::format_code;
 use crate::git_ops::{RevisionCoverage, coverage_history, coverage_summary, git_time_to_chrono};
 use crate::hyperblame::journals::{JournalKind, JournalReader};
+use crate::hyperblame::token_history::{
+    TokenHistory, TokenHistoryOptions, header_html, token_history,
+};
 use crate::languages::select_formatting;
 use crate::source_mapping::{NotesRefs, SourceMapping, default_notes_ref};
 use crate::try_delta::TryDelta;
@@ -671,6 +674,38 @@ impl AbstractServer for LocalIndex {
         JournalReader::new(&repo)
             .records_json(kind, &version, expand)
             .map_err(|e| problem(ErrorLayer::DataLayer, e))
+    }
+
+    async fn token_history(
+        &self,
+        token: &str,
+        opts: TokenHistoryOptions,
+    ) -> Result<Option<TokenHistory>> {
+        // (Trees without the token-centric history have none.)
+        let cfg = self.tree_config_loaded();
+        let Some(git) = cfg
+            .trees
+            .get(&self.tree_name)
+            .and_then(|tree| tree.git.as_ref())
+        else {
+            return Err(ServerError::Unsupported);
+        };
+        let Some(history) = &git.history else {
+            return Err(ServerError::Unsupported);
+        };
+        // (The view's records' commits' headers, from the tree's repo.)
+        let header = |rev: &str| {
+            let commit = git2::Oid::from_str(rev)
+                .ok()
+                .and_then(|oid| git.repo.find_commit(oid).ok())?;
+            Some(header_html(commit.message().ok()?))
+        };
+        token_history(history, token, opts, &header).map_err(|message| {
+            ServerError::StickyProblem(ErrorDetails {
+                layer: ErrorLayer::DataLayer,
+                message,
+            })
+        })
     }
 
     async fn fetch_formatted_lines(&self, sf_path: &str) -> Result<(Vec<String>, String)> {

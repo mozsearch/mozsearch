@@ -1,0 +1,9 @@
+{%- comment -%}
+  The results' note of the removals of the token searched for, if they removed
+  more of its instances than the results have (see cmd_compile_results.rs).
+{%- endcomment -%}
+<div class="token-history-note">
+{% include 'query_results/token_history_summary.liquid' history: history %}
+<p class="token-history-more"><a href="/{{ tree }}/query/default?q=token-history:{{ history.token | url_encode }}%20case:sensitive">The history of <code>{{ history.token | escape }}</code></a>
+{%- if history.variants != empty %} (and of its case variants{% for variant in history.variants %} <a href="/{{ tree }}/query/default?q=token-history:{{ variant | url_encode }}%20case:sensitive"><code>{{ variant | escape }}</code></a>{% unless forloop.last %},{% endunless %}{% endfor %}){% endif %}.</p>
+</div>

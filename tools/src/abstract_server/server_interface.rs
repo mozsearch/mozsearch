@@ -16,6 +16,7 @@ use crate::file_format::recency::FileRecency;
 use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::git_ops::RevisionCoverage;
 use crate::hyperblame::journals::JournalKind;
+use crate::hyperblame::token_history::{TokenHistory, TokenHistoryOptions};
 
 pub type Result<T> = std::result::Result<T, ServerError>;
 
@@ -732,4 +733,16 @@ pub trait AbstractServer {
         source_rev: Option<&str>,
         expand: bool,
     ) -> Result<Vec<Value>>;
+
+    /// What the history says about `token`'s removals: the commits which
+    /// removed most of its instances, and what replaced it (see
+    /// `hyperblame::token_history`), or None if the history has no journal
+    /// for it.  Unsupported if the tree has no token-centric history.
+    async fn token_history(
+        &self,
+        _token: &str,
+        _opts: TokenHistoryOptions,
+    ) -> Result<Option<TokenHistory>> {
+        Err(ServerError::Unsupported)
+    }
 }

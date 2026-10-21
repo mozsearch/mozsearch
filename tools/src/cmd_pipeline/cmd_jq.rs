@@ -159,6 +159,9 @@ impl PipelineCommand for JQCommand {
             PipelineValues::TextMatches(tm) => PipelineValues::JsonValue(JsonValue {
                 value: self.filter(to_value(tm).unwrap())?,
             }),
+            PipelineValues::TokenHistory(th) => PipelineValues::JsonValue(JsonValue {
+                value: self.filter(to_value(th).unwrap())?,
+            }),
             PipelineValues::HtmlExcerpts(he) => PipelineValues::JsonValue(JsonValue {
                 value: self.filter(to_value(he).unwrap())?,
             }),

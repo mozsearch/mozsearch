@@ -20,6 +20,7 @@ use crate::{
         jumpref::{JumprefData, convert_crossref_value_to_sym_info_rep},
         recency::Recency,
     },
+    hyperblame::token_history::TokenHistory,
     tree_sitter_support::preprocessor::joined_condition,
     url_encode_path::url_encode_path,
 };
@@ -319,7 +320,21 @@ pub enum PipelineValues {
     TextFile(TextFile),
     BatchGroups(BatchGroups),
     SymbolTreeTableList(SymbolTreeTableList),
+    TokenHistory(TokenHistoryValue),
     Void,
+}
+
+/// What a token's history says about its removals (see `cmd_token_history`),
+/// for compile-results to note, or as the `token-history:` view.
+#[derive(Serialize)]
+pub struct TokenHistoryValue {
+    /// The token asked about.
+    pub token: String,
+    /// Its history, if it has one.
+    pub history: Option<TokenHistory>,
+    /// Whether the tree's server has no histories (ex: the tree has the
+    /// classic line blame).
+    pub unsupported: bool,
 }
 
 /// A list of (searchfox) identifiers.
@@ -587,6 +602,11 @@ pub struct FlattenedResultsBundle {
     /// `file_format::recency::FileRecency`), by path.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub file_recency: BTreeMap<Ustr, Recency>,
+    /// What the history says about the removals of the token searched for,
+    /// if they removed more of its instances than the results have (see
+    /// `cmd_compile_results`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_history: Option<TokenHistory>,
 }
 
 impl FlattenedResultsBundle {

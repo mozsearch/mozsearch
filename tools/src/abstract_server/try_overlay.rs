@@ -37,6 +37,7 @@ use crate::file_format::repo_data_ingestion::ConcisePerFileInfo;
 use crate::format::{format_code, source_rows_html};
 use crate::git_ops::{RevisionCoverage, git_time_to_chrono};
 use crate::hyperblame::journals::JournalKind;
+use crate::hyperblame::token_history::{TokenHistory, TokenHistoryOptions};
 use crate::languages::select_formatting;
 use crate::try_delta::{FileChange, TryDelta};
 
@@ -606,5 +607,14 @@ impl AbstractServer for TryOverlay {
         self.base
             .fetch_history_journal(kind, target, source_rev, expand)
             .await
+    }
+
+    // (The indexed revision's history; a try push's commits aren't in it.)
+    async fn token_history(
+        &self,
+        token: &str,
+        opts: TokenHistoryOptions,
+    ) -> Result<Option<TokenHistory>> {
+        self.base.token_history(token, opts).await
     }
 }

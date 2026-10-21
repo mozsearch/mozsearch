@@ -25,6 +25,7 @@ use super::cmd_search_files::SearchFiles;
 use super::cmd_search_identifiers::SearchIdentifiers;
 use super::cmd_search_text::SearchText;
 use super::cmd_show_html::ShowHtml;
+use super::cmd_token_history::TokenHistoryArgs;
 use super::cmd_tokenize_source::TokenizeSource;
 use super::cmd_traverse::Traverse;
 use super::cmd_webtest::Webtest;
@@ -97,6 +98,7 @@ pub enum Command {
     Dataflow(Dataflow),
     BlockDiagram(BlockDiagram),
     CrashStack(CrashStack),
+    TokenHistory(TokenHistoryArgs),
     Traverse(Traverse),
     Webtest(Webtest),
 }

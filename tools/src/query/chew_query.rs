@@ -790,12 +790,14 @@ mod tests {
 
     #[test]
     fn test_case_sensitivity() {
-        // (The searches of text and identifiers are case-sensitive.)
+        // (The searches of text and identifiers are case-sensitive, and so is
+        // the token's history's.)
         let groups: serde_json::Value =
             serde_json::from_str(&values("Foo case:sensitive")).unwrap();
         for (group, command) in [
             ("text-search", "search-text"),
             ("semantic-search", "search-identifiers"),
+            ("removal-search", "token-history"),
         ] {
             let segment = groups[group]["segments"]
                 .as_array()
@@ -827,6 +829,23 @@ mod tests {
         );
         assert!(values("foo path:dom bar").contains("\"foo bar\""));
         assert_eq!(values("foo"), values("default:foo"));
+    }
+
+    #[test]
+    fn test_token_history() {
+        // (A search looks up its token's history for compile-results, and
+        // `token-history:` shows it.)
+        let groups: serde_json::Value = serde_json::from_str(&values("BackstagePass")).unwrap();
+        let segment = &groups["removal-search"]["segments"][0];
+        assert_eq!(segment["command"], "token-history");
+        assert_eq!(segment["args"]["positional_args"][0], "BackstagePass");
+        assert!(!values("BackstagePass").contains("\"view\""));
+        let groups: serde_json::Value =
+            serde_json::from_str(&values("token-history:BackstagePass")).unwrap();
+        let segment = &groups["token-history"]["segments"][0];
+        assert_eq!(segment["command"], "token-history");
+        assert_eq!(segment["args"]["bool_args"][0], "view");
+        assert!(groups.get("text-search").is_none());
     }
 
     #[test]

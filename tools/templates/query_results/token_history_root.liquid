@@ -1,0 +1,66 @@
+{%- comment -%}
+  The token-history: view (see cmd_token_history.rs): what the history says
+  about the token's removals, its case variants, and its journal's records
+  (as far as hyperblame::token_history::VIEW_READ_BUDGET goes), by year and
+  each.
+{%- endcomment -%}
+{%- assign value = results.TokenHistory %}
+<div class="token-history-view">
+{%- if value.unsupported %}
+<p>This tree has no token-centric history.</p>
+{%- elsif value.history == nil %}
+<p>The history has nothing for <code>{{ value.token | escape }}</code>: it follows identifiers and other words of code and text (and bug numbers, as <code>bug-NNNNNN</code>), and nothing had this one.</p>
+{%- else %}
+{%- assign history = value.history %}
+<h2>The history of <code>{{ history.token | escape }}</code></h2>
+{%- if history.token != value.token %}
+<p>(The case variant of <code>{{ value.token | escape }}</code> whose removals removed the most.)</p>
+{%- endif %}
+{%- if history.removed > 0 %}
+{% include 'query_results/token_history_summary.liquid' history: history %}
+{%- else %}
+<p>Its history has no removals to note: it hasn't lost much of what it had.</p>
+{%- endif %}
+{%- if history.variants != empty %}
+<p>Its case variants' histories:
+{%- for variant in history.variants %} <a href="/{{ tree }}/query/default?q=token-history:{{ variant | url_encode }}%20case:sensitive"><code>{{ variant | escape }}</code></a>{% unless forloop.last %},{% endunless %}{% endfor %}.</p>
+{%- endif %}
+<p class="token-history-extent">Its records from {{ history.oldest }} to {{ history.latest }}
+{%- unless history.read_all %} (the newest of them; the older ones aren't shown){% endunless %}: the instances each commit (or week of commits) added and removed, and how many more than now the token had after it.  Instances which evolved from or into other tokens (ex: renamed) count as added and removed.</p>
+{%- assign max = 1 %}
+{%- for year in history.years %}{% if year.relative > max %}{% assign max = year.relative %}{% endif %}{% endfor %}
+<table class="token-history-years">
+  <thead><tr><th>Year</th><th>Added</th><th>Removed</th><th>More than now at its end</th></tr></thead>
+  <tbody>
+  {%- for year in history.years reversed %}
+    <tr>
+      <td>{{ year.year }}</td>
+      <td class="token-history-added">{% if year.added > 0 %}+{{ year.added | thousands }}{% endif %}</td>
+      <td class="token-history-removed">{% if year.removed > 0 %}&minus;{{ year.removed | thousands }}{% endif %}</td>
+      <td class="token-history-relative"><span class="token-history-bar-box">{% if year.relative > 0 %}{% assign width = year.relative | times: 100 | divided_by: max %}<span class="token-history-bar" style="width: {{ width }}%"></span>{% endif %}</span>{{ year.relative | thousands }}</td>
+    </tr>
+  {%- endfor %}
+  </tbody>
+</table>
+<table class="token-history-records">
+  <thead><tr><th>When</th><th>Commit</th><th>Added</th><th>Removed</th><th>After</th></tr></thead>
+  <tbody>
+  {%- for record in history.records %}
+    <tr>
+      <td class="token-history-when">{{ record.when }}</td>
+      <td class="token-history-commit">
+      {%- if record.revs.size == 1 %}
+        <a href="/{{ tree }}/commit/{{ record.revs[0] }}"><code>{{ record.revs[0] | slice: 0, 12 }}</code></a>{% if record.header != empty %} {{ record.header }}{% endif %}
+      {%- else %}
+        {{ record.revs.size }} commits:{% for rev in record.revs %} <a href="/{{ tree }}/commit/{{ rev }}"><code>{{ rev | slice: 0, 8 }}</code></a>{% endfor %}
+      {%- endif %}
+      </td>
+      <td class="token-history-added">{% if record.added > 0 %}+{{ record.added | thousands }}{% endif %}{% if record.evolved_from > 0 %} <span title="evolved from other tokens">+{{ record.evolved_from | thousands }}&#x2190;</span>{% endif %}</td>
+      <td class="token-history-removed">{% if record.removed > 0 %}&minus;{{ record.removed | thousands }}{% endif %}{% if record.evolved_into > 0 %} <span title="evolved into other tokens">&minus;{{ record.evolved_into | thousands }}&#x2192;</span>{% endif %}</td>
+      <td class="token-history-relative">{{ record.relative | thousands }}</td>
+    </tr>
+  {%- endfor %}
+  </tbody>
+</table>
+{%- endif %}
+</div>

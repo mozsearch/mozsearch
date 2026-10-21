@@ -5447,3 +5447,89 @@ textarea.monospace {
 .rendered-spec dfn[data-symbols] {
   cursor: pointer;
 }
+
+/* What the history says about the removals of a token searched for (see
+   tools/src/hyperblame/token_history.rs): the results' note, if they removed
+   more of its instances than the results have, and the token-history: view. */
+.token-history-note {
+  max-width: 70em;
+  margin: 0.5em 1rem;
+  padding: 0.3em 0.8em;
+  border-left: 3px solid var(--link-color);
+  background-color: color-mix(in srgb, var(--link-color) 8%, transparent);
+  font-size: 13px;
+}
+.token-history-note p,
+.token-history-view p {
+  margin: 0.4em 0;
+}
+.token-history-commits,
+.token-history-names {
+  margin: 0.2em 0;
+  padding-left: 1.5em;
+}
+.token-history-counts {
+  color: color-mix(in srgb, currentColor 65%, transparent);
+}
+.token-history-names {
+  font-size: 12px;
+}
+.token-history-names code,
+.token-history-summary code {
+  word-break: break-all;
+}
+.token-history-view {
+  max-width: 80em;
+  margin: 0.5em 1rem;
+  font-size: 13px;
+}
+.token-history-view h2 {
+  font-size: 1.3em;
+}
+.token-history-extent {
+  color: color-mix(in srgb, currentColor 75%, transparent);
+}
+.token-history-years,
+.token-history-records {
+  margin: 0.6em 0 1em;
+  border-collapse: collapse;
+}
+.token-history-years th,
+.token-history-records th {
+  text-align: left;
+  font-weight: normal;
+  color: color-mix(in srgb, currentColor 65%, transparent);
+}
+.token-history-years td,
+.token-history-years th,
+.token-history-records td,
+.token-history-records th {
+  padding: 0.1em 0.6em;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+  vertical-align: top;
+}
+.token-history-bar-box {
+  display: inline-block;
+  width: 15em;
+  margin-right: 0.4em;
+}
+.token-history-bar {
+  display: inline-block;
+  height: 0.8em;
+  background-color: color-mix(in srgb, var(--link-color) 45%, transparent);
+}
+.token-history-added {
+  color: #2f8d46;
+  white-space: nowrap;
+}
+.token-history-removed {
+  color: #c4383e;
+  white-space: nowrap;
+}
+.token-history-when,
+.token-history-relative {
+  white-space: nowrap;
+}
+.token-history-records .token-history-relative {
+  text-align: right;
+}

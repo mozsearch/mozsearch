@@ -13,6 +13,7 @@ use super::interface::{
 };
 
 use crate::file_format::recency::Recency;
+use crate::hyperblame::token_history::MIN_REMOVED;
 use crate::{
     abstract_server::{
         AbstractServer, ErrorDetails, ErrorLayer, FileMatch, Result, ServerError,
@@ -599,6 +600,7 @@ impl SearchResults {
             limits_hit: limits_hit.into_iter().collect(),
             text_pattern: self.text_pattern,
             file_recency: BTreeMap::new(),
+            token_history: None,
         }
     }
 }
@@ -622,6 +624,7 @@ impl PipelineJunctionCommand for CompileResultsCommand {
         // as labels we want to propagate.  Text matches go last, since the
         // semantic results' tokens make matches inside them redundant.
         let mut text_inputs = vec![];
+        let mut token_history = None;
         for (_, pipe_value) in input {
             match pipe_value {
                 PipelineValues::FileMatches(fm) => {
@@ -638,6 +641,7 @@ impl PipelineJunctionCommand for CompileResultsCommand {
                     }
                 }
                 PipelineValues::TextMatches(tm) => text_inputs.push(tm),
+                PipelineValues::TokenHistory(th) => token_history = th.history,
                 _ => {
                     return Err(ServerError::StickyProblem(ErrorDetails {
                         layer: ErrorLayer::ConfigLayer,
@@ -677,8 +681,27 @@ impl PipelineJunctionCommand for CompileResultsCommand {
                 .map(ustr)
                 .collect();
         }
-        let results_bundle =
+        let mut results_bundle =
             results.compile(self.args.file_limit, self.args.line_limit, &path_kind_order);
+
+        // The history of the token searched for, if its last removals removed
+        // more of its instances than the results have (see
+        // `hyperblame::token_history`): ex: a class since renamed, whose
+        // search finds the mentions left in comments.
+        if let Some(history) = token_history
+            && history.removed >= MIN_REMOVED
+            && results_bundle.limits_hit.is_empty()
+        {
+            let results = results_bundle.line_spans().count()
+                + results_bundle
+                    .path_kind_results
+                    .iter()
+                    .map(|group| group.file_names.len())
+                    .sum::<usize>();
+            if history.removed as usize > results {
+                results_bundle.token_history = Some(history);
+            }
+        }
 
         Ok(PipelineValues::FlattenedResultsBundle(results_bundle))
     }

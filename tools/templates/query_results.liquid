@@ -53,6 +53,8 @@
             {% include 'query_results/symbol_tree_table_list_root.liquid' %}
         {% when "TextFile" %}
           {% include 'query_results/text_file_root.liquid' %}
+        {% when "TokenHistory" %}
+          {% include 'query_results/token_history_root.liquid' %}
         {% else %}
           Unhandled results type {{result_pair[0]}}!
         {% endcase %}
