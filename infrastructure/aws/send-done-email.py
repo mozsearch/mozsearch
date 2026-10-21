@@ -2,6 +2,7 @@
 
 import sys
 import boto3
+import aws_credentials  # (Before using boto3; see there.)
 import os
 import subprocess
 

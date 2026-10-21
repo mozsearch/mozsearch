@@ -5,6 +5,7 @@
 
 import sys
 import boto3
+import aws_credentials  # (Before using boto3; see there.)
 
 client = boto3.client('ec2')
 

@@ -7,6 +7,7 @@
 # - web-server
 
 import boto3
+import aws_credentials  # (Before using boto3; see there.)
 from datetime import datetime, timedelta
 import re
 import sys

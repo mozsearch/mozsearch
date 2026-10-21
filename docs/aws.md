@@ -204,6 +204,13 @@ works.  Run `aws sso login` and repeat the prompt flow where you have to:
 Now we can run `infrastructure/aws/channel-tool.py list` or any other command.
 But please run that one to make sure you see a list of our nodes, etc.
 
+The SSO session lasts some hours.  The `aws` CLI keeps working a while longer
+on the role credentials it cached when you logged in, but boto3 can't use
+those by itself, so the scripts in `infrastructure/aws` import
+`aws_credentials.py`, which falls back to the CLI's credentials once the SSO
+session has ended, and when those have expired too, runs `aws sso login` for
+you (or, without a terminal, tells you to).
+
 ## Upgrading an existing maws configuration
 
 The easiest option is to just `rm -rf env` the venv you previously created and

@@ -8,6 +8,7 @@
 #   With an instance ID as argument, connects to that instance.
 
 import boto3
+import aws_credentials  # (Before using boto3; see there.)
 from datetime import datetime
 import os
 import sys

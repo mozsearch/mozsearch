@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 import boto3
+import aws_credentials  # (Before using boto3; see there.)
 
 # The maximum length of an EC2 tag value.
 MAX_TAG_VALUE = 256

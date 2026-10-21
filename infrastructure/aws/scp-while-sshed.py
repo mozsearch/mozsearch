@@ -34,6 +34,7 @@
 #   fork it to make a TO version.
 
 import boto3
+import aws_credentials  # (Before using boto3; see there.)
 from datetime import datetime
 import os
 import sys

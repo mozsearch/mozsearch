@@ -20,6 +20,7 @@ from concurrent.futures import ThreadPoolExecutor
 import sys
 
 import boto3
+import aws_credentials  # (Before using boto3; see there.)
 from botocore.exceptions import ClientError
 
 # The size of each part but the last: S3 allows 10,000 parts, so this allows

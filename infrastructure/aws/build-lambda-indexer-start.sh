@@ -23,6 +23,7 @@ MOZSEARCH_PATH=$(readlink -f $(dirname "$0")/../..)
 rm -rf /tmp/lambda
 mkdir /tmp/lambda
 cp $MOZSEARCH_PATH/infrastructure/aws/trigger_common.py /tmp/lambda
+cp $MOZSEARCH_PATH/infrastructure/aws/aws_credentials.py /tmp/lambda
 cp $MOZSEARCH_PATH/infrastructure/aws/trigger_indexer.py /tmp/lambda
 
 cat >/tmp/lambda/lambda-indexer-start.py <<EOF

@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 import gzip
 
 import boto3
+import aws_credentials  # (Before using boto3; see there.)
 
 # The tag keys of the instances, with the prefixes of their logs, and the
 # names in their failure logs' keys (see upload-log.sh and main.sh).

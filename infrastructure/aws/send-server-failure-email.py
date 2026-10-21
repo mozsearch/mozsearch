@@ -23,6 +23,7 @@ if dest_email == 'NO_EMAIL':
     sys.exit(0)
 
 import boto3
+import aws_credentials  # (Before using boto3; see there.)
 client = boto3.client('ses', region_name='us-west-2')
 response = client.send_email(
     Source='daemon@searchfox.org',

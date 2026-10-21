@@ -1,6 +1,7 @@
 # Note that any 3rd party lib dependencies will also need to be added to the
 # install steps in `build-lambda-indexer-start.sh`.
 import boto3
+import aws_credentials  # (Before using boto3; see there.)
 import argparse
 from datetime import datetime, timedelta, timezone
 import sys

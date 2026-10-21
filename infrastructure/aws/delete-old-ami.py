@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import boto3
+import aws_credentials  # (Before using boto3; see there.)
 
 from datetime import datetime, timedelta
 

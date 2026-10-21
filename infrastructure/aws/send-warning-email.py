@@ -45,6 +45,7 @@ if dest_email == "test" or dest_email == "test-error":
         sys.exit(1)
 
 import boto3
+import aws_credentials  # (Before using boto3; see there.)
 client = boto3.client('ses')
 response = client.send_email(
     Source='daemon@searchfox.org',
