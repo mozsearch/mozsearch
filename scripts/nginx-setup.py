@@ -324,8 +324,15 @@ print('''
   etag on;
 ''')
 
+# The static files (scripts, styles, icons, and vendored libraries like d3,
+# which pages load from here rather than from CDNs) get `expires $expires`'s
+# 2 minutes, with their ETags and modification times, and must be revalidated
+# after, so that a server update's (or a hot-fix's) files are used within 2
+# minutes, by browsers and the CDN in front.
+static_cache = ['add_header Cache-Control "must-revalidate";']
+
 # root means "/static" will be appended to the root, versus alias which doesn't.
-location('/static', [f'root {mozsearch_path};'])
+location('/static', [f'root {mozsearch_path};'] + static_cache)
 location('= /robots.txt', [
     f'root {mozsearch_path}/static;',
     'try_files $uri =404;',
@@ -395,7 +402,7 @@ for repo in config['trees']:
         print('')
 
     # we use alias because the we don't want the "/{repo}" portion.
-    location(f'/{repo}/static/', [f'alias {mozsearch_path}/static/;'])
+    location(f'/{repo}/static/', [f'alias {mozsearch_path}/static/;'] + static_cache)
 
     location(f'/{repo}/pages/', [f'alias {index_path}/pages/;'])
 
