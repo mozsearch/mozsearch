@@ -24,7 +24,9 @@ use crate::cinnabar::OldRevisionMap;
 use crate::file_format::config::{ThreadLocalRepository, timeline_commit_to_meta};
 use crate::file_format::history::syntax_files::{TokenClass, split_token_line, token_file_lines};
 use crate::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
-use crate::file_format::history::timeline_annotated::{HyperLineData, RemovalMarker};
+use crate::file_format::history::timeline_annotated::{
+    HyperLineData, RemovalMarker, decode_annotated,
+};
 use crate::source_mapping::{NotesRefs, SourceMapping, TRY_BRANCH, default_notes_ref};
 use crate::tree_sitter_support::cst_tokenizer::{
     HyperTokenized, hypertokenize_with_profile, profile_for_lang,
@@ -447,18 +449,18 @@ pub fn blame_tokens<'a>(
             syntax_lines.len().min(tokenized.tokenized.len()),
         ));
     }
-    // The annotated file has a line for the sentinel and then one per token.
-    let mut annotated_lines = token_file_lines(&history.annotated).into_iter();
-    if annotated_lines.len() != syntax_lines.len() + 1 {
+    // The annotated file has a record for the sentinel and then one per token.
+    let records = decode_annotated(&history.annotated)
+        .map_err(|e| TokenBlameError::BadHistory(format!("annotated file: {}", e)))?;
+    if records.len() != syntax_lines.len() + 1 {
         return Err(TokenBlameError::BadHistory(format!(
             "{} tokens but {} annotated lines",
             syntax_lines.len(),
-            annotated_lines.len()
+            records.len()
         )));
     }
-    let parse = |line: &'a str| -> Result<HyperLineData<'a>, TokenBlameError> {
-        let mut data: HyperLineData = serde_json::from_str(line)
-            .map_err(|e| TokenBlameError::BadHistory(format!("annotated line: {}", e)))?;
+    let mut annotated_lines = records.into_iter();
+    let parse = |mut data: HyperLineData<'a>| -> Result<HyperLineData<'a>, TokenBlameError> {
         data.introduced.resolve_path(&history.path);
         if let Some(predecessor) = &mut data.predecessor {
             predecessor.resolve_path(&history.path);
@@ -574,7 +576,7 @@ impl<'a> FileTokenBlame<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::file_format::history::timeline_annotated::HyperTokenRef;
+    use crate::file_format::history::timeline_annotated::{HyperTokenRef, encode_annotated};
     use crate::tree_sitter_support::cst_tokenizer::hypertokenize_source_file;
 
     #[test]
@@ -694,7 +696,7 @@ mod tests {
             source_rev: Oid::ZERO_SHA1,
             lang: lang.to_string(),
             syntax: tokenized.tokenized.join("\n"),
-            annotated: annotated.join("\n"),
+            annotated: encode_annotated(&annotated),
         }
     }
 

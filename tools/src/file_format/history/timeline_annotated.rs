@@ -1,10 +1,10 @@
-//! This file defines the ND-JSON records we write into files under
-//! `history/timeline/annotated`.  These are the token-centric analog to the
-//! classic line-centric blame files.
+//! This file defines the records we write into files under
+//! `history/timeline/annotated`, and their encoding (see "Encoding" below).
+//! These are the token-centric analog to the classic line-centric blame files.
 //!
 //! ## File Layout
 //!
-//! Every line in an annotated file is a `HyperLineData` JSON record.
+//! An annotated file has a `HyperLineData` record for each line index:
 //! - Line index 0 (the first line) is a synthetic "sentinel" token which
 //!   represents the file itself.  Its `introduced` ref has a `lineno` of 0 and
 //!   identifies the revision in which the file was created, or most recently
@@ -25,8 +25,46 @@
 //! records are copied into a file with a different path (due to a rename or
 //! tokens being moved between files), any "%" paths get replaced with the path
 //! the record is being copied from.
+//!
+//! ## Encoding
+//!
+//! Each record has a self-contained "line form" (`HyperLineData::serialize`),
+//! of space-separated fields: the introduced ref's revision, path and line
+//! number, then optionally `p` and the predecessor's, then optionally `rm` and
+//! the removal marker's revision, path and line number, its first removed
+//! token's, and how many tokens were removed and moved.  Ex:
+//! `0123abcd… % 5 p 4567cdef… b.cpp 2`.  A field which is empty or has a
+//! space, a backslash, a control character, or a leading `"` is written as a
+//! JSON string (ex: a path with a space).
+//!
+//! A file (`encode_annotated`) dedupes the (revision, path) pairs of its
+//! records into a table, since a file's tokens come from comparatively few
+//! commits, and numbers runs of tokens:
+//! - First, a `@HASH REV PATH` line for each pair the records use, sorted by
+//!   hash.  `HASH` is the hex of a 64-bit FNV-1a hash of `REV PATH` (the
+//!   fields as written), its first 6 digits, or more in a file whose pairs'
+//!   first 6 collide, so a pair's hash is the same in every version of the
+//!   file (unlike an ordinal), which keeps git's deltas between versions
+//!   small.
+//! - Then a line per record, in order (so line N of the file, past the
+//!   table, is the record of line index N above): `HASH L`, where `L` is `+`
+//!   if it's the line number after that of the previous record introduced by
+//!   the same pair, then `p HASH L` and `rm HASH L HASH L NR NM` as above.
+//!
+//! On mozsearch's history (2026-10-21, 1.1M tokens) this was 10.1 bytes a
+//! token rather than JSON's 82.6, and its annotated files packed (all of their
+//! versions, `git repack -F`) into 2.2 MB rather than 8.0 MB: zlib compresses
+//! the runs of `HASH +` well, and the full objects at the bases of git's delta
+//! chains are most of a pack.  (See blame-evolution-notes.md's "Annotated
+//! files' encoding".)
+//!
+//! Older histories' files are JSON lines, a `HyperLineData` per line, which
+//! `decode_annotated`, `annotated_lines`, `annotated_line`, `find_token` and
+//! `HyperLineData::parse` read too.
 
 use std::borrow::Cow;
+use std::collections::{HashMap, HashSet};
+use std::fmt::Write;
 
 use serde::{Deserialize, Serialize};
 use serde_with::{BorrowCow, serde_as};
@@ -240,13 +278,61 @@ impl<'a> HyperLineData<'a> {
         }
     }
 
+    /// Parse a record's line form (see the module docs' "Encoding"), or an
+    /// older history's JSON line.
     pub fn parse(line: &'a str) -> Self {
-        serde_json::from_str(line)
-            .unwrap_or_else(|e| panic!("Bad annotated line {:?}: {}", line, e))
+        Self::try_parse(line).unwrap_or_else(|e| panic!("Bad annotated line {:?}: {}", line, e))
     }
 
+    pub fn try_parse(line: &'a str) -> Result<Self, String> {
+        if line.starts_with('{') {
+            return serde_json::from_str(line).map_err(|e| e.to_string());
+        }
+        let mut fields = Fields::new(line);
+        let introduced = fields.token_ref()?;
+        let mut data = HyperLineData {
+            introduced,
+            predecessor: None,
+            removal_marker: None,
+        };
+        while let Some(marker) = fields.next_raw()? {
+            match marker {
+                "p" => data.predecessor = Some(fields.token_ref()?),
+                "rm" => {
+                    let at = fields.token_ref()?;
+                    data.removal_marker = Some(RemovalMarker {
+                        source_rev: at.source_rev,
+                        path: at.path,
+                        lineno: at.lineno,
+                        first_removed: fields.token_ref()?,
+                        num_removed: fields.number()?,
+                        num_moved: fields.number()?,
+                    });
+                }
+                _ => return Err(format!("unknown field {:?}", marker)),
+            }
+        }
+        Ok(data)
+    }
+
+    /// The record's line form; see the module docs' "Encoding".
     pub fn serialize(&self) -> String {
-        serde_json::to_string(self).unwrap()
+        let mut line = String::with_capacity(64);
+        push_ref(&mut line, &self.introduced);
+        if let Some(pred) = &self.predecessor {
+            line.push_str(" p ");
+            push_ref(&mut line, pred);
+        }
+        if let Some(marker) = &self.removal_marker {
+            line.push_str(" rm ");
+            push_field(&mut line, &marker.source_rev);
+            line.push(' ');
+            push_field(&mut line, &marker.path);
+            let _ = write!(line, " {} ", marker.lineno);
+            push_ref(&mut line, &marker.first_removed);
+            let _ = write!(line, " {} {}", marker.num_removed, marker.num_moved);
+        }
+        line
     }
 
     /// Replace all "%" paths with `from_path`; see the module docs.
@@ -282,6 +368,499 @@ impl<'a> HyperLineData<'a> {
     }
 }
 
+/// Whether a field needs writing as a JSON string; see the module docs'
+/// "Encoding".
+fn needs_quoting(field: &str) -> bool {
+    field.is_empty()
+        || field.starts_with('"')
+        || field
+            .bytes()
+            .any(|b| b == b' ' || b == b'\\' || b.is_ascii_control())
+}
+
+fn push_field(out: &mut String, field: &str) {
+    if needs_quoting(field) {
+        out.push_str(&serde_json::to_string(field).unwrap());
+    } else {
+        out.push_str(field);
+    }
+}
+
+fn push_ref(out: &mut String, token_ref: &HyperTokenRef) {
+    push_field(out, &token_ref.source_rev);
+    out.push(' ');
+    push_field(out, &token_ref.path);
+    let _ = write!(out, " {}", token_ref.lineno);
+}
+
+/// A field as written, unquoted.
+fn unquote(raw: &str) -> Result<Cow<'_, str>, String> {
+    if raw.starts_with('"') {
+        serde_json::from_str::<String>(raw)
+            .map(Cow::Owned)
+            .map_err(|e| format!("bad quoted field {:?}: {}", raw, e))
+    } else {
+        Ok(Cow::Borrowed(raw))
+    }
+}
+
+/// The space-separated fields of a line form or of a table line.
+struct Fields<'a> {
+    rest: &'a str,
+}
+
+impl<'a> Fields<'a> {
+    fn new(line: &'a str) -> Self {
+        Fields { rest: line }
+    }
+
+    /// The next field as written (quoted, if it is), or None at the end.
+    fn next_raw(&mut self) -> Result<Option<&'a str>, String> {
+        let rest = self.rest.strip_prefix(' ').unwrap_or(self.rest);
+        if rest.is_empty() {
+            self.rest = rest;
+            return Ok(None);
+        }
+        let end = if rest.starts_with('"') {
+            let bytes = rest.as_bytes();
+            let mut i = 1;
+            loop {
+                match bytes.get(i) {
+                    Some(b'\\') => i += 2,
+                    Some(b'"') => break i + 1,
+                    Some(_) => i += 1,
+                    None => return Err(format!("unterminated field {:?}", rest)),
+                }
+            }
+        } else {
+            rest.find(' ').unwrap_or(rest.len())
+        };
+        let (field, rest) = rest.split_at(end);
+        self.rest = rest;
+        Ok(Some(field))
+    }
+
+    fn field(&mut self) -> Result<&'a str, String> {
+        self.next_raw()?.ok_or_else(|| "missing field".to_string())
+    }
+
+    fn number(&mut self) -> Result<u32, String> {
+        let field = self.field()?;
+        field.parse().map_err(|_| format!("bad number {:?}", field))
+    }
+
+    fn token_ref(&mut self) -> Result<HyperTokenRef<'a>, String> {
+        Ok(HyperTokenRef {
+            source_rev: unquote(self.field()?)?,
+            path: unquote(self.field()?)?,
+            lineno: self.number()?,
+        })
+    }
+}
+
+/// The 64-bit FNV-1a hash of a pair's fields as written; see the module docs'
+/// "Encoding".
+fn pair_hash(rev: &str, path: &str) -> u64 {
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for &b in rev.as_bytes().iter().chain(b" ").chain(path.as_bytes()) {
+        hash ^= b as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
+/// The hashes (as written) of a file's (revision, path) pairs (as written): 6
+/// hex digits, or more if the file has pairs whose first 6 collide (and in
+/// the unlikely case that two pairs' whole hashes collide, an `.N` suffix, in
+/// the pairs' order).
+fn pair_hashes<'p>(
+    pairs: &[(&'p str, &'p str)],
+    hash: impl Fn(&str, &str) -> u64,
+) -> HashMap<(&'p str, &'p str), String> {
+    let full: Vec<String> = pairs
+        .iter()
+        .map(|(rev, path)| format!("{:016x}", hash(rev, path)))
+        .collect();
+    let digits = (6..=16)
+        .find(|&n| {
+            let mut seen = HashSet::new();
+            full.iter().all(|hash| seen.insert(&hash[..n]))
+        })
+        .unwrap_or(16);
+    let mut sorted: Vec<usize> = (0..pairs.len()).collect();
+    sorted.sort_by_key(|&i| pairs[i]);
+    let mut uses: HashMap<&str, usize> = HashMap::new();
+    let mut hashes = HashMap::new();
+    for i in sorted {
+        let hash = &full[i][..digits];
+        let n = uses.entry(hash).or_default();
+        let written = if *n == 0 {
+            hash.to_string()
+        } else {
+            format!("{}.{}", hash, n)
+        };
+        *n += 1;
+        hashes.insert(pairs[i], written);
+    }
+    hashes
+}
+
+/// Encode a file's records, given as their line forms (or an older history's
+/// JSON lines), as its table form; see the module docs' "Encoding".
+pub fn encode_annotated<S: AsRef<str>>(lines: &[S]) -> String {
+    let records: Vec<HyperLineData> = lines
+        .iter()
+        .map(|line| HyperLineData::parse(line.as_ref()))
+        .collect();
+    // (Each ref's revision and path as written.)
+    let written = |rev: &str, path: &str| -> (String, String) {
+        let (mut r, mut p) = (String::new(), String::new());
+        push_field(&mut r, rev);
+        push_field(&mut p, path);
+        (r, p)
+    };
+    let mut pair_fields: Vec<(String, String)> = vec![];
+    let mut pair_index: HashMap<(&str, &str), usize> = HashMap::new();
+    let mut record_pairs: Vec<[Option<usize>; 4]> = Vec::with_capacity(records.len());
+    for record in &records {
+        let mut refs = [None; 4];
+        let marker = record.removal_marker.as_ref();
+        let pairs = [
+            Some((&*record.introduced.source_rev, &*record.introduced.path)),
+            record
+                .predecessor
+                .as_ref()
+                .map(|pred| (&*pred.source_rev, &*pred.path)),
+            marker.map(|m| (&*m.source_rev, &*m.path)),
+            marker.map(|m| (&*m.first_removed.source_rev, &*m.first_removed.path)),
+        ];
+        for (slot, pair) in refs.iter_mut().zip(pairs) {
+            let Some(pair) = pair else {
+                continue;
+            };
+            let next = pair_fields.len();
+            let index = *pair_index.entry(pair).or_insert(next);
+            if index == next {
+                pair_fields.push(written(pair.0, pair.1));
+            }
+            *slot = Some(index);
+        }
+        record_pairs.push(refs);
+    }
+    let pairs: Vec<(&str, &str)> = pair_fields
+        .iter()
+        .map(|(r, p)| (r.as_str(), p.as_str()))
+        .collect();
+    let hashes = pair_hashes(&pairs, pair_hash);
+    let hash_of = |index: usize| hashes[&pairs[index]].as_str();
+
+    let mut table: Vec<(&str, usize)> = (0..pairs.len()).map(|i| (hash_of(i), i)).collect();
+    table.sort();
+    let mut out = String::with_capacity(records.len() * 12 + table.len() * 64);
+    for (hash, index) in table {
+        let (rev, path) = pairs[index];
+        let _ = writeln!(out, "@{} {} {}", hash, rev, path);
+    }
+    let mut last_lineno: Vec<Option<u32>> = vec![None; pairs.len()];
+    for (record, refs) in records.iter().zip(&record_pairs) {
+        let introduced = refs[0].unwrap();
+        out.push_str(hash_of(introduced));
+        let lineno = record.introduced.lineno;
+        if lineno > 0 && last_lineno[introduced] == Some(lineno - 1) {
+            out.push_str(" +");
+        } else {
+            let _ = write!(out, " {}", lineno);
+        }
+        last_lineno[introduced] = Some(lineno);
+        if let (Some(pred), Some(index)) = (&record.predecessor, refs[1]) {
+            let _ = write!(out, " p {} {}", hash_of(index), pred.lineno);
+        }
+        if let (Some(marker), Some(at), Some(first)) = (&record.removal_marker, refs[2], refs[3]) {
+            let _ = write!(
+                out,
+                " rm {} {} {} {} {} {}",
+                hash_of(at),
+                marker.lineno,
+                hash_of(first),
+                marker.first_removed.lineno,
+                marker.num_removed,
+                marker.num_moved
+            );
+        }
+        out.push('\n');
+    }
+    out
+}
+
+/// The table of a file's table form: each hash's revision and path as
+/// written, and the record lines after it.
+fn read_table(text: &str) -> Result<(HashMap<&str, (&str, &str)>, std::str::Lines<'_>), String> {
+    let mut table = HashMap::new();
+    let mut lines = text.lines();
+    let mut records = lines.clone();
+    while let Some(line) = lines.next() {
+        let Some(entry) = line.strip_prefix('@') else {
+            break;
+        };
+        let mut fields = Fields::new(entry);
+        let (hash, rev, path) = (fields.field()?, fields.field()?, fields.field()?);
+        table.insert(hash, (rev, path));
+        records = lines.clone();
+    }
+    Ok((table, records))
+}
+
+/// A record line of a table form, as its pairs (as written) and line numbers:
+/// the introduced ref's (with `+` resolved through `last_lineno`), then the
+/// predecessor's and the removal marker's, if it has them.
+struct RecordLine<'a> {
+    introduced: ((&'a str, &'a str), u32),
+    predecessor: Option<((&'a str, &'a str), u32)>,
+    /// The marker's revision, path and line number, its first removed token's,
+    /// and how many tokens were removed and moved.
+    removal: Option<(
+        ((&'a str, &'a str), u32),
+        ((&'a str, &'a str), u32),
+        u32,
+        u32,
+    )>,
+}
+
+fn read_record_line<'a>(
+    line: &'a str,
+    table: &HashMap<&'a str, (&'a str, &'a str)>,
+    last_lineno: &mut HashMap<&'a str, u32>,
+) -> Result<RecordLine<'a>, String> {
+    let mut fields = Fields::new(line);
+    let pair = |fields: &mut Fields<'a>| -> Result<(&'a str, (&'a str, &'a str)), String> {
+        let hash = fields.field()?;
+        let pair = *table
+            .get(hash)
+            .ok_or_else(|| format!("unknown hash {:?}", hash))?;
+        Ok((hash, pair))
+    };
+    let (hash, introduced) = pair(&mut fields)?;
+    let lineno = match fields.field()? {
+        "+" => last_lineno
+            .get(hash)
+            .map(|l| l + 1)
+            .ok_or_else(|| format!("+ without an earlier line for {}", hash))?,
+        lineno => lineno
+            .parse()
+            .map_err(|_| format!("bad number {:?}", lineno))?,
+    };
+    last_lineno.insert(hash, lineno);
+    let mut record = RecordLine {
+        introduced: (introduced, lineno),
+        predecessor: None,
+        removal: None,
+    };
+    while let Some(marker) = fields.next_raw()? {
+        match marker {
+            "p" => record.predecessor = Some((pair(&mut fields)?.1, fields.number()?)),
+            "rm" => {
+                let at = (pair(&mut fields)?.1, fields.number()?);
+                let first = (pair(&mut fields)?.1, fields.number()?);
+                record.removal = Some((at, first, fields.number()?, fields.number()?));
+            }
+            _ => return Err(format!("unknown field {:?}", marker)),
+        }
+    }
+    Ok(record)
+}
+
+fn decoded_ref<'a>(
+    ((rev, path), lineno): ((&'a str, &'a str), u32),
+) -> Result<HyperTokenRef<'a>, String> {
+    Ok(HyperTokenRef {
+        source_rev: unquote(rev)?,
+        path: unquote(path)?,
+        lineno,
+    })
+}
+
+fn line_form(record: &RecordLine) -> String {
+    let mut line = String::with_capacity(64);
+    let push = |line: &mut String, ((rev, path), lineno): ((&str, &str), u32)| {
+        let _ = write!(line, "{} {} {}", rev, path, lineno);
+    };
+    push(&mut line, record.introduced);
+    if let Some(pred) = record.predecessor {
+        line.push_str(" p ");
+        push(&mut line, pred);
+    }
+    if let Some((at, first, removed, moved)) = record.removal {
+        line.push_str(" rm ");
+        push(&mut line, at);
+        line.push(' ');
+        push(&mut line, first);
+        let _ = write!(line, " {} {}", removed, moved);
+    }
+    line
+}
+
+fn is_json(text: &str) -> bool {
+    text.starts_with('{')
+}
+
+/// Decode an annotated file's records (of either form; see the module docs'
+/// "Encoding"), borrowing from `text` where it can.
+pub fn decode_annotated(text: &str) -> Result<Vec<HyperLineData<'_>>, String> {
+    if is_json(text) {
+        return text.lines().map(HyperLineData::try_parse).collect();
+    }
+    let (table, lines) = read_table(text)?;
+    let mut last_lineno = HashMap::new();
+    lines
+        .map(|line| {
+            let record = read_record_line(line, &table, &mut last_lineno)?;
+            Ok(HyperLineData {
+                introduced: decoded_ref(record.introduced)?,
+                predecessor: record.predecessor.map(decoded_ref).transpose()?,
+                removal_marker: match record.removal {
+                    Some((at, first, num_removed, num_moved)) => {
+                        let at = decoded_ref(at)?;
+                        Some(RemovalMarker {
+                            source_rev: at.source_rev,
+                            path: at.path,
+                            lineno: at.lineno,
+                            first_removed: decoded_ref(first)?,
+                            num_removed,
+                            num_moved,
+                        })
+                    }
+                    None => None,
+                },
+            })
+        })
+        .collect()
+}
+
+/// An annotated file's records' line forms (an older history's JSON lines
+/// converted), as `HyperLineData::serialize` writes them, for working with
+/// its lines as text (ex: copying them unchanged into another version).
+pub fn annotated_lines(text: &str) -> Result<Vec<String>, String> {
+    if is_json(text) {
+        return text
+            .lines()
+            .map(|line| HyperLineData::try_parse(line).map(|data| data.serialize()))
+            .collect();
+    }
+    let (table, lines) = read_table(text)?;
+    let mut last_lineno = HashMap::new();
+    lines
+        .map(|line| {
+            Ok(line_form(&read_record_line(
+                line,
+                &table,
+                &mut last_lineno,
+            )?))
+        })
+        .collect()
+}
+
+/// The line form (or an older history's JSON line) of the record of line
+/// index `index` (see the module docs), if the file has it.
+pub fn annotated_line(text: &str, index: usize) -> Option<Cow<'_, str>> {
+    if is_json(text) {
+        return text.lines().nth(index).map(Cow::Borrowed);
+    }
+    let (table, lines) = read_table(text).ok()?;
+    let mut last_lineno = HashMap::new();
+    for (i, line) in lines.enumerate() {
+        let record = read_record_line(line, &table, &mut last_lineno).ok()?;
+        if i == index {
+            return Some(Cow::Owned(line_form(&record)));
+        }
+    }
+    None
+}
+
+/// The token whose canonical ref is `identity`, as its (0-based) index among
+/// the tokens of `text` (the annotated file of `path`; the sentinel isn't a
+/// token), or if `as_predecessor`, the token whose predecessor it is.
+pub fn find_token(
+    text: &str,
+    path: &str,
+    identity: &HyperTokenRef,
+    as_predecessor: bool,
+) -> Option<usize> {
+    let mut relative = identity.clone();
+    relative.relativize_path(path);
+    if is_json(text) {
+        return find_json_token(text, &relative, as_predecessor);
+    }
+    let (rev, path) = {
+        let (mut rev, mut path) = (String::new(), String::new());
+        push_field(&mut rev, &relative.source_rev);
+        push_field(&mut path, &relative.path);
+        (rev, path)
+    };
+    let (table, lines) = read_table(text).ok()?;
+    // (Only the lines naming the pair's hash, whose `+`s only depend on its
+    // own earlier lines.)
+    let hash = table
+        .iter()
+        .find_map(|(hash, pair)| (*pair == (rev.as_str(), path.as_str())).then_some(*hash))?;
+    let mut last_lineno = None;
+    for (index, line) in lines.enumerate() {
+        let mut fields = line.split(' ');
+        let introduced = fields.next() == Some(hash);
+        let lineno = fields.next()?;
+        if introduced {
+            let lineno = match lineno {
+                "+" => last_lineno? + 1,
+                _ => lineno.parse::<u32>().ok()?,
+            };
+            last_lineno = Some(lineno);
+            if !as_predecessor && lineno == relative.lineno {
+                return index.checked_sub(1);
+            }
+        }
+        if as_predecessor
+            && fields.next() == Some("p")
+            && fields.next() == Some(hash)
+            && fields.next().and_then(|l| l.parse::<u32>().ok()) == Some(relative.lineno)
+        {
+            return index.checked_sub(1);
+        }
+    }
+    None
+}
+
+/// `find_token` for an older history's JSON lines, by searching for the
+/// start of the token's line.
+fn find_json_token(text: &str, relative: &HyperTokenRef, as_predecessor: bool) -> Option<usize> {
+    let json = serde_json::to_string(relative).unwrap();
+    let needle = if as_predecessor {
+        format!(",\"p\":{}", json)
+    } else {
+        format!("{{\"i\":{}", json)
+    };
+    let mut from = 0;
+    while let Some(found) = text[from..].find(&needle) {
+        let at = from + found;
+        let line_start = text[..at].rfind('\n').map_or(0, |i| i + 1);
+        // The introduced ref is at the start of the line, and the predecessor
+        // comes right after it.
+        let matches = if as_predecessor {
+            text[line_start..at].starts_with("{\"i\":") && !text[line_start..at].contains("},")
+        } else {
+            line_start == at
+        };
+        if matches {
+            let line = text.as_bytes()[..line_start]
+                .iter()
+                .filter(|&&b| b == b'\n')
+                .count();
+            // Line 0 is the file sentinel, so line N is token N.
+            return line.checked_sub(1);
+        }
+        from = at + 1;
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -292,7 +871,7 @@ mod tests {
         let mut data = HyperLineData::new_introduced(rev, 5);
         assert_eq!(
             data.serialize(),
-            r#"{"i":{"sr":"0123456789abcdef0123456789abcdef01234567","p":"%","l":5}}"#
+            "0123456789abcdef0123456789abcdef01234567 % 5"
         );
 
         data.predecessor = Some(HyperTokenRef {
@@ -310,5 +889,176 @@ mod tests {
         moved.transplant("a.cpp", "b.cpp");
         assert_eq!(moved.introduced.path, "a.cpp");
         assert_eq!(moved.predecessor.as_ref().unwrap().path, "%");
+    }
+
+    fn token_ref(rev: &'static str, path: &'static str, lineno: u32) -> HyperTokenRef<'static> {
+        HyperTokenRef {
+            source_rev: Cow::Borrowed(rev),
+            path: Cow::Borrowed(path),
+            lineno,
+        }
+    }
+
+    fn marker(rev: &'static str, first: HyperTokenRef<'static>) -> RemovalMarker<'static> {
+        RemovalMarker {
+            source_rev: Cow::Borrowed(rev),
+            path: Cow::Borrowed("%"),
+            lineno: 4,
+            first_removed: first,
+            num_removed: 3,
+            num_moved: 1,
+        }
+    }
+
+    #[test]
+    fn test_line_form() {
+        let mut data = HyperLineData::new_introduced("aaa", 3);
+        data.predecessor = Some(token_ref("bbb", "dir/with space.cpp", 2));
+        data.removal_marker = Some(marker("ccc", token_ref("ddd", "\"quoted\".h", 9)));
+        let line = data.serialize();
+        assert_eq!(
+            line,
+            r#"aaa % 3 p bbb "dir/with space.cpp" 2 rm ccc % 4 ddd "\"quoted\".h" 9 3 1"#
+        );
+        assert_eq!(HyperLineData::parse(&line), data);
+        // (Paths without special characters are borrowed.)
+        assert!(matches!(
+            HyperLineData::parse("aaa a.cpp 1").introduced.path,
+            Cow::Borrowed(_)
+        ));
+        // (Empty fields and backslashes are quoted too.)
+        let odd = HyperLineData {
+            introduced: token_ref("", "back\\slash", 0),
+            predecessor: None,
+            removal_marker: None,
+        };
+        assert_eq!(odd.serialize(), r#""" "back\\slash" 0"#);
+        assert_eq!(HyperLineData::parse(&odd.serialize()), odd);
+        // (Older histories' JSON lines.)
+        let json = r#"{"i":{"sr":"aaa","p":"%","l":3},"p":{"sr":"bbb","p":"x.h","l":2}}"#;
+        let parsed = HyperLineData::parse(json);
+        assert_eq!(parsed.introduced, token_ref("aaa", "%", 3));
+        assert_eq!(parsed.predecessor, Some(token_ref("bbb", "x.h", 2)));
+        assert!(HyperLineData::try_parse("aaa % x").is_err());
+        assert!(HyperLineData::try_parse("aaa % 3 q").is_err());
+    }
+
+    /// A file's records: a sentinel and tokens from two commits, with a
+    /// predecessor and a removal marker.
+    fn records() -> Vec<HyperLineData<'static>> {
+        let mut records: Vec<HyperLineData> = (0..4)
+            .map(|lineno| HyperLineData::new_introduced("rev-a", lineno))
+            .collect();
+        let mut evolved = HyperLineData::new_introduced("rev-b", 7);
+        evolved.predecessor = Some(token_ref("rev-a", "other file.rs", 2));
+        records.push(evolved);
+        // (rev-a's line after its previous one, past rev-b's.)
+        records.push(HyperLineData::new_introduced("rev-a", 4));
+        let mut moved = HyperLineData::new_introduced("rev-a", 12);
+        moved.removal_marker = Some(marker("rev-c", token_ref("rev-a", "%", 5)));
+        records.push(moved);
+        records
+    }
+
+    #[test]
+    fn test_encode_decode() {
+        let records = records();
+        let lines: Vec<String> = records.iter().map(|r| r.serialize()).collect();
+        let text = encode_annotated(&lines);
+        let hash =
+            |rev: &str, path: &str| format!("{:016x}", pair_hash(rev, path))[..6].to_string();
+        let (a, b, c) = (hash("rev-a", "%"), hash("rev-b", "%"), hash("rev-c", "%"));
+        let other = hash("rev-a", r#""other file.rs""#);
+        let mut table = vec![
+            format!("@{} rev-a %", a),
+            format!("@{} rev-b %", b),
+            format!("@{} rev-c %", c),
+            format!(r#"@{} rev-a "other file.rs""#, other),
+        ];
+        table.sort();
+        let expected = format!(
+            "{}\n{a} 0\n{a} +\n{a} +\n{a} +\n{b} 7 p {other} 2\n{a} +\n{a} 12 rm {c} 4 {a} 5 3 1\n",
+            table.join("\n"),
+            a = a,
+            b = b,
+            c = c,
+            other = other
+        );
+        assert_eq!(text, expected);
+        assert_eq!(decode_annotated(&text).unwrap(), records);
+        assert_eq!(annotated_lines(&text).unwrap(), lines);
+        for (index, line) in lines.iter().enumerate() {
+            assert_eq!(annotated_line(&text, index).as_deref(), Some(line.as_str()));
+        }
+        assert_eq!(annotated_line(&text, lines.len()), None);
+        // (Encoding again, from the decoded lines, gives the same file, so
+        // unchanged versions stay identical.)
+        assert_eq!(encode_annotated(&annotated_lines(&text).unwrap()), text);
+        assert_eq!(decode_annotated("").unwrap(), vec![]);
+        assert!(decode_annotated("@abc rev %\nzzz 1\n").is_err());
+        assert!(decode_annotated("@abc rev %\nabc +\n").is_err());
+    }
+
+    #[test]
+    fn test_older_json_files() {
+        let records = records();
+        let json: Vec<String> = records
+            .iter()
+            .map(|r| serde_json::to_string(r).unwrap())
+            .collect();
+        let text = json.join("\n") + "\n";
+        assert_eq!(decode_annotated(&text).unwrap(), records);
+        let lines: Vec<String> = records.iter().map(|r| r.serialize()).collect();
+        assert_eq!(annotated_lines(&text).unwrap(), lines);
+        assert_eq!(annotated_line(&text, 4).as_deref(), Some(json[4].as_str()));
+        // (And encoding them gives the table form.)
+        assert_eq!(encode_annotated(&json), encode_annotated(&lines));
+    }
+
+    #[test]
+    fn test_find_token() {
+        let records = records();
+        let lines: Vec<String> = records.iter().map(|r| r.serialize()).collect();
+        let json: Vec<String> = records
+            .iter()
+            .map(|r| serde_json::to_string(r).unwrap())
+            .collect();
+        for text in [encode_annotated(&lines), json.join("\n") + "\n"] {
+            let find = |identity: HyperTokenRef, as_predecessor| {
+                find_token(&text, "f.rs", &identity, as_predecessor)
+            };
+            // (Token N is line N, past the sentinel; paths relative to f.rs.)
+            assert_eq!(find(token_ref("rev-a", "f.rs", 1), false), Some(0));
+            assert_eq!(find(token_ref("rev-a", "f.rs", 3), false), Some(2));
+            assert_eq!(find(token_ref("rev-a", "f.rs", 4), false), Some(4));
+            assert_eq!(find(token_ref("rev-a", "f.rs", 12), false), Some(5));
+            assert_eq!(find(token_ref("rev-b", "f.rs", 7), false), Some(3));
+            assert_eq!(find(token_ref("rev-a", "other file.rs", 2), true), Some(3));
+            assert_eq!(find(token_ref("rev-a", "other file.rs", 2), false), None);
+            assert_eq!(find(token_ref("rev-a", "f.rs", 2), true), None);
+            assert_eq!(find(token_ref("rev-z", "f.rs", 1), false), None);
+            // (The sentinel isn't a token.)
+            assert_eq!(find(token_ref("rev-a", "f.rs", 0), false), None);
+        }
+    }
+
+    #[test]
+    fn test_pair_hash_collisions() {
+        let pairs = [("r1", "%"), ("r2", "%"), ("r3", "%")];
+        // (Hashes whose first 6 digits collide, then whole ones.)
+        let hashes = pair_hashes(&pairs, |rev, _| match rev {
+            "r1" => 0xabcdef0000000001,
+            "r2" => 0xabcdef0000000002,
+            _ => 0x1234560000000000,
+        });
+        assert_eq!(hashes[&("r1", "%")], "abcdef0000000001");
+        assert_eq!(hashes[&("r3", "%")], "1234560000000000");
+        let hashes = pair_hashes(&pairs, |rev, _| if rev == "r3" { 1 } else { 0 });
+        assert_eq!(hashes[&("r1", "%")], "0000000000000000");
+        assert_eq!(hashes[&("r2", "%")], "0000000000000000.1");
+        assert_eq!(hashes[&("r3", "%")], "0000000000000001");
+        // (Usually, 6 digits.)
+        let hashes = pair_hashes(&pairs, pair_hash);
+        assert!(hashes.values().all(|h| h.len() == 6));
     }
 }

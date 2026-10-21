@@ -132,7 +132,7 @@ use tools::file_format::history::rev_summaries::{
 use tools::file_format::history::syntax_files::{split_token_line, token_file_lines};
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use tools::file_format::history::timeline_annotated::{
-    HyperLineData, PATH_UNCHANGED, RemovalMarker,
+    self, HyperLineData, PATH_UNCHANGED, RemovalMarker, encode_annotated,
 };
 use tools::file_format::history::timeline_common::{
     ChangeKind, DetailRecordRef, FileSyntaxDelta, JournalVersionRef, TokenDeltaDetails,
@@ -2086,18 +2086,16 @@ fn compute_thread_main(
 
 // ## Main thread logic
 
-/// Split an annotated file into its lines.
+/// An annotated file's records' line forms (see `timeline_annotated`).
 fn annotated_lines(blob: &[u8]) -> Vec<String> {
-    String::from_utf8_lossy(blob)
-        .lines()
-        .map(|l| l.to_string())
-        .collect()
+    timeline_annotated::annotated_lines(&String::from_utf8_lossy(blob))
+        .unwrap_or_else(|e| panic!("Bad annotated file: {}", e))
 }
 
+/// An annotated file of records' line forms, encoded (see
+/// `timeline_annotated`).
 fn join_annotated(lines: Vec<String>) -> String {
-    let mut contents = lines.join("\n");
-    contents.push('\n');
-    contents
+    encode_annotated(&lines)
 }
 
 /// Load the records of a journal version through git fast-import, which (unlike

@@ -11,10 +11,12 @@
 //!
 //! Steps are meant to be cheap compared to rendering a revision of the file:
 //! they read the file's syntax, annotated, and source blobs, find the window
-//! with a heuristic over the syntax tokens rather than parsing the source, only
-//! parse the window's annotated records, and find the anchor in the parent's
-//! annotated file with a substring search.  Pages of steps are limited by the
-//! number of steps and the bytes of blobs read.
+//! with a heuristic over the syntax tokens rather than parsing the source,
+//! decode the annotated records (a file's records take tens of milliseconds at
+//! most, ex: 37 ms for 148k tokens), and find the anchor in the parent's
+//! annotated file with `timeline_annotated::find_token` (a scan of the lines
+//! naming the anchor's pair).  Pages of steps are limited by the number of
+//! steps and the bytes of blobs read.
 
 use std::collections::HashMap;
 use std::ops::Range;
@@ -26,7 +28,9 @@ use super::token_blame::{FileHistory, TreeHistory};
 use crate::file_format::history::syntax_files::{
     TokenClass, TokenLine, split_token_line, token_file_lines,
 };
-use crate::file_format::history::timeline_annotated::{HyperLineData, HyperTokenRef};
+use crate::file_format::history::timeline_annotated::{
+    HyperLineData, HyperTokenRef, decode_annotated, find_token,
+};
 
 /// The most tokens a window has.
 pub const MAX_WINDOW_TOKENS: usize = 48;
@@ -101,27 +105,10 @@ impl State {
         self.history.syntax.len() + self.history.annotated.len() + self.source.len()
     }
 
-    /// The (0-based) index of the token whose canonical ref is `identity`, by
-    /// searching for the start of its annotated line.
+    /// The (0-based) index of the token whose canonical ref is `identity`
+    /// (see `timeline_annotated::find_token`).
     fn find_identity(&self, identity: &HyperTokenRef) -> Option<usize> {
-        let mut relative = identity.clone();
-        relative.relativize_path(&self.history.path);
-        let needle = format!("{{\"i\":{}", serde_json::to_string(&relative).unwrap());
-        let annotated = &self.history.annotated;
-        let mut from = 0;
-        while let Some(found) = annotated[from..].find(&needle) {
-            let at = from + found;
-            if at == 0 || annotated.as_bytes()[at - 1] == b'\n' {
-                // Line 0 is the file sentinel, so line N is token N.
-                let line = annotated.as_bytes()[..at]
-                    .iter()
-                    .filter(|&&b| b == b'\n')
-                    .count();
-                return line.checked_sub(1);
-            }
-            from = at + 1;
-        }
-        None
+        find_token(&self.history.annotated, &self.history.path, identity, false)
     }
 }
 
@@ -345,7 +332,7 @@ pub fn peephole_page(
             .into_iter()
             .map(split_token_line)
             .collect();
-        let annotated_lines = token_file_lines(&state.history.annotated);
+        let annotated_lines = decode_annotated(&state.history.annotated).unwrap_or_default();
         if cursor.tokens.is_empty()
             || cursor
                 .tokens
@@ -382,11 +369,7 @@ pub fn peephole_page(
             .unwrap();
         let mut data: Vec<HyperLineData> = Vec::with_capacity(win.len());
         for i in win.clone() {
-            let Ok(mut line_data) = serde_json::from_str::<HyperLineData>(annotated_lines[i + 1])
-            else {
-                page.end = Some("lost");
-                return page;
-            };
+            let mut line_data = annotated_lines[i + 1].clone();
             line_data.introduced.resolve_path(&state.history.path);
             if let Some(predecessor) = &mut line_data.predecessor {
                 predecessor.resolve_path(&state.history.path);
@@ -657,14 +640,14 @@ pub fn before(
         .into_iter()
         .map(split_token_line)
         .collect();
-    let annotated_lines = token_file_lines(&state.history.annotated);
+    let annotated_lines = decode_annotated(&state.history.annotated).ok()?;
     let anchor = *cursor.tokens.first()? as usize;
     if anchor == 0 || anchor > tokens.len() || annotated_lines.len() != tokens.len() + 1 {
         return None;
     }
     let anchor = anchor - 1;
     let parse = |i: usize| -> Option<HyperLineData> {
-        let mut data: HyperLineData = serde_json::from_str(annotated_lines[i + 1]).ok()?;
+        let mut data = annotated_lines.get(i + 1)?.clone();
         data.introduced.resolve_path(&state.history.path);
         if let Some(predecessor) = &mut data.predecessor {
             predecessor.resolve_path(&state.history.path);

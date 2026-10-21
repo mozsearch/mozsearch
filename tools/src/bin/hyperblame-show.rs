@@ -22,7 +22,9 @@ use git2::Repository;
 
 use tools::file_format::config::timeline_commit_to_meta;
 use tools::file_format::history::syntax_files::{split_token_line, token_file_lines};
-use tools::file_format::history::timeline_annotated::{HyperLineData, HyperTokenRef};
+use tools::file_format::history::timeline_annotated::{
+    HyperLineData, HyperTokenRef, decode_annotated,
+};
 
 fn read_path(repo: &Repository, tree: &git2::Tree, path: &str) -> Option<String> {
     let entry = tree.get_path(Path::new(path)).ok()?;
@@ -97,7 +99,7 @@ fn main() {
     .expect("no annotated file for path");
 
     let token_lines = token_file_lines(&tokens);
-    let annotated_lines: Vec<&str> = annotated.lines().collect();
+    let annotated_lines = decode_annotated(&annotated).expect("bad annotated file");
     if annotated_lines.len() != token_lines.len() + 1 {
         println!(
             "WARNING: {} tokens but {} annotated lines (expected tokens + 1)",
@@ -107,18 +109,13 @@ fn main() {
     }
 
     if let Some(sentinel) = annotated_lines.first() {
-        println!(
-            "{:>5} {:<40} | {}",
-            0,
-            "<file>",
-            describe(&HyperLineData::parse(sentinel))
-        );
+        println!("{:>5} {:<40} | {}", 0, "<file>", describe(sentinel));
     }
     for (i, line) in token_lines.iter().enumerate() {
         let token = split_token_line(line);
         let desc = annotated_lines
             .get(i + 1)
-            .map(|a| describe(&HyperLineData::parse(a)))
+            .map(describe)
             .unwrap_or_else(|| "???".to_string());
         let shown = format!(
             "{} {} {}",

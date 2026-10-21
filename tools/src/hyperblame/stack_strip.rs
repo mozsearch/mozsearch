@@ -24,7 +24,9 @@ use git2::{Oid, Repository};
 use serde::Serialize;
 
 use super::token_blame::{TreeHistory, blame_tokens};
-use crate::file_format::history::timeline_annotated::{HyperLineData, HyperTokenRef};
+use crate::file_format::history::timeline_annotated::{
+    HyperLineData, HyperTokenRef, annotated_lines,
+};
 
 /// The most steps we follow a token's evolution back.
 const MAX_EVOLUTIONS: usize = 64;
@@ -83,7 +85,7 @@ pub fn stack_strip(
             .or_insert_with(|| {
                 let text =
                     history.annotated(Oid::from_str(&token.source_rev).ok()?, &token.path)?;
-                Some(text.lines().map(str::to_string).collect())
+                annotated_lines(&text).ok()
             })
             .as_ref()?;
         let mut data = HyperLineData::parse(lines.get(token.lineno as usize)?);

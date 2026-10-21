@@ -30,7 +30,7 @@ use super::journals::{JournalKind, JournalReader};
 use super::token_blame::TreeHistory;
 use crate::file_format::history::rev_summaries::{RevSummaryRecord, rev_summary_path};
 use crate::file_format::history::timeline_annotated::{
-    HyperLineData, HyperTokenRef, PATH_UNCHANGED,
+    HyperLineData, HyperTokenRef, PATH_UNCHANGED, annotated_line, find_token,
 };
 use crate::file_format::history::timeline_common::{JournalVersionRef, TokenRefSet};
 use crate::file_format::history::timeline_future::FutureRecord;
@@ -61,49 +61,6 @@ pub struct Future {
     pub rev: Option<String>,
     /// The changes to the token along the way, oldest first.
     pub changes: Vec<Change>,
-}
-
-/// The token whose canonical ref is `identity`, as its (0-based) index in
-/// `annotated` (the annotated file for `path`), by searching for the start of
-/// its annotated line, or if `as_predecessor`, the token whose predecessor it
-/// is.
-fn find_token(
-    annotated: &str,
-    path: &str,
-    identity: &HyperTokenRef,
-    as_predecessor: bool,
-) -> Option<usize> {
-    let mut relative = identity.clone();
-    relative.relativize_path(path);
-    let json = serde_json::to_string(&relative).unwrap();
-    let needle = if as_predecessor {
-        format!(",\"p\":{}", json)
-    } else {
-        format!("{{\"i\":{}", json)
-    };
-    let mut from = 0;
-    while let Some(found) = annotated[from..].find(&needle) {
-        let at = from + found;
-        let line_start = annotated[..at].rfind('\n').map_or(0, |i| i + 1);
-        // The introduced ref is at the start of the line, and the predecessor
-        // comes right after it.
-        let matches = if as_predecessor {
-            annotated[line_start..at].starts_with("{\"i\":")
-                && !annotated[line_start..at].contains("},")
-        } else {
-            line_start == at
-        };
-        if matches {
-            let line = annotated.as_bytes()[..line_start]
-                .iter()
-                .filter(|&&b| b == b'\n')
-                .count();
-            // Line 0 is the file sentinel, so line N is token N.
-            return line.checked_sub(1);
-        }
-        from = at + 1;
-    }
-    None
 }
 
 fn in_set(set: &TokenRefSet, path: &str, identity: &HyperTokenRef) -> bool {
@@ -306,12 +263,9 @@ impl Follower<'_> {
         let annotated = self
             .annotated(since, path)
             .ok_or("The history doesn't have the file")?;
-        let line = annotated
-            .split('\n')
-            .nth(token as usize)
-            .ok_or("No such token")?;
-        let mut data: HyperLineData =
-            serde_json::from_str(line).map_err(|e| format!("bad annotated line: {}", e))?;
+        let line = annotated_line(&annotated, token as usize).ok_or("No such token")?;
+        let mut data =
+            HyperLineData::try_parse(&line).map_err(|e| format!("bad annotated line: {}", e))?;
         data.introduced.resolve_path(path);
         let mut identity = data.introduced.into_owned();
 
@@ -451,12 +405,9 @@ impl Follower<'_> {
         let annotated = self
             .annotated(since, path)
             .ok_or("The history doesn't have the file")?;
-        let line = annotated
-            .split('\n')
-            .nth(token as usize)
-            .ok_or("No such token")?;
-        let mut data: HyperLineData =
-            serde_json::from_str(line).map_err(|e| format!("bad annotated line: {}", e))?;
+        let line = annotated_line(&annotated, token as usize).ok_or("No such token")?;
+        let mut data =
+            HyperLineData::try_parse(&line).map_err(|e| format!("bad annotated line: {}", e))?;
         data.introduced.resolve_path(path);
         let mut identity = data.introduced.into_owned();
         let mut path = path.to_string();
@@ -580,6 +531,7 @@ impl Follower<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::file_format::history::timeline_annotated::encode_annotated;
     use crate::file_format::history::timeline_common::token_ref_set_insert;
 
     fn token_ref(rev: &str, path: &str, lineno: u32) -> HyperTokenRef<'static> {
@@ -600,8 +552,17 @@ mod tests {
         let mut moved = HyperLineData::new_introduced("a", 12);
         moved.introduced.path = "other.rs".into();
         lines.push(moved.serialize());
-        let annotated = lines.join("\n");
+        // (The table form, and older histories' JSON lines.)
+        let json: Vec<String> = lines
+            .iter()
+            .map(|line| serde_json::to_string(&HyperLineData::parse(line)).unwrap())
+            .collect();
+        for annotated in [encode_annotated(&lines), json.join("\n")] {
+            check_find_token(&annotated);
+        }
+    }
 
+    fn check_find_token(annotated: &str) {
         assert_eq!(
             find_token(&annotated, "f.rs", &token_ref("a", "f.rs", 1), false),
             Some(0)

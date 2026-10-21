@@ -606,7 +606,9 @@ mod tests {
             source_rev: git2::Oid::ZERO_SHA1,
             lang: "spec-html".to_string(),
             syntax: tokenized.tokenized.join("\n"),
-            annotated: annotated.join("\n"),
+            annotated: crate::file_format::history::timeline_annotated::encode_annotated(
+                &annotated,
+            ),
         };
         let blame = blame_tokens(source, &history).unwrap();
         let ranges: Vec<_> = blame.tokens.iter().map(|t| t.range.clone()).collect();
@@ -657,7 +659,9 @@ mod tests {
             source_rev: git2::Oid::ZERO_SHA1,
             lang: "cpp".to_string(),
             syntax: tokenized.tokenized.join("\n"),
-            annotated: annotated.join("\n"),
+            annotated: crate::file_format::history::timeline_annotated::encode_annotated(
+                &annotated,
+            ),
         };
         let blame = blame_tokens(source, &history).unwrap();
         let meta = |rev: &str| CommitMeta {
