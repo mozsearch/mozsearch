@@ -87,6 +87,10 @@
 //!    and across blocks (ex: to another file), where each pair anchors the
 //!    identical unmatched tokens around it, which re-synchronizes sequences
 //!    with too little context to match (see `infer_rename_patterns`).
+//! 6. Inline event handlers, for files with the `searchfox-handler-moves`
+//!    history attribute: the code of a handler removed from an element with an
+//!    id is followed to the code after a string of that id which the revision
+//!    added (ex: `case "allTabsMenu-searchTabs":`; see `infer_handler_moves`).
 //!
 //! ## Future work
 //!
@@ -192,6 +196,7 @@ pub enum FileChangeKind {
     Copied,
 }
 
+#[derive(Clone)]
 pub struct FileChangeInput<'a> {
     pub kind: FileChangeKind,
     /// Tokens can only move between files in the same namespace.  See
@@ -507,6 +512,7 @@ pub fn infer_revision(inputs: &[FileChangeInput], config: &InferenceConfig) -> V
     if config.rename_patterns {
         infer_rename_patterns(&mut state);
     }
+    infer_handler_moves(&mut state);
 
     finalize(state)
 }
@@ -1731,6 +1737,174 @@ fn extend_anchor(
     }
 }
 
+/// The element id and event of a markup event handler's code, from its
+/// context (see `markup_tokenizer`): ex: `allTabsMenu-searchTabs` and
+/// `oncommand` for `#allTabsMenu::#allTabsMenu-searchTabs@oncommand`, and
+/// the context up to the handler, which its code's tokens share.
+fn handler_of(context: &str) -> Option<(&str, &str, &str)> {
+    let mut start = 0;
+    for segment in context.split("::") {
+        let end = start + segment.len();
+        if let Some((element, event)) = segment.split_once('@')
+            && event.starts_with("on")
+        {
+            let id = element.strip_prefix('#')?;
+            return (!id.is_empty()).then_some((id, event, &context[..end]));
+        }
+        start = end + 2;
+    }
+    None
+}
+
+/// A string token's text without its quotes, if it's a quoted string.
+fn string_text(token: &str) -> Option<&str> {
+    let quote = token.chars().next()?;
+    (matches!(quote, '"' | '\'' | '`') && token.len() >= 2 && token.ends_with(quote))
+        .then(|| &token[1..token.len() - 1])
+}
+
+/// Pass 6: Inline event handlers, for files with the `searchfox-handler-moves`
+/// history attribute (see `history_config`), which asuth wanted for the
+/// directories where Firefox's UI moved its XUL (and later XHTML) documents'
+/// handlers into JS, for CSP, since it's a heuristic.  Handlers were mostly
+/// rewritten as they moved, ex: Bug 1895490's `oncommand=
+/// "gTabsPanel.searchTabs();"` on `#allTabsMenu-searchTabs` became `case
+/// "allTabsMenu-searchTabs": this.searchTabs(); break;` in a listener's
+/// `switch (target.id)`, so big rocks only found verbatim pieces (22% of the
+/// handlers' tokens on 10 such commits).  The element's id is what connects
+/// them: a handler's unmatched code (in its element's context; see
+/// `handler_of`) is aligned with the unmatched tokens after a string of its
+/// element's id which the revision added in a file of the same namespace (if
+/// exactly one), up to a few times the handler's length: identical tokens
+/// moved, and the words between them, if as many on each side and of the
+/// same classes, evolved (ex: `gTabsPanel` into `this`).
+fn infer_handler_moves(state: &mut InferenceState) {
+    if !state.inputs.iter().any(|input| input.handler_moves) {
+        return;
+    }
+    // The strings the revision added, by their text: (file, index).
+    let mut anchors: HashMap<&str, Vec<(usize, usize)>> = HashMap::new();
+    for (file, tokens) in state.new_tokens.iter().enumerate() {
+        for (idx, token) in tokens.iter().enumerate() {
+            if state.is_unmatched_new(file, idx)
+                && token.effective_class() == TokenClass::String
+                && let Some(text) = string_text(token.token)
+                && !text.is_empty()
+            {
+                anchors.entry(text).or_default().push((file, idx));
+            }
+        }
+    }
+    if anchors.is_empty() {
+        return;
+    }
+    let mut runs = vec![];
+    for (file, input) in state.inputs.iter().enumerate() {
+        if !input.handler_moves {
+            continue;
+        }
+        let tokens = &state.old_tokens[file];
+        let mut i = 0;
+        while i < tokens.len() {
+            let handler = state
+                .is_unmatched_old(file, i)
+                .then(|| handler_of(tokens[i].context))
+                .flatten();
+            let Some((id, _, prefix)) = handler else {
+                i += 1;
+                continue;
+            };
+            let start = i;
+            while i < tokens.len()
+                && state.is_unmatched_old(file, i)
+                && handler_of(tokens[i].context).is_some_and(|(_, _, p)| p == prefix)
+            {
+                i += 1;
+            }
+            if let Some([(to_file, at)]) = anchors.get(id).map(|a| a.as_slice())
+                && state.inputs[*to_file].namespace == input.namespace
+            {
+                runs.push((file, start..i, *to_file, *at));
+            }
+        }
+    }
+    for (file, run, to_file, at) in runs {
+        let window: Vec<usize> = (at + 1..state.new_tokens[to_file].len())
+            .filter(|&n| state.is_unmatched_new(to_file, n))
+            .take(run.len() * 3 + 16)
+            .collect();
+        let olds: Vec<&str> = run
+            .clone()
+            .map(|o| state.old_tokens[file][o].token)
+            .collect();
+        let news: Vec<&str> = window
+            .iter()
+            .map(|&n| state.new_tokens[to_file][n].token)
+            .collect();
+        let mut moves = vec![];
+        let mut evolutions = vec![];
+        for op in diff_slices(Algorithm::Myers, &olds, &news) {
+            match op {
+                DiffOp::Equal {
+                    old_index,
+                    new_index,
+                    len,
+                } => {
+                    for j in 0..len {
+                        moves.push((run.start + old_index + j, window[new_index + j]));
+                    }
+                }
+                DiffOp::Replace {
+                    old_index,
+                    old_len,
+                    new_index,
+                    new_len,
+                } => {
+                    // (The words between them, if as many on each side, ex:
+                    // `gTabsPanel` and `: this`'s `this`.)
+                    let olds: Vec<usize> = (run.start + old_index..run.start + old_index + old_len)
+                        .filter(|&o| is_word_token(state.old_tokens[file][o].token))
+                        .collect();
+                    let news: Vec<usize> = window[new_index..new_index + new_len]
+                        .iter()
+                        .copied()
+                        .filter(|&n| is_word_token(state.new_tokens[to_file][n].token))
+                        .collect();
+                    if olds.len() == news.len() {
+                        for (o, n) in olds.into_iter().zip(news) {
+                            if state.old_tokens[file][o].effective_class()
+                                == state.new_tokens[to_file][n].effective_class()
+                            {
+                                evolutions.push((o, n));
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        // (Only where the alignment found the handler's code: a few
+        // identical tokens, not just punctuation by chance.)
+        let words = moves
+            .iter()
+            .filter(|&&(o, _)| is_word_token(state.old_tokens[file][o].token))
+            .count();
+        if words == 0 {
+            continue;
+        }
+        for (o, n) in moves {
+            if state.is_unmatched_old(file, o) && state.is_unmatched_new(to_file, n) {
+                state.record_move(file, o, to_file, n);
+            }
+        }
+        for (o, n) in evolutions {
+            if state.is_unmatched_old(file, o) && state.is_unmatched_new(to_file, n) {
+                state.record_evolution_between(file, o, to_file, n);
+            }
+        }
+    }
+}
+
 fn finalize(mut state: InferenceState) -> Vec<FileInference> {
     // Fall back to the copy relationship for copied tokens not otherwise
     // explained.
@@ -2363,6 +2537,75 @@ mod tests {
         ];
         let results = infer_revision(&inputs, &InferenceConfig::default());
         assert_eq!(summarize(&results[2]), "AAAAAAAAAA");
+    }
+
+    #[test]
+    fn test_handler_moves() {
+        // (Bug 1895490 in miniature: a XUL button's `oncommand` became a case
+        // of a listener's `switch (target.id)`, rewritten.)
+        let line = |context: &str, class: TokenClass, token: &str| {
+            crate::file_format::history::syntax_files::format_token_line(context, class, token)
+        };
+        let handler = "#allTabsMenu::#allTabsMenu-searchTabs@oncommand";
+        let markup_old = vec![
+            line("#allTabsMenu", TokenClass::Operator, "<toolbarbutton"),
+            line("#allTabsMenu", TokenClass::Operator, "oncommand="),
+            line(handler, TokenClass::Identifier, "gTabsPanel"),
+            line(handler, TokenClass::Operator, "."),
+            line(handler, TokenClass::Identifier, "searchTabs"),
+            line(handler, TokenClass::Operator, "("),
+            line(handler, TokenClass::Operator, ")"),
+            line(handler, TokenClass::Operator, ";"),
+            line("#allTabsMenu", TokenClass::Operator, "/>"),
+        ];
+        let markup_new = vec![
+            line("#allTabsMenu", TokenClass::Operator, "<toolbarbutton"),
+            line("#allTabsMenu", TokenClass::Operator, "/>"),
+        ];
+        // (`searchTabs` is common in the files, so big rocks don't find the
+        // handler's code; see `InferenceConfig::cross_file_min_rarity`.)
+        let js_old = toks("init", "searchTabs ( ) ; searchTabs ( ) ; searchTabs ( ) ;");
+        let js_new = toks(
+            "init",
+            "searchTabs ( ) ; searchTabs ( ) ; searchTabs ( ) ; switch ( target . id ) { case \"allTabsMenu-searchTabs\" : this . searchTabs ( ) ; break ; }",
+        );
+        let mut markup = input_in("web", FileChangeKind::Modified, &markup_old, &markup_new);
+        let js = input_in("web", FileChangeKind::Modified, &js_old, &js_new);
+        let searchtabs = js_new
+            .iter()
+            .rposition(|l| split_token_line(l).token == "searchTabs")
+            .unwrap();
+        let this = js_new
+            .iter()
+            .position(|l| split_token_line(l).token == "this")
+            .unwrap();
+        // (Without the attribute, the handler's code is gone.)
+        let results = infer_revision(&[markup.clone(), js.clone()], &InferenceConfig::default());
+        assert_eq!(results[1].origins[searchtabs], TokenOrigin::Added);
+        assert_eq!(results[1].origins[this], TokenOrigin::Added);
+        markup.handler_moves = true;
+        let results = infer_revision(&[markup, js], &InferenceConfig::default());
+        assert_eq!(
+            results[1].origins[searchtabs],
+            TokenOrigin::Moved {
+                from_file: 0,
+                old_lineno: 5
+            }
+        );
+        // (`gTabsPanel` became `this`.)
+        assert_eq!(
+            results[1].origins[this],
+            TokenOrigin::Evolved {
+                from_file: 0,
+                old_lineno: 3
+            }
+        );
+        assert_eq!(
+            handler_of(handler),
+            Some(("allTabsMenu-searchTabs", "oncommand", handler))
+        );
+        assert_eq!(handler_of("#a::@onclick"), None);
+        assert_eq!(handler_of("#a::#b"), None);
     }
 
     #[test]
