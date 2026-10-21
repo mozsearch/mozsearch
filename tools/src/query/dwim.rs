@@ -22,16 +22,20 @@ struct RuleConfig {
     name: String,
     description: String,
     pattern: String,
-    redirect: String,
+    redirect: Option<String>,
+    lookup: Option<String>,
     exists: Option<String>,
+    go: Option<String>,
 }
 
 struct Rule {
     name: String,
     description: String,
     pattern: Regex,
-    redirect: String,
+    redirect: Option<String>,
+    lookup: Option<String>,
     exists: Option<String>,
+    always: bool,
 }
 
 lazy_static! {
@@ -40,29 +44,53 @@ lazy_static! {
         config
             .rule
             .into_iter()
-            .map(|rule| Rule {
-                pattern: Regex::new(&rule.pattern).unwrap(),
-                name: rule.name,
-                description: rule.description,
-                redirect: rule.redirect,
-                exists: rule.exists,
+            .map(|rule| {
+                assert!(
+                    rule.redirect.is_some() != rule.lookup.is_some(),
+                    "DWIM rule {} needs a redirect or a lookup",
+                    rule.name
+                );
+                Rule {
+                    pattern: Regex::new(&rule.pattern).unwrap(),
+                    always: match rule.go.as_deref() {
+                        None => false,
+                        Some("always") => true,
+                        Some(go) => panic!("DWIM rule {}'s go = {:?}", rule.name, go),
+                    },
+                    name: rule.name,
+                    description: rule.description,
+                    redirect: rule.redirect,
+                    lookup: rule.lookup,
+                    exists: rule.exists,
+                }
             })
             .collect()
     };
 }
 
 /// Where a DWIM rule says the input may be: its URL (ex: "/{tree}/source/...",
-/// or another site's), and the rule's name and description.
+/// or another site's), the rule's name and description, and whether to go
+/// there at once, without searching (its `go = "always"`).
 #[derive(Debug, PartialEq)]
 pub struct DwimTarget {
     pub rule: String,
     pub description: String,
     pub url: String,
+    pub always: bool,
 }
 
+/// A lookup rule's lookup (ex: "spec") of the input's captures (by name).
+pub type DwimLookup<'a> = &'a dyn Fn(&str, &dyn Fn(&str) -> Option<String>) -> Option<String>;
+
 /// Where the first DWIM rule matching the input says it may be in the tree,
-/// whose paths `has_path` says it has, if one does.
-pub fn dwim_target(tree: &str, input: &str, has_path: &dyn Fn(&str) -> bool) -> Option<DwimTarget> {
+/// whose paths `has_path` says it has, and which `lookup` does the lookups of,
+/// if one does.
+pub fn dwim_target(
+    tree: &str,
+    input: &str,
+    has_path: &dyn Fn(&str) -> bool,
+    lookup: DwimLookup,
+) -> Option<DwimTarget> {
     let input = input.trim();
     for rule in RULES.iter() {
         let Some(captures) = rule.pattern.captures(input) else {
@@ -79,13 +107,47 @@ pub fn dwim_target(tree: &str, input: &str, has_path: &dyn Fn(&str) -> bool) -> 
         {
             continue;
         }
+        let url = match (&rule.redirect, &rule.lookup) {
+            (Some(redirect), _) => substitute(redirect, &capture),
+            (None, Some(kind)) => match lookup(kind, &capture) {
+                Some(url) => url,
+                None => continue,
+            },
+            (None, None) => continue,
+        };
         return Some(DwimTarget {
             rule: rule.name.clone(),
             description: rule.description.clone(),
-            url: substitute(&rule.redirect, &capture),
+            url,
+            always: rule.always,
         });
     }
     None
+}
+
+/// The URL of a target a search went to at once (see `DwimTarget::always`),
+/// saying what was searched for (`searched`) and where its search is
+/// (`searched-search`), for the page to offer it (see search.js), if it's
+/// searchfox's (a path); before its fragment.
+pub fn searched_url(url: &str, input: &str, search: &str) -> String {
+    if !url.starts_with('/') || url.starts_with("//") {
+        return url.to_string();
+    }
+    let (url, fragment) = match url.find('#') {
+        Some(at) => url.split_at(at),
+        None => (url, ""),
+    };
+    let params = url::form_urlencoded::Serializer::new(String::new())
+        .append_pair("searched", input.trim())
+        .append_pair("searched-search", search)
+        .finish();
+    format!(
+        "{}{}{}{}",
+        url,
+        if url.contains('?') { "&" } else { "?" },
+        params,
+        fragment
+    )
 }
 
 /// What to suggest completions of for the input, as an OpenSearch engine's
@@ -166,9 +228,24 @@ fn substitute(template: &str, value: &dyn Fn(&str) -> Option<String>) -> String 
 mod tests {
     use super::*;
 
-    fn redirect(input: &str) -> Option<String> {
+    /// The target, with a spec lookup of "https://example.spec.whatwg.org/"'s
+    /// URLs.
+    fn target(input: &str) -> Option<DwimTarget> {
         let has_path = |path: &str| path.starts_with("dom/");
-        dwim_target("firefox-main", input, &has_path).map(|target| target.url)
+        let lookup = |kind: &str, capture: &dyn Fn(&str) -> Option<String>| {
+            let url = capture("url")?;
+            (kind == "spec" && url.starts_with("https://example.spec.whatwg.org/")).then(|| {
+                format!(
+                    "/specs/rendered/example.html{}",
+                    capture("anchor").map_or_else(String::new, |a| format!("#{}", a))
+                )
+            })
+        };
+        dwim_target("firefox-main", input, &has_path, &lookup)
+    }
+
+    fn redirect(input: &str) -> Option<String> {
+        target(input).map(|target| target.url)
     }
 
     #[test]
@@ -229,6 +306,59 @@ mod tests {
         );
         assert_eq!(redirect("widget/Foo.cpp:12"), None);
         assert_eq!(redirect("Foo::Bar"), None);
+    }
+
+    #[test]
+    fn test_go_always() {
+        // (A spec's URL is its rendered view, at once; a URL that isn't a
+        // spec's isn't the rule's.)
+        let spec = target("https://example.spec.whatwg.org/#widgets").unwrap();
+        assert_eq!(spec.url, "/specs/rendered/example.html#widgets");
+        assert!(spec.always);
+        assert_eq!(redirect("https://example.org/#widgets"), None);
+        // (Crash-stats signatures and WPT sync PRs go at once too; files'
+        // URLs only if the search finds nothing.)
+        assert!(
+            target("https://crash-stats.mozilla.org/signature/?signature=Foo")
+                .unwrap()
+                .always
+        );
+        assert!(
+            target("https://github.com/web-platform-tests/wpt/pull/1")
+                .unwrap()
+                .always
+        );
+        assert!(
+            !target("https://searchfox.org/firefox-disco/source/dom/base/Foo.cpp")
+                .unwrap()
+                .always
+        );
+    }
+
+    #[test]
+    fn test_searched_url() {
+        // (Searchfox's pages say what was searched for and where its search
+        // is, before their fragments; others' don't.)
+        assert_eq!(
+            searched_url(
+                "/specs/rendered/example.html#widgets",
+                " https://x/#a ",
+                "/t/query/default?q=%27x%27"
+            ),
+            "/specs/rendered/example.html?searched=https%3A%2F%2Fx%2F%23a&searched-search=%2Ft%2Fquery%2Fdefault%3Fq%3D%2527x%2527#widgets"
+        );
+        assert_eq!(
+            searched_url("/t/query/default?q=a", "x", "/s"),
+            "/t/query/default?q=a&searched=x&searched-search=%2Fs"
+        );
+        assert_eq!(
+            searched_url("https://bugzilla.mozilla.org/x", "x", "/s"),
+            "https://bugzilla.mozilla.org/x"
+        );
+        assert_eq!(
+            searched_url("//evil.example/x", "x", "/s"),
+            "//evil.example/x"
+        );
     }
 
     #[test]

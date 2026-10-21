@@ -135,6 +135,31 @@ add_task(async function test_DwimRules() {
   ok(!doc().querySelector(".query-dwim"), "A query doesn't");
 });
 
+add_task(async function test_QuerySearchGoesAtOnce() {
+  // A DWIM rule with `go = "always"` (ex: a web spec's URL's) goes to its
+  // target at once, without searching, whose page says what was searched for
+  // and offers its search (see search.js's showSearched).  (trydelta's specs
+  // are the tests tree's, its `SPEC_` linked tree.)
+  const bs = "https://example.github.io/bs/#poke";
+  await TestUtils.loadPath(`/trydelta/search?q=${encodeURIComponent(bs)}`);
+  is(doc().location.pathname, "/tests/rendered/specs/example.bs",
+     "A Bikeshed spec's URL goes to its rendered view, in the tree with its specs");
+  is(doc().location.hash, "#poke", "at its anchor");
+  is(doc().querySelector(".dwim-searched code")?.textContent, bs, "which says what was searched for");
+  const search = new URL(doc().querySelector(".dwim-searched a").href);
+  is(search.pathname, "/trydelta/query/default", "and offers the search, in the tree searched");
+  is(search.searchParams.get("q"), `'${bs}'`, "for the URL");
+  ok(!doc().location.search.includes("searched"), "and its URL doesn't say so");
+
+  // (A paged spec's anchor goes to its page, saying so too.)
+  const wattsi = "https://example.spec.whatwg.org/#assemble";
+  await TestUtils.loadPath(`/trydelta/search?q=${encodeURIComponent(wattsi)}`);
+  is(doc().location.pathname, "/tests/rendered/specs/source/gadgets.html",
+     "A paged spec's URL goes to the page with its anchor");
+  is(doc().location.hash, "#assemble", "at it");
+  is(doc().querySelector(".dwim-searched code")?.textContent, wattsi, "saying what was searched for");
+});
+
 add_task(async function test_QueryExcludedPaths() {
   // `-path:` (and `-pathre:`) leaves out paths from the files and text a query
   // searches.

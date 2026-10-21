@@ -2090,3 +2090,30 @@ function formatDate(dateString) {
 for (let element of document.querySelectorAll(".pretty-date")) {
   element.innerText = formatDate(element.getAttribute("data-datetime"));
 }
+
+// A page a search went to at once, as a DWIM rule says (ex: a web spec's URL's
+// rendered view; see tools/src/query/dwim.rs's `searched_url`): it says what
+// was searched for, and offers its search (in case one did want the URL's
+// citations, say); and its URL loses them, so that reloading it or sharing it
+// doesn't.
+(function showSearched() {
+  const url = new URL(document.location.href);
+  const searched = url.searchParams.get("searched");
+  const search = url.searchParams.get("searched-search");
+  const content = document.getElementById("content");
+  if (searched === null || !search?.startsWith("/") || search.startsWith("//") || !content) {
+    return;
+  }
+  const note = document.createElement("div");
+  note.className = "dwim-searched";
+  const input = document.createElement("code");
+  input.textContent = searched;
+  const link = document.createElement("a");
+  link.href = search;
+  link.textContent = "search for it instead";
+  note.append("You searched for ", input, ": ", link, ".");
+  content.prepend(note);
+  url.searchParams.delete("searched");
+  url.searchParams.delete("searched-search");
+  history.replaceState(history.state, "", url);
+})();

@@ -783,8 +783,15 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 ));
             }
 
-            // (Links to specs' anchors and lines go to the pages with them.)
+            // (Links to specs' anchors and lines go to the pages with them,
+            // with their queries, ex: what a search going to a spec's URL's
+            // anchor was for; see `dwim::searched_url`.)
             if let Some(url) = format::rendered_redirect(cfg, tree_name, rev, &file_path) {
+                let url = match (req.query, url.split_once('#')) {
+                    ("", _) => url,
+                    (query, Some((url, fragment))) => format!("{}?{}#{}", url, query, fragment),
+                    (query, None) => format!("{}?{}", url, query),
+                };
                 return WebResponse::redirect(url);
             }
 
@@ -1237,6 +1244,37 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 regexp: param("regexp") == Some("true"),
             };
             let normalization = tools::query::normalize::normalize_search(input, &form);
+            // (A DWIM rule's target which is where to go at once, without
+            // searching, saying where the search is, for its page to offer;
+            // see `dwim::DwimTarget::always`.)
+            let has_path = |path: &str| {
+                tree_server(tree_name).is_some_and(|server| server.file_facet_info(path).is_some())
+            };
+            let lookup = |kind: &str, capture: &dyn Fn(&str) -> Option<String>| match kind {
+                "spec" => format::spec_url_target(
+                    cfg,
+                    tree_name,
+                    &capture("url")?,
+                    capture("anchor").as_deref(),
+                ),
+                _ => None,
+            };
+            if let Some(target) =
+                tools::query::dwim::dwim_target(tree_name, input, &has_path, &lookup)
+                    .filter(|target| target.always)
+            {
+                let search = query_url(
+                    tree_name,
+                    &normalization.query,
+                    &normalization.query,
+                    param("rev"),
+                );
+                return WebResponse::found(tools::query::dwim::searched_url(
+                    &target.url,
+                    input,
+                    &search,
+                ));
+            }
             WebResponse::found(query_url(
                 tree_name,
                 &normalization.query,

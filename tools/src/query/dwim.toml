@@ -10,13 +10,24 @@
 # is where its `redirect` is, a URL (or the tree's path), with `{tree}` and the
 # pattern's named captures substituted (as they are: they're parts of a URL
 # already), and `[...]` left out where a capture in it didn't match.  A rule
-# with `exists` only applies if the tree has the path that capture names.
+# with `exists` only applies if the tree has the path that capture names.  A
+# rule with `lookup` rather than `redirect` is where that lookup of its
+# captures says, if it finds anything, else it doesn't apply ("spec": a web
+# spec's URL's spec, in the tree or its `SPEC_` linked tree, whose rendered
+# view, at the URL's anchor, it is; see `format::spec_url_target`).
+#
+# A rule with `go = "always"` goes there at once, without searching (when
+# what the search would find, ex: code citing the URL, isn't what one has the
+# URL for), and the page it goes to (if it's searchfox's) offers the search;
+# the others go there if the search finds nothing, else say where above its
+# results.
 
 [[rule]]
 name = "wpt-sync-pr"
 description = "A web-platform-tests pull request: its sync bugs."
 pattern = '^(?:https?://)?github\.com/web-platform-tests/wpt/pull/(?P<pr>\d+)(?:[/?#]\S*)?$'
 redirect = 'https://bugzilla.mozilla.org/buglist.cgi?quicksearch=%22Sync%20PR%20{pr}%22'
+go = "always"
 
 [[rule]]
 name = "searchfox-file"
@@ -44,6 +55,14 @@ name = "crash-stats-signature"
 description = "A crash-stats signature: its stack, beside its frames' code."
 pattern = '^https?://crash-stats\.mozilla\.org/signature/\?(?:\S*?&)?signature=(?P<signature>[^&#\s]+)\S*$'
 redirect = "/{tree}/query/default?q=crash-signature%3A%27{signature}%27"
+go = "always"
+
+[[rule]]
+name = "spec-url"
+description = "A web spec's URL: the spec's rendered view, at its anchor."
+pattern = '^(?P<url>https?://[^\s#]+)(?:#(?P<anchor>\S*))?$'
+lookup = "spec"
+go = "always"
 
 [[rule]]
 name = "path-line"

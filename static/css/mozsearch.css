@@ -5428,3 +5428,16 @@ textarea.monospace {
 .crash-frame-where {
   margin-top: 0.3em;
 }
+
+/* What a search was for, on the page it went to at once, as a DWIM rule says
+   (see search.js's showSearched), with a link to its search. */
+.dwim-searched {
+  margin: 0.5em 1em;
+  padding: 0.4em 0.8em;
+  border-left: 3px solid var(--link-color);
+  background-color: color-mix(in srgb, var(--link-color) 8%, transparent);
+  font-size: 13px;
+}
+.dwim-searched code {
+  word-break: break-all;
+}

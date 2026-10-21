@@ -334,11 +334,16 @@ async fn handle_query(
     // Where a DWIM rule says what a person searched for may be (see
     // `tools::query::dwim`; ex: a GitHub URL of a file, the tree's file), for
     // the page of their search (with its input; see web-server.rs's `search`
-    // route), which goes there if the search finds nothing.
+    // route), which goes there if the search finds nothing.  (The rules that
+    // go at once, its `search` route has gone by; and lookups, which need the
+    // trees' configs, are its.)
     let dwim = params.get("input").and_then(|input| {
-        dwim_target(&tree, input, &|path: &str| {
-            server.file_facet_info(path).is_some()
-        })
+        dwim_target(
+            &tree,
+            input,
+            &|path: &str| server.file_facet_info(path).is_some(),
+            &|_, _| None,
+        )
     });
     if make_html
         && let Some(target) = &dwim

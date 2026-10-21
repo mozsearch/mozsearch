@@ -1718,6 +1718,93 @@ fn tree_definition(tree_name: &str, tree_config: &TreeConfig, sym: &str) -> Opti
     Some((path.to_string(), line.parse().ok()?))
 }
 
+/// The spec whose rendered URL (or one of its aliases) the URL is, or is
+/// under, the longest such (ex: a later level's, under its series' URL),
+/// whatever the URLs' schemes and hosts' case, and with or without a trailing
+/// slash.
+pub fn spec_for_url<'a>(specs: &'a SpecsConfig, url: &str) -> Option<&'a SpecEntry> {
+    fn normalize(url: &str) -> String {
+        let url = url.trim();
+        let url = url
+            .strip_prefix("https://")
+            .or_else(|| url.strip_prefix("http://"))
+            .unwrap_or(url);
+        let (host, path) = url.split_once('/').unwrap_or((url, ""));
+        format!("{}/{}", host.to_ascii_lowercase(), path)
+    }
+    let url = normalize(url);
+    let mut best: Option<(&SpecEntry, usize)> = None;
+    for spec in &specs.specs {
+        for candidate in spec.rendered.iter().chain(&spec.aliases) {
+            let mut candidate = normalize(candidate);
+            if !candidate.ends_with('/') {
+                candidate.push('/');
+            }
+            let matches = url.starts_with(&candidate)
+                || url.trim_end_matches('/') == candidate.trim_end_matches('/');
+            if matches && best.is_none_or(|(_, len)| candidate.len() > len) {
+                best = Some((spec, candidate.len()));
+            }
+        }
+    }
+    best.map(|(spec, _)| spec)
+}
+
+/// Where a web spec's URL (without its fragment) is: its spec's rendered
+/// view, at the anchor (percent-encoded, as URLs have them), in the first of
+/// the tree and its `SPEC_` linked tree with the spec's source (ex: from
+/// firefox-disco, wubspecs'; see the DWIM rule "spec-url"), if it's a spec's
+/// with a rendered view.
+pub fn spec_url_target(
+    cfg: &Config,
+    tree_name: &str,
+    url: &str,
+    anchor: Option<&str>,
+) -> Option<String> {
+    let tree_config = cfg.trees.get(tree_name)?;
+    let candidates = std::iter::once(tree_name).chain(
+        tree_config
+            .paths
+            .linked_trees
+            .get("SPEC_")
+            .map(String::as_str),
+    );
+    for spec_tree in candidates {
+        let Some(spec_tree_config) = cfg.trees.get(spec_tree) else {
+            continue;
+        };
+        let Some(specs) = tree_specs(spec_tree, spec_tree_config) else {
+            continue;
+        };
+        let Some(spec) = spec_for_url(&specs, url) else {
+            continue;
+        };
+        let Some(source_path) = spec.source_path() else {
+            return None;
+        };
+        if !Path::new(&spec_tree_config.paths.files_path)
+            .join(&source_path)
+            .is_file()
+        {
+            continue;
+        }
+        let base = rendered_url(spec_tree, None, &source_path);
+        let anchor = anchor.filter(|anchor| !anchor.is_empty()).map(|anchor| {
+            urlencoding::decode(anchor)
+                .map(|anchor| anchor.into_owned())
+                .unwrap_or_else(|_| anchor.to_string())
+        });
+        return Some(match anchor {
+            Some(anchor) if spec.format.is_some_and(rendered_specs::is_paged) => {
+                rendered_specs::anchor_url(&base, &anchor)
+            }
+            Some(anchor) => format!("{}{}", base, rendered_specs::fragment(&anchor)),
+            None => base,
+        });
+    }
+    None
+}
+
 /// Where the view of an algorithm (see `format_algorithm`) is if the tree
 /// doesn't define it but a linked tree does (ex: from firefox-disco, for a
 /// `SPEC_` symbol, wubspecs').
@@ -10153,6 +10240,35 @@ pub fn render_commit(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_spec_for_url() {
+        let specs: crate::spec_analyze::SpecsConfig = toml::from_str(
+            r#"
+            [[spec]]
+            name = "example"
+            format = "wattsi"
+            rendered = "https://example.spec.whatwg.org/"
+            [[spec]]
+            name = "example-2"
+            rendered = "https://example.spec.whatwg.org/2/"
+            [[spec]]
+            name = "grid"
+            format = "bikeshed"
+            rendered = "https://drafts.csswg.org/css-grid-2/"
+            aliases = ["https://drafts.csswg.org/css-grid/"]
+            "#,
+        )
+        .unwrap();
+        let name = |url: &str| spec_for_url(&specs, url).map(|spec| spec.name.as_str());
+        assert_eq!(name("https://example.spec.whatwg.org/"), Some("example"));
+        assert_eq!(name("http://Example.Spec.WHATWG.org"), Some("example"));
+        // (The longest URL it's under: a later level's, not its series'.)
+        assert_eq!(name("https://example.spec.whatwg.org/2/"), Some("example-2"));
+        assert_eq!(name("https://drafts.csswg.org/css-grid/"), Some("grid"));
+        assert_eq!(name("https://drafts.csswg.org/css-gridx/"), None);
+        assert_eq!(name("https://example.org/"), None);
+    }
+
     #[test]
     fn test_bug_summary() {
         assert_eq!(

@@ -66,4 +66,6 @@ add_task(async function test_CrashStackDwim() {
      "the query of its signature's stack");
   ok(doc().querySelector(".crash-signature")?.href.startsWith("https://crash-stats.mozilla.org/signature/"),
      "which links to it on crash-stats");
+  is(doc().querySelector(".dwim-searched code")?.textContent, url,
+     "at once (without searching), saying what was searched for");
 });
