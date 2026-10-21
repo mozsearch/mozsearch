@@ -9,7 +9,7 @@ input_file: inputs/analysis/ts/ChromeUtils.js/defineESModuleGetter/SomeExportedC
     "source": 1,
     "syntax": "use,method",
     "pretty": "method SomeExportedClass::method",
-    "sym": "S_js_ts/src/exports.mjs/SomeExportedClass#method().",
+    "sym": "S_js_test-ts/ts/src/exports.mjs/SomeExportedClass#method().",
     "type": "void"
   },
   {
@@ -17,6 +17,6 @@ input_file: inputs/analysis/ts/ChromeUtils.js/defineESModuleGetter/SomeExportedC
     "target": 1,
     "kind": "use",
     "pretty": "SomeExportedClass::method",
-    "sym": "S_js_ts/src/exports.mjs/SomeExportedClass#method()."
+    "sym": "S_js_test-ts/ts/src/exports.mjs/SomeExportedClass#method()."
   }
 ]
