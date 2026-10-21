@@ -81,16 +81,19 @@
 //!    - Then identifiers' renames inferred in the revision apply wherever else
 //!      both names are left unmatched in a block (see
 //!      `infer_revision_renames`), if they were seen twice or are similar.
+//! 5. Renames' patterns.  The ways the revision's renames changed their names'
+//!    subwords, ex: "Remote" becoming "Shared" with "Args" appended, pair other
+//!    unmatched identifiers whose names differ in only those ways, in a block,
+//!    and across blocks (ex: to another file), where each pair anchors the
+//!    identical unmatched tokens around it, which re-synchronizes sequences
+//!    with too little context to match (see `infer_rename_patterns`).
 //!
 //! ## Future work
 //!
-//! - Renames' patterns across the revision, like "Remote" becoming "Shared"
-//!   with "Args" appended, to re-synchronize sequences that lack sufficient
-//!   context.
 //! - Looking at overall token metrics to skip inference for high-churn
 //!   automated changes.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::hash::Hash;
 
 use imara_diff::{Algorithm, Diff, Interner, Token};
@@ -354,6 +357,9 @@ pub struct InferenceConfig {
     /// safeguard against giant automated rewrites where the inference is both
     /// expensive and unlikely to be useful.
     pub max_removed_tokens_for_moves: usize,
+    /// Whether renames' patterns pair other identifiers (see
+    /// `infer_rename_patterns`); off only to measure what they add.
+    pub rename_patterns: bool,
 }
 
 impl Default for InferenceConfig {
@@ -364,6 +370,7 @@ impl Default for InferenceConfig {
             cross_file_min_len: 16,
             cross_file_min_rarity: 0.25,
             cross_file_min_identifiers: 4,
+            rename_patterns: true,
         }
     }
 }
@@ -428,12 +435,23 @@ impl<'a, 'b> InferenceState<'a, 'b> {
     }
 
     fn record_evolution(&mut self, file: usize, old_idx: usize, new_idx: usize) {
-        self.origins[file][new_idx] = TokenOrigin::Evolved {
-            from_file: file as u32,
+        self.record_evolution_between(file, old_idx, file, new_idx);
+    }
+
+    /// An evolution from another file's token (see `infer_rename_patterns`).
+    fn record_evolution_between(
+        &mut self,
+        from_file: usize,
+        old_idx: usize,
+        to_file: usize,
+        new_idx: usize,
+    ) {
+        self.origins[to_file][new_idx] = TokenOrigin::Evolved {
+            from_file: from_file as u32,
             old_lineno: old_idx as u32 + 1,
         };
-        self.fates[file][old_idx] = Some(RemovedFate::EvolvedInto {
-            to_file: file as u32,
+        self.fates[from_file][old_idx] = Some(RemovedFate::EvolvedInto {
+            to_file: to_file as u32,
             new_lineno: new_idx as u32 + 1,
         });
     }
@@ -483,6 +501,9 @@ pub fn infer_revision(inputs: &[FileChangeInput], config: &InferenceConfig) -> V
 
     infer_local_recontexting(&mut state);
     infer_evolutions(&mut state);
+    if config.rename_patterns {
+        infer_rename_patterns(&mut state);
+    }
 
     finalize(state)
 }
@@ -957,10 +978,19 @@ const MAX_HOLE_TOKENS: usize = 16;
 /// differ in size.
 const MIN_HOLE_SIMILARITY: f64 = 0.5;
 
-/// The lowercase subwords of an identifier or string, split at non-
+/// The lowercase subwords of an identifier or string, sorted and
+/// deduplicated (see `subword_seq`).
+fn subwords(token: &str) -> Vec<String> {
+    let mut words = subword_seq(token);
+    words.sort();
+    words.dedup();
+    words
+}
+
+/// The lowercase subwords of an identifier or string in order, split at non-
 /// alphanumeric characters, and at camelCase, ex: `["url", "parser", "for",
 /// "x"]` for `URLParser_forX`.
-fn subwords(token: &str) -> Vec<String> {
+fn subword_seq(token: &str) -> Vec<String> {
     let mut words = vec![];
     let mut word = String::new();
     let chars: Vec<char> = token.chars().collect();
@@ -987,8 +1017,6 @@ fn subwords(token: &str) -> Vec<String> {
     if !word.is_empty() {
         words.push(word);
     }
-    words.sort();
-    words.dedup();
     words
 }
 
@@ -1246,6 +1274,460 @@ fn infer_revision_renames(state: &mut InferenceState) {
     }
 }
 
+/// How a rename changed its name's subwords (see `subword_seq`), ex:
+/// `RemoteWorkerSuspendOp` becoming `SharedWorkerSuspendOpArgs` is
+/// `Replace(["remote"], ["shared"])` and `Append(["args"])`.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+enum RenameRule {
+    Replace(Vec<String>, Vec<String>),
+    Prepend(Vec<String>),
+    Append(Vec<String>),
+    /// Subwords added between others.
+    Insert(Vec<String>),
+    DropStart(Vec<String>),
+    DropEnd(Vec<String>),
+    /// Subwords dropped from between others.
+    Drop(Vec<String>),
+}
+
+/// Where `words` first occurs in `seq`, from `from` and ending before `end`.
+fn find_words(seq: &[String], words: &[String], from: usize, end: usize) -> Option<usize> {
+    if words.is_empty() || words.len() > end.saturating_sub(from) {
+        return None;
+    }
+    (from..=end - words.len()).find(|&i| seq[i..i + words.len()] == *words)
+}
+
+/// Where `words` first occurs in `seq` between other subwords.
+fn find_interior(seq: &[String], words: &[String]) -> Option<usize> {
+    find_words(seq, words, 1, seq.len().saturating_sub(1))
+}
+
+/// `seq` with `len` subwords at `at` replaced by `with`.
+fn splice(seq: &[String], at: usize, len: usize, with: &[String]) -> Vec<String> {
+    let mut spliced = seq[..at].to_vec();
+    spliced.extend_from_slice(with);
+    spliced.extend_from_slice(&seq[at + len..]);
+    spliced
+}
+
+impl RenameRule {
+    /// The name `seq` becomes by this rule, if it applies (not `Insert`,
+    /// whose position isn't known).
+    fn apply(&self, seq: &[String]) -> Option<Vec<String>> {
+        match self {
+            RenameRule::Replace(from, to) => {
+                find_words(seq, from, 0, seq.len()).map(|i| splice(seq, i, from.len(), to))
+            }
+            RenameRule::Prepend(words) => Some(splice(seq, 0, 0, words)),
+            RenameRule::Append(words) => Some(splice(seq, seq.len(), 0, words)),
+            RenameRule::Insert(_) => None,
+            RenameRule::DropStart(words) => (seq.len() > words.len() && seq.starts_with(words))
+                .then(|| seq[words.len()..].to_vec()),
+            RenameRule::DropEnd(words) => (seq.len() > words.len() && seq.ends_with(words))
+                .then(|| seq[..seq.len() - words.len()].to_vec()),
+            RenameRule::Drop(words) => {
+                find_interior(seq, words).map(|i| splice(seq, i, words.len(), &[]))
+            }
+        }
+    }
+
+    /// The name `seq` was before this rule, if it applies (not `Drop`, whose
+    /// position isn't known).
+    fn unapply(&self, seq: &[String]) -> Option<Vec<String>> {
+        match self {
+            RenameRule::Replace(from, to) => {
+                find_words(seq, to, 0, seq.len()).map(|i| splice(seq, i, to.len(), from))
+            }
+            RenameRule::Prepend(words) => (seq.len() > words.len() && seq.starts_with(words))
+                .then(|| seq[words.len()..].to_vec()),
+            RenameRule::Append(words) => (seq.len() > words.len() && seq.ends_with(words))
+                .then(|| seq[..seq.len() - words.len()].to_vec()),
+            RenameRule::Insert(words) => {
+                find_interior(seq, words).map(|i| splice(seq, i, words.len(), &[]))
+            }
+            RenameRule::DropStart(words) => Some(splice(seq, 0, 0, words)),
+            RenameRule::DropEnd(words) => Some(splice(seq, seq.len(), 0, words)),
+            RenameRule::Drop(_) => None,
+        }
+    }
+}
+
+/// A rename's rules (see `RenameRule`), from the alignment of its names'
+/// subwords, and whether the names share any.
+fn rename_rules(old: &[String], new: &[String]) -> (Vec<RenameRule>, bool) {
+    let old_words: Vec<&str> = old.iter().map(String::as_str).collect();
+    let new_words: Vec<&str> = new.iter().map(String::as_str).collect();
+    let mut rules = vec![];
+    let mut shared = false;
+    for op in diff_slices(Algorithm::Myers, &old_words, &new_words) {
+        let rule = match op {
+            DiffOp::Equal { .. } => {
+                shared = true;
+                continue;
+            }
+            DiffOp::Replace {
+                old_index,
+                old_len,
+                new_index,
+                new_len,
+            } => RenameRule::Replace(
+                old[old_index..old_index + old_len].to_vec(),
+                new[new_index..new_index + new_len].to_vec(),
+            ),
+            DiffOp::Insert {
+                old_index,
+                new_index,
+                new_len,
+            } => {
+                let words = new[new_index..new_index + new_len].to_vec();
+                if old_index == 0 {
+                    RenameRule::Prepend(words)
+                } else if old_index == old.len() {
+                    RenameRule::Append(words)
+                } else {
+                    RenameRule::Insert(words)
+                }
+            }
+            DiffOp::Delete {
+                old_index, old_len, ..
+            } => {
+                let words = old[old_index..old_index + old_len].to_vec();
+                if old_index == 0 {
+                    RenameRule::DropStart(words)
+                } else if old_index + old_len == old.len() {
+                    RenameRule::DropEnd(words)
+                } else {
+                    RenameRule::Drop(words)
+                }
+            }
+        };
+        rules.push(rule);
+    }
+    rules.sort();
+    rules.dedup();
+    (rules, shared)
+}
+
+/// A rule must be seen in this many of a revision's renames (distinct pairs
+/// of names sharing a subword) to pair other names.
+const MIN_RULE_RENAMES: usize = 2;
+
+/// At most this many of a revision's rules (the most seen) pair other names,
+/// which bounds the work of big rewrites, which have many.
+const MAX_RULES: usize = 64;
+
+/// A revision's rules (see `infer_rename_patterns`).
+struct RenameRules {
+    list: Vec<RenameRule>,
+    set: HashSet<RenameRule>,
+}
+
+impl RenameRules {
+    /// How many rules `old` became `new` by, if it could have by only the
+    /// revision's.
+    fn rename(&self, old: &str, new: &str) -> Option<usize> {
+        if old == new {
+            return None;
+        }
+        let (rules, _) = rename_rules(&subword_seq(old), &subword_seq(new));
+        (!rules.is_empty() && rules.iter().all(|rule| self.set.contains(rule)))
+            .then_some(rules.len())
+    }
+
+    /// For each of `olds`, the one of `news` it could have become by the
+    /// fewest rules (then the first by name), of those `allowed`, and whether
+    /// no other could have.  (Meeting in the middle: each old name after a
+    /// rule, and each new name before one, so renames by up to two rules
+    /// meet.)
+    fn candidates<'t>(
+        &self,
+        olds: &BTreeSet<&'t str>,
+        news: &BTreeSet<&'t str>,
+        allowed: impl Fn(&str, &str) -> bool,
+    ) -> BTreeMap<&'t str, (&'t str, bool)> {
+        let key = |seq: &[String]| seq.join("\u{1f}");
+        let mut by_key: HashMap<String, Vec<&'t str>> = HashMap::new();
+        for &new in news {
+            let seq = subword_seq(new);
+            let mut keys: Vec<String> = self
+                .list
+                .iter()
+                .filter_map(|rule| rule.unapply(&seq))
+                .map(|seq| key(&seq))
+                .collect();
+            keys.push(key(&seq));
+            keys.sort();
+            keys.dedup();
+            for k in keys {
+                by_key.entry(k).or_default().push(new);
+            }
+        }
+        let mut best = BTreeMap::new();
+        for &old in olds {
+            let seq = subword_seq(old);
+            let mut keys: Vec<String> = self
+                .list
+                .iter()
+                .filter_map(|rule| rule.apply(&seq))
+                .map(|seq| key(&seq))
+                .collect();
+            keys.push(key(&seq));
+            let mut found: BTreeSet<(usize, &'t str)> = BTreeSet::new();
+            for k in keys {
+                for &new in by_key.get(&k).into_iter().flatten() {
+                    if let Some(rules) = self.rename(old, new)
+                        && allowed(old, new)
+                    {
+                        found.insert((rules, new));
+                    }
+                }
+            }
+            if let Some(&(_, new)) = found.first() {
+                let unique = found.iter().all(|&(_, other)| other == new);
+                best.insert(old, (new, unique));
+            }
+        }
+        best
+    }
+}
+
+/// The names in a block or namespace of unmatched identifiers (old or new),
+/// with their tokens' positions (file and index) in order.
+type NamePositions<'a> = BTreeMap<&'a str, Vec<(usize, usize)>>;
+
+/// Pass 5: Renames' patterns.  A revision which renames things usually
+/// renames them alike: ex: D198005 (the PRemoteWorker refactoring) renamed
+/// `RemoteWorkerOp` to `SharedWorkerOpArgs`, `RemoteWorkerSuspendOp` to
+/// `SharedWorkerSuspendOpArgs`, and so on, "Remote" becoming "Shared" with
+/// "Args" appended, which slots pair where only the names changed (in
+/// RemoteWorkerController.cpp), but not where the structs they name moved to
+/// another file with too little else to match (PRemoteWorker.ipdl's to
+/// SharedWorkerOpArgs.ipdlh).  So the revision's identifier evolutions whose
+/// names share a subword give rules (see `RenameRule`), and those seen in at
+/// least `MIN_RULE_RENAMES` of them pair other unmatched identifiers whose
+/// names differ by only such rules (and at most two of them; see
+/// `RenameRules::candidates`): in each block, as `infer_revision_renames`
+/// does, if the names share a subword or the revision renamed the name (the
+/// old name isn't in any of its files' new versions, nor the new name in
+/// their old versions), then across each namespace's blocks (ex: other
+/// files'), if the revision renamed the name, the names pair uniquely, and
+/// each name's unmatched tokens are in one file, where each pair anchors the identical unmatched tokens around it (ex: the
+/// structs' `struct` and `{ } ;`) as moved with it (see `extend_anchor`).
+/// (Rules are learned across namespaces, as above, where the renames were in
+/// C++ and the structs in IPDL.)  On mozsearch's history, without those
+/// requirements, rules paired `info` (the `info!` macro) with `config` (from
+/// `tree_info` becoming `tree_config`) in a block, and across files,
+/// `serde_json` with `serde` (from `fields_json` becoming `fields`), and
+/// `data` with `data_str`; and in a firefox window, `aCertDer` in 4 files
+/// with `aCertId` in 1, in the order of the files.  With them, on
+/// mozsearch's history, 51 tokens' origins change in 15 of 2,751 revisions
+/// (ex: `applyDiagramOptions` to `applyOptions`, `getter_name` to
+/// `cpp_getter_name`), and in a firefox window (2026-09-13 to 27), 780 in 35
+/// of 4,061 (ex: uniffi's generated `logins` names becoming `db_crypto`
+/// ones, and `generator` becoming `mGenerator`), 11 across files, and 185
+/// moves anchored, for ~3% more inference time.
+fn infer_rename_patterns(state: &mut InferenceState) {
+    // ## The revision's rules.
+    let mut renames: BTreeSet<(&str, &str)> = BTreeSet::new();
+    for (file, origins) in state.origins.iter().enumerate() {
+        for (new_idx, origin) in origins.iter().enumerate() {
+            let TokenOrigin::Evolved {
+                from_file,
+                old_lineno,
+            } = *origin
+            else {
+                continue;
+            };
+            let new = &state.new_tokens[file][new_idx];
+            let old = &state.old_tokens[from_file as usize][old_lineno as usize - 1];
+            if new.effective_class() == TokenClass::Identifier
+                && old.effective_class() == TokenClass::Identifier
+                && old.token != new.token
+            {
+                renames.insert((old.token, new.token));
+            }
+        }
+    }
+    let mut seen: HashMap<RenameRule, usize> = HashMap::new();
+    for (old, new) in renames {
+        let (rules, shared) = rename_rules(&subword_seq(old), &subword_seq(new));
+        if shared {
+            for rule in rules {
+                *seen.entry(rule).or_default() += 1;
+            }
+        }
+    }
+    let mut seen: Vec<(RenameRule, usize)> = seen
+        .into_iter()
+        .filter(|(_, count)| *count >= MIN_RULE_RENAMES)
+        .collect();
+    if seen.is_empty() {
+        return;
+    }
+    seen.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    seen.truncate(MAX_RULES);
+    let list: Vec<RenameRule> = seen.into_iter().map(|(rule, _)| rule).collect();
+    let rules = RenameRules {
+        set: list.iter().cloned().collect(),
+        list,
+    };
+    let is_identifier = |line: &TokenLine| line.effective_class() == TokenClass::Identifier;
+    // (Whether the revision renamed a name: see above.)
+    fn names<'a>(tokens: &[Vec<TokenLine<'a>>]) -> HashSet<&'a str> {
+        tokens
+            .iter()
+            .flatten()
+            .filter(|line| line.effective_class() == TokenClass::Identifier)
+            .map(|line| line.token)
+            .collect()
+    }
+    let (old_names, new_names) = (names(&state.old_tokens), names(&state.new_tokens));
+    let renamed = |old: &str, new: &str| !new_names.contains(old) && !old_names.contains(new);
+    let share_subword = |old: &str, new: &str| {
+        let (old, new) = (subword_seq(old), subword_seq(new));
+        old.iter().any(|word| new.contains(word))
+    };
+
+    // ## In each block.
+    let mut pairs = vec![];
+    for block in &state.blocks {
+        if !block.removals_real || block.old_len == 0 || block.new_len == 0 {
+            continue;
+        }
+        let file = block.file as usize;
+        let mut olds: NamePositions = BTreeMap::new();
+        for old_idx in block.old_range() {
+            let line = &state.old_tokens[file][old_idx];
+            if state.is_unmatched_old(file, old_idx) && is_identifier(line) {
+                olds.entry(line.token).or_default().push((file, old_idx));
+            }
+        }
+        let mut news: NamePositions = BTreeMap::new();
+        for new_idx in block.new_range() {
+            let line = &state.new_tokens[file][new_idx];
+            if state.is_unmatched_new(file, new_idx) && is_identifier(line) {
+                news.entry(line.token).or_default().push((file, new_idx));
+            }
+        }
+        if olds.is_empty() || news.is_empty() {
+            continue;
+        }
+        let candidates = rules.candidates(
+            &olds.keys().copied().collect(),
+            &news.keys().copied().collect(),
+            |old, new| share_subword(old, new) || renamed(old, new),
+        );
+        // (Renames to the same name compete for its tokens, in the names'
+        // order, as in `infer_revision_renames`.)
+        for (old, (new, _)) in candidates {
+            pairs.extend(olds[old].iter().zip(&news[new]).map(|(&o, &n)| (o, n)));
+        }
+    }
+    for ((file, o), (_, n)) in pairs {
+        if state.is_unmatched_old(file, o) && state.is_unmatched_new(file, n) {
+            state.record_evolution(file, o, n);
+        }
+    }
+
+    // ## Across each namespace's blocks, for names which pair uniquely.
+    let mut namespaces: Vec<&str> = state.inputs.iter().map(|i| i.namespace).collect();
+    namespaces.sort_unstable();
+    namespaces.dedup();
+    for namespace in namespaces {
+        let mut olds: NamePositions = BTreeMap::new();
+        let mut news: NamePositions = BTreeMap::new();
+        for block in &state.blocks {
+            let file = block.file as usize;
+            // (Not copies' tokens, which fall back to their copy's.)
+            if !block.removals_real || state.inputs[file].namespace != namespace {
+                continue;
+            }
+            for old_idx in block.old_range() {
+                let line = &state.old_tokens[file][old_idx];
+                if state.is_unmatched_old(file, old_idx) && is_identifier(line) {
+                    olds.entry(line.token).or_default().push((file, old_idx));
+                }
+            }
+            for new_idx in block.new_range() {
+                let line = &state.new_tokens[file][new_idx];
+                if state.is_unmatched_new(file, new_idx) && is_identifier(line) {
+                    news.entry(line.token).or_default().push((file, new_idx));
+                }
+            }
+        }
+        if olds.is_empty() || news.is_empty() {
+            continue;
+        }
+        let candidates = rules.candidates(
+            &olds.keys().copied().collect(),
+            &news.keys().copied().collect(),
+            renamed,
+        );
+        let mut claims: HashMap<&str, usize> = HashMap::new();
+        for (new, _) in candidates.values() {
+            *claims.entry(new).or_default() += 1;
+        }
+        // (And whose tokens are in a file on each side: pairing a name's
+        // tokens in several files with another's would be arbitrary.)
+        let one_file = |positions: &[(usize, usize)]| {
+            positions.iter().all(|&(file, _)| file == positions[0].0)
+        };
+        let mut anchors = vec![];
+        for (old, (new, unique)) in &candidates {
+            if !unique || claims[new] != 1 || !one_file(&olds[old]) || !one_file(&news[new]) {
+                continue;
+            }
+            for (&(from_file, o), &(to_file, n)) in olds[old].iter().zip(&news[new]) {
+                if state.is_unmatched_old(from_file, o) && state.is_unmatched_new(to_file, n) {
+                    state.record_evolution_between(from_file, o, to_file, n);
+                    anchors.push((from_file, o, to_file, n));
+                }
+            }
+        }
+        for (from_file, o, to_file, n) in anchors {
+            extend_anchor(state, from_file, o, to_file, n);
+        }
+    }
+}
+
+/// Record the identical unmatched tokens around a pair of renamed
+/// identifiers from different blocks (see `infer_rename_patterns`) as moved
+/// with it, outward on each side until a token differs or was matched.
+fn extend_anchor(
+    state: &mut InferenceState,
+    from_file: usize,
+    old_idx: usize,
+    to_file: usize,
+    new_idx: usize,
+) {
+    for step in [-1isize, 1] {
+        let (mut o, mut n) = (old_idx, new_idx);
+        loop {
+            let (Some(next_o), Some(next_n)) =
+                (o.checked_add_signed(step), n.checked_add_signed(step))
+            else {
+                break;
+            };
+            (o, n) = (next_o, next_n);
+            let (Some(old), Some(new)) = (
+                state.old_tokens[from_file].get(o),
+                state.new_tokens[to_file].get(n),
+            ) else {
+                break;
+            };
+            if old.token != new.token
+                || old.effective_class() != new.effective_class()
+                || !state.is_unmatched_old(from_file, o)
+                || !state.is_unmatched_new(to_file, n)
+            {
+                break;
+            }
+            state.record_move(from_file, o, to_file, n);
+        }
+    }
+}
+
 fn finalize(mut state: InferenceState) -> Vec<FileInference> {
     // Fall back to the copy relationship for copied tokens not otherwise
     // explained.
@@ -1377,7 +1859,8 @@ mod tests {
     /// Keywords for the purposes of our test helper; everything else gets
     /// `TokenClass::guess`.
     const TEST_KEYWORDS: &[&str] = &[
-        "class", "const", "continue", "else", "fn", "for", "if", "let", "mut", "return", "while",
+        "class", "const", "continue", "else", "fn", "for", "if", "let", "mut", "protocol",
+        "return", "struct", "while",
     ];
 
     /// Helper to build token lines from a context and a space-separated list of
@@ -1743,6 +2226,139 @@ mod tests {
                 }
             );
         }
+    }
+
+    fn words(words: &str) -> Vec<String> {
+        words.split_whitespace().map(|w| w.to_string()).collect()
+    }
+
+    #[test]
+    fn test_rename_rules() {
+        let (rules, shared) = rename_rules(
+            &subword_seq("RemoteWorkerSuspendOp"),
+            &subword_seq("SharedWorkerSuspendOpArgs"),
+        );
+        assert!(shared);
+        assert_eq!(
+            rules,
+            vec![
+                RenameRule::Replace(words("remote"), words("shared")),
+                RenameRule::Append(words("args")),
+            ]
+        );
+        // (Meeting in the middle: the old name with one rule, the new name
+        // without the other.)
+        assert_eq!(
+            rules[0].apply(&subword_seq("RemoteWorkerThawOp")),
+            Some(words("shared worker thaw op"))
+        );
+        assert_eq!(
+            rules[1].unapply(&subword_seq("SharedWorkerThawOpArgs")),
+            Some(words("shared worker thaw op"))
+        );
+        assert_eq!(rules[1].unapply(&subword_seq("Args")), None);
+        let (rules, _) = rename_rules(&subword_seq("mFooBar"), &subword_seq("mBar"));
+        assert_eq!(rules, vec![RenameRule::Drop(words("foo"))]);
+        let (rules, shared) = rename_rules(&subword_seq("queryString"), &subword_seq("isClass"));
+        assert!(!shared);
+        assert_eq!(
+            rules,
+            vec![RenameRule::Replace(
+                words("query string"),
+                words("is class")
+            )]
+        );
+    }
+
+    fn input_in<'a>(
+        namespace: &'a str,
+        kind: FileChangeKind,
+        old: &'a [String],
+        new: &'a [String],
+    ) -> FileChangeInput<'a> {
+        FileChangeInput {
+            namespace,
+            ..input(kind, old, new)
+        }
+    }
+
+    #[test]
+    fn test_rename_patterns() {
+        // (D198005, the PRemoteWorker refactoring, in miniature.)  The C++
+        // renames `RemoteWorkerSuspendOp` and `RemoteWorkerResumeOp` in slots,
+        // so "Remote" becomes "Shared" and "Args" is appended in its other
+        // names too: `RemoteFreezeOp` in a rewritten line (whose names aren't
+        // similar enough for its hole; see `hole_pairs`), and the
+        // structs which moved from PRemoteWorker.ipdl to a new
+        // SharedWorkerOpArgs.ipdlh, with their `struct` and `{ } ;`, though
+        // `RemoteWorkerThawOp` wasn't renamed anywhere else.
+        let cpp_old = toks(
+            "f",
+            "send ( RemoteWorkerSuspendOp ( ) ) ; send ( RemoteWorkerResumeOp ( ) ) ; if ( ready ) { queue ( RemoteFreezeOp ) ; }",
+        );
+        let cpp_new = toks(
+            "f",
+            "send ( SharedWorkerSuspendOpArgs ( ) ) ; send ( SharedWorkerResumeOpArgs ( ) ) ; while ( a && b ) { dispatch ( c , d , SharedFreezeOpArgs , e ) ; }",
+        );
+        let ipdl_old = toks(
+            "PRemoteWorker",
+            "struct RemoteWorkerSuspendOp { } ; struct RemoteWorkerThawOp { } ; protocol PRemoteWorker { }",
+        );
+        let ipdl_new = toks("PRemoteWorker", "protocol PRemoteWorker { }");
+        let ipdlh_new = toks(
+            "SharedWorkerOpArgs",
+            "struct SharedWorkerSuspendOpArgs { } ; struct SharedWorkerThawOpArgs { } ;",
+        );
+        let empty: Vec<String> = vec![];
+        let inputs = vec![
+            input_in("cpp", FileChangeKind::Modified, &cpp_old, &cpp_new),
+            input_in("ipdl", FileChangeKind::Modified, &ipdl_old, &ipdl_new),
+            input_in("ipdl", FileChangeKind::Added, &empty, &ipdlh_new),
+        ];
+        let without = InferenceConfig {
+            rename_patterns: false,
+            ..InferenceConfig::default()
+        };
+        let before = infer_revision(&inputs, &without);
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        let freeze = cpp_new
+            .iter()
+            .position(|l| split_token_line(l).token == "SharedFreezeOpArgs")
+            .unwrap();
+        assert_eq!(before[0].origins[freeze], TokenOrigin::Added);
+        assert_eq!(
+            results[0].origins[freeze],
+            TokenOrigin::Evolved {
+                from_file: 0,
+                old_lineno: 22
+            }
+        );
+        assert_eq!(summarize(&before[2]), "AAAAAAAAAA");
+        assert_eq!(summarize(&results[2]), "MEMMMMEMMM");
+        // (From the old file's structs.)
+        assert_eq!(
+            results[2].origins[6],
+            TokenOrigin::Evolved {
+                from_file: 1,
+                old_lineno: 7
+            }
+        );
+        // (A rule seen once doesn't pair other names: without the second
+        // rename, nothing else does.)
+        let cpp_old_once = toks("f", "send ( RemoteWorkerSuspendOp ( ) ) ;");
+        let cpp_new_once = toks("f", "send ( SharedWorkerSuspendOpArgs ( ) ) ;");
+        let inputs = vec![
+            input_in(
+                "cpp",
+                FileChangeKind::Modified,
+                &cpp_old_once,
+                &cpp_new_once,
+            ),
+            input_in("ipdl", FileChangeKind::Modified, &ipdl_old, &ipdl_new),
+            input_in("ipdl", FileChangeKind::Added, &empty, &ipdlh_new),
+        ];
+        let results = infer_revision(&inputs, &InferenceConfig::default());
+        assert_eq!(summarize(&results[2]), "AAAAAAAAAA");
     }
 
     #[test]
