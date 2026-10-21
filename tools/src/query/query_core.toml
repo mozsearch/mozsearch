@@ -549,10 +549,12 @@ command = "dataflow"
 args.taint-audit = "$0"
 args.format = "subway"
 
+# (As it is, rather than as an escaped `re:`, so that search-text knows it's a
+# text: one wider than codesearch takes is searched for by a piece of it.)
 [term.text]
-[[term.text.expand]]
-term = "re"
-transforms = ["regexp_escape"]
+[[term.text.group.text-search]]
+command = "search-text"
+args.positional = "$0"
 
 [group.file-search]
 output = "file-search"

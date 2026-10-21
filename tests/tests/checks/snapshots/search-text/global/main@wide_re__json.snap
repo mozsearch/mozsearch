@@ -1,0 +1,6 @@
+---
+source: src/bin/test-index.rs
+expression: "format!(\"Pipeline Error: {:?}\", err)"
+input_file: inputs/search-text/global/wide_re__json
+---
+Pipeline Error: StickyProblem(ErrorDetails { layer: BadInput, message: "The text search can't run this regular expression: it can match more than 200 characters, or it's too complex." })

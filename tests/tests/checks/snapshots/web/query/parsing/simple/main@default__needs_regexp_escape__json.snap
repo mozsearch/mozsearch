@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&jv.value"
+input_file: inputs/web/query/parsing/simple/default__needs_regexp_escape__json
 ---
 {
   "groups": {
@@ -76,13 +77,10 @@ expression: "&jv.value"
           "command": "search-text",
           "args": {
             "bool_args": [],
-            "named_args": {
-              "re": [
-                "foo\\.bar\\+hats\\(\\)",
-                0
-              ]
-            },
-            "positional_args": []
+            "named_args": {},
+            "positional_args": [
+              "foo.bar+hats()"
+            ]
           }
         }
       ],

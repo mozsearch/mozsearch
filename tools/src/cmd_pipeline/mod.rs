@@ -31,7 +31,7 @@ mod cmd_render;
 mod cmd_search;
 mod cmd_search_files;
 mod cmd_search_identifiers;
-mod cmd_search_text;
+pub mod cmd_search_text;
 mod cmd_show_html;
 mod cmd_tokenize_source;
 mod cmd_traverse;

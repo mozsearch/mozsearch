@@ -12,6 +12,15 @@ use crate::abstract_server::{
 
 /// Perform a fulltext search against our livegrep/codesearch server over gRPC.
 /// This is local-only at this time.
+/// The widest pattern codesearch (livegrep) takes: what a pattern can match
+/// at most, in characters (`kMaxWidth` in its src/tools/limits.h), else it
+/// answers "Parse error".  A text search for something longer (ex: a pasted
+/// URL) is of its first `MAX_PATTERN_WIDTH` characters, and its matches are
+/// the lines with all of it.
+pub const MAX_PATTERN_WIDTH: usize = 200;
+
+/// Search the tree's files' text: for `text` (as it is), or the regular
+/// expression `re`.
 #[derive(Debug, Args)]
 pub struct SearchText {
     /// Text to search for; this will be regexp escaped.
@@ -56,10 +65,23 @@ impl PipelineCommand for SearchTextCommand {
         server: &(dyn AbstractServer + Send + Sync),
         _input: PipelineValues,
     ) -> Result<PipelineValues> {
+        // (A text wider than codesearch takes is searched for by a piece of
+        // it, whose matches are then those of all of it; see
+        // `MAX_PATTERN_WIDTH`.)
+        let mut whole_text: Option<regex::Regex> = None;
         let re_pattern = if let Some(re) = &self.args.re {
             re.clone()
         } else if let Some(text) = &self.args.text {
-            regex::escape(text)
+            if text.chars().count() > MAX_PATTERN_WIDTH {
+                whole_text = regex::RegexBuilder::new(&regex::escape(text))
+                    .case_insensitive(!self.args.case_sensitive)
+                    .build()
+                    .ok();
+            }
+            match whole_text {
+                Some(_) => regex::escape(&text.chars().take(MAX_PATTERN_WIDTH).collect::<String>()),
+                None => regex::escape(text),
+            }
         } else {
             return Err(ServerError::StickyProblem(ErrorDetails {
                 layer: ErrorLayer::BadInput,
@@ -84,8 +106,24 @@ impl PipelineCommand for SearchTextCommand {
                 self.args.limit,
             )
             .await?;
+        if let Some(whole) = &whole_text {
+            for file in &mut matches.by_file {
+                file.matches.retain_mut(|m| match whole.find(&m.line_str) {
+                    Some(found) => {
+                        m.bounds.start = found.start() as i32;
+                        m.bounds.end_exclusive = found.end() as i32;
+                        true
+                    }
+                    None => false,
+                });
+            }
+            matches.by_file.retain(|file| !file.matches.is_empty());
+        }
         matches.pattern = Some(TextPattern {
-            re: re_pattern,
+            re: match (&whole_text, &self.args.text) {
+                (Some(_), Some(text)) => regex::escape(text),
+                _ => re_pattern,
+            },
             case_sensitive: self.args.case_sensitive,
         });
 

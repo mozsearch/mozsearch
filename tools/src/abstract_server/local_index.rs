@@ -912,7 +912,24 @@ impl AbstractServer for LocalIndex {
         });
 
         trace!("search_text: connected, issuing query: {}", pattern);
-        let response = client.search(query).await?.into_inner();
+        let response = match client.search(query).await {
+            Ok(response) => response.into_inner(),
+            // (What codesearch says of a pattern it won't run, too wide or
+            // too big; see `cmd_search_text::MAX_PATTERN_WIDTH`.)
+            Err(status)
+                if status.code() == tonic::Code::InvalidArgument
+                    && status.message() == "Parse error" =>
+            {
+                return Err(ServerError::StickyProblem(ErrorDetails {
+                    layer: ErrorLayer::BadInput,
+                    message: format!(
+                        "The text search can't run this regular expression: it can match more than {} characters, or it's too complex.",
+                        crate::cmd_pipeline::cmd_search_text::MAX_PATTERN_WIDTH
+                    ),
+                }));
+            }
+            Err(status) => return Err(status.into()),
+        };
 
         trace!(
             duration_us = now.elapsed().as_micros() as u64,
