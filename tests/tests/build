@@ -25,24 +25,15 @@ RUSTFLAGS="-A mixed_script_confusables" cargo build
 
 echo "Performing build::rust-analyzer step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
 
-# TODO: Uncomment once https://github.com/rust-lang/rust-analyzer/pull/15633 is
-# merged.
-#
-# cat <<EOF >$OBJDIR/rust-analyzer.json
-# {
-#   "rust-analyzer.server.extraEnv": {
-#     "CARGO_TARGET_DIR": "$OBJDIR"
-#   }
-# }
-# EOF
-#
-# rust-analyzer scip . --output $OBJDIR/rust.scip --config-path $OBJDIR/rust-analyzer.json
+cat <<EOF >$OBJDIR/rust-analyzer.json
+{
+  "rust-analyzer.server.extraEnv": {
+    "CARGO_TARGET_DIR": "$OBJDIR"
+  }
+}
+EOF
 
-rust-analyzer scip . --output $OBJDIR/rust.scip
-
-# Remove artifacts in the wrong target directory created by rust-analyzer.
-# TODO: Remove once we can give it a target dir as per the above.
-rm -rf target/
+rust-analyzer scip . --output $OBJDIR/rust.scip --config-path $OBJDIR/rust-analyzer.json
 
 ## XPIDL Stuff
 echo "Performing build::xpidl step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
