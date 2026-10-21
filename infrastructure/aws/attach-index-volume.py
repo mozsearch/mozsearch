@@ -2,7 +2,7 @@
 
 # Creates an EBS volume for the index and attaches it to a given instance as /dev/xvdf.
 # Prints the volume ID on stdout.
-# Usage: attach-index-volume.py <channel> <instance-id>
+# Usage: attach-index-volume.py <channel> <instance-id> <config-file>
 
 import sys
 import boto3
@@ -12,6 +12,7 @@ from index_volume import volume_size
 
 channel = sys.argv[1]
 instanceId = sys.argv[2]
+configFile = sys.argv[3]
 
 ec2 = boto3.resource('ec2')
 client = boto3.client('ec2')
@@ -20,7 +21,8 @@ client = boto3.client('ec2')
 instances = ec2.instances.filter(InstanceIds=[instanceId])
 instance = list(instances)[0]
 
-volumeSize = volume_size(channel)
+volumeSize = volume_size(channel, configFile)
+print(f'Creating a {volumeSize} GiB index volume', file=sys.stderr)
 
 # gp3, with more throughput than its baseline 125 MB/s, which bounds the
 # indexer's block-level copy of the index to the volume and web servers'

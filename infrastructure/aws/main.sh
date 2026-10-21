@@ -102,10 +102,17 @@ ${AWS_ROOT}/make-crontab.py "${EMAIL_PREFIX}/timeout" "${DEST_EMAIL}" ${MAXHOURS
 echo "Disabling daily and weekly cron jobs for this indexing run"
 sudo chmod -x /etc/cron.daily/* /etc/cron.weekly/*
 
-# For indexing, /index is the size of the index volume (see mkscratch.sh).
+# For indexing, /index is the size of the index volume (see mkscratch.sh),
+# which the config file can ask for (see index_volume.py).  index.sh's 5th and
+# 6th arguments are the config repo's path (relative to the home directory,
+# where update.sh cloned it) and the config file's name (see index.sh's usage
+# and trigger_indexer.py); with main.sh's own two arguments shifted off above,
+# they're $5 and $6 here too.
 INDEX_GB=""
 if [[ ${TARGETSCRIPT} == "index.sh" ]]; then
-    INDEX_GB=$(${AWS_ROOT}/index_volume.py ${CHANNEL})
+    CONFIG_REPO_PATH=$5
+    CONFIG_FILE_NAME=$6
+    INDEX_GB=$(${AWS_ROOT}/index_volume.py ${CHANNEL} "$CONFIG_REPO_PATH/$CONFIG_FILE_NAME")
 fi
 
 echo "Creating /index on local instance SSD and setting up swap"
