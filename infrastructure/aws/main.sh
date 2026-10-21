@@ -31,6 +31,13 @@ handle_error() {
         lsof | grep /index-ebs
     fi
 
+    # The log, for investigating the failure (which the email only has the end
+    # of), as successful runs upload theirs (see index.sh), but as failed-*.
+    # (|| true: it's not worth not sending the email over.)
+    gzip -c ~/index-log > ~/index-log-failed.gz || true
+    $AWS_ROOT/upload.py ~/index-log-failed.gz indexer-logs \
+        "failed-$(date -Iminutes)_${CHANNEL:-unknown}_${TARGETSCRIPT:-main}.gz" || true
+
     # Send failure email and shut down. Release channel failures get sent to the
     # default email address, other channel failures get sent to the author of
     # the head commit.
