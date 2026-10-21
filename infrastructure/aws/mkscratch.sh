@@ -115,8 +115,13 @@ if [[ $INDEX_GB ]] && (( SSD_GB >= INDEX_GB + SCRATCH_MIN_GB )); then
     sudo udevadm settle
     INDEX_DEV=${INSTANCE_STORAGE_DEV}p1
     SCRATCH_DEV=${INSTANCE_STORAGE_DEV}p2
-    sudo mkfs -t ext4 $INDEX_DEV
-    sudo mkfs -t ext4 $SCRATCH_DEV
+    # (Without ext4's 5% of blocks reserved for root, which isn't needed on data
+    # filesystems: 15 GiB of a 300 GiB index.  e2image copies the setting to
+    # the volume, and web-serve.sh to the web server's SSD.  config4's first
+    # runs building in place filled /index by ~20 GiB more than the space
+    # left after the reserve.)
+    sudo mkfs -t ext4 -m 0 $INDEX_DEV
+    sudo mkfs -t ext4 -m 0 $SCRATCH_DEV
     sudo mkdir /scratch
     sudo mount $INDEX_DEV /index
     sudo mount $SCRATCH_DEV /scratch
