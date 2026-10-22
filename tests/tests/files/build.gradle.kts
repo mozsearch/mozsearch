@@ -41,22 +41,22 @@ dependencies {
     implementation("net.java.dev.jna:jna:5.19.1")
 
     //
-    compileOnly("com.sourcegraph:semanticdb-javac:0.12.0")
-    testCompileOnly("com.sourcegraph:semanticdb-javac:0.12.0")
-    kotlinCompilerPluginClasspath("com.github.mozsearch.semanticdb-kotlinc:semanticdb-kotlinc:0.11.0")
+    compileOnly("org.scip-code:scip-javac:0.13.2")
+    testCompileOnly("org.scip-code:scip-javac:0.13.2")
+    kotlinCompilerPluginClasspath("org.scip-code:scip-kotlinc:0.13.2")
 }
 
 var sourceroot = rootProject.projectDir.getCanonicalPath()
-var targetroot = rootProject.layout.buildDirectory.file("semanticdb-targetroot").get()
+var targetroot = rootProject.layout.buildDirectory.file("scip-targetroot").get()
 
 tasks.withType<JavaCompile> {
-    options.compilerArgs.add("-Xplugin:semanticdb -sourceroot:${sourceroot} -targetroot:${targetroot}")
+    options.compilerArgs.add("-Xplugin:scip -sourceroot:${sourceroot} -targetroot:${targetroot}")
 }
 
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     compilerOptions.freeCompilerArgs.addAll(listOf(
-        "-P", "plugin:semanticdb-kotlinc:sourceroot=${sourceroot}",
-        "-P", "plugin:semanticdb-kotlinc:targetroot=${targetroot}",
+        "-P", "plugin:scip-kotlinc:sourceroot=${sourceroot}",
+        "-P", "plugin:scip-kotlinc:targetroot=${targetroot}",
     ))
 }
 
