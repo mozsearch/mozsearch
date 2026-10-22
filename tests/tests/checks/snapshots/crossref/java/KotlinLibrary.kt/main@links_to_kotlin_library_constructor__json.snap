@@ -64,7 +64,7 @@ input_file: inputs/crossref/java/KotlinLibrary.kt/links_to_kotlin_library_constr
           "structured": 1,
           "pretty": "sample::KotlinLibrary::<init>",
           "sym": "S_jvm_sample/KotlinLibrary#<init>().",
-          "type_pretty": null,
+          "type_pretty": "public constructor(): KotlinLibrary",
           "kind": "method",
           "subsystem": null,
           "parentsym": "S_jvm_sample/KotlinLibrary#",

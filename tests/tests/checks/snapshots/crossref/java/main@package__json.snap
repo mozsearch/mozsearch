@@ -10,38 +10,6 @@ input_file: inputs/crossref/java/package__json
       "crossref_info": {
         "uses": [
           {
-            "path": "src/main/java/sample/JavaLibrary.java",
-            "path_kind": "normal",
-            "lines": [
-              {
-                "lno": 4,
-                "bounds": [
-                  8,
-                  14
-                ],
-                "line": "package sample;",
-                "context": "",
-                "contextsym": ""
-              }
-            ]
-          },
-          {
-            "path": "src/main/java/sample/Jni.java",
-            "path_kind": "normal",
-            "lines": [
-              {
-                "lno": 1,
-                "bounds": [
-                  8,
-                  14
-                ],
-                "line": "package sample;",
-                "context": "",
-                "contextsym": ""
-              }
-            ]
-          },
-          {
             "path": "src/main/kotlin/sample/InlineObject.kt",
             "path_kind": "normal",
             "lines": [
@@ -84,22 +52,6 @@ input_file: inputs/crossref/java/package__json
                   14
                 ],
                 "line": "package sample",
-                "context": "",
-                "contextsym": ""
-              }
-            ]
-          },
-          {
-            "path": "src/test/java/sample/JavaTest.java",
-            "path_kind": "test",
-            "lines": [
-              {
-                "lno": 4,
-                "bounds": [
-                  8,
-                  14
-                ],
-                "line": "package sample;",
                 "context": "",
                 "contextsym": ""
               }
