@@ -152,8 +152,8 @@ use tools::git_ops::{fast_import_git, git_time_to_chrono, history_compute_thread
 use tools::history_stop::{ENDED_EARLY_EXIT_CODE, STOPPED_EXIT_CODE, stop_requested};
 use tools::hyperblame::backouts::{BackoutTargetResolver, find_backed_out};
 use tools::hyperblame::consolidation::{
-    Summarize, consolidate_appended, fill_in_pred_revs, iso_week, merge_journal_texts,
-    merge_journal_versions, prepend_unconsolidated,
+    IsoWeek, Summarize, consolidate_appended_by_week, fill_in_pred_revs, iso_week, line_iso_week,
+    merge_journal_texts, merge_journal_versions, prepend_unconsolidated,
 };
 use tools::hyperblame::inference::{
     FileChangeInput, FileChangeKind, FileInference, InferenceConfig, PairingSupport, RemovedFate,
@@ -202,6 +202,7 @@ struct FastImport {
     /// keep; see `write_journal`); see `prepend_journal_record`.
     deferred: Vec<DeferredJournal>,
     readers: DiskReaders,
+    preds: PredCache,
     /// The bytes of blobs we've given it (see MAX_WRITTEN_BYTES in `main`).
     written: u64,
 }
@@ -618,6 +619,7 @@ fn start_fast_import(git_repo: &Repository) -> FastImport {
         cache: TreeCache::default(),
         deferred: vec![],
         readers: DiskReaders::new(git_repo.path()),
+        preds: PredCache::default(),
         written: 0,
     }
 }
@@ -2150,16 +2152,86 @@ fn join_annotated(lines: Vec<String>) -> String {
     encode_annotated(&lines)
 }
 
-/// Load the records of a journal version (ex: a summary's pred, for
-/// summarizing a week again): from the repo on disk if its commit is there, as
-/// it usually is, or else through git fast-import, which has the commits
-/// written since its last checkpoint.  (Reading them all through git
-/// fast-import, which answers once it has caught up with what we wrote, was a
-/// fifth of the main thread's time in the full firefox reblame's 2016.)
-fn load_journal_version<H: DeserializeOwned + Default, R: DeserializeOwned>(
+/// Journal versions' records of a week (as their header and record lines),
+/// which consolidation loads to summarize weeks again (see `load_journal_week`),
+/// kept as a week summarized again on each of several revisions (ex: as merges
+/// bring in branches' records of it) has its preds loaded each time, and they
+/// grow by a version each time.
+#[derive(Default)]
+struct PredCache {
+    weeks: HashMap<(JournalVersionRef, IsoWeek), Rc<str>>,
+    bytes: usize,
+    loads: usize,
+    hits: usize,
+}
+
+/// How much `PredCache` holds before we clear it.
+const PRED_CACHE_MAX_BYTES: usize = 1 << 30;
+
+/// Load the records of a journal version (a summary's pred, for summarizing
+/// `week` again) of `week`, and those without a week, which is all that
+/// expanding the week's summaries needs (see
+/// `consolidation::consolidate_appended_by_week`), parsing only their lines
+/// (picked by `line_iso_week`), rather than the years of a hot token's
+/// journal; or all of its records, without a week.
+fn load_journal_week<H: DeserializeOwned + Default, R: DeserializeOwned>(
     import_helper: &mut FastImport,
     version: &JournalVersionRef,
+    week: Option<IsoWeek>,
 ) -> Result<Vec<R>, String> {
+    let parse = |text: &str| {
+        read_record_file_contents::<H, R>(text.as_bytes())
+            .map(|(_, records): (H, Vec<R>)| records)
+            .unwrap_or_default()
+    };
+    let Some(week) = week else {
+        return Ok(journal_version_text(import_helper, version)?
+            .map(|text| parse(&text))
+            .unwrap_or_default());
+    };
+    let key = (version.clone(), week);
+    import_helper.preds.loads += 1;
+    let text = match import_helper.preds.weeks.get(&key) {
+        Some(text) => {
+            import_helper.preds.hits += 1;
+            text.clone()
+        }
+        None => {
+            let text = journal_version_text(import_helper, version)?.unwrap_or_default();
+            let mut lines = text.lines();
+            let mut week_text = lines.next().unwrap_or("").to_string();
+            for line in lines.filter(|line| line_iso_week(line).is_none_or(|w| w == week)) {
+                week_text.push('\n');
+                week_text.push_str(line);
+            }
+            let week_text: Rc<str> = Rc::from(week_text);
+            let preds = &mut import_helper.preds;
+            if preds.bytes + week_text.len() > PRED_CACHE_MAX_BYTES {
+                preds.weeks.clear();
+                preds.bytes = 0;
+            }
+            preds.bytes += week_text.len();
+            preds.weeks.insert(key, week_text.clone());
+            week_text
+        }
+    };
+    if text.is_empty() {
+        return Ok(vec![]);
+    }
+    Ok(parse(&text))
+}
+
+/// The text of a journal version, with its segments (see
+/// `hyperblame::segments`), if it exists: from the repo on disk if its
+/// commit is there, as it usually is, or else through git fast-import, which
+/// has the commits written since its last checkpoint.  (Reading summaries'
+/// preds through git fast-import, which answers once it has caught up with
+/// what we wrote, was a fifth of the main thread's time in the full firefox
+/// reblame's 2016.)
+fn journal_version_text(
+    import_helper: &mut FastImport,
+    version: &JournalVersionRef,
+) -> Result<Option<String>, String> {
     let oid = Oid::from_str(&version.timeline_rev).map_err(|e| e.to_string())?;
     let path = Path::new(&version.path);
     // (Through git fast-import if the commit isn't on disk after all.)
@@ -2167,16 +2239,10 @@ fn load_journal_version<H: DeserializeOwned + Default, R: DeserializeOwned>(
         .on_disk(&version.timeline_rev)
         .then(|| journal_text_on_disk(&import_helper.readers, oid, path))
         .flatten();
-    let text = match on_disk {
+    Ok(match on_disk {
         Some(text) => text,
         None => journal_text_through_fast_import(import_helper, oid, path),
-    };
-    let Some(text) = text else {
-        return Ok(vec![]);
-    };
-    Ok(read_record_file_contents::<H, R>(text.as_bytes())
-        .map(|(_, records): (H, Vec<R>)| records)
-        .unwrap_or_default())
+    })
 }
 
 /// The text of the journal at `path` in `commit`, with its segments (see
@@ -2363,11 +2429,11 @@ fn prepend_journal_record<
             timeline_rev: String::new(),
             path: from_path.to_string_lossy().into_owned(),
         };
-        num_summaries = consolidate_appended(
+        num_summaries = consolidate_appended_by_week(
             &mut records,
             consolidation.iso_date,
             &pred,
-            &mut |version| load_journal_version::<H, R>(import_helper, version),
+            &mut |version, week| load_journal_week::<H, R>(import_helper, version, week),
         )
         .unwrap();
     }
@@ -4260,6 +4326,10 @@ fn main() {
     info!(
         "Tree cache: {} hits, {} misses, cleared {} times; read {} paths from disk and {} through git fast-import",
         cache.hits, cache.misses, cache.clears, cache.disk_reads, cache.fast_import_reads
+    );
+    info!(
+        "Pred cache: {} loads of a journal version's week, {} from the cache",
+        import_helper.preds.loads, import_helper.preds.hits
     );
 
     info!("Shutting down fast-import...");

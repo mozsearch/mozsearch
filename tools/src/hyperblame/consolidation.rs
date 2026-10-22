@@ -171,6 +171,29 @@ pub fn consolidate_appended<R: Summarize>(
     pred: &JournalVersionRef,
     load: &mut impl FnMut(&JournalVersionRef) -> Result<Vec<R>, String>,
 ) -> Result<usize, String> {
+    consolidate_appended_by_week(records, now, pred, &mut |version, _| load(version))
+}
+
+/// What `consolidate_appended_by_week` logs when expanding a week's summaries
+/// from their preds' records of the week failed, before expanding them from
+/// their whole versions, for grepping logs for: it would mean a line's week
+/// (`line_iso_week`) wasn't its record's.
+pub const PRED_WEEK_FALLBACK_WARNING: &str = "PRED-WEEK-FALLBACK";
+
+/// `consolidate_appended` with `load` given the week whose summary is being
+/// expanded, which only needs the journal version's records of that week
+/// (and any without a week): a summary's details and its preds' summaries
+/// of its revisions are of its week, as each revision has one date.  So
+/// `load` can skip parsing the others, ex: the years of records of a hot
+/// token's journal.  (`load` is given None for whole versions, which a week
+/// is expanded from again if expanding it from its records failed, with a
+/// `PRED_WEEK_FALLBACK_WARNING`.)
+pub fn consolidate_appended_by_week<R: Summarize>(
+    records: &mut Vec<R>,
+    now: &str,
+    pred: &JournalVersionRef,
+    load: &mut impl FnMut(&JournalVersionRef, Option<IsoWeek>) -> Result<Vec<R>, String>,
+) -> Result<usize, String> {
     let Some(cutoff) = iso_week(now)
         .and_then(week_monday)
         .map(|monday| monday - Duration::weeks(LAG_WEEKS))
@@ -195,7 +218,21 @@ pub fn consolidate_appended<R: Summarize>(
     for (week, idxs) in &by_week {
         let week_records: Vec<R> = idxs.iter().map(|idx| records[*idx].clone()).collect();
         let preds = flattened_preds(&week_records, Some(pred));
-        let details = expand_records(week_records, load)?;
+        let details = match expand_records(week_records.clone(), &mut |version| {
+            load(version, Some(*week))
+        }) {
+            Ok(details) => details,
+            Err(e) => {
+                log::warn!(
+                    "{}: expanding week {:?} of {} from its preds' records of the week failed ({}); expanding it from whole versions",
+                    PRED_WEEK_FALLBACK_WARNING,
+                    week,
+                    pred.path,
+                    e
+                );
+                expand_records(week_records, &mut |version| load(version, None))?
+            }
+        };
         summaries.push(summarize(&details, preds, *week));
         replaced.extend(idxs.iter().copied());
     }
@@ -1271,6 +1308,108 @@ mod tests {
         // again and some of which have a covering one, and weeks with several
         // summaries, whose order matters.
         assert!(resummarized > 0 && covered > 0 && weeks_with_several > 0);
+    }
+
+    /// Loading only the week being summarized again (and records without a
+    /// week) gives the same summaries as loading whole versions, for weeks
+    /// summarized again with late revisions of several weeks.
+    #[test]
+    fn test_consolidate_appended_by_week() {
+        let mut state = 0x2545_f491_4f6c_dd1du64;
+        let mut next = move |n: usize| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state % n as u64) as usize
+        };
+        let mut summarized = 0;
+        for case in 0..50 {
+            let mut records = vec![];
+            for i in 0..8 {
+                let date = format!("2024-01-{:02}T00:00:00Z", 1 + i * 3);
+                records.insert(0, detail(&format!("c{}r{}", case, i), &date, 1));
+            }
+            let (mut full, mut by_week) = (records.clone(), records);
+            let mut versions = vec![];
+            for i in 0..20 {
+                let version = version(&format!("c{}v{}", case, i));
+                versions.push((version.clone(), full.clone()));
+                let now = "2024-03-01T00:00:00Z";
+                let mut load = loader(versions.clone());
+                let a = consolidate_appended(&mut full, now, &version, &mut load).unwrap();
+                let mut load = loader(versions.clone());
+                let b =
+                    consolidate_appended_by_week(&mut by_week, now, &version, &mut |v, week| {
+                        load(v).map(|records| {
+                            records
+                                .into_iter()
+                                .filter(|record| {
+                                    week.is_none_or(|week| {
+                                        record_week(record).is_none_or(|w| w == week)
+                                    })
+                                })
+                                .collect()
+                        })
+                    })
+                    .unwrap();
+                summarized += a;
+                assert_eq!(a, b, "case {} step {}", case, i);
+                assert_eq!(
+                    serde_json::to_string(&full).unwrap(),
+                    serde_json::to_string(&by_week).unwrap(),
+                    "case {} step {}",
+                    case,
+                    i
+                );
+                // A late revision of one of the summarized weeks.
+                let date = format!("2024-01-{:02}T00:00:00Z", 1 + next(24));
+                let late = detail(&format!("c{}late{}", case, i), &date, 1);
+                full.insert(0, late.clone());
+                by_week.insert(0, late);
+            }
+        }
+        assert!(summarized > 0);
+    }
+
+    /// If expanding a week from its preds' records of the week fails (ex: a
+    /// line whose week was misread, so its record was left out), the week is
+    /// expanded from whole versions.
+    #[test]
+    fn test_consolidate_appended_by_week_falls_back() {
+        let early = || {
+            vec![
+                detail("b", "2024-01-03T00:00:00Z", 1),
+                detail("a", "2024-01-01T00:00:00Z", 1),
+            ]
+        };
+        let now = "2024-02-01T00:00:00Z";
+        // (A week summarized, and then a late revision of it.)
+        let v1 = version("v1");
+        let mut records = early();
+        consolidate_appended(&mut records, now, &v1, &mut loader(vec![])).unwrap();
+        records.insert(0, detail("late", "2024-01-02T00:00:00Z", 1));
+        let versions = vec![(v1.clone(), early())];
+        let v2 = version("v2");
+        let mut expected = records.clone();
+        consolidate_appended(&mut expected, now, &v2, &mut loader(versions.clone())).unwrap();
+        // (A loader which leaves out every record for a week, and whole
+        // versions otherwise.)
+        let mut load = loader(versions);
+        let mut whole_loads = 0;
+        let mut actual = records;
+        consolidate_appended_by_week(&mut actual, now, &v2, &mut |version, week| match week {
+            Some(_) => Ok(vec![]),
+            None => {
+                whole_loads += 1;
+                load(version)
+            }
+        })
+        .unwrap();
+        assert!(whole_loads > 0);
+        assert_eq!(
+            serde_json::to_string(&actual).unwrap(),
+            serde_json::to_string(&expected).unwrap()
+        );
     }
 
     #[test]
