@@ -59,7 +59,7 @@ echo "Performing build::scip-indexer-gradle step for $TREE_NAME : $(date +"%Y-%m
 $CARGO_TARGET_DIR/debug/uniffi-bindgen generate --library $CARGO_TARGET_DIR/debug/libuniffied.so --language kotlin --out-dir $OBJDIR/generated/kotlin
 
 "$GRADLE" --no-daemon  -PgeneratedSources=$OBJDIR/generated/kotlin clean build
-scip-java-semanticdb index-semanticdb build/semanticdb-targetroot --no-emit-inverse-relationships --output=$OBJDIR/gradle.scip
+scip-java aggregate build/scip-targetroot --no-emit-inverse-relationships --output=$OBJDIR/gradle.scip
 "$GRADLE" --no-daemon  -PgeneratedSources=$OBJDIR/generated/kotlin clean
 rm -rf build/
 
