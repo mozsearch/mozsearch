@@ -1353,6 +1353,60 @@ mod tests {
         assert_eq!(merge_journal_texts(&[(version("x"), "")]), None);
     }
 
+    /// The other versions' lines which are the first version's add nothing
+    /// to the union, so merges needn't read the other parents' segments which
+    /// are the first parent's (see build-timeline-tree's
+    /// `union_journal_texts`).
+    #[test]
+    fn test_merge_journal_texts_without_the_first_versions_lines() {
+        use crate::file_format::history::io_helpers::record_file_contents_to_string;
+        use crate::file_format::history::timeline_tokens::TokenHeader;
+        let mut state = 0x9e37_79b9_7f4a_7c15u64;
+        let mut coin = move || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            state % 2 == 0
+        };
+        let mut dropped = 0;
+        for (case, (versions, _)) in random_merge_cases(500).into_iter().enumerate() {
+            let texts: Vec<(JournalVersionRef, String)> = versions
+                .iter()
+                .map(|(version, records)| {
+                    let text = record_file_contents_to_string(&TokenHeader::default(), records);
+                    (version.clone(), text)
+                })
+                .collect();
+            let first: HashSet<&str> = texts[0].1.lines().skip(1).collect();
+            let partial: Vec<(JournalVersionRef, String)> = texts
+                .iter()
+                .enumerate()
+                .map(|(i, (version, text))| {
+                    let mut lines = text.lines();
+                    let mut kept = vec![lines.next().unwrap()];
+                    for line in lines {
+                        if i > 0 && first.contains(line) && coin() {
+                            dropped += 1;
+                        } else {
+                            kept.push(line);
+                        }
+                    }
+                    (version.clone(), kept.join("\n"))
+                })
+                .collect();
+            let merged = |texts: &[(JournalVersionRef, String)]| {
+                merge_journal_texts(
+                    &texts
+                        .iter()
+                        .map(|(version, text)| (version.clone(), text.as_str()))
+                        .collect::<Vec<_>>(),
+                )
+            };
+            assert_eq!(merged(&partial), merged(&texts), "case {}", case);
+        }
+        assert!(dropped > 0);
+    }
+
     #[test]
     fn test_prepend_unconsolidated() {
         use crate::file_format::history::io_helpers::record_file_contents_to_string;

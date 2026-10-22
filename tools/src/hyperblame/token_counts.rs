@@ -79,26 +79,49 @@ pub fn tree_counts(repo: &Repository, root: &Tree) -> Result<HashMap<String, i64
     Ok(counts)
 }
 
-/// A count field of a record line (ex: `"added":3`), or 0.  (Faster than
-/// parsing the line, for merges' sums of big journals.)
-fn line_field(line: &str, key: &str) -> i64 {
-    let Some(at) = line.find(key) else {
-        return 0;
-    };
-    let digits = &line[at + key.len()..];
+/// The number after `key` at the start of `rest` (ex: `"added":3`), or 0.
+fn field_value(rest: &str, key: &str) -> i64 {
+    let digits = &rest[key.len()..];
     let end = digits
         .find(|c: char| !c.is_ascii_digit())
         .unwrap_or(digits.len());
     digits[..end].parse().unwrap_or(0)
 }
 
+/// The count fields of a record line, with how they change its token's
+/// instances.
+const CHANGE_FIELDS: [(&str, i64); 4] = [
+    ("\"added\":", 1),
+    ("\"evolved_from\":", 1),
+    ("\"removed\":", -1),
+    ("\"evolved_into\":", -1),
+];
+
 /// The change a token journal record line makes to its instances: those added
 /// and evolved from other tokens, less those removed and evolved into others
-/// (moves don't change them).
+/// (moves don't change them).  Each field's first occurrence counts, found in
+/// one pass over the line's quotes rather than parsing it (or searching it
+/// for each field), for merges' sums of big journals.
 pub fn record_line_change(line: &str) -> i64 {
-    line_field(line, "\"added\":") + line_field(line, "\"evolved_from\":")
-        - line_field(line, "\"removed\":")
-        - line_field(line, "\"evolved_into\":")
+    let mut found = [false; CHANGE_FIELDS.len()];
+    let mut left = CHANGE_FIELDS.len();
+    let mut change = 0;
+    let mut at = 0;
+    while left > 0
+        && let Some(offset) = line[at..].find('"')
+    {
+        let rest = &line[at + offset..];
+        for (i, (key, sign)) in CHANGE_FIELDS.iter().enumerate() {
+            if !found[i] && rest.starts_with(key) {
+                found[i] = true;
+                left -= 1;
+                change += sign * field_value(rest, key);
+                break;
+            }
+        }
+        at += offset + 1;
+    }
+    change
 }
 
 /// The sum of a token journal's records' changes (see `record_line_change`),
@@ -154,6 +177,66 @@ pub fn exact_totals(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `record_line_change` as it was: a search of the line for each field.
+    fn reference_line_change(line: &str) -> i64 {
+        let field = |key: &str| line.find(key).map_or(0, |at| field_value(&line[at..], key));
+        field("\"added\":") + field("\"evolved_from\":")
+            - field("\"removed\":")
+            - field("\"evolved_into\":")
+    }
+
+    #[test]
+    fn test_record_line_change_like_reference() {
+        let mut lines = vec![
+            String::new(),
+            "{}".to_string(),
+            r#"{"type":"Detail","added":3,"evolved_into":1}"#.to_string(),
+            // (Repeated fields: the first counts; fields in strings, escaped;
+            // no digits; overflow; keys as values.)
+            r#"{"added":2,"x":{"added":9},"removed":1,"removed":7}"#.to_string(),
+            r#"{"desc":"a \"added\":5 b","added":1}"#.to_string(),
+            r#"{"added":,"removed":x,"evolved_from":99999999999999999999}"#.to_string(),
+            r#"{"k":"\"evolved_into\":","evolved_into":4,"evolved_from":"#.to_string(),
+            r#""added":"added":3"#.to_string(),
+        ];
+        // (And random lines of the fields' pieces.)
+        let pieces = [
+            "\"",
+            "added",
+            "removed",
+            "evolved_from",
+            "evolved_into",
+            "moved",
+            ":",
+            "3",
+            "12",
+            ",",
+            "{",
+            "}",
+            "x",
+            "\\",
+        ];
+        let mut state: u64 = 0x9e3779b97f4a7c15;
+        for _ in 0..20000 {
+            let mut line = String::new();
+            for _ in 0..(state % 24) {
+                state = state
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                line.push_str(pieces[(state >> 33) as usize % pieces.len()]);
+            }
+            lines.push(line);
+        }
+        for line in &lines {
+            assert_eq!(
+                record_line_change(line),
+                reference_line_change(line),
+                "{:?}",
+                line
+            );
+        }
+    }
 
     #[test]
     fn test_add_tracked_counts() {

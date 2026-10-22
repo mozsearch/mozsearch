@@ -110,7 +110,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Stdio};
 use std::rc::Rc;
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::{Receiver, Sender, channel, sync_channel};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -2378,6 +2378,17 @@ impl<'r> MergeParents<'r> {
         journal_text_in(self.repo, &self.trees[i], path)
     }
 
+    /// The journal at `path` in the `i`th parent, if any, with its segments
+    /// but those `skip` gives (by their years and ids).
+    fn journal_parts(
+        &self,
+        i: usize,
+        path: &Path,
+        skip: impl Fn(i32, Oid) -> bool,
+    ) -> Option<JournalParts> {
+        journal_parts_in(self.repo, &self.trees[i], path, skip)
+    }
+
     /// Load the records of a journal version, which must be in a commit on disk
     /// (as the parents' journals and their predecessors are).
     fn load_journal_version<H: DeserializeOwned + Default, R: DeserializeOwned>(
@@ -2400,20 +2411,71 @@ impl<'r> MergeParents<'r> {
 /// The text of the journal at `path` in `tree`, with its segments (see
 /// `hyperblame::segments`), if any.
 fn journal_text_in(repo: &Repository, tree: &git2::Tree, path: &Path) -> Option<String> {
-    let read = |path: &Path| {
-        let entry = tree.get_path(path).ok()?;
-        Some(String::from_utf8(repo.find_blob(entry.id()).unwrap().content().to_vec()).unwrap())
-    };
-    let head = read(path)?;
-    let years = segments::segment_years(head.lines().next().unwrap_or(""));
-    if years.is_empty() {
-        return Some(head);
+    journal_parts_in(repo, tree, path, |_, _| false).map(|parts| parts.joined())
+}
+
+/// A version of a journal as its files: its head and its segments (see
+/// `hyperblame::segments`), newest first, with their years and ids.
+struct JournalParts {
+    head: String,
+    segments: Vec<(i32, Oid, String)>,
+}
+
+impl JournalParts {
+    /// The journal's text (see `segments::join`).
+    fn joined(&self) -> String {
+        segments::join(
+            &self.head,
+            self.segments.iter().map(|(_, _, text)| text.as_str()),
+        )
     }
-    let texts: Vec<String> = years
-        .iter()
-        .filter_map(|year| read(&segments::segment_path(path, *year)))
+
+    /// `token_counts::journal_sum` of the journal's text, without joining it.
+    fn sum(&self) -> i64 {
+        journal_sum(&self.head)
+            + self
+                .segments
+                .iter()
+                .map(|(_, _, text)| journal_sum(text))
+                .sum::<i64>()
+    }
+
+    /// The text of the journal's file at `file` (its head's, `path`, or a
+    /// segment's), if it has it.
+    fn file_text(&self, path: &Path, file: &Path) -> Option<&str> {
+        if file == path {
+            return Some(&self.head);
+        }
+        self.segments
+            .iter()
+            .find(|(year, _, _)| segments::segment_path(path, *year) == file)
+            .map(|(_, _, text)| text.as_str())
+    }
+}
+
+/// The journal at `path` in `tree`, if any, with its segments but those
+/// `skip` gives (by their years and ids).
+fn journal_parts_in(
+    repo: &Repository,
+    tree: &git2::Tree,
+    path: &Path,
+    skip: impl Fn(i32, Oid) -> bool,
+) -> Option<JournalParts> {
+    let blob_text =
+        |oid: Oid| String::from_utf8(repo.find_blob(oid).unwrap().content().to_vec()).unwrap();
+    let head = blob_text(tree.get_path(path).ok()?.id());
+    let years = segments::segment_years(head.lines().next().unwrap_or(""));
+    let segments = years
+        .into_iter()
+        .filter_map(|year| {
+            let oid = tree
+                .get_path(&segments::segment_path(path, year))
+                .ok()?
+                .id();
+            (!skip(year, oid)).then(|| (year, oid, blob_text(oid)))
+        })
         .collect();
-    Some(segments::join(&head, texts.iter().map(String::as_str)))
+    Some(JournalParts { head, segments })
 }
 
 /// Make git fast-import write out its pack and refs so that we can read the
@@ -2460,8 +2522,8 @@ fn union_journal<H: DeserializeOwned + Default + Serialize, R: Summarize>(
     if base_oids.is_some_and(|base| oids[1..].iter().all(|oid| *oid == base)) {
         return vec![];
     }
-    let contents = union_journal_texts::<H, R>(parents, parent_revs, path);
-    journal_files(parents, path, &oids, contents, keep_from)
+    let (contents, first) = union_journal_texts::<H, R>(parents, parent_revs, path);
+    journal_files(path, &oids, first.as_ref(), contents, keep_from)
 }
 
 /// The ids of a journal's head and its segments' directory in each parent.
@@ -2504,21 +2566,28 @@ fn merge_token_journal(
             let base_oids = (oid(path), oid(Path::new(&dir)));
             oids[1..].iter().all(|oid| *oid == base_oids)
         });
-    let union = (!first_stands)
-        .then(|| union_journal_texts::<TokenHeader, TokenDeltaRecord>(parents, parent_revs, path));
+    let (union, first) = match first_stands {
+        true => (None, None),
+        false => {
+            let (union, first) =
+                union_journal_texts::<TokenHeader, TokenDeltaRecord>(parents, parent_revs, path);
+            (Some(union), Some(first))
+        }
+    };
     if union.is_none() && change == 0 {
         return vec![];
     }
-    let first = parents.journal_text(0, path);
+    // (The first parent's version, which the union read.)
+    let first = first.unwrap_or_else(|| parents.journal_parts(0, path, |_, _| false));
     let union_adds = match &union {
-        Some(union) => journal_sum(union) - first.as_deref().map_or(0, journal_sum),
+        Some(union) => journal_sum(union) - first.as_ref().map_or(0, JournalParts::sum),
         None => 0,
     };
     let correction = change - union_adds;
     // (The token's instances: the first parent's, and the merge's change,
     // if the first parent's journal has its count, or none.)
     let counted = |contents: String| match &first {
-        Some(first) => match segments::header_count(first.lines().next().unwrap_or("")) {
+        Some(first) => match segments::header_count(first.head.lines().next().unwrap_or("")) {
             Some(count) => {
                 let (header, rest) = contents.split_once('\n').unwrap_or((&contents, ""));
                 format!(
@@ -2535,10 +2604,12 @@ fn merge_token_journal(
     };
     let mut contents = match (union, correction) {
         (Some(union), 0) => {
-            return journal_files(parents, path, &oids, counted(union), keep_from);
+            return journal_files(path, &oids, first.as_ref(), counted(union), keep_from);
         }
         (Some(union), _) => union,
-        (None, _) => first.clone().unwrap_or_else(|| "{}".to_string()),
+        (None, _) => first
+            .as_ref()
+            .map_or_else(|| "{}".to_string(), JournalParts::joined),
     };
     let record = TokenDeltaRecord::Detail(TokenDeltaDetailRecord {
         desc: desc.clone(),
@@ -2553,16 +2624,18 @@ fn merge_token_journal(
         header_end,
         &format!("\n{}", serde_json::to_string(&record).unwrap()),
     );
-    journal_files(parents, path, &oids, counted(contents), keep_from)
+    journal_files(path, &oids, first.as_ref(), counted(contents), keep_from)
 }
 
 /// The files of a merge's version of a journal (its head and segments; see
-/// `hyperblame::segments`) which differ from its first parent's, given its
-/// `contents` (and its parents' ids, `oids`).
+/// `hyperblame::segments`) which differ from its first parent's (`first`),
+/// given its `contents` (and its parents' ids, `oids`).  (Compared with the
+/// first parent's texts, which the merge read, rather than hashing them, as
+/// libgit2's collision-detecting SHA-1 is slow on big journals.)
 fn journal_files(
-    parents: &MergeParents,
     path: &Path,
     oids: &[(Option<Oid>, Option<Oid>)],
+    first: Option<&JournalParts>,
     contents: String,
     keep_from: Option<i32>,
 ) -> Vec<(PathBuf, String)> {
@@ -2579,35 +2652,61 @@ fn journal_files(
                 .into_iter()
                 .map(|(year, text)| (segments::segment_path(path, year), text)),
         )
-        .filter(|(path, text)| {
-            parents.path_oid(0, path)
-                != Some(Oid::hash_object(git2::ObjectType::Blob, text.as_bytes()).unwrap())
-        })
+        .filter(|(file, text)| first.and_then(|first| first.file_text(path, file)) != Some(text))
         .collect()
 }
 
 /// `union_journal`'s union, of the parents' versions, as the journal's text
-/// (its head and segments, joined).
+/// (its head and segments, joined), and the first parent's version.
+///
+/// The other parents' segments which are the first parent's (the same year
+/// and blob) aren't read: their records are the first parent's, which the
+/// union has first, so they add nothing to it (`merge_versions` keeps a
+/// summary's first version by its revisions and a detail's by its revision),
+/// and a hot token's journal has a segment for each year since its first
+/// (ex: 18 by 2016 in firefox's history), which merges mostly left as they
+/// were.  (Unless the union needs summaries summarized again, from whole
+/// versions as before.)
 fn union_journal_texts<H: DeserializeOwned + Default + Serialize, R: Summarize>(
     parents: &MergeParents,
     parent_revs: &[String],
     path: &Path,
-) -> String {
-    let blobs: Vec<(JournalVersionRef, Vec<u8>)> = (0..parent_revs.len())
+) -> (String, Option<JournalParts>) {
+    let first = parents.journal_parts(0, path, |_, _| false);
+    let first_segments: HashSet<(i32, Oid)> = first
+        .iter()
+        .flat_map(|parts| parts.segments.iter().map(|(year, oid, _)| (*year, *oid)))
+        .collect();
+    let version = |parent_rev: &String| JournalVersionRef {
+        timeline_rev: parent_rev.clone(),
+        path: path.to_string_lossy().into_owned(),
+    };
+    let texts: Vec<(JournalVersionRef, String)> = (0..parent_revs.len())
         .zip(parent_revs)
         .filter_map(|(i, parent_rev)| {
-            let version = JournalVersionRef {
-                timeline_rev: parent_rev.clone(),
-                path: path.to_string_lossy().into_owned(),
+            let text = match i {
+                0 => first.as_ref()?.joined(),
+                _ => parents
+                    .journal_parts(i, path, |year, oid| first_segments.contains(&(year, oid)))?
+                    .joined(),
             };
-            Some((version, parents.journal_text(i, path)?.into_bytes()))
+            Some((version(parent_rev), text))
         })
         .collect();
-    let texts: Vec<(JournalVersionRef, &str)> = blobs
+    let refs: Vec<(JournalVersionRef, &str)> = texts
         .iter()
-        .map(|(version, blob)| (version.clone(), std::str::from_utf8(blob).unwrap()))
+        .map(|(version, text)| (version.clone(), text.as_str()))
         .collect();
-    merge_journal_texts(&texts).unwrap_or_else(|| {
+    let union = merge_journal_texts(&refs).unwrap_or_else(|| {
+        let blobs: Vec<(JournalVersionRef, Vec<u8>)> = (0..parent_revs.len())
+            .zip(parent_revs)
+            .filter_map(|(i, parent_rev)| {
+                Some((
+                    version(parent_rev),
+                    parents.journal_text(i, path)?.into_bytes(),
+                ))
+            })
+            .collect();
         let mut header: Option<H> = None;
         let mut versions = vec![];
         for (version, blob) in &blobs {
@@ -2628,7 +2727,8 @@ fn union_journal_texts<H: DeserializeOwned + Default + Serialize, R: Summarize>(
         })
         .unwrap();
         record_file_contents_to_string(&header.unwrap_or_default(), &records)
-    })
+    });
+    (union, first)
 }
 
 /// A journal which a merge unions across its parents or deletes: a token's,
@@ -2688,10 +2788,14 @@ impl MergeJournal {
 /// How many journals a merge needs to have for us to union them on threads.
 const MIN_JOURNALS_FOR_THREADS: usize = 16;
 
-/// Union or delete the journals of a merge, in order.  Firefox's merges can have
+/// Union or delete the journals of a merge.  Firefox's merges can have
 /// thousands of journals, whose parents' versions all need to be read and
 /// parsed, so the unions are done on threads, each with its own handle on the
-/// timeline repo (since git2's can't be shared between threads).
+/// timeline repo (since git2's can't be shared between threads).  They're
+/// written as they're done, since the merge's tree is the same in any order
+/// (each journal's files are its own), with the journals with segments (hot
+/// tokens', the slowest) done first: writing them in order had 2016's merges
+/// mostly waiting on a slow journal with most of the threads idle.
 fn merge_journals(
     import_helper: &mut FastImport,
     parents: &MergeParents,
@@ -2712,9 +2816,25 @@ fn merge_journals(
     }
     let repo_path = parents.repo.path();
     let base = parents.base_oid;
+    let mut order: Vec<usize> = (0..journals.len()).collect();
+    order.sort_by_key(|&idx| {
+        let journal = &journals[idx];
+        let segmented = matches!(journal, MergeJournal::Tokens(..)) && {
+            let mut dir = journal.path().as_os_str().to_owned();
+            dir.push(".d");
+            parents.path_oid(0, Path::new(&dir)).is_some()
+        };
+        !segmented
+    });
     let (job_tx, job_rx) = channel::<usize>();
+    for idx in order {
+        job_tx.send(idx).unwrap();
+    }
+    drop(job_tx);
     let job_rx = Mutex::new(job_rx);
-    let (result_tx, result_rx) = channel::<(usize, Vec<(PathBuf, String)>)>();
+    // (Bounded, so that the merged journals wait for us to write them in it,
+    // rather than piling up.)
+    let (result_tx, result_rx) = sync_channel::<(usize, Vec<(PathBuf, String)>)>(2 * num_threads);
     thread::scope(|scope| {
         for _ in 0..num_threads {
             let job_rx = &job_rx;
@@ -2741,26 +2861,9 @@ fn merge_journals(
             });
         }
         drop(result_tx);
-        // Only hand out journals up to a window ahead of the next one to write,
-        // so that the merged journals waiting to be written stay few.
-        let window = 4 * num_threads;
-        let mut sent = 0;
-        let mut merged: HashMap<usize, Vec<(PathBuf, String)>> = HashMap::new();
-        for (idx, journal) in journals.iter().enumerate() {
-            while sent < journals.len() && sent < idx + window {
-                job_tx.send(sent).unwrap();
-                sent += 1;
-            }
-            let contents = loop {
-                if let Some(contents) = merged.remove(&idx) {
-                    break contents;
-                }
-                let (done, contents) = result_rx.recv().unwrap();
-                merged.insert(done, contents);
-            };
-            journal.write(import_helper, contents);
+        for (idx, contents) in result_rx {
+            journals[idx].write(import_helper, contents);
         }
-        drop(job_tx);
     });
 }
 
