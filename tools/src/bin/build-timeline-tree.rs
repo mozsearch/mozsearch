@@ -129,7 +129,7 @@ use tools::file_format::history::io_helpers::{
 use tools::file_format::history::rev_summaries::{
     RevFileSummaryRecord, RevSummaryRecord, file_deltas_or_totals, rev_summary_path,
 };
-use tools::file_format::history::syntax_files::{split_token_line, token_file_lines};
+use tools::file_format::history::syntax_files::token_file_lines;
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use tools::file_format::history::timeline_annotated::{
     self, HyperLineData, PATH_UNCHANGED, RemovalMarker, encode_annotated,
@@ -145,7 +145,7 @@ use tools::file_format::history::timeline_future::{
     FutureDetailRecord, FutureHeader, FutureRecord,
 };
 use tools::file_format::history::timeline_tokens::{
-    TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, token_timeline_path, tracked_token_keys,
+    TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, token_timeline_path,
 };
 use tools::git_notes::NotesWriter;
 use tools::git_ops::{fast_import_git, git_time_to_chrono, history_compute_threads};
@@ -1071,8 +1071,6 @@ struct MergeChanges {
     /// Paths whose physical/logical journals may differ between parents, and
     /// whether the path exists in the merge commit.
     candidate_paths: BTreeMap<String, bool>,
-    /// Tokens whose journals may differ between parents.
-    candidate_tokens: BTreeSet<String>,
     /// How the merge changes tokens' instances against its first parent (see
     /// `token_counts`), for the records making up the difference with what its
     /// journals' unions bring (see `merge_token_journal`).
@@ -1635,24 +1633,6 @@ fn add_restore_bases(
     Ok(())
 }
 
-/// Add the tracked tokens for `lines[range]` to `candidate_tokens`.  We don't
-/// know the file's namespace here, so we use a namespace with no value words
-/// which produces a superset of the tokens tracked in any namespace.  That's
-/// fine because these are just candidates for journal merging.
-fn add_tracked_tokens(
-    lines: &[&str],
-    range: std::ops::Range<usize>,
-    candidate_tokens: &mut BTreeSet<String>,
-) {
-    for idx in range {
-        let line = split_token_line(lines[idx]);
-        let prev = idx.checked_sub(1).map(|i| split_token_line(lines[i]));
-        tracked_token_keys("", &line, prev.as_ref(), &mut |key| {
-            candidate_tokens.insert(key.into_owned());
-        });
-    }
-}
-
 /// Decide a merge's pairings against its first parent (`deltas`' renames and
 /// copies) as linear revisions' are (see `hyperblame::pairing`), from the
 /// inference of their files' tokens alone (merges aren't otherwise inferred;
@@ -1912,15 +1892,15 @@ fn preprocess_merge(
     }
 
     // ## Journal candidates: differences between the first parent and others.
+    // (The token journals which differ between the parents are their timeline
+    // commits' differing journals, so the tokens of these files' differences
+    // needn't be found, which for hg's merges of closed branches, ~130k files
+    // from their old branch heads, was most of their time once their journals
+    // were quick; see `process_merge_revision`.)
     let mut candidate_paths = BTreeMap::new();
-    let mut candidate_tokens = BTreeSet::new();
     for other_files in parent_files.iter().skip(1) {
         let diff = diff_files_trees(repo, parent_files[0].as_ref(), other_files.as_ref(), false)?;
         for delta in diff.deltas() {
-            let old_contents = blob_string(repo, delta.old_file().id());
-            let new_contents = blob_string(repo, delta.new_file().id());
-            let old_lines = token_file_lines(&old_contents);
-            let new_lines = token_file_lines(&new_contents);
             for path in [delta.old_file().path(), delta.new_file().path()]
                 .into_iter()
                 .flatten()
@@ -1931,22 +1911,12 @@ fn preprocess_merge(
                     .is_some_and(|t| t.get_path(Path::new(&path)).is_ok());
                 candidate_paths.insert(path, exists);
             }
-            for op in diff_token_lines(&old_lines, &new_lines) {
-                match op {
-                    similar::DiffOp::Equal { .. } => {}
-                    _ => {
-                        add_tracked_tokens(&old_lines, op.old_range(), &mut candidate_tokens);
-                        add_tracked_tokens(&new_lines, op.new_range(), &mut candidate_tokens);
-                    }
-                }
-            }
         }
     }
 
     Ok(RevisionChanges::Merge(MergeChanges {
         files,
         candidate_paths,
-        candidate_tokens,
         token_changes: token_counts
             .into_iter()
             .filter(|(_, change)| *change != 0)
@@ -3651,15 +3621,11 @@ fn process_merge_revision(
             journals.push(MergeJournal::Delete(files_delta_path(path)));
         }
     }
-    // (Those whose instances the merge changes too, which are candidates
-    // unless the merge changed them itself, ex: resolving a conflict.)
+    // (The token journals whose tokens' instances the merge changes, which get
+    // records for the merge, and those which differ between the parents,
+    // below; the others are the first parent's.)
     let token_change = |token: &str| merge.token_changes.get(token).copied().unwrap_or(0);
-    let tokens: BTreeSet<&String> = merge
-        .candidate_tokens
-        .iter()
-        .chain(merge.token_changes.keys())
-        .collect();
-    for token in tokens {
+    for token in merge.token_changes.keys() {
         journals.push(MergeJournal::Tokens(
             token_timeline_path(token),
             token_change(token),
@@ -3679,7 +3645,41 @@ fn process_merge_revision(
         .iter()
         .filter_map(|change| change.new_path.as_deref())
         .collect();
-    for path in differing_journals(parents) {
+    // With a merge base, the journals which the other parent left as the
+    // base's are the first parent's (see `union_journal` and
+    // `merge_token_journal`), so only those it changed are unioned (`changed`),
+    // and the others needn't be looked up in each parent's tree on the merge
+    // threads: for hg's merges of closed branches into default (37 on
+    // 2015-01-28), which differ from their old branch heads in ~130k files,
+    // that was most of their ~30 s each.  So the token and future journals
+    // which differ between the parents needn't be found either (which for those
+    // merges is everything the first parent's history changed since 2010); the
+    // files-delta journals are, as those whose files the merge lacks are
+    // deleted.
+    let changed = other_parent_changed_journals(parents);
+    let differing = match &changed {
+        Some(changed) => {
+            let mut paths = BTreeSet::new();
+            for other in &parents.trees[1..] {
+                add_differing_journals(
+                    parents.repo,
+                    &parents.trees[0],
+                    other,
+                    &["files-delta"],
+                    &mut paths,
+                );
+            }
+            paths.extend(
+                changed
+                    .iter()
+                    .filter(|path| !path.starts_with("files-delta"))
+                    .cloned(),
+            );
+            paths
+        }
+        None => differing_journals(parents),
+    };
+    for path in differing {
         if seen.contains(&path) {
             continue;
         }
@@ -3711,15 +3711,10 @@ fn process_merge_revision(
         seen.insert(path);
         journals.push(journal);
     }
-    // With a merge base, the journals which the other parent left as the base's
-    // are the first parent's (see `union_journal` and `merge_token_journal`),
-    // so only those it changed are unioned, and the others needn't be looked
-    // up in each parent's tree on the merge threads: for hg's merges of closed
-    // branches into default (37 on 2015-01-28), which differ from their old
-    // branch heads in ~130k files, that was most of their ~30 s each.  (Token
-    // journals whose instances the merge changes get their records, and
-    // deleted journals are deleted, regardless.)
-    if let Some(changed) = other_parent_changed_journals(parents) {
+    // (Of those, only the ones the other parent changed are unioned (see
+    // above), and token journals whose instances the merge changes get their
+    // records, and deleted journals are deleted, regardless.)
+    if let Some(changed) = changed {
         journals.retain(|journal| match journal {
             MergeJournal::Delete(_) => true,
             MergeJournal::Tokens(path, change) => *change != 0 || changed.contains(path),
@@ -3748,10 +3743,19 @@ fn process_merge_revision(
 fn differing_journals(parents: &MergeParents) -> BTreeSet<PathBuf> {
     let mut paths = BTreeSet::new();
     for other in &parents.trees[1..] {
-        add_differing_journals(parents.repo, &parents.trees[0], other, &mut paths);
+        add_differing_journals(
+            parents.repo,
+            &parents.trees[0],
+            other,
+            &JOURNAL_DIRS,
+            &mut paths,
+        );
     }
     paths
 }
+
+/// The directories of the journals.
+const JOURNAL_DIRS: [&str; 3] = ["tokens", "future", "files-delta"];
 
 /// The journals which a two-parent merge's other parent changed since their
 /// merge base (see `differing_journals`), if it has one.
@@ -3760,19 +3764,26 @@ fn other_parent_changed_journals(parents: &MergeParents) -> Option<HashSet<PathB
         return None;
     };
     let mut paths = BTreeSet::new();
-    add_differing_journals(parents.repo, parents.base.as_ref()?, other, &mut paths);
+    add_differing_journals(
+        parents.repo,
+        parents.base.as_ref()?,
+        other,
+        &JOURNAL_DIRS,
+        &mut paths,
+    );
     Some(paths.into_iter().collect())
 }
 
-/// Add the journals which differ between `a` and `b` (see
+/// Add the journals in `dirs` which differ between `a` and `b` (see
 /// `differing_journals`) to `paths`.
 fn add_differing_journals(
     repo: &Repository,
     a: &git2::Tree,
     b: &git2::Tree,
+    dirs: &[&str],
     paths: &mut BTreeSet<PathBuf>,
 ) {
-    for prefix in ["tokens", "future", "files-delta"] {
+    for prefix in dirs.iter().copied() {
         let a = subtree(repo, a, prefix);
         let b = subtree(repo, b, prefix);
         let mut blobs = vec![];
