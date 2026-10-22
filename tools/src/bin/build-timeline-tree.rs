@@ -191,6 +191,11 @@ struct FastImport {
     unread_marks: VecDeque<usize>,
     /// The hex ids of the commits this run wrote whose answers we've read.
     mark_revs: HashMap<usize, String>,
+    /// Their marks by their hex ids, and the last mark git fast-import wrote out
+    /// (see `checkpoint`), so that we know which of the commits we wrote are
+    /// on disk (see `on_disk`).
+    rev_marks: HashMap<String, usize>,
+    checkpointed: usize,
     cache: TreeCache,
     /// Journals to write once we have the hex id of the commit's first parent,
     /// given it (and if they're token journals, the first year their heads
@@ -210,6 +215,7 @@ impl FastImport {
         while let Some(mark) = self.unread_marks.pop_front() {
             let mut line = String::new();
             self.output.read_line(&mut line).unwrap();
+            self.rev_marks.insert(line.trim().to_string(), mark);
             self.mark_revs.insert(mark, line.trim().to_string());
         }
         &mut self.output
@@ -224,6 +230,14 @@ impl FastImport {
         // (So that it can answer while we go on.)
         self.input.flush().unwrap();
         self.unread_marks.push_back(mark);
+    }
+
+    /// Whether the commit with the hex id `rev` is on disk: one of an earlier
+    /// run's, or one this run wrote by its last checkpoint.
+    fn on_disk(&self, rev: &str) -> bool {
+        self.rev_marks
+            .get(rev)
+            .is_none_or(|mark| *mark <= self.checkpointed)
     }
 
     /// The hex id of the commit with `mark`, which must have been requested.
@@ -254,6 +268,7 @@ impl FastImport {
                 let mut line = String::new();
                 self.output.read_line(&mut line).unwrap();
                 let answered = self.unread_marks.pop_front().unwrap();
+                self.rev_marks.insert(line.trim().to_string(), answered);
                 self.mark_revs.insert(answered, line.trim().to_string());
             }
         }
@@ -449,8 +464,12 @@ impl TreeCache {
 const DISK_READER_THREADS: usize = 8;
 
 /// A disk reader thread's requests (a commit and paths in it) and answers (the
-/// paths' blobs, if any); see `DiskReaders`.
-type DiskReaderThread = (Sender<(Oid, Vec<PathBuf>)>, Receiver<Vec<Option<Vec<u8>>>>);
+/// paths' blobs, if any, or None if the commit isn't on disk); see
+/// `DiskReaders`.
+type DiskReaderThread = (
+    Sender<(Oid, Vec<PathBuf>)>,
+    Receiver<Option<Vec<Option<Vec<u8>>>>>,
+);
 
 /// Threads which read paths from commits on disk with git2, for `TreeCache`.
 /// Reading through git fast-import took as long, but meant waiting for it to
@@ -470,7 +489,14 @@ impl DiskReaders {
                 thread::spawn(move || {
                     let repo = Repository::open(&repo_path).unwrap();
                     for (commit, paths) in requests {
-                        let tree = repo.find_commit(commit).unwrap().tree().unwrap();
+                        // (A commit git fast-import hasn't written out yet.)
+                        let Ok(commit) = repo.find_commit(commit) else {
+                            if answer_sender.send(None).is_err() {
+                                break;
+                            }
+                            continue;
+                        };
+                        let tree = commit.tree().unwrap();
                         let blobs = paths
                             .iter()
                             .map(|path| match tree.get_path(path) {
@@ -481,7 +507,7 @@ impl DiskReaders {
                                 Err(e) => panic!("failed to read {}: {}", path.display(), e),
                             })
                             .collect();
-                        if answer_sender.send(blobs).is_err() {
+                        if answer_sender.send(Some(blobs)).is_err() {
                             break;
                         }
                     }
@@ -505,12 +531,29 @@ impl DiskReaders {
     }
 
     /// The contents of the paths of the last `start`, in order, `None` for
-    /// those which don't exist.
-    fn finish(&self, started: usize) -> Vec<Option<Vec<u8>>> {
-        self.threads[..started]
+    /// those which don't exist, or None if its commit isn't on disk.
+    fn try_finish(&self, started: usize) -> Option<Vec<Option<Vec<u8>>>> {
+        let answers: Vec<Option<Vec<Option<Vec<u8>>>>> = self.threads[..started]
             .iter()
-            .flat_map(|(_, answers)| answers.recv().expect("a disk reader thread failed"))
-            .collect()
+            .map(|(_, answers)| answers.recv().expect("a disk reader thread failed"))
+            .collect();
+        answers
+            .into_iter()
+            .collect::<Option<Vec<_>>>()
+            .map(|answers| answers.into_iter().flatten().collect())
+    }
+
+    /// `try_finish` for a commit which is on disk.
+    fn finish(&self, started: usize) -> Vec<Option<Vec<u8>>> {
+        self.try_finish(started)
+            .expect("the commit to read from is on disk")
+    }
+
+    /// The contents of `paths` in `commit`, in order, `None` for those which
+    /// don't exist, if the commit is on disk.
+    fn try_read(&self, commit: Oid, paths: &[PathBuf]) -> Option<Vec<Option<Vec<u8>>>> {
+        let started = self.start(commit, paths);
+        self.try_finish(started)
     }
 }
 
@@ -570,6 +613,8 @@ fn start_fast_import(git_repo: &Repository) -> FastImport {
         output,
         unread_marks: VecDeque::new(),
         mark_revs: HashMap::new(),
+        rev_marks: HashMap::new(),
+        checkpointed: 0,
         cache: TreeCache::default(),
         deferred: vec![],
         readers: DiskReaders::new(git_repo.path()),
@@ -2105,18 +2150,73 @@ fn join_annotated(lines: Vec<String>) -> String {
     encode_annotated(&lines)
 }
 
-/// Load the records of a journal version through git fast-import, which (unlike
-/// the repo on disk) has the commits written earlier in this run.
+/// Load the records of a journal version (ex: a summary's pred, for
+/// summarizing a week again): from the repo on disk if its commit is there, as
+/// it usually is, or else through git fast-import, which has the commits
+/// written since its last checkpoint.  (Reading them all through git
+/// fast-import, which answers once it has caught up with what we wrote, was a
+/// fifth of the main thread's time in the full firefox reblame's 2016.)
 fn load_journal_version<H: DeserializeOwned + Default, R: DeserializeOwned>(
     import_helper: &mut FastImport,
     version: &JournalVersionRef,
 ) -> Result<Vec<R>, String> {
     let oid = Oid::from_str(&version.timeline_rev).map_err(|e| e.to_string())?;
-    let commit = TimelineRepoCommit::Commit(oid);
     let path = Path::new(&version.path);
-    let Some(head) = read_path_blob(import_helper, ReadFrom::Commit(&commit), path) else {
+    // (Through git fast-import if the commit isn't on disk after all.)
+    let on_disk = import_helper
+        .on_disk(&version.timeline_rev)
+        .then(|| journal_text_on_disk(&import_helper.readers, oid, path))
+        .flatten();
+    let text = match on_disk {
+        Some(text) => text,
+        None => journal_text_through_fast_import(import_helper, oid, path),
+    };
+    let Some(text) = text else {
         return Ok(vec![]);
     };
+    Ok(read_record_file_contents::<H, R>(text.as_bytes())
+        .map(|(_, records): (H, Vec<R>)| records)
+        .unwrap_or_default())
+}
+
+/// The text of the journal at `path` in `commit`, with its segments (see
+/// `hyperblame::segments`), if any, if the commit is on disk.
+fn journal_text_on_disk(readers: &DiskReaders, commit: Oid, path: &Path) -> Option<Option<String>> {
+    let head = readers
+        .try_read(commit, &[path.to_path_buf()])?
+        .pop()
+        .unwrap();
+    let Some(head) = head else {
+        return Some(None);
+    };
+    let head = String::from_utf8(head).unwrap();
+    let segment_paths: Vec<PathBuf> = segments::segment_years(head.lines().next().unwrap_or(""))
+        .into_iter()
+        .map(|year| segments::segment_path(path, year))
+        .collect();
+    if segment_paths.is_empty() {
+        return Some(Some(head));
+    }
+    let texts: Vec<String> = readers
+        .try_read(commit, &segment_paths)?
+        .into_iter()
+        .flatten()
+        .map(|text| String::from_utf8(text).unwrap())
+        .collect();
+    Some(Some(segments::join(
+        &head,
+        texts.iter().map(String::as_str),
+    )))
+}
+
+/// `journal_text_on_disk` for a commit git fast-import hasn't written out yet.
+fn journal_text_through_fast_import(
+    import_helper: &mut FastImport,
+    commit: Oid,
+    path: &Path,
+) -> Option<String> {
+    let commit = TimelineRepoCommit::Commit(commit);
+    let head = read_path_blob(import_helper, ReadFrom::Commit(&commit), path)?;
     let head = std::str::from_utf8(&head).unwrap();
     let mut segment_texts = vec![];
     for year in segments::segment_years(head.lines().next().unwrap_or("")) {
@@ -2125,10 +2225,10 @@ fn load_journal_version<H: DeserializeOwned + Default, R: DeserializeOwned>(
             segment_texts.push(String::from_utf8(text.to_vec()).unwrap());
         }
     }
-    let text = segments::join(head, segment_texts.iter().map(String::as_str));
-    Ok(read_record_file_contents::<H, R>(text.as_bytes())
-        .map(|(_, records): (H, Vec<R>)| records)
-        .unwrap_or_default())
+    Some(segments::join(
+        head,
+        segment_texts.iter().map(String::as_str),
+    ))
 }
 
 /// `segments::SPLIT_BYTES`, or HISTORY_SPLIT_BYTES (for tests, whose journals
@@ -2485,6 +2585,7 @@ fn checkpoint(import_helper: &mut FastImport, mark: usize) {
     writeln!(import_helper.input, "checkpoint").unwrap();
     import_helper.request_mark(mark);
     import_helper.output();
+    import_helper.checkpointed = mark;
 }
 
 /// The union of the journal at `path` across all parents (whose hex ids are
