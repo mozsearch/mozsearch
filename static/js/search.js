@@ -232,7 +232,7 @@ var Dxr = new (class Dxr {
       this.fields.path.addEventListener("input", () => this.startSearchSoon());
       this.fields.regexp.addEventListener("change", () => this.startSearch());
       this.fields.caseSensitive.addEventListener("change", event => {
-        window.localStorage.setItem("caseSensitive", event.target.checked);
+        window.localStorage.setItem(storageKey("caseSensitive"), event.target.checked);
         this.startSearch();
       });
       this.initFormFromLocalStorageOrUrl();
@@ -375,7 +375,7 @@ var Dxr = new (class Dxr {
     } else if (params.get("q")) {
       caseSensitive = false;
     } else {
-      caseSensitive = window.localStorage.getItem("caseSensitive") === "true";
+      caseSensitive = window.localStorage.getItem(storageKey("caseSensitive")) === "true";
     }
     this.fields.caseSensitive.checked = caseSensitive;
 

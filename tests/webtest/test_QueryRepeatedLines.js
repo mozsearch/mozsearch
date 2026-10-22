@@ -14,8 +14,10 @@ function textualOccurrences() {
 
 add_task(async function test_QueryRepeatedLines() {
   await TestUtils.loadQuery("tests", "Dispatcher");
-  frame.contentWindow.localStorage.removeItem(SHOW_REPEATED_KEY);
-  registerCleanupFunction(() => frame.contentWindow.localStorage.removeItem(SHOW_REPEATED_KEY));
+  // (Its key with the branch's prefix; see settings.js's `storageKey`.)
+  const key = frame.contentWindow.storageKey(SHOW_REPEATED_KEY);
+  frame.contentWindow.localStorage.removeItem(key);
+  registerCleanupFunction(() => frame.contentWindow.localStorage.removeItem(key));
   await TestUtils.loadQuery("tests", "Dispatcher");
 
   let text = textualOccurrences();

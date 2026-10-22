@@ -235,7 +235,7 @@ add_task(async function test_BlameLens() {
   ok(doc.documentElement.classList.contains("blame-colorized"),
      "Changing the lens colors the strip");
   is(pressed(doc), "author", "The mode's button is pressed");
-  is(JSON.parse(frame.contentWindow.localStorage.getItem("settings")).settings.blame.colorMode,
+  is(JSON.parse(frame.contentWindow.localStorage.getItem(frame.contentWindow.storageKey("settings"))).settings.blame.colorMode,
      "author", "Changing the lens changes the setting");
 
   // Pages loaded later use the setting.
@@ -256,7 +256,7 @@ add_task(async function test_BlameLens() {
   is(legend()[0], "< 1 week", "The age legend has the default scale's buckets");
   TestUtils.selectMenu(popup.querySelector("#blame--age-scale"), "recent");
   is(legend()[0], "< 1 day", "The age scale changes the buckets");
-  is(JSON.parse(frame.contentWindow.localStorage.getItem("settings")).settings.blame.ageScale,
+  is(JSON.parse(frame.contentWindow.localStorage.getItem(frame.contentWindow.storageKey("settings"))).settings.blame.ageScale,
      "recent", "and the setting");
   TestUtils.selectMenu(popup.querySelector("#blame--age-scale"), "default");
   TestUtils.click(popup.querySelector(".lens-popup-close"));

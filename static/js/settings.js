@@ -1,4 +1,18 @@
 /**
+ * The localStorage key for `name`, prefixed with "hb_" on the hyperblame
+ * branch: localStorage is shared by the whole origin (searchfox.org), and the
+ * hyperblame branch's trees' settings (and other state, ex: the pinned diagram
+ * symbol) have diverged from those of master's trees on the same origin, so
+ * they're kept apart.  All of searchfox's localStorage accesses go through
+ * this; settings.js is loaded before the other scripts which use it.
+ */
+const STORAGE_PREFIX = "hb_";
+
+function storageKey(name) {
+  return STORAGE_PREFIX + name;
+}
+
+/**
  * Compactly defined setting names and defaults; expanded and interpreted by the
  * `Settings` class as its construction time in conjunction with
  * `SETTINGS_VERSION`.
@@ -55,8 +69,11 @@ const SETTING_DEFS = {
     defaultFeatureGate: {
       // On release channels stick to "release" as our default gate, but for
       // experimental channels let's turn everything on.  Users can set this
-      // back to "release" if they want.
-      default: (document.location.host === "searchfox.org") ? "release" : "alpha",
+      // back to "release" if they want.  (For now, the hyperblame branch's
+      // trees turn everything on even on searchfox.org, where its trees are
+      // the experimental ones; with its own settings, see `storageKey`, this
+      // doesn't affect the other trees.)
+      default: "alpha",
       introducedIn: 1,
     },
   },
@@ -261,7 +278,8 @@ function convertDashedIdentifierToGroupAndName(idStr) {
  * Storage is global for the entire origin and is not tree-specific at this
  * time.
  *
- * All settings storage happens in the single "settings" LocalStorage key,
+ * All settings storage happens in the single "settings" LocalStorage key
+ * (with its prefix; see `storageKey`),
  * stored as JSON and read only at page load time, currently.  In the future
  * we can have this listen for "storage" events to live-update, but the
  * complexity does not seem merited at this time.
@@ -297,7 +315,7 @@ const Settings = new (class Settings {
     // This will synchronously block if the browser has not been able to preload
     // the LocalStorage for the origin.  This is a hard-block and will not
     // spin an event loop.  This is the worst part of LocalStorage.
-    const strData = window.localStorage.getItem("settings");
+    const strData = window.localStorage.getItem(storageKey("settings"));
 
     this.#canonicalData = this.#loadCanonicalDataFrom(strData);
     this.#applyAndTransformCanonicalDataToSelf();
@@ -422,7 +440,7 @@ const Settings = new (class Settings {
       this.#canonicalData = explicitData;
     }
     const strData = JSON.stringify(this.#canonicalData);
-    window.localStorage.setItem("settings", strData);
+    window.localStorage.setItem(storageKey("settings"), strData);
   }
 
   /**
