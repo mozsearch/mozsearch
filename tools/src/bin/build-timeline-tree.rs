@@ -3645,6 +3645,21 @@ fn process_merge_revision(
         seen.insert(path);
         journals.push(journal);
     }
+    // With a merge base, the journals which the other parent left as the base's
+    // are the first parent's (see `union_journal` and `merge_token_journal`),
+    // so only those it changed are unioned, and the others needn't be looked
+    // up in each parent's tree on the merge threads: for hg's merges of closed
+    // branches into default (37 on 2015-01-28), which differ from their old
+    // branch heads in ~130k files, that was most of their ~30 s each.  (Token
+    // journals whose instances the merge changes get their records, and
+    // deleted journals are deleted, regardless.)
+    if let Some(changed) = other_parent_changed_journals(parents) {
+        journals.retain(|journal| match journal {
+            MergeJournal::Delete(_) => true,
+            MergeJournal::Tokens(path, change) => *change != 0 || changed.contains(path),
+            MergeJournal::Future(path) | MergeJournal::FilesDelta(path) => changed.contains(path),
+        });
+    }
     let desc = DetailRecordRef {
         source_rev: rev.clone(),
         syntax_rev: data.meta.syntax_rev.to_string(),
@@ -3667,28 +3682,44 @@ fn process_merge_revision(
 fn differing_journals(parents: &MergeParents) -> BTreeSet<PathBuf> {
     let mut paths = BTreeSet::new();
     for other in &parents.trees[1..] {
-        for prefix in ["tokens", "future", "files-delta"] {
-            let first = subtree(parents.repo, &parents.trees[0], prefix);
-            let other = subtree(parents.repo, other, prefix);
-            let mut blobs = vec![];
-            differing_blobs(
-                parents.repo,
-                first.as_ref(),
-                other.as_ref(),
-                Path::new(prefix),
-                &mut blobs,
-            );
-            for path in blobs {
-                // (A segment, `PATH.d/YEAR.ndjson`, is its journal's.)
-                let text = path.to_string_lossy();
-                paths.insert(match text.find(".ndjson.d/") {
-                    Some(at) => PathBuf::from(&text[..at + ".ndjson".len()]),
-                    None => path,
-                });
-            }
-        }
+        add_differing_journals(parents.repo, &parents.trees[0], other, &mut paths);
     }
     paths
+}
+
+/// The journals which a two-parent merge's other parent changed since their
+/// merge base (see `differing_journals`), if it has one.
+fn other_parent_changed_journals(parents: &MergeParents) -> Option<HashSet<PathBuf>> {
+    let [_, other] = &parents.trees[..] else {
+        return None;
+    };
+    let mut paths = BTreeSet::new();
+    add_differing_journals(parents.repo, parents.base.as_ref()?, other, &mut paths);
+    Some(paths.into_iter().collect())
+}
+
+/// Add the journals which differ between `a` and `b` (see
+/// `differing_journals`) to `paths`.
+fn add_differing_journals(
+    repo: &Repository,
+    a: &git2::Tree,
+    b: &git2::Tree,
+    paths: &mut BTreeSet<PathBuf>,
+) {
+    for prefix in ["tokens", "future", "files-delta"] {
+        let a = subtree(repo, a, prefix);
+        let b = subtree(repo, b, prefix);
+        let mut blobs = vec![];
+        differing_blobs(repo, a.as_ref(), b.as_ref(), Path::new(prefix), &mut blobs);
+        for path in blobs {
+            // (A segment, `PATH.d/YEAR.ndjson`, is its journal's.)
+            let text = path.to_string_lossy();
+            paths.insert(match text.find(".ndjson.d/") {
+                Some(at) => PathBuf::from(&text[..at + ".ndjson".len()]),
+                None => path,
+            });
+        }
+    }
 }
 
 /// The paths (under `prefix`) of the blobs which differ between two trees,
