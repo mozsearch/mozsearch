@@ -1498,6 +1498,15 @@ fn walk_parsed<'s>(
     // are represented.  We need the latter because comments can have children
     // which aren't themselves extra, like tree-sitter-rust's `doc_comment`.
     let mut parent_stack: Vec<(u16, bool)> = vec![];
+    // And the node, the index among its children of the one the cursor is at,
+    // and its children as `Siblings` once a comment among them needs them
+    // (see `trivia_container`): tree-sitter's `prev_sibling`, `next_sibling`
+    // and `parent` walk down from the root, so that asking them about a
+    // comment's neighbors made runs of comments cubic, ex: 80 s for
+    // libwebrtc's 62 KB sdk/BUILD.gn, and more than 12 minutes for each
+    // version of the HSTS preload list as C++ (whose gperf lines are error
+    // recovery's extras, which count as comments).
+    let mut sibling_stack: Vec<(tree_sitter::Node, usize, Option<Siblings>)> = vec![];
 
     // The containers, in the order the traversal visits them (by start, outer
     // ones first), with the first match for each: tree-sitter reports matches
@@ -1565,10 +1574,14 @@ fn walk_parsed<'s>(
         if visited_children {
             if cursor.goto_next_sibling() {
                 visited_children = false;
+                if let Some((_, index, _)) = sibling_stack.last_mut() {
+                    *index += 1;
+                }
             } else if cursor.goto_parent() {
                 visited_children = true;
                 depth -= 1;
                 parent_stack.pop();
+                sibling_stack.pop();
 
                 if let Some(container_id) = id_stack.last()
                     && cursor.node().id() == *container_id
@@ -1646,8 +1659,12 @@ fn walk_parsed<'s>(
                 || parent_stack.last().is_some_and(|p| p.1);
             // A comment (or attribute) which belongs to a container next to it
             // has its context.
-            let trivia_context = if is_trivia(&node) && !parent_stack.last().is_some_and(|p| p.1) {
-                trivia_container(&node, &container_names).map(|name| {
+            let trivia_context = if is_trivia(&node)
+                && !parent_stack.last().is_some_and(|p| p.1)
+                && let Some((parent, index, siblings)) = sibling_stack.last_mut()
+            {
+                let siblings = siblings.get_or_insert_with(|| Siblings::of(parent));
+                trivia_container(siblings, *index, depth == 1, &container_names).map(|name| {
                     let mut stack = context_stack.clone();
                     stack.push(name.to_string());
                     stack
@@ -1695,8 +1712,16 @@ fn walk_parsed<'s>(
                     walked,
                 )?;
                 visited_children = true;
-            } else if let Some((open, body, close)) = rust_item_macro_body(setup, &node)
-                && let Some(items) = parse_rust_items(setup, &text[body.clone()])
+            } else if let Some((open, body, close)) = rust_item_macro_body(
+                setup,
+                &node,
+                sibling_stack.last().map(|(parent, _, _)| *parent),
+                sibling_stack
+                    .iter()
+                    .rev()
+                    .nth(1)
+                    .map(|(parent, _, _)| *parent),
+            ) && let Some(items) = parse_rust_items(setup, &text[body.clone()])
             {
                 // Items in a macro, which we tokenize as items (see
                 // `rust_item_macro_body`), between its delimiters.
@@ -1735,6 +1760,7 @@ fn walk_parsed<'s>(
                 visited_children = false;
                 depth += 1;
                 parent_stack.push((node_kind_id, in_comment));
+                sibling_stack.push((node, 0, None));
                 if let Some(stack) = trivia_context {
                     context_stack = stack;
                     context_pretty = pretty_for(&context_stack);
@@ -1799,23 +1825,26 @@ fn is_trivia(node: &tree_sitter::Node) -> bool {
 ///   before a Rust struct.  (Not, ex, a section's comment followed by a blank
 ///   line, or a license header which a declaration follows.)
 fn trivia_container<'a>(
-    node: &tree_sitter::Node,
+    siblings: &Siblings,
+    index: usize,
+    parent_is_root: bool,
     containers: &'a [ContainerName],
 ) -> Option<&'a str> {
-    let start_row = node.start_position().row;
+    let nodes = &siblings.nodes;
+    let start_row = nodes[index].start_position().row;
     let first_at = |start: usize| containers.partition_point(|c| c.start_byte < start);
     // (Past separators after code on the line which aren't in its nodes, ex: a
     // Rust field's `,` or a JS class field's `;`.)
-    let mut prev = node.prev_sibling();
+    let mut prev = index.checked_sub(1);
     while let Some(separator) = prev
-        && !separator.is_named()
+        && !nodes[separator].is_named()
         && separator
-            .prev_sibling()
-            .is_some_and(|before| last_row(&before) == start_row)
+            .checked_sub(1)
+            .is_some_and(|before| last_row(&nodes[before]) == start_row)
     {
-        prev = separator.prev_sibling();
+        prev = Some(separator - 1);
     }
-    if let Some(prev) = prev
+    if let Some(prev) = prev.map(|prev| nodes[prev])
         && last_row(&prev) == start_row
     {
         if is_trivia(&prev) {
@@ -1830,33 +1859,66 @@ fn trivia_container<'a>(
     }
     // (A run of comments starting the file, ex: a license header, belongs to
     // no container.)
-    let mut first = *node;
-    while let Some(prev) = first.prev_sibling()
-        && is_trivia(&prev)
-        && last_row(&prev) + 1 >= first.start_position().row
-    {
-        first = prev;
-    }
-    if first.prev_sibling().is_none() && first.parent().is_some_and(|p| p.parent().is_none()) {
+    if siblings.run_start[index] == 0 && parent_is_root {
         return None;
     }
-    let mut last = *node;
-    let mut next = node.next_sibling()?;
-    while is_trivia(&next) {
-        if next.start_position().row > last_row(&last) + 1 {
-            return None;
-        }
-        last = next;
-        next = next.next_sibling()?;
-    }
-    if next.start_position().row > last_row(&last) + 1 {
-        return None;
-    }
+    let next = nodes[siblings.after_run[index]?];
     let wrapper = matches!(next.kind(), "template_declaration" | "decorated_definition");
     let container = containers.get(first_at(next.start_byte()))?;
     (container.start_byte < next.end_byte()
         && (wrapper || container.start_row == next.start_position().row))
         .then_some(container.name.as_str())
+}
+
+/// A node's children, for `trivia_container`, with the runs of comments (and
+/// attributes) without blank lines they're in, worked out once for them all.
+struct Siblings<'t> {
+    nodes: Vec<tree_sitter::Node<'t>>,
+    /// For each child, the first of the run of trivia right before it (and
+    /// its own), or itself.
+    run_start: Vec<usize>,
+    /// For each child, what's right after the run of trivia right after it,
+    /// if anything is, without blank lines in between.  (Past empty nodes
+    /// where they end, ex: tree-sitter-kotlin-ng's automatic semicolons after
+    /// a comment, as tree-sitter's `next_sibling` goes past children ending
+    /// where the node does.)
+    after_run: Vec<Option<usize>>,
+}
+
+impl<'t> Siblings<'t> {
+    fn of(parent: &tree_sitter::Node<'t>) -> Self {
+        let mut cursor = parent.walk();
+        let nodes: Vec<_> = parent.children(&mut cursor).collect();
+        let mut run_start: Vec<usize> = Vec::with_capacity(nodes.len());
+        for (i, node) in nodes.iter().enumerate() {
+            let start = match i.checked_sub(1) {
+                Some(before)
+                    if is_trivia(&nodes[before])
+                        && last_row(&nodes[before]) + 1 >= node.start_position().row =>
+                {
+                    run_start[before]
+                }
+                _ => i,
+            };
+            run_start.push(start);
+        }
+        let mut after_run = vec![None; nodes.len()];
+        for i in (0..nodes.len()).rev() {
+            let end = nodes[i].end_byte();
+            let next = (i + 1..nodes.len()).find(|&j| nodes[j].end_byte() > end);
+            after_run[i] = match next {
+                Some(j) if nodes[j].start_position().row > last_row(&nodes[i]) + 1 => None,
+                Some(j) if is_trivia(&nodes[j]) => after_run[j],
+                Some(j) => Some(j),
+                None => None,
+            };
+        }
+        Siblings {
+            nodes,
+            run_start,
+            after_run,
+        }
+    }
 }
 
 /// A Rust macro's body (between its delimiters) where items could be, for
@@ -1867,6 +1929,8 @@ fn trivia_container<'a>(
 fn rust_item_macro_body<'t>(
     setup: &TreeSitterSetup,
     node: &tree_sitter::Node<'t>,
+    parent: Option<tree_sitter::Node<'t>>,
+    grandparent: Option<tree_sitter::Node<'t>>,
 ) -> Option<(
     tree_sitter::Node<'t>,
     std::ops::Range<usize>,
@@ -1875,10 +1939,10 @@ fn rust_item_macro_body<'t>(
     if setup.grammar != Grammar::Rust || node.kind() != "token_tree" {
         return None;
     }
-    let invocation = node
-        .parent()
-        .filter(|parent| parent.kind() == "macro_invocation")?;
-    let scope = invocation.parent()?;
+    // (The node's parent and its parent are the walk's, as tree-sitter's
+    // `parent` walks down from the root.)
+    parent.filter(|parent| parent.kind() == "macro_invocation")?;
+    let scope = grandparent?;
     if !matches!(scope.kind(), "source_file" | "declaration_list") {
         return None;
     }
@@ -4160,6 +4224,39 @@ class Foo {
             "{:?}",
             tokenized.tokenized
         );
+    }
+
+    /// Long runs of comments, and of error recovery's extras (ex: the HSTS
+    /// preload list's gperf lines, as C++), get their contexts in linear time:
+    /// tree-sitter's sibling and parent lookups walk down from the root, which
+    /// made them cubic (minutes for thousands; see `Siblings`).
+    #[test]
+    fn test_long_comment_runs() {
+        let mut source = String::from("// License.\n\n");
+        for i in 0..5000 {
+            source.push_str(&format!("// Line {}.\n", i));
+        }
+        source.push_str("void Foo() {}\n");
+        let mut gperf = String::from("#include <stdint.h>\n%%\n");
+        for i in 0..5000 {
+            gperf.push_str(&format!("example{}.com, 1\n", i));
+        }
+        let start = std::time::Instant::now();
+        let tokenized = hypertokenize_source_file("a.cpp", &source).unwrap();
+        hypertokenize_source_file("a.inc", &gperf).unwrap();
+        assert!(start.elapsed().as_secs() < 30, "{:?}", start.elapsed());
+        let comments: Vec<_> = tokenized
+            .tokenized
+            .iter()
+            .map(|line| split_token_line(line))
+            .filter(|parsed| parsed.token == "//")
+            .map(|parsed| parsed.context)
+            .collect();
+        // (The run belongs to what's right after it, and the license, which a
+        // blank line separates from it, to nothing.)
+        assert_eq!(comments.len(), 5001);
+        assert_eq!(comments[0], "%");
+        assert!(comments[1..].iter().all(|context| *context == "Foo"));
     }
 
     fn structure(filename: &str, source: &str) -> Vec<String> {
