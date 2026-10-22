@@ -265,9 +265,9 @@
   }
   toggle.addEventListener("click", () => {
     setExpanded(content.hidden);
-    localStorage.setItem("facets-collapsed", content.hidden ? "1" : "0");
+    localStorage.setItem(storageKey("facets-collapsed"), content.hidden ? "1" : "0");
   });
-  setExpanded(localStorage.getItem("facets-collapsed") != "1");
+  setExpanded(localStorage.getItem(storageKey("facets-collapsed")) != "1");
 
   loadState();
   if (groupBy && (groupBy.value != defaultGroupBy || (sortBy && sortBy.value != defaultSortBy))) {

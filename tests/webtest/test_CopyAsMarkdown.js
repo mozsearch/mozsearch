@@ -219,9 +219,9 @@ add_task(async function test_CopyAsMarkdown() {
 
   // Disable accel (the settings page's setting).
 
-  frame.contentWindow.localStorage.setItem("accel-enable", "0");
+  frame.contentWindow.localStorage.setItem(frame.contentWindow.storageKey("accel-enable"), "0");
   registerCleanupFunction(() => {
-    frame.contentWindow.localStorage.removeItem("accel-enable");
+    frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("accel-enable"));
   });
 
   clipboard.value = "*unmodified*";

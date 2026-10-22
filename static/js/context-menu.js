@@ -538,8 +538,8 @@ class DiagramMenuSection extends MenuItem {
 
     this.links = [];
 
-    this.pinnedPretty = localStorage.getItem("diagram-pinned");
-    this.pinnedSym = localStorage.getItem("diagram-pinned-sym");
+    this.pinnedPretty = localStorage.getItem(storageKey("diagram-pinned"));
+    this.pinnedSym = localStorage.getItem(storageKey("diagram-pinned-sym"));
   }
 
   /**
@@ -879,16 +879,16 @@ class DiagramMenuSection extends MenuItem {
   }
 
   pinItem() {
-    localStorage.setItem("diagram-pinned", this.pretty);
+    localStorage.setItem(storageKey("diagram-pinned"), this.pretty);
     if (this.bySym) {
-      localStorage.setItem("diagram-pinned-sym", this.sym);
+      localStorage.setItem(storageKey("diagram-pinned-sym"), this.sym);
     } else {
-      localStorage.removeItem("diagram-pinned-sym");
+      localStorage.removeItem(storageKey("diagram-pinned-sym"));
     }
   }
   removePinnedItem() {
-    localStorage.removeItem("diagram-pinned");
-    localStorage.removeItem("diagram-pinned-sym");
+    localStorage.removeItem(storageKey("diagram-pinned"));
+    localStorage.removeItem(storageKey("diagram-pinned-sym"));
   }
 
   toKey() {

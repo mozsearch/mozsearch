@@ -44,7 +44,7 @@ document.addEventListener("click", event => {
  * other matches) are hidden unless the checkboxes in the textual occurrences'
  * headings say to include them, which we remember.
  */
-const SHOW_REPEATED_KEY = "query-show-repeated";
+const SHOW_REPEATED_KEY = storageKey("query-show-repeated");
 
 function showRepeated(show) {
   document.querySelector(".query-result")?.classList.toggle("query-show-repeated", show);

@@ -7,7 +7,7 @@ function findDiagramListItem(menu) {
 
 add_task(async function test_DiagramContextMenu_CallsTo() {
   await TestUtils.resetFeatureGate("diagramming");
-  frame.contentWindow.localStorage.removeItem("diagram-pinned");
+  frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("diagram-pinned"));
 
   await TestUtils.loadPath("/tests/source/cpp/diagram_ignore.cpp");
 
@@ -325,7 +325,7 @@ add_task(async function test_DiagramContextMenu_CallsBetweenTo() {
     is(subsection.textContent, "with pinned = diagram_ignore::F2", "Pinned item is shown");
   }
 
-  frame.contentWindow.localStorage.removeItem("diagram-pinned");
+  frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("diagram-pinned"));
 });
 
 add_task(async function test_DiagramContextMenu_CallsBetweenFrom() {
@@ -380,7 +380,7 @@ add_task(async function test_DiagramContextMenu_CallsBetweenFrom() {
        "Query is set");
   }
 
-  frame.contentWindow.localStorage.removeItem("diagram-pinned");
+  frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("diagram-pinned"));
 });
 
 add_task(async function test_DiagramContextMenu_CallsBetweenUndirected() {
@@ -435,7 +435,7 @@ add_task(async function test_DiagramContextMenu_CallsBetweenUndirected() {
        "Query is set");
   }
 
-  frame.contentWindow.localStorage.removeItem("diagram-pinned");
+  frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("diagram-pinned"));
 });
 
 add_task(async function test_DiagramContextMenu_sync() {
@@ -454,7 +454,7 @@ add_task(async function test_DiagramContextMenu_sync() {
     ok(!subsection, "Pinned section is not shown");
   }
 
-  frame.contentWindow.localStorage.setItem("diagram-pinned", "Func1");
+  frame.contentWindow.localStorage.setItem(frame.contentWindow.storageKey("diagram-pinned"), "Func1");
 
   {
     const f2 = frame.contentDocument.querySelector(`span[data-symbols="_ZN14diagram_ignore2F2Ev"]`);
@@ -470,7 +470,7 @@ add_task(async function test_DiagramContextMenu_sync() {
     is(subsection.textContent, "with pinned = Func1", "Pinned item is shown");
   }
 
-  frame.contentWindow.localStorage.removeItem("diagram-pinned");
+  frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("diagram-pinned"));
 
   {
     const f2 = frame.contentDocument.querySelector(`span[data-symbols="_ZN14diagram_ignore2F2Ev"]`);
@@ -502,8 +502,8 @@ add_task(async function test_DiagramContextMenu_merge() {
 // A web spec's terms' pretty names ("<spec> <term>") can be other definitions'
 // too, so their diagrams are by symbol.
 add_task(async function test_DiagramContextMenu_specBySym() {
-  frame.contentWindow.localStorage.removeItem("diagram-pinned");
-  frame.contentWindow.localStorage.removeItem("diagram-pinned-sym");
+  frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("diagram-pinned"));
+  frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("diagram-pinned-sym"));
   await TestUtils.loadPath("/tests/source/specs/example.bs");
 
   const poke = frame.contentDocument.querySelector(`#line-15 span[data-symbols="SPEC_examplebs_poke"]`);

@@ -230,7 +230,7 @@ add_task(async function test_ExploreGroupHeaderMenu() {
 
 // The facets are in a collapsible box, which stays collapsed.
 add_task(async function test_ExploreFacetsCollapse() {
-  registerCleanupFunction(() => frame.contentWindow.localStorage.removeItem("facets-collapsed"));
+  registerCleanupFunction(() => frame.contentWindow.localStorage.removeItem(frame.contentWindow.storageKey("facets-collapsed")));
   await TestUtils.loadPath("/searchfox/explore/bug/2018468?facet-kind=test");
 
   const doc = frame.contentDocument;

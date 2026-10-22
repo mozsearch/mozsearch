@@ -70,7 +70,7 @@ var Panel = new (class Panel {
     this.toggleButton.addEventListener("click", () => this.toggle());
     // (The keyboard shortcuts' setting is on the settings page.)
     this.accelEnabledCheckbox?.addEventListener("change", event => {
-      localStorage.setItem("accel-enable", event.target.checked ? "1" : "0");
+      localStorage.setItem(storageKey("accel-enable"), event.target.checked ? "1" : "0");
       this.updateAccelerators();
     });
     document.documentElement.addEventListener("keypress", event =>
@@ -217,7 +217,7 @@ var Panel = new (class Panel {
   }
 
   get acceleratorsEnabled() {
-    return !("accel-enable" in localStorage) || localStorage.getItem("accel-enable") == "1";
+    return !(storageKey("accel-enable") in localStorage) || localStorage.getItem(storageKey("accel-enable")) == "1";
   }
 
   initFromLocalStorage() {
@@ -308,7 +308,7 @@ var Panel = new (class Panel {
   setupFancyBar() {
     const root = document.documentElement;
     root.classList.add("fancy-bar");
-    const stored = parseInt(localStorage.getItem("fancy-bar-width"), 10);
+    const stored = parseInt(localStorage.getItem(storageKey("fancy-bar-width")), 10);
     if (stored > 0) {
       root.style.setProperty("--fancy-bar-width", `${stored}px`);
     }
@@ -328,7 +328,7 @@ var Panel = new (class Panel {
       return clamped;
     };
     const save = () => {
-      localStorage.setItem("fancy-bar-width", String(Math.round(this.panel.getBoundingClientRect().width)));
+      localStorage.setItem(storageKey("fancy-bar-width"), String(Math.round(this.panel.getBoundingClientRect().width)));
     };
     resizer.addEventListener("pointerdown", event => {
       event.preventDefault();
@@ -1095,7 +1095,7 @@ var Panel = new (class Panel {
     body.textContent = "Hover over a token or a line for its records.";
     li.append(header, props, body);
 
-    const hiddenKey = "debug-records-hidden";
+    const hiddenKey = storageKey("debug-records-hidden");
     const hidden = new Set((localStorage.getItem(hiddenKey) || "").split(",").filter(Boolean));
     let byLine = null;
     let loading = null;
