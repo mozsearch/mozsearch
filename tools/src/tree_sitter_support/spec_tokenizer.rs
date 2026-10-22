@@ -802,7 +802,9 @@ fn emit_items(out: &mut Emitter, items: &[Item], bikeshed: bool) {
                 }
             }
             Item::End { range, name } => {
-                out.token(TokenClass::Operator, range.clone());
+                // (`</div` and `>` if there's whitespace between them, ex:
+                // `</div\n>`.)
+                out.words(TokenClass::Operator, range.clone());
                 if literal.last() == Some(&name.as_str()) {
                     literal.pop();
                 }
@@ -1394,6 +1396,19 @@ Not steps.
                 )
             })
             .collect()
+    }
+
+    #[test]
+    fn test_end_tags_with_whitespace() {
+        // (Whitespace before an end tag's `>` isn't in a token, as token lines
+        // can't have line breaks.)
+        let (finished, _) = tokenize_spec_html("<p>x</p\n  >");
+        let words: Vec<&str> = finished
+            .lines
+            .iter()
+            .map(|line| crate::file_format::history::syntax_files::split_token_line(line).token)
+            .collect();
+        assert_eq!(words, vec!["<p", ">", "x", "</p", ">"]);
     }
 
     #[test]

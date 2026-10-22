@@ -49,12 +49,83 @@ pub struct FinishedTokens {
     pub offsets: Vec<Option<u32>>,
 }
 
+/// Whether a character is a control character which isn't whitespace (ex:
+/// NUL, which tests of parsers' handling of it have, ex: firefox's
+/// layout/reftests/bugs/228856-2.html, whose CSS selectors have raw NULs).
+/// Tokens don't include them (`finish_tokens` splits tokens there, as
+/// whitespace splits them), and contexts escape them (`escape_controls`):
+/// they'd break formats which contexts' names end up in, ex: the symdex's
+/// paths, which can't have NULs.
+pub fn is_control(c: char) -> bool {
+    c.is_control() && !c.is_whitespace()
+}
+
+/// Whether a token can't include a character: control characters (see
+/// `is_control`) and line breaks, which would break the token lines' format
+/// (ex: an end tag with a newline before its `>`; tokenizers split tokens at
+/// whitespace, but some keep spaces in them, ex: shell's single-quoted
+/// strings).
+fn breaks_token(c: char) -> bool {
+    is_control(c)
+        || matches!(
+            c,
+            '\n' | '\r' | '\u{b}' | '\u{c}' | '\u{85}' | '\u{2028}' | '\u{2029}'
+        )
+}
+
+/// `text` with its control characters (see `is_control`) percent-escaped,
+/// ex: `%00`, for contexts' and symbols' names, which escape `%` (as `%25`).
+pub fn escape_controls(text: &str) -> std::borrow::Cow<'_, str> {
+    if !text.chars().any(is_control) {
+        return std::borrow::Cow::Borrowed(text);
+    }
+    let mut out = String::with_capacity(text.len() + 8);
+    for c in text.chars() {
+        if is_control(c) {
+            let mut buf = [0u8; 4];
+            for b in c.encode_utf8(&mut buf).bytes() {
+                out.push_str(&format!("%{:02X}", b));
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    std::borrow::Cow::Owned(out)
+}
+
 /// Mark boilerplate in runs of consecutive comment/text tokens and format the
 /// tokens as `history/syntax/files` lines.  Line starts and offsets are
 /// recovered from the tokens' positions in `source`.  Tokens which aren't
 /// slices of `source` are never line starts and don't affect whether the next
 /// token is.
-pub fn finish_tokens(source: &str, mut tokens: Vec<RawToken>) -> FinishedTokens {
+pub fn finish_tokens<'a>(source: &str, mut tokens: Vec<RawToken<'a>>) -> FinishedTokens {
+    // (Tokens with control characters or line breaks are split there,
+    // keeping their pieces without their whitespace, which are still slices of
+    // the source, and contexts escape control characters; see
+    // `breaks_token`.)
+    if tokens
+        .iter()
+        .any(|t| t.text.chars().any(breaks_token) || t.context.chars().any(is_control))
+    {
+        tokens = tokens
+            .into_iter()
+            .flat_map(|token| {
+                let context = escape_controls(&token.context).into_owned();
+                let class = token.class;
+                token
+                    .text
+                    .split(breaks_token)
+                    .map(str::trim)
+                    .filter(|piece| !piece.is_empty())
+                    .map(move |text| RawToken {
+                        context: context.clone(),
+                        class,
+                        text,
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+    }
     let base = source.as_ptr() as usize;
     let mut line_starts = Vec::with_capacity(tokens.len());
     let mut offsets = Vec::with_capacity(tokens.len());
@@ -515,6 +586,39 @@ pub fn find_boilerplate(tokens: &[BoilerplateToken]) -> Vec<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_control_characters() {
+        assert_eq!(escape_controls("a\u{0}b\u{7f}"), "a%00b%7F");
+        assert_eq!(escape_controls("plain"), "plain");
+        let source = "ab\u{0}cd e";
+        let tokens = vec![
+            RawToken {
+                context: "x\u{0}".to_string(),
+                class: TokenClass::Identifier,
+                text: &source[0..5],
+            },
+            RawToken {
+                context: "%".to_string(),
+                class: TokenClass::Identifier,
+                text: &source[6..7],
+            },
+        ];
+        let finished = finish_tokens(source, tokens);
+        assert_eq!(finished.lines, vec!["x%00 i ab", "x%00 i cd", "% i e"]);
+        assert_eq!(finished.offsets, vec![Some(0), Some(3), Some(6)]);
+        // (And line breaks, with the pieces' whitespace.)
+        let source = "'a b\n  c'";
+        let tokens = vec![RawToken {
+            context: "%".to_string(),
+            class: TokenClass::String,
+            text: source,
+        }];
+        assert_eq!(
+            finish_tokens(source, tokens).lines,
+            vec!["% s 'a b", "% s c'"]
+        );
+    }
 
     /// Split source text into boilerplate tokens by whitespace, noting line
     /// starts, and return the marked words joined by spaces plus the unmarked

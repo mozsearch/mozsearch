@@ -65,6 +65,7 @@ use tools::source_mapping::{
     NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer, point_branch_at,
     require_notes_for_existing_branch,
 };
+use tools::tree_sitter_support::boilerplate::escape_controls;
 use tools::tree_sitter_support::cst_tokenizer::{
     ContextMode, HyperTokenized, LanguageProfile, TOKENIZER_VERSION, hypertokenize_with_options,
 };
@@ -1533,7 +1534,10 @@ fn symdex_path_for_pretty(pretty: &str) -> String {
     pretty
         .split("::")
         .map(|segment| {
+            // (Control characters too, which paths can't have, ex: NUL;
+            // tokenizers escape them in symbols' names anyway.)
             let escaped = segment.replace('%', "%25").replace('/', "%2F");
+            let escaped = escape_controls(&escaped).into_owned();
             let escaped = match escaped.as_str() {
                 "" | "." | ".." => escaped.replace('.', "%2E") + "%",
                 _ => escaped,
@@ -1556,6 +1560,8 @@ fn symdex_path_for_pretty(pretty: &str) -> String {
 
 #[test]
 fn test_symdex_path_for_pretty() {
+    // (Control characters, which paths can't have.)
+    assert_eq!(symdex_path_for_pretty("#i\u{0}5"), "#i%005");
     assert_eq!(
         symdex_path_for_pretty("mozilla::dom::Foo"),
         "mozilla/dom/Foo"

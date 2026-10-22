@@ -38,7 +38,7 @@ use std::ops::Range;
 use crate::file_format::history::syntax_files::TokenClass;
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
 use crate::tree_sitter_support::boilerplate::{
-    FinishedTokens, RawToken, finish_tokens, prose_words,
+    FinishedTokens, RawToken, escape_controls, finish_tokens, prose_words,
 };
 use crate::tree_sitter_support::cst_tokenizer::{
     ContextMode, Embedded, TokenizeOptions, tokenize_embedded,
@@ -97,11 +97,14 @@ fn is_handler(name: &str) -> bool {
 /// A name for a context: without whitespace (which contexts can't have; see
 /// `syntax_files`), escaping `%`.
 fn context_label(text: &str) -> String {
-    text.split_whitespace()
+    let label = text
+        .split_whitespace()
         .collect::<Vec<_>>()
         .join("%20")
         .replace('%', "%25")
-        .replace("%2520", "%20")
+        .replace("%2520", "%20");
+    // (And control characters, ex: an id's raw NUL; see `is_control`.)
+    escape_controls(&label).into_owned()
 }
 
 /// `text` (at `start` in the source) with its character references decoded
@@ -494,7 +497,8 @@ impl<'s> Emitter<'s> {
         if let Some(at) = self.stack.iter().rposition(|open| open.name == name) {
             self.stack.truncate(at);
         }
-        self.push(TokenClass::Operator, range.clone());
+        // (`</div` and `>` if there's whitespace between them, ex: `</div\n>`.)
+        self.words(TokenClass::Operator, range.clone());
     }
 
     /// An element's text: code, for scripts, styles, and XBL's code, or else
@@ -687,6 +691,36 @@ mod tests {
         };
         assert_eq!(words(&tests), words(&t));
         assert_eq!(words(&headings), words(&t));
+    }
+
+    #[test]
+    fn test_control_characters() {
+        // (Raw NULs, as in firefox's layout/reftests/bugs/228856-2.html, in an
+        // id and in a selector: tokens don't include them, contexts and
+        // symbols escape them.)
+        let source = "<style>#i\u{0}5 { color: red }</style><p id=\"\u{0}i1\">x\u{0}y</p>";
+        let (finished, structure) = tokenize_markup(source, TokenizeOptions::default()).unwrap();
+        for line in &finished.lines {
+            assert!(!line.chars().any(|c| c == '\u{0}'), "{:?}", line);
+        }
+        for row in &structure {
+            assert!(!row.pretty.contains('\u{0}'), "{:?}", row.pretty);
+        }
+        let t = tokens(source, ContextMode::Default);
+        assert!(t.iter().any(|(c, _, tok)| c == "#%00i1" && tok == "x"));
+        assert!(t.iter().any(|(_, _, tok)| tok == "y"));
+    }
+
+    #[test]
+    fn test_end_tags_with_whitespace() {
+        // (Whitespace before an end tag's `>` isn't in a token, as token lines
+        // can't have line breaks.)
+        let t = tokens("<div>x</div\n  ><p>y</p >", ContextMode::Default);
+        let words: Vec<&str> = t.iter().map(|(_, _, tok)| tok.as_str()).collect();
+        assert_eq!(
+            words,
+            vec!["<div", ">", "x", "</div", ">", "<p", ">", "y", "</p", ">"]
+        );
     }
 
     #[test]

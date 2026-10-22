@@ -8,7 +8,7 @@ use include_dir::{Dir, include_dir};
 use crate::file_format::history::syntax_files::TokenClass;
 use crate::file_format::history::syntax_files_struct::FileStructureRow;
 use crate::tree_sitter_support::boilerplate::{
-    FinishedTokens, RawToken, finish_tokens, prose_words,
+    FinishedTokens, RawToken, escape_controls, finish_tokens, prose_words,
 };
 use crate::tree_sitter_support::config_tokenizer::{tokenize_ini, tokenize_toml};
 use crate::tree_sitter_support::docs_tokenizer::{tokenize_markdown, tokenize_rst};
@@ -486,7 +486,12 @@ pub const LANGUAGE_PROFILES: &[LanguageProfile] = &[
 ///   `Makefile.in`, `.mk`), CMake (`CMakeLists.txt`, `.cmake`), GN (`.gn`,
 ///   `.gni`), Gradle's Groovy (`.gradle`, `.groovy`), and Dockerfiles get
 ///   tree-sitter grammars, rather than being plain text.
-pub const TOKENIZER_VERSION: u32 = 17;
+/// - 18: Tokens don't include control characters or line breaks (they're
+///   split there, as at whitespace), and contexts' and symbols' names escape
+///   control characters (`%00`), ex: CSS selectors' raw NULs in reftests of
+///   their parsing (see `is_control`); end tags with whitespace before their
+///   `>` are two tokens (`</div`, `>`).
+pub const TOKENIZER_VERSION: u32 = 18;
 
 /// The node to name a container by, given the node its query captured as its
 /// name.  tree-sitter's error recovery can make that span unrecognized macros
@@ -584,7 +589,9 @@ fn context_name(name: &str) -> String {
             out.push(c);
         }
     }
-    out
+    // (And control characters, ex: a CSS selector's raw NUL; see
+    // `is_control`.)
+    escape_controls(&out).into_owned()
 }
 
 pub fn profile_for_lang(lang: &str) -> Option<LanguageProfile> {
@@ -817,6 +824,17 @@ impl HyperTokenized {
         tokens: FinishedTokens,
         structure: Vec<FileStructureRow>,
     ) -> Self {
+        // (Every tokenizer's symbols' names, which name symdex files, escape
+        // control characters; see `is_control`.)
+        let structure = structure
+            .into_iter()
+            .map(|mut row| {
+                if let std::borrow::Cow::Owned(escaped) = escape_controls(&row.pretty) {
+                    row.pretty = escaped;
+                }
+                row
+            })
+            .collect();
         HyperTokenized {
             profile,
             tokenized: tokens.lines,
