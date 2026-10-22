@@ -10,6 +10,8 @@ use clap::Parser;
 use lazy_static::lazy_static;
 use regex::Regex;
 use scip::types::descriptor::Suffix;
+use scip::types::occurrence::Typed_range;
+use scip::types::{MultiLineRange, SingleLineRange};
 use serde_json::Map;
 use std::collections::BTreeSet;
 use std::fs::{self, File};
@@ -95,6 +97,30 @@ fn scip_range_to_searchfox_location(range: &[i32]) -> Location {
         lineno: line_start,
         col_start,
         col_end,
+    }
+}
+
+fn scip_typed_range_to_searchfox_location(range: &Typed_range) -> Location {
+    match range {
+        &Typed_range::SingleLineRange(SingleLineRange {
+            line,
+            start_character,
+            end_character,
+            ..
+        }) => scip_range_to_searchfox_location(&[line, start_character, end_character]),
+        &Typed_range::MultiLineRange(MultiLineRange {
+            start_line,
+            start_character,
+            end_line,
+            end_character,
+            ..
+        }) => scip_range_to_searchfox_location(&[
+            start_line,
+            start_character,
+            end_line,
+            end_character,
+        ]),
+        _ => panic!("Unexpected Typed_range message, cover the new enum values here"),
     }
 }
 
@@ -1254,7 +1280,11 @@ fn analyze_using_scip(
                     scip_symbol_to_structured.get(&norm_scip_sym).unwrap()
                 }
             };
-            let loc = scip_range_to_searchfox_location(&occurrence.range);
+            let loc = occurrence
+                .typed_range
+                .as_ref()
+                .map(scip_typed_range_to_searchfox_location)
+                .unwrap_or_else(|| scip_range_to_searchfox_location(&occurrence.range));
             let kind = scip_roles_to_searchfox_analysis_kind(occurrence.symbol_roles);
 
             // ## Tree-Sitter Nesting Magic
