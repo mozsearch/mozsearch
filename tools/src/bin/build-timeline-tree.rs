@@ -111,7 +111,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Stdio};
 use std::rc::{Rc, Weak};
 use std::sync::mpsc::{Receiver, Sender, channel, sync_channel};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::thread;
 
 use chrono::{SecondsFormat, Utc};
@@ -163,7 +163,7 @@ use tools::hyperblame::inference::{
 use tools::hyperblame::pairing::{
     Pairing, continuations, continued_kind, keeps_copy, keeps_rename,
 };
-use tools::hyperblame::renames;
+use tools::hyperblame::renames::{self, SharedBlobs};
 use tools::hyperblame::segments::{self, SPLIT_BYTES};
 use tools::hyperblame::stats::compute_revision_stats;
 use tools::hyperblame::token_counts::{
@@ -1107,11 +1107,28 @@ fn subtree<'r>(repo: &'r Repository, root: &git2::Tree, name: &str) -> Option<gi
         .ok()
 }
 
+/// Big blobs (of at least 1 MiB, up to 4 GiB of them), shared by the threads
+/// (see `renames::SharedBlobs`).  (HISTORY_SHARED_BLOB_MIN_BYTES and
+/// HISTORY_SHARED_BLOB_BYTES are for tests.)
+static SHARED_BLOBS: LazyLock<SharedBlobs> = LazyLock::new(|| {
+    let bytes = |name: &str, default: usize| {
+        env::var(name)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
+    };
+    SharedBlobs::new(
+        bytes("HISTORY_SHARED_BLOB_MIN_BYTES", 1 << 20),
+        bytes("HISTORY_SHARED_BLOB_BYTES", 4 << 30),
+    )
+});
+
 fn blob_string(repo: &Repository, oid: Oid) -> String {
-    match repo.find_blob(oid) {
-        Ok(blob) => String::from_utf8_lossy(blob.content()).into_owned(),
-        Err(_) => String::new(),
-    }
+    SHARED_BLOBS
+        .with_blob(repo, oid, |contents| {
+            String::from_utf8_lossy(contents).into_owned()
+        })
+        .unwrap_or_default()
 }
 
 fn path_blob_string(repo: &Repository, tree: Option<&git2::Tree>, path: &str) -> Option<String> {
@@ -1176,7 +1193,7 @@ fn diff_files_trees<'r>(
         let threads = thread::available_parallelism()
             .map_or(1, |n| n.get())
             .min(32);
-        renames::find_similar(
+        renames::find_similar_shared(
             repo,
             &mut diff,
             DiffFindOptions::new()
@@ -1188,6 +1205,7 @@ fn diff_files_trees<'r>(
                 .break_rewrites(true)
                 .break_rewrites_for_renames_only(true),
             threads,
+            &SHARED_BLOBS,
         )?;
     }
     Ok(diff)
@@ -4519,6 +4537,11 @@ fn main() {
     info!(
         "Decoded annotated files: {} reused, {} encoded from their previous versions",
         import_helper.decoded.hits, import_helper.decoded.encoded_from
+    );
+    let (reads, hits, left) = SHARED_BLOBS.stats();
+    info!(
+        "Shared big blobs: {} read, {} reused; {} diffs left as they were without libgit2's rename detection",
+        reads, hits, left
     );
 
     info!("Shutting down fast-import...");

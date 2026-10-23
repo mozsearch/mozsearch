@@ -15,13 +15,14 @@
 //! default metric does).  libgit2 still pairs the files itself, in its order,
 //! with the same scores, so the results are the default metric's.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::os::raw::{c_char, c_int, c_void};
 use std::ptr;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 
-use git2::{Binding, Delta, Diff, DiffFindOptions, Oid, Repository};
+use git2::{Binding, Blob, Delta, Diff, DiffFindOptions, Oid, Repository};
 use libgit2_sys as raw;
 
 /// libgit2's file signatures (its `sys/hashsig.h`, which libgit2-sys doesn't
@@ -185,6 +186,357 @@ fn is_blob(mode: u32) -> bool {
 /// `similarity_measure`).
 fn sizes_too_different(a: usize, b: usize) -> bool {
     a > 127 && b > 127 && (a > b << 3 || b > a << 3)
+}
+
+/// A blob's signature for libgit2's default metric with `options` (see
+/// `hashsig_options`), or the error computing it gave, and its size.
+struct OwnedSig {
+    sig: *mut GitHashsig,
+    error: c_int,
+    size: usize,
+    options: c_int,
+}
+
+// (Signatures are only read once made, ex: by `git_hashsig_compare`.)
+unsafe impl Send for OwnedSig {}
+unsafe impl Sync for OwnedSig {}
+
+impl OwnedSig {
+    fn new(contents: &[u8], options: c_int) -> Self {
+        let mut sig = ptr::null_mut();
+        let error = unsafe {
+            git_hashsig_create(
+                &mut sig,
+                contents.as_ptr() as *const c_char,
+                contents.len(),
+                options,
+            )
+        };
+        OwnedSig {
+            sig,
+            error,
+            size: contents.len(),
+            options,
+        }
+    }
+}
+
+impl Drop for OwnedSig {
+    fn drop(&mut self) {
+        if !self.sig.is_null() {
+            unsafe { git_hashsig_free(self.sig) };
+        }
+    }
+}
+
+/// Big blobs' contents and signatures, shared by threads with their own
+/// handles on a repository (ex: build-timeline-tree's compute threads), for
+/// `find_similar_shared` and for reading blobs (`with_blob`): a revision's old
+/// version of a file is the new version of the revision before it, which
+/// another thread is usually reading too, or just read.  libgit2 rebuilds a
+/// blob from its pack's delta chain at each read (and doesn't keep delta bases
+/// over 1 MiB), and the wubspecs reblame's compute threads mostly rebuilt the
+/// HTML Standard's token files (tens of MB, 160 MB nowadays), four times a
+/// revision (twice for rename detection, and twice to read them).  (A blob
+/// being read by one thread is waited for by the others, rather than read
+/// again.)
+pub struct SharedBlobs {
+    inner: Mutex<SharedBlobsInner>,
+    min_blob_bytes: usize,
+    max_blob_bytes: usize,
+    /// How many big blobs were read, and how many times kept ones were used.
+    reads: AtomicUsize,
+    hits: AtomicUsize,
+    /// How many diffs `find_similar_shared` left as they were.
+    left: AtomicUsize,
+}
+
+/// A kept blob, and its signature once it's needed.
+struct KeptBlob {
+    contents: Arc<[u8]>,
+    sig: OnceLock<Arc<OwnedSig>>,
+}
+
+/// The blob being read by a thread, which the others wait for: the blob if
+/// it's to be kept, or None if not (ex: it's small), when they read it.
+type LoadingBlob = Arc<OnceLock<Option<Arc<KeptBlob>>>>;
+
+#[derive(Default)]
+struct SharedBlobsInner {
+    blobs: HashMap<Oid, Arc<KeptBlob>>,
+    /// The blobs, oldest first, for dropping them when there are too many
+    /// bytes.
+    order: VecDeque<Oid>,
+    bytes: usize,
+    loading: HashMap<Oid, LoadingBlob>,
+}
+
+/// A blob, from `SharedBlobs`.
+enum LoadedBlob<'r> {
+    Kept(Arc<KeptBlob>),
+    Read(Blob<'r>),
+}
+
+impl LoadedBlob<'_> {
+    fn contents(&self) -> &[u8] {
+        match self {
+            LoadedBlob::Kept(kept) => &kept.contents,
+            LoadedBlob::Read(blob) => blob.content(),
+        }
+    }
+}
+
+impl SharedBlobs {
+    /// Keeping blobs of at least `min_blob_bytes`, up to `max_blob_bytes` in
+    /// all.
+    pub fn new(min_blob_bytes: usize, max_blob_bytes: usize) -> Self {
+        SharedBlobs {
+            inner: Mutex::new(SharedBlobsInner::default()),
+            min_blob_bytes,
+            max_blob_bytes,
+            reads: AtomicUsize::new(0),
+            hits: AtomicUsize::new(0),
+            left: AtomicUsize::new(0),
+        }
+    }
+
+    /// How many big blobs were read, how many times kept ones were used, and
+    /// how many diffs `find_similar_shared` left as they were.
+    pub fn stats(&self) -> (usize, usize, usize) {
+        (
+            self.reads.load(Ordering::Relaxed),
+            self.hits.load(Ordering::Relaxed),
+            self.left.load(Ordering::Relaxed),
+        )
+    }
+
+    fn keeps(&self, size: usize) -> bool {
+        size >= self.min_blob_bytes && size <= self.max_blob_bytes
+    }
+
+    /// The blob `oid` in `repo`, if it has it.
+    fn load<'r>(&self, repo: &'r Repository, oid: Oid) -> Option<LoadedBlob<'r>> {
+        let loading = {
+            let mut inner = self.inner.lock().unwrap();
+            if let Some(kept) = inner.blobs.get(&oid) {
+                self.hits.fetch_add(1, Ordering::Relaxed);
+                return Some(LoadedBlob::Kept(kept.clone()));
+            }
+            inner.loading.entry(oid).or_default().clone()
+        };
+        let mut read = None;
+        let kept = loading
+            .get_or_init(|| {
+                let blob = repo.find_blob(oid).ok()?;
+                if !self.keeps(blob.content().len()) {
+                    read = Some(blob);
+                    return None;
+                }
+                self.reads.fetch_add(1, Ordering::Relaxed);
+                Some(Arc::new(KeptBlob {
+                    contents: Arc::from(blob.content()),
+                    sig: OnceLock::new(),
+                }))
+            })
+            .clone();
+        {
+            let mut inner = self.inner.lock().unwrap();
+            if inner
+                .loading
+                .get(&oid)
+                .is_some_and(|other| Arc::ptr_eq(other, &loading))
+            {
+                inner.loading.remove(&oid);
+                if let Some(kept) = &kept {
+                    inner.bytes += kept.contents.len();
+                    inner.blobs.insert(oid, kept.clone());
+                    inner.order.push_back(oid);
+                    while inner.bytes > self.max_blob_bytes {
+                        let Some(oldest) = inner.order.pop_front() else {
+                            break;
+                        };
+                        if let Some(blob) = inner.blobs.remove(&oldest) {
+                            inner.bytes -= blob.contents.len();
+                        }
+                    }
+                }
+            }
+        }
+        match (kept, read) {
+            (Some(kept), _) => Some(LoadedBlob::Kept(kept)),
+            (None, Some(blob)) => Some(LoadedBlob::Read(blob)),
+            // (Another thread read it, and didn't keep it.)
+            (None, None) => Some(LoadedBlob::Read(repo.find_blob(oid).ok()?)),
+        }
+    }
+
+    /// `f` of the contents of the blob `oid` in `repo`, if it has it.
+    pub fn with_blob<R>(
+        &self,
+        repo: &Repository,
+        oid: Oid,
+        f: impl FnOnce(&[u8]) -> R,
+    ) -> Option<R> {
+        Some(f(self.load(repo, oid)?.contents()))
+    }
+
+    /// The signature of the blob `oid` in `repo`, with `options` (see
+    /// `hashsig_options`), if it has the blob.
+    fn signature(&self, repo: &Repository, oid: Oid, options: c_int) -> Option<Arc<OwnedSig>> {
+        Some(match self.load(repo, oid)? {
+            LoadedBlob::Kept(kept) => {
+                let sig = kept
+                    .sig
+                    .get_or_init(|| Arc::new(OwnedSig::new(&kept.contents, options)));
+                if sig.options == options {
+                    sig.clone()
+                } else {
+                    Arc::new(OwnedSig::new(&kept.contents, options))
+                }
+            }
+            LoadedBlob::Read(blob) => Arc::new(OwnedSig::new(blob.content(), options)),
+        })
+    }
+}
+
+/// libgit2's default rename threshold (and rename from rewrite threshold),
+/// for options without one.
+const DEFAULT_THRESHOLD: u16 = 50;
+
+/// Whether libgit2's rename and copy detection would leave `diff` as it is:
+/// for a diff of only modified (and deleted) files, if none of the modified
+/// files is different enough from its old version to be broken into a
+/// deletion and an addition (see libgit2's `is_rename_target`), there are no
+/// targets, so nothing to pair.  The modified files' self-similarities are
+/// computed as libgit2's default metric does, from `shared`'s signatures.
+/// (Anything else, ex: an added file, a modified file whose sizes are too
+/// different to compare, a signature libgit2 couldn't make, or options with
+/// another metric, and this says no, and libgit2 decides.)
+fn leaves_unchanged(
+    repo: &Repository,
+    diff: &Diff,
+    opts: &mut DiffFindOptions,
+    shared: &SharedBlobs,
+) -> bool {
+    let raw_opts = unsafe { ptr::read(opts.raw()) };
+    let mut flags = raw_opts.flags;
+    // (Which would be `diff.renames`' flags, or another metric's scores.)
+    if flags & raw::GIT_DIFF_FIND_ALL == 0 || !raw_opts.metric.is_null() {
+        return false;
+    }
+    // (See libgit2's `normalize_find_opts`.)
+    if flags & raw::GIT_DIFF_FIND_EXACT_MATCH_ONLY != 0 {
+        flags &= !(raw::GIT_DIFF_FIND_REWRITES
+            | raw::GIT_DIFF_BREAK_REWRITES
+            | raw::GIT_DIFF_FIND_RENAMES_FROM_REWRITES);
+    }
+    if flags & raw::GIT_DIFF_BREAK_REWRITES != 0 {
+        flags |= raw::GIT_DIFF_FIND_REWRITES;
+    }
+    let threshold = |given: u16, default: u16| {
+        if given == 0 || given > 100 {
+            default
+        } else {
+            given
+        }
+    };
+    let break_threshold = threshold(
+        raw_opts.break_rewrite_threshold,
+        DEFAULT_BREAK_REWRITE_THRESHOLD,
+    ) as c_int;
+    let from_rewrite_threshold =
+        threshold(raw_opts.rename_from_rewrite_threshold, DEFAULT_THRESHOLD) as c_int;
+    let breaks = flags & raw::GIT_DIFF_BREAK_REWRITES != 0;
+    let from_rewrites = flags & raw::GIT_DIFF_FIND_RENAMES_FROM_REWRITES != 0;
+    let rewrites = flags & raw::GIT_DIFF_FIND_REWRITES != 0 || from_rewrites;
+    let options = hashsig_options(flags);
+    // (All the deltas' kinds first, before computing any signatures.)
+    if !diff
+        .deltas()
+        .all(|delta| matches!(delta.status(), Delta::Modified | Delta::Deleted))
+    {
+        return false;
+    }
+    if !rewrites {
+        // (Then modified files aren't targets; see `is_rename_target`.)
+        return true;
+    }
+    for delta in diff.deltas() {
+        let (old, new) = (delta.old_file(), delta.new_file());
+        if delta.status() != Delta::Modified || !is_blob(u32::from(new.mode())) {
+            continue;
+        }
+        if !is_blob(u32::from(old.mode())) {
+            return false;
+        }
+        let score = if old.id() == new.id() {
+            100
+        } else {
+            let (Some(a), Some(b)) = (
+                shared.signature(repo, old.id(), options),
+                shared.signature(repo, new.id(), options),
+            ) else {
+                return false;
+            };
+            if a.error < 0 || b.error < 0 || sizes_too_different(a.size, b.size) {
+                return false;
+            }
+            unsafe { git_hashsig_compare(a.sig, b.sig) }
+        };
+        if score < 0
+            || (breaks && score < break_threshold)
+            || (from_rewrites && score < from_rewrite_threshold)
+        {
+            return false;
+        }
+    }
+    true
+}
+
+/// `find_similar`, but leaving alone diffs which libgit2 would leave as they
+/// are (see `leaves_unchanged`), whose modified files' self-similarities are
+/// computed from `shared`'s blobs and signatures rather than by libgit2, which
+/// reads each of their old and new blobs.  (With HISTORY_CHECK_SIMILAR=1, for
+/// tests, libgit2 checks them anyway.)
+pub fn find_similar_shared(
+    repo: &Repository,
+    diff: &mut Diff,
+    opts: &mut DiffFindOptions,
+    threads: usize,
+    shared: &SharedBlobs,
+) -> Result<(), git2::Error> {
+    if !leaves_unchanged(repo, diff, opts, shared) {
+        return find_similar(repo, diff, opts, threads);
+    }
+    shared.left.fetch_add(1, Ordering::Relaxed);
+    if std::env::var("HISTORY_CHECK_SIMILAR").is_ok_and(|v| v == "1") {
+        let deltas = |diff: &Diff| -> Vec<(
+            Delta,
+            Option<std::path::PathBuf>,
+            Oid,
+            Option<std::path::PathBuf>,
+            Oid,
+        )> {
+            diff.deltas()
+                .map(|d| {
+                    (
+                        d.status(),
+                        d.old_file().path().map(|p| p.to_path_buf()),
+                        d.old_file().id(),
+                        d.new_file().path().map(|p| p.to_path_buf()),
+                        d.new_file().id(),
+                    )
+                })
+                .collect()
+        };
+        let before = deltas(diff);
+        find_similar(repo, diff, opts, threads)?;
+        assert!(
+            before == deltas(diff),
+            "libgit2's rename detection changed a diff find_similar_shared would have left"
+        );
+    }
+    Ok(())
 }
 
 /// libgit2's rename and copy detection on `diff` (of `repo`'s trees) with
@@ -606,6 +958,179 @@ mod tests {
                 expected
             );
         }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn options() -> DiffFindOptions {
+        let mut opts = DiffFindOptions::new();
+        opts.copies(true)
+            .copy_threshold(30)
+            .renames(true)
+            .rename_threshold(30)
+            .rename_limit(1000000)
+            .break_rewrites(true)
+            .break_rewrites_for_renames_only(true);
+        opts
+    }
+
+    fn deltas(diff: &Diff) -> Vec<String> {
+        diff.deltas()
+            .map(|d| {
+                format!(
+                    "{:?} {:?} {} -> {:?} {}",
+                    d.status(),
+                    d.old_file().path(),
+                    d.old_file().id(),
+                    d.new_file().path(),
+                    d.new_file().id()
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_shared_leaves_diffs_libgit2_leaves() {
+        let dir = std::env::temp_dir().join(format!(
+            "mozsearch-similar-shared-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        let repo = Repository::init_bare(&dir).unwrap();
+        let mut state: u64 = 0x2545F4914F6CDD1D;
+        let mut next = |n: usize| -> usize {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state % n as u64) as usize
+        };
+        // (Kept blobs, and blobs read each time.)
+        let shared = [
+            SharedBlobs::new(0, 1 << 30),
+            SharedBlobs::new(1 << 30, 1 << 30),
+        ];
+        let (mut left, mut changed, mut added) = (0, 0, 0);
+        for round in 0..200 {
+            let mut old = vec![];
+            let mut new = vec![];
+            for i in 0..(1 + next(4)) {
+                let name = format!("f{}", i);
+                let content = lines(round * 10 + i, next(60));
+                old.push((name.clone(), content.clone()));
+                let edited = match next(11) {
+                    // (Deleted.)
+                    0 => continue,
+                    // (Edited a little, or a lot.)
+                    1..=3 => content.replacen("line 1", "LINE 1", 1),
+                    4 => content.replace("line", "LINE"),
+                    5 => lines(round * 10 + i + 5000, next(60)),
+                    // (Sizes too different to compare.)
+                    6 => content.repeat(10),
+                    // (Small, or empty.)
+                    7 => format!("tiny {}\n", next(3)),
+                    8 => String::new(),
+                    // (The first file's, edited: a copy or a rename, if it's
+                    // rewritten or deleted.)
+                    _ => old[0].1.replacen("line 2", "LINE 2", 1),
+                };
+                new.push((name, edited));
+            }
+            if next(8) == 0 {
+                new.push(("added".to_string(), lines(round + 9000, 30)));
+            }
+            let (old, new) = (tree(&repo, &old), tree(&repo, &new));
+            let expected = {
+                let mut diff = repo
+                    .diff_tree_to_tree(Some(&old), Some(&new), None)
+                    .unwrap();
+                let before = deltas(&diff);
+                diff.find_similar(Some(&mut options())).unwrap();
+                let after = deltas(&diff);
+                let leaves = shared.each_ref().map(|shared| {
+                    let diff = repo
+                        .diff_tree_to_tree(Some(&old), Some(&new), None)
+                        .unwrap();
+                    leaves_unchanged(&repo, &diff, &mut options(), shared)
+                });
+                assert_eq!(leaves[0], leaves[1]);
+                if leaves[0] {
+                    assert_eq!(after, before, "round {}", round);
+                    left += 1;
+                } else if after != before {
+                    changed += 1;
+                }
+                if before.iter().any(|d| d.starts_with("Added")) {
+                    assert!(!leaves[0]);
+                    added += 1;
+                }
+                after
+            };
+            for shared in &shared {
+                let mut diff = repo
+                    .diff_tree_to_tree(Some(&old), Some(&new), None)
+                    .unwrap();
+                find_similar_shared(&repo, &mut diff, &mut options(), 2, shared).unwrap();
+                assert_eq!(deltas(&diff), expected, "round {}", round);
+            }
+        }
+        // (Both kinds of diffs, and blobs kept and read again.)
+        assert!(
+            left > 20 && changed > 10 && added > 10,
+            "{} {} {}",
+            left,
+            changed,
+            added
+        );
+        let (reads, hits, _) = shared[0].stats();
+        assert!(reads > 0 && hits > 0);
+        assert_eq!(shared[1].stats().0, 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_shared_blobs_read_once() {
+        let dir = std::env::temp_dir().join(format!(
+            "mozsearch-shared-blobs-test-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        let repo = Repository::init_bare(&dir).unwrap();
+        let blobs: Vec<(Oid, String)> = (0..20)
+            .map(|i| {
+                // (Big ones, and small ones, which aren't kept.)
+                let content = lines(i, if i % 4 == 0 { 10 } else { 3000 });
+                (repo.blob(content.as_bytes()).unwrap(), content)
+            })
+            .collect();
+        let shared = SharedBlobs::new(10_000, 1 << 30);
+        thread::scope(|scope| {
+            for t in 0..8 {
+                let (dir, blobs, shared) = (&dir, &blobs, &shared);
+                scope.spawn(move || {
+                    let repo = Repository::open_bare(dir).unwrap();
+                    for k in 0..(3 * blobs.len()) {
+                        let (oid, content) = &blobs[(k * (t + 1)) % blobs.len()];
+                        let read = shared
+                            .with_blob(&repo, *oid, |c| String::from_utf8(c.to_vec()).unwrap());
+                        assert_eq!(read.as_ref(), Some(content));
+                        assert!(shared.signature(&repo, *oid, hashsig_options(0)).is_some());
+                    }
+                });
+            }
+        });
+        // (Each big one once, by one of the threads.)
+        let (reads, hits, _) = shared.stats();
+        assert_eq!(reads, 15);
+        assert!(hits > 0);
+        // (And dropped, oldest first, past the limit.)
+        let limited = SharedBlobs::new(10_000, 100_000);
+        for (oid, _) in &blobs {
+            limited.with_blob(&repo, *oid, |_| ()).unwrap();
+        }
+        let inner = limited.inner.lock().unwrap();
+        assert!(inner.bytes <= 100_000 && !inner.blobs.is_empty());
+        assert!(inner.blobs.contains_key(&blobs[19].0) && !inner.blobs.contains_key(&blobs[1].0));
+        assert!(inner.loading.is_empty());
+        drop(inner);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
