@@ -109,7 +109,7 @@ use std::io::{BufRead, Read, Write};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Stdio};
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::sync::mpsc::{Receiver, Sender, channel, sync_channel};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -203,6 +203,7 @@ struct FastImport {
     deferred: Vec<DeferredJournal>,
     readers: DiskReaders,
     preds: PredCache,
+    decoded: DecodedAnnotated,
     /// The bytes of blobs we've given it (see MAX_WRITTEN_BYTES in `main`).
     written: u64,
 }
@@ -620,6 +621,7 @@ fn start_fast_import(git_repo: &Repository) -> FastImport {
         deferred: vec![],
         readers: DiskReaders::new(git_repo.path()),
         preds: PredCache::default(),
+        decoded: DecodedAnnotated::default(),
         written: 0,
     }
 }
@@ -2118,8 +2120,87 @@ fn annotated_lines(blob: &[u8]) -> Vec<String> {
 
 /// An annotated file of records' line forms, encoded (see
 /// `timeline_annotated`).
-fn join_annotated(lines: Vec<String>) -> String {
-    encode_annotated(&lines)
+fn join_annotated(lines: &[String]) -> String {
+    encode_annotated(lines)
+}
+
+/// The line forms of the big annotated files we wrote (see `annotated_lines`),
+/// by path, with the blobs we wrote them as (in `TreeCache`), so that a revision
+/// changing a file the one before it did needn't decode its annotated file
+/// again: the HTML Standard's `source`, `index` and `complete.html` (2-8 MB
+/// each, millions of tokens) are changed by most of its revisions, and decoding
+/// their annotated files was a fifth of the wubspecs reblame's main thread.
+/// (The blobs are compared by allocation, as a read of the file returns the
+/// blob we wrote if it's still the parent's; the `Weak`s keep the allocations
+/// from being reused.)
+/// (HISTORY_DECODED_MIN_LINES and HISTORY_CHECK_DECODED=1, which decodes them
+/// anyway and checks they're the same, are for tests.)
+struct DecodedAnnotated {
+    files: HashMap<PathBuf, (Weak<[u8]>, Rc<Vec<String>>)>,
+    lines: usize,
+    hits: usize,
+    min_lines: usize,
+    check: bool,
+}
+
+impl Default for DecodedAnnotated {
+    fn default() -> Self {
+        DecodedAnnotated {
+            files: HashMap::new(),
+            lines: 0,
+            hits: 0,
+            min_lines: env::var("HISTORY_DECODED_MIN_LINES")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(DECODED_MIN_LINES),
+            check: env::var("HISTORY_CHECK_DECODED").is_ok_and(|v| v == "1"),
+        }
+    }
+}
+
+/// The fewest lines an annotated file needs for `DecodedAnnotated` to keep it.
+const DECODED_MIN_LINES: usize = 10_000;
+
+/// How many lines `DecodedAnnotated` holds before we clear it.
+const DECODED_MAX_LINES: usize = 20_000_000;
+
+impl DecodedAnnotated {
+    /// The line forms of the annotated file at `path` whose contents are
+    /// `blob`.
+    fn lines(&mut self, path: &Path, blob: &Rc<[u8]>) -> Rc<Vec<String>> {
+        if let Some((written, lines)) = self.files.get(path)
+            && Weak::ptr_eq(written, &Rc::downgrade(blob))
+        {
+            self.hits += 1;
+            if self.check {
+                assert!(
+                    **lines == annotated_lines(blob),
+                    "reused lines of {} differ from its decoded annotated file",
+                    path.display()
+                );
+            }
+            return lines.clone();
+        }
+        Rc::new(annotated_lines(blob))
+    }
+
+    /// Keep the line forms of the annotated file at `path` which we just wrote
+    /// as `written`, if it's big.
+    fn wrote(&mut self, path: &Path, written: &Rc<[u8]>, lines: Vec<String>) {
+        if let Some((_, old)) = self.files.remove(path) {
+            self.lines -= old.len();
+        }
+        if lines.len() < self.min_lines {
+            return;
+        }
+        if self.lines + lines.len() > DECODED_MAX_LINES {
+            self.files.clear();
+            self.lines = 0;
+        }
+        self.lines += lines.len();
+        self.files
+            .insert(path.to_path_buf(), (Rc::downgrade(written), Rc::new(lines)));
+    }
 }
 
 /// Journal versions' records of a week (as their header and record lines),
@@ -3006,7 +3087,7 @@ fn merge_journals(
 
 /// The parent annotated files for the old paths of all changed files in a
 /// linear revision.
-type ParentAnnotated = HashMap<String, Vec<String>>;
+type ParentAnnotated = HashMap<String, Rc<Vec<String>>>;
 
 fn parent_line<'a>(parents: &'a ParentAnnotated, path: &str, lineno: u32) -> Option<&'a str> {
     parents.get(path)?.get(lineno as usize).map(|s| s.as_str())
@@ -3366,10 +3447,11 @@ fn process_linear_revision(
                 && !parent_annotated.contains_key(old_path)
             {
                 // (Nothing has been modified in the new commit yet.)
-                let lines =
-                    read_path_blob(import_helper, ReadFrom::Active, &annotated_path(old_path))
-                        .map(|blob| annotated_lines(&blob))
-                        .unwrap_or_default();
+                let path = annotated_path(old_path);
+                let lines = match read_path_blob(import_helper, ReadFrom::Active, &path) {
+                    Some(blob) => import_helper.decoded.lines(&path, &blob),
+                    None => Rc::new(vec![]),
+                };
                 parent_annotated.insert(old_path.clone(), lines);
             }
         }
@@ -3418,11 +3500,12 @@ fn process_linear_revision(
                 num_unrestored += unrestored;
                 restored_tokens.insert(new_path.clone(), restored);
             }
-            write_inline_blob(
-                import_helper,
-                &annotated_path(new_path),
-                join_annotated(lines).as_bytes(),
-            );
+            let path = annotated_path(new_path);
+            write_inline_blob(import_helper, &path, join_annotated(&lines).as_bytes());
+            if let Some(Some(CachedPath::Blob(written))) = import_helper.cache.pending.get(&path) {
+                let written = written.clone();
+                import_helper.decoded.wrote(&path, &written, lines);
+            }
         }
     }
     if !data.backed_out.is_empty() {
@@ -3606,7 +3689,7 @@ fn process_merge_revision(
         write_inline_blob(
             import_helper,
             &new_annotated,
-            join_annotated(lines).as_bytes(),
+            join_annotated(&lines).as_bytes(),
         );
     }
 
@@ -4341,6 +4424,10 @@ fn main() {
     info!(
         "Pred cache: {} loads of a journal version's week, {} from the cache",
         import_helper.preds.loads, import_helper.preds.hits
+    );
+    info!(
+        "Decoded annotated files: {} reused",
+        import_helper.decoded.hits
     );
 
     info!("Shutting down fast-import...");
