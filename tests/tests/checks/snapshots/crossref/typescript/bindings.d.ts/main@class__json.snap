@@ -30,7 +30,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/class__json
           "XPIDL_nsIXPCTestObjectReadWrite"
         ],
         "ts_syms": [
-          "S_js_ts/src/bindings.d.ts/tsClass#"
+          "S_js_test-ts/ts/src/bindings.d.ts/tsClass#"
         ]
       },
       "relation": "Queried",
@@ -38,7 +38,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/class__json
       "overloads_hit": []
     },
     {
-      "symbol": "S_js_ts/src/bindings.d.ts/tsClass#",
+      "symbol": "S_js_test-ts/ts/src/bindings.d.ts/tsClass#",
       "crossref_info": {
         "defs": [
           {
@@ -61,7 +61,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/class__json
         "meta": {
           "structured": 1,
           "pretty": "tsClass",
-          "sym": "S_js_ts/src/bindings.d.ts/tsClass#",
+          "sym": "S_js_test-ts/ts/src/bindings.d.ts/tsClass#",
           "js_sym": "#tsClass",
           "type_pretty": "class tsClass",
           "kind": "class",
@@ -83,13 +83,13 @@ input_file: inputs/crossref/typescript/bindings.d.ts/class__json
           "methods": [
             {
               "pretty": "tsClass::tsGetter",
-              "sym": "S_js_ts/src/bindings.d.ts/tsClass#tsGetter().",
+              "sym": "S_js_test-ts/ts/src/bindings.d.ts/tsClass#tsGetter().",
               "props": [],
               "args": []
             },
             {
               "pretty": "tsClass::tsSetter",
-              "sym": "S_js_ts/src/bindings.d.ts/tsClass#tsSetter().",
+              "sym": "S_js_test-ts/ts/src/bindings.d.ts/tsClass#tsSetter().",
               "props": [],
               "args": []
             }
@@ -98,7 +98,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/class__json
             {
               "lineRange": "",
               "pretty": "tsClass::tsAttribute",
-              "sym": "S_js_ts/src/bindings.d.ts/tsClass#tsAttribute.",
+              "sym": "S_js_test-ts/ts/src/bindings.d.ts/tsClass#tsAttribute.",
               "type": "string",
               "typesym": "",
               "offsetBytes": 0,

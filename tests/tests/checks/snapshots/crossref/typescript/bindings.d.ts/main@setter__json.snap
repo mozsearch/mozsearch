@@ -30,7 +30,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/setter__json
           "XPIDL_nsIXPCTestObjectReadWrite_stringProperty"
         ],
         "ts_syms": [
-          "S_js_ts/src/bindings.d.ts/tsClass#tsSetter()."
+          "S_js_test-ts/ts/src/bindings.d.ts/tsClass#tsSetter()."
         ]
       },
       "relation": "Queried",
@@ -38,7 +38,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/setter__json
       "overloads_hit": []
     },
     {
-      "symbol": "S_js_ts/src/bindings.d.ts/tsClass#tsSetter().",
+      "symbol": "S_js_test-ts/ts/src/bindings.d.ts/tsClass#tsSetter().",
       "crossref_info": {
         "defs": [
           {
@@ -53,7 +53,7 @@ input_file: inputs/crossref/typescript/bindings.d.ts/setter__json
                 ],
                 "line": "tsSetter(value: string);",
                 "context": "tsClass",
-                "contextsym": "S_js_ts/src/bindings.d.ts/tsClass#"
+                "contextsym": "S_js_test-ts/ts/src/bindings.d.ts/tsClass#"
               }
             ]
           }
@@ -61,12 +61,12 @@ input_file: inputs/crossref/typescript/bindings.d.ts/setter__json
         "meta": {
           "structured": 1,
           "pretty": "tsClass::tsSetter",
-          "sym": "S_js_ts/src/bindings.d.ts/tsClass#tsSetter().",
+          "sym": "S_js_test-ts/ts/src/bindings.d.ts/tsClass#tsSetter().",
           "js_sym": "#tsSetter",
           "type_pretty": "any",
           "kind": "method",
           "subsystem": null,
-          "parentsym": "S_js_ts/src/bindings.d.ts/tsClass#",
+          "parentsym": "S_js_test-ts/ts/src/bindings.d.ts/tsClass#",
           "slotOwner": {
             "slotKind": "setter",
             "slotLang": "js",

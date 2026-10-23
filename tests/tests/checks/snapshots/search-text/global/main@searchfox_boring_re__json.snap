@@ -1,6 +1,7 @@
 ---
 source: src/bin/test-index.rs
 expression: "&to_value(tm).unwrap()"
+input_file: inputs/search-text/global/searchfox_boring_re__json
 ---
 {
   "by_file": [
@@ -33,7 +34,7 @@ expression: "&to_value(tm).unwrap()"
       ]
     },
     {
-      "file": "simple.rs",
+      "file": "simple_rust/simple.rs",
       "path_kind": "normal",
       "matches": [
         {

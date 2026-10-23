@@ -1,1 +1,1 @@
-filter-analysis simple.rs -k def -i Loader::new | show-html | normalize-unstable-data
+filter-analysis simple_rust/simple.rs -k def -i Loader::new | show-html | normalize-unstable-data
