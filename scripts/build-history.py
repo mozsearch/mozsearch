@@ -842,6 +842,17 @@ def main():
         help="The most revisions to process per run of a tool (default: 10000).",
     )
     parser.add_argument(
+        "--timeline-chunk-size",
+        type=int,
+        help="The most revisions to process per run of the timeline tool (default: "
+        "--chunk-size, or TIMELINE_CHUNK_SIZE from the environment, which a restart "
+        "can change; see `Restart`).  Each run's start and end take a while (its "
+        "git fast-import writing out its packs, reading the notes, and the caches "
+        "starting empty), so this can be bigger than a --chunk-size chosen for the "
+        "syntax tool's memory (ex: wubspecs' 500, which made those 15%% of its "
+        "timeline's time).",
+    )
+    parser.add_argument(
         "--no-pipeline",
         dest="pipeline",
         action="store_false",
@@ -863,6 +874,14 @@ def main():
     args = parser.parse_args()
     if args.chunk_size <= 0:
         parser.error("--chunk-size must be positive")
+    # (The environment variables a restart changes apply from here on.)
+    global RESTART
+    RESTART = Restart()
+    timeline_chunk_size = int(
+        os.environ.get("TIMELINE_CHUNK_SIZE") or args.timeline_chunk_size or args.chunk_size
+    )
+    if timeline_chunk_size <= 0:
+        parser.error("the timeline's chunk size must be positive")
 
     # Each pack a tool reads is an open file, and the timeline's packs of a
     # chunk (one per merge) and of the chunks since the last repack finished
@@ -897,7 +916,7 @@ def main():
         [tool("build-timeline-tree"), args.source_repo, syntax, timeline, rev_summaries],
         timeline,
         ref,
-        args.chunk_size,
+        timeline_chunk_size,
         total_limit,
         status,
         env={
@@ -905,8 +924,6 @@ def main():
             "MAX_WRITTEN_BYTES": str(MAX_WRITTEN_BYTES),
         },
     )
-    global RESTART
-    RESTART = Restart()
     try:
         if args.pipeline:
             timeline_tool.progress.total_from = syntax_tool.progress
