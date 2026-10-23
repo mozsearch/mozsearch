@@ -592,6 +592,288 @@ pub fn encode_annotated<S: AsRef<str>>(lines: &[S]) -> String {
     out
 }
 
+/// What `encode_annotated_from` needs of a file it encoded to encode the
+/// file's next version from it: the (revision, path) pairs (as written) its
+/// records use and their hashes, and its records' (see `EncodedRecord`).
+pub struct EncodedFile {
+    pairs: Vec<(String, String)>,
+    hashes: Vec<String>,
+    records: Vec<EncodedRecord>,
+}
+
+impl EncodedFile {
+    /// How many records the file has.
+    pub fn len(&self) -> usize {
+        self.records.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.records.is_empty()
+    }
+}
+
+/// A record of an `EncodedFile`: the indexes of its pairs (its introduced
+/// ref's, its predecessor's, its removal marker's, and its first removed
+/// token's, or `NO_PAIR`), its line number, the line number of the record
+/// before it with the same introduced pair (or `NO_LINENO`), which decides
+/// whether its line number is written as `+`, and where its record line is in
+/// the file: its start, after its hash and line number, and its end (after
+/// its newline).
+#[derive(Clone, Copy)]
+struct EncodedRecord {
+    refs: [u32; 4],
+    lineno: u32,
+    prev: u32,
+    start: u32,
+    rest: u32,
+    end: u32,
+}
+
+const NO_PAIR: u32 = u32::MAX;
+const NO_LINENO: u32 = u32::MAX;
+
+/// `encode_annotated`, with what `encode_annotated_from` needs to encode the
+/// file's next version from this one.
+pub fn encode_annotated_with_info<S: AsRef<str>>(lines: &[S]) -> (String, EncodedFile) {
+    encode_annotated_from(lines, &[], None)
+}
+
+/// `encode_annotated` of `lines` (the same text), and what encoding the next
+/// version from this one needs, copying the record lines of the lines which
+/// are a `previous` version's (its lines, `EncodedFile` and text) from it
+/// rather than encoding them again: `copied[i]`, if given, is the previous
+/// version's line which line `i` may be, which it is if their texts are the
+/// same.  A copied record line is the same unless the record before it with
+/// the same introduced pair isn't, which decides whether its line number is
+/// `+`, so only that is written again then, and the others are copied as they
+/// are.  (Unless a pair's hash changes, ex: if a new pair's first 6 digits are
+/// another's, when the whole file is encoded again.)  A revision of a big file
+/// mostly copies its lines, ex: the HTML Standard's `source`, millions of
+/// tokens, which encoding again at nearly every revision was most of the
+/// wubspecs reblame's main thread.
+pub fn encode_annotated_from<S: AsRef<str>>(
+    lines: &[S],
+    copied: &[Option<u32>],
+    previous: Option<(&[String], &EncodedFile, &str)>,
+) -> (String, EncodedFile) {
+    // ## Each line's previous version's line, if it's a copy (or `NO_COPY`,
+    // and then its record is the next of `new_records`).
+    const NO_COPY: u32 = u32::MAX;
+    let copy_of = |i: usize, line: &str| -> Option<u32> {
+        let (previous_lines, _, _) = previous?;
+        let j = (*copied.get(i)?)?;
+        (previous_lines.get(j as usize).map(String::as_str) == Some(line)).then_some(j)
+    };
+    let mut new_records: Vec<HyperLineData> = vec![];
+    let copies: Vec<u32> = lines
+        .iter()
+        .enumerate()
+        .map(|(i, line)| {
+            let line = line.as_ref();
+            copy_of(i, line).unwrap_or_else(|| {
+                new_records.push(HyperLineData::parse(line));
+                NO_COPY
+            })
+        })
+        .collect();
+    let previous_records: &[EncodedRecord] = previous.map_or(&[], |(_, file, _)| &file.records);
+    let previous_text = previous.map_or("", |(_, _, text)| text);
+
+    // ## The pairs: the previous version's, and the new records' (by their
+    // fields as written, which `encode_annotated` dedupes them by the values
+    // of).
+    let mut pairs: Vec<(String, String)> = previous
+        .map(|(_, file, _)| file.pairs.clone())
+        .unwrap_or_default();
+    let mut by_written: HashMap<(String, String), u32> = pairs
+        .iter()
+        .cloned()
+        .enumerate()
+        .map(|(i, pair)| (pair, i as u32))
+        .collect();
+    let mut by_value: HashMap<(&str, &str), u32> = HashMap::new();
+    let mut new_refs: Vec<[u32; 4]> = Vec::with_capacity(new_records.len());
+    for record in &new_records {
+        let marker = record.removal_marker.as_ref();
+        let values = [
+            Some((&*record.introduced.source_rev, &*record.introduced.path)),
+            record
+                .predecessor
+                .as_ref()
+                .map(|pred| (&*pred.source_rev, &*pred.path)),
+            marker.map(|m| (&*m.source_rev, &*m.path)),
+            marker.map(|m| (&*m.first_removed.source_rev, &*m.first_removed.path)),
+        ];
+        let mut refs = [NO_PAIR; 4];
+        for (slot, value) in refs.iter_mut().zip(values) {
+            let Some(value) = value else {
+                continue;
+            };
+            *slot = *by_value.entry(value).or_insert_with(|| {
+                let (mut rev, mut path) = (String::new(), String::new());
+                push_field(&mut rev, value.0);
+                push_field(&mut path, value.1);
+                let next = pairs.len() as u32;
+                let index = *by_written
+                    .entry((rev.clone(), path.clone()))
+                    .or_insert(next);
+                if index == next {
+                    pairs.push((rev, path));
+                }
+                index
+            });
+        }
+        new_refs.push(refs);
+    }
+
+    // ## The pairs the records use, and their hashes.
+    let mut used = vec![false; pairs.len()];
+    let copied_refs = copies
+        .iter()
+        .filter(|&&j| j != NO_COPY)
+        .map(|&j| previous_records[j as usize].refs);
+    for refs in copied_refs.chain(new_refs.iter().copied()) {
+        for &index in refs.iter().filter(|&&index| index != NO_PAIR) {
+            used[index as usize] = true;
+        }
+    }
+    let used_pairs: Vec<(&str, &str)> = (0..pairs.len())
+        .filter(|&i| used[i])
+        .map(|i| (pairs[i].0.as_str(), pairs[i].1.as_str()))
+        .collect();
+    let hash_map = pair_hashes(&used_pairs, pair_hash);
+    let hashes: Vec<String> = (0..pairs.len())
+        .map(|i| match used[i] {
+            true => hash_map[&(pairs[i].0.as_str(), pairs[i].1.as_str())].clone(),
+            false => String::new(),
+        })
+        .collect();
+    // (The copied record lines have the previous version's hashes of their
+    // pairs, which must still be theirs.)
+    if let Some((_, file, _)) = previous
+        && (0..file.pairs.len()).any(|i| used[i] && file.hashes[i] != hashes[i])
+    {
+        return encode_annotated_from(lines, &[], None);
+    }
+
+    // ## The table, and the record lines.
+    let mut table: Vec<(&str, usize)> = (0..pairs.len())
+        .filter(|&i| used[i])
+        .map(|i| (hashes[i].as_str(), i))
+        .collect();
+    table.sort();
+    let mut out = String::with_capacity(lines.len() * 12 + table.len() * 64);
+    for (hash, index) in table {
+        let _ = writeln!(out, "@{} {} {}", hash, pairs[index].0, pairs[index].1);
+    }
+    let mut last = vec![NO_LINENO; pairs.len()];
+    let mut records = Vec::with_capacity(lines.len());
+    let mut new_records_and_refs = new_records.iter().zip(&new_refs);
+    for &j in &copies {
+        let start = out.len();
+        if j != NO_COPY {
+            let record = &previous_records[j as usize];
+            let introduced = record.refs[0] as usize;
+            let (record_start, record_rest, record_end) = (
+                record.start as usize,
+                record.rest as usize,
+                record.end as usize,
+            );
+            let rest = if last[introduced] == record.prev {
+                out.push_str(&previous_text[record_start..record_end]);
+                start + record_rest - record_start
+            } else {
+                push_lineno(
+                    &mut out,
+                    &hashes[introduced],
+                    record.lineno,
+                    last[introduced],
+                );
+                let rest = out.len();
+                out.push_str(&previous_text[record_rest..record_end]);
+                rest
+            };
+            records.push(EncodedRecord {
+                refs: record.refs,
+                lineno: record.lineno,
+                prev: last[introduced],
+                start: start as u32,
+                rest: rest as u32,
+                end: out.len() as u32,
+            });
+            last[introduced] = record.lineno;
+            continue;
+        }
+        let (record, refs) = new_records_and_refs.next().unwrap();
+        let introduced = refs[0] as usize;
+        let lineno = record.introduced.lineno;
+        push_lineno(&mut out, &hashes[introduced], lineno, last[introduced]);
+        let rest = out.len();
+        if let Some(pred) = &record.predecessor {
+            let _ = write!(out, " p {} {}", hashes[refs[1] as usize], pred.lineno);
+        }
+        if let Some(marker) = &record.removal_marker {
+            let _ = write!(
+                out,
+                " rm {} {} {} {} {} {}",
+                hashes[refs[2] as usize],
+                marker.lineno,
+                hashes[refs[3] as usize],
+                marker.first_removed.lineno,
+                marker.num_removed,
+                marker.num_moved
+            );
+        }
+        out.push('\n');
+        records.push(EncodedRecord {
+            refs: *refs,
+            lineno,
+            prev: last[introduced],
+            start: start as u32,
+            rest: rest as u32,
+            end: out.len() as u32,
+        });
+        last[introduced] = lineno;
+    }
+
+    // ## Only the pairs the records use, for the next version.
+    let mut new_index = vec![NO_PAIR; pairs.len()];
+    let mut kept_pairs = vec![];
+    let mut kept_hashes = vec![];
+    for (i, (pair, hash)) in pairs.into_iter().zip(hashes).enumerate() {
+        if used[i] {
+            new_index[i] = kept_pairs.len() as u32;
+            kept_pairs.push(pair);
+            kept_hashes.push(hash);
+        }
+    }
+    for record in &mut records {
+        for index in record.refs.iter_mut().filter(|index| **index != NO_PAIR) {
+            *index = new_index[*index as usize];
+        }
+    }
+    (
+        out,
+        EncodedFile {
+            pairs: kept_pairs,
+            hashes: kept_hashes,
+            records,
+        },
+    )
+}
+
+/// A record line's hash and line number: `+` if the record before it with
+/// the same introduced pair has the line number before it (see
+/// `encode_annotated`).
+fn push_lineno(out: &mut String, hash: &str, lineno: u32, prev: u32) {
+    out.push_str(hash);
+    if lineno > 0 && prev != NO_LINENO && prev == lineno - 1 {
+        out.push_str(" +");
+    } else {
+        let _ = write!(out, " {}", lineno);
+    }
+}
+
 /// The table of a file's table form: each hash's revision and path as
 /// written, and the record lines after it.
 fn read_table(text: &str) -> Result<(HashMap<&str, (&str, &str)>, std::str::Lines<'_>), String> {
@@ -997,6 +1279,128 @@ mod tests {
         assert_eq!(decode_annotated("").unwrap(), vec![]);
         assert!(decode_annotated("@abc rev %\nzzz 1\n").is_err());
         assert!(decode_annotated("@abc rev %\nabc +\n").is_err());
+    }
+
+    /// `encode_annotated_from` gives `encode_annotated`'s text for versions
+    /// of a file made by random edits of the previous version (copied runs,
+    /// whose `+` line numbers change where lines before them were removed or
+    /// added, new records, changed lines whose `copied` still says they're
+    /// copies, and wrong `copied` lines), each encoded from the one before.
+    #[test]
+    fn test_encode_annotated_from() {
+        let mut state = 0x9e37_79b9_7f4a_7c15u64;
+        let mut next = move |n: usize| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state % n as u64) as usize
+        };
+        let revs = ["rev-a", "rev-b", "rev-c", "r d", ""];
+        let paths = ["%", "a.cpp", "with space.txt"];
+        let random_line = |next: &mut dyn FnMut(usize) -> usize, lineno: u32| -> String {
+            let mut data = HyperLineData::new_introduced("", lineno);
+            data.introduced.source_rev = Cow::Owned(revs[next(revs.len())].to_string());
+            data.introduced.path = Cow::Owned(paths[next(paths.len())].to_string());
+            if next(4) == 0 {
+                data.predecessor = Some(HyperTokenRef {
+                    source_rev: Cow::Owned(revs[next(revs.len())].to_string()),
+                    path: Cow::Owned(paths[next(paths.len())].to_string()),
+                    lineno: next(50) as u32,
+                });
+            }
+            if next(8) == 0 {
+                data.removal_marker = Some(RemovalMarker {
+                    source_rev: Cow::Owned(revs[next(revs.len())].to_string()),
+                    path: Cow::Borrowed("%"),
+                    lineno: next(50) as u32,
+                    first_removed: HyperTokenRef::new_unchanged_path("rev-b", next(50) as u32),
+                    num_removed: next(5) as u32,
+                    num_moved: next(5) as u32,
+                });
+            }
+            data.serialize()
+        };
+        let (mut copies, mut steps) = (0, 0);
+        for _ in 0..40 {
+            // (Runs of a revision's tokens, whose line numbers are mostly `+`.)
+            let mut lines: Vec<String> = (0..(1 + next(200)))
+                .map(|i| {
+                    let rev = ["rev-a", "rev-b"][(i / 17) % 2];
+                    HyperLineData::new_introduced(rev, i as u32).serialize()
+                })
+                .collect();
+            let (mut text, mut info) = encode_annotated_with_info(&lines);
+            assert_eq!(text, encode_annotated(&lines));
+            for _ in 0..8 {
+                let mut new_lines = vec![];
+                let mut copied = vec![];
+                for (j, line) in lines.iter().enumerate() {
+                    match next(20) {
+                        0 => {}
+                        1 => {
+                            let lineno = next(300) as u32;
+                            new_lines.push(random_line(&mut next, lineno));
+                            copied.push(None);
+                        }
+                        2 => {
+                            // (A changed line, which `copied` still says is a copy.)
+                            new_lines.push(random_line(&mut next, j as u32));
+                            copied.push(Some(j as u32));
+                        }
+                        3 => {
+                            // (A wrong `copied` line.)
+                            new_lines.push(line.clone());
+                            copied.push(Some(next(lines.len()) as u32));
+                        }
+                        _ => {
+                            new_lines.push(line.clone());
+                            copied.push(Some(j as u32));
+                            copies += 1;
+                        }
+                    }
+                }
+                let (new_text, new_info) =
+                    encode_annotated_from(&new_lines, &copied, Some((&lines, &info, &text)));
+                assert_eq!(new_text, encode_annotated(&new_lines));
+                assert_eq!(new_info.len(), new_lines.len());
+                (lines, text, info) = (new_lines, new_text, new_info);
+                steps += 1;
+            }
+        }
+        assert!(copies > 0 && steps == 320);
+    }
+
+    /// How long encoding a version of a 3M-line file (like the HTML Standard's
+    /// annotated files) with a few edits takes from the previous version,
+    /// rather than all of it.
+    #[test]
+    #[ignore]
+    fn bench_encode_annotated_from() {
+        let lines: Vec<String> = (0..3_000_000u32)
+            .map(|i| {
+                let rev = format!("{:040x}", (i / 9973) % 300);
+                HyperLineData::new_introduced(&rev, i).serialize()
+            })
+            .collect();
+        let (text, info) = encode_annotated_with_info(&lines);
+        // (A few tokens changed, and a few added.)
+        let mut new_lines = vec![];
+        let mut copied = vec![];
+        for (j, line) in lines.iter().enumerate() {
+            if j % 300_000 == 1 {
+                new_lines.push(HyperLineData::new_introduced("new-rev", j as u32).serialize());
+                copied.push(None);
+            }
+            new_lines.push(line.clone());
+            copied.push(Some(j as u32));
+        }
+        let start = std::time::Instant::now();
+        let full = encode_annotated(&new_lines);
+        eprintln!("all of it: {:?}", start.elapsed());
+        let start = std::time::Instant::now();
+        let (from, _) = encode_annotated_from(&new_lines, &copied, Some((&lines, &info, &text)));
+        eprintln!("from the previous version: {:?}", start.elapsed());
+        assert_eq!(from, full);
     }
 
     #[test]

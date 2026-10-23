@@ -132,7 +132,8 @@ use tools::file_format::history::rev_summaries::{
 use tools::file_format::history::syntax_files::token_file_lines;
 use tools::file_format::history::syntax_files_struct::{FileStructureHeader, FileStructureRow};
 use tools::file_format::history::timeline_annotated::{
-    self, HyperLineData, PATH_UNCHANGED, RemovalMarker, encode_annotated,
+    self, EncodedFile, HyperLineData, PATH_UNCHANGED, RemovalMarker, encode_annotated,
+    encode_annotated_from,
 };
 use tools::file_format::history::timeline_common::{
     ChangeKind, DetailRecordRef, FileSyntaxDelta, JournalVersionRef, TokenDeltaDetails,
@@ -2135,12 +2136,21 @@ fn join_annotated(lines: &[String]) -> String {
 /// from being reused.)
 /// (HISTORY_DECODED_MIN_LINES and HISTORY_CHECK_DECODED=1, which decodes them
 /// anyway and checks they're the same, are for tests.)
+///
+/// And what encoding their next versions from them needs (see
+/// `timeline_annotated::encode_annotated_from`), which mostly copies their
+/// record lines rather than encoding them all again: encoding the HTML
+/// Standard's annotated files was then 70% of the main thread.
+/// (HISTORY_CHECK_ENCODED=1, which encodes them all anyway and checks it's the
+/// same, is for tests.)
 struct DecodedAnnotated {
-    files: HashMap<PathBuf, (Weak<[u8]>, Rc<Vec<String>>)>,
+    files: HashMap<PathBuf, (Weak<[u8]>, Rc<Vec<String>>, Rc<EncodedFile>)>,
     lines: usize,
     hits: usize,
+    encoded_from: usize,
     min_lines: usize,
     check: bool,
+    check_encoded: bool,
 }
 
 impl Default for DecodedAnnotated {
@@ -2149,11 +2159,13 @@ impl Default for DecodedAnnotated {
             files: HashMap::new(),
             lines: 0,
             hits: 0,
+            encoded_from: 0,
             min_lines: env::var("HISTORY_DECODED_MIN_LINES")
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(DECODED_MIN_LINES),
             check: env::var("HISTORY_CHECK_DECODED").is_ok_and(|v| v == "1"),
+            check_encoded: env::var("HISTORY_CHECK_ENCODED").is_ok_and(|v| v == "1"),
         }
     }
 }
@@ -2168,7 +2180,7 @@ impl DecodedAnnotated {
     /// The line forms of the annotated file at `path` whose contents are
     /// `blob`.
     fn lines(&mut self, path: &Path, blob: &Rc<[u8]>) -> Rc<Vec<String>> {
-        if let Some((written, lines)) = self.files.get(path)
+        if let Some((written, lines, _)) = self.files.get(path)
             && Weak::ptr_eq(written, &Rc::downgrade(blob))
         {
             self.hits += 1;
@@ -2184,12 +2196,58 @@ impl DecodedAnnotated {
         Rc::new(annotated_lines(blob))
     }
 
+    /// What encoding the next version of the annotated file at `path` whose
+    /// contents are `blob` (a parent's) from it needs, if we wrote it.
+    fn encoded(&self, path: &Path, blob: &Rc<[u8]>) -> Option<Rc<EncodedFile>> {
+        let (written, _, encoded) = self.files.get(path)?;
+        Weak::ptr_eq(written, &Rc::downgrade(blob)).then(|| encoded.clone())
+    }
+
+    /// The contents of the annotated file of `lines`, encoded from `previous`
+    /// (its previous version: its lines, what encoding it gave, and its
+    /// contents) if given, where `copied` says (see
+    /// `encode_annotated_from`), and what encoding its next version from it
+    /// needs, if it's big.
+    fn encode(
+        &mut self,
+        lines: &[String],
+        copied: &[Option<u32>],
+        previous: Option<(&[String], &EncodedFile, &[u8])>,
+    ) -> (String, Option<EncodedFile>) {
+        if lines.len() < self.min_lines {
+            return (join_annotated(lines), None);
+        }
+        let previous = previous.and_then(|(lines, encoded, contents)| {
+            Some((lines, encoded, std::str::from_utf8(contents).ok()?))
+        });
+        if previous.is_some() {
+            self.encoded_from += 1;
+        }
+        let (text, encoded) = encode_annotated_from(lines, copied, previous);
+        if self.check_encoded {
+            assert!(
+                text == join_annotated(lines),
+                "an annotated file encoded from its previous version differs from encoding it"
+            );
+        }
+        (text, Some(encoded))
+    }
+
     /// Keep the line forms of the annotated file at `path` which we just wrote
-    /// as `written`, if it's big.
-    fn wrote(&mut self, path: &Path, written: &Rc<[u8]>, lines: Vec<String>) {
-        if let Some((_, old)) = self.files.remove(path) {
+    /// as `written`, and what encoding it gave, if it's big.
+    fn wrote(
+        &mut self,
+        path: &Path,
+        written: &Rc<[u8]>,
+        lines: Vec<String>,
+        encoded: Option<EncodedFile>,
+    ) {
+        if let Some((_, old, _)) = self.files.remove(path) {
             self.lines -= old.len();
         }
+        let Some(encoded) = encoded else {
+            return;
+        };
         if lines.len() < self.min_lines {
             return;
         }
@@ -2198,8 +2256,10 @@ impl DecodedAnnotated {
             self.lines = 0;
         }
         self.lines += lines.len();
-        self.files
-            .insert(path.to_path_buf(), (Rc::downgrade(written), Rc::new(lines)));
+        self.files.insert(
+            path.to_path_buf(),
+            (Rc::downgrade(written), Rc::new(lines), Rc::new(encoded)),
+        );
     }
 }
 
@@ -3093,20 +3153,26 @@ fn parent_line<'a>(parents: &'a ParentAnnotated, path: &str, lineno: u32) -> Opt
     parents.get(path)?.get(lineno as usize).map(|s| s.as_str())
 }
 
-/// Build the annotated file lines for a changed file in a linear revision.
+/// Build the annotated file lines for a changed file in a linear revision, and
+/// which of them are its parent's lines (see `encode_annotated_from`).
 fn build_linear_annotated(
     rev: &str,
     change: &FileChange,
     changes: &[FileChange],
     parents: &ParentAnnotated,
-) -> Vec<String> {
+) -> (Vec<String>, Vec<Option<u32>>) {
     let new_path = change.new_path.as_deref().unwrap();
     let old_path = change.old_path.as_deref();
     let origins = &change.inference.origins;
     let mut lines: Vec<String> = Vec::with_capacity(origins.len() + 1);
+    let mut copied: Vec<Option<u32>> = Vec::with_capacity(origins.len() + 1);
 
     // ## Sentinel
     let parent_sentinel = old_path.and_then(|p| parent_line(parents, p, 0));
+    copied.push(match (change.kind, parent_sentinel) {
+        (FileChangeKind::Modified, Some(_)) => Some(0),
+        _ => None,
+    });
     let sentinel = match (change.kind, old_path, parent_sentinel) {
         (FileChangeKind::Modified, _, Some(line)) => line.to_string(),
         (FileChangeKind::Renamed | FileChangeKind::Copied, Some(old_path), Some(line)) => {
@@ -3125,6 +3191,10 @@ fn build_linear_annotated(
     let mut missing_history = 0;
     for (new_idx, origin) in origins.iter().enumerate() {
         let lineno = new_idx as u32 + 1;
+        copied.push(match *origin {
+            TokenOrigin::Unchanged { old_lineno } if old_path == Some(new_path) => Some(old_lineno),
+            _ => None,
+        });
         let line = match *origin {
             TokenOrigin::Unchanged { old_lineno } => {
                 let old_path = old_path.unwrap();
@@ -3208,7 +3278,7 @@ fn build_linear_annotated(
         }
     }
 
-    lines
+    (lines, copied)
 }
 
 /// For a file written by a backout, give each token which is aligned with a
@@ -3416,6 +3486,9 @@ fn process_linear_revision(
 
     // ## Load the parent annotated files.
     let mut parent_annotated: ParentAnnotated = HashMap::new();
+    // (And what encoding their next versions from them needs, with their
+    // contents, if we have that; see `DecodedAnnotated`.)
+    let mut parent_encoded: HashMap<String, (Rc<EncodedFile>, Rc<[u8]>)> = HashMap::new();
     if parent.is_some() {
         // Along with the other files we read from the parent, below.
         let mut paths = vec![];
@@ -3449,7 +3522,12 @@ fn process_linear_revision(
                 // (Nothing has been modified in the new commit yet.)
                 let path = annotated_path(old_path);
                 let lines = match read_path_blob(import_helper, ReadFrom::Active, &path) {
-                    Some(blob) => import_helper.decoded.lines(&path, &blob),
+                    Some(blob) => {
+                        if let Some(encoded) = import_helper.decoded.encoded(&path, &blob) {
+                            parent_encoded.insert(old_path.clone(), (encoded, blob.clone()));
+                        }
+                        import_helper.decoded.lines(&path, &blob)
+                    }
                     None => Rc::new(vec![]),
                 };
                 parent_annotated.insert(old_path.clone(), lines);
@@ -3478,7 +3556,8 @@ fn process_linear_revision(
     for change in files {
         if let Some(new_path) = &change.new_path {
             debug!("  Writing annotated {}", new_path);
-            let mut lines = build_linear_annotated(&rev, change, files, &parent_annotated);
+            let (mut lines, copied) =
+                build_linear_annotated(&rev, change, files, &parent_annotated);
             let base = change.restore.as_ref().and_then(|restore| {
                 let base_commit = timeline_commits.get(restore.syntax_rev)?;
                 let blob = read_path_blob(
@@ -3501,10 +3580,22 @@ fn process_linear_revision(
                 restored_tokens.insert(new_path.clone(), restored);
             }
             let path = annotated_path(new_path);
-            write_inline_blob(import_helper, &path, join_annotated(&lines).as_bytes());
+            // (From the parent's version, if it's the same file's; see
+            // `DecodedAnnotated`.)
+            let previous = change
+                .old_path
+                .as_ref()
+                .filter(|old_path| *old_path == new_path)
+                .and_then(|old_path| {
+                    let (encoded, contents) = parent_encoded.get(old_path)?;
+                    let lines = parent_annotated.get(old_path)?;
+                    Some((lines.as_slice(), &**encoded, &**contents))
+                });
+            let (text, encoded) = import_helper.decoded.encode(&lines, &copied, previous);
+            write_inline_blob(import_helper, &path, text.as_bytes());
             if let Some(Some(CachedPath::Blob(written))) = import_helper.cache.pending.get(&path) {
                 let written = written.clone();
-                import_helper.decoded.wrote(&path, &written, lines);
+                import_helper.decoded.wrote(&path, &written, lines, encoded);
             }
         }
     }
@@ -4426,8 +4517,8 @@ fn main() {
         import_helper.preds.loads, import_helper.preds.hits
     );
     info!(
-        "Decoded annotated files: {} reused",
-        import_helper.decoded.hits
+        "Decoded annotated files: {} reused, {} encoded from their previous versions",
+        import_helper.decoded.hits, import_helper.decoded.encoded_from
     );
 
     info!("Shutting down fast-import...");
