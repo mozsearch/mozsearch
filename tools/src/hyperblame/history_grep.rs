@@ -477,6 +477,9 @@ pub fn history_grep(
         date.is_none_or(|date| since.is_none_or(|s| date >= s) && until.is_none_or(|u| date <= u))
     };
     let mut chosen_tokens: BTreeSet<String> = BTreeSet::new();
+    // (With the files' journals: each candidate's files, as they were named
+    // then, with the names before, if it moved them.)
+    let mut rev_files: HashMap<String, Vec<(String, Option<String>)>> = HashMap::new();
     // (For a scope: its candidates changing the pattern's whole names, which
     // every match contains; see below.)
     let mut pruned: BTreeMap<String, Option<NaiveDate>> = BTreeMap::new();
@@ -510,8 +513,19 @@ pub fn history_grep(
                 path: journal_path(file),
             };
             let records: Vec<FileDeltaRecord> = reader.records(&version).map_err(data_problem)?;
+            // (The journal follows its file through renames: older records
+            // are of the path it was renamed or copied from.)
+            let mut path = file.clone();
             for record in &records {
                 let (date, revs) = file_record_revs(record);
+                let moved_from = match record {
+                    FileDeltaRecord::Detail(detail) => detail.delta.moved_from.clone(),
+                    FileDeltaRecord::Summary(_) => None,
+                };
+                let at = (path.clone(), moved_from.clone());
+                if let Some(from) = moved_from {
+                    path = from;
+                }
                 if !in_window(date) {
                     continue;
                 }
@@ -531,6 +545,7 @@ pub fn history_grep(
                 }
                 for rev in revs {
                     candidates.entry(rev.clone()).or_insert(date);
+                    rev_files.entry(rev.clone()).or_default().push(at.clone());
                 }
             }
         }
@@ -676,15 +691,32 @@ pub fn history_grep(
             index += 1;
             continue;
         }
-        let files = revision_files(
-            source,
-            &commit,
-            &summary,
-            &chosen_tokens,
-            use_files,
-            &path_ok,
-            args.scope.as_deref(),
-        );
+        let files = match rev_files.get(rev) {
+            // (Only the files named, as they were named then, which changed
+            // the scope if there is one; a summarized week's revisions are
+            // checked by their own summaries, if they list the file.)
+            Some(files) if use_files => files
+                .iter()
+                .filter(|(path, _)| {
+                    args.scope.as_deref().is_none_or(|scope| {
+                        summary
+                            .file_deltas
+                            .get(path)
+                            .is_none_or(|file| touches_scope(&file.delta.symbol_group, scope, None))
+                    })
+                })
+                .cloned()
+                .collect(),
+            _ => revision_files(
+                source,
+                &commit,
+                &summary,
+                &chosen_tokens,
+                use_files,
+                &path_ok,
+                args.scope.as_deref(),
+            ),
+        };
         let (Ok(new_tree), old_tree) = (
             commit.tree(),
             commit.parent(0).ok().and_then(|parent| parent.tree().ok()),
