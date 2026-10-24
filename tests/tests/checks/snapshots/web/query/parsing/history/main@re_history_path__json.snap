@@ -1,0 +1,54 @@
+---
+source: src/bin/test-index.rs
+expression: "&jv.value"
+input_file: inputs/web/query/parsing/history/re_history_path__json
+---
+{
+  "groups": {
+    "history-grep": {
+      "input": null,
+      "segments": [
+        {
+          "command": "history-grep",
+          "args": {
+            "bool_args": [
+              "case-sensitive"
+            ],
+            "named_args": {
+              "not-pathre": [
+                "dom/tests",
+                0
+              ],
+              "pathre": [
+                "dom/",
+                0
+              ],
+              "re": [
+                "kMax\\s*=\\s*(\\d+)",
+                0
+              ],
+              "since": [
+                "2020-01-01",
+                0
+              ]
+            },
+            "positional_args": []
+          }
+        }
+      ],
+      "output": "result",
+      "depth": 0
+    }
+  },
+  "junctions": {},
+  "phases": [
+    {
+      "groups": [
+        [
+          "history-grep"
+        ]
+      ],
+      "junctions": []
+    }
+  ]
+}

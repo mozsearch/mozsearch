@@ -78,6 +78,8 @@
           {% include 'query_results/text_file_root.liquid' %}
         {% when "TokenHistory" %}
           {% include 'query_results/token_history_root.liquid' %}
+        {% when "HistoryGrep" %}
+          {% include 'query_results/history_grep_root.liquid' %}
         {% when "TokenNames" %}
           {% include 'query_results/token_names_root.liquid' %}
         {% else %}

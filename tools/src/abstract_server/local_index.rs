@@ -713,6 +713,39 @@ impl AbstractServer for LocalIndex {
         })
     }
 
+    async fn history_grep(
+        &self,
+        args: &crate::hyperblame::history_grep::HistoryGrepArgs,
+        limits: &crate::query_limits::QueryLimits,
+        tier: crate::query_limits::Tier,
+    ) -> Result<crate::hyperblame::history_grep::HistoryGrep> {
+        // (Trees without the token-centric history have none.)
+        let cfg = self.tree_config_loaded();
+        let Some(git) = cfg
+            .trees
+            .get(&self.tree_name)
+            .and_then(|tree| tree.git.as_ref())
+        else {
+            return Err(ServerError::Unsupported);
+        };
+        let Some(history) = &git.history else {
+            return Err(ServerError::Unsupported);
+        };
+        let names = |query: &str, how: NameMatch, limit: usize| {
+            let names = self.token_names.get_or_init(|| {
+                TokenNames::open(&Path::new(&self.config_paths.index_path).join("token-names"))
+            });
+            names.as_ref().map(|names| names.find(query, how, limit))
+        };
+        // (It reads many blobs; block_in_place lets the runtime's other tasks
+        // run meanwhile.)
+        tokio::task::block_in_place(|| {
+            crate::hyperblame::history_grep::history_grep(
+                history, &git.repo, args, limits, tier, &names,
+            )
+        })
+    }
+
     async fn token_names(
         &self,
         query: &str,

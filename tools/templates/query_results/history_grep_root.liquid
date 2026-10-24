@@ -1,0 +1,67 @@
+{%- comment -%}
+  A history grep's page (`text-history:`, `re-history:`; see
+  hyperblame/history_grep.rs): the revisions where the matches of its pattern
+  in a file changed, newest first.
+{%- endcomment -%}
+{%- assign grep = results.HistoryGrep -%}
+{%- assign base_query = query | split: " page:" | first -%}
+<div class="history-grep">
+{%- if grep.unsupported %}
+  <p>This tree has no history to search.</p>
+{%- else %}
+  <h2>
+    Where matches of
+    {% if grep.text %}<code>{{ grep.text | escape }}</code>{% else %}<code>/{{ grep.pattern | escape }}/</code>{% endif %}
+    changed
+  </h2>
+  <p class="history-grep-plan">
+    {%- if grep.tokens != empty %}
+    Checking the {{ grep.candidates }} revision{% if grep.candidates != 1 %}s{% endif %} which changed
+    {% for token in grep.tokens %}<a href="/{{ tree }}/query/default?q=token-history%3A{{ token | url_encode }}"><code>{{ token | escape }}</code></a>{% unless forloop.last %}, {% endunless %}{% endfor %},
+    which every match contains.
+    {%- else %}
+    {%- assign file_count = grep.files | size %}
+    Checking the {{ grep.candidates }} revision{% if grep.candidates != 1 %}s{% endif %} of
+    {{ file_count }} file{% if file_count != 1 %}s{% endif %}.
+    {%- endif %}
+    This page checked revisions {{ grep.page_start | plus: 1 }}–{{ grep.page_end }}
+    ({{ grep.checked }} file version{% if grep.checked != 1 %}s{% endif %}).
+    {%- if grep.merges_skipped > 0 %} Merges are skipped ({{ grep.merges_skipped }}).{% endif %}
+  </p>
+  {%- if grep.rows == empty %}
+  <p>No changes to its matches in these revisions.</p>
+  {%- else %}
+  <table class="history-grep-table">
+    <thead>
+      <tr><th>Date</th><th>Revision</th><th>File</th><th>Matches</th><th>Changes</th></tr>
+    </thead>
+    <tbody>
+      {%- for row in grep.rows %}
+      <tr{% if row.backout %} class="history-grep-backout"{% endif %}>
+        <td class="history-grep-date">{{ row.date }}</td>
+        <td class="history-grep-commit"><a href="/{{ tree }}/commit/{{ row.rev }}"><code>{{ row.rev | slice: 0, 12 }}</code></a> {{ row.header }}</td>
+        <td><a href="/{{ tree }}/rev/{{ row.rev }}/{{ row.path | escape }}">{{ row.path | escape }}</a>
+          {%- if row.old_path %} (from {{ row.old_path | escape }}){% endif %}</td>
+        <td class="history-grep-count">{{ row.before }} → {{ row.after }}</td>
+        <td>
+          {%- for value in row.added_values %}<div class="history-grep-added">+ {% for part in value %}<code>{{ part | escape }}</code>{% unless forloop.last %}, {% endunless %}{% endfor %}</div>{% endfor -%}
+          {%- for value in row.removed_values %}<div class="history-grep-removed">− {% for part in value %}<code>{{ part | escape }}</code>{% unless forloop.last %}, {% endunless %}{% endfor %}</div>{% endfor -%}
+          {%- if row.added_values == empty and row.removed_values == empty %}
+          {%- for line in row.added_lines %}<div class="history-grep-added">+ <code>{{ line | escape }}</code></div>{% endfor -%}
+          {%- for line in row.removed_lines %}<div class="history-grep-removed">− <code>{{ line | escape }}</code></div>{% endfor -%}
+          {%- endif %}
+        </td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- endif %}
+  {%- if grep.next_page %}
+  <p><a href="/{{ tree }}/query/{{ preset }}?q={{ base_query | append: " page:" | append: grep.next_page | url_encode }}">Keep going</a> (revisions {{ grep.next_page | plus: 1 }}–{{ grep.candidates }} of the candidates).</p>
+  {%- endif %}
+  <p class="history-grep-caveats">
+    Code moved between files isn't a change here, and merges are skipped.
+    {%- if grep.tokens != empty %} Matches in prose in strings, URLs and paths, which the history doesn't track by name, can be missed; with a <code>path:</code> naming a few files, their every revision can be checked.{% endif %}
+  </p>
+{%- endif %}
+</div>

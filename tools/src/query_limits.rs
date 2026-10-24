@@ -62,6 +62,10 @@ pub struct QueryLimits {
     /// Whether the history greps (`text-history:`, `re-history:` and the
     /// timelines) run at all.
     pub history_grep: bool,
+    /// How many candidate revisions a history grep may have in all (over its
+    /// pages): more, and it's refused, as not much cheaper than checking the
+    /// history locally.
+    pub history_revisions: u64,
     /// How many (revision, file) pairs a history grep's page may check.
     pub history_candidates: u64,
     /// How many bytes of those files' versions it may read.
@@ -87,6 +91,7 @@ impl QueryLimits {
     pub fn default_for(tier: Tier) -> QueryLimits {
         let browser = QueryLimits {
             history_grep: true,
+            history_revisions: 20_000,
             history_candidates: 2_000,
             history_blob_bytes: 256 * MIB,
             history_parses: 500,
@@ -98,6 +103,7 @@ impl QueryLimits {
             Tier::Browser => browser,
             Tier::Agent => QueryLimits {
                 history_grep: true,
+                history_revisions: browser.history_revisions / 2,
                 history_candidates: browser.history_candidates / 2,
                 history_blob_bytes: browser.history_blob_bytes / 2,
                 history_parses: browser.history_parses / 2,
@@ -107,6 +113,7 @@ impl QueryLimits {
             },
             Tier::Bot => QueryLimits {
                 history_grep: false,
+                history_revisions: 0,
                 history_candidates: 0,
                 history_blob_bytes: 0,
                 history_parses: 0,
@@ -116,6 +123,7 @@ impl QueryLimits {
             },
             Tier::Authenticated => QueryLimits {
                 history_grep: true,
+                history_revisions: browser.history_revisions * 10,
                 history_candidates: browser.history_candidates * 10,
                 history_blob_bytes: browser.history_blob_bytes * 8,
                 history_parses: browser.history_parses * 10,
@@ -130,6 +138,7 @@ impl QueryLimits {
     pub fn unlimited() -> QueryLimits {
         QueryLimits {
             history_grep: true,
+            history_revisions: u64::MAX,
             history_candidates: u64::MAX,
             history_blob_bytes: u64::MAX,
             history_parses: u64::MAX,
@@ -272,8 +281,16 @@ impl TooExpensive {
         })
     }
 
-    /// A one-paragraph explanation.
+    /// A one-paragraph explanation: the limits it went over, or, if it's
+    /// too expensive whatever the limits, its details.
     pub fn message(&self) -> String {
+        if self.exceeded.is_empty() {
+            return format!(
+                "This {} would be too expensive for the server: {}.",
+                self.what,
+                self.details.join("; ")
+            );
+        }
         let over: Vec<String> = self
             .exceeded
             .iter()

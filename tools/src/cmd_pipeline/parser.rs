@@ -13,6 +13,7 @@ use super::cmd_filter_analysis::FilterAnalysis;
 use super::cmd_format_symbols::FormatSymbols;
 use super::cmd_fuse_crossrefs::FuseCrossrefs;
 use super::cmd_graph::Graph;
+use super::cmd_history_grep::HistoryGrepCommandArgs;
 use super::cmd_history_journal::HistoryJournal;
 use super::cmd_jq::JQ;
 use super::cmd_jumpref_lookup::JumprefLookup;
@@ -100,6 +101,7 @@ pub enum Command {
     Dataflow(Dataflow),
     BlockDiagram(BlockDiagram),
     CrashStack(CrashStack),
+    HistoryGrep(HistoryGrepCommandArgs),
     TokenHistory(TokenHistoryArgs),
     TokenNames(TokenNamesArgs),
     TokenTimeline(TokenTimelineArgs),

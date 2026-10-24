@@ -321,6 +321,8 @@ pub enum PipelineValues {
     TextFile(TextFile),
     BatchGroups(BatchGroups),
     SymbolTreeTableList(SymbolTreeTableList),
+    /// A history grep's page (see `hyperblame::history_grep`).
+    HistoryGrep(crate::hyperblame::history_grep::HistoryGrep),
     TokenHistory(TokenHistoryValue),
     TokenNames(TokenNamesValue),
     Void,

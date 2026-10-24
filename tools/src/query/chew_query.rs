@@ -104,6 +104,11 @@ pub struct GroupConfig {
     pub commands: Vec<PipelineUse>,
     pub junction: Option<String>,
     pub next: Option<String>,
+    /// Whether it's a view of its own (ex: a history grep's): a query with
+    /// it has none of the searches compile-results compiles (whose filter
+    /// terms, ex: `path:`, only amend it then).
+    #[serde(default)]
+    pub exclusive: bool,
 }
 
 #[derive(Deserialize)]
@@ -427,6 +432,20 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
                 .join("|");
             builder.ingest_term("not-pathre", &regexp)?;
         }
+    }
+    // (A view of its own leaves out the searches; see
+    // `GroupConfig::exclusive`.)
+    let has_view = builder
+        .groups
+        .keys()
+        .any(|name| QUERY_CORE.group.get(name).is_some_and(|group| group.exclusive));
+    if has_view {
+        builder.groups.retain(|name, _| {
+            QUERY_CORE
+                .group
+                .get(name)
+                .is_none_or(|group| group.junction.as_deref() != Some("compile"))
+        });
     }
     // (Amending the steps the terms added.)
     for (group_name, command, args) in std::mem::take(&mut builder.amends) {

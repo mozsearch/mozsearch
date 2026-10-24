@@ -1,0 +1,1 @@
+query --dump-pipeline "re-history:'kMax\s*=\s*(\d+)' path:dom/ -path:dom/tests case:sensitive since:2020-01-01"

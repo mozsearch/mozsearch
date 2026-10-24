@@ -9,6 +9,7 @@ pub mod explore;
 pub mod file_changes;
 pub mod future;
 pub mod history_config;
+pub mod history_grep;
 pub mod inference;
 pub mod interdiff;
 pub mod journals;

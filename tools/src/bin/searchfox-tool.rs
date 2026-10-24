@@ -134,6 +134,10 @@ async fn main() {
             emit_json(&to_value(th).unwrap());
             0
         }
+        Ok(PipelineValues::HistoryGrep(hg)) => {
+            emit_json(&to_value(hg).unwrap());
+            0
+        }
         Ok(PipelineValues::TokenNames(tn)) => {
             emit_json(&to_value(tn).unwrap());
             0

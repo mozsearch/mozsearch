@@ -1,0 +1,78 @@
+"use strict";
+
+// History greps (the text-history: and re-history: views; see
+// tools/src/hyperblame/history_grep.rs), of the "searchfox" tree's history of
+// mozsearch itself: where `structopt` came and went (its 2022 upgrade to clap
+// v3 removed it), as `git log -S` finds, from its journals, and clap's
+// version in tools/Cargo.toml over time, from that file's every revision.
+
+function doc() {
+  return frame.contentDocument;
+}
+
+const UPGRADE = "0f2a4938884c2ce7e2637363c5577f095ef0d074";
+
+function rows() {
+  return [...doc().querySelectorAll(".history-grep-table tbody tr")];
+}
+
+add_task(async function test_TextHistory() {
+  await TestUtils.loadQuery("searchfox", "text-history:structopt");
+  await waitForCondition(() => doc().querySelector(".history-grep"), "The view is there");
+  ok(doc().querySelector(".history-grep-plan").textContent.includes("structopt"),
+     "It says which journals it used");
+  const upgrade = rows().filter(row => row.querySelector(`a[href="/searchfox/commit/${UPGRADE}"]`));
+  ok(upgrade.length > 1, "The upgrade changed several files' matches");
+  const cargo = upgrade.find(row => row.textContent.includes("tools/Cargo.toml"));
+  ok(cargo, "including tools/Cargo.toml");
+  ok(cargo.querySelector(".history-grep-count").textContent.includes("1 → 0"),
+     "whose one match it removed");
+  ok(cargo.querySelector(".history-grep-removed").textContent.includes("structopt"),
+     "with the line it removed");
+  ok(rows().some(row => row.querySelector(".history-grep-count").textContent.startsWith("0 →")),
+     "and the revisions which added it are there too");
+});
+
+add_task(async function test_ReHistoryValues() {
+  await TestUtils.loadQuery("searchfox",
+                            `re-history:'^clap = .*version = "([^"]+)"' path:tools/Cargo.toml`);
+  await waitForCondition(() => doc().querySelector(".history-grep"), "The view is there");
+  ok(doc().querySelector(".history-grep-plan").textContent.includes("1 file"),
+     "Its values come from the file's every revision");
+  const upgrade = rows().find(row => row.querySelector(".history-grep-added")?.textContent.includes("4.0"));
+  ok(upgrade, "A revision changed the version to 4.0");
+  ok(upgrade.querySelector(".history-grep-removed").textContent.includes("3.0"),
+     "from 3.0");
+
+  const response = await fetch(
+    TestUtils.getQueryPath("searchfox", `re-history:'^clap = .*version = "([^"]+)"' path:tools/Cargo.toml`),
+    { headers: { Accept: "application/json" }, cache: "no-store" });
+  const grep = (await response.json())?.HistoryGrep;
+  ok(grep?.rows.some(row => row.added_values.some(v => v[0] == "4.0")),
+     "The JSON has the values too");
+});
+
+add_task(async function test_HistoryGrepPages() {
+  await TestUtils.loadQuery("searchfox", "text-history:structopt page:20");
+  await waitForCondition(() => doc().querySelector(".history-grep"), "The view is there");
+  ok(doc().querySelector(".history-grep-plan").textContent.includes("revisions 21–"),
+     "A page starts where it says");
+});
+
+add_task(async function test_HistoryGrepTooExpensive() {
+  await TestUtils.loadQuery("searchfox", "re-history:'\\w+'");
+  await waitForCondition(() => doc().querySelector(".query-too-expensive"), "It's refused");
+  ok(doc().querySelector(".query-too-expensive").textContent.includes("every revision"),
+     "saying why");
+  const response = await fetch(TestUtils.getQueryPath("searchfox", "re-history:'\\w+'"),
+                               { headers: { Accept: "application/json" }, cache: "no-store" });
+  is(response.status, 422, "A 422");
+  is((await response.json())?.error, "query-too-expensive", "with its error code");
+});
+
+add_task(async function test_HistoryGrepWithoutHistory() {
+  await TestUtils.loadQuery("tests", "text-history:Foo");
+  await waitForCondition(() => doc().querySelector(".history-grep"), "The view is there");
+  ok(doc().querySelector(".history-grep").textContent.includes("no history"),
+     "A tree without a history has nothing to search");
+});

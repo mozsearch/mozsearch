@@ -216,6 +216,9 @@ async fn main() -> Result<(), std::io::Error> {
                     Ok(PipelineValues::TokenHistory(th)) => {
                         insta::assert_json_snapshot!(&to_value(th).unwrap());
                     }
+                    Ok(PipelineValues::HistoryGrep(hg)) => {
+                        insta::assert_json_snapshot!(&to_value(hg).unwrap());
+                    }
                     Ok(PipelineValues::TokenNames(tn)) => {
                         insta::assert_json_snapshot!(&to_value(tn).unwrap());
                     }

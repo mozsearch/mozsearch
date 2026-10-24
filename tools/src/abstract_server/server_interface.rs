@@ -809,6 +809,18 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// A page of the revisions where a pattern's matches in a file changed
+    /// (see `hyperblame::history_grep`), within `limits` (of `tier`).
+    /// Unsupported if the tree has no token-centric history.
+    async fn history_grep(
+        &self,
+        _args: &crate::hyperblame::history_grep::HistoryGrepArgs,
+        _limits: &crate::query_limits::QueryLimits,
+        _tier: crate::query_limits::Tier,
+    ) -> Result<crate::hyperblame::history_grep::HistoryGrep> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The tokens of the history's journals which start with, end with, or
     /// contain `query`, case- and accent-insensitively (see
     /// `file_format::token_names`), up to `limit`.  Unsupported without a

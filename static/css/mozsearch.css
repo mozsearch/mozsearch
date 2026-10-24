@@ -5709,3 +5709,39 @@ textarea.monospace {
 .token-names-list a {
   font-size: 11px;
 }
+/* A history grep's page (see history_grep_root.liquid). */
+.history-grep {
+  margin: 0.5em 1rem;
+}
+.history-grep h2 {
+  font-size: 1.1em;
+  margin: 0.3em 0;
+}
+.history-grep-table {
+  border-collapse: collapse;
+}
+.history-grep-table th,
+.history-grep-table td {
+  padding: 0.15em 0.6em;
+  border-bottom: 1px solid var(--page-border-color);
+  text-align: left;
+  vertical-align: top;
+}
+.history-grep-date,
+.history-grep-count {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.history-grep-added {
+  background-color: var(--diff-plus-line-background);
+}
+.history-grep-removed {
+  background-color: var(--diff-minus-line-background);
+}
+.history-grep-backout {
+  opacity: 0.7;
+}
+.history-grep-caveats,
+.history-grep-plan {
+  opacity: 0.85;
+}
