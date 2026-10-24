@@ -1,0 +1,58 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(frb).unwrap()"
+input_file: inputs/web/query/execution/grep/query__lookahead_captures__json
+---
+{
+  "path_kind_results": [
+    {
+      "path_kind": "normal",
+      "file_names": [],
+      "kind_groups": [
+        {
+          "kind": "TextualOccurrences",
+          "pretty": "",
+          "facets": [],
+          "by_file": [
+            {
+              "file": "big_cpp.cpp",
+              "line_spans": [
+                {
+                  "key_line": 348,
+                  "line_range": [
+                    348,
+                    348
+                  ],
+                  "contents": "<div role=\"row\" id=\"line-NORM\" class=\"source-line-with-number\">\n  <div role=\"cell\" class=\"line-number\" data-line-number=\"NORM\"></div>\n  <code role=\"cell\" class=\"source-line\">  <span class=\"syn_reserved\" ><mark class=\"query-hit\">void</mark></span><mark class=\"query-hit\"> </mark><span class=\"syn_def\" data-symbols=\"_ZN7outerNS8OuterCat4meetERNS_5CouchE\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">meet</mark></span><mark class=\"query-hit\">(</mark><span class=\"syn_type\" data-symbols=\"T_outerNS::Couch\" data-confidences=\"[&quot;concrete&quot;]\"><mark class=\"query-hit\">Couch</mark></span>&amp; <span data-symbols=\"V_f6237cd8f53a4894_0\" data-confidences=\"[&quot;concrete&quot;]\">couch</span>) {\n</code>\n</div>\n",
+                  "context": "outerNS::OuterCat::meet",
+                  "contextsym": "_ZN7outerNS8OuterCat4meetERNS_5CouchE",
+                  "hits": [
+                    [
+                      0,
+                      15
+                    ]
+                  ],
+                  "captures": [
+                    [
+                      "meet",
+                      "Couch"
+                    ]
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "content_type": "text/html",
+  "text_pattern": {
+    "re": "void (meet)\\((?=Couch)(\\w+)",
+    "case_sensitive": false,
+    "capture_names": [
+      null,
+      null
+    ]
+  }
+}

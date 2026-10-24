@@ -185,6 +185,27 @@ pub struct TextMatchInFile {
     pub bounds: TextBounds,
     // This will vary a lot and so can never be a Ustr.
     pub line_str: String,
+    /// The matches starting on the line, when `search-text`'s fuller engine
+    /// found them (see `full_grep`; livegrep only gives `bounds`, the
+    /// line's first).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub hits: Vec<TextHit>,
+    /// The lines after this one that `hits` span (for multi-line matches).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub more_lines: Vec<String>,
+}
+
+/// A match found by `search-text`'s fuller engine (see `full_grep`): where
+/// it starts and ends (1-based lines, and byte offsets in them; a multi-line
+/// match ends on a later line), and what its capture groups captured.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct TextHit {
+    pub start_line: u32,
+    pub start: u32,
+    pub end_line: u32,
+    pub end: u32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub captures: Vec<Option<String>>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -216,14 +237,32 @@ pub struct TextMatches {
 #[derive(Clone, Deserialize, Serialize)]
 pub struct TextPattern {
     /// An RE2 regexp, as livegrep takes, which the `regex` crate mostly agrees
-    /// with (and does for escaped text).
+    /// with (and does for escaped text), or one of the fuller engine's (see
+    /// `full_grep`).
     pub re: String,
     pub case_sensitive: bool,
+    /// Whether its matches can span lines (see `full_grep`), so that a line
+    /// alone can't be matched against it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub spans_lines: bool,
+    /// The names of its capture groups (None for unnamed ones), whose texts
+    /// the results' `captures` have, in order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capture_names: Vec<Option<String>>,
+    /// Which of its capture groups to tally the values of (see
+    /// `cmd_compile_results::Tally`), if asked to (`tally:`): "all", a group's
+    /// number, or its name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tally: Option<String>,
 }
 
 impl TextPattern {
-    /// The pattern as a `Regex`, if the `regex` crate takes it.
+    /// The pattern as a `Regex`, if the `regex` crate takes it and lines can
+    /// be matched against it alone.
     pub fn regex(&self) -> Option<regex::Regex> {
+        if self.spans_lines {
+            return None;
+        }
         regex::RegexBuilder::new(&self.re)
             .case_insensitive(!self.case_sensitive)
             .build()

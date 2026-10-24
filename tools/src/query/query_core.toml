@@ -457,6 +457,16 @@ args.not-pathre = "$0"
 command = "search-text"
 args.re = "$0"
 
+# A table of the distinct values a text search's capture groups captured
+# (see cmd_compile_results.rs's `Tally`), most common first: `tally:all`, a
+# group's number (`tally:1`), or its name; a pattern without groups tallies
+# its whole matches.
+[term.tally]
+[[term.tally.group.text-search]]
+command = "search-text"
+amend = true
+args.tally = "$0"
+
 [term.show-cols]
 [[term.show-cols.group.semantic-format]]
 command = "format-symbols"

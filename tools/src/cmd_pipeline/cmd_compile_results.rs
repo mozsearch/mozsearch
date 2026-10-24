@@ -113,6 +113,114 @@ pub struct SearchResults {
     pub text_pattern: Option<TextPattern>,
     /// The limits the inputs hit (ex: livegrep's on matches).
     pub limits_hit: BTreeSet<String>,
+    /// The text matches' paths, lines, whole texts and captures, for a tally
+    /// (see `Tally`).
+    pub captured: Vec<(Ustr, u32, String, Vec<Option<String>>)>,
+}
+
+/// How many distinct values a tally lists.
+const MAX_TALLY_ROWS: usize = 1000;
+/// How many matches each tally row gives the places of.
+const TALLY_PLACES: usize = 3;
+
+/// The distinct values a text search's matches' capture groups captured (the
+/// query language's `tally:`), most common first: for a constant's
+/// definitions, the values it's defined as, or for `Pref\("([^"]+)"`, the
+/// prefs used.  A pattern without groups tallies its whole matches.
+#[derive(serde::Serialize)]
+pub struct Tally {
+    /// The tallied groups' names (or numbers), or "match".
+    pub columns: Vec<String>,
+    pub rows: Vec<TallyRow>,
+    /// How many matches there were, and how many distinct values.
+    pub matches: usize,
+    pub distinct: usize,
+    /// Whether the search stopped at a limit, so these are of the matches
+    /// found.
+    pub incomplete: bool,
+}
+
+#[derive(serde::Serialize)]
+pub struct TallyRow {
+    /// The groups' texts (null for a group which didn't take part).
+    pub values: Vec<Option<String>>,
+    pub count: usize,
+    /// How many files have it.
+    pub files: usize,
+    /// The first few matches' places: (path, line).
+    pub places: Vec<(Ustr, u32)>,
+}
+
+impl Tally {
+    /// Tally `captured` (see `SearchResults::captured`) by the groups
+    /// `which` says (see `TextPattern::tally`), named by `names`.
+    pub fn new(
+        which: &str,
+        names: &[Option<String>],
+        captured: &[(Ustr, u32, String, Vec<Option<String>>)],
+        incomplete: bool,
+    ) -> Result<Tally> {
+        let label = |i: usize| match &names[i] {
+            Some(name) => name.clone(),
+            None => (i + 1).to_string(),
+        };
+        let groups: Option<Vec<usize>> = match which {
+            _ if names.is_empty() => None,
+            "" | "all" => Some((0..names.len()).collect()),
+            n if n.parse::<usize>().is_ok_and(|n| n >= 1 && n <= names.len()) => {
+                Some(vec![n.parse::<usize>().unwrap() - 1])
+            }
+            name => match names.iter().position(|n| n.as_deref() == Some(name)) {
+                Some(i) => Some(vec![i]),
+                None => {
+                    return Err(ServerError::StickyProblem(ErrorDetails {
+                        layer: ErrorLayer::BadInput,
+                        message: format!("No capture group {:?} to tally", name),
+                    }));
+                }
+            },
+        };
+        let columns = match &groups {
+            Some(groups) => groups.iter().map(|&i| label(i)).collect(),
+            None => vec!["match".to_string()],
+        };
+        let mut rows: BTreeMap<Vec<Option<String>>, (usize, BTreeSet<Ustr>, Vec<(Ustr, u32)>)> =
+            BTreeMap::new();
+        for (path, line, whole, captures) in captured {
+            let values = match &groups {
+                Some(groups) => groups
+                    .iter()
+                    .map(|&i| captures.get(i).cloned().flatten())
+                    .collect(),
+                None => vec![Some(whole.clone())],
+            };
+            let row = rows.entry(values).or_default();
+            row.0 += 1;
+            row.1.insert(*path);
+            if row.2.len() < TALLY_PLACES {
+                row.2.push((*path, *line));
+            }
+        }
+        let distinct = rows.len();
+        let mut rows: Vec<TallyRow> = rows
+            .into_iter()
+            .map(|(values, (count, files, places))| TallyRow {
+                values,
+                count,
+                files: files.len(),
+                places,
+            })
+            .collect();
+        rows.sort_by(|a, b| b.count.cmp(&a.count).then_with(|| a.values.cmp(&b.values)));
+        rows.truncate(MAX_TALLY_ROWS);
+        Ok(Tally {
+            columns,
+            rows,
+            matches: captured.len(),
+            distinct,
+            incomplete,
+        })
+    }
 }
 
 #[derive(Default)]
@@ -353,6 +461,8 @@ impl SearchResults {
                 pp: Some(pp),
                 ctxtra,
                 facets: None,
+                more_hits: vec![],
+                captures: vec![],
             });
         }
     }
@@ -412,33 +522,98 @@ impl SearchResults {
                     continue;
                 }
                 let line = &text_match.line_str;
-                let mut matches: Vec<(usize, usize)> = pattern
-                    .map(|re| {
-                        re.find_iter(line)
-                            .filter(|found| !found.is_empty())
-                            .map(|found| (found.start(), found.end()))
+                // (Each match on the line: where it is on the line, and what
+                // its groups captured; the fuller engine's own, or the
+                // pattern's on the line, since livegrep only gives the
+                // first.)
+                let mut matches: Vec<((usize, usize), Vec<Option<String>>)> =
+                    if !text_match.hits.is_empty() {
+                        text_match
+                            .hits
+                            .iter()
+                            .map(|hit| {
+                                let end = match hit.end_line == hit.start_line {
+                                    true => hit.end as usize,
+                                    false => line.len(),
+                                };
+                                ((hit.start as usize, end), hit.captures.clone())
+                            })
                             .collect()
-                    })
-                    .unwrap_or_default();
+                    } else {
+                        pattern
+                            .map(|re| {
+                                let groups = re.captures_len() > 1;
+                                re.captures_iter(line)
+                                    .filter_map(|captures| {
+                                        let found = captures.get(0)?;
+                                        if found.is_empty() {
+                                            return None;
+                                        }
+                                        let texts = match groups {
+                                            true => (1..captures.len())
+                                                .map(|i| {
+                                                    captures.get(i).map(|m| m.as_str().to_string())
+                                                })
+                                                .collect(),
+                                            false => vec![],
+                                        };
+                                        Some(((found.start(), found.end()), texts))
+                                    })
+                                    .collect()
+                            })
+                            .unwrap_or_default()
+                    };
                 if matches.is_empty() {
                     let bounds = &text_match.bounds;
                     matches.push((
-                        bounds.start.max(0) as usize,
-                        bounds.end_exclusive.max(0) as usize,
+                        (
+                            bounds.start.max(0) as usize,
+                            bounds.end_exclusive.max(0) as usize,
+                        ),
+                        vec![],
                     ));
+                }
+                // (For a tally, every match, inside semantic results' tokens
+                // or not.)
+                if self
+                    .text_pattern
+                    .as_ref()
+                    .is_some_and(|p| p.tally.is_some())
+                {
+                    for (i, ((start, end), texts)) in matches.iter().enumerate() {
+                        let mut whole = line.get(*start..*end).unwrap_or_default().to_string();
+                        if let Some(hit) = text_match.hits.get(i)
+                            && hit.end_line > hit.start_line
+                        {
+                            for line_num in hit.start_line + 1..=hit.end_line {
+                                let index = (line_num - text_match.line_num - 1) as usize;
+                                let text = text_match.more_lines.get(index).map_or("", |t| t);
+                                whole.push('\n');
+                                whole.push_str(match line_num == hit.end_line {
+                                    true => text.get(..hit.end as usize).unwrap_or(text),
+                                    false => text,
+                                });
+                            }
+                        }
+                        self.captured
+                            .push((path, text_match.line_num, whole, texts.clone()));
+                    }
                 }
                 // (As the semantic results' tokens, without the indentation.)
                 let indent = line.len() - line.trim_start().len();
                 let tokens = self.path_line_tokens.get(&path_line);
-                let hits: Vec<(u32, u32)> = matches
+                let (hits, captures): (Vec<(u32, u32)>, Vec<Vec<Option<String>>>) = matches
                     .into_iter()
-                    .map(|(start, end)| {
+                    .map(|((start, end), texts)| {
                         (
-                            start.saturating_sub(indent) as u32,
-                            end.saturating_sub(indent) as u32,
+                            (
+                                start.saturating_sub(indent) as u32,
+                                end.saturating_sub(indent) as u32,
+                            ),
+                            texts,
                         )
                     })
-                    .filter(|&(start, end)| {
+                    .filter(|&((start, end), _)| {
                         start < end
                             && !tokens.is_some_and(|tokens| {
                                 tokens.iter().any(|&(token_start, token_end)| {
@@ -446,13 +621,38 @@ impl SearchResults {
                                 })
                             })
                     })
-                    .collect();
+                    .unzip();
                 if tokens.is_some() && hits.is_empty() {
                     continue;
                 }
+                // (A multi-line match's parts on its later lines.)
+                let mut more_hits = vec![];
+                for hit in &text_match.hits {
+                    for line_num in hit.start_line + 1..=hit.end_line {
+                        let Some(text) = text_match
+                            .more_lines
+                            .get((line_num - text_match.line_num - 1) as usize)
+                        else {
+                            continue;
+                        };
+                        let indent = text.len() - text.trim_start().len();
+                        let end = match line_num == hit.end_line {
+                            true => hit.end as usize,
+                            false => text.len(),
+                        };
+                        if end > indent {
+                            more_hits.push((line_num, 0, (end - indent) as u32));
+                        }
+                    }
+                }
+                let last_line = text_match.line_num + text_match.more_lines.len() as u32;
+                let captures = match captures.iter().all(Vec::is_empty) {
+                    true => vec![],
+                    false => captures,
+                };
                 file_results.line_spans.push(FlattenedLineSpan {
                     key_line: text_match.line_num,
-                    line_range: (text_match.line_num, text_match.line_num),
+                    line_range: (text_match.line_num, last_line),
                     contents: line.trim().to_string(),
                     context: ustr(""),
                     contextsym: ustr(""),
@@ -463,6 +663,8 @@ impl SearchResults {
                     pp: None,
                     ctxtra: vec![],
                     facets: None,
+                    more_hits,
+                    captures,
                 });
             }
             // The suppressions could mean we don't actually need this path hit,
@@ -601,6 +803,7 @@ impl SearchResults {
             text_pattern: self.text_pattern,
             file_recency: BTreeMap::new(),
             token_history: None,
+            tally: None,
         }
     }
 }
@@ -663,10 +866,10 @@ impl PipelineJunctionCommand for CompileResultsCommand {
                     .insert("fulltext search timeout".to_string());
             }
             let pattern = tm.pattern.as_ref().and_then(TextPattern::regex);
-            results.ingest_fulltext_hits(tm.by_file, pattern.as_ref());
             if results.text_pattern.is_none() {
                 results.text_pattern = tm.pattern;
             }
+            results.ingest_fulltext_hits(tm.by_file, pattern.as_ref());
         }
 
         // The tree's path kinds' order (see per-file-info.toml), or router.py's.
@@ -681,8 +884,23 @@ impl PipelineJunctionCommand for CompileResultsCommand {
                 .map(ustr)
                 .collect();
         }
+        // (The tally, of all the matches, before the limits.)
+        let tally = match &results.text_pattern {
+            Some(TextPattern {
+                tally: Some(which),
+                capture_names,
+                ..
+            }) => Some(Tally::new(
+                which,
+                capture_names,
+                &results.captured,
+                !results.limits_hit.is_empty(),
+            )?),
+            _ => None,
+        };
         let mut results_bundle =
             results.compile(self.args.file_limit, self.args.line_limit, &path_kind_order);
+        results_bundle.tally = tally;
 
         // The history of the token searched for, if its last removals removed
         // more of its instances than the results have (see
@@ -725,6 +943,8 @@ mod tests {
                         end_exclusive: 1,
                     },
                     line_str: format!("line {}", line_num),
+                    hits: vec![],
+                    more_lines: vec![],
                 })
                 .collect(),
         }
@@ -891,6 +1111,8 @@ mod tests {
                     end_exclusive: start + 3,
                 },
                 line_str: line_str.to_string(),
+                hits: vec![],
+                more_lines: vec![],
             }
         };
         let pattern = Regex::new("(?i)foo").unwrap();
@@ -934,5 +1156,101 @@ mod tests {
                 (7, "// foo", &[(3, 6)][..], false)
             ]
         );
+    }
+
+    #[test]
+    fn test_tally() {
+        let names = vec![Some("kind".to_string()), None];
+        let captured = vec![
+            (
+                ustr("a.cpp"),
+                1,
+                "meet(Couch&".to_string(),
+                vec![Some("Couch".to_string()), None],
+            ),
+            (
+                ustr("a.cpp"),
+                5,
+                "meet(Human&".to_string(),
+                vec![Some("Human".to_string()), None],
+            ),
+            (
+                ustr("b.cpp"),
+                2,
+                "meet(Couch&".to_string(),
+                vec![Some("Couch".to_string()), Some("x".to_string())],
+            ),
+        ];
+        let tally = Tally::new("kind", &names, &captured, false).unwrap();
+        assert_eq!(tally.columns, vec!["kind"]);
+        assert_eq!((tally.matches, tally.distinct), (3, 2));
+        assert_eq!(tally.rows[0].values, vec![Some("Couch".to_string())]);
+        assert_eq!((tally.rows[0].count, tally.rows[0].files), (2, 2));
+        let tally = Tally::new("all", &names, &captured, true).unwrap();
+        assert_eq!(tally.columns, vec!["kind", "2"]);
+        assert_eq!(tally.distinct, 3);
+        assert_eq!(
+            Tally::new("2", &names, &captured, false).unwrap().columns,
+            vec!["2"]
+        );
+        assert!(Tally::new("nope", &names, &captured, false).is_err());
+        // (Without groups, the whole matches.)
+        let tally = Tally::new("all", &[], &captured, false).unwrap();
+        assert_eq!(tally.columns, vec!["match"]);
+        assert_eq!(tally.rows[0].values, vec![Some("meet(Couch&".to_string())]);
+
+        // (The query page's table, and its refusal box.)
+        let render = |results: serde_json::Value, too_expensive: serde_json::Value| {
+            let null = liquid::model::Value::Nil;
+            let globals = liquid::object!({
+                "results": liquid::model::to_value(&results).unwrap(),
+                "query": "q",
+                "interpretation": null.clone(),
+                "dwim": null.clone(),
+                "preset": "default",
+                "tree": "tests",
+                "search_tree": "tests",
+                "search_url": "/tests/search",
+                "query_search": true,
+                "search_rev": "",
+                "try_push": "",
+                "try_base": "",
+                "logs": null.clone(),
+                "debug": false,
+                "SYM_INFO_STR": "{}",
+                "file_facets": null,
+                "too_expensive": liquid::model::to_value(&too_expensive).unwrap(),
+            });
+            crate::templating::builder::build_and_parse_query_results()
+                .render(&globals)
+                .unwrap()
+        };
+        let tally = Tally::new("kind", &names, &captured, true).unwrap();
+        let page = render(
+            serde_json::json!({ "FlattenedResultsBundle": {
+                "path_kind_results": [],
+                "content_type": "text/plain",
+                "tally": tally,
+            }}),
+            serde_json::Value::Null,
+        );
+        assert!(page.contains("2 distinct values in"), "{}", page);
+        assert!(page.contains("<td><code>Couch</code></td>"));
+        assert!(page.contains(r#"href="/tests/source/a.cpp#1""#));
+        assert!(page.contains("the search stopped at a limit"));
+        assert!(!page.contains("query-too-expensive"));
+        let refused = crate::query_limits::TooExpensive {
+            what: "re-history".to_string(),
+            exceeded: vec![],
+            details: vec!["it considered Foo".to_string()],
+            hints: vec!["add path:".to_string()],
+            tier: crate::query_limits::Tier::Browser,
+            signed_in_allows: true,
+        };
+        let page = render(serde_json::json!([]), refused.to_json());
+        assert!(page.contains(r#"class="query-too-expensive""#));
+        assert!(page.contains("<li>it considered Foo</li>"));
+        assert!(page.contains("<li>add path:</li>"));
+        assert!(page.contains("Signed in, your limits would allow it."));
     }
 }

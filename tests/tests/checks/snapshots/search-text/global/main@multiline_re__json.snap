@@ -1,0 +1,45 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(tm).unwrap()"
+input_file: inputs/search-text/global/multiline_re__json
+---
+{
+  "by_file": [
+    {
+      "file": "big_cpp.cpp",
+      "path_kind": "normal",
+      "matches": [
+        {
+          "line_num": 348,
+          "bounds": {
+            "start": 7,
+            "end_exclusive": 27
+          },
+          "line_str": "  void meet(Couch& couch) {",
+          "hits": [
+            {
+              "start_line": 348,
+              "start": 7,
+              "end_line": 349,
+              "end": 9,
+              "captures": [
+                "shred"
+              ]
+            }
+          ],
+          "more_lines": [
+            "    shred(couch);"
+          ]
+        }
+      ]
+    }
+  ],
+  "pattern": {
+    "re": "meet\\(Couch& couch\\) \\{\\n\\s*(\\w+)",
+    "case_sensitive": false,
+    "spans_lines": true,
+    "capture_names": [
+      null
+    ]
+  }
+}

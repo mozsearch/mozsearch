@@ -539,6 +539,8 @@ impl AbstractServer for TryOverlay {
                             end_exclusive: m.end() as i32,
                         },
                         line_str: line.to_string(),
+                        hits: vec![],
+                        more_lines: vec![],
                     });
                     count += 1;
                 }

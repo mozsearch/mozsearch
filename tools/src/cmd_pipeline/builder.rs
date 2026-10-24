@@ -94,7 +94,7 @@ pub fn fab_command_from_opts(
 
         (Command::SearchIdentifiers(si), _) => Ok(Box::new(SearchIdentifiersCommand { args: si })),
 
-        (Command::SearchText(st), _) => Ok(Box::new(SearchTextCommand { args: st })),
+        (Command::SearchText(st), _) => Ok(Box::new(SearchTextCommand::new(st))),
 
         (Command::ShowHtml(sh), _) => Ok(Box::new(ShowHtmlCommand { args: sh })),
 

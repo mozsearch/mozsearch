@@ -622,6 +622,10 @@ pub struct FlattenedResultsBundle {
     /// `cmd_compile_results`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token_history: Option<TokenHistory>,
+    /// The text search's captured values, tallied, if it asked for that
+    /// (see `cmd_compile_results::Tally`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tally: Option<super::cmd_compile_results::Tally>,
 }
 
 impl FlattenedResultsBundle {
@@ -999,7 +1003,14 @@ impl FlattenedResultsByFile {
                         lines.push(if line == span.key_line {
                             highlight_row(content, &span.hits, &span.contents, pattern)
                         } else {
-                            highlight_row(content, &[], "", pattern)
+                            // (A multi-line match's later lines' parts.)
+                            let hits: Vec<(u32, u32)> = span
+                                .more_hits
+                                .iter()
+                                .filter(|(hit_line, _, _)| *hit_line == line)
+                                .map(|&(_, start, end)| (start, end))
+                                .collect();
+                            highlight_row(content, &hits, "", pattern)
                         });
                     }
                 }
@@ -1078,6 +1089,16 @@ pub struct FlattenedLineSpan {
     /// query_results/line_span.liquid gives it.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub facets: Option<String>,
+    /// For multi-line text matches (see `full_grep`), their parts on the
+    /// span's later lines: (line, start, end), byte ranges in the line
+    /// without its leading whitespace (like `hits`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub more_hits: Vec<(u32, u32, u32)>,
+    /// For text matches of a pattern with capture groups, what each match
+    /// (each of `hits`, in order) captured: a text per group (None if it
+    /// didn't take part), as `TextPattern::capture_names` names them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub captures: Vec<Vec<Option<String>>>,
 }
 
 fn pp_is_empty(pp: &Option<Vec<String>>) -> bool {
@@ -1595,6 +1616,8 @@ mod tests {
             pp: None,
             ctxtra: vec![],
             facets: None,
+            more_hits: vec![],
+            captures: vec![],
         };
         span.inline_context("tests", None);
         // On the key line, before its newline, with an escaped context and
@@ -1619,6 +1642,8 @@ mod tests {
             pp: None,
             ctxtra: vec!["fetches".to_string(), "toolchain".to_string()],
             facets: None,
+            more_hits: vec![],
+            captures: vec![],
         };
         span.inline_context("tests", None);
         assert!(span.contents.contains(
@@ -1640,6 +1665,8 @@ mod tests {
             pp: None,
             ctxtra: vec![],
             facets: None,
+            more_hits: vec![],
+            captures: vec![],
         };
         span.inline_context("tests", None);
         assert_eq!(span.contents, row(8, "text"));
@@ -1662,6 +1689,8 @@ mod tests {
             ]),
             ctxtra: vec![],
             facets: None,
+            more_hits: vec![],
+            captures: vec![],
         };
         span.inline_context("tests", None);
         assert!(span.contents.contains(
@@ -1694,6 +1723,8 @@ mod tests {
             pp: None,
             ctxtra: vec![],
             facets: None,
+            more_hits: vec![],
+            captures: vec![],
         };
         let mut by_file = FlattenedResultsByFile {
             file: ustr("a.h"),

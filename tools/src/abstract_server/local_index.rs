@@ -1043,6 +1043,8 @@ impl AbstractServer for LocalIndex {
                         end_exclusive: right,
                     },
                     line_str: result.line,
+                    hits: vec![],
+                    more_lines: vec![],
                 });
         }
 

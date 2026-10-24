@@ -1,0 +1,36 @@
+{%- comment -%}
+  The distinct values a text search's capture groups captured, most common
+  first (`tally:`; see `Tally` in cmd_compile_results.rs).
+{%- endcomment -%}
+{%- assign shown = tally.rows | size -%}
+<div class="query-tally">
+  <p>
+    {{- tally.distinct }} distinct value{% if tally.distinct != 1 %}s{% endif %} in
+    {{ tally.matches }} match{% if tally.matches != 1 %}es{% endif %}
+    {%- if shown < tally.distinct %} (the {{ shown }} most common shown){% endif %}
+    {%- if tally.incomplete %}; the search stopped at a limit, so these are of the matches it found{% endif %}.
+  </p>
+  <table class="query-tally-table">
+    <thead>
+      <tr>
+        {%- for column in tally.columns %}<th>{{ column | escape }}</th>{% endfor -%}
+        <th>Matches</th><th>Files</th><th>First matches</th>
+      </tr>
+    </thead>
+    <tbody>
+      {%- for row in tally.rows %}
+      <tr>
+        {%- for value in row.values %}<td><code>{{ value | escape }}</code></td>{% endfor -%}
+        <td class="query-tally-count">{{ row.count }}</td>
+        <td class="query-tally-count">{{ row.files }}</td>
+        <td>
+          {%- for place in row.places -%}
+          <a href="/{{ tree }}/source/{{ place[0] | escape }}#{{ place[1] }}" title="{{ place[0] | escape }}">{{ place[0] | split: "/" | last | escape }}:{{ place[1] }}</a>
+          {%- unless forloop.last %}, {% endunless -%}
+          {%- endfor -%}
+        </td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+</div>

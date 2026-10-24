@@ -3250,6 +3250,26 @@ h2.sp-called-heading {
   padding: 0.3em 0.6em;
   border-left: 3px solid var(--link-color);
 }
+/* A text search's tally of its captured values (see tally.liquid). */
+.query-tally {
+  margin: 0.5em 1rem;
+}
+.query-tally p {
+  margin: 0.3em 0;
+}
+.query-tally-table {
+  border-collapse: collapse;
+}
+.query-tally-table th,
+.query-tally-table td {
+  padding: 0.1em 0.6em;
+  border-bottom: 1px solid var(--page-border-color);
+  text-align: left;
+}
+.query-tally-count {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
 /* A query refused for costing too much (see query_limits.rs). */
 .query-too-expensive {
   border-left-color: var(--test-results-bad);

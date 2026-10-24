@@ -1,0 +1,35 @@
+---
+source: src/bin/test-index.rs
+expression: "&to_value(tm).unwrap()"
+input_file: inputs/search-text/global/lookbehind_re__json
+---
+{
+  "by_file": [
+    {
+      "file": "big_cpp.cpp",
+      "path_kind": "normal",
+      "matches": [
+        {
+          "line_num": 348,
+          "bounds": {
+            "start": 7,
+            "end_exclusive": 17
+          },
+          "line_str": "  void meet(Couch& couch) {",
+          "hits": [
+            {
+              "start_line": 348,
+              "start": 7,
+              "end_line": 348,
+              "end": 17
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "pattern": {
+    "re": "(?<=void )meet\\(Couch",
+    "case_sensitive": false
+  }
+}

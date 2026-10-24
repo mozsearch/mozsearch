@@ -1,0 +1,6 @@
+---
+source: src/bin/test-index.rs
+expression: "format!(\"Pipeline Error: {:?}\", err)"
+input_file: inputs/search-text/global/no_literal_re__json
+---
+Pipeline Error: TooExpensive(TooExpensive { what: "regular expression search", exceeded: [], details: ["\"\\\\w+\\\\n\\\\w+\" has no literal text that every match contains, so every file would need to be searched"], hints: ["add literal text that every match contains (ex: a name)", "or a narrow path: for the files to search"], tier: Local, signed_in_allows: false })
