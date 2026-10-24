@@ -10,9 +10,9 @@
   <p>This tree has no history to search.</p>
 {%- else %}
   <h2>
-    Where matches of
+    {% if grep.timeline %}How matches of{% else %}Where matches of{% endif %}
     {% if grep.text %}<code>{{ grep.text | escape }}</code>{% else %}<code>/{{ grep.pattern | escape }}/</code>{% endif %}
-    changed
+    changed{% if grep.timeline %} over time{% endif %}
   </h2>
   <p class="history-grep-plan">
     {%- if grep.tokens != empty %}
@@ -22,15 +22,53 @@
     {%- else %}
     {%- assign file_count = grep.files | size %}
     Checking the {{ grep.candidates }} revision{% if grep.candidates != 1 %}s{% endif %} of
-    {{ file_count }} file{% if file_count != 1 %}s{% endif %}.
+    {{ file_count }} file{% if file_count != 1 %}s{% endif %}
+    {%- if grep.scope %} which changed <code>{{ grep.scope | escape }}</code>, on its lines
+    {%- if grep.pruned %} (those changing the pattern's names in it: it changed too often to check every revision){% endif %}
+    {%- endif %}.
     {%- endif %}
     This page checked revisions {{ grep.page_start | plus: 1 }}–{{ grep.page_end }}
     ({{ grep.checked }} file version{% if grep.checked != 1 %}s{% endif %}).
     {%- if grep.merges_skipped > 0 %} Merges are skipped ({{ grep.merges_skipped }}).{% endif %}
   </p>
+  {%- if grep.timeline %}
+  {%- comment %}(The timeline's model, with its "<"s escaped; see history-timeline.js.){% endcomment %}
+  <script>var HISTORY_TIMELINE = {{ grep.timeline | json | replace: "<", "\u003c" }};</script>
+  <div id="history-timeline" class="history-timeline"></div>
+  <script defer src="/{{ tree }}/static/js/history-timeline.js"></script>
+  {%- for series in grep.timeline.series %}
+  <table class="history-grep-table history-timeline-table">
+    <caption>
+      {%- if series.label != "" %}<code>{{ series.label | escape }}</code>: {% endif -%}
+      {%- case grep.timeline.measure %}
+      {%- when "value" %}its value
+      {%- when "values" %}how many distinct values the matches captured
+      {%- else %}how many matches
+      {%- endcase %}, from {{ series.start }}
+    </caption>
+    <thead>
+      <tr><th>Date</th><th>Revision</th><th>Then</th><th>Changes</th></tr>
+    </thead>
+    <tbody>
+      {%- for point in series.points %}
+      <tr>
+        <td class="history-grep-date">{{ point.date }}</td>
+        <td class="history-grep-commit"><a href="/{{ tree }}/commit/{{ point.rev }}"><code>{{ point.rev | slice: 0, 12 }}</code></a> {{ point.header }}</td>
+        <td class="history-grep-count">{{ point.value }}</td>
+        <td>
+          {%- for added in point.added %}<div class="history-grep-added">+ <code>{{ added | escape }}</code></div>{% endfor -%}
+          {%- for removed in point.removed %}<div class="history-grep-removed">− <code>{{ removed | escape }}</code></div>{% endfor -%}
+        </td>
+      </tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- endfor %}
+  {%- endif %}
   {%- if grep.rows == empty %}
   <p>No changes to its matches in these revisions.</p>
   {%- else %}
+  {%- if grep.timeline %}<details class="history-grep-files"><summary>By file</summary>{% endif %}
   <table class="history-grep-table">
     <thead>
       <tr><th>Date</th><th>Revision</th><th>File</th><th>Matches</th><th>Changes</th></tr>
@@ -55,6 +93,7 @@
       {%- endfor %}
     </tbody>
   </table>
+  {%- if grep.timeline %}</details>{% endif %}
   {%- endif %}
   {%- if grep.next_page %}
   <p><a href="/{{ tree }}/query/{{ preset }}?q={{ base_query | append: " page:" | append: grep.next_page | url_encode }}">Keep going</a> (revisions {{ grep.next_page | plus: 1 }}–{{ grep.candidates }} of the candidates).</p>

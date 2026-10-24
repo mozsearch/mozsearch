@@ -47,6 +47,37 @@ pub struct HistoryGrepCommandArgs {
     /// Where the page starts in the candidate revisions.
     #[clap(long, value_parser, default_value = "0")]
     page: usize,
+
+    /// Chart the matches over time (`text-timeline:`, `re-timeline:`): all
+    /// of the candidates at once, preferring files' every revision.
+    #[clap(long, value_parser)]
+    timeline: bool,
+
+    /// Only matches in this scope (a class's, function's, ... qualified
+    /// name), in the files `path` names, or else in the files defining it.
+    #[clap(long, value_parser)]
+    scope: Option<String>,
+}
+
+/// The files defining `scope` (a qualified name), by its symbols' crossref
+/// definitions, up to `MAX_PATH_FILES`.
+async fn scope_files(server: &(dyn AbstractServer + Send + Sync), scope: &str) -> Vec<String> {
+    let mut files: Vec<String> = vec![];
+    let Ok(symbols) = server.search_identifiers(scope, true, false, 16).await else {
+        return files;
+    };
+    for (symbol, _) in symbols {
+        let Ok(Some(crossref)) = server.crossref_lookup(&symbol).await else {
+            continue;
+        };
+        for def in crossref.definitions.iter().flatten() {
+            let path = def.path.to_string();
+            if !files.contains(&path) && files.len() < MAX_PATH_FILES {
+                files.push(path);
+            }
+        }
+    }
+    files
 }
 
 #[derive(Debug)]
@@ -105,6 +136,12 @@ impl PipelineCommand for HistoryGrepCommand {
                 .map(|file| file.path.to_string())
                 .collect();
         }
+        // (A scope's files, if no path names them: those defining it.)
+        if let Some(scope) = &self.args.scope
+            && pathre.is_empty()
+        {
+            files = scope_files(server, scope).await;
+        }
         let args = HistoryGrepArgs {
             pattern,
             text,
@@ -115,7 +152,9 @@ impl PipelineCommand for HistoryGrepCommand {
             since: self.args.since.clone(),
             until: self.args.until.clone(),
             page: self.args.page,
-            prefer_files: false,
+            prefer_files: self.args.timeline,
+            timeline: self.args.timeline,
+            scope: self.args.scope.clone(),
         };
         match server.history_grep(&args, &self.limits, self.tier).await {
             Ok(found) => Ok(PipelineValues::HistoryGrep(found)),
@@ -191,12 +230,20 @@ mod tests {
             ..Default::default()
         };
         let page = render(&grep);
-        assert!(page.contains("Where matches of\n    <code>Foo</code>"), "{}", page);
+        assert!(
+            page.contains("Where matches of\n    <code>Foo</code>"),
+            "{}",
+            page
+        );
         assert!(page.contains("revisions 4–10"));
         assert!(page.contains("1 → 0"));
         assert!(page.contains("− <code>Foo();</code>"));
         // (The next page's link replaces the query's page.)
-        assert!(page.contains("q=text-history%3AFoo%20page%3A10"), "{}", page);
+        assert!(
+            page.contains("q=text-history%3AFoo%20page%3A10"),
+            "{}",
+            page
+        );
         grep.tokens.clear();
         grep.files = vec!["a.cpp".to_string()];
         grep.rows[0].added_values = vec![vec![Some("4.0".to_string())]];

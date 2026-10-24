@@ -654,6 +654,31 @@ args.positional = "$0"
 command = "history-grep"
 args.re = "$0"
 
+# The same, charted over time (see `Timeline` in history_grep.rs): the count
+# of the matches, or the values their capture groups captured (each file's
+# number, or how many distinct values), with what each revision added and
+# removed.
+[term.text-timeline]
+[[term.text-timeline.group.history-grep]]
+command = "history-grep"
+args.positional = "$0"
+args.timeline = true
+
+[term.re-timeline]
+[[term.re-timeline.group.history-grep]]
+command = "history-grep"
+args.re = "$0"
+args.timeline = true
+
+# Only matches in a scope (a class's, a function's, ... qualified name, ex:
+# `scope:js::Interpret`), in the files `path:` names or else in those
+# defining it: the revisions changing it, checked on its lines.
+[term.scope]
+[[term.scope.group.history-grep]]
+command = "history-grep"
+amend = true
+args.scope = "$0"
+
 [term.since]
 [[term.since.group.history-grep]]
 command = "history-grep"

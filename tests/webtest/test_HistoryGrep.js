@@ -76,3 +76,46 @@ add_task(async function test_HistoryGrepWithoutHistory() {
   ok(doc().querySelector(".history-grep").textContent.includes("no history"),
      "A tree without a history has nothing to search");
 });
+
+add_task(async function test_ReTimelineValues() {
+  await TestUtils.loadQuery("searchfox",
+                            `re-timeline:'^clap = .*version = "([^"]+)"' path:tools/Cargo.toml`);
+  await waitForCondition(() => doc().querySelector(".history-timeline-svg"), "The chart is there");
+  ok(doc().querySelector(".history-timeline-table caption").textContent.includes("its value"),
+     "Its line is the version's value");
+  const values = [...doc().querySelectorAll(".history-timeline-table tbody tr .history-grep-count")]
+        .map(cell => cell.textContent);
+  ok(values.includes("3.0") || values.includes("3"), "It was 3");
+  ok(values.includes("4.0") || values.includes("4"), "and then 4");
+  is(doc().querySelectorAll(".history-timeline-marker").length, values.length,
+     "A marker a change");
+});
+
+add_task(async function test_ReTimelineScope() {
+  // (The pipeline builder's match of the commands, which gained arms as
+  // commands were added, like an interpreter's switch's cases.)
+  await TestUtils.loadQuery("searchfox", "re-timeline:'Command::(\\w+)\\(' scope:fab_command_from_opts");
+  await waitForCondition(() => doc().querySelector(".history-timeline-table"), "The changes are there");
+  ok(doc().querySelector(".history-grep-plan").textContent.includes("fab_command_from_opts"),
+     "Only in the scope, found from its definition");
+  const rows = [...doc().querySelectorAll(".history-timeline-table tbody tr")];
+  const rename = rows.find(row => row.querySelector(".history-grep-added")?.textContent.includes("NormalizeUnstableData"));
+  ok(rename, "A revision added NormalizeUnstableData");
+  ok(rename.querySelector(".history-grep-removed")?.textContent.includes("ProductionFilter"),
+     "and removed ProductionFilter, which it replaced");
+  ok(rows.some(row => row.querySelector(".history-grep-added")?.textContent.includes("JQ")),
+     "Another added JQ");
+});
+
+add_task(async function test_TextTimeline() {
+  await TestUtils.loadQuery("searchfox", "text-timeline:structopt");
+  await waitForCondition(() => doc().querySelector(".history-timeline-svg"), "The chart is there");
+  ok(doc().querySelector(".history-timeline-table caption").textContent.includes("how many matches"),
+     "Its line is the matches' count");
+  const rows = [...doc().querySelectorAll(".history-timeline-table tbody tr")];
+  const count = row => Number(row.querySelector(".history-grep-count").textContent);
+  const upgrade = rows.findIndex(row => row.querySelector(`a[href="/searchfox/commit/${UPGRADE}"]`));
+  ok(upgrade > 0, "The upgrade is a change");
+  ok(count(rows[upgrade]) < count(rows[upgrade - 1]) / 2,
+     "which removed most of its matches (some comments mention it)");
+});
