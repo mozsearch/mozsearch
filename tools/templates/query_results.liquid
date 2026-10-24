@@ -38,6 +38,29 @@
       {%- if interpretation.changes != empty %} ({{ interpretation.changes | join: "; " | escape }}){% endif %}.
     </div>
     {%- endif %}
+    {%- if too_expensive %}
+    <div class="query-too-expensive" role="alert">
+      <p>{{ too_expensive.message | escape }}</p>
+      {%- if too_expensive.details != empty %}
+      <ul>
+        {%- for detail in too_expensive.details %}
+        <li>{{ detail | escape }}</li>
+        {%- endfor %}
+      </ul>
+      {%- endif %}
+      {%- if too_expensive.hints != empty %}
+      <p>It would cost less:</p>
+      <ul>
+        {%- for hint in too_expensive.hints %}
+        <li>{{ hint | escape }}</li>
+        {%- endfor %}
+      </ul>
+      {%- endif %}
+      {%- if too_expensive.signed_in_allows %}
+      <p>Signed in, your limits would allow it.</p>
+      {%- endif %}
+    </div>
+    {%- endif %}
     <div class="query-result">
       {% for result_pair in results %}
         {% case result_pair[0] %}

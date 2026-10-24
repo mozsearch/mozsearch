@@ -35,6 +35,7 @@ use tools::{
     logging::{LoggedSpan, init_logging},
     memory_budget,
     query::{chew_query::chew_query, dwim::dwim_target, normalize::normalize_input},
+    query_limits::{self, Tier},
     templating::builder::build_and_parse_query_results,
 };
 use tower::limit::GlobalConcurrencyLimitLayer;
@@ -278,7 +279,12 @@ async fn handle_query(
     };
     let try_meta = server.try_delta_meta();
 
-    let graph = {
+    let accept = headers
+        .get("accept")
+        .map(|x| x.to_str().unwrap_or("text/html"));
+    let make_html = !matches!(accept, Some("application/json"));
+
+    let mut graph = {
         let _log_entered = logged_span
             .as_ref()
             .map(|lspan| lspan.span.clone().entered());
@@ -287,6 +293,10 @@ async fn handle_query(
 
         build_pipeline_graph(server.clonify(), pipeline_plan)?
     };
+    // (What its commands may cost the server, by who it's from; see
+    // `query_limits`.)
+    let tier = Tier::of(class.as_deref().copied());
+    let expensive = graph.set_limits(&query_limits::limits_for(tier), tier);
 
     // (Its share of the memory budget, while it runs, by its estimate; a
     // bot's from outside is turned away if the budget can't have it now,
@@ -310,9 +320,32 @@ async fn handle_query(
     };
     let memory_before = memory_budget::cgroup_memory_mib();
 
-    let mut result = match &logged_span {
-        Some(lspan) => graph.run(true).instrument(lspan.span.clone()).await?,
-        _ => graph.run(true).await?,
+    let run_start = std::time::Instant::now();
+    let run = match &logged_span {
+        Some(lspan) => graph.run(true).instrument(lspan.span.clone()).await,
+        _ => graph.run(true).await,
+    };
+    // (An expensive query's time is charged to its client; see
+    // `admission::Charge`.)
+    let charge = expensive.then(|| {
+        admission::Charge(
+            run_start.elapsed().as_secs_f64() * admission::EXPENSIVE_TOKENS_PER_SECOND,
+        )
+    });
+    // (A query too expensive for its tier is a 422, with the page saying
+    // why, for a person; see `query_limits`.)
+    let mut too_expensive = None;
+    let mut result = match run {
+        Ok(result) => result,
+        Err(ServerError::TooExpensive(refused)) => {
+            println!("Refused {:?} ({:?}): {}", query, tier, refused.message());
+            if !make_html {
+                return Ok(ServerError::TooExpensive(refused).into_response());
+            }
+            too_expensive = Some(refused.to_json());
+            PipelineValues::Void
+        }
+        Err(err) => return Err(err),
     };
     if share.mib > 0 {
         println!(
@@ -325,11 +358,6 @@ async fn handle_query(
             memory_budget::cgroup_memory_mib()
         );
     }
-
-    let accept = headers
-        .get("accept")
-        .map(|x| x.to_str().unwrap_or("text/html"));
-    let make_html = !matches!(accept, Some("application/json"));
 
     // Where a DWIM rule says what a person searched for may be (see
     // `tools::query::dwim`; ex: a GitHub URL of a file, the tree's file), for
@@ -346,6 +374,7 @@ async fn handle_query(
         )
     });
     if make_html
+        && too_expensive.is_none()
         && let Some(target) = &dwim
         && finds_nothing(&result)
     {
@@ -437,12 +466,25 @@ async fn handle_query(
             "debug": maybe_log,
             "SYM_INFO_STR": sym_info_str,
             "file_facets": file_facets,
+            "too_expensive": too_expensive.clone().unwrap_or(Value::Null),
         });
 
         let output = templates.query_results.render(&globals)?;
-        Ok((header_map, Html(output)).into_response())
+        let status = match too_expensive {
+            Some(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            None => StatusCode::OK,
+        };
+        let mut response = (status, header_map, Html(output)).into_response();
+        if let Some(charge) = charge {
+            response.extensions_mut().insert(charge);
+        }
+        Ok(response)
     } else {
-        Ok((header_map, Json(result)).into_response())
+        let mut response = (header_map, Json(result)).into_response();
+        if let Some(charge) = charge {
+            response.extensions_mut().insert(charge);
+        }
+        Ok(response)
     }
 }
 
@@ -477,6 +519,9 @@ async fn admit(mut req: Request, next: Next) -> Response {
             let response = next.run(req).await;
             if let Some(admission::Processing(processing)) = response.extensions().get() {
                 admitted.charge(*processing);
+            }
+            if let Some(admission::Charge(tokens)) = response.extensions().get() {
+                admitted.charge_tokens(*tokens);
             }
             response
         }
@@ -520,6 +565,8 @@ async fn main() {
         // Cache steps' results beside the trees' index directories (see
         // `step_cache`).
         let config = config::load(&trees, false, None, None, None);
+        // (What queries may cost, by who they're from; see `query_limits`.)
+        query_limits::init(config.query_limits.clone());
         if let Some(tree) = config.trees.values().next() {
             let root =
                 tools::sidecars::sidecar_root(&tree.paths.index_path).with_file_name("step-cache");

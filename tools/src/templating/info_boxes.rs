@@ -167,6 +167,7 @@ mod tests {
             doc_trees_path: None,
             tree_index_paths: Default::default(),
             config_file: String::new(),
+            query_limits: Default::default(),
         };
         let boxes = InfoBoxes::load(&cfg);
         assert_eq!(boxes.names().collect::<Vec<_>>(), vec!["a", "b", "d", "e"]);

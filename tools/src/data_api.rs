@@ -271,6 +271,10 @@ fn server_error(route: &str, error: ServerError) -> ApiError {
             bad(details.message)
         }
         ServerError::Unsupported => not_found(format!("No {} for this tree", route)),
+        ServerError::TooExpensive(refused) => ApiError {
+            status: StatusCode::UNPROCESSABLE_ENTITY,
+            body: refused.to_json(),
+        },
         error => {
             log::warn!("data API {}: {:?}", route, error);
             ApiError {

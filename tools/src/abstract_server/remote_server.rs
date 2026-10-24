@@ -1040,6 +1040,7 @@ pub fn remote_trees_config(
         url_map_path: None,
         doc_trees_path: None,
         config_file: String::new(),
+        query_limits: Default::default(),
     }
 }
 

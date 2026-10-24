@@ -74,6 +74,13 @@ impl From<liquid::Error> for ServerError {
 
 impl IntoResponse for ServerError {
     fn into_response(self) -> Response {
+        if let ServerError::TooExpensive(refused) = &self {
+            return (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                axum::Json(refused.to_json()),
+            )
+                .into_response();
+        }
         let body = format!("Error: {:#?}", self);
         (StatusCode::INTERNAL_SERVER_ERROR, body).into_response()
     }
@@ -159,6 +166,9 @@ pub enum ServerError {
     /// timeout".
     TransientProblem(ErrorDetails),
     Unsupported,
+    /// The query's plan would cost more than its tier's limits allow (see
+    /// `query_limits`): a 422, `query-too-expensive`.
+    TooExpensive(Box<crate::query_limits::TooExpensive>),
 }
 
 /// Livegrep/codesearch bounds

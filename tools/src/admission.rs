@@ -260,6 +260,17 @@ impl Admissions {
 #[derive(Clone, Copy, Debug)]
 pub struct Processing(pub Duration);
 
+/// How many tokens more to take from the request's bucket, which an
+/// expensive query's response carries as an extension (its time's worth, at
+/// `EXPENSIVE_TOKENS_PER_SECOND`; see `PipelineCommand::set_limits`), so that
+/// a client's expensive queries (ex: history greps) slow its next ones.
+#[derive(Clone, Copy, Debug)]
+pub struct Charge(pub f64);
+
+/// How many tokens a second of an expensive query's processing takes (as the
+/// data API's requests' do; see `Pool::tokens_per_second`).
+pub const EXPENSIVE_TOKENS_PER_SECOND: f64 = 1.0;
+
 /// An admitted request (see `admit_request`): its class, with the permit to
 /// hold while it's processed, and its bucket, for charging it afterwards.
 pub struct Admitted {
@@ -280,11 +291,21 @@ impl Admitted {
     /// Charge the request's bucket for its processing time, if its pool
     /// charges for that (see `Pool::tokens_per_second`).
     pub fn charge(&self, processing: Duration) {
-        if let Some((client, class, pool)) = &self.bucket {
-            let tokens = processing.as_secs_f64() * pool.tokens_per_second();
-            if tokens > 0.0 {
-                ADMISSIONS.charge(client, *class, *pool, tokens);
-            }
+        self.charge_tokens(processing.as_secs_f64() * self.bucket_pool_rate());
+    }
+
+    fn bucket_pool_rate(&self) -> f64 {
+        self.bucket
+            .as_ref()
+            .map_or(0.0, |(_, _, pool)| pool.tokens_per_second())
+    }
+
+    /// Take `tokens` more from the request's bucket (see `Charge`).
+    pub fn charge_tokens(&self, tokens: f64) {
+        if let Some((client, class, pool)) = &self.bucket
+            && tokens > 0.0
+        {
+            ADMISSIONS.charge(client, *class, *pool, tokens);
         }
     }
 }

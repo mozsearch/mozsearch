@@ -28,6 +28,7 @@ use crate::{
 use super::highlight::highlight_row;
 use super::recency_html::blot_cell;
 use super::symbol_graph::{SymbolGraphCollection, SymbolGraphNodeSet};
+use crate::query_limits::{QueryLimits, Tier};
 
 #[derive(Clone, Debug, PartialEq, ValueEnum)]
 pub enum RecordType {
@@ -1289,6 +1290,15 @@ pub trait PipelineCommand: Debug {
     fn estimate(&self, _server: &(dyn AbstractServer + Send + Sync)) -> u64 {
         0
     }
+
+    /// Take the request's limits, of its tier, before it runs (see
+    /// `query_limits`), if it's one that checks them (commands default to
+    /// none, and to running unlimited, as searchfox-tool's do), and say
+    /// whether it is: an expensive command, whose query is charged for its
+    /// time (see `admission::Charge`).
+    fn set_limits(&mut self, _limits: &QueryLimits, _tier: Tier) -> bool {
+        false
+    }
 }
 
 /// A command that takes multiple inputs and produces a single output.
@@ -1467,6 +1477,21 @@ impl ServerPipelineGraph {
             })
             .max()
             .unwrap_or(0)
+    }
+
+    /// Give its commands the request's limits (see
+    /// `PipelineCommand::set_limits`): whether any of them is an expensive
+    /// one.
+    pub fn set_limits(&mut self, limits: &QueryLimits, tier: Tier) -> bool {
+        let mut expensive = false;
+        for phase in &mut self.pipelines {
+            for pipeline in &mut phase.pipelines {
+                for command in &mut pipeline.commands {
+                    expensive |= command.set_limits(limits, tier);
+                }
+            }
+        }
+        expensive
     }
 
     pub async fn run(self, traced: bool) -> Result<PipelineValues> {

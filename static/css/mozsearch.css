@@ -3244,10 +3244,20 @@ h2.sp-called-heading {
 }
 /* A query in a try push's context (see query_results.liquid). */
 .query-try-context,
-.query-interpretation {
+.query-interpretation,
+.query-too-expensive {
   margin: 0.5em 1rem;
   padding: 0.3em 0.6em;
   border-left: 3px solid var(--link-color);
+}
+/* A query refused for costing too much (see query_limits.rs). */
+.query-too-expensive {
+  border-left-color: var(--test-results-bad);
+  background-color: var(--info-box-warning-background);
+}
+.query-too-expensive p,
+.query-too-expensive ul {
+  margin: 0.3em 0;
 }
 .explore-commit-list ol {
   margin: 0.3em 0;

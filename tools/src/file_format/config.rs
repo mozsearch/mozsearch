@@ -130,6 +130,11 @@ pub struct ConfigJson {
 
     #[serde(default)]
     pub allow_webtest: Option<bool>,
+
+    /// What queries may cost the server, by who they're from: each tier's
+    /// overrides of its default limits (see `query_limits`).
+    #[serde(default)]
+    pub query_limits: crate::query_limits::QueryLimitsConfig,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -544,6 +549,8 @@ pub struct Config {
     /// The config file it was loaded from (ex: for the trees' hooks; see
     /// `try_import`).
     pub config_file: String,
+    /// See `ConfigJson::query_limits`.
+    pub query_limits: crate::query_limits::QueryLimitsConfig,
 }
 
 impl Config {
@@ -856,6 +863,7 @@ pub fn load(
         doc_trees_path,
         tree_index_paths,
         config_file: config_path.to_string(),
+        query_limits: config.query_limits,
     }
 }
 

@@ -430,6 +430,7 @@ fn server_error_message(err: &tools::abstract_server::ServerError) -> String {
             details.message.clone()
         }
         ServerError::Unsupported => "Not available for this tree".to_string(),
+        ServerError::TooExpensive(refused) => refused.message(),
     }
 }
 

@@ -58,6 +58,8 @@ pub mod step_cache;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod query;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod query_limits;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod regex_plan;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod rendered_docs;
