@@ -69,6 +69,8 @@ protobuf = "3.7.2"
 pulldown-cmark = { version = "0.13.0", default-features = false }
 query-parser = "0.2.0"
 regex = "1"
+regex-syntax = "0.8"
+fancy-regex = "0.20"
 reqwest = { version = "0.13.2", features = ["gzip"] }
 scip = "0.9.0"
 # NOTE: serde_json dependency is also defined above, without "std" feature.
