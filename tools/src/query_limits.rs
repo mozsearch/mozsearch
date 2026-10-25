@@ -76,6 +76,9 @@ pub struct QueryLimits {
     /// How many bytes of token journals (and other history files) it may read
     /// to plan.
     pub history_journal_bytes: u64,
+    /// How many seconds a history grep's page may take: past them, a page
+    /// stops (and links to the next), and a timeline is refused.
+    pub history_page_seconds: u64,
     /// How many files `re:`'s fuller engine (for patterns livegrep can't run;
     /// see `search-text`) may run the pattern on.
     pub grep_files: u64,
@@ -96,6 +99,7 @@ impl QueryLimits {
             history_blob_bytes: 256 * MIB,
             history_parses: 500,
             history_journal_bytes: 64 * MIB,
+            history_page_seconds: 20,
             grep_files: 5_000,
             grep_bytes: 512 * MIB,
         };
@@ -108,6 +112,7 @@ impl QueryLimits {
                 history_blob_bytes: browser.history_blob_bytes / 2,
                 history_parses: browser.history_parses / 2,
                 history_journal_bytes: browser.history_journal_bytes / 2,
+                history_page_seconds: browser.history_page_seconds / 2,
                 grep_files: browser.grep_files / 2,
                 grep_bytes: browser.grep_bytes / 2,
             },
@@ -118,6 +123,7 @@ impl QueryLimits {
                 history_blob_bytes: 0,
                 history_parses: 0,
                 history_journal_bytes: 0,
+                history_page_seconds: 0,
                 grep_files: browser.grep_files / 5,
                 grep_bytes: browser.grep_bytes / 8,
             },
@@ -128,6 +134,7 @@ impl QueryLimits {
                 history_blob_bytes: browser.history_blob_bytes * 8,
                 history_parses: browser.history_parses * 10,
                 history_journal_bytes: browser.history_journal_bytes * 8,
+                history_page_seconds: browser.history_page_seconds * 6,
                 grep_files: browser.grep_files * 4,
                 grep_bytes: browser.grep_bytes * 4,
             },
@@ -143,6 +150,7 @@ impl QueryLimits {
             history_blob_bytes: u64::MAX,
             history_parses: u64::MAX,
             history_journal_bytes: u64::MAX,
+            history_page_seconds: u64::MAX,
             grep_files: u64::MAX,
             grep_bytes: u64::MAX,
         }

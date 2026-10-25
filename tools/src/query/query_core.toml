@@ -679,6 +679,16 @@ command = "history-grep"
 amend = true
 args.scope = "$0"
 
+# History greps leave out backed out revisions with the backouts which undid
+# them; `backouts:show` shows them.
+[term.backouts]
+values = ["show", "hide"]
+[[term.backouts.group.history-grep]]
+command = "history-grep"
+when = "show"
+amend = true
+args.show-backouts = true
+
 [term.since]
 [[term.since.group.history-grep]]
 command = "history-grep"

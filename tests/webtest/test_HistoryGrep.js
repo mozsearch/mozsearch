@@ -119,3 +119,11 @@ add_task(async function test_TextTimeline() {
   ok(count(rows[upgrade]) < count(rows[upgrade - 1]) / 2,
      "which removed most of its matches (some comments mention it)");
 });
+
+add_task(async function test_HistoryGrepIgnored() {
+  // (A cut-off `until:` is text, which a history query says it ignored.)
+  await TestUtils.loadQuery("searchfox", "text-history:structopt until");
+  await waitForCondition(() => doc().querySelector(".history-grep"), "The view is there");
+  ok(doc().querySelector(".history-grep-ignored")?.textContent.includes("until"),
+     "It says what it ignored");
+});

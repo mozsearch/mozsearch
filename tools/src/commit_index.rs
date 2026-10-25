@@ -19,6 +19,17 @@
 //! - `by-bug` has `BUG<TAB>REV<TAB>ISO_DATE<TAB>FLAGS` lines and `by-phab` has
 //!   `DNNN<TAB>REV<TAB>ISO_DATE<TAB>FLAGS` lines, sorted, so lookups can
 //!   bisect.  FLAGS is "b" for backouts (by their summary lines) or "-".
+//! - `by-rev` has `REV<TAB>LANDED<TAB>POSITION` lines, sorted, for each
+//!   commit's place in the history (see `CommitPosition`).  Commit dates
+//!   aren't when commits landed, nor in their order: Mercurial had one date,
+//!   the author's, which git-cinnabar's commits have as their committer
+//!   dates, and which a patch kept when it landed weeks later or was relanded
+//!   after a backout (in firefox-main, 30% of 2016-2017's commits are dated
+//!   more than a day before one of their ancestors, and 8% more than 14
+//!   days).  A commit can't have landed before its parents, so LANDED is the
+//!   latest of its and its ancestors' commit dates, and POSITION numbers the
+//!   commits parents first, so that ordering by both is topological, with
+//!   dates which only go forward.
 //!
 //! Trees like try (or review), which process many unrelated heads based on
 //! other branches' revisions, accumulate their heads in one index, which
@@ -35,6 +46,7 @@
 //! (`backs_out` and `backed_out_by`), which the explore pages read (see
 //! `hyperblame::explore::mark_history_backouts`).
 
+use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -46,7 +58,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 /// Bump this when the files' contents change so existing indexes get rebuilt.
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 struct State {
@@ -58,6 +70,9 @@ struct State {
     accumulate: bool,
     #[serde(default)]
     read: Vec<String>,
+    /// How many commits `by-rev` has numbered (the next one's POSITION).
+    #[serde(default)]
+    revs: u64,
 }
 
 fn read_state(dir: &Path) -> State {
@@ -106,9 +121,40 @@ pub fn commit_ref(commit: &git2::Commit) -> CommitRef {
 
 /// A commit's date as the index has it, in UTC.
 fn iso_date(commit: &git2::Commit) -> String {
-    chrono::DateTime::from_timestamp(commit.time().seconds(), 0)
+    iso_seconds(commit.time().seconds())
+}
+
+fn iso_seconds(seconds: i64) -> String {
+    chrono::DateTime::from_timestamp(seconds, 0)
         .map(|date| date.format("%Y-%m-%dT%H:%M:%SZ").to_string())
         .unwrap_or_default()
+}
+
+fn iso_to_seconds(iso: &str) -> Option<i64> {
+    chrono::DateTime::parse_from_rfc3339(iso)
+        .ok()
+        .map(|date| date.timestamp())
+}
+
+/// Where a commit is in the history (see `by-rev` in the module's comment).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CommitPosition {
+    /// When it landed, at the earliest: the latest of its and its ancestors'
+    /// commit dates (ISO 8601, in UTC).
+    pub landed: String,
+    /// Whether it's from an index this one reads through to (see
+    /// `UpdateOptions::read`), whose commits come before this one's.
+    pub base: bool,
+    /// Its place among its index's commits, parents first.
+    pub position: u64,
+}
+
+impl CommitPosition {
+    /// A key ordering commits topologically (parents first), by when they
+    /// landed.
+    pub fn order_key(&self) -> (&str, bool, u64) {
+        (&self.landed, !self.base, self.position)
+    }
 }
 
 /// The bug numbers a commit message's summary line mentions, like
@@ -164,6 +210,75 @@ pub fn ref_branch(git_ref: &str) -> &str {
 /// `commit-index/`.
 const UNBRANCHED_FILES: [&str; 3] = ["state.json", "by-bug", "by-phab"];
 
+/// A sorted file of `KEY<TAB>FIELDS...` lines, mapped, for bisecting.
+struct SortedLines {
+    mmap: Option<Mmap>,
+}
+
+impl SortedLines {
+    fn open(path: &Path) -> SortedLines {
+        let mmap = fs::File::open(path)
+            .ok()
+            .and_then(|file| unsafe { Mmap::map(&file) }.ok());
+        SortedLines { mmap }
+    }
+
+    /// The fields after the key of the lines for `key`.
+    fn find(&self, key: &str) -> Vec<Vec<String>> {
+        let Some(mmap) = &self.mmap else {
+            return vec![];
+        };
+        let data = &mmap[..];
+        let line_end = |start: usize| {
+            data[start..]
+                .iter()
+                .position(|&b| b == b'\n')
+                .map_or(data.len(), |i| start + i)
+        };
+        // Bisect for the first line starting with the key.  Every line
+        // starting before `low` sorts before it, and every line starting at or
+        // after `high` doesn't.
+        let prefix = format!("{}\t", key);
+        let prefix = prefix.as_bytes();
+        let mut low = 0;
+        let mut high = data.len();
+        while low < high {
+            let mid = low + (high - low) / 2;
+            let start = data[low..mid]
+                .iter()
+                .rposition(|&b| b == b'\n')
+                .map_or(low, |i| low + i + 1);
+            let end = line_end(start);
+            if &data[start..end] < prefix {
+                low = end + 1;
+            } else {
+                high = start;
+            }
+        }
+        let mut found = vec![];
+        let mut start = low;
+        while start < data.len() && data[start..].starts_with(prefix) {
+            let end = line_end(start);
+            let line = String::from_utf8_lossy(&data[start + prefix.len()..end]);
+            found.push(line.split('\t').map(str::to_string).collect());
+            start = end + 1;
+        }
+        found
+    }
+}
+
+/// The `by-rev` fields of a line (see `SortedLines::find`).
+fn parse_position(fields: &[String], base: bool) -> Option<CommitPosition> {
+    match fields {
+        [landed, position, ..] => Some(CommitPosition {
+            landed: landed.clone(),
+            base,
+            position: position.parse().ok()?,
+        }),
+        _ => None,
+    }
+}
+
 fn read_lines(path: &Path) -> Vec<String> {
     fs::read_to_string(path)
         .map(|text| text.lines().map(str::to_string).collect())
@@ -190,14 +305,14 @@ pub fn update(repo: &Repository, head: Oid, dir: &Path) -> Result<usize, String>
     update_with(repo, head, dir, &UpdateOptions::default(), &[])
 }
 
-/// `update` with `options`, hiding `base_heads` (the processed heads of the
-/// branches `options.read` names).
+/// `update` with `options`, hiding the processed heads of `bases` (the indexes
+/// of the branches `options.read` names), which have their commits.
 fn update_with(
     repo: &Repository,
     head: Oid,
     dir: &Path,
     options: &UpdateOptions,
-    base_heads: &[Oid],
+    bases: &[CommitIndex],
 ) -> Result<usize, String> {
     fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     let state_path = dir.join("state.json");
@@ -214,23 +329,30 @@ fn update_with(
         || rewritten
         || state.accumulate != options.accumulate
         || state.read != options.read;
-    let (mut by_bug, mut by_phab) = if rebuild {
+    let (mut by_bug, mut by_phab, mut by_rev) = if rebuild {
         state = State {
             schema: SCHEMA_VERSION,
             heads: vec![],
             accumulate: options.accumulate,
             read: options.read.clone(),
+            revs: 0,
         };
-        (vec![], vec![])
+        (vec![], vec![], vec![])
     } else {
         (
             read_lines(&dir.join("by-bug")),
             read_lines(&dir.join("by-phab")),
+            read_lines(&dir.join("by-rev")),
         )
     };
+    // (The processed commits' lines, sorted as written, for their landing
+    // dates.)
+    let processed_revs = by_rev.len();
 
     let mut walk = repo.revwalk().map_err(|e| e.to_string())?;
-    walk.set_sorting(Sort::NONE).map_err(|e| e.to_string())?;
+    // (Parents first, for their landing dates and positions.)
+    walk.set_sorting(Sort::TOPOLOGICAL | Sort::REVERSE)
+        .map_err(|e| e.to_string())?;
     walk.push(head).map_err(|e| e.to_string())?;
     for processed in &state.heads {
         let oid = Oid::from_str(processed).map_err(|e| e.to_string())?;
@@ -239,9 +361,18 @@ fn update_with(
             return Err(format!("Couldn't hide processed head {}", oid));
         }
     }
-    for oid in base_heads {
-        let _ = walk.hide(*oid);
+    for base in bases {
+        for processed in read_state(&base.dir).heads {
+            if let Ok(oid) = Oid::from_str(&processed) {
+                let _ = walk.hide(oid);
+            }
+        }
     }
+    let base_revs: Vec<SortedLines> = bases
+        .iter()
+        .map(|base| SortedLines::open(&base.dir.join("by-rev")))
+        .collect();
+    let mut landed: HashMap<Oid, i64> = HashMap::new();
     let mut count = 0;
     for oid in walk {
         let oid = oid.map_err(|e| e.to_string())?;
@@ -255,11 +386,40 @@ fn update_with(
         for phab in message_phab_revs(&message) {
             by_phab.push(format!("{}\t{}\t{}\t{}", phab, oid, date, flags));
         }
+        // (A parent is this walk's, or processed before, here or in a base
+        // index, or else, ex: a gone try push's, has its own date.)
+        let mut when = commit.time().seconds();
+        for parent in commit.parents() {
+            let rev = parent.id().to_string();
+            let parent_landed = landed
+                .get(&parent.id())
+                .copied()
+                .or_else(|| {
+                    let lines = &by_rev[..processed_revs];
+                    let i = lines.partition_point(|line| line.as_str() < rev.as_str());
+                    lines
+                        .get(i)
+                        .and_then(|line| line.strip_prefix(&format!("{}\t", rev)))
+                        .and_then(|fields| iso_to_seconds(fields.split('\t').next()?))
+                })
+                .or_else(|| {
+                    base_revs.iter().find_map(|lines| {
+                        let fields = lines.find(&rev).into_iter().next()?;
+                        iso_to_seconds(&parse_position(&fields, true)?.landed)
+                    })
+                })
+                .unwrap_or_else(|| parent.time().seconds());
+            when = when.max(parent_landed);
+        }
+        landed.insert(oid, when);
+        by_rev.push(format!("{}\t{}\t{}", oid, iso_seconds(when), state.revs));
+        state.revs += 1;
         count += 1;
     }
 
     write_lines(&dir.join("by-bug"), by_bug).map_err(|e| e.to_string())?;
     write_lines(&dir.join("by-phab"), by_phab).map_err(|e| e.to_string())?;
+    write_lines(&dir.join("by-rev"), by_rev).map_err(|e| e.to_string())?;
     // Only the new head matters from now on, since it includes the others it
     // was built on, unless we accumulate heads.
     if !options.accumulate {
@@ -288,19 +448,15 @@ pub fn update_branch(
             fs::remove_file(&path).map_err(|e| e.to_string())?;
         }
     }
-    let base_heads: Vec<Oid> = options
+    let bases: Vec<CommitIndex> = options
         .read
         .iter()
-        .flat_map(|base| read_state(&branch_dir(index_root, base)).heads)
-        .filter_map(|head| Oid::from_str(&head).ok())
+        .map(|base| CommitIndex {
+            dir: branch_dir(index_root, base),
+            bases: vec![],
+        })
         .collect();
-    update_with(
-        repo,
-        head,
-        &branch_dir(index_root, branch),
-        options,
-        &base_heads,
-    )
+    update_with(repo, head, &branch_dir(index_root, branch), options, &bases)
 }
 
 /// The branch whose index is in `dir` under a `commit-index/` (see
@@ -379,58 +535,46 @@ impl CommitIndex {
     }
 
     fn lookup(&self, file: &str, key: &str) -> Vec<CommitRef> {
-        let Ok(file) = fs::File::open(self.dir.join(file)) else {
-            return vec![];
-        };
-        let Ok(mmap) = (unsafe { Mmap::map(&file) }) else {
-            return vec![];
-        };
-        let data = &mmap[..];
-        let line_end = |start: usize| {
-            data[start..]
-                .iter()
-                .position(|&b| b == b'\n')
-                .map_or(data.len(), |i| start + i)
-        };
-        // Bisect for the first line starting with the key.  Every line
-        // starting before `low` sorts before it, and every line starting at or
-        // after `high` doesn't.
-        let prefix = format!("{}\t", key);
-        let prefix = prefix.as_bytes();
-        let mut low = 0;
-        let mut high = data.len();
-        while low < high {
-            let mid = low + (high - low) / 2;
-            let start = data[low..mid]
-                .iter()
-                .rposition(|&b| b == b'\n')
-                .map_or(low, |i| low + i + 1);
-            let end = line_end(start);
-            if &data[start..end] < prefix {
-                low = end + 1;
-            } else {
-                high = start;
-            }
-        }
-        let mut refs = vec![];
-        let mut start = low;
-        while start < data.len() && data[start..].starts_with(prefix) {
-            let end = line_end(start);
-            let line = String::from_utf8_lossy(&data[start..end]);
-            let mut fields = line.split('\t').skip(1);
-            if let (Some(rev), Some(iso_date), Some(flags)) =
-                (fields.next(), fields.next(), fields.next())
-            {
-                refs.push(CommitRef {
-                    rev: rev.to_string(),
-                    iso_date: iso_date.to_string(),
+        let mut refs: Vec<CommitRef> = SortedLines::open(&self.dir.join(file))
+            .find(key)
+            .into_iter()
+            .filter_map(|fields| match fields.as_slice() {
+                [rev, iso_date, flags, ..] => Some(CommitRef {
+                    rev: rev.clone(),
+                    iso_date: iso_date.clone(),
                     backout: flags == "b",
-                });
-            }
-            start = end + 1;
-        }
+                }),
+                _ => None,
+            })
+            .collect();
         refs.sort_by(|a, b| a.iso_date.cmp(&b.iso_date).then(a.rev.cmp(&b.rev)));
         refs
+    }
+
+    /// Where each of `revs` is in the history (see `CommitPosition`), of
+    /// those the index has: from the indexes this reads through to, whose
+    /// commits come first, or else from this one.
+    pub fn positions<'a>(
+        &self,
+        revs: impl IntoIterator<Item = &'a str>,
+    ) -> HashMap<String, CommitPosition> {
+        let own = SortedLines::open(&self.dir.join("by-rev"));
+        let bases: Vec<SortedLines> = self
+            .bases
+            .iter()
+            .map(|base| SortedLines::open(&base.dir.join("by-rev")))
+            .collect();
+        let mut positions = HashMap::new();
+        for rev in revs {
+            let found = bases
+                .iter()
+                .find_map(|lines| parse_position(lines.find(rev).first()?, true))
+                .or_else(|| parse_position(own.find(rev).first()?, false));
+            if let Some(position) = found {
+                positions.insert(rev.to_string(), position);
+            }
+        }
+        positions
     }
 
     /// The commits mentioning a bug, oldest first.
@@ -624,6 +768,98 @@ mod tests {
             .collect();
         assert_eq!(main_others, vec!["beta", "try"]);
         assert_eq!(try_index.branch().as_deref(), Some("try"));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn test_positions() {
+        let dir =
+            std::env::temp_dir().join(format!("commit-index-positions-{}", std::process::id()));
+        let repo = Repository::init(dir.join("repo")).unwrap();
+        let tree = repo
+            .find_tree(repo.index().unwrap().write_tree().unwrap())
+            .unwrap();
+        let commit = |message: &str, parents: &[Oid], seconds: i64| -> Oid {
+            let sig =
+                git2::Signature::new("A", "a@example.com", &git2::Time::new(seconds, 0)).unwrap();
+            let parents: Vec<git2::Commit> = parents
+                .iter()
+                .map(|p| repo.find_commit(*p).unwrap())
+                .collect();
+            let parents: Vec<&git2::Commit> = parents.iter().collect();
+            repo.commit(None, &sig, &sig, message, &tree, &parents)
+                .unwrap()
+        };
+        // (A patch dated before it landed, as hg's were, backed out and
+        // relanded with its date; and a branch merged in.)
+        let a = commit("Bug 1 - a", &[], 1_000);
+        let b = commit("Bug 2 - b", &[a], 2_000);
+        let land = commit("Bug 3 - land", &[b], 500);
+        let out = commit("Backed out changeset 0123456789ab (bug 3)", &[land], 3_000);
+        let side = commit("Bug 4 - side", &[b], 2_500);
+        let reland = commit("Bug 3 - land", &[out], 500);
+        let merge = commit("Merge", &[reland, side], 3_100);
+
+        let root = dir.join("commit-index");
+        let plain = UpdateOptions::default();
+        update_branch(&repo, reland, &root, "main", &plain).unwrap();
+        let index = CommitIndex::open_branch(&root, "main").unwrap();
+        let revs = [a, b, land, out, reland].map(|oid| oid.to_string());
+        let positions = index.positions(revs.iter().map(String::as_str));
+        let landed: Vec<&str> = revs
+            .iter()
+            .map(|rev| positions[rev].landed.as_str())
+            .collect();
+        assert_eq!(
+            landed,
+            vec![
+                "1970-01-01T00:16:40Z",
+                "1970-01-01T00:33:20Z",
+                "1970-01-01T00:33:20Z",
+                "1970-01-01T00:50:00Z",
+                "1970-01-01T00:50:00Z"
+            ]
+        );
+        let mut by_order = revs.to_vec();
+        by_order.reverse();
+        by_order.sort_by(|x, y| positions[x].order_key().cmp(&positions[y].order_key()));
+        assert_eq!(by_order, revs.to_vec());
+
+        // (An update numbers its commits after the processed ones, with
+        // landing dates from their processed parents.)
+        update_branch(&repo, merge, &root, "main", &plain).unwrap();
+        let positions = index.positions(
+            [side, merge, reland]
+                .map(|oid| oid.to_string())
+                .iter()
+                .map(String::as_str),
+        );
+        assert!(positions[&merge.to_string()].position > positions[&reland.to_string()].position);
+        assert_eq!(positions[&merge.to_string()].landed, "1970-01-01T00:51:40Z");
+        assert_eq!(positions[&side.to_string()].landed, "1970-01-01T00:41:40Z");
+
+        // (A try index's commits come after its base's, which it reads
+        // through to, and land after their parents there.)
+        let try_options = UpdateOptions {
+            accumulate: true,
+            read: vec!["main".to_string()],
+        };
+        let push = commit("Bug 5 - try", &[merge], 100);
+        update_branch(&repo, push, &root, "try", &try_options).unwrap();
+        let try_index = CommitIndex::open_branch(&root, "try").unwrap();
+        let positions = try_index.positions(
+            [push, merge]
+                .map(|oid| oid.to_string())
+                .iter()
+                .map(String::as_str),
+        );
+        let (push_at, merge_at) = (
+            &positions[&push.to_string()],
+            &positions[&merge.to_string()],
+        );
+        assert!(!push_at.base && merge_at.base);
+        assert_eq!(push_at.landed, merge_at.landed);
+        assert!(push_at.order_key() > merge_at.order_key());
         fs::remove_dir_all(&dir).unwrap();
     }
 

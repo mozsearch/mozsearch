@@ -5775,3 +5775,7 @@ textarea.monospace {
 .history-grep-files {
   margin: 0.5em 0;
 }
+.history-grep-ignored {
+  border-left: 3px solid var(--test-results-bad);
+  padding-left: 0.5em;
+}

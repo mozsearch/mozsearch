@@ -40,6 +40,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::abstract_server::{ErrorDetails, ErrorLayer, ServerError};
 use crate::cmd_pipeline::full_grep::{capture_names, compile, file_matches};
+use crate::commit_index::CommitPosition;
 use crate::file_format::history::rev_summaries::RevSummaryRecord;
 use crate::file_format::history::timeline_common::JournalVersionRef;
 use crate::file_format::history::timeline_files_delta::FileDeltaRecord;
@@ -90,6 +91,13 @@ pub struct HistoryGrepArgs {
     /// revisions changing it, and the pattern on its lines (see
     /// `TreeHistory::container_lines`).
     pub scope: Option<String>,
+    /// Show the revisions which were backed out, and their backouts, rather
+    /// than leaving out those whose backout undid them (see
+    /// `hide_backout_pairs`).
+    pub show_backouts: bool,
+    /// What the query had that a history grep doesn't take (ex: a cut-off
+    /// `until:`), which its page says it ignored.
+    pub ignored: Option<String>,
 }
 
 /// What it found.  (Every field is serialized, for the template.)
@@ -129,6 +137,18 @@ pub struct HistoryGrep {
     pub scope: Option<String>,
     pub parses: usize,
     pub pruned: bool,
+    /// How many backed out revisions' changes, with their backouts', it left
+    /// out (see `hide_backout_pairs`).
+    pub backouts_hidden: usize,
+    /// What the query had that it ignored (see `HistoryGrepArgs::ignored`).
+    pub ignored: Option<String>,
+    /// Whether the page stopped at its time limit (see `QueryLimits::
+    /// history_page_seconds`).
+    pub out_of_time: bool,
+    /// Whether the candidates are ordered by when they landed, parents first
+    /// (see `tools::commit_index`), rather than in the journals' order (see
+    /// `merge_sequences`), for a tree whose commit index doesn't have them.
+    pub landing_order: bool,
 }
 
 /// A history grep's matches over time (`text-timeline:`, `re-timeline:`): a
@@ -157,7 +177,9 @@ pub struct TimelineSeries {
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct TimelinePoint {
     pub rev: String,
+    /// See `HistoryGrepRow::date`.
     pub date: String,
+    pub committed: Option<String>,
     /// The commit message's first line, as HTML.
     pub header: String,
     pub value: f64,
@@ -175,7 +197,12 @@ const MAX_VALUE_SERIES: usize = 8;
 #[derive(Clone, Debug, Default, Serialize)]
 pub struct HistoryGrepRow {
     pub rev: String,
+    /// When it landed (YYYY-MM-DD), at the earliest (see `tools::
+    /// commit_index`), or, without the commit index, its commit date.
     pub date: String,
+    /// Its commit date, if it was another day (ex: a patch landed weeks after
+    /// it was written, or relanded after a backout, in hg's history).
+    pub committed: Option<String>,
     /// The commit message's first line, as HTML (see `header_html`).
     pub header: String,
     /// Whether it backs out other revisions.
@@ -375,10 +402,12 @@ pub fn history_grep(
     tier: Tier,
     names: &dyn Fn(&str, NameMatch, usize) -> Option<(Vec<String>, bool)>,
 ) -> Result<HistoryGrep, ServerError> {
-    let what = if args.text.is_some() {
-        "text-history"
-    } else {
-        "re-history"
+    let started = std::time::Instant::now();
+    let what = match (args.text.is_some(), args.timeline) {
+        (true, false) => "text-history",
+        (false, false) => "re-history",
+        (true, true) => "text-timeline",
+        (false, true) => "re-timeline",
     };
     let refuse = |estimates: &[(&str, u64)], details: Vec<String>, hints: Vec<String>| {
         TooExpensive::check(what, estimates, limits, tier).map(|mut refused| {
@@ -434,6 +463,7 @@ pub fn history_grep(
         case_sensitive: args.case_sensitive,
         capture_names: capture_names(&re),
         page_start: args.page,
+        ignored: args.ignored.clone(),
         ..Default::default()
     };
 
@@ -473,6 +503,9 @@ pub fn history_grep(
                 .as_ref()
                 .is_none_or(|(token_bytes, _)| files_bytes <= *token_bytes));
     let mut candidates: BTreeMap<String, Option<NaiveDate>> = BTreeMap::new();
+    // (Each journal's candidates in its order, newest first: the order the
+    // history processed them, which is topological; see `merge_sequences`.)
+    let mut sequences: Vec<Vec<(String, Option<NaiveDate>)>> = vec![];
     let in_window = |date: Option<NaiveDate>| {
         date.is_none_or(|date| since.is_none_or(|s| date >= s) && until.is_none_or(|u| date <= u))
     };
@@ -516,6 +549,7 @@ pub fn history_grep(
             // (The journal follows its file through renames: older records
             // are of the path it was renamed or copied from.)
             let mut path = file.clone();
+            let mut sequence = vec![];
             for record in &records {
                 let (date, revs) = file_record_revs(record);
                 let moved_from = match record {
@@ -546,8 +580,10 @@ pub fn history_grep(
                 for rev in revs {
                     candidates.entry(rev.clone()).or_insert(date);
                     rev_files.entry(rev.clone()).or_default().push(at.clone());
+                    sequence.push((rev.clone(), date));
                 }
             }
+            sequences.push(sequence);
         }
         // (Too many of the scope's revisions: those changing the pattern's
         // names in it, if it has any, which can miss changes to the rest of
@@ -615,21 +651,30 @@ pub fn history_grep(
             else {
                 continue;
             };
+            let mut sequence = vec![];
             for record in &journal.records {
                 let (date, revs) = token_record_revs(record);
                 if in_window(date) {
                     for rev in revs {
                         candidates.entry(rev.clone()).or_insert(date);
+                        sequence.push((rev.clone(), date));
                     }
                 }
             }
+            sequences.push(sequence);
         }
         result.tokens = chosen_tokens.iter().cloned().collect();
     }
 
-    // (Newest first.)
-    let mut ordered: Vec<(String, Option<NaiveDate>)> = candidates.into_iter().collect();
-    ordered.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    // (Newest first: by when they landed, parents first, from the commit
+    // index, rather than by their commit dates (see `tools::commit_index`);
+    // or, without it, in the journals' order.)
+    let mut ordered = merge_sequences(&sequences, &|rev| candidates.contains_key(rev));
+    let positions = history
+        .commit_index()
+        .map(|index| index.positions(ordered.iter().map(|(rev, _)| rev.as_str())))
+        .unwrap_or_default();
+    result.landing_order = landing_order(&mut ordered, &positions);
     result.candidates = ordered.len();
     if let Some(refused) = refuse(
         &[("history_revisions", ordered.len() as u64)],
@@ -651,27 +696,81 @@ pub fn history_grep(
         return Err(refused);
     }
 
-    // (A timeline checks all of its candidates at once.)
-    if args.timeline
-        && let Some(refused) = refuse(
-            &[("history_candidates", ordered.len() as u64)],
+    // (A timeline checks all of its candidates at once, so it's refused now
+    // if what that takes is over the limits: the files' journals say how
+    // many file versions; the files' sizes now estimate theirs; and a scope
+    // takes a parse of each version.)
+    if args.timeline {
+        let pairs: u64 = if use_files {
+            ordered
+                .iter()
+                .map(|(rev, _)| rev_files.get(rev).map_or(0, |files| files.len() as u64))
+                .sum()
+        } else {
+            ordered.len() as u64
+        };
+        let mut bytes_estimate = 0;
+        if use_files && let Ok(head_tree) = source.head().and_then(|head| head.peel_to_tree()) {
+            let sizes: Vec<u64> = args
+                .files
+                .iter()
+                .filter_map(|file| blob_at(source, &head_tree, file).map(|(_, size)| size))
+                .collect();
+            if !sizes.is_empty() {
+                bytes_estimate = 2 * pairs * (sizes.iter().sum::<u64>() / sizes.len() as u64);
+            }
+        }
+        let parses = if args.scope.is_some() { 2 * pairs } else { 0 };
+        if let Some(refused) = refuse(
+            &[
+                ("history_candidates", pairs),
+                ("history_blob_bytes", bytes_estimate),
+                ("history_parses", parses),
+            ],
             vec![format!(
-                "A timeline checks all of its {} revisions at once",
-                ordered.len()
+                "A timeline checks all of its {} revisions at once ({} file versions{})",
+                ordered.len(),
+                pairs,
+                if args.scope.is_some() {
+                    ", finding the scope's lines in each"
+                } else {
+                    ""
+                }
             )],
             vec![
-                "since:YYYY-MM-DD, for the recent history".to_string(),
+                "since:YYYY-MM-DD and until:YYYY-MM-DD, for a shorter time".to_string(),
                 "a narrower path:".to_string(),
             ],
-        )
-    {
-        return Err(refused);
+        ) {
+            return Err(refused);
+        }
     }
 
     // ## The page: each candidate revision's files, checked.
     let mut changes: Vec<Change> = vec![];
     let mut index = args.page;
     while index < ordered.len() {
+        // (A page stops at its time limit; a timeline, which can't, is
+        // refused.)
+        let elapsed = started.elapsed().as_secs();
+        if result.checked > 0 && elapsed >= limits.history_page_seconds {
+            if args.timeline
+                && let Some(refused) = refuse(
+                    &[("history_page_seconds", elapsed + 1)],
+                    vec![format!(
+                        "A timeline checks all of its {} revisions at once, and {} of them took {} s",
+                        ordered.len(),
+                        index - args.page,
+                        elapsed
+                    )],
+                    vec!["since:YYYY-MM-DD and until:YYYY-MM-DD, for a shorter time".to_string()],
+                )
+            {
+                return Err(refused);
+            }
+            result.out_of_time = true;
+            break;
+        }
         let rev = &ordered[index].0;
         let Some(summary) = read_rev_summary(&history.path, rev) else {
             result.unsummarized += 1;
@@ -686,7 +785,14 @@ pub fn history_grep(
             index += 1;
             continue;
         };
-        if commit.parent_count() > 1 {
+        // (Merges are skipped, as `git log -S` does, but for a timeline of
+        // values: where a side branch's commits lacked what the merge's other
+        // side had (ex: a name another branch's backout restored), only the
+        // merge removes it, so its change from its first parent counts,
+        // which applying again what the side branch's commits applied doesn't
+        // change, since values are sets; see `build_timeline`.)
+        let merge = commit.parent_count() > 1;
+        if merge && !(args.timeline && !result.capture_names.is_empty() && use_files) {
             result.merges_skipped += 1;
             index += 1;
             continue;
@@ -785,6 +891,13 @@ pub fn history_grep(
         result.checked += pairs.len();
         result.bytes += bytes;
         let parent = commit.parent_id(0).ok();
+        // (When it landed, if the commit index knows, with its commit date if
+        // that's another day.)
+        let committed: String = summary.iso_date.chars().take(10).collect();
+        let date = positions.get(rev).map_or(committed.clone(), |position| {
+            position.landed.chars().take(10).collect()
+        });
+        let committed = (committed != date).then_some(committed);
         for (path, old_path, new, old) in pairs {
             let mut new_text = new.map(|b| blob_text(source, b.0)).unwrap_or_default();
             let mut old_text = old.map(|b| blob_text(source, b.0)).unwrap_or_default();
@@ -808,10 +921,14 @@ pub fn history_grep(
                 continue;
             }
             changes.push(Change {
+                seq: index,
+                merge,
                 rev: rev.clone(),
-                date: summary.iso_date.clone(),
+                date: date.clone(),
+                committed: committed.clone(),
                 header: header_html(&summary.message),
                 backout: !summary.backs_out.is_empty(),
+                backs_out: summary.backs_out.clone(),
                 path,
                 old_path,
                 old: old_found,
@@ -822,11 +939,16 @@ pub fn history_grep(
     }
     result.page_end = index;
     result.next_page = (index < ordered.len()).then_some(index);
+    if !args.show_backouts {
+        result.backouts_hidden = hide_backout_pairs(&mut changes);
+    }
     result.rows = changes
         .iter()
+        .filter(|change| !change.merge)
         .map(|change| HistoryGrepRow {
             rev: change.rev.clone(),
-            date: change.date.chars().take(10).collect(),
+            date: change.date.clone(),
+            committed: change.committed.clone(),
             header: change.header.clone(),
             backout: change.backout,
             path: change.path.clone(),
@@ -847,15 +969,129 @@ pub fn history_grep(
 
 /// A revision's change to a file's matches.
 struct Change {
+    /// Its place among the candidates, newest first (see `merge_sequences`).
+    seq: usize,
+    /// Whether it's a merge's (from its first parent; only for timelines of
+    /// values, which only show it if it changed them).
+    merge: bool,
     rev: String,
-    /// Its ISO date.
+    /// When it landed (YYYY-MM-DD; see `HistoryGrepRow::date`), and when it
+    /// was committed, if that was another day.
     date: String,
+    committed: Option<String>,
     header: String,
     backout: bool,
+    /// The revisions it backs out, if it's a backout.
+    backs_out: Vec<String>,
     path: String,
     old_path: Option<String>,
     old: Found,
     new: Found,
+}
+
+/// Leave out the changes of revisions which were backed out, with their
+/// backouts', where the backout undid them exactly in the file (the file's
+/// matches after the backout are those before the backed out revision, and
+/// those before it those after the revision): ex: a landing, its backout and
+/// its relanding, of which only the relanding is interesting.  (The history
+/// knows backouts by their messages; see `hyperblame::backouts`.)  A backout
+/// which didn't undo its revision exactly in the file (ex: with other changes
+/// between them) is left, as is one of a backout (a relanding).  How many
+/// backed out revisions' changes were left out.
+fn hide_backout_pairs(changes: &mut Vec<Change>) -> usize {
+    let index: HashMap<(String, String), usize> = changes
+        .iter()
+        .enumerate()
+        .map(|(i, change)| ((change.rev.clone(), change.path.clone()), i))
+        .collect();
+    let mut hidden = vec![false; changes.len()];
+    for (i, backout) in changes.iter().enumerate() {
+        if backout.merge {
+            continue;
+        }
+        for rev in &backout.backs_out {
+            let Some(&j) = index.get(&(rev.clone(), backout.path.clone())) else {
+                continue;
+            };
+            let landing = &changes[j];
+            let same = |a: &Found, b: &Found| {
+                a.count == b.count && a.values == b.values && a.lines == b.lines
+            };
+            if !hidden[i]
+                && !hidden[j]
+                && same(&backout.new, &landing.old)
+                && same(&backout.old, &landing.new)
+            {
+                hidden[i] = true;
+                hidden[j] = true;
+            }
+        }
+    }
+    let mut i = 0;
+    changes.retain(|_| {
+        i += 1;
+        !hidden[i - 1]
+    });
+    hidden.iter().filter(|h| **h).count() / 2
+}
+
+/// Order `candidates` (revisions, with their journals' dates) newest first by
+/// when they landed, parents first (by their `positions`; see `tools::
+/// commit_index`), if every one has a position: whether it did.
+fn landing_order(
+    candidates: &mut [(String, Option<NaiveDate>)],
+    positions: &HashMap<String, CommitPosition>,
+) -> bool {
+    if !candidates
+        .iter()
+        .all(|(rev, _)| positions.contains_key(rev))
+    {
+        return false;
+    }
+    candidates.sort_by(|(a, _), (b, _)| positions[b].order_key().cmp(&positions[a].order_key()));
+    true
+}
+
+/// The revisions of several journals' sequences, each newest first, merged
+/// newest first: each journal's order kept, and different journals'
+/// interleaved by their dates.  Only those `keep` takes, once each.  (For
+/// when the commit index can't order them: the journals' order is the
+/// history's, mostly, but weekly summaries group and list revisions by their
+/// commit dates, which for hg's commits aren't when they landed; see
+/// `tools::commit_index`.)
+fn merge_sequences(
+    sequences: &[Vec<(String, Option<NaiveDate>)>],
+    keep: &dyn Fn(&str) -> bool,
+) -> Vec<(String, Option<NaiveDate>)> {
+    let mut at = vec![0; sequences.len()];
+    let mut seen: BTreeSet<String> = BTreeSet::new();
+    let mut merged = vec![];
+    loop {
+        for (i, sequence) in sequences.iter().enumerate() {
+            while at[i] < sequence.len()
+                && (seen.contains(&sequence[at[i]].0) || !keep(&sequence[at[i]].0))
+            {
+                at[i] += 1;
+            }
+        }
+        // (The newest head; of equal ones, the first journal's.)
+        let Some(i) = (0..sequences.len())
+            .filter(|&i| at[i] < sequences[i].len())
+            .max_by(|&a, &b| {
+                sequences[a][at[a]]
+                    .1
+                    .cmp(&sequences[b][at[b]].1)
+                    .then(b.cmp(&a))
+            })
+        else {
+            break;
+        };
+        let (rev, date) = sequences[i][at[i]].clone();
+        seen.insert(rev.clone());
+        merged.push((rev, date));
+        at[i] += 1;
+    }
+    merged
 }
 
 /// A value's label: its groups' texts, joined.
@@ -870,8 +1106,13 @@ fn value_label(value: &[Option<String>]) -> String {
 /// The timeline of `changes` (any order; see `Timeline`), of values if
 /// `values`.
 fn build_timeline(changes: &[Change], values: bool) -> Timeline {
-    let mut changes: Vec<&Change> = changes.iter().collect();
-    changes.sort_by(|a, b| a.date.cmp(&b.date).then_with(|| a.rev.cmp(&b.rev)));
+    // (Oldest first, in the candidates' order: by when they landed, parents
+    // first, not by their commit dates; see `history_grep`.)
+    let mut changes: Vec<&Change> = changes
+        .iter()
+        .filter(|change| values || !change.merge)
+        .collect();
+    changes.sort_by_key(|change| std::cmp::Reverse(change.seq));
     // (Revisions in order, each with its changes.)
     let mut revisions: Vec<(&Change, Vec<&Change>)> = vec![];
     for change in changes {
@@ -883,7 +1124,8 @@ fn build_timeline(changes: &[Change], values: bool) -> Timeline {
     let point =
         |first: &Change, value: f64, added: Vec<String>, removed: Vec<String>| TimelinePoint {
             rev: first.rev.clone(),
-            date: first.date.chars().take(10).collect(),
+            date: first.date.clone(),
+            committed: first.committed.clone(),
             header: first.header.clone(),
             value,
             added,
@@ -922,6 +1164,14 @@ fn build_timeline(changes: &[Change], values: bool) -> Timeline {
                     continue;
                 };
                 let value_of = |found: &Found| found.values.keys().next().and_then(number);
+                // (A merge's point only if it changed the value.)
+                if change.merge
+                    && line.points.last().is_some_and(|p: &TimelinePoint| {
+                        p.value.to_bits() == value_of(&change.new).unwrap_or(f64::NAN).to_bits()
+                    })
+                {
+                    continue;
+                }
                 if line.points.is_empty() {
                     line.start = value_of(&change.old).unwrap_or(f64::NAN);
                 }
@@ -1006,6 +1256,10 @@ fn build_timeline(changes: &[Change], values: bool) -> Timeline {
             }
         }
         let after_values = distinct(&state);
+        // (Merges only where they changed the values.)
+        if values && group.iter().all(|c| c.merge) && after_values == before_values {
+            continue;
+        }
         let (value, added, removed) = if values {
             (
                 after_values.len() as f64,
@@ -1217,15 +1471,150 @@ mod tests {
     fn change(rev: &str, date: &str, path: &str, re: &str, old: &str, new: &str) -> Change {
         let re = compile(re, false).unwrap();
         Change {
+            // (Newer dates first, as the candidates are.)
+            seq: 99_999_999 - date.replace('-', "").parse::<usize>().unwrap(),
+            merge: false,
             rev: rev.to_string(),
             date: date.to_string(),
+            committed: None,
             header: format!("Commit {}", rev),
             backout: false,
+            backs_out: vec![],
             path: path.to_string(),
             old_path: None,
             old: found(&re, old, false),
             new: found(&re, new, false),
         }
+    }
+
+    #[test]
+    fn test_merge_sequences() {
+        let date = |d: &str| parse_date(d);
+        // (One journal's order is kept, though its dates disagree: the
+        // relanding keeps its landing's date.)
+        let a = vec![
+            ("reland".to_string(), date("2014-02-12")),
+            ("backout".to_string(), date("2014-02-12")),
+            ("land".to_string(), date("2014-02-12")),
+            ("older".to_string(), date("2014-01-01")),
+        ];
+        let b = vec![
+            ("b2".to_string(), date("2014-03-01")),
+            ("backout".to_string(), date("2014-02-12")),
+            ("b1".to_string(), date("2014-01-15")),
+        ];
+        let merged: Vec<String> = merge_sequences(&[a, b], &|rev| rev != "older")
+            .into_iter()
+            .map(|(rev, _)| rev)
+            .collect();
+        assert_eq!(merged, vec!["b2", "reland", "backout", "land", "b1"]);
+    }
+
+    #[test]
+    fn test_landing_order() {
+        // (A patch landed thrice and backed out twice, all landings with one
+        // date: by date, the backouts would come last.)
+        let re = r"MACRO\((\w+)\)";
+        let (p, d) = ("MACRO(POPNV)", "MACRO(DUPAT)");
+        let mut changes = vec![
+            change("land1", "2014-02-12", "o.h", re, p, d),
+            change("out1", "2014-02-12", "o.h", re, d, p),
+            change("land2", "2014-02-12", "o.h", re, p, d),
+            change("out2", "2014-02-12", "o.h", re, d, p),
+            change("land3", "2014-02-12", "o.h", re, p, d),
+        ];
+        let date = parse_date("2014-02-12");
+        let mut candidates: Vec<(String, Option<NaiveDate>)> =
+            ["out2", "out1", "land3", "land2", "land1"]
+                .iter()
+                .map(|rev| (rev.to_string(), date))
+                .collect();
+        // (Each landed when its backout did, at the earliest.)
+        let landed = ["17:46", "18:10", "18:10", "19:30", "19:30"];
+        let mut positions: HashMap<String, CommitPosition> = changes
+            .iter()
+            .zip(landed)
+            .enumerate()
+            .map(|(i, (change, time))| {
+                let position = CommitPosition {
+                    landed: format!("2014-02-12T{}:00Z", time),
+                    base: false,
+                    position: i as u64,
+                };
+                (change.rev.clone(), position)
+            })
+            .collect();
+        assert!(landing_order(&mut candidates, &positions));
+        let order: Vec<&str> = candidates.iter().map(|(rev, _)| rev.as_str()).collect();
+        assert_eq!(order, vec!["land3", "out2", "land2", "out1", "land1"]);
+        // (So the values end with the last landing's.)
+        for change in &mut changes {
+            change.seq = order.iter().position(|rev| *rev == change.rev).unwrap();
+        }
+        let timeline = build_timeline(&changes, true);
+        let last = timeline.series[0].points.last().unwrap();
+        assert_eq!(last.rev, "land3");
+        assert_eq!(last.added, vec!["DUPAT"]);
+        // (Without every candidate's position, the order stays.)
+        positions.remove("out1");
+        let mut unordered = candidates.clone();
+        unordered.reverse();
+        assert!(!landing_order(&mut unordered, &positions));
+        assert_eq!(unordered[0].0, "land1");
+    }
+
+    #[test]
+    fn test_hide_backout_pairs() {
+        let re = r"MACRO\((\w+)\)";
+        let backout = |rev: &str, date: &str, of: &str, old: &str, new: &str| {
+            let mut change = change(rev, date, "o.h", re, old, new);
+            change.backout = true;
+            change.backs_out = vec![of.to_string()];
+            change
+        };
+        let mut changes = vec![
+            change(
+                "land",
+                "2020-01-14",
+                "o.h",
+                re,
+                "MACRO(A)",
+                "MACRO(A) MACRO(B)",
+            ),
+            backout("out", "2020-01-14", "land", "MACRO(A) MACRO(B)", "MACRO(A)"),
+            change(
+                "reland",
+                "2020-01-15",
+                "o.h",
+                re,
+                "MACRO(A)",
+                "MACRO(A) MACRO(B)",
+            ),
+            // (A backout which didn't undo its revision exactly stays.)
+            change(
+                "land2",
+                "2020-02-01",
+                "o.h",
+                re,
+                "MACRO(A) MACRO(B)",
+                "MACRO(A) MACRO(B) MACRO(C)",
+            ),
+            backout(
+                "out2",
+                "2020-02-02",
+                "land2",
+                "MACRO(A) MACRO(B) MACRO(C)",
+                "MACRO(A)",
+            ),
+        ];
+        assert_eq!(hide_backout_pairs(&mut changes), 1);
+        assert_eq!(
+            changes.iter().map(|c| c.rev.as_str()).collect::<Vec<_>>(),
+            vec!["reland", "land2", "out2"]
+        );
+        // (The timeline is the same without the pair.)
+        let timeline = build_timeline(&changes, true);
+        assert_eq!(timeline.series[0].points[0].added, vec!["B"]);
     }
 
     #[test]

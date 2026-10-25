@@ -435,11 +435,32 @@ pub fn chew_query(full_arg_str: &str) -> Result<QueryPipelineGroupBuilder> {
     }
     // (A view of its own leaves out the searches; see
     // `GroupConfig::exclusive`.)
-    let has_view = builder
-        .groups
-        .keys()
-        .any(|name| QUERY_CORE.group.get(name).is_some_and(|group| group.exclusive));
+    let has_view = builder.groups.keys().any(|name| {
+        QUERY_CORE
+            .group
+            .get(name)
+            .is_some_and(|group| group.exclusive)
+    });
     if has_view {
+        // (The text it would have searched for, which the view says it
+        // ignored, ex: a cut-off `until`.)
+        if !bare.is_empty() {
+            for (name, group) in &builder.groups {
+                if QUERY_CORE
+                    .group
+                    .get(name)
+                    .is_some_and(|group| group.exclusive)
+                    && let Some(segment) = group.segments.first()
+                {
+                    let mut args = PipelineArgs::default();
+                    args.named_args
+                        .insert("ignored".to_string(), (bare.join(" "), 0));
+                    builder
+                        .amends
+                        .push((name.clone(), segment.command.clone(), args));
+                }
+            }
+        }
         builder.groups.retain(|name, _| {
             QUERY_CORE
                 .group

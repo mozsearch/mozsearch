@@ -42,14 +42,18 @@ var HistoryTimeline = new (class HistoryTimeline {
     }
   }
 
-  /** A point's tooltip: its date, revision, changes, and message. */
+  /**
+   * A point's tooltip: its date (when it landed, with its commit date if
+   * that was another day), revision, changes, and message.
+   */
   tooltip(point) {
     const header = point.header.replace(/<[^>]*>/g, "");
     const changes = [
       ...point.added.map(value => `+ ${value}`),
       ...point.removed.map(value => `− ${value}`),
     ];
-    return [`${point.date} ${point.rev.slice(0, 12)}: ${point.value}`, ...changes, header].join("\n");
+    const date = point.committed ? `${point.date} (committed ${point.committed})` : point.date;
+    return [`${date} ${point.rev.slice(0, 12)}: ${point.value}`, ...changes, header].join("\n");
   }
 
   render() {

@@ -57,6 +57,17 @@ pub struct HistoryGrepCommandArgs {
     /// name), in the files `path` names, or else in the files defining it.
     #[clap(long, value_parser)]
     scope: Option<String>,
+
+    /// Show backed out revisions and their backouts (which are otherwise
+    /// left out where the backout undid the revision; see
+    /// `history_grep::hide_backout_pairs`).
+    #[clap(long, value_parser)]
+    show_backouts: bool,
+
+    /// What the query had that a history grep doesn't take, which the page
+    /// says it ignored (see `chew_query`'s exclusive groups).
+    #[clap(long, value_parser)]
+    ignored: Option<String>,
 }
 
 /// The files defining `scope` (a qualified name), by its symbols' crossref
@@ -155,6 +166,8 @@ impl PipelineCommand for HistoryGrepCommand {
             prefer_files: self.args.timeline,
             timeline: self.args.timeline,
             scope: self.args.scope.clone(),
+            show_backouts: self.args.show_backouts,
+            ignored: self.args.ignored.clone(),
         };
         match server.history_grep(&args, &self.limits, self.tier).await {
             Ok(found) => Ok(PipelineValues::HistoryGrep(found)),

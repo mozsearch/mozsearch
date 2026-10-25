@@ -118,6 +118,15 @@ impl TreeHistory {
         self.old_revisions.get(Some(&*self.syntax), old_rev)
     }
 
+    /// The commit index of the history's branch (see `tools::commit_index`),
+    /// if it has one.
+    pub fn commit_index(&self) -> Option<crate::commit_index::CommitIndex> {
+        crate::commit_index::CommitIndex::open_branch(
+            &std::path::Path::new(&self.path).join("commit-index"),
+            crate::commit_index::ref_branch(&self.branch_ref),
+        )
+    }
+
     /// The timeline commit at the head of the branch.
     pub fn head_timeline_commit(&self) -> Option<Commit<'_>> {
         let timeline_rev = self.timeline.refname_to_id(&self.branch_ref).ok()?;

@@ -30,7 +30,15 @@
     This page checked revisions {{ grep.page_start | plus: 1 }}–{{ grep.page_end }}
     ({{ grep.checked }} file version{% if grep.checked != 1 %}s{% endif %}).
     {%- if grep.merges_skipped > 0 %} Merges are skipped ({{ grep.merges_skipped }}).{% endif %}
+    {%- if grep.backouts_hidden > 0 %}
+    {{ grep.backouts_hidden }} backed out change{% if grep.backouts_hidden != 1 %}s{% endif %} and {% if grep.backouts_hidden != 1 %}their backouts are{% else %}its backout are{% endif %} left out
+    (<a href="/{{ tree }}/query/{{ preset }}?q={{ base_query | append: " backouts:show" | url_encode }}">show them</a>).
+    {%- endif %}
+    {%- if grep.out_of_time %} This page stopped at its time limit.{% endif %}
   </p>
+  {%- if grep.ignored %}
+  <p class="history-grep-ignored">Ignored <code>{{ grep.ignored | escape }}</code>: a history query only takes its terms (ex: <code>until:YYYY-MM-DD</code>, <code>path:</code>, <code>scope:</code>).</p>
+  {%- endif %}
   {%- if grep.timeline %}
   {%- comment %}(The timeline's model, with its "<"s escaped; see history-timeline.js.){% endcomment %}
   <script>var HISTORY_TIMELINE = {{ grep.timeline | json | replace: "<", "\u003c" }};</script>
@@ -52,7 +60,7 @@
     <tbody>
       {%- for point in series.points %}
       <tr>
-        <td class="history-grep-date">{{ point.date }}</td>
+        <td class="history-grep-date"{% if point.committed %} title="Committed {{ point.committed }}"{% endif %}>{{ point.date }}</td>
         <td class="history-grep-commit"><a href="/{{ tree }}/commit/{{ point.rev }}"><code>{{ point.rev | slice: 0, 12 }}</code></a> {{ point.header }}</td>
         <td class="history-grep-count">{{ point.value }}</td>
         <td>
@@ -76,7 +84,7 @@
     <tbody>
       {%- for row in grep.rows %}
       <tr{% if row.backout %} class="history-grep-backout"{% endif %}>
-        <td class="history-grep-date">{{ row.date }}</td>
+        <td class="history-grep-date"{% if row.committed %} title="Committed {{ row.committed }}"{% endif %}>{{ row.date }}</td>
         <td class="history-grep-commit"><a href="/{{ tree }}/commit/{{ row.rev }}"><code>{{ row.rev | slice: 0, 12 }}</code></a> {{ row.header }}</td>
         <td><a href="/{{ tree }}/rev/{{ row.rev }}/{{ row.path | escape }}">{{ row.path | escape }}</a>
           {%- if row.old_path %} (from {{ row.old_path | escape }}){% endif %}</td>
