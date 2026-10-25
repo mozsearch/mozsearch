@@ -893,10 +893,19 @@ pub fn history_grep(
         let parent = commit.parent_id(0).ok();
         // (When it landed, if the commit index knows, with its commit date if
         // that's another day.)
-        let committed: String = summary.iso_date.chars().take(10).collect();
-        let date = positions.get(rev).map_or(committed.clone(), |position| {
+        // (A history's dates are landing dates since Part 541, with the
+        // commit's own, if it's another, in `commit_date`; older histories'
+        // are commit dates.)
+        let summary_date: String = summary.iso_date.chars().take(10).collect();
+        let date = positions.get(rev).map_or(summary_date.clone(), |position| {
             position.landed.chars().take(10).collect()
         });
+        let committed: String = summary
+            .commit_date
+            .as_deref()
+            .map_or(summary_date, |commit_date| {
+                commit_date.chars().take(10).collect()
+            });
         let committed = (committed != date).then_some(committed);
         for (path, old_path, new, old) in pairs {
             let mut new_text = new.map(|b| blob_text(source, b.0)).unwrap_or_default();

@@ -69,9 +69,15 @@ pub struct RevSummaryRecord {
     /// The commit message.
     pub message: String,
 
-    /// The commit/push date (versus the potentially misleading authorship date,
-    /// if we have that too).
+    /// When it landed, at the earliest: the latest of its and its ancestors'
+    /// commit dates (see `hyperblame::landing`; hg's commit dates are its
+    /// authors', which a patch kept when it landed weeks later or was
+    /// relanded).  (Histories from before Part 541 have commit dates.)
     pub iso_date: String,
+
+    /// Its commit date, if that's another time than `iso_date`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit_date: Option<String>,
 
     /// The author of the commit, not yet mail-mapped; this must ALWAYS be
     /// passed through a mail-mapping process before being passed to a display

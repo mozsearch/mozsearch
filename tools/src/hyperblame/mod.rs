@@ -13,6 +13,7 @@ pub mod history_grep;
 pub mod inference;
 pub mod interdiff;
 pub mod journals;
+pub mod landing;
 pub mod outline_diff;
 pub mod page_blame;
 pub mod page_data_cache;

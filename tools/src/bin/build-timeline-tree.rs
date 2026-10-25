@@ -114,7 +114,6 @@ use std::sync::mpsc::{Receiver, Sender, channel, sync_channel};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::thread;
 
-use chrono::{SecondsFormat, Utc};
 use git2::{Delta, DiffFindOptions, ObjectType, Oid, Repository, Sort};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -149,7 +148,7 @@ use tools::file_format::history::timeline_tokens::{
     TokenDeltaDetailRecord, TokenDeltaRecord, TokenHeader, token_timeline_path,
 };
 use tools::git_notes::NotesWriter;
-use tools::git_ops::{fast_import_git, git_time_to_chrono, history_compute_threads};
+use tools::git_ops::{fast_import_git, history_compute_threads};
 use tools::history_stop::{ENDED_EARLY_EXIT_CODE, STOPPED_EXIT_CODE, stop_requested};
 use tools::hyperblame::backouts::{BackoutTargetResolver, find_backed_out};
 use tools::hyperblame::consolidation::{
@@ -160,6 +159,7 @@ use tools::hyperblame::inference::{
     FileChangeInput, FileChangeKind, FileInference, InferenceConfig, PairingSupport, RemovedFate,
     TokenOrigin, diff_token_lines, infer_revision,
 };
+use tools::hyperblame::landing::{LandingDates, commit_seconds, iso_seconds};
 use tools::hyperblame::pairing::{
     Pairing, continuations, continued_kind, keeps_copy, keeps_rename,
 };
@@ -1090,7 +1090,10 @@ enum RevisionChanges {
 
 struct TimelineData {
     meta: HistorySyntaxCommitMeta,
+    /// When it landed (see `hyperblame::landing`), and its commit date if
+    /// that's another time.
     iso_date: String,
+    commit_date: Option<String>,
     unmapped_author: String,
     message: String,
     changes: RevisionChanges,
@@ -1957,16 +1960,19 @@ fn thread_preprocess_revision(
     backout_resolver: &BackoutTargetResolver,
     rev_meta: &HistorySyntaxCommitMeta,
     config: &InferenceConfig,
+    landing: &LandingDates,
 ) -> Result<TimelineData, git2::Error> {
     let commit = syntax_repo.find_commit(rev_meta.syntax_rev)?;
 
-    let (iso_date, unmapped_author, message) = match source_repo.find_commit(rev_meta.source_rev) {
+    // (The syntax commit has the source commit's author and committer.)
+    let landed = landing.syntax(&commit);
+    let iso_date = iso_seconds(landed);
+    let commit_date =
+        (commit_seconds(&commit) != landed).then(|| iso_seconds(commit_seconds(&commit)));
+    let (unmapped_author, message) = match source_repo.find_commit(rev_meta.source_rev) {
         Ok(source_commit) => {
             let author = source_commit.author();
             (
-                git_time_to_chrono(source_commit.committer().when())
-                    .with_timezone(&Utc)
-                    .to_rfc3339_opts(SecondsFormat::Secs, true),
                 format!(
                     "{} <{}>",
                     author.name().unwrap_or(""),
@@ -1976,15 +1982,8 @@ fn thread_preprocess_revision(
             )
         }
         // It's possible to run against a syntax repo without the source repo
-        // having all the revisions, in which case we fall back to the syntax
-        // commit which has the same author/committer information.
-        Err(_) => (
-            git_time_to_chrono(commit.committer().when())
-                .with_timezone(&Utc)
-                .to_rfc3339_opts(SecondsFormat::Secs, true),
-            String::new(),
-            String::new(),
-        ),
+        // having all the revisions.
+        Err(_) => (String::new(), String::new()),
     };
 
     let mut changes = if commit.parent_count() <= 1 {
@@ -2002,6 +2001,7 @@ fn thread_preprocess_revision(
             &commit,
             rev_meta.source_rev,
             &message,
+            landing,
         );
         if !targets.is_empty() {
             add_restore_bases(syntax_repo, &commit, &targets, files)?;
@@ -2015,6 +2015,7 @@ fn thread_preprocess_revision(
     Ok(TimelineData {
         meta: rev_meta.clone(),
         iso_date,
+        commit_date,
         unmapped_author,
         message,
         changes,
@@ -2042,6 +2043,7 @@ impl ComputePool {
         syntax_repo_path: &str,
         source_repo_path: &str,
         backout_resolver: Arc<BackoutTargetResolver>,
+        landing: Arc<LandingDates>,
     ) -> Self {
         let (query_tx, query_rx) = channel();
         let query_rx = Arc::new(Mutex::new(query_rx));
@@ -2052,6 +2054,7 @@ impl ComputePool {
             let syntax_repo_path = syntax_repo_path.to_string();
             let source_repo_path = source_repo_path.to_string();
             let backout_resolver = backout_resolver.clone();
+            let landing = landing.clone();
             thread::spawn(move || {
                 compute_thread_main(
                     query_rx,
@@ -2059,6 +2062,7 @@ impl ComputePool {
                     syntax_repo_path,
                     source_repo_path,
                     backout_resolver,
+                    landing,
                 );
             });
         }
@@ -2104,6 +2108,7 @@ fn compute_thread_main(
     syntax_repo_path: String,
     source_repo_path: String,
     backout_resolver: Arc<BackoutTargetResolver>,
+    landing: Arc<LandingDates>,
 ) {
     let syntax_repo = Repository::open(syntax_repo_path).unwrap();
     let source_repo = Repository::open(source_repo_path).unwrap();
@@ -2114,8 +2119,15 @@ fn compute_thread_main(
             break;
         };
         let result = catch_unwind(AssertUnwindSafe(|| {
-            thread_preprocess_revision(&syntax_repo, &source_repo, &backout_resolver, &rev, &config)
-                .unwrap()
+            thread_preprocess_revision(
+                &syntax_repo,
+                &source_repo,
+                &backout_resolver,
+                &rev,
+                &config,
+                &landing,
+            )
+            .unwrap()
         }));
         match result {
             Ok(result) => response_tx.send((index, result)).unwrap(),
@@ -4241,6 +4253,17 @@ fn main() {
         .collect::<Vec<_>>();
     let rev_count = revs_to_process.len();
 
+    // When each revision landed, which is the history's date for it rather
+    // than its commit date (see `hyperblame::landing`): the latest of its and
+    // its parents' landing dates, parents first, those processed before from
+    // their rev-summaries.
+    let mut landing = LandingDates::new(&rev_summary_root);
+    for rev_meta in &revs_to_process {
+        let commit = syntax_repo.find_commit(rev_meta.syntax_rev).unwrap();
+        landing.add(&commit, rev_meta.source_rev);
+    }
+    let landing = Arc::new(landing);
+
     let backout_resolver = Arc::new(BackoutTargetResolver::new(
         syntax_mapping,
         Path::new(&source_repo_path),
@@ -4256,6 +4279,7 @@ fn main() {
         &syntax_repo_path,
         &source_repo_path,
         backout_resolver.clone(),
+        landing.clone(),
     );
 
     // This tracks the index of the next revision in revs_to_process for which
@@ -4490,6 +4514,7 @@ fn main() {
                 timeline_rev: String::new(),
                 message: data.message.clone(),
                 iso_date: data.iso_date.clone(),
+                commit_date: data.commit_date.clone(),
                 unmapped_author: data.unmapped_author.clone(),
                 file_deltas,
                 file_totals,
