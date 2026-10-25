@@ -293,12 +293,29 @@ pub fn peephole_page(
         end: None,
         cost: 0,
     };
-    let mut commit_times: HashMap<String, i64> = HashMap::new();
-    let mut commit_time = |rev: &str| -> i64 {
+    // (Commits ordered by when they landed, from the commit index if there is
+    // one, since commit dates are hg's authors'; see `tools::commit_index`.)
+    let positions = tree_history
+        .commit_index()
+        .map(|index| index.position_lookup());
+    let mut commit_times: HashMap<String, (i64, Option<(bool, u64)>)> = HashMap::new();
+    let mut commit_time = |rev: &str| -> (i64, Option<(bool, u64)>) {
         *commit_times.entry(rev.to_string()).or_insert_with(|| {
-            Oid::from_str(rev)
-                .and_then(|oid| repo.find_commit(oid))
-                .map_or(0, |commit| commit.time().seconds())
+            let position = positions.as_ref().and_then(|positions| positions.get(rev));
+            let landed = position.as_ref().and_then(|position| {
+                chrono::DateTime::parse_from_rfc3339(&position.landed)
+                    .ok()
+                    .map(|date| date.timestamp())
+            });
+            let time = landed.unwrap_or_else(|| {
+                Oid::from_str(rev)
+                    .and_then(|oid| repo.find_commit(oid))
+                    .map_or(0, |commit| commit.time().seconds())
+            });
+            (
+                time,
+                position.map(|position| (!position.base, position.position)),
+            )
         })
     };
 

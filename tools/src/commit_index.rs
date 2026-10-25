@@ -466,6 +466,23 @@ fn dir_branch(dir: &Path) -> Option<String> {
     Some(name.replace("%2F", "/").replace("%25", "%"))
 }
 
+/// Where commits are in the history (see `CommitIndex::position_lookup`).
+pub struct PositionLookup {
+    own: SortedLines,
+    bases: Vec<SortedLines>,
+}
+
+impl PositionLookup {
+    /// Where `rev` is in the history, if the index has it: from the indexes
+    /// it reads through to, whose commits come first, or else from its own.
+    pub fn get(&self, rev: &str) -> Option<CommitPosition> {
+        self.bases
+            .iter()
+            .find_map(|lines| parse_position(lines.find(rev).first()?, true))
+            .or_else(|| parse_position(self.own.find(rev).first()?, false))
+    }
+}
+
 /// Read access to a commit index.
 pub struct CommitIndex {
     dir: PathBuf,
@@ -551,30 +568,29 @@ impl CommitIndex {
         refs
     }
 
+    /// Looking up where commits are in the history (see `CommitPosition`),
+    /// with the index's files kept open.
+    pub fn position_lookup(&self) -> PositionLookup {
+        PositionLookup {
+            own: SortedLines::open(&self.dir.join("by-rev")),
+            bases: self
+                .bases
+                .iter()
+                .map(|base| SortedLines::open(&base.dir.join("by-rev")))
+                .collect(),
+        }
+    }
+
     /// Where each of `revs` is in the history (see `CommitPosition`), of
-    /// those the index has: from the indexes this reads through to, whose
-    /// commits come first, or else from this one.
+    /// those the index has.
     pub fn positions<'a>(
         &self,
         revs: impl IntoIterator<Item = &'a str>,
     ) -> HashMap<String, CommitPosition> {
-        let own = SortedLines::open(&self.dir.join("by-rev"));
-        let bases: Vec<SortedLines> = self
-            .bases
-            .iter()
-            .map(|base| SortedLines::open(&base.dir.join("by-rev")))
-            .collect();
-        let mut positions = HashMap::new();
-        for rev in revs {
-            let found = bases
-                .iter()
-                .find_map(|lines| parse_position(lines.find(rev).first()?, true))
-                .or_else(|| parse_position(own.find(rev).first()?, false));
-            if let Some(position) = found {
-                positions.insert(rev.to_string(), position);
-            }
-        }
-        positions
+        let lookup = self.position_lookup();
+        revs.into_iter()
+            .filter_map(|rev| Some((rev.to_string(), lookup.get(rev)?)))
+            .collect()
     }
 
     /// The commits mentioning a bug, oldest first.

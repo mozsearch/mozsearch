@@ -17,14 +17,18 @@ use crate::file_format::history::timeline_annotated::RemovalMarker;
 
 /// What the page needs to know about a commit.
 pub struct CommitMeta {
-    /// The commit time, in seconds since the epoch.
+    /// When it landed (see `tools::commit_index`), or its commit time if
+    /// that's not known, in seconds since the epoch.
     pub time: i64,
+    /// Its place among the commits which landed at `time`, if known (see
+    /// `CommitPosition::order_key`).
+    pub rank: Option<(bool, u64)>,
     pub author: String,
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct BlameInfo {
-    /// `[rev, commit time, author index]` for each commit, indexed by the
+    /// `[rev, landing time, author index]` for each commit (see `CommitMeta`), indexed by the
     /// commit indices in the strip's classes and data attributes.
     pub commits: Vec<(String, i64, usize)>,
     pub authors: Vec<String>,
@@ -159,6 +163,8 @@ pub struct PageBlame {
 
 struct Indexer {
     info: BlameInfo,
+    /// Each commit's `CommitMeta::rank`.
+    ranks: Vec<Option<(bool, u64)>>,
     commit_indices: HashMap<String, usize>,
     author_indices: HashMap<String, usize>,
     path_indices: HashMap<String, usize>,
@@ -169,7 +175,7 @@ impl Indexer {
         if let Some(&index) = self.commit_indices.get(rev) {
             return index;
         }
-        let CommitMeta { time, author } = meta(rev);
+        let CommitMeta { time, rank, author } = meta(rev);
         let author_index = match self.author_indices.get(&author) {
             Some(&index) => index,
             None => {
@@ -183,6 +189,7 @@ impl Indexer {
         self.info
             .commits
             .push((rev.to_string(), time, author_index));
+        self.ranks.push(rank);
         self.commit_indices.insert(rev.to_string(), index);
         index
     }
@@ -256,17 +263,18 @@ fn page_blame_with_chunk_tokens(
             history_url: None,
             changes: vec![],
         },
+        ranks: vec![],
         commit_indices: HashMap::new(),
         author_indices: HashMap::new(),
         path_indices: HashMap::new(),
     };
     indexer.path(path);
 
-    // `FileTokenBlame::lines` orders revisions by commit time, so learn the
-    // times as part of assigning commit indices.
+    // `FileTokenBlame::lines` orders revisions by when they landed, so learn
+    // that as part of assigning commit indices.
     let line_blames = blame.lines(|rev| {
         let index = indexer.commit(rev, &mut meta);
-        indexer.info.commits[index].1
+        (indexer.info.commits[index].1, indexer.ranks[index])
     });
 
     let mut lines = Vec::with_capacity(line_blames.len());
@@ -619,6 +627,7 @@ mod tests {
         );
         let meta = |rev: &str| CommitMeta {
             time: rev.parse().unwrap(),
+            rank: None,
             author: String::new(),
         };
         let page = page_blame(&blame, source, "a.html", meta);
@@ -666,6 +675,7 @@ mod tests {
         let blame = blame_tokens(source, &history).unwrap();
         let meta = |rev: &str| CommitMeta {
             time: rev.parse().unwrap(),
+            rank: None,
             author: format!("author {}", rev),
         };
 

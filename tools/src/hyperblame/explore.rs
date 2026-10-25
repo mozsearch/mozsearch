@@ -19,7 +19,7 @@ use git2::{Oid, Repository};
 use serde::Serialize;
 
 use super::token_blame::TreeHistory;
-use crate::commit_index::CommitRef;
+use crate::commit_index::{CommitIndex, CommitRef};
 use crate::file_format::history::rev_summaries::{RevSummaryRecord, rev_summary_path};
 
 /// The most commits a page shows.
@@ -42,11 +42,29 @@ pub struct ExploreCommit {
     pub summary: String,
 }
 
-/// Order commits oldest first.  Commits landed together (ex: a stack of
-/// patches) share their commit time, so those are ordered by ancestry.
-pub fn order_commits(repo: &Repository, refs: &mut Vec<CommitRef>) {
+/// Order commits oldest first: by when they landed, parents first, if `index`
+/// (a commit index) has them all, dating them when they landed; commit dates
+/// can't order them (hg's are their authors', so a landing, its backout and
+/// its relanding would sort land, reland, backout; see `tools::commit_index`).
+/// Otherwise by date, with commits which share their commit time (ex: a stack
+/// of patches landed together) ordered by ancestry.
+pub fn order_commits(repo: &Repository, refs: &mut Vec<CommitRef>, index: Option<&CommitIndex>) {
     refs.sort_by(|a, b| a.iso_date.cmp(&b.iso_date).then(a.rev.cmp(&b.rev)));
     refs.dedup_by(|a, b| a.rev == b.rev);
+    if let Some(index) = index {
+        let positions = index.positions(refs.iter().map(|r| r.rev.as_str()));
+        if refs.iter().all(|r| positions.contains_key(&r.rev)) {
+            refs.sort_by(|a, b| {
+                positions[&a.rev]
+                    .order_key()
+                    .cmp(&positions[&b.rev].order_key())
+            });
+            for r in refs.iter_mut() {
+                r.iso_date = positions[&r.rev].landed.clone();
+            }
+            return;
+        }
+    }
     let is_descendant =
         |a: &CommitRef, b: &CommitRef| match (Oid::from_str(&a.rev), Oid::from_str(&b.rev)) {
             (Ok(a), Ok(b)) => repo.graph_descendant_of(a, b).unwrap_or(false),
@@ -706,6 +724,59 @@ mod tests {
                 "dom/moz.build",
             ]
         );
+    }
+
+    #[test]
+    fn test_order_commits() {
+        let dir = std::env::temp_dir().join(format!("hb-explore-order-{}", std::process::id()));
+        let repo = Repository::init(dir.join("repo")).unwrap();
+        let tree = repo
+            .find_tree(repo.index().unwrap().write_tree().unwrap())
+            .unwrap();
+        let commit = |message: &str, parent: Option<Oid>, seconds: i64| -> Oid {
+            let sig =
+                git2::Signature::new("A", "a@example.com", &git2::Time::new(seconds, 0)).unwrap();
+            let parents: Vec<git2::Commit> = parent
+                .iter()
+                .map(|p| repo.find_commit(*p).unwrap())
+                .collect();
+            let parents: Vec<&git2::Commit> = parents.iter().collect();
+            repo.commit(None, &sig, &sig, message, &tree, &parents)
+                .unwrap()
+        };
+        // (A patch with its author's date, as hg's had, landed, backed out
+        // and relanded.)
+        let base = commit("Bug 1 - Base", None, 1_000);
+        let land = commit("Bug 2 - Land", Some(base), 500);
+        let out = commit(
+            "Backed out changeset 0123456789ab (bug 2)",
+            Some(land),
+            3_000,
+        );
+        let reland = commit("Bug 2 - Land", Some(out), 500);
+        let index_dir = dir.join("index");
+        crate::commit_index::update(&repo, reland, &index_dir).unwrap();
+        let index = CommitIndex::open(&index_dir).unwrap();
+        let refs = || -> Vec<CommitRef> {
+            [reland, out, land, base]
+                .iter()
+                .map(|oid| crate::commit_index::commit_ref(&repo.find_commit(*oid).unwrap()))
+                .collect()
+        };
+        let order = |refs: &[CommitRef]| -> Vec<Oid> {
+            refs.iter()
+                .map(|r| Oid::from_str(&r.rev).unwrap())
+                .collect()
+        };
+        // (By commit dates, the relanding comes before its backout.)
+        let mut by_dates = refs();
+        order_commits(&repo, &mut by_dates, None);
+        assert_eq!(order(&by_dates), vec![land, reland, base, out]);
+        let mut by_landing = refs();
+        order_commits(&repo, &mut by_landing, Some(&index));
+        assert_eq!(order(&by_landing), vec![base, land, out, reland]);
+        assert_eq!(by_landing[3].iso_date, "1970-01-01T00:50:00Z");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

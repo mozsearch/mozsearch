@@ -542,14 +542,16 @@ impl<'a> FileTokenBlame<'a> {
         self.sentinel.removal_marker.as_ref()
     }
 
-    /// Summarize the tokens per source line.  `commit_time` provides the
-    /// commit time of a revision, for picking the newest revision of a line.
-    pub fn lines<'b>(&'b self, mut commit_time: impl FnMut(&str) -> i64) -> Vec<LineBlame<'b>> {
+    /// Summarize the tokens per source line.  `order` orders revisions, for
+    /// picking the newest revision of a line: by when they landed (ex: a
+    /// commit index's `CommitPosition::order_key`), since commit dates don't
+    /// (hg's are their authors').
+    pub fn lines<'b, K: Ord>(&'b self, mut order: impl FnMut(&str) -> K) -> Vec<LineBlame<'b>> {
         let mut lines: Vec<LineBlame> = (0..self.line_starts.len())
             .map(|_| LineBlame::default())
             .collect();
         let mut revs = HashSet::new();
-        let mut newest: Option<(i64, &str)> = None;
+        let mut newest: Option<(K, &str)> = None;
         for (index, token) in self.tokens.iter().enumerate() {
             let line = &mut lines[token.line];
             if line.tokens.is_empty() {
@@ -561,12 +563,15 @@ impl<'a> FileTokenBlame<'a> {
 
             let rev: &str = &token.data.introduced.source_rev;
             if revs.insert(rev) {
-                let candidate = (commit_time(rev), rev);
-                if newest.is_none_or(|newest| candidate.cmp(&newest) == Ordering::Greater) {
+                let candidate = (order(rev), rev);
+                if newest
+                    .as_ref()
+                    .is_none_or(|newest| candidate.cmp(newest) == Ordering::Greater)
+                {
                     newest = Some(candidate);
                 }
             }
-            line.rev = newest.map(|(_, rev)| rev);
+            line.rev = newest.as_ref().map(|(_, rev)| *rev);
             line.mixed = revs.len() > 1;
 
             if let Some(marker) = &token.data.removal_marker {
@@ -740,7 +745,7 @@ mod tests {
         assert_eq!(blame.removal_above().unwrap().source_rev, "4");
 
         // Revision N is newer than revision N-1.
-        let lines = blame.lines(|rev| rev.parse().unwrap());
+        let lines = blame.lines(|rev| rev.parse::<i64>().unwrap());
         assert_eq!(lines.len(), 3);
         assert_eq!(lines[0].tokens, 0..3);
         assert_eq!(lines[0].rev, Some("1"));

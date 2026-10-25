@@ -198,13 +198,27 @@ fn main() {
         eprintln!("Couldn't blame the tokens of {}: {}", path, e);
         exit(1);
     });
+    // (By when they landed, if the history has a commit index.)
+    let positions = history.commit_index().map(|index| index.position_lookup());
     let mut commit_times = HashMap::new();
     let lines = blame.lines(|rev| {
-        *commit_times.entry(rev.to_string()).or_insert_with(|| {
-            Oid::from_str(rev)
-                .and_then(|oid| source_repo.find_commit(oid))
-                .map_or(0, |commit| commit.time().seconds())
-        })
+        commit_times
+            .entry(rev.to_string())
+            .or_insert_with(
+                || match positions.as_ref().and_then(|positions| positions.get(rev)) {
+                    Some(position) => (position.landed, !position.base, position.position),
+                    None => {
+                        let time = Oid::from_str(rev)
+                            .and_then(|oid| source_repo.find_commit(oid))
+                            .map_or(0, |commit| commit.time().seconds());
+                        let iso = chrono::DateTime::from_timestamp(time, 0)
+                            .map(|date| date.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+                            .unwrap_or_default();
+                        (iso, false, 0)
+                    }
+                },
+            )
+            .clone()
     });
 
     println!(

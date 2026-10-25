@@ -5573,6 +5573,9 @@ fn page_token_blame(
             return None;
         }
     };
+    // (When the commits landed, from the commit index if there is one, since
+    // commit dates are hg's authors'.)
+    let positions = history.commit_index().map(|index| index.position_lookup());
     Some(page_blame(&blame, source, path, |rev| {
         let commit = Oid::from_str(rev)
             .and_then(|oid| git.repo.find_commit(oid))
@@ -5583,13 +5586,19 @@ fn page_token_blame(
                 let (name, _email) = git
                     .mailmap
                     .lookup(author.name().unwrap_or(""), author.email().unwrap_or(""));
+                let position = positions.as_ref().and_then(|positions| positions.get(rev));
+                let landed = position.as_ref().and_then(|position| {
+                    chrono::DateTime::parse_from_rfc3339(&position.landed).ok()
+                });
                 CommitMeta {
-                    time: commit.time().seconds(),
+                    time: landed.map_or(commit.time().seconds(), |date| date.timestamp()),
+                    rank: position.map(|position| (!position.base, position.position)),
                     author: name.to_string(),
                 }
             }
             None => CommitMeta {
                 time: 0,
+                rank: None,
                 author: String::new(),
             },
         }
@@ -7101,7 +7110,7 @@ fn interdiff_side<'r>(repo: &'r Repository, revs: &str) -> Result<InterdiffSide<
     if refs.is_empty() {
         return Err("No revisions");
     }
-    explore::order_commits(repo, &mut refs);
+    explore::order_commits(repo, &mut refs, None);
     let commits: Vec<_> = refs
         .iter()
         .map(|commit_ref| {
@@ -8541,7 +8550,7 @@ pub fn explore_page_data(
         if found.is_empty() {
             continue;
         }
-        explore::order_commits(&git.repo, &mut found);
+        explore::order_commits(&git.repo, &mut found, Some(&other_index));
         found.truncate(explore::MAX_COMMITS);
         let branch_tree = cfg
             .trees
@@ -8678,7 +8687,7 @@ fn explore_refs(
         refs.extend(found);
     }
     let own_revs: HashSet<String> = refs.iter().map(|r| r.rev.clone()).collect();
-    explore::order_commits(&git.repo, &mut refs);
+    explore::order_commits(&git.repo, &mut refs, Some(&index));
     let truncated = refs.len() > explore::MAX_COMMITS;
     refs.truncate(explore::MAX_COMMITS);
     Ok(ExploreRefs {
@@ -10451,7 +10460,10 @@ mod tests {
         assert_eq!(name("https://example.spec.whatwg.org/"), Some("example"));
         assert_eq!(name("http://Example.Spec.WHATWG.org"), Some("example"));
         // (The longest URL it's under: a later level's, not its series'.)
-        assert_eq!(name("https://example.spec.whatwg.org/2/"), Some("example-2"));
+        assert_eq!(
+            name("https://example.spec.whatwg.org/2/"),
+            Some("example-2")
+        );
         assert_eq!(name("https://drafts.csswg.org/css-grid/"), Some("grid"));
         assert_eq!(name("https://drafts.csswg.org/css-gridx/"), None);
         assert_eq!(name("https://example.org/"), None);
