@@ -5,6 +5,7 @@
 //
 // Usage:
 //   build-commit-index GIT_REPO INDEX_DIR [REF] [--accumulate] [--read BRANCH]...
+//                      [--push-dates FILE]
 //
 // REF defaults to HEAD.  Trees keep their indexes in `commit-index/` under
 // their `history_path` (INDEX_DIR), a directory per branch, which REF names
@@ -16,6 +17,9 @@
 // names a branch whose index has the commits they're based on (ex: "main"),
 // which aren't processed again and which lookups read through to (see
 // `commit_index::UpdateOptions`).
+//
+// --push-dates FILE gives hg's revisions' push dates (see
+// `hyperblame::landing::PushDates`), for the landing dates of `by-rev`.
 
 extern crate env_logger;
 extern crate git2;
@@ -42,12 +46,16 @@ fn main() {
                 Some(branch) => options.read.push(branch),
                 None => args.clear(),
             },
+            "--push-dates" => match all_args.next() {
+                Some(path) => options.push_dates = Some(path.into()),
+                None => args.clear(),
+            },
             _ => args.push(arg),
         }
     }
     if !(3..=4).contains(&args.len()) {
         eprintln!(
-            "Usage: {} GIT_REPO INDEX_DIR [REF] [--accumulate] [--read BRANCH]...",
+            "Usage: {} GIT_REPO INDEX_DIR [REF] [--accumulate] [--read BRANCH]... [--push-dates FILE]",
             env::args().next().unwrap_or_default()
         );
         exit(1);

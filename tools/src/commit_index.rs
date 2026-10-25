@@ -27,9 +27,10 @@
 //!   after a backout (in firefox-main, 30% of 2016-2017's commits are dated
 //!   more than a day before one of their ancestors, and 8% more than 14
 //!   days).  A commit can't have landed before its parents, so LANDED is the
-//!   latest of its and its ancestors' commit dates, and POSITION numbers the
-//!   commits parents first, so that ordering by both is topological, with
-//!   dates which only go forward.
+//!   latest of its and its ancestors' commit dates (or, for hg's commits with
+//!   a push dates file, see `UpdateOptions::push_dates`, their push dates),
+//!   and POSITION numbers the commits parents first, so that ordering by both
+//!   is topological, with dates which only go forward.
 //!
 //! Trees like try (or review), which process many unrelated heads based on
 //! other branches' revisions, accumulate their heads in one index, which
@@ -73,6 +74,10 @@ struct State {
     /// How many commits `by-rev` has numbered (the next one's POSITION).
     #[serde(default)]
     revs: u64,
+    /// The push dates file `by-rev`'s landing dates are from (see
+    /// `UpdateOptions::push_dates`): its size and a hash of it.
+    #[serde(default)]
+    push_dates: Option<String>,
 }
 
 fn read_state(dir: &Path) -> State {
@@ -95,6 +100,19 @@ pub struct UpdateOptions {
     /// processed commits aren't processed again here, and which lookups read
     /// through to.
     pub read: Vec<String>,
+    /// A push dates file (see `hyperblame::landing::PushDates`), whose dates
+    /// are hg's revisions' own dates for `by-rev`'s landing dates.  A
+    /// different file rebuilds the index.
+    pub push_dates: Option<PathBuf>,
+}
+
+/// A push dates file's identity, for `State::push_dates`: its size and hash.
+fn file_identity(path: &Path) -> Result<String, String> {
+    use std::hash::Hasher;
+    let bytes = fs::read(path).map_err(|e| format!("{}: {}", path.display(), e))?;
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    hasher.write(&bytes);
+    Ok(format!("{} bytes, {:016x}", bytes.len(), hasher.finish()))
 }
 
 /// A commit which mentions a bug or Phabricator revision.
@@ -211,12 +229,12 @@ pub fn ref_branch(git_ref: &str) -> &str {
 const UNBRANCHED_FILES: [&str; 3] = ["state.json", "by-bug", "by-phab"];
 
 /// A sorted file of `KEY<TAB>FIELDS...` lines, mapped, for bisecting.
-struct SortedLines {
+pub(crate) struct SortedLines {
     mmap: Option<Mmap>,
 }
 
 impl SortedLines {
-    fn open(path: &Path) -> SortedLines {
+    pub(crate) fn open(path: &Path) -> SortedLines {
         let mmap = fs::File::open(path)
             .ok()
             .and_then(|file| unsafe { Mmap::map(&file) }.ok());
@@ -224,7 +242,7 @@ impl SortedLines {
     }
 
     /// The fields after the key of the lines for `key`.
-    fn find(&self, key: &str) -> Vec<Vec<String>> {
+    pub(crate) fn find(&self, key: &str) -> Vec<Vec<String>> {
         let Some(mmap) = &self.mmap else {
             return vec![];
         };
@@ -325,10 +343,16 @@ fn update_with(
                 Ok(oid) => oid != head && !repo.graph_descendant_of(head, oid).unwrap_or(false),
                 Err(_) => true,
             });
+    let push_dates = options
+        .push_dates
+        .as_deref()
+        .map(file_identity)
+        .transpose()?;
     let rebuild = state.schema != SCHEMA_VERSION
         || rewritten
         || state.accumulate != options.accumulate
-        || state.read != options.read;
+        || state.read != options.read
+        || state.push_dates != push_dates;
     let (mut by_bug, mut by_phab, mut by_rev) = if rebuild {
         state = State {
             schema: SCHEMA_VERSION,
@@ -336,6 +360,7 @@ fn update_with(
             accumulate: options.accumulate,
             read: options.read.clone(),
             revs: 0,
+            push_dates: push_dates.clone(),
         };
         (vec![], vec![], vec![])
     } else {
@@ -372,6 +397,10 @@ fn update_with(
         .iter()
         .map(|base| SortedLines::open(&base.dir.join("by-rev")))
         .collect();
+    let pushes = options
+        .push_dates
+        .as_deref()
+        .map(crate::hyperblame::landing::PushDates::open);
     let mut landed: HashMap<Oid, i64> = HashMap::new();
     let mut count = 0;
     for oid in walk {
@@ -386,9 +415,14 @@ fn update_with(
         for phab in message_phab_revs(&message) {
             by_phab.push(format!("{}\t{}\t{}\t{}", phab, oid, date, flags));
         }
-        // (A parent is this walk's, or processed before, here or in a base
-        // index, or else, ex: a gone try push's, has its own date.)
-        let mut when = commit.time().seconds();
+        // (Its own date is when it was pushed, if it's hg's and the push
+        // dates have it.  A parent is this walk's, or processed before, here
+        // or in a base index, or else, ex: a gone try push's, has its own
+        // date.)
+        let mut when = pushes
+            .as_ref()
+            .and_then(|pushes| pushes.get(oid))
+            .unwrap_or_else(|| commit.time().seconds());
         for parent in commit.parents() {
             let rev = parent.id().to_string();
             let parent_landed = landed
@@ -743,6 +777,7 @@ mod tests {
         let try_options = UpdateOptions {
             accumulate: true,
             read: vec!["main".to_string()],
+            ..Default::default()
         };
         let push1 = commit(
             "Bug 300 - Try this\n\nDifferential Revision: https://phab/D30",
@@ -859,6 +894,7 @@ mod tests {
         let try_options = UpdateOptions {
             accumulate: true,
             read: vec!["main".to_string()],
+            ..Default::default()
         };
         let push = commit("Bug 5 - try", &[merge], 100);
         update_branch(&repo, push, &root, "try", &try_options).unwrap();
@@ -876,6 +912,48 @@ mod tests {
         assert!(!push_at.base && merge_at.base);
         assert_eq!(push_at.landed, merge_at.landed);
         assert!(push_at.order_key() > merge_at.order_key());
+
+        // (With push dates, hg's revisions' own dates are their pushes', and
+        // a different push dates file rebuilds the index.)
+        let pushes = dir.join("pushes.tsv");
+        let mut lines = vec![
+            format!(
+                "{}\t{}\t1970-01-01T00:40:00Z\tmozilla-central\t3",
+                land,
+                "a".repeat(40)
+            ),
+            format!(
+                "{}\t{}\t1970-01-01T00:55:00Z\tmozilla-central\t5",
+                reland,
+                "b".repeat(40)
+            ),
+        ];
+        lines.sort();
+        fs::write(&pushes, lines.join("\n") + "\n").unwrap();
+        let with_pushes = UpdateOptions {
+            push_dates: Some(pushes.clone()),
+            ..Default::default()
+        };
+        assert_eq!(
+            update_branch(&repo, merge, &root, "main", &with_pushes).unwrap(),
+            7
+        );
+        let positions = index.positions(
+            [land, out, reland, merge]
+                .map(|oid| oid.to_string())
+                .iter()
+                .map(String::as_str),
+        );
+        let landed = |oid: Oid| positions[&oid.to_string()].landed.clone();
+        assert_eq!(landed(land), "1970-01-01T00:40:00Z");
+        // (A parent's later push carries forward, as dates do.)
+        assert_eq!(landed(out), "1970-01-01T00:50:00Z");
+        assert_eq!(landed(reland), "1970-01-01T00:55:00Z");
+        assert_eq!(landed(merge), "1970-01-01T00:55:00Z");
+        assert_eq!(
+            update_branch(&repo, merge, &root, "main", &with_pushes).unwrap(),
+            0
+        );
         fs::remove_dir_all(&dir).unwrap();
     }
 

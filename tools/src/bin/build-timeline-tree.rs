@@ -159,7 +159,7 @@ use tools::hyperblame::inference::{
     FileChangeInput, FileChangeKind, FileInference, InferenceConfig, PairingSupport, RemovedFate,
     TokenOrigin, diff_token_lines, infer_revision,
 };
-use tools::hyperblame::landing::{LandingDates, commit_seconds, iso_seconds};
+use tools::hyperblame::landing::{LandingDates, PushDates, commit_seconds, iso_seconds};
 use tools::hyperblame::pairing::{
     Pairing, continuations, continued_kind, keeps_copy, keeps_rename,
 };
@@ -4256,8 +4256,20 @@ fn main() {
     // When each revision landed, which is the history's date for it rather
     // than its commit date (see `hyperblame::landing`): the latest of its and
     // its parents' landing dates, parents first, those processed before from
-    // their rev-summaries.
+    // their rev-summaries, and with PUSH_DATES (a push dates file), hg's
+    // revisions' own dates are when they were pushed.
     let mut landing = LandingDates::new(&rev_summary_root);
+    if let Ok(path) = env::var("PUSH_DATES")
+        && !path.is_empty()
+    {
+        assert!(
+            Path::new(&path).is_file(),
+            "PUSH_DATES {} isn't a file",
+            path
+        );
+        info!("Using push dates from {}", path);
+        landing = landing.with_push_dates(PushDates::open(Path::new(&path)));
+    }
     for rev_meta in &revs_to_process {
         let commit = syntax_repo.find_commit(rev_meta.syntax_rev).unwrap();
         landing.add(&commit, rev_meta.source_rev);

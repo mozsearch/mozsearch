@@ -13,6 +13,13 @@
 //! `build-timeline-tree` works them out for the revisions it processes, parents
 //! first; the revisions processed before (ex: by an earlier chunk) have theirs
 //! in their rev-summaries.
+//!
+//! For hg's revisions, hg.mozilla.org's pushlogs have when each was first
+//! pushed (see `PushDates`), which is when it landed, and which is a revision's
+//! own date rather than its commit date when a push dates file is given.
+//! Revisions which landed together in a push have its date.  (A revision's
+//! first push can't be before its parents', since a repo has a revision's
+//! parents before it; the latest of its ancestors' is still taken, in case.)
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -21,7 +28,31 @@ use chrono::{DateTime, SecondsFormat};
 use git2::{Commit, Oid};
 use serde::Deserialize;
 
+use crate::commit_index::SortedLines;
 use crate::file_format::history::rev_summaries::rev_summary_path;
+
+/// When hg's revisions were first pushed to mozilla-central, an integration
+/// repo (ex: autoland) or a release repo, from a push dates file of
+/// `GIT_REV<TAB>HG_REV<TAB>PUSHED<TAB>REPO<TAB>PUSH_ID` lines sorted by git
+/// revision (PUSHED is ISO 8601, in UTC), derived from an archive of
+/// hg.mozilla.org's pushlogs (see `scripts/pushlog/`).
+pub struct PushDates {
+    lines: SortedLines,
+}
+
+impl PushDates {
+    pub fn open(path: &Path) -> PushDates {
+        PushDates {
+            lines: SortedLines::open(path),
+        }
+    }
+
+    /// When the git revision `rev` was first pushed, if it's hg's.
+    pub fn get(&self, rev: Oid) -> Option<i64> {
+        let fields = self.lines.find(&rev.to_string()).into_iter().next()?;
+        parse_iso(fields.get(1)?)
+    }
+}
 
 /// The landing dates (in seconds) of a run's revisions, and of those processed
 /// before, from their rev-summaries.
@@ -31,6 +62,8 @@ pub struct LandingDates {
     by_source: HashMap<Oid, i64>,
     /// The rev-summaries directory, if there is one.
     rev_summaries: Option<PathBuf>,
+    /// When hg's revisions were pushed, if known.
+    pushes: Option<PushDates>,
 }
 
 /// A commit's own date: its committer date (for hg's commits, its author's).
@@ -76,14 +109,30 @@ impl LandingDates {
         }
     }
 
+    /// With `pushes` for hg's revisions' dates.
+    pub fn with_push_dates(mut self, pushes: PushDates) -> LandingDates {
+        self.pushes = Some(pushes);
+        self
+    }
+
+    /// A source revision's own date: when it was pushed, if known, or else
+    /// `commit_seconds`.
+    fn own(&self, source_rev: Oid, commit_seconds: i64) -> i64 {
+        self.pushes
+            .as_ref()
+            .and_then(|pushes| pushes.get(source_rev))
+            .unwrap_or(commit_seconds)
+    }
+
     /// Add the syntax commit `commit` of the source revision `source_rev`,
     /// once its parents have been added (or were processed before), returning
     /// its landing date.
     pub fn add(&mut self, commit: &Commit, source_rev: Oid) -> i64 {
+        let own = self.own(source_rev, commit_seconds(commit));
         let landed = commit
             .parents()
             .map(|parent| self.syntax(&parent))
-            .fold(commit_seconds(commit), i64::max);
+            .fold(own, i64::max);
         self.by_syntax.insert(commit.id(), landed);
         self.by_source.insert(source_rev, landed);
         landed
@@ -110,29 +159,30 @@ impl LandingDates {
     }
 
     /// The landing date of a syntax commit: this run's, a processed
-    /// revision's, or else its own date.
+    /// revision's, or else its own date (see `own`).
     pub fn syntax(&self, commit: &Commit) -> i64 {
-        self.by_syntax
-            .get(&commit.id())
-            .copied()
-            .or_else(|| {
-                let source_rev = syntax_source_rev(commit)?;
-                self.by_source
-                    .get(&source_rev)
-                    .copied()
-                    .or_else(|| self.summarized(source_rev))
-            })
-            .unwrap_or_else(|| commit_seconds(commit))
+        if let Some(&landed) = self.by_syntax.get(&commit.id()) {
+            return landed;
+        }
+        match syntax_source_rev(commit) {
+            Some(source_rev) => self
+                .by_source
+                .get(&source_rev)
+                .copied()
+                .or_else(|| self.summarized(source_rev))
+                .unwrap_or_else(|| self.own(source_rev, commit_seconds(commit))),
+            None => commit_seconds(commit),
+        }
     }
 
     /// The landing date of a source commit: this run's, a processed
-    /// revision's, or else its own date.
+    /// revision's, or else its own date (see `own`).
     pub fn source(&self, commit: &Commit) -> i64 {
         self.by_source
             .get(&commit.id())
             .copied()
             .or_else(|| self.summarized(commit.id()))
-            .unwrap_or_else(|| commit_seconds(commit))
+            .unwrap_or_else(|| self.own(commit.id(), commit_seconds(commit)))
     }
 }
 
@@ -186,6 +236,31 @@ mod tests {
         landing.insert_source(source_commit, 900);
         assert_eq!(landing.source(&find(source_commit)), 900);
         assert_eq!(iso_seconds(2_500), "1970-01-01T00:41:40Z");
+
+        // (With push dates: the stale patch was pushed at 2,600, after its
+        // base's landing, so it and its child land then.)
+        let pushes_path = dir.join("pushes.tsv");
+        let mut lines = vec![
+            format!(
+                "{}\t{}\t{}\tmozilla-central\t7",
+                source(2),
+                "a".repeat(40),
+                iso_seconds(2_600)
+            ),
+            format!(
+                "{}\t{}\t{}\tmozilla-central\t8",
+                source(3),
+                "b".repeat(40),
+                iso_seconds(2_700)
+            ),
+        ];
+        lines.sort();
+        std::fs::write(&pushes_path, lines.join("\n") + "\n").unwrap();
+        let mut landing =
+            LandingDates::new(&summaries).with_push_dates(PushDates::open(&pushes_path));
+        assert_eq!(landing.add(&find(stale), source(2)), 2_600);
+        // (Its own commit date, 3,000, is later than its push: clocks.)
+        assert_eq!(landing.add(&find(later), source(3)), 2_700);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }
