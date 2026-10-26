@@ -18,8 +18,9 @@ add_task(async function test_QueryTextContexts() {
      "A string in a method is in the method");
   is(context(37), "// found in ShoeRunnable::Run",
      "as is a local's use, in a later chunk of the file");
-  ok(text.querySelector("#line-37 .result-context a")?.href.includes("symbol:"),
-     "with a link to the method's symbol");
+  const method = text.querySelector("#line-37 .result-context [data-symbols]");
+  ok(method && frame.contentWindow.SYM_INFO[method.dataset.symbols]?.pretty == "ShoeRunnable::Run",
+     "which is the method's symbol, whose info the page has, for its context menu");
 });
 
 add_task(async function test_QueryNamespaceContexts() {

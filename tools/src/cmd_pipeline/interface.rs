@@ -15,7 +15,6 @@ pub use crate::abstract_server::{AbstractServer, Result};
 use crate::{
     abstract_server::{FileMatches, TextMatches, TextPattern},
     file_format::{
-        config,
         crossref::CrossrefData,
         jumpref::{JumprefData, convert_crossref_value_to_sym_info_rep},
         recency::Recency,
@@ -688,20 +687,15 @@ impl FlattenedResultsBundle {
     /// contents are HTML rows (see `ingest_html_lines`) at the end of its key
     /// line's code, like `/search/`, rather than under the rows, and clear its
     /// context and conditionals.
-    /// (`rev` is the try push whose context the results are in, if any; see
-    /// pipeline-server.)
-    pub fn inline_contexts(&mut self, tree: &str, rev: Option<&str>) {
+    pub fn inline_contexts(&mut self) {
         if self.content_type != "text/html" {
             return;
         }
         for path_kind_group in &mut self.path_kind_results {
             for kind_group in &mut path_kind_group.kind_groups {
                 for file in &mut kind_group.by_file {
-                    // (A linked tree's file's contexts are its symbols.)
-                    let file_tree = file.tree.unwrap_or_else(|| ustr(tree));
-                    let file_rev = rev.filter(|_| file.tree.is_none());
                     for span in &mut file.line_spans {
-                        span.inline_context(&file_tree, file_rev);
+                        span.inline_context();
                     }
                 }
             }
@@ -1114,8 +1108,11 @@ const MAX_SHOWN_CONDITION: usize = 100;
 impl FlattenedLineSpan {
     /// See `FlattenedResultsBundle::inline_contexts`.  The key line's row looks
     /// like `<div role="row" id="line-N" ...>...<code role="cell"
-    /// class="source-line">TEXT\n</code>\n</div>`.
-    fn inline_context(&mut self, tree: &str, rev: Option<&str>) {
+    /// class="source-line">TEXT\n</code>\n</div>`.  The context's symbol is a
+    /// token, as the excerpts' are, whose SYM_INFO the page has (see
+    /// pipeline-server's `results_sym_info`), for the context menu (ex: going
+    /// to its definition), rather than a link to a search for it.
+    fn inline_context(&mut self) {
         let pp = self.pp.as_deref().unwrap_or_default();
         if self.context.is_empty() && pp.is_empty() {
             return;
@@ -1142,19 +1139,11 @@ impl FlattenedLineSpan {
             let inside = if self.contextsym.is_empty() {
                 context
             } else {
-                // (Queries in a try push's context are /query/'s.)
-                let link = match rev {
-                    Some(rev) => format!(
-                        "/{}/query/default?q=symbol:{}&rev={}",
-                        tree,
-                        urlencoding::encode(&self.contextsym),
-                        rev
-                    ),
-                    None => {
-                        config::search_link(tree, &format!("symbol:{}", self.contextsym), false)
-                    }
-                };
-                format!(r#"<a href="{}">{}</a>"#, escape(&link), context)
+                format!(
+                    r#"<span data-symbols="{}">{}</span>"#,
+                    escape(&self.contextsym),
+                    context
+                )
             };
             annotation.push_str(&format!(" found in <code>{}</code>", inside));
             // (And where in it, ex: "› fetches › toolchain".)
@@ -1621,11 +1610,11 @@ mod tests {
             more_hits: vec![],
             captures: vec![],
         };
-        span.inline_context("tests", None);
+        span.inline_context();
         // On the key line, before its newline, with an escaped context and
         // an encoded symbol.
         assert!(span.contents.contains(
-            "void f(); <span class=\"result-context\">// found in <code><a href=\"/tests/search?q=symbol:%23f&amp;redirect=false\">Foo&lt;T></a></code></span>\n</code>"
+            "void f(); <span class=\"result-context\">// found in <code><span data-symbols=\"#f\">Foo&lt;T></span></code></span>\n</code>"
         ));
         assert_eq!(span.contents.matches("result-context").count(), 1);
         assert!(span.context.is_empty() && span.contextsym.is_empty());
@@ -1647,7 +1636,7 @@ mod tests {
             more_hits: vec![],
             captures: vec![],
         };
-        span.inline_context("tests", None);
+        span.inline_context();
         assert!(span.contents.contains(
             "// found in <code>searchfox::linux64-searchfox/debug</code> <span class=\"result-ctxtra\">› <code>fetches</code> › <code>toolchain</code></span></span>"
         ));
@@ -1670,7 +1659,7 @@ mod tests {
             more_hits: vec![],
             captures: vec![],
         };
-        span.inline_context("tests", None);
+        span.inline_context();
         assert_eq!(span.contents, row(8, "text"));
 
         // The conditionals, with or without a context, escaped, and cut if
@@ -1694,7 +1683,7 @@ mod tests {
             more_hits: vec![],
             captures: vec![],
         };
-        span.inline_context("tests", None);
+        span.inline_context();
         assert!(span.contents.contains(
             "f(); <span class=\"result-context\">// found in <code>g</code> <span class=\"result-pp\" title=\"#if defined(XP_WIN) &amp;&amp; (A &lt; 2 || B)\">#if <code>defined(XP_WIN) &amp;&amp; (A &lt; 2 || B)</code></span></span>\n</code>"
         ));
@@ -1702,7 +1691,7 @@ mod tests {
         let long = "A".repeat(150);
         span.contents = row(8, "f();");
         span.pp = Some(vec![long.clone()]);
-        span.inline_context("tests", None);
+        span.inline_context();
         assert!(span.contents.contains(&format!(
             "f(); <span class=\"result-context\">// <span class=\"result-pp\" title=\"#if {}\">#if <code>{}…</code></span></span>",
             long,

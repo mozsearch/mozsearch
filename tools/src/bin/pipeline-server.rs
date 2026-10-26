@@ -197,9 +197,11 @@ fn results_file_facets(
 }
 
 /// The SYM_INFO (see `format::format_code`) of file-centric results: the
-/// jumprefs of the symbols in their excerpts' `data-symbols`, and of the extra
-/// symbols the context menu uses (ex: an XPIDL method's C++ binding), so that
-/// clicking a symbol in them works like in a source listing.  But without the
+/// jumprefs of the symbols in their excerpts' `data-symbols` and of their
+/// contexts' symbols (their "// found in", see
+/// `FlattenedResultsBundle::inline_contexts`), and of the extra symbols the
+/// context menu uses (ex: an XPIDL method's C++ binding), so that clicking a
+/// symbol in them works like in a source listing.  But without the
 /// structured information's platform variants and methods, which nothing on
 /// the page uses, and which are most of it for big classes (ex: 17.5 of the
 /// 22 MB for "nsIPrincipal" on firefox, with 2 MB for `Document`).
@@ -215,6 +217,9 @@ async fn results_sym_info(
             for file in &kind_group.by_file {
                 for span in &file.line_spans {
                     syms.extend(sym_info::html_symbols(&span.contents));
+                    if !span.contextsym.is_empty() {
+                        syms.insert(span.contextsym);
+                    }
                 }
             }
         }
@@ -434,7 +439,7 @@ async fn handle_query(
             _ => Value::Null,
         };
         if let PipelineValues::FlattenedResultsBundle(results) = &mut result {
-            results.inline_contexts(&tree, rev.map(String::as_str));
+            results.inline_contexts();
             results.link_line_numbers(&tree, rev.map(String::as_str));
             results.add_recency_cells();
         }

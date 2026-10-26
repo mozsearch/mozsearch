@@ -1,6 +1,7 @@
 {%- comment -%}
   A span of lines of results, with what contains its key line ("// found in
-  CONTEXT"), like /search/, and the preprocessor conditionals it's in ("// #if
+  CONTEXT", whose symbol is a token for the context menu, as the lines' are),
+  like /search/, and the preprocessor conditionals it's in ("// #if
   CONDITION").  For HTML rows, the pipeline server puts those at the end of
   the key line's code (see `FlattenedResultsBundle::inline_contexts`) and
   clears the span's context and conditionals.  (Empty strings are truthy in liquid, so the
@@ -15,13 +16,7 @@
 {{ line_span.contents }}
 {%- if line_span.context != empty -%}
 {%- if line_span.contextsym != empty -%}
-{%- if tree == search_tree and search_rev != empty -%}
-<span class="result-context">// found in <code><a href="/{{tree}}/query/default?q=symbol:{{ line_span.contextsym | url_encode }}&amp;rev={{ search_rev | escape }}">{{ line_span.context | escape }}</a></code></span>
-{%- elsif tree == search_tree and query_search -%}
-<span class="result-context">// found in <code><a href="{{ search_url }}?q=symbol:{{ line_span.contextsym | url_encode }}">{{ line_span.context | escape }}</a></code></span>
-{%- else -%}
-<span class="result-context">// found in <code><a href="/{{tree}}/search?q=symbol:{{ line_span.contextsym | url_encode }}&amp;redirect=false">{{ line_span.context | escape }}</a></code></span>
-{%- endif -%}
+<span class="result-context">// found in <code><span data-symbols="{{ line_span.contextsym | escape }}">{{ line_span.context | escape }}</span></code></span>
 {%- else -%}
 <span class="result-context">// found in <code>{{ line_span.context | escape }}</code></span>
 {%- endif -%}

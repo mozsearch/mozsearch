@@ -1,8 +1,8 @@
 "use strict";
 
 // /query/'s results say what contains each line ("// found in CONTEXT") at the
-// end of the line, like /search/, with a link to a search for the context's
-// symbol, and only when there is a context.
+// end of the line, like /search/, with the context's symbol, for its context
+// menu, and only when there is a context.
 add_task(async function test_QueryFoundIn() {
   await TestUtils.loadQuery("tests", "doublePure");
 
@@ -12,8 +12,9 @@ add_task(async function test_QueryFoundIn() {
   ok(contexts.every(context => context.closest("code.source-line")), "on the lines themselves");
   ok(contexts.every(context => context.querySelector("code").textContent.trim() != ""),
      "and only when there's a context");
-  const link = contexts
-    .map(context => context.querySelector("a"))
-    .find(a => a && a.textContent == "DoubleBase");
-  ok(link && link.href.includes("q=symbol:T_DoubleBase"), "The context links to a search for its symbol");
+  const symbol = contexts
+    .map(context => context.querySelector("[data-symbols]"))
+    .find(span => span && span.textContent == "DoubleBase");
+  is(symbol?.dataset.symbols, "T_DoubleBase", "The context is its symbol");
+  ok(frame.contentWindow.SYM_INFO.T_DoubleBase, "whose info the page has");
 });

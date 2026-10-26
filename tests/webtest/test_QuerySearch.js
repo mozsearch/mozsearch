@@ -53,10 +53,23 @@ add_task(async function test_QuerySearchLinks() {
      "Searching for a symbol from the context menu uses /query/");
   ok(!search.includes("redirect="), "without /search's redirect parameter");
 
+  // What contains the results ("// found in X") is a symbol, whose context
+  // menu is a symbol's too, searching with /query/.
+  // (A function's, rather than a namespace's, which has no definition.)
   await TestUtils.loadPath(search);
-  const foundIn = doc().querySelector(".result-context a")?.getAttribute("href");
-  ok(foundIn?.startsWith("/trydelta/query/default?q=symbol:"),
-     "and the results' links to what contains them use it too");
+  const foundIn = [...doc().querySelectorAll(".result-context [data-symbols]")]
+    .find(span => span.textContent == "trydelta::FrobTwice");
+  ok(foundIn && frame.contentWindow.SYM_INFO[foundIn.dataset.symbols],
+     "What contains the results is a symbol, whose info the page has");
+  TestUtils.click(foundIn);
+  const contextMenu = doc().querySelector("#context-menu");
+  await waitForShown(contextMenu, "Context menu is shown for its click");
+  const links = [...contextMenu.querySelectorAll("a")];
+  ok(links.some(a => a.textContent.includes("Go to definition of")),
+     "which goes to its definition");
+  ok(contextMenu.querySelector(".icon-search")?.getAttribute("href")
+       ?.startsWith("/trydelta/query/default?q=symbol:"),
+     "and searches for it with /query/");
 });
 
 add_task(async function test_QueryNormalization() {
