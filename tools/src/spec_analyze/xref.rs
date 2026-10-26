@@ -44,8 +44,10 @@ pub struct Term {
 }
 
 /// A definition's export, as an analysis gives it: its linking texts, type,
-/// what it's for, and its anchor.
-#[derive(Clone, Debug, PartialEq)]
+/// what it's for, and its anchor.  (Saved with the index, for analyzing
+/// specs' pull requests without the other specs; see spec-analyze's
+/// `--terms-out` and `--terms`.)
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct Export {
     pub texts: Vec<String>,
     pub dfn_type: String,

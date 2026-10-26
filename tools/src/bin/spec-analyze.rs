@@ -2,7 +2,7 @@
 // references to them (see `tools::spec_analyze`).
 //
 // Usage:
-//   spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] [--bcd BCD_JSON] [--stale-anchors SPEC_TREE SPEC_GIT SPEC_HISTORY CITED] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]
+//   spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] [--bcd BCD_JSON] [--stale-anchors SPEC_TREE SPEC_GIT SPEC_HISTORY CITED] [--terms-out TERMS_JSON] [--only-specs NAMES --terms TERMS_JSON] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]
 //
 // SPECS_TOML lists the specs (`[[spec]]`s, see `spec_analyze::SpecsConfig`),
 // and each spec whose format we analyze gets the analysis of its source
@@ -35,6 +35,15 @@
 // written to CITED, for the history's next update to look up (see
 // `spec_analyze::stale` and the stale-anchors tool).
 //
+// With --terms-out, the specs' exported definitions, which ReSpec specs'
+// references to other specs' terms are to (see `xref`), are written to
+// TERMS_JSON (by spec name; ex: the index's spec-terms.json).  With
+// --only-specs, only the specs named (by their names, comma-separated) are
+// analyzed (ex: those a spec's pull request changes, for its semantic
+// analysis; see analyze-spec-pr), with the other specs' exported definitions
+// from --terms's TERMS_JSON (and ecmarkup's biblios from the specs whose
+// biblios they load, which are analyzed too, but not written).
+//
 // With --bcd, MDN's browser-compat-data (BCD_JSON, its data.json) gives the
 // specs' definitions (unless --citations-only) their MDN pages, and the
 // symbols of the tree's WebIDL files (in CITING_PATHS) the specs' definitions
@@ -65,9 +74,17 @@ fn main() {
     // (The specs' tree's name, repo, and history, and where the stale anchors
     // cited go.)
     let mut stale_anchors: Option<(String, String, String, String)> = None;
+    let mut terms_out: Option<String> = None;
+    let mut terms_in: Option<String> = None;
+    let mut only: Option<HashSet<String>> = None;
     while args.len() > 1 && args[1].starts_with("--") {
         match args.remove(1).as_str() {
             "--citations-only" => citations_only = true,
+            "--terms-out" if args.len() > 1 => terms_out = Some(args.remove(1)),
+            "--terms" if args.len() > 1 => terms_in = Some(args.remove(1)),
+            "--only-specs" if args.len() > 1 => {
+                only = Some(args.remove(1).split(',').map(String::from).collect())
+            }
             "--spec-files" if args.len() > 1 => spec_files_root = Some(args.remove(1)),
             "--spec-index" if args.len() > 1 => spec_index_root = Some(args.remove(1)),
             "--rendered-specs" if args.len() > 1 => rendered_root = Some(args.remove(1)),
@@ -86,7 +103,7 @@ fn main() {
     }
     if args.len() != 4 && args.len() != 5 {
         eprintln!(
-            "Usage: spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] [--bcd BCD_JSON] [--stale-anchors SPEC_TREE SPEC_GIT SPEC_HISTORY CITED] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]"
+            "Usage: spec-analyze [--citations-only] [--spec-files SPEC_FILES_ROOT] [--spec-index SPEC_INDEX_ROOT] [--rendered-specs RENDERED_ROOT] [--bcd BCD_JSON] [--stale-anchors SPEC_TREE SPEC_GIT SPEC_HISTORY CITED] [--terms-out TERMS_JSON] [--only-specs NAMES --terms TERMS_JSON] FILES_ROOT ANALYSIS_ROOT SPECS_TOML [CITING_PATHS]"
         );
         exit(1);
     }
@@ -136,6 +153,33 @@ fn main() {
     };
     let mut specs: Vec<_> = config.specs.iter().collect();
     specs.sort_by_key(|spec| biblio_rank(spec));
+    // With --only-specs, which specs are analyzed and written: those named,
+    // and, but not written, those whose biblios they may load.
+    let written = |spec: &SpecEntry| only.as_ref().is_none_or(|only| only.contains(&spec.name));
+    let any_ecmarkup = config
+        .specs
+        .iter()
+        .any(|spec| written(spec) && spec.format == Some(SpecFormat::Ecmarkup));
+    let analyzed = |spec: &SpecEntry| {
+        written(spec)
+            || (any_ecmarkup
+                && spec.format == Some(SpecFormat::Ecmarkup)
+                && biblio_rank(spec) != usize::MAX)
+    };
+    // The other specs' exported definitions, from the index's.
+    let saved_terms: HashMap<String, Vec<xref::Export>> = match (&only, &terms_in) {
+        (Some(_), Some(path)) => std::fs::read_to_string(path)
+            .ok()
+            .and_then(|text| serde_json::from_str(&text).ok())
+            .unwrap_or_else(|| {
+                eprintln!("spec-analyze: {}: no saved terms", path);
+                HashMap::new()
+            }),
+        _ => HashMap::new(),
+    };
+    // The specs' exported definitions as they're added, for --terms-out.
+    let mut all_exports: std::collections::BTreeMap<String, Vec<xref::Export>> =
+        Default::default();
     // The biblios of the specs whose biblios others load, by their URLs.
     let mut biblios: HashMap<&str, ecmarkup::Biblio> = HashMap::new();
     // The ecmarkup specs' clauses' names, for citations of their sections
@@ -175,17 +219,36 @@ fn main() {
     let mut bikeshed_analyses: HashMap<usize, BikeshedAnalysis> = if citations_only {
         HashMap::new()
     } else {
-        analyze_bikeshed_specs(&specs, files_root, rendered_root.as_deref(), &config)
+        analyze_bikeshed_specs(
+            &specs,
+            &written,
+            files_root,
+            rendered_root.as_deref(),
+            &config,
+        )
     };
     // The specs' exported definitions, which ReSpec specs' references to
     // other specs' terms are to (see `xref`); so ReSpec specs are analyzed
     // last.
     let mut terms = xref::Terms::default();
     let mut respec_specs: Vec<(&SpecEntry, String, String)> = vec![];
+    // (The ReSpec specs, in order, with their saved exports if they're not
+    // analyzed.)
+    let mut respec_order: Vec<(&SpecEntry, Option<&Vec<xref::Export>>)> = vec![];
     for (spec_index, spec) in specs.into_iter().enumerate().filter(|_| !citations_only) {
         let (Some(format), Some(path)) = (spec.format, spec.source_path()) else {
             continue;
         };
+        // (A spec which isn't analyzed adds its saved exports where it would
+        // have added its own, so that references resolve as in the index.)
+        if !analyzed(spec) {
+            match (format, saved_terms.get(&spec.name)) {
+                (SpecFormat::Respec, saved) => respec_order.push((spec, saved)),
+                (_, Some(saved)) => terms.add(spec, saved),
+                _ => {}
+            }
+            continue;
+        }
         let Ok(source) = std::fs::read_to_string(files_root.join(&path)) else {
             eprintln!("spec-analyze: {}: no source at {}", spec.name, path);
             continue;
@@ -194,7 +257,9 @@ fn main() {
         match format {
             SpecFormat::Wattsi => {
                 let (records, stats) = wattsi::analyze(&source, spec.shortname(), &config);
-                terms.add(spec, &wattsi::exports(&source));
+                let exports = wattsi::exports(&source);
+                terms.add(spec, &exports);
+                all_exports.insert(spec.name.clone(), exports);
                 add_defined(&path, &records);
                 write_records(analysis_root, &path, records);
                 spec_files.insert(path.clone());
@@ -241,6 +306,10 @@ fn main() {
                     biblios.insert(url, biblio);
                 }
                 let file_count = files.len();
+                // (Only for its biblio, if it's not written.)
+                if !written(spec) {
+                    continue;
+                }
                 for (file, records) in files {
                     add_defined(&file, &records);
                     write_records(analysis_root, &file, records);
@@ -263,7 +332,10 @@ fn main() {
                     started.elapsed().as_secs_f64()
                 );
             }
-            SpecFormat::Respec => respec_specs.push((spec, path, source)),
+            SpecFormat::Respec => {
+                respec_order.push((spec, None));
+                respec_specs.push((spec, path, source));
+            }
             SpecFormat::Bikeshed => {
                 let Some(analysis) = bikeshed_analyses.remove(&spec_index) else {
                     continue;
@@ -276,6 +348,7 @@ fn main() {
                     }
                 };
                 terms.add(spec, &exports);
+                all_exports.insert(spec.name.clone(), exports);
                 let Some((files, stats)) = analyzed else {
                     continue;
                 };
@@ -327,9 +400,18 @@ fn main() {
             is_respec
         })
         .collect();
-    // (With the files they include.)
+    // (With the files they include; and those which aren't analyzed, their
+    // saved exports, in the specs' order.)
     let read = |file: &str| std::fs::read_to_string(files_root.join(file)).ok();
-    for (spec, path, _, scripts) in &respec_specs {
+    for (spec, saved) in &respec_order {
+        if let Some(saved) = saved {
+            terms.add(spec, saved);
+            continue;
+        }
+        let Some((_, path, _, scripts)) = respec_specs.iter().find(|(s, ..)| s.name == spec.name)
+        else {
+            continue;
+        };
         if let Some((_, _, exports)) = respec::analyze_with_includes(
             path,
             &read,
@@ -339,7 +421,13 @@ fn main() {
             &xref::Terms::default(),
         ) {
             terms.add(spec, &exports);
+            all_exports.insert(spec.name.clone(), exports);
         }
+    }
+    if let Some(path) = &terms_out
+        && let Err(e) = std::fs::write(path, serde_json::to_string(&all_exports).unwrap())
+    {
+        eprintln!("spec-analyze: {}: {}", path, e);
     }
     for (spec, path, _, scripts) in respec_specs {
         let started = Instant::now();
@@ -586,6 +674,7 @@ type BikeshedRecords = (Vec<(String, Vec<Record>)>, bikeshed::Stats);
 /// `rendered_root/<path>.html`, for its rendered view.
 fn analyze_bikeshed_specs(
     specs: &[&SpecEntry],
+    wanted: &dyn Fn(&SpecEntry) -> bool,
     files_root: &Path,
     rendered_root: Option<&str>,
     config: &SpecsConfig,
@@ -593,7 +682,7 @@ fn analyze_bikeshed_specs(
     let jobs: Vec<(usize, &SpecEntry, String)> = specs
         .iter()
         .enumerate()
-        .filter(|(_, spec)| spec.format == Some(SpecFormat::Bikeshed))
+        .filter(|(_, spec)| spec.format == Some(SpecFormat::Bikeshed) && wanted(spec))
         .filter_map(|(i, spec)| Some((i, *spec, spec.source_path()?)))
         .filter(|(_, _, path)| files_root.join(path).is_file())
         .collect();

@@ -20,17 +20,13 @@ fi
 cat "$OUT"
 STACK=$(sed -n 's/^stack: //p' "$OUT")
 HEAD_REV=$(sed -n 's/^head: //p' "$OUT")
-BASE=$(sed -n 's/^base: //p' "$OUT")
-rm -f "$OUT"
 
 PUSH_REVS="$STACK" "$MOZSEARCH_PATH/scripts/import-try-push.sh" \
     "$GIT_ROOT" "$HISTORY_ROOT" "$GIT_BRANCH" "$NAME" "$HEAD_REV" "$MAX_REVISIONS"
 
-# Its head's renderings of the Bikeshed specs it changes (which the web server
-# can't render; see render-spec-pr).  A tree of specs' hook runs this in a
-# sandbox (see ../../config's wubspecs/import-try); the container has no
-# bubblewrap.
-RENDERED="$INDEX_ROOT/try-rendered/$HEAD_REV"
-mkdir -p "$RENDERED"
-render-spec-pr "$SPECS_TOML" "$GIT_ROOT" "${NAME%%/*}" "$BASE" "$HEAD_REV" "$RENDERED" ||
-    echo "Rendering its Bikeshed specs failed."
+# Its renderings and semantic analysis (without bubblewrap, which the
+# container doesn't have; a tree of specs' hook sandboxes them, see
+# ../../config's wubspecs/import-try).  (If that fails, it's still imported.)
+SANDBOX=none "$MOZSEARCH_PATH/scripts/analyze-spec-pr.sh" "$SPECS_TOML" "$NAME" "$OUT" ||
+    echo "WARNING: Its semantic analysis failed."
+rm -f "$OUT"

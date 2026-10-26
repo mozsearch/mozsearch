@@ -723,13 +723,16 @@ fn parse_semantic_failure(log: &str) -> Option<SemanticFailure> {
         .iter()
         .any(|line| line.trim() == "All of the push's commits have landed.");
     for line in after {
+        // (git apply's, for an hg push's commits, or a spec's pull request's
+        // hook's, from build-spec-pr; see `spec_forest::pull_request_commits`.)
         let file = line
             .strip_prefix("Applied patch to '")
             .and_then(|rest| rest.strip_suffix("' with conflicts."))
             .or_else(|| {
                 line.strip_prefix("error: ")
                     .and_then(|rest| rest.strip_suffix(": patch does not apply"))
-            });
+            })
+            .or_else(|| line.strip_prefix("Conflicting file: "));
         if let Some(file) = file
             && !conflicts.iter().any(|known| known == file)
         {

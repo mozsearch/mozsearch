@@ -5,6 +5,8 @@
 // tests/specpr/import-try), at `/specpr/try/SPEC/NUMBER`: gizmo's pull
 // request 1 adds to the spec in two commits, and pull request 2 changes what
 // the trunk changed since (so it can't be rebased onto the tree's revision).
+// The rebased head of one which can be is analyzed as the tree's specs are,
+// for its semantic delta (see scripts/analyze-spec-pr.sh).
 
 function doc() {
   return frame.contentDocument;
@@ -67,11 +69,34 @@ add_task(async function test_SpecPullRequest() {
      "while the tip's is the trunk's");
 });
 
+add_task(async function test_SpecPullRequestSemantics() {
+  await importPage(1);
+  const link = doc().querySelector('.explore-semantic-head a[href^="/specpr/rev/"]');
+  ok(link, "Its head rebased onto the tree's revision has semantic analysis");
+  const rebased = link.getAttribute("href").match(/\/rev\/([0-9a-f]{40})\//)[1];
+
+  // Its definitions (the Wattsi spec's oiling and springs, and the Bikeshed
+  // spec's cogs) are searchable at its rebased head, but not at the tree's
+  // revision.
+  const defined = async (sym, rev) => {
+    const params = rev ? { rev } : undefined;
+    await TestUtils.loadQuery("specpr", `symbol:${sym}`, params);
+    return [...doc().querySelectorAll(".query-result .file")].length > 0;
+  };
+  for (const sym of ["SPEC_gizmo_concept@2Dsprocket@2Doil", "SPEC_gizmo@2Dgears_cog"]) {
+    ok(await defined(sym, rebased), `${sym} is defined at its rebased head`);
+    ok(!(await defined(sym, null)), "and not at the tree's revision");
+  }
+});
+
 add_task(async function test_SpecPullRequestConflicting() {
   await importPage(2);
   const commits = [...doc().querySelectorAll(".explore-commit-list .explore-commit")];
   is(commits.length, 1, "A pull request conflicting with the trunk is imported too");
   ok(commits[0].textContent.includes("Twist gizmos the other way"), "with its commit");
+  const failure = doc().querySelector(".explore-semantic-failure")?.textContent || "";
+  ok(failure.includes("rebase") && failure.includes("gizmo/source"),
+     "but its page says it can't be rebased, and which file's changes conflict");
 });
 
 add_task(async function test_SpecPullRequestURLs() {

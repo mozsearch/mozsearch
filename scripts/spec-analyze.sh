@@ -46,8 +46,11 @@ if [ -f "$SPECS_TOML" ]; then
         STALE_ANCHORS=(--stale-anchors "$TREE_NAME" "$GIT_ROOT" "$HISTORY_ROOT" "$STALE_CITED")
     fi
     # (Bikeshed's renderings of its specs go in rendered-specs/, for their
-    # rendered views; see tools/src/rendered_specs/bikeshed.rs.)
+    # rendered views; see tools/src/rendered_specs/bikeshed.rs.  And the specs'
+    # exported definitions in spec-terms.json, for analyzing their pull
+    # requests' changes without the other specs; see analyze-spec-pr.)
     spec-analyze --rendered-specs $INDEX_ROOT/rendered-specs "${STALE_ANCHORS[@]}" "${BCD_ARGS[@]}" \
+        --terms-out $INDEX_ROOT/spec-terms.json \
         $FILES_ROOT $INDEX_ROOT/analysis $SPECS_TOML $INDEX_ROOT/repo-files
     # (The index's copy is for the rendered views of the specs' sources, see
     # tools/src/rendered_specs, which the web server makes from it, and the
