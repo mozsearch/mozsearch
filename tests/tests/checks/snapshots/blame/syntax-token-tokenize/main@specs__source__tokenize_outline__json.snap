@@ -53,6 +53,41 @@ input_file: inputs/blame/syntax-token-tokenize/specs__source__tokenize_outline__
         "isDef": true,
         "kind": "section"
       }
+    },
+    {
+      "value": {
+        "pretty": "Infrastructure::Tokenization",
+        "isDef": true,
+        "kind": "section"
+      }
+    },
+    {
+      "value": {
+        "pretty": "Infrastructure::Tokenization::Data%20state",
+        "isDef": true,
+        "kind": "section"
+      }
+    },
+    {
+      "value": {
+        "pretty": "Infrastructure::Tokenization::Data%20state::algorithm",
+        "isDef": true,
+        "kind": "algorithm"
+      }
+    },
+    {
+      "value": {
+        "pretty": "Infrastructure::Tokenization::Tag%20open%20state",
+        "isDef": true,
+        "kind": "section"
+      }
+    },
+    {
+      "value": {
+        "pretty": "Infrastructure::Tokenization::Tag%20open%20state::algorithm",
+        "isDef": true,
+        "kind": "algorithm"
+      }
     }
   ]
 }

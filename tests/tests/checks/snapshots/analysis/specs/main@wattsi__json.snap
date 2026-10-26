@@ -569,6 +569,231 @@ input_file: inputs/analysis/specs/wattsi__json
     "contextsym": "SPEC_example_doohickeys"
   },
   {
+    "loc": "00051:20-32",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section example Tokenization",
+    "sym": "SPEC_example_tokenization"
+  },
+  {
+    "loc": "00051:20-32",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example Tokenization",
+    "sym": "SPEC_example_tokenization",
+    "context": "Tokenization",
+    "contextsym": "SPEC_example_tokenization"
+  },
+  {
+    "loc": "00051:20-32",
+    "structured": 1,
+    "pretty": "example Tokenization",
+    "sym": "SPEC_example_tokenization",
+    "kind": "specSection",
+    "implKind": "spec",
+    "rendered": "https://example.spec.whatwg.org/#tokenization"
+  },
+  {
+    "loc": "00054:22-28",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example #tokenization:concept-widget",
+    "sym": "SPEC_example_tokenization@3Aconcept@2Dwidget",
+    "context": "Tokenization",
+    "contextsym": "SPEC_example_tokenization"
+  },
+  {
+    "loc": "00054:22-28",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn example widget",
+    "sym": "SPEC_example_concept@2Dwidget"
+  },
+  {
+    "loc": "00054:22-28",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example widget",
+    "sym": "SPEC_example_concept@2Dwidget",
+    "context": "Tokenization",
+    "contextsym": "SPEC_example_tokenization"
+  },
+  {
+    "loc": "00056:4-25",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section example Data state",
+    "sym": "SPEC_example_data@2Dstate"
+  },
+  {
+    "loc": "00056:4-25",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example Data state",
+    "sym": "SPEC_example_data@2Dstate",
+    "context": "Data state",
+    "contextsym": "SPEC_example_data@2Dstate"
+  },
+  {
+    "loc": "00056:4-25",
+    "structured": 1,
+    "pretty": "example Data state",
+    "sym": "SPEC_example_data@2Dstate",
+    "kind": "specAlgorithm",
+    "implKind": "spec",
+    "rendered": "https://example.spec.whatwg.org/#data-state"
+  },
+  {
+    "loc": "00060:48-54",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example #data-state:concept-widget",
+    "sym": "SPEC_example_data@2Dstate@3Aconcept@2Dwidget",
+    "context": "Data state",
+    "contextsym": "SPEC_example_data@2Dstate"
+  },
+  {
+    "loc": "00060:48-54",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn example widget",
+    "sym": "SPEC_example_concept@2Dwidget"
+  },
+  {
+    "loc": "00060:48-54",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example widget",
+    "sym": "SPEC_example_concept@2Dwidget",
+    "context": "Data state",
+    "contextsym": "SPEC_example_data@2Dstate"
+  },
+  {
+    "loc": "00064:25-39",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example #data-state:tag-open-state",
+    "sym": "SPEC_example_data@2Dstate@3Atag@2Dopen@2Dstate",
+    "context": "Data state",
+    "contextsym": "SPEC_example_data@2Dstate"
+  },
+  {
+    "loc": "00064:25-39",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "section example Tag open state",
+    "sym": "SPEC_example_tag@2Dopen@2Dstate"
+  },
+  {
+    "loc": "00064:25-39",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example Tag open state",
+    "sym": "SPEC_example_tag@2Dopen@2Dstate",
+    "context": "Data state",
+    "contextsym": "SPEC_example_data@2Dstate"
+  },
+  {
+    "loc": "00067:23-33",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example #data-state:data-state",
+    "sym": "SPEC_example_data@2Dstate@3Adata@2Dstate",
+    "context": "Data state",
+    "contextsym": "SPEC_example_data@2Dstate"
+  },
+  {
+    "loc": "00067:23-33",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "section example Data state",
+    "sym": "SPEC_example_data@2Dstate"
+  },
+  {
+    "loc": "00067:23-33",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example Data state",
+    "sym": "SPEC_example_data@2Dstate",
+    "context": "Data state",
+    "contextsym": "SPEC_example_data@2Dstate"
+  },
+  {
+    "loc": "00071:4-29",
+    "source": 1,
+    "syntax": "def",
+    "pretty": "section example Tag open state",
+    "sym": "SPEC_example_tag@2Dopen@2Dstate"
+  },
+  {
+    "loc": "00071:4-29",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example Tag open state",
+    "sym": "SPEC_example_tag@2Dopen@2Dstate",
+    "context": "Tag open state",
+    "contextsym": "SPEC_example_tag@2Dopen@2Dstate"
+  },
+  {
+    "loc": "00071:4-29",
+    "structured": 1,
+    "pretty": "example Tag open state",
+    "sym": "SPEC_example_tag@2Dopen@2Dstate",
+    "kind": "specAlgorithm",
+    "implKind": "spec",
+    "rendered": "https://example.spec.whatwg.org/#tag-open-state"
+  },
+  {
+    "loc": "00074:48-54",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example #tag-open-state:concept-widget",
+    "sym": "SPEC_example_tag@2Dopen@2Dstate@3Aconcept@2Dwidget",
+    "context": "Tag open state",
+    "contextsym": "SPEC_example_tag@2Dopen@2Dstate"
+  },
+  {
+    "loc": "00074:48-54",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "dfn example widget",
+    "sym": "SPEC_example_concept@2Dwidget"
+  },
+  {
+    "loc": "00074:48-54",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example widget",
+    "sym": "SPEC_example_concept@2Dwidget",
+    "context": "Tag open state",
+    "contextsym": "SPEC_example_tag@2Dopen@2Dstate"
+  },
+  {
+    "loc": "00078:28-38",
+    "target": 1,
+    "kind": "def",
+    "pretty": "example #tag-open-state:data-state",
+    "sym": "SPEC_example_tag@2Dopen@2Dstate@3Adata@2Dstate",
+    "context": "Tag open state",
+    "contextsym": "SPEC_example_tag@2Dopen@2Dstate"
+  },
+  {
+    "loc": "00078:28-38",
+    "source": 1,
+    "syntax": "use",
+    "pretty": "section example Data state",
+    "sym": "SPEC_example_data@2Dstate"
+  },
+  {
+    "loc": "00078:28-38",
+    "target": 1,
+    "kind": "use",
+    "pretty": "example Data state",
+    "sym": "SPEC_example_data@2Dstate",
+    "context": "Tag open state",
+    "contextsym": "SPEC_example_tag@2Dopen@2Dstate"
+  },
+  {
     "loc": "00009:84-89",
     "structured": 1,
     "supplement": true,

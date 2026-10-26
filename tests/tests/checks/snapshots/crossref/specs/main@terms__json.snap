@@ -42,6 +42,36 @@ input_file: inputs/crossref/specs/terms__json
                 "line": "<li><p>For each <span data-x=concept-widget>widget</span> in it:",
                 "context": "assemble step 2",
                 "contextsym": "SPEC_example_assemble"
+              },
+              {
+                "lno": 54,
+                "bounds": [
+                  22,
+                  28
+                ],
+                "line": "data-x=concept-widget>widget</span> (as the HTML parser's tokenizer's do).",
+                "context": "Tokenization",
+                "contextsym": "SPEC_example_tokenization"
+              },
+              {
+                "lno": 60,
+                "bounds": [
+                  48,
+                  54
+                ],
+                "line": "<p>Consume the next <span data-x=concept-widget>widget</span>:</p>",
+                "context": "Data state",
+                "contextsym": "SPEC_example_data@2Dstate"
+              },
+              {
+                "lno": 74,
+                "bounds": [
+                  48,
+                  54
+                ],
+                "line": "<p>Consume the next <span data-x=concept-widget>widget</span>:</p>",
+                "context": "Tag open state",
+                "contextsym": "SPEC_example_tag@2Dopen@2Dstate"
               }
             ]
           }
