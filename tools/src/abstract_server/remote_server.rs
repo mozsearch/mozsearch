@@ -486,6 +486,13 @@ impl AbstractServer for RemoteServer {
             .collect()
     }
 
+    fn expanded_subsystems(&self) -> Vec<String> {
+        let Some(Ok(info)) = block_on(self.base_info()) else {
+            return vec![];
+        };
+        serde_json::from_value(info["expanded_subsystems"].clone()).unwrap_or_default()
+    }
+
     fn tree_config(&self) -> Result<Value> {
         let body = block_on(self.api("config", None, &[])).ok_or(ServerError::Unsupported)??;
         parse(&body)

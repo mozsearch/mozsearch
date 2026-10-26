@@ -217,6 +217,9 @@ pub struct LocalIndex {
     token_names: Arc<OnceLock<Option<TokenNames>>>,
     /// The tree's path kinds' keys and names, in display order.
     path_kinds: Vec<(Ustr, Ustr)>,
+    /// The subsystems whose nested values facets show at first (see
+    /// `FacetsConfig`).
+    expanded_subsystems: Vec<String>,
     head_info: Option<CommitInfo>,
     /// Whether its gzipped analysis files are as `fetch_raw_analysis` gives
     /// them (its `analysis-normalized` stamp; see compress-outputs.sh and
@@ -532,6 +535,10 @@ impl AbstractServer for LocalIndex {
 
     fn path_kinds(&self) -> Vec<(Ustr, Ustr)> {
         self.path_kinds.clone()
+    }
+
+    fn expanded_subsystems(&self) -> Vec<String> {
+        self.expanded_subsystems.clone()
     }
 
     fn translate_path(&self, root: SearchfoxIndexRoot, sf_path: &str) -> Result<String> {
@@ -1158,16 +1165,19 @@ fn fab_server(
     tree_index_paths: &BTreeMap<String, String>,
     per_file_info_toml: Option<String>,
 ) -> Result<Box<dyn AbstractServer + Send + Sync>> {
-    let path_kinds = per_file_info_toml
-        .and_then(|toml| toml::from_str::<RepoIngestionConfig>(&toml).ok())
-        .map_or_else(Vec::new, |config| {
-            let mut kinds: Vec<_> = config.pathkind.into_iter().collect();
-            kinds.sort_by_key(|(_, kind)| kind.sort_order);
-            kinds
-                .into_iter()
-                .map(|(key, kind)| (key, kind.name))
-                .collect()
-        });
+    let per_file_info =
+        per_file_info_toml.and_then(|toml| toml::from_str::<RepoIngestionConfig>(&toml).ok());
+    let expanded_subsystems = per_file_info
+        .as_ref()
+        .map_or_else(Vec::new, |config| config.facets.expanded_subsystems.clone());
+    let path_kinds = per_file_info.map_or_else(Vec::new, |config| {
+        let mut kinds: Vec<_> = config.pathkind.into_iter().collect();
+        kinds.sort_by_key(|(_, kind)| kind.sort_order);
+        kinds
+            .into_iter()
+            .map(|(key, kind)| (key, kind.name))
+            .collect()
+    });
     let ident_path = format!("{}/identifiers", tree_config.paths.index_path);
     let ident_map = IdentMap::new(&ident_path);
 
@@ -1257,6 +1267,7 @@ fn fab_server(
         token_names: Arc::new(OnceLock::new()),
         file_lookup_path,
         path_kinds,
+        expanded_subsystems,
         head_info,
         analysis_normalized,
     }))

@@ -77,7 +77,11 @@ fn results_file_facets(
             });
         }
     }
-    let (mut facets, mut data) = file_facets(&files, &PathKinds(server.path_kinds()));
+    let (mut facets, mut data) = file_facets(
+        &files,
+        &PathKinds(server.path_kinds()),
+        &server.expanded_subsystems(),
+    );
     let mut add_file_values = |key: &str, file_values: HashMap<String, Vec<String>>| {
         for (path, values) in file_values {
             if let Some(file_data) = data.get_mut(&path) {

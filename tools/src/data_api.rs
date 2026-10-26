@@ -948,6 +948,7 @@ async fn route_body(
                     "date": commit.date.to_rfc3339(),
                 })),
                 "path_kinds": server.path_kinds(),
+                "expanded_subsystems": server.expanded_subsystems(),
                 "try_meta": server.try_delta_meta(),
             })))
         }

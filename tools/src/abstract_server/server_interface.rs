@@ -396,6 +396,12 @@ pub trait AbstractServer {
         vec![]
     }
 
+    /// The subsystems whose nested values the subsystem facet shows at first
+    /// (see per-file-info.toml's `FacetsConfig`).
+    fn expanded_subsystems(&self) -> Vec<String> {
+        vec![]
+    }
+
     /// Convert a searchfox tree-local path into an absolute path on disk using
     /// the requested root.  This fundamentally only works for local indices.
     /// Note that many paths also have uncompressed (pre compress-outputs.sh)

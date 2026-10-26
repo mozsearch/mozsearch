@@ -286,7 +286,20 @@ impl FacetView {
     /// not those of smaller values if the biggest's don't fit), since a facet
     /// is for narrowing results down a step at a time, and a long list of
     /// values, nested in others, isn't.
-    pub fn new(key: &'static str, label: String, mut values: Vec<FacetValueView>) -> FacetView {
+    pub fn new(key: &'static str, label: String, values: Vec<FacetValueView>) -> FacetView {
+        FacetView::with_expanded(key, label, values, &[])
+    }
+
+    /// `FacetView::new`, but with the nested values of the values named by
+    /// `expanded` (with or without their final "/", ex: "Core" for "Core/")
+    /// showing at first whatever their number, and those values and their
+    /// ancestors too (see `FacetsConfig::expanded_subsystems`).
+    pub fn with_expanded(
+        key: &'static str,
+        label: String,
+        mut values: Vec<FacetValueView>,
+        expanded: &[String],
+    ) -> FacetView {
         fn elide_all(values: &mut [FacetValueView]) {
             for value in values.iter_mut() {
                 value.more = elide(&mut value.values, FACET_SHOWN).1;
@@ -296,12 +309,45 @@ impl FacetView {
         let (mut showing, more) = elide(&mut values, FACET_SHOWN);
         elide_all(&mut values);
 
-        // The values showing with nested values, as their indices at each
-        // level, which are expanded biggest first if theirs fit.
+        // The values to expand whatever their number, and their ancestors,
+        // whose nested values count as showing.  Returns whether any are in
+        // `values`.
+        fn expand_named(
+            values: &mut [FacetValueView],
+            expanded: &[String],
+            showing: &mut usize,
+        ) -> bool {
+            let mut any = false;
+            for value in values.iter_mut() {
+                let named = expanded
+                    .iter()
+                    .any(|name| name.trim_end_matches('/') == value.value.trim_end_matches('/'));
+                let below = expand_named(&mut value.values, expanded, showing);
+                if (named || below) && !value.values.is_empty() {
+                    value.elided = false;
+                    value.expanded = true;
+                    let elided = value.values.iter().filter(|nested| nested.elided).count();
+                    *showing += value.values.len() - elided + usize::from(elided > 0);
+                    any = true;
+                }
+            }
+            any
+        }
+        expand_named(&mut values, expanded, &mut showing);
+
+        // The values showing with nested values which aren't expanded yet (in
+        // those which are), as their indices at each level, which are expanded
+        // biggest first if theirs fit.
         fn candidates(values: &[FacetValueView], at: &[usize], into: &mut Vec<Vec<usize>>) {
             for (i, value) in values.iter().enumerate() {
-                if !value.elided && !value.values.is_empty() {
-                    into.push([at, &[i]].concat());
+                if value.elided || value.values.is_empty() {
+                    continue;
+                }
+                let at = [at, &[i]].concat();
+                if value.expanded {
+                    candidates(&value.values, &at, into);
+                } else {
+                    into.push(at);
                 }
             }
         }
@@ -836,10 +882,12 @@ fn truncated(text: &str, max: usize) -> String {
 /// the components' "/"s, ex: "Core/DOM/Workers" in "Core/DOM/" in "Core/";
 /// see per-file-info.toml), and their directories (the "Path" facet of
 /// compile-results), the biggest first, and each file's data for facets.js, by
-/// path.
+/// path.  `expanded_subsystems` are the subsystems whose nested values show at
+/// first (see `FacetsConfig`).
 pub fn file_facets(
     files: &[FacetFile],
     kinds: &PathKinds,
+    expanded_subsystems: &[String],
 ) -> (Vec<FacetView>, HashMap<String, FileFacetData>) {
     let kind_order = |kind: &str| kinds.order(kind);
     let kind_name = |kind: &str| kinds.name(kind);
@@ -996,10 +1044,16 @@ pub fn file_facets(
             "kind" => values.sort_by_key(|value| kind_order(&value.value)),
             _ => biggest_first(&mut values),
         }
-        facets.push(FacetView::new(
+        let expanded: &[String] = if key == "subsystem" {
+            expanded_subsystems
+        } else {
+            &[]
+        };
+        facets.push(FacetView::with_expanded(
             key,
             label.map_or(root.label, str::to_string),
             values,
+            expanded,
         ));
     }
 
@@ -1172,7 +1226,7 @@ mod tests {
             file("browser/a.js", Some("Firefox/General")),
             file("x.txt", None),
         ];
-        let (facets, data) = file_facets(&files, &PathKinds(vec![]));
+        let (facets, data) = file_facets(&files, &PathKinds(vec![]), &[]);
         let subsystem = facets.iter().find(|f| f.key == "subsystem").unwrap();
         fn tree(values: &[FacetValueView]) -> Vec<String> {
             values
@@ -1278,6 +1332,31 @@ mod tests {
         );
         assert!(view.values[0].expanded && view.values[1].expanded);
         assert_eq!(view.values[0].more, 0);
+
+        // Values named to be expanded are, whatever their number, with their
+        // biggest nested values, and their ancestors; the rest of the room
+        // goes to the others as usual.
+        let mut values = vec![value("a", 100, 20), value("b", 10, 2)];
+        values.extend((0..6).map(|i| value(&format!("c{}", i), 5, 0)));
+        let view = FacetView::with_expanded(
+            "subsystem",
+            "Subsystem".to_string(),
+            values,
+            &["a".to_string()],
+        );
+        assert!(view.values[0].expanded && !view.values[1].expanded);
+        assert_eq!(shown(&view.values[0].values).len(), 9);
+        assert_eq!(view.values[0].more, 11);
+        let mut nested = value("a", 100, 3);
+        nested.values[0] = value("a/0", 1, 2);
+        let view = FacetView::with_expanded(
+            "subsystem",
+            "Subsystem".to_string(),
+            vec![nested, value("b", 50, 2)],
+            &["a/0/".to_string()],
+        );
+        assert!(view.values[0].expanded && view.values[0].values[0].expanded);
+        assert!(view.values[1].expanded, "with room for b's");
 
         // Not a smaller value's nested values if the biggest's don't fit.
         let mut values = vec![value("a", 100, 20), value("b", 10, 2)];

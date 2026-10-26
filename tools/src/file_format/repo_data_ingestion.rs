@@ -28,6 +28,19 @@ pub struct RepoIngestionConfig {
     pub jsonfile: BTreeMap<String, JsonFileConfig>,
     #[serde(default)]
     pub pathkind: BTreeMap<Ustr, PathKindConfig>,
+    #[serde(default)]
+    pub facets: FacetsConfig,
+}
+
+/// Choices about the facets of lists of files (see
+/// `cmd_pipeline::facets::file_facets`), ex: config_defaults/per-file-info.toml's.
+#[derive(Clone, Default, Deserialize)]
+pub struct FacetsConfig {
+    /// The subsystems (ex: "Core", Firefox's product with most of its code)
+    /// whose nested values the subsystem facet shows at first, whatever their
+    /// number (see `FacetView::with_expanded`).
+    #[serde(default)]
+    pub expanded_subsystems: Vec<String>,
 }
 
 #[derive(Deserialize)]

@@ -8451,7 +8451,8 @@ fn explore_facets_with(
             }
         })
         .collect();
-    let (facets, mut data) = file_facets(&facet_files, &kinds);
+    let expanded_subsystems = map.map_or_else(Vec::new, |map| map.expanded_subsystems.clone());
+    let (facets, mut data) = file_facets(&facet_files, &kinds, &expanded_subsystems);
 
     let mut groups: BTreeMap<(usize, String), FileGroupView> = BTreeMap::new();
     for (mut file, facts) in files.into_iter().zip(&facet_files) {

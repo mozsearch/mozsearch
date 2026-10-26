@@ -173,6 +173,13 @@ bugzilla_component.pointer = "/bug_component"
 # "Audio/Video: GMP").
 subsystem.liquid = '{{ value.product }}/{{ value.component | replace: "&", "" | replace: "/", "-" | replace: ":", "/" | compact_pathlike }}'
 
+# The facets of lists of files (ex: /query/'s results, see `FacetsConfig`):
+# the subsystems whose nested values show at first, whatever their number,
+# ex: Firefox's "Core" product, which has most of its code (its components
+# then show, the biggest first).
+[facets]
+expanded_subsystems = ["Core"]
+
 [jsonfile."mozbuild-bug-components.json".detailed.info]
 bugzilla_rule.pointer = ""
 

@@ -177,6 +177,9 @@ pub struct PathFacetMap {
     kinds: Vec<Ustr>,
     subsystems: Vec<Ustr>,
     path_kinds: BTreeMap<Ustr, PathKindConfig>,
+    /// The subsystems whose nested values facets show at first (see
+    /// `FacetsConfig`).
+    pub expanded_subsystems: Vec<String>,
     files: usize,
 }
 
@@ -271,6 +274,7 @@ impl PathFacetMap {
             kinds: vec![],
             subsystems: vec![],
             path_kinds: config.pathkind,
+            expanded_subsystems: config.facets.expanded_subsystems,
             files: 0,
         };
         let mut deserializer = serde_json::Deserializer::from_slice(concise_json);
@@ -476,6 +480,10 @@ sort_order = 1
         }"#;
         let map = PathFacetMap::parse(json, TOML).unwrap();
         assert_eq!(map.files, 5);
+        assert!(map.expanded_subsystems.is_empty());
+        let toml = format!("{}\n[facets]\nexpanded_subsystems = [\"Core\"]\n", TOML);
+        let with_facets = PathFacetMap::parse(json, &toml).unwrap();
+        assert_eq!(with_facets.expanded_subsystems, ["Core"]);
         assert_eq!(map.path_kind("dom/b.cpp"), (ustr::ustr("normal"), true));
         assert_eq!(map.subsystem("dom/b.cpp").unwrap(), "Core/DOM: Core & HTML");
         assert_eq!(map.subsystem("dom/a.cpp"), None);

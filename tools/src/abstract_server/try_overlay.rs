@@ -288,6 +288,10 @@ impl AbstractServer for TryOverlay {
         self.base.path_kinds()
     }
 
+    fn expanded_subsystems(&self) -> Vec<String> {
+        self.base.expanded_subsystems()
+    }
+
     fn translate_path(&self, root: SearchfoxIndexRoot, sf_path: &str) -> Result<String> {
         self.base.translate_path(root, sf_path)
     }
