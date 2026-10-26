@@ -348,8 +348,10 @@ print(' error_page 404 /static/html/404.html;')
 location('@sidecar', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
 # The web-server's pages which aren't sidecar files (yet), or have queries;
 # nginx caches them, but for those it writes as sidecar files (whose
-# responses say not to).
-location('@page', ['proxy_pass http://127.0.0.1:8001;'])
+# responses say not to), and those it says nothing may cache (ex: a spec pull
+# request's changes of a page until it's imported; see the tools'
+# `spec_pr_blocks_json`), which browsers mustn't either.
+location('@page', ['expires $no_store_expires;', 'proxy_pass http://127.0.0.1:8001;'])
 
 # The web-server's routes whose pages it writes as sidecar files (keep in sync
 # with `tools::sidecars::PAGE_ROUTES`), gzipped with empty markers for
@@ -374,6 +376,7 @@ page_sidecar_routes = [
     'rev-canvas',
     'rev-outline',
     'rev-rendered',
+    'spec-pr-blocks',
 ]
 
 # TODO: it's possible some of the `try_files` machinations and symlinks
@@ -559,6 +562,8 @@ for repo in config['trees']:
     # A tree of specs' pull request summaries, which change when they're
     # synced, and their syncs' POSTs and status (see the tools' `spec_prs`).
     location(f'/{repo}/spec-prs', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
+    # and a spec's rendered page with their changes beside it.
+    location(f'/{repo}/rendered-prs', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
 
     # Handled by Rust `pipeline-server.rs`
     location(f'/{repo}/query', ['proxy_pass http://127.0.0.1:8002;'])

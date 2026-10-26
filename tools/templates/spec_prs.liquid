@@ -5,7 +5,8 @@
   their pages filtered to them; see facets.js's `facet-` parameters); with it, a
   repository's pull requests, with facets filtering them (see
   facet_bar.liquid), each with its page as a try push (which imports it), its
-  GitHub page, and what it changes.  Both have their syncs' status, a button
+  GitHub page, and what it changes (with links to the specs' renderings with
+  all of the pull requests' changes beside them).  Both have their syncs' status, a button
   asking for one (which POSTs to `sync_url`), and while one waits or runs,
   poll its status (`status_url`; see `format::format_spec_prs_sync_status`)
   until it's done, when the page reloads.
@@ -54,7 +55,7 @@
       {%- if pr.files.size > 0 %}
       <ul class="spec-pr-files">
         {%- for file in pr.files %}
-        <li><a href="{{ file.link }}">{{ file.path | escape }}</a> <span class="spec-pr-added">+{{ file.added }}</span> <span class="spec-pr-removed">−{{ file.removed }}</span>{% if file.sections.size > 0 %} in {% for section in file.sections %}{% if section.link %}<a href="{{ section.link | escape }}">{{ section.title | escape }}</a>{% else %}{{ section.title | escape }}{% endif %}{% unless forloop.last %}, {% endunless %}{% endfor %}{% endif %}</li>
+        <li><a href="{{ file.link }}">{{ file.path | escape }}</a>{% if file.with_prs %} (<a class="spec-pr-with-prs" href="{{ file.with_prs }}" title="Its rendering with the changes of all of the open pull requests changing it beside it">with pull requests</a>){% endif %} <span class="spec-pr-added">+{{ file.added }}</span> <span class="spec-pr-removed">−{{ file.removed }}</span>{% if file.sections.size > 0 %} in {% for section in file.sections %}{% if section.link %}<a href="{{ section.link | escape }}">{{ section.title | escape }}</a>{% else %}{{ section.title | escape }}{% endif %}{% unless forloop.last %}, {% endunless %}{% endfor %}{% endif %}</li>
         {%- endfor %}
       </ul>
       {%- endif %}

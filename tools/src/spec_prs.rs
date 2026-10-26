@@ -18,6 +18,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::fs;
+use std::ops::{Range, RangeInclusive};
 use std::path::{Path, PathBuf};
 use std::sync::{Condvar, LazyLock, Mutex};
 use std::time::{Duration, Instant};
@@ -295,6 +296,122 @@ pub fn pr_facets(prs: &[PrSummary]) -> Vec<FacetView> {
         facets.push(FacetView::new(key, label.to_string(), views));
     }
     facets
+}
+
+/// A change of a file by a pull request, from the diff of the file's trunk
+/// version and its merged version (the trunk with the pull request's changes
+/// merged; see `format::spec_pr_blocks_json`): the (0-based) lines it replaces
+/// in the trunk's, and those replacing them in the merged version's (either
+/// may be empty).
+#[derive(Clone, Debug, PartialEq)]
+pub struct LineHunk {
+    pub trunk: Range<usize>,
+    pub merged: Range<usize>,
+}
+
+/// The changes of the merged version of a file from its trunk version (see
+/// `LineHunk`), as git diffs them.
+pub fn line_hunks(trunk: &str, merged: &str) -> Vec<LineHunk> {
+    let mut options = git2::DiffOptions::new();
+    options.context_lines(0);
+    let Ok(patch) = git2::Patch::from_buffers(
+        trunk.as_bytes(),
+        None,
+        merged.as_bytes(),
+        None,
+        Some(&mut options),
+    ) else {
+        return vec![];
+    };
+    // (A hunk's start is 1-based, or for an empty side, the line before.)
+    let range = |start: u32, lines: u32| match lines {
+        0 => start as usize..start as usize,
+        lines => start as usize - 1..(start + lines) as usize - 1,
+    };
+    (0..patch.num_hunks())
+        .filter_map(|i| patch.hunk(i).ok())
+        .map(|(hunk, _)| LineHunk {
+            trunk: range(hunk.old_start(), hunk.old_lines()),
+            merged: range(hunk.new_start(), hunk.new_lines()),
+        })
+        .collect()
+}
+
+/// A pull request's change of a rendered page (see `block_changes`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct BlockChange {
+    /// The trunk's (0-based) line beside whose block the change goes: the
+    /// first it replaces, or the one it adds lines after.
+    pub anchor: usize,
+    /// The lines it replaces in the trunk's version, and those replacing
+    /// them in the merged version's (see `LineHunk`).
+    pub trunk: Range<usize>,
+    pub merged: Range<usize>,
+    /// The merged version's page's blocks with the lines replacing them (none
+    /// if it only removes lines).
+    pub blocks: Vec<usize>,
+}
+
+/// The changes of a merged version's rendered page from the trunk's: for each
+/// of the file's changes (see `line_hunks`), the page's blocks with its merged
+/// lines (`block_lines`, the merged version's blocks' lines; see
+/// `rendered_docs::block_lines`), if any (else it changes nothing the page
+/// shows, ex: a comment, or another page), or if it only removes lines and
+/// they were where the page's lines are (`page_lines`), none; changes with
+/// blocks in common are one.  Each goes beside the trunk's block with the
+/// first line it replaces, or the line it adds lines after (at most the last
+/// of the trunk's `trunk_lines`).
+pub fn block_changes(
+    hunks: &[LineHunk],
+    block_lines: &[Option<RangeInclusive<usize>>],
+    page_lines: &Range<usize>,
+    trunk_lines: usize,
+) -> Vec<BlockChange> {
+    let mut changes: Vec<BlockChange> = vec![];
+    for hunk in hunks {
+        let blocks: Vec<usize> = block_lines
+            .iter()
+            .enumerate()
+            .filter(|(_, lines)| {
+                lines.as_ref().is_some_and(|lines| {
+                    !hunk.merged.is_empty()
+                        && *lines.start() < hunk.merged.end
+                        && *lines.end() >= hunk.merged.start
+                })
+            })
+            .map(|(i, _)| i)
+            .collect();
+        if hunk.merged.is_empty() {
+            if !page_lines.contains(&hunk.merged.start) {
+                continue;
+            }
+        } else if blocks.is_empty() {
+            continue;
+        }
+        match changes.last_mut() {
+            Some(last) if blocks.iter().any(|block| last.blocks.contains(block)) => {
+                last.trunk.end = last.trunk.end.max(hunk.trunk.end);
+                last.merged.end = last.merged.end.max(hunk.merged.end);
+                for block in blocks {
+                    if !last.blocks.contains(&block) {
+                        last.blocks.push(block);
+                    }
+                }
+            }
+            _ => changes.push(BlockChange {
+                // (Lines added go after the line before them.)
+                anchor: match hunk.trunk.is_empty() {
+                    true => hunk.trunk.start.saturating_sub(1),
+                    false => hunk.trunk.start,
+                }
+                .min(trunk_lines.saturating_sub(1)),
+                trunk: hunk.trunk.clone(),
+                merged: hunk.merged.clone(),
+                blocks,
+            }),
+        }
+    }
+    changes
 }
 
 /// What's become of a tree's syncs, for its pages and their polling.
@@ -623,6 +740,11 @@ mod tests {
             "{}",
             page
         );
+        assert!(
+            page.contains(r#"href="/specs/rendered-prs/dom/dom.bs""#),
+            "{}",
+            page
+        );
         assert!(page.contains(r#"data-nouns="pull requests""#), "{}", page);
         assert!(page.contains("Synced 2026-10-26 14:03 UTC."), "{}", page);
         let page = render(idle, None).unwrap();
@@ -690,6 +812,75 @@ mod tests {
             specs: vec!["dom".to_string()],
             error: None,
         }
+    }
+
+    #[test]
+    fn test_block_changes() {
+        let trunk = "a\nb\nc\nd\ne\nf\n";
+        // (Changes c, adds after e, removes f.)
+        let merged = "a\nb\nC\nd\ne\nnew\nnewer\n";
+        let hunks = line_hunks(trunk, merged);
+        assert_eq!(
+            hunks,
+            [
+                LineHunk {
+                    trunk: 2..3,
+                    merged: 2..3
+                },
+                LineHunk {
+                    trunk: 5..6,
+                    merged: 5..7
+                },
+            ]
+        );
+        let hunks = vec![
+            LineHunk {
+                trunk: 2..3,
+                merged: 2..3,
+            },
+            // (Changes the same block as the first.)
+            LineHunk {
+                trunk: 3..3,
+                merged: 4..5,
+            },
+            // (Only removes lines.)
+            LineHunk {
+                trunk: 6..8,
+                merged: 7..7,
+            },
+            // (Adds lines no block has.)
+            LineHunk {
+                trunk: 9..9,
+                merged: 8..9,
+            },
+        ];
+        let blocks = vec![Some(0..=1), Some(2..=4), None, Some(5..=7)];
+        let changes = block_changes(&hunks, &blocks, &(0..10), 10);
+        assert_eq!(
+            changes,
+            [
+                BlockChange {
+                    anchor: 2,
+                    trunk: 2..3,
+                    merged: 2..5,
+                    blocks: vec![1],
+                },
+                BlockChange {
+                    anchor: 6,
+                    trunk: 6..8,
+                    merged: 7..7,
+                    blocks: vec![],
+                },
+            ]
+        );
+        // (A removal of another page's lines.)
+        assert_eq!(block_changes(&hunks[2..3], &blocks, &(0..5), 10), []);
+        // (Lines added go after the line before them.)
+        let added = [LineHunk {
+            trunk: 5..5,
+            merged: 5..7,
+        }];
+        assert_eq!(block_changes(&added, &blocks, &(0..10), 10)[0].anchor, 4);
     }
 
     #[test]

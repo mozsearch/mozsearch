@@ -63,6 +63,7 @@ pub const PAGE_ROUTES: &[&str] = &[
     "rev-canvas",
     "rev-outline",
     "rev-rendered",
+    "spec-pr-blocks",
 ];
 
 /// The suffix of the sidecar file of a page of this content type, if it can

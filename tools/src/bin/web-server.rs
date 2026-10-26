@@ -767,8 +767,12 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
         // Rendered views of documents, at the tip as `/{tree}/rendered/{path}`
         // and at other revisions as `/{tree}/rev-rendered/{rev}/{path}`; see
         // `format::format_rendered`.
-        "rendered" | "rev-rendered" => {
-            let (rev, file_path) = if *kind == "rendered" {
+        // (And at the tip with its spec repository's open pull requests'
+        // changes beside it, as `/{tree}/rendered-prs/{path}`, uncached, since
+        // syncs change them; see `tools::spec_prs`.)
+        "rendered" | "rev-rendered" | "rendered-prs" => {
+            let with_prs = *kind == "rendered-prs";
+            let (rev, file_path) = if *kind != "rev-rendered" {
                 (None, path[2..].join("/"))
             } else {
                 if path.len() < 4 {
@@ -789,6 +793,14 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             // with their queries, ex: what a search going to a spec's URL's
             // anchor was for; see `dwim::searched_url`.)
             if let Some(url) = format::rendered_redirect(cfg, tree_name, rev, &file_path) {
+                let url = match with_prs {
+                    true => url.replacen(
+                        &format!("/{}/rendered/", tree_name),
+                        &format!("/{}/rendered-prs/", tree_name),
+                        1,
+                    ),
+                    false => url,
+                };
                 let url = match (req.query, url.split_once('#')) {
                     ("", _) => url,
                     (query, Some((url, fragment))) => format!("{}?{}#{}", url, query, fragment),
@@ -798,9 +810,32 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             }
 
             let mut writer = Vec::new();
-            match format::format_rendered(cfg, tree_name, rev, &file_path, &mut writer) {
+            match format::format_rendered(cfg, tree_name, rev, &file_path, with_prs, &mut writer) {
+                Ok(()) if with_prs => {
+                    WebResponse::html(String::from_utf8(writer).unwrap()).uncached()
+                }
                 Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()),
                 Err(err) => WebResponse::internal_error(err.to_owned()),
+            }
+        }
+
+        // A spec pull request's changes of a spec's rendered page, for its
+        // view with them (`rendered-prs`), as
+        // `/{tree}/spec-pr-blocks/{spec}/{number}/{head}/{path}`, cached once
+        // they're final; see `format::spec_pr_blocks_json`.
+        "spec-pr-blocks" => {
+            if path.len() < 6 || !tools::spec_prs::valid_spec(path[2]) {
+                return WebResponse::not_found();
+            }
+            let Ok(number) = path[3].parse::<u32>() else {
+                return WebResponse::not_found();
+            };
+            let file_path = path[5..].join("/");
+            match format::spec_pr_blocks_json(cfg, tree_name, path[2], number, path[4], &file_path)
+            {
+                Ok((json, true)) => WebResponse::json(json.to_string()),
+                Ok((json, false)) => WebResponse::json(json.to_string()).uncached(),
+                Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
             }
         }
 

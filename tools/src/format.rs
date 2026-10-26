@@ -4274,19 +4274,41 @@ fn rendered_strips(
         .collect()
 }
 
-/// For a rendered document without blame, markers of its blocks' lines, like
-/// their strips' `data-rd-lines`, for links to its lines.  Only the lines of
-/// the bytes `range` of the source count (ex: a page's).
-fn rendered_line_markers(rendered: &Rendered, source: &str, range: &Range<usize>) -> Vec<String> {
+/// The (0-based) lines of a rendered document's blocks (see
+/// `rendered_docs::block_lines`), and of the bytes `range` of the source it
+/// covers (ex: a page's).  Only the lines of `range` count.
+fn rendered_block_lines(
+    rendered: &Rendered,
+    source: &str,
+    range: &Range<usize>,
+) -> Vec<Option<std::ops::RangeInclusive<usize>>> {
     let lines: Vec<&str> = source.lines().collect();
+    let in_range = rendered_range_lines(source, range);
     let mut line_starts = vec![0];
     line_starts.extend(source.match_indices('\n').map(|(i, _)| i + 1));
     let line_of = |offset: usize| line_starts.partition_point(|&start| start <= offset) - 1;
-    let in_range = line_of(range.start)..=line_of(range.end.saturating_sub(1).max(range.start));
     let has_text = |line: usize| {
         in_range.contains(&line) && lines.get(line).is_some_and(|line| !line.trim().is_empty())
     };
     rendered_docs::block_lines(&rendered.blocks, line_of, lines.len(), has_text)
+}
+
+/// The (0-based) lines of the bytes `range` of a source.
+fn rendered_range_lines(source: &str, range: &Range<usize>) -> Range<usize> {
+    let line_of = |offset: usize| {
+        source.as_bytes()[..offset.min(source.len())]
+            .iter()
+            .filter(|&&b| b == b'\n')
+            .count()
+    };
+    line_of(range.start)..line_of(range.end.saturating_sub(1).max(range.start)) + 1
+}
+
+/// For a rendered document without blame, markers of its blocks' lines, like
+/// their strips' `data-rd-lines`, for links to its lines.  Only the lines of
+/// the bytes `range` of the source count (ex: a page's).
+fn rendered_line_markers(rendered: &Rendered, source: &str, range: &Range<usize>) -> Vec<String> {
+    rendered_block_lines(rendered, source, range)
         .iter()
         .map(|range| match range {
             Some(range) => format!(
@@ -4410,17 +4432,26 @@ fn annotate_spec_symbols(
 /// into pages, `/{tree}/rendered/{path}/{page}.html` (and see
 /// `rendered_redirect` for links to its anchors and lines).  See
 /// `rendered_docs`.
+///
+/// With `with_prs`, a spec's page at the tip has its spec repository's open
+/// pull requests' changes of it beside it (`/{tree}/rendered-prs/{path}`; see
+/// `spec_prs`): the pull requests changing its source, with facets filtering
+/// them, whose changes of the page spec-pr-view.js fetches (see
+/// `spec_pr_blocks_json`) and shows beside the blocks they change.
 pub fn format_rendered(
     cfg: &Config,
     tree_name: &str,
     rev: Option<&str>,
     path: &str,
+    with_prs: bool,
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
     let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
     let git = tree_config.get_git()?;
     let commit = rendered_commit(git, rev)?;
     let path = path.trim_end_matches('/');
+    // (The page's path, for its pull requests' changes of it.)
+    let view_path = path.to_string();
     let specs = tree_specs(tree_name, tree_config);
     let spec_view = specs.as_deref().and_then(|specs| spec_view(specs, path));
     // (A file an ecmarkup spec imports, or a Bikeshed spec includes (at the
@@ -4452,6 +4483,27 @@ pub fn format_rendered(
         },
     };
     let path = path.as_str();
+    // (The spec repository's summary, and its pull requests changing the
+    // source; see `spec_prs`.)
+    let pr_view = match with_prs {
+        false => None,
+        true => {
+            if rev.is_some() || spec.is_none() || main.is_some() {
+                return Err(
+                    "Only the latest version of a spec's source has a view with its pull requests",
+                );
+            }
+            let spec_repo = path.split('/').next().unwrap_or_default().to_string();
+            let summary = crate::spec_prs::repo_summary(cfg, tree_name, &spec_repo);
+            let prs: Vec<crate::spec_prs::PrSummary> = summary
+                .iter()
+                .flat_map(|summary| &summary.prs)
+                .filter(|pr| pr.files.iter().any(|file| file.path == path))
+                .cloned()
+                .collect();
+            Some((spec_repo, summary, prs))
+        }
+    };
     let source = {
         let (repo, oid) = get_object_at(
             OwnedOrBorrowed::Borrowed(&git.repo),
@@ -4607,7 +4659,10 @@ pub fn format_rendered(
         include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
         revision,
         breadcrumbs_links_to: links_to,
-        extra_content_classes: "rendered-page",
+        extra_content_classes: match pr_view {
+            Some(_) => "rendered-page rendered-prs-page",
+            None => "rendered-page",
+        },
         search_rev: None,
     };
 
@@ -4651,6 +4706,36 @@ pub fn format_rendered(
             copyable: true,
             extras: Default::default(),
         }),
+    }
+    // (The view with the spec repository's open pull requests' changes, in
+    // trees which sync their summaries, and back.)
+    if rev.is_none()
+        && main.is_none()
+        && spec.is_some()
+        && crate::spec_prs::hook(cfg, tree_name).is_some()
+    {
+        let (label, tooltip, route) = match pr_view {
+            Some(_) => (
+                "Without pull requests",
+                "Open the rendered view without its open pull requests' changes",
+                "rendered",
+            ),
+            None => (
+                "With pull requests",
+                "Open the rendered view with its open pull requests' changes beside it",
+                "rendered-prs",
+            ),
+        };
+        vcs_items.push(PanelItem {
+            label: PanelItemLabel::Plaintext(label.to_owned()),
+            tooltip: tooltip.to_owned(),
+            id: "panel-rendered-prs",
+            link: format!("/{}/{}/{}", tree_name, route, url_encode_path(&view_path)),
+            update_link_lineno: "",
+            accel_key: None,
+            copyable: true,
+            extras: Default::default(),
+        });
     }
     if let Some(link) = rendered_docs::Links::raw_url(&links, path) {
         vcs_items.push(PanelItem {
@@ -4741,12 +4826,17 @@ pub fn format_rendered(
         }
     )
     .unwrap();
+    // (In the view with its pull requests' changes, its pages'.)
+    let view_base = match pr_view {
+        Some(_) => format!("/{}/rendered-prs/{}", tree_name, url_encode_path(path)),
+        None => rendered_url(tree_name, page_rev.as_deref(), path),
+    };
     // A spec's pages link to the ones before and after them, and the first.
     let page_nav = spec_page
         .as_ref()
         .filter(|(pages, _, _)| pages.len() > 1)
         .map(|(pages, page, _)| {
-            let base = rendered_url(tree_name, page_rev.as_deref(), path);
+            let base = &view_base;
             let link = |i: usize, class: &str, text: &str| {
                 format!(
                     r#"<a class="{}" href="{}">{}</a>"#,
@@ -4779,6 +4869,17 @@ pub fn format_rendered(
         });
     if let Some(nav) = &page_nav {
         writeln!(writer, "{}", nav).unwrap();
+    }
+    if let Some((spec_repo, summary, prs)) = &pr_view {
+        write_rendered_prs_header(
+            tree_name,
+            spec_repo,
+            summary.as_ref(),
+            prs,
+            &view_path,
+            writer,
+        )?;
+        writeln!(writer, r#"<div class="sp-prs-view">"#).unwrap();
     }
     write!(
         writer,
@@ -4816,6 +4917,15 @@ pub fn format_rendered(
     }
     write_segment(writer, &rendered.html[pos..]);
     writeln!(writer, "</article>").unwrap();
+    if pr_view.is_some() {
+        writeln!(
+            writer,
+            r#"<aside class="sp-pr-column" aria-label="The pull requests' changes"></aside></div>
+<script defer src="/{}/static/js/spec-pr-view.js"></script>"#,
+            tree_name
+        )
+        .unwrap();
+    }
     if let Some(jumprefs) = &spec_jumprefs
         && !page_syms.is_empty()
     {
@@ -4842,10 +4952,7 @@ pub fn format_rendered(
         writeln!(
             writer,
             r#"<script>(() => {{ const id = decodeURIComponent(location.hash.slice(1)); if (id && !/^\d+$/.test(id) && !document.getElementById(id)) {{ location.replace({} + encodeURIComponent(id)); }} }})();</script>"#,
-            serde_json::to_string(&format!(
-                "{}/anchor/",
-                rendered_url(tree_name, page_rev.as_deref(), path)
-            ))
+            serde_json::to_string(&format!("{}/anchor/", view_base))
             .unwrap()
             .replace("</", "<\\/")
         )
@@ -4864,6 +4971,307 @@ pub fn format_rendered(
     }
 
     output::generate_footer(&opt, tree_name, path, writer)
+}
+
+/// The list of the pull requests changing a spec's page, before it in its
+/// view with their changes (see `format_rendered`'s `with_prs`): with facets
+/// filtering them, and each's data, for spec-pr-view.js (see
+/// rendered_prs.liquid).
+fn write_rendered_prs_header(
+    tree_name: &str,
+    spec_repo: &str,
+    summary: Option<&crate::spec_prs::RepoSummary>,
+    prs: &[crate::spec_prs::PrSummary],
+    view_path: &str,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    use crate::spec_prs::{pr_facet_values, pr_facets, review_name};
+    let entries: Vec<serde_json::Value> = prs
+        .iter()
+        .map(|pr| {
+            let try_path = format!("/{}/try/{}/{}", tree_name, spec_repo, pr.number);
+            let data = json!({
+                "number": pr.number,
+                "title": pr.title,
+                "url": pr.url,
+                "author": pr.author,
+                "review": pr.review.as_ref().map(|_| review_name(pr.review.as_deref())),
+                "review_class": pr
+                    .review
+                    .as_deref()
+                    .unwrap_or("none")
+                    .to_lowercase()
+                    .replace('_', "-"),
+                "draft": pr.draft,
+                "try": try_path,
+                "blocks": pr.head.as_ref().map(|head| format!(
+                    "/{}/spec-pr-blocks/{}/{}/{}/{}",
+                    tree_name,
+                    spec_repo,
+                    pr.number,
+                    head,
+                    url_encode_path(view_path)
+                )),
+            });
+            json!({
+                "number": pr.number,
+                "title": pr.title,
+                "try_path": try_path,
+                "facets": serde_json::to_string(&pr_facet_values(pr)).unwrap_or_default(),
+                "data": data.to_string(),
+                "error": pr.error.clone().unwrap_or_else(|| "Its head couldn't be fetched".to_string()),
+                "loads": pr.head.is_some(),
+            })
+        })
+        .collect();
+    let globals = liquid::to_object(&json!({
+        "tree": tree_name,
+        "spec_repo": spec_repo,
+        "summary": summary.map(|summary| json!({
+            "repo": summary.repo,
+            "synced": summary.synced.get(..16).map_or(summary.synced.clone(), |minute| format!("{} UTC", minute.replace('T', " "))),
+        })),
+        "prs": entries,
+        "facets": pr_facets(prs),
+    }))
+    .map_err(|_| "Template problems")?;
+    crate::templating::builder::build_and_parse_rendered_prs()
+        .render_to(writer, &globals)
+        .map_err(|_| "Template problems")
+}
+
+/// The changes of a spec pull request (`spec_repo`'s pull request `number`,
+/// at its head `head`) to a spec's rendered page (`path`, as for
+/// `format_rendered`) at the tip, for the page's view with its open pull
+/// requests' changes beside it (`/{tree}/rendered-prs/{path}`; see
+/// `format_rendered`), as JSON (`/{tree}/spec-pr-blocks/{spec}/{number}/{head}/{path}`):
+/// its `state`, and if it's "ok", its `changes` (see
+/// `spec_prs::block_changes`): each's trunk line to go beside (`anchor`,
+/// 1-based, as `data-rd-lines`: the first it replaces, or the one it adds
+/// lines after), the trunk's lines it replaces (`trunk`, first and last, or
+/// null if it only adds lines), its `kind` ("change", "insert"
+/// or "remove"), and the HTML of the blocks with the lines replacing them.
+/// Returns whether it's final, which it is until the index changes (so it
+/// can be cached), unless the pull request's head isn't there yet, or for a
+/// Bikeshed spec, which the web server can't render, the pull request isn't
+/// imported at that head (see `try_import`).
+///
+/// The pull request's version is the tip's with its changes: its head merged
+/// with the tip's spec repository's directory (as `git merge-tree` would,
+/// from their merge base, with the spec's upstream commit at the tip; see
+/// `spec_forest`), rendered as the tip's is, but for a Bikeshed spec, its
+/// import's rendering of its head rebased onto the tip (which must be the
+/// tree's revision).  Its states otherwise: "conflicts" (its changes to the
+/// file conflict with the trunk's since its base), "removes-file",
+/// "needs-import" (with a `message`), and "missing-head".
+pub fn spec_pr_blocks_json(
+    cfg: &Config,
+    tree_name: &str,
+    spec_repo: &str,
+    number: u32,
+    head: &str,
+    path: &str,
+) -> Result<(serde_json::Value, bool), &'static str> {
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let repo = &git.repo;
+    let tip = rendered_commit(git, None)?;
+    let specs = tree_specs(tree_name, tree_config).ok_or("Not a tree of specs")?;
+    let Some((spec, source_path, SpecView::Page(page))) = spec_view(&specs, path) else {
+        return Err("Not a page of a spec");
+    };
+    let upstream_path = source_path
+        .strip_prefix(&format!("{}/", spec_repo))
+        .ok_or("Not a file of the spec repository")?
+        .to_string();
+    let state = |state: &str, message: Option<String>, final_: bool| {
+        Ok((json!({ "state": state, "message": message }), final_))
+    };
+    let head_oid = match Oid::from_str(head) {
+        Ok(oid) if head.len() == 40 => oid,
+        _ => return Err("Not a revision"),
+    };
+    let Ok(head_commit) = repo.find_commit(head_oid) else {
+        return state("missing-head", None, false);
+    };
+
+    // The pull request's changes merged with the tip's.
+    let trunk_upstream = repo
+        .find_reference(&crate::spec_forest::included_ref(spec_repo))
+        .and_then(|reference| reference.peel_to_commit())
+        .map_err(|_| "The spec repository's upstream commit isn't there")?;
+    let base = repo
+        .merge_base(trunk_upstream.id(), head_oid)
+        .and_then(|base| repo.find_commit(base))
+        .map_err(|_| "The pull request has no merge base with the trunk")?;
+    let ours = tip
+        .tree()
+        .and_then(|tree| tree.get_path(Path::new(spec_repo)))
+        .and_then(|entry| entry.to_object(repo))
+        .and_then(|object| object.peel_to_tree())
+        .map_err(|_| "The spec repository isn't at the tip")?;
+    let (Ok(ancestor), Ok(theirs)) = (base.tree(), head_commit.tree()) else {
+        return Err("Git commit with no tree");
+    };
+    let merged_index = repo
+        .merge_trees(&ancestor, &ours, &theirs, None)
+        .map_err(|_| "The pull request couldn't be merged")?;
+    if merged_index.has_conflicts() {
+        let conflicting = merged_index.conflicts().is_ok_and(|mut conflicts| {
+            conflicts.any(|conflict| {
+                conflict.is_ok_and(|conflict| {
+                    [conflict.ancestor, conflict.our, conflict.their]
+                        .iter()
+                        .flatten()
+                        .any(|entry| entry.path == upstream_path.as_bytes())
+                })
+            })
+        });
+        if conflicting {
+            return state("conflicts", None, true);
+        }
+    }
+    let merged_file = |file: &str| {
+        let entry = merged_index.get_path(Path::new(file), 0)?;
+        let blob = repo.find_blob(entry.id).ok()?;
+        Some(String::from_utf8_lossy(blob.content()).into_owned())
+    };
+    let Some(mut merged) = merged_file(&upstream_path) else {
+        return state("removes-file", None, true);
+    };
+    let trunk = read_commit_file(repo, &tip, &source_path).ok_or("Not a file at the tip")?;
+
+    let spec_links = RenderedSpecLinks {
+        tree_name,
+        rev: None,
+    };
+    let prefix = format!("{}/", spec_repo);
+    let read = |file: &str| match file.strip_prefix(&prefix) {
+        Some(file) => merged_file(file),
+        None => read_commit_file(repo, &tip, file),
+    };
+    let rendered_spec = match spec.format {
+        // (Its import's rendering of its head rebased onto the tip.)
+        Some(crate::spec_analyze::SpecFormat::Bikeshed) => {
+            let imported = repo
+                .find_reference(&format!("refs/try/{}/{}", spec_repo, number))
+                .and_then(|reference| reference.peel_to_commit())
+                .ok();
+            let imported_head = imported.as_ref().and_then(|commit| {
+                crate::spec_forest::parse_upstream_trailer(commit.message().ok()?)
+                    .map(|(_, oid)| oid)
+            });
+            if imported_head != Some(head_oid) {
+                return state(
+                    "needs-import",
+                    Some(match imported {
+                        Some(_) => "Its import is of an older head; import it again to see its changes to this Bikeshed spec.".to_string(),
+                        None => "Import it to see its changes to this Bikeshed spec, which only its import renders.".to_string(),
+                    }),
+                    false,
+                );
+            }
+            let rebased = repo
+                .find_reference(&format!("refs/try-rebased/{}/{}", spec_repo, number))
+                .and_then(|reference| reference.peel_to_commit())
+                .ok()
+                .filter(|rebased| rebased.parent_id(0).ok() == Some(tip.id()));
+            let Some(rebased) = rebased else {
+                return state(
+                    "needs-import",
+                    Some("Its import isn't of this revision of the tree; import it again to see its changes to this Bikeshed spec.".to_string()),
+                    false,
+                );
+            };
+            let Ok(output) = std::fs::read_to_string(bikeshed_rendering_path_at(
+                tree_config,
+                &source_path,
+                Some(rebased.id()),
+            )) else {
+                return state(
+                    "needs-import",
+                    Some("Its import has no rendering of this Bikeshed spec.".to_string()),
+                    false,
+                );
+            };
+            merged = read_commit_file(repo, &rebased, &source_path).unwrap_or(merged);
+            rendered_specs::bikeshed::render(
+                &output,
+                &merged,
+                &source_path,
+                spec,
+                &specs,
+                &spec_links,
+            )
+        }
+        Some(crate::spec_analyze::SpecFormat::Respec) => rendered_specs::respec::render(
+            &source_path,
+            spec,
+            &specs,
+            &spec_links,
+            &read,
+            &crate::spec_analyze::xref::Terms::default(),
+            &respec_index_targets(tree_config, &source_path),
+        ),
+        _ => rendered_specs::render(
+            spec,
+            &merged,
+            &source_path,
+            &specs,
+            &spec_links,
+            &read,
+            page.as_deref(),
+        ),
+    };
+    // (A page the pull request removes, or a part of another file's.)
+    let Some(rendered_spec) = rendered_spec.filter(|rendered| rendered.file.is_none()) else {
+        return state("ok", None, true).map(|(mut value, final_)| {
+            value["changes"] = json!([]);
+            (value, final_)
+        });
+    };
+    let rendered = &rendered_spec.rendered;
+    let block_lines = rendered_block_lines(rendered, &merged, &rendered_spec.range);
+    let page_lines = rendered_range_lines(&merged, &rendered_spec.range);
+    let hunks = crate::spec_prs::line_hunks(&trunk, &merged);
+    let trunk_lines = trunk.lines().count();
+    let changes: Vec<serde_json::Value> =
+        crate::spec_prs::block_changes(&hunks, &block_lines, &page_lines, trunk_lines)
+            .into_iter()
+            .map(|change| {
+                // (The blocks' ids are the trunk's.)
+                let html: String = change
+                    .blocks
+                    .iter()
+                    .filter_map(|&block| {
+                        rendered_docs::block_html(&rendered.html, rendered.blocks[block].strip_at)
+                    })
+                    .collect();
+                json!({
+                    "anchor": change.anchor + 1,
+                    "trunk": (!change.trunk.is_empty())
+                        .then(|| [change.trunk.start + 1, change.trunk.end]),
+                    "kind": if change.blocks.is_empty() {
+                        "remove"
+                    } else if change.trunk.is_empty() {
+                        "insert"
+                    } else {
+                        "change"
+                    },
+                    "html": SPEC_PR_BLOCK_ID.replace_all(&html, "${1}data-pr-id="),
+                })
+            })
+            .collect();
+    state("ok", None, true).map(|(mut value, final_)| {
+        value["changes"] = json!(changes);
+        (value, final_)
+    })
+}
+
+lazy_static! {
+    /// The `id` attributes of a spec pull request's changed blocks (see
+    /// `spec_pr_blocks_json`), which are the trunk's.
+    static ref SPEC_PR_BLOCK_ID: regex::Regex = regex::Regex::new(r#"(\s)id="#).unwrap();
 }
 
 /// How many steps a page of a peephole history has at most.
@@ -10469,6 +10877,11 @@ pub fn format_spec_prs(
                                 "removed": file.removed,
                                 "link": rendered.clone().unwrap_or_else(|| {
                                     format!("/{}/source/{}", tree_name, file.path)
+                                }),
+                                // (The view with all of the pull requests'
+                                // changes of it; see `format_rendered`.)
+                                "with_prs": file.spec.as_ref().map(|_| {
+                                    format!("/{}/rendered-prs/{}", tree_name, file.path)
                                 }),
                                 "sections": file.sections.iter().map(|section| json!({
                                     "title": section.title,

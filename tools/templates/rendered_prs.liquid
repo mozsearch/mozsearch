@@ -1,0 +1,26 @@
+{%- comment -%}
+  The pull requests changing a spec's page, before it in its view with their
+  changes beside it (see `format::format_rendered`'s `with_prs` and
+  `format::write_rendered_prs_header`): their facets (see facet_bar.liquid),
+  and their list, whose entries (`data-pr`) spec-pr-view.js fetches the
+  changes of (their `blocks`; see `format::spec_pr_blocks_json`) and shows,
+  saying in each entry how many it has, or why it has none, and whose
+  filtering hides their changes.
+{%- endcomment -%}
+<section class="sp-prs-header">
+  {%- if summary %}
+  {%- if prs.size > 0 %}
+  <p class="sp-prs-intro">The changes of {{ summary.repo | escape }}'s open pull requests changing this page, merged with it, are beside it, as of {{ summary.synced }} (<a href="/{{ tree }}/spec-prs/{{ spec_repo }}">all of its pull requests</a>).</p>
+  {%- include "facet_bar.liquid" facets: facets, group_by: false, sort_by: false, noun: "pull request", nouns: "pull requests" %}
+  <ul class="facet-items sp-pr-list">
+    {%- for pr in prs %}
+    <li class="sp-pr-entry" data-path="{{ pr.number }}" data-facets="{{ pr.facets | escape }}" data-pr="{{ pr.data | escape }}"><a href="{{ pr.try_path }}">#{{ pr.number }} {{ pr.title | escape }}</a> <span class="sp-pr-state">{% if pr.loads %}Loading its changes…{% else %}{{ pr.error | escape }}{% endif %}</span></li>
+    {%- endfor %}
+  </ul>
+  {%- else %}
+  <p class="sp-prs-intro">None of {{ summary.repo | escape }}'s open pull requests change this file, as of {{ summary.synced }} (<a href="/{{ tree }}/spec-prs/{{ spec_repo }}">all of its pull requests</a>).</p>
+  {%- endif %}
+  {%- else %}
+  <p class="sp-prs-intro">{{ spec_repo | escape }}'s pull requests haven't been synced yet (<a href="/{{ tree }}/spec-prs/{{ spec_repo }}">sync them</a>).</p>
+  {%- endif %}
+</section>

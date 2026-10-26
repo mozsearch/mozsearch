@@ -5,6 +5,18 @@
    "incomplete": false,
    "prs": [
     {
+     "association": "COLLABORATOR",
+     "author": "a-collaborator",
+     "base_ref": "main",
+     "draft": false,
+     "labels": [],
+     "number": 3,
+     "review": "REVIEW_REQUIRED",
+     "title": "Say that gears mesh",
+     "updated": "2025-04-13T11:00:00Z",
+     "url": "https://github.com/example/gizmo/pull/3"
+    },
+    {
      "association": "CONTRIBUTOR",
      "author": "a-contributor",
      "base_ref": "main",

@@ -3313,6 +3313,72 @@ h2.sp-called-heading {
   color: var(--test-results-bad);
 }
 
+/* A spec's rendered page with its open pull requests' changes beside it (see
+   rendered_prs.liquid and spec-pr-view.js): the cards are placed beside the
+   blocks they change, as the algorithm view's citations are. */
+.sp-prs-header {
+  padding: 0 1rem;
+}
+.sp-prs-intro {
+  margin: 0.4em 0;
+}
+.sp-pr-list {
+  margin: 0.4em 0;
+  padding-left: 0;
+  list-style: none;
+}
+.sp-pr-state {
+  font-size: smaller;
+  opacity: 0.8;
+}
+.sp-prs-view {
+  display: flex;
+  gap: 1.5em;
+  align-items: flex-start;
+}
+.sp-prs-view > .rendered-doc {
+  flex: 1 1 55%;
+  min-width: 0;
+}
+.sp-pr-column {
+  position: relative;
+  flex: 1 1 45%;
+  min-width: 0;
+  margin-right: 1rem;
+}
+.sp-pr-card {
+  position: absolute;
+  left: 0;
+  right: 0;
+  padding: 0.2em 0.6em;
+  border-left: 3px solid var(--link-color);
+  background-color: var(--page-background);
+  font-size: 0.9em;
+}
+.sp-pr-card.sp-pr-remove {
+  border-left-color: #c4383e;
+}
+.sp-pr-card-header {
+  font-weight: bold;
+}
+.sp-pr-card-header .spec-pr-review,
+.sp-pr-card-header .spec-pr-draft,
+.sp-pr-card-header .spec-pr-github {
+  font-weight: normal;
+  font-size: smaller;
+}
+.sp-pr-card-note {
+  font-size: smaller;
+  opacity: 0.8;
+}
+.sp-pr-card-body > .rd-block > :first-child {
+  margin-top: 0.2em;
+}
+.sp-pr-changed {
+  outline: 2px solid var(--link-color);
+  outline-offset: 2px;
+}
+
 /* A spec's pull request's note and button importing its newer commits (see
    explore.liquid), on one line. */
 .explore-pull-request form {

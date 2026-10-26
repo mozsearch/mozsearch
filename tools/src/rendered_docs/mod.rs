@@ -907,6 +907,63 @@ fn decode_entities(s: &str) -> String {
         .replace("&amp;", "&")
 }
 
+/// The HTML of a rendered document's block whose strip goes at `strip_at`
+/// (see `Block`), on its own: its `rd-block` div, or for a table row's block
+/// (whose strip goes in its first cell), a table of the row; None if it's
+/// neither.  (Ex: a spec pull request's changed blocks, beside the trunk's;
+/// see `format::spec_pr_blocks_json`.)
+pub fn block_html(html: &str, strip_at: usize) -> Option<String> {
+    let before = html.get(..strip_at)?;
+    let tag_start = before.rfind('<')?;
+    let tag = &before[tag_start..];
+    if !tag.ends_with('>') {
+        return None;
+    }
+    // (The element's end: where the tags of its name balance.)
+    let element_end = |name: &str, start: usize| -> Option<usize> {
+        let mut depth = 0;
+        let mut at = start;
+        while let Some(found) = html[at..].find('<') {
+            let tag_at = at + found;
+            let rest = &html[tag_at + 1..];
+            let closing = rest.starts_with('/');
+            let rest = rest.trim_start_matches('/');
+            let named = rest.starts_with(name)
+                && rest[name.len()..].starts_with(|c: char| c == '>' || c.is_ascii_whitespace());
+            let tag_end = tag_at + html[tag_at..].find('>')? + 1;
+            if named {
+                if closing {
+                    depth -= 1;
+                    if depth == 0 {
+                        return Some(tag_end);
+                    }
+                } else {
+                    depth += 1;
+                }
+            }
+            at = tag_end;
+        }
+        None
+    };
+    if tag.starts_with("<div class=\"rd-block") {
+        let end = element_end("div", tag_start)?;
+        return Some(html[tag_start..end].to_string());
+    }
+    if tag.starts_with("<td") || tag.starts_with("<th") {
+        let row_start = before
+            .match_indices("<tr")
+            .map(|(i, _)| i)
+            .filter(|&i| before[i + 3..].starts_with(|c: char| c == '>' || c.is_ascii_whitespace()))
+            .last()?;
+        let end = element_end("tr", row_start)?;
+        return Some(format!(
+            r#"<table class="rd-row"><tbody>{}</tbody></table>"#,
+            &html[row_start..end]
+        ));
+    }
+    None
+}
+
 /// Assign the file's lines to the blocks for their blame: each block's lines,
 /// plus the lines with tokens that aren't in any block (ex: link definitions,
 /// the delimiter row of a table, Sphinx targets, the ends of directives), which
@@ -985,6 +1042,25 @@ pub fn block_lines(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_block_html() {
+        let html = r#"<h1>T</h1><div class="rd-block"><p>A <div>x</div> b</p></div><ul><li><div class="rd-block sp-x">C</div></li></ul><table><tr class="r"><td>D</td><td>E</td></tr></table>"#;
+        let at = |needle: &str| html.find(needle).unwrap() + needle.len();
+        assert_eq!(
+            block_html(html, at(r#"<div class="rd-block">"#)).unwrap(),
+            r#"<div class="rd-block"><p>A <div>x</div> b</p></div>"#
+        );
+        assert_eq!(
+            block_html(html, at(r#"<div class="rd-block sp-x">"#)).unwrap(),
+            r#"<div class="rd-block sp-x">C</div>"#
+        );
+        assert_eq!(
+            block_html(html, at("<td>")).unwrap(),
+            r#"<table class="rd-row"><tbody><tr class="r"><td>D</td><td>E</td></tr></tbody></table>"#
+        );
+        assert_eq!(block_html(html, at("<h1>")), None);
+    }
 
     pub struct TestLinks;
 
