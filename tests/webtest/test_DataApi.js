@@ -30,7 +30,7 @@ async function getJson(url) {
 
 // (As test_TryDelta.js's.)
 async function importPush() {
-  await TestUtils.loadPath(`/trydelta/try/${PUSH}`);
+  await TestUtils.loadPath(`/trydelta/try/hg/${PUSH}`);
   if (!doc().querySelector(".explore-page")) {
     doc().querySelector(".try-import-button").click();
     await waitForCondition(() => doc()?.querySelector(".explore-page"),
@@ -169,7 +169,7 @@ add_task(async function test_DataApiTryContext() {
   ok(explore.file_groups?.some(group => group.files.some(file => file.path == "wobbler.cpp")),
      "with the files it changes");
   const strip = await getJson(
-    `${API}/stack-strip?stack=try/${PUSH}&commit=${push.stack[0].rev}&path=wobbler.cpp`);
+    `${API}/stack-strip?stack=try/hg/${PUSH}&commit=${push.stack[0].rev}&path=wobbler.cpp`);
   ok(strip, "and its files' stack strips");
   const asked = await fetch(`${API}/try-import?push=${PUSH}`, { method: "POST", cache: "no-store" });
   is(asked.status, 200, "Asking for an imported push's import is fine");

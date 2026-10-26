@@ -477,6 +477,10 @@ async fn handle_query(
             // The try push whose context the query is in, if any.
             "search_rev": rev.cloned().unwrap_or_default(),
             "try_push": try_meta.as_ref().map(|meta| meta.push.clone()).unwrap_or_default(),
+            "try_push_path": try_meta
+                .as_ref()
+                .map(|meta| tools::try_import::push_url_path(&meta.push))
+                .unwrap_or_default(),
             "try_base": try_meta.as_ref().map(|meta| meta.base.clone()).unwrap_or_default(),
             "logs": logs,
             "debug": maybe_log,

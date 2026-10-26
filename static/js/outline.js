@@ -64,7 +64,7 @@ var OutlineSection = new (class OutlineSection {
   /** The default baseline: see the class's comment. */
   async defaultBaseline() {
     const stack = new URLSearchParams(location.search).get("stack");
-    if (stack && /^(explore\/(bug|phab)\/[\w,]+|try\/[0-9a-f]+)$/i.test(stack)) {
+    if (stack && /^(explore\/(bug|phab)\/[\w,]+|try\/hg\/[0-9a-f]+)$/i.test(stack)) {
       // (The stack strip's data has its base; shared with stack-strip.js.)
       const strip = await (window.stackStripData ??=
         fetch(`/${this.tree}/${stack}/stack-strip/${this.rev}/${this.path}`)

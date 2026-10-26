@@ -1172,7 +1172,7 @@ async fn route_body(
                         .bytes()
                         .all(|b| b.is_ascii_alphanumeric() || b"/_.-".contains(&b))
             }) {
-                return Err(bad("stack_url must be a page of the tree, ex: try/<push>"));
+                return Err(bad("stack_url must be a page of the tree, ex: try/hg/<push>"));
             }
             let data = server.explore(&revs, stack_url).await.map_err(error)?;
             Ok(Body::json(&data))

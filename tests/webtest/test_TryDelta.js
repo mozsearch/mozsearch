@@ -24,7 +24,7 @@ function doc() {
 // Import the push (if it isn't yet), and return the head of its stack rebased
 // onto the indexed revision, from its page's link to its semantic analysis.
 async function importPush() {
-  await TestUtils.loadPath(`/trydelta/try/${PUSH}`);
+  await TestUtils.loadPath(`/trydelta/try/hg/${PUSH}`);
   if (!doc().querySelector(".explore-page")) {
     doc().querySelector(".try-import-button").click();
     await waitForCondition(() => doc()?.querySelector(".explore-page"),
@@ -482,7 +482,7 @@ add_task(async function test_TryCanvasClustersError() {
 // based on the tree's first revision, its first commit is the second's
 // changes, and its second commit uses them.
 add_task(async function test_TryDeltaLanded() {
-  await TestUtils.loadPath("/trydelta/try/1a2b3c4d5e6f");
+  await TestUtils.loadPath("/trydelta/try/hg/1a2b3c4d5e6f");
   if (!doc().querySelector(".explore-page")) {
     doc().querySelector(".try-import-button").click();
     await waitForCondition(() => doc()?.querySelector(".explore-page"),
@@ -506,7 +506,7 @@ add_task(async function test_TryDeltaLanded() {
 // tree's first revision, and declares Widget::Grow where the second declares
 // Widget::Shrink.
 add_task(async function test_TryDeltaFailure() {
-  await TestUtils.loadPath("/trydelta/try/fedcba987654");
+  await TestUtils.loadPath("/trydelta/try/hg/fedcba987654");
   if (!doc().querySelector(".explore-page")) {
     doc().querySelector(".try-import-button").click();
     await waitForCondition(() => doc()?.querySelector(".explore-page"),

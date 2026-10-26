@@ -104,7 +104,7 @@ You also need to create a folder for your repo, with the `setup`, `build`, `uplo
 optionally `upload-after-index`, which runs after the indexing on release channels, where `upload` runs after the setup,
 `web-server-setup`, which runs on the web server as it starts (see `infrastructure/web-server-setup.sh`), for what it needs
 besides the index (ex: firefox-try's sandbox for building try pushes), and `import-try`, with which a tree with a `history_path` lets the web server import try pushes into its history for
-reviewing them at `/{tree}/try/{rev}`; see `tools/src/try_import.rs` and `tests/spechist/import-try`).  An
+reviewing them at `/{tree}/try/hg/{rev}`; see `tools/src/try_import.rs` and `tests/spechist/import-try`).  An
 `import-try` script can also give a push semantic analysis: rebase its stack onto the indexed revision with
 `scripts/rebase-try-push.sh` (which leaves out the stack's commits which have landed since it diverged, by their
 changes or their Phabricator revisions, and logs them, for the push's page), compile what it changes with the indexer, and build its semantic delta from that

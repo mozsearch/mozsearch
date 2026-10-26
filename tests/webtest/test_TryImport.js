@@ -13,17 +13,17 @@ function doc() {
 }
 
 async function statusOf(push) {
-  return (await fetch(`/spechist/try-status/${push}`)).json();
+  return (await fetch(`/spechist/try-status/hg/${push}`)).json();
 }
 
 // The Cache-Control header of a try push's page, as nginx gives it.
 async function cacheControlOf(push) {
-  const response = await fetch(`/spechist/try/${push}`, { cache: "no-store" });
+  const response = await fetch(`/spechist/try/hg/${push}`, { cache: "no-store" });
   return response.headers.get("Cache-Control");
 }
 
 add_task(async function test_TryImport() {
-  await TestUtils.loadPath(`/spechist/try/${PUSH}`);
+  await TestUtils.loadPath(`/spechist/try/hg/${PUSH}`);
   ok(doc().querySelector(".try-import-status")?.textContent.includes("hasn't imported"),
      "A try push's page says the tree hasn't imported it");
   ok(parseFloat(frame.contentWindow.getComputedStyle(doc().querySelector(".try-import")).paddingLeft) > 0,
@@ -70,7 +70,7 @@ add_task(async function test_TryImport() {
 add_task(async function test_TryImportFailure() {
   // A push the hook can't fetch fails, with the hook's output's last lines.
   const missing = "0123456789ab";
-  const response = await fetch(`/spechist/try/${missing}`, { method: "POST" });
+  const response = await fetch(`/spechist/try/hg/${missing}`, { method: "POST" });
   ok(response.ok, "Asking for a push's import");
   let status;
   for (let i = 0; i < 240; i++) {
@@ -84,7 +84,7 @@ add_task(async function test_TryImportFailure() {
   ok(status.message.includes("there's no try push"), "with what the hook said");
   ok(!status.retry, "and can't be asked for again right away");
 
-  await TestUtils.loadPath(`/spechist/try/${missing}`);
+  await TestUtils.loadPath(`/spechist/try/hg/${missing}`);
   ok(doc().querySelector(".try-import-error")?.textContent.includes("there's no try push"),
      "Its page says why it failed");
   ok(!doc().querySelector(".try-import-button"), "without a button to try again yet");

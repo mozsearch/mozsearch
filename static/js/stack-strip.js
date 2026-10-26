@@ -2,7 +2,7 @@
  * The patch stack strip (see tools/src/hyperblame/stack_strip.rs): a file's
  * view at a revision, opened from an explore page or a try push's page, whose
  * links pass the page's stack (ex: `?stack=explore/bug/123` or
- * `?stack=try/abcdef012345`), shows a slot per commit of the stack beside each
+ * `?stack=try/hg/abcdef012345`), shows a slot per commit of the stack beside each
  * line's blame strip, filled if the commit touched the line's tokens (in any of
  * the stack's states of the file), or scarred where it removed tokens, like the
  * explore page's sparklines per line.  Hovering over a slot names its commit
@@ -17,7 +17,7 @@
  * context is its base; see outline.js.)
  */
 (function () {
-  const STACK = /^(explore\/(bug|phab)\/[\w,]+|try\/[0-9a-f]+)$/i;
+  const STACK = /^(explore\/(bug|phab)\/[\w,]+|try\/hg\/[0-9a-f]+)$/i;
   const tree = location.pathname.split("/")[1];
   const param = new URLSearchParams(location.search).get("stack");
   // (The page's stack: its parameter's, or the page's own, if it's a stack's.)

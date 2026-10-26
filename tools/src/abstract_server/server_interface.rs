@@ -640,7 +640,7 @@ pub trait AbstractServer {
 
     /// The data of an explore page of the commits `revs`, oldest first (see
     /// `format::explore_data`), whose files link to their views with the
-    /// stack strip of the page at `stack_url` (ex: `try/<push>`), if any.
+    /// stack strip of the page at `stack_url` (ex: `try/hg/<push>`), if any.
     async fn explore(&self, _revs: &[String], _stack_url: Option<&str>) -> Result<Value> {
         Err(ServerError::Unsupported)
     }
@@ -664,7 +664,7 @@ pub trait AbstractServer {
     }
 
     /// The stack strip of the file at `path` in the revision `rev` for the
-    /// stack page `stack` (ex: `try/<push>`; see `format::stack_strip_json`).
+    /// stack page `stack` (ex: `try/hg/<push>`; see `format::stack_strip_json`).
     async fn stack_strip_json(&self, _stack: &str, _rev: &str, _path: &str) -> Result<String> {
         Err(ServerError::Unsupported)
     }

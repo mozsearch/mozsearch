@@ -1,6 +1,7 @@
 //! The web server's imports of try pushes into the token-centric history and
 //! commit index of the trees which can import them, for reviewing them
-//! (`/{tree}/try/{rev}`; see `format::format_try`), whose views then have
+//! (`/{tree}/try/hg/{rev}`, the URL naming the kind of push; see `url_push`
+//! and `format::format_try`), whose views then have
 //! them like the branch's revisions (see `TreeHistory`'s try notes, and the
 //! commit index's other branches).  What's imported is what the history
 //! derives (the token-centric blame, and the explore page's sparklines), and,
@@ -107,6 +108,29 @@ pub fn normalize_rev(rev: &str) -> Option<String> {
     let rev = rev.trim();
     ((12..=40).contains(&rev.len()) && rev.bytes().all(|b| b.is_ascii_hexdigit()))
         .then(|| rev.to_ascii_lowercase())
+}
+
+/// The try push (as the hook takes it; see `normalize_rev`) of a try push's
+/// page's URL's kind and id (`/{tree}/try/{kind}/{id}`; see `push_url_path`),
+/// if they're one's: for now, only hg revisions on try ("hg").
+pub fn url_push(kind: &str, id: &str) -> Option<String> {
+    match kind {
+        "hg" => normalize_rev(id),
+        _ => None,
+    }
+}
+
+/// The try push of a stack context, the path of its page in the tree (ex:
+/// "try/hg/abcdef012345"; see `url_push`), if it's a try push's.
+pub fn stack_push(stack: &str) -> Option<String> {
+    let (kind, id) = stack.strip_prefix("try/")?.split_once('/')?;
+    url_push(kind, id)
+}
+
+/// The path of a try push's page in its tree (`/{tree}/{path}`), which is also
+/// its stack context (see `stack_push`), ex: "try/hg/abcdef012345".
+pub fn push_url_path(push: &str) -> String {
+    format!("try/hg/{}", push)
 }
 
 /// The head of the try push `rev` (see `normalize_rev`), if the tree has
@@ -642,6 +666,18 @@ fn last_lines(path: &Path, n: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_push_urls() {
+        assert_eq!(push_url_path("abcdef012345"), "try/hg/abcdef012345");
+        assert_eq!(
+            stack_push("try/hg/ABCDEF012345"),
+            Some("abcdef012345".to_string())
+        );
+        assert_eq!(url_push("git", "abcdef012345"), None);
+        assert_eq!(stack_push("try/abcdef012345"), None);
+        assert_eq!(stack_push("explore/bug/123"), None);
+    }
 
     #[test]
     fn test_normalize_rev() {

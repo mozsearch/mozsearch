@@ -21,7 +21,7 @@
     {%- endif %}
     {%- if search_rev != empty %}
     <div class="query-try-context">
-      Searching try push <a href="/{{tree}}/try/{{ try_push | escape }}">{{ try_push | escape }}</a>
+      Searching try push <a href="/{{tree}}/{{ try_push_path | escape }}">{{ try_push | escape }}</a>
       as rebased onto <a href="/{{tree}}/commit/{{ try_base | escape }}">{{ try_base | slice: 0, 12 }}</a>,
       the indexed revision (<a href="/{{tree}}/query/{{preset}}?q={{ query | url_encode }}">search the indexed revision instead</a>).
     </div>

@@ -40,7 +40,7 @@ struct WebRequest<'a> {
     path: &'a str,
     /// The query string (ex: a history page's `scope=...`), or "".
     query: &'a str,
-    /// Whether it's a POST (only `/{tree}/try/{rev}`'s are allowed).
+    /// Whether it's a POST (only `/{tree}/try/{kind}/{id}`'s are allowed).
     post: bool,
     /// The site's origin, as the browser has it (ex: "https://searchfox.org"),
     /// for what needs absolute URLs (an OpenSearch description); see
@@ -1105,18 +1105,20 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             }
         }
 
-        // A try push's page, or (POST) asking for its import, and its import's
-        // status; see `tools::try_import`.  And its files' patch stack strips,
-        // as `.../stack-strip/{rev}/{path}`; see `format::stack_strip_json`.
+        // A try push's page (`/{tree}/try/{kind}/{id}`, ex: `try/hg/{rev}`; see
+        // `tools::try_import::url_push`), or (POST) asking for its import, and
+        // its import's status; see `tools::try_import`.  And its files' patch
+        // stack strips, as `.../stack-strip/{rev}/{path}`; see
+        // `format::stack_strip_json`.
         "try" => {
-            if path.len() >= 6 && path[3] == "stack-strip" {
-                let stack = path[1..3].join("/");
-                let file_path = path[5..].join("/");
+            if path.len() >= 7 && path[4] == "stack-strip" {
+                let stack = path[1..4].join("/");
+                let file_path = path[6..].join("/");
                 // (Over the tree's server; see `tree_server`.)
                 let Some(server) = tree_server(tree_name) else {
                     return WebResponse::not_found();
                 };
-                let (server, rev) = (server.clonify(), path[4].to_string());
+                let (server, rev) = (server.clonify(), path[5].to_string());
                 // (Cached once it's there: an imported push doesn't change.)
                 return match format::run_on_runtime(async move {
                     server.stack_strip_json(&stack, &rev, &file_path).await
@@ -1126,9 +1128,9 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 };
             }
             // (And its files' excerpts; see `format::outline_excerpts_json`.)
-            if path.len() >= 7 && path[3] == "excerpts" {
-                let stack = path[1..3].join("/");
-                let file_path = path[6..].join("/");
+            if path.len() >= 8 && path[4] == "excerpts" {
+                let stack = path[1..4].join("/");
+                let file_path = path[7..].join("/");
                 let Some(server) = tree_server(tree_name) else {
                     return WebResponse::not_found();
                 };
@@ -1136,28 +1138,35 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                     server.as_ref(),
                     tree_name,
                     &stack,
-                    path[4],
                     path[5],
+                    path[6],
                     &file_path,
                 ) {
                     Ok(json) => WebResponse::json(json),
                     Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
                 };
             }
-            if path.len() != 3 {
+            let push = match path.len() {
+                4 => tools::try_import::url_push(path[2], path[3]),
+                _ => None,
+            };
+            let Some(push) = push else {
                 return WebResponse::not_found();
-            }
-            let rev = path[2];
+            };
             // (Over the tree's server; see `tree_server`.)
             let Some(server) = tree_server(tree_name) else {
                 return WebResponse::not_found();
             };
             let mut notice = None;
             if req.post {
-                match format::request_try_import(server.as_ref(), rev) {
+                match format::request_try_import(server.as_ref(), &push) {
                     Ok(()) => {
-                        return WebResponse::see_other(format!("/{}/try/{}", tree_name, rev))
-                            .uncached();
+                        return WebResponse::see_other(format!(
+                            "/{}/{}",
+                            tree_name,
+                            tools::try_import::push_url_path(&push)
+                        ))
+                        .uncached();
                     }
                     Err(err) => notice = Some(err),
                 }
@@ -1166,7 +1175,7 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             match format::format_try(
                 server.as_ref(),
                 tree_name,
-                rev,
+                &push,
                 notice.as_deref(),
                 &mut writer,
             ) {
@@ -1215,14 +1224,19 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             }
         }
 
+        // (`/{tree}/try-status/{kind}/{id}`, as for `try`.)
         "try-status" => {
-            if path.len() != 3 {
+            let push = match path.len() {
+                4 => tools::try_import::url_push(path[2], path[3]),
+                _ => None,
+            };
+            let Some(push) = push else {
                 return WebResponse::not_found();
-            }
+            };
             let Some(server) = tree_server(tree_name) else {
                 return WebResponse::not_found();
             };
-            match format::format_try_status(server.as_ref(), path[2]) {
+            match format::format_try_status(server.as_ref(), &push) {
                 Ok(json) => WebResponse::json(json).uncached(),
                 Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
             }

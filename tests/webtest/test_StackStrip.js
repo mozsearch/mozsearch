@@ -33,10 +33,10 @@ add_task(async function test_StackStripTry() {
   // The spechist tree's try push fedcba987654 renames Poke to Prod and removes
   // Never, and then renames Prod to Prodded (see tests/spechist/try).
   const push = "fedcba987654";
-  await fetch(`/spechist/try/${push}`, { method: "POST" });
+  await fetch(`/spechist/try/hg/${push}`, { method: "POST" });
   let status;
   for (let i = 0; i < 240; i++) {
-    status = await (await fetch(`/spechist/try-status/${push}`)).json();
+    status = await (await fetch(`/spechist/try-status/hg/${push}`)).json();
     if (status.state == "imported" || status.state == "failed") {
       break;
     }
@@ -44,9 +44,9 @@ add_task(async function test_StackStripTry() {
   }
   is(status.state, "imported", "The try push is imported");
 
-  await TestUtils.loadPath(`/spechist/try/${push}`);
+  await TestUtils.loadPath(`/spechist/try/hg/${push}`);
   const link = doc().querySelector('.explore-file-header a[href*="cite.cpp"]');
-  ok(link?.getAttribute("href").endsWith(`?stack=try/${push}`),
+  ok(link?.getAttribute("href").endsWith(`?stack=try/hg/${push}`),
      "Its page's files link to their views with the push");
   await TestUtils.loadPath(link.getAttribute("href"));
   await waitForCondition(() => doc().querySelector(".stack-strip"),
@@ -63,12 +63,12 @@ add_task(async function test_StackStripTry() {
   // outline rows' links to the definitions it changed; see stack-strip.js),
   // and in its context the outline's changes are since its base (see
   // outline.js), rather than since a release.
-  await TestUtils.loadPath(`/spechist/try/${push}`);
+  await TestUtils.loadPath(`/spechist/try/hg/${push}`);
   const row = doc().querySelector(".explore-outline-name a");
   ok(row && !row.getAttribute("href").includes("stack="),
      "Its outline rows link to the definitions it changed");
   row.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-  ok(row.getAttribute("href").includes(`?stack=try/${push}`), "with the push, once followed");
+  ok(row.getAttribute("href").includes(`?stack=try/hg/${push}`), "with the push, once followed");
   await TestUtils.loadPath(row.getAttribute("href"));
   await waitForCondition(() => doc().querySelector(".stack-strip"),
                          "whose views show the stack strip");

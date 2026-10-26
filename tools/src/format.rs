@@ -2667,9 +2667,9 @@ pub fn format_try_canvas(
     output::generate_header(&opt, writer)?;
     writeln!(
         writer,
-        r#"<div class="rc-header"><h2 class="rc-title">Try push <a href="/{}/try/{}">{}</a>: {}</h2><p class="rc-note">The functions it adds or changes, at <a href="/{}/rev/{}/">the head of its stack rebased onto the indexed revision</a>, and the calls among them and with the functions calling them or called by them.  Its arrangement here is yours, kept in this browser.</p><div id="rc-toolbar" class="rc-toolbar"></div></div>"#,
+        r#"<div class="rc-header"><h2 class="rc-title">Try push <a href="/{}/{}">{}</a>: {}</h2><p class="rc-note">The functions it adds or changes, at <a href="/{}/rev/{}/">the head of its stack rebased onto the indexed revision</a>, and the calls among them and with the functions calling them or called by them.  Its arrangement here is yours, kept in this browser.</p><div id="rc-toolbar" class="rc-toolbar"></div></div>"#,
         tree_name,
-        rendered_docs::escape(&model.push),
+        rendered_docs::escape(&crate::try_import::push_url_path(&model.push)),
         rendered_docs::escape(&model.push),
         rendered_docs::escape(&model.summary),
         tree_name,
@@ -9024,7 +9024,7 @@ pub fn render_history(
 /// The patch stack strip (see `hyperblame::stack_strip`) of the file at `path`
 /// in `rev` for the stack of commits of an explore page or a try push's page,
 /// `stack` being the page's URL in the tree (ex: "explore/bug/123" or
-/// "try/abcdef012345", which its files' links pass to their views), as JSON
+/// "try/hg/abcdef012345", which its files' links pass to their views), as JSON
 /// for the views' script (`/{tree}/{stack}/stack-strip/{rev}/{path}`), with
 /// the stack's `base`, the outline's default baseline in its context (see
 /// outline.js): where it left the trunk, its first commit's parent, or for a
@@ -9041,8 +9041,8 @@ pub fn stack_strip_json(
     let git = tree_config.get_git()?;
     let history = git.history.as_ref().ok_or("This tree has no history")?;
     let commits: Vec<Oid> = match stack.split('/').collect::<Vec<_>>().as_slice() {
-        ["try", push] => {
-            let push = crate::try_import::normalize_rev(push).ok_or("Not a try push's revision")?;
+        ["try", kind, id] => {
+            let push = crate::try_import::url_push(kind, id).ok_or("Not a try push")?;
             crate::try_import::push_commits(cfg, tree_name, &push).0
         }
         ["explore", kind, keys] => explore_refs(cfg, tree_name, kind, keys)?
@@ -9278,7 +9278,7 @@ const EXPLORE_OUTLINE_CONCURRENCY: usize = 8;
 /// if any, with their commits linking to the page's (`commits`), and how
 /// many tokens the diff added and removed (`change_size`, for facets.js's
 /// sorting by it), and the URL of the data of its rows' excerpts, if the page
-/// is a stack's (`stack`, its URL in the tree, ex: "try/abcdef012345"; see
+/// is a stack's (`stack`, its URL in the tree, ex: "try/hg/abcdef012345"; see
 /// `outline_excerpts_json`).  The diffs are `server`'s.
 fn explore_outlines(
     server: &(dyn AbstractServer + Send + Sync),
@@ -9616,7 +9616,7 @@ fn excerpt_statements(
 /// revision `from` to `to`, as the outline diff between them (see
 /// `outline_diff_data`) has them, as JSON for explore pages' panel (see
 /// outline-excerpts.js; `/{tree}/{stack}/excerpts/{from}/{to}/{path}`,
-/// `stack` being the page's URL in the tree, ex: "try/abcdef012345", for its
+/// `stack` being the page's URL in the tree, ex: "try/hg/abcdef012345", for its
 /// stack strip; see `stack_strip_json`).  The changed definitions' excerpts'
 /// lines (`entries`, by `excerpt_range_key`): the lines they added (`own`, in
 /// the "to" file, and not in the definitions nested in them) and removed
@@ -9885,14 +9885,14 @@ pub fn outline_excerpts_json(
 }
 
 /// The base and rebased head of the try push whose stack's URL in the tree is
-/// `stack` (ex: "try/abcdef012345"), if it has a semantic analysis (see
+/// `stack` (ex: "try/hg/abcdef012345"), if it has a semantic analysis (see
 /// `try_delta`), whose slicing's lines on its changes' dataflow its files'
 /// excerpts prefer (see `outline_excerpts_json`).
 fn excerpt_try_slicing(
     server: &(dyn AbstractServer + Send + Sync),
     stack: &str,
 ) -> Option<(String, String)> {
-    let push = stack.strip_prefix("try/")?.to_string();
+    let push = crate::try_import::stack_push(stack)?;
     let server_ = server.clonify();
     let head = run_on_runtime(async move { server_.try_push(&push).await })
         .ok()??
@@ -9962,7 +9962,7 @@ fn render_explore(
     Ok(())
 }
 
-/// The page of a try push (`/{tree}/try/{rev}`; see `try_import`): once the
+/// The page of a try push (`/{tree}/try/hg/{rev}`; see `try_import`): once the
 /// tree has imported it, the explore page of its commits, and before, its
 /// import's status (with `notice`, ex: why it couldn't be asked for), and a
 /// button asking for it (see `request_try_import`), and while it waits or
@@ -9988,7 +9988,7 @@ pub fn format_try(
                 .ok()
                 .flatten()
                 .ok_or("The try push's import isn't there")?;
-            let explore_url = format!("try/{}", rev);
+            let explore_url = crate::try_import::push_url_path(&rev);
             let (server_, revs, stack_url) = (
                 server.clonify(),
                 push.stack
@@ -10064,6 +10064,8 @@ pub fn format_try(
     let globals = liquid::to_object(&json!({
         "tree": tree_name,
         "rev": rev,
+        "push_path": crate::try_import::push_url_path(&rev),
+        "status_path": format!("try-status/hg/{}", rev),
         "status": status,
         "notice": notice,
     }))
@@ -10300,7 +10302,7 @@ fn try_import_status(
 }
 
 /// The status of the import of a try push into the tree (see `try_import`),
-/// as JSON (`/{tree}/try-status/{rev}`), for its page's polling.
+/// as JSON (`/{tree}/try-status/hg/{rev}`), for its page's polling.
 pub fn format_try_status(
     server: &(dyn AbstractServer + Send + Sync),
     rev: &str,

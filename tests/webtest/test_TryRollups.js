@@ -16,7 +16,7 @@ function doc() {
 // Import the push (if it isn't yet), and return the head of its stack rebased
 // onto the indexed revision (as test_TryDelta.js's `importPush` does).
 async function importPush() {
-  await TestUtils.loadPath(`/trydelta/try/${PUSH}`);
+  await TestUtils.loadPath(`/trydelta/try/hg/${PUSH}`);
   if (!doc().querySelector(".explore-page")) {
     doc().querySelector(".try-import-button").click();
     await waitForCondition(() => doc()?.querySelector(".explore-page"),

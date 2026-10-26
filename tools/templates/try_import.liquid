@@ -5,7 +5,7 @@
   `format::format_try_status`) until it's done, when the page reloads as the
   push's explore page.
 {%- endcomment -%}
-<div class="try-import" data-status-url="/{{ tree }}/try-status/{{ rev }}">
+<div class="try-import" data-status-url="/{{ tree }}/{{ status_path }}">
   <h2>Try push {{ rev }}</h2>
   {%- if notice %}
   <p class="try-import-notice">{{ notice | escape }}</p>
@@ -26,7 +26,7 @@
   <pre class="try-import-error">{{ status.message | escape }}</pre>
   {%- endif %}
   {%- if status.state == "notImported" or status.retry %}
-  <form method="post" action="/{{ tree }}/try/{{ rev }}">
+  <form method="post" action="/{{ tree }}/{{ push_path }}">
     <button type="submit" class="try-import-button">Import it</button>
   </form>
   <p class="try-import-note">Importing it processes its commits into this tree's history, for their blame and what they changed, which takes from seconds to minutes.  It isn't indexed, so its revisions have no jumps or references.</p>
