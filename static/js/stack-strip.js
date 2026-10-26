@@ -115,6 +115,8 @@
     note.append("Beside the blame, which of ", link,
                 " changed each line (hover over a slot to see which).");
     document.getElementById("file")?.before(note);
+    // (For change-nav.js, which navigates between the changed lines.)
+    document.dispatchEvent(new CustomEvent("stack-strip-drawn", { detail: strip }));
   }
 
   // (Shared with outline.js, whose default baseline is the stack's base.)

@@ -280,6 +280,13 @@ var Panel = new (class Panel {
         case "t":
         case "T":
           return this.findAccel('T');
+        // (The next and previous changes; see change-nav.js.)
+        case "j":
+        case "J":
+          return this.findAccel('J');
+        case "k":
+        case "K":
+          return this.findAccel('K');
       }
     })();
 

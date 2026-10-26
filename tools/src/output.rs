@@ -384,6 +384,7 @@ pub fn generate_footer(
         "outline.js",
         "stack-strip.js",
         "interdiff.js",
+        "change-nav.js",
         "d3.v7.min.js",
         "coverage-history.js",
     ];

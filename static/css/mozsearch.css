@@ -3731,6 +3731,22 @@ html:not(.lens-changes) .query-recency {
   background-color: var(--line-highlight-background);
   border-color: currentColor;
 }
+/* The panel's "Changes" section (see change-nav.js): its count and choice of
+   granularity, and the rows of the change it went to. */
+.change-nav-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 0 0.5rem 0.5rem;
+  font-size: 0.9em;
+}
+.change-nav-status {
+  opacity: 0.8;
+}
+div[role=row].change-nav-current {
+  box-shadow: inset 4px 0 0 var(--change-nav-mark, #e8a33d);
+}
 /* The page's lenses (see navigation_panel.liquid), at the top of the panel,
    like a facet. */
 .lens-bar {

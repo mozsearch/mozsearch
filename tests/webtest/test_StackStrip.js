@@ -27,6 +27,14 @@ add_task(async function test_StackStripExplore() {
      "Part 1 changed the line of the function it added");
   is(doc().querySelector(".stack-strip-note a")?.getAttribute("href"),
      "/searchfox/explore/bug/1975601", "A note links back to the explore page");
+  // (And the panel's Changes section goes to the stack's changes; see
+  // test_ChangeNav.js.)
+  await waitForCondition(() => doc().querySelector(".panel .change-nav"),
+                         "The panel can go to the stack's changes");
+  TestUtils.click(doc().querySelector('.change-nav button[data-accel="J"]'));
+  ok(doc().querySelector(".change-nav-current .stack-slot") ||
+     [...doc().querySelectorAll(".change-nav-current")].length > 0,
+     "and marks the rows of the one it goes to");
 });
 
 add_task(async function test_StackStripTry() {
