@@ -8239,6 +8239,8 @@ pub fn render_interdiff_files(
 ) -> Result<(), &'static str> {
     unescape_explore_names(&mut data["file_groups"]);
     order_explore_files(&mut data["file_groups"]);
+    // (Arranged here, if another server's data; see `rearranged_facets`.)
+    data["facets"] = crate::cmd_pipeline::facets::rearranged_facets(&data["facets"], &[]);
     let title = "Interdiff - mozsearch";
     let opt = Options {
         title,
@@ -9940,7 +9942,11 @@ fn render_explore(
         "tree": tree_name,
         "title": title,
         "commits": data["commits"],
-        "facets": data["facets"],
+        // (Arranged here, if another server's data; see `rearranged_facets`.)
+        "facets": crate::cmd_pipeline::facets::rearranged_facets(
+            &data["facets"],
+            &server.map_or_else(Vec::new, |server| server.expanded_subsystems()),
+        ),
         "file_groups": file_groups,
         "outlines": server.is_some(),
         "slot": explore::slot_width(commit_count),

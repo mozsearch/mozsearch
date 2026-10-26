@@ -7,8 +7,8 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
-use serde::Serialize;
-use serde_json::json;
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 use ustr::{Ustr, ustr};
 
 use super::interface::{ResultFacetGroup, ResultFacetKind, ResultFacetRoot};
@@ -393,6 +393,59 @@ impl FacetView {
     }
 }
 
+/// Facets which another server serialized (ex: a remote server's explore
+/// page's), arranged here (see `FacetView::with_expanded`), since servers of
+/// other versions may arrange them differently, or not say how at all.
+/// Facets of unknown kinds are left as they are.
+pub fn rearranged_facets(facets: &Value, expanded_subsystems: &[String]) -> Value {
+    #[derive(Deserialize)]
+    struct Facet {
+        key: String,
+        label: String,
+        #[serde(default)]
+        values: Vec<FacetValueView>,
+    }
+    fn reset(values: &mut [FacetValueView]) {
+        for value in values {
+            value.elided = false;
+            value.expanded = false;
+            value.more = 0;
+            reset(&mut value.values);
+        }
+    }
+    let Some(list) = facets.as_array() else {
+        return facets.clone();
+    };
+    let arranged = list.iter().map(|facet| {
+        let Ok(Facet {
+            key,
+            label,
+            mut values,
+        }) = serde_json::from_value::<Facet>(facet.clone())
+        else {
+            return facet.clone();
+        };
+        let key: &'static str = match key.as_str() {
+            "kind" => "kind",
+            "subsystem" => "subsystem",
+            "dir" => "dir",
+            "recency" => "recency",
+            "pp" => "pp",
+            "ctxtra" => "ctxtra",
+            _ => return facet.clone(),
+        };
+        reset(&mut values);
+        let expanded: &[String] = if key == "subsystem" {
+            expanded_subsystems
+        } else {
+            &[]
+        };
+        serde_json::to_value(FacetView::with_expanded(key, label, values, expanded))
+            .unwrap_or_else(|_| facet.clone())
+    });
+    Value::Array(arranged.collect())
+}
+
 /// Elide all but `limit` of `values`, if there are more: the biggest ones but
 /// one (in their order), and a button for the others.  Returns how many show
 /// (counting the button) and how many are elided.
@@ -413,8 +466,10 @@ fn elide(values: &mut [FacetValueView], limit: usize) -> (usize, u32) {
 /// label, ex: "dom/base/"), its name relative to its parent's (ex: "base/") and
 /// a description, how many files it has, and its nested values.  And whether
 /// it shows at first (see `FacetView::new`), and its nested values, and how
-/// many of those are elided.
-#[derive(Default, Serialize)]
+/// many of those are elided.  (Deserialized by `rearranged_facets`, from
+/// servers which may not have all of the fields.)
+#[derive(Default, Deserialize, Serialize)]
+#[serde(default)]
 pub struct FacetValueView {
     pub value: String,
     pub name: String,
@@ -1264,6 +1319,23 @@ mod tests {
             in_facet("netwerk/http/a.cpp"),
             ["Core/", "Core/Networking/", "Core/Networking/HTTP"]
         );
+    }
+
+    #[test]
+    fn test_rearranged_facets() {
+        // (As a server without `FacetView::new`'s arrangement serialized it.)
+        let values: Vec<serde_json::Value> = (0..12)
+            .map(|i| json!({"value": format!("d{}/", i), "name": format!("d{}/", i), "title": "", "count": 12 - i, "values": []}))
+            .collect();
+        let old = json!([
+            {"key": "dir", "label": "Directory", "values": values},
+            {"key": "mystery", "label": "Mystery", "values": []},
+        ]);
+        let arranged = rearranged_facets(&old, &[]);
+        assert_eq!(arranged[0]["more"], 3);
+        assert_eq!(arranged[0]["values"][11]["elided"], true);
+        assert_eq!(arranged[0]["values"][0]["elided"], false);
+        assert_eq!(arranged[1], old[1], "Unknown kinds are left as they are");
     }
 
     #[test]
