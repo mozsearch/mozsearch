@@ -4322,9 +4322,10 @@ fn rendered_line_markers(rendered: &Rendered, source: &str, range: &Range<usize>
 }
 
 lazy_static! {
-    /// A rendered spec's definitions' and links' opening tags (see
-    /// `annotate_spec_symbols`).
-    static ref SPEC_DFN_OR_LINK: regex::Regex = regex::Regex::new(r#"<(dfn|a)(\s[^>]*)?>"#).unwrap();
+    /// A rendered spec's definitions' and links' opening tags, and its
+    /// headings' tags (see `annotate_spec_symbols`).
+    static ref SPEC_DFN_OR_LINK: regex::Regex =
+        regex::Regex::new(r#"<(dfn|a|h[1-6])(\s[^>]*)?>|</h[1-6]>"#).unwrap();
     static ref ATTR_ID: regex::Regex = regex::Regex::new(r#"\sid="([^"]*)""#).unwrap();
     static ref ATTR_HREF: regex::Regex = regex::Regex::new(r#"\shref="([^"]*)""#).unwrap();
 }
@@ -4347,7 +4348,9 @@ fn unescape_attr(value: &str) -> String {
 /// specs' rendered views (on the page, `#{anchor}`, or another,
 /// `/{tree}/rendered/{path}#{anchor}` or `.../anchor/{anchor}`) its
 /// definition's symbol and its URL (`data-rendered-def`), where "Go to
-/// definition" goes, rather than to the definition's source.
+/// definition" goes, rather than to the definition's source.  A heading's
+/// `<dfn>` without an id (ex: Wattsi's, whose headings have their `<dfn>`s'
+/// ids, ex: the HTML parser's tokenizer states) gets the heading's.
 fn annotate_spec_symbols(
     html: &str,
     tree_name: &str,
@@ -4362,19 +4365,33 @@ fn annotate_spec_symbols(
             .map(|text| text.into_owned())
             .unwrap_or_else(|_| text.to_string())
     };
+    // (The id of the heading the tags are in, if any.)
+    let mut heading_id: Option<String> = None;
     SPEC_DFN_OR_LINK
         .replace_all(html, |caps: &regex::Captures| {
             let tag = &caps[0];
+            let Some(name) = caps.get(1).map(|m| m.as_str()) else {
+                heading_id = None;
+                return tag.to_string();
+            };
             let attrs = caps.get(2).map_or("", |m| m.as_str());
+            if name.starts_with('h') {
+                heading_id = ATTR_ID.captures(attrs).map(|id| id[1].to_string());
+                return tag.to_string();
+            }
             if attrs.contains("data-symbols=") {
                 return tag.to_string();
             }
-            let (sym, rendered_def) = if &caps[1] == "dfn" {
-                let Some(id) = ATTR_ID.captures(attrs) else {
+            let (sym, rendered_def) = if name == "dfn" {
+                let Some(id) = ATTR_ID
+                    .captures(attrs)
+                    .map(|id| id[1].to_string())
+                    .or_else(|| heading_id.clone())
+                else {
                     return tag.to_string();
                 };
                 (
-                    crate::spec_analyze::spec_symbol(spec.shortname(), &unescape_attr(&id[1])),
+                    crate::spec_analyze::spec_symbol(spec.shortname(), &unescape_attr(&id)),
                     None,
                 )
             } else {
@@ -4410,7 +4427,7 @@ fn annotate_spec_symbols(
             }
             let annotated = format!(
                 r#"<{} data-symbols="{}"{}{}>"#,
-                &caps[1],
+                name,
                 rendered_docs::escape(&sym),
                 rendered_def.map_or_else(String::new, |href| format!(
                     r#" data-rendered-def="{}""#,
@@ -11092,7 +11109,10 @@ mod tests {
                 r##"<a href="#policy-container">again</a>, "##,
                 r##"<a href="/t/rendered/html/source/anchor/concept-fetch">fetch</a>, "##,
                 r##"<a href="/t/rendered/html/source/dom.html">a page</a>, "##,
-                r##"<a href="#nope">nope</a>.</p>"##
+                r##"<a href="#nope">nope</a>.</p>"##,
+                // (A heading's `<dfn>` without an id is the heading's.)
+                r##"<h5 id="data-state"><span class="sp-secno">1</span> <dfn>Data state</dfn></h5>"##,
+                r##"<p><dfn>no id</dfn></p>"##
             ),
             "t",
             &specs,
@@ -11108,10 +11128,12 @@ mod tests {
                 r##"<a data-symbols="SPEC_html_policy@2Dcontainer" data-rendered-def="#policy-container" href="#policy-container">again</a>, "##,
                 r##"<a data-symbols="SPEC_html_concept@2Dfetch" data-rendered-def="/t/rendered/html/source/anchor/concept-fetch" href="/t/rendered/html/source/anchor/concept-fetch">fetch</a>, "##,
                 r##"<a href="/t/rendered/html/source/dom.html">a page</a>, "##,
-                r##"<a href="#nope">nope</a>.</p>"##
+                r##"<a href="#nope">nope</a>.</p>"##,
+                r##"<h5 id="data-state"><span class="sp-secno">1</span> <dfn data-symbols="SPEC_html_data@2Dstate">Data state</dfn></h5>"##,
+                r##"<p><dfn>no id</dfn></p>"##
             )
         );
-        assert_eq!(syms.len(), 4);
+        assert_eq!(syms.len(), 5);
     }
 
     #[test]

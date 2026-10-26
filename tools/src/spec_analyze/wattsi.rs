@@ -11,7 +11,12 @@
 //! - Headings (`<h2>`..`<h6>`) and `<dfn>`s get ids from their text and
 //!   topics ("MungeTopicToID"), unless they have one, with "-2", "-3", ...
 //!   for ids already taken, in document order ("GenerateID").  A `<dfn>` in a
-//!   heading defines its topic as the heading, and gets no id.
+//!   heading defines its topic as the heading, and gets no id.  An algorithm
+//!   right after a heading whose untyped `<dfn>` defines its term (ex: the
+//!   HTML parser's tokenizer states and insertion modes, each a state of a
+//!   state machine) is that term, which is then callable, so that its
+//!   references (ex: to the states it switches to) are calls, unless the
+//!   algorithm defines something itself (see `defining_headings`).
 //! - Cross-references are `<span>`s (but for `pubdate` and `pubyear` ones),
 //!   `<code>`s, and `<i>`s and `<var>`s with `data-x`, outside `<dfn>`s
 //!   ("SaveCrossReference"), whose topics are a `<dfn>`'s (or else a
@@ -370,6 +375,51 @@ fn words(doc: &Doc, node: usize) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+/// The headings which define the algorithms right after them, by where they
+/// end: those whose untyped `<dfn>` defines their term (ex: the HTML parser's
+/// tokenizer states, `<h5><dfn>Data state</dfn></h5>`, and insertion modes,
+/// `<h6>The "<dfn>in body</dfn>" insertion mode</h6>`), which an algorithm
+/// right after one (with only whitespace and comments between) which defines
+/// nothing itself
+/// is (rather than the first term its intro names, ex: "Consume the next
+/// input character:"; see `defining_heading`).
+pub(crate) fn defining_headings(resolved: &Resolved) -> HashMap<usize, usize> {
+    let doc = &resolved.doc;
+    resolved
+        .heading_dfns
+        .iter()
+        .filter(|&(_, &dfn)| dfn_kind(&dfn_type(doc, dfn)) == "specDfn")
+        .map(|(&heading, _)| (doc.nodes[heading].range.end, heading))
+        .collect()
+}
+
+/// The heading defining the algorithm at `range` of the source, if it's right
+/// after one, with only whitespace and comments between (see
+/// `defining_headings`), and its first `<dfn>` (at `first_dfn`), if any,
+/// isn't in its intro (its first paragraph, ex: "To <dfn>upgrade an
+/// element</dfn>, ..."), but in its steps (ex: the "in table" insertion mode's
+/// "pending table character tokens").
+pub(crate) fn defining_heading(
+    headings: &HashMap<usize, usize>,
+    src: &str,
+    range: &std::ops::Range<usize>,
+    first_dfn: Option<usize>,
+) -> Option<usize> {
+    let intro_end = src[range.clone()]
+        .find("</p>")
+        .map_or(range.end, |at| range.start + at);
+    if first_dfn.is_some_and(|dfn| dfn < intro_end) {
+        return None;
+    }
+    let mut before = src[..range.start].trim_end();
+    while before.ends_with("-->")
+        && let Some(comment) = before.rfind("<!--")
+    {
+        before = before[..comment].trim_end();
+    }
+    headings.get(&before.len()).copied()
 }
 
 /// A cross-reference which resolved (and isn't in a link).
@@ -767,7 +817,25 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
             ))
         })
         .collect();
+    let defining = defining_headings(&resolved);
     for (start, end, context) in &mut algorithms {
+        // (A heading's term which the algorithm right after it is, named as
+        // its section.)
+        let first_dfn = dfn_starts
+            .get(dfn_starts.partition_point(|&(at, _)| at < *start))
+            .map(|&(at, _)| at)
+            .filter(|at| at < end);
+        if let Some(heading) = defining_heading(&defining, src, &(*start..*end), first_dfn)
+            && let Some(def) = defs.get(&heading)
+        {
+            let heading_start = doc.nodes[heading].range.start;
+            if let Some((_, section)) = sections.iter().find(|(at, _)| *at == heading_start) {
+                *context = InContext {
+                    name: section.name.clone(),
+                    sym: def.sym.clone(),
+                };
+            }
+        }
         if context.sym.is_empty()
             && let Some(intro) = intro_context(
                 src,
@@ -777,7 +845,13 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
                 pending
                     .iter()
                     .filter(|p| !matches!(p.what, "reference" | "anchor" | "section"))
-                    .map(|p| (doc.nodes[p.node].range.start, p.sym.as_str(), p.pretty.as_str())),
+                    .map(|p| {
+                        (
+                            doc.nodes[p.node].range.start,
+                            p.sym.as_str(),
+                            p.pretty.as_str(),
+                        )
+                    }),
             )
         {
             *context = intro;
@@ -841,7 +915,11 @@ pub fn analyze(src: &str, shortname: &str, config: &SpecsConfig) -> (Vec<Record>
     let mut structured: HashMap<String, (&'static str, Option<String>, Option<String>)> =
         HashMap::new();
     for def in defs.values() {
-        let kind = if def.kind == "specDfn" && algorithm_syms.contains(def.sym.as_str()) {
+        // (A heading's term is a section's, unless an algorithm is it; see
+        // `defining_headings`.)
+        let kind = if matches!(def.kind, "specDfn" | "specSection")
+            && algorithm_syms.contains(def.sym.as_str())
+        {
             "specAlgorithm"
         } else {
             def.kind
@@ -1102,6 +1180,103 @@ mod tests {
             _ => None,
         });
         assert_eq!(frob.as_deref(), Some("\"specAlgorithm\""));
+    }
+
+    #[test]
+    fn test_heading_algorithms() {
+        // An algorithm right after a heading whose untyped `<dfn>` defines its
+        // term (ex: the HTML parser's tokenizer states) is the term, which is
+        // callable, rather than the first term its intro names, or a `<dfn>`
+        // in its steps; but not one with its own `<dfn>` in its intro, or one
+        // after other content, or after a typed `<dfn>`'s heading.
+        let src = r##"<p>The <dfn>next input character</dfn>, and <dfn>parse error</dfn>s.
+<h5><dfn>Data state</dfn></h5>
+<!-- a comment -->
+<div algorithm>
+<p>Consume the <span>next input character</span>:</p>
+<dl class="switch">
+ <dt>Anything else</dt>
+ <dd>This is a <span>parse error</span>. Switch to the <span>tag open state</span>.</dd>
+</dl>
+</div>
+<h5><dfn>Tag open state</dfn></h5>
+<div algorithm>
+<p>Consume the <span>next input character</span>:</p>
+<ol>
+ <li><p>Let <dfn><var>pending</var></dfn> be empty. Switch to the <span>data state</span>.
+</ol>
+</div>
+<h5><dfn>Upgrades</dfn></h5>
+<div algorithm>
+<p>To <dfn>upgrade an element</dfn>, switch to the <span>data state</span>:</p>
+</div>
+<h5><dfn>Prose</dfn></h5>
+<p>Some prose.</p>
+<div algorithm>
+<p>Do this:</p>
+<ol><li><p>Switch to the <span>data state</span>.</ol>
+</div>
+<h5>The <dfn element>gizmo</dfn> element</h5>
+<div algorithm>
+<p>Do this:</p>
+<ol><li><p>Switch to the <span>data state</span>.</ol>
+</div>
+"##;
+        let (records, _) = analyze(src, "t", &config());
+        let kind = |sym: &str| {
+            records.iter().find_map(|record| match record {
+                Record::Structured(_, value) if value["sym"] == sym => {
+                    value["kind"].as_str().map(str::to_string)
+                }
+                _ => None,
+            })
+        };
+        assert_eq!(
+            kind("SPEC_t_data@2Dstate").as_deref(),
+            Some("specAlgorithm")
+        );
+        assert_eq!(
+            kind("SPEC_t_tag@2Dopen@2Dstate").as_deref(),
+            Some("specAlgorithm")
+        );
+        // (Not the first term their intros name, or their steps define.)
+        assert_eq!(
+            kind("SPEC_t_next@2Dinput@2Dcharacter").as_deref(),
+            Some("specDfn")
+        );
+        assert_eq!(kind("SPEC_t_pending").as_deref(), Some("specDfn"));
+        assert_eq!(kind("SPEC_t_upgrades").as_deref(), Some("specSection"));
+        assert_eq!(
+            kind("SPEC_t_upgrade@2Dan@2Delement").as_deref(),
+            Some("specAlgorithm")
+        );
+        assert_eq!(kind("SPEC_t_prose").as_deref(), Some("specSection"));
+        assert_eq!(
+            kind("SPEC_t_the@2Dgizmo@2Delement").as_deref(),
+            Some("element")
+        );
+        let uses: Vec<String> = summary(&records)
+            .into_iter()
+            .filter(|record| record.contains(" use "))
+            .collect();
+        assert_eq!(
+            uses,
+            vec![
+                // (The states' references, ex: to the states they switch to,
+                // are their calls.)
+                "5:21-41 use SPEC_t_next@2Dinput@2Dcharacter Data state (SPEC_t_data@2Dstate)",
+                "8:21-32 use SPEC_t_parse@2Derror Data state (SPEC_t_data@2Dstate)",
+                "8:61-75 use SPEC_t_tag@2Dopen@2Dstate Data state (SPEC_t_data@2Dstate)",
+                "13:21-41 use SPEC_t_next@2Dinput@2Dcharacter Tag open state (SPEC_t_tag@2Dopen@2Dstate)",
+                "15:72-82 use SPEC_t_data@2Dstate Tag open state step 1 (SPEC_t_tag@2Dopen@2Dstate)",
+                "20:57-67 use SPEC_t_data@2Dstate upgrade an element (SPEC_t_upgrade@2Dan@2Delement)",
+                // (Their sections', which aren't callable.)
+                "26:31-41 use SPEC_t_data@2Dstate Prose step 1 (SPEC_t_prose)",
+                "31:31-41 use SPEC_t_data@2Dstate The gizmo element step 1 (SPEC_t_the@2Dgizmo@2Delement)",
+            ],
+            "{:#?}",
+            uses
+        );
     }
 
     #[test]

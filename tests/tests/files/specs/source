@@ -47,3 +47,34 @@ interface Gadget {};</pre>
 <h3 id=doohickeys>The <dfn id=doohickey>doohickey</dfn> section</h3>
 
 <p>Each <span>doohickey</span> has a <code>gadget</code> (which isn't a cross-reference).
+
+<h3 id=tokenization>Tokenization</h3>
+
+<p>The tokenizer is a state machine, whose states each consume the next <span
+data-x=concept-widget>widget</span> (as the HTML parser's tokenizer's do).
+
+<h4><dfn>Data state</dfn></h4>
+<!-- (The algorithm right after a heading defining its term is it.) -->
+
+<div algorithm>
+<p>Consume the next <span data-x=concept-widget>widget</span>:</p>
+
+<dl class="switch">
+ <dt>A gadget</dt>
+ <dd>Switch to the <span>tag open state</span>.</dd>
+
+ <dt>Anything else</dt>
+ <dd>Stay in the <span>data state</span>.</dd>
+</dl>
+</div>
+
+<h4><dfn>Tag open state</dfn></h4>
+
+<div algorithm>
+<p>Consume the next <span data-x=concept-widget>widget</span>:</p>
+
+<dl class="switch">
+ <dt>Anything else</dt>
+ <dd>Reconsume in the <span>data state</span>.</dd>
+</dl>
+</div>

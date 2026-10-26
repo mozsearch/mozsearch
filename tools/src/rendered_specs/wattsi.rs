@@ -27,7 +27,9 @@ use super::{
 };
 use crate::rendered_docs::escape;
 use crate::spec_analyze::markup::NodeKind;
-use crate::spec_analyze::wattsi::{Resolved, resolve, step_path};
+use crate::spec_analyze::wattsi::{
+    Resolved, defining_heading, defining_headings, resolve, step_path,
+};
 use crate::spec_analyze::{SpecEntry, SpecsConfig, spec_symbol};
 use crate::tree_sitter_support::spec_tokenizer::html_contexts;
 use std::ops::Range;
@@ -353,8 +355,9 @@ enum Target<'a> {
     Algorithm(&'a str),
 }
 
-/// The algorithms of a resolved source: their bytes, and their first
-/// `<dfn>`s' nodes.
+/// The algorithms of a resolved source: their bytes, and the nodes which
+/// define them: their first `<dfn>`s, or the headings right before them (see
+/// `spec_analyze::wattsi::defining_headings`, as its analysis has them).
 fn algorithms(resolved: &Resolved, src: &str) -> Vec<(Range<usize>, Option<usize>)> {
     let doc = &resolved.doc;
     let mut dfns: Vec<(usize, usize)> = resolved
@@ -364,16 +367,16 @@ fn algorithms(resolved: &Resolved, src: &str) -> Vec<(Range<usize>, Option<usize
         .map(|&node| (doc.nodes[node].range.start, node))
         .collect();
     dfns.sort_unstable();
+    let headings = defining_headings(resolved);
     html_contexts(src, &doc.items)
         .into_iter()
         .filter_map(|context| {
             let range = context.start..context.end?;
             let first = dfns.partition_point(|&(start, _)| start < range.start);
-            let dfn = dfns
-                .get(first)
-                .filter(|&&(start, _)| start < range.end)
-                .map(|&(_, node)| node);
-            Some((range, dfn))
+            let dfn = dfns.get(first).filter(|&&(start, _)| start < range.end);
+            let definer = defining_heading(&headings, src, &range, dfn.map(|&(start, _)| start))
+                .or(dfn.map(|&(_, node)| node));
+            Some((range, definer))
         })
         .collect()
 }
@@ -400,14 +403,19 @@ fn render_target(
             None,
         ),
         Target::Algorithm(sym) => {
-            let dfn = resolved.node_ids.iter().find_map(|(&node, id)| {
-                (doc.is(node, "dfn") && spec_symbol(spec.shortname(), id) == sym).then_some(node)
+            let definer = resolved.node_ids.iter().find_map(|(&node, id)| {
+                (spec_symbol(spec.shortname(), id) == sym).then_some(node)
             })?;
-            let at = doc.nodes[dfn].range.start;
-            let (range, _) = algorithms
-                .iter()
-                .filter(|(range, _)| range.contains(&at))
-                .min_by_key(|(range, _)| range.len())?;
+            // (A `<dfn>`'s algorithm is the innermost one with it, and a
+            // heading's, the one it defines.)
+            let at = doc.nodes[definer].range.start;
+            let (range, _) = match doc.is(definer, "dfn") {
+                true => algorithms
+                    .iter()
+                    .filter(|(range, _)| range.contains(&at))
+                    .min_by_key(|(range, _)| range.len())?,
+                false => algorithms.iter().find(|(_, node)| *node == Some(definer))?,
+            };
             let steps: Vec<(String, usize)> = (1..doc.nodes.len())
                 .filter(|&node| {
                     let start = doc.nodes[node].range.start;
@@ -532,13 +540,19 @@ fn render_target(
     }
 
     // Algorithms' definitions link to their views beside the code citing
-    // them.
+    // them (after a heading's `<dfn>`, for a heading's).
     wattsi.algorithm_dfns = algorithms
         .iter()
-        .filter_map(|(_, dfn)| {
-            let dfn = (*dfn)?;
-            let url = links
-                .algorithm_url(&spec_symbol(spec.shortname(), resolved.node_ids.get(&dfn)?))?;
+        .filter_map(|(_, definer)| {
+            let definer = (*definer)?;
+            let url = links.algorithm_url(&spec_symbol(
+                spec.shortname(),
+                resolved.node_ids.get(&definer)?,
+            ))?;
+            let dfn = match doc.is(definer, "dfn") {
+                true => definer,
+                false => *resolved.heading_dfns.get(&definer)?,
+            };
             Some((dfn, url))
         })
         .collect();
@@ -696,6 +710,57 @@ mod tests {
             .collect();
         assert_eq!(steps, vec![("1", "<li>"), ("2", "<li>"), ("2.1", "<li>")]);
         assert_eq!(view.pages[view.page].name.as_deref(), Some("poking"));
+
+        // An algorithm a heading defines (see
+        // `spec_analyze::wattsi::defining_headings`), whose view is the
+        // algorithm's, and whose heading links to it.
+        let states = r##"<title>Example</title>
+<h2>Tokenization</h2>
+<h5><dfn>Data state</dfn></h5>
+<div algorithm>
+<p>Consume the next input character:</p>
+<dl class="switch"><dt>EOF<dd>Emit it.</dl>
+</div>
+<p>After.
+"##;
+        let view = render_algorithm(
+            states,
+            "source",
+            &config.specs[0],
+            &config,
+            &TestLinks,
+            "SPEC_example_data@2Dstate",
+        )
+        .unwrap();
+        let html = marked(&view.rendered);
+        assert!(html.contains("Emit it."), "{}", html);
+        assert!(!html.contains("After"), "{}", html);
+        struct AlgorithmLinks;
+        impl SpecLinks for AlgorithmLinks {
+            fn rendered_url(&self, path: &str) -> String {
+                format!("/t/rendered/{}", path)
+            }
+            fn algorithm_url(&self, sym: &str) -> Option<String> {
+                Some(format!("/t/algorithm/{}", sym))
+            }
+        }
+        let page = render(
+            states,
+            "source",
+            &config.specs[0],
+            &config,
+            &AlgorithmLinks,
+            None,
+        )
+        .unwrap();
+        let html = marked(&page.rendered);
+        assert!(
+            html.contains(
+                r#"Data state</span></dfn><a class="sp-algorithm-link" href="/t/algorithm/SPEC_example_data@2Dstate""#
+            ),
+            "{}",
+            html
+        );
         assert!(
             render_algorithm(
                 src,
