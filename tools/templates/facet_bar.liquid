@@ -7,15 +7,16 @@
   buttons showing all of them or only the biggest at the top; see
   facet_value.liquid), how many files each has, a button showing the elided
   ones, if any (see `FacetView::new`), and (if `group_by`) the choices of
-  grouping and of sorting (if `sort_by`) after them.
+  grouping and of sorting (if `sort_by`) after them.  The items are files,
+  unless `noun` and `nouns` say otherwise (ex: "pull request").
 {%- endcomment -%}
-<section class="facet-box">
+<section class="facet-box"{% if noun %} data-noun="{{ noun }}" data-nouns="{{ nouns }}"{% endif %}>
   <div class="facet-header">
     <button type="button" class="facet-toggle" aria-expanded="true" aria-controls="facet-bar"><span class="facet-toggle-icon icon-down-dir expanded" aria-hidden="true"></span>Filtering</button>
     <span class="facet-status"></span>
     {%- comment %} (Invisible rather than hidden when nothing is filtered, so
     that the header's height doesn't change.) {% endcomment %}
-    <button type="button" class="facet-clear facet-inactive">Show all files</button>
+    <button type="button" class="facet-clear facet-inactive">Show all {% if nouns %}{{ nouns }}{% else %}files{% endif %}</button>
   </div>
   <div class="facet-bar" id="facet-bar">
     <div class="facet-filters">

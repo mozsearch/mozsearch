@@ -556,6 +556,9 @@ for repo in config['trees']:
         'proxy_pass http://127.0.0.1:8001;',
     ])
     location(f'/{repo}/try-status', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
+    # A tree of specs' pull request summaries, which change when they're
+    # synced, and their syncs' POSTs and status (see the tools' `spec_prs`).
+    location(f'/{repo}/spec-prs', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
 
     # Handled by Rust `pipeline-server.rs`
     location(f'/{repo}/query', ['proxy_pass http://127.0.0.1:8002;'])
@@ -577,9 +580,10 @@ for repo in config['trees']:
             'gzip_proxied any;',
             'gzip_vary on;',
         ])
-        # but for its routes for try pushes' imports, which the web-server
-        # performs, and whose statuses change.
-        location(f'~ ^/{repo}/api/v1/try-(status|import)$', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
+        # but for its routes for try pushes' imports and pull request
+        # summaries' syncs, which the web-server performs, and whose statuses
+        # (and summaries) change.
+        location(f'~ ^/{repo}/api/v1/(try-(status|import)|spec-prs(-sync|-sync-status)?)$', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
 
     # Show different icons for the testing servers.
     print(f'  rewrite ^/{repo}/static/icons/search.png$ /{repo}/static/icons/$favicon permanent;')

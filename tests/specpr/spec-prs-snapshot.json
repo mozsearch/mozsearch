@@ -1,0 +1,41 @@
+{
+ "api": "graphql",
+ "repos": {
+  "gizmo": {
+   "incomplete": false,
+   "prs": [
+    {
+     "association": "CONTRIBUTOR",
+     "author": "a-contributor",
+     "base_ref": "main",
+     "draft": true,
+     "labels": [
+      "normative change"
+     ],
+     "number": 2,
+     "review": "CHANGES_REQUESTED",
+     "title": "Twist gizmos the other way",
+     "updated": "2025-04-12T11:00:00Z",
+     "url": "https://github.com/example/gizmo/pull/2"
+    },
+    {
+     "association": "MEMBER",
+     "author": "an-editor",
+     "base_ref": "main",
+     "draft": false,
+     "labels": [
+      "addition/proposal",
+      "normative change"
+     ],
+     "number": 1,
+     "review": "APPROVED",
+     "title": "Define oiling sprockets, and springs",
+     "updated": "2025-04-11T12:00:00Z",
+     "url": "https://github.com/example/gizmo/pull/1"
+    }
+   ]
+  }
+ },
+ "requests": 1,
+ "taken": "2025-04-20T12:00:00Z"
+}

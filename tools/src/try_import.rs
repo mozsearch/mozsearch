@@ -555,65 +555,95 @@ impl TryImports {
             .join("try-imports")
             .join(format!("{}.log", job.rev));
         fs::create_dir_all(log_path.parent().unwrap()).map_err(|e| e.to_string())?;
-        let log = fs::File::create(&log_path).map_err(|e| e.to_string())?;
-        let mut child = Command::new("nice")
-            .arg("-n10")
-            .arg(&hook)
-            .arg(&job.rev)
-            .env("MOZSEARCH_PATH", &cfg.mozsearch_path)
-            .env("CONFIG_REPO", &cfg.config_repo_path)
-            .env("TREE_NAME", &job.tree)
-            .env(
+        let max_revisions = MAX_REVISIONS.to_string();
+        let envs: Vec<(&str, &str)> = vec![
+            ("MOZSEARCH_PATH", &cfg.mozsearch_path),
+            ("CONFIG_REPO", &cfg.config_repo_path),
+            ("TREE_NAME", &job.tree),
+            (
                 "GIT_ROOT",
                 tree_config.paths.git_path.as_deref().unwrap_or_default(),
-            )
-            .env("HISTORY_ROOT", history_root)
-            .env(
+            ),
+            ("HISTORY_ROOT", history_root),
+            (
                 "GIT_BRANCH",
                 tree_config.paths.git_branch.as_deref().unwrap_or("HEAD"),
-            )
-            .env("MAX_REVISIONS", MAX_REVISIONS.to_string())
+            ),
             // (For the semantic analysis of the push; see `try_delta`.)
-            .env("CONFIG_FILE", &cfg.config_file)
-            .env("INDEX_ROOT", &tree_config.paths.index_path)
-            .env("FILES_ROOT", &tree_config.paths.files_path)
-            .env("OBJDIR", &tree_config.paths.objdir_path)
-            .stdin(Stdio::null())
-            .stdout(log.try_clone().map_err(|e| e.to_string())?)
-            .stderr(log)
-            .process_group(0)
-            .spawn()
-            .map_err(|e| format!("Couldn't run {}: {}", hook.display(), e))?;
-        let started = Instant::now();
-        let status = loop {
-            if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
-                break status;
-            }
-            if started.elapsed() > TIME_LIMIT {
-                // (The hook's process group, with what it runs.)
-                let _ = Command::new("kill")
-                    .args(["-TERM", "--", &format!("-{}", child.id())])
-                    .status();
-                let _ = child.wait();
-                return Err(format!(
-                    "It took longer than {} minutes",
-                    TIME_LIMIT.as_secs() / 60
-                ));
-            }
-            let step = last_lines(&log_path, 1);
-            if let Some((_, _, running)) = &mut self.state.lock().unwrap().running {
-                *running = step;
-            }
-            std::thread::sleep(Duration::from_secs(1));
-        };
-        if !status.success() {
-            return Err(last_lines(&log_path, 12));
-        }
+            ("CONFIG_FILE", &cfg.config_file),
+            ("INDEX_ROOT", &tree_config.paths.index_path),
+            ("FILES_ROOT", &tree_config.paths.files_path),
+            ("OBJDIR", &tree_config.paths.objdir_path),
+            ("MAX_REVISIONS", &max_revisions),
+        ];
+        run_hook(
+            &hook,
+            &[&job.rev],
+            &envs,
+            &log_path,
+            TIME_LIMIT,
+            &mut |step| {
+                if let Some((_, _, running)) = &mut self.state.lock().unwrap().running {
+                    *running = step;
+                }
+            },
+        )?;
         if imported_head(cfg, &job.tree, &job.rev).is_none() {
             return Err("The import finished, but the history doesn't have the push".to_string());
         }
         Ok(())
     }
+}
+
+/// Run a tree's hook (ex: `import-try`) with `args` and `envs`, at a lower
+/// priority than the server's (`nice`) and in its own process group, with
+/// its output in `log_path`, until it's done or `time_limit` (when it and
+/// what it runs are killed), telling `step` its output's last line every
+/// second.  Its error is its output's last lines, if it fails.
+pub fn run_hook(
+    hook: &Path,
+    args: &[&str],
+    envs: &[(&str, &str)],
+    log_path: &Path,
+    time_limit: Duration,
+    step: &mut dyn FnMut(String),
+) -> Result<(), String> {
+    let log = fs::File::create(log_path).map_err(|e| e.to_string())?;
+    let mut command = Command::new("nice");
+    command.arg("-n10").arg(hook).args(args);
+    for (name, value) in envs {
+        command.env(name, value);
+    }
+    let mut child = command
+        .stdin(Stdio::null())
+        .stdout(log.try_clone().map_err(|e| e.to_string())?)
+        .stderr(log)
+        .process_group(0)
+        .spawn()
+        .map_err(|e| format!("Couldn't run {}: {}", hook.display(), e))?;
+    let started = Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
+            break status;
+        }
+        if started.elapsed() > time_limit {
+            // (The hook's process group, with what it runs.)
+            let _ = Command::new("kill")
+                .args(["-TERM", "--", &format!("-{}", child.id())])
+                .status();
+            let _ = child.wait();
+            return Err(format!(
+                "It took longer than {} minutes",
+                time_limit.as_secs() / 60
+            ));
+        }
+        step(last_lines(log_path, 1));
+        std::thread::sleep(Duration::from_secs(1));
+    };
+    if !status.success() {
+        return Err(last_lines(log_path, 12));
+    }
+    Ok(())
 }
 
 /// Why the imported try push `rev` has no semantic analysis, if its import's

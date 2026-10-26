@@ -632,6 +632,30 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The summaries of the open pull requests of the tree's spec
+    /// repositories (see `spec_prs`), all of them or `spec`'s.
+    async fn spec_prs(&self, _spec: Option<&str>) -> Result<Vec<crate::spec_prs::RepoSummary>> {
+        Err(ServerError::Unsupported)
+    }
+
+    /// The status of the syncs of the summaries of the tree's spec
+    /// repositories' pull requests (or of `spec`'s; see `spec_prs`).  (Only
+    /// the server performing them knows of them: the web-server, whose
+    /// `spec-prs-sync-status` data API route this is.)
+    async fn spec_prs_sync_status(
+        &self,
+        _spec: Option<&str>,
+    ) -> Result<crate::spec_prs::SyncStatus> {
+        Err(ServerError::Unsupported)
+    }
+
+    /// Ask for a sync of the summaries of the tree's spec repositories' pull
+    /// requests (or of `spec`'s; see `spec_prs::SpecPrSyncs::request`), with
+    /// its reasons not to as `BadInput` errors.
+    async fn request_spec_prs_sync(&self, _spec: Option<&str>) -> Result<()> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The data of the tree's landing page (see `format::landing_data`), for
     /// rendering it at index time (see `cmd_render`).
     async fn landing(&self) -> Result<Value> {

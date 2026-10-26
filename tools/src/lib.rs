@@ -123,6 +123,8 @@ pub mod spec_analyze;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod spec_forest;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod spec_prs;
+#[cfg(not(target_arch = "wasm32"))]
 mod symbol_graph_edge_kind;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod tokenize;

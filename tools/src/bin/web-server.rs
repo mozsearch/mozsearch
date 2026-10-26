@@ -40,7 +40,8 @@ struct WebRequest<'a> {
     path: &'a str,
     /// The query string (ex: a history page's `scope=...`), or "".
     query: &'a str,
-    /// Whether it's a POST (only `/{tree}/try/{kind}/{id}`'s are allowed).
+    /// Whether it's a POST (only `/{tree}/try/{kind}/{id}`'s and
+    /// `/{tree}/spec-prs/sync`'s are allowed).
     post: bool,
     /// The site's origin, as the browser has it (ex: "https://searchfox.org"),
     /// for what needs absolute URLs (an OpenSearch description); see
@@ -1250,6 +1251,62 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             }
         }
 
+        // A tree of specs' summaries of its spec repositories' open pull
+        // requests (`/{tree}/spec-prs`, and a repository's at
+        // `/{tree}/spec-prs/{spec}`), and (POST) asking for a sync of them
+        // (`/{tree}/spec-prs/sync`, with `?spec=` for a repository's), and
+        // its status (`/{tree}/spec-prs/sync-status`); see `tools::spec_prs`.
+        // (Uncached: syncs change them.)
+        "spec-prs" => {
+            let Some(server) = tree_server(tree_name) else {
+                return WebResponse::not_found();
+            };
+            let params = query_params(req.query);
+            let spec = match path.get(2).copied().unwrap_or_default() {
+                "sync" | "sync-status" => params.get("spec").map(String::as_str),
+                spec => Some(spec).filter(|spec| !spec.is_empty()),
+            };
+            // (Of the tree's spec repositories, if it knows them; see
+            // `try_import::spec_repos`.)
+            let repos = tools::try_import::spec_repos(cfg, tree_name);
+            if path.len() > 3
+                || spec.is_some_and(|spec| {
+                    !tools::spec_prs::valid_spec(spec)
+                        || (!repos.is_empty() && !repos.iter().any(|repo| repo.name == spec))
+                })
+            {
+                return WebResponse::not_found();
+            }
+            let page = |notice: Option<&str>| {
+                let mut writer = Vec::new();
+                match format::format_spec_prs(server.as_ref(), tree_name, spec, notice, &mut writer)
+                {
+                    Ok(()) => WebResponse::html(String::from_utf8(writer).unwrap()).uncached(),
+                    Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
+                }
+            };
+            match (path.get(2).copied(), req.post) {
+                (Some("sync-status"), false) => {
+                    match format::format_spec_prs_sync_status(server.as_ref(), spec) {
+                        Ok(json) => WebResponse::json(json).uncached(),
+                        Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
+                    }
+                }
+                (Some("sync"), true) => {
+                    match format::request_spec_prs_sync(server.as_ref(), spec) {
+                        Ok(()) => WebResponse::see_other(match spec {
+                            Some(spec) => format!("/{}/spec-prs/{}", tree_name, spec),
+                            None => format!("/{}/spec-prs", tree_name),
+                        })
+                        .uncached(),
+                        Err(err) => page(Some(&err)),
+                    }
+                }
+                (Some("sync" | "sync-status"), _) | (_, true) => WebResponse::not_found(),
+                _ => page(None),
+            }
+        }
+
         // What a person searched for (from a search box, a keyword or
         // OpenSearch engine, or router.py's search's URLs, with its form's
         // fields), in a tree searching with queries (nginx sends the requests
@@ -1469,6 +1526,13 @@ async fn main() {
         });
     }
 
+    // The syncs of trees of specs' pull request summaries, one at a time, as
+    // they're asked for; see `tools::spec_prs`.
+    {
+        let cfg = cfg.clone();
+        std::thread::spawn(move || tools::spec_prs::SYNCS.run(&cfg));
+    }
+
     // The eviction of sidecar files when the disk fills up; see
     // `tools::sidecars`.
     {
@@ -1499,11 +1563,13 @@ async fn main() {
         let cfg = cfg.clone();
         tokio::spawn(async move {
             let handler = async |req: http::Request<_>| {
-                // (Only a try push's page takes POSTs, to import it, as does
-                // the data API's route for that.)
+                // (Only a try push's page takes POSTs, to import it, and the
+                // pull request summaries' syncs' (see `tools::spec_prs`), as
+                // do the data API's routes for those.)
                 let post = req.method() == Method::POST
-                    && (req.uri().path().split('/').nth(2) == Some("try")
-                        || req.uri().path().ends_with("/api/v1/try-import"));
+                    && (matches!(req.uri().path().split('/').nth(2), Some("try" | "spec-prs"))
+                        || req.uri().path().ends_with("/api/v1/try-import")
+                        || req.uri().path().ends_with("/api/v1/spec-prs-sync"));
                 if req.method() != Method::GET && !post {
                     return http::Response::builder()
                         .status(StatusCode::METHOD_NOT_ALLOWED)

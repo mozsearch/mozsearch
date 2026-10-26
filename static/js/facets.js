@@ -1,6 +1,8 @@
 /**
  * Facets of lists of files (see facet_bar.liquid and `format::explore_facets`
- * in format.rs), as on the /explore/ pages and interdiff summaries.
+ * in format.rs), as on the /explore/ pages and interdiff summaries, or of
+ * other items (ex: a spec repository's pull requests; see
+ * `format::format_spec_prs`).
  *
  * Each facet has values (nested for hierarchical facets, ex: directories),
  * which filter the items (`.facet-items [data-facets]`, whose JSON names the
@@ -62,7 +64,10 @@
   const defaultSortBy = sortBy?.value;
   const status = bar.querySelector(".facet-status");
   const clear = bar.querySelector(".facet-clear");
-  const plural = n => `${n} file${n == 1 ? "" : "s"}`;
+  // (The items are files, unless the bar says otherwise.)
+  const noun = bar.dataset.noun || "file";
+  const nouns = bar.dataset.nouns || "files";
+  const plural = n => `${n} ${n == 1 ? noun : nouns}`;
   const paths = someItems => new Set(someItems.map(item => item.path)).size;
   const allPaths = paths(items);
 

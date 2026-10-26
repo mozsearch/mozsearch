@@ -86,6 +86,11 @@
 //! - `try-status?push=` and POST `try-import?push=`: a try push's import's
 //!   status, and asking for its import; served by the web-server, which
 //!   performs imports (see `Host`).
+//! - `spec-prs[?spec=]`: the summaries of the open pull requests of the
+//!   tree's spec repositories, or of one (see `spec_prs`); and
+//!   `spec-prs-sync-status[?spec=]` and POST `spec-prs-sync[?spec=]`, their
+//!   syncs' status, and asking for one; served by the web-server, which
+//!   performs the syncs (and whose summaries they change).
 //!
 //! All of them take `rev=` (a try push's head) and `max_bytes=`.
 //!
@@ -328,6 +333,27 @@ const ROUTES: &[Route] = &[
         params: &["push"],
         host: Host::PipelineServer,
         post: false,
+    },
+    Route {
+        name: "spec-prs",
+        takes_path: false,
+        params: &["spec"],
+        host: Host::WebServer,
+        post: false,
+    },
+    Route {
+        name: "spec-prs-sync-status",
+        takes_path: false,
+        params: &["spec"],
+        host: Host::WebServer,
+        post: false,
+    },
+    Route {
+        name: "spec-prs-sync",
+        takes_path: false,
+        params: &["spec"],
+        host: Host::WebServer,
+        post: true,
     },
     Route {
         name: "explore",
@@ -638,6 +664,18 @@ fn push_param(params: &Params) -> Result<String, ApiError> {
     crate::try_import::normalize_push(params.required("push")?).ok_or_else(|| {
         bad("push must be a try push's revision (12 to 40 hexadecimal digits), or a spec's pull request (SPEC/NUMBER)")
     })
+}
+
+/// A spec repository's directory in the forest, from the optional `spec`
+/// parameter.
+fn spec_param(params: &Params) -> Result<Option<String>, ApiError> {
+    match params.get("spec") {
+        None => Ok(None),
+        Some(spec) if crate::spec_prs::valid_spec(spec) => Ok(Some(spec.to_string())),
+        Some(_) => Err(bad(
+            "spec must be a spec repository's directory in the forest (ex: dom)",
+        )),
+    }
 }
 
 /// Whether `rev` is a revision (7 to 40 lowercase hexadecimal digits).
@@ -973,6 +1011,38 @@ async fn route_body(
         "try-push" => {
             let push = server.try_push(&push_param(params)?).await.map_err(error)?;
             Ok(Body::json(&serde_json::to_value(push).unwrap_or_default()))
+        }
+        "spec-prs" => {
+            let summaries = server
+                .spec_prs(spec_param(params)?.as_deref())
+                .await
+                .map_err(error)?;
+            Ok(Body::json(
+                &serde_json::to_value(summaries).unwrap_or_default(),
+            ))
+        }
+        "spec-prs-sync-status" => {
+            let status = server
+                .spec_prs_sync_status(spec_param(params)?.as_deref())
+                .await
+                .map_err(error)?;
+            Ok(Body::json(
+                &serde_json::to_value(status).unwrap_or_default(),
+            ))
+        }
+        "spec-prs-sync" => {
+            let spec = spec_param(params)?;
+            server
+                .request_spec_prs_sync(spec.as_deref())
+                .await
+                .map_err(error)?;
+            let status = server
+                .spec_prs_sync_status(spec.as_deref())
+                .await
+                .map_err(error)?;
+            Ok(Body::json(
+                &serde_json::to_value(status).unwrap_or_default(),
+            ))
         }
         "rev-dir" => {
             let commit = commit_param(params)?;
@@ -1912,6 +1982,19 @@ mod tests {
             .unwrap_err()
             .status,
             StatusCode::METHOD_NOT_ALLOWED
+        );
+        assert_eq!(
+            respond(
+                &FakeServers,
+                Host::WebServer,
+                false,
+                false,
+                &"/fake/api/v1/spec-prs?spec=../dom".parse().unwrap()
+            )
+            .await
+            .unwrap_err()
+            .status,
+            StatusCode::UNPROCESSABLE_ENTITY
         );
         for url in [
             "/other/api/v1/tree-info",

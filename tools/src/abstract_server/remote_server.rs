@@ -805,6 +805,29 @@ impl AbstractServer for RemoteServer {
         parse(&self.api_live("try-push", &[("push", push)], false).await?)
     }
 
+    async fn spec_prs(&self, spec: Option<&str>) -> Result<Vec<crate::spec_prs::RepoSummary>> {
+        let params: Vec<(&str, &str)> = spec.map(|spec| ("spec", spec)).into_iter().collect();
+        parse(&self.api_live("spec-prs", &params, false).await?)
+    }
+
+    async fn spec_prs_sync_status(
+        &self,
+        spec: Option<&str>,
+    ) -> Result<crate::spec_prs::SyncStatus> {
+        let params: Vec<(&str, &str)> = spec.map(|spec| ("spec", spec)).into_iter().collect();
+        parse(
+            &self
+                .api_live("spec-prs-sync-status", &params, false)
+                .await?,
+        )
+    }
+
+    async fn request_spec_prs_sync(&self, spec: Option<&str>) -> Result<()> {
+        let params: Vec<(&str, &str)> = spec.map(|spec| ("spec", spec)).into_iter().collect();
+        self.api_live("spec-prs-sync", &params, true).await?;
+        Ok(())
+    }
+
     async fn rev_file(&self, rev: &str, path: &str) -> Result<Option<crate::format::RevFile>> {
         parse(
             &self

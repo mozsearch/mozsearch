@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
+
+# The specpr tree's pull request summaries (see tools/src/spec_prs.rs), of all
+# of its configured spec repositories, or of the argument's: from the snapshot
+# of their metadata (see spec-prs.toml), and their heads, fetched from the
+# setup's upstream repository.  (As a tree of specs' hook would, but with the
+# specs as setup wrote them, with where it made their repositories.)
+
+"$MOZSEARCH_PATH/scripts/spec-prs/sync.py" \
+    --specs "$(dirname "$GIT_ROOT")/upstream/specs.toml" \
+    --config "$CONFIG_REPO/$TREE_NAME/spec-prs.toml" \
+    --forest "$GIT_ROOT" \
+    --out "$HISTORY_ROOT/spec-prs" \
+    ${1:+--spec "$1"}

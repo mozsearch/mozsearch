@@ -3239,6 +3239,80 @@ h2.sp-called-heading {
   /* (A try push's page before its import, as the explore page it becomes.) */
   padding: 0 1rem 1rem;
 }
+/* A tree of specs' pull request summaries (see spec_prs.liquid). */
+.spec-prs {
+  padding: 0 1rem 1rem;
+}
+.spec-prs-sync form {
+  display: inline;
+}
+.spec-prs-status {
+  display: inline;
+  margin-right: 0.5em;
+}
+.spec-prs-repos {
+  width: auto;
+  margin-top: 0.8em;
+  border-collapse: collapse;
+}
+.spec-prs-repos th,
+.spec-prs-repos td {
+  padding: 0.15em 0.7em;
+  border-bottom: 1px solid var(--page-border-color);
+  text-align: left;
+}
+.spec-prs-repos td:not(:first-child, :last-child) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.spec-pr {
+  margin: 0.6em 0;
+}
+.spec-pr-header {
+  font-weight: bold;
+}
+.spec-pr-github {
+  font-weight: normal;
+  font-size: smaller;
+}
+.spec-pr-meta {
+  font-size: smaller;
+  opacity: 0.85;
+}
+.spec-pr-review,
+.spec-pr-draft,
+.spec-pr-label {
+  padding: 0 3px;
+  border-radius: 2px;
+  background-color: var(--info-box-warning-background);
+}
+.spec-pr-review-approved {
+  background-color: var(--diff-plus-line-background);
+}
+.spec-pr-review-changes-requested {
+  background-color: var(--diff-minus-line-background);
+}
+.spec-pr-review-review-required,
+.spec-pr-label {
+  background-color: transparent;
+  border: 1px solid var(--blame-light-gray);
+}
+.spec-pr-files {
+  margin: 0.2em 0;
+  padding-left: 1.5em;
+  font-size: 0.9em;
+}
+.spec-pr-added {
+  color: #2f8d46;
+}
+.spec-pr-removed {
+  color: #c4383e;
+}
+.spec-pr-error {
+  margin: 0.2em 0 0 1.5em;
+  color: var(--test-results-bad);
+}
+
 /* A spec's pull request's note and button importing its newer commits (see
    explore.liquid), on one line. */
 .explore-pull-request form {

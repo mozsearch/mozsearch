@@ -10371,6 +10371,226 @@ pub fn request_try_import(
     })
 }
 
+/// An ISO 8601 UTC time as the pages show it (ex: "2026-10-26 14:03 UTC" for
+/// "2026-10-26T14:03:07Z").
+fn utc_minute(iso: &str) -> String {
+    match iso.get(..16) {
+        Some(minute) if iso.ends_with('Z') => format!("{} UTC", minute.replace('T', " ")),
+        _ => iso.to_string(),
+    }
+}
+
+/// The pages of the summaries of the open pull requests of a tree of specs'
+/// spec repositories (see `spec_prs`): `/{tree}/spec-prs` (`spec` being None),
+/// its repositories, with how many pull requests each has, by review decision
+/// and author; and `/{tree}/spec-prs/{spec}`, a repository's pull requests,
+/// newest first, with facets filtering them (see `spec_prs::pr_facets`), each
+/// with its page as a try push (see `try_import`), which imports it, its
+/// GitHub page, and what it changes (files and their sections, linking to
+/// them in the trunk's renderings).  Both have their syncs' status (with
+/// `notice`, ex: why one couldn't be asked for), a button asking for one, and
+/// while one waits or runs, poll its status (see
+/// `format_spec_prs_sync_status`), reloading once it's done.
+pub fn format_spec_prs(
+    server: &(dyn AbstractServer + Send + Sync),
+    tree_name: &str,
+    spec: Option<&str>,
+    notice: Option<&str>,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    use crate::spec_prs::{can_review, pr_facet_values, pr_facets, review_name};
+
+    let status = spec_prs_sync_status(server, spec)?;
+    if status == crate::spec_prs::SyncStatus::Unavailable {
+        return Err("This tree has no pull request summaries");
+    }
+    let (server_, spec_) = (server.clonify(), spec.map(str::to_string));
+    let summaries = run_on_runtime(async move { server_.spec_prs(spec_.as_deref()).await })
+        .map_err(|_| "The pull request summaries aren't there")?;
+    let query = spec.map_or_else(String::new, |spec| format!("?spec={}", spec));
+    let mut globals = json!({
+        "tree": tree_name,
+        "spec": spec,
+        "status": status,
+        "notice": notice,
+        "status_url": format!("/{}/spec-prs/sync-status{}", tree_name, query),
+        "sync_url": format!("/{}/spec-prs/sync{}", tree_name, query),
+        // (Each page's, set below.)
+        "repos": [],
+        "summary": null,
+        "prs": [],
+        "facets": [],
+    });
+    let title = match spec {
+        None => {
+            let repos: Vec<serde_json::Value> = summaries
+                .iter()
+                .map(|summary| {
+                    let count = |f: &dyn Fn(&crate::spec_prs::PrSummary) -> bool| {
+                        summary.prs.iter().filter(|pr| f(pr)).count()
+                    };
+                    json!({
+                        "spec": summary.spec,
+                        "repo": summary.repo,
+                        "url": summary.url,
+                        "synced": utc_minute(&summary.synced),
+                        "count": summary.prs.len(),
+                        "approved": count(&|pr| pr.review.as_deref() == Some("APPROVED")),
+                        "changes_requested": count(&|pr| pr.review.as_deref() == Some("CHANGES_REQUESTED")),
+                        "by_reviewers": count(&|pr| can_review(pr.association.as_deref())),
+                        "drafts": count(&|pr| pr.draft),
+                    })
+                })
+                .collect();
+            globals["repos"] = json!(repos);
+            "Pull requests of the specs".to_string()
+        }
+        Some(spec) => {
+            // (A spec repository not synced yet has a page with the button.)
+            let Some(summary) = summaries.first() else {
+                globals["title"] = json!(format!("Pull requests of {}", spec));
+                return render_spec_prs_page(tree_name, globals, writer);
+            };
+            let prs: Vec<serde_json::Value> = summary
+                .prs
+                .iter()
+                .map(|pr| {
+                    let files: Vec<serde_json::Value> = pr
+                        .files
+                        .iter()
+                        .map(|file| {
+                            let rendered = file
+                                .spec
+                                .as_ref()
+                                .map(|_| format!("/{}/rendered/{}", tree_name, file.path));
+                            json!({
+                                "path": file.path,
+                                "added": file.added,
+                                "removed": file.removed,
+                                "link": rendered.clone().unwrap_or_else(|| {
+                                    format!("/{}/source/{}", tree_name, file.path)
+                                }),
+                                "sections": file.sections.iter().map(|section| json!({
+                                    "title": section.title,
+                                    "link": match (&rendered, &section.id) {
+                                        (Some(rendered), Some(id)) => Some(format!("{}#{}", rendered, id)),
+                                        _ => None,
+                                    },
+                                })).collect::<Vec<_>>(),
+                            })
+                        })
+                        .collect();
+                    json!({
+                        "number": pr.number,
+                        "title": pr.title,
+                        "url": pr.url,
+                        "author": pr.author,
+                        "can_review": can_review(pr.association.as_deref()),
+                        "draft": pr.draft,
+                        "labels": pr.labels,
+                        "review": pr.review,
+                        "review_name": review_name(pr.review.as_deref()),
+                        "review_class": pr
+                            .review
+                            .as_deref()
+                            .unwrap_or("none")
+                            .to_lowercase()
+                            .replace('_', "-"),
+                        "updated": pr.updated.as_deref().map(utc_minute),
+                        "try_path": format!("try/{}/{}", spec, pr.number),
+                        "facets": serde_json::to_string(&pr_facet_values(pr)).unwrap_or_default(),
+                        "added": pr.files.iter().map(|file| file.added).sum::<u32>(),
+                        "removed": pr.files.iter().map(|file| file.removed).sum::<u32>(),
+                        "files": files,
+                        "error": pr.error,
+                    })
+                })
+                .collect();
+            globals["summary"] = json!({
+                "repo": summary.repo,
+                "url": summary.url,
+                "synced": utc_minute(&summary.synced),
+                "snapshot": summary.snapshot.as_deref().map(utc_minute),
+            });
+            globals["prs"] = json!(prs);
+            globals["facets"] = json!(pr_facets(&summary.prs));
+            format!("Pull requests of {}", summary.repo)
+        }
+    };
+    globals["title"] = json!(title);
+    render_spec_prs_page(tree_name, globals, writer)
+}
+
+/// A page of pull request summaries, from `format_spec_prs`'s globals.
+fn render_spec_prs_page(
+    tree_name: &str,
+    globals: serde_json::Value,
+    writer: &mut dyn Write,
+) -> Result<(), &'static str> {
+    let page_title = format!(
+        "{} - mozsearch",
+        globals["title"].as_str().unwrap_or_default()
+    );
+    let opt = Options {
+        title: &page_title,
+        tree_name,
+        include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
+        revision: None,
+        breadcrumbs_links_to: BreadcrumbsLinksTo::Latest,
+        extra_content_classes: "spec-prs-page",
+        search_rev: None,
+    };
+    output::generate_header(&opt, writer)?;
+    output::generate_panel(&opt, writer, &[], true)?;
+    let globals = liquid::to_object(&globals).map_err(|_| "Template problems")?;
+    crate::templating::builder::build_and_parse_spec_prs()
+        .render_to(writer, &globals)
+        .map_err(|_| "Template problems")?;
+    output::generate_footer(&opt, tree_name, "", writer).unwrap();
+    Ok(())
+}
+
+/// The status of the syncs of `server`'s tree's pull request summaries (or of
+/// `spec`'s).
+fn spec_prs_sync_status(
+    server: &(dyn AbstractServer + Send + Sync),
+    spec: Option<&str>,
+) -> Result<crate::spec_prs::SyncStatus, &'static str> {
+    let (server, spec) = (server.clonify(), spec.map(str::to_string));
+    run_on_runtime(async move { server.spec_prs_sync_status(spec.as_deref()).await })
+        .map_err(|_| "This tree has no pull request summaries")
+}
+
+/// The status of the syncs of the tree's pull request summaries (or of
+/// `spec`'s; see `spec_prs`), as JSON (`/{tree}/spec-prs/sync-status`), for
+/// their pages' polling.
+pub fn format_spec_prs_sync_status(
+    server: &(dyn AbstractServer + Send + Sync),
+    spec: Option<&str>,
+) -> Result<String, &'static str> {
+    let status = spec_prs_sync_status(server, spec)?;
+    serde_json::to_string(&status).map_err(|_| "Status problems")
+}
+
+/// Ask for a sync of the tree's pull request summaries (or of `spec`'s; see
+/// `spec_prs`).
+pub fn request_spec_prs_sync(
+    server: &(dyn AbstractServer + Send + Sync),
+    spec: Option<&str>,
+) -> Result<(), String> {
+    let (server, spec) = (server.clonify(), spec.map(str::to_string));
+    run_on_runtime(async move { server.request_spec_prs_sync(spec.as_deref()).await }).map_err(
+        |err| match err {
+            ServerError::StickyProblem(details) | ServerError::TransientProblem(details)
+                if matches!(details.layer, crate::abstract_server::ErrorLayer::BadInput) =>
+            {
+                details.message
+            }
+            _ => "The sync couldn't be asked for".to_string(),
+        },
+    )
+}
+
 /// The data of a commit's page (see `render_commit`): its `date` (RFC 3339)
 /// and its `content` (its message, revisions, people and changed files, as
 /// HTML).  (For trees' servers; see `AbstractServer::commit_page`.)

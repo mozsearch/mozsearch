@@ -57,7 +57,7 @@ const WEB_SERVER = process.env.WEB_SERVER || null;
 const WEB_SERVER_ROUTES = new RegExp(
   "^/[^/]+/(rev|rev-hyperblame|rev-canvas|rev-outline|outline-diff|hgrev|" +
   "oldrev|diff|interdiff|olddiff|explore|commit|oldcommit|commit-info|try|" +
-  "try-status|history|complete)/");
+  "try-status|history|complete|spec-prs)(/|$)");
 // searchfox.org serves a JS challenge to some non-browser user agents.
 const USER_AGENT = "Mozilla/5.0 (searchfox dev-server) Firefox/140.0";
 

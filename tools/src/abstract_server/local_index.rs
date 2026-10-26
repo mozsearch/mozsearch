@@ -318,6 +318,32 @@ impl AbstractServer for LocalIndex {
         Ok(crate::try_import::try_push(&cfg, &self.tree_name, &push))
     }
 
+    async fn spec_prs(&self, spec: Option<&str>) -> Result<Vec<crate::spec_prs::RepoSummary>> {
+        let cfg = self.tree_config_loaded();
+        Ok(match spec {
+            Some(spec) => crate::spec_prs::repo_summary(&cfg, &self.tree_name, spec)
+                .into_iter()
+                .collect(),
+            None => crate::spec_prs::repo_summaries(&cfg, &self.tree_name),
+        })
+    }
+
+    async fn spec_prs_sync_status(
+        &self,
+        spec: Option<&str>,
+    ) -> Result<crate::spec_prs::SyncStatus> {
+        let cfg = self.tree_config_loaded();
+        Ok(crate::spec_prs::SYNCS.status(&cfg, &self.tree_name, spec))
+    }
+
+    async fn request_spec_prs_sync(&self, spec: Option<&str>) -> Result<()> {
+        let cfg = self.tree_config_loaded();
+        crate::spec_prs::SYNCS
+            .request(&cfg, &self.tree_name, spec)
+            .map(|_| ())
+            .map_err(|message| bad_input(message.to_string()))
+    }
+
     async fn rev_file(&self, rev: &str, path: &str) -> Result<Option<crate::format::RevFile>> {
         let cfg = self.tree_config_loaded();
         crate::format::rev_file_data(&cfg, &self.tree_name, rev, path)

@@ -1,0 +1,117 @@
+{%- comment -%}
+  The pages of the summaries of the open pull requests of a tree of specs'
+  spec repositories (see `format::format_spec_prs` and `spec_prs`): without
+  `spec`, its repositories, with how many pull requests each has (linking to
+  their pages filtered to them; see facets.js's `facet-` parameters); with it, a
+  repository's pull requests, with facets filtering them (see
+  facet_bar.liquid), each with its page as a try push (which imports it), its
+  GitHub page, and what it changes.  Both have their syncs' status, a button
+  asking for one (which POSTs to `sync_url`), and while one waits or runs,
+  poll its status (`status_url`; see `format::format_spec_prs_sync_status`)
+  until it's done, when the page reloads.
+{%- endcomment -%}
+<div class="spec-prs" data-status-url="{{ status_url }}">
+  <h2>{{ title | escape }}{% if summary %} (<a href="{{ summary.url | escape }}">on GitHub</a>){% endif %}</h2>
+  {%- if spec %}
+  <p class="spec-prs-up"><a href="/{{ tree }}/spec-prs">All of the specs' pull requests</a></p>
+  {%- endif %}
+  <div class="spec-prs-sync">
+    {%- if notice %}
+    <p class="spec-prs-notice">{{ notice | escape }}</p>
+    {%- endif %}
+    <p class="spec-prs-status">
+    {%- if summary %}Synced {{ summary.synced }}{% if summary.snapshot %}, from GitHub's metadata as of {{ summary.snapshot }}{% endif %}. {% endif -%}
+    {%- case status.state -%}
+    {%- when "queued" -%}
+      Waiting to sync.
+    {%- when "running" -%}
+      Syncing ({{ status.seconds }}s so far): <code>{{ status.step | escape }}</code>
+    {%- when "idle" -%}
+      {%- if status.error %}The last sync failed:{% endif -%}
+    {%- endcase -%}
+    </p>
+    {%- if status.state == "idle" %}
+    {%- if status.error %}
+    <pre class="spec-prs-error">{{ status.error | escape }}</pre>
+    {%- endif %}
+    <form method="post" action="{{ sync_url }}">
+      <button type="submit" class="spec-prs-sync-button">Sync {% if spec %}its{% else %}their{% endif %} pull requests</button>
+    </form>
+    {%- endif %}
+  </div>
+  {%- if spec %}
+  {%- if summary %}
+  {%- if prs.size > 0 %}
+  {%- include "facet_bar.liquid" facets: facets, group_by: false, sort_by: false, noun: "pull request", nouns: "pull requests" %}
+  <div class="facet-items spec-pr-list">
+    {%- for pr in prs %}
+    <section class="spec-pr" data-path="{{ pr.number }}" data-facets="{{ pr.facets | escape }}">
+      <div class="spec-pr-header"><a class="spec-pr-title" href="/{{ tree }}/{{ pr.try_path }}" title="Its page as a try push, which imports it into this tree">#{{ pr.number }} {{ pr.title | escape }}</a>{% if pr.url %} <a class="spec-pr-github" href="{{ pr.url | escape }}">on GitHub</a>{% endif %}</div>
+      <div class="spec-pr-meta">{% if pr.author %}By {{ pr.author | escape }}{% if pr.updated %}, updated {{ pr.updated }}{% endif %}{% elsif pr.updated %}Updated {{ pr.updated }}{% endif %}{% if pr.review %} <span class="spec-pr-review spec-pr-review-{{ pr.review_class }}">{{ pr.review_name }}</span>{% endif %}{% if pr.draft %} <span class="spec-pr-draft">Draft</span>{% endif %}{% for label in pr.labels %} <span class="spec-pr-label">{{ label | escape }}</span>{% endfor %}</div>
+      {%- if pr.error %}
+      <p class="spec-pr-error">{{ pr.error | escape }}</p>
+      {%- endif %}
+      {%- if pr.files.size > 0 %}
+      <ul class="spec-pr-files">
+        {%- for file in pr.files %}
+        <li><a href="{{ file.link }}">{{ file.path | escape }}</a> <span class="spec-pr-added">+{{ file.added }}</span> <span class="spec-pr-removed">−{{ file.removed }}</span>{% if file.sections.size > 0 %} in {% for section in file.sections %}{% if section.link %}<a href="{{ section.link | escape }}">{{ section.title | escape }}</a>{% else %}{{ section.title | escape }}{% endif %}{% unless forloop.last %}, {% endunless %}{% endfor %}{% endif %}</li>
+        {%- endfor %}
+      </ul>
+      {%- endif %}
+    </section>
+    {%- endfor %}
+  </div>
+  {%- else %}
+  <p>It has no open pull requests.</p>
+  {%- endif %}
+  {%- else %}
+  <p>Its pull requests haven't been synced yet.</p>
+  {%- endif %}
+  {%- else %}
+  {%- if repos.size > 0 %}
+  <table class="spec-prs-repos">
+    <thead>
+      <tr><th>Spec repository</th><th>Open</th><th>Approved</th><th>Changes requested</th><th title="Authored by people who can review the repository's pull requests (its owners, members and collaborators)">By people who can review</th><th>Drafts</th><th>Synced</th></tr>
+    </thead>
+    <tbody>
+      {%- for repo in repos %}
+      {%- capture page %}/{{ tree }}/spec-prs/{{ repo.spec }}{% endcapture %}
+      <tr><td><a href="{{ page }}">{{ repo.repo | escape }}</a></td><td>{{ repo.count }}</td><td><a href="{{ page }}?facet-review=APPROVED">{{ repo.approved }}</a></td><td><a href="{{ page }}?facet-review=CHANGES_REQUESTED">{{ repo.changes_requested }}</a></td><td><a href="{{ page }}?facet-author=reviewer">{{ repo.by_reviewers }}</a></td><td><a href="{{ page }}?facet-draft=draft">{{ repo.drafts }}</a></td><td>{{ repo.synced }}</td></tr>
+      {%- endfor %}
+    </tbody>
+  </table>
+  {%- else %}
+  <p>No spec repository's pull requests have been synced yet.</p>
+  {%- endif %}
+  {%- endif %}
+</div>
+{%- if status.state == "queued" or status.state == "running" %}
+<script>
+  (() => {
+    const root = document.querySelector(".spec-prs");
+    const line = root.querySelector(".spec-prs-status");
+    const poll = async () => {
+      let status;
+      try {
+        status = await (await fetch(root.dataset.statusUrl, { cache: "no-store" })).json();
+      } catch (e) {
+        setTimeout(poll, 5000);
+        return;
+      }
+      if (status.state == "queued") {
+        line.textContent = "Waiting to sync.";
+      } else if (status.state == "running") {
+        line.textContent = `Syncing (${status.seconds}s so far): `;
+        const step = document.createElement("code");
+        step.textContent = status.step;
+        line.append(step);
+      } else {
+        location.reload();
+        return;
+      }
+      setTimeout(poll, 2000);
+    };
+    setTimeout(poll, 2000);
+  })();
+</script>
+{%- endif %}

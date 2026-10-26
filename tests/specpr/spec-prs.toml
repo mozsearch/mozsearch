@@ -1,0 +1,6 @@
+# The specpr tree's pull request summaries' configuration (see
+# scripts/spec-prs/sync.py, which the sync-spec-prs hook runs): its spec
+# repository, and the snapshot of its pull requests' metadata, standing for
+# the GitHub Action's (see scripts/spec-prs/README.md), beside this.
+repos = ["gizmo"]
+snapshot = "spec-prs-snapshot.json"
