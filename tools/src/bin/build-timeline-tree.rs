@@ -113,6 +113,7 @@ use std::rc::{Rc, Weak};
 use std::sync::mpsc::{Receiver, Sender, channel, sync_channel};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::thread;
+use std::time::Instant;
 
 use git2::{Delta, DiffFindOptions, ObjectType, Oid, Repository, Sort};
 use serde::Serialize;
@@ -205,8 +206,63 @@ struct FastImport {
     readers: DiskReaders,
     preds: PredCache,
     decoded: DecodedAnnotated,
-    /// The bytes of blobs we've given it (see MAX_WRITTEN_BYTES in `main`).
+    /// The bytes of blobs we've given it (see MAX_WRITTEN_BYTES in `main`),
+    /// and by the top directory of their paths (ex: "tokens"), for the log.
     written: u64,
+    written_by_dir: BTreeMap<String, u64>,
+    phases: PhaseTimes,
+}
+
+/// What the main thread spent its time on, for the log.
+#[derive(Clone, Copy)]
+enum Phase {
+    Compute,
+    Read,
+    Annotated,
+    Future,
+    FilesDelta,
+    Tokens,
+    Merge,
+    Finish,
+    Checkpoint,
+}
+
+const PHASE_NAMES: [&str; 9] = [
+    "waiting on compute",
+    "reading parents' files",
+    "annotated files",
+    "future journals",
+    "files-delta journals",
+    "token journals",
+    "merges",
+    "rev-summaries and notes",
+    "checkpoints",
+];
+
+#[derive(Default)]
+struct PhaseTimes {
+    nanos: [u128; PHASE_NAMES.len()],
+}
+
+impl PhaseTimes {
+    /// Add the time since `since` to `phase`, returning now.
+    fn add(&mut self, phase: Phase, since: Instant) -> Instant {
+        let now = Instant::now();
+        self.nanos[phase as usize] += (now - since).as_nanos();
+        now
+    }
+
+    fn describe(&self, total: std::time::Duration) -> String {
+        let seconds = |nanos: u128| nanos as f64 / 1e9;
+        let mut parts: Vec<String> = PHASE_NAMES
+            .iter()
+            .zip(self.nanos)
+            .map(|(name, nanos)| format!("{} {:.1}s", name, seconds(nanos)))
+            .collect();
+        let other = total.as_nanos().saturating_sub(self.nanos.iter().sum());
+        parts.push(format!("other {:.1}s", seconds(other)));
+        parts.join(", ")
+    }
 }
 
 impl FastImport {
@@ -243,10 +299,22 @@ impl FastImport {
             .is_none_or(|mark| *mark <= self.checkpointed)
     }
 
-    /// The hex id of the commit with `mark`, which must have been requested.
+    /// The hex id of the commit with `mark`, which must have been requested,
+    /// reading the answers to the requests before it, but not those after it,
+    /// which git fast-import may not have got to yet.
     fn mark_rev(&mut self, mark: usize) -> String {
         if !self.mark_revs.contains_key(&mark) {
-            self.output();
+            self.input.flush().unwrap();
+        }
+        while !self.mark_revs.contains_key(&mark) {
+            let answered = self
+                .unread_marks
+                .pop_front()
+                .expect("the mark was requested");
+            let mut line = String::new();
+            self.output.read_line(&mut line).unwrap();
+            self.rev_marks.insert(line.trim().to_string(), answered);
+            self.mark_revs.insert(answered, line.trim().to_string());
         }
         self.mark_revs[&mark].clone()
     }
@@ -624,6 +692,8 @@ fn start_fast_import(git_repo: &Repository) -> FastImport {
         preds: PredCache::default(),
         decoded: DecodedAnnotated::default(),
         written: 0,
+        written_by_dir: BTreeMap::new(),
+        phases: PhaseTimes::default(),
     }
 }
 
@@ -893,6 +963,18 @@ fn write_inline_blob(import_helper: &mut FastImport, path: &Path, contents: &[u8
     writeln!(import_stream, "data {}", contents.len()).unwrap();
     import_stream.write_all(contents).unwrap();
     import_helper.written += contents.len() as u64;
+    let dir = path
+        .components()
+        .next()
+        .map_or("", |dir| dir.as_os_str().to_str().unwrap_or(""));
+    match import_helper.written_by_dir.get_mut(dir) {
+        Some(bytes) => *bytes += contents.len() as u64,
+        None => {
+            import_helper
+                .written_by_dir
+                .insert(dir.to_string(), contents.len() as u64);
+        }
+    }
     // We skip the optional trailing LF character here since in practice it
     // wasn't particularly useful for debugging.
     import_helper.cache.pending.insert(
@@ -985,6 +1067,21 @@ fn test_restore_backed_out_records() {
     assert_eq!(lines, expected);
     assert!(restored.is_empty());
     assert_eq!(unrestored, 0);
+}
+
+#[test]
+fn test_parallel_map() {
+    // (In order, whichever thread did each, and however long each took.)
+    let items: Vec<u64> = (0..1000).collect();
+    let squares = parallel_map(&items, |&n| {
+        if n % 7 == 0 {
+            std::thread::sleep(std::time::Duration::from_micros(50));
+        }
+        n * n
+    });
+    assert_eq!(squares, items.iter().map(|n| n * n).collect::<Vec<_>>());
+    assert_eq!(parallel_map(&[] as &[u64], |&n| n), Vec::<u64>::new());
+    assert_eq!(parallel_map(&[3u64], |&n| n + 1), vec![4]);
 }
 
 #[test]
@@ -2208,22 +2305,22 @@ const DECODED_MAX_LINES: usize = 20_000_000;
 
 impl DecodedAnnotated {
     /// The line forms of the annotated file at `path` whose contents are
-    /// `blob`.
-    fn lines(&mut self, path: &Path, blob: &Rc<[u8]>) -> Rc<Vec<String>> {
-        if let Some((written, lines, _)) = self.files.get(path)
-            && Weak::ptr_eq(written, &Rc::downgrade(blob))
-        {
-            self.hits += 1;
-            if self.check {
-                assert!(
-                    **lines == annotated_lines(blob),
-                    "reused lines of {} differ from its decoded annotated file",
-                    path.display()
-                );
-            }
-            return lines.clone();
+    /// `blob`, if we kept them, or else None, to decode it (on several threads;
+    /// see `process_linear_revision`).
+    fn kept_lines(&mut self, path: &Path, blob: &Rc<[u8]>) -> Option<Rc<Vec<String>>> {
+        let (written, lines, _) = self.files.get(path)?;
+        if !Weak::ptr_eq(written, &Rc::downgrade(blob)) {
+            return None;
         }
-        Rc::new(annotated_lines(blob))
+        self.hits += 1;
+        if self.check {
+            assert!(
+                **lines == annotated_lines(blob),
+                "reused lines of {} differ from its decoded annotated file",
+                path.display()
+            );
+        }
+        Some(lines.clone())
     }
 
     /// What encoding the next version of the annotated file at `path` whose
@@ -2236,31 +2333,31 @@ impl DecodedAnnotated {
     /// The contents of the annotated file of `lines`, encoded from `previous`
     /// (its previous version: its lines, what encoding it gave, and its
     /// contents) if given, where `copied` says (see
-    /// `encode_annotated_from`), and what encoding its next version from it
-    /// needs, if it's big.
+    /// `encode_annotated_from`), what encoding its next version from it needs,
+    /// if it's big, and whether it was encoded from `previous`.  (Without
+    /// `self`, which it only reads settings from, so that threads can encode.)
     fn encode(
-        &mut self,
+        min_lines: usize,
+        check_encoded: bool,
         lines: &[String],
         copied: &[Option<u32>],
         previous: Option<(&[String], &EncodedFile, &[u8])>,
-    ) -> (String, Option<EncodedFile>) {
-        if lines.len() < self.min_lines {
-            return (join_annotated(lines), None);
+    ) -> (String, Option<EncodedFile>, bool) {
+        if lines.len() < min_lines {
+            return (join_annotated(lines), None, false);
         }
         let previous = previous.and_then(|(lines, encoded, contents)| {
             Some((lines, encoded, std::str::from_utf8(contents).ok()?))
         });
-        if previous.is_some() {
-            self.encoded_from += 1;
-        }
+        let encoded_from = previous.is_some();
         let (text, encoded) = encode_annotated_from(lines, copied, previous);
-        if self.check_encoded {
+        if check_encoded {
             assert!(
                 text == join_annotated(lines),
                 "an annotated file encoded from its previous version differs from encoding it"
             );
         }
-        (text, Some(encoded))
+        (text, Some(encoded), encoded_from)
     }
 
     /// Keep the line forms of the annotated file at `path` which we just wrote
@@ -2599,6 +2696,106 @@ fn prepend_journal_record<
     }
     let contents = counted(record_file_contents_to_string(&header, &records));
     write_journal(import_helper, to_path, &contents, keep_from);
+    num_summaries
+}
+
+/// How many annotated files a linear revision builds at once (see
+/// `process_linear_revision`), and how many tokens they can have together
+/// (unless one has more), which bounds how much of their new versions it holds
+/// before writing them.
+const ANNOTATED_BATCH: usize = 64;
+const ANNOTATED_BATCH_TOKENS: usize = 4_000_000;
+
+/// How many journals `prepend_journal_records` works out at once.
+const JOURNAL_BATCH: usize = 256;
+
+/// A record to prepend to a journal, written where it's read from (see
+/// `prepend_journal_record`).
+struct JournalPrepend<R> {
+    path: PathBuf,
+    record: R,
+    keep_from: Option<i32>,
+    count_change: Option<i64>,
+}
+
+/// `prepend_journal_record` for each of `prepends`, which must be of journals
+/// the commit being written hasn't touched (ex: its token journals), with their
+/// new contents worked out on several threads (see `parallel_map`) from their
+/// parents' versions (which the revision's prefetch read), in batches, and
+/// written in order: scanning their records' weeks and serializing was much of
+/// the main thread's time.  One whose week needs consolidating (which reads
+/// summaries' preds) is left to `prepend_journal_record`, in its turn.  Returns
+/// the number of summary records written.
+fn prepend_journal_records<H, R>(
+    import_helper: &mut FastImport,
+    parent: Option<&TimelineRepoCommit>,
+    prepends: Vec<JournalPrepend<R>>,
+    consolidation: Option<&Consolidation>,
+    touched: &mut HashSet<PathBuf>,
+) -> usize
+where
+    H: DeserializeOwned + Default + Serialize + 'static,
+    R: Summarize + Sync + 'static,
+{
+    let now = consolidation.map(|consolidation| consolidation.iso_date);
+    let mut num_summaries = 0;
+    let mut prepends = prepends.into_iter().peekable();
+    while prepends.peek().is_some() {
+        let batch: Vec<JournalPrepend<R>> = prepends.by_ref().take(JOURNAL_BATCH).collect();
+        let blobs: Vec<Option<Rc<[u8]>>> = batch
+            .iter()
+            .map(|prepend| {
+                assert!(!touched.contains(&prepend.path));
+                parent.and_then(|_| read_path_blob(import_helper, ReadFrom::Active, &prepend.path))
+            })
+            .collect();
+        let items: Vec<(&JournalPrepend<R>, Option<&[u8]>)> = batch
+            .iter()
+            .zip(blobs.iter().map(|blob| blob.as_deref()))
+            .collect();
+        // (As `prepend_journal_record` would: a new journal has the record
+        // alone, which there's nothing to consolidate with.)
+        let contents: Vec<Option<String>> = parallel_map(&items, |(prepend, blob)| {
+            let contents = match blob {
+                Some(blob) => prepend_unconsolidated(
+                    std::str::from_utf8(blob).unwrap(),
+                    &prepend.record,
+                    now,
+                )?,
+                None => record_file_contents_to_string(
+                    &H::default(),
+                    std::slice::from_ref(&prepend.record),
+                ),
+            };
+            Some(match prepend.count_change {
+                Some(change) => segments::change_header_count(&contents, change, blob.is_none())
+                    .unwrap_or(contents),
+                None => contents,
+            })
+        });
+        drop(items);
+        for (prepend, contents) in batch.into_iter().zip(contents) {
+            match contents {
+                Some(contents) => {
+                    touched.insert(prepend.path.clone());
+                    write_journal(import_helper, &prepend.path, &contents, prepend.keep_from);
+                }
+                None => {
+                    num_summaries += prepend_journal_record::<H, R>(
+                        import_helper,
+                        parent,
+                        &prepend.path,
+                        &prepend.path,
+                        prepend.record,
+                        consolidation,
+                        prepend.keep_from,
+                        touched,
+                        prepend.count_change,
+                    );
+                }
+            }
+        }
+    }
     num_summaries
 }
 
@@ -3179,8 +3376,71 @@ fn merge_journals(
 /// linear revision.
 type ParentAnnotated = HashMap<String, Rc<Vec<String>>>;
 
-fn parent_line<'a>(parents: &'a ParentAnnotated, path: &str, lineno: u32) -> Option<&'a str> {
+/// The parent annotated files' lines (see `ParentAnnotated`), borrowed, for
+/// building a revision's annotated files on several threads.
+type ParentLines<'a> = HashMap<&'a str, &'a [String]>;
+
+fn parent_lines(parents: &ParentAnnotated) -> ParentLines<'_> {
+    parents
+        .iter()
+        .map(|(path, lines)| (path.as_str(), lines.as_slice()))
+        .collect()
+}
+
+fn parent_line<'a>(parents: &ParentLines<'a>, path: &str, lineno: u32) -> Option<&'a str> {
     parents.get(path)?.get(lineno as usize).map(|s| s.as_str())
+}
+
+/// How many threads a linear revision's parallel steps use (see
+/// `parallel_map`): TIMELINE_MAIN_THREADS, or 8.  (In the 2026-10-25 firefox
+/// reblame's 2020s, the main thread was the timeline's bottleneck, busy 80-100%
+/// of the time building annotated files and prepending to journals, while most
+/// of the machine was idle.)
+fn main_threads() -> usize {
+    static THREADS: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    *THREADS.get_or_init(|| {
+        env::var("TIMELINE_MAIN_THREADS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(8)
+            .max(1)
+    })
+}
+
+/// `items.iter().map(f).collect()`, on up to `main_threads` threads, each
+/// taking the next item.
+fn parallel_map<T: Sync, U: Send>(items: &[T], f: impl Fn(&T) -> U + Sync) -> Vec<U> {
+    let threads = main_threads().min(items.len());
+    if threads <= 1 {
+        return items.iter().map(f).collect();
+    }
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let done: Vec<Vec<(usize, U)>> = thread::scope(|scope| {
+        let workers: Vec<_> = (0..threads)
+            .map(|_| {
+                scope.spawn(|| {
+                    let mut done = vec![];
+                    loop {
+                        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let Some(item) = items.get(i) else {
+                            break;
+                        };
+                        done.push((i, f(item)));
+                    }
+                    done
+                })
+            })
+            .collect();
+        workers
+            .into_iter()
+            .map(|worker| worker.join().unwrap())
+            .collect()
+    });
+    let mut results: Vec<Option<U>> = (0..items.len()).map(|_| None).collect();
+    for (i, result) in done.into_iter().flatten() {
+        results[i] = Some(result);
+    }
+    results.into_iter().map(Option::unwrap).collect()
 }
 
 /// Build the annotated file lines for a changed file in a linear revision, and
@@ -3189,7 +3449,7 @@ fn build_linear_annotated(
     rev: &str,
     change: &FileChange,
     changes: &[FileChange],
-    parents: &ParentAnnotated,
+    parents: &ParentLines,
 ) -> (Vec<String>, Vec<Option<u32>>) {
     let new_path = change.new_path.as_deref().unwrap();
     let old_path = change.old_path.as_deref();
@@ -3386,7 +3646,7 @@ fn restore_backed_out_records(
 fn build_linear_future(
     desc: &DetailRecordRef,
     changes: &[FileChange],
-    parents: &ParentAnnotated,
+    parents: &ParentLines,
     restored: &HashMap<String, BTreeSet<u32>>,
 ) -> BTreeMap<String, FutureDetailRecord> {
     let mut records: BTreeMap<String, FutureDetailRecord> = BTreeMap::new();
@@ -3513,6 +3773,7 @@ fn process_linear_revision(
     let backout_revs: BTreeSet<&str> = std::iter::once(rev.as_str())
         .chain(data.backed_out.iter().map(String::as_str))
         .collect();
+    let mut phase_start = Instant::now();
 
     // ## Load the parent annotated files.
     let mut parent_annotated: ParentAnnotated = HashMap::new();
@@ -3545,25 +3806,42 @@ fn process_linear_revision(
         }
         prefetch_parent_paths(import_helper, paths);
 
+        // (Those we didn't keep decoded are decoded on several threads; see
+        // `parallel_map`.)
+        let mut to_decode: Vec<(String, Rc<[u8]>)> = vec![];
+        let mut seen: HashSet<&str> = HashSet::new();
         for change in files {
             if let Some(old_path) = &change.old_path
-                && !parent_annotated.contains_key(old_path)
+                && seen.insert(old_path)
             {
                 // (Nothing has been modified in the new commit yet.)
                 let path = annotated_path(old_path);
-                let lines = match read_path_blob(import_helper, ReadFrom::Active, &path) {
+                match read_path_blob(import_helper, ReadFrom::Active, &path) {
                     Some(blob) => {
                         if let Some(encoded) = import_helper.decoded.encoded(&path, &blob) {
                             parent_encoded.insert(old_path.clone(), (encoded, blob.clone()));
                         }
-                        import_helper.decoded.lines(&path, &blob)
+                        match import_helper.decoded.kept_lines(&path, &blob) {
+                            Some(lines) => {
+                                parent_annotated.insert(old_path.clone(), lines);
+                            }
+                            None => to_decode.push((old_path.clone(), blob)),
+                        }
                     }
-                    None => Rc::new(vec![]),
-                };
-                parent_annotated.insert(old_path.clone(), lines);
+                    None => {
+                        parent_annotated.insert(old_path.clone(), Rc::new(vec![]));
+                    }
+                }
             }
         }
+        let blobs: Vec<&[u8]> = to_decode.iter().map(|(_, blob)| &**blob).collect();
+        let decoded = parallel_map(&blobs, |blob| annotated_lines(blob));
+        for ((old_path, _), lines) in to_decode.into_iter().zip(decoded) {
+            parent_annotated.insert(old_path, Rc::new(lines));
+        }
     }
+
+    phase_start = import_helper.phases.add(Phase::Read, phase_start);
 
     // ## Deletions (before modifications so renames/swaps work out)
     // The journal paths deleted or written so far; see `prepend_journal_record`.
@@ -3581,35 +3859,65 @@ fn process_linear_revision(
     }
 
     // ## Annotated files
+    // Built and encoded on several threads (see `parallel_map`), in batches,
+    // and written in order: only reading backouts' restore bases (first, from
+    // their commits) and writing use git fast-import.
     let mut restored_tokens: HashMap<String, BTreeSet<u32>> = HashMap::new();
     let (mut num_restored, mut num_unrestored) = (0, 0);
-    for change in files {
-        if let Some(new_path) = &change.new_path {
-            debug!("  Writing annotated {}", new_path);
-            let (mut lines, copied) =
-                build_linear_annotated(&rev, change, files, &parent_annotated);
+    let parents = parent_lines(&parent_annotated);
+    let previous_encoded: HashMap<&str, (&EncodedFile, &[u8])> = parent_encoded
+        .iter()
+        .map(|(path, (encoded, contents))| (path.as_str(), (&**encoded, &**contents)))
+        .collect();
+    let annotated: Vec<(&FileChange, Option<Vec<String>>)> = files
+        .iter()
+        .filter(|change| change.new_path.is_some())
+        .map(|change| {
             let base = change.restore.as_ref().and_then(|restore| {
                 let base_commit = timeline_commits.get(restore.syntax_rev)?;
                 let blob = read_path_blob(
                     import_helper,
                     ReadFrom::Commit(&base_commit),
-                    &annotated_path(new_path),
+                    &annotated_path(change.new_path.as_ref().unwrap()),
                 )?;
-                Some((annotated_lines(&blob), restore))
+                Some(annotated_lines(&blob))
             });
-            if let Some((base_lines, restore)) = base {
-                let (restored, unrestored) = restore_backed_out_records(
+            (change, base)
+        })
+        .collect();
+    let (min_lines, check_encoded) = (
+        import_helper.decoded.min_lines,
+        import_helper.decoded.check_encoded,
+    );
+    let mut batches: Vec<&[(&FileChange, Option<Vec<String>>)]> = vec![];
+    let (mut start, mut tokens) = (0, 0);
+    for (i, (change, _)) in annotated.iter().enumerate() {
+        let file_tokens = change.inference.origins.len();
+        if i > start
+            && (i - start >= ANNOTATED_BATCH || tokens + file_tokens > ANNOTATED_BATCH_TOKENS)
+        {
+            batches.push(&annotated[start..i]);
+            (start, tokens) = (i, 0);
+        }
+        tokens += file_tokens;
+    }
+    if start < annotated.len() {
+        batches.push(&annotated[start..]);
+    }
+    for batch in batches {
+        let built = parallel_map(batch, |(change, base)| {
+            let new_path = change.new_path.as_ref().unwrap();
+            let (mut lines, copied) = build_linear_annotated(&rev, change, files, &parents);
+            let restored = base.as_ref().map(|base_lines| {
+                let restore = change.restore.as_ref().unwrap();
+                restore_backed_out_records(
                     &mut lines,
-                    &base_lines,
+                    base_lines,
                     &restore.aligned,
                     &backout_revs,
                     &restore.intervening,
-                );
-                num_restored += restored.len();
-                num_unrestored += unrestored;
-                restored_tokens.insert(new_path.clone(), restored);
-            }
-            let path = annotated_path(new_path);
+                )
+            });
             // (From the parent's version, if it's the same file's; see
             // `DecodedAnnotated`.)
             let previous = change
@@ -3617,11 +3925,27 @@ fn process_linear_revision(
                 .as_ref()
                 .filter(|old_path| *old_path == new_path)
                 .and_then(|old_path| {
-                    let (encoded, contents) = parent_encoded.get(old_path)?;
-                    let lines = parent_annotated.get(old_path)?;
-                    Some((lines.as_slice(), &**encoded, &**contents))
+                    let (encoded, contents) = previous_encoded.get(old_path.as_str())?;
+                    let lines = parents.get(old_path.as_str())?;
+                    Some((*lines, *encoded, *contents))
                 });
-            let (text, encoded) = import_helper.decoded.encode(&lines, &copied, previous);
+            let (text, encoded, encoded_from) =
+                DecodedAnnotated::encode(min_lines, check_encoded, &lines, &copied, previous);
+            (lines, text, encoded, encoded_from, restored)
+        });
+        for ((change, _), (lines, text, encoded, encoded_from, restored)) in batch.iter().zip(built)
+        {
+            let new_path = change.new_path.as_ref().unwrap();
+            debug!("  Writing annotated {}", new_path);
+            if let Some((restored, unrestored)) = restored {
+                num_restored += restored.len();
+                num_unrestored += unrestored;
+                restored_tokens.insert(new_path.clone(), restored);
+            }
+            if encoded_from {
+                import_helper.decoded.encoded_from += 1;
+            }
+            let path = annotated_path(new_path);
             write_inline_blob(import_helper, &path, text.as_bytes());
             if let Some(Some(CachedPath::Blob(written))) = import_helper.cache.pending.get(&path) {
                 let written = written.clone();
@@ -3639,25 +3963,36 @@ fn process_linear_revision(
         );
     }
 
+    phase_start = import_helper.phases.add(Phase::Annotated, phase_start);
+
     // ## Future journals
-    let future_records = build_linear_future(&desc, files, &parent_annotated, &restored_tokens);
-    for (path, record) in future_records {
-        let journal = future_path(&path);
-        *num_summaries += prepend_journal_record::<FutureHeader, FutureRecord>(
-            import_helper,
-            parent,
-            &journal,
-            &journal,
-            FutureRecord::Detail(record),
-            consolidation,
-            None,
-            &mut touched,
-            None,
-        );
-    }
+    let future_records = build_linear_future(&desc, files, &parents, &restored_tokens);
+    let prepends = future_records
+        .into_iter()
+        .map(|(path, record)| JournalPrepend {
+            path: future_path(&path),
+            record: FutureRecord::Detail(record),
+            keep_from: None,
+            count_change: None,
+        })
+        .collect();
+    *num_summaries += prepend_journal_records::<FutureHeader, FutureRecord>(
+        import_helper,
+        parent,
+        prepends,
+        consolidation,
+        &mut touched,
+    );
+
+    phase_start = import_helper.phases.add(Phase::Future, phase_start);
 
     // ## Files-delta journals
+    // (Those of files written where they were, at paths the revision hasn't
+    // touched, together, after the others, ex: renames' and copies'.  Either way
+    // each reads its parent's version: a copy of a file the revision also
+    // changed reads it from the parent once it's touched.)
     let mut summaries = BTreeMap::new();
+    let mut prepends = vec![];
     for change in files {
         let summary_path = change
             .new_path
@@ -3677,47 +4012,68 @@ fn process_linear_revision(
             FileChangeKind::Renamed | FileChangeKind::Copied => change.old_path.as_ref().unwrap(),
             _ => new_path,
         };
+        let record = FileDeltaRecord::Detail(FileDeltaDetailRecord {
+            desc: desc.clone(),
+            delta: change.delta.clone(),
+        });
+        let path = files_delta_path(new_path);
+        if from_path == new_path && !touched.contains(&path) {
+            prepends.push(JournalPrepend {
+                path,
+                record,
+                keep_from: None,
+                count_change: None,
+            });
+            continue;
+        }
         *num_summaries += prepend_journal_record::<FileDeltaHeader, FileDeltaRecord>(
             import_helper,
             parent,
             &files_delta_path(from_path),
-            &files_delta_path(new_path),
-            FileDeltaRecord::Detail(FileDeltaDetailRecord {
-                desc: desc.clone(),
-                delta: change.delta.clone(),
-            }),
+            &path,
+            record,
             consolidation,
             None,
             &mut touched,
             None,
         );
     }
+    *num_summaries += prepend_journal_records::<FileDeltaHeader, FileDeltaRecord>(
+        import_helper,
+        parent,
+        prepends,
+        consolidation,
+        &mut touched,
+    );
+
+    phase_start = import_helper.phases.add(Phase::FilesDelta, phase_start);
 
     // ## Token journals
     let token_keep_from = keep_from(&data.iso_date);
-    for (token, delta) in token_totals {
-        if !delta.has_non_move_changes() {
-            continue;
-        }
-        let journal = token_timeline_path(token);
-        *num_summaries += prepend_journal_record::<TokenHeader, TokenDeltaRecord>(
-            import_helper,
-            parent,
-            &journal,
-            &journal,
-            TokenDeltaRecord::Detail(TokenDeltaDetailRecord {
+    let prepends = token_totals
+        .iter()
+        .filter(|(_, delta)| delta.has_non_move_changes())
+        .map(|(token, delta)| JournalPrepend {
+            path: token_timeline_path(token),
+            record: TokenDeltaRecord::Detail(TokenDeltaDetailRecord {
                 desc: desc.clone(),
                 delta: delta.clone(),
             }),
-            consolidation,
-            token_keep_from,
-            &mut touched,
-            Some(
+            keep_from: token_keep_from,
+            count_change: Some(
                 (delta.added + delta.evolved_from) as i64
                     - (delta.removed + delta.evolved_into) as i64,
             ),
-        );
-    }
+        })
+        .collect();
+    *num_summaries += prepend_journal_records::<TokenHeader, TokenDeltaRecord>(
+        import_helper,
+        parent,
+        prepends,
+        consolidation,
+        &mut touched,
+    );
+    import_helper.phases.add(Phase::Tokens, phase_start);
 
     summaries
 }
@@ -4075,6 +4431,73 @@ fn mark_rev_summary_backed_out(rev_summary_root: &Path, backed_out_rev: &str, ba
     }
 }
 
+/// Writes rev-summaries on a thread of its own, in order (serializing big
+/// revisions' took the main thread a while), and records backouts in their
+/// targets' rev-summaries after those are written.  `wait` returns once what
+/// was sent is done, which marking revisions processed (their notes) waits for,
+/// as their rev-summaries must exist by then.
+struct RevSummaryWriter {
+    jobs: Option<Sender<RevSummaryJob>>,
+    thread: Option<thread::JoinHandle<()>>,
+}
+
+enum RevSummaryJob {
+    Write(Box<RevSummaryRecord>),
+    /// (A backed out revision, and its backout.)
+    MarkBackedOut(String, String),
+    Wait(Sender<()>),
+}
+
+impl RevSummaryWriter {
+    fn new(rev_summary_root: &Path) -> RevSummaryWriter {
+        let (jobs, received) = channel::<RevSummaryJob>();
+        let root = rev_summary_root.to_path_buf();
+        let thread = thread::spawn(move || {
+            for job in received {
+                match job {
+                    RevSummaryJob::Write(summary) => write_rev_summary(&root, &summary),
+                    RevSummaryJob::MarkBackedOut(backed_out_rev, backout_rev) => {
+                        mark_rev_summary_backed_out(&root, &backed_out_rev, &backout_rev)
+                    }
+                    RevSummaryJob::Wait(done) => {
+                        let _ = done.send(());
+                    }
+                }
+            }
+        });
+        RevSummaryWriter {
+            jobs: Some(jobs),
+            thread: Some(thread),
+        }
+    }
+
+    fn send(&self, job: RevSummaryJob) {
+        self.jobs
+            .as_ref()
+            .unwrap()
+            .send(job)
+            .expect("the rev-summary writer failed");
+    }
+
+    /// Wait for what was sent to be written.
+    fn wait(&self) {
+        let (done, wait) = channel();
+        self.send(RevSummaryJob::Wait(done));
+        wait.recv().expect("the rev-summary writer failed");
+    }
+
+    fn finish(mut self) {
+        drop(self.jobs.take());
+        self.thread.take().unwrap().join().unwrap();
+    }
+}
+
+/// How many revisions' timeline commits we write before finishing the first of
+/// them (see `UnfinishedRevision`): finishing each once the next one was
+/// written, waiting for git fast-import's answer had the main thread and it
+/// taking turns, in firefox's 2020s.
+const UNFINISHED_REVISIONS: usize = 16;
+
 /// A revision whose timeline commit we've written, but not the rev-summary and
 /// note which need its id.
 struct UnfinishedRevision {
@@ -4091,17 +4514,24 @@ impl UnfinishedRevision {
         mut self,
         import_helper: &mut FastImport,
         notes: &mut NotesWriter,
-        rev_summary_root: &Path,
+        rev_summaries: &RevSummaryWriter,
     ) {
         self.summary.timeline_rev = import_helper.mark_rev(self.mark);
-        write_rev_summary(rev_summary_root, &self.summary);
-        for backed_out_rev in &self.summary.backs_out {
-            mark_rev_summary_backed_out(rev_summary_root, backed_out_rev, &self.summary.source_rev);
+        let timeline_rev = self.summary.timeline_rev.clone();
+        let backout = self.summary.source_rev.clone();
+        let backs_out = self.summary.backs_out.clone();
+        rev_summaries.send(RevSummaryJob::Write(Box::new(self.summary)));
+        for backed_out_rev in backs_out {
+            rev_summaries.send(RevSummaryJob::MarkBackedOut(
+                backed_out_rev,
+                backout.clone(),
+            ));
         }
 
         // Only record the revision as processed once its rev-summary exists.
-        notes.add(self.source_rev, &self.summary.timeline_rev, self.time);
+        notes.add(self.source_rev, &timeline_rev, self.time);
         if notes.num_pending() >= NOTES_BATCH_SIZE {
+            rev_summaries.wait();
             notes.flush(&mut import_helper.input).unwrap();
         }
     }
@@ -4312,7 +4742,7 @@ fn main() {
     let consolidate = env::var("CONSOLIDATE").map_or(true, |v| v != "0");
     let mut num_summaries = 0;
     // The last revision written, until we finish it with the next.
-    let mut unfinished: Option<UnfinishedRevision> = None;
+    let mut unfinished: VecDeque<UnfinishedRevision> = VecDeque::new();
     // The last mark whose commit git fast-import has written to disk.
     let mut checkpointed_mark = 0;
     let mut checkpoints = 0;
@@ -4323,6 +4753,8 @@ fn main() {
 
     // The exit status if we stop before the last revision.
     let mut stopped_with = None;
+    let rev_summaries = RevSummaryWriter::new(&rev_summary_root);
+    let loop_started = Instant::now();
     for rev_meta in revs_to_process.iter() {
         if stop_requested() {
             info!("Stopping after {} revisions, as requested", rev_done);
@@ -4345,7 +4777,9 @@ fn main() {
             stopped_with = Some(ENDED_EARLY_EXIT_CODE);
             break;
         }
+        let waiting = Instant::now();
         let data = compute_pool.result(rev_done);
+        import_helper.phases.add(Phase::Compute, waiting);
         assert!(data.meta.syntax_rev == rev_meta.syntax_rev);
 
         // If there are more revisions that we haven't requested yet, request
@@ -4377,7 +4811,9 @@ fn main() {
                 |parent| matches!(parent, TimelineRepoCommit::Mark(mark) if *mark > checkpointed_mark),
             )
         {
+            let started = Instant::now();
             checkpoint(&mut import_helper, rev_done - 1);
+            import_helper.phases.add(Phase::Checkpoint, started);
             checkpointed_mark = rev_done - 1;
             checkpoints += 1;
         }
@@ -4487,6 +4923,7 @@ fn main() {
                     .iter()
                     .map(|parent| import_helper.commit_rev(parent))
                     .collect();
+                let started = Instant::now();
                 let base = MergeParents::merge_base(&timeline_repo, &parent_revs);
                 process_merge_revision(
                     &mut import_helper,
@@ -4495,6 +4932,7 @@ fn main() {
                     &MergeParents::new(&timeline_repo, &parent_revs, base),
                     &parent_revs,
                 );
+                import_helper.phases.add(Phase::Merge, started);
                 BTreeMap::new()
             }
         };
@@ -4503,16 +4941,20 @@ fn main() {
             write_deferred_journals(&mut import_helper, parent);
         }
         // Terminate the commit, and ask for its id for the rev-summary, which we
-        // write once we've written the next revision, by when git fast-import
-        // has usually answered, rather than waiting for it to catch up now.
+        // write once we've written `UNFINISHED_REVISIONS` more revisions, by
+        // when git fast-import has usually answered, rather than waiting for it
+        // to catch up now.
         writeln!(import_helper.input).unwrap();
         let cleared = import_helper.cache.end(rev_done);
-        if let Some(previous) = unfinished.take() {
-            previous.finish(&mut import_helper, &mut notes, &rev_summary_root);
+        if unfinished.len() >= UNFINISHED_REVISIONS {
+            let started = Instant::now();
+            let previous = unfinished.pop_front().unwrap();
+            previous.finish(&mut import_helper, &mut notes, &rev_summaries);
+            import_helper.phases.add(Phase::Finish, started);
         }
         import_helper.request_mark(rev_done);
         let (file_deltas, file_totals) = file_deltas_or_totals(file_deltas);
-        unfinished = Some(UnfinishedRevision {
+        unfinished.push_back(UnfinishedRevision {
             mark: rev_done,
             summary: RevSummaryRecord {
                 source_rev: rev_meta.source_rev.to_string(),
@@ -4543,7 +4985,9 @@ fn main() {
             } else {
                 info!("Completed 100,000 commits, issuing checkpoint...");
             }
+            let started = Instant::now();
             checkpoint(&mut import_helper, rev_done);
+            import_helper.phases.add(Phase::Checkpoint, started);
             checkpointed_mark = rev_done;
             checkpoints += 1;
         }
@@ -4553,14 +4997,27 @@ fn main() {
         }
     }
 
-    if let Some(last) = unfinished.take() {
-        last.finish(&mut import_helper, &mut notes, &rev_summary_root);
+    for last in unfinished {
+        last.finish(&mut import_helper, &mut notes, &rev_summaries);
     }
+    rev_summaries.wait();
     notes.flush(&mut import_helper.input).unwrap();
+    rev_summaries.finish();
+    info!(
+        "Main thread, over {:.1}s: {}",
+        loop_started.elapsed().as_secs_f64(),
+        import_helper.phases.describe(loop_started.elapsed())
+    );
     info!("Wrote {} journal summary records.", num_summaries);
     info!(
-        "Gave git fast-import {:.1} GiB of blobs.",
-        import_helper.written as f64 / (1u64 << 30) as f64
+        "Gave git fast-import {:.1} GiB of blobs ({}).",
+        import_helper.written as f64 / (1u64 << 30) as f64,
+        import_helper
+            .written_by_dir
+            .iter()
+            .map(|(dir, bytes)| format!("{} {:.2} GiB", dir, *bytes as f64 / (1u64 << 30) as f64))
+            .collect::<Vec<_>>()
+            .join(", ")
     );
     let cache = &import_helper.cache;
     info!(
