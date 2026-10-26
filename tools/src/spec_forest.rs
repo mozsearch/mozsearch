@@ -85,6 +85,21 @@ impl SpecConfig {
             None => format!("Upstream: {} {}", self.name, commit),
         }
     }
+
+    /// The web page of a pull request, for GitHub repositories.
+    pub fn pull_request_url(&self, number: u32) -> Option<String> {
+        let repo = self.url().strip_prefix("https://github.com/")?;
+        let repo = repo.trim_end_matches('/').trim_end_matches(".git");
+        Some(format!("https://github.com/{}/pull/{}", repo, number))
+    }
+
+    /// The `Pull-Request:` trailer of a pull request's forest commits.
+    fn pull_request_trailer(&self, number: u32) -> String {
+        match self.pull_request_url(number) {
+            Some(url) => format!("Pull-Request: {} {}", self.name, url),
+            None => format!("Pull-Request: {} {}", self.name, number),
+        }
+    }
 }
 
 impl ForestConfig {
@@ -403,6 +418,243 @@ pub fn forest_commit(repo: &Repository, upstream: Oid) -> Option<Oid> {
     crate::git_notes::NotesReader::open(repo, [UPSTREAM_NOTES_REF]).lookup(repo, upstream)
 }
 
+// ## Pull requests
+//
+// A spec's pull request (GitHub's `refs/pull/<number>/head`) is imported as a
+// try push (see `try_import`, and build-spec-pr): forest commits for its
+// commits, on top of the forest commit of the trunk commit it's based on, and
+// its head "rebased" onto the forest's tip (the tip, with the spec's tree
+// merged with the pull request's), as try pushes are onto the indexed
+// revision (see `try_delta`).
+
+/// The most commits of a pull request which are imported.
+pub const MAX_PULL_REQUEST_COMMITS: usize = 250;
+/// How far back along the spec's trunk a pull request's base is looked for.
+const MAX_BASE_SEARCH: usize = 5000;
+
+/// The ref a spec's pull request's head is fetched into.
+pub fn pull_request_ref(name: &str, number: u32) -> String {
+    format!("refs/upstream-pr/{}/{}", name, number)
+}
+
+/// Fetch a spec's pull request's head into `pull_request_ref`.  (GitHub's
+/// `refs/pull/<number>/head`, through git rather than its API.)
+pub fn fetch_pull_request(forest: &Path, spec: &SpecConfig, number: u32) -> Result<(), String> {
+    let refspec = format!(
+        "+refs/pull/{}/head:{}",
+        number,
+        pull_request_ref(&spec.name, number)
+    );
+    let status = Command::new("git")
+        .arg("-C")
+        .arg(forest)
+        .args(["fetch", "--quiet", "--no-tags", spec.url(), &refspec])
+        .status()
+        .map_err(|e| format!("Couldn't run git fetch: {}", e))?;
+    if !status.success() {
+        return Err(format!(
+            "Couldn't fetch pull request {} of {} from {}",
+            number,
+            spec.name,
+            spec.url()
+        ));
+    }
+    Ok(())
+}
+
+/// The forest commits made for a pull request (see `import_pull_request`).
+#[derive(Debug)]
+pub struct PullRequestCommits {
+    /// The forest commit of the trunk commit it's based on.
+    pub base: Oid,
+    /// Its commits' forest commits, oldest first, the last being its head's.
+    pub stack: Vec<Oid>,
+    /// Its head rebased onto the forest's tip, or why it couldn't be (the
+    /// files whose changes conflict with the trunk's since its base).
+    pub rebased: Result<Oid, Vec<String>>,
+}
+
+/// Make the forest commits of a spec's pull request, as fetched (see
+/// `fetch_pull_request`):
+/// - Its base is the latest of the spec's trunk commits in the forest which
+///   its head has (ex: the commit it branched from, or the latest one merged
+///   into it).
+/// - Its stack is its head's first parents since then, each a forest commit
+///   whose `<spec>` entry is the commit's tree, on top of the base's forest
+///   commit, with the commit's author, committer and message, and `Upstream:`
+///   and `Pull-Request:` trailers.  (Its merges of newer trunk commits are
+///   commits of the stack too.)  The same pull request makes the same commits.
+/// - Its rebased head is the forest's tip with the spec's tree merged with the
+///   head's (`git merge-tree`), if they merge without conflicts.
+pub fn pull_request_commits(
+    forest: &Path,
+    spec: &SpecConfig,
+    number: u32,
+) -> Result<PullRequestCommits, String> {
+    let repo = Repository::open(forest).map_err(|e| e.to_string())?;
+    let err = |e: git2::Error| e.to_string();
+    let head = repo
+        .refname_to_id(&pull_request_ref(&spec.name, number))
+        .map_err(|_| {
+            format!(
+                "Pull request {} of {} hasn't been fetched",
+                number, spec.name
+            )
+        })?;
+    let included = repo
+        .refname_to_id(&included_ref(&spec.name))
+        .map_err(|_| format!("{} isn't in the forest", spec.name))?;
+
+    // The base: usually the merge base, if it's a trunk commit in the forest;
+    // else the latest trunk commit the head has.
+    let has = |ancestor: Oid| {
+        ancestor == head || repo.graph_descendant_of(head, ancestor).unwrap_or(false)
+    };
+    let merge_base = repo.merge_base(head, included).ok();
+    let base = match merge_base.filter(|mb| forest_commit(&repo, *mb).is_some()) {
+        Some(base) => base,
+        None => {
+            let mut next = Some(repo.find_commit(included).map_err(err)?);
+            let mut found = None;
+            for _ in 0..MAX_BASE_SEARCH {
+                let Some(commit) = next else {
+                    break;
+                };
+                if has(commit.id()) {
+                    found = Some(commit.id());
+                    break;
+                }
+                next = commit.parents().next();
+            }
+            found.ok_or_else(|| {
+                format!(
+                    "Pull request {} of {} isn't based on any of {}'s commits in the tree",
+                    number, spec.name, spec.name
+                )
+            })?
+        }
+    };
+    let base_forest = forest_commit(&repo, base)
+        .ok_or_else(|| format!("{}'s commit {} isn't in the forest", spec.name, base))?;
+
+    // The stack's upstream commits: the head's first parents which the base
+    // doesn't have.
+    let mut upstream = vec![];
+    let mut next = Some(repo.find_commit(head).map_err(err)?);
+    while let Some(commit) = next {
+        let id = commit.id();
+        if id == base || repo.graph_descendant_of(base, id).unwrap_or(false) {
+            break;
+        }
+        if upstream.len() == MAX_PULL_REQUEST_COMMITS {
+            return Err(format!(
+                "Pull request {} of {} has more than {} commits",
+                number, spec.name, MAX_PULL_REQUEST_COMMITS
+            ));
+        }
+        upstream.push(commit);
+        next = upstream.last().unwrap().parents().next();
+    }
+    if upstream.is_empty() {
+        return Err(format!(
+            "Pull request {} of {} has no commits which the tree doesn't have",
+            number, spec.name
+        ));
+    }
+    upstream.reverse();
+
+    let with_spec_tree = |parent: &git2::Commit, tree: Oid| -> Result<Oid, String> {
+        let parent_tree = parent.tree().map_err(err)?;
+        let mut builder = repo.treebuilder(Some(&parent_tree)).map_err(err)?;
+        builder.insert(&spec.name, tree, 0o040000).map_err(err)?;
+        builder.write().map_err(err)
+    };
+    let mut parent = repo.find_commit(base_forest).map_err(err)?;
+    let mut stack = vec![];
+    for commit in &upstream {
+        let tree = repo
+            .find_tree(with_spec_tree(&parent, commit.tree_id())?)
+            .map_err(err)?;
+        let mut message = String::from_utf8_lossy(commit.message_bytes()).into_owned();
+        let trimmed = message.trim_end().len();
+        message.truncate(trimmed);
+        message.push_str(&format!(
+            "\n\n{}\n{}\n",
+            spec.trailer(commit.id()),
+            spec.pull_request_trailer(number)
+        ));
+        let id = repo
+            .commit(
+                None,
+                &commit.author(),
+                &commit.committer(),
+                &message,
+                &tree,
+                &[&parent],
+            )
+            .map_err(err)?;
+        parent = repo.find_commit(id).map_err(err)?;
+        stack.push(id);
+    }
+
+    // The head rebased onto the forest's tip.
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(forest)
+        .args(["merge-tree", "--write-tree", "--name-only", "--no-messages"])
+        .arg(included.to_string())
+        .arg(head.to_string())
+        .output()
+        .map_err(|e| format!("Couldn't run git merge-tree: {}", e))?;
+    let text = String::from_utf8_lossy(&output.stdout).into_owned();
+    let mut lines = text.lines();
+    let merged = lines
+        .next()
+        .and_then(|line| Oid::from_str(line.trim()).ok());
+    let rebased = match (output.status.code(), merged) {
+        (Some(0), Some(merged)) => {
+            let tip = repo
+                .find_commit(repo.refname_to_id(FOREST_REF).map_err(err)?)
+                .map_err(err)?;
+            let tree = repo.find_tree(with_spec_tree(&tip, merged)?).map_err(err)?;
+            let head_commit = repo.find_commit(head).map_err(err)?;
+            let message = format!(
+                "Pull request {} of {}, rebased onto the tree's revision\n\n{}\n{}\n",
+                number,
+                spec.name,
+                spec.trailer(head),
+                spec.pull_request_trailer(number)
+            );
+            Ok(repo
+                .commit(
+                    None,
+                    &head_commit.author(),
+                    &head_commit.committer(),
+                    &message,
+                    &tree,
+                    &[&tip],
+                )
+                .map_err(err)?)
+        }
+        (Some(1), _) => Err(lines
+            .map(str::trim)
+            .filter(|line| !line.is_empty())
+            .map(|file| format!("{}/{}", spec.name, file))
+            .collect()),
+        _ => {
+            return Err(format!(
+                "git merge-tree failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+    };
+    Ok(PullRequestCommits {
+        base: base_forest,
+        stack,
+        rebased,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -605,6 +857,184 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         let names: Vec<&str> = config.specs.iter().map(|s| s.name.as_str()).collect();
         assert_eq!(names, vec!["csswg-drafts"]);
+    }
+
+    /// A commit of `files` (name, contents) on top of `parents`, at `time`.
+    fn commit_files(
+        repo: &Repository,
+        files: &[(&str, &str)],
+        parents: &[Oid],
+        time: i64,
+        message: &str,
+    ) -> Oid {
+        let mut builder = repo.treebuilder(None).unwrap();
+        for (name, contents) in files {
+            let blob = repo.blob(contents.as_bytes()).unwrap();
+            builder.insert(name, blob, 0o100644).unwrap();
+        }
+        let tree = repo.find_tree(builder.write().unwrap()).unwrap();
+        let sig = Signature::new("P", "p@example.com", &git2::Time::new(time, 0)).unwrap();
+        let parents: Vec<git2::Commit> = parents
+            .iter()
+            .map(|p| repo.find_commit(*p).unwrap())
+            .collect();
+        let refs: Vec<&git2::Commit> = parents.iter().collect();
+        repo.commit(None, &sig, &sig, message, &tree, &refs)
+            .unwrap()
+    }
+
+    #[test]
+    fn test_pull_requests() {
+        let dir = std::env::temp_dir().join(format!("spec-forest-prs-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        // The trunk: c0, then c1 changing a.bs; pull request 1 changes b.bs
+        // from c0 in two commits (which merge cleanly with c1), and pull
+        // request 2 changes a.bs from c0 (which conflicts with c1).
+        let up = Repository::init(dir.join("spec")).unwrap();
+        let c0 = commit_files(
+            &up,
+            &[("a.bs", "a0\n"), ("b.bs", "b0\n")],
+            &[],
+            100,
+            "Start",
+        );
+        let c1 = commit_files(
+            &up,
+            &[("a.bs", "a1\n"), ("b.bs", "b0\n")],
+            &[c0],
+            200,
+            "Change a",
+        );
+        up.reference("refs/heads/main", c1, true, "").unwrap();
+        up.set_head("refs/heads/main").unwrap();
+        let p1 = commit_files(
+            &up,
+            &[("a.bs", "a0\n"), ("b.bs", "b1\n")],
+            &[c0],
+            300,
+            "Change b",
+        );
+        let p2 = commit_files(
+            &up,
+            &[("a.bs", "a0\n"), ("b.bs", "b2\n")],
+            &[p1],
+            400,
+            "Change b again",
+        );
+        up.reference("refs/pull/1/head", p2, true, "").unwrap();
+        let q1 = commit_files(
+            &up,
+            &[("a.bs", "aq\n"), ("b.bs", "b0\n")],
+            &[c0],
+            500,
+            "Change a too",
+        );
+        up.reference("refs/pull/2/head", q1, true, "").unwrap();
+
+        let forest_dir = dir.join("forest");
+        Repository::init(&forest_dir).unwrap();
+        let config = config(&dir, &["spec"], "");
+        fetch_upstreams(&forest_dir, &config).unwrap();
+        update_forest(&forest_dir, &config).unwrap();
+        let forest = Repository::open(&forest_dir).unwrap();
+        let spec = &config.specs[0];
+
+        fetch_pull_request(&forest_dir, spec, 1).unwrap();
+        let pr = pull_request_commits(&forest_dir, spec, 1).unwrap();
+        assert_eq!(
+            pr.base,
+            forest_commit(&forest, c0).unwrap(),
+            "Based on c0's forest commit"
+        );
+        assert_eq!(pr.stack.len(), 2);
+        let head = forest.find_commit(pr.stack[1]).unwrap();
+        assert_eq!(head.parent_id(0).unwrap(), pr.stack[0]);
+        assert_eq!(
+            forest
+                .find_commit(pr.stack[0])
+                .unwrap()
+                .parent_id(0)
+                .unwrap(),
+            pr.base
+        );
+        let spec_tree =
+            |commit: &git2::Commit| commit.tree().unwrap().get_name("spec").unwrap().id();
+        assert_eq!(
+            spec_tree(&head),
+            up.find_commit(p2).unwrap().tree_id(),
+            "with the commits' own trees"
+        );
+        let message = head.message().unwrap();
+        assert!(
+            message.starts_with("Change b again\n\nUpstream: spec "),
+            "{}",
+            message
+        );
+        assert!(message.contains("\nPull-Request: spec 1\n"), "{}", message);
+        assert_eq!(parse_upstream_trailer(message), Some(("spec", p2)));
+        assert_eq!(head.author().name().ok(), Some("P"));
+        // (The same pull request makes the same commits.)
+        assert_eq!(
+            pull_request_commits(&forest_dir, spec, 1).unwrap().stack,
+            pr.stack
+        );
+        // Rebased onto the tip: c1's a.bs, and the pull request's b.bs.
+        let rebased = forest.find_commit(pr.rebased.unwrap()).unwrap();
+        assert_eq!(
+            rebased.parent_id(0).unwrap(),
+            forest.refname_to_id(FOREST_REF).unwrap()
+        );
+        let tree = forest.find_tree(spec_tree(&rebased)).unwrap();
+        let file = |name: &str| {
+            String::from_utf8(
+                forest
+                    .find_blob(tree.get_name(name).unwrap().id())
+                    .unwrap()
+                    .content()
+                    .to_vec(),
+            )
+            .unwrap()
+        };
+        assert_eq!(
+            (file("a.bs").as_str(), file("b.bs").as_str()),
+            ("a1\n", "b2\n")
+        );
+
+        // A conflicting one has no rebased head, but says which files.
+        fetch_pull_request(&forest_dir, spec, 2).unwrap();
+        let pr = pull_request_commits(&forest_dir, spec, 2).unwrap();
+        assert_eq!(pr.stack.len(), 1);
+        assert_eq!(pr.rebased, Err(vec!["spec/a.bs".to_string()]));
+
+        // One based on a trunk commit newer than the forest's has it in its
+        // stack, on top of the latest one the forest has.
+        let c2 = commit_files(
+            &up,
+            &[("a.bs", "a1\n"), ("b.bs", "b0\n"), ("c.bs", "c\n")],
+            &[c1],
+            600,
+            "Add c",
+        );
+        let r1 = commit_files(
+            &up,
+            &[("a.bs", "a1\n"), ("b.bs", "b3\n"), ("c.bs", "c\n")],
+            &[c2],
+            700,
+            "Change b from c2",
+        );
+        up.reference("refs/pull/3/head", r1, true, "").unwrap();
+        fetch_pull_request(&forest_dir, spec, 3).unwrap();
+        let pr = pull_request_commits(&forest_dir, spec, 3).unwrap();
+        assert_eq!(pr.base, forest_commit(&forest, c1).unwrap());
+        assert_eq!(pr.stack.len(), 2);
+        assert!(pr.rebased.is_ok());
+
+        // One with nothing new is an error.
+        up.reference("refs/pull/4/head", c0, true, "").unwrap();
+        fetch_pull_request(&forest_dir, spec, 4).unwrap();
+        assert!(pull_request_commits(&forest_dir, spec, 4).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
