@@ -26,6 +26,13 @@ files, if there are any; see facet_bar.liquid.){% endcomment %}
   {%- if scopes.size > 0 %}
   <p class="explore-scopes">{% for scope in scopes %}{% if scope.url %}<a href="{{ scope.url | escape }}">{{ scope.label | escape }}</a>{% else %}<strong>{{ scope.label | escape }}</strong>{% endif %}{% unless forloop.last %} › {% endunless %}{% endfor %}</p>
   {%- endif %}
+  {%- if pull_request %}
+  {%- comment %} (A spec's pull request, which can be imported again for its newer commits; see `try_import::is_pull_request`.) {% endcomment %}
+  <div class="explore-note explore-pull-request">
+    {%- if pull_request.link %}<a href="{{ pull_request.link | escape }}">The pull request on GitHub</a>; its commits are those it had when it was imported. {% else %}Its commits are those it had when it was imported. {% endif -%}
+    <form method="post" action="/{{tree}}/{{ pull_request.path | escape }}"><button type="submit" class="explore-pull-request-refresh">Import its newest commits</button></form>
+  </div>
+  {%- endif %}
   {%- if note %}
   <p class="explore-note">{{ note | escape }}</p>
   {%- endif %}

@@ -12,8 +12,12 @@
 //!
 //! A tree can import try pushes if it has a history and its directory in the
 //! config repo has an executable `import-try` hook (like `upload-after-index`
-//! and others).  The hook gets the push's revision as the user gave it (see
-//! `normalize_rev`; ex: its hg revision on try) as its argument, and these
+//! and others).  The hook gets the push's name as its argument (see
+//! `normalize_push`): its hg revision on try (`/{tree}/try/hg/{rev}`), or in a
+//! tree of specs (see `spec_repos`), a spec repository's pull request,
+//! `SPEC/NUMBER` (`/{tree}/try/{spec}/{number}`, which the hook makes into
+//! forest commits with build-spec-pr, and which can be imported again for its
+//! newer commits), and these
 //! environment variables: MOZSEARCH_PATH, CONFIG_REPO, TREE_NAME, GIT_ROOT (the
 //! tree's `git_path`), HISTORY_ROOT (its `history_path`), GIT_BRANCH (its
 //! `git_branch`, or HEAD), and MAX_REVISIONS.  It fetches the push into the
@@ -110,27 +114,118 @@ pub fn normalize_rev(rev: &str) -> Option<String> {
         .then(|| rev.to_ascii_lowercase())
 }
 
-/// The try push (as the hook takes it; see `normalize_rev`) of a try push's
-/// page's URL's kind and id (`/{tree}/try/{kind}/{id}`; see `push_url_path`),
-/// if they're one's: for now, only hg revisions on try ("hg").
-pub fn url_push(kind: &str, id: &str) -> Option<String> {
-    match kind {
-        "hg" => normalize_rev(id),
-        _ => None,
+/// A try push's name, as the hook takes it and as its import's refs and files
+/// are named (`refs/try/NAME`, `try-pushes/NAME`; see the module's comment),
+/// if `name` is one's (which keeps those paths in their directories): an hg
+/// revision on try (see `normalize_rev`), or a spec's pull request,
+/// `SPEC/NUMBER` (see `url_push`).
+pub fn normalize_push(name: &str) -> Option<String> {
+    if let Some(rev) = normalize_rev(name) {
+        return Some(rev);
     }
+    let (spec, number) = name.split_once('/')?;
+    let spec_ok = !spec.is_empty()
+        && spec.len() <= 100
+        && spec != "hg"
+        && !spec.starts_with('.')
+        && spec
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    let number_ok = (1..=9).contains(&number.len())
+        && !number.starts_with('0')
+        && number.bytes().all(|b| b.is_ascii_digit());
+    (spec_ok && number_ok).then(|| name.to_string())
+}
+
+/// Whether a try push (see `normalize_push`) is a spec's pull request, which
+/// can be imported again (for its newer commits), rather than an hg push.
+pub fn is_pull_request(name: &str) -> bool {
+    name.contains('/')
+}
+
+/// The spec repositories of a tree of specs (its index's specs.toml's specs
+/// with upstreams; see `spec_forest`), whose pull requests it imports, or
+/// none for other trees.
+pub fn spec_repos(
+    cfg: &Config,
+    tree_name: &str,
+) -> std::sync::Arc<Vec<crate::spec_forest::SpecConfig>> {
+    static REPOS: LazyLock<
+        Mutex<HashMap<String, std::sync::Arc<Vec<crate::spec_forest::SpecConfig>>>>,
+    > = LazyLock::new(Default::default);
+    let mut repos = REPOS.lock().unwrap();
+    repos
+        .entry(tree_name.to_string())
+        .or_insert_with(|| {
+            let specs = cfg
+                .trees
+                .get(tree_name)
+                .map(|tree| Path::new(&tree.paths.index_path).join("specs.toml"))
+                .filter(|path| path.exists())
+                .and_then(|path| crate::spec_forest::ForestConfig::load(&path).ok())
+                .map_or_else(Vec::new, |config| config.specs);
+            std::sync::Arc::new(specs)
+        })
+        .clone()
+}
+
+/// The try push (as the hook takes it; see `normalize_push`) of a try push's
+/// page's URL's kind and id (`/{tree}/try/{kind}/{id}`; see `push_url_path`),
+/// if they're one's: in a tree of specs, a spec repository's pull request
+/// (`try/SPEC/NUMBER`, ex: `try/dom/1512`), and in other trees, an hg revision
+/// on try (`try/hg/REV`).
+pub fn url_push(cfg: &Config, tree_name: &str, kind: &str, id: &str) -> Option<String> {
+    let repos = spec_repos(cfg, tree_name);
+    if repos.is_empty() {
+        return (kind == "hg").then(|| normalize_rev(id)).flatten();
+    }
+    if !repos.iter().any(|spec| spec.name == kind) {
+        return None;
+    }
+    normalize_push(&format!("{}/{}", kind, id)).filter(|name| is_pull_request(name))
 }
 
 /// The try push of a stack context, the path of its page in the tree (ex:
-/// "try/hg/abcdef012345"; see `url_push`), if it's a try push's.
+/// "try/hg/abcdef012345" or "try/dom/1512"; see `url_push`), if it's a try
+/// push's (by its form; see `normalize_push`).
 pub fn stack_push(stack: &str) -> Option<String> {
     let (kind, id) = stack.strip_prefix("try/")?.split_once('/')?;
-    url_push(kind, id)
+    match kind {
+        "hg" => normalize_rev(id),
+        _ => normalize_push(&format!("{}/{}", kind, id)).filter(|name| is_pull_request(name)),
+    }
 }
 
 /// The path of a try push's page in its tree (`/{tree}/{path}`), which is also
-/// its stack context (see `stack_push`), ex: "try/hg/abcdef012345".
+/// its stack context (see `stack_push`), ex: "try/hg/abcdef012345" or
+/// "try/dom/1512".
 pub fn push_url_path(push: &str) -> String {
-    format!("try/hg/{}", push)
+    if is_pull_request(push) {
+        format!("try/{}", push)
+    } else {
+        format!("try/hg/{}", push)
+    }
+}
+
+/// How a try push's pages name it: their title (ex: "Try push abcdef012345",
+/// or "Pull request #1512 of whatwg/dom"), and its upstream page, if any (ex:
+/// the pull request's on GitHub).
+pub fn push_title(cfg: &Config, tree_name: &str, push: &str) -> (String, Option<String>) {
+    let Some((spec, number)) = push
+        .split_once('/')
+        .and_then(|(spec, number)| Some((spec, number.parse::<u32>().ok()?)))
+    else {
+        return (format!("Try push {}", push), None);
+    };
+    let repos = spec_repos(cfg, tree_name);
+    let config = repos.iter().find(|config| config.name == spec);
+    let link = config.and_then(|config| config.pull_request_url(number));
+    let repo = link
+        .as_deref()
+        .and_then(|link| link.strip_prefix("https://github.com/"))
+        .and_then(|rest| rest.rsplit_once("/pull/"))
+        .map_or(spec, |(repo, _)| repo);
+    (format!("Pull request #{} of {}", number, repo), link)
 }
 
 /// The head of the try push `rev` (see `normalize_rev`), if the tree has
@@ -374,8 +469,9 @@ impl TryImports {
         }
     }
 
-    /// Ask for the try push `rev` (see `normalize_rev`) to be imported into
-    /// the tree, unless it is or will be, or it failed less than
+    /// Ask for the try push `rev` (see `normalize_push`) to be imported into
+    /// the tree, unless it is (but for spec pull requests, which are imported
+    /// again, for their newer commits) or will be, or it failed less than
     /// `RETRY_AFTER` ago, or too many imports are waiting; and its status.
     pub fn request(
         &self,
@@ -386,6 +482,7 @@ impl TryImports {
         let status = self.status(cfg, tree_name, rev);
         match status {
             ImportStatus::NotImported | ImportStatus::Failed { retry: true, .. } => {}
+            ImportStatus::Imported { .. } if is_pull_request(rev) => {}
             ImportStatus::Unavailable => return Err("This tree can't import try pushes"),
             _ => return Ok(status),
         }
@@ -453,9 +550,11 @@ impl TryImports {
             .history_path
             .as_ref()
             .ok_or("The tree has no history")?;
-        let logs = Path::new(history_root).join("try-imports");
-        fs::create_dir_all(&logs).map_err(|e| e.to_string())?;
-        let log_path = logs.join(format!("{}.log", job.rev));
+        // (A spec's pull request's, `SPEC/NUMBER`, in its spec's directory.)
+        let log_path = Path::new(history_root)
+            .join("try-imports")
+            .join(format!("{}.log", job.rev));
+        fs::create_dir_all(log_path.parent().unwrap()).map_err(|e| e.to_string())?;
         let log = fs::File::create(&log_path).map_err(|e| e.to_string())?;
         let mut child = Command::new("nice")
             .arg("-n10")
@@ -670,13 +769,44 @@ mod tests {
     #[test]
     fn test_push_urls() {
         assert_eq!(push_url_path("abcdef012345"), "try/hg/abcdef012345");
+        assert_eq!(push_url_path("dom/1512"), "try/dom/1512");
         assert_eq!(
             stack_push("try/hg/ABCDEF012345"),
             Some("abcdef012345".to_string())
         );
-        assert_eq!(url_push("git", "abcdef012345"), None);
+        assert_eq!(stack_push("try/dom/1512"), Some("dom/1512".to_string()));
         assert_eq!(stack_push("try/abcdef012345"), None);
+        assert_eq!(stack_push("try/dom/01512"), None);
+        assert_eq!(stack_push("try/hg/1512"), None);
         assert_eq!(stack_push("explore/bug/123"), None);
+    }
+
+    #[test]
+    fn test_normalize_push() {
+        assert_eq!(
+            normalize_push("ABCDEF012345"),
+            Some("abcdef012345".to_string())
+        );
+        assert_eq!(
+            normalize_push("csswg-drafts/1234"),
+            Some("csswg-drafts/1234".to_string())
+        );
+        assert!(is_pull_request("csswg-drafts/1234"));
+        assert!(!is_pull_request("abcdef012345"));
+        for bad in [
+            "dom/0",
+            "dom/1a",
+            "dom/",
+            "/12",
+            "../12",
+            "dom/../12",
+            "hg/12",
+            ".git/1",
+            "dom/1/2",
+            "dom/1234567890",
+        ] {
+            assert_eq!(normalize_push(bad), None, "{}", bad);
+        }
     }
 
     #[test]

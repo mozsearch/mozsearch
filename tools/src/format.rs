@@ -1551,6 +1551,26 @@ fn bikeshed_rendering_path(tree_config: &TreeConfig, path: &str) -> std::path::P
     Path::new(&tree_config.paths.index_path).join(format!("rendered-specs/{}.html", path))
 }
 
+/// Why a Bikeshed spec has no rendered view at a revision.
+const BIKESHED_RENDERINGS: &str = "Only the latest version of a Bikeshed spec, and the heads of imported pull requests changing it, have rendered views";
+
+/// Where Bikeshed's rendering of the spec whose source is at `path` is, at the
+/// tip (see `bikeshed_rendering_path`), or at revision `rev`, if a spec pull
+/// request's import rendered it (its head's; see render-spec-pr).
+fn bikeshed_rendering_path_at(
+    tree_config: &TreeConfig,
+    path: &str,
+    rev: Option<Oid>,
+) -> std::path::PathBuf {
+    match rev {
+        Some(rev) => Path::new(&tree_config.paths.index_path)
+            .join("try-rendered")
+            .join(rev.to_string())
+            .join(format!("{}.html", path)),
+        None => bikeshed_rendering_path(tree_config, path),
+    }
+}
+
 /// The files which a tree's ecmarkup specs import (and which those import),
 /// and which its Bikeshed specs include (by the index's renderings), which
 /// have rendered views as parts of their specs, reading their sources with
@@ -4489,8 +4509,10 @@ pub fn format_rendered(
         let specs = specs.as_deref().unwrap();
         let rendered_spec = match &main {
             Some(main) if spec.format == Some(crate::spec_analyze::SpecFormat::Bikeshed) => {
-                let output = std::fs::read_to_string(bikeshed_rendering_path(tree_config, main))
-                    .map_err(|_| "The index has no rendering of the Bikeshed spec")?;
+                let at = rev.is_some().then(|| commit.id());
+                let output =
+                    std::fs::read_to_string(bikeshed_rendering_path_at(tree_config, main, at))
+                        .map_err(|_| BIKESHED_RENDERINGS)?;
                 rendered_specs::bikeshed::render_file(
                     &output,
                     &source,
@@ -4522,13 +4544,13 @@ pub fn format_rendered(
                     &targets,
                 )
             }
-            // (Bikeshed's rendering is the index's, of the latest revision.)
+            // (Bikeshed's rendering is the index's, of the latest revision, or
+            // a spec pull request's import's, of its head.)
             None if spec.format == Some(crate::spec_analyze::SpecFormat::Bikeshed) => {
-                if rev.is_some() {
-                    return Err("Only the latest version of a Bikeshed spec has a rendered view");
-                }
-                let output = std::fs::read_to_string(bikeshed_rendering_path(tree_config, path))
-                    .map_err(|_| "The index has no rendering of the Bikeshed spec")?;
+                let at = rev.is_some().then(|| commit.id());
+                let output =
+                    std::fs::read_to_string(bikeshed_rendering_path_at(tree_config, path, at))
+                        .map_err(|_| BIKESHED_RENDERINGS)?;
                 rendered_specs::bikeshed::render(&output, &source, path, spec, specs, &spec_links)
             }
             None => rendered_specs::render(
@@ -8622,6 +8644,7 @@ pub fn render_explore_page(
         semantic_head: None,
         semantic_failure: None,
         landed: vec![],
+        pull_request: None,
     };
     let title = data["title"].as_str().unwrap_or_default().to_string();
     render_explore(
@@ -9011,6 +9034,7 @@ pub fn render_history(
         semantic_head: None,
         semantic_failure: None,
         landed: vec![],
+        pull_request: None,
     };
     let title = data["title"].as_str().unwrap_or_default().to_string();
     render_explore(
@@ -9043,8 +9067,8 @@ pub fn stack_strip_json(
     let git = tree_config.get_git()?;
     let history = git.history.as_ref().ok_or("This tree has no history")?;
     let commits: Vec<Oid> = match stack.split('/').collect::<Vec<_>>().as_slice() {
-        ["try", kind, id] => {
-            let push = crate::try_import::url_push(kind, id).ok_or("Not a try push")?;
+        ["try", _, _] => {
+            let push = crate::try_import::stack_push(stack).ok_or("Not a try push")?;
             crate::try_import::push_commits(cfg, tree_name, &push).0
         }
         ["explore", kind, keys] => explore_refs(cfg, tree_name, kind, keys)?
@@ -9112,6 +9136,10 @@ struct ExploreExtras {
     /// `try_import::LandedCommit`), as `{rev, summary, landed, landed_summary,
     /// same_changes}`.
     landed: Vec<serde_json::Value>,
+    /// For a spec's pull request (see `try_import::is_pull_request`), its page
+    /// upstream (ex: on GitHub), if any, and its page here, which imports its
+    /// newer commits: `{link, path}`.
+    pull_request: Option<serde_json::Value>,
 }
 
 /// The data of an explore page (see `render_explore`) of the commits `refs`,
@@ -9959,6 +9987,7 @@ fn render_explore(
         "semantic_head": extras.semantic_head,
         "semantic_failure": extras.semantic_failure,
         "landed": extras.landed,
+        "pull_request": extras.pull_request,
     }))
     .map_err(|_| "Template problems")?;
     build_and_parse_explore()
@@ -9976,15 +10005,17 @@ fn render_explore(
 /// the imported push's page, which doesn't change (so it can be cached),
 /// rather than its import's status's.
 pub fn format_try(
+    cfg: &Config,
     server: &(dyn AbstractServer + Send + Sync),
     tree_name: &str,
     rev: &str,
     notice: Option<&str>,
     writer: &mut dyn Write,
 ) -> Result<bool, &'static str> {
-    use crate::try_import::{ImportStatus, normalize_rev};
+    use crate::try_import::{ImportStatus, is_pull_request, normalize_push, push_title};
 
-    let rev = normalize_rev(rev).ok_or("Not a try push's revision")?;
+    let rev = normalize_push(rev).ok_or("Not a try push")?;
+    let (push_name, push_link) = push_title(cfg, tree_name, &rev);
     let status = try_import_status(server, &rev)?;
     match status {
         ImportStatus::Unavailable => return Err("This tree can't import try pushes"),
@@ -10026,6 +10057,12 @@ pub fn format_try(
                         })
                     })
                     .collect(),
+                pull_request: is_pull_request(&rev).then(|| {
+                    json!({
+                        "link": push_link,
+                        "path": crate::try_import::push_url_path(&rev),
+                    })
+                }),
                 note: Some(format!(
                     "Its stack (its commits since it diverged from the trunk{}), imported into \
                      this tree's history, for its commits' blame and what they changed{}.",
@@ -10042,20 +10079,13 @@ pub fn format_try(
                 scopes: vec![],
                 semantic_head: push.semantic_head,
             };
-            render_explore(
-                Some(server),
-                tree_name,
-                &format!("Try push {}", rev),
-                data,
-                extras,
-                writer,
-            )?;
+            render_explore(Some(server), tree_name, &push_name, data, extras, writer)?;
             return Ok(true);
         }
         _ => {}
     }
 
-    let title = format!("Try push {} - mozsearch", rev);
+    let title = format!("{} - mozsearch", push_name);
     let opt = Options {
         title: &title,
         tree_name,
@@ -10070,8 +10100,13 @@ pub fn format_try(
     let globals = liquid::to_object(&json!({
         "tree": tree_name,
         "rev": rev,
+        "name": push_name,
+        "link": push_link,
         "push_path": crate::try_import::push_url_path(&rev),
-        "status_path": format!("try-status/hg/{}", rev),
+        "status_path": format!(
+            "try-status/{}",
+            crate::try_import::push_url_path(&rev).trim_start_matches("try/")
+        ),
         "status": status,
         "notice": notice,
     }))
@@ -10313,7 +10348,7 @@ pub fn format_try_status(
     server: &(dyn AbstractServer + Send + Sync),
     rev: &str,
 ) -> Result<String, &'static str> {
-    let rev = crate::try_import::normalize_rev(rev).ok_or("Not a try push's revision")?;
+    let rev = crate::try_import::normalize_push(rev).ok_or("Not a try push")?;
     let status = try_import_status(server, &rev)?;
     serde_json::to_string(&status).map_err(|_| "Status problems")
 }
@@ -10323,7 +10358,7 @@ pub fn request_try_import(
     server: &(dyn AbstractServer + Send + Sync),
     rev: &str,
 ) -> Result<(), String> {
-    let rev = crate::try_import::normalize_rev(rev).ok_or("Not a try push's revision")?;
+    let rev = crate::try_import::normalize_push(rev).ok_or("Not a try push")?;
     let server = server.clonify();
     run_on_runtime(async move { server.request_try_import(&rev).await }).map_err(|err| match err {
         // (The import machinery's own reasons, ex: too many waiting.)

@@ -63,10 +63,22 @@
       "private": {
         "note": "The data API's config route doesn't expose this."
       }
+    },
+    "specpr": {
+      "priority": 60,
+      "on_error": "halt",
+      "cache": "everything",
+      "index_path": "$WORKING/specpr",
+      "files_path": "$WORKING/specpr/git",
+      "objdir_path": "$WORKING/specpr/objdir",
+      "git_path": "$WORKING/specpr/git",
+      "history_path": "$WORKING/specpr/history",
+      "codesearch_path": "$WORKING/specpr/livegrep.idx",
+      "codesearch_port": 8086
     }
   },
 
   "pipeline_trees": true,
-  "setup_groups": [["tests"], ["searchfox", "searchfox-line-blame"], ["spechist"], ["trydelta"]],
+  "setup_groups": [["tests"], ["searchfox", "searchfox-line-blame"], ["spechist"], ["trydelta"], ["specpr"]],
   "allow_webtest": true
 }

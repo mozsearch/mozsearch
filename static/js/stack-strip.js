@@ -17,7 +17,9 @@
  * context is its base; see outline.js.)
  */
 (function () {
-  const STACK = /^(explore\/(bug|phab)\/[\w,]+|try\/hg\/[0-9a-f]+)$/i;
+  // (Try pushes' stacks are hg pushes' or spec pull requests'; see
+  // `try_import::stack_push`.)
+  const STACK = /^(explore\/(bug|phab)\/[\w,]+|try\/(hg\/[0-9a-f]+|[\w-]+\/[1-9]\d*))$/i;
   const tree = location.pathname.split("/")[1];
   const param = new URLSearchParams(location.search).get("stack");
   // (The page's stack: its parameter's, or the page's own, if it's a stack's.)
@@ -111,7 +113,8 @@
     note.className = "stack-strip-note";
     const link = document.createElement("a");
     link.href = `/${tree}/${stack}`;
-    link.textContent = `the ${count} commit${count == 1 ? "" : "s"} of ${stack.startsWith("try/") ? "the try push" : "the stack"}`;
+    const of = stack.startsWith("try/hg/") ? "the try push" : stack.startsWith("try/") ? "the pull request" : "the stack";
+    link.textContent = `the ${count} commit${count == 1 ? "" : "s"} of ${of}`;
     note.append("Beside the blame, which of ", link,
                 " changed each line (hover over a slot to see which).");
     document.getElementById("file")?.before(note);

@@ -1,0 +1,23 @@
+# The specpr tree's spec repository (see tests/specpr/setup): "gizmo", a local
+# repository standing for a GitHub one, with its pull requests' heads as
+# `refs/pull/N/head`, which the tree imports as try pushes (see
+# tools/src/spec_forest.rs's pull requests, and tests/specpr/import-try).
+# Setup writes this, with UPSTREAMS replaced by where it makes the repository,
+# as upstream/specs.toml in the tree's directory, for build-spec-forest and
+# the import-try hook.
+# Its Wattsi spec, and a Bikeshed spec in its bs/ (as csswg-drafts has many
+# specs), whose renderings at pull requests' heads their imports make (see
+# render-spec-pr).
+
+[[spec]]
+name = "gizmo"
+url = "file://UPSTREAMS/gizmo"
+format = "wattsi"
+rendered = "https://gizmo.example.org/"
+
+[[spec]]
+name = "gizmo-gears"
+path = "gizmo"
+source = "bs/index.bs"
+format = "bikeshed"
+rendered = "https://gizmo.example.org/gears/"

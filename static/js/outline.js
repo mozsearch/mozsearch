@@ -64,19 +64,21 @@ var OutlineSection = new (class OutlineSection {
   /** The default baseline: see the class's comment. */
   async defaultBaseline() {
     const stack = new URLSearchParams(location.search).get("stack");
-    if (stack && /^(explore\/(bug|phab)\/[\w,]+|try\/hg\/[0-9a-f]+)$/i.test(stack)) {
+    if (stack && /^(explore\/(bug|phab)\/[\w,]+|try\/(hg\/[0-9a-f]+|[\w-]+\/[1-9]\d*))$/i.test(stack)) {
       // (The stack strip's data has its base; shared with stack-strip.js.)
       const strip = await (window.stackStripData ??=
         fetch(`/${this.tree}/${stack}/stack-strip/${this.rev}/${this.path}`)
           .then(response => (response.ok ? response.json() : null))
           .catch(() => null));
       if (strip?.base) {
+        // (A try push's, or a spec's pull request's.)
         const tryPush = stack.startsWith("try/");
+        const what = stack.startsWith("try/hg/") ? "try push" : "pull request";
         return {
           from: strip.base,
-          label: tryPush ? "the try push's base" : "the stack's base",
+          label: tryPush ? `the ${what}'s base` : "the stack's base",
           description: tryPush
-            ? `The trunk's revision the try push's commits are on (${strip.base.slice(0, 12)})`
+            ? `The trunk's revision the ${what}'s commits are on (${strip.base.slice(0, 12)})`
             : `Where the stack's commits start (${strip.base.slice(0, 12)}, the first's parent)`,
         };
       }

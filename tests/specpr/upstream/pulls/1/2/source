@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<!-- The Gizmo spec, in the HTML Standard's Wattsi format, standing for a GitHub
+     repository's spec, whose pull requests the specpr tree imports (see
+     tests/specpr/setup). -->
+<h1>Gizmo: The Living Standard</h1>
+
+<h2 id=gizmos>Gizmos</h2>
+
+<p>A <dfn data-x=concept-gizmo>gizmo</dfn> is a small device.</p>
+
+<p>To <dfn data-x=concept-gizmo-twist>twist</dfn> a gizmo, turn it.</p>
+
+<h2 id=sprockets>Sprockets</h2>
+
+<p>A <dfn data-x=concept-sprocket>sprocket</dfn> drives a gizmo.</p>
+
+<p>To <dfn data-x=concept-sprocket-oil>oil</dfn> a sprocket, drip oil on it.</p>
+
+<h2 id=springs>Springs</h2>
+
+<p>A <dfn data-x=concept-spring>spring</dfn> stores a gizmo's energy.</p>

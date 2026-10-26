@@ -1147,7 +1147,7 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                 };
             }
             let push = match path.len() {
-                4 => tools::try_import::url_push(path[2], path[3]),
+                4 => tools::try_import::url_push(cfg, tree_name, path[2], path[3]),
                 _ => None,
             };
             let Some(push) = push else {
@@ -1161,10 +1161,17 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             if req.post {
                 match format::request_try_import(server.as_ref(), &push) {
                     Ok(()) => {
+                        // (A pull request's page may be cached as imported,
+                        // before this import of its newer commits.)
                         return WebResponse::see_other(format!(
-                            "/{}/{}",
+                            "/{}/{}{}",
                             tree_name,
-                            tools::try_import::push_url_path(&push)
+                            tools::try_import::push_url_path(&push),
+                            if tools::try_import::is_pull_request(&push) {
+                                "?refresh"
+                            } else {
+                                ""
+                            }
                         ))
                         .uncached();
                     }
@@ -1173,6 +1180,7 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             }
             let mut writer = Vec::new();
             match format::format_try(
+                cfg,
                 server.as_ref(),
                 tree_name,
                 &push,
@@ -1227,7 +1235,7 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
         // (`/{tree}/try-status/{kind}/{id}`, as for `try`.)
         "try-status" => {
             let push = match path.len() {
-                4 => tools::try_import::url_push(path[2], path[3]),
+                4 => tools::try_import::url_push(cfg, tree_name, path[2], path[3]),
                 _ => None,
             };
             let Some(push) = push else {

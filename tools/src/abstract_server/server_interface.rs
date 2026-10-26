@@ -612,7 +612,7 @@ pub trait AbstractServer {
     }
 
     /// The status of the import of the try push `push` (its revision; see
-    /// `try_import::normalize_rev`) into the tree (see `try_import`).  (Only
+    /// `try_import::normalize_push`) into the tree (see `try_import`).  (Only
     /// the server performing the tree's imports knows of those waiting and
     /// running: the web-server, whose `try-status` data API route this is.)
     async fn try_import_status(&self, _push: &str) -> Result<crate::try_import::ImportStatus> {

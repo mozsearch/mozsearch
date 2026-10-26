@@ -26,7 +26,8 @@ set -o pipefail # Check all commands in a pipeline
 #   ex: "Tasks automatically selected.") are listed as "-REV", which the page
 #   leaves out.
 # - Last, `refs/try/NAME` is set to the head in the source repo, so that its
-#   existence means the push is imported (ex: NAME is its hg revision).
+#   existence means the push is imported (ex: NAME is its hg revision, or a
+#   spec's pull request's SPEC/NUMBER; see build-spec-pr).
 #
 # Usage: import-try-push.sh SOURCE_GIT HISTORY_ROOT BRANCH NAME REV MAX_REVISIONS [SYNTAX_ARGS...]
 # - BRANCH is the tree's `git_branch` (or HEAD, for the history repos' HEAD).
@@ -78,7 +79,8 @@ BLAME_REF="refs/heads/$TRY_BRANCH" \
 build-commit-index "$SOURCE_GIT" "$HISTORY_ROOT/commit-index" "refs/heads/$TRY_BRANCH" \
     --accumulate --read "$BRANCH"
 
-mkdir -p "$HISTORY_ROOT/try-pushes"
+# (A spec's pull request's NAME is SPEC/NUMBER, in its spec's directory.)
+mkdir -p "$(dirname "$HISTORY_ROOT/try-pushes/$NAME")"
 if [[ -n "${PUSH_REVS:-}" ]]; then
     STACK=$(tr ' ' '\n' <<< "$PUSH_REVS" | grep .)
 else

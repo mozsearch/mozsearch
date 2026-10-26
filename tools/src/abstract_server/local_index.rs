@@ -156,10 +156,10 @@ fn bad_input(message: String) -> ServerError {
     })
 }
 
-/// A try push's revision, normalized (see `try_import::normalize_rev`).
+/// A try push's name, normalized (see `try_import::normalize_push`).
 fn normalized_push(push: &str) -> Result<String> {
-    crate::try_import::normalize_rev(push)
-        .ok_or_else(|| bad_input(format!("Not a try push's revision: {}", push)))
+    crate::try_import::normalize_push(push)
+        .ok_or_else(|| bad_input(format!("Not a try push: {}", push)))
 }
 
 fn validate_absoluteish_path(path: &str) -> Result<()> {

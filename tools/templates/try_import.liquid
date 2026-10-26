@@ -6,7 +6,7 @@
   push's explore page.
 {%- endcomment -%}
 <div class="try-import" data-status-url="/{{ tree }}/{{ status_path }}">
-  <h2>Try push {{ rev }}</h2>
+  <h2>{{ name | escape }}{% if link %} (<a href="{{ link | escape }}">on GitHub</a>){% endif %}</h2>
   {%- if notice %}
   <p class="try-import-notice">{{ notice | escape }}</p>
   {%- endif %}

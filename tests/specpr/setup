@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+
+set -x # Show commands
+set -eu # Errors/undefined vars are fatal
+set -o pipefail # Check all commands in a pipeline
+
+# A tree of specs like wubspecs (a forest repository; see
+# tools/src/spec_forest.rs), whose spec's upstream repository, standing for a
+# GitHub one, is made here from upstream/: trunk/N being its main branch's Nth
+# commit (its files, and N.message its message), and pulls/P/N its pull
+# request P's Nth commit, on top of the trunk's first, as `refs/pull/P/head`
+# (as GitHub has them), with forged authors and dates for stable SHAs.  Pull
+# request 1 adds to the Wattsi spec in two commits (which merge with the
+# trunk's second commit), the second also adding to the Bikeshed spec, and
+# pull request 2 changes what the trunk's second commit changed (which
+# conflicts).  The tree imports them as try pushes (see import-try).
+
+echo "Performing setup::upstream-repository step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
+WORKING_TREE=$(dirname "$GIT_ROOT")
+UPSTREAMS="$WORKING_TREE/upstream"
+rm -rf "$UPSTREAMS"
+mkdir -p "$UPSTREAMS/gizmo"
+pushd "$UPSTREAMS/gizmo"
+export GIT_AUTHOR_NAME="Searchfox"
+export GIT_AUTHOR_EMAIL="searchfox@localhost"
+export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+git init -b main
+commit() {
+    local dir=$1 date=$2
+    find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+    cp -r "$dir/." .
+    git add -A
+    GIT_AUTHOR_DATE=$date GIT_COMMITTER_DATE=$date git commit -q -F "$dir.message"
+}
+UP="$CONFIG_REPO/$TREE_NAME/upstream"
+commit "$UP/trunk/1" "2025-04-01T12:00+0000"
+TRUNK1=$(git rev-parse HEAD)
+commit "$UP/trunk/2" "2025-04-02T12:00+0000"
+for P in 1 2; do
+    git checkout -q --detach "$TRUNK1"
+    N=1
+    while [ -d "$UP/pulls/$P/$N" ]; do
+        commit "$UP/pulls/$P/$N" "2025-04-1${P}T1${N}:00+0000"
+        N=$((N + 1))
+    done
+    git update-ref "refs/pull/$P/head" HEAD
+done
+git checkout -q main
+popd
+
+echo "Performing setup::build-spec-forest step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
+# (The specs, with where their repositories are, which import-try reads too;
+# beside them rather than in the tree's index directory, where indexing copies
+# the config's.)
+sed "s#UPSTREAMS#$UPSTREAMS#" "$CONFIG_REPO/$TREE_NAME/specs.toml" > "$UPSTREAMS/specs.toml"
+rm -rf "$GIT_ROOT"
+build-spec-forest --fetch "$UPSTREAMS/specs.toml" "$GIT_ROOT"
+
+echo "Performing setup::build-history step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+
+# (From scratch, since it's quick.)
+rm -rf "$HISTORY_ROOT"
+mkdir -p $HISTORY_ROOT/rev-summaries
+for repo in syntax timeline; do
+    mkdir -p $HISTORY_ROOT/$repo
+    git init $HISTORY_ROOT/$repo
+done
+$MOZSEARCH_PATH/scripts/build-history.py $GIT_ROOT $HISTORY_ROOT
+
+echo "Performing setup::build-commit-index step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+build-commit-index $GIT_ROOT $HISTORY_ROOT/commit-index

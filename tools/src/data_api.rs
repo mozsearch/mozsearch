@@ -632,11 +632,12 @@ pub fn valid_tree_path(path: &str) -> bool {
 /// The most commits an explore page has (see `explore::MAX_COMMITS`).
 const MAX_EXPLORE_REVS: usize = 200;
 
-/// A try push's revision (see `try_import::normalize_rev`), from the `push`
+/// A try push's name (see `try_import::normalize_push`), from the `push`
 /// parameter.
 fn push_param(params: &Params) -> Result<String, ApiError> {
-    crate::try_import::normalize_rev(params.required("push")?)
-        .ok_or_else(|| bad("push must be a try push's revision (12 to 40 hexadecimal digits)"))
+    crate::try_import::normalize_push(params.required("push")?).ok_or_else(|| {
+        bad("push must be a try push's revision (12 to 40 hexadecimal digits), or a spec's pull request (SPEC/NUMBER)")
+    })
 }
 
 /// Whether `rev` is a revision (7 to 40 lowercase hexadecimal digits).
@@ -1172,7 +1173,9 @@ async fn route_body(
                         .bytes()
                         .all(|b| b.is_ascii_alphanumeric() || b"/_.-".contains(&b))
             }) {
-                return Err(bad("stack_url must be a page of the tree, ex: try/hg/<push>"));
+                return Err(bad(
+                    "stack_url must be a page of the tree, ex: try/hg/<push>",
+                ));
             }
             let data = server.explore(&revs, stack_url).await.map_err(error)?;
             Ok(Body::json(&data))

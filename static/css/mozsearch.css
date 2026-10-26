@@ -3239,6 +3239,11 @@ h2.sp-called-heading {
   /* (A try push's page before its import, as the explore page it becomes.) */
   padding: 0 1rem 1rem;
 }
+/* A spec's pull request's note and button importing its newer commits (see
+   explore.liquid), on one line. */
+.explore-pull-request form {
+  display: inline;
+}
 .explore-note {
   opacity: 0.8;
 }
