@@ -5,12 +5,15 @@
 //! `value`'s was 5.5 MB, mostly of 1,455 weekly summaries), so rewriting them
 //! was most of what build-timeline-tree wrote.  So once a token journal gets
 //! bigger than `SPLIT_BYTES`, the journal's file (the head) only keeps the
-//! records of the latest two ISO years (see `keep_from`), and each earlier
-//! year's records are in a segment beside it, `PATH.d/YEAR.ndjson`, with an
-//! empty header line.  Segments are rarely rewritten, since weeks that old
-//! only change when a merge brings in records for them, or rarely, a revision
-//! with an old date.  The head's header lists its segments' years, newest
-//! first.
+//! records of the current ISO year (and in its first weeks the previous one's;
+//! see `keep_from`), and each earlier year's records are in a segment beside
+//! it, `PATH.d/YEAR.ndjson`, with an empty header line.  Segments are rarely
+//! rewritten, since weeks that old only change when a merge brings in records
+//! for them.  The head's header lists its segments' years, newest first.
+//! (Heads of two years, past 256 KB, still had token journals be 77% of what
+//! build-timeline-tree gave git fast-import in firefox's 2020s: 24.75 of 32.3
+//! GiB in 4,000 revisions of 2020; with heads of a year past 32 KB, 7.87 of
+//! 15.4 GiB.)
 //!
 //! A journal version (ex: summaries' `preds`) names the head, and is the
 //! logical journal: the head's header and records, and then the segments'
@@ -19,19 +22,25 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+use chrono::{Datelike, Duration, NaiveDate, Weekday};
+use git2::{Repository, Tree};
 use serde_json::Value;
 
-use super::consolidation::line_iso_week;
+use super::consolidation::{IsoWeek, LAG_WEEKS, line_iso_week};
 
 /// How big a token journal can get before its older years go into segments.
-pub const SPLIT_BYTES: usize = 256 << 10;
+pub const SPLIT_BYTES: usize = 32 << 10;
 
 /// The first ISO year whose records a journal's head keeps when the newest
-/// revision is of ISO year `year`: the head keeps that year and the previous
-/// one, so that a new year doesn't make the summaries of the last weeks of
-/// the old one, which get summarized in January, go into a segment.
-pub fn keep_from(year: i32) -> i32 {
-    year - 1
+/// revision is of ISO week `week`: that week's year, but the previous one too
+/// until `LAG_WEEKS` and a week into the year, so that consolidation has
+/// summarized the old year's last weeks (which it does `LAG_WEEKS` after they
+/// begin) in the head before they go into a segment.
+pub fn keep_from(week: IsoWeek) -> i32 {
+    let (year, number) = week;
+    NaiveDate::from_isoywd_opt(year, number, Weekday::Mon)
+        .map(|monday| (monday - Duration::weeks(LAG_WEEKS + 1)).iso_week().year())
+        .unwrap_or(year)
 }
 
 /// The path of the segment of the journal at `journal` for `year`.
@@ -39,6 +48,36 @@ pub fn segment_path(journal: &Path, year: i32) -> PathBuf {
     let mut path = journal.as_os_str().to_owned();
     path.push(format!(".d/{}.ndjson", year));
     PathBuf::from(path)
+}
+
+/// The size of the journal at `path` in `tree`, with its segments, from their
+/// objects' headers (without reading them), if it has one.  (Its head alone
+/// has the latest year or two, of a journal past `SPLIT_BYTES`.)
+pub fn journal_bytes(repo: &Repository, tree: &Tree, path: &Path) -> Option<u64> {
+    let entry = tree.get_path(path).ok()?;
+    let odb = repo.odb().ok()?;
+    let mut bytes = odb.read_header(entry.id()).ok()?.0 as u64;
+    let mut segments = path.as_os_str().to_owned();
+    segments.push(".d");
+    if let Ok(dir) = tree.get_path(Path::new(&segments))
+        && let Ok(dir) = repo.find_tree(dir.id())
+    {
+        for entry in dir.iter() {
+            bytes += odb
+                .read_header(entry.id())
+                .map_or(0, |(size, _)| size as u64);
+        }
+    }
+    Some(bytes)
+}
+
+/// The path of the token journal whose segment is at `path`, if `path` is a
+/// segment's (see `segment_path`).
+pub fn segment_journal(path: &str) -> Option<&str> {
+    let (journal, file) = path.rsplit_once(".d/")?;
+    let year = file.strip_suffix(".ndjson")?;
+    (path.starts_with("tokens/") && journal.ends_with(".ndjson") && year.parse::<i32>().is_ok())
+        .then_some(journal)
 }
 
 /// The years of a journal's segments, newest first, from its header line.
@@ -266,16 +305,17 @@ mod tests {
 
     #[test]
     fn test_split_and_join() {
-        // Newest first: 2026 and 2025 stay in the head, 2024 and 2022 go.
+        // Newest first: 2026 and 2025 stay in the head (in 2026's first
+        // weeks), 2024 and 2022 go.
         let lines = vec![
-            detail("f", "2026-03-02"),
+            detail("f", "2026-01-12"),
             summary(&["e"], 2025, 40),
             summary(&["d", "c"], 2024, 7),
             summary(&["b"], 2024, 2),
             summary(&["a"], 2022, 30),
         ];
         let logical = journal("{}", &lines);
-        let segmented = split(&logical, keep_from(2026));
+        let segmented = split(&logical, keep_from((2026, 3)));
         assert_eq!(
             segmented.head,
             journal(r#"{"segments":[2024,2022]}"#, &lines[..2])
@@ -294,22 +334,45 @@ mod tests {
         );
         assert_eq!(joined, journal(r#"{"segments":[2024,2022]}"#, &lines));
         // A head whose oldest record is recent has nothing to take.
-        assert_eq!(take_old_years(&segmented.head, keep_from(2026)), None);
+        assert_eq!(take_old_years(&segmented.head, keep_from((2026, 3))), None);
         // The ISO year of 2024-12-30 is 2025.
         assert_eq!(line_year(&detail("x", "2024-12-30")), Some(2025));
+    }
+
+    #[test]
+    fn test_segment_journal() {
+        let journal = "tokens/fo/o_/foo.ndjson";
+        let segment = segment_path(Path::new(journal), 2019);
+        assert_eq!(segment_journal(segment.to_str().unwrap()), Some(journal));
+        assert_eq!(segment_journal(journal), None);
+        assert_eq!(segment_journal("files-delta/a.ndjson.d/2019.ndjson"), None);
+    }
+
+    #[test]
+    fn test_keep_from() {
+        // The previous year until 3 weeks into the year (`LAG_WEEKS` = 2), so
+        // that its last weeks get summarized in the head; then the year alone.
+        assert_eq!(LAG_WEEKS, 2);
+        assert_eq!(keep_from((2026, 1)), 2025);
+        assert_eq!(keep_from((2026, 3)), 2025);
+        assert_eq!(keep_from((2026, 4)), 2026);
+        assert_eq!(keep_from((2026, 52)), 2026);
+        // (2020 has 53 ISO weeks.)
+        assert_eq!(keep_from((2021, 3)), 2020);
+        assert_eq!(keep_from((2021, 4)), 2021);
     }
 
     #[test]
     fn test_take_old_years_and_add_to_segment() {
         // A head which a new year left with 2024's records.
         let lines = vec![
-            detail("g", "2026-01-20"),
+            detail("g", "2026-01-13"),
             summary(&["f"], 2025, 30),
             summary(&["e"], 2024, 50),
             summary(&["d"], 2024, 3),
         ];
         let head = journal(r#"{"segments":[2023]}"#, &lines);
-        let (kept, old) = take_old_years(&head, keep_from(2026)).unwrap();
+        let (kept, old) = take_old_years(&head, keep_from((2026, 3))).unwrap();
         assert_eq!(kept, journal(r#"{"segments":[2023]}"#, &lines[..2]));
         assert_eq!(
             old,

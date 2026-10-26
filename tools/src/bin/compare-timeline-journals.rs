@@ -11,6 +11,8 @@
 //
 // This compares every journal at the branch heads (`BLAME_REF`, defaulting to
 // HEAD, like the history tools), which must be for the same source revision.
+// A journal is its head and its segments (see `hyperblame::segments`), so
+// timelines whose journals are segmented differently compare equal.
 // With `--all-revisions`, it also compares the journals each revision changed
 // in either repo, as of that revision (or only every Nth revision, plus all
 // merges, with `--every N`).  Exits with an error status if anything differs.
@@ -29,6 +31,7 @@ use tools::file_format::history::timeline_future::FutureRecord;
 use tools::file_format::history::timeline_tokens::TokenDeltaRecord;
 use tools::hyperblame::consolidation::verify_summaries;
 use tools::hyperblame::journals::{JournalKind, JournalReader};
+use tools::hyperblame::segments;
 
 #[derive(Parser)]
 struct Cli {
@@ -175,7 +178,7 @@ fn journal_paths(repo: &Repository, commit: &Commit) -> Result<BTreeSet<String>,
             if entry.kind() == Some(ObjectType::Blob)
                 && let Ok(name) = entry.name()
             {
-                paths.insert(format!("{}/{}{}", kind.dir(), dir, name));
+                paths.insert(journal_of(format!("{}/{}{}", kind.dir(), dir, name)));
             }
             TreeWalkResult::Ok
         })?;
@@ -183,7 +186,17 @@ fn journal_paths(repo: &Repository, commit: &Commit) -> Result<BTreeSet<String>,
     Ok(paths)
 }
 
-/// The journal paths a commit changed relative to its first parent.
+/// The journal a file of the timeline is of: a segment's journal (whose
+/// version is the head's and its segments'; see `hyperblame::segments`), or
+/// itself.
+fn journal_of(path: String) -> String {
+    match segments::segment_journal(&path) {
+        Some(journal) => journal.to_string(),
+        None => path,
+    }
+}
+
+/// The journals whose files a commit changed relative to its first parent.
 fn changed_journal_paths(
     repo: &Repository,
     commit: &Commit,
@@ -202,7 +215,7 @@ fn changed_journal_paths(
     for delta in diff.deltas() {
         for file in [delta.old_file(), delta.new_file()] {
             if let Some(path) = file.path() {
-                paths.insert(path.to_string_lossy().into_owned());
+                paths.insert(journal_of(path.to_string_lossy().into_owned()));
             }
         }
     }

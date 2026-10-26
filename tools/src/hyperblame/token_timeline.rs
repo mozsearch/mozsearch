@@ -32,12 +32,13 @@
 //!
 //! At most `MAX_TOKENS` tokens (case-insensitively distinct), `MAX_VARIANTS`
 //! case variants each, reading their journals' heads and their yearly segments
-//! (big journals' heads only keep their last two ISO years; see `segments`),
-//! newest first, within `BUDGET` bytes in all (`MAX_TOKEN_BUDGET` a token,
-//! shared by its variants).  A token with a variant whose segments weren't all
-//! read has its line since the oldest week read of such variants (its
-//! `read_all` is false).  `MAX_EXPANSIONS` summaries expanded, and the markers'
-//! rev-summaries (see `token_history::read_rev_summary`).
+//! (big journals' heads only keep their latest ISO year, or two in a year's
+//! first weeks; see `segments`), newest first, within `BUDGET` bytes in all
+//! (`MAX_TOKEN_BUDGET` a token, shared by its variants).  A token with a
+//! variant whose segments weren't all read has its line since the oldest week
+//! read of such variants (its `read_all` is false).  `MAX_EXPANSIONS`
+//! summaries expanded, and the markers' rev-summaries (see
+//! `token_history::read_rev_summary`).
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -46,6 +47,7 @@ use git2::{Repository, Tree};
 use serde::{Deserialize, Serialize};
 
 use super::consolidation::iso_week;
+use super::segments;
 use super::token_blame::TreeHistory;
 use super::token_history::{
     came, case_variants, delta, gone, header_html, read_journal, read_rev_summary, summary_details,
@@ -337,13 +339,8 @@ fn other_tokens(
             .then_with(|| a.token.cmp(&b.token))
     });
     others.truncate(MAX_RANKED_OTHERS);
-    let odb = repo.odb().ok();
     let journal_kib = |token: &str| {
-        let size = tree
-            .get_path(&token_timeline_path(token))
-            .ok()
-            .and_then(|entry| odb.as_ref()?.read_header(entry.id()).ok())
-            .map_or(0, |(size, _)| size);
+        let size = segments::journal_bytes(repo, tree, &token_timeline_path(token)).unwrap_or(0);
         size as f64 / 1024.0
     };
     let mut scored: Vec<(f64, OtherToken)> = others

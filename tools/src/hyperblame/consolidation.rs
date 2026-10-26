@@ -50,7 +50,7 @@ use crate::file_format::history::timeline_future::{
     FutureFileChanges, FutureRecord, FutureSummaryRecord,
 };
 use crate::file_format::history::timeline_tokens::{TokenDeltaRecord, TokenDeltaSummaryRecord};
-use crate::hyperblame::journals::{JournalReader, expand_records};
+use crate::hyperblame::journals::{JournalReader, expand_records, expand_records_by_week};
 
 /// How many weeks before a revision's week a week must begin for the revision
 /// to summarize it.
@@ -424,16 +424,18 @@ pub fn prepend_unconsolidated<R: Summarize>(
 
 /// Union the versions of a journal from the parents of a merge, each with the
 /// journal version it came from; see the module docs.  `load` loads journal
-/// versions for expanding summaries.  Returns the records newest first.
+/// versions for expanding summaries, given the week whose records are wanted
+/// (see `journals::expand_records_by_week`).  Returns the records newest
+/// first.
 ///
 /// Without summaries, this deduplicates the detail records (the first version
 /// wins) and orders them by date (stably, so the earlier versions win ties).
 pub fn merge_journal_versions<R: Summarize>(
     versions: Vec<(JournalVersionRef, Vec<R>)>,
-    load: &mut impl FnMut(&JournalVersionRef) -> Result<Vec<R>, String>,
+    load: &mut impl FnMut(&JournalVersionRef, IsoWeek) -> Result<Vec<R>, String>,
 ) -> Result<Vec<R>, String> {
     merge_versions(versions, &mut |group, preds, week| {
-        let details = expand_records(group, load)?;
+        let details = expand_records_by_week(group, load)?;
         Ok(summarize(&details, preds, week))
     })
 }
@@ -1259,7 +1261,7 @@ mod tests {
                 load(version)
             })
             .unwrap();
-            let actual = merge_journal_versions(versions, &mut |version| {
+            let actual = merge_journal_versions(versions, &mut |version, _| {
                 actual_loads += 1;
                 load(version)
             })
@@ -1458,7 +1460,7 @@ mod tests {
             // (Only summarizing summaries again loads journal versions.)
             let mut loads = 0;
             let mut load_pred = loader(preds);
-            let merged = merge_journal_versions(versions, &mut |version| {
+            let merged = merge_journal_versions(versions, &mut |version, _| {
                 loads += 1;
                 load_pred(version)
             })
@@ -1675,7 +1677,7 @@ mod tests {
             })
             .collect();
         let merged =
-            merge_journal_versions(versions, &mut |_| Err("no preds".to_string())).unwrap();
+            merge_journal_versions(versions, &mut |_, _| Err("no preds".to_string())).unwrap();
         let full = record_file_contents_to_string(&header.unwrap(), &merged);
         let full_time = start.elapsed();
         (fast_time, full_time, fast.as_deref() == Some(full.as_str()))
@@ -1835,7 +1837,8 @@ mod tests {
         let s1 = summarize(&p1, vec![version("p1")], week1);
         let s2 = summarize(&p2, vec![version("p2")], week1);
         let s1_again = summarize(&p1, vec![version("other")], week1);
-        let mut load = loader(vec![(version("p1"), p1.clone()), (version("p2"), p2)]);
+        let mut load_version = loader(vec![(version("p1"), p1.clone()), (version("p2"), p2)]);
+        let mut load = |version: &JournalVersionRef, _| load_version(version);
 
         // Without summaries, details are deduplicated and ordered by date.
         let merged = merge_journal_versions(

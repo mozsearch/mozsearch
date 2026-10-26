@@ -47,6 +47,7 @@ use crate::file_format::history::timeline_files_delta::FileDeltaRecord;
 use crate::file_format::history::timeline_tokens::{TokenDeltaRecord, token_timeline_path};
 use crate::file_format::token_names::NameMatch;
 use crate::hyperblame::journals::JournalReader;
+use crate::hyperblame::segments;
 use crate::hyperblame::token_blame::TreeHistory;
 use crate::hyperblame::token_history::{
     case_variants, header_html, read_journal, read_rev_summary,
@@ -236,31 +237,10 @@ fn data_problem(message: String) -> ServerError {
     })
 }
 
-/// The size of a token's journal, with its segments, from their objects'
-/// headers (without reading them), if it has one.
+/// The size of a token's journal, with its segments (see
+/// `segments::journal_bytes`), if it has one.
 fn journal_bytes(repo: &Repository, tree: &Tree, token: &str) -> Option<u64> {
-    path_journal_bytes(repo, tree, &token_timeline_path(token))
-}
-
-/// The size of the journal at `path`, with its segments (see
-/// `journal_bytes`).
-fn path_journal_bytes(repo: &Repository, tree: &Tree, path: &Path) -> Option<u64> {
-    let path = path.to_path_buf();
-    let entry = tree.get_path(&path).ok()?;
-    let odb = repo.odb().ok()?;
-    let mut bytes = odb.read_header(entry.id()).ok()?.0 as u64;
-    let mut segments = path.into_os_string();
-    segments.push(".d");
-    if let Ok(dir) = tree.get_path(Path::new(&segments))
-        && let Ok(dir) = repo.find_tree(dir.id())
-    {
-        for entry in dir.iter() {
-            bytes += odb
-                .read_header(entry.id())
-                .map_or(0, |(size, _)| size as u64);
-        }
-    }
-    Some(bytes)
+    segments::journal_bytes(repo, tree, &token_timeline_path(token))
 }
 
 /// The tokens with journals a term stands for (its case variants, if
@@ -492,7 +472,7 @@ pub fn history_grep(
     let files_bytes: u64 = args
         .files
         .iter()
-        .filter_map(|file| path_journal_bytes(timeline, &tree, Path::new(&journal_path(file))))
+        .filter_map(|file| segments::journal_bytes(timeline, &tree, Path::new(&journal_path(file))))
         .sum();
     let has_values = !result.capture_names.is_empty();
     let use_files = !args.files.is_empty()

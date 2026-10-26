@@ -2423,7 +2423,7 @@ fn load_journal_week<H: DeserializeOwned + Default, R: DeserializeOwned>(
             .unwrap_or_default()
     };
     let Some(week) = week else {
-        return Ok(journal_version_text(import_helper, version)?
+        return Ok(journal_version_text(import_helper, version, None)?
             .map(|text| parse(&text))
             .unwrap_or_default());
     };
@@ -2435,7 +2435,9 @@ fn load_journal_week<H: DeserializeOwned + Default, R: DeserializeOwned>(
             text.clone()
         }
         None => {
-            let text = journal_version_text(import_helper, version)?.unwrap_or_default();
+            // (A week's records are the head's or its year's segment's.)
+            let text =
+                journal_version_text(import_helper, version, Some(week.0))?.unwrap_or_default();
             let mut lines = text.lines();
             let mut week_text = lines.next().unwrap_or("").to_string();
             for line in lines.filter(|line| line_iso_week(line).is_none_or(|w| w == week)) {
@@ -2460,32 +2462,39 @@ fn load_journal_week<H: DeserializeOwned + Default, R: DeserializeOwned>(
 }
 
 /// The text of a journal version, with its segments (see
-/// `hyperblame::segments`), if it exists: from the repo on disk if its
-/// commit is there, as it usually is, or else through git fast-import, which
-/// has the commits written since its last checkpoint.  (Reading summaries'
-/// preds through git fast-import, which answers once it has caught up with
-/// what we wrote, was a fifth of the main thread's time in the full firefox
-/// reblame's 2016.)
+/// `hyperblame::segments`), or if `year` is given, that year's segment alone,
+/// if it exists: from the repo on disk if its commit is there, as it usually
+/// is, or else through git fast-import, which has the commits written since
+/// its last checkpoint.  (Reading summaries' preds through git fast-import,
+/// which answers once it has caught up with what we wrote, was a fifth of the
+/// main thread's time in the full firefox reblame's 2016.)
 fn journal_version_text(
     import_helper: &mut FastImport,
     version: &JournalVersionRef,
+    year: Option<i32>,
 ) -> Result<Option<String>, String> {
     let oid = Oid::from_str(&version.timeline_rev).map_err(|e| e.to_string())?;
     let path = Path::new(&version.path);
     // (Through git fast-import if the commit isn't on disk after all.)
     let on_disk = import_helper
         .on_disk(&version.timeline_rev)
-        .then(|| journal_text_on_disk(&import_helper.readers, oid, path))
+        .then(|| journal_text_on_disk(&import_helper.readers, oid, path, year))
         .flatten();
     Ok(match on_disk {
         Some(text) => text,
-        None => journal_text_through_fast_import(import_helper, oid, path),
+        None => journal_text_through_fast_import(import_helper, oid, path, year),
     })
 }
 
 /// The text of the journal at `path` in `commit`, with its segments (see
-/// `hyperblame::segments`), if any, if the commit is on disk.
-fn journal_text_on_disk(readers: &DiskReaders, commit: Oid, path: &Path) -> Option<Option<String>> {
+/// `hyperblame::segments`), or `year`'s alone if given, if any, if the commit
+/// is on disk.
+fn journal_text_on_disk(
+    readers: &DiskReaders,
+    commit: Oid,
+    path: &Path,
+    year: Option<i32>,
+) -> Option<Option<String>> {
     let head = readers
         .try_read(commit, &[path.to_path_buf()])?
         .pop()
@@ -2496,6 +2505,7 @@ fn journal_text_on_disk(readers: &DiskReaders, commit: Oid, path: &Path) -> Opti
     let head = String::from_utf8(head).unwrap();
     let segment_paths: Vec<PathBuf> = segments::segment_years(head.lines().next().unwrap_or(""))
         .into_iter()
+        .filter(|segment_year| year.is_none_or(|year| year == *segment_year))
         .map(|year| segments::segment_path(path, year))
         .collect();
     if segment_paths.is_empty() {
@@ -2518,13 +2528,17 @@ fn journal_text_through_fast_import(
     import_helper: &mut FastImport,
     commit: Oid,
     path: &Path,
+    year: Option<i32>,
 ) -> Option<String> {
     let commit = TimelineRepoCommit::Commit(commit);
     let head = read_path_blob(import_helper, ReadFrom::Commit(&commit), path)?;
     let head = std::str::from_utf8(&head).unwrap();
     let mut segment_texts = vec![];
-    for year in segments::segment_years(head.lines().next().unwrap_or("")) {
-        let segment = segments::segment_path(path, year);
+    for segment_year in segments::segment_years(head.lines().next().unwrap_or("")) {
+        if year.is_some_and(|year| year != segment_year) {
+            continue;
+        }
+        let segment = segments::segment_path(path, segment_year);
         if let Some(text) = read_path_blob(import_helper, ReadFrom::Commit(&commit), &segment) {
             segment_texts.push(String::from_utf8(text.to_vec()).unwrap());
         }
@@ -2550,7 +2564,7 @@ fn split_bytes() -> usize {
 /// The first ISO year the heads of the token journals a revision dated
 /// `iso_date` writes keep; see `hyperblame::segments`.
 fn keep_from(iso_date: &str) -> Option<i32> {
-    iso_week(iso_date).map(|(year, _)| segments::keep_from(year))
+    iso_week(iso_date).map(segments::keep_from)
 }
 
 /// Write a journal's new head, given the first year it keeps if it's a token
@@ -2894,10 +2908,13 @@ impl<'r> MergeParents<'r> {
     }
 
     /// Load the records of a journal version, which must be in a commit on disk
-    /// (as the parents' journals and their predecessors are).
+    /// (as the parents' journals and their predecessors are): those of its head
+    /// and of its segment of `year` (a week's records are there), or all of
+    /// them without one.
     fn load_journal_version<H: DeserializeOwned + Default, R: DeserializeOwned>(
         &self,
         version: &JournalVersionRef,
+        year: Option<i32>,
     ) -> Result<Vec<R>, String> {
         let oid = Oid::from_str(&version.timeline_rev).map_err(|e| e.to_string())?;
         let tree = self
@@ -2905,7 +2922,10 @@ impl<'r> MergeParents<'r> {
             .find_commit(oid)
             .and_then(|commit| commit.tree())
             .map_err(|e| e.to_string())?;
-        Ok(journal_text_in(self.repo, &tree, Path::new(&version.path))
+        let skip = |segment_year, _| year.is_some_and(|year| segment_year != year);
+        let text = journal_parts_in(self.repo, &tree, Path::new(&version.path), skip)
+            .map(|parts| parts.joined());
+        Ok(text
             .and_then(|text| read_record_file_contents::<H, R>(text.as_bytes()))
             .map(|(_, records)| records)
             .unwrap_or_default())
@@ -3221,13 +3241,14 @@ fn union_journal_texts<H: DeserializeOwned + Default + Serialize, R: Summarize>(
             }
         }
         // A version is often the pred of several of the summaries.
-        let mut loaded: HashMap<JournalVersionRef, Vec<R>> = HashMap::new();
-        let records = merge_journal_versions(versions, &mut |version| {
-            if let Some(records) = loaded.get(version) {
+        let mut loaded: HashMap<(JournalVersionRef, i32), Vec<R>> = HashMap::new();
+        let records = merge_journal_versions(versions, &mut |version, (year, _)| {
+            let key = (version.clone(), year);
+            if let Some(records) = loaded.get(&key) {
                 return Ok(records.clone());
             }
-            let records = parents.load_journal_version::<H, R>(version)?;
-            loaded.insert(version.clone(), records.clone());
+            let records = parents.load_journal_version::<H, R>(version, Some(year))?;
+            loaded.insert(key, records.clone());
             Ok(records)
         })
         .unwrap();

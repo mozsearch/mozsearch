@@ -31,6 +31,7 @@ use crate::file_format::history::timeline_common::{JournalVersionRef, TimelineRe
 use crate::file_format::history::timeline_files_delta::FileDeltaRecord;
 use crate::file_format::history::timeline_future::FutureRecord;
 use crate::file_format::history::timeline_tokens::{TokenDeltaRecord, token_timeline_path};
+use crate::hyperblame::consolidation::IsoWeek;
 use crate::hyperblame::segments;
 
 /// A limit on how deeply summaries can refer to other summaries, so that a
@@ -84,10 +85,10 @@ impl JournalKind {
 }
 
 /// Reads journals from a timeline repo, caching the journal versions it loads
-/// (which expansion can load repeatedly).
+/// (which expansion can load repeatedly), whole or with one year's segment.
 pub struct JournalReader<'a> {
     repo: &'a Repository,
-    cache: HashMap<JournalVersionRef, Option<Rc<String>>>,
+    cache: HashMap<(JournalVersionRef, Option<i32>), Option<Rc<String>>>,
 }
 
 impl<'a> JournalReader<'a> {
@@ -98,11 +99,16 @@ impl<'a> JournalReader<'a> {
         }
     }
 
-    /// The contents of a journal version (with its segments; see
-    /// `hyperblame::segments`), or None if that commit doesn't have the
-    /// journal.
-    fn contents(&mut self, version: &JournalVersionRef) -> Result<Option<Rc<String>>, String> {
-        if let Some(contents) = self.cache.get(version) {
+    /// The contents of a journal version (with its segments, or if `year` is
+    /// given, that year's segment alone; see `hyperblame::segments`), or None
+    /// if that commit doesn't have the journal.
+    fn contents(
+        &mut self,
+        version: &JournalVersionRef,
+        year: Option<i32>,
+    ) -> Result<Option<Rc<String>>, String> {
+        let key = (version.clone(), year);
+        if let Some(contents) = self.cache.get(&key) {
             return Ok(contents.clone());
         }
         let describe = |e: git2::Error| format!("{}:{}: {}", version.timeline_rev, version.path, e);
@@ -128,8 +134,10 @@ impl<'a> JournalReader<'a> {
             Some(head) => {
                 let header = head.lines().next().unwrap_or("");
                 let mut segments = vec![];
-                for year in segments::segment_years(header) {
-                    segments.extend(read(&segments::segment_path(path, year))?);
+                for segment_year in segments::segment_years(header) {
+                    if year.is_none_or(|year| year == segment_year) {
+                        segments.extend(read(&segments::segment_path(path, segment_year))?);
+                    }
                 }
                 Some(Rc::new(segments::join(
                     &head,
@@ -138,7 +146,7 @@ impl<'a> JournalReader<'a> {
             }
             None => None,
         };
-        self.cache.insert(version.clone(), contents.clone());
+        self.cache.insert(key, contents.clone());
         Ok(contents)
     }
 
@@ -148,7 +156,18 @@ impl<'a> JournalReader<'a> {
         &mut self,
         version: &JournalVersionRef,
     ) -> Result<Vec<R>, String> {
-        let Some(contents) = self.contents(version)? else {
+        self.year_records(version, None)
+    }
+
+    /// `records`, but of the head and `year`'s segment alone, if given: with a
+    /// week's records (whose year's segment, if they aren't in the head, has
+    /// them).
+    fn year_records<R: DeserializeOwned>(
+        &mut self,
+        version: &JournalVersionRef,
+        year: Option<i32>,
+    ) -> Result<Vec<R>, String> {
+        let Some(contents) = self.contents(version, year)? else {
             return Ok(vec![]);
         };
         contents
@@ -171,7 +190,9 @@ impl<'a> JournalReader<'a> {
         &mut self,
         records: Vec<R>,
     ) -> Result<Vec<R>, String> {
-        expand_records(records, &mut |version| self.records(version))
+        expand_records_by_week(records, &mut |version, (year, _)| {
+            self.year_records(version, Some(year))
+        })
     }
 
     fn records_json_as<R: TimelineRecord + DeserializeOwned + Serialize>(
@@ -211,6 +232,17 @@ pub fn expand_records<R: TimelineRecord>(
     records: Vec<R>,
     load: &mut impl FnMut(&JournalVersionRef) -> Result<Vec<R>, String>,
 ) -> Result<Vec<R>, String> {
+    expand_records_by_week(records, &mut |version, _| load(version))
+}
+
+/// `expand_records`, with `load` given the week of the summary whose pred it
+/// loads too: what expanding the summary needs of the pred is its records of
+/// that week, so of the journal's head and that week's year's segment (see
+/// `hyperblame::segments`), rather than all of a big journal's years.
+pub fn expand_records_by_week<R: TimelineRecord>(
+    records: Vec<R>,
+    load: &mut impl FnMut(&JournalVersionRef, IsoWeek) -> Result<Vec<R>, String>,
+) -> Result<Vec<R>, String> {
     let mut seen = HashSet::new();
     expand_wanted(records, None, &mut seen, load, 0)
 }
@@ -221,7 +253,7 @@ fn expand_wanted<R: TimelineRecord>(
     records: Vec<R>,
     wanted: Option<&HashSet<String>>,
     seen: &mut HashSet<String>,
-    load: &mut impl FnMut(&JournalVersionRef) -> Result<Vec<R>, String>,
+    load: &mut impl FnMut(&JournalVersionRef, IsoWeek) -> Result<Vec<R>, String>,
     depth: usize,
 ) -> Result<Vec<R>, String> {
     if depth > MAX_EXPANSION_DEPTH {
@@ -241,8 +273,9 @@ fn expand_wanted<R: TimelineRecord>(
                 continue;
             }
             let mut found = HashSet::new();
+            let (year, week, _) = summary.iso_week_range;
             for pred in &summary.preds {
-                let pred_records = load(pred)?;
+                let pred_records = load(pred, (year as i32, week as u32))?;
                 let mut pred_seen = seen.clone();
                 for detail in
                     expand_wanted(pred_records, Some(&needed), &mut pred_seen, load, depth + 1)?
@@ -430,15 +463,20 @@ mod tests {
         let repo = Repository::init(&dir).unwrap();
         let path = "tokens/fo/o_/foo.ndjson";
         let line = |record: &TokenDeltaRecord| serde_json::to_string(record).unwrap();
-        // A head of recent records whose 2019 records are in a segment.
+        // A head of recent records whose 2019 and 2018 records are in
+        // segments, 2018's being unreadable.
         let files = [
             (
                 path.to_string(),
-                format!("{{\"segments\":[2019]}}\n{}", line(&detail("c", 3))),
+                format!("{{\"segments\":[2019,2018]}}\n{}", line(&detail("c", 3))),
             ),
             (
                 format!("{}.d/2019.ndjson", path),
                 format!("{{}}\n{}\n{}", line(&detail("b", 2)), line(&detail("a", 1))),
+            ),
+            (
+                format!("{}.d/2018.ndjson", path),
+                "{}\nnot a record".to_string(),
             ),
         ];
         let mut index = git2::Index::new().unwrap();
@@ -466,15 +504,33 @@ mod tests {
             .commit(None, &sig, &sig, "journal", &tree, &[])
             .unwrap();
 
-        // The journal's records are the head's and then the segment's.
+        // The journal's records are the head's and then the segments'.
+        let version = JournalVersionRef {
+            timeline_rev: commit.to_string(),
+            path: path.to_string(),
+        };
         let mut reader = JournalReader::new(&repo);
-        let records = reader
-            .records::<TokenDeltaRecord>(&JournalVersionRef {
-                timeline_rev: commit.to_string(),
-                path: path.to_string(),
-            })
+        let err = reader.records::<TokenDeltaRecord>(&version).unwrap_err();
+        assert!(err.contains("not a record"), "{}", err);
+        assert_eq!(
+            revs(
+                &reader
+                    .year_records::<TokenDeltaRecord>(&version, Some(2019))
+                    .unwrap()
+            ),
+            vec!["c", "b", "a"]
+        );
+
+        // Expanding a summary of a 2019 week reads the head and 2019's segment
+        // of its pred, not 2018's.
+        let TokenDeltaRecord::Summary(mut of_2019) = summary(&["b"], &[(commit, path)], 10) else {
+            panic!();
+        };
+        of_2019.desc.iso_week_range = (2019, 10, 10);
+        let expanded = reader
+            .expand(vec![TokenDeltaRecord::Summary(of_2019)])
             .unwrap();
-        assert_eq!(revs(&records), vec!["c", "b", "a"]);
+        assert_eq!(revs(&expanded), vec!["b"]);
 
         std::fs::remove_dir_all(&dir).unwrap();
     }

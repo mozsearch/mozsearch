@@ -720,16 +720,15 @@ fn analyze(journal: Journal) -> Analysis {
 }
 
 /// The journals' tokens of `token`'s case variants, the token first, then by
-/// their journals' sizes, biggest first.
+/// their journals' sizes (with their segments), biggest first.
 pub(crate) fn case_variants(repo: &Repository, tree: &Tree, token: &str) -> Vec<String> {
     let path = token_timeline_path(token);
     let lower = token.to_lowercase();
-    let mut variants: Vec<(usize, String)> = vec![];
+    let mut variants: Vec<(u64, String)> = vec![];
     if let Some(dir) = path.parent()
         && let Ok(entry) = tree.get_path(dir)
         && let Ok(dir_tree) = repo.find_tree(entry.id())
     {
-        let odb = repo.odb().ok();
         for entry in dir_tree.iter() {
             let Some(variant) = entry
                 .name()
@@ -741,12 +740,13 @@ pub(crate) fn case_variants(repo: &Repository, tree: &Tree, token: &str) -> Vec<
             if variant.to_lowercase() != lower {
                 continue;
             }
-            let size = odb
-                .as_ref()
-                .and_then(|odb| odb.read_header(entry.id()).ok())
-                .map_or(0, |(size, _)| size);
+            let size = segments::journal_bytes(repo, tree, &dir.join(entry.name().unwrap()));
             variants.push((
-                if variant == token { usize::MAX } else { size },
+                if variant == token {
+                    u64::MAX
+                } else {
+                    size.unwrap_or(0)
+                },
                 variant.to_string(),
             ));
         }
@@ -1153,7 +1153,7 @@ pub(crate) mod tests {
                 token_path("Doohickey"),
                 journal(r#"{"segments":[2012]}"#, &[]),
             ),
-            // (A big journal's head, with its last two years, and its older
+            // (A big journal's head, with its last year or two, and its older
             // years' segments; and a case variant.)
             (
                 token_path("Widget"),
@@ -1360,6 +1360,32 @@ pub(crate) mod tests {
         assert_eq!((found.removed, found.since.as_str()), (500, "2012-07-30"));
         assert!(found.read_all);
 
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn test_case_variants() {
+        let dir = std::env::temp_dir().join(format!("case-variants-{}", std::process::id()));
+        let repo = Repository::init(&dir).unwrap();
+        let journal = |bytes: usize| format!("{{}}\n{}", "x".repeat(bytes));
+        // Foo's head is the smallest, but with its segment, its journal is the
+        // biggest.
+        let commit = commit_files(
+            &repo,
+            None,
+            &[
+                (token_path("foo"), journal(100)),
+                (token_path("Foo"), journal(50)),
+                (
+                    format!("{}.d/2019.ndjson", token_path("Foo")),
+                    journal(1000),
+                ),
+                (token_path("FOO"), journal(500)),
+            ],
+        );
+        let tree = repo.find_commit(commit).unwrap().tree().unwrap();
+        assert_eq!(case_variants(&repo, &tree, "foo"), ["foo", "Foo", "FOO"]);
+        assert_eq!(case_variants(&repo, &tree, "FOO"), ["FOO", "Foo", "foo"]);
         fs::remove_dir_all(dir).unwrap();
     }
 
