@@ -663,12 +663,18 @@ const Router = new (class Router {
 const SettingsBinder = new (class SettingsBinder {
   constructor() {
     // If we are the settings page, bind form elements and do any template
-    // expansions for the feature gate select payloads.  Our JS script is
-    // currently loaded as part of the `scroll_footer.liquid` template which
-    // comes after all content and so the DOM should therefore already exist.
+    // expansions for the feature gate select payloads, once the page's
+    // contents are there (this script is in the head; see `EarlyLayout`).
     if (Router.page === "settings.html") {
-      this.bindAndExpandTemplatedForms(false);
-      this.setupExportImport();
+      const bind = () => {
+        this.bindAndExpandTemplatedForms(false);
+        this.setupExportImport();
+      };
+      if (document.readyState == "loading") {
+        document.addEventListener("DOMContentLoaded", bind);
+      } else {
+        bind();
+      }
     }
   }
 
@@ -832,3 +838,47 @@ const SettingsBinder = new (class SettingsBinder {
     });
   }
 })();
+
+/**
+ * The parts of pages' layout which depend on settings and remembered choices,
+ * applied by inline scripts as the parts arrive (this script being in the
+ * head), rather than once the whole page has loaded, which can take a while
+ * (ex: a big query's results), so that the page doesn't render one way and
+ * then jump to another.
+ */
+const EarlyLayout = {
+  /**
+   * The fancy bar (see panel.js's `setupFancyBar`): the navigation panel
+   * docked as a sidebar, whose width the page leaves to it while it's
+   * expanded.  Right after the panel's markup.
+   */
+  panel() {
+    if (!Settings.fancyBar.enabled) {
+      return;
+    }
+    const root = document.documentElement;
+    root.classList.add("fancy-bar");
+    const stored = parseInt(localStorage.getItem(storageKey("fancy-bar-width")), 10);
+    if (stored > 0) {
+      root.style.setProperty("--fancy-bar-width", `${stored}px`);
+    }
+    const icon = document.querySelector("#panel .navpanel-toggle-icon");
+    root.classList.toggle("fancy-bar-open", !!icon?.classList.contains("expanded"));
+  },
+
+  /**
+   * The lenses (see navigation_panel.liquid), as they were last left: each
+   * one's class on the root (ex: `lens-changes`), which shows more of the
+   * page, and its button's state.  Right after their buttons.
+   */
+  lenses() {
+    for (const button of document.querySelectorAll(".lens-toggle")) {
+      EarlyLayout.setLens(button, localStorage.getItem(storageKey(`lens-${button.dataset.lens}`)) == "1");
+    }
+  },
+
+  setLens(button, on) {
+    document.documentElement.classList.toggle(`lens-${button.dataset.lens}`, on);
+    button.setAttribute("aria-pressed", on ? "true" : "false");
+  },
+};

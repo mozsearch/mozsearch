@@ -21,6 +21,13 @@
  * The selections, the grouping and the sorting go in the URL's query
  * (`facet-KEY=VALUE`, repeated, `group-by=KEY` and `sort-by=size`), so links
  * reproduce the view.  The box of facets is collapsible, which we remember.
+ *
+ * Values with nested values have a button showing and hiding them (with
+ * Shift, theirs too), and levels of values with elided ones (see
+ * `FacetView::new` in facets.rs), a button showing those; which show at first
+ * is the server's choice.  Hierarchical facets' labels have buttons showing
+ * all of their values, or only the biggest at the top.  Selected values
+ * always show.
  */
 (function () {
   const bar = document.querySelector(".facet-box");
@@ -196,7 +203,86 @@
     }
   }
 
+  // A value's nested values (`group` being its `.facet-value-group`).
+  function showNested(group, shown) {
+    const nested = group.querySelector(":scope > .facet-nested");
+    if (!nested) {
+      return;
+    }
+    nested.hidden = !shown;
+    group.classList.toggle("facet-open", shown);
+    const expand = group.querySelector(":scope > .facet-value-row > .facet-expand");
+    expand.setAttribute("aria-expanded", shown ? "true" : "false");
+    expand.querySelector(".facet-expand-icon").classList.toggle("expanded", shown);
+  }
+
+  // The elided values of the level of a "N more" button.
+  function showMore(more, shown) {
+    for (const group of more.parentElement.querySelectorAll(":scope > .facet-value-group[data-elided]")) {
+      group.hidden = !shown;
+    }
+    more.setAttribute("aria-expanded", shown ? "true" : "false");
+    more.textContent = shown ? "fewer" : `${more.dataset.more} more`;
+  }
+
+  // Show a value, if it's elided or in collapsed values.
+  function reveal(button) {
+    for (let group = button.closest(".facet-value-group"); group;
+         group = group.parentElement.closest(".facet-value-group")) {
+      group.hidden = false;
+      const parent = group.parentElement.closest(".facet-value-group");
+      if (parent) {
+        showNested(parent, true);
+      }
+    }
+  }
+
+  function revealSelected() {
+    for (const { button, facet, value } of buttons) {
+      if (selected.get(facet)?.has(value)) {
+        reveal(button);
+      }
+    }
+  }
+
   bar.addEventListener("click", event => {
+    const expand = event.target.closest(".facet-expand");
+    const more = event.target.closest(".facet-more");
+    const all = event.target.closest(".facet-expand-all, .facet-collapse-all");
+    if (expand) {
+      const group = expand.closest(".facet-value-group");
+      const shown = expand.getAttribute("aria-expanded") != "true";
+      showNested(group, shown);
+      if (event.shiftKey) {
+        for (const nested of group.querySelectorAll(".facet-value-group")) {
+          showNested(nested, shown);
+        }
+        for (const nestedMore of group.querySelectorAll(".facet-more")) {
+          showMore(nestedMore, shown);
+        }
+      }
+      if (!shown) {
+        revealSelected();
+      }
+      return;
+    }
+    if (more) {
+      showMore(more, more.getAttribute("aria-expanded") != "true");
+      revealSelected();
+      return;
+    }
+    if (all) {
+      const shown = all.classList.contains("facet-expand-all");
+      const facet = all.closest(".facet");
+      for (const group of facet.querySelectorAll(".facet-value-group")) {
+        showNested(group, shown);
+      }
+      for (const facetMore of facet.querySelectorAll(".facet-more")) {
+        showMore(facetMore, shown);
+      }
+      revealSelected();
+      return;
+    }
     const button = event.target.closest(".facet-value");
     if (button) {
       const facet = button.closest(".facet").dataset.facet;
@@ -270,6 +356,7 @@
   setExpanded(localStorage.getItem(storageKey("facets-collapsed")) != "1");
 
   loadState();
+  revealSelected();
   if (groupBy && (groupBy.value != defaultGroupBy || (sortBy && sortBy.value != defaultSortBy))) {
     regroup();
   }

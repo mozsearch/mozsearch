@@ -12,6 +12,20 @@
            else
            %}aria-expanded="false" aria-hidden="true" style="display: none;"{%
            endif %}>
+{%- comment %}(The page's lenses, if it has any: toggles showing more of its
+contents, ex: "changes" for a query's results' history digests, which are
+remembered and applied as soon as their buttons are there, so that the
+contents don't change once loaded; see `EarlyLayout` in settings.js and
+panel.js's `setupLensToggles`.){% endcomment -%}
+{%- if panel_lenses %}
+  <div class="lens-bar">
+    <span class="lens-label">Lenses:</span>
+    {%- for lens in panel_lenses %}
+    <button type="button" class="lens-toggle" data-lens="{{ lens.key | escape }}" aria-pressed="false" title="{{ lens.title | escape }}">{{ lens.name | escape }}</button>
+    {%- endfor %}
+  </div>
+  <script>typeof EarlyLayout != "undefined" && EarlyLayout.lenses();</script>
+{%- endif %}
 {%- comment %}(The facets filtering the page's list of files, if it has
 one, ex: an explore page's or a query's results, and its choices of grouping
 and sorting the files, if it has them; see facet_bar.liquid.){% endcomment -%}
@@ -66,3 +80,4 @@ tests' CI results.){% endcomment -%}
 {%- endif %}
   </section>
 </div>
+<script>typeof EarlyLayout != "undefined" && EarlyLayout.panel();</script>

@@ -15,6 +15,7 @@ input_file: inputs/web/templates/help_file__html
   <link href="/tests/static/css/mozsearch.css" rel="stylesheet" media="screen"/>
   <link href="/tests/static/css/icons.css" rel="stylesheet" media="screen" />
   <link href="/tests/static/css/font-icons.css" rel="stylesheet" media="screen" />
+  <script src="/tests/static/js/settings.js"></script>
 </head>
 
 <body>
@@ -73,6 +74,7 @@ input_file: inputs/web/templates/help_file__html
   <section id="panel-content" aria-expanded="false" aria-hidden="true" style="display: none;">
   </section>
 </div>
+<script>typeof EarlyLayout != "undefined" && EarlyLayout.panel();</script>
 
     <div class="intro">
 
@@ -90,7 +92,6 @@ indexes C++ and JavaScript code. This is the help page for Searchfox.
   </div>
   
 <script src="/tree-list.js"></script>
-<script src="/tests/static/js/settings.js"></script>
 <script src="/tests/static/js/search.js"></script>
 <script src="/tests/static/js/context-menu.js"></script>
 <script src="/tests/static/js/panel.js"></script>

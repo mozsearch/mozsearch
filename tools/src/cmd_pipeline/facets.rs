@@ -261,18 +261,114 @@ impl MaybeFacetGroup {
 }
 
 /// A facet of a list of files (see `file_facets`), for facet_bar.liquid: its
-/// key (as facets.js and URLs name it), label, and values.
+/// key (as facets.js and URLs name it), label, and values, whether any of them
+/// have nested values, and how many of them are elided (see `FacetView::new`).
 #[derive(Serialize)]
 pub struct FacetView {
     pub key: &'static str,
     pub label: String,
     pub values: Vec<FacetValueView>,
+    pub nested: bool,
+    pub more: u32,
+}
+
+/// How many of a facet's values show at first, and at most at each level of
+/// a hierarchical facet's (counting the button showing the level's others).
+const FACET_SHOWN: usize = 10;
+
+impl FacetView {
+    /// The facet, with which of its values show at first: at each level, if
+    /// it has more than `FACET_SHOWN`, the biggest (by count) but one, in
+    /// their order, with the others elided (behind a button showing them);
+    /// and the nested values of the biggest values, biggest first, as long as
+    /// the values showing stay within `FACET_SHOWN` (with the biggest of a
+    /// value's nested values, if they don't all fit, but at least two; and
+    /// not those of smaller values if the biggest's don't fit), since a facet
+    /// is for narrowing results down a step at a time, and a long list of
+    /// values, nested in others, isn't.
+    pub fn new(key: &'static str, label: String, mut values: Vec<FacetValueView>) -> FacetView {
+        fn elide_all(values: &mut [FacetValueView]) {
+            for value in values.iter_mut() {
+                value.more = elide(&mut value.values, FACET_SHOWN).1;
+                elide_all(&mut value.values);
+            }
+        }
+        let (mut showing, more) = elide(&mut values, FACET_SHOWN);
+        elide_all(&mut values);
+
+        // The values showing with nested values, as their indices at each
+        // level, which are expanded biggest first if theirs fit.
+        fn candidates(values: &[FacetValueView], at: &[usize], into: &mut Vec<Vec<usize>>) {
+            for (i, value) in values.iter().enumerate() {
+                if !value.elided && !value.values.is_empty() {
+                    into.push([at, &[i]].concat());
+                }
+            }
+        }
+        fn node<'v>(values: &'v mut [FacetValueView], at: &[usize]) -> &'v mut FacetValueView {
+            let (first, rest) = at.split_first().unwrap();
+            rest.iter()
+                .fold(&mut values[*first], |value, i| &mut value.values[*i])
+        }
+        let mut pending = vec![];
+        candidates(&values, &[], &mut pending);
+        while !pending.is_empty() {
+            let biggest = (0..pending.len())
+                .max_by_key(|i| {
+                    let count = node(&mut values, &pending[*i]).count;
+                    (count, std::cmp::Reverse(*i))
+                })
+                .unwrap();
+            let at = pending.remove(biggest);
+            let room = FACET_SHOWN.saturating_sub(showing);
+            let value = node(&mut values, &at);
+            if room < value.values.len().min(3) {
+                break;
+            }
+            for nested in value.values.iter_mut() {
+                nested.elided = false;
+            }
+            let (shown, more) = elide(&mut value.values, room);
+            value.more = more;
+            value.expanded = true;
+            showing += shown;
+            let mut nested = vec![];
+            candidates(&value.values, &at, &mut nested);
+            pending.extend(nested);
+        }
+        let nested = values.iter().any(|value| !value.values.is_empty());
+        FacetView {
+            key,
+            label,
+            values,
+            nested,
+            more,
+        }
+    }
+}
+
+/// Elide all but `limit` of `values`, if there are more: the biggest ones but
+/// one (in their order), and a button for the others.  Returns how many show
+/// (counting the button) and how many are elided.
+fn elide(values: &mut [FacetValueView], limit: usize) -> (usize, u32) {
+    if values.len() <= limit {
+        return (values.len(), 0);
+    }
+    let mut by_count: Vec<usize> = (0..values.len()).collect();
+    by_count.sort_by_key(|i| std::cmp::Reverse(values[*i].count));
+    let shown = limit.saturating_sub(1).max(1);
+    for i in &by_count[shown..] {
+        values[*i].elided = true;
+    }
+    (shown + 1, (values.len() - shown) as u32)
 }
 
 /// A value of a facet (see `ResultFacetGroup`): its identity (its group's
 /// label, ex: "dom/base/"), its name relative to its parent's (ex: "base/") and
-/// a description, how many files it has, and its nested values.
-#[derive(Serialize)]
+/// a description, how many files it has, and its nested values.  And whether
+/// it shows at first (see `FacetView::new`), and its nested values, and how
+/// many of those are elided.
+#[derive(Default, Serialize)]
 pub struct FacetValueView {
     pub value: String,
     pub name: String,
@@ -282,6 +378,9 @@ pub struct FacetValueView {
     /// A sparkline of the value's history digests (see `last_changed_facet`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sparkline: Option<String>,
+    pub elided: bool,
+    pub expanded: bool,
+    pub more: u32,
 }
 
 /// A file to facet (see `file_facets`): its path, its path kind and whether
@@ -369,6 +468,7 @@ pub fn last_changed_facet<'a>(
                 count: paths.len() as u32,
                 values: vec![],
                 sparkline: (!total.is_empty()).then(|| sparkline(total)),
+                ..Default::default()
             })
         })
         .collect();
@@ -377,11 +477,7 @@ pub fn last_changed_facet<'a>(
         .map(|(path, values)| (path, values.into_iter().map(String::from).collect()))
         .collect();
     Some((
-        FacetView {
-            key: "recency",
-            label: "Last changed".to_string(),
-            values,
-        },
+        FacetView::new("recency", "Last changed".to_string(), values),
         file_values,
     ))
 }
@@ -438,11 +534,7 @@ impl PpFacet {
         let mut shown = HashSet::new();
         let values = pp_views(&String::new(), 0, &paths, &nested, &mut shown);
         let facet = PpFacet {
-            view: FacetView {
-                key: "pp",
-                label: "Preprocessor".to_string(),
-                values,
-            },
+            view: FacetView::new("pp", "Preprocessor".to_string(), values),
             shown,
         };
         let mut file_values: HashMap<String, BTreeSet<String>> = HashMap::new();
@@ -527,6 +619,7 @@ fn pp_views(
             count: count(&PP_NONE.to_string()),
             values: vec![],
             sparkline: None,
+            ..Default::default()
         });
     }
     for value in conditions {
@@ -539,6 +632,7 @@ fn pp_views(
             count: count(value),
             values: pp_views(value, depth + 1, paths, nested, shown),
             sparkline: None,
+            ..Default::default()
         });
     }
     if !folded.is_empty() {
@@ -561,6 +655,7 @@ fn pp_views(
             count: files.len() as u32,
             values: vec![],
             sparkline: None,
+            ..Default::default()
         });
     }
     if values.contains(PP_UNKNOWN) {
@@ -573,6 +668,7 @@ fn pp_views(
             count: count(&PP_UNKNOWN.to_string()),
             values: vec![],
             sparkline: None,
+            ..Default::default()
         });
     }
     views
@@ -616,11 +712,7 @@ impl CtxtraFacet {
         let mut shown = HashSet::new();
         let values = ctxtra_views(&String::new(), 0, &paths, &nested, &mut shown);
         let facet = CtxtraFacet {
-            view: FacetView {
-                key: "ctxtra",
-                label: "Placement".to_string(),
-                values,
-            },
+            view: FacetView::new("ctxtra", "Placement".to_string(), values),
             shown,
         };
         let mut file_values: HashMap<String, BTreeSet<String>> = HashMap::new();
@@ -692,6 +784,7 @@ fn ctxtra_views(
             count: count(&String::new()),
             values: vec![],
             sparkline: None,
+            ..Default::default()
         });
     }
     for value in places {
@@ -704,6 +797,7 @@ fn ctxtra_views(
             count: count(value),
             values: ctxtra_views(value, depth + 1, paths, nested, shown),
             sparkline: None,
+            ..Default::default()
         });
     }
     if !folded.is_empty() {
@@ -722,6 +816,7 @@ fn ctxtra_views(
             count: files.len() as u32,
             values: vec![],
             sparkline: None,
+            ..Default::default()
         });
     }
     views
@@ -737,9 +832,11 @@ fn truncated(text: &str, max: usize) -> String {
 
 /// The facets of a list of files (ex: an `/explore/` page's, or `/query/`'s
 /// results'), for facet_bar.liquid and facets.js: their path kinds (in the
-/// tree's order), their subsystems (by product and then component), and their
-/// directories (the "Path" facet of compile-results), and each file's data
-/// for facets.js, by path.
+/// tree's order), their subsystems (by product and then component, nested by
+/// the components' "/"s, ex: "Core/DOM/Workers" in "Core/DOM/" in "Core/";
+/// see per-file-info.toml), and their directories (the "Path" facet of
+/// compile-results), the biggest first, and each file's data for facets.js, by
+/// path.
 pub fn file_facets(
     files: &[FacetFile],
     kinds: &PathKinds,
@@ -751,14 +848,27 @@ pub fn file_facets(
     let mut kind_facet = MaybeFacetRoot::new(ResultFacetKind::PathByKind);
     let mut subsystem_facet = MaybeFacetRoot::new(ResultFacetKind::PathBySubsystem);
     let mut dir_facet = MaybeFacetRoot::new(ResultFacetKind::PathByPath);
+    // (A subsystem which others are in, ex: "Core/Networking" and
+    // "Core/Networking/HTTP", is its group's own files, like a directory's
+    // files beside its subdirectories.)
+    let groups: HashSet<&str> = files
+        .iter()
+        .filter_map(|file| file.subsystem.as_deref())
+        .flat_map(|subsystem| {
+            subsystem
+                .match_indices('/')
+                .map(move |(at, _)| &subsystem[..at])
+        })
+        .collect();
     for file in files {
         let path = ustr(&file.path);
         kind_facet.place_item(vec![file.kind], path);
-        let subsystem_pieces = match file.subsystem.as_ref().map(|s| s.split_once('/')) {
-            Some(Some((product, component))) => {
-                vec![ustr(&format!("{}/", product)), ustr(component)]
-            }
-            Some(None) => vec![file.subsystem.unwrap()],
+        let subsystem_pieces = match file.subsystem.as_deref() {
+            Some(subsystem) if groups.contains(subsystem) => format!("{}/", subsystem)
+                .split_inclusive('/')
+                .map(ustr)
+                .collect(),
+            Some(subsystem) => subsystem.split_inclusive('/').map(ustr).collect(),
             None => vec![ustr(UNKNOWN_SUBSYSTEM)],
         };
         subsystem_facet.place_item(subsystem_pieces, path);
@@ -771,16 +881,20 @@ pub fn file_facets(
     // The facets' values, and the values each file is in (with their
     // ancestors), by facet.
     let mut memberships: HashMap<Ustr, BTreeMap<&'static str, Vec<String>>> = HashMap::new();
-    // Products (ex: "Firefox"), their components (ex: "Sidebar"), and lone
-    // components named like Bugzilla does (ex: "Core :: Machine
-    // Learning/Frontend").
-    let subsystem_name = |value: &str, parent: &str| match value.strip_prefix(parent) {
-        _ if value == UNKNOWN_SUBSYSTEM => "Unknown".to_string(),
-        Some(component) if !parent.is_empty() => component.to_string(),
-        _ => match value.strip_suffix('/') {
-            Some(product) => product.to_string(),
-            None => value.replacen('/', " :: ", 1),
-        },
+    // Products (ex: "Firefox"), their components and the groups of them (ex:
+    // "Sidebar", "DOM"), and at the top, values of a product's components
+    // alone named like Bugzilla does (ex: "Core :: DOM/Workers").
+    let subsystem_name = |value: &str, parent: &str| {
+        if value == UNKNOWN_SUBSYSTEM {
+            return "Unknown".to_string();
+        }
+        let name = value.strip_prefix(parent).unwrap_or(value);
+        let name = name.strip_suffix('/').unwrap_or(name);
+        if parent.is_empty() {
+            name.replacen('/', " :: ", 1)
+        } else {
+            name.to_string()
+        }
     };
     // (The "*" groups of the other directories are "other", ex: "browser/
     // other" if the facet's top level has "browser/"'s.)
@@ -855,6 +969,7 @@ pub fn file_facets(
                 count: group.count,
                 values,
                 sparkline: None,
+                ..Default::default()
             }
         }
         let mut values: Vec<FacetValueView> = root
@@ -862,16 +977,30 @@ pub fn file_facets(
             .into_iter()
             .map(|group| view(key, group, "", &mut vec![], name, &mut memberships))
             .collect();
+        // (The unknown subsystem and the other directories last.)
+        fn biggest_first(values: &mut [FacetValueView]) {
+            values.sort_by(|a, b| {
+                let last = |value: &FacetValueView| {
+                    value.value == UNKNOWN_SUBSYSTEM || value.value.ends_with('*')
+                };
+                last(a)
+                    .cmp(&last(b))
+                    .then(b.count.cmp(&a.count))
+                    .then_with(|| a.value.cmp(&b.value))
+            });
+            for value in values {
+                biggest_first(&mut value.values);
+            }
+        }
         match key {
             "kind" => values.sort_by_key(|value| kind_order(&value.value)),
-            "subsystem" => values.sort_by_key(|value| value.value == UNKNOWN_SUBSYSTEM),
-            _ => {}
+            _ => biggest_first(&mut values),
         }
-        facets.push(FacetView {
+        facets.push(FacetView::new(
             key,
-            label: label.map_or(root.label, str::to_string),
+            label.map_or(root.label, str::to_string),
             values,
-        });
+        ));
     }
 
     // Each file's data.
@@ -1022,5 +1151,138 @@ mod tests {
             .collect();
         assert_eq!(groups, vec![("a/b/", 3), ("a/*", 2)]);
         assert_eq!(root.groups[1].values, vec![ustr("a/c/1"), ustr("a/d/1")]);
+    }
+
+    #[test]
+    fn test_subsystem_nesting() {
+        let file = |path: &str, subsystem: Option<&str>| FacetFile {
+            path: path.to_string(),
+            kind: ustr("normal"),
+            known: true,
+            subsystem: subsystem.map(ustr),
+        };
+        let files = [
+            file("dom/workers/a.cpp", Some("Core/DOM/Workers")),
+            file("dom/workers/b.cpp", Some("Core/DOM/Workers")),
+            file("dom/events/a.cpp", Some("Core/DOM/Events")),
+            file("netwerk/a.cpp", Some("Core/Networking")),
+            file("netwerk/http/a.cpp", Some("Core/Networking/HTTP")),
+            file("netwerk/dns/a.cpp", Some("Core/Networking/DNS")),
+            file("dom/media/gmp/a.cpp", Some("Core/Audio-Video/GMP")),
+            file("browser/a.js", Some("Firefox/General")),
+            file("x.txt", None),
+        ];
+        let (facets, data) = file_facets(&files, &PathKinds(vec![]));
+        let subsystem = facets.iter().find(|f| f.key == "subsystem").unwrap();
+        fn tree(values: &[FacetValueView]) -> Vec<String> {
+            values
+                .iter()
+                .map(|value| {
+                    let nested = tree(&value.values);
+                    if nested.is_empty() {
+                        format!("{} {}", value.name, value.count)
+                    } else {
+                        format!("{} {} ({})", value.name, value.count, nested.join(", "))
+                    }
+                })
+                .collect()
+        }
+        // Components are nested by their "/"s, the biggest first, and a
+        // component which others are in is its group's own files.  (A group's
+        // only nested value with no more nesting is folded into it, as for
+        // directories.)
+        assert_eq!(
+            tree(&subsystem.values),
+            vec![
+                "Core 7 (DOM 3 (Workers 2, Events 1), Networking 3 (DNS 1, HTTP 1), Audio-Video/GMP 1)",
+                "Firefox :: General 1",
+                "Unknown 1",
+            ]
+        );
+        assert!(subsystem.nested);
+        assert_eq!(subsystem.values[0].values[1].value, "Core/Networking/");
+        let in_facet = |path: &str| -> Vec<String> {
+            let facets: serde_json::Value = serde_json::from_str(&data[path].facets).unwrap();
+            serde_json::from_value(facets["subsystem"].clone()).unwrap()
+        };
+        assert_eq!(in_facet("netwerk/a.cpp"), ["Core/", "Core/Networking/"]);
+        assert_eq!(
+            in_facet("netwerk/http/a.cpp"),
+            ["Core/", "Core/Networking/", "Core/Networking/HTTP"]
+        );
+    }
+
+    #[test]
+    fn test_facet_view_shown() {
+        let value = |name: &str, count: u32, nested: usize| FacetValueView {
+            value: name.to_string(),
+            name: name.to_string(),
+            count,
+            values: (0..nested)
+                .map(|i| FacetValueView {
+                    value: format!("{}/{}", name, i),
+                    name: i.to_string(),
+                    count: 1 + i as u32,
+                    ..Default::default()
+                })
+                .collect(),
+            ..Default::default()
+        };
+        let shown = |values: &[FacetValueView]| -> Vec<String> {
+            values
+                .iter()
+                .filter(|value| !value.elided)
+                .map(|value| value.name.clone())
+                .collect()
+        };
+
+        // Of 12 values, the 9 biggest, in their order, and a button for the
+        // other 3; and none expanded, with no room.
+        let values: Vec<FacetValueView> = (0..12)
+            .map(|i| {
+                value(
+                    &format!("v{}", i),
+                    [5, 1, 9, 2, 8, 7, 3, 6, 4, 10, 11, 12][i],
+                    2,
+                )
+            })
+            .collect();
+        let view = FacetView::new("dir", "Directory".to_string(), values);
+        assert_eq!(view.more, 3);
+        assert_eq!(
+            shown(&view.values),
+            ["v0", "v2", "v4", "v5", "v7", "v8", "v9", "v10", "v11"]
+        );
+        assert!(view.values.iter().all(|v| !v.expanded));
+
+        // The biggest value's nested values show if there's room for at
+        // least 3 of them (2 and a button), its biggest if not all of them;
+        // and then the next biggest's, if there's still room.
+        let view = FacetView::new(
+            "subsystem",
+            "Subsystem".to_string(),
+            vec![value("a", 100, 20), value("b", 10, 2), value("c", 5, 0)],
+        );
+        let a = &view.values[0];
+        assert!(a.expanded);
+        assert_eq!(shown(&a.values), ["14", "15", "16", "17", "18", "19"]);
+        assert_eq!(a.more, 14);
+        // (3 at the top, and 6 and the button in "a", so no room for "b"'s 2.)
+        assert!(!view.values[1].expanded);
+        assert_eq!(view.more, 0);
+
+        let view = FacetView::new(
+            "subsystem",
+            "Subsystem".to_string(),
+            vec![value("a", 100, 4), value("b", 10, 2), value("c", 5, 0)],
+        );
+        assert!(view.values[0].expanded && view.values[1].expanded);
+        assert_eq!(view.values[0].more, 0);
+
+        // Not a smaller value's nested values if the biggest's don't fit.
+        let mut values = vec![value("a", 100, 20), value("b", 10, 2)];
+        values.extend((0..6).map(|i| value(&format!("c{}", i), 5, 0)));
+        let view = FacetView::new("subsystem", "Subsystem".to_string(), values);
+        assert!(view.values.iter().all(|v| !v.expanded));
     }
 }

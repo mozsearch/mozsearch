@@ -15,6 +15,7 @@ input_file: inputs/web/dirs/root_listing__html
   <link href="/tests/static/css/mozsearch.css" rel="stylesheet" media="screen"/>
   <link href="/tests/static/css/icons.css" rel="stylesheet" media="screen" />
   <link href="/tests/static/css/font-icons.css" rel="stylesheet" media="screen" />
+  <script src="/tests/static/js/settings.js"></script>
 </head>
 
 <body>
@@ -82,6 +83,7 @@ input_file: inputs/web/dirs/root_listing__html
 
   </section>
 </div>
+<script>typeof EarlyLayout != "undefined" && EarlyLayout.panel();</script>
 <div id="coverage-history" class="hidden">
   <ol class="coverage-history-list">
       <li class="coverage-history-item" data-rev="REV" data-percentage="10">
@@ -1084,7 +1086,6 @@ Spread over multiple lines.
   </div>
   
 <script src="/tree-list.js"></script>
-<script src="/tests/static/js/settings.js"></script>
 <script src="/tests/static/js/search.js"></script>
 <script src="/tests/static/js/context-menu.js"></script>
 <script src="/tests/static/js/panel.js"></script>

@@ -3574,7 +3574,11 @@ mark.query-match {
 /* `/query/`'s results' history digests (see `recency_html`): a square per bin
    of age (newest first), shaded by how much changed then, before the line
    numbers of the results' key lines (other rows have the cell, empty, so their
-   code stays aligned), and sparklines on the "Last changed" facet's values. */
+   code stays aligned), and sparklines on the "Last changed" facet's values.
+   The digests show with the "changes" lens (see navigation_panel.liquid). */
+html:not(.lens-changes) .query-recency {
+  display: none;
+}
 .query-recency {
   display: inline-block;
   position: relative;
@@ -3712,7 +3716,8 @@ mark.query-match {
   border-radius: 10px;
   background-color: rgb(128 128 128 / 10%);
 }
-.facet-value {
+.facet-value,
+.lens-toggle {
   font: inherit;
   color: inherit;
   background-color: var(--page-background);
@@ -3721,9 +3726,24 @@ mark.query-match {
   border-radius: 10px;
   cursor: pointer;
 }
-.facet-value[aria-pressed="true"] {
+.facet-value[aria-pressed="true"],
+.lens-toggle[aria-pressed="true"] {
   background-color: var(--line-highlight-background);
   border-color: currentColor;
+}
+/* The page's lenses (see navigation_panel.liquid), at the top of the panel,
+   like a facet. */
+.lens-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+  padding: 0.5rem;
+  font-size: 0.9em;
+  border-bottom: 1px solid var(--page-border-color);
+}
+.lens-label {
+  font-weight: bold;
 }
 .facet-value.facet-empty {
   opacity: 0.45;
@@ -3731,6 +3751,62 @@ mark.query-match {
 .facet-count {
   font-size: 0.9em;
   opacity: 0.7;
+}
+/* (A value's button and the one showing its nested values, which stay
+   together.) */
+.facet-value-row {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  max-width: 100%;
+}
+/* (Hidden values and nested values; see facet_value.liquid.) */
+.facet-value-group[hidden],
+.facet-nested[hidden] {
+  display: none;
+}
+/* The buttons showing and hiding a value's nested values (rotated like the
+   panel's arrow), the elided values of a level ("N more"), and all of a
+   facet's values or only the biggest ("+" and "−" beside its label). */
+.facet-expand,
+.facet-label-buttons button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.facet-expand-icon::before {
+  transform: rotate(-90deg);
+  transition: transform 0.1s;
+}
+.facet-expand-icon.expanded::before {
+  transform: rotate(0deg);
+}
+.facet-more {
+  font: inherit;
+  font-size: 0.9em;
+  color: inherit;
+  background: none;
+  padding: 0 6px;
+  border: 1px dashed var(--blame-light-gray);
+  border-radius: 10px;
+  cursor: pointer;
+  opacity: 0.8;
+}
+.facet-label-buttons {
+  margin-left: 0.5em;
+  font-weight: normal;
+}
+.facet-label-buttons button {
+  min-width: 1.4em;
+  border: 1px solid var(--blame-light-gray);
+  border-radius: 4px;
+  line-height: 1.1;
+}
+.facet-label-buttons button + button {
+  margin-left: 2px;
 }
 .facet-clear,
 :is(.facet-group-by, .facet-sort-by) select {
@@ -3771,6 +3847,18 @@ mark.query-match {
 #panel-content .facet-value {
   text-align: left;
   overflow-wrap: anywhere;
+}
+/* (Nested values showing are a tree under their value, on rows of their own,
+   in boxes which get darker as they nest, as above.) */
+#panel-content .facet-value-group.facet-open {
+  flex-basis: 100%;
+}
+#panel-content .facet-nested {
+  flex-basis: 100%;
+  box-sizing: border-box;
+  margin-left: 0.9em;
+  padding: 3px 4px;
+  border-radius: 8px;
 }
 #panel-content :is(.facet-group-by, .facet-sort-by) {
   display: flex;

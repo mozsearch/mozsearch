@@ -167,7 +167,11 @@ value_lookup = "/rules"
 
 [jsonfile."mozbuild-bug-components.json".concise]
 bugzilla_component.pointer = "/bug_component"
-subsystem.liquid = '{{ value.product }}/{{ value.component | replace: "&", "" | replace: ":", "/" | compact_pathlike }}'
+# The subsystem is the product and the component, whose ":"s nest it (ex:
+# "Core/DOM/Workers" for "DOM: Workers", in "Core/DOM/" in "Core/" in the
+# facets), and whose own "/"s don't (ex: "Core/Audio-Video/GMP" for
+# "Audio/Video: GMP").
+subsystem.liquid = '{{ value.product }}/{{ value.component | replace: "&", "" | replace: "/", "-" | replace: ":", "/" | compact_pathlike }}'
 
 [jsonfile."mozbuild-bug-components.json".detailed.info]
 bugzilla_rule.pointer = ""

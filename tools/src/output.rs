@@ -195,6 +195,13 @@ pub fn generate_header(opt: &Options, writer: &mut dyn Write) -> Result<(), &'st
         F::T(opensearch_link(opt.tree_name)),
     ];
     head_seq.extend(css_tags);
+    // (In the head, so that the page's layout can follow the settings as it
+    // loads; see `EarlyLayout` in settings.js.  Keep this in sync with
+    // tools/templates/header_query.liquid and header_search.liquid.)
+    head_seq.push(F::T(format!(
+        r#"<script src="/{}/static/js/settings.js"></script>"#,
+        opt.tree_name
+    )));
 
     // Trees searching with the pipeline-server's /query/ have a single field,
     // submitted with Enter (see `config::SearchEndpoint`), and so do pages in
@@ -365,8 +372,8 @@ pub fn generate_footer(
     }
 
     // NOTE: Keep this in sync with tools/templates/scroll_footer.liquid
+    // (settings.js is in the head; see `generate_header`.)
     let scripts = [
-        "settings.js",
         "search.js",
         "context-menu.js",
         "panel.js",
@@ -659,6 +666,9 @@ pub fn generate_panel(
             F::S("</section>"),
         ]),
         F::S("</div>"),
+        // (Docking it as the fancy bar before the page's contents come; see
+        // `EarlyLayout` in settings.js.)
+        F::S(r#"<script>typeof EarlyLayout != "undefined" && EarlyLayout.panel();</script>"#),
     ]);
 
     generate_formatted(writer, &f, 0)?;

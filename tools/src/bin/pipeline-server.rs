@@ -44,10 +44,13 @@ use ustr::{Ustr, UstrMap};
 
 /// The facets of the files of file-centric results (see facet_bar.liquid), as
 /// on the `/explore/` pages: their path kinds, subsystems, and directories, as
-/// `{"facets": [...], "files": {PATH: {facets, groups, title}}}`.  And the
-/// facets of their lines, "Last changed" and "Preprocessor", if they have
-/// them, whose values the lines have (see query_results/line_span.liquid),
-/// and their files the union of theirs; see `FlattenedLineSpan::facets`.
+/// `{"facets": [...], "files": {PATH: {facets, groups, title}}, "lenses":
+/// [...]}`.  And the facets of their lines, "Last changed" and
+/// "Preprocessor", if they have them, whose values the lines have (see
+/// query_results/line_span.liquid), and their files the union of theirs; see
+/// `FlattenedLineSpan::facets`.  And the lenses showing more of the results
+/// (see navigation_panel.liquid), if any (or null): "changes", the lines'
+/// history digests, if they have them.
 fn results_file_facets(
     server: &(dyn AbstractServer + Send + Sync),
     results: &mut FlattenedResultsBundle,
@@ -177,7 +180,16 @@ fn results_file_facets(
     if let Some(ctxtra) = ctxtra {
         facets.push(ctxtra.view);
     }
-    json!({ "facets": facets, "files": data })
+    let lenses = if recency {
+        json!([{
+            "key": "changes",
+            "name": "changes",
+            "title": "Show how much each result's history changed when, newest first (its history digest)",
+        }])
+    } else {
+        Value::Null
+    };
+    json!({ "facets": facets, "files": data, "lenses": lenses })
 }
 
 /// The SYM_INFO (see `format::format_code`) of file-centric results: the

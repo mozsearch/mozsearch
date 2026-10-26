@@ -1,7 +1,16 @@
 {%- comment -%}
-  A value of a facet (see facet_bar.liquid), and its nested values.
+  A value of a facet (see facet_bar.liquid), and its nested values: with a
+  button showing and hiding them (shown at first if `value.expanded`), and at
+  the end of them, if some are elided (`elided` values, hidden at first; see
+  `FacetView::new`), a button showing those.
 {%- endcomment -%}
-<span class="facet-value-group"><button type="button" class="facet-value" data-value="{{ value.value | escape }}" aria-pressed="false" title="{{ value.title | escape }}">{{ value.name | escape }} {% if value contains "sparkline" %}{{ value.sparkline }} {% endif %}<span class="facet-count">{{ value.count }}</span></button>
-{%- if value.values.size > 0 %}<span class="facet-nested">
+<span class="facet-value-group{% if value.expanded %} facet-open{% endif %}"{% if value.elided %} data-elided hidden{% endif %}>
+<span class="facet-value-row">
+{%- if value.values.size > 0 -%}
+<button type="button" class="facet-expand" aria-expanded="{{ value.expanded }}" title="Show or hide the {{ value.values.size }} values in {{ value.name | escape }} (with Shift, and the values in those)"><span class="facet-expand-icon icon-down-dir{% if value.expanded %} expanded{% endif %}" aria-hidden="true"></span></button>
+{%- endif -%}
+<button type="button" class="facet-value" data-value="{{ value.value | escape }}" aria-pressed="false" title="{{ value.title | escape }}">{{ value.name | escape }} {% if value contains "sparkline" %}{{ value.sparkline }} {% endif %}<span class="facet-count">{{ value.count }}</span></button></span>
+{%- if value.values.size > 0 %}<span class="facet-nested"{% unless value.expanded %} hidden{% endunless %}>
 {%- for nested in value.values %}{% include "facet_value.liquid" value: nested %}{% endfor -%}
+{%- if value.more > 0 %}<button type="button" class="facet-more" aria-expanded="false" data-more="{{ value.more }}">{{ value.more }} more</button>{% endif -%}
 </span>{% endif %}</span>

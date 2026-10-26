@@ -211,6 +211,8 @@ var Panel = new (class Panel {
       this.addLensesSection();
     }
 
+    this.setupLensToggles();
+
     if (Settings.debug.ui) {
       this.addDebugSection();
     }
@@ -307,11 +309,8 @@ var Panel = new (class Panel {
    */
   setupFancyBar() {
     const root = document.documentElement;
-    root.classList.add("fancy-bar");
-    const stored = parseInt(localStorage.getItem(storageKey("fancy-bar-width")), 10);
-    if (stored > 0) {
-      root.style.setProperty("--fancy-bar-width", `${stored}px`);
-    }
+    // (Usually done already, right after the panel's markup.)
+    EarlyLayout.panel();
 
     const resizer = document.createElement("div");
     resizer.className = "fancy-bar-resizer";
@@ -359,6 +358,20 @@ var Panel = new (class Panel {
     });
 
     this.updateFancyBarOpen();
+  }
+
+  /**
+   * The page's lenses' buttons, if it has any (see navigation_panel.liquid),
+   * which toggle them, as later pages remember.
+   */
+  setupLensToggles() {
+    for (const button of this.panel.querySelectorAll(".lens-toggle")) {
+      button.addEventListener("click", () => {
+        const on = button.getAttribute("aria-pressed") != "true";
+        EarlyLayout.setLens(button, on);
+        localStorage.setItem(storageKey(`lens-${button.dataset.lens}`), on ? "1" : "0");
+      });
+    }
   }
 
   updateFancyBarOpen() {

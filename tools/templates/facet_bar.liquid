@@ -3,9 +3,11 @@
   facets.js uses to filter the files (`.facet-items [data-facets]`) to the
   selected values, and to group them by a facet: a collapsible box (with the
   navigation panel's arrow, since it's a control rather than content) with
-  each facet's values (nested for hierarchical facets, ex: directories), how
-  many files each has, and (if `group_by`) the choices of grouping and of
-  sorting (if `sort_by`) after them.
+  each facet's values (nested for hierarchical facets, ex: directories, with
+  buttons showing all of them or only the biggest at the top; see
+  facet_value.liquid), how many files each has, a button showing the elided
+  ones, if any (see `FacetView::new`), and (if `group_by`) the choices of
+  grouping and of sorting (if `sort_by`) after them.
 {%- endcomment -%}
 <section class="facet-box">
   <div class="facet-header">
@@ -19,10 +21,13 @@
     <div class="facet-filters">
       {%- for facet in facets %}
       <div class="facet" data-facet="{{ facet.key }}">
-        <span class="facet-label">{{ facet.label | escape }}:</span>
+        <span class="facet-label">{{ facet.label | escape }}:
+        {%- if facet.nested %} <span class="facet-label-buttons"><button type="button" class="facet-expand-all" title="Show all of the values, nested and elided">+</button><button type="button" class="facet-collapse-all" title="Show only the biggest values at the top">−</button></span>{% endif -%}
+        </span>
         {%- for value in facet.values %}
         {%- include "facet_value.liquid" value: value %}
         {%- endfor %}
+        {%- if facet.more > 0 %}<button type="button" class="facet-more" aria-expanded="false" data-more="{{ facet.more }}">{{ facet.more }} more</button>{% endif %}
       </div>
       {%- endfor %}
     </div>
