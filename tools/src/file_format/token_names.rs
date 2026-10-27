@@ -27,6 +27,7 @@ use std::io::Write;
 use std::path::Path;
 
 use memmap::Mmap;
+use rayon::prelude::*;
 use regex::bytes::RegexBuilder;
 
 /// The base letters of the Latin-1 Supplement's and Latin Extended-A's
@@ -78,7 +79,10 @@ fn reversed(folded: &str) -> String {
 
 /// Write the index for `names` (journals' tokens) into `dir`, replacing it.
 pub fn write_index(dir: &Path, mut names: Vec<String>) -> std::io::Result<()> {
-    names.sort();
+    // (The sorts are parallel (rayon), and unstable, which gives the same
+    // order: equal names are the same, and after `dedup`, no two keys and
+    // names are.  firefox's 7.1M names took 11 s to write single-threaded.)
+    names.par_sort_unstable();
     names.dedup();
     let tmp = dir.with_extension("tmp");
     let _ = fs::remove_dir_all(&tmp);
@@ -92,12 +96,12 @@ pub fn write_index(dir: &Path, mut names: Vec<String>) -> std::io::Result<()> {
         }
         out.flush()
     };
-    keyed.sort();
+    keyed.par_sort_unstable();
     write("names", &keyed)?;
     for (key, _) in keyed.iter_mut() {
         *key = reversed(key);
     }
-    keyed.sort();
+    keyed.par_sort_unstable();
     write("reversed", &keyed)?;
     let _ = fs::remove_dir_all(dir);
     fs::rename(&tmp, dir)
