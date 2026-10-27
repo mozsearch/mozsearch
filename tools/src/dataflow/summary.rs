@@ -216,21 +216,30 @@ pub fn hint_summary(
 
 /// A pretty identifier without its template arguments (ex:
 /// "nsTString::nsTString" for "nsTString::nsTString<T>"), as hints name
-/// functions (see `hint_summary`).  (Not operators' angle brackets.)
+/// functions (see `hint_summary`).  (Not operators' angle brackets.)  In
+/// linear time: crossref calls it for every symbol, and it searched the
+/// output so far for its last "::" at every character, which made it 35-40%
+/// of firefox-disco's roll-ups' time.
 pub fn untemplated_pretty(pretty: &str) -> String {
-    let mut out = String::new();
+    if !pretty.contains('<') {
+        return pretty.to_string();
+    }
+    let mut out = String::with_capacity(pretty.len());
     let mut depth = 0;
+    // (Where the output's last component starts: after its last "::".)
+    let mut last = 0;
     for c in pretty.chars() {
-        let in_operator = depth == 0
-            && out
-                .rsplit("::")
-                .next()
-                .is_some_and(|last| last.starts_with("operator"));
+        let in_operator = depth == 0 && out[last..].starts_with("operator");
         match c {
             '<' if !in_operator => depth += 1,
             '>' if depth > 0 => depth -= 1,
             _ if depth > 0 => {}
-            _ => out.push(c),
+            _ => {
+                out.push(c);
+                if out.ends_with("::") {
+                    last = out.len();
+                }
+            }
         }
     }
     out
@@ -1585,6 +1594,39 @@ mod tests {
         assert_eq!(untemplated_pretty("Foo<a::b>::bar"), "Foo::bar");
         assert_eq!(untemplated_pretty("Foo::operator<<"), "Foo::operator<<");
         assert_eq!(untemplated_pretty("Foo<T>::operator->"), "Foo::operator->");
+        // (As the quadratic version it replaced made them.)
+        let quadratic = |pretty: &str| {
+            let mut out = String::new();
+            let mut depth = 0;
+            for c in pretty.chars() {
+                let in_operator = depth == 0
+                    && out
+                        .rsplit("::")
+                        .next()
+                        .is_some_and(|last| last.starts_with("operator"));
+                match c {
+                    '<' if !in_operator => depth += 1,
+                    '>' if depth > 0 => depth -= 1,
+                    _ if depth > 0 => {}
+                    _ => out.push(c),
+                }
+            }
+            out
+        };
+        for pretty in [
+            "mozilla::Maybe<mozilla::Variant<int, nsTArray<RefPtr<Foo>>>>::emplace<Bar>",
+            "operator<",
+            "Foo::operator<=>",
+            "Foo<A>::operator< <B>",
+            "a:::b<c>::operator<<<d>",
+            "ns::operatorish<T>::f",
+            "Foo<a>::operator>>=",
+            "Ünïcode<ß>::ç",
+            "unbalanced<<<",
+            "plain::name",
+        ] {
+            assert_eq!(untemplated_pretty(pretty), quadratic(pretty), "{}", pretty);
+        }
         assert_eq!(
             parse_hint_flow("arg0 -> this"),
             Some(Flow {
