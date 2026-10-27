@@ -44,8 +44,12 @@ fn platform_of(re_platform: &Regex, i: usize, fname: &str) -> String {
 }
 
 /// Merge each path read from stdin's analyses in the current directory's
-/// `analysis-*` directories (in their names' order, as the shell's
-/// `analysis-*/<path>` glob had them) into `out_dir`.
+/// `analysis-*` directories into `out_dir`, in the order the indexers'
+/// shell's `analysis-*/<path>` glob had them: its collation (C.UTF-8's)
+/// compares the whole paths, so `analysis-linux64-opt/...` came before
+/// `analysis-linux64/...` ('-' sorts before '/'), as production's merged
+/// analyses still show for generated files (ex: `FILE_linux64-opt@...`'s
+/// records before `FILE_linux64@...`'s).
 fn batch(out_dir: &str, re_platform: &Regex) -> std::io::Result<()> {
     let mut dirs: Vec<String> = std::fs::read_dir(".")?
         .filter_map(|entry| entry.ok())
@@ -53,7 +57,7 @@ fn batch(out_dir: &str, re_platform: &Regex) -> std::io::Result<()> {
         .filter_map(|entry| entry.file_name().into_string().ok())
         .filter(|name| name.starts_with("analysis-"))
         .collect();
-    dirs.sort();
+    dirs.sort_by_key(|name| format!("{}/", name));
     for line in stdin().lock().lines() {
         let line = line?;
         let path = line.trim_end_matches('\r');
