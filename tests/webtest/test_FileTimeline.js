@@ -30,6 +30,30 @@ add_task(async function test_FileTimeline() {
   ok(!doc.querySelector(".file-timeline-popup"), "Close closes it");
 });
 
+// The file's history's box searches it: a `text-history:` query of the file
+// (see test_HistoryGrep.js for `structopt`, which tools/Cargo.toml lost).
+add_task(async function test_FileTimelineSearch() {
+  await TestUtils.loadPath("/searchfox/source/tools/Cargo.toml");
+  const doc = frame.contentDocument;
+  TestUtils.click(doc.querySelector("#revision button.file-timeline"));
+  const input = doc.querySelector(".file-timeline-popup .file-timeline-header input");
+  is(input?.placeholder, "Search this file's history",
+     "The file's history has a box beside its heading searching it");
+  input.value = "structopt";
+  const loaded = TestUtils.waitForLoad();
+  input.form.requestSubmit();
+  await loaded;
+  const page = frame.contentDocument;
+  is(page.location.pathname, "/searchfox/query/default", "Submitting it queries");
+  is(new URLSearchParams(page.location.search).get("q"),
+     "text-history:structopt path:^tools/Cargo.toml$",
+     "the file's history for the text");
+  await waitForCondition(() => page.querySelector(".history-grep"), "The view is there");
+  const rows = [...page.querySelectorAll(".history-grep-table tbody tr")];
+  ok(rows.length > 0, "with the file's revisions changing its matches");
+  ok(rows.every(row => row.textContent.includes("tools/Cargo.toml")), "and only the file's");
+});
+
 // A permalink to a revision at which the file is the same as now goes to its
 // source listing, which says so, with a link to exactly that revision.
 add_task(async function test_PermalinkToSameFile() {

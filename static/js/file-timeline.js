@@ -11,7 +11,9 @@
  * milestone-cuts.py), labeled as they fit, the nearest one's date on hover.
  * Its "since" (a commit or a cut) is the page's baseline: the blame strip
  * highlights the changes since it, and the outline (see outline.js) compares
- * the file with it, through "baselinechange" events.
+ * the file with it, through "baselinechange" events.  Its heading has a box
+ * searching the file's history (a `text-history:` query of the file; see
+ * `historyQuery`).
  */
 var FileTimeline = new (class FileTimeline {
   constructor() {
@@ -203,6 +205,28 @@ var FileTimeline = new (class FileTimeline {
   }
 
   /**
+   * The query searching the file's history for `text` (the query language's
+   * `text-history:`, see `history-grep`), in the page's file: `path:`,
+   * anchored, or if the path has what globs or regular expressions take for
+   * syntax (ex: `+`, `[`), `pathre:`, escaped.  (Values with spaces, quotes or
+   * colons are quoted, as `Foo::Bar` would be the term `Foo`.)
+   */
+  historyQuery(text) {
+    text = text.trim();
+    const path = document.getElementById("data")?.dataset.path;
+    if (!text || !path) {
+      return null;
+    }
+    const quote = value => /[\s'"\\:]/.test(value)
+      ? `'${value.replace(/[\\']/g, c => `\\${c}`)}'`
+      : value;
+    const scope = /[*?{}[\]+^$\\]/.test(path)
+      ? `pathre:${quote(`^${path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`)}`
+      : `path:${quote(`^${path}$`)}`;
+    return `text-history:${quote(text)} ${scope}`;
+  }
+
+  /**
    * Set the page's baseline (or clear it, with null): `time`, for the blame
    * strip, and `from`, the revision (or "since:YYYY-MM-DD") for the outline,
    * with its `label`.
@@ -228,6 +252,26 @@ var FileTimeline = new (class FileTimeline {
     popup.setAttribute("aria-label", "The file's history");
     const heading = document.createElement("h5");
     heading.textContent = "The file's history";
+    // (Beside it, a search of the file's history; see `historyQuery`.)
+    const header = document.createElement("div");
+    header.className = "file-timeline-header";
+    const search = document.createElement("form");
+    search.className = "file-timeline-search";
+    search.setAttribute("role", "search");
+    const input = document.createElement("input");
+    input.type = "search";
+    input.placeholder = "Search this file's history";
+    input.setAttribute("aria-label", "Search this file's history");
+    search.append(input);
+    search.addEventListener("submit", event => {
+      event.preventDefault();
+      const query = this.historyQuery(input.value);
+      const tree = document.getElementById("data")?.dataset.tree;
+      if (query && tree) {
+        location.href = queryUrl(tree, query);
+      }
+    });
+    header.append(heading, search);
     const big = document.createElement("div");
     big.className = "file-timeline-big";
     // (The cuts' labels, the timeline, and what the pointer's nearest to.)
@@ -270,7 +314,7 @@ var FileTimeline = new (class FileTimeline {
     close.className = "lens-popup-close";
     close.textContent = "Close";
     close.addEventListener("click", () => this.closePopup());
-    popup.append(heading, big, since, list, close);
+    popup.append(header, big, since, list, close);
     if (this.baseline) {
       showSince(this.baseline, false);
     } else {

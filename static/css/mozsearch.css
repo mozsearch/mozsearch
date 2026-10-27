@@ -1558,6 +1558,25 @@ html.fancy-bar-resizing {
   max-height: 70vh;
   overflow: auto;
 }
+/* Its heading, and beside it, the box searching the file's history. */
+.file-timeline-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  margin-bottom: 0.4rem;
+}
+.file-timeline-header h5 {
+  margin: 0;
+  white-space: nowrap;
+}
+.file-timeline-search {
+  flex: 1;
+  max-width: 20rem;
+}
+.file-timeline-search input {
+  width: 100%;
+  font: inherit;
+}
 /* (The commits' column as wide, and their changes beside them.) */
 .file-timeline-popup.file-timeline-with-changes {
   width: 61rem;
