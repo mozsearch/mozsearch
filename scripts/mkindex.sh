@@ -163,6 +163,18 @@ if should_perform "summarize-test-results"; then
     $MOZSEARCH_PATH/scripts/summarize-test-results.py $INDEX_ROOT/test-results.json $INDEX_ROOT/xpcshell-issues.json $INDEX_ROOT/mochitest-issues.json || handle_tree_error "summarize-test-results.py"
 fi
 
+# idl-analyze runs in the background while js-, html- and css-analyze do: its
+# WebIDL half is one python process (1.3 minutes for firefox-disco on the
+# 2026-10-27 config8 run, on one core), and they write different analysis
+# files (idl-analyze reads only the generated headers' C++ analysis).  Its log
+# is shown once it's waited for (the idl-analyze-wait step).
+IDL_ANALYZE_PID=
+IDL_ANALYZE_LOG=$INDEX_ROOT/idl-analyze.log
+if should_perform "idl-analyze"; then
+    $MOZSEARCH_PATH/scripts/idl-analyze.sh $CONFIG_FILE $TREE_NAME > "$IDL_ANALYZE_LOG" 2>&1 &
+    IDL_ANALYZE_PID=$!
+fi
+
 if should_perform "js-analyze"; then
     $MOZSEARCH_PATH/scripts/js-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "js-analyze.sh"
 fi
@@ -175,8 +187,15 @@ if should_perform "css-analyze"; then
     $MOZSEARCH_PATH/scripts/css-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "css-analyze.sh"
 fi
 
-if should_perform "idl-analyze"; then
-    $MOZSEARCH_PATH/scripts/idl-analyze.sh $CONFIG_FILE $TREE_NAME || handle_tree_error "idl-analyze.sh"
+if [[ -n $IDL_ANALYZE_PID ]]; then
+    echo "Performing idl-analyze-wait step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
+    IDL_ANALYZE_STATUS=0
+    wait $IDL_ANALYZE_PID || IDL_ANALYZE_STATUS=$?
+    cat "$IDL_ANALYZE_LOG"
+    rm -f "$IDL_ANALYZE_LOG"
+    if [[ $IDL_ANALYZE_STATUS != 0 ]]; then
+        handle_tree_error "idl-analyze.sh"
+    fi
 fi
 
 if should_perform "ipdl-analyze"; then
