@@ -13,9 +13,10 @@ use ustr::{Ustr, ustr};
 
 use crate::describe::describe_file;
 use crate::file_format::code_coverage_report;
-use crate::git_ops::coverage_summary_for_head;
+use crate::git_ops::{coverage_rev_for_head, coverage_summary};
 use crate::languages::select_formatting;
 use crate::templating::builder::build_and_parse;
+use rayon::prelude::*;
 
 use super::config::TreeConfig;
 use super::globbing_file_list::GlobbingFileList;
@@ -554,6 +555,88 @@ impl IngestionState {
     }
 }
 
+/// What `RepoIngestion::ingest_file_list_and_apply_heuristics` finds of a
+/// file (see `scan_file`).
+enum FileScan {
+    /// Its metadata couldn't be read (`ignore`: as the tree expects, so it's
+    /// only info).
+    Missing {
+        raw_file_path: String,
+        error: std::io::Error,
+        ignore: bool,
+    },
+    /// Its description's file couldn't be created (so it has no info).
+    DescriptionUnwritable {
+        description_fname: String,
+        error: std::io::Error,
+    },
+    Found {
+        path_kind: Ustr,
+        file_size: u64,
+        description: Option<String>,
+        coverage: Option<code_coverage_report::NodeMetadata>,
+    },
+}
+
+/// A file's path kind, size, description (written to its description file),
+/// and coverage (at the coverage repo's `coverage_rev`, if any).
+fn scan_file(
+    file_path: &Ustr,
+    pathkind: &BTreeMap<Ustr, PathKindConfig>,
+    tree_config: &TreeConfig,
+    coverage_rev: Option<&str>,
+) -> FileScan {
+    let path_kind = heuristic_path_kind(pathkind, file_path);
+    let raw_file_path = tree_config.find_source_file(file_path);
+    let path_wrapper = Path::new(&raw_file_path);
+    let metadata = match fs::symlink_metadata(path_wrapper) {
+        Ok(m) => m,
+        Err(error) => {
+            let ignore = tree_config.should_ignore_missing_file(&raw_file_path);
+            return FileScan::Missing {
+                raw_file_path,
+                error,
+                ignore,
+            };
+        }
+    };
+    let file_size = metadata.len();
+    let description = match fs::read_to_string(&raw_file_path) {
+        Ok(contents) => {
+            let format = select_formatting(&raw_file_path);
+            let maybe_description = describe_file(&contents, path_wrapper, &format);
+            if let Some(ref description) = maybe_description {
+                let description_fname =
+                    format!("{}/description/{}", tree_config.paths.index_path, file_path);
+                let description_file = match File::create(&description_fname) {
+                    Ok(df) => df,
+                    Err(error) => {
+                        return FileScan::DescriptionUnwritable {
+                            description_fname,
+                            error,
+                        };
+                    }
+                };
+                let desc_writer = BufWriter::new(description_file);
+                let file_description = json!({
+                    "description": description,
+                });
+                to_writer(desc_writer, &file_description).unwrap();
+            }
+            maybe_description
+        }
+        Err(_) => None,
+    };
+    let coverage = coverage_rev
+        .and_then(|rev| coverage_summary(tree_config.git.as_ref(), rev, file_path.as_str()));
+    FileScan::Found {
+        path_kind,
+        file_size,
+        description,
+        coverage,
+    }
+}
+
 impl RepoIngestion {
     pub fn new(config_str: &str) -> Result<RepoIngestion, String> {
         let config: RepoIngestionConfig =
@@ -579,69 +662,69 @@ impl RepoIngestion {
         files: &Vec<Ustr>,
         tree_config: &TreeConfig,
     ) {
-        for file_path in files {
-            let use_path_kind = heuristic_path_kind(&self.config.pathkind, file_path);
-
-            let raw_file_path = tree_config.find_source_file(file_path);
-            let path_wrapper = Path::new(&raw_file_path);
-            let metadata = match fs::symlink_metadata(path_wrapper) {
-                Ok(m) => m,
-                Err(e) => {
-                    if tree_config.should_ignore_missing_file(&raw_file_path) {
-                        info!("Problem gathering metadata for {}: {}", raw_file_path, e);
+        // Each file's size, description (written to its description file)
+        // and coverage, found in parallel, and applied, with their problems
+        // logged, in order: stat-ing and reading every file of firefox's tree
+        // (and reading the git repo's HEAD again for each one's coverage) on
+        // one thread took 41-77 s of crossref, ~5 syscalls a file.
+        let coverage_rev = coverage_rev_for_head(tree_config.git.as_ref());
+        let pathkind = &self.config.pathkind;
+        let scans: Vec<FileScan> = files
+            .par_iter()
+            .map(|file_path| scan_file(file_path, pathkind, tree_config, coverage_rev.as_deref()))
+            .collect();
+        for (file_path, scan) in files.iter().zip(scans) {
+            match scan {
+                FileScan::Missing {
+                    raw_file_path,
+                    error,
+                    ignore,
+                } => {
+                    if ignore {
+                        info!(
+                            "Problem gathering metadata for {}: {}",
+                            raw_file_path, error
+                        );
                     } else {
-                        warn!("Problem gathering metadata for {}: {}", raw_file_path, e);
+                        warn!(
+                            "Problem gathering metadata for {}: {}",
+                            raw_file_path, error
+                        );
                     }
-                    continue;
                 }
-            };
-            let file_size = metadata.len();
-
-            let description = match fs::read_to_string(&raw_file_path) {
-                Ok(contents) => {
-                    let format = select_formatting(&raw_file_path);
-                    let maybe_description = describe_file(&contents, path_wrapper, &format);
-                    if let Some(ref description) = maybe_description {
-                        // We currently want to output
-                        let description_fname =
-                            format!("{}/description/{}", tree_config.paths.index_path, file_path);
-                        let description_file = match File::create(&description_fname) {
-                            Ok(df) => df,
-                            Err(e) => {
-                                warn!(
-                                    "Problem creating description file {}: {}",
-                                    description_fname, e
-                                );
-                                continue;
-                            }
-                        };
-                        let desc_writer = BufWriter::new(description_file);
-                        let file_description = json!({
-                            "description": description,
-                        });
-                        to_writer(desc_writer, &file_description).unwrap();
-                    }
-
-                    maybe_description
+                FileScan::DescriptionUnwritable {
+                    description_fname,
+                    error,
+                } => {
+                    warn!(
+                        "Problem creating description file {}: {}",
+                        description_fname, error
+                    );
                 }
-                Err(_) => None,
-            };
-
-            self.state.with_file_info(file_path, false, |pfi, _dfi| {
-                pfi.path_kind = use_path_kind;
-                pfi.description = description;
-                pfi.file_size = file_size;
-                pfi.coverage =
-                    coverage_summary_for_head(tree_config.git.as_ref(), file_path.as_str());
-            });
+                FileScan::Found {
+                    path_kind,
+                    file_size,
+                    description,
+                    coverage,
+                } => {
+                    self.state.with_file_info(file_path, false, |pfi, _dfi| {
+                        pfi.path_kind = path_kind;
+                        pfi.description = description;
+                        pfi.file_size = file_size;
+                        pfi.coverage = coverage;
+                    });
+                }
+            }
         }
     }
 
     pub fn ingest_dir_list(&mut self, dirs: &Vec<Ustr>, tree_config: &TreeConfig) {
+        let coverage_rev = coverage_rev_for_head(tree_config.git.as_ref());
         for dir_path in dirs {
             self.state.with_file_info(dir_path, true, |cfi, _dfi| {
-                cfi.coverage =
-                    coverage_summary_for_head(tree_config.git.as_ref(), dir_path.as_str());
+                cfi.coverage = coverage_rev.as_deref().and_then(|rev| {
+                    coverage_summary(tree_config.git.as_ref(), rev, dir_path.as_str())
+                });
             });
         }
     }

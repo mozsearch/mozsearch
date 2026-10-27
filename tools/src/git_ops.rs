@@ -202,11 +202,19 @@ pub fn coverage_summary_for_head(
     git_data: Option<&GitData>,
     path: impl AsRef<Path>,
 ) -> Option<code_coverage_report::NodeMetadata> {
-    let head_oid = git_data?.repo.head().ok()?.peel_to_commit().ok()?.id();
-
-    let coverage_rev = format!("refs/tags/reverse/all/all/{}", head_oid);
-
+    let coverage_rev = coverage_rev_for_head(git_data)?;
     coverage_summary(git_data, &coverage_rev, path)
+}
+
+/// The coverage repo's revision of the head's coverage (see
+/// `coverage_summary`), if the tree has a coverage repo: once for many paths,
+/// rather than reading the repo's HEAD for each (see
+/// `RepoIngestion::ingest_file_list_and_apply_heuristics`).
+pub fn coverage_rev_for_head(git_data: Option<&GitData>) -> Option<String> {
+    let git_data = git_data?;
+    git_data.coverage_repo.as_ref()?;
+    let head_oid = git_data.repo.head().ok()?.peel_to_commit().ok()?.id();
+    Some(format!("refs/tags/reverse/all/all/{}", head_oid))
 }
 
 #[derive(Serialize, Debug)]
