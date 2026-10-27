@@ -85,10 +85,21 @@ case "${CHANNEL}" in
         ;;
 esac
 
+# The aws CLI's S3 transfers use its CRT client (it chooses it by itself), but
+# on an instance type it has no tuning for, ex: m6id.8xlarge, it aims for only
+# 4 Gb/s: on config8's web server (aws-cli 2.37.7), the 8.8 GB
+# firefox-shared-git.tar.lz4 downloaded at 460 MB/s, and at 1,223 MB/s with
+# these settings (1,258 MB/s at 12Gb/s; the setting takes whole numbers).
+# Choosing the CRT client, rather than letting the CLI choose it, also gives
+# concurrent aws processes each a CRT client (ex: the history's download
+# alongside the git repos'), where the CLI gave the second the classic one.
 mkdir -p ~/.aws
 cat > ~/.aws/config <<"STOP"
 [default]
 region = us-west-2
+s3 =
+    preferred_transfer_client = crt
+    target_bandwidth = 10Gb/s
 STOP
 
 # Create a crontab entry to upload the log and send failure email if
