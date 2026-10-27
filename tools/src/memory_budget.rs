@@ -132,7 +132,8 @@ pub fn cgroup_memory_mib() -> Option<u64> {
     cgroup_file("memory.current").map(|bytes| bytes / MIB)
 }
 
-fn mem_total() -> Option<u64> {
+/// The machine's memory (MemTotal), in bytes.
+pub fn mem_total() -> Option<u64> {
     let meminfo = std::fs::read_to_string("/proc/meminfo").ok()?;
     let kib: u64 = meminfo
         .lines()

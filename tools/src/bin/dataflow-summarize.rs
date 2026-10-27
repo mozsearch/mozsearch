@@ -14,10 +14,10 @@
 //!   long it took, and its functions' count, slowest first.
 //!
 //! Scheduling: a thread that's free takes the biggest file left whose
-//! analysis fits in what's left of the budget (see `Queue`), so that the big
-//! files start first, and small ones fill the threads while they run (rather
-//! than files in the list's order, where a thread that took a big file
-//! waited for the budget, idle).
+//! analysis fits in what's left of the budget (see `BudgetQueue`), so that
+//! the big files start first, and small ones fill the threads while they run
+//! (rather than files in the list's order, where a thread that took a big
+//! file waited for the budget, idle).
 //!
 //! Memory: summarizing a file takes ~10 times its analysis's size at its peak
 //! (ex: ~2 GB for firefox's `mfbt/Assertions.h`, whose analysis is 212 MB, and
@@ -33,15 +33,14 @@
 //!   16 threads, one big file at a time peaked at 844 MB without these, and at
 //!   300 MB (as one thread does) with them.
 
-use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
-use std::sync::{Condvar, Mutex};
 use std::time::Instant;
 
 use clap::Parser;
 
+use tools::budget_queue::{BudgetQueue, release_freed_memory};
 use tools::dataflow::frontend::{build_file_ir, lang_for_path};
 use tools::dataflow::records::FileRecords;
 use tools::dataflow::summary::{
@@ -115,82 +114,12 @@ fn analysis_budget() -> u64 {
     total / 32
 }
 
-/// The files left to summarize, by their analysis's size (see
-/// `analysis_file`), and the bytes of analysis being summarized, at most the
-/// budget's: a free thread takes the biggest file that fits in what's left
-/// of it (a file bigger than the budget counts as the budget, so it's
-/// summarized alone), or waits for one to.
-struct Queue {
-    state: Mutex<QueueState>,
-    freed: Condvar,
-    cap: u64,
-}
-
-struct QueueState {
-    /// (Size, index into the files), for the files left.
-    left: BTreeSet<(u64, usize)>,
-    used: u64,
-}
-
-impl Queue {
-    /// The next file to summarize (its index), and the budget it takes,
-    /// waiting for one to fit; `None` once none are left.
-    fn take(&self) -> Option<(usize, u64)> {
-        let mut state = self.state.lock().unwrap();
-        loop {
-            let room = self.cap.saturating_sub(state.used);
-            let fits = match state.left.last().copied() {
-                // (A file bigger than the budget, alone, first: it's the
-                // longest.)
-                Some(biggest) if biggest.0 >= self.cap => (state.used == 0).then_some(biggest),
-                // (The biggest that fits.)
-                _ => state
-                    .left
-                    .range(..(room.saturating_add(1), 0))
-                    .next_back()
-                    .copied(),
-            };
-            match fits {
-                Some(entry) => {
-                    state.left.remove(&entry);
-                    let taken = entry.0.min(self.cap);
-                    state.used += taken;
-                    return Some((entry.1, taken));
-                }
-                None if state.left.is_empty() => return None,
-                None => state = self.freed.wait(state).unwrap(),
-            }
-        }
-    }
-
-    fn release(&self, bytes: u64) {
-        self.state.lock().unwrap().used -= bytes;
-        self.freed.notify_all();
-    }
-}
-
 /// Files with at least this much analysis give back the memory their
 /// summaries freed (see `release_freed_memory`) when they're done.  (Not
 /// smaller ones: with 16 threads, trimming after each of 1,600 1-50 MB files
 /// took a third of the time, and the arenas keep at most ~10 times this for
 /// each thread.)
 const RELEASE_AFTER_BYTES: u64 = 32 << 20;
-
-/// Give the memory freed in all of the threads' heaps back to the system
-/// (glibc keeps it in each thread's arena otherwise).
-#[cfg(all(target_os = "linux", target_env = "gnu"))]
-fn release_freed_memory() {
-    unsafe extern "C" {
-        fn malloc_trim(pad: usize) -> std::os::raw::c_int;
-    }
-    // SAFETY: malloc_trim only releases free memory.
-    unsafe {
-        malloc_trim(0);
-    }
-}
-
-#[cfg(not(all(target_os = "linux", target_env = "gnu")))]
-fn release_freed_memory() {}
 
 /// The summaries of a file's functions with bodies, or why it has none.
 fn summarize_file(
@@ -302,20 +231,14 @@ fn main() {
         .map(|path| analysis_file(&paths.index_path, path))
         .collect();
     let thread_count = cli.thread_count.max(1);
-    let queue = Queue {
-        state: Mutex::new(QueueState {
-            left: analyses
-                .iter()
-                .enumerate()
-                .filter_map(|(i, analysis)| Some((analysis.as_ref()?.1, i)))
-                .collect(),
-            used: 0,
-        }),
-        freed: Condvar::new(),
-        cap: cli
-            .analysis_budget_mb
+    let queue = BudgetQueue::new(
+        analyses
+            .iter()
+            .enumerate()
+            .filter_map(|(i, analysis)| Some((i, analysis.as_ref()?.1))),
+        cli.analysis_budget_mb
             .map_or_else(analysis_budget, |mb| mb << 20),
-    };
+    );
     let mut summaries: Vec<Summary> = vec![];
     let mut failed = analyses
         .iter()
@@ -429,7 +352,7 @@ fn main() {
         summaries.len(),
         edges.len(),
         summarized,
-        queue.cap >> 20,
+        queue.cap() >> 20,
         thread_count,
         100.0 * busy.as_secs_f64() / threads_time,
         100.0 * waited.as_secs_f64() / threads_time,

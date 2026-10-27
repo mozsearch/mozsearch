@@ -73,16 +73,20 @@ function idempotently_gzip_dir_no_touch {
 # The analysis files are written as their readers read them (escaped and
 # with their locals' symbols processed), gzipped, with zero-length markers,
 # by normalize-analyses (see its comment): `.gz`-suffixed files first, as
-# `compress_dir_with_touch` does, a batch of files per process.  Then the
-# tree's `analysis-normalized` stamp says so, so that the data API serves
-# them as they are (see `LocalIndex::normalized_analysis_file`).
+# `compress_dir_with_touch` does, each list by one process, whose threads take
+# the biggest files first under a memory budget.  (With `parallel --pipe -N
+# 500`, chunks of 500 paths in `find`'s order, the chunks with the big files
+# straggled: firefox-disco's took 1.6 minutes on 2026-10-27's config8 run, ~1
+# of them with 8 or fewer processes left.)  Then the tree's
+# `analysis-normalized` stamp says so, so that the data API serves them as
+# they are (see `LocalIndex::normalized_analysis_file`).
 function normalize_analysis_dir {
   echo "Normalizing and compressing the analysis files in $1"
   rm -f "${INDEX_ROOT}/analysis-normalized"
   pushd $1
   find . -type f > ../compress-file-list
-  { egrep '\.gz$' ../compress-file-list || test $? = 1; } | parallel --pipe -N 500 --halt now,fail=1 normalize-analyses
-  { egrep -v '\.gz$' ../compress-file-list || test $? = 1; } | parallel --pipe -N 500 --halt now,fail=1 normalize-analyses
+  { egrep '\.gz$' ../compress-file-list || test $? = 1; } | normalize-analyses
+  { egrep -v '\.gz$' ../compress-file-list || test $? = 1; } | normalize-analyses
   rm -f ../compress-file-list
   popd
   echo 1 > "${INDEX_ROOT}/analysis-normalized"
