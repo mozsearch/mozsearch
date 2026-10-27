@@ -54,7 +54,9 @@ binary_types = {
   'ogv': 'video/ogg',
   'mp4': 'video/mpeg',
   'webm': 'video/webm',
+  'mov': 'video/quicktime',
   'webp': 'image/webp',
+  'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   'ttf xpi bcmap icns sqlite jar woff class m4s mgif otf car': 'application/x-unknown',
 }
 
