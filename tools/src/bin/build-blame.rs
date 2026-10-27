@@ -29,8 +29,6 @@ use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::panic;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::mpsc::{Receiver, Sender, channel};
-use std::thread;
 
 extern crate clap;
 use clap::Parser;
@@ -40,6 +38,7 @@ use tools::cinnabar::{old_revision_notes_writer, parse_oldrevs, write_old_revisi
 use tools::file_format::config::index_blame;
 use tools::git_notes::NotesReader;
 use tools::git_ops::fast_import_git;
+use tools::ordered_pool::OrderedPool;
 use tools::source_mapping::{NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer};
 
 #[derive(Parser)]
@@ -793,66 +792,6 @@ fn compute_diff_data(
     })
 }
 
-struct ComputeThread {
-    query_tx: Sender<git2::Oid>,
-    response_rx: Receiver<DiffData>,
-}
-
-impl ComputeThread {
-    fn new(git_repo_path: &str) -> Self {
-        let (query_tx, query_rx) = channel();
-        let (response_tx, response_rx) = channel();
-        let git_repo_path = git_repo_path.to_string();
-        thread::spawn(move || {
-            // When processing the blink repo we experienced a failure and it
-            // turns out that normal handling only gets us the poison panic on
-            // the channel, so we make sure to handle the panic here and dump it
-            // unconditionally.  We then let the panic propagate like normal so
-            // that the app crashes rather than hanging.
-            let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-                compute_thread_main(query_rx, response_tx, git_repo_path);
-            }));
-            if let Err(err) = result {
-                eprintln!("ComputeThread panicked: {:?}", err);
-                let bt = std::backtrace::Backtrace::force_capture();
-                eprintln!("{bt}");
-                panic::resume_unwind(err);
-            }
-        });
-
-        ComputeThread {
-            query_tx,
-            response_rx,
-        }
-    }
-
-    fn compute(&self, rev: &git2::Oid) {
-        self.query_tx.send(*rev).unwrap();
-    }
-
-    fn read_result(&self) -> DiffData {
-        match self.response_rx.try_recv() {
-            Ok(result) => result,
-            Err(_) => {
-                info!("Waiting on compute, work on optimizing that...");
-                self.response_rx.recv().unwrap()
-            }
-        }
-    }
-}
-
-fn compute_thread_main(
-    query_rx: Receiver<git2::Oid>,
-    response_tx: Sender<DiffData>,
-    git_repo_path: String,
-) {
-    let git_repo = Repository::open(git_repo_path).unwrap();
-    while let Ok(rev) = query_rx.recv() {
-        let result = compute_diff_data(&git_repo, &rev).unwrap();
-        response_tx.send(result).unwrap();
-    }
-}
-
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
@@ -972,14 +911,20 @@ fn main() {
     }
     let rev_count = revs_to_process.len();
 
-    let num_threads: usize = num_cpus::get() - 1; // 1 for the main thread
+    let num_threads: usize = (num_cpus::get() - 1).max(1); // 1 for the main thread
+    // How many revisions are computed ahead of the one being imported, at
+    // most (their results wait, so this bounds the memory).
     const COMPUTE_BUFFER_SIZE: usize = 10;
 
     info!("Starting {} compute threads...", num_threads);
-    let mut compute_threads = Vec::with_capacity(num_threads);
-    for _ in 0..num_threads {
-        compute_threads.push(ComputeThread::new(&cli.git_repo_path));
-    }
+    // (Each with its own repository; any of them takes the next revision,
+    // and the results come in the revisions' order; see `OrderedPool`.)
+    let pool_repo_path = cli.git_repo_path.clone();
+    let mut pool = OrderedPool::new(
+        num_threads,
+        move || Repository::open(&pool_repo_path).unwrap(),
+        |git_repo: &mut Repository, rev: git2::Oid| compute_diff_data(git_repo, &rev).unwrap(),
+    );
 
     // This tracks the index of the next revision in revs_to_process for which
     // we want to request a compute. All revs at indices less than this index
@@ -989,14 +934,9 @@ fn main() {
     info!("Filling compute buffer...");
     let initial_request_count = rev_count.min(COMPUTE_BUFFER_SIZE * num_threads);
     while compute_index < initial_request_count {
-        let thread = &compute_threads[compute_index % num_threads];
-        thread.compute(&revs_to_process[compute_index]);
+        pool.submit(revs_to_process[compute_index]);
         compute_index += 1;
     }
-
-    // We should have sent an equal number of requests to each thread, except
-    // if we ran out of requests because there were so few.
-    assert!((compute_index % num_threads == 0) || compute_index == rev_count);
 
     let mut import_helper = start_fast_import(&blame_repo);
 
@@ -1036,18 +976,14 @@ fn main() {
     let mut rev_done = 0;
 
     for git_oid in revs_to_process.iter() {
-        // Read a result. Since we hand out compute requests in round-robin order
-        // and each thread processes them in FIFO order we know exactly which
-        // thread is going to give us our result.
-        // We assert to make sure it's the right one.
-        let thread = &compute_threads[rev_done % num_threads];
-        let diff_data = thread.read_result();
+        // The next revision's result, in order (see `OrderedPool`).
+        let diff_data = pool.take();
         assert!(diff_data.revision == *git_oid);
 
         // If there are more revisions that we haven't requested yet, request
-        // another one from this thread.
+        // another one.
         if compute_index < rev_count {
-            thread.compute(&revs_to_process[compute_index]);
+            pool.submit(revs_to_process[compute_index]);
             compute_index += 1;
         }
 

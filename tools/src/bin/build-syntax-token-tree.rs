@@ -28,7 +28,6 @@ extern crate env_logger;
 extern crate git2;
 #[macro_use]
 extern crate log;
-extern crate num_cpus;
 extern crate tools;
 
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
@@ -39,11 +38,10 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, ExitStatus, Stdio};
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::mpsc::{Receiver, Sender, channel};
-use std::thread;
 
 use clap::Parser;
 use git2::{ObjectType, Oid, Repository, Sort, TreeWalkMode, TreeWalkResult};
+use rayon::prelude::*;
 use tools::cinnabar::{
     CinnabarBatch, OldRevisions, old_revision_notes_writer, parse_oldrevs, write_old_revision_notes,
 };
@@ -61,6 +59,7 @@ use tools::hyperblame::history_config::{
     AttributeRules, AttributeSet, EffectiveAttributes, FileOptions, HistoryConfig, LangSource,
     ResolvedLanguage, parse_repo_gitattributes, resolve_language,
 };
+use tools::ordered_pool::OrderedPool;
 use tools::source_mapping::{
     NOTES_BATCH_SIZE, NotesRefs, SourceMapping, notes_writer, point_branch_at,
     require_notes_for_existing_branch,
@@ -804,24 +803,13 @@ fn tokenize_files(
     if inputs.len() < PARALLEL_TOKENIZE_FILES {
         return Ok(inputs.into_iter().filter_map(tokenize).collect());
     }
-    // Deal the files out round robin so that each thread gets a mix.
-    let num_workers = num_cpus::get().min(inputs.len());
-    let mut chunks: Vec<Vec<_>> = (0..num_workers).map(|_| vec![]).collect();
-    for (idx, input) in inputs.into_iter().enumerate() {
-        chunks[idx % num_workers].push(input);
-    }
-    Ok(thread::scope(|scope| {
-        let workers: Vec<_> = chunks
-            .into_iter()
-            .map(|chunk| {
-                scope.spawn(move || chunk.into_iter().filter_map(tokenize).collect::<Vec<_>>())
-            })
-            .collect();
-        workers
-            .into_iter()
-            .flat_map(|worker| worker.join().unwrap())
-            .collect()
-    }))
+    // (On rayon's global pool, a thread per CPU, as a big revision's files had
+    // before, but shared by the compute threads, which each started a thread
+    // per CPU (so big revisions at once oversubscribed the CPUs, and their
+    // memory), and stealing work, where a thread's share of the files dealt
+    // out round-robin could straggle.  Not the compute threads' number, which
+    // is capped for libgit2's contention, as tokenizing doesn't use it.)
+    Ok(inputs.into_par_iter().filter_map(tokenize).collect())
 }
 
 fn process_modified_files(
@@ -1847,54 +1835,6 @@ fn compute_diff_data(
     })
 }
 
-struct ComputeThread {
-    query_tx: Sender<SyntaxJob>,
-    response_rx: Receiver<SyntaxTreeData>,
-}
-
-impl ComputeThread {
-    fn new(git_repo_path: &str) -> Self {
-        let (query_tx, query_rx) = channel();
-        let (response_tx, response_rx) = channel();
-        let git_repo_path = git_repo_path.to_string();
-        thread::spawn(move || {
-            compute_thread_main(query_rx, response_tx, git_repo_path);
-        });
-
-        ComputeThread {
-            query_tx,
-            response_rx,
-        }
-    }
-
-    fn compute(&self, job: SyntaxJob) {
-        self.query_tx.send(job).unwrap();
-    }
-
-    fn read_result(&self) -> SyntaxTreeData {
-        match self.response_rx.try_recv() {
-            Ok(result) => result,
-            Err(_) => {
-                info!("Waiting on compute, work on optimizing that...");
-                self.response_rx.recv().unwrap()
-            }
-        }
-    }
-}
-
-fn compute_thread_main(
-    query_rx: Receiver<SyntaxJob>,
-    response_tx: Sender<SyntaxTreeData>,
-    git_repo_path: String,
-) {
-    let git_repo = Repository::open(git_repo_path).unwrap();
-    let mut cache = RepoAttributesCache::new();
-    while let Ok(job) = query_rx.recv() {
-        let result = compute_diff_data(&git_repo, &job, &mut cache).unwrap();
-        response_tx.send(result).unwrap();
-    }
-}
-
 /// The note attributes `rev` inherits from notes on its ancestors, which is to
 /// say the attributes of the nearest ancestor with a note providing attributes.
 /// This is used for the history's start revision (and so the other revisions
@@ -2209,13 +2149,27 @@ fn main() {
     let rev_count = revs_to_process.len();
 
     let num_threads = history_compute_threads("SYNTAX_COMPUTE_THREADS");
+    // How many revisions are computed ahead of the one being imported, at
+    // most (their results wait, so this bounds the memory).
     const COMPUTE_BUFFER_SIZE: usize = 10;
 
     info!("Starting {} compute threads...", num_threads);
-    let mut compute_threads = Vec::with_capacity(num_threads);
-    for _ in 0..num_threads {
-        compute_threads.push(ComputeThread::new(&git_repo_path));
-    }
+    // (Each with its own repository and attributes cache; any of them takes
+    // the next revision, and the results come in the revisions' order; see
+    // `OrderedPool`.)
+    let pool_repo_path = git_repo_path.clone();
+    let mut pool = OrderedPool::new(
+        num_threads,
+        move || {
+            (
+                Repository::open(&pool_repo_path).unwrap(),
+                RepoAttributesCache::new(),
+            )
+        },
+        |(git_repo, cache): &mut (Repository, RepoAttributesCache), job: SyntaxJob| {
+            compute_diff_data(git_repo, &job, cache).unwrap()
+        },
+    );
 
     // This tracks the index of the next revision in revs_to_process for which
     // we want to request a compute. All revs at indices less than this index
@@ -2225,14 +2179,9 @@ fn main() {
     info!("Filling compute buffer...");
     let initial_request_count = rev_count.min(COMPUTE_BUFFER_SIZE * num_threads);
     while compute_index < initial_request_count {
-        let thread = &compute_threads[compute_index % num_threads];
-        thread.compute(make_job(revs_to_process[compute_index]));
+        pool.submit(make_job(revs_to_process[compute_index]));
         compute_index += 1;
     }
-
-    // We should have sent an equal number of requests to each thread, except
-    // if we ran out of requests because there were so few.
-    assert!((compute_index % num_threads == 0) || compute_index == rev_count);
 
     let mut import_helper = SyntaxImport::start(&blame_repo);
     let mut notes = notes_writer(&blame_repo, &notes_refs);
@@ -2269,18 +2218,14 @@ fn main() {
             stopped = true;
             break;
         }
-        // Read a result. Since we hand out compute requests in round-robin order
-        // and each thread processes them in FIFO order we know exactly which
-        // thread is going to give us our result.
-        // We assert to make sure it's the right one.
-        let thread = &compute_threads[rev_done % num_threads];
-        let diff_data = thread.read_result();
+        // The next revision's result, in order (see `OrderedPool`).
+        let diff_data = pool.take();
         assert!(diff_data.revision == *git_oid);
 
         // If there are more revisions that we haven't requested yet, request
-        // another one from this thread.
+        // another one.
         if compute_index < rev_count {
-            thread.compute(make_job(revs_to_process[compute_index]));
+            pool.submit(make_job(revs_to_process[compute_index]));
             compute_index += 1;
         }
 
