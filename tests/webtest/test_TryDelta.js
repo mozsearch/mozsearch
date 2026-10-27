@@ -364,7 +364,10 @@ add_task(async function test_TryCanvas() {
   is(status("trydelta::Widget::Wobble"), "added", "A function it adds is a card");
   is(status("trydelta::WobbleTwice"), "added", "as are those of a file it adds");
   is(status("trydelta::Widget::Frob"), "changed", "and those it changes, even their signatures");
-  is(status("trydelta::UseWidget"), "context", "and the functions calling them");
+  ok(!card("trydelta::UseWidget"), "The functions calling them are hidden at first");
+  ok(!doc().querySelector(".rc-context-toggle").checked, "as their checkbox says");
+  doc().querySelector(".rc-context-toggle").click();
+  is(status("trydelta::UseWidget"), "context", "but can be shown");
   ok(!card("trydelta::Widget::Shrink"), "but not the ones it doesn't change");
   const changed = card("trydelta::Unpoke").querySelectorAll(".rc-changed-line");
   is([...changed].map(row => row.querySelector(".rc-lineno").dataset.lineNumber).join(), "7,9",
@@ -388,7 +391,7 @@ add_task(async function test_TryCanvas() {
 
   // (Its arrangement is the user's.)
   doc().querySelector(".rc-context-toggle").click();
-  ok(!card("trydelta::UseWidget"), "The context can be hidden");
+  ok(!card("trydelta::UseWidget"), "The context can be hidden again");
   card("trydelta::Widget::Wobble").querySelector(".rc-hide").click();
   ok(!card("trydelta::Widget::Wobble"), "and so can a card");
   card("trydelta::Unpoke").querySelector(".rc-collapse").click();
@@ -406,12 +409,46 @@ add_task(async function test_TryCanvas() {
   await waitForCondition(() => doc().documentElement.dataset.canvasReady, "The canvas is laid out again");
   ok(!card("trydelta::Widget::Wobble") && !card("trydelta::UseWidget"), "as it was arranged");
   doc().querySelector(".rc-toolbar button[title='Forget this arrangement']").click();
-  ok(card("trydelta::Widget::Wobble") && card("trydelta::UseWidget"), "until it's reset");
+  ok(card("trydelta::Widget::Wobble") && !card("trydelta::UseWidget"),
+     "until it's reset (to the context hidden)");
 
   const response = await fetch(`/trydelta/rev-canvas/${head}/canvas.json`);
   is(response.headers.get("Access-Control-Allow-Origin"), "*",
      "Its model is JSON which other sites can read");
   is((await response.json()).nodes.length, 7, "with its cards");
+});
+
+// The definitions of other functions with the same lines are one card (see
+// `patch_canvas::build_canvas`): 2468ace02468 adds scaler_impl.inc, which
+// scaler2.cpp and scaler3.cpp include for versions 2 and 3 of Scaler (like
+// Firefox's FFmpeg decoders), and functions calling each version's Scale.
+add_task(async function test_TryCanvasInstances() {
+  const push = "2468ace02468";
+  await TestUtils.loadPath(`/trydelta/try/hg/${push}`);
+  if (!doc().querySelector(".explore-page")) {
+    doc().querySelector(".try-import-button").click();
+    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+                           "The push is imported", 500, 240);
+  }
+  const canvas = doc().querySelector(".explore-semantic-head a.explore-canvas")?.getAttribute("href");
+  ok(canvas, "The push has a canvas");
+  await TestUtils.loadPath(canvas);
+  await waitForCondition(() => doc().documentElement.dataset.canvasReady, "The canvas is laid out");
+  const names = [...doc().querySelectorAll(".rc-card .rc-name")].map(name => name.textContent).sort();
+  is(names.join(","), "trydelta::ScaleBy2,trydelta::ScaleBy3,trydelta::Scaler<2>::Scale",
+     "Both versions' Scale are one card");
+  const others = [...doc().querySelectorAll(".rc-card")]
+    .find(card => card.querySelector(".rc-name").textContent == "trydelta::Scaler<2>::Scale")
+    ?.querySelector(".rc-others");
+  is(others?.textContent, "+1", "which says it's another's code too");
+  ok(others?.title.includes("trydelta::Scaler<3>::Scale"), "and whose");
+  is(doc().querySelectorAll("#interactive-graph-container g.edge").length, 2,
+     "and which both versions' callers call");
+  const model = await (await fetch(`${canvas}/canvas.json`, { cache: "no-store" })).json();
+  const scale = model.nodes.find(node => node.pretty == "trydelta::Scaler<2>::Scale");
+  is(JSON.stringify(scale?.syms),
+     JSON.stringify(["_ZN8trydelta6ScalerILi2EE5ScaleEi", "_ZN8trydelta6ScalerILi3EE5ScaleEi"]),
+     "Its model has both versions' symbols");
 });
 
 // The canvas's dataflow clusters (see rev-canvas.js's `loadClusters`): its

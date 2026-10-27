@@ -95,6 +95,18 @@ pub struct CanvasNode {
     pub complete: bool,
     /// Its file's listing at the head.
     pub link: String,
+    /// The pretty names of the other functions whose definitions are its
+    /// lines (see `build_canvas`), ex: another instantiation of a template.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub others: Vec<String>,
+    /// Its symbols, its id's first, if it has others' (ex: for the slicing's
+    /// clusters' functions; see rev-canvas.js).
+    #[serde(skip_serializing_if = "has_one")]
+    pub syms: Vec<String>,
+}
+
+fn has_one(syms: &[String]) -> bool {
+    syms.len() <= 1
 }
 
 /// A call between two of the canvas's functions.
@@ -201,6 +213,8 @@ async fn context_node(
         rows: String::new(),
         complete: true,
         link: link(&definition.path),
+        others: vec![],
+        syms: vec![sym.to_string()],
     })
 }
 
@@ -210,6 +224,11 @@ fn jump_lines(jump: &str) -> Vec<u32> {
     jump.rsplit_once('#')
         .map(|(_, lines)| lines.split(',').filter_map(|l| l.parse().ok()).collect())
         .unwrap_or_default()
+}
+
+/// The first of a card's symbols, its id.
+fn syms_first(syms: &[String]) -> String {
+    syms.first().cloned().unwrap_or_default()
 }
 
 /// The canvas of the try push of `server`'s tree whose rebased stack's head
@@ -291,25 +310,39 @@ pub async fn build_canvas(
                 .collect(),
         };
         let before = nodes.len();
+        // (The definitions of other functions with the same lines, ex: a
+        // template's instantiations, or the file's compilations for other
+        // versions of a library (ex: FFmpeg's), are the same code: one card,
+        // whose id is the first of their symbols.)
+        let mut by_lines: BTreeMap<(u32, u32), Vec<Function>> = BTreeMap::new();
         for function in file_functions(overlay, path).await {
             let (first, last) = function.lines;
             if touched.range(first..=last).next().is_none() {
                 continue;
             }
+            by_lines.entry(function.lines).or_default().push(function);
+        }
+        for ((first, last), mut functions) in by_lines {
+            functions.sort_by(|a, b| a.sym.cmp(&b.sym));
+            let changed = functions.iter().any(|f| base_functions.contains(&f.pretty));
+            let syms: Vec<String> = functions.iter().map(|f| f.sym.clone()).collect();
+            let mut pretties = functions.into_iter().map(|f| f.pretty);
+            let pretty = pretties.next().unwrap_or_default();
+            let mut others: Vec<String> = pretties.filter(|other| *other != pretty).collect();
+            others.sort();
+            others.dedup();
             nodes.push(CanvasNode {
-                status: if base_functions.contains(&function.pretty) {
-                    "changed"
-                } else {
-                    "added"
-                },
-                id: function.sym,
-                pretty: function.pretty,
+                status: if changed { "changed" } else { "added" },
+                id: syms_first(&syms),
+                pretty,
                 path: path.clone(),
-                lines: function.lines,
+                lines: (first, last),
                 changed_lines: added.range(first..=last).copied().collect(),
                 rows: String::new(),
                 complete: false,
                 link: link(path),
+                others,
+                syms,
             });
         }
         if nodes.len() == before {
@@ -319,100 +352,159 @@ pub async fn build_canvas(
 
     // ## Their calls among them, and with a few of the functions the push
     // doesn't change.
-    let mut ids: HashMap<String, usize> = nodes
-        .iter()
-        .enumerate()
-        .map(|(i, node)| (node.id.clone(), i))
-        .collect();
+    // (By any of their symbols, and by their definitions' places, so that a
+    // function the push doesn't change is one card too, and another
+    // instantiation of a function it changes is that function's card.)
+    let mut ids: HashMap<String, usize> = HashMap::new();
+    let mut places: HashMap<(String, u32), usize> = HashMap::new();
+    for (i, node) in nodes.iter().enumerate() {
+        for sym in &node.syms {
+            ids.insert(sym.clone(), i);
+        }
+        places.insert((node.path.clone(), node.lines.0), i);
+    }
     let mut calls: BTreeMap<(String, String), BTreeSet<u32>> = BTreeMap::new();
     // (Their entries, at once, and then those of the first of their callees
     // and callers that can be context cards; see `context_node`.)
-    let syms: Vec<Ustr> = nodes.iter().map(|node| ustr(&node.id)).collect();
+    let syms: Vec<Ustr> = nodes
+        .iter()
+        .flat_map(|node| node.syms.iter().map(|sym| ustr(sym)))
+        .collect();
     overlay.prefetch_crossref(&syms).await;
     let mut node_data = vec![];
-    for sym in &syms {
-        node_data.push(overlay.crossref_lookup(sym).await.ok().flatten());
+    for node in &nodes {
+        let mut data = vec![];
+        for sym in &node.syms {
+            data.extend(overlay.crossref_lookup(sym).await.ok().flatten());
+        }
+        node_data.push(data);
     }
     let mut candidates: Vec<Ustr> = vec![];
-    for (sym, data) in syms.iter().zip(&node_data) {
-        let Some(data) = data else {
-            continue;
-        };
-        candidates.extend(
-            data.callees
-                .iter()
-                .flatten()
-                .filter(|callee| {
-                    !callee.implements && matches!(callee.kind.as_str(), "function" | "method")
-                })
-                .map(|callee| callee.sym)
-                .filter(|callee| !ids.contains_key(callee.as_str()))
-                .take(MAX_CONTEXT_PER_NODE),
-        );
+    for (i, datas) in node_data.iter().enumerate() {
+        let mut callees: Vec<Ustr> = vec![];
         let mut callers: Vec<Ustr> = vec![];
-        for hit in data.uses.iter().flatten().flat_map(|hits| &hits.lines) {
-            let from = hit.contextsym;
-            if callers.len() < MAX_CONTEXT_PER_NODE
-                && !from.is_empty()
-                && from != *sym
-                && !ids.contains_key(from.as_str())
-                && !callers.contains(&from)
-            {
-                callers.push(from);
+        for data in datas {
+            for callee in data.callees.iter().flatten() {
+                if callees.len() < MAX_CONTEXT_PER_NODE
+                    && !callee.implements
+                    && matches!(callee.kind.as_str(), "function" | "method")
+                    && !ids.contains_key(callee.sym.as_str())
+                    && !callees.contains(&callee.sym)
+                {
+                    callees.push(callee.sym);
+                }
+            }
+            for hit in data.uses.iter().flatten().flat_map(|hits| &hits.lines) {
+                let from = hit.contextsym;
+                if callers.len() < MAX_CONTEXT_PER_NODE
+                    && !from.is_empty()
+                    && ids.get(from.as_str()) != Some(&i)
+                    && !ids.contains_key(from.as_str())
+                    && !callers.contains(&from)
+                {
+                    callers.push(from);
+                }
             }
         }
+        candidates.extend(callees);
         candidates.extend(callers);
     }
     overlay.prefetch_crossref(&candidates).await;
-    for (i, data) in node_data.into_iter().enumerate() {
-        let sym = nodes[i].id.clone();
-        let Some(data) = data else {
-            continue;
-        };
-        let mut context = 0;
-        for callee in data.callees.iter().flatten() {
-            if callee.implements || !matches!(callee.kind.as_str(), "function" | "method") {
-                continue;
+    // The card of a function the push doesn't change, `sym`, if it can be one:
+    // an existing card if its definition is one's place, else a new card (but
+    // not more than `MAX_CONTEXT_PER_NODE` new cards per card, by `context`).
+    async fn context_card(
+        overlay: &(dyn AbstractServer + Send + Sync),
+        sym: &str,
+        link: &(dyn Fn(&str) -> String + Sync),
+        nodes: &mut Vec<CanvasNode>,
+        ids: &mut HashMap<String, usize>,
+        places: &mut HashMap<(String, u32), usize>,
+        context: &mut usize,
+    ) -> Option<usize> {
+        if let Some(&i) = ids.get(sym) {
+            return Some(i);
+        }
+        if *context == MAX_CONTEXT_PER_NODE {
+            return None;
+        }
+        let node = context_node(overlay, sym, link).await?;
+        let place = (node.path.clone(), node.lines.0);
+        let i = match places.get(&place) {
+            Some(&i) => {
+                let existing = &mut nodes[i];
+                existing.syms.push(sym.to_string());
+                if node.pretty != existing.pretty && !existing.others.contains(&node.pretty) {
+                    existing.others.push(node.pretty);
+                    existing.others.sort();
+                }
+                i
             }
-            let to = callee.sym.to_string();
-            if !ids.contains_key(&to) {
-                if context == MAX_CONTEXT_PER_NODE {
+            None => {
+                *context += 1;
+                places.insert(place, nodes.len());
+                nodes.push(node);
+                nodes.len() - 1
+            }
+        };
+        ids.insert(sym.to_string(), i);
+        Some(i)
+    }
+    for (i, datas) in node_data.into_iter().enumerate() {
+        let mut context = 0;
+        for data in &datas {
+            for callee in data.callees.iter().flatten() {
+                if callee.implements || !matches!(callee.kind.as_str(), "function" | "method") {
                     continue;
                 }
-                let Some(node) = context_node(overlay, &to, &link).await else {
+                let Some(to) = context_card(
+                    overlay,
+                    &callee.sym,
+                    &link,
+                    &mut nodes,
+                    &mut ids,
+                    &mut places,
+                    &mut context,
+                )
+                .await
+                else {
                     continue;
                 };
-                context += 1;
-                ids.insert(to.clone(), nodes.len());
-                nodes.push(node);
+                calls
+                    .entry((nodes[i].id.clone(), nodes[to].id.clone()))
+                    .or_default()
+                    .extend(jump_lines(&callee.jump));
             }
-            calls
-                .entry((sym.clone(), to))
-                .or_default()
-                .extend(jump_lines(&callee.jump));
         }
         let mut context = 0;
-        for hits in data.uses.iter().flatten() {
-            for hit in &hits.lines {
-                let from = hit.contextsym.to_string();
-                if from.is_empty() || from == sym {
-                    continue;
-                }
-                if !ids.contains_key(&from) {
-                    if context == MAX_CONTEXT_PER_NODE {
+        for data in &datas {
+            for hits in data.uses.iter().flatten() {
+                for hit in &hits.lines {
+                    let from = hit.contextsym.to_string();
+                    if from.is_empty() || ids.get(&from) == Some(&i) {
                         continue;
                     }
-                    let Some(node) = context_node(overlay, &from, &link).await else {
+                    let Some(from) = context_card(
+                        overlay,
+                        &from,
+                        &link,
+                        &mut nodes,
+                        &mut ids,
+                        &mut places,
+                        &mut context,
+                    )
+                    .await
+                    else {
                         continue;
                     };
-                    context += 1;
-                    ids.insert(from.clone(), nodes.len());
-                    nodes.push(node);
+                    if from == i {
+                        continue;
+                    }
+                    calls
+                        .entry((nodes[from].id.clone(), nodes[i].id.clone()))
+                        .or_default()
+                        .insert(hit.lineno);
                 }
-                calls
-                    .entry((from, sym.clone()))
-                    .or_default()
-                    .insert(hit.lineno);
             }
         }
     }

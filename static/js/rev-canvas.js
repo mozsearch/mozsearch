@@ -30,8 +30,9 @@ var RevCanvas = new (class RevCanvas {
   static DB = "searchfox-rev-canvas";
   static STORE = "arrangements";
 
+  // (The context is hidden at first: it makes the canvas much bigger.)
   defaultState() {
-    return { context: true, hidden: [], collapsed: [], cluster: null, merge: false };
+    return { context: false, hidden: [], collapsed: [], cluster: null, merge: false };
   }
 
   async init() {
@@ -43,6 +44,10 @@ var RevCanvas = new (class RevCanvas {
     this.model = CANVAS;
     this.key = `${this.model.tree}/${this.model.head}`;
     this.nodes = new Map(this.model.nodes.map(node => [node.id, node]));
+    // (A card's other symbols, ex: other instantiations of its code's; see
+    // `patch_canvas::CanvasNode::syms`.)
+    this.cardOf = new Map(this.model.nodes.flatMap(node =>
+      [node.id, ...(node.syms ?? [])].map(sym => [sym, node.id])));
     // (By their edges' `data-symbols`.)
     this.calls = new Map(this.model.edges.map(edge => [`${edge.from}->${edge.to}`, edge]));
     this.state = this.defaultState();
@@ -78,7 +83,7 @@ var RevCanvas = new (class RevCanvas {
   cleanState(state) {
     const ids = list => (Array.isArray(list) ? list : []).filter(id => this.nodes.has(id));
     return {
-      context: state?.context !== false,
+      context: state?.context === true,
       hidden: ids(state?.hidden),
       collapsed: ids(state?.collapsed),
       cluster: typeof state?.cluster == "string" ? state.cluster : null,
@@ -144,7 +149,9 @@ var RevCanvas = new (class RevCanvas {
       units.find(u => u.func_sym == sym)?.func?.split("::").slice(-2).join("::") ?? sym;
     this.clusters = this.slicing.clusters.map((ids, i) => {
       const members = ids.map(id => units[id]);
-      const funcs = [...new Set(members.map(u => u.func_sym).filter(Boolean))];
+      // (By their cards' ids, if they have cards.)
+      const funcs = [...new Set(members.map(u => u.func_sym).filter(Boolean)
+        .map(sym => this.cardOf.get(sym) ?? sym))];
       const commits = [...new Set(members.flatMap(u => u.commits ?? []))];
       // (Its class: the one most of its functions are methods of, if any.)
       const counts = new Map();
@@ -326,6 +333,14 @@ var RevCanvas = new (class RevCanvas {
     const name = document.createElement("span");
     name.className = "rc-name";
     name.textContent = node.pretty;
+    // (The other functions whose definitions are its lines, ex: other
+    // instantiations of a template; see `patch_canvas::CanvasNode::others`.)
+    const others = node.others?.length ? document.createElement("span") : null;
+    if (others) {
+      others.className = "rc-others";
+      others.textContent = `+${node.others.length}`;
+      others.title = `The same code is also ${node.others.join(", ")}`;
+    }
     const where = document.createElement("a");
     where.className = "rc-where";
     where.href = `${node.link}#${node.lines[0]}`;
@@ -339,7 +354,7 @@ var RevCanvas = new (class RevCanvas {
     collapse.classList.add("rc-collapse");
     const hide = this.button("×", "Hide it", () => this.toggle("hidden", node.id));
     hide.classList.add("rc-hide");
-    head.append(collapse, status, name, where);
+    head.append(collapse, status, name, ...(others ? [others] : []), where);
     // (Its clusters' badges.)
     for (const n of this.cardClusters?.get(node.id) ?? []) {
       const badge = document.createElement("span");
