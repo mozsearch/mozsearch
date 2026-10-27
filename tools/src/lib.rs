@@ -137,6 +137,8 @@ pub mod try_import;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod try_delta;
 #[cfg(not(target_arch = "wasm32"))]
+pub mod typos;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod url_encode_path;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod url_map_handler;

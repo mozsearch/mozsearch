@@ -112,6 +112,7 @@ mod tests {
             "debug": false,
             "SYM_INFO_STR": "{}",
             "file_facets": null,
+            "corrections": liquid::model::Value::Array(vec![]),
         });
         build_and_parse_query_results().render(&globals).unwrap()
     }

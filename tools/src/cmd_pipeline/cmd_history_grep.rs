@@ -215,6 +215,8 @@ mod tests {
             "SYM_INFO_STR": "{}",
             "file_facets": null.clone(),
             "too_expensive": null,
+
+            "corrections": liquid::model::Value::Array(vec![]),
         });
         build_and_parse_query_results().render(&globals).unwrap()
     }

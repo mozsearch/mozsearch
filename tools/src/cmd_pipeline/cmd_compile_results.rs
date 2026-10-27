@@ -1220,6 +1220,7 @@ mod tests {
                 "SYM_INFO_STR": "{}",
                 "file_facets": null,
                 "too_expensive": liquid::model::to_value(&too_expensive).unwrap(),
+                "corrections": liquid::model::Value::Array(vec![]),
             });
             crate::templating::builder::build_and_parse_query_results()
                 .render(&globals)

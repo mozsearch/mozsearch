@@ -222,6 +222,10 @@ impl AbstractServer for TryOverlay {
         self.base.request_spec_prs_sync(spec).await
     }
 
+    async fn typo_corrections(&self, query: &str) -> Result<Vec<String>> {
+        self.base.typo_corrections(query).await
+    }
+
     async fn spec_prs_imported(&self) -> Result<Vec<String>> {
         self.base.spec_prs_imported().await
     }

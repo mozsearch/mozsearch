@@ -31,6 +31,11 @@
       <a href="{{ dwim.url | escape }}">Go to {{ dwim.url | escape }}</a> ({{ dwim.description | escape }})
     </div>
     {%- endif %}
+    {%- if corrections != empty %}
+    <div class="query-interpretation query-corrections">
+      Nothing matched.  Did you mean {% for correction in corrections %}<a href="/{{ tree }}/query/{{ preset }}?q={{ correction | url_encode }}{% if search_rev != empty %}&amp;rev={{ search_rev | url_encode }}{% endif %}"><code>{{ correction | escape }}</code></a>{% if forloop.last %}?{% elsif forloop.rindex == 2 %} or {% else %}, {% endif %}{% endfor %}
+    </div>
+    {%- endif %}
     {%- if interpretation %}
     <div class="query-interpretation">
       Searching for <code>{{ query | escape }}</code>, the query for

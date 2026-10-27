@@ -663,6 +663,12 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// Corrections of the typos of a query which found nothing (see
+    /// `typos::correct_query`), best first.
+    async fn typo_corrections(&self, _query: &str) -> Result<Vec<String>> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The spec pull requests imported into the tree (see
     /// `try_import::imported_pull_requests`).  (The web-server's, whose
     /// `spec-prs-imported` data API route this is, which the indexer asks for

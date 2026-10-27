@@ -418,6 +418,13 @@ async fn handle_query(
         return Ok((StatusCode::FOUND, [(header::LOCATION, target.url.clone())]).into_response());
     }
 
+    // (Corrections of the typos of a query which found nothing, for a
+    // person; see `tools::typos`.)
+    let corrections = match make_html && too_expensive.is_none() && finds_nothing(&result) {
+        true => server.typo_corrections(query).await.unwrap_or_default(),
+        false => vec![],
+    };
+
     let logs = match logged_span {
         Some(lspan) => lspan.retrieve_serde_json().await,
         _ => Value::Null,
@@ -508,6 +515,7 @@ async fn handle_query(
             "SYM_INFO_STR": sym_info_str,
             "file_facets": file_facets,
             "too_expensive": too_expensive.clone().unwrap_or(Value::Null),
+            "corrections": corrections,
         });
 
         let output = templates.query_results.render(&globals)?;

@@ -3900,6 +3900,28 @@ async fn main() {
     }
 
     println!(
+        "Performing crossref::write-typo-words step for {} : {}",
+        tree_name,
+        Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+    );
+    // (The words which queries finding nothing are corrected to: the
+    // identifiers' names, and the files' and directories'; see
+    // `tools::typos`.)
+    {
+        let index_path = &tree_config.paths.index_path;
+        let files = std::fs::read_to_string(format!("{}/all-files", index_path))
+            .or_else(|_| std::fs::read_to_string(format!("{}/repo-files", index_path)))
+            .unwrap_or_default();
+        if let Err(err) = tools::typos::write_words(
+            index_path,
+            id_table.iter().map(|(id, syms)| (id.as_str(), syms.len())),
+            files.lines(),
+        ) {
+            eprintln!("Couldn't write the typo words: {}", err);
+        }
+    }
+
+    println!(
         "Performing crossref::write-identifiers step for {} : {}",
         tree_name,
         Local::now().format("%Y-%m-%dT%H:%M:%S%z")

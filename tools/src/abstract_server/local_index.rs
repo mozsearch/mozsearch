@@ -344,6 +344,16 @@ impl AbstractServer for LocalIndex {
             .map_err(|message| bad_input(message.to_string()))
     }
 
+    async fn typo_corrections(&self, query: &str) -> Result<Vec<String>> {
+        let cfg = self.tree_config_loaded();
+        let Some(tree_config) = cfg.trees.get(&self.tree_name) else {
+            return Ok(vec![]);
+        };
+        Ok(crate::typos::Words::open(&tree_config.paths.index_path)
+            .map(|words| crate::typos::correct_query(&words, query))
+            .unwrap_or_default())
+    }
+
     async fn spec_prs_imported(&self) -> Result<Vec<String>> {
         let cfg = self.tree_config_loaded();
         Ok(crate::try_import::imported_pull_requests(
