@@ -22,9 +22,15 @@
   const STACK = /^(explore\/(bug|phab)\/[\w,]+|try\/(hg\/[0-9a-f]+|[\w-]+\/[1-9]\d*))$/i;
   const tree = location.pathname.split("/")[1];
   const param = new URLSearchParams(location.search).get("stack");
-  // (The page's stack: its parameter's, or the page's own, if it's a stack's.)
+  // (A try push's rebased head's files are its push's, with or without the
+  // parameter; see `format::FileExtras::stack`.)
+  const fileStack = document.getElementById("file")?.dataset.stack;
+  // (The page's stack: its parameter's, its file's, or the page's own, if
+  // it's a stack's.)
   const own = location.pathname.split("/").slice(2).filter(Boolean).join("/");
-  const stack = param && STACK.test(param) ? param : STACK.test(own) ? own : null;
+  const stack = param && STACK.test(param) ? param
+    : fileStack && STACK.test(fileStack) ? fileStack
+    : STACK.test(own) ? own : null;
   if (!tree || !stack) {
     return;
   }
@@ -47,7 +53,7 @@
   document.addEventListener("focusin", keep, true);
 
   const match = location.pathname.match(/^\/([^/]+)\/rev\/([0-9a-f]+)\/(.+)$/);
-  if (!param || !match) {
+  if (!(param || fileStack) || !match) {
     return;
   }
   const [, , rev, path] = match;

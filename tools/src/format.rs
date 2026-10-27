@@ -795,6 +795,17 @@ pub struct FileExtras {
     /// The try push whose context its searches are in (a try push's rebased
     /// head's; see `try_delta`).
     pub search_rev: Option<String>,
+    /// For a try push's rebased head, the push's stack context (ex:
+    /// "try/hg/abcdef012345"; see `try_import::push_url_path`), whose stack
+    /// strip its pages show (see stack-strip.js), whether or not their URLs
+    /// say `?stack=`.
+    #[serde(default)]
+    pub stack: Option<String>,
+    /// For a try push's own commit, the push and the page of the file in its
+    /// stack rebased onto the indexed revision, which has its semantic
+    /// analysis (see `try_delta`): `(push, URL)`.
+    #[serde(default)]
+    pub rebased_file: Option<(String, String)>,
     #[serde(skip)]
     pub blame_lines_duration_us: u64,
     #[serde(skip)]
@@ -860,6 +871,40 @@ pub fn file_extras(
                 .exists()
         });
 
+    let stack = search_rev
+        .as_deref()
+        .zip(tree_config.git.as_ref())
+        .and_then(|(head, git)| crate::try_import::rebased_head_push(&git.repo, head))
+        .map(|push| crate::try_import::push_url_path(&push));
+
+    // (A try push's own commits' pages point to the push's rebased stack's,
+    // which have its analysis.)
+    let rebased_file = match (&search_rev, &revision, &tree_config.git) {
+        (None, Some((rev, _, _)), Some(git)) => crate::try_import::commit_push(cfg, tree_name, rev)
+            .and_then(|push| {
+                let head = crate::try_import::semantic_head(cfg, tree_name, &push)?;
+                git.history
+                    .as_ref()
+                    .filter(|history| history_has(history, &head))?;
+                let tree = git
+                    .repo
+                    .find_commit(Oid::from_str(&head).ok()?)
+                    .ok()?
+                    .tree()
+                    .ok()?;
+                tree.get_path(Path::new(path)).ok()?;
+                let url = format!(
+                    "/{}/rev/{}/{}?stack={}",
+                    tree_name,
+                    head,
+                    url_encode_path(path),
+                    crate::try_import::push_url_path(&push)
+                );
+                Some((push, url))
+            }),
+        _ => None,
+    };
+
     let coverage_history = coverage_history(tree_config.git.as_ref(), path);
     let coverage_summary = match coverage_history {
         Some(_) => coverage_commit.as_ref().and_then(|commit| {
@@ -876,6 +921,8 @@ pub fn file_extras(
         coverage_history: coverage_history.and_then(|history| serde_json::to_value(history).ok()),
         coverage_summary,
         search_rev,
+        stack,
+        rebased_file,
         blame_lines_duration_us,
         commit_info_duration_us,
     })
@@ -915,6 +962,12 @@ pub fn format_file_data(
     };
 
     let slug = format_to_slug_attribute(&format);
+    let stack_attribute = extras.stack.as_ref().map_or_else(String::new, |stack| {
+        format!(
+            r#" data-stack="{}""#,
+            stack.replace('&', "&amp;").replace('"', "&quot;")
+        )
+    });
     let pre_format_code = Instant::now();
     let (output_lines, sym_json) =
         format_code(Some(cfg), jumpref_lookup, format, path, &data, analysis);
@@ -983,6 +1036,17 @@ pub fn format_file_data(
     }
     output::generate_panel(&opt, writer, &panel, false)?;
 
+    let info_boxes = match &extras.rebased_file {
+        Some((push, url)) => format!(
+            r#"<section class="info-box info-box-info try-rebased-file">This revision is a commit of <a href="/{}/{}">{}</a>, whose stack rebased onto the indexed revision has its semantic analysis: <a href="{}">see this file there</a>, with jumps and references, the push's blame, and its stack strip.</section>{}"#,
+            tree_name,
+            crate::try_import::push_url_path(push),
+            entity_escape(&crate::try_import::push_title(cfg, tree_name, push).0),
+            url.replace('&', "&amp;").replace('"', "&quot;"),
+            info_boxes
+        ),
+        None => info_boxes,
+    };
     let info_boxes_container = F::Seq(vec![
         F::S(r#"<section class="info-boxes" id="info-boxes-container">"#),
         F::Indent(vec![F::T(info_boxes)]),
@@ -998,8 +1062,8 @@ pub fn format_file_data(
     }
 
     let f = F::Seq(vec![F::T(format!(
-        "<div id=\"file\" class=\"file\" role=\"table\"{}>",
-        slug
+        "<div id=\"file\" class=\"file\" role=\"table\"{}{}>",
+        slug, stack_attribute
     ))]);
 
     output::generate_formatted(writer, &f, 0).unwrap();
@@ -8949,6 +9013,7 @@ fn explore_commit(
         interdiff: None,
         header,
         summary,
+        rebased: None,
     }
 }
 
@@ -9509,6 +9574,9 @@ pub fn stack_strip_json(
         .and_then(|object| object.peel_to_commit())
         .map_err(|_| "Bad revision")?;
     let source = read_commit_file(&git.repo, &commit, path).ok_or("No such file")?;
+    // (On a try push's rebased stack's pages, its rebased commits stand for
+    // its commits, whose tokens the history blames on them.)
+    let commits = rebased_commits(&git.repo, commit.id(), commits);
     let strip = crate::hyperblame::stack_strip::stack_strip(
         history,
         &git.repo,
@@ -9535,6 +9603,37 @@ pub fn stack_strip_json(
     let mut value = serde_json::to_value(&strip).map_err(|_| "Stack strip problems")?;
     value["base"] = json!(base);
     serde_json::to_string(&value).map_err(|_| "Stack strip problems")
+}
+
+/// Whether the history has the revision `rev` (ex: a try push's rebased
+/// head; see import-try-rebased.sh).
+fn history_has(history: &crate::hyperblame::token_blame::TreeHistory, rev: &str) -> bool {
+    Oid::from_str(rev).is_ok_and(|oid| history.timeline_commit(oid).is_some())
+}
+
+/// The commits of a try push's stack (`commits`) as the commits of its stack
+/// rebased onto the indexed revision (see rebase-try-push.sh) which `rev` is
+/// or descends from, if it's one of them: their notes
+/// (`refs/notes/try-rebased`) name the commits they're of.  (Commits which
+/// landed before the rebase have no rebased commits, and stay.)
+fn rebased_commits(repo: &git2::Repository, rev: Oid, commits: Vec<Oid>) -> Vec<Oid> {
+    let mut rebased: HashMap<Oid, Oid> = HashMap::new();
+    let mut current = repo.find_commit(rev).ok();
+    while let Some(commit) = current {
+        let original = repo
+            .find_note(Some("refs/notes/try-rebased"), commit.id())
+            .ok()
+            .and_then(|note| Oid::from_str(note.message().ok()?.trim()).ok());
+        let Some(original) = original else {
+            break;
+        };
+        rebased.insert(original, commit.id());
+        current = commit.parent(0).ok();
+    }
+    commits
+        .into_iter()
+        .map(|oid| rebased.get(&oid).copied().unwrap_or(oid))
+        .collect()
 }
 
 struct ExploreExtras {
@@ -9604,12 +9703,58 @@ pub fn explore_data(
             revs(&reland)
         ));
     }
+    // (A try push's files are its stack rebased onto the indexed revision's,
+    // whose head's pages have the push's semantic analysis, its blame and its
+    // stack strip (see `try_delta`, `FileExtras::stack`), if the history has
+    // it (see import-try-rebased.sh; not, ex, a spec's pull request's): its
+    // files link to the head's files, if it has them, and their outline diffs
+    // are from the indexed revision to the head.)
+    let rebased = stack_url
+        .and_then(crate::try_import::stack_push)
+        .and_then(|push| crate::try_import::semantic_head(cfg, tree_name, &push))
+        .filter(|head| history.is_some_and(|history| history_has(history, head)))
+        .and_then(|head| {
+            let tree = git
+                .repo
+                .find_commit(Oid::from_str(&head).ok()?)
+                .ok()?
+                .tree()
+                .ok()?;
+            let base = crate::try_delta::delta_meta(&tree_config.paths.index_path, &head)?.base;
+            let base_tree = git
+                .repo
+                .find_commit(Oid::from_str(&base).ok()?)
+                .ok()?
+                .tree()
+                .ok()?;
+            Some((head, tree, base, base_tree))
+        });
+    if let Some((head, _, _, _)) = &rebased
+        && let Ok(head) = Oid::from_str(head)
+    {
+        let originals: Vec<Oid> = refs
+            .iter()
+            .filter_map(|r| Oid::from_str(&r.rev).ok())
+            .collect();
+        let rebased_revs = rebased_commits(&git.repo, head, originals.clone());
+        for (original, rebased_rev) in originals.iter().zip(rebased_revs) {
+            if *original != rebased_rev
+                && let Some(commit) = commits.iter_mut().find(|c| c.rev == original.to_string())
+            {
+                commit.rebased = Some(rebased_rev.to_string());
+            }
+        }
+    }
     // (Files link to their views with the page's stack strip; see
     // `stack_strip_json`.)
     let mut files = blot_files(
         refs,
         &changes,
         |path, rev| {
+            let rev = match &rebased {
+                Some((head, tree, _, _)) if tree.get_path(Path::new(path)).is_ok() => head.as_str(),
+                _ => rev,
+            };
             let url = format!("/{}/rev/{}/{}", tree_name, rev, url_encode_path(path));
             match stack_url {
                 Some(stack_url) => format!("{}?stack={}", url, stack_url),
@@ -9652,12 +9797,25 @@ pub fn explore_data(
             let parent = Oid::from_str(&refs[first].rev)
                 .ok()
                 .and_then(|oid| git.repo.find_commit(oid).ok()?.parent_id(0).ok());
-            if let Some(parent) = parent {
+            // (Not if the rebased stack doesn't change the file, ex: if the
+            // commits changing it landed.)
+            let entry =
+                |tree: &git2::Tree| tree.get_path(Path::new(&file.path)).ok().map(|e| e.id());
+            let range = match &rebased {
+                Some((head, tree, base, base_tree))
+                    if entry(tree).is_some() && entry(tree) != entry(base_tree) =>
+                {
+                    Some((base.clone(), head.clone()))
+                }
+                _ => parent
+                    .map(|parent| (parent.to_string(), refs[last.unwrap_or(first)].rev.clone())),
+            };
+            if let Some((from, to)) = range {
                 file.outline = format!(
                     "/{}/outline-diff/{}/{}/{}",
                     tree_name,
-                    parent,
-                    refs[last.unwrap_or(first)].rev,
+                    from,
+                    to,
                     url_encode_path(&file.path)
                 );
             }
@@ -9776,11 +9934,18 @@ fn explore_outlines(
             .await
     });
 
+    // (By their revisions, and their rebased commits', which the rebased
+    // head's outline diffs name.)
     let numbers: HashMap<&str, u64> = commits
         .as_array()
         .into_iter()
         .flatten()
-        .filter_map(|commit| Some((commit["rev"].as_str()?, commit["number"].as_u64()?)))
+        .flat_map(|commit| {
+            let number = commit["number"].as_u64();
+            [commit["rev"].as_str(), commit["rebased"].as_str()]
+                .into_iter()
+                .filter_map(move |rev| Some((rev?, number?)))
+        })
         .collect();
     for ((g, f), fetched) in diffs {
         let (path, diff) = match fetched {

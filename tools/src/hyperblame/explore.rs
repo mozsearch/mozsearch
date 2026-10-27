@@ -40,6 +40,11 @@ pub struct ExploreCommit {
     pub header: String,
     /// The first line of the header: the commit message's summary line.
     pub summary: String,
+    /// For a try push's commit, its commit in the push's stack rebased onto
+    /// the indexed revision (see rebase-try-push.sh), if any, which the
+    /// rebased head's outline diffs name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rebased: Option<String>,
 }
 
 /// Order commits oldest first: by when they landed, parents first, if `index`

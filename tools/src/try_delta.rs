@@ -85,6 +85,17 @@ pub fn delta_dir(index_path: &str, head: &str) -> PathBuf {
     Path::new(index_path).join("try-deltas").join(head)
 }
 
+/// The tree's delta's meta for the head `head`, if it has one.
+pub fn delta_meta(index_path: &str, head: &str) -> Option<TryDeltaMeta> {
+    if !is_full_rev(head) {
+        return None;
+    }
+    serde_json::from_str(
+        &std::fs::read_to_string(delta_dir(index_path, head).join("meta.json")).ok()?,
+    )
+    .ok()
+}
+
 /// A bisectable map in the delta's directory, if it has one with values.
 fn open_map<T>(dir: &Path, name: &str) -> Option<BisectableMmap<T>>
 where

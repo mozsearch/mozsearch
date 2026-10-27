@@ -207,6 +207,28 @@ pub fn push_url_path(push: &str) -> String {
     }
 }
 
+/// The try push whose stack rebased onto the indexed revision (see
+/// `try_delta`) has its head at `head` (`refs/try-rebased/{push}`), if any.
+pub fn rebased_head_push(repo: &git2::Repository, head: &str) -> Option<String> {
+    let oid = git2::Oid::from_str(head).ok()?;
+    // (Spec pull requests' are `refs/try-rebased/{spec}/{number}`.)
+    for glob in ["refs/try-rebased/*", "refs/try-rebased/*/*"] {
+        for reference in repo.references_glob(glob).ok()?.flatten() {
+            if reference.target() != Some(oid) {
+                continue;
+            }
+            if let Some(push) = reference
+                .name()
+                .ok()
+                .and_then(|name| name.strip_prefix("refs/try-rebased/"))
+            {
+                return Some(push.to_string());
+            }
+        }
+    }
+    None
+}
+
 /// How a try push's pages name it: their title (ex: "Try push abcdef012345",
 /// or "Pull request #1512 of whatwg/dom"), and its upstream page, if any (ex:
 /// the pull request's on GitHub).
@@ -272,6 +294,41 @@ pub fn push_commits(cfg: &Config, tree_name: &str, rev: &str) -> (Vec<Oid>, usiz
     (stack, task_selections)
 }
 
+/// The imported try push whose stack has the commit `rev` (see
+/// `push_commits`), if any: its name (ex: an hg revision, or a spec's pull
+/// request's SPEC/NUMBER).
+pub fn commit_push(cfg: &Config, tree_name: &str, rev: &str) -> Option<String> {
+    let history = cfg.trees.get(tree_name)?.paths.history_path.as_ref()?;
+    let pushes = Path::new(history).join("try-pushes");
+    // (A spec's pull request's list is in its spec's directory.)
+    let mut lists = vec![];
+    for entry in fs::read_dir(&pushes).ok()?.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            lists.extend(
+                fs::read_dir(&path)
+                    .ok()?
+                    .flatten()
+                    .map(|entry| entry.path()),
+            );
+        } else {
+            lists.push(path);
+        }
+    }
+    lists.into_iter().find_map(|list| {
+        fs::read_to_string(&list)
+            .ok()?
+            .lines()
+            .any(|line| line.trim() == rev)
+            .then(|| {
+                list.strip_prefix(&pushes)
+                    .ok()?
+                    .to_str()
+                    .map(str::to_string)
+            })?
+    })
+}
+
 /// An imported try push, for its page (see `format::format_try` and
 /// `AbstractServer::try_push`).
 #[derive(Debug, Deserialize, Serialize)]
@@ -314,6 +371,23 @@ pub struct LandedCommit {
     pub rev_summary: String,
 }
 
+/// The head of the try push `push`'s stack rebased onto the indexed revision
+/// (`refs/try-rebased/{push}`), if it has a semantic analysis (see
+/// `try_delta`).
+pub fn semantic_head(cfg: &Config, tree_name: &str, push: &str) -> Option<String> {
+    let tree_config = cfg.trees.get(tree_name)?;
+    let git = tree_config.git.as_ref()?;
+    git.repo
+        .refname_to_id(&format!("refs/try-rebased/{}", push))
+        .ok()
+        .map(|oid| oid.to_string())
+        .filter(|head| {
+            crate::try_delta::delta_dir(&tree_config.paths.index_path, head)
+                .join("meta.json")
+                .exists()
+        })
+}
+
 /// The imported try push `rev` (see `normalize_rev`), if the tree imported
 /// it.
 pub fn try_push(cfg: &Config, tree_name: &str, rev: &str) -> Option<TryPush> {
@@ -332,16 +406,7 @@ pub fn try_push(cfg: &Config, tree_name: &str, rev: &str) -> Option<TryPush> {
         git.history.as_ref().map(|h| Path::new(&h.path)),
         &mut stack,
     );
-    let semantic_head = git
-        .repo
-        .refname_to_id(&format!("refs/try-rebased/{}", rev))
-        .ok()
-        .map(|oid| oid.to_string())
-        .filter(|head| {
-            crate::try_delta::delta_dir(&tree_config.paths.index_path, head)
-                .join("meta.json")
-                .exists()
-        });
+    let semantic_head = semantic_head(cfg, tree_name, rev);
     let semantic_failure = match semantic_head {
         Some(_) => None,
         None => semantic_failure(cfg, tree_name, rev),

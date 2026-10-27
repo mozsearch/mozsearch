@@ -8,17 +8,19 @@ set -o pipefail # Check all commands in a pipeline
 # refs/try-rebased/NAME, and print its commit: the push's head itself if the
 # push is on top of the indexed revision, and otherwise its stack's commits
 # (since its history diverged from the indexed revision's) applied to the
-# indexed revision one at a time, leaving out those which have landed since
-# then (as `git rebase` would): commits whose changes are a landed commit's
-# (the same patch id), or which are the same Phabricator revision as one
-# (their messages' "Differential Revision: <URL>" lines), even if it changed
-# before it landed.  Which commits landed, and as what, it writes to stderr ("Landed:
-# <commit> as <landed commit> (<how>)"), which the push's import log has (see
-# tools/src/try_import.rs).  It fails if a commit's changes conflict
-# ("Conflicting commit: <commit> <summary>", and git's lines for the files),
-# or if all of the stack's commits have landed ("All of the push's commits
-# have landed."), but those selecting try's tasks (changing only
-# try_task_config.json), so there's nothing to analyze.
+# indexed revision one at a time, each a commit with its commit's author,
+# dates and message (so that the history, which imports them too, blames
+# their tokens on them; see import-try-rebased.sh), leaving out those which
+# have landed since then (as `git rebase` would): commits whose changes are a
+# landed commit's (the same patch id), or which are the same Phabricator
+# revision as one (their messages' "Differential Revision: <URL>" lines), even
+# if it changed before it landed.  Which commits landed, and as what, it
+# writes to stderr ("Landed: <commit> as <landed commit> (<how>)"), which the
+# push's import log has (see tools/src/try_import.rs).  It fails if a commit's
+# changes conflict ("Conflicting commit: <commit> <summary>", and git's lines
+# for the files), or if all of the stack's commits have landed ("All of the
+# push's commits have landed."), but those selecting try's tasks (changing
+# only try_task_config.json), so there's nothing to analyze.
 #
 # Usage: rebase-try-push.sh GIT_ROOT NAME HEAD_REV
 
@@ -72,6 +74,8 @@ fi
 export GIT_INDEX_FILE=$WORK/index
 git read-tree "$BASE"
 APPLIED=0
+PARENT=$BASE
+: > "$WORK/rebased"
 for COMMIT in $(git rev-list --reverse --no-merges "$FORK..$HEAD_REV"); do
     PATCH_ID=$(git show "$COMMIT" | git patch-id --stable | cut -d' ' -f1)
     LANDED=$(awk -v id="$PATCH_ID" '$1 == id { print $2; exit }' "$WORK/patch-ids")
@@ -95,18 +99,32 @@ for COMMIT in $(git rev-list --reverse --no-merges "$FORK..$HEAD_REV"); do
     if [ "$(git diff-tree --no-commit-id --name-only -r "$COMMIT")" != "try_task_config.json" ]; then
         APPLIED=$((APPLIED + 1))
     fi
+    # (The commit's rebased commit, with its author, committer, dates and
+    # message.)
+    IFS=$'\x1f' read -r AN AE AD CN CE CD < <(git log -1 --date=raw \
+        --format='%an%x1f%ae%x1f%ad%x1f%cn%x1f%ce%x1f%cd' "$COMMIT")
+    TREE=$(git write-tree)
+    PARENT=$(git log -1 --format=%B "$COMMIT" |
+        env GIT_AUTHOR_NAME="$AN" GIT_AUTHOR_EMAIL="$AE" GIT_AUTHOR_DATE="$AD" \
+            GIT_COMMITTER_NAME="$CN" GIT_COMMITTER_EMAIL="$CE" GIT_COMMITTER_DATE="$CD" \
+            git -C "$GIT_ROOT" commit-tree "$TREE" -p "$PARENT" -F -)
+    echo "$PARENT $COMMIT" >> "$WORK/rebased"
 done
 if [ $APPLIED -eq 0 ]; then
     echo "All of the push's commits have landed." 1>&2
     exit 1
 fi
 
-TREE=$(git write-tree)
+# The rebased commits' notes name the commits they're of (refs/notes/try-rebased),
+# for their pages' stack strips (see tools/src/hyperblame/stack_strip.rs).
 unset GIT_INDEX_FILE
 export GIT_AUTHOR_NAME="${GIT_AUTHOR_NAME:-Searchfox}"
 export GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL:-searchfox@localhost}"
 export GIT_COMMITTER_NAME="${GIT_COMMITTER_NAME:-$GIT_AUTHOR_NAME}"
 export GIT_COMMITTER_EMAIL="${GIT_COMMITTER_EMAIL:-$GIT_AUTHOR_EMAIL}"
-REBASED=$(git commit-tree "$TREE" -p "$BASE" -m "Try push $NAME, rebased onto $BASE")
-git update-ref "refs/try-rebased/$NAME" "$REBASED"
-echo "$REBASED"
+while read -r REBASED_COMMIT COMMIT; do
+    git notes --ref=try-rebased add -f -m "$COMMIT" "$REBASED_COMMIT" 1>&2 ||
+        echo "Couldn't note $REBASED_COMMIT as $COMMIT's rebased commit." 1>&2
+done < "$WORK/rebased"
+git update-ref "refs/try-rebased/$NAME" "$PARENT"
+echo "$PARENT"

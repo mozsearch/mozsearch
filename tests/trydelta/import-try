@@ -11,7 +11,8 @@ set -o pipefail # Check all commands in a pipeline
 # the revision try/NAME/base names, if any (ex: HEAD~1, for a push based on an
 # older revision), with forged authors and dates, for stable SHAs, and
 # imported like any tree's push.  Then it's analyzed semantically (see
-# analyze-try); if that fails, it's still imported, without it.
+# analyze-try), and its rebased stack imported too; if that fails, it's still
+# imported, without them.
 
 NAME=$1
 PUSH="$CONFIG_REPO/$TREE_NAME/try/$NAME"
@@ -49,5 +50,12 @@ unset GIT_DIR GIT_INDEX_FILE
 PUSH_REVS="${REVS[*]}" "$MOZSEARCH_PATH/scripts/import-try-push.sh" \
     "$GIT_ROOT" "$HISTORY_ROOT" "$GIT_BRANCH" "$NAME" "$HEAD_REV" "$MAX_REVISIONS"
 
-"$CONFIG_REPO/$TREE_NAME/analyze-try" "$NAME" "$HEAD_REV" ||
+if "$CONFIG_REPO/$TREE_NAME/analyze-try" "$NAME" "$HEAD_REV"; then
+    # (And its stack rebased for that analysis, for its pages' blame and stack
+    # strip; see import-try-rebased.sh.)
+    "$MOZSEARCH_PATH/scripts/import-try-rebased.sh" \
+        "$GIT_ROOT" "$HISTORY_ROOT" "$GIT_BRANCH" "$NAME" "$MAX_REVISIONS" ||
+        echo "WARNING: The push's rebased stack's import failed."
+else
     echo "WARNING: The push's semantic analysis failed."
+fi

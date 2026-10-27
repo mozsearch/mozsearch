@@ -501,6 +501,51 @@ add_task(async function test_TryDeltaLanded() {
   ok(!doc().querySelector(".explore-semantic-failure"), "which didn't fail");
 });
 
+// A push based on an older revision is browsed as its stack rebased onto the
+// indexed revision (see scripts/rebase-try-push.sh), whose commits are its
+// commits', imported into the history too (see import-try-rebased.sh): its
+// page's files link to the rebased head's, whose pages have the push's blame
+// and stack strip, whether or not their URLs say `?stack=`.  1a2b3c4d5e6f's
+// first commit has landed (see test_TryDeltaLanded), and its second adds
+// shrinker.cpp.
+add_task(async function test_TryDeltaRebasedStack() {
+  const push = "1a2b3c4d5e6f";
+  await TestUtils.loadPath(`/trydelta/try/hg/${push}`);
+  if (!doc().querySelector(".explore-page")) {
+    doc().querySelector(".try-import-button").click();
+    await waitForCondition(() => doc()?.querySelector(".explore-page"),
+                           "The push is imported", 500, 240);
+  }
+  const head = doc().querySelector(".explore-semantic-head a")?.getAttribute("href")?.split("/")[3];
+  ok(head?.match(/^[0-9a-f]{40}$/), `The push has a rebased head: ${head}`);
+  const link = doc().querySelector('.explore-file-header a[href*="shrinker.cpp"]');
+  is(link?.getAttribute("href"), `/trydelta/rev/${head}/shrinker.cpp?stack=try/hg/${push}`,
+     "Its page's files link to the rebased head's, with the push");
+  const file = link?.closest(".explore-file");
+  ok(file?.querySelector('.explore-outline-rows a[href="#commit-2"]'),
+     "and its outline rows' commits are the page's, though the rebased head's outline diff names its rebased commits");
+  ok(!file?.querySelector('.explore-outline-rows a[href^="/trydelta/commit/"]'), "and not others");
+  const commit2 = doc().querySelector('#commit-2 a[href^="/trydelta/commit/"]')?.getAttribute("href").split("/")[3];
+
+  // (The push's own commits' pages point to the rebased head's.)
+  await TestUtils.loadPath(`/trydelta/rev/${commit2}/shrinker.cpp`);
+  is(doc().querySelector(".try-rebased-file a:last-of-type")?.getAttribute("href"),
+     `/trydelta/rev/${head}/shrinker.cpp?stack=try/hg/${push}`,
+     "Its commits' pages link to the file in its rebased stack");
+
+  // (Without `?stack=`, as from a query's results.)
+  await TestUtils.loadPath(`/trydelta/rev/${head}/shrinker.cpp`);
+  ok(doc().querySelector("#line-1 .blame-strip.c1, #line-1 .blame-strip.c2"),
+     "The rebased head's page has the push's blame");
+  ok(doc().querySelector("#line-7 [data-symbols]"), "and its semantic analysis");
+  await waitForCondition(() => doc().querySelector(".stack-strip"),
+                         "and shows the push's stack strip");
+  is(doc().querySelector(".stack-strip-note a")?.getAttribute("href"), `/trydelta/try/hg/${push}`,
+     "which links to the push");
+  const slots = [...doc().querySelectorAll("#line-1 .stack-slot")].map(slot => slot.dataset.slot);
+  is(slots.join(","), "1", "Its second commit added the file's lines (and its first, landed, didn't)");
+});
+
 // A push whose changes conflict with the indexed revision's can't be analyzed
 // semantically, which its page says, with why: fedcba987654 is based on the
 // tree's first revision, and declares Widget::Grow where the second declares
