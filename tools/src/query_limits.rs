@@ -13,9 +13,16 @@
 //!
 //! Expensive commands (ex: the history greps, `re:`'s fuller engine) plan
 //! what they'd read first, from cheap sizes, and refuse with `TooExpensive`
-//! (a 422, `query-too-expensive`) rather than start what the tier's limits
-//! don't allow; see `PipelineCommand::set_limits`, which gives the commands
-//! the request's limits.  The admission control's token buckets and
+//! rather than start what the limits they have don't allow; see
+//! `PipelineCommand::set_limits`, which gives the commands the request's
+//! limits.  A tier's limits only say how fast a query runs, not whether it
+//! does: one over them, but not over a signed-in person's (the server's
+//! most), runs anyway with those, more slowly, one at a time with the others
+//! like it (the pipeline-server's slow lane; see its `handle_query`), which
+//! only its log says (not its response, which nginx may cache, and which
+//! needn't tell a throttled client).
+//! Only one too expensive for anyone is refused (a 422,
+//! `query-too-expensive`).  The admission control's token buckets and
 //! concurrency (see `admission`) apply as for any request.
 
 use std::collections::BTreeMap;
@@ -403,7 +410,8 @@ mod tests {
                 .unwrap()
                 .contains("over the limit of 2000")
         );
-        // (Bots' history greps aren't allowed at all.)
+        // (Bots' history greps are over their limits, but not a signed-in
+        // person's, so they run more slowly; see the module's comment.)
         let bot = TooExpensive::check(
             "re-history",
             &[("history_grep", 1)],
@@ -412,5 +420,6 @@ mod tests {
         )
         .unwrap();
         assert!(bot.message().contains("isn't allowed for Bot requests"));
+        assert!(bot.signed_in_allows);
     }
 }

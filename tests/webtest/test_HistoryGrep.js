@@ -70,6 +70,23 @@ add_task(async function test_HistoryGrepTooExpensive() {
   is((await response.json())?.error, "query-too-expensive", "with its error code");
 });
 
+// A bot's history grep (by its user agent, from outside: with a forwarding
+// header) is over its tier's limits, but not the server's, so it runs anyway,
+// in the slow lane, rather than being refused; see tools/src/query_limits.rs.
+add_task(async function test_HistoryGrepSlowLane() {
+  const unique = Math.floor(Math.random() * 0xffff).toString(16);
+  const response = await fetch(TestUtils.getQueryPath("searchfox", "text-history:structopt page:3"), {
+    headers: {
+      Accept: "application/json",
+      "Fastly-Client-IP": `2001:db8:${unique}::7`,
+      "User-Agent": "curl/8.5.0",
+    },
+    cache: "no-store",
+  });
+  is(response.status, 200, "A bot's history grep runs, rather than being refused");
+  ok((await response.json())?.HistoryGrep, "with its results");
+});
+
 add_task(async function test_HistoryGrepWithoutHistory() {
   await TestUtils.loadQuery("tests", "text-history:Foo");
   await waitForCondition(() => doc().querySelector(".history-grep"), "The view is there");

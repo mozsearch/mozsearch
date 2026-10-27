@@ -2,6 +2,7 @@ use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     env,
     sync::Arc,
+    time::Duration,
 };
 
 use axum::{
@@ -319,33 +320,48 @@ async fn handle_query(
     let tier = Tier::of(class.as_deref().copied());
     let expensive = graph.set_limits(&query_limits::limits_for(tier), tier);
 
-    // (Its share of the memory budget, while it runs, by its estimate; a
-    // bot's from outside is turned away if the budget can't have it now,
-    // rather than wait; see `memory_budget`.)
+    // (Its share of the memory budget, while it runs, by its estimate, which
+    // it waits for, whoever it's from; see `memory_budget`.)
     let budget = memory_budget::budget();
     let estimate = graph.estimate();
-    let share = match class.as_deref() {
-        Some(admission::RequestClass::Bot) => match budget.try_acquire(estimate) {
-            Some(share) => share,
-            None => {
-                println!("Turned away a bot's {:?} for the memory budget", query);
-                return Ok((
-                    StatusCode::TOO_MANY_REQUESTS,
-                    [(axum::http::header::RETRY_AFTER, "30")],
-                    "The server is busy with other expensive queries.",
-                )
-                    .into_response());
-            }
-        },
-        _ => budget.acquire(estimate).await,
-    };
+    let share = budget.acquire(estimate).await;
     let memory_before = memory_budget::cgroup_memory_mib();
 
     let run_start = std::time::Instant::now();
-    let run = match &logged_span {
+    let mut run = match &logged_span {
         Some(lspan) => graph.run(true).instrument(lspan.span.clone()).await,
         _ => graph.run(true).await,
     };
+    // (A query over its tier's limits, but not over a signed-in person's (the
+    // server's most), runs anyway, with those, in the slow lane: one at a
+    // time, after waiting for the one running; see `query_limits`.  Only one
+    // too expensive for anyone is refused.  (Only the log says it was slowed:
+    // not its response, which nginx may cache, and which needn't tell a
+    // throttled client.)
+    if let Err(ServerError::TooExpensive(refused)) = &run
+        && refused.signed_in_allows
+    {
+        let refused = refused.clone();
+        let Ok(Ok(_lane)) = tokio::time::timeout(SLOW_LANE_WAIT, SLOW_LANE.acquire()).await else {
+            println!("Turned away {:?} ({:?}) for the slow lane", query, tier);
+            return Ok((
+                StatusCode::TOO_MANY_REQUESTS,
+                [(axum::http::header::RETRY_AFTER, "30")],
+                "The server is busy with other expensive queries.",
+            )
+                .into_response());
+        };
+        println!("Slowed {:?} ({:?}): {}", query, tier, refused.message());
+        let mut graph = build_pipeline_graph(server.clonify(), chew_query(query)?)?;
+        graph.set_limits(
+            &query_limits::limits_for(Tier::Authenticated),
+            Tier::Authenticated,
+        );
+        run = match &logged_span {
+            Some(lspan) => graph.run(true).instrument(lspan.span.clone()).await,
+            _ => graph.run(true).await,
+        };
+    }
     // (An expensive query's time is charged to its client; see
     // `admission::Charge`.)
     let charge = expensive.then(|| {
@@ -512,6 +528,12 @@ async fn handle_query(
         Ok(response)
     }
 }
+
+/// The slow lane of queries over their tiers' limits (see `handle_query`):
+/// one at a time, each waiting at most `SLOW_LANE_WAIT` for its turn (or
+/// it's a 429, to retry).
+static SLOW_LANE: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(1);
+const SLOW_LANE_WAIT: Duration = Duration::from_secs(60);
 
 /// Whether a query's results are none.
 fn finds_nothing(result: &PipelineValues) -> bool {

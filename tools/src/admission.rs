@@ -5,10 +5,14 @@
 //! per class, which its requests take tokens from (pages more than their data
 //! files): a client out of tokens waits for them, up to its class's
 //! `max_wait`, or is turned away (with a 429 and `Retry-After`).  A client
-//! whose requests have been sustained without a gap for long (as crawlers'
-//! are, unlike people's and their tools' sessions, which pause) refills at
-//! half the rate, and counts as a bot for the classes' shares of the server's
-//! concurrency (see `concurrency_limit`).  Requests without forwarding headers
+//! whose page loads have been sustained without a gap for long, and densely,
+//! refills at half the rate (see `admit`): it's slowed down, but its class
+//! stays its user agent's, since sustained use is more likely a person's tool
+//! (ex: an AI assistant's) than a crawler's (crawlers spread their requests
+//! over many addresses).  Only navigations count for that, by their
+//! `Sec-Fetch-Dest` (which browsers send): the requests a page makes (ex: its
+//! data, polling, and the search box's queries as one types) don't, since
+//! they're a person's as much as a crawler's.  Requests without forwarding headers
 //! (ex: from the web server itself, or tests) aren't limited.  Each server
 //! has its own buckets (see `admit_request`).
 //!
@@ -135,11 +139,13 @@ impl Pool {
     }
 }
 
-/// A gap this long between a client's requests ends a sustained run.
+/// A gap this long between a client's page loads ends a sustained run.
 const GAP: Duration = Duration::from_secs(60);
-/// A run of requests this long without a gap is sustained (see the module's
+/// A run of page loads this long without a gap, at one every
+/// `SUSTAINED_INTERVAL` or more on average, is sustained (see the module's
 /// comment).
 const SUSTAINED: Duration = Duration::from_secs(15 * 60);
+const SUSTAINED_INTERVAL: Duration = Duration::from_secs(5);
 /// Clients idle this long are forgotten (when there are many).
 const FORGET_AFTER: Duration = Duration::from_secs(60 * 60);
 const MANY_CLIENTS: usize = 100_000;
@@ -148,7 +154,11 @@ struct Client {
     tokens: f64,
     refilled: Instant,
     last_request: Instant,
+    /// Its current run of page loads (see `SUSTAINED`): when it started, its
+    /// last one, and how many.
     run_start: Instant,
+    last_navigation: Instant,
+    navigations: u64,
     /// How many of its requests have been turned away since it was last
     /// admitted.
     rejections: u64,
@@ -157,8 +167,9 @@ struct Client {
 /// The decision about a request.
 #[derive(Debug, PartialEq)]
 pub enum Admission {
-    /// Go ahead, as this class (bots' for a sustained client's).
-    Admit(RequestClass),
+    /// Go ahead (with whether the client's page loads are sustained, which
+    /// halves its bucket's refill rate).
+    Admit { sustained: bool },
     /// Wait this long, then ask again.
     Wait(Duration),
     /// Turn it away; the client may retry after this long.  (With how many
@@ -194,13 +205,17 @@ pub fn client_key(fastly_client_ip: Option<&str>, forwarded_for: Option<&str>) -
 impl Admissions {
     /// Whether a request costing `cost` tokens, from `client` (see
     /// `client_key`) of `class`, for `pool`, may go ahead now (taking its
-    /// tokens), after waiting `waited` so far.
+    /// tokens), after waiting `waited` so far; its bucket refilling at half
+    /// the rate if the client's page loads (`navigation`s, in the pages'
+    /// pool) are sustained (see `SUSTAINED`).
+    #[allow(clippy::too_many_arguments)]
     pub fn admit(
         &self,
         client: &str,
         class: RequestClass,
         pool: Pool,
         cost: f64,
+        navigation: bool,
         waited: Duration,
         now: Instant,
     ) -> Admission {
@@ -216,13 +231,22 @@ impl Admissions {
                 refilled: now,
                 last_request: now,
                 run_start: now,
+                last_navigation: now,
+                navigations: 0,
                 rejections: 0,
             });
-        // (A request after a gap starts a new run; but waiting isn't a gap.)
-        if waited.is_zero() && now.duration_since(state.last_request) >= GAP {
+        // (A page load after a gap starts a new run; but waiting isn't a
+        // gap.)
+        let counts = navigation && pool == Pool::Pages;
+        if counts && waited.is_zero() && now.duration_since(state.last_navigation) >= GAP {
             state.run_start = now;
+            state.navigations = 0;
         }
-        let sustained = now.duration_since(state.run_start) >= SUSTAINED;
+        let run = now.duration_since(state.run_start);
+        let sustained = pool == Pool::Pages
+            && now.duration_since(state.last_navigation) < GAP
+            && run >= SUSTAINED
+            && state.navigations as f64 * SUSTAINED_INTERVAL.as_secs_f64() >= run.as_secs_f64();
         let rate = if sustained { rate / 2.0 } else { rate };
         let elapsed = now.duration_since(state.refilled).as_secs_f64();
         state.tokens = (state.tokens + elapsed * rate).min(capacity);
@@ -230,8 +254,12 @@ impl Admissions {
         if state.tokens >= cost {
             state.tokens -= cost;
             state.last_request = now;
+            if counts {
+                state.last_navigation = now;
+                state.navigations += 1;
+            }
             state.rejections = 0;
-            return Admission::Admit(if sustained { RequestClass::Bot } else { class });
+            return Admission::Admit { sustained };
         }
         let needed = Duration::from_secs_f64((cost - state.tokens) / rate);
         if waited + needed > max_wait {
@@ -276,8 +304,8 @@ pub const EXPENSIVE_TOKENS_PER_SECOND: f64 = 1.0;
 pub struct Admitted {
     pub class: RequestClass,
     pub permit: Option<SemaphorePermit<'static>>,
-    /// Its client and the class of its bucket (not a sustained client's bot
-    /// class), and the pool, if it's from outside.
+    /// Its client and the class of its bucket, and the pool, if it's from
+    /// outside.
     bucket: Option<(String, RequestClass, Pool)>,
 }
 
@@ -323,17 +351,25 @@ static BOT_SEMAPHORE: Semaphore = Semaphore::const_new(RequestClass::Bot.concurr
 /// it may retry (for a 429's `Retry-After`).
 pub async fn admit_request(headers: &HeaderMap, path: &str) -> Result<Admitted, Duration> {
     let header = |name: &str| headers.get(name).and_then(|v| v.to_str().ok());
-    let mut class = RequestClass::of(header("user-agent").unwrap_or_default());
+    let class = RequestClass::of(header("user-agent").unwrap_or_default());
     let mut bucket = None;
     if let Some(client) = client_key(header("fastly-client-ip"), header("x-forwarded-for")) {
         let pool = Pool::of(path);
         let cost = cost(path);
+        let navigation = is_navigation(header("sec-fetch-dest"));
         let start = Instant::now();
         loop {
-            match ADMISSIONS.admit(&client, class, pool, cost, start.elapsed(), Instant::now()) {
-                Admission::Admit(admitted) => {
+            match ADMISSIONS.admit(
+                &client,
+                class,
+                pool,
+                cost,
+                navigation,
+                start.elapsed(),
+                Instant::now(),
+            ) {
+                Admission::Admit { .. } => {
                     bucket = Some((client.clone(), class, pool));
-                    class = admitted;
                     break;
                 }
                 Admission::Wait(wait) => tokio::time::sleep(wait).await,
@@ -361,6 +397,13 @@ pub async fn admit_request(headers: &HeaderMap, path: &str) -> Result<Admitted, 
         permit,
         bucket,
     })
+}
+
+/// Whether a request is a page load, by its `Sec-Fetch-Dest`: a document's
+/// (or a frame's), or one without it (ex: a crawler's or a script's), rather
+/// than a page's own requests (ex: `fetch`'s, "empty").
+pub fn is_navigation(sec_fetch_dest: Option<&str>) -> bool {
+    sec_fetch_dest.is_none_or(|dest| matches!(dest, "document" | "iframe" | "frame"))
 }
 
 /// How many tokens a request for `path` takes up front: pages 1, their data
@@ -413,32 +456,48 @@ mod tests {
         // can't, so it's turned away.
         for _ in 0..10 {
             assert_eq!(
-                admissions.admit("a", bot, Pool::Pages, 1.0, Duration::ZERO, start),
-                Admission::Admit(bot)
+                admissions.admit("a", bot, Pool::Pages, 1.0, true, Duration::ZERO, start),
+                Admission::Admit { sustained: false }
             );
         }
         assert_eq!(
-            admissions.admit("a", bot, Pool::Pages, 1.0, Duration::ZERO, start),
+            admissions.admit("a", bot, Pool::Pages, 1.0, true, Duration::ZERO, start),
             Admission::Wait(Duration::from_secs(5))
         );
         assert!(matches!(
-            admissions.admit("a", bot, Pool::Pages, 1.0, Duration::from_secs(1), start),
+            admissions.admit(
+                "a",
+                bot,
+                Pool::Pages,
+                1.0,
+                true,
+                Duration::from_secs(1),
+                start
+            ),
             Admission::Reject(_, 1)
         ));
         assert!(matches!(
-            admissions.admit("a", bot, Pool::Pages, 1.0, Duration::from_secs(1), start),
+            admissions.admit(
+                "a",
+                bot,
+                Pool::Pages,
+                1.0,
+                true,
+                Duration::from_secs(1),
+                start
+            ),
             Admission::Reject(_, 2)
         ));
         // After 5 s, it has one again.
         let later = start + Duration::from_secs(5);
         assert_eq!(
-            admissions.admit("a", bot, Pool::Pages, 1.0, Duration::ZERO, later),
-            Admission::Admit(bot)
+            admissions.admit("a", bot, Pool::Pages, 1.0, true, Duration::ZERO, later),
+            Admission::Admit { sustained: false }
         );
         // Other clients have their own buckets.
         assert_eq!(
-            admissions.admit("b", bot, Pool::Pages, 1.0, Duration::ZERO, start),
-            Admission::Admit(bot)
+            admissions.admit("b", bot, Pool::Pages, 1.0, true, Duration::ZERO, start),
+            Admission::Admit { sustained: false }
         );
     }
 
@@ -451,24 +510,24 @@ mod tests {
         assert_eq!(Pool::of("/tests/source/a.cpp"), Pool::Pages);
         // An agent's 30 pages leave its API requests' bucket full.
         for _ in 0..30 {
-            admissions.admit("d", agent, Pool::Pages, 1.0, Duration::ZERO, start);
+            admissions.admit("d", agent, Pool::Pages, 1.0, true, Duration::ZERO, start);
         }
         assert_eq!(
-            admissions.admit("d", agent, Pool::Api, 0.1, Duration::ZERO, start),
-            Admission::Admit(agent)
+            admissions.admit("d", agent, Pool::Api, 0.1, true, Duration::ZERO, start),
+            Admission::Admit { sustained: false }
         );
         // A long request puts it in debt (down to minus its capacity), which
         // its next request waits for, or is turned away.
         admissions.charge("d", agent, Pool::Api, 1000.0);
         assert!(matches!(
-            admissions.admit("d", agent, Pool::Api, 0.1, Duration::ZERO, start),
+            admissions.admit("d", agent, Pool::Api, 0.1, true, Duration::ZERO, start),
             Admission::Reject(_, 1)
         ));
         // (30 s to pay its debt of 30 tokens at 1 a second.)
         let later = start + Duration::from_secs(31);
         assert_eq!(
-            admissions.admit("d", agent, Pool::Api, 0.1, Duration::ZERO, later),
-            Admission::Admit(agent)
+            admissions.admit("d", agent, Pool::Api, 0.1, true, Duration::ZERO, later),
+            Admission::Admit { sustained: false }
         );
     }
 
@@ -477,20 +536,49 @@ mod tests {
         let admissions = Admissions::default();
         let start = Instant::now();
         let browser = RequestClass::Browser;
-        // A request every 10 s for 15 minutes is sustained: it counts as a
-        // bot.
+        let load = |client: &str, navigation: bool, now: Instant| {
+            admissions.admit(
+                client,
+                browser,
+                Pool::Pages,
+                0.5,
+                navigation,
+                Duration::ZERO,
+                now,
+            )
+        };
+        // A page load every 2 s for 15 minutes is sustained (slowing its
+        // refills, but not changing its class).
         let mut now = start;
         let mut last = None;
         while now <= start + SUSTAINED {
-            last = Some(admissions.admit("c", browser, Pool::Pages, 1.0, Duration::ZERO, now));
-            now += Duration::from_secs(10);
+            last = Some(load("c", true, now));
+            now += Duration::from_secs(2);
         }
-        assert_eq!(last, Some(Admission::Admit(RequestClass::Bot)));
-        // After a gap, it's a browser's again.
+        assert_eq!(last, Some(Admission::Admit { sustained: true }));
+        // After a gap, it isn't anymore.
         now += GAP;
-        assert_eq!(
-            admissions.admit("c", browser, Pool::Pages, 1.0, Duration::ZERO, now),
-            Admission::Admit(browser)
-        );
+        assert_eq!(load("c", true, now), Admission::Admit { sustained: false });
+
+        // A person's page load every 20 s, each with its own requests, and
+        // polling every 2 s, for 30 minutes, isn't.
+        let mut now = start;
+        while now <= start + 2 * SUSTAINED {
+            let navigation = (now - start).as_secs() % 20 == 0;
+            assert_eq!(
+                load("e", navigation, now),
+                Admission::Admit { sustained: false }
+            );
+            now += Duration::from_secs(2);
+        }
+    }
+
+    #[test]
+    fn test_navigations() {
+        assert!(is_navigation(Some("document")));
+        assert!(is_navigation(Some("iframe")));
+        assert!(is_navigation(None));
+        assert!(!is_navigation(Some("empty")));
+        assert!(!is_navigation(Some("script")));
     }
 }

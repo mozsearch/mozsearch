@@ -18,17 +18,21 @@ for Nginx.
 
 Expensive queries (the history greps, `text-history:`, `re-history:` and their
 timelines, and `re:`'s fuller engine for patterns livegrep can't run) plan what
-they would read from cheap sizes first, and are refused with a 422 and
-`{"error": "query-too-expensive", ...}` (or, for a person, the query page saying
-why and how the query could cost less) if that's more than the request's tier
-allows.  The tiers are by who the request is from (see
+they would read from cheap sizes first.  One over its request's tier's limits
+runs anyway, with the `authenticated` tier's limits (the server's most), but
+in the pipeline-server's slow lane: one at a time, waiting up to a minute for
+its turn (else a 429, to retry), which only the server's log says ("Slowed
+..."), not the response (which nginx may cache).  Only one over even those is
+refused, with a 422 and `{"error": "query-too-expensive", ...}` (or, for a
+person, the query page saying why and how the query could cost less).  The
+tiers are by who the request is from (see
 `tools/src/query_limits.rs`): `browser`, `agent` and `bot` (by user agent, as
 `tools/src/admission.rs` classes them), `authenticated` (for signed-in people,
 once the server has sign-in), and `local` (requests without forwarding headers,
 ex: tests and searchfox-tool, which aren't limited).  Each tier has defaults
 (`QueryLimits::default_for`; ex: a browser's history grep checks up to 2,000
 (revision, file) pairs and 256 MiB of their versions a page, and up to 20,000
-candidate revisions in all; bots' history greps aren't allowed), which a config
+candidate revisions in all; bots' history greps always go to the slow lane), which a config
 file's top-level `query_limits` overrides per tier and limit, since the config
 says what the server is (its instance and its trees):
 
