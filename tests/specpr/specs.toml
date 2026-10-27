@@ -5,9 +5,10 @@
 # Setup writes this, with UPSTREAMS replaced by where it makes the repository,
 # as upstream/specs.toml in the tree's directory, for build-spec-forest and
 # the import-try hook.
-# Its Wattsi spec, and a Bikeshed spec in its bs/ (as csswg-drafts has many
+# Its Wattsi spec, a Bikeshed spec in its bs/ (as csswg-drafts has many
 # specs), whose renderings at pull requests' heads their imports make (see
-# render-spec-pr).
+# render-spec-pr), and an ecmarkup spec in its es/, whose clauses are in the
+# file it imports (as ECMA-402's are).
 
 [[spec]]
 name = "gizmo"
@@ -21,3 +22,10 @@ path = "gizmo"
 source = "bs/index.bs"
 format = "bikeshed"
 rendered = "https://gizmo.example.org/gears/"
+
+[[spec]]
+name = "gizmo-gauges"
+path = "gizmo"
+source = "es/spec.html"
+format = "ecmarkup"
+rendered = "https://gizmo.example.org/gauges/"

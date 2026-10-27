@@ -20,6 +20,9 @@
  * it changes.  Filtering the entries with the facets (see facets.js) hides
  * their cards.
  *
+ * An ecmarkup spec's page also lists the pull requests changing the files its
+ * source imports, linking to those files' views with their changes (`imported`).
+ *
  * Without the pull request's rendering (a Bikeshed spec's, until it's
  * imported, or when its changes conflict with the trunk's), its changes of
  * the source are cards of their removed and added lines instead, those beside
@@ -229,12 +232,42 @@
     return groups;
   }
 
+  // A note linking to the views of the files the page's source imports which
+  // a pull request changes.
+  function importedNote(pr, only) {
+    const note = document.createElement("span");
+    note.className = "sp-pr-imported";
+    note.append(only ? "It changes the files this page imports: " : " It also changes the files this page imports: ");
+    pr.imported.forEach(({ path, view }, i) => {
+      const link = document.createElement("a");
+      link.href = view;
+      link.textContent = path.split("/").pop();
+      link.title = `${path}, with the pull requests' changes beside it`;
+      note.append(i ? ", " : "", link);
+    });
+    note.append(".");
+    return note;
+  }
+
   async function load(entry) {
     const pr = JSON.parse(entry.dataset.pr);
     const state = entry.querySelector(".sp-pr-state");
     if (!pr.blocks) {
+      if (pr.imported?.length) {
+        state.replaceChildren(importedNote(pr, true));
+      }
       return;
     }
+    try {
+      await loadBlocks(entry, pr, state);
+    } finally {
+      if (pr.imported?.length) {
+        state.append(importedNote(pr, false));
+      }
+    }
+  }
+
+  async function loadBlocks(entry, pr, state) {
     let data;
     try {
       data = await (await fetch(pr.blocks)).json();

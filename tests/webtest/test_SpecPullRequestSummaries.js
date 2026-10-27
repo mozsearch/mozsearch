@@ -5,11 +5,11 @@
 // their metadata standing for the GitHub Action's
 // (tests/specpr/spec-prs-snapshot.json: pull request 1 is an editor's, and
 // approved, 2 a contributor's draft, with changes requested, and 3 a
-// collaborator's, needing review, and 4 and 5 an editor's, labeled "meta")
-// and their heads (see tests/specpr/setup): 1 adds to the Wattsi spec's
-// "Sprockets" and the Bikeshed spec's "Gears", 2 changes the Wattsi spec's
-// "Gizmos", 3 the Bikeshed spec's "Gears", and 4 and 5 add files which
-// aren't specs.
+// collaborator's, needing review, 4 and 5 an editor's, labeled "meta", and 6
+// a contributor's) and their heads (see tests/specpr/setup): 1 adds to the
+// Wattsi spec's "Sprockets" and the Bikeshed spec's "Gears", 2 changes the
+// Wattsi spec's "Gizmos", 3 the Bikeshed spec's "Gears", 4 and 5 add files
+// which aren't specs, and 6 changes the file the ecmarkup spec imports.
 
 function doc() {
   return frame.contentDocument;
@@ -32,7 +32,7 @@ add_task(async function test_SpecPullRequestSummaries() {
   await synced();
   const cells = [...doc().querySelectorAll(".spec-prs-repos tbody tr:first-child td")]
     .map(cell => cell.textContent);
-  is(cells.slice(0, 6).join(","), "gizmo,5,1,1,4,1",
+  is(cells.slice(0, 6).join(","), "gizmo,6,1,1,4,1",
      "The specs' page lists the spec repository, with its open, approved, changes requested, by people who can review and draft pull requests");
   const status = await (await fetch("/specpr/spec-prs/sync-status", { cache: "no-store" })).json();
   is(status.state, "idle", "Its sync's status says it's done");
@@ -41,7 +41,7 @@ add_task(async function test_SpecPullRequestSummaries() {
   is(doc().querySelector(".spec-prs h2")?.textContent.startsWith("Pull requests of gizmo"), true,
      "The spec repository's page is titled by it");
   const prs = [...doc().querySelectorAll(".spec-pr")];
-  is(prs.map(pr => pr.dataset.path).join(","), "5,4,3,2,1", "and lists its pull requests, newest first");
+  is(prs.map(pr => pr.dataset.path).join(","), "6,5,4,3,2,1", "and lists its pull requests, newest first");
   const [first, second] = ["1", "2"].map(number => prs.find(pr => pr.dataset.path == number));
   const title = first.querySelector(".spec-pr-title");
   is(title?.getAttribute("href"), "/specpr/try/gizmo/1", "linking to their pages as try pushes");
@@ -52,6 +52,11 @@ add_task(async function test_SpecPullRequestSummaries() {
   ok(sections.includes("/specpr/rendered/gizmo/source#sprockets") &&
      sections.includes("/specpr/rendered/gizmo/bs/index.bs#gears"),
      "and the sections they change, in the trunk's renderings");
+  const imported = prs.find(pr => pr.dataset.path == "6");
+  ok([...imported.querySelectorAll(".spec-pr-files a")].some(a => a.getAttribute("href") == "/specpr/rendered/gizmo/es/gauges.html#sec-gauges"),
+     "including in files which ecmarkup specs import");
+  is(imported.querySelector(".spec-pr-with-prs")?.getAttribute("href"), "/specpr/rendered-prs/gizmo/es/gauges.html",
+     "which have views with the pull requests' changes too");
 
   // Filtering by review decision, and by whether the authors can review.
   const value = (facet, name) => [...doc().querySelectorAll(`.facet[data-facet="${facet}"] .facet-value`)]
@@ -59,15 +64,15 @@ add_task(async function test_SpecPullRequestSummaries() {
   value("review", "Approved").click();
   is(prs.filter(pr => !pr.hidden).map(pr => pr.dataset.path).join(","), "1",
      "Facets filter them by review decision");
-  is(doc().querySelector(".facet-status")?.textContent, "Showing 1 of 5 pull requests.",
+  is(doc().querySelector(".facet-status")?.textContent, "Showing 1 of 6 pull requests.",
      "counting pull requests");
   value("review", "Approved").click();
   value("author", "Other contributors").click();
-  is(prs.filter(pr => !pr.hidden).map(pr => pr.dataset.path).join(","), "2",
+  is(prs.filter(pr => !pr.hidden).map(pr => pr.dataset.path).join(","), "6,2",
      "and by whether their authors can review");
   doc().querySelector(".facet-clear").click();
 
   // (And through the data API, which the web-server serves.)
   const api = await (await fetch("/specpr/api/v1/spec-prs?spec=gizmo", { cache: "no-store" })).json();
-  is(api[0]?.prs?.length, 5, "The data API has the summaries");
+  is(api[0]?.prs?.length, 6, "The data API has the summaries");
 });

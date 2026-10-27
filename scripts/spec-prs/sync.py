@@ -49,6 +49,11 @@ HEADING = re.compile(r"<h([1-6])\b[^>]*?\bid=[\"']?([^\"'\s>]+)[^>]*>(.*?)(?:</h
 CLAUSE = re.compile(r"<emu-clause\b[^>]*?\bid=[\"']?([^\"'\s>]+)", re.I)
 CLAUSE_TITLE = re.compile(r"<h1>(.*?)</h1>", re.I)
 MARKDOWN = re.compile(r"^(#{1,6})\s+(.*?)\s*(?:\{#([^}\s]+)\})?\s*$")
+# ecmarkup's imports (as tools/src/spec_analyze/ecmarkup.rs's `imports`).
+EMU_IMPORT = re.compile(r"""<emu-import\s+href=["']?([^"'\s>]+)["']?\s*(?:/>|>\s*</emu-import>)""")
+# The version of the pull requests' summaries' format: older ones are made
+# again (ex: without their files' specs for the files ecmarkup specs import).
+SUMMARY_VERSION = 2
 TAG = re.compile(r"<[^>]+>")
 # Bikeshed's autolinks in headings (ex: "Interface {{Node}}").
 AUTOLINK = re.compile(r"\{\{(.*?)\}\}|\[=(.*?)=\]|\[\[(.*?)\]\]|<<(.*?)>>|''(.*?)''")
@@ -90,10 +95,35 @@ def sections(text):
     return found
 
 
-def summarize(forest, spec_dir, sources, number, head, trunk):
+def imported_files(forest, spec_dir, sources, trunk):
+    """The files that the repository's ecmarkup specs' sources import (and
+    that those import), at the trunk, by their paths in the forest, with their
+    specs' names."""
+    imported = {}
+    for name, source, format in sources:
+        if format != "ecmarkup":
+            continue
+        queue = [source]
+        while queue and len(imported) < 1000:
+            path = queue.pop()
+            try:
+                text = git(forest, "show", f"{trunk}:{path[len(spec_dir) + 1:]}")
+            except Exception:
+                continue
+            for match in EMU_IMPORT.finditer(text):
+                target = os.path.normpath(os.path.join(os.path.dirname(path), match.group(1)))
+                if target != source and target not in imported:
+                    imported[target] = name
+                    queue.append(target)
+    return imported
+
+
+def summarize(forest, spec_dir, sources, imported, number, head, trunk):
     """A pull request's changes from its merge base with the trunk (upstream
     commits, whose paths are relative to the repository's directory in the
-    forest, which the summary's paths are prefixed with)."""
+    forest, which the summary's paths are prefixed with).  Its files which are
+    specs' sources, or which ecmarkup specs import (`imported`), have their
+    specs."""
     merge_base = git(forest, "merge-base", trunk, head).strip()
     diff = git(forest, "diff", "-U0", "--no-color", "--no-renames", "--no-ext-diff",
                merge_base, head)
@@ -119,11 +149,11 @@ def summarize(forest, spec_dir, sources, number, head, trunk):
             current["removed"] += 1
     specs = set()
     for file in files:
-        for name, source in sources:
+        for name, source, _ in sources:
             directory = os.path.dirname(source)
             if file["path"].startswith(directory + "/"):
                 specs.add(name)
-            if file["path"] == source:
+            if file["path"] == source or imported.get(file["path"]) == name:
                 file["spec"] = name
         # (The sections before its hunks, in the merge base's version.)
         try:
@@ -166,7 +196,8 @@ def main():
             continue
         directory = spec.get("path", spec["name"])
         source = spec.get("source", defaults.get(spec["format"], ""))
-        sources.setdefault(directory.split("/")[0], []).append((spec["name"], f"{directory}/{source}"))
+        sources.setdefault(directory.split("/")[0], []).append(
+            (spec["name"], f"{directory}/{source}", spec["format"]))
     repos = [repo for repo in config.get("repos", []) if repo in urls]
     if args.spec:
         repos = [repo for repo in repos if repo == args.spec]
@@ -229,6 +260,7 @@ def main():
             with open(out_path) as f:
                 previous = {pr["number"]: pr for pr in json.load(f).get("prs", [])}
         trunk = git(args.forest, "rev-parse", f"refs/forest/{repo}").strip()
+        imported = imported_files(args.forest, repo, sources.get(repo, []), trunk)
 
         # Their heads, through git, in batches.
         log(f"{repo}: fetching the heads of its {len(prs)} open pull requests")
@@ -257,15 +289,16 @@ def main():
             if not fetched:
                 pass
             elif old and old.get("head") == fetched and old.get("trunk") == trunk \
-                    and "files" in old:
+                    and "files" in old and old.get("version") == SUMMARY_VERSION:
                 summary.update({k: old[k] for k in ("merge_base", "files", "specs")})
             else:
                 try:
-                    summary.update(summarize(args.forest, repo, sources.get(repo, []),
+                    summary.update(summarize(args.forest, repo, sources.get(repo, []), imported,
                                              pr["number"], fetched, trunk))
                 except Exception as e:
                     summary["error"] = str(e)
             summary["trunk"] = trunk
+            summary["version"] = SUMMARY_VERSION
             summaries.append(summary)
         summaries.sort(key=lambda pr: pr["number"], reverse=True)
         result = {"spec": repo, "repo": key, "url": urls[repo], "synced": now, "snapshot": taken,

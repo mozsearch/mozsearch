@@ -14,8 +14,9 @@ set -o pipefail # Check all commands in a pipeline
 # trunk's second commit), the second also adding to the Bikeshed spec, and
 # pull request 2 changes what the trunk's second commit changed (which
 # conflicts), and pull request 3 changes the Bikeshed spec (which only
-# test_SpecPullRequestView imports), and pull requests 4 and 5 add files which
-# aren't specs (which only test_SpecPullRequestImports imports, together).
+# test_SpecPullRequestView imports), pull requests 4 and 5 add files which
+# aren't specs (which only test_SpecPullRequestImports imports, together), and
+# pull request 6 changes the file the ecmarkup spec imports.
 # The tree imports them as try pushes (see import-try).
 
 echo "Performing setup::upstream-repository step for $TREE_NAME : $(date +"%Y-%m-%dT%H:%M:%S%z")"
@@ -41,7 +42,7 @@ UP="$CONFIG_REPO/$TREE_NAME/upstream"
 commit "$UP/trunk/1" "2025-04-01T12:00+0000"
 TRUNK1=$(git rev-parse HEAD)
 commit "$UP/trunk/2" "2025-04-02T12:00+0000"
-for P in 1 2 3 4 5; do
+for P in 1 2 3 4 5 6; do
     git checkout -q --detach "$TRUNK1"
     N=1
     while [ -d "$UP/pulls/$P/$N" ]; do

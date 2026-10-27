@@ -5,6 +5,18 @@
    "incomplete": false,
    "prs": [
     {
+     "association": "CONTRIBUTOR",
+     "author": "a-contributor",
+     "base_ref": "main",
+     "draft": false,
+     "labels": [],
+     "number": 6,
+     "review": "REVIEW_REQUIRED",
+     "title": "Say where gauges point",
+     "updated": "2025-04-16T11:00:00Z",
+     "url": "https://github.com/example/gizmo/pull/6"
+    },
+    {
      "association": "MEMBER",
      "author": "an-editor",
      "base_ref": "main",

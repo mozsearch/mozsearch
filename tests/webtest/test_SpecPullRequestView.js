@@ -6,9 +6,10 @@
 // `/specpr/rendered-prs/PATH`, from the pull requests' summaries (see
 // test_SpecPullRequestSummaries.js): pull request 1 adds to the Wattsi spec's
 // "Sprockets" and to the Bikeshed spec's "Gears", 2's changes conflict with the
-// trunk's (its base's "turn it." is the trunk's "turn it clockwise."), and 3
+// trunk's (its base's "turn it." is the trunk's "turn it clockwise."), 3
 // changes the Bikeshed spec's "Gears" (which only its import renders; the
-// tests' order isn't known, so only these tests import it).
+// tests' order isn't known, so only these tests import it), and 6 adds to the
+// file the ecmarkup spec gizmo/es/spec.html imports, gauges.html.
 
 function doc() {
   return frame.contentDocument;
@@ -129,4 +130,20 @@ add_task(async function test_SpecPullRequestViewBikeshed() {
      "Once it's imported, its change is there, from its import's rendering");
   ok(card().querySelector(".sp-pr-card-note").textContent.startsWith("Changes"),
      "saying it changes the paragraph");
+});
+
+add_task(async function test_SpecPullRequestViewImported() {
+  await prepare();
+  await loadView("gizmo/es/spec.html");
+  const link = doc().querySelector('.sp-pr-entry[data-path="6"] .sp-pr-imported a');
+  is(link?.getAttribute("href"), "/specpr/rendered-prs/gizmo/es/gauges.html",
+     "An ecmarkup spec's view lists the pull requests changing the files it imports, linking to their views");
+  await loadView("gizmo/es/gauges.html");
+  const card = doc().querySelector('.sp-pr-column .sp-pr-card[data-pr="6"]');
+  ok(card?.querySelector(".sp-pr-card-body")?.textContent.includes("needle points at the gizmo's speed"),
+     "whose views have their changes, rendered");
+  const gauge = [...doc().querySelectorAll("#rendered-doc .rd-block")]
+    .find(block => block.textContent.includes("how fast a gizmo turns"));
+  ok(gauge && Math.abs(card.getBoundingClientRect().top - gauge.getBoundingClientRect().top) < 2,
+     "beside the block they add after");
 });

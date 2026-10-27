@@ -4569,20 +4569,34 @@ pub fn format_rendered(
     let pr_view = match with_prs {
         false => None,
         true => {
-            if rev.is_some() || spec.is_none() || main.is_some() {
+            // (A file an ecmarkup spec imports has one, but not a file a
+            // Bikeshed spec includes; see `spec_pr_blocks_json`.)
+            let ecmarkup = spec
+                .is_some_and(|spec| spec.format == Some(crate::spec_analyze::SpecFormat::Ecmarkup));
+            if rev.is_some() || spec.is_none() || (main.is_some() && !ecmarkup) {
                 return Err(
                     "Only the latest version of a spec's source has a view with its pull requests",
                 );
             }
             let spec_repo = path.split('/').next().unwrap_or_default().to_string();
             let summary = crate::spec_prs::repo_summary(cfg, tree_name, &spec_repo);
+            // (And those changing the files an ecmarkup spec's source imports,
+            // which have their own views.)
+            let imported = match main {
+                None if ecmarkup => rendered_specs::ecmarkup::imported_files(path, &read),
+                _ => vec![],
+            };
             let prs: Vec<crate::spec_prs::PrSummary> = summary
                 .iter()
                 .flat_map(|summary| &summary.prs)
-                .filter(|pr| pr.files.iter().any(|file| file.path == path))
+                .filter(|pr| {
+                    pr.files
+                        .iter()
+                        .any(|file| file.path == path || imported.contains(&file.path))
+                })
                 .cloned()
                 .collect();
-            Some((spec_repo, summary, prs))
+            Some((spec_repo, summary, prs, imported))
         }
     };
     let source = {
@@ -4789,10 +4803,12 @@ pub fn format_rendered(
         }),
     }
     // (The view with the spec repository's open pull requests' changes, in
-    // trees which sync their summaries, and back.)
+    // trees which sync their summaries, and back; also for the files an
+    // ecmarkup spec imports.)
     if rev.is_none()
-        && main.is_none()
-        && spec.is_some()
+        && spec.is_some_and(|spec| {
+            main.is_none() || spec.format == Some(crate::spec_analyze::SpecFormat::Ecmarkup)
+        })
         && crate::spec_prs::hook(cfg, tree_name).is_some()
     {
         let (label, tooltip, route) = match pr_view {
@@ -4951,13 +4967,14 @@ pub fn format_rendered(
     if let Some(nav) = &page_nav {
         writeln!(writer, "{}", nav).unwrap();
     }
-    if let Some((spec_repo, summary, prs)) = &pr_view {
+    if let Some((spec_repo, summary, prs, imported)) = &pr_view {
         write_rendered_prs_header(
             tree_name,
             spec_repo,
             summary.as_ref(),
             prs,
-            &view_path,
+            (path, &view_path),
+            imported,
             writer,
         )?;
         writeln!(writer, r#"<div class="sp-prs-view">"#).unwrap();
@@ -5074,7 +5091,8 @@ fn write_rendered_prs_header(
     spec_repo: &str,
     summary: Option<&crate::spec_prs::RepoSummary>,
     prs: &[crate::spec_prs::PrSummary],
-    view_path: &str,
+    (source_path, view_path): (&str, &str),
+    imported: &[String],
     writer: &mut dyn Write,
 ) -> Result<(), &'static str> {
     use crate::spec_prs::{pr_facet_values, pr_facets, review_name};
@@ -5096,14 +5114,30 @@ fn write_rendered_prs_header(
                     .replace('_', "-"),
                 "draft": pr.draft,
                 "try": try_path,
-                "blocks": pr.head.as_ref().map(|head| format!(
-                    "/{}/spec-pr-blocks/{}/{}/{}/{}",
-                    tree_name,
-                    spec_repo,
-                    pr.number,
-                    head,
-                    url_encode_path(view_path)
-                )),
+                // (If it changes the page's source.)
+                "blocks": pr
+                    .head
+                    .as_ref()
+                    .filter(|_| pr.files.iter().any(|file| file.path == source_path))
+                    .map(|head| format!(
+                        "/{}/spec-pr-blocks/{}/{}/{}/{}",
+                        tree_name,
+                        spec_repo,
+                        pr.number,
+                        head,
+                        url_encode_path(view_path)
+                    )),
+                // (The files the page's source imports which it changes, and
+                // their views with the pull requests' changes.)
+                "imported": pr
+                    .files
+                    .iter()
+                    .filter(|file| imported.contains(&file.path))
+                    .map(|file| json!({
+                        "path": file.path,
+                        "view": format!("/{}/rendered-prs/{}", tree_name, url_encode_path(&file.path)),
+                    }))
+                    .collect::<Vec<_>>(),
             });
             json!({
                 "number": pr.number,
@@ -5174,8 +5208,18 @@ pub fn spec_pr_blocks_json(
     let repo = &git.repo;
     let tip = rendered_commit(git, None)?;
     let specs = tree_specs(tree_name, tree_config).ok_or("Not a tree of specs")?;
-    let Some((spec, source_path, SpecView::Page(page))) = spec_view(&specs, path) else {
-        return Err("Not a page of a spec");
+    // (Or a file an ecmarkup spec imports, whose view is its part of the
+    // spec, whose main source is `main`; see `format_rendered`.)
+    let (spec, source_path, page, main) = match spec_view(&specs, path) {
+        Some((spec, source, SpecView::Page(page))) => (spec, source, page, None),
+        Some(_) => return Err("Not a page of a spec"),
+        None => {
+            let read = |file: &str| read_commit_file(repo, &tip, file);
+            match rendered_specs::ecmarkup::importing_spec(&specs, path, &read) {
+                Some((spec, main)) => (spec, path.to_string(), None, Some(main)),
+                None => return Err("Not a page of a spec"),
+            }
+        }
     };
     let upstream_path = source_path
         .strip_prefix(&format!("{}/", spec_repo))
@@ -5296,6 +5340,15 @@ pub fn spec_pr_blocks_json(
         None => read_commit_file(repo, &tip, file),
     };
     let rendered_spec = match spec.format {
+        // (With its spec's other files at their merged versions.)
+        _ if main.is_some() => rendered_specs::ecmarkup::render_file(
+            main.as_deref().unwrap_or_default(),
+            spec,
+            &specs,
+            &spec_links,
+            &read,
+            &source_path,
+        ),
         // (Its import's rendering of its head rebased onto the tip.)
         Some(crate::spec_analyze::SpecFormat::Bikeshed) => {
             // (Until then, its changes of the source.)

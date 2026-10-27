@@ -24,7 +24,7 @@ async function synced() {
 add_task(async function test_SpecPullRequestImports() {
   await synced();
   await TestUtils.loadPath("/specpr/spec-prs/gizmo");
-  ok(doc().querySelector(".spec-prs-imports-status")?.textContent.includes("of its 5 pull requests"),
+  ok(doc().querySelector(".spec-prs-imports-status")?.textContent.includes("of its 6 pull requests"),
      "A spec repository's page says how many of its pull requests are imported");
   const pr = number => doc()?.querySelector(`.spec-pr[data-path="${number}"]`);
   const state = number => pr(number)?.querySelector(".spec-pr-import")?.dataset.state;
