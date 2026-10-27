@@ -10,6 +10,7 @@ use std::io::BufReader;
 use std::io::BufWriter;
 use std::io::Read;
 use std::io::Write;
+use std::time::Instant;
 
 #[macro_use]
 extern crate tracing;
@@ -2754,7 +2755,11 @@ fn add_rollups(
     tree_metas: Option<MetaTable>,
     ingestion: &RepoIngestion,
 ) -> RollupTables {
+    // (Each part's time is printed, as the step is long on one core and its
+    // parts are only told apart this way.)
+    let started = Instant::now();
     let (categories, field_edges, summaries) = read_dataflow_outputs(index_path);
+    let read_secs = started.elapsed().as_secs_f64();
     let test_code = test_code(search_result_table, ingestion);
     let (call_rollups, data_rollups, subsystems) = {
         // (A subset's roll-ups attribute calls as the tree's do: by the
@@ -2769,13 +2774,34 @@ fn add_rollups(
             }
             None => meta_table,
         };
-        let (call_rollups, mut subsystems) = rollup_edges(
-            view,
-            &call_edges(view, callees_table, &categories, &test_code),
-        );
-        let (mut data_rollups, data_subsystems) =
-            rollup_edges(view, &data_edges(view, &field_edges, &test_code));
+        let mark = Instant::now();
+        let calls = call_edges(view, callees_table, &categories, &test_code);
+        let call_edge_secs = mark.elapsed().as_secs_f64();
+        let mark = Instant::now();
+        let (call_rollups, mut subsystems) = rollup_edges(view, &calls);
+        let call_rollup_secs = mark.elapsed().as_secs_f64();
+        let call_count = calls.len();
+        drop(calls);
+        let mark = Instant::now();
+        let data = data_edges(view, &field_edges, &test_code);
+        let data_edge_secs = mark.elapsed().as_secs_f64();
+        let mark = Instant::now();
+        let (mut data_rollups, data_subsystems) = rollup_edges(view, &data);
         add_field_flows(view, &field_edges, &mut data_rollups);
+        let data_rollup_secs = mark.elapsed().as_secs_f64();
+        println!(
+            "Roll-ups: read the dataflow outputs in {:.1} s; {} call edges in {:.1} s, rolled up in \
+             {:.1} s; {} data edges in {:.1} s, rolled up with the fields' flows in {:.1} s; {:.1} s \
+             in all",
+            read_secs,
+            call_count,
+            call_edge_secs,
+            call_rollup_secs,
+            data.len(),
+            data_edge_secs,
+            data_rollup_secs,
+            started.elapsed().as_secs_f64()
+        );
         subsystems.extend(data_subsystems);
         (call_rollups, data_rollups, subsystems)
     };
@@ -3842,6 +3868,11 @@ async fn main() {
     );
 
     if let Some(history) = &history {
+        println!(
+            "Performing crossref::file-recency step for {} : {}",
+            tree_name,
+            Local::now().format("%Y-%m-%dT%H:%M:%S%z")
+        );
         let unanalyzed: Vec<Ustr> = ingestion
             .state
             .concise_per_file
@@ -3849,11 +3880,13 @@ async fn main() {
             .filter(|(path, info)| !info.is_dir && !analyzed.contains(*path))
             .map(|(path, _)| *path)
             .collect();
+        let started = Instant::now();
         let unanalyzed_recency = unanalyzed_file_recency(history, &unanalyzed);
         println!(
-            "History digests of files without analysis: {} of {}",
+            "History digests of files without analysis: {} of {}, in {:.1} s",
             unanalyzed_recency.len(),
-            unanalyzed.len()
+            unanalyzed.len(),
+            started.elapsed().as_secs_f64()
         );
         for (path, file_recency) in unanalyzed_recency {
             file_recency_table.insert(path.to_string(), file_recency);
