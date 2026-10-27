@@ -206,6 +206,10 @@ pub fn write_line_chunked_gzip<W: Write>(contents: &[u8], out: &mut W) -> io::Re
 
     let mut compress = Compress::new(Compression::default(), false);
     let mut deflated = Vec::with_capacity(contents.len() / 8 + 1024);
+    // (Compressed into this, then appended: `compress_vec` zero-fills its
+    // vector's spare capacity on each call, which, for a chunk at a time
+    // into `deflated`, was 87% of the time for an 88 MB JSON file.)
+    let mut scratch = vec![0u8; 256 * 1024];
     let mut offsets = vec![0u32];
     let mut start = 0;
     for (k, end) in boundaries
@@ -222,19 +226,18 @@ pub fn write_line_chunked_gzip<W: Write>(contents: &[u8], out: &mut W) -> io::Re
         };
         let mut input = &contents[start..end];
         loop {
-            if deflated.capacity() - deflated.len() < 64 * 1024 {
-                deflated.reserve(256 * 1024);
-            }
-            let before = compress.total_in();
+            let (in_before, out_before) = (compress.total_in(), compress.total_out());
             let status = compress
-                .compress_vec(input, &mut deflated, flush)
+                .compress(input, &mut scratch, flush)
                 .map_err(io::Error::other)?;
-            input = &input[(compress.total_in() - before) as usize..];
+            input = &input[(compress.total_in() - in_before) as usize..];
+            let written = (compress.total_out() - out_before) as usize;
+            deflated.extend_from_slice(&scratch[..written]);
             // A flush is done once it's left room in the output.
             let done = if last {
                 status == Status::StreamEnd
             } else {
-                input.is_empty() && deflated.len() < deflated.capacity()
+                input.is_empty() && written < scratch.len()
             };
             if done {
                 break;
