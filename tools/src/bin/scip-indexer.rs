@@ -16,6 +16,8 @@ use std::fs::{self, File};
 use std::io;
 use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
+
+use rayon::prelude::*;
 use tools::file_format::analysis::{
     AnalysisKind, AnalysisSource, AnalysisStructured, AnalysisTarget, BindingOwnerLang,
     BindingSlotLang, BindingSlotProps, DocLink, LineRange, Location, SourceRange, SourceTag,
@@ -1069,11 +1071,160 @@ fn analyze_using_scip(
         Some(platform) => format!("analysis-{}", platform),
     });
 
-    // We keep track of what SCIP symbols we have emitted structured records
-    // for so we can emit what's leftover at the end.
-    let mut emitted_scip_structured: UstrSet = UstrSet::default();
+    // The occurrences' symbols as we store them: locals' normalized to
+    // include the file path, consistent with how we handled them in the prior
+    // pass.  (Not actually an official SCIP symbol, but because the local
+    // symbols are not namespaced, we store them using our normalized version.)
+    let norm_occurrence_sym = |doc: &Document, occurrence: &Occurrence| -> (bool, Ustr) {
+        if occurrence.symbol.starts_with("local ") {
+            (
+                true,
+                symbol_name(
+                    lang_name,
+                    subtree_name,
+                    &format!(
+                        "{}/#{}",
+                        sanitize_symbol(&doc.relative_path),
+                        &occurrence.symbol[6..]
+                    ),
+                ),
+            )
+        } else {
+            (false, ustr(&occurrence.symbol))
+        }
+    };
 
-    for doc in &index.documents {
+    // ## Fake structured records for the occurrences whose symbols have none,
+    // made by the first document with each (in the documents' order, as one
+    // pass over them did), so that the documents can then be processed in
+    // parallel, only reading the records.  Documents whose sources can't be
+    // read are skipped (and make none), as below.
+    let sources: Vec<Option<String>> = index
+        .documents
+        .iter()
+        .map(|doc| {
+            let source_fname =
+                tree_config.find_source_file(&format!("{}/{}", subtree_root, &doc.relative_path));
+            let readable = File::open(&source_fname)
+                .and_then(|f| f.metadata())
+                .is_ok_and(|meta| meta.is_file());
+            if !readable {
+                error!("Unable to open source file {}", source_fname);
+            }
+            readable.then_some(source_fname)
+        })
+        .collect();
+    for (doc, source) in index.documents.iter().zip(&sources) {
+        if source.is_none() {
+            continue;
+        }
+        for occurrence in &doc.occurrences {
+            let (_, norm_scip_sym) = norm_occurrence_sym(doc, occurrence);
+            if scip_symbol_to_structured.contains_key(&norm_scip_sym) {
+                continue;
+            }
+            let symbol = match scip::symbol::parse_symbol(&occurrence.symbol) {
+                Ok(s) => s,
+                Err(e) => {
+                    error!("{:?}", e);
+                    continue;
+                }
+            };
+
+            let symbol_info = analyse_symbol(
+                &symbol,
+                None,
+                &lang,
+                lang_name,
+                subtree_name,
+                &doc.relative_path,
+                None,
+            );
+
+            let fake = AnalysisStructured {
+                structured: StructuredTag::Structured,
+                pretty: symbol_info.pretty,
+                sym: symbol_info.norm_sym,
+                js_sym: None,
+                type_pretty: None,
+                kind: ustr(symbol_info.kind.unwrap_or("")),
+                subsystem: None,
+                parent_sym: symbol_info.parent_sym,
+                slot_owner: None,
+                // Introducing the concept of "external" here to make it more
+                // obvious when we generate a fake structured record and that
+                // it is missing much of the expected metadata.
+                impl_kind: ustr("external"),
+                size_bytes: None,
+                alignment_bytes: None,
+                own_vf_ptr_bytes: None,
+                binding_slots: vec![],
+                ontology_slots: vec![],
+                supers: vec![],
+                methods: vec![],
+                fields: vec![],
+                overrides: vec![],
+                props: vec![],
+                labels: BTreeSet::default(),
+
+                subclass_syms: vec![],
+                overridden_by_syms: vec![],
+                variants: vec![],
+                supplement: false,
+                docs: external_docs(&lang, &symbol),
+                extra: Map::default(),
+
+                can_gc: None,
+                gc_path: None,
+            };
+            scip_symbol_to_structured.insert(norm_scip_sym, fake);
+            possible_unknown_scip_symbols.remove(&norm_scip_sym);
+            our_symbol_to_scip_sym.insert(symbol_info.norm_sym, norm_scip_sym);
+        }
+    }
+
+    // ## The documents' analysis files, in parallel (rayon), each document's
+    // own (it was single-threaded: ~1.4 minutes for firefox-disco's
+    // TypeScript), which give the symbols whose structured records they
+    // emitted, so that what's leftover is emitted at the end.
+    let structured = &scip_symbol_to_structured;
+    let analysis_root = &analysis_root;
+    let lang = &lang;
+    let emitted_by_doc: Vec<Vec<Ustr>> = index
+        .documents
+        .par_iter()
+        .zip(sources.par_iter())
+        .map(|(doc, source)| {
+            let mut emitted = vec![];
+            let Some(source_fname) = source else {
+                return emitted;
+            };
+            write_document_analysis(
+                doc,
+                source_fname,
+                subtree_root,
+                analysis_root,
+                lang,
+                structured,
+                &norm_occurrence_sym,
+                &mut emitted,
+            );
+            emitted
+        })
+        .collect();
+    let emitted_scip_structured: UstrSet = emitted_by_doc.into_iter().flatten().collect();
+
+    #[allow(clippy::too_many_arguments)]
+    fn write_document_analysis(
+        doc: &Document,
+        source_fname: &str,
+        subtree_root: &str,
+        analysis_root: &Path,
+        lang: &ScipLang,
+        scip_symbol_to_structured: &UstrMap<AnalysisStructured>,
+        norm_occurrence_sym: &(dyn Fn(&Document, &Occurrence) -> (bool, Ustr) + Sync),
+        emitted: &mut Vec<Ustr>,
+    ) {
         let searchfox_path = Path::new(&doc.relative_path).to_owned();
         let searchfox_path = Path::new(&subtree_root).to_owned().join(&searchfox_path);
 
@@ -1084,7 +1235,7 @@ fn analyze_using_scip(
                 output_file.display(),
                 err
             );
-            continue;
+            return;
         }
         let mut file = match File::create(&output_file) {
             Ok(f) => BufWriter::new(f),
@@ -1094,17 +1245,15 @@ fn analyze_using_scip(
                     output_file.display(),
                     err
                 );
-                continue;
+                return;
             }
         };
 
-        let source_fname =
-            tree_config.find_source_file(&format!("{}/{}", subtree_root, &doc.relative_path));
-        let source_contents = match std::fs::read(source_fname.clone()) {
+        let source_contents = match std::fs::read(source_fname) {
             Ok(f) => f,
             Err(_) => {
                 error!("Unable to open source file {}", source_fname);
-                continue;
+                return;
             }
         };
 
@@ -1139,7 +1288,7 @@ fn analyze_using_scip(
         // basis.  We should revisit this if profiling shows this is a big problem.
         // Same thing with Java and Kotlin
         let mut parser = tree_sitter::Parser::new();
-        let (ts_lang, ts_nesting): (tree_sitter::Language, &Vec<SitterNesting>) = match &lang {
+        let (ts_lang, ts_nesting): (tree_sitter::Language, &Vec<SitterNesting>) = match lang {
             ScipLang::Python => (tree_sitter_python::LANGUAGE.into(), &PYTHON_NESTING),
             ScipLang::Rust => (tree_sitter_rust::LANGUAGE.into(), &RUST_NESTING),
             ScipLang::Typescript => {
@@ -1171,7 +1320,7 @@ fn analyze_using_scip(
             Some(t) => t,
             _ => {
                 warn!("tree-sitter parse failed, skipping file.");
-                continue;
+                return;
             }
         };
 
@@ -1193,93 +1342,11 @@ fn analyze_using_scip(
         );
 
         for occurrence in &doc.occurrences {
-            // We need to normalize locals to include the file path, consistent
-            // with how we handled them in the prior pass.  Note that this is
-            // not actually an official SCIP symbol, but because the local symbols
-            // are not namespaced, we just store it using our normalized version.
-            let (is_local, norm_scip_sym) = if occurrence.symbol.starts_with("local ") {
-                (
-                    true,
-                    symbol_name(
-                        lang_name,
-                        subtree_name,
-                        &format!(
-                            "{}/#{}",
-                            sanitize_symbol(&doc.relative_path),
-                            &occurrence.symbol[6..]
-                        ),
-                    ),
-                )
-            } else {
-                (false, ustr(&occurrence.symbol))
-            };
-
-            let sinfo = match scip_symbol_to_structured.get(&norm_scip_sym) {
-                Some(s) => s,
-                None => {
-                    // For occurences that don't match any symbol, we create a new structured fake,
-                    // save it, and return it.
-
-                    let symbol = match scip::symbol::parse_symbol(&occurrence.symbol) {
-                        Ok(s) => s,
-                        Err(e) => {
-                            error!("{:?}", e);
-                            continue;
-                        }
-                    };
-
-                    let symbol_info = analyse_symbol(
-                        &symbol,
-                        None,
-                        &lang,
-                        lang_name,
-                        subtree_name,
-                        &doc.relative_path,
-                        None,
-                    );
-
-                    let fake = AnalysisStructured {
-                        structured: StructuredTag::Structured,
-                        pretty: symbol_info.pretty,
-                        sym: symbol_info.norm_sym,
-                        js_sym: None,
-                        type_pretty: None,
-                        kind: ustr(symbol_info.kind.unwrap_or("")),
-                        subsystem: None,
-                        parent_sym: symbol_info.parent_sym,
-                        slot_owner: None,
-                        // Introducing the concept of "external" here to make it
-                        // more obvious when we generate a fake structured
-                        // record and that it is missing much of the expected
-                        // metadata.
-                        impl_kind: ustr("external"),
-                        size_bytes: None,
-                        alignment_bytes: None,
-                        own_vf_ptr_bytes: None,
-                        binding_slots: vec![],
-                        ontology_slots: vec![],
-                        supers: vec![],
-                        methods: vec![],
-                        fields: vec![],
-                        overrides: vec![],
-                        props: vec![],
-                        labels: BTreeSet::default(),
-
-                        subclass_syms: vec![],
-                        overridden_by_syms: vec![],
-                        variants: vec![],
-                        supplement: false,
-                        docs: external_docs(&lang, &symbol),
-                        extra: Map::default(),
-
-                        can_gc: None,
-                        gc_path: None,
-                    };
-                    scip_symbol_to_structured.insert(norm_scip_sym, fake);
-                    possible_unknown_scip_symbols.remove(&norm_scip_sym);
-                    our_symbol_to_scip_sym.insert(symbol_info.norm_sym, norm_scip_sym);
-                    scip_symbol_to_structured.get(&norm_scip_sym).unwrap()
-                }
+            let (is_local, norm_scip_sym) = norm_occurrence_sym(doc, occurrence);
+            // (Every symbol has a structured record now, a fake if it had
+            // none, but those whose symbols couldn't be parsed; see above.)
+            let Some(sinfo) = scip_symbol_to_structured.get(&norm_scip_sym) else {
+                continue;
             };
             let loc = scip_range_to_searchfox_location(&occurrence.range);
             let kind = scip_roles_to_searchfox_analysis_kind(occurrence.symbol_roles);
@@ -1408,7 +1475,7 @@ fn analyze_using_scip(
 
             // If this was the definition point, then write out the structured record.
             if kind == AnalysisKind::Def {
-                emitted_scip_structured.insert(norm_scip_sym);
+                emitted.push(norm_scip_sym);
                 write_line(&mut file, &WithLocation { data: sinfo, loc });
             }
 
