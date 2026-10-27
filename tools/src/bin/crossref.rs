@@ -3229,6 +3229,12 @@ fn write_crossref_and_jumpref_thread(
     jumpref_ext_size.replace(jumpref_ext_offset);
 }
 
+/// How many chunks of the symbols each of `write_crossref_and_jumpref`'s
+/// threads writes, on average.
+const WRITE_CHUNKS_PER_THREAD: usize = 8;
+/// The buffers' sizes when concatenating the chunks' files.
+const MERGE_BUF_SIZE: usize = 1 << 20;
+
 fn write_crossref_and_jumpref(
     tree_name: &String,
     index_path: &String,
@@ -3248,7 +3254,6 @@ fn write_crossref_and_jumpref(
 
     let total = search_result_list.len();
     let thread_count = if total > 100 { thread_count } else { 1 };
-    let chunk = total / thread_count;
 
     if thread_count == 1 {
         let xref_file = format!("{}/crossref", index_path);
@@ -3284,27 +3289,27 @@ fn write_crossref_and_jumpref(
         return;
     }
 
+    // Several chunks per thread, which threads claim as they finish theirs:
+    // symbols' results are very uneven, so a chunk per thread straggles.  Each
+    // chunk is written to its own files, which are concatenated in order.
+    let chunk_count = (thread_count * WRITE_CHUNKS_PER_THREAD)
+        .min(total / 100)
+        .max(thread_count);
+    let chunk = total.div_ceil(chunk_count);
+    let chunk_count = total.div_ceil(chunk);
     info!(
-        "{} search results found. Processing with {} threads (chunk size={})",
-        total, thread_count, chunk
+        "{} search results found. Processing with {} threads ({} chunks of {})",
+        total, thread_count, chunk_count, chunk
     );
 
     // crossref and jumpref files contain the offsets into the *-extra files.
     // The offset need to be adjusted when concatenating.
-    let mut xref_ext_sizes = vec![None; thread_count];
-    let mut jumpref_ext_sizes = vec![None; thread_count];
+    let ext_sizes: std::sync::Mutex<Vec<(Option<usize>, Option<usize>)>> =
+        std::sync::Mutex::new(vec![(None, None); chunk_count]);
+    let next_chunk = std::sync::atomic::AtomicUsize::new(0);
 
     std::thread::scope(|s| {
-        for (index, (xref_ext_size, jumpref_ext_size)) in xref_ext_sizes
-            .iter_mut()
-            .zip(jumpref_ext_sizes.iter_mut())
-            .enumerate()
-        {
-            let xref_file = format!("{}/crossref-{}", index_path, index);
-            let xref_ext_file = format!("{}/crossref-extra-{}", index_path, index);
-            let jumpref_file = format!("{}/jumpref-{}", index_path, index);
-            let jumpref_ext_file = format!("{}/jumpref-extra-{}", index_path, index);
-
+        for _ in 0..thread_count {
             let ingestion = &ingestion;
             let search_result_list = &search_result_list;
             let pretty_table = &pretty_table;
@@ -3315,38 +3320,46 @@ fn write_crossref_and_jumpref(
             let js_ts_table = &js_ts_table;
             let recency_table = &recency_table;
             let rollups = &rollups;
+            let ext_sizes = &ext_sizes;
+            let next_chunk = &next_chunk;
 
-            let start = chunk * index;
-            let end = if index == thread_count - 1 {
-                total
-            } else {
-                chunk * (index + 1)
-            };
             s.spawn(move || {
-                write_crossref_and_jumpref_thread(
-                    xref_file,
-                    xref_ext_file,
-                    jumpref_file,
-                    jumpref_ext_file,
-                    search_result_list,
-                    start,
-                    end,
-                    ingestion,
-                    pretty_table,
-                    meta_table,
-                    callees_table,
-                    field_member_use_table,
-                    js_idl_table,
-                    js_ts_table,
-                    recency_table,
-                    rollups,
-                    index == 0,
-                    xref_ext_size,
-                    jumpref_ext_size,
-                );
+                loop {
+                    let index = next_chunk.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    if index >= chunk_count {
+                        break;
+                    }
+                    let start = chunk * index;
+                    let end = (chunk * (index + 1)).min(total);
+                    let (mut xref_ext_size, mut jumpref_ext_size) = (None, None);
+                    write_crossref_and_jumpref_thread(
+                        format!("{}/crossref-{}", index_path, index),
+                        format!("{}/crossref-extra-{}", index_path, index),
+                        format!("{}/jumpref-{}", index_path, index),
+                        format!("{}/jumpref-extra-{}", index_path, index),
+                        search_result_list,
+                        start,
+                        end,
+                        ingestion,
+                        pretty_table,
+                        meta_table,
+                        callees_table,
+                        field_member_use_table,
+                        js_idl_table,
+                        js_ts_table,
+                        recency_table,
+                        rollups,
+                        index == 0,
+                        &mut xref_ext_size,
+                        &mut jumpref_ext_size,
+                    );
+                    ext_sizes.lock().unwrap()[index] = (xref_ext_size, jumpref_ext_size);
+                }
             });
         }
     });
+    let (xref_ext_sizes, jumpref_ext_sizes): (Vec<_>, Vec<_>) =
+        ext_sizes.into_inner().unwrap().into_iter().unzip();
 
     println!(
         "Performing crossref::write-crossref-merge step for {} : {}",
@@ -3364,31 +3377,38 @@ fn write_crossref_and_jumpref(
             }
 
             let index_path = index_path.clone();
-            let thread_count = thread_count;
 
+            // (Lines into one reused buffer, without checking them as UTF-8:
+            // a String per line made this the phase's time, ~1.5 minutes for
+            // firefox-disco.)
             s.spawn(move || {
                 let out_file = format!("{}/{}", index_path, name);
-                let mut out_f = BufWriter::new(File::create(out_file).unwrap());
+                let mut out_f =
+                    BufWriter::with_capacity(MERGE_BUF_SIZE, File::create(out_file).unwrap());
 
-                for i in 0..thread_count {
+                let mut line: Vec<u8> = Vec::new();
+                for (i, ext_offset) in ext_offsets.iter().enumerate() {
                     let in_file = format!("{}/{}-{}", index_path, name, i);
                     let in_f = File::open(in_file.clone()).unwrap();
-                    let mut reader = BufReader::new(in_f);
+                    let mut reader = BufReader::with_capacity(MERGE_BUF_SIZE, in_f);
                     loop {
-                        let mut line = String::new();
-                        let size = reader.read_line(&mut line).unwrap();
+                        line.clear();
+                        let size = reader.read_until(b'\n', &mut line).unwrap();
                         if size == 0 {
                             break;
                         }
                         // Adjust the *-extra file offset.
-                        if i > 0 && line.starts_with("@!") {
-                            let end = line.find(" ").unwrap();
-                            let offset = line[2..end].parse::<usize>().unwrap();
+                        if i > 0 && line.starts_with(b"@!") {
+                            let end = line.iter().position(|&b| b == b' ').unwrap();
+                            let offset = std::str::from_utf8(&line[2..end])
+                                .unwrap()
+                                .parse::<usize>()
+                                .unwrap();
 
-                            write!(out_f, "@{:x}", offset + ext_offsets[i]).unwrap();
-                            out_f.write_all(line[end..].as_bytes()).unwrap();
+                            write!(out_f, "@{:x}", offset + ext_offset).unwrap();
+                            out_f.write_all(&line[end..]).unwrap();
                         } else {
-                            out_f.write_all(line.as_bytes()).unwrap();
+                            out_f.write_all(&line).unwrap();
                         }
                     }
                     remove_file(in_file).unwrap()
@@ -3400,7 +3420,6 @@ fn write_crossref_and_jumpref(
         // *-extra files can be simply concatenated.
         for name in ["crossref-extra", "jumpref-extra"] {
             let index_path = index_path.clone();
-            let thread_count = thread_count;
 
             s.spawn(move || {
                 const BUF_SIZE: usize = 0xffff;
@@ -3409,7 +3428,7 @@ fn write_crossref_and_jumpref(
                 let out_file = format!("{}/{}", index_path, name);
                 let mut out_f = File::create(out_file).unwrap();
 
-                for i in 0..thread_count {
+                for i in 0..chunk_count {
                     let in_file = format!("{}/{}-{}", index_path, name, i);
                     let mut in_f = File::open(in_file.clone()).unwrap();
                     loop {
