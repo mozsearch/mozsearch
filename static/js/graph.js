@@ -7,6 +7,9 @@ const TRANSLATION_CLAMP_AMOUNT = 0;
 const CROSS_MARGIN = 20;
 const PORT_MARGIN = 10;
 const CROSS_GAP = 8;
+// The gap between the blocks with no edges, beside the grid (see
+// `placeIsolatedBlocks`), and between them and it.
+const ISOLATED_GAP = 24;
 
 function clamp(x, min, max) {
   return Math.max(min, Math.min(max, x));
@@ -433,29 +436,51 @@ class Graph {
 
     this.resetBlockAndEdgeState();
 
-    this.calculateDepth();
+    // The blocks with edges are laid out in the grid, and those with none
+    // beside it (see `placeIsolatedBlocks`), rather than in its first row,
+    // where they made it as wide as there are of them, and moved the blocks
+    // with edges apart.
+    const allBlocks = this.blocks;
+    const linked = new Set(this.edges.flatMap(edge => [edge.pred, edge.succ]));
+    this.blocks = allBlocks.filter(block => linked.has(block));
+    this.isolatedBlocks = allBlocks.filter(block => !linked.has(block));
+    let gridSize = { x: 0, y: 0 };
+    try {
+      if (this.blocks.length > 0) {
+        this.calculateDepth();
 
-    this.compressDepth();
+        this.compressDepth();
 
-    this.calculateBreadth();
+        this.calculateBreadth();
 
-    this.calculateEdgeDirection();
+        this.calculateEdgeDirection();
 
-    this.calculateDimension();
+        this.calculateDimension();
 
-    this.layout = new GridLayout(this.maxBreadth, this.maxDepth);
+        this.layout = new GridLayout(this.maxBreadth, this.maxDepth);
 
-    this.takePorts();
+        this.takePorts();
 
-    this.layout.sortPorts();
+        this.layout.sortPorts();
 
-    this.createBlockNodes();
+        this.createBlockNodes();
 
-    this.calculateEdgePath();
+        this.calculateEdgePath();
 
-    this.layout.calculatePosition();
+        this.layout.calculatePosition();
 
-    this.setBlockPosition();
+        this.setBlockPosition();
+
+        gridSize = { x: this.layout.getWidth(), y: this.layout.getHeight() };
+      }
+    } finally {
+      this.blocks = allBlocks;
+    }
+    const isolatedSize = this.placeIsolatedBlocks(gridSize);
+    this.size = {
+      x: Math.max(gridSize.x, isolatedSize.x),
+      y: Math.max(gridSize.y, isolatedSize.y),
+    };
 
     this.createSVGNode();
 
@@ -816,7 +841,9 @@ class Graph {
       }
 
       for (const [_, blocksInDepth] of depthToBlocks) {
-        blocksInDepth.sort((a, b) => a.tmpBreadth > b.tmpBreadth);
+        // (By their neighbors' mean breadth; a comparator returning a
+        // boolean, as this did, doesn't order them.)
+        blocksInDepth.sort((a, b) => a.tmpBreadth - b.tmpBreadth);
       }
     }
     function calculateFinalBreadth(depthToBlocks) {
@@ -924,9 +951,17 @@ class Graph {
     }
   }
 
-  // Create the DOM node for each block.
+  // Create the DOM node for each block in the grid.
   createBlockNodes() {
     for (const block of this.blocks) {
+      this.createBlockNode(block);
+      this.layout.addBlock(block.breadth, block.depth, block);
+    }
+  }
+
+  // Create a block's DOM node, measuring it.
+  createBlockNode(block) {
+    {
       const node = document.createElement("div");
       node.id = "Gidn" + block.id;
       node.setAttribute("data-symbols", block.syms.join(","));
@@ -962,8 +997,67 @@ class Graph {
       block.height = node.offsetHeight;
 
       block.node = node;
-      this.layout.addBlock(block.breadth, block.depth, block);
     }
+  }
+
+  // Place the blocks with no edges (`isolatedBlocks`) beside the grid (of
+  // `gridSize`), in columns to its right, as tall as the grid, or taller if
+  // that fits the whole graph in the viewport better: the height whose
+  // graph the initial fit shows biggest (see `fitToViewport`), the grid's
+  // when they tie, since the graph is easier to read, and scroll, down than
+  // across.  Returns the size of the grid with them.
+  placeIsolatedBlocks(gridSize) {
+    const blocks = this.isolatedBlocks;
+    if (blocks.length === 0) {
+      return { x: 0, y: 0 };
+    }
+    for (const block of blocks) {
+      this.createBlockNode(block);
+    }
+    const left = gridSize.x > 0 ? gridSize.x + ISOLATED_GAP : 0;
+    // The columns of blocks no taller than `height` (but one block's), and
+    // the size of the graph with them.
+    const pack = height => {
+      const columns = [];
+      let column = null;
+      for (const block of blocks) {
+        if (!column || (column.height > 0 && column.height + ISOLATED_GAP + block.height > height)) {
+          column = { blocks: [], width: 0, height: 0 };
+          columns.push(column);
+        }
+        column.height += (column.blocks.length ? ISOLATED_GAP : 0) + block.height;
+        column.width = Math.max(column.width, block.width);
+        column.blocks.push(block);
+      }
+      const width = left + columns.reduce((sum, c) => sum + c.width, 0) +
+        ISOLATED_GAP * (columns.length - 1);
+      const tallest = Math.max(...columns.map(c => c.height));
+      return { columns, size: { x: width, y: Math.max(gridSize.y, tallest) } };
+    };
+    const base = Math.max(gridSize.y, ...blocks.map(block => block.height));
+    const total = blocks.reduce((sum, block) => sum + block.height + ISOLATED_GAP, 0);
+    const fit = ({ size }) => Math.min(this.viewportSize.x / size.x || 1,
+                                       this.viewportSize.y / size.y || 1, 1);
+    let best = pack(base);
+    for (let height = base * 1.25; height < total + base; height *= 1.25) {
+      const packed = pack(height);
+      if (fit(packed) > fit(best) * 1.01) {
+        best = packed;
+      }
+    }
+    let x = left;
+    for (const column of best.columns) {
+      let y = 0;
+      for (const block of column.blocks) {
+        block.left = x + (column.width - block.width) / 2;
+        block.top = y;
+        block.node.style.left = block.left + "px";
+        block.node.style.top = block.top + "px";
+        y += block.height + ISOLATED_GAP;
+      }
+      x += column.width + ISOLATED_GAP;
+    }
+    return best.size;
   }
 
   // For the mouse interaction, populate the GRAPH_EXTRA, with the
@@ -1188,7 +1282,6 @@ class Graph {
   createSVGNode() {
     this.svg = document.createElementNS(SVG_NS, "svg");
     this.graphContainer.append(this.svg);
-    this.size = { x: this.layout.getWidth(), y: this.layout.getHeight() };
     this.svg.setAttribute("width", `${this.size.x}`);
     this.svg.setAttribute("height", `${this.size.y}`);
   }

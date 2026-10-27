@@ -196,6 +196,20 @@ add_task(async function test_TryDeltaSubway() {
   ok(decodeURIComponent(graphLink.getAttribute("href")).includes("slice-format:svg"),
      "and links to the dataflow graph");
 
+  // (The cards with no edges are in columns beside the graph of those with
+  // them, rather than in its first row; see graph.js's placeIsolatedBlocks.)
+  const nodes = win.GRAPH_EXTRA[0].nodes;
+  const blocks = [...doc().querySelectorAll(".interactive-graph-block")];
+  const isolated = blocks.filter(block => !nodes[block.id].in_nodes.length && !nodes[block.id].out_nodes.length);
+  const linked = blocks.filter(block => !isolated.includes(block));
+  ok(isolated.length > 1 && linked.length > 1, "Some cards have edges, and some don't");
+  const left = block => parseFloat(block.style.left);
+  const linkedRight = Math.max(...linked.map(block => left(block) + block.offsetWidth));
+  ok(isolated.every(block => left(block) > linkedRight), "Those with none are beside those with them");
+  const firstColumn = Math.min(...isolated.map(left));
+  ok(isolated.filter(block => Math.abs(left(block) - firstColumn) < block.offsetWidth / 2).length > 1,
+     "stacked in columns");
+
   // (Hiding a line hides its tracks and edges.)
   const line = model.lines.find(l => doc().querySelector(`.sw-track[data-line="${l.id}"]`));
   ok(line, "A line has tracks");
