@@ -50,11 +50,17 @@ setup_tree() {
 # With "setup_groups" in the config (a list of lists of trees), each group's
 # trees are set up one after another, in the group's order, while the other
 # groups' are: a tree goes in the group of the trees whose setups it depends on
-# or shares anything with (ex: firefox-try's, which uses firefox-disco's
-# firefox-shared repos and its target.json), and in a group of its own if its
-# setup is independent (ex: wubspecs', which only downloads and updates its own
-# repos and history).  Each group's log goes in the main log when the group is
-# done.  The trees in no group are set up afterwards, one after another.
+# or shares anything with, and in a group of its own if its setup is
+# independent (ex: wubspecs', which only downloads and updates its own repos
+# and history), or only waits for some step of another group's tree (ex:
+# firefox-try's, for firefox-disco's update of the firefox-shared repos and its
+# target.json; see their setups).  Each group's log goes in the main log when
+# the group is done.  The trees in no group are set up afterwards, one after
+# another.
+#
+# (SETUP_ID tells a signal a setup leaves for another group's tree this time
+# from one left by an earlier setup in the same directories.)
+export SETUP_ID="$(date +%s%N)-$$"
 SETUP_GROUPS=$(jq -c '.setup_groups // []' ${CONFIG_FILE})
 GROUPED_TREES=$(jq -r '.setup_groups // [] | flatten | .[]' ${CONFIG_FILE})
 for TREE_NAME in $GROUPED_TREES; do
