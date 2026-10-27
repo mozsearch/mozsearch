@@ -103,6 +103,12 @@ esac
 date
 echo "Indexing complete"
 
+# The spec pull requests which the channel's web server imported, for the new
+# one to import again, since they're only on the old one's index volume (see
+# carry-over-imports.py).
+$AWS_ROOT/carry-over-imports.py $CHANNEL $CONFIG_REPO_PATH /index/config.json $INDEX_FS ||
+    echo "WARNING: The imported spec pull requests couldn't be carried over."
+
 # Copy indexing log to index mount so it's easy to get to from the
 # web server instance
 cp ~ubuntu/index-log $INDEX_FS/index-log

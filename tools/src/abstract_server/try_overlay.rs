@@ -222,6 +222,10 @@ impl AbstractServer for TryOverlay {
         self.base.request_spec_prs_sync(spec).await
     }
 
+    async fn spec_prs_imported(&self) -> Result<Vec<String>> {
+        self.base.spec_prs_imported().await
+    }
+
     async fn spec_pr_imports(&self, spec: &str) -> Result<Vec<crate::spec_prs::PrImport>> {
         self.base.spec_pr_imports(spec).await
     }

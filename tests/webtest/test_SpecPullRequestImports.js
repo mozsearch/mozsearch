@@ -5,7 +5,7 @@
 // `request_all`): it says which are imported, and its button imports those
 // the facets show which need it, a few at a time.  gizmo's pull requests 4
 // and 5 (an editor's, labeled "meta", adding files which aren't specs; see
-// tests/specpr/setup) are only imported here, together, and 2 by no test.
+// tests/specpr/setup) are only imported here, together, and 6 by no test.
 
 function doc() {
   return frame.contentDocument;
@@ -42,12 +42,15 @@ add_task(async function test_SpecPullRequestImports() {
                          "Importing them finishes", 500, 240);
   is(pr(4).querySelector(".spec-pr-import").textContent, "Imported", "Each says it's imported");
   is(pr(4).dataset.needed, "false", "and doesn't need importing");
-  is((await (await fetch("/specpr/try-status/gizmo/2", { cache: "no-store" })).json()).state,
+  is((await (await fetch("/specpr/try-status/gizmo/6", { cache: "no-store" })).json()).state,
      "notImported", "The pull requests it didn't show weren't imported");
 
   // (And through the data API, which the web-server serves.)
   const imports = await (await fetch("/specpr/api/v1/spec-prs-imports?spec=gizmo", { cache: "no-store" })).json();
   ok(imports.find(each => each.number == 5)?.current, "The data API has their imports");
+  const imported = await (await fetch("/specpr/api/v1/spec-prs-imported", { cache: "no-store" })).json();
+  ok(imported.includes("gizmo/4") && imported.includes("gizmo/5") && !imported.includes("gizmo/6"),
+     "and the pull requests the tree imported, which the indexer carries over to the next index");
   const asked = await (await fetch("/specpr/api/v1/spec-prs-import?spec=gizmo&numbers=4,5", { method: "POST" })).json();
   is(asked, 0, "and asks for those which need importing, which they don't anymore");
 });

@@ -344,6 +344,14 @@ impl AbstractServer for LocalIndex {
             .map_err(|message| bad_input(message.to_string()))
     }
 
+    async fn spec_prs_imported(&self) -> Result<Vec<String>> {
+        let cfg = self.tree_config_loaded();
+        Ok(crate::try_import::imported_pull_requests(
+            &cfg,
+            &self.tree_name,
+        ))
+    }
+
     async fn spec_pr_imports(&self, spec: &str) -> Result<Vec<crate::spec_prs::PrImport>> {
         let cfg = self.tree_config_loaded();
         Ok(crate::spec_prs::pr_imports(&cfg, &self.tree_name, spec))

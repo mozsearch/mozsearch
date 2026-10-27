@@ -828,6 +828,10 @@ impl AbstractServer for RemoteServer {
         Ok(())
     }
 
+    async fn spec_prs_imported(&self) -> Result<Vec<String>> {
+        parse(&self.api_live("spec-prs-imported", &[], false).await?)
+    }
+
     async fn spec_pr_imports(&self, spec: &str) -> Result<Vec<crate::spec_prs::PrImport>> {
         parse(
             &self

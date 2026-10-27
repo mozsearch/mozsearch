@@ -257,6 +257,99 @@ pub fn parse_numbers(numbers: Option<&str>) -> Option<Option<Vec<u32>>> {
     }
 }
 
+/// Where a new index's web server finds the spec pull requests the previous
+/// index's had imported, which the indexer asked it for (see
+/// infrastructure/aws/carry-over-imports.py), as JSON (`{"pushes": [...]}`,
+/// `SPEC/NUMBER`s), to import them again (see `restore_imports`).
+fn restore_path(cfg: &Config, tree_name: &str) -> Option<PathBuf> {
+    let history = cfg.trees.get(tree_name)?.paths.history_path.as_ref()?;
+    Some(Path::new(history).join("try-imports").join("restore.json"))
+}
+
+#[derive(Deserialize)]
+struct RestoreList {
+    pushes: Vec<String>,
+}
+
+/// How long `restore_imports` waits for the summaries' sync.
+const RESTORE_SYNC_LIMIT: Duration = Duration::from_secs(2 * 60 * 60);
+
+/// Import again the spec pull requests which the previous index's web server
+/// had imported into the tree, if the indexer carried them over (see
+/// `restore_path`), those still open, at their heads (the indexer carries
+/// over neither the imports nor the summaries): after a sync of the tree's
+/// summaries, those of its open pull requests (or all of a spec repository's,
+/// if it has no summary, ex: its sync failed).  It's done once: it renames the file
+/// to restored.json once it's asked for them.  (For the web-server's start;
+/// it waits for the sync.)
+pub fn restore_imports(cfg: &Config, tree_name: &str) {
+    let Some(path) = restore_path(cfg, tree_name) else {
+        return;
+    };
+    let Ok(text) = fs::read_to_string(&path) else {
+        return;
+    };
+    let pushes = match serde_json::from_str::<RestoreList>(&text) {
+        Ok(list) => list.pushes,
+        Err(err) => {
+            eprintln!(
+                "{}: {} isn't a list of pushes: {}",
+                tree_name,
+                path.display(),
+                err
+            );
+            vec![]
+        }
+    };
+    if !pushes.is_empty() && SYNCS.request(cfg, tree_name, None).is_ok() {
+        let started = Instant::now();
+        while started.elapsed() < RESTORE_SYNC_LIMIT {
+            std::thread::sleep(Duration::from_secs(10));
+            if matches!(
+                SYNCS.status(cfg, tree_name, None),
+                SyncStatus::Idle { .. } | SyncStatus::Unavailable
+            ) {
+                break;
+            }
+        }
+    }
+    let revs = restorable(pushes, &repo_summaries(cfg, tree_name));
+    let queued = crate::try_import::IMPORTS.restore(cfg, tree_name, &revs);
+    eprintln!(
+        "{}: importing again {} of the previous index's imported spec pull requests ({} still open)",
+        tree_name,
+        queued,
+        revs.len()
+    );
+    let _ = fs::rename(&path, path.with_file_name("restored.json"));
+}
+
+/// Which of the spec pull requests `pushes` (`SPEC/NUMBER`) to import again
+/// (see `restore_imports`): those open as the `summaries` say, or all of a
+/// spec repository's if it has no summary.
+fn restorable(pushes: Vec<String>, summaries: &[RepoSummary]) -> Vec<String> {
+    let open: BTreeSet<String> = summaries
+        .iter()
+        .flat_map(|summary| {
+            summary
+                .prs
+                .iter()
+                .map(|pr| format!("{}/{}", summary.spec, pr.number))
+        })
+        .collect();
+    let synced: BTreeSet<&str> = summaries
+        .iter()
+        .map(|summary| summary.spec.as_str())
+        .collect();
+    pushes
+        .into_iter()
+        .filter(|push| {
+            let spec = push.split('/').next().unwrap_or_default();
+            !synced.contains(spec) || open.contains(push)
+        })
+        .collect()
+}
+
 /// The tree's spec repositories' summaries, by their directories.
 pub fn repo_summaries(cfg: &Config, tree_name: &str) -> Vec<RepoSummary> {
     let Some(dir) = summaries_dir(cfg, tree_name) else {
@@ -1113,6 +1206,22 @@ mod tests {
         assert_eq!(changes[0].added.len(), SOURCE_CHANGE_LINES);
         assert_eq!(changes[0].more_added, 5);
         assert_eq!(changes[0].more_removed, 0);
+    }
+
+    #[test]
+    fn test_restorable() {
+        let summary: RepoSummary = serde_json::from_value(serde_json::json!({
+            "spec": "dom",
+            "repo": "whatwg/dom",
+            "url": "https://github.com/whatwg/dom",
+            "synced": "2026-10-27T12:00:00Z",
+            "trunk": "0123456789abcdef0123456789abcdef01234567",
+            "prs": [{ "number": 2, "title": "Still open" }],
+        }))
+        .unwrap();
+        let pushes = ["dom/1", "dom/2", "html/3"].map(String::from).to_vec();
+        // (dom/1 isn't open anymore, and html has no summary.)
+        assert_eq!(restorable(pushes, &[summary]), ["dom/2", "html/3"]);
     }
 
     #[test]

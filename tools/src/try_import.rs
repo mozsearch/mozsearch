@@ -46,6 +46,12 @@
 //! `MAX_QUEUED_PULL_REQUESTS` spec pull requests', whose summaries' pages ask
 //! for a spec's at once; see `TryImports::request_all`), and a failed import
 //! can only be asked for again after `RETRY_AFTER`.
+//!
+//! Imports are on the web server's index volume, which the next indexing
+//! replaces, but the indexer asks the web server which spec pull requests it
+//! imported (see infrastructure/aws/carry-over-imports.py), and the next web
+//! server imports them again, those still open (see
+//! `spec_prs::restore_imports`).
 
 use std::collections::{HashMap, VecDeque};
 use std::fs;
@@ -277,6 +283,33 @@ pub fn imported_head(cfg: &Config, tree_name: &str, rev: &str) -> Option<Oid> {
         .id();
     git.history.as_ref()?.timeline_commit(head)?;
     Some(head)
+}
+
+/// The spec pull requests imported into the tree (`SPEC/NUMBER`; see
+/// `imported_head`), for importing them again into the next index's (see
+/// `spec_prs::restore_imports`).
+pub fn imported_pull_requests(cfg: &Config, tree_name: &str) -> Vec<String> {
+    let Some(git) = cfg.trees.get(tree_name).and_then(|tree| tree.git.as_ref()) else {
+        return vec![];
+    };
+    let Ok(references) = git.repo.references() else {
+        return vec![];
+    };
+    let mut pushes: Vec<String> = references
+        .flatten()
+        .filter_map(|reference| {
+            let push = reference
+                .name()
+                .ok()?
+                .strip_prefix("refs/try/")?
+                .to_string();
+            (is_pull_request(&push) && normalize_push(&push).as_deref() == Some(push.as_str()))
+                .then_some(push)
+        })
+        .filter(|push| imported_head(cfg, tree_name, push).is_some())
+        .collect();
+    pushes.sort();
+    pushes
 }
 
 /// The stack of the imported try push `rev`, oldest first, which the import
@@ -616,10 +649,43 @@ impl TryImports {
         self.enqueue(tree_name, &revs)
     }
 
+    /// Queue the imports of the spec pull requests `revs` (`SPEC/NUMBER`)
+    /// which the previous index's web server had imported (see
+    /// `spec_prs::restore_imports`), but those imported, waiting or running,
+    /// or which failed less than `RETRY_AFTER` ago, however many there are;
+    /// how many it queued.
+    pub fn restore(&self, cfg: &Config, tree_name: &str, revs: &[String]) -> usize {
+        if hook(cfg, tree_name).is_none() {
+            return 0;
+        }
+        let revs: Vec<String> = revs
+            .iter()
+            .filter(|rev| {
+                is_pull_request(rev)
+                    && matches!(
+                        self.status(cfg, tree_name, rev),
+                        ImportStatus::NotImported | ImportStatus::Failed { retry: true, .. }
+                    )
+            })
+            .cloned()
+            .collect();
+        self.enqueue_jobs(tree_name, &revs, false).unwrap_or(0)
+    }
+
     /// Queue the imports of `revs` into the tree, but those waiting or
     /// running, all of them or (if there isn't room for them) none; how many
     /// it queued.
     fn enqueue(&self, tree_name: &str, revs: &[String]) -> Result<usize, &'static str> {
+        self.enqueue_jobs(tree_name, revs, true)
+    }
+
+    /// As `enqueue`, or without the queue's limits (unless `limited`).
+    fn enqueue_jobs(
+        &self,
+        tree_name: &str,
+        revs: &[String],
+        limited: bool,
+    ) -> Result<usize, &'static str> {
         let jobs = {
             let mut state = self.state.lock().unwrap();
             let jobs: Vec<Job> = revs
@@ -644,6 +710,7 @@ impl TryImports {
                     .filter(|job| is_pull_request(&job.rev) == pull_requests)
                     .count();
                 match pull_requests {
+                    _ if !limited => {}
                     false if asked > 0 && queued + asked > MAX_QUEUED => {
                         return Err(
                             "Too many try pushes are waiting to be imported; try again later",

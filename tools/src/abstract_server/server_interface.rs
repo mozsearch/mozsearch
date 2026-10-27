@@ -663,6 +663,15 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The spec pull requests imported into the tree (see
+    /// `try_import::imported_pull_requests`).  (The web-server's, whose
+    /// `spec-prs-imported` data API route this is, which the indexer asks for
+    /// them, to import them again into the next index; see
+    /// `spec_prs::restore_imports`.)
+    async fn spec_prs_imported(&self) -> Result<Vec<String>> {
+        Err(ServerError::Unsupported)
+    }
+
     /// Ask for the imports of the open pull requests of the tree's spec
     /// repository `spec` which need them, or of those of `numbers` which do
     /// (see `spec_prs::request_pr_imports`), with its reasons not to as

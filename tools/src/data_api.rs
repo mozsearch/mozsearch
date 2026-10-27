@@ -95,7 +95,10 @@
 //!   the imports of a spec repository's open pull requests (see
 //!   `spec_prs::pr_imports`), and asking for those which need them (or those
 //!   of `numbers`, comma-separated, which do; how many it asked for); served
-//!   by the web-server, which performs imports.
+//!   by the web-server, which performs imports.  And `spec-prs-imported`,
+//!   the spec pull requests the tree imported (`SPEC/NUMBER`s), which the
+//!   indexer asks the web-server for, to import them into the next index
+//!   (see infrastructure/aws/carry-over-imports.py).
 //!
 //! All of them take `rev=` (a try push's head) and `max_bytes=`.
 //!
@@ -359,6 +362,13 @@ const ROUTES: &[Route] = &[
         params: &["spec"],
         host: Host::WebServer,
         post: true,
+    },
+    Route {
+        name: "spec-prs-imported",
+        takes_path: false,
+        params: &[],
+        host: Host::WebServer,
+        post: false,
     },
     Route {
         name: "spec-prs-imports",
@@ -1048,6 +1058,10 @@ async fn route_body(
             Ok(Body::json(
                 &serde_json::to_value(status).unwrap_or_default(),
             ))
+        }
+        "spec-prs-imported" => {
+            let pushes = server.spec_prs_imported().await.map_err(error)?;
+            Ok(Body::json(&json!(pushes)))
         }
         "spec-prs-imports" => {
             let spec = spec_param(params)?.ok_or_else(|| bad("spec is required"))?;
