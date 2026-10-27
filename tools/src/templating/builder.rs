@@ -147,6 +147,15 @@ pub fn build_and_parse_spec_prs() -> Template {
     build_and_parse(template_str)
 }
 
+pub fn build_and_parse_missing_source() -> Template {
+    let template_str = TEMPLATE_DIR
+        .get_file("missing_source.liquid")
+        .unwrap()
+        .contents_utf8()
+        .unwrap();
+    build_and_parse(template_str)
+}
+
 pub fn build_and_parse_try_import() -> Template {
     let template_str = TEMPLATE_DIR
         .get_file("try_import.liquid")

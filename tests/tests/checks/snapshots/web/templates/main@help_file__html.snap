@@ -101,6 +101,7 @@ indexes C++ and JavaScript code. This is the help page for Searchfox.
 <script src="/tests/static/js/file-timeline.js"></script>
 <script src="/tests/static/js/outline.js"></script>
 <script src="/tests/static/js/stack-strip.js"></script>
+<script src="/tests/static/js/redirect-note.js"></script>
 <script src="/tests/static/js/interdiff.js"></script>
 <script src="/tests/static/js/change-nav.js"></script>
 <script src="/tests/static/js/d3.v7.min.js"></script>

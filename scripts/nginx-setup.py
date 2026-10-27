@@ -354,6 +354,11 @@ location('@sidecar', ['proxy_pass http://127.0.0.1:8001;'], cache=False)
 # request's changes of a page until it's imported; see the tools'
 # `spec_pr_blocks_json`), which browsers mustn't either.
 location('@page', ['expires $no_store_expires;', 'proxy_pass http://127.0.0.1:8001;'])
+# Paths under `/{tree}/source/` which the tree doesn't have: the web-server
+# says what became of them (a redirect to where they moved, or a 404 page
+# saying when they were deleted; see the tools' `format_missing_source`),
+# which only changes with the index, so its redirects and 404s are cached too.
+location('@missing-source', ['proxy_cache_valid 200 302 404 120d;', 'proxy_pass http://127.0.0.1:8001;'])
 
 # The web-server's routes whose pages it writes as sidecar files (keep in sync
 # with `tools::sidecars::PAGE_ROUTES`), gzipped with empty markers for
@@ -413,7 +418,7 @@ for repo in config['trees']:
 
     location(f'/{repo}/source', [
         f'root {doc_root};',
-        'try_files /file/$uri /dir/$uri/index.html =404;',
+        'try_files /file/$uri /dir/$uri/index.html @missing-source;',
         f'types {{ {binary_types_str} }}',
         'default_type text/html;',
         'add_header Cache-Control "must-revalidate";',

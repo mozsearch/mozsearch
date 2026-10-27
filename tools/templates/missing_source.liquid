@@ -1,0 +1,47 @@
+{%- comment -%}
+  The 404 page of a `/{tree}/source/{path}` which the tree doesn't have (see
+  `format::format_missing_source`), saying what became of it, by its history
+  (see `hyperblame::file_fate`): when it was deleted (`deleted`, after its
+  `moves`), with its last version and where its content went (`content`);
+  or for a directory (`directory`), what became of its files; or, if the
+  history knows nothing of it, the corrections of its name's typos
+  (`corrections`; see `typos`).  And the nearest directory the tree has
+  (`ancestor`).
+{%- endcomment -%}
+<div class="missing-source">
+  <h2>{{ path | escape }} isn't in the tree</h2>
+  {%- if deleted %}
+  <p>
+    {%- if moves != empty %}It moved from {% for move in moves %}<code>{{ move.path | escape }}</code> to <code>{{ move.moved_to | escape }}</code> in <a href="/{{ tree }}/commit/{{ move.rev }}">{{ move.rev | slice: 0, 12 }}</a> ({{ move.date | slice: 0, 10 }}){% unless forloop.last %}, then {% endunless %}{% endfor %}, and was{% else %}It was{% endif %}
+    deleted in <a href="/{{ tree }}/commit/{{ deleted.rev }}">{{ deleted.rev | slice: 0, 12 }}</a> ({{ deleted.date | slice: 0, 10 }}){% if summary != empty %}: {{ summary | escape }}{% endif %}.
+  </p>
+  {%- if parent != empty %}
+  <p><a class="missing-source-last" href="/{{ tree }}/rev/{{ parent }}/{{ deleted.path | escape }}">Its last version</a>, before that commit.</p>
+  {%- endif %}
+  {%- if content != empty %}
+  <p>That commit moved its content to:</p>
+  <ul class="missing-source-content">
+    {%- for destination in content %}
+    <li><a href="/{{ tree }}/source/{{ destination.path | escape }}">{{ destination.path | escape }}</a> ({{ destination.count }} of its tokens)</li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+  {%- elsif directory %}
+  <p>It was a directory, of {{ directory.files }} file{% if directory.files != 1 %}s{% endif %}, which the tree doesn't have anymore{% if directory.deleted > 0 %}: {{ directory.deleted }} {% if directory.deleted == 1 %}was{% else %}were{% endif %} deleted{% endif %}{% if directory.moved_to != empty %}{% if directory.deleted > 0 %}, and{% else %}:{% endif %} others moved to:{% else %}.{% endif %}</p>
+  {%- if directory.moved_to != empty %}
+  <ul class="missing-source-content">
+    {%- for destination in directory.moved_to %}
+    <li><a href="/{{ tree }}/source/{{ destination.path | escape }}">{{ destination.path | escape }}</a> ({{ destination.count }} file{% if destination.count != 1 %}s{% endif %})</li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+  {%- else %}
+  <p>Its history has no file or directory at this path either.</p>
+  {%- if corrections != empty %}
+  <p>Did you mean {% for correction in corrections %}<a href="/{{ tree }}/search?q={{ correction | url_encode }}"><code>{{ correction | escape }}</code></a>{% if forloop.last %}?{% elsif forloop.rindex == 2 %} or {% else %}, {% endif %}{% endfor %}</p>
+  {%- endif %}
+  {%- endif %}
+  {%- if ancestor != empty %}
+  <p>The nearest directory the tree has: <a href="/{{ tree }}/source/{{ ancestor | escape }}">{{ ancestor | escape }}</a></p>
+  {%- endif %}
+</div>

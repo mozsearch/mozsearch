@@ -940,20 +940,31 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
             let path = path.join("/");
 
             // (Usually nginx's; over the tree's server.  A file's listing, or
-            // else a directory's, as nginx's `try_files` does.)
+            // else a directory's, as nginx's `try_files` does; or for a path
+            // the tree doesn't have, which nginx sends here, where it went, or
+            // a 404 page saying what became of it; see
+            // `format::format_missing_source`.)
             let Some(server) = tree_server(tree_name) else {
                 return WebResponse::not_found();
             };
             let server = server.clonify();
+            let path_ = path.clone();
             match format::run_on_runtime(async move {
                 use tools::abstract_server::HtmlFileRoot;
-                match server.fetch_html(HtmlFileRoot::FormattedFile, &path).await {
+                match server.fetch_html(HtmlFileRoot::FormattedFile, &path_).await {
                     Ok(html) => Ok(html),
-                    Err(_) => server.fetch_html(HtmlFileRoot::FormattedDir, &path).await,
+                    Err(_) => server.fetch_html(HtmlFileRoot::FormattedDir, &path_).await,
                 }
             }) {
                 Ok(html) => WebResponse::html(html),
-                Err(_) => WebResponse::not_found(),
+                Err(_) => match format::format_missing_source(cfg, tree_name, &path) {
+                    Ok(format::MissingSource::Redirect(url)) => WebResponse::found(url),
+                    Ok(format::MissingSource::Page(html)) => WebResponse {
+                        status: StatusCode::NOT_FOUND,
+                        ..WebResponse::html(html)
+                    },
+                    Err(_) => WebResponse::not_found(),
+                },
             }
         }
 

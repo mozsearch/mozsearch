@@ -7,6 +7,7 @@ pub mod backouts;
 pub mod consolidation;
 pub mod explore;
 pub mod file_changes;
+pub mod file_fate;
 pub mod future;
 pub mod history_config;
 pub mod history_grep;

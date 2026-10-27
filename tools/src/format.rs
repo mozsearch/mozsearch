@@ -11389,6 +11389,147 @@ pub fn request_spec_pr_imports(
     })
 }
 
+/// What `/{tree}/source/{path}` is when the tree has no file or directory
+/// there (see `format_missing_source`).
+pub enum MissingSource {
+    /// Where it is now: the file or directory it moved to (with where it
+    /// moved from and when, for the note it shows; see redirect-note.js).
+    Redirect(String),
+    /// A 404 page saying what became of it.
+    Page(String),
+}
+
+/// What `/{tree}/source/{path}`, which the tree doesn't have, is, by what
+/// became of it (see `hyperblame::file_fate`): if it moved to a file the tree
+/// has (or for a directory, most of its files moved to one), a redirect
+/// there; else a page saying when it was deleted, with its last version and
+/// where its content went, or what became of a directory's files, or if its
+/// history knows nothing of it, the corrections of its name's typos (see
+/// `typos`); with the nearest directory the tree has.
+pub fn format_missing_source(
+    cfg: &Config,
+    tree_name: &str,
+    path: &str,
+) -> Result<MissingSource, &'static str> {
+    use crate::hyperblame::file_fate::Fate;
+
+    let tree_config = cfg.trees.get(tree_name).ok_or("Invalid tree")?;
+    let git = tree_config.get_git()?;
+    let tip = rendered_commit(git, None)?;
+    let path = path.trim_matches('/');
+    let fate = crate::hyperblame::file_fate::fate(git, tip.id(), path);
+    let redirect = |to: &str, from: &str, rev: &str| {
+        MissingSource::Redirect(format!(
+            "/{}/source/{}?moved-from={}&moved-in={}",
+            tree_name,
+            url_encode_path(to),
+            urlencoding::encode(from),
+            rev
+        ))
+    };
+    let pairs = |pairs: &[(String, usize)]| -> Vec<serde_json::Value> {
+        pairs
+            .iter()
+            .map(|(path, count)| json!({ "path": path, "count": count }))
+            .collect()
+    };
+    let mut globals = json!({
+        "tree": tree_name,
+        "path": path,
+        "deleted": null,
+        "moves": [],
+        "summary": "",
+        "parent": "",
+        "content": [],
+        "directory": null,
+        "corrections": [],
+        "ancestor": "",
+    });
+    match &fate {
+        Some(Fate::Moved { path: to, moves }) => {
+            let rev = moves.last().map_or("", |event| event.rev.as_str());
+            return Ok(redirect(to, path, rev));
+        }
+        Some(Fate::Deleted {
+            moves,
+            deleted,
+            parent,
+            content,
+        }) => {
+            let summary = Oid::from_str(&deleted.rev)
+                .ok()
+                .and_then(|rev| git.repo.find_commit(rev).ok())
+                .and_then(|commit| commit.summary().ok().flatten().map(str::to_string))
+                .unwrap_or_default();
+            globals["deleted"] = json!(deleted);
+            globals["moves"] = json!(moves);
+            globals["summary"] = json!(summary);
+            globals["parent"] = json!(parent.clone().unwrap_or_default());
+            globals["content"] = json!(pairs(content));
+        }
+        Some(Fate::Directory {
+            files,
+            deleted,
+            moved_to,
+        }) => {
+            // (Most of its files which weren't deleted moved there.)
+            if let Some((to, count)) = moved_to.first()
+                && !to.is_empty()
+                && count * 2 > files - deleted
+            {
+                return Ok(redirect(to, path, ""));
+            }
+            globals["directory"] = json!({
+                "files": files,
+                "deleted": deleted,
+                "moved_to": pairs(moved_to),
+            });
+        }
+        None => {
+            let name = path.rsplit('/').next().unwrap_or(path);
+            if let Some(words) = crate::typos::Words::open(&tree_config.paths.index_path) {
+                let corrections: Vec<String> = words
+                    .corrections(name)
+                    .into_iter()
+                    .map(|correction| correction.word)
+                    .collect();
+                globals["corrections"] = json!(corrections);
+            }
+        }
+    }
+    // (The nearest directory the tree has.)
+    let tree = tip.tree().map_err(|_| "Git commit with no tree")?;
+    let ancestor = std::iter::successors(path.rsplit_once('/').map(|(dir, _)| dir), |dir| {
+        dir.rsplit_once('/').map(|(dir, _)| dir)
+    })
+    .find(|dir| {
+        tree.get_path(Path::new(dir))
+            .is_ok_and(|entry| entry.kind() == Some(git2::ObjectType::Tree))
+    })
+    .unwrap_or_default();
+    globals["ancestor"] = json!(ancestor);
+
+    let mut writer = Vec::new();
+    let page_title = format!("{} - mozsearch", path);
+    let opt = Options {
+        title: &page_title,
+        tree_name,
+        include_date: env::var("MOZSEARCH_DIFFABLE").is_err(),
+        revision: None,
+        breadcrumbs_links_to: BreadcrumbsLinksTo::Latest,
+        extra_content_classes: "missing-source-page",
+        search_rev: None,
+    };
+    output::generate_header(&opt, &mut writer)?;
+    output::generate_panel(&opt, &mut writer, &[], true)?;
+    let globals = liquid::to_object(&globals).map_err(|_| "Template problems")?;
+    crate::templating::builder::build_and_parse_missing_source()
+        .render_to(&mut writer, &globals)
+        .map_err(|_| "Template problems")?;
+    output::generate_footer(&opt, tree_name, "", &mut writer).map_err(|_| "Footer problems")?;
+    Ok(MissingSource::Page(String::from_utf8(writer).unwrap()))
+}
+
 /// A page of pull request summaries, from `format_spec_prs`'s globals.
 fn render_spec_prs_page(
     tree_name: &str,

@@ -2324,6 +2324,17 @@ span[data-symbols].selected {
   font-style: italic;
   opacity: 0.8;
 }
+/* A file's or directory's note that a link to where it moved from brought one
+   here (see redirect-note.js), and the page of a path the tree doesn't have
+   (see missing_source.liquid). */
+.redirect-note {
+  margin: 0.3rem 1rem;
+  padding: 0.2rem 0.6rem;
+  border-left: 3px solid var(--link-color);
+}
+.missing-source {
+  padding: 0 1rem;
+}
 /* blame zebra stripes: we alternate colors whenever the revision a line is from
    changes between lines. */
 .c1 {

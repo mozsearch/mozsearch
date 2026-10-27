@@ -383,6 +383,7 @@ pub fn generate_footer(
         "file-timeline.js",
         "outline.js",
         "stack-strip.js",
+        "redirect-note.js",
         "interdiff.js",
         "change-nav.js",
         "d3.v7.min.js",
