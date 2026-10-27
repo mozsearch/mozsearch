@@ -397,7 +397,20 @@
   }).observe(doc);
   document.fonts?.ready.then(schedule);
 
-  Promise.all(entries.map(entry => load(entry).then(schedule))).then(() => {
+  // (A few at a time: a big spec's page can have hundreds of pull requests,
+  // each rendering the page with its changes; see `spec_pr_blocks_json`.)
+  const queue = [...entries];
+  const worker = async () => {
+    while (queue.length) {
+      try {
+        await load(queue.shift());
+      } catch (e) {
+        console.error(e);
+      }
+      schedule();
+    }
+  };
+  Promise.all(Array.from({ length: 6 }, worker)).then(() => {
     place();
     document.body.classList.add("sp-prs-loaded");
     if (cards.length) {

@@ -5129,6 +5129,49 @@ fn write_rendered_prs_header(
         .map_err(|_| "Template problems")
 }
 
+lazy_static! {
+    /// The trunk's lines of paged specs' pages, by tree, revision, source and
+    /// page (see `trunk_page_lines`).
+    static ref TRUNK_PAGE_LINES: std::sync::Mutex<
+        HashMap<(String, Oid, String, Option<String>), Option<std::ops::Range<usize>>>,
+    > = Default::default();
+}
+
+/// The (0-based) lines of the page `page` (or the first) of the paged spec
+/// `spec`'s source at `source_path`, whose text at the tip `tip` is `trunk`,
+/// at the tip (reading its other files with `read`), if it has the page; as
+/// rendering it finds them, once per revision (for `spec_pr_blocks_json`).
+#[allow(clippy::too_many_arguments)]
+fn trunk_page_lines(
+    tree_name: &str,
+    tip: &git2::Commit,
+    spec: &SpecEntry,
+    specs: &SpecsConfig,
+    source_path: &str,
+    trunk: &str,
+    read: &dyn Fn(&str) -> Option<String>,
+    page: Option<&str>,
+) -> Option<std::ops::Range<usize>> {
+    let key = (
+        tree_name.to_string(),
+        tip.id(),
+        source_path.to_string(),
+        page.map(str::to_string),
+    );
+    if let Some(lines) = TRUNK_PAGE_LINES.lock().unwrap().get(&key) {
+        return lines.clone();
+    }
+    let links = RenderedSpecLinks {
+        tree_name,
+        rev: None,
+    };
+    let lines = rendered_specs::render(spec, trunk, source_path, specs, &links, read, page)
+        .filter(|rendered| rendered.file.is_none())
+        .map(|rendered| rendered_range_lines(trunk, &rendered.range));
+    TRUNK_PAGE_LINES.lock().unwrap().insert(key, lines.clone());
+    lines
+}
+
 /// The changes of a spec pull request (`spec_repo`'s pull request `number`,
 /// at its head `head`) to a spec's rendered page (`path`, as for
 /// `format_rendered`) at the tip, for the page's view with its open pull
@@ -5302,6 +5345,37 @@ pub fn spec_pr_blocks_json(
         Some(file) => merged_file(file),
         None => read_commit_file(repo, &tip, file),
     };
+    // (A paged spec's page which none of its changes are near has none of
+    // them, without rendering it: rendering a big spec's page parses its whole
+    // source (ex: the HTML Standard's, ~1 s), for each of its pull requests
+    // (300 of the HTML Standard's), but most change a page or two.  Near: in
+    // the trunk's lines of the page, or at its ends; see `trunk_page_lines`.)
+    let mut hunks = None;
+    if main.is_none() && spec.format.is_some_and(rendered_specs::is_paged) {
+        let read_trunk = |file: &str| read_commit_file(repo, &tip, file);
+        if let Some(lines) = trunk_page_lines(
+            tree_name,
+            &tip,
+            spec,
+            &specs,
+            &source_path,
+            &trunk,
+            &read_trunk,
+            page.as_deref(),
+        ) {
+            let near = |hunk: &crate::spec_prs::LineHunk| {
+                hunk.trunk.start <= lines.end && hunk.trunk.end >= lines.start
+            };
+            let all = crate::spec_prs::line_hunks(&trunk, &merged);
+            if !all.iter().any(near) {
+                return state("ok", None, true).map(|(mut value, final_)| {
+                    value["changes"] = json!([]);
+                    (value, final_)
+                });
+            }
+            hunks = Some(all);
+        }
+    }
     let rendered_spec = match spec.format {
         // (With its spec's other files at their merged versions.)
         _ if main.is_some() => rendered_specs::ecmarkup::render_file(
@@ -5402,7 +5476,7 @@ pub fn spec_pr_blocks_json(
     let rendered = &rendered_spec.rendered;
     let block_lines = rendered_block_lines(rendered, &merged, &rendered_spec.range);
     let page_lines = rendered_range_lines(&merged, &rendered_spec.range);
-    let hunks = crate::spec_prs::line_hunks(&trunk, &merged);
+    let hunks = hunks.unwrap_or_else(|| crate::spec_prs::line_hunks(&trunk, &merged));
     let changes: Vec<serde_json::Value> =
         crate::spec_prs::block_changes(&hunks, &block_lines, &page_lines, trunk_lines)
             .into_iter()
