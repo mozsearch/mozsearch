@@ -194,18 +194,48 @@ pub fn merge_files<W: std::io::Write>(filenames: &[String], platforms: &[String]
     // adjacent. If we do run into such entries we merge them to union the tokens
     // in the `syntax` and `sym` fields.  (All at once, in their order: see
     // `AnalysisSource::merge_all`.)
+    //
+    // But records of what's in a macro's expansion (`InExpansionAt`, whose
+    // location is the macro's use) are merged only with those of the same
+    // symbols: a record's symbols are those at each of its offsets in the
+    // expansion, so merging records of different symbols gave each offset all
+    // of their symbols.  (Ex: js/src/jit/LIR.cpp's `LIR_OPCODE_LIST` use,
+    // whose expansion has a `std::is_polymorphic_v<L...>` for each of ~1,000
+    // LIR instructions, each a record of its own instantiation's symbol on
+    // each platform: merged, every one of them in the expansion had all 2,495
+    // symbols, and the page was 1.6 GB.)
     for mut loc_data in src_data {
         loc_data.data.sort_by(|s1, s2| s1.pretty.cmp(&s2.pretty));
         let mut entries = std::mem::take(&mut loc_data.data).into_iter().peekable();
-        while let Some(mut first) = entries.next() {
-            let mut rest: Vec<AnalysisSource> = vec![];
-            while let Some(entry) = entries.next_if(|e| e.pretty == first.pretty) {
-                rest.push(entry);
+        while let Some(first) = entries.next() {
+            let mut same_pretty: Vec<AnalysisSource> = vec![first];
+            while let Some(entry) = entries.next_if(|e| e.pretty == same_pretty[0].pretty) {
+                same_pretty.push(entry);
             }
-            if !rest.is_empty() {
-                first.merge_all(rest);
+            // (Groups to merge, in their first records' order: the records not
+            // in an expansion, and those in one by their symbols.)
+            let mut groups: Vec<Vec<AnalysisSource>> = vec![];
+            let mut group_of_syms: HashMap<Option<Vec<Ustr>>, usize> = HashMap::new();
+            for entry in same_pretty {
+                let key = matches!(entry.expansion_info, Some(ExpansionInfo::InExpansionAt(_)))
+                    .then(|| entry.sym.clone());
+                match group_of_syms.get(&key) {
+                    Some(&i) => groups[i].push(entry),
+                    None => {
+                        group_of_syms.insert(key, groups.len());
+                        groups.push(vec![entry]);
+                    }
+                }
             }
-            loc_data.data.push(first);
+            for group in groups {
+                let mut group = group.into_iter();
+                let mut first = group.next().unwrap();
+                let rest: Vec<AnalysisSource> = group.collect();
+                if !rest.is_empty() {
+                    first.merge_all(rest);
+                }
+                loc_data.data.push(first);
+            }
         }
         // We can't convert WithLocation<Vec<T>> directly to JSON; we need to
         // spread the loc to each individual piece of data.
@@ -309,5 +339,87 @@ pub fn merge_files<W: std::io::Write>(filenames: &[String], platforms: &[String]
             )
             .unwrap();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The source records of `merge_files`'s output at a location with a
+    /// `pretty`, as (symbols, expansion offsets by platform).
+    fn sources(out: &str, loc: &str, pretty: &str) -> Vec<(String, Value)> {
+        out.lines()
+            .map(|line| serde_json::from_str::<Value>(line).unwrap())
+            .filter(|v| v["loc"] == loc && v["pretty"] == pretty && v.get("source").is_some())
+            .map(|v| {
+                let offsets = v["inExpansionAt"]
+                    .as_object()
+                    .and_then(|keys| keys.values().next().cloned())
+                    .unwrap_or(Value::Null);
+                (v["sym"].as_str().unwrap().to_string(), offsets)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_merge_expansion_records_by_symbols() {
+        let dir = std::env::temp_dir().join(format!("merger-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        // (A macro use whose expansion has `f` twice, a different
+        // instantiation each time, on platform "a", and once on "b"; and a
+        // variable used outside the expansion on both.)
+        let a = dir.join("a");
+        std::fs::write(
+            &a,
+            [
+                r#"{"loc":"00010:0-5","source":1,"syntax":"macro,use","pretty":"macro M","sym":"M_1","expandsTo":{"M_1":{"":"f(1); f(2);"}}}"#,
+                r#"{"loc":"00010:0-5","source":1,"syntax":"use,function","pretty":"function f","sym":"F_1","inExpansionAt":{"M_1":{"":[0]}}}"#,
+                r#"{"loc":"00010:0-5","source":1,"syntax":"use,function","pretty":"function f","sym":"F_2","inExpansionAt":{"M_1":{"":[6]}}}"#,
+                r#"{"loc":"00012:0-3","source":1,"syntax":"use,variable","pretty":"variable v","sym":"V_a"}"#,
+            ]
+            .join("\n"),
+        )
+        .unwrap();
+        let b = dir.join("b");
+        std::fs::write(
+            &b,
+            [
+                r#"{"loc":"00010:0-5","source":1,"syntax":"macro,use","pretty":"macro M","sym":"M_1","expandsTo":{"M_1":{"":"f(1);"}}}"#,
+                r#"{"loc":"00010:0-5","source":1,"syntax":"use,function","pretty":"function f","sym":"F_1","inExpansionAt":{"M_1":{"":[0]}}}"#,
+                r#"{"loc":"00012:0-3","source":1,"syntax":"use,variable","pretty":"variable v","sym":"V_b"}"#,
+            ]
+            .join("\n"),
+        )
+        .unwrap();
+        let mut out = vec![];
+        merge_files(
+            &[
+                a.to_str().unwrap().to_string(),
+                b.to_str().unwrap().to_string(),
+            ],
+            &["pa".to_string(), "pb".to_string()],
+            &mut out,
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+        let out = String::from_utf8(out).unwrap();
+
+        // (Each instantiation's record keeps its own offsets, the same
+        // symbol's merged across the platforms.)
+        let mut fs = sources(&out, "00010:0-5", "function f");
+        fs.sort_by(|x, y| x.0.cmp(&y.0));
+        assert_eq!(
+            fs,
+            vec![
+                ("F_1".to_string(), json!({"pa": [0], "pb": [0]})),
+                ("F_2".to_string(), json!({"pa": [6]})),
+            ]
+        );
+        // (Records outside expansions merge as before.)
+        let vs = sources(&out, "00012:0-3", "variable v");
+        assert_eq!(vs.len(), 1);
+        let mut syms: Vec<&str> = vs[0].0.split(',').collect();
+        syms.sort();
+        assert_eq!(syms, vec!["V_a", "V_b"]);
     }
 }
