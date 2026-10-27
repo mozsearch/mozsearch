@@ -3397,6 +3397,60 @@ h2.sp-called-heading {
   outline: 2px solid var(--link-color);
   outline-offset: 2px;
 }
+/* The trunk's blocks with changes beside them. */
+.sp-pr-marked {
+  background-color: color-mix(in srgb, var(--link-color) 7%, transparent);
+}
+/* A pull request's changes of the source, without its rendering. */
+.sp-pr-source {
+  margin-top: 0.2em;
+  font-family: monospace;
+  font-size: 0.95em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.sp-pr-hunk + .sp-pr-hunk {
+  margin-top: 0.4em;
+  padding-top: 0.4em;
+  border-top: 1px dashed color-mix(in srgb, currentColor 30%, transparent);
+}
+.sp-pr-del,
+.sp-pr-add {
+  padding-left: 1.2em;
+  text-indent: -1.2em;
+}
+.sp-pr-del {
+  background-color: color-mix(in srgb, #c4383e 12%, transparent);
+}
+.sp-pr-add {
+  background-color: color-mix(in srgb, #2da44e 14%, transparent);
+}
+.sp-pr-del::before {
+  content: "− ";
+}
+.sp-pr-add::before {
+  content: "+ ";
+}
+.sp-pr-del > mark {
+  background-color: color-mix(in srgb, #c4383e 35%, transparent);
+  color: inherit;
+}
+.sp-pr-add > mark {
+  background-color: color-mix(in srgb, #2da44e 40%, transparent);
+  color: inherit;
+}
+.sp-pr-more {
+  font-style: italic;
+  opacity: 0.7;
+}
+/* The change the panel's "Changes" section went to (see change-nav.js). */
+.sp-pr-card.change-nav-current {
+  box-shadow: 0 0 0 2px var(--change-nav-mark, #e8a33d);
+}
+.rendered-doc .change-nav-current {
+  outline: 2px solid var(--change-nav-mark, #e8a33d);
+  outline-offset: 2px;
+}
 
 /* A spec's pull request's note and button importing its newer commits (see
    explore.liquid), on one line. */
@@ -3907,6 +3961,9 @@ html:not(.lens-changes) .query-recency {
 }
 .change-nav-status {
   opacity: 0.8;
+}
+.change-nav-granularity[hidden] {
+  display: none;
 }
 div[role=row].change-nav-current {
   box-shadow: inset 4px 0 0 var(--change-nav-mark, #e8a33d);

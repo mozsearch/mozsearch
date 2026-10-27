@@ -12,6 +12,11 @@
  *   the top-level lines around them (ex: a function's definition).
  * These are approximations from the rows' text, which is all a diff has.
  * The granularity is remembered.
+ *
+ * Pages whose changes aren't rows give their own instead, as a function of
+ * them (in the page's order, each's element and the elements it marks), in a
+ * `change-nav-targets` event, without granularities (ex: a spec's rendered
+ * page with its pull requests' changes beside it; see spec-pr-view.js).
  */
 (function () {
   const GRANULARITIES = [
@@ -103,21 +108,30 @@
   let status = null;
   let current = -1;
   let cached = null;
+  // (The page's own changes, if it gives them.)
+  let targets = null;
   const granularity = () => {
     const stored = localStorage.getItem(STORAGE);
     return GRANULARITIES.some(([key]) => key == stored) ? stored : "para";
   };
-  const currentUnits = () => (cached ??= units(granularity()));
+  const currentUnits = () => (targets ? targets() : (cached ??= units(granularity())));
 
   function mark(index) {
     for (const row of document.querySelectorAll(".change-nav-current")) {
       row.classList.remove("change-nav-current");
     }
-    const all = rows();
     const unit = currentUnits()[index];
     if (!unit) {
       return;
     }
+    if (targets) {
+      for (const marked of [unit.element, ...unit.marked]) {
+        marked.classList.add("change-nav-current");
+      }
+      unit.element.scrollIntoView({ block: "center" });
+      return;
+    }
+    const all = rows();
     for (let i = unit[0]; i <= unit[1]; i++) {
       all[i].classList.add("change-nav-current");
     }
@@ -126,7 +140,7 @@
 
   function updateStatus() {
     const count = currentUnits().length;
-    const noun = { token: "change", para: "paragraph", section: "section" }[granularity()];
+    const noun = targets ? "change" : { token: "change", para: "paragraph", section: "section" }[granularity()];
     const plural = `${count} ${noun}${count == 1 ? "" : "s"}`;
     status.textContent = current >= 0 ? `${current + 1} of ${plural}` : plural;
   }
@@ -138,10 +152,16 @@
     if (!list.length) {
       return;
     }
-    const all = rows();
-    const top = index => all[list[index][0]].getBoundingClientRect().top;
+    if (targets) {
+      // (Whose order changes as they're filtered.)
+      current = list.findIndex(unit => unit.element.classList.contains("change-nav-current"));
+    }
+    // (A unit's first element.)
+    const all = targets ? null : rows();
+    const element = index => (targets ? list[index].element : all[list[index][0]]);
+    const top = index => element(index).getBoundingClientRect().top;
     const inView = index => {
-      const rect = all[list[index][0]].getBoundingClientRect();
+      const rect = element(index).getBoundingClientRect();
       return rect.bottom > 0 && rect.top < window.innerHeight;
     };
     let next;
@@ -217,6 +237,8 @@
       button.addEventListener("click", () => setGranularity(key));
       modes.append(button);
     }
+    // (A page's own changes have no granularities.)
+    modes.hidden = !!targets;
     controls.append(status, modes);
     list.append(
       item("Previous change", "K", "Go to the previous change", -1),
@@ -239,6 +261,13 @@
   if (document.querySelector("#content.diff, .source-listing.diff") && rows().some(diffChanged)) {
     show();
   }
+  document.addEventListener("change-nav-targets", event => {
+    targets = event.detail;
+    current = -1;
+    show();
+    section.querySelector(".change-nav-granularity").hidden = true;
+    updateStatus();
+  });
   document.addEventListener("stack-strip-drawn", event => {
     stackLines = new Set([...event.detail.lines, ...event.detail.scars].map(([line]) => `line-${line + 1}`));
     cached = null;

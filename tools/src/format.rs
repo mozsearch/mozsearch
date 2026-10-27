@@ -4962,10 +4962,21 @@ pub fn format_rendered(
         )?;
         writeln!(writer, r#"<div class="sp-prs-view">"#).unwrap();
     }
+    // (In the view with its pull requests' changes, with the page's lines,
+    // beside which spec-pr-view.js shows their changes of the source.)
+    let page_lines = rendered_range_lines(&source, &range);
     write!(
         writer,
-        r#"<article id="rendered-doc" class="rendered-doc{}">"#,
-        if spec.is_some() { " rendered-spec" } else { "" }
+        r#"<article id="rendered-doc" class="rendered-doc{}"{}>"#,
+        if spec.is_some() { " rendered-spec" } else { "" },
+        match pr_view {
+            Some(_) => format!(
+                r#" data-rd-range="{}-{}""#,
+                page_lines.start + 1,
+                page_lines.end
+            ),
+            None => String::new(),
+        }
     )
     .unwrap();
     // (A spec's definitions and links to definitions have their symbols, for
@@ -5144,7 +5155,12 @@ fn write_rendered_prs_header(
 /// import's rendering of its head rebased onto the tip (which must be the
 /// tree's revision).  Its states otherwise: "conflicts" (its changes to the
 /// file conflict with the trunk's since its base), "removes-file",
-/// "needs-import" (with a `message`), and "missing-head".
+/// "needs-import" (with a `message`), and "missing-head".  Without its
+/// rendering, the "needs-import" and "conflicts" states have its `changes` of
+/// the source (see `spec_prs::source_changes`), with the lines each removes
+/// and adds (`removed` and `added`, and how many more there are) instead of
+/// HTML: its changes of the trunk's, or for "conflicts", of its base's, beside
+/// where the base's lines are in the trunk's.
 pub fn spec_pr_blocks_json(
     cfg: &Config,
     tree_name: &str,
@@ -5167,6 +5183,38 @@ pub fn spec_pr_blocks_json(
         .to_string();
     let state = |state: &str, message: Option<String>, final_: bool| {
         Ok((json!({ "state": state, "message": message }), final_))
+    };
+    // (A state without the pull request's rendering, with its changes of the
+    // source; see `spec_prs::source_changes`.)
+    let with_source = |state: &str,
+                       message: Option<String>,
+                       final_: bool,
+                       changes: Vec<crate::spec_prs::SourceChange>| {
+        let changes: Vec<serde_json::Value> = changes
+            .into_iter()
+            .map(|change| {
+                let removes = !change.removed.is_empty() || change.more_removed > 0;
+                let adds = !change.added.is_empty() || change.more_added > 0;
+                json!({
+                    "anchor": change.anchor + 1,
+                    "trunk": (!change.trunk.is_empty())
+                        .then(|| [change.trunk.start + 1, change.trunk.end]),
+                    "kind": match (removes, adds) {
+                        (true, false) => "remove",
+                        (false, true) => "insert",
+                        _ => "change",
+                    },
+                    "removed": change.removed,
+                    "added": change.added,
+                    "more_removed": change.more_removed,
+                    "more_added": change.more_added,
+                })
+            })
+            .collect();
+        Ok((
+            json!({ "state": state, "message": message, "changes": changes }),
+            final_,
+        ))
     };
     let head_oid = match Oid::from_str(head) {
         Ok(oid) if head.len() == 40 => oid,
@@ -5197,6 +5245,8 @@ pub fn spec_pr_blocks_json(
     let merged_index = repo
         .merge_trees(&ancestor, &ours, &theirs, None)
         .map_err(|_| "The pull request couldn't be merged")?;
+    let trunk = read_commit_file(repo, &tip, &source_path).ok_or("Not a file at the tip")?;
+    let trunk_lines = trunk.lines().count();
     if merged_index.has_conflicts() {
         let conflicting = merged_index.conflicts().is_ok_and(|mut conflicts| {
             conflicts.any(|conflict| {
@@ -5209,7 +5259,22 @@ pub fn spec_pr_blocks_json(
             })
         });
         if conflicting {
-            return state("conflicts", None, true);
+            // (Its changes of its base's lines, beside where those lines are
+            // in the trunk's.)
+            let ours = read_commit_file(repo, &base, &upstream_path).unwrap_or_default();
+            let theirs = read_commit_file(repo, &head_commit, &upstream_path).unwrap_or_default();
+            let to_trunk = crate::spec_prs::line_hunks(&ours, &trunk);
+            return with_source(
+                "conflicts",
+                None,
+                true,
+                crate::spec_prs::source_changes(
+                    &ours,
+                    &theirs,
+                    |lines| crate::spec_prs::map_lines(&to_trunk, lines),
+                    trunk_lines,
+                ),
+            );
         }
     }
     let merged_file = |file: &str| {
@@ -5220,7 +5285,6 @@ pub fn spec_pr_blocks_json(
     let Some(mut merged) = merged_file(&upstream_path) else {
         return state("removes-file", None, true);
     };
-    let trunk = read_commit_file(repo, &tip, &source_path).ok_or("Not a file at the tip")?;
 
     let spec_links = RenderedSpecLinks {
         tree_name,
@@ -5234,6 +5298,20 @@ pub fn spec_pr_blocks_json(
     let rendered_spec = match spec.format {
         // (Its import's rendering of its head rebased onto the tip.)
         Some(crate::spec_analyze::SpecFormat::Bikeshed) => {
+            // (Until then, its changes of the source.)
+            let needs_import = |message: &str| {
+                with_source(
+                    "needs-import",
+                    Some(message.to_string()),
+                    false,
+                    crate::spec_prs::source_changes(
+                        &trunk,
+                        &merged,
+                        |lines| lines.clone(),
+                        trunk_lines,
+                    ),
+                )
+            };
             let imported = repo
                 .find_reference(&format!("refs/try/{}/{}", spec_repo, number))
                 .and_then(|reference| reference.peel_to_commit())
@@ -5243,14 +5321,14 @@ pub fn spec_pr_blocks_json(
                     .map(|(_, oid)| oid)
             });
             if imported_head != Some(head_oid) {
-                return state(
-                    "needs-import",
-                    Some(match imported {
-                        Some(_) => "Its import is of an older head; import it again to see its changes to this Bikeshed spec.".to_string(),
-                        None => "Import it to see its changes to this Bikeshed spec, which only its import renders.".to_string(),
-                    }),
-                    false,
-                );
+                return needs_import(match imported {
+                    Some(_) => {
+                        "Its import is of an older head; import it again to see its changes to this Bikeshed spec rendered."
+                    }
+                    None => {
+                        "Import it to see its changes to this Bikeshed spec rendered, which only its import renders."
+                    }
+                });
             }
             let rebased = repo
                 .find_reference(&format!("refs/try-rebased/{}/{}", spec_repo, number))
@@ -5258,10 +5336,8 @@ pub fn spec_pr_blocks_json(
                 .ok()
                 .filter(|rebased| rebased.parent_id(0).ok() == Some(tip.id()));
             let Some(rebased) = rebased else {
-                return state(
-                    "needs-import",
-                    Some("Its import isn't of this revision of the tree; import it again to see its changes to this Bikeshed spec.".to_string()),
-                    false,
+                return needs_import(
+                    "Its import isn't of this revision of the tree; import it again to see its changes to this Bikeshed spec rendered.",
                 );
             };
             let Ok(output) = std::fs::read_to_string(bikeshed_rendering_path_at(
@@ -5269,11 +5345,7 @@ pub fn spec_pr_blocks_json(
                 &source_path,
                 Some(rebased.id()),
             )) else {
-                return state(
-                    "needs-import",
-                    Some("Its import has no rendering of this Bikeshed spec.".to_string()),
-                    false,
-                );
+                return needs_import("Its import has no rendering of this Bikeshed spec.");
             };
             merged = read_commit_file(repo, &rebased, &source_path).unwrap_or(merged);
             rendered_specs::bikeshed::render(
@@ -5315,7 +5387,6 @@ pub fn spec_pr_blocks_json(
     let block_lines = rendered_block_lines(rendered, &merged, &rendered_spec.range);
     let page_lines = rendered_range_lines(&merged, &rendered_spec.range);
     let hunks = crate::spec_prs::line_hunks(&trunk, &merged);
-    let trunk_lines = trunk.lines().count();
     let changes: Vec<serde_json::Value> =
         crate::spec_prs::block_changes(&hunks, &block_lines, &page_lines, trunk_lines)
             .into_iter()

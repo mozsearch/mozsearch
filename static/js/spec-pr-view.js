@@ -15,9 +15,19 @@
  * cards beside the same block are stacked, as the algorithm view's citations
  * are (see `write_algorithm_view`).  A card has its pull request's header
  * when the card before it is another pull request's, or when the last one
- * with its header is more than a screen above.  Hovering over a card marks
- * the trunk's blocks it changes.  Filtering the entries with the facets (see
- * facets.js) hides their cards.
+ * with its header is more than a screen above.  The trunk's blocks with
+ * changes beside them are marked, and hovering over a card outlines the ones
+ * it changes.  Filtering the entries with the facets (see facets.js) hides
+ * their cards.
+ *
+ * Without the pull request's rendering (a Bikeshed spec's, until it's
+ * imported, or when its changes conflict with the trunk's), its changes of
+ * the source are cards of their removed and added lines instead, those beside
+ * the same block in one card (only those of the page's lines, the article's
+ * `data-rd-range`).
+ *
+ * The panel's "Changes" section (see change-nav.js) goes to the cards in
+ * their order ("j" and "k").
  */
 (function () {
   const doc = document.getElementById("rendered-doc");
@@ -52,12 +62,65 @@
     return marks.filter(mark => mark.first <= last && mark.last >= first).map(mark => mark.block);
   }
 
+  const [pageFirst, pageLast] = (doc.dataset.rdRange || "").split("-").map(Number);
+  const onPage = change => !pageFirst || (change.anchor >= pageFirst && change.anchor <= pageLast);
+
   const plural = (n, noun) => `${n} ${noun}${n == 1 ? "" : "s"}`;
   const cards = [];
 
-  function card(pr, change) {
+  // A source change's lines, removed and added, with what changed within
+  // the lines of a change replacing as many lines as it removes (between
+  // their common start and end).
+  function sourceLines(change) {
+    const hunk = document.createElement("div");
+    hunk.className = "sp-pr-hunk";
+    const pairs = change.removed.length == change.added.length;
+    const line = (className, text, other) => {
+      const div = document.createElement("div");
+      div.className = className;
+      if (pairs && other !== undefined && other != text) {
+        let start = 0;
+        while (start < text.length && start < other.length && text[start] == other[start]) {
+          start++;
+        }
+        let end = 0;
+        while (end < text.length - start && end < other.length - start &&
+               text[text.length - 1 - end] == other[other.length - 1 - end]) {
+          end++;
+        }
+        div.append(text.slice(0, start));
+        if (text.length - end > start) {
+          const mark = document.createElement("mark");
+          mark.textContent = text.slice(start, text.length - end);
+          div.append(mark);
+        }
+        div.append(text.slice(text.length - end));
+      } else {
+        div.textContent = text;
+      }
+      hunk.append(div);
+    };
+    const more = n => {
+      if (n) {
+        const div = document.createElement("div");
+        div.className = "sp-pr-more";
+        div.textContent = `… ${plural(n, "more line")}`;
+        hunk.append(div);
+      }
+    };
+    change.removed.forEach((text, i) => line("sp-pr-del", text, change.added[i]));
+    more(change.more_removed);
+    change.added.forEach((text, i) => line("sp-pr-add", text, change.removed[i]));
+    more(change.more_added);
+    return hunk;
+  }
+
+  // A card for a change, or for source changes beside the same block.
+  function card(pr, change, state) {
+    const group = change.group || [change];
+    const kind = group.every(each => each.kind == change.kind) ? change.kind : "change";
     const element = document.createElement("div");
-    element.className = `sp-pr-card sp-pr-${change.kind}`;
+    element.className = `sp-pr-card sp-pr-${kind}`;
     element.dataset.pr = pr.number;
     const header = document.createElement("div");
     header.className = "sp-pr-card-header";
@@ -90,20 +153,33 @@
     }
     const note = document.createElement("div");
     note.className = "sp-pr-card-note";
-    const [first, last] = change.trunk || [change.anchor, change.anchor];
+    const lines = group.filter(each => each.trunk).map(each => each.trunk);
+    const first = lines.length ? Math.min(...lines.map(([first]) => first)) : change.anchor;
+    const last = lines.length ? Math.max(...lines.map(([, last]) => last)) : change.anchor;
+    const range = first == last ? `line ${first}` : `lines ${first}-${last}`;
+    const source = !!change.added;
     note.textContent = {
-      change: `Changes ${first == last ? `line ${first}` : `lines ${first}-${last}`}:`,
-      insert: `Adds, after line ${change.anchor}:`,
-      remove: `Removes ${first == last ? `line ${first}` : `lines ${first}-${last}`}.`,
-    }[change.kind];
+      change: `Changes ${range}`,
+      insert: `Adds, after line ${change.anchor}`,
+      remove: `Removes ${range}`,
+    }[kind] + (!source ? (kind == "remove" ? "." : ":")
+      : state == "conflicts" ? ", in its base's source, conflicting with the trunk's changes:"
+      : ", in its source:");
     element.append(header, note);
-    if (change.html) {
+    if (source) {
+      element.classList.add("sp-pr-source-card");
+      const body = document.createElement("div");
+      body.className = "sp-pr-card-body sp-pr-source";
+      body.append(...group.map(sourceLines));
+      element.append(body);
+    } else if (change.html) {
       const body = document.createElement("div");
       body.className = "sp-pr-card-body rendered-spec";
       body.innerHTML = change.html;
       element.append(body);
     }
-    const changed = change.trunk ? blocksOfLines(first, last) : [];
+    const block = blockOfLine(change.anchor);
+    const changed = [...new Set(lines.flatMap(([first, last]) => blocksOfLines(first, last)))];
     element.addEventListener("mouseenter", () => {
       for (const block of changed) {
         block.classList.add("sp-pr-changed");
@@ -119,10 +195,38 @@
       element,
       header,
       pr: pr.number,
-      block: blockOfLine(change.anchor),
+      block,
+      // (The blocks it changes, or the one it adds after.)
+      marked: changed.length ? changed : [block].filter(Boolean),
       anchor: change.anchor,
-      insert: change.kind == "insert" ? 1 : 0,
+      insert: kind == "insert" ? 1 : 0,
     };
+  }
+
+  function addCards(entry, pr, changes, state) {
+    for (const change of changes) {
+      const made = card(pr, change, state);
+      made.element.hidden = entry.hidden;
+      made.entry = entry;
+      cards.push(made);
+    }
+  }
+
+  // Source changes beside the same block, as one.
+  function grouped(changes) {
+    const groups = [];
+    let block;
+    for (const change of changes.filter(onPage)) {
+      const at = blockOfLine(change.anchor);
+      const last = groups[groups.length - 1];
+      if (last && at === block) {
+        last.group.push(change);
+      } else {
+        groups.push({ ...change, group: [change] });
+      }
+      block = at;
+    }
+    return groups;
   }
 
   async function load(entry) {
@@ -144,25 +248,28 @@
         state.textContent = data.changes.length
           ? `${plural(data.changes.length, "change")} on this page`
           : "No changes on this page";
-        for (const change of data.changes) {
-          const made = card(pr, change);
-          made.element.hidden = entry.hidden;
-          made.entry = entry;
-          cards.push(made);
-        }
+        addCards(entry, pr, data.changes, data.state);
         break;
-      case "conflicts":
-        state.textContent = "Its changes to this file conflict with the trunk's since its base.";
+      case "conflicts": {
+        const changes = grouped(data.changes || []);
+        state.textContent = "Its changes to this file conflict with the trunk's since its base" +
+          (changes.length ? `; beside the page, its ${plural(changes.length, "change")} of its base's source.` : ".");
+        addCards(entry, pr, changes, data.state);
         break;
+      }
       case "removes-file":
         state.textContent = "It removes this file.";
         break;
       case "needs-import": {
-        state.textContent = `${data.message} `;
+        const changes = grouped(data.changes || []);
+        state.textContent = changes.length
+          ? `${plural(changes.length, "change")} on this page, in its source. ${data.message} `
+          : `${data.message} `;
         const link = document.createElement("a");
         link.href = pr.try;
         link.textContent = "Its page";
         state.append(link);
+        addCards(entry, pr, changes, data.state);
         break;
       }
       case "missing-head":
@@ -186,16 +293,27 @@
     return space;
   }
 
+  // The shown cards, in their order.
+  let shown = [];
+
   function place() {
     for (const space of doc.querySelectorAll(".sp-pr-space")) {
       space.remove();
     }
-    const shown = cards.filter(card => !card.element.hidden && card.block);
+    for (const block of doc.querySelectorAll(".sp-pr-marked")) {
+      block.classList.remove("sp-pr-marked");
+    }
+    shown = cards.filter(card => !card.element.hidden && card.block);
     const order = new Map(marks.map((mark, i) => [mark.block, i]));
     // (By their blocks, and lines, with lines added after a line after its
     // changes.)
     shown.sort((a, b) => (order.get(a.block) - order.get(b.block)) || (a.anchor - b.anchor) ||
       (a.insert - b.insert) || (a.pr - b.pr));
+    for (const card of shown) {
+      for (const block of card.marked) {
+        block.classList.add("sp-pr-marked");
+      }
+    }
     const top0 = column.getBoundingClientRect().top;
     let bottom = null;
     let previous = null;
@@ -264,7 +382,13 @@
   document.fonts?.ready.then(schedule);
 
   Promise.all(entries.map(entry => load(entry).then(schedule))).then(() => {
-    schedule();
+    place();
     document.body.classList.add("sp-prs-loaded");
+    if (cards.length) {
+      // (For change-nav.js: the shown cards, and the blocks they mark.)
+      document.dispatchEvent(new CustomEvent("change-nav-targets", {
+        detail: () => shown.map(card => ({ element: card.element, marked: card.marked })),
+      }));
+    }
   });
 })();

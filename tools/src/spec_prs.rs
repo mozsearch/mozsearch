@@ -399,12 +399,7 @@ pub fn block_changes(
                 }
             }
             _ => changes.push(BlockChange {
-                // (Lines added go after the line before them.)
-                anchor: match hunk.trunk.is_empty() {
-                    true => hunk.trunk.start.saturating_sub(1),
-                    false => hunk.trunk.start,
-                }
-                .min(trunk_lines.saturating_sub(1)),
+                anchor: anchor_line(&hunk.trunk, trunk_lines),
                 trunk: hunk.trunk.clone(),
                 merged: hunk.merged.clone(),
                 blocks,
@@ -412,6 +407,109 @@ pub fn block_changes(
         }
     }
     changes
+}
+
+/// The trunk's (0-based) line beside whose block a change replacing its lines
+/// `trunk` goes: the first it replaces, or if it only adds lines, the one it
+/// adds them after (at most the last of the trunk's `trunk_lines`).
+fn anchor_line(trunk: &Range<usize>, trunk_lines: usize) -> usize {
+    match trunk.is_empty() {
+        true => trunk.start.saturating_sub(1),
+        false => trunk.start,
+    }
+    .min(trunk_lines.saturating_sub(1))
+}
+
+/// The most lines of each side of a `SourceChange`.
+pub const SOURCE_CHANGE_LINES: usize = 40;
+
+/// A pull request's change of a spec's source, for its rendered page's view
+/// when it has no rendering of the pull request's version (see
+/// `source_changes`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct SourceChange {
+    /// The trunk's line it goes beside, and the trunk's lines it replaces
+    /// (see `BlockChange`).
+    pub anchor: usize,
+    pub trunk: Range<usize>,
+    /// The lines it removes and adds (at most `SOURCE_CHANGE_LINES` of each),
+    /// and how many more there are.
+    pub removed: Vec<String>,
+    pub added: Vec<String>,
+    pub more_removed: usize,
+    pub more_added: usize,
+}
+
+/// The changes of a file's source from `old` to `new` (see `line_hunks`), for
+/// its trunk version's rendered page, whose lines (`trunk_lines` of them)
+/// `old`'s lines are at as `trunk_of` maps them: either the trunk's own (ex:
+/// the trunk with a pull request's changes merged, a Bikeshed spec's before
+/// its import renders them), or its pull request's base's (when its changes
+/// conflict with the trunk's; see `map_lines`).
+pub fn source_changes(
+    old: &str,
+    new: &str,
+    trunk_of: impl Fn(&Range<usize>) -> Range<usize>,
+    trunk_lines: usize,
+) -> Vec<SourceChange> {
+    let old_lines: Vec<&str> = old.lines().collect();
+    let new_lines: Vec<&str> = new.lines().collect();
+    let some = |lines: &[&str], range: &Range<usize>| -> (Vec<String>, usize) {
+        let lines = lines.get(range.clone()).unwrap_or_default();
+        let shown = lines.len().min(SOURCE_CHANGE_LINES);
+        (
+            lines[..shown].iter().map(|line| line.to_string()).collect(),
+            lines.len() - shown,
+        )
+    };
+    line_hunks(old, new)
+        .into_iter()
+        .map(|hunk| {
+            let trunk = trunk_of(&hunk.trunk);
+            let (removed, more_removed) = some(&old_lines, &hunk.trunk);
+            let (added, more_added) = some(&new_lines, &hunk.merged);
+            SourceChange {
+                anchor: anchor_line(&trunk, trunk_lines),
+                trunk,
+                removed,
+                added,
+                more_removed,
+                more_added,
+            }
+        })
+        .collect()
+}
+
+/// Where a file's (0-based) lines `lines` are in its later version, from the
+/// changes between them (`hunks`, as `line_hunks` gives them, the earlier
+/// version's lines as `trunk` and the later's as `merged`): the lines they
+/// are, with those changes made to them, or for none, where they were, before
+/// the lines it added there.
+pub fn map_lines(hunks: &[LineHunk], lines: &Range<usize>) -> Range<usize> {
+    // (A position between lines, as the start of lines or their end: lines
+    // added there are before the start and after the end, and one in lines
+    // it changed is the start or end of their change.)
+    let map = |position: usize, end: bool| {
+        let mut offset = 0isize;
+        for hunk in hunks {
+            if position < hunk.trunk.start
+                || (position == hunk.trunk.start && (end || !hunk.trunk.is_empty()))
+            {
+                break;
+            }
+            if position < hunk.trunk.end {
+                return if end {
+                    hunk.merged.end
+                } else {
+                    hunk.merged.start
+                };
+            }
+            offset = hunk.merged.end as isize - hunk.trunk.end as isize;
+        }
+        position.saturating_add_signed(offset)
+    };
+    let start = map(lines.start, lines.is_empty());
+    start..map(lines.end, true).max(start)
 }
 
 /// What's become of a tree's syncs, for its pages and their polling.
@@ -881,6 +979,57 @@ mod tests {
             merged: 5..7,
         }];
         assert_eq!(block_changes(&added, &blocks, &(0..10), 10)[0].anchor, 4);
+    }
+
+    #[test]
+    fn test_source_changes() {
+        let trunk = "a\nb\nc\nd\ne\nf\n";
+        let merged = "a\nb\nC\nd\ne\nnew\nnewer\n";
+        assert_eq!(
+            source_changes(trunk, merged, |lines| lines.clone(), 6),
+            [
+                SourceChange {
+                    anchor: 2,
+                    trunk: 2..3,
+                    removed: vec!["c".to_string()],
+                    added: vec!["C".to_string()],
+                    more_removed: 0,
+                    more_added: 0,
+                },
+                SourceChange {
+                    anchor: 5,
+                    trunk: 5..6,
+                    removed: vec!["f".to_string()],
+                    added: vec!["new".to_string(), "newer".to_string()],
+                    more_removed: 0,
+                    more_added: 0,
+                },
+            ]
+        );
+        // (At most `SOURCE_CHANGE_LINES` of each side.)
+        let many = "x\n".repeat(SOURCE_CHANGE_LINES + 5);
+        let changes = source_changes("a\n", &many, |lines| lines.clone(), 1);
+        assert_eq!(changes[0].added.len(), SOURCE_CHANGE_LINES);
+        assert_eq!(changes[0].more_added, 5);
+        assert_eq!(changes[0].more_removed, 0);
+    }
+
+    #[test]
+    fn test_map_lines() {
+        // (The later version adds two lines after line 1, changes line 3 into
+        // two, and removes line 5.)
+        let earlier = "0\n1\n2\n3\n4\n5\n6\n";
+        let later = "0\n1\nx\ny\n2\n3a\n3b\n4\n6\n";
+        let hunks = line_hunks(earlier, later);
+        assert_eq!(map_lines(&hunks, &(0..2)), 0..2);
+        assert_eq!(map_lines(&hunks, &(2..3)), 4..5);
+        assert_eq!(map_lines(&hunks, &(3..4)), 5..7);
+        assert_eq!(map_lines(&hunks, &(4..5)), 7..8);
+        // (Removed lines are where they were.)
+        assert_eq!(map_lines(&hunks, &(5..6)), 8..8);
+        assert_eq!(map_lines(&hunks, &(5..7)), 8..9);
+        // (Lines added after line 1 are before the lines it added there.)
+        assert_eq!(map_lines(&hunks, &(2..2)), 2..2);
     }
 
     #[test]
