@@ -29,17 +29,23 @@
 //! repo (REV being the hook's argument), so that a push is imported once that
 //! ref exists and the history has its head (see `imported_head`).
 //!
-//! Imports run one at a time (the history repos and the commit index take one
-//! writer at a time, and pushes based on the same new revisions would process
-//! them twice at once), in the order they were asked for, on one thread, which
-//! runs the hook at a lower priority than the server's (`nice`) and in its own
-//! process group, so that it and what it runs can be killed after
-//! `TIME_LIMIT`, with its output in `HISTORY_ROOT/try-imports/REV.log`.  The
+//! Imports start in the order they were asked for, on `WORKERS` threads, each
+//! running the hook at a lower priority than the server's (`nice`) and in its
+//! own process group, so that it and what it runs can be killed after
+//! `TIME_LIMIT`, with its output in `HISTORY_ROOT/try-imports/REV.log`.  A
+//! try push's import runs alone (the history repos and the commit index take
+//! one writer at a time, and pushes based on the same new revisions would
+//! process them twice at once), but up to `WORKERS` spec pull requests'
+//! imports run at a time, mostly rendering and analyzing their specs, whose
+//! hooks take turns for their steps writing to the history and the source
+//! repo by locking the file `TRY_IMPORT_LOCK` (ex: with flock(1)).  The
 //! queue only lives in memory: a restart of the server loses the waiting and
 //! running imports, but asking again resumes them (the history tools skip the
 //! revisions they've processed), and finished imports are in the repos.  At
-//! most `MAX_QUEUED` imports wait at a time, and a failed import can only be
-//! asked for again after `RETRY_AFTER`.
+//! most `MAX_QUEUED` try pushes' imports wait at a time (and
+//! `MAX_QUEUED_PULL_REQUESTS` spec pull requests', whose summaries' pages ask
+//! for a spec's at once; see `TryImports::request_all`), and a failed import
+//! can only be asked for again after `RETRY_AFTER`.
 
 use std::collections::{HashMap, VecDeque};
 use std::fs;
@@ -59,8 +65,16 @@ use crate::file_format::config::Config;
 /// its hook (see `TryImports::run`).
 pub const PRECOMPUTING: &str = "Precomputing its canvas and dataflow";
 
-/// The most imports which can be waiting at a time.
+/// The most try pushes' imports which can be waiting at a time.
 pub const MAX_QUEUED: usize = 8;
+/// The most spec pull requests' imports which can be waiting at a time.
+pub const MAX_QUEUED_PULL_REQUESTS: usize = 100;
+/// The most spec pull requests which can be asked for at once, less one (see
+/// `TryImports::request_all`).
+pub const MAX_BATCH: usize = 50;
+/// How many imports can run at a time (only spec pull requests' run beside
+/// others; see the module's comment).
+pub const WORKERS: usize = 4;
 /// The most revisions an import processes (see import-try-push.sh), which
 /// includes those of its base which are newer than the tree's revision.
 pub const MAX_REVISIONS: usize = 2000;
@@ -482,8 +496,19 @@ struct Job {
 #[derive(Default)]
 struct State {
     queue: VecDeque<Job>,
-    running: Option<(Job, Instant, String)>,
+    /// The running jobs, when each started, and its step.
+    running: Vec<(Job, Instant, String)>,
     failed: HashMap<Job, (String, Instant)>,
+}
+
+/// Whether the import of `rev` can start beside the imports of `running`: a
+/// spec pull request's beside fewer than `WORKERS` others, all spec pull
+/// requests', and a try push's alone.
+fn can_start(rev: &str, running: &[&str]) -> bool {
+    match is_pull_request(rev) {
+        true => running.len() < WORKERS && running.iter().all(|rev| is_pull_request(rev)),
+        false => running.is_empty(),
+    }
 }
 
 #[derive(Default)]
@@ -505,8 +530,8 @@ impl TryImports {
         };
         {
             let state = self.state.lock().unwrap();
-            if let Some((running, started, step)) = &state.running
-                && *running == job
+            if let Some((_, started, step)) =
+                state.running.iter().find(|(running, _, _)| *running == job)
             {
                 return ImportStatus::Running {
                     seconds: started.elapsed().as_secs(),
@@ -515,7 +540,7 @@ impl TryImports {
             }
             if let Some(ahead) = state.queue.iter().position(|queued| *queued == job) {
                 return ImportStatus::Queued {
-                    ahead: ahead + state.running.is_some() as usize,
+                    ahead: ahead + state.running.len(),
                 };
             }
             if let Some((message, at)) = state.failed.get(&job) {
@@ -551,57 +576,161 @@ impl TryImports {
             ImportStatus::Unavailable => return Err("This tree can't import try pushes"),
             _ => return Ok(status),
         }
-        let job = Job {
-            tree: tree_name.to_string(),
-            rev: rev.to_string(),
-        };
-        {
-            let mut state = self.state.lock().unwrap();
-            if state.queue.len() >= MAX_QUEUED {
-                return Err("Too many try pushes are waiting to be imported; try again later");
-            }
-            state.failed.remove(&job);
-            state.queue.push_back(job);
-        }
-        self.queued.notify_one();
+        self.enqueue(tree_name, &[rev.to_string()])?;
         Ok(self.status(cfg, tree_name, rev))
     }
 
-    /// Perform the imports as they're asked for, forever, and after each
-    /// which succeeds, `precompute` (tree, push) what its pages show which
-    /// takes long to compute (ex: its canvas and its slicing; see the
-    /// web-server's `precompute_try_push`), before its status says it's
-    /// imported (as `Running` until then, with the step `PRECOMPUTING`).
-    /// Failing to precompute only means its pages compute it when asked.
+    /// Ask for the spec pull requests `revs` (`SPEC/NUMBER`: those of a spec's
+    /// summaries which aren't imported at their heads; see
+    /// `spec_prs::pr_imports`) to be imported into the tree, all of them, as
+    /// `request` would each, or none: if there are `MAX_BATCH` or more, or not
+    /// enough room for them in the queue.  Returns how many it asked for (not
+    /// those waiting or running already).
+    pub fn request_all(
+        &self,
+        cfg: &Config,
+        tree_name: &str,
+        revs: &[String],
+    ) -> Result<usize, &'static str> {
+        if hook(cfg, tree_name).is_none() {
+            return Err("This tree can't import try pushes");
+        }
+        if revs.iter().any(|rev| !is_pull_request(rev)) {
+            return Err("Only spec pull requests are imported together");
+        }
+        if revs.len() >= MAX_BATCH {
+            return Err("Too many pull requests to import at once; import them from their pages");
+        }
+        let revs: Vec<String> = revs
+            .iter()
+            .filter(|rev| {
+                matches!(
+                    self.status(cfg, tree_name, rev),
+                    ImportStatus::NotImported
+                        | ImportStatus::Failed { retry: true, .. }
+                        | ImportStatus::Imported { .. }
+                )
+            })
+            .cloned()
+            .collect();
+        self.enqueue(tree_name, &revs)
+    }
+
+    /// Queue the imports of `revs` into the tree, but those waiting or
+    /// running, all of them or (if there isn't room for them) none; how many
+    /// it queued.
+    fn enqueue(&self, tree_name: &str, revs: &[String]) -> Result<usize, &'static str> {
+        let jobs = {
+            let mut state = self.state.lock().unwrap();
+            let jobs: Vec<Job> = revs
+                .iter()
+                .map(|rev| Job {
+                    tree: tree_name.to_string(),
+                    rev: rev.to_string(),
+                })
+                .filter(|job| {
+                    !state.queue.contains(job)
+                        && !state.running.iter().any(|(running, _, _)| running == job)
+                })
+                .collect();
+            for pull_requests in [false, true] {
+                let queued = state
+                    .queue
+                    .iter()
+                    .filter(|job| is_pull_request(&job.rev) == pull_requests)
+                    .count();
+                let asked = jobs
+                    .iter()
+                    .filter(|job| is_pull_request(&job.rev) == pull_requests)
+                    .count();
+                match pull_requests {
+                    false if asked > 0 && queued + asked > MAX_QUEUED => {
+                        return Err(
+                            "Too many try pushes are waiting to be imported; try again later",
+                        );
+                    }
+                    true if asked > 0 && queued + asked > MAX_QUEUED_PULL_REQUESTS => {
+                        return Err(
+                            "Too many pull requests are waiting to be imported; try again later",
+                        );
+                    }
+                    _ => {}
+                }
+            }
+            for job in &jobs {
+                state.failed.remove(job);
+                state.queue.push_back(job.clone());
+            }
+            jobs.len()
+        };
+        self.queued.notify_all();
+        Ok(jobs)
+    }
+
+    /// Set the step of the running `job`.
+    fn set_step(&self, job: &Job, step: String) {
+        if let Some((_, _, running)) = self
+            .state
+            .lock()
+            .unwrap()
+            .running
+            .iter_mut()
+            .find(|(running, _, _)| running == job)
+        {
+            *running = step;
+        }
+    }
+
+    /// Perform the imports as they're asked for, forever, as one of the
+    /// `WORKERS` threads running this, starting each when it can (see
+    /// `can_start`), and after each which succeeds, `precompute` (tree, push)
+    /// what its pages show which takes long to compute (ex: its canvas and
+    /// its slicing; see the web-server's `precompute_try_push`), before its
+    /// status says it's imported (as `Running` until then, with the step
+    /// `PRECOMPUTING`).  Failing to precompute only means its pages compute
+    /// it when asked.
     pub fn run(&self, cfg: &Config, precompute: &dyn Fn(&str, &str)) {
         loop {
             let job = {
                 let mut state = self.state.lock().unwrap();
-                let job = loop {
-                    if let Some(job) = state.queue.pop_front() {
+                loop {
+                    // (In the order they were asked for: a try push's import
+                    // waits for the running ones, and those after it for it.)
+                    let startable = state.queue.front().is_some_and(|job| {
+                        let running: Vec<&str> = state
+                            .running
+                            .iter()
+                            .map(|(job, _, _)| job.rev.as_str())
+                            .collect();
+                        can_start(&job.rev, &running)
+                    });
+                    if startable && let Some(job) = state.queue.pop_front() {
+                        state
+                            .running
+                            .push((job.clone(), Instant::now(), String::new()));
                         break job;
                     }
                     state = self.queued.wait(state).unwrap();
-                };
-                state.running = Some((job.clone(), Instant::now(), String::new()));
-                job
+                }
             };
             let result = self.import(cfg, &job);
             if result.is_ok() {
-                if let Some((_, _, step)) = &mut self.state.lock().unwrap().running {
-                    *step = PRECOMPUTING.to_string();
-                }
+                self.set_step(&job, PRECOMPUTING.to_string());
                 precompute(&job.tree, &job.rev);
             }
-            let mut state = self.state.lock().unwrap();
-            state.running = None;
-            if let Err(message) = result {
-                eprintln!(
-                    "Importing try push {} into {} failed: {}",
-                    job.rev, job.tree, message
-                );
-                state.failed.insert(job, (message, Instant::now()));
+            {
+                let mut state = self.state.lock().unwrap();
+                state.running.retain(|(running, _, _)| *running != job);
+                if let Err(message) = result {
+                    eprintln!(
+                        "Importing try push {} into {} failed: {}",
+                        job.rev, job.tree, message
+                    );
+                    state.failed.insert(job, (message, Instant::now()));
+                }
             }
+            // (The next ones may start now.)
+            self.queued.notify_all();
         }
     }
 
@@ -621,6 +750,9 @@ impl TryImports {
             .join(format!("{}.log", job.rev));
         fs::create_dir_all(log_path.parent().unwrap()).map_err(|e| e.to_string())?;
         let max_revisions = MAX_REVISIONS.to_string();
+        let lock_path = Path::new(history_root)
+            .join("try-imports")
+            .join("history.lock");
         let envs: Vec<(&str, &str)> = vec![
             ("MOZSEARCH_PATH", &cfg.mozsearch_path),
             ("CONFIG_REPO", &cfg.config_repo_path),
@@ -640,6 +772,9 @@ impl TryImports {
             ("FILES_ROOT", &tree_config.paths.files_path),
             ("OBJDIR", &tree_config.paths.objdir_path),
             ("MAX_REVISIONS", &max_revisions),
+            // (Which hooks of imports which can run beside others lock for
+            // their steps which can't; see the module's comment.)
+            ("TRY_IMPORT_LOCK", lock_path.to_str().unwrap_or_default()),
         ];
         run_hook(
             &hook,
@@ -647,11 +782,7 @@ impl TryImports {
             &envs,
             &log_path,
             TIME_LIMIT,
-            &mut |step| {
-                if let Some((_, _, running)) = &mut self.state.lock().unwrap().running {
-                    *running = step;
-                }
-            },
+            &mut |step| self.set_step(job, step),
         )?;
         if imported_head(cfg, &job.tree, &job.rev).is_none() {
             return Err("The import finished, but the history doesn't have the push".to_string());
@@ -863,6 +994,20 @@ fn last_lines(path: &Path, n: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_can_start() {
+        // (Spec pull requests' imports run beside each other, up to `WORKERS`.)
+        assert!(can_start("dom/1", &[]));
+        assert!(can_start("dom/1", &["dom/2", "html/3"]));
+        let full: Vec<String> = (0..WORKERS).map(|i| format!("dom/{}", i + 2)).collect();
+        let full: Vec<&str> = full.iter().map(String::as_str).collect();
+        assert!(!can_start("dom/1", &full));
+        // (Try pushes' imports run alone.)
+        assert!(can_start("0123456789ab", &[]));
+        assert!(!can_start("0123456789ab", &["dom/2"]));
+        assert!(!can_start("dom/1", &["0123456789ab"]));
+    }
 
     #[test]
     fn test_push_urls() {

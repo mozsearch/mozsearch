@@ -222,6 +222,14 @@ impl AbstractServer for TryOverlay {
         self.base.request_spec_prs_sync(spec).await
     }
 
+    async fn spec_pr_imports(&self, spec: &str) -> Result<Vec<crate::spec_prs::PrImport>> {
+        self.base.spec_pr_imports(spec).await
+    }
+
+    async fn request_spec_pr_imports(&self, spec: &str, numbers: Option<&[u32]>) -> Result<usize> {
+        self.base.request_spec_pr_imports(spec, numbers).await
+    }
+
     async fn try_push(&self, push: &str) -> Result<Option<crate::try_import::TryPush>> {
         self.base.try_push(push).await
     }

@@ -156,6 +156,107 @@ pub fn repo_summary(cfg: &Config, tree_name: &str, spec: &str) -> Option<RepoSum
     serde_json::from_str(&text).ok()
 }
 
+/// A spec repository's open pull request's import into the tree (see
+/// `try_import`), for its summaries' page: its `number`, its import's
+/// `status`, and whether it's imported at its head (the summary's; spec pull
+/// requests are imported again for their newer commits).
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
+pub struct PrImport {
+    pub number: u32,
+    pub status: crate::try_import::ImportStatus,
+    pub current: bool,
+}
+
+impl PrImport {
+    /// Whether it needs importing: it isn't imported at its head, and it isn't
+    /// waiting or running, nor did it fail less than `RETRY_AFTER` ago.
+    pub fn needed(&self) -> bool {
+        use crate::try_import::ImportStatus;
+        match &self.status {
+            ImportStatus::NotImported | ImportStatus::Failed { retry: true, .. } => true,
+            ImportStatus::Imported { .. } => !self.current,
+            _ => false,
+        }
+    }
+}
+
+/// The imports of a spec repository's open pull requests with heads (see
+/// `PrImport`), in its summary's order.
+pub fn pr_imports(cfg: &Config, tree_name: &str, spec: &str) -> Vec<PrImport> {
+    let Some(summary) = repo_summary(cfg, tree_name, spec) else {
+        return vec![];
+    };
+    let repo = cfg
+        .trees
+        .get(tree_name)
+        .and_then(|tree| tree.git.as_ref())
+        .map(|git| &git.repo);
+    summary
+        .prs
+        .iter()
+        .filter_map(|pr| {
+            let head = pr.head.as_deref()?;
+            let rev = format!("{}/{}", spec, pr.number);
+            let status = crate::try_import::IMPORTS.status(cfg, tree_name, &rev);
+            // (The import's upstream head, from its forest commit's trailer.)
+            let current = matches!(status, crate::try_import::ImportStatus::Imported { .. })
+                && repo
+                    .and_then(|repo| {
+                        let commit = repo
+                            .find_reference(&format!("refs/try/{}", rev))
+                            .ok()?
+                            .peel_to_commit()
+                            .ok()?;
+                        let message = commit.message().ok()?;
+                        crate::spec_forest::parse_upstream_trailer(message)
+                            .map(|(_, oid)| oid.to_string() == head)
+                    })
+                    .unwrap_or(false);
+            Some(PrImport {
+                number: pr.number,
+                status,
+                current,
+            })
+        })
+        .collect()
+}
+
+/// Ask for the imports of a spec repository's open pull requests which need
+/// them (see `PrImport::needed`), or of those of `numbers` which do (ex: those
+/// its summaries' page shows, filtered), all of them or none (see
+/// `try_import::TryImports::request_all`); how many it asked for.
+pub fn request_pr_imports(
+    cfg: &Config,
+    tree_name: &str,
+    spec: &str,
+    numbers: Option<&[u32]>,
+) -> Result<usize, &'static str> {
+    let revs: Vec<String> = pr_imports(cfg, tree_name, spec)
+        .iter()
+        .filter(|import| import.needed())
+        .filter(|import| numbers.is_none_or(|numbers| numbers.contains(&import.number)))
+        .map(|import| format!("{}/{}", spec, import.number))
+        .collect();
+    if revs.is_empty() {
+        return Ok(0);
+    }
+    crate::try_import::IMPORTS.request_all(cfg, tree_name, &revs)
+}
+
+/// Pull requests' numbers separated by commas (ex: "4,5"), if `numbers` is
+/// given, or None if they aren't numbers.
+pub fn parse_numbers(numbers: Option<&str>) -> Option<Option<Vec<u32>>> {
+    match numbers {
+        None => Some(None),
+        Some(numbers) => numbers
+            .split(',')
+            .filter(|number| !number.is_empty())
+            .map(|number| number.parse().ok())
+            .collect::<Option<Vec<u32>>>()
+            .map(Some),
+    }
+}
+
 /// The tree's spec repositories' summaries, by their directories.
 pub fn repo_summaries(cfg: &Config, tree_name: &str) -> Vec<RepoSummary> {
     let Some(dir) = summaries_dir(cfg, tree_name) else {
@@ -1012,6 +1113,14 @@ mod tests {
         assert_eq!(changes[0].added.len(), SOURCE_CHANGE_LINES);
         assert_eq!(changes[0].more_added, 5);
         assert_eq!(changes[0].more_removed, 0);
+    }
+
+    #[test]
+    fn test_parse_numbers() {
+        assert_eq!(parse_numbers(None), Some(None));
+        assert_eq!(parse_numbers(Some("4,5")), Some(Some(vec![4, 5])));
+        assert_eq!(parse_numbers(Some("")), Some(Some(vec![])));
+        assert_eq!(parse_numbers(Some("4,x")), None);
     }
 
     #[test]

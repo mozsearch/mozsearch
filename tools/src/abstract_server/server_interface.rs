@@ -656,6 +656,25 @@ pub trait AbstractServer {
         Err(ServerError::Unsupported)
     }
 
+    /// The imports of the open pull requests of the tree's spec repository
+    /// `spec` (see `spec_prs::pr_imports`).  (As `try_import_status`, the
+    /// web-server's, whose `spec-prs-imports` data API route this is.)
+    async fn spec_pr_imports(&self, _spec: &str) -> Result<Vec<crate::spec_prs::PrImport>> {
+        Err(ServerError::Unsupported)
+    }
+
+    /// Ask for the imports of the open pull requests of the tree's spec
+    /// repository `spec` which need them, or of those of `numbers` which do
+    /// (see `spec_prs::request_pr_imports`), with its reasons not to as
+    /// `BadInput` errors; how many it asked for.
+    async fn request_spec_pr_imports(
+        &self,
+        _spec: &str,
+        _numbers: Option<&[u32]>,
+    ) -> Result<usize> {
+        Err(ServerError::Unsupported)
+    }
+
     /// The data of the tree's landing page (see `format::landing_data`), for
     /// rendering it at index time (see `cmd_render`).
     async fn landing(&self) -> Result<Value> {

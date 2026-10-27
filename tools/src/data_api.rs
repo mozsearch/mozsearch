@@ -91,6 +91,11 @@
 //!   `spec-prs-sync-status[?spec=]` and POST `spec-prs-sync[?spec=]`, their
 //!   syncs' status, and asking for one; served by the web-server, which
 //!   performs the syncs (and whose summaries they change).
+//! - `spec-prs-imports?spec=` and POST `spec-prs-import?spec=[&numbers=]`:
+//!   the imports of a spec repository's open pull requests (see
+//!   `spec_prs::pr_imports`), and asking for those which need them (or those
+//!   of `numbers`, comma-separated, which do; how many it asked for); served
+//!   by the web-server, which performs imports.
 //!
 //! All of them take `rev=` (a try push's head) and `max_bytes=`.
 //!
@@ -352,6 +357,20 @@ const ROUTES: &[Route] = &[
         name: "spec-prs-sync",
         takes_path: false,
         params: &["spec"],
+        host: Host::WebServer,
+        post: true,
+    },
+    Route {
+        name: "spec-prs-imports",
+        takes_path: false,
+        params: &["spec"],
+        host: Host::WebServer,
+        post: false,
+    },
+    Route {
+        name: "spec-prs-import",
+        takes_path: false,
+        params: &["spec", "numbers"],
         host: Host::WebServer,
         post: true,
     },
@@ -1029,6 +1048,25 @@ async fn route_body(
             Ok(Body::json(
                 &serde_json::to_value(status).unwrap_or_default(),
             ))
+        }
+        "spec-prs-imports" => {
+            let spec = spec_param(params)?.ok_or_else(|| bad("spec is required"))?;
+            let imports = server.spec_pr_imports(&spec).await.map_err(error)?;
+            Ok(Body::json(
+                &serde_json::to_value(imports).unwrap_or_default(),
+            ))
+        }
+        "spec-prs-import" => {
+            let spec = spec_param(params)?.ok_or_else(|| bad("spec is required"))?;
+            let numbers =
+                crate::spec_prs::parse_numbers(params.get("numbers")).ok_or_else(|| {
+                    bad("numbers must be pull requests' numbers, separated by commas")
+                })?;
+            let asked = server
+                .request_spec_pr_imports(&spec, numbers.as_deref())
+                .await
+                .map_err(error)?;
+            Ok(Body::json(&json!(asked)))
         }
         "spec-prs-sync" => {
             let spec = spec_param(params)?;

@@ -13,6 +13,11 @@ set -o pipefail # Check all commands in a pipeline
 NAME=$1
 SPECS_TOML="$(dirname "$GIT_ROOT")/upstream/specs.toml"
 OUT=$(mktemp)
+# (Its steps writing to the forest and the history take turns with the other
+# imports running beside it; its rendering and analysis don't.  See
+# TRY_IMPORT_LOCK in mozsearch's tools/src/try_import.rs.)
+exec 9>"${TRY_IMPORT_LOCK:-$HISTORY_ROOT/try-imports/history.lock}"
+flock 9
 if ! build-spec-pr --fetch "$SPECS_TOML" "$GIT_ROOT" "$NAME" > "$OUT"; then
     cat "$OUT"
     exit 1
@@ -23,6 +28,8 @@ HEAD_REV=$(sed -n 's/^head: //p' "$OUT")
 
 PUSH_REVS="$STACK" "$MOZSEARCH_PATH/scripts/import-try-push.sh" \
     "$GIT_ROOT" "$HISTORY_ROOT" "$GIT_BRANCH" "$NAME" "$HEAD_REV" "$MAX_REVISIONS"
+flock -u 9
+exec 9>&-
 
 # Its renderings and semantic analysis (without bubblewrap, which the
 # container doesn't have; a tree of specs' hook sandboxes them, see

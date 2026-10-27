@@ -828,6 +828,29 @@ impl AbstractServer for RemoteServer {
         Ok(())
     }
 
+    async fn spec_pr_imports(&self, spec: &str) -> Result<Vec<crate::spec_prs::PrImport>> {
+        parse(
+            &self
+                .api_live("spec-prs-imports", &[("spec", spec)], false)
+                .await?,
+        )
+    }
+
+    async fn request_spec_pr_imports(&self, spec: &str, numbers: Option<&[u32]>) -> Result<usize> {
+        let numbers = numbers.map(|numbers| {
+            numbers
+                .iter()
+                .map(u32::to_string)
+                .collect::<Vec<_>>()
+                .join(",")
+        });
+        let mut params = vec![("spec", spec)];
+        if let Some(numbers) = &numbers {
+            params.push(("numbers", numbers));
+        }
+        parse(&self.api_live("spec-prs-import", &params, true).await?)
+    }
+
     async fn rev_file(&self, rev: &str, path: &str) -> Result<Option<crate::format::RevFile>> {
         parse(
             &self

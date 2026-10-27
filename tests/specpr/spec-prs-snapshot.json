@@ -5,6 +5,34 @@
    "incomplete": false,
    "prs": [
     {
+     "association": "MEMBER",
+     "author": "an-editor",
+     "base_ref": "main",
+     "draft": false,
+     "labels": [
+      "meta"
+     ],
+     "number": 5,
+     "review": "REVIEW_REQUIRED",
+     "title": "Say how to contribute",
+     "updated": "2025-04-15T11:00:00Z",
+     "url": "https://github.com/example/gizmo/pull/5"
+    },
+    {
+     "association": "MEMBER",
+     "author": "an-editor",
+     "base_ref": "main",
+     "draft": false,
+     "labels": [
+      "meta"
+     ],
+     "number": 4,
+     "review": "REVIEW_REQUIRED",
+     "title": "Add a README",
+     "updated": "2025-04-14T11:00:00Z",
+     "url": "https://github.com/example/gizmo/pull/4"
+    },
+    {
      "association": "COLLABORATOR",
      "author": "a-collaborator",
      "base_ref": "main",

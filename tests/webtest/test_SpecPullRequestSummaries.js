@@ -5,9 +5,11 @@
 // their metadata standing for the GitHub Action's
 // (tests/specpr/spec-prs-snapshot.json: pull request 1 is an editor's, and
 // approved, 2 a contributor's draft, with changes requested, and 3 a
-// collaborator's, needing review) and their heads (see tests/specpr/setup): 1
-// adds to the Wattsi spec's "Sprockets" and the Bikeshed spec's "Gears", 2
-// changes the Wattsi spec's "Gizmos", and 3 the Bikeshed spec's "Gears".
+// collaborator's, needing review, and 4 and 5 an editor's, labeled "meta")
+// and their heads (see tests/specpr/setup): 1 adds to the Wattsi spec's
+// "Sprockets" and the Bikeshed spec's "Gears", 2 changes the Wattsi spec's
+// "Gizmos", 3 the Bikeshed spec's "Gears", and 4 and 5 add files which
+// aren't specs.
 
 function doc() {
   return frame.contentDocument;
@@ -30,7 +32,7 @@ add_task(async function test_SpecPullRequestSummaries() {
   await synced();
   const cells = [...doc().querySelectorAll(".spec-prs-repos tbody tr:first-child td")]
     .map(cell => cell.textContent);
-  is(cells.slice(0, 6).join(","), "gizmo,3,1,1,2,1",
+  is(cells.slice(0, 6).join(","), "gizmo,5,1,1,4,1",
      "The specs' page lists the spec repository, with its open, approved, changes requested, by people who can review and draft pull requests");
   const status = await (await fetch("/specpr/spec-prs/sync-status", { cache: "no-store" })).json();
   is(status.state, "idle", "Its sync's status says it's done");
@@ -39,8 +41,8 @@ add_task(async function test_SpecPullRequestSummaries() {
   is(doc().querySelector(".spec-prs h2")?.textContent.startsWith("Pull requests of gizmo"), true,
      "The spec repository's page is titled by it");
   const prs = [...doc().querySelectorAll(".spec-pr")];
-  is(prs.map(pr => pr.dataset.path).join(","), "3,2,1", "and lists its pull requests, newest first");
-  const [, second, first] = prs;
+  is(prs.map(pr => pr.dataset.path).join(","), "5,4,3,2,1", "and lists its pull requests, newest first");
+  const [first, second] = ["1", "2"].map(number => prs.find(pr => pr.dataset.path == number));
   const title = first.querySelector(".spec-pr-title");
   is(title?.getAttribute("href"), "/specpr/try/gizmo/1", "linking to their pages as try pushes");
   ok(title?.textContent.includes("Define oiling sprockets, and springs"), "with their titles");
@@ -57,7 +59,7 @@ add_task(async function test_SpecPullRequestSummaries() {
   value("review", "Approved").click();
   is(prs.filter(pr => !pr.hidden).map(pr => pr.dataset.path).join(","), "1",
      "Facets filter them by review decision");
-  is(doc().querySelector(".facet-status")?.textContent, "Showing 1 of 3 pull requests.",
+  is(doc().querySelector(".facet-status")?.textContent, "Showing 1 of 5 pull requests.",
      "counting pull requests");
   value("review", "Approved").click();
   value("author", "Other contributors").click();
@@ -67,5 +69,5 @@ add_task(async function test_SpecPullRequestSummaries() {
 
   // (And through the data API, which the web-server serves.)
   const api = await (await fetch("/specpr/api/v1/spec-prs?spec=gizmo", { cache: "no-store" })).json();
-  is(api[0]?.prs?.length, 3, "The data API has the summaries");
+  is(api[0]?.prs?.length, 5, "The data API has the summaries");
 });

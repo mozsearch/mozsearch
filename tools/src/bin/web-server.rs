@@ -1290,15 +1290,21 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
         // requests (`/{tree}/spec-prs`, and a repository's at
         // `/{tree}/spec-prs/{spec}`), and (POST) asking for a sync of them
         // (`/{tree}/spec-prs/sync`, with `?spec=` for a repository's), and
-        // its status (`/{tree}/spec-prs/sync-status`); see `tools::spec_prs`.
-        // (Uncached: syncs change them.)
+        // its status (`/{tree}/spec-prs/sync-status`); and (POST) asking for
+        // the imports of a repository's pull requests which need them
+        // (`/{tree}/spec-prs/import?spec=`, or of those of `&numbers=`, comma
+        // separated, which do), and their imports' status
+        // (`/{tree}/spec-prs/import-status?spec=`); see `tools::spec_prs`.
+        // (Uncached: syncs and imports change them.)
         "spec-prs" => {
             let Some(server) = tree_server(tree_name) else {
                 return WebResponse::not_found();
             };
             let params = query_params(req.query);
             let spec = match path.get(2).copied().unwrap_or_default() {
-                "sync" | "sync-status" => params.get("spec").map(String::as_str),
+                "sync" | "sync-status" | "import" | "import-status" => {
+                    params.get("spec").map(String::as_str)
+                }
                 spec => Some(spec).filter(|spec| !spec.is_empty()),
             };
             // (Of the tree's spec repositories, if it knows them; see
@@ -1337,7 +1343,36 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
                         Err(err) => page(Some(&err)),
                     }
                 }
-                (Some("sync" | "sync-status"), _) | (_, true) => WebResponse::not_found(),
+                (Some("import-status"), false) => {
+                    let Some(spec) = spec else {
+                        return WebResponse::not_found();
+                    };
+                    match format::format_spec_pr_imports(server.as_ref(), spec) {
+                        Ok(json) => WebResponse::json(json).uncached(),
+                        Err(err) => WebResponse::internal_error(err.to_owned()).uncached(),
+                    }
+                }
+                (Some("import"), true) => {
+                    let Some(spec) = spec else {
+                        return WebResponse::not_found();
+                    };
+                    // (Those its page shows, filtered, if it says.)
+                    let Some(numbers) =
+                        tools::spec_prs::parse_numbers(params.get("numbers").map(String::as_str))
+                    else {
+                        return WebResponse::not_found();
+                    };
+                    match format::request_spec_pr_imports(server.as_ref(), spec, numbers) {
+                        Ok(_) => {
+                            WebResponse::see_other(format!("/{}/spec-prs/{}", tree_name, spec))
+                                .uncached()
+                        }
+                        Err(err) => page(Some(&err)),
+                    }
+                }
+                (Some("sync" | "sync-status" | "import" | "import-status"), _) | (_, true) => {
+                    WebResponse::not_found()
+                }
                 _ => page(None),
             }
         }
@@ -1547,9 +1582,9 @@ async fn main() {
         });
     }
 
-    // Try pushes' imports, one at a time, as they're asked for; see
-    // `tools::try_import`.
-    {
+    // Try pushes' imports, as they're asked for, on `WORKERS` threads (only
+    // spec pull requests' run beside others); see `tools::try_import`.
+    for _ in 0..tools::try_import::WORKERS {
         let cfg = cfg.clone();
         let runtime = tokio::runtime::Handle::current();
         std::thread::spawn(move || {
@@ -1604,7 +1639,8 @@ async fn main() {
                 let post = req.method() == Method::POST
                     && (matches!(req.uri().path().split('/').nth(2), Some("try" | "spec-prs"))
                         || req.uri().path().ends_with("/api/v1/try-import")
-                        || req.uri().path().ends_with("/api/v1/spec-prs-sync"));
+                        || req.uri().path().ends_with("/api/v1/spec-prs-sync")
+                        || req.uri().path().ends_with("/api/v1/spec-prs-import"));
                 if req.method() != Method::GET && !post {
                     return http::Response::builder()
                         .status(StatusCode::METHOD_NOT_ALLOWED)

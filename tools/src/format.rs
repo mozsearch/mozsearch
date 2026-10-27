@@ -11047,11 +11047,15 @@ fn utc_minute(iso: &str) -> String {
 /// and author; and `/{tree}/spec-prs/{spec}`, a repository's pull requests,
 /// newest first, with facets filtering them (see `spec_prs::pr_facets`), each
 /// with its page as a try push (see `try_import`), which imports it, its
-/// GitHub page, and what it changes (files and their sections, linking to
-/// them in the trunk's renderings).  Both have their syncs' status (with
-/// `notice`, ex: why one couldn't be asked for), a button asking for one, and
-/// while one waits or runs, poll its status (see
-/// `format_spec_prs_sync_status`), reloading once it's done.
+/// GitHub page, what it changes (files and their sections, linking to them in
+/// the trunk's renderings), and its import's status (see
+/// `spec_prs::pr_imports`), with a button asking for the imports of those
+/// which need them, if there are fewer than `try_import::MAX_BATCH`, and
+/// while some wait or run, polling their status (see
+/// `format_spec_pr_imports`).  Both have their syncs' status (with `notice`,
+/// ex: why one couldn't be asked for), a button asking for one, and while one
+/// waits or runs, poll its status (see `format_spec_prs_sync_status`),
+/// reloading once it's done.
 pub fn format_spec_prs(
     server: &(dyn AbstractServer + Send + Sync),
     tree_name: &str,
@@ -11081,6 +11085,18 @@ pub fn format_spec_prs(
         "summary": null,
         "prs": [],
         "facets": [],
+        // (A repository's page's; see below.)
+        "imports": {
+            "available": false,
+            "count": 0,
+            "needed": 0,
+            "pending": 0,
+            "current": 0,
+            "batch": true,
+            "max_batch": crate::try_import::MAX_BATCH,
+            "import_url": "",
+            "status_url": "",
+        },
     });
     let title = match spec {
         None => {
@@ -11112,6 +11128,34 @@ pub fn format_spec_prs(
                 globals["title"] = json!(format!("Pull requests of {}", spec));
                 return render_spec_prs_page(tree_name, globals, writer);
             };
+            // (None if the tree can't import them.)
+            let imports = spec_pr_imports(server, spec).unwrap_or_default();
+            let import_of = |number: u32| imports.iter().find(|import| import.number == number);
+            let needed = imports.iter().filter(|import| import.needed()).count();
+            let pending = imports
+                .iter()
+                .filter(|import| {
+                    matches!(
+                        import.status,
+                        crate::try_import::ImportStatus::Queued { .. }
+                            | crate::try_import::ImportStatus::Running { .. }
+                    )
+                })
+                .count();
+            globals["imports"] = json!({
+                // (Not for trees which can't import them.)
+                "available": imports.iter().any(|import| {
+                    import.status != crate::try_import::ImportStatus::Unavailable
+                }),
+                "needed": needed,
+                "pending": pending,
+                "count": imports.len(),
+                "current": imports.iter().filter(|import| import.current).count(),
+                "batch": needed < crate::try_import::MAX_BATCH,
+                "max_batch": crate::try_import::MAX_BATCH,
+                "import_url": format!("/{}/spec-prs/import?spec={}", tree_name, spec),
+                "status_url": format!("/{}/spec-prs/import-status?spec={}", tree_name, spec),
+            });
             let prs: Vec<serde_json::Value> = summary
                 .prs
                 .iter()
@@ -11169,6 +11213,10 @@ pub fn format_spec_prs(
                         "removed": pr.files.iter().map(|file| file.removed).sum::<u32>(),
                         "files": files,
                         "error": pr.error,
+                        "import": import_of(pr.number).map_or_else(
+                            || json!({ "number": pr.number, "state": "none", "text": "", "needed": false }),
+                            spec_pr_import_view,
+                        ),
                     })
                 })
                 .collect();
@@ -11185,6 +11233,70 @@ pub fn format_spec_prs(
     };
     globals["title"] = json!(title);
     render_spec_prs_page(tree_name, globals, writer)
+}
+
+/// An open pull request's import (see `spec_prs::PrImport`) as its summary
+/// shows it: its `state` ("current", "older" for one imported at an older
+/// head, "queued", "running", "failed", or "none"), its text, and whether it
+/// `needed` importing.
+fn spec_pr_import_view(import: &crate::spec_prs::PrImport) -> serde_json::Value {
+    use crate::try_import::ImportStatus;
+    let (state, text) = match &import.status {
+        ImportStatus::Imported { .. } if import.current => ("current", "Imported".to_string()),
+        ImportStatus::Imported { .. } => ("older", "Imported at an older head".to_string()),
+        ImportStatus::Queued { .. } => ("queued", "Waiting to be imported".to_string()),
+        ImportStatus::Running { seconds, .. } => ("running", format!("Importing ({}s)", seconds)),
+        ImportStatus::Failed { .. } => ("failed", "Its import failed".to_string()),
+        _ => ("none", String::new()),
+    };
+    json!({ "number": import.number, "state": state, "text": text, "needed": import.needed() })
+}
+
+/// The imports of the open pull requests of `server`'s tree's spec repository
+/// `spec` (see `spec_prs::pr_imports`).
+fn spec_pr_imports(
+    server: &(dyn AbstractServer + Send + Sync),
+    spec: &str,
+) -> Result<Vec<crate::spec_prs::PrImport>, &'static str> {
+    let (server, spec) = (server.clonify(), spec.to_string());
+    run_on_runtime(async move { server.spec_pr_imports(&spec).await })
+        .map_err(|_| "This tree doesn't import pull requests")
+}
+
+/// The imports of the open pull requests of the tree's spec repository
+/// `spec`, as their summaries show them (see `spec_pr_import_view`), as JSON
+/// (`/{tree}/spec-prs/import-status?spec=`), for their page's polling.
+pub fn format_spec_pr_imports(
+    server: &(dyn AbstractServer + Send + Sync),
+    spec: &str,
+) -> Result<String, &'static str> {
+    let imports = spec_pr_imports(server, spec)?;
+    let views: Vec<serde_json::Value> = imports.iter().map(spec_pr_import_view).collect();
+    serde_json::to_string(&views).map_err(|_| "Status problems")
+}
+
+/// Ask for the imports of the open pull requests of the tree's spec
+/// repository `spec` which need them, or of those of `numbers` which do (see
+/// `spec_prs::request_pr_imports`); how many it asked for.
+pub fn request_spec_pr_imports(
+    server: &(dyn AbstractServer + Send + Sync),
+    spec: &str,
+    numbers: Option<Vec<u32>>,
+) -> Result<usize, String> {
+    let (server, spec) = (server.clonify(), spec.to_string());
+    run_on_runtime(async move {
+        server
+            .request_spec_pr_imports(&spec, numbers.as_deref())
+            .await
+    })
+    .map_err(|err| match err {
+        ServerError::StickyProblem(details) | ServerError::TransientProblem(details)
+            if matches!(details.layer, crate::abstract_server::ErrorLayer::BadInput) =>
+        {
+            details.message
+        }
+        _ => "The imports couldn't be asked for".to_string(),
+    })
 }
 
 /// A page of pull request summaries, from `format_spec_prs`'s globals.

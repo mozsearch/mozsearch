@@ -6,7 +6,13 @@
   repository's pull requests, with facets filtering them (see
   facet_bar.liquid), each with its page as a try push (which imports it), its
   GitHub page, and what it changes (with links to the specs' renderings with
-  all of the pull requests' changes beside them).  Both have their syncs' status, a button
+  all of the pull requests' changes beside them), and its import's status,
+  with a button asking for the imports of those which need them (which POSTs
+  to `imports.import_url`, with the numbers of those the facets show, if
+  there aren't too many; `imports.batch` says whether all are few enough), and
+  while some wait or run, polling their status (`imports.status_url`; see
+  `format::format_spec_pr_imports`) until they're done, when the page
+  reloads.  Both have their syncs' status, a button
   asking for one (which POSTs to `sync_url`), and while one waits or runs,
   poll its status (`status_url`; see `format::format_spec_prs_sync_status`)
   until it's done, when the page reloads.
@@ -40,14 +46,28 @@
     </form>
     {%- endif %}
   </div>
+  {%- if spec and imports.available %}
+  <div class="spec-prs-imports" data-status-url="{{ imports.status_url }}">
+    <p class="spec-prs-imports-status">{{ imports.current }} of its {{ imports.count }} pull request{% if imports.count != 1 %}s{% endif %} {% if imports.current == 1 %}is{% else %}are{% endif %} imported at {% if imports.current == 1 %}its head{% else %}their heads{% endif %}
+      {%- if imports.pending > 0 %}, {{ imports.pending }} {% if imports.pending == 1 %}is{% else %}are{% endif %} waiting or importing{% endif %}
+      {%- if imports.needed > 0 %}, and {{ imports.needed }} {% if imports.needed == 1 %}isn't{% else %}aren't{% endif %}{% endif %}.
+      <span class="spec-prs-import-limit"{% if imports.batch %} hidden{% endif %}>That's too many to import at once: filter them to fewer than {{ imports.max_batch }}, or import them from their pages.</span></p>
+    {%- if imports.needed > 0 %}
+    <form method="post" action="{{ imports.import_url }}" class="spec-prs-import-form" data-max-batch="{{ imports.max_batch }}">
+      <button type="submit" class="spec-prs-import-button"{% unless imports.batch %} hidden{% endunless %}>Import these pull requests</button>
+    </form>
+    <p class="spec-prs-import-note">Importing them processes their commits into this tree's history and renders and analyzes their changes (a Bikeshed spec's only render once they're imported), a few at a time, each taking seconds to a minute.</p>
+    {%- endif %}
+  </div>
+  {%- endif %}
   {%- if spec %}
   {%- if summary %}
   {%- if prs.size > 0 %}
   {%- include "facet_bar.liquid" facets: facets, group_by: false, sort_by: false, noun: "pull request", nouns: "pull requests" %}
   <div class="facet-items spec-pr-list">
     {%- for pr in prs %}
-    <section class="spec-pr" data-path="{{ pr.number }}" data-facets="{{ pr.facets | escape }}">
-      <div class="spec-pr-header"><a class="spec-pr-title" href="/{{ tree }}/{{ pr.try_path }}" title="Its page as a try push, which imports it into this tree">#{{ pr.number }} {{ pr.title | escape }}</a>{% if pr.url %} <a class="spec-pr-github" href="{{ pr.url | escape }}">on GitHub</a>{% endif %}</div>
+    <section class="spec-pr" data-path="{{ pr.number }}" data-facets="{{ pr.facets | escape }}" data-needed="{{ pr.import.needed }}">
+      <div class="spec-pr-header"><a class="spec-pr-title" href="/{{ tree }}/{{ pr.try_path }}" title="Its page as a try push, which imports it into this tree">#{{ pr.number }} {{ pr.title | escape }}</a>{% if pr.url %} <a class="spec-pr-github" href="{{ pr.url | escape }}">on GitHub</a>{% endif %} <span class="spec-pr-import" data-state="{{ pr.import.state }}">{{ pr.import.text | escape }}</span></div>
       <div class="spec-pr-meta">{% if pr.author %}By {{ pr.author | escape }}{% if pr.updated %}, updated {{ pr.updated }}{% endif %}{% elsif pr.updated %}Updated {{ pr.updated }}{% endif %}{% if pr.review %} <span class="spec-pr-review spec-pr-review-{{ pr.review_class }}">{{ pr.review_name }}</span>{% endif %}{% if pr.draft %} <span class="spec-pr-draft">Draft</span>{% endif %}{% for label in pr.labels %} <span class="spec-pr-label">{{ label | escape }}</span>{% endfor %}</div>
       {%- if pr.error %}
       <p class="spec-pr-error">{{ pr.error | escape }}</p>
@@ -113,6 +133,66 @@
       setTimeout(poll, 2000);
     };
     setTimeout(poll, 2000);
+  })();
+</script>
+{%- endif %}
+{%- if imports.needed > 0 %}
+<script>
+  (() => {
+    // (The button imports those of them the facets show which need it, if
+    // they're few enough, saying how many.)
+    const form = document.querySelector(".spec-prs-import-form");
+    const button = form.querySelector("button");
+    const limit = document.querySelector(".spec-prs-import-limit");
+    const max = Number(form.dataset.maxBatch);
+    const shown = () => [...document.querySelectorAll('.spec-pr[data-needed="true"]')].filter(pr => !pr.hidden);
+    const update = () => {
+      const count = shown().length;
+      button.hidden = !count || count >= max;
+      limit.hidden = count < max;
+      button.textContent = count == 1 ? "Import this pull request" : `Import these ${count} pull requests`;
+    };
+    form.addEventListener("submit", () => {
+      const url = new URL(form.action, location.href);
+      url.searchParams.set("numbers", shown().map(pr => pr.dataset.path).join(","));
+      form.action = url.toString();
+    });
+    new MutationObserver(update).observe(document.querySelector(".spec-pr-list"), {
+      attributes: true,
+      attributeFilter: ["hidden"],
+      subtree: true,
+    });
+    update();
+  })();
+</script>
+{%- endif %}
+{%- if imports.pending > 0 %}
+<script>
+  (() => {
+    // (Each pull request's import's status, until none wait or run.)
+    const root = document.querySelector(".spec-prs-imports");
+    const poll = async () => {
+      let imports;
+      try {
+        imports = await (await fetch(root.dataset.statusUrl, { cache: "no-store" })).json();
+      } catch (e) {
+        setTimeout(poll, 5000);
+        return;
+      }
+      for (const { number, state, text } of imports) {
+        const badge = document.querySelector(`.spec-pr[data-path="${number}"] .spec-pr-import`);
+        if (badge) {
+          badge.dataset.state = state;
+          badge.textContent = text;
+        }
+      }
+      if (!imports.some(({ state }) => state == "queued" || state == "running")) {
+        location.reload();
+        return;
+      }
+      setTimeout(poll, 3000);
+    };
+    setTimeout(poll, 3000);
   })();
 </script>
 {%- endif %}

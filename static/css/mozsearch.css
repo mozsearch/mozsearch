@@ -3331,6 +3331,41 @@ h2.sp-called-heading {
   margin: 0.2em 0 0 1.5em;
   color: var(--test-results-bad);
 }
+/* A spec repository's pull requests' imports (see spec_prs.liquid): how many
+   are imported, the button asking for the others', and each's status. */
+.spec-prs-imports form {
+  display: inline;
+}
+.spec-prs-imports-status {
+  display: inline;
+  margin-right: 0.5em;
+}
+.spec-prs-import-note {
+  margin: 0.2em 0;
+  font-size: smaller;
+  opacity: 0.8;
+}
+.spec-pr-import {
+  padding: 0 3px;
+  border-radius: 2px;
+  font-size: smaller;
+}
+.spec-pr-import[data-state="none"] {
+  display: none;
+}
+.spec-pr-import[data-state="current"] {
+  background-color: color-mix(in srgb, #2da44e 18%, transparent);
+}
+.spec-pr-import[data-state="older"] {
+  background-color: color-mix(in srgb, currentColor 10%, transparent);
+}
+.spec-pr-import[data-state="queued"],
+.spec-pr-import[data-state="running"] {
+  background-color: var(--info-box-warning-background);
+}
+.spec-pr-import[data-state="failed"] {
+  color: var(--test-results-bad);
+}
 
 /* A spec's rendered page with its open pull requests' changes beside it (see
    rendered_prs.liquid and spec-pr-view.js): the cards are placed beside the
