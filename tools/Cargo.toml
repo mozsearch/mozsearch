@@ -68,6 +68,7 @@ prost = "0.14.3"
 protobuf = "3.7.2"
 pulldown-cmark = { version = "0.13.0", default-features = false }
 query-parser = "0.2.0"
+rayon = "1.10"
 regex = "1"
 regex-syntax = "0.8"
 fancy-regex = "0.20"

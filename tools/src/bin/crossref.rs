@@ -15,6 +15,7 @@ use std::io::Write;
 extern crate tracing;
 
 use chrono::Local;
+use rayon::prelude::*;
 extern crate clap;
 use clap::Parser;
 use itertools::Itertools;
@@ -1567,29 +1568,13 @@ fn write_recency_linkage(index_path: &str, linked: u32, mut linkages: Vec<(Ustr,
 
 /// The whole-file history digests of files without analysis (ex: docs), which
 /// is all their lines can have (see `FileRecency`), several files at a time.
-fn unanalyzed_file_recency(
-    history: &HistoryDigests,
-    paths: &[Ustr],
-    thread_count: usize,
-) -> Vec<(Ustr, FileRecency)> {
-    let chunk = paths.len().div_ceil(thread_count.max(1)).max(1);
-    std::thread::scope(|s| {
-        let threads: Vec<_> = paths
-            .chunks(chunk)
-            .map(|paths| {
-                s.spawn(move || {
-                    paths
-                        .iter()
-                        .filter_map(|path| Some((*path, history.unanalyzed_file(path)?)))
-                        .collect::<Vec<_>>()
-                })
-            })
-            .collect();
-        threads
-            .into_iter()
-            .flat_map(|thread| thread.join().unwrap())
-            .collect()
-    })
+/// (On rayon's pool, whose threads are crossref's `thread_count`, in the
+/// paths' order.)
+fn unanalyzed_file_recency(history: &HistoryDigests, paths: &[Ustr]) -> Vec<(Ustr, FileRecency)> {
+    paths
+        .par_iter()
+        .filter_map(|path| Some((*path, history.unanalyzed_file(path)?)))
+        .collect()
 }
 
 /// Write the files' history digests for what symbols' don't cover (see
@@ -3441,20 +3426,44 @@ fn write_crossref_and_jumpref(
     });
 }
 
+/// Write the identifiers file: a line "IDENTIFIER SYMBOL\n" for each of the
+/// table's identifiers' symbols, sorted case-semisensitively (see
+/// `case_semisensitive_str_cmp`, which is total, and the lines are distinct, so
+/// the order doesn't depend on the sort's).  The lines are written into one
+/// buffer, sized first, and their ranges in it sorted in parallel (rayon):
+/// at firefox's scale, a `String` per line spent most of the phase in malloc,
+/// on crossref's big heap, and the sort was single-threaded (~1.5 minutes).
 fn write_identifiers(tree_config: &TreeConfig, id_table: IdTable) {
     let id_file = format!("{}/identifiers", tree_config.paths.index_path);
 
     let mut idf = BufWriter::new(File::create(id_file).unwrap());
 
-    let mut lines: Vec<_> = id_table
-        .into_iter()
-        .flat_map(|(key, syms)| syms.into_iter().map(move |sym| (key, sym)))
-        .map(|(id, sym)| format!("{} {}\n", id, sym))
-        .collect();
-    lines.sort_unstable_by(|lhs, rhs| case_semisensitive_str_cmp(lhs, rhs));
+    let (size, count) = id_table.iter().fold((0, 0), |(size, count), (id, syms)| {
+        let size = size
+            + syms
+                .iter()
+                .map(|sym| id.len() + sym.len() + 2)
+                .sum::<usize>();
+        (size, count + syms.len())
+    });
+    let mut text = String::with_capacity(size);
+    let mut lines: Vec<std::ops::Range<usize>> = Vec::with_capacity(count);
+    for (id, syms) in id_table {
+        for sym in syms {
+            let start = text.len();
+            text.push_str(&id);
+            text.push(' ');
+            text.push_str(&sym);
+            text.push('\n');
+            lines.push(start..text.len());
+        }
+    }
+    lines.par_sort_unstable_by(|lhs, rhs| {
+        case_semisensitive_str_cmp(&text[lhs.clone()], &text[rhs.clone()])
+    });
 
     for line in lines {
-        let _ = idf.write_all(line.as_bytes());
+        let _ = idf.write_all(&text.as_bytes()[line]);
     }
     let _ = idf.flush();
 }
@@ -3598,6 +3607,11 @@ async fn main() {
     init_logging();
 
     let cli = CrossrefCli::parse();
+    // (rayon's work, ex: sorting the identifiers, on as many threads as the
+    // rest.)
+    let _ = rayon::ThreadPoolBuilder::new()
+        .num_threads(cli.thread_count.max(1))
+        .build_global();
 
     let tree_name = &cli.tree_name;
     println!(
@@ -3816,7 +3830,7 @@ async fn main() {
             .filter(|(path, info)| !info.is_dir && !analyzed.contains(*path))
             .map(|(path, _)| *path)
             .collect();
-        let unanalyzed_recency = unanalyzed_file_recency(history, &unanalyzed, cli.thread_count);
+        let unanalyzed_recency = unanalyzed_file_recency(history, &unanalyzed);
         println!(
             "History digests of files without analysis: {} of {}",
             unanalyzed_recency.len(),
