@@ -3153,6 +3153,13 @@ fn write_algorithm_view(
             })
         })
         .collect();
+    // (Its cards' placement is side-cards.js's.)
+    writeln!(
+        writer,
+        r#"<script src="/{}/static/js/side-cards.js"></script>"#,
+        tree_name
+    )
+    .unwrap();
     writeln!(
         writer,
         r##"<script>(() => {{
@@ -3188,17 +3195,19 @@ fn write_algorithm_view(
     }}
     // Each column's cards, and their steps' blocks, which stick below the
     // page's header while their code shows.
-    const columns = asides.map(aside => [...aside.querySelectorAll(":scope > .sp-citation")]
-      .map(card => {{
-        const line = steps[card.dataset.step];
-        return {{ card, block: (line && blockOfLine(doc, line)) || null }};
-      }}));
-    for (const {{ block }} of columns.flat()) {{
+    const columns = asides.map(aside => ({{
+      aside,
+      cards: [...aside.querySelectorAll(":scope > .sp-citation")].map(element => {{
+        const line = steps[element.dataset.step];
+        return {{ element, block: (line && blockOfLine(doc, line)) || null }};
+      }}),
+    }}));
+    const cards = columns.flatMap(({{ cards }}) => cards);
+    for (const {{ block }} of cards) {{
       block?.classList.add("sp-step-sticky");
     }}
-    const blocks = [...new Set(columns.flat().map(({{ block }}) => block).filter(Boolean))]
+    const blocks = [...new Set(cards.map(({{ block }}) => block).filter(Boolean))]
       .sort((a, b) => a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
-    const order = new Map(blocks.map((block, i) => [block, i]));
     // (The space before a step's block: after the step before it which has
     // code, at its list item's end (so its text sticks while its code shows),
     // or before its own sub-steps if it's one of them, or else before it.)
@@ -3219,61 +3228,14 @@ fn write_algorithm_view(
     const place = () => {{
       // (Where the steps are, not where they're stuck.)
       doc.classList.add("sp-placing");
-      for (const space of doc.querySelectorAll(".sp-step-space")) {{
-        space.remove();
-      }}
-      const tops = asides.map(aside => aside.getBoundingClientRect().top);
-      const bottoms = asides.map(() => null);
-      const next = asides.map(() => 0);
-      // (A card continuing the one before it adjoins it.)
-      const floor = (c, card) => bottoms[c] === null ? 0
-        : bottoms[c] + (card.classList.contains("sp-citation-continued") ? 0 : 6);
-      const put = (c, card, at) => {{
-        card.style.top = `${{at}}px`;
-        bottoms[c] = at + card.offsetHeight;
-      }};
-      let previous = null;
-      for (const block of blocks) {{
-        // (Each column's cards before its block's, but those of later steps:
-        // of the algorithm, or out of order.)
-        const goals = [];
-        columns.forEach((cards, c) => {{
-          while (next[c] < cards.length && cards[next[c]].block !== block &&
-                 !(order.get(cards[next[c]].block) > order.get(block))) {{
-            const {{ card }} = cards[next[c]++];
-            put(c, card, floor(c, card));
-          }}
-          if (cards[next[c]]?.block === block) {{
-            goals.push(tops[c] + floor(c, cards[next[c]].card));
-          }}
-        }});
-        if (!goals.length) {{
-          continue;
-        }}
-        const goal = Math.max(...goals);
-        let top = block.getBoundingClientRect().top;
-        if (goal > top + 1) {{
-          const space = spaceBefore(block, previous);
-          space.style.height = `${{Math.round(goal - top)}}px`;
-          // (Less its margins' collapsing.)
-          const moved = block.getBoundingClientRect().top;
-          space.style.height = `${{Math.max(0, Math.round(2 * goal - top - moved))}}px`;
-          top = block.getBoundingClientRect().top;
-        }}
-        columns.forEach((cards, c) => {{
-          while (cards[next[c]]?.block === block) {{
-            const {{ card }} = cards[next[c]++];
-            put(c, card, Math.max(top - tops[c], floor(c, card)));
-          }}
-        }});
-        previous = block;
-      }}
-      columns.forEach((cards, c) => {{
-        while (next[c] < cards.length) {{
-          const {{ card }} = cards[next[c]++];
-          put(c, card, floor(c, card));
-        }}
-        asides[c].style.minHeight = `${{bottoms[c] ?? 0}}px`;
+      placeSideCards({{
+        doc,
+        columns,
+        blocks,
+        spaceClass: "sp-step-space",
+        spaceBefore,
+        // (A card continuing the one before it adjoins it.)
+        gap: card => (card.element.classList.contains("sp-citation-continued") ? 0 : 6),
       }});
       doc.classList.remove("sp-placing");
     }};
@@ -3292,8 +3254,8 @@ fn write_algorithm_view(
       }}
     }});
     observer.observe(doc);
-    for (const {{ card }} of columns.flat()) {{
-      observer.observe(card);
+    for (const {{ element }} of cards) {{
+      observer.observe(element);
     }}
     document.fonts?.ready.then(replace);
   }});
@@ -5030,8 +4992,9 @@ pub fn format_rendered(
         writeln!(
             writer,
             r#"<aside class="sp-pr-column" aria-label="The pull requests' changes"></aside></div>
+<script defer src="/{}/static/js/side-cards.js"></script>
 <script defer src="/{}/static/js/spec-pr-view.js"></script>"#,
-            tree_name
+            tree_name, tree_name
         )
         .unwrap();
     }

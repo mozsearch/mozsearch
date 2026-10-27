@@ -13,7 +13,7 @@
  * `anchor` line (by the blocks' `data-rd-lines`): the page's blocks are
  * pushed down with spaces where the cards before them need the room, and the
  * cards beside the same block are stacked, as the algorithm view's citations
- * are (see `write_algorithm_view`).  A card has its pull request's header
+ * are (see side-cards.js).  A card has its pull request's header
  * when the card before it is another pull request's, or when the last one
  * with its header is more than a screen above.  The trunk's blocks with
  * changes beside them are marked, and hovering over a card outlines the ones
@@ -330,9 +330,6 @@
   let shown = [];
 
   function place() {
-    for (const space of doc.querySelectorAll(".sp-pr-space")) {
-      space.remove();
-    }
     for (const block of doc.querySelectorAll(".sp-pr-marked")) {
       block.classList.remove("sp-pr-marked");
     }
@@ -347,40 +344,26 @@
         block.classList.add("sp-pr-marked");
       }
     }
-    const top0 = column.getBoundingClientRect().top;
-    let bottom = null;
     let previous = null;
     const headers = new Map();
-    let block = null;
-    for (const card of shown) {
-      const floor = bottom === null ? 0 : bottom + 6;
-      let at = floor;
-      if (card.block !== block) {
-        block = card.block;
-        let top = block.getBoundingClientRect().top;
-        const goal = top0 + floor;
-        if (goal > top + 1) {
-          const space = spaceBefore(block);
-          space.style.height = `${Math.round(goal - top)}px`;
-          // (Less its margins' collapsing.)
-          const moved = block.getBoundingClientRect().top;
-          space.style.height = `${Math.max(0, Math.round(2 * goal - top - moved))}px`;
-          top = block.getBoundingClientRect().top;
+    placeSideCards({
+      doc,
+      columns: [{ aside: column, cards: shown }],
+      blocks: [...new Set(shown.map(card => card.block))],
+      spaceClass: "sp-pr-space",
+      spaceBefore,
+      gap: () => 6,
+      beforePut: (card, at) => {
+        const lastHeader = headers.get(card.pr);
+        const header = previous !== card.pr || lastHeader === undefined ||
+          at - lastHeader > window.innerHeight;
+        card.header.hidden = !header;
+        if (header) {
+          headers.set(card.pr, at);
         }
-        at = Math.max(top - top0, floor);
-      }
-      const lastHeader = headers.get(card.pr);
-      const header = previous !== card.pr || lastHeader === undefined ||
-        at - lastHeader > window.innerHeight;
-      card.header.hidden = !header;
-      if (header) {
-        headers.set(card.pr, at);
-      }
-      card.element.style.top = `${at}px`;
-      bottom = at + card.element.offsetHeight;
-      previous = card.pr;
-    }
-    column.style.minHeight = `${bottom ?? 0}px`;
+        previous = card.pr;
+      },
+    });
   }
 
   let scheduled = false;
