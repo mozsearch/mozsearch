@@ -260,7 +260,7 @@ pub fn parse_numbers(numbers: Option<&str>) -> Option<Option<Vec<u32>>> {
 /// Where a new index's web server finds the spec pull requests the previous
 /// index's had imported, which the indexer asked it for (see
 /// infrastructure/aws/carry-over-imports.py), as JSON (`{"pushes": [...]}`,
-/// `SPEC/NUMBER`s), to import them again (see `restore_imports`).
+/// `SPEC/NUMBER`s), to import them again (see `start`).
 fn restore_path(cfg: &Config, tree_name: &str) -> Option<PathBuf> {
     let history = cfg.trees.get(tree_name)?.paths.history_path.as_ref()?;
     Some(Path::new(history).join("try-imports").join("restore.json"))
@@ -271,18 +271,32 @@ struct RestoreList {
     pushes: Vec<String>,
 }
 
-/// How long `restore_imports` waits for the summaries' sync.
+/// How long `start` waits for the summaries' sync, to restore imports.
 const RESTORE_SYNC_LIMIT: Duration = Duration::from_secs(2 * 60 * 60);
 
-/// Import again the spec pull requests which the previous index's web server
-/// had imported into the tree, if the indexer carried them over (see
-/// `restore_path`), those still open, at their heads (the indexer carries
-/// over neither the imports nor the summaries): after a sync of the tree's
-/// summaries, those of its open pull requests (or all of a spec repository's,
-/// if it has no summary, ex: its sync failed).  It's done once: it renames the file
-/// to restored.json once it's asked for them.  (For the web-server's start;
-/// it waits for the sync.)
-pub fn restore_imports(cfg: &Config, tree_name: &str) {
+/// What a web server does for a tree once it starts, if the tree syncs pull
+/// request summaries (see `hook`): syncs them if it has none, as a new
+/// index's web server doesn't (the indexer carries over neither them nor the
+/// imports from the previous index's web server; a server restarting with
+/// them doesn't sync again); and then imports again the spec pull requests
+/// which the previous index's web server had imported, if the indexer
+/// carried them over (see `restore_path`), those still open, at their heads:
+/// those of the summaries' open pull requests (or all of a spec repository's,
+/// if it has no summary, ex: its sync failed).  Restoring is done once: the
+/// list is renamed to restored.json once they're asked for.  (It waits for
+/// the sync, on its own thread.)
+pub fn start(cfg: &Config, tree_name: &str) {
+    if hook(cfg, tree_name).is_none() {
+        return;
+    }
+    let syncing =
+        repo_summaries(cfg, tree_name).is_empty() && SYNCS.request(cfg, tree_name, None).is_ok();
+    if syncing {
+        eprintln!(
+            "{}: syncing its pull requests' summaries, which it has none of",
+            tree_name
+        );
+    }
     let Some(path) = restore_path(cfg, tree_name) else {
         return;
     };
@@ -301,7 +315,7 @@ pub fn restore_imports(cfg: &Config, tree_name: &str) {
             vec![]
         }
     };
-    if !pushes.is_empty() && SYNCS.request(cfg, tree_name, None).is_ok() {
+    if !pushes.is_empty() && syncing {
         let started = Instant::now();
         while started.elapsed() < RESTORE_SYNC_LIMIT {
             std::thread::sleep(Duration::from_secs(10));
@@ -325,7 +339,7 @@ pub fn restore_imports(cfg: &Config, tree_name: &str) {
 }
 
 /// Which of the spec pull requests `pushes` (`SPEC/NUMBER`) to import again
-/// (see `restore_imports`): those open as the `summaries` say, or all of a
+/// (see `start`): those open as the `summaries` say, or all of a
 /// spec repository's if it has no summary.
 fn restorable(pushes: Vec<String>, summaries: &[RepoSummary]) -> Vec<String> {
     let open: BTreeSet<String> = summaries

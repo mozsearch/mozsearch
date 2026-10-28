@@ -673,7 +673,7 @@ pub trait AbstractServer {
     /// `try_import::imported_pull_requests`).  (The web-server's, whose
     /// `spec-prs-imported` data API route this is, which the indexer asks for
     /// them, to import them again into the next index; see
-    /// `spec_prs::restore_imports`.)
+    /// `spec_prs::start`.)
     async fn spec_prs_imported(&self) -> Result<Vec<String>> {
         Err(ServerError::Unsupported)
     }

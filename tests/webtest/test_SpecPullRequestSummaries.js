@@ -20,7 +20,9 @@ async function synced() {
   if (!doc().querySelector(".spec-prs-repos")) {
     ok(doc().querySelector(".spec-prs")?.textContent.includes("synced yet"),
        "Before a sync, there are no summaries");
-    doc().querySelector(".spec-prs-sync-button").click();
+    // (Unless the web server's start is syncing them already, when the page
+    // reloads once it's done; see tools/src/spec_prs.rs's `start`.)
+    doc().querySelector(".spec-prs-sync-button")?.click();
     // (Or says why it failed.)
     await waitForCondition(() => doc()?.querySelector(".spec-prs-repos, .spec-prs-error"),
                            "Syncing finishes", 500, 240);

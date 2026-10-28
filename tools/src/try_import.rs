@@ -51,7 +51,7 @@
 //! replaces, but the indexer asks the web server which spec pull requests it
 //! imported (see infrastructure/aws/carry-over-imports.py), and the next web
 //! server imports them again, those still open (see
-//! `spec_prs::restore_imports`).
+//! `spec_prs::start`).
 
 use std::collections::{HashMap, VecDeque};
 use std::fs;
@@ -287,7 +287,7 @@ pub fn imported_head(cfg: &Config, tree_name: &str, rev: &str) -> Option<Oid> {
 
 /// The spec pull requests imported into the tree (`SPEC/NUMBER`; see
 /// `imported_head`), for importing them again into the next index's (see
-/// `spec_prs::restore_imports`).
+/// `spec_prs::start`).
 pub fn imported_pull_requests(cfg: &Config, tree_name: &str) -> Vec<String> {
     let Some(git) = cfg.trees.get(tree_name).and_then(|tree| tree.git.as_ref()) else {
         return vec![];
@@ -651,7 +651,7 @@ impl TryImports {
 
     /// Queue the imports of the spec pull requests `revs` (`SPEC/NUMBER`)
     /// which the previous index's web server had imported (see
-    /// `spec_prs::restore_imports`), but those imported, waiting or running,
+    /// `spec_prs::start`), but those imported, waiting or running,
     /// or which failed less than `RETRY_AFTER` ago, however many there are;
     /// how many it queued.
     pub fn restore(&self, cfg: &Config, tree_name: &str, revs: &[String]) -> usize {

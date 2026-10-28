@@ -1614,12 +1614,13 @@ async fn main() {
         std::thread::spawn(move || tools::spec_prs::SYNCS.run(&cfg));
     }
 
-    // The imports of the spec pull requests which the previous index's web
-    // server had imported, again, if the indexer carried them over; see
-    // `tools::spec_prs::restore_imports`.
+    // A new index's trees of specs' pull request summaries, synced, and the
+    // imports of the spec pull requests which the previous index's web server
+    // had imported, again, if the indexer carried them over; see
+    // `tools::spec_prs::start`.
     for tree_name in cfg.trees.keys() {
         let (cfg, tree_name) = (cfg.clone(), tree_name.clone());
-        std::thread::spawn(move || tools::spec_prs::restore_imports(&cfg, &tree_name));
+        std::thread::spawn(move || tools::spec_prs::start(&cfg, &tree_name));
     }
 
     // The eviction of sidecar files when the disk fills up; see

@@ -15,7 +15,9 @@ function doc() {
 async function synced() {
   await TestUtils.loadPath("/specpr/spec-prs");
   if (!doc().querySelector(".spec-prs-repos")) {
-    doc().querySelector(".spec-prs-sync-button").click();
+    // (Unless the web server's start is syncing them already, when the page
+    // reloads once it's done; see tools/src/spec_prs.rs's `start`.)
+    doc().querySelector(".spec-prs-sync-button")?.click();
     await waitForCondition(() => doc()?.querySelector(".spec-prs-repos, .spec-prs-error"),
                            "Syncing finishes", 500, 240);
   }
