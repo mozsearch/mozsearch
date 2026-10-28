@@ -56,6 +56,8 @@ jaq-std = { version = "3.0.3" }
 json-structural-diff = "0.2.0"
 lazy_static = "1.1"
 lexical-sort = "0.3"
+# (For wait4, for what a try import's hook used; see try_import's `run_hook`.)
+libc = "0.2"
 linkify = "0.3.1"
 liquid = "0.26.0"
 liquid-core = "0.26.0"

@@ -4420,6 +4420,7 @@ dependencies = [
  "json-structural-diff",
  "lazy_static",
  "lexical-sort",
+ "libc",
  "libgit2-sys",
  "linkify",
  "liquid",

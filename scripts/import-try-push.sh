@@ -72,8 +72,11 @@ fi
 
 git -C "$SOURCE_GIT" update-ref "refs/heads/$TRY_BRANCH" "$HEAD_REV"
 
+# (Its repacks run in the background, after it's done, rather than holding up
+# the import; see build-history.py's HISTORY_DETACHED_REPACKS.)
 BLAME_REF="refs/heads/$TRY_BRANCH" \
     READ_NOTES_REFS="refs/notes/mozsearch-source-mapping-$NOTES_BRANCH" \
+    HISTORY_DETACHED_REPACKS=1 \
     "$MOZSEARCH_PATH/scripts/build-history.py" "$SOURCE_GIT" "$HISTORY_ROOT" "$@"
 
 build-commit-index "$SOURCE_GIT" "$HISTORY_ROOT/commit-index" "refs/heads/$TRY_BRANCH" \

@@ -38,6 +38,10 @@ COMMIT_LIMIT limits how many revisions each tool processes in total, and the
 tools get glibc malloc's transparent huge pages unless GLIBC_TUNABLES is set
 (see TOOLS_GLIBC_TUNABLES).
 
+With HISTORY_DETACHED_REPACKS set (as for the web server's try imports; see
+scripts/import-try-push.sh), the repacks run in processes of their own, which
+the script doesn't wait for before it exits (see `DetachedPackMaintenance`).
+
 Sending this process SIGUSR1 restarts it in place (as the same process, so
 whatever is waiting for it keeps waiting): the tools stop after the revision
 they're processing (see the tools' `history_stop`), and once they and any
@@ -55,6 +59,7 @@ before sending SIGUSR1; see `Restart`.
 
 import argparse
 import collections
+import fcntl
 import glob
 import os
 import re
@@ -70,7 +75,9 @@ import traceback
 
 
 def log(message):
-    print(f"build-history: {message}", file=sys.stderr, flush=True)
+    # (In UTC, like the tools' log lines.)
+    now = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    print(f"build-history: [{now}] {message}", file=sys.stderr, flush=True)
 
 
 # The exit status of a tool which stopped because we asked it to (the tools'
@@ -383,10 +390,7 @@ class PackMaintenance:
                 logged = True
             if self._repack_finished():
                 self._repack()
-            try:
-                self.repacking.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                pass
+            self._wait_a_while()
 
     def _repack(self):
         """Repack in two steps, one after the other: git fast-import's packs
@@ -465,9 +469,11 @@ class PackMaintenance:
         if not fast_import_packs:
             return
         log(f"repacking {self.repo}'s last {len(fast_import_packs)} git fast-import packs")
+        start = time.monotonic()
         self._combine_fast_import_packs(fast_import_packs)
         self._repack_finished(wait=True)
         self._remove_packs(fast_import_packs)
+        log(f"repacked {self.repo}'s last git fast-import packs in {time.monotonic() - start:.1f} s")
 
     def _start(self, git_args, input=None):
         self.repacking_args = [
@@ -493,9 +499,124 @@ class PackMaintenance:
         """Wait for the running repack, if any, and then, if
         `repack_fast_import_packs`, repack git fast-import's packs (see
         `_repack_last_fast_import_packs`)."""
+        start = time.monotonic()
+        running = self.repacking is not None or self.next_steps
         self._repack_finished(wait=True)
+        if running:
+            log(f"waited {time.monotonic() - start:.1f} s for {self.repo}'s repack")
         if repack_fast_import_packs:
             self._repack_last_fast_import_packs()
+
+    def _wait_a_while(self):
+        """Wait up to 15 seconds for the running repack."""
+        try:
+            self.repacking.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            pass
+
+
+def repack_lock_path(repo):
+    """The file which a detached repack of `repo` locks while it runs (see
+    `DetachedPackMaintenance`)."""
+    return os.path.join(repo, ".git", "mozsearch-repack.lock")
+
+
+def repack_locked(repo):
+    """Whether a detached repack (of any process) is repacking `repo`."""
+    with open(repack_lock_path(repo), "a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+    return False
+
+
+class DetachedPackMaintenance(PackMaintenance):
+    """`PackMaintenance` whose repacks are processes of their own (this script
+    with --repack-detached; see `repack_detached`), in their own sessions, with
+    their output in HISTORY_ROOT/repacks.log, which the script doesn't wait
+    for when it's done (with HISTORY_DETACHED_REPACKS; see the module docs):
+    a try import's processing of a firefox push's 2 revisions took ~20 s, and
+    then waiting for its repacks, ~32 s more.  Each locks the repo while it
+    repacks, so that only one repacks it at a time, even if the next import's
+    run starts while it's still going: that run doesn't start one while it is
+    (as for its own), but at its end, if its packs aren't all being repacked,
+    starts one which waits for the lock."""
+
+    def __init__(self, repo):
+        super().__init__(repo)
+        self.log_path = os.path.join(os.path.dirname(repo), "repacks.log")
+        # The git fast-import packs there were when our last repack started
+        # (which it repacks, if it's still running).
+        self.repacking_packs = set()
+
+    def _repack_finished(self, wait=False):
+        if self.repacking is not None:
+            returncode = self.repacking.wait() if wait else self.repacking.poll()
+            if returncode is None:
+                return False
+            self.repacking = None
+            # (A failed repack only leaves the packs for the next one.)
+            if returncode != 0:
+                log(f"a detached repack of {self.repo} failed (see {self.log_path})")
+        if wait:
+            with open(repack_lock_path(self.repo), "a") as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+            return True
+        return not repack_locked(self.repo)
+
+    def _repack(self):
+        self._start_detached()
+
+    def _start_detached(self):
+        self.repacking_packs = set(self._fast_import_packs())
+        log(
+            f"repacking {self.repo} in the background ({len(self.repacking_packs)} git "
+            f"fast-import packs; see {self.log_path})"
+        )
+        with open(self.log_path, "a") as output:
+            self.repacking = subprocess.Popen(
+                [sys.executable, os.path.abspath(__file__), "--repack-detached", self.repo],
+                stdin=subprocess.DEVNULL,
+                stdout=output,
+                stderr=output,
+                start_new_session=True,
+            )
+
+    def finish(self, repack_fast_import_packs=False):
+        """Repack what the runs left (their git fast-import packs), unless our
+        running repack is repacking them, without waiting for that."""
+        left = set(self._fast_import_packs())
+        if not left:
+            return
+        running = self.repacking is not None and self.repacking.poll() is None
+        if not (running and left <= self.repacking_packs):
+            self._start_detached()
+
+    def _wait_a_while(self):
+        if self.repacking is not None:
+            super()._wait_a_while()
+        else:
+            time.sleep(15)
+
+
+def repack_detached(repo):
+    """Repack `repo` as `PackMaintenance` does after a chunk, once no other
+    detached repack is running (see `DetachedPackMaintenance`)."""
+    with open(repack_lock_path(repo), "a") as lock:
+        start = time.monotonic()
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        waited = time.monotonic() - start
+        packs = PackMaintenance(repo)
+        fast_import_packs = len(packs._fast_import_packs())
+        start = time.monotonic()
+        packs._repack()
+        packs._repack_finished(wait=True)
+        log(
+            f"repacked {repo} ({fast_import_packs} git fast-import packs) in "
+            f"{time.monotonic() - start:.1f} s"
+            + (f", after waiting {waited:.1f} s for another repack" if waited >= 1 else "")
+        )
 
 
 def format_duration(seconds):
@@ -700,7 +821,12 @@ class ChunkedTool:
         self.total_limit = total_limit
         self.status = status
         self.progress = Progress(label, status)
-        self.packs = PackMaintenance(repo)
+        maintenance = (
+            DetachedPackMaintenance
+            if os.environ.get("HISTORY_DETACHED_REPACKS")
+            else PackMaintenance
+        )
+        self.packs = maintenance(repo)
         self.processed = 0
         self.chunks = 0
 
@@ -961,7 +1087,10 @@ def main():
 
 if __name__ == "__main__":
     try:
-        main()
+        if sys.argv[1:2] == ["--repack-detached"]:
+            repack_detached(sys.argv[2])
+        else:
+            main()
     except subprocess.CalledProcessError as e:
         log(f"{' '.join(map(str, e.cmd))} failed with exit code {e.returncode}")
         sys.exit(1)

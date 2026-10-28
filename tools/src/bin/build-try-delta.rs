@@ -14,6 +14,9 @@
 //! push: each symbol whose data differs gets a `CrossrefPatch` replacing its
 //! results in those files, and a jumpref from its patched data.
 //!
+//! It says how long each of its phases took as they end, and all of them at
+//! its end (see `Phases`), for the try import's log.
+//!
 //! Usage: build-try-delta CONFIG TREE PUSH HEAD TIP_ANALYSIS
 //!          [--incomplete FILE] [--objdir DIR [--changed-generated FILE]]
 //!          [--threads N]
@@ -21,7 +24,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Child, Command, Stdio};
+use std::time::Instant;
 
 use clap::Parser;
 use flate2::Compression;
@@ -64,6 +68,51 @@ struct Cli {
     changed_generated: Option<String>,
     #[clap(long, default_value_t = 4)]
     threads: usize,
+}
+
+/// How long the delta's phases took, each said as it ends (so that a
+/// failure's log says which phase it was in, after the last one said), and all
+/// of them at the end.
+struct Phases {
+    start: Instant,
+    phase_start: Instant,
+    ended: Vec<(&'static str, f64)>,
+}
+
+impl Phases {
+    fn new() -> Self {
+        let now = Instant::now();
+        Phases {
+            start: now,
+            phase_start: now,
+            ended: vec![],
+        }
+    }
+
+    /// End the phase `name`, saying what it did if `detail` isn't empty.
+    fn end(&mut self, name: &'static str, detail: &str) {
+        let seconds = self.phase_start.elapsed().as_secs_f64();
+        if detail.is_empty() {
+            println!("build-try-delta: {} in {:.1} s", name, seconds);
+        } else {
+            println!("build-try-delta: {} in {:.1} s ({})", name, seconds, detail);
+        }
+        self.ended.push((name, seconds));
+        self.phase_start = Instant::now();
+    }
+
+    fn summary(&self) {
+        let phases: Vec<String> = self
+            .ended
+            .iter()
+            .map(|(name, seconds)| format!("{} {:.1} s", name, seconds))
+            .collect();
+        println!(
+            "build-try-delta: {:.1} s in all: {}",
+            self.start.elapsed().as_secs_f64(),
+            phases.join(", ")
+        );
+    }
 }
 
 /// The lines of an analysis file (gzipped or not), if it exists.
@@ -264,6 +313,7 @@ fn cite_specs<'a>(
 
 fn main() {
     let cli = Cli::parse();
+    let mut phases = Phases::new();
     let cfg = config::load(&cli.config_file, false, Some(&cli.tree_name), None, None);
     let tree_config = cfg.trees.get(&cli.tree_name).expect("No such tree");
     let paths = &tree_config.paths;
@@ -315,6 +365,8 @@ fn main() {
             .collect(),
         None => BTreeSet::new(),
     };
+
+    phases.end("changes", &format!("{} files", changed.len()));
 
     let head = head_commit.id().to_string();
     let out = delta_dir(&paths.index_path, &head);
@@ -376,6 +428,7 @@ fn main() {
             written.push(path.clone());
         }
     }
+    phases.end("citations", &format!("{} files", cited.len()));
 
     let base_analysis = Path::new(&paths.index_path).join("analysis");
     let mut analyzed: BTreeMap<String, AnalyzedFile> = BTreeMap::new();
@@ -434,6 +487,15 @@ fn main() {
         }
     }
 
+    phases.end(
+        "records",
+        &format!(
+            "{} files' records read, {} changed",
+            written.len(),
+            analyzed.len()
+        ),
+    );
+
     // ## The push's versions of the files' sources (and generated files').
     let tip_files = scratch.join("tip-files");
     let tip_objdir = scratch.join("tip-objdir");
@@ -466,7 +528,15 @@ fn main() {
         }
     }
 
+    phases.end("sources", &format!("{} files", tip_list.len()));
+
     // ## Their crossref data, before and after.
+    //
+    // (Both at once, since neither uses all of the cores all of the time: on
+    // a firefox push's 2,522 files, one after the other took 47 s and 36 s.
+    // Each one's output, but its "File" line for each file it reads, which
+    // were 4,800 of that import's 5,300 lines, is said after both are done,
+    // rather than mixed together.)
     let crossref = |side: &str, list: &[String], files: &str, objdir: &str| {
         let dir = scratch.join(side);
         fs::create_dir_all(&dir).unwrap();
@@ -476,7 +546,8 @@ fn main() {
             list.iter().map(|p| format!("{}\n", p)).collect::<String>(),
         )
         .unwrap();
-        let status = Command::new("crossref")
+        let output = scratch.join(format!("{}-crossref.log", side));
+        let child = Command::new("crossref")
             .args([&cli.config_file, &cli.tree_name])
             .arg(&list_path)
             .arg(cli.threads.to_string())
@@ -485,17 +556,45 @@ fn main() {
             .arg("--index-path")
             .arg(&dir)
             .args(["--files-path", files, "--objdir-path", objdir])
-            .status()
+            .stdout(Stdio::from(File::create(&output).unwrap()))
+            .spawn()
             .expect("Couldn't run crossref");
-        assert!(status.success(), "crossref of the {} records failed", side);
-        dir
+        (dir, output, child, Instant::now())
     };
-    let base_dir = crossref("base", &base_list, &paths.files_path, &paths.objdir_path);
-    let tip_dir = crossref(
+    let finish =
+        |side: &str, (dir, output, mut child, started): (PathBuf, PathBuf, Child, Instant)| {
+            let status = child.wait().expect("Couldn't wait for crossref");
+            let seconds = started.elapsed().as_secs_f64();
+            println!(
+                "build-try-delta: crossref of the {} records took {:.1} s:",
+                side, seconds
+            );
+            for line in fs::read_to_string(&output).unwrap_or_default().lines() {
+                if !line.starts_with("File ") {
+                    println!("{}", line);
+                }
+            }
+            assert!(status.success(), "crossref of the {} records failed", side);
+            (dir, seconds)
+        };
+    let base = crossref("base", &base_list, &paths.files_path, &paths.objdir_path);
+    let tip = crossref(
         "tip",
         &tip_list,
         tip_files.to_str().unwrap(),
         tip_objdir.to_str().unwrap(),
+    );
+    let (base_dir, base_seconds) = finish("base", base);
+    let (tip_dir, tip_seconds) = finish("tip", tip);
+    phases.end(
+        "crossref",
+        &format!(
+            "the base's {} files in {:.1} s and the tip's {} in {:.1} s, at once",
+            base_list.len(),
+            base_seconds,
+            tip_list.len(),
+            tip_seconds
+        ),
     );
     let mut base_data: BTreeMap<String, CrossrefData> = read_map(&base_dir, "crossref");
     let mut tip_data: BTreeMap<String, CrossrefData> = read_map(&tip_dir, "crossref");
@@ -601,6 +700,7 @@ fn main() {
         jumprefs,
     )
     .unwrap();
+    phases.end("patches", "");
 
     // ## The identifiers it adds (in the order the tree's are).
     let read_identifiers = |dir: &Path| -> Vec<String> {
@@ -631,4 +731,6 @@ fn main() {
     )
     .unwrap();
     let _ = fs::remove_dir_all(&scratch);
+    phases.end("identifiers", "");
+    phases.summary();
 }

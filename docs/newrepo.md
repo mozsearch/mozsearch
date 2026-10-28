@@ -110,7 +110,10 @@ reviewing them at `/{tree}/try/hg/{rev}`; see `tools/src/try_import.rs` and `tes
 changes or their Phabricator revisions, and logs them, for the push's page), compile what it changes with the indexer, and build its semantic delta from that
 analysis with `build-try-delta` (see `tools/src/try_delta.rs` and `tests/trydelta/analyze-try`).  If it logs its steps
 as `Performing semantic::STEP step` lines, a push whose analysis failed has its page say in which step and why
-(see `semantic_failure` in `tools/src/try_import.rs`).  The rebased
+(see `semantic_failure` in `tools/src/try_import.rs`).  An import's output is in `HISTORY_ROOT/try-imports/NAME.log`,
+which ends with how long the hook took, the CPU time its processes used and its biggest process's peak memory, and then
+how long the web server took to precompute the push's pages (see `run_hook`); firefox-try's hook also says how long each
+of its steps took, with their CPU time (its config repo's `firefox-shared/step-times.sh`).  The rebased
 stack's head then has the push's jumps and references (and citations of web specs, if the tree's `SPEC_` symbols
 are a linked tree's), and searches from its pages (with `rev=HEAD` on `/query/`) are of the tree as the push
 changes it, as are the views of the spec algorithms it cites beside the code citing them

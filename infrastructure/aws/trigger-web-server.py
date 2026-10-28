@@ -58,6 +58,15 @@ MOZSEARCH_PS_CONFIG="{config_file_name}"
 FINAL
 
 touch web_server_started
+# sar's samples every minute rather than every 10 (sysstat's default), so that
+# its record (`sar -f /var/log/sysstat/saDD -s HH:MM:SS -e HH:MM:SS`) shows the
+# steps of try imports (see tools/src/try_import.rs).
+if systemctl cat sysstat-collect.timer > /dev/null 2>&1; then
+    mkdir -p /etc/systemd/system/sysstat-collect.timer.d
+    printf '[Timer]\\nOnCalendar=\\nOnCalendar=*:*:00\\n' > /etc/systemd/system/sysstat-collect.timer.d/every-minute.conf
+    systemctl daemon-reload
+    systemctl restart sysstat-collect.timer || true
+fi
 sudo -i -u ubuntu ./update.sh "{mozsearch_repo}" "{mozsearch_rev}" "{config_repo}" "{config_rev}"
 sudo -i -u ubuntu mozsearch/infrastructure/aws/web-serve.sh config "{config_file_name}" "{volumeId}" "{channel}"
 '''

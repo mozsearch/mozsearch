@@ -47,8 +47,10 @@ if (( NEW_REVISIONS > MAX_REVISIONS )); then
 fi
 
 git -C "$SOURCE_GIT" update-ref "refs/heads/$TRY_BRANCH" "$REBASED"
+# (Its repacks run in the background, as import-try-push.sh's do.)
 BLAME_REF="refs/heads/$TRY_BRANCH" \
     READ_NOTES_REFS="refs/notes/mozsearch-source-mapping-$NOTES_BRANCH" \
+    HISTORY_DETACHED_REPACKS=1 \
     "$MOZSEARCH_PATH/scripts/build-history.py" "$SOURCE_GIT" "$HISTORY_ROOT" "$@"
 build-commit-index "$SOURCE_GIT" "$HISTORY_ROOT/commit-index" "refs/heads/$TRY_BRANCH" \
     --accumulate --read "$BRANCH"

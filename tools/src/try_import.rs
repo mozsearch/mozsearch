@@ -55,8 +55,8 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::fs;
-use std::io::{Read, Seek, SeekFrom};
-use std::os::unix::process::CommandExt;
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::{Condvar, LazyLock, Mutex};
@@ -783,7 +783,17 @@ impl TryImports {
             let result = self.import(cfg, &job);
             if result.is_ok() {
                 self.set_step(&job, PRECOMPUTING.to_string());
+                let started = Instant::now();
                 precompute(&job.tree, &job.rev);
+                if let Some(log_path) = import_log_path(cfg, &job.tree, &job.rev) {
+                    append_to_log(
+                        &log_path,
+                        &format!(
+                            "try-import: precomputed its pages' canvas and dataflow in {:.1} s",
+                            started.elapsed().as_secs_f64()
+                        ),
+                    );
+                }
             }
             {
                 let mut state = self.state.lock().unwrap();
@@ -862,7 +872,8 @@ impl TryImports {
 /// priority than the server's (`nice`) and in its own process group, with
 /// its output in `log_path`, until it's done or `time_limit` (when it and
 /// what it runs are killed), telling `step` its output's last line every
-/// second.  Its error is its output's last lines, if it fails.
+/// second.  Its error is its output's last lines, if it fails.  Its log ends
+/// with how long it took and what it used (see `HookUsage`).
 pub fn run_hook(
     hook: &Path,
     args: &[&str],
@@ -885,9 +896,9 @@ pub fn run_hook(
         .spawn()
         .map_err(|e| format!("Couldn't run {}: {}", hook.display(), e))?;
     let started = Instant::now();
-    let status = loop {
-        if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
-            break status;
+    let (status, usage) = loop {
+        if let Some(exited) = try_wait_with_usage(&child).map_err(|e| e.to_string())? {
+            break exited;
         }
         if started.elapsed() > time_limit {
             // (The hook's process group, with what it runs.)
@@ -903,10 +914,74 @@ pub fn run_hook(
         step(last_lines(log_path, 1));
         std::thread::sleep(Duration::from_secs(1));
     };
-    if !status.success() {
-        return Err(last_lines(log_path, 12));
+    // (Its error is from before the usage line.)
+    let result = match status.success() {
+        true => Ok(()),
+        false => Err(last_lines(log_path, 12)),
+    };
+    append_to_log(log_path, &usage.describe(started.elapsed()));
+    result
+}
+
+/// What a hook's processes used (from wait4, which counts the processes it
+/// waited for, and theirs, and so on).
+#[derive(Debug, PartialEq)]
+struct HookUsage {
+    user_seconds: f64,
+    system_seconds: f64,
+    /// The biggest of its processes' peak resident memory.
+    max_rss_bytes: u64,
+}
+
+impl HookUsage {
+    fn describe(&self, wall: Duration) -> String {
+        let wall = wall.as_secs_f64();
+        let cpu = self.user_seconds + self.system_seconds;
+        format!(
+            "try-import: the hook took {:.0} s, using {:.0} CPU seconds ({:.0} user, {:.0} \
+             system; {:.1} cores on average), and its biggest process peaked at {:.1} GB",
+            wall,
+            cpu,
+            self.user_seconds,
+            self.system_seconds,
+            if wall > 0.0 { cpu / wall } else { 0.0 },
+            self.max_rss_bytes as f64 / 1e9
+        )
     }
-    Ok(())
+}
+
+/// The child's exit status and usage, if it has exited (reaping it, so it
+/// mustn't be waited for again).
+fn try_wait_with_usage(
+    child: &std::process::Child,
+) -> std::io::Result<Option<(std::process::ExitStatus, HookUsage)>> {
+    let mut status = 0;
+    // SAFETY: rusage is plain data, which wait4 fills in.
+    let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
+    let pid = unsafe { libc::wait4(child.id() as i32, &mut status, libc::WNOHANG, &mut usage) };
+    if pid < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    if pid == 0 {
+        return Ok(None);
+    }
+    let seconds = |time: libc::timeval| time.tv_sec as f64 + time.tv_usec as f64 / 1e6;
+    Ok(Some((
+        std::process::ExitStatus::from_raw(status),
+        HookUsage {
+            user_seconds: seconds(usage.ru_utime),
+            system_seconds: seconds(usage.ru_stime),
+            // (In kilobytes, on Linux.)
+            max_rss_bytes: usage.ru_maxrss.max(0) as u64 * 1024,
+        },
+    )))
+}
+
+/// Add a line to an import's log (after its hook is done).
+fn append_to_log(log_path: &Path, line: &str) {
+    if let Ok(mut log) = fs::OpenOptions::new().append(true).open(log_path) {
+        let _ = writeln!(log, "{}", line);
+    }
 }
 
 /// Why the imported try push `rev` has no semantic analysis, if its import's
@@ -939,15 +1014,19 @@ pub fn semantic_failure(cfg: &Config, tree_name: &str, rev: &str) -> Option<Sema
     parse_semantic_failure(&import_log(cfg, tree_name, rev)?)
 }
 
-/// The imported try push `rev`'s import's log, if it's there.
-fn import_log(cfg: &Config, tree_name: &str, rev: &str) -> Option<String> {
+/// Where the try push `rev`'s import's log is (see `TryImports::import`).
+fn import_log_path(cfg: &Config, tree_name: &str, rev: &str) -> Option<PathBuf> {
     let history = cfg.trees.get(tree_name)?.paths.history_path.as_ref()?;
-    let log = fs::read(
+    Some(
         Path::new(history)
             .join("try-imports")
             .join(format!("{}.log", rev)),
     )
-    .ok()?;
+}
+
+/// The imported try push `rev`'s import's log, if it's there.
+fn import_log(cfg: &Config, tree_name: &str, rev: &str) -> Option<String> {
+    let log = fs::read(import_log_path(cfg, tree_name, rev)?).ok()?;
     Some(String::from_utf8_lossy(&log).into_owned())
 }
 
@@ -1061,6 +1140,56 @@ fn last_lines(path: &Path, n: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A hook's log ends with what its processes used, theirs included (ex:
+    /// awk's, run by the shell the hook runs), after its error's lines.
+    #[test]
+    fn test_run_hook_usage() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("try-import-usage-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let hook = dir.join("hook");
+        let log = dir.join("log");
+        fs::write(
+            &hook,
+            "#!/bin/sh\n\
+             echo started\n\
+             sh -c 'awk \"BEGIN { s = sprintf(\\\"%80000000s\\\", \\\"\\\"); \
+             for (i = 0; i < 2000000; i++) n += i }\"'\n\
+             echo \"ERROR: it failed\"\n\
+             exit \"$1\"\n",
+        )
+        .unwrap();
+        fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
+        for code in ["0", "1"] {
+            let result = run_hook(&hook, &[code], &[], &log, TIME_LIMIT, &mut |_| {});
+            let text = fs::read_to_string(&log).unwrap();
+            let last = text.lines().last().unwrap();
+            assert!(last.starts_with("try-import: the hook took "), "{}", last);
+            let gb: f64 = last
+                .rsplit(' ')
+                .nth(1)
+                .and_then(|gb| gb.parse().ok())
+                .unwrap();
+            assert!(gb >= 0.08, "awk's 80 MB string counts: {}", last);
+            let cpu: f64 = last
+                .split("using ")
+                .nth(1)
+                .and_then(|rest| rest.split(' ').next())
+                .and_then(|cpu| cpu.parse().ok())
+                .unwrap();
+            assert!(cpu >= 0.0);
+            match code {
+                "0" => assert_eq!(result, Ok(())),
+                _ => {
+                    let error = result.unwrap_err();
+                    assert!(error.ends_with("ERROR: it failed"), "{}", error);
+                }
+            }
+        }
+        let _ = fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn test_can_start() {
