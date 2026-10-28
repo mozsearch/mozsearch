@@ -9,7 +9,7 @@ input_file: inputs/analysis/rust/simple.rs/simple_Loader_new__json
     "source": 1,
     "syntax": "def,method",
     "pretty": "method Loader::new",
-    "sym": "S_rs_files/impl#[Loader]new().",
+    "sym": "S_rs_files/lib/impl#[Loader]new().",
     "nestingRange": "43:42-49:5",
     "type": "pub fn new(deps_dir: PathBuf) -> Self"
   },
@@ -18,8 +18,8 @@ input_file: inputs/analysis/rust/simple.rs/simple_Loader_new__json
     "target": 1,
     "kind": "def",
     "pretty": "Loader::new",
-    "sym": "S_rs_files/impl#[Loader]new().",
+    "sym": "S_rs_files/lib/impl#[Loader]new().",
     "context": "Loader",
-    "contextsym": "S_rs_files/Loader#"
+    "contextsym": "S_rs_files/lib/Loader#"
   }
 ]
