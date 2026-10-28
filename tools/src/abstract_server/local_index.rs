@@ -799,11 +799,41 @@ impl AbstractServer for LocalIndex {
             });
             names.as_ref().map(|names| names.find(query, how, limit))
         };
+        // (A timeline's tip's files with its tokens, from the tree's text
+        // search, if it has one, and they're not too many.)
+        let tip_files = |tokens: &[String]| -> Option<Vec<String>> {
+            let words: BTreeSet<String> = tokens.iter().map(|token| token.to_lowercase()).collect();
+            if words.is_empty() {
+                return None;
+            }
+            // (livegrep's RE2 has POSIX syntax, without `(?:`.)
+            let pattern = format!(
+                r"\b({})\b",
+                words
+                    .iter()
+                    .map(|word| regex::escape(word))
+                    .collect::<Vec<_>>()
+                    .join("|")
+            );
+            let found = tokio::runtime::Handle::current()
+                .block_on(self.search_text(&pattern, true, "", "", MAX_TIP_FILES_MATCHES))
+                .ok()?;
+            if found.limit_hit || found.timed_out {
+                return None;
+            }
+            Some(
+                found
+                    .by_file
+                    .into_iter()
+                    .map(|file| file.file.to_string())
+                    .collect(),
+            )
+        };
         // (It reads many blobs; block_in_place lets the runtime's other tasks
         // run meanwhile.)
         tokio::task::block_in_place(|| {
             crate::hyperblame::history_grep::history_grep(
-                history, &git.repo, args, limits, tier, &names,
+                history, &git.repo, args, limits, tier, &names, &tip_files,
             )
         })
     }
@@ -1178,6 +1208,11 @@ impl AbstractServer for LocalIndex {
 /// The most threads reading the lines of rendered files for a query (see
 /// `fetch_html_lines`).
 const MAX_HTML_LINES_THREADS: usize = 8;
+
+/// The most matching lines a timeline's text search of the tip for its tokens
+/// may have (more, and it's anchored at the tip only for the files it
+/// changes; see `history_grep`).
+const MAX_TIP_FILES_MATCHES: usize = 100_000;
 
 /// The rows of lines of the rendered files at paths (see
 /// `chunked_gzip::read_rows`), by path and line, several files at a time,

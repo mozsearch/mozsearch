@@ -184,6 +184,28 @@ impl<'a> JournalReader<'a> {
             .collect()
     }
 
+    /// The oldest record of a journal version (a detail; an oldest summary's
+    /// oldest), reading only its head and its oldest segment, or None if it
+    /// doesn't exist.
+    pub fn oldest<R: TimelineRecord + DeserializeOwned>(
+        &mut self,
+        version: &JournalVersionRef,
+    ) -> Result<Option<R>, String> {
+        let Some(head) = self.contents(version, Some(i32::MIN))? else {
+            return Ok(None);
+        };
+        let header = head.lines().next().unwrap_or("").to_string();
+        let year = segments::segment_years(&header)
+            .into_iter()
+            .min()
+            .unwrap_or(i32::MIN);
+        let mut records: Vec<R> = self.year_records(version, Some(year))?;
+        let Some(oldest) = records.pop() else {
+            return Ok(None);
+        };
+        Ok(self.expand(vec![oldest])?.pop())
+    }
+
     /// Replace the summary records of a journal's records with the detail
     /// records they summarize; see the module docs.
     pub fn expand<R: TimelineRecord + DeserializeOwned>(

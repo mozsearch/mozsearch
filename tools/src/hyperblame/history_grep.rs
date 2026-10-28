@@ -51,7 +51,7 @@ use crate::file_format::history::timeline_files_delta::FileDeltaRecord;
 use crate::file_format::history::timeline_tokens::{TokenDeltaRecord, token_timeline_path};
 use crate::file_format::token_names::NameMatch;
 use crate::hyperblame::file_fate;
-use crate::hyperblame::journals::JournalReader;
+use crate::hyperblame::journals::{JournalKind, JournalReader};
 use crate::hyperblame::segments;
 use crate::hyperblame::token_blame::TreeHistory;
 use crate::hyperblame::token_history::{
@@ -405,7 +405,9 @@ fn blob_text(repo: &Repository, oid: Oid) -> String {
 
 /// Search `history` (of the source repo `source`) for `args`, within
 /// `limits` (of `tier`), with `names` looking up the token names index (see
-/// `TokenNames::find`).
+/// `TokenNames::find`), and, for a timeline, `tip_files` listing the tip's
+/// files which have any of the tokens (case-insensitively), if it can (ex:
+/// with the tree's text search; see `LocalIndex`'s).
 pub fn history_grep(
     history: &TreeHistory,
     source: &Repository,
@@ -413,6 +415,7 @@ pub fn history_grep(
     limits: &QueryLimits,
     tier: Tier,
     names: &dyn Fn(&str, NameMatch, usize) -> Option<(Vec<String>, bool)>,
+    tip_files: &dyn Fn(&[String]) -> Option<Vec<String>>,
 ) -> Result<HistoryGrep, ServerError> {
     let started = std::time::Instant::now();
     let what = match (args.text.is_some(), args.timeline) {
@@ -1041,13 +1044,28 @@ pub fn history_grep(
         })
         .collect();
     if args.timeline {
-        // (With its files' moves and deletions which its candidates don't
-        // have.)
+        // (Its files: those its changes change, and the tip's others which
+        // have its tokens (ex: split from another file, whose tokens moved,
+        // which the token journals don't record), if the tip's files can be
+        // listed (for the timeline's end: not with `until`).)
+        let changed: BTreeSet<&str> = changes.iter().map(|change| change.path.as_str()).collect();
+        let others: Vec<String> = if until.is_none() && !use_files {
+            tip_files(&result.tokens)
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|path| !changed.contains(path.as_str()))
+                .collect()
+        } else {
+            vec![]
+        };
+        // (With its files' moves, deletions and creations which its
+        // candidates don't have.)
         let (lifetimes, bytes) = lifetime_changes(
             history,
             source,
             head.id(),
             &changes,
+            &others,
             &ordered,
             &positions,
             &in_window,
@@ -1056,9 +1074,37 @@ pub fn history_grep(
         );
         result.bytes += bytes;
         changes.extend(lifetimes);
-        result.timeline = Some(build_timeline(&changes, !result.capture_names.is_empty()));
+        // (From its files' versions at its end: the tip's, or `until`'s.)
+        let mut end: HashMap<String, Found> = HashMap::new();
+        let end_tree = end_tree(source, until);
+        for path in changes.iter().map(|change| &change.path).chain(&others) {
+            if !end.contains_key(path) {
+                let (found, size) =
+                    found_in(source, end_tree.as_ref(), path, &re, plan.spans_lines);
+                result.bytes += size;
+                end.insert(path.clone(), found);
+            }
+        }
+        result.timeline = Some(build_timeline(
+            &changes,
+            !result.capture_names.is_empty(),
+            &end,
+        ));
     }
     Ok(result)
+}
+
+/// The tree at a timeline's end: the tip's, or, with `until`, the main
+/// line's (its first parents') last commit's on or before it.
+fn end_tree(source: &Repository, until: Option<NaiveDate>) -> Option<Tree<'_>> {
+    let mut commit = source.head().ok()?.peel_to_commit().ok()?;
+    if let Some(until) = until {
+        let end = until.and_hms_opt(23, 59, 59)?.and_utc().timestamp();
+        while commit.time().seconds() > end {
+            commit = commit.parent(0).ok()?;
+        }
+    }
+    commit.tree().ok()
 }
 
 /// The most files whose moves and deletions `lifetime_changes` finds.
@@ -1084,8 +1130,13 @@ fn found_in(
 /// which the tip doesn't have either), the revision which moved or deleted
 /// it, from its future journal (see `file_fate`), as its end there (its
 /// matches there to none), and, if it moved, the start of the file it moved
-/// to (none to its matches there), but for those not in the timeline's time,
-/// or which one of the revision's changes already is.  Without them, a file
+/// to (none to its matches there); and for each of its files which had its
+/// matches before its first change (ex: split from another file, with its
+/// matches, whose tokens' journals see the tokens move), and each of its
+/// `others` (the tip's files with its tokens which it doesn't change), the
+/// revision which created it, from the oldest record of its files-delta
+/// journal, as its start; but for those not in the timeline's time, or which
+/// one of the revision's changes already is.  Without them, a file
 /// moved by a revision whose change of it doesn't change its matches (ex:
 /// dom/activities/src/ActivityProxy.js, moved to dom/activities/ in 2014,
 /// whose "Activity:Success" its later removal there didn't remove from the
@@ -1097,6 +1148,7 @@ fn lifetime_changes(
     source: &Repository,
     timeline_head: Oid,
     changes: &[Change],
+    others: &[String],
     ordered: &[(String, Option<NaiveDate>)],
     positions: &HashMap<String, CommitPosition>,
     in_window: &dyn Fn(Option<NaiveDate>) -> bool,
@@ -1120,10 +1172,71 @@ fn lifetime_changes(
         .cloned()
         .collect();
     let mut reader = JournalReader::new(&history.timeline);
-    // (Each file's end, and its start where it moved: revision, path, the
-    // revision's tree to read it from, if it's the start.)
+    // (Each file's end, and its start where it moved or was created:
+    // revision, path, whether it's the start.)
     let mut events: Vec<(String, String, bool)> = vec![];
     let mut dates: HashMap<String, String> = HashMap::new();
+    // (The files which had matches before their first change, and the tip's
+    // others, by their creation.)
+    let mut earliest: HashMap<&str, &Change> = HashMap::new();
+    for change in changes {
+        let entry = earliest.entry(change.path.as_str()).or_insert(change);
+        if change.seq > entry.seq {
+            *entry = change;
+        }
+    }
+    let created: Vec<&str> = earliest
+        .iter()
+        .filter(|(_, change)| change.old.count > 0)
+        .map(|(path, _)| *path)
+        .chain(others.iter().map(String::as_str))
+        .collect();
+    // (A file the tip doesn't have has its journals at its newest change's
+    // timeline commit, or its parent's, if that deleted it.)
+    let mut newest: HashMap<&str, &Change> = HashMap::new();
+    for change in changes {
+        let entry = newest.entry(change.path.as_str()).or_insert(change);
+        if change.seq < entry.seq {
+            *entry = change;
+        }
+    }
+    let timeline_revs = |path: &str| -> Vec<Oid> {
+        if at_tip(path) {
+            return vec![timeline_head];
+        }
+        let Some(commit) = newest
+            .get(path)
+            .and_then(|change| Oid::from_str(&change.rev).ok())
+            .and_then(|oid| source.find_commit(oid).ok())
+        else {
+            return vec![];
+        };
+        [Some(commit.id()), commit.parent_id(0).ok()]
+            .into_iter()
+            .flatten()
+            .filter_map(|oid| history.timeline_commit(oid).map(|commit| commit.id()))
+            .collect()
+    };
+    for path in created.into_iter().take(MAX_LIFETIME_PATHS) {
+        let oldest = timeline_revs(path).into_iter().find_map(|timeline_rev| {
+            let version = JournalVersionRef {
+                timeline_rev: timeline_rev.to_string(),
+                path: JournalKind::FilesDelta.journal_path(path),
+            };
+            reader.oldest::<FileDeltaRecord>(&version).ok().flatten()
+        });
+        let Some(FileDeltaRecord::Detail(detail)) = oldest else {
+            continue;
+        };
+        if !in_window(parse_date(&detail.desc.iso_date)) {
+            continue;
+        }
+        let rev = detail.desc.source_rev.clone();
+        dates.insert(rev.clone(), detail.desc.iso_date.chars().take(10).collect());
+        if !existing.contains(&(rev.as_str(), path)) {
+            events.push((rev, path.to_string(), true));
+        }
+    }
     while let Some(path) = pending.pop() {
         if !seen.insert(path.clone()) || seen.len() > MAX_LIFETIME_PATHS {
             continue;
@@ -1194,10 +1307,10 @@ fn lifetime_changes(
             let parent = commit.parent(0).ok().and_then(|parent| parent.tree().ok());
             found_in(source, parent.as_ref(), &path, re, spans_lines)
         };
+        // (Even without matches: ex: a file created without them, which they
+        // were moved into later, which isn't a change of their tokens, is
+        // without them before it was created, at least.)
         bytes += size;
-        if found.count == 0 {
-            continue;
-        }
         let (old, new) = if start {
             (Found::default(), found)
         } else {
@@ -1369,8 +1482,9 @@ fn value_label(value: &[Option<String>]) -> String {
 }
 
 /// The timeline of `changes` (any order; see `Timeline`), of values if
-/// `values`.
-fn build_timeline(changes: &[Change], values: bool) -> Timeline {
+/// `values`, from the matches of their files' versions at its end, `end` (by
+/// path; none, if it doesn't have it).
+fn build_timeline(changes: &[Change], values: bool, end: &HashMap<String, Found>) -> Timeline {
     // (Oldest first, in the candidates' order: by when they landed, parents
     // first, not by their commit dates; see `history_grep`.)
     let mut changes: Vec<&Change> = changes
@@ -1457,94 +1571,100 @@ fn build_timeline(changes: &[Change], values: bool) -> Timeline {
     }
 
     // Otherwise one line, over the files: their matches, or their distinct
-    // values.  Each change applies what it added and removed to its file's
-    // state, rather than replacing it, so that changes on parallel branches
-    // (whose `old`s are their own branch's) don't undo each other; values as
-    // sets (the values it introduced, and those it left none of), so that a
-    // change seen twice (ex: cherry-picked to another branch) isn't applied
-    // twice.
+    // values, from the files' versions at the timeline's end (`end`; the
+    // tip's), back: each file's state before a change is its old version, and
+    // after it, the state after that, so that the end is the tree's, and a
+    // change on a side branch which the main line didn't keep (ex: a branch's
+    // creation deleting the files it didn't have) leaves the files' state as
+    // the main line's later versions have it.  (Rather than applying each
+    // change's differences to a state from the start, which values changed
+    // without the tokens (ex: an argument replaced by a constant) and side
+    // branches' changes left wrong for ever.)
     struct FileState {
-        count: i64,
-        values: BTreeMap<Vec<Option<String>>, i64>,
+        count: usize,
+        values: BTreeSet<Vec<Option<String>>>,
     }
-    let mut state: HashMap<&str, FileState> = HashMap::new();
-    let distinct = |state: &HashMap<&str, FileState>| -> BTreeSet<Vec<Option<String>>> {
-        state
-            .values()
-            .flat_map(|file| {
-                file.values
-                    .iter()
-                    .filter(|(_, n)| **n > 0)
-                    .map(|(value, _)| value.clone())
-            })
-            .collect()
+    let state_of = |found: &Found| FileState {
+        count: found.count,
+        values: found.values.keys().cloned().collect(),
     };
-    let count = |state: &HashMap<&str, FileState>| -> f64 {
-        state.values().map(|file| file.count.max(0) as f64).sum()
-    };
-    let mut line = TimelineSeries::default();
-    let mut unchanged = 0;
-    for (index, (first, group)) in revisions.iter().enumerate() {
-        // (A file's state before its first change is its `old`.)
+    let mut state: HashMap<&str, FileState> = end
+        .iter()
+        .map(|(path, found)| (path.as_str(), state_of(found)))
+        .collect();
+    for (_, group) in &revisions {
         for change in group {
             state
                 .entry(change.path.as_str())
                 .or_insert_with(|| FileState {
-                    count: change.old.count as i64,
-                    values: change
-                        .old
-                        .values
-                        .iter()
-                        .map(|(value, n)| (value.clone(), *n as i64))
-                        .collect(),
+                    count: 0,
+                    values: BTreeSet::new(),
                 });
         }
-        let before_values = distinct(&state);
-        let before_count = count(&state);
-        if index == 0 {
-            line.start = if values {
-                before_values.len() as f64
-            } else {
-                before_count
-            };
+    }
+    // (How many files have each value, and their matches.)
+    let mut have: HashMap<Vec<Option<String>>, usize> = HashMap::new();
+    let mut total: usize = 0;
+    for file in state.values() {
+        total += file.count;
+        for value in &file.values {
+            *have.entry(value.clone()).or_default() += 1;
         }
+    }
+    let distinct =
+        |have: &HashMap<Vec<Option<String>>, usize>| have.values().filter(|n| **n > 0).count();
+    let mut line = TimelineSeries::default();
+    let mut unchanged = 0;
+    let mut points = vec![];
+    for (first, group) in revisions.iter().rev() {
+        let after_distinct = distinct(&have);
+        let after_count = total;
+        // (Whether each value the revision's files have, before or after it,
+        // is anywhere after it.)
+        let mut touched: BTreeMap<Vec<Option<String>>, bool> = BTreeMap::new();
         for change in group {
             let file = state.get_mut(change.path.as_str()).unwrap();
-            file.count += change.new.count as i64 - change.old.count as i64;
-            for value in change.new.values.keys() {
-                if !change.old.values.contains_key(value) {
-                    file.values.insert(value.clone(), 1);
-                }
+            for value in file.values.iter().chain(change.old.values.keys()) {
+                touched
+                    .entry(value.clone())
+                    .or_insert_with(|| have.get(value).copied().unwrap_or(0) > 0);
             }
-            for value in change.old.values.keys() {
-                if !change.new.values.contains_key(value) {
-                    file.values.insert(value.clone(), 0);
-                }
+            for value in &file.values {
+                *have.get_mut(value).unwrap() -= 1;
+            }
+            total -= file.count;
+            *file = state_of(&change.old);
+            total += file.count;
+            for value in &file.values {
+                *have.entry(value.clone()).or_default() += 1;
             }
         }
-        let after_values = distinct(&state);
+        let now = |value: &Vec<Option<String>>| have.get(value).copied().unwrap_or(0) > 0;
+        let added: Vec<String> = touched
+            .iter()
+            .filter(|(value, after)| **after && !now(value))
+            .map(|(value, _)| value_label(value))
+            .collect();
+        let removed: Vec<String> = touched
+            .iter()
+            .filter(|(value, after)| !**after && now(value))
+            .map(|(value, _)| value_label(value))
+            .collect();
         // (Only revisions changing which values there are.)
-        if values && after_values == before_values {
+        if values && added.is_empty() && removed.is_empty() {
             if !group.iter().all(|c| c.merge) {
                 unchanged += 1;
             }
             continue;
         }
         let (value, added, removed) = if values {
-            (
-                after_values.len() as f64,
-                after_values
-                    .difference(&before_values)
-                    .map(|v| value_label(v))
-                    .collect(),
-                before_values
-                    .difference(&after_values)
-                    .map(|v| value_label(v))
-                    .collect(),
-            )
+            (after_distinct as f64, added, removed)
         } else {
+            if after_count == total && group.iter().all(|c| c.new.lines == c.old.lines) {
+                continue;
+            }
             (
-                count(&state),
+                after_count as f64,
                 group
                     .iter()
                     .flat_map(|c| more_of(&c.new.lines, &c.old.lines))
@@ -1557,8 +1677,15 @@ fn build_timeline(changes: &[Change], values: bool) -> Timeline {
                     .collect(),
             )
         };
-        line.points.push(point(first, value, added, removed));
+        points.push(point(first, value, added, removed));
     }
+    points.reverse();
+    line.points = points;
+    line.start = if values {
+        distinct(&have) as f64
+    } else {
+        total as f64
+    };
     Timeline {
         measure: if values { "values" } else { "matches" }.to_string(),
         series: vec![line],
@@ -1768,6 +1895,21 @@ mod tests {
         );
     }
 
+    /// Each file's newest version's matches, as a timeline's end's.
+    fn ends(changes: &[Change]) -> HashMap<String, Found> {
+        let mut newest: HashMap<&str, &Change> = HashMap::new();
+        for change in changes {
+            let entry = newest.entry(change.path.as_str()).or_insert(change);
+            if change.seq < entry.seq {
+                *entry = change;
+            }
+        }
+        newest
+            .into_iter()
+            .map(|(path, change)| (path.to_string(), change.new.clone()))
+            .collect()
+    }
+
     fn change(rev: &str, date: &str, path: &str, re: &str, old: &str, new: &str) -> Change {
         let re = compile(re, false).unwrap();
         Change {
@@ -1851,7 +1993,7 @@ mod tests {
         for change in &mut changes {
             change.seq = 2 * order.iter().position(|rev| *rev == change.rev).unwrap() + 1;
         }
-        let timeline = build_timeline(&changes, true);
+        let timeline = build_timeline(&changes, true, &ends(&changes));
         let last = timeline.series[0].points.last().unwrap();
         assert_eq!(last.rev, "land3");
         assert_eq!(last.added, vec!["DUPAT"]);
@@ -1926,6 +2068,50 @@ mod tests {
     }
 
     #[test]
+    fn test_timeline_from_the_end() {
+        // (A file's deletion, as on a side branch the main line didn't keep,
+        // its file changing on after it: from the end, which has the file, the
+        // deletion changes nothing, where applying its differences from the
+        // start lost the file's "1" for ever.)
+        let re = r"kMax = (\d+)";
+        let changes = vec![
+            change("a", "2020-01-01", "f.h", re, "", "kMax = 1;"),
+            change("deletes", "2020-02-01", "f.h", re, "kMax = 1;", ""),
+            change(
+                "b",
+                "2020-03-01",
+                "f.h",
+                re,
+                "kMax = 1;",
+                "kMax = 1; kMax = 2; kMax = 3;",
+            ),
+            change("c", "2020-04-01", "g.h", re, "", "kMax = 4;"),
+            change("d", "2020-04-02", "g.h", re, "kMax = 4;", "kMax = 5;"),
+        ];
+        // (Above the single numbers' few files: distinct values.)
+        let mut end = ends(&changes);
+        // (And the end has another file, which the changes don't change.)
+        end.insert(
+            "h.h".to_string(),
+            found(&compile(re, false).unwrap(), "kMax = 9;", false),
+        );
+        let timeline = build_timeline(&changes, true, &end);
+        let line = &timeline.series[0];
+        assert_eq!(timeline.measure, "values");
+        assert_eq!(line.start, 1.0, "h.h's 9, which it has from the start");
+        assert_eq!(
+            line.points
+                .iter()
+                .map(|p| (p.rev.as_str(), p.value))
+                .collect::<Vec<_>>(),
+            vec![("a", 2.0), ("b", 4.0), ("c", 5.0), ("d", 5.0)]
+        );
+        assert_eq!(timeline.unchanged, 1, "the deletion");
+        assert_eq!(line.points[3].added, vec!["5"]);
+        assert_eq!(line.points[3].removed, vec!["4"]);
+    }
+
+    #[test]
     fn test_hide_backout_pairs() {
         let re = r"MACRO\((\w+)\)";
         let backout = |rev: &str, date: &str, of: &str, old: &str, new: &str| {
@@ -1975,7 +2161,7 @@ mod tests {
             vec!["reland", "land2", "out2"]
         );
         // (The timeline is the same without the pair.)
-        let timeline = build_timeline(&changes, true);
+        let timeline = build_timeline(&changes, true, &ends(&changes));
         assert_eq!(timeline.series[0].points[0].added, vec!["B"]);
     }
 
@@ -1987,7 +2173,7 @@ mod tests {
             change("b", "2021-02-01", "a.h", re, "kMax = 3;", "kMax = 5;"),
             change("a", "2020-01-01", "a.h", re, "", "kMax = 3;"),
         ];
-        let timeline = build_timeline(&changes, true);
+        let timeline = build_timeline(&changes, true, &ends(&changes));
         assert_eq!(timeline.measure, "value");
         let line = &timeline.series[0];
         assert_eq!(line.label, "a.h");
@@ -2029,7 +2215,7 @@ mod tests {
                 "case C: case D:",
             ),
         ];
-        let timeline = build_timeline(&changes, true);
+        let timeline = build_timeline(&changes, true, &ends(&changes));
         assert_eq!(timeline.measure, "values");
         let line = &timeline.series[0];
         assert_eq!(line.start, 2.0);
@@ -2049,7 +2235,7 @@ mod tests {
             change("a", "2020-01-01", "y.rs", re, "", "structopt"),
             change("b", "2021-01-01", "x.rs", re, "structopt structopt", ""),
         ];
-        let timeline = build_timeline(&changes, false);
+        let timeline = build_timeline(&changes, false, &ends(&changes));
         assert_eq!(timeline.measure, "matches");
         let line = &timeline.series[0];
         assert_eq!(

@@ -197,6 +197,30 @@ add_task(async function test_TimelineGroups() {
      "goes back to the whole history's groups");
 });
 
+// A timeline's end is the tip's (see history_grep.rs's `build_timeline`): its
+// matches are those a text search of the tree finds.
+add_task(async function test_TimelineEndsAtTheTip() {
+  const json = async query => (await (await fetch(TestUtils.getQueryPath("searchfox", query), {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  })).json());
+  const timeline = (await json("text-timeline:structopt"))?.HistoryGrep?.timeline;
+  const points = timeline?.series[0].points;
+  const search = (await json("text:structopt"))?.FlattenedResultsBundle;
+  let hits = 0;
+  for (const kind of search.path_kind_results) {
+    for (const group of kind.kind_groups) {
+      for (const file of group.by_file) {
+        for (const span of file.line_spans) {
+          hits += span.hits.length;
+        }
+      }
+    }
+  }
+  ok(hits > 0, `The tree has structopt (${hits} times)`);
+  is(points[points.length - 1].value, hits, "and the timeline ends with its matches");
+});
+
 add_task(async function test_HistoryGrepIgnored() {
   // (A cut-off `until:` is text, which a history query says it ignored.)
   await TestUtils.loadQuery("searchfox", "text-history:structopt until");
