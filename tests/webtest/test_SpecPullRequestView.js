@@ -132,6 +132,17 @@ add_task(async function test_SpecPullRequestViewBikeshed() {
      "Once it's imported, its change is there, from its import's rendering");
   ok(card().querySelector(".sp-pr-card-note").textContent.startsWith("Changes"),
      "saying it changes the paragraph");
+  ok(card().querySelector(".sp-pr-card-body").classList.contains("rendered-doc"),
+     "styled as the page's blocks are");
+  // (What it changes of the trunk's paragraph is highlighted; see
+  // spec-pr-view.js's `diffWords`.)
+  const highlighted = name => [...frame.contentWindow.CSS.highlights.get(name)]
+        .filter(range => card().contains(range.startContainer))
+        .map(range => range.toString());
+  ok(highlighted("sp-pr-added").join(" ").includes("meshing with other gears"),
+     `highlighting the words it adds (${highlighted("sp-pr-added")})`);
+  ok(!highlighted("sp-pr-added").join(" ").includes("turns a gizmo"),
+     "but not those it keeps (\"A gear turns a gizmo.\" is the trunk's)");
 });
 
 add_task(async function test_SpecPullRequestViewImported() {

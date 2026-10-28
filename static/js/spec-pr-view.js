@@ -31,6 +31,15 @@
  *
  * The panel's "Changes" section (see change-nav.js) goes to the cards in
  * their order ("j" and "k").
+ *
+ * A card's rendering is styled as the page's blocks are, and what it changes
+ * of the trunk's blocks is highlighted, from a diff of their words (see
+ * `diffWords`): the words it adds in it (green), those the trunk has which
+ * it removes in the trunk's blocks (red), and those replacing as many words
+ * in both (yellow); the trunk's blocks a removal removes are red too.  (With
+ * CSS custom highlights, which leave the page's elements as they are.)  The
+ * trunk's highlights are those of the cards whose blocks no other shown card
+ * changes, and of the card hovered over or gone to (with "j" and "k").
  */
 (function () {
   const doc = document.getElementById("rendered-doc");
@@ -70,6 +79,234 @@
 
   const plural = (n, noun) => `${n} ${noun}${n == 1 ? "" : "s"}`;
   const cards = [];
+
+  // ## Diffs of the cards' renderings and the trunk's blocks
+
+  // The text of `roots`' text nodes (but those of their blame strips and
+  // spaces), and where each starts in it.
+  function textOf(roots) {
+    const nodes = [];
+    let text = "";
+    for (const root of roots) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode: node => node.parentElement?.closest(".blame-strip, .sp-pr-space")
+          ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+      });
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        nodes.push({ node, start: text.length });
+        text += node.data;
+      }
+      text += "\n";
+    }
+    return { text, nodes };
+  }
+
+  // A text's words, and its other characters but spaces one each, with where
+  // they are.
+  function wordsOf(text) {
+    return [...text.matchAll(/[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]/gu)].map(m => ({
+      text: m[0],
+      start: m.index,
+      end: m.index + m[0].length,
+      word: /^[\p{L}\p{N}_]/u.test(m[0]),
+    }));
+  }
+
+  // The most edits a diff finds (more, and it gives up; its time is the
+  // items' times the edits, and its memory the edits squared).
+  const MAX_EDITS = 1000;
+
+  // Which of `a`'s and `b`'s items (strings) a shortest edit script of `a`
+  // into `b` removes and adds (Myers' algorithm), as their indices' runs of
+  // edits between equal items: [{ removed: [i...], added: [j...] }...]; or
+  // null if they differ by more than MAX_EDITS.
+  function diffItems(a, b) {
+    const n = a.length;
+    const m = b.length;
+    const limit = Math.min(n + m, MAX_EDITS);
+    const offset = limit + 1;
+    const v = new Int32Array(2 * limit + 3);
+    const trace = [];
+    let found = -1;
+    for (let d = 0; d <= limit && found < 0; d++) {
+      // (The diagonals step d reads, -(d + 1) to d + 1.)
+      trace.push(v.slice(offset - d - 1, offset + d + 2));
+      for (let k = -d; k <= d; k += 2) {
+        let x = (k == -d || (k != d && v[offset + k - 1] < v[offset + k + 1]))
+          ? v[offset + k + 1] : v[offset + k - 1] + 1;
+        let y = x - k;
+        while (x < n && y < m && a[x] === b[y]) {
+          x++;
+          y++;
+        }
+        v[offset + k] = x;
+        if (x >= n && y >= m) {
+          found = d;
+          break;
+        }
+      }
+    }
+    if (found < 0) {
+      return null;
+    }
+    // (Back from the end: each step's equal items, then its edit, which
+    // starts another run if equal items are between it and the next.)
+    const runs = [];
+    let run = null;
+    let x = n;
+    let y = m;
+    for (let d = found; d >= 0; d--) {
+      const before = trace[d];
+      const at = k => before[k + d + 1];
+      const k = x - y;
+      const previous = (k == -d || (k != d && at(k - 1) < at(k + 1))) ? k + 1 : k - 1;
+      const px = at(previous);
+      const py = px - previous;
+      while (x > px && y > py) {
+        x--;
+        y--;
+        run = null;
+      }
+      if (d > 0) {
+        if (!run) {
+          run = { removed: [], added: [] };
+          runs.push(run);
+        }
+        if (x == px) {
+          run.added.unshift(py);
+        } else {
+          run.removed.unshift(px);
+        }
+      }
+      x = px;
+      y = py;
+    }
+    return runs.reverse();
+  }
+
+  // What `card` (a rendering) changes of the trunk's `blocks`: their words'
+  // ranges which it removes, adds and changes ({ removed, added, changed },
+  // with the trunk's and the card's sides of the changed), or null if their
+  // diff is too big.
+  function diffWords(blocks, body) {
+    const trunk = textOf(blocks);
+    const theirs = textOf([body]);
+    const a = wordsOf(trunk.text);
+    const b = wordsOf(theirs.text);
+    const runs = diffItems(a.map(w => w.text), b.map(w => w.text));
+    if (!runs) {
+      return null;
+    }
+    const result = { removed: [], added: [], trunkChanged: [], cardChanged: [] };
+    for (const { removed, added } of runs) {
+      // (A run replacing as many words with as many others changes them.)
+      const changes = removed.length && removed.length == added.length &&
+        removed.every(i => a[i].word) && added.every(j => b[j].word);
+      result[changes ? "trunkChanged" : "removed"].push(...removed.map(i => a[i]));
+      result[changes ? "cardChanged" : "added"].push(...added.map(j => b[j]));
+    }
+    return {
+      removed: ranges(trunk, result.removed),
+      trunkChanged: ranges(trunk, result.trunkChanged),
+      added: ranges(theirs, result.added),
+      cardChanged: ranges(theirs, result.cardChanged),
+    };
+  }
+
+  // DOM ranges of `words` (in order) in `text` (see `textOf`), those only
+  // spaces apart on a line as one.
+  function ranges(text, words) {
+    const spans = [];
+    for (const word of words) {
+      const last = spans[spans.length - 1];
+      if (last && /^[^\S\n]*$/.test(text.text.slice(last.end, word.start))) {
+        last.end = word.end;
+      } else {
+        spans.push({ start: word.start, end: word.end });
+      }
+    }
+    // (The text node with an offset, and the offset in it.)
+    const at = offset => {
+      let low = 0;
+      let high = text.nodes.length - 1;
+      while (low < high) {
+        const mid = (low + high + 1) >> 1;
+        if (text.nodes[mid].start <= offset) {
+          low = mid;
+        } else {
+          high = mid - 1;
+        }
+      }
+      const { node, start } = text.nodes[low];
+      return [node, Math.min(offset - start, node.data.length)];
+    };
+    return spans.map(({ start, end }) => {
+      const range = new Range();
+      range.setStart(...at(start));
+      range.setEnd(...at(end));
+      return range;
+    }).filter(range => !range.collapsed);
+  }
+
+  // The whole text of `blocks`, as a range each.
+  function wholeRanges(blocks) {
+    return blocks.map(block => {
+      const range = new Range();
+      range.selectNodeContents(block);
+      return range;
+    });
+  }
+
+  const highlights = typeof CSS != "undefined" && CSS.highlights ? {
+    removed: new Highlight(),
+    added: new Highlight(),
+    changed: new Highlight(),
+  } : null;
+  if (highlights) {
+    CSS.highlights.set("sp-pr-removed", highlights.removed);
+    CSS.highlights.set("sp-pr-added", highlights.added);
+    CSS.highlights.set("sp-pr-changed-word", highlights.changed);
+  }
+  // (The card hovered over, and the one gone to.)
+  let hovered = null;
+
+  // Highlight the shown cards' changes, and those of the trunk's blocks of
+  // the cards whose blocks no other shown card changes, or which are hovered
+  // over or gone to.
+  function highlight() {
+    if (!highlights) {
+      return;
+    }
+    for (const each of Object.values(highlights)) {
+      each.clear();
+    }
+    const changers = new Map();
+    for (const card of shown) {
+      for (const block of card.marked) {
+        changers.set(block, (changers.get(block) || 0) + 1);
+      }
+    }
+    for (const card of shown) {
+      if (!card.diff) {
+        continue;
+      }
+      for (const range of card.diff.added) {
+        highlights.added.add(range);
+      }
+      for (const range of card.diff.cardChanged) {
+        highlights.changed.add(range);
+      }
+      const alone = card.marked.every(block => changers.get(block) == 1);
+      if (alone || card === hovered || card.element.classList.contains("change-nav-current")) {
+        for (const range of card.diff.removed) {
+          highlights.removed.add(range);
+        }
+        for (const range of card.diff.trunkChanged) {
+          highlights.changed.add(range);
+        }
+      }
+    }
+  }
 
   // A source change's lines, removed and added, with what changed within
   // the lines of a change replacing as many lines as it removes (between
@@ -175,26 +412,21 @@
       body.className = "sp-pr-card-body sp-pr-source";
       body.append(...group.map(sourceLines));
       element.append(body);
-    } else if (change.html) {
-      const body = document.createElement("div");
-      body.className = "sp-pr-card-body rendered-spec";
+    }
+    let body = null;
+    if (!source && change.html) {
+      // (Styled as the page's blocks are; see .sp-pr-card-body.)
+      body = document.createElement("div");
+      body.className = "sp-pr-card-body rendered-doc rendered-spec";
       body.innerHTML = change.html;
       element.append(body);
     }
     const block = blockOfLine(change.anchor);
     const changed = [...new Set(lines.flatMap(([first, last]) => blocksOfLines(first, last)))];
-    element.addEventListener("mouseenter", () => {
-      for (const block of changed) {
-        block.classList.add("sp-pr-changed");
-      }
-    });
-    element.addEventListener("mouseleave", () => {
-      for (const block of changed) {
-        block.classList.remove("sp-pr-changed");
-      }
-    });
+    // (Those not in others, ex: a step's, not its note's too, for their text.)
+    const outermost = changed.filter(block => !changed.some(other => other !== block && other.contains(block)));
     column.append(element);
-    return {
+    const made = {
       element,
       header,
       pr: pr.number,
@@ -203,7 +435,30 @@
       marked: changed.length ? changed : [block].filter(Boolean),
       anchor: change.anchor,
       insert: kind == "insert" ? 1 : 0,
+      // (What it changes of the trunk's blocks, highlighted; see
+      // `highlight`.)
+      diff: !highlights || source ? null
+        : kind == "remove" ? { removed: wholeRanges(outermost), added: [], trunkChanged: [], cardChanged: [] }
+        : kind == "change" && body && outermost.length ? diffWords(outermost, body)
+        : null,
     };
+    element.addEventListener("mouseenter", () => {
+      for (const block of changed) {
+        block.classList.add("sp-pr-changed");
+      }
+      hovered = made;
+      highlight();
+    });
+    element.addEventListener("mouseleave", () => {
+      for (const block of changed) {
+        block.classList.remove("sp-pr-changed");
+      }
+      if (hovered === made) {
+        hovered = null;
+        highlight();
+      }
+    });
+    return made;
   }
 
   function addCards(entry, pr, changes, state) {
@@ -364,6 +619,7 @@
         previous = card.pr;
       },
     });
+    highlight();
   }
 
   let scheduled = false;
@@ -386,6 +642,12 @@
   }).observe(document.querySelector(".sp-pr-list"), {
     attributes: true,
     attributeFilter: ["hidden"],
+    subtree: true,
+  });
+  // (The card gone to with "j" and "k" has its trunk's highlights.)
+  new MutationObserver(highlight).observe(column, {
+    attributes: true,
+    attributeFilter: ["class"],
     subtree: true,
   });
   let width = doc.clientWidth;

@@ -3423,6 +3423,27 @@ h2.sp-called-heading {
 .sp-pr-card.sp-pr-remove {
   border-left-color: #c4383e;
 }
+.sp-pr-card.sp-pr-insert {
+  border-left-color: #2da44e;
+}
+/* A card's rendering, styled as the page's blocks are (its text's size, its
+   code's backgrounds; see .rendered-doc), without the page's margins. */
+.sp-pr-card-body.rendered-doc {
+  max-width: none;
+  padding: 0;
+}
+/* What a card's rendering changes of the trunk's blocks (see
+   spec-pr-view.js's `highlight`): the words it removes there, those it adds,
+   and those it changes. */
+::highlight(sp-pr-removed) {
+  background-color: color-mix(in srgb, #c4383e 25%, transparent);
+}
+::highlight(sp-pr-added) {
+  background-color: color-mix(in srgb, #2da44e 28%, transparent);
+}
+::highlight(sp-pr-changed-word) {
+  background-color: color-mix(in srgb, #e3b341 40%, transparent);
+}
 .sp-pr-card-header {
   font-weight: bold;
 }
