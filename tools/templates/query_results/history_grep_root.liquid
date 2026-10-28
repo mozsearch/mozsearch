@@ -27,8 +27,12 @@
     {%- if grep.pruned %} (those changing the pattern's names in it: it changed too often to check every revision){% endif %}
     {%- endif %}.
     {%- endif %}
+    {%- if grep.timeline %}
+    It checked all of them ({{ grep.checked }} file version{% if grep.checked != 1 %}s{% endif %}).
+    {%- else %}
     This page checked revisions {{ grep.page_start | plus: 1 }}–{{ grep.page_end }}
     ({{ grep.checked }} file version{% if grep.checked != 1 %}s{% endif %}).
+    {%- endif %}
     {%- if grep.merges_skipped > 0 %} Merges are skipped ({{ grep.merges_skipped }}).{% endif %}
     {%- if grep.backouts_hidden > 0 %}
     {{ grep.backouts_hidden }} backed out change{% if grep.backouts_hidden != 1 %}s{% endif %} and {% if grep.backouts_hidden != 1 %}their backouts are{% else %}its backout are{% endif %} left out

@@ -1518,6 +1518,8 @@ fn handle(cfg: &config::Config, req: WebRequest) -> WebResponse {
 #[tokio::main]
 async fn main() {
     env_logger::init();
+    // (libgit2 needn't hash every object it reads; see pipeline-server's.)
+    git2::opts::strict_hash_verification(false);
 
     // The config file of the trees to serve, or for a local server over
     // remote trees (ex: for developing their try pushes' pages and canvases

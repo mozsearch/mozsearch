@@ -73,7 +73,11 @@ pub struct QueryLimits {
     /// pages): more, and it's refused, as not much cheaper than checking the
     /// history locally.
     pub history_revisions: u64,
-    /// How many (revision, file) pairs a history grep's page may check.
+    /// How many (revision, file) pairs a history grep's page may check; and
+    /// how many candidate revisions (or named files' versions) a timeline,
+    /// which checks all of them at once, may have (its pairs aren't known
+    /// before, without a path, and don't limit it: its bytes, seconds and
+    /// parses do).
     pub history_candidates: u64,
     /// How many bytes of those files' versions it may read.
     pub history_blob_bytes: u64,

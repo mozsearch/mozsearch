@@ -137,6 +137,33 @@ add_task(async function test_TextTimeline() {
      "which removed most of its matches (some comments mention it)");
 });
 
+// A timeline checks all of its candidates at once, whatever its `page:`, even
+// if they're more file versions than a page of its tier's checks (`unwrap`'s
+// 1,049 in 603 revisions, in 2026, over an agent's 1,000): a page of a
+// timeline would start its counts again.
+add_task(async function test_TimelineIsOnePage() {
+  const unique = Math.floor(Math.random() * 0xffff).toString(16);
+  const response = await fetch(TestUtils.getQueryPath("searchfox", "text-timeline:unwrap page:3"), {
+    headers: {
+      Accept: "application/json",
+      "Fastly-Client-IP": `2001:db8:${unique}::8`,
+      "User-Agent": "searchfox-cli/0.3",
+    },
+    cache: "no-store",
+  });
+  const grep = (await response.json())?.HistoryGrep;
+  ok(grep, "The agent's timeline runs");
+  is(grep.page_start, 0, "from the first candidate");
+  is(grep.page_end, grep.candidates, "to the last");
+  is(grep.next_page, null, "with no next page");
+  ok(grep.checked > 1000, `over a page's file versions (${grep.checked})`);
+
+  await TestUtils.loadQuery("searchfox", "text-timeline:structopt page:3");
+  await waitForCondition(() => doc().querySelector(".history-timeline-svg"), "The chart is there");
+  ok(doc().querySelector(".history-grep-plan").textContent.includes("checked all of them"),
+     "The plan says it checked all of the candidates");
+});
+
 add_task(async function test_HistoryGrepIgnored() {
   // (A cut-off `until:` is text, which a history query says it ignored.)
   await TestUtils.loadQuery("searchfox", "text-history:structopt until");

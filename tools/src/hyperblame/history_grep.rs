@@ -28,7 +28,8 @@
 //! the request's limits before anything expensive is read, and refused if
 //! they're over them (see `query_limits`).  A page checks up to the limits'
 //! (revision, file) pairs and bytes of their versions, newest revisions
-//! first, and says where the next one starts.
+//! first, and says where the next one starts.  A timeline checks all of the
+//! candidates at once, within the limits' bytes, seconds and parses.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
@@ -79,7 +80,8 @@ pub struct HistoryGrepArgs {
     /// Only revisions from `since` until `until` (YYYY-MM-DD).
     pub since: Option<String>,
     pub until: Option<String>,
-    /// Where the page starts in the candidate revisions (newest first).
+    /// Where the page starts in the candidate revisions (newest first; not
+    /// for a timeline, which checks them all).
     pub page: usize,
     /// Prefer checking `files`' every revision when there are any (which sees
     /// value changes; see the module's comment) to the token journals.
@@ -319,6 +321,7 @@ fn week_end((year, week, _): (u16, u8, u8)) -> Option<NaiveDate> {
 
 /// What a file's version has of the pattern's matches: how many, their
 /// lines (trimmed), and their captured values.
+#[derive(Clone)]
 struct Found {
     count: usize,
     lines: BTreeMap<String, usize>,
@@ -437,12 +440,14 @@ pub fn history_grep(
     let head_rev = head.id().to_string();
     let tree = head.tree().map_err(|e| data_problem(e.to_string()))?;
 
+    // (A timeline starts from the first candidate, whatever its `page:`.)
+    let page = if args.timeline { 0 } else { args.page };
     let mut result = HistoryGrep {
         pattern: args.pattern.clone(),
         text: args.text.clone(),
         case_sensitive: args.case_sensitive,
         capture_names: capture_names(&re),
-        page_start: args.page,
+        page_start: page,
         ignored: args.ignored.clone(),
         ..Default::default()
     };
@@ -708,9 +713,13 @@ pub fn history_grep(
                 ("history_parses", parses),
             ],
             vec![format!(
-                "A timeline checks all of its {} revisions at once ({} file versions{})",
+                "A timeline checks all of its {} revisions at once{}{}",
                 ordered.len(),
-                pairs,
+                if use_files {
+                    format!(" ({} file versions)", pairs)
+                } else {
+                    String::new()
+                },
                 if args.scope.is_some() {
                     ", finding the scope's lines in each"
                 } else {
@@ -728,7 +737,12 @@ pub fn history_grep(
 
     // ## The page: each candidate revision's files, checked.
     let mut changes: Vec<Change> = vec![];
-    let mut index = args.page;
+    // (Each file's version before the last revision checked which changed
+    // it, by its path then, and what it has, which is usually the next
+    // (older) candidate's version after, which isn't read again.  Not with a
+    // scope, whose lines are a revision's.)
+    let mut last_old: HashMap<String, (Oid, Found)> = HashMap::new();
+    let mut index = page;
     while index < ordered.len() {
         // (A page stops at its time limit; a timeline, which can't, is
         // refused.)
@@ -740,7 +754,7 @@ pub fn history_grep(
                     vec![format!(
                         "A timeline checks all of its {} revisions at once, and {} of them took {} s",
                         ordered.len(),
-                        index - args.page,
+                        index - page,
                         elapsed
                     )],
                     vec!["since:YYYY-MM-DD and until:YYYY-MM-DD, for a shorter time".to_string()],
@@ -827,15 +841,32 @@ pub fn history_grep(
                 (path, old_path, new, old)
             })
             .collect();
+        let known = |last_old: &HashMap<String, (Oid, Found)>,
+                     path: &str,
+                     new: Option<(Oid, u64)>| {
+            args.scope.is_none()
+                && new.is_some_and(|new| last_old.get(path).is_some_and(|(oid, _)| *oid == new.0))
+        };
         let bytes: u64 = pairs
             .iter()
-            .map(|(_, _, new, old)| new.map_or(0, |b| b.1) + old.map_or(0, |b| b.1))
+            .map(|(path, _, new, old)| {
+                let new_bytes = if known(&last_old, path, *new) {
+                    0
+                } else {
+                    new.map_or(0, |b| b.1)
+                };
+                new_bytes + old.map_or(0, |b| b.1)
+            })
             .sum();
-        if result.checked > 0
-            && (result.checked + pairs.len() > limits.history_candidates as usize
-                || result.bytes + bytes > limits.history_blob_bytes)
-        {
-            if args.timeline
+        // (A page ends at its limits.  A timeline checks all of its
+        // candidates at once, and is refused if it reads too much: how many
+        // file versions it checks isn't a limit, which, without a path, isn't
+        // known before (ex: a revision changing thousands of files has no
+        // file deltas to say which changed the tokens, so they're all
+        // checked).)
+        let over_bytes = result.bytes + bytes > limits.history_blob_bytes;
+        if args.timeline {
+            if over_bytes
                 && let Some(refused) = refuse(
                     &[("history_blob_bytes", result.bytes + bytes)],
                     vec![format!(
@@ -847,6 +878,9 @@ pub fn history_grep(
             {
                 return Err(refused);
             }
+        } else if result.checked > 0
+            && (result.checked + pairs.len() > limits.history_candidates as usize || over_bytes)
+        {
             break;
         }
         // (A scope's lines take a parse of each version.)
@@ -888,7 +922,13 @@ pub fn history_grep(
             });
         let committed = (committed != date).then_some(committed);
         for (path, old_path, new, old) in pairs {
-            let mut new_text = new.map(|b| blob_text(source, b.0)).unwrap_or_default();
+            let reused = known(&last_old, &path, new)
+                .then(|| last_old.remove(&path).map(|(_, found)| found))
+                .flatten();
+            let mut new_text = match reused {
+                Some(_) => String::new(),
+                None => new.map(|b| blob_text(source, b.0)).unwrap_or_default(),
+            };
             let mut old_text = old.map(|b| blob_text(source, b.0)).unwrap_or_default();
             if let Some(scope) = &args.scope {
                 new_text = scope_text(history, commit.id(), &path, &new_text, scope);
@@ -904,8 +944,14 @@ pub fn history_grep(
                 };
                 result.parses += 2;
             }
-            let new_found = found(&re, &new_text, plan.spans_lines);
+            let new_found = reused.unwrap_or_else(|| found(&re, &new_text, plan.spans_lines));
             let old_found = found(&re, &old_text, plan.spans_lines);
+            if args.scope.is_none()
+                && let Some((oid, _)) = old
+            {
+                let old_path = old_path.clone().unwrap_or_else(|| path.clone());
+                last_old.insert(old_path, (oid, old_found.clone()));
+            }
             if new_found.count == old_found.count && new_found.values == old_found.values {
                 continue;
             }

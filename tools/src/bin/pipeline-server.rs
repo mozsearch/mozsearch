@@ -602,6 +602,11 @@ async fn time_processing(req: Request, next: Next) -> Response {
 #[tokio::main]
 async fn main() {
     init_logging();
+    // libgit2 hashes every object it reads to check it (git itself doesn't),
+    // which was a third of a history grep's time (a timeline of 5,375
+    // revisions' 208,622 file versions took 20.4 s, and 13.6 s without); the
+    // repos' objects were checked when they were fetched or written.
+    git2::opts::strict_hash_verification(false);
 
     // The config file of the trees to serve, or for a local server over
     // remote trees (ex: for developing their pages' features without indexing
