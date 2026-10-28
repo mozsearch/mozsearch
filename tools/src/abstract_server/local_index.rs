@@ -39,6 +39,7 @@ use crate::file_format::repo_data_ingestion::RepoIngestionConfig;
 use crate::file_format::token_names::{NameMatch, TokenNameMatches, TokenNames};
 use crate::format::format_code;
 use crate::git_ops::{RevisionCoverage, coverage_history, coverage_summary, git_time_to_chrono};
+use crate::hyperblame::history_grep::TipFiles;
 use crate::hyperblame::journals::{JournalKind, JournalReader};
 use crate::hyperblame::token_history::{
     TokenHistory, TokenHistoryOptions, header_html, token_history,
@@ -800,11 +801,13 @@ impl AbstractServer for LocalIndex {
             names.as_ref().map(|names| names.find(query, how, limit))
         };
         // (A timeline's tip's files with its tokens, from the tree's text
-        // search, if it has one, and they're not too many.)
-        let tip_files = |tokens: &[String]| -> Option<Vec<String>> {
+        // search, if they're not too many.  A pattern the search rejects is
+        // ours, and wrong, which is an error; it being unavailable isn't, but
+        // the timeline says so, as does the log.)
+        let tip_files = |tokens: &[String]| -> Result<TipFiles> {
             let words: BTreeSet<String> = tokens.iter().map(|token| token.to_lowercase()).collect();
             if words.is_empty() {
-                return None;
+                return Ok(TipFiles::Unknown("it has no tokens".to_string()));
             }
             // (livegrep's RE2 has POSIX syntax, without `(?:`.)
             let pattern = format!(
@@ -815,19 +818,48 @@ impl AbstractServer for LocalIndex {
                     .collect::<Vec<_>>()
                     .join("|")
             );
-            let found = tokio::runtime::Handle::current()
-                .block_on(self.search_text(&pattern, true, "", "", MAX_TIP_FILES_MATCHES))
-                .ok()?;
-            if found.limit_hit || found.timed_out {
-                return None;
+            match tokio::runtime::Handle::current().block_on(self.search_text(
+                &pattern,
+                true,
+                "",
+                "",
+                MAX_TIP_FILES_MATCHES,
+            )) {
+                Ok(found) if found.timed_out => Ok(TipFiles::Unknown(
+                    "the tree's text search for its tokens timed out".to_string(),
+                )),
+                Ok(found) if found.limit_hit => Ok(TipFiles::Unknown(format!(
+                    "the tree has over {} lines with its tokens",
+                    MAX_TIP_FILES_MATCHES
+                ))),
+                Ok(found) => Ok(TipFiles::Files(
+                    found
+                        .by_file
+                        .into_iter()
+                        .map(|file| file.file.to_string())
+                        .collect(),
+                )),
+                Err(
+                    err @ ServerError::StickyProblem(ErrorDetails {
+                        layer: ErrorLayer::BadInput,
+                        ..
+                    }),
+                ) => Err(err),
+                Err(err) => {
+                    eprintln!(
+                        "history_grep: the text search for {:?} failed: {:?}",
+                        pattern, err
+                    );
+                    Ok(TipFiles::Unknown(format!(
+                        "the tree's text search failed ({})",
+                        match &err {
+                            ServerError::StickyProblem(details)
+                            | ServerError::TransientProblem(details) => details.message.clone(),
+                            err => format!("{:?}", err),
+                        }
+                    )))
+                }
             }
-            Some(
-                found
-                    .by_file
-                    .into_iter()
-                    .map(|file| file.file.to_string())
-                    .collect(),
-            )
         };
         // (It reads many blobs; block_in_place lets the runtime's other tasks
         // run meanwhile.)
@@ -1129,6 +1161,18 @@ impl AbstractServer for LocalIndex {
                     message: format!(
                         "The text search can't run this regular expression: it can match more than {} characters, or it's too complex.",
                         crate::cmd_pipeline::cmd_search_text::MAX_PATTERN_WIDTH
+                    ),
+                }));
+            }
+            // (Another pattern it rejects, ex: with syntax its RE2's POSIX
+            // syntax doesn't have, like `(?:`.)
+            Err(status) if status.code() == tonic::Code::InvalidArgument => {
+                return Err(ServerError::StickyProblem(ErrorDetails {
+                    layer: ErrorLayer::BadInput,
+                    message: format!(
+                        "The text search rejected the regular expression {:?}: {}",
+                        pattern,
+                        status.message()
                     ),
                 }));
             }

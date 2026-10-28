@@ -177,6 +177,10 @@ pub struct Timeline {
     /// line didn't keep (see `discarded_by_merge`), which it leaves out
     /// (they're in the files' rows).
     pub discarded: usize,
+    /// Why its end has only the files its changes change, rather than the
+    /// tip's every file with its tokens, if it couldn't list those (see
+    /// `TipFiles::Unknown`).
+    pub end_note: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -407,11 +411,21 @@ fn blob_text(repo: &Repository, oid: Oid) -> String {
         .unwrap_or_default()
 }
 
+/// The tip's files which have any of a timeline's tokens (see
+/// `history_grep`'s `tip_files`).
+pub enum TipFiles {
+    Files(Vec<String>),
+    /// They can't be listed, and why (ex: too many), so that the timeline's
+    /// end has only the files its changes change.
+    Unknown(String),
+}
+
 /// Search `history` (of the source repo `source`) for `args`, within
 /// `limits` (of `tier`), with `names` looking up the token names index (see
 /// `TokenNames::find`), and, for a timeline, `tip_files` listing the tip's
-/// files which have any of the tokens (case-insensitively), if it can (ex:
-/// with the tree's text search; see `LocalIndex`'s).
+/// files which have any of the tokens (case-insensitively; ex: with the tree's
+/// text search; see `LocalIndex`'s), whose error (ex: the text search
+/// rejecting its pattern, which is a bug) is the history grep's.
 pub fn history_grep(
     history: &TreeHistory,
     source: &Repository,
@@ -419,7 +433,7 @@ pub fn history_grep(
     limits: &QueryLimits,
     tier: Tier,
     names: &dyn Fn(&str, NameMatch, usize) -> Option<(Vec<String>, bool)>,
-    tip_files: &dyn Fn(&[String]) -> Option<Vec<String>>,
+    tip_files: &dyn Fn(&[String]) -> Result<TipFiles, ServerError>,
 ) -> Result<HistoryGrep, ServerError> {
     let started = std::time::Instant::now();
     let what = match (args.text.is_some(), args.timeline) {
@@ -1073,14 +1087,19 @@ pub fn history_grep(
         // which the token journals don't record), if the tip's files can be
         // listed (for the timeline's end: not with `until`).)
         let changed: BTreeSet<&str> = changes.iter().map(|change| change.path.as_str()).collect();
-        let others: Vec<String> = if until.is_none() && !use_files {
-            tip_files(&result.tokens)
-                .unwrap_or_default()
-                .into_iter()
-                .filter(|path| !changed.contains(path.as_str()))
-                .collect()
+        let (others, end_note) = if until.is_none() && !use_files {
+            match tip_files(&result.tokens)? {
+                TipFiles::Files(files) => (
+                    files
+                        .into_iter()
+                        .filter(|path| !changed.contains(path.as_str()))
+                        .collect(),
+                    None,
+                ),
+                TipFiles::Unknown(why) => (vec![], Some(why)),
+            }
         } else {
-            vec![]
+            (vec![], None)
         };
         // (With its files' moves, deletions and creations which its
         // candidates don't have.)
@@ -1111,6 +1130,7 @@ pub fn history_grep(
         }
         let mut timeline = build_timeline(&changes, !result.capture_names.is_empty(), &end);
         timeline.discarded = discarded;
+        timeline.end_note = end_note;
         result.timeline = Some(timeline);
     }
     Ok(result)
@@ -1623,6 +1643,7 @@ fn build_timeline(changes: &[Change], values: bool, end: &HashMap<String, Found>
             series,
             unchanged: 0,
             discarded: 0,
+            end_note: None,
         };
     }
 
@@ -1747,6 +1768,7 @@ fn build_timeline(changes: &[Change], values: bool, end: &HashMap<String, Found>
         series: vec![line],
         unchanged,
         discarded: 0,
+        end_note: None,
     }
 }
 

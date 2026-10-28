@@ -57,6 +57,9 @@
       {%- when "values" %}how many distinct values the matches captured
       {%- else %}how many matches
       {%- endcase %}, from {{ series.start }}
+      {%- if grep.timeline.end_note %}
+      (its end has only the files its changes change: {{ grep.timeline.end_note | escape }})
+      {%- endif %}
       {%- if grep.timeline.discarded > 0 %}
       ({{ grep.timeline.discarded }} change{% if grep.timeline.discarded != 1 %}s{% endif %} on side branches which the main line didn't keep {% if grep.timeline.discarded != 1 %}are{% else %}is{% endif %} only in “By file”)
       {%- endif %}
