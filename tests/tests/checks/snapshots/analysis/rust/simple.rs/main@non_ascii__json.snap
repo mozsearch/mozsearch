@@ -9,7 +9,7 @@ input_file: inputs/analysis/rust/simple.rs/non_ascii__json
     "source": 1,
     "syntax": "def,class",
     "pretty": "class NonASCII::Α",
-    "sym": "S_rs_files/NonASCII#Α#",
+    "sym": "S_rs_files/lib/NonASCII#Α#",
     "type": "Α"
   },
   {
@@ -17,8 +17,8 @@ input_file: inputs/analysis/rust/simple.rs/non_ascii__json
     "target": 1,
     "kind": "def",
     "pretty": "NonASCII::Α",
-    "sym": "S_rs_files/NonASCII#Α#",
+    "sym": "S_rs_files/lib/NonASCII#Α#",
     "context": "NonASCII",
-    "contextsym": "S_rs_files/NonASCII#"
+    "contextsym": "S_rs_files/lib/NonASCII#"
   }
 ]

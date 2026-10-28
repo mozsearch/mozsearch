@@ -548,6 +548,10 @@ fn analyse_symbol(
                 // ends up way too verbose and now how humans would describe
                 // things.
                 //
+                // For Rust, since github.com/rust-lang/rust-analyzer/pull/23173
+                // symbols are namespaced by target (lib, bin/<bin>, etc).
+                // Omit the leading lib:: or it ends up being added everywhere.
+                //
                 // TODO: Handle scip-typescript emitting symbols for file names
                 // since our explicit heuristic above ends up leaving them
                 // entirely with an empty pretty, and in that case we do want
@@ -561,6 +565,12 @@ fn analyse_symbol(
                     format!("{}/", escaped),
                     match lang {
                         ScipLang::Typescript => PrettyAction::Omit,
+                        ScipLang::Rust
+                            if Some(descriptor) == symbol.descriptors.first()
+                                && descriptor.name == "lib" =>
+                        {
+                            PrettyAction::Omit
+                        }
                         _ => PrettyAction::Append,
                     },
                     None,

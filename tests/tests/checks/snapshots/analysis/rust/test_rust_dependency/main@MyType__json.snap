@@ -9,7 +9,7 @@ input_file: inputs/analysis/rust/test_rust_dependency/MyType__json
     "source": 1,
     "syntax": "def,method",
     "pretty": "method MyType::do_foo",
-    "sym": "S_rs_test_rust_dependency/impl#[MyType]do_foo().",
+    "sym": "S_rs_test_rust_dependency/lib/impl#[MyType]do_foo().",
     "nestingRange": "13:34-15:5",
     "type": "pub fn do_foo(self) -> MyType"
   },
@@ -18,8 +18,8 @@ input_file: inputs/analysis/rust/test_rust_dependency/MyType__json
     "target": 1,
     "kind": "def",
     "pretty": "MyType::do_foo",
-    "sym": "S_rs_test_rust_dependency/impl#[MyType]do_foo().",
+    "sym": "S_rs_test_rust_dependency/lib/impl#[MyType]do_foo().",
     "context": "MyType",
-    "contextsym": "S_rs_test_rust_dependency/MyType#"
+    "contextsym": "S_rs_test_rust_dependency/lib/MyType#"
   }
 ]
